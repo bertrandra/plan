@@ -56,7 +56,15 @@ export interface ContextePointeur {
   markDirty: () => void;
   /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
   apresAcces: () => void;
+  /**
+   * La vue a change (zoom, deplacement) depuis `avant` : sur un grand plan, un apercu tout de suite et
+   * un rendu au repos (render/apercuVue.ts). Absent : un rendu complet.
+   */
+  vueChangee?: (avant: EtatApp['scene']) => void;
 }
+
+/** La vue vient de changer : l'apercu du contexte, sinon un rendu complet. */
+const vueChangee = (ctx: ContextePointeur, avant: EtatApp['scene']): void => { if (ctx.vueChangee) ctx.vueChangee(avant); else ctx.render(); };
 
 /**
  * La cle de l'objet et l'indice du sommet ou du cote qu'un element du plan porte dans son dataset
@@ -311,8 +319,9 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
   svg.addEventListener('wheel', e=>{
     e.preventDefault();
     const rect = stage.getBoundingClientRect();
+    const avant = etat.scene;
     etat.scene = zoomMolette(etat.scene, {x:e.clientX-rect.left, y:e.clientY-rect.top}, e.deltaY);
-    ctx.render();
+    vueChangee(ctx, avant);
   }, {passive:false});
 
   const activePointers = new Map<number, PtEcran>();
@@ -336,11 +345,13 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
     activePointers.set(e.pointerId, stageRel(e));
     if(activePointers.size===2 && pinchState){
       const [a, b] = [...activePointers.values()];
+      const avant = etat.scene;
       if(a && b) etat.scene = pincer(etat.scene, pinchState, a, b);
-      ctx.render();
+      vueChangee(ctx, avant);
     } else if(activePointers.size===3 && panState){
+      const avant = etat.scene;
       etat.scene = deplacer(etat.scene, panState.origin0, panState.avg0, milieuDe([...activePointers.values()]));
-      ctx.render();
+      vueChangee(ctx, avant);
     }
   });
   const clearMulti = (e: PointerEvent): void => {
@@ -399,8 +410,9 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     if(geste.type === 'pan'){
       const rect = stage.getBoundingClientRect();
       const cur = {x:e.clientX-rect.left, y:e.clientY-rect.top};
+      const avant = etat.scene;
       etat.scene = deplacer(etat.scene, geste.startOrigin, geste.startScreen, cur);
-      ctx.render();
+      vueChangee(ctx, avant);
       return;
     }
     if(geste.type === 'acces'){

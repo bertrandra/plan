@@ -201,6 +201,8 @@ export interface PlanVuDeLa3d {
   terrasseSelectedKey: string | null;
   /** La terrasse isolee : seule dans la scene, cadree sur elle, ses lames en transparence. */
   isolement?: string | null;
+  /** Le voisinage montre : masque, il emporte le paysage du relief et le nom des rues. Absent : montre. */
+  voisinageVisible?: boolean;
 }
 
 /**
@@ -259,3 +261,11 @@ const abonnes = new Set<() => void>();
 export function signaler3d(): void { version++; abonnes.forEach(f => f()); }
 export function abonner3d(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
 export const version3d = (): number => version;
+
+const apresConstruction = new Set<() => void>();
+/**
+ * Une Vue 3D vient d'etre batie (three/scene.ts, en fin de construction). Separe de `signaler3d` :
+ * les zones n'ont rien a redessiner, seul ce qui pilote la camera (le mode audit) la reprend.
+ */
+export function signalerSceneBatie(): void { apresConstruction.forEach(f => f()); }
+export function abonnerSceneBatie(f: () => void): () => void { apresConstruction.add(f); return () => { apresConstruction.delete(f); }; }

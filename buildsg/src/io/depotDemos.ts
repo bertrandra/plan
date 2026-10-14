@@ -207,3 +207,46 @@ export async function enregistrerPalette(f: Fetch, document: unknown): Promise<v
     body: JSON.stringify(document)
   });
 }
+
+// --- La consommation de Claude (MD/spec-audit.md 13.3, lot L16 bis) ------------------------------
+
+/** Les filtres de `GET admin/consommation` ; un filtre vide n'est pas envoye. */
+export interface FiltresConsommation {
+  du: string;
+  au: string;
+  organisation?: string;
+  modele?: string;
+  usage?: string;
+  parcelle?: string;
+}
+
+/** Le journal filtre (model/consommation.ts le lit), tel que le serveur le rend. */
+export async function lireConsommation(f: Fetch, filtres: FiltresConsommation): Promise<unknown> {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(filtres)) if (typeof v === 'string' && v !== '') p.set(k, v);
+  const r = await appeler(f, '/consommation?' + p.toString(), 'lecture de la consommation');
+  return r.json() as Promise<unknown>;
+}
+
+/** La table des tarifs datee (`admin/claude/tarifs`). */
+export async function lireTarifsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'lecture des tarifs')).json() as Promise<unknown>;
+}
+
+/** Remplace la table des tarifs ; le serveur refuse qu'un tarif passe soit reecrit (409). */
+export async function enregistrerTarifsClaude(f: Fetch, tarifs: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/tarifs', 'enregistrement des tarifs', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(tarifs)
+  })).json() as Promise<unknown>;
+}
+
+/** Les plafonds par organisation, par jour et par mois (`admin/claude/plafonds`). */
+export async function lirePlafondsClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'lecture des plafonds')).json() as Promise<unknown>;
+}
+
+export async function enregistrerPlafondsClaude(f: Fetch, plafonds: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/plafonds', 'enregistrement des plafonds', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(plafonds)
+  })).json() as Promise<unknown>;
+}

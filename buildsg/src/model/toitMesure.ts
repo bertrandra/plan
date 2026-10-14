@@ -18,30 +18,31 @@ import { sommetDe } from '../geometry/anneau.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import type { GrilleRelief } from './relief.js';
 import type { PtBrut, ToitMesure } from './types.js';
+import { REGLAGES_TOITS as R } from './reglagesToits.js';
 
 /** Une cellule plus haute que la mediane de ses voisines de plus de cela est un arbre ou une cheminee : ramenee a elles. */
-export const SAILLIE_M = 2;
+export const SAILLIE_M = R.SAILLIE_M;
 /** Au-dessus du neuvieme decile des hauteurs de plus de cela, ce n'est plus le toit mais un arbre : un trou a boucher. */
-export const DEPASSEMENT_M = 1;
+export const DEPASSEMENT_M = R.DEPASSEMENT_M;
 /** En dessous, une cellule sous un toit est le sol vu entre deux batiments, pas une couverture : un trou a boucher. */
-export const SOL_M = 0.5;
+export const SOL_M = R.SOL_M;
 /** L'egout se lit a au moins cela des murs : au bord, le MNH mele la couverture et le mur. */
-export const RETRAIT_EGOUT_M = 0.5;
+export const RETRAIT_EGOUT_M = R.RETRAIT_EGOUT_M;
 /** Une cellule plus basse que l'egout de plus de cela est le mur vu de biais : un trou a boucher. */
-export const SOUS_EGOUT_M = 0.3;
+export const SOUS_EGOUT_M = R.SOUS_EGOUT_M;
 /**
  * Une marche de la couverture d'au moins cela, d'un cote a l'autre d'une ligne, coupe un corps en deux
  * blocs. A 1,5 m, l'annexe de plain-pied du Vesinet (1,2 m sous le pan du corps) restait fondue dans
  * le corps ; une marche se distingue d'un pan raide par sa brutalite, pas par sa hauteur (ci-dessous).
  */
-export const SEUIL_MARCHE_M = 0.8;
+export const SEUIL_MARCHE_M = R.SEUIL_MARCHE_M;
 /** Un bloc coupe par une marche fait au moins cela de large. */
-export const LARGEUR_BLOC_MIN_M = 1.5;
+export const LARGEUR_BLOC_MIN_M = R.LARGEUR_BLOC_MIN_M;
 /** Il faut au moins tant de cellules sous le contour, et au moins la moitie des cellules du contour, pour un toit. */
-export const CELLULES_MIN = 20;
+export const CELLULES_MIN = R.CELLULES_MIN;
 /** Bornes de l'egout, en metres. */
-const EGOUT_MIN_M = 1.8;
-const EGOUT_MAX_M = 40;
+const EGOUT_MIN_M = R.EGOUT_MESURE_MIN_M;
+const EGOUT_MAX_M = R.EGOUT_MESURE_MAX_M;
 /** Boucher de proche en proche : jamais plus de passes que cela (une grille de 30 m de cote). */
 const PASSES_MAX = 60;
 
@@ -217,7 +218,7 @@ export function hauteursLeLongDe(t: ToitMesure, a: PtBrut, b: PtBrut, interieur:
   }
   return out;
 }
-const PAS_PROFIL_M = 0.5;
+const PAS_PROFIL_M = R.PAS_PROFIL_M;
 
 /**
  * La hauteur du mur `i` d'un bloc (de `pts[i]` a `pts[i + 1]`) : la ou la couverture rejoint le

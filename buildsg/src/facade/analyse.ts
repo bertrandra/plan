@@ -12,10 +12,10 @@
 
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './homographie.js';
-import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
+import { detecterFacade, type OuvertureDetectee } from './detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
-import type { PtBrut, Toit, PartieBasse } from '../model/types.js';
+import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
 export interface EntreeAnalyse {
   photo: Image;
@@ -58,6 +58,13 @@ export interface ResultatAnalyse {
   /** Part du mur vue sur la photo. */
   couverture: number;
   ouvertures: OuvertureDetectee[];
+  /**
+   * Les baies devinees par la structure (MD/spec-facades-calage-detection.md §10.5) dont la confiance
+   * est faible : proposees en pointille, decochees. Les devinees sures sont dans `ouvertures`.
+   */
+  devinees: OuvertureDetectee[];
+  /** La structure des ouvertures proposees (niveaux, travees, spec §10) ; `null` sans ouverture. */
+  grille: GrilleFacade | null;
   toitEstime: ToitEstime | null;
   toitPropose: Toit | null;
   /** La partie basse d'un mur en L, mesuree sur la photo ; `null` pour un mur rectangulaire. */
@@ -186,7 +193,9 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
       vusMur += mur.vu[y * mur.image.largeur + x] ?? 0;
     }
   }
-  const ouvertures = ouverturesDansLeMur(detecterOuvertures(mur.image, pxParM, mur.vu), e.hauteur, partie);
+  const detection = detecterFacade(mur.image, pxParM, mur.vu);
+  const ouvertures = ouverturesDansLeMur(detection.ouvertures, e.hauteur, partie);
+  const devinees = ouverturesDansLeMur(detection.devinees, e.hauteur, partie);
   // Le toit se lit au-dessus de la partie haute seulement : au-dessus de la partie basse, la bande
   // montre le mur de la partie haute, pas une silhouette de toit.
   const haute = partie ? (partie.debut > 0 ? [0, partie.debut] : [partie.fin, texture.largeur / pxParM]) : null;
@@ -212,6 +221,8 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
     pxParM,
     couverture: vusMur / Math.max(1, pixelsMur),
     ouvertures,
+    devinees,
+    grille: detection.grille,
     toitEstime,
     toitPropose,
     partieBasse: partie,

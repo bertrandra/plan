@@ -9,6 +9,7 @@ import { ecrireReglage, lireReglage } from './commun.js';
 import { pointDeFacade, type Facade } from '../../facade/geometrie.js';
 import { projecteurLocal } from '../../geo/projection.js';
 import type { MurVise } from '../../geo/panoramax.js';
+import { suivreBoussole, type Attitude } from '../../shell/boussole.js';
 
 /** Le milieu du mur sur la Terre, pour chercher les photos de rue ; null si le plan n'est pas cale. */
 export function useMurVise(facade: Facade | null, origine: { lat: number; lon: number } | null): MurVise | null {
@@ -42,6 +43,12 @@ export interface Prise {
   champ: number;
   /** Photos que le plan de prise prevoyait au declenchement (null sans distance). */
   photosPrevues: number | null;
+  /**
+   * Le cap de la boussole et l'attitude du telephone au declenchement : ils placent les coins
+   * proposes la ou le mur se trouve (facade/calage.ts). Absents d'une photo importee.
+   */
+  cap?: number | null;
+  attitude?: Attitude | null;
 }
 
 /**
@@ -235,4 +242,27 @@ export function useWebxr(natif: boolean, scene: React.RefObject<HTMLDivElement |
     }
   };
   return { xr, actif, basculer };
+}
+
+/**
+ * Le cap et l'attitude du telephone, lus en continu pour etre pris au declenchement : la photo les
+ * garde, et le calage grossier s'en sert. Une reference et non un etat : ils changent a chaque
+ * evenement d'orientation, et rien a l'ecran n'en depend. Sur iOS, ils arrivent une fois
+ * l'orientation permise (bouton « Activer le niveau »).
+ */
+export function useOrientationPrise(): React.RefObject<{ cap: number | null; attitude: Attitude | null }> {
+  const lu = useRef<{ cap: number | null; attitude: Attitude | null }>({ cap: null, attitude: null });
+  useEffect(
+    () =>
+      suivreBoussole(
+        (cap) => {
+          lu.current.cap = cap;
+        },
+        (a) => {
+          lu.current.attitude = a;
+        },
+      ),
+    [],
+  );
+  return lu;
 }

@@ -19,7 +19,7 @@ import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import type { Lieu } from '../model/lieu.js';
 import { empriseDuCalque, contientEmprise } from '../model/calque.js';
-import type { Emprise } from '../model/relief.js';
+import { reliefDe, empriseGrille, type Emprise } from '../model/relief.js';
 
 /** Ce que le fond orthophoto demande à l'application — la parcelle, le lieu, la vue. */
 export interface ContexteOrtho {
@@ -48,6 +48,11 @@ export interface TuileOrtho {
   largeur: number;
   hauteur: number;
   el?: SVGImageElement | null;
+  /**
+   * Une tuile du paysage, plus grossiere : elle couvre le relief du voisinage au-dela des parcelles
+   * (l'horizon d'un voisinage etendu). Elle se pose sous les tuiles fines et n'est pas coupee au calque.
+   */
+  large?: boolean;
 }
 
 /** Etat du fond : partage entre le calcul des tuiles, le rendu du plan et la Vue 3D. */
@@ -57,6 +62,8 @@ export const ortho: {
   parcelleOpacite: number;
   /** Tuiles pretes a afficher, en coordonnees monde (metres). */
   tuiles: TuileOrtho[];
+  /** Les tuiles du paysage (`large`), sous les fines, la ou le relief va au-dela des parcelles. */
+  tuilesLarges: TuileOrtho[];
   chargement: boolean;
   /** Cle « z/x/y » -> data URI. Une tuile ne se retelecharge pas d'un zoom a l'autre. */
   cache: Map<string, string>;
@@ -69,6 +76,7 @@ export const ortho: {
   opacite: 0.85,
   parcelleOpacite: 0.15,
   tuiles: [],
+  tuilesLarges: [],
   chargement: false,
   cache: new Map<string, string>(),
   couverture: null,
@@ -78,6 +86,8 @@ const WMTS_URL = 'https://data.geopf.fr/wmts';
 const ORTHO_COUCHE = 'ORTHOIMAGERY.ORTHOPHOTOS';
 const ORTHO_ZOOM_MAX = 20;
 const ORTHO_MAX_TUILES = 36;
+/** Le niveau le plus grossier essaye : un voisinage de 5 km tient en 36 tuiles au niveau 14 ou 13. */
+const ORTHO_ZOOM_MIN = 12;
 // Valeur proposee par defaut pour la transparence du terrain sous le fond : assez de teinte pour
 // que la parcelle reste identifiable, assez peu pour lire la photo dessous. Reglable, mais c'est
 // le compromis qui marche sur une orthophoto a 20 cm/pixel - en dessous de 10 % la parcelle
@@ -228,13 +238,31 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
     minX -= marge; maxX += marge; minY -= marge; maxY += marge;
   }
   const versLonLat = (x: number, y: number) => proj.versDegres(x - ref.x, y - ref.y);
-  const coinSO = versLonLat(minX, minY), coinNE = versLonLat(maxX, maxY);
+  const fines = await tuilesSur({ xMin: minX, xMax: maxX, yMin: minY, yMax: maxY }, versLonLat, proj, ref);
+  if(!fines) throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
+  ortho.tuiles = fines.tuiles;
+  ortho.couverture = { xMin: minX, xMax: maxX, yMin: minY, yMax: maxY };
+  // Le paysage : quand le relief du voisinage va au-dela des parcelles (un voisinage etendu, son
+  // horizon), une couche plus grossiere le couvre aussi, sous la fine. Sans elle, la vallee restait
+  // verte au-dela de la derniere parcelle importee.
+  const q = reliefDe(ctx.etat.objects)?.paysage;
+  const paysage = q ? empriseGrille(q) : null;
+  ortho.tuilesLarges = paysage && !contientEmprise(ortho.couverture, paysage)
+    ? ((await tuilesSur(paysage, versLonLat, proj, ref, fines.z - 1))?.tuiles ?? []).map(t => ({ ...t, large: true }))
+    : [];
+  ortho.version++;
+  return { z: fines.z, nb: fines.tuiles.length, total: fines.total, exact: ref.exact };
+}
 
-  // On part du plus haut niveau de detail qui tienne en ORTHO_MAX_TUILES, puis on redescend tant
-  // que rien ne revient : la couverture de l'orthophoto ne va pas au meme zoom partout (verifie :
-  // sur cette commune le niveau 20 repond 404 alors que le 19 sert bien l'image). Un niveau qui
-  // n'existe pas se traduit par un 404 sur toutes ses tuiles, jamais par une erreur explicite.
-  for(let z = ORTHO_ZOOM_MAX; z >= 15; z--){
+/**
+ * Les tuiles d'une emprise, au plus haut niveau de detail qui tienne en ORTHO_MAX_TUILES (et pas au-dela
+ * de `zMax`). On redescend tant que rien ne revient : la couverture de l'orthophoto ne va pas au meme
+ * zoom partout (verifie : sur cette commune le niveau 20 repond 404 alors que le 19 sert bien
+ * l'image). Une tuile qui echoue est redemandee une fois : une seule perdue laissait un trou.
+ */
+async function tuilesSur(e: Emprise, versLonLat: (x: number, y: number) => { lon: number; lat: number }, proj: ReturnType<typeof projecteurLocal>, ref: ReferenceGeo, zMax = ORTHO_ZOOM_MAX): Promise<{ z: number; tuiles: TuileOrtho[]; total: number } | null> {
+  const coinSO = versLonLat(e.xMin, e.yMin), coinNE = versLonLat(e.xMax, e.yMax);
+  for(let z = Math.min(zMax, ORTHO_ZOOM_MAX); z >= ORTHO_ZOOM_MIN; z--){
     const x0 = tuileX(coinSO.lon, z), x1 = tuileX(coinNE.lon, z);
     const y0 = tuileY(coinNE.lat, z), y1 = tuileY(coinSO.lat, z);   // y croit vers le sud
     if((x1-x0+1)*(y1-y0+1) > ORTHO_MAX_TUILES) continue;
@@ -246,32 +274,22 @@ export async function chargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatCha
       continue;
     }
     const tuiles: TuileOrtho[] = [];
-    const promesses: Promise<void>[] = [];
     for(let x = x0; x <= x1; x++){
       for(let y = y0; y <= y1; y++){
         const lonO = lonDeTuile(x, z), lonE = lonDeTuile(x+1, z);
         const latN = latDeTuile(y, z), latS = latDeTuile(y+1, z);
         const so = proj.versMetres(lonO, latS), ne = proj.versMetres(lonE, latN);
-        const t: TuileOrtho = {
-          z, x, y, dataUri:null,
-          // repere du plan : on annule le decalage du point de calage
-          xMin: so.x + ref.x, yMin: so.y + ref.y,
-          largeur: ne.x - so.x, hauteur: ne.y - so.y
-        };
-        tuiles.push(t);
-        promesses.push(chargerTuileOrtho(z, x, y).then(u=>{ t.dataUri = u; }).catch(()=>{ t.dataUri = null; }));
+        // repere du plan : on annule le decalage du point de calage
+        tuiles.push({ z, x, y, dataUri:null, xMin: so.x + ref.x, yMin: so.y + ref.y, largeur: ne.x - so.x, hauteur: ne.y - so.y });
       }
     }
-    await Promise.all(promesses);
+    const lire = (t: TuileOrtho) => chargerTuileOrtho(t.z, t.x, t.y).then(u=>{ t.dataUri = u; }).catch(()=>{ t.dataUri = null; });
+    await Promise.all(tuiles.map(lire));
+    await Promise.all(tuiles.filter(t => !t.dataUri).map(lire));
     const reussies = tuiles.filter(t=>t.dataUri);
-    if(reussies.length){
-      ortho.tuiles = reussies;
-      ortho.couverture = { xMin: minX, xMax: maxX, yMin: minY, yMax: maxY };
-      ortho.version++;
-      return { z, nb: reussies.length, total: tuiles.length, exact: ref.exact };
-    }
+    if(reussies.length) return { z, tuiles: reussies, total: tuiles.length };
   }
-  throw new Error('aucune tuile disponible sur ce secteur (service WMTS injoignable, ou hors couverture)');
+  return null;
 }
 /** La derniere emprise dont on a tente d'etendre la photo : une seule tentative par calque. */
 let extensionTentee = '';
@@ -282,8 +300,14 @@ let extensionTentee = '';
  */
 function etendreSiBesoin(ctx: ContexteOrtho): void {
   const voulu = empriseDuCalque(ctx.etat.objects);
-  if(!voulu || !ortho.couverture || ortho.chargement || contientEmprise(ortho.couverture, voulu)) return;
-  const cle = [voulu.xMin, voulu.xMax, voulu.yMin, voulu.yMax].map(v => v.toFixed(1)).join(',');
+  if(!voulu || !ortho.couverture || ortho.chargement) return;
+  // Le paysage du relief (lu apres la photo, ou etendu) compte aussi : sans couche large qui le
+  // couvre, le sol 3D restait nu au-dela des parcelles.
+  const q = reliefDe(ctx.etat.objects)?.paysage;
+  const paysage = q ? empriseGrille(q) : null;
+  const paysageNu = !!paysage && !contientEmprise(ortho.couverture, paysage) && !ortho.tuilesLarges.length;
+  if(contientEmprise(ortho.couverture, voulu) && !paysageNu) return;
+  const cle = [voulu.xMin, voulu.xMax, voulu.yMin, voulu.yMax, ...(paysage ? [paysage.xMin, paysage.xMax] : [])].map(v => v.toFixed(1)).join(',');
   if(cle === extensionTentee) return;
   extensionTentee = cle;
   ortho.chargement = true;
@@ -309,11 +333,14 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     coupe.setAttribute('id', 'coupeCalqueOrtho');
     coupe.appendChild(document.createElementNS(svgNS, 'rect'));
     groupe.appendChild(coupe);
+    // Le paysage d'abord, dessous : les tuiles fines du calque le recouvrent.
+    const larges = document.createElementNS(svgNS, 'g') as SVGGElement;
+    larges.setAttribute('class', 'tuilesOrthoLarges');
+    groupe.appendChild(larges);
     tuilesG = document.createElementNS(svgNS, 'g') as SVGGElement;
     tuilesG.setAttribute('class', 'tuilesOrtho');
     groupe.appendChild(tuilesG);
-    const cible = tuilesG;
-    ortho.tuiles.forEach(t=>{
+    const poser = (cible: SVGGElement) => (t: TuileOrtho) => {
       const img = document.createElementNS(svgNS, 'image');
       // `ortho.tuiles` ne recoit que les tuiles retenues par `chargerOrthophoto`, donc chargees.
       const uri = t.dataUri ?? '';
@@ -322,8 +349,13 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
       img.setAttribute('preserveAspectRatio', 'none');
       t.el = img;
       cible.appendChild(img);
-    });
+    };
+    ortho.tuilesLarges.forEach(poser(larges));
+    ortho.tuiles.forEach(poser(tuilesG));
   }
+  // Le paysage suit le voisinage : masque, la photo revient au calque des parcelles affichees.
+  const larges = groupe.querySelector<SVGGElement>('g.tuilesOrthoLarges');
+  if(larges) larges.style.display = ctx.etat.voisinageVisible ? '' : 'none';
   groupe.setAttribute('opacity', String(ortho.opacite));
   // La photo couvre le calque des parcelles affichees, pas au-dela : la meme emprise que le sol 3D.
   const calque = empriseDuCalque(ctx.etat.objects, masqueEn2d(ctx));
@@ -336,7 +368,7 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     rect.setAttribute('height', String((calque.yMax - calque.yMin) * ctx.etat.scene.scale));
     tuilesG.setAttribute('clip-path', 'url(#coupeCalqueOrtho)');
   } else tuilesG.removeAttribute('clip-path');
-  ortho.tuiles.forEach(t=>{
+  [...ortho.tuilesLarges, ...ortho.tuiles].forEach(t=>{
     if(!t.el) return;
     const coin = ctx.toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
     t.el.setAttribute('x', String(coin.x));
@@ -345,6 +377,22 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
     t.el.setAttribute('height', String(Math.max(1, t.hauteur*ctx.etat.scene.scale)));
   });
 }
+/**
+ * Relit la photo de zero : les tuiles, leur cache et la couverture sont oublies. Une photo mal
+ * chargee (le service qui ne repondait pas, une tuile perdue) n'avait pas d'autre remede que de
+ * rouvrir le projet. Rend le nombre de tuiles lues, ou leve si rien ne revient.
+ */
+export async function rechargerOrthophoto(ctx: ContexteOrtho): Promise<ResultatChargementOrtho> {
+  ortho.tuiles = [];
+  ortho.tuilesLarges = [];
+  ortho.couverture = null;
+  ortho.cache.clear();
+  extensionTentee = '';
+  ortho.chargement = true;
+  try { return await chargerOrthophoto(ctx); }
+  finally { ortho.chargement = false; ctx.render(); }
+}
+
 /**
  * `discret` : le fond allume par defaut, sans que personne ne l'ait demande, ne parle pas - ni pour
  * compter ses tuiles, ni pour dire qu'il n'a pas pu les charger (hors ligne, hors couverture). La

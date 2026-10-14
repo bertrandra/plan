@@ -94,10 +94,11 @@ describe('la liste et son compteur', () => {
     expect(l.compteur).toMatch(/^1 façade sur \d+, 1 toit vu sur 3, clôture notée, portail à faire$/);
     expect(l.peutLancer).toBe(true);
     expect(l.cloture.resume).toBe('Mur · 1,8 m');
-    expect(l.manques).toContain('portail : non noté');
-    expect(l.manques.some((m) => /^façade nord de maison : pas de photo$/.test(m))).toBe(true);
-    expect(l.manques).not.toContain('toit de maison : non vu');
-    expect(l.manques).toContain('cheminées de maison : non vues');
+    const textes = l.manques.map((m) => m.texte);
+    expect(textes).toContain('portail : non noté');
+    expect(textes.some((m) => /^façade nord de maison : pas de photo$/.test(m))).toBe(true);
+    expect(textes).not.toContain('toit de maison : non vu');
+    expect(textes).toContain('cheminées de maison : non vues');
   });
 
   it('dit « Aucune » pour des cheminees regardees et absentes', () => {
@@ -115,5 +116,19 @@ describe('la liste et son compteur', () => {
     expect(aUnToitPlat(pentu, { ...batimentVide(), vu: { forme: 'plat' } })).toBe(true);
     const l = listeDeControle([...quartier().slice(0, 2), plat], captureVide('x'));
     expect(l.batiments[0]!.parties.map((p) => p.partie)).toEqual(['toit', 'cheminees', 'terrasse', 'materiaux']);
+  });
+
+  it('donne une cle unique a chaque manque, meme pour deux facades de meme orientation', () => {
+    // Une maison en L : deux murs regardent l'est, et leurs lignes ont le meme texte.
+    const L: PtBrut[] = [{ x: 5, y: 10 }, { x: 15, y: 10 }, { x: 15, y: 15 }, { x: 10, y: 15 }, { x: 10, y: 20 }, { x: 5, y: 20 }];
+    const objets = [quartier()[0]!, obj('maison', { fonction: 'batiment', pts: L, elevation: 6 })];
+    const l = listeDeControle(objets, captureVide('78650000AE0101'));
+    const est = l.manques.filter((m) => m.texte === 'façade est de maison : pas de photo');
+    expect(est).toHaveLength(2);
+    const cles = l.manques.map((m) => m.cle);
+    expect(new Set(cles).size).toBe(cles.length);
+    // Stable : la meme capture redonne les memes cles, dans le meme ordre.
+    expect(listeDeControle(objets, captureVide('78650000AE0101')).manques.map((m) => m.cle)).toEqual(cles);
+    expect(est.map((m) => m.cle)).toEqual(['facade:maison:1', 'facade:maison:3']);
   });
 });

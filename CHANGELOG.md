@@ -1022,6 +1022,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Audit de la parcelle, « Ce qui manque »** (lot G18 bis) : deux façades de même orientation
+  (« façade est de Maison : pas de photo » deux fois, sur une maison en L) ne donnent plus deux
+  lignes de même clé React. Chaque ligne a pour clé ce qui manque (bâtiment et côté pour une
+  façade), et non son texte ; la console reste propre.
+- **Déploiement SiteGround** (lot G18 bis) : `buildsg/` est resynchronisé par `npm run buildsg`.
+  Son `htaccess.template` avait perdu les routes de l'analyse par Claude, des audits partagés et de
+  la consommation, et le passage du jeton de la plateforme ; le prompt et le schéma de l'analyse
+  étaient en retard. Un test (`tests/unit/buildsg/synchro.test.ts`) compare désormais chaque
+  fichier de `deploy/` recopié dans `buildsg/deploy/` à son original.
+
 - **Sur tablette, les entrées du panneau Projet se touchent de nouveau.** Le voile transparent qui
   referme le panneau au toucher ailleurs passait au-dessus de lui : toucher « Actualiser le
   projet… » ou toute autre entrée refermait le panneau sans rien faire. La barre haute passe

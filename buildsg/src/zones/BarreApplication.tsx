@@ -11,18 +11,23 @@
 // fond) sont des champs non controles qui gardent leur identifiant d'autrefois : c'est par lui
 // que la commande les lit au moment d'agir, et que `render/ortho.ts` les remet en accord.
 
-import { contexteCourant, sessionCourante, enAdmin } from '../app/acces.js';
+import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
+import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
+import { parcelleDuProjet } from '../model/fonctions.js';
+import { voisinage3dDe } from '../model/voisinage3d.js';
 import { showConfirm, showToast, showErrBanner } from '../shell/dialogs.js';
 import type { Magasin, OptionsCommandes } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
+import { lectureToits } from '../core/lectureToits.js';
+import { LECTURE_MURS_EN_FOND } from '../app/mursFond.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';
@@ -74,6 +79,16 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
   );
 }
 
+/**
+ * Au doigt, l'infobulle n'existe pas : la raison d'un refus s'ecrit sous l'entree (une permission
+ * manquante, ou ce qu'il faut faire d'abord). Rien sur bureau, ou l'infobulle la porte.
+ */
+function RefusAuDoigt({ commandes, id, tactile }: { commandes: RegistreCommandes; id: string; tactile: boolean }) {
+  const etat = commandes.etat(id);
+  if (!tactile || etat.utilisable || etat.raison === 'capacite' || !('message' in etat)) return null;
+  return <li className="refusMenu" role="note">{etat.message}</li>;
+}
+
 /** Une case a cocher de reglage, non controlee : la commande qui s'en sert la lit par son identifiant. */
 /** Une case d'option dans un menu : elle regle la commande qui suit (app/controlesInterface.ts). */
 /** Une option d'une commande du menu : le magasin la tient (`options`), la commande la lit la. */
@@ -97,7 +112,10 @@ function EchellePdf({ magasin }: { magasin: Magasin }) {
 }
 
 function MenuFichier({ magasin, commandes }: PropsMenu) {
+  // La lecture des toits et des murs en tache de fond : le menu suit son etat sans attendre un rendu du plan.
+  const toitsFond = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const p = useStore(magasin.store, (s) => s.projet);
+  const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
   return (
     <details className="menu" id="menuFichier">
       <summary>Fichier</summary>
@@ -110,7 +128,14 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.depuisAdresse" libelle="Nouveau plan depuis une adresse…" />
         <Entree commandes={commandes} id="projet.actualiserIgn" libelle="Actualiser depuis l'IGN…" />
         <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
+        <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <li className="separateur" role="separator" />
+        {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
+        <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
+        <RefusAuDoigt commandes={commandes} id="audit.parcelle" tactile={tactile} />
+        {/* Un audit fait ailleurs (l'administrateur pour un client, §15) : repris a ses propositions. */}
+        <Entree commandes={commandes} id="audit.importerParcelle" libelle="Importer un audit de parcelle…" />
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="fichier.importerSvg" libelle="Importer un SVG…" idDom="importSvgBtn" />
         <Case magasin={magasin} option="remplacerImportSvg" idDom="chkReplaceOnImport" controle="fichier.option.remplacerImportSvg" libelle="Supprimer les objets existants avant d'importer" />
@@ -154,11 +179,10 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
 /** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
 function MenuAffichage({ magasin, commandes }: PropsMenu) {
   useStore(magasin.store, (s) => s.version);
-  // Une preference du navigateur, hors de l'etat du plan : elle ne fait pas avancer `version`.
-  const sectionsRepliees = useStore(magasin.store, (s) => s.sectionsRepliees);
   const etat = magasin.store.getState().etat;
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
   const relief = reliefDe(etat.objects);
+  const parcelle = parcelleDuProjet(etat.objects);
   // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
   // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
   const bascules: [string, string, boolean, boolean][] = ([
@@ -168,8 +192,10 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     // Le sol en relief (3D) et les courbes de niveau (plan), chacun sa bascule ; une fois le relief lu.
     ['affichage.relief', 'Relief', !!relief && affichageRelief(relief).sol3d, !!relief],
     ['affichage.courbes', 'Courbes de niveau', !!relief && affichageRelief(relief).courbes, !!relief],
+    ['affichage.rues', 'Noms des rues', !!parcelle && voisinage3dDe(parcelle).rues.afficher, !!parcelle],
     ['affichage.orthophoto', 'Fond orthophoto (IGN)', ortho.actif, true],
-    ['affichage.sectionsRepliees', 'Sections de l\'inspecteur repliées', sectionsRepliees, true]
+    // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
+    ['affichage.positionGps', 'Ma position (3D)', etat.positionGps, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
@@ -194,6 +220,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
         {curseur('affichage.orthoOpacite', 'orthoOpacite', 'orthoOpaciteTexte', 'Photo', Math.round(ortho.opacite * 100), 20, 'Opacité de la photo aérienne elle-même')}
         {curseur('affichage.orthoParcelleOpacite', 'orthoParcelleOpacite', 'orthoParcelleOpaciteTexte', 'Remplissage parcelle', Math.round(ortho.parcelleOpacite * 100), 0, 'Remplissage du terrain par-dessus la photo : à 100 % la parcelle masque exactement ce qu\'on veut voir')}
         <Entree commandes={commandes} id="affichage.orthoParcelleDefaut" libelle="Remplissage conseillé (15 %)" idDom="orthoParcelleDefaut" />
+        <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
         <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
       </ul>
     </details>
@@ -221,17 +248,27 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
 }
 
 /**
- * Le menu Admin : les deux ecrans secondaires de l'admin, l'arbre des controleurs et la palette de
- * l'interface. Il n'existe qu'en admin des demos (`enAdmin`) : hors admin, ces ecrans demandent le
- * mot de passe, et un menu qui y mene n'aurait rien a offrir. Chaque ecran a son bouton de retour.
+ * Le menu Admin : les ecrans secondaires de l'admin des demos (l'arbre des controleurs, la palette
+ * de l'interface, la consommation de Claude) et le mode audit (MD/spec-audit.md). Les ecrans
+ * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
+ * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
+ * son bouton de retour. La consommation passe par le registre (`admin.consommation`). Avec
+ * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`).
  */
-export function MenuAdmin() {
-  if (!enAdmin()) return null;
+export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
+  const demos = enAdmin();
+  if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
   return (
     <details className="menu" id="menuAdmin">
       <summary>Admin</summary>
       <ul role="menu">
+        <li role="menuitem">
+          <button type="button" data-controle="admin.audit" onClick={aller(demos ? '?admin&mode=audit' : '?mode=audit')}>
+            <span className="coche" aria-hidden="true" />Mode audit (promenade)
+          </button>
+        </li>
+        {demos && <>
         <li role="menuitem">
           <button type="button" data-controle="admin.controleurs" onClick={aller('?admin&ecran=controleurs')}>
             <span className="coche" aria-hidden="true" />Contrôleurs de l’écran
@@ -242,6 +279,9 @@ export function MenuAdmin() {
             <span className="coche" aria-hidden="true" />Palette de l’interface
           </button>
         </li>
+        <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
+        </>}
+        {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
     </details>
   );
@@ -444,7 +484,7 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
       <MenuExporter magasin={magasin} commandes={commandes} tiroir={tiroir} />
       <MenuAffichage magasin={magasin} commandes={commandes} />
       <MenuAide magasin={magasin} tiroir={tiroir} />
-      <MenuAdmin />
+      <MenuAdmin commandes={commandes} />
     </>
   );
 

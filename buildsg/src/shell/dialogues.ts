@@ -42,8 +42,19 @@ export interface DialogueChoix {
   texte: string;
   /** Une liste courte sous le texte (ce qu'apporte une version, par exemple). */
   points?: string[];
+  /**
+   * Une case a cocher sous la liste, pour une option de la reponse principale (« Recalculer aussi… »).
+   * Celui qui pose la question garde l'etat : `changer` lui dit chaque bascule, `cochee` est l'etat
+   * de depart. La zone la dessine et n'en sait pas plus.
+   */
+  case?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void };
   principal: { libelle: string; executer: () => void };
   secondaire: { libelle: string; executer: () => void };
+  /**
+   * Fermee sans reponse (Echap, le voile, ou une autre question qui la remplace) : celui qui
+   * attendait la reponse n'attend pas pour rien.
+   */
+  abandonner?: () => void;
 }
 
 export type Dialogue = DialogueConfirmation | DialogueInvite | DialogueErreurChargement | DialogueChoix;
@@ -65,14 +76,18 @@ export const dialogues = {
   },
   /** Ouvre un dialogue ; s'il y en avait un, il est remplace — une question a la fois. */
   ouvrir(d: Dialogue): void {
+    const avant = courant;
     courant = d;
     publier();
+    if (avant?.type === 'choix' && avant !== d) avant.abandonner?.();
   },
   /** Ferme sans repondre : Echap, le voile, Annuler. */
   fermer(): void {
-    if (!courant) return;
+    const d = courant;
+    if (!d) return;
     courant = null;
     publier();
+    if (d.type === 'choix') d.abandonner?.();
   },
   /** Repond au dialogue courant, puis le ferme. Une invite vide ne repond pas ; un choix prend le principal. */
   repondre(valeur?: string): void {

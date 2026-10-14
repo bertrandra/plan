@@ -20,12 +20,19 @@ import { poserQuestionsToitsACheval } from './toitsACheval.js';
 import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { parPriorite } from '../render/empilement.js';
 import { detruireVue } from '../render/vues.js';
-import { rendreScene } from '../render/pipeline.js';
-import { restaurerOrthoDuProjet, basculerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
+import { rendreScene, rendreObjets, type ContexteRendu } from '../render/pipeline.js';
+import { restaurerOrthoDuProjet, basculerOrthophoto, chargerOrthophoto, ortho, referenceGeoPlan } from '../render/ortho.js';
 import { dessinerCourbesRelief } from '../render/relief.js';
 import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
 import { lectureRelief } from '../core/lectureRelief.js';
+import { lectureToits } from '../core/lectureToits.js';
+import { creerApercuVue } from '../render/apercuVue.js';
+import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toitsFond.js';
+import { creerRegulateur, brancherRegulateur } from './regulateur.js';
+import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
+import { brancherToitsFond } from './ecouteurs/toitsFond.js';
+import { brancherFaitsLocaux } from './ecouteurs/faitsLocaux.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
 import { validerProjetJSON } from '../io/validation.js';
@@ -35,18 +42,23 @@ import { cleDernierProjet, withProjectParam, apiSave, apiDelete, chargerProjetIn
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet } from '../io/projet.js';
 import { brancherObjets } from './ecouteurs/objets.js';
 import { brancherAffichage } from './ecouteurs/affichage.js';
+import { brancherPositionGps } from './ecouteurs/positionGps.js';
+import { brancherAuditParcelle } from './audit/parcelle/commande.js';
 import { brancherVoisinage } from './ecouteurs/voisinage.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
-import { droitsCourants, enLectureSeule, prevenirAdminDesCapacitesForcees } from './acces.js';
+import { droitsCourants, enAdmin, enLectureSeule, prevenirAdminDesCapacitesForcees, sessionCourante } from './acces.js';
+import { creerClientAudits } from '../io/auditsServeur.js';
+import { analyseClaudeDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
 import { creerInspecteur, type Inspecteur } from './inspecteur.js';
 import { creerExplorateur, type Explorateur } from './explorateur.js';
 import { brancherCommandesCiblees } from './ecouteurs/cibles.js';
-import { creerProjet, projetARemplir } from './projet.js';
+import { creerProjet, projetARemplir, type Projet } from './projet.js';
+import { showToast } from '../shell/dialogs.js';
 import { retenirProjetsConnus } from '../plateforme/quotaProjets.js';
 import { signalerLimiteProjets } from './limiteProjets.js';
 import { actualisation, ouvrirDialogueActualisation, type ContexteActualisation } from './actualisationIgn.js';
@@ -69,6 +81,7 @@ import { monterZones } from '../zones/monter.js';
 import { dessinerReleves } from '../render/releve.js';
 import { dessinerCloture } from '../render/cloture.js';
 import { creerServiceReleve } from './releve.js';
+import { aideReleveDuNavigateur } from './renfortReleve.js';
 import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
@@ -89,6 +102,8 @@ import type { Pointage } from '../interaction/outilMesure.js';
 import type { ProjetValide } from '../io/validation.js';
 import { estPiscine, estTerrasse, estVueUtilisable, parcelleDuProjet } from '../model/fonctions.js';
 import { EVENEMENT_ENCRES } from '../render/theme.js';
+import { brancherAudit } from './audit/branchement.js';
+import type { DemandeAudit } from './audit/demande.js';
 
 brancherFiletsDErreur();
 
@@ -111,6 +126,14 @@ async function loadInitialProject(){
  * personne — ni plateforme, ni stockage du navigateur. La forme est celle que rend
  * `chargerProjetInitial` quand aucune API ne repond.
  */
+/**
+ * La graine du mode audit (app/audit/) : un plan vide, sans depot. La parcelle de depart arrive
+ * avec la premiere position (le GPS, ou l'adresse de `depart`).
+ */
+function graineAudit(){
+  return { ...graineVitrine(), objects: [] as ObjetBrut[], measures: [] as Mesure[] } satisfies GraineDemarrage;
+}
+
 function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | null){
   return {
     apiAvailable: false,
@@ -128,11 +151,24 @@ function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | nul
 type GraineDemarrage = Awaited<ReturnType<typeof loadInitialProject>>;
 
 /**
+ * La lecture des toits en tache de fond (app/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
+ * qui montre un plan fige, ni en developpement sur le plan temoin ou sous la fumee et les captures
+ * (`window.__sansToitsFond`) : une lecture qui aboutirait changerait les toits qu'elles mesurent.
+ */
+let toitsFondPermis = true;
+/** Le mode de diagnostic de l'adresse (app/diagnostic.ts), lu une fois. */
+const diagnostic = modeDiagnostic();
+/** Au-dela, un rendu complet est trop lent pour suivre un geste : la vue passe par un apercu (render/apercuVue.ts). */
+const RENDU_LENT_MS = 30;
+const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env.DEV
+  && (new URLSearchParams(location.search).has('temoin') || !!(window as { __sansToitsFond?: boolean }).__sansToitsFond));
+
+/**
  * Ce qui nait apres l'atelier et que le plan doit pourtant pouvoir appeler : les vues 3D (le
  * rafraichissement des panneaux de terrasse) et les deux panneaux lateraux (repliés sur tablette).
  * Rien ne les appelle avant qu'ils existent ; l'appel optionnel le dit sans l'affirmer.
  */
-interface Tardifs { vues?: Vues3d; explorateur?: Explorateur; inspecteur?: Inspecteur }
+interface Tardifs { vues?: Vues3d; explorateur?: Explorateur; inspecteur?: Inspecteur; projet?: Projet }
 
 /** Le plan, sans ses ecouteurs ni ses panneaux : l'etat, la surface et son dessin, l'historique, le tiroir, les gestes. */
 function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
@@ -195,25 +231,49 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   // Le dessin du plan est orchestre dans render/pipeline.ts. La terrasse courante suit la selection
   // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
   function render(): void {
+    const debut = performance.now();
+    apercu.annuler();
     const contexteChange = synchroniserContexteTerrasse(etat);
     // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
     // pouvoir tenir en entier dans la scene au geste suivant.
     cadrage.ajusterPlancher();
-    rendreScene(etat, {
+    rendreScene(etat, contexteRendu());
+    tiroir.synchroniser(contexteChange);
+    magasin.notifier();
+    dureeDernierRendu = performance.now() - debut;
+  }
+  // Le zoom et le deplacement s'adaptent au plan (render/apercuVue.ts) : un rendu complet tant qu'il
+  // est rapide (un petit plan), un apercu par transformation pendant le geste quand il ne l'est plus.
+  const apercu = creerApercuVue({ element: surface.svg, rendre: () => render() });
+  let dureeDernierRendu = 0;
+  const vueChangee = (avant: typeof etat.scene) => {
+    if (dureeDernierRendu < RENDU_LENT_MS) render();
+    else apercu.changer(avant, etat.scene);
+  };
+  /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */
+  function redessinerObjets(cles: readonly string[]): void {
+    // Pendant un apercu, le dessin ne suit pas encore la scene : le rendu complet qui suit les reprendra.
+    if (apercu.enCours()) return;
+    const objets = etat.objects.filter((o) => cles.includes(o.key));
+    if (objets.length) rendreObjets(etat, contexteRendu(), objets);
+  }
+  function contexteRendu(): ContexteRendu {
+    return {
       ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
+      // ?mode=devroof ou devwall : chaque batiment peint selon l'origine de son toit ou de ses murs.
+      ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
-      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene),
+      // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
+      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene, etat.voisinageVisible),
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
-      dessinerRues: () => dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque),
+      dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
       renderReleves: () => {
         dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
         const parcelle = affichage.trouverParcelleCloture();
         if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
       }
-    });
-    tiroir.synchroniser(contexteChange);
-    magasin.notifier();
+    };
   }
   const gestes = creerGestes(etat, { ...dessin, pushHistory, render, rebuildSelector, mesures });
   const cadrage = creerCadrage(etat, magasin, surface, {
@@ -223,7 +283,7 @@ function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   });
   return {
     etat, magasin, commandes, affichage, surface, dessin, mesures, historique, tiroir, resultats, gestes, cadrage,
-    render, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
+    render, redessinerObjets, vueChangee, rebuildSelector, pushHistory, markDirty, refreshTerrasseView
   };
 }
 
@@ -268,21 +328,60 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     apresModification: () => { p.render(); if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
     montrer: (o) => tardifs.explorateur?.selectionner(o.key)
   });
+  // Apres une actualisation, tout se redessine : le plan, la Vue 3D si elle est ouverte, et la photo
+  // aerienne, relue sur l'etendue nouvelle (le voisinage, son relief). Il fallait sinon repasser
+  // par le plan ou la 3D pour voir le resultat.
+  // Les toits que l'import ou l'actualisation n'ont pas lus (les trente plus proches seulement), en
+  // tache de fond, par lots (app/toitsFond.ts) : chaque lot ecrit se dessine, la 3D ouverte suit au
+  // plus toutes les dix secondes - une scene de milliers de batiments ne se rebatit pas a chaque toit.
+  const toitsFond = creerToitsFond({
+    objets: () => etat.objects,
+    lectureSeule: () => !!etat.lectureSeule || !toitsFondPermis,
+    progression: (pr) => lectureToits.definir(pr),
+    modifications: historique.modifications, sale: () => !!etat.dirty,
+    enregistrer: () => tardifs.projet?.enregistrerSansBruit() ?? Promise.resolve(false),
+    // Le rythme suit l'utilisateur et le poste (app/regulateur.ts) : tout tourne ici, avec l'interface.
+    regulateur: (() => { const r = creerRegulateur({ max: PARALLELE_TOITS_FOND }); return { r, brancher: () => brancherRegulateur(r) }; })(),
+    // Au bout : le bilan de ce qui a ete lu, et les toits a cheval sur deux parcelles qui attendent
+    // une reponse - un mitoyen lu en fond a pu en ajouter un.
+    fin: (b) => {
+      showToast(texteFinToitsFond(b));
+      questionsACheval();
+    },
+    // Les batiments ecrits seulement, dans le plan et dans la Vue 3D ouverte : rebatir des milliers
+    // d'objets a chaque lot figeait l'ecran plusieurs secondes (MD/roadmap-toits-fond.md, mesure).
+    apresLot: (cles) => {
+      p.markDirty();
+      p.redessinerObjets(cles);
+      if (vue3d.scene && !tardifs.vues?.remplacerObjets3d(cles)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
+    }
+  });
+  const apresActualisation = () => {
+    questionsACheval();
+    toitsFond.relancer();
+    const refaire3d = () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); };
+    p.render();
+    refaire3d();
+    if (ortho.actif) void chargerOrthophoto(ctxOrtho()).catch(() => null).then(() => { p.render(); refaire3d(); });
+  };
   // Le contexte des deux actualisations (IGN, et le projet entier aux valeurs par defaut).
   const contexteActualisation = (): ContexteActualisation => ({
     etat, markDirty: p.markDirty, pushHistory: p.pushHistory, rebuildSelector: p.rebuildSelector, render: p.render,
     restoreState: historique.restaurer, serializeMeasures, serializeObjects,
     syncLieuTitre: affichage.syncLieuTitre,
     trouverParcelleCloture: affichage.trouverParcelleCloture,
-    apresActualisation: questionsACheval
+    apresActualisation
   });
   const appliquerProjetImporte = (valide: ProjetValide, remplacer: boolean) => {
     const r = chargerProjetImporte(valide, remplacer, etat, ctxProjetImporte());
     questionsACheval();
+    // Un autre plan : la lecture en cours s'arrete, et reprend sur celui-ci.
+    toitsFond.arreter();
+    toitsFond.relancer();
     return r;
   };
   return {
-    ctxOrtho, appliquerProjetImporte, questionsACheval,
+    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond,
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
@@ -297,6 +396,11 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     ouvrirActualisationProjet: () => ouvrirActualisationProjet(contexteActualisation())
   };
 }
+
+/** Le jeton de la plateforme, relu a chaque appel : il se renouvelle pendant que la page vit. */
+const jetonPlateforme = (): string | null => sessionCourante()?.jeton()?.valeur ?? null;
+/** Le partage des audits de parcelle pour le corpus (MD/spec-audit.md §15) : un client pour la page. */
+const clientAudits = creerClientAudits((entree, init) => fetch(entree, init), jetonPlateforme);
 
 /** Les objets deja presents recoivent leur DOM, puis les gestes du pointeur et les commandes du plan. */
 function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargements>, seed: GraineDemarrage, tardifs: Tardifs) {
@@ -316,7 +420,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherPointeur(surface.svg, surface.stage, etat, {
     insertPointOnSegment: p.gestes.insertPointOnSegment, pushHistory: p.pushHistory,
     rebuildSelector: p.rebuildSelector, render: p.render, sendObjectBackward: p.gestes.sendObjectBackward,
-    toWorld: dessin.toWorld, markDirty: p.markDirty,
+    toWorld: dessin.toWorld, markDirty: p.markDirty, vueChangee: p.vueChangee,
     apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
   });
   brancherObjets(atelier, commandes);
@@ -324,10 +428,25 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   brancherClavier(commandes);
   brancherAffichage(atelier, {
     enregistrerAffichage: affichage.enregistrerAffichage,
-    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
-    sectionsRepliees: { lire: () => magasin.store.getState().sectionsRepliees, definir: (v) => magasin.definirSectionsRepliees(v) }
+    ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
   }, commandes);
   brancherVoisinage(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
+  // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
+  brancherPositionGps(atelier, commandes);
+  // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
+  brancherAuditParcelle({
+    etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast,
+    // La validation des propositions (§14) : un instantane, l'ecriture, le plan et la Vue 3D redessines.
+    projet: {
+      pushHistory: p.pushHistory, render: p.render,
+      refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
+      remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
+    },
+    // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
+    audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
+    admin: enAdmin,
+    analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
+  }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {
@@ -335,6 +454,9 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     rafraichir: () => magasin.notifier()
   }, commandes);
+  brancherToitsFond(ch.toitsFond, commandes);
+  // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.
+  brancherFaitsLocaux({ objets: () => atelier.etat.objects, relireToits: () => { ch.toitsFond.arreter(); ch.toitsFond.relancer(); } }, commandes);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {
@@ -362,6 +484,7 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
     initialState: atelier.initialState, initialMeasures: atelier.initialMeasures,
     cleDernierProjet: cleDernierProjet(),
     definirRafraichisseurStatut: (f) => historique.definirRafraichisseurStatut(f),
+    modifications: () => historique.modifications(),
     ouvrirImportCadastre: ch.ouvrirImportCadastre,
     ouvrirDialogueActualisation: ch.ouvrirActualisation,
     ouvrirActualisationProjet: ch.ouvrirActualisationProjet,
@@ -388,7 +511,9 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
   const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
   // Le releve de facade : le parcours de prise de vue (zones/Releve.tsx) et ses deux commandes.
-  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf });
+  // L'aide de Claude au releve (lot L18) : le meme client, la meme identite et le meme accord par projet que l'audit.
+  const aide = aideReleveDuNavigateur(analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null));
+  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf, aide });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur, projet };
@@ -420,14 +545,14 @@ function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur,
   };
 }
 
-function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
+function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: DemandeAudit; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
   const { etat, magasin, commandes, tiroir, cadrage } = p;
-  // La commande « Actualiser IGN » se grise pendant une actualisation : les zones doivent le voir.
-  actualisation.abonner(() => magasin.notifier());
-  // Meme chose pour la lecture du relief : le bouton de l'inspecteur dit « Lecture… » pendant l'appel.
-  lectureRelief.abonner(() => magasin.notifier());
+  // « Actualiser IGN » et « Lecture… » (relief) se voient dans toutes les zones ; les toits lus en fond
+  // ne redessinent que la barre d'etat et le menu, abonnes directement (core/lectureToits.ts).
+  for (const lecture of [actualisation, lectureRelief]) lecture.abonner(() => magasin.notifier());
+  toitsFondPermis = lectureDeFondPermise(!!options.vitrine || !!options.audit); // l'audit lit ses toits lui-meme, autour de vous
   const atelier = atelierDu(p);
   const ch = chargements(p, seed, tardifs);
   brancherLePlan(p, atelier, ch, seed, tardifs);
@@ -436,8 +561,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
   tardifs.vues = vues;
   brancherIsolement(p);
   const { explorateur, inspecteur, projet } = monterLesPanneaux(p, atelier, ch, vues, seed);
-  tardifs.explorateur = explorateur;
-  tardifs.inspecteur = inspecteur;
+  Object.assign(tardifs, { explorateur, inspecteur, projet });
   // Sur tablette, l'explorateur et l'inspecteur flottent sur le plan : ouverts d'office, ils en
   // couvriraient les deux tiers. Ils s'ouvrent a la demande.
   cadrage.replierPourTablette();
@@ -559,16 +683,27 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; controleurs?:
       void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
     }
   }
+  else if (options.audit) demarrerAudit(p, vues, options.audit);
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
-  else { projet.proposerMiseAJour(); ch.questionsACheval(); }
+  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); }
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {
     options.controleurs(async () => sourceControleurs(commandes, inspecteur, etat.objects,
       await inventorierLesClasses(magasin, etat, (cle) => explorateur.selectionner(cle))));
   }
+}
+
+/** Le mode audit (app/audit/) : la promenade pilote le plan, rien ne s'enregistre. */
+function demarrerAudit(p: Plan, vues: Vues3d, demande: DemandeAudit): void {
+  const { etat, magasin, commandes } = p;
+  brancherAudit({
+    etat, commandes, notifier: () => magasin.notifier(), signaler: showToast,
+    restaurer: (i) => p.historique.restaurer(i), rebuildSelector: p.rebuildSelector,
+    buildThreeScene: () => vues.buildThreeScene(null), remplacerObjets3d: (cles) => vues.remplacerObjets3d(cles),
+  }, demande);
 }
 
 /**
@@ -639,4 +774,4 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
 }
 
 // main.ts n'a besoin que de ces deux points d'entree.
-export { boot, loadInitialProject, graineVitrine };
+export { boot, loadInitialProject, graineVitrine, graineAudit };

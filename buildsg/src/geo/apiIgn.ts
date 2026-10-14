@@ -235,20 +235,21 @@ export async function interrogerCadastre(geom: EmpriseGeoJSON, codeInsee: string
 // WFS par `STARTINDEX`. Les deux rendent `numberMatched`, mais on ne s'y fie pas : on tourne tant
 // qu'une page est pleine et qu'on n'a pas atteint le plafond.
 /**
- * Le rayon du voisinage etendu se regle au curseur, de 10 a 5 000 m par pas de 10. On lit le
- * disque par paliers (200, 500, 1 000, 2 000, 5 000 m) : le palier qui couvre le curseur est lu une
+ * Le rayon du voisinage etendu se regle au curseur, de 10 a 1 500 m par pas de 10. On lit le
+ * disque par paliers (200, 500, 1 000, 1 500 m) : le palier qui couvre le curseur est lu une
  * fois, puis filtre au rayon choisi, et le compte suit le curseur sans attendre le reseau tant qu'il
- * reste sous le palier lu. Lire d'emblee le plus grand disque (cent kilometres carres, des dizaines
- * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Cinq kilometres, c'est
- * l'horizon d'une vallee : le relief va jusque-la, les objets s'arretent au plafond par famille.
+ * reste sous le palier lu. Lire d'emblee le plus grand disque (sept kilometres carres, des dizaines
+ * de milliers d'objets) pour un curseur a 50 m aurait ete un gaspillage. Un kilometre et demi
+ * (decision de l'utilisateur, octobre 2026) : au-dela, le plan, la Vue 3D et l'enregistrement
+ * s'alourdissent pour un voisinage que personne ne regarde ; cinq kilometres etaient permis avant.
  */
 export const RAYON_ETENDU_MIN_M = 10;
-export const RAYON_ETENDU_MAX_M = 5000;
+export const RAYON_ETENDU_MAX_M = 1500;
 export const RAYON_ETENDU_PAS_M = 10;
 /** Le rayon propose d'abord : de quoi voir la rue, sans charger le quartier. */
 export const RAYON_ETENDU_DEFAUT_M = 50;
 /** Les paliers de lecture du disque, du plus petit au plus grand (le dernier est le maximum du curseur). */
-export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 2000, 5000];
+export const RAYONS_LECTURE_M: readonly number[] = [200, 500, 1000, 1500];
 /**
  * Au-dela de ce rayon, le plan s'alourdit vite (des centaines de parcelles et de batiments, chacun
  * avec sa geometrie) : l'interface previent que l'enregistrement sur la plateforme peut etre refuse.
@@ -263,16 +264,23 @@ export function rayonEtenduValide(r: number): number {
 export function rayonDeLecture(rayonM: number): number {
   return RAYONS_LECTURE_M.find(p => p >= rayonM) ?? RAYON_ETENDU_MAX_M;
 }
-/** Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus proches d'abord. */
-export const MAX_OBJETS_RAYON = 2000;
+/**
+ * Le plafond d'objets d'une famille (parcelles, batiments…) qu'un import etendu ajoute : les plus
+ * proches d'abord. Vingt mille (decision de l'utilisateur, octobre 2026) : a dix mille, un voisinage
+ * de deux kilometres au Vesinet s'arretait avant le rayon demande ; a deux mille, le paysage
+ * s'arretait net a quelques centaines de metres.
+ */
+export const MAX_OBJETS_RAYON = 20000;
 /**
  * Combien d'entites on lit au plus par famille avant de garder les `MAX_OBJETS_RAYON` plus
- * proches : le service rend les pages dans un ordre quelconque, et un disque d'un kilometre en
- * ville depasse largement le plafond. Lire davantage que ce qu'on garde, c'est ce qui rend « les
- * plus proches » a peu pres vrai ; au-dela de dix mille, la lecture elle-meme deviendrait le prix.
+ * proches : le service rend les pages dans un ordre quelconque, et lire davantage que ce qu'on garde
+ * rend « les plus proches » a peu pres vrai. Le double du plafond, pas plus : quarante mille entites
+ * sont deja quarante pages par famille, et au-dela la lecture elle-meme deviendrait le prix. Au-dela
+ * d'un kilometre, la lecture par disques croissants (`disquesDeLecture`) fait le reste.
  */
+export const PLAFOND_LECTURE = MAX_OBJETS_RAYON * 2;
 export function plafondLecture(rayonM: number): number {
-  return rayonM > RAYON_LEGER_M ? MAX_OBJETS_RAYON * 5 : MAX_OBJETS_RAYON * 2;
+  return rayonM > RAYON_LEGER_M ? PLAFOND_LECTURE : MAX_OBJETS_RAYON;
 }
 /**
  * Au-dela de ce rayon, une famille se lit en disques croissants (les paliers de lecture) et la

@@ -1,5 +1,5 @@
 // Les parcours en plusieurs etapes (spec-ihm-zones §4.8, Z8) : l'import cadastral depuis une adresse,
-// l'actualisation IGN et le choix d'une texture.
+// l'actualisation IGN, le choix d'une texture, les fiches du mode audit et l'audit de la parcelle.
 //
 // Ce sont des dialogues, mais pas des questions : ils portent leur propre etat et leur propre
 // logique. Ce module tient celui qui est ouvert — un seul a la fois — et previent la zone qui le
@@ -9,6 +9,10 @@
 import type { ImportCadastre } from './importCadastre.js';
 import type { InfosActualisation, OptionsActualisation } from './actualisationIgn.js';
 import type { TextureAppliquee } from '../model/types.js';
+import type { Promenade } from './audit/promenade.js';
+import type { CouleursPhotos } from './audit/couleurFacade.js';
+import type { PrisePhoto } from '../model/audit.js';
+import type { SessionAuditParcelle } from './audit/parcelle/controleur.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -19,7 +23,13 @@ export type Parcours =
       /** Une case facultative sous la grille (« appliquer a toutes les clotures »). */
       caseLibelle?: string | undefined;
       choisir: (choix: TextureAppliquee, appliquerATous: boolean) => void;
-    };
+    }
+  /** Mode audit : la fiche d'un batiment marque (app/audit/controleur.ts). */
+  | { type: 'auditCas'; promenade: Promenade; cle: string; retirer: () => void; prise: () => PrisePhoto | null; couleurs?: CouleursPhotos; retour?: () => void }
+  /** Mode audit : la liste de fin de promenade, puis le partage du fichier. */
+  | { type: 'auditFin'; promenade: Promenade; modifier: (cle: string) => void; retirer: (cle: string) => void; partager: () => Promise<void> }
+  /** L'audit de la parcelle du projet, phase 1 : la liste de controle et l'ecran de prise (app/audit/parcelle/). */
+  | { type: 'auditParcelle'; session: SessionAuditParcelle };
 
 let courant: Parcours | null = null;
 /** Change a chaque ouverture : deux parcours du meme type ne partagent pas l'etat de leur ecran. */

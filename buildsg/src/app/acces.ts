@@ -37,7 +37,21 @@ export function capacitesForceesSansDroit(): string[] {
 
 /** La personne administre : l'admin des demos, ou un role d'administration chez la plateforme. */
 export function estAdministrateur(): boolean {
-  return admin || !!contexte?.courant()?.roles.some((r) => /admin/i.test(r));
+  return admin || adminConfirme || !!contexte?.courant()?.roles.some(estRoleAdmin);
+}
+/** Le role relu par `confirmerAdministrateur` : il vaut pour la session, meme hors du cache du contexte. */
+let adminConfirme = false;
+const estRoleAdmin = (r: string) => /admin/i.test(r);
+
+/**
+ * La meme question, quand la reponse ouvre un mode : un contexte que la plateforme ne laisse pas
+ * garder (`token_expires_at` nul) n'est pas en cache, `estAdministrateur` le croirait absent. On le relit.
+ */
+export async function confirmerAdministrateur(): Promise<boolean> {
+  if (estAdministrateur()) return true;
+  const c = await contexte?.charger().catch(() => null);
+  adminConfirme = !!c?.roles.some(estRoleAdmin);
+  return adminConfirme;
 }
 
 /**

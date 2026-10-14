@@ -76,15 +76,16 @@ const LONGUEUR_MIN_ETIQUETTE_PX = 60;
 
 /**
  * Dessine les courbes de niveau du relief du projet dans `groupe`, en pixels. Rien sans relief, ni
- * quand la preference d'affichage « Courbes de niveau » est fermee.
+ * quand la preference d'affichage « Courbes de niveau » est fermee ; le paysage seulement `avecPaysage`.
  */
-export function dessinerCourbesRelief(groupe: SVGElement, objets: ObjetPlan[], scene: EtatScene): void {
+export function dessinerCourbesRelief(groupe: SVGElement, objets: ObjetPlan[], scene: EtatScene, avecPaysage = true): void {
   groupe.innerHTML = '';
   const r = reliefDe(objets);
   if (!r || !affichageRelief(r).courbes) return;
   const parcelle = parcelleDuProjet(objets);
-  // Le paysage d'abord, sous les courbes de la parcelle, coupe a la grille de la parcelle.
-  if (r.paysage) {
+  // Le paysage d'abord, sous les courbes de la parcelle, coupe a la grille de la parcelle ; pas quand
+  // le voisinage est masque (`avecPaysage`).
+  if (r.paysage && avecPaysage) {
     const e = empriseGrille(r);
     const coins = [versEcran(scene, { x: e.xMin, y: e.yMax }), versEcran(scene, { x: e.xMax, y: e.yMin })];
     const [a, b] = coins as [PtBrut, PtBrut];

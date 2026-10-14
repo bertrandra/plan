@@ -9,7 +9,9 @@
 
 import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
-import { repere, point, planCroupe, hauteurCorpsEn } from '../facade/toitCorps.js';
+import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
+// Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
+export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
@@ -32,7 +34,7 @@ const MUR_MIN_M = 0.02;
 export interface S3 { x: number; y: number; z: number }
 
 /** Le cote d'un corps est-il une facade (geometry/facadeExterieure.ts) ? Sans contour, tous le sont. */
-function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[] | null, cote: 's0' | 'sL' | 't0' | 'tW'): boolean {
+export function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[] | null, cote: 's0' | 'sL' | 't0' | 'tW'): boolean {
   if (!contour) return true;
   const milieu = point(r, r.L / 2, r.W / 2);
   const [a, b] = cote === 't0' ? [point(r, 0, 0), point(r, r.L, 0)] : cote === 'tW' ? [point(r, 0, r.W), point(r, r.L, r.W)]
@@ -275,7 +277,7 @@ export interface ContexteToitCorps {
  * Une maille de polygones, avec des coordonnees de texture si on les donne. Un pan entaille par ses
  * pignons n'est plus convexe : il se triangule par oreilles dans le plan ; un mur, vertical, en eventail.
  */
-function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false, uvMur = false): THREE_NS.BufferGeometry {
+export function maille(polys: readonly S3[][], toLocal: VersLocal, uv: boolean, pans = false, uvMur = false): THREE_NS.BufferGeometry {
   const pos: number[] = [], uvs: number[] = [], idx: number[] = [];
   for (const poly of polys) {
     const base = pos.length / 3;
@@ -319,20 +321,6 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
   corps.forEach((c) => { const f = facettesCorps(c, contour); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   return { pans: pans.length, murs: murs.length };
-}
-
-/** La pente d'un corps, en degres : celle de son pan le plus raide ; 0 pour un toit plat. */
-export function penteDuCorps(c: CorpsToit): number {
-  const W = Math.hypot((c.pts[3] as PtBrut).x - (c.pts[0] as PtBrut).x, (c.pts[3] as PtBrut).y - (c.pts[0] as PtBrut).y);
-  const p = c.posFaitage, [e0, e1] = c.egouts, deg = (h: number, l: number) => (l > 0.01 && h > 0 ? (Math.atan(h / l) * 180) / Math.PI : 0);
-  return Math.max(deg(c.faitage - e0, p), deg(c.faitage - e1, W - p));
-}
-
-/** La pente qui choisit la tuile : celle du plus grand corps en pente (un appentis de garage ne decide pas pour la maison). */
-export function penteDominante(corps: readonly CorpsToit[]): number | null {
-  const aire = (c: CorpsToit) => Math.abs(signedArea(c.pts as PtBrut[]));
-  const enPente = corps.filter((c) => penteDuCorps(c) > 0).sort((a, b) => aire(b) - aire(a));
-  return enPente[0] ? penteDuCorps(enPente[0]) : null;
 }
 
 /**

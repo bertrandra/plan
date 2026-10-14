@@ -37,3 +37,19 @@ export function lirePositionGps(delaiMs = 15000): Promise<PositionGps> {
     );
   });
 }
+
+/**
+ * Suit la position de l'appareil : `sur` est appele a chaque nouvelle position que le navigateur
+ * donne (environ une par seconde quand on marche), `erreur` sur un refus ou une absence de GPS. Rend
+ * de quoi arreter le suivi. Une position vieille de deux secondes suffit : elle evite de reveiller le
+ * GPS plus souvent que ce que l'ecran montre.
+ */
+export function suivrePositionGps(sur: (p: PositionGps) => void, erreur: (e: SansPosition) => void): () => void {
+  if (!geolocalisationDisponible()) { erreur(new SansPosition('indisponible')); return () => {}; }
+  const id = navigator.geolocation.watchPosition(
+    (p) => sur({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy }),
+    (err) => erreur(new SansPosition(err.code === err.PERMISSION_DENIED ? 'refusee' : err.code === err.TIMEOUT ? 'delai' : 'indisponible')),
+    { enableHighAccuracy: true, maximumAge: 2000 },
+  );
+  return () => navigator.geolocation.clearWatch(id);
+}

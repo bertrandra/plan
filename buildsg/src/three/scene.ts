@@ -9,6 +9,8 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { reposerPositionGps } from './positionGps3d.js';
+import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
 import { textureMur } from './textureMur.js';
 import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
@@ -16,12 +18,14 @@ import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
 import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } from './toitCorps3d.js';
+import { ajouterCheminees3d } from './cheminees3d.js';
+import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
-import { vue3d, cleDeVue, hotes3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
@@ -46,7 +50,7 @@ import {
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit, Toit } from '../model/types.js';
+import type { ObjetPlan, ObjetCercle, PtBrut, Construction, ReglagesVoisinage3d, VolumeToit, Toit, Relief } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import type { TuileOrtho } from '../render/ortho.js';
@@ -64,6 +68,11 @@ const BLANC_PAR_DEFAUT = 0xffffff;
 
 /** Ce que la construction de la scene 3D demande au reste du programme. */
 export interface ContexteScene3d {
+  /**
+   * Un mode de diagnostic (app/diagnostic.ts) : la couleur d'affichage d'un batiment, murs et toit,
+   * par-dessus la sienne ; null ou absent : la sienne.
+   */
+  couleurDiagnostic?: (o: ObjetPlan) => string | null;
   /** La parcelle qui porte la cloture, s'il y en a une. */
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
   /** Hauteur de ce sur quoi la structure repose, en millimetres. */
@@ -127,6 +136,13 @@ function etendueDeLaScene(obj: ObjetPlan | null, etat: PlanVuDeLa3d, cen: PtBrut
   return Math.max(3, maxRadius * 2);
 }
 
+/** Le relief sans son paysage : le sol d'un plan dont le voisinage est masque. */
+function sansPaysage(r: Relief): Relief {
+  const reste = { ...r };
+  delete reste.paysage;
+  return reste;
+}
+
 /** La marge du sol autour des parcelles affichees : celle du calque (model/calque.ts). */
 export const MARGE_SOL_M = MARGE_CALQUE_M;
 
@@ -174,7 +190,7 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // Le plan lointain suit le sol : a 500 m, un voisinage de 200 m etait coupe en reculant la camera.
   const b = terrain.bornes;
   const loin = Math.max(Math.abs(b.xMin - terrain.cen.x), Math.abs(b.xMax - terrain.cen.x), Math.abs(b.yMin - terrain.cen.y), Math.abs(b.yMax - terrain.cen.y));
-  // Le paysage du relief va jusqu'a l'horizon d'un voisinage etendu (5 km), bien au-dela des
+  // Le paysage du relief va jusqu'a l'horizon d'un voisinage etendu (1,5 km), bien au-dela des
   // parcelles affichees : vu d'un coin, son coin oppose doit rester dans le champ.
   const q = terrain.sol?.relief.paysage ? empriseGrille(terrain.sol.relief.paysage) : null;
   const loinSol = q ? Math.hypot(Math.max(Math.abs(q.xMin - terrain.cen.x), Math.abs(q.xMax - terrain.cen.x)), Math.max(Math.abs(q.yMin - terrain.cen.y), Math.abs(q.yMax - terrain.cen.y))) : 0;
@@ -198,6 +214,10 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   host.appendChild(renderer.domElement);
 
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  // Le pincement a deux doigts zoome deux fois plus que par defaut, comme la molette et les boutons
+  // (three/navigation.ts) : a la vitesse d'origine, traverser un grand voisinage demandait des dizaines
+  // de gestes. La molette, elle, ne passe plus par OrbitControls.
+  controls.zoomSpeed = 2;
   controls.target.set(0, hCible, 0);
   controls.update();
   // Meme terrasse reconstruite (une case a cocher) : la camera reste ou l'utilisateur l'avait laissee.
@@ -302,8 +322,9 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
   }
   const chargeurOrtho = new THREE.TextureLoader();
   ctx.orthoTuiles().forEach((t: TuileOrtho) => {
-    // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`).
-    if (!t.dataUri) return;
+    // `orthoTuiles()` ne rend que les tuiles dont l'image est arrivee (voir `TuileOrtho`). Les tuiles
+    // du paysage ne vont qu'au sol en relief : sur un sol plat, coupees au calque, elles doubleraient les fines.
+    if (!t.dataUri || t.large) return;
     // La photo couvre le sol, et pas au-dela : chaque tuile est coupee aux bornes du sol (le calque).
     const cadre = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
     if (!cadre) return;
@@ -611,133 +632,221 @@ function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets):
  * ouvertures, de quoi juger l'implantation. Une AUTRE terrasse recoit sa hauteur, pas sa structure.
  * La parcelle n'a pas de volume : un ruban au sol suffit a la situer.
  */
+/**
+ * Ce que chaque objet du plan a pose dans la scene, par cle : la Vue 3D remplace ceux d'un batiment
+ * relu (la lecture des toits en tache de fond, app/toitsFond.ts) sans se rebatir - une scene de
+ * milliers de batiments figeait l'ecran plusieurs secondes a chaque lot. Une table a part, et non
+ * `userData` : l'export GLB recopierait ce dernier dans le fichier.
+ */
+const poseParObjet = new Map<string, THREE_NS.Object3D[]>();
+/** La derniere scene batie et ce qu'il faut pour y reposer un objet. */
+let derniere: { sc: SceneVue3d; co: ContexteObjets; obj: ObjetPlan | null; ground: THREE_NS.Mesh } | null = null;
+
+/** Pose un objet et retient ce qu'il a ajoute a la scene. */
+function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
+  const n0 = co.scene.children.length;
+  ajouterUnObjet(o, obj, etat, co);
+  if (co.scene.children.length > n0) poseParObjet.set(o.key, co.scene.children.slice(n0));
+}
+
+/**
+ * Ce que montre un point de l'ecran (coordonnees normalisees -1..1) dans la Vue 3D ouverte : la cle
+ * de l'objet du plan touche le premier, et le point touche dans le repere du plan (le sol, si aucun
+ * objet n'est touche). Le mode audit (app/audit/) s'en sert pour marquer un batiment au doigt.
+ */
+export function objetSousLePointeur(ndc: { x: number; y: number }): { cle: string | null; point: PtBrut | null } {
+  const sc = vue3d.scene, d = derniere;
+  if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
+  const rayon = new THREE.Raycaster();
+  rayon.setFromCamera(ndc, sc.camera);
+  const versPlan = (v: THREE_NS.Vector3): PtBrut => ({ x: v.x + sc.cen.x, y: sc.cen.y - v.z });
+  // Chaque objet pose a ses enfants directs de la scene : on remonte de la maille touchee jusqu'a eux.
+  const proprietaire = new Map<THREE_NS.Object3D, string>();
+  for (const [cle, racines] of poseParObjet) for (const r of racines) proprietaire.set(r, cle);
+  let premierPoint: PtBrut | null = null;
+  for (const t of rayon.intersectObjects(sc.scene.children, true)) {
+    if (!estMesh(t.object) || !t.object.visible) continue;
+    premierPoint ??= versPlan(t.point);
+    for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
+      const cle = proprietaire.get(o);
+      if (cle) return { cle, point: versPlan(t.point) };
+    }
+  }
+  const plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const sol = new THREE.Vector3();
+  return { cle: null, point: premierPoint ?? (rayon.ray.intersectPlane(plan, sol) ? versPlan(sol) : null) };
+}
+
 function ajouterObjetsDuPlan(obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
+  etat.objects.forEach(o => poserEtRetenir(o, obj, etat, co));
+}
+
+/**
+ * Remplace dans la Vue 3D ouverte ce que ces objets y avaient pose : retire, puis repose d'apres le
+ * plan d'aujourd'hui (un objet disparu n'est pas repose). Faux quand la scene n'est plus celle qui
+ * a ete batie : a l'appelant de la rebatir s'il le faut.
+ */
+export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): boolean {
+  const d = derniere;
+  if (!d || !vue3d.scene || d.sc !== vue3d.scene) return false;
+  // La scene ne montre que la terrasse (et ses piscines) : rien du voisinage a remplacer.
+  if (!(vue3d.tousLesObjets || !d.obj)) return true;
+  const co: ContexteObjets = { ...d.co, objets: etat.objects };
+  for (const cle of cles) {
+    for (const m of poseParObjet.get(cle) ?? []) {
+      co.scene.remove(m);
+      // Les geometries sont propres a l'objet ; les materiaux et textures peuvent etre partages.
+      m.traverse((x) => { (x as { geometry?: { dispose?: () => void } }).geometry?.dispose?.(); });
+    }
+    poseParObjet.delete(cle);
+    const o = etat.objects.find((x) => x.key === cle);
+    if (o) poserEtRetenir(o, d.obj, etat, co);
+  }
+  appliquerOmbres(co.scene, d.ground);
+  return true;
+}
+
+/** Un objet du plan dans la scene, selon ce qu'il est : rien s'il est masque, la terrasse courante, un point de vue. */
+function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   const { prim, ctx } = co;
-  etat.objects.forEach(o => {
-    if (o === obj) return;
-    if (ctx.objetMasque(o)) return; // masque dans le plan = masque partout, voisinage compris
-    // La parcelle du projet en gazon, par defaut : au-dessus de la photo aerienne, qu'elle remplace
-    // sur la parcelle. Une texture choisie dans l'inspecteur, ou le gazon decoche, la laissent voir.
-    if (o.key === 'parcelle' && o.gazon3d !== false && !o.textureHorizontale && aDesSommets(o) && o.pts.length >= 3) {
-      ajouterGazon(o.pts, co);
-      if (co.sol) ajouterContourParcelle(o, co);
-      return;
-    }
-    if (o.key === 'parcelle' || o.fonction === 'terrain') {
-      // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
-      // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
-      if (ctx.orthoActif() && ctx.orthoTuiles().length) return;
-      if (co.sol) ajouterContourParcelle(o, co);
-      else if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
-      return;
-    }
-    // Un point de vue pilote la camera, une limite cadastrale interne est une information de plan :
-    // ni l'un ni l'autre n'est un ouvrage a construire.
-    if (o.fonction === 'camera' || o.fonction === 'limite') return;
-    if (o.type === 'path') { ajouterChemin(o, co); return; }
-    // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
-    if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
-    // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit.
-    // Sur un sol en pente, le moteur compte ses `z` depuis le zero du plan (chaque poteau jusqu'a
-    // son sol) : elle va dans la scene telle quelle ; sinon dans un groupe pose sur le sol en son centre.
-    if (estAbri(o)) { ajouterPergola3d(co.solMoteur ? co.scene : groupeAuSol(co.scene, co.sol, centreDe(o)), o, co.versLocal, co.solMoteur); return; }
-    // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
-    if (estPiscine(o)) { ajouterPiscineAuSol(o, co); return; }
-    // Un arbre n'est pas un prisme : un tronc et un houppier (three/arbre3d.ts).
-    if (o.fonction === 'arbre') { ajouterArbreDuPlan(o, co); return; }
-    const h = ctx.elevationOf(o);
-    if (h <= 0) return;
-    const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
-    // La pose sur le sol : du point le plus bas sous l'emprise jusqu'au sol au centre plus la hauteur.
-    const centre = centreDe(o);
-    const ySol = co.sol ? co.sol.hauteur(centre) : 0;
-    const yBase = co.sol ? co.sol.basSous(footprint) : 0;
-    // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
-    // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
-    const apparence = o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
-    // Un batiment prend la couleur de ses murs lue sur une photo de rue, ou celle de son materiau
-    // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
-    const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
-    const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
-    // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
-    // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
-    // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
-    const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
-    // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
-    // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
-    const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
-    // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
-    const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
-    const corpsToit = modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null;
-    const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
-    // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
-    // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
-    // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
-    const toitMesure = modeToit === 'mesure' ? o.toitMesure ?? null : null;
-    const egoutDe = (v: VolumeToit): number => v.egout ?? h;
-    // Des corps lus sur un contour remis a l'equerre (un cote de biais : il ne se decoupe pas tel
-    // quel) ne le suivent plus : le batiment garde alors la forme du plan, ses toits decoupes dessus.
-    const surContour = corpsToit && o.type === 'polygon' && !rectanglesDuContour(o.pts) ? facettesSurContour(corpsToit, o.pts) : null;
-    const volumes = surContour
-      ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
-      : corpsToit
-      ? corpsToit.map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
-      : toitMesure
-      ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
-      : volumesToit
-      ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
-      : o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
-    // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
-    // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
-    // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
-    const forme = formeDeTerrasse(o, etat.objects);
-    const pieces = forme ? forme.map((m) => ({ pts: m.contour, hauteur: h, trous: m.trous })) : volumes.map((v) => ({ ...v, trous: trousDeTerrasse(o, etat.objects) }));
-    // Une autre terrasse est de niveau a sa hauteur finie au-dessus du point HAUT du sol sous elle
-    // (engine/hauteurs.ts), comme la terrasse courante : son prisme monte jusque-la.
-    const dessusTerrasse = co.solMoteur && estTerrasse(o) ? dessusTerrasseM(o, co.solMoteur) : null;
-    pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
-    // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
-    // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
-    // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
-    // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
-    const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude } : undefined;
-    if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
-      ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit);
-    }
-    if (o.type === 'polygon' && corpsToit && surContour) {
-      ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
-    } else if (o.type === 'polygon' && corpsToit) {
-      ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
-    }
-    // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
-    if (o.type === 'polygon' && toitMesure) {
-      ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
-    }
-    // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
-    // soubassement, fenetres par niveau, cheminee — moins de loin.
-    if (o.type === 'polygon' && estBatiment(o)) {
-      const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
-      // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
-      // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
-      const f3d = fenetres3dDe(o);
-      const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
-      ajouterDetailsBatiment(
-        { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
-          // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
-          ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-        o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
-          ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
-          // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
-          ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
-          // Corps ou surface mesuree : chaque mur a sa hauteur, les fenetres montent avec lui.
-          ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
-          ...(toitMesure || corpsToit ? { sansToit: true } : {}),
-          // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
-          // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
-          ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
-      );
-    }
-  });
+  if (objet === obj) return;
+  if (ctx.objetMasque(objet)) return; // masque dans le plan = masque partout, voisinage compris
+  // Un mode de diagnostic peint le batiment, murs et toit : une copie a sa couleur, sans texture ni
+  // couleur de murs lue, que le reste de la pose prend comme un batiment ordinaire.
+  const diag = estBatiment(objet) ? ctx.couleurDiagnostic?.(objet) ?? null : null;
+  const o: ObjetPlan = diag ? { ...objet, fill: diag, textureVerticale: null, couleurMurs: { ...(objet.couleurMurs ?? {}), source: 'plan' },
+    ...(objet.toit ? { toit: { ...objet.toit, couleur: diag } } : {}) } as ObjetPlan : objet;
+  // La parcelle du projet en gazon, par defaut : au-dessus de la photo aerienne, qu'elle remplace
+  // sur la parcelle. Une texture choisie dans l'inspecteur, ou le gazon decoche, la laissent voir.
+  if (o.key === 'parcelle' && o.gazon3d !== false && !o.textureHorizontale && aDesSommets(o) && o.pts.length >= 3) {
+    ajouterGazon(o.pts, co);
+    if (co.sol) ajouterContourParcelle(o, co);
+    return;
+  }
+  if (o.key === 'parcelle' || o.fonction === 'terrain') {
+    // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
+    // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
+    if (ctx.orthoActif() && ctx.orthoTuiles().length) return;
+    if (co.sol) ajouterContourParcelle(o, co);
+    else if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
+    return;
+  }
+  // Un point de vue pilote la camera, une limite cadastrale interne est une information de plan :
+  // ni l'un ni l'autre n'est un ouvrage a construire.
+  if (o.fonction === 'camera' || o.fonction === 'limite') return;
+  if (o.type === 'path') { ajouterChemin(o, co); return; }
+  // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
+  if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
+  // Une pergola ou un carport n'est pas un prisme : sa charpente, piece par piece, et son toit.
+  // Sur un sol en pente, le moteur compte ses `z` depuis le zero du plan (chaque poteau jusqu'a
+  // son sol) : elle va dans la scene telle quelle ; sinon dans un groupe pose sur le sol en son centre.
+  if (estAbri(o)) { ajouterPergola3d(co.solMoteur ? co.scene : groupeAuSol(co.scene, co.sol, centreDe(o)), o, co.versLocal, co.solMoteur); return; }
+  // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
+  if (estPiscine(o)) { ajouterPiscineAuSol(o, co); return; }
+  // Un arbre n'est pas un prisme : un tronc et un houppier (three/arbre3d.ts).
+  if (o.fonction === 'arbre') { ajouterArbreDuPlan(o, co); return; }
+  const h = ctx.elevationOf(o);
+  if (h <= 0) return;
+  const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;
+  // La pose sur le sol : du point le plus bas sous l'emprise jusqu'au sol au centre plus la hauteur.
+  const centre = centreDe(o);
+  const ySol = co.sol ? co.sol.hauteur(centre) : 0;
+  const yBase = co.sol ? co.sol.basSous(footprint) : 0;
+  // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
+  // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
+  const apparence = !diag && o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
+  // Un batiment prend la couleur de ses murs lue sur une photo de rue, ou celle de son materiau
+  // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
+  const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
+  const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
+  // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
+  // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
+  // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
+  const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
+  // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
+  // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
+  const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
+  // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
+  const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
+  const corpsToit = modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null;
+  const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
+  // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
+  // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
+  // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
+  const toitMesure = modeToit === 'mesure' ? o.toitMesure ?? null : null;
+  const egoutDe = (v: VolumeToit): number => v.egout ?? h;
+  // Des corps lus sur un contour remis a l'equerre (un cote de biais : il ne se decoupe pas tel
+  // quel) ne le suivent plus : le batiment garde alors la forme du plan, ses toits decoupes dessus.
+  const surContour = corpsToit && o.type === 'polygon' && !rectanglesDuContour(o.pts) ? facettesSurContour(corpsToit, o.pts) : null;
+  const volumes = surContour
+    ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
+    : corpsToit
+    ? corpsToit.map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
+    : toitMesure
+    ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
+    : volumesToit
+    ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
+    : o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
+  // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
+  // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
+  // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
+  const forme = formeDeTerrasse(o, etat.objects);
+  const pieces = forme ? forme.map((m) => ({ pts: m.contour, hauteur: h, trous: m.trous })) : volumes.map((v) => ({ ...v, trous: trousDeTerrasse(o, etat.objects) }));
+  // Une autre terrasse est de niveau a sa hauteur finie au-dessus du point HAUT du sol sous elle
+  // (engine/hauteurs.ts), comme la terrasse courante : son prisme monte jusque-la.
+  const dessusTerrasse = co.solMoteur && estTerrasse(o) ? dessusTerrasseM(o, co.solMoteur) : null;
+  pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
+  // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
+  // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
+  // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
+  // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
+  const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude, choix: o.toit?.couverture ?? null } : undefined;
+  if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
+    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit);
+  }
+  if (o.type === 'polygon' && corpsToit && surContour) {
+    ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
+  } else if (o.type === 'polygon' && corpsToit) {
+    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
+  }
+  // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui
+  // n'en porte pas (tous ceux lus sur le LiDAR) ne pose rien de plus.
+  if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
+    const sol = co.sol;
+    const ctxObs = { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture,
+      // Une souche adossee part du sol sous elle, compte depuis le sol au centre (origine du groupe).
+      ...(sol ? { sol: (p: PtBrut) => sol.hauteur(p) - ySol } : {}) };
+    ajouterCheminees3d(ctxObs, corpsToit);
+    ajouterTerrasses3d(ctxObs, corpsToit, o.toit, o.pts);
+  }
+  // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
+  if (o.type === 'polygon' && toitMesure) {
+    ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
+  }
+  // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
+  // soubassement, fenetres par niveau, cheminee — moins de loin.
+  if (o.type === 'polygon' && estBatiment(o)) {
+    const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
+    // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
+    // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
+    const f3d = fenetres3dDe(o);
+    const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
+    ajouterDetailsBatiment(
+      { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
+        // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
+        ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
+      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
+        ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
+        // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
+        ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
+        // Corps ou surface mesuree : chaque mur a sa hauteur, les fenetres montent avec lui.
+        ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
+        ...(toitMesure || corpsToit ? { sansToit: true } : {}),
+        // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
+        // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
+        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
+    );
+  }
 }
 
 /**
@@ -788,6 +897,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     ? { pos: vue3d.scene.camera.position.clone(), cible: vue3d.scene.controls.target.clone() }
     : null;
   ctx.disposeThreeScene();
+  poseParObjet.clear();
+  derniere = null;
   // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
   const host = hotes3d.vue3d;
   if(!host) return;
@@ -798,8 +909,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const extent = etendueDeLaScene(obj, etat, cen);
   const versLocal = versLocalDepuis(cen);
   // Le relief est celui de la parcelle du projet ; `null` sans relief ou si « Sol en relief » est
-  // decoche — la scene est alors exactement celle d'avant (three/relief3d.ts).
-  const sol = solDeLaScene(ctx.trouverParcelleCloture()?.relief);
+  // decoche — la scene est alors exactement celle d'avant (three/relief3d.ts). Le voisinage masque
+  // emporte le paysage (le relief au-dela de la parcelle) : le sol revient a la grille du projet.
+  const reliefProjet = ctx.trouverParcelleCloture()?.relief;
+  const sol = solDeLaScene(reliefProjet && etat.voisinageVisible === false ? sansPaysage(reliefProjet) : reliefProjet);
   // Le meme relief, lu par le moteur (engine/sol.ts) : la structure de la terrasse, les poteaux
   // d'une pergola, le bord d'un bassin suivent le sol en pente (MD/spec-relief.md §6). Sol dessine
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
@@ -830,7 +943,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   }
   // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
   const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
-  if (voisinage3d.rues.afficher && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
+  if (voisinage3d.rues.afficher && etat.voisinageVisible !== false && rues?.length && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
     ajouterNomsDesRues3d(scene, versLocal, rues, {
       hauteurSol: sol ? sol.hauteur : undefined,
       // Les rues sont decoupees au sol dessine : un nom hors du sol flotterait dans le vide.
@@ -844,13 +957,20 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
   };
   vue3d.scene = sc;
+  derniere = { sc, co, obj, ground };
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); actualiserFeuillesProches(scene, camera); renderer.render(scene, camera); };
   animate();
+  // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
+  reposerPositionGps(sol ? sol.hauteur : undefined);
+  // La facade devant vous (mode audit), si elle est connue : surlignee sur cette scene.
+  reposerFacadeDevant(sol ? sol.hauteur : undefined);
   ctx.applyMode3D();
   // Le panneau relit tout, y compris la liste des points de vue.
   ctx.syncControlesSoleilVue3d();
   ctx.appliquerLumiereVue3d();   // pose les lumieres ET rend une premiere image
+  // Ce qui pilote la camera (le mode audit) la reprend sur la scene neuve.
+  signalerSceneBatie();
 
   // La structure se construit apres cette premiere image. setTimeout et non requestAnimationFrame :
   // rAF ne se declenche pas quand l'onglet est en arriere-plan, et la terrasse ne serait jamais posee.
