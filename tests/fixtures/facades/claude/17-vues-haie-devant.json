@@ -1,0 +1,51 @@
+{
+ "nom": "17-vues-haie-devant",
+ "note": "Réponses SIMULÉES (pas celles de Claude) : erreurs typiques imitées de façon déterministe, pour mesurer le recalage des graines. Écrites par .claude/skills/facades/scripts/simuler-claude.ts.",
+ "ouverturesPlan": [
+  {
+   "x": 0.65,
+   "y": 0,
+   "l": 2.15,
+   "h": 2.25
+  },
+  {
+   "x": 1.6,
+   "y": 3.6,
+   "l": 1.2,
+   "h": 1.34
+  },
+  {
+   "x": 5.01,
+   "y": 0.9,
+   "l": 1.19,
+   "h": 1.35
+  },
+  {
+   "x": 5.01,
+   "y": 3.6,
+   "l": 1.19,
+   "h": 1.34
+  },
+  {
+   "x": 7.59,
+   "y": 0,
+   "l": 0.97,
+   "h": 2.17
+  },
+  {
+   "x": 7.61,
+   "y": 3.6,
+   "l": 1.2,
+   "h": 1.34
+  }
+ ],
+ "photo": {
+  "largeur": 1280,
+  "hauteur": 960
+ },
+ "reponses": [
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":2,"ligne":2.4},"hautDroit":{"colonne":8,"ligne":2.1},"basDroit":{"colonne":8.6,"ligne":7.3},"basGauche":{"colonne":2,"ligne":7}},"ouvertures":[{"indices":[{"image":2,"vu":"pas une baie : vegetation"}],"numero":1,"decision":"retirer","raison":"vegetation","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":2,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[],"numero":5,"decision":"indetermine","raison":"sans-objet","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":6,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[{"indices":[{"image":2,"vu":"fenetre non encadrée"}],"type":"fenetre","x":1.61,"y":0.75,"l":1.16,"h":1.66}],"confiance":"moyenne"},
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":2.3,"ligne":2.2},"hautDroit":{"colonne":8.1,"ligne":2.3},"basDroit":{"colonne":8.1,"ligne":7.4},"basGauche":{"colonne":1.9,"ligne":7.3}},"ouvertures":[{"indices":[{"image":2,"vu":"pas une baie : vegetation"}],"numero":1,"decision":"retirer","raison":"vegetation","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":2,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"porte vue"}],"numero":5,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":6,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[{"indices":[{"image":2,"vu":"fenetre non encadrée"}],"type":"fenetre","x":1.47,"y":0.81,"l":1.27,"h":1.33}],"confiance":"moyenne"},
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":2.1,"ligne":2.5},"hautDroit":{"colonne":8.2,"ligne":2},"basDroit":{"colonne":8.7,"ligne":7.6},"basGauche":{"colonne":1.9,"ligne":7.2}},"ouvertures":[{"indices":[{"image":2,"vu":"pas une baie : vegetation"}],"numero":1,"decision":"retirer","raison":"vegetation","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":2,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[],"numero":5,"decision":"indetermine","raison":"sans-objet","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":6,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[{"indices":[{"image":2,"vu":"fenetre non encadrée"}],"type":"fenetre","x":1.7,"y":0.79,"l":1.06,"h":1.42}],"confiance":"moyenne"}
+ ]
+}

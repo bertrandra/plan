@@ -12,6 +12,7 @@
 import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from './propositions.js';
+import type { OuvertureFacade } from './types.js';
 
 /** La version de la capture ecrite : une capture d'une version inconnue n'est pas reprise. */
 export const VERSION_CAPTURE_PARCELLE = 1;
@@ -126,8 +127,11 @@ export interface BatchAnalyse {
   creeLe: string;
   /** Ce qui a ete envoye : les photos de la capture a ce moment-la ; un changement relance l'analyse. */
   signature: string;
-  /** L'identifiant de requete -> la cle du batiment et la passe. */
-  requetes: Record<string, { cle: string; passe: number }>;
+  /**
+   * L'identifiant de requete -> la cle du batiment et la passe ; pour le renfort d'une facade
+   * (MD/spec-facades-calage-detection.md §12 bis, lot L18), aussi son cote et l'usage.
+   */
+  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'renfort' }>;
   /** Les etiquettes des images envoyees, par batiment, dans l'ordre : les indices de Claude s'y referent. */
   etiquettes: Record<string, EtiquetteImage[]>;
 }
@@ -146,6 +150,24 @@ export interface ResultatsAnalyse {
   prompt: number;
   /** Par cle du batiment, les reponses des passes reussies (les autres sont absentes). */
   parBatiment: Record<string, unknown[]>;
+  /**
+   * Le renfort de Claude sur chaque facade (lot L18), par `cle#cote` : ses graines deja recalees sur
+   * l'elevation de la facade. Calcule une fois, a la lecture des resultats : le recalage lit l'image.
+   */
+  renfort?: Record<string, RenfortFacadeCapture>;
+}
+
+/** Ce que le renfort de Claude a fait des ouvertures d'une facade, pret a proposer (F§12 bis). */
+export interface RenfortFacadeCapture {
+  /** Les passes lues. */
+  passes: number;
+  /** Les ouvertures proposees cochees, puis celles laissees en pointille (decochees). */
+  ouvertures: OuvertureFacade[];
+  decochees: OuvertureFacade[];
+  /** Les compteurs de facade/renfortRecalage.ts (graines, pleines, rejetees, retirees…). */
+  bilan: Record<string, number>;
+  /** Le bilan en une phrase ; null si Claude n'a rien change. */
+  resume: string | null;
 }
 
 export interface AnalyseCapture {

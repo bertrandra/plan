@@ -22,7 +22,7 @@ const cible = resolve(racine, 'buildsg');
 // Ce que `vite build` lit, et rien d'autre : pas de tests, pas de documentation.
 // `public/` porte le formulaire cerfa de la declaration prealable, que Vite recopie dans `dist/`.
 // Le prompt, le schema et les tarifs de l'analyse par Claude : analyseAdmin.mjs les lit dans deploy/.
-const COPIES = ['src', 'public', 'index.html', 'vite.config.ts', 'tsconfig.json', 'deploy/htaccess.template', 'deploy/scripts-page.mjs', 'deploy/prompt-analyse.md', 'deploy/schema-analyse.json', 'deploy/claude-tarifs.json'];
+const COPIES = ['src', 'public', 'index.html', 'vite.config.ts', 'tsconfig.json', 'deploy/htaccess.template', 'deploy/scripts-page.mjs', 'deploy/prompt-analyse.md', 'deploy/schema-analyse.json', 'deploy/prompt-renfort.md', 'deploy/schema-renfort.json', 'deploy/claude-tarifs.json'];
 // Les seuls paquets que le build importe. `three` n'est importe qu'en types : la page le charge
 // depuis un CDN a l'execution. Tout va dans `dependencies` : un `npm install` de production
 // ignorerait des `devDependencies`, et le build ne se ferait pas.

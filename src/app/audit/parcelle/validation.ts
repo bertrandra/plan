@@ -13,7 +13,8 @@
 import { appliquerPropositions, jourIso, cleDeLaCible, type Proposition } from '../../../model/propositions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
+import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
@@ -49,7 +50,7 @@ export interface ContexteValidation {
   /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
   apresValidation?: () => void;
   /** Les reponses de Claude (app/audit/parcelle/analyseClaude.ts), quand il y en a : elles s'ajoutent aux mesures. */
-  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number };
+  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; renfort?(): Record<string, RenfortFacadeCapture> | null };
 }
 
 export interface Validation {
@@ -157,7 +158,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     const e = entrees();
     // Les mesures d'abord, puis Claude (spec-audit §14.2 : l'origine est dite sur chaque ligne).
     const reponses = ctx.analyse?.reponses();
-    const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : [])];
+    const renfort = ctx.analyse?.renfort?.();
+    const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])];
     memo = { cle, objets: ctx.etat.objects, propositions, defaut: cochesParDefaut(propositions) };
     return memo;
   }

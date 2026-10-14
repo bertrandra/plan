@@ -33,7 +33,7 @@ import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
 import type { MesureDistance } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
-import type { ObjetPolygone, Toit } from '../model/types.js';
+import type { GrilleFacade, ObjetPolygone, Toit } from '../model/types.js';
 import { fr } from './releve/commun.js';
 import { ChoixMur } from './releve/ChoixMur.js';
 import { ChoixMethode } from './releve/ChoixMethode.js';
@@ -47,6 +47,9 @@ import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
 import { useOuvertures } from './releve/ouvertures.js';
+import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
+import type { AideClaudeReleve } from '../app/renfortReleve.js';
+import type { Image } from '../facade/homographie.js';
 
 /**
  * Le morceau d'une prise : ses coins predits s'affichent tout de suite ; le calage fin les cherche
@@ -107,8 +110,15 @@ function CoinsDuParcours(p: {
   largeur: number;
   viser: (remplacer: number | null) => void;
   analyser: () => void;
+  aide: AideClaudeReleve | null;
+  hauteurEstimee: number;
+  etiquette: string;
 }) {
   const { morceaux, setMorceaux, courant } = p;
+  const m = morceaux[Math.min(courant, morceaux.length - 1)];
+  // Les coins d'un morceau d'une serie ne sont pas ceux du mur : Claude n'y est pas appele.
+  const entiere = morceaux.length === 1 || p.assemblage === 'vues';
+  const aide = m && entiere ? <AideDesCoins aide={p.aide} morceau={m} maj={(x) => setMorceaux((ms) => ms.map((y) => (y.prise === x.prise ? x : y)))} largeurM={p.largeur} hauteurM={p.hauteurEstimee} etiquette={p.etiquette} /> : null;
   return (
     <EtapeCoins
       morceaux={morceaux}
@@ -128,6 +138,7 @@ function CoinsDuParcours(p: {
       onReprendre={() => p.viser(courant)}
       onAjouter={() => p.viser(null)}
       onAnalyser={p.analyser}
+      aide={aide}
     />
   );
 }
@@ -152,6 +163,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const [toit, setToit] = useState<Toit | null>(null);
   const [appliquerToit, setAppliquerToit] = useState(true);
   const [avis, setAvis] = useState<string | null>(null);
+  // L'elevation redressee et la grille de l'analyse : ce que l'aide de Claude regarde a la verification.
+  const [extras, setExtras] = useState<{ elevation: Image; grille: GrilleFacade | null } | null>(null);
   const facade = facades.find((f) => f.cote === cote) || null;
   // Ce que la photo doit cadrer en hauteur : l'egout et, sur un pignon du toit connu, son triangle.
   const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.toit, facade.cote) : hauteurEstimee;
@@ -185,6 +198,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       setHauteurMur(r.hauteur);
       setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage) });
       ouv.poser(r);
+      setExtras({ elevation: r.elevation, grille: r.grille });
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
       // par defaut (cadastre, saisie, releve precedent). Decocher la case garde l'ancien.
@@ -269,10 +283,12 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       )}
       {etape === 'coins' && morceaux.length > 0 && facade && (
         <CoinsDuParcours morceaux={morceaux} setMorceaux={setMorceaux} courant={courant} setCourant={setCourant} assemblage={assemblage} changerAssemblage={changerAssemblage}
-          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} />
+          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} aide={releve.aide()} hauteurEstimee={hauteurEstimee} etiquette={facade.orientation.toLowerCase()} />
       )}
       {etape === 'analyse' && <EtapeAnalyse vues={assemblage === 'vues' && morceaux.length > 1} />}
-      {etape === 'resultat' && verification && <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} />}
+      {etape === 'resultat' && verification && facade && (
+        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDesOuvertures aide={releve.aide()} ouv={ouv} morceau={morceaux.length === 1 ? morceaux[0] : undefined} elevation={extras?.elevation ?? null} largeurM={facade.largeur} hauteurM={hauteurMur} hauteurMesuree={verification.hauteurMesuree} couverture={verification.resultat.couverture} grille={extras?.grille ?? null} etiquette={facade.orientation.toLowerCase()} />} />
+      )}
     </div>
   );
 }

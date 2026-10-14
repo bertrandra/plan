@@ -6,6 +6,7 @@
 //   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
 //   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
+//   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
@@ -38,6 +39,14 @@ export const VERSION_API = '2023-06-01';
 export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat'];
 const MODELE_PAR_USAGE = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5' };
+/**
+ * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
+ * siens ; les autres usages lisent ceux de l'analyse d'une maison.
+ */
+export const FICHIERS_PAR_USAGE = Object.freeze({ renfort: ['prompt-renfort.md', 'schema-renfort.json'] });
+const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
+/** Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus. */
+export const REQUETES_IMMEDIATES = 3;
 /** Assez pour la reflexion a l'effort `low` et le JSON avec indices (~1 500 attendus, 14.4). */
 export const MAX_TOKENS = 8000;
 export const EFFORT = 'low';
@@ -180,7 +189,12 @@ export function verifierDemande(d, plafonds) {
     if (images > IMAGES_PAR_REQUETE) throw refus('Trop d’images dans une requête (' + IMAGES_PAR_REQUETE + ' au plus).');
     const facades = r.facades === undefined ? 0 : r.facades;
     if (!Number.isInteger(facades) || facades < 0 || facades > FACADES_MAX) throw refus('Nombre de façades invalide.');
-    return { id: r.id, passe, images, facades, contenu };
+    // Une requete peut porter son usage (le renfort d'une facade dans le batch de l'analyse) : son
+    // prompt, son schema et son modele sont alors les siens.
+    const usageR = r.usage === undefined ? usage : r.usage;
+    if (!USAGES.includes(usageR)) throw refus('Usage inconnu : ' + String(usageR) + '.');
+    const modeleR = d.modele === undefined ? MODELE_PAR_USAGE[usageR] : modele;
+    return { id: r.id, passe, images, facades, usage: usageR, modele: modeleR, contenu };
   });
   return { ...meta, usage, modele, requetes };
 }
@@ -404,10 +418,67 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     return texte.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } });
   }
 
-  function promptEtSchema() {
-    const prompt = lirePrompt(fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8'));
-    const s = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-analyse.json'), 'utf8'));
+  function promptEtSchema(usage = 'analyse') {
+    const [fPrompt, fSchema] = FICHIERS_PAR_USAGE[usage] || FICHIERS_DEFAUT;
+    const prompt = lirePrompt(fs.readFileSync(path.join(deploy, fPrompt), 'utf8'));
+    const s = JSON.parse(fs.readFileSync(path.join(deploy, fSchema), 'utf8'));
     return { prompt, schema: { version: s.version, schema: s.schema } };
+  }
+  /** Le prompt et le schema de chaque usage des requetes, lus une fois. */
+  function promptsDesRequetes(requetes) {
+    const par = {};
+    for (const r of requetes) if (!par[r.usage]) par[r.usage] = promptEtSchema(r.usage);
+    return par;
+  }
+
+  /**
+   * L'appel immediat (le bouton « Demander de l'aide » du releve, spec facades 12 bis) : les memes
+   * plafonds qu'un batch, l'API Messages au tarif normal (sans la remise Batch), en parallele, une
+   * ligne de journal par requete, et la reponse au format des resultats d'un batch. Rend
+   * `{refus: [statut, corps]}` au plafond.
+   */
+  async function appelImmediat(demande, organisation, admin) {
+    const t = iso();
+    const p = plafonds();
+    const identite = { organisation, projet: demande.projet ?? (admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit };
+    const prompts = promptsDesRequetes(demande.requetes);
+    const premier = demande.requetes[0];
+    const p0 = prompts[premier.usage];
+    const ouverts = await engagements(organisation);
+    const fait = depenses(lireJournal(t), organisation, t.slice(0, 10));
+    const engage = (ouverts + demande.requetes.length) * p.estimationRequete;
+    const plafond = plafondDe(p, organisation);
+    if (fait.jour + engage > plafond.jour || fait.mois + engage > plafond.mois) {
+      journaliser([{ t, ...identite, usage: demande.usage, modele: premier.modele, batch: false, idBatch: null, requete: null, passe: null, tokens: tokensDeUsage(null),
+        images: demande.requetes.reduce((s, r) => s + r.images, 0), facades: 0, cout: 0, tarif: null, statut: 'plafond', arret: null, prompt: p0.prompt.version, schema: p0.schema.version }]);
+      return { refus: [429, { error: { code: 'BUDGET_EXCEEDED', message: 'Plafond de l’analyse atteint pour aujourd’hui ou ce mois-ci.' }, depense: fait, engage, plafond }] };
+    }
+    const lignesApi = await Promise.all(demande.requetes.map(async (r) => {
+      const { prompt, schema } = prompts[r.usage];
+      try {
+        const x = await anthropic('POST', '/v1/messages', parametresRequete(r.modele, prompt.texte, schema.schema, r.contenu));
+        let m = null;
+        try { m = JSON.parse(x.texte); } catch { m = null; }
+        if (x.statut === 200 && m && typeof m === 'object') return { custom_id: r.id, result: { type: 'succeeded', message: m } };
+        const e = m && m.error && typeof m.error === 'object' ? m.error : { type: 'http-' + x.statut, message: x.texte.slice(0, 200) };
+        return { custom_id: r.id, result: { type: 'errored', error: { type: 'error', error: e } } };
+      } catch (e) {
+        return { custom_id: r.id, result: { type: 'errored', error: { type: 'error', error: { type: 'reseau', message: String(e && e.message || e).slice(0, 200) } } } };
+      }
+    }));
+    const table = tarifs();
+    const journal = [];
+    const resultats = demande.requetes.map((r, i) => {
+      const x = lireResultat(lignesApi[i]);
+      const ligneTarif = tarifEnVigueur(table, r.modele, t.slice(0, 10));
+      const cout = coutAppel(x.tokens, ligneTarif, false);
+      const { prompt, schema } = prompts[r.usage];
+      journal.push({ t, ...identite, usage: r.usage, modele: r.modele, batch: false, idBatch: null, requete: r.id, passe: r.passe, tokens: x.tokens, images: r.images, facades: r.facades,
+        cout, tarif: ligneTarif ? ligneTarif.depuis : null, statut: x.statut, arret: x.arret, prompt: prompt.version, schema: schema.version });
+      return { id: r.id, statut: x.statut, arret: x.arret, tokens: x.tokens, sortie: x.sortie, erreur: x.erreur, passe: r.passe, usage: r.usage, cout };
+    });
+    journaliser(journal);
+    return { reponse: { modele: premier.modele, prompt: p0.prompt.version, schema: p0.schema.version, resultats } };
   }
 
   async function anthropic(methode, chemin, corps) {
@@ -458,21 +529,24 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     if (r.statut !== 200) return { erreur: r };
     const lus = r.texte.split('\n').filter((l) => l.trim()).map((l) => lireResultat(JSON.parse(l)));
     const t = typeof fiche.finLe === 'string' && !Number.isNaN(Date.parse(fiche.finLe)) ? new Date(fiche.finLe).toISOString() : iso();
-    const ligneTarif = tarifEnVigueur(tarifs(), fiche.modele, t.slice(0, 10));
-    const sortie = lus.map((x) => {
+    const table = tarifs();
+    // Une requete du renfort dans le batch de l'analyse a son usage, son modele, son prompt et son schema.
+    const detail = lus.map((x) => {
       const req = fiche.requetes[x.id] || { passe: null, images: 0, facades: 0 };
-      return { ...x, passe: req.passe, cout: coutAppel(x.tokens, ligneTarif, true) };
+      const modele = req.modele || fiche.modele;
+      const ligneTarif = tarifEnVigueur(table, modele, t.slice(0, 10));
+      return { x: { ...x, passe: req.passe, usage: req.usage || fiche.usage, cout: coutAppel(x.tokens, ligneTarif, true) }, req, modele, tarif: ligneTarif ? ligneTarif.depuis : null };
     });
     if (!fiche.journalise) {
-      journaliser(sortie.map((x) => ({
+      journaliser(detail.map(({ x, req, modele, tarif }) => ({
         t, organisation: fiche.organisation, projet: fiche.projet, idu: fiche.idu, adresse: fiche.adresse, audit: fiche.audit,
-        usage: fiche.usage, modele: fiche.modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
-        tokens: x.tokens, images: (fiche.requetes[x.id] || {}).images ?? 0, facades: (fiche.requetes[x.id] || {}).facades ?? 0, cout: x.cout, tarif: ligneTarif ? ligneTarif.depuis : null,
-        statut: x.statut, arret: x.arret, prompt: fiche.promptVersion, schema: fiche.schemaVersion
+        usage: x.usage, modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
+        tokens: x.tokens, images: req.images ?? 0, facades: req.facades ?? 0, cout: x.cout, tarif,
+        statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion
       })));
       ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });
     }
-    return { sortie };
+    return { sortie: detail.map((d) => d.x) };
   }
 
   /** Les batches encore ouverts d'une organisation : ceux finis sont journalises, les autres comptes. */
@@ -612,7 +686,10 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       if (chemin === 'etat') {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const { prompt, schema } = promptEtSchema();
-        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT, organisation, admin: qui.admin });
+        // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
+        let renfort = null;
+        try { const r = promptEtSchema('renfort'); renfort = { prompt: r.prompt.version, schema: r.schema.version }; } catch { renfort = null; }
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin });
       }
 
       if (chemin === '@consommation') {
@@ -658,7 +735,8 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p);
         const t = iso();
         const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
-        const { prompt, schema } = promptEtSchema();
+        const { prompt, schema } = promptEtSchema(demande.usage);
+        const prompts = promptsDesRequetes(demande.requetes);
         const images = demande.requetes.reduce((s, r) => s + r.images, 0);
         // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
         const facades = demande.requetes.reduce((s, r) => s + ((r.passe ?? 1) === 1 ? r.facades : 0), 0);
@@ -676,7 +754,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
           return json(429, { error: { code: 'BUDGET_EXCEEDED', message: 'Plafond de l’analyse atteint pour aujourd’hui ou ce mois-ci.' }, depense: fait, engage, plafond });
         }
 
-        const corps = { requests: demande.requetes.map((r) => ({ custom_id: r.id, params: parametresRequete(demande.modele, prompt.texte, schema.schema, r.contenu) })) };
+        const corps = { requests: demande.requetes.map((r) => ({ custom_id: r.id, params: parametresRequete(r.modele, prompts[r.usage].prompt.texte, prompts[r.usage].schema.schema, r.contenu) })) };
         let r;
         try { r = await anthropic('POST', '/v1/messages/batches', corps); } catch (e) {
           journaliser([ligneVide('echoue', { erreur: 'reseau' })]);
@@ -690,9 +768,21 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         if (!b || typeof b.id !== 'string' || !ID_BATCH.test(b.id)) return erreur(502, 'UPSTREAM', 'Réponse d’Anthropic illisible.');
         ecrireJson(fBatch(b.id), {
           id: b.id, creeLe: t, ...identite, promptVersion: prompt.version, schemaVersion: schema.version,
-          requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images, facades: x.facades }])), etat: b.processing_status, journalise: false
+          requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images, facades: x.facades, usage: x.usage, modele: x.modele, prompt: prompts[x.usage].prompt.version, schema: prompts[x.usage].schema.version }])),
+          etat: b.processing_status, journalise: false
         });
         return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version });
+      }
+
+      if (chemin === 'messages') {
+        if (methode !== 'POST') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        if (!avecCle) return sansCle();
+        const p = plafonds();
+        const d = await lireCorps(req, TAILLE_MAX);
+        if (d && typeof d === 'object' && !Array.isArray(d) && d.usage === undefined) d.usage = 'renfort';
+        const demande = verifierDemande(d, { ...p, requetesParBatch: Math.min(REQUETES_IMMEDIATES, p.requetesParBatch) });
+        const r = await appelImmediat(demande, organisation, qui.admin);
+        return r.refus ? json(...r.refus) : json(200, r.reponse);
       }
 
       const mb = /^batches\/([^/]+)(\/resultats)?$/.exec(chemin);

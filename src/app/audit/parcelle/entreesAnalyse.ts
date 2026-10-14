@@ -17,7 +17,8 @@ import { hauteurDe } from '../../../model/propositions.js';
 import { resumePartie, partieVue } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { BlocAnalyse, DemandeAnalyse, RequeteAnalyse } from '../../../io/analyseClaude.js';
-import type { EtiquetteImage } from '../../../model/auditParcelle.js';
+import type { BatchAnalyse, EtiquetteImage } from '../../../model/auditParcelle.js';
+import { requetesRenfortDuBatiment, type FabriqueImagesRenfortAudit } from './entreesRenfort.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
@@ -34,6 +35,8 @@ export interface FabriqueImages {
   ortho(contour: readonly PtBrut[]): Promise<ImagePreparee | null>;
   /** La carte des hauteurs LiDAR ; null sans mesure. */
   carte(o: ObjetPlan, contour: readonly PtBrut[]): ImagePreparee | null;
+  /** Les images du renfort des facades (lot L18) ; absentes, le batch ne porte que l'analyse des maisons. */
+  renfort?: FabriqueImagesRenfortAudit;
 }
 
 /** Ce qu'il faut pour un batiment : la requete (une par passe), le nombre de facades et les etiquettes des images. */
@@ -171,13 +174,19 @@ export async function entreeDuBatiment(o: ObjetPlan, b: LigneBatiment, e: Entree
 export interface IdentiteAnalyse { projet: string | null; idu: string | null; adresse: string | null; audit: string }
 
 /** Un identifiant de requete admis par le serveur (`[A-Za-z0-9_-]`) : le rang du batiment, pas sa cle. */
+/**
+ * Les requetes d'un batch au plus, comme le plafond par defaut du serveur (`requetesParBatch`) : le
+ * renfort des facades ne prend que la place que l'analyse des maisons laisse, il ne la refuse jamais.
+ */
+export const REQUETES_PAR_BATCH = 60;
+
 export const idRequete = (rang: number, passe: number): string => 'b' + rang + '-p' + passe;
 
 /**
  * La demande entiere : chaque batiment photographie, en trois passes identiques. Rend aussi de quoi
  * relire les resultats : quelle requete est quel batiment, et les etiquettes de ses images.
  */
-export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImages, identite: IdentiteAnalyse): Promise<{ demande: DemandeAnalyse; requetes: Record<string, { cle: string; passe: number }>; etiquettes: Record<string, EtiquetteImage[]> } | null> {
+export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImages, identite: IdentiteAnalyse): Promise<{ demande: DemandeAnalyse; requetes: BatchAnalyse['requetes']; etiquettes: Record<string, EtiquetteImage[]> } | null> {
   const parCle = new Map(e.objets.map((o) => [o.key, o]));
   const entrees: EntreeBatiment[] = [];
   for (const b of e.liste.batiments) {
@@ -187,7 +196,7 @@ export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImage
     if (x) entrees.push(x);
   }
   if (!entrees.length) return null;
-  const requetes: Record<string, { cle: string; passe: number }> = {};
+  const requetes: BatchAnalyse['requetes'] = {};
   const etiquettes: Record<string, EtiquetteImage[]> = {};
   const liste: RequeteAnalyse[] = [];
   entrees.forEach((x, rang) => {
@@ -198,5 +207,14 @@ export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImage
       liste.push({ id, passe: passe as 1 | 2 | 3, facades: x.facades, contenu: x.contenu });
     }
   });
+  // Le renfort des facades part dans le meme batch (spec facades §12 bis) : aucun delai de plus.
+  if (fab.renfort) {
+    for (const [rang, x] of entrees.entries()) {
+      const nom = e.liste.batiments.find((b) => b.cle === x.cle)?.nom ?? x.cle;
+      const r = await requetesRenfortDuBatiment(e, x.cle, nom, rang, fab.renfort, REQUETES_PAR_BATCH - liste.length);
+      liste.push(...r.requetes);
+      Object.assign(requetes, r.parId);
+    }
+  }
   return { demande: { ...identite, usage: 'analyse', requetes: liste }, requetes, etiquettes };
 }

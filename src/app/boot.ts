@@ -81,6 +81,7 @@ import { monterZones } from '../zones/monter.js';
 import { dessinerReleves } from '../render/releve.js';
 import { dessinerCloture } from '../render/cloture.js';
 import { creerServiceReleve } from './releve.js';
+import { aideReleveDuNavigateur } from './renfortReleve.js';
 import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
@@ -510,7 +511,9 @@ function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<typeof char
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
   const pointage = { courant: () => mesure.pointage, arreter: () => resultats.arreterPointage() };
   // Le releve de facade : le parcours de prise de vue (zones/Releve.tsx) et ses deux commandes.
-  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf });
+  // L'aide de Claude au releve (lot L18) : le meme client, la meme identite et le meme accord par projet que l'audit.
+  const aide = aideReleveDuNavigateur(analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null));
+  const releve = creerServiceReleve({ etat, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene, elevationOf, aide });
   brancherFacade({ etat, releve, pushHistory: p.pushHistory, render: p.render, buildThreeScene: vues.buildThreeScene }, commandes);
   monterZones({ magasin, commandes, projet, explorateur, inspecteur, tiroir, pointage, resultats, vues3d: vues.vues3d, releve });
   return { explorateur, inspecteur, projet };

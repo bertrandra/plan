@@ -1,6 +1,6 @@
 // Le releve de facade (zones/Releve.tsx), etape 5 : verifier, corriger, valider.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
 import { classer } from '../../facade/detection.js';
@@ -308,7 +308,7 @@ function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; lar
   );
 }
 
-export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: () => void; onValider: () => void }) {
+export function EtapeResultat({ v, onRevoir, onValider, aide = null }: { v: Verification; onRevoir: () => void; onValider: () => void; aide?: ReactNode }) {
   const { resultat, largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
   const precision = textePrecision(pxParMDuCalage(resultat.calage));
   // Corrigee au doigt (cote, type), l'ouverture est verifiee : elle quitte le pointille.
@@ -325,6 +325,7 @@ export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onR
         <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
           devinees={v.devinees} garder={v.garder} />
         <BarreOuvertures v={v} />
+        {aide}
         {precision && <p className="releveNote">{precision}</p>}
         {choisie !== null && ouvertures[choisie] && (
           <FicheOuverture

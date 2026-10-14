@@ -34,6 +34,7 @@ function fauxClient(reponses: (id: string) => unknown = () => reponse()) {
       const resultats: ResultatBatch[] = d.requetes.map((r) => ({ id: r.id, statut: 'reussi', passe: r.passe, sortie: reponses(r.id), erreur: null }));
       return { batch: { id, etat: 'ended', compte: null }, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats };
     },
+    immediat: async () => { throw new EchecAnalyse('serveur', 'pas d appel immediat dans l audit'); },
   };
   return { client, demandes, etat };
 }

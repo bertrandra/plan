@@ -19,6 +19,12 @@ export type BlocAnalyse =
 export interface RequeteAnalyse {
   id: string;
   passe: 1 | 2 | 3;
+  /**
+   * L'usage de cette requete, quand il n'est pas celui de la demande : le renfort d'une facade
+   * (MD/spec-facades-calage-detection.md §12 bis, lot L18) part dans le batch de l'analyse avec son
+   * propre prompt et son propre schema, choisis par le serveur.
+   */
+  usage?: UsageAnalyse;
   /** Les facades que la requete couvre, pour le journal (cout par facade). */
   facades: number;
   contenu: BlocAnalyse[];
@@ -29,9 +35,12 @@ export interface DemandeAnalyse {
   idu: string | null;
   adresse: string | null;
   audit: string;
-  usage: 'analyse';
+  usage: UsageAnalyse;
   requetes: RequeteAnalyse[];
 }
+
+/** Les usages que la page demande : l'analyse d'une maison (batch), le renfort d'une facade (batch ou appel immediat). */
+export type UsageAnalyse = 'analyse' | 'renfort';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
@@ -52,6 +61,8 @@ export interface ResultatBatch {
   id: string;
   statut: 'reussi' | 'echoue' | 'expire' | 'annule';
   passe: number | null;
+  /** L'usage de la requete (absent d'un serveur d'avant le lot L18 : `analyse`). */
+  usage?: string;
   sortie: unknown;
   erreur: { type: string; message: string } | null;
 }
@@ -77,6 +88,18 @@ export interface ClientAnalyse {
   etatBatch(id: string): Promise<VueBatch>;
   /** 409 (`pasPret`) tant que le batch n'est pas termine. */
   resultats(id: string): Promise<ResultatsBatch>;
+  /**
+   * L'appel immediat (le bouton « Demander de l'aide » du releve, lot L18) : trois requetes au plus,
+   * au tarif normal ; les resultats arrivent dans la reponse.
+   */
+  immediat(d: DemandeAnalyse): Promise<ResultatsImmediats>;
+}
+
+export interface ResultatsImmediats {
+  modele: string;
+  prompt: number;
+  schema: number;
+  resultats: ResultatBatch[];
 }
 
 const MOTIFS: Record<number, MotifAnalyse> = { 401: 'refuse', 403: 'refuse', 404: 'introuvable', 409: 'pasPret', 429: 'plafond', 503: 'nonConfigure' };
@@ -115,5 +138,6 @@ export function creerClientAnalyse(f: Fetch, jeton: () => string | null): Client
     creerBatch: (d) => appeler('/batches', 'envoi de l’analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),
     etatBatch: (id) => appeler('/batches/' + encodeURIComponent(id), 'suivi de l’analyse'),
     resultats: (id) => appeler('/batches/' + encodeURIComponent(id) + '/resultats', 'résultats de l’analyse'),
+    immediat: (d) => appeler('/messages', 'demande d’aide à Claude', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),
   };
 }

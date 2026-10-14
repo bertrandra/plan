@@ -55,6 +55,10 @@ export const USAGES: string[];
 export const MAX_TOKENS: number;
 export const EFFORT: string;
 export const PLAFONDS_DEFAUT: Readonly<Plafonds>;
+/** Le prompt et le schema de chaque usage qui a les siens (le renfort, lot L18). */
+export const FICHIERS_PAR_USAGE: Readonly<Record<string, [string, string]>>;
+/** Les requetes d'un appel immediat, au plus. */
+export const REQUETES_IMMEDIATES: number;
 
 export function lirePrompt(texte: string): { version: number; texte: string };
 export function tokensDeUsage(usage: unknown): Tokens;
@@ -65,7 +69,7 @@ export function plafondDe(plafonds: Plafonds, organisation: string): { jour: num
 export function verifierDemande(d: unknown, plafonds: Plafonds): {
   projet: string | null; idu: string | null; adresse: string | null; audit: string | null;
   usage: string; modele: string;
-  requetes: { id: string; passe: number | null; images: number; facades: number; contenu: unknown[] }[];
+  requetes: { id: string; passe: number | null; images: number; facades: number; usage: string; modele: string; contenu: unknown[] }[];
 };
 export function parametresRequete(modele: string, prompt: string, schema: unknown, contenu: unknown[]): Record<string, unknown>;
 export function verifierTarifs(d: unknown): Tarifs;

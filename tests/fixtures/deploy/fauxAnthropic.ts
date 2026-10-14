@@ -23,6 +23,10 @@ export interface FauxAnthropic {
   /** Le statut de la prochaine creation (200 par defaut) ; 400 pour une erreur. */
   statutCreation: number;
   finLe: string;
+  /** Les corps recus par l'API Messages (appel immediat, lot L18), dans l'ordre. */
+  messages: Record<string, unknown>[];
+  /** Ce que l'API Messages rend au `n`-ieme appel (a partir de 0) : un message reussi par defaut. */
+  reponseMessage: (corps: Record<string, unknown>, n: number) => { statut: number; corps: object };
   terminer(id?: string): void;
   fermer(): Promise<void>;
 }
@@ -42,6 +46,20 @@ export function reussi(customId: string, usage: Record<string, unknown>, sortie:
   };
 }
 
+/** Une sortie minimale du renfort (deploy/schema-renfort.json) : un coin vu, un avis, une baie manquee. */
+export const SORTIE_RENFORT = {
+  mur: { indices: [], vu: 'attendu' },
+  coins: { indices: [], hautGauche: { colonne: 1.5, ligne: 2 }, hautDroit: 'indetermine', basDroit: 'indetermine', basGauche: 'indetermine' },
+  ouvertures: [{ indices: [], numero: 1, decision: 'garder', raison: 'sans-objet', type: 'indetermine', volets: 'aucun', coffre: 'non', balcon: 'non', forme: 'rectangulaire' }],
+  manquees: [{ indices: [{ image: 2, vu: 'fenêtre derrière la haie' }], type: 'fenetre', x: 1, y: 1, l: 1.2, h: 1.3 }],
+  confiance: 'moyenne'
+};
+
+/** Un message de l'API Messages, tel que l'appel immediat le recoit. */
+export function messageReussi(usage: Record<string, unknown>, sortie: object): object {
+  return { id: 'msg_immediat', type: 'message', role: 'assistant', model: 'claude-haiku-5-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(sortie) }], usage };
+}
+
 export function demarrerFauxAnthropic(reponse: Reponse): Promise<FauxAnthropic> {
   const faux: FauxAnthropic = {
     url: '',
@@ -49,6 +67,8 @@ export function demarrerFauxAnthropic(reponse: Reponse): Promise<FauxAnthropic> 
     entetes: [],
     statutCreation: 200,
     finLe: '2026-10-14T10:00:00Z',
+    messages: [],
+    reponseMessage: () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_RENFORT) }),
     terminer(id) { for (const b of faux.batches) if (!id || b.id === id) b.etat = 'ended'; },
     fermer: () => new Promise((ok) => serveur.close(() => ok()))
   };
@@ -65,6 +85,12 @@ export function demarrerFauxAnthropic(reponse: Reponse): Promise<FauxAnthropic> 
     req.on('data', (m: Buffer) => morceaux.push(m));
     req.on('end', () => {
       const url = req.url || '';
+      if (req.method === 'POST' && url === '/v1/messages') {
+        const corps = JSON.parse(Buffer.concat(morceaux).toString('utf8')) as Record<string, unknown>;
+        faux.messages.push(corps);
+        const r = faux.reponseMessage(corps, faux.messages.length - 1);
+        return json(r.statut, r.corps);
+      }
       if (req.method === 'POST' && url === '/v1/messages/batches') {
         if (faux.statutCreation !== 200) return json(faux.statutCreation, { type: 'error', error: { type: 'invalid_request_error', message: 'requete refusee' } });
         const b: BatchFaux = { id: 'msgbatch_' + (faux.batches.length + 1), corps: JSON.parse(Buffer.concat(morceaux).toString('utf8')), etat: 'in_progress' };
