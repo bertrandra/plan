@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Roadmap du réalisme 3D, étape R5 bis : orthophoto haute résolution.**
+  - Le point de départ : la BD ORTHO, prise à environ 20 cm par pixel et agrandie au zoom 20.
+  - Les sources plus fines : orthophoto haute résolution de l'IGN, PCRS image des collectivités.
+  - Ce qui serait fait, et huit questions de pertinence à trancher avant de décider (O1 à O8) :
+    couverture, gain visible, date, calage, coût, apport aux lectures automatiques, licence,
+    exports.
+  - Une nouvelle décision, V7.
+
 - **Roadmap du réalisme de la Vue 3D** (`MD/roadmap-realisme-3d.md`), en sept étapes de R0 à R6 :
   - R0 : banc visuel et réglage Qualité ;
   - R1 : lumière (tone mapping, ciel, ombres, occlusion, brume) ;
