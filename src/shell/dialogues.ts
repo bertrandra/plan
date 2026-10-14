@@ -42,6 +42,12 @@ export interface DialogueChoix {
   texte: string;
   /** Une liste courte sous le texte (ce qu'apporte une version, par exemple). */
   points?: string[];
+  /**
+   * Une case a cocher sous la liste, pour une option de la reponse principale (« Recalculer aussi… »).
+   * Celui qui pose la question garde l'etat : `changer` lui dit chaque bascule, `cochee` est l'etat
+   * de depart. La zone la dessine et n'en sait pas plus.
+   */
+  case?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void };
   principal: { libelle: string; executer: () => void };
   secondaire: { libelle: string; executer: () => void };
   /**

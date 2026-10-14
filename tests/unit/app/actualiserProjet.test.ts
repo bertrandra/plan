@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { valeursParDefaut, estImporte } from '../../../src/app/valeursParDefaut.js';
-import { lancerActualisationProjet, POINTS_ACTUALISATION } from '../../../src/app/actualiserProjet.js';
+import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../src/app/actualiserProjet.js';
+import { dialogues } from '../../../src/shell/dialogues.js';
 import { actualisation, type ContexteActualisation } from '../../../src/app/actualisationIgn.js';
 import { APPARENCES_IGN, apparenceIgnParDefaut } from '../../../src/geo/cadastreObjets.js';
 import { serializeObjects } from '../../../src/io/serialisation.js';
@@ -159,5 +160,69 @@ describe('Actualiser le projet', () => {
 
   it('dit ce qu il fait avant de le faire', () => {
     expect(POINTS_ACTUALISATION.join(' ')).toMatch(/Supprimés puis recréés.*bâtiments de la parcelle.*Relu à l’IGN.*valeurs par défaut.*Conservés : le reste de ce que vous avez dessiné.*Ctrl\+Z/);
+    expect(pointsActualisation(0)).toBe(POINTS_ACTUALISATION);
+    expect(pointsActualisation(2).at(-2)).toBe(POINT_VERIFIES);
+    expect(pointsActualisation(2).at(-1)).toBe('Ctrl+Z rend le projet d’avant.');
+  });
+});
+
+// Le 100 % protege (lot L12, MD/spec-regles-toits.md §1, MD/spec-audit.md §14.5) : un batiment
+// verifie sur place n'est ni recree, ni relu, ni ramene aux valeurs par defaut - sauf si on le demande.
+describe('Actualiser le projet et les batiments verifies sur place', () => {
+  const relief: Relief = { source: 'lidar-hd', couche: 'l', dateLecture: '2026-10-11', origine: 'LiDAR HD', precision: 'p', systemeAltimetrique: 'NGF-IGN69', pas: 0.5, x0: 0.25, y0: 29.75, nx: 2, ny: 2, z: [2, 2, 2, 2], zRef: 2 };
+  const planVerifie = () => { const objets = plan(); objets.find(o => o.key === 'bati-bat1')!.verifieSurPlace = { date: '2026-10-13' }; return objets; };
+  const empreinte = (o: ObjetPlan | undefined) => JSON.stringify(serializeObjects(o ? [o] : []));
+
+  it('garde le batiment verifie tel quel, au bit pres, et ne le recree pas a cote', async () => {
+    service();
+    const objets = planVerifie();
+    const avant = empreinte(objets.find(o => o.key === 'bati-bat1'));
+    const ctx = contexte(objets, relief);
+    await lancerActualisationProjet(ctx);
+    const bati = ctx.etat.objects.find(o => o.key === 'bati-bat1');
+    // Ni valeurs par defaut, ni BD TOPO, ni LiDAR, ni couleurs : la maison verifiee est celle d'avant.
+    expect(empreinte(bati)).toBe(avant);
+    expect(bati?.elevation).toBe(6);
+    expect(bati?.couleurMurs).toEqual({ source: 'plan' });
+    // Le batiment frais BAT1 de la BD TOPO n'est pas ajoute a cote d'elle ; l'abri, lui, part comme avant.
+    expect(ctx.etat.objects.filter(o => o.fonction === 'batiment').map(o => o.key).sort()).toEqual(['bati-bat1', 'bati-v9']);
+    // La lecture LiDAR est appelee sans les batiments verifies.
+    expect((ctx.toitsLidar as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).toEqual({ verifies: 'garder' });
+    // Le reste du projet est bien actualise.
+    expect(ctx.etat.objects.find(o => o.key === 'parcelle')?.fill).toBe(APPARENCES_IGN.parcelle.fill);
+  });
+
+  it('le recalcule comme les autres quand on le demande', async () => {
+    service();
+    const ctx = contexte(planVerifie(), relief);
+    await lancerActualisationProjet(ctx, 'relire');
+    const bati = ctx.etat.objects.find(o => o.key === 'bati-bat1');
+    expect(bati?.elevation).toBe(7);
+    expect(bati?.verifieSurPlace).toBeUndefined();
+    expect(bati?.fill).toBe(APPARENCES_IGN.batimentPropriete.fill);
+    expect((ctx.toitsLidar as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).toEqual({ verifies: 'relire' });
+  });
+
+  it('pose la question avec une case decochee, qui relit les batiments verifies si on la coche', async () => {
+    service();
+    const ctx = contexte(planVerifie(), relief);
+    ouvrirActualisationProjet(ctx);
+    const d = dialogues.courant();
+    expect(d?.type).toBe('choix');
+    if (d?.type !== 'choix') return;
+    expect(d.points).toContain(POINT_VERIFIES);
+    expect(d.case).toMatchObject({ libelle: 'Recalculer aussi « Ma maison », vérifié sur place le 13/10/2026', cochee: false });
+    d.case?.changer(true);
+    dialogues.repondre();
+    for (let i = 0; i < 200 && !(ctx.toitsLidar as ReturnType<typeof vi.fn>).mock.calls.length; i++) await new Promise(r => setTimeout(r, 5));
+    expect((ctx.toitsLidar as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).toEqual({ verifies: 'relire' });
+    for (let i = 0; i < 200 && actualisation.enCours(); i++) await new Promise(r => setTimeout(r, 5));
+    // Sans batiment verifie : ni point de plus, ni case.
+    ouvrirActualisationProjet(contexte(plan(), relief));
+    const d2 = dialogues.courant();
+    expect(d2?.type === 'choix' && d2.case).toBeUndefined();
+    expect(d2?.type === 'choix' ? d2.points : []).toEqual(POINTS_ACTUALISATION);
+    dialogues.fermer();
+    expect(libelleCaseVerifies([{ name: 'A', verifieSurPlace: { date: '2026-10-13' } }, { name: 'B' }] as ObjetPlan[])).toBe('Recalculer aussi les 2 bâtiments vérifiés sur place');
   });
 });

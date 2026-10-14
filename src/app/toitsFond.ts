@@ -15,6 +15,11 @@
 // Un service muet n'use pas la file en vain : LOT_TOITS_FOND batiments d'affilee sans rien de lu font
 // attendre la suite, et apres quelques attentes d'affilee la lecture s'arrete jusqu'a la prochaine
 // ouverture (ou « Reprendre »). Sans dalle LiDAR sur le secteur, seules les couleurs se lisent.
+//
+// Un batiment verifie sur place (model/toitVerifie.ts, le 100 % de la parcelle du projet) n'est pas
+// recalcule par un changement de regle : sa copie est lue, comparee a ce qui est dans le plan, et seule
+// la marque de lecture s'ecrit. Le bilan dit si le nouveau calcul serait d'accord - c'est la mesure de
+// la regle, sans toucher au projet (MD/spec-regles-toits.md §1).
 
 import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
 import { dallesLidarSur } from '../geo/mnh.js';
@@ -27,6 +32,7 @@ import { aDesSommets } from '../model/formes.js';
 import { centroid } from '../geometry/basic.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import type { ProgressionToits } from '../core/lectureToits.js';
+import { estVerifieSurPlace, lectureDAccord } from '../model/toitVerifie.js';
 
 /** Combien de batiments lus par dessin : assez pour que le plan ne se redessine pas a chaque toit. */
 export const LOT_TOITS_FOND = 12;
@@ -98,8 +104,11 @@ function projecteurDuProjet(objets: ObjetPlan[]): ProjecteurLocal | null {
  */
 export const couleurALire = (o: { toit?: { couleur?: string } | null }): boolean => !!o.toit && !o.toit.couleur;
 
-/** La forme (LiDAR) ou la couleur (orthophoto) de ce batiment reste a lire. */
-const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o)) || couleurALire(o);
+/**
+ * La forme (LiDAR) ou la couleur (orthophoto) de ce batiment reste a lire. Un batiment verifie sur
+ * place ne se compare que sur la forme : sa couleur, validee, n'est pas relue.
+ */
+const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o)) || (!estVerifieSurPlace(o) && couleurALire(o));
 
 /**
  * Les batiments dont Plan choisit le toit, et ceux qui restent a lire - forme ou couleur - du plus
@@ -117,6 +126,8 @@ export function batimentsALire(objets: ObjetPlan[], lidar = true): { eligibles: 
 
 /** Ce que la lecture ecrit d'un batiment, et rien d'autre : son nom, ses couleurs choisies restent. */
 const CHAMPS_LUS = ['pts', 'toit', 'elevation', 'toitMesure', 'volumesToit', 'corpsToit', 'toitACheval', 'toitLidarLu'] as const;
+/** D'un batiment verifie sur place, la lecture n'ecrit que sa marque : le toit valide reste, au centimetre. */
+const CHAMPS_LUS_VERIFIE = ['toitLidarLu'] as const;
 
 /** L'empreinte de ce qui, change par l'utilisateur, rend une lecture caduque. */
 const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.toit ?? null]);
@@ -133,9 +144,10 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
   if (!o || empreinte(o) !== avant || !toitAAjuster(o as ObjetAToit)) return false;
   if (forme) {
     const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
-    for (const k of CHAMPS_LUS) cible[k] = source[k] === undefined ? null : source[k];
+    for (const k of estVerifieSurPlace(o) ? CHAMPS_LUS_VERIFIE : CHAMPS_LUS) cible[k] = source[k] === undefined ? null : source[k];
     return true;
   }
+  if (estVerifieSurPlace(o)) return false;
   if (!o.toit || !couleurALire(o) || !copie.toit) return false;
   o.toit = { ...o.toit, couleur: copie.toit.couleur as string, ...(copie.toit.origineCouleur ? { origineCouleur: copie.toit.origineCouleur } : {}) };
   return true;
@@ -145,11 +157,31 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
  * Ce qu'une lecture a fait, du premier batiment au dernier : les formes lues sur le LiDAR, les couleurs
  * des toits sur la photo aerienne, celles des murs sur les photos de rue.
  */
-export type BilanFond = BilanToitsLidar & { lus: number; couleurs: number; murs?: number };
+export type BilanFond = BilanToitsLidar & {
+  lus: number; couleurs: number; murs?: number;
+  /** Les batiments verifies sur place, gardes tels quels : combien le nouveau calcul confirme, combien il contredit. */
+  verifies?: { accord: number; desaccord: number };
+};
 const vide = (): BilanFond => ({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false, lus: 0, couleurs: 0, murs: 0 });
-function ajouter(c: BilanFond, b: BilanToitsLidar | null, lus: number, couleurs: number): void {
+function ajouter(c: BilanFond, b: BilanToitsLidar | null, lus: number, couleurs: number, accord?: boolean): void {
+  if (accord !== undefined) {
+    // Un batiment verifie compte a part : son toit n'a pas ete lu dans le plan, il a ete compare.
+    c.verifies = { accord: (c.verifies?.accord ?? 0) + (accord ? 1 : 0), desaccord: (c.verifies?.desaccord ?? 0) + (accord ? 0 : 1) };
+    return;
+  }
   if (b) { c.ajustes += b.ajustes; c.mesures += b.mesures; c.corpsVoisins += b.corpsVoisins; c.recales += b.recales; c.gardes += b.gardes; }
   c.lus += lus; c.couleurs += couleurs;
+}
+
+/** La phrase des batiments verifies sur place, ou '' : gardes tels quels, et ce que le calcul d'aujourd'hui en dirait. */
+export function texteVerifiesFond(v: BilanFond['verifies']): string {
+  if (!v || !(v.accord + v.desaccord)) return '';
+  const n = v.accord + v.desaccord;
+  const tete = n > 1 ? n + ' bâtiments vérifiés sur place gardés tels quels' : 'Bâtiment vérifié sur place gardé tel quel';
+  const avis = !v.desaccord ? 'le nouveau calcul serait d’accord'
+    : !v.accord ? 'le nouveau calcul serait différent'
+      : 'le nouveau calcul serait d’accord pour ' + v.accord + ', différent pour ' + v.desaccord;
+  return tete + ' : ' + avis + '.';
 }
 
 /** Le bilan de fin, pour un toast : combien de toits lus, et ce qu'ils sont devenus. */
@@ -165,7 +197,7 @@ export function texteFinToitsFond(b: BilanFond): string {
   const couleurs = b.couleurs ? n(b.couleurs) + ' couleur' + (b.couleurs > 1 ? 's' : '') + ' de toit lue' + (b.couleurs > 1 ? 's' : '') + ' sur la photo aérienne.' : '';
   const m = b.murs ?? 0;
   const murs = m ? n(m) + ' couleur' + (m > 1 ? 's' : '') + ' de murs lue' + (m > 1 ? 's' : '') + ' sur les photos de rue.' : '';
-  return [formes, couleurs, murs].filter(Boolean).join(' ');
+  return [formes, couleurs, murs, texteVerifiesFond(b.verifies)].filter(Boolean).join(' ');
 }
 
 /** Ou en est la lecture, pour la barre d'etat : les toits, ou les murs quand c'est leur tour ; null s'il n'y a rien a lire. */
@@ -197,8 +229,11 @@ function suiteMuette(attendre: (ms: number) => Promise<void>) {
   };
 }
 
-/** Un batiment pris dans la file : sa copie, et l'empreinte de l'original au moment ou il a ete pris. */
-type Lu = { copie: ObjetPlan; avant: string };
+/**
+ * Un batiment pris dans la file : sa copie, et l'empreinte de l'original au moment ou il a ete pris.
+ * Pour un batiment verifie sur place, aussi l'original tel qu'il etait : la lecture s'y compare.
+ */
+type Lu = { copie: ObjetPlan; avant: string; reference?: ObjetPlan };
 
 /**
  * La file d'une passe : rend, dans l'ordre, la copie du prochain batiment encore dans le plan, encore
@@ -212,7 +247,7 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
     while (i < cles.length) {
       const cle = cles[i++];
       const o = courants.find((x) => x.key === cle);
-      if (o && toitAAjuster(o as ObjetAToit) && admis(o)) return { copie: structuredClone(o), avant: empreinte(o) };
+      if (o && toitAAjuster(o as ObjetAToit) && admis(o)) return { copie: structuredClone(o), avant: empreinte(o), ...(estVerifieSurPlace(o) ? { reference: structuredClone(o) } : {}) };
     }
     return null;
   };
@@ -225,7 +260,7 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
 async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: ObjetAToit) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }> {
   const pourForme = lidar && !toitLu(copie);
   const bilan = pourForme ? await lireForme(copie as ObjetAToit).catch(() => null) : null;
-  const pourCouleur = couleurALire(copie);
+  const pourCouleur = !estVerifieSurPlace(copie) && couleurALire(copie);
   const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
   return { bilan, forme: pourForme && toitLu(copie), couleur: pourCouleur && !couleurALire(copie), couleurs: lues ? lues.lus + lues.replis : 0 };
 }
@@ -336,7 +371,8 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         if (!ctx.regulateur) await pause();
         if (g !== generation) return;
         const { copie } = t;
-        const r = await lireUnBatiment(copie, lidar, (c) => lire(objets as ObjetAToit[], proj, { candidats: [c], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens }),
+        // La copie d'un batiment verifie se lit comme les autres (`relire`) : c'est le plan qu'on ne touche pas.
+        const r = await lireUnBatiment(copie, lidar, (c) => lire(objets as ObjetAToit[], proj, { candidats: [c], delaiMs: Number.POSITIVE_INFINITY, enParallele: 1, dalles, mitoyens, verifies: 'relire' }),
           (c) => lireCouleurs([c], proj, Number.POSITIVE_INFINITY, 1));
         if (g !== generation) return;
         // Pas de dalle sur le secteur : pour cette seance, seules les couleurs se lisent encore.
@@ -344,7 +380,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         // Un batiment dont rien de ce qui manquait n'a pu se lire compte un refus.
         const avance = r.forme || r.couleur;
         if (!avance) refus.set(copie.key, (refus.get(copie.key) ?? 0) + 1);
-        ajouter(cumul, r.bilan, r.forme ? 1 : 0, r.couleurs);
+        ajouter(cumul, t.reference ? null : r.bilan, r.forme && !t.reference ? 1 : 0, r.couleurs, t.reference && r.forme ? lectureDAccord(t.reference, copie) : undefined);
         tampon.push(t);
         if (!muets.noter(avance)) return;
         if (tampon.length >= LOT_TOITS_FOND) await vider();
@@ -377,7 +413,7 @@ export function creerToitsFond(ctx: ContexteToitsFond): ToitsFond {
         phaseMurs = (ctx.murs ?? LECTURE_MURS_EN_FOND) && mursMuets && !!proj && objets.some(mursALire);
         dire(lidar && !phaseMurs ? 'finie' : 'arretee');
         finDeLecture();
-        if (cumul.lus || cumul.couleurs || cumul.murs) {
+        if (cumul.lus || cumul.couleurs || cumul.murs || cumul.verifies) {
           const b = cumul; cumul = vide(); ctx.fin?.(b);
           // Le dernier enregistrement seul attend que l'utilisateur lache la souris (dix secondes au plus).
           await ctx.regulateur?.r.calme(10000);
