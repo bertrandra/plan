@@ -35,11 +35,16 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 
 - Joue chaque point dans les trois classes d'écran (compact, moyen, large) et les deux thèmes.
   La liste et le journal sont dans `tests/CHECKLIST-FUMEE.md`.
-- **Points 12 à 15** (cadastre IGN, voisinage, orthophoto, PLU) : ils demandent `data.geopf.fr`,
-  bloqué dans l'environnement cloud. Leur échec y est attendu.
+- **Points 12 à 15** (cadastre IGN, voisinage, orthophoto, PLU) : ils jouent le vrai réseau quand
+  `data.geopf.fr` répond, et rejouent sinon les données témoin de `tests/fixtures/fumee-reseau/`
+  (`scripts/fumee-reseau.mjs`). `FUMEE_RESEAU=temoin|direct|enregistrer` force le mode ; réenregistrer
+  quand ces points changent de requêtes.
+- **Au quotidien** : seulement les points touchés, et `FUMEE_CLASSES=large FUMEE_THEMES=light` pour
+  une classe et un thème. `FUMEE_PARALLELE=n` règle le nombre de parties jouées à la fois (par
+  défaut un cœur sur deux, quatre au plus).
 - three.js est servi depuis `node_modules/three` (`servirThreeLocal`) ; `FUMEE_CDN=1` revient aux CDN.
 - Le point 40 ne joue rien par construction (couvert par le passage en thème sombre).
-- Un passage complet dure plus de 30 minutes : lancer le serveur Vite avec un délai long, sinon il
+- Un passage complet reste long : lancer le serveur Vite avec un délai long, sinon il
   est coupé en route et les points suivants échouent en `ERR_CONNECTION_REFUSED`. Après un plantage
   du navigateur, rejouer seulement les points restants.
 - Pour arrêter un serveur, chercher le processus par `ps aux | grep "[v]ite --port 5199"` : un

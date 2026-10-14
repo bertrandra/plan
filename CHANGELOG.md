@@ -1081,6 +1081,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
+  plusieurs à la fois (`FUMEE_PARALLELE`, par défaut un cœur sur deux, quatre au plus) ; un passage
+  peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).
+  Les longues attentes fixes (20 s, 18 s, 8 s, 3,5 s, 2,5 s) attendent désormais ce qu'elles
+  attendaient : le voisinage importé, les tuiles posées, le zonage rangé, l'image 3D immobile.
+- **Les points 12 à 15 de la fumée rejouent des données témoin sans réseau**
+  (`scripts/fumee-reseau.mjs`, `tests/fixtures/fumee-reseau/`) : quand `data.geopf.fr` ne répond
+  pas, les réponses enregistrées de la BAN, d'`apicarto` et de la Géoplateforme sont servies à sa
+  place. `FUMEE_RESEAU=temoin|direct|enregistrer` force le mode.
 - **L'analyse des audits, le renfort des façades et l'aide immédiate passent par défaut au modèle
   plus fin (Sonnet)** au lieu du modèle rapide (Haiku), qui ne trouvait rien sur les photos d'un vrai
   audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats
@@ -1282,6 +1291,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
+  adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
+  depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent la boîte « Actualiser depuis l'IGN » et la
+  commande `plu.interroger` d'aujourd'hui, jouent sur les deux opacités de l'orthophoto, et comptent à
+  part le voisinage dessiné (sur téléphone, une partie tombe hors du cadre).
 - **Audit de la parcelle, ce que l'essai sur le terrain d'AE 101 a montré** (`MD/spec-audit.md`
   §12.1 et §12.2) :
   - **La maison d'à côté n'est plus proposée** : la liste mettait votre maison et six mitoyens à
