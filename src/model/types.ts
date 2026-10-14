@@ -793,6 +793,64 @@ export interface OuvertureFacade {
   y: number;
   l: number;
   h: number;
+  /**
+   * De 0 a 1 : ce que la detection en pense (MD/spec-facades-calage-detection.md §9, §12). Pleine a
+   * 0,7 et plus ; en dessous, ou devinee, elle se dessine en pointille. Absente : posee au doigt, ou
+   * relevee avant le lot L15.
+   */
+  confiance?: number;
+  /** D'ou elle vient (§12, §12 bis) : `corrigee` des que le doigt l'a retouchee. */
+  source?: SourceOuverture;
+  /** Sa rangee et sa travee dans la grille du releve (`ReleveFacade.grille`, §10), depuis le bas et la gauche. */
+  niveau?: number;
+  travee?: number;
+  /** Ce que le classement a reconnu en plus du type (§11) ; la 3D pourra le dessiner plus tard. */
+  details?: DetailsOuverture;
+}
+
+/** D'ou vient une ouverture du releve (spec facades §13). */
+export type SourceOuverture = 'detectee' | 'devinee' | 'claude' | 'ajoutee' | 'corrigee';
+
+/**
+ * Les details d'une ouverture (spec facades §11). Les volets battants sont fusionnes dans la baie (ils
+ * n'en font pas deux fausses), le coffre d'un volet roulant est retire de sa hauteur.
+ */
+export interface DetailsOuverture {
+  volets?: 'aucun' | 'battants' | 'roulant' | 'persiennes';
+  /** Volets (persiennes, tablier) fermes sur la photo : la baie existe derriere. */
+  ferme?: boolean;
+  allege?: 'pleine' | 'balcon' | 'garde-corps';
+  forme?: 'rect' | 'cintre' | 'rond';
+}
+
+/**
+ * La structure d'une facade (spec facades §10) : ses rangees (appui et linteau, en metres depuis le
+ * sol, de bas en haut) et ses travees (centre depuis la gauche et largeur, de gauche a droite).
+ */
+export interface GrilleFacade {
+  niveaux: { appuiM: number; linteauM: number }[];
+  travees: { xM: number; largeurM: number }[];
+}
+
+/**
+ * Une correction de l'utilisateur sur ce que l'analyse proposait (spec facades §12) : ajout, retrait,
+ * deplacement (l'ecart, en metres, de la proposition a la cote retenue), changement de type. Les
+ * corrections mesurent le detecteur et designent le reglage a toucher.
+ */
+export interface CorrectionOuverture {
+  geste: 'ajout' | 'retrait' | 'deplacement' | 'type';
+  /** L'ouverture retenue (ajout, deplacement, type) ou retiree (retrait). */
+  type: TypeOuverture;
+  x: number;
+  y: number;
+  l: number;
+  h: number;
+  /** Deplacement : la cote retenue moins la cote proposee, par cote. */
+  ecart?: { x: number; y: number; l: number; h: number };
+  /** Changement de type : le type propose. */
+  avant?: TypeOuverture;
+  /** Ajout d'une ouverture devinee que l'analyse laissait decochee ; retrait d'une devinee. */
+  source?: SourceOuverture;
 }
 
 /**
@@ -835,6 +893,10 @@ export interface ReleveFacade {
    * corrige et la confiance du calage fin.
    */
   calage?: CalageReleve;
+  /** La structure de la facade, recalculee sur les ouvertures retenues (spec facades §10, lot L15). */
+  grille?: GrilleFacade;
+  /** Les corrections de l'utilisateur sur la proposition de l'analyse (spec facades §12, lot L15). */
+  corrections?: CorrectionOuverture[];
 }
 
 /**

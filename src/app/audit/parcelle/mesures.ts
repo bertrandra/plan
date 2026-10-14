@@ -13,6 +13,7 @@
 // photos d'un meme mur (mosaique, fusion des vues) viendra avec les lots L13 a L15.
 
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
+import { versOuvertureFacade } from '../../../facade/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
@@ -111,7 +112,7 @@ async function releveDeLaPhoto(photo: PhotoCas, img: Pixels, f: Facade, bat: Pic
     texture: d.jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, hauteurMesuree: a.r.hauteurMesuree, couverture: a.r.couverture,
     toitPropose: a.r.toitPropose, avis: a.avis, partieBasse: a.r.partieBasse, calage,
   };
-  const ouvertures = a.r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h }));
+  const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
   const coinsTrouves = !!m.sources?.includes('trouve');
   return {
     releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, m.prise.mesure),

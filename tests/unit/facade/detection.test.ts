@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection.js';
+import { detecterFacade, detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection.js';
 import type { Image } from '../../../src/facade/homographie.js';
 
 // Les candidats ouvertures (spec-facades §9, lot L14) : fond local, filtre d'ombre, volets battants,
@@ -127,5 +127,68 @@ describe('detecterOuvertures : confiance et reglages', () => {
   it('lit les reglages nommes : une largeur minimale de 1,1 m ecarte la porte', () => {
     const o = detecterOuvertures(img, PX, null, { reglages: { 'facades.detection.largeurMinM': 1.1 } });
     expect(o.map((x) => x.type)).toEqual(['fenetre', 'fenetre']);
+  });
+});
+
+describe('detecterFacade : structure et details (lot L15)', () => {
+  const VERT: RGB = [70, 112, 92];
+  /** Trois travees, deux niveaux ; la porte au milieu du rez. */
+  const reguliere = (sauf: number[] = []): Rect[] =>
+    [fenetre(1, 0.9, 1.2, 1.35), [{ x: 4.5, y: 0, l: 0.95, h: 2.15, c: [120, 70, 40] as RGB }], fenetre(7.8, 0.9, 1.2, 1.35), fenetre(1, 3.8, 1.2, 1.35), fenetre(4.38, 3.8, 1.2, 1.35), fenetre(7.8, 3.8, 1.2, 1.35)]
+      .filter((_, i) => !sauf.includes(i))
+      .flat();
+
+  it('rend la grille, et la rangee et la travee de chaque ouverture', () => {
+    const d = detecterFacade(elevation(10, 6, ENDUIT, reguliere()), PX);
+    expect(d.ouvertures).toHaveLength(6);
+    expect(d.grille?.niveaux).toHaveLength(2);
+    expect(d.grille?.travees).toHaveLength(3);
+    expect(d.symetrique).toBe(true);
+    for (const o of d.ouvertures) {
+      expect(o.source).toBe('detectee');
+      expect(o.niveau).toBe(o.y > 3 ? 1 : 0);
+      expect(o.travee).toBe(o.x < 3 ? 0 : o.x < 6 ? 1 : 2);
+    }
+  });
+
+  it('devine une baie cochee au croisement cache par le masque (source devinee)', () => {
+    const img = elevation(10, 6, ENDUIT, reguliere());
+    // Le masque cache la fenetre de gauche du rez (de 0,6 a 2,6 m, du sol a 2,6 m).
+    const vu = new Uint8Array(img.largeur * img.hauteur).fill(1);
+    for (let j = img.hauteur - 260; j < img.hauteur; j++) for (let i = 60; i < 260; i++) vu[j * img.largeur + i] = 0;
+    const d = detecterFacade(img, PX, vu);
+    const g = d.ouvertures.find((o) => o.source === 'devinee');
+    expect(d.ouvertures).toHaveLength(6);
+    proche(g, 1, 0.9, 1.2, 1.35, 0.05);
+    expect(g?.niveau).toBe(0);
+    expect(g?.travee).toBe(0);
+  });
+
+  it('ne devine rien dans un mur vu et net : la fenetre absente reste absente', () => {
+    const d = detecterFacade(elevation(10, 6, ENDUIT, reguliere([0])), PX);
+    expect(d.ouvertures).toHaveLength(5);
+    expect(d.devinees).toEqual([]);
+  });
+
+  it('fusionne les volets battants dans la baie (details.volets)', () => {
+    const img = elevation(8, 5, ENDUIT, [{ x: 2.4, y: 1, l: 0.6, h: 1.3, c: VERT }, { x: 4.2, y: 1, l: 0.6, h: 1.3, c: VERT }, ...fenetre(3, 1, 1.2, 1.3)]);
+    const d = detecterFacade(img, PX);
+    expect(d.ouvertures).toHaveLength(1);
+    expect(d.ouvertures[0]?.details?.volets).toBe('battants');
+  });
+
+  it('lit un balcon sous une grande baie d etage : porte-fenetre, details.allege', () => {
+    const img = elevation(8, 6, ENDUIT, [...fenetre(3, 3.2, 1.4, 2.1), { x: 2.5, y: 3.0, l: 2.4, h: 0.16, c: [150, 150, 150] }]);
+    const d = detecterFacade(img, PX);
+    const o = d.ouvertures.find((x) => x.y > 3);
+    expect(o?.details?.allege).toBe('balcon');
+    expect(o?.type).toBe('porte-fenetre');
+  });
+
+  it('ne lit pas de balcon au-dessus d un bandeau qui court sur toute la facade', () => {
+    const img = elevation(8, 5, ENDUIT, [{ x: 0, y: 0.75, l: 8, h: 0.12, c: [150, 146, 138] }, ...fenetre(1, 0.95, 1.1, 1.3), ...fenetre(6, 0.95, 1.1, 1.3)]);
+    const os = detecterFacade(img, PX).ouvertures;
+    expect(os).toHaveLength(2);
+    for (const o of os) expect(o.details?.allege).toBeUndefined();
   });
 });

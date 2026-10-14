@@ -1,8 +1,12 @@
 // Le releve de facade (zones/Releve.tsx), etape 5 : verifier, corriger, valider.
 
 import { useEffect, useState } from 'react';
+import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
 import { classer } from '../../facade/detection.js';
+import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/structure.js';
+import { retouchee } from '../../facade/verification.js';
+import { texteDetails, texteOrigine } from './ouvertures.js';
 import { LIBELLES_FORME_TOIT, penteDeg, hauteurPignon } from '../../facade/toit.js';
 import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
@@ -10,10 +14,50 @@ import { ChampCm, Elevation } from './Elevation.js';
 import { type Resultat } from './serie.js';
 import { pxParMDuCalage, textePrecision } from './analyse.js';
 
-/** La fiche de l'ouverture choisie : nature, cotes au centimetre, retrait. */
-function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: OuvertureFacade; largeur: number; hauteurMur: number; maj: (c: Partial<OuvertureFacade>) => void; retirer: () => void }) {
+/**
+ * Les gestes de la structure (spec facades §12), en une touche : la taille de l'ouverture choisie
+ * donnee a sa travee, sa hauteur a son niveau (meme type). Grises quand il n'y a rien a egaliser.
+ */
+function GestesGrille({ i, ouvertures, setOuvertures, largeur }: { i: number; ouvertures: OuvertureFacade[]; setOuvertures: (o: OuvertureFacade[]) => void; largeur: number }) {
+  const taille = memeTailleTravee(ouvertures, i, largeur),
+    hauteur = memeHauteurNiveau(ouvertures, i, largeur);
+  const appliquer = (r: { ouvertures: OuvertureFacade[]; touchees: number[] }) => setOuvertures(r.ouvertures.map((x, k) => (r.touchees.includes(k) ? retouchee(x) : x)));
+  const nT = taille.touchees.length,
+    nH = hauteur.touchees.length;
+  return (
+    <div className="releveGestes" role="group" aria-label="Égaliser sur la grille">
+      <button data-controle="releve.memeTailleTravee" type="button" className="secondary small" disabled={!nT}
+        title={nT ? `Donner cette largeur à ${nT} ouverture${nT > 1 ? 's' : ''} de la travée` : 'Aucune autre ouverture de ce type dans la travée, ou déjà de cette taille'}
+        onClick={() => appliquer(taille)}>
+        Même taille pour la travée
+      </button>
+      <button data-controle="releve.memeHauteurNiveau" type="button" className="secondary small" disabled={!nH}
+        title={nH ? `Donner cet appui et cette hauteur à ${nH} ouverture${nH > 1 ? 's' : ''} du niveau` : 'Aucune autre ouverture de ce type au niveau, ou déjà à cette hauteur'}
+        onClick={() => appliquer(hauteur)}>
+        Même hauteur pour le niveau
+      </button>
+      {!nT && !nH && <p className="releveNote">Rien à égaliser : aucune autre ouverture de ce type dans sa travée ni à son niveau, ou déjà à ses cotes.</p>}
+    </div>
+  );
+}
+
+/** La fiche de l'ouverture choisie : origine et details, nature, cotes au centimetre, gestes, retrait. */
+function FicheOuverture({ v, i, maj, retirer }: { v: Verification; i: number; maj: (c: Partial<OuvertureFacade>) => void; retirer: () => void }) {
+  const o = au(v.ouvertures, i);
+  const { largeur, hauteurMur } = v;
+  const details = texteDetails(o.details);
   return (
     <div className="releveFiche" role="group" aria-label="Ouverture choisie">
+      <p className="releveNote">
+        {texteOrigine(o)}
+        {details ? ` ${details}` : ''}
+      </p>
+      {o.source === 'devinee' && (
+        <label className="releveCase">
+          <input data-controle="releve.garderDevinee" type="checkbox" checked onChange={() => v.ecarter(i)} />
+          Garder cette baie devinée
+        </label>
+      )}
       <div className="releveSegment" role="group" aria-label="Nature">
         {(Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[]).map((t) => (
           <button data-controle="releve.typeOuverture" key={t} type="button" aria-pressed={o.type === t} onClick={() => maj({ type: t })}>
@@ -22,15 +66,63 @@ function FicheOuverture({ o, largeur, hauteurMur, maj, retirer }: { o: Ouverture
         ))}
       </div>
       <div className="releveChamps">
-        <ChampCm libelle="Depuis la gauche" valeur={o.x} onChange={(v) => maj({ x: Math.min(v, largeur - o.l) })} />
-        <ChampCm libelle="Appui" valeur={o.y} onChange={(v) => maj({ y: Math.min(v, hauteurMur - o.h) })} />
-        <ChampCm libelle="Largeur" valeur={o.l} onChange={(v) => maj({ l: Math.max(0.1, Math.min(v, largeur - o.x)) })} />
-        <ChampCm libelle="Hauteur" valeur={o.h} onChange={(v) => maj({ h: Math.max(0.1, Math.min(v, hauteurMur - o.y)) })} />
+        <ChampCm libelle="Depuis la gauche" valeur={o.x} onChange={(x) => maj({ x: Math.min(x, largeur - o.l) })} />
+        <ChampCm libelle="Appui" valeur={o.y} onChange={(y) => maj({ y: Math.min(y, hauteurMur - o.h) })} />
+        <ChampCm libelle="Largeur" valeur={o.l} onChange={(l) => maj({ l: Math.max(0.1, Math.min(l, largeur - o.x)) })} />
+        <ChampCm libelle="Hauteur" valeur={o.h} onChange={(h) => maj({ h: Math.max(0.1, Math.min(h, hauteurMur - o.y)) })} />
       </div>
+      <GestesGrille i={i} ouvertures={v.ouvertures} setOuvertures={v.setOuvertures} largeur={largeur} />
       <button data-controle="releve.retirerOuverture" type="button" className="secondary small" onClick={retirer}>
         <Icone nom="supprimer" taille={16} /> Retirer cette ouverture
       </button>
     </div>
+  );
+}
+
+/**
+ * La barre sous l'elevation : le decompte, les devinees en attente, et les deux facons d'ajouter une
+ * ouverture - au croisement libre de la grille le plus proche (spec facades §12), ou au milieu.
+ */
+function BarreOuvertures({ v }: { v: Verification }) {
+  const { ouvertures, setOuvertures, setChoisie, largeur, hauteurMur, choisie } = v;
+  const decompte = (Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[])
+    .map((t) => [t, ouvertures.filter((x) => x.type === t).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([t, n]) => `${n} ${LIBELLES_OUVERTURE[t].toLowerCase()}${n > 1 ? 's' : ''}`)
+    .join(', ');
+  const o = choisie !== null ? ouvertures[choisie] : undefined;
+  const dansGrille = ajouterDansLaGrille(ouvertures, largeur, hauteurMur, o ? { x: o.x + o.l / 2, y: o.y + o.h / 2 } : null);
+  const ajouter = (b: Pick<OuvertureFacade, 'type' | 'x' | 'y' | 'l' | 'h'>) => {
+    setOuvertures([...ouvertures, { type: b.type, x: b.x, y: b.y, l: b.l, h: b.h, source: 'ajoutee' }]);
+    setChoisie(ouvertures.length);
+  };
+  const auMilieu = () => {
+    const l = Math.min(1, largeur * 0.3),
+      h = Math.min(1.2, hauteurMur * 0.4);
+    ajouter({ type: classer(1, l, h), x: Math.round((largeur - l) * 50) / 100, y: 1, l, h });
+  };
+  const n = v.devinees.length;
+  return (
+    <>
+      <div className="releveBarre">
+        <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
+        <span className="releveGestes" role="group" aria-label="Ajouter une ouverture">
+          <button data-controle="releve.ajouterDansGrille" type="button" className="secondary small" disabled={!dansGrille}
+            title={dansGrille ? 'Ajouter une baie au croisement libre le plus proche, à la taille de sa travée et de son niveau' : 'Aucun croisement libre : la grille de la façade est pleine, ou il faut au moins une ouverture'}
+            onClick={() => dansGrille && ajouter(dansGrille)}>
+            <Icone nom="plus" taille={16} /> Ajouter dans la grille
+          </button>
+          <button data-controle="releve.ajouterOuverture" type="button" className="secondary small" onClick={auMilieu}>
+            <Icone nom="plus" taille={16} /> Ajouter une ouverture
+          </button>
+        </span>
+      </div>
+      {n > 0 && (
+        <p className="releveNote">
+          {n === 1 ? 'Une baie devinée par la grille est en pointillé : touchez-la pour la garder.' : `${n} baies devinées par la grille sont en pointillé : touchez-en une pour la garder.`}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -123,6 +215,10 @@ export interface Verification {
   setOuvertures: (o: OuvertureFacade[]) => void;
   choisie: number | null;
   setChoisie: (i: number | null) => void;
+  /** Les baies devinees decochees, en pointille (spec facades §10.5) ; les garder, ou les y rendre. */
+  devinees: OuvertureFacade[];
+  garder: (i: number) => void;
+  ecarter: (i: number) => void;
   toit: Toit | null;
   setToit: (t: Toit) => void;
   appliquerToit: boolean;
@@ -214,20 +310,9 @@ function CartePartieBasse({ p, largeur, hauteurMur, maj }: { p: PartieBasse; lar
 
 export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onRevoir: () => void; onValider: () => void }) {
   const { resultat, largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie } = v;
-  const o = choisie !== null ? ouvertures[choisie] : undefined;
-  const decompte = (Object.keys(LIBELLES_OUVERTURE) as TypeOuverture[])
-    .map((t) => [t, ouvertures.filter((x) => x.type === t).length] as const)
-    .filter(([, n]) => n > 0)
-    .map(([t, n]) => `${n} ${LIBELLES_OUVERTURE[t].toLowerCase()}${n > 1 ? 's' : ''}`)
-    .join(', ');
   const precision = textePrecision(pxParMDuCalage(resultat.calage));
-  const maj = (i: number, champ: Partial<OuvertureFacade>) => setOuvertures(ouvertures.map((x, k) => (k === i ? { ...x, ...champ } : x)));
-  const ajouter = () => {
-    const l = Math.min(1, largeur * 0.3),
-      h = Math.min(1.2, hauteurMur * 0.4);
-    setOuvertures([...ouvertures, { type: classer(1, l, h), x: Math.round((largeur - l) * 50) / 100, y: 1, l, h }]);
-    setChoisie(ouvertures.length);
-  };
+  // Corrigee au doigt (cote, type), l'ouverture est verifiee : elle quitte le pointille.
+  const maj = (i: number, champ: Partial<OuvertureFacade>) => setOuvertures(ouvertures.map((x, k) => (k === i ? retouchee({ ...x, ...champ }) : x)));
   return (
     <>
       <div className="releveCorps releveCorpsPhoto">
@@ -237,19 +322,14 @@ export function EtapeResultat({ v, onRevoir, onValider }: { v: Verification; onR
           </p>
         )}
         {resultat.couverture < 0.9 && <p className="releveAvis">La photo couvrait {Math.round(resultat.couverture * 100)} % du mur ; le reste est complété à la teinte du mur.</p>}
-        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie} />
-        <div className="releveBarre">
-          <span className="releveNote">{ouvertures.length ? decompte : 'Aucune ouverture trouvée.'}</span>
-          <button data-controle="releve.ajouterOuverture" type="button" className="secondary small" onClick={ajouter}>
-            <Icone nom="plus" taille={16} /> Ajouter une ouverture
-          </button>
-        </div>
+        <Elevation texture={resultat.texture} Ht={resultat.hauteurTexture} L={largeur} H={hauteurMur} partie={v.partieBasse} ouvertures={ouvertures} setOuvertures={setOuvertures} choisie={choisie} setChoisie={setChoisie}
+          devinees={v.devinees} garder={v.garder} />
+        <BarreOuvertures v={v} />
         {precision && <p className="releveNote">{precision}</p>}
-        {o && choisie !== null && (
+        {choisie !== null && ouvertures[choisie] && (
           <FicheOuverture
-            o={o}
-            largeur={largeur}
-            hauteurMur={hauteurMur}
+            v={v}
+            i={choisie}
             maj={(c) => maj(choisie, c)}
             retirer={() => {
               setOuvertures(ouvertures.filter((_, k) => k !== choisie));

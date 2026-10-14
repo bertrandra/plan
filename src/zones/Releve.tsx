@@ -33,7 +33,7 @@ import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
 import type { MesureDistance } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
-import type { ObjetPolygone, OuvertureFacade, Toit } from '../model/types.js';
+import type { ObjetPolygone, Toit } from '../model/types.js';
 import { fr } from './releve/commun.js';
 import { ChoixMur } from './releve/ChoixMur.js';
 import { ChoixMethode } from './releve/ChoixMethode.js';
@@ -46,6 +46,7 @@ import type { SourceCoin } from '../facade/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
+import { useOuvertures } from './releve/ouvertures.js';
 
 /**
  * Le morceau d'une prise : ses coins predits s'affichent tout de suite ; le calage fin les cherche
@@ -146,8 +147,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   // Pendant la visee : la photo a remplacer (« Reprendre »), ou null pour en ajouter une.
   const [aRemplacer, setARemplacer] = useState<number | null>(null);
   const [resultat, setResultat] = useState<Resultat | null>(null);
-  const [ouvertures, setOuvertures] = useState<OuvertureFacade[]>([]);
-  const [choisie, setChoisie] = useState<number | null>(null);
+  const ouv = useOuvertures();
+  const { ouvertures, setOuvertures, choisie, setChoisie } = ouv;
   const [toit, setToit] = useState<Toit | null>(null);
   const [appliquerToit, setAppliquerToit] = useState(true);
   const [avis, setAvis] = useState<string | null>(null);
@@ -183,12 +184,11 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       const { r } = a;
       setHauteurMur(r.hauteur);
       setResultat({ texture: versJpeg(r.texture), hauteurTexture: r.hauteurTexture, hauteurMesuree: r.hauteurMesuree, couverture: r.couverture, toitPropose: r.toitPropose, avis: a.avis, partieBasse: r.partieBasse, calage: calageDeSerie(morceaux, facade.largeur, r.hauteur, facade.azimut, assemblage) });
-      setOuvertures(r.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })));
+      ouv.poser(r);
       setToit(r.toitPropose);
       // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
       // par defaut (cadastre, saisie, releve precedent). Decocher la case garde l'ancien.
       setAppliquerToit(!!r.toitPropose);
-      setChoisie(null);
       setEtape('resultat');
     }, 40);
   };
@@ -197,9 +197,11 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     if (!facade || !resultat) return;
     // Le batiment garde sa hauteur (cadastre, saisie) : la facade mesuree y est ramenee, ouvertures,
     // partie basse et toit compris, plutot que d'etirer le batiment a la hauteur lue sur la photo.
+    // Les corrections se tracent sur la proposition de l'analyse, ramenee de meme (spec facades §12).
     const k = hauteurMur > 0 && hauteurEstimee > 0 ? hauteurEstimee / hauteurMur : 1;
-    const e = Math.abs(k - 1) > 1e-9 ? etirerEnHauteur(resultat, ouvertures, toit, k) : { resultat, ouvertures, toit };
-    releve.valider(releveDuMur(facade, e.resultat, e.ouvertures, hauteurEstimee, morceaux[0]?.prise.mesure ?? null), appliquerToit ? e.toit : null, hauteurMur);
+    const e = Math.abs(k - 1) > 1e-9 ? etirerEnHauteur(resultat, [], toit, k) : { resultat, toit };
+    const t = ouv.conclure(k);
+    releve.valider(releveDuMur(facade, e.resultat, t.ouvertures, hauteurEstimee, morceaux[0]?.prise.mesure ?? null, t.corrections), appliquerToit ? e.toit : null, hauteurMur);
   };
 
   // Passer des morceaux aux vues (ou l'inverse) change ce que chaque photo cadre : le mur entier, ou
@@ -218,17 +220,17 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const surPhoto = (photo: Photo, mesure: MesureDistance | null) => surPrise({ photo, mesure, reperes: null, champ: photo.champ ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null });
   const corrigerHauteur = (v: number) => {
     if (!resultat || !(hauteurMur > 0)) return;
-    const e = etirerEnHauteur(resultat, ouvertures, toit, v / hauteurMur);
+    const e = etirerEnHauteur(resultat, [], toit, v / hauteurMur);
     setHauteurMur(v);
     setResultat(e.resultat);
-    setOuvertures(e.ouvertures);
+    ouv.etirer(v / hauteurMur);
     setToit(e.toit);
   };
   // Avant l'analyse, seule la largeur est connue ; la hauteur s'affiche une fois mesuree.
   const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)}${resultat ? ` × ${fr(hauteurMur)}` : ''} m` : 'Relever une façade';
   const verification: Verification | null =
     resultat && facade
-      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts, cote: facade.cote,
+      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts, cote: facade.cote,
           partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }), hauteurEstimee, hauteurMesuree: resultat.hauteurMesuree, corrigerHauteur }
       : null;
 
