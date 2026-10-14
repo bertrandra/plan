@@ -14,9 +14,9 @@
 // Le corps produit est un appentis ordinaire (faitage sur le mur, `posFaitage` = 0, rive de tete
 // contre la facade) : la 3D le dessine comme les autres (three/toitCorps3d.ts).
 
-import { hauteursMursCorps, HAUTEUR_PLAT_M, type Grille } from './toitCorps.js';
+import { hauteursMursCorps, type Grille } from './toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
-import { REGLAGES_TOITS as R } from '../model/reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../model/reglagesToits.js';
 import type { AppentisFait } from '../model/faitsToits.js';
 import type { CorpsToit, PtBrut } from '../model/types.js';
 
@@ -64,7 +64,7 @@ export interface FacadeDeCorps {
  * s'il y en a plusieurs (« la facade sud », c'est le grand mur, pas le retour d'une annexe). Null
  * quand aucun cote ne regarde par la.
  */
-export function facadeDesignee(corps: readonly CorpsToit[], contour: readonly PtBrut[], azimutDeg: number, toleranceDeg = TOLERANCE_FACADE_DEG): FacadeDeCorps | null {
+export function facadeDesignee(corps: readonly CorpsToit[], contour: readonly PtBrut[], azimutDeg: number, toleranceDeg = S.TOLERANCE_FACADE_DEG): FacadeDeCorps | null {
   let best: FacadeDeCorps | null = null;
   corps.forEach((c, k) => {
     const n4 = c.pts.length;
@@ -101,36 +101,36 @@ export function cotesAppentis(f: FacadeDeCorps, grille: Grille | null, fait: App
   if (profondeurM !== undefined && egoutM !== undefined && hautM !== undefined) return { profondeurM, egoutM, hautM, ecart: 0 };
   if (!grille) return null;
   const u = { x: (f.b.x - f.a.x) / f.L, y: (f.b.y - f.a.y) / f.L };
-  const plafond = f.egout - SOUS_EGOUT_APPENTIS_M;
-  const auPan = (z: number) => z >= EGOUT_APPENTIS_MIN_M && z <= plafond;
+  const plafond = f.egout - S.SOUS_EGOUT_APPENTIS_M;
+  const auPan = (z: number) => z >= S.EGOUT_APPENTIS_MIN_M && z <= plafond;
   const devant: { t: number; z: number }[] = [];
   for (let j = 0; j < grille.ny; j++) for (let i = 0; i < grille.nx; i++) {
     const z = grille.z[j * grille.nx + i];
     if (z === null || z === undefined) continue;
     const dx = grille.x0 + i * grille.pas - f.a.x, dy = grille.y0 - j * grille.pas - f.a.y;
     const s = dx * u.x + dy * u.y, t = dx * f.n.x + dy * f.n.y;
-    if (s >= 0 && s <= f.L && t >= 0 && t <= PROFONDEUR_APPENTIS_MAX_M) devant.push({ t, z });
+    if (s >= 0 && s <= f.L && t >= 0 && t <= S.PROFONDEUR_APPENTIS_MAX_M) devant.push({ t, z });
   }
   let D = profondeurM ?? 0;
   if (profondeurM === undefined) {
-    for (let t0 = 0; t0 < PROFONDEUR_APPENTIS_MAX_M - 1e-9; t0 += PAS_BANDE_APPENTIS_M) {
-      const bande = devant.filter((c) => c.t >= t0 && c.t < t0 + PAS_BANDE_APPENTIS_M);
-      const pan = bande.filter((c) => auPan(c.z)).length, sol = bande.filter((c) => c.z < EGOUT_APPENTIS_MIN_M).length;
+    for (let t0 = 0; t0 < S.PROFONDEUR_APPENTIS_MAX_M - 1e-9; t0 += S.PAS_BANDE_APPENTIS_M) {
+      const bande = devant.filter((c) => c.t >= t0 && c.t < t0 + S.PAS_BANDE_APPENTIS_M);
+      const pan = bande.filter((c) => auPan(c.z)).length, sol = bande.filter((c) => c.z < S.EGOUT_APPENTIS_MIN_M).length;
       if (!pan && !sol) continue;
-      if (pan < PART_APPENTIS_MIN * (pan + sol)) break;
-      D = t0 + PAS_BANDE_APPENTIS_M;
+      if (pan < S.PART_APPENTIS_MIN * (pan + sol)) break;
+      D = t0 + S.PAS_BANDE_APPENTIS_M;
     }
   }
   if (D <= 0) return null;
   const pan = devant.filter((c) => c.t <= D && auPan(c.z));
-  if (pan.length < MESURES_APPENTIS_MIN) return null;
+  if (pan.length < S.MESURES_APPENTIS_MIN) return null;
   const mt = pan.reduce((s, c) => s + c.t, 0) / pan.length, mz = pan.reduce((s, c) => s + c.z, 0) / pan.length;
   const stt = pan.reduce((s, c) => s + (c.t - mt) ** 2, 0);
   if (stt < 1e-9) return null;
   const k = pan.reduce((s, c) => s + (c.t - mt) * (c.z - mz), 0) / stt, h = mz - k * mt;
   const haut = hautM ?? dixieme(h), egout = egoutM ?? dixieme(h + k * D);
   // Un pan qui ne descend pas du mur n'est pas un appentis adosse : un toit plat, une terrasse, un arbre bas.
-  if (!(k < 0) || haut - egout < HAUTEUR_PLAT_M) return null;
+  if (!(k < 0) || haut - egout < S.HAUTEUR_PLAT_M) return null;
   const ecart = Math.sqrt(pan.reduce((s, c) => s + (c.z - (h + k * c.t)) ** 2, 0) / pan.length);
   return { profondeurM: D, egoutM: egout, hautM: haut, ecart: cm(ecart) };
 }
@@ -149,11 +149,11 @@ export function corpsAppentis(f: FacadeDeCorps, c: CotesAppentis): CorpsToit {
 export function appentisVers(c: CorpsToit, ap: AppentisFait): boolean {
   const [p0, , , p3] = c.pts as [PtBrut, PtBrut, PtBrut, PtBrut];
   const W = Math.hypot(p3.x - p0.x, p3.y - p0.y);
-  if (W < 1e-6 || c.faitage - Math.min(...c.egouts) < HAUTEUR_PLAT_M) return false;
+  if (W < 1e-6 || c.faitage - Math.min(...c.egouts) < S.HAUTEUR_PLAT_M) return false;
   const versT = c.posFaitage <= 0.01, versZero = c.posFaitage >= W - 0.01;
   if (!versT && !versZero) return false;
   const sens = versT ? 1 : -1;
-  return ecartAzimuts(azimutComplet((sens * (p3.x - p0.x)) / W, (sens * (p3.y - p0.y)) / W), ap.facade.azimutDeg) <= (ap.facade.toleranceDeg ?? TOLERANCE_FACADE_DEG);
+  return ecartAzimuts(azimutComplet((sens * (p3.x - p0.x)) / W, (sens * (p3.y - p0.y)) / W), ap.facade.azimutDeg) <= (ap.facade.toleranceDeg ?? S.TOLERANCE_FACADE_DEG);
 }
 
 /**
