@@ -820,6 +820,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Audit de la parcelle, « Photographier en marchant »** (`MD/spec-audit.md` §12.2, demande de
+  l'utilisateur) :
+  - **Vue 3D qui suit** : la vue est à hauteur d'homme (1,7 m), 6 m derrière vous, le regard un peu
+    vers le haut pour voir la façade entière. Elle suit votre position et votre cap : ce n'est plus
+    une image fixe. Un doigt qui la fait tourner la garde 6 s, puis le suivi reprend.
+  - **Façade visée en rouge** ; les façades déjà photographiées passent au vert. Elles restent
+    reconnues et touchables, pour refaire une prise.
+  - **Toucher une façade dans la Vue 3D la choisit** quand l'automatisme se trompe. Les messages
+    sans position le proposent.
+  - La promenade d'audit garde l'ambre pour la façade devant vous : son rouge est celui des
+    bâtiments marqués.
+
 - **Détection des ouvertures : les candidats** (lot L14 du plan de mise en œuvre,
   `MD/spec-facades-calage-detection.md` §9). L'écart à une seule teinte de mur ne suffisait pas : un
   soubassement en pierre, l'ombre du débord, des volets battants, la brique ou la meulière faisaient

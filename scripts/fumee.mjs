@@ -1367,6 +1367,80 @@ const POINTS = {
       && titreApres !== titre && /^1 façade sur/.test(compteur) && actif && toast === 1;
     return { ok, mesure: `« ${titre} » ; surlignée en 3D ${surlignee ? 'oui' : 'NON'} ; « ${range || 'RIEN'} » ; après « Ce n’est pas cette façade » : « ${titreApres} » ; « ${compteur} » ; Lancer ${actif ? 'actif' : 'GRISÉ'} ; toast ${toast ? 'oui' : 'NON'}` };
   },
+  84: async (page) => {
+    // « Photographier en marchant » (demande de l'utilisateur du 14 octobre) : la Vue 3D est a hauteur
+    // d'homme, derriere vous, un peu vers le haut ; elle suit la boussole (pas une image fixe) ; la
+    // facade visee est en rouge ; toucher une facade dans la 3D la choisit ; une facade photographiee
+    // passe au vert et se reprend.
+    const station = await stationDevantLaMaison(page);
+    if (!station) return { ok: false, mesure: 'aucun mur de la maison ne se voit depuis la parcelle' };
+    await page.context().grantPermissions(['geolocation'], { origin: BASE });
+    await page.context().setGeolocation({ latitude: station.lat, longitude: station.lon, accuracy: 4 });
+    await ouvrirAuditParcelle(page);
+    await page.locator('[data-controle="auditParcelle.prise"]').click();
+    await page.locator('.auditPrise').waitFor({ timeout: 10000 });
+    const tourner = (cap) => page.evaluate((a) => { for (let i = 0; i < 6; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: a, beta: 90, gamma: 0, absolute: true })); }, (360 - cap) % 360);
+    await tourner(station.cap);
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('facadeDevant'), null, { timeout: 30000 }).catch(() => {});
+    await tourner(station.cap);
+    await page.waitForTimeout(300);
+    // La camera : hauteur dans la scene, cap et montee du regard (repere local : x vers l'est, z vers le sud).
+    const camera = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      if (!sc) return null;
+      const c = sc.camera.position, t = sc.controls.target;
+      const dx = t.x - c.x, dz = t.z - c.z;
+      return { y: c.y, cap: ((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360, montee: (Math.atan2(t.y - c.y, Math.hypot(dx, dz)) * 180) / Math.PI };
+    });
+    const avant = await camera();
+    await tourner((station.cap + 40) % 360);
+    await page.waitForTimeout(300);
+    const apres = await camera();
+    await tourner(station.cap);
+    await page.waitForTimeout(300);
+    const couleurDe = (nom) => page.evaluate((n) => window.__plan.scene3d()?.scene.getObjectByName(n)?.getObjectByName('voile')?.material.color.getHex() ?? null, nom);
+    const rouge = await couleurDe('facadeDevant');
+    // Toucher la facade surlignee dans la 3D : elle devient « choisie ».
+    const cible = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const voile = sc?.scene.getObjectByName('facadeDevant')?.getObjectByName('voile');
+      if (!sc || !voile) return null;
+      voile.geometry.computeBoundingBox();
+      const b = voile.geometry.boundingBox;
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      // Un point du mur que l'ecran de prise ne cache pas (au doigt, il couvre le bas de la vue).
+      for (const part of [0.5, 0.75, 0.9, 0.3]) {
+        const c = b.getCenter(new THREE.Vector3());
+        c.y = b.min.y + (b.max.y - b.min.y) * part;
+        c.project(sc.camera);
+        const x = r.left + ((c.x + 1) / 2) * r.width, y = r.top + ((1 - c.y) / 2) * r.height;
+        if (document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { x, y };
+      }
+      return null;
+    });
+    if (cible) await page.mouse.click(cible.x, cible.y);
+    await page.waitForTimeout(300);
+    const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    // Une photo sur cette facade : elle passe au vert, et une seconde photo s'y range encore.
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    const entree = page.locator('input[data-controle="auditParcelle.photo"]');
+    await entree.setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.rangementAudit', { hasText: '(1 photo)' }).waitFor({ timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    const vert = await couleurDe('facadesFaites');
+    await entree.setInputFiles({ name: 'facade2.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.rangementAudit', { hasText: '(2 photos)' }).waitFor({ timeout: 30000 }).catch(() => {});
+    const reprise = (await page.locator('.rangementAudit').textContent().catch(() => ''))?.trim() ?? '';
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ecartCap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+    const ok = !!avant && !!apres && avant.montee > 3 && avant.montee < 20
+      && ecartCap(avant.cap, station.cap) < 15 && ecartCap(apres.cap, (station.cap + 40) % 360) < 15
+      && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
+    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? '' : '(AUCUN point du mur visible) '}→ « ${titre} » ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
+  },
   62: async (page, f) => {
     // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
     // deviennent des propositions ; « Après » les montre dans la Vue 3D sans toucher au projet ;
@@ -1921,7 +1995,8 @@ function pointsPour(nomClasse) {
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75];
+  // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73, 74, 75, 84];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

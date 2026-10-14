@@ -225,7 +225,7 @@ function Liste({ session, fermer }: Props) {
       </div>}
       <div className="actionsAudit">
         <button type="button" data-controle="auditParcelle.prise" onClick={() => session.montrer('prise')}>Photographier en marchant</button>
-        <span className="detailPhoto">La façade devant vous est reconnue ; la photo s’y range d’elle-même.</span>
+        <span className="detailPhoto">La Vue 3D vous suit à hauteur d’homme ; la façade devant vous passe en rouge et la photo s’y range d’elle-même. Sinon, touchez la façade dans la 3D.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
       {l.batiments.map((b) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
@@ -255,13 +255,13 @@ function texteVisee(session: SessionAuditParcelle): { titre: string; detail: str
   const photos = (n: number) => n + ' photo' + (n > 1 ? 's' : '');
   if (c) {
     const titre = c.choisie
-      ? 'Photo pour ' + c.nom + ' (choisie dans la liste) — ' + photos(c.photos)
+      ? 'Photo pour ' + c.nom + ' (choisie) — ' + photos(c.photos)
       : 'Vous êtes devant ' + c.nom + (c.distance !== null ? ', ' + metres(c.distance) : '') + ' — ' + photos(c.photos);
     return { titre: titre.charAt(0).toUpperCase() + titre.slice(1), detail: c.plan };
   }
-  if (pos.etat === 'refusee') return { titre: 'Position refusée.', detail: 'Choisissez la façade dans la liste : « Photographier » sur sa ligne.' };
-  if (pos.etat === 'attente') return { titre: 'En attente de votre position…', detail: 'Sans position, choisissez la façade dans la liste.' };
-  return { titre: 'Aucune façade de la parcelle devant vous.', detail: 'Placez-vous face à un mur, du côté extérieur, entre 3 et 40 m.' };
+  if (pos.etat === 'refusee') return { titre: 'Position refusée.', detail: 'Touchez la façade dans la 3D, ou choisissez-la dans la liste : « Photographier » sur sa ligne.' };
+  if (pos.etat === 'attente') return { titre: 'En attente de votre position…', detail: 'Sans position, touchez la façade dans la 3D ou choisissez-la dans la liste.' };
+  return { titre: 'Aucune façade de la parcelle devant vous.', detail: 'Placez-vous face à un mur, du côté extérieur, entre 3 et 40 m, ou touchez la façade dans la 3D.' };
 }
 
 function Prise({ session }: { session: SessionAuditParcelle }) {

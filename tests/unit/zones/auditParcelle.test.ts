@@ -82,7 +82,7 @@ describe('la liste de controle', () => {
     const { s } = ecran();
     cliquer(bouton(/^Photographier : Façade nord .* de Maison$/));
     expect(s.ecran()).toBe('prise');
-    expect(hote.querySelector('.auditPrise .titreParcours')?.textContent).toBe('Photo pour la façade nord de Maison (choisie dans la liste) — 0 photo');
+    expect(hote.querySelector('.auditPrise .titreParcours')?.textContent).toBe('Photo pour la façade nord de Maison (choisie) — 0 photo');
     expect(hote.querySelector<HTMLInputElement>('input[data-controle="auditParcelle.photo"]')?.disabled).toBe(false);
     cliquer(bouton('Liste'));
     expect(s.ecran()).toBe('liste');
