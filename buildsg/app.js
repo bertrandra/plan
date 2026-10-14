@@ -44,13 +44,15 @@ const adminDemos = creerAdminDemos({
   motDePasse: process.env.ADMIN_PASSWORD
 });
 
-// L'analyse par Claude (analyseAdmin.mjs, MD/spec-audit.md 13.2) : la session de l'admin, la cle
+// L'analyse par Claude (analyseAdmin.mjs, MD/spec-audit.md 13.2) : la session de l'admin ou le
+// jeton d'un utilisateur de la plateforme (verifie aupres de BACKPROD_API_URL), la cle
 // ANTHROPIC_API_KEY, et le journal, les tarifs et les plafonds dans DEMOS_DIR/claude/.
 const analyse = creerAnalyseAdmin({
   dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
   actif: adminDemos.actif,
   sessionValide: adminDemos.sessionValide,
-  cle: process.env.ANTHROPIC_API_KEY
+  cle: process.env.ANTHROPIC_API_KEY,
+  plateformeUrl: process.env.BACKPROD_API_URL
 });
 
 // ---------------------------------------------------------------------------------------------

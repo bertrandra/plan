@@ -244,6 +244,55 @@ async function captureJusquAuxPropositions(page) {
   await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 60000 });
 }
 
+/**
+ * Les routes `admin/claude/…` de l'analyse par Claude (deploy/analyse.php), simulees (lot L17) :
+ * les demandes recues et leurs jetons ; un batch fini des le premier suivi, dont les trois passes
+ * disent la meme chose (zinc, une cheminee, un parement en pierre sur chaque facade a decrire).
+ * `panne` rend le serveur injoignable.
+ */
+async function simulerAnalyse(page) {
+  const s = { demandes: [], jetons: [], panne: false };
+  const ind = (image, vu) => [{ image, vu }];
+  const sortie = (facades) => ({
+    forme: { indices: ind(1, 'deux pans et deux pignons'), valeur: 'deux-pans' }, profil: { indices: [], valeur: 'droit' },
+    faitage: { indices: [], sens: 'indetermine' }, bouts: { indices: [], gauche: 'pignon', droite: 'pignon' },
+    lucarnes: { indices: [], nombre: 0, types: [], pan: 'aucun' },
+    cheminees: { indices: ind(1, 'une souche de brique au faîtage'), nombre: 1, souches: [{ position: 'faitage', materiau: 'brique' }] },
+    terrasse: { indices: [], presente: 'non', type: 'sans-objet', acrotere: 'non', edicules: 0 },
+    couverture: { indices: ind(1, 'feuilles de zinc à joints debout'), valeur: 'zinc' }, elements: [],
+    facades: facades.map((facade) => ({ indices: ind(1, 'moellons apparents'), facade, ouvertures: { niveaux: 2, parNiveau: [2, 2], manquees: 0, enTrop: 0 }, details: { volets: 'battants', coffre: 'non', balcon: 'non', forme: 'rectangulaire' }, materiau: 'pierre', ecart: '' })),
+    ecarts: [], contradictions: [], confiance: 'forte',
+  });
+  await page.route(/\/admin\/claude\//, async (route) => {
+    if (s.panne) return route.abort('failed');
+    const req = route.request(), u = new URL(req.url());
+    s.jetons.push(req.headers().authorization ?? '');
+    const json = (status, corps) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    const m = u.pathname.match(/\/admin\/claude\/batches(?:\/([^/]+)(\/resultats)?)?$/);
+    if (!m) return json(404, { error: { code: 'NOT_FOUND', message: 'route simulée absente' } });
+    if (!m[1] && req.method() === 'POST') {
+      s.demandes.push(JSON.parse(req.postData() || 'null'));
+      return json(201, { batch: { id: 'msgbatch_' + s.demandes.length, etat: 'in_progress', compte: null }, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 });
+    }
+    const d = s.demandes[Number(String(m[1]).replace('msgbatch_', '')) - 1];
+    if (!d) return json(404, { error: { code: 'NOT_FOUND', message: 'batch inconnu' } });
+    const vue = { id: m[1], etat: 'ended', compte: { processing: 0, succeeded: d.requetes.length, errored: 0, canceled: 0, expired: 0 } };
+    if (!m[2]) return json(200, vue);
+    const resultats = d.requetes.map((r) => {
+      const texte = r.contenu.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+      const facades = (texte.match(/Façades à décrire \(étiquettes\) : ([^.\n]*)\./)?.[1] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+      return { id: r.id, statut: 'reussi', passe: r.passe, sortie: sortie(facades), erreur: null };
+    });
+    return json(200, { batch: vue, modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats });
+  });
+  return s;
+}
+/** Chaque toast qui parait est note : ils ne restent que quelques secondes. */
+const notesToasts = (page) => page.evaluate(() => {
+  window.__toastsVus = [];
+  new MutationObserver(() => document.querySelectorAll('.toast').forEach((t) => { if (!window.__toastsVus.includes(t.textContent)) window.__toastsVus.push(t.textContent); }))
+    .observe(document.body, { childList: true, subtree: true, characterData: true });
+});
 /** Ce que le plan dit de la maison et de la cloture : ce que les propositions changent. */
 const etatAudite = (page) => page.evaluate(() => {
   const o = window.__plan.etat().objects;
@@ -1457,6 +1506,76 @@ const POINTS = {
       && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45;
     return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'}` };
   },
+  69: async (page, f) => {
+    // L'analyse par Claude (lot L17) contre une API simulee : la question de l'accord dans l'ecran des
+    // propositions (case « Partager cet audit » cochee par defaut) ; « Envoyer » part en trois passes
+    // identiques par `admin/claude/batches`, avec le jeton de la plateforme ; le batch fini, le toast
+    // dit que les propositions sont pretes et les lignes de Claude s'ajoutent, decochees, avec leurs
+    // indices et la raison ; le projet n'est pas touche.
+    const serveur = await simulerAnalyse(page);
+    const avant = await etatAudite(page);
+    await captureJusquAuxPropositions(page);
+    await notesToasts(page);
+    const question = await page.locator('.accordAnalyse').count();
+    const partage = await page.locator('input[data-controle="auditParcelle.partagerAudit"]').isChecked().catch(() => null);
+    const lignesAvant = await page.locator('.ligneProposition').count();
+    await page.locator('[data-controle="auditParcelle.accordAnalyse"]').click({ timeout: 30000 });
+    await page.locator('.ligneProposition.source-claude').first().waitFor({ timeout: 60000 }).catch(() => {});
+    const toasts = await page.evaluate(() => window.__toastsVus);
+    const parti = toasts.some((t) => /^Vos photos sont parties à l’analyse par Claude \(accord du /.test(t));
+    const pret = toasts.some((t) => /^Les propositions de Claude sont prêtes : 1 bâtiment analysé\.$/.test(t));
+    const d = serveur.demandes[0];
+    const passes = d ? d.requetes.map((r) => r.passe).join(',') : '';
+    const identiques = !!d && d.requetes.every((r) => JSON.stringify(r.contenu) === JSON.stringify(d.requetes[0].contenu));
+    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
+    const facades = d ? d.requetes[0].facades : 0;
+    const claude = await page.locator('.ligneProposition.source-claude').count();
+    const couverture = await ligneProposition(page, 'Couverture de Maison');
+    const zinc = await page.locator('.ligneProposition.source-claude', { hasText: 'Zinc' }).first();
+    const zincTexte = (await zinc.count()) ? ((await zinc.textContent()) || '').replace(/\s+/g, ' ').trim() : '';
+    const zincCoche = (await zinc.count()) ? await zinc.locator('input[type="checkbox"]').isChecked() : null;
+    const etat = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((x) => x.scrollWidth > x.clientWidth + 1), f.width);
+    const apres = await etatAudite(page);
+    const ok = question === 1 && partage === true && !!d && passes === '1,2,3' && identiques && images >= 1 && facades === 1 && serveur.jetons.every((j) => j === 'Bearer jeton')
+      && parti && pret && claude >= 2 && claude + lignesAvant === (await page.locator('.ligneProposition').count()) && !!couverture
+      && /Claude/.test(zincTexte) && /passes d’accord 100 %/.test(zincTexte) && /Taux d’accord de Claude non encore mesuré/.test(zincTexte) && zincCoche === false
+      && /^Claude : Propositions de Claude prêtes/.test(etat) && apres === avant && !deborde;
+    return { ok, mesure: `question ${question ? 'posée' : 'ABSENTE'}, partage ${partage ? 'coché' : 'DÉCOCHÉ'} ; envoi ${d ? `passes ${passes}, ${identiques ? 'identiques' : 'DIFFÉRENTES'}, ${images} image(s), ${facades} façade(s), jeton ${serveur.jetons[0] ?? '—'}` : 'AUCUN'} ; toasts ${parti ? 'parti' : 'NON parti'} / ${pret ? 'prêt' : 'NON prêt'} ; ${claude} ligne(s) de Claude (${lignesAvant} des mesures) ; « ${zincTexte.slice(0, 160)} » ${zincCoche ? 'COCHÉE' : 'décochée'} ; « ${etat.slice(0, 80)} » ; projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  70: async (page) => {
+    // L'analyse par Claude (lot L17), sans accord ou sans reseau, puis le retrait : « Seulement les
+    // mesures » n'envoie rien ; « Demander l'analyse » avec un serveur injoignable dit pourquoi et
+    // laisse les mesures ; « Relancer » une fois le serveur revenu donne les lignes de Claude ;
+    // « Retirer l'accord » les retire, et un second audit du projet repose la question.
+    const serveur = await simulerAnalyse(page);
+    await captureJusquAuxPropositions(page);
+    await notesToasts(page);
+    await page.locator('[data-controle="auditParcelle.sansAnalyse"]').click({ timeout: 30000 });
+    await page.waitForTimeout(300);
+    const refuse = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const rienParti = serveur.demandes.length === 0;
+    serveur.panne = true;
+    await page.locator('[data-controle="auditParcelle.accordAnalyse"]').click({ timeout: 30000 });
+    // La preparation (mesures, rendu hors ecran) passe avant l'envoi qui echoue : elle peut durer sous charge.
+    await page.locator('.etatAnalyse.etat-erreur').waitFor({ timeout: 90000 }).catch(() => {});
+    const erreur = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const sansClaude = await page.locator('.ligneProposition.source-claude').count();
+    serveur.panne = false;
+    await page.locator('[data-controle="auditParcelle.relancerAnalyse"]').click({ timeout: 30000 });
+    await page.locator('.ligneProposition.source-claude').first().waitFor({ timeout: 60000 }).catch(() => {});
+    const avecClaude = await page.locator('.ligneProposition.source-claude').count();
+    await page.locator('[data-controle="auditParcelle.retirerAccord"]').click({ timeout: 30000 });
+    await page.waitForTimeout(500);
+    const retire = await page.locator('.ligneProposition.source-claude').count();
+    const toasts = await page.evaluate(() => window.__toastsVus);
+    const toastRetrait = toasts.some((t) => /^Accord retiré pour ce projet/.test(t));
+    const garde = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('plan.accordAnalyse.')).length);
+    const ok = /Analyse par Claude non demandée : seules les mesures sont proposées\./.test(refuse) && rienParti
+      && /Le serveur de l’analyse ne répond pas : seules les mesures sont proposées\./.test(erreur) && sansClaude === 0
+      && avecClaude >= 2 && retire === 0 && toastRetrait && garde === 0;
+    return { ok, mesure: `« ${refuse.slice(0, 90)} » ; ${rienParti ? 'rien envoyé' : 'ENVOYÉ'} ; panne : « ${erreur.slice(0, 100)} », ${sansClaude} ligne(s) de Claude ; relancé : ${avecClaude} ligne(s) ; retrait : ${retire} ligne(s), toast ${toastRetrait ? 'oui' : 'NON'}, accord gardé ${garde}` };
+  },
   65: async (page) => {
     // La fusion de plusieurs vues (lot L13) : deux photos du meme mur, de face puis de biais, une
     // voiture devant ; « Vues du mur entier » les fait fondre au lieu de les mettre cote a cote. Les
@@ -1608,7 +1727,8 @@ function pointsPour(nomClasse) {
   // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
   // l'actualisation (lot L12).
   // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 73];
+  // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -16,7 +16,7 @@ function ligne(t: string, plus: Partial<LigneConsommation> = {}): LigneConsommat
     t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
     usage: 'analyse', modele: HAIKU, batch: true, passe: 1,
     tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1000 },
-    images: 1, cout: 0.001, statut: 'reussi', ...plus
+    images: 1, facades: 2, cout: 0.001, statut: 'reussi', ...plus
   };
 }
 
@@ -93,6 +93,9 @@ describe('les tableaux', () => {
     expect(p).toHaveLength(2);
     const ae101 = p.find((l) => l.idu === '78650000AE0101')!;
     expect(ae101).toMatchObject({ audits: 1, cout: 0.024, dernier: '2026-10-13', tokens: 120000, adresse: '2 allée des Limites, Le Vésinet' });
+    // Les passes d'une maison couvrent les memes deux facades : comptees sur la premiere ; ni
+    // l'escalade ni le refus du plafond ne les recomptent. 0,024 $ / 2.
+    expect(ae101).toMatchObject({ facades: 2, coutParFacade: 0.012 });
     expect(ae101.tokensParModele).toEqual({ [HAIKU]: 90000, [SONNET]: 30000 });
     // 75 000 lus en cache sur 116 000 tokens d'entree.
     expect(ae101.partCache).toBeCloseTo(75000 / 116000, 10);

@@ -65,7 +65,7 @@ export function plafondDe(plafonds: Plafonds, organisation: string): { jour: num
 export function verifierDemande(d: unknown, plafonds: Plafonds): {
   projet: string | null; idu: string | null; adresse: string | null; audit: string | null;
   usage: string; modele: string;
-  requetes: { id: string; passe: number | null; images: number; contenu: unknown[] }[];
+  requetes: { id: string; passe: number | null; images: number; facades: number; contenu: unknown[] }[];
 };
 export function parametresRequete(modele: string, prompt: string, schema: unknown, contenu: unknown[]): Record<string, unknown>;
 export function verifierTarifs(d: unknown): Tarifs;
@@ -98,6 +98,7 @@ export function creerAnalyseAdmin(options: {
   sessionValide: (req: IncomingMessage) => boolean;
   cle: string | undefined;
   anthropicUrl?: string;
+  plateformeUrl?: string;
   deploy?: string;
   maintenant?: () => number;
 }): {

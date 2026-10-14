@@ -30,6 +30,8 @@ export interface LigneConsommation {
   passe: number | null;
   tokens: TokensJournal;
   images: number;
+  /** Les facades que la requete couvrait (lot L17) ; 0 sur un journal d'avant. */
+  facades: number;
   /** En dollars ; `null` quand aucun tarif n'etait connu ce jour-la. */
   cout: number | null;
   /** `reussi`, `echoue`, `expire`, `annule`, ou `plafond` (refuse avant l'appel). */
@@ -129,6 +131,7 @@ function lireLigne(d: unknown): LigneConsommation | null {
     passe: fini(o.passe) ? o.passe : null,
     tokens: { entree: positif(t.entree), ecritureCache: positif(t.ecritureCache), ecritureCache1h: positif(t.ecritureCache1h), lectureCache: positif(t.lectureCache), sortie: positif(t.sortie) },
     images: positif(o.images),
+    facades: positif(o.facades),
     cout: fini(o.cout) ? o.cout : null,
     statut: typeof o.statut === 'string' ? o.statut : 'echoue'
   };
@@ -262,6 +265,9 @@ export function valeurA(s: SerieTemps, serie: string, i: number): number {
   return s.valeurs[serie]?.[i] ?? 0;
 }
 
+/** Les usages d'une premiere analyse : eux seuls comptent les facades (cout par facade). */
+const USAGES_QUI_COMPTENT = new Set(['analyse', 'immediat']);
+
 export interface LigneParcelle {
   cle: string;
   idu: string | null;
@@ -272,6 +278,10 @@ export interface LigneParcelle {
   /** Part des tokens d'entree lus en cache. */
   partCache: number;
   cout: number;
+  /** Les facades couvertes par les appels, comptees sur la premiere passe de chaque maison. */
+  facades: number;
+  /** Le cout rapporte aux facades ; null sans facade comptee (journal d'avant le lot L17). */
+  coutParFacade: number | null;
   /** Le jour du dernier appel. */
   dernier: string;
 }
@@ -290,6 +300,10 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
   return [...groupes].map(([cle, g]) => {
     const tokensParModele: Record<string, number> = {};
     let entree = 0, lu = 0, c = 0, dernier = '';
+    // Les trois passes d'une maison couvrent les memes facades : seule la premiere (ou l'appel
+    // unique, sans passe) les compte. Une escalade ou un renfort revoit des facades deja comptees ;
+    // un envoi refuse au plafond n'a rien coute : ni l'un ni l'autre ne compte.
+    let facades = 0;
     for (const l of g.l) {
       const s = serieDuModele(l.modele);
       tokensParModele[s] = (tokensParModele[s] ?? 0) + totalTokens(l.tokens);
@@ -297,12 +311,13 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
       lu += l.tokens.lectureCache;
       c += cout(l);
       if (l.t > dernier) dernier = l.t;
+      if ((l.passe === null || l.passe === 1) && l.statut !== 'plafond' && USAGES_QUI_COMPTENT.has(l.usage)) facades += l.facades;
     }
     const premiere = g.l.find((l) => l.adresse) ?? g.l[0];
     return {
       cle, idu: g.l[0]?.idu ?? null, adresse: premiere?.adresse ?? null, audits: g.audits.size, tokensParModele,
       tokens: Object.values(tokensParModele).reduce((a, b) => a + b, 0),
-      partCache: entree ? lu / entree : 0, cout: arrondi(c), dernier: dernier.slice(0, 10)
+      partCache: entree ? lu / entree : 0, cout: arrondi(c), facades, coutParFacade: facades ? arrondi(c / facades) : null, dernier: dernier.slice(0, 10)
     };
   });
 }

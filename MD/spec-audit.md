@@ -467,6 +467,19 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 - **Sans réseau, ou sans accord** : seules les mesures du §13.1 deviennent des propositions. L'audit
   marche, avec moins de détails.
 
+**Fait (lot L17, le client)** : `app/audit/parcelle/analyseClaude.ts` (accord, envoi, suivi, résultats,
+notification), `entreesAnalyse.ts` (images étiquetées puis texte : indices LiDAR, modèle compact,
+mesures, observations), `propositionsClaude.ts` (vote, contrôle croisé, propositions `claude`) et
+`model/analyseClaude.ts` (schéma version 1, vote, indices chiffrés). L'accord (décision D2) est
+demandé dans l'écran des propositions, gardé par projet sur l'appareil (pas dans le projet), rappelé
+à chaque envoi et révocable ; la case « Partager cet audit pour améliorer Plan » (D7) est cochée par
+défaut. Le serveur s'ouvre aux utilisateurs de la plateforme par leur jeton (D1), plafonds et journal
+par organisation, façades comptées par ligne. Ce que le projet sait écrire est proposé : couverture,
+cheminées, toiture-terrasse, matériau des murs ; tout arrive décoché tant que le taux d'accord n'est
+pas mesuré (lots L19 à L21). Restent : la forme du toit, les lucarnes et les détails des ouvertures
+(règles des toits et lot L15), l'escalade vers un modèle plus fin, et les coins et ouvertures proposés
+pour le calage (lot L18). Points de fumée 69 et 70.
+
 ### 13.3 Le tableau de bord de la consommation
 
 *Demande de l'utilisateur, 13 octobre 2026.* Un écran dit combien de tokens chaque parcelle a
