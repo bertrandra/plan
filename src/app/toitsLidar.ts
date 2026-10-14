@@ -213,7 +213,7 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   { version: 2, reglages: '6d05c3a9', faits: 'acde1a6a' },
   // Les deux pignons traversants de la facade sud d'AE 101, dits par le proprietaire (fait), et les
   // seuils de leur lecture (facade/pignonsFait.ts) : la lecture LiDAR servie par l'IGN a change.
-  { version: 3, reglages: 'b472cd75', faits: 'fe2c2ce8' },
+  { version: 3, reglages: 'b472cd75', faits: '43162115' },
 ];
 
 /**

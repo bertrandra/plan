@@ -9,13 +9,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Les pignons d'une façade, dits par un fait de toit** (`MD/spec-regles-toits.md` §5.2) :
   `pignons: [{ facade: { azimutDeg }, position: "bouts", haut: "faitage" }]` tient un pignon
-  traversant à chaque bout du pan de cette façade, jusqu'au point haut du faîtage. Les pignons
-  détectés sont gardés ; il manque, sa largeur se lit sur la mesure, sinon celle de l'autre pignon.
-  Premier cas : **AE 101**, « deux pignons à gauche et à droite de la façade sud, qui montent au
-  faîtage » (le propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour cette maison a
-  changé l'après-midi même, et le calcul seul n'y trouvait plus que le pignon ouest : le toit sud
-  était cassé. La référence d'AE 101 sous ses faits change (les pignons montent au faîtage) ; le
-  calcul seul ne change pas, ni aucun autre bâtiment. Les toits déjà lus seront relus à l'ouverture.
+  traversant à chaque bout du pan de cette façade, jusqu'au point haut du faîtage, à la largeur
+  donnée (`largeurM`) ou, sans elle, à celle que lit la mesure. Premier cas : **AE 101**, « deux
+  pignons à gauche et à droite de la façade sud, de 3,7 m environ, qui montent au faîtage » (le
+  propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour cette maison a changé
+  l'après-midi même, et le calcul seul n'y trouvait plus que le pignon ouest : le toit sud était
+  cassé. La référence d'AE 101 sous ses faits change (pignons de 3,7 m au faîtage, pan relu sans
+  eux) ; le calcul seul ne change pas, ni aucun autre bâtiment. Les toits déjà lus seront relus à
+  l'ouverture.
 
 - **Un appentis adossé le long d'une façade, dit par un fait de toit** (`MD/spec-regles-toits.md`
   §5.1). Un porche, une galerie couverte, un auvent que le contour BD TOPO ne contient pas se

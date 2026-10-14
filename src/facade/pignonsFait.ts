@@ -8,11 +8,13 @@
 // 1,8 m, n'y depasse plus le seuil, et le toit perdait un pignon. Ce que le proprietaire a vu ne doit
 // pas dependre d'une relecture.
 //
-// Pour chaque bout de la facade : un pignon detecte qui y commence est garde (ses bords) ; sinon sa
-// largeur se lit sur la mesure, depuis le bout, la ou elle depasse le pan de SURPLUS_PIGNON_FAIT_M
-// (la moitie du seuil de la detection : le doute sur l'existence est leve) ; a defaut, la largeur de
-// l'autre pignon de la facade, ou celle du fait. `haut: 'faitage'` les monte au point haut du faitage
-// du corps, jusqu'a lui. Un pignon ajoute fait reajuster le pan sans ses mesures, comme la detection.
+// Pour chaque bout de la facade : la largeur donnee par le fait l'emporte (le proprietaire l'a
+// estimee : 3,7 m a AE 101, quand la mesure en lisait 2,4 a 3 m) ; sans elle, un pignon detecte qui y
+// commence est garde (ses bords) ; sinon sa largeur se lit sur la mesure, depuis le bout, la ou elle
+// depasse le pan de SURPLUS_PIGNON_FAIT_M (la moitie du seuil de la detection : le doute sur
+// l'existence est leve) ; a defaut, la largeur de l'autre pignon de la facade. `haut: 'faitage'` les
+// monte au point haut du faitage du corps, jusqu'a lui. Un pignon que le fait pose ou elargit fait
+// reajuster le pan sans ses mesures, comme la detection.
 
 import { ajusterCorps, empreintePignon, hauteurCorps, point, repere } from './toitCorps.js';
 import { facadeDesignee } from './appentisFait.js';
@@ -78,9 +80,10 @@ export function pignonsAuxBouts(c: CorpsToit, pan: 0 | 1, pf: PignonsFait, m: To
   const bornes: { s0: number; s1: number; detecte: PignonToit | undefined }[] = [];
   for (const depuisFin of [false, true]) {
     const detecte = depuisFin ? aLaFin : auDebut;
-    if (detecte) { bornes.push({ s0: detecte.debut, s1: detecte.fin, detecte }); continue; }
+    // La largeur du fait l'emporte sur celle de la detection : le pignon est alors celui du fait.
+    if (detecte && pf.largeurM === undefined) { bornes.push({ s0: detecte.debut, s1: detecte.fin, detecte }); continue; }
     const autre = depuisFin ? auDebut : aLaFin;
-    const w = largeurLue(m, c, pan, depuisFin, max) ?? (autre ? Math.min(max, autre.fin - autre.debut) : null) ?? (pf.largeurM !== undefined ? Math.min(max, pf.largeurM) : null);
+    const w = pf.largeurM !== undefined ? Math.min(max, pf.largeurM) : largeurLue(m, c, pan, depuisFin, max) ?? (autre ? Math.min(max, autre.fin - autre.debut) : null);
     // Sans mesure ni largeur, le fait ne fabrique pas un pignon : il le dira dans ses ecarts.
     if (w === null) continue;
     bornes.push(depuisFin ? { s0: r.L - w, s1: r.L, detecte: undefined } : { s0: 0, s1: w, detecte: undefined });

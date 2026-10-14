@@ -6,14 +6,15 @@
     "BATIMENT0000000322509182": {
       "observation": {
         "appentis": [{ "facade": { "azimutDeg": 180 }, "longueur": "toute" }],
-        "pignons": [{ "facade": { "azimutDeg": 180 }, "position": "bouts", "haut": "faitage" }]
+        "pignons": [{ "facade": { "azimutDeg": 180 }, "position": "bouts", "haut": "faitage", "largeurM": 3.7 }]
       },
       "application": "contrainte",
       "preuve": { "observation": "observation sur place du propriétaire, 14 octobre 2026", "photo": false },
       "adresse": "2 allée des Limites, 78110 Le Vésinet (parcelle 78650000AE0101, AE 101)",
       "historique": [
         { "t": "2026-10-14", "texte": "Observé sur place par le propriétaire : sur la façade sud, un toit en appentis (porche, galerie couverte d'une maison de style colonial américain) sur toute la longueur de la façade, avec un décroché en plan d'environ 50 cm au milieu ; le toit de l'appentis reste à la même hauteur. Cotes non données : lues sur le LiDAR (profondeur 1,25 m, 3,2 m contre le mur, égout 2,4 m). Le décroché, plus petit que SEUIL_DECROCHE_M et à moitié sous un arbre sur la mesure, n'est pas dessiné : un seul pan. L'utilisateur a accepté que la référence d'AE 101 change une fois pour ce fait." },
-        { "t": "2026-10-14", "texte": "Observé par le propriétaire : sur la façade sud, deux pignons traversants, à gauche et à droite, qui montent au point haut du faîtage. La lecture LiDAR servie par l'IGN a changé l'après-midi du 14 octobre et le calcul seul ne trouvait plus que le pignon ouest : le fait les tient tous les deux, quelle que soit la lecture." }
+        { "t": "2026-10-14", "texte": "Observé par le propriétaire : sur la façade sud, deux pignons traversants, à gauche et à droite, qui montent au point haut du faîtage. La lecture LiDAR servie par l'IGN a changé l'après-midi du 14 octobre et le calcul seul ne trouvait plus que le pignon ouest : le fait les tient tous les deux, quelle que soit la lecture." },
+        { "t": "2026-10-14", "texte": "Précisé par le propriétaire : chaque pignon fait environ 3,7 m de large, la même largeur à gauche et à droite (la mesure en lisait 2,4 à 3 m)." }
       ]
     }
   }

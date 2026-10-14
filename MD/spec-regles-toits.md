@@ -522,15 +522,15 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
 | `facade.azimutDeg` | comme pour un appentis (§5.1) | le mur de **pan** du corps principal dont la normale est à moins de `toleranceDeg` ; un mur de bout ne porte pas de pignon traversant |
 | `position` | `"bouts"` (seule valeur) | un pignon à chaque bout de la façade |
 | `haut` | `"faitage"`, ou absent | `"faitage"` : au point haut du faîtage du corps, jusqu'à lui (profondeur = largeur du pan) ; absent : la hauteur lue sur la mesure |
-| `largeurM` | mètres, facultatif | la largeur d'un pignon que la mesure ne délimite pas |
+| `largeurM` | mètres, facultatif | la largeur de chaque pignon : donnée, elle **l'emporte** sur la mesure |
 
-- **À chaque bout** : un pignon détecté dont le bord commence à moins de `BOUT_PIGNON_FAIT_M` du bout
-  est gardé (ses bords) ; sinon sa largeur se lit depuis le bout, là où la mesure dépasse le pan de
-  `SURPLUS_PIGNON_FAIT_M` (la moitié du seuil de la détection : le doute sur son existence est
-  levé) ; à défaut, la largeur de l'autre pignon de la façade, puis `largeurM`. Chacun au plus 45 %
-  de la longueur, et au plus `LARGEUR_PIGNON_MAX_M`.
-- Un pignon **ajouté** fait relire le pan sans ses mesures (`ajusterCorps` avec son empreinte), comme
-  après une détection (`corpsAvecPignons`).
+- **À chaque bout** : la largeur du fait (`largeurM`) l'emporte ; sans elle, un pignon détecté dont
+  le bord commence à moins de `BOUT_PIGNON_FAIT_M` du bout est gardé (ses bords) ; sinon sa largeur
+  se lit depuis le bout, là où la mesure dépasse le pan de `SURPLUS_PIGNON_FAIT_M` (la moitié du
+  seuil de la détection : le doute sur son existence est levé) ; à défaut, la largeur de l'autre
+  pignon de la façade. Chacun au plus 45 % de la longueur, et au plus `LARGEUR_PIGNON_MAX_M`.
+- Un pignon que le fait **pose ou élargit** fait relire le pan sans ses mesures (`ajusterCorps` avec
+  son empreinte), comme après une détection (`corpsAvecPignons`).
 - **Ne fabrique rien** : sans mesure qui le délimite, sans autre pignon ni `largeurM`, le pignon
   n'est pas posé et `ecartsAuFait` le dit (« pignons vers 180 : 1 sur 2 »). En `remplacement`, les
   pignons ne sont pas encore posés.
@@ -538,8 +538,9 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
   point haut du faîtage » (le propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour AE
   101 a changé l'après-midi même (0,4 m d'écart moyen par cellule, sans décalage :
   `tests/fixtures/toits/vesinet-ae101-lidar-soir.json`) : le calcul seul n'y trouve plus que le pignon
-  ouest ; le fait pose le pignon est (0 à 2,4 m) et les monte tous deux à 7,9 m. Sur la lecture du
-  matin, les deux pignons détectés (0 à 3 m, 7 à 9,9 m) montent au faîtage, à 7,5 m.
+  ouest. Le propriétaire a précisé leur largeur, environ 3,7 m chacun, la même des deux côtés
+  (`largeurM`) : sur les deux lectures, le fait pose les pignons de 0 à 3,7 m et de 6,2 à 9,9 m, qui
+  montent au faîtage relu sans eux (7,6 m sur la lecture du matin, 7,8 m sur celle du soir).
 
 ---
 

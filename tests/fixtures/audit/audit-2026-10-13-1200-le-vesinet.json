@@ -87,11 +87,11 @@
     "corps": [
      {
       "pts": [{"x":2.19,"y":-14.56},{"x":-7.35,"y":-17.24},{"x":-5.6,"y":-23.5},{"x":3.94,"y":-20.82}],
-      "posFaitage": 4,
-      "faitage": 7.5,
+      "posFaitage": 3.75,
+      "faitage": 7.6,
       "egouts": [6.1,5],
-      "pignons": [{"pan":1,"debut":0,"fin":3,"faitage":7.5,"profondeur":2.5},{"pan":1,"debut":7,"fin":9.91,"faitage":7.5,"profondeur":2.5}],
-      "ecart": 0.35
+      "pignons": [{"pan":1,"debut":0,"fin":3.7,"faitage":7.6,"profondeur":2.75},{"pan":1,"debut":6.21,"fin":9.91,"faitage":7.6,"profondeur":2.75}],
+      "ecart": 0.36
      },
      {
       "pts": [{"x":2.19,"y":-14.56},{"x":1.05,"y":-10.5},{"x":-8.49,"y":-13.18},{"x":-7.35,"y":-17.24}],
@@ -132,7 +132,7 @@
     "couleurMurs": null,
     "sourceMurs": null
    },
-   "historique": [{"t":"2026-10-13T12:00:00Z","texte":"Cas reconstitué (pas une promenade) depuis le relevé tests/fixtures/toits/vesinet-ae101.json : contour recalé et grille LiDAR réels, sans attributs BD TOPO. Sorties du code de main (d7d3f29)."},{"t":"2026-10-13T12:00:00Z","texte":"valide : AE 101 est la maison de référence de l’utilisateur ; ses corps ne bougent pas au centimètre (identite.ts, toitCorpsReprise.test.ts)."},{"t":"2026-10-14T12:00:00Z","texte":"attendu changé, une fois, par décision de l’utilisateur : le propriétaire a vu sur place un appentis (galerie couverte) sur toute la façade sud ; fait de regles/toits/faits.json (BATIMENT0000000322509182). La clé BD TOPO du bâtiment, lue dans le relevé du village (village.mjs, Le Vésinet : contour et grille identiques à ceux du cas), est ajoutée à l’identité et aux entrées (la clé seule : sans hauteur, la vraisemblance et l’égout du cas ne changent pas). Quatrième corps : l’appentis, cotes lues sur le LiDAR (profondeur 1,25 m, 3,2 m contre le mur, égout 2,4 m) ; les trois corps d’avant ne bougent pas."},{"t":"2026-10-14T18:30:00Z","texte":"attendu changé par décision du propriétaire : sur la façade sud, deux pignons traversants à gauche et à droite, qui montent au point haut du faîtage ; fait de regles/toits/faits.json (pignons aux bouts, haut : faîtage). Le pignon est passe de 7,3 m à 7,5 m (le faîtage) et va jusqu’à lui (profondeur 2,5 m) ; les corps et le pignon ouest ne bougent pas."}]
+   "historique": [{"t":"2026-10-13T12:00:00Z","texte":"Cas reconstitué (pas une promenade) depuis le relevé tests/fixtures/toits/vesinet-ae101.json : contour recalé et grille LiDAR réels, sans attributs BD TOPO. Sorties du code de main (d7d3f29)."},{"t":"2026-10-13T12:00:00Z","texte":"valide : AE 101 est la maison de référence de l’utilisateur ; ses corps ne bougent pas au centimètre (identite.ts, toitCorpsReprise.test.ts)."},{"t":"2026-10-14T12:00:00Z","texte":"attendu changé, une fois, par décision de l’utilisateur : le propriétaire a vu sur place un appentis (galerie couverte) sur toute la façade sud ; fait de regles/toits/faits.json (BATIMENT0000000322509182). La clé BD TOPO du bâtiment, lue dans le relevé du village (village.mjs, Le Vésinet : contour et grille identiques à ceux du cas), est ajoutée à l’identité et aux entrées (la clé seule : sans hauteur, la vraisemblance et l’égout du cas ne changent pas). Quatrième corps : l’appentis, cotes lues sur le LiDAR (profondeur 1,25 m, 3,2 m contre le mur, égout 2,4 m) ; les trois corps d’avant ne bougent pas."},{"t":"2026-10-14T18:30:00Z","texte":"attendu changé par décision du propriétaire : sur la façade sud, deux pignons traversants à gauche et à droite, qui montent au point haut du faîtage ; fait de regles/toits/faits.json (pignons aux bouts, haut : faîtage). Chaque pignon fait 3,7 m de large (estimé par le propriétaire), aux deux bouts, et monte au faîtage ; le pan du corps principal se relit sans eux (faîtage 7,6 m, à 3,75 m du mur nord) ; les autres corps ne bougent pas."}]
   }
  ]
 }

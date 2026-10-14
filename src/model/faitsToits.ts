@@ -55,14 +55,14 @@ export interface AppentisFait {
  * pan de cette facade, comme les deux pignons de la facade sud d'AE 101. La facade se designe comme
  * pour un appentis (l'azimut de sa normale sortante). `position: 'bouts'` : un pignon a chaque bout
  * de la facade. `haut: 'faitage'` : ils montent jusqu'au point haut du faitage du corps (dit par le
- * proprietaire) ; sans lui, leur hauteur est lue sur la mesure. La largeur se lit sur la mesure ;
- * sans elle, celle de l'autre pignon de la facade, ou `largeurM`.
+ * proprietaire) ; sans lui, leur hauteur est lue sur la mesure. `largeurM`, quand le fait la donne,
+ * l'emporte ; sinon la largeur se lit sur la mesure, puis celle de l'autre pignon de la facade.
  */
 export interface PignonsFait {
   facade: { azimutDeg: number; toleranceDeg?: number };
   position: 'bouts';
   haut?: 'faitage';
-  /** La largeur d'un pignon le long de la facade, en metres, quand la mesure ne la lit pas. */
+  /** La largeur de chaque pignon le long de la facade, en metres ; donnee, elle l'emporte sur la mesure. */
   largeurM?: number;
 }
 

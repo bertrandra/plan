@@ -29,7 +29,7 @@ describe('regles/toits/faits.json', () => {
     expect(ae101.map(([cle]) => cle)).toEqual(['BATIMENT0000000322509182']);
     expect(ae101[0]![1].observation).toEqual({
       appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }],
-      pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage' }],
+      pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage', largeurM: 3.7 }],
     });
   });
 });

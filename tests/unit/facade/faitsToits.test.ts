@@ -240,10 +240,11 @@ describe('les faits livres', () => {
     const f = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } }, FAITS_TOITS_LIVRES)!;
     expect(f).not.toBe(null);
     const corps = corpsSelonFait(f, lus(r), r.toitMesure, r.contour, r.grille ?? null)!;
-    // Les corps du calcul ne bougent pas ; seuls les deux pignons sud montent au point haut du faitage.
+    // Les autres corps du calcul ne bougent pas ; sur le corps principal, deux pignons de 3,7 m aux bouts
+    // de la facade sud (la largeur du proprietaire), montant au point haut du faitage.
     expect(corps.slice(1, 3)).toEqual(r.corps.slice(1, 3));
-    expect({ ...corps[0]!, pignons: [] }).toEqual({ ...r.corps[0]!, pignons: [] });
-    expect(corps[0]!.pignons.map((p) => [p.pan, p.debut, p.fin])).toEqual(r.corps[0]!.pignons.map((p) => [p.pan, p.debut, p.fin]));
+    expect(corps[0]!.pts).toEqual(r.corps[0]!.pts);
+    expect(corps[0]!.pignons.map((p) => [p.pan, p.debut, p.fin])).toEqual([[1, 0, 3.7], [1, 6.21, 9.91]]);
     expect(corps[0]!.pignons.every((p) => p.faitage === corps[0]!.faitage)).toBe(true);
     expect(corps).toEqual(r.corpsAvecFaits);
     const a = corps[3]!;
@@ -271,6 +272,8 @@ describe('les faits livres', () => {
     expect(pg).toHaveLength(2);
     expect(pg[0]!.debut).toBe(0);
     expect(pg[1]!.fin).toBeCloseTo(L, 1);
+    // La largeur du proprietaire l'emporte sur la mesure : la meme qu'avec la lecture du matin.
+    expect(pg.map((p) => Math.round((p.fin - p.debut) * 10) / 10)).toEqual([3.7, 3.7]);
     expect(pg.every((p) => p.pan === pg[0]!.pan && p.faitage === principal.faitage)).toBe(true);
     expect(ecartsAuFait(f, corps, d.contour)).toEqual([]);
   });
