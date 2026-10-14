@@ -20,6 +20,7 @@ import { showToast } from '../shell/dialogs.js';
 import { facadesDuContour } from '../facade/geometrie.js';
 import { estBatiment, parcelleDuProjet } from '../model/fonctions.js';
 import type { EtatApp } from '../core/state.js';
+import type { AideClaudeReleve } from './renfortReleve.js';
 import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../model/types.js';
 
 export interface ContexteReleve {
@@ -28,6 +29,8 @@ export interface ContexteReleve {
   render: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   elevationOf: (obj: ObjetPlan) => number;
+  /** L'aide de Claude du releve (lot L18) ; absente hors navigateur ou dans les tests. */
+  aide?: AideClaudeReleve | null;
 }
 
 /** Ce qui est ouvert : le batiment, et le mur deja choisi s'il l'est. */
@@ -59,6 +62,11 @@ export interface ServiceReleve {
    * du batiment.
    */
   valider(releve: ReleveFacade, toit: Toit | null, hauteurMesuree: number): void;
+  /**
+   * L'aide de Claude (MD/spec-facades-calage-detection.md §12 bis, lot L18) : null quand le serveur
+   * de l'analyse n'est pas la ; le releve ne la propose de toute facon que sur signal.
+   */
+  aide(): AideClaudeReleve | null;
 }
 
 export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
@@ -97,6 +105,7 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? { lat: cad.origineLat, lon: cad.origineLon } : null;
     },
     position: () => positionGpsCourante()?.p ?? null,
+    aide: () => ctx.aide ?? null,
     obstacles: () => ctx.etat.objects.filter(estBatiment).filter(aDesSommets).map((o) => obstacle(o.pts)),
     valider(releve, toit, hauteurMesuree) {
       const o = batiment();

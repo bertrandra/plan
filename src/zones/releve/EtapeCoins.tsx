@@ -1,5 +1,6 @@
 // Le releve de facade (zones/Releve.tsx), etapes 3 et 4 : les coins de chaque photo, puis l'analyse.
 
+import type { ReactNode } from 'react';
 import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
 import { type CoteBas, type Decrochement } from '../../facade/profil.js';
@@ -128,6 +129,7 @@ export function EtapeCoins({
   onReprendre,
   onAjouter,
   onAnalyser,
+  aide = null,
 }: {
   morceaux: Morceau[];
   courant: number;
@@ -143,6 +145,8 @@ export function EtapeCoins({
   onReprendre: () => void;
   onAjouter: () => void;
   onAnalyser: () => void;
+  /** L'aide de Claude (lot L18), proposee seulement sur signal. */
+  aide?: ReactNode;
 }) {
   const m = au(morceaux, courant);
   const total = Math.max(morceaux.length, prevues);
@@ -181,6 +185,7 @@ export function EtapeCoins({
           <Coins key={courant} photo={m.prise.photo} coins={m.coins} setCoins={setCoins} sources={m.sources} />
         )}
         <NoteCalage m={m} largeur={largeur} />
+        {aide}
         <p className="releveNote">Largeur du mur : {fr(largeur)} m, lue sur le plan. La hauteur se mesure sur la photo, d'après ces coins.</p>
         {manque > 0 && (
           <p className="releveNote">

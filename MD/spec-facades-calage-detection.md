@@ -347,6 +347,30 @@ Ailleurs, l'algorithme suffit et Claude n'est pas appelé : coût et délai nuls
 passe, soit environ 0,0005 $ par façade et par passe en Batch avec Claude Haiku 5.5. Avec trois passes,
 quelques dixièmes de centime par façade aidée.
 
+**Mise en œuvre (lot L18, 14 octobre 2026)** — ce que le code a tranché :
+- `facade/renfort.ts` (signaux, grille de repères de 0 à 10, schéma, vote) et
+  `facade/renfortRecalage.ts` (recalage, application) ; prompt et schéma versionnés à part de ceux de
+  l'analyse : `deploy/prompt-renfort.md`, `deploy/schema-renfort.json`.
+- **Ton sur ton** : la détection ne voit pas la teinte d'une baie qu'elle n'a pas trouvée ; le signal
+  retient ce qui en reste visible, un mur de plus de 4 m sans ouverture ou une confiance médiane des
+  ouvertures sous 0,55.
+- **Coins** : la recherche du croisement va jusqu'à un demi-repère de la graine (sa précision : un
+  repère vaut un dixième de la photo) ; la règle des 30 cm s'applique au soutien (chaque segment
+  passe à moins de 30 cm du croisement), et un segment de moins de 15 % du côté attendu (un joint,
+  une pierre) ne compte pas. Un coin recalé ne remplace qu'un coin prédit.
+- **Boîtes** : soutenues sur au moins trois côtés, proposées cochées ; sur un ou deux, en pointillé ;
+  sur aucun, rejetées. Claude ne retire qu'une baie de confiance inférieure à 0,7 (elle reste
+  proposée, décochée) ; une baie devinée du même type, recouverte à moitié, est confirmée.
+- **Audit** : les requêtes du renfort portent leur usage dans le batch de l'analyse (le serveur
+  choisit leur prompt et leur schéma) ; elles ne prennent que la place que l'analyse des maisons
+  laisse dans un batch de 60 requêtes. Le recalage des coins n'y est pas appliqué : refaire
+  l'analyse de la façade sur de nouveaux coins reste à faire.
+- **Relevé** : appel immédiat par `POST admin/claude/messages` (trois requêtes au plus, en
+  parallèle, au tarif normal).
+- **Banc** : les réponses de Claude sont encore **simulées** (erreurs typiques imitées) ; elles
+  mesurent le recalage, pas Claude. Le taux d'accord de Claude sur les façades n'étant pas mesuré,
+  ses propositions arrivent décochées.
+
 ## 13. Ce qui est enregistré
 
 Tous les ajouts sont **facultatifs** : un relevé d'aujourd'hui garde exactement son sens.

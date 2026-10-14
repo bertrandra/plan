@@ -7,6 +7,54 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Claude en renfort du calage et de la détection des façades** (lot L18 du plan de mise en œuvre,
+  `MD/spec-facades-calage-detection.md` §12 bis). Claude aide quand l'algorithme n'est pas sûr de
+  lui, jamais à sa place : il propose, Plan recale et mesure, vous validez.
+  - **Signaux** (`facade/renfort.ts`) : coins non trouvés (note du calage fin sous 0,5, ou plus d'un
+    coin prédit), façade cachée à plus de 30 %, détection peu sûre (moins de 70 % des ouvertures à
+    0,7 de confiance, ou une baie devinée en pointillé), ton sur ton (mur de plus de 4 m sans
+    ouverture, ou confiance médiane sous 0,55), désaccord avec le nombre attendu, volets fermés.
+  - **Ce que Claude reçoit** (`render/imagesRenfort.ts`) : la photo réduite avec une grille de repères
+    numérotée de 0 à 10 et le quadrilatère du mur (plein si les coins ont été trouvés, en tirets
+    sinon), l'élévation graduée en mètres avec les ouvertures détectées numérotées, et ce que Plan
+    sait du mur. **Ce qu'il rend** : un nouveau schéma versionné (`deploy/schema-renfort.json`,
+    `deploy/prompt-renfort.md`, version 1) — coins en repères de la grille, avis sur chaque
+    ouverture (garder, retirer et pourquoi, type, volets, coffre, balcon, forme), ouvertures
+    manquées en boîtes en mètres, `indetermine` partout. Trois passes et un vote.
+  - **Des graines, jamais des cotes** (`facade/renfortRecalage.ts`) : un coin proposé est rattaché au
+    croisement de deux longs segments de la photo (au plus un demi-repère de la graine, chaque
+    segment à moins de 30 cm du croisement) ; une boîte est ajustée sur les profils de contours de
+    l'élévation (chaque bord à moins de 30 cm), puis régularisée par la structure. Soutenue sur au
+    moins trois côtés, elle est proposée cochée ; sur un ou deux, en pointillé ; sur aucun, rejetée.
+    Claude ne retire qu'une baie déjà peu sûre (elle reste proposée, décochée), ne touche jamais à ce
+    que le doigt a posé, et confirme une baie devinée du même type au même endroit. Origine marquée :
+    `source: 'claude'` (puis `corrigee` si vous la retouchez), coins « proposé par Claude, recalé sur
+    la photo ».
+  - **Dans le relevé** : un bouton « Demander de l'aide » à l'étape des coins et à la vérification,
+    proposé seulement quand un signal est levé et que le serveur de l'analyse est joignable ; appel
+    immédiat, trois passes au tarif normal ; le premier appel demande l'accord d'envoyer la photo
+    pour ce projet (le même que celui de l'audit, « partager » coché par défaut). Seuls les coins
+    prédits sont remplacés ; les ajouts de Claude entrent dans la proposition, pour que les
+    corrections tracées à la validation restent les vôtres.
+  - **Dans l'audit de la parcelle** : pendant les premiers audits, chaque façade relevée par les
+    mesures reçoit le renfort, signal ou non, pour mesurer son apport (décision D11) : trois
+    requêtes par façade dans le batch de l'analyse, sans délai de plus, et seulement dans la place
+    que l'analyse des maisons laisse (60 requêtes par batch). À la lecture des résultats, les
+    graines sont recalées sur l'élévation (texture du relevé) ; le relevé renforcé est proposé,
+    décoché tant que le taux d'accord de Claude sur les façades n'est pas mesuré.
+  - **Serveur** (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, mêmes routes) : une requête peut
+    porter son usage (`renfort`) dans un batch, avec son prompt, son schéma et son modèle ; le journal
+    l'inscrit sous son usage ; nouvelle route `POST admin/claude/messages`, l'appel immédiat (trois
+    requêtes au plus, en parallèle, mêmes plafonds, coût sans la remise Batch, une ligne de journal
+    par requête) ; `etat` dit les versions du renfort.
+  - **Banc** (skill `facades`) : l'algorithme seul, puis avec des réponses de Claude **simulées**
+    (`tests/fixtures/facades/claude/`, écrites par `simuler-claude.ts` : erreurs typiques imitées de
+    façon déterministe, en attendant les vraies réponses des audits). Sur les 20 scènes : rappel
+    89 % → 96 %, précision 93 % → 96 %, corrections 1,8 → 1,4 par façade ; 7 boîtes ajoutées cochées,
+    toutes vraies, la fenêtre inventée par deux passes sur trois rejetée faute d'arête ; graines de
+    coins à 27 cm (médiane) recalées à 0,3 cm (64 sur 80 rattachées). La détection et le calage de
+    l'algorithme ne changent pas : leur tableau est identique.
+
 - **Relevé de façade : la structure et le classement des ouvertures** (lot L15 du plan de mise en
   œuvre, `MD/spec-facades-calage-detection.md` §10 à §13).
   - **Niveaux et travées** (`facade/structure.ts`) : les ouvertures se rangent en rangées (appui et

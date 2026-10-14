@@ -1,0 +1,45 @@
+{
+ "nom": "14-grand-angle-distorsion-legere-biais",
+ "note": "Réponses SIMULÉES (pas celles de Claude) : erreurs typiques imitées de façon déterministe, pour mesurer le recalage des graines. Écrites par .claude/skills/facades/scripts/simuler-claude.ts.",
+ "ouverturesPlan": [
+  {
+   "x": 1,
+   "y": 1,
+   "l": 1.09,
+   "h": 1.29
+  },
+  {
+   "x": 1,
+   "y": 4.01,
+   "l": 1.09,
+   "h": 1.29
+  },
+  {
+   "x": 4.09,
+   "y": 0,
+   "l": 0.98,
+   "h": 2.16
+  },
+  {
+   "x": 6.8,
+   "y": 1,
+   "l": 1.09,
+   "h": 1.29
+  },
+  {
+   "x": 6.8,
+   "y": 4.01,
+   "l": 1.09,
+   "h": 1.29
+  }
+ ],
+ "photo": {
+  "largeur": 1280,
+  "hauteur": 960
+ },
+ "reponses": [
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":1.9,"ligne":1.8},"hautDroit":{"colonne":7.2,"ligne":2.5},"basDroit":{"colonne":7.5,"ligne":7.2},"basGauche":{"colonne":1.6,"ligne":7.2}},"ouvertures":[{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":1,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[],"numero":2,"decision":"indetermine","raison":"sans-objet","type":"indetermine","volets":"indetermine","coffre":"indetermine","balcon":"indetermine","forme":"indetermine"},{"indices":[{"image":2,"vu":"porte vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":5,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[],"confiance":"moyenne"},
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":2.4,"ligne":1.6},"hautDroit":{"colonne":7.1,"ligne":2.3},"basDroit":{"colonne":7.5,"ligne":6.8},"basGauche":{"colonne":1.4,"ligne":7.7}},"ouvertures":[{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":1,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":2,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"porte vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":5,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[],"confiance":"moyenne"},
+  {"mur":{"indices":[{"image":1,"vu":"le mur tracé"}],"vu":"attendu"},"coins":{"indices":[{"image":1,"vu":"égout et pied du mur"}],"hautGauche":{"colonne":2.1,"ligne":1.8},"hautDroit":{"colonne":7,"ligne":2.6},"basDroit":{"colonne":7.6,"ligne":6.7},"basGauche":{"colonne":1.5,"ligne":7.5}},"ouvertures":[{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":1,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":2,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"porte vue"}],"numero":3,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":4,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"},{"indices":[{"image":2,"vu":"fenetre vue"}],"numero":5,"decision":"garder","raison":"sans-objet","type":"indetermine","volets":"aucun","coffre":"indetermine","balcon":"indetermine","forme":"rectangulaire"}],"manquees":[],"confiance":"moyenne"}
+ ]
+}

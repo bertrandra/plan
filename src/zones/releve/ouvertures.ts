@@ -8,6 +8,8 @@
 import { useState } from 'react';
 import { tracerCorrections, versOuvertureFacade } from '../../facade/verification.js';
 import type { OuvertureDetectee } from '../../facade/detection.js';
+import type { ResultatRenfort } from '../../facade/renfortRecalage.js';
+import { propositionRenforcee } from './aide.js';
 import type { CorrectionOuverture, DetailsOuverture, OuvertureFacade } from '../../model/types.js';
 
 /** Ce que l'analyse a propose : les ouvertures cochees et les devinees decochees. */
@@ -76,6 +78,16 @@ export function useOuvertures() {
       setProposition(p);
       setOuvertures(p.cochees);
       setDevinees(p.decochees);
+      setChoisie(null);
+    },
+    /**
+     * Pose ce que l'aide de Claude a fait des ouvertures (lot L18) : les retenues, les pointillees, et
+     * la proposition mise a jour, pour que ses ajouts acceptes ne passent pas pour des corrections.
+     */
+    renforcer(r: ResultatRenfort) {
+      setProposition(propositionRenforcee(proposition, r));
+      setOuvertures(r.ouvertures);
+      setDevinees(r.decochees);
       setChoisie(null);
     },
     /** Etire tout en hauteur (hauteur du mur corrigee) : la proposition aussi, pour comparer juste. */

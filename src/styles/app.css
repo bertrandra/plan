@@ -1685,6 +1685,11 @@
      forme porte l'information, pas seulement la couleur (et le libelle la redit au lecteur d'ecran). */
   .releveCoinCible.trouve{ fill:var(--camera-ok); fill-opacity:.45; stroke-width:3; }
   .releveCoinCible.predit{ stroke-dasharray:6 5; }
+  /* Un coin propose par Claude et recale sur les aretes de la photo (lot L18) : soutenu, comme un coin
+     trouve, mais plus clair, pour qu'on le verifie. Le libelle accessible dit son origine. */
+  .releveCoinCible.claude{ fill:var(--camera-ok); fill-opacity:.2; stroke-width:3; }
+  /* L'aide de Claude au releve : une note, le bouton, puis ce qu'il a propose. */
+  .releveAide{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin:6px 0; }
   .releveLoupe{ position:absolute; top:8px; left:8px; width:132px; height:132px; border-radius:50%; border:3px solid var(--on-camera);
     box-shadow:var(--ombre-forte); pointer-events:none; background:var(--camera-bg); }
   .releveLoupeCroix{ stroke:var(--camera-ok); stroke-width:1; }

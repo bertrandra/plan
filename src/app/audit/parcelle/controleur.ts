@@ -25,7 +25,8 @@ import { creerCapture, type CaptureEnCours } from './capture.js';
 import { listeDeControle, type ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
 import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
-import { creerAnalyseClaude, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
+import { creerAnalyseClaude, decoderImageNavigateur, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
+import { renforcerFacades } from './entreesRenfort.js';
 import type { IdentiteAnalyse } from './entreesAnalyse.js';
 import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
@@ -68,7 +69,7 @@ export interface ContexteAuditParcelle {
    * hors admin), l'identite de la parcelle pour le journal, et ce qui dessine les images (par defaut
    * le navigateur). Absente dans les tests de la capture : l'analyse est alors indisponible.
    */
-  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier'>>;
+  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier' | 'renforcer'>>;
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -265,7 +266,7 @@ function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
-    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version() },
+    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), renfort: () => analyse().renfort() },
   });
 }
 
@@ -280,6 +281,8 @@ function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validati
     // L'audit du journal : la parcelle et l'heure du debut, pour distinguer deux audits du meme jour.
     identite: () => ({ ...(a?.identite?.() ?? { projet: null, idu: ctx.idu, adresse: null }), audit: idAuditAnalyse(capture.lire()) }),
     images: a?.images ?? fabriqueImagesNavigateur(),
+    // Le renfort des facades (lot L18) : ses graines recalees sur l'elevation de chaque facade mesuree.
+    renforcer: a?.renforcer ?? ((par) => renforcerFacades(par, validation().entrees().mesures, decoderImageNavigateur)),
     ...(a?.notifier ? { notifier: a.notifier } : {}),
     ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
     ...(a?.memoire ? { memoire: a.memoire } : {}),
