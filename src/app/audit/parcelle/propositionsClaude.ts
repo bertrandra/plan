@@ -16,8 +16,10 @@ import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe, type SoucheVue } from 
 import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.js';
 import type { IndiceProposition, Proposition } from '../../../model/propositions.js';
 import { corpsDesCheminees, corpsDeLaTerrasse, souchesSurLeCorps, terrasseVueSurLeCorps } from './propositions.js';
-import type { EtiquetteImage } from '../../../model/auditParcelle.js';
-import type { CouvertureChoisie, ObjetPlan } from '../../../model/types.js';
+import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { CouvertureChoisie, ObjetPlan, ReleveFacade } from '../../../model/types.js';
+import { avecGrille } from '../../../facade/verification.js';
+import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { LigneBatiment } from './liste.js';
 
 /** Les reponses lues pour un batiment, et les etiquettes des images qu'il a recues. */
@@ -161,4 +163,33 @@ export function propositionsDeClaude(objets: readonly ObjetPlan[], batiments: re
     const o = parCle.get(b.cle), r = parBatiment[b.cle];
     return o && r ? propositionsClaudeDuBatiment(o, b, r) : [];
   });
+}
+
+/** Le taux d'accord de Claude sur le releve des facades n'est pas encore mesure : ses propositions arrivent decochees. */
+export const RESERVE_RENFORT = 'Taux d’accord de Claude non encore mesuré sur le relevé des façades : vérifiez ses ouvertures sur la photo.';
+
+/**
+ * Le renfort de Claude sur les facades (MD/spec-facades-calage-detection.md §12 bis, lot L18) : pour
+ * chaque facade ou il a change quelque chose, le releve mesure avec ses ouvertures renforcees (graines
+ * recalees sur l'image, retraits, types, details), source `claude`. Il remplacerait le releve des
+ * mesures : il arrive decoche, et coche, il l'emporte (meme facade, meme effet, ecrit apres).
+ */
+export function propositionsRenfort(e: EntreesPropositions, renfort: Record<string, RenfortFacadeCapture>): Proposition[] {
+  const out: Proposition[] = [];
+  for (const b of e.liste.batiments) for (const f of b.facades) {
+    const id = cleMesure(b.cle, f.cote);
+    const rf = renfort[id], m = e.mesures.get(id);
+    if (!rf?.resume || !m?.releve) continue;
+    const { ouvertures, grille } = avecGrille(rf.ouvertures, m.releve.largeur);
+    const n = ouvertures.length;
+    const releve: ReleveFacade = { ...m.releve, ouvertures, ...(grille ? { grille } : {}) };
+    out.push({
+      id: id + ':claude:releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
+      avant: pluriel(m.releve.ouvertures.length, 'ouverture') + ' mesurée' + (m.releve.ouvertures.length > 1 ? 's' : '') + ' sur la photo',
+      apres: pluriel(n, 'ouverture') + ' avec l’aide de Claude (' + rf.resume + ')',
+      effet: { type: 'releve', releve },
+      source: 'claude', indices: [], confiance: rf.passes / 3, remplaceChoix: null, reserve: RESERVE_RENFORT,
+    });
+  }
+  return out;
 }

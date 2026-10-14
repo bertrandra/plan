@@ -13,6 +13,8 @@
 //   analyse.php                l'analyse par Claude (batch Anthropic, plafonds, journal), sous la session admin
 //   prompt-analyse.md          le prompt versionne de l'analyse, lu par analyse.php
 //   schema-analyse.json        le schema de sortie versionne de l'analyse
+//   prompt-renfort.md          le prompt versionne du renfort du calage et de la detection (lot L18)
+//   schema-renfort.json        son schema de sortie versionne
 //   claude-tarifs.json         la premiere table des tarifs, posee dans plan-demos/claude/ au premier usage
 //   plan-demos/1.json          la demonstration integree, premiere demo de l'admin (a poser hors racine)
 //   plan-demos/2.json…         les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
@@ -41,7 +43,7 @@ cpSync(resolve(racine, 'dist/.htaccess'), resolve(sortie, '.htaccess'));
 cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 // L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
-for (const f of ['analyse.php', 'prompt-analyse.md', 'schema-analyse.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
+for (const f of ['analyse.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-renfort.md', 'schema-renfort.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 

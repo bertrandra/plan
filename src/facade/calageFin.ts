@@ -34,8 +34,11 @@ import { detecterSegments, type Segment } from './segments.js';
 import { pointFuiteVertical, azimutParPointFuite, ecartAuPoint, pointDeFuite, directionDuMur, TOLERANCE_FINE_DEG } from './pointsFuite.js';
 import { OEIL_M, calageGrossier, coinsPredits, ecartSigne, incertitudeDe, incertitudeDuReleve, priseVisantLeMilieu, projeterPoint, repereCamera, type Incertitude, type MurVu, type PriseDeVue, type PriseReleve, type V3, type ZoneRecherche } from './calage.js';
 
-/** D'ou vient un coin : trouve sur les aretes de la photo, predit par la prise de vue, pose au doigt. */
-export type SourceCoin = 'trouve' | 'predit' | 'doigt';
+/**
+ * D'ou vient un coin : trouve sur les aretes de la photo, predit par la prise de vue, propose par
+ * Claude puis rattache a un croisement de segments (renfort, lot L18), ou pose au doigt.
+ */
+export type SourceCoin = 'trouve' | 'predit' | 'claude' | 'doigt';
 
 /** Note minimale d'une hypothese pour que ses coins soient proposes comme trouves. */
 export const SEUIL_NOTE = 0.5;
