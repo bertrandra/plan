@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Plan de la vague 3, « Généraliser »** (`MD/plan-vague-3-generaliser.md`) : les formes de toit
+  nouvelles (lucarnes, Mansart et gambrel, demi-croupe, cheminées lues sur le LiDAR, asymétrique),
+  les profils de façades du voisinage, les profils de toits régionaux et les suites des lots L15,
+  L17 et L18, découpés en lots G1 à G20 ; ce qui peut avancer sans audits réels (vague 3a) et ce qui
+  les attend (vagues 3b et 3c) ; décisions D15 à D23 avec leur défaut.
+
 - **Relevé de façade : la structure et le classement des ouvertures** (lot L15 du plan de mise en
   œuvre, `MD/spec-facades-calage-detection.md` §10 à §13).
   - **Niveaux et travées** (`facade/structure.ts`) : les ouvertures se rangent en rangées (appui et
