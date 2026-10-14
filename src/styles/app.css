@@ -203,6 +203,9 @@
   .dialogueTitre{ font-weight:600; margin-bottom:8px; font-size:1.05rem; }
   .dialoguePoints{ margin:0 0 16px; padding-left:1.2em; font-size:0.84rem; line-height:1.45; color:var(--ink-soft); }
   .dialogueTexte{ margin:0 0 14px; font-size:0.92rem; line-height:1.4; }
+  /* L'option d'un choix (« Recalculer aussi… ») : une case de 18 px, sa ligne cliquable entiere, au-dessus des boutons. */
+  .dialogueCase{ display:flex; align-items:flex-start; gap:8px; margin:0 0 14px; font-size:0.84rem; line-height:1.4; cursor:pointer; }
+  .dialogueCase input{ width:18px; height:18px; margin:1px 0 0; flex:none; }
   .dialogueBoutons{ display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
   .dialogueBoutons.centre{ justify-content:center; }
   .dialogueBoutons button{ min-height:36px; }
@@ -1226,6 +1229,8 @@
   }
   html[data-classe="compact"] .dialogueTitre{ font-family:var(--serif); font-size:20px; }
   html[data-classe="compact"] .dialogueTexte{ font-size:15px; }
+  html[data-classe="compact"] .dialogueCase{ font-size:15px; min-height:44px; align-items:center; }
+  html[data-classe="compact"] .dialogueCase input{ width:22px; height:22px; margin:0; }
   html[data-classe="compact"] .dialogueBoutons{ flex-direction:column-reverse; }
   html[data-classe="compact"] .dialogueBoutons button{ width:100%; min-height:48px; font-family:var(--sans); font-size:15px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .promptInput{ min-height:48px; font-size:16px; border-radius:var(--r-champ); }

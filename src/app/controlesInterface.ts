@@ -173,6 +173,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'dialogue.confirmer': etape(Z8, DIALOGUE, 'Confirmer (action irréversible)'),
   'dialogue.secondaire': etape(Z8, DIALOGUE, 'Réponse secondaire d’un choix'),
   'dialogue.principal': etape(Z8, DIALOGUE, 'Réponse principale d’un choix'),
+  'dialogue.case': etape(Z8, DIALOGUE, 'Option d’un choix (case à cocher)'),
   'dialogue.action': etape(Z8, DIALOGUE, 'Action d’un message'),
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),

@@ -24,6 +24,7 @@ import { EMPREINTE_REGLAGES_TOITS } from '../model/reglagesToits.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../model/faitsToits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/faitsToits.js';
 import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/vraisemblance.js';
+import { estVerifieSurPlace } from '../model/toitVerifie.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -44,6 +45,8 @@ export interface ObjetAToit {
   toitACheval?: ToitACheval | null;
   /** La version de la lecture LiDAR qui a traite ce batiment ; absente : pas encore lu. */
   toitLidarLu?: number | null;
+  /** Verifie sur place par un audit de la parcelle (model/toitVerifie.ts) : la lecture ne le touche plus. */
+  verifieSurPlace?: { date: string } | null;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -168,6 +171,12 @@ export interface OptionsToitsLidar {
   mitoyens?: ReadonlySet<string>;
   /** L'horloge, pour le delai. */
   maintenant?: () => number;
+  /**
+   * Les batiments verifies sur place (model/toitVerifie.ts) : `garder` (defaut) les laisse tels quels,
+   * sans lecture ; `relire` les lit comme les autres - l'actualisation que l'utilisateur demande
+   * expressement, ou la tache de fond qui lit une copie pour dire si le calcul serait d'accord.
+   */
+  verifies?: 'garder' | 'relire';
 }
 
 /** Le delai donne a la lecture des toits, comme a celle des couleurs sur l'orthophoto. */
@@ -302,10 +311,12 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const maintenant = options.maintenant ?? Date.now;
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
+  // Un batiment verifie sur place est le 100 % du projet (spec des regles §1) : on ne le relit pas sans qu'on le demande.
+  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && (options.verifies === 'relire' || !estVerifieSurPlace(o));
   const candidats = options.candidats
-    ? options.candidats.filter(toitAAjuster)
+    ? options.candidats.filter(admis)
     : objets
-      .filter(toitAAjuster)
+      .filter(admis)
       .map((o) => ({ o, d: Math.hypot(centroid(o.pts).x - centre.x, centroid(o.pts).y - centre.y) }))
       .sort((a, b) => a.d - b.d)
       .slice(0, options.maxBatiments ?? MAX_BATIMENTS_LIDAR)

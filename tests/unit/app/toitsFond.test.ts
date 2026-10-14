@@ -254,6 +254,60 @@ describe('la fin de la lecture et l enregistrement', () => {
     expect(pr.enregistrer).toHaveBeenCalledTimes(1);
   });
 
+  it('saute un batiment verifie sur place : rien n est ecrit que sa marque, et le bilan dit si le nouveau calcul serait d accord', async () => {
+    const objets = plan(2);
+    // b0 : verifie sur place, lu a une version d'avant, un deux-pans a 5 m d'egout ; sa couleur n'est pas a relire.
+    const b0 = objets.find((o) => o.key === 'b0') as unknown as ObjetAToit & ObjetPlan;
+    Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, verifieSurPlace: { date: '2026-10-13' }, corpsToit: [{ pts: rect(30, 0, 6, 5), posFaitage: 2.5, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.1 }] });
+    const avant = JSON.stringify({ pts: b0.pts, toit: b0.toit, elevation: b0.elevation, corpsToit: b0.corpsToit });
+    const lus: string[][] = [];
+    const fin = vi.fn();
+    let relu = 0;
+    const lire = lecteur(lus);
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {}, fin,
+      lire: (async (o, pr, opt) => {
+        // La copie du batiment verifie est bien lue (« relire »), et le lecteur la change : un toit plat, la hauteur corrigee.
+        const c = opt?.candidats?.[0];
+        if (c?.key === 'b0') { relu++; expect(opt?.verifies).toBe('relire'); c.elevation = 6; c.corpsToit = null; }
+        return lire(o, pr, opt);
+      }) as typeof toitsDepuisLidar
+    });
+    fond.relancer();
+    await finir(fond);
+    expect(relu).toBe(1);
+    // Dans le plan : le toit, la hauteur et les corps verifies au centimetre ; la couleur non relue ; seule la marque a bouge.
+    expect(JSON.stringify({ pts: b0.pts, toit: b0.toit, elevation: b0.elevation, corpsToit: b0.corpsToit })).toBe(avant);
+    expect(b0.toit?.couleur).toBeUndefined();
+    expect(toitLu(b0)).toBe(true);
+    // b1, lui, a ete lu normalement.
+    expect(objets.find((o) => o.key === 'b1')?.toit?.source).toBe('lidar');
+    const bilan = fin.mock.calls[0]![0];
+    expect(bilan.lus).toBe(1);
+    expect(bilan.verifies).toEqual({ accord: 0, desaccord: 1 });
+    expect(texteFinToitsFond(bilan)).toContain('Bâtiment vérifié sur place gardé tel quel : le nouveau calcul serait différent.');
+    // Plus rien a relire : une relance ne lit rien, le batiment verifie n'est pas repris a chaque passe.
+    lus.length = 0;
+    fond.relancer();
+    await finir(fond);
+    expect(lus).toEqual([]);
+  });
+
+  it('compte d accord un batiment verifie que le nouveau calcul retrouve tel quel', async () => {
+    const objets = plan(1);
+    const b0 = objets[1] as unknown as ObjetAToit & ObjetPlan;
+    Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar', couleur: '#884422' }, verifieSurPlace: { date: '2026-10-13' } });
+    const fin = vi.fn();
+    const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {}, fin, lire: lecteur([]) });
+    fond.relancer();
+    await finir(fond);
+    expect(fin.mock.calls[0]![0].verifies).toEqual({ accord: 1, desaccord: 0 });
+    expect(texteFinToitsFond({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false, lus: 0, couleurs: 0, verifies: { accord: 1, desaccord: 0 } }))
+      .toBe('Bâtiment vérifié sur place gardé tel quel : le nouveau calcul serait d’accord.');
+    expect(texteFinToitsFond({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false, lus: 0, couleurs: 0, verifies: { accord: 2, desaccord: 1 } }))
+      .toBe('3 bâtiments vérifiés sur place gardés tels quels : le nouveau calcul serait d’accord pour 2, différent pour 1.');
+  });
+
   it('ecrit le bilan en francais', () => {
     expect(texteFinToitsFond({ ajustes: 1980, mesures: 0, corpsVoisins: 120, recales: 1, gardes: 300, sansLidar: false, lus: 2400, couleurs: 2350 }))
       .toBe('Toits du voisinage lus sur le LiDAR HD : 2\u202f400 (1\u202f980 ajustés, 120 en corps et pignons, 1 recalé, 300 gardés d’après la BD TOPO). 2\u202f350 couleurs de toit lues sur la photo aérienne.');

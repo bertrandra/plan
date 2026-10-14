@@ -17,12 +17,17 @@
 // reponses aux questions sur les toits a cheval, la cloture de la parcelle et ses portails (un projet,
 // pas un import), le plafond de points du relief. Une seule etape d'annulation : Ctrl+Z rend le projet
 // d'avant.
+//
+// Restent aussi, sauf demande expresse, les batiments verifies sur place par un audit de la parcelle
+// (model/toitVerifie.ts, MD/spec-audit.md §14.5) : c'est le 100 % du projet, qu'un import
+// d'aujourd'hui ne vaut pas. La case « Recalculer aussi… » du dialogue les remet dans le lot.
 
 import { dialogues } from '../shell/dialogues.js';
 import { showToast } from '../shell/dialogs.js';
 import { droitsCourants } from './acces.js';
 import { CAPACITES } from '../plateforme/capacites.js';
-import { actualiserDepuisIgn, type ContexteActualisation } from './actualisationIgn.js';
+import { actualiserDepuisIgn, type ContexteActualisation, type OptionsActualisation } from './actualisationIgn.js';
+import { estVerifieSurPlace } from '../model/toitVerifie.js';
 import type { ObjetPlan } from '../model/types.js';
 
 /** Le plan a un voisinage cadastral : le relief se relit alors sur toutes ses parcelles. */
@@ -36,6 +41,22 @@ export const POINTS_ACTUALISATION = [
   'Conservés : le reste de ce que vous avez dessiné, les noms et le masquage des autres objets, la clôture et ses portails.',
   'Ctrl+Z rend le projet d’avant.'
 ];
+/** Le point de plus quand le plan a des batiments verifies sur place : ils sont conserves, sauf si la case le demande. */
+export const POINT_VERIFIES = 'Conservés tels quels, sauf si vous cochez la case : les bâtiments vérifiés sur place lors d’un audit de la parcelle (toit, façades, cheminées).';
+
+/** Les batiments du plan verifies sur place : ils ne sont recalcules que si la case le demande. */
+export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o));
+
+/** Les points du dialogue pour ce plan : les points de toujours, et celui des batiments verifies s'il y en a. */
+export const pointsActualisation = (nVerifies: number): string[] => nVerifies ? [...POINTS_ACTUALISATION.slice(0, -1), POINT_VERIFIES, ...POINTS_ACTUALISATION.slice(-1)] : POINTS_ACTUALISATION;
+
+/** Le libelle de la case : un batiment nomme, ou leur nombre. */
+export function libelleCaseVerifies(verifies: readonly ObjetPlan[]): string {
+  const un = verifies.length === 1 ? verifies[0] : undefined;
+  const date = (o: ObjetPlan) => { const [a, m, j] = (o.verifieSurPlace?.date ?? '').split('-'); return a && m && j ? ' le ' + j + '/' + m + '/' + a : ''; };
+  return un ? 'Recalculer aussi « ' + (un.name || 'Bâtiment') + ' », vérifié sur place' + date(un)
+    : 'Recalculer aussi les ' + verifies.length + ' bâtiments vérifiés sur place';
+}
 
 /**
  * Ouvre la question, puis lance l'actualisation — ou dit pourquoi on ne peut pas : sans origine
@@ -48,18 +69,25 @@ export function ouvrirActualisationProjet(ctx: ContexteActualisation): void {
     showToast('Ce plan n’a pas d’origine cadastrale : créez-le avec « Fichier › Nouveau plan depuis une adresse » pour pouvoir l’actualiser.');
     return;
   }
+  // Les batiments verifies sur place restent, sauf si la case est cochee : decochee a chaque ouverture.
+  const verifies = batimentsVerifies(ctx.etat.objects);
+  let relire = false;
   dialogues.ouvrir({
     type: 'choix', titre: 'Actualiser le projet',
     texte: 'Tout ce qui vient de l’IGN est relu et recalculé avec la version actuelle de Plan, comme à un import d’aujourd’hui.',
-    points: POINTS_ACTUALISATION,
-    principal: { libelle: 'Actualiser le projet', executer: () => { void lancerActualisationProjet(ctx); } },
+    points: pointsActualisation(verifies.length),
+    ...(verifies.length ? { case: { libelle: libelleCaseVerifies(verifies), cochee: false, changer: (c: boolean) => { relire = c; } } } : {}),
+    principal: { libelle: 'Actualiser le projet', executer: () => { void lancerActualisationProjet(ctx, relire ? 'relire' : 'garder'); } },
     secondaire: { libelle: 'Annuler', executer: () => {} }
   });
 }
 
-/** L'actualisation elle-meme : toutes les etapes de l'actualisation IGN, objets importes ramenes aux valeurs par defaut. */
-export function lancerActualisationProjet(ctx: ContexteActualisation): Promise<void> {
+/**
+ * L'actualisation elle-meme : toutes les etapes de l'actualisation IGN, objets importes ramenes aux
+ * valeurs par defaut. `verifies` : ce qu'on fait des batiments verifies sur place (gardes par defaut).
+ */
+export function lancerActualisationProjet(ctx: ContexteActualisation, verifies: OptionsActualisation['verifies'] = 'garder'): Promise<void> {
   const relief = droitsCourants().aCapacite(CAPACITES.relief.code);
   const toutes = aDesVoisines(ctx.etat.objects) || !!ctx.trouverParcelleCloture()?.relief?.paysage;
-  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true, recreerBatiments: true }, ctx);
+  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true, recreerBatiments: true, verifies }, ctx);
 }
