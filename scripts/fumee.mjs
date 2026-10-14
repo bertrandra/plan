@@ -1682,6 +1682,59 @@ const POINTS = {
       && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
     return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  71: async (page) => {
+    // L'aide de Claude au releve (lot L18, spec facades §12 bis) : une photo sans aucune arete (un ciel en
+    // degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que
+    // sur ce signal ; le premier appel demande l'accord ; l'envoi part en trois passes par
+    // `admin/claude/messages` (usage renfort, la photo et sa grille, jeton de la plateforme) ; les
+    // graines que rien ne soutient sont rejetees, et la note le dit ; un coin ne change que s'il etait
+    // predit, et devient « proposé par Claude ».
+    const recues = [];
+    const graines = { indices: [{ image: 1, vu: 'égout et pied' }], hautGauche: { colonne: 2, ligne: 3 }, hautDroit: { colonne: 8, ligne: 3 }, basDroit: { colonne: 8, ligne: 7.2 }, basGauche: { colonne: 2, ligne: 7.2 } };
+    const sortie = { mur: { indices: [], vu: 'attendu' }, coins: graines, ouvertures: [], manquees: [], confiance: 'moyenne' };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      const req = route.request();
+      const d = JSON.parse(req.postData() || 'null');
+      recues.push({ d, jeton: req.headers().authorization ?? '' });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'renfort', sortie, erreur: null })) }) });
+    });
+    const dessin = await page.context().newPage();
+    await dessin.setViewportSize({ width: 1600, height: 1200 });
+    await dessin.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+      + "const x=document.getElementById('c').getContext('2d');"
+      // Un ciel en degrade doux, sans aucune arete : rien sur quoi caler les coins.
+      + "const g=x.createRadialGradient(800,500,50,800,600,1100);g.addColorStop(0,'#c9dcef');g.addColorStop(1,'#7fa8cf');x.fillStyle=g;x.fillRect(0,0,1600,1200);"
+      + '</script></body>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'ciel.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 20000 });
+    const classes = () => page.locator('circle.releveCoinCible').evaluateAll((cs) => cs.map((c) => c.getAttribute('class')?.replace('releveCoinCible', '').trim() || ''));
+    const avant = await classes();
+    const bouton = page.locator('[data-controle="releve.demanderAide"]');
+    const propose = await bouton.count();
+    const note = ((await page.locator('.releveAide .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    if (propose) await bouton.first().click();
+    const accord = page.locator('[data-controle="releve.accorderAide"]');
+    const demandeAccord = await accord.count();
+    if (demandeAccord) await accord.first().click();
+    await page.locator('.releveAide [role="status"]').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const message = ((await page.locator('.releveAide [role="status"]').first().textContent().catch(() => '')) || '').trim();
+    const apres = await classes();
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.unroute(/\/admin\/claude\/messages$/);
+    const d = recues[0]?.d;
+    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
+    const coinsOk = apres.length === 4 && apres.every((c, k) => c === avant[k] || (avant[k] === 'predit' && c === 'claude'));
+    const ok = avant.every((c) => c === 'predit') && propose === 1 && /coins non trouvés/.test(note) && demandeAccord === 1 && recues.length === 1
+      && d?.usage === 'renfort' && d.requetes.length === 3 && d.requetes.every((q) => q.usage === 'renfort') && images === 1 && /^Bearer /.test(recues[0].jeton)
+      && /^Claude (a proposé|n’a situé aucun coin)/.test(message) && coinsOk && !deborde;
+    return { ok, mesure: `coins ${avant.join(', ')} ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 70)}… ») ; accord ${demandeAccord ? 'demandé' : 'PAS demandé'} ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s) ' + d.usage + ', ' + images + ' image(s), jeton ' + (/^Bearer /.test(recues[0].jeton) ? 'oui' : 'NON') : 'RIEN'} ; « ${message.slice(0, 90)} » ; coins après : ${apres.join(', ')} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   73: async (page) => {
     // L'essai des faits des toits (lot L20, `?regles=local`, MD/spec-regles-toits.md §9.2) : l'entree
     // du menu Admin n'existe qu'avec `?regles=local` ; un fichier de faits se charge depuis le poste,
@@ -1728,7 +1781,8 @@ function pointsPour(nomClasse) {
   // l'actualisation (lot L12).
   // 67 : la structure de la facade dans le releve, ses gestes et ses corrections tracees (lot L15).
   // 69 et 70 : l'analyse par Claude, accord et propositions (lot L17).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 73];
+  // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 69, 70, 71, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -13,7 +13,14 @@
 // serveur ; ici on prepare les images, on envoie, on attend, on lit.
 
 import { EchecAnalyse, type ClientAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
-import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
+import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type RenfortFacadeCapture, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
+import type { ReponseRenfort } from '../../../facade/renfort.js';
+import { rangerRenfort } from './entreesRenfort.js';
+import { chargerSource, dessinerElevationRenfort, dessinerPhotoRenfort } from '../../../render/imagesRenfort.js';
+import type { Image, P2 } from '../../../facade/homographie.js';
+import { chargerPixels } from '../../../render/couleurMurPhoto.js';
+import type { PhotoCas } from '../../../model/audit.js';
+import type { ReleveFacade } from '../../../model/types.js';
 import { estReponseAnalyse } from '../../../model/analyseClaude.js';
 import { ortho } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
@@ -64,6 +71,11 @@ export interface ContexteAnalyse {
    */
   memoire?: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void };
   maintenant: () => Date;
+  /**
+   * Le renfort des facades (lot L18) : ses reponses, recalees sur l'elevation de chaque facade. Absent,
+   * les reponses du renfort sont ignorees.
+   */
+  renforcer?: (parFacade: Record<string, ReponseRenfort[]>) => Promise<Record<string, RenfortFacadeCapture>>;
   delaiSuiviMs?: number;
   /** Pour les tests : qui planifie la relecture. */
   planifier?: (f: () => void, ms: number) => () => void;
@@ -87,6 +99,8 @@ export interface AnalyseClaude {
   arreter(): void;
   /** Les reponses lues, par batiment, avec les etiquettes de ses images ; null sans resultat ou sans accord. */
   reponses(): Record<string, ReponsesBatiment> | null;
+  /** Le renfort applique a chaque facade (`cle#cote`) ; null sans resultat ou sans accord. */
+  renfort(): Record<string, RenfortFacadeCapture> | null;
   /** Change a chaque resultat ou retrait : les propositions se recalculent. */
   version(): number;
   abonner(f: () => void): () => void;
@@ -109,7 +123,28 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
     rendu: (prise) => (prise.azimutDeg === null ? null : rendreDepuisPrise({ x: prise.x, y: prise.y, azimutDeg: prise.azimutDeg, inclinaisonDeg: prise.inclinaisonDeg ?? null, champDeg: prise.champDeg ?? null })),
     ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
     carte: (o, contour) => (o.toitMesure ? dessinerCarteHauteurs(o.toitMesure, contour) : null),
+    renfort: { photo: photoRenfortNavigateur, elevation: elevationRenfortNavigateur },
   };
+}
+
+/** Les pixels d'une image `data:` (la texture d'un releve), lus par le canevas du navigateur. */
+export async function decoderImageNavigateur(url: string): Promise<Image | null> {
+  const p = await chargerPixels(url);
+  return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: p.data instanceof Uint8ClampedArray ? p.data : new Uint8ClampedArray(Array.from(p.data)) } : null;
+}
+
+/** La photo du releve d'une facade, sa grille et le quadrilatere de ses coins (renfort, lot L18). */
+async function photoRenfortNavigateur(p: PhotoCas, coins: readonly P2[], trouves: boolean) {
+  const img = await chargerSource('data:image/jpeg;base64,' + p.base64);
+  return img ? dessinerPhotoRenfort(img, img.naturalWidth, img.naturalHeight, coins, trouves) : null;
+}
+
+/** L'elevation d'une facade, decoupee dans la texture de son releve (le mur seul), graduee, ouvertures numerotees. */
+async function elevationRenfortNavigateur(r: ReleveFacade) {
+  const img = r.texture ? await chargerSource(r.texture) : null;
+  if (!img) return null;
+  const ht = r.hauteurTexture && r.hauteurTexture > r.hauteur ? r.hauteurTexture : r.hauteur;
+  return dessinerElevationRenfort({ source: img, largeurPx: img.naturalWidth, hauteurPx: img.naturalHeight, y0Px: Math.round(img.naturalHeight * (1 - r.hauteur / ht)), largeurM: r.largeur, hauteurM: r.hauteur, ouvertures: r.ouvertures });
 }
 
 /** L'identifiant de l'audit pour le journal (`[A-Za-z0-9_-]`, 64 au plus) : la capture et l'heure de son debut. */
@@ -126,6 +161,13 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
+}
+
+/** Les reponses du renfort des facades, recalees ; undefined s'il n'y en a pas, ou si le recalage echoue. */
+async function lireRenfort(ctx: ContexteAnalyse, resultats: readonly ResultatBatch[], requetes: BatchAnalyse['requetes']): Promise<Record<string, RenfortFacadeCapture> | undefined> {
+  const par = rangerRenfort(resultats, requetes);
+  if (!Object.keys(par).length || !ctx.renforcer) return undefined;
+  return ctx.renforcer(par).catch(() => undefined);
 }
 
 /** Une phrase pour l'ecran, selon l'etat : ce qui se passe, ou pourquoi rien ne se passe. */
@@ -184,7 +226,8 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     const client = ctx.client as ClientAnalyse;
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
-    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment };
+    const renfort = await lireRenfort(ctx, lu.resultats, batch.requetes);
+    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, ...(renfort ? { renfort } : {}) };
     if (!Object.keys(parBatiment).length) {
       const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
       noter({ resultats, erreur: 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
@@ -279,6 +322,10 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       const a = lire();
       if (!a.accord || !a.resultats || !a.batch) return null;
       return Object.fromEntries(Object.entries(a.resultats.parBatiment).map(([cle, reponses]) => [cle, { reponses, etiquettes: a.batch?.etiquettes[cle] ?? [] }]));
+    },
+    renfort() {
+      const a = lire();
+      return a.accord && a.resultats?.renfort ? a.resultats.renfort : null;
     },
     version: () => version,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },

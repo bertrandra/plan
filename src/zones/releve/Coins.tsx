@@ -9,7 +9,7 @@ import { pointSvg, useEchelle } from './commun.js';
 import type { SourceCoin } from '../../facade/calageFin.js';
 
 /** Ce que dit un coin de sa source, pour le lecteur d'ecran (la forme le dit a l'oeil). */
-const DIT_SOURCE: Record<SourceCoin, string> = { trouve: 'trouvé sur la photo', predit: 'prédit, à vérifier', doigt: 'placé au doigt' };
+const DIT_SOURCE: Record<SourceCoin, string> = { trouve: 'trouvé sur la photo', predit: 'prédit, à vérifier', claude: 'proposé par Claude, recalé sur la photo', doigt: 'placé au doigt' };
 
 /* ------------------------------------------------------------------------------------------------
  * 3. Les coins

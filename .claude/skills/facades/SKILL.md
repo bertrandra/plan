@@ -35,6 +35,8 @@ npx tsx .claude/skills/facades/scripts/banc.ts brique ombres       # les scènes
 npx tsx .claude/skills/facades/scripts/banc.ts --json /tmp/facades/apres.json   # le détail
 npx tsx .claude/skills/facades/scripts/banc.ts --images /tmp/facades            # images de contrôle
 npx tsx .claude/skills/facades/scripts/banc.ts --ecrire-coins      # après un changement de prise
+npx tsx .claude/skills/facades/scripts/banc.ts --sans-renfort      # sans la section du renfort de Claude (§5 bis)
+npx tsx .claude/skills/facades/scripts/simuler-claude.ts           # réécrit les réponses simulées de Claude (§5 bis)
 ```
 
 - Le tableau sort en Markdown sur la sortie standard : il se colle tel quel dans une PR.
@@ -48,7 +50,8 @@ npx tsx .claude/skills/facades/scripts/banc.ts --ecrire-coins      # après un c
   et comparer scène par scène (`vp`, `fp`, `fn`, `cotes`, `detectees`).
 
 Le code : `tests/banc/facades/` (`synthese.ts` le générateur, `mesure.ts` les mesures, `banc.ts` le
-rejeu et le tableau), le script `scripts/banc.ts` de ce skill, le corpus `tests/fixtures/facades/`.
+rejeu et le tableau, `renfort.ts` le renfort de Claude), le script `scripts/banc.ts` de ce skill, le
+corpus `tests/fixtures/facades/` et ses réponses simulées `tests/fixtures/facades/claude/`.
 
 ## 2. Lire le tableau
 
@@ -450,6 +453,35 @@ les grands-angles (`13` à `15`) gardent toutes leurs ouvertures, sans fausse.
 - **Ce qui marche** : un enduit uni, des baies sombres, une prise de face (`00`, `01`, `02`). Les
   cotes des baies retrouvées sont au centimètre : c'est le rappel et la précision qu'il faut gagner,
   pas la précision des bords.
+
+## 5 bis. Le renfort de Claude (lot L18)
+
+Le script ajoute une section **« Renfort de Claude »** au tableau (`--sans-renfort` la retire) :
+l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes **simulées** de
+`tests/fixtures/facades/claude/<scène>.json`, votées (`facade/renfort.ts`) puis appliquées
+(`facade/renfortRecalage.ts`) comme dans le relevé et l'audit.
+
+- **Les réponses sont simulées, pas celles de Claude** : `tests/banc/facades/renfort.ts` imite ses
+  erreurs typiques de façon déterministe (coins à quelques dixièmes de repère, boîtes à 10–20 cm
+  près, une passe qui oublie ou hésite, une fenêtre inventée dans deux passes sur trois d'un mur nu,
+  une autre dans une seule). Elles mesurent le **recalage des graines**, pas Claude. Les vraies
+  réponses viendront du corpus des audits (lots L19, L21) et prendront leur place, au même format.
+- **Écrire les réponses** : `npx tsx .claude/skills/facades/scripts/simuler-claude.ts [mots]`, après
+  avoir ajouté ou changé une scène. Elles portent les ouvertures numérotées du jour (`ouverturesPlan`)
+  ; le banc les renumérote sur la détection du moment, par recouvrement.
+- **Lire la section** : Boîtes = graines votées → ajoutées cochées (dont vraies) / en pointillé (dont
+  vraies) / baies devinées confirmées / rejetées ; Retirées = fausses détections écartées (dont
+  vraiment fausses) ; Coins = erreur des graines en cm sur le mur, brutes puis recalées (« r » :
+  rejetée, le coin de l'algorithme reste).
+- **Chiffres du 14 octobre 2026** (20 scènes) : rappel 89 % → 96 %, précision 93 % → 96 %,
+  corrections 1,8 → 1,4 par façade ; 14 graines de boîtes → 7 ajoutées cochées (7 vraies), 4 en
+  pointillé (3 vraies), 3 rejetées ; 4 retraits, tous justes ; coins : 27 cm (médiane) bruts, 0,3 cm
+  recalés, 64 sur 80 rattachés, 57 à 10 cm au plus.
+- **Ce qui reste fragile** : sur la brique et la meulière (`03`, `10`), une graine de coin se rattache
+  parfois à un mauvais croisement (30 à 40 cm) ; le pied caché par une haie (`12`, `17`) aussi. Un
+  coin recalé ne remplace dans le relevé qu'un coin **prédit** : jamais un coin trouvé ni posé au doigt.
+- `tests/unit/facade/bancRenfort.test.ts` rejoue `07` et `18` : aucune fausse baie cochée, la
+  fenêtre inventée rejetée, les corrections jamais en hausse.
 
 ## 6. Pièges
 
