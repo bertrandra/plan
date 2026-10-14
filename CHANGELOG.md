@@ -41,6 +41,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
     empreintes sont identiques. Points de fumée 62 et 63.
 
+- **Le 100 % protégé** (lot L12 du plan de mise en œuvre, `MD/spec-regles-toits.md` §1,
+  `MD/spec-audit.md` §14.5) : un bâtiment marqué « vérifié sur place » par un audit de la parcelle
+  n'est plus recalculé par Plan (`model/toitVerifie.ts`).
+  - **La relecture des toits** en tâche de fond (`VERSION_LECTURE_TOITS`, `app/toitsFond.ts`) le
+    saute : sa copie est lue avec les règles du jour et comparée à ce qui est dans le plan (contour,
+    hauteur à l'égout, forme, corps un à un, au décimètre), mais rien ne s'écrit que la marque de
+    lecture. Le bilan de fin dit seulement si « le nouveau calcul serait d'accord » ou « différent » :
+    c'est la mesure d'une règle, sans toucher au projet. La lecture LiDAR d'un import ou d'une
+    actualisation (`app/toitsLidar.ts`, option `verifies`) l'écarte de même.
+  - **Fichier › Actualiser le projet** le conserve tel quel : ni supprimé et recréé depuis la
+    BD TOPO, ni relu (contour, toit, LiDAR, couleur des toits et des murs), ni ramené aux valeurs par
+    défaut ; le bâtiment frais qui porte son identifiant n'est pas ajouté à côté. La question le dit
+    (un point de plus) et propose une case, décochée, « Recalculer aussi « Maison », vérifié sur
+    place le 13/10/2026 » (ou « les n bâtiments vérifiés sur place ») : cochée, il est actualisé
+    comme les autres. L'actualisation IGN (Fichier › Actualiser depuis l'IGN) le conserve aussi, sans
+    case pour l'instant. Le bilan compte les bâtiments conservés.
+  - Un dialogue de choix (`shell/dialogues.ts`) peut porter une case à cocher (`case`), dessinée
+    sous ses points (`dialogue.case`). AE 101 et les empreintes sont identiques. Point de fumée 64.
+
 - **Faits des toits et skill `regles-toits`** (lot L20 du plan de mise en œuvre,
   `MD/spec-regles-toits.md` §5, §9 et §10).
   - **`regles/toits/faits.json`** : une vérité observée sur un bâtiment, rangée par sa clé BD TOPO

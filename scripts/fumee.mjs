@@ -1338,6 +1338,44 @@ const POINTS = {
       && e.murs?.materiau === 'brique' && e.murs?.source === undefined && e.couverture === 'tuile' && annule === avant;
     return { ok, mesure: `murs ${murs ? (murs.cochee ? 'COCHÉS' : 'décochés') + ' « ' + (murs.texte.match(/Remplace votre choix : [^.]*/)?.[0] ?? '—') + ' »' : 'ABSENTS'} ; couverture ${couverture ? (couverture.cochee ? 'COCHÉE' : 'décochée') + ' « ' + (couverture.texte.match(/Remplace votre choix : [^.]*/)?.[0] ?? '—') + ' »' : 'ABSENTE'} ; écrit murs ${JSON.stringify(e.murs)}, couverture ${e.couverture} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE ' + annule}` };
   },
+  64: async (page, f) => {
+    // Le 100 % protege (lot L12) : la maison marquee « verifiee sur place », Fichier › Actualiser le
+    // projet pose sa question avec un point de plus et une case decochee « Recalculer aussi… » ; la
+    // case se coche ; Annuler ne touche a rien. Sans batiment verifie, ni point ni case. Rien ne part
+    // vers l'IGN : la question seule se joue ici.
+    const marquer = (v) => page.evaluate((v) => { const m = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (v) m.verifieSurPlace = { date: '2026-10-13' }; else delete m.verifieSurPlace; }, v);
+    const ouvrir = async () => {
+      await page.evaluate(() => document.querySelector('[data-commande="projet.actualiser"]').click());
+      const boite = page.locator('.dialogueVoile', { hasText: 'Actualiser le projet' });
+      await boite.waitFor({ timeout: 10000 });
+      return boite;
+    };
+    await marquer(true);
+    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const boite = await ouvrir();
+    const points = await boite.locator('.dialoguePoints li').allTextContents();
+    const point = points.find((t) => /vérifiés sur place/.test(t)) ?? '';
+    const caseVerifies = boite.locator('input[data-controle="dialogue.case"]');
+    const nCases = await caseVerifies.count();
+    const libelle = nCases ? ((await boite.locator('.dialogueCase').textContent()) || '').trim() : '';
+    const decochee = nCases ? !(await caseVerifies.isChecked()) : false;
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueBoite')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    if (nCases) await boite.locator('.dialogueCase').click({ timeout: 5000 });
+    const cochee = nCases ? await caseVerifies.isChecked() : false;
+    await boite.locator('[data-controle="dialogue.secondaire"]').click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    const fermee = (await page.locator('.dialogueVoile').count()) === 0;
+    const apres = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    // Sans batiment verifie : la question d'avant, sans point de plus ni case.
+    await marquer(false);
+    const boite2 = await ouvrir();
+    const sansCase = (await boite2.locator('input[data-controle="dialogue.case"]').count()) === 0;
+    const sansPoint = !(await boite2.locator('.dialoguePoints li').allTextContents()).some((t) => /vérifiés sur place/.test(t));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ok = nCases === 1 && /Recalculer aussi « Maison », vérifié sur place le 13\/10\/2026/.test(libelle) && decochee && cochee && /Conservés tels quels, sauf si vous cochez la case/.test(point)
+      && fermee && apres === avant && sansCase && sansPoint && !deborde;
+    return { ok, mesure: `case ${nCases} « ${libelle} », ${decochee ? 'décochée' : 'COCHÉE'} à l'ouverture, ${cochee ? 'cochée' : 'NON COCHÉE'} au clic ; point « ${point.slice(0, 60)}… » ; Annuler : ${fermee ? 'fermé' : 'OUVERT'}, projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; sans bâtiment vérifié : case ${sansCase ? 'absente' : 'PRÉSENTE'}, point ${sansPoint ? 'absent' : 'PRÉSENT'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
@@ -1511,8 +1549,9 @@ function pointsPour(nomClasse) {
   // 62 et 63 : ses propositions, l'apercu avant / apres, la validation et Ctrl+Z (lot L11).
   // 59 : la distorsion du grand-angle (lot L8) ; 65 : la fusion de plusieurs vues (lot L13) ;
   // 73 : l'essai des faits des toits (lot L20).
-  // 65 : la fusion de plusieurs vues (lot L13).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 65, 73];
+  // 65 : la fusion de plusieurs vues (lot L13) ; 64 : le batiment verifie sur place protege de
+  // l'actualisation (lot L12).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 73];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
