@@ -1993,6 +1993,7 @@ const POINTS = {
       && m.sources?.corpus === 2 && m.sources?.audits === 1 && m.toits?.conformes === 1 && m.toits?.nonConformes === 2 && m.facades === null && m.claude === null && m.cas?.length === 3
       && historique.length === 1 && /33 %/.test(historique[0] || '') && serveur.listes === 2 && !deborde;
     return { ok, mesure: `alerte « ${(alertes[0] || '').slice(0, 90)} » ; « ${message} » ; mesure ${m ? `${m.format}, corpus ${m.sources?.corpus}, audits ${m.sources?.audits}, ${m.toits?.conformes}/${(m.toits?.conformes ?? 0) + (m.toits?.nonConformes ?? 0)} conformes, façades ${m.facades}, Claude ${m.claude}` : 'AUCUNE'} ; historique « ${(historique[0] || '').slice(0, 80)} » ; relu ${serveur.listes} fois ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   68: async (page) => {
     // La baie devinee en pointille, sur de vraies prises (lot G17, suite du lot L15, spec facades §10.5) :
     // les deux photos de synthese de la scene 19 du banc (une haie haute, presque contre le mur, cache la
