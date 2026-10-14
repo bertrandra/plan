@@ -505,6 +505,42 @@ reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
   propriétaire le 14 octobre 2026 ; cotes lues : 1,25 m de profondeur, 3,2 m contre le mur, égout
   2,4 m.
 
+### 5.2 Les pignons traversants d'une façade
+
+Des pignons qui coupent le pan d'une façade du **corps principal** (le pignon d'un corps
+« transversal » qui pénètre le toit) se détectent sur la mesure (`detecterPignons`, §2.3). Quand le
+propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
+
+```json
+"observation": {
+  "pignons": [{ "facade": { "azimutDeg": 180 }, "position": "bouts", "haut": "faitage" }]
+}
+```
+
+| Champ | Valeurs | Ce que le calcul en fait |
+|---|---|---|
+| `facade.azimutDeg` | comme pour un appentis (§5.1) | le mur de **pan** du corps principal dont la normale est à moins de `toleranceDeg` ; un mur de bout ne porte pas de pignon traversant |
+| `position` | `"bouts"` (seule valeur) | un pignon à chaque bout de la façade |
+| `haut` | `"faitage"`, ou absent | `"faitage"` : au point haut du faîtage du corps, jusqu'à lui (profondeur = largeur du pan) ; absent : la hauteur lue sur la mesure |
+| `largeurM` | mètres, facultatif | la largeur d'un pignon que la mesure ne délimite pas |
+
+- **À chaque bout** : un pignon détecté dont le bord commence à moins de `BOUT_PIGNON_FAIT_M` du bout
+  est gardé (ses bords) ; sinon sa largeur se lit depuis le bout, là où la mesure dépasse le pan de
+  `SURPLUS_PIGNON_FAIT_M` (la moitié du seuil de la détection : le doute sur son existence est
+  levé) ; à défaut, la largeur de l'autre pignon de la façade, puis `largeurM`. Chacun au plus 45 %
+  de la longueur, et au plus `LARGEUR_PIGNON_MAX_M`.
+- Un pignon **ajouté** fait relire le pan sans ses mesures (`ajusterCorps` avec son empreinte), comme
+  après une détection (`corpsAvecPignons`).
+- **Ne fabrique rien** : sans mesure qui le délimite, sans autre pignon ni `largeurM`, le pignon
+  n'est pas posé et `ecartsAuFait` le dit (« pignons vers 180 : 1 sur 2 »). En `remplacement`, les
+  pignons ne sont pas encore posés.
+- Premier cas : AE 101, façade sud, « deux pignons traversants à gauche et à droite, qui montent au
+  point haut du faîtage » (le propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour AE
+  101 a changé l'après-midi même (0,4 m d'écart moyen par cellule, sans décalage :
+  `tests/fixtures/toits/vesinet-ae101-lidar-soir.json`) : le calcul seul n'y trouve plus que le pignon
+  ouest ; le fait pose le pignon est (0 à 2,4 m) et les monte tous deux à 7,9 m. Sur la lecture du
+  matin, les deux pignons détectés (0 à 3 m, 7 à 9,9 m) montent au faîtage, à 7,5 m.
+
 ---
 
 ## 6. Les réglages : `regles/toits/reglages.json`
