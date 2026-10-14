@@ -52,7 +52,7 @@ export function formeDuCorps(c: CorpsToit): FormeCorps {
 }
 
 /** Ce qui ferme les deux bouts d'un corps, au bout `s = 0` puis `s = L`. */
-const boutsDuCorps = (c: CorpsToit): [BoutFait, BoutFait] => [(c.croupes?.[0] ?? 0) > 0 ? 'croupe' : 'pignon', (c.croupes?.[1] ?? 0) > 0 ? 'croupe' : 'pignon'];
+export const boutsDuCorps = (c: CorpsToit): [BoutFait, BoutFait] => [(c.croupes?.[0] ?? 0) > 0 ? 'croupe' : 'pignon', (c.croupes?.[1] ?? 0) > 0 ? 'croupe' : 'pignon'];
 const memesBouts = (a: readonly BoutFait[], b: readonly BoutFait[]) => [...a].sort().join() === [...b].sort().join();
 
 /**
@@ -153,7 +153,7 @@ export function meilleurCorpsSelonObservation(m: ToitMesure, rect: readonly PtBr
 const presqueRectangle = (contour: readonly PtBrut[]) => aire(boiteOrientee(contour)) <= 1.1 * aire(contour);
 
 /** Le rang du plus grand corps : c'est lui que l'observation decrit (la forme du batiment). */
-const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i) => (aire(c.pts) > aire((corps[k] as CorpsToit).pts) ? i : k), 0);
+export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i) => (aire(c.pts) > aire((corps[k] as CorpsToit).pts) ? i : k), 0);
 
 /**
  * Les corps sous un fait en contrainte (spec §5). `corps` : ce que le calcul a reconstruit (null : il

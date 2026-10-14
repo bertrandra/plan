@@ -57,6 +57,17 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     executer: () => { location.assign('?admin&ecran=consommation'); }
   });
 
+  /**
+   * Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) : un ecran de l'admin des
+   * demos, a cote de la consommation, pour la meme raison (les audits recus et les mesures exigent
+   * sa session ; le rejeu des cas n'a rien a faire dans le demarrage).
+   */
+  cmd.declarer({
+    id: 'admin.conformite', libelle: 'Conformité', groupe: 'admin', actif: () => enAdmin(),
+    description: 'Ouvre les indicateurs : part des cas observés que le calcul satisfait, par forme, région et problème, sur le corpus et les audits partagés (administrateur seulement)',
+    executer: () => { location.assign('?admin&ecran=conformite'); }
+  });
+
   /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
   cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
     a.fitToObject(a.etat.objects.find(o => o.key === a.etat.selectedKey) || null);

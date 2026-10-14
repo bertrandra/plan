@@ -99,6 +99,10 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
 // Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
 export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
 
+// Les mesures des indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3).
+export const MESURES_CONFORMITE_MAX: number;
+export function verifierMesureConformite<T>(d: T): T;
+
 export function creerAnalyseAdmin(options: {
   dossier: string;
   actif: boolean;

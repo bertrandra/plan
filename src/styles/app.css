@@ -2211,6 +2211,17 @@
   /* L'hote est un element flexible du corps : sans min-width:0, un tableau large l'elargirait, et
      le telephone dezoomerait toute la page au lieu de faire defiler le seul tableau. */
   #zoneEcranConsommation{ width:100%; min-width:0; }
+  /* L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, zones/EcranConformite.tsx) :
+     meme forme que la consommation, dont il reprend les classes (filtres, tuiles, onglets, tableaux).
+     Un etat s'ecrit en mots dans la premiere colonne : aucune couleur ne le porte seule. */
+  html[data-ecran="conformite"] body > :not(#zoneEcranConformite):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="conformite"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="conformite"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranConformite{ width:100%; min-width:0; }
+  .confRaison, .confMessage{ margin:6px 0 0; }
+  /* Les ecarts d'un cas se lisent en entier : la seule colonne qui passe a la ligne. */
+  .confCas td.confEcarts{ white-space:normal; min-width:220px; max-width:420px; font-size:0.74rem; }
+  .confCas tr[data-etat="non-conforme"] td:first-child strong{ color:var(--danger); }
   .consEcran{ max-width:1280px; width:100%; min-width:0; margin:0 auto; padding:20px 16px 48px; color:var(--ink); text-align:left; font-family:var(--sans); }
   .consOnglets .palOnglet{ white-space:nowrap; }
   .consEntete{ border-bottom:1px solid var(--rule); padding-bottom:12px; }
