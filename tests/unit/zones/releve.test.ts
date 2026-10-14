@@ -3,6 +3,7 @@ import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arret
 import { modeleDistorsion, corrigerPoint } from '../../../src/facade/distorsion.js';
 import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision, avisFusion } from '../../../src/zones/releve/analyse.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
+import { etirerOuvertures, texteDetails, texteOrigine } from '../../../src/zones/releve/ouvertures.js';
 import type { Prise } from '../../../src/zones/releve/capteurs.js';
 import type { Facade } from '../../../src/facade/geometrie.js';
 import type { OuvertureFacade, Toit } from '../../../src/model/types.js';
@@ -246,3 +247,39 @@ describe('releve : plusieurs vues du mur entier (lot L13)', () => {
 // Le type Morceau reste importable par les etapes : la serie s'ecrit d'une seule facon.
 const _morceau: Morceau = { prise: prise(), coins: [] };
 void _morceau;
+
+describe('releve : structure et corrections des ouvertures (lot L15)', () => {
+  const facade = { cote: 2, largeur: 8 } as Facade;
+  const f = (x: number, y: number): OuvertureFacade => ({ type: 'fenetre', x, y, l: 1.2, h: 1.35, source: 'detectee', confiance: 0.9 });
+
+  it('ecrit la grille recalculee, la rangee et la travee de chaque ouverture, et les corrections', () => {
+    const corrections = [{ geste: 'ajout' as const, type: 'fenetre' as const, x: 5, y: 3.8, l: 1.2, h: 1.35 }];
+    const r = releveDuMur(facade, resultat, [f(1, 0.9), f(1, 3.8), f(5, 3.8)], 6, null, corrections);
+    expect(r.grille?.niveaux).toHaveLength(2);
+    expect(r.grille?.travees).toHaveLength(2);
+    expect(r.ouvertures.map((o) => [o.niveau, o.travee])).toEqual([[0, 0], [1, 0], [1, 1]]);
+    expect(r.corrections).toEqual(corrections);
+  });
+
+  it('n ecrit ni grille ni corrections sans ouverture ni geste : un releve garde sa forme d avant', () => {
+    const r = releveDuMur(facade, resultat, [], 6, null);
+    expect(r).not.toHaveProperty('grille');
+    expect(r).not.toHaveProperty('corrections');
+  });
+
+  it('etire les ouvertures en hauteur', () => {
+    expect(etirerOuvertures([f(1, 1)], 1.2)[0]).toMatchObject({ x: 1, y: 1.2, h: 1.62, l: 1.2 });
+  });
+
+  it('dit d ou vient une ouverture, et ses details, en clair', () => {
+    expect(texteOrigine({ source: 'detectee', confiance: 0.82 })).toBe('Détectée sur la photo (confiance 82 %).');
+    expect(texteOrigine({ source: 'devinee', confiance: 0.55 })).toContain('Devinée par la grille');
+    expect(texteOrigine({ source: 'corrigee' })).toBe('Corrigée par vous.');
+    expect(texteOrigine({})).toBe('Posée à la main.');
+    expect(texteDetails(undefined)).toBeNull();
+    expect(texteDetails({})).toBeNull();
+    expect(texteDetails({ volets: 'battants', allege: 'balcon' })).toBe('Volets battants, balcon.');
+    expect(texteDetails({ volets: 'persiennes', ferme: true, forme: 'cintre' })).toBe('Persiennes fermées, haut cintré.');
+    expect(texteDetails({ volets: 'roulant' })).toBe('Volet roulant (coffre retiré de la hauteur).');
+  });
+});

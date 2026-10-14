@@ -68,8 +68,8 @@ const centre = (o: BoiteOuverture) => o.x + o.l / 2;
 
 /**
  * Les niveaux et les travees d'une liste d'ouvertures (§10.1, §10.2). Un niveau regroupe les baies dont
- * les hauteurs se recouvrent (une porte et une fenetre du rez-de-chaussee) ; son appui est celui de ses
- * fenetres, s'il en a, son linteau la mediane des linteaux. Une travee regroupe les centres a 10 cm
+ * les hauteurs se recouvrent (une porte et une fenetre du rez-de-chaussee) ; son appui et son linteau
+ * sont ceux de ses fenetres (medianes), s'il en a, sinon de toutes ses baies. Une travee regroupe les centres a 10 cm
  * pres, d'une rangee a l'autre ; sa largeur est la mediane de ses baies.
  */
 export function structurer<B extends BoiteOuverture>(ouvertures: readonly B[], largeur: number, reglages: Partial<ValeursStructure> = {}): Structure {
@@ -79,8 +79,9 @@ export function structurer<B extends BoiteOuverture>(ouvertures: readonly B[], l
     .map((g) => {
       const os = g.map((i) => au(ouvertures, i));
       const fenetres = os.filter((o) => o.type === 'fenetre');
+      // Les fenetres disent l'appui et le linteau de la rangee ; une porte, plus haute, ne les dit pas.
       const appuiM = cm(fenetres.length ? mediane(fenetres.map((o) => o.y)) : Math.min(...os.map((o) => o.y)));
-      return { membres: g, appuiM, linteauM: cm(mediane(os.map((o) => o.y + o.h))) };
+      return { membres: g, appuiM, linteauM: cm(mediane((fenetres.length ? fenetres : os).map((o) => o.y + o.h))) };
     })
     .sort((a, b) => a.linteauM - b.linteauM);
   const tol = rg['facades.structure.traveeM'];
@@ -115,7 +116,7 @@ export function ecartBords(a: BoiteOuverture, b: BoiteOuverture): number {
 
 /**
  * Regularise les ouvertures sur leur structure (§10.2, §10.3, §10.6) :
- * - dans une travee, la largeur mediane, pour les baies qui en sont a 5 cm au plus (centre garde) ;
+ * - dans une travee, pour un meme type, la largeur mediane, a 5 cm au plus (centre garde) ;
  * - dans une rangee, pour un meme type, la hauteur mediane, a 5 cm au plus (appui garde) ;
  * - jamais un bord a plus de 10 cm de sa mesure : sinon la baie garde sa mesure.
  */
@@ -123,16 +124,22 @@ export function regulariser<B extends BoiteOuverture>(ouvertures: readonly B[], 
   const rg = reglagesStructure(reglages);
   const tol = rg['facades.structure.egaliserM'] + 1e-9;
   const res = ouvertures.map((o) => ({ ...o }));
-  // Largeurs par travee.
+  // Largeurs par travee et par type : une porte et la fenetre au-dessus d'elle partagent l'aplomb,
+  // pas la menuiserie.
   s.grille.travees.forEach((_, t) => {
-    const membres = res.filter((_, i) => s.traveeDe[i] === t);
-    const m = cm(mediane(membres.map((o) => o.l)));
-    for (const o of membres)
-      if (Math.abs(o.l - m) <= tol) {
-        const c = o.x + o.l / 2;
-        o.l = m;
-        o.x = cm(c - m / 2);
-      }
+    const parType = new Map<TypeOuverture, B[]>();
+    res.forEach((o, i) => {
+      if (s.traveeDe[i] === t) parType.set(o.type, [...(parType.get(o.type) ?? []), o]);
+    });
+    for (const membres of parType.values()) {
+      const m = cm(mediane(membres.map((o) => o.l)));
+      for (const o of membres)
+        if (Math.abs(o.l - m) <= tol) {
+          const c = o.x + o.l / 2;
+          o.l = m;
+          o.x = cm(c - m / 2);
+        }
+    }
   });
   // Hauteurs par rangee et par type.
   s.grille.niveaux.forEach((_, k) => {
@@ -179,8 +186,15 @@ function boiteAuCroisement<B extends BoiteOuverture>(ouvertures: readonly B[], s
   const dansTravee = ouvertures.filter((_, i) => s.traveeDe[i] === t);
   const fenetres = dansTravee.filter((o) => o.type === 'fenetre');
   const l = cm(fenetres.length ? mediane(fenetres.map((o) => o.l)) : travee.largeurM);
-  const y = niveau.appuiM,
+  let y = niveau.appuiM,
     h = cm(Math.max(0.3, niveau.linteauM - niveau.appuiM));
+  // Une rangee sans fenetre (une porte seule au rez) ne dit pas ou est l'appui : la baie prend la
+  // hauteur des fenetres de sa travee, sous le linteau de la rangee.
+  const fenetresDuNiveau = ouvertures.some((o, i) => s.niveauDe[i] === k && o.type === 'fenetre');
+  if (!fenetresDuNiveau && fenetres.length) {
+    h = cm(mediane(fenetres.map((o) => o.h)));
+    y = cm(Math.max(0, niveau.linteauM - h));
+  }
   return { type: classer(y, l, h), x: cm(travee.xM - l / 2), y, l, h };
 }
 

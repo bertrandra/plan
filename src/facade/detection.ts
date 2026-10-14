@@ -251,7 +251,10 @@ function lireDetails(img: Image, Fp: FondPx, boite: BoitePx, pxParM: number, rg:
     details.ferme = true;
   }
   const a = allege(img, Fp, boite, pxParM, rg);
-  if (a) details.allege = a;
+  if (a) {
+    details.allege = a.allege;
+    if (a.Y1 !== undefined) boite = { ...boite, Y1: a.Y1 };
+  }
   if (c.forme !== 'rect') details.forme = c.forme;
   return { boite, details, vitree };
 }

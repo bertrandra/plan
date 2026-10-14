@@ -87,6 +87,11 @@ export const REGLAGES_STRUCTURE = {
     unite: 'part',
     pourquoi: "Part de la largeur d'une bande sous l'appui qui s'ecarte du fond du mur pour y lire une dalle de balcon.",
   },
+  'facades.classement.parementBruitMax': {
+    valeur: 0.3,
+    unite: 'part',
+    pourquoi: "Part du mur a cote d'une baie, a mi-hauteur, qui s'ecarte du fond au-dela de laquelle le parement (brique, pierre) est trop heurte pour y lire une dalle ou des barreaux : on ne dit rien.",
+  },
   'facades.classement.barreauxMin': {
     valeur: 4,
     unite: 'nombre',

@@ -7,7 +7,8 @@ import { analyserMosaique } from '../../facade/mosaique.js';
 import { analyserVues, type ResultatFusion } from '../../facade/fusion.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
-import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve } from '../../model/types.js';
+import { avecGrille } from '../../facade/verification.js';
+import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture } from '../../model/types.js';
 import { fr } from './commun.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 
@@ -131,9 +132,13 @@ export function textePrecision(pxParM: number | null): string | null {
   return `Cotes précises à environ ${fr(Math.round(p * 2) / 2, p < 10 ? 1 : 0)} cm : la photo ne voyait le mur qu'à ${px} pixels par mètre.`;
 }
 
-/** Ce qui s'ecrit pour le mur : sa hauteur mesuree (ou corrigee), sa photo, ses ouvertures. */
-export function releveDuMur(facade: Facade, r: Resultat, ouvertures: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null): ReleveFacade {
+/**
+ * Ce qui s'ecrit pour le mur : sa hauteur mesuree (ou corrigee), sa photo, ses ouvertures, leur grille
+ * (spec facades §10, recalculee sur les ouvertures retenues) et les corrections de l'utilisateur (§12).
+ */
+export function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFacade[], hauteur: number, mesure: MesureDistance | null, corrections: CorrectionOuverture[] = []): ReleveFacade {
   const cm = (v: number) => Math.round(v * 100) / 100;
+  const { ouvertures, grille } = avecGrille(retenues, facade.largeur);
   return {
     cote: facade.cote,
     largeur: cm(facade.largeur),
@@ -146,5 +151,7 @@ export function releveDuMur(facade: Facade, r: Resultat, ouvertures: OuvertureFa
     releveLe: new Date().toISOString(),
     partieBasse: r.partieBasse,
     ...(r.calage ? { calage: r.calage } : {}),
+    ...(grille ? { grille } : {}),
+    ...(corrections.length ? { corrections } : {}),
   };
 }

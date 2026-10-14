@@ -178,6 +178,12 @@ export function lamesHorizontales(img: Image, b: BoitePx, pxParM: number, rg: Va
     if (!meilleur || rp > meilleur.r) meilleur = { p, r: rp };
   }
   if (!meilleur || meilleur.r < 0.5 || n / meilleur.p < rg['facades.classement.persiennesLamesMin']) return null;
+  // Un maximum au plus petit pas cherche n'est pas un pas, c'est du bruit fin (grain, moire) ; et des
+  // lames regulieres se retrouvent au double de leur pas.
+  if (meilleur.p <= pMin) return null;
+  let s2 = 0;
+  for (let k = 0; k + 2 * meilleur.p < n; k++) s2 += (d[k] ?? 0) * (d[k + 2 * meilleur.p] ?? 0);
+  if (s2 / energie < 0.3) return null;
   return Math.round((meilleur.p / pxParM) * 1000) / 1000;
 }
 
@@ -203,36 +209,66 @@ function barreaux(img: Image, F: FondPx, xa: number, xz: number, ya: number, yz:
   return n;
 }
 
+/** Ce qui se lit sous une baie (spec §11). */
+export interface LectureAllege {
+  allege: 'balcon' | 'garde-corps';
+  /** La dalle etait prise dans le bas de la boite : la ligne ou la baie s'arrete vraiment. */
+  Y1?: number;
+}
+
 /**
  * Sous l'appui d'une baie (spec §11) : une dalle qui deborde de ses tableaux d'au moins 15 cm de chaque
  * cote (`balcon`), ou des barreaux de part et d'autre de la baie sans dalle (`garde-corps`). Un appui de
- * fenetre ne deborde que de quelques centimetres. Rend `null` si rien ne se lit.
+ * fenetre ne deborde que de quelques centimetres. La dalle peut etre collee a la baie, et la tache les
+ * avoir prises ensemble : elle est alors retiree du bas de la boite. Rend `null` si rien ne se lit.
  */
-export function allege(img: Image, F: FondPx, b: BoitePx, pxParM: number, rg: ValeursStructure): 'balcon' | 'garde-corps' | null {
+export function allege(img: Image, F: FondPx, b: BoitePx, pxParM: number, rg: ValeursStructure): LectureAllege | null {
   const H = img.hauteur,
     L = img.largeur;
   const deb = Math.round(rg['facades.classement.balconDebordMinM'] * pxParM);
   if (b.X0 - deb < 0 || b.X1 + deb > L) return null;
+  // Une baie au sol n'a ni balcon ni garde-corps sous elle : ce qui la borde est le sol.
+  if (b.Y1 >= H - Math.round(0.25 * pxParM)) return null;
   const part = rg['facades.classement.balconPartMin'];
   const horsMur = (xa: number, xz: number, Y: number) => {
     let n = 0;
     for (let X = xa; X < xz; X++) if (!estMur(img, F, X, Y)) n++;
     return n / Math.max(1, xz - xa);
   };
-  // La dalle : au moins 4 cm de lignes de suite, dans les 30 cm sous l'appui, hors du mur de part et
-  // d'autre des tableaux et sous la baie.
-  const epaisseur = Math.max(2, Math.round(0.04 * pxParM));
-  let suite = 0,
-    dalle = false;
-  for (let Y = b.Y1; Y < Math.min(H, b.Y1 + Math.round(0.3 * pxParM)); Y++) {
-    const pleine = horsMur(b.X0 - deb, b.X0 - 1, Y) >= part && horsMur(b.X1 + 1, b.X1 + deb, Y) >= part && horsMur(b.X0, b.X1, Y) >= part;
-    suite = pleine ? suite + 1 : 0;
-    if (suite >= epaisseur) {
-      dalle = true;
-      break;
-    }
+  // Le mur de part et d'autre de la baie, a mi-hauteur, doit se lire comme du mur : sur une brique ou
+  // une pierre dont les joints s'ecartent du fond, une dalle ou des barreaux ne se distinguent pas du
+  // parement, et l'on ne dit rien.
+  const mi = Math.round((b.Y0 + b.Y1) / 2);
+  let parement = 0;
+  for (let Y = mi - 2; Y <= mi + 2; Y++) parement += (horsMur(b.X0 - deb, b.X0 - 1, Y) + horsMur(b.X1 + 1, b.X1 + deb, Y)) / 2;
+  if (parement / 5 > rg['facades.classement.parementBruitMax']) return null;
+  const deborde = (Y: number) => horsMur(b.X0 - deb, b.X0 - 1, Y) >= part && horsMur(b.X1 + 1, b.X1 + deb, Y) >= part;
+  // Une dalle qui court sur toute la facade est un bandeau (ou le haut d'un soubassement), pas un balcon.
+  const bandeau = (Y: number) => horsMur(0, L, Y) >= 0.85;
+  const epaisseur = Math.max(2, Math.round(0.04 * pxParM)),
+    portee = Math.round(0.3 * pxParM);
+  // La dalle collee : les dernieres lignes de la boite debordent de ses tableaux.
+  // C'est une bande nette : au-dessus d'elle, le long des tableaux, le mur revient sur deux epaisseurs
+  // (un garde-corps, une haie, une ombre debordent sur toute la hauteur, une dalle non).
+  let haut = b.Y1;
+  const plafond = Math.max(b.Y0, b.Y1 - portee);
+  while (haut > plafond && deborde(haut - 1)) haut--;
+  // Et la tache l'a avalee entiere : sous la boite, le mur revient aussi. Sinon la boite s'arrete sur
+  // autre chose (la lisse basse d'un garde-corps posee sur la dalle), et on n'y touche pas.
+  const nette =
+    haut > plafond &&
+    Array.from({ length: 2 * epaisseur }, (_, k) => haut - 1 - k).every((Y) => Y <= b.Y0 || !deborde(Y)) &&
+    Array.from({ length: epaisseur }, (_, k) => b.Y1 + k).every((Y) => Y >= H || !deborde(Y));
+  // Une dalle a 12 a 20 cm d'epaisseur : on en exige 8 dans la boite, pour ne pas rogner une baie sur
+  // l'ombre ou le nez d'une dalle qui l'effleure.
+  if (b.Y1 - haut >= 2 * epaisseur && nette) return bandeau(b.Y1 - 1) ? null : { allege: 'balcon', Y1: haut };
+  // La dalle sous l'appui : au moins 4 cm de lignes de suite, dans les 30 cm sous la baie, hors du mur
+  // de part et d'autre des tableaux et sous la baie.
+  let suite = 0;
+  for (let Y = b.Y1; Y < Math.min(H, b.Y1 + portee); Y++) {
+    suite = deborde(Y) && horsMur(b.X0, b.X1, Y) >= part ? suite + 1 : 0;
+    if (suite >= epaisseur) return bandeau(Y) ? null : { allege: 'balcon' };
   }
-  if (dalle) return 'balcon';
   // Les barreaux, de part et d'autre de la baie, dans le bas de sa hauteur.
   const ya = Math.max(0, b.Y1 - Math.round(0.8 * pxParM)),
     yz = b.Y1 - Math.round(0.1 * pxParM);
@@ -240,7 +276,7 @@ export function allege(img: Image, F: FondPx, b: BoitePx, pxParM: number, rg: Va
   const cote = Math.round(0.6 * pxParM);
   const g = barreaux(img, F, Math.max(0, b.X0 - cote), b.X0 - 1, ya, yz, pxParM),
     d = barreaux(img, F, b.X1 + 1, Math.min(L, b.X1 + cote), ya, yz, pxParM);
-  if (g >= 2 && d >= 2 && g + d >= rg['facades.classement.barreauxMin']) return 'garde-corps';
+  if (g >= 2 && d >= 2 && g + d >= rg['facades.classement.barreauxMin']) return { allege: 'garde-corps' };
   return null;
 }
 
@@ -286,6 +322,21 @@ export function formeDeTache(l: number, h: number, remplis: (x: number, y: numbe
   const milieu = part(Math.floor(l / 2 - c / 2), 0, c, c);
   const max = rg['facades.classement.cintrePartMax'];
   if (hg > max || hd > max || milieu < 0.8) return 'rect';
+  // Un arc est symetrique, et ses deux tableaux sont pleins a mi-hauteur : une tache rongee d'un cote
+  // (une haie, une ombre devant elle) n'est pas un cintre.
+  const tableaux = Math.min(part(0, Math.floor(h / 2 - c / 2), c, c), part(l - c, Math.floor(h / 2 - c / 2), c, c));
+  if (tableaux < 0.8 || Math.abs(hg - hd) > 0.2) return 'rect';
+  const haut = (x: number) => {
+    let y = 0;
+    while (y < h && !remplis(x, y)) y++;
+    return y;
+  };
+  const g = haut(Math.floor(c / 2)),
+    d = haut(l - 1 - Math.floor(c / 2));
+  if (Math.abs(g - d) > Math.max(2, 0.25 * Math.max(g, d))) return 'rect';
+  // L'arc descend regulierement du milieu vers chaque tableau : le haut d'une haie ou d'un houppier,
+  // dentele, monte et descend.
+  for (let x = 1; x < Math.floor(l / 2); x++) if (haut(x) > haut(x - 1) + 1 || haut(l - 1 - x) > haut(l - x) + 1) return 'rect';
   if (bg <= max && bd <= max && Math.abs(l - h) <= 0.2 * Math.max(l, h)) return 'rond';
   return bg >= 0.8 && bd >= 0.8 ? 'cintre' : 'rect';
 }
