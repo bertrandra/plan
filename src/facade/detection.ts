@@ -17,13 +17,17 @@
 
 import { au } from '../util/tableaux.js';
 import type { Image } from './homographie.js';
-import type { TypeOuverture } from '../model/types.js';
+import type { DetailsOuverture, GrilleFacade, SourceOuverture, TypeOuverture } from '../model/types.js';
 import { PX_PAR_M, morpho, reduire, taches, type Reduite, type Tache } from './detectionCartes.js';
 import { fondDuMur, type FondDuMur } from './detectionFond.js';
-import { affiner, baieEntreVolets, carteOmbre, gradients, soutienAretes, versElevation, type BoitePx, type Gradients } from './detectionIndices.js';
+import { affiner, baieEntreVolets, carteOmbre, gradients, soutienAretes, versElevation, type BoitePx, type FondPx, type Gradients } from './detectionIndices.js';
 import { reglagesDetection, type ValeursDetection } from './reglagesDetection.js';
+import { reglagesStructure, type ValeursStructure } from './reglagesStructure.js';
+import { allege, bandeHaute, classer, classerAvecIndices, estVitree, formeDeTache, lamesHorizontales } from './classement.js';
+import { completer, regulariser, structurer, type EvaluerZone } from './structure.js';
 
 export type { TypeOuverture };
+export { classer };
 
 /** Une ouverture dans le repere de la facade : x depuis la gauche vue de dehors, y depuis le sol. */
 export interface OuvertureDetectee {
@@ -37,20 +41,29 @@ export interface OuvertureDetectee {
    * cotes et part de la boite vue sur la photo (spec §9). Pleine a 0,7 et plus (spec §12).
    */
   confiance: number;
+  /** `detectee`, ou `devinee` par la structure (spec §10.5, en pointille). */
+  source?: SourceOuverture;
+  /** Rangee et travee dans la grille de la facade (spec §10). */
+  niveau?: number;
+  travee?: number;
+  /** Volets, coffre, balcon, forme (spec §11). */
+  details?: DetailsOuverture;
+}
+
+/** Ce que la detection rend d'une facade : les ouvertures retenues, les devinees laissees decochees, la grille. */
+export interface DetectionFacade {
+  /** Les ouvertures detectees, et les devinees assez sures pour etre proposees cochees. */
+  ouvertures: OuvertureDetectee[];
+  /** Les ouvertures devinees de faible confiance : proposees en pointille, decochees (spec §17 q2). */
+  devinees: OuvertureDetectee[];
+  /** La structure des ouvertures retenues (spec §10) ; `null` sans ouverture. */
+  grille: GrilleFacade | null;
+  symetrique: boolean;
 }
 
 export interface OptionsDetection {
   /** Surcharges des reglages nommes (banc, profil de facade). */
-  reglages?: Partial<ValeursDetection>;
-}
-
-/** Le type d'une baie, d'apres sa taille et sa hauteur d'appui. */
-export function classer(y: number, l: number, h: number): TypeOuverture {
-  const auSol = y < 0.25;
-  if (auSol && l >= 2.1 && h >= 1.8) return 'garage';
-  if (auSol && h >= 1.8) return l >= 1.1 ? 'porte-fenetre' : 'porte';
-  if (y < 0.45 && h >= 1.9) return 'porte-fenetre';
-  return 'fenetre';
+  reglages?: Partial<ValeursDetection & ValeursStructure>;
 }
 
 /** Regroupe des valeurs proches (a `tol` pres) et remplace chacune par la moyenne de son groupe. */
@@ -77,6 +90,8 @@ interface Candidat {
   remplissage: number;
   rectangularite: number;
   aretes: number[];
+  /** Le haut en arc, ou la baie ronde, lu sur la tache (spec §11). */
+  forme: 'rect' | 'cintre' | 'rond';
 }
 
 /**
@@ -161,7 +176,7 @@ function rogner(t: Tache, etiquettes: Int32Array, l: number): Tache {
  * (indice A fort), ou si elle la remplit moins mais que ses quatre aretes sont nettes (indices A et B
  * faibles ensemble : une baie ton sur ton, ou percee dans de la brique, se lit par son pourtour).
  */
-function candidats(R: Reduite, b: Uint8Array, G: Gradients, rg: ValeursDetection, ombres = false): Candidat[] {
+function candidats(R: Reduite, b: Uint8Array, G: Gradients, rg: ValeursDetection & ValeursStructure, ombres = false): Candidat[] {
   const { l, h } = R;
   const largeurM = l / PX_PAR_M;
   const { taches: ts, etiquettes } = taches(b, l, h);
@@ -193,7 +208,8 @@ function candidats(R: Reduite, b: Uint8Array, G: Gradients, rg: ValeursDetection
     // teinte du mur (spec §9 C).
     const net = rg['facades.detection.areteNette'];
     if (ombres && (au(aretes, 0) < net || au(aretes, 1) < net)) continue;
-    res.push({ tache: t, remplissage, rectangularite: rectangularite(t, etiquettes, l), aretes });
+    const forme = formeDeTache(lp, hp, (x, y) => etiquettes[(t.y0 + y) * l + t.x0 + x] === t.id, rg);
+    res.push({ tache: t, remplissage, rectangularite: rectangularite(t, etiquettes, l), aretes, forme });
   }
   return res;
 }
@@ -211,16 +227,47 @@ function partVue(vu: Uint8Array | null, L: number, b: BoitePx): number {
   return tot ? n / tot : 0;
 }
 
+/** Ce que la mesure garde d'une candidate pour le classement, au-dela de sa boite. */
+interface Mesuree extends OuvertureDetectee {
+  vitree: boolean;
+}
+
+/**
+ * Les details d'une baie lus sur l'elevation (spec §11) : le haut (bande de mur ou coffre retires), les
+ * lames, l'allege. Rend la boite corrigee et les details.
+ */
+function lireDetails(img: Image, Fp: FondPx, boite: BoitePx, pxParM: number, rg: ValeursStructure, c: Candidat, battants: boolean): { boite: BoitePx; details: DetailsOuverture; vitree: boolean } {
+  const details: DetailsOuverture = {};
+  const vitree = estVitree(img, boite, rg);
+  if (battants) details.volets = 'battants';
+  const haut = c.forme === 'rect' ? bandeHaute(img, Fp, boite, pxParM, rg, vitree && !battants) : null;
+  if (haut) {
+    boite = { ...boite, Y0: haut.Y0 };
+    if (haut.coffre) details.volets = 'roulant';
+  }
+  const lames = lamesHorizontales(img, boite, pxParM, rg);
+  if (lames !== null) {
+    details.volets = details.volets === 'roulant' || lames <= 0.06 ? 'roulant' : 'persiennes';
+    details.ferme = true;
+  }
+  const a = allege(img, Fp, boite, pxParM, rg);
+  if (a) details.allege = a;
+  if (c.forme !== 'rect') details.forme = c.forme;
+  return { boite, details, vitree };
+}
+
 /**
  * Une candidate devient une ouverture : separee de ses volets battants s'il y en a, ses bords affines
- * au centimetre, sa confiance calculee.
+ * au centimetre, ses details lus, sa confiance calculee.
  */
-function mesurer(img: Image, pxParM: number, vu: Uint8Array | null, R: Reduite, F: FondDuMur, c: Candidat, rg: ValeursDetection, franc: number): OuvertureDetectee {
+function mesurer(img: Image, pxParM: number, vu: Uint8Array | null, R: Reduite, F: FondDuMur, c: Candidat, rg: ValeursDetection & ValeursStructure, franc: number): Mesuree {
   const f = pxParM / PX_PAR_M;
   let boite = versElevation(c.tache, pxParM, img.hauteur, R.h);
   const entre = baieEntreVolets(img, vu, boite, pxParM, rg);
   if (entre) boite = { ...boite, ...entre };
-  const fin = affiner(img, { fond: F.fond, seuil: F.seuil, l: R.l, h: R.h, f, franc }, boite, entre ? { gauche: true, droite: true } : {});
+  const Fp: FondPx = { fond: F.fond, seuil: F.seuil, l: R.l, h: R.h, f, franc };
+  const affinee = affiner(img, Fp, boite, entre ? { gauche: true, droite: true } : {});
+  const { boite: fin, details, vitree } = lireDetails(img, Fp, affinee, pxParM, rg, c, !!entre);
   const aretes = c.aretes.reduce((s, a) => s + Math.min(1, a), 0) / 4;
   const confiance = 0.3 * Math.min(1, c.remplissage) + 0.2 * c.rectangularite + 0.3 * aretes + 0.2 * partVue(vu, img.largeur, fin);
   const H = img.hauteur;
@@ -231,11 +278,14 @@ function mesurer(img: Image, pxParM: number, vu: Uint8Array | null, R: Reduite, 
     y: (H - fin.Y1) / pxParM,
     h: (fin.Y1 - fin.Y0) / pxParM,
     confiance: Math.round(Math.max(0, Math.min(1, confiance)) * 100) / 100,
+    source: 'detectee',
+    ...(Object.keys(details).length ? { details } : {}),
+    vitree,
   };
 }
 
 /** Linteaux et appuis a quelques centimetres pres ramenes a la meme cote, puis le type de chaque baie. */
-function finaliser(brutes: OuvertureDetectee[], rg: ValeursDetection): OuvertureDetectee[] {
+function finaliser(brutes: Mesuree[], rg: ValeursDetection): OuvertureDetectee[] {
   const tol = rg['facades.detection.alignementM'];
   const hauts = aligner(
     brutes.map((o) => o.y + o.h),
@@ -246,11 +296,11 @@ function finaliser(brutes: OuvertureDetectee[], rg: ValeursDetection): Ouverture
     tol,
   );
   return brutes
-    .map((o, i) => {
+    .map(({ vitree, ...o }, i) => {
       const y = Math.max(0, au(bas, i) < 0.1 ? 0 : au(bas, i));
       const hTot = au(hauts, i) - y;
-      const res = { ...o, x: cm(o.x), y: cm(y), l: cm(o.l), h: cm(hTot) };
-      res.type = classer(res.y, res.l, res.h);
+      const res: OuvertureDetectee = { ...o, x: cm(o.x), y: cm(y), l: cm(o.l), h: cm(hTot) };
+      res.type = classerAvecIndices(res.y, res.l, res.h, { vitree, ...(o.details ? { details: o.details } : {}) });
       return res;
     })
     // L affinage peut rogner une boite sous les tailles minimales : elle ne passe plus pour une baie.
@@ -259,13 +309,37 @@ function finaliser(brutes: OuvertureDetectee[], rg: ValeursDetection): Ouverture
 }
 
 /**
- * Les ouvertures d'une elevation redressee de `largeurM` x `hauteurM` metres a `pxParM` pixels par
- * metre. `vu` (facultatif) masque ce que la photo n'a pas couvert.
+ * Ce que l'image dit d'une zone de la facade (en metres) : part cachee (hors du masque des pixels vus),
+ * et part vue qui ressemble au fond du mur (ecart et teinte sous leur seuil).
  */
-export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | null = null, options: OptionsDetection = {}): OuvertureDetectee[] {
-  const rg = reglagesDetection(options.reglages);
+function evaluateurZone(R: Reduite, F: FondDuMur): EvaluerZone {
+  return (b) => {
+    const x0 = Math.max(0, Math.floor(b.x * PX_PAR_M)),
+      x1 = Math.min(R.l, Math.ceil((b.x + b.l) * PX_PAR_M));
+    const y0 = Math.max(0, Math.floor(R.h - (b.y + b.h) * PX_PAR_M)),
+      y1 = Math.min(R.h, Math.ceil(R.h - b.y * PX_PAR_M));
+    let tot = 0,
+      caches = 0,
+      mur = 0;
+    for (let y = y0; y < y1; y++)
+      for (let x = x0; x < x1; x++) {
+        const i = y * R.l + x;
+        tot++;
+        if (!R.vu[i]) {
+          caches++;
+          continue;
+        }
+        if ((F.ecart[i] ?? 0) <= (F.seuil[i] ?? 0) && (F.chroma[i] ?? 0) <= (F.seuilChroma[i] ?? 0)) mur++;
+      }
+    const vus = tot - caches;
+    return { cache: tot ? caches / tot : 1, mur: vus ? mur / vus : 0 };
+  };
+}
+
+/** Les ouvertures detectees d'une elevation, avant la structure. */
+function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: ValeursDetection & ValeursStructure): { ouvertures: OuvertureDetectee[]; R: Reduite; F: FondDuMur } | null {
   const R = reduire(img, pxParM, vu);
-  if (!R.vu.some((v) => v)) return [];
+  if (!R.vu.some((v) => v)) return null;
   const F = fondDuMur(R, rg);
   const ombre = carteOmbre(R, F.fond, rg);
   const G = gradients(R, F.mur, rg);
@@ -274,5 +348,37 @@ export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | 
   const disjoint = (t: Tache) => retenus.every(({ tache: u }) => t.x1 < u.x0 || u.x1 < t.x0 || t.y1 < u.y0 || u.y1 < t.y0);
   retenus.push(...candidats(R, carteCandidats(R, F, ombre, true), G, rg, true).filter((c) => disjoint(c.tache)));
   const brutes = retenus.map((c) => mesurer(img, pxParM, vu, R, F, c, rg, G.franc));
-  return finaliser(brutes, rg);
+  return { ouvertures: finaliser(brutes, rg), R, F };
+}
+
+/**
+ * La facade d'une elevation redressee de `largeurM` x `hauteurM` metres a `pxParM` pixels par metre
+ * (spec §9 a §11) : les ouvertures detectees, regularisees sur leur structure (niveaux, travees), les
+ * devinees aux croisements caches ou peu surs, et la grille. `vu` (facultatif) masque ce que la photo
+ * n'a pas couvert.
+ */
+export function detecterFacade(img: Image, pxParM: number, vu: Uint8Array | null = null, options: OptionsDetection = {}): DetectionFacade {
+  const rg = { ...reglagesDetection(options.reglages), ...reglagesStructure(options.reglages) };
+  const brutes = detecterBrutes(img, pxParM, vu, rg);
+  if (!brutes || !brutes.ouvertures.length) return { ouvertures: [], devinees: [], grille: null, symetrique: false };
+  const largeur = img.largeur / pxParM,
+    hauteur = img.hauteur / pxParM;
+  const s0 = structurer(brutes.ouvertures, largeur, rg);
+  const regulieres = regulariser(brutes.ouvertures, s0, rg);
+  const devinees = completer(regulieres, s0, largeur, hauteur, evaluateurZone(brutes.R, brutes.F), rg).map((d) => ({
+    cochee: d.cochee,
+    o: { type: classer(d.y, d.l, d.h), x: d.x, y: d.y, l: d.l, h: d.h, confiance: d.confiance, source: 'devinee' as const },
+  }));
+  const retenues = [...regulieres, ...devinees.filter((d) => d.cochee).map((d) => d.o)].sort((a, b) => a.x - b.x || a.y - b.y);
+  const s = structurer(retenues, largeur, rg);
+  const ouvertures = retenues.map((o, i) => ({ ...o, niveau: au(s.niveauDe, i), travee: au(s.traveeDe, i) }));
+  return { ouvertures, devinees: devinees.filter((d) => !d.cochee).map((d) => d.o), grille: s.grille, symetrique: s.symetrique };
+}
+
+/**
+ * Les ouvertures d'une elevation redressee de `largeurM` x `hauteurM` metres a `pxParM` pixels par
+ * metre. `vu` (facultatif) masque ce que la photo n'a pas couvert.
+ */
+export function detecterOuvertures(img: Image, pxParM: number, vu: Uint8Array | null = null, options: OptionsDetection = {}): OuvertureDetectee[] {
+  return detecterFacade(img, pxParM, vu, options).ouvertures;
 }
