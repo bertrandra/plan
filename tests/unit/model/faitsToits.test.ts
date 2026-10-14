@@ -23,11 +23,14 @@ describe('regles/toits/faits.json', () => {
     expect(EMPREINTE_FAITS_TOITS).toBe(empreinteFaitsToits(FAITS_TOITS_LIVRES));
   });
 
-  it('sur AE 101, un seul fait : l appentis de la facade sud, observe par le proprietaire le 14 octobre 2026', () => {
-    // La maison de reference ne bouge pas, sauf par une decision de l'utilisateur : celle-ci, une fois.
+  it('sur AE 101, un seul fait : l appentis et les deux pignons de la facade sud, observes par le proprietaire le 14 octobre 2026', () => {
+    // La maison de reference ne bouge pas, sauf par une decision de l'utilisateur : ses observations sur place.
     const ae101 = Object.entries(FAITS_TOITS_LIVRES).filter(([, f]) => /allée des Limites/i.test(f.adresse ?? ''));
     expect(ae101.map(([cle]) => cle)).toEqual(['BATIMENT0000000322509182']);
-    expect(ae101[0]![1].observation).toEqual({ appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }] });
+    expect(ae101[0]![1].observation).toEqual({
+      appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }],
+      pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage', largeurM: 3.7 }],
+    });
   });
 });
 
@@ -62,6 +65,19 @@ describe('lireFaitsToits', () => {
     expect(f[CLE]!.observation).toEqual({ appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }] });
     expect(f.BATIMENT0000000000000002!.observation.appentis).toEqual([{ facade: { azimutDeg: 90, toleranceDeg: 20 }, longueur: 'toute', profondeurM: 2, egoutM: 2.4, hautM: 3.4 }]);
     expect(signatureFait(f[CLE]!)).toBe('1 appentis adosse(s)');
+  });
+
+  it('lit les pignons d une facade : aux deux bouts, jusqu au faitage ou a la hauteur lue, une largeur facultative', () => {
+    const f = lireFaitsToits(fichier({
+      [CLE]: { observation: { pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage' }] } },
+      BATIMENT0000000000000002: { observation: { pignons: [{ facade: { azimutDeg: 90, toleranceDeg: 20 }, position: 'bouts', largeurM: 3 }] } },
+    }));
+    expect(f[CLE]!.observation.pignons).toEqual([{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage' }]);
+    expect(f.BATIMENT0000000000000002!.observation.pignons).toEqual([{ facade: { azimutDeg: 90, toleranceDeg: 20 }, position: 'bouts', largeurM: 3 }]);
+    expect(signatureFait(f[CLE]!)).toBe('pignons aux bouts de 1 facade(s)');
+    expect(() => lireFaitsToits(fichier({ [CLE]: { observation: { pignons: [{ facade: { azimutDeg: 180 }, position: 'milieu' }] } } }))).toThrow(/"bouts"/);
+    expect(() => lireFaitsToits(fichier({ [CLE]: { observation: { pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'egout' }] } } }))).toThrow(/haut/);
+    expect(() => lireFaitsToits(fichier({ [CLE]: { observation: { pignons: [] } } }))).toThrow(/liste de pignons/);
   });
 
   it.each([
