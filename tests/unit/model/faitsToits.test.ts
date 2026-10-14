@@ -23,8 +23,11 @@ describe('regles/toits/faits.json', () => {
     expect(EMPREINTE_FAITS_TOITS).toBe(empreinteFaitsToits(FAITS_TOITS_LIVRES));
   });
 
-  it('aucun fait livre ne vise AE 101 (la maison de reference ne bouge pas)', () => {
-    for (const f of Object.values(FAITS_TOITS_LIVRES)) expect(f.adresse ?? '').not.toMatch(/allée des Limites/i);
+  it('sur AE 101, un seul fait : l appentis de la facade sud, observe par le proprietaire le 14 octobre 2026', () => {
+    // La maison de reference ne bouge pas, sauf par une decision de l'utilisateur : celle-ci, une fois.
+    const ae101 = Object.entries(FAITS_TOITS_LIVRES).filter(([, f]) => /allée des Limites/i.test(f.adresse ?? ''));
+    expect(ae101.map(([cle]) => cle)).toEqual(['BATIMENT0000000322509182']);
+    expect(ae101[0]![1].observation).toEqual({ appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }] });
   });
 });
 
@@ -46,6 +49,16 @@ describe('lireFaitsToits', () => {
     expect(f.BATIMENT0000000000000002!.dimensions).toEqual({ egoutM: 3, faitageM: 4.5, hautVersDeg: 180 });
   });
 
+  it('lit un appentis adosse : la facade par son azimut, toute la longueur, les cotes facultatives', () => {
+    const f = lireFaitsToits(fichier({
+      [CLE]: { observation: { appentis: [{ facade: { azimutDeg: 180 } }] } },
+      BATIMENT0000000000000002: { observation: { appentis: [{ facade: { azimutDeg: 90, toleranceDeg: 20 }, longueur: 'toute', profondeurM: 2, egoutM: 2.4, hautM: 3.4 }] } },
+    }));
+    expect(f[CLE]!.observation).toEqual({ appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }] });
+    expect(f.BATIMENT0000000000000002!.observation.appentis).toEqual([{ facade: { azimutDeg: 90, toleranceDeg: 20 }, longueur: 'toute', profondeurM: 2, egoutM: 2.4, hautM: 3.4 }]);
+    expect(signatureFait(f[CLE]!)).toBe('1 appentis adosse(s)');
+  });
+
   it.each([
     ['un autre format', { format: 'plan-reglages-toits', faits: {} }, /format inconnu/],
     ['une cle qui n est pas BD TOPO', fichier({ 'batiment.37248484': deuxPans }), /cle BD TOPO/],
@@ -56,6 +69,11 @@ describe('lireFaitsToits', () => {
     ['un remplacement a deux formes', fichier({ [CLE]: { observation: { forme: ['deux-pans', 'croupes'] }, application: 'remplacement', dimensions: { egoutM: 5, faitageM: 8 } } }), /une seule forme/],
     ['un faitage sous l egout', fichier({ [CLE]: { observation: { forme: 'deux-pans' }, application: 'remplacement', dimensions: { egoutM: 5, faitageM: 4 } } }), /au-dessus/],
     ['une application inconnue', fichier({ [CLE]: { ...deuxPans, application: 'suggestion' } }), /application/],
+    ['un appentis sans facade', fichier({ [CLE]: { observation: { appentis: [{ longueur: 'toute' }] } } }), /azimutDeg/],
+    ['un appentis sur une partie de facade', fichier({ [CLE]: { observation: { appentis: [{ facade: { azimutDeg: 180 }, longueur: 3 }] } } }), /longueur/],
+    ['un appentis qui descend vers le mur', fichier({ [CLE]: { observation: { appentis: [{ facade: { azimutDeg: 180 }, egoutM: 3.4, hautM: 2.4 }] } } }), /monte vers le mur/],
+    ['une profondeur negative', fichier({ [CLE]: { observation: { appentis: [{ facade: { azimutDeg: 180 }, profondeurM: -1 }] } } }), /profondeurM/],
+    ['des appentis qui ne sont pas une liste', fichier({ [CLE]: { observation: { appentis: { facade: { azimutDeg: 180 } } } } }), /liste/],
   ])('refuse %s', (_quoi, donnees, message) => {
     expect(() => lireFaitsToits(donnees)).toThrow(FaitsToitsIllisibles);
     expect(() => lireFaitsToits(donnees)).toThrow(message);

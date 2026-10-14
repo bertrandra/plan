@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Un appentis adossé le long d'une façade, dit par un fait de toit** (`MD/spec-regles-toits.md`
+  §5.1). Un porche, une galerie couverte, un auvent que le contour BD TOPO ne contient pas se
+  décrivent dans `regles/toits/faits.json` : `appentis: [{ facade: { azimutDeg }, longueur: "toute" }]`,
+  la façade nommée par sa normale (180 : la façade sud). Plan ajoute un pan d'appentis contre ce côté
+  du bâtiment, sur toute sa longueur, et en lit la profondeur, la hauteur contre le mur et l'égout sur
+  le LiDAR quand le fait ne les donne pas ; sans mesure ni cotes, il n'invente rien. Premier fait :
+  **AE 101 (2 allée des Limites, Le Vésinet)**, la galerie de la façade sud que le propriétaire a vue
+  le 14 octobre 2026 (1,25 m, 3,2 m contre le mur, égout 2,4 m). La référence d'AE 101 change une
+  fois, par sa décision ; le calcul des toits lui-même ne change pas, ni aucun autre bâtiment. Les
+  toits déjà lus seront relus à l'ouverture.
+
 - **Roadmap du réalisme 3D, étape R5 bis : orthophoto haute résolution.**
   - Le point de départ : la BD ORTHO, prise à environ 20 cm par pixel et agrandie au zoom 20.
   - Les sources plus fines : orthophoto haute résolution de l'IGN, PCRS image des collectivités.

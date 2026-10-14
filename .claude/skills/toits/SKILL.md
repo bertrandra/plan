@@ -20,6 +20,9 @@ sur le terrain (scripts de `scripts/`).
    npx tsx .claude/skills/toits/scripts/identite.ts | diff /tmp/toits/avant.txt -   # après
    ```
    Le test `toitCorpsReprise.test.ts` (« AE 101 : les corps d'avant, au centimètre ») le vérifie aussi.
+   Depuis le 14 octobre 2026, AE 101 porte un fait (la galerie de sa façade sud, `regles/toits/faits.json`,
+   décision de l'utilisateur) : `identite.ts` compare le calcul seul à `corps` et le calcul sous ses
+   faits à `corpsAvecFaits` (quatre corps, l'appentis en plus). Les deux doivent rester identiques.
 2. **Des règles générales, jamais un cas codé.** Une correction s'écrit comme une règle de couvreur,
    avec un seuil nommé et commenté. Le commentaire dit pourquoi et cite le cas qui l'a montrée
    (« Hucqueliers », « AE 98 »). On la valide sur plusieurs villages (§6), pas sur le seul bâtiment.

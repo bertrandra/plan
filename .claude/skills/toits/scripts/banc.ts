@@ -11,6 +11,8 @@ import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
+import { corpsSelonFait } from '../../../../src/facade/faitsToits.ts';
+import { faitDuBatiment } from '../../../../src/model/faitsToits.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
 const nom = process.argv[2];
@@ -27,7 +29,8 @@ for (const b of D.batiments) {
   const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
   // Comme l'application : calcul entier pour le projet et les mitoyens (ceux qui gardent leur mesure).
   const fort = b.principal || b.mesure;
-  const corps = m ? corpsVraisemblables(b, reconstruireCorps(m, b.pts, { coupes: fort, grille: b.grille })) ?? [] : [];
+  // Et ses faits (regles/toits/faits.json), comme app/toitsLidar.ts::corpsLus.
+  const corps = m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), reconstruireCorps(m, b.pts, { coupes: fort, grille: b.grille }), m, b.pts, b.grille)) ?? [] : [];
   const reprise = !rectanglesDuContour(b.pts);
   if (reprise) nReprise++;
   const h = b.bdtopo?.hauteurRetenueM ?? b.bdtopo?.hauteurM ?? null;

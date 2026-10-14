@@ -167,11 +167,87 @@ describe('un fait en remplacement', () => {
   });
 });
 
+describe('un appentis adosse le long d une facade', () => {
+  const sud = { appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }] };
+  // Une maison de 10 x 8 m a 6 m d'egout (deux pans, faitage est-ouest a 8 m), un porche de 2 m sur
+  // toute la facade sud, a 3 m contre le mur et 30 cm de pente par metre, et le sol autour : la grille du MNH
+  // deborde du contour de 3 m, comme une grille relue plus large.
+  const maison: PtBrut[] = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }];
+  const grille = (): GrilleRelief => {
+    const pas = 0.5, x0 = -3, y0 = 11, nx = 33, ny = 29;
+    const z: (number | null)[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = x0 + i * pas, y = y0 - j * pas;
+      const dedans = x > 0 && x < 10 && y > 0 && y < 8;
+      const porche = x > 0 && x < 10 && y <= 0 && y > -2;
+      z.push(dedans ? 8 - 0.5 * Math.abs(y - 4) : porche ? 3 + 0.3 * y : 0);
+    }
+    return { pas, x0, y0, nx, ny, z } as GrilleRelief;
+  };
+  const corpsMaison: CorpsToit = { pts: [{ x: 0, y: 8 }, { x: 10, y: 8 }, { x: 10, y: 0 }, { x: 0, y: 0 }], posFaitage: 4, faitage: 8, egouts: [6, 6], pignons: [], ecart: 0 };
+
+  it('se pose contre le cote de la facade designee, aux cotes lues sur la mesure', () => {
+    const g = grille();
+    const corps = corpsSousContrainte(fait(sud), [corpsMaison], g as unknown as ToitMesure, maison, g)!;
+    expect(corps).toHaveLength(2);
+    const a = corps[1]!;
+    // Le faitage sur le mur (rive de tete), le pan qui descend vers le sud.
+    expect(formeDuCorps(a)).toBe('appentis');
+    expect(a.posFaitage).toBe(0);
+    expect(a.pts.slice(0, 2).every((q) => Math.abs(q.y) < 1e-9)).toBe(true);
+    // La profondeur, a une demi-cellule pres : la derniere cellule du porche (a 1,5 m) couvre jusqu'a 1,75 m.
+    expect(Math.min(...a.pts.map((q) => q.y))).toBe(-1.75);
+    expect(a.faitage).toBe(3);
+    expect(a.egouts).toEqual([3, 2.5]);
+    expect(ecartsAuFait(fait(sud), corps, maison)).toEqual([]);
+    // Le corps de la maison ne bouge pas.
+    expect(corps[0]).toBe(corpsMaison);
+  });
+
+  it('prend les cotes du fait, et ne fabrique rien que ni le fait ni la mesure ne cotent', () => {
+    const g = grille();
+    const cote = { appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute', profondeurM: 2.5, hautM: 3.4 }] };
+    const [, a] = corpsSousContrainte(fait(cote), [corpsMaison], g as unknown as ToitMesure, maison, g)!;
+    expect(Math.min(...a!.pts.map((q) => q.y))).toBe(-2.5);
+    expect(a!.faitage).toBe(3.4);
+    // Sans grille : rien a lire.
+    const sans = corpsSousContrainte(fait(sud), [corpsMaison], g as unknown as ToitMesure, maison, null)!;
+    expect(sans).toEqual([corpsMaison]);
+    expect(ecartsAuFait(fait(sud), sans, maison)).toEqual(['appentis vers 180 : non lu']);
+    // Au nord, le sol : pas d'appentis.
+    expect(corpsSousContrainte(fait({ appentis: [{ facade: { azimutDeg: 0 } }] }), [corpsMaison], g as unknown as ToitMesure, maison, g)).toEqual([corpsMaison]);
+  });
+
+  it('en remplacement, se pose avec toutes ses cotes, sans mesure', () => {
+    const toutes = { forme: 'plat', appentis: [{ facade: { azimutDeg: 180 }, profondeurM: 2, egoutM: 2.5, hautM: 3.5 }] };
+    const corps = corpsDeRemplacement(fait(toutes, 'remplacement', { egoutM: 6 }), maison)!;
+    expect(corps).toHaveLength(2);
+    expect(corps[1]).toMatchObject({ posFaitage: 0, faitage: 3.5, egouts: [3.5, 2.5] });
+    expect(corpsDeRemplacement(fait({ forme: 'plat', ...sud }, 'remplacement', { egoutM: 6 }), maison)).toHaveLength(1);
+  });
+
+  it('ne touche pas a la forme simple : il ne dit rien de la forme', () => {
+    const r = releve('vesinet-ae100');
+    const ech = echantillonsDeGrille(r.grille!, r.contour);
+    expect(ajusteSousContrainte(fait(sud), r.contour, ech, null)).toBe(null);
+  });
+});
+
 describe('les faits livres', () => {
-  it('AE 101 n a pas de fait : sa lecture reste celle du calcul', () => {
-    const r = releve('vesinet-ae101');
-    expect(faitDuBatiment({ bdtopo: null }, FAITS_TOITS_LIVRES)).toBe(null);
-    const corps = lus(r);
-    expect(corpsSelonFait(faitDuBatiment({ bdtopo: null }), corps, r.toitMesure, r.contour)).toBe(corps);
+  it('AE 101 : l appentis de la facade sud s ajoute aux trois corps du calcul, qui ne bougent pas', () => {
+    const r = releve('vesinet-ae101') as Releve & { cleabs: string; corps: CorpsToit[]; corpsAvecFaits: CorpsToit[] };
+    const f = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } }, FAITS_TOITS_LIVRES)!;
+    expect(f).not.toBe(null);
+    const corps = corpsSelonFait(f, lus(r), r.toitMesure, r.contour, r.grille ?? null)!;
+    expect(corps.slice(0, 3)).toEqual(r.corps);
+    expect(corps).toEqual(r.corpsAvecFaits);
+    const a = corps[3]!;
+    // Contre le mur sud du corps principal, sur toute sa longueur, cotes lues sur le LiDAR.
+    expect(a.pts.slice(0, 2)).toEqual([r.corps[0]!.pts[2], r.corps[0]!.pts[3]]);
+    expect(a).toMatchObject({ posFaitage: 0, faitage: 3.2, egouts: [3.2, 2.4] });
+    expect(repere(a.pts).W).toBeCloseTo(1.25, 1);
+    expect(ecartsAuFait(f, corps, r.contour)).toEqual([]);
+    // Sans la cle BD TOPO, rien ne change.
+    expect(corpsSelonFait(faitDuBatiment({ bdtopo: null }), lus(r), r.toitMesure, r.contour)).toEqual(r.corps);
   });
 });
