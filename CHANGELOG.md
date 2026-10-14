@@ -7,6 +7,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Roadmap du réalisme de la Vue 3D** (`MD/roadmap-realisme-3d.md`), en sept étapes de R0 à R6 :
+  - R0 : banc visuel et réglage Qualité ;
+  - R1 : lumière (tone mapping, ciel, ombres, occlusion, brume) ;
+  - R2 : fenêtres en creux et maçonnerie ;
+  - R3 : matériaux vivants ;
+  - R4 : photos de l'audit en texture sur la parcelle ;
+  - R5 : abords ;
+  - R6 : caméra et présentation.
+
+  Les règles du chantier : rien ne change dans les exports, poids et fluidité sous contrôle. Les
+  décisions V1 à V6 sont prises avec leur défaut.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
