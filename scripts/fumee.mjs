@@ -2220,6 +2220,95 @@ const POINTS = {
     const refus = (await page.locator('body').textContent())?.match(/Faits refusés : .{0,160}?(forme|format)/)?.[0] ?? '';
     const ok = sansEssai === 0 && avecEssai === 1 && /1 fait\(s\), 1 bâtiment/.test(toast) && luApres === null && saleApres === saleAvant && /forme/.test(refus);
     return { ok, mesure: `entrée sans essai : ${sansEssai}, avec ?regles=local : ${avecEssai} ; « ${toast.trim().slice(0, 70)}… » ; bâtiment touché : marque ${luAvant} → ${luApres} ; projet modifié ${saleAvant ? 'oui' : 'non'} → ${saleApres ? 'oui' : 'non'} ; refus : « ${refus.slice(0, 80)} »` };
+  },
+  82: async (page) => {
+    // Le masque d'occlusion hachure (lot G20, spec facades §8) : deux vues du meme mur, une
+    // camionnette vitree devant qui se deplace d'une vue a l'autre sans jamais degager le milieu du
+    // mur ; « Vues du mur entier », Analyser. La part cachee sur les deux vues se hachure dans
+    // l'elevation, avec sa legende ; « Demander de l'aide » est propose (avant G20, jamais sur
+    // plusieurs photos), en disant la part cachee ; l'envoi porte la photo de reference et l'elevation
+    // (route `admin/claude/messages` simulee).
+    const recues = [];
+    const sortie = { mur: { indices: [], vu: 'attendu' }, coins: { indices: [], hautGauche: 'indetermine', hautDroit: 'indetermine', basDroit: 'indetermine', basGauche: 'indetermine' }, ouvertures: [], manquees: [], confiance: 'moyenne' };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      const d = JSON.parse(route.request().postData() || 'null');
+      recues.push(d);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'renfort', sortie, erreur: null })) }) });
+    });
+    const dessiner = async (mur, camion) => {
+      const d = await page.context().newPage();
+      await d.setViewportSize({ width: 1600, height: 1200 });
+      await d.setContent('<body style="margin:0"><canvas id="c" width="1600" height="1200"></canvas><script>'
+        + "const x=document.getElementById('c').getContext('2d');"
+        + "x.fillStyle='#9cc3e6';x.fillRect(0,0,1600,1200);x.fillStyle='#6f9a52';x.fillRect(0,880,1600,320);"
+        + "const q=(c,p)=>{x.fillStyle=c;x.beginPath();x.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)x.lineTo(p[i],p[i+1]);x.closePath();x.fill();};"
+        + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(camion)};`
+        + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
+        + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
+        + "q('#e4d6bc',m);q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
+        // La camionnette et ses deux vitres : leurs bords trahissent le recul d'une vue a l'autre.
+        + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],700,420);x.fillStyle='#cfe3f2';x.fillRect(v[0]+80,v[1]+40,160,110);x.fillRect(v[0]+420,v[1]+40,160,110);"
+        + '</script></body>');
+      const png = await d.locator('#c').screenshot({ type: 'png' });
+      await d.close();
+      return png;
+    };
+    const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [400, 620]);
+    const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [620, 640]);
+    await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
+    await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
+    await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'face.png', mimeType: 'image/png', buffer: face });
+    await page.locator('[data-controle="releve.ajouterPhoto"]').first().click({ timeout: 15000 }); await page.waitForTimeout(600);
+    await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'biais.png', mimeType: 'image/png', buffer: biais });
+    const choix = page.locator('[data-controle="releve.assemblage"]');
+    await choix.first().waitFor({ timeout: 15000 });
+    await choix.nth(1).click(); await page.waitForTimeout(400);
+    // Les coins se posent au doigt sur chaque vue, comme la personne le ferait : le calage fin de ces
+    // dessins (sans perspective vraie) n'est pas ce que ce point mesure.
+    await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const poser = async (quad) => {
+      const svg = page.locator('svg.releveCoins').first();
+      await svg.scrollIntoViewIfNeeded();
+      for (let k = 0; k < 4; k++) {
+        const cible = await svg.evaluate((s, [x, y]) => { const p = s.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(s.getScreenCTM()); return { x: q.x, y: q.y }; }, [quad[2 * k], quad[2 * k + 1]]);
+        const b = await page.locator('circle.releveCoinCible').nth(k).boundingBox();
+        if (!b) continue;
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(cible.x, cible.y, { steps: 4 });
+        await page.mouse.up();
+      }
+    };
+    await poser([330, 200, 1250, 300, 1250, 960, 330, 1060]);
+    await page.locator('.releveVignette').first().click(); await page.waitForTimeout(500);
+    await poser([250, 260, 1350, 260, 1350, 1000, 250, 1000]);
+    const auDoigt = await page.locator('circle.releveCoinCible.doigt').count();
+    await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
+    await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
+    const chemins = await page.locator('g.releveMasque path').evaluateAll((ps) => ps.map((p) => (p.getAttribute('d') || '').split('M').length - 1));
+    // Le trait du hachure lit son jeton : une couleur resolue dans les deux themes, pas « none ».
+    const trait = await page.locator('g.releveMasque .releveMasqueTrait').first().evaluate((l) => getComputedStyle(l).stroke).catch(() => 'absent');
+    const legende = ((await page.locator('.releveLegendeMasque').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    const bouton = page.locator('[data-controle="releve.demanderAide"]');
+    const propose = await bouton.count();
+    const note = ((await page.locator('.releveAide .releveNote').first().textContent({ timeout: 2000 }).catch(() => '')) || '').trim();
+    if (propose) await bouton.first().click();
+    const accord = page.locator('[data-controle="releve.accorderAide"]');
+    if (await accord.count()) await accord.first().click();
+    await page.locator('.releveAide [role="status"]').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const message = ((await page.locator('.releveAide [role="status"]').first().textContent().catch(() => '')) || '').trim();
+    const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.unroute(/\/admin\/claude\/messages$/);
+    const d = recues[0];
+    const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
+    const zones = chemins[1] ?? 0;
+    const ok = chemins.length === 2 && zones >= 1 && !!trait && trait !== 'none' && trait !== 'absent'
+      && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
+      && recues.length === 1 && d.usage === 'renfort' && d.requetes.length === 3 && images === 2 && /^Claude (propose|confirme)/.test(message) && !deborde;
+    return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
   }
 };
 
@@ -2242,7 +2331,8 @@ function pointsPour(nomClasse) {
   // 71 : l'aide de Claude au releve, proposee sur signal, accord, appel immediat (lot L18).
   // 74 et 75 : le fichier de l'audit de parcelle, partage et import (lot L21).
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81];
+  // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

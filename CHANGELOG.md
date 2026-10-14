@@ -145,6 +145,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     rendues en PNG par `.claude/skills/facades/scripts/photos.ts`, importées dans le relevé. Points
     80 et 81 : les détails de la scène 20 dans la fiche des ouvertures, puis en 3D.
 
+- **Le masque d'occlusion hachuré dans l'élévation du relevé** (lot G20 de
+  `MD/plan-vague-3-generaliser.md`, partie sans corpus ; `MD/spec-facades-calage-detection.md` §8 et
+  §12 bis). Quand plusieurs vues d'un même mur sont fondues (« Vues du mur entier »), ce qui reste
+  caché sur toutes les photos (une voiture, une haie) se hachure à l'étape « Vérifier », sous les
+  ouvertures, qui restent à saisir, avec une légende courte (« Hachuré : caché sur toutes les photos
+  par ce qui est devant le mur (voiture, haie…), 17 % du mur. »). Les couleurs passent par les jetons
+  du relevé (`--camera-bg`, `--camera-alerte`), le motif porte l'information avec les mots
+  (`zones/releve/masque.ts`, `Elevation.tsx`).
+  - **« Demander de l'aide » est proposé aussi sur plusieurs vues** : jusqu'ici, il ne l'était que
+    sur une photo seule. Claude reçoit la vue de référence de la fusion (la mieux définie) et
+    l'élévation fondue, le masque hachuré dessus (le prompt du renfort dit déjà de ne rien inventer
+    dans une zone hachurée). L'aide est proposée dès qu'un signal est levé, et dès que le masque
+    couvre un dixième du mur (`MASQUE_NOTABLE`, `zones/releve/aide.ts`) : la note le dit telle
+    quelle (« 17 % du mur caché sur toutes les photos »). Rien ne change pour l'audit, ni pour des
+    morceaux côte à côte. `RENFORT_A_CHAQUE_FACADE` et les taux d'accord, qui attendent le corpus,
+    ne bougent pas.
+  - L'avis « La photo couvrait … % du mur ; le reste est complété à la teinte du mur » ne compte plus
+    le masque d'une fusion, que la texture montre tel quel (« Les photos couvraient … »).
+  - L'élévation de la vérification ne se tasse plus au téléphone : dans la colonne du relevé, qui
+    défile, elle était écrasée à quelques dizaines de pixels sous les cartes de la hauteur et du toit.
+  - Aucune valeur calculée ne change : banc des façades identique. Point de fumée 82.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
