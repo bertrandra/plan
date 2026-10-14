@@ -24,7 +24,8 @@ export interface ImageRenfort { base64: string; mediaType: 'image/jpeg' | 'image
 /** Qui dessine les deux images : le navigateur (render/imagesRenfort.ts), ou un simulacre dans les tests. */
 export interface FabriqueImagesRenfort {
   photo(photo: Image, coins: readonly P2[], coinsTrouves: boolean): ImageRenfort | null;
-  elevation(elevation: Image, largeurM: number, hauteurM: number, ouvertures: readonly OuvertureFacade[]): ImageRenfort | null;
+  /** `cache` : le masque d'occlusion d'une fusion (1 : cache sur toutes les vues), aux dimensions de l'elevation ; hachure sur l'image. */
+  elevation(elevation: Image, largeurM: number, hauteurM: number, ouvertures: readonly OuvertureFacade[], cache?: Uint8Array | null): ImageRenfort | null;
 }
 
 /** Ce que le releve sait au moment de demander. */
@@ -34,6 +35,11 @@ export interface DemandeAide {
   coinsTrouves: boolean;
   /** L'elevation redressee, a la verification ; null a l'etape des coins. */
   elevation: Image | null;
+  /**
+   * Le masque d'occlusion de l'elevation quand elle vient de plusieurs vues (lot G20) : hachure sur
+   * l'image 2, ou le prompt (deploy/prompt-renfort.md) dit de ne rien inventer.
+   */
+  cache?: Uint8Array | null;
   largeurM: number;
   hauteurM: number;
   hauteurMesuree: boolean;
@@ -108,7 +114,7 @@ export function creerAideReleve(ctx: ContexteAide): AideClaudeReleve {
       if (!client) return { erreur: MESSAGES.refuse };
       const photo = ctx.images.photo(d.photo, d.coins, d.coinsTrouves);
       if (!photo) return { erreur: 'La photo n’a pas pu être préparée pour Claude.' };
-      const elevation = d.elevation ? ctx.images.elevation(d.elevation, d.largeurM, d.hauteurM, d.ouvertures) : null;
+      const elevation = d.elevation ? ctx.images.elevation(d.elevation, d.largeurM, d.hauteurM, d.ouvertures, d.cache ?? null) : null;
       const texte = texteRenfort({ largeurM: d.largeurM, hauteurM: d.hauteurM, hauteurMesuree: d.hauteurMesuree, ouvertures: d.ouvertures, grille: d.grille, signaux: d.signaux, coinsTrouves: d.coinsTrouves, etiquette: d.etiquette });
       const audit = ('releve-' + ctx.maintenant().toISOString().replace(/[^0-9]/g, '').slice(0, 14)).slice(0, 64);
       try {
@@ -130,9 +136,10 @@ export function fabriqueImagesRenfortNavigateur(): FabriqueImagesRenfort {
       const c = canevasDe(img);
       return c ? dessinerPhotoRenfort(c, img.largeur, img.hauteur, coins, trouves) : null;
     },
-    elevation(img, largeurM, hauteurM, ouvertures) {
+    elevation(img, largeurM, hauteurM, ouvertures, cache) {
       const c = canevasDe(img);
-      return c ? dessinerElevationRenfort({ source: c, largeurPx: img.largeur, hauteurPx: img.hauteur, largeurM, hauteurM, ouvertures }) : null;
+      const masque = cache && cache.length === img.largeur * img.hauteur ? { masque: cache, largeur: img.largeur, hauteur: img.hauteur } : null;
+      return c ? dessinerElevationRenfort({ source: c, largeurPx: img.largeur, hauteurPx: img.hauteur, largeurM, hauteurM, ouvertures, cache: masque }) : null;
     },
   };
 }
