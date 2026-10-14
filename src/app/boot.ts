@@ -48,8 +48,8 @@ import { brancherVoisinage } from './ecouteurs/voisinage.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
-import { droitsCourants, enAdmin, enLectureSeule, prevenirAdminDesCapacitesForcees, sessionCourante } from './acces.js';
-import { creerClientAnalyse } from '../io/analyseClaude.js';
+import { droitsCourants, enLectureSeule, prevenirAdminDesCapacitesForcees } from './acces.js';
+import { analyseClaudeDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
 import { creerMagasin, type Feuille } from './magasin.js';
 import { creerTiroir } from './tiroir.js';
 import { creerResultats } from './resultats.js';
@@ -435,7 +435,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
       remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
     },
-    analyse: analyseClaudeDuNavigateur(etat, magasin),
+    analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
   }, commandes);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
@@ -464,33 +464,6 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     }, options().remplacerImportSvg)
   }, commandes);
   brancherLesExports(etat, seed, commandes, { mesures: p.mesures, resultats, genererGlb: (t) => tardifs.vues?.genererGlb(t), options });
-}
-
-/**
- * L'analyse par Claude dans le navigateur (MD/spec-audit.md §13.2, lot L17) : le client des routes
- * `admin/claude/…`, qui parle par le jeton de la plateforme (ou le cookie de l'admin), l'identite de
- * la parcelle pour le journal du serveur, et la notification hors de la page quand l'onglet est en
- * arriere-plan. Hors plateforme et hors admin, pas de client : seules les mesures sont proposees.
- */
-function analyseClaudeDuNavigateur(etat: { objects: ObjetPlan[] }, magasin: ReturnType<typeof creerMagasin>) {
-  const jeton = () => sessionCourante()?.jeton()?.valeur ?? null;
-  const client = enAdmin() || jeton() ? creerClientAnalyse((entree, init) => fetch(entree, init), jeton) : null;
-  return {
-    client,
-    identite: () => {
-      const cad = (parcelleDuProjet(etat.objects)?.cadastre ?? null) as { idu?: unknown; adresse?: unknown } | null;
-      const idu = typeof cad?.idu === 'string' ? cad.idu : null;
-      return {
-        projet: magasin.store.getState().projet.courant?.id ?? null, idu,
-        adresse: typeof cad?.adresse === 'string' ? cad.adresse.slice(0, 300) : null,
-        audit: ('parcelle-' + (idu ?? 'sans-idu') + '-' + new Date().toISOString().slice(0, 10)).slice(0, 64),
-      };
-    },
-    notifier: (message: string) => {
-      if (typeof Notification === 'undefined' || document.visibilityState !== 'hidden' || Notification.permission !== 'granted') return;
-      try { new Notification('Plan', { body: message }); } catch { /* un navigateur sans notifications : le toast suffit */ }
-    },
-  };
 }
 
 /** Les panneaux (zones/) et les services qu'ils lisent : projet, explorateur, inspecteur. Montes en dernier. */

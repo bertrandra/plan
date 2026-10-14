@@ -25,7 +25,8 @@ import { creerCapture, type CaptureEnCours } from './capture.js';
 import { listeDeControle, type ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
 import { creerValidation, type ProjetAudit, type Validation } from './validation.js';
-import { creerAnalyseClaude, fabriqueImagesNavigateur, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
+import { creerAnalyseClaude, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
+import type { IdentiteAnalyse } from './entreesAnalyse.js';
 import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
@@ -67,7 +68,7 @@ export interface ContexteAuditParcelle {
    * hors admin), l'identite de la parcelle pour le journal, et ce qui dessine les images (par defaut
    * le navigateur). Absente dans les tests de la capture : l'analyse est alors indisponible.
    */
-  analyse?: Pick<ContexteAnalyse, 'client' | 'identite'> & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'delaiSuiviMs' | 'planifier'>>;
+  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier'>>;
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -276,9 +277,12 @@ function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validati
     entrees: () => validation().entrees(),
     mesuresPretes: () => validation().lancer(),
     client: a?.client ?? null,
-    identite: a?.identite ?? (() => ({ projet: null, idu: ctx.idu, adresse: null, audit: capture.lire().id })),
+    // L'audit du journal : la parcelle et l'heure du debut, pour distinguer deux audits du meme jour.
+    identite: () => ({ ...(a?.identite?.() ?? { projet: null, idu: ctx.idu, adresse: null }), audit: idAuditAnalyse(capture.lire()) }),
     images: a?.images ?? fabriqueImagesNavigateur(),
     ...(a?.notifier ? { notifier: a.notifier } : {}),
+    ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
+    ...(a?.memoire ? { memoire: a.memoire } : {}),
     ...(a?.delaiSuiviMs !== undefined ? { delaiSuiviMs: a.delaiSuiviMs } : {}),
     ...(a?.planifier ? { planifier: a.planifier } : {}),
   });

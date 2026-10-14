@@ -82,8 +82,12 @@ describe('les indices LiDAR chiffres et le controle croise', () => {
     const g = grilleDeuxPans();
     expect(compterSommets(g.z, g.nx, g.ny, g.egout)).toBeGreaterThanOrEqual(1);
     const z: (number | null)[] = new Array(49).fill(6);
-    z[1 * 7 + 1] = 8; z[5 * 7 + 5] = 8;
+    // Deux bosses de 3 x 3 cellules : une souche d'une seule cellule, elle, s'efface au lissage.
+    for (const [ci, cj] of [[1, 1], [5, 5]] as const) for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) z[(cj + dj) * 7 + ci + di] = 8;
     expect(compterSommets(z, 7, 7, 6)).toBe(2);
+    const souche: (number | null)[] = new Array(49).fill(6);
+    souche[3 * 7 + 3] = 8;
+    expect(compterSommets(souche, 7, 7, 6)).toBe(0);
   });
 
   it('marque une contradiction quand la forme votee ne tient pas face aux chiffres', () => {

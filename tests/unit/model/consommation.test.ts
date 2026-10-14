@@ -93,7 +93,8 @@ describe('les tableaux', () => {
     expect(p).toHaveLength(2);
     const ae101 = p.find((l) => l.idu === '78650000AE0101')!;
     expect(ae101).toMatchObject({ audits: 1, cout: 0.024, dernier: '2026-10-13', tokens: 120000, adresse: '2 allée des Limites, Le Vésinet' });
-    // Les passes d'un meme audit couvrent les memes deux facades : comptees une fois, 0,024 $ / 2.
+    // Les passes d'une maison couvrent les memes deux facades : comptees sur la premiere ; ni
+    // l'escalade ni le refus du plafond ne les recomptent. 0,024 $ / 2.
     expect(ae101).toMatchObject({ facades: 2, coutParFacade: 0.012 });
     expect(ae101.tokensParModele).toEqual({ [HAIKU]: 90000, [SONNET]: 30000 });
     // 75 000 lus en cache sur 116 000 tokens d'entree.

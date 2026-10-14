@@ -56,6 +56,13 @@ export interface ContexteAnalyse {
   signaler: (message: string) => void;
   /** Une notification hors de la page (l'onglet est en arriere-plan) ; facultative. */
   notifier?: (message: string) => void;
+  /** Au moment de l'accord (un geste de la personne) : demander le droit de notifier, s'il ne l'est pas. */
+  preparerNotification?: () => void;
+  /**
+   * L'accord garde pour ce projet (io/accordAnalyse.ts) : donne une fois, il vaut pour les audits
+   * suivants du meme projet, et se retire de la meme facon. Absent : l'accord vit dans la capture seule.
+   */
+  memoire?: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void };
   maintenant: () => Date;
   delaiSuiviMs?: number;
   /** Pour les tests : qui planifie la relecture. */
@@ -105,6 +112,11 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
   };
 }
 
+/** L'identifiant de l'audit pour le journal (`[A-Za-z0-9_-]`, 64 au plus) : la capture et l'heure de son debut. */
+export function idAuditAnalyse(c: { id: string; debut: string }): string {
+  return (c.id + '-' + c.debut.replace(/[^0-9]/g, '').slice(0, 12)).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
+}
+
 /** Les reponses d'un batch, rangees par batiment : les passes reussies, dans l'ordre des passes. */
 export function rangerResultats(resultats: readonly ResultatBatch[], requetes: BatchAnalyse['requetes']): Record<string, unknown[]> {
   const out: Record<string, { passe: number; sortie: unknown }[]> = {};
@@ -114,6 +126,22 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
+}
+
+/** Une phrase pour l'ecran, selon l'etat : ce qui se passe, ou pourquoi rien ne se passe. */
+export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repos' | 'preparation' | 'envoi', erreurSuivi: string | null): string | null {
+  const batiments = Object.keys(a.resultats?.parBatiment ?? {}).length;
+  switch (etat) {
+    case 'indisponible': return 'L’analyse par Claude demande un compte de la plateforme : seules les mesures sont proposées.';
+    case 'attente': return null;
+    case 'sansAccord': return 'Claude peut regarder vos photos (façades, toit, orthophoto, relief) et proposer ce qu’il y voit : volets, cheminées, matériaux, toiture. Vos photos ne servent qu’à cette analyse. Votre accord vaut pour ce projet, et se retire à tout moment.';
+    case 'refusee': return 'Analyse par Claude non demandée : seules les mesures sont proposées.';
+    case 'preparation': return phase === 'envoi' ? 'Envoi de vos photos à l’analyse…' : 'Préparation des images (photos réduites, rendu du modèle, orthophoto, relief)…';
+    case 'enCours': return 'Analyse par Claude en cours (envoyée le ' + jourDe(new Date(a.batch?.creeLe ?? Date.now())) + ')' + (erreurSuivi ? ' — ' + erreurSuivi : ', en général quelques minutes') + '. Vous serez prévenu quand les propositions seront prêtes.';
+    case 'prete': return 'Propositions de Claude prêtes (' + batiments + ' bâtiment' + (batiments > 1 ? 's' : '') + ', accord du ' + jourDe(new Date(a.accord?.t ?? Date.now())) + ').';
+    case 'aRelancer': return 'Les photos ont changé depuis la dernière analyse : relancez-la pour que Claude les regarde.';
+    case 'erreur': return a.erreur ?? null;
+  }
 }
 
 export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
@@ -127,6 +155,17 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
   const lire = (): AnalyseCapture => ctx.capture.lire().analyse ?? { accord: null };
   const noter = (a: Partial<AnalyseCapture>) => { ctx.capture.noterAnalyse(a); version++; publier(); };
   const signature = () => signatureAnalyse(ctx.capture.lire());
+
+  /**
+   * L'accord deja donne pour ce projet passe dans la capture qui n'en a pas encore (et qui ne l'a
+   * pas refuse) : la question ne se repose pas, et l'envoi le rappelle (decision D2).
+   */
+  function adopter(): void {
+    const a = lire();
+    if (a.accord || a.refus || !ctx.memoire) return;
+    const garde = ctx.memoire.lire();
+    if (garde) noter({ accord: garde });
+  }
 
   function etat(): EtatAnalyse {
     if (!ctx.client) return 'indisponible';
@@ -207,42 +246,34 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
   }
 
   async function lancer(): Promise<void> {
+    adopter();
     const a = lire();
     if (!ctx.client || !a.accord || ctx.capture.lire().phase !== 'analyse' || phase !== 'repos') return;
     if (a.batch && a.batch.signature === signature() && !a.erreur) { if (!a.resultats) suivre(); return; }
     await envoyer(a.accord);
   }
 
-  function detail(): string | null {
-    const a = lire();
-    switch (etat()) {
-      case 'indisponible': return 'L’analyse par Claude demande un compte de la plateforme : seules les mesures sont proposées.';
-      case 'attente': return null;
-      case 'sansAccord': return 'Claude peut regarder vos photos (façades, toit, orthophoto, relief) et proposer ce qu’il y voit : volets, cheminées, matériaux, toiture. Vos photos ne servent qu’à cette analyse.';
-      case 'refusee': return 'Analyse par Claude non demandée : seules les mesures sont proposées.';
-      case 'preparation': return phase === 'envoi' ? 'Envoi de vos photos à l’analyse…' : 'Préparation des images (photos réduites, rendu du modèle, orthophoto, relief)…';
-      case 'enCours': return 'Analyse par Claude en cours (envoyée le ' + jourDe(new Date(a.batch?.creeLe ?? Date.now())) + ')' + (erreurSuivi ? ' — ' + erreurSuivi : ', en général quelques minutes') + '. Vous serez prévenu quand les propositions seront prêtes.';
-      case 'prete': return 'Propositions de Claude prêtes (' + Object.keys(a.resultats?.parBatiment ?? {}).length + ' bâtiment' + (Object.keys(a.resultats?.parBatiment ?? {}).length > 1 ? 's' : '') + ', accord du ' + jourDe(new Date(a.accord?.t ?? Date.now())) + ').';
-      case 'aRelancer': return 'Les photos ont changé depuis la dernière analyse : relancez-la pour que Claude les regarde.';
-      case 'erreur': return a.erreur ?? null;
-    }
-  }
+  const detail = (): string | null => detailAnalyse(etat(), lire(), phase, erreurSuivi);
 
   return {
     etat, detail,
     accord: () => lire().accord,
     async accorder(partage) {
-      noter({ accord: { t: ctx.maintenant().toISOString(), partage }, refus: null, erreur: null });
+      const accord: AccordAnalyse = { t: ctx.maintenant().toISOString(), partage };
+      ctx.memoire?.ecrire(accord);
+      ctx.preparerNotification?.();
+      noter({ accord, refus: null, erreur: null });
       await lancer();
     },
     refuser() { noter({ accord: null, refus: ctx.maintenant().toISOString() }); },
     retirerAccord() {
       annulerSuivi?.(); annulerSuivi = null;
+      ctx.memoire?.ecrire(null);
       noter({ accord: null, refus: ctx.maintenant().toISOString(), batch: null, resultats: null, erreur: null });
-      ctx.signaler('Accord retiré : plus aucune photo ne part à l’analyse, et les propositions de Claude sont retirées.');
+      ctx.signaler('Accord retiré pour ce projet : plus aucune photo ne part à l’analyse, et les propositions de Claude sont retirées.');
     },
     lancer,
-    reprendre() { const a = lire(); if (ctx.client && a.accord && a.batch && !a.resultats) suivre(); },
+    reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch && !a.resultats) suivre(); },
     arreter() { annulerSuivi?.(); annulerSuivi = null; },
     reponses() {
       const a = lire();

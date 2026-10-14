@@ -572,7 +572,8 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
         const { prompt, schema } = promptEtSchema();
         const images = demande.requetes.reduce((s, r) => s + r.images, 0);
-        const facades = demande.requetes.reduce((s, r) => s + r.facades, 0);
+        // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
+        const facades = demande.requetes.reduce((s, r) => s + ((r.passe ?? 1) === 1 ? r.facades : 0), 0);
         const ligneVide = (statut, extra) => ({ t, ...identite, idBatch: null, requete: null, passe: null, tokens: tokensDeUsage(null), images, facades, cout: 0, tarif: null, statut, arret: null, prompt: prompt.version, schema: schema.version, ...extra });
 
         // Les plafonds : ce qui est depense, plus ce qui est engage dans les batches ouverts, plus

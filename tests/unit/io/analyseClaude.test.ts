@@ -28,7 +28,7 @@ describe('le client de l analyse', () => {
   });
 
   it('se passe de jeton pour l administrateur : le cookie de sa session suffit', async () => {
-    const f = vi.fn(async () => reponse(200, { actif: true }));
+    const f = vi.fn<(e: string, i?: RequestInit) => Promise<Response>>(async () => reponse(200, { actif: true }));
     await creerClientAnalyse(f, () => null).etat();
     expect((f.mock.calls[0]![1] as RequestInit).headers).not.toHaveProperty('Authorization');
   });

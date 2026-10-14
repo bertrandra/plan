@@ -30,7 +30,7 @@ export function reponse(plus: Partiel = {}): ReponseAnalyse {
   const out = { ...base } as ReponseAnalyse;
   for (const [k, v] of Object.entries(plus)) {
     const cle = k as keyof ReponseAnalyse;
-    (out as Record<string, unknown>)[cle] = Array.isArray(v) || typeof v !== 'object' || v === null ? v : { ...(base[cle] as object), ...(v as object) };
+    (out as unknown as Record<string, unknown>)[cle] = Array.isArray(v) || typeof v !== 'object' || v === null ? v : { ...(base[cle] as object), ...(v as object) };
   }
   return out;
 }

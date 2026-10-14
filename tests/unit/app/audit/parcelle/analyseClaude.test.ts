@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerAnalyseClaude, rangerResultats, type AnalyseClaude } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
+import { creerAnalyseClaude, idAuditAnalyse, rangerResultats, type AnalyseClaude, type ContexteAnalyse } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
 import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
@@ -45,7 +45,7 @@ const IMAGES: FabriqueImages = {
   carte: (o) => (o.toitMesure ? { base64: 'Q0FSVEU=', mediaType: 'image/png' } : null),
 };
 
-function monter(reponses?: (id: string) => unknown) {
+function monter(reponses?: (id: string) => unknown, memoire?: ContexteAnalyse['memoire']) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
     obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
@@ -70,6 +70,7 @@ function monter(reponses?: (id: string) => unknown) {
     capture, entrees: () => validation.entrees(), mesuresPretes: () => validation.lancer(), client: faux.client, images: IMAGES,
     identite: () => ({ projet: 'p-1', idu: '78650000AE0101', adresse: '2 allée des Limites', audit: 'a-1' }),
     signaler: (m) => messages.push(m), notifier: (m) => notifications.push(m), maintenant: () => new Date('2026-10-13T10:00:00Z'),
+    ...(memoire ? { memoire } : {}),
     // Le suivi est planifie par le test : chaque tour se joue a la main.
     planifier: (f) => { planifies.push(f); return () => { const i = planifies.indexOf(f); if (i >= 0) planifies.splice(i, 1); }; },
   });
@@ -119,7 +120,7 @@ describe('l analyse par Claude', () => {
     const b = t.capture.lire().analyse?.batch;
     expect(b).toMatchObject({ id: 'msgbatch_1', signature: signatureAnalyse(t.capture.lire()), requetes: { 'b0-p1': { cle: 'maison', passe: 1 } } });
     expect(b?.etiquettes.maison?.[0]).toEqual({ texte: 'photo de la façade sud de maison, prise à 8 m, vers 0°', photo: { cle: 'maison', cote: 0, rang: 0 } });
-    expect(t.messages.at(-1)).toMatch(/^Vos photos sont parties à l’analyse par Claude \(accord du 13\/10\/2026\)/);
+    expect(t.messages.at(-1)).toMatch(/^Vos photos sont parties à l’analyse par Claude \(accord du 13 octobre\)/);
     expect(t.analyse.etat()).toBe('enCours');
   });
 
@@ -158,6 +159,40 @@ describe('l analyse par Claude', () => {
     expect(t.analyse.reponses()).toBe(null);
     expect(t.validation.propositions().some((p) => p.source === 'claude')).toBe(false);
     expect(t.messages.at(-1)).toMatch(/^Accord retiré/);
+  });
+
+  it('garde l accord pour le projet : un second audit part sans reposer la question, et le retrait vaut pour les suivants', async () => {
+    let garde: ReturnType<NonNullable<ContexteAnalyse['memoire']>['lire']> = null;
+    const memoire = { lire: () => garde, ecrire: (a: typeof garde) => { garde = a; } };
+    const premier = monter(undefined, memoire);
+    premier.capture.terminer();
+    await premier.analyse.accorder(false);
+    expect(garde).toEqual({ t: '2026-10-13T10:00:00.000Z', partage: false });
+    // Un nouvel audit du meme projet : la capture n'a rien, l'accord du projet est repris et rappele.
+    const second = monter(undefined, memoire);
+    second.capture.terminer();
+    expect(second.analyse.etat()).toBe('sansAccord');
+    await second.analyse.lancer();
+    expect(second.faux.demandes).toHaveLength(1);
+    expect(second.capture.lire().analyse?.accord).toEqual({ t: '2026-10-13T10:00:00.000Z', partage: false });
+    expect(second.messages.at(-1)).toMatch(/\(accord du 13 octobre\)/);
+    second.analyse.retirerAccord();
+    expect(garde).toBe(null);
+    const troisieme = monter(undefined, memoire);
+    troisieme.capture.terminer();
+    await troisieme.analyse.lancer();
+    expect(troisieme.faux.demandes).toHaveLength(0);
+    expect(troisieme.analyse.etat()).toBe('sansAccord');
+    // Un audit qui a dit « Seulement les mesures » ne reprend pas l'accord du projet.
+    garde = { t: '2026-10-13T10:00:00.000Z', partage: true };
+    troisieme.analyse.refuser();
+    await troisieme.analyse.lancer();
+    expect(troisieme.faux.demandes).toHaveLength(0);
+  });
+
+  it('nomme l audit du journal par la capture et l heure de son debut', () => {
+    expect(idAuditAnalyse({ id: 'parcelle-78650000AE0101', debut: '2026-10-13T09:05:00.000Z' })).toBe('parcelle-78650000AE0101-202610130905');
+    expect(idAuditAnalyse({ id: 'x'.repeat(80), debut: '2026-10-13T09:05:00.000Z' })).toHaveLength(64);
   });
 
   it('demande a relancer quand les photos changent, et ne renvoie pas les memes', async () => {

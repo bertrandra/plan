@@ -700,7 +700,8 @@ try {
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
         [$prompt, $schema] = promptEtSchema();
         $images = array_sum(array_column($demande['requetes'], 'images'));
-        $facades = array_sum(array_column($demande['requetes'], 'facades'));
+        // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
+        $facades = array_sum(array_map(fn($r) => ($r['passe'] ?? 1) === 1 ? $r['facades'] : 0, $demande['requetes']));
         $ligneVide = fn(string $statut, array $extra = []) => ['t' => $t] + $identite + ['idBatch' => null, 'requete' => null, 'passe' => null,
             'tokens' => tokensDeUsage(null), 'images' => $images, 'facades' => $facades, 'cout' => 0, 'tarif' => null, 'statut' => $statut, 'arret' => null,
             'prompt' => $prompt['version'], 'schema' => $schema['version']] + $extra;

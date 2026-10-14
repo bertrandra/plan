@@ -265,6 +265,9 @@ export function valeurA(s: SerieTemps, serie: string, i: number): number {
   return s.valeurs[serie]?.[i] ?? 0;
 }
 
+/** Les usages d'une premiere analyse : eux seuls comptent les facades (cout par facade). */
+const USAGES_QUI_COMPTENT = new Set(['analyse', 'immediat']);
+
 export interface LigneParcelle {
   cle: string;
   idu: string | null;
@@ -275,7 +278,7 @@ export interface LigneParcelle {
   /** Part des tokens d'entree lus en cache. */
   partCache: number;
   cout: number;
-  /** Les facades couvertes par les appels (une passe compte ses facades une fois : le plus grand compte par audit). */
+  /** Les facades couvertes par les appels, comptees sur la premiere passe de chaque maison. */
   facades: number;
   /** Le cout rapporte aux facades ; null sans facade comptee (journal d'avant le lot L17). */
   coutParFacade: number | null;
@@ -297,8 +300,10 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
   return [...groupes].map(([cle, g]) => {
     const tokensParModele: Record<string, number> = {};
     let entree = 0, lu = 0, c = 0, dernier = '';
-    // Les trois passes d'un audit couvrent les memes facades : on les compte une fois par audit.
-    const facadesParAudit = new Map<string, number>();
+    // Les trois passes d'une maison couvrent les memes facades : seule la premiere (ou l'appel
+    // unique, sans passe) les compte. Une escalade ou un renfort revoit des facades deja comptees ;
+    // un envoi refuse au plafond n'a rien coute : ni l'un ni l'autre ne compte.
+    let facades = 0;
     for (const l of g.l) {
       const s = serieDuModele(l.modele);
       tokensParModele[s] = (tokensParModele[s] ?? 0) + totalTokens(l.tokens);
@@ -306,10 +311,8 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
       lu += l.tokens.lectureCache;
       c += cout(l);
       if (l.t > dernier) dernier = l.t;
-      const audit = l.audit ?? l.t;
-      facadesParAudit.set(audit, Math.max(facadesParAudit.get(audit) ?? 0, l.facades));
+      if ((l.passe === null || l.passe === 1) && l.statut !== 'plafond' && USAGES_QUI_COMPTENT.has(l.usage)) facades += l.facades;
     }
-    const facades = [...facadesParAudit.values()].reduce((a, b) => a + b, 0);
     const premiere = g.l.find((l) => l.adresse) ?? g.l[0];
     return {
       cle, idu: g.l[0]?.idu ?? null, adresse: premiere?.adresse ?? null, audits: g.audits.size, tokensParModele,

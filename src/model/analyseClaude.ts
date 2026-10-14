@@ -249,20 +249,44 @@ function lisser3(z: readonly (number | null)[], nx: number, ny: number): (number
   return out;
 }
 
-/** Les sommets d'une grille : les cellules plus hautes que leurs huit voisines, a 20 cm pres, et au-dessus de l'egout d'au moins 50 cm. */
+/**
+ * Les sommets d'une grille lissee : les plateaux de cellules qu'aucune voisine ne depasse (a 5 cm
+ * pres), au-dessus de l'egout d'au moins 50 cm. Un faitage est un plateau allonge, pas un point :
+ * on compte donc les plateaux (cellules voisines a 20 cm pres), pas les cellules.
+ */
 export function compterSommets(z: readonly (number | null)[], nx: number, ny: number, egout: number): number {
   const l = lisser3(z, nx, ny);
-  let sommets = 0;
+  const val = (i: number, j: number): number | null => (i >= 0 && i < nx && j >= 0 && j < ny ? (l[j * nx + i] ?? null) : null);
+  const candidat = new Array<boolean>(nx * ny).fill(false);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const v = l[j * nx + i];
-    if (v === null || v === undefined || v < egout + 0.5) continue;
-    let max = true;
-    for (let dj = -1; dj <= 1 && max; dj++) for (let di = -1; di <= 1; di++) {
-      if (!di && !dj) continue;
-      const w = i + di >= 0 && i + di < nx && j + dj >= 0 && j + dj < ny ? l[(j + dj) * nx + i + di] : null;
-      if (w !== null && w !== undefined && w > v - 0.2) { max = false; break; }
+    const v = val(i, j);
+    if (v === null || v < egout + 0.5) continue;
+    let haut = true;
+    for (let dj = -1; dj <= 1 && haut; dj++) for (let di = -1; di <= 1; di++) {
+      const w = (di || dj) ? val(i + di, j + dj) : null;
+      if (w !== null && w > v + 0.05) { haut = false; break; }
     }
-    if (max) sommets++;
+    candidat[j * nx + i] = haut;
+  }
+  const vu = new Array<boolean>(nx * ny).fill(false);
+  let sommets = 0;
+  for (let k = 0; k < nx * ny; k++) {
+    if (!candidat[k] || vu[k]) continue;
+    sommets++;
+    const pile = [k];
+    vu[k] = true;
+    while (pile.length) {
+      const c = pile.pop() as number;
+      const ci = c % nx, cj = Math.floor(c / nx), vc = val(ci, cj) as number;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const i = ci + di, j = cj + dj;
+        if (i < 0 || i >= nx || j < 0 || j >= ny) continue;
+        const n = j * nx + i, w = val(i, j);
+        if (!candidat[n] || vu[n] || w === null || Math.abs(w - vc) > 0.2) continue;
+        vu[n] = true;
+        pile.push(n);
+      }
+    }
   }
   return sommets;
 }
