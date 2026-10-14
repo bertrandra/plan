@@ -55,6 +55,44 @@ export const SORTIE_RENFORT = {
   confiance: 'moyenne'
 };
 
+/** Ses comptes au journal : une baie gardee, une manquee, un coin, le mur reconnu. */
+export const TROUVE_RENFORT = { ouvertures: 1, manquees: 1, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 1, determines: 1, vide: false };
+
+/**
+ * Une sortie de l'analyse (deploy/schema-analyse.json) qui trouve : deux facades et leurs baies, un
+ * pignon, deux lucarnes, un element, un ecart. Un `indetermine` ne compte jamais.
+ */
+export const SORTIE_ANALYSE = {
+  forme: { indices: [], valeur: 'deux-pans' },
+  profil: { indices: [], valeur: 'indetermine' },
+  faitage: { indices: [], sens: 'parallele-rue' },
+  bouts: { indices: [], gauche: 'pignon', droite: 'indetermine' },
+  lucarnes: { indices: [], nombre: 2, types: ['jacobine'], pan: 'rue' },
+  terrasse: { indices: [], presente: 'non', type: 'sans-objet', acrotere: 'indetermine', edicules: 'indetermine' },
+  couverture: { indices: [], valeur: 'indetermine' },
+  elements: [{ indices: [], element: 'fenetre-de-toit' }],
+  facades: [
+    { indices: [], facade: 'rue', ouvertures: { niveaux: 2, parNiveau: [3, 4], manquees: 1, enTrop: 'indetermine' } },
+    { indices: [], facade: 'jardin', ouvertures: { niveaux: 'indetermine', parNiveau: ['indetermine', 2], manquees: 0, enTrop: 1 } }
+  ],
+  ecarts: [{ indices: [], sujet: 'lucarnes', modele: 'aucune', observe: 'deux' }],
+  contradictions: [],
+  confiance: 'moyenne'
+};
+/** Ses comptes : 3 + 4 + 2 baies, forme, faitage et terrasse determines. */
+export const TROUVE_ANALYSE = { ouvertures: 9, manquees: 1, enTrop: 1, bouts: 1, lucarnes: 2, elements: 1, ecarts: 1, coins: 0, determines: 3, vide: false };
+/** Une sortie qui ne trouve rien : ce que rendait le modele rapide sur les photos d'un vrai audit. */
+export const SORTIE_VIDE = {
+  forme: { indices: [], valeur: 'indetermine' },
+  bouts: { indices: [], gauche: 'indetermine', droite: 'sans-objet' },
+  lucarnes: { indices: [], nombre: 'indetermine', types: [], pan: 'indetermine' },
+  elements: [],
+  facades: [{ indices: [], facade: 'rue', ouvertures: { niveaux: 'indetermine', parNiveau: [], manquees: 'indetermine', enTrop: 'indetermine' } }],
+  ecarts: [],
+  confiance: 'faible'
+};
+export const TROUVE_VIDE = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 0, vide: true };
+
 /** Un message de l'API Messages, tel que l'appel immediat le recoit. */
 export function messageReussi(usage: Record<string, unknown>, sortie: object): object {
   return { id: 'msg_immediat', type: 'message', role: 'assistant', model: 'claude-haiku-5-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(sortie) }], usage };
@@ -121,6 +159,14 @@ export const USAGE_P2 = { input_tokens: 4000, cache_creation_input_tokens: 0, ca
 /** Leur cout au tarif Batch de Claude Haiku 5.5 (0,05 $ / 0,25 $ par MTok, cache a moitie prix). */
 export const COUT_P1 = 0.0021375;
 export const COUT_P2 = 0.0007;
+/**
+ * Les memes au tarif Batch du modele plus fin (1 $ / 5 $ par MTok, ecriture du cache 1,25 $, lecture
+ * 0,05 $), celui de l'analyse par defaut depuis que le modele rapide ne trouvait rien sur les photos.
+ */
+export const COUT_P1_FIN = 0.04275;
+export const COUT_P2_FIN = 0.01275;
+/** Les comptes de la sortie par defaut (`forme` seule, determinee) : une reponse qui n'est pas vide. */
+export const TROUVE_DEFAUT = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 1, vide: false };
 
 /** La reponse par defaut : p1 et p2 reussies, `rate` en erreur. */
 export const reponseParDefaut: Reponse = (id) => {

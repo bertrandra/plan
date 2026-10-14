@@ -11,7 +11,7 @@ import {
   etatOrganisations, choixConsommation, type Tarifs, type Plafonds
 } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
-import { CLE, COUT_P1, COUT_P2, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, COUT_P1, COUT_P1_FIN, COUT_P2, COUT_P2_FIN, TROUVE_DEFAUT, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // L'analyse par Claude, cote serveur (MD/spec-audit.md 13.2 et 13.3) : le calcul du cout et du
@@ -141,7 +141,8 @@ describe('le prompt, le schema et la demande', () => {
   it('n admet que des blocs texte et image, et des modeles connus', () => {
     const p = PLAFONDS_DEFAUT as Plafonds;
     const d = verifierDemande(demande(), p);
-    expect(d.modele).toBe('claude-haiku-5-5');
+    // L'analyse part par defaut au modele plus fin : le modele rapide ne trouvait rien sur les photos.
+    expect(d.modele).toBe('claude-sonnet-5-5');
     expect(d.requetes.map((r) => [r.id, r.passe, r.images])).toEqual([['p1', 1, 1], ['p2', 2, 1]]);
     expect(verifierDemande({ ...demande(), usage: 'escalade' }, p).modele).toBe('claude-sonnet-5-5');
     const avec = (r: object) => ({ ...demande(), requetes: [{ id: 'p1', passe: 1, contenu: [r] }] });
@@ -271,7 +272,7 @@ describe('analyse par Claude, routes', () => {
     // Ce qui part chez Anthropic : le prompt du serveur en cache, son schema, l'effort, la cle.
     const envoye = faux.batches[0]!.corps.requests;
     expect(envoye.map((r) => r.custom_id)).toEqual(['p1', 'p2']);
-    expect(envoye[0]!.params).toMatchObject({ model: 'claude-haiku-5-5', max_tokens: MAX_TOKENS, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA.schema } } });
+    expect(envoye[0]!.params).toMatchObject({ model: 'claude-sonnet-5-5', max_tokens: MAX_TOKENS, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA.schema } } });
     expect((envoye[0]!.params.system as { text: string; cache_control: unknown }[])[0]!.text).toMatch(/^# Rôle/);
     expect(envoye[0]!.params).not.toHaveProperty('temperature');
     expect(faux.entetes[0]!['x-api-key']).toBe(CLE);
@@ -282,16 +283,16 @@ describe('analyse par Claude, routes', () => {
 
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
-    expect(lu.resultats.map((r: { id: string; passe: number; cout: number; statut: string }) => [r.id, r.passe, r.cout, r.statut]).sort()).toEqual([['p1', 1, COUT_P1, 'reussi'], ['p2', 2, COUT_P2, 'reussi']]);
+    expect(lu.resultats.map((r: { id: string; passe: number; cout: number; statut: string }) => [r.id, r.passe, r.cout, r.statut]).sort()).toEqual([['p1', 1, COUT_P1_FIN, 'reussi'], ['p2', 2, COUT_P2_FIN, 'reussi']]);
     expect(lu.resultats.find((r: { id: string }) => r.id === 'p1').sortie).toEqual({ forme: { indices: [], valeur: 'deux-pans' } });
 
     const lignes = journal();
     expect(lignes).toHaveLength(2);
     expect(lignes.find((l) => l.requete === 'p1')).toEqual({
       t: '2026-10-14T10:00:00.000Z', organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet',
-      audit: 'audit-1', usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
-      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1,
-      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 1, schema: 1
+      audit: 'audit-1', usage: 'analyse', modele: 'claude-sonnet-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
+      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1_FIN,
+      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 1, schema: 1, trouve: TROUVE_DEFAUT
     });
     // Ni photo ni contenu de reponse dans le journal.
     expect(JSON.stringify(lignes)).not.toMatch(/QUJDRA|deux-pans/);
@@ -312,6 +313,8 @@ describe('analyse par Claude, routes', () => {
   it('refuse au plafond, en comptant les batches encore ouverts, et le journalise', async () => {
     await demarrer(CLE);
     await connecterAdmin(navigateur, MDP);
+    // Les montants de ce scenario sont ceux du modele rapide : il est regle pour l'analyse.
+    expect((await ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: 'claude-haiku-5-5' } })).status).toBe(200);
     expect((await ecrire('admin/claude/plafonds', 'PUT', { ...PLAFONDS_DEFAUT, defaut: { jour: 0.01, mois: 1 }, estimationRequete: 0.004 })).status).toBe(200);
     expect((await ecrire('admin/claude/batches', 'POST', demande())).status).toBe(201);
     // Deux requetes engagees, une demandee : 3 x 0,004 $ > 0,01 $.
@@ -392,7 +395,7 @@ describe('la consommation : filtres et lignes', () => {
     ];
     const tout = filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14' });
     expect(tout).toHaveLength(3);
-    expect(Object.keys(tout[0]!)).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut']);
+    expect(Object.keys(tout[0]!)).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'idBatch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut', 'trouve']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', modele: 'claude-sonnet-5-5' }).map((l) => l.usage)).toEqual(['escalade']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', parcelle: '78650000AE0102' }).map((l) => l.organisation)).toEqual(['org-1']);
     expect(filtrerConsommation(lignes, { du: '2026-10-01', au: '2026-10-14', organisation: 'org-1', usage: 'analyse' })).toHaveLength(1);

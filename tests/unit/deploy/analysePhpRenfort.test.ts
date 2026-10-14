@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { coutAppel, tarifEnVigueur, tokensDeUsage, type Tarifs } from '../../../buildsg/analyseAdmin.mjs';
-import { CLE, SORTIE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // Le renfort de Claude (lot L18) dans analyse.php : memes scenarios que le serveur Node
@@ -100,7 +100,7 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'renfort']]);
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 1, schema: 1 });
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-sonnet-5-5', batch: true, facades: 1, prompt: 1, schema: 1, trouve: null });
     expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ usage: 'analyse' });
   });
 
@@ -110,11 +110,11 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
-    const cout = coutAppel(tokensDeUsage(USAGE_P2), tarifEnVigueur(TARIFS, 'claude-haiku-5-5', new Date().toISOString().slice(0, 10)), false);
+    const cout = coutAppel(tokensDeUsage(USAGE_P2), tarifEnVigueur(TARIFS, 'claude-sonnet-5-5', new Date().toISOString().slice(0, 10)), false);
     expect(corps.resultats.map((x: { id: string; statut: string; cout: number }) => [x.id, x.statut, x.cout])).toEqual([['r1', 'reussi', cout], ['r2', 'reussi', cout], ['r3', 'reussi', cout]]);
     expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
     expect(journal()).toHaveLength(3);
-    expect(journal()[0]).toMatchObject({ usage: 'renfort', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi' });
+    expect(journal()[0]).toMatchObject({ usage: 'renfort', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_RENFORT });
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
   });
 });

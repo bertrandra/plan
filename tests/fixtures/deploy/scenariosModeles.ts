@@ -1,0 +1,96 @@
+import fs from 'node:fs';
+import { expect } from 'vitest';
+import { MODELES, MODELE_PAR_USAGE } from '../../../buildsg/analyseAdmin.mjs';
+import { SORTIE_ANALYSE, SORTIE_RENFORT, SORTIE_VIDE, TROUVE_ANALYSE, TROUVE_RENFORT, TROUVE_VIDE, demande, type FauxAnthropic } from './fauxAnthropic.js';
+
+// Le modele de chaque usage (`admin/claude/modeles`) et les comptes de ce que les reponses
+// contiennent (champ `trouve` du journal) : les memes scenarios joues contre les deux serveurs,
+// deploy/analyse.php et buildsg/analyseAdmin.mjs. Ils ne different que par le dossier et l'heure.
+
+export const RAPIDE = 'claude-haiku-5-5';
+export const FIN = 'claude-sonnet-5-5';
+
+export interface Serveur {
+  navigateur: (entree: string, init?: RequestInit) => Promise<Response>;
+  ecrire: (entree: string, methode: string, corps: unknown) => Promise<Response>;
+  journal: () => Record<string, unknown>[];
+  /** Le fichier du reglage, dans le dossier `claude/` du serveur. */
+  fichier: string;
+  faux: FauxAnthropic;
+  /** Les sorties rendues par l'API simulee, par identifiant de requete. */
+  sorties: Record<string, object>;
+}
+
+/** Une requete du renfort d'une facade, dans le batch de l'analyse. */
+export const requeteRenfort = (id: string) => ({
+  id, passe: 1, usage: 'renfort', facades: 1,
+  contenu: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJDRA==' } }, { type: 'text', text: 'Largeur du mur : 9,00 m.' }]
+});
+
+const avecRenfort = () => ({ ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1')] });
+const modelesEnvoyes = (s: Serveur, n: number) => Object.fromEntries((s.faux.batches[n]?.corps.requests ?? []).map((r) => [r.custom_id, r.params.model]));
+
+/** Le defaut, un reglage pose puis remplace (`.bak`), les refus, et ce que les batches envoient. */
+export async function reglerLesModeles(s: Serveur): Promise<void> {
+  const lu = await (await s.navigateur('admin/claude/modeles')).json();
+  expect(lu).toEqual({ format: 'plan-claude-modeles', usages: { ...MODELE_PAR_USAGE }, defaut: { ...MODELE_PAR_USAGE }, admis: MODELES, regle: false });
+  // Par defaut, le modele plus fin pour l'analyse, le renfort et l'aide immediate.
+  expect(lu.usages).toMatchObject({ analyse: FIN, renfort: FIN, immediat: FIN, escalade: FIN, candidats: RAPIDE });
+  expect((await s.ecrire('admin/claude/batches', 'POST', avecRenfort())).status).toBe(201);
+  expect(modelesEnvoyes(s, 0)).toEqual({ p1: FIN, r1: FIN });
+
+  const pose = await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+  expect(pose.status).toBe(200);
+  expect(await pose.json()).toMatchObject({ usages: { ...MODELE_PAR_USAGE, analyse: RAPIDE }, regle: true });
+  expect(JSON.parse(fs.readFileSync(s.fichier, 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+  expect((await (await s.navigateur('admin/claude/etat')).json()).modelesParUsage).toEqual({ ...MODELE_PAR_USAGE, analyse: RAPIDE });
+  // Le reglage vaut pour l'envoi suivant ; chaque requete garde le modele de son usage.
+  expect((await s.ecrire('admin/claude/batches', 'POST', avecRenfort())).status).toBe(201);
+  expect(modelesEnvoyes(s, 1)).toEqual({ p1: RAPIDE, r1: FIN });
+  // Un modele demande explicitement reste admis, pour toutes les requetes de la demande.
+  expect((await s.ecrire('admin/claude/batches', 'POST', { ...avecRenfort(), modele: FIN })).status).toBe(201);
+  expect(modelesEnvoyes(s, 2)).toEqual({ p1: FIN, r1: FIN });
+
+  // Le remplacer garde la version precedente en `.bak`.
+  expect((await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: RAPIDE, renfort: RAPIDE } })).status).toBe(200);
+  expect(JSON.parse(fs.readFileSync(s.fichier + '.bak', 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+
+  // Les refus : un modele hors de la liste, un usage inconnu, un autre format. Rien n'est ecrit.
+  const avant = fs.readFileSync(s.fichier, 'utf8');
+  for (const corps of [
+    { format: 'plan-claude-modeles', usages: { analyse: 'claude-fable-5-1' } },
+    { format: 'plan-claude-modeles', usages: { autre: RAPIDE } },
+    { format: 'plan-claude-modeles', usages: [RAPIDE] },
+    { format: 'plan-claude-tarifs', usages: {} }
+  ]) {
+    const r = await s.ecrire('admin/claude/modeles', 'PUT', corps);
+    expect(r.status, JSON.stringify(corps)).toBe(400);
+    expect((await r.json()).error.code).toBe('BAD_REQUEST');
+  }
+  expect(fs.readFileSync(s.fichier, 'utf8')).toBe(avant);
+  expect((await s.ecrire('admin/claude/modeles', 'POST', {})).status).toBe(405);
+
+  // Un modele regle puis retire de la liste (un deploiement plus recent) retombe sur le defaut.
+  fs.writeFileSync(s.fichier, JSON.stringify({ format: 'plan-claude-modeles', usages: { analyse: 'claude-ancien-1', renfort: RAPIDE } }));
+  expect((await (await s.navigateur('admin/claude/modeles')).json()).usages).toEqual({ ...MODELE_PAR_USAGE, renfort: RAPIDE });
+}
+
+/** Ce que les reponses contiennent, au journal ; une ligne d'avant les comptes reste lisible. */
+export async function compterCeQuiEstTrouve(s: Serveur): Promise<void> {
+  Object.assign(s.sorties, { p1: SORTIE_ANALYSE, p2: SORTIE_VIDE, r1: SORTIE_RENFORT });
+  const d = demande(['p1', 'p2', 'rate']) as { requetes: object[] };
+  expect((await s.ecrire('admin/claude/batches', 'POST', { ...d, requetes: [...d.requetes, requeteRenfort('r1')] })).status).toBe(201);
+  s.faux.terminer();
+  const lu = await (await s.navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
+  // La page ne recoit pas les comptes : ils ne servent qu'au tableau de bord.
+  for (const r of lu.resultats) expect(r).not.toHaveProperty('trouve');
+  const parRequete = Object.fromEntries(s.journal().map((l) => [l.requete, l.trouve]));
+  expect(parRequete).toEqual({ p1: TROUVE_ANALYSE, p2: TROUVE_VIDE, r1: TROUVE_RENFORT, rate: null });
+  // Ni la reponse ni ses mots : des nombres seulement.
+  expect(JSON.stringify(s.journal())).not.toMatch(/deux-pans|jacobine|fenetre-de-toit/);
+
+  const conso = await (await s.navigateur('admin/consommation')).json();
+  const p1 = conso.lignes.find((l: { trouve: { ouvertures: number } | null }) => l.trouve?.ouvertures === 9);
+  expect(p1).toMatchObject({ idBatch: 'msgbatch_1', modele: FIN, trouve: TROUVE_ANALYSE });
+  expect(conso.lignes.filter((l: { trouve: unknown }) => l.trouve === null)).toHaveLength(1);
+}

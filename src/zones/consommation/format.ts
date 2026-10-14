@@ -27,6 +27,16 @@ export function compact(x: number, mesure: 'tokens' | 'cout'): string {
   return entier.format(x);
 }
 
+/** Un prix au million de tokens, toujours au centime : 0,10 $ et 10,00 $ se comparent d'un coup d'oeil. */
+export function prix(x: number): string {
+  return nf({ minimumFractionDigits: 2, maximumFractionDigits: 3 }).format(x) + ' $';
+}
+
+/** Une moyenne courte : 2,3 ; 0,25. */
+export function decimal(x: number): string {
+  return nf({ maximumFractionDigits: x < 1 ? 2 : 1 }).format(x);
+}
+
 export function part(x: number): string {
   const p = x * 100;
   return (p > 0 && p < 10 ? nf({ maximumFractionDigits: 1 }).format(p) : entier.format(p)) + ' %';
