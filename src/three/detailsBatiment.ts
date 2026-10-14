@@ -16,6 +16,7 @@ import { sommetDe } from '../geometry/anneau.js';
 import { signedArea, centroid, pointInPolygon } from '../geometry/basic.js';
 import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
+import { toitDessine } from '../model/formeToit.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
@@ -181,7 +182,8 @@ export function contourDecale(pts: readonly PtBrut[], d: number): PtBrut[] {
  * La hauteur du toit au-dessus de l'egout, prolongee hors des murs pour le cote `i` : negative
  * sous l'egout d'un pan qui descend, celle du profil au droit d'un pignon.
  */
-function hauteurProlongee(contour: readonly PtBrut[], toit: Toit): (i: number, q: PtBrut) => number {
+function hauteurProlongee(contour: readonly PtBrut[], toitLu: Toit): (i: number, q: PtBrut) => number {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0) return () => 0;
   if (toit.forme === 'croupes') {
     const d = profondeurToit(contour);
@@ -198,7 +200,8 @@ function hauteurProlongee(contour: readonly PtBrut[], toit: Toit): (i: number, q
 }
 
 /** Les cassures du profil le long du cote `(a, b)` : la ou deux plans du toit s'egalent. */
-function cassures(contour: readonly PtBrut[], toit: Toit, a: PtBrut, b: PtBrut): number[] {
+function cassures(contour: readonly PtBrut[], toitLu: Toit, a: PtBrut, b: PtBrut): number[] {
+  const toit = toitDessine(toitLu);
   const ts = new Set<number>([0, 1]);
   if (toit.forme !== 'plat' && toit.forme !== 'croupes' && toit.hauteur > 0) {
     const plans: PlanToit[] = plansDuToit(contour, toit);
@@ -228,7 +231,9 @@ function materiauToit(ctx: ContexteDetails, toit: Toit): THREE_NS.MeshStandardMa
  * des pans (elle descend le long d'un egout, suit le profil d'un pignon), avec son epaisseur — la
  * sous-face plus claire et la planche de rive. Et la gouttiere, le long des egouts seulement.
  */
-function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number, avecGouttiere: boolean, batiment: readonly PtBrut[] | null = null): void {
+function poserDebord(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu: Toit, h: number, avecGouttiere: boolean, batiment: readonly PtBrut[] | null = null): void {
+  // Une forme du catalogue se dessine en sa forme simple la plus proche (model/formeToit.ts).
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0 || contour.length < 3) return;
   // Un corps parmi d'autres : pas de debord sur un mur commun, il traverserait le corps voisin.
   const dedans = centroid(contour);
@@ -455,7 +460,8 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
 }
 
 /** Une cheminee sur un toit en pente assez grand : un carre de brique (ou de pierre grise sous l'ardoise), a cote du faitage. */
-function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toit: Toit, h: number): void {
+function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu: Toit, h: number): void {
+  const toit = toitDessine(toitLu);
   if (toit.forme === 'plat' || toit.hauteur <= 0 || Math.abs(signedArea(contour)) < AIRE_CHEMINEE_MIN_M2) return;
   const angle = toit.forme === 'croupes' ? angleDuPlusLongCote(contour) : toit.angleFaitage;
   const r = repereFaitage(contour, angle);

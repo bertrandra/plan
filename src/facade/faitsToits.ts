@@ -15,7 +15,7 @@ import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecart
 import { diagnostiquerToit, ECART_MAX_M, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { signedArea } from '../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../model/faitsToits.js';
-import type { CorpsToit, FormeToit, PtBrut, Toit, ToitMesure } from '../model/types.js';
+import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../model/types.js';
 
 /** Les formes d'un corps : les croupes et le quatre-pans n'y font qu'un (des croupes aux deux bouts). */
 export type FormeCorps = 'plat' | 'appentis' | 'deux-pans' | 'croupes';
@@ -59,7 +59,7 @@ const memesBouts = (a: readonly BoutFait[], b: readonly BoutFait[]) => [...a].so
  * et un sens de faitage observe retire le plat : un toit plat n'a pas de faitage a voir.
  */
 export function formesAdmises(o: ObservationFait): Set<FormeCorps> {
-  const vers = (f: FormeToit): FormeCorps => (f === 'quatre-pans' ? 'croupes' : f);
+  const vers = (f: FormeToitSimple): FormeCorps => (f === 'quatre-pans' ? 'croupes' : f);
   let formes = new Set<FormeCorps>(o.forme ? o.forme.map(vers) : ['plat', 'appentis', 'deux-pans', 'croupes']);
   if (o.faitage) formes.delete('plat');
   if (o.bouts) {
@@ -232,9 +232,10 @@ export function toitDeRemplacement(f: FaitToit, contour: readonly PtBrut[]): { t
 export function ajusteSousContrainte(f: FaitToit, pts: readonly PtBrut[], ech: readonly EchantillonHauteur[], ajuste: ToitAjuste | null): ToitAjuste | null {
   const o = f.observation;
   const formes = formesAdmises(o);
-  const vers = (forme: FormeToit): FormeCorps => (forme === 'quatre-pans' ? 'croupes' : forme);
+  // Une forme du catalogue n'est jamais admise : le fait ne parle que des formes simples.
+  const vers = (forme: FormeToit): string => (forme === 'quatre-pans' ? 'croupes' : forme);
   const azimut = (angle: number) => ((90 - angle) % 180 + 180) % 180;
-  const admis = (forme: FormeToit, angle: number) => formes.has(vers(forme)) && (forme === 'plat' || sensAdmis(o, pts, azimut(angle)));
+  const admis = (forme: FormeToit, angle: number) => (formes as ReadonlySet<string>).has(vers(forme)) && (forme === 'plat' || sensAdmis(o, pts, azimut(angle)));
   if (ajuste && admis(ajuste.toit.forme, ajuste.toit.angleFaitage)) return ajuste;
   const essai = diagnostiquerToit(pts, ech).filter((x) => x.ecart <= ECART_MAX_M && admis(x.forme, x.angleFaitage)).sort((a, b) => a.ecart - b.ecart)[0];
   if (!essai) return ajuste;
