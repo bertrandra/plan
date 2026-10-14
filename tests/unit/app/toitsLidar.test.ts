@@ -103,6 +103,23 @@ describe('toitsDepuisLidar', () => {
     expect(lire2.mock.calls.length).toBeLessThan(12);
   });
 
+  it('laisse un batiment verifie sur place tel quel, sauf si on demande de le relire', async () => {
+    const verifie = (): ObjetAToit => ({ key: 'v', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo }, elevation: 5, verifieSurPlace: { date: '2026-10-13' } });
+    const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) }, verifie(), { key: 'a', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 }];
+    const lire = lecteurDeuxPans();
+    // Par defaut, et dans la liste des candidats : le batiment verifie n'est ni lu ni marque.
+    expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true })).ajustes).toBe(1);
+    expect(lire).toHaveBeenCalledTimes(1);
+    expect(objets[1]).toMatchObject({ toit: { source: 'bdtopo' }, elevation: 5 });
+    expect(objets[1]!.toitLidarLu).toBeUndefined();
+    expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!] })).ajustes).toBe(0);
+    expect(lire).toHaveBeenCalledTimes(1);
+    // « Relire » : comme les autres.
+    expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!], verifies: 'relire' })).ajustes).toBe(1);
+    expect(objets[1]!.toit!.source).toBe('lidar');
+    expect(objets[1]!.elevation).toBe(6);
+  });
+
   it('sur la parcelle du projet, garde le toit tel que mesure et donne a chaque corps son egout', async () => {
     // Un L : un corps a deux pans sur 6 m d'egout, une aile plate a 3,5 m.
     const corps = rect(0, 0, 12, 8), aile = rect(0, 8, 6, 5);

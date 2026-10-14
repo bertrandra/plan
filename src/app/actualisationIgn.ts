@@ -36,6 +36,7 @@ import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { avecReglages, resumeRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { valeursParDefaut } from './valeursParDefaut.js';
+import { estVerifieSurPlace } from '../model/toitVerifie.js';
 import { APPARENCES_IGN, batimentDeLaPropriete } from '../geo/cadastreObjets.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
@@ -89,6 +90,12 @@ export interface OptionsActualisation {
    * repond pas, ils restent tels quels.
    */
   recreerBatiments?: boolean;
+  /**
+   * Les batiments verifies sur place par un audit de la parcelle (model/toitVerifie.ts, le 100 % du
+   * projet) : `garder` (defaut) les laisse tels quels - ni recrees, ni relus, ni ramenes aux valeurs
+   * par defaut ; `relire` les traite comme les autres, quand l'utilisateur le demande expressement.
+   */
+  verifies?: 'garder' | 'relire';
 }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
@@ -270,11 +277,36 @@ function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtB
   return volumesParDefaut(pts, toit);
 }
 
-/** La couverture des toits, leur forme, puis la couleur des murs, qui lit la hauteur a l'egout corrigee par le LiDAR. */
-async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+/**
+ * Les batiments verifies sur place que cette actualisation garde tels quels : tous, sauf si
+ * l'utilisateur a demande de les recalculer. Avec eux, les identifiants BD TOPO qu'ils portent : un
+ * batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
+ */
+function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
+  const garde = (o: ObjetBrut) => options.verifies !== 'relire' && estVerifieSurPlace(o);
+  const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
+  return { garde, ids };
+}
+
+/** Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. */
+function figer(o: ObjetBrut): () => void {
+  const toit = structuredClone(o.toit), couleurMurs = structuredClone(o.couleurMurs);
+  return () => {
+    if (toit === undefined) delete o.toit; else o.toit = toit;
+    if (couleurMurs === undefined) delete o.couleurMurs; else o.couleurMurs = couleurMurs;
+  };
+}
+
+/**
+ * La couverture des toits, leur forme, puis la couleur des murs, qui lit la hauteur a l'egout corrigee
+ * par le LiDAR. Un batiment garde (verifie sur place) ressort tel qu'il est entre.
+ */
+async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, options: OptionsActualisation): Promise<void> {
+  const remises = objets.filter(batimentsGardes(objets, options).garde).map(figer);
   await couleursDesToits(objets, proj, bilan);
-  await formesDesToits(objets, proj, bilan, ctx);
+  await formesDesToits(objets, proj, bilan, ctx, options.verifies);
   await couleursDesMurs(objets, proj, bilan, ctx);
+  remises.forEach(remettre => remettre());
 }
 
 /**
@@ -290,9 +322,9 @@ async function couleursDesMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan
 }
 
 /** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
-async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
+async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, verifies: OptionsActualisation['verifies']): Promise<void> {
   etape('la forme des toits sur le LiDAR HD…');
-  const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj).catch(() => null);
+  const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj, { verifies: verifies ?? 'garder' }).catch(() => null);
   const texte = b && texteBilanToitsLidar(b);
   if(texte) bilan.push(texte);
 }
@@ -337,13 +369,15 @@ async function batimentsDeLaParcelle(parcelle: PtBrut[], proj: ProjecteurLocal, 
 
 /**
  * Les batiments frais de la parcelle et le test de ce qu'ils remplacent : ceux de la parcelle, et un
- * voisin que la BD TOPO lui rattache desormais. Sans lecture, rien n'est remplace.
+ * voisin que la BD TOPO lui rattache desormais. Sans lecture, rien n'est remplace. Un batiment garde
+ * (verifie sur place) n'est ni remplace ni recree : le batiment frais qui porte son identifiant est ecarte.
  */
-async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier: boolean, bilan: string[]): Promise<{ batiFrais: ElementIgn[] | null; aRecreer: (o: ObjetBrut) => boolean }> {
-  const batiFrais = await batimentsDeLaParcelle(parcelle, proj, simplifier);
-  if(!batiFrais){ bilan.push('batiments de la parcelle non relus (BD TOPO indisponible) : conserves'); return { batiFrais, aRecreer: () => false }; }
+async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier: boolean, bilan: string[], gardes: ReturnType<typeof batimentsGardes>): Promise<{ batiFrais: ElementIgn[] | null; aRecreer: (o: ObjetBrut) => boolean }> {
+  const lus = await batimentsDeLaParcelle(parcelle, proj, simplifier);
+  if(!lus){ bilan.push('batiments de la parcelle non relus (BD TOPO indisponible) : conserves'); return { batiFrais: lus, aRecreer: () => false }; }
+  const batiFrais = lus.filter(b => !b.id || !gardes.ids.has(b.id));
   const ids = new Set(batiFrais.map(b => b.id));
-  return { batiFrais, aRecreer: (o) => batimentSurLaParcelle(o, parcelle) || (o.fonction === 'batiment' && ids.has((o.bdtopo as { id?: string } | null | undefined)?.id)) };
+  return { batiFrais, aRecreer: (o) => !gardes.garde(o) && (batimentSurLaParcelle(o, parcelle) || (o.fonction === 'batiment' && ids.has((o.bdtopo as { id?: string } | null | undefined)?.id))) };
 }
 
 /**
@@ -396,16 +430,19 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee « tout » seulement)
     const fraiches = options.portee === 'tout' ? await couchesFraiches(ctx.etat.objects, proj, bilan) : {};
     // ---- 2 bis. « Actualiser le projet » : les batiments de la parcelle, relus pour etre recrees.
-    const { batiFrais, aRecreer } = options.recreerBatiments ? await recreation(ptsParcelle ?? sommetsDe(parcelle), proj, simplifier, bilan) : { batiFrais: null, aRecreer: () => false };
+    const gardes = batimentsGardes(ctx.serializeObjects(ctx.etat.objects), options);
+    const { batiFrais, aRecreer } = options.recreerBatiments ? await recreation(ptsParcelle ?? sommetsDe(parcelle), proj, simplifier, bilan, gardes) : { batiFrais: null, aRecreer: () => false };
 
     // ---- 3. Application
     ctx.pushHistory();
-    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0;
+    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
     const avant: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects);
     const anciensBatiments = avant.filter(aRecreer);
     const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
+      // Un batiment verifie sur place est le 100 % du projet : il ressort tel qu'il est entre.
+      if(gardes.garde(brut)){ nGardes++; return brut; }
       const o = options.parDefaut ? valeursParDefaut(brut) : brut;
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
@@ -469,7 +506,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       }
     }
     // ---- 3 ter. La couverture des toits (orthophoto), leur forme (MNH LiDAR HD, spec §10), la couleur des murs (§6.5)
-    await toitsEtMurs(serialises, proj, bilan, ctx);
+    await toitsEtMurs(serialises, proj, bilan, ctx, options);
     ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle
@@ -496,6 +533,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     if(nToits) bilan.push(nToits + ' toit(s) deduit(s) de la BD TOPO');
     if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
+    if(nGardes) bilan.push(nGardes + ' batiment(s) verifie(s) sur place conserve(s) tel(s) quel(s)');
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){
