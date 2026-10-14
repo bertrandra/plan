@@ -1557,7 +1557,8 @@ const POINTS = {
     const rienParti = serveur.demandes.length === 0;
     serveur.panne = true;
     await page.locator('[data-controle="auditParcelle.accordAnalyse"]').click({ timeout: 30000 });
-    await page.locator('.etatAnalyse.etat-erreur').waitFor({ timeout: 30000 }).catch(() => {});
+    // La preparation (mesures, rendu hors ecran) passe avant l'envoi qui echoue : elle peut durer sous charge.
+    await page.locator('.etatAnalyse.etat-erreur').waitFor({ timeout: 90000 }).catch(() => {});
     const erreur = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
     const sansClaude = await page.locator('.ligneProposition.source-claude').count();
     serveur.panne = false;

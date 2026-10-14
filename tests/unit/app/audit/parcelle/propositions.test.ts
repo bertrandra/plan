@@ -139,4 +139,21 @@ describe('vérifié sur place', () => {
     const e3 = entrees(quartier(), c);
     expect(verifications(e3.liste, e3.capture, [], new Set())[0]?.raison).toBe('toit non vu');
   });
+
+  it('ne retient pas le batiment pour une proposition de Claude que la personne a tranchee', () => {
+    const c = capture();
+    for (const cote of ['1', '2', '3']) c.batiments.maison!.facades[cote] = { photos: [], inaccessible: true };
+    const e = entrees(quartier(), c);
+    const p = propositionsDeLAudit(e);
+    const couverture = p.find((x) => x.effet.type === 'couverture')!;
+    // Claude voit du zinc la ou la personne a note de l'ardoise ; une cheminee, sans concurrente.
+    const zinc = { ...couverture, id: 'maison:claude:couverture', source: 'claude' as const, effet: { type: 'couverture' as const, couverture: 'zinc' as const } };
+    const solo = { ...couverture, id: 'maison:claude:materiauMurs', source: 'claude' as const, cible: { type: 'batiment' as const, cle: 'maison' }, effet: { type: 'hauteur' as const, hauteurM: 7 } };
+    const mesures = new Set(p.map((x) => x.id));
+    expect(verifications(e.liste, e.capture, [...p, zinc], mesures)[0]).toMatchObject({ verifie: true });
+    // Decochee aussi, l'ardoise ne tranche plus : la couverture reste a voir.
+    const sansArdoise = new Set([...mesures].filter((id) => id !== couverture.id));
+    expect(verifications(e.liste, e.capture, [...p, zinc], sansArdoise)[0]?.raison).toBe('2 propositions décochées');
+    expect(verifications(e.liste, e.capture, [...p.filter((x) => x.effet.type !== 'hauteur'), solo], new Set(p.filter((x) => x.effet.type !== 'hauteur').map((x) => x.id)))[0]?.raison).toBe('1 proposition décochée');
+  });
 });

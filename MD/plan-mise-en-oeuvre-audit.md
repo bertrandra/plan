@@ -55,7 +55,7 @@ quelques décisions **bloquent** un lot.
 | D4 | Couleur sur photo automatique ou au toucher (A§25 q5) | automatique, toucher si la lecture échoue | — |
 | D5 | Relevé sur place ou plus tard (A§25 q6) | quand on veut, depuis la liste | — |
 | D6 | Mitoyens à 100 % (A§25 q10) | oui, pour ce qui se voit | — |
-| D7 | Partage de l'audit d'un utilisateur pour le corpus (A§25 q11) | case décochée par défaut | **L21** |
+| D7 | Partage de l'audit d'un utilisateur pour le corpus (A§25 q11) | ~~case décochée par défaut~~ **tranchée par l'utilisateur : la case « Partager cet audit pour améliorer Plan » est cochée par défaut** ; posée avec l'accord de l'analyse (L17), lue par le fichier de l'audit | **L21** |
 | D8 | Analyse en pleine définition, photo réduite gardée (F§17 q1) | oui | — |
 | D9 | Ouvertures devinées (F§17 q2) | proposées en pointillé, décochées si confiance faible | — |
 | D10 | Détails des ouvertures dans le modèle (F§17 q3) | oui, dès L15 | — |

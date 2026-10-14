@@ -41,6 +41,46 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     fonciers ; une relecture Panoramax ne les touche pas. Les toits ne changent pas : AE 101 et les
     empreintes sont identiques. Points de fumée 62 et 63.
 
+- **Analyse de l'audit de la parcelle par Claude** (lot L17 du plan de mise en œuvre,
+  `MD/spec-audit.md` §13.2, `MD/spec-regles-toits.md` §14 ; décisions D1, D2 et D7).
+  - **L'accord** : à la fin de la capture, l'écran des propositions demande l'accord d'envoyer les
+    photos (« Envoyer mes photos à l'analyse » ou « Seulement les mesures »), avec la case « Partager
+    cet audit pour améliorer Plan », cochée par défaut (lue par le fichier de l'audit, lot L21).
+    L'accord vaut pour le projet, est gardé sur l'appareil (pas dans le projet, qui ne devient pas
+    « modifié »), est rappelé par un toast à chaque envoi et se retire par « Retirer l'accord » : plus
+    rien ne part, et les propositions de Claude disparaissent. Sans accord, sans réseau ou sans compte
+    de la plateforme, seules les mesures deviennent des propositions, et l'écran le dit.
+  - **Les entrées préparées** (`app/audit/parcelle/entreesAnalyse.ts`) : par bâtiment photographié,
+    chaque photo réduite à 1 024 px avec sa prise de vue (« prise à 8 m, vers 245° »), le rendu du
+    modèle depuis la même prise de vue (Vue 3D hors écran, `three/renduPrise.ts`), les photos du toit,
+    l'orthophoto recadrée sur le contour et la carte des hauteurs LiDAR (`render/imagesAnalyse.ts`),
+    puis les indices LiDAR chiffrés (montée, bande raide aux bords, sommets, creux, corps), le modèle
+    actuel en JSON compact, les mesures du téléphone et « Ce que je vois ».
+  - **Trois passes et un vote** (`model/analyseClaude.ts`) : trois requêtes identiques par bâtiment,
+    envoyées par les routes batches de `analyse.php` ; le vote retient, attribut par attribut, la
+    valeur donnée par plus de la moitié des passes, sinon `indetermine`, et le contrôle croisé
+    confronte la réponse aux indices LiDAR (toit plat qui monte, Mansart sans bande raide…).
+  - **Les propositions de Claude** (`app/audit/parcelle/propositionsClaude.ts`), source `claude`,
+    ajoutées à la liste après celles des mesures : couverture, cheminées, toiture-terrasse et matériau
+    des murs (le parement lu sur les façades), chacune avec ses indices (quelle image, ce qu'il y a
+    vu) et la part des passes d'accord. Tant que le taux d'accord de Claude n'est pas mesuré à 95 %
+    sur un attribut (corpus, lots L19 à L21), elles arrivent décochées et le disent ; une
+    contradiction avec le LiDAR aussi. Le schéma de sortie, version 1, couvre aussi les façades
+    (ouvertures manquées ou en trop, volets, coffre, balcon, forme, matériau) ; ses écarts restent
+    des indices. Une proposition de Claude laissée décochée alors qu'une autre, cochée, écrit le
+    même attribut (l'ardoise notée sur place contre le zinc vu par Claude) a été tranchée : elle ne
+    retient pas le bâtiment hors du « vérifié sur place ».
+  - **Le suivi** : le batch est relu toutes les vingt secondes, et survit à un rechargement (il vit
+    dans le brouillon de la capture) ; un toast, et une notification du navigateur quand l'onglet est
+    en arrière-plan, disent quand les propositions sont prêtes. Des photos changées depuis l'envoi
+    font proposer « Relancer l'analyse ».
+  - **Côté serveur** (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`) : ouvert aux utilisateurs
+    de la plateforme par leur jeton, vérifié auprès d'elle (`/api/v1/me/context`, droit d'écrire les
+    projets) ; l'organisation de la plateforme est celle des plafonds et du journal, et ne lit que ses
+    batches ; tarifs, plafonds et consommation restent à l'administrateur. Le journal compte les
+    façades de chaque requête, et le tableau de bord montre le coût par façade de chaque parcelle.
+    Points de fumée 69 et 70.
+
 - **Le 100 % protégé** (lot L12 du plan de mise en œuvre, `MD/spec-regles-toits.md` §1,
   `MD/spec-audit.md` §14.5) : un bâtiment marqué « vérifié sur place » par un audit de la parcelle
   n'est plus recalculé par Plan (`model/toitVerifie.ts`).

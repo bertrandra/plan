@@ -373,12 +373,25 @@ export interface EtatVerification {
  * mitoyennes, ou inaccessibles), que son toit a ete vu, et que toutes ses propositions sont cochees
  * (§14.5) : c'est le 100 % du §1. Les autres ne le sont pas, et la liste dit pourquoi.
  */
+/**
+ * Une proposition de Claude decochee alors qu'une autre, cochee, ecrit le meme attribut du meme
+ * objet (la couverture vue sur place contre celle que Claude propose) : la personne a tranche, et
+ * ce refus ne retient pas le batiment hors du « verifie sur place ». Une proposition de Claude sans
+ * concurrente cochee, elle, reste a voir.
+ */
+function tranchee(p: Proposition, propositions: readonly Proposition[], cochees: ReadonlySet<string>): boolean {
+  if (p.source !== 'claude') return false;
+  const attribut = (x: Proposition) => JSON.stringify(x.cible) + ':' + x.effet.type;
+  const cle = attribut(p);
+  return propositions.some((q) => q.id !== p.id && cochees.has(q.id) && attribut(q) === cle);
+}
+
 export function verifications(liste: ListeDeControle, capture: CaptureParcelle, propositions: readonly Proposition[], cochees: ReadonlySet<string>): EtatVerification[] {
   return liste.batiments.map((b) => {
     const sansPhoto = b.facades.filter((f) => f.statut === 'aPhotographier');
     const photographiee = b.facades.some((f) => f.statut === 'photographiee');
     const vu = capture.batiments[b.cle]?.vu ?? {};
-    const decochees = propositions.filter((p) => p.cible.type !== 'parcelle' && p.cible.cle === b.cle && !cochees.has(p.id)).length;
+    const decochees = propositions.filter((p) => p.cible.type !== 'parcelle' && p.cible.cle === b.cle && !cochees.has(p.id) && !tranchee(p, propositions, cochees)).length;
     let raison: string | null = null;
     if (!photographiee) raison = 'aucune façade photographiée';
     else if (sansPhoto.length) raison = sansPhoto.map((f) => 'façade ' + f.facade.orientation.toLowerCase()).join(', ') + ' : pas de photo';
