@@ -22,10 +22,10 @@
     "t": "2026-10-13T12:00:00Z",
     "position": {"x":0.2,"y":-15.98,"precisionM":null}
    },
-   "identite": {"cleBdtopo":null,"idu":"78650000AE0101","adresse":"2 allée des Limites"},
+   "identite": {"cleBdtopo":"BATIMENT0000000322509182","idu":"78650000AE0101","adresse":"2 allée des Limites"},
    "entrees": {
     "pts": [{"x":6.722,"y":-11.929},{"x":1.838,"y":-13.482},{"x":2.771,"y":-16.472},{"x":3.37,"y":-16.366},{"x":3.994,"y":-18.56},{"x":3.198,"y":-18.868},{"x":3.818,"y":-20.762},{"x":-4.754,"y":-23.356},{"x":-5.066,"y":-22.26},{"x":-5.863,"y":-22.568},{"x":-8.465,"y":-13.295},{"x":-1.588,"y":-11.12},{"x":-2.318,"y":-8.428},{"x":5.159,"y":-6.245}],
-    "bdtopo": null,
+    "bdtopo": {"cleabs":"BATIMENT0000000322509182"},
     "grille": {
      "pas": 0.5,
      "x0": -9.215,
@@ -108,6 +108,14 @@
       "egouts": [2.7,3.1],
       "pignons": [],
       "ecart": 0.21
+     },
+     {
+      "pts": [{"x":-5.6,"y":-23.5},{"x":3.94,"y":-20.82},{"x":4.28,"y":-22.02},{"x":-5.26,"y":-24.7}],
+      "posFaitage": 0,
+      "faitage": 3.2,
+      "egouts": [3.2,2.4],
+      "pignons": [],
+      "ecart": 0.38
      }
     ],
     "toitMesure": {
@@ -124,7 +132,7 @@
     "couleurMurs": null,
     "sourceMurs": null
    },
-   "historique": [{"t":"2026-10-13T12:00:00Z","texte":"Cas reconstitué (pas une promenade) depuis le relevé tests/fixtures/toits/vesinet-ae101.json : contour recalé et grille LiDAR réels, sans attributs BD TOPO. Sorties du code de main (d7d3f29)."},{"t":"2026-10-13T12:00:00Z","texte":"valide : AE 101 est la maison de référence de l’utilisateur ; ses corps ne bougent pas au centimètre (identite.ts, toitCorpsReprise.test.ts)."}]
+   "historique": [{"t":"2026-10-13T12:00:00Z","texte":"Cas reconstitué (pas une promenade) depuis le relevé tests/fixtures/toits/vesinet-ae101.json : contour recalé et grille LiDAR réels, sans attributs BD TOPO. Sorties du code de main (d7d3f29)."},{"t":"2026-10-13T12:00:00Z","texte":"valide : AE 101 est la maison de référence de l’utilisateur ; ses corps ne bougent pas au centimètre (identite.ts, toitCorpsReprise.test.ts)."},{"t":"2026-10-14T12:00:00Z","texte":"attendu changé, une fois, par décision de l’utilisateur : le propriétaire a vu sur place un appentis (galerie couverte) sur toute la façade sud ; fait de regles/toits/faits.json (BATIMENT0000000322509182). La clé BD TOPO du bâtiment, lue dans le relevé du village (village.mjs, Le Vésinet : contour et grille identiques à ceux du cas), est ajoutée à l’identité et aux entrées (la clé seule : sans hauteur, la vraisemblance et l’égout du cas ne changent pas). Quatrième corps : l’appentis, cotes lues sur le LiDAR (profondeur 1,25 m, 3,2 m contre le mur, égout 2,4 m) ; les trois corps d’avant ne bougent pas."}]
   }
  ]
 }

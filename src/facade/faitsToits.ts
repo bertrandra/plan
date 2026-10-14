@@ -8,11 +8,15 @@
 // - en **remplacement**, il donne tout : un corps sur la boite orientee du contour, aux dimensions du
 //   fait, sans garde-fou (la mesure est absente ou trompeuse, c'est la raison du remplacement).
 //
+// Un appentis adosse que l'observation decrit (un porche, une galerie sur une facade) s'ajoute ensuite
+// aux corps, contre sa facade, aux cotes lues sur la mesure ou donnees par le fait (facade/appentisFait.ts).
+//
 // Ce qui ne s'impose pas (un nombre de corps minimum, une hauteur hors de la mesure) est dit par
 // `ecartsAuFait`, pour le skill regles-toits et les tests : un fait n'est jamais tordu en silence.
 
 import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from './toitCorps.js';
 import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
+import { appentisVers, avecAppentis } from './appentisFait.js';
 import { signedArea } from '../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../model/faitsToits.js';
 import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../model/types.js';
@@ -162,6 +166,12 @@ export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i)
  * sinon les plus grands, etendus sur le contour ; un nombre au moins ne se fabrique pas.
  */
 export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null = null): CorpsToit[] | null {
+  // Les appentis adosses se lisent sur la grille brute : la surface mesuree s'arrete au contour.
+  return avecAppentis(f.observation.appentis, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), contour, grille);
+}
+
+/** Les corps lus, le corps principal relu dans les formes et le sens observes, le nombre de corps tenu. */
+function corpsPrincipauxSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null): CorpsToit[] | null {
   const o = f.observation;
   const max = o.corps?.max;
   if ((!corps?.length || (max === 1 && corps.length > 1)) && presqueRectangle(contour)) {
@@ -189,6 +199,12 @@ export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: T
  * aux hauteurs du fait. Un appentis monte vers `hautVersDeg`, vers `pts[3]` sans indication.
  */
 export function corpsDeRemplacement(f: FaitToit, contour: readonly PtBrut[]): CorpsToit[] | null {
+  // Sans mesure, un appentis adosse ne se pose qu'avec toutes ses cotes.
+  return avecAppentis(f.observation.appentis, corpsSurBoiteDuFait(f, contour), contour, null);
+}
+
+/** Le corps du remplacement, sur la boite orientee du contour. */
+function corpsSurBoiteDuFait(f: FaitToit, contour: readonly PtBrut[]): CorpsToit[] | null {
   const d = f.dimensions;
   const forme = formesAdmises(f.observation.forme ? { forme: f.observation.forme } : {}).values().next().value as FormeCorps | undefined;
   if (!d || !forme || contour.length < 3) return null;
@@ -232,6 +248,8 @@ export function toitDeRemplacement(f: FaitToit, contour: readonly PtBrut[]): { t
  */
 export function ajusteSousContrainte(f: FaitToit, pts: readonly PtBrut[], ech: readonly EchantillonHauteur[], ajuste: ToitAjuste | null): ToitAjuste | null {
   const o = f.observation;
+  // Un fait qui ne dit rien de la forme (un appentis adosse seul) ne touche pas a la forme simple.
+  if (!o.forme && !o.faitage && !o.bouts) return ajuste;
   const formes = formesAdmises(o);
   // Une forme du catalogue n'est jamais admise : le fait ne parle que des formes simples.
   const vers = (forme: FormeToit): string => (forme === 'quatre-pans' ? 'croupes' : forme);
@@ -251,7 +269,9 @@ export function ajusteSousContrainte(f: FaitToit, pts: readonly PtBrut[], ech: r
  */
 export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, contour: readonly PtBrut[]): string[] {
   const o = f.observation;
-  const n = corps?.length ?? 0;
+  // Les appentis adosses que le fait a ajoutes ne comptent pas parmi les corps du batiment.
+  const adosses = (o.appentis ?? []).filter((ap) => corps?.some((c) => appentisVers(c, ap)));
+  const n = (corps?.length ?? 0) - adosses.length;
   const out: string[] = [];
   if ((o.corps?.min !== undefined && n < o.corps.min) || (o.corps?.max !== undefined && n > o.corps.max)) out.push('corps : ' + n);
   if (!corps?.length) return [...out, 'aucun corps'];
@@ -262,6 +282,7 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   if (forme !== 'plat' && !sensAdmis(o, contour, azimutFaitage(c))) out.push('faitage : azimut ' + Math.round(azimutFaitage(c)));
   if (!dans(Math.min(...c.egouts), o.egout)) out.push('egout : ' + Math.min(...c.egouts));
   if (!dans(c.faitage, o.faitageM)) out.push('faitage : ' + c.faitage + ' m');
+  for (const ap of o.appentis ?? []) if (!adosses.includes(ap)) out.push('appentis vers ' + ap.facade.azimutDeg + ' : non lu');
   return out;
 }
 

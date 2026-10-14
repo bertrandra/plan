@@ -32,6 +32,24 @@ export type FaitageFait =
   | { par: 'long'; sens: 'parallele' | 'perpendiculaire'; toleranceDeg?: number }
   | { par: 'azimut'; azimutDeg: number; toleranceDeg?: number };
 
+/**
+ * Un appentis adosse le long d'une facade (spec §5.1) : un porche, une galerie couverte, un auvent
+ * que le contour BD TOPO ne contient pas. La facade se designe par l'azimut de sa normale sortante
+ * (0 = nord, sens horaire : 180 pour la facade sud), comme on la nomme sur place. `longueur: 'toute'` :
+ * sur tout le cote du corps qui porte cette facade. Les cotes absentes sont lues sur la mesure
+ * (facade/appentisFait.ts) ; celles que le fait donne l'emportent.
+ */
+export interface AppentisFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  longueur: 'toute';
+  /** La saillie du pan, du mur a l'egout, a plat, en metres. */
+  profondeurM?: number;
+  /** L'egout, au bord bas, en metres au-dessus du sol. */
+  egoutM?: number;
+  /** La hauteur du pan contre le mur (sa rive de tete), en metres au-dessus du sol. */
+  hautM?: number;
+}
+
 /** Ce que vous avez vu : chaque assertion absente n'est pas imposee (spec §7.1). */
 export interface ObservationFait {
   /**
@@ -44,6 +62,8 @@ export interface ObservationFait {
   corps?: { min?: number; max?: number };
   egout?: Fourchette;
   faitageM?: Fourchette;
+  /** Les appentis adosses que le calcul ajoute aux corps lus (spec §5.1). */
+  appentis?: AppentisFait[];
 }
 
 /** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */
@@ -59,8 +79,8 @@ export interface FaitToit {
   observation: ObservationFait;
   application: 'contrainte' | 'remplacement';
   dimensions?: DimensionsFait;
-  /** D'ou il vient : le fichier de promenade et le cas, une photo. Sans effet sur le calcul. */
-  preuve?: { promenade?: string; cas?: string; photo?: boolean };
+  /** D'ou il vient : le fichier de promenade et le cas, une photo, ou une observation dite en mots. Sans effet sur le calcul. */
+  preuve?: { promenade?: string; cas?: string; photo?: boolean; observation?: string };
   adresse?: string;
   historique?: { t: string; texte: string }[];
 }
@@ -94,6 +114,30 @@ function faitage(v: unknown, quoi: string): FaitageFait | undefined {
   throw new FaitsToitsIllisibles(quoi + '.faitage : { par: "long", sens: "parallele" | "perpendiculaire" } ou { par: "azimut", azimutDeg } (la rue n\'est pas dans le calcul : ecrire l\'azimut de la photo)');
 }
 
+const positif = (v: unknown): v is number => estNombre(v) && v > 0;
+
+function unAppentis(v: unknown, quoi: string): AppentisFait {
+  const a = v as { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown }; longueur?: unknown; profondeurM?: unknown; egoutM?: unknown; hautM?: unknown } | null;
+  if (!a || typeof a !== 'object' || !a.facade || !estNombre(a.facade.azimutDeg) || (a.facade.toleranceDeg !== undefined && !positif(a.facade.toleranceDeg))) throw new FaitsToitsIllisibles(quoi + ' : { facade: { azimutDeg }, longueur: "toute" } (l\'azimut de la normale sortante de la facade : 180 pour la facade sud)');
+  // Seule la longueur entiere de la facade se decrit pour l'instant : une partie demanderait de dire ou elle commence.
+  if (a.longueur !== undefined && a.longueur !== 'toute') throw new FaitsToitsIllisibles(quoi + '.longueur : "toute" (une partie de facade ne se decrit pas encore)');
+  for (const k of ['profondeurM', 'egoutM', 'hautM'] as const) if (a[k] !== undefined && !positif(a[k])) throw new FaitsToitsIllisibles(quoi + '.' + k + ' : un nombre de metres positif');
+  if (estNombre(a.egoutM) && estNombre(a.hautM) && a.hautM <= a.egoutM) throw new FaitsToitsIllisibles(quoi + ' : un appentis monte vers le mur (hautM au-dessus de egoutM)');
+  return {
+    facade: { azimutDeg: a.facade.azimutDeg, ...(a.facade.toleranceDeg !== undefined ? { toleranceDeg: a.facade.toleranceDeg as number } : {}) },
+    longueur: 'toute',
+    ...(a.profondeurM !== undefined ? { profondeurM: a.profondeurM as number } : {}),
+    ...(a.egoutM !== undefined ? { egoutM: a.egoutM as number } : {}),
+    ...(a.hautM !== undefined ? { hautM: a.hautM as number } : {}),
+  };
+}
+
+function appentis(v: unknown, quoi: string): AppentisFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste d\'appentis');
+  return v.map((a, i) => unAppentis(a, quoi + '[' + i + ']'));
+}
+
 function observation(v: unknown, quoi: string): ObservationFait {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== 'object') throw new FaitsToitsIllisibles(quoi + ' : sans observation');
@@ -104,6 +148,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
   const corps = o.corps as { min?: unknown; max?: unknown } | undefined;
   if (corps !== undefined && ((corps.min !== undefined && !(Number.isInteger(corps.min) && (corps.min as number) >= 1)) || (corps.max !== undefined && !(Number.isInteger(corps.max) && (corps.max as number) >= 1)))) throw new FaitsToitsIllisibles(quoi + '.corps : { min, max } entiers, au moins 1');
   const f = faitage(o.faitage, quoi), eg = fourchette(o.egout, quoi + '.egout'), fm = fourchette(o.faitageM, quoi + '.faitageM');
+  const ap = appentis(o.appentis, quoi + '.appentis');
   return {
     ...(formes ? { forme: formes as FormeToitSimple[] } : {}),
     ...(f ? { faitage: f } : {}),
@@ -111,6 +156,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
     ...(corps ? { corps: { ...(corps.min !== undefined ? { min: corps.min as number } : {}), ...(corps.max !== undefined ? { max: corps.max as number } : {}) } } : {}),
     ...(eg ? { egout: eg } : {}),
     ...(fm ? { faitageM: fm } : {}),
+    ...(ap ? { appentis: ap } : {}),
   };
 }
 
@@ -218,10 +264,12 @@ export const FAITS_SEMBLABLES_MAX = 5;
 /** Ce qu'un fait dit, en mots courts : la forme, le sens du faitage, les bouts. Deux faits de meme signature disent la meme chose. */
 export function signatureFait(f: FaitToit): string {
   const o = f.observation;
-  const forme = o.forme ? [...o.forme].sort().join('|') : 'forme ?';
+  // Un fait qui ne dit qu'un appentis adosse ne dit rien de la forme : inutile de le rappeler.
+  const forme = o.forme ? [...o.forme].sort().join('|') : o.appentis && !o.faitage && !o.bouts ? '' : 'forme ?';
   const sens = o.faitage ? (o.faitage.par === 'long' ? 'faitage ' + o.faitage.sens + ' au long cote' : 'faitage a azimut') : '';
   const bouts = o.bouts ? 'bouts ' + [...o.bouts].sort().join('+') : '';
-  return [forme, sens, bouts, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
+  const adosses = o.appentis ? o.appentis.length + ' appentis adosse(s)' : '';
+  return [forme, sens, bouts, adosses, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
 }
 
 /** Les faits comptes par signature, les plus nombreux d'abord ; `signal` au-dela de FAITS_SEMBLABLES_MAX. */

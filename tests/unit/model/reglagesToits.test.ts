@@ -85,7 +85,10 @@ describe('regles/toits/reglages.json', () => {
 
   it('sans profil, l’empreinte et la version de lecture sont celles d’avant le moteur des profils', () => {
     expect(EMPREINTE_REGLAGES_TOITS).toBe(empreinteReglagesToits(REGLAGES_TOITS, []));
-    expect(LECTURES_TOITS.at(-1)).toEqual({ version: 1, reglages: '3b9b6b2c' });
+    // La premiere lecture reste celle des seuils sortis du code ; la derniere porte l'empreinte des
+    // reglages d'aujourd'hui (le moteur des profils, sans profil, ne l'a pas changee).
+    expect(LECTURES_TOITS[0]).toEqual({ version: 1, reglages: '3b9b6b2c' });
+    expect(LECTURES_TOITS.at(-1)?.reglages).toBe(EMPREINTE_REGLAGES_TOITS);
   });
 
   it('un fichier abime est refuse, plutot que de lire les toits avec un seuil manquant', () => {

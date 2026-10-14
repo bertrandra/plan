@@ -462,6 +462,49 @@ survit aux mises à jour du contour.
 - Un fait ne fait jamais tomber un test : il **est** l'attendu de son propre cas (§7).
 - Il est rangé dans le dépôt, relu par la CI, et versionné avec le code (§9).
 
+### 5.1 Un appentis adossé le long d'une façade
+
+Le reste du vocabulaire décrit la forme du **corps principal**. Un porche, une galerie couverte, un
+auvent sur toute une façade ne s'y disent pas : le contour BD TOPO s'arrête au mur (ou au débord du
+grand toit), la bande basse devant la façade n'appartient à aucun rectangle du contour, et la
+reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
+
+```json
+"observation": {
+  "appentis": [{ "facade": { "azimutDeg": 180 }, "longueur": "toute", "profondeurM": 2, "egoutM": 2.4, "hautM": 3.4 }]
+}
+```
+
+| Champ | Valeurs | Ce que le calcul en fait |
+|---|---|---|
+| `facade.azimutDeg` | azimut de la **normale sortante** de la façade (0 = nord, sens horaire : 180 pour la façade sud) | le côté de corps en façade du contour dont la normale est à moins de `toleranceDeg` (45° par défaut, `TOLERANCE_FACADE_DEG`), le plus long s'il y en a plusieurs |
+| `longueur` | `"toute"` (seule valeur, et valeur par défaut) | sur tout ce côté de corps |
+| `profondeurM`, `egoutM`, `hautM` | mètres, facultatifs | les cotes données l'emportent ; les autres sont **lues sur la mesure** |
+
+- **Lecture des cotes** (`facade/appentisFait.ts`) sur la grille brute du MNH, qui déborde du
+  contour : la profondeur, bande de 25 cm après bande depuis le mur, tant qu'au moins la moitié des
+  cellules lisibles sont à hauteur d'appentis (entre 1,8 m et l'égout du mur moins 50 cm) plutôt qu'au
+  sol ; une bande toute sous un arbre, ou hors de la grille, ne l'arrête pas. Les hauteurs : le plan
+  du pan par moindres carrés sur ces cellules, contre le mur (`hautM`) et au bord (`egoutM`). Seuils
+  dans `reglages.json` (`PROFONDEUR_APPENTIS_MAX_M`, `PAS_BANDE_APPENTIS_M`, `PART_APPENTIS_MIN`,
+  `EGOUT_APPENTIS_MIN_M`, `SOUS_EGOUT_APPENTIS_M`, `MESURES_APPENTIS_MIN`).
+- **Un seul pan par façade** : le côté du corps est déjà le mur lissé (les décrochés de moins de
+  `SEUIL_DECROCHE_M` disparaissent dans les rectangles), et un décroché de l'appentis plus petit ne
+  se lit ni sur le contour ni sur une grille de 50 cm. Deux pans décalés demanderaient de dire où est
+  le décroché : ce n'est pas encore dans le vocabulaire.
+- Le corps produit est un **appentis ordinaire** : `pts[0] → pts[1]` sur le mur (faîtage et rive de
+  tête), `posFaitage` = 0, `egouts` = [haut, égout]. La 3D le dessine comme les autres appentis
+  (`three/toitCorps3d.ts`), donc fermé de murs : une galerie ouverte sur poteaux n'est pas encore
+  dessinée. Sur un contour de biais (toits découpés sur le contour), il n'est pas dessiné du tout.
+- **Ne fabrique rien** : sans mesure qui voie un pan descendant du mur, et sans les trois cotes dans
+  le fait, l'appentis n'est pas ajouté et `ecartsAuFait` le dit (« appentis vers 180 : non lu »). En
+  `remplacement`, il ne se pose qu'avec ses trois cotes.
+- Il ne compte pas parmi les corps de `corps: { min, max }`, et ne touche ni au corps principal ni à
+  la forme simple (un fait qui ne dit que des appentis ne dit rien de la forme).
+- Premier cas : AE 101 (2 allée des Limites, Le Vésinet), galerie sur toute la façade sud vue par le
+  propriétaire le 14 octobre 2026 ; cotes lues : 1,25 m de profondeur, 3,2 m contre le mur, égout
+  2,4 m.
+
 ---
 
 ## 6. Les réglages : `regles/toits/reglages.json`

@@ -105,7 +105,11 @@ Le vocabulaire est fermé (`model/faitsToits.ts::lireFaitsToits` refuse le reste
 | `egout`, `faitageM` | `{ min, max }` en mètres | trient les candidats quand l'un d'eux les tient ; la mesure décide sinon |
 | `application` | `contrainte` (défaut), `remplacement` | voir ci-dessous |
 | `dimensions` | `{ egoutM, faitageM, hautVersDeg }` | **remplacement seulement** : les hauteurs, et le côté haut d'un appentis |
+| `appentis` | `[{ facade: { azimutDeg, toleranceDeg? }, longueur: "toute", profondeurM?, egoutM?, hautM? }]` | **ajoute** un appentis adossé (porche, galerie, auvent) que le contour ne contient pas, contre la façade dont la normale sortante regarde vers `azimutDeg` (180 : la façade sud ; 45° de tolérance) : un seul pan sur tout le côté du corps, cotes absentes lues sur la grille brute du MNH, données l'emportant ; rien n'est fabriqué sans mesure ni cotes (spec §5.1) |
 
+- **Une façade se nomme par sa normale** : « la façade sud » s'écrit `facade: { azimutDeg: 180 }`,
+  même si la maison est tournée (AE 101 : façade à 164°) ; c'est le côté d'un corps en façade du
+  contour, le plus long s'il y en a plusieurs.
 - **La rue n'est pas dans le calcul** : un faîtage « perpendiculaire à la rue » s'écrit en azimut
   (0 = nord, sens horaire, modulo 180). La photo prise face à la façade donne la direction : son
   `azimutDeg` est perpendiculaire à la façade, donc **parallèle** à un faîtage perpendiculaire à la
@@ -181,10 +185,22 @@ Le corpus compte deux fichiers reconstitués (`tests/fixtures/audit/`). Leur tra
 | Le Vésinet c1 (AE 101) | aucun | référence, `valide` | la maison de référence ; son attendu est son calcul au centimètre |
 | Hucqueliers c1 (37248484, `BATIMENT0000000349542179`) | `toit.morceaux` | **règle** | les ailes du pavillon est restent recoupées en bandes : c'est le chantier ouvert du skill `toits` (§9 : ajuster une aile sur sa seule partie propre). Aucun seuil ne le corrige sans abîmer ses semblables (les bandes recouvertes d'Hucqueliers), et un fait « un seul corps » serait faux : la carte montre une longère à plusieurs corps (essai `--faits` avec `corps.max = 1` : un seul toit à 7 m couvre les deux pavillons hauts). Reste `a_corriger`. |
 
-Aucun fait n'a donc été ajouté : `regles/toits/faits.json` est livré vide, et la version de lecture
-reste 1.
+Aucun fait n'a donc été ajouté à ce passage : la version de lecture est restée 1.
 
-## 7. Cas candidats Panoramax : observer sans marcher (lot G3 bis)
+## 7. Le premier fait : la galerie d'AE 101 (14 octobre 2026)
+
+Le propriétaire d'AE 101 a vu sur place un appentis (galerie couverte, maison de style colonial
+américain) sur toute la façade sud, avec un décroché en plan d'environ 50 cm au milieu. **Fait**,
+pas réglage ni règle : rien de mesurable ne distingue ce porche d'une bande de jardin hors du contour
+BD TOPO, et l'utilisateur l'a vu. Le vocabulaire a gagné `appentis` (spec §5.1) ; les cotes sont lues
+sur le LiDAR (1,25 m, 3,2 m contre le mur, égout 2,4 m) ; un seul pan, le décroché étant plus petit
+que `SEUIL_DECROCHE_M` et à moitié sous un arbre sur la mesure. L'utilisateur a accepté que la
+référence d'AE 101 change une fois : `corps` de `tests/fixtures/toits/vesinet-ae101.json` reste le
+calcul (identique), `corpsAvecFaits` est la nouvelle référence (`identite.ts` vérifie les deux), et le
+cas c1 du corpus a pris la clé BD TOPO et l'appentis dans son attendu, avec une ligne d'historique.
+Lecture 2 (`LECTURES_TOITS`). Images : `MD/images/toits/ae101-appentis-cartes.png` et `-3d.jpg`.
+
+## 8. Cas candidats Panoramax : observer sans marcher (lot G3 bis)
 
 Avant d'écrire la règle d'une forme (vague 3b : lucarnes, Mansart, demi-croupes…), il faut des
 bâtiments qui l'ont. `scripts/candidats.ts` les cherche sur les photos de rue Panoramax d'un village
