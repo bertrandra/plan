@@ -275,6 +275,12 @@ interface ObjetCommun {
    * pour toutes, ou une liste reglee une par une. Absent, la disposition automatique vaut.
    */
   fenetres3d?: Fenetres3d | null;
+  /**
+   * Le profil de facades retenu pour le batiment (regles/facades/reglages.json,
+   * facade/profilsFacades.ts), et la version de la lecture qui l'a choisi
+   * (model/reglagesFacades.ts, VERSION_LECTURE_FACADES). Absent, le profil par defaut.
+   */
+  profilFacades?: ProfilFacadesRetenu | null;
   /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */
   pergola?: Pergola | null;
   /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
@@ -600,6 +606,12 @@ export interface ReglagesVoisinage3d {
 export interface Fenetre3d extends OuvertureFacade {
   /** Indice du cote du contour : de `pts[cote]` a `pts[cote + 1]`. */
   cote: number;
+}
+
+/** Le profil de facades d'un batiment : son identifiant (`defaut`, ou un profil du fichier) et la version qui l'a choisi. */
+export interface ProfilFacadesRetenu {
+  id: string;
+  version: number;
 }
 
 /** Les fenetres d'un batiment du projet en 3D (model/fenetres3d.ts). */
