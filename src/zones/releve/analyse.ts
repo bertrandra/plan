@@ -45,11 +45,13 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'referenc
  * a redire : deux photos voisines qui se ressemblent mal sur leur partie commune, une hauteur loin de
  * celle du cadastre.
  */
-export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null } | null {
+export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null; fusion?: ResultatFusion } | null {
   const commun = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
   if (morceaux.length > 1 && assemblage === 'vues') {
     const r = analyserVues({ ...commun, vues: morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m) })) });
-    return r ? { r, avis: avisFusion(r) ?? avisHauteur(r, hauteurEstimee) } : null;
+    // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et
+    // montre l'autre a Claude (lot G20).
+    return r ? { r, avis: avisFusion(r) ?? avisHauteur(r, hauteurEstimee), fusion: r } : null;
   }
   if (morceaux.length === 1) {
     const m = au(morceaux, 0);

@@ -1715,7 +1715,9 @@
   @media (prefers-reduced-motion: reduce){ .releveSablier{ animation:none; } }
 
   /* 5. Le resultat : l'elevation a l'echelle, les ouvertures comme des cadres a saisir. */
-  .releveElevation{ width:100%; max-height:52vh; display:block; touch-action:none; background:var(--stage-bg); border-radius:var(--r-panneau); }
+  /* Ne se tasse pas : dans la colonne du releve, qui defile, un telephone l'ecrasait a quelques
+     dizaines de pixels sous les cartes de la hauteur et du toit (lot G20 : le hachure s'y perdait). */
+  .releveElevation{ width:100%; max-height:52vh; display:block; flex-shrink:0; touch-action:none; background:var(--stage-bg); border-radius:var(--r-panneau); }
   .releveElevationCadre{ fill:none; stroke:var(--rule); stroke-width:1; }
   .releveOuverture rect{ fill:transparent; stroke:var(--camera-ok); stroke-width:2; cursor:move; }
   .releveOuverture.choisie rect{ stroke:var(--accent); stroke-width:3; fill:var(--zebra-hover); }
@@ -1758,6 +1760,16 @@
   .releveMorceau.choisi .releveVignette{ border-color:var(--accent); }
   /* Mur en L (§6.2) : au-dessus de la partie basse, il n'y a pas de mur ; la zone se voile. */
   .releveVide{ fill:var(--scrim); }
+  /* Le masque d'occlusion d'une fusion de vues (lot G20) : ce qui reste cache sur toutes les photos
+     (voiture, haie) se hachure, sur un voile de la chambre noire qui eteint l'obstacle. Les traits
+     prennent la couleur d'alerte du releve, lisible sur le voile dans les deux themes ; le motif, pas
+     la couleur seule, porte l'information, et la legende le dit en mots. */
+  .releveMasqueVoile{ fill:var(--camera-bg); fill-opacity:.35; }
+  .releveMasqueTrait{ stroke:var(--camera-alerte); }
+  /* Sans contour : le masque est fait de rectangles accoles, dont les bords communs se verraient. */
+  .releveMasqueHachure{ stroke:none; }
+  .releveLegendeMasque{ display:flex; align-items:center; gap:8px; }
+  .releveEchantillon{ flex:none; border-radius:3px; border:1px solid var(--rule); }
 
   /* ---- La vitrine publique (app/vitrine.ts, ?mode=demo) --------------------------------------
      Ne reste que la scene 3D, a la taille demandee (x, y) ou a celle de la fenetre — le cas d'un

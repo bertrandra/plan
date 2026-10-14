@@ -8,7 +8,7 @@
 
 import { appliquerRenfort, cartesAretes, grainesDeCoins, recalerCoins, type ResultatRenfort } from '../../facade/renfortRecalage.js';
 import { detecterSegments } from '../../facade/segments.js';
-import { signauxRenfort, type SituationRenfort, type VoteRenfort } from '../../facade/renfort.js';
+import { signauxRenfort, texteSignaux, type SituationRenfort, type VoteRenfort } from '../../facade/renfort.js';
 import type { SourceCoin } from '../../facade/calageFin.js';
 import type { Image } from '../../facade/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
@@ -25,9 +25,33 @@ export function signauxDesCoins(m: Morceau | undefined): SituationRenfort[] {
   return signauxRenfort({ calage: { note: fin?.note ?? 0, trouve: fin?.trouve ?? false, sources: sources.map((s) => (s === 'doigt' || s === 'claude' ? 'trouve' : s)) } });
 }
 
-/** Les signaux de la verification : la confiance des ouvertures proposees, les baies devinees, une facade en partie cachee. */
-export function signauxDeVerification(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; largeurM: number; couverture: number }): SituationRenfort[] {
-  return signauxRenfort({ ouvertures: e.ouvertures, devinees: e.devinees.filter((o) => o.source === 'devinee').length, largeurM: e.largeurM, cache: 1 - e.couverture });
+/**
+ * La part du mur cachee sur toutes les vues d'une fusion a partir de laquelle l'aide est proposee a la
+ * verification (lot G20). Plus bas que les 30 % du signal « facade mal vue » (F§12 bis), qui comptent
+ * aussi le mur hors des photos : la personne a deja pris plusieurs vues pour voir derriere l'obstacle,
+ * et ce qui reste cache partout est justement la ou une baie se devine sans se voir. Un dixieme du mur,
+ * c'est deja la place d'une fenetre derriere une voiture.
+ */
+export const MASQUE_NOTABLE = 0.1;
+
+/**
+ * Les signaux de la verification : la confiance des ouvertures proposees, les baies devinees, une
+ * facade en partie cachee. `masque` est la part du mur cachee sur toutes les vues d'une fusion (0 pour
+ * une photo seule) : des `MASQUE_NOTABLE`, la facade compte pour mal vue.
+ */
+export function signauxDeVerification(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; largeurM: number; couverture: number; masque?: number }): SituationRenfort[] {
+  const masque = e.masque ?? 0;
+  const s = signauxRenfort({ ouvertures: e.ouvertures, devinees: e.devinees.filter((o) => o.source === 'devinee').length, largeurM: e.largeurM, cache: Math.max(1 - e.couverture, masque) });
+  if (masque >= MASQUE_NOTABLE && !s.includes('malVue')) s.unshift('malVue');
+  return s;
+}
+
+/**
+ * Pourquoi l'aide est proposee, en clair. Avec un masque de fusion, « facade en grande partie cachee »
+ * dirait trop (un dixieme du mur suffit) : la part cachee sur toutes les photos est dite telle quelle.
+ */
+export function motifAide(signaux: readonly SituationRenfort[], masque = 0): string {
+  return signaux.map((x) => (x === 'malVue' && masque > 0 ? `${Math.round(masque * 100)} % du mur caché sur toutes les photos` : texteSignaux([x]))).join(', ');
 }
 
 /**

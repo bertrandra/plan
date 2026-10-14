@@ -10,6 +10,7 @@ import { type Decrochement } from '../../facade/profil.js';
 import type { Image, P2 } from '../../facade/homographie.js';
 import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
 import { type Prise } from './capteurs.js';
+import type { MasqueReleve } from './masque.js';
 
 /* ------------------------------------------------------------------------------------------------
  * Le parcours
@@ -30,6 +31,8 @@ export interface Resultat {
   avis: string | null;
   /** Les coins de chaque photo et leur resolution au mur : la precision annoncee des cotes. */
   calage?: CalageReleve | null;
+  /** Ce qui reste cache sur toutes les vues d'une fusion, hachure sur l'elevation (lot G20). */
+  masque?: MasqueReleve | null;
 }
 
 /**
