@@ -1,7 +1,12 @@
 // Banc d'essai d'un village : relance la reconstruction des corps sur les grilles de village-<nom>.json
 // avec le code courant, liste les batiments suspects et ecrit q/<cle>.json pour rendu.py.
 //
-//   npx tsx .claude/skills/toits/scripts/banc.ts <nom> [--tous]
+//   npx tsx .claude/skills/toits/scripts/banc.ts <nom> [--tous] [--profils <profils.json>]
+//
+// Chaque batiment est relu sous les seuils de ses profils de toits (regles/toits/reglages.json,
+// facade/profilsToits.ts), comme dans l'application ; `--profils` en essaie d'autres (une liste au format
+// de `profils`, verifiee comme le fichier livre) a la place, pour mesurer un profil avant de l'ecrire.
+// Le lieu : le departement de l'IDU de la parcelle, la latitude si le JSON du village la donne.
 //
 // La ligne d'un batiment : distance au centre de la parcelle, cle, hauteur BD TOPO, sommets du
 // contour, `reprise` (contour qui ne se decoupe pas en rectangles), `complet` (calcul entier : projet
@@ -11,12 +16,18 @@ import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
+import { PROFILS_TOITS, REGLAGES_TOITS, avecSeuilsToit } from '../../../../src/model/reglagesToits.ts';
+import { lireProfilsToits } from '../../../../src/model/profilsToits.ts';
+import { departementDuCode, profilsDuBatiment } from '../../../../src/facade/profilsToits.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
 const nom = process.argv[2];
 if (!nom) throw new Error('usage : banc.ts <nom> [--tous]');
 const tous = process.argv.includes('--tous');
+const iProfils = process.argv.indexOf('--profils');
+const profils = iProfils > 0 ? lireProfilsToits(JSON.parse(readFileSync(process.argv[iProfils + 1] as string, 'utf8')), Object.keys(REGLAGES_TOITS)) : PROFILS_TOITS;
 const D = JSON.parse(readFileSync(S + 'village-' + nom + '.json', 'utf8'));
+const lieu = { departement: departementDuCode(D.parcelle), latitude: typeof D.latitude === 'number' ? D.latitude : null, voisins: D.batiments.map((b: any) => ({ cle: b.key, pts: b.pts })) };
 mkdirSync(S + 'q', { recursive: true });
 const dims = (c: any) => { const [a, b, , d] = c.pts; return [Math.hypot(b.x - a.x, b.y - a.y), Math.hypot(d.x - a.x, d.y - a.y)]; };
 let nCorps = 0, nSus = 0, nSans = 0, nReprise = 0;
@@ -24,10 +35,13 @@ const lignes: string[] = [];
 const t0 = performance.now();
 for (const b of D.batiments) {
   if (!b.grille) continue;
-  const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
+  const choix = profilsDuBatiment(b, lieu, profils);
   // Comme l'application : calcul entier pour le projet et les mitoyens (ceux qui gardent leur mesure).
   const fort = b.principal || b.mesure;
-  const corps = m ? corpsVraisemblables(b, reconstruireCorps(m, b.pts, { coupes: fort, grille: b.grille })) ?? [] : [];
+  const { m, corps } = avecSeuilsToit(choix.surcharges, () => {
+    const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
+    return { m, corps: m ? corpsVraisemblables(b, reconstruireCorps(m, b.pts, { coupes: fort, grille: b.grille })) ?? [] : [] };
+  });
   const reprise = !rectanglesDuContour(b.pts);
   if (reprise) nReprise++;
   const h = b.bdtopo?.hauteurRetenueM ?? b.bdtopo?.hauteurM ?? null;
@@ -47,7 +61,8 @@ for (const b of D.batiments) {
   nCorps += corps.length;
   if (pb.length) nSus++;
   const formes = corps.map((c: any) => { const [, W] = dims(c); const plat = c.faitage - Math.min(...c.egouts) < 0.05; return plat ? 'plat' : c.croupes ? '4p' : (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) ? '1p' : '2p'; });
-  lignes.push(`${pb.length ? '!' : ' '} ${String(b.d).padStart(3)} ${b.key} h${h} ${b.pts.length}pts${reprise ? ' reprise' : ''} ${fort ? 'complet' : 'leger'} [${formes.join(' ')}] ${pb.join(', ')}`);
+  const avecProfils = choix.applicables.length ? ` profils ${choix.applicables.join('+')}` : '';
+  lignes.push(`${pb.length ? '!' : ' '} ${String(b.d).padStart(3)} ${b.key} h${h} ${b.pts.length}pts${reprise ? ' reprise' : ''} ${fort ? 'complet' : 'leger'}${avecProfils} [${formes.join(' ')}] ${pb.join(', ')}`);
   writeFileSync(S + 'q/' + b.key + '.json', JSON.stringify({ key: b.key, pts: b.pts, grille: b.grille, corps, pb }));
 }
 console.log(nom, 'temps', (performance.now() - t0).toFixed(0), 'ms batiments', D.batiments.length, 'corps', nCorps, 'suspects', nSus, 'sans corps', nSans, 'contours en reprise', nReprise);

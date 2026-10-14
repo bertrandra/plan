@@ -41,6 +41,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   formes simples. Un fichier ancien se relit et se réécrit à l'identique ; AE 101, le banc des
   villages et les empreintes n'ont pas bougé.
 
+- **Le moteur des profils de toits** (lot G15 de `MD/plan-vague-3-generaliser.md`,
+  `MD/spec-regles-toits.md` §6 et §9.1). Un profil de `regles/toits/reglages.json` change quelques
+  seuils de la lecture des toits pour les bâtiments qui remplissent toutes ses conditions.
+  - **Un vocabulaire fermé** (`model/profilsToits.ts`) : département (tiré du code INSEE ou de l'IDU
+    de la parcelle du projet), latitude, matériau des murs ou de la toiture (fichiers fonciers),
+    hauteur, surface, mitoyenneté (part du contour collée à un autre bâtiment : aucune, partielle,
+    forte), forme du contour (rectangle, composée, trapèze, biais), époque. Jamais une adresse ni un
+    bâtiment : une condition hors du vocabulaire, un seuil inconnu, un profil sans condition ou qui
+    ne cite pas deux cas font refuser le fichier.
+  - **Le plus précis l'emporte**, seuil par seuil (le plus de conditions) ; deux profils de même
+    précision sur le même seuil, qui peuvent toucher le même bâtiment, font refuser le fichier, et
+    la CI le dit (`tests/unit/model/reglagesToits.test.ts`).
+  - **Appliqué partout où un toit se lit** (`facade/profilsToits.ts`) : à l'import et en tâche de
+    fond (`app/toitsLidar.ts`, recalage compris), à la réponse « un toit par parcelle », au rejeu
+    des cas d'audit et au banc des villages (`banc.ts --profils <fichier>` essaie des profils avant
+    de les écrire). Les modules de la lecture lisent leurs seuils à chaque appel
+    (`SEUILS_TOITS`), plus une copie prise au chargement : un test le vérifie.
+  - **Le fichier livré ne contient aucun profil** : AE 101, le banc des cinq villages (corps au bit
+    près) et les empreintes golden sont identiques, l'empreinte des réglages et la version de
+    lecture des toits (1) aussi ; rien n'est relu. L'empreinte des profils (conditions, surcharges,
+    bornes du vocabulaire) entre dans `VERSION_LECTURE_TOITS` dès le premier profil.
+
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle

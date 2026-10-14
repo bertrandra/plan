@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, empreinteReglagesToits, lireReglagesToits, ReglagesToitsIllisibles } from '../../../src/model/reglagesToits.js';
+import { join, relative } from 'node:path';
+import { readdirSync, statSync } from 'node:fs';
+import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, PROFILS_TOITS, SEUILS_TOITS, avecSeuilsToit, empreinteReglagesToits, lireReglagesToits, CalculAsynchroneRefuse, ReglagesToitsIllisibles } from '../../../src/model/reglagesToits.js';
+import { conflitsDeProfils, lireProfilsToits } from '../../../src/model/profilsToits.js';
 import { LECTURES_TOITS, VERSION_LECTURE_TOITS, versionDeLecture } from '../../../src/app/toitsLidar.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE } from '../../../src/model/faitsToits.js';
 import { SEUIL_MARCHE_M, SOL_M } from '../../../src/model/toitMesure.js';
@@ -70,14 +72,46 @@ describe('regles/toits/reglages.json', () => {
     }
   });
 
-  it('les profils ne sont pas encore appliques : le fichier n’en declare aucun', () => {
+  it('le fichier livre ne declare aucun profil : le moteur est la, les profils viendront d’une contradiction entre cas', () => {
     expect(brut.profils).toEqual([]);
+    expect(PROFILS_TOITS).toEqual([]);
+  });
+
+  it('les profils du fichier se lisent, et deux profils de meme precision sur le meme seuil sont refuses', () => {
+    // Le test de CI sur le fichier : vocabulaire ferme, seuils connus, aucun conflit (model/profilsToits.ts).
+    const profils = lireProfilsToits(brut.profils, Object.keys(REGLAGES_TOITS));
+    expect(conflitsDeProfils(profils)).toEqual([]);
+  });
+
+  it('sans profil, l’empreinte et la version de lecture sont celles d’avant le moteur des profils', () => {
+    expect(EMPREINTE_REGLAGES_TOITS).toBe(empreinteReglagesToits(REGLAGES_TOITS, []));
+    expect(LECTURES_TOITS.at(-1)).toEqual({ version: 1, reglages: '3b9b6b2c' });
   });
 
   it('un fichier abime est refuse, plutot que de lire les toits avec un seuil manquant', () => {
     expect(() => lireReglagesToits({ format: 'autre', seuils: {} })).toThrow(ReglagesToitsIllisibles);
     expect(() => lireReglagesToits({ format: 'plan-reglages-toits', seuils: { A: { valeur: 'x' } } })).toThrow(ReglagesToitsIllisibles);
     expect(lireReglagesToits({ format: 'plan-reglages-toits', seuils: { A: { valeur: 1 } } })).toEqual({ A: 1 });
+  });
+
+  it('les modules lisent les seuils a chaque appel (SEUILS_TOITS), jamais une copie prise au chargement', () => {
+    // Sinon le profil d'un batiment (avecSeuilsToit) ne changerait rien : seul le nom exporte, pour les
+    // tests et la documentation, garde la valeur du fichier, et rien ne s'en sert dans le code.
+    const modules = new Set(Object.values(DESCRIPTION_REGLAGES_TOITS).map((d) => d.ou.split(' ')[0]!));
+    const fichiers = (dir: string): string[] => readdirSync(dir).flatMap((n) => { const c = join(dir, n); return statSync(c).isDirectory() ? fichiers(c) : /\.tsx?$/.test(c) ? [c] : []; });
+    const code = (t: string) => t.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    const tous = fichiers(join(racine, 'src')).map((f) => ({ f, t: code(readFileSync(f, 'utf8')) }));
+    for (const m of modules) {
+      const texte = code(readFileSync(join(racine, 'src', m), 'utf8'));
+      expect(texte, m).not.toMatch(/^const [A-Z0-9_]+ = R\./m);
+      for (const [, nom] of texte.matchAll(/^export const ([A-Z0-9_]+) = R\./gm)) {
+        // Dans son module, le nom n'apparait qu'a sa declaration ; ailleurs, personne ne l'importe.
+        expect((texte.match(new RegExp('(?<![.\\w])' + nom + '\\b', 'g')) ?? []).length, m + ' : ' + nom + ' lu dans le code ; lire S.' + nom).toBe(1);
+        const base = m.split('/').at(-1)!.replace(/\.ts$/, '');
+        const importe = new RegExp('import\\s*\\{[^}]*\\b' + nom + '\\b[^}]*\\}\\s*from\\s*[\'"][^\'"]*/' + base + '\\.js[\'"]');
+        for (const { f, t } of tous) expect(importe.test(t), relative(racine, f) + ' importe ' + nom + ' de ' + m + ' ; lire S.' + nom).toBe(false);
+      }
+    }
   });
 
   it('le code ne porte plus en dur les seuils sortis dans le fichier', () => {
@@ -88,6 +122,32 @@ describe('regles/toits/reglages.json', () => {
         expect(texte, m + ' : ' + nom).not.toMatch(new RegExp('\\b' + nom + ' = [0-9]'));
       }
     }
+  });
+});
+
+describe('avecSeuilsToit', () => {
+  it('surcharge le temps du calcul, puis remet les seuils du fichier', () => {
+    expect(avecSeuilsToit({ SEUIL_MARCHE_M: 1.5 }, () => SEUILS_TOITS.SEUIL_MARCHE_M)).toBe(1.5);
+    expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
+  });
+
+  it('remet les seuils meme sur une erreur, et se compose', () => {
+    expect(() => avecSeuilsToit({ SOL_M: 9 }, () => { throw new Error('casse'); })).toThrow('casse');
+    expect(SEUILS_TOITS.SOL_M).toBe(REGLAGES_TOITS.SOL_M);
+    const vu = avecSeuilsToit({ SOL_M: 1 }, () => [SEUILS_TOITS.SOL_M, avecSeuilsToit({ SOL_M: 2, CELLULES_MIN: 5 }, () => SEUILS_TOITS.SOL_M + SEUILS_TOITS.CELLULES_MIN), SEUILS_TOITS.SOL_M, SEUILS_TOITS.CELLULES_MIN]);
+    expect(vu).toEqual([1, 7, 1, REGLAGES_TOITS.CELLULES_MIN]);
+    expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
+  });
+
+  it('refuse un calcul asynchrone : d’autres batiments liraient ses seuils pendant l’attente', () => {
+    expect(() => avecSeuilsToit({ SOL_M: 1 }, async () => 1)).toThrow(CalculAsynchroneRefuse);
+    expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
+    // Sans surcharge, le calcul passe tel quel.
+    expect(avecSeuilsToit({}, () => 3)).toBe(3);
+  });
+
+  it('les seuils du fichier sont figes : seule la table en vigueur change', () => {
+    expect(Object.isFrozen(REGLAGES_TOITS)).toBe(true);
   });
 });
 

@@ -55,7 +55,7 @@ for (const chemin of fichiers) {
   const versions = `lecture ${regles.lectureToits ?? '?'} -> ${VERSION_LECTURE_TOITS}` + (regles.reglagesToits ? `, reglages ${regles.reglagesToits} -> ${EMPREINTE_REGLAGES_TOITS}` : '');
   lignes.push(`# ${basename(chemin)} : ${f.promenade.commune ?? '?'}, ${f.cas.length} cas, code ${f.promenade.code.version} (${f.promenade.code.commit ?? '?'}), ${versions}`);
   for (const c of f.cas) {
-    const r = rejouerCas(c, faits);
+    const r = rejouerCas(c, faits, { latitude: f.promenade.origine?.lat ?? null });
     const fait = faitDuBatiment({ bdtopo: c.entrees.bdtopo }, faits);
     const terrain = c.sorties ? ecartsSorties(r.sorties, c.sorties) : [];
     const attendu = c.attendu ? ecartsSorties(r.sorties, c.attendu, CHAMPS_VALIDES) : null;
