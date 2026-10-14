@@ -112,6 +112,16 @@ export const REGLAGES_STRUCTURE = {
     unite: 'part',
     pourquoi: "Remplissage maximal des deux coins du haut d'une baie pour la dire cintree, quand le haut du milieu est plein.",
   },
+  'facades.classement.cintreBordPart': {
+    valeur: 0.08,
+    unite: 'part',
+    pourquoi: "Part de la largeur, pres de chaque tableau, ou l'arc d'un cintre peut etre raide (un plein cintre est vertical a sa naissance) : au-dela, une marche franche dans le haut de la tache n'est pas un arc.",
+  },
+  'facades.classement.cintreMarcheMaxPart': {
+    valeur: 0.1,
+    unite: 'part',
+    pourquoi: "Plus grand saut du haut de la tache d'une colonne a la suivante, en part de sa hauteur, hors des bords : une baie posee sur une haie plus large qu'elle forme un T, pas un cintre (lot G17, scenes 07 et 17 du banc).",
+  },
 } as const satisfies Record<string, Reglage>;
 
 export type NomReglageStructure = keyof typeof REGLAGES_STRUCTURE;

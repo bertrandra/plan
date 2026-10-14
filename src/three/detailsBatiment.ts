@@ -27,6 +27,8 @@ import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusL
 import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
+import { Batisseur, type S3 } from './batisseur.js';
+import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteDetails {
@@ -111,47 +113,6 @@ const COULEUR_CHEMINEE_TUILE = 0x8a5a44;
 const COULEUR_CHEMINEE_ARDOISE = 0x6b6b6b;
 
 const rad = (d: number) => (d * Math.PI) / 180;
-type S3 = [number, number, number];
-
-/** Des quads accumules en une seule maille, par groupes de materiau : une maille par detail, pas par face. */
-class Batisseur {
-  positions: number[] = [];
-  uvs: number[] = [];
-  indices: number[] = [];
-  groupes: { debut: number; compte: number; materiau: number }[] = [];
-  private debutGroupe = 0;
-
-  /** Un quadrilatere `a b c d` (deux triangles), avec ses coordonnees de texture s'il en a. */
-  quad(a: S3, b: S3, c: S3, d: S3, uv?: number[]): void {
-    const k = this.positions.length / 3;
-    this.positions.push(...a, ...b, ...c, ...d);
-    this.uvs.push(...(uv ?? [0, 0, 0, 0, 0, 0, 0, 0]));
-    this.indices.push(k, k + 1, k + 2, k, k + 2, k + 3);
-  }
-
-  /** Clot le groupe en cours : ce qui a ete ajoute depuis le dernier prend ce materiau. */
-  groupe(materiau: number): void {
-    const compte = this.indices.length - this.debutGroupe;
-    if (compte > 0) this.groupes.push({ debut: this.debutGroupe, compte, materiau });
-    this.debutGroupe = this.indices.length;
-  }
-
-  get vide(): boolean {
-    return this.indices.length === 0;
-  }
-
-  maillage(materiaux: THREE_NS.Material[], nom: string): THREE_NS.Mesh {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2));
-    geo.setIndex(this.indices);
-    this.groupes.forEach((g) => geo.addGroup(g.debut, g.compte, g.materiau));
-    geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, materiaux);
-    m.name = nom;
-    return m;
-  }
-}
 
 /**
  * Le contour decale de `d` vers l'exterieur, sommet pour sommet (meme nombre, meme ordre) : les
@@ -427,6 +388,16 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   const cadres: (() => void)[] = [],
     vitres: (() => void)[] = [],
     portes: (() => void)[] = [];
+  // Les volets, coffres, balcons et garde-corps des ouvertures qui en ont (three/detailsOuvertures.ts).
+  const poses: PoseOuverture[] = [];
+  // Une baie cintree ou ronde : son cadre et sa vitre suivent son contour (lot G17) ; les autres
+  // gardent exactement leurs deux quads d'avant.
+  const forme = (f: Facade, o: Fenetre3d, y: number, vers: (() => void)[], porte: boolean) => {
+    const pt = repereFacade(ctx.toLocal, f);
+    const c = cadreEtVitreFormes(b, pt, { ...o, y }, CADRE_M, DECOLLEMENT, DECOLLEMENT * 2, porte);
+    cadres.push(c.cadre);
+    if (c.vitre) vers.push(c.vitre);
+  };
   liste.forEach((o) => {
     const f = facades.find((x) => x.cote === o.cote);
     if (!f || o.x < 0 || o.x + o.l > f.largeur + 0.01 || o.l <= 0 || o.h <= 0) return;
@@ -434,13 +405,21 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     if (o.type === 'porte' || o.type === 'garage') {
       // Sur un sol en relief, la porte se pose sur le sol devant elle, pas sur celui du centre.
       const yp = ctx.sol ? Math.max(ctx.base ?? 0, Math.min(hMur - o.h - 0.3, ctx.sol(pointDeFacade(f, o.x + o.l / 2)))) : o.y;
-      cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
-      portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+      if (aUneForme(o.details)) forme(f, o, yp, portes, true);
+      else {
+        cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
+        portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+      }
+      if (aDesDetails(o.details)) poses.push({ f, o: { ...o, y: yp }, hMur, cadre: CADRE_M });
       return;
     }
     if (!hautes.has(o) && o.y + o.h > hMur - 0.15) return;
-    cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
-    vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
+    if (aUneForme(o.details)) forme(f, o, o.y, vitres, false);
+    else {
+      cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
+      vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
+    }
+    if (aDesDetails(o.details)) poses.push({ f, o, hMur, cadre: CADRE_M });
   });
   if (!cadres.length) return;
   cadres.forEach((f) => f());
@@ -457,6 +436,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   // Un centimetre devant le mur ne suffit pas vu de loin : les ouvertures gagnent le test de profondeur.
   materiaux.forEach((m) => poserEnCouche(m, COUCHES_SOL.surMur));
   ctx.scene.add(b.maillage(materiaux, 'batiment-ouvertures'));
+  poserDetailsOuvertures(ctx, poses);
 }
 
 /** Une cheminee sur un toit en pente assez grand : un carre de brique (ou de pierre grise sous l'ardoise), a cote du faitage. */
