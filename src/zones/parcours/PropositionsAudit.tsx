@@ -44,7 +44,7 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
         <input type="checkbox" data-controle="auditParcelle.partagerCorpus" checked={e.accord} disabled={e.enCours} onChange={() => session.corpus.basculer()} />
         Partager cet audit pour améliorer Plan
       </label>
-      <p className="notePartage" aria-live="polite">{texteDuPartage(e)}</p>
+      <p className="notePartage" aria-live="polite">{texteDuPartage(e, session.fichierDisponible() && !!session.capture.lire().sauvegarde)}</p>
     </div>
   );
 }

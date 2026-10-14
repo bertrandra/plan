@@ -20,7 +20,10 @@ function monter(client: ClientAudits | null = null) {
 
 function faux() {
   let n = 0;
-  const client = { envoyer: vi.fn(async () => ({ id: 'a' + ++n, retrait: 'r' + n })), retirer: vi.fn(async () => {}) };
+  const client = {
+    envoyer: vi.fn(async () => ({ id: 'a' + ++n, retrait: 'r' + n })), retirer: vi.fn(async () => {}),
+    remplacer: vi.fn(async (id: string, retrait: string) => ({ id, retrait })), lister: vi.fn(async () => []), lire: vi.fn(async () => ''),
+  };
   return client;
 }
 

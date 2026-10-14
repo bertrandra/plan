@@ -253,7 +253,8 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
  * n'existent qu'en admin des demos (`enAdmin`) : hors admin, ils demandent le mot de passe. Le mode
  * audit est ouvert aussi a l'administrateur de la plateforme (`estAdministrateur`). Chaque ecran a
  * son bouton de retour. La consommation et la conformite passent par le registre (`admin.consommation`,
- * `admin.conformite`). Avec
+ * `admin.conformite`), comme le catalogue des audits de parcelle recus (`admin.auditsParcelle`), qui
+ * s'ouvre en Z8 sur le projet en cours (il y rouvre un audit). Avec
  * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`).
  */
 export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
@@ -282,6 +283,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
+        <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits de parcelle" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>

@@ -107,6 +107,13 @@ export interface CaptureParcelle<P = PhotoCas> {
    */
   partage?: PartageCorpus;
   /**
+   * La sauvegarde sur le serveur de Plan pendant la capture (§15) : le depot que chaque envoi
+   * remplace, et quand il est parti. Absente tant que rien n'est parti. Comme le partage, elle reste
+   * sur l'appareil : le fichier de l'audit ne la recopie pas, le secret de retrait non plus. Un
+   * secret vide : le depot a ete rouvert par l'administrateur, sa session suffit a le remplacer.
+   */
+  sauvegarde?: EnvoiCorpus | null;
+  /**
    * L'analyse par Claude (§13.2, lot L17) : l'accord de l'utilisateur, le batch en cours et ses
    * resultats. Absente tant que la question n'a pas ete posee. Elle vit dans la capture pour
    * survivre a un rechargement (brouillon) et pour le fichier de l'audit (§15).

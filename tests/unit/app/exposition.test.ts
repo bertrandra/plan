@@ -56,7 +56,8 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   vue3d: ['src/zones/vue3d/Vue3d.tsx'],
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
-  premierPas: ['src/app/boot.ts']
+  premierPas: ['src/app/boot.ts'],
+  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours')]
 };
 
 describe('la carte d exposition des commandes', () => {

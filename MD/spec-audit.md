@@ -689,8 +689,69 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
   de retrait, gardé avec la capture sur l'appareil ; le serveur n'en garde que l'empreinte. Chaque
   validation renvoie le fichier et retire le précédent. La liste et la lecture sont à
   l'administrateur seul.
-- Restent : l'écran de l'admin qui liste les audits reçus et les verse au corpus (§21), et les
-  corrections faites dans l'éditeur du relevé, qui attendent son ouverture depuis la ligne d'une façade.
+
+**Sauvegarde pendant la capture, et catalogue de l'administrateur** (demande de l'administrateur du
+14 octobre : « il faut pouvoir pousser un audit parcelle pour le rejouer ; si problème, on perd
+tout ») :
+- Le brouillon de l'appareil se perd avec le téléphone ou le navigateur. Quand quelqu'un peut envoyer
+  (même condition que le corpus : session admin ou jeton de la plateforme), le fichier de l'audit
+  part aussi au serveur de Plan **pendant la capture** (`app/audit/parcelle/sauvegarde.ts`) :
+  cinq secondes après la dernière photo rangée ou retirée (une rafale fait un envoi ; une note tapée
+  n'en fait aucun), à « Lancer l'analyse », et à la demande par la commande « Envoyer l'audit au
+  serveur » (`audit.envoyerParcelle`), sous la liste de contrôle, qui dit l'état : « Envoyé à 17:42 »,
+  « En attente de réseau, nouvel essai à 17:45 », l'erreur du serveur en clair, ou la taille.
+- **Le même dépôt est remplacé à chaque envoi** : `PUT admin/audits/<id>`, par le secret de retrait
+  gardé avec la capture (`CaptureParcelle.sauvegarde`, sur l'appareil seulement, comme celui du
+  corpus) ou par la session admin ; un dépôt retiré entre-temps est refait par un `POST`. La grille
+  LiDAR d'un bâtiment n'est relue qu'une fois par session (contour inchangé).
+- **Hors ligne**, l'envoi réessaie à 15 s, 30 s, 1 min, 2 min puis toutes les 5 min, et dès que le
+  navigateur retrouve le réseau ; un serveur indisponible (5xx, 408, 429) de même ; un refus (401,
+  403, 400) se dit sans insister. La capture n'attend jamais.
+- **Taille** : huit photos de 1 280 px (300 Ko au plus chacune, ~400 Ko en base64) par façade, soit
+  ~3,2 Mo la façade au plus ; dix façades pleines font ~32 Mo, sous les **48 Mo** que les deux
+  serveurs acceptent (`TAILLE_MAX`). Au-delà, rien ne part et la ligne le dit (« L'audit pèse 52 Mo :
+  le serveur de Plan en accepte 48 Mo au plus. Retirez quelques photos… »). Sur l'hébergement PHP,
+  `post_max_size` (8 Mo par défaut) ne coupe pas un corps JSON lu par `php://input` (vérifié en
+  PHP 8.3 : un audit de 4 Ko passe un plafond de 2 Ko ; PHP n'en écrit qu'un avertissement au
+  journal) ; une configuration qui le jetterait quand même laisse un corps vide, et `analyse.php`
+  répond alors 413 « … post_max_size = 8M dans sa configuration, à porter à 64M », montré tel quel.
+  La vraie borne est **`memory_limit`** (128 Mo par défaut) : le texte et son JSON décodé tiennent
+  ensemble en mémoire, environ trois fois la taille du fichier. À régler sur l'hébergement :
+  `memory_limit = 256M`, et `post_max_size = 64M` pour ne pas remplir le journal d'avertissements.
+- **Sauvegarde ou corpus** : le dépôt porte sa marque, en-tête `X-Plan-Depot: sauvegarde` ;
+  sans en-tête (les pages d'avant), c'est un partage `corpus`. Le fichier lui-même ne change pas : la
+  marque dit pourquoi il a été déposé, pas ce qu'il contient, et un fichier se rejoue à l'octet près
+  quelle que soit sa marque. La fiche du serveur la garde, avec les photos, la phase (`capture` tant
+  que `finCapture` est vide) et le début de la visite. Le partage D7 reste ce qu'il était, cochable
+  et retirable, un dépôt à part après « Valider » ; l'écran Conformité ignore les sauvegardes (une
+  capture inachevée n'a rien validé, et un audit partagé ensuite compterait deux fois).
+- **L'accord** (§16, « pas d'envoi de photos sans votre accord ») : l'envoi automatique est celui de
+  l'administrateur, ou d'un utilisateur qui laisse cochée la case du partage (cochée par défaut :
+  c'est l'accord d'envoyer le fichier, photos comprises, au serveur de Plan). Décocher la case retire
+  aussi la sauvegarde d'un utilisateur ; ensuite rien ne part sans le bouton. L'administrateur garde
+  toujours la sienne, et sa case le dit (« La sauvegarde de l'audit reste sur le serveur de Plan »).
+- **Admin › « Audits de parcelle »** (`admin.auditsParcelle`, menu Admin à côté de « Conformité »,
+  admin des démos seulement) : un parcours de Z8 (`zones/parcours/AuditsParcelle.tsx`), et non un écran
+  plein page comme la Conformité, parce qu'il rouvre un audit dans le projet ouvert dessous. Une carte
+  par audit reçu, du plus récent au plus ancien : date de réception, sauvegarde ou partage, capture en
+  cours ou terminée, parcelle (IDU), adresse, photos, taille, organisation. Pour chacun :
+  - « Ouvrir dans ce projet », si le projet est sur la même parcelle (sinon grisé, avec la raison
+    écrite sous les boutons) : le fichier est lu sur le serveur et repris par le chemin de l'import,
+    question de remplacement comprise, **à la phase où il en était** — sur la liste de contrôle
+    quand la capture n'était pas finie (`captureDuFichier` lit `finCapture`), sur les propositions
+    sinon. Une sauvegarde rouverte reste la même : les envois suivants de l'administrateur la
+    remplacent (par sa session), au lieu d'en créer une autre ;
+  - « Télécharger » le fichier tel qu'il est arrivé (`audit-parcelle-<jour>-<idu>.json`) ;
+  - « Retirer », confirmé sur la carte même (« Retirer définitivement » ou « Garder ») : une question
+    de Z8 s'ouvrirait sous le parcours.
+- Contrat (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, scénario commun
+  `tests/fixtures/deploy/scenarioAudits.ts`) : `PUT admin/audits/<id>` (secret ou admin, et comme le
+  dépôt une session ou un jeton ; identifiant, secret et organisation du premier envoi gardés ;
+  404 s'il n'existe plus), `X-Plan-Depot` (`corpus` ou `sauvegarde`, sinon 400), fiche augmentée de
+  `marque`, `photos`, `phase`, `debut` ; 413 qui dit `post_max_size` quand PHP a jeté le corps. Client : `io/auditsServeur.ts` (`envoyer`, `remplacer`,
+  `retirer`, `lister`, `lire`). Fumée : point 85.
+- Restent : verser les audits reçus au corpus du dépôt (§21), et les corrections faites dans l'éditeur
+  du relevé, qui attendent son ouverture depuis la ligne d'une façade.
 
 ## 16. Ce que l'audit de parcelle ne fait pas
 

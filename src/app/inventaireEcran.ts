@@ -70,7 +70,8 @@ export const CONTENEURS_EMPLACEMENTS: Record<Exclude<Emplacement, 'clavier' | 's
   barreHaute: ['zoneBarre'], menuFichier: ['zoneBarre'], menuExporter: ['zoneBarre'], menuAffichage: ['zoneBarre'], menuAide: ['zoneBarre'], menuAdmin: ['zoneBarre'],
   feuilleProjet: ['zoneBarre'], navigation: ['zoneNavigation'], palette: ['zonePalette'], rail: ['zonePalette'], feuilleOutils: ['zonePalette'],
   explorateur: ['zoneExplorateur'], surimpression: ['zoneSurimpression', 'stage'], selection: ['zoneSelection'],
-  vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues']
+  vue3d: ['zoneVues3d'], visionneuse: ['zoneVues3d'], inspecteur: ['zoneInspecteur'], tiroir: ['zoneResultats'], premierPas: ['zoneDialogues'],
+  parcours: ['zoneDialogues']
 };
 
 /** Le conteneur de zone (index.html) qui porte l'element, ou `null` hors de toute zone. */

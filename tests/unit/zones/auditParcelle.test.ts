@@ -7,6 +7,7 @@ import { AuditCas } from '../../../src/zones/parcours/AuditCas.js';
 import { creerSessionAuditParcelle } from '../../../src/app/audit/parcelle/controleur.js';
 import { creerPromenade } from '../../../src/app/audit/promenade.js';
 import { creerEtat } from '../../../src/core/state.js';
+import { creerRegistre } from '../../../src/app/commandes.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
 // L'ecran de l'audit de la parcelle (Z8) : la liste de controle par batiment, les gestes qui la
@@ -31,7 +32,7 @@ function ecran(objets: ObjetPlan[] = quartier()) {
   const etat = creerEtat({ objects: objets } as never, (o) => o as never);
   const s = creerSessionAuditParcelle({ etat, idu: '78650000AE0101', ouvrir3d: vi.fn(), signaler: () => {}, stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false }, surligner: () => {}, retirerPosition: () => {} });
   const fermer = vi.fn();
-  act(() => racine.render(createElement(AuditParcelle, { session: s, fermer })));
+  act(() => racine.render(createElement(AuditParcelle, { session: s, commandes: creerRegistre(), fermer })));
   return { s, fermer };
 }
 const bouton = (texte: string | RegExp) => [...hote.querySelectorAll('button')].find((b) => (typeof texte === 'string' ? b.textContent === texte || b.getAttribute('aria-label') === texte : texte.test(b.getAttribute('aria-label') ?? b.textContent ?? ''))) as HTMLButtonElement | undefined;
@@ -135,3 +136,34 @@ describe('« Ce que je vois » dans la fiche de la promenade', () => {
     expect(promenade.cas('b1')).not.toHaveProperty('vu');
   });
 });
+
+describe('la sauvegarde sous la liste de controle', () => {
+  it('se montre quand quelqu un peut envoyer : le bouton du registre, puis ce qui est parti', async () => {
+    const etat = creerEtat({ objects: quartier() } as never, (o) => o as never);
+    const client = {
+      envoyer: vi.fn(async () => ({ id: 'd1', retrait: 'r1' })), remplacer: vi.fn(async (id: string, retrait: string) => ({ id, retrait })),
+      retirer: vi.fn(async () => {}), lister: vi.fn(async () => []), lire: vi.fn(async () => ''),
+    };
+    const s = creerSessionAuditParcelle({
+      etat, idu: '78650000AE0101', ouvrir3d: vi.fn(), signaler: () => {}, stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, audits: () => client, lireGrille: async () => null, maintenant: () => new Date('2026-10-13T15:42:00Z'),
+      sauvegarde: { planifier: () => () => {}, surReseau: () => () => {} },
+    });
+    const commandes = creerRegistre();
+    commandes.declarer({ id: 'audit.envoyerParcelle', libelle: 'Envoyer l’audit au serveur', groupe: 'audit', executer: () => { void s.sauvegarde.envoyer(); } });
+    act(() => racine.render(createElement(AuditParcelle, { session: s, commandes, fermer: () => {} })));
+    const ligne = hote.querySelector('.sauvegardeAudit');
+    expect(ligne?.querySelector('.noteSauvegarde')?.textContent).toBe('Chaque photo part aussi sur le serveur de Plan, quelques secondes après : rien ne se perd si le téléphone s’éteint.');
+    const b = ligne?.querySelector<HTMLButtonElement>('button[data-commande="audit.envoyerParcelle"]');
+    expect(b?.textContent).toBe('Envoyer l’audit au serveur');
+    await act(async () => { b?.click(); await vi.waitFor(() => expect(client.envoyer).toHaveBeenCalledOnce()); });
+    await act(async () => { await vi.waitFor(() => expect(s.sauvegarde.etat().etat).toBe('envoye')); });
+    expect(hote.querySelector('.noteSauvegarde')?.textContent).toMatch(/^Envoyé (le \d\d\/\d\d )?à \d\d:\d\d\. Chaque photo y part aussi, quelques secondes après\.$/);
+  });
+
+  it('n existe pas sans personne pour envoyer', () => {
+    ecran();
+    expect(hote.querySelector('.sauvegardeAudit')).toBeNull();
+  });
+});
+

@@ -362,6 +362,32 @@ export function verifierAudit(d) {
   return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
 }
 
+/** Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus. */
+export const MARQUES_AUDIT = ['corpus', 'sauvegarde'];
+
+/** La marque demandee, ou un refus ; `defaut` : celle d'un depot qui n'en dit rien. */
+export function marqueAudit(entete, defaut = 'corpus') {
+  if (entete === undefined || entete === '') return defaut;
+  if (!MARQUES_AUDIT.includes(entete)) throw refus('Marque de dépôt inconnue (corpus ou sauvegarde).');
+  return entete;
+}
+
+/**
+ * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ */
+export function resumeAudit(d) {
+  const nb = (l) => (Array.isArray(l) ? l.length : 0);
+  let photos = nb(d.cloture && d.cloture.photos) + nb(d.portail && d.portail.photos);
+  for (const b of d.batiments) {
+    if (!b || typeof b !== 'object') continue;
+    photos += nb(b.photos);
+    for (const f of Array.isArray(b.facades) ? b.facades : []) photos += nb(f && f.photos);
+  }
+  const debut = typeof d.debut === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(d.debut) ? d.debut.slice(0, 40) : null;
+  return { photos, phase: typeof d.finCapture === 'string' && d.finCapture ? 'analyse' : 'capture', debut };
+}
+
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; deploy/analyse.php, memes noms) --
 // L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
 // ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
@@ -614,7 +640,18 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   const fAudit = (id) => path.join(dossierAudits, id + '.json');
   const fFicheAudit = (id) => path.join(dossierAudits, id + '.fiche.json');
 
-  /** `admin/audits[/<id>]` : deposer, lister, lire, retirer un audit de parcelle partage (15, L21). */
+  /** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
+  function ecrireAudit(id, texte) {
+    fs.mkdirSync(dossierAudits, { recursive: true });
+    const tmp = fAudit(id) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+    fs.writeFileSync(tmp, texte);
+    fs.renameSync(tmp, fAudit(id));
+  }
+
+  /**
+   * `admin/audits[/<id>]` : deposer (POST), lister, lire, remplacer (PUT, la sauvegarde de la capture),
+   * retirer un audit de parcelle (15, L21).
+   */
   async function audits(req, res, base, id, admin, json, erreur) {
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
@@ -636,15 +673,12 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       let d;
       try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
       const parcelle = verifierAudit(d);
+      const marque = marqueAudit(req.headers['x-plan-depot']);
       const t = iso();
       const nouvel = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + crypto.randomBytes(4).toString('hex');
       const retrait = crypto.randomBytes(24).toString('hex');
-      fs.mkdirSync(dossierAudits, { recursive: true });
-      // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
-      const tmp = fAudit(nouvel) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
-      fs.writeFileSync(tmp, texte);
-      fs.renameSync(tmp, fAudit(nouvel));
-      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
+      ecrireAudit(nouvel, texte);
+      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
       return json(201, { id: nouvel, retrait });
     }
     const fiche = ID_AUDIT.test(id) ? lireJson(fFicheAudit(id)) : null;
@@ -655,12 +689,28 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fAudit(id)));
       return true;
     }
-    if (methode !== 'DELETE') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+    if (methode !== 'DELETE' && methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne remplace ni ne retire un audit.
     const secret = String(req.headers['x-plan-retrait'] || '');
     const attendu = Buffer.from(String(fiche.retrait || ''));
     const recu = Buffer.from(secret ? crypto.createHash('sha256').update(secret).digest('hex') : '');
-    if (!admin && !(secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu))) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+    const proprietaire = !!secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu);
+    if (methode === 'PUT') {
+      // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
+      // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+      const qui = await acteur(req);
+      if (qui.refus) return erreur(...qui.refus);
+      if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+      const texte = await lireTexte(req, TAILLE_MAX);
+      let d;
+      try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
+      const parcelle = verifierAudit(d);
+      const marque = marqueAudit(req.headers['x-plan-depot'], fiche.marque || 'corpus');
+      ecrireAudit(id, texte);
+      ecrireJson(fFicheAudit(id), { ...fiche, recuLe: iso().replace(/\.\d{3}Z$/, 'Z'), ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d) });
+      return json(200, { id, remplace: true });
+    }
+    if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
     for (const f of [fAudit(id), fFicheAudit(id), fFicheAudit(id) + '.bak']) fs.rmSync(f, { force: true });
     return json(200, { id, retire: true });
   }

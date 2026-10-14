@@ -9,20 +9,25 @@
 // - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
 //
 // Tout s'ecrit dans la capture a chaque geste, gardee dans le brouillon de l'appareil : fermer ne perd
-// rien, et rien n'entre dans le projet avant la validation des propositions.
+// rien, et rien n'entre dans le projet avant la validation des propositions. Quand quelqu'un peut
+// envoyer, la liste dit aussi ou en est la sauvegarde sur le serveur de Plan (« Envoyer l'audit au
+// serveur », une commande du registre).
 
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
+import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
 
-interface Props { session: SessionAuditParcelle; fermer: () => void }
+interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void }
 
 /** La session change (un geste, une position, la boussole) : l'ecran se redessine. */
 function useSuivreSession(session: SessionAuditParcelle): void {
@@ -192,6 +197,22 @@ function SectionParcelle({ session, ouverte, basculer, photo }: { session: Sessi
   );
 }
 
+/**
+ * La sauvegarde sur le serveur de Plan (§15) : le bouton et ce qui est parti, ce qui va partir, ou
+ * pourquoi rien ne part (hors ligne, trop gros, refus du serveur). Absente quand personne ne peut envoyer.
+ */
+function SauvegardeAudit({ session, commandes }: { session: SessionAuditParcelle; commandes: RegistreCommandes }) {
+  const e = session.sauvegarde.etat();
+  if (!e.disponible) return null;
+  const alerte = e.etat === 'erreur' || e.etat === 'tropGros';
+  return (
+    <div className={'sauvegardeAudit etat-' + e.etat}>
+      <BoutonCommande commandes={commandes} id="audit.envoyerParcelle" className="secondary small" enCours={e.etat === 'envoi' ? 'Envoi…' : false}>Envoyer l’audit au serveur</BoutonCommande>
+      <p className={'noteSauvegarde' + (alerte ? ' alerte' : '')} role={alerte ? 'alert' : 'status'}>{texteDeLaSauvegarde(e)}</p>
+    </div>
+  );
+}
+
 /** La photo prise, reduite, avec la prise de vue relevee au retour de l'appareil. */
 function usePhoto(session: SessionAuditParcelle): { enCours: boolean; erreur: string; prendre: (f: File, ranger: (p: PhotoCas) => boolean | void) => void } {
   const [enCours, setEnCours] = useState(false);
@@ -207,7 +228,7 @@ function usePhoto(session: SessionAuditParcelle): { enCours: boolean; erreur: st
   return { enCours, erreur, prendre };
 }
 
-function Liste({ session, fermer }: Props) {
+function Liste({ session, commandes, fermer }: Props) {
   const [ouverte, setOuverte] = useState<string | null>(null);
   const photo = usePhoto(session);
   const l = session.liste();
@@ -245,6 +266,7 @@ function Liste({ session, fermer }: Props) {
         <summary>{'Ce qui manque (' + l.manques.length + ')'}</summary>
         <ul>{l.manques.map((m) => <li key={m.cle}>{m.texte}</li>)}</ul>
       </details>}
+      <SauvegardeAudit session={session} commandes={commandes} />
       <div className="piedDialogue">
         {!terminee && !l.peutLancer && <span className="detailPhoto">Photographiez au moins une façade pour lancer l’analyse.</span>}
         <button type="button" className="secondary" data-controle="auditParcelle.fermer" onClick={fermer}>Fermer</button>
@@ -310,9 +332,9 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
-export function AuditParcelle({ session, fermer }: Props) {
+export function AuditParcelle({ session, commandes, fermer }: Props) {
   useSuivreSession(session);
   const e = session.ecran();
   if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} />;
-  return e === 'prise' ? <Prise session={session} /> : <Liste session={session} fermer={fermer} />;
+  return e === 'prise' ? <Prise session={session} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
 }

@@ -69,6 +69,7 @@ const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXT
 const DIALOGUE = 'toute commande qui pose une question';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 const AUDIT_PARCELLE = 'audit.parcelle';
+const CATALOGUE_AUDITS = 'admin.auditsParcelle';
 const CE_QUE_JE_VOIS = 'audit.parcelle, ou la fiche d’un bâtiment (mode audit)';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
@@ -251,6 +252,15 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // fichier lui-meme pour l'administrateur. Ni l'un ni l'autre n'ecrit dans le projet.
   'auditParcelle.partagerCorpus': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (décocher le retire du serveur)', { repete: true }),
   'auditParcelle.fichier': etape(Z8, AUDIT_PARCELLE, 'Fichier de l’audit : le partager ou le télécharger (administrateur)'),
+  // Admin › Audits de parcelle (zones/parcours/AuditsParcelle.tsx) : les audits recus sur le serveur.
+  // Rien n'ecrit dans le projet : « Ouvrir » reprend l'audit dans sa session, comme un import.
+  'auditsParcelle.ouvrir': etape(Z8, CATALOGUE_AUDITS, 'Ouvrir dans ce projet un audit reçu (même parcelle), à la phase où il en était', { repete: true }),
+  'auditsParcelle.telecharger': etape(Z8, CATALOGUE_AUDITS, 'Télécharger le fichier d’un audit reçu, tel qu’il est arrivé', { repete: true }),
+  'auditsParcelle.retirer': etape(Z8, CATALOGUE_AUDITS, 'Retirer un audit reçu du serveur (demande confirmation)', { repete: true }),
+  'auditsParcelle.confirmerRetrait': etape(Z8, CATALOGUE_AUDITS, 'Confirmer le retrait d’un audit reçu : il quitte le serveur', { repete: true }),
+  'auditsParcelle.garder': etape(Z8, CATALOGUE_AUDITS, 'Garder l’audit reçu (renoncer au retrait)', { repete: true }),
+  'auditsParcelle.relire': etape(Z8, CATALOGUE_AUDITS, 'Relire la liste des audits reçus'),
+  'auditsParcelle.fermer': etape(Z8, CATALOGUE_AUDITS, 'Fermer le catalogue des audits reçus'),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),

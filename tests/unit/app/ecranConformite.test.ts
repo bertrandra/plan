@@ -24,9 +24,12 @@ const audit = {
 function fauxServeur(): (entree: string) => Promise<Response> {
   const json = (d: unknown) => new Response(JSON.stringify(d), { status: 200, headers: { 'Content-Type': 'application/json' } });
   return async (entree) => {
-    if (entree === 'admin/audits') return json({ audits: [{ id: '20261014-100000-abcdef01', recuLe: '2026-10-14T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: null }, { id: '20261014-110000-00000000', recuLe: '', organisation: 'admin', idu: 'x', adresse: null }] });
+    if (entree === 'admin/audits') return json({ audits: [{ id: '20261014-100000-abcdef01', recuLe: '2026-10-14T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: null }, { id: '20261014-110000-00000000', recuLe: '', organisation: 'admin', idu: 'x', adresse: null },
+      // Une sauvegarde de capture (§15) : elle n'est pas lue, le corpus n'apprend pas d'une capture inachevee.
+      { id: '20261014-120000-0000cafe', recuLe: '2026-10-14T12:00:00Z', organisation: 'org', idu: '78650000AE0101', adresse: null, marque: 'sauvegarde' }] });
     if (entree === 'admin/audits/20261014-100000-abcdef01') return json(audit);
     if (entree === 'admin/audits/20261014-110000-00000000') return json({ ...audit, version: 99 });
+    if (entree === 'admin/audits/20261014-120000-0000cafe') throw new Error('une sauvegarde ne se lit pas ici');
     return new Response('{}', { status: 404 });
   };
 }

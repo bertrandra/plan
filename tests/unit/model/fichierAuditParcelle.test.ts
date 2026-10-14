@@ -88,6 +88,15 @@ describe('le fichier de l audit de parcelle', () => {
     expect(second.propositions.map((p) => [p.id, p.decision])).toEqual(f.propositions.map((p) => [p.id, p.decision]));
   });
 
+  it('reprend en capture un fichier ecrit avant « Lancer l analyse » (une sauvegarde)', () => {
+    const c = capture();
+    c.finCapture = null;
+    c.phase = 'capture';
+    const relu = lireFichierAuditParcelle(JSON.parse(JSON.stringify(fichierAuditParcelle(entrees({ capture: c })))));
+    expect(relu.finCapture).toBeNull();
+    expect(captureDuFichier(relu)).toMatchObject({ phase: 'capture', finCapture: null });
+  });
+
   it('refuse ce qui n est pas un audit lisible par ce code, en le disant', () => {
     const f = fichierAuditParcelle(entrees());
     const essai = (d: unknown) => { try { lireFichierAuditParcelle(d); return null; } catch (e) { expect(e).toBeInstanceOf(FichierAuditParcelleIllisible); return (e as Error).message; } };
