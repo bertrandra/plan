@@ -1724,8 +1724,9 @@ const POINTS = {
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
-    // tarifs livres et des plafonds. On mesure : rien ne deborde de la page, une couleur et un nom
-    // par modele, l'infobulle au survol, le tri, l'export CSV de la vue, l'ajout d'un tarif.
+    // tarifs livres, des plafonds et le modele de chaque usage. On mesure : rien ne deborde de la page,
+    // une couleur et un nom par modele, l'infobulle au survol, le tri, l'export CSV de la vue, la part
+    // des reponses vides par modele, l'ajout d'un tarif et le choix du modele de l'analyse.
     const jour = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
     const lignes = [];
     for (let n = 0; n < 30; n++) {
@@ -1734,14 +1735,18 @@ const POINTS = {
         for (const passe of [1, 2, 3]) {
           lignes.push({ t: jour(n) + 'T0' + passe + ':00:00Z', organisation: 'admin', projet: 'admin', idu, adresse: (i + 2) + ' allée des Limites, Le Vésinet', audit: 'a' + n + i,
             usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, passe, tokens: { entree: 4000, ecritureCache: passe === 1 ? 25000 : 0, ecritureCache1h: 0, lectureCache: passe === 1 ? 0 : 25000, sortie: 1500 },
-            images: 30, cout: passe === 1 ? 0.0021375 : 0.0007, statut: n === 4 && passe === 3 ? 'echoue' : 'reussi' });
+            images: 30, cout: passe === 1 ? 0.0021375 : 0.0007, statut: n === 4 && passe === 3 ? 'echoue' : 'reussi', idBatch: 'msgbatch_' + n + i,
+            trouve: { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: n % 2, vide: n % 2 === 0 } });
         }
-        if (n % 7 === 0) lignes.push({ ...lignes[lignes.length - 1], t: jour(n) + 'T05:00:00Z', usage: 'escalade', modele: 'claude-sonnet-5-5', cout: 0.014, statut: 'reussi', passe: null });
+        if (n % 7 === 0) lignes.push({ ...lignes[lignes.length - 1], t: jour(n) + 'T05:00:00Z', usage: 'escalade', modele: 'claude-sonnet-5-5', cout: 0.014, statut: 'reussi', passe: null,
+          trouve: { ouvertures: 9, manquees: 1, enTrop: 0, bouts: 2, lucarnes: 1, elements: 1, ecarts: 1, coins: 0, determines: 4, vide: false } });
       }
     }
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
+    const defaut = { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' };
+    let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());
       const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
@@ -1758,6 +1763,10 @@ const POINTS = {
       }
       if (u.pathname.endsWith('/admin/claude/tarifs')) { if (req.method() === 'PUT') tarifsEnvoyes = JSON.parse(req.postData() || 'null'); return json(tarifsEnvoyes || tarifs); }
       if (u.pathname.endsWith('/admin/claude/plafonds')) { if (req.method() === 'PUT') plafonds = JSON.parse(req.postData() || 'null'); return json(plafonds); }
+      if (u.pathname.endsWith('/admin/claude/modeles')) {
+        if (req.method() === 'PUT') modelesEnvoyes = JSON.parse(req.postData() || 'null');
+        return json({ format: 'plan-claude-modeles', usages: { ...defaut, ...(modelesEnvoyes?.usages ?? {}) }, defaut, admis: ['claude-haiku-5-5', 'claude-sonnet-5-5'], regle: !!modelesEnvoyes });
+      }
       return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
     // Chaque geste nomme son etape : un echec dit ou il s'est arrete.
@@ -1786,10 +1795,19 @@ const POINTS = {
     const nomCsv = telechargement.suggestedFilename();
     await etape('onglet Par usage', () => page.getByRole('tab', { name: 'Par usage' }).click({ timeout: 5000 }));
     const barres = await page.locator('.consBarre').count();
+    await etape('onglet Par modèle', () => page.getByRole('tab', { name: 'Par modèle' }).click({ timeout: 5000 }));
+    const vides = await page.locator('.consEtiquette').allTextContents();
+    const [csvModeles] = await etape('export CSV des modèles', () => Promise.all([page.waitForEvent('download', { timeout: 5000 }), page.getByRole('button', { name: 'Exporter en CSV' }).click({ timeout: 5000 })]));
+    debords.push(await deborde());
     await etape('onglet Par organisation', () => page.getByRole('tab', { name: 'Par organisation' }).click({ timeout: 5000 }));
     const jauges = await page.locator('.consJauge').count();
     debords.push(await deborde());
-    await etape('onglet Tarifs', () => page.getByRole('tab', { name: 'Tarifs et plafonds' }).click({ timeout: 5000 }));
+    await etape('onglet Réglages', () => page.getByRole('tab', { name: 'Réglages' }).click({ timeout: 5000 }));
+    await etape('liste du modèle de l’analyse', () => page.waitForSelector('#consModele-analyse', { timeout: 5000 }));
+    const optionsAnalyse = await page.locator('#consModele-analyse option').allTextContents();
+    await page.selectOption('#consModele-analyse', 'claude-haiku-5-5');
+    await etape('Enregistrer les modèles', () => page.getByRole('button', { name: 'Enregistrer les modèles' }).click({ timeout: 5000 }));
+    await page.waitForTimeout(300);
     await etape('formulaire du tarif', () => page.waitForSelector('#consTarif-sortie', { timeout: 5000 }));
     await page.fill('#consTarifDepuis', jour(-30));
     await page.fill('#consTarif-sortie', '0,45');
@@ -1799,8 +1817,10 @@ const POINTS = {
     debords.push(await deborde());
     const ok = !debords.some(Boolean) && legende.join() === 'Claude Haiku 5.5,Claude Sonnet 5.5' && new Set(couleurs).size === 2 && alertes.some((a) => /plafond du jour/.test(a))
       && /Claude Haiku 5\.5/.test(infobulle || '') && idus.length === 3 && [...idus].sort().join() === idus.join() && /^consommation-claude-parcelles-.*\.csv$/.test(nomCsv)
-      && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45;
-    return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'}` };
+      && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45
+      && vides.length === 2 && /^0 %/.test(vides[1] || '') && /^consommation-claude-modeles-.*\.csv$/.test(csvModeles.suggestedFilename())
+      && optionsAnalyse.length === 2 && optionsAnalyse.every((o) => / \$ \/ .* \$/.test(o)) && modelesEnvoyes?.usages?.analyse === 'claude-haiku-5-5';
+    return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'} ; réponses vides ${vides.join(' | ')} ; CSV ${csvModeles.suggestedFilename()} ; modèles proposés ${optionsAnalyse.join(' | ')} ; analyse réglée à ${modelesEnvoyes?.usages?.analyse ?? 'RIEN'}` };
   },
   69: async (page, f) => {
     // L'analyse par Claude (lot L17) contre une API simulee : la question de l'accord dans l'ecran des

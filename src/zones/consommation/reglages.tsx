@@ -1,5 +1,7 @@
-// L'onglet « Tarifs et plafonds » du tableau de bord de la consommation (MD/spec-audit.md 13.3).
+// L'onglet « Réglages » du tableau de bord de la consommation (MD/spec-audit.md 13.2 et 13.3).
 //
+// Les modeles : celui de chaque usage, choisi dans la liste que le serveur admet, avec son prix en
+// vigueur ; il vaut pour les envois suivants, une analyse deja lancee garde le sien.
 // Les tarifs : la table datee du serveur, en lecture, et un formulaire qui ajoute une ligne datee
 // d'aujourd'hui ou plus tard, reprise des prix en vigueur. Seule une ligne a venir se retire : un
 // cout d'hier reste celui d'hier (le serveur le refuse aussi, 409). Les plafonds : par defaut et par
@@ -9,8 +11,9 @@
 import { useEffect, useState } from 'react';
 import { MODELES_CONNUS, nomModele } from '../../model/consommation.js';
 import {
-  NOMS_PRIX, PRIX, ajouterLigne, erreurPlafonds, ligneProposee, ligneRetirable, lirePlafonds, lireTarifs, retirerLigne,
-  type ClePrix, type LigneTarif, type Plafonds, type Tarifs
+  NOMS_PRIX, PRIX, USAGES_REGLABLES, ajouterLigne, erreurPlafonds, ligneProposee, ligneRetirable, lireModeles, lirePlafonds, lireTarifs,
+  prixAuMillion, reglageModeles, retirerLigne,
+  type ClePrix, type LigneTarif, type ModelesDesUsages, type Plafonds, type ReglageModeles, type Tarifs
 } from '../../model/tarifsClaude.js';
 import * as fmt from './format.js';
 
@@ -20,6 +23,15 @@ interface PropsReglages {
   enregistrerTarifs: (t: Tarifs) => Promise<unknown>;
   lirePlafonds: () => Promise<unknown>;
   enregistrerPlafonds: (p: Plafonds) => Promise<unknown>;
+  lireModeles: () => Promise<unknown>;
+  enregistrerModeles: (r: ReglageModeles) => Promise<unknown>;
+}
+
+/** La table des tarifs, lue une fois pour les deux sections qui s'en servent (prix des modeles, tarifs). */
+interface EtatTarifs {
+  tarifs: Tarifs | null;
+  erreur: string | null;
+  poser: (t: Tarifs) => void;
 }
 
 type Message = { texte: string; erreur?: boolean } | null;
@@ -38,27 +50,99 @@ function Champ({ libelle, valeur, changer, type = 'decimal', id }: { libelle: st
 }
 
 export function Reglages(props: PropsReglages) {
+  const [tarifs, setTarifs] = useState<Tarifs | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const { lireTarifs: lire } = props;
+  useEffect(() => {
+    lire().then((d) => {
+      const t = lireTarifs(d);
+      if (t) setTarifs(t); else setErreur('La table des tarifs du serveur n’a pas la forme attendue.');
+    }, (e: unknown) => setErreur((e as Error).message || String(e)));
+  }, [lire]);
+  const etat: EtatTarifs = { tarifs, erreur, poser: setTarifs };
   return (
     <div className="consReglages">
-      <SectionTarifs {...props} />
+      <SectionModeles {...props} tarifs={tarifs} />
+      <SectionTarifs {...props} etat={etat} />
       <SectionPlafonds {...props} />
     </div>
   );
 }
 
-function SectionTarifs({ aujourdhui, lireTarifs: lire, enregistrerTarifs }: PropsReglages) {
-  const [tarifs, setTarifs] = useState<Tarifs | null>(null);
+/** Le libelle d'un modele dans la liste : son nom et son prix d'entree et de sortie en vigueur. */
+function libelleModele(t: Tarifs | null, modele: string, jour: string): string {
+  const p = prixAuMillion(t, modele, jour);
+  const prix = p ? fmt.prix(p.entree) + ' / ' + fmt.prix(p.sortie) : 'tarif inconnu';
+  return nomModele(modele) + ' — ' + prix;
+}
+
+function SectionModeles({ aujourdhui, lireModeles: lire, enregistrerModeles, tarifs }: PropsReglages & { tarifs: Tarifs | null }) {
+  const [lu, setLu] = useState<ModelesDesUsages | null>(null);
+  const [choix, setChoix] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<Message>(null);
-  const [modele, setModele] = useState(MODELES_CONNUS[0]?.id ?? 'claude-haiku-5-5');
-  const [saisie, setSaisie] = useState<Record<string, string> | null>(null);
   const [envoi, setEnvoi] = useState(false);
 
   useEffect(() => {
     lire().then((d) => {
-      const t = lireTarifs(d);
-      if (t) setTarifs(t); else setMessage({ texte: 'La table des tarifs du serveur n’a pas la forme attendue.', erreur: true });
+      const m = lireModeles(d);
+      if (m) { setLu(m); setChoix(m.usages); } else setMessage({ texte: 'Le réglage des modèles du serveur n’a pas la forme attendue.', erreur: true });
     }, (e: unknown) => setMessage({ texte: (e as Error).message || String(e), erreur: true }));
   }, [lire]);
+
+  if (!lu) return message ? <section className="palSection"><p className="palMessage palMessage--erreur" role="alert">{message.texte}</p></section> : null;
+  const modifie = USAGES_REGLABLES.some((u) => choix[u.id] !== lu.usages[u.id]);
+
+  const enregistrer = async () => {
+    setEnvoi(true);
+    try {
+      const m = lireModeles(await enregistrerModeles(reglageModeles(choix)));
+      if (m) { setLu(m); setChoix(m.usages); }
+      setMessage({ texte: 'Modèles enregistrés. Ils valent pour les prochains envois ; les analyses déjà lancées gardent leur modèle.' });
+    } catch (e) {
+      setMessage({ texte: (e as Error).message || String(e), erreur: true });
+    } finally { setEnvoi(false); }
+  };
+
+  return (
+    <section className="palSection" aria-labelledby="consTitreModeles">
+      <h2 id="consTitreModeles" className="palSectionTitre">Modèles</h2>
+      <p className="palIdee">
+        Le modèle que le serveur emploie pour chaque usage. Prix en dollars par million de tokens, entrée / sortie, au tarif du jour
+        (moitié prix par l’API Batch). Les analyses déjà lancées gardent leur modèle.
+      </p>
+      {message && <p className={'palMessage' + (message.erreur ? ' palMessage--erreur' : '')} role={message.erreur ? 'alert' : 'status'}>{message.texte}</p>}
+      <fieldset className="consFormulaire">
+        <legend>Modèle de chaque usage</legend>
+        {USAGES_REGLABLES.map((u) => {
+          const actuel = choix[u.id] ?? '';
+          // Un modele en place mais plus admis reste affiche : le serveur l'a deja remplace par le defaut.
+          const options = lu.admis.includes(actuel) || !actuel ? lu.admis : [actuel, ...lu.admis];
+          const defaut = lu.defaut[u.id];
+          return (
+            <label key={u.id} className="consChamp" htmlFor={'consModele-' + u.id}>
+              <span>{u.libelle}</span>
+              <select id={'consModele-' + u.id} name={'modele-' + u.id} value={actuel} onChange={(e) => setChoix((c) => ({ ...c, [u.id]: e.target.value }))}>
+                {options.map((m) => <option key={m} value={m}>{libelleModele(tarifs, m, aujourdhui) + (m === defaut ? ' (par défaut)' : '')}</option>)}
+              </select>
+            </label>
+          );
+        })}
+      </fieldset>
+      <div className="consFormulaireActions">
+        <button type="button" disabled={envoi || !modifie} onClick={() => void enregistrer()}>Enregistrer les modèles</button>
+      </div>
+    </section>
+  );
+}
+
+function SectionTarifs({ aujourdhui, enregistrerTarifs, etat }: PropsReglages & { etat: EtatTarifs }) {
+  const { tarifs, poser: setTarifs } = etat;
+  const [message, setMessage] = useState<Message>(etat.erreur ? { texte: etat.erreur, erreur: true } : null);
+  const [modele, setModele] = useState(MODELES_CONNUS[0]?.id ?? 'claude-haiku-5-5');
+  const [saisie, setSaisie] = useState<Record<string, string> | null>(null);
+  const [envoi, setEnvoi] = useState(false);
+
+  useEffect(() => { if (etat.erreur) setMessage({ texte: etat.erreur, erreur: true }); }, [etat.erreur]);
 
   // La saisie repart des prix en vigueur du modele choisi, a chaque changement de modele.
   useEffect(() => {

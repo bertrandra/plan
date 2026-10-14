@@ -491,6 +491,21 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     environ 60 000 tokens d'entrée par passe, soit environ 0,003 $ ; la sortie, environ 0,001 $ ;
   - avec trois passes, **de l'ordre de 1 à 2 centimes par parcelle** ;
   - quelques dizaines de centimes si une partie passe à l'escalade.
+  - **Depuis le 14 octobre 2026, le modèle plus fin (Sonnet) est celui de l'analyse par défaut** (voir
+    ci-dessous) : ses prix sont vingt fois ceux du modèle rapide, soit **de l'ordre de 20 à 40 centimes
+    par parcelle**. Les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête
+    (0,005 $) datent du modèle rapide : l'administrateur les relève dans « Réglages ».
+- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026* : sur les photos d'un vrai
+  audit, le modèle rapide ne trouvait rien) est un réglage du serveur, choisi par l'administrateur dans
+  le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
+  (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
+  modèles que le serveur admet (`MODELES` de `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`) et
+  refuse les autres. Par défaut : le modèle plus fin pour l'analyse des audits, le renfort des façades
+  et l'aide immédiate ; l'escalade reste au plus fin des modèles admis ; les cas candidats
+  (`spec-regles-toits.md`), nombreux et revus par une personne, au modèle rapide. Un modèle réglé que
+  le serveur n'admet plus retombe sur le défaut. Une demande qui nomme son modèle le garde, comme
+  avant. Le réglage vaut pour les envois suivants : un batch déjà créé garde le modèle écrit dans sa
+  fiche.
 - **Où** : le serveur de la plateforme envoie le batch ; la clé d'API ne quitte jamais le serveur. Les
   photos partent avec l'accord de l'utilisateur, donné au lancement de l'analyse (question 12). Elles
   ne servent qu'à cette analyse : le partage pour le corpus est un autre accord (§15).
@@ -524,6 +539,7 @@ dossier de données de l'admin, hors du dossier publié. Rien de cela ne va sur 
 | `claude/journal-AAAA-MM.jsonl` | une ligne par appel à l'API (tableau ci-dessous) | `analyse.php`, à chaque appel |
 | `claude/tarifs.json` | la table des tarifs datée | l'administrateur, depuis l'écran ; une première version est livrée avec Plan |
 | `claude/plafonds.json` | les plafonds par organisation, par jour et par mois | l'administrateur, depuis l'écran |
+| `claude/modeles.json` | le modèle de chaque usage (§13.2) ; absent, les défauts du serveur | l'administrateur, depuis l'écran |
 
 Écriture atomique et version précédente gardée en `.bak`, comme les autres fichiers de l'admin.
 
@@ -541,11 +557,13 @@ du champ `usage` que l'API renvoie, jamais d'une estimation.
 | `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
 | `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, Sonnet 5.5 en escalade…) |
 | `batch` | vrai si l'appel est passé par l'API Batch |
+| `idBatch` | l'identifiant du batch (hors batch : vide) ; la vue « Par modèle » compte les batches |
 | `passe` | 1, 2 ou 3 (le vote) |
 | `tokens` | entrée, écriture du cache, lecture du cache, sortie, tels que renvoyés par l'API |
 | `images` | nombre d'images envoyées |
 | `cout` | le coût en dollars, calculé avec la **table des tarifs** en vigueur à cette date |
 | `statut` | réussi, échoué, expiré, refusé par le plafond |
+| `trouve` | ce que la réponse contient, en **comptes** lus par le serveur quand il la relit (depuis le 14 octobre 2026 ; vide sur une ligne d'avant, ou sans réponse lisible) : ouvertures (comptées niveau par niveau par l'analyse, gardées par le renfort), manquées signalées, en trop (ou retirées par le renfort), pignons et croupes, lucarnes, éléments de toit, écarts au modèle, coins situés (renfort), attributs tranchés, et `vide` quand la réponse ne dit rien |
 
 **La table des tarifs** (`claude/tarifs.json`) est datée. Chaque modèle y a ses
 prix par million de tokens (entrée, sortie, écriture et lecture du cache), avec la remise Batch. Un
@@ -554,15 +572,21 @@ d'hier. Les prix sont vérifiés sur la page officielle d'Anthropic à chaque mo
 vérification est notée.
 
 **L'écran** : **Admin › Consommation Claude** (`?admin&ecran=consommation`), administrateur seulement,
-lu par `GET admin/consommation` (session admin, filtres en paramètres). Il règle aussi les tarifs et
-les plafonds (`GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
-`X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`).
+lu par `GET admin/consommation` (session admin, filtres en paramètres). Son onglet « Réglages » règle
+le modèle de chaque usage, les tarifs et les plafonds (`GET|PUT admin/claude/modeles`,
+`GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
+`X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`). Le modèle de chaque
+usage (« Analyse des audits », « Renfort des façades », « Aide immédiate », « Escalade », « Cas
+candidats ») se choisit dans une liste déroulante : les modèles admis par le serveur, leur nom et leur
+prix d'entrée et de sortie au million de tokens en vigueur ; « Enregistrer les modèles » rappelle que
+les analyses déjà lancées gardent le leur.
 
 | Vue | Ce qu'elle montre |
 |---|---|
 | **Dans le temps** | tokens et coût par jour, semaine ou mois, en aires empilées **par modèle** ; bascule tokens ou dollars |
 | **Par parcelle** | une ligne par parcelle : adresse, IDU, nombre d'audits, tokens par modèle, part du cache, coût total, coût par façade, date du dernier audit ; tri sur chaque colonne |
 | **Par usage** | répartition entre analyse, escalade, renfort et immédiat, et part du Batch |
+| **Par modèle** | les modèles comparés sur la période et les filtres : la part des **réponses vides** (en barres), requêtes, batchs, appels immédiats, images, tokens, coût, coût par façade examinée, échecs, puis ce que les réponses contiennent (champ `trouve`), en total ou par réponse lue ; les réponses sans comptes (journal d'avant) sont dites et laissées hors du calcul |
 | **Par organisation** | coût du mois, plafond, part consommée |
 | **Chiffres clés** | coût moyen par parcelle comparé à l'estimation (1 à 2 centimes, §13.2), part de l'escalade, part des tokens lus en cache, coût par proposition validée |
 

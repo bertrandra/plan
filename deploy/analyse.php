@@ -13,7 +13,8 @@
 //   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
-//   GET  admin/consommation                   le journal filtre, pour le tableau de bord (13.3, L16 bis)
+//   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
+//   GET  admin/consommation                  le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //   POST admin/audits                         depose un fichier `plan-audit-parcelle` (15, lot L21)
 //   GET  admin/audits                         la liste des audits recus (administrateur)
 //   GET  admin/audits/<id>                    un audit recu (administrateur)
@@ -64,7 +65,11 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // batiment sur des photos de rue avec le prompt et le schema de l'analyse ; un usage a part pour que
 // le journal et le tableau de bord en disent le cout.
 const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5'];
+// Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
+// buildsg/analyseAdmin.mjs, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
+// immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
+// plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
+const MODELE_PAR_USAGE = ['analyse' => 'claude-sonnet-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-sonnet-5-5', 'immediat' => 'claude-sonnet-5-5', 'candidats' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
 // siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
 const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
@@ -226,7 +231,7 @@ function texteCourt($v, int $max) {
 }
 
 /** La demande de la page : identite de la parcelle et requetes. Seuls des blocs texte et image. */
-function verifierDemande($d, array $plafonds): array {
+function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE): array {
     if (!is_array($d) || array_is_list($d)) throw new Refus('Demande illisible.');
     $meta = [];
     foreach (['projet' => 128, 'idu' => 64, 'adresse' => 300, 'audit' => 64] as $cle => $max) {
@@ -236,7 +241,7 @@ function verifierDemande($d, array $plafonds): array {
     }
     $usage = $d['usage'] ?? 'analyse';
     if (!in_array($usage, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usage) ? $usage : '?') . '.');
-    $modele = $d['modele'] ?? MODELE_PAR_USAGE[$usage];
+    $modele = $d['modele'] ?? $modeles[$usage];
     if (!in_array($modele, MODELES, true)) throw new Refus('Modèle non admis : ' . (is_string($modele) ? $modele : '?') . '.');
     $rs = $d['requetes'] ?? null;
     if (!is_array($rs) || !array_is_list($rs) || count($rs) === 0) throw new Refus('Aucune requête.');
@@ -273,7 +278,7 @@ function verifierDemande($d, array $plafonds): array {
         // son prompt, son schema et son modele sont alors les siens.
         $usageR = $r['usage'] ?? $usage;
         if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
-        $modeleR = isset($d['modele']) ? $modele : MODELE_PAR_USAGE[$usageR];
+        $modeleR = isset($d['modele']) ? $modele : $modeles[$usageR];
         $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'usage' => $usageR, 'modele' => $modeleR, 'contenu' => $contenu];
     }
     return $meta + ['usage' => $usage, 'modele' => $modele, 'requetes' => $requetes];
@@ -336,11 +341,98 @@ function verifierPlafonds($d): array {
     return $d;
 }
 
+/**
+ * Le modele de chaque usage : le reglage de l'administrateur, sinon celui par defaut. Un modele
+ * regle qui n'est plus admis (un deploiement l'a retire) retombe sur le defaut, sans tomber.
+ */
+function modelesParUsage($reglage): array {
+    $choisis = is_array($reglage) && is_array($reglage['usages'] ?? null) ? $reglage['usages'] : [];
+    $m = [];
+    foreach (USAGES as $u) $m[$u] = in_array($choisis[$u] ?? null, MODELES, true) ? $choisis[$u] : MODELE_PAR_USAGE[$u];
+    return $m;
+}
+
+/** Un reglage des modeles valide : un modele admis par usage connu ; un usage absent garde son defaut. */
+function verifierModeles($d): array {
+    $msg = 'Ce n’est pas un réglage des modèles (format, un modèle admis par usage).';
+    if (!is_array($d) || ($d['format'] ?? null) !== 'plan-claude-modeles' || !is_array($d['usages'] ?? null)) throw new Refus($msg);
+    if ($d['usages'] !== [] && array_is_list($d['usages'])) throw new Refus($msg);
+    foreach ($d['usages'] as $u => $m) {
+        if (!in_array($u, USAGES, true)) throw new Refus('Usage inconnu : ' . $u . '.');
+        if (!in_array($m, MODELES, true)) throw new Refus('Modèle non admis : ' . (is_string($m) ? $m : '?') . '.');
+    }
+    return ['format' => 'plan-claude-modeles', 'usages' => $d['usages']];
+}
+
+/** Ce que `admin/claude/modeles` rend : le modele de chaque usage, les defauts, les modeles admis. */
+function vueModeles(?array $reglage): array {
+    return ['format' => 'plan-claude-modeles', 'usages' => modelesParUsage($reglage), 'defaut' => MODELE_PAR_USAGE, 'admis' => MODELES, 'regle' => $reglage !== null];
+}
+
+// --- Ce que les reponses contiennent (13.3 : comparer les modeles sur ce qu'ils trouvent) ---------
+// Le journal ne garde pas la reponse : seulement ces comptes, lus quand le serveur la relit, par la
+// forme du schema de l'usage (schema-analyse.json, schema-renfort.json ; buildsg, memes noms).
+
+const COMPTES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'];
+// Un compte ecrit par le modele est borne : un nombre aberrant ne doit pas noyer le tableau de bord.
+const COMPTE_MAX = 999;
+const BOUTS_TROUVES = ['pignon', 'croupe', 'demi-croupe', 'brisis'];
+
+/** Un entier positif ecrit par le modele (`2` ou `2.0`), sinon zero : `indetermine` ne compte pas. */
+function compte($v): int {
+    return nombre($v) && $v > 0 && floor((float)$v) == $v ? (int)min(COMPTE_MAX, $v) : 0;
+}
+function listeDe($v): array { return is_array($v) && array_is_list($v) ? $v : []; }
+function objetDe($v): array { return is_array($v) && ($v === [] || !array_is_list($v)) ? $v : []; }
+function determine($v): bool { return is_string($v) && $v !== '' && $v !== 'indetermine'; }
+
+/** Les comptes d'une sortie lue (`null` sans sortie) ; `vide` quand la reponse ne dit rien. */
+function comptesSortie($sortie, string $usage): ?array {
+    if ($sortie === null) return null;
+    // La sortie arrive en objets (elle repart telle quelle vers la page) : relue ici en tableaux.
+    $s = objetDe(json_decode((string)json_encode($sortie), true));
+    $c = array_fill_keys(COMPTES, 0);
+    if ($usage === 'renfort') {
+        foreach (listeDe($s['ouvertures'] ?? null) as $o) {
+            $decision = objetDe($o)['decision'] ?? null;
+            if ($decision === 'garder') $c['ouvertures']++;
+            if ($decision === 'retirer') $c['enTrop']++;
+        }
+        $c['manquees'] = count(listeDe($s['manquees'] ?? null));
+        $coins = objetDe($s['coins'] ?? null);
+        foreach (['hautGauche', 'hautDroit', 'basDroit', 'basGauche'] as $k) if (is_array($coins[$k] ?? null)) $c['coins']++;
+        $c['determines'] = in_array(objetDe($s['mur'] ?? null)['vu'] ?? null, ['attendu', 'autre'], true) ? 1 : 0;
+    } else {
+        foreach (listeDe($s['facades'] ?? null) as $f) {
+            $o = objetDe(objetDe($f)['ouvertures'] ?? null);
+            foreach (listeDe($o['parNiveau'] ?? null) as $n) $c['ouvertures'] += compte($n);
+            $c['manquees'] += compte($o['manquees'] ?? null);
+            $c['enTrop'] += compte($o['enTrop'] ?? null);
+        }
+        $bouts = objetDe($s['bouts'] ?? null);
+        foreach (['gauche', 'droite'] as $k) if (in_array($bouts[$k] ?? null, BOUTS_TROUVES, true)) $c['bouts']++;
+        $c['lucarnes'] = compte(objetDe($s['lucarnes'] ?? null)['nombre'] ?? null);
+        $c['elements'] = count(listeDe($s['elements'] ?? null));
+        $c['ecarts'] = count(listeDe($s['ecarts'] ?? null));
+        foreach ([['forme', 'valeur'], ['profil', 'valeur'], ['faitage', 'sens'], ['couverture', 'valeur'], ['terrasse', 'type']] as [$k, $champ]) {
+            if (determine(objetDe($s[$k] ?? null)[$champ] ?? null)) $c['determines']++;
+        }
+    }
+    foreach ($c as $k => $n) $c[$k] = min(COMPTE_MAX, $n);
+    return $c + ['vide' => array_sum($c) === 0];
+}
+
+/** Les comptes d'un resultat relu : seulement d'une reponse reussie dont la sortie s'est lue. */
+function trouvailles(array $x, string $usage): ?array {
+    return $x['statut'] === 'reussi' && $x['erreur'] === null ? comptesSortie($x['sortie'], $usage) : null;
+}
+
 // --- Le tableau de bord de la consommation (13.3, lot L16 bis ; buildsg/analyseAdmin.mjs, memes noms)
 
 // Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus).
 const MOIS_CONSULTABLES = 25;
-const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut'];
+// `idBatch` compte les batches par modele ; `trouve`, les comptes de la reponse (null sur un journal d'avant).
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'idBatch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut', 'trouve'];
 
 function jourValide($j): bool {
     if (!is_string($j) || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $j, $m)) return false;
@@ -501,6 +593,9 @@ function plafonds(string $dossierClaude): array {
     return lireJson($dossierClaude . '/plafonds.json') ?? PLAFONDS_DEFAUT;
 }
 function plafondsJson(array $p): array { $p['organisations'] = (object)$p['organisations']; return $p; }
+
+/** Le reglage des modeles par l'administrateur, ou `null` tant qu'il n'a rien regle. */
+function reglageModeles(string $dossierClaude): ?array { return lireJson($dossierClaude . '/modeles.json'); }
 
 function fJournal(string $dossierClaude, string $t): string { return $dossierClaude . '/journal-' . substr($t, 0, 7) . '.jsonl'; }
 
@@ -735,7 +830,8 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         // Une requete du renfort dans le batch de l'analyse a son usage, son modele, son prompt et son schema.
         $modeleR = (string)($req['modele'] ?? $fiche['modele']);
         $ligneTarif = tarifEnVigueur($table, $modeleR, substr($t, 0, 10));
-        $sortie[] = $x + ['passe' => $req['passe'], 'usage' => (string)($req['usage'] ?? $fiche['usage']), 'modele' => $modeleR, 'cout' => coutAppel($x['tokens'], $ligneTarif, true),
+        $usageR = (string)($req['usage'] ?? $fiche['usage']);
+        $sortie[] = $x + ['passe' => $req['passe'], 'usage' => $usageR, 'modele' => $modeleR, 'cout' => coutAppel($x['tokens'], $ligneTarif, true), 'trouve' => trouvailles($x, $usageR),
                           'tarif' => $ligneTarif['depuis'] ?? null, 'images' => $req['images'], 'facades' => (int)($req['facades'] ?? 0),
                           'prompt' => (int)($req['prompt'] ?? $fiche['promptVersion']), 'schema' => (int)($req['schema'] ?? $fiche['schemaVersion'])];
     }
@@ -749,13 +845,13 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
                          'adresse' => $fiche['adresse'], 'audit' => $fiche['audit'], 'usage' => $x['usage'], 'modele' => $x['modele'],
                          'batch' => true, 'idBatch' => $fiche['id'], 'requete' => $x['id'], 'passe' => $x['passe'], 'tokens' => $x['tokens'],
                          'images' => $x['images'], 'facades' => $x['facades'], 'cout' => $x['cout'], 'tarif' => $x['tarif'], 'statut' => $x['statut'],
-                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema']];
+                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']];
         }
         journaliser($dossierClaude, $lignes);
         ecrireFiche($dossierBatches, ['journalise' => true, 'etat' => 'ended', 'finLe' => $fiche['finLe'] ?? null] + $actuelle);
     }
     if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
-    foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema']); }
+    foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema'], $x['trouve']); }
     unset($x);
     return ['sortie' => $sortie];
 }
@@ -863,7 +959,7 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
         [$pR, $sR] = $prompts[$r['usage']];
         $journal[] = ['t' => $t] + $identite + ['usage' => $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
-            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version']];
+            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage'])];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
                         'passe' => $r['passe'], 'usage' => $r['usage'], 'cout' => $cout];
     }
@@ -976,7 +1072,7 @@ try {
         } catch (Throwable $e) {
             $renfort = null;
         }
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
                        'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]);
     }
 
@@ -1026,11 +1122,23 @@ try {
         repondre(200, $d);
     }
 
+    // Le modele de chaque usage (13.2), a l'administrateur seul. Il vaut pour les envois suivants : un
+    // batch deja cree garde le sien, ecrit dans sa fiche.
+    if ($chemin === 'modeles') {
+        $reserveAdmin();
+        if ($lecture) repondre(200, vueModeles(reglageModeles($dossierClaude)));
+        if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $d = verifierModeles(lireCorps(64 * 1024));
+        // `usages` reste un objet en JSON, meme vide.
+        ecrireJson($dossierClaude . '/modeles.json', ['format' => $d['format'], 'usages' => (object)$d['usages']]);
+        repondre(200, vueModeles(reglageModeles($dossierClaude)));
+    }
+
     if ($chemin === 'batches') {
         if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
-        $demande = verifierDemande(lireCorps(TAILLE_MAX), $p);
+        $demande = verifierDemande(lireCorps(TAILLE_MAX), $p, modelesParUsage(reglageModeles($dossierClaude)));
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
@@ -1088,7 +1196,7 @@ try {
         $p = plafonds($dossierClaude);
         $d = lireCorps(TAILLE_MAX);
         if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
-        $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p);
+        $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
         repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p));
     }
 

@@ -165,7 +165,7 @@ export function AiresEmpilees({ serie, mesure, pas }: { serie: SerieTemps; mesur
  * Des barres horizontales, une par categorie, pour une seule mesure : une seule couleur (l'accent),
  * puisqu'il n'y a qu'une serie ; la valeur au bout de chaque barre.
  */
-export function Barres({ lignes }: { lignes: { nom: string; valeur: number; texte: string }[] }) {
+export function Barres({ lignes, libelle = 'Répartition du coût' }: { lignes: { nom: string; valeur: number; texte: string }[]; libelle?: string }) {
   const [ref, largeur] = useLargeur();
   const max = Math.max(0, ...lignes.map((l) => l.valeur));
   const etroit = largeur < 520;
@@ -176,7 +176,7 @@ export function Barres({ lignes }: { lignes: { nom: string; valeur: number; text
   const hauteur = lignes.length * pasY + 4;
   return (
     <div ref={ref} className="consGraphe">
-      <svg width={largeur} height={hauteur} role="img" aria-label="Répartition du coût">
+      <svg width={largeur} height={hauteur} role="img" aria-label={libelle}>
         {lignes.map((b, i) => {
           const w = max > 0 ? Math.max(b.valeur > 0 ? 2 : 0, (b.valeur / max) * l) : 0;
           const yb = i * pasY + 8;

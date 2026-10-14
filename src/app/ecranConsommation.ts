@@ -8,9 +8,12 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranConsommation } from '../zones/EcranConsommation.js';
-import { enregistrerPlafondsClaude, enregistrerTarifsClaude, lireConsommation, lirePlafondsClaude, lireTarifsClaude, type FiltresConsommation } from '../io/depotDemos.js';
+import {
+  enregistrerModelesClaude, enregistrerPlafondsClaude, enregistrerTarifsClaude, lireConsommation, lireModelesClaude, lirePlafondsClaude, lireTarifsClaude,
+  type FiltresConsommation
+} from '../io/depotDemos.js';
 import { telechargerTexte } from '../shell/download.js';
-import type { Plafonds, Tarifs } from '../model/tarifsClaude.js';
+import type { Plafonds, ReglageModeles, Tarifs } from '../model/tarifsClaude.js';
 
 /** L'adresse demande-t-elle l'ecran de la consommation ? */
 export function demandeEcranConsommation(recherche: string): boolean {
@@ -34,6 +37,8 @@ export function ouvrirEcranConsommation(): void {
     enregistrerTarifs: (t: Tarifs) => enregistrerTarifsClaude(f, t),
     lirePlafonds: () => lirePlafondsClaude(f),
     enregistrerPlafonds: (p: Plafonds) => enregistrerPlafondsClaude(f, p),
+    lireModeles: () => lireModelesClaude(f),
+    enregistrerModeles: (r: ReglageModeles) => enregistrerModelesClaude(f, r),
     telecharger: (nom: string, texte: string) => telechargerTexte(nom, texte, 'text/csv;charset=utf-8')
   }));
 }

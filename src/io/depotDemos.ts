@@ -251,6 +251,18 @@ export async function enregistrerPlafondsClaude(f: Fetch, plafonds: unknown): Pr
   })).json() as Promise<unknown>;
 }
 
+/** Le modele de chaque usage (`admin/claude/modeles`), les defauts et les modeles admis. */
+export async function lireModelesClaude(f: Fetch): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'lecture des modèles')).json() as Promise<unknown>;
+}
+
+/** Remplace le reglage ; le serveur refuse un modele hors de sa liste et garde le precedent en `.bak`. */
+export async function enregistrerModelesClaude(f: Fetch, reglage: unknown): Promise<unknown> {
+  return (await appeler(f, '/claude/modeles', 'enregistrement des modèles', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(reglage)
+  })).json() as Promise<unknown>;
+}
+
 // --- Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) ----------------------
 
 /** L'historique des mesures (`GET admin/conformite`) ; model/conformite.ts le relit. */

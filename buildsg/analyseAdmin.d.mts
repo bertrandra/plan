@@ -66,7 +66,30 @@ export function tarifEnVigueur(tarifs: Tarifs | null, modele: string, jour: stri
 export function coutAppel(tokens: Tokens, ligne: LigneTarif | null, batch: boolean): number | null;
 export function depenses(lignes: unknown[], organisation: string, jour: string): { jour: number; mois: number };
 export function plafondDe(plafonds: Plafonds, organisation: string): { jour: number; mois: number };
-export function verifierDemande(d: unknown, plafonds: Plafonds): {
+/** Le modele de chaque usage tant que l'administrateur n'a rien regle. */
+export const MODELE_PAR_USAGE: Readonly<Record<string, string>>;
+
+/** Le reglage des modeles par usage (`admin/claude/modeles`), tel que le serveur le garde. */
+export interface ReglageModeles {
+  format: 'plan-claude-modeles';
+  usages: Record<string, string>;
+}
+export function modelesParUsage(reglage: unknown): Record<string, string>;
+export function verifierModeles(d: unknown): ReglageModeles;
+export function vueModeles(reglage: ReglageModeles | null): {
+  format: 'plan-claude-modeles'; usages: Record<string, string>; defaut: Record<string, string>; admis: string[]; regle: boolean;
+};
+
+/** Ce qu'une reponse contient, en comptes (journal, champ `trouve`). */
+export interface Trouvailles {
+  ouvertures: number; manquees: number; enTrop: number; bouts: number; lucarnes: number;
+  elements: number; ecarts: number; coins: number; determines: number; vide: boolean;
+}
+export const COMPTES: readonly (keyof Omit<Trouvailles, 'vide'>)[];
+export function comptesSortie(sortie: unknown, usage: string): Trouvailles | null;
+export function trouvailles(x: Pick<ResultatLu, 'statut' | 'erreur' | 'sortie'>, usage: string): Trouvailles | null;
+
+export function verifierDemande(d: unknown, plafonds: Plafonds, modeles?: Readonly<Record<string, string>>): {
   projet: string | null; idu: string | null; adresse: string | null; audit: string | null;
   usage: string; modele: string;
   requetes: { id: string; passe: number | null; images: number; facades: number; usage: string; modele: string; contenu: unknown[] }[];
