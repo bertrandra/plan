@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerAnalyseAdmin, verifierAudit } from '../../../buildsg/analyseAdmin.mjs';
+import { creerAnalyseAdmin, marqueAudit, resumeAudit, verifierAudit } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { demarrerContextePlateforme, fichierAudit, type ContextePlateforme } from '../../fixtures/deploy/contextePlateforme.js';
 import { jouerScenarioAudits } from '../../fixtures/deploy/scenarioAudits.js';
@@ -64,5 +64,16 @@ describe('les audits partages, cote Node', () => {
     expect(verifierAudit(fichierAudit('48.900000,2.130000')).idu).toBe('48.900000,2.130000');
     expect(() => verifierAudit({ ...fichierAudit(), version: 2 })).toThrow('Version du fichier d’audit inconnue.');
     expect(() => verifierAudit({ ...fichierAudit(), parcelle: { idu: '../x' } })).toThrow('Parcelle du fichier d’audit invalide.');
+  });
+
+  it('resume un audit pour le catalogue, et lit la marque du depot', () => {
+    const photo = { type: 'image/jpeg', base64: 'AAAA' };
+    const audit = { ...fichierAudit(), finCapture: null, batiments: [{ photos: [photo], facades: [{ photos: [photo, photo] }, null] }, null], cloture: { photos: [photo] }, portail: {} };
+    expect(resumeAudit(audit)).toEqual({ photos: 4, phase: 'capture', debut: '2026-10-13T08:00:00.000Z' });
+    expect(resumeAudit({ ...audit, finCapture: '2026-10-13T08:30:00Z', debut: 'hier' })).toMatchObject({ phase: 'analyse', debut: null });
+    expect(marqueAudit(undefined)).toBe('corpus');
+    expect(marqueAudit('', 'sauvegarde')).toBe('sauvegarde');
+    expect(marqueAudit('sauvegarde')).toBe('sauvegarde');
+    expect(() => marqueAudit('brouillon')).toThrow('Marque de dépôt inconnue (corpus ou sauvegarde).');
   });
 });

@@ -17,6 +17,7 @@
 //   POST admin/audits                         depose un fichier `plan-audit-parcelle` (15, lot L21)
 //   GET  admin/audits                         la liste des audits recus (administrateur)
 //   GET  admin/audits/<id>                    un audit recu (administrateur)
+//   PUT  admin/audits/<id>                    le remplace (la sauvegarde de la capture) : son secret, ou l'administrateur
 //   DELETE admin/audits/<id>                  le retire : son secret de retrait, ou l'administrateur
 //   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
@@ -25,7 +26,16 @@
 // plateforme (`Authorization: Bearer`, verifie aupres d'elle, `plateformeUrl` de la configuration).
 // Ils se rangent dans `<dossierDemos>/audits/`, avec les autres donnees de l'admin, hors du dossier
 // publie. L'envoi rend un secret de retrait, garde sur l'appareil, seul a pouvoir retirer le fichier
-// quand la personne decoche la case ; le serveur n'en garde que l'empreinte.
+// quand la personne decoche la case ; le serveur n'en garde que l'empreinte. La sauvegarde de la
+// capture (15) arrive par la meme route, marquee `X-Plan-Depot: sauvegarde`, et chaque envoi remplace
+// son depot (PUT) ; sans marque, un depot est un partage pour le corpus.
+//
+// Taille : 48 Mo au plus (TAILLE_MAX). Le fichier se lit par `php://input`, que `post_max_size`
+// (8 Mo par defaut) ne coupe pas pour un corps JSON (PHP n'en ecrit qu'un avertissement au journal) ;
+// un hebergement qui le jetterait quand meme laisse un corps vide, et la route le dit. La vraie borne
+// est `memory_limit` (128 Mo par defaut) : le texte et son JSON decode tiennent ensemble en memoire,
+// ~3 fois la taille du fichier. A regler dans la configuration de PHP de l'hebergement (php.ini, ou
+// `.user.ini` du dossier publie) : `memory_limit = 256M`, et `post_max_size = 64M` pour le journal.
 //
 // **La cle ne quitte jamais le serveur** (`anthropicCle`, dans la configuration hors du dossier
 // publie), et la page ne choisit ni le prompt, ni le schema, ni le reglage : elle n'envoie que la
@@ -600,6 +610,55 @@ function verifierAudit($d): array {
     return ['idu' => $p['idu'], 'adresse' => $adresse];
 }
 
+// Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus.
+const MARQUES_AUDIT = ['corpus', 'sauvegarde'];
+
+/** La marque demandee, ou un refus ; `$defaut` : celle d'un depot qui n'en dit rien. */
+function marqueAudit(string $entete, string $defaut = 'corpus'): string {
+    if ($entete === '') return $defaut;
+    if (!in_array($entete, MARQUES_AUDIT, true)) throw new Refus('Marque de dépôt inconnue (corpus ou sauvegarde).');
+    return $entete;
+}
+
+/**
+ * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ */
+function resumeAudit(array $d): array {
+    $nb = fn($l) => is_array($l) ? count($l) : 0;
+    $photos = $nb($d['cloture']['photos'] ?? null) + $nb($d['portail']['photos'] ?? null);
+    foreach ($d['batiments'] as $b) {
+        if (!is_array($b)) continue;
+        $photos += $nb($b['photos'] ?? null);
+        foreach (is_array($b['facades'] ?? null) ? $b['facades'] : [] as $f) $photos += $nb(is_array($f) ? ($f['photos'] ?? null) : null);
+    }
+    $debut = is_string($d['debut'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T/', $d['debut']) ? substr($d['debut'], 0, 40) : null;
+    return ['photos' => $photos, 'phase' => is_string($d['finCapture'] ?? null) && $d['finCapture'] !== '' ? 'analyse' : 'capture', 'debut' => $debut];
+}
+
+/**
+ * Le corps d'un fichier d'audit, ou un refus qui dit sa cause. Un corps annonce mais vide : PHP l'a
+ * jete (`post_max_size` d'un hebergement plus strict) ; une page qui n'aurait que « JSON illisible »
+ * ne saurait quoi faire.
+ */
+function texteAudit(): string {
+    $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+    if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+    $longueur = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($texte === '' && $longueur > 0) {
+        $taille = $longueur >= 1048576 ? (int)ceil($longueur / 1048576) . ' Mo' : (int)ceil($longueur / 1024) . ' Ko';
+        erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros pour ce serveur (' . $taille . ' refusés par PHP ; post_max_size = ' . ini_get('post_max_size') . ' dans sa configuration, à porter à 64M).');
+    }
+    return $texte;
+}
+
+/** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
+function ecrireAudit(string $dossierAudits, string $id, string $texte): void {
+    if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
+    $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+}
+
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; buildsg/analyseAdmin.mjs, memes noms)
 // L'ecran Admin › Conformité mesure le corpus du depot et les audits partages, puis range sa mesure
 // ici : l'historique dit si le taux monte, phase apres phase. Le serveur n'en calcule rien.
@@ -855,20 +914,17 @@ try {
             }
             if ($methode !== 'POST') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
             $organisation = acteur($sessionAdmin, jetonPorteur(), $plateformeUrl)['organisation'];
-            $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
-            if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
+            $texte = texteAudit();
             $d = json_decode($texte, true);
             if ($d === null) throw new Refus('JSON illisible.');
             $parcelle = verifierAudit($d);
-            if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
+            $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''));
             $t = maintenant();
             $id = gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4));
             $retrait = bin2hex(random_bytes(24));
-            // Le fichier tel qu'il est arrive : le corpus le rejoue a l'octet pres.
-            $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
-            if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+            ecrireAudit($dossierAudits, $id, $texte);
             ecrireJson(fFicheAudit($dossierAudits, $id), ['id' => $id, 'recuLe' => $t, 'organisation' => $organisation] + $parcelle
-                + ['taille' => strlen($texte), 'retrait' => hash('sha256', $retrait)]);
+                + ['taille' => strlen($texte), 'marque' => $marque] + resumeAudit($d) + ['retrait' => hash('sha256', $retrait)]);
             repondre(201, ['id' => $id, 'retrait' => $retrait]);
         }
         if (!preg_match(ID_AUDIT, $id)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
@@ -881,10 +937,25 @@ try {
             if ($methode !== 'HEAD') readfile(fAudit($dossierAudits, $id));
             exit;
         }
-        if ($methode !== 'DELETE') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-        // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne retire un audit.
+        if ($methode !== 'DELETE' && $methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        // Le secret rendu a l'envoi, ou l'administrateur : personne d'autre ne remplace ni ne retire un audit.
         $secret = (string)($_SERVER['HTTP_X_PLAN_RETRAIT'] ?? '');
-        if (!$sessionAdmin && !($secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret)))) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+        $proprietaire = $secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret));
+        if ($methode === 'PUT') {
+            // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
+            // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+            acteur($sessionAdmin, jetonPorteur(), $plateformeUrl);
+            if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
+            $texte = texteAudit();
+            $d = json_decode($texte, true);
+            if ($d === null) throw new Refus('JSON illisible.');
+            $parcelle = verifierAudit($d);
+            $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''), (string)($fiche['marque'] ?? 'corpus'));
+            ecrireAudit($dossierAudits, $id, $texte);
+            ecrireJson(fFicheAudit($dossierAudits, $id), array_merge($fiche, ['recuLe' => maintenant()], $parcelle, ['taille' => strlen($texte), 'marque' => $marque], resumeAudit($d)));
+            repondre(200, ['id' => $id, 'remplace' => true]);
+        }
+        if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
         @unlink(fAudit($dossierAudits, $id));
         @unlink(fFicheAudit($dossierAudits, $id));
         @unlink(fFicheAudit($dossierAudits, $id) . '.bak');

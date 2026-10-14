@@ -7,6 +7,33 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **L'audit de parcelle sauvegardé sur le serveur pendant la capture, et catalogué par
+  l'administrateur** (`MD/spec-audit.md` §15). Le brouillon de l'appareil se perdait avec le
+  téléphone ; désormais, quand une session admin ou le jeton de la plateforme le permettent :
+  - l'audit part sur le serveur de Plan **cinq secondes après la dernière photo rangée** (un envoi
+    par rafale), à « Lancer l'analyse », et à la demande, par la commande « Envoyer l'audit au
+    serveur » de la liste de contrôle, qui dit où il en est (« Envoyé à 17:42 », « En attente de
+    réseau, nouvel essai à 17:45 », l'erreur en clair, ou la taille quand il dépasse les 48 Mo du
+    serveur) ; hors ligne, il réessaie de plus en plus espacé, et dès que le réseau revient, sans
+    jamais bloquer la capture ;
+  - chaque envoi **remplace le même dépôt** (`PUT admin/audits/<id>`, nouveau, par son secret de
+    retrait ou la session admin), gardé avec la capture comme celui du corpus ;
+  - le dépôt est **marqué `sauvegarde`** (en-tête `X-Plan-Depot`) ; le partage « pour améliorer
+    Plan » reste un dépôt `corpus` à part, cochable et retirable (décision D7). Le format du fichier
+    ne change pas. Un utilisateur qui décoche le partage retire aussi sa sauvegarde, et sans son
+    accord rien ne part de soi-même ; l'administrateur garde toujours la sienne. L'écran Conformité
+    ignore les sauvegardes ;
+  - **Admin › « Audits de parcelle »** (à côté de « Conformité », admin des démos) liste les audits
+    reçus : date, parcelle, adresse, photos, phase (capture ou analyse), sauvegarde ou partage ; pour
+    chacun, « Ouvrir dans ce projet » (même IDU ; reprend l'audit par le chemin de l'import, à la
+    phase où il en était, en capture s'il n'était pas fini, avec la question de remplacement),
+    « Télécharger » le fichier tel qu'il est arrivé, et « Retirer », confirmé sur la carte ;
+  - l'import d'un fichier dont la capture n'était pas terminée le reprend sur la liste de contrôle ;
+  - côté serveur (`deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat) : la fiche d'un
+    audit dit sa marque, ses photos, sa phase et le début de la visite ; si PHP a jeté le corps d'un
+    audit, la réponse nomme `post_max_size` au lieu de « JSON illisible ». Sur un hébergement PHP,
+    porter `memory_limit` à 256M (un audit de 40 Mo en demande environ 120) et `post_max_size` à 64M.
+
 - **Un appentis adossé le long d'une façade, dit par un fait de toit** (`MD/spec-regles-toits.md`
   §5.1). Un porche, une galerie couverte, un auvent que le contour BD TOPO ne contient pas se
   décrivent dans `regles/toits/faits.json` : `appentis: [{ facade: { azimutDeg }, longueur: "toute" }]`,

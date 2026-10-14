@@ -339,6 +339,43 @@ async function simulerAudits(page) {
   return { recus, retires };
 }
 /**
+ * Le serveur `admin/audits` complet, simule comme le vrai (deploy/analyse.php) : depot (POST, marque
+ * `X-Plan-Depot`), remplacement par le secret ou la session (PUT), liste des fiches avec leur marque,
+ * leurs photos et leur phase, lecture du fichier tel qu'il est arrive, retrait. La route vit avec la
+ * page : apres un rechargement (l'admin des demos), le catalogue lit ce que la sauvegarde a depose.
+ */
+async function simulerDepotAudits(page) {
+  const depots = new Map(), appels = [];
+  let n = 0;
+  const fiche = (id, texte, plus) => {
+    const d = JSON.parse(texte), nb = (l) => (Array.isArray(l) ? l.length : 0);
+    const photos = nb(d.cloture?.photos) + nb(d.portail?.photos) + (d.batiments || []).reduce((t, b) => t + nb(b?.photos) + (b?.facades || []).reduce((u, x) => u + nb(x?.photos), 0), 0);
+    return { id, recuLe: new Date().toISOString().slice(0, 19) + 'Z', organisation: 'org-fumee', idu: d.parcelle?.idu, adresse: d.parcelle?.adresse ?? null, taille: Buffer.byteLength(texte), photos, phase: d.finCapture ? 'analyse' : 'capture', debut: d.debut ?? null, ...plus };
+  };
+  await page.route(/\/admin\/audits(\/|\?|$)/, async (route) => {
+    const req = route.request(), u = new URL(req.url()), m = /\/admin\/audits(?:\/([^/]+))?\/?$/.exec(u.pathname);
+    const id = m && m[1] ? decodeURIComponent(m[1]) : '', entetes = req.headers(), methode = req.method();
+    const json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    appels.push({ methode, id, depot: entetes['x-plan-depot'] ?? null, retrait: entetes['x-plan-retrait'] ?? null });
+    if (!id && methode === 'GET') return json({ audits: [...depots.values()].map((x) => x.fiche).sort((a, b) => b.recuLe.localeCompare(a.recuLe)) });
+    if (!id && methode === 'POST') {
+      n++;
+      const nouvel = '20261014-1000' + String(n).padStart(2, '0') + '-0000000' + n, texte = req.postData() || '';
+      depots.set(nouvel, { texte, retrait: 'secret' + n, fiche: fiche(nouvel, texte, { marque: entetes['x-plan-depot'] || 'corpus' }) });
+      return json({ id: nouvel, retrait: 'secret' + n }, 201);
+    }
+    const x = depots.get(id);
+    if (!x) return json({ error: { code: 'NOT_FOUND', message: 'Aucun audit « ' + id + ' ».' } }, 404);
+    if (methode === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: x.texte });
+    // L'administrateur (session simulee) n'envoie pas de secret ; un autre secret est refuse.
+    if (entetes['x-plan-retrait'] && entetes['x-plan-retrait'] !== x.retrait) return json({ error: { code: 'FORBIDDEN', message: 'Secret de retrait invalide.' } }, 403);
+    if (methode === 'PUT') { x.texte = req.postData() || ''; x.fiche = fiche(id, x.texte, { marque: x.fiche.marque }); return json({ id, remplace: true }); }
+    if (methode === 'DELETE') { depots.delete(id); return json({ id, retire: true }); }
+    return json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Méthode non autorisée.' } }, 405);
+  });
+  return { depots, appels };
+}
+/**
  * Une entree du menu Fichier (feuille Projet au doigt), touchee par le DOM : apres la Vue 3D, le
  * rendu logiciel tient le fil et Playwright n'attend pas assez qu'elle soit stable pour la cliquer.
  */
@@ -1979,6 +2016,78 @@ const POINTS = {
       && e.murs?.materiau === 'brique' && annule && !deborde;
     return { ok, mesure: `fichier ${texte ? Math.round(texte.length / 1024) + ' Ko' : 'ABSENT'} ; Ctrl+Z ${defait ? 'défait' : 'NON'} ; autre parcelle : « ${refus.slice(0, 70)}… » ; question de remplacement ${demande ? 'posée' : 'ABSENTE'} ; « ${importe.slice(0, 60)}… » ; murs ${murs ? (murs.cochee ? 'cochés' : 'DÉCOCHÉS') : 'ABSENTS'}, relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; partage ${caseCorpus === false ? 'décoché' : String(caseCorpus)} ; projet ${intact ? 'intact avant Valider' : 'MODIFIÉ'} ; Valider : murs ${e.murs?.materiau ?? '—'} ; Ctrl+Z ${annule ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  85: async (page, f) => {
+    // La sauvegarde de l'audit de parcelle sur le serveur, et le catalogue de l'administrateur (§15) :
+    // une photo rangee part d'elle-meme au serveur simule quelques secondes apres (marque
+    // `sauvegarde`) ; la liste de controle dit « Envoyé à … » ; « Envoyer l'audit au serveur » remplace
+    // le meme depot (PUT, par son secret). Puis en admin des demos, sur le meme projet : Admin ›
+    // « Audits de parcelle » le liste (sauvegarde, capture en cours, 1 photo) et « Ouvrir dans ce
+    // projet » le reprend sur la liste de controle, en capture.
+    const serveur = await simulerDepotAudits(page);
+    const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
+    await ouvrirAuditParcelle(page);
+    await page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);x.fillStyle="#2b3440";x.fillRect(180,220,120,160);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo });
+    await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
+    const posee = Date.now();
+    const premier = () => serveur.appels.find((a) => a.methode === 'POST' && a.depot === 'sauvegarde');
+    for (let i = 0; i < 60 && !premier(); i++) await page.waitForTimeout(500);
+    const delai = premier() ? Math.round((Date.now() - posee) / 1000) : null;
+    await page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => /^Envoyé /.test(document.querySelector('.sauvegardeAudit .noteSauvegarde')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const envoye = ((await page.locator('.sauvegardeAudit .noteSauvegarde').textContent().catch(() => '')) || '').trim();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.locator('.sauvegardeAudit [data-commande="audit.envoyerParcelle"]').click({ timeout: 30000 });
+    for (let i = 0; i < 60 && !serveur.appels.some((a) => a.methode === 'PUT'); i++) await page.waitForTimeout(500);
+    const put = serveur.appels.find((a) => a.methode === 'PUT');
+    const id = [...serveur.depots.keys()][0];
+    const depots = serveur.depots.size;
+    const fiche = serveur.depots.get(id)?.fiche;
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+
+    // L'administrateur des demos, sur le meme projet (la demo 1 en est la copie). Ces routes ne
+    // touchent pas `admin/audits` : le faux serveur des audits garde ses depots.
+    await page.route(/\/admin\/(session|demos)/, async (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/demos')) return json({ demos: [{ id: '1', name: 'Démonstration' }] });
+      if (u.pathname.endsWith('/admin/demos/1')) return json({ meta: { id: '1', name: 'Démonstration', schemaVersion: 1 }, objects: objets, measures: [] });
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto(BASE + '/?demofile=1');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await noterToasts(page);
+    await page.evaluate(() => window.__plan.executer('admin.auditsParcelle'));
+    await page.locator('.carteAuditRecu').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const cartes = await page.locator('.carteAuditRecu').count();
+    const carte = ((await page.locator('.carteAuditRecu').first().textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const ouvrir = page.locator('.carteAuditRecu [data-controle="auditsParcelle.ouvrir"]').first();
+    const ouvrable = (await ouvrir.count()) ? await ouvrir.isEnabled() : false;
+    const debordeCatalogue = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    if (ouvrable) await ouvrir.click({ timeout: 30000 });
+    // Le brouillon de la meme parcelle est sur l'appareil : la question de remplacement d'abord.
+    const question = page.locator('.dialogueVoile', { hasText: 'Remplacer l’audit en cours' });
+    await question.waitFor({ timeout: 15000 }).catch(() => {});
+    if (await question.count()) await question.locator('[data-controle="dialogue.principal"]').click({ timeout: 30000 });
+    await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 30000 }).catch(() => {});
+    const liste = await page.locator('.dialogueAuditParcelle').count();
+    const compteur = ((await page.locator('.dialogueAuditParcelle .compteurAudit').textContent().catch(() => '')) || '').trim();
+    const repris = await toastVu(page, 'repris en capture');
+    const ok = delai !== null && delai <= 20 && /^Envoyé (le \d\d\/\d\d )?à \d\d:\d\d\./.test(envoye) && !!put && put.id === id && put.retrait === 'secret1' && depots === 1
+      && fiche?.marque === 'sauvegarde' && fiche?.phase === 'capture' && fiche?.photos === 1
+      && cartes === 1 && /Sauvegarde/.test(carte) && /Capture en cours/.test(carte) && /1 photo/.test(carte) && ouvrable
+      && liste === 1 && /^1 façade/.test(compteur) && /^Audit de la parcelle repris en capture : 1 photo/.test(repris) && !deborde && !debordeCatalogue;
+    return { ok, mesure: `sauvegarde ${delai !== null ? 'partie en ' + delai + ' s' : 'NON partie'} (« ${envoye.slice(0, 50)} ») ; bouton : ${put ? 'PUT ' + put.id + ' par ' + put.retrait : 'AUCUN remplacement'}, ${depots} dépôt(s) ; fiche ${fiche ? fiche.marque + ', ' + fiche.phase + ', ' + fiche.photos + ' photo(s)' : '—'} ; catalogue ${cartes} carte(s) « ${carte.slice(0, 90)} », ouvrir ${ouvrable ? 'actif' : 'GRISÉ'} ; repris : ${liste ? 'liste de contrôle « ' + compteur.slice(0, 40) + ' »' : 'RIEN'}, « ${repris.slice(0, 60)} » ; débordement ${deborde || debordeCatalogue ? 'OUI' : 'non'}` };
+  },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
     // travees sur deux niveaux, la fenetre d'etage de droite absente ; « Ajouter dans la grille » la pose
@@ -2425,7 +2534,8 @@ function pointsPour(nomClasse) {
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
   // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84];
+  // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits de parcelle qui la rouvre (§15).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

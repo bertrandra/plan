@@ -8,16 +8,24 @@
 // - « Importer un audit de parcelle… » (§15) reprend un fichier `plan-audit-parcelle` de la meme
 //   parcelle (meme IDU) a la phase 3, sur ses propositions : un audit fait par l'administrateur pour
 //   un client. Rien n'entre dans le projet avant « Valider » ; Ctrl+Z le defait alors en un pas.
+//   Un fichier dont la capture n'etait pas terminee (une sauvegarde) reprend sur la liste de controle.
+// - « Envoyer l'audit au serveur » (§15) : la sauvegarde sur le serveur de Plan, tout de suite ; elle
+//   part aussi d'elle-meme apres les photos (sauvegarde.ts). Elle n'ecrit rien dans le projet.
+// - Admin › « Audits de parcelle » (§15) : le catalogue des audits recus (catalogue.ts), admin des
+//   demos seulement, comme la Conformite ; « Ouvrir dans ce projet » passe par le meme import.
 
-import { PERMISSION_ECRITURE } from '../../acces.js';
+import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
 import { preparerImport } from './fichier.js';
 import { brancherDoigtAudit } from '../controleur.js';
+import { creerCatalogue } from './catalogue.js';
+import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { ObjetPlan } from '../../../model/types.js';
+import type { FicheAudit } from '../../../io/auditsServeur.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
 /** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
@@ -119,21 +127,34 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     },
   });
 
-  /** Le texte d'un fichier choisi : refuse avec sa raison, ou repris a la phase 3. */
-  function importer(texte: string): void {
+  /**
+   * Le texte d'un fichier (choisi sur le poste, ou ouvert depuis le catalogue) : refuse avec sa
+   * raison, ou repris la ou il en etait, a la phase 3 ou sur la liste de controle. Depuis le
+   * catalogue, une sauvegarde rouverte reste la meme : les envois suivants la remplacent.
+   */
+  function importer(texte: string, depot?: FicheAudit): void {
     const idu = parcelleCadastrale(a.etat.objects);
     const r = preparerImport(texte, a.etat.objects, idu);
     if ('refus' in r) { a.signaler('Import refusé : ' + r.refus); return; }
     if (!idu) return;
     const s = sessionDe(idu);
+    const enCapture = !r.fichier.finCapture;
+    const absents = r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '';
+    // La question du remplacement (Z8) ne doit pas s'ouvrir sous le catalogue.
+    if (parcours.courant()?.type === 'auditsParcelle') parcours.fermer();
+    const sauvegarde = depot?.marque === 'sauvegarde' ? { id: depot.id, retrait: '', t: depot.recuLe } : undefined;
     void s.importer(r.fichier, () => {
-      s.montrer('propositions');
+      s.montrer(enCapture ? 'liste' : 'propositions');
       parcours.ouvrir({ type: 'auditParcelle', session: s });
+      if (enCapture) {
+        const photos = r.fichier.batiments.reduce((n, b) => n + b.photos.length + b.facades.reduce((m, f) => m + f.photos.length, 0), 0) + r.fichier.cloture.photos.length + r.fichier.portail.photos.length;
+        a.signaler('Audit de la parcelle repris en capture' + (photos ? ' : ' + pluriel(photos, 'photo') : '') + absents + '. Complétez la liste, puis « Lancer l’analyse ».');
+        return;
+      }
       const validees = r.fichier.propositions.filter((p) => p.decision === 'validee').length;
       a.signaler('Audit de la parcelle importé' + (validees ? ' : ' + pluriel(validees, 'proposition') + ' validée' + (validees > 1 ? 's' : '') + ' dans le fichier' : '')
-        + (r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '')
-        + '. Vérifiez les cases, puis « Valider ».');
-    });
+        + absents + '. Vérifiez les cases, puis « Valider ».');
+    }, sauvegarde);
   }
 
   cmd.declarer({
@@ -141,7 +162,46 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     libelle: 'Importer un audit de parcelle…',
     description: 'Reprend le fichier d’un audit de cette parcelle (même IDU), fait sur un autre appareil, à l’étape des propositions',
     ...condition,
-    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))(importer),
+    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))((texte) => importer(texte)),
+  });
+
+  // « Envoyer l'audit au serveur » : la ligne de la liste de controle ; elle n'existe que si quelqu'un
+  // peut envoyer (session admin ou jeton de la plateforme). Rien n'ecrit dans le projet.
+  const etatEnvoi = () => session?.sauvegarde.etat() ?? null;
+  cmd.declarer({
+    id: 'audit.envoyerParcelle',
+    libelle: 'Envoyer l’audit au serveur',
+    description: 'Met l’audit de la parcelle à l’abri sur le serveur de Plan, photos comprises, pour le reprendre ailleurs ; il part aussi de lui-même après chaque photo',
+    groupe: 'audit',
+    actif: () => { const e = etatEnvoi(); return !!e?.disponible && e.etat !== 'envoi'; },
+    raisonInactive: () => {
+      const e = etatEnvoi();
+      if (!e) return null;
+      if (!e.disponible) return 'Connectez-vous à la plateforme pour envoyer l’audit au serveur de Plan.';
+      return e.etat === 'envoi' ? 'Un envoi est en cours.' : null;
+    },
+    executer: () => { void session?.sauvegarde.envoyer(); },
+  });
+
+  // Admin › « Audits de parcelle » : le catalogue, ouvert sur le projet en cours.
+  cmd.declarer({
+    id: 'admin.auditsParcelle',
+    libelle: 'Audits de parcelle',
+    description: 'Liste les audits de parcelle reçus sur le serveur (sauvegardes et partages) : les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
+    groupe: 'admin',
+    actif: () => enAdmin(),
+    executer: () => {
+      const catalogue = creerCatalogue({
+        client: () => a.audits?.() ?? null,
+        iduProjet: () => parcelleCadastrale(a.etat.objects),
+        refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
+        ouvrir: (texte, fiche) => importer(texte, fiche),
+        telecharger: (nom, texte) => telechargerTexte(nom, texte, 'application/json'),
+        signaler: a.signaler,
+      });
+      parcours.ouvrir({ type: 'auditsParcelle', catalogue });
+      void catalogue.relire();
+    },
   });
   return { session: () => session };
 }

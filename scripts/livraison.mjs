@@ -111,6 +111,14 @@ Plateforme : ${origine}
       Le tableau de bord (menu Admin > Consommation de Claude, ?admin&ecran=consommation) relit
       ce journal ; il y regle aussi les tarifs et les plafonds.
 
+   f. Audits de parcelle (sauvegardes pendant la capture, partages pour le corpus) : analyse.php
+      les range dans plan-demos/audits/ (inscriptible par PHP), 48 Mo au plus par audit ; le menu
+      Admin > Audits de parcelle les liste. Un audit se lit et se decode en memoire : dans la
+      configuration de PHP de l'hebergement (Site Tools > Devs > PHP Manager > PHP Variables, ou un
+      fichier .user.ini dans public_html/), porter memory_limit a 256M et post_max_size a 64M
+      (128M et 8M par defaut). Sans cela, un gros audit (dix facades de huit photos, environ 32 Mo)
+      peut echouer en 500, et la page le dit sous « Envoyer l'audit au serveur ».
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque

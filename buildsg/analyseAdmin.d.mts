@@ -98,6 +98,11 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
 
 // Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
 export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
+/** Les marques d'un depot : `sauvegarde` de la capture, ou partage pour le `corpus` (par defaut). */
+export const MARQUES_AUDIT: readonly ('corpus' | 'sauvegarde')[];
+export function marqueAudit(entete: string | string[] | undefined, defaut?: 'corpus' | 'sauvegarde'): 'corpus' | 'sauvegarde';
+/** Ce que la fiche dit du fichier pour le catalogue : photos, phase, debut de la visite. */
+export function resumeAudit(d: unknown): { photos: number; phase: 'capture' | 'analyse'; debut: string | null };
 
 // Les mesures des indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3).
 export const MESURES_CONFORMITE_MAX: number;
