@@ -131,7 +131,7 @@ Panoramax.
   - des arbres à la hauteur et au houppier **mesurés sur le LiDAR** (le MNH les voit déjà) ;
   - des massifs et des bordures, un gazon texturé à l'échelle.
 - **Sol** :
-  - l'orthophoto en plus haute définition sous la parcelle ;
+  - l'orthophoto en plus haute définition sous la parcelle (voir R5 bis) ;
   - les allées et les terrasses dallées, d'après le plan ;
   - le trottoir, la bordure et le marquage de la rue (`rues3d.ts`).
 - **Objets d'échelle**, en option : une voiture devant le garage, une silhouette. Ils donnent la taille
@@ -139,6 +139,48 @@ Panoramax.
 
 *Preuve* : banc visuel de la rue d'AE 101 ; coût mesuré sur un voisinage de 2 km (la mesure des toits
 de fond).
+
+### R5 bis — L'orthophoto haute résolution *(à confirmer : questions ci-dessous)*
+
+**D'où l'on part.** Plan lit la couche `ORTHOIMAGERY.ORTHOPHOTOS` de l'IGN (BD ORTHO), par le WMTS
+de la Géoplateforme, jusqu'au zoom 20 (`render/ortho.ts`, `ORTHO_ZOOM_MAX`). Au Vésinet, un pixel du
+zoom 20 couvre environ 10 cm au sol. L'image source est prise à environ 20 cm, parfois 15 : au-delà,
+Plan agrandit sans gagner de détail. C'est le flou que l'on voit sur le canevas et sous la 3D.
+
+**Les sources plus fines** (non vérifiées ici : `data.geopf.fr` est bloqué dans l'environnement de
+développement) :
+
+| Source | Pixel | Couverture | Accès |
+|---|---|---|---|
+| Orthophoto haute résolution de l'IGN (couche `HR.ORTHOIMAGERY.ORTHOPHOTOS`, nom à confirmer) | 5 à 15 cm | partielle, par territoire | même WMTS, même licence ouverte, déjà admis par la CSP |
+| PCRS image des collectivités (orthophoto du plan de corps de rue simplifié) | environ 5 cm | beaucoup de secteurs d'Île-de-France | variable selon le producteur (région, département, syndicat d'énergie) ; licence à vérifier |
+| Google, Bing | — | — | exclus : licence et CSP |
+
+**Ce qui serait fait**, si les questions y répondent oui :
+- interroger la couverture de la couche haute résolution (limites des niveaux dans les capacités du
+  WMTS) ;
+- la charger jusqu'au zoom 21 sur la parcelle et ses mitoyens, l'orthophoto actuelle restant pour le
+  voisinage ; repli automatique là où elle manque ;
+- l'utiliser sur le canevas 2D, sous la Vue 3D et pour les lectures sur image (couleur des toits,
+  repérage des cheminées, cadrage de l'analyse par Claude) ;
+- une case « Orthophoto haute résolution » dans « Apparence », préférence d'affichage enregistrée
+  avec le projet, comme « Relief ».
+
+**Questions à répondre avant de décider (pertinence)** :
+
+| # | Question | Comment y répondre | Ce qui en dépend |
+|---|---|---|---|
+| O1 | La couche haute résolution couvre-t-elle Le Vésinet, et les secteurs où Plan est le plus utilisé ? | zoomer au maximum sur geoportail.gouv.fr et comparer les couches de photographies aériennes ; puis lire les capacités du WMTS depuis un poste qui a le réseau | sans couverture là où sont les projets, R5 bis s'arrête là |
+| O2 | Le gain se voit-il vraiment à l'échelle où l'on travaille (parcelle entière à l'écran, terrasse de 30 m²) ? | captures côte à côte d'AE 101 aux zooms 19, 20 et 21, sur téléphone et sur bureau | si le gain n'apparaît qu'en zoom extrême, la case reste décochée par défaut |
+| O3 | La date de prise de vue est-elle récente, et en saison où les arbres ne cachent pas tout ? | métadonnées de la couche ; comparaison avec la situation actuelle de la parcelle | une image plus fine mais plus ancienne peut montrer un état faux (piscine absente, extension) |
+| O4 | L'image est-elle bien calée sur le cadastre et sur le LiDAR, à moins de 20 cm près ? | superposer contour cadastral, bâtiments BD TOPO et ortho HR sur AE 101 et ses voisins | un décalage visible rend l'image plus nuisible qu'utile pour dessiner une terrasse |
+| O5 | Que coûte-t-elle en temps de chargement et en mémoire sur téléphone ? | mesure du banc R0 : nombre de tuiles, octets, durée, au zoom 21 sur la parcelle et ses mitoyens | limite au zoom 21 sur la seule parcelle, ou désactivation en qualité Économe |
+| O6 | Améliore-t-elle les lectures automatiques (couleur des toits, cheminées, analyse par Claude) ? | rejouer la couleur des toits et la détection des cheminées sur le corpus, avec et sans | si oui, elle sert aussi le calcul, pas seulement l'écran : plus forte priorité |
+| O7 | Le PCRS image est-il accessible pour les Yvelines, et sous quelle licence ? | trouver le producteur et ses conditions de diffusion | une seconde source, à n'intégrer que si la licence permet la diffusion dans Plan |
+| O8 | Change-t-elle un export ? | vérifier les empreintes golden (plan, dossier, GLB) | si un export intègre l'orthophoto, la haute résolution reste hors export, ou derrière une option |
+
+*Preuve*, si elle est retenue : les captures d'O2 et la superposition d'O4 dans la PR ; le coût mesuré
+(O5) ; les empreintes golden identiques (O8).
 
 ### R6 — La caméra et la présentation
 
@@ -161,6 +203,7 @@ R0 ──► R1 ──► R2 ──► R3
          │       │
          │       └──► R4 (avec les audits réels, après L13)
          └──► R5 (indépendant après R0)        R6 (après R1)
+              └──► R5 bis (après les réponses O1 à O8)
 ```
 
 - **R0, puis R1** : c'est la plus grande différence visible pour le moins d'effort, sans aucune donnée
@@ -180,6 +223,7 @@ R0 ──► R1 ──► R2 ──► R3
 | V4 | Textures chargées en ligne (Poly Haven) | non par défaut : textures générées, pour le poids et le hors-ligne ; essai possible en Soignée |
 | V5 | Objets d'échelle (voiture, silhouette) | décochés par défaut |
 | V6 | Ce qui entre dans l'export GLB | rien de cette roadmap sans option d'export explicite (empreintes golden) |
+| V7 | Orthophoto haute résolution | pas avant les réponses O1 à O8 ; si elle est retenue, utilisée sur la parcelle et ses mitoyens là où elle existe, case cochée par défaut seulement si O2 montre un gain visible |
 
 ## 6. Les risques, et leur parade
 
@@ -190,6 +234,7 @@ R0 ──► R1 ──► R2 ──► R3
 | Une empreinte golden qui bouge | tout le réalisme hors export (`HORS_EXPORT`) ; empreintes vérifiées à chaque PR |
 | Photo mal calée qui « glisse » sur le mur (R4) | texture seulement si le calage a trouvé les coins (L7) ; sinon le matériau dessiné |
 | Effet « jeu vidéo » trop chargé | réglages sobres, comparaison au banc visuel et aux photos réelles, une étape à la fois |
+| Orthophoto haute résolution plus ancienne ou mal calée (R5 bis) | questions O3 et O4 avant d'intégrer ; repli sur l'orthophoto actuelle |
 | Vie privée (photos sur la parcelle) | les photos de l'audit restent dans le projet de l'utilisateur ; rien ne part sans l'accord déjà donné (D2, D7) |
 
 ## 7. Le premier pas
