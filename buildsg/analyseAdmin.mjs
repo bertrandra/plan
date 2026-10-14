@@ -14,8 +14,12 @@
 // reglage : elle n'envoie que la partie propre a la maison (images et texte). Sans quoi la cle
 // servirait a n'importe quoi a qui ouvre une session.
 //
-// Session admin seulement pour l'instant (celle de demosAdmin.mjs) ; en-tete `X-Plan-Admin: 1` sur
-// toute ecriture. Les chiffres du journal viennent du champ `usage` des reponses, jamais d'une
+// Qui peut appeler (plan D1, lot L17) : la session admin (celle de demosAdmin.mjs), ou un
+// utilisateur de la plateforme par son jeton (`Authorization: Bearer`), verifie aupres de la
+// plateforme elle-meme (`GET /api/v1/me/context`, `plateformeUrl`) : son organisation (`tenant.id`)
+// est celle du journal et des plafonds. Un utilisateur ne voit que `etat` et ses propres batches ;
+// tarifs, plafonds et consommation restent a l'administrateur. En-tete `X-Plan-Admin: 1` sur toute
+// ecriture. Les chiffres du journal viennent du champ `usage` des reponses, jamais d'une
 // estimation, et le cout de la table des tarifs en vigueur le jour de l'appel. Le journal ne garde
 // ni photo ni contenu de reponse.
 //
@@ -41,6 +45,10 @@ const TAILLE_MAX = 48 * 1024 * 1024;
 const ID_VALIDE = /^[A-Za-z0-9_-]{1,64}$/;
 const ID_BATCH = /^[A-Za-z0-9_-]{1,128}$/;
 const IMAGES_PAR_REQUETE = 40;
+/** Les facades qu'une requete couvre (journal, cout par facade du tableau de bord) : un compte, borne. */
+const FACADES_MAX = 200;
+const PRODUIT_PLATEFORME = 'plan';
+const PERMISSION_ANALYSE = 'projects.write';
 const BLOCS_PAR_REQUETE = 120;
 const TEXTE_MAX = 200000;
 const TYPES_IMAGE = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -170,7 +178,9 @@ export function verifierDemande(d, plafonds) {
       throw refus('Bloc de contenu non admis (texte ou image base64 seulement).');
     });
     if (images > IMAGES_PAR_REQUETE) throw refus('Trop d’images dans une requête (' + IMAGES_PAR_REQUETE + ' au plus).');
-    return { id: r.id, passe, images, contenu };
+    const facades = r.facades === undefined ? 0 : r.facades;
+    if (!Number.isInteger(facades) || facades < 0 || facades > FACADES_MAX) throw refus('Nombre de façades invalide.');
+    return { id: r.id, passe, images, facades, contenu };
   });
   return { ...meta, usage, modele, requetes };
 }
@@ -227,7 +237,7 @@ const USAGE_VALIDE = /^[a-z]{1,20}$/;
 /** Le journal est garde 24 mois : une periode n'en demande pas plus (25 fichiers mensuels au plus). */
 export const MOIS_CONSULTABLES = 25;
 /** Les champs d'une ligne que le tableau de bord lit : des compteurs et l'identite de la parcelle. */
-const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'cout', 'statut'];
+const CHAMPS_CONSOMMATION = ['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut'];
 
 const jourMs = (j) => Date.UTC(Number(j.slice(0, 4)), Number(j.slice(5, 7)) - 1, Number(j.slice(8, 10)));
 const jourValide = (j) => typeof j === 'string' && JOUR.test(j) && new Date(jourMs(j)).toISOString().slice(0, 10) === j;
@@ -328,11 +338,12 @@ export function lireResultat(ligne) {
  *   sessionValide: (req: import('node:http').IncomingMessage) => boolean,
  *   cle: string | undefined,      ANTHROPIC_API_KEY
  *   anthropicUrl?: string,        pour les tests
+ *   plateformeUrl?: string,       l'origine de la plateforme, qui verifie les jetons des utilisateurs
  *   deploy?: string,              ou lire le prompt, le schema et les tarifs livres
  *   maintenant?: () => number
  * }} options
  */
-export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', plateformeUrl = 'https://www.raillard.org', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
   const dossierClaude = path.join(dossier, 'claude');
   const dossierBatches = path.join(dossierClaude, 'batches');
   const fTarifs = path.join(dossierClaude, 'tarifs.json');
@@ -392,6 +403,35 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   }
   const messageApi = (texte) => { try { return String(JSON.parse(texte).error.message); } catch { return texte.slice(0, 200); } };
 
+  /** Le jeton porteur de la plateforme, s'il y en a un. */
+  const jetonPorteur = (req) => {
+    const m = /^Bearer\s+([A-Za-z0-9._~+/=-]{16,4096})$/.exec(String(req.headers.authorization || '').trim());
+    return m ? m[1] : null;
+  };
+
+  /**
+   * Qui appelle : l'administrateur, ou un utilisateur de la plateforme dont le jeton est verifie
+   * aupres d'elle a chaque appel (`/me/context`) : la plateforme seule sait s'il vaut encore, et son
+   * organisation est celle qui paie l'analyse. Rend `{statut, code, message}` quand il faut refuser.
+   */
+  async function acteur(req) {
+    if (sessionValide(req)) return { admin: true, organisation: 'admin' };
+    const jeton = jetonPorteur(req);
+    if (!jeton) return { refus: [401, 'UNAUTHENTICATED', 'Mot de passe ou jeton de la plateforme requis.'] };
+    let r;
+    try {
+      r = await fetch(plateformeUrl.replace(/\/$/, '') + '/api/v1/me/context', { headers: { Authorization: 'Bearer ' + jeton, 'X-Product': PRODUIT_PLATEFORME, Accept: 'application/json' } });
+    } catch { return { refus: [502, 'UPSTREAM', 'Plateforme injoignable.'] }; }
+    if (r.status === 401) return { refus: [401, 'UNAUTHENTICATED', 'Jeton de la plateforme refusé.'] };
+    if (r.status !== 200) return { refus: [403, 'FORBIDDEN', 'Ce compte ne tient pas Plan (' + r.status + ').'] };
+    let c = null;
+    try { c = await r.json(); } catch { c = null; }
+    const organisation = c && c.tenant && typeof c.tenant.id === 'string' ? c.tenant.id : '';
+    if (!ID_VALIDE.test(organisation) || organisation === 'admin') return { refus: [502, 'UPSTREAM', 'Réponse de la plateforme illisible.'] };
+    if (!Array.isArray(c.permissions) || !c.permissions.includes(PERMISSION_ANALYSE)) return { refus: [403, 'FORBIDDEN', 'Le droit d’écrire les projets est requis pour lancer une analyse.'] };
+    return { admin: false, organisation };
+  }
+
   const fBatch = (id) => path.join(dossierBatches, id + '.json');
   const vueBatch = (b) => ({ id: b.id, etat: b.processing_status, compte: b.request_counts || null, creeLe: b.created_at || null, finLe: b.ended_at || null, expireLe: b.expires_at || null });
 
@@ -403,14 +443,14 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const t = typeof fiche.finLe === 'string' && !Number.isNaN(Date.parse(fiche.finLe)) ? new Date(fiche.finLe).toISOString() : iso();
     const ligneTarif = tarifEnVigueur(tarifs(), fiche.modele, t.slice(0, 10));
     const sortie = lus.map((x) => {
-      const req = fiche.requetes[x.id] || { passe: null, images: 0 };
+      const req = fiche.requetes[x.id] || { passe: null, images: 0, facades: 0 };
       return { ...x, passe: req.passe, cout: coutAppel(x.tokens, ligneTarif, true) };
     });
     if (!fiche.journalise) {
       journaliser(sortie.map((x) => ({
         t, organisation: fiche.organisation, projet: fiche.projet, idu: fiche.idu, adresse: fiche.adresse, audit: fiche.audit,
         usage: fiche.usage, modele: fiche.modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
-        tokens: x.tokens, images: (fiche.requetes[x.id] || {}).images ?? 0, cout: x.cout, tarif: ligneTarif ? ligneTarif.depuis : null,
+        tokens: x.tokens, images: (fiche.requetes[x.id] || {}).images ?? 0, facades: (fiche.requetes[x.id] || {}).facades ?? 0, cout: x.cout, tarif: ligneTarif ? ligneTarif.depuis : null,
         statut: x.statut, arret: x.arret, prompt: fiche.promptVersion, schema: fiche.schemaVersion
       })));
       ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });
@@ -474,18 +514,22 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
     if (!lecture && req.headers['x-plan-admin'] !== '1') return erreur(403, 'FORBIDDEN', 'En-tete X-Plan-Admin manquant.');
-    if (!sessionValide(req)) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+    const qui = await acteur(req);
+    if (qui.refus) return erreur(...qui.refus);
+    const organisation = qui.organisation;
+    const reserveAdmin = () => (qui.admin ? null : erreur(403, 'FORBIDDEN', 'Réservé à l’administrateur.'));
     const sansCle = () => erreur(503, 'NOT_CONFIGURED', 'Clé Anthropic absente : ANTHROPIC_API_KEY sur ce serveur (anthropicCle dans plan-admin-config.php pour Apache).');
 
     try {
       if (chemin === 'etat') {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const { prompt, schema } = promptEtSchema();
-        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT });
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, prompt: prompt.version, schema: schema.version, effort: EFFORT, organisation, admin: qui.admin });
       }
 
       if (chemin === '@consommation') {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        if (reserveAdmin()) return true;
         const aujourdhui = iso().slice(0, 10);
         const f = lireFiltres(url.searchParams, aujourdhui);
         const p = plafonds();
@@ -506,6 +550,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       }
 
       if (chemin === 'tarifs' || chemin === 'plafonds') {
+        if (reserveAdmin()) return true;
         const f = chemin === 'tarifs' ? fTarifs : fPlafonds;
         if (lecture) return json(200, chemin === 'tarifs' ? tarifs() : plafonds());
         if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -523,12 +568,12 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         if (!avecCle) return sansCle();
         const p = plafonds();
         const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p);
-        const organisation = 'admin';
         const t = iso();
-        const identite = { organisation, projet: demande.projet ?? 'admin', idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
+        const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
         const { prompt, schema } = promptEtSchema();
         const images = demande.requetes.reduce((s, r) => s + r.images, 0);
-        const ligneVide = (statut, extra) => ({ t, ...identite, idBatch: null, requete: null, passe: null, tokens: tokensDeUsage(null), images, cout: 0, tarif: null, statut, arret: null, prompt: prompt.version, schema: schema.version, ...extra });
+        const facades = demande.requetes.reduce((s, r) => s + r.facades, 0);
+        const ligneVide = (statut, extra) => ({ t, ...identite, idBatch: null, requete: null, passe: null, tokens: tokensDeUsage(null), images, facades, cout: 0, tarif: null, statut, arret: null, prompt: prompt.version, schema: schema.version, ...extra });
 
         // Les plafonds : ce qui est depense, plus ce qui est engage dans les batches ouverts, plus
         // une estimation de celui-ci. Un batch se paie a la fin : sans l'engage, dix batches lances
@@ -556,7 +601,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         if (!b || typeof b.id !== 'string' || !ID_BATCH.test(b.id)) return erreur(502, 'UPSTREAM', 'Réponse d’Anthropic illisible.');
         ecrireJson(fBatch(b.id), {
           id: b.id, creeLe: t, ...identite, promptVersion: prompt.version, schemaVersion: schema.version,
-          requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images }])), etat: b.processing_status, journalise: false
+          requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images, facades: x.facades }])), etat: b.processing_status, journalise: false
         });
         return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version });
       }
@@ -565,9 +610,10 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       if (mb) {
         if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const id = decodeURIComponent(mb[1] || '');
-        // Seuls les batches crees par ce serveur se lisent : la cle ne sert pas a fouiller le compte.
+        // Seuls les batches crees par ce serveur se lisent, et par l'organisation qui les a crees : la
+        // cle ne sert pas a fouiller le compte, ni une organisation a lire les resultats d'une autre.
         const fiche = ID_BATCH.test(id) ? lireJson(fBatch(id)) : null;
-        if (!fiche) return erreur(404, 'NOT_FOUND', 'Aucun batch « ' + id + ' ».');
+        if (!fiche || (!qui.admin && fiche.organisation !== organisation)) return erreur(404, 'NOT_FOUND', 'Aucun batch « ' + id + ' ».');
         if (!avecCle) return sansCle();
         const r = await anthropic('GET', '/v1/messages/batches/' + encodeURIComponent(id));
         if (r.statut !== 200) return erreur(502, 'UPSTREAM', 'Anthropic : ' + r.statut + ' ' + messageApi(r.texte));

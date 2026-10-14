@@ -7,7 +7,7 @@
 
 import {
   batimentVide, captureVide, PHOTOS_PAR_FACADE_MAX, PHOTOS_PAR_LIGNE_MAX,
-  type BatimentCapture, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type PortailCapture,
+  type AnalyseCapture, type BatimentCapture, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type PortailCapture,
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
@@ -41,6 +41,8 @@ export interface CaptureEnCours {
   remplacer(c: CaptureParcelle): void;
   /** Une validation des propositions (§14) : gardee avec la capture, pour le fichier de l'audit (§15). */
   noterDecision(d: DecisionAudit): void;
+  /** L'analyse par Claude (§13.2) : ce qui change (accord, batch, resultats, erreur) ; le reste est garde. */
+  noterAnalyse(a: Partial<AnalyseCapture>): void;
   abonner(f: () => void): () => void;
 }
 
@@ -117,6 +119,7 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
     rouvrir() { capture = { ...capture, phase: 'capture', finCapture: null }; changer(); },
     remplacer(c) { capture = c; changer(); },
     noterDecision(d) { capture = { ...capture, decisions: [...(capture.decisions ?? []), d] }; changer(); },
+    noterAnalyse(a) { capture = { ...capture, analyse: { accord: null, ...(capture.analyse ?? {}), ...a } }; changer(); },
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };
 }

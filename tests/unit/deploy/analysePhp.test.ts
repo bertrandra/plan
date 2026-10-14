@@ -7,6 +7,7 @@ import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { PLAFONDS_DEFAUT, choixConsommation, etatOrganisations, filtrerConsommation, type Plafonds } from '../../../buildsg/analyseAdmin.mjs';
 import { CLE, COUT_P1, COUT_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // analyse.php, l'analyse par Claude sans Node (deploy/analyse.php), contre une API Message Batches
 // simulee : memes scenarios que buildsg/analyseAdmin.mjs, memes couts au centime pres. Lance par le
@@ -22,6 +23,7 @@ let demos: string;
 let config: string;
 let serveur: ChildProcess;
 let faux: FauxAnthropic;
+let plateforme: FauxPlateforme;
 let cookie = '';
 
 function portLibre(): Promise<number> {
@@ -62,6 +64,7 @@ describe.skipIf(!php)('analyse.php', () => {
     config = path.join(tmp, 'config.php');
     fs.mkdirSync(path.join(tmp, 'sessions'));
     faux = await demarrerFauxAnthropic(reponseParDefaut);
+    plateforme = await demarrerFauxePlateforme();
     const port = await portLibre();
     base = 'http://127.0.0.1:' + port;
     serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
@@ -75,12 +78,14 @@ describe.skipIf(!php)('analyse.php', () => {
   afterAll(async () => {
     serveur.kill();
     await faux.fermer();
+    await plateforme.fermer();
     fs.rmSync(tmp, { recursive: true, force: true });
   });
   beforeEach(() => {
     cookie = '';
-    configurer({ motDePasse: 'secret-admin', dossierDemos: demos, anthropicCle: CLE, anthropicUrl: faux.url });
+    configurer({ motDePasse: 'secret-admin', dossierDemos: demos, anthropicCle: CLE, anthropicUrl: faux.url, plateformeUrl: plateforme.url });
     fs.rmSync(demos, { recursive: true, force: true });
+    plateforme.jetons.length = 0;
     faux.batches.length = 0;
     faux.entetes.length = 0;
     faux.statutCreation = 200;
@@ -91,13 +96,34 @@ describe.skipIf(!php)('analyse.php', () => {
   it('n existe pas sans configuration, et exige la session et l en-tete', async () => {
     configurer({ motDePasse: 'A-CHANGER', dossierDemos: demos });
     expect((await navigateur('admin/claude/etat')).status).toBe(404);
-    configurer({ motDePasse: 'secret-admin', dossierDemos: demos, anthropicCle: CLE, anthropicUrl: faux.url });
+    configurer({ motDePasse: 'secret-admin', dossierDemos: demos, anthropicCle: CLE, anthropicUrl: faux.url, plateformeUrl: plateforme.url });
     expect((await navigateur('admin/claude/etat')).status).toBe(401);
     expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 0, schema: 0, effort: 'low' });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 1, schema: 1, effort: 'low', organisation: 'admin', admin: true });
     // La session admin d'admin.php continue de servir les demos.
     expect((await navigateur('admin/demos')).status).toBe(200);
+  });
+
+  it('ouvre l analyse a un utilisateur de la plateforme par son jeton, dans son organisation seulement', async () => {
+    const porteur = (jeton: string) => ({ Authorization: 'Bearer ' + jeton });
+    const utilisateur = (entree: string, init: RequestInit = {}) => navigateur(entree, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), ...porteur(JETON_ORGA) } });
+    expect((await navigateur('admin/claude/etat', { headers: porteur('jeton-inconnu-de-la-plateforme') })).status).toBe(401);
+    expect((await navigateur('admin/claude/etat', { headers: porteur(JETON_LECTEUR) })).status).toBe(403);
+    expect(await (await utilisateur('admin/claude/etat')).json()).toMatchObject({ actif: true, organisation: ORGA, admin: false });
+    expect((await utilisateur('admin/claude/tarifs')).status).toBe(403);
+    expect((await utilisateur('admin/consommation')).status).toBe(403);
+    const cree = await utilisateur('admin/claude/batches', { method: 'POST', headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(demande()) });
+    expect(cree.status).toBe(201);
+    expect(plateforme.jetons).toContain(JETON_ORGA);
+    faux.terminer();
+    expect((await (await utilisateur('admin/claude/batches/msgbatch_1/resultats')).json()).resultats).toHaveLength(2);
+    expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ organisation: ORGA, projet: 'projet-1', facades: 2, statut: 'reussi' });
+    // L'administrateur voit ce batch et cette organisation dans la consommation.
+    await connecterAdmin(navigateur, 'secret-admin');
+    expect((await navigateur('admin/claude/batches/msgbatch_1')).status).toBe(200);
+    const d = await (await navigateur('admin/consommation')).json();
+    expect(d.organisations.map((o: { id: string }) => o.id).sort()).toEqual(['admin', ORGA].sort());
   });
 
   it('sans cle, repond 503 et n appelle rien', async () => {
@@ -132,8 +158,8 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(lignes).toHaveLength(2);
     expect(lignes.find((l) => l.requete === 'p2')).toMatchObject({
       organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
-      usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, cout: COUT_P2,
-      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 0, schema: 0
+      usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, facades: 2, cout: COUT_P2,
+      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 1, schema: 1
     });
     expect((await navigateur('admin/claude/batches/msgbatch_1/resultats')).status).toBe(200);
     expect(journal()).toHaveLength(2);

@@ -30,6 +30,8 @@ export interface LigneConsommation {
   passe: number | null;
   tokens: TokensJournal;
   images: number;
+  /** Les facades que la requete couvrait (lot L17) ; 0 sur un journal d'avant. */
+  facades: number;
   /** En dollars ; `null` quand aucun tarif n'etait connu ce jour-la. */
   cout: number | null;
   /** `reussi`, `echoue`, `expire`, `annule`, ou `plafond` (refuse avant l'appel). */
@@ -129,6 +131,7 @@ function lireLigne(d: unknown): LigneConsommation | null {
     passe: fini(o.passe) ? o.passe : null,
     tokens: { entree: positif(t.entree), ecritureCache: positif(t.ecritureCache), ecritureCache1h: positif(t.ecritureCache1h), lectureCache: positif(t.lectureCache), sortie: positif(t.sortie) },
     images: positif(o.images),
+    facades: positif(o.facades),
     cout: fini(o.cout) ? o.cout : null,
     statut: typeof o.statut === 'string' ? o.statut : 'echoue'
   };
@@ -272,6 +275,10 @@ export interface LigneParcelle {
   /** Part des tokens d'entree lus en cache. */
   partCache: number;
   cout: number;
+  /** Les facades couvertes par les appels (une passe compte ses facades une fois : le plus grand compte par audit). */
+  facades: number;
+  /** Le cout rapporte aux facades ; null sans facade comptee (journal d'avant le lot L17). */
+  coutParFacade: number | null;
   /** Le jour du dernier appel. */
   dernier: string;
 }
@@ -290,6 +297,8 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
   return [...groupes].map(([cle, g]) => {
     const tokensParModele: Record<string, number> = {};
     let entree = 0, lu = 0, c = 0, dernier = '';
+    // Les trois passes d'un audit couvrent les memes facades : on les compte une fois par audit.
+    const facadesParAudit = new Map<string, number>();
     for (const l of g.l) {
       const s = serieDuModele(l.modele);
       tokensParModele[s] = (tokensParModele[s] ?? 0) + totalTokens(l.tokens);
@@ -297,12 +306,15 @@ export function parParcelle(ls: LigneConsommation[]): LigneParcelle[] {
       lu += l.tokens.lectureCache;
       c += cout(l);
       if (l.t > dernier) dernier = l.t;
+      const audit = l.audit ?? l.t;
+      facadesParAudit.set(audit, Math.max(facadesParAudit.get(audit) ?? 0, l.facades));
     }
+    const facades = [...facadesParAudit.values()].reduce((a, b) => a + b, 0);
     const premiere = g.l.find((l) => l.adresse) ?? g.l[0];
     return {
       cle, idu: g.l[0]?.idu ?? null, adresse: premiere?.adresse ?? null, audits: g.audits.size, tokensParModele,
       tokens: Object.values(tokensParModele).reduce((a, b) => a + b, 0),
-      partCache: entree ? lu / entree : 0, cout: arrondi(c), dernier: dernier.slice(0, 10)
+      partCache: entree ? lu / entree : 0, cout: arrondi(c), facades, coutParFacade: facades ? arrondi(c / facades) : null, dernier: dernier.slice(0, 10)
     };
   });
 }

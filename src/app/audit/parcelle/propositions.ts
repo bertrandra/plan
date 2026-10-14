@@ -247,14 +247,22 @@ function propositionsMateriaux(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): 
   return out;
 }
 
+/** Le corps qui porte les souches : le plus grand en pente, a defaut le plus grand ; -1 sans corps. */
+export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
+  const i = plusGrand(corps, (c) => !estPlat(c));
+  return i >= 0 ? i : plusGrand(corps, () => true);
+}
+
+/** Le corps qui porte la toiture-terrasse : le plus grand corps plat ; -1 s'il n'y en a pas. */
+export const corpsDeLaTerrasse = (corps: readonly CorpsToit[]): number => plusGrand(corps, estPlat);
+
 /** Les cheminees vues, posees sur le plus grand corps en pente (a defaut, le plus grand). */
 function propositionCheminees(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
   const corps = o.corpsToit ?? [];
   if (!vu.cheminees || !corps.length) return null;
   const existantes = corps.flatMap((c) => c.cheminees ?? []);
   if (!vu.cheminees.nombre && !existantes.some((c) => c.source === 'observation')) return null;
-  let i = plusGrand(corps, (c) => !estPlat(c));
-  if (i < 0) i = plusGrand(corps, () => true);
+  const i = corpsDesCheminees(corps);
   const c = corps[i];
   if (!c) return null;
   const cheminees = souchesSurLeCorps(c, vu.cheminees.souches);
@@ -270,7 +278,7 @@ function propositionCheminees(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): P
 function propositionTerrasse(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
   const corps = o.corpsToit ?? [];
   if (!vu.terrasse || !terrasseVue(vu)) return null;
-  const i = plusGrand(corps, estPlat);
+  const i = corpsDeLaTerrasse(corps);
   const c = corps[i];
   if (!c) return null;
   const t = c.terrasse;
