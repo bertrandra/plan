@@ -18,6 +18,10 @@
 // que le rejeu propose sans le cocher (`propose :`, facade.couleur quand une facade lue sur photo
 // s'ecarte de la couleur retenue, spec §18.4). Le code de sortie est 1 si un cas `valide` a bouge :
 // c'est ce que tests/unit/facade/audit.test.ts refuse en CI.
+//
+// Un fichier d'audit de parcelle (`plan-audit-parcelle`, lot L21), seul ou dans le dossier, n'a pas de
+// cas de toit a rejouer : ses facades relevees sont mesurees (lot G11, model/mesureFacade.ts), une
+// ligne par facade, comme le fait .claude/skills/facades/scripts/mesures.ts.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { lireFichierPromenade, type CasAudit, type SortiesCas } from '../../../../src/model/audit.ts';
@@ -26,6 +30,8 @@ import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/model/reglagesToits.ts
 import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, empreinteFaitsToits, signatureFait } from '../../../../src/model/faitsToits.ts';
 import { ecartsAuFait } from '../../../../src/facade/faitsToits.ts';
 import { VERSION_LECTURE_TOITS } from '../../../../src/app/toitsLidar.ts';
+import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle } from '../../../../src/model/fichierAuditParcelle.ts';
+import { lignesAuditParcelle } from '../../../../tests/banc/facades/mesuresFacades.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
 const args = process.argv.slice(2);
@@ -47,10 +53,16 @@ const formes = (corps: SortiesCas['corps']) => (corps ?? []).map((c) => {
 /** La cle des fichiers de rendu.py, qui prefixe `bati-batiment-` a ce qui ne commence pas par `bati-`. */
 const cleRendu = (c: CasAudit) => (c.cle.startsWith('bati-') ? c.cle : 'bati-' + c.cle);
 
-let valides = 0, valideBouge = 0, aTraiter = 0, prets = 0, proposes = 0;
+let valides = 0, valideBouge = 0, aTraiter = 0, prets = 0, proposes = 0, parcelles = 0;
 const lignes: string[] = [];
 for (const chemin of fichiers) {
-  const f = lireFichierPromenade(JSON.parse(readFileSync(chemin, 'utf8')));
+  const brut = JSON.parse(readFileSync(chemin, 'utf8')) as { format?: string };
+  if (brut.format === FORMAT_AUDIT_PARCELLE) {
+    parcelles++;
+    lignes.push(...lignesAuditParcelle(lireFichierAuditParcelle(brut), basename(chemin)));
+    continue;
+  }
+  const f = lireFichierPromenade(brut);
   const regles = f.promenade.regles;
   const versions = `lecture ${regles.lectureToits ?? '?'} -> ${VERSION_LECTURE_TOITS}` + (regles.reglagesToits ? `, reglages ${regles.reglagesToits} -> ${EMPREINTE_REGLAGES_TOITS}` : '');
   lignes.push(`# ${basename(chemin)} : ${f.promenade.commune ?? '?'}, ${f.cas.length} cas, code ${f.promenade.code.version} (${f.promenade.code.commit ?? '?'}), ${versions}`);
@@ -78,6 +90,6 @@ for (const chemin of fichiers) {
     }
   }
 }
-console.log(`audit : ${fichiers.length} fichier(s), ${valides} cas valide(s) dont ${valideBouge} qui bouge(nt), ${aTraiter} a traiter dont ${prets} pret(s) a valider, ${proposes} proposition(s) ; reglages ${EMPREINTE_REGLAGES_TOITS}, faits ${empreinteFaitsToits(faits)} (${Object.keys(faits).length}${iFaits >= 0 ? ', ' + args[iFaits + 1] : ''}), lecture ${VERSION_LECTURE_TOITS}`);
+console.log(`audit : ${fichiers.length} fichier(s)${parcelles ? ' dont ' + parcelles + ' audit(s) de parcelle' : ''}, ${valides} cas valide(s) dont ${valideBouge} qui bouge(nt), ${aTraiter} a traiter dont ${prets} pret(s) a valider, ${proposes} proposition(s) ; reglages ${EMPREINTE_REGLAGES_TOITS}, faits ${empreinteFaitsToits(faits)} (${Object.keys(faits).length}${iFaits >= 0 ? ', ' + args[iFaits + 1] : ''}), lecture ${VERSION_LECTURE_TOITS}`);
 console.log(lignes.join('\n'));
 process.exitCode = valideBouge ? 1 : 0;

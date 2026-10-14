@@ -1,0 +1,374 @@
+{
+ "format": "plan-audit-parcelle",
+ "version": 1,
+ "parcelle": {
+  "idu": "00000000ZZ0001",
+  "adresse": "exemple synthétique, façades du banc 02 et 19",
+  "origine": null
+ },
+ "code": {
+  "version": "0.0.0",
+  "commit": null
+ },
+ "regles": {
+  "lectureToits": 0,
+  "lectureMurs": 0,
+  "reglagesToits": null
+ },
+ "debut": "2026-10-14T08:30:00.000Z",
+ "finCapture": "2026-10-14T09:10:00.000Z",
+ "ecritLe": "2026-10-14T09:15:00.000Z",
+ "batiments": [
+  {
+   "cle": "maison",
+   "nom": "Maison",
+   "mitoyen": false,
+   "cas": {
+    "identite": {
+     "cleBdtopo": null,
+     "idu": "00000000ZZ0001",
+     "adresse": null
+    },
+    "entrees": {
+     "pts": [
+      {
+       "x": 0,
+       "y": 0
+      },
+      {
+       "x": 10,
+       "y": 0
+      },
+      {
+       "x": 10,
+       "y": 8
+      },
+      {
+       "x": 0,
+       "y": 8
+      }
+     ],
+     "bdtopo": null,
+     "grille": null,
+     "voisins": [
+      {
+       "cle": "garage-voisin",
+       "pts": [
+        {
+         "x": 10,
+         "y": 1
+        },
+        {
+         "x": 14,
+         "y": 1
+        },
+        {
+         "x": 14,
+         "y": 6
+        },
+        {
+         "x": 10,
+         "y": 6
+        }
+       ]
+      }
+     ]
+    },
+    "sorties": {
+     "mode": "entier",
+     "elevation": 5.8,
+     "toit": {
+      "forme": "deux-pans",
+      "hauteur": 3,
+      "angleFaitage": 0
+     },
+     "corps": null,
+     "toitMesure": null,
+     "couleurMurs": null,
+     "sourceMurs": null
+    }
+   },
+   "vu": {},
+   "photos": [],
+   "facades": [
+    {
+     "cote": 0,
+     "orientation": "Sud",
+     "largeurM": 10,
+     "hauteurM": 5.8,
+     "photos": [],
+     "mesure": {
+      "releve": {
+       "cote": 0,
+       "largeur": 10,
+       "hauteur": 5.8,
+       "texture": null,
+       "ouvertures": [
+        {
+         "type": "fenetre",
+         "x": 1.2,
+         "y": 0.9,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 0
+        },
+        {
+         "type": "porte",
+         "x": 4.6,
+         "y": 0,
+         "l": 0.95,
+         "h": 2.15,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 1
+        },
+        {
+         "type": "fenetre",
+         "x": 7.4,
+         "y": 0.9,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 2
+        },
+        {
+         "type": "fenetre",
+         "x": 1.2,
+         "y": 3.8,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 0
+        },
+        {
+         "type": "fenetre",
+         "x": 4.5,
+         "y": 3.8,
+         "l": 1.1,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 1
+        },
+        {
+         "type": "fenetre",
+         "x": 7.4,
+         "y": 3.8,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 2
+        }
+       ],
+       "distance": 12,
+       "sourceDistance": "rue",
+       "releveLe": "2026-10-14T09:00:00.000Z",
+       "grille": {
+        "niveaux": [
+         {
+          "appuiM": 0.9,
+          "linteauM": 2.25
+         },
+         {
+          "appuiM": 3.8,
+          "linteauM": 5.15
+         }
+        ],
+        "travees": [
+         {
+          "xM": 1.8,
+          "largeurM": 1.2
+         },
+         {
+          "xM": 5.06,
+          "largeurM": 1.02
+         },
+         {
+          "xM": 8,
+          "largeurM": 1.2
+         }
+        ]
+       },
+       "corrections": []
+      },
+      "rangReleve": 0,
+      "coinsTrouves": true,
+      "confiance": 0.8,
+      "hauteurM": 5.8,
+      "couleur": null
+     }
+    },
+    {
+     "cote": 1,
+     "orientation": "Est",
+     "largeurM": 8,
+     "hauteurM": 5.8,
+     "photos": [],
+     "mesure": {
+      "releve": {
+       "cote": 1,
+       "largeur": 8,
+       "hauteur": 5.8,
+       "texture": null,
+       "ouvertures": [],
+       "distance": 12,
+       "sourceDistance": "webxr",
+       "releveLe": "2026-10-14T09:00:00.000Z",
+       "corrections": []
+      },
+      "rangReleve": 0,
+      "coinsTrouves": true,
+      "confiance": 0.8,
+      "hauteurM": 5.8,
+      "couleur": null
+     }
+    },
+    {
+     "cote": 2,
+     "orientation": "Nord",
+     "largeurM": 10,
+     "hauteurM": 5.8,
+     "photos": [],
+     "mesure": {
+      "releve": {
+       "cote": 2,
+       "largeur": 10,
+       "hauteur": 5.8,
+       "texture": null,
+       "ouvertures": [
+        {
+         "type": "fenetre",
+         "x": 1.2,
+         "y": 0.9,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 0
+        },
+        {
+         "type": "porte",
+         "x": 4.5,
+         "y": 0,
+         "l": 0.95,
+         "h": 2.15,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 1
+        },
+        {
+         "type": "fenetre",
+         "x": 7.6,
+         "y": 0.9,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 0,
+         "travee": 2
+        },
+        {
+         "type": "fenetre",
+         "x": 1.2,
+         "y": 3.7,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 0
+        },
+        {
+         "type": "fenetre",
+         "x": 4.38,
+         "y": 3.7,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 1
+        },
+        {
+         "type": "fenetre",
+         "x": 7.6,
+         "y": 3.7,
+         "l": 1.2,
+         "h": 1.35,
+         "source": "detectee",
+         "confiance": 0.9,
+         "niveau": 1,
+         "travee": 2
+        }
+       ],
+       "distance": 12,
+       "sourceDistance": "webxr",
+       "releveLe": "2026-10-14T09:00:00.000Z",
+       "grille": {
+        "niveaux": [
+         {
+          "appuiM": 0.9,
+          "linteauM": 2.25
+         },
+         {
+          "appuiM": 3.7,
+          "linteauM": 5.05
+         }
+        ],
+        "travees": [
+         {
+          "xM": 1.8,
+          "largeurM": 1.2
+         },
+         {
+          "xM": 4.98,
+          "largeurM": 1.08
+         },
+         {
+          "xM": 8.2,
+          "largeurM": 1.2
+         }
+        ]
+       },
+       "corrections": []
+      },
+      "rangReleve": 0,
+      "coinsTrouves": true,
+      "confiance": 0.8,
+      "hauteurM": 5.8,
+      "couleur": null
+     }
+    },
+    {
+     "cote": 3,
+     "orientation": "Ouest",
+     "largeurM": 8,
+     "hauteurM": 5.8,
+     "photos": [],
+     "mesure": null
+    }
+   ]
+  }
+ ],
+ "cloture": {
+  "photos": []
+ },
+ "portail": {
+  "photos": []
+ },
+ "propositions": [],
+ "decisions": []
+}

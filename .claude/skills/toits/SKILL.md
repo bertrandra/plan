@@ -347,6 +347,9 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
   réseau (`facade/audit.ts::rejouerCas` : calcul entier, comme la promenade ; mêmes garde-fous que
   l'import, `facade/vraisemblance.ts`), puis compare aux `sorties` du terrain et à l'`attendu`. Il
   écrit `q/bati-<cle>.json` (rejeu) et `q/bati-<cle>-terrain.json` (sorties notées) pour `rendu.py`.
+- Un fichier d'**audit de parcelle** (`plan-audit-parcelle`, lot L21), seul ou dans le dossier, n'a
+  pas de cas de toit : le script mesure ses façades relevées (lot G11, `model/mesureFacade.ts`), une
+  ligne par façade, comme `.claude/skills/facades/scripts/mesures.ts` (skill `facades`, §1 bis).
 - Il **propose** `facade.couleur` (sans le cocher) quand une façade lue sur une photo du cas s'écarte
   de la couleur des murs retenue de plus que `ECART_TEINTE` (`model/couleurMur.ts`, §18.4).
 - Ne se rejouent pas sans réseau, et restent tels que notés : la couleur Panoramax, la réponse à la
