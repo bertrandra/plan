@@ -113,6 +113,7 @@ export function appliquerProjetImporte(valide: ProjetValide, remplacer: boolean,
   // Le fond orthophoto fait partie des reglages du projet : un plan importe avec le fond actif
   // le retrouve actif, cale sur SA parcelle (les tuiles precedentes ne valent plus rien).
   ortho.tuiles = [];
+  ortho.tuilesLarges = [];
   ortho.couverture = null;
   restaurerOrthoDuProjet(ctx);
   restaurerAffichageDuProjet(etat, ctx);
@@ -132,7 +133,8 @@ export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportPro
   const p = ctx.trouverParcelleCloture();
   const a = p && p.affichage;
   etat.voisinageVisible = !(a && a.voisinage === false);
-  etat.grilleVisible = !(a && a.grille === false);
+  // La grille ne se montre que si le projet l'a demandee : masquee par defaut.
+  etat.grilleVisible = !!(a && a.grille === true);
   // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
   // (l'import rend avant de restaurer les reglages). Sans ce rendu, un projet enregistre grille
   // masquee se rouvrait avec le bouton eteint... et la grille bien visible.

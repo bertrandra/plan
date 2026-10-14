@@ -28,6 +28,17 @@ function Invite({ d }: { d: Extract<Dialogue, { type: 'invite' }> }) {
   );
 }
 
+/** La case d'un choix : son etat vit chez celui qui pose la question, la zone ne fait que la dessiner. */
+function CaseChoix({ c }: { c: NonNullable<Extract<Dialogue, { type: 'choix' }>['case']> }) {
+  const [cochee, setCochee] = useState(c.cochee);
+  return (
+    <label className="dialogueCase">
+      <input type="checkbox" data-controle="dialogue.case" checked={cochee} onChange={e => { setCochee(e.target.checked); c.changer(e.target.checked); }} />
+      <span>{c.libelle}</span>
+    </label>
+  );
+}
+
 export function Dialogues() {
   const d = useSyncExternalStore(abonner, lire, lire);
   const fermable = !!d && d.type !== 'erreurChargement';
@@ -58,6 +69,7 @@ export function Dialogues() {
             {d.points && d.points.length > 0 && (
               <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
+            {d.case && <CaseChoix key={d.titre + d.case.libelle} c={d.case} />}
             <div className="dialogueBoutons">
               <button type="button" data-controle="dialogue.secondaire" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
               <button type="button" data-controle="dialogue.principal" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>

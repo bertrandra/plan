@@ -12,7 +12,7 @@ import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import { estMesh } from './gardes.js';
-import { GABARIT_SOL } from './primitives.js';
+import { GABARIT_SOL, HORS_EXPORT } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
@@ -34,11 +34,12 @@ type MateriauCarte = THREE_NS.Material & { map?: THREE_NS.Texture | null };
 /**
  * Cache, le temps de l'export, le gabarit qui perce le sol au droit d'un bassin (three/piscine3d.ts) :
  * il ne vaut que pour le tampon de gabarit de la Vue 3D, et un lecteur glTF le dessinerait comme
- * une surface blanche sur l'eau. Rend de quoi le remettre.
+ * une surface blanche sur l'eau. La position GPS de l'appareil (three/positionGps3d.ts) n'a rien a faire
+ * dans le modele non plus. Rend de quoi le remettre.
  */
 export function masquerGabarits(scene: THREE_NS.Object3D): () => void {
   const caches: THREE_NS.Object3D[] = [];
-  scene.traverse(o => { if (o.userData[GABARIT_SOL] && o.visible) { o.visible = false; caches.push(o); } });
+  scene.traverse(o => { if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT]) && o.visible) { o.visible = false; caches.push(o); } });
   return () => caches.forEach(o => { o.visible = true; });
 }
 

@@ -11,18 +11,23 @@ type Source = NonNullable<CouleurMurs['source']>;
 
 const materiau = (o: ObjetPlan) => materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs);
 const photo = (o: ObjetPlan) => o.couleurMurs?.photo ?? null;
+/** La couleur et le materiau vus sur place, lors d'un audit de la parcelle (MD/spec-audit.md §14). */
+const terrain = (o: ObjetPlan) => o.couleurMurs?.terrain ?? null;
+const materiauVu = (o: ObjetPlan) => o.couleurMurs?.materiau ?? null;
 /** Un batiment dont on sait quelque chose de ses murs : la question de la source se pose. */
-const avecLecture = (c: ContexteChamps) => estBatiment(c.obj) && (!!photo(c.obj) || !!materiau(c.obj));
+const avecLecture = (c: ContexteChamps) => estBatiment(c.obj) && (!!photo(c.obj) || !!materiau(c.obj) || !!terrain(c.obj) || !!materiauVu(c.obj));
 
 const dateFr = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('fr-FR') : null);
 
 /** « photo de rue du 21/03/2018 (IGN) : #D9D2C4 · matériau : meulière et brique, #B3895A · retenue : photo de rue ». */
 export function decrireCouleurMurs(o: ObjetPlan): string {
-  const p = photo(o), m = materiau(o), r = couleurMursRetenue(o);
+  const p = photo(o), m = materiau(o), r = couleurMursRetenue(o), t = terrain(o), vu = materiauVu(o);
   const parts: string[] = [];
+  if (t) parts.push('vos photos du ' + (dateFr(t.date) ?? t.date) + ' : ' + t.couleur);
+  if (vu) parts.push('matériau vu sur place : ' + vu);
   if (p) parts.push('photo de rue' + (dateFr(p.date) ? ' du ' + dateFr(p.date) : '') + (p.auteur ? ' (' + p.auteur + ')' : '') + ' : ' + p.couleur);
   if (m) parts.push('matériau : ' + m.libelle + ', ' + m.couleur);
-  parts.push('retenue : ' + (r?.source === 'photo' ? 'photo de rue' : r?.source === 'materiau' ? 'matériau' : 'couleur du plan'));
+  parts.push('retenue : ' + (r?.source === 'photo' ? (t ? 'vos photos' : 'photo de rue') : r?.source === 'materiau' ? 'matériau' : 'couleur du plan'));
   const texte = parts.join(' · ');
   return texte.charAt(0).toUpperCase() + texte.slice(1);
 }
@@ -33,8 +38,8 @@ export const champsCouleurMurs: Champ[] = [
     aide: 'Automatique : la couleur lue sur une photo de rue, sinon celle du matériau des murs (fichiers fonciers)',
     options: (c) => [
       { valeur: 'auto', libelle: 'Automatique' },
-      ...(photo(c.obj) ? [{ valeur: 'photo', libelle: 'Photo de rue' }] : []),
-      ...(materiau(c.obj) ? [{ valeur: 'materiau', libelle: 'Matériau' }] : []),
+      ...(terrain(c.obj) ? [{ valeur: 'photo', libelle: 'Vos photos' }] : photo(c.obj) ? [{ valeur: 'photo', libelle: 'Photo de rue' }] : []),
+      ...(materiau(c.obj) || materiauVu(c.obj) ? [{ valeur: 'materiau', libelle: 'Matériau' }] : []),
       { valeur: 'plan', libelle: 'Couleur du plan' },
     ],
     lire: (c) => c.obj.couleurMurs?.source ?? 'auto',

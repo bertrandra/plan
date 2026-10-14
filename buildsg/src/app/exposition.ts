@@ -22,7 +22,7 @@ export const CLASSES: Classe[] = ['compact', 'moyen', 'large'];
 export type Emplacement =
   | 'palette' | 'rail' | 'feuilleOutils'
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
-  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide'
+  | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
   | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
   | 'clavier' | 'premierPas' | 'sansObjet';
 
@@ -89,7 +89,12 @@ export const EXPOSITION: Record<string, Ligne> = {
   'projet.depuisAdresse': menu('menuFichier', 'premierPas'),
   'projet.actualiserIgn': menu('menuFichier'),
   'projet.actualiser': menu('menuFichier'),
+  'projet.toitsFond': menu('menuFichier'),
   'projet.supprimerVoisinage': menu('menuFichier'),
+  // L'audit de la parcelle (MD/spec-audit.md §11) : menu Projet (Fichier) sur bureau, feuille du projet au doigt.
+  'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
+  // L'import d'un audit de parcelle (§15) : a cote, dans le meme menu.
+  'audit.importerParcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
@@ -97,11 +102,13 @@ export const EXPOSITION: Record<string, Ligne> = {
   'affichage.grille': menu('menuAffichage', 'surimpression'),
   'affichage.relief': menu('menuAffichage'),
   'affichage.courbes': menu('menuAffichage'),
-  'affichage.sectionsRepliees': menu('menuAffichage'),
+  'affichage.rues': menu('menuAffichage'),
   'affichage.orthophoto': menu('menuAffichage'),
+  'affichage.positionGps': menu('menuAffichage'),
   'affichage.orthoOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleOpacite': menu('menuAffichage'),
   'affichage.orthoParcelleDefaut': menu('menuAffichage'),
+  'affichage.orthoRecharger': menu('menuAffichage'),
 
   // ---- Vues -----------------------------------------------------------------------------------
   // Avec une terrasse selectionnee : sur le plan, dans le groupe flottant ; en 3D, dans les commandes de la scene.
@@ -152,7 +159,14 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.hauteurDesYeux': partout('vue3d'),
   '3d.enregistrerPng': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
+  // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
+  'audit.suivre': partout('vue3d'),
+  'audit.cas': partout('vue3d'),
   '3d.pleinePage': { compact: ['sansObjet'], moyen: ['sansObjet'], large: ['vue3d'] },
+
+  // ---- Admin (menu Admin de Z1, admin des demos seulement) ------------------------------------
+  'admin.consommation': menu('menuAdmin'),
+  'admin.faitsLocaux': menu('menuAdmin'),
 
   // ---- Visionneuse ----------------------------------------------------------------------------
   'visionneuse.generer': partout('visionneuse'),

@@ -18,7 +18,7 @@
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
 import { deplierRelief } from './relief.js';
-import type { ObjetBrut, ObjetAPoints } from './types.js';
+import type { CorpsToit, ObjetBrut, ObjetAPoints } from './types.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -58,9 +58,11 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
     if (c.volumesToit) c.volumesToit = JSON.parse(JSON.stringify(c.volumesToit));
     if (c.toitMesure) c.toitMesure = JSON.parse(JSON.stringify(c.toitMesure));
-    if (c.corpsToit) c.corpsToit = JSON.parse(JSON.stringify(c.corpsToit));
+    // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient.
+    if (c.corpsToit) c.corpsToit = (JSON.parse(JSON.stringify(c.corpsToit)) as CorpsToit[]).map((k) => ({ ...k, pignons: k.pignons ?? [] }));
     if (c.toitACheval) c.toitACheval = JSON.parse(JSON.stringify(c.toitACheval));
     if (c.couleurMurs) c.couleurMurs = JSON.parse(JSON.stringify(c.couleurMurs));
+    if (c.verifieSurPlace) c.verifieSurPlace = { date: String(c.verifieSurPlace.date) };
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));
     if (c.cloture) c.cloture = JSON.parse(JSON.stringify(c.cloture));
     // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).

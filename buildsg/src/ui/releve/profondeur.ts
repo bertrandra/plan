@@ -14,7 +14,8 @@
 // ici, eteint : dans le module natif, la page se comporte comme dans Safari (camera du navigateur,
 // cadrage), et ne lui envoie aucune commande.
 
-export type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue';
+// `gps` : la position de la photo d'un audit de la parcelle, a quelques metres pres (app/audit/parcelle/mesures.ts).
+export type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps';
 
 export interface MesureDistance {
   distance: number;

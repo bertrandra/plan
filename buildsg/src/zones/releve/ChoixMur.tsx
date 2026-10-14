@@ -1,17 +1,40 @@
 // Le releve de facade (zones/Releve.tsx), etape 1 : choisir le mur.
 
+import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../icones.js';
-import { facadeFaceAuCap, nomOrientation, type Facade } from '../../facade/geometrie.js';
-import type { ObjetPolygone } from '../../model/types.js';
+import { nomOrientation, type Facade } from '../../facade/geometrie.js';
+import { murPropose, texteFacadeDevant } from '../../facade/priseDeVue.js';
+import type { Obstacle } from '../../geometry/ligneDeVue.js';
+import type { ObjetPolygone, PtBrut } from '../../model/types.js';
 import { fr } from './commun.js';
 import { useBoussole } from './capteurs.js';
 
+/** La position se relit a ce rythme : sans boussole, rien d'autre ne redessine l'ecran quand on marche. */
+const RELECTURE_POSITION_MS = 1000;
+
 /**
- * La boussole dit vers ou l'on regarde, et donc quel mur on a devant soi : il est propose (et
- * surligne sur le contour), pas choisi - un contour irregulier ou une boussole mal etalonnee se
+ * La boussole (et la position, quand elle est suivie) dit quel mur on a devant soi : il est propose
+ * (et surligne sur le contour), pas choisi - un contour irregulier ou une boussole mal etalonnee se
  * trompent d'un mur.
  */
-function Boussole({ b, devinee, onChoisir }: { b: ReturnType<typeof useBoussole>; devinee: Facade | null; onChoisir: (cote: number) => void }) {
+function Boussole({ b, propose, onChoisir }: { b: ReturnType<typeof useBoussole>; propose: ReturnType<typeof murPropose>; onChoisir: (cote: number) => void }) {
+  const devinee = propose?.facade ?? null;
+  // La position seule suffit a nommer le mur : la boussole n'est plus qu'une aide en plus.
+  if (propose?.devant) {
+    return (
+      <div className="releveBoussole" aria-live="polite">
+        <span><strong>{texteFacadeDevant(propose.devant)}</strong> : est-ce ce mur ?</span>
+        <button data-controle="releve.choisirMur" type="button" className="small" onClick={() => onChoisir(propose.facade.cote)}>
+          C’est ce mur
+        </button>
+        {b.aDemander && (
+          <button data-controle="releve.boussole" type="button" className="secondary small" onClick={b.activer}>
+            <Icone nom="nord" taille={16} /> Préciser à la boussole
+          </button>
+        )}
+      </div>
+    );
+  }
   if (b.aDemander) {
     return (
       <div className="releveBoussole">
@@ -38,7 +61,7 @@ function Boussole({ b, devinee, onChoisir }: { b: ReturnType<typeof useBoussole>
   );
 }
 
-export function ChoixMur({ bat, facades, onChoisir }: { bat: ObjetPolygone; facades: Facade[]; onChoisir: (cote: number) => void }) {
+export function ChoixMur({ bat, facades, position, obstacles, onChoisir }: { bat: ObjetPolygone; facades: Facade[]; position: () => PtBrut | null; obstacles: () => Obstacle[]; onChoisir: (cote: number) => void }) {
   const pts = bat.pts;
   const xs = pts.map((p) => p.x),
     ys = pts.map((p) => p.y);
@@ -52,11 +75,19 @@ export function ChoixMur({ bat, facades, onChoisir }: { bat: ObjetPolygone; faca
   const releve = new Set((bat.facades || []).map((r) => r.cote));
   const taille = Math.max(x1 - x0, y1 - y0);
   const boussole = useBoussole();
-  const devinee = boussole.cap === null ? null : facadeFaceAuCap(facades, boussole.cap);
+  const [, relire] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => relire((n) => n + 1), RELECTURE_POSITION_MS);
+    return () => window.clearInterval(t);
+  }, []);
+  // Ce qui peut cacher le mur depuis la position : les batiments du plan, lus une fois par batiment.
+  const contours = useMemo(() => obstacles(), [obstacles, bat]);
+  const propose = murPropose(facades, bat.key, position(), contours, boussole.cap);
+  const devinee = propose?.facade ?? null;
   return (
     <div className="releveCorps">
       <p className="releveConsigne">Touchez le mur à photographier. Le nord est en haut.</p>
-      <Boussole b={boussole} devinee={devinee} onChoisir={onChoisir} />
+      <Boussole b={boussole} propose={propose} onChoisir={onChoisir} />
       <svg className="releveMur" viewBox={vb} role="group" aria-label="Contour du bâtiment">
         <polygon points={pts.map((p) => `${p.x},${-p.y}`).join(' ')} className="releveMurContour" vectorEffect="non-scaling-stroke" />
         {facades.map((f) => {

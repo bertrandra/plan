@@ -36,7 +36,10 @@
       "camera-bg": "#14100B",
       "on-camera": "#FFFDF8",
       "camera-ok": "#8FD49B",
-      "camera-alerte": "#F2B38F"
+      "camera-alerte": "#F2B38F",
+      "serie-1": "#2A78D6",
+      "serie-2": "#EB6834",
+      "serie-3": "#1BAF7A"
     },
     "sombre": {
       "ink": "#E3DDDD",
@@ -68,7 +71,10 @@
       "camera-bg": "#14100B",
       "on-camera": "#FFFDF8",
       "camera-ok": "#8FD49B",
-      "camera-alerte": "#F2B38F"
+      "camera-alerte": "#F2B38F",
+      "serie-1": "#3987E5",
+      "serie-2": "#D95926",
+      "serie-3": "#199E70"
     }
   }
 }

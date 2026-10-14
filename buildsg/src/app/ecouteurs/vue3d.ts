@@ -57,6 +57,9 @@ export interface ReglagesVue3d {
   basculerOmbres(actif: boolean): void;
 }
 
+/** Le pas des boutons + et − de la Vue 3D : la distance a la cible divisee (ou multipliee) par deux. */
+export const FACTEUR_BOUTON_ZOOM = 0.5;
+
 export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes): ReglagesVue3d {
   // Les boutons sont dans le panneau (zones/vue3d/Vue3d.tsx) : des commandes sans element a lier.
   const cam = (_idDom: string, id: string, libelle: string, executer: () => void, permission?: string) =>
@@ -67,8 +70,10 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };
 
   // ---- Déplacer la caméra ---------------------------------------------------------------------
-  cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(0.8));
-  cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1.25));
+  // Un clic divise ou double la distance a la cible (decision de l'utilisateur, octobre 2026) : a
+  // 0,8 / 1,25, il fallait une vingtaine de clics pour aller du voisinage entier a une maison.
+  cam('terrasse3dZoomIn', '3d.zoomAvant', 'Zoom avant', () => ctx.zoom3D(FACTEUR_BOUTON_ZOOM));
+  cam('terrasse3dZoomOut', '3d.zoomArriere', 'Zoom arrière', () => ctx.zoom3D(1 / FACTEUR_BOUTON_ZOOM));
   cam('terrasse3dModeOrbit', '3d.modeOrbite', 'Orbite', () => ctx.setMode3D('orbit'));
   cam('terrasse3dModePan', '3d.modeDeplacement', 'Déplacement', () => ctx.setMode3D('pan'));
   cam('terrasse3dModeZoom', '3d.modeZoom', 'Zoom', () => ctx.setMode3D('zoom'));

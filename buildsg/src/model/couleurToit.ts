@@ -9,6 +9,7 @@
 // Ce module est pur : il recoit les pixels, `render/couleurToitOrtho.ts` va les chercher.
 
 import { au } from '../util/tableaux.js';
+import type { CouvertureChoisie } from './types.js';
 
 /** Les trois couvertures de repli, quand la photo n'est pas concluante. */
 export const COULEURS_TOIT_REPLI = {
@@ -144,7 +145,7 @@ function lireCouleur(rgba: ArrayLike<number>): CouleurToitLue {
  * tuiles plates d'un toit raide, tuiles canal d'un toit peu pentu, ardoises, zinc a joints debout,
  * gravillons d'un toit-terrasse.
  */
-export type MateriauCouverture = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc' | 'terrasse';
+export type MateriauCouverture = CouvertureChoisie | 'terrasse';
 
 /** Au-dessus, une tuile est plate (elle tient sur un toit raide) ; en dessous, une tuile canal (le toit provencal). */
 export const PENTE_TUILE_PLATE_DEG = 40;
@@ -158,6 +159,8 @@ export interface ContexteCouverture {
   pente?: number | null;
   /** La latitude du projet : la tuile canal est celle du Midi, au nord un toit peu pentu porte une tuile mecanique. */
   latitude?: number | null;
+  /** Le materiau choisi dans l'inspecteur (`Toit.couverture`) : il l'emporte sur tout le reste, sauf sur un toit plat. */
+  choix?: CouvertureChoisie | null;
 }
 
 /** Au nord de cette latitude (la Loire, le Lyonnais), un toit peu pentu n'est pas en tuiles canal. */
@@ -195,6 +198,7 @@ function rgbDeHex(hex: string): Rgb | null {
  */
 export function materiauCouverture(toit: { couleur?: string; origineCouleur?: string } | null | undefined, c: ContexteCouverture = {}, plat = false): MateriauCouverture {
   if (plat) return 'terrasse';
+  if (c.choix) return c.choix;
   const ff = couvertureDesFichiersFonciers(c.materiauxToiture);
   if (ff === 'ardoise' || ff === 'zinc') return ff;
   if (!ff && couleurGrise(toit)) return 'ardoise';

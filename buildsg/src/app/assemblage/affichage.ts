@@ -51,7 +51,7 @@ export function creerAffichage(etat: EtatApp, magasin: Magasin, markDirty: () =>
     enregistrerAffichage() {
       const p = trouverParcelleCloture();
       if (!p) return;
-      const auxDefauts = etat.voisinageVisible && etat.grilleVisible;
+      const auxDefauts = etat.voisinageVisible && !etat.grilleVisible;
       if (!p.affichage || typeof p.affichage !== 'object') {
         if (auxDefauts) return;
         p.affichage = {};

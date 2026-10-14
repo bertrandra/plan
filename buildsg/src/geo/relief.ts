@@ -105,19 +105,48 @@ export function lireNombreMatched(xml: string): number {
 /** Ce qu'une requete rend : les octets, le texte ou le JSON, selon ce qu'on en attend. */
 type Lecteur<T> = (r: Response) => Promise<T>;
 
-/** Une requete avec delai, rejouee une fois sur une coupure ou un 5xx : jamais sur un 4xx. */
-export async function requeteAvecReprise<T>(url: string, lire: Lecteur<T>, rechercher: typeof fetch): Promise<T> {
+/**
+ * Les limites d'usage de la Geoplateforme (cartes.gouv.fr, « Limites d'usage des API ») : au-dela de
+ * son quota par adresse IP (40 requetes/s au WMS-Raster), une API repond 429 a tout, cinq secondes au
+ * depart, et dit le temps restant dans `retry-after`. On attend et on rejoue, quelques fois : sans cela
+ * un 429 comptait comme un echec, et la lecture des toits en fond se mettait en pause trente secondes.
+ */
+export const ATTENTE_429_MS = 5000;
+export const ATTENTE_429_MAX_MS = 30000;
+export const REPRISES_429 = 3;
+
+/**
+ * Le delai d'un `retry-after` : des secondes ou une date HTTP ; a defaut (absent, illisible, ou cache
+ * par le CORS, qui ne laisse lire cet en-tete que si le service l'expose), les cinq secondes du depart.
+ */
+export function delaiRetryAfter(valeur: string | null, maintenant = Date.now()): number {
+  const v = valeur?.trim() ?? '';
+  const ms = /^\d+$/.test(v) ? parseInt(v, 10) * 1000 : v ? Date.parse(v) - maintenant : NaN;
+  return Number.isFinite(ms) ? Math.min(ATTENTE_429_MAX_MS, Math.max(1000, ms)) : ATTENTE_429_MS;
+}
+
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Une requete avec delai, rejouee une fois sur une coupure ou un 5xx, jamais sur un autre 4xx ; un 429
+ * (quota de la Geoplateforme) attend le delai demande et se rejoue, REPRISES_429 fois au plus.
+ */
+export async function requeteAvecReprise<T>(url: string, lire: Lecteur<T>, rechercher: typeof fetch, attendre: (ms: number) => Promise<void> = dormir): Promise<T> {
   const essai = async (): Promise<T> => {
     const r = await rechercher(url, { signal: AbortSignal.timeout(RESEAU_TIMEOUT_MS), cache: 'no-store' });
-    if (!r.ok) throw Object.assign(new Error('Le service a répondu HTTP ' + r.status + '.'), { statut: r.status });
+    if (!r.ok) throw Object.assign(new Error('Le service a répondu HTTP ' + r.status + '.'), { statut: r.status, retryAfter: r.headers?.get('retry-after') ?? null });
     return lire(r);
   };
-  try {
-    return await essai();
-  } catch (e) {
-    const statut = (e as { statut?: number }).statut;
-    if (statut && statut < 500) throw e;
-    return essai();
+  let reprises429 = 0, repris = false;
+  for (;;) {
+    try {
+      return await essai();
+    } catch (e) {
+      const { statut, retryAfter } = e as { statut?: number; retryAfter?: string | null };
+      if (statut === 429 && reprises429 < REPRISES_429) { reprises429++; await attendre(delaiRetryAfter(retryAfter ?? null)); continue; }
+      if ((statut && statut < 500) || repris) throw e;
+      repris = true;
+    }
   }
 }
 

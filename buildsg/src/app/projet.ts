@@ -10,6 +10,7 @@
 // bouton « Reinitialiser » ; supprimer retire le parametre d'URL et recharge.
 
 import { tailleFichier } from '../util/format.js';
+import { jsonParPaquets, octetsUtf8 } from '../util/jsonParPaquets.js';
 import { PERMISSION_ECRITURE, compteProjetsCourant } from './acces.js';
 import { QUOTA_PROJETS } from '../plateforme/quotaProjets.js';
 import { CAPACITES } from '../plateforme/capacites.js';
@@ -52,6 +53,10 @@ export interface ContexteProjet {
   initialMeasures: () => unknown[];
   withProjectParam: (id: string) => string;
   cleDernierProjet: string;
+  /** Le compteur des modifications du plan (core/historique.ts) : une modification pendant l'enregistrement le laisse a enregistrer. */
+  modifications?: () => number;
+  /** Rend la main entre deux paquets d'objets serialises ; un tour de boucle par defaut (remplacable dans les tests). */
+  ceder?: () => Promise<void>;
   /** Branche le rafraichissement du statut sur l'historique, qui sait quand le plan devient sale. */
   definirRafraichisseurStatut: (f: () => void) => void;
   ouvrirImportCadastre: () => void;
@@ -70,6 +75,11 @@ export interface Projet {
    * la personne a deja repondu « Garder tel quel » pour ce projet et ce schema.
    */
   proposerMiseAJour(): void;
+  /**
+   * Enregistre sans toast ni bandeau de succes : la tache de fond des toits, qui ne range que ce
+   * qu'elle a lu. Un echec s'affiche comme d'habitude (bandeau). Rend vrai si la plateforme l'a accepte.
+   */
+  enregistrerSansBruit(): Promise<boolean>;
 }
 
 /** Cle localStorage d'un refus de mise a jour : par projet, et pour le schema propose. */
@@ -90,6 +100,45 @@ function refusRetenu(id: string): boolean {
 
 // Le schema ecrit est celui qui decrit le document, jamais sous celui ou le projet a ete monte
 // (model/migrations.ts). La plateforme le recoit dans `schema_version` (io/depotPlateforme.ts).
+/** Les objets serialises par paquet : assez petit pour qu'un paquet reste sous 50 ms sur un poste lent. */
+const PAQUET_OBJETS = 400;
+
+/**
+ * Serialise le plan par paquets, en rendant la main entre deux (util/jsonParPaquets.ts) : une seule
+ * serialisation et une seule ecriture en JSON, qui servent a l'envoi, a la taille affichee et a l'etat
+ * de reference. D'un seul tenant, un voisinage d'un kilometre figeait l'ecran pres de deux secondes.
+ */
+async function chargeParPaquets(ctx: ContexteProjet, id: string, name: string) {
+  const ecrits = await jsonParPaquets(ctx.etat.objects, ctx.serializeObjects, PAQUET_OBJETS, ctx.ceder);
+  const measures = ctx.serializeMeasures(ctx.etat.measures);
+  const donnees = { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(ecrits.valeurs, ctx.etat.schemaProjet), objects: ecrits.valeurs, measures };
+  // La taille de ce qui part, en octets UTF-8 : celle que la plateforme compare a sa limite.
+  const autour = JSON.stringify({ id, name, ...donnees, objects: [] });
+  return { donnees, objetsJson: ecrits.json, taille: octetsUtf8(autour) - 2 + ecrits.json.size };
+}
+
+/** L'etat de reference (« Revenir a l'enregistre ») : ce qui vient d'etre ecrit, sans le serialiser une seconde fois. */
+function remplacerEtatDeReference(ctx: ContexteProjet, donnees: { objects: ObjetSerialise[]; measures: unknown[] }): void {
+  ctx.initialState().length = 0;
+  for (const o of donnees.objects) ctx.initialState().push(o as unknown as ObjetBrut);
+  ctx.initialMeasures().length = 0;
+  ctx.initialMeasures().push(...donnees.measures);
+}
+
+/**
+ * Une operation a la fois : un nouvel appel attend la fin du precedent, puis repart (l'enregistrement
+ * seul de la tache de fond et Ctrl+S peuvent se croiser ; chacun ecrit l'etat de son moment).
+ */
+export function uneALaFois<A extends unknown[], R>(f: (...a: A) => Promise<R>): (...a: A) => Promise<R> {
+  let enCours: Promise<unknown> | null = null;
+  return async (...a: A) => {
+    while (enCours) await enCours.catch(() => null);
+    const p = f(...a);
+    enCours = p;
+    try { return await p; } finally { if (enCours === p) enCours = null; }
+  };
+}
+
 function chargeDuProjet(ctx: ContexteProjet) {
   const objects = ctx.serializeObjects(ctx.etat.objects);
   return {
@@ -176,27 +225,27 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   const charge = () => chargeDuProjet(ctx);
 
-  /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. */
-  async function enregistrer(annonce: string): Promise<boolean> {
+
+  /** Enregistre le projet ouvert ; rend vrai si la plateforme l'a accepte. Un enregistrement a la fois. */
+  const enregistrer = uneALaFois(enregistrerUneFois);
+
+  async function enregistrerUneFois(annonce: string | null): Promise<boolean> {
     if (!courant) return false;
     publier('enregistrement');
     let taille: number | null = null;
+    const avant = ctx.modifications?.() ?? null;
     try {
-      const donnees = charge();
-      const corps = { id: courant.id, name: courant.name, ...donnees };
-      // La taille de ce qui part, en octets UTF-8 : celle que la plateforme compare a sa limite.
-      taille = new TextEncoder().encode(JSON.stringify(corps)).length;
-      const res = await ctx.apiSave(corps);
+      const { donnees, objetsJson, taille: octets } = await chargeParPaquets(ctx, courant.id, courant.name);
+      taille = octets;
+      const res = await ctx.apiSave({ id: courant.id, name: courant.name, ...donnees, objetsJson });
       // Ce qui a ete ecrit devient le plancher : un releve ajoute puis retire ne redescend pas le projet.
       ctx.etat.schemaProjet = donnees.schemaVersion;
-      ctx.etat.dirty = false;
+      // Modifie pendant l'enregistrement : ce qui est parti n'est plus tout le plan, il reste a enregistrer.
+      if (avant === null || ctx.modifications?.() === avant) ctx.etat.dirty = false;
       enregistreA = 'Enregistré à ' + heure(res.updatedAt || Date.now()) + ' (' + tailleFichier(taille) + ')';
       echec = '';
-      ctx.initialState().length = 0;
-      ctx.initialState().push(...ctx.serializeObjects(ctx.etat.objects));
-      ctx.initialMeasures().length = 0;
-      ctx.initialMeasures().push(...ctx.serializeMeasures(ctx.etat.measures));
-      showToast(annonce);
+      remplacerEtatDeReference(ctx, donnees);
+      if (annonce) showToast(annonce);
       return true;
     } catch (e) {
       // La taille de ce qui a ete refuse reste sous les yeux, a la place de l'heure du dernier succes.
@@ -286,6 +335,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   return {
     proposerMiseAJour,
+    enregistrerSansBruit: () => enregistrer(null),
     ouvrir(id) {
       if (ctx.etat.dirty) {
         showConfirm('Des modifications ne sont pas enregistrees. Changer de projet quand meme (elles seront perdues) ?', () => aller(id));

@@ -15,7 +15,7 @@ import { DESCRIPTIONS } from './descriptions.js';
 
 export type GroupeCommande =
   | 'projet' | 'fichier' | 'export' | 'objet' | 'vue' | 'affichage' | 'mesure' | 'terrasse'
-  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'relief';
+  | '3d' | 'visionneuse' | 'plu' | 'facade' | 'relief' | 'audit' | 'admin';
 
 /**
  * Ce que la plateforme accorde, vu du registre.
@@ -57,7 +57,9 @@ export const DROITS_OUVERTS: Droits = {
 export type EtatCommande =
   | { utilisable: true }
   | { utilisable: false; raison: 'inconnue' | 'contexte' }
-  | { utilisable: false; raison: 'capacite' | 'permission' | 'quota'; message: string };
+  | { utilisable: false; raison: 'capacite' | 'permission' | 'quota'; message: string }
+  /** Le contexte ne s'y prete pas, mais la personne peut y remedier : la commande le dit (`raisonInactive`). */
+  | { utilisable: false; raison: 'contexte'; message: string };
 
 export const PHRASE_PERMISSION = "Un administrateur de votre organisation peut vous donner ce droit.";
 export const PHRASE_CAPACITE = "Cette fonction n'est pas comprise dans l'abonnement de votre organisation.";
@@ -79,6 +81,12 @@ export interface Commande {
   description?: string;
   /** Absente : toujours active. */
   actif?: () => boolean;
+  /**
+   * Quand `actif` la refuse et que la personne peut y remedier, ce qu'il faut faire (« Importez
+   * d'abord la parcelle depuis son adresse. ») : la commande reste grisee, la phrase s'affiche comme
+   * celle d'un droit manquant. Absente, ou `null` : grisee sans un mot (rien de selectionne).
+   */
+  raisonInactive?: () => string | null;
   /** La fonction que l'organisation doit avoir achetee. Absente : offerte avec le produit. */
   capacite?: string;
   /** Le droit que la personne doit tenir. Absente : aucun droit particulier. */
@@ -164,7 +172,10 @@ export function creerRegistre(droits: Droits = DROITS_OUVERTS, surRefusQuota?: (
           if (reste !== null && reste <= 0) return { utilisable: false, raison: 'quota', message: droits.phraseQuota?.(quota) ?? PHRASE_QUOTA };
         }
       }
-      if (c.actif && !c.actif()) return { utilisable: false, raison: 'contexte' };
+      if (c.actif && !c.actif()) {
+        const message = c.raisonInactive?.() ?? null;
+        return message ? { utilisable: false, raison: 'contexte', message } : { utilisable: false, raison: 'contexte' };
+      }
       return { utilisable: true };
     },
     effacee(id) {
