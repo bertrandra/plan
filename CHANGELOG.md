@@ -63,6 +63,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     lecture des toits (1) aussi ; rien n'est relu. L'empreinte des profils (conditions, surcharges,
     bornes du vocabulaire) entre dans `VERSION_LECTURE_TOITS` dès le premier profil.
 
+- **Mesurer une façade relevée** (lot G11 de la vague 3, `MD/spec-facades-calage-detection.md`
+  §15.1). `model/mesureFacade.ts` lit un relevé (ouvertures, grille, largeur, hauteur) et en tire la
+  largeur, la hauteur et l'appui des fenêtres (médianes, l'appui depuis le plancher de leur niveau),
+  l'entraxe, la part vitrée, les baies par niveau, la hauteur d'un niveau, la place de la porte, le
+  garage, et le type de la façade (sur rue, arrière, pignon, côté voisin) quand le contexte le dit
+  (`facade/contexteFacade.ts` : toit du cas figé, voisins, photo de rue). Le script
+  `.claude/skills/facades/scripts/mesures.ts` les donne sur le banc de façades (vérité → relevé :
+  1 cm d'écart médian sur les fenêtres) et sur les audits de parcelle ; le rejeu des audits du skill
+  `toits` mesure aussi les façades d'un fichier `plan-audit-parcelle`. Rien de ce que Plan calcule ne
+  change : ces mesures préparent les profils de façades (G12) et le taux de conformité (G13).
 - **Le fichier de l'audit de parcelle, son import et son partage pour le corpus** (lot L21 du plan
   de mise en œuvre, `MD/spec-audit.md` §15, décision D7).
   - **Le fichier** `plan-audit-parcelle` version 1 (`model/fichierAuditParcelle.ts`) : la parcelle
