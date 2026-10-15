@@ -27,14 +27,16 @@ export function focaleVoulue(hauteurAuSol: number): number {
 }
 
 /**
- * Rapproche la focale de celle voulue, d'un quart de l'ecart par image : la transition se voit a
- * peine. `solCentre` : la hauteur du sol au centre de la scene. Rend `true` si la focale a bouge.
+ * Pose la focale voulue a la hauteur de la camera. Elle suit deja la hauteur sans saut
+ * (`focaleVoulue`), si bien qu'un mouvement de camera la fait glisser d'elle-meme : une transition
+ * de plus, image par image, rendait deux rendus du meme point de vue differents selon l'instant
+ * (point 23 de la fumee). `solCentre` : la hauteur du sol au centre de la scene. Rend `true` si la
+ * focale a change.
  */
 export function accorderFocale(camera: THREE_NS.PerspectiveCamera, solCentre: number): boolean {
   const voulue = focaleVoulue(camera.position.y - solCentre);
-  const ecart = voulue - camera.fov;
-  if (Math.abs(ecart) < 0.05) return false;
-  camera.fov = Math.abs(ecart) < 0.3 ? voulue : camera.fov + ecart * 0.25;
+  if (Math.abs(voulue - camera.fov) < 0.01) return false;
+  camera.fov = voulue;
   camera.updateProjectionMatrix();
   return true;
 }
