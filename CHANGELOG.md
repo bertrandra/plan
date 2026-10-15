@@ -1131,6 +1131,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'audit de la parcelle ne montre que le bâtiment** (`MD/spec-audit.md` §12.2 ; demande de
+  l'utilisateur du 15 octobre, AE 101 au téléphone). Pendant tout l'audit, la Vue 3D est épurée : les
+  bâtiments de la parcelle (et celui d'un mitoyen choisi dans sa ligne, le temps de le photographier)
+  et le sol, avec les voiles rouge et vert des façades et votre position. Arbres, maisons voisines,
+  clôtures de la parcelle et du voisinage, terrasse et objets d'échelle sont masqués, et reviennent à
+  la fermeture de l'audit (`three/scene.ts::epurerVue3d`, un simple drapeau d'affichage : ni « projet
+  modifié », ni Ctrl+Z, le projet n'est pas touché). Le doigt ne touche plus un objet masqué.
+- **Une vue d'ensemble en grand angle pour choisir une façade** (`app/audit/parcelle/vuePrise.ts`).
+  Tant que rien n'est visé depuis votre position (position en attente ou refusée, aucune façade
+  devant vous), la Vue 3D montre tout le bâtiment audité, d'un peu haut, en grand angle (60°), dans ce
+  que l'écran de prise laisse voir : chaque façade s'y touche. Ni la boussole ni le toucher ne la
+  déplacent ensuite ; le doigt la tourne librement. La vue à hauteur d'homme reste celle de la prise
+  (une position et une façade visée) : son champ s'élargit jusqu'à 75° pour que la façade visée y
+  tienne en entier, et elle regarde la façade choisie, ou celle à laquelle vous tournez le dos. Une
+  façade reconnue qui se perd garde cette vue 2,5 s, pour ne pas sauter à chaque pas. Une façade
+  choisie sans position ne se montre plus depuis 8 m devant elle, trop près : la vue d'ensemble se
+  tourne vers elle.
 - **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
   plusieurs à la fois (`FUMEE_PARALLELE`, par défaut une par tranche de quatre cœurs, quatre au plus) ; un passage
   peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).
@@ -1347,6 +1364,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **L'écran des propositions de l'audit cachait la parcelle** (`zones/parcours/PropositionsAudit.tsx`,
+  `MD/spec-audit.md` §14). Au doigt, une carte en bas haute au plus de 46 % de l'écran : le titre, le
+  compte, « Avant / Après » et les boutons restent en place, la liste défile entre eux, et « Replier »
+  la range. Sur un écran en largeur (bureau, tablette, téléphone couché), l'écran des propositions et
+  celui de la prise deviennent un panneau à droite, qui ne couvre plus la barre du haut. La Vue 3D,
+  épurée, cadre la parcelle et ses bâtiments dans ce que l'écran laisse voir (au-dessus d'une carte,
+  à gauche d'un panneau).
+- **Le plein écran de la Vue 3D laissait voir le titre de la parcelle à droite** (bureau). Le panneau
+  plein écran gardait la largeur des panneaux (98 % de la fenêtre) : une bande restait à droite, où
+  passait la fin du titre « Plan interactif — Parcelle … » et du lieu. Il couvre désormais toute la
+  fenêtre, la visionneuse aussi, et la scène prend toute la hauteur sous le titre des réglages au lieu
+  de laisser une bande vide en bas.
 - **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
   adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
   depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent

@@ -574,14 +574,16 @@
   }
   /* Plein page de la Vue 3D : sort du flux normal et couvre tout le viewport, par-dessus le
      reste de l'appli (sidebar, autres onglets) - aucun autre element n'a besoin d'etre cache
-     explicitement, le recouvrement suffit. */
+     explicitement, le recouvrement suffit. La largeur de .panelBox (98vw) est levee : sans cela le
+     panneau s'arretait avant le bord droit, et le titre de la parcelle (h1, a droite de la barre)
+     passait dans la bande laissee libre. La scene prend toute la hauteur sous le titre des reglages. */
   #vue3dPanel.pleinePage{
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
-    padding:14px 18px; overflow:auto; margin:0;
+    padding:14px 18px; overflow:auto; margin:0; width:auto; max-width:none;
   }
   #glbViewerPanel.pleinePage{
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
-    padding:14px 18px; overflow:auto; margin:0;
+    padding:14px 18px; overflow:auto; margin:0; width:auto; max-width:none;
   }
 
   /* ---------------------------------------------------------------------------------------------
@@ -1435,8 +1437,24 @@
   .auditPrise .rangementAudit{ color:var(--ink); }
   .auditPrise .piedDialogue{ margin-top:10px; }
   /* Les propositions de l'audit (zones/parcours/PropositionsAudit.tsx) : la carte de l'ecran de prise,
-     plus haute ; la Vue 3D reste visible au-dessus pour comparer avant et apres. */
-  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:68dvh; }
+     a hauteur bornee (la parcelle restait cachee dessous, essai d'AE 101) : la tete, Avant / Apres et
+     le pied restent en place, la liste defile entre eux, et « Replier » la range. */
+  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:46dvh; display:flex; flex-direction:column; overflow:hidden; }
+  .entetePropositions{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .entetePropositions .titreParcours{ margin-bottom:0; }
+  .boutonReplier{ display:inline-flex; align-items:center; gap:4px; flex:none; }
+  .corpsPropositions{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  .corpsPropositions[hidden]{ display:none; }
+  .auditPropositions .piedDialogue{ flex:none; }
+  html:not([data-classe="large"]) .boutonReplier{ min-height:44px; }
+  /* Un ecran en largeur (bureau, tablette ou telephone couche) : la prise et les propositions passent
+     en panneau a droite, sur toute la hauteur ; la Vue 3D cadre la parcelle a gauche (vuePrise.ts). */
+  @media (orientation: landscape){
+    html:not([data-classe="compact"]) .dialogueVoile:has(> .auditPrise){
+      justify-content:flex-end; align-items:flex-start; padding:calc(var(--reserve-haut, 56px) + 8px) 16px 0 0;
+    }
+    html:not([data-classe="compact"]) .auditPrise{ width:clamp(300px, 34vw, 420px); max-height:calc(100dvh - var(--reserve-haut, 56px) - var(--hauteur-etat, 30px) - 24px); }
+  }
   .avantApresAudit{ margin:8px 0 4px; }
   .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
   .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }

@@ -1666,6 +1666,92 @@ const POINTS = {
       && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
     return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
   },
+  86: async (page) => {
+    // La vue epuree et la vue d'ensemble de l'audit de la parcelle (second essai d'AE 101, 15 octobre) :
+    // pendant l'audit, la Vue 3D ne montre que les batiments de la parcelle et le sol (ni arbres, ni
+    // voisins, ni clotures, ni terrasse) ; sans position, elle montre toute la maison en grand angle,
+    // au-dessus de l'ecran de prise, et une facade s'y touche ; les propositions laissent voir la
+    // maison, leur liste se replie ; l'audit ferme, tout revient, et le projet n'a pas bouge.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const familles = await page.evaluate(() => {
+      const o = window.__plan.etat().objects;
+      return { arbres: o.filter((x) => x.fonction === 'arbre').map((x) => x.key), voisins: o.filter((x) => x.voisinage && (x.fonction === 'batiment' || x.fonction === 'annexe')).map((x) => x.key) };
+    });
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('prise', () => page.locator('[data-controle="auditParcelle.prise"]').click({ timeout: 30000 }));
+    await page.locator('.auditPrise').waitFor({ timeout: 30000 });
+    await page.waitForFunction(() => (window.__plan.visibilite3d()?.masques.length ?? 0) > 0, null, { timeout: 90000 }).catch(() => {});
+    const vis = await page.evaluate(() => window.__plan.visibilite3d());
+    const epuree = vis.visibles.includes('maison') && !familles.arbres.some((k) => vis.visibles.includes(k)) && !familles.voisins.some((k) => vis.visibles.includes(k)) && vis.horsObjetsVisibles === 0;
+    // La camera glisse vers sa pose : on la lit une fois arretee.
+    const camera = () => page.evaluate(() => { const sc = window.__plan.scene3d(); return sc ? [sc.camera.position.x, sc.camera.position.y, sc.camera.position.z, sc.controls.target.y].map((v) => v.toFixed(2)).join(',') : ''; });
+    const arretee = async () => { let a = await camera(); for (let i = 0; i < 30; i++) { await page.waitForTimeout(250); const b = await camera(); if (a && a === b) return; a = b; } };
+    await arretee();
+    // Les coins de la maison (au sol et sous le toit) : dans le canevas, hors de l'ecran pose dessus.
+    const maisonVue = (sel) => page.evaluate((sel) => {
+      const sc = window.__plan.scene3d();
+      const m = window.__plan.etat().objects.find((o) => o.key === 'maison');
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      const carte = document.querySelector(sel)?.getBoundingClientRect();
+      let dedans = 0, total = 0;
+      const pied = sc.controls.target.y - 3;
+      for (const p of m.pts) for (const y of [pied, pied + 7]) {
+        const v = new THREE.Vector3(p.x - sc.cen.x, y, sc.cen.y - p.y).project(sc.camera);
+        const x = r.left + ((v.x + 1) / 2) * r.width, yy = r.top + ((1 - v.y) / 2) * r.height;
+        total++;
+        const sousCarte = carte && x >= carte.left && x <= carte.right && yy >= carte.top && yy <= carte.bottom;
+        if (x >= r.left && x <= r.right && yy >= r.top && yy <= r.bottom && !sousCarte && v.z < 1) dedans++;
+      }
+      const c = sc.camera.position;
+      return { dedans, total, hauteur: c.y - sc.controls.target.y };
+    }, sel);
+    const ensemble = await maisonVue('.auditPrise');
+    // Toucher un mur de la maison dans la vue d'ensemble : il devient la facade de la prochaine photo.
+    const cible = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const m = window.__plan.etat().objects.find((o) => o.key === 'maison');
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      for (let i = 0; i < m.pts.length; i++) {
+        const a = m.pts[i], b = m.pts[(i + 1) % m.pts.length];
+        if (Math.hypot(b.x - a.x, b.y - a.y) < 3) continue;
+        const v = new THREE.Vector3((a.x + b.x) / 2 - sc.cen.x, sc.controls.target.y - 1, sc.cen.y - (a.y + b.y) / 2).project(sc.camera);
+        const x = r.left + ((v.x + 1) / 2) * r.width, y = r.top + ((1 - v.y) / 2) * r.height;
+        if (document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { x, y };
+      }
+      return null;
+    });
+    if (cible) await page.mouse.click(cible.x, cible.y);
+    await page.locator('.auditPrise .titreParcours', { hasText: '(choisie)' }).waitFor({ timeout: 20000 }).catch(() => {});
+    const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    // Une photo, puis les propositions : elles laissent voir la maison, et leur liste se replie.
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await page.locator('.rangementAudit').waitFor({ timeout: 30000 }).catch(() => {});
+    await etape('liste', () => page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 }));
+    await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    await arretee();
+    const carte = await page.evaluate(() => { const r = document.querySelector('.auditPropositions').getBoundingClientRect(); return { h: r.height, gauche: r.left, vh: innerHeight, vw: innerWidth }; });
+    const propositions = await maisonVue('.auditPropositions');
+    // Au plus la moitie de la hauteur en bas, ou un panneau a droite (ecran en largeur).
+    const bornee = carte.gauche > carte.vw * 0.45 || carte.h <= carte.vh * 0.5 + 1;
+    await etape('replier', () => page.locator('[data-controle="auditParcelle.replier"]').click({ timeout: 30000 }));
+    await page.waitForTimeout(400);
+    const repliee = await page.evaluate(() => ({ h: document.querySelector('.auditPropositions').getBoundingClientRect().height, cache: document.getElementById('corpsPropositions')?.hidden === true }));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => (window.__plan.visibilite3d()?.masques.length ?? 1) === 0, null, { timeout: 30000 }).catch(() => {});
+    const apres = await page.evaluate(() => window.__plan.visibilite3d());
+    const rendue = apres.masques.length === 0 && apres.horsObjetsVisibles > 0;
+    const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const ok = epuree && ensemble.dedans === ensemble.total && ensemble.hauteur > 4 && /\(choisie\)/.test(titre)
+      && propositions.dedans >= propositions.total - 2 && bornee && repliee.cache && repliee.h < carte.h && rendue && projet === avant;
+    return { ok, mesure: `vue épurée ${epuree ? 'oui' : 'NON'} (visibles ${vis.visibles.length}, masqués ${vis.masques.length}, hors objets visibles ${vis.horsObjetsVisibles}) ; vue d'ensemble : maison ${ensemble.dedans}/${ensemble.total} coins visibles, caméra ${ensemble.hauteur.toFixed(1)} m au-dessus du point visé ; toucher ${cible ? Math.round(cible.x) + ',' + Math.round(cible.y) : 'AUCUN mur visible'} → « ${titre} » ; propositions : carte ${Math.round(carte.h)} px sur ${carte.vh}${carte.gauche > carte.vw * 0.45 ? ', à droite' : ''}, maison ${propositions.dedans}/${propositions.total} coins visibles ; repliée ${repliee.cache ? Math.round(repliee.h) + ' px' : 'NON'} ; fermé : ${rendue ? 'tout revient' : 'PAS RENDU (' + apres.masques.length + ' masqués)'} ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'}` };
+  },
   62: async (page, f) => {
     // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
     // deviennent des propositions ; « Après » les montre dans la Vue 3D sans toucher au projet ;
@@ -2605,7 +2691,8 @@ function pointsPour(nomClasse) {
   // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
   // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits de parcelle qui la rouvre (§15).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85];
+  // 86 : la vue epuree et la vue d'ensemble de l'audit de parcelle ; les propositions laissent voir la maison.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

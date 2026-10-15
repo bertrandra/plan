@@ -412,13 +412,30 @@ Et pour la parcelle :
 1. Vous marchez autour de la maison, l'écran de prise ouvert. **La façade que vous avez devant vous
    est reconnue en direct** (§6.1), surlignée **en rouge** dans la Vue 3D et nommée : « Vous êtes devant
    la façade sud, 9,2 m — 0 photo ».
-   - La Vue 3D est **à hauteur d'homme** (1,7 m), prise jusqu'à 6 m derrière vous, jamais au travers
-     d'un mur ni au-delà de la clôture de la parcelle ; le regard monte vers le milieu de la façade
-     visée. Elle **cadre la partie que l'écran de prise laisse voir** (champ de 50° au-dessus de lui).
-     Elle **suit votre position et votre cap** (boussole, sinon sens de la marche) et glisse d'une
-     pose à l'autre : ce n'est pas une image fixe. Sans position encore, une façade choisie se montre
-     depuis 8 m devant elle. Un doigt qui la fait tourner la garde 6 s, puis le suivi reprend
-     (`app/audit/parcelle/vuePrise.ts`).
+   - **Pendant tout l'audit, la Vue 3D est épurée** : elle ne montre que les bâtiments de la parcelle
+     (et celui de la façade visée, un mitoyen choisi dans sa ligne) et le sol, avec les voiles rouge et
+     vert des façades et votre position. Arbres, bâtiments voisins, clôtures (celle de la parcelle et
+     celles du voisinage), terrasse et objets d'échelle sont masqués le temps de l'audit et reviennent
+     à sa fermeture. C'est un affichage : ni « projet modifié », ni Ctrl+Z, et le projet n'est pas
+     touché (`three/scene.ts::epurerVue3d`). Demande de l'utilisateur du 15 octobre 2026.
+   - La Vue 3D est **à hauteur d'homme** (1,7 m) quand une position et une façade visée sont connues :
+     c'est la prise elle-même, et elle montre le mur tel que l'appareil photo le voit. Prise jusqu'à
+     6 m derrière vous, jamais au travers d'un mur d'un bâtiment audité ; le regard monte vers le
+     milieu de la façade visée (une façade choisie se regarde, quel que soit le cap). Elle **cadre la
+     partie que l'écran de prise laisse voir** (champ de 50° au-dessus de lui, élargi jusqu'à 75° pour
+     que la façade visée y tienne en entier). Elle **suit votre position et votre cap** (boussole,
+     sinon sens de la marche) et glisse d'une pose à l'autre : ce n'est pas une image fixe. Un doigt
+     qui la fait tourner la garde 6 s, puis le suivi reprend (`app/audit/parcelle/vuePrise.ts`).
+   - **Tant que rien n'est visé depuis votre position** (pas encore de position, position refusée,
+     aucune façade devant vous), la Vue 3D est une **vue d'ensemble en grand angle** (champ de 60°,
+     regard incliné de 35°) : tout le bâtiment audité, cadré dans ce que l'écran de prise laisse voir,
+     pour **choisir une façade en la touchant**. La vue a hauteur d'homme, trop près, n'y montrait
+     qu'un mur (second essai d'AE 101, 15 octobre). Elle regarde la façade choisie dans la liste,
+     sinon le bâtiment depuis votre position ; ensuite, le doigt la tourne librement : ni la boussole
+     ni une façade touchée ne la déplacent. Une façade reconnue qui se perd garde la vue à hauteur
+     d'homme 2,5 s avant de passer à la vue d'ensemble, pour ne pas sauter à chaque pas.
+   - Sur un écran en largeur (bureau, tablette, téléphone couché), l'écran de prise et celui des
+     propositions sont un **panneau à droite** ; la Vue 3D cadre le bâtiment dans la partie gauche.
    - **La position** est lissée selon la précision annoncée (un filtre de Kalman, à 3 m/s de marche)
      et, quand elle tombe dans le jardin d'un voisin à portée de l'erreur, ramenée juste à l'intérieur
      de la parcelle du projet : l'audit se fait depuis la parcelle ou depuis la rue
@@ -633,6 +650,11 @@ validation (§14).
 1. **Les propositions, en 3D.** La Vue 3D montre le modèle **après** les propositions, chaque
    changement surligné. Une bascule « Avant / Après » compare au modèle actuel. Toucher un changement
    montre sa ligne, la photo qui le justifie et les indices de Claude.
+   - **L'écran des propositions laisse voir la parcelle** (essai d'AE 101, 15 octobre : il la
+     couvrait). Au doigt, une carte en bas, haute au plus de 46 % de l'écran : le titre, le compte,
+     « Avant / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
+     la range. Sur un écran en largeur, un panneau à droite. La Vue 3D, épurée comme pendant la prise,
+     cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir.
 2. **La liste**, une ligne par changement, avec l'avant, l'après et l'origine (mesure ou Claude) :
    - « Façade sud : 6 ouvertures relevées (Plan en avait mis 4), texture de la photo » ;
    - « Façade sud : 5,82 m à l'égout, mesurés (le bâtiment a 6,00 m) » ;
