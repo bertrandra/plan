@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerSessionAuditParcelle, questionRepriseParcelle, textePlanDePrise, DELAI_ENSEMBLE_MS, type ContexteAuditParcelle } from '../../../../../src/app/audit/parcelle/controleur.js';
-import { CHAMP_ENSEMBLE_DEG } from '../../../../../src/app/audit/parcelle/vuePrise.js';
+import { CHAMP_ENSEMBLE_DEG, PAUSE_GESTE_MS } from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import { creerBrouillonParcelle, stockageMemoire } from '../../../../../src/io/brouillonAudit.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { creerEtat } from '../../../../../src/core/state.js';
@@ -327,19 +327,6 @@ describe('la vue epuree et la vue d ensemble (second essai d AE 101)', () => {
     expect(trait).toHaveBeenLastCalledWith(null, 0);
   });
 
-  it('sans position, la facade touchee ne deplace pas la vue d ensemble', () => {
-    const v = vue();
-    const objetSous = vi.fn(() => ({ cle: 'maison', point: { x: 10, y: 19.8 } as PtBrut }));
-    const t = session({ vue: v, epurer: vi.fn(), objetSous });
-    t.s.reprendre();
-    t.erreur(new SansPosition('refusee'));
-    t.s.montrer('prise');
-    const n = v.poser.mock.calls.length;
-    t.s.toucher({ x: 0, y: 0 });
-    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
-    expect(v.poser.mock.calls.length).toBe(n);
-  });
-
   it('cadre la parcelle en vue d ensemble pendant les propositions', () => {
     const v = vue();
     const t = session({ vue: v, epurer: vi.fn() });
@@ -475,5 +462,118 @@ describe('le verrou d un batiment pour la prise (annexe sur la parcelle)', () =>
     t.s.verrouiller('garage');
     t.s.suspendre();
     expect(t.s.verrou()).toBeNull();
+  });
+});
+
+describe('la vue fixee sur une facade choisie (16 octobre)', () => {
+  type Pose = { oeil: PtBrut; hauteurOeil: number; vise: PtBrut; hauteurVise: number };
+  const CENTRE = { x: 10, y: 15 };
+  const vue = (azimut = 0) => ({ poser: vi.fn<(pose: unknown) => boolean>(() => true), rapportVisible: () => 0.8, azimut: () => azimut, verrouiller: vi.fn<(oui: boolean, polaire?: number) => void>(), arreter: vi.fn() });
+  const derniere = (v: ReturnType<typeof vue>) => v.poser.mock.calls.at(-1)?.[0] as Pose;
+  const loin = (o: PtBrut) => Math.hypot(o.x - CENTRE.x, o.y - CENTRE.y);
+  const toucheNord = () => vi.fn(() => ({ cle: 'maison', point: { x: 10, y: 19.8 } as PtBrut }));
+
+  it('la camera se fixe face a la facade touchee, a distance fixe, sans suivre le GPS', () => {
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: toucheNord() });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
+    const p = derniere(v);
+    // Le regard va du nord vers le sud, sur le centre du batiment : la camera est au nord, un peu haute.
+    expect(p.vise.x).toBeCloseTo(CENTRE.x, 6);
+    expect(p.vise.y).toBeCloseTo(CENTRE.y, 6);
+    expect(p.oeil.x).toBeCloseTo(CENTRE.x, 6);
+    expect(p.oeil.y).toBeGreaterThan(CENTRE.y);
+    expect(p.hauteurOeil).toBeGreaterThan(p.hauteurVise);
+    expect(v.verrouiller).toHaveBeenLastCalledWith(true, expect.closeTo(Math.PI / 2 - (15 * Math.PI) / 180, 6));
+    // Le marcheur s'eloigne ou se rapproche du batiment, sans en faire le tour : la camera ne bouge pas.
+    const n = v.poser.mock.calls.length;
+    t.gps({ x: 10, y: 0 }); t.gps({ x: 10, y: 0 }); t.gps({ x: 10, y: 0 });
+    t.cap(40); t.cap(80);
+    expect(v.poser.mock.calls.length).toBe(n);
+  });
+
+  it('marcher autour du batiment fait defiler les facades : la camera tourne d\'autant, a distance fixe', () => {
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: toucheNord() });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    const avant = derniere(v);
+    // Du sud a l'est du batiment : un quart de tour, dans le sens de la boussole.
+    for (let i = 0; i < 5; i++) t.gps({ x: 24, y: 15 });
+    const apres = derniere(v);
+    expect(loin(apres.oeil)).toBeCloseTo(loin(avant.oeil), 6);
+    expect(apres.hauteurOeil).toBeCloseTo(avant.hauteurOeil, 6);
+    // Le marcheur est passe de l'angle 180 a 90 : le regard, de 180 a 90 (vers l'est), la camera a l'ouest.
+    expect(apres.oeil.x).toBeLessThan(CENTRE.x - 3);
+    expect(Math.abs(apres.oeil.y - CENTRE.y)).toBeLessThan(loin(apres.oeil) * 0.4);
+  });
+
+  it('sans GPS, ou avec un GPS trop imprecis, seul le doigt tourne la vue', () => {
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: toucheNord() });
+    t.s.reprendre();
+    t.erreur(new SansPosition('refusee'));
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    // La facade touchee fixe la vue meme sans position.
+    expect(derniere(v).oeil.y).toBeGreaterThan(CENTRE.y);
+    const n = v.poser.mock.calls.length;
+    t.cap(120); t.cap(200);
+    expect(v.poser.mock.calls.length).toBe(n);
+  });
+
+  it('un doigt prend la main ; la pause finie, la rotation repart de ou il l a laissee', () => {
+    let maintenant = 1000;
+    const v = vue(270);
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: toucheNord(), horloge: () => maintenant });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    t.s.lacherVue();
+    const n = v.poser.mock.calls.length;
+    for (let i = 0; i < 5; i++) t.gps({ x: 24, y: 15 });
+    expect(v.poser.mock.calls.length).toBe(n);
+    maintenant += PAUSE_GESTE_MS + 1;
+    t.gps({ x: 24, y: 16 }); t.gps({ x: 24, y: 15 });
+    // Le doigt a laisse la camera regarder vers l'ouest (270) : elle est a l'est du batiment, et les
+    // pas faits pendant la pause ne tournent pas la vue une seconde fois.
+    const p = derniere(v);
+    expect(p.oeil.x).toBeGreaterThan(CENTRE.x + 3);
+    expect(Math.abs(p.oeil.y - CENTRE.y)).toBeLessThan(loin(p.oeil) * 0.2);
+  });
+
+  it('« Me suivre » rend la camera : l\'axe est libere et la vue reprend la position', () => {
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: toucheNord() });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(v.verrouiller).toHaveBeenLastCalledWith(true, expect.anything());
+    t.s.suivreLaPosition();
+    expect(t.s.cible()?.choisie).toBe(false);
+    expect(v.verrouiller).toHaveBeenLastCalledWith(false);
+  });
+
+  it('choisir une autre facade repart face a elle', () => {
+    const v = vue();
+    let point: PtBrut = { x: 10, y: 19.8 };
+    const t = session({ vue: v, epurer: vi.fn(), objetSous: vi.fn(() => ({ cle: 'maison', point })) });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    t.s.montrer('prise');
+    t.s.toucher({ x: 0, y: 0 });
+    expect(derniere(v).oeil.y).toBeGreaterThan(CENTRE.y);
+    point = { x: 5.2, y: 15 };
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()?.nom).toBe('la façade ouest de maison');
+    expect(derniere(v).oeil.x).toBeLessThan(CENTRE.x);
   });
 });

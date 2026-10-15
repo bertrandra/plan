@@ -21,6 +21,12 @@
 // plus qu'a la prise elle-meme (une position et une facade visee) : c'est elle qui montre le mur
 // tel que l'appareil photo le voit. Son champ s'elargit pour que la facade entiere y tienne.
 //
+// Le troisieme essai (16 octobre) : une facade CHOISIE (touchee, ou dans la liste) fixe la vue. La
+// position ne suit plus le GPS : la camera se tient a distance fixe du batiment, qui tient en entier
+// dans l'image (`poseOrbite`) ; seule sa rotation sur l'axe vertical du batiment bouge, pour voir
+// defiler les facades, soit avec vos pas autour de lui (l'angle ou vous etes, vu du centre, tourne la
+// vue d'autant), soit au doigt quand le GPS manque ou se trompe. Ni zoom ni inclinaison (`verrouiller`).
+//
 // Les calculs sont dans le repere du plan (y vers le nord) ; la pose dans la scene passe par son
 // repere local (three/primitives.ts::versLocalDepuis : x vers l'est, z vers le sud, y vers le haut).
 
@@ -54,6 +60,16 @@ export const CHAMP_PIETON_MAX_DEG = 75;
 export const CHAMP_ENSEMBLE_DEG = 60;
 /** La vue d'ensemble regarde le batiment de cette hauteur au-dessus de l'horizontale. */
 export const ELEVATION_ENSEMBLE_DEG = 35;
+/** La vue en orbite autour d'une facade choisie regarde le batiment de cette hauteur au-dessus de l'horizontale : assez bas pour lire les murs. */
+export const ELEVATION_ORBITE_DEG = 15;
+/** Au-dela de cette imprecision (m), le GPS ne dit plus de quel cote du batiment vous etes : la rotation passe au doigt. */
+export const PRECISION_ORBITE_MAX_M = 12;
+/** Le GPS tremble : sous cet ecart d'angle (degres) autour du batiment, la vue ne tourne pas. */
+export const ZONE_MORTE_ORBITE_DEG = 2;
+/** A moins de cela du centre du batiment (m), l'angle ou vous etes ne veut plus rien dire. */
+const CENTRE_PROCHE_M = 1.5;
+/** La tolerance (rad) de l'inclinaison verrouillee : le glissement de la camera la deplace un peu. */
+const MARGE_POLAIRE_RAD = 0.06;
 /** Le batiment ne touche pas les bords de la vue d'ensemble : un peu d'air autour. */
 const MARGE_ENSEMBLE = 1.12;
 /** Apres un geste du doigt sur la vue, le suivi attend cela avant de reprendre. */
@@ -95,18 +111,42 @@ export function cadreDe(contours: readonly (readonly PtBrut[])[], hauteur: numbe
  * d'assez loin pour que la sphere qui l'entoure tienne dans la partie visible (`rapport` : sa largeur
  * sur sa hauteur ; un telephone debout est plus etroit que haut, c'est alors la largeur qui borne).
  */
-export function poseEnsemble(c: CadreEnsemble, azimutDeg: number, rapport: number): PosePieton {
+export function poseEnsemble(c: CadreEnsemble, azimutDeg: number, rapport: number, elevationDeg: number = ELEVATION_ENSEMBLE_DEG): PosePieton {
   const demiV = rad(CHAMP_ENSEMBLE_DEG) / 2;
   const demi = Math.atan(Math.min(Math.tan(demiV), Math.tan(demiV) * Math.max(0.1, rapport)));
   const sphere = Math.max(1, Math.hypot(c.rayon, c.hauteur / 2));
   const d = (sphere / Math.sin(demi)) * MARGE_ENSEMBLE;
-  const a = rad(azimutDeg), el = rad(ELEVATION_ENSEMBLE_DEG);
+  const a = rad(azimutDeg), el = rad(elevationDeg);
   const recul = d * Math.cos(el);
   return {
     oeil: { x: c.centre.x - Math.sin(a) * recul, y: c.centre.y - Math.cos(a) * recul }, hauteurOeil: c.hauteur / 2 + d * Math.sin(el),
     vise: c.centre, hauteurVise: c.hauteur / 2, champ: CHAMP_ENSEMBLE_DEG,
   };
 }
+
+/**
+ * La pose en orbite autour d'une facade choisie : la camera sur le cercle de ce batiment, la ou le
+ * regard `azimutDeg` (depuis le nord, sens horaire) la met, assez loin pour que le batiment entier
+ * tienne, et un peu haut (ELEVATION_ORBITE_DEG). Elle ne depend ni du GPS ni du recul : la position
+ * est fixee sur le batiment.
+ */
+export function poseOrbite(c: CadreEnsemble, azimutDeg: number, rapport: number): PosePieton {
+  return poseEnsemble(c, azimutDeg, rapport, ELEVATION_ORBITE_DEG);
+}
+
+/**
+ * L'angle ou vous etes autour du centre du batiment (depuis le nord, sens horaire), si la position est
+ * assez sure et pas sur le centre ; null sinon (rotation au doigt). Marcher autour du batiment le
+ * fait tourner d'autant, et la camera, du meme cote que vous, tourne avec lui.
+ */
+export function angleAutour(centre: PtBrut, p: PtBrut | null, precisionM: number | null): number | null {
+  if (!p || (precisionM !== null && precisionM > PRECISION_ORBITE_MAX_M)) return null;
+  const dx = p.x - centre.x, dy = p.y - centre.y;
+  return Math.hypot(dx, dy) < CENTRE_PROCHE_M ? null : ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360;
+}
+
+/** L'ecart signe le plus court de `a` a `b`, en degres. */
+const ecartAngle = (a: number, b: number) => ((b - a + 540) % 360) - 180;
 
 /**
  * Le champ de la vue a hauteur d'homme pour que la facade visee tienne en largeur dans la partie
@@ -250,6 +290,8 @@ export interface VuePieton {
   azimut?(): number | null;
   liberer?(): void;
   arreter?(): void;
+  /** Fixe (vrai) ou rend (faux) la camera sur l'axe vertical : ni zoom, ni deplacement, inclinaison `polaire` (rad) tenue. */
+  verrouiller?(oui: boolean, polaire?: number): void;
 }
 
 export function vuePieton(): VuePieton {
@@ -257,6 +299,7 @@ export function vuePieton(): VuePieton {
   let champAvant: number | null = null;
   let but: { o: { x: number; y: number; z: number }; v: { x: number; y: number; z: number } } | null = null;
   let anim: number | null = null, avant = 0;
+  let axe: { zoom: boolean; pan: boolean; min: number; max: number } | null = null;
   const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null;
   const maintenant = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   /** La taille du canevas et ce que l'ecran de l'audit en cache. */
@@ -330,8 +373,20 @@ export function vuePieton(): VuePieton {
       return Math.hypot(dx, dz) < 1e-6 ? null : ((Math.atan2(dx, -dz) * 180) / Math.PI + 360) % 360;
     },
     arreter() { but = null; },
+    verrouiller(oui, polaire = Math.PI / 2) {
+      const c = vue3d.scene?.controls;
+      if (!c) return;
+      if (!oui) {
+        if (axe) { c.enableZoom = axe.zoom; c.enablePan = axe.pan; c.minPolarAngle = axe.min; c.maxPolarAngle = axe.max; axe = null; }
+        return;
+      }
+      axe ??= { zoom: c.enableZoom, pan: c.enablePan, min: c.minPolarAngle, max: c.maxPolarAngle };
+      c.enableZoom = false; c.enablePan = false;
+      c.minPolarAngle = Math.max(0, polaire - MARGE_POLAIRE_RAD); c.maxPolarAngle = Math.min(Math.PI, polaire + MARGE_POLAIRE_RAD);
+    },
     liberer() {
       but = null;
+      this.verrouiller?.(false);
       vue3d.focaleBloquee = false;
       const sc = vue3d.scene;
       if (!sc || champAvant === null) return;
@@ -355,17 +410,26 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
   let pauseJusqua = 0;
   /** La derniere pose a hauteur d'homme ; null en vue d'ensemble, ou l'ecran ferme. */
   let derniere: PosePieton | null = null;
+  /** L'orbite autour d'une facade choisie : le regard courant, le dernier angle ou vous etiez, et un doigt a pris la main. */
+  let orbiteAz: number | null = null, orbiteRef: number | null = null, doigt = false;
+  /** Quitte l'orbite : la camera redevient libre de zoomer et de s'incliner. */
+  function sortirOrbite(): void {
+    if (orbiteAz === null) return;
+    orbiteAz = null; orbiteRef = null; doigt = false;
+    vue.verrouiller?.(false);
+  }
   return {
     /** L'ecran s'ouvre (vrai) ou se ferme (faux) : a la fermeture, la camera est rendue. */
     activer(oui: boolean): void {
       if (actif && !oui) vue.liberer?.();
+      sortirOrbite();
       actif = oui;
       derniere = null;
       if (oui) pauseJusqua = 0;
     },
     actif: () => actif,
     /** Un doigt a fait tourner la vue : elle reste ou il l'a mise pendant PAUSE_GESTE_MS. */
-    lacher(): void { if (actif) { pauseJusqua = horloge() + PAUSE_GESTE_MS; vue.arreter?.(); } },
+    lacher(): void { if (actif) { pauseJusqua = horloge() + PAUSE_GESTE_MS; doigt = true; vue.arreter?.(); } },
     /** Le coin de l'ecran de l'audit, en pixels de la fenetre : la vue cadre ce qu'il laisse voir. */
     cadrer(cache: CacheVue | null): void { vue.cadrer?.(cache); },
     /**
@@ -375,6 +439,7 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
     suivre(p: PtBrut | null, cap: number | null, facade: Facade | null, force = false, murs: readonly (readonly PtBrut[])[] = []): boolean {
       if (!actif || !p) return false;
       if (!force && horloge() < pauseJusqua) return false;
+      sortirOrbite();
       const pose = posePieton(p, capDeLaVue(p, cap, facade), facade, murs, vue.rapportVisible?.() ?? null);
       if (!vue.poser(pose)) return false;
       derniere = pose;
@@ -384,9 +449,47 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
     derniere: () => derniere,
     /** La largeur sur la hauteur de ce que l'ecran de l'audit laisse voir, si on la connait. */
     rapport: () => vue.rapportVisible?.() ?? null,
+    /**
+     * La vue en orbite autour du batiment de la facade choisie. `depart` : le regard a l'arrivee (face
+     * a la facade) ; `marcheur` : l'angle ou vous etes autour du batiment (`angleAutour`), null sans GPS
+     * sur ou sans position. `nouvelle` : une autre facade vient d'etre choisie, le regard repart de
+     * `depart`. Ensuite le regard tourne de ce que vous tournez autour du batiment ; un doigt qui
+     * glisse prend la main, et la rotation repart de ou il l'a laissee une fois la pause finie.
+     */
+    orbite(cadre: CadreEnsemble, depart: number, marcheur: number | null, nouvelle: boolean, force = false): boolean {
+      if (!actif) return false;
+      const enPause = horloge() < pauseJusqua;
+      if (nouvelle || orbiteAz === null) {
+        orbiteAz = depart; orbiteRef = marcheur; doigt = false;
+        // Une nouvelle facade : la camera y va d'un coup, sans glisser entre deux inclinaisons.
+        vue.arreter?.();
+      } else if (enPause) {
+        if (!force) return false;
+        orbiteAz = vue.azimut?.() ?? orbiteAz;
+      } else if (doigt) {
+        orbiteAz = vue.azimut?.() ?? orbiteAz; orbiteRef = marcheur; doigt = false;
+      } else {
+        if (marcheur !== null && orbiteRef !== null) {
+          const e = ecartAngle(orbiteRef, marcheur);
+          // Un tremblement du GPS ne bouge pas la vue ; le repere ne bouge pas non plus, pour que les petits pas s'ajoutent.
+          if (Math.abs(e) < ZONE_MORTE_ORBITE_DEG) return false;
+          orbiteAz = (orbiteAz + e + 360) % 360;
+        } else if (!force) {
+          // Sans position sure, seul le doigt tourne la vue : la boussole ne la redessine pas.
+          orbiteRef = marcheur;
+          return false;
+        }
+        orbiteRef = marcheur;
+      }
+      derniere = null;
+      const pose = poseOrbite(cadre, orbiteAz, vue.rapportVisible?.() ?? 1);
+      vue.verrouiller?.(true, Math.PI / 2 - rad(ELEVATION_ORBITE_DEG));
+      return vue.poser(pose);
+    },
     /** La vue d'ensemble sur ce cadre ; sans direction donnee, celle de la camera (un doigt l'a tournee). */
     ensemble(cadre: CadreEnsemble): boolean {
       if (!actif) return false;
+      sortirOrbite();
       const azimut = cadre.azimutDeg ?? vue.azimut?.() ?? 0;
       derniere = null;
       return vue.poser(poseEnsemble(cadre, azimut, vue.rapportVisible?.() ?? 1));

@@ -22,7 +22,7 @@ import { focalePx, planDePrise } from '../../../facade/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { epurerVue3d, objetSousLePointeur } from '../../../three/scene.js';
 import { affichage3d } from '../../../three/etat3d.js';
-import { cadreDe, facadeTouchee, forceDuTrait, suiviPieton, vuePieton, type CacheVue, type VuePieton } from './vuePrise.js';
+import { angleAutour, cadreDe, facadeTouchee, forceDuTrait, suiviPieton, vuePieton, type CacheVue, type VuePieton } from './vuePrise.js';
 import { poserTraitDePres } from '../../../three/traitDePres.js';
 import { filtrePosition, surLaParcelle } from './positionFiltree.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
@@ -769,6 +769,24 @@ function vueEpuree(ctx: ContexteAuditParcelle, batimentsGardes: () => Set<string
 }
 
 /**
+ * Une facade choisie fixe la vue : la camera tourne autour de son batiment, a distance fixe, sans
+ * suivre le GPS. Elle arrive face a la facade ; ensuite la rotation suit vos pas autour du batiment
+ * (si la position est sure) ou le doigt (vuePrise.ts, `orbite`). Faux quand il n'y a rien a cadrer.
+ */
+function poserOrbite(
+  suivi: ReturnType<typeof suiviPieton>, sens: ReturnType<typeof capteurs>, visee: ReturnType<typeof viseeDe>,
+  vues: { contoursDe: (cles: Set<string>) => PtBrut[][]; hauteurDe: (cles: Set<string>) => number }, nouvelle: boolean, force: boolean,
+): boolean {
+  const f = visee.facade(), cle = visee.cleBatiment();
+  if (!f || !cle) return false;
+  const cadre = cadreDe(vues.contoursDe(new Set([cle])), vues.hauteurDe(new Set([cle])), null);
+  if (!cadre) return false;
+  const depart = ((Math.atan2(-f.normale.x, -f.normale.y) * 180) / Math.PI + 360) % 360;
+  suivi.orbite(cadre, depart, angleAutour(cadre.centre, sens.position(), sens.precision()), nouvelle, force);
+  return true;
+}
+
+/**
  * La Vue 3D de l'audit (vuePrise.ts) :
  * - epuree tant que l'audit est ouvert (`epurer`) : le batiment audite et le sol, sans arbres, ni
  *   voisins, ni clotures (demande de l'utilisateur du 15 octobre) ; un affichage, rien n'entre dans
@@ -795,7 +813,9 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
     poserTrait(signature ? cle : null, force);
   }
   let ecran: EcranVue = null;
-  let mode: 'pieton' | 'ensemble' | null = null;
+  let mode: 'pieton' | 'ensemble' | 'orbite' | null = null;
+  /** La facade choisie sur laquelle la vue est fixee (cle du batiment et cote) ; une autre choisie repart face a elle. */
+  let orbiteSur: string | null = null;
   let perdueDepuis: number | null = null;
   const { batimentsGardes, contoursDe, hauteurDe } = batimentsDeLaVue(ctx, visee, liste, () => ecran === 'prise');
   const epure = vueEpuree(ctx, batimentsGardes);
@@ -824,6 +844,15 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
     suivi.ensemble({ ...cadreSans, azimutDeg: azimut });
   }
 
+  /** Une facade choisie fixe la vue : la camera tourne autour de son batiment (`poserOrbite`). */
+  function orbite(force: boolean): boolean {
+    const cleVisee = visee.cleVisee();
+    const nouvelle = mode !== 'orbite' || orbiteSur !== cleVisee;
+    if (!poserOrbite(suivi, sens, visee, { contoursDe, hauteurDe }, nouvelle, force)) return false;
+    mode = 'orbite'; orbiteSur = cleVisee; perdueDepuis = null;
+    return true;
+  }
+
   const suivre = (force = false) => {
     suivreSansTrait(force);
     // Une pose forcee (scene rebatie, cadrage) repose le trait : celui d'une scene demolie est parti avec elle.
@@ -838,6 +867,7 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
       if (entree || force) ensemble(entree);
       return;
     }
+    if (visee.choisie() && orbite(force)) return;
     const f = visee.facade(), p = sens.position();
     if (p && f) {
       const entree = mode !== 'pieton';
@@ -904,9 +934,8 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
       if (!f) return 'Ce bâtiment n’a pas de façade à photographier.';
       visee.choisir(cle, f.cote);
       faites();
-      // En vue d'ensemble sans position, la camera reste ou elle est : la facade touchee y est deja
-      // visible, en rouge, et la suivante se touche sans que la vue ait bouge.
-      suivre(mode === 'pieton');
+      // La facade touchee fixe la vue : la camera tourne autour de son batiment, face a elle.
+      suivre(true);
       return 'choisie';
     },
   };

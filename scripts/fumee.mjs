@@ -1606,6 +1606,7 @@ const POINTS = {
     // d'homme, derriere vous, un peu vers le haut ; elle suit la boussole (pas une image fixe) ; la
     // facade visee est en rouge ; toucher une facade dans la 3D la choisit ; une facade photographiee
     // passe au vert et se reprend.
+    const ecartCapFixe = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
     const station = await stationDevantLaMaison(page);
     if (!station) return { ok: false, mesure: 'aucun mur de la maison ne se voit depuis la parcelle' };
     await page.context().grantPermissions(['geolocation'], { origin: BASE });
@@ -1669,6 +1670,12 @@ const POINTS = {
     const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
     const toasts = (await page.locator('.toast').allTextContents()).join(' | ');
     const sousLeDoigt = cible ? await page.evaluate((c) => { const e = document.elementFromPoint(c.x, c.y); return e ? e.tagName + '.' + e.className : 'rien'; }, cible) : 'aucun point';
+    // La facade choisie fixe la vue (orbite) : la boussole ne la tourne plus, et le zoom est verrouille.
+    const fixe0 = await posee();
+    await tourner((station.cap + 70) % 360);
+    const fixe1 = await posee();
+    const zoomVerrouille = await page.evaluate(() => window.__plan.scene3d()?.controls.enableZoom === false);
+    const fixe = !!fixe0 && !!fixe1 && ecartCapFixe(fixe0.cap, fixe1.cap) < 2 && Math.abs(fixe0.y - fixe1.y) < 0.05 && zoomVerrouille;
     // Une photo sur cette facade : elle passe au vert, et une seconde photo s'y range encore.
     const dessin = await page.context().newPage();
     await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
@@ -1686,10 +1693,10 @@ const POINTS = {
     const reprise = (await page.locator('.rangementAudit').textContent().catch(() => ''))?.trim() ?? '';
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     const ecartCap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
-    const ok = !!avant && !!apres && avant.montee > 3 && avant.montee < 20
+    const ok = fixe && !!avant && !!apres && avant.montee > 3 && avant.montee < 20
       && ecartCap(avant.cap, station.cap) < 15 && ecartCap(apres.cap, (station.cap + 40) % 360) < 15
       && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
-    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
+    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; facade choisie ${fixe ? 'fixe (boussole sans effet, zoom verrouillé)' : 'PAS fixe (' + (fixe0 ? fixe0.cap.toFixed(0) : '?') + '° → ' + (fixe1 ? fixe1.cap.toFixed(0) : '?') + '°, zoom ' + (zoomVerrouille ? 'verrouillé' : 'libre') + ')'} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
   },
   88: async (page) => {
     // La vue epuree et la vue d'ensemble de l'audit de la parcelle (second essai d'AE 101, 15 octobre) :

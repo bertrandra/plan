@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, posePieton, reculLibre, suiviPieton,
+  angleAutour, cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, poseOrbite, posePieton, reculLibre, suiviPieton,
   TRAIT_NUL_M, TRAIT_PLEIN_M,
-  CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
+  CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, ELEVATION_ORBITE_DEG, PRECISION_ORBITE_MAX_M, ZONE_MORTE_ORBITE_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
 } from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import type { Facade } from '../../../../../src/facade/geometrie.js';
 
@@ -226,5 +226,108 @@ describe('le trait renforce de pres (demande du 15 octobre)', () => {
     const longue = facade({ x: -30, y: 10 }, { x: 40, y: 10 });
     expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, null)).toBeLessThan(1);
     expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, 0.7)).toBe(1);
+  });
+});
+
+describe('la vue fixee sur une facade choisie (16 octobre)', () => {
+  const cadre = { centre: { x: 0, y: 0 }, rayon: 6, hauteur: 8, azimutDeg: null };
+
+  it('l angle ou vous etes autour du batiment se compte depuis le nord, sens horaire', () => {
+    expect(angleAutour(cadre.centre, { x: 0, y: -10 }, 4)).toBeCloseTo(180, 6);
+    expect(angleAutour(cadre.centre, { x: 10, y: 0 }, 4)).toBeCloseTo(90, 6);
+    expect(angleAutour(cadre.centre, { x: -10, y: 0 }, null)).toBeCloseTo(270, 6);
+  });
+
+  it('n en dit rien sans position, trop imprecise, ou sur le centre : le doigt tourne alors la vue', () => {
+    expect(angleAutour(cadre.centre, null, 4)).toBeNull();
+    expect(angleAutour(cadre.centre, { x: 10, y: 0 }, PRECISION_ORBITE_MAX_M + 1)).toBeNull();
+    expect(angleAutour(cadre.centre, { x: 0.5, y: 0.5 }, 4)).toBeNull();
+  });
+
+  it('la pose en orbite regarde le centre d un peu haut, du cote du regard, le batiment entier dans le champ', () => {
+    const p = poseOrbite(cadre, 180, 1);
+    // Regard vers le sud : la camera est au nord.
+    expect(p.oeil.x).toBeCloseTo(0, 6);
+    expect(p.oeil.y).toBeGreaterThan(0);
+    expect(p.vise).toEqual(cadre.centre);
+    const recul = p.oeil.y;
+    expect(Math.atan2(p.hauteurOeil - p.hauteurVise, recul) * 180 / Math.PI).toBeCloseTo(ELEVATION_ORBITE_DEG, 6);
+    const d = Math.hypot(recul, p.hauteurOeil - p.hauteurVise);
+    expect(Math.asin(Math.hypot(cadre.rayon, cadre.hauteur / 2) / d) * 180 / Math.PI).toBeLessThan((p.champ ?? 0) / 2);
+  });
+
+  const montre = () => {
+    let az = 0;
+    const vue = { poser: vi.fn<(pose: { oeil: { x: number; y: number } }) => boolean>(() => true), azimut: () => az, rapportVisible: () => 1, verrouiller: vi.fn(), arreter: vi.fn() };
+    return { vue, regard: (a: number) => { az = a; } };
+  };
+  const cote = (v: ReturnType<typeof montre>['vue']) => v.poser.mock.calls.at(-1)?.[0].oeil as { x: number; y: number };
+
+  it('tourne du meme angle que vous autour du batiment, au dela de la zone morte, et se verrouille sur l axe', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    expect(s.orbite(cadre, 180, 180, true)).toBe(false);
+    s.activer(true);
+    expect(s.orbite(cadre, 180, 180, true)).toBe(true);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(true, expect.closeTo(Math.PI / 2 - (ELEVATION_ORBITE_DEG * Math.PI) / 180, 6));
+    expect(cote(vue).y).toBeGreaterThan(0);
+    // Un tremblement du GPS ne fait rien.
+    const n = vue.poser.mock.calls.length;
+    expect(s.orbite(cadre, 180, 180 + ZONE_MORTE_ORBITE_DEG / 2, false)).toBe(false);
+    expect(vue.poser).toHaveBeenCalledTimes(n);
+    // Un quart de tour : de 180 a 90 pour vous, le regard va de 180 a 90 (est), la camera passe a l'ouest.
+    expect(s.orbite(cadre, 180, 90, false)).toBe(true);
+    expect(cote(vue).x).toBeLessThan(-3);
+    expect(Math.abs(cote(vue).y)).toBeLessThan(1e-6);
+  });
+
+  it('les petits pas s ajoutent : le repere ne bouge qu avec la vue', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    expect(s.orbite(cadre, 180, 180 - ZONE_MORTE_ORBITE_DEG * 0.6, false)).toBe(false);
+    expect(s.orbite(cadre, 180, 180 - ZONE_MORTE_ORBITE_DEG * 1.2, false)).toBe(true);
+  });
+
+  it('sans angle (pas de GPS sur), la boussole ne redessine pas la vue ; forcee, elle la repose', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 90, null, true);
+    const n = vue.poser.mock.calls.length;
+    expect(s.orbite(cadre, 90, null, false)).toBe(false);
+    expect(vue.poser).toHaveBeenCalledTimes(n);
+    expect(s.orbite(cadre, 90, null, false, true)).toBe(true);
+  });
+
+  it('un doigt prend la main, puis la rotation repart de son regard sans compter les pas de la pause', () => {
+    let t = 0;
+    const { vue, regard } = montre();
+    const s = suiviPieton(vue, () => t);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    s.lacher();
+    regard(270);
+    expect(s.orbite(cadre, 180, 90, false)).toBe(false);
+    t = PAUSE_GESTE_MS + 1;
+    expect(s.orbite(cadre, 180, 45, false)).toBe(true);
+    // Regard vers l'ouest : la camera est a l'est.
+    expect(cote(vue).x).toBeGreaterThan(3);
+    expect(Math.abs(cote(vue).y)).toBeLessThan(1e-6);
+  });
+
+  it('quitter l orbite libere l axe ; une autre facade repart de son regard', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    s.orbite(cadre, 180, 180, true);
+    s.orbite(cadre, 90, 180, true);
+    expect(cote(vue).x).toBeLessThan(-3);
+    s.suivre({ x: 0, y: 5 }, 0, null);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(false);
+    s.orbite(cadre, 0, null, true);
+    s.activer(false);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(false);
   });
 });

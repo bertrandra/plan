@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une façade choisie fixe la vue de prise** (audit de la parcelle, `MD/spec-audit.md` §12.1).
+  Toucher une façade dans la Vue 3D, ou la prendre dans la liste, fige la position : la caméra se tient
+  à distance fixe du bâtiment, qu'elle montre en entier, face à la façade choisie, et ne suit plus le
+  GPS. Seule tourne la rotation sur l'axe vertical du bâtiment, pour voir défiler ses façades : avec
+  vos pas autour de lui, ou au doigt quand il n'y a pas de GPS ou qu'il est trop imprécis (au-delà de
+  12 m). Ni zoom, ni déplacement, ni inclinaison pendant les photos de cette façade. « Suivre ma
+  position » ou « Ce n'est pas cette façade » rendent la vue.
 - **Verrouiller un bâtiment pour la prise** (audit de la parcelle, `MD/spec-audit.md` §12.2). Quand la
   parcelle porte une annexe à côté de la maison, l'écran de prise propose un bouton par bâtiment
   (« Verrouiller : Maison, Annexe »). C'est un geste volontaire : verrouillé, seul ce bâtiment est
