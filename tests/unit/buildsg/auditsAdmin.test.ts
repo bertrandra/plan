@@ -60,7 +60,9 @@ describe('les audits partages, cote Node', () => {
   });
 
   it('verifie la forme d un audit', () => {
-    expect(verifierAudit(fichierAudit())).toEqual({ idu: '78650000AE0101', adresse: '2 allée des Limites' });
+    expect(verifierAudit(fichierAudit())).toEqual({ nature: 'parcelle', idu: '78650000AE0101', adresse: '2 allée des Limites' });
+    expect(verifierAudit({ format: 'plan-audit', version: 2, promenade: { commune: 'Le Vésinet' }, cas: [] })).toEqual({ nature: 'promenade', idu: '', adresse: 'Le Vésinet', commune: 'Le Vésinet' });
+    expect(() => verifierAudit({ format: 'plan-audit', version: 3, promenade: {}, cas: [] })).toThrow('Version du fichier de promenade inconnue.');
     expect(verifierAudit(fichierAudit('48.900000,2.130000')).idu).toBe('48.900000,2.130000');
     expect(() => verifierAudit({ ...fichierAudit(), version: 2 })).toThrow('Version du fichier d’audit inconnue.');
     expect(() => verifierAudit({ ...fichierAudit(), parcelle: { idu: '../x' } })).toThrow('Parcelle du fichier d’audit invalide.');
@@ -69,7 +71,7 @@ describe('les audits partages, cote Node', () => {
   it('resume un audit pour le catalogue, et lit la marque du depot', () => {
     const photo = { type: 'image/jpeg', base64: 'AAAA' };
     const audit = { ...fichierAudit(), finCapture: null, batiments: [{ photos: [photo], facades: [{ photos: [photo, photo] }, null] }, null], cloture: { photos: [photo] }, portail: {} };
-    expect(resumeAudit(audit)).toEqual({ photos: 4, phase: 'capture', debut: '2026-10-13T08:00:00.000Z' });
+    expect(resumeAudit(audit)).toEqual({ photos: 4, phase: 'capture', debut: '2026-10-13T08:00:00.000Z', propositions: { total: 0, claude: 0, mesures: 0, validees: 0, refusees: 0, enAttente: 0 } });
     expect(resumeAudit({ ...audit, finCapture: '2026-10-13T08:30:00Z', debut: 'hier' })).toMatchObject({ phase: 'analyse', debut: null });
     expect(marqueAudit(undefined)).toBe('corpus');
     expect(marqueAudit('', 'sauvegarde')).toBe('sauvegarde');

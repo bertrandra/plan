@@ -283,7 +283,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
-        <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits de parcelle" />
+        <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
