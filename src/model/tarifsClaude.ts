@@ -134,7 +134,8 @@ export const USAGES_REGLABLES: { id: string; libelle: string }[] = [
   { id: 'renfort', libelle: 'Renfort des façades' },
   { id: 'immediat', libelle: 'Aide immédiate' },
   { id: 'escalade', libelle: 'Escalade' },
-  { id: 'candidats', libelle: 'Cas candidats' }
+  { id: 'candidats', libelle: 'Cas candidats' },
+  { id: 'rejeu', libelle: 'Rejeu des audits' }
 ];
 
 /** Ce que rend `GET admin/claude/modeles` : le modele de chaque usage, les defauts, les modeles admis. */

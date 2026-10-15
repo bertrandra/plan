@@ -3,14 +3,14 @@
 Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait pas lequel lui répond :
 
 - **Apache + PHP, sans Node** : `npm run livraison` produit `livraison/` et `livraison.zip`
-  (`index.html`, `.htaccess`, `admin.php`, `admin-config.exemple.php`, `plan-demos/1.json`,
-  `plan-demos/2.json`, `plan-demos/3.json`, `LISEZMOI-DEPLOIEMENT.txt`). `plan-demos/1.json` est la démonstration
-  intégrée, première démo de l'admin, à copier avec le dossier à côté de la configuration.
-  `plan-demos/2.json` et `3.json` (Peyrusse-le-Roc, voisinage d'un et de cinq kilomètres) et les suivantes sont des exports
+  (`index.html`, `.htaccess`, `admin.php`, `donnees.php`, `admin-config.exemple.php`, `data/demo/1.json`,
+  `data/demo/2.json`, `data/demo/3.json`, `LISEZMOI-DEPLOIEMENT.txt`). `data/demo/1.json` est la démonstration
+  intégrée, première démo de l'admin : le dossier `data/` se pose à côté de la configuration.
+  `data/demo/2.json` et `3.json` (Peyrusse-le-Roc, voisinage d'un et de cinq kilomètres) et les suivantes sont des exports
   de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
-  `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des démos sont dans
+  `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des données sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
-- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DEMOS_DIR`.
+- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DATA_DIR`.
 
 ## Ce que c'est
 
@@ -58,12 +58,22 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 
 ## Où vivent les fichiers
 
-Apache : `dossierDemos` de la configuration, par défaut `plan-demos/` à côté d'elle, donc hors de la
-racine web ; `.htaccess` refuse de toute façon `plan-demos/` et `demos/`. Node : `DEMOS_DIR`, par
-défaut `demos/` dans le dossier de l'application. **Le placer hors de ce dossier**
-(par exemple `/home/<compte>/plan-demos`) : une mise en ligne qui remplace le dossier de
-l'application emporterait sinon les démos enregistrées depuis. Ce dossier n'est jamais servi
-directement : seules les routes `/admin/demos…`, derrière la session, le lisent.
+Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
+de `plan-admin-config.php`), jamais servi (`deploy/donnees.php`, `buildsg/donnees.mjs` ;
+`MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
+(`palette.json`, `controleurs.json`, `echecs.json`), `data/claude/`, `data/audits/`,
+`data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
+par défaut `data/` à côté de la racine web (même quand Plan est dans un sous-dossier) ; `.htaccess`
+refuse de toute façon `data/`, `plan-demos/` et `demos/`. Node : `DATA_DIR`, par défaut `data/` à
+côté du dossier de l'application, donc hors de lui : une mise en ligne qui le remplace n'emporte
+rien.
+
+Une configuration d'avant qui ne dit que `dossierDemos` (Node : `DEMOS_DIR` seul) garde l'ancienne
+disposition : tout dans ce dossier, la palette en `.palette.json`. Avec `dossierDonnees`, l'ancien
+dossier est déplacé dans `data/` au premier passage, sans rien écraser (`data/migration.json`,
+`DEPLACE-VERS-DATA.txt`) ; la marche à suivre sur l'hébergement est dans `LISEZMOI-DEPLOIEMENT.txt`
+(étape 2.e). Ce dossier n'est jamais servi directement : seules les routes `admin/…`, derrière la
+session (la vitrine et la palette exceptées, en lecture), le lisent.
 
 ## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
 
@@ -279,9 +289,9 @@ Premier geste : `npm run verifier-deploiement https://<hôte>` (depuis le dépô
 | Réponse de `admin/vitrine/<id>` | Cause | Remède |
 |---|---|---|
 | `404 NOT_CONFIGURED` | `plan-admin-config.php` absent (à côté de `public_html/`, pas dedans), ou mot de passe encore « A-CHANGER » | Suivre l'étape 2 du `LISEZMOI-DEPLOIEMENT.txt` : copier la configuration hors du dossier publié, poser le mot de passe |
-| `404 NOT_FOUND` | Pas de `<id>.json` dans `dossierDemos` (par défaut `plan-demos/` à côté de la configuration). `plan-demos/` laissé dans `public_html/` est refusé par `.htaccess` et ignoré par l'admin | Copier `plan-demos/` à côté de `plan-admin-config.php` ; vérifier `dossierDemos` dans la configuration |
+| `404 NOT_FOUND` | Pas de `<id>.json` dans `data/demo/` (ou dans `dossierDemos` pour une configuration d'avant). `data/` laissé dans `public_html/` est refusé par `.htaccess` et ignoré par l'admin | Poser `data/` à côté de `plan-admin-config.php` ; vérifier `dossierDonnees` dans la configuration, et `data/migration.json` |
 | `500 UNREADABLE` | Le fichier existe mais PHP ne peut pas le lire : droits du fichier (par ex. 600 d'un autre utilisateur) | Dossier 755, fichiers 644, même utilisateur que le site |
-| `500 SERVER_ERROR` « dossier impossible à créer » | `dossierDemos` n'existe pas et PHP n'a pas le droit de le créer | Créer le dossier à la main, droits 755 |
+| `500 SERVER_ERROR` « dossier impossible à créer » | `data/` (ou `dossierDemos`) n'existe pas et PHP n'a pas le droit de le créer ; le message dit le chemin | Créer le dossier à la main, droits 755 |
 | Une page **HTML** (souvent `202`) à la place du JSON | La protection anti-robots de l'hébergeur (SiteGround « Robot Challenge ») répond à la place d'`admin.php` : la requête n'avait pas son cookie — c'est le cas depuis l'`<iframe>` en bac à sable, qui n'en envoie aucun | Exclure `admin/vitrine/` de la protection anti-robots dans Site Tools (ou l'alléger pour ce chemin). Côté page, rien ne peut contourner : la console le dit (« réponse HTML au lieu de JSON ») |
 | `200` JSON, mais `Access-Control-Allow-Origin` absent | Un `admin.php` d'avant le 5 octobre 2026, ou un proxy qui retire l'en-tête | Mettre à jour la livraison ; l'`<iframe>` en bac à sable (origine `null`) ne voit rien sans cet en-tête |
 | `200` JSON correct, et la vitrine montre quand même la démo intégrée | Le fichier n'est pas un plan (`objects` vide) ou son schéma est plus récent que le programme | La console de la page le dit (« aucun objet », « schéma N plus récent ») : réenregistrer la démo depuis l'admin, ou mettre la livraison à jour |

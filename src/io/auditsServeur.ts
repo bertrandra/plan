@@ -32,12 +32,27 @@ export const TAILLE_MAX_AUDIT = 48 * 1024 * 1024;
 
 export type MarqueDepot = 'corpus' | 'sauvegarde';
 
+/** Ce que les propositions d'un audit de parcelle sont devenues (fiche du serveur, `resumeAudit`). */
+export interface ConclusionAudit { total: number; claude: number; mesures: number; validees: number; refusees: number; enAttente: number }
+
 /** La fiche d'un audit recu (`GET admin/audits`), sans le fichier ; les champs absents d'un ancien depot sont nuls. */
 export interface FicheAudit {
   id: string;
   recuLe: string;
   organisation: string | null;
+  /** `parcelle` (plan-audit-parcelle) ou `promenade` (plan-audit, les toits) ; un ancien depot est une parcelle. */
+  nature: 'parcelle' | 'promenade';
+  /** L'IDU (vide pour une promenade). */
   idu: string;
+  /** La commune d'une promenade. */
+  commune: string | null;
+  /** Ou il est range sur le serveur, relatif a `data/audits/` (`parcelle/<IDU>/<id>`). */
+  dossier: string | null;
+  /** La conclusion d'un audit de parcelle : propositions de Claude et des mesures, et leur decision. */
+  propositions: ConclusionAudit | null;
+  /** Les cas d'une promenade, et leur nombre par statut. */
+  cas: number | null;
+  statuts: Record<string, number> | null;
   adresse: string | null;
   taille: number | null;
   marque: MarqueDepot;
@@ -88,8 +103,16 @@ const texte = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 export function lireFicheAudit(v: unknown): FicheAudit | null {
   const a = v as Record<string, unknown> | null;
   if (!a || typeof a !== 'object' || typeof a.id !== 'string' || typeof a.idu !== 'string') return null;
+  const p = a.propositions as Record<string, unknown> | null | undefined;
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const statuts = a.statuts && typeof a.statuts === 'object' && !Array.isArray(a.statuts)
+    ? Object.fromEntries(Object.entries(a.statuts as Record<string, unknown>).map(([k, v]) => [k, n(v)])) : null;
   return {
-    id: a.id, recuLe: texte(a.recuLe) ?? '', organisation: texte(a.organisation), idu: a.idu, adresse: texte(a.adresse),
+    id: a.id, recuLe: texte(a.recuLe) ?? '', organisation: texte(a.organisation),
+    nature: a.nature === 'promenade' ? 'promenade' : 'parcelle', idu: a.idu, commune: texte(a.commune), dossier: texte(a.dossier),
+    propositions: p && typeof p === 'object' ? { total: n(p.total), claude: n(p.claude), mesures: n(p.mesures), validees: n(p.validees), refusees: n(p.refusees), enAttente: n(p.enAttente) } : null,
+    cas: typeof a.cas === 'number' ? a.cas : null, statuts,
+    adresse: texte(a.adresse),
     taille: typeof a.taille === 'number' ? a.taille : null,
     marque: a.marque === 'sauvegarde' ? 'sauvegarde' : 'corpus',
     photos: typeof a.photos === 'number' ? a.photos : null,

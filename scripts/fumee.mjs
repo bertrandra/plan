@@ -2158,6 +2158,98 @@ const POINTS = {
       && liste === 1 && /^1 façade/.test(compteur) && /^Audit de la parcelle repris en capture : 1 photo/.test(repris) && !deborde && !debordeCatalogue;
     return { ok, mesure: `sauvegarde ${delai !== null ? 'partie en ' + delai + ' s' : 'NON partie'} (« ${envoye.slice(0, 50)} ») ; bouton : ${put ? 'PUT ' + put.id + ' par ' + put.retrait : 'AUCUN remplacement'}, ${depots} dépôt(s) ; fiche ${fiche ? fiche.marque + ', ' + fiche.phase + ', ' + fiche.photos + ' photo(s)' : '—'} ; catalogue ${cartes} carte(s) « ${carte.slice(0, 90)} », ouvrir ${ouvrable ? 'actif' : 'GRISÉ'} ; repris : ${liste ? 'liste de contrôle « ' + compteur.slice(0, 40) + ' »' : 'RIEN'}, « ${repris.slice(0, 60)} » ; débordement ${deborde || debordeCatalogue ? 'OUI' : 'non'}` };
   },
+  86: async (page, f) => {
+    // Admin › « Audits » (spec-audit 15.4 et 15.5) : un audit de parcelle range sur le serveur simule,
+    // avec une analyse gardee ; « Détails » montre les photos et la conclusion (proposition validee) ;
+    // « Rejouer l'analyse » avec le modele plus fin part en batch `rejeu` (depot, modele, images du
+    // fichier) ; le batch fini, la comparaison montre l'analyse et le rejeu cote a cote ; « Voir »
+    // ouvre le rejeu en entier : prompt envoye, image envoyee, reponse brute, sortie remise en forme.
+    const objets = await page.evaluate(() => JSON.parse(JSON.stringify(window.__plan.etat().objects)));
+    const parcelle = objets.find((o) => o.cadastre && typeof o.cadastre.idu === 'string');
+    const maison = objets.find((o) => o.fonction === 'batiment' && !o.voisinage);
+    const idu = parcelle?.cadastre?.idu ?? '';
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);x.fillStyle="#2b3440";x.fillRect(180,220,120,160);</script>');
+    const photo = (await dessin.locator('#c').screenshot({ type: 'jpeg', quality: 70 })).toString('base64');
+    await dessin.close();
+    const ID = '20261014-090000-0000beef';
+    const fichier = JSON.stringify({
+      format: 'plan-audit-parcelle', version: 1, parcelle: { idu, adresse: parcelle?.cadastre?.adresse ?? null, origine: null }, code: { version: '2.2.0', commit: null },
+      regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-14T08:00:00.000Z', finCapture: '2026-10-14T08:30:00.000Z', ecritLe: '2026-10-14T09:00:00.000Z',
+      batiments: [{ cle: maison?.key ?? 'maison', nom: 'Maison', mitoyen: false, cas: null, vu: {}, photos: [], facades: [{ cote: 0, orientation: 'Sud', largeurM: 9, hauteurM: 6, photos: [{ type: 'image/jpeg', base64: photo }], mesure: null }] }],
+      cloture: { photos: [] }, portail: { photos: [] },
+      propositions: [{ id: 'p1', objet: 'Toit de Maison', avant: 'tuile', apres: 'ardoise', source: 'claude', decision: 'validee', cible: { type: 'parcelle' }, indices: [], confiance: 0.96, remplaceChoix: null, reserve: null, effet: {} }],
+      decisions: [{ t: '2026-10-14T09:00:00.000Z', acceptees: ['p1'], refusees: [], verifies: [] }],
+    });
+    const tokens = { entree: 3000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 0, sortie: 900 };
+    const trouve = { ouvertures: 5, manquees: 0, enTrop: 0, bouts: 1, lucarnes: 0, elements: 1, ecarts: 1, coins: 0, determines: 3, vide: false };
+    const resultat = (modele) => ({ id: 'b0-p1', passe: 1, usage: 'analyse', modele, statut: 'reussi', arret: 'end_turn', erreur: null, tokens, cout: 0.0025, trouve });
+    const resume = (id, nature, modele, etat) => ({ id, audit: ID, nature, etat, creeLe: nature === 'rejeu' ? new Date().toISOString().slice(0, 19) + 'Z' : '2026-10-14T09:10:00Z',
+      finLe: etat === 'termine' ? (nature === 'rejeu' ? new Date(Date.now() + 90000).toISOString().slice(0, 19) + 'Z' : '2026-10-14T09:12:00Z') : null, idBatch: nature === 'rejeu' ? 'msgbatch_rejeu' : 'msgbatch_1',
+      organisation: 'admin', usage: nature, modele, effort: 'low', prompt: 3, schema: 2, versions: {}, requetes: 3, images: 2, facades: 1, resultats: etat === 'termine' ? [resultat(modele)] : null, cout: etat === 'termine' ? 0.0025 : null, tokens: etat === 'termine' ? tokens : null });
+    const s = { demande: null, rejeuFini: false, appels: [] };
+    await page.route(/\/admin\/(session|demos|audits|claude)/, async (route) => {
+      const req = route.request(), u = new URL(req.url()), p = u.pathname, json = (corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+      s.appels.push(req.method() + ' ' + p);
+      if (p.endsWith('/admin/session')) return json({});
+      if (p.endsWith('/admin/demos')) return json({ demos: [{ id: '1', name: 'Démonstration' }] });
+      if (p.endsWith('/admin/demos/1')) return json({ meta: { id: '1', name: 'Démonstration', schemaVersion: 1 }, objects: objets, measures: [] });
+      if (p.endsWith('/admin/audits')) return json({ audits: [{ id: ID, recuLe: '2026-10-14T09:00:00Z', organisation: 'admin', nature: 'parcelle', idu, adresse: parcelle?.cadastre?.adresse ?? null, dossier: 'parcelle/' + idu + '/' + ID, taille: fichier.length, marque: 'corpus', photos: 1, phase: 'analyse', debut: '2026-10-14T08:00:00.000Z', propositions: { total: 1, claude: 1, mesures: 0, validees: 1, refusees: 0, enAttente: 0 } }] });
+      if (p.endsWith('/admin/audits/' + ID)) return route.fulfill({ status: 200, contentType: 'application/json', body: fichier });
+      if (p.endsWith('/admin/audits/' + ID + '/analyses')) {
+        return json({ analyses: [resume('20261014-091000-claude-haiku-5-5-aaaa', 'analyse', 'claude-haiku-5-5', 'termine'), ...(s.demande ? [resume('20261015-120000-claude-sonnet-5-5-bbbb', 'rejeu', 'claude-sonnet-5-5', s.rejeuFini ? 'termine' : 'en_cours')] : [])] });
+      }
+      if (p.includes('/admin/audits/' + ID + '/analyses/')) {
+        const d = s.demande;
+        const bloc = (d?.requetes?.[0]?.contenu ?? []).map((b) => (b.type === 'image' ? { type: 'image', media_type: b.source.media_type, image: 'a'.repeat(64) + '.jpg', octets: 1000 } : b));
+        return json({ audit: ID, resume: resume('20261015-120000-claude-sonnet-5-5-bbbb', 'rejeu', 'claude-sonnet-5-5', 'termine'),
+          entrant: { max_tokens: 8000, effort: 'low', usages: { rejeu: { prompt: 3, schema: 2, systeme: 'Vous regardez une maison. # Forme de la réponse', schemaJson: {} } }, requetes: [{ id: 'b0-p1', passe: 1, usage: 'rejeu', modele: 'claude-sonnet-5-5', facades: 1, images: 1, contenu: bloc }] },
+          sortant: { idBatch: 'msgbatch_rejeu', finLe: '2026-10-15T12:01:30Z', resultats: [{ ...resultat('claude-sonnet-5-5'), texte: 'Voici : {"forme":{"valeur":"Deux pans"}}', sortie: { forme: { valeur: 'deux-pans' } }, tarif: '2026-10-01' }] } });
+      }
+      if (p.includes('/admin/audits/' + ID + '/images/')) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: Buffer.from(photo, 'base64') });
+      if (p.endsWith('/admin/claude/etat')) return json({ actif: true, modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'], prompt: 3, schema: 2, organisation: 'admin', admin: true });
+      if (p.endsWith('/admin/claude/batches') && req.method() === 'POST') { s.demande = JSON.parse(req.postData() || '{}'); return json({ batch: { id: 'msgbatch_rejeu', etat: 'in_progress', compte: null }, modele: s.demande.modele, prompt: 3, schema: 2, trace: '20261015-120000-claude-sonnet-5-5-bbbb' }, 201); }
+      if (p.endsWith('/admin/claude/batches/msgbatch_rejeu')) return json({ id: 'msgbatch_rejeu', etat: 'ended', compte: null });
+      if (p.endsWith('/admin/claude/batches/msgbatch_rejeu/resultats')) { s.rejeuFini = true; return json({ batch: { id: 'msgbatch_rejeu', etat: 'ended', compte: null }, modele: 'claude-sonnet-5-5', prompt: 3, schema: 2, resultats: [] }); }
+      return json({ error: { code: 'NOT_FOUND', message: 'route simulée absente : ' + p } }, 404);
+    });
+    await page.goto(BASE + '/?demofile=1');
+    await page.waitForSelector('#stage svg', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const garder = page.getByRole('button', { name: 'Garder tel quel' });
+    if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
+    await noterToasts(page);
+    await page.evaluate(() => window.__plan.executer('admin.auditsParcelle'));
+    await page.locator('.carteAuditRecu').first().waitFor({ timeout: 30000 }).catch(() => {});
+    const titre = ((await page.locator('.dialogueAuditsParcelle .titreParcours').textContent().catch(() => '')) || '').trim();
+    const sections = await page.locator('.titreSectionAudits').allTextContents();
+    const conclusion = ((await page.locator('.carteAuditRecu .conclusionAuditRecu').first().textContent().catch(() => '')) || '').trim();
+    await page.locator('.carteAuditRecu [data-controle="auditsParcelle.details"]').first().click({ timeout: 30000 });
+    await page.locator('.carteAuditRecu .tableComparaison').waitFor({ timeout: 30000 }).catch(() => {});
+    const vignettes = await page.locator('.carteAuditRecu .vignettesAudit img').count();
+    const decision = ((await page.locator('.carteAuditRecu .tableAudit:not(.tableComparaison) tbody tr').first().textContent().catch(() => '')) || '').trim();
+    await page.locator('[data-controle="auditsParcelle.modeleRejeu"]').selectOption('claude-sonnet-5-5').catch(() => {});
+    const rejouer = page.locator('[data-controle="auditsParcelle.rejouer"]');
+    const rejouable = (await rejouer.count()) ? await rejouer.isEnabled() : false;
+    const raison = ((await page.locator('.detailAuditRecu .raisonAuditRecu').textContent().catch(() => '')) || '').trim();
+    if (rejouable) await rejouer.click({ timeout: 30000 });
+    for (let i = 0; i < 120 && !s.demande; i++) await page.waitForTimeout(500);
+    await page.waitForFunction(() => document.querySelectorAll('.tableComparaison tbody tr').length >= 2 && !/En cours/.test(document.querySelector('.tableComparaison tbody tr:last-child')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
+    const lignes = await page.locator('.tableComparaison tbody tr').allTextContents();
+    const debordeDetail = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    await page.locator('.tableComparaison tbody tr:last-child [data-controle="auditsParcelle.voirAnalyse"]').click({ timeout: 30000 }).catch(() => {});
+    await page.locator('.traceAudit').waitFor({ timeout: 30000 }).catch(() => {});
+    const trace = ((await page.locator('.traceAudit').textContent().catch(() => '')) || '');
+    const imageTrace = await page.locator('.traceAudit .imageTrace').count();
+    const debordeTrace = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const d = s.demande;
+    const images = (d?.requetes?.[0]?.contenu ?? []).filter((b) => b.type === 'image').length;
+    const ok = titre === 'Audits' && sections.length === 2 && /1 proposition .* 1 validée/.test(conclusion) && vignettes >= 1 && /Validée/.test(decision) && rejouable
+      && d?.usage === 'rejeu' && d?.depot === ID && d?.modele === 'claude-sonnet-5-5' && d?.requetes?.length === 3 && images >= 1
+      && lignes.length === 2 && /Rejeu/.test(lignes[1] ?? '') && /Claude Sonnet 5\.5/.test(lignes[1] ?? '') && !/En cours/.test(lignes[1] ?? '')
+      && /Vous regardez une maison/.test(trace) && /Deux pans/.test(trace) && imageTrace >= 1 && !debordeDetail && !debordeTrace;
+    return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
+  },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
     // travees sur deux niveaux, la fenetre d'etage de droite absente ; « Ajouter dans la grille » la pose
@@ -2604,8 +2696,9 @@ function pointsPour(nomClasse) {
   // 76 et 77 : l'ecran Admin › Conformité, indicateurs et mesure rangee (lot G3).
   // 82 : le masque d'occlusion hachure, et l'aide de Claude sur plusieurs vues (lot G20).
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
-  // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits de parcelle qui la rouvre (§15).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85];
+  // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits qui la rouvre (§15).
+  // 86 : Admin › Audits : donnees, conclusion, analyses cote a cote, rejeu par modele et son detail (§15.4, §15.5).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

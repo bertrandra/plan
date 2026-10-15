@@ -130,7 +130,10 @@ describe('la commande admin.auditsParcelle', () => {
     regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-13T08:00:00.000Z', finCapture: null, ecritLe: '2026-10-13T09:00:00.000Z',
     batiments: [], cloture: { photos: [{ type: 'image/jpeg', base64: 'AAAA' }] }, portail: { photos: [] }, propositions: [], decisions: [],
   });
-  const fiche = (id: string, idu: string): FicheAudit => ({ id, recuLe: '2026-10-13T09:00:00Z', organisation: 'org', idu, adresse: null, taille: 100, marque: 'sauvegarde', photos: 1, phase: 'capture', debut: '2026-10-13T08:00:00.000Z' });
+  const fiche = (id: string, idu: string): FicheAudit => ({
+    id, recuLe: '2026-10-13T09:00:00Z', organisation: 'org', nature: 'parcelle', idu, commune: null, dossier: null, propositions: null, cas: null, statuts: null,
+    adresse: null, taille: 100, marque: 'sauvegarde', photos: 1, phase: 'capture', debut: '2026-10-13T08:00:00.000Z',
+  });
 
   it('est reservee a l admin des demos, et rouvre une sauvegarde en capture, sur le meme depot', async () => {
     const etat = creerEtat({ objects: [parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })] } as never, (o) => o as never);

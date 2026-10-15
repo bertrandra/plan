@@ -26,7 +26,7 @@ const P = PLAFONDS_DEFAUT as Plafonds;
 
 describe('le modele de chaque usage', () => {
   it('prend le modele rapide par defaut pour tous les usages', () => {
-    expect(MODELE_PAR_USAGE).toEqual({ analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE });
+    expect(MODELE_PAR_USAGE).toEqual({ analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE });
     expect(modelesParUsage(null)).toEqual({ ...MODELE_PAR_USAGE });
   });
 

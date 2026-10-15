@@ -2,7 +2,7 @@
 // pur, sans build, comme app.js.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-export function creerAdminDemos(options: { dossier: string; motDePasse: string | undefined; maintenant?: () => number }): {
+export function creerAdminDemos(options: { dossier: string; motDePasse: string | undefined; palette?: string; controleurs?: string; maintenant?: () => number }): {
   actif: boolean;
   traiter(req: IncomingMessage, res: ServerResponse, url: URL, base: Record<string, string>): Promise<boolean>;
   sessionValide(req: IncomingMessage): boolean;

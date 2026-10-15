@@ -102,9 +102,9 @@ describe('les tableaux', () => {
     expect(p.find((l) => l.idu === '78650000AE0102')).toMatchObject({ adresse: null, cout: 0, audits: 1 });
   });
 
-  it('par usage : les cinq usages, la part du cout et celle du Batch', () => {
+  it('par usage : chaque usage connu, la part du cout et celle du Batch', () => {
     const u = parUsage(JOURNAL);
-    expect(u.map((x) => x.usage)).toEqual(['analyse', 'escalade', 'renfort', 'immediat', 'candidats']);
+    expect(u.map((x) => x.usage)).toEqual(['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu']);
     expect(u[0]).toMatchObject({ appels: 4, cout: 0.004, partBatch: 1 });
     expect(u[1]).toMatchObject({ appels: 1, cout: 0.02 });
     expect(u[0]!.partCout + u[1]!.partCout).toBeCloseTo(1, 10);
