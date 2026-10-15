@@ -1347,6 +1347,35 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Vue 3D, après le réalisme (R1 à R6) : les lames, le chemin, l'herbe et la promenade.**
+  - *Les lames de la terrasse se voient à nouveau* (`three/scene.ts`, `ombrerSousLePlatelage`).
+    L'éclairage par le ciel (R1) allumait les chants des lames, au fond des joints de 6 mm, aussi
+    clair que leur dessus : le platelage se lisait comme une planche unie, avec un quadrillage pâle
+    aux abouts. Les chants et la structure sous le platelage (solives, lambourdes, appuis) ne
+    reçoivent plus qu'une petite part du ciel, comme en vrai. Réglage d'écran, absent du .glb.
+  - *Le chemin passe au-dessus de la pelouse* (`three/primitives.ts`, `geometrieRubanDrape`). Sur un
+    sol en relief, le ruban d'un chemin ne tenait le sol qu'à ses sommets, et ses triangles couraient
+    sur plusieurs mètres : sur une bosse, l'herbe passait par-dessus. À l'écran, il est drapé sur le
+    sol par mailles d'un demi-mètre, 2 cm au-dessus de l'herbe.
+  - *Plus d'herbe dans la piscine, ni sous les objets* (`three/gazon.ts`, `empreintesAuSol` ;
+    `model/fonctions.ts`, `occupeLeSol`). Le gazon de la parcelle passait sous tout et ne comptait
+    que sur le tampon de gabarit pour s'effacer du bassin ; en qualité Soignée, l'occlusion rend la
+    scène dans une cible sans gabarit, et la pelouse remplissait l'eau. Le gazon est maintenant
+    percé de l'empreinte de chaque objet qui occupe le sol, par une seule règle : piscine (bassin,
+    margelles, plage), terrasse, chemin, bâtiment, annexe, pergola, massif, dalle — pas l'arbre, le
+    parasol ni le point de vue. Et la cible de l'occlusion garde son gabarit (`three/rendu.ts`) : le
+    sol et la photo aérienne s'effacent aussi du bassin en Soignée.
+  - *La promenade est plus longue et fait le tour de la maison* (`three/presentation.ts`). Chaque
+    trajet durait 2,6 s, quelle que soit sa longueur : six points de vue faisaient vingt secondes.
+    La caméra marche maintenant au pas (1,2 m/s, 4 s au moins par trajet, 2,5 s d'arrêt) ; après les
+    points de vue enregistrés, elle fait le tour de la maison à hauteur d'homme au-dessus du sol en
+    relief, à 3 m des murs (1,20 m au plus près), sans sortir de la parcelle ni entrer dans un autre
+    bâtiment, le regard devant soi tourné vers la façade ; une maison collée à une limite est longée
+    sur la part accessible. Entre deux points de vue que la ligne droite ferait passer à travers la
+    maison, elle la contourne. La promenade marche aussi sans point de vue enregistré.
+  - Aucun export ne change : le .glb garde le gazon entier et le ruban plat d'avant (ils ne partent
+    plus qu'avec l'export, `EXPORT_SEULEMENT`), et les empreintes de `tests/fixtures/golden/` sont
+    identiques.
 - **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
   adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
   depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent

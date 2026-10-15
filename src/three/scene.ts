@@ -46,14 +46,14 @@ import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
-import { geometrieGazon, materiauGazon } from './gazon.js';
+import { geometrieGazon, materiauGazon, empreintesAuSol } from './gazon.js';
 import { voisinage3dDe, apparenceVoisin, fenetresDuVoisin } from '../model/voisinage3d.js';
 import { valeursFacadesDe } from '../model/reglagesFacades.js';
 import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE,
+  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
@@ -438,11 +438,15 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // cadre est une lambourde de rive. L'empilement perd une couche au milieu.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const pieds = piedsDesAppuis(obj, layers, cible.sol);
+  const g = groupes.structure;
+  const debutDessous = g.children.length;
   if (estPlots(c)) layers.vis.forEach((p, i) => prim.addPlot(p, hauteurVisM, 0x6E7A84, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2, pieds[i] ?? 0));
   else layers.vis.forEach((p, i) => prim.addPost(p, enterreM, hauteurVisM, 0.03, 0x8a96a8, pieds[i] ?? 0));
   layers.solives.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, contour));
+  const dessous = g.children.slice(debutDessous);
   // Le cadre est au niveau des pieces auxquelles il appartient, et suit le contour.
   prim.addBande(layers.bandes.cadre, hauteurVisM, plotSimple ? lambH : soliveH, 0x4a2f18);
+  const debutLambourdes = g.children.length;
   // Le chevetre d'un bassin : des pieces de la section du cadre, autour de l'ouverture (engine/structure.ts).
   layers.chevetres?.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, plotSimple ? lambH : soliveH, soliveW, 0x4a2f18, contour));
   let lameBase = hauteurVisM + (plotSimple ? 0 : soliveH);
@@ -450,6 +454,8 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
     layers.lambourdes.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, contour));
     lameBase += lambH;
   }
+  dessous.push(...g.children.slice(debutLambourdes));
+  const debutLames = g.children.length;
   // En filaire, les lames ne sont plus qu'un contour : on voit l'implantation des appuis et le sens
   // des solives, que le platelage plein masque.
   const lamesFilaire = !!c.lames3dFilaire;
@@ -463,6 +469,7 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
     lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
+  ombrerSousLePlatelage(dessous, g.children.slice(debutLames));
   if (c.avecLameRive) {
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;
@@ -474,6 +481,33 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // fini — herisson, massifs, futs de vis — se voit aussi. Elle est de niveau au point haut, dans le
   // groupe de la terrasse ; seuls les massifs suivent chaque plot a son sol (three/assise3d.ts).
   ajouterAssise3d({ prim: primitivesDans(groupes.terrasse), scene: groupes.terrasse, versLocal: cible.versLocal }, contour, layers, c, vue3d.solEnCoupe, decaisseM, vue3d.platelageTranslucide, pieds);
+}
+
+/**
+ * La part du ciel qui eclaire les chants des lames (le fond des joints) et la structure sous le
+ * platelage. Depuis l'eclairage par le ciel (R1, three/rendu.ts), ces faces recevaient tout le ciel,
+ * comme le dessus des lames : un joint de 6 mm sur 25 de profondeur, ou une lambourde sous le
+ * platelage, n'en voit presque rien. Les joints s'allumaient aussi clair que les lames, et le
+ * platelage se lisait comme une planche unie. Un reglage d'ecran : l'export ne le porte pas.
+ */
+export const PART_CIEL_JOINTS = 0.1;
+export const PART_CIEL_SOUS_PLATELAGE = 0.25;
+
+type MateriauCiel = THREE_NS.Material & { envMapIntensity?: number };
+const materiauxDe = (o: THREE_NS.Object3D): MateriauCiel[] => {
+  const m = (o as THREE_NS.Object3D & { material?: MateriauCiel | MateriauCiel[] }).material;
+  return Array.isArray(m) ? m : m ? [m] : [];
+};
+
+/**
+ * Retire le ciel du dessous du platelage : toute la structure qu'il couvre, et les chants des lames
+ * (le second materiau d'une lame texturee, ses faces verticales, three/primitives.ts). Une lame sans
+ * texture n'a qu'un materiau pour toutes ses faces : son dessus garde le ciel, ses joints aussi.
+ */
+export function ombrerSousLePlatelage(dessous: readonly THREE_NS.Object3D[], lames: readonly THREE_NS.Object3D[]): void {
+  const regler = (m: MateriauCiel | undefined, part: number) => { if (m && 'envMapIntensity' in m) m.envMapIntensity = part; };
+  dessous.forEach(o => o.traverse(x => materiauxDe(x).forEach(m => regler(m, PART_CIEL_SOUS_PLATELAGE))));
+  lames.forEach(o => { const ms = materiauxDe(o); if (ms.length >= 2) regler(ms[1], PART_CIEL_JOINTS); });
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
@@ -545,6 +579,12 @@ const texturesDe = (o: ObjetPlan) => {
 };
 
 /**
+ * La hauteur d'un chemin drape au-dessus du sol en relief : au-dessus du gazon (4 mm), assez pour
+ * qu'une maille du sol un peu plus bombee que la sienne ne le traverse pas.
+ */
+export const DECALAGE_CHEMIN_M = 0.02;
+
+/**
  * Un chemin a sa largeur reelle (le meme champ que le trait du plan 2D), pas son seul axe, et suit
  * le reglage « Point / Courbe » comme en 2D.
  */
@@ -558,7 +598,17 @@ function ajouterChemin(o: ObjetPlan, { prim, ctx, sol, scene, versLocal }: Conte
     const pose = poseSurSol(sol, poly, centroid(poly), h);
     prim.addPrism(poly, pose.yBase, pose.hauteur, couleur, false, opaciteDe(o), texturesDe(o));
   }
-  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin, sol ? sol.hauteur : undefined);
+  else if (poly && sol) {
+    // Sur un sol en relief, le ruban plat ne tient le sol qu'a ses sommets : entre deux, sur une
+    // bosse, la pelouse passait par-dessus. A l'ecran, un ruban drape sur le sol par mailles d'un
+    // demi-metre, un peu au-dessus de l'herbe ; le .glb garde le ruban d'avant (EXPORT_SEULEMENT).
+    const tex = vue3d.textures ? o.textureHorizontale : null;
+    const drape = prim.addRubanDrape(trace, o.width || 1, couleur, DECALAGE_CHEMIN_M, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
+    if (drape) drape.userData[HORS_EXPORT] = true;
+    const modele = prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
+    if (modele && drape) { modele.userData[EXPORT_SEULEMENT] = true; modele.visible = false; }
+  }
+  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin);
   else if (sol) scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(traitSurSol(trace, sol, versLocal, 0.008, false)), new THREE.LineBasicMaterial({ color: o.stroke || couleur })));
   else prim.addGroundOutline(trace, o.stroke || couleur, false);
 }
@@ -630,15 +680,32 @@ function ajouterContourParcelle(o: ObjetPlan, { scene, versLocal, sol }: Context
   scene.add(trait);
 }
 
-/** Le gazon de la parcelle : pose sur le sol, dans la couche du terrain, perce au droit d'un bassin. */
-function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets): void {
-  const mat = materiauGazon();
-  poserEnCouche(mat, COUCHES_SOL.terrain);
-  percerSol(mat);
-  const m = new THREE.Mesh(geometrieGazon(pts, versLocal, sol ? sol.hauteur : undefined, undefined, sol ? sol.relief : undefined), mat);
-  m.name = 'gazon';
-  m.receiveShadow = vue3d.ombres;
-  scene.add(m);
+/**
+ * Le gazon de la parcelle : pose sur le sol, dans la couche du terrain, perce de l'empreinte de
+ * chaque objet qui occupe le sol (three/gazon.ts, `empreintesAuSol`) — l'herbe ne passe plus dans
+ * le bassin, sous la terrasse ni au travers d'un chemin.
+ *
+ * A l'ecran seulement : le .glb garde le gazon d'avant, entier (`EXPORT_SEULEMENT`), et son
+ * empreinte golden ne bouge pas. Il porte toujours le nom `gazon` dans le modele ; celui de l'ecran
+ * s'appelle `gazon-ecran`.
+ */
+function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol, objets, ctx }: ContexteObjets): void {
+  const hauteur = sol ? sol.hauteur : undefined, grille = sol ? sol.relief : undefined;
+  const poser = (geo: THREE_NS.BufferGeometry, nom: string): THREE_NS.Mesh => {
+    const mat = materiauGazon();
+    poserEnCouche(mat, COUCHES_SOL.terrain);
+    percerSol(mat);
+    const m = new THREE.Mesh(geo, mat);
+    m.name = nom;
+    m.receiveShadow = vue3d.ombres;
+    scene.add(m);
+    return m;
+  };
+  const ecran = poser(geometrieGazon(pts, versLocal, hauteur, undefined, grille, empreintesAuSol(objets, ctx.objetMasque)), 'gazon-ecran');
+  ecran.userData[HORS_EXPORT] = true;
+  const modele = poser(geometrieGazon(pts, versLocal, hauteur, undefined, grille), 'gazon');
+  modele.userData[EXPORT_SEULEMENT] = true;
+  modele.visible = false;
 }
 
 /**
@@ -987,7 +1054,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
 
   const sc: SceneVue3d = {
     renderer, scene, camera, controls, raf: null,
-    dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
+    dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen,
+    ...(sol ? { hauteurSol: (p: PtBrut) => sol.hauteur(p) } : {})
   };
   vue3d.scene = sc;
   // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).

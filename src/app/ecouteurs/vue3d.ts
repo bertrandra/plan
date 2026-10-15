@@ -23,7 +23,7 @@ import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { estTerrasse } from '../../model/fonctions.js';
-import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive } from '../../three/presentation.js';
+import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive, terrainDuTour, tourDeLaMaison, composerPromenade } from '../../three/presentation.js';
 import { cameraDepuisPointDeVue } from '../../three/navigation.js';
 import type { PointDeVue } from '../../three/etat3d.js';
 import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
@@ -113,18 +113,26 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
       telechargerBlob('vue3d_hd_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);
     });
   });
-  /** Les points de vue du plan, dans l'ordre de leur creation, en coordonnees de la scene. */
+  /**
+   * Les points de vue du plan, dans l'ordre de leur creation, puis le tour de la maison quand la
+   * parcelle le permet (three/presentation.ts), en coordonnees de la scene. Recalcule a chaque
+   * lancement : la scene, le plan et ses points de vue ont pu changer.
+   */
   const etapesPromenade = () => {
     const sc = vue3d.scene;
     if (!sc) return [];
-    return a.etat.objects.filter((o) => o.fonction === 'camera').map((o) => {
+    const vues = a.etat.objects.filter((o) => o.fonction === 'camera').map((o) => {
       const c = cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
       return { position: c.position, cible: c.cible };
     });
+    const terrain = terrainDuTour(a.etat.objects);
+    const tour = terrain ? tourDeLaMaison(terrain, sc.cen, sc.hauteurSol) : null;
+    const maison = terrain ? terrain.maison.map((p) => ({ x: p.x - sc.cen.x, z: sc.cen.y - p.y })) : [];
+    return composerPromenade(vues, tour, maison);
   };
   cmd.declarer({
     id: '3d.promenade', libelle: 'Promenade', groupe: '3d',
-    // Il faut deux points de vue pour se promener de l'un a l'autre.
+    // Il faut deux etapes pour se promener : deux points de vue, ou le tour de la maison.
     actif: () => promenadeActive() || etapesPromenade().length >= 2,
     executer: () => {
       if (promenadeActive()) { arreterPromenade(); return; }

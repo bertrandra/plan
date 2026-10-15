@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
-import { pixelsGazon, maillesDuPolygone, geometrieGazon, teinteGazon, materiauGazon } from '../../../src/three/gazon.js';
+import { pixelsGazon, maillesDuPolygone, geometrieGazon, teinteGazon, materiauGazon, empreintesAuSol, RETRAIT_EMPREINTE_M } from '../../../src/three/gazon.js';
 import { versLocalDepuis } from '../../../src/three/primitives.js';
-import { signedArea } from '../../../src/geometry/basic.js';
-import type { PtBrut } from '../../../src/model/types.js';
+import { signedArea, pointInPolygon } from '../../../src/geometry/basic.js';
+import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
 // Le gazon de la parcelle en 3D (three/gazon.ts) : une texture verte qui se raccorde a elle-meme,
 // un maillage qui couvre exactement la parcelle et suit le sol, une teinte lente qui casse la repetition.
@@ -83,5 +83,60 @@ describe('la geometrie et le materiau du gazon', () => {
     expect(m.vertexColors).toBe(true);
     expect(m.map).toBeNull();
     expect(m.roughness).toBeGreaterThan(0.9);
+  });
+});
+
+describe('l herbe s arrete la ou un objet occupe le sol', () => {
+  const carre = (x0: number, y0: number, c: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x0 + c, y: y0 }, { x: x0 + c, y: y0 + c }, { x: x0, y: y0 + c }];
+  const parcelle = carre(0, 0, 20);
+  const somme = (tris: PtBrut[][]) => tris.reduce((s, t) => s + aire(t), 0);
+  const centre = (t: PtBrut[]) => ({ x: (t[0]!.x + t[1]!.x + t[2]!.x) / 3, y: (t[0]!.y + t[1]!.y + t[2]!.y) / 3 });
+
+  it('perce le maillage de chaque empreinte, au centimetre pres, meme a cheval sur plusieurs mailles', () => {
+    // Un bassin de 4 x 2,5 m pose de biais sur les mailles, et un massif qui deborde de la parcelle.
+    const bassin = [{ x: 3.3, y: 4.1 }, { x: 7.3, y: 4.4 }, { x: 7.1, y: 6.9 }, { x: 3.1, y: 6.6 }];
+    const bord = carre(18, 18, 4);
+    const tris = maillesDuPolygone(parcelle, 1, { x: 0, y: 0 }, [bassin, bord]);
+    expect(somme(tris)).toBeCloseTo(400 - aire(bassin) - 4, 1);
+    tris.forEach((t) => { expect(pointInPolygon(centre(t), bassin)).toBe(false); expect(pointInPolygon(centre(t), bord)).toBe(false); });
+    // Sans empreinte, rien ne change.
+    expect(maillesDuPolygone(parcelle, 1, { x: 0, y: 0 }, [])).toEqual(maillesDuPolygone(parcelle, 1));
+  });
+
+  it('une seule regle pour tous les objets : piscine (bassin et plage), terrasse, chemin, batiment, annexe, pas l arbre ni le parasol', () => {
+    const objets = [
+      { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: parcelle },
+      { key: 'piscine', type: 'polygon', fonction: 'piscine', pts: carre(2, 2, 4), piscine: { plage: 'dallage', largeurPlage: 1 } },
+      { key: 'terrasse', type: 'polygon', fonction: 'terrasse', pts: carre(10, 2, 4) },
+      { key: 'maison', type: 'polygon', fonction: 'batiment', pts: carre(10, 10, 6) },
+      { key: 'abri', type: 'polygon', fonction: 'annexe', pts: carre(2, 14, 2) },
+      { key: 'chemin', type: 'path', fonction: 'chemin', pts: [{ x: 1, y: 10 }, { x: 8, y: 10 }], width: 1 },
+      { key: 'spa', type: 'circle', fonction: 'equipement', center: { x: 17, y: 3 }, r: 1 },
+      { key: 'chene', type: 'circle', fonction: 'arbre', center: { x: 5, y: 18 }, r: 2 },
+      { key: 'parasol', type: 'circle', fonction: 'parasol', center: { x: 12, y: 4 }, r: 1.5 },
+      { key: 'vue', type: 'path', fonction: 'camera', pts: [{ x: 1, y: 1 }, { x: 2, y: 2 }] },
+      { key: 'cache', type: 'polygon', fonction: 'dalle', pts: carre(14, 14, 2), hidden: true }
+    ] as unknown as ObjetPlan[];
+    const e = empreintesAuSol(objets);
+    expect(e).toHaveLength(6);
+    // La piscine couvre sa plage, pas seulement son bassin ; chaque empreinte est rentree de quelques centimetres.
+    const piscine = e[0]!;
+    expect(aire(piscine)).toBeGreaterThan(16);
+    expect(pointInPolygon({ x: 1.2, y: 4 }, piscine)).toBe(true);
+    expect(aire(e[1]!)).toBeCloseTo((4 - 2 * RETRAIT_EMPREINTE_M) ** 2, 3);
+    // Le chemin : son ruban, a sa largeur.
+    expect(pointInPolygon({ x: 4, y: 10.4 }, e[4]!)).toBe(true);
+    expect(pointInPolygon({ x: 4, y: 10.6 }, e[4]!)).toBe(false);
+  });
+
+  it('la geometrie du gazon d une parcelle avec piscine n a plus un triangle dans le bassin', () => {
+    const bassin = carre(5, 5, 4);
+    const geo = geometrieGazon(parcelle, versLocalDepuis({ x: 0, y: 0 }), undefined, 0.004, undefined, [bassin]);
+    const pos = geo.getAttribute('position');
+    expect(pos.count).toBeGreaterThan(0);
+    for (let k = 0; k < pos.count; k += 3) {
+      const c = { x: (pos.getX(k) + pos.getX(k + 1) + pos.getX(k + 2)) / 3, y: -(pos.getZ(k) + pos.getZ(k + 1) + pos.getZ(k + 2)) / 3 };
+      expect(pointInPolygon(c, bassin)).toBe(false);
+    }
   });
 });
