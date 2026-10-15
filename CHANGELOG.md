@@ -1382,6 +1382,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le portail neuf se pose côté rue sur tous les chemins de création, plus sur un côté mitoyen**
+  (AE 101, 2 allée des Limites : le portail tombait sur le côté de 39,5 m, mitoyen d'AE 100, au lieu
+  de l'allée). Une seule règle (`geo/coteRue.ts::coteDuNouvelAcces`, `MD/spec-cloture.md` §2.1) sert
+  désormais l'import, les boutons « Ajouter un portail / un portillon » et le portail vu sur place par
+  l'audit de la parcelle : le côté dit sur rue ; sinon, parmi les côtés sans voisine, le plus proche
+  du point d'adresse, puis celui que longe une rue lue (celle de l'adresse d'abord), puis le plus
+  long ; sinon le plus long côté, comme avant, en évitant ceux dits séparatifs. Un côté est mitoyen
+  dès 1 m de limite commune avec une voisine, ses coins mis à part (la règle de
+  `model/mitoyennete.ts`) ; ce que vous avez dit d'un côté l'emporte. Trois chemins se trompaient :
+  l'import depuis votre position, qui rangeait le point de l'appareil (dans le jardin) au lieu de
+  celui de l'adresse la plus proche, et ignorait les mitoyennes non cochées ; l'audit de la parcelle,
+  qui posait clôture et portail sur le plus long côté d'un projet sans portail ; le mode audit, sans
+  voisines. L'explication du bouton dit le côté retenu et pourquoi. Un accès déjà posé ne bouge pas ;
+  les empreintes ne changent pas.
 - **Audit de la parcelle : l'analyse par Claude était refusée avant même de lire les photos**
   (AE 101, 15 octobre 2026 : « The compiled grammar is too large… » ; seules les mesures étaient
   proposées). Le schéma de la réponse partait en sortie structurée (`output_config.format`), que l'API
