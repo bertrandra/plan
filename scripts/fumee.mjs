@@ -289,8 +289,8 @@ async function ouvrirAuditParcelle(page) {
  * parcelle, et le cap vers ce mur ; en degres par le calage du cadastre (a quelques centimetres pres
  * sur 20 m, c'est assez pour la reconnaissance).
  */
-async function stationDevantLaMaison(page) {
-  return page.evaluate(() => {
+async function stationDevantLaMaison(page, distances = [8, 6, 10, 5]) {
+  return page.evaluate((distances) => {
     const e = window.__plan.etat();
     const maison = e.objects.find((o) => o.key === 'maison');
     const parcelle = e.objects.find((o) => o.key === 'parcelle');
@@ -305,14 +305,14 @@ async function stationDevantLaMaison(page) {
       const b = pts[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y);
       return { m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, l, nx: (aire > 0 ? 1 : -1) * (b.y - a.y) / l, ny: (aire > 0 ? -1 : 1) * (b.x - a.x) / l };
     }).sort((u, v) => v.l - u.l);
-    for (const c of cotes) for (const d of [8, 6, 10, 5]) {
+    for (const c of cotes) for (const d of distances) {
       const p = { x: c.m.x + c.nx * d, y: c.m.y + c.ny * d };
       if (!dans(p, parcelle.pts) || batis.some((o) => dans(p, o.pts))) continue;
       const cap = (Math.atan2(c.m.x - p.x, c.m.y - p.y) * 180 / Math.PI + 360) % 360;
       return { lat: cad.origineLat + p.y / 111132.954, lon: cad.origineLon + p.x / (111319.49 * Math.cos(cad.origineLat * Math.PI / 180)), cap };
     }
     return null;
-  });
+  }, distances);
 }
 
 /**
@@ -1666,6 +1666,125 @@ const POINTS = {
       && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
     return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
   },
+  88: async (page) => {
+    // La vue epuree et la vue d'ensemble de l'audit de la parcelle (second essai d'AE 101, 15 octobre) :
+    // pendant l'audit, la Vue 3D ne montre que les batiments de la parcelle et le sol (ni arbres, ni
+    // voisins, ni clotures, ni terrasse) ; sans position, elle montre toute la maison en grand angle,
+    // au-dessus de l'ecran de prise, et une facade s'y touche ; les propositions laissent voir la
+    // maison, leur liste se replie ; l'audit ferme, tout revient, et le projet n'a pas bouge.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const familles = await page.evaluate(() => {
+      const o = window.__plan.etat().objects;
+      return { arbres: o.filter((x) => x.fonction === 'arbre').map((x) => x.key), voisins: o.filter((x) => x.voisinage && (x.fonction === 'batiment' || x.fonction === 'annexe')).map((x) => x.key) };
+    });
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('prise', () => page.locator('[data-controle="auditParcelle.prise"]').click({ timeout: 30000 }));
+    await page.locator('.auditPrise').waitFor({ timeout: 30000 });
+    await page.waitForFunction(() => (window.__plan.visibilite3d()?.masques.length ?? 0) > 0, null, { timeout: 90000 }).catch(() => {});
+    const vis = await page.evaluate(() => window.__plan.visibilite3d());
+    const epuree = vis.visibles.includes('maison') && !familles.arbres.some((k) => vis.visibles.includes(k)) && !familles.voisins.some((k) => vis.visibles.includes(k)) && vis.horsObjetsVisibles === 0;
+    // La camera glisse vers sa pose : on la lit une fois arretee.
+    const camera = () => page.evaluate(() => { const sc = window.__plan.scene3d(); return sc ? [sc.camera.position.x, sc.camera.position.y, sc.camera.position.z, sc.controls.target.y].map((v) => v.toFixed(2)).join(',') : ''; });
+    const arretee = async () => { let a = await camera(); for (let i = 0; i < 30; i++) { await page.waitForTimeout(250); const b = await camera(); if (a && a === b) return; a = b; } };
+    await arretee();
+    // Les coins de la maison (au sol et sous le toit) : dans le canevas, hors de l'ecran pose dessus.
+    const maisonVue = (sel) => page.evaluate((sel) => {
+      const sc = window.__plan.scene3d();
+      const m = window.__plan.etat().objects.find((o) => o.key === 'maison');
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      const carte = document.querySelector(sel)?.getBoundingClientRect();
+      let dedans = 0, total = 0;
+      const pied = sc.controls.target.y - 3;
+      for (const p of m.pts) for (const y of [pied, pied + 7]) {
+        const v = new THREE.Vector3(p.x - sc.cen.x, y, sc.cen.y - p.y).project(sc.camera);
+        const x = r.left + ((v.x + 1) / 2) * r.width, yy = r.top + ((1 - v.y) / 2) * r.height;
+        total++;
+        const sousCarte = carte && x >= carte.left && x <= carte.right && yy >= carte.top && yy <= carte.bottom;
+        if (x >= r.left && x <= r.right && yy >= r.top && yy <= r.bottom && !sousCarte && v.z < 1) dedans++;
+      }
+      const c = sc.camera.position;
+      return { dedans, total, hauteur: c.y - sc.controls.target.y };
+    }, sel);
+    const ensemble = await maisonVue('.auditPrise');
+    // Toucher un mur de la maison dans la vue d'ensemble : il devient la facade de la prochaine photo.
+    const cible = await page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const m = window.__plan.etat().objects.find((o) => o.key === 'maison');
+      const r = sc.renderer.domElement.getBoundingClientRect();
+      for (let i = 0; i < m.pts.length; i++) {
+        const a = m.pts[i], b = m.pts[(i + 1) % m.pts.length];
+        if (Math.hypot(b.x - a.x, b.y - a.y) < 3) continue;
+        const v = new THREE.Vector3((a.x + b.x) / 2 - sc.cen.x, sc.controls.target.y - 1, sc.cen.y - (a.y + b.y) / 2).project(sc.camera);
+        const x = r.left + ((v.x + 1) / 2) * r.width, y = r.top + ((1 - v.y) / 2) * r.height;
+        if (document.elementFromPoint(x, y)?.tagName === 'CANVAS') return { x, y };
+      }
+      return null;
+    });
+    if (cible) await page.mouse.click(cible.x, cible.y);
+    await page.locator('.auditPrise .titreParcours', { hasText: '(choisie)' }).waitFor({ timeout: 20000 }).catch(() => {});
+    const titre = (await page.locator('.auditPrise .titreParcours').textContent())?.trim() ?? '';
+    // Une photo, puis les propositions : elles laissent voir la maison, et leur liste se replie.
+    const dessin = await page.context().newPage();
+    await dessin.setContent('<canvas id="c" width="800" height="600"></canvas><script>const x=document.getElementById("c").getContext("2d");x.fillStyle="#e4d6bc";x.fillRect(0,0,800,600);</script>');
+    const photo = await dessin.locator('#c').screenshot({ type: 'png' });
+    await dessin.close();
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await page.locator('.rangementAudit').waitFor({ timeout: 30000 }).catch(() => {});
+    await etape('liste', () => page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 }));
+    await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    await arretee();
+    const carte = await page.evaluate(() => { const r = document.querySelector('.auditPropositions').getBoundingClientRect(); return { h: r.height, gauche: r.left, vh: innerHeight, vw: innerWidth }; });
+    const propositions = await maisonVue('.auditPropositions');
+    // Au plus la moitie de la hauteur en bas, ou un panneau a droite (ecran en largeur).
+    const bornee = carte.gauche > carte.vw * 0.45 || carte.h <= carte.vh * 0.5 + 1;
+    await etape('replier', () => page.locator('[data-controle="auditParcelle.replier"]').click({ timeout: 30000 }));
+    await page.waitForTimeout(400);
+    const repliee = await page.evaluate(() => ({ h: document.querySelector('.auditPropositions').getBoundingClientRect().height, cache: document.getElementById('corpsPropositions')?.hidden === true }));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => (window.__plan.visibilite3d()?.masques.length ?? 1) === 0, null, { timeout: 30000 }).catch(() => {});
+    const apres = await page.evaluate(() => window.__plan.visibilite3d());
+    const rendue = apres.masques.length === 0 && apres.horsObjetsVisibles > 0;
+    const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const ok = epuree && ensemble.dedans === ensemble.total && ensemble.hauteur > 4 && /\(choisie\)/.test(titre)
+      && propositions.dedans >= propositions.total - 2 && bornee && repliee.cache && repliee.h < carte.h && rendue && projet === avant;
+    return { ok, mesure: `vue épurée ${epuree ? 'oui' : 'NON'} (visibles ${vis.visibles.length}, masqués ${vis.masques.length}, hors objets visibles ${vis.horsObjetsVisibles}) ; vue d'ensemble : maison ${ensemble.dedans}/${ensemble.total} coins visibles, caméra ${ensemble.hauteur.toFixed(1)} m au-dessus du point visé ; toucher ${cible ? Math.round(cible.x) + ',' + Math.round(cible.y) : 'AUCUN mur visible'} → « ${titre} » ; propositions : carte ${Math.round(carte.h)} px sur ${carte.vh}${carte.gauche > carte.vw * 0.45 ? ', à droite' : ''}, maison ${propositions.dedans}/${propositions.total} coins visibles ; repliée ${repliee.cache ? Math.round(repliee.h) + ' px' : 'NON'} ; fermé : ${rendue ? 'tout revient' : 'PAS RENDU (' + apres.masques.length + ' masqués)'} ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'}` };
+  },
+  89: async (page) => {
+    // Le trait renforce de pres (demande de l'utilisateur du 15 octobre) : a 3,5 m de la facade de la
+    // maison, ses aretes se dessinent en traits epais et sombres par-dessus le voile ; a 10 m, plus rien.
+    const station = await stationDevantLaMaison(page, [3.5, 4]);
+    if (!station) return { ok: false, mesure: 'aucun mur de la maison ne se voit a 3,5 m depuis la parcelle' };
+    await page.context().grantPermissions(['geolocation'], { origin: BASE });
+    await page.context().setGeolocation({ latitude: station.lat, longitude: station.lon, accuracy: 3 });
+    await ouvrirAuditParcelle(page);
+    await page.locator('[data-controle="auditParcelle.prise"]').click({ timeout: 30000 });
+    await page.locator('.auditPrise').waitFor({ timeout: 30000 });
+    const tourner = (cap) => page.evaluate((a) => { for (let i = 0; i < 6; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: a, beta: 90, gamma: 0, absolute: true })); }, (360 - cap) % 360);
+    await tourner(station.cap);
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('facadeDevant'), null, { timeout: 60000 }).catch(() => {});
+    await tourner(station.cap);
+    // Les lignes epaisses arrivent a la demande : le trait fin d'attente est remplace.
+    await page.waitForFunction(() => window.__plan.scene3d()?.scene.getObjectByName('traitDePres')?.type === 'LineSegments2', null, { timeout: 30000 }).catch(() => {});
+    const lire = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const t = sc?.scene.getObjectByName('traitDePres');
+      return { trait: t ? { type: t.type, opacite: t.material.opacity, largeur: t.material.linewidth ?? 1, segments: t.geometry.attributes.instanceStart?.count ?? t.geometry.attributes.position.count / 2 } : null, voile: !!sc?.scene.getObjectByName('facadeDevant')?.getObjectByName('voile')?.visible };
+    });
+    const pres = await lire();
+    // On recule a une dizaine de metres : le trait part.
+    const loin = await stationDevantLaMaison(page, [11, 12, 13]);
+    if (loin) {
+      await page.context().setGeolocation({ latitude: loin.lat, longitude: loin.lon, accuracy: 3 });
+      await page.waitForFunction(() => !window.__plan.scene3d()?.scene.getObjectByName('traitDePres'), null, { timeout: 40000 }).catch(() => {});
+    }
+    const apres = await lire();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ok = !!pres.trait && pres.trait.type === 'LineSegments2' && pres.trait.opacite > 0.9 && pres.trait.largeur >= 3 && pres.trait.segments > 12 && pres.voile && !!loin && !apres.trait;
+    return { ok, mesure: `à 3,5 m : ${pres.trait ? pres.trait.type + ', ' + pres.trait.segments + ' arêtes, ' + pres.trait.largeur.toFixed(1) + ' px, opacité ' + pres.trait.opacite.toFixed(2) : 'AUCUN trait'} ; voile ${pres.voile ? 'visible' : 'ABSENT'} ; à une dizaine de mètres : ${loin ? (apres.trait ? 'trait ENCORE là (' + apres.trait.opacite.toFixed(2) + ')' : 'plus de trait') : 'AUCUNE station'}` };
+  },
   62: async (page, f) => {
     // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
     // deviennent des propositions ; « Après » les montre dans la Vue 3D sans toucher au projet ;
@@ -2698,7 +2817,9 @@ function pointsPour(nomClasse) {
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
   // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits qui la rouvre (§15).
   // 86 : Admin › Audits : donnees, conclusion, analyses cote a cote, rejeu par modele et son detail (§15.4, §15.5).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86];
+  // 88 : la vue epuree et la vue d'ensemble de l'audit de parcelle ; les propositions laissent voir la maison.
+  // 89 : le trait renforce de la facade, de pres.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

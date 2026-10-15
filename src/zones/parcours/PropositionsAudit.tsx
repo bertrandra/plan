@@ -1,13 +1,19 @@
 // Z8, l'audit de la parcelle, phase 3 : les propositions et leur validation (MD/spec-audit.md §14).
 //
-// Pose en bas de la Vue 3D comme l'ecran de prise : la scene reste visible et manipulable. La bascule
+// Pose sur la Vue 3D comme l'ecran de prise : en bas au doigt, a droite sur un ecran en largeur. Sa
+// hauteur est bornee et sa liste se replie (« Replier ») : la parcelle reste visible au-dessus ou a
+// cote, la Vue 3D la cadre dans ce qu'il laisse voir (cadrageVue.ts), et la scene reste manipulable.
+// Le premier essai sur le terrain (AE 101, 15 octobre) : l'ecran couvrait la parcelle. La bascule
 // « Avant / Après » y montre le projet tel qu'il est, ou tel qu'il sera avec les propositions
 // cochees ; la liste dit, ligne par ligne, l'avant, l'apres et l'origine. Une valeur choisie a la
 // main n'est jamais remplacee en silence : sa ligne arrive decochee et le dit. « Valider » ecrit ce
 // qui est coche en un seul pas d'historique (app/audit/parcelle/validation.ts).
 
+import { useState } from 'react';
 import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
+import { useCadrerVue } from './cadrageVue.js';
+import { Icone } from '../icones.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
 import type { Proposition } from '../../model/propositions.js';
@@ -96,22 +102,31 @@ export function PropositionsAudit({ session, fermer }: { session: SessionAuditPa
   const apercu = v.apercu();
   const observations = v.observations();
   const comptes = { propositions: propositions.filter((p) => p.source === 'claude').length, observations: nombreObservations(observations) };
+  // Replier ne garde que le titre, le compte, Avant / Après et les boutons : la parcelle se voit en grand.
+  const [replie, setReplie] = useState(false);
+  const cadre = useCadrerVue(session);
   return (
-    <div className="auditPrise auditPropositions" role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
-      <div className="titreParcours">Propositions de l’audit</div>
+    <div ref={cadre} className={'auditPrise auditPropositions' + (replie ? ' replie' : '')} role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
+      <div className="entetePropositions">
+        <div className="titreParcours">Propositions de l’audit</div>
+        <button type="button" className="secondary small boutonReplier" data-controle="auditParcelle.replier" aria-expanded={!replie} aria-controls="corpsPropositions"
+          onClick={() => setReplie(!replie)}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={16} /><span>{replie ? 'Déplier' : 'Replier'}</span></button>
+      </div>
       <div className="detailPhoto" aria-live="polite">{enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : comptes.observations ? 'Aucune proposition à cocher : lisez plus bas ce que Claude a vu.' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
-      <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />
       <div className="segmente avantApresAudit" role="group" aria-label="Vue 3D : avant ou après les propositions">
         {(['avant', 'apres'] as const).map((a) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{a === 'avant' ? 'Avant' : 'Après'}</button>)}
       </div>
-      {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
-        {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} />)}
-      </ul>}
-      <ObservationsClaude batiments={observations} />
-      {verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
-        {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
-      </ul>}
-      <PartageAudit session={session} />
+      <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
+        <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />
+        {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
+          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} />)}
+        </ul>}
+        <ObservationsClaude batiments={observations} />
+        {verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
+          {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
+        </ul>}
+        <PartageAudit session={session} />
+      </div>
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
         {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}

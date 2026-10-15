@@ -722,12 +722,83 @@ function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol, objets, ctx }: Con
 const poseParObjet = new Map<string, THREE_NS.Object3D[]>();
 /** La derniere scene batie et ce qu'il faut pour y reposer un objet. */
 let derniere: { sc: SceneVue3d; co: ContexteObjets; obj: ObjetPlan | null; ground: THREE_NS.Mesh } | null = null;
+/**
+ * Ce que la scene pose sans qu'un objet du plan le porte, et qu'une vue epuree retire : la cloture de
+ * la parcelle, celles du voisinage, les objets d'echelle, la terrasse courante et ses piscines.
+ */
+let horsObjets: THREE_NS.Object3D[] = [];
+/**
+ * La vue epuree de l'audit de la parcelle (MD/spec-audit.md §12.2) : seuls les objets dont la cle est
+ * retenue restent visibles, plus rien de ce qui n'appartient a aucun objet. `null` : tout se voit.
+ * Gardee ici, et non dans la scene : une scene rebatie pendant l'audit s'epure de meme.
+ */
+let garderSeulement: ((cle: string) => boolean) | null = null;
 
 /** Pose un objet et retient ce qu'il a ajoute a la scene. */
 function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   const n0 = co.scene.children.length;
   ajouterUnObjet(o, obj, etat, co);
   if (co.scene.children.length > n0) poseParObjet.set(o.key, co.scene.children.slice(n0));
+}
+
+/** Ce que `poser` ajoute a la scene, retenu comme pose hors objets (masque par la vue epuree). */
+function retenirHorsObjets(scene: THREE_NS.Scene, poser: () => void): void {
+  const n0 = scene.children.length;
+  poser();
+  horsObjets.push(...scene.children.slice(n0));
+}
+
+/**
+ * Ce que la vue epuree a masque elle-meme. Seuls ceux-la reviennent a la fin de l'audit : une maille
+ * deja invisible (le gazon entier et le ruban du chemin que seul l'export montre, EXPORT_SEULEMENT)
+ * doit le rester.
+ */
+let masquesParEpure = new WeakSet<THREE_NS.Object3D>();
+
+/** Masque ou montre ce que la vue epuree ecarte ; un simple drapeau `visible`, rien n'est rebati. */
+function appliquerEpure(): void {
+  const garder = garderSeulement;
+  const masquer = (r: THREE_NS.Object3D, oui: boolean) => {
+    if (oui) { if (r.visible) { r.visible = false; masquesParEpure.add(r); } }
+    else if (masquesParEpure.has(r)) { masquesParEpure.delete(r); r.visible = true; }
+  };
+  for (const [cle, racines] of poseParObjet) for (const r of racines) masquer(r, !!garder && !garder(cle));
+  for (const r of horsObjets) masquer(r, !!garder);
+}
+
+/**
+ * Epure la Vue 3D : seuls les objets du plan que `garder` retient restent visibles (le batiment
+ * audite, le sol), et rien de ce que la scene pose d'elle-meme (clotures, terrasse, objets
+ * d'echelle). `null` rend tout. Un affichage : ni le projet ni la scene ne sont touches, et une
+ * scene rebatie entre-temps s'epure de meme.
+ */
+export function epurerVue3d(garder: ((cle: string) => boolean) | null): void {
+  garderSeulement = garder;
+  if (derniere && vue3d.scene && derniere.sc === vue3d.scene) appliquerEpure();
+}
+
+/**
+ * Ce que la Vue 3D montre : les cles des objets du plan visibles et masques, et combien de poses hors
+ * objets (clotures, terrasse, objets d'echelle) restent visibles. Pour la fumee (scripts/fumee.mjs).
+ */
+export function visibilite3d(): { visibles: string[]; masques: string[]; horsObjetsVisibles: number } {
+  const visibles: string[] = [], masques: string[] = [];
+  for (const [cle, racines] of poseParObjet) {
+    if (racines.some((r) => masquesParEpure.has(r))) masques.push(cle);
+    else if (racines.some((r) => r.visible)) visibles.push(cle);
+  }
+  return { visibles, masques, horsObjetsVisibles: horsObjets.filter((r) => r.visible).length };
+}
+
+/** Ce que la Vue 3D ouverte a pose pour cet objet du plan (le trait renforce de l'audit les parcourt). */
+export function racinesDe3d(cle: string): readonly THREE_NS.Object3D[] {
+  return derniere && vue3d.scene && derniere.sc === vue3d.scene ? poseParObjet.get(cle) ?? [] : [];
+}
+
+/** Vrai si l'objet et tous ses parents sont visibles : un groupe masque cache ses mailles. */
+function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
+  for (let x: THREE_NS.Object3D | null = o; x; x = x.parent) if (!x.visible) return false;
+  return true;
 }
 
 /**
@@ -746,7 +817,8 @@ export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle
   for (const [cle, racines] of poseParObjet) for (const r of racines) proprietaire.set(r, cle);
   let premierPoint: PtBrut | null = null;
   for (const t of rayon.intersectObjects(sc.scene.children, true)) {
-    if (!estMesh(t.object) || !t.object.visible) continue;
+    // Le rayon de three r128 ne regarde pas `visible` : un objet masque (vue epuree) ne se touche pas.
+    if (!estMesh(t.object) || !visibleDansLaScene(t.object)) continue;
     premierPoint ??= versPlan(t.point);
     for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
       const cle = proprietaire.get(o);
@@ -786,6 +858,8 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
     const o = etat.objects.find((x) => x.key === cle);
     if (o) poserEtRetenir(o, d.obj, etat, co);
   }
+  // Un batiment repose (l'apercu « Après » de l'audit) suit la vue epuree comme les autres.
+  if (garderSeulement) appliquerEpure();
   appliquerOmbres(co.scene, d.ground);
   return true;
 }
@@ -988,6 +1062,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     : null;
   ctx.disposeThreeScene();
   poseParObjet.clear();
+  horsObjets = [];
+  masquesParEpure = new WeakSet();
   derniere = null;
   // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
   const host = hotes3d.vue3d;
@@ -1019,7 +1095,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const { scene, camera, renderer, controls, ground } = base;
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
 
-  if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
+  if(obj) retenirHorsObjets(scene, () => ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts)));
   ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
   const voisinage3d = voisinage3dDe(ctx.trouverParcelleCloture());
   const latitude = (ctx.trouverParcelleCloture()?.cadastre as { origineLat?: unknown } | null | undefined)?.origineLat;
@@ -1028,18 +1104,18 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
   // Les masques d'affichage s'appliquent : un objet isole ne laisse que lui et ses associes.
-  else ajouterPiscinesSeules(etat, co);
+  else retenirHorsObjets(scene, () => ajouterPiscinesSeules(etat, co));
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
-  if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
+  if (!etat.isolement) retenirHorsObjets(scene, () => ajouterCloture(prim, scene, versLocal, ctx, sol));
   // Les objets d'echelle (R5), a la demande : une voiture cote rue, une silhouette dans la parcelle.
   if (vue3d.objetsEchelle && !etat.isolement && pcl && aDesSommets(pcl) && pcl.pts.length >= 3) {
     const voisines = etat.objects.filter((o) => o.voisinage && o.fonction === 'terrain' && aDesSommets(o)).map((o) => enPoints(o).pts);
     const place = placeEchelle(pcl.pts, voisines);
-    if (place) poserObjetsEchelle(scene, versLocal, place, sol ? (p: PtBrut) => sol.hauteur(p) : undefined);
+    if (place) retenirHorsObjets(scene, () => poserObjetsEchelle(scene, versLocal, place, sol ? (p: PtBrut) => sol.hauteur(p) : undefined));
   }
   // Les clotures du voisinage : un reglage de la parcelle du projet, avec le reste du plan.
   if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
-    ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture);
+    retenirHorsObjets(scene, () => ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture));
   }
   // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
   const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
@@ -1064,6 +1140,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   const animer = () => { if (vue3d.qualite !== 'econome') animerMateriaux(scene); };
   animer();
   derniere = { sc, co, obj, ground };
+  // L'audit de la parcelle en cours : la scene neuve ne montre que ce qu'il garde.
+  if (garderSeulement) appliquerEpure();
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
   const solCentre = sol ? sol.hauteur(cen) : 0;
@@ -1086,7 +1164,8 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur });
+    if(obj && layers) retenirHorsObjets(scene, () => construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur }));
+    if (garderSeulement) appliquerEpure();
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
     animer();
     rendre3d(sc);
