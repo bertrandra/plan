@@ -23,6 +23,8 @@ class Box extends Geo {
 }
 class Mesh {
   name = '';
+  visible = true;
+  userData: Record<string, unknown> = {};
   position = { x: 0, y: 0, z: 0, set(x: number, y: number, z: number) { this.x = x; this.y = y; this.z = z; } };
   rotation = { y: 0 };
   constructor(public geometry: Geo, public material: unknown) {}
@@ -31,11 +33,18 @@ class Lignes extends Mesh {}
 class Couleur {
   constructor(public c: unknown) {}
   multiplyScalar(k: number) { this.c = String(this.c) + '*' + k; return this; }
+  lerp() { return this; }
+}
+class Groupe {
+  name = '';
+  userData: Record<string, unknown> = {};
+  children: Mesh[] = [];
+  add(m: Mesh) { this.children.push(m); }
 }
 
 beforeAll(() => {
   (globalThis as Record<string, unknown>).THREE = {
-    BufferGeometry: Geo, Float32BufferAttribute: Attr, BoxGeometry: Box, Mesh, LineSegments: Lignes, Color: Couleur,
+    BufferGeometry: Geo, Float32BufferAttribute: Attr, BoxGeometry: Box, CylinderGeometry: Geo, Mesh, LineSegments: Lignes, Color: Couleur, Group: Groupe,
     MeshStandardMaterial: class { constructor(public p: Record<string, unknown>) {} },
     LineBasicMaterial: class { constructor(public p: unknown) {} },
     DoubleSide: 2,
@@ -197,5 +206,41 @@ describe('ajouterDetailsBatiment', () => {
     ajouterDetailsBatiment(ctx, { ...maison(), pts: [p(0, 0)] }, 6);
     ajouterDetailsBatiment(ctx, maison(), 0);
     expect(ajoutes).toHaveLength(0);
+  });
+});
+
+describe('les facades de pres (R2)', () => {
+  it('montre les baies en creux a l ecran, et garde au .glb les baies a plat d avant', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterDetailsBatiment({ ...ctx, relief: true, annee: 1925 }, maison(), 6, { etages: 2 });
+    const aPlat = ajoutes.find((m) => m.name === 'batiment-ouvertures');
+    expect(aPlat?.visible).toBe(false);
+    expect(aPlat?.userData.exportSeulement).toBe(true);
+    const relief = ajoutes.find((m) => m.name === 'batiment-baies-relief') as unknown as Groupe | undefined;
+    expect(relief?.userData.horsExport).toBe(true);
+    expect(relief?.children.map((m) => m.name).sort()).toEqual(['baies-encadrement', 'baies-menuiserie', 'baies-porte', 'baies-vitre']);
+    // 1925 : corniche, bandeaux et chaines d'angle, hors export eux aussi.
+    const maconnerie = ajoutes.find((m) => m.name === 'batiment-maconnerie');
+    expect(maconnerie?.userData.horsExport).toBe(true);
+    // Le vieillissement (R3) : voiles et descentes, hors export eux aussi.
+    expect((ajoutes.find((m) => m.name === 'batiment-vieillissement') as unknown as Groupe | undefined)?.userData.horsExport).toBe(true);
+    const descentes = ajoutes.find((m) => m.name === 'batiment-descentes') as unknown as Groupe | undefined;
+    expect(descentes?.userData.horsExport).toBe(true);
+    expect(descentes?.children).toHaveLength(2);
+  });
+
+  it('sans relief, rien ne change : les baies a plat, visibles, sans maconnerie', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterDetailsBatiment({ ...ctx, annee: 1925 }, maison(), 6, { etages: 2 });
+    expect(ajoutes.find((m) => m.name === 'batiment-ouvertures')?.visible).toBe(true);
+    expect(noms(ajoutes)).not.toContain('batiment-baies-relief');
+    expect(noms(ajoutes)).not.toContain('batiment-maconnerie');
+  });
+
+  it('une epoque recente ou inconnue : les baies en creux, sans maconnerie', () => {
+    const { ajoutes, ctx } = scene();
+    ajouterDetailsBatiment({ ...ctx, relief: true, annee: null }, maison(), 6, { etages: 2 });
+    expect(noms(ajoutes)).toContain('batiment-baies-relief');
+    expect(noms(ajoutes)).not.toContain('batiment-maconnerie');
   });
 });

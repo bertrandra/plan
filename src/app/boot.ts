@@ -87,7 +87,7 @@ import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
-import { vue3d } from '../three/etat3d.js';
+import { vue3d, rendre3d } from '../three/etat3d.js';
 import { creerIsolement, objetAIsoler } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
@@ -749,7 +749,7 @@ function brancherIsolement(p: Plan): void {
       sc.camera.position.set(c.pos.x, c.pos.y, c.pos.z);
       sc.controls.target.set(c.cible.x, c.cible.y, c.cible.z);
       sc.controls.update();
-      sc.renderer.render(sc.scene, sc.camera);
+      rendre3d(sc);
     },
     notifier: () => magasin.notifier()
   });

@@ -245,3 +245,25 @@ R0 ──► R1 ──► R2 ──► R3
 3. Puis **R2** : fenêtres en creux, en même temps que G17 (volets et balcons).
 
 Je peux lancer R0 et R1 dès votre feu vert. Ils n'attendent aucune donnée de terrain.
+
+## 8. Avancement (15 octobre 2026)
+
+Livré sur la branche `claude/amazing-archimedes-np6jza`, une étape par commit, chacune vérifiée par la
+suite de tests, le banc visuel d'AE 101 (`scripts/banc-visuel.mjs`, références dans
+`tests/fixtures/visuel/`) et le point 24 de la fumée (empreinte `glb-structure.json` inchangée).
+
+| Étape | Fait | Pas fait, et pourquoi |
+|---|---|---|
+| R0 | Réglage Qualité (Économe, Normale, Soignée), préférence de l'appareil ; banc visuel et mesures par niveau | — |
+| R1 | Courbe de film ACES appliquée au rendu (couleurs des matériaux intactes) ; ciel dégradé qui suit le soleil ; brume ; ciel comme éclairage (Normale, Soignée) ; occlusion estompée avec la distance (Soignée) ; carte d'ombre resserrée sur la parcelle | Image d'environnement HDRI : le ciel généré suffit, sans fichier à charger |
+| R2 | Baies en creux (encadrement, appui, linteau, menuiserie, petits bois selon l'époque) ; porte à panneaux, porte de garage à lames ; corniche, bandeaux, chaînes d'angle selon l'époque | Baies cintrées en creux (restent à plat) ; réglages par profil de façade (G12) : les règles sont par époque, en dur |
+| R3 | Relief (normal maps) tiré des textures dessinées des murs et des toits ; coulures, salissure, descentes d'eau pluviale | Rugosité par matériau et mousse au nord : l'une changerait les valeurs exportées, l'autre ajouterait des couleurs de sommets au .glb ; tuiles de faîtage et de rive, couronnement des cheminées |
+| R4 | — | Laissé de côté (décision du 14 octobre 2026) : attend les audits réels |
+| R5 | Objets d'échelle (voiture côté rue, silhouette), décochés par défaut | Trottoir, bordure, marquage : les rues ne sont connues que par leur axe, sans largeur ; haies, arbres LiDAR et gazon existaient déjà ; allées dallées |
+| R5 bis | — | Laissé de côté (décision du 14 octobre 2026) : attend les réponses O1 à O8 |
+| R6 | Focale de l'œil à hauteur d'homme ; heure dorée ; capture HD ; promenade entre les points de vue | Flou de profondeur : coûteux, pour un gain discutable ; l'anticrénelage soigné tient à la définition pleine de Soignée |
+
+Coût mesuré (Chromium sans carte graphique, à comparer d'une étape à l'autre seulement) : en Normale,
+une image coûte environ 60 % de plus qu'avant R1, pour l'essentiel à cause de l'éclairage par le ciel,
+très lent en rendu logiciel ; Économe, qui n'a que le ciel et la brume, coûte de 10 % (téléphone) à
+30 % (bureau) de plus. Chiffres dans `tests/fixtures/visuel/mesures.json`.

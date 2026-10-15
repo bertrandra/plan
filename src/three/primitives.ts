@@ -66,6 +66,12 @@ export const SANS_OMBRE = 'sansOmbre';
 export const GABARIT_SOL = 'gabaritSol';
 /** Marque d'un objet propre a l'ecran (la position GPS de l'appareil) : l'export GLB le retire aussi. */
 export const HORS_EXPORT = 'horsExport';
+/**
+ * Marque de l'inverse : un objet cache a l'ecran, montre le temps d'un export. Les baies a plat d'un
+ * batiment proche, quand l'ecran les montre en creux (three/fenetresRelief.ts) : le .glb, lui, garde
+ * celles d'avant, et son empreinte golden ne bouge pas.
+ */
+export const EXPORT_SEULEMENT = 'exportSeulement';
 
 /** Un polygone du plan, a plat, en y = 0. */
 export function polygoneAPlat(pts: PtBrut[], versLocal: VersLocal): THREE_NS.BufferGeometry {

@@ -160,6 +160,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.modeZoom': partout('vue3d'),
   '3d.hauteurDesYeux': partout('vue3d'),
   '3d.enregistrerPng': partout('vue3d'),
+  '3d.heureDoree': partout('vue3d'),
+  '3d.captureHd': partout('vue3d'),
+  '3d.promenade': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
   // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
   'audit.suivre': partout('vue3d'),

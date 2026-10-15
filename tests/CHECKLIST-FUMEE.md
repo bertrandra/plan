@@ -24,6 +24,19 @@ et les deux CDN de three.js ; seule la plateforme reste simulée, puisque ce n'e
 refus mesuré se lit, un refus décrété se recopie d'un passage à l'autre sans que personne ne le
 rejoue jamais.
 
+**Sans réseau, les points 12 à 15 rejouent des données témoin** (14 octobre 2026). Les réponses de
+la BAN, d'`apicarto` et de `data.geopf.fr` d'un passage réel sont rangées dans
+`tests/fixtures/fumee-reseau/` (un index, un corps compressé par requête) : quand `data.geopf.fr`
+ne répond pas au navigateur, le pilote les sert à la place du réseau, et le bilan dit combien de
+requêtes n'avaient pas de témoin. `FUMEE_RESEAU=temoin` les impose (le plus rapide, et
+reproductible), `FUMEE_RESEAU=direct` les refuse, `FUMEE_RESEAU=enregistrer` les refait — à relancer
+quand ces points changent de requêtes : `FUMEE_RESEAU=enregistrer node scripts/fumee.mjs URL 12 13 14 15`.
+
+**Un passage se règle** : `FUMEE_CLASSES=large` et `FUMEE_THEMES=light` (listes séparées par des
+virgules) n'en jouent qu'une partie, pour le travail au quotidien ; `FUMEE_PARALLELE=n` joue n
+parties à la fois (par défaut une par tranche de quatre cœurs, quatre au plus). Le passage complet, toutes classes
+et tous thèmes, reste celui d'avant une fusion.
+
 ## Manipulation directe du plan
 
 | # | Geste | Attendu |

@@ -7,6 +7,56 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La caméra et la présentation de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R6 ;
+  `three/presentation.ts`). À hauteur d'homme, la focale s'ouvre à 55°, celle d'un œil qui regarde
+  devant lui ; elle revient en douceur aux 45° de la vue d'ensemble en prenant de la hauteur (la prise
+  de vue de l'audit garde la sienne). Un groupe « Présentation » dans les réglages de la vue 3D :
+  « Heure dorée » place le soleil cinquante minutes avant son coucher, au jour choisi ; « Promenade »
+  enchaîne les points de vue enregistrés d'un mouvement doux, et un geste sur la vue l'arrête ;
+  « Capture HD » télécharge la vue à trois fois la définition de l'écran, pour le client. Ni
+  annulation, ni « projet modifié » ; aucun export touché.
+- **Objets d'échelle dans la Vue 3D** (`MD/roadmap-realisme-3d.md`, R5 ; `three/objetsEchelle.ts`). Une
+  case « Objets d'échelle » dans les réglages de la vue 3D (groupe « Scène »), décochée par défaut :
+  une voiture garée côté rue (le bord de la parcelle qu'aucune voisine ne borde) et une silhouette de
+  1,75 m dans la parcelle. Ils donnent la taille des choses d'un coup d'œil, et ne partent jamais dans
+  le .glb. Le banc visuel les montre avec `BANC_ECHELLE=1`.
+- **Les matériaux vivants** (`MD/roadmap-realisme-3d.md`, R3 ; `three/materiauxVivants.ts`,
+  `three/vieillissement.ts`). Les textures dessinées des murs (brique, pierre, meulière, béton, enduit,
+  bois) et des couvertures prennent du relief : une carte de normales tirée de leur dessin, joints en
+  creux, tuiles qui se recouvrent, que la lumière rasante fait vivre. Les murs proches vieillissent :
+  une coulure sous chaque appui, une salissure au-dessus du soubassement, deux descentes d'eau
+  pluviale aux bouts du plus long mur. Hors qualité Économe, à l'écran seulement : le relief est retiré
+  le temps d'un export, les voiles et les descentes ne partent pas dans le .glb (empreinte inchangée).
+- **Les façades de près** (`MD/roadmap-realisme-3d.md`, R2 ; `three/fenetresRelief.ts`). Sur la
+  parcelle du projet et ses abords (45 m), hors qualité Économe, les baies se creusent : encadrement en
+  pierre claire saillant (tableaux et linteau), appui qui déborde, menuiserie et vitre au nu du mur ;
+  petits bois selon l'époque (BD TOPO : deux vantaux à trois carreaux avant 1950, deux vantaux sans
+  carreaux jusqu'en 1975). La porte d'entrée a deux panneaux en relief (et une imposte vitrée si elle
+  est haute), la porte de garage ses lames. La maçonnerie suit l'époque : corniche sous l'égout avant
+  1975, bandeaux d'étage avant 1950 (interrompus au droit des baies), chaînes d'angle en harpe avant
+  1930. **Le .glb garde les baies à plat d'avant** : le relief et la maçonnerie sont propres à l'écran,
+  l'empreinte `glb-structure.json` ne bouge pas (point 24).
+- **La lumière de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R1 ; `three/rendu.ts`). Une courbe de
+  film (ACES) : les blancs ne brûlent plus, les ombres gardent du détail. Un ciel dégradé qui suit
+  l'heure du soleil — bleu le jour, doré au couchant, nuit profonde — avec une lueur autour du soleil ;
+  une brume légère qui fond le voisinage lointain dans l'horizon. En Normale et Soignée, le ciel éclaire
+  aussi la scène (les faces tournées vers lui en prennent le bleu, et les vitres le refléteront) ; en
+  Soignée, l'occlusion ambiante assombrit les coins et le pied des murs, de près. La carte d'ombre est
+  resserrée sur la parcelle du projet : les ombres sont nettes au pied des murs. **Rien ne change dans
+  les exports** : les couleurs des matériaux ne sont pas touchées (la courbe agit au rendu), le ciel
+  reste hors du .glb, et l'empreinte `glb-structure.json` est identique (point 24 de la fumée).
+- **Réglage « Qualité » de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R0 ; `three/qualite.ts`). Dans
+  les réglages de la vue 3D (groupe « Scène ») : Économe, Normale ou Soignée. C'est une préférence de
+  l'appareil, rangée dans le navigateur et jamais dans le projet : Économe est proposée d'office sur un
+  appareil tactile modeste (quatre cœurs ou 2 Go au plus), Normale ailleurs ; Soignée se demande.
+  Normale est la Vue 3D d'avant, à l'identique. Économe coupe le lissage des arêtes et les ombres par
+  défaut, et réduit la carte d'ombre ; Soignée suit la pleine définition de l'écran et affine les
+  ombres. Choisir un niveau remet la case « Ombres » à ce qu'il propose.
+- **Banc visuel de la Vue 3D** (`scripts/banc-visuel.mjs`, R0). Les mêmes vues d'AE 101 et de sa rue
+  (aérienne, depuis la rue, depuis le jardin), à 390 et 1 440 px, en clair et en sombre, et le coût de
+  la scène par niveau de qualité (construction, temps d'une image, triangles) ; références dans
+  `tests/fixtures/visuel/`. Le réseau de l'IGN y est rejoué depuis des données témoin, comme pour la
+  fumée.
 - **Le modèle de chaque usage, choisi par l'administrateur** (`MD/spec-audit.md` §13.2 et §13.3,
   demande de l'utilisateur). Dans le tableau de bord de la consommation (`?admin&ecran=consommation`),
   l'onglet « Réglages » (l'ancien « Tarifs et plafonds ») commence par une section « Modèles » : une
@@ -1081,6 +1131,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
+  plusieurs à la fois (`FUMEE_PARALLELE`, par défaut une par tranche de quatre cœurs, quatre au plus) ; un passage
+  peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).
+  Les longues attentes fixes (20 s, 18 s, 8 s, 3,5 s, 2,5 s) attendent désormais ce qu'elles
+  attendaient : le voisinage importé, les tuiles posées, le zonage rangé, l'image 3D immobile.
+- **Les points 12 à 15 de la fumée rejouent des données témoin sans réseau**
+  (`scripts/fumee-reseau.mjs`, `tests/fixtures/fumee-reseau/`) : quand `data.geopf.fr` ne répond
+  pas, les réponses enregistrées de la BAN, d'`apicarto` et de la Géoplateforme sont servies à sa
+  place. `FUMEE_RESEAU=temoin|direct|enregistrer` force le mode. Le rejeu est fidèle à ce que le
+  navigateur a reçu : l'enregistrement écoute sans intercepter, les échecs et l'autorisation CORS se
+  rejouent tels quels, chaque réponse arrive après sa durée enregistrée (`FUMEE_LATENCE=0` l'ignore),
+  et une requête sans témoin part sur le vrai réseau au lieu d'être inventée. Sans cela, la démo
+  recevait en mode témoin des tuiles que l'IGN lui refuse, et le .glb du point 24 s'écartait du golden.
+- **Un export .glb n'est plus disputé par le rendu** (`three/exportGlb.ts`) : la boucle d'animation de
+  la Vue 3D se tait le temps de l'export. Sur un appareil lent, l'exporteur manquait son délai.
 - **L'analyse des audits, le renfort des façades et l'aide immédiate passent par défaut au modèle
   plus fin (Sonnet)** au lieu du modèle rapide (Haiku), qui ne trouvait rien sur les photos d'un vrai
   audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats
@@ -1282,6 +1347,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
+  adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
+  depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent
+  la boîte « Actualiser depuis l'IGN » et la commande `plu.interroger` d'aujourd'hui, jouent sur les deux opacités de l'orthophoto, et comptent à
+  part le voisinage dessiné (sur téléphone, une partie tombe hors du cadre).
 - **Audit de la parcelle, l'analyse par Claude « ne trouvait rien »** (essai sur téléphone ;
   `MD/spec-audit.md` §13.2 et §14) :
   - **Ce que Claude voit sans que le projet sache l'écrire se lit enfin** : sous les propositions,

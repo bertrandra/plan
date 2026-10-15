@@ -10,13 +10,17 @@
 //
 //   BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 &
 //   node scripts/fumee.mjs [http://localhost:5199] [points…]
+//
+// FUMEE_CLASSES=large FUMEE_THEMES=light : une partie des classes d'ecran et des themes.
+// FUMEE_PARALLELE=3 : parties jouees a la fois. FUMEE_RESEAU : voir scripts/fumee-reseau.mjs.
 
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, existsSync, mkdtempSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ouvrirDemo, FORMATS, BASE } from './captures.mjs';
+import { choisirModeReseau, reseau, servirThreeLocal } from './fumee-reseau.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -108,6 +112,25 @@ const lireEtat = (page) => page.evaluate(() => {
   return JSON.parse(JSON.stringify({ objects: e.objects, measures: e.measures, scene: e.scene, selectedKey: e.selectedKey }));
 });
 const objet = (etat, pred) => etat.objects.find(pred);
+
+/**
+ * L'image du canevas 3D une fois immobile : trois lectures egales a 200 ms d'ecart, ou `max` ms
+ * au plus (l'ancienne attente fixe, qui reste le pire cas). La scene se construit puis la camera
+ * glisse vers son point de vue : attendre l'immobilite plutot qu'une duree rend la main des que
+ * c'est fini, et ne lit jamais une image en mouvement.
+ */
+async function image3dStable(page, max) {
+  const lire = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas')?.toDataURL() ?? '');
+  const fin = Date.now() + max;
+  let derniere = await lire(), egales = 0;
+  while (Date.now() < fin && egales < 2) {
+    await page.waitForTimeout(200);
+    const i = await lire();
+    egales = i && i === derniere ? egales + 1 : 0;
+    derniere = i;
+  }
+  return derniere;
+}
 
 /** Position a l'ecran (coordonnees de la page) d'un point du monde. */
 async function versPage(page, p) {
@@ -727,8 +750,9 @@ const POINTS = {
     const boite = page.locator('.dialogueCadastre');
     await boite.waitFor({ timeout: 15000 });
     await boite.locator('input.promptInput').first().fill(ADRESSE);
-    // La saisie declenche le geocodage au bout de 250 ms ; Entree prend la premiere suggestion.
-    await page.waitForTimeout(2000);
+    // La saisie declenche le geocodage au bout de 250 ms ; Entree prend la premiere suggestion, qu'on
+    // attend plutot que deux secondes fixes.
+    await boite.locator('[data-controle="cadastre.suggestion"]').first().waitFor({ timeout: 15000 }).catch(() => {});
     await boite.locator('input.promptInput').first().press('Enter');
     await page.locator('.dialogueCadastre', { hasText: 'Parcelle trouvee (2/3)' }).waitFor({ timeout: 30000 });
     await boite.getByRole('button', { name: /Parcelles voisines/ }).click();
@@ -768,17 +792,28 @@ const POINTS = {
     // du DOM declenche le meme gestionnaire avec la meme `currentTarget` — c'est la commande qu'on
     // eprouve ici, pas le depliage du menu, dont les points 26 a 40 se chargent.
     await page.evaluate(() => document.querySelector('[data-commande="projet.actualiserIgn"]').click());
-    const boiteIgn = page.locator('.dialogueVoile', { hasText: "Actualiser depuis l'IGN" });
+    const boiteIgn = page.locator('.dialogueActualisation');
     await boiteIgn.waitFor({ timeout: 15000 });
-    await boiteIgn.getByText('Ajouter les parcelles adjacentes').click();
-    await boiteIgn.getByRole('button', { name: /^Actualiser$/ }).click();
-    await page.waitForTimeout(20000);
+    // « Ajouter le voisinage », parcelles adjacentes (le choix par defaut une fois la case cochee).
+    await boiteIgn.locator('[data-controle="actualisation.voisinage"]').check();
+    await boiteIgn.locator('[data-controle="actualisation.lancer"]').click();
+    // On attend le voisinage lui-meme, pas une duree : vingt secondes fixes payaient le pire cas a
+    // chaque passage, et les donnees temoin repondent en une.
+    await page.waitForFunction(() => window.__plan.etat().objects.some((o) => o.voisinage), null, { timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(300);
     // Un objet masque n'est pas retire du DOM : le rendu lui pose `display:none` (render/objects.ts),
     // pour qu'il reste choisissable dans l'explorateur et qu'on puisse le demasquer. On compte donc
     // ce qui est DESSINE, pas ce qui est present — la premiere version comptait les noeuds et
     // trouvait 13 avant comme apres.
-    const dessines = () => page.evaluate(() => [...document.querySelectorAll('#stage svg [data-role="obj"]')].filter((e) => e.style.display !== 'none').length);
-    const voisins = (await lireEtat(page)).objects.filter((o) => o.voisinage).length;
+    // Sur telephone, une partie du voisinage tombe hors du cadre et n'est pas dessinee : on compte
+    // donc a part ce qui est dessine du voisinage et du reste. Masquer doit retirer tout le premier,
+    // ne rien toucher au second, et la bascule suivante tout rendre.
+    const voisins = (await lireEtat(page)).objects.filter((o) => o.voisinage).map((o) => o.key);
+    const dessines = () => page.evaluate((cles) => {
+      const vus = [...document.querySelectorAll('#stage svg [data-role="obj"]')].filter((e) => e.style.display !== 'none');
+      const v = vus.filter((e) => cles.includes(e.getAttribute('data-key'))).length;
+      return { voisins: v, autres: vus.length - v };
+    }, voisins);
     const avant = await dessines();
     await page.evaluate(() => window.__plan.executer('affichage.voisinage'));
     await page.waitForTimeout(500);
@@ -787,20 +822,38 @@ const POINTS = {
     await page.waitForTimeout(500);
     const retour = await dessines();
     return {
-      ok: voisins > 0 && apres === avant - voisins && retour === avant,
-      mesure: `${voisins} objet(s) de voisinage importé(s) ; dessinés ${avant} → ${apres} (${avant - apres} masqués), retour ${retour}`
+      ok: voisins.length > 0 && avant.voisins > 0 && apres.voisins === 0 && apres.autres === avant.autres && retour.voisins === avant.voisins && retour.autres === avant.autres,
+      mesure: `${voisins.length} objet(s) de voisinage importé(s) ; dessinés ${avant.voisins} voisin(s) + ${avant.autres} → ${apres.voisins} + ${apres.autres}, retour ${retour.voisins} + ${retour.autres}`
     };
   },
   14: async (page) => {
     const imp = await POINTS[12](page);
     if (!imp.ok) return { ok: imp.ok, mesure: 'import préalable : ' + imp.mesure };
-    await page.evaluate(() => window.__plan.executer('affichage.orthophoto'));
-    await page.waitForTimeout(8000);
+    // Le fond orthophoto s'allume par defaut depuis la 2.2.0 : la bascule ne sert que s'il est eteint.
+    // L'etat du fond se lit a la coche du menu Affichage (`ortho.actif`), l'objet ne le portant qu'une
+    // fois enregistre. Sans menu dans la page, on laisse aux tuiles le temps de venir.
+    const tuilesPosees = (ms) => page.waitForFunction(() => document.querySelectorAll('#stage svg image').length > 0, null, { timeout: ms }).then(() => true).catch(() => false);
+    const coche = await page.evaluate(() => document.querySelector('[data-commande="affichage.orthophoto"]')?.closest('[aria-checked]')?.getAttribute('aria-checked') ?? null);
+    if (coche === 'false' || (coche === null && !(await tuilesPosees(10000)))) await page.evaluate(() => window.__plan.executer('affichage.orthophoto'));
+    await tuilesPosees(30000);
+    // Les deux opacites, au curseur du menu Affichage (setter natif : c'est un champ controle par
+    // React). Un fond laisse aux valeurs par defaut ne s'ecrit pas dans le projet (render/ortho.ts,
+    // `enregistrerConfigOrtho`) : c'est le reglage qui doit s'y retrouver.
+    await page.evaluate(() => {
+      for (const [id, v] of [['orthoOpacite', 60], ['orthoParcelleOpacite', 30]]) {
+        const c = document.getElementById(id);
+        if (!c) continue;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(c, String(v));
+        c.dispatchEvent(new Event('input', { bubbles: true }));
+        c.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.waitForTimeout(300);
     const tuiles = await page.evaluate(() => document.querySelectorAll('#stage svg image').length);
     const json = await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson')));
     const porteur = JSON.parse(json).objects.find((x) => x.ortho);
     return {
-      ok: tuiles > 0 && !!porteur && porteur.ortho.actif === true,
+      ok: tuiles > 0 && !!porteur && porteur.ortho.actif === true && porteur.ortho.opacite === 0.6 && porteur.ortho.parcelleOpacite === 0.3,
       mesure: `${tuiles} tuile(s) posée(s), enregistré dans le projet : ${porteur ? JSON.stringify(porteur.ortho) : 'ABSENT'}`
     };
   },
@@ -810,12 +863,10 @@ const POINTS = {
     if (await classe(page) === 'compact') await feuille(page, 'resultats');
     await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
     await page.waitForTimeout(400);
-    // Le bouton, et non la commande nue : `plu.interroger` reçoit sa SOURCE et s'en sert pour se
-    // désarmer pendant l'appel (`bouton.disabled = true`). L'exécuter sans source la fait lever —
-    // « Cannot set properties of undefined » — et le panneau restait vide sans qu'on sache pourquoi.
-    // Clic emis dans la page, pour la meme raison qu'au point 13 : le bouton peut etre hors cadre.
-    await page.evaluate(() => document.getElementById('pluInterrogerBtn').click());
-    await page.waitForTimeout(18000);
+    // La commande se desarme seule pendant l'appel (`pluEnCours`, app/resultats.ts) : plus besoin du
+    // bouton comme source. On attend le zonage range sur la parcelle, pas dix-huit secondes fixes.
+    await page.evaluate(() => window.__plan.executer('plu.interroger'));
+    await page.waitForFunction(() => !!window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.plu, null, { timeout: 60000 }).catch(() => {});
     // Le resultat se lit dans l'ETAT, ou `interrogerPluDepuisBouton` le range (`parcelle.plu`), et
     // non dans le texte du panneau : celui-ci porte son titre et son bouton meme vide, si bien
     // qu'une recherche de « zone » dans sa prose passait sur un panneau qui n'avait rien recu.
@@ -914,7 +965,8 @@ const POINTS = {
   22: async (page) => {
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
-    await page.waitForTimeout(3500);
+    await page.waitForFunction(() => !!window.THREE, null, { timeout: 10000 }).catch(() => {});
+    await image3dStable(page, 3500);
     const r = await page.evaluate(() => {
       const c = document.querySelector('#terrasse3dCanvasHost canvas');
       const texte = document.getElementById('vue3dPanel')?.innerText || '';
@@ -928,7 +980,6 @@ const POINTS = {
     // `preserveDrawingBuffer: true` a la creation du rendu (three/scene.ts) : l'image du canevas est
     // donc relisible apres coup, ce qui est tout ce qui permet de mesurer ce point autrement qu'a
     // l'oeil. Sans ce reglage, `toDataURL` rendrait un cliche vide.
-    const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
     const enregistrer = () => page.evaluate(() => window.__plan.executer('3d.enregistrerPointDeVue'));
     await enregistrer();
     for (let i = 0; i < 6; i++) await page.evaluate(() => window.__plan.executer('3d.zoomArriere'));
@@ -945,12 +996,9 @@ const POINTS = {
       s.value = cle;
       s.dispatchEvent(new Event('change', { bubbles: true }));
     }, cle);
-    await choisir(vues[0].key); await page.waitForTimeout(2500);
-    const a = await image();
-    await choisir(vues[1].key); await page.waitForTimeout(2500);
-    const b = await image();
-    await choisir(vues[0].key); await page.waitForTimeout(2500);
-    const c = await image();
+    await choisir(vues[0].key); const a = await image3dStable(page, 2500);
+    await choisir(vues[1].key); const b = await image3dStable(page, 2500);
+    await choisir(vues[0].key); const c = await image3dStable(page, 2500);
     return {
       ok: a !== b && a === c,
       mesure: `${vues.length} points de vue ; deux vues ${a === b ? 'IDENTIQUES (la caméra n a pas bougé)' : 'différentes'}, rappel reproductible : ${a === c}`
@@ -1178,8 +1226,7 @@ const POINTS = {
     let bouge = null;
     const canevas = page.locator('#terrasse3dCanvasHost canvas');
     if (await canevas.count().then((n) => n > 0).catch(() => false) || await canevas.waitFor({ timeout: 40000 }).then(() => true).catch(() => false)) {
-      await page.waitForTimeout(3000);
-      const image = () => page.evaluate(() => document.querySelector('#terrasse3dCanvasHost canvas').toDataURL());
+      await image3dStable(page, 3000);
       // Le curseur est un champ controle par React : ecrire `value` ne lui dit rien, il faut passer
       // par le setter natif, comme le fait le navigateur sous le doigt. Sans cela l'heure restait a
       // 12:00 et les deux images etaient identiques — la mesure echouait, pas l'eclairage.
@@ -1188,8 +1235,8 @@ const POINTS = {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(c, String(v));
         c.dispatchEvent(new Event('input', { bubbles: true }));
       }, v);
-      await regler(9 * 60); await page.waitForTimeout(1200); const matin = await image();
-      await regler(18 * 60); await page.waitForTimeout(1200); const soir = await image();
+      await regler(9 * 60); const matin = await image3dStable(page, 1200);
+      await regler(18 * 60); const soir = await image3dStable(page, 1200);
       bouge = matin !== soir;
       eclairage = `éclairage 09:00 ≠ 18:00 : ${bouge}`;
     }
@@ -2333,7 +2380,7 @@ const POINTS = {
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
-    await page.waitForTimeout(3500);
+    await image3dStable(page, 3500);
     const avec = await compter();
     if (process.env.FUMEE_CAPTURE_3D) {
       // Pour l'oeil : la camera devant le mur releve, a quelques metres (hors mesure).
@@ -2563,55 +2610,88 @@ function pointsPour(nomClasse) {
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
 
-/**
- * three.js r128 et ses trois scripts d'exemples, servis depuis `node_modules/three` (la meme version
- * que le CDN, en devDependency) plutot que depuis jsDelivr : les points de la Vue 3D (22, 23, 24, 38)
- * se jouent alors sans reseau sortant. `FUMEE_CDN=1` rejoue le vrai CDN.
- */
-async function servirThreeLocal(page) {
-  if (process.env.FUMEE_CDN === '1') return;
-  const racine = new URL('../node_modules/three/', import.meta.url).pathname;
-  const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'application/javascript' }) : route.continue();
-  // La bibliotheque vient de cdnjs, ses exemples de jsDelivr (three/glbViewer.ts, three/chargeurs.ts).
-  await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/r128\/three\.min\.js/, (route) => servir(route, racine + 'build/three.min.js'));
-  await page.route(/cdn\.jsdelivr\.net\/npm\/three@0\.128\.0\/(.*)/, (route) =>
-    servir(route, racine + route.request().url().split('three@0.128.0/')[1].split('?')[0]));
-}
 
-async function principal() {
-  const navigateur = await chromium.launch();
-  const resultats = [];
-  for (const f of FORMATS) {
-    for (const theme of THEMES) {
-      for (const n of pointsPour(f.nom)) {
-        if (n === 40 && theme === 'light') continue;
-        const contexte = await navigateur.newContext({
-          viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile,
-          deviceScaleFactor: 1, colorScheme: theme, acceptDownloads: true
-        });
-        const page = await contexte.newPage();
-        await servirThreeLocal(page);
-        const erreurs = [];
-        page.on('pageerror', (e) => erreurs.push(e.message));
-        page.on('dialog', (d) => d.accept());
-        let r;
-        try {
-          await ouvrirDemo(page);
-          r = await POINTS[n](page, f);
-        } catch (e) {
-          r = { ok: false, mesure: 'erreur du script : ' + e.message.split('\n')[0].slice(0, 160) };
-        }
-        const bruit = erreurs.filter((m) => !/bibliotheque 3D/.test(m));
-        if (bruit.length && r.ok) r = { ok: false, mesure: r.mesure + ' ; erreur de page : ' + bruit[0].slice(0, 120) };
-        resultats.push({ classe: f.nom, theme, n, ...r });
-        console.log(`${f.nom.padEnd(7)} ${theme.padEnd(5)} ${String(n).padStart(2)} ${r.ok === true ? 'OK  ' : r.ok === false ? 'ÉCHEC' : '—   '} ${r.mesure}`);
-        await contexte.close();
-      }
+/**
+ * Les parties d'un passage : une par point, classe d'ecran et theme. `FUMEE_CLASSES` et
+ * `FUMEE_THEMES` (listes separees par des virgules) en retiennent une partie, pour le travail au
+ * quotidien ; le passage complet reste celui d'avant une livraison.
+ */
+function parties() {
+  const liste = (v) => (v ? v.split(',').map((x) => x.trim()).filter(Boolean) : null);
+  const classes = liste(process.env.FUMEE_CLASSES);
+  const themes = liste(process.env.FUMEE_THEMES);
+  const inconnues = [...(classes || []).filter((c) => !FORMATS.some((f) => f.nom === c)), ...(themes || []).filter((t) => !THEMES.includes(t))];
+  if (inconnues.length) throw new Error(`classe ou theme inconnu : ${inconnues.join(', ')} (classes : ${FORMATS.map((f) => f.nom).join(', ')} ; themes : ${THEMES.join(', ')})`);
+  const toutes = [];
+  for (const f of FORMATS.filter((f) => !classes || classes.includes(f.nom))) {
+    for (const theme of THEMES.filter((t) => !themes || themes.includes(t))) {
+      for (const n of pointsPour(f.nom)) if (!(n === 40 && theme === 'light')) toutes.push({ f, theme, n });
     }
   }
+  return toutes;
+}
+
+/** Joue une partie dans un contexte neuf : les parties ne partagent rien, d'ou leur parallelisme. */
+async function jouer(navigateur, net, { f, theme, n }) {
+  const contexte = await navigateur.newContext({
+    viewport: { width: f.width, height: f.height }, isMobile: f.mobile, hasTouch: f.mobile,
+    deviceScaleFactor: 1, colorScheme: theme, acceptDownloads: true
+  });
+  await net.brancher(contexte);
+  const page = await contexte.newPage();
+  await servirThreeLocal(page);
+  const erreurs = [];
+  page.on('pageerror', (e) => erreurs.push(e.message));
+  page.on('dialog', (d) => d.accept());
+  let r;
+  try {
+    await ouvrirDemo(page);
+    r = await POINTS[n](page, f);
+  } catch (e) {
+    r = { ok: false, mesure: 'erreur du script : ' + e.message.split('\n')[0].slice(0, 160) };
+  }
+  const bruit = erreurs.filter((m) => !/bibliotheque 3D/.test(m));
+  if (bruit.length && r.ok) r = { ok: false, mesure: r.mesure + ' ; erreur de page : ' + bruit[0].slice(0, 120) };
+  await contexte.close().catch(() => {});
+  return r;
+}
+
+const ligne = (r) => `${r.classe.padEnd(7)} ${r.theme.padEnd(5)} ${String(r.n).padStart(2)} ${r.ok === true ? 'OK  ' : r.ok === false ? 'ÉCHEC' : '—   '} ${r.mesure}`;
+
+/**
+ * `FUMEE_PARALLELE` parties a la fois (par defaut, une par tranche de quatre coeurs, entre 1 et 4) :
+ * le serveur Vite et le navigateur sans carte graphique se partagent les coeurs. Sur quatre coeurs,
+ * deux parties a la fois ne raccourcissaient pas le passage et rendaient instables les points aux
+ * longues attentes (62, 67, 70, qui passent joues seuls). Chaque ligne s'ecrit quand sa partie
+ * finit ; le recapitulatif, trie, reprend l'ordre du passage.
+ */
+async function principal() {
+  const aJouer = parties();
+  const parallele = Math.max(1, Number(process.env.FUMEE_PARALLELE) || Math.min(4, Math.max(1, Math.floor(cpus().length / 4))));
+  const navigateur = await chromium.launch();
+  const net = reseau(await choisirModeReseau(navigateur));
+  console.log(`${aJouer.length} partie(s), ${parallele} à la fois, ${net.mode === 'direct' ? 'réseau direct' : net.mode === 'temoin' ? 'réseau rejoué (données témoin)' : 'réseau enregistré'}\n`);
+  const resultats = new Array(aJouer.length);
+  let suivante = 0;
+  const ouvrier = async () => {
+    while (suivante < aJouer.length) {
+      const i = suivante++;
+      const p = aJouer[i];
+      const r = await jouer(navigateur, net, p);
+      resultats[i] = { classe: p.f.nom, theme: p.theme, n: p.n, ...r };
+      console.log(ligne(resultats[i]));
+    }
+  };
+  const debut = Date.now();
+  await Promise.all(Array.from({ length: parallele }, ouvrier));
   await navigateur.close();
   const compte = (v) => resultats.filter((r) => r.ok === v).length;
-  console.log(`\n${compte(true)} passés, ${compte(false)} échecs, ${compte(null)} non joués, sur ${resultats.length}.`);
+  if (parallele > 1 && compte(false)) {
+    console.log('\nÉchecs, dans l\'ordre du passage :');
+    for (const r of resultats) if (r.ok === false) console.log(ligne(r));
+  }
+  console.log(`\n${net.bilan()}`);
+  console.log(`${compte(true)} passés, ${compte(false)} échecs, ${compte(null)} non joués, sur ${resultats.length}, en ${Math.round((Date.now() - debut) / 1000)} s.`);
   if (compte(false)) process.exitCode = 1;
 }
 
