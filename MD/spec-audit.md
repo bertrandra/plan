@@ -435,6 +435,18 @@ Et pour la parcelle :
      que la façade visée y tienne en entier). Elle **suit votre position et votre cap** (boussole,
      sinon sens de la marche) et glisse d'une pose à l'autre : ce n'est pas une image fixe. Un doigt
      qui la fait tourner la garde 6 s, puis le suivi reprend (`app/audit/parcelle/vuePrise.ts`).
+   - **Une façade choisie fixe la vue** (touchée dans la 3D ou prise dans la liste ; demande de
+     l'utilisateur du 16 octobre 2026). La position ne suit plus le GPS : la caméra se tient à distance
+     fixe du bâtiment de cette façade, qui tient en entier dans l'image (regard incliné de 15° sur son
+     centre), face à la façade choisie à l'arrivée. Ni zoom, ni déplacement, ni inclinaison : seule la
+     **rotation sur l'axe vertical du bâtiment** bouge, pour voir défiler ses façades, soit **avec vos
+     pas autour de lui** (l'angle où vous êtes, vu du centre, tourne la vue d'autant ; sous 2°, le
+     tremblement du GPS ne la bouge pas), soit **au doigt** quand il n'y a pas de GPS ou qu'il se trompe
+     (imprécision au-delà de 12 m, position sur le centre). Un doigt qui glisse prend la main ; la pause
+     finie, la rotation repart de son regard. Choisir une autre façade repart face à elle ; « Suivre ma
+     position » et « Ce n'est pas cette façade » rendent la vue (`vuePrise.ts::poseOrbite`,
+     `suiviPieton.orbite`, `angleAutour`). Pas de trait renforcé en orbite : le bâtiment entier se
+     reconnaît seul.
    - **De près, le trait se renforce** (demande de l'utilisateur du 15 octobre 2026) : à moins de 4 m
      de la façade visée, ou quand elle déborde du champ le plus large, les arêtes du bâtiment visé
      (angles, bas et haut des murs, contours des ouvertures, rives et faîtage) se dessinent en traits
@@ -447,8 +459,8 @@ Et pour la parcelle :
      regard incliné de 35°) : tout le bâtiment audité, cadré dans ce que l'écran de prise laisse voir,
      pour **choisir une façade en la touchant**. La vue a hauteur d'homme, trop près, n'y montrait
      qu'un mur (second essai d'AE 101, 15 octobre). Elle regarde la façade choisie dans la liste,
-     sinon le bâtiment depuis votre position ; ensuite, le doigt la tourne librement : ni la boussole
-     ni une façade touchée ne la déplacent. Une façade reconnue qui se perd garde la vue à hauteur
+     sinon le bâtiment depuis votre position ; ensuite, le doigt la tourne librement : la boussole ne
+     la déplace pas. Toucher une façade la fixe en orbite (point précédent). Une façade reconnue qui se perd garde la vue à hauteur
      d'homme 2,5 s avant de passer à la vue d'ensemble, pour ne pas sauter à chaque pas.
    - Sur un écran en largeur (bureau, tablette, téléphone couché), l'écran de prise et celui des
      propositions sont un **panneau à droite** ; la Vue 3D cadre le bâtiment dans la partie gauche.
@@ -673,7 +685,9 @@ validation (§14).
    - **L'écran des propositions laisse voir la parcelle** (essai d'AE 101, 15 octobre : il la
      couvrait). Au doigt, une carte en bas, haute au plus de 46 % de l'écran : le titre, le compte,
      « Avant / Les deux / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
-     la range. Sur un écran en largeur, un panneau à droite. La Vue 3D, épurée comme pendant la prise,
+     la range. Sur un écran en largeur, un panneau à droite. **« Fermer »** sort de l'audit depuis la
+     prise comme depuis les propositions, à droite du titre (demande de l'utilisateur du 16 octobre) :
+     la liste n'est plus l'unique sortie, et rien n'est perdu (la capture reste dans le brouillon). La Vue 3D, épurée comme pendant la prise,
      cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir (une seule
      vue : « Avant » ou « Après » seul).
 
@@ -935,6 +949,19 @@ sortant… » ; « je ne jette rien, tout est utile pour l'instant ».
   promenade, statut et « fait écrit » d'après `regles/toits/faits.json`) et, pour un audit de
   parcelle, ses **analyses** (15.5). Sur grand écran le dialogue s'élargit (1 180 px) ; au doigt, les
   tableaux défilent dans leur boîte. « Retirer » reste confirmé et emporte le dossier entier.
+- **L'avant et l'après d'un audit reçu** (demande de l'utilisateur du 16 octobre ; la base des
+  décisions que l'administrateur prendra plus tard). Sur la carte d'un audit de parcelle, **« Avant /
+  Après »** ouvre l'écran des propositions de l'audit, **le même** : la même Vue 3D en deux vues
+  (« Avant », « Les deux », « Après »), les mêmes lignes, la même caméra. Une seule source : la
+  consultation est une **session d'audit à part** (`creerSessionAuditParcelle`, sans capteurs, brouillon,
+  analyse ni partage) dont la validation est **figée** sur les propositions et les décisions du fichier
+  (`validation.figer`) ; l'aperçu (`apercuDe`, `projetApres`) est celui de la validation, et rien n'est
+  dupliqué. En lecture seule : cases grisées (cochée = validée par l'audit, avec « Décision de l'audit :
+  Validée / Refusée / En attente »), ni « Valider », ni liste, ni partage ; « Retour aux audits » rouvre
+  le catalogue, « Fermer » sort. Sans aucune décision dans le fichier, les cases par défaut de l'audit.
+  Il faut que le projet ouvert soit sur la même parcelle (grisé avec sa raison sinon) ; les bâtiments du
+  fichier sont rapprochés de ceux du projet comme à l'import. Le projet et l'audit en cours de
+  l'administrateur ne sont pas touchés (`app/audit/parcelle/commande.ts::consulter`).
 - Pas de purge automatique : rien ne s'efface sans « Retirer » (administrateur, ou le secret de
   retrait de la personne qui reprend son accord, D7).
 

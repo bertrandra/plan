@@ -7,6 +7,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin › « Audits » : l'avant et l'après d'un audit reçu** (`MD/spec-audit.md` 15.4). Le bouton
+  « Avant / Après » de la carte d'un audit de parcelle ouvre, sur la Vue 3D du projet (même parcelle),
+  l'écran des propositions de l'audit : les mêmes deux vues « Avant » et « Après », les mêmes lignes,
+  avec la décision de l'audit sur chacune (validée, refusée, en attente), en lecture seule. C'est la
+  base des décisions à venir. Un seul code : la consultation est une session d'audit à part, dont la
+  validation est figée sur les propositions du fichier ; l'aperçu est celui de l'audit. Le projet et
+  l'audit en cours ne sont pas touchés.
+- **« Fermer » sur la prise et sur les propositions de l'audit** (`MD/spec-audit.md` §12.1). La liste
+  était le seul endroit pour sortir de l'audit : le bouton est maintenant à droite du titre des deux
+  écrans posés sur la Vue 3D.
+- **Une façade choisie fixe la vue de prise** (audit de la parcelle, `MD/spec-audit.md` §12.1).
+  Toucher une façade dans la Vue 3D, ou la prendre dans la liste, fige la position : la caméra se tient
+  à distance fixe du bâtiment, qu'elle montre en entier, face à la façade choisie, et ne suit plus le
+  GPS. Seule tourne la rotation sur l'axe vertical du bâtiment, pour voir défiler ses façades : avec
+  vos pas autour de lui, ou au doigt quand il n'y a pas de GPS ou qu'il est trop imprécis (au-delà de
+  12 m). Ni zoom, ni déplacement, ni inclinaison pendant les photos de cette façade. « Suivre ma
+  position » ou « Ce n'est pas cette façade » rendent la vue.
 - **Verrouiller un bâtiment pour la prise** (audit de la parcelle, `MD/spec-audit.md` §12.2). Quand la
   parcelle porte une annexe à côté de la maison, l'écran de prise propose un bouton par bâtiment
   (« Verrouiller : Maison, Annexe »). C'est un geste volontaire : verrouillé, seul ce bâtiment est

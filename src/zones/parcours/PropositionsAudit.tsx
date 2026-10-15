@@ -16,22 +16,29 @@ import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import type { Apercu } from '../../app/audit/parcelle/validation.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
 import { Icone } from '../icones.js';
+import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
 import type { Proposition } from '../../model/propositions.js';
+import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 
 const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude' };
+const DECISIONS_FICHIER = { validee: 'Validée', refusee: 'Refusée' } as const;
+
+/** Ce que l'audit recu a fait d'une proposition (consultation) : la case ne dit que oui ou non. */
+const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'En attente');
 
 /** Une ligne : la case, l'objet, l'avant et l'apres, l'origine, et ce qui la fait arriver decochee. */
-function LigneProposition({ p, cochee, basculer }: { p: Proposition; cochee: boolean; basculer: () => void }) {
+function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition } }) {
   const id = 'proposition-' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_');
   return (
     <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '')}>
-      <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} onChange={basculer} />
+      <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
       <label htmlFor={id} className="texteProposition">
         <span className="objetProposition">{p.objet}</span>
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
         <span className="origineProposition">{ORIGINES[p.source] + (p.confiance !== null ? (p.source === 'claude' ? ' · passes d’accord ' : ' · confiance ') + Math.round(p.confiance * 100) + ' %' : '')}{p.indices[0] ? ' · ' + p.indices[0].texte : ''}</span>
+        {lecture && <span className="decisionProposition">{'Décision de l’audit : ' + texteDecision(lecture.decision)}</span>}
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
       </label>
@@ -99,8 +106,14 @@ const APERCUS: readonly { a: Apercu; libelle: string }[] = [
   { a: 'avant', libelle: 'Avant' }, { a: 'deux', libelle: 'Les deux' }, { a: 'apres', libelle: 'Après' },
 ];
 
-export function PropositionsAudit({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
+/**
+ * `retour` : la consultation d'un audit recu (Admin › Audits) a ouvert cet ecran en lecture seule, sur
+ * une session a part : la meme Vue 3D avant / apres, les memes lignes, mais ni case a cocher, ni mesure,
+ * ni partage, ni « Valider », et « Retour aux audits » a la place de la liste.
+ */
+export function PropositionsAudit({ session, fermer, retour }: { session: SessionAuditParcelle; fermer: () => void; retour?: () => void }) {
   const v = session.validation;
+  const lecture = session.lectureSeule();
   const apercu = v.apercu();
   // L'ecran dit ou il est a chaque changement de taille (une ligne de plus, la liste repliee, l'ecran
   // qui tourne), et plus rien quand il se ferme. Deux vues : elles evitent l'ecran elles-memes (zone
@@ -133,32 +146,39 @@ export function PropositionsAudit({ session, fermer }: { session: SessionAuditPa
   return (
     <div ref={cadre} className={'auditPrise auditPropositions' + (apercu === 'deux' ? ' deuxVues' : '') + (replie ? ' replie' : '')} role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
       <div className="entetePropositions">
-        <div className="titreParcours">Propositions de l’audit</div>
-        <button type="button" className="secondary small boutonReplier" data-controle="auditParcelle.replier" aria-expanded={!replie} aria-controls="corpsPropositions"
-          onClick={() => setReplie(!replie)}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={16} /><span>{replie ? 'Déplier' : 'Replier'}</span></button>
+        <div className="titreParcours">{lecture ? 'Avant et après : l’audit reçu' : 'Propositions de l’audit'}</div>
+        <div className="actionsEntete">
+          <button type="button" className="secondary small boutonReplier" data-controle="auditParcelle.replier" aria-expanded={!replie} aria-controls="corpsPropositions"
+            onClick={() => setReplie(!replie)}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={16} /><span>{replie ? 'Déplier' : 'Replier'}</span></button>
+          <BoutonFermerAudit fermer={fermer} />
+        </div>
       </div>
-      <div className="detailPhoto" aria-live="polite">{enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : comptes.observations ? 'Aucune proposition à cocher : lisez plus bas ce que Claude a vu.' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
+      <div className="detailPhoto" aria-live="polite">{lecture ? 'Consultation : ' + (propositions.length ? 'les cases sont les propositions que cet audit a validées ; rien n’est écrit dans ce projet.' : 'cet audit n’a aucune proposition.') : enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : comptes.observations ? 'Aucune proposition à cocher : lisez plus bas ce que Claude a vu.' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
       {/* L'apercu d'abord : c'est lui que l'on regarde en cochant ; l'accord de Claude vient ensuite. */}
       <div className="segmente avantApresAudit" role="group" aria-label="Vue 3D : avant, les deux ensemble, ou après les propositions">
         {APERCUS.map(({ a, libelle }) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{libelle}</button>)}
       </div>
       <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
         {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées.</p>}
-        <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />
+        {!lecture && <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />}
         {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
-          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} />)}
+          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
         </ul>}
         <ObservationsClaude batiments={observations} />
-        {verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
+        {!lecture && verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
           {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
         </ul>}
-        <PartageAudit session={session} />
+        {!lecture && <PartageAudit session={session} />}
       </div>
       <div className="piedDialogue">
-        <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
-        {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}
-        <button type="button" data-controle="auditParcelle.valider" disabled={enCours !== null || (!cochees && !verifies)}
-          onClick={() => { if (v.valider()) fermer(); }}>{'Valider' + (cochees ? ' (' + cochees + ')' : '')}</button>
+        {lecture
+          ? retour && <button type="button" className="secondary" data-controle="auditsParcelle.retour" onClick={retour}>Retour aux audits</button>
+          : <>
+              <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
+              {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}
+              <button type="button" data-controle="auditParcelle.valider" disabled={enCours !== null || (!cochees && !verifies)}
+                onClick={() => { if (v.valider()) fermer(); }}>{'Valider' + (cochees ? ' (' + cochees + ')' : '')}</button>
+            </>}
       </div>
     </div>
   );

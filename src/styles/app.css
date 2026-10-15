@@ -1434,6 +1434,12 @@
   .auditPrise .detailPhoto{ font-size:0.76rem; color:var(--ink-soft); margin-top:2px; }
   .auditPrise .rangementAudit{ color:var(--ink); }
   .auditPrise .piedDialogue{ margin-top:10px; }
+  /* Sortir de l'audit depuis la prise ou les propositions : le bouton est a droite du titre. */
+  .enteteCarteAudit{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .enteteCarteAudit .titreParcours{ flex:1 1 auto; min-width:0; }
+  .actionsEntete{ display:flex; gap:6px; flex:none; }
+  .boutonFermerAudit{ display:inline-flex; align-items:center; gap:4px; flex:none; }
+  html:not([data-classe="large"]) .boutonFermerAudit{ min-height:44px; }
   /* Le verrou d'un batiment (annexe sur la parcelle) : une phrase, puis un bouton par batiment. */
   .verrouBatiment{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; }
   .verrouBatiment .detailPhoto{ flex:1 1 100%; margin:0; }
@@ -1485,6 +1491,8 @@
   .avantApres{ font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .avantProposition{ color:var(--ink-soft); }
   .origineProposition{ font-size:0.72rem; color:var(--ink-soft); }
+  /* Ce que l'audit recu a decide d'une proposition (consultation, Admin › Audits) : un mot, jamais la couleur seule. */
+  .decisionProposition{ font-size:0.72rem; color:var(--ink); font-weight:600; }
   /* Ce qui fait arriver une ligne decochee : un filet d'alerte et le mot, la couleur ne porte pas seule. */
   .reserveProposition{ font-size:0.74rem; color:var(--ink); border-left:2px solid var(--alerte); padding-left:6px; margin-top:2px; }
   /* L'analyse par Claude (zones/parcours/AnalyseClaudeAudit.tsx) : la question de l'accord dans une

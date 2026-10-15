@@ -123,6 +123,14 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   volontaire de la personne, valable sur l'écran de prise seulement : le rendu pour Claude se dessine
   sur la scène épurée avec tous les bâtiments de la parcelle (`app/audit/parcelle/controleur.ts`).
   Le rendu pour Claude montre la façade entière, pas ce que le téléphone cadrait.
+  Une façade **choisie** (touchée, ou prise dans la liste) fixe la vue de prise : la position ne suit
+  plus le GPS, la caméra tourne sur l'axe vertical du bâtiment (`vuePrise.ts`, `orbite`), avec les pas
+  autour de lui ou au doigt sans GPS sûr ; ni zoom ni inclinaison.
+  **L'avant/après de l'admin** (Admin › Audits, « Avant / Après ») est l'écran des propositions de
+  l'audit, pas une copie : une session de consultation à part (`commande.ts::consulter`) dont la
+  validation est figée sur le fichier (`validation.figer`), en lecture seule. Ne pas écrire un second
+  aperçu 3D : toute évolution de l'avant/après (et plus tard les décisions) se fait dans
+  `validation.ts` / `PropositionsAudit.tsx`, pour les deux.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

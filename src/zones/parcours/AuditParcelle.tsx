@@ -20,6 +20,7 @@ import { jourDe } from '../../app/audit/reprise.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
 import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
+import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
 import { useCadrerVue } from './cadrageVue.js';
@@ -28,7 +29,7 @@ import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
 
-interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void }
+interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void; retour?: () => void }
 
 /** La session change (un geste, une position, la boussole) : l'ecran se redessine. */
 function useSuivreSession(session: SessionAuditParcelle): void {
@@ -308,7 +309,7 @@ function VerrouBatiment({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
-function Prise({ session }: { session: SessionAuditParcelle }) {
+function Prise({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
   const photo = usePhoto(session);
   // La Vue 3D cadre la partie que l'ecran de prise laisse voir.
   const cadre = useCadrerVue(session);
@@ -318,7 +319,10 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
   const etatGps = pos.etat === 'ok' ? 'GPS ± ' + Math.round(pos.precisionM ?? 0) + ' m' + (pos.boussole ? ' · boussole' : ' · sans boussole : la façade la plus proche') : null;
   return (
     <div ref={cadre} className="auditPrise" role="dialog" aria-modal="false" aria-label="Photographier les façades">
-      <div className="titreParcours" aria-live="polite">{titre}</div>
+      <div className="enteteCarteAudit">
+        <div className="titreParcours" aria-live="polite">{titre}</div>
+        <BoutonFermerAudit fermer={fermer} />
+      </div>
       {detail && <div className="detailPhoto">{detail}</div>}
       {etatGps && <div className="detailPhoto">{etatGps}</div>}
       {session.dernierRangement() && <div className="detailPhoto rangementAudit" role="status">{session.dernierRangement()}</div>}
@@ -336,9 +340,9 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
-export function AuditParcelle({ session, commandes, fermer }: Props) {
+export function AuditParcelle({ session, commandes, fermer, retour }: Props) {
   useSuivreSession(session);
   const e = session.ecran();
-  if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} />;
-  return e === 'prise' ? <Prise session={session} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
+  if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} {...(retour ? { retour } : {})} />;
+  return e === 'prise' ? <Prise session={session} fermer={fermer} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
 }

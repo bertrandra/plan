@@ -34,7 +34,7 @@ export function Parcours({ commandes }: { commandes: RegistreCommandes }) {
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
       {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} prise={p.prise} {...(p.couleurs ? { couleurs: p.couleurs } : {})} fermer={p.retour ?? fermer} />}
       {p.type === 'auditFin' && <AuditFin promenade={p.promenade} modifier={p.modifier} retirer={p.retirer} partager={p.partager} fermer={fermer} />}
-      {p.type === 'auditParcelle' && <AuditParcelle session={p.session} commandes={commandes} fermer={fermer} />}
+      {p.type === 'auditParcelle' && <AuditParcelle session={p.session} commandes={commandes} fermer={fermer} {...(p.retour ? { retour: p.retour } : {})} />}
       {p.type === 'auditsParcelle' && <AuditsParcelle catalogue={p.catalogue} fermer={fermer} />}
     </div>
   );

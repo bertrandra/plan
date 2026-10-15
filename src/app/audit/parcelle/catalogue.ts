@@ -38,6 +38,11 @@ export interface DependancesCatalogue {
   refusEcriture: () => string | null;
   /** Reprend le fichier dans la session de cette parcelle, par le chemin de l'import (commande.ts). */
   ouvrir: (texte: string, fiche: FicheAudit) => void;
+  /**
+   * Montre l'avant et l'apres de cet audit sur l'ecran des propositions, en lecture seule, dans une
+   * session a part (commande.ts) : ni l'audit en cours ni le projet n'en sont changes. Absent, pas de consultation.
+   */
+  consulter?: (texte: string, fiche: FicheAudit) => void;
   telecharger: (nom: string, texte: string, type?: string) => void;
   signaler: (message: string) => void;
   /** Demande un fichier au poste et rend son texte (« Ajouter un fichier d'audit… ») ; absent, pas de depot. */
@@ -78,6 +83,10 @@ export interface CatalogueAudits {
   /** Pourquoi cet audit ne s'ouvre pas dans ce projet ; null s'il s'y ouvre. */
   raisonOuvrir(a: FicheAudit): string | null;
   ouvrir(a: FicheAudit): Promise<void>;
+  /** Pourquoi l'avant et l'apres de cet audit ne se voient pas ici ; null s'ils se voient. */
+  raisonConsulter(a: FicheAudit): string | null;
+  /** L'avant et l'apres de l'audit, sur la Vue 3D du projet ouvert (meme parcelle) : la base des decisions. */
+  consulter(a: FicheAudit): Promise<void>;
   telecharger(a: FicheAudit): Promise<void>;
   /** Premiere touche : la ligne demande confirmation ; `confirmer` retire, `garder` renonce. */
   demanderRetrait(a: FicheAudit): void;
@@ -270,6 +279,21 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
       if (raison) { d.signaler(raison); return; }
       const texte = await lire(a);
       if (texte !== null) d.ouvrir(texte, a);
+    },
+    raisonConsulter(a) {
+      if (a.nature === 'promenade') return 'Une promenade des toits n’a pas d’avant ni d’après à comparer.';
+      if (!d.consulter) return 'La consultation n’est pas branchée.';
+      const idu = d.iduProjet();
+      if (!idu) return 'Ouvrez le projet de la parcelle ' + a.idu + ' : l’avant et l’après se voient sur son modèle 3D.';
+      if (a.idu !== idu) return 'Ce projet est sur la parcelle ' + idu + ' : ouvrez le projet de la parcelle ' + a.idu + ' pour voir l’avant et l’après.';
+      if (a.propositions && !a.propositions.total) return 'Cet audit n’a aucune proposition : rien à comparer.';
+      return null;
+    },
+    async consulter(a) {
+      const raison = catalogue.raisonConsulter(a);
+      if (raison) { d.signaler(raison); return; }
+      const texte = await lire(a);
+      if (texte !== null) d.consulter?.(texte, a);
     },
     async telecharger(a) {
       const texte = await lire(a);

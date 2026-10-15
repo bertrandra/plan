@@ -93,6 +93,33 @@ describe('le catalogue des audits de parcelle', () => {
     expect(sans.raisonOuvrir(fiche({}))).toBe('Ce projet n’a pas de parcelle cadastrale : importez d’abord la parcelle depuis son adresse.');
   });
 
+  it('montre l avant et l apres d un audit sur la Vue 3D du projet, sans rien ecrire (meme parcelle)', async () => {
+    const consulter = vi.fn();
+    const t = monter({ consulter });
+    await act(async () => { await t.catalogue.relire(); });
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.avantApres'));
+    expect(t.c.lire).toHaveBeenCalledWith('20261013-154200-0000abcd');
+    expect(consulter).toHaveBeenCalledWith('{"format":"plan-audit-parcelle","id":"20261013-154200-0000abcd"}', expect.objectContaining({ id: '20261013-154200-0000abcd' }));
+    expect(t.d.ouvrir).not.toHaveBeenCalled();
+  });
+
+  it('ne le propose pas sans parcelle, sur une autre parcelle, sans proposition, ni pour une promenade', async () => {
+    const consulter = vi.fn();
+    const t = monter({ consulter });
+    await act(async () => { await t.catalogue.relire(); });
+    // Une autre parcelle : bouton grise, la raison sous les boutons (celle d'« Ouvrir » vient d'abord).
+    expect(bouton(cartes()[2], 'auditsParcelle.avantApres')?.disabled).toBe(true);
+    expect(t.catalogue.raisonConsulter(AUDITS[2] as FicheAudit)).toBe('Ce projet est sur la parcelle ' + IDU + ' : ouvrez le projet de la parcelle 35238000AB0001 pour voir l’avant et l’après.');
+    const sans = creerCatalogue({ ...t.d, consulter, iduProjet: () => null });
+    expect(sans.raisonConsulter(fiche({}))).toBe('Ouvrez le projet de la parcelle ' + IDU + ' : l’avant et l’après se voient sur son modèle 3D.');
+    expect(t.catalogue.raisonConsulter(fiche({ propositions: { total: 0, claude: 0, mesures: 0, validees: 0, refusees: 0, enAttente: 0 } }))).toBe('Cet audit n’a aucune proposition : rien à comparer.');
+    expect(t.catalogue.raisonConsulter(fiche({ nature: 'promenade', idu: '', commune: 'Le Vésinet' }))).toBe('Une promenade des toits n’a pas d’avant ni d’après à comparer.');
+    // La consultation n'est pas lue quand elle est refusee.
+    await act(async () => { await t.catalogue.consulter(AUDITS[2] as FicheAudit); });
+    expect(consulter).not.toHaveBeenCalled();
+    expect(t.d.signaler).toHaveBeenCalledWith(expect.stringContaining('Ce projet est sur la parcelle'));
+  });
+
   it('telecharge le fichier tel qu il est arrive, sous le nom du fichier de l audit', async () => {
     const t = monter();
     await act(async () => { await t.catalogue.relire(); });

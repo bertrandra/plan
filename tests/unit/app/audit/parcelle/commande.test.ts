@@ -169,5 +169,60 @@ describe('la commande admin.auditsParcelle', () => {
     expect(c.remplacer).toHaveBeenCalledWith('a', '', expect.any(String), 'sauvegarde');
     expect(c.envoyer).not.toHaveBeenCalled();
   });
-});
+  it('montre l avant et l apres d un audit recu sur l ecran des propositions, en lecture seule et a part de l audit en cours', async () => {
+    const proposition = { id: 'maison:couverture', cible: { type: 'batiment', cle: 'maison' }, objet: 'Toit de Maison', avant: 'tuile', apres: 'ardoise', source: 'mesure', indices: [], confiance: 0.9, remplaceChoix: null, reserve: null, effet: { type: 'couverture', couverture: 'ardoise' } };
+    const termine = JSON.stringify({ ...JSON.parse(sauvegarde('78650000AE0101')), finCapture: '2026-10-13T08:30:00.000Z', propositions: [{ ...proposition, decision: 'validee' }], decisions: [{ t: '2026-10-13T09:00:00.000Z', acceptees: ['maison:couverture'], refusees: [], verifies: [] }] });
+    const objets = [parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })];
+    const etat = creerEtat({ objects: objets } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const c: ClientAudits = {
+      envoyer: vi.fn(), remplacer: vi.fn(), retirer: vi.fn(), lister: vi.fn(async () => [{ ...fiche('a', '78650000AE0101'), phase: 'analyse' as const, propositions: { total: 1, claude: 0, mesures: 1, validees: 1, refusees: 0, enAttente: 0 } }]),
+      lire: vi.fn(async () => termine),
+    };
+    const b = brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: () => {}, stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, audits: () => c, admin: () => true, lireGrille: async () => null,
+    }, cmd);
+    entrerEnAdmin();
+    cmd.executer('admin.auditsParcelle');
+    const p = parcours.courant();
+    if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
+    await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(1));
+    const avant = JSON.stringify(etat.objects);
+    await p.catalogue.consulter(p.catalogue.etat().audits?.[0] as FicheAudit);
+    const q = parcours.courant();
+    if (q?.type !== 'auditParcelle') throw new Error('consultation absente');
+    expect(q.session.lectureSeule()).toBe(true);
+    expect(q.session.ecran()).toBe('propositions');
+    expect(q.session.validation.propositions().map((x) => x.id)).toEqual(['maison:couverture']);
+    expect(q.session.validation.decision('maison:couverture')).toBe('validee');
+    // L'audit en cours de l'administrateur n'est pas touche, ni le projet.
+    expect(b.session()).toBeNull();
+    expect(JSON.stringify(etat.objects)).toBe(avant);
+    // « Retour aux audits » rouvre le meme catalogue.
+    q.retour?.();
+    expect(parcours.courant()).toMatchObject({ type: 'auditsParcelle', catalogue: p.catalogue });
+  });
 
+  it('refuse la consultation d un fichier d une autre parcelle, sans rien ouvrir', async () => {
+    const etat = creerEtat({ objects: [parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })] } as never, (o) => o as never);
+    const cmd = creerRegistre(droits(true));
+    const messages: string[] = [];
+    const c: ClientAudits = {
+      envoyer: vi.fn(), remplacer: vi.fn(), retirer: vi.fn(), lister: vi.fn(async () => [fiche('a', '78650000AE0101')]),
+      lire: vi.fn(async () => sauvegarde('78650000AE0199')),
+    };
+    brancherAuditParcelle({
+      etat, ouvrir3d: vi.fn(), signaler: (m) => messages.push(m), stockage: null, suivre: () => () => {}, boussole: { suivre: () => () => {}, autoriser: async () => false },
+      surligner: () => {}, retirerPosition: () => {}, audits: () => c, admin: () => true,
+    }, cmd);
+    entrerEnAdmin();
+    cmd.executer('admin.auditsParcelle');
+    const p = parcours.courant();
+    if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
+    await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(1));
+    await p.catalogue.consulter(p.catalogue.etat().audits?.[0] as FicheAudit);
+    expect(messages.at(-1)).toMatch(/^Consultation refusée : Ce fichier est l’audit de la parcelle 78650000AE0199/);
+    expect(parcours.courant()?.type).toBe('auditsParcelle');
+  });
+});
