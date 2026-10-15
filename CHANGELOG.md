@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les façades de près** (`MD/roadmap-realisme-3d.md`, R2 ; `three/fenetresRelief.ts`). Sur la
+  parcelle du projet et ses abords (45 m), hors qualité Économe, les baies se creusent : encadrement en
+  pierre claire saillant (tableaux et linteau), appui qui déborde, menuiserie et vitre au nu du mur ;
+  petits bois selon l'époque (BD TOPO : deux vantaux à trois carreaux avant 1950, deux vantaux sans
+  carreaux jusqu'en 1975). La porte d'entrée a deux panneaux en relief (et une imposte vitrée si elle
+  est haute), la porte de garage ses lames. La maçonnerie suit l'époque : corniche sous l'égout avant
+  1975, bandeaux d'étage avant 1950 (interrompus au droit des baies), chaînes d'angle en harpe avant
+  1930. **Le .glb garde les baies à plat d'avant** : le relief et la maçonnerie sont propres à l'écran,
+  l'empreinte `glb-structure.json` ne bouge pas (point 24).
 - **La lumière de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R1 ; `three/rendu.ts`). Une courbe de
   film (ACES) : les blancs ne brûlent plus, les ombres gardent du détail. Un ciel dégradé qui suit
   l'heure du soleil — bleu le jour, doré au couchant, nuit profonde — avec une lueur autour du soleil ;

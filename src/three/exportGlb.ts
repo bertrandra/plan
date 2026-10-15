@@ -12,7 +12,7 @@ import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import { estMesh } from './gardes.js';
-import { GABARIT_SOL, HORS_EXPORT } from './primitives.js';
+import { GABARIT_SOL, HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
@@ -39,8 +39,13 @@ type MateriauCarte = THREE_NS.Material & { map?: THREE_NS.Texture | null };
  */
 export function masquerGabarits(scene: THREE_NS.Object3D): () => void {
   const caches: THREE_NS.Object3D[] = [];
-  scene.traverse(o => { if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT]) && o.visible) { o.visible = false; caches.push(o); } });
-  return () => caches.forEach(o => { o.visible = true; });
+  const montres: THREE_NS.Object3D[] = [];
+  scene.traverse(o => {
+    if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT]) && o.visible) { o.visible = false; caches.push(o); }
+    // Ce que l'ecran a remplace par un dessin plus fin repart tel qu'avant dans le modele.
+    else if (o.userData[EXPORT_SEULEMENT] && !o.visible) { o.visible = true; montres.push(o); }
+  });
+  return () => { caches.forEach(o => { o.visible = true; }); montres.forEach(o => { o.visible = false; }); };
 }
 
 /**

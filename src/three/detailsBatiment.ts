@@ -30,6 +30,9 @@ import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
+import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
+import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
+import { niveaux } from '../facade/ouvertures.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteDetails {
@@ -50,6 +53,15 @@ export interface ContexteDetails {
   sol?: ((p: PtBrut) => number) | undefined;
   /** Sur un sol en relief : le point le plus bas du sol sous l'emprise, depuis la meme origine (zero ou moins). */
   base?: number | undefined;
+  /**
+   * Les facades de pres (R2, three/fenetresRelief.ts) : baies en creux et maconnerie, a l'ecran
+   * seulement. Pose par la scene pour les batiments proches, hors qualite Econome.
+   */
+  relief?: boolean | undefined;
+  /** L'annee du batiment (BD TOPO) : elle choisit les petits bois et la maconnerie ; inconnue, ni l'un ni l'autre. */
+  annee?: number | null | undefined;
+  /** La distance du detail fin, selon le niveau de qualite ; absente, `DETAIL_FIN_M`. */
+  detailFin?: number | undefined;
 }
 
 export interface OptionsDetails {
@@ -393,6 +405,10 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     portes: (() => void)[] = [];
   // Les volets, coffres, balcons et garde-corps des ouvertures qui en ont (three/detailsOuvertures.ts).
   const poses: PoseOuverture[] = [];
+  // De pres, l'ecran montre les baies en creux (R2) ; le maillage a plat ci-dessus reste pour l'export.
+  const relief = ctx.relief ? { b: batisseursBaies(), formes: new Batisseur(), cadresFormes: [] as (() => void)[], vitresFormes: [] as (() => void)[], portesFormes: [] as (() => void)[], parCote: new Map<number, BaieRelief[]>() } : null;
+  const carreaux = (o: Fenetre3d) => carreauxSelonEpoque(ctx.annee ?? null, o.h);
+  const noterBaie = (f: Facade, o: BaieRelief) => { if (!relief) return; const l = relief.parCote.get(f.cote) ?? []; l.push(o); relief.parCote.set(f.cote, l); };
   // Une baie cintree ou ronde : son cadre et sa vitre suivent son contour (lot G17) ; les autres
   // gardent exactement leurs deux quads d'avant.
   const forme = (f: Facade, o: Fenetre3d, y: number, vers: (() => void)[], porte: boolean) => {
@@ -400,6 +416,12 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     const c = cadreEtVitreFormes(b, pt, { ...o, y }, CADRE_M, DECOLLEMENT, DECOLLEMENT * 2, porte);
     cadres.push(c.cadre);
     if (c.vitre) vers.push(c.vitre);
+    // Une baie cintree reste a plat a l'ecran aussi : son contour courbe ne se creuse pas (encore).
+    if (relief) {
+      const e = cadreEtVitreFormes(relief.formes, pt, { ...o, y }, CADRE_M, DECOLLEMENT, DECOLLEMENT * 2, porte);
+      relief.cadresFormes.push(e.cadre);
+      if (e.vitre) (porte ? relief.portesFormes : relief.vitresFormes).push(e.vitre);
+    }
   };
   liste.forEach((o) => {
     const f = facades.find((x) => x.cote === o.cote);
@@ -412,6 +434,11 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
       else {
         cadres.push(() => rect(f, o.x - CADRE_M, yp, o.l + 2 * CADRE_M, o.h + CADRE_M, DECOLLEMENT));
         portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
+        if (relief) {
+          const baie = { x: o.x, y: yp, l: o.l, h: o.h };
+          (o.type === 'garage' ? poserGarageEnCreux : poserPorteEnCreux)(relief.b, repereFacade(ctx.toLocal, f), baie, hMur);
+          noterBaie(f, baie);
+        }
       }
       if (aDesDetails(o.details)) poses.push({ f, o: { ...o, y: yp }, hMur, cadre: CADRE_M });
       return;
@@ -421,6 +448,11 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
     else {
       cadres.push(() => rect(f, o.x - CADRE_M, o.y - CADRE_M, o.l + 2 * CADRE_M, o.h + 2 * CADRE_M, DECOLLEMENT));
       vitres.push(() => rect(f, o.x, o.y, o.l, o.h, DECOLLEMENT * 2));
+      if (relief) {
+        const baie = { x: o.x, y: o.y, l: o.l, h: o.h };
+        poserFenetreEnCreux(relief.b, repereFacade(ctx.toLocal, f), baie, carreaux(o), hMur);
+        noterBaie(f, baie);
+      }
     }
     if (aDesDetails(o.details)) poses.push({ f, o, hMur, cadre: CADRE_M });
   });
@@ -438,8 +470,72 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   ];
   // Un centimetre devant le mur ne suffit pas vu de loin : les ouvertures gagnent le test de profondeur.
   materiaux.forEach((m) => poserEnCouche(m, COUCHES_SOL.surMur));
-  ctx.scene.add(b.maillage(materiaux, 'batiment-ouvertures'));
+  const aPlat = b.maillage(materiaux, 'batiment-ouvertures');
+  ctx.scene.add(aPlat);
+  if (relief) {
+    // A l'ecran, les baies en creux ; au .glb, celles d'avant (EXPORT_SEULEMENT, three/exportGlb.ts).
+    aPlat.visible = false;
+    aPlat.userData[EXPORT_SEULEMENT] = true;
+    poserBaiesEnCreux(ctx, relief.b, materiaux, options.fenetres?.couleur);
+    if (relief.cadresFormes.length) {
+      relief.cadresFormes.forEach((f) => f()); relief.formes.groupe(0);
+      relief.vitresFormes.forEach((f) => f()); relief.formes.groupe(1);
+      relief.portesFormes.forEach((f) => f()); relief.formes.groupe(2);
+      const m = relief.formes.maillage(materiaux, 'batiment-baies-formes');
+      m.userData[HORS_EXPORT] = true;
+      ctx.scene.add(m);
+    }
+    poserMaconnerieDesFacades(ctx, contour, facades, volumes, releves, relief.parCote, options);
+  }
   poserDetailsOuvertures(ctx, poses);
+}
+
+/** Les baies en creux d'un batiment : quatre maillages (pierre, menuiserie, vitre, porte), hors export. */
+function poserBaiesEnCreux(ctx: ContexteDetails, b: BatisseursBaies, aPlat: THREE_NS.MeshStandardMaterial[], couleurVitre: string | undefined): void {
+  const groupe = new THREE.Group();
+  groupe.name = 'batiment-baies-relief';
+  groupe.userData[HORS_EXPORT] = true;
+  const vitre = new THREE.MeshStandardMaterial({ color: couleurVitre ?? VITRE.couleur, roughness: VITRE.rugosite, metalness: VITRE.metal });
+  poserEnCouche(vitre, COUCHES_SOL.surMur);
+  const pieces: [Batisseur, THREE_NS.Material, string][] = [
+    [b.encadrement, new THREE.MeshStandardMaterial({ color: couleurPierre(ctx.couleurMur), roughness: 0.85 }), 'encadrement'],
+    [b.menuiserie, aPlat[0] as THREE_NS.Material, 'menuiserie'],
+    [b.vitre, vitre, 'vitre'],
+    [b.porte, aPlat[2] as THREE_NS.Material, 'porte'],
+  ];
+  pieces.forEach(([bat, mat, nom]) => {
+    if (bat.vide) return;
+    bat.groupe(0);
+    groupe.add(bat.maillage([mat], 'baies-' + nom));
+  });
+  ctx.scene.add(groupe);
+}
+
+/**
+ * La maconnerie de chaque mur donnant dehors (corniche, bandeaux, chaines d'angle) selon l'epoque du
+ * batiment. Un mur photographie garde sa photo ; un mur commun n'en recoit pas.
+ */
+function poserMaconnerieDesFacades(ctx: ContexteDetails, contour: readonly PtBrut[], facades: readonly Facade[], volumes: readonly Volume[], releves: ReadonlySet<number>, baies: ReadonlyMap<number, BaieRelief[]>, options: OptionsDetails): void {
+  const m = maconnerieSelonEpoque(ctx.annee ?? null);
+  if (!m.corniche && !m.bandeaux && !m.chaines) return;
+  const b = new Batisseur();
+  const n = contour.length;
+  const angleEn = (i: number) => tournant(au(contour, (i - 1 + n) % n), au(contour, i), au(contour, (i + 1) % n)) >= ANGLE_ARETE_MIN_DEG;
+  facades.forEach((f) => {
+    if (releves.has(f.cote)) return;
+    const hMur = hauteurDuMur(f, volumes);
+    const i = f.cote, j = (f.cote + 1) % n;
+    // `gauche` est l'extremite vue de dehors : l'un des deux sommets du cote.
+    const gaucheEstI = Math.hypot(f.gauche.x - au(contour, i).x, f.gauche.y - au(contour, i).y) < 1e-6;
+    const angles = { gauche: angleEn(gaucheEstI ? i : j), droite: angleEn(gaucheEstI ? j : i) };
+    poserMaconnerie(b, repereFacade(ctx.toLocal, f), { largeur: f.largeur, hauteur: hMur }, m, niveaux(hMur, options.etages, options.profil), angles, baies.get(f.cote) ?? []);
+  });
+  if (b.vide) return;
+  b.groupe(0);
+  const mat = new THREE.MeshStandardMaterial({ color: couleurPierre(ctx.couleurMur), roughness: 0.85 });
+  const maillage = b.maillage([mat], 'batiment-maconnerie');
+  maillage.userData[HORS_EXPORT] = true;
+  ctx.scene.add(maillage);
 }
 
 /** Une cheminee sur un toit en pente assez grand : un carre de brique (ou de pierre grise sous l'ardoise), a cote du faitage. */
@@ -471,7 +567,7 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   const volumes = multi ?? volumesDuBatiment(o.pts, h, o.facades);
   const contourHaut = au(volumes, 0).pts;
   const toit = options.sansToit ? null : o.toit;
-  const pres = ctx.distance <= DETAIL_FIN_M;
+  const pres = ctx.distance <= (ctx.detailFin ?? DETAIL_FIN_M);
   // Chaque corps de batiment a son debord a son egout ; sinon le debord suit la partie haute.
   if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres, o.pts));
   else if (toit) poserDebord(ctx, contourHaut, toit, h, pres);
