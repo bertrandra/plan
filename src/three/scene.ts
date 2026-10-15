@@ -30,6 +30,7 @@ import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d
 import { cadreOmbres, monterRendu } from './rendu.js';
 import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
 import { placeEchelle, poserObjetsEchelle } from './objetsEchelle.js';
+import { accorderFocale } from './presentation.js';
 import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
@@ -996,7 +997,9 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   animer();
   derniere = { sc, co, obj, ground };
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
-  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); actualiserFeuillesProches(scene, camera); rendre3d(sc); };
+  // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
+  const solCentre = sol ? sol.hauteur(cen) : 0;
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); actualiserFeuillesProches(scene, camera); rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);

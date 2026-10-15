@@ -12,7 +12,7 @@
 export type Qualite3d = 'econome' | 'normale' | 'soignee';
 
 export const QUALITES_3D: readonly { id: Qualite3d; libelle: string; aide: string }[] = [
-  { id: 'econome', libelle: 'Économe', aide: 'Pour un téléphone ancien : sans ombres par défaut, sans lissage des arêtes, détails réduits' },
+  { id: 'econome', libelle: 'Économe', aide: 'Pour un téléphone ancien : sans ombres par défaut, sans lissage des arêtes, sans effets de lumière ni façades de près' },
   { id: 'normale', libelle: 'Normale', aide: 'Ombres et lissage des arêtes : le bon compromis sur la plupart des appareils' },
   { id: 'soignee', libelle: 'Soignée', aide: 'Pleine définition de l’écran, ombres fines, effets de lumière : plus lent' }
 ];
@@ -31,7 +31,11 @@ export interface ParametresQualite {
   environnement: boolean;
   /** Occlusion ambiante (SSAO) : les coins, le pied des murs et le dessous des debords s'assombrissent. */
   occlusion: boolean;
-  /** Distance au centre de la parcelle au-dela de laquelle un batiment passe en modele allege, en metres. */
+  /**
+   * Distance au centre de la parcelle au-dela de laquelle un batiment passe en modele allege, en
+   * metres. La meme a tous les niveaux : les details entrent dans le .glb, et un niveau de qualite ne
+   * doit pas changer un export (le point 24 de la fumee l'a montre en Econome).
+   */
   detailFinM: number;
 }
 
@@ -39,7 +43,7 @@ export interface ParametresQualite {
 export const DETAIL_FIN_M = 120;
 
 const PARAMETRES: Record<Qualite3d, ParametresQualite> = {
-  econome: { pixelRatioMax: 1, anticrenelage: false, ombresParDefaut: false, carteOmbre: 1024, environnement: false, occlusion: false, detailFinM: 60 },
+  econome: { pixelRatioMax: 1, anticrenelage: false, ombresParDefaut: false, carteOmbre: 1024, environnement: false, occlusion: false, detailFinM: DETAIL_FIN_M },
   normale: { pixelRatioMax: 1, anticrenelage: true, ombresParDefaut: true, carteOmbre: 2048, environnement: true, occlusion: false, detailFinM: DETAIL_FIN_M },
   soignee: { pixelRatioMax: 2, anticrenelage: true, ombresParDefaut: true, carteOmbre: 4096, environnement: true, occlusion: true, detailFinM: DETAIL_FIN_M }
 };

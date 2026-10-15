@@ -10,7 +10,7 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb, signaler3d, rendre3d } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d, rendre3d, soleilVue3d } from '../../three/etat3d.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/exportGlb.js';
@@ -23,6 +23,9 @@ import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { estTerrasse } from '../../model/fonctions.js';
+import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive } from '../../three/presentation.js';
+import { cameraDepuisPointDeVue } from '../../three/navigation.js';
+import type { PointDeVue } from '../../three/etat3d.js';
 import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
 
 /** Ce que les commandes de la Vue 3D pilotent, en plus de l'atelier. */
@@ -39,6 +42,9 @@ export interface ContexteVue3d {
   glbViewerPleinePage: () => boolean;
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
+  /** Pose le soleil de la Vue 3D d'apres ses reglages (l'heure doree le deplace). */
+  appliquerLumiere: () => void;
+  lieuActuel: () => { latitude: number; longitude: number };
 }
 
 /** Les cases du panneau de la Vue 3D (zones/vue3d/) : ce qu'il y a dans la scène. */
@@ -83,6 +89,52 @@ function qualiteDeLAppareil(): Qualite3d {
     memoireGo: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
     tactile: media('(pointer: coarse)') && !media('(any-pointer: fine)')
   });
+}
+
+/**
+ * La presentation (R6, three/presentation.ts) : heure doree, capture HD, promenade. Trois gestes pour
+ * montrer le projet : ni annulation, ni « projet modifie », permis en lecture seule.
+ */
+function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes, terrasseCourante: () => ObjetPlan | undefined): void {
+  const cam = (_idDom: string, id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: '3d', executer });
+  cam('terrasse3dHeureDoree', '3d.heureDoree', 'Heure dorée', () => {
+    const m = minutesHeureDoree(soleilVue3d.dateStr, ctx.lieuActuel());
+    if (m === null) { showToast('Heure dorée : le soleil ne se couche pas ce jour-là, ou la date est illisible.'); return; }
+    soleilVue3d.minutes = m;
+    ctx.appliquerLumiere();
+    signaler3d();
+  });
+  cam('terrasse3dCaptureHd', '3d.captureHd', 'Capture HD', () => {
+    const sc = vue3d.scene;
+    if (!sc) { showErrBanner('Vue 3D pas encore chargee.'); return; }
+    void capturerHd(sc, () => rendre3d(sc)).then((blob) => {
+      if (!blob) { showErrBanner('Capture HD : l’image n’a pas pu être produite (définition trop grande pour cet appareil ?).'); return; }
+      const obj = terrasseCourante();
+      telechargerBlob('vue3d_hd_' + nomFichierTerrasse(obj && obj.name) + '.png', blob);
+    });
+  });
+  /** Les points de vue du plan, dans l'ordre de leur creation, en coordonnees de la scene. */
+  const etapesPromenade = () => {
+    const sc = vue3d.scene;
+    if (!sc) return [];
+    return a.etat.objects.filter((o) => o.fonction === 'camera').map((o) => {
+      const c = cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
+      return { position: c.position, cible: c.cible };
+    });
+  };
+  cmd.declarer({
+    id: '3d.promenade', libelle: 'Promenade', groupe: '3d',
+    // Il faut deux points de vue pour se promener de l'un a l'autre.
+    actif: () => promenadeActive() || etapesPromenade().length >= 2,
+    executer: () => {
+      if (promenadeActive()) { arreterPromenade(); return; }
+      const sc = vue3d.scene;
+      if (!sc) return;
+      lancerPromenade(sc, etapesPromenade(), () => signaler3d());
+      signaler3d();
+    }
+  });
+
 }
 
 /** Le pas des boutons + et − de la Vue 3D : la distance a la cible divisee (ou multipliee) par deux. */
@@ -163,6 +215,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     showToast('Point de vue cree : "' + newObj.name + '" (visible en Mode Plan).');
   // Il ajoute un objet au plan : en lecture seule, le geste est refuse comme toute ecriture (D-17).
   }, PERMISSION_ECRITURE);
+
+  brancherPresentation(a, ctx, cmd, terrasseCourante);
 
   // ---- Plein page, pour les deux vues ----------------------------------------------------------
   cam('terrasse3dFullPageBtn', '3d.pleinePage', 'Plein écran', () => ctx.setVue3dPleinePage(!ctx.vue3dPleinePage()));

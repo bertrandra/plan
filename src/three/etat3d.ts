@@ -48,6 +48,8 @@ export interface SceneTroisBase {
   rendre?: () => void;
   /** Ce qui suit la taille du canevas en plus du rendu et de la camera (les passes de l'occlusion). */
   redimensionner?: (w: number, h: number) => void;
+  /** Ce qui suit le rapport de pixels du rendu (une capture haute definition, three/presentation.ts). */
+  rapportPixels?: (r: number) => void;
 }
 
 /** Rend une image de la scene, par ses passes si elle en a. */
@@ -200,6 +202,11 @@ export const vue3d: {
   pauseRendu: boolean;
   /** Une voiture et une silhouette, pour l'echelle (three/objetsEchelle.ts) ; decochees par defaut. */
   objetsEchelle: boolean;
+  /**
+   * La focale est tenue par un autre (la prise de vue de l'audit, app/audit/parcelle/vuePrise.ts) :
+   * elle ne suit plus la hauteur de la camera (three/presentation.ts).
+   */
+  focaleBloquee: boolean;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -216,7 +223,8 @@ export const vue3d: {
   ombres: true,
   qualite: 'normale',
   pauseRendu: false,
-  objetsEchelle: false
+  objetsEchelle: false,
+  focaleBloquee: false
 };
 
 /**

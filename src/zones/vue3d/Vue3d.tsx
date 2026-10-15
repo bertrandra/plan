@@ -14,6 +14,7 @@ import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
 import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
+import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
@@ -34,6 +35,28 @@ function Case({ id, controle, libelle, coche, titre, onChange }: { id: string; c
     <label className="caseReglage" title={titre}>
       <input type="checkbox" id={id} data-controle={controle} checked={coche} onChange={(e) => onChange(e.target.checked)} /> {libelle}
     </label>
+  );
+}
+
+/** Le groupe « Présentation » (R6) : heure dorée, promenade, capture HD, chacun une commande. */
+function GroupePresentation({ commandes }: { commandes: RegistreCommandes }) {
+  return (
+    <fieldset className="groupe3d">
+      <legend>Présentation</legend>
+      {(['3d.heureDoree', '3d.promenade', '3d.captureHd'] as const).map((id) => {
+        const e = commandes.etat(id);
+        if (!e.utilisable && e.raison === 'capacite') return null;
+        const libelle = id === '3d.promenade' && promenadeActive() ? 'Arrêter la promenade' : (commandes.obtenir(id)?.libelle ?? id);
+        return (
+          <button key={id} data-commande={id} type="button" className="objbtn small boutonVue3d"
+            title={(!e.utilisable && 'message' in e ? e.message : null) ?? commandes.obtenir(id)?.description}
+            disabled={!e.utilisable}
+            onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
+            <Icone nom={id === '3d.heureDoree' ? 'soleil' : id === '3d.captureHd' ? 'image' : 'pointDeVue'} taille={18} /><span className="libelleVue3d">{libelle}</span>
+          </button>
+        );
+      })}
+    </fieldset>
   );
 }
 
@@ -119,6 +142,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
               <legend>Soleil</legend>
               <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
             </fieldset>
+            <GroupePresentation commandes={commandes} />
             <fieldset className="groupe3d">
               <legend>Points de vue</legend>
               <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small boutonVue3d"

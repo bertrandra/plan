@@ -11,7 +11,7 @@ vi.mock('../../../../src/shell/download.js', () => ({ telechargerBlob: (nom: str
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { brancherVue3d, type ContexteVue3d } from '../../../../src/app/ecouteurs/vue3d.js';
 import { brancherVisionneuse, type ContexteVisionneuse } from '../../../../src/app/ecouteurs/visionneuse.js';
-import { vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
+import { soleilVue3d, vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
 import { fauxAtelier, droits } from './faux.js';
 import type { ObjetPlan } from '../../../../src/model/types.js';
 
@@ -37,7 +37,8 @@ function monter(ecrire = true) {
   const ctx: ContexteVue3d = {
     zoom3D: vi.fn(), setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
     setVue3dPleinePage: vi.fn((v: boolean) => { plein = v; }), setGlbViewerPleinePage: vi.fn(),
-    vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn()
+    vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn(),
+    appliquerLumiere: vi.fn(), lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })
   };
   const cmd = creerRegistre(droits(ecrire));
   const reglages = brancherVue3d(a, ctx, cmd);
@@ -161,5 +162,24 @@ describe('visionneuse', () => {
     expect(glb.filaire).toBe(true);
     expect(ctx.rafraichir).toHaveBeenCalledTimes(1);
     glb.ouvert = false; glb.filaire = false; glb.ombres = true;
+  });
+});
+
+describe('la presentation (R6)', () => {
+  it('l heure doree place le soleil avant son coucher, sans toucher au projet', () => {
+    const { a, ctx, cmd } = monter();
+    soleilVue3d.dateStr = '2026-06-21';
+    soleilVue3d.minutes = 12 * 60;
+    cmd.executer('3d.heureDoree');
+    // Au Vesinet le 21 juin, le soleil se couche vers 21 h 58 : l'heure doree commence vers 21 h.
+    expect(soleilVue3d.minutes).toBeGreaterThan(20 * 60 + 40);
+    expect(soleilVue3d.minutes).toBeLessThan(21 * 60 + 30);
+    expect(ctx.appliquerLumiere).toHaveBeenCalled();
+    expect(a.etat.dirty).toBeFalsy();
+  });
+
+  it('la promenade demande deux points de vue', () => {
+    const { cmd } = monter();
+    expect(cmd.etat('3d.promenade').utilisable).toBe(false);
   });
 });

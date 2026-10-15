@@ -154,6 +154,8 @@ export function vuePieton(): VuePieton {
     const bas = hautEcran === null ? 0 : el.getBoundingClientRect().bottom - hautEcran;
     const b = Math.max(0, Math.min(h * 0.6, bas));
     if (champAvant === null) champAvant = sc.camera.fov;
+    // La prise de vue tient la focale : la Vue 3D ne l'accorde plus a la hauteur (three/presentation.ts).
+    vue3d.focaleBloquee = true;
     sc.camera.fov = champComplet(h, b);
     // La camera voit h + b pixels de haut, centres sur l'axe ; on montre les h du bas : l'axe tombe
     // au milieu de la partie visible, au-dessus de l'ecran de prise.
@@ -196,6 +198,7 @@ export function vuePieton(): VuePieton {
     arreter() { but = null; },
     liberer() {
       but = null;
+      vue3d.focaleBloquee = false;
       const sc = vue3d.scene;
       if (!sc || champAvant === null) return;
       const el = sc.renderer.domElement;

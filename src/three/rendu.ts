@@ -288,6 +288,7 @@ export function chargerOcclusion(): Promise<boolean> {
 export interface Occlusion {
   render(): void;
   setSize(w: number, h: number): void;
+  setPixelRatio(r: number): void;
   dispose(): void;
 }
 
@@ -337,7 +338,9 @@ export function brancherOcclusion(renderer: THREE_NS.WebGLRenderer, scene: THREE
   composer.setSize(w, h);
   return {
     render: () => composer.render(),
-    setSize: (l, ht) => { composer.setSize(l, ht); passe.setSize(l, ht); },
+    // Le compositeur redimensionne ses passes lui-meme, a la definition du rendu.
+    setSize: (l, ht) => composer.setSize(l, ht),
+    setPixelRatio: (r) => composer.setPixelRatio(r),
     dispose: () => { passe.dispose?.(); composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); }
   };
 }
@@ -376,6 +379,7 @@ export function monterRendu(sc: SceneVue3d, niveau: ParametresQualite, procheM: 
       etat.occlusion = o;
       sc.rendre = o.render;
       sc.redimensionner = o.setSize;
+      sc.rapportPixels = o.setPixelRatio;
       o.render();
     });
   }

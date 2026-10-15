@@ -2,22 +2,22 @@
  "profil": "Chromium sans carte graphique (SwiftShader) ; compact = processeur ralenti x4",
  "compact": {
   "econome": {
-   "constructionMs": 812,
-   "imageMs": 134.5,
-   "imagesParSeconde": 7.4,
+   "constructionMs": 939,
+   "imageMs": 136.4,
+   "imagesParSeconde": 7.3,
    "triangles": 86222,
    "appels": 280
   },
   "normale": {
-   "constructionMs": 1921,
-   "imageMs": 372,
-   "imagesParSeconde": 2.7,
-   "triangles": 48324,
+   "constructionMs": 1912,
+   "imageMs": 427.4,
+   "imagesParSeconde": 2.3,
+   "triangles": 95556,
    "appels": 321
   },
   "soignee": {
-   "constructionMs": 1883,
-   "imageMs": 579.3,
+   "constructionMs": 1851,
+   "imageMs": 580,
    "imagesParSeconde": 1.7,
    "triangles": 95556,
    "appels": 321
@@ -25,22 +25,22 @@
  },
  "large": {
   "econome": {
-   "constructionMs": 261,
-   "imageMs": 195,
-   "imagesParSeconde": 5.1,
+   "constructionMs": 258,
+   "imageMs": 188.1,
+   "imagesParSeconde": 5.3,
    "triangles": 86510,
    "appels": 283
   },
   "normale": {
-   "constructionMs": 1156,
-   "imageMs": 593,
+   "constructionMs": 1161,
+   "imageMs": 597.3,
    "imagesParSeconde": 1.7,
    "triangles": 96430,
    "appels": 331
   },
   "soignee": {
-   "constructionMs": 1098,
-   "imageMs": 906.8,
+   "constructionMs": 1153,
+   "imageMs": 938,
    "imagesParSeconde": 1.1,
    "triangles": 96430,
    "appels": 331

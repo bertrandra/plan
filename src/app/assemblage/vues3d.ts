@@ -77,7 +77,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     setGlbViewerPleinePage: (a) => nav3d.setGlbViewerPleinePage(a),
     vue3dPleinePage: () => nav3d.vue3dPleinePage,
     glbViewerPleinePage: () => nav3d.glbViewerPleinePage,
-    resizeThreeScene: () => nav3d.resizeThreeScene(), resizeGlbViewerScene: () => nav3d.resizeGlbViewerScene()
+    resizeThreeScene: () => nav3d.resizeThreeScene(), resizeGlbViewerScene: () => nav3d.resizeGlbViewerScene(),
+    appliquerLumiere: appliquerLumiereVue3d, lieuActuel
   }, commandes);
 
   const modes = creerModes({

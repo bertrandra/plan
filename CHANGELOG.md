@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La caméra et la présentation de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R6 ;
+  `three/presentation.ts`). À hauteur d'homme, la focale s'ouvre à 55°, celle d'un œil qui regarde
+  devant lui ; elle revient en douceur aux 45° de la vue d'ensemble en prenant de la hauteur (la prise
+  de vue de l'audit garde la sienne). Un groupe « Présentation » dans les réglages de la vue 3D :
+  « Heure dorée » place le soleil cinquante minutes avant son coucher, au jour choisi ; « Promenade »
+  enchaîne les points de vue enregistrés d'un mouvement doux, et un geste sur la vue l'arrête ;
+  « Capture HD » télécharge la vue à trois fois la définition de l'écran, pour le client. Ni
+  annulation, ni « projet modifié » ; aucun export touché.
 - **Objets d'échelle dans la Vue 3D** (`MD/roadmap-realisme-3d.md`, R5 ; `three/objetsEchelle.ts`). Une
   case « Objets d'échelle » dans les réglages de la vue 3D (groupe « Scène »), décochée par défaut :
   une voiture garée côté rue (le bord de la parcelle qu'aucune voisine ne borde) et une silhouette de
