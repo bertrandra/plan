@@ -53,10 +53,11 @@ function erreur(int $statut, string $code, string $message): void {
 // Cherchee d'abord hors du dossier publie — a cote de la racine web (public_html/), ce qui vaut
 // aussi quand Plan est dans un sous-dossier —, puis a cote du dossier de Plan, puis a cote de ce fichier.
 $config = null;
+$fichierConfig = null;
 $racineWeb = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
 foreach ([getenv('PLAN_ADMIN_CONFIG') ?: null, $racineWeb !== '' ? dirname($racineWeb) . '/plan-admin-config.php' : null,
           dirname(__DIR__) . '/plan-admin-config.php', __DIR__ . '/admin-config.php'] as $f) {
-    if ($f && is_file($f)) { $config = require $f; break; }
+    if ($f && is_file($f)) { $config = require $f; $fichierConfig = $f; break; }
 }
 $motDePasse = is_array($config) ? (string)($config['motDePasse'] ?? '') : '';
 $chemin = trim((string)($_GET['chemin'] ?? ''), '/');
@@ -74,8 +75,14 @@ if ($motDePasse === '' || $motDePasse === 'A-CHANGER') {
     if ($vitrine) erreur(404, 'NOT_CONFIGURED', 'Admin non configuré : plan-admin-config.php absent, ou mot de passe « A-CHANGER ». La vitrine ne peut pas lire ses démos.');
     erreur(404, 'NOT_FOUND', 'Introuvable');
 }
-$dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
-if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer (droits du dossier parent).');
+// Les donnees vivent dans data/, a cote de public_html/ (donnees.php) : les demos dans data/demos/,
+// la palette, les controleurs et les echecs de connexion dans data/admin/.
+require __DIR__ . '/donnees.php';
+$donnees = dossiersDonnees($config, $racineWeb, __DIR__, $fichierConfig);
+migrerDonnees($donnees);
+$dossier = $donnees['demos'];
+if (!is_dir($dossier) && !@mkdir($dossier, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier des demos impossible a creer (droits du dossier parent) : ' . $dossier . '.');
+if (!is_dir($donnees['admin'])) @mkdir($donnees['admin'], 0750, true);
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $lecture = $methode === 'GET' || $methode === 'HEAD';
@@ -112,7 +119,7 @@ if (preg_match('#^vitrine/([^/]+)$#', $chemin, $m)) {
 if ($chemin === 'palette' && $lecture) {
     // Lisible de toute origine, comme la vitrine plus haut : la vitrine encadree en bac a sable la lit.
     header('Access-Control-Allow-Origin: *');
-    $f = $dossier . '/.palette.json';
+    $f = $donnees['palette'];
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
     header('Cache-Control: no-cache');
     header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
@@ -136,9 +143,8 @@ function sessionValide(): bool {
     return isset($_SESSION['admin']) && is_int($_SESSION['admin']) && $_SESSION['admin'] > time();
 }
 
-/** Les echecs recents, par adresse, dans un fichier du dossier des demos. Verrouille. */
-function echecs(string $dossier, string $ip, bool $ajouter, bool $effacer): int {
-    $f = $dossier . '/.echecs.json';
+/** Les echecs recents, par adresse, dans un fichier des reglages de l'admin. Verrouille. */
+function echecs(string $f, string $ip, bool $ajouter, bool $effacer): int {
     $h = fopen($f, 'c+');
     if (!$h) return 0;
     flock($h, LOCK_EX);
@@ -162,7 +168,7 @@ if ($chemin === 'session') {
     }
     if ($methode === 'POST') {
         $ip = trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ($_SERVER['REMOTE_ADDR'] ?? '')))[0]);
-        if (echecs($dossier, $ip, false, false) >= ECHECS_MAX) erreur(429, 'TOO_MANY_ATTEMPTS', 'Trop d’essais. Réessayez dans dix minutes.');
+        if (echecs($donnees['echecs'], $ip, false, false) >= ECHECS_MAX) erreur(429, 'TOO_MANY_ATTEMPTS', 'Trop d’essais. Réessayez dans dix minutes.');
         $corps = json_decode((string)file_get_contents('php://input', false, null, 0, 4096), true);
         $donne = is_array($corps) ? (string)($corps['motDePasse'] ?? '') : '';
         // Un mot de passe range sous forme de hachage (password_hash) ou en clair.
@@ -170,10 +176,10 @@ if ($chemin === 'session') {
             ? password_verify($donne, $motDePasse)
             : hash_equals(hash('sha256', $motDePasse), hash('sha256', $donne));
         if (!$bon) {
-            echecs($dossier, $ip, true, false);
+            echecs($donnees['echecs'], $ip, true, false);
             erreur(401, 'BAD_PASSWORD', 'Mot de passe refusé.');
         }
-        echecs($dossier, $ip, false, true);
+        echecs($donnees['echecs'], $ip, false, true);
         session_regenerate_id(true);
         $_SESSION['admin'] = time() + DUREE_SESSION;
         repondre(200, ['admin' => true]);
@@ -245,7 +251,7 @@ if ($chemin === 'demos') {
 // L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des demos.
 // Le point en tete le garde hors de la liste des demos.
 if ($chemin === 'controleurs') {
-    $f = $dossier . '/.controleurs.json';
+    $f = $donnees['controleurs'];
     if ($lecture) {
         if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun registre des contrôleurs enregistré.');
         http_response_code(200);
@@ -274,7 +280,7 @@ if ($chemin === 'controleurs') {
 // La palette, en ecriture : un document `plan-palette` dont chaque couleur est `#RRGGBB`.
 if ($chemin === 'palette') {
     if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-    $f = $dossier . '/.palette.json';
+    $f = $donnees['palette'];
     $texte = (string)file_get_contents('php://input', false, null, 0, 65537);
     if (strlen($texte) > 65536) erreur(413, 'TOO_LARGE', 'Palette trop grosse (64 Ko au plus).');
     $d = json_decode($texte, true);

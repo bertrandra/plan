@@ -25,7 +25,7 @@
 // Les audits partages pour le corpus (spec-audit 15, decision D7) : l'utilisateur coche « Partager
 // cet audit pour améliorer Plan » ; le fichier arrive ici, par la session admin ou le jeton de la
 // plateforme (`Authorization: Bearer`, verifie aupres d'elle, `plateformeUrl` de la configuration).
-// Ils se rangent dans `<dossierDemos>/audits/`, avec les autres donnees de l'admin, hors du dossier
+// Ils se rangent dans `data/audits/` (donnees.php), avec les autres donnees de l'admin, hors du dossier
 // publie. L'envoi rend un secret de retrait, garde sur l'appareil, seul a pouvoir retirer le fichier
 // quand la personne decoche la case ; le serveur n'en garde que l'empreinte. La sauvegarde de la
 // capture (15) arrive par la meme route, marquee `X-Plan-Depot: sauvegarde`, et chaque envoi remplace
@@ -64,12 +64,14 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, qui observent un
 // batiment sur des photos de rue avec le prompt et le schema de l'analyse ; un usage a part pour que
 // le journal et le tableau de bord en disent le cout.
-const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
+// `rejeu` (15.5) : l'analyse d'un audit stocke, rejouee par l'administrateur pour comparer les modeles
+// et les versions du prompt ; un usage a part pour que le tableau de bord en dise le cout.
+const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
 // buildsg/analyseAdmin.mjs, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
 // immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
 // plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-sonnet-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-sonnet-5-5', 'immediat' => 'claude-sonnet-5-5', 'candidats' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-sonnet-5-5', 'escalade' => 'claude-sonnet-5-5', 'renfort' => 'claude-sonnet-5-5', 'immediat' => 'claude-sonnet-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
 // siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
 const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
@@ -112,10 +114,11 @@ function erreur(int $statut, string $code, string $message, array $plus = []): v
 
 // --- La configuration (celle d'admin.php, cherchee aux memes endroits) -------------------------
 $config = null;
+$fichierConfig = null;
 $racineWeb = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
 foreach ([getenv('PLAN_ADMIN_CONFIG') ?: null, $racineWeb !== '' ? dirname($racineWeb) . '/plan-admin-config.php' : null,
           dirname(__DIR__) . '/plan-admin-config.php', __DIR__ . '/admin-config.php'] as $f) {
-    if ($f && is_file($f)) { $config = require $f; break; }
+    if ($f && is_file($f)) { $config = require $f; $fichierConfig = $f; break; }
 }
 $motDePasse = is_array($config) ? (string)($config['motDePasse'] ?? '') : '';
 if ($motDePasse === '' || $motDePasse === 'A-CHANGER') erreur(404, 'NOT_FOUND', 'Introuvable');
@@ -123,11 +126,16 @@ $cle = (string)($config['anthropicCle'] ?? '');
 $avecCle = $cle !== '' && $cle !== 'A-CHANGER';
 $anthropicUrl = rtrim((string)($config['anthropicUrl'] ?? 'https://api.anthropic.com'), '/');
 $plateformeUrl = rtrim((string)($config['plateformeUrl'] ?? 'https://www.raillard.org'), '/');
-$dossier = rtrim((string)($config['dossierDemos'] ?? (__DIR__ . '/demos')), '/');
+// Les donnees vivent dans data/, a cote de public_html/ (donnees.php) ; claude/, audits/ et
+// conformite/ y ont le meme nom dans les deux dispositions, l'ancienne comprise.
+require __DIR__ . '/donnees.php';
+$donnees = dossiersDonnees($config, $racineWeb, __DIR__, $fichierConfig);
+migrerDonnees($donnees);
+$dossier = $donnees['racine'];
 $dossierAudits = $dossier . '/audits';
 $dossierClaude = $dossier . '/claude';
 $dossierBatches = $dossierClaude . '/batches';
-if (!is_dir($dossierBatches) && !@mkdir($dossierBatches, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier claude/ impossible a creer (droits du dossier des demos).');
+if (!is_dir($dossierBatches) && !@mkdir($dossierBatches, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier claude/ impossible a creer (droits du dossier des donnees) : ' . $dossierBatches . '.');
 
 $methode = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $lecture = $methode === 'GET' || $methode === 'HEAD';
@@ -239,6 +247,10 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
         if ($v === false) throw new Refus('Champ « ' . $cle . ' » invalide.');
         $meta[$cle] = $v;
     }
+    // L'audit du serveur dont la demande est l'analyse (`depot`, 15.5) : sa trace s'y range.
+    $depot = $d['depot'] ?? null;
+    if ($depot !== null && (!is_string($depot) || !preg_match(ID_AUDIT, $depot))) throw new Refus('Champ « depot » invalide.');
+    $meta['depot'] = $depot;
     $usage = $d['usage'] ?? 'analyse';
     if (!in_array($usage, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usage) ? $usage : '?') . '.');
     $modele = $d['modele'] ?? $modeles[$usage];
@@ -834,13 +846,20 @@ const IDU_AUDIT = '/^[A-Za-z0-9_.,-]{1,64}$/';
 
 /** Ce que le serveur verifie d'un audit : sa forme, pas son contenu (la page le relit en entier). */
 function verifierAudit($d): array {
-    if (!is_array($d) || ($d['format'] ?? null) !== 'plan-audit-parcelle') throw new Refus('Ce n’est pas un fichier d’audit de parcelle.');
+    // Une promenade des toits (`plan-audit`, model/audit.ts) : deposee par l'administrateur.
+    if (is_array($d) && ($d['format'] ?? null) === 'plan-audit') {
+        if (!is_int($d['version'] ?? null) || $d['version'] < 1 || $d['version'] > 2) throw new Refus('Version du fichier de promenade inconnue.');
+        if (!is_array($d['promenade'] ?? null) || !is_array($d['cas'] ?? null) || !array_is_list($d['cas'])) throw new Refus('Fichier de promenade incomplet.');
+        $commune = is_string($d['promenade']['commune'] ?? null) ? mb_substr($d['promenade']['commune'], 0, 120) : null;
+        return ['nature' => 'promenade', 'idu' => '', 'adresse' => $commune, 'commune' => $commune];
+    }
+    if (!is_array($d) || ($d['format'] ?? null) !== 'plan-audit-parcelle') throw new Refus('Ce n’est pas un fichier d’audit de parcelle ni de promenade.');
     if (($d['version'] ?? null) !== 1) throw new Refus('Version du fichier d’audit inconnue.');
     $p = $d['parcelle'] ?? null;
     if (!is_array($p) || !is_string($p['idu'] ?? null) || !preg_match(IDU_AUDIT, $p['idu'])) throw new Refus('Parcelle du fichier d’audit invalide.');
     if (!is_array($d['batiments'] ?? null) || !is_array($d['propositions'] ?? null)) throw new Refus('Fichier d’audit incomplet.');
     $adresse = is_string($p['adresse'] ?? null) ? mb_substr($p['adresse'], 0, 300) : null;
-    return ['idu' => $p['idu'], 'adresse' => $adresse];
+    return ['nature' => 'parcelle', 'idu' => $p['idu'], 'adresse' => $adresse];
 }
 
 // Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus.
@@ -855,10 +874,25 @@ function marqueAudit(string $entete, string $defaut = 'corpus'): string {
 
 /**
  * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
- * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe), le debut de la visite, et sa
+ * conclusion : les propositions (de Claude, des mesures) et ce qui en a ete fait, ou les cas d'une
+ * promenade et leur statut.
  */
 function resumeAudit(array $d): array {
     $nb = fn($l) => is_array($l) ? count($l) : 0;
+    if (($d['format'] ?? null) === 'plan-audit') {
+        $photos = 0;
+        $statuts = [];
+        foreach ($d['cas'] as $c) {
+            if (!is_array($c)) continue;
+            $constat = is_array($c['constat'] ?? null) ? $c['constat'] : [];
+            $photos += is_array($constat['photos'] ?? null) ? count($constat['photos']) : (is_array($constat['photo'] ?? null) ? 1 : 0);
+            $s = is_string($c['statut'] ?? null) ? $c['statut'] : 'a_corriger';
+            $statuts[$s] = ($statuts[$s] ?? 0) + 1;
+        }
+        $debut = is_string($d['promenade']['debut'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T/', $d['promenade']['debut']) ? substr($d['promenade']['debut'], 0, 40) : null;
+        return ['photos' => $photos, 'phase' => 'analyse', 'debut' => $debut, 'cas' => count($d['cas']), 'statuts' => (object)$statuts];
+    }
     $photos = $nb($d['cloture']['photos'] ?? null) + $nb($d['portail']['photos'] ?? null);
     foreach ($d['batiments'] as $b) {
         if (!is_array($b)) continue;
@@ -866,7 +900,46 @@ function resumeAudit(array $d): array {
         foreach (is_array($b['facades'] ?? null) ? $b['facades'] : [] as $f) $photos += $nb(is_array($f) ? ($f['photos'] ?? null) : null);
     }
     $debut = is_string($d['debut'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T/', $d['debut']) ? substr($d['debut'], 0, 40) : null;
-    return ['photos' => $photos, 'phase' => is_string($d['finCapture'] ?? null) && $d['finCapture'] !== '' ? 'analyse' : 'capture', 'debut' => $debut];
+    $p = ['total' => 0, 'claude' => 0, 'mesures' => 0, 'validees' => 0, 'refusees' => 0, 'enAttente' => 0];
+    foreach ($d['propositions'] as $x) {
+        if (!is_array($x)) continue;
+        $p['total']++;
+        $p[($x['source'] ?? null) === 'claude' ? 'claude' : 'mesures']++;
+        $decision = $x['decision'] ?? null;
+        $p[$decision === 'validee' ? 'validees' : ($decision === 'refusee' ? 'refusees' : 'enAttente')]++;
+    }
+    return ['photos' => $photos, 'phase' => is_string($d['finCapture'] ?? null) && $d['finCapture'] !== '' ? 'analyse' : 'capture', 'debut' => $debut, 'propositions' => $p];
+}
+
+/**
+ * La conclusion d'un audit, a part, lisible a la main (`decisions.json`) : chaque proposition, d'ou
+ * elle vient et ce qu'elle est devenue (validee, refusee, en attente) ; pour une promenade, chaque
+ * cas et son statut. Rien n'est calcule : le fichier de l'audit reste la reference.
+ */
+function decisionsAudit(array $d): array {
+    if (($d['format'] ?? null) === 'plan-audit') {
+        $cas = [];
+        foreach ($d['cas'] as $c) {
+            if (!is_array($c)) continue;
+            $k = is_array($c['constat'] ?? null) ? $c['constat'] : [];
+            $id = is_array($c['identite'] ?? null) ? $c['identite'] : [];
+            $cas[] = ['id' => $c['id'] ?? null, 'cle' => $c['cle'] ?? null, 'cleBdtopo' => $id['cleBdtopo'] ?? null, 'adresse' => $id['adresse'] ?? null,
+                      'statut' => $c['statut'] ?? null, 'categorie' => $k['categorie'] ?? null, 'problemes' => is_array($k['problemes'] ?? null) ? $k['problemes'] : [],
+                      'note' => is_string($k['note'] ?? null) ? $k['note'] : '', 'photos' => is_array($k['photos'] ?? null) ? count($k['photos']) : (is_array($k['photo'] ?? null) ? 1 : 0)];
+        }
+        return ['format' => 'plan-audit-decisions', 'version' => 1, 'nature' => 'promenade', 'cas' => $cas];
+    }
+    $propositions = [];
+    foreach ($d['propositions'] as $x) {
+        if (!is_array($x)) continue;
+        $propositions[] = ['id' => $x['id'] ?? null, 'objet' => $x['objet'] ?? null, 'source' => $x['source'] ?? null, 'avant' => $x['avant'] ?? null,
+                           'apres' => $x['apres'] ?? null, 'confiance' => $x['confiance'] ?? null, 'decision' => $x['decision'] ?? null];
+    }
+    $decisions = [];
+    foreach (is_array($d['decisions'] ?? null) ? $d['decisions'] : [] as $x) {
+        if (is_array($x)) $decisions[] = ['t' => $x['t'] ?? null, 'acceptees' => $x['acceptees'] ?? [], 'refusees' => $x['refusees'] ?? []];
+    }
+    return ['format' => 'plan-audit-decisions', 'version' => 1, 'nature' => 'parcelle', 'propositions' => $propositions, 'decisions' => $decisions];
 }
 
 /**
@@ -883,13 +956,6 @@ function texteAudit(): string {
         erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros pour ce serveur (' . $taille . ' refusés par PHP ; post_max_size = ' . ini_get('post_max_size') . ' dans sa configuration, à porter à 64M).');
     }
     return $texte;
-}
-
-/** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
-function ecrireAudit(string $dossierAudits, string $id, string $texte): void {
-    if (!is_dir($dossierAudits) && !@mkdir($dossierAudits, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier audits/ impossible a creer.');
-    $tmp = fAudit($dossierAudits, $id) . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    if (file_put_contents($tmp, $texte) === false || !rename($tmp, fAudit($dossierAudits, $id))) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
 }
 
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; buildsg/analyseAdmin.mjs, memes noms)
@@ -913,19 +979,200 @@ function verifierMesureConformite($d): array {
     return $d;
 }
 
-function fAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.json'; }
-function fFicheAudit(string $dossierAudits, string $id): string { return $dossierAudits . '/' . $id . '.fiche.json'; }
+// --- Le rangement des audits (MD/spec-audit.md 15.4 ; buildsg/analyseAdmin.mjs, memes noms) ---------
+// Chaque audit a son dossier, classe pour s'y retrouver a la main (gestionnaire de fichiers, FTP) :
+//
+//   audits/parcelle/<IDU>/<id>/        audit.json (le fichier tel qu'il est arrive), fiche.json,
+//                                      decisions.json (la conclusion, lisible), analyses/, images/
+//   audits/promenade/<commune>/<id>/   les memes
+//   audits/index.json                  les fiches, sans les secrets : la liste se lit d'un coup ; il
+//                                      se reconstruit en relisant l'arborescence s'il manque
+//
+// `<id>` commence par la date et l'heure de reception (AAAAMMJJ-HHMMSS-xxxxxxxx). Les noms sont en
+// ASCII, sans espaces. Les audits d'avant ce rangement (`audits/<id>.json` et `<id>.fiche.json`, a
+// plat) y sont ranges au premier passage, sans rien perdre.
+
+const FORMAT_INDEX_AUDITS = 'plan-audits-index';
+const ACCENTS_NOMS = ['à' => 'a', 'â' => 'a', 'ä' => 'a', 'á' => 'a', 'ã' => 'a', 'å' => 'a', 'ç' => 'c', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+                 'î' => 'i', 'ï' => 'i', 'í' => 'i', 'ì' => 'i', 'ô' => 'o', 'ö' => 'o', 'ó' => 'o', 'ò' => 'o', 'õ' => 'o', 'ù' => 'u', 'û' => 'u',
+                 'ü' => 'u', 'ú' => 'u', 'ÿ' => 'y', 'ý' => 'y', 'ñ' => 'n', 'œ' => 'oe', 'æ' => 'ae', 'À' => 'A', 'Â' => 'A', 'Ä' => 'A', 'Ç' => 'C',
+                 'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E', 'Î' => 'I', 'Ï' => 'I', 'Ô' => 'O', 'Ö' => 'O', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
+                 'Œ' => 'OE', 'Æ' => 'AE'];
+
+/** Un nom de dossier sur : ASCII, lettres, chiffres, `-` et `_`, 64 au plus. */
+function nomSur(?string $v, string $defaut, bool $minuscules = false): string {
+    $t = strtr((string)$v, ACCENTS_NOMS);
+    if ($minuscules) $t = strtolower($t);
+    $t = trim((string)preg_replace('/[^A-Za-z0-9_-]+/', '-', $t), '-');
+    return $t === '' ? $defaut : substr($t, 0, 64);
+}
+
+/** Le dossier d'un audit, relatif a `audits/`. */
+function dossierRelatifAudit(array $fiche): string {
+    if (($fiche['nature'] ?? 'parcelle') === 'promenade') return 'promenade/' . nomSur($fiche['commune'] ?? null, 'sans-commune', true) . '/' . $fiche['id'];
+    return 'parcelle/' . nomSur($fiche['idu'] ?? null, 'sans-idu') . '/' . $fiche['id'];
+}
+
+/** Les fiches de l'arborescence, relues : ce que l'index dit quand il manque. */
+function reconstruireIndex(string $dA): array {
+    $index = [];
+    foreach (glob($dA . '/*/*/*/fiche.json') ?: [] as $f) {
+        $fiche = lireJson($f);
+        if ($fiche === null || !is_string($fiche['id'] ?? null) || !preg_match(ID_AUDIT, $fiche['id'])) continue;
+        unset($fiche['retrait']);
+        $fiche['dossier'] = substr(dirname($f), strlen($dA) + 1);
+        $index[$fiche['id']] = $fiche;
+    }
+    return $index;
+}
+
+/** Change l'index sous verrou : deux depots simultanes ne s'effacent pas. */
+function majIndex(string $dA, callable $f): void {
+    if (!is_dir($dA)) @mkdir($dA, 0750, true);
+    $verrou = fopen($dA . '/.index.verrou', 'c');
+    if ($verrou) flock($verrou, LOCK_EX);
+    $lu = lireJson($dA . '/index.json');
+    $index = is_array($lu['audits'] ?? null) ? $lu['audits'] : reconstruireIndex($dA);
+    $index = $f($index);
+    ecrireJson($dA . '/index.json', ['format' => FORMAT_INDEX_AUDITS, 'version' => 1, 'audits' => (object)$index]);
+    if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
+}
+
+/**
+ * Les audits d'avant le rangement (`<id>.json` et `<id>.fiche.json` a plat dans audits/) : chacun dans
+ * son dossier. Un dossier deja la n'est pas ecrase ; l'audit reste alors a plat, toujours lu.
+ */
+function rangerAnciensAudits(string $dA): void {
+    $ranges = false;
+    foreach (glob($dA . '/*.fiche.json') ?: [] as $fFiche) {
+        $id = basename($fFiche, '.fiche.json');
+        $fiche = preg_match(ID_AUDIT, $id) ? lireJson($fFiche) : null;
+        if ($fiche === null) continue;
+        $fiche += ['id' => $id, 'nature' => 'parcelle'];
+        $dir = $dA . '/' . dossierRelatifAudit($fiche);
+        if (file_exists($dir . '/audit.json') || (!is_dir($dir) && !@mkdir($dir, 0750, true))) continue;
+        if (is_file($dA . '/' . $id . '.json') && !@rename($dA . '/' . $id . '.json', $dir . '/audit.json')) continue;
+        $texte = json_encode($fiche, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if ($texte === false || file_put_contents($dir . '/fiche.json', $texte . "\n") === false) continue;
+        $d = lireJson($dir . '/audit.json');
+        if ($d !== null) { try { verifierAudit($d); ecrireJson($dir . '/decisions.json', decisionsAudit($d)); } catch (Refus $e) { /* illisible : la fiche suffit */ } }
+        if (is_file($fFiche . '.bak')) @rename($fFiche . '.bak', $dir . '/fiche.json.bak');
+        @unlink($fFiche);
+        $ranges = true;
+    }
+    if ($ranges) majIndex($dA, fn() => reconstruireIndex($dA));
+}
+
+/** L'index des audits (id => fiche sans secret, avec `dossier`), apres le rangement des anciens. */
+function indexAudits(string $dA): array {
+    rangerAnciensAudits($dA);
+    $lu = lireJson($dA . '/index.json');
+    if (is_array($lu['audits'] ?? null)) return $lu['audits'];
+    $index = reconstruireIndex($dA);
+    if ($index) majIndex($dA, fn() => $index);
+    return $index;
+}
+
+/** Le dossier d'un audit range, ou null. */
+function dossierAudit(string $dA, string $id): ?string {
+    $e = indexAudits($dA)[$id] ?? null;
+    if (!is_array($e) || !is_string($e['dossier'] ?? null)) return null;
+    $dir = $dA . '/' . $e['dossier'];
+    return is_file($dir . '/fiche.json') ? $dir : null;
+}
+
+/** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
+function ecrireAudit(string $dir, string $texte): void {
+    if (!is_dir($dir) && !@mkdir($dir, 0750, true)) erreur(500, 'SERVER_ERROR', 'Dossier de l’audit impossible a creer.');
+    $tmp = $dir . '/audit.json.' . bin2hex(random_bytes(6)) . '.tmp';
+    if (file_put_contents($tmp, $texte) === false || !rename($tmp, $dir . '/audit.json')) { @unlink($tmp); erreur(500, 'SERVER_ERROR', 'Écriture impossible.'); }
+}
+
+/** La fiche, la conclusion et l'index d'un audit, apres son fichier. */
+function ecrireFicheAudit(string $dA, string $dir, array $fiche, array $d): void {
+    ecrireJson($dir . '/fiche.json', $fiche);
+    ecrireJson($dir . '/decisions.json', decisionsAudit($d));
+    $vue = $fiche;
+    unset($vue['retrait']);
+    $vue['dossier'] = substr($dir, strlen($dA) + 1);
+    majIndex($dA, function (array $index) use ($vue) { $index[$vue['id']] = $vue; return $index; });
+}
+
+/** Un dossier et tout ce qu'il contient. */
+function effacerDossier(string $dir): void {
+    if (!is_dir($dir)) return;
+    foreach (scandir($dir) ?: [] as $n) {
+        if ($n === '.' || $n === '..') continue;
+        is_dir($dir . '/' . $n) && !is_link($dir . '/' . $n) ? effacerDossier($dir . '/' . $n) : @unlink($dir . '/' . $n);
+    }
+    @rmdir($dir);
+}
 
 /** Les fiches des audits recus, les plus recents d'abord, sans l'empreinte du secret. */
-function listeAudits(string $dossierAudits): array {
-    $liste = [];
-    foreach (glob($dossierAudits . '/*.fiche.json') ?: [] as $f) {
-        $fiche = lireJson($f);
-        if ($fiche === null) continue;
-        unset($fiche['retrait']);
-        $liste[] = $fiche;
-    }
+function listeAudits(string $dA): array {
+    $liste = array_values(indexAudits($dA));
     usort($liste, fn($a, $b) => strcmp((string)($b['recuLe'] ?? ''), (string)($a['recuLe'] ?? '')));
+    return $liste;
+}
+
+// --- Les traces des analyses et des rejeux (MD/spec-audit.md 15.5) -----------------------------
+// Un batch qui nomme son audit (`depot`, l'identifiant du serveur : l'analyse de la session apres sa
+// sauvegarde, ou un rejeu) garde, dans le dossier de l'audit, tout ce qui est parti et tout ce qui
+// est revenu : rien n'est jete. Le journal de claude/, lui, ne garde toujours ni photo ni reponse.
+//
+//   analyses/<AAAAMMJJ-HHMMSS>-<modele>-<xxxx>/entrant.json   prompt et schema envoyes (texte complet),
+//                                                             modele, effort, chaque requete et ses
+//                                                             blocs, les images par reference
+//   .../sortant.json   chaque reponse : texte brut, sortie ramenee au schema, erreur, tokens, cout
+//   .../resume.json    nature (analyse ou rejeu), etat, versions, comptes : ce que la liste montre
+//   images/<sha256>.jpg   les images envoyees, une fois par audit (deux rejeux partagent les memes)
+
+const ID_TRACE = '/^\d{8}-\d{6}-[a-z0-9-]{1,48}-[0-9a-f]{4}$/';
+const EXTENSIONS_IMAGE = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+const IMAGE_TRACE = '/^[0-9a-f]{64}\.(jpg|png|webp|gif)$/';
+
+/** Ce qui est parti chez Claude : les images rangees dans `images/`, remplacees par leur nom. */
+function entrantTrace(array $demande, array $prompts, string $dir): array {
+    $requetes = [];
+    foreach ($demande['requetes'] as $r) {
+        $blocs = [];
+        foreach ($r['contenu'] as $b) {
+            if ($b['type'] !== 'image') { $blocs[] = $b; continue; }
+            $octets = (string)base64_decode($b['source']['data'], true);
+            $nom = hash('sha256', $octets) . '.' . EXTENSIONS_IMAGE[$b['source']['media_type']];
+            if (!is_dir($dir . '/images')) @mkdir($dir . '/images', 0750, true);
+            if (!is_file($dir . '/images/' . $nom)) @file_put_contents($dir . '/images/' . $nom, $octets);
+            $blocs[] = ['type' => 'image', 'media_type' => $b['source']['media_type'], 'image' => $nom, 'octets' => strlen($octets)];
+        }
+        $requetes[] = ['id' => $r['id'], 'passe' => $r['passe'], 'usage' => $r['usage'], 'modele' => $r['modele'], 'facades' => $r['facades'], 'images' => $r['images'], 'contenu' => $blocs];
+    }
+    $usages = [];
+    foreach ($prompts as $usage => [$p, $s]) {
+        $usages[$usage] = ['prompt' => $p['version'], 'schema' => $s['version'], 'systeme' => promptAvecSchema($p['texte'], $s['schema']), 'schemaJson' => $s['schema']];
+    }
+    return ['format' => 'plan-audit-entrant', 'version' => 1, 'max_tokens' => MAX_TOKENS, 'effort' => EFFORT, 'usages' => (object)$usages, 'requetes' => $requetes];
+}
+
+/** Le texte brut d'une ligne de resultats, tel que Claude l'a ecrit (blocs de texte bout a bout). */
+function texteBrut($ligne): ?string {
+    $m = is_object($ligne) && isset($ligne->result->message) && is_object($ligne->result->message) ? $ligne->result->message : null;
+    if (!$m) return null;
+    $texte = null;
+    foreach (is_array($m->content ?? null) ? $m->content : [] as $b) if (is_object($b) && ($b->type ?? null) === 'text') $texte = ($texte ?? '') . (string)($b->text ?? '');
+    return $texte;
+}
+
+/** Le dossier d'une trace, ou null. */
+function dossierTrace(string $dA, string $audit, string $trace): ?string {
+    $dir = preg_match(ID_TRACE, $trace) ? dossierAudit($dA, $audit) : null;
+    return $dir !== null && is_file($dir . '/analyses/' . $trace . '/resume.json') ? $dir . '/analyses/' . $trace : null;
+}
+
+/** Les resumes des analyses et rejeux d'un audit, les plus recents d'abord. */
+function listeTraces(string $dir): array {
+    $liste = [];
+    foreach (glob($dir . '/analyses/*/resume.json') ?: [] as $f) { $r = lireJson($f); if ($r !== null) $liste[] = $r; }
+    usort($liste, fn($a, $b) => strcmp((string)($b['creeLe'] ?? ''), (string)($a['creeLe'] ?? '')));
     return $liste;
 }
 
@@ -956,6 +1203,7 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
     if ($statut !== 200) return ['erreur' => [$statut, $texte]];
     $lus = [];
     $schemas = [];
+    $bruts = [];
     foreach (explode("\n", $texte) as $l) {
         if (trim($l) === '') continue;
         $ligne = json_decode($l);
@@ -963,6 +1211,7 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         $usageL = (string)($fiche['requetes'][(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')]['usage'] ?? $fiche['usage']);
         if (!array_key_exists($usageL, $schemas)) { try { $schemas[$usageL] = promptEtSchema($usageL)[1]['schema']; } catch (RuntimeException $e) { $schemas[$usageL] = null; } }
         $lus[] = lireResultat($ligne, $schemas[$usageL]);
+        $bruts[(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')] = texteBrut($ligne);
     }
     $fin = is_string($fiche['finLe'] ?? null) ? strtotime($fiche['finLe']) : false;
     $t = $fin !== false ? gmdate('Y-m-d\TH:i:s\Z', $fin) : maintenant();
@@ -991,12 +1240,41 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
                          'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']];
         }
         journaliser($dossierClaude, $lignes);
+        if (is_array($fiche['trace'] ?? null)) completerTrace($fiche, $sortie, $bruts, $t);
         ecrireFiche($dossierBatches, ['journalise' => true, 'etat' => 'ended', 'finLe' => $fiche['finLe'] ?? null] + $actuelle);
     }
     if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
     foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema'], $x['trouve']); }
     unset($x);
     return ['sortie' => $sortie];
+}
+
+/**
+ * La trace d'un batch qui nomme son audit, completee a la lecture de ses resultats (15.5) : chaque
+ * reponse brute et remise en forme dans `sortant.json`, les comptes dans `resume.json`. Un audit
+ * retire entre-temps n'a plus de dossier : rien ne s'ecrit.
+ */
+function completerTrace(array $fiche, array $sortie, array $bruts, string $t): void {
+    global $dossierAudits;
+    $dt = dossierTrace($dossierAudits, (string)($fiche['trace']['audit'] ?? ''), (string)($fiche['trace']['id'] ?? ''));
+    if ($dt === null) return;
+    $ordre = array_flip(array_map('strval', array_keys((array)$fiche['requetes'])));
+    usort($sortie, fn($a, $b) => ($ordre[$a['id']] ?? PHP_INT_MAX) <=> ($ordre[$b['id']] ?? PHP_INT_MAX));
+    $complets = [];
+    $resume = [];
+    $cout = null;
+    $tokens = tokensDeUsage(null);
+    foreach ($sortie as $x) {
+        $commun = ['id' => $x['id'], 'passe' => $x['passe'], 'usage' => $x['usage'], 'modele' => $x['modele'], 'statut' => $x['statut'], 'arret' => $x['arret'],
+                   'erreur' => $x['erreur'], 'tokens' => $x['tokens'], 'cout' => $x['cout'], 'trouve' => $x['trouve']];
+        $complets[] = $commun + ['texte' => $bruts[$x['id']] ?? null, 'sortie' => $x['sortie'], 'tarif' => $x['tarif']];
+        $resume[] = $commun;
+        if ($x['cout'] !== null) $cout = ($cout ?? 0) + $x['cout'];
+        foreach ($tokens as $k => $v) $tokens[$k] = $v + (int)($x['tokens'][$k] ?? 0);
+    }
+    ecrireJson($dt . '/sortant.json', ['format' => 'plan-audit-sortant', 'version' => 1, 'idBatch' => $fiche['id'], 'finLe' => $t, 'resultats' => $complets]);
+    $r = lireJson($dt . '/resume.json') ?? [];
+    ecrireJson($dt . '/resume.json', array_merge($r, ['etat' => 'termine', 'finLe' => $t, 'resultats' => $resume, 'cout' => $cout, 'tokens' => $tokens]));
 }
 
 /** Les requetes des batches encore ouverts d'une organisation ; ceux finis sont journalises en passant. */
@@ -1143,9 +1421,12 @@ try {
         repondre(201, ['recuLe' => $mesure['recuLe'], 'mesures' => count($gardees)]);
     }
 
-    // `admin/audits` (.htaccess : `chemin=@audits/<id>`) : les audits de parcelle partages (15, L21).
+    // `admin/audits` (.htaccess : `chemin=@audits/<id>`) : les audits de parcelle et de promenade
+    // (15, L21), et pour chacun ses analyses et rejeux (15.5).
     if ($routeAudits) {
-        $id = trim(substr($chemin, strlen('@audits')), '/');
+        $reste = trim(substr($chemin, strlen('@audits')), '/');
+        $parts = $reste === '' ? [] : explode('/', $reste);
+        $id = $parts[0] ?? '';
         if ($id === '') {
             if ($lecture) {
                 if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
@@ -1157,23 +1438,51 @@ try {
             $d = json_decode($texte, true);
             if ($d === null) throw new Refus('JSON illisible.');
             $parcelle = verifierAudit($d);
+            // Une promenade se depose par l'administrateur seul (son ecran des audits).
+            if ($parcelle['nature'] === 'promenade' && !$sessionAdmin) erreur(403, 'FORBIDDEN', 'Réservé à l’administrateur.');
             $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''));
             $t = maintenant();
             $id = gmdate('Ymd-His') . '-' . bin2hex(random_bytes(4));
             $retrait = bin2hex(random_bytes(24));
-            ecrireAudit($dossierAudits, $id, $texte);
-            ecrireJson(fFicheAudit($dossierAudits, $id), ['id' => $id, 'recuLe' => $t, 'organisation' => $organisation] + $parcelle
-                + ['taille' => strlen($texte), 'marque' => $marque] + resumeAudit($d) + ['retrait' => hash('sha256', $retrait)]);
+            $fiche = ['id' => $id, 'recuLe' => $t, 'organisation' => $organisation] + $parcelle
+                + ['taille' => strlen($texte), 'marque' => $marque] + resumeAudit($d) + ['retrait' => hash('sha256', $retrait)];
+            $dir = $dossierAudits . '/' . dossierRelatifAudit($fiche);
+            ecrireAudit($dir, $texte);
+            ecrireFicheAudit($dossierAudits, $dir, $fiche, $d);
             repondre(201, ['id' => $id, 'retrait' => $retrait]);
         }
         if (!preg_match(ID_AUDIT, $id)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
-        $fiche = lireJson(fFicheAudit($dossierAudits, $id));
-        if ($fiche === null) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
+        $dir = dossierAudit($dossierAudits, $id);
+        $fiche = $dir !== null ? lireJson($dir . '/fiche.json') : null;
+        if ($fiche === null || $dir === null) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $id . ' ».');
+
+        // Ses analyses et rejeux, et les images qu'ils ont envoyees : a l'administrateur seul, en lecture.
+        if (count($parts) > 1) {
+            if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+            if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+            if ($parts[1] === 'analyses' && count($parts) === 2) repondre(200, ['analyses' => listeTraces($dir)]);
+            if ($parts[1] === 'analyses' && count($parts) === 3) {
+                $dt = dossierTrace($dossierAudits, $id, $parts[2]);
+                if ($dt === null) erreur(404, 'NOT_FOUND', 'Aucune analyse « ' . $parts[2] . ' ».');
+                repondre(200, ['format' => 'plan-audit-analyse-complete', 'version' => 1, 'audit' => $id, 'resume' => lireJson($dt . '/resume.json'),
+                               'entrant' => lireJson($dt . '/entrant.json'), 'sortant' => lireJson($dt . '/sortant.json')]);
+            }
+            if ($parts[1] === 'images' && count($parts) === 3 && preg_match(IMAGE_TRACE, $parts[2]) && is_file($dir . '/images/' . $parts[2])) {
+                $type = array_search(pathinfo($parts[2], PATHINFO_EXTENSION), EXTENSIONS_IMAGE, true);
+                header('Content-Type: ' . $type);
+                header('Cache-Control: private, max-age=86400, immutable');
+                http_response_code(200);
+                if ($methode !== 'HEAD') readfile($dir . '/images/' . $parts[2]);
+                exit;
+            }
+            erreur(404, 'NOT_FOUND', 'Introuvable');
+        }
+
         if ($lecture) {
             if (!$sessionAdmin) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
             header('Content-Type: application/json; charset=utf-8');
             http_response_code(200);
-            if ($methode !== 'HEAD') readfile(fAudit($dossierAudits, $id));
+            if ($methode !== 'HEAD') readfile($dir . '/audit.json');
             exit;
         }
         if ($methode !== 'DELETE' && $methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -1182,7 +1491,7 @@ try {
         $proprietaire = $secret !== '' && hash_equals((string)($fiche['retrait'] ?? ''), hash('sha256', $secret));
         if ($methode === 'PUT') {
             // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
-            // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+            // l'administrateur. L'identifiant, le secret, l'organisation et le dossier du premier envoi restent.
             acteur($sessionAdmin, jetonPorteur(), $plateformeUrl);
             if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
             $texte = texteAudit();
@@ -1190,14 +1499,15 @@ try {
             if ($d === null) throw new Refus('JSON illisible.');
             $parcelle = verifierAudit($d);
             $marque = marqueAudit((string)($_SERVER['HTTP_X_PLAN_DEPOT'] ?? ''), (string)($fiche['marque'] ?? 'corpus'));
-            ecrireAudit($dossierAudits, $id, $texte);
-            ecrireJson(fFicheAudit($dossierAudits, $id), array_merge($fiche, ['recuLe' => maintenant()], $parcelle, ['taille' => strlen($texte), 'marque' => $marque], resumeAudit($d)));
+            ecrireAudit($dir, $texte);
+            ecrireFicheAudit($dossierAudits, $dir, array_merge($fiche, ['recuLe' => maintenant()], $parcelle, ['taille' => strlen($texte), 'marque' => $marque], resumeAudit($d)), $d);
             repondre(200, ['id' => $id, 'remplace' => true]);
         }
         if (!$sessionAdmin && !$proprietaire) erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
-        @unlink(fAudit($dossierAudits, $id));
-        @unlink(fFicheAudit($dossierAudits, $id));
-        @unlink(fFicheAudit($dossierAudits, $id) . '.bak');
+        // Retirer emporte tout le dossier de l'audit, analyses et images comprises : la personne qui
+        // reprend son accord reprend aussi ce qui en a ete tire.
+        effacerDossier($dir);
+        majIndex($dossierAudits, function (array $index) use ($id) { unset($index[$id]); return $index; });
         repondre(200, ['id' => $id, 'retire' => true]);
     }
 
@@ -1216,7 +1526,8 @@ try {
             $renfort = null;
         }
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]);
+                       'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       + ($qui['admin'] ? ['donnees' => vueDonnees($donnees)] : []));
     }
 
     // `admin/consommation` (.htaccess : `chemin=@consommation`) : il ne fait que relire le journal.
@@ -1282,6 +1593,19 @@ try {
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
         $demande = verifierDemande(lireCorps(TAILLE_MAX), $p, modelesParUsage(reglageModeles($dossierClaude)));
+        // Le rejeu (15.5) : l'administrateur seul, sur un audit range, l'analyse des maisons seule.
+        if ($demande['usage'] === 'rejeu') {
+            $reserveAdmin();
+            if ($demande['depot'] === null) throw new Refus('Un rejeu nomme son audit (depot).');
+            foreach ($demande['requetes'] as $r) if ($r['usage'] !== 'rejeu') throw new Refus('Un rejeu ne porte que l’analyse des maisons.');
+        }
+        $dirAudit = null;
+        if ($demande['depot'] !== null) {
+            $entree = indexAudits($dossierAudits)[$demande['depot']] ?? null;
+            if (!is_array($entree)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $demande['depot'] . ' ».');
+            if (!$qui['admin'] && ($entree['organisation'] ?? null) !== $organisation) erreur(403, 'FORBIDDEN', 'Cet audit n’est pas celui de votre organisation.');
+            $dirAudit = dossierAudit($dossierAudits, $demande['depot']);
+        }
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
                      'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
@@ -1328,9 +1652,24 @@ try {
             $parRequete[$r['id']] = ['passe' => $r['passe'], 'images' => $r['images'], 'facades' => $r['facades'], 'usage' => $r['usage'], 'modele' => $r['modele'],
                                      'prompt' => $prompts[$r['usage']][0]['version'], 'schema' => $prompts[$r['usage']][1]['version']];
         }
+        // La trace (15.5) : ce qui part, dans le dossier de l'audit ; ce qui revient la completera.
+        $trace = null;
+        if ($dirAudit !== null) {
+            $idTrace = gmdate('Ymd-His') . '-' . nomSur($demande['modele'], 'modele', true) . '-' . bin2hex(random_bytes(2));
+            $dt = $dirAudit . '/analyses/' . $idTrace;
+            if (!is_dir($dt)) @mkdir($dt, 0750, true);
+            ecrireJson($dt . '/entrant.json', entrantTrace($demande, $prompts, $dirAudit));
+            $versions = [];
+            foreach ($prompts as $u => [$pU, $sU]) $versions[$u] = ['prompt' => $pU['version'], 'schema' => $sU['version']];
+            ecrireJson($dt . '/resume.json', ['format' => 'plan-audit-analyse', 'version' => 1, 'id' => $idTrace, 'audit' => $demande['depot'],
+                'nature' => $demande['usage'] === 'rejeu' ? 'rejeu' : 'analyse', 'etat' => 'en_cours', 'creeLe' => $t, 'finLe' => null, 'idBatch' => $b['id'],
+                'organisation' => $organisation, 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'effort' => EFFORT, 'prompt' => $prompt['version'], 'schema' => $schema['version'],
+                'versions' => (object)$versions, 'requetes' => count($demande['requetes']), 'images' => $images, 'facades' => $facades, 'resultats' => null, 'cout' => null, 'tokens' => null]);
+            $trace = ['audit' => $demande['depot'], 'id' => $idTrace];
+        }
         ecrireFiche($dossierBatches, ['id' => $b['id'], 'creeLe' => $t] + $identite + ['promptVersion' => $prompt['version'], 'schemaVersion' => $schema['version'],
-                    'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false]);
-        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version']]);
+                    'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false, 'trace' => $trace]);
+        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'trace' => $trace['id'] ?? null]);
     }
 
     if ($chemin === 'messages') {
@@ -1339,6 +1678,7 @@ try {
         $p = plafonds($dossierClaude);
         $d = lireCorps(TAILLE_MAX);
         if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
+        if (is_array($d) && ($d['usage'] ?? null) === 'rejeu') throw new Refus('Un rejeu passe par un batch.');
         $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
         repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p));
     }

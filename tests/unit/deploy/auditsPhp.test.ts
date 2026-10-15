@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { demarrerContextePlateforme, fichierAudit, JETON, type ContextePlateforme } from '../../fixtures/deploy/contextePlateforme.js';
-import { jouerScenarioAudits } from '../../fixtures/deploy/scenarioAudits.js';
+import { dossierRange, jouerScenarioAudits } from '../../fixtures/deploy/scenarioAudits.js';
 
 // Les audits de parcelle partages pour le corpus, cote PHP (deploy/analyse.php, `admin/audits` ;
 // MD/spec-audit.md 15, lot L21) : le meme scenario que buildsg/analyseAdmin.mjs, derriere le role du
@@ -99,7 +99,7 @@ describe.skipIf(!php)('les audits partages, cote PHP', () => {
         .catch((e: unknown) => { throw new Error(String(e) + ' ; php : ' + petit.journal(), { cause: e }); });
       expect(r.status, petit.journal()).toBe(201);
       const { id } = await r.json() as { id: string };
-      expect(fs.readFileSync(path.join(tmp, 'demos', 'audits', id + '.json'), 'utf8')).toBe(gros);
+      expect(fs.readFileSync(path.join(dossierRange(path.join(tmp, 'demos'), id), 'audit.json'), 'utf8')).toBe(gros);
     } finally {
       petit.proc.kill();
     }

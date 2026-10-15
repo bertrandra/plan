@@ -26,7 +26,7 @@ const P = PLAFONDS_DEFAUT as Plafonds;
 
 describe('le modele de chaque usage', () => {
   it('prend le modele plus fin par defaut pour l analyse, le renfort et l aide immediate', () => {
-    expect(MODELE_PAR_USAGE).toEqual({ analyse: FIN, escalade: FIN, renfort: FIN, immediat: FIN, candidats: RAPIDE });
+    expect(MODELE_PAR_USAGE).toEqual({ analyse: FIN, escalade: FIN, renfort: FIN, immediat: FIN, candidats: RAPIDE, rejeu: RAPIDE });
     expect(modelesParUsage(null)).toEqual({ ...MODELE_PAR_USAGE });
   });
 

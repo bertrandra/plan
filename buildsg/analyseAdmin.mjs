@@ -33,6 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { vueDonnees } from './donnees.mjs';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,14 +42,15 @@ export const VERSION_API = '2023-06-01';
 export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // `candidats` (lot G3 bis) : les cas candidats Panoramax du skill regles-toits, avec le prompt et le
 // schema de l'analyse ; un usage a part pour que le journal et le tableau de bord en disent le cout.
-export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
+// `rejeu` (15.5) : l'analyse d'un audit stocke, rejouee par l'administrateur (deploy/analyse.php).
+export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'];
 /**
  * Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
  * deploy/analyse.php, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
  * immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
  * plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
  */
-export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' });
+export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5', rejeu: 'claude-haiku-5-5' });
 /**
  * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
  * siens ; les autres usages lisent ceux de l'analyse d'une maison.
@@ -172,6 +174,10 @@ export function verifierDemande(d, plafonds, modeles = MODELE_PAR_USAGE) {
     if (v === undefined) throw refus('Champ « ' + cle + ' » invalide.');
     meta[cle] = v;
   }
+  // L'audit du serveur dont la demande est l'analyse (`depot`, 15.5) : sa trace s'y range.
+  const depot = d.depot === undefined ? null : d.depot;
+  if (depot !== null && (typeof depot !== 'string' || !ID_AUDIT.test(depot))) throw refus('Champ « depot » invalide.');
+  meta.depot = depot;
   const usage = d.usage === undefined ? 'analyse' : d.usage;
   if (!USAGES.includes(usage)) throw refus('Usage inconnu : ' + String(usage) + '.');
   const modele = d.modele === undefined ? modeles[usage] : d.modele;
@@ -562,20 +568,41 @@ export function lireResultat(ligne, schema = null) {
   return { id: String(ligne && ligne.custom_id), statut, arret: message ? message.stop_reason ?? null : null, tokens, sortie, erreur };
 }
 
+/** Le texte brut d'une ligne de resultats, tel que Claude l'a ecrit (blocs de texte bout a bout). */
+export function texteBrut(ligne) {
+  const m = ligne && ligne.result && ligne.result.message;
+  if (!m || typeof m !== 'object') return null;
+  let texte = null;
+  for (const b of Array.isArray(m.content) ? m.content : []) if (b && b.type === 'text') texte = (texte ?? '') + String(b.text ?? '');
+  return texte;
+}
+
 // --- Les audits partages pour le corpus (spec-audit 15, lot L21 ; deploy/analyse.php, memes noms) --
 
 const ID_AUDIT = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
+const FORMAT_INDEX_AUDITS = 'plan-audits-index';
+const ID_TRACE = /^\d{8}-\d{6}-[a-z0-9-]{1,48}-[0-9a-f]{4}$/;
+const EXTENSIONS_IMAGE = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+const IMAGE_TRACE = /^[0-9a-f]{64}\.(jpg|png|webp|gif)$/;
+const objetSimple = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** L'IDU d'une parcelle, ou son point de calage (`48.900000,2.130000`) pour un plan sans IDU. */
 const IDU_AUDIT = /^[A-Za-z0-9_.,-]{1,64}$/;
 
 /** Ce que le serveur verifie d'un audit : sa forme, pas son contenu (la page le relit en entier). */
 export function verifierAudit(d) {
-  if (!d || typeof d !== 'object' || Array.isArray(d) || d.format !== 'plan-audit-parcelle') throw refus('Ce n’est pas un fichier d’audit de parcelle.');
+  // Une promenade des toits (`plan-audit`, model/audit.ts) : deposee par l'administrateur.
+  if (d && typeof d === 'object' && !Array.isArray(d) && d.format === 'plan-audit') {
+    if (!Number.isInteger(d.version) || d.version < 1 || d.version > 2) throw refus('Version du fichier de promenade inconnue.');
+    if (!d.promenade || typeof d.promenade !== 'object' || !Array.isArray(d.cas)) throw refus('Fichier de promenade incomplet.');
+    const commune = typeof d.promenade.commune === 'string' ? d.promenade.commune.slice(0, 120) : null;
+    return { nature: 'promenade', idu: '', adresse: commune, commune };
+  }
+  if (!d || typeof d !== 'object' || Array.isArray(d) || d.format !== 'plan-audit-parcelle') throw refus('Ce n’est pas un fichier d’audit de parcelle ni de promenade.');
   if (d.version !== 1) throw refus('Version du fichier d’audit inconnue.');
   const p = d.parcelle;
   if (!p || typeof p !== 'object' || typeof p.idu !== 'string' || !IDU_AUDIT.test(p.idu)) throw refus('Parcelle du fichier d’audit invalide.');
   if (!Array.isArray(d.batiments) || !Array.isArray(d.propositions)) throw refus('Fichier d’audit incomplet.');
-  return { idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
+  return { nature: 'parcelle', idu: p.idu, adresse: typeof p.adresse === 'string' ? p.adresse.slice(0, 300) : null };
 }
 
 /** Les marques d'un depot (en-tete `X-Plan-Depot`) : absente, c'est un partage pour le corpus. */
@@ -588,12 +615,29 @@ export function marqueAudit(entete, defaut = 'corpus') {
   return entete;
 }
 
+const objet = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const photosDuConstat = (k) => (Array.isArray(k && k.photos) ? k.photos.length : objet(k && k.photo) ? 1 : 0);
+
 /**
  * Ce que la fiche dit du fichier pour le catalogue de l'administrateur, sans le relire : ses photos,
- * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe) et le debut de la visite.
+ * sa phase (`capture` tant que « Lancer l'analyse » n'est pas passe), le debut de la visite, et sa
+ * conclusion : les propositions (de Claude, des mesures) et ce qui en a ete fait, ou les cas d'une
+ * promenade et leur statut.
  */
 export function resumeAudit(d) {
   const nb = (l) => (Array.isArray(l) ? l.length : 0);
+  if (d.format === 'plan-audit') {
+    let photos = 0;
+    const statuts = {};
+    for (const c of d.cas) {
+      if (!objet(c)) continue;
+      photos += photosDuConstat(objet(c.constat) ? c.constat : {});
+      const s = typeof c.statut === 'string' ? c.statut : 'a_corriger';
+      statuts[s] = (statuts[s] || 0) + 1;
+    }
+    const debut = typeof d.promenade.debut === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(d.promenade.debut) ? d.promenade.debut.slice(0, 40) : null;
+    return { photos, phase: 'analyse', debut, cas: d.cas.length, statuts };
+  }
   let photos = nb(d.cloture && d.cloture.photos) + nb(d.portail && d.portail.photos);
   for (const b of d.batiments) {
     if (!b || typeof b !== 'object') continue;
@@ -601,7 +645,52 @@ export function resumeAudit(d) {
     for (const f of Array.isArray(b.facades) ? b.facades : []) photos += nb(f && f.photos);
   }
   const debut = typeof d.debut === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(d.debut) ? d.debut.slice(0, 40) : null;
-  return { photos, phase: typeof d.finCapture === 'string' && d.finCapture ? 'analyse' : 'capture', debut };
+  const p = { total: 0, claude: 0, mesures: 0, validees: 0, refusees: 0, enAttente: 0 };
+  for (const x of d.propositions) {
+    if (!objet(x)) continue;
+    p.total++;
+    p[x.source === 'claude' ? 'claude' : 'mesures']++;
+    p[x.decision === 'validee' ? 'validees' : x.decision === 'refusee' ? 'refusees' : 'enAttente']++;
+  }
+  return { photos, phase: typeof d.finCapture === 'string' && d.finCapture ? 'analyse' : 'capture', debut, propositions: p };
+}
+
+/**
+ * La conclusion d'un audit, a part, lisible a la main (`decisions.json`) : chaque proposition, d'ou
+ * elle vient et ce qu'elle est devenue ; pour une promenade, chaque cas et son statut.
+ */
+export function decisionsAudit(d) {
+  const ou = (v) => (v === undefined ? null : v);
+  if (d.format === 'plan-audit') {
+    const cas = d.cas.filter(objet).map((c) => {
+      const k = objet(c.constat) ? c.constat : {};
+      const id = objet(c.identite) ? c.identite : {};
+      return { id: ou(c.id), cle: ou(c.cle), cleBdtopo: ou(id.cleBdtopo), adresse: ou(id.adresse), statut: ou(c.statut), categorie: ou(k.categorie),
+        problemes: Array.isArray(k.problemes) ? k.problemes : [], note: typeof k.note === 'string' ? k.note : '', photos: photosDuConstat(k) };
+    });
+    return { format: 'plan-audit-decisions', version: 1, nature: 'promenade', cas };
+  }
+  const propositions = d.propositions.filter(objet).map((x) => ({ id: ou(x.id), objet: ou(x.objet), source: ou(x.source), avant: ou(x.avant), apres: ou(x.apres), confiance: ou(x.confiance), decision: ou(x.decision) }));
+  const decisions = (Array.isArray(d.decisions) ? d.decisions : []).filter(objet).map((x) => ({ t: ou(x.t), acceptees: x.acceptees ?? [], refusees: x.refusees ?? [] }));
+  return { format: 'plan-audit-decisions', version: 1, nature: 'parcelle', propositions, decisions };
+}
+
+const ACCENTS_NOMS = { 'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a', 'ç': 'c', 'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'î': 'i', 'ï': 'i', 'í': 'i', 'ì': 'i',
+  'ô': 'o', 'ö': 'o', 'ó': 'o', 'ò': 'o', 'õ': 'o', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u', 'ÿ': 'y', 'ý': 'y', 'ñ': 'n', 'œ': 'oe', 'æ': 'ae', 'À': 'A', 'Â': 'A', 'Ä': 'A',
+  'Ç': 'C', 'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E', 'Î': 'I', 'Ï': 'I', 'Ô': 'O', 'Ö': 'O', 'Ù': 'U', 'Û': 'U', 'Ü': 'U', 'Œ': 'OE', 'Æ': 'AE' };
+
+/** Un nom de dossier sur : ASCII, lettres, chiffres, `-` et `_`, 64 au plus (deploy/analyse.php, meme table). */
+export function nomSur(v, defaut, minuscules = false) {
+  let t = [...String(v ?? '')].map((c) => ACCENTS_NOMS[c] ?? c).join('');
+  if (minuscules) t = t.toLowerCase();
+  t = t.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  return t === '' ? defaut : t.slice(0, 64);
+}
+
+/** Le dossier d'un audit, relatif a `audits/` : `parcelle/<IDU>/<id>` ou `promenade/<commune>/<id>`. */
+export function dossierRelatifAudit(fiche) {
+  if ((fiche.nature || 'parcelle') === 'promenade') return 'promenade/' + nomSur(fiche.commune, 'sans-commune', true) + '/' + fiche.id;
+  return 'parcelle/' + nomSur(fiche.idu, 'sans-idu') + '/' + fiche.id;
 }
 
 // --- Les indicateurs de conformite (spec-regles-toits 13.5, lot G3 ; deploy/analyse.php, memes noms) --
@@ -628,7 +717,8 @@ export function verifierMesureConformite(d) {
 
 /**
  * @param {{
- *   dossier: string,              dossier des donnees de l'admin (celui des demos)
+ *   dossier: string,              la racine des donnees (data/, donnees.mjs) : claude/, audits/, conformite/
+ *   donnees?: object,             leur disposition (donnees.mjs), que l'etat montre a l'administrateur
  *   actif: boolean,               l'admin existe (mot de passe configure)
  *   sessionValide: (req: import('node:http').IncomingMessage) => boolean,
  *   cle: string | undefined,      ANTHROPIC_API_KEY
@@ -638,7 +728,7 @@ export function verifierMesureConformite(d) {
  *   maintenant?: () => number
  * }} options
  */
-export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', plateformeUrl = 'https://www.raillard.org', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
+export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValide, cle, anthropicUrl = 'https://api.anthropic.com', plateformeUrl = 'https://www.raillard.org', deploy = path.join(ici, 'deploy'), maintenant = () => Date.now() }) {
   const dossierAudits = path.join(dossier, 'audits');
   const dossierClaude = path.join(dossier, 'claude');
   const dossierBatches = path.join(dossierClaude, 'batches');
@@ -801,8 +891,10 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       if (!(usage in schemas)) { try { schemas[usage] = promptEtSchema(usage).schema.schema; } catch { schemas[usage] = null; } }
       return schemas[usage];
     };
+    const bruts = {};
     const lus = r.texte.split('\n').filter((l) => l.trim()).map((l) => {
       const ligne = JSON.parse(l);
+      bruts[String(ligne && ligne.custom_id)] = texteBrut(ligne);
       const req = fiche.requetes[String(ligne && ligne.custom_id)];
       return lireResultat(ligne, schemaDe((req && req.usage) || fiche.usage));
     });
@@ -823,6 +915,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         tokens: x.tokens, images: req.images ?? 0, facades: req.facades ?? 0, cout: x.cout, tarif,
         statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion, trouve
       })));
+      if (fiche.trace) completerTrace(fiche, detail, bruts, t);
       ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });
     }
     return { sortie: detail.map((d) => d.x) };
@@ -867,30 +960,169 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     try { return JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
   }
 
-  const fAudit = (id) => path.join(dossierAudits, id + '.json');
-  const fFicheAudit = (id) => path.join(dossierAudits, id + '.fiche.json');
+  // --- Le rangement des audits (MD/spec-audit.md 15.4 ; deploy/analyse.php, memes noms) ---------
+  // audits/parcelle/<IDU>/<id>/ et audits/promenade/<commune>/<id>/ : audit.json, fiche.json,
+  // decisions.json, analyses/, images/ ; audits/index.json, les fiches sans secret, se reconstruit
+  // en relisant l'arborescence. Les audits d'avant (a plat) y sont ranges au premier passage.
+
+  const fIndex = path.join(dossierAudits, 'index.json');
+
+  /** Les fiches de l'arborescence, relues : ce que l'index dit quand il manque. */
+  function reconstruireIndex() {
+    const index = {};
+    for (const nature of ['parcelle', 'promenade']) {
+      let classes = [];
+      try { classes = fs.readdirSync(path.join(dossierAudits, nature)); } catch { continue; }
+      for (const classe of classes) {
+        let ids = [];
+        try { ids = fs.readdirSync(path.join(dossierAudits, nature, classe)); } catch { continue; }
+        for (const id of ids) {
+          const fiche = lireJson(path.join(dossierAudits, nature, classe, id, 'fiche.json'));
+          if (!fiche || typeof fiche.id !== 'string' || !ID_AUDIT.test(fiche.id)) continue;
+          delete fiche.retrait;
+          index[fiche.id] = { ...fiche, dossier: nature + '/' + classe + '/' + id };
+        }
+      }
+    }
+    return index;
+  }
+
+  function majIndex(f) {
+    const lu = lireJson(fIndex);
+    const index = f(lu && objetSimple(lu.audits) ? lu.audits : reconstruireIndex());
+    ecrireJson(fIndex, { format: FORMAT_INDEX_AUDITS, version: 1, audits: index });
+  }
+
+  /** Les audits d'avant le rangement (`<id>.json` et `<id>.fiche.json` a plat) : chacun dans son dossier. */
+  function rangerAnciensAudits() {
+    let noms = [];
+    try { noms = fs.readdirSync(dossierAudits).filter((n) => n.endsWith('.fiche.json')); } catch { return; }
+    let ranges = false;
+    for (const n of noms) {
+      const id = n.slice(0, -'.fiche.json'.length);
+      const fFiche = path.join(dossierAudits, n);
+      const lue = ID_AUDIT.test(id) ? lireJson(fFiche) : null;
+      if (!lue) continue;
+      const fiche = { id, nature: 'parcelle', ...lue };
+      const dir = path.join(dossierAudits, dossierRelatifAudit(fiche));
+      if (fs.existsSync(path.join(dir, 'audit.json'))) continue;
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+        if (fs.existsSync(path.join(dossierAudits, id + '.json'))) fs.renameSync(path.join(dossierAudits, id + '.json'), path.join(dir, 'audit.json'));
+        fs.writeFileSync(path.join(dir, 'fiche.json'), JSON.stringify(fiche, null, 2) + '\n');
+      } catch { continue; }
+      const d = lireJson(path.join(dir, 'audit.json'));
+      if (d) { try { verifierAudit(d); ecrireJson(path.join(dir, 'decisions.json'), decisionsAudit(d)); } catch { /* illisible : la fiche suffit */ } }
+      if (fs.existsSync(fFiche + '.bak')) { try { fs.renameSync(fFiche + '.bak', path.join(dir, 'fiche.json.bak')); } catch { /* reste a plat */ } }
+      fs.rmSync(fFiche, { force: true });
+      ranges = true;
+    }
+    if (ranges) majIndex(() => reconstruireIndex());
+  }
+
+  /** L'index des audits (id -> fiche sans secret, avec `dossier`), apres le rangement des anciens. */
+  function indexAudits() {
+    rangerAnciensAudits();
+    const lu = lireJson(fIndex);
+    if (lu && objetSimple(lu.audits)) return lu.audits;
+    const index = reconstruireIndex();
+    if (Object.keys(index).length) majIndex(() => index);
+    return index;
+  }
+
+  /** Le dossier d'un audit range, ou null. */
+  function dossierAudit(id) {
+    const e = indexAudits()[id];
+    if (!e || typeof e.dossier !== 'string') return null;
+    const dir = path.join(dossierAudits, e.dossier);
+    return fs.existsSync(path.join(dir, 'fiche.json')) ? dir : null;
+  }
 
   /** Le fichier tel qu'il est arrive, ecrit d'un coup : le corpus le rejoue a l'octet pres. */
-  function ecrireAudit(id, texte) {
-    fs.mkdirSync(dossierAudits, { recursive: true });
-    const tmp = fAudit(id) + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+  function ecrireAudit(dir, texte) {
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = path.join(dir, 'audit.json.' + crypto.randomBytes(6).toString('hex') + '.tmp');
     fs.writeFileSync(tmp, texte);
-    fs.renameSync(tmp, fAudit(id));
+    fs.renameSync(tmp, path.join(dir, 'audit.json'));
+  }
+
+  /** La fiche, la conclusion et l'index d'un audit, apres son fichier. */
+  function ecrireFicheAudit(dir, fiche, d) {
+    ecrireJson(path.join(dir, 'fiche.json'), fiche);
+    ecrireJson(path.join(dir, 'decisions.json'), decisionsAudit(d));
+    const vue = { ...fiche, dossier: path.relative(dossierAudits, dir).split(path.sep).join('/') };
+    delete vue.retrait;
+    majIndex((index) => ({ ...index, [vue.id]: vue }));
+  }
+
+  // --- Les traces des analyses et des rejeux (MD/spec-audit.md 15.5 ; deploy/analyse.php) -------
+
+  /** Ce qui est parti chez Claude : les images rangees dans `images/`, remplacees par leur nom. */
+  function entrantTrace(demande, prompts, dir) {
+    const requetes = demande.requetes.map((r) => ({
+      id: r.id, passe: r.passe, usage: r.usage, modele: r.modele, facades: r.facades, images: r.images,
+      contenu: r.contenu.map((b) => {
+        if (b.type !== 'image') return b;
+        const octets = Buffer.from(b.source.data, 'base64');
+        const nom = crypto.createHash('sha256').update(octets).digest('hex') + '.' + EXTENSIONS_IMAGE[b.source.media_type];
+        const f = path.join(dir, 'images', nom);
+        if (!fs.existsSync(f)) { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, octets); }
+        return { type: 'image', media_type: b.source.media_type, image: nom, octets: octets.length };
+      })
+    }));
+    const usages = Object.fromEntries(Object.entries(prompts).map(([u, x]) => [u, { prompt: x.prompt.version, schema: x.schema.version, systeme: promptAvecSchema(x.prompt.texte, x.schema.schema), schemaJson: x.schema.schema }]));
+    return { format: 'plan-audit-entrant', version: 1, max_tokens: MAX_TOKENS, effort: EFFORT, usages, requetes };
+  }
+
+  /** Le dossier d'une trace, ou null. */
+  function dossierTrace(audit, trace) {
+    const dir = ID_TRACE.test(trace) ? dossierAudit(audit) : null;
+    return dir && fs.existsSync(path.join(dir, 'analyses', trace, 'resume.json')) ? path.join(dir, 'analyses', trace) : null;
+  }
+
+  /** Les resumes des analyses et rejeux d'un audit, les plus recents d'abord. */
+  function listeTraces(dir) {
+    let noms = [];
+    try { noms = fs.readdirSync(path.join(dir, 'analyses')); } catch { return []; }
+    return noms.map((n) => lireJson(path.join(dir, 'analyses', n, 'resume.json'))).filter(Boolean)
+      .sort((a, b) => String(b.creeLe || '').localeCompare(String(a.creeLe || '')));
+  }
+
+  /** La trace d'un batch qui nomme son audit, completee a la lecture de ses resultats. */
+  function completerTrace(fiche, detail, bruts, t) {
+    const dt = dossierTrace(String(fiche.trace.audit || ''), String(fiche.trace.id || ''));
+    if (!dt) return;
+    const ordre = Object.keys(fiche.requetes || {});
+    const rang = (id) => { const i = ordre.indexOf(id); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
+    const tries = [...detail].sort((a, b) => rang(a.x.id) - rang(b.x.id));
+    const tokens = tokensDeUsage(null);
+    let cout = null;
+    const complets = [], resume = [];
+    for (const { x, modele, tarif, trouve } of tries) {
+      const commun = { id: x.id, passe: x.passe, usage: x.usage, modele, statut: x.statut, arret: x.arret, erreur: x.erreur, tokens: x.tokens, cout: x.cout, trouve };
+      complets.push({ ...commun, texte: bruts[x.id] ?? null, sortie: x.sortie, tarif });
+      resume.push(commun);
+      if (x.cout !== null) cout = (cout ?? 0) + x.cout;
+      for (const k of Object.keys(tokens)) tokens[k] += Number(x.tokens[k] || 0);
+    }
+    ecrireJson(path.join(dt, 'sortant.json'), { format: 'plan-audit-sortant', version: 1, idBatch: fiche.id, finLe: t, resultats: complets });
+    ecrireJson(path.join(dt, 'resume.json'), { ...(lireJson(path.join(dt, 'resume.json')) || {}), etat: 'termine', finLe: t, resultats: resume, cout, tokens });
   }
 
   /**
-   * `admin/audits[/<id>]` : deposer (POST), lister, lire, remplacer (PUT, la sauvegarde de la capture),
-   * retirer un audit de parcelle (15, L21).
+   * `admin/audits[/<id>[/analyses[/<trace>]|/images/<nom>]]` : deposer (POST), lister, lire,
+   * remplacer (PUT, la sauvegarde de la capture), retirer un audit (15, L21) ; ses analyses et
+   * rejeux, et leurs images (15.5).
    */
-  async function audits(req, res, base, id, admin, json, erreur) {
+  async function audits(req, res, base, reste, admin, json, erreur) {
     const methode = req.method || 'GET';
     const lecture = methode === 'GET' || methode === 'HEAD';
+    const parts = reste ? reste.split('/').map((x) => decodeURIComponent(x)) : [];
+    const id = parts[0] || '';
     if (!id) {
       if (lecture) {
         if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
-        let noms = [];
-        try { noms = fs.readdirSync(dossierAudits).filter((n) => n.endsWith('.fiche.json')); } catch { /* aucun audit */ }
-        const liste = noms.map((n) => lireJson(path.join(dossierAudits, n))).filter(Boolean).map((f) => { const g = { ...f }; delete g.retrait; return g; });
+        const liste = Object.values(indexAudits());
         liste.sort((a, b) => String(b.recuLe || '').localeCompare(String(a.recuLe || '')));
         return json(200, { audits: liste });
       }
@@ -903,20 +1135,47 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       let d;
       try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
       const parcelle = verifierAudit(d);
+      // Une promenade se depose par l'administrateur seul (son ecran des audits).
+      if (parcelle.nature === 'promenade' && !admin) return erreur(403, 'FORBIDDEN', 'Réservé à l’administrateur.');
       const marque = marqueAudit(req.headers['x-plan-depot']);
       const t = iso();
       const nouvel = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + crypto.randomBytes(4).toString('hex');
       const retrait = crypto.randomBytes(24).toString('hex');
-      ecrireAudit(nouvel, texte);
-      ecrireJson(fFicheAudit(nouvel), { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d), retrait: crypto.createHash('sha256').update(retrait).digest('hex') });
+      const fiche = { id: nouvel, recuLe: t.replace(/\.\d{3}Z$/, 'Z'), organisation, ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d), retrait: crypto.createHash('sha256').update(retrait).digest('hex') };
+      const dir = path.join(dossierAudits, dossierRelatifAudit(fiche));
+      ecrireAudit(dir, texte);
+      ecrireFicheAudit(dir, fiche, d);
       return json(201, { id: nouvel, retrait });
     }
-    const fiche = ID_AUDIT.test(id) ? lireJson(fFicheAudit(id)) : null;
-    if (!fiche) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + id + ' ».');
+    const dir = ID_AUDIT.test(id) ? dossierAudit(id) : null;
+    const fiche = dir ? lireJson(path.join(dir, 'fiche.json')) : null;
+    if (!dir || !fiche) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + id + ' ».');
+
+    // Ses analyses et rejeux, et les images qu'ils ont envoyees : a l'administrateur seul, en lecture.
+    if (parts.length > 1) {
+      if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
+      if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+      if (parts[1] === 'analyses' && parts.length === 2) return json(200, { analyses: listeTraces(dir) });
+      if (parts[1] === 'analyses' && parts.length === 3) {
+        const dt = dossierTrace(id, parts[2]);
+        if (!dt) return erreur(404, 'NOT_FOUND', 'Aucune analyse « ' + parts[2] + ' ».');
+        return json(200, { format: 'plan-audit-analyse-complete', version: 1, audit: id, resume: lireJson(path.join(dt, 'resume.json')),
+          entrant: lireJson(path.join(dt, 'entrant.json')), sortant: lireJson(path.join(dt, 'sortant.json')) });
+      }
+      if (parts[1] === 'images' && parts.length === 3 && IMAGE_TRACE.test(parts[2]) && fs.existsSync(path.join(dir, 'images', parts[2]))) {
+        const ext = parts[2].split('.').pop();
+        const type = Object.keys(EXTENSIONS_IMAGE).find((k) => EXTENSIONS_IMAGE[k] === ext);
+        res.writeHead(200, { ...base, 'Content-Type': type, 'Cache-Control': 'private, max-age=86400, immutable' });
+        res.end(methode === 'HEAD' ? undefined : fs.readFileSync(path.join(dir, 'images', parts[2])));
+        return true;
+      }
+      return erreur(404, 'NOT_FOUND', 'Introuvable');
+    }
+
     if (lecture) {
       if (!admin) return erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
       res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-      res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fAudit(id)));
+      res.end(methode === 'HEAD' ? undefined : fs.readFileSync(path.join(dir, 'audit.json')));
       return true;
     }
     if (methode !== 'DELETE' && methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -927,7 +1186,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const proprietaire = !!secret && attendu.length === recu.length && crypto.timingSafeEqual(attendu, recu);
     if (methode === 'PUT') {
       // Remplacer : comme deposer (session admin ou jeton), et par le secret de ce depot ou
-      // l'administrateur. L'identifiant, le secret et l'organisation du premier envoi restent.
+      // l'administrateur. L'identifiant, le secret, l'organisation et le dossier du premier envoi restent.
       const qui = await acteur(req);
       if (qui.refus) return erreur(...qui.refus);
       if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
@@ -936,12 +1195,14 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
       try { d = JSON.parse(texte); } catch { throw refus('JSON illisible.'); }
       const parcelle = verifierAudit(d);
       const marque = marqueAudit(req.headers['x-plan-depot'], fiche.marque || 'corpus');
-      ecrireAudit(id, texte);
-      ecrireJson(fFicheAudit(id), { ...fiche, recuLe: iso().replace(/\.\d{3}Z$/, 'Z'), ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d) });
+      ecrireAudit(dir, texte);
+      ecrireFicheAudit(dir, { ...fiche, recuLe: iso().replace(/\.\d{3}Z$/, 'Z'), ...parcelle, taille: Buffer.byteLength(texte), marque, ...resumeAudit(d) }, d);
       return json(200, { id, remplace: true });
     }
     if (!admin && !proprietaire) return erreur(403, 'FORBIDDEN', 'Secret de retrait invalide.');
-    for (const f of [fAudit(id), fFicheAudit(id), fFicheAudit(id) + '.bak']) fs.rmSync(f, { force: true });
+    // Retirer emporte tout le dossier de l'audit, analyses et images comprises.
+    fs.rmSync(dir, { recursive: true, force: true });
+    majIndex((index) => { const x = { ...index }; delete x[id]; return x; });
     return json(200, { id, retire: true });
   }
 
@@ -972,7 +1233,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     // `admin/consommation` (13.3) est servi ici aussi : il ne fait que relire le journal de ce module.
     // `admin/audits` (15, L21) aussi : les audits de parcelle partages, rangés avec les donnees de l'admin.
     // `admin/conformite` (13.5, G3) aussi : les mesures des indicateurs, a cote des audits qu'elles lisent.
-    const ma = /^\/admin\/audits(?:\/([^/]*))?\/?$/.exec(url.pathname);
+    const ma = /^\/admin\/audits(?:\/(.*?))?\/?$/.exec(url.pathname);
     const mc = /^\/admin\/conformite\/?$/.test(url.pathname);
     const m = ma || mc ? null : /^\/admin\/(?:claude(?:\/(.*))?|(consommation)\/?)$/.exec(url.pathname);
     if ((!m && !ma && !mc) || !actif) return false;
@@ -997,7 +1258,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     // Les audits partages verifient eux-memes qui appelle : leur retrait se fait aussi par le seul
     // secret rendu a l'envoi, sans session ni jeton.
     if (ma) {
-      try { return await audits(req, res, base, decodeURIComponent(ma[1] || ''), sessionValide(req), json, erreur); } catch (e) {
+      try { return await audits(req, res, base, ma[1] || '', sessionValide(req), json, erreur); } catch (e) {
         if (e && e.statut === 413) return erreur(413, 'TOO_LARGE', 'Fichier d’audit trop gros (48 Mo au plus).');
         if (e && e.statut === 400) return erreur(400, 'BAD_REQUEST', e.message);
         console.error('Plan audits :', e);
@@ -1018,7 +1279,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
         let renfort = null;
         try { const r = promptEtSchema('renfort'); renfort = { prompt: r.prompt.version, schema: r.schema.version }; } catch { renfort = null; }
-        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, modelesParUsage: modelesParUsage(reglageModeles()), prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin });
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, modelesParUsage: modelesParUsage(reglageModeles()), prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin, ...(qui.admin && donnees ? { donnees: vueDonnees(donnees) } : {}) });
       }
 
       if (chemin === '@consommation') {
@@ -1072,6 +1333,19 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         if (!avecCle) return sansCle();
         const p = plafonds();
         const demande = verifierDemande(await lireCorps(req, TAILLE_MAX), p, modelesParUsage(reglageModeles()));
+        // Le rejeu (15.5) : l'administrateur seul, sur un audit range, l'analyse des maisons seule.
+        if (demande.usage === 'rejeu') {
+          if (reserveAdmin()) return true;
+          if (demande.depot === null) throw refus('Un rejeu nomme son audit (depot).');
+          if (demande.requetes.some((r) => r.usage !== 'rejeu')) throw refus('Un rejeu ne porte que l’analyse des maisons.');
+        }
+        let dirAudit = null;
+        if (demande.depot !== null) {
+          const entree = indexAudits()[demande.depot];
+          if (!entree) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + demande.depot + ' ».');
+          if (!qui.admin && entree.organisation !== organisation) return erreur(403, 'FORBIDDEN', 'Cet audit n’est pas celui de votre organisation.');
+          dirAudit = dossierAudit(demande.depot);
+        }
         const t = iso();
         const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
         const { prompt, schema } = promptEtSchema(demande.usage);
@@ -1105,12 +1379,26 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         }
         const b = JSON.parse(r.texte);
         if (!b || typeof b.id !== 'string' || !ID_BATCH.test(b.id)) return erreur(502, 'UPSTREAM', 'Réponse d’Anthropic illisible.');
+        // La trace (15.5) : ce qui part, dans le dossier de l'audit ; ce qui revient la completera.
+        let trace = null;
+        if (dirAudit) {
+          const idTrace = t.slice(0, 19).replace(/[-:]/g, '').replace('T', '-') + '-' + nomSur(demande.modele, 'modele', true) + '-' + crypto.randomBytes(2).toString('hex');
+          const dt = path.join(dirAudit, 'analyses', idTrace);
+          ecrireJson(path.join(dt, 'entrant.json'), entrantTrace(demande, prompts, dirAudit));
+          ecrireJson(path.join(dt, 'resume.json'), {
+            format: 'plan-audit-analyse', version: 1, id: idTrace, audit: demande.depot, nature: demande.usage === 'rejeu' ? 'rejeu' : 'analyse', etat: 'en_cours',
+            creeLe: t.replace(/\.\d{3}Z$/, 'Z'), finLe: null, idBatch: b.id, organisation, usage: demande.usage, modele: demande.modele, effort: EFFORT, prompt: prompt.version, schema: schema.version,
+            versions: Object.fromEntries(Object.entries(prompts).map(([u, x]) => [u, { prompt: x.prompt.version, schema: x.schema.version }])),
+            requetes: demande.requetes.length, images, facades, resultats: null, cout: null, tokens: null
+          });
+          trace = { audit: demande.depot, id: idTrace };
+        }
         ecrireJson(fBatch(b.id), {
           id: b.id, creeLe: t, ...identite, promptVersion: prompt.version, schemaVersion: schema.version,
           requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images, facades: x.facades, usage: x.usage, modele: x.modele, prompt: prompts[x.usage].prompt.version, schema: prompts[x.usage].schema.version }])),
-          etat: b.processing_status, journalise: false
+          etat: b.processing_status, journalise: false, trace
         });
-        return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version });
+        return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version, trace: trace ? trace.id : null });
       }
 
       if (chemin === 'messages') {
@@ -1119,6 +1407,7 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
         const p = plafonds();
         const d = await lireCorps(req, TAILLE_MAX);
         if (d && typeof d === 'object' && !Array.isArray(d) && d.usage === undefined) d.usage = 'renfort';
+        if (d && typeof d === 'object' && d.usage === 'rejeu') throw refus('Un rejeu passe par un batch.');
         const demande = verifierDemande(d, { ...p, requetesParBatch: Math.min(REQUETES_IMMEDIATES, p.requetesParBatch) }, modelesParUsage(reglageModeles()));
         const r = await appelImmediat(demande, organisation, qui.admin);
         return r.refus ? json(...r.refus) : json(200, r.reponse);
