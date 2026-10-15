@@ -685,7 +685,9 @@ validation (§14).
    - **L'écran des propositions laisse voir la parcelle** (essai d'AE 101, 15 octobre : il la
      couvrait). Au doigt, une carte en bas, haute au plus de 46 % de l'écran : le titre, le compte,
      « Avant / Les deux / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
-     la range. Sur un écran en largeur, un panneau à droite. La Vue 3D, épurée comme pendant la prise,
+     la range. Sur un écran en largeur, un panneau à droite. **« Fermer »** sort de l'audit depuis la
+     prise comme depuis les propositions, à droite du titre (demande de l'utilisateur du 16 octobre) :
+     la liste n'est plus l'unique sortie, et rien n'est perdu (la capture reste dans le brouillon). La Vue 3D, épurée comme pendant la prise,
      cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir (une seule
      vue : « Avant » ou « Après » seul).
 
@@ -947,6 +949,19 @@ sortant… » ; « je ne jette rien, tout est utile pour l'instant ».
   promenade, statut et « fait écrit » d'après `regles/toits/faits.json`) et, pour un audit de
   parcelle, ses **analyses** (15.5). Sur grand écran le dialogue s'élargit (1 180 px) ; au doigt, les
   tableaux défilent dans leur boîte. « Retirer » reste confirmé et emporte le dossier entier.
+- **L'avant et l'après d'un audit reçu** (demande de l'utilisateur du 16 octobre ; la base des
+  décisions que l'administrateur prendra plus tard). Sur la carte d'un audit de parcelle, **« Avant /
+  Après »** ouvre l'écran des propositions de l'audit, **le même** : la même Vue 3D en deux vues
+  (« Avant », « Les deux », « Après »), les mêmes lignes, la même caméra. Une seule source : la
+  consultation est une **session d'audit à part** (`creerSessionAuditParcelle`, sans capteurs, brouillon,
+  analyse ni partage) dont la validation est **figée** sur les propositions et les décisions du fichier
+  (`validation.figer`) ; l'aperçu (`apercuDe`, `projetApres`) est celui de la validation, et rien n'est
+  dupliqué. En lecture seule : cases grisées (cochée = validée par l'audit, avec « Décision de l'audit :
+  Validée / Refusée / En attente »), ni « Valider », ni liste, ni partage ; « Retour aux audits » rouvre
+  le catalogue, « Fermer » sort. Sans aucune décision dans le fichier, les cases par défaut de l'audit.
+  Il faut que le projet ouvert soit sur la même parcelle (grisé avec sa raison sinon) ; les bâtiments du
+  fichier sont rapprochés de ceux du projet comme à l'import. Le projet et l'audit en cours de
+  l'administrateur ne sont pas touchés (`app/audit/parcelle/commande.ts::consulter`).
 - Pas de purge automatique : rien ne s'efface sans « Retirer » (administrateur, ou le secret de
   retrait de la personne qui reprend son accord, D7).
 

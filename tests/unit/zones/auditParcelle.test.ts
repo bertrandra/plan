@@ -9,6 +9,7 @@ import { creerPromenade } from '../../../src/app/audit/promenade.js';
 import { creerEtat } from '../../../src/core/state.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import type { Proposition } from '../../../src/model/propositions.js';
 
 // L'ecran de l'audit de la parcelle (Z8) : la liste de controle par batiment, les gestes qui la
 // remplissent, l'ecran de prise ; et « Ce que je vois », le meme composant dans la fiche de la promenade.
@@ -193,5 +194,88 @@ describe('le verrou d un batiment, sur l ecran de prise', () => {
     const { s } = ecran();
     act(() => s.montrer('prise'));
     expect(hote.querySelector('[aria-label="Bâtiment photographié"]')).toBeNull();
+  });
+});
+
+describe('sortir de l audit (demande du 16 octobre)', () => {
+  const fermeture = () => hote.querySelector<HTMLButtonElement>('[data-controle="auditParcelle.fermer"]');
+
+  it('la prise a son bouton Fermer, a cote du titre : plus de passage obligatoire par la liste', () => {
+    const { s, fermer } = ecran();
+    cliquer(bouton(/^Photographier : Façade nord .* de Maison$/));
+    expect(s.ecran()).toBe('prise');
+    expect(fermeture()?.closest('.enteteCarteAudit')?.querySelector('.titreParcours')).not.toBeNull();
+    cliquer(fermeture() ?? undefined);
+    expect(fermer).toHaveBeenCalledTimes(1);
+  });
+
+  it('les propositions aussi', () => {
+    const { s, fermer } = ecran();
+    act(() => s.montrer('propositions'));
+    expect(fermeture()?.closest('.entetePropositions')).not.toBeNull();
+    cliquer(fermeture() ?? undefined);
+    expect(fermer).toHaveBeenCalledTimes(1);
+  });
+
+  it('la liste garde le sien', () => {
+    const { fermer } = ecran();
+    cliquer(fermeture() ?? undefined);
+    expect(fermer).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('la consultation d un audit recu : le meme ecran des propositions, en lecture seule', () => {
+  const proposition = (id: string, apres: string): Proposition => ({
+    id, cible: { type: 'batiment', cle: 'maison' }, objet: 'Murs de Maison', avant: 'enduit', apres, source: 'mesure', indices: [], confiance: 0.9,
+    remplaceChoix: null, reserve: null, effet: { type: 'materiauMurs', materiau: 'brique' },
+  });
+
+  function consultation() {
+    const retour = vi.fn();
+    const e = ecran();
+    act(() => e.s.validation.figer([
+      { ...proposition('maison:materiauMurs', 'brique'), decision: 'validee' as const },
+      { ...proposition('maison:couverture', 'ardoise'), decision: 'refusee' as const },
+      { ...proposition('maison:cheminees', '2 cheminées'), decision: null },
+    ]));
+    act(() => racine.render(createElement(AuditParcelle, { session: e.s, commandes: creerRegistre(), fermer: e.fermer, retour })));
+    act(() => e.s.montrer('propositions'));
+    return { ...e, retour };
+  }
+
+  it('montre les lignes du fichier avec la decision de l audit, cases grisees', () => {
+    const t = consultation();
+    expect(t.s.lectureSeule()).toBe(true);
+    expect(hote.querySelector('.auditPropositions .titreParcours')?.textContent).toBe('Avant et après : l’audit reçu');
+    const lignes = [...hote.querySelectorAll('.ligneProposition')];
+    expect(lignes.map((l) => l.querySelector('.decisionProposition')?.textContent)).toEqual([
+      'Décision de l’audit : Validée', 'Décision de l’audit : Refusée', 'Décision de l’audit : En attente',
+    ]);
+    expect(lignes.map((l) => l.querySelector<HTMLInputElement>('input')?.checked)).toEqual([true, false, false]);
+    expect(lignes.every((l) => l.querySelector<HTMLInputElement>('input')?.disabled)).toBe(true);
+  });
+
+  it('garde l avant / apres de l audit, sans valider, sans liste, sans partage', () => {
+    consultation();
+    expect(hote.querySelector('[data-controle="auditParcelle.avantApres"]')).not.toBeNull();
+    for (const c of ['auditParcelle.valider', 'auditParcelle.liste', 'auditParcelle.fichier', 'auditParcelle.partagerCorpus']) {
+      expect(hote.querySelector('[data-controle="' + c + '"]')).toBeNull();
+    }
+    expect(hote.textContent).toContain('rien n’est écrit dans ce projet');
+  });
+
+  it('revient aux audits par « Retour aux audits », et se ferme comme l audit', () => {
+    const t = consultation();
+    cliquer(hote.querySelector<HTMLButtonElement>('[data-controle="auditsParcelle.retour"]') ?? undefined);
+    expect(t.retour).toHaveBeenCalledTimes(1);
+    cliquer(hote.querySelector<HTMLButtonElement>('[data-controle="auditParcelle.fermer"]') ?? undefined);
+    expect(t.fermer).toHaveBeenCalledTimes(1);
+  });
+
+  it('n a pas de bouton de retour hors consultation', () => {
+    const { s } = ecran();
+    act(() => s.montrer('propositions'));
+    expect(hote.querySelector('[data-controle="auditsParcelle.retour"]')).toBeNull();
+    expect(hote.querySelector('[data-controle="auditParcelle.valider"]')).not.toBeNull();
   });
 });

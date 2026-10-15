@@ -188,3 +188,61 @@ describe('la validation des propositions', () => {
     expect(t.messages.at(-1)).toMatch(/^Aucune proposition cochée/);
   });
 });
+
+describe('la consultation d un audit recu (Admin › Audits)', () => {
+  /** Les propositions d'une session ordinaire, avec ce qu'un audit recu en a decide. */
+  async function fichier(decisions: Record<string, 'validee' | 'refusee' | null>) {
+    const source = monter();
+    await source.v.lancer();
+    return source.v.propositions().map((p) => ({ ...p, decision: decisions[p.id] ?? null }));
+  }
+
+  it('prend les propositions et les decisions du fichier : validee cochee, refusee et en attente decochees', async () => {
+    const propositions = await fichier({ 'maison:materiauMurs': 'validee', 'maison:couverture': 'refusee', 'maison:cheminees': 'validee' });
+    const t = monter();
+    expect(t.v.lectureSeule()).toBe(false);
+    t.v.figer(propositions);
+    expect(t.v.lectureSeule()).toBe(true);
+    expect(t.v.propositions().map((p) => p.id)).toEqual(propositions.map((p) => p.id));
+    expect(t.v.propositions().every((p) => !('decision' in p))).toBe(true);
+    expect(propositions.map((p) => t.v.cochee(p.id))).toEqual([true, false, true, false]);
+    expect(propositions.map((p) => t.v.decision(p.id))).toEqual(['validee', 'refusee', 'validee', null]);
+    expect(t.v.mesures()).toEqual({ etat: 'pretes' });
+  });
+
+  it('sans aucune decision, garde les cases par defaut de l audit', async () => {
+    const propositions = await fichier({});
+    const t = monter();
+    t.v.figer(propositions);
+    expect(propositions.map((p) => t.v.cochee(p.id))).toEqual([true, true, true, true]);
+    expect(t.v.decision('maison:couverture')).toBeNull();
+  });
+
+  it('ne laisse rien cocher ni ecrire : le projet, l historique et les messages restent intacts', async () => {
+    const t = monter();
+    t.v.figer(await fichier({ 'maison:materiauMurs': 'validee' }));
+    const avant = t.plan();
+    t.v.basculer('maison:couverture');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
+    expect(t.v.valider()).toBeNull();
+    expect(t.plan()).toBe(avant);
+    expect(t.historique.pile.taille).toBe(0);
+    expect(t.messages).toEqual([]);
+    expect(t.projet.render).not.toHaveBeenCalled();
+    expect(t.capture.lire().decisions ?? []).toEqual([]);
+  });
+
+  it('montre l apres avec ce que l audit a valide : le meme apercu que la validation', async () => {
+    const t = monter();
+    t.v.figer(await fichier({ 'maison:materiauMurs': 'validee', 'maison:couverture': 'refusee' }));
+    t.v.montrer('apres');
+    const [cles, objets] = t.remplacer3d.mock.calls.at(-1) ?? [];
+    expect(cles).toEqual(['maison']);
+    const copie = objets?.find((o) => o.key === 'maison');
+    expect(copie?.couleurMurs?.materiau).toBe('brique');
+    expect(copie?.toit?.couverture).toBeUndefined();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.couleurMurs?.materiau).toBeUndefined();
+    t.v.montrer('avant');
+    expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+  });
+});

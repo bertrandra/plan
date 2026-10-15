@@ -24,6 +24,7 @@ import type { EtatApp } from '../../../core/state.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
+import type { DecisionProposition, PropositionAuditee } from '../../../model/fichierAuditParcelle.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
 export interface ProjetAudit {
@@ -105,6 +106,17 @@ export interface Validation {
   poserMesures(mesures: readonly MesureFacade[]): void;
   /** Les cases d'une validation passee (un fichier importe) : acceptees cochees, refusees decochees. */
   preregler(d: DecisionAudit): void;
+  /**
+   * Consultation d'un audit recu (Admin › Audits) : les propositions et les decisions du fichier,
+   * telles qu'elles y sont, prennent la place de celles que la session calculerait. Rien ne se mesure
+   * ni ne s'ecrit ; l'apercu avant / apres est le meme, avec les memes cases. Une decision du fichier
+   * fait la case (validee : cochee) ; sans aucune decision, les cases par defaut de l'audit.
+   */
+  figer(propositions: readonly PropositionAuditee[]): void;
+  /** Vrai pour une consultation : les cases ne se touchent pas et « Valider » n'ecrit rien. */
+  lectureSeule(): boolean;
+  /** Ce que le fichier dit de cette proposition (consultation) ; null hors consultation ou si elle n'est pas decidee. */
+  decision(id: string): DecisionProposition;
   abonner(f: () => void): () => void;
 }
 
@@ -237,9 +249,13 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   /** Augmente a chaque nouveau calcul des propositions : l'apercu se repose alors. */
   let calculs = 0;
   let memo: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
+  /** Les propositions d'un audit recu, posees par `figer` : elles tiennent lieu de tout calcul. */
+  const decisionsFigees = new Map<string, DecisionProposition>();
+  let figees: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
 
   const entrees = (): EntreesPropositions => ({ objets: ctx.etat.objects, liste: ctx.liste(), capture: ctx.capture.lire(), mesures: mesureur.lues() });
   function calculer() {
+    if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0);
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
     const e = entrees();
@@ -273,13 +289,14 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   });
 
   return {
-    mesures: () => mesureur.etat(),
-    lancer: () => mesureur.lancer(),
+    mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
+    lancer: () => (figees ? Promise.resolve() : mesureur.lancer()),
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,
     cochee,
     basculer(id) {
+      if (figees) return;
       choix.set(id, !cochee(id));
       apercu.poser();
       publier();
@@ -291,6 +308,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     cadrer(panneau) { ctx.projet.cadrer3d?.(panneau); },
     verifications: verifs,
     valider() {
+      if (figees) return null;
       const { propositions } = calculer();
       const choisies = propositions.filter((p) => cochee(p.id));
       const verifies = verifs().filter((v) => v.verifie).map((v) => v.cle);
@@ -327,6 +345,19 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       for (const id of d.refusees) preregle.set(id, false);
       publier();
     },
+    figer(propositions) {
+      // La decision n'est pas une proposition : elle reste a part (decisionsFigees), et la copie ne la porte pas.
+      const copies = propositions.map((p) => JSON.parse(JSON.stringify({ ...p, decision: undefined })) as Proposition);
+      const decidees = propositions.some((p) => p.decision !== null);
+      const defaut = decidees ? new Set(propositions.filter((p) => p.decision === 'validee').map((p) => p.id)) : cochesParDefaut(copies);
+      decisionsFigees.clear();
+      for (const p of propositions) decisionsFigees.set(p.id, p.decision);
+      figees = { cle: 'figees', objets: null, propositions: copies, observations: [], defaut };
+      calculs++;
+      publier();
+    },
+    lectureSeule: () => figees !== null,
+    decision: (id) => decisionsFigees.get(id) ?? null,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };
 }

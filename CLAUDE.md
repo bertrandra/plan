@@ -126,6 +126,11 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   Une façade **choisie** (touchée, ou prise dans la liste) fixe la vue de prise : la position ne suit
   plus le GPS, la caméra tourne sur l'axe vertical du bâtiment (`vuePrise.ts`, `orbite`), avec les pas
   autour de lui ou au doigt sans GPS sûr ; ni zoom ni inclinaison.
+  **L'avant/après de l'admin** (Admin › Audits, « Avant / Après ») est l'écran des propositions de
+  l'audit, pas une copie : une session de consultation à part (`commande.ts::consulter`) dont la
+  validation est figée sur le fichier (`validation.figer`), en lecture seule. Ne pas écrire un second
+  aperçu 3D : toute évolution de l'avant/après (et plus tard les décisions) se fait dans
+  `validation.ts` / `PropositionsAudit.tsx`, pour les deux.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

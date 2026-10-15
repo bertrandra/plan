@@ -1691,12 +1691,15 @@ const POINTS = {
     await entree.setInputFiles({ name: 'facade2.png', mimeType: 'image/png', buffer: photo });
     await page.locator('.rangementAudit', { hasText: '(2 photos)' }).waitFor({ timeout: 30000 }).catch(() => {});
     const reprise = (await page.locator('.rangementAudit').textContent().catch(() => ''))?.trim() ?? '';
-    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    // Sortir de l'audit depuis la prise : son propre bouton, sans repasser par la liste (16 octobre).
+    await page.locator('.auditPrise [data-controle="auditParcelle.fermer"]').click({ timeout: 15000 }).catch(() => {});
+    await page.locator('.auditPrise').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+    const sorti = (await page.locator('.auditPrise, .dialogueAuditParcelle').count()) === 0;
     const ecartCap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
-    const ok = fixe && !!avant && !!apres && avant.montee > 3 && avant.montee < 20
+    const ok = sorti && fixe && !!avant && !!apres && avant.montee > 3 && avant.montee < 20
       && ecartCap(avant.cap, station.cap) < 15 && ecartCap(apres.cap, (station.cap + 40) % 360) < 15
       && rouge === 0xe0301e && /\(choisie\)/.test(titre) && vert === 0x2e9e4f && /\(2 photos\)/.test(reprise);
-    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; facade choisie ${fixe ? 'fixe (boussole sans effet, zoom verrouillé)' : 'PAS fixe (' + (fixe0 ? fixe0.cap.toFixed(0) : '?') + '° → ' + (fixe1 ? fixe1.cap.toFixed(0) : '?') + '°, zoom ' + (zoomVerrouille ? 'verrouillé' : 'libre') + ')'} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} »` };
+    return { ok, mesure: `caméra ${avant ? 'à ' + avant.y.toFixed(1) + ' m (scène), regard ' + avant.montee.toFixed(0) + '° vers le haut, cap ' + avant.cap.toFixed(0) + '° pour ' + station.cap.toFixed(0) + '°' : 'ABSENTE'} ; boussole +40° → cap ${apres ? apres.cap.toFixed(0) : '?'}° ; visée ${rouge === 0xe0301e ? 'rouge' : 'PAS rouge (' + rouge + ')'} ; toucher ${cible ? 'en ' + Math.round(cible.x) + ',' + Math.round(cible.y) + ' sur ' + sousLeDoigt : '(AUCUN point du mur visible)'} → « ${titre} »${toasts ? ' [toasts : ' + toasts + ']' : ''} ; facade choisie ${fixe ? 'fixe (boussole sans effet, zoom verrouillé)' : 'PAS fixe (' + (fixe0 ? fixe0.cap.toFixed(0) : '?') + '° → ' + (fixe1 ? fixe1.cap.toFixed(0) : '?') + '°, zoom ' + (zoomVerrouille ? 'verrouillé' : 'libre') + ')'} ; photographiée ${vert === 0x2e9e4f ? 'verte' : 'PAS verte (' + vert + ')'} ; reprise « ${reprise} » ; ${sorti ? 'sortie par le bouton Fermer de la prise' : 'PAS sorti par le bouton Fermer'}` };
   },
   88: async (page) => {
     // La vue epuree et la vue d'ensemble de l'audit de la parcelle (second essai d'AE 101, 15 octobre) :
@@ -2385,7 +2388,7 @@ const POINTS = {
       regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-14T08:00:00.000Z', finCapture: '2026-10-14T08:30:00.000Z', ecritLe: '2026-10-14T09:00:00.000Z',
       batiments: [{ cle: maison?.key ?? 'maison', nom: 'Maison', mitoyen: false, cas: null, vu: {}, photos: [], facades: [{ cote: 0, orientation: 'Sud', largeurM: 9, hauteurM: 6, photos: [{ type: 'image/jpeg', base64: photo }], mesure: null }] }],
       cloture: { photos: [] }, portail: { photos: [] },
-      propositions: [{ id: 'p1', objet: 'Toit de Maison', avant: 'tuile', apres: 'ardoise', source: 'claude', decision: 'validee', cible: { type: 'parcelle' }, indices: [], confiance: 0.96, remplaceChoix: null, reserve: null, effet: {} }],
+      propositions: [{ id: 'p1', objet: 'Toit de Maison', avant: 'tuile', apres: 'ardoise', source: 'claude', decision: 'validee', cible: { type: 'batiment', cle: maison?.key ?? 'maison' }, indices: [], confiance: 0.96, remplaceChoix: null, reserve: null, effet: { type: 'couverture', couverture: 'ardoise' } }],
       decisions: [{ t: '2026-10-14T09:00:00.000Z', acceptees: ['p1'], refusees: [], verifies: [] }],
     });
     const tokens = { entree: 3000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 0, sortie: 900 };
@@ -2451,11 +2454,26 @@ const POINTS = {
     const debordeTrace = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditsParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const d = s.demande;
     const images = (d?.requetes?.[0]?.contenu ?? []).filter((b) => b.type === 'image').length;
-    const ok = titre === 'Audits' && sections.length === 2 && /1 proposition .* 1 validée/.test(conclusion) && vignettes >= 1 && /Validée/.test(decision) && rejouable
+    // L'avant et l'apres de cet audit : le meme ecran des propositions que l'audit, en lecture seule, sur
+    // la Vue 3D du projet (deux vues), sans rien changer au projet ; « Retour aux audits » rouvre le catalogue.
+    const projetAvant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    await page.locator('.carteAuditRecu [data-controle="auditsParcelle.avantApres"]').first().click({ timeout: 30000 }).catch(() => {});
+    await page.locator('.auditPropositions').waitFor({ timeout: 30000 }).catch(() => {});
+    const consultation = ((await page.locator('.auditPropositions .titreParcours').textContent().catch(() => '')) || '').trim();
+    const decisionConsultee = ((await page.locator('.auditPropositions .decisionProposition').first().textContent().catch(() => '')) || '').trim();
+    const sansValider = (await page.locator('[data-controle="auditParcelle.valider"]').count()) === 0 && (await page.locator('.auditPropositions input[type="checkbox"]:not([disabled])').count()) === 0;
+    await page.waitForFunction(() => !!window.__plan.deuxVues(), null, { timeout: 30000 }).catch(() => {});
+    const deuxVues = await page.evaluate(() => !!window.__plan.deuxVues());
+    const projetIntact = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects))) === projetAvant;
+    await page.locator('[data-controle="auditsParcelle.retour"]').click({ timeout: 15000 }).catch(() => {});
+    await page.locator('.dialogueAuditsParcelle').waitFor({ timeout: 15000 }).catch(() => {});
+    const retourne = (await page.locator('.dialogueAuditsParcelle .carteAuditRecu').count()) === 1;
+    const ok = consultation === 'Avant et après : l’audit reçu' && /Validée/.test(decisionConsultee) && sansValider && deuxVues && projetIntact && retourne
+      && titre === 'Audits' && sections.length === 2 && /1 proposition .* 1 validée/.test(conclusion) && vignettes >= 1 && /Validée/.test(decision) && rejouable
       && d?.usage === 'rejeu' && d?.depot === ID && d?.modele === 'claude-sonnet-5-5' && d?.requetes?.length === 3 && images >= 1
       && lignes.length === 2 && /Rejeu/.test(lignes[1] ?? '') && /Claude Sonnet 5\.5/.test(lignes[1] ?? '') && !/En cours/.test(lignes[1] ?? '')
       && /Vous regardez une maison/.test(trace) && /Deux pans/.test(trace) && imageTrace >= 1 && !debordeDetail && !debordeTrace;
-    return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
+    return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; avant/après : « ${consultation} », ${decisionConsultee || 'SANS décision'}, ${sansValider ? 'lecture seule' : 'ÉDITABLE'}, ${deuxVues ? 'deux vues' : 'PAS de deux vues'}, projet ${projetIntact ? 'intact' : 'MODIFIÉ'}, ${retourne ? 'retour aux audits' : 'PAS de retour'} ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
   },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois

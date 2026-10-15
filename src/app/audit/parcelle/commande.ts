@@ -21,7 +21,7 @@ import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
 import { preparerImport } from './fichier.js';
 import { brancherDoigtAudit } from '../controleur.js';
-import { creerCatalogue } from './catalogue.js';
+import { creerCatalogue, type CatalogueAudits } from './catalogue.js';
 import { preparerRejeu } from './rejeu.js';
 import { fabriqueImagesNavigateur } from './analyseClaude.js';
 import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
@@ -71,14 +71,58 @@ function choisirFichierNavigateur(signaler: (m: string) => void): (surTexte: (te
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 
+/** Ce que le catalogue admin demande a la session de la parcelle : reprendre un fichier, ou le consulter. */
+interface ActionsCatalogue {
+  importer: (texte: string, fiche: FicheAudit) => void;
+  consulter: (texte: string, catalogue: CatalogueAudits) => void;
+}
+
+function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, actions: ActionsCatalogue): void {
+  // Admin › « Audits » : le catalogue, ouvert sur le projet en cours. Les analyses gardees se lisent
+  // par la session admin (cookie) ; le rejeu passe par le client de l'analyse, sous ses plafonds.
+  const analysesAudits = creerClientAnalysesAudits((entree, init) => fetch(entree, init));
+  cmd.declarer({
+    id: 'admin.auditsParcelle',
+    libelle: 'Audits',
+    description: 'Les audits reçus sur le serveur, de parcelle et de promenade : leurs données, leur conclusion et ce qui en a été fait, leurs analyses par Claude et leurs rejeux par modèle ; les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
+    groupe: 'admin',
+    actif: () => enAdmin(),
+    executer: () => {
+      const catalogue: CatalogueAudits = creerCatalogue({
+        client: () => a.audits?.() ?? null,
+        iduProjet: () => parcelleCadastrale(a.etat.objects),
+        refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
+        ouvrir: (texte, fiche) => actions.importer(texte, fiche),
+        consulter: (texte) => actions.consulter(texte, catalogue),
+        telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
+        signaler: a.signaler,
+        choisirFichier: a.choisirFichier ?? choisirFichierNavigateur(a.signaler),
+        rejeu: {
+          analyses: () => (enAdmin() ? analysesAudits : null),
+          analyse: () => (enAdmin() ? a.analyse?.client ?? null : null),
+          preparer: (texte, fiche, modele) => preparerRejeu({
+            texte, depot: fiche.id, modele, objets: a.etat.objects, iduProjet: parcelleCadastrale(a.etat.objects), projet: a.analyse?.identite?.().projet ?? null,
+          }, a.analyse?.images ?? fabriqueImagesNavigateur()),
+        },
+      });
+      parcours.ouvrir({ type: 'auditsParcelle', catalogue });
+      void catalogue.relire();
+    },
+  });
+}
+
 export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreCommandes): { session: () => SessionAuditParcelle | null } {
   let session: SessionAuditParcelle | null = null;
   let iduSession: string | null = null;
+  /** La consultation d'un audit recu (Admin › Audits) : une session a part, en lecture seule, jetee a sa fermeture. */
+  let consultation: SessionAuditParcelle | null = null;
 
   // L'ecran ferme (Echap, Fermer, un autre parcours) : les capteurs s'arretent et le brouillon s'ecrit.
   parcours.abonner(() => {
     const p = parcours.courant();
     if (session && !(p?.type === 'auditParcelle' && p.session === session)) { session.suspendre(); void session.ecrireBrouillon(); }
+    // La consultation ne garde rien : fermee, ou remplacee par un autre ecran, la Vue 3D revient au plan.
+    if (consultation && !(p?.type === 'auditParcelle' && p.session === consultation)) { consultation.suspendre(); consultation = null; }
   });
   // L'ecran qui se verrouille, l'onglet mis en arriere-plan : le brouillon s'ecrit sans attendre.
   if (typeof document !== 'undefined') {
@@ -97,7 +141,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
       tapoter: (ndc) => session?.toucher(ndc), appuiLong: (ndc) => session?.toucher(ndc), lacherSuivi: () => session?.lacherVue(),
     }, hote);
   };
-  abonnerSceneBatie(() => { brancherHote(); session?.sceneBatie(); });
+  abonnerSceneBatie(() => { brancherHote(); session?.sceneBatie(); consultation?.sceneBatie(); });
 
   /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
   function sessionDe(idu: string): SessionAuditParcelle {
@@ -161,6 +205,29 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     }, sauvegarde);
   }
 
+  /**
+   * L'avant et l'apres d'un audit recu, sur l'ecran des propositions de l'audit (une seule source) :
+   * une session a part, sans capteurs, brouillon ni partage, dont les propositions et les decisions
+   * sont celles du fichier. L'audit en cours de l'administrateur n'est pas touche.
+   */
+  function consulter(texte: string, catalogue: CatalogueAudits): void {
+    const idu = parcelleCadastrale(a.etat.objects);
+    const r = preparerImport(texte, a.etat.objects, idu);
+    if ('refus' in r) { a.signaler('Consultation refusée : ' + r.refus); return; }
+    if (!idu) return;
+    // Un autre ecran du meme parcours : la session de l'audit en cours se suspend, comme a toute fermeture.
+    consultation?.suspendre();
+    // Sans analyse par Claude ni envoi : elle ne fait que montrer.
+    const base: AtelierAuditParcelle = { ...a, stockage: null, audits: () => null, admin: () => false };
+    delete base.analyse;
+    const s = creerSessionAuditParcelle({ ...base, idu });
+    consultation = s;
+    s.consulter(r.fichier, () => {
+      s.montrer('propositions');
+      parcours.ouvrir({ type: 'auditParcelle', session: s, retour: () => parcours.ouvrir({ type: 'auditsParcelle', catalogue }) });
+    });
+  }
+
   cmd.declarer({
     id: 'audit.importerParcelle',
     libelle: 'Importer un audit de parcelle…',
@@ -187,35 +254,6 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     executer: () => { void session?.sauvegarde.envoyer(); },
   });
 
-  // Admin › « Audits » : le catalogue, ouvert sur le projet en cours. Les analyses gardees se lisent
-  // par la session admin (cookie) ; le rejeu passe par le client de l'analyse, sous ses plafonds.
-  const analysesAudits = creerClientAnalysesAudits((entree, init) => fetch(entree, init));
-  cmd.declarer({
-    id: 'admin.auditsParcelle',
-    libelle: 'Audits',
-    description: 'Les audits reçus sur le serveur, de parcelle et de promenade : leurs données, leur conclusion et ce qui en a été fait, leurs analyses par Claude et leurs rejeux par modèle ; les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
-    groupe: 'admin',
-    actif: () => enAdmin(),
-    executer: () => {
-      const catalogue = creerCatalogue({
-        client: () => a.audits?.() ?? null,
-        iduProjet: () => parcelleCadastrale(a.etat.objects),
-        refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
-        ouvrir: (texte, fiche) => importer(texte, fiche),
-        telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
-        signaler: a.signaler,
-        choisirFichier: a.choisirFichier ?? choisirFichierNavigateur(a.signaler),
-        rejeu: {
-          analyses: () => (enAdmin() ? analysesAudits : null),
-          analyse: () => (enAdmin() ? a.analyse?.client ?? null : null),
-          preparer: (texte, fiche, modele) => preparerRejeu({
-            texte, depot: fiche.id, modele, objets: a.etat.objects, iduProjet: parcelleCadastrale(a.etat.objects), projet: a.analyse?.identite?.().projet ?? null,
-          }, a.analyse?.images ?? fabriqueImagesNavigateur()),
-        },
-      });
-      parcours.ouvrir({ type: 'auditsParcelle', catalogue });
-      void catalogue.relire();
-    },
-  });
+  declarerAuditsAdmin(a, cmd, { importer, consulter });
   return { session: () => session };
 }

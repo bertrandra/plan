@@ -159,6 +159,14 @@ export interface SessionAuditParcelle {
    * remplacera desormais au lieu d'en creer un autre.
    */
   importer(f: FichierAuditParcelle, pret: () => void, depot?: EnvoiCorpus): Promise<void>;
+  /**
+   * Consultation d'un audit recu (Admin › Audits) : cette session, a part de celle de l'audit en
+   * cours, ne montre que les propositions du fichier et ce qui en a ete decide, sur le meme ecran et
+   * la meme Vue 3D avant / apres. Rien ne se mesure, ne se partage ni ne s'ecrit dans le projet.
+   */
+  consulter(f: FichierAuditParcelle, pret: () => void): void;
+  /** Vrai pour une consultation : l'ecran des propositions ne laisse rien cocher ni valider. */
+  lectureSeule(): boolean;
   liste(): ListeDeControle;
   ecran(): EcranAudit;
   montrer(e: EcranAudit): void;
@@ -520,6 +528,12 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
         pret();
       });
     },
+    consulter(f, pret) {
+      capture.remplacer(captureDuFichier(f));
+      validation.figer(f.propositions);
+      pret();
+    },
+    lectureSeule: () => validation.lectureSeule(),
     liste,
     ecran: () => ecran,
     montrer(e) {

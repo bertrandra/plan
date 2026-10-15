@@ -47,6 +47,7 @@ function conclusion(a: FicheAudit): string | null {
 function CarteAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: FicheAudit }) {
   const e = catalogue.etat();
   const raison = a.nature === 'parcelle' ? catalogue.raisonOuvrir(a) : null;
+  const raisonAvantApres = a.nature === 'parcelle' ? catalogue.raisonConsulter(a) : null;
   const occupe = e.enCours === a.id;
   const confirmer = e.aConfirmer === a.id;
   const ouverte = e.detail?.id === a.id;
@@ -74,6 +75,8 @@ function CarteAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: FicheAudi
             <div className="actionsAuditRecu" role="group" aria-label={'Actions sur ' + nom}>
               {a.nature === 'parcelle' && <button type="button" className="small" data-controle="auditsParcelle.ouvrir" disabled={raison !== null || e.enCours !== null} title={raison ?? undefined}
                 aria-label={'Ouvrir dans ce projet : ' + nom} onClick={() => { void catalogue.ouvrir(a); }}>Ouvrir dans ce projet</button>}
+              {a.nature === 'parcelle' && <button type="button" className="secondary small" data-controle="auditsParcelle.avantApres" disabled={raisonAvantApres !== null || e.enCours !== null} title={raisonAvantApres ?? undefined}
+                aria-label={'Voir l’avant et l’après : ' + nom} onClick={() => { void catalogue.consulter(a); }}>Avant / Après</button>}
               <button type="button" className="secondary small" data-controle="auditsParcelle.details" aria-pressed={ouverte} disabled={e.enCours !== null && !ouverte}
                 aria-label={(ouverte ? 'Refermer ' : 'Détails de ') + nom} onClick={() => { void catalogue.basculerDetail(a); }}>{ouverte ? 'Refermer' : 'Détails'}</button>
               <button type="button" className="secondary small" data-controle="auditsParcelle.telecharger" disabled={e.enCours !== null}
@@ -82,7 +85,7 @@ function CarteAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: FicheAudi
                 aria-label={'Retirer ' + nom} onClick={() => catalogue.demanderRetrait(a)}>Retirer</button>
             </div>
             {/* Au doigt, l'infobulle n'existe pas : la raison du refus s'ecrit sous les boutons. */}
-            {raison && <p className="raisonAuditRecu">{raison}</p>}
+            {(raison || raisonAvantApres) && <p className="raisonAuditRecu">{raison ?? raisonAvantApres}</p>}
           </>}
       {occupe && <p className="detailPhoto" role="status">Lecture de l’audit sur le serveur…</p>}
       {ouverte && <DetailAudit catalogue={catalogue} a={a} />}

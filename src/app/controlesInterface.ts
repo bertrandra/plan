@@ -257,6 +257,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.fichier': etape(Z8, AUDIT_PARCELLE, 'Fichier de l’audit : le partager ou le télécharger (administrateur)'),
   // Admin › Audits de parcelle (zones/parcours/AuditsParcelle.tsx) : les audits recus sur le serveur.
   // Rien n'ecrit dans le projet : « Ouvrir » reprend l'audit dans sa session, comme un import.
+  'auditsParcelle.avantApres': etape(Z8, CATALOGUE_AUDITS, 'Voir l’avant et l’après d’un audit reçu sur la Vue 3D de ce projet (même parcelle), en lecture seule', { repete: true }),
+  'auditsParcelle.retour': etape(Z8, AUDIT_PARCELLE, 'Revenir aux audits reçus depuis leur avant et après'),
   'auditsParcelle.ouvrir': etape(Z8, CATALOGUE_AUDITS, 'Ouvrir dans ce projet un audit reçu (même parcelle), à la phase où il en était', { repete: true }),
   'auditsParcelle.telecharger': etape(Z8, CATALOGUE_AUDITS, 'Télécharger le fichier d’un audit reçu, tel qu’il est arrivé', { repete: true }),
   'auditsParcelle.retirer': etape(Z8, CATALOGUE_AUDITS, 'Retirer un audit reçu du serveur (demande confirmation)', { repete: true }),
@@ -282,7 +284,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.partagerAudit': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (cochée par défaut)'),
   'auditParcelle.retirerAccord': etape(Z8, AUDIT_PARCELLE, 'Retirer l’accord : plus aucune photo ne part, les propositions de Claude sont retirées'),
   'auditParcelle.relancerAnalyse': etape(Z8, AUDIT_PARCELLE, 'Relancer l’analyse par Claude (photos changées, ou envoi échoué)'),
-  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle (rien n’est perdu)'),
+  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
   'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
