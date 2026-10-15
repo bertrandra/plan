@@ -41,7 +41,8 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   quand ces points changent de requêtes.
 - **Au quotidien** : seulement les points touchés, et `FUMEE_CLASSES=large FUMEE_THEMES=light` pour
   une classe et un thème. `FUMEE_PARALLELE=n` règle le nombre de parties jouées à la fois (par
-  défaut un cœur sur deux, quatre au plus).
+  défaut une par tranche de quatre cœurs : une seule sur la machine du cloud, où deux parties
+  simultanées rendent instables les points aux longues attentes).
 - three.js est servi depuis `node_modules/three` (`servirThreeLocal`) ; `FUMEE_CDN=1` revient aux CDN.
 - Le point 40 ne joue rien par construction (couvert par le passage en thème sombre).
 - Un passage complet reste long : lancer le serveur Vite avec un délai long, sinon il

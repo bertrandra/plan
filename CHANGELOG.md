@@ -1132,7 +1132,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 ### Modifié
 
 - **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
-  plusieurs à la fois (`FUMEE_PARALLELE`, par défaut un cœur sur deux, quatre au plus) ; un passage
+  plusieurs à la fois (`FUMEE_PARALLELE`, par défaut une par tranche de quatre cœurs, quatre au plus) ; un passage
   peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).
   Les longues attentes fixes (20 s, 18 s, 8 s, 3,5 s, 2,5 s) attendent désormais ce qu'elles
   attendaient : le voisinage importé, les tuiles posées, le zonage rangé, l'image 3D immobile.

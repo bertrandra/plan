@@ -34,7 +34,7 @@ quand ces points changent de requêtes : `FUMEE_RESEAU=enregistrer node scripts/
 
 **Un passage se règle** : `FUMEE_CLASSES=large` et `FUMEE_THEMES=light` (listes séparées par des
 virgules) n'en jouent qu'une partie, pour le travail au quotidien ; `FUMEE_PARALLELE=n` joue n
-parties à la fois (par défaut un cœur sur deux, quatre au plus). Le passage complet, toutes classes
+parties à la fois (par défaut une par tranche de quatre cœurs, quatre au plus). Le passage complet, toutes classes
 et tous thèmes, reste celui d'avant une fusion.
 
 ## Manipulation directe du plan

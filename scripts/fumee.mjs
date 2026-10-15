@@ -2659,14 +2659,15 @@ async function jouer(navigateur, net, { f, theme, n }) {
 const ligne = (r) => `${r.classe.padEnd(7)} ${r.theme.padEnd(5)} ${String(r.n).padStart(2)} ${r.ok === true ? 'OK  ' : r.ok === false ? 'ÉCHEC' : '—   '} ${r.mesure}`;
 
 /**
- * `FUMEE_PARALLELE` parties a la fois (par defaut, un coeur sur deux, entre 1 et 4) : le serveur
- * Vite et le navigateur se partagent les coeurs, et des parties trop serrees allongeraient les
- * attentes au lieu de les recouvrir. Chaque ligne s'ecrit quand sa partie finit ; le recapitulatif,
- * trie, reprend l'ordre du passage.
+ * `FUMEE_PARALLELE` parties a la fois (par defaut, une par tranche de quatre coeurs, entre 1 et 4) :
+ * le serveur Vite et le navigateur sans carte graphique se partagent les coeurs. Sur quatre coeurs,
+ * deux parties a la fois ne raccourcissaient pas le passage et rendaient instables les points aux
+ * longues attentes (62, 67, 70, qui passent joues seuls). Chaque ligne s'ecrit quand sa partie
+ * finit ; le recapitulatif, trie, reprend l'ordre du passage.
  */
 async function principal() {
   const aJouer = parties();
-  const parallele = Math.max(1, Number(process.env.FUMEE_PARALLELE) || Math.min(4, Math.max(1, Math.floor(cpus().length / 2))));
+  const parallele = Math.max(1, Number(process.env.FUMEE_PARALLELE) || Math.min(4, Math.max(1, Math.floor(cpus().length / 4))));
   const navigateur = await chromium.launch();
   const net = reseau(await choisirModeReseau(navigateur));
   console.log(`${aJouer.length} partie(s), ${parallele} à la fois, ${net.mode === 'direct' ? 'réseau direct' : net.mode === 'temoin' ? 'réseau rejoué (données témoin)' : 'réseau enregistré'}\n`);
