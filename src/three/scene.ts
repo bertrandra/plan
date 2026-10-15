@@ -748,11 +748,22 @@ function retenirHorsObjets(scene: THREE_NS.Scene, poser: () => void): void {
   horsObjets.push(...scene.children.slice(n0));
 }
 
+/**
+ * Ce que la vue epuree a masque elle-meme. Seuls ceux-la reviennent a la fin de l'audit : une maille
+ * deja invisible (le gazon entier et le ruban du chemin que seul l'export montre, EXPORT_SEULEMENT)
+ * doit le rester.
+ */
+let masquesParEpure = new WeakSet<THREE_NS.Object3D>();
+
 /** Masque ou montre ce que la vue epuree ecarte ; un simple drapeau `visible`, rien n'est rebati. */
 function appliquerEpure(): void {
   const garder = garderSeulement;
-  for (const [cle, racines] of poseParObjet) for (const r of racines) r.visible = !garder || garder(cle);
-  for (const r of horsObjets) r.visible = !garder;
+  const masquer = (r: THREE_NS.Object3D, oui: boolean) => {
+    if (oui) { if (r.visible) { r.visible = false; masquesParEpure.add(r); } }
+    else if (masquesParEpure.has(r)) { masquesParEpure.delete(r); r.visible = true; }
+  };
+  for (const [cle, racines] of poseParObjet) for (const r of racines) masquer(r, !!garder && !garder(cle));
+  for (const r of horsObjets) masquer(r, !!garder);
 }
 
 /**
@@ -772,7 +783,10 @@ export function epurerVue3d(garder: ((cle: string) => boolean) | null): void {
  */
 export function visibilite3d(): { visibles: string[]; masques: string[]; horsObjetsVisibles: number } {
   const visibles: string[] = [], masques: string[] = [];
-  for (const [cle, racines] of poseParObjet) (racines.some((r) => r.visible) ? visibles : masques).push(cle);
+  for (const [cle, racines] of poseParObjet) {
+    if (racines.some((r) => masquesParEpure.has(r))) masques.push(cle);
+    else if (racines.some((r) => r.visible)) visibles.push(cle);
+  }
   return { visibles, masques, horsObjetsVisibles: horsObjets.filter((r) => r.visible).length };
 }
 
@@ -1049,6 +1063,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   ctx.disposeThreeScene();
   poseParObjet.clear();
   horsObjets = [];
+  masquesParEpure = new WeakSet();
   derniere = null;
   // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
   const host = hotes3d.vue3d;
