@@ -19,8 +19,7 @@ const deploy = path.join(racine, 'deploy');
 const TARIFS = JSON.parse(fs.readFileSync(path.join(deploy, 'claude-tarifs.json'), 'utf8')) as Tarifs;
 const SCHEMA = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-renfort.json'), 'utf8')) as { version: number; schema: Record<string, unknown> };
 const PROMPT = fs.readFileSync(path.join(deploy, 'prompt-renfort.md'), 'utf8');
-// Le renfort part par defaut au modele plus fin : le modele rapide ne trouvait rien sur les photos.
-const FIN = tarifEnVigueur(TARIFS, 'claude-sonnet-5-5', '2026-10-14');
+const HAIKU = tarifEnVigueur(TARIFS, 'claude-haiku-5-5', '2026-10-14');
 
 /** Une requete de renfort : la photo, l'elevation, le texte. */
 const requeteRenfort = (id: string, passe: number) => ({
@@ -66,7 +65,7 @@ describe('le prompt et le schema du renfort', () => {
   it('donne a chaque requete son usage et son modele', () => {
     const p = PLAFONDS_DEFAUT as Plafonds;
     const d = verifierDemande({ ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1', 1)] }, p);
-    expect(d.requetes.map((r) => [r.id, r.usage, r.modele])).toEqual([['p1', 'analyse', 'claude-sonnet-5-5'], ['r1', 'renfort', 'claude-sonnet-5-5']]);
+    expect(d.requetes.map((r) => [r.id, r.usage, r.modele])).toEqual([['p1', 'analyse', 'claude-haiku-5-5'], ['r1', 'renfort', 'claude-haiku-5-5']]);
     expect(() => verifierDemande({ ...demande(['p1']), requetes: [{ ...requeteRenfort('r1', 1), usage: 'autre' }] }, p)).toThrow(/Usage inconnu/);
   });
 });
@@ -140,7 +139,7 @@ describe('le renfort, routes', () => {
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'renfort']]);
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-sonnet-5-5', batch: true, facades: 1, prompt: 2, schema: 1, trouve: null });
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 2, schema: 1, trouve: null });
   });
 
   it('fait l appel immediat en trois passes, au tarif normal, et le journalise', async () => {
@@ -149,9 +148,9 @@ describe('le renfort, routes', () => {
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
-    expect(faux.messages[0]).toMatchObject({ model: 'claude-sonnet-5-5', output_config: { effort: 'low' } });
-    const cout = coutAppel(tokensDeUsage(USAGE_P2), FIN, false);
-    expect(corps).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 2, schema: 1 });
+    expect(faux.messages[0]).toMatchObject({ model: 'claude-haiku-5-5', output_config: { effort: 'low' } });
+    const cout = coutAppel(tokensDeUsage(USAGE_P2), HAIKU, false);
+    expect(corps).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 2, schema: 1 });
     expect(corps.resultats.map((x: { id: string; statut: string; passe: number; usage: string; cout: number }) => [x.id, x.statut, x.passe, x.usage, x.cout])).toEqual([['r1', 'reussi', 1, 'renfort', cout], ['r2', 'reussi', 2, 'renfort', cout], ['r3', 'reussi', 3, 'renfort', cout]]);
     expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
     expect(journal()).toHaveLength(3);

@@ -34,26 +34,27 @@ const modelesEnvoyes = (s: Serveur, n: number) => Object.fromEntries((s.faux.bat
 export async function reglerLesModeles(s: Serveur): Promise<void> {
   const lu = await (await s.navigateur('admin/claude/modeles')).json();
   expect(lu).toEqual({ format: 'plan-claude-modeles', usages: { ...MODELE_PAR_USAGE }, defaut: { ...MODELE_PAR_USAGE }, admis: MODELES, regle: false });
-  // Par defaut, le modele plus fin pour l'analyse, le renfort et l'aide immediate.
-  expect(lu.usages).toMatchObject({ analyse: FIN, renfort: FIN, immediat: FIN, escalade: FIN, candidats: RAPIDE });
+  // Par defaut, le modele rapide pour tous les usages.
+  expect(lu.usages).toEqual({ analyse: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, escalade: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE });
   expect((await s.ecrire('admin/claude/batches', 'POST', avecRenfort())).status).toBe(201);
-  expect(modelesEnvoyes(s, 0)).toEqual({ p1: FIN, r1: FIN });
+  expect(modelesEnvoyes(s, 0)).toEqual({ p1: RAPIDE, r1: RAPIDE });
 
-  const pose = await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+  // L'administrateur passe l'analyse au modele plus fin.
+  const pose = await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: FIN } });
   expect(pose.status).toBe(200);
-  expect(await pose.json()).toMatchObject({ usages: { ...MODELE_PAR_USAGE, analyse: RAPIDE }, regle: true });
-  expect(JSON.parse(fs.readFileSync(s.fichier, 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
-  expect((await (await s.navigateur('admin/claude/etat')).json()).modelesParUsage).toEqual({ ...MODELE_PAR_USAGE, analyse: RAPIDE });
+  expect(await pose.json()).toMatchObject({ usages: { ...MODELE_PAR_USAGE, analyse: FIN }, regle: true });
+  expect(JSON.parse(fs.readFileSync(s.fichier, 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: FIN } });
+  expect((await (await s.navigateur('admin/claude/etat')).json()).modelesParUsage).toEqual({ ...MODELE_PAR_USAGE, analyse: FIN });
   // Le reglage vaut pour l'envoi suivant ; chaque requete garde le modele de son usage.
   expect((await s.ecrire('admin/claude/batches', 'POST', avecRenfort())).status).toBe(201);
-  expect(modelesEnvoyes(s, 1)).toEqual({ p1: RAPIDE, r1: FIN });
+  expect(modelesEnvoyes(s, 1)).toEqual({ p1: FIN, r1: RAPIDE });
   // Un modele demande explicitement reste admis, pour toutes les requetes de la demande.
-  expect((await s.ecrire('admin/claude/batches', 'POST', { ...avecRenfort(), modele: FIN })).status).toBe(201);
-  expect(modelesEnvoyes(s, 2)).toEqual({ p1: FIN, r1: FIN });
+  expect((await s.ecrire('admin/claude/batches', 'POST', { ...avecRenfort(), modele: RAPIDE })).status).toBe(201);
+  expect(modelesEnvoyes(s, 2)).toEqual({ p1: RAPIDE, r1: RAPIDE });
 
   // Le remplacer garde la version precedente en `.bak`.
-  expect((await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: RAPIDE, renfort: RAPIDE } })).status).toBe(200);
-  expect(JSON.parse(fs.readFileSync(s.fichier + '.bak', 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+  expect((await s.ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: FIN, renfort: FIN } })).status).toBe(200);
+  expect(JSON.parse(fs.readFileSync(s.fichier + '.bak', 'utf8'))).toEqual({ format: 'plan-claude-modeles', usages: { analyse: FIN } });
 
   // Les refus : un modele hors de la liste, un usage inconnu, un autre format. Rien n'est ecrit.
   const avant = fs.readFileSync(s.fichier, 'utf8');
@@ -71,8 +72,8 @@ export async function reglerLesModeles(s: Serveur): Promise<void> {
   expect((await s.ecrire('admin/claude/modeles', 'POST', {})).status).toBe(405);
 
   // Un modele regle puis retire de la liste (un deploiement plus recent) retombe sur le defaut.
-  fs.writeFileSync(s.fichier, JSON.stringify({ format: 'plan-claude-modeles', usages: { analyse: 'claude-ancien-1', renfort: RAPIDE } }));
-  expect((await (await s.navigateur('admin/claude/modeles')).json()).usages).toEqual({ ...MODELE_PAR_USAGE, renfort: RAPIDE });
+  fs.writeFileSync(s.fichier, JSON.stringify({ format: 'plan-claude-modeles', usages: { analyse: 'claude-ancien-1', renfort: FIN } }));
+  expect((await (await s.navigateur('admin/claude/modeles')).json()).usages).toEqual({ ...MODELE_PAR_USAGE, renfort: FIN });
 }
 
 /** Ce que les reponses contiennent, au journal ; une ligne d'avant les comptes reste lisible. */
@@ -91,6 +92,6 @@ export async function compterCeQuiEstTrouve(s: Serveur): Promise<void> {
 
   const conso = await (await s.navigateur('admin/consommation')).json();
   const p1 = conso.lignes.find((l: { trouve: { ouvertures: number } | null }) => l.trouve?.ouvertures === 9);
-  expect(p1).toMatchObject({ idBatch: 'msgbatch_1', modele: FIN, trouve: TROUVE_ANALYSE });
+  expect(p1).toMatchObject({ idBatch: 'msgbatch_1', modele: RAPIDE, trouve: TROUVE_ANALYSE });
   expect(conso.lignes.filter((l: { trouve: unknown }) => l.trouve === null)).toHaveLength(1);
 }

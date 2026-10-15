@@ -1151,7 +1151,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats
   au modèle rapide. Le coût d'une parcelle passe de 1 à 2 centimes à **20 à 40 centimes** environ :
   les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête sont à relever dans
-  « Réglages ». L'administrateur peut revenir au modèle rapide usage par usage.
+  « Réglages ». L'administrateur peut revenir au modèle rapide usage par usage. *Défaut abandonné
+  le 15 octobre 2026, voir l'entrée suivante.*
+- **Tous les usages de l'analyse par Claude repassent par défaut au modèle rapide (Haiku)**
+  (décision de l'utilisateur, 15 octobre 2026) : analyse des audits, escalade, renfort des façades,
+  aide immédiate et cas candidats (`MODELE_PAR_USAGE` de `deploy/analyse.php` et
+  `buildsg/analyseAdmin.mjs`). Le « rien trouvé » des audits venait du schéma que l'API refusait, pas
+  du modèle (voir « Corrigé »). Le coût d'une parcelle revient à 1 à 2 centimes environ, dans les
+  plafonds par défaut. L'administrateur passe un usage au modèle plus fin (Sonnet) dans « Réglages »
+  › « Modèles » s'il le faut ; un réglage déjà posé garde son choix.
 
 - **Audit de la parcelle, « Photographier en marchant »** (`MD/spec-audit.md` §12.2, demande de
   l'utilisateur) :
