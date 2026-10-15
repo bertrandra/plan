@@ -114,12 +114,39 @@ export function poseEnsemble(c: CadreEnsemble, azimutDeg: number, rapport: numbe
  * deforme sur les bords).
  */
 export function champPourLaFacade(oeil: PtBrut, facade: Facade, rapport: number): number {
+  return Math.min(CHAMP_PIETON_MAX_DEG, Math.max(CHAMP_VISIBLE_DEG, champNecessaire(oeil, facade, rapport)));
+}
+
+/** Le champ vertical qu'il faudrait pour que la facade tienne en largeur, sans borne. */
+function champNecessaire(oeil: PtBrut, facade: Facade, rapport: number): number {
   const mx = (facade.gauche.x + facade.droite.x) / 2 - oeil.x, my = (facade.gauche.y + facade.droite.y) / 2 - oeil.y;
   const d = Math.max(PROCHE_M, Math.hypot(mx, my));
   const demiLargeur = Math.hypot(facade.droite.x - facade.gauche.x, facade.droite.y - facade.gauche.y) / 2 * MARGE_ENSEMBLE;
   const demiH = Math.atan(demiLargeur / d);
   const demiV = Math.atan(Math.tan(demiH) / Math.max(0.1, rapport));
-  return Math.min(CHAMP_PIETON_MAX_DEG, Math.max(CHAMP_VISIBLE_DEG, (2 * demiV * 180) / Math.PI));
+  return (2 * demiV * 180) / Math.PI;
+}
+
+/**
+ * Le trait renforce de pres (demande de l'utilisateur du 15 octobre) : a moins de TRAIT_PLEIN_M de la
+ * facade visee, vous n'en voyez qu'un morceau, et dans la vue ses aretes se perdent sous le voile et
+ * la texture ; le trait est alors plein. Il s'attenue en reculant et disparait a TRAIT_NUL_M, ou le
+ * batiment entier se reconnait seul. Comptes depuis vous, et non depuis la camera : elle se tient
+ * jusqu'a 6 m derriere, et c'est votre distance au mur qui fait qu'on ne s'y retrouve plus.
+ */
+export const TRAIT_PLEIN_M = 4;
+export const TRAIT_NUL_M = 9;
+
+/**
+ * La force du trait (0 a 1) : par votre distance au mur, en courbe douce entre TRAIT_NUL_M et
+ * TRAIT_PLEIN_M ; pleine aussi quand la facade deborde du champ le plus large de la camera
+ * (`oeil`, CHAMP_PIETON_MAX_DEG) : la vue n'en montre qu'un morceau, il faut ses aretes.
+ */
+export function forceDuTrait(position: PtBrut, oeil: PtBrut, facade: Facade, rapport: number | null): number {
+  if (rapport !== null && champNecessaire(oeil, facade, rapport) > CHAMP_PIETON_MAX_DEG) return 1;
+  const d = distancePointSegment(position, facade.gauche, facade.droite);
+  const t = Math.min(1, Math.max(0, (TRAIT_NUL_M - d) / (TRAIT_NUL_M - TRAIT_PLEIN_M)));
+  return t * t * (3 - 2 * t);
 }
 
 /**
@@ -322,11 +349,14 @@ export function vuePieton(): VuePieton {
 export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.now()) {
   let actif = false;
   let pauseJusqua = 0;
+  /** La derniere pose a hauteur d'homme ; null en vue d'ensemble, ou l'ecran ferme. */
+  let derniere: PosePieton | null = null;
   return {
     /** L'ecran s'ouvre (vrai) ou se ferme (faux) : a la fermeture, la camera est rendue. */
     activer(oui: boolean): void {
       if (actif && !oui) vue.liberer?.();
       actif = oui;
+      derniere = null;
       if (oui) pauseJusqua = 0;
     },
     actif: () => actif,
@@ -341,12 +371,20 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
     suivre(p: PtBrut | null, cap: number | null, facade: Facade | null, force = false, murs: readonly (readonly PtBrut[])[] = []): boolean {
       if (!actif || !p) return false;
       if (!force && horloge() < pauseJusqua) return false;
-      return vue.poser(posePieton(p, capDeLaVue(p, cap, facade), facade, murs, vue.rapportVisible?.() ?? null));
+      const pose = posePieton(p, capDeLaVue(p, cap, facade), facade, murs, vue.rapportVisible?.() ?? null);
+      if (!vue.poser(pose)) return false;
+      derniere = pose;
+      return true;
     },
+    /** La derniere pose a hauteur d'homme (null en vue d'ensemble) : la force du trait s'y lit. */
+    derniere: () => derniere,
+    /** La largeur sur la hauteur de ce que l'ecran de l'audit laisse voir, si on la connait. */
+    rapport: () => vue.rapportVisible?.() ?? null,
     /** La vue d'ensemble sur ce cadre ; sans direction donnee, celle de la camera (un doigt l'a tournee). */
     ensemble(cadre: CadreEnsemble): boolean {
       if (!actif) return false;
       const azimut = cadre.azimutDeg ?? vue.azimut?.() ?? 0;
+      derniere = null;
       return vue.poser(poseEnsemble(cadre, azimut, vue.rapportVisible?.() ?? 1));
     },
   };

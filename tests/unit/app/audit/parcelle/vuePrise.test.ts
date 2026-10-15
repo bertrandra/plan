@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, partieCachee, poseEnsemble, posePieton, reculLibre, suiviPieton,
+  cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, posePieton, reculLibre, suiviPieton,
+  TRAIT_NUL_M, TRAIT_PLEIN_M,
   CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
 } from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import type { Facade } from '../../../../../src/facade/geometrie.js';
@@ -200,5 +201,30 @@ describe('ce que l ecran de l audit cache de la vue', () => {
   it('jamais plus de 60 % de la vue', () => {
     expect(partieCachee(canevas, { haut: 0, gauche: 0 }).bas).toBe(480);
     expect(partieCachee(canevas, { haut: 0, gauche: 460 }).droite).toBe(540);
+  });
+});
+
+describe('le trait renforce de pres (demande du 15 octobre)', () => {
+  const sud = facade({ x: 0, y: 10 }, { x: 10, y: 10 });
+  const a = (d: number) => forceDuTrait({ x: 5, y: 10 - d }, { x: 5, y: 4 - d }, sud, null);
+  it('est plein en deca du seuil, nul au-dela du second, et s attenue entre les deux', () => {
+    expect(a(TRAIT_PLEIN_M)).toBe(1);
+    expect(a(2)).toBe(1);
+    expect(a(TRAIT_NUL_M)).toBe(0);
+    expect(a(20)).toBe(0);
+    expect(a((TRAIT_PLEIN_M + TRAIT_NUL_M) / 2)).toBeCloseTo(0.5, 6);
+    // Plus on recule, plus il s'attenue : jamais de saut.
+    let avant = 1;
+    for (let d = TRAIT_PLEIN_M; d <= TRAIT_NUL_M; d += 0.25) {
+      const f = a(d);
+      expect(f).toBeLessThanOrEqual(avant + 1e-12);
+      expect(avant - f).toBeLessThan(0.12);
+      avant = f;
+    }
+  });
+  it('est plein quand la facade deborde du champ le plus large, meme de plus loin', () => {
+    const longue = facade({ x: -30, y: 10 }, { x: 40, y: 10 });
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, null)).toBeLessThan(1);
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, 0.7)).toBe(1);
   });
 });

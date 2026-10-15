@@ -289,8 +289,8 @@ async function ouvrirAuditParcelle(page) {
  * parcelle, et le cap vers ce mur ; en degres par le calage du cadastre (a quelques centimetres pres
  * sur 20 m, c'est assez pour la reconnaissance).
  */
-async function stationDevantLaMaison(page) {
-  return page.evaluate(() => {
+async function stationDevantLaMaison(page, distances = [8, 6, 10, 5]) {
+  return page.evaluate((distances) => {
     const e = window.__plan.etat();
     const maison = e.objects.find((o) => o.key === 'maison');
     const parcelle = e.objects.find((o) => o.key === 'parcelle');
@@ -305,14 +305,14 @@ async function stationDevantLaMaison(page) {
       const b = pts[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y);
       return { m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, l, nx: (aire > 0 ? 1 : -1) * (b.y - a.y) / l, ny: (aire > 0 ? -1 : 1) * (b.x - a.x) / l };
     }).sort((u, v) => v.l - u.l);
-    for (const c of cotes) for (const d of [8, 6, 10, 5]) {
+    for (const c of cotes) for (const d of distances) {
       const p = { x: c.m.x + c.nx * d, y: c.m.y + c.ny * d };
       if (!dans(p, parcelle.pts) || batis.some((o) => dans(p, o.pts))) continue;
       const cap = (Math.atan2(c.m.x - p.x, c.m.y - p.y) * 180 / Math.PI + 360) % 360;
       return { lat: cad.origineLat + p.y / 111132.954, lon: cad.origineLon + p.x / (111319.49 * Math.cos(cad.origineLat * Math.PI / 180)), cap };
     }
     return null;
-  });
+  }, distances);
 }
 
 /**
@@ -1752,6 +1752,39 @@ const POINTS = {
       && propositions.dedans >= propositions.total - 2 && bornee && repliee.cache && repliee.h < carte.h && rendue && projet === avant;
     return { ok, mesure: `vue épurée ${epuree ? 'oui' : 'NON'} (visibles ${vis.visibles.length}, masqués ${vis.masques.length}, hors objets visibles ${vis.horsObjetsVisibles}) ; vue d'ensemble : maison ${ensemble.dedans}/${ensemble.total} coins visibles, caméra ${ensemble.hauteur.toFixed(1)} m au-dessus du point visé ; toucher ${cible ? Math.round(cible.x) + ',' + Math.round(cible.y) : 'AUCUN mur visible'} → « ${titre} » ; propositions : carte ${Math.round(carte.h)} px sur ${carte.vh}${carte.gauche > carte.vw * 0.45 ? ', à droite' : ''}, maison ${propositions.dedans}/${propositions.total} coins visibles ; repliée ${repliee.cache ? Math.round(repliee.h) + ' px' : 'NON'} ; fermé : ${rendue ? 'tout revient' : 'PAS RENDU (' + apres.masques.length + ' masqués)'} ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'}` };
   },
+  87: async (page) => {
+    // Le trait renforce de pres (demande de l'utilisateur du 15 octobre) : a 3,5 m de la facade de la
+    // maison, ses aretes se dessinent en traits epais et sombres par-dessus le voile ; a 10 m, plus rien.
+    const station = await stationDevantLaMaison(page, [3.5, 4]);
+    if (!station) return { ok: false, mesure: 'aucun mur de la maison ne se voit a 3,5 m depuis la parcelle' };
+    await page.context().grantPermissions(['geolocation'], { origin: BASE });
+    await page.context().setGeolocation({ latitude: station.lat, longitude: station.lon, accuracy: 3 });
+    await ouvrirAuditParcelle(page);
+    await page.locator('[data-controle="auditParcelle.prise"]').click({ timeout: 30000 });
+    await page.locator('.auditPrise').waitFor({ timeout: 30000 });
+    const tourner = (cap) => page.evaluate((a) => { for (let i = 0; i < 6; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: a, beta: 90, gamma: 0, absolute: true })); }, (360 - cap) % 360);
+    await tourner(station.cap);
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('facadeDevant'), null, { timeout: 60000 }).catch(() => {});
+    await tourner(station.cap);
+    // Les lignes epaisses arrivent a la demande : le trait fin d'attente est remplace.
+    await page.waitForFunction(() => window.__plan.scene3d()?.scene.getObjectByName('traitDePres')?.type === 'LineSegments2', null, { timeout: 30000 }).catch(() => {});
+    const lire = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const t = sc?.scene.getObjectByName('traitDePres');
+      return { trait: t ? { type: t.type, opacite: t.material.opacity, largeur: t.material.linewidth ?? 1, segments: t.geometry.attributes.instanceStart?.count ?? t.geometry.attributes.position.count / 2 } : null, voile: !!sc?.scene.getObjectByName('facadeDevant')?.getObjectByName('voile')?.visible };
+    });
+    const pres = await lire();
+    // On recule a une dizaine de metres : le trait part.
+    const loin = await stationDevantLaMaison(page, [11, 12, 13]);
+    if (loin) {
+      await page.context().setGeolocation({ latitude: loin.lat, longitude: loin.lon, accuracy: 3 });
+      await page.waitForFunction(() => !window.__plan.scene3d()?.scene.getObjectByName('traitDePres'), null, { timeout: 40000 }).catch(() => {});
+    }
+    const apres = await lire();
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const ok = !!pres.trait && pres.trait.type === 'LineSegments2' && pres.trait.opacite > 0.9 && pres.trait.largeur >= 3 && pres.trait.segments > 12 && pres.voile && !!loin && !apres.trait;
+    return { ok, mesure: `à 3,5 m : ${pres.trait ? pres.trait.type + ', ' + pres.trait.segments + ' arêtes, ' + pres.trait.largeur.toFixed(1) + ' px, opacité ' + pres.trait.opacite.toFixed(2) : 'AUCUN trait'} ; voile ${pres.voile ? 'visible' : 'ABSENT'} ; à une dizaine de mètres : ${loin ? (apres.trait ? 'trait ENCORE là (' + apres.trait.opacite.toFixed(2) + ')' : 'plus de trait') : 'AUCUNE station'}` };
+  },
   62: async (page, f) => {
     // L'audit de la parcelle, propositions et validation (lot L11) : les mesures et les observations
     // deviennent des propositions ; « Après » les montre dans la Vue 3D sans toucher au projet ;
@@ -2692,7 +2725,8 @@ function pointsPour(nomClasse) {
   // 84 : la vue a hauteur d'homme de « Photographier en marchant », qui suit la boussole ; facades rouge et vertes, facade touchee.
   // 85 : la sauvegarde de l'audit de parcelle sur le serveur, et Admin › Audits de parcelle qui la rouvre (§15).
   // 86 : la vue epuree et la vue d'ensemble de l'audit de parcelle ; les propositions laissent voir la maison.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86];
+  // 87 : le trait renforce de la facade, de pres.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 87];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

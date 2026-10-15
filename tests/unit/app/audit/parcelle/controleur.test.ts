@@ -307,6 +307,28 @@ describe('la vue epuree et la vue d ensemble (second essai d AE 101)', () => {
     expect(v.poser.mock.calls.length).toBe(n);
   });
 
+  it('renforce le trait de la facade visee de pres, l attenue en reculant, le retire en vue d ensemble', () => {
+    const trait = vi.fn<(cle: string | null, force: number) => void>();
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), trait });
+    t.s.reprendre();
+    t.s.montrer('prise');
+    expect(trait.mock.calls.every(([cle]) => cle === null)).toBe(true);
+    // A 3,5 m de la facade sud : trait plein, sur la maison.
+    t.gps({ x: 10, y: 6.5 }); t.gps({ x: 10, y: 6.5 }); t.cap(0);
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+    expect(trait).toHaveBeenLastCalledWith('maison', 1);
+    // A 7 m : plus faible ; a 13 m : retire.
+    t.gps({ x: 10, y: 3 }); t.gps({ x: 10, y: 3 }); t.gps({ x: 10, y: 3 });
+    const [cle, force] = trait.mock.calls.at(-1) ?? [];
+    expect(cle).toBe('maison');
+    expect(force).toBeGreaterThan(0);
+    expect(force).toBeLessThan(1);
+    // L'audit ferme : le trait part.
+    t.s.suspendre();
+    expect(trait).toHaveBeenLastCalledWith(null, 0);
+  });
+
   it('sans position, la facade touchee ne deplace pas la vue d ensemble', () => {
     const v = vue();
     const objetSous = vi.fn(() => ({ cle: 'maison', point: { x: 10, y: 19.8 } as PtBrut }));

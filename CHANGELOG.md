@@ -1148,6 +1148,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   façade reconnue qui se perd garde cette vue 2,5 s, pour ne pas sauter à chaque pas. Une façade
   choisie sans position ne se montre plus depuis 8 m devant elle, trop près : la vue d'ensemble se
   tourne vers elle.
+- **De près, le trait de la façade se renforce** (`three/traitDePres.ts`, `MD/spec-audit.md` §12.2 ;
+  demande de l'utilisateur du 15 octobre). Pendant la prise, à moins de 4 m de la façade visée (ou
+  quand elle déborde du champ le plus large), les arêtes du bâtiment visé (angles, bas et haut des
+  murs, contours des ouvertures, rives et faîtage) se dessinent en traits épais et sombres, par-dessus
+  le voile rouge ou vert sans le cacher ; le trait s'atténue en reculant et disparaît à 9 m. Couleur
+  par le jeton `--trait-3d` (clair et sombre, modèles de palette compris) ; épaisseur en pixels par
+  les lignes épaisses de three.js r128, chargées à la demande, un trait fin hors ligne. Jamais exporté.
 - **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
   plusieurs à la fois (`FUMEE_PARALLELE`, par défaut une par tranche de quatre cœurs, quatre au plus) ; un passage
   peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).

@@ -426,6 +426,13 @@ Et pour la parcelle :
      que la façade visée y tienne en entier). Elle **suit votre position et votre cap** (boussole,
      sinon sens de la marche) et glisse d'une pose à l'autre : ce n'est pas une image fixe. Un doigt
      qui la fait tourner la garde 6 s, puis le suivi reprend (`app/audit/parcelle/vuePrise.ts`).
+   - **De près, le trait se renforce** (demande de l'utilisateur du 15 octobre 2026) : à moins de 4 m
+     de la façade visée, ou quand elle déborde du champ le plus large, les arêtes du bâtiment visé
+     (angles, bas et haut des murs, contours des ouvertures, rives et faîtage) se dessinent en traits
+     épais et sombres (jeton `--trait-3d`), par-dessus le voile sans le cacher ; le trait s'atténue en
+     reculant et disparaît à 9 m (`vuePrise.ts::forceDuTrait`, `three/traitDePres.ts`). Les distances
+     se comptent depuis vous, pas depuis la caméra. Lignes épaisses de three.js (chargées à la
+     demande) ; hors ligne, un trait d'un pixel.
    - **Tant que rien n'est visé depuis votre position** (pas encore de position, position refusée,
      aucune façade devant vous), la Vue 3D est une **vue d'ensemble en grand angle** (champ de 60°,
      regard incliné de 35°) : tout le bâtiment audité, cadré dans ce que l'écran de prise laisse voir,

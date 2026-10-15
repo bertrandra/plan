@@ -709,6 +709,11 @@ export function visibilite3d(): { visibles: string[]; masques: string[]; horsObj
   return { visibles, masques, horsObjetsVisibles: horsObjets.filter((r) => r.visible).length };
 }
 
+/** Ce que la Vue 3D ouverte a pose pour cet objet du plan (le trait renforce de l'audit les parcourt). */
+export function racinesDe3d(cle: string): readonly THREE_NS.Object3D[] {
+  return derniere && vue3d.scene && derniere.sc === vue3d.scene ? poseParObjet.get(cle) ?? [] : [];
+}
+
 /** Vrai si l'objet et tous ses parents sont visibles : un groupe masque cache ses mailles. */
 function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
   for (let x: THREE_NS.Object3D | null = o; x; x = x.parent) if (!x.visible) return false;
