@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
-import { couleursDuCiel, cadreOmbres, installerCourbeDeFilm, poserCiel, accorderCiel, poserBrume } from '../../../src/three/rendu.js';
+import { couleursDuCiel, cadreOmbres, installerCourbeDeFilm, poserCiel, accorderCiel, poserBrume, brancherOcclusion } from '../../../src/three/rendu.js';
 import { HORS_EXPORT } from '../../../src/three/primitives.js';
 
 beforeAll(() => {
@@ -67,5 +67,32 @@ describe('rendu photographique de la Vue 3D', () => {
     // Le soleil a l'ouest (azimut 270°) : la lueur est cote -X.
     const soleil = ((ciel.material as THREE_NS.ShaderMaterial).uniforms as { soleil: { value: THREE_NS.Vector3 } }).soleil.value;
     expect(soleil.x).toBeLessThan(-0.9);
+  });
+});
+
+describe('l occlusion ambiante (Soignee) et le bassin des piscines', () => {
+  it('rend la scene dans une cible qui garde le tampon de gabarit : le sol ne remplit plus le bassin', () => {
+    // Les exemples de three.js r128 ne sont pas charges ici : des doublures qui gardent la cible
+    // de la passe telle que three.js la cree (sans gabarit).
+    class FausseComposition { renderTarget1 = new THREE_NS.WebGLRenderTarget(4, 4); renderTarget2 = new THREE_NS.WebGLRenderTarget(4, 4); addPass() {} render() {} setSize() {} setPixelRatio() {} }
+    const cibles: THREE_NS.WebGLRenderTarget[] = [];
+    class FaussePasse {
+      kernelRadius = 0; minDistance = 0; maxDistance = 0;
+      beautyRenderTarget = new THREE_NS.WebGLRenderTarget(4, 4);
+      constructor() { cibles.push(this.beautyRenderTarget); }
+      setSize() {}
+    }
+    const T = THREE as unknown as Record<string, unknown>;
+    T.EffectComposer = FausseComposition; T.SSAOPass = FaussePasse;
+    try {
+      expect(new THREE_NS.WebGLRenderTarget(4, 4).stencilBuffer).toBe(false);
+      const rendu = { getPixelRatio: () => 1 } as unknown as THREE_NS.WebGLRenderer;
+      const o = brancherOcclusion(rendu, new THREE_NS.Scene(), new THREE_NS.PerspectiveCamera(45, 1, 0.05, 500), 4, 4);
+      expect(o).not.toBeNull();
+      expect(cibles).toHaveLength(1);
+      expect(cibles[0]?.stencilBuffer).toBe(true);
+    } finally {
+      delete T.EffectComposer; delete T.SSAOPass;
+    }
   });
 });

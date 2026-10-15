@@ -294,7 +294,7 @@ export interface Occlusion {
 
 type ExemplesOcclusion = {
   EffectComposer: new (r: THREE_NS.WebGLRenderer) => { addPass(p: unknown): void; render(): void; setSize(w: number, h: number): void; setPixelRatio(r: number): void; renderTarget1: THREE_NS.WebGLRenderTarget; renderTarget2: THREE_NS.WebGLRenderTarget };
-  SSAOPass: new (s: THREE_NS.Scene, c: THREE_NS.Camera, w: number, h: number) => { kernelRadius: number; minDistance: number; maxDistance: number; setSize(w: number, h: number): void; dispose?(): void };
+  SSAOPass: new (s: THREE_NS.Scene, c: THREE_NS.Camera, w: number, h: number) => { kernelRadius: number; minDistance: number; maxDistance: number; beautyRenderTarget?: THREE_NS.WebGLRenderTarget; setSize(w: number, h: number): void; dispose?(): void };
 };
 
 /** Au-dela de ces distances a la camera, en metres, l'occlusion s'estompe puis disparait. */
@@ -330,6 +330,11 @@ export function brancherOcclusion(renderer: THREE_NS.WebGLRenderer, scene: THREE
   const composer = new T.EffectComposer(renderer);
   composer.setPixelRatio(renderer.getPixelRatio());
   const passe = new T.SSAOPass(scene, camera, w, h);
+  // L'image de la scene se rend dans la cible de la passe, que three.js cree sans tampon de
+  // gabarit : le sol, l'orthophoto et les chemins ne s'effacaient plus du bassin d'une piscine
+  // (`gabaritSol`, three/primitives.ts), et la pelouse remplissait l'eau en Soignee. La cible n'est
+  // allouee qu'au premier rendu : le reglage, pose avant, est pris.
+  if (passe.beautyRenderTarget) passe.beautyRenderTarget.stencilBuffer = true;
   const profondeur = camera.far - camera.near;
   passe.kernelRadius = 0.8;
   passe.minDistance = 0.02 / profondeur;
