@@ -6,8 +6,8 @@
 // rangee dans le navigateur (app/ecouteurs/vue3d.ts), jamais dans le fichier, et n'entre dans aucun
 // export : les empreintes golden ne la voient pas.
 //
-// « Normale » est la Vue 3D d'avant ce reglage, a l'identique : un niveau ne fait qu'ajouter ou
-// retirer des effets autour d'elle.
+// Les trois niveaux partagent la courbe de film, le ciel et la brume (R1, three/rendu.ts) ; ils se
+// distinguent par ce qui coute a chaque image ou a chaque pas du soleil.
 
 export type Qualite3d = 'econome' | 'normale' | 'soignee';
 
@@ -27,6 +27,8 @@ export interface ParametresQualite {
   ombresParDefaut: boolean;
   /** Cote de la carte d'ombre, en pixels. */
   carteOmbre: number;
+  /** Le ciel comme lumiere d'ambiance (three/rendu.ts) : un calcul a chaque pas du soleil. */
+  environnement: boolean;
   /** Occlusion ambiante (SSAO) : les coins, le pied des murs et le dessous des debords s'assombrissent. */
   occlusion: boolean;
   /** Distance au centre de la parcelle au-dela de laquelle un batiment passe en modele allege, en metres. */
@@ -37,9 +39,9 @@ export interface ParametresQualite {
 export const DETAIL_FIN_M = 120;
 
 const PARAMETRES: Record<Qualite3d, ParametresQualite> = {
-  econome: { pixelRatioMax: 1, anticrenelage: false, ombresParDefaut: false, carteOmbre: 1024, occlusion: false, detailFinM: 60 },
-  normale: { pixelRatioMax: 1, anticrenelage: true, ombresParDefaut: true, carteOmbre: 2048, occlusion: false, detailFinM: DETAIL_FIN_M },
-  soignee: { pixelRatioMax: 2, anticrenelage: true, ombresParDefaut: true, carteOmbre: 4096, occlusion: true, detailFinM: DETAIL_FIN_M }
+  econome: { pixelRatioMax: 1, anticrenelage: false, ombresParDefaut: false, carteOmbre: 1024, environnement: false, occlusion: false, detailFinM: 60 },
+  normale: { pixelRatioMax: 1, anticrenelage: true, ombresParDefaut: true, carteOmbre: 2048, environnement: true, occlusion: false, detailFinM: DETAIL_FIN_M },
+  soignee: { pixelRatioMax: 2, anticrenelage: true, ombresParDefaut: true, carteOmbre: 4096, environnement: true, occlusion: true, detailFinM: DETAIL_FIN_M }
 };
 
 export function parametresQualite(q: Qualite3d): ParametresQualite {

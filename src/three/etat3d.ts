@@ -10,6 +10,7 @@
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
 import type { Qualite3d } from './qualite.js';
+import type { EtatRendu } from './rendu.js';
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
@@ -39,12 +40,28 @@ export interface SceneTroisBase {
   dirLight: THREE_NS.DirectionalLight;
   dirFill: THREE_NS.DirectionalLight;
   hemiLight: THREE_NS.HemisphereLight;
+  /**
+   * Le rendu d'une image, quand il ne se reduit pas a `renderer.render` : l'occlusion ambiante de la
+   * Vue 3D en Soignee (three/rendu.ts) passe par un enchainement de passes. Tout rendu passe par
+   * `rendre3d`, qui le prend s'il existe.
+   */
+  rendre?: () => void;
+  /** Ce qui suit la taille du canevas en plus du rendu et de la camera (les passes de l'occlusion). */
+  redimensionner?: (w: number, h: number) => void;
+}
+
+/** Rend une image de la scene, par ses passes si elle en a. */
+export function rendre3d(sc: SceneTroisBase): void {
+  if (sc.rendre) sc.rendre();
+  else sc.renderer.render(sc.scene, sc.camera);
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
 export interface SceneVue3d extends SceneTroisBase {
   extent: number;
   cen: { x: number; y: number };
+  /** Le ciel, l'environnement et l'occlusion (three/rendu.ts), a liberer avec la scene. */
+  rendu?: EtatRendu;
 }
 
 /** La scene de la visionneuse : elle cadre un .glb deja produit, donc en coordonnees 3D. */
@@ -176,6 +193,11 @@ export const vue3d: {
   ombres: boolean;
   /** Le niveau de qualite de l'appareil (three/qualite.ts) : pose au demarrage, regle dans le panneau. */
   qualite: Qualite3d;
+  /**
+   * La boucle d'animation ne rend plus d'images : le temps d'un export .glb (three/exportGlb.ts),
+   * dont l'exporteur travaille par petites taches sur le meme fil que le rendu.
+   */
+  pauseRendu: boolean;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -190,7 +212,8 @@ export const vue3d: {
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
   ombres: true,
-  qualite: 'normale'
+  qualite: 'normale',
+  pauseRendu: false
 };
 
 /**

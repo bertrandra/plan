@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La lumière de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R1 ; `three/rendu.ts`). Une courbe de
+  film (ACES) : les blancs ne brûlent plus, les ombres gardent du détail. Un ciel dégradé qui suit
+  l'heure du soleil — bleu le jour, doré au couchant, nuit profonde — avec une lueur autour du soleil ;
+  une brume légère qui fond le voisinage lointain dans l'horizon. En Normale et Soignée, le ciel éclaire
+  aussi la scène (les faces tournées vers lui en prennent le bleu, et les vitres le refléteront) ; en
+  Soignée, l'occlusion ambiante assombrit les coins et le pied des murs, de près. La carte d'ombre est
+  resserrée sur la parcelle du projet : les ombres sont nettes au pied des murs. **Rien ne change dans
+  les exports** : les couleurs des matériaux ne sont pas touchées (la courbe agit au rendu), le ciel
+  reste hors du .glb, et l'empreinte `glb-structure.json` est identique (point 24 de la fumée).
 - **Réglage « Qualité » de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R0 ; `three/qualite.ts`). Dans
   les réglages de la vue 3D (groupe « Scène ») : Économe, Normale ou Soignée. C'est une préférence de
   l'appareil, rangée dans le navigateur et jamais dans le projet : Économe est proposée d'office sur un
@@ -1101,7 +1110,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Les points 12 à 15 de la fumée rejouent des données témoin sans réseau**
   (`scripts/fumee-reseau.mjs`, `tests/fixtures/fumee-reseau/`) : quand `data.geopf.fr` ne répond
   pas, les réponses enregistrées de la BAN, d'`apicarto` et de la Géoplateforme sont servies à sa
-  place. `FUMEE_RESEAU=temoin|direct|enregistrer` force le mode.
+  place. `FUMEE_RESEAU=temoin|direct|enregistrer` force le mode. Le rejeu est fidèle à ce que le
+  navigateur a reçu : l'enregistrement écoute sans intercepter, les échecs et l'autorisation CORS se
+  rejouent tels quels, chaque réponse arrive après sa durée enregistrée (`FUMEE_LATENCE=0` l'ignore),
+  et une requête sans témoin part sur le vrai réseau au lieu d'être inventée. Sans cela, la démo
+  recevait en mode témoin des tuiles que l'IGN lui refuse, et le .glb du point 24 s'écartait du golden.
+- **Un export .glb n'est plus disputé par le rendu** (`three/exportGlb.ts`) : la boucle d'animation de
+  la Vue 3D se tait le temps de l'export. Sur un appareil lent, l'exporteur manquait son délai.
 - **L'analyse des audits, le renfort des façades et l'aide immédiate passent par défaut au modèle
   plus fin (Sonnet)** au lieu du modèle rapide (Haiku), qui ne trouvait rien sur les photos d'un vrai
   audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats

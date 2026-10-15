@@ -93,7 +93,9 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
   if (affichage3d.generation) return;
   affichage3d.generation = telecharger ? 'export' : 'generation';
   signaler3d();
-  const restaurer = () => { affichage3d.generation = null; signaler3d(); };
+  // La boucle de rendu se tait pendant l'export : elle disputait le fil a l'exporteur, qui manquait
+  // alors son delai sur un appareil lent (et sur le navigateur sans carte graphique de la fumee).
+  const restaurer = () => { vue3d.pauseRendu = false; affichage3d.generation = null; signaler3d(); };
 
   ensureThreeLoaded(() => {
     ensureGLTFExporterLoaded(() => {
@@ -115,6 +117,7 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
           // Rien n'est retire tant que `detacherCartesSansImage` n'a pas tourne.
           let remettreSiBesoin = () => {};
           try {
+            vue3d.pauseRendu = true;
             const exporteur = new THREE.GLTFExporter();
             const sansImage = detacherCartesSansImage(sc.scene);
             const remettreGabarits = masquerGabarits(sc.scene);

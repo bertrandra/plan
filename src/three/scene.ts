@@ -25,7 +25,8 @@ import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
-import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { cadreOmbres, monterRendu } from './rendu.js';
 import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
@@ -185,7 +186,7 @@ export function distanceDeCadrage(rayon: number, aspect: number): number {
  * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
  * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
  */
-function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean }) {
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean; rayonParcelle: number | null }) {
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdfe7ea);
@@ -231,7 +232,7 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
     controls.target.copy(conservee.cible);
     controls.update();
   }
-  const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent);
+  const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent, cadreOmbres(terrain.rayonParcelle, extent));
 
   const matSol = new THREE.MeshStandardMaterial({ color: 0x9fb98c });
   // Le sol est la couche la plus basse : on le recule plutot que de tirer vers la camera ce qui est
@@ -265,24 +266,27 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
  * Position, intensite et couleur sont posees ensuite par `appliquerLumiereVue3d`, d'apres la date,
  * l'heure et le lieu : les valeurs d'ici ne servent qu'a exister.
  */
-function poserLumieres(scene: THREE_NS.Scene, extent: number) {
+function poserLumieres(scene: THREE_NS.Scene, extent: number, cadre: number) {
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
   scene.add(hemiLight);
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
   dirLight.position.set(extent, extent * 1.5, extent * 0.6);
   if (vue3d.ombres) {
-    // Le cadrage de la shadow map suit l'etendue de LA scene affichee, et la depasse : une ombre de
-    // fin de journee s'allonge bien au-dela de l'objet qui la projette. Seule la lumiere principale
-    // projette — une deuxieme direction d'ombres ajouterait de la confusion pour peu de gain.
+    // Le cadrage de la shadow map est resserre sur la parcelle du projet et ses abords (R1,
+    // three/rendu.ts) : sur l'etendue entiere d'un voisinage, ses 2 048 pixels faisaient des ombres
+    // floues au pied des murs. Sans parcelle, il suit l'etendue de la scene, comme avant. Seule la
+    // lumiere principale projette — une deuxieme direction d'ombres ajouterait de la confusion.
     dirLight.castShadow = true;
     const carte = parametresQualite(vue3d.qualite).carteOmbre;
     dirLight.shadow.mapSize.set(carte, carte);
-    const d = extent * 1.8;
+    const d = cadre;
     dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = extent * 9;
     dirLight.shadow.bias = -0.0005;
+    // Le cadre resserre affine la carte : un decalage selon la normale evite les stries sur les murs.
+    dirLight.shadow.normalBias = 0.02;
   }
   scene.add(dirLight);
   const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
@@ -928,7 +932,11 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
   const solMoteur = sol ? solDuProjet(etat.objects) : null;
   const bornes = bornesDuSol(etat, ctx, cen, extent);
-  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj) });
+  // Le rayon de la parcelle du projet autour du centre de la scene : le cadre des ombres et le debut
+  // de la brume s'y accordent (three/rendu.ts).
+  const pcl = ctx.trouverParcelleCloture();
+  const rayonParcelle = pcl && aDesSommets(pcl) && pcl.pts.length >= 3 ? Math.max(...pcl.pts.map((p: PtBrut) => Math.hypot(p.x - cen.x, p.y - cen.y))) : null;
+  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj), rayonParcelle });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
   vue3d.centre = cen;
@@ -967,9 +975,11 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
   };
   vue3d.scene = sc;
+  // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).
+  monterRendu(sc, parametresQualite(vue3d.qualite), rayonParcelle ?? extent, !vue3d.apresSoleil);
   derniere = { sc, co, obj, ground };
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
-  const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); actualiserFeuillesProches(scene, camera); renderer.render(scene, camera); };
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); actualiserFeuillesProches(scene, camera); rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);
@@ -990,6 +1000,6 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     if(vue3d.scene !== sc) return;
     if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur });
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
-    renderer.render(scene, camera);
+    rendre3d(sc);
   }, 0);
 }

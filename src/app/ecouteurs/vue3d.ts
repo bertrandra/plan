@@ -10,7 +10,7 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb, signaler3d } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d, rendre3d } from '../../three/etat3d.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/exportGlb.js';
@@ -117,7 +117,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
    */
   cam('terrasse3dSavePng', '3d.enregistrerPng', 'Enregistrer en PNG', () => {
     if (!vue3d.scene) { showErrBanner('Vue 3D pas encore chargee.'); return; }
-    vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera); // capture le tout dernier etat
+    rendre3d(vue3d.scene); // capture le tout dernier etat
     // `renderer.domElement` vient d'une scene Three non typee (SceneTrois = Record<string, any>) :
     // le type du callback ne peut pas s'en deduire. `Blob | null` est celui de la vraie API canvas.
     vue3d.scene.renderer.domElement.toBlob((blob: Blob | null) => {

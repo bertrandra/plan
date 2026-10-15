@@ -19,16 +19,30 @@ const DOSSIER_FUMEE = new URL('../tests/fixtures/fumee-reseau/', import.meta.url
 const HOTES = /^https:\/\/(data\.geopf\.fr|apicarto\.ign\.fr|api-adresse\.data\.gouv\.fr|wxs\.ign\.fr)\//;
 const SONDE = 'https://data.geopf.fr/geocodage/search?q=Rennes&limit=1';
 
-// Une tuile sans temoin (cadrage nouveau, ecran different) : un carre gris neutre plutot qu'une
-// erreur, pour que le plan se dessine comme avec le reseau.
-const TUILE_GRISE = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGM4ceIEAAS0AlkWLoFAAAAAAElFTkSuQmCC', 'base64');
+// Les en-tetes rejoues tels qu'enregistres : l'autorisation CORS surtout. L'IGN ne la donne pas a
+// toutes ses reponses (une tuile en erreur n'en a pas), et la Vue 3D, qui lit les tuiles par
+// `fetch`, doit les voir arriver ou echouer exactement comme sur le vrai reseau.
+const ENTETES_GARDES = ['access-control-allow-origin', 'access-control-expose-headers', 'cache-control'];
 
 // Une meme requete part d'une partie a l'autre avec des coordonnees qui different aux derniers
 // chiffres (le centre de la parcelle et l'emprise du LiDAR repassent par le repere du plan) : la
 // cle les arrondit a six decimales, une dizaine de centimetres en degres, pour que le temoin les
 // retrouve.
 const arrondir = (texte) => texte.replace(/-?\d+\.\d{6,}/g, (n) => Number(n).toFixed(6));
+/**
+ * Une reponse servie par Playwright echappe au controle CORS du navigateur. Une lecture `fetch` d'une
+ * autre origine, a laquelle l'IGN ne donne pas son autorisation (les tuiles de l'orthophoto, que la
+ * Vue 3D lit ainsi), aboutirait alors ou le vrai reseau la refuse : on la refuse comme lui. Une
+ * image posee dans le plan, elle, ne passe pas par ce controle.
+ */
+const refuseeParCors = (req, entetes) => (req.resourceType() === 'fetch' || req.resourceType() === 'xhr')
+  && !(entetes && entetes['access-control-allow-origin']);
+
+const LATENCE = process.env.FUMEE_LATENCE !== '0';
+const LATENCE_MAX_MS = 30000;
+/** La duree d'une requete, de son depart a la fin de sa reponse, en millisecondes entieres. */
+const duree = (req) => { const t = req.timing(); return t && t.responseEnd > 0 ? Math.round(t.responseEnd) : 0; };
+
 const cle = (req) => {
   const corps = req.postData();
   return req.method() + ' ' + arrondir(req.url()) + (corps ? ' #' + createHash('sha1').update(arrondir(corps)).digest('hex').slice(0, 12) : '');
@@ -77,41 +91,63 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
 
   async function brancher(contexte) {
     if (mode === 'direct') return;
+    if (mode === 'enregistrer') {
+      // L'enregistrement ecoute sans intercepter : ce qui est range est ce que le NAVIGATEUR a recu,
+      // avec ses en-tetes a lui (origine, referent). Une requete refaite par Playwright n'obtenait
+      // pas toujours la meme reponse de l'IGN — des tuiles refusees au navigateur passaient.
+      const hote = (req) => HOTES.test(req.url());
+      contexte.on('requestfinished', async (req) => {
+        if (!hote(req)) return;
+        // Une reponse peut arriver apres la fermeture de sa partie : elle n'est plus lisible, et ne
+        // manque a personne.
+        try {
+          const r = await req.response();
+          if (!r) return;
+          const corps = await r.body();
+          const h = await r.allHeaders();
+          const type = h['content-type'] || 'application/octet-stream';
+          const entetes = Object.fromEntries(ENTETES_GARDES.filter((n) => h[n] !== undefined).map((n) => [n, h[n]]));
+          const k = cle(req);
+          neufs[k] = { statut: r.status(), type, entetes, duree: duree(req), fichier: nomFichier(k), corps };
+        } catch { /* partie fermee */ }
+      });
+      contexte.on('requestfailed', (req) => {
+        if (!hote(req)) return;
+        const k = cle(req);
+        if (!neufs[k]) neufs[k] = { echec: req.failure()?.errorText || 'failed', duree: duree(req) };
+      });
+      return;
+    }
     await contexte.route(HOTES, async (route) => {
       const req = route.request();
       const k = cle(req);
-      if (mode === 'enregistrer') {
-        // Une reponse peut arriver apres la fermeture de sa partie : elle n'est alors plus lisible,
-        // et ne manque a personne.
-        try {
-          const r = await route.fetch();
-          const corps = await r.body();
-          const type = r.headers()['content-type'] || 'application/octet-stream';
-          neufs[k] = { statut: r.status(), type, fichier: nomFichier(k), corps };
-          await route.fulfill({ response: r, body: corps });
-        } catch { await route.abort().catch(() => {}); }
-        return;
-      }
       const e = index[k] || plusProche(index, k);
-      const entetes = { 'access-control-allow-origin': '*' };
+      // La reponse arrive apres le meme delai qu'au passage enregistre : la Vue 3D de la
+      // demonstration se construit avant les tuiles de l'orthophoto, et le .glb du point 24 (golden)
+      // en depend. `FUMEE_LATENCE=0` rejoue tout sans attendre, au prix de cette fidelite.
+      if (e && LATENCE && e.duree > 0) await new Promise((r) => setTimeout(r, Math.min(e.duree, LATENCE_MAX_MS)));
+      // Un echec enregistre (coupure, refus) se rejoue en echec.
+      if (e && e.echec) return route.abort('failed');
       if (e && existsSync(DOSSIER + e.fichier)) {
-        return route.fulfill({ status: e.statut, contentType: e.type, headers: entetes, body: gunzipSync(readFileSync(DOSSIER + e.fichier)) });
+        if (refuseeParCors(req, e.entetes)) return route.abort('failed');
+        return route.fulfill({ status: e.statut, contentType: e.type, headers: { ...(e.entetes || {}), 'content-type': e.type }, body: gunzipSync(readFileSync(DOSSIER + e.fichier)) });
       }
+      // Sans temoin, la requete part sur le vrai reseau : hors ligne, elle echoue comme elle l'aurait
+      // fait ; en ligne (temoin impose), elle y trouve sa reponse. Elle n'est jamais inventee.
       manquants.add(k);
-      if (req.resourceType() === 'image' || /\.(png|jpe?g)|image%2F|image\//i.test(req.url())) {
-        return route.fulfill({ status: 200, contentType: 'image/png', headers: entetes, body: TUILE_GRISE });
-      }
-      return route.fulfill({ status: 404, contentType: 'application/json', headers: entetes, body: '{"erreur":"aucun temoin pour cette requete"}' });
+      return route.continue();
     });
   }
+
 
   function bilan() {
     if (mode === 'enregistrer') {
       mkdirSync(DOSSIER, { recursive: true });
       const fusion = { ...index };
-      for (const [k, { statut, type, fichier, corps }] of Object.entries(neufs)) {
-        writeFileSync(DOSSIER + fichier, gzipSync(corps, { level: 9 }));
-        fusion[k] = { statut, type, fichier };
+      for (const [k, e] of Object.entries(neufs)) {
+        if (e.echec) { fusion[k] = { echec: e.echec, duree: e.duree }; continue; }
+        writeFileSync(DOSSIER + e.fichier, gzipSync(e.corps, { level: 9 }));
+        fusion[k] = { statut: e.statut, type: e.type, entetes: e.entetes, duree: e.duree, fichier: e.fichier };
       }
       const trie = Object.fromEntries(Object.keys(fusion).sort().map((k) => [k, fusion[k]]));
       writeFileSync(INDEX, JSON.stringify(trie, null, 1) + '\n');
@@ -120,7 +156,7 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
     if (mode === 'temoin') {
       const liste = [...manquants];
       return `réseau rejoué depuis les données témoin`
-        + (liste.length ? ` ; ${liste.length} requête(s) sans témoin (tuile grise ou 404), dont ${liste.slice(0, 3).join(' ; ')}` : '');
+        + (liste.length ? ` ; ${liste.length} requête(s) sans témoin (laissées au réseau), dont ${liste.slice(0, 3).join(' ; ')}` : '');
     }
     return 'réseau direct';
   }

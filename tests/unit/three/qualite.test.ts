@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { parametresQualite, qualiteParDefaut, estQualite3d, QUALITES_3D, DETAIL_FIN_M } from '../../../src/three/qualite.js';
 
 describe('qualite de la Vue 3D', () => {
-  it('Normale est la Vue 3D d avant le reglage, a l identique', () => {
-    expect(parametresQualite('normale')).toEqual({ pixelRatioMax: 1, anticrenelage: true, ombresParDefaut: true, carteOmbre: 2048, occlusion: false, detailFinM: DETAIL_FIN_M });
+  it('Normale garde le cout d avant pour l image : rapport de pixels 1, carte d ombre 2048', () => {
+    expect(parametresQualite('normale')).toEqual({ pixelRatioMax: 1, anticrenelage: true, ombresParDefaut: true, carteOmbre: 2048, environnement: true, occlusion: false, detailFinM: DETAIL_FIN_M });
   });
 
   it('chaque niveau ajoute ou retire autour de Normale', () => {
@@ -13,6 +13,7 @@ describe('qualite de la Vue 3D', () => {
     expect(e.ombresParDefaut).toBe(false);
     expect(s.occlusion).toBe(true);
     expect(e.anticrenelage).toBe(false);
+    expect(e.environnement).toBe(false);
     expect(s.pixelRatioMax).toBeGreaterThan(1);
   });
 

@@ -129,8 +129,8 @@ async function pointsDeVue(page) {
     const yeux = 1.65, cible = 3;
     const vues = { aerienne: null };
     if (rue) vues.rue = { pos: versLocal({ x: rue.m.x + rue.n.x * 8, y: rue.m.y + rue.n.y * 8 }, yeux), cible: versLocal(cm, cible) };
-    // Du fond du jardin, un pas en dedans pour ne pas avoir la cloture dans l'oeil.
-    vues.jardin = { pos: versLocal(vers(cm, jardin, -1.5), yeux), cible: versLocal(cm, cible) };
+    // Du fond du jardin, trois metres en dedans : la cloture n'est pas dans l'oeil, meme sur telephone.
+    vues.jardin = { pos: versLocal(vers(cm, jardin, -3), yeux), cible: versLocal(cm, cible) };
     return vues;
   });
 }
@@ -163,16 +163,25 @@ async function mesurer(page) {
     return performance.now() - t;
   });
   await immobile(page);
+  // Le rendu tel que la Vue 3D le fait : par les passes de l'occlusion en Soignee (`rendre`).
   const image = await page.evaluate(() => {
-    const { renderer, scene, camera } = window.__plan.scene3d();
+    const sc = window.__plan.scene3d();
+    const { renderer, scene, camera } = sc;
+    const rendre = () => (sc.rendre ? sc.rendre() : renderer.render(scene, camera));
     const gl = renderer.getContext();
     const px = new Uint8Array(4);
-    renderer.render(scene, camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    rendre(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     const n = 20, t = performance.now();
-    for (let i = 0; i < n; i++) { renderer.render(scene, camera); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
+    for (let i = 0; i < n; i++) { rendre(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); }
     return (performance.now() - t) / n;
   });
-  const info = await page.evaluate(() => { const r = window.__plan.scene3d().renderer.info.render; return { triangles: r.triangles, appels: r.calls }; });
+  // Les compteurs d'une image simple : apres les passes, ils ne diraient que la derniere.
+  const info = await page.evaluate(() => {
+    const { renderer, scene, camera } = window.__plan.scene3d();
+    renderer.render(scene, camera);
+    const r = renderer.info.render;
+    return { triangles: r.triangles, appels: r.calls };
+  });
   return { constructionMs: Math.round(construction), imageMs: Math.round(image * 10) / 10, imagesParSeconde: Math.round(1000 / image * 10) / 10, ...info };
 }
 
