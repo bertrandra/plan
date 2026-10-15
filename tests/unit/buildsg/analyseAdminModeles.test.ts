@@ -25,13 +25,13 @@ const deploy = path.resolve(__dirname, '../../../deploy');
 const P = PLAFONDS_DEFAUT as Plafonds;
 
 describe('le modele de chaque usage', () => {
-  it('prend le modele plus fin par defaut pour l analyse, le renfort et l aide immediate', () => {
-    expect(MODELE_PAR_USAGE).toEqual({ analyse: FIN, escalade: FIN, renfort: FIN, immediat: FIN, candidats: RAPIDE });
+  it('prend le modele rapide par defaut pour tous les usages', () => {
+    expect(MODELE_PAR_USAGE).toEqual({ analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE });
     expect(modelesParUsage(null)).toEqual({ ...MODELE_PAR_USAGE });
   });
 
   it('suit le reglage, et retombe sur le defaut pour un modele qui n est plus admis', () => {
-    expect(modelesParUsage({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE, renfort: 'claude-ancien-1' } })).toEqual({ ...MODELE_PAR_USAGE, analyse: RAPIDE });
+    expect(modelesParUsage({ format: 'plan-claude-modeles', usages: { analyse: FIN, renfort: 'claude-ancien-1' } })).toEqual({ ...MODELE_PAR_USAGE, analyse: FIN });
     expect(modelesParUsage({ usages: 'n importe quoi' })).toEqual({ ...MODELE_PAR_USAGE });
   });
 
@@ -45,10 +45,10 @@ describe('le modele de chaque usage', () => {
 
   it('donne a chaque requete le modele regle de son usage, sauf modele demande', () => {
     const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1')] };
-    expect(verifierDemande(d, P).requetes.map((r) => r.modele)).toEqual([FIN, FIN]);
-    const regle = modelesParUsage({ usages: { analyse: RAPIDE } });
-    expect(verifierDemande(d, P, regle).requetes.map((r) => r.modele)).toEqual([RAPIDE, FIN]);
-    expect(verifierDemande({ ...d, modele: RAPIDE }, P).requetes.map((r) => r.modele)).toEqual([RAPIDE, RAPIDE]);
+    expect(verifierDemande(d, P).requetes.map((r) => r.modele)).toEqual([RAPIDE, RAPIDE]);
+    const regle = modelesParUsage({ usages: { analyse: FIN } });
+    expect(verifierDemande(d, P, regle).requetes.map((r) => r.modele)).toEqual([FIN, RAPIDE]);
+    expect(verifierDemande({ ...d, modele: FIN }, P).requetes.map((r) => r.modele)).toEqual([FIN, FIN]);
   });
 });
 
