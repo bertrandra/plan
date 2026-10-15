@@ -148,7 +148,7 @@ describe('ce que la source doit continuer de dire', () => {
     const appels = sansCommentaires.match(/chargerTexture(?:Polyhaven)?\([^)]*\)/g) || [];
     const avecCarreau = appels.filter((a) => a.includes('METRES_PAR_CARREAU'));
     const sansCarreau = appels.filter((a) => !a.includes('METRES_PAR_CARREAU'));
-    expect(avecCarreau.length, 'prisme, ruban et ruban drape : leurs UV sont des metres').toBe(3);
+    expect(avecCarreau.length, 'prisme et rubans (plat ou drape) : leurs UV sont des metres').toBe(2);
     expect(sansCarreau.length, 'toile de parasol et feuillage : leurs UV sont normalises').toBe(2);
   });
 
