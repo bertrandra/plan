@@ -1339,12 +1339,13 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
           if (demande.depot === null) throw refus('Un rejeu nomme son audit (depot).');
           if (demande.requetes.some((r) => r.usage !== 'rejeu')) throw refus('Un rejeu ne porte que l’analyse des maisons.');
         }
+        // La trace va dans le dossier de l'audit nomme. Un rejeu exige cet audit ; l'analyse de la
+        // session, elle, part sans trace si son depot a ete retire entre-temps ou n'est pas le sien.
         let dirAudit = null;
         if (demande.depot !== null) {
           const entree = indexAudits()[demande.depot];
-          if (!entree) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + demande.depot + ' ».');
-          if (!qui.admin && entree.organisation !== organisation) return erreur(403, 'FORBIDDEN', 'Cet audit n’est pas celui de votre organisation.');
-          dirAudit = dossierAudit(demande.depot);
+          if (demande.usage === 'rejeu' && !entree) return erreur(404, 'NOT_FOUND', 'Aucun audit « ' + demande.depot + ' ».');
+          if (entree && (qui.admin || entree.organisation === organisation)) dirAudit = dossierAudit(demande.depot);
         }
         const t = iso();
         const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };

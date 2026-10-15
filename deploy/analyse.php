@@ -1599,12 +1599,14 @@ try {
             if ($demande['depot'] === null) throw new Refus('Un rejeu nomme son audit (depot).');
             foreach ($demande['requetes'] as $r) if ($r['usage'] !== 'rejeu') throw new Refus('Un rejeu ne porte que l’analyse des maisons.');
         }
+        // La trace va dans le dossier de l'audit nomme. Un rejeu exige cet audit ; l'analyse de la
+        // session, elle, part sans trace si son depot a ete retire entre-temps ou n'est pas le sien.
         $dirAudit = null;
         if ($demande['depot'] !== null) {
             $entree = indexAudits($dossierAudits)[$demande['depot']] ?? null;
-            if (!is_array($entree)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $demande['depot'] . ' ».');
-            if (!$qui['admin'] && ($entree['organisation'] ?? null) !== $organisation) erreur(403, 'FORBIDDEN', 'Cet audit n’est pas celui de votre organisation.');
-            $dirAudit = dossierAudit($dossierAudits, $demande['depot']);
+            $sien = is_array($entree) && ($qui['admin'] || ($entree['organisation'] ?? null) === $organisation);
+            if ($demande['usage'] === 'rejeu' && !is_array($entree)) erreur(404, 'NOT_FOUND', 'Aucun audit « ' . $demande['depot'] . ' ».');
+            if ($sien) $dirAudit = dossierAudit($dossierAudits, $demande['depot']);
         }
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],

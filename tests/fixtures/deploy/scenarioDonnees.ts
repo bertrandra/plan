@@ -126,6 +126,10 @@ export async function jouerScenarioDonnees(s: ServeurDonnees): Promise<void> {
   expect((await poster(rejeu({ depot: null }))).status).toBe(400);
   expect((await poster(rejeu({ depot: '20990101-000000-00000000' }))).status).toBe(404);
   expect((await poster(rejeu({ requetes: [{ ...rejeu().requetes[0], usage: 'renfort' }] }))).status).toBe(400);
+  // L'analyse de la session dont le depot a ete retire part quand meme, sans trace.
+  const orpheline = await poster({ ...rejeu({ usage: 'analyse', depot: '20990101-000000-00000000' }) });
+  expect(orpheline.status).toBe(201);
+  expect((await json(orpheline)).trace).toBe(null);
   const cree = await poster(rejeu());
   expect(cree.status).toBe(201);
   const { trace } = await json(cree) as { trace: string };

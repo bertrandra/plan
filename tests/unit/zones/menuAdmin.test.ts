@@ -9,7 +9,7 @@ function registre() {
   const r = creerRegistre();
   r.declarer({ id: 'admin.consommation', libelle: 'Consommation de Claude', groupe: 'admin', executer: () => {} });
   r.declarer({ id: 'admin.conformite', libelle: 'Conformité', groupe: 'admin', executer: () => {} });
-  r.declarer({ id: 'admin.auditsParcelle', libelle: 'Audits de parcelle', groupe: 'admin', executer: () => {} });
+  r.declarer({ id: 'admin.auditsParcelle', libelle: 'Audits', groupe: 'admin', executer: () => {} });
   return r;
 }
 
@@ -48,7 +48,7 @@ describe('le menu Admin', () => {
       .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.consommation', 'admin.conformite', 'admin.auditsParcelle']);
     expect(hote.querySelector('[data-commande="admin.consommation"]')?.textContent).toBe('Consommation de Claude');
     expect(hote.querySelector('[data-commande="admin.conformite"]')?.textContent).toBe('Conformité');
-    expect(hote.querySelector('[data-commande="admin.auditsParcelle"]')?.textContent).toBe('Audits de parcelle');
+    expect(hote.querySelector('[data-commande="admin.auditsParcelle"]')?.textContent).toBe('Audits');
   });
 
   it('l administrateur de la plateforme n y trouve que le mode audit', async () => {
