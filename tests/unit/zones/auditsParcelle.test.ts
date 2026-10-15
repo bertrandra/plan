@@ -5,6 +5,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { AuditsParcelle } from '../../../src/zones/parcours/AuditsParcelle.js';
 import { creerCatalogue, type DependancesCatalogue } from '../../../src/app/audit/parcelle/catalogue.js';
 import { EchecPartageAudit, type ClientAudits, type FicheAudit } from '../../../src/io/auditsServeur.js';
+import type { ClientAnalysesAudits, ResumeAnalyse } from '../../../src/io/analysesAudits.js';
+import type { ClientAnalyse, DemandeAnalyse } from '../../../src/io/analyseClaude.js';
 
 // Admin › « Audits de parcelle » (Z8, MD/spec-audit.md §15) : la liste des audits recus, et pour
 // chacun « Ouvrir dans ce projet » (meme parcelle), « Télécharger » et « Retirer » (confirme sur la carte).
@@ -13,7 +15,8 @@ import { EchecPartageAudit, type ClientAudits, type FicheAudit } from '../../../
 
 const IDU = '78650000AE0101';
 const fiche = (plus: Partial<FicheAudit>): FicheAudit => ({
-  id: '20261013-154200-0000abcd', recuLe: '2026-10-13T15:42:00Z', organisation: 'org-test', idu: IDU, adresse: '2 allée des Limites',
+  id: '20261013-154200-0000abcd', recuLe: '2026-10-13T15:42:00Z', organisation: 'org-test', nature: 'parcelle', idu: IDU, commune: null, dossier: null,
+  propositions: null, cas: null, statuts: null, adresse: '2 allée des Limites',
   taille: 3 * 1024 * 1024, marque: 'sauvegarde', photos: 12, phase: 'capture', debut: '2026-10-13T15:00:00.000Z', ...plus,
 });
 const AUDITS = [
@@ -46,7 +49,7 @@ describe('le catalogue des audits de parcelle', () => {
   it('liste les audits recus : date, parcelle, adresse, photos, phase, sauvegarde ou corpus', async () => {
     const t = monter();
     await act(async () => { await t.catalogue.relire(); });
-    expect(hote.querySelector('.titreParcours')?.textContent).toBe('Audits de parcelle');
+    expect(hote.querySelector('.titreParcours')?.textContent).toBe('Audits');
     expect(hote.textContent).toContain('3 audits reçus : 2 sauvegardes, 1 partagé pour améliorer Plan.');
     expect(cartes()).toHaveLength(3);
     const [premiere, deuxieme, troisieme] = cartes();
@@ -101,7 +104,7 @@ describe('le catalogue des audits de parcelle', () => {
     const t = monter();
     await act(async () => { await t.catalogue.relire(); });
     await cliquer(bouton(cartes()[0], 'auditsParcelle.retirer'));
-    expect(cartes()[0]?.textContent).toContain('Retirer cet audit du serveur de Plan ? Il ne pourra plus être rouvert, téléchargé ni rejoué.');
+    expect(cartes()[0]?.textContent).toContain('Retirer cet audit du serveur de Plan ? Il ne pourra plus être rouvert, téléchargé ni rejoué, et ses analyses partent avec lui.');
     await cliquer(bouton(cartes()[0], 'auditsParcelle.garder'));
     expect(t.c.retirer).not.toHaveBeenCalled();
     expect(bouton(cartes()[0], 'auditsParcelle.confirmerRetrait')).toBeNull();
@@ -120,5 +123,141 @@ describe('le catalogue des audits de parcelle', () => {
     expect(t.c.lister).toHaveBeenCalledTimes(2);
     await cliquer(hote.querySelector<HTMLButtonElement>('[data-controle="auditsParcelle.fermer"]'));
     expect(t.fermer).toHaveBeenCalled();
+  });
+});
+
+// Admin › « Audits » (spec-audit 15.4 et 15.5) : les promenades a part, les donnees et la conclusion
+// d'un audit, ses analyses cote a cote, le detail d'une analyse (entrant, sortant), le rejeu par modele.
+describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
+  const ID = '20261013-154200-0000abcd';
+  const photo = { type: 'image/jpeg', base64: 'QUJDRA==' };
+  const fichier = {
+    format: 'plan-audit-parcelle', version: 1, parcelle: { idu: IDU, adresse: '2 allée des Limites', origine: null }, code: { version: '2.2.0', commit: null },
+    regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-13T08:00:00.000Z', finCapture: '2026-10-13T08:30:00.000Z', ecritLe: '2026-10-13T09:00:00.000Z',
+    batiments: [{ cle: 'b1', nom: 'Maison', mitoyen: false, cas: null, vu: {}, photos: [], facades: [{ cote: 0, orientation: 'Sud', largeurM: 9, hauteurM: 6, photos: [photo, photo], mesure: null }] }],
+    cloture: { photos: [] }, portail: { photos: [] },
+    propositions: [
+      { id: 'p1', objet: 'Façade sud de Maison', avant: '4 ouvertures', apres: '6 ouvertures relevées', source: 'mesure', decision: 'validee' },
+      { id: 'p2', objet: 'Toit de Maison', avant: 'deux pans', apres: 'croupes', source: 'claude', decision: 'refusee' },
+      { id: 'p3', objet: 'Toit de Maison', avant: 'tuile', apres: 'ardoise', source: 'claude', decision: null },
+    ],
+    decisions: [{ t: '2026-10-13T09:00:00.000Z', acceptees: ['p1'], refusees: ['p2'], verifies: [] }],
+  };
+  const tokens = { entree: 10, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 0, sortie: 5 };
+  const resultat = { id: 'b0-p1', passe: 1, usage: 'analyse', modele: 'claude-haiku-5-5', statut: 'reussi' as const, arret: 'end_turn', erreur: null, tokens, cout: 0.002,
+    trouve: { ouvertures: 6, manquees: 0, enTrop: 0, bouts: 1, lucarnes: 2, elements: 0, ecarts: 1, coins: 0, determines: 3, vide: false } };
+  const resume = (plus: Partial<ResumeAnalyse>): ResumeAnalyse => ({
+    id: '20261014-100000-claude-haiku-5-5-abcd', audit: ID, nature: 'analyse', etat: 'termine', creeLe: '2026-10-14T10:00:00Z', finLe: '2026-10-14T10:02:00Z', idBatch: 'msgbatch_1',
+    organisation: 'admin', usage: 'analyse', modele: 'claude-haiku-5-5', effort: 'low', prompt: 3, schema: 2, versions: {}, requetes: 1, images: 1, facades: 1, cout: 0.002,
+    tokens, resultats: [resultat], ...plus,
+  });
+
+  function monterTout(plus: Partial<DependancesCatalogue> = {}) {
+    const promenade = fiche({ id: '20261012-100000-0000beef', nature: 'promenade', idu: '', commune: 'Le Vésinet', adresse: 'Le Vésinet', marque: 'corpus', cas: 2, statuts: { a_corriger: 1, valide: 1 } });
+    const parcelle = fiche({ marque: 'corpus', phase: 'analyse', photos: 2, propositions: { total: 3, claude: 2, mesures: 1, validees: 1, refusees: 1, enAttente: 1 } });
+    const c: ClientAudits = { envoyer: vi.fn(async () => ({ id: 'x', retrait: '' })), remplacer: vi.fn(), retirer: vi.fn(async () => {}), lister: vi.fn(async () => [parcelle, promenade]), lire: vi.fn(async () => JSON.stringify(fichier)) };
+    const enCours = resume({ id: '20261015-100000-claude-sonnet-5-5-beef', nature: 'rejeu', etat: 'en_cours', creeLe: '2026-10-15T10:00:00Z', finLe: null, modele: 'claude-sonnet-5-5', resultats: null, cout: null, idBatch: 'msgbatch_2' });
+    let fini = false;
+    const analyses: ClientAnalysesAudits = {
+      lister: vi.fn(async () => (fini ? [resume({}), { ...enCours, etat: 'termine' as const, finLe: '2026-10-15T10:05:00Z', resultats: [resultat] }] : [resume({}), enCours])),
+      lire: vi.fn(async () => ({ audit: ID, resume: resume({}), entrant: { max_tokens: 8000, effort: 'low', usages: { analyse: { prompt: 3, schema: 2, systeme: 'Vous êtes un expert des maisons.', schemaJson: {} } },
+        requetes: [{ id: 'b0-p1', passe: 1, usage: 'analyse', modele: 'claude-haiku-5-5', facades: 1, images: 1, contenu: [{ type: 'image' as const, media_type: 'image/jpeg', image: 'a'.repeat(64) + '.jpg', octets: 4 }, { type: 'text' as const, text: 'Bâtiment : Maison.' }] }] },
+        sortant: { idBatch: 'msgbatch_1', finLe: '2026-10-14T10:02:00Z', resultats: [{ ...resultat, texte: '{"forme":{"valeur":"Deux pans"}}', sortie: { forme: { valeur: 'deux-pans' } }, tarif: '2026-10-01' }] } })),
+      urlImage: (a: string, n: string) => 'admin/audits/' + a + '/images/' + n,
+    };
+    const analyse: ClientAnalyse = {
+      etat: vi.fn(async () => ({ actif: true, prompt: 3, schema: 2, organisation: 'admin', admin: true, modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'] })),
+      creerBatch: vi.fn(async () => ({ batch: { id: 'msgbatch_3', etat: 'in_progress', compte: null }, modele: 'claude-sonnet-5-5', prompt: 3, schema: 2, trace: 't' })),
+      etatBatch: vi.fn(async () => { fini = true; return { id: 'msgbatch_2', etat: 'ended', compte: null }; }),
+      resultats: vi.fn(async () => ({ batch: { id: 'msgbatch_2', etat: 'ended', compte: null }, modele: 'claude-sonnet-5-5', prompt: 3, schema: 2, resultats: [] })),
+      immediat: vi.fn(),
+    };
+    const preparer = vi.fn(async (_t: string, _f: FicheAudit, modele: string): Promise<DemandeAnalyse> => ({ projet: null, idu: IDU, adresse: null, audit: ID, depot: ID, usage: 'rejeu', modele, requetes: [{ id: 'b0-p1', passe: 1, facades: 1, contenu: [] }] }));
+    const d: DependancesCatalogue = {
+      client: () => c, iduProjet: () => IDU, refusEcriture: () => null, ouvrir: vi.fn(), telecharger: vi.fn(), signaler: vi.fn(), choisirFichier: vi.fn((f: (t: string) => void) => f('{"format":"plan-audit"}')),
+      rejeu: { analyses: () => analyses, analyse: () => analyse, preparer, planifier: () => () => {} }, ...plus,
+    };
+    const catalogue = creerCatalogue(d);
+    act(() => racine.render(createElement(AuditsParcelle, { catalogue, fermer: vi.fn() })));
+    return { c, d, catalogue, analyses, analyse, preparer };
+  }
+  const ouvrirDetails = async () => { await cliquer(bouton(cartes()[0], 'auditsParcelle.details')); await attendre(); };
+
+  it('range les promenades a part, et dit la conclusion de chaque audit', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    expect([...hote.querySelectorAll('.titreSectionAudits')].map((x) => x.textContent)).toEqual(['Audits de parcelle (1)', 'Promenades des toits (1)']);
+    const [parcelle, promenade] = cartes();
+    expect(parcelle?.querySelector('.conclusionAuditRecu')?.textContent).toBe('3 propositions (Claude 2, mesures 1) : 1 validée, 1 refusée, 1 en attente');
+    expect(promenade?.querySelector('.parcelleAuditRecu')?.textContent).toBe('Commune Le Vésinet');
+    expect(promenade?.querySelector('.conclusionAuditRecu')?.textContent).toBe('À corriger 1, Validé 1');
+    // Une promenade ne s'ouvre pas dans un projet, et ne se rejoue pas par Claude.
+    expect(bouton(promenade, 'auditsParcelle.ouvrir')).toBeNull();
+    expect(t.catalogue.raisonRejouer(t.catalogue.etat().audits?.[1] as FicheAudit)).toBe('Le rejeu par Claude ne porte que sur les audits de parcelle.');
+    // « Ajouter un fichier d'audit… » depose le fichier du poste, puis relit la liste.
+    await cliquer(hote.querySelector<HTMLButtonElement>('[data-controle="auditsParcelle.deposer"]'));
+    expect(t.c.envoyer).toHaveBeenCalledWith('{"format":"plan-audit"}', 'corpus');
+    expect(t.d.signaler).toHaveBeenCalledWith('Fichier d’audit ajouté au serveur de Plan.');
+  });
+
+  it('montre les donnees et les decisions, compare les analyses, suit celle en cours', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    const carte = cartes()[0];
+    expect(carte?.querySelectorAll('.vignettesAudit img')).toHaveLength(2);
+    expect(carte?.textContent).toContain('Façade sud : 2 photos');
+    const decisions = [...(carte?.querySelectorAll('.tableAudit:not(.tableComparaison) tbody tr') ?? [])].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent));
+    expect(decisions).toEqual([
+      ['Façade sud de Maison', '4 ouvertures', '6 ouvertures relevées', 'Mesure', 'Validée'],
+      ['Toit de Maison', 'deux pans', 'croupes', 'Claude', 'Refusée'],
+      ['Toit de Maison', 'tuile', 'ardoise', 'Claude', 'En attente'],
+    ]);
+    // Le rejeu en cours est suivi : son batch fini, le serveur complete la trace et la liste se relit.
+    expect(t.analyse.etatBatch).toHaveBeenCalledWith('msgbatch_2');
+    expect(t.analyse.resultats).toHaveBeenCalledWith('msgbatch_2');
+    const lignes = [...(carte?.querySelectorAll('.tableComparaison tbody tr') ?? [])].map((tr) => [...tr.querySelectorAll('td')].slice(1, 13).map((td) => td.textContent));
+    expect(lignes).toEqual([
+      ['Analyse', 'Claude Haiku 5.5', '3 · 2', '1 / 1', '0', '6', '1', '2', '1', '3', '0,0020 $', '120 s'],
+      ['Rejeu', 'Claude Sonnet 5.5', '3 · 2', '1 / 1', '0', '6', '1', '2', '1', '3', '—', '300 s'],
+    ]);
+    await cliquer(bouton(carte, 'auditsParcelle.exporterAnalyses'));
+    expect(t.d.telecharger).toHaveBeenCalledWith('analyses-' + IDU + '-' + ID + '.csv', expect.stringContaining('Analyse;Nature;Envoyée le;Modèle'), 'text/csv;charset=utf-8');
+  });
+
+  it('montre une analyse en entier, entrant et sortant, et l exporte', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    await cliquer(cartes()[0]?.querySelector<HTMLButtonElement>('[data-controle="auditsParcelle.voirAnalyse"]') ?? null);
+    const trace = hote.querySelector('.traceAudit');
+    expect(trace?.textContent).toContain('Vous êtes un expert des maisons.');
+    expect(trace?.textContent).toContain('Bâtiment : Maison.');
+    expect(trace?.querySelector('.imageTrace')?.getAttribute('src')).toBe('admin/audits/' + ID + '/images/' + 'a'.repeat(64) + '.jpg');
+    expect(trace?.textContent).toContain('{"forme":{"valeur":"Deux pans"}}');
+    expect(trace?.textContent).toContain('"valeur": "deux-pans"');
+    expect(trace?.textContent).toContain('Trouvé : ouvertures 6, pignons 1, lucarnes 2');
+    await cliquer(trace?.querySelector<HTMLButtonElement>('[data-controle="auditsParcelle.exporterAnalyse"]') ?? null);
+    expect(t.d.telecharger).toHaveBeenCalledWith('analyse-' + ID + '-20261014-100000-claude-haiku-5-5-abcd.json', expect.stringContaining('"systeme": "Vous êtes un expert des maisons."'));
+  });
+
+  it('rejoue l analyse avec le modele choisi ; refuse sur une autre parcelle', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    const choix = cartes()[0]?.querySelector<HTMLSelectElement>('[data-controle="auditsParcelle.modeleRejeu"]');
+    expect([...(choix?.options ?? [])].map((o) => o.textContent)).toEqual(['Claude Haiku 5.5', 'Claude Sonnet 5.5']);
+    act(() => t.catalogue.choisirModele('claude-sonnet-5-5'));
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    expect(t.preparer).toHaveBeenCalledWith(JSON.stringify(fichier), expect.objectContaining({ id: ID }), 'claude-sonnet-5-5');
+    expect(t.analyse.creerBatch).toHaveBeenCalledWith(expect.objectContaining({ usage: 'rejeu', depot: ID, modele: 'claude-sonnet-5-5' }));
+    expect(t.d.signaler).toHaveBeenCalledWith('Rejeu de l’analyse parti (claude-sonnet-5-5, 1 requêtes) : la réponse arrive en général en quelques minutes.');
+    act(() => racine.unmount());
+    racine = createRoot(hote);
+    const ailleurs = monterTout({ iduProjet: () => '35238000AB0001' });
+    await act(async () => { await ailleurs.catalogue.relire(); });
+    await ouvrirDetails();
+    expect(bouton(cartes()[0], 'auditsParcelle.rejouer')?.disabled).toBe(true);
+    expect(cartes()[0]?.querySelector('.detailAuditRecu .raisonAuditRecu')?.textContent).toBe('Ce projet est sur la parcelle 35238000AB0001 : ouvrez le projet de la parcelle ' + IDU + ' pour rejouer son audit.');
   });
 });

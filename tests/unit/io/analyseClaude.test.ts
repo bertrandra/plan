@@ -17,7 +17,7 @@ describe('le client de l analyse', () => {
       return reponse(404, { error: { code: 'NOT_FOUND', message: 'route ' + entree + ' ' + (init?.method ?? 'GET') } });
     });
     const c = creerClientAnalyse(f, () => 'jeton-1');
-    expect(await c.etat()).toEqual({ actif: true, prompt: 1, schema: 1, organisation: 'org-1', admin: false });
+    expect(await c.etat()).toEqual({ actif: true, prompt: 1, schema: 1, organisation: 'org-1', admin: false, modeles: [] });
     expect((await c.creerBatch(DEMANDE)).batch.id).toBe('msgbatch_1');
     expect((await c.etatBatch('msgbatch_1')).etat).toBe('ended');
     expect((await c.resultats('msgbatch_1')).resultats).toEqual([]);

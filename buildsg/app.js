@@ -26,6 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { creerAdminDemos } from './demosAdmin.mjs';
 import { creerAnalyseAdmin } from './analyseAdmin.mjs';
+import { dossiersDonnees, migrerDonnees } from './donnees.mjs';
 
 const ici = path.dirname(fileURLToPath(import.meta.url));
 const dist = path.join(ici, 'dist');
@@ -36,19 +37,28 @@ process.env.BACKPROD_API_URL ||= 'https://www.raillard.org';
 const PORT = Number(process.env.PORT) || 3000;
 const HOTE = process.env.HOST || '0.0.0.0';
 
+// Les donnees du serveur (donnees.mjs, MD/spec-demos-admin.md) : DATA_DIR, par defaut `data/` a cote
+// du dossier de l'application, HORS de lui : une mise en ligne qui le remplace emporterait sinon les
+// demos, le journal et les audits enregistres depuis. Un ancien DEMOS_DIR donne seul garde l'ancienne
+// disposition ; avec DATA_DIR, il est deplace dans data/ au premier demarrage, comme demos/ d'ici.
+const donnees = dossiersDonnees({ dossierDonnees: process.env.DATA_DIR, dossierDemos: process.env.DEMOS_DIR, parent: path.dirname(ici), anciens: [path.join(ici, 'demos')] });
+if (process.env.ADMIN_PASSWORD) migrerDonnees(donnees);
+
 // Les fichiers de demonstration de l'admin (demosAdmin.mjs, MD/spec-demos-admin.md). Sans
-// ADMIN_PASSWORD, l'admin n'existe pas. DEMOS_DIR gagne a etre HORS du dossier de l'application :
-// une mise en ligne qui remplace ce dossier emporterait sinon les demos enregistrees depuis.
+// ADMIN_PASSWORD, l'admin n'existe pas.
 const adminDemos = creerAdminDemos({
-  dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
+  dossier: donnees.demos,
+  palette: donnees.palette,
+  controleurs: donnees.controleurs,
   motDePasse: process.env.ADMIN_PASSWORD
 });
 
 // L'analyse par Claude (analyseAdmin.mjs, MD/spec-audit.md 13.2) : la session de l'admin ou le
 // jeton d'un utilisateur de la plateforme (verifie aupres de BACKPROD_API_URL), la cle
-// ANTHROPIC_API_KEY, et le journal, les tarifs et les plafonds dans DEMOS_DIR/claude/.
+// ANTHROPIC_API_KEY, et le journal, les tarifs et les plafonds dans data/claude/.
 const analyse = creerAnalyseAdmin({
-  dossier: process.env.DEMOS_DIR || path.join(ici, 'demos'),
+  dossier: donnees.racine,
+  donnees,
   actif: adminDemos.actif,
   sessionValide: adminDemos.sessionValide,
   cle: process.env.ANTHROPIC_API_KEY,

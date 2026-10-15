@@ -289,6 +289,9 @@ export async function listerAuditsRecus(f: Fetch): Promise<AuditRecu[]> {
   const d = await (await appeler(f, '/audits', 'liste des audits reçus')).json() as { audits?: unknown };
   return (Array.isArray(d.audits) ? d.audits as Partial<AuditRecu>[] : [])
     .filter((a): a is AuditRecu => typeof a.id === 'string' && typeof a.idu === 'string')
+    // Les promenades des toits deposees par l'administrateur (spec-audit 15.4) ne sont pas des audits
+    // de parcelle : la Conformite ne les rejoue pas ici.
+    .filter((a) => (a as { nature?: unknown }).nature !== 'promenade')
     .map((a) => ({ id: a.id, recuLe: typeof a.recuLe === 'string' ? a.recuLe : '', organisation: typeof a.organisation === 'string' ? a.organisation : null, idu: a.idu, adresse: typeof a.adresse === 'string' ? a.adresse : null, marque: a.marque === 'sauvegarde' ? 'sauvegarde' : 'corpus' }));
 }
 

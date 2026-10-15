@@ -129,7 +129,9 @@ export const NOMS_USAGES: Record<string, string> = {
   renfort: 'Renfort',
   immediat: 'Immédiat',
   // Les cas candidats Panoramax du skill regles-toits (lot G3 bis) : leur cout se lit a part.
-  candidats: 'Cas candidats'
+  candidats: 'Cas candidats',
+  // Le rejeu d'un audit stocke, pour comparer les modeles et les versions du prompt (spec-audit 15.5).
+  rejeu: 'Rejeu des audits'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */

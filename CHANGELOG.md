@@ -7,6 +7,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin › « Audits » : l'outil du bureau après les audits** (`MD/spec-audit.md` 15.4 et 15.5).
+  L'ancien « Audits de parcelle » regroupe, en deux sections, les audits de parcelle et les
+  promenades des toits (que l'administrateur dépose par « Ajouter un fichier d'audit… »). Chaque carte
+  dit sa conclusion (propositions de Claude et des mesures : validées, refusées, en attente ; cas par
+  statut) ; « Détails » montre les photos, le tableau des propositions et leur décision, et pour un
+  audit de parcelle ses analyses par Claude et leurs rejeux côte à côte (modèle, versions du prompt
+  et du schéma, réussies, vides, ouvertures, pignons, lucarnes, écarts, déterminés, coût, durée ;
+  export CSV). Une analyse s'ouvre en entier : ce qui est parti chez Claude (le texte du prompt
+  envoyé, chaque requête, ses textes et ses images) et ce qu'il a rendu (la réponse brute, la sortie
+  remise en forme, l'erreur, les tokens, le coût) ; export JSON. **« Rejouer l'analyse »** renvoie
+  l'analyse d'un audit stocké avec le prompt et le schéma actuels et le modèle choisi, sur le projet
+  ouvert de la même parcelle, sans refaire la visite : usage `rejeu`, sous les mêmes plafonds qu'une
+  analyse, réservé à l'administrateur. Le serveur garde l'entrant et le sortant de chaque analyse et
+  rejeu dans le dossier de l'audit ; le journal de Claude, lui, ne garde toujours ni photo ni réponse.
+  Après « Valider », l'audit repart au serveur avec ses décisions.
 - **La caméra et la présentation de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R6 ;
   `three/presentation.ts`). À hauteur d'homme, la focale s'ouvre à 55°, celle d'un œil qui regarde
   devant lui ; elle revient en douceur aux 45° de la vue d'ensemble en prenant de la hauteur (la prise
@@ -1131,6 +1146,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Toutes les données du serveur dans `data/`, à côté de `public_html/`** (`deploy/donnees.php`,
+  `buildsg/donnees.mjs` ; `MD/spec-demos-admin.md`). Démos (`data/demo/`, celles de la vitrine
+  `?mode=demo` comprises), réglages de l'admin (`data/admin/` : palette, contrôleurs, échecs de
+  connexion), journal et réglages de Claude (`data/claude/`), audits (`data/audits/`), conformité
+  (`data/conformite/`) : un seul dossier, hors de la racine web, réglé par `dossierDonnees` (Node :
+  `DATA_DIR`). Chaque audit a son dossier, classé pour s'y retrouver à la main :
+  `data/audits/parcelle/<IDU>/<id>/` et `data/audits/promenade/<commune>/<id>/` (fichier tel qu'il est
+  arrivé, fiche, conclusion lisible, analyses, images), avec un index qui se reconstruit. Une
+  configuration d'avant (`dossierDemos` seul) garde l'ancienne disposition ; avec `dossierDonnees`,
+  l'ancien `plan-demos/` est déplacé dans `data/` au premier passage, sans rien écraser
+  (`data/migration.json`), et les audits rangés à plat sont classés. La livraison porte `data/demo/`
+  et `donnees.php` ; la notice dit la marche à suivre (étape 2.e).
 - **La fumée pilotée va plus vite et se règle** (`scripts/fumee.mjs`). Les parties se jouent à
   plusieurs à la fois (`FUMEE_PARALLELE`, par défaut une par tranche de quatre cœurs, quatre au plus) ; un passage
   peut se limiter à des classes d'écran et des thèmes (`FUMEE_CLASSES=large`, `FUMEE_THEMES=light`).

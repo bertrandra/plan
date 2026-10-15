@@ -8,9 +8,16 @@ import { validerProjetJSON } from '../../src/io/validation.js';
 // La livraison porte la premiere demo de l'admin (scripts/livraison.mjs) : la demonstration
 // integree, au format de l'export. Elle doit etre celle du code, et se relire.
 
-const chemin = resolve(__dirname, '../../livraison/plan-demos/1.json');
+// Les demos livrees sont dans data/demo/ depuis que toutes les donnees y vivent (deploy/donnees.php).
+// livraison/ est reconstruit depuis main apres la fusion : d'ici la, la livraison versionnee les a
+// encore dans plan-demos/, et le test lit l'une ou l'autre.
+const livree = (nom: string) => {
+  const neuf = resolve(__dirname, '../../livraison/data/demo/' + nom);
+  return existsSync(neuf) ? neuf : resolve(__dirname, '../../livraison/plan-demos/' + nom);
+};
+const chemin = livree('1.json');
 
-describe('la demo livree (livraison/plan-demos/1.json)', () => {
+describe('la demo livree (livraison/data/demo/1.json)', () => {
   it('existe', () => {
     expect(existsSync(chemin), 'absente : npm run livraison').toBe(true);
   });
@@ -32,13 +39,13 @@ describe('la demo livree (livraison/plan-demos/1.json)', () => {
 describe.each([
   { id: '2', rayon: /voisinage 1 km/, objets: 1000 },
   { id: '3', rayon: /voisinage 5 km/, objets: 3500 }
-])('la demo livree $id (livraison/plan-demos/$id.json)', ({ id, rayon, objets }) => {
-  const livree = resolve(__dirname, '../../livraison/plan-demos/' + id + '.json');
+])('la demo livree $id (livraison/data/demo/$id.json)', ({ id, rayon, objets }) => {
+  const copie = livree(id + '.json');
   const source = resolve(__dirname, '../../deploy/plan-demos/' + id + '.json');
 
   it('est la copie de deploy/plan-demos/' + id + '.json', () => {
-    expect(existsSync(livree), 'absente : npm run livraison').toBe(true);
-    expect(readFileSync(livree, 'utf8')).toBe(readFileSync(source, 'utf8'));
+    expect(existsSync(copie), 'absente : npm run livraison').toBe(true);
+    expect(readFileSync(copie, 'utf8')).toBe(readFileSync(source, 'utf8'));
   });
 
   it('est Peyrusse-le-Roc avec son voisinage, et se relit comme un projet', () => {
