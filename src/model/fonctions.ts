@@ -96,6 +96,20 @@ export const estTrou = (o: ObjetPlan): boolean => aParticularite(o, 'ouverture')
 /** Un point de vue utilisable : deux points, position et direction. */
 export const estVueUtilisable = (o: ObjetPlan): boolean => aParticularite(o, 'pointDeVue');
 
+/**
+ * L'objet occupe-t-il le sol de la parcelle ? Le gazon de la Vue 3D (three/gazon.ts) s'arrete a
+ * son empreinte : une piscine, une terrasse, un chemin, un batiment, une annexe, une pergola, un
+ * massif, une dalle. Restent sur l'herbe ce qui n'a pas d'emprise pleine : un terrain, un point de
+ * vue, un arbre (l'herbe pousse sous son houppier), un parasol (son mat seul touche le sol), un trou
+ * de terrasse (ce qu'il garde, un arbre, reste dans l'herbe). Un trace qui n'est pas un chemin n'a
+ * pas de largeur : il ne couvre rien.
+ */
+export function occupeLeSol(o: ObjetPlan): boolean {
+  if (estTerrain(o) || estPointDeVue(o) || o.fonction === 'arbre' || o.fonction === 'parasol' || o.fonction === 'tremie') return false;
+  if (o.type === 'path') return o.fonction === 'chemin';
+  return o.type === 'polygon' || o.type === 'circle';
+}
+
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
 

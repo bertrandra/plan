@@ -45,11 +45,16 @@ export function masquerGabarits(scene: THREE_NS.Object3D): () => void {
   const montres: THREE_NS.Object3D[] = [];
   const apres = 1 << COUCHE_APRES;
   scene.traverse(o => {
-    if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT] || o.layers.mask === apres) && o.visible) { o.visible = false; caches.push(o); }
-    // Ce que l'ecran a remplace par un dessin plus fin repart tel qu'avant dans le modele.
-    else if (o.userData[EXPORT_SEULEMENT] && !o.visible) { o.visible = true; montres.push(o); }
+    // Une copie de l'apres reste cachee, meme quand elle porte un dessin reserve a l'export. Un
+    // objet sans couches (une scene factice) n'en est jamais une.
+    const copieApres = (o.layers as THREE_NS.Layers | undefined)?.mask === apres;
+    if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT] || copieApres) && o.visible) { o.visible = false; caches.push(o); }
+    // Ce que l'ecran a remplace par un dessin plus fin repart tel qu'avant dans le modele. Sa
+    // marque est retiree le temps de l'export : l'exporteur ecrit `userData` dans les `extras` du
+    // noeud, et le modele ne serait plus tout a fait celui d'avant.
+    else if (o.userData[EXPORT_SEULEMENT] && !o.visible && !copieApres) { o.visible = true; delete o.userData[EXPORT_SEULEMENT]; montres.push(o); }
   });
-  return () => { caches.forEach(o => { o.visible = true; }); montres.forEach(o => { o.visible = false; }); };
+  return () => { caches.forEach(o => { o.visible = true; }); montres.forEach(o => { o.visible = false; o.userData[EXPORT_SEULEMENT] = true; }); };
 }
 
 /**

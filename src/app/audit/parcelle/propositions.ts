@@ -19,7 +19,8 @@ import {
   COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe, resumePartie, terrasseVue, toitVu,
   type CeQueJeVois, type SoucheVue,
 } from '../../../model/ceQueJeVois.js';
-import { accesDuCote, clotureDe, coteDAcces, coteRegle, reglageDuCote, resumeReglage } from '../../../model/cloture.js';
+import { accesDuCote, clotureDe, coteRegle, reglageDuCote, resumeReglage } from '../../../model/cloture.js';
+import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, hauteurDe, type Proposition } from '../../../model/propositions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
@@ -294,10 +295,12 @@ function propositionTerrasse(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Pr
  * La parcelle : cloture cote rue et portail
  * --------------------------------------------------------------------------------------------- */
 
-/** Le cote sur rue : celui du portail s'il y en a un, sinon celui que la cloture dit ou devine. */
-function coteSurRue(p: ObjetPlan & { pts: PtBrut[] }): number {
-  const cl = clotureDe(p);
-  return cl.portails[0]?.cote ?? coteDAcces(cl, p.pts);
+/**
+ * Le cote sur rue : celui du portail s'il y en a un, sinon celui ou un portail neuf se poserait
+ * (geo/coteRue.ts, la regle de tous les chemins de creation : dit sur rue, devine, le plus long).
+ */
+function coteSurRue(p: ObjetPlan & { pts: PtBrut[] }, objets: readonly ObjetPlan[]): number {
+  return clotureDe(p).portails[0]?.cote ?? coteDuNouvelAcces(p, objets);
 }
 
 function propositionsParcelle(e: EntreesPropositions): Proposition[] {
@@ -305,7 +308,7 @@ function propositionsParcelle(e: EntreesPropositions): Proposition[] {
   if (!p || !('pts' in p) || !p.pts || p.pts.length < 3) return [];
   const parcelle = p as ObjetPlan & { pts: PtBrut[] };
   const out: Proposition[] = [];
-  const cote = coteSurRue(parcelle);
+  const cote = coteSurRue(parcelle, e.objets);
   const cl = clotureDe(parcelle);
   const { cloture: c, portail: po } = e.capture;
   if (c.type) {

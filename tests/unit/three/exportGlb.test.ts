@@ -3,6 +3,7 @@ import type * as THREE_NS from 'three';
 import * as T from 'three';
 import { detacherCartesSansImage, masquerGabarits } from '../../../src/three/exportGlb.js';
 import { COUCHE_APRES, COUCHE_AVANT } from '../../../src/three/comparaison3d.js';
+import { EXPORT_SEULEMENT, HORS_EXPORT } from '../../../src/three/primitives.js';
 
 // Une scene factice : `traverse` et le drapeau `isMesh` suffisent a la fonction.
 function scene(meshes: { material: unknown }[]): THREE_NS.Object3D {
@@ -37,13 +38,33 @@ describe('export GLB — textures jamais arrivees', () => {
 describe('export GLB — l apercu d un audit', () => {
   it('ne part pas : les copies de la vue « Après » sont cachees le temps de l export, puis rendues', () => {
     const s = new T.Scene();
-    const plan = new T.Mesh(), avant = new T.Mesh(), apres = new T.Mesh();
+    const plan = new T.Mesh(), avant = new T.Mesh(), apres = new T.Mesh(), modeleApres = new T.Mesh();
     avant.layers.set(COUCHE_AVANT);
     apres.layers.set(COUCHE_APRES);
-    s.add(plan, avant, apres);
+    // Le dessin reserve a l'export d'une copie de l'apres ne part pas non plus.
+    modeleApres.layers.set(COUCHE_APRES);
+    modeleApres.userData[EXPORT_SEULEMENT] = true;
+    modeleApres.visible = false;
+    s.add(plan, avant, apres, modeleApres);
     const remettre = masquerGabarits(s);
-    expect([plan.visible, avant.visible, apres.visible]).toEqual([true, true, false]);
+    expect([plan.visible, avant.visible, apres.visible, modeleApres.visible]).toEqual([true, true, false, false]);
     remettre();
-    expect(apres.visible).toBe(true);
+    expect([apres.visible, modeleApres.visible]).toEqual([true, false]);
+  });
+});
+
+describe('export GLB — ce que l ecran remplace', () => {
+  it('montre le dessin d avant sans sa marque (elle partirait dans les extras du noeud), cache celui de l ecran, puis remet tout', () => {
+    const modele = { userData: { [EXPORT_SEULEMENT]: true } as Record<string, unknown>, visible: false };
+    const ecran = { userData: { [HORS_EXPORT]: true } as Record<string, unknown>, visible: true };
+    const s = { traverse: (f: (o: unknown) => void) => [modele, ecran].forEach(f) } as unknown as THREE_NS.Object3D;
+    const remettre = masquerGabarits(s);
+    expect(modele.visible).toBe(true);
+    expect(modele.userData).toEqual({});
+    expect(ecran.visible).toBe(false);
+    remettre();
+    expect(modele.visible).toBe(false);
+    expect(modele.userData[EXPORT_SEULEMENT]).toBe(true);
+    expect(ecran.visible).toBe(true);
   });
 });

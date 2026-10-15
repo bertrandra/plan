@@ -71,6 +71,11 @@ export interface SceneVue3d extends SceneTroisBase {
   cen: { x: number; y: number };
   /** Le ciel, l'environnement et l'occlusion (three/rendu.ts), a liberer avec la scene. */
   rendu?: EtatRendu;
+  /**
+   * La hauteur du sol dessine en un point du plan, sur un sol en relief ; absente, le sol est plat
+   * (a zero). La promenade (three/presentation.ts) garde ainsi les yeux a hauteur d'homme.
+   */
+  hauteurSol?: (p: PtBrut) => number;
 }
 
 /** La scene de la visionneuse : elle cadre un .glb deja produit, donc en coordonnees 3D. */

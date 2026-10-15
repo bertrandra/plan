@@ -5,7 +5,10 @@ import * as THREE_NS from 'three';
 const bannieres: string[] = [];
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
-import { buildThreeScene, remplacerObjets3d, comparerObjets3d, type ContexteScene3d } from '../../../src/three/scene.js';
+import { buildThreeScene, remplacerObjets3d, comparerObjets3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
+import { HORS_EXPORT, EXPORT_SEULEMENT } from '../../../src/three/primitives.js';
+import { pointInPolygon } from '../../../src/geometry/basic.js';
+import { polygonOffset } from '../../../src/geometry/polygon.js';
 import { vue3d, hotes3d, rendre3d } from '../../../src/three/etat3d.js';
 import { COUCHE_APRES, COUCHE_AVANT } from '../../../src/three/comparaison3d.js';
 import { normaliserEnObjetsDuPlan } from '../../../src/app/assemblage/formes.js';
@@ -265,6 +268,34 @@ describe('le gazon de la parcelle du projet', () => {
     expect(s).toBeGreaterThan(650); expect(s).toBeLessThan(760);
   });
 
+  it('a l ecran, l herbe s arrete aux objets qui occupent le sol ; le modele exporte garde le gazon entier', () => {
+    buildThreeScene(terrasse(), etat(), contexte());
+    // Le gazon d'avant, entier, ne part plus qu'avec l'export (empreinte golden inchangee).
+    const modele = gazon()!;
+    expect(modele.visible).toBe(false);
+    expect(modele.userData[EXPORT_SEULEMENT]).toBe(true);
+    let ecran: THREE_NS.Mesh | null = null;
+    vue3d.scene?.scene.traverse((o) => { if (o.name === 'gazon-ecran') ecran = o as THREE_NS.Mesh; });
+    const e = ecran as THREE_NS.Mesh | null;
+    expect(e?.visible).toBe(true);
+    expect(e?.userData[HORS_EXPORT]).toBe(true);
+    // Aucun triangle de l'herbe a l'ecran dans la maison, la terrasse, l'abri ou la dalle (l'herbe
+    // passe de quelques centimetres sous leur bord, pour qu'il la recouvre).
+    const cen = vue3d.centre ?? { x: 0, y: 0 };
+    const pos = e!.geometry.getAttribute('position');
+    const occupes = ['maison', 'terrasse', 'abri', 'dalle'].map((k) => objets.find((o) => o.key === k)!).map((o) => polygonOffset((o as { pts: { x: number; y: number }[] }).pts, 0.05));
+    let aireEcran = 0;
+    for (let k = 0; k < pos.count; k += 3) {
+      const c = { x: cen.x + (pos.getX(k) + pos.getX(k + 1) + pos.getX(k + 2)) / 3, y: cen.y - (pos.getZ(k) + pos.getZ(k + 1) + pos.getZ(k + 2)) / 3 };
+      occupes.forEach((pts) => expect(pointInPolygon(c, pts)).toBe(false));
+      const ax = pos.getX(k + 1) - pos.getX(k), az = pos.getZ(k + 1) - pos.getZ(k), bx = pos.getX(k + 2) - pos.getX(k), bz = pos.getZ(k + 2) - pos.getZ(k);
+      aireEcran += Math.abs(ax * bz - az * bx) / 2;
+    }
+    // La maison seule fait plus de cent metres carres.
+    expect(aireEcran).toBeLessThan(600);
+    expect(aireEcran).toBeGreaterThan(300);
+  });
+
   it('cede la place quand il est decoche, ou quand une texture horizontale est choisie', () => {
     const parcelle = objets.find((o) => o.key === 'parcelle')!;
     parcelle.gazon3d = false;
@@ -354,11 +385,62 @@ describe('sol en relief', () => {
     expect(Math.abs(attendu - hauteurFinieMm(t) / 1000)).toBeGreaterThan(0.01);
   });
 
+  it('drape les chemins sur le sol, au-dessus de l herbe ; le modele exporte garde le ruban plat', () => {
+    buildThreeScene(terrasse(), etat(), avecRelief());
+    const chemins = meshes('cfc3ab');
+    const drapes = chemins.filter((m) => m.userData[HORS_EXPORT]);
+    const modeles = chemins.filter((m) => m.userData[EXPORT_SEULEMENT]);
+    const nbChemins = objets.filter((o) => o.fonction === 'chemin').length;
+    expect(drapes).toHaveLength(nbChemins);
+    expect(modeles).toHaveLength(nbChemins);
+    modeles.forEach((m) => expect(m.visible).toBe(false));
+    const cen = vue3d.centre ?? { x: 0, y: 0 };
+    drapes.forEach((m) => {
+      expect(m.visible).toBe(true);
+      const pos = m.geometry.getAttribute('position');
+      // Chaque sommet a deux centimetres au-dessus du sol, et des mailles d'au plus un demi-metre.
+      for (let k = 0; k < pos.count; k++) expect(pos.getY(k) - solAttendu(cen.x + pos.getX(k))).toBeCloseTo(DECALAGE_CHEMIN_M, 3);
+      for (let k = 0; k < pos.count; k += 3) {
+        const l = Math.hypot(pos.getX(k + 1) - pos.getX(k), pos.getZ(k + 1) - pos.getZ(k));
+        expect(l).toBeLessThan(0.75);
+      }
+    });
+  });
+
   it('garde le plan vert quand « Sol en relief » est decoche', () => {
     buildThreeScene(terrasse(), etat(), avecRelief({ sol3d: false }));
     expect(vue3d.scene?.scene.getObjectByName('sol-relief')).toBeUndefined();
     expect(meshes('9fb98c').filter((m) => m.geometry.type === 'PlaneGeometry')).toHaveLength(1);
     expect(vue3d.scene?.controls.target.y).toBe(0);
+  });
+});
+
+describe('les joints du platelage sous le ciel', () => {
+  it('les chants des lames et la structure sous le platelage ne recoivent presque pas le ciel, le dessus si', async () => {
+    const textures = vue3d.textures;
+    vue3d.textures = true;
+    vue3d.scene = null; vue3d.dernierObjKey = null;
+    buildThreeScene(terrasse(), etat(), contexte());
+    await attendre();
+    const lames: THREE_NS.Material[][] = [];
+    const parCouleur = new Map<string, number[]>();
+    (vue3d.scene as { scene: THREE_NS.Scene } | null)?.scene.traverse((o: THREE_NS.Object3D) => {
+      const m = o as THREE_NS.Mesh;
+      if (!m.isMesh) return;
+      const ms = (Array.isArray(m.material) ? m.material : [m.material]) as THREE_NS.MeshStandardMaterial[];
+      const c = ms[0]?.color?.getHexString() ?? '';
+      if (c === 'c9a15a' && ms.length === 2) lames.push(ms);
+      parCouleur.set(c, [...(parCouleur.get(c) ?? []), ...ms.map((x) => x.envMapIntensity)]);
+    });
+    expect(lames.length).toBeGreaterThan(50);
+    lames.forEach(([dessus, chants]) => {
+      expect((dessus as THREE_NS.MeshStandardMaterial).envMapIntensity).toBe(1);
+      expect((chants as THREE_NS.MeshStandardMaterial).envMapIntensity).toBe(PART_CIEL_JOINTS);
+    });
+    // Solives, lambourdes et vis sous le platelage ; la lame de rive, dehors, garde le ciel.
+    for (const c of ['6b4a2a', 'b45a2a', 'b8c2ce']) expect(new Set(parCouleur.get(c))).toEqual(new Set([PART_CIEL_SOUS_PLATELAGE]));
+    expect(new Set(parCouleur.get('5c3a1e'))).toEqual(new Set([1]));
+    vue3d.textures = textures;
   });
 });
 

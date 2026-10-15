@@ -7,7 +7,9 @@ import { geocoderInverseBAN, BAN_INVERSE_URL } from '../../../src/geo/apiIgn.js'
 import { SansPosition, type PositionGps } from '../../../src/shell/geolocalisation.js';
 import { ImportCadastre } from '../../../src/zones/parcours/ImportCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { PtBrut } from '../../../src/model/types.js';
+import { clotureDe } from '../../../src/model/cloture.js';
+import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import { AE101, IDU_AE101, jardinAE101, coteAllee } from '../../fixtures/cloture/ae101.js';
 
 // L'import depuis une adresse part de la position de l'appareil : sur le terrain, la parcelle est
 // celle sous les pieds. Precise, elle choisit la parcelle ; approximative, elle propose l'adresse ;
@@ -131,6 +133,46 @@ describe('l import depuis la position de l appareil', () => {
     await act(async () => { await i.utiliserMaPosition(true); });
     expect(hote.textContent).toContain('Position approximative (à 150 m près)');
     expect(hote.querySelector<HTMLInputElement>('[data-controle="cadastre.adresse"]')!.value).toBe('2 allee des Limites 78110 Le Vesinet');
+  });
+});
+
+describe('AE 101 importee depuis le jardin : le portail neuf cote rue', () => {
+  /** Le cadastre d'AE 101 et de ses voisines (tests/fixtures/cloture), le reste vide. */
+  function servirAE101(): void {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      const u = new URL(url);
+      return reponse(u.hostname === 'apicarto.ign.fr' && u.pathname.includes('cadastre') ? { features: AE101.parcelles } : { features: [] });
+    }));
+  }
+  const creer = async (adresse: boolean) => {
+    servirAE101();
+    const appliquer = vi.fn();
+    const a = AE101.adresse;
+    const ctx: ContexteImportCadastre = {
+      apiSave: vi.fn(), appliquerProjetImporte: appliquer, withProjectParam: (id) => id, apiDisponible: false, cleDernierProjet: 'k',
+      lirePosition: async () => ({ ...jardinAE101(), precisionM: 6 }),
+      geocoderInverse: vi.fn(async () => (adresse ? { label: a.label, score: 0.96, genre: 'housenumber', citycode: a.citycode, ville: a.ville, lon: a.lon, lat: a.lat } : null)),
+      toitsLidar: vi.fn(async () => null) as never, couleursMurs: vi.fn(async () => null) as never, lireRelief: vi.fn(async () => { throw new Error('hors ligne'); }) as never,
+    };
+    const i = creerImportCadastre(ctx, vi.fn());
+    await i.utiliserMaPosition(true);
+    expect(i.etat().principale?.idu).toBe(IDU_AE101);
+    // Aucune voisine cochee : c'est le choix par defaut de l'etape 2.
+    expect(i.etat().selection.size).toBe(0);
+    await i.creerProjet('AE 101');
+    const objets = (appliquer.mock.calls[0]![0] as { objets: ObjetPlan[] }).objets;
+    return objets[0]!;
+  };
+
+  it('le portail se pose sur l allee des Limites, devant le point de l adresse la plus proche', async () => {
+    const p = await creer(true);
+    expect(clotureDe(p).portails.map(x => x.cote)).toEqual([coteAllee(p)]);
+    expect((p.cadastre as { adresseLon: number }).adresseLon).toBe(AE101.adresse.lon);
+  });
+
+  it('sans adresse connue, les mitoyennes non cochees disent ou est la rue', async () => {
+    const p = await creer(false);
+    expect(clotureDe(p).portails.map(x => x.cote)).toEqual([coteAllee(p)]);
   });
 });
 
