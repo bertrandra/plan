@@ -1423,7 +1423,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
     maison, elle la contourne. La promenade marche aussi sans point de vue enregistré.
   - Aucun export ne change : le .glb garde le gazon entier et le ruban plat d'avant (ils ne partent
     plus qu'avec l'export, `EXPORT_SEULEMENT`), et les empreintes de `tests/fixtures/golden/` sont
-    identiques.
+    identiques. La marque `EXPORT_SEULEMENT` est retirée le temps de l'export : l'exporteur glTF
+    écrit `userData` dans les `extras` des nœuds, et depuis les baies en creux (R2), le .glb d'un
+    ordinateur portait dix-sept « exportSeulement » de plus que celui d'avant (comptes inchangés,
+    580 octets de plus sur la démonstration).
 - **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
   adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
   depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent
