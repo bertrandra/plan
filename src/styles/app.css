@@ -1459,13 +1459,14 @@
   .avantApresAudit{ margin:8px 0 4px; }
   .noteAvantApres{ margin:2px 0 4px; font-size:0.72rem; color:var(--ink-soft); }
   /* « Les deux » (three/comparaison3d.ts) : les deux vues prennent la part du canevas que l'ecran
-     laisse libre. Il se fait donc plus bas au doigt (les vues s'empilent au-dessus de lui), et se
-     range a gauche sur grand ecran, ou les vues se posent cote a cote a sa droite ; les commandes de
-     camera, a droite, restent a portee. */
+     laisse libre. Au doigt, il se fait un peu plus bas (les vues s'empilent au-dessus de lui) ; sur un
+     ecran en largeur il reste le panneau de droite, comme la prise, et les vues se posent cote a cote
+     a sa gauche. */
   html[data-classe="compact"] .auditPropositions.deuxVues{ max-height:42dvh; }
   html[data-classe="moyen"] .auditPropositions.deuxVues{ max-height:48dvh; }
-  html[data-classe="large"] .dialogueVoile:has(> .auditPropositions.deuxVues){ justify-content:flex-start; padding-left:16px; }
-  html[data-classe="large"] .auditPropositions.deuxVues{ width:min(400px, 34vw); max-height:calc(100dvh - 120px); }
+  @media (orientation: landscape){
+    html:not([data-classe="compact"]) .auditPropositions.deuxVues{ max-height:calc(100dvh - var(--reserve-haut, 56px) - var(--hauteur-etat, 30px) - 24px); }
+  }
   /* Le nom de chaque vue, dans son coin bas gauche, et le filet entre elles : ni l'un ni l'autre ne
      capte de geste, la scene se tourne au travers. Le mot porte l'information, pas la couleur. */
   .etiquetteDeuxVues{

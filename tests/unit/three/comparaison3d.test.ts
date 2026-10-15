@@ -68,6 +68,13 @@ describe('la decoupe en deux vues', () => {
     expect(v.apres).toEqual({ x: 382 + 990 - 493, y: 0, l: 493, h: 688 });
     expect(v.apres.x - (v.avant.x + v.avant.l)).toBe(ECART_VUES_PX);
   });
+  it('garde le cote a cote quand la zone libre est presque un 4:3 (grand ecran, panneau a droite)', () => {
+    // 914 x 688 : empiler (914 x 342) ou juxtaposer (455 x 688) s'ecartent a peu pres autant du 4:3 ;
+    // deux vues cote a cote se comparent d'un regard.
+    const v = decouperEnDeux({ x: 0, y: 0, l: 914, h: 688 });
+    expect(v.sens).toBe('cote');
+    expect(v.avant.l).toBe(455);
+  });
   it('les empile au telephone, ou cote a cote chaque vue serait une meurtriere', () => {
     const v = decouperEnDeux({ x: 0, y: 0, l: 390, h: 424 });
     expect(v.sens).toBe('pile');

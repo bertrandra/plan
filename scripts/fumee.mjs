@@ -1760,6 +1760,9 @@ const POINTS = {
     await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
     await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
     await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    // L'ecran s'ouvre sur « Les deux » (point 90) : ici, la vue unique, que la camera cadre au-dessus de la carte.
+    await etape('une vue', () => page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 }));
+    await page.waitForTimeout(800);
     await arretee();
     const carte = await page.evaluate(() => { const r = document.querySelector('.auditPropositions').getBoundingClientRect(); return { h: r.height, gauche: r.left, vh: innerHeight, vw: innerWidth }; });
     const propositions = await maisonVue('.auditPropositions');

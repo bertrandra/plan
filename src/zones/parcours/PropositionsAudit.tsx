@@ -11,11 +11,10 @@
 // ligne arrive decochee et le dit. « Valider » ecrit ce qui est coche en un seul pas d'historique
 // (app/audit/parcelle/validation.ts).
 
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import type { Apercu } from '../../app/audit/parcelle/validation.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
-import { useCadrerVue } from './cadrageVue.js';
 import { Icone } from '../icones.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
@@ -103,21 +102,25 @@ const APERCUS: readonly { a: Apercu; libelle: string }[] = [
 export function PropositionsAudit({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
   const v = session.validation;
   const apercu = v.apercu();
-  // Deux vues : elles evitent cet ecran elles-memes (zone libre, comparaison3d.ts) ; la camera ne se
-  // decale donc pas en plus, sinon la scene serait cadree deux fois. Une seule vue : la camera cadre
-  // ce que l'ecran laisse voir. L'ecran dit ou il est a chaque changement de taille (une ligne de
-  // plus, la liste repliee, l'ecran qui tourne), et plus rien quand il se ferme.
-  const cadre = useCadrerVue(session, apercu !== 'deux');
+  // L'ecran dit ou il est a chaque changement de taille (une ligne de plus, la liste repliee, l'ecran
+  // qui tourne), et plus rien quand il se ferme. Deux vues : elles evitent l'ecran elles-memes (zone
+  // libre, comparaison3d.ts), et la camera cadre une de leurs formes, sans se decaler en plus ; elles
+  // se posent donc AVANT la camera. Une seule vue : la camera cadre ce que l'ecran laisse voir.
+  const cadre = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = cadre.current;
     if (!el) return;
-    const dire = () => v.cadrer(el.getBoundingClientRect());
+    const dire = () => {
+      const r = el.getBoundingClientRect();
+      v.cadrer(r);
+      session.cadrerVue(apercu === 'deux' ? null : { haut: r.top, gauche: r.left });
+    };
     dire();
     const obs = typeof ResizeObserver === 'function' ? new ResizeObserver(dire) : null;
     obs?.observe(el);
     window.addEventListener('resize', dire);
-    return () => { obs?.disconnect(); window.removeEventListener('resize', dire); v.cadrer(null); };
-  }, [v, cadre]);
+    return () => { obs?.disconnect(); window.removeEventListener('resize', dire); v.cadrer(null); session.cadrerVue(null); };
+  }, [v, session, apercu]);
   const propositions = v.propositions();
   const cochees = propositions.filter((p) => v.cochee(p.id)).length;
   const verifs = v.verifications();

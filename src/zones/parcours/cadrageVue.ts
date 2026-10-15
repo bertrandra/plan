@@ -6,18 +6,17 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 
-/** `actif` faux : l'ecran ne cache rien a la camera (les deux vues avant / apres evitent deja l'ecran). */
-export function useCadrerVue(session: SessionAuditParcelle, actif = true) {
+export function useCadrerVue(session: SessionAuditParcelle) {
   const cadre = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = cadre.current;
     if (!el) return;
-    const dire = () => { const r = el.getBoundingClientRect(); session.cadrerVue(actif ? { haut: r.top, gauche: r.left } : null); };
+    const dire = () => { const r = el.getBoundingClientRect(); session.cadrerVue({ haut: r.top, gauche: r.left }); };
     dire();
     const obs = typeof ResizeObserver === 'function' ? new ResizeObserver(dire) : null;
     obs?.observe(el);
     window.addEventListener('resize', dire);
     return () => { obs?.disconnect(); window.removeEventListener('resize', dire); session.cadrerVue(null); };
-  }, [session, actif]);
+  }, [session]);
   return cadre;
 }

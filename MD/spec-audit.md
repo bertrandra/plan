@@ -678,7 +678,8 @@ validation (§14).
      largeur, et les deux vues prennent le reste ; la caméra ne se décale pas en plus (les vues
      évitent déjà l'écran) ;
    - **une seule caméra**, rendue deux fois par image dans un seul contexte WebGL (viewport et
-     scissor) : tourner, zoomer ou déplacer dans l'une fait de même dans l'autre, par construction. La
+     scissor), cadrée sur la forme de l'une des vues (`vuePrise.ts::rapportVisible`) pour que la maison
+     la remplisse : tourner, zoomer ou déplacer dans l'une fait de même dans l'autre, par construction. La
      molette vise le point de la vue sous le curseur ;
    - les bâtiments que les cases cochées changent passent sur une couche « Avant », leurs copies sur
      une couche « Après » ; le reste de la scène est commun. La clôture proposée s'y compare aussi,

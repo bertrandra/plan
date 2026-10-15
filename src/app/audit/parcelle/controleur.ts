@@ -21,6 +21,7 @@ import { partageDe, photosDeLaCapture, type CaptureParcelle, type EnvoiCorpus } 
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { epurerVue3d, objetSousLePointeur } from '../../../three/scene.js';
+import { affichage3d } from '../../../three/etat3d.js';
 import { cadreDe, facadeTouchee, forceDuTrait, suiviPieton, vuePieton, type CacheVue, type VuePieton } from './vuePrise.js';
 import { poserTraitDePres } from '../../../three/traitDePres.js';
 import { filtrePosition, surLaParcelle } from './positionFiltree.js';
@@ -774,7 +775,8 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
     const cles = batimentsGardes();
     const contours = contoursDe(cles);
     const parcelle = parcelleDuProjet(ctx.etat.objects);
-    if (ecran === 'propositions' && parcelle && aDesSommets(parcelle)) contours.push(parcelle.pts);
+    // Deux vues avant / apres : ce qui se compare, ce sont les batiments, que la parcelle entiere rendrait petits.
+    if (ecran === 'propositions' && parcelle && aDesSommets(parcelle) && !affichage3d.comparaison) contours.push(parcelle.pts);
     let azimut: number | null = null;
     const cadreSans = cadreDe(contours, hauteurDe(cles), null);
     if (!cadreSans) return;

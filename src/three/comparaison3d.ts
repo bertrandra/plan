@@ -31,6 +31,12 @@ export const COUCHE_APRES = 2;
 export const ECART_VUES_PX = 4;
 /** A l'arret, une image toutes les… : de quoi montrer une texture arrivee, sans tourner a vide. */
 export const DELAI_REPOS_MS = 400;
+/**
+ * Cote a cote l'emporte tant qu'il ne perd pas de plus de cela (en ecart de forme) : sur un ecran en
+ * largeur, la zone libre est presque un 4:3 et les deux decoupes se valent, mais deux vues cote a cote
+ * se comparent d'un regard, l'une au-dessus de l'autre non.
+ */
+const MARGE_COTE = 0.15;
 /** La forme visee pour chaque vue : celle d'une photo, ou une maison se lit bien. */
 const FORME_VISEE = 4 / 3;
 
@@ -67,13 +73,13 @@ const ecartForme = (l: number, h: number) => Math.abs(Math.log(Math.max(1, l) / 
 
 /**
  * Coupe la zone libre en deux vues de meme taille, « Avant » a gauche ou en haut : cote a cote ou
- * l'une au-dessus de l'autre, selon ce qui donne a chacune la forme la plus proche du 4:3 (a egalite,
- * cote a cote). En pixels entiers : le scissor n'en connait pas d'autres.
+ * l'une au-dessus de l'autre, selon ce qui donne a chacune la forme la plus proche du 4:3 (a peu pres a egalite,
+ * cote a cote : MARGE_COTE). En pixels entiers : le scissor n'en connait pas d'autres.
  */
 export function decouperEnDeux(zone: Rect, ecart = ECART_VUES_PX): DeuxVues {
   const x = Math.round(zone.x), y = Math.round(zone.y), L = Math.round(zone.l), H = Math.round(zone.h);
   const lc = Math.max(1, Math.floor((L - ecart) / 2)), hp = Math.max(1, Math.floor((H - ecart) / 2));
-  if (ecartForme(lc, H) <= ecartForme(L, hp)) {
+  if (ecartForme(lc, H) <= ecartForme(L, hp) + MARGE_COTE) {
     return { sens: 'cote', avant: { x, y, l: lc, h: Math.max(1, H) }, apres: { x: x + L - lc, y, l: lc, h: Math.max(1, H) } };
   }
   return { sens: 'pile', avant: { x, y, l: Math.max(1, L), h: hp }, apres: { x, y: y + H - hp, l: Math.max(1, L), h: hp } };
