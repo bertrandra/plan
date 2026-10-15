@@ -14,7 +14,7 @@ import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import {
   clotureDe, synchroniserAnciensChamps, reglageDuCote, coteRegle, reglerCote, retirerCote, changerType,
-  longueurDuCote, coteValide, nouveauPortail, coteDAcces, accolerPortillon, alertesAcces, alertesHauteur,
+  longueurDuCote, coteValide, nouveauPortail, accolerPortillon, alertesAcces, alertesHauteur,
   resumeReglage, resumeAcces, hauteurTotale,
   LIBELLES_TYPE_CLOTURE, LIBELLES_PAREMENT, LIBELLES_ESSENCE, LIBELLES_FORME_PORTAIL,
   LIBELLES_OUVERTURE_PORTAIL, LIBELLES_REMPLISSAGE, LIBELLES_MATERIAU_PORTAIL, COULEUR_PAR_MATERIAU,
@@ -24,7 +24,7 @@ import type {
   Cloture, ReglageCloture, CoteCloture, Portail, TypeCloture, ParementMur, EssenceHaie,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan,
 } from '../../model/types.js';
-import { coteRueDevine } from '../../geo/coteRue.js';
+import { coteRueDevine, coteDuNouvelAcces, devinerCoteRue } from '../../geo/coteRue.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 
 /** La parcelle du projet, celle qui porte la cloture - pas une parcelle voisine (objet.ts). */
@@ -171,6 +171,19 @@ export function sectionCloture(c: ContexteChamps): Section {
 // ---------------------------------------------------------------------------------------------
 // Section Portails et portillons
 
+/** Ce que dit le bouton « Ajouter un portail » : le cote qu'il prendra, et pourquoi. */
+function explicationAcces(c: ContexteChamps): string {
+  const cl = clotureDe(c.obj);
+  const dit = cl.cotes.find(x => x.limite === 'rue' && coteValide(pts(c.obj), x.cote));
+  if (dit) return `Sur le côté ${dit.cote + 1}, que vous avez dit sur rue.`;
+  const d = devinerCoteRue(c.obj, c.objets);
+  const corriger = ' ; corrigez la limite d’un côté si besoin.';
+  if (d?.raison === 'adresse') return `Sur le côté ${d.cote + 1}, devant le point d’adresse${corriger}`;
+  if (d?.raison === 'rue') return `Sur le côté ${d.cote + 1}, le long de la rue « ${d.rue ?? ''} »${corriger}`;
+  if (d?.raison === 'sansVoisin') return `Sur le côté ${d.cote + 1}, le plus long des côtés sans parcelle voisine${corriger}`;
+  return `Sur le côté ${coteDuNouvelAcces(c.obj, c.objets) + 1}, le plus long : rien ne dit encore où est la rue (point d’adresse, rues lues, parcelles voisines). Dites-le avec la limite d’un côté.`;
+}
+
 export function sectionPortails(c: ContexteChamps): Section {
   const o = c.obj;
   const acces = (cc: ContexteChamps): Portail | undefined => {
@@ -185,8 +198,9 @@ export function sectionPortails(c: ContexteChamps): Section {
   const ecrireAcces = (cc: ContexteChamps, f: (a: Portail) => void) => ecrire(cc, (cl) => { const a = cl.portails[accesEnCours]; if (a) f(a); });
   const ajouter = (nature: Portail['nature']) => (cc: ContexteChamps) => {
     ecrire(cc, (cl) => {
-      // Sur le cote dit sur rue, sinon sur celui que le plan devine (point d'adresse, voisines), sinon le plus long.
-      const cote = coteDAcces(cl, pts(cc.obj), coteRueDevine(cc.obj, cc.objets));
+      // La regle de tous les chemins de creation (geo/coteRue.ts) : le cote dit sur rue, sinon celui
+      // que le plan devine (point d'adresse, rues lues, cote sans voisine), sinon le plus long.
+      const cote = coteDuNouvelAcces(cc.obj, cc.objets);
       cl.portails.push(nouveauPortail(nature, cote, longueurDuCote(pts(cc.obj), cote)));
       accesEnCours = cl.portails.length - 1;
     });
@@ -195,7 +209,7 @@ export function sectionPortails(c: ContexteChamps): Section {
 
   const champs: Champ[] = [
     { type: 'bouton', cle: 'ajouterPortail', libelle: '', nom: 'Ajouter un portail', texte: () => 'Ajouter un portail', visible: actif,
-      explication: (() => { const d = coteRueDevine(c.obj, c.objets); const dit = clotureDe(c.obj).cotes.some(x => x.limite === 'rue'); return dit ? 'Sur le côté sur rue.' : d !== null ? `Sur le côté ${d + 1}, que le plan devine sur rue (point d’adresse, parcelles voisines) ; corrigez la limite d’un côté si besoin.` : 'Sur le côté sur rue s’il y en a un, sinon sur le plus long.'; })(),
+      explication: explicationAcces(c),
       agit: 'projet', executer: ajouter('portail') },
     { type: 'bouton', cle: 'ajouterPortillon', libelle: '', nom: 'Ajouter un portillon', texte: () => 'Ajouter un portillon', visible: actif, agit: 'projet', executer: ajouter('portillon') },
   ];

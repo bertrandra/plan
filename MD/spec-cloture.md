@@ -145,21 +145,39 @@ Règles :
 
 ### 2.1 Le côté sur rue deviné (`geo/coteRue.ts`)
 
+**Une seule règle** pour tous les chemins qui créent un accès (`coteDuNouvelAcces`) : la clôture
+d'un import (depuis une adresse, la position de l'appareil ou le mode audit), les boutons « Ajouter
+un portail » et « Ajouter un portillon » de l'inspecteur, le portail vu sur place par un audit de la
+parcelle quand le projet n'en a pas encore. Un accès déjà posé n'est jamais déplacé.
+
 Un accès neuf se pose sur le côté **dit** sur rue (`limite: 'rue'`). Quand aucun côté ne l'est, le
-plan **devine** :
+plan **devine** (`devinerCoteRue`), parmi les côtés **non mitoyens** (tous, s'ils le sont tous) :
 
 1. **Le point d'adresse** de la BAN, posé sur la voirie devant la porte, que l'import range sur la
    parcelle (`cadastre.adresseLat/Lon`, projeté depuis le point de calage) : le côté le plus proche,
    si le point est hors de la parcelle et à moins de 30 m (`DISTANCE_ADRESSE_MAX_M`). Un point dans
-   la parcelle (adresse résolue au bâtiment) ou trop loin (résolue à la rue, à la commune) ne dit rien.
-2. Sinon, **les parcelles voisines importées** : un côté dont plus de la moitié longe une voisine
-   (`longueurFrontiere`, tolérance 50 cm) est mitoyen ; le plus long des côtés sans voisine est pris
-   pour la rue (`cotesSansMitoyen`).
-3. Sans point d'adresse ni voisine : rien n'est deviné, le plus long côté sert (comme avant).
+   la parcelle (adresse résolue au bâtiment) ou trop loin (résolue à la rue, à la commune) ne dit
+   rien. À l'import depuis la position de l'appareil, le point rangé est celui de **l'adresse la plus
+   proche** (géocodage inverse, `pointAdresse`), pas celui de l'appareil, qui est dans le jardin.
+2. Sinon, **les rues lues** à la BD TOPO (`ruesVoisinage`, « Lire le nom des rues ») : le côté dont
+   le milieu est le plus près de l'axe d'une rue, à moins de 20 m (`DISTANCE_RUE_MAX_M`) ; la rue de
+   l'adresse d'abord, au coin de deux rues.
+3. Sinon, **le plus long des côtés sans voisine**.
+4. Sans rien de tout cela : rien n'est deviné, le plus long côté sert (comme avant), en évitant ceux
+   que l'utilisateur a dits séparatifs ou mitoyens.
 
-L'inspecteur le dit : l'explication du bouton « Ajouter un portail » nomme le côté deviné, et le
-champ « Limite » d'un côté non précisé note « devinée : sur rue » ou « devinée : séparative ». Un
-carport neuf s'en approche aussi (`MD/spec-placement.md`).
+Un côté est **mitoyen** (`cotesMitoyens`) quand il partage au moins 1 m de limite avec une parcelle
+voisine (`FRONTIERE_MITOYENNE_M`, la règle de `model/mitoyennete.ts`), mesuré à 50 cm de tolérance
+**sans son premier ni son dernier mètre** : la voisine d'un côté sur rue le touche à chaque coin
+(près d'un mètre sur AE 101). Ce que l'utilisateur a dit d'un côté l'emporte : « sur rue » le rend
+libre, « séparative » ou « mitoyenne » mitoyen. Les voisines comptées sont celles du plan, et à
+l'import celles que le cadastre a rendues même non cochées (`voisinesConnues`) ; en mode audit, les
+parcelles lues autour du point.
+
+L'inspecteur le dit : l'explication du bouton « Ajouter un portail » nomme le côté et sa raison
+(devant le point d'adresse, le long de la rue « … », le plus long des côtés sans voisine, ou rien ne
+dit encore où est la rue), et le champ « Limite » d'un côté non précisé note « devinée : sur rue »
+ou « devinée : séparative ». Un carport neuf s'en approche aussi (`MD/spec-placement.md`).
 
 ### 2.2 La clôture d'une parcelle importée (`clotureDImport`)
 
@@ -170,7 +188,7 @@ parcelle du projet** — elle seule, pas les parcelles voisines — naît close
 - une **palissade bois de 1,80 m** sur tout le contour (`active: true`, défaut `palissade`,
   `HAUTEUR_CLOTURE_DEFAUT`, `COULEUR_CLOTURE_DEFAUT`) ;
 - un **portail en aluminium blanc** (`nouveauPortail('portail', …)`, 3,50 × 1,60 m, deux battants
-  **ouvrant vers l'intérieur de la parcelle**, motorisé) au milieu du côté d'accès : le côté deviné sur rue (§2.1), sinon le plus long ; aucun
+  **ouvrant vers l'intérieur de la parcelle**, motorisé) au milieu du côté d'accès (§2.1 : dit ou deviné sur rue, sinon le plus long) ; aucun
   portail sur un contour dont le côté d'accès fait moins de 4 m.
 
 C'est un point de départ à corriger, pas un relevé : il se voit sur le plan et en 3D, et se règle
@@ -304,6 +322,7 @@ clôture active. Rien ne change dans les exports (§1.1).
 | `tests/unit/three/cloture3d.test.ts` | nombre de mailles par type, piliers et vantaux, rien sans clôture active |
 | `tests/unit/render/cloture.test.ts` | tronçons, coupure, arcs d'un battant, course d'un coulissant |
 | `tests/unit/ui/champsCloture.test.ts` | sections visibles sur la parcelle du projet seule, champs par type, écritures |
+| `tests/unit/geo/coteRue.test.ts` | côtés mitoyens (1 m hors coins, ce que l'utilisateur a dit), côté sur rue deviné (point d'adresse, rues lues, sans voisine), et AE 101 réelle (`tests/fixtures/cloture/`) sur chaque chemin de création |
 | `tests/unit/echafaudage.test.ts` | les six empreintes ne bougent pas |
 
 ---

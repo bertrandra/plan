@@ -157,7 +157,10 @@ geolocation=(self)`, dans `deploy/htaccess.template` et `buildsg/app.js`).
 - **Précise** (≤ `PRECISION_POSITION_MAX_M` = 50 m) : l'adresse la plus proche (BAN inverse,
   `geocoderInverseBAN`) s'écrit dans le champ, et la parcelle se cherche **sous le point de
   l'appareil** (`genre: 'position'`), filtrée par la commune de cette adresse. L'étape 2 dit
-  « Adresse la plus proche » et « Votre position (à N m près) : dans la parcelle ».
+  « Adresse la plus proche » et « Votre position (à N m près) : dans la parcelle ». Le point
+  d'adresse rangé sur la parcelle (`cadastre.adresseLat/Lon`) est celui de cette adresse, sur la
+  voirie (`pointAdresse`), pas celui de l'appareil : c'est lui qui dit le côté sur rue où se pose le
+  portail neuf (`MD/spec-cloture.md` §2.1).
 - **Approximative** : l'adresse est proposée dans le champ, rien n'est cherché.
 - **Refusée, indisponible, trop longue** : silencieux à l'ouverture.
 - **Devancée** : une frappe dans le champ ou une adresse choisie pendant la lecture l'emportent.

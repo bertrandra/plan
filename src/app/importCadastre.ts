@@ -563,7 +563,8 @@ function gestesAdresse(n: Noyau, ch: Chargements, ctx: ContexteImportCadastre): 
     e.position = { etat: 'trouvee', adresse: label, precisionM };
     // La parcelle se cherche sous le point de l'appareil, pas sous le point d'adresse : sur le
     // terrain, c'est la parcelle ou l'on se tient. La commune de l'adresse filtre le cadastre.
-    await choisirAdresse({ label, score: 1, genre: 'position', citycode: adresse?.citycode ?? '', ville: adresse?.ville ?? '', lon: pos.lon, lat: pos.lat });
+    // Le point de cette adresse, lui, est sur la voirie : la parcelle le garde comme point d'adresse.
+    await choisirAdresse({ label, score: 1, genre: 'position', citycode: adresse?.citycode ?? '', ville: adresse?.ville ?? '', lon: pos.lon, lat: pos.lat, ...(adresse ? { pointAdresse: { lon: adresse.lon, lat: adresse.lat } } : {}) });
   }
 
   return {
@@ -717,6 +718,8 @@ function gesteCreation(n: Noyau, l: Lectures, ctx: ContexteImportCadastre, ferme
         const etendu = voisinageEtendu ? voisinageEtenduRetenu() : null;
         const importe: ImportCadastral = {
           ...reste, principale: principale(), proj: proj(), parcellesPropriete, voisinesRetenues, ...(rayon !== null ? { rayon } : {}),
+          // Les mitoyennes, cochees ou non : elles disent ou poser le portail neuf (geo/coteRue.ts).
+          voisinesConnues: () => e.adjacentes,
           voisinageEtendu: etendu ? { parcelles: etendu.parcelles, batiments: etendu.batiments, visible: e.afficherEtendu } : null
         };
         objets = objetsDepuisCadastre(importe);

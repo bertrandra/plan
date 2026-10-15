@@ -14,7 +14,7 @@ import { nombreFr } from '../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { portParNature } from '../model/arbre.js';
 import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
-import { coteRueDevine } from './coteRue.js';
+import { coteDuNouvelAcces } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
@@ -64,6 +64,13 @@ export interface AdresseRecherchee {
   ville: string;
   lon: number;
   lat: number;
+  /**
+   * Le point d'adresse de la BAN, quand il differe du point de recherche : a l'import depuis la
+   * position de l'appareil, la parcelle se cherche sous l'appareil (`lon`, `lat`, souvent dans le
+   * jardin) mais le point de l'adresse la plus proche est sur la voirie, devant la porte. C'est lui
+   * que la parcelle range comme point d'adresse (geo/coteRue.ts y devine le cote sur rue).
+   */
+  pointAdresse?: { lon: number; lat: number };
 }
 
 /** Le projecteur local monde <-> degres, tel que `geo/projection.ts` le rend. */
@@ -90,6 +97,11 @@ export interface ImportCadastral {
   /** Rayon de recherche des voisines, en metres. */
   rayon?: number;
   voisinesRetenues: () => ParcelleCadastrale[];
+  /**
+   * Les parcelles voisines connues, retenues ou non : celles qu'on n'importe pas disent tout de meme
+   * quels cotes sont mitoyens, pour poser le portail neuf cote rue (geo/coteRue.ts).
+   */
+  voisinesConnues?: () => ParcelleCadastrale[];
   importerBatiments?: boolean;
   batiments: ObjetBdTopo[];
   importerHaies?: boolean;
@@ -138,8 +150,9 @@ function metaCadastre(x: ContexteImport, c: ParcelleCadastrale, principaleOuNon:
   };
   if(principaleOuNon && importe.geo){
     info.adresse = importe.geo.label;
-    info.adresseLon = importe.geo.lon;
-    info.adresseLat = importe.geo.lat;
+    const point = importe.geo.pointAdresse ?? importe.geo;
+    info.adresseLon = point.lon;
+    info.adresseLat = point.lat;
     info.adresseScore = importe.geo.score;
     info.rayonM = importe.rayon;
     // Posee par `construireCandidats` sur toute principale ; sans elle, pas de distance a dire.
@@ -499,9 +512,12 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   // Le voisinage etendu pose masque : la bascule « Voisinage » le retrouve a l'ouverture.
   if(importe.voisinageEtendu && !importe.voisinageEtendu.visible && parcelle) parcelle.affichage = { ...(parcelle.affichage || {}), voisinage: false };
   // Une parcelle neuve est close : palissade bois de 1,8 m, portail alu blanc cote rue (model/cloture.ts).
-  // Le cote sur rue se devine une fois les voisines posees, qui disent ce qui est mitoyen.
+  // Le cote sur rue se devine une fois les voisines posees, qui disent ce qui est mitoyen ; les
+  // voisines connues mais non retenues le disent aussi, sans entrer dans le plan.
   if(parcelle && parcelle.type === 'polygon'){
-    parcelle.cloture = clotureDImport(parcelle.pts, coteRueDevine(parcelle, objets));
+    const fusionnees = new Set([principale.idu, ...parcellesFusionnees.map(p=>p.idu)]);
+    const connues = (importe.voisinesConnues ? importe.voisinesConnues() : []).filter(c=>!fusionnees.has(c.idu)).map(c=>c.pts.map(x.dec));
+    parcelle.cloture = clotureDImport(parcelle.pts, coteDuNouvelAcces(parcelle, objets, connues));
     synchroniserAnciensChamps(parcelle);
   }
   return objets;
