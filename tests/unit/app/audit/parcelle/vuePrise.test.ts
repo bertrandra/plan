@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { capDeLaVue, champComplet, facadeTouchee, posePieton, reculLibre, suiviPieton, CHAMP_VISIBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG } from '../../../../../src/app/audit/parcelle/vuePrise.js';
+import {
+  cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, posePieton, reculLibre, suiviPieton,
+  TRAIT_NUL_M, TRAIT_PLEIN_M,
+  CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
+} from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import type { Facade } from '../../../../../src/facade/geometrie.js';
 
 // La Vue 3D de « Photographier en marchant » (app/audit/parcelle/vuePrise.ts) : a hauteur d'homme,
@@ -61,6 +65,10 @@ describe('le cap de la vue', () => {
   it('suit les capteurs quand ils en donnent un', () => {
     expect(capDeLaVue({ x: 10, y: 3 }, 45, sud)).toBe(45);
   });
+  it('dos a la facade visee, la regarde quand meme : la vue epuree ne montrait que le ciel', () => {
+    expect(capDeLaVue({ x: 10, y: 3 }, 180, sud)).toBeCloseTo(0);
+    expect(capDeLaVue({ x: 10, y: 3 }, 120, null)).toBe(120);
+  });
   it('sans boussole ni marche, regarde la facade visee', () => {
     expect(capDeLaVue({ x: 10, y: 3 }, null, sud)).toBeCloseTo(0);
     expect(capDeLaVue({ x: 10, y: 20 }, null, sud)).toBeCloseTo(180);
@@ -103,8 +111,8 @@ describe('le suivi pendant la prise', () => {
     const vue = { poser: vi.fn(() => true), liberer: vi.fn(), arreter: vi.fn(), cadrer: vi.fn() };
     const s = suiviPieton(vue, () => 0);
     s.activer(true);
-    s.cadrer(600);
-    expect(vue.cadrer).toHaveBeenCalledWith(600);
+    s.cadrer({ haut: 600, gauche: 16 });
+    expect(vue.cadrer).toHaveBeenCalledWith({ haut: 600, gauche: 16 });
     s.lacher();
     expect(vue.arreter).toHaveBeenCalled();
     s.activer(false);
@@ -123,5 +131,100 @@ describe('le suivi pendant la prise', () => {
     expect(s.suivre({ x: 0, y: 0 }, 0, null, true)).toBe(true);
     t += PAUSE_GESTE_MS + 1;
     expect(s.suivre({ x: 0, y: 0 }, 0, null)).toBe(true);
+  });
+});
+
+describe('la vue d ensemble, pour choisir une facade (second essai d AE 101)', () => {
+  const maison = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
+  it('cadre les contours donnes : leur centre et leur rayon', () => {
+    const c = cadreDe([maison], 9, null);
+    expect(c?.centre).toEqual({ x: 6, y: 4 });
+    expect(c?.rayon).toBeCloseTo(Math.hypot(6, 4), 6);
+    expect(cadreDe([], 9, 0)).toBeNull();
+  });
+
+  it('regarde le batiment d en haut, en grand angle, et de plus loin sur un ecran etroit', () => {
+    const c = { centre: { x: 6, y: 4 }, rayon: 7.2, hauteur: 9, azimutDeg: 0 };
+    const large = poseEnsemble(c, 0, 1.6), etroit = poseEnsemble(c, 0, 0.7);
+    expect(large.champ).toBe(CHAMP_ENSEMBLE_DEG);
+    expect(large.vise).toEqual(c.centre);
+    // Regard vers le nord : la camera est au sud du batiment, assez haut.
+    expect(large.oeil.x).toBeCloseTo(6, 6);
+    expect(large.oeil.y).toBeLessThan(4);
+    const recul = 4 - large.oeil.y;
+    const montee = Math.atan2(large.hauteurOeil - large.hauteurVise, recul) * 180 / Math.PI;
+    expect(montee).toBeCloseTo(ELEVATION_ENSEMBLE_DEG, 6);
+    // La sphere qui entoure le batiment tient dans la partie visible.
+    const d = Math.hypot(recul, large.hauteurOeil - large.hauteurVise);
+    expect(Math.asin(Math.hypot(c.rayon, c.hauteur / 2) / d) * 180 / Math.PI).toBeLessThan(CHAMP_ENSEMBLE_DEG / 2);
+    expect(4 - etroit.oeil.y).toBeGreaterThan(recul);
+  });
+
+  it('tourne avec la direction du regard : vers l ouest, la camera est a l est', () => {
+    const p = poseEnsemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null }, 270, 1);
+    expect(p.oeil.x).toBeGreaterThan(0);
+    expect(p.oeil.y).toBeCloseTo(0, 6);
+  });
+
+  it('garde la direction de la camera quand on ne lui en donne pas (le doigt l a tournee)', () => {
+    const vue = { poser: vi.fn<(pose: unknown) => boolean>(() => true), azimut: () => 90, rapportVisible: () => 1 };
+    const s = suiviPieton(vue, () => 0);
+    expect(s.ensemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null })).toBe(false);
+    s.activer(true);
+    expect(s.ensemble({ centre: { x: 0, y: 0 }, rayon: 5, hauteur: 6, azimutDeg: null })).toBe(true);
+    const pose = vue.poser.mock.calls[0]?.[0] as { oeil: { x: number; y: number } };
+    expect(pose.oeil.x).toBeLessThan(0);
+  });
+});
+
+describe('la vue a hauteur d homme montre la facade entiere', () => {
+  it('elargit le champ pour une facade large et proche, jamais au-dela du maximum', () => {
+    const sud = facade({ x: 0, y: 10 }, { x: 10, y: 10 });
+    expect(champPourLaFacade({ x: 5, y: -30 }, sud, 0.7)).toBe(CHAMP_VISIBLE_DEG);
+    const proche = champPourLaFacade({ x: 5, y: 2 }, sud, 0.7);
+    expect(proche).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+    expect(proche).toBeLessThanOrEqual(CHAMP_PIETON_MAX_DEG);
+    expect(champPourLaFacade({ x: 5, y: 9 }, sud, 0.7)).toBe(CHAMP_PIETON_MAX_DEG);
+    // Sans mesure de l'ecran, la pose garde le champ par defaut.
+    expect(posePieton({ x: 5, y: 2 }, 0, sud).champ).toBeUndefined();
+    expect(posePieton({ x: 5, y: 2 }, 0, sud, [], 0.7).champ).toBeGreaterThan(CHAMP_VISIBLE_DEG);
+  });
+});
+
+describe('ce que l ecran de l audit cache de la vue', () => {
+  const canevas = { left: 0, right: 1000, bottom: 800, width: 1000, height: 800 };
+  it('une carte en bas cache le bas, un panneau a droite cache la droite', () => {
+    expect(partieCachee(canevas, null)).toEqual({ bas: 0, droite: 0 });
+    expect(partieCachee(canevas, { haut: 600, gauche: 180 })).toEqual({ bas: 200, droite: 0 });
+    expect(partieCachee(canevas, { haut: 64, gauche: 620 })).toEqual({ bas: 0, droite: 380 });
+  });
+  it('jamais plus de 60 % de la vue', () => {
+    expect(partieCachee(canevas, { haut: 0, gauche: 0 }).bas).toBe(480);
+    expect(partieCachee(canevas, { haut: 0, gauche: 460 }).droite).toBe(540);
+  });
+});
+
+describe('le trait renforce de pres (demande du 15 octobre)', () => {
+  const sud = facade({ x: 0, y: 10 }, { x: 10, y: 10 });
+  const a = (d: number) => forceDuTrait({ x: 5, y: 10 - d }, { x: 5, y: 4 - d }, sud, null);
+  it('est plein en deca du seuil, nul au-dela du second, et s attenue entre les deux', () => {
+    expect(a(TRAIT_PLEIN_M)).toBe(1);
+    expect(a(2)).toBe(1);
+    expect(a(TRAIT_NUL_M)).toBe(0);
+    expect(a(20)).toBe(0);
+    expect(a((TRAIT_PLEIN_M + TRAIT_NUL_M) / 2)).toBeCloseTo(0.5, 6);
+    // Plus on recule, plus il s'attenue : jamais de saut.
+    let avant = 1;
+    for (let d = TRAIT_PLEIN_M; d <= TRAIT_NUL_M; d += 0.25) {
+      const f = a(d);
+      expect(f).toBeLessThanOrEqual(avant + 1e-12);
+      expect(avant - f).toBeLessThan(0.12);
+      avant = f;
+    }
+  });
+  it('est plein quand la facade deborde du champ le plus large, meme de plus loin', () => {
+    const longue = facade({ x: -30, y: 10 }, { x: 40, y: 10 });
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, null)).toBeLessThan(1);
+    expect(forceDuTrait({ x: 5, y: 3 }, { x: 5, y: -3 }, longue, 0.7)).toBe(1);
   });
 });

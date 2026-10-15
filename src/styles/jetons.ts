@@ -13,7 +13,7 @@
 export type NomJeton =
   | 'ink' | 'ink-soft' | 'paper' | 'paper-deep' | 'stage-bg' | 'stage-trame' | 'panel-bg' | 'panel-2'
   | 'segment-bg' | 'input-bg' | 'border' | 'rule' | 'hairline' | 'relief' | 'accent' | 'on-accent' | 'accent-light' | 'on-accent-light'
-  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d'
+  | 'on-ink' | 'ok' | 'danger' | 'danger-bg' | 'alerte' | 'toast-bg' | 'on-toast' | 'fond-3d' | 'trait-3d'
   | 'camera-bg' | 'on-camera' | 'camera-ok' | 'camera-alerte' | 'serie-1' | 'serie-2' | 'serie-3';
 
 export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
@@ -45,6 +45,9 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'toast-bg': '#2B2117',
     'on-toast': '#FFFDF8',
     'fond-3d': '#DFE7EA',
+    // Le trait renforce de la facade devant vous, de pres (audit, three/traitDePres.ts) : sombre dans
+    // les deux themes, parce qu'il se pose sur la scene (des murs clairs au soleil), pas sur l'interface.
+    'trait-3d': '#1E1812',
     // La scene de prise de vue du releve de facade : une camera se regarde sur fond sombre, quel que
     // soit le theme - un cadre clair autour de l'image eblouit et fausse le jugement de l'exposition.
     'camera-bg': '#14100B',
@@ -86,6 +89,7 @@ export const JETONS: Record<'clair' | 'sombre', Record<NomJeton, string>> = {
     'toast-bg': '#F1E7D0',
     'on-toast': '#1C1610',
     'fond-3d': '#1F2426',
+    'trait-3d': '#120E0A',
     'camera-bg': '#14100B',
     'on-camera': '#FFFDF8',
     'camera-ok': '#8FD49B',
@@ -141,6 +145,7 @@ export const ROLES_JETONS: Record<NomJeton, { famille: FamilleJeton; role: strin
   'toast-bg': { famille: 'notifications', role: 'Fond des notifications' },
   'on-toast': { famille: 'notifications', role: 'Texte des notifications' },
   'fond-3d': { famille: 'scenes', role: 'Ciel de la Vue 3D' },
+  'trait-3d': { famille: 'scenes', role: 'Trait de la façade vue de près (audit)' },
   'camera-bg': { famille: 'scenes', role: 'Chambre noire du relevé' },
   'on-camera': { famille: 'scenes', role: 'Texte sur la chambre noire' },
   'camera-ok': { famille: 'scenes', role: 'Cadrage juste' },

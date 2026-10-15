@@ -13,7 +13,7 @@
 // envoyer, la liste dit aussi ou en est la sauvegarde sur le serveur de Plan (« Envoyer l'audit au
 // serveur », une commande du registre).
 
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
@@ -22,6 +22,7 @@ import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
+import { useCadrerVue } from './cadrageVue.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
@@ -251,7 +252,7 @@ function Liste({ session, commandes, fermer }: Props) {
       </div>}
       <div className="actionsAudit">
         <button type="button" data-controle="auditParcelle.prise" onClick={() => session.montrer('prise')}>Photographier en marchant</button>
-        <span className="detailPhoto">La Vue 3D vous suit à hauteur d’homme ; la façade devant vous passe en rouge et la photo s’y range d’elle-même. Sinon, touchez la façade dans la 3D.</span>
+        <span className="detailPhoto">La Vue 3D ne montre que le bâtiment. Devant une façade, elle vous suit à hauteur d’homme : la façade passe en rouge et la photo s’y range d’elle-même. Sinon, elle montre tout le bâtiment : touchez la façade à photographier.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
       {l.batiments.filter((b) => !b.mitoyen).map(section)}
@@ -296,19 +297,8 @@ function texteVisee(session: SessionAuditParcelle): { titre: string; detail: str
 
 function Prise({ session }: { session: SessionAuditParcelle }) {
   const photo = usePhoto(session);
-  // La Vue 3D cadre la partie que l'ecran de prise laisse voir : il dit ou il commence, a chaque
-  // changement de taille (une ligne de plus, l'ecran tourne).
-  const cadre = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = cadre.current;
-    if (!el) return;
-    const dire = () => session.cadrerVue(el.getBoundingClientRect().top);
-    dire();
-    const obs = typeof ResizeObserver === 'function' ? new ResizeObserver(dire) : null;
-    obs?.observe(el);
-    window.addEventListener('resize', dire);
-    return () => { obs?.disconnect(); window.removeEventListener('resize', dire); session.cadrerVue(null); };
-  }, [session]);
+  // La Vue 3D cadre la partie que l'ecran de prise laisse voir.
+  const cadre = useCadrerVue(session);
   const c = session.cible();
   const pos = session.position();
   const { titre, detail } = texteVisee(session);

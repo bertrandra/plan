@@ -8,7 +8,7 @@
     --segment-bg:#F1EBDC; --input-bg:#FFFDF8; --border:#E4D9C1; --rule:#D9CDB2; --hairline:#EFE6D3; --relief:#8C6B3F;
     --accent:#7A5C31; --on-accent:#FFFDF8; --accent-light:#EFE3C8; --on-accent-light:#5E4623;
     --on-ink:#FFFDF8; --ok:#3F7A4A; --danger:#8E2A1C; --danger-bg:#FBF1EE; --alerte:#A8442F;
-    --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA;
+    --toast-bg:#2B2117; --on-toast:#FFFDF8; --fond-3d:#DFE7EA; --trait-3d:#1E1812;
     --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
     --serie-1:#2A78D6; --serie-2:#EB6834; --serie-3:#1BAF7A;
     --camera-voile:rgba(20,16,11,0.62);
@@ -33,7 +33,7 @@
       --segment-bg:#1C1610; --input-bg:#2F271C; --border:#3E3325; --rule:#4A3F30; --hairline:#332A1F; --relief:#C9A97A;
       --accent:#E0B564; --on-accent:#1C1610; --accent-light:#4A3B22; --on-accent-light:#F1D9A6;
       --on-ink:#1C1610; --ok:#6BBF7A; --danger:#F2A493; --danger-bg:#3A1E18; --alerte:#E08A6E;
-      --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426;
+      --toast-bg:#F1E7D0; --on-toast:#1C1610; --fond-3d:#1F2426; --trait-3d:#120E0A;
       --camera-bg:#14100B; --on-camera:#FFFDF8; --camera-ok:#8FD49B; --camera-alerte:#F2B38F;
       --serie-1:#3987E5; --serie-2:#D95926; --serie-3:#199E70;
       --camera-voile:rgba(20,16,11,0.62);
@@ -574,14 +574,16 @@
   }
   /* Plein page de la Vue 3D : sort du flux normal et couvre tout le viewport, par-dessus le
      reste de l'appli (sidebar, autres onglets) - aucun autre element n'a besoin d'etre cache
-     explicitement, le recouvrement suffit. */
+     explicitement, le recouvrement suffit. La largeur de .panelBox (98vw) est levee : sans cela le
+     panneau s'arretait avant le bord droit, et le titre de la parcelle (h1, a droite de la barre)
+     passait dans la bande laissee libre. La scene prend toute la hauteur sous le titre des reglages. */
   #vue3dPanel.pleinePage{
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
-    padding:14px 18px; overflow:auto; margin:0;
+    padding:14px 18px; overflow:auto; margin:0; width:auto; max-width:none;
   }
   #glbViewerPanel.pleinePage{
     position:fixed; inset:0; z-index:9990; background:var(--panel-bg);
-    padding:14px 18px; overflow:auto; margin:0;
+    padding:14px 18px; overflow:auto; margin:0; width:auto; max-width:none;
   }
 
   /* ---------------------------------------------------------------------------------------------
@@ -1435,8 +1437,25 @@
   .auditPrise .rangementAudit{ color:var(--ink); }
   .auditPrise .piedDialogue{ margin-top:10px; }
   /* Les propositions de l'audit (zones/parcours/PropositionsAudit.tsx) : la carte de l'ecran de prise,
-     plus haute ; la Vue 3D reste visible au-dessus pour comparer avant et apres. */
-  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:68dvh; }
+     a hauteur bornee (la parcelle restait cachee dessous, essai d'AE 101) : la tete, Avant / Apres et
+     le pied restent en place, la liste defile entre eux, et « Replier » la range. */
+  .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:46dvh; display:flex; flex-direction:column; overflow:hidden; }
+  .entetePropositions{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .entetePropositions .titreParcours{ margin-bottom:0; }
+  .boutonReplier{ display:inline-flex; align-items:center; gap:4px; flex:none; }
+  .corpsPropositions{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+  .corpsPropositions[hidden]{ display:none; }
+  .auditPropositions .piedDialogue{ flex:none; }
+  html:not([data-classe="large"]) .boutonReplier{ min-height:44px; }
+  /* Un ecran en largeur (bureau, tablette ou telephone couche) : la prise et les propositions passent
+     en panneau a droite, sur toute la hauteur ; la Vue 3D cadre la parcelle a gauche (vuePrise.ts). */
+  @media (orientation: landscape){
+    /* A gauche de la colonne des commandes de la camera (zoom, modes), qui restent a portee. */
+    html:not([data-classe="compact"]) .dialogueVoile:has(> .auditPrise){
+      justify-content:flex-end; align-items:flex-start; padding:calc(var(--reserve-haut, 56px) + 8px) 72px 0 0;
+    }
+    html:not([data-classe="compact"]) .auditPrise{ width:clamp(300px, 34vw, 420px); max-height:calc(100dvh - var(--reserve-haut, 56px) - var(--hauteur-etat, 30px) - 24px); }
+  }
   .avantApresAudit{ margin:8px 0 4px; }
   .noteAvantApres{ margin:2px 0 4px; font-size:0.72rem; color:var(--ink-soft); }
   /* « Les deux » (three/comparaison3d.ts) : les deux vues prennent la part du canevas que l'ecran

@@ -6,7 +6,9 @@
 // en 3D (three/facadeDevant3d.ts) et elle est nommee, et la photo prise (app/audit/photo.ts, lot L1)
 // s'y range d'elle-meme. « Ce n'est pas cette façade » propose la suivante ; la facade se choisit aussi
 // en la touchant dans la 3D, ou dans la liste. La Vue 3D est alors a hauteur d'homme et suit votre
-// position et votre cap (vuePrise.ts).
+// position et votre cap (vuePrise.ts) ; tant que rien n'est vise depuis votre position, elle montre
+// tout le batiment en grand angle, pour le choix au doigt. Pendant tout l'audit, elle ne montre que
+// le batiment audite et le sol (vue epuree : ni arbres, ni voisins, ni clotures).
 //
 // L'en-cours vit dans le brouillon local (io/brouillonAudit.ts, lot L4) : rien n'entre dans le
 // projet a cette phase. « Lancer l'analyse » termine la capture ; l'analyse (§13) la reprendra.
@@ -18,10 +20,11 @@ import { creerBrouillonParcelle, stockageNavigateur, type RaisonEchec, type Stoc
 import { partageDe, photosDeLaCapture, type CaptureParcelle, type EnvoiCorpus } from '../../../model/auditParcelle.js';
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
-import { objetSousLePointeur } from '../../../three/scene.js';
-import { facadeTouchee, suiviPieton, vuePieton, type VuePieton } from './vuePrise.js';
+import { epurerVue3d, objetSousLePointeur } from '../../../three/scene.js';
+import { cadreDe, facadeTouchee, forceDuTrait, suiviPieton, vuePieton, type CacheVue, type VuePieton } from './vuePrise.js';
+import { poserTraitDePres } from '../../../three/traitDePres.js';
 import { filtrePosition, surLaParcelle } from './positionFiltree.js';
-import { estBatiment, parcelleDuProjet } from '../../../model/fonctions.js';
+import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { poserPositionGps, retirerPositionGps } from '../../../three/positionGps3d.js';
 import { positionDansLePlan } from '../../ecouteurs/positionGps.js';
@@ -76,6 +79,16 @@ export interface ContexteAuditParcelle {
   surlignerFaites?: (murs: Facade[]) => void;
   /** La camera a hauteur d'homme de l'ecran de prise ; par defaut celle de la Vue 3D ouverte. */
   vue?: VuePieton;
+  /**
+   * La vue epuree pendant l'audit (le batiment audite et le sol) : `garder` dit quels objets restent,
+   * `null` rend tout ; par defaut la Vue 3D ouverte (three/scene.ts).
+   */
+  epurer?: (garder: ((cle: string) => boolean) | null) => void;
+  /**
+   * Le trait renforce de pres (three/traitDePres.ts) : les aretes du batiment `cle`, a cette force
+   * (0 a 1) ; `null` le retire. Par defaut la Vue 3D ouverte.
+   */
+  trait?: (cle: string | null, force: number) => void;
   /** Ce que le doigt touche dans la Vue 3D (cle de l'objet et point du plan) ; par defaut la scene ouverte. */
   objetSous?: (ndc: { x: number; y: number }, retenir: (cle: string) => boolean) => { cle: string | null; point: PtBrut | null };
   horloge?: () => number;
@@ -164,8 +177,11 @@ export interface SessionAuditParcelle {
   lacherVue(): void;
   /** Une scene vient d'etre batie : la camera de la prise, ou l'apercu des propositions, s'y repose. */
   sceneBatie(): void;
-  /** Le haut de l'ecran de prise, en pixels de la fenetre (null : rien ne cache la vue) : la Vue 3D cadre au-dessus. */
-  cadrerVue(hautEcranPx: number | null): void;
+  /**
+   * Le coin haut gauche de l'ecran de prise ou des propositions, en pixels de la fenetre (null : rien
+   * ne cache la vue) : la Vue 3D cadre ce qu'il laisse voir, au-dessus ou a gauche.
+   */
+  cadrerVue(cache: CacheVue | null): void;
   /** Range la photo sur la facade visee ; null s'il n'y en a pas (ou plus de place). */
   rangerPhoto(photo: PhotoCas): { cle: string; cote: number } | null;
   /** La phrase de la derniere photo rangee : « Photo rangée sur la façade sud de Maison (2 photos). » */
@@ -501,7 +517,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     montrer(e) {
       // Les capteurs demarrent ici aussi : un audit importe (§15) s'ouvre sans eux, sur les propositions.
       if (e === 'prise') { sens.autoriser(); sens.demarrer(); ctx.ouvrir3d(); }
-      vue.activer(e === 'prise');
+      // La vue s'epure des que l'audit s'ouvre, quel que soit l'ecran : elle le reste jusqu'a sa fermeture.
+      vue.epurer(true);
+      vue.activer(e === 'liste' ? null : e);
       // Les propositions se montrent sur la Vue 3D, et les mesures commencent des que l'ecran s'ouvre.
       if (e === 'propositions') { ctx.ouvrir3d(); void validation.lancer(); } else validation.oublierApercu();
       ecran = e;
@@ -510,7 +528,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.precision(), boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
-    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.activer(true); publier(); },
+    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
     suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.faites(); vue.suivre(true); publier(); },
     pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); vue.faites(); vue.suivre(true); publier(); },
     toucher(ndc) {
@@ -520,8 +538,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       if (r === 'choisie') publier();
     },
     lacherVue: () => vue.lacher(),
-    sceneBatie() { if (ecran === 'prise') vue.suivre(true); else if (ecran === 'propositions') validation.reposer(); },
-    cadrerVue: (haut) => vue.cadrer(haut),
+    // La camera se repose sur la scene neuve, puis les copies de « Apres » y reviennent (deux vues).
+    sceneBatie() { if (ecran !== 'liste') vue.suivre(true); if (ecran === 'propositions') validation.reposer(); },
+    cadrerVue: (cache) => vue.cadrer(cache),
     rangerPhoto(photo) {
       const c = visee.cible(capture);
       if (!c) return null;
@@ -540,9 +559,10 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       // Avec l'accord deja donne, les photos partent (et le toast le rappelle) ; sinon l'ecran pose la question.
       void analyse.lancer();
     },
-    suspendre() { sens.arreter(); visee.oublier(); vue.activer(false); validation.oublierApercu(); },
+    // L'ecran ferme rend la Vue 3D telle qu'elle etait : tous les objets, et la camera libre.
+    suspendre() { sens.arreter(); visee.oublier(); vue.activer(null); vue.epurer(false); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
-    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); if (ecran === 'prise') vue.activer(true); else if (ecran === 'propositions') validation.synchroniser(); },
+    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); vue.epurer(true); if (ecran !== 'liste') vue.activer(ecran); if (ecran === 'propositions') validation.synchroniser(); },
     autoriserBoussole: () => sens.autoriser(),
     ecrireBrouillon: () => brouillon.vider(),
     proposerReprise: (pret) => brouillon.proposer(pret),
@@ -645,6 +665,10 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
     },
     oublier(): void { reconnue = null; surlignee = null; surligner(null, ROUGE_FACADE); },
     facade: (): Facade | null => cibleFacade()?.facade ?? null,
+    /** Vrai si la facade visee a ete choisie (touchee, ou dans la liste) plutot que reconnue. */
+    choisie: (): boolean => choisie !== null,
+    /** Le batiment de la facade visee, ou null. */
+    cleBatiment: (): string | null => cibleFacade()?.cle ?? null,
     /** La cle de la facade visee (batiment et cote), ou null. */
     cleVisee: (): string | null => { const f = cibleFacade(); return f ? cleFacade(f.cle, f.facade.cote) : null; },
   };
@@ -653,48 +677,160 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
 /** Une ligne de la liste, telle que la Vue 3D la montre : le mur jusque sous le toit, et son haut par morceaux. */
 const facadeMontree = (l: LigneFacade): Facade => ({ ...l.facade, hauteur: l.hauteurMur, profil: l.profilMur } as Facade);
 
-/** Sans position, une facade se regarde d'ici : devant son milieu, a la distance d'une photo. */
-const DISTANCE_STATION_M = 8;
-const stationDevant = (f: Facade): PtBrut => ({
-  x: (f.gauche.x + f.droite.x) / 2 + f.normale.x * DISTANCE_STATION_M,
-  y: (f.gauche.y + f.droite.y) / 2 + f.normale.y * DISTANCE_STATION_M,
-});
+/** Le toit depasse le haut des murs : la vue d'ensemble compte cela de plus pour le cadrer. */
+const PART_TOIT = 1.4;
+/**
+ * La facade reconnue vient de se perdre (un angle de la maison, la boussole qui tremble) : la vue a
+ * hauteur d'homme reste cela avant de passer a la vue d'ensemble, pour ne pas sauter a chaque pas.
+ */
+export const DELAI_ENSEMBLE_MS = 2500;
+
+/** L'ecran de l'audit pose sur la Vue 3D : la prise, ou les propositions ; null quand elle est rendue. */
+export type EcranVue = 'prise' | 'propositions' | null;
 
 /**
- * La Vue 3D de la prise (vuePrise.ts) : posee a chaque position et a chaque cap tant que l'ecran de
- * prise est ouvert ; le doigt y choisit une facade. Rien ne bouge hors de l'ecran de prise.
+ * Les batiments que la Vue 3D de l'audit garde : ceux de la parcelle, et celui de la facade visee (un
+ * mitoyen choisi dans la liste se montre, le temps de le photographier) ; leurs contours, et la
+ * hauteur a cadrer (le plus haut mur, toit compris).
+ */
+function batimentsDeLaVue(ctx: ContexteAuditParcelle, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle) {
+  const batimentsGardes = (): Set<string> => {
+    const s = new Set(liste().batiments.filter((b) => !b.mitoyen).map((b) => b.cle));
+    const v = visee.cleBatiment();
+    if (v) s.add(v);
+    return s;
+  };
+  const contoursDe = (cles: Set<string>): PtBrut[][] =>
+    ctx.etat.objects.filter((o) => cles.has(o.key) && aDesSommets(o)).map((o) => (o as { pts: PtBrut[] }).pts);
+  const hauteurDe = (cles: Set<string>): number =>
+    Math.max(3, ...liste().batiments.filter((b) => cles.has(b.cle)).flatMap((b) => b.facades.map((f) => f.hauteurMur))) * PART_TOIT;
+  return { batimentsGardes, contoursDe, hauteurDe };
+}
+
+/**
+ * La vue epuree de l'audit : les batiments gardes et le sol, rien d'autre. `poser` l'active (audit
+ * ouvert) ou la retire ; `garder` la repose si ce qu'elle garde a change (une facade visee chez un
+ * mitoyen), et seulement alors.
+ */
+function vueEpuree(ctx: ContexteAuditParcelle, batimentsGardes: () => Set<string>) {
+  const epurer = ctx.epurer ?? epurerVue3d;
+  let active = false;
+  let gardesPoses: string | null = null;
+  function garder(): void {
+    if (!active) {
+      if (gardesPoses !== null) { gardesPoses = null; epurer(null); }
+      return;
+    }
+    // Le sol reste : la parcelle du projet (son gazon) et les parcelles voisines, a plat.
+    const sols = ctx.etat.objects.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key);
+    const cles = new Set([...batimentsGardes(), ...sols]);
+    const signature = [...cles].sort().join(',');
+    if (signature === gardesPoses) return;
+    gardesPoses = signature;
+    epurer((cle) => cles.has(cle));
+  }
+  return { garder, active: () => active, poser(oui: boolean): void { active = oui; garder(); } };
+}
+
+/**
+ * La Vue 3D de l'audit (vuePrise.ts) :
+ * - epuree tant que l'audit est ouvert (`epurer`) : le batiment audite et le sol, sans arbres, ni
+ *   voisins, ni clotures (demande de l'utilisateur du 15 octobre) ; un affichage, rien n'entre dans
+ *   le projet ;
+ * - pendant la prise, a hauteur d'homme quand une position et une facade visee sont connues (c'est la
+ *   prise elle-meme), en vue d'ensemble sinon (on choisit une facade en la touchant) ;
+ * - pendant les propositions, en vue d'ensemble sur la parcelle, au-dessus de l'ecran qui les liste.
+ * Le doigt y choisit une facade pendant la prise. Rien ne bouge hors de ces deux ecrans.
  */
 function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle) {
-  const suivi = suiviPieton(ctx.vue ?? vuePieton(), ctx.horloge);
+  const horloge = ctx.horloge ?? (() => Date.now());
+  const suivi = suiviPieton(ctx.vue ?? vuePieton(), horloge);
+  const poserTrait = ctx.trait ?? poserTraitDePres;
+  /** Le trait pose, arrondi au centieme : on ne le repose que s'il change. */
+  let traitPose: string | null = null;
+  /** Le trait renforce suit la derniere pose a hauteur d'homme ; hors d'elle, il est retire. */
+  function trait(): void {
+    const pose = ecran === 'prise' && mode === 'pieton' ? suivi.derniere() : null;
+    const f = visee.facade(), cle = visee.cleBatiment(), p = sens.position();
+    const force = pose && f && cle && p ? Math.round(forceDuTrait(p, pose.oeil, f, suivi.rapport()) * 100) / 100 : 0;
+    const signature = force > 0 && cle ? cle + '@' + force : null;
+    if (signature === traitPose) return;
+    traitPose = signature;
+    poserTrait(signature ? cle : null, force);
+  }
+  let ecran: EcranVue = null;
+  let mode: 'pieton' | 'ensemble' | null = null;
+  let perdueDepuis: number | null = null;
+  const { batimentsGardes, contoursDe, hauteurDe } = batimentsDeLaVue(ctx, visee, liste);
+  const epure = vueEpuree(ctx, batimentsGardes);
+  const garder = epure.garder;
+
   /**
-   * Ce qui borne le recul de la camera : les batiments, et la limite de la parcelle (sa cloture, qui
-   * cachait le bas de la facade quand la camera passait derriere, AE 101). Recalcules quand le plan change.
+   * La vue d'ensemble : sur les batiments gardes pendant la prise, sur la parcelle et eux pendant les
+   * propositions. `entree` : on y arrive, et le regard se choisit (face a la facade visee, sinon
+   * depuis votre position) ; sinon il garde celui de la camera, que le doigt a pu tourner.
    */
-  let murs: { objets: unknown; contours: PtBrut[][] } | null = null;
-  const contours = (): PtBrut[][] => {
-    if (murs?.objets !== ctx.etat.objects) {
-      const parcelle = parcelleDuProjet(ctx.etat.objects);
-      const batis = ctx.etat.objects.filter((o) => estBatiment(o) && aDesSommets(o)).map((o) => (o as { pts: PtBrut[] }).pts);
-      murs = { objets: ctx.etat.objects, contours: parcelle && aDesSommets(parcelle) ? [...batis, parcelle.pts] : batis };
+  function ensemble(entree: boolean): void {
+    const cles = batimentsGardes();
+    const contours = contoursDe(cles);
+    const parcelle = parcelleDuProjet(ctx.etat.objects);
+    if (ecran === 'propositions' && parcelle && aDesSommets(parcelle)) contours.push(parcelle.pts);
+    let azimut: number | null = null;
+    const cadreSans = cadreDe(contours, hauteurDe(cles), null);
+    if (!cadreSans) return;
+    if (entree) {
+      const f = visee.facade(), p = sens.position();
+      // Face a la facade visee, depuis l'exterieur ; sinon depuis ou vous etes, vers le batiment.
+      if (f) azimut = ((Math.atan2(-f.normale.x, -f.normale.y) * 180) / Math.PI + 360) % 360;
+      else if (p && Math.hypot(cadreSans.centre.x - p.x, cadreSans.centre.y - p.y) > 1) azimut = ((Math.atan2(cadreSans.centre.x - p.x, cadreSans.centre.y - p.y) * 180) / Math.PI + 360) % 360;
     }
-    return murs.contours;
-  };
+    suivi.ensemble({ ...cadreSans, azimutDeg: azimut });
+  }
+
   const suivre = (force = false) => {
+    suivreSansTrait(force);
+    // Une pose forcee (scene rebatie, cadrage) repose le trait : celui d'une scene demolie est parti avec elle.
+    if (force) traitPose = null;
+    trait();
+  };
+  const suivreSansTrait = (force: boolean) => {
+    if (!suivi.actif()) return;
+    if (ecran === 'propositions') {
+      const entree = mode !== 'ensemble';
+      mode = 'ensemble';
+      if (entree || force) ensemble(entree);
+      return;
+    }
     const f = visee.facade(), p = sens.position();
-    // Sans position encore (le GPS cherche), une facade choisie se montre depuis un point devant elle.
-    if (!p && f) { suivi.suivre(stationDevant(f), null, f, force, contours()); return; }
-    suivi.suivre(p, sens.cap(), f, force, contours());
+    if (p && f) {
+      const entree = mode !== 'pieton';
+      mode = 'pieton'; perdueDepuis = null;
+      // Une facade choisie (touchee, ou dans la liste) se regarde, quel que soit le cap du telephone.
+      suivi.suivre(p, visee.choisie() ? null : sens.cap(), f, force || entree, contoursDe(batimentsGardes()));
+      return;
+    }
+    if (p && mode === 'pieton') {
+      const t = horloge();
+      perdueDepuis ??= t;
+      if (t - perdueDepuis < DELAI_ENSEMBLE_MS) { suivi.suivre(p, sens.cap(), null, force, contoursDe(batimentsGardes())); return; }
+    }
+    const entree = mode !== 'ensemble';
+    mode = 'ensemble'; perdueDepuis = null;
+    if (entree || force) ensemble(entree);
   };
   const poserFaites = ctx.surlignerFaites ?? poserFacadesFaites;
   let faitesPosees: string | null = null;
   /**
    * En vert, les facades qui ont deja une photo : on voit ce qui reste, et on peut les reprendre. La
    * facade visee n'y est pas : son propre surlignage la dit (verte si elle a deja une photo). Les
-   * voiles ne sont refaits que si la liste change, pas a chaque mouvement de la boussole.
+   * voiles ne sont refaits que si la liste change, pas a chaque mouvement de la boussole ; ceux d'un
+   * batiment que la vue epuree masque ne flottent pas dans le vide.
    */
   const faites = () => {
+    garder();
     const visee_ = visee.cleVisee();
-    const lignes = suivi.actif() ? liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee' && cleFacade(b.cle, f.cote) !== visee_).map((f) => ({ cle: cleFacade(b.cle, f.cote), facade: facadeMontree(f) }))) : [];
+    const gardes = batimentsGardes();
+    const lignes = ecran === 'prise' ? liste().batiments.filter((b) => !epure.active() || gardes.has(b.cle)).flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee' && cleFacade(b.cle, f.cote) !== visee_).map((f) => ({ cle: cleFacade(b.cle, f.cote), facade: facadeMontree(f) }))) : [];
     const cle = lignes.map((l) => l.cle).join(',');
     if (cle === faitesPosees) return;
     faitesPosees = cle;
@@ -703,13 +839,22 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
   return {
     suivre,
     faites,
-    activer(oui: boolean): void { suivi.activer(oui); faites(); if (oui) suivre(true); },
+    /** L'audit ouvert (vrai) ou ferme (faux) : la vue s'epure, ou redevient celle du projet. */
+    epurer: epure.poser,
+    /** L'ecran pose sur la Vue 3D : la camera y est pilotee ; null la rend. */
+    activer(e: EcranVue): void {
+      if (e !== ecran) mode = null;
+      ecran = e;
+      suivi.activer(e !== null);
+      faites();
+      if (e) suivre(true); else trait();
+    },
     lacher: () => suivi.lacher(),
-    /** L'ecran de prise commence la (pixels de la fenetre) : la camera cadre au-dessus, et se repose. */
-    cadrer(hautEcranPx: number | null): void { suivi.cadrer(hautEcranPx); suivre(true); },
+    /** L'ecran de l'audit commence la (pixels de la fenetre) : la camera cadre ce qu'il laisse voir, et se repose. */
+    cadrer(cache: CacheVue | null): void { suivi.cadrer(cache); suivre(true); },
     /** La facade touchee : celle du batiment de la liste dont le mur passe le plus pres du doigt. */
     toucher(ndc: { x: number; y: number }): string | 'choisie' | null {
-      if (!suivi.actif()) return null;
+      if (!suivi.actif() || ecran !== 'prise') return null;
       // Le rayon traverse un arbre, une cloture, un batiment hors de la liste : seule compte la
       // premiere facade de la liste qu'il rencontre.
       const dansLaListe = (cle: string) => liste().batiments.some((b) => b.cle === cle);
@@ -721,7 +866,9 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
       if (!f) return 'Ce bâtiment n’a pas de façade à photographier.';
       visee.choisir(cle, f.cote);
       faites();
-      suivre(true);
+      // En vue d'ensemble sans position, la camera reste ou elle est : la facade touchee y est deja
+      // visible, en rouge, et la suivante se touche sans que la vue ait bouge.
+      suivre(mode === 'pieton');
       return 'choisie';
     },
   };

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerSessionAuditParcelle, questionRepriseParcelle, textePlanDePrise, type ContexteAuditParcelle } from '../../../../../src/app/audit/parcelle/controleur.js';
+import { creerSessionAuditParcelle, questionRepriseParcelle, textePlanDePrise, DELAI_ENSEMBLE_MS, type ContexteAuditParcelle } from '../../../../../src/app/audit/parcelle/controleur.js';
+import { CHAMP_ENSEMBLE_DEG } from '../../../../../src/app/audit/parcelle/vuePrise.js';
 import { creerBrouillonParcelle, stockageMemoire } from '../../../../../src/io/brouillonAudit.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { creerEtat } from '../../../../../src/core/state.js';
@@ -248,6 +249,109 @@ describe('la Vue 3D de la prise', () => {
     t.s.montrer('prise');
     t.s.toucher({ x: 0, y: 0 });
     expect(t.messages.at(-1)).toBe('Ce bâtiment n’est pas dans la liste de la parcelle.');
+  });
+});
+
+describe('la vue epuree et la vue d ensemble (second essai d AE 101)', () => {
+  const vue = () => ({ poser: vi.fn<(pose: unknown) => boolean>(() => true), rapportVisible: () => 0.8, azimut: () => 0 });
+  type Pose = { oeil: PtBrut; hauteurOeil: number; champ?: number };
+  const derniere = (v: ReturnType<typeof vue>) => v.poser.mock.calls.at(-1)?.[0] as Pose;
+
+  it('ne garde que les batiments de la parcelle et le sol tant que l audit est ouvert, sans toucher au projet', () => {
+    const epurer = vi.fn<(g: ((cle: string) => boolean) | null) => void>();
+    const t = session({ vue: vue(), epurer });
+    const avant = JSON.stringify(t.ctx.etat.objects);
+    t.s.reprendre();
+    t.s.montrer('liste');
+    const garder = epurer.mock.calls.at(-1)?.[0];
+    expect(garder).toBeTypeOf('function');
+    expect(['maison', 'garage', 'parcelle', 'voisine'].every((c) => garder?.(c))).toBe(true);
+    // Ni les voisins, ni les arbres, ni rien d'autre du plan.
+    expect(garder?.('chezVoisin')).toBe(false);
+    expect(garder?.('arbre')).toBe(false);
+    // Un mitoyen choisi dans la liste se montre, le temps de le photographier.
+    const ouest = t.s.liste().batiments.find((b) => b.cle === 'chezVoisin')?.facades.find((f) => f.facade.orientation === 'Ouest');
+    t.s.photographier('chezVoisin', ouest?.cote ?? -1);
+    expect(epurer.mock.calls.at(-1)?.[0]?.('chezVoisin')).toBe(true);
+    // L'audit ferme : tout revient, et le projet n'a pas bouge.
+    t.s.suspendre();
+    expect(epurer).toHaveBeenLastCalledWith(null);
+    expect(JSON.stringify(t.ctx.etat.objects)).toBe(avant);
+  });
+
+  it('montre tout le batiment en grand angle tant que rien n est vise, a hauteur d homme devant une facade', () => {
+    let maintenant = 0;
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), horloge: () => maintenant });
+    t.s.reprendre();
+    t.s.montrer('prise');
+    // Sans position : la vue d'ensemble.
+    expect(derniere(v).champ).toBe(CHAMP_ENSEMBLE_DEG);
+    expect(derniere(v).hauteurOeil).toBeGreaterThan(5);
+    // Devant la facade sud : a hauteur d'homme.
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+    expect(derniere(v).hauteurOeil).toBeCloseTo(1.7);
+    // Trop loin de toute facade : la vue a hauteur d'homme reste un moment, puis passe a la vue d'ensemble.
+    t.gps({ x: 10, y: -45 }); t.gps({ x: 10, y: -45 }); t.gps({ x: 10, y: -45 });
+    expect(t.s.cible()).toBeNull();
+    expect(derniere(v).hauteurOeil).toBeCloseTo(1.7);
+    maintenant += DELAI_ENSEMBLE_MS + 1;
+    t.cap(5);
+    expect(derniere(v).champ).toBe(CHAMP_ENSEMBLE_DEG);
+    // Regard depuis votre position (au sud) vers la maison : la camera est au sud.
+    expect(derniere(v).oeil.y).toBeLessThan(10);
+    // En vue d'ensemble, la boussole ne la fait plus bouger : le doigt la tourne librement.
+    const n = v.poser.mock.calls.length;
+    t.cap(40);
+    expect(v.poser.mock.calls.length).toBe(n);
+  });
+
+  it('renforce le trait de la facade visee de pres, l attenue en reculant, le retire en vue d ensemble', () => {
+    const trait = vi.fn<(cle: string | null, force: number) => void>();
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn(), trait });
+    t.s.reprendre();
+    t.s.montrer('prise');
+    expect(trait.mock.calls.every(([cle]) => cle === null)).toBe(true);
+    // A 3,5 m de la facade sud : trait plein, sur la maison.
+    t.gps({ x: 10, y: 6.5 }); t.gps({ x: 10, y: 6.5 }); t.cap(0);
+    expect(t.s.cible()?.nom).toBe('la façade sud de maison');
+    expect(trait).toHaveBeenLastCalledWith('maison', 1);
+    // A 7 m : plus faible ; a 13 m : retire.
+    t.gps({ x: 10, y: 3 }); t.gps({ x: 10, y: 3 }); t.gps({ x: 10, y: 3 });
+    const [cle, force] = trait.mock.calls.at(-1) ?? [];
+    expect(cle).toBe('maison');
+    expect(force).toBeGreaterThan(0);
+    expect(force).toBeLessThan(1);
+    // L'audit ferme : le trait part.
+    t.s.suspendre();
+    expect(trait).toHaveBeenLastCalledWith(null, 0);
+  });
+
+  it('sans position, la facade touchee ne deplace pas la vue d ensemble', () => {
+    const v = vue();
+    const objetSous = vi.fn(() => ({ cle: 'maison', point: { x: 10, y: 19.8 } as PtBrut }));
+    const t = session({ vue: v, epurer: vi.fn(), objetSous });
+    t.s.reprendre();
+    t.erreur(new SansPosition('refusee'));
+    t.s.montrer('prise');
+    const n = v.poser.mock.calls.length;
+    t.s.toucher({ x: 0, y: 0 });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
+    expect(v.poser.mock.calls.length).toBe(n);
+  });
+
+  it('cadre la parcelle en vue d ensemble pendant les propositions', () => {
+    const v = vue();
+    const t = session({ vue: v, epurer: vi.fn() });
+    t.s.reprendre();
+    t.s.montrer('propositions');
+    expect(derniere(v).champ).toBe(CHAMP_ENSEMBLE_DEG);
+    t.s.montrer('liste');
+    const n = v.poser.mock.calls.length;
+    t.s.cadrerVue({ haut: 400, gauche: 16 });
+    expect(v.poser.mock.calls.length).toBe(n);
   });
 });
 

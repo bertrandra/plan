@@ -412,13 +412,37 @@ Et pour la parcelle :
 1. Vous marchez autour de la maison, l'écran de prise ouvert. **La façade que vous avez devant vous
    est reconnue en direct** (§6.1), surlignée **en rouge** dans la Vue 3D et nommée : « Vous êtes devant
    la façade sud, 9,2 m — 0 photo ».
-   - La Vue 3D est **à hauteur d'homme** (1,7 m), prise jusqu'à 6 m derrière vous, jamais au travers
-     d'un mur ni au-delà de la clôture de la parcelle ; le regard monte vers le milieu de la façade
-     visée. Elle **cadre la partie que l'écran de prise laisse voir** (champ de 50° au-dessus de lui).
-     Elle **suit votre position et votre cap** (boussole, sinon sens de la marche) et glisse d'une
-     pose à l'autre : ce n'est pas une image fixe. Sans position encore, une façade choisie se montre
-     depuis 8 m devant elle. Un doigt qui la fait tourner la garde 6 s, puis le suivi reprend
-     (`app/audit/parcelle/vuePrise.ts`).
+   - **Pendant tout l'audit, la Vue 3D est épurée** : elle ne montre que les bâtiments de la parcelle
+     (et celui de la façade visée, un mitoyen choisi dans sa ligne) et le sol, avec les voiles rouge et
+     vert des façades et votre position. Arbres, bâtiments voisins, clôtures (celle de la parcelle et
+     celles du voisinage), terrasse et objets d'échelle sont masqués le temps de l'audit et reviennent
+     à sa fermeture. C'est un affichage : ni « projet modifié », ni Ctrl+Z, et le projet n'est pas
+     touché (`three/scene.ts::epurerVue3d`). Demande de l'utilisateur du 15 octobre 2026.
+   - La Vue 3D est **à hauteur d'homme** (1,7 m) quand une position et une façade visée sont connues :
+     c'est la prise elle-même, et elle montre le mur tel que l'appareil photo le voit. Prise jusqu'à
+     6 m derrière vous, jamais au travers d'un mur d'un bâtiment audité ; le regard monte vers le
+     milieu de la façade visée (une façade choisie se regarde, quel que soit le cap). Elle **cadre la
+     partie que l'écran de prise laisse voir** (champ de 50° au-dessus de lui, élargi jusqu'à 75° pour
+     que la façade visée y tienne en entier). Elle **suit votre position et votre cap** (boussole,
+     sinon sens de la marche) et glisse d'une pose à l'autre : ce n'est pas une image fixe. Un doigt
+     qui la fait tourner la garde 6 s, puis le suivi reprend (`app/audit/parcelle/vuePrise.ts`).
+   - **De près, le trait se renforce** (demande de l'utilisateur du 15 octobre 2026) : à moins de 4 m
+     de la façade visée, ou quand elle déborde du champ le plus large, les arêtes du bâtiment visé
+     (angles, bas et haut des murs, contours des ouvertures, rives et faîtage) se dessinent en traits
+     épais et sombres (jeton `--trait-3d`), par-dessus le voile sans le cacher ; le trait s'atténue en
+     reculant et disparaît à 9 m (`vuePrise.ts::forceDuTrait`, `three/traitDePres.ts`). Les distances
+     se comptent depuis vous, pas depuis la caméra. Lignes épaisses de three.js (chargées à la
+     demande) ; hors ligne, un trait d'un pixel.
+   - **Tant que rien n'est visé depuis votre position** (pas encore de position, position refusée,
+     aucune façade devant vous), la Vue 3D est une **vue d'ensemble en grand angle** (champ de 60°,
+     regard incliné de 35°) : tout le bâtiment audité, cadré dans ce que l'écran de prise laisse voir,
+     pour **choisir une façade en la touchant**. La vue a hauteur d'homme, trop près, n'y montrait
+     qu'un mur (second essai d'AE 101, 15 octobre). Elle regarde la façade choisie dans la liste,
+     sinon le bâtiment depuis votre position ; ensuite, le doigt la tourne librement : ni la boussole
+     ni une façade touchée ne la déplacent. Une façade reconnue qui se perd garde la vue à hauteur
+     d'homme 2,5 s avant de passer à la vue d'ensemble, pour ne pas sauter à chaque pas.
+   - Sur un écran en largeur (bureau, tablette, téléphone couché), l'écran de prise et celui des
+     propositions sont un **panneau à droite** ; la Vue 3D cadre le bâtiment dans la partie gauche.
    - **La position** est lissée selon la précision annoncée (un filtre de Kalman, à 3 m/s de marche)
      et, quand elle tombe dans le jardin d'un voisin à portée de l'erreur, ramenée juste à l'intérieur
      de la parcelle du projet : l'audit se fait depuis la parcelle ou depuis la rue
@@ -635,8 +659,14 @@ validation (§14).
 ## 14. Phase 3 — Propositions en 3D, et validation
 
 1. **Les propositions, en 3D.** La Vue 3D montre le modèle **après** les propositions, chaque
-   changement surligné. Une bascule « Avant / Les deux / Après » compare au modèle actuel. Toucher un
-   changement montre sa ligne, la photo qui le justifie et les indices de Claude.
+   changement surligné. Une bascule « Avant / Après » compare au modèle actuel. Toucher un changement
+   montre sa ligne, la photo qui le justifie et les indices de Claude.
+   - **L'écran des propositions laisse voir la parcelle** (essai d'AE 101, 15 octobre : il la
+     couvrait). Au doigt, une carte en bas, haute au plus de 46 % de l'écran : le titre, le compte,
+     « Avant / Les deux / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
+     la range. Sur un écran en largeur, un panneau à droite. La Vue 3D, épurée comme pendant la prise,
+     cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir (une seule
+     vue : « Avant » ou « Après » seul).
 
    **Les deux vues** (demande de l'utilisateur du 15 octobre 2026 : « Je dois pouvoir avoir deux vues
    3D, avant / après, afin de pouvoir décider »). L'écran s'ouvre sur « Les deux » :
@@ -644,7 +674,9 @@ validation (§14).
      étiquetées dans leur coin bas gauche ; elles prennent la part du canevas que l'écran des
      propositions laisse libre (le plus grand bandeau à côté de lui), côte à côte ou l'une au-dessus
      de l'autre selon ce qui donne à chacune la forme la plus proche du 4:3 — l'une au-dessus de
-     l'autre au téléphone ; l'écran se fait plus bas au doigt et se range à gauche sur grand écran ;
+     l'autre au téléphone ; l'écran des propositions est la carte du bas au doigt et le panneau de droite sur un écran en
+     largeur, et les deux vues prennent le reste ; la caméra ne se décale pas en plus (les vues
+     évitent déjà l'écran) ;
    - **une seule caméra**, rendue deux fois par image dans un seul contexte WebGL (viewport et
      scissor) : tourner, zoomer ou déplacer dans l'une fait de même dans l'autre, par construction. La
      molette vise le point de la vue sous le curseur ;

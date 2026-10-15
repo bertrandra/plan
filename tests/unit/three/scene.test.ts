@@ -5,7 +5,7 @@ import * as THREE_NS from 'three';
 const bannieres: string[] = [];
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
-import { buildThreeScene, remplacerObjets3d, comparerObjets3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
+import { buildThreeScene, remplacerObjets3d, comparerObjets3d, epurerVue3d, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from '../../../src/three/primitives.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { polygonOffset } from '../../../src/geometry/polygon.js';
@@ -266,6 +266,29 @@ describe('le gazon de la parcelle du projet', () => {
       s += Math.abs(ax * bz - az * bx) / 2;
     }
     expect(s).toBeGreaterThan(650); expect(s).toBeLessThan(760);
+  });
+
+  it('epure la vue pour l audit, puis rend tout sans montrer ce que seul l export montre', () => {
+    const parcelle = objets.find((o) => o.key === 'parcelle');
+    buildThreeScene(terrasse(), etat(), contexte({ trouverParcelleCloture: () => parcelle }));
+    const batiments = objets.filter((o) => o.fonction === 'batiment' && !o.hidden).map((o) => o.key);
+    const garde = batiments[0]!;
+    try {
+      epurerVue3d((cle) => cle === garde || cle === 'parcelle');
+      const v = visibilite3d();
+      expect(v.visibles).toContain(garde);
+      expect(v.masques.length).toBeGreaterThan(0);
+      expect(v.masques).not.toContain(garde);
+      expect(v.horsObjetsVisibles).toBe(0);
+      // Une scene rebatie pendant l'audit s'epure de meme.
+      buildThreeScene(terrasse(), etat(), contexte({ trouverParcelleCloture: () => parcelle }));
+      expect(visibilite3d().masques.length).toBe(v.masques.length);
+    } finally { epurerVue3d(null); }
+    const rendue = visibilite3d();
+    expect(rendue.masques).toEqual([]);
+    expect(rendue.horsObjetsVisibles).toBeGreaterThan(0);
+    // Le gazon entier de l'export reste cache : la fin de l'audit ne rend que ce qu'elle a masque.
+    expect(gazon()!.visible).toBe(false);
   });
 
   it('a l ecran, l herbe s arrete aux objets qui occupent le sol ; le modele exporte garde le gazon entier', () => {
