@@ -39,16 +39,15 @@ const bouton = (texte: string | RegExp) => [...hote.querySelectorAll('button')].
 const cliquer = (b: HTMLElement | undefined) => { expect(b).toBeDefined(); act(() => b?.click()); };
 
 describe('la liste de controle', () => {
-  it('montre les batiments de la parcelle, la parcelle, puis les mitoyens a part, et le compteur', () => {
+  it('montre les batiments de la parcelle, puis la parcelle, sans la maison voisine, et le compteur', () => {
     ecran();
     expect(hote.querySelector('.titreParcours')?.textContent).toBe('Audit de la parcelle');
     expect(hote.querySelector('.compteurAudit')?.textContent).toMatch(/^0 façade sur \d+, toit à voir, clôture à faire, portail à faire$/);
     const titres = [...hote.querySelectorAll('.titreBatimentAudit')].map((h) => h.textContent);
-    expect(titres).toEqual(['Maison', 'La parcelle', 'Voisinmitoyen']);
-    // Les mitoyens sont replies, facultatifs.
-    const voisins = hote.querySelector('details.voisinsAudit');
-    expect(voisins?.querySelector('summary')?.textContent).toBe('Bâtiments voisins, facultatif (1)');
-    expect(voisins?.querySelector('.titreBatimentAudit')?.textContent).toBe('Voisinmitoyen');
+    expect(titres).toEqual(['Maison', 'La parcelle']);
+    // La maison de la parcelle voisine n'est nulle part : ni section, ni liste repliee.
+    expect(hote.textContent).not.toContain('Voisin');
+    expect(hote.querySelector('details.voisinsAudit')).toBeNull();
     expect(bouton('Lancer l’analyse')?.disabled).toBe(true);
     expect(hote.textContent).toContain('Photographiez au moins une façade pour lancer l’analyse.');
   });
@@ -167,3 +166,32 @@ describe('la sauvegarde sous la liste de controle', () => {
   });
 });
 
+describe('le verrou d un batiment, sur l ecran de prise', () => {
+  const avecAnnexe = (): ObjetPlan[] => [...quartier(), obj('annexe', { name: 'Annexe', fonction: 'batiment', pts: rect(2, 22, 6, 27), elevation: 3 })];
+
+  it('propose un bouton par batiment quand la parcelle porte une annexe, et verrouille sur un geste volontaire', () => {
+    const { s } = ecran(avecAnnexe());
+    act(() => s.montrer('prise'));
+    const groupe = hote.querySelector('[aria-label="Bâtiment photographié"]');
+    expect(groupe).not.toBeNull();
+    const boutons = [...(groupe?.querySelectorAll('button') ?? [])];
+    expect(boutons.map((b) => b.textContent)).toEqual(['Maison', 'Annexe']);
+    expect(boutons.every((b) => b.getAttribute('aria-pressed') === 'false')).toBe(true);
+    // Rien n'est verrouille tant que la personne ne le fait pas.
+    expect(s.verrou()).toBeNull();
+    cliquer(boutons[1]);
+    expect(s.verrou()).toBe('annexe');
+    const apres = [...hote.querySelectorAll('[aria-label="Bâtiment photographié"] button')];
+    expect(apres.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+    expect(hote.querySelector('[aria-label="Bâtiment photographié"]')?.textContent).toContain('Verrouillé, seul ce bâtiment est visé');
+    // Toucher le bouton verrouille rend la main.
+    cliquer(apres[1] as HTMLElement);
+    expect(s.verrou()).toBeNull();
+  });
+
+  it('ne montre rien quand la parcelle n a qu un batiment : il n y a rien a verrouiller', () => {
+    const { s } = ecran();
+    act(() => s.montrer('prise'));
+    expect(hote.querySelector('[aria-label="Bâtiment photographié"]')).toBeNull();
+  });
+});

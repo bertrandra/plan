@@ -5,7 +5,7 @@ import * as THREE_NS from 'three';
 const bannieres: string[] = [];
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
-import { buildThreeScene, remplacerObjets3d, comparerObjets3d, epurerVue3d, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
+import { buildThreeScene, remplacerObjets3d, comparerObjets3d, epurerVue3d, epurerLeTemps, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from '../../../src/three/primitives.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { polygonOffset } from '../../../src/geometry/polygon.js';
@@ -289,6 +289,25 @@ describe('le gazon de la parcelle du projet', () => {
     expect(rendue.horsObjetsVisibles).toBeGreaterThan(0);
     // Le gazon entier de l'export reste cache : la fin de l'audit ne rend que ce qu'elle a masque.
     expect(gazon()!.visible).toBe(false);
+  });
+
+  it('epure le temps d un rendu pour Claude, sans cloture, et rend la vue telle qu elle etait', () => {
+    const parcelle = objets.find((o) => o.key === 'parcelle');
+    buildThreeScene(terrasse(), etat(), contexte({ trouverParcelleCloture: () => parcelle }));
+    const avant = visibilite3d();
+    expect(avant.masques).toEqual([]);
+    expect(avant.horsObjetsVisibles).toBeGreaterThan(0);
+    const batiments = objets.filter((o) => o.fonction === 'batiment' && !o.hidden).map((o) => o.key);
+    let pendant: ReturnType<typeof visibilite3d> | null = null;
+    const r = epurerLeTemps((cle) => cle === 'parcelle' || cle === batiments[0]!, () => { pendant = visibilite3d(); return 42; });
+    expect(r).toBe(42);
+    // Pendant : les clotures et ce qui n'est pas garde sont masques ; apres : tout est revenu.
+    expect((pendant as ReturnType<typeof visibilite3d> | null)?.horsObjetsVisibles).toBe(0);
+    expect((pendant as ReturnType<typeof visibilite3d> | null)?.masques.length).toBeGreaterThan(0);
+    expect(visibilite3d()).toEqual(avant);
+    // Une erreur dans le rendu ne laisse pas la scene epuree.
+    expect(() => epurerLeTemps(() => false, () => { throw new Error('rendu'); })).toThrow('rendu');
+    expect(visibilite3d()).toEqual(avant);
   });
 
   it('a l ecran, l herbe s arrete aux objets qui occupent le sol ; le modele exporte garde le gazon entier', () => {

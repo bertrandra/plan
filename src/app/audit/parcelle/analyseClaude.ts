@@ -25,6 +25,7 @@ import { estReponseAnalyse } from '../../../model/analyseClaude.js';
 import { ortho } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 import { rendreDepuisPrise } from '../../../three/renduPrise.js';
+import { epurerLeTemps } from '../../../three/scene.js';
 import { jourDe } from '../reprise.js';
 import { preparerDemande, type FabriqueImages, type IdentiteAnalyse } from './entreesAnalyse.js';
 import type { ReponsesBatiment } from './propositionsClaude.js';
@@ -123,7 +124,12 @@ const MESSAGES: Record<EchecAnalyse['motif'], string> = {
 export function fabriqueImagesNavigateur(): FabriqueImages {
   return {
     photo: (p) => reduirePhotoAnalyse(p.base64),
-    rendu: (prise) => (prise.azimutDeg === null ? null : rendreDepuisPrise({ x: prise.x, y: prise.y, azimutDeg: prise.azimutDeg, inclinaisonDeg: prise.inclinaisonDeg ?? null, champDeg: prise.champDeg ?? null })),
+    rendu: (prise, cible, gardes) => {
+      if (prise.azimutDeg === null) return null;
+      const dessiner = () => rendreDepuisPrise({ x: prise.x, y: prise.y, azimutDeg: prise.azimutDeg as number, inclinaisonDeg: prise.inclinaisonDeg ?? null, champDeg: prise.champDeg ?? null }, cible ?? null);
+      // Epure le temps de l'image : la cloture du premier plan cachait le pied du mur.
+      return gardes ? epurerLeTemps(gardes, dessiner) : dessiner();
+    },
     ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
     carte: (o, contour) => (o.toitMesure ? dessinerCarteHauteurs(o.toitMesure, contour) : null),
     renfort: { photo: photoRenfortNavigateur, elevation: elevationRenfortNavigateur },

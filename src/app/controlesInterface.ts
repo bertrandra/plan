@@ -286,6 +286,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
   'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
+  'auditParcelle.verrouiller': etape(Z8, AUDIT_PARCELLE, 'Verrouiller un bâtiment pour la prise (annexe sur la parcelle) : seul lui est visé', { repete: true }),
   'auditParcelle.suivrePosition': etape(Z8, AUDIT_PARCELLE, 'Revenir à la façade reconnue par la position'),
   'auditParcelle.photo': etape(Z8, AUDIT_PARCELLE, 'Prendre une photo, rangée sur la façade visée', { repete: true }),
   // « Ce que je vois » (zones/parcours/CeQueJeVois.tsx), partage par l'audit de la parcelle et la

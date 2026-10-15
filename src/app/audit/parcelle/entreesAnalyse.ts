@@ -16,12 +16,14 @@ import { couleurMursRetenue, textureDesMurs } from '../../../model/couleurMur.js
 import { hauteurDe } from '../../../model/propositions.js';
 import { resumePartie, partieVue } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
+import { hauteurHautDeFacade } from './liste.js';
 import type { BlocAnalyse, DemandeAnalyse, RequeteAnalyse } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, EtiquetteImage } from '../../../model/auditParcelle.js';
 import { requetesRenfortDuBatiment, type FabriqueImagesRenfortAudit } from './entreesRenfort.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
+import type { CibleFacadeRendu } from '../../../three/renduPrise.js';
 
 export interface ImagePreparee { base64: string; mediaType: 'image/jpeg' | 'image/png' }
 
@@ -29,8 +31,13 @@ export interface ImagePreparee { base64: string; mediaType: 'image/jpeg' | 'imag
 export interface FabriqueImages {
   /** La photo reduite a 1 024 px ; null si elle ne se lit pas. */
   photo(p: PhotoCas): Promise<ImagePreparee | null>;
-  /** Le rendu du modele depuis cette prise ; null sans Vue 3D ou sans azimut. */
-  rendu(prise: PrisePhoto): ImagePreparee | null;
+  /**
+   * Le rendu du modele depuis cette prise ; null sans Vue 3D ou sans azimut. Avec `cible`, la facade
+   * visee entiere, du pied du mur au haut du pignon ou du pan (three/renduPrise.ts) ; sans elle, la
+   * prise telle quelle. `gardes` : les objets que le rendu montre (les batiments de la parcelle et le
+   * sol) ; tout le reste, clotures et arbres compris, en est retire le temps de l'image.
+   */
+  rendu(prise: PrisePhoto, cible?: CibleFacadeRendu, gardes?: (cle: string) => boolean): ImagePreparee | null;
   /** L'orthophoto recadree sur le contour ; null sans tuile. */
   ortho(contour: readonly PtBrut[]): Promise<ImagePreparee | null>;
   /** La carte des hauteurs LiDAR ; null sans mesure. */
@@ -124,6 +131,15 @@ export const IMAGES_PAR_REQUETE = 40;
 /** Une photo vaut d'autant plus qu'elle dit d'ou elle a ete prise : la boussole, puis la position. */
 const valeurPhoto = (p: PhotoCas): number => (p.prise ? 2 : 0) + (p.prise?.sourceAzimut === 'boussole' ? 1 : 0);
 
+/**
+ * Ce que le rendu pour Claude montre : les batiments de la liste (ceux de la parcelle du projet) et
+ * les terrains, a plat. Ni clotures, ni arbres, ni maisons voisines : comme la Vue 3D de l'audit.
+ */
+export function gardesDuRendu(e: EntreesPropositions): (cle: string) => boolean {
+  const cles = new Set([...e.liste.batiments.map((b) => b.cle), ...e.objets.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key)]);
+  return (cle) => cles.has(cle);
+}
+
 /** Une photo candidate, avec sa place dans l'ordre d'envoi et ce qu'on en a retenu. */
 interface Candidate {
   p: PhotoCas;
@@ -174,7 +190,12 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
   const prendreRendu = (c: Candidate) => {
     // Le rendu ne double que les photos de facade, comme avant le plafond : c'est elles que Claude compare au modele.
     if (place <= 0 || !c.img || c.photo.cote === undefined || !c.p.prise || c.p.prise.azimutDeg === null) return;
-    c.rendu = fab.rendu(c.p.prise);
+    // Le rendu montre la facade visee entiere, pas ce que le telephone en cadrait de pres.
+    const ligne = b.facades.find((f) => f.cote === c.photo.cote);
+    const cible: CibleFacadeRendu | undefined = ligne
+      ? { gauche: ligne.facade.gauche, droite: ligne.facade.droite, hautM: hauteurHautDeFacade(o, ligne.facade, ligne.hauteurMur) }
+      : undefined;
+    c.rendu = fab.rendu(c.p.prise, cible, gardesDuRendu(e));
     if (c.rendu) place--;
   };
   const premieres = groupes.flatMap((g) => g.slice(0, 1));
@@ -190,7 +211,7 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
   for (const c of groupes.flat().sort((a, z) => a.ordre - z.ordre)) {
     if (!c.img) continue;
     image(c.img, c.texte, etiquettes, contenu, c.photo);
-    if (c.rendu) image(c.rendu, 'rendu du modèle actuel de Plan, même point de vue que l’image ' + etiquettes.length, etiquettes, contenu);
+    if (c.rendu) image(c.rendu, 'rendu du modèle actuel de Plan, façade entière du pied du mur au haut du toit, vue du même côté que l’image ' + etiquettes.length, etiquettes, contenu);
   }
   if (ortho) image(ortho, 'orthophoto, vue du dessus, recadrée sur le contour de ' + b.nom + ' (contour en jaune, nord en haut)', etiquettes, contenu);
   if (carte) image(carte, 'carte des hauteurs LiDAR de ' + b.nom + ' (bleu bas, rouge haut, contour en noir, échelle)', etiquettes, contenu);

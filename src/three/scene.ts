@@ -867,6 +867,18 @@ export function epurerVue3d(garder: ((cle: string) => boolean) | null): void {
 }
 
 /**
+ * Epure la scene le temps de `f`, puis rend la vue telle qu'elle etait. Les rendus que Claude recoit
+ * (three/renduPrise.ts) l'utilisent : ils ne montrent que les batiments de la parcelle et le sol, sans
+ * clotures, arbres ni voisins, que l'ecran de l'audit soit epure ou non (la cloture du premier plan
+ * cachait le pied du mur). La Vue 3D de l'ecran ne bouge pas : l'epure revient avant le rendu suivant.
+ */
+export function epurerLeTemps<T>(garder: (cle: string) => boolean, f: () => T): T {
+  const avant = garderSeulement;
+  epurerVue3d(garder);
+  try { return f(); } finally { epurerVue3d(avant); }
+}
+
+/**
  * Ce que la Vue 3D montre : les cles des objets du plan visibles et masques, et combien de poses hors
  * objets (clotures, terrasse, objets d'echelle) restent visibles. Pour la fumee (scripts/fumee.mjs).
  */

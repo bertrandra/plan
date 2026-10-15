@@ -394,13 +394,14 @@ Et pour la parcelle :
 
 - Une façade sur une limite mitoyenne (`model/mitoyennete.ts`) est déjà marquée « mitoyenne, rien à
   photographier ». Une façade côté voisin ou cachée se marque « inaccessible » en une touche.
-- Les **mitoyens** apparaissent dans la liste, **à part, repliés et facultatifs** (« Bâtiments voisins,
-  facultatif (n) »), avec ce qui se voit depuis la rue et depuis la parcelle : leur toit, leurs
-  cheminées, la façade sur la limite. Le reste est « inaccessible ». Ils n'entrent ni dans le
-  compteur ni dans « Ce qui manque », et la reconnaissance ne les propose jamais d'elle-même : on les
-  photographie depuis leur ligne, ou en touchant leur façade dans la Vue 3D. Une photo de mitoyen
-  suffit pour lancer l'analyse. (Essai sur le terrain d'AE 101, 14 octobre : 7 bâtiments et
-  33 façades, dont 19 chez les voisins, et la reconnaissance proposait la maison d'à côté.)
+- **Les maisons voisines ne font plus partie de l'audit** (demande de l'utilisateur du 15 octobre
+  2026). La liste, le compteur, « Ce qui manque », la reconnaissance, la touche dans la Vue 3D et
+  l'analyse de Claude ne regardent que les bâtiments de la parcelle du projet. Les maisons voisines
+  restent dans la scène, comme obstacles à la vue de la reconnaissance, mais ne se photographient
+  plus : l'ancienne section « Bâtiments voisins, facultatif » est retirée. Une photo rangée chez un
+  voisin par un ancien brouillon ou fichier n'entre plus ni dans le compte ni dans l'analyse. (Essai
+  sur le terrain d'AE 101, 14 octobre : 7 bâtiments et 33 façades, dont 19 chez les voisins, et la
+  reconnaissance proposait la maison d'à côté.) Le champ `mitoyen` du fichier de l'audit reste, à faux.
 - Un bout de mur de moins de 1,5 m (un décroché) n'est pas une façade : il est sur la photo du mur
   qu'il décroche. Il reste dans la liste s'il a déjà des photos (`liste.ts`, `MUR_COURT_M`).
 - Un compteur dit ce qui reste (« 7 façades sur 9, toit vu, clôture à faire »), pour la parcelle du
@@ -409,11 +410,19 @@ Et pour la parcelle :
 
 ### 12.2 Photographier : Plan sait devant quelle façade vous êtes
 
+> **Verrouiller un bâtiment** (15 octobre 2026). Quand la parcelle porte une annexe à côté de la maison,
+> la reconnaissance passait de l'une à l'autre. L'écran de prise propose alors un bouton par bâtiment
+> (« Verrouiller : Maison, Annexe ») : c'est un geste volontaire, jamais déduit. Verrouillé, seul ce
+> bâtiment est reconnu et touché dans la Vue 3D, qui ne montre que lui et le sol ; les autres bâtiments
+> restent des obstacles à la vue. Choisir une façade d'un autre bâtiment dans la liste déplace le verrou.
+> Le verrou ne vaut que sur l'écran de prise (les propositions et l'analyse voient tous les bâtiments de
+> la parcelle) et tombe à la fermeture de l'audit.
+
 1. Vous marchez autour de la maison, l'écran de prise ouvert. **La façade que vous avez devant vous
    est reconnue en direct** (§6.1), surlignée **en rouge** dans la Vue 3D et nommée : « Vous êtes devant
    la façade sud, 9,2 m — 0 photo ».
    - **Pendant tout l'audit, la Vue 3D est épurée** : elle ne montre que les bâtiments de la parcelle
-     (et celui de la façade visée, un mitoyen choisi dans sa ligne) et le sol, avec les voiles rouge et
+     (ou le seul bâtiment verrouillé, pendant la prise) et le sol, avec les voiles rouge et
      vert des façades et votre position. Arbres, bâtiments voisins, clôtures (celle de la parcelle et
      celles du voisinage), terrasse et objets d'échelle sont masqués le temps de l'audit et reviennent
      à sa fermeture. C'est un affichage : ni « projet modifié », ni Ctrl+Z, et le projet n'est pas

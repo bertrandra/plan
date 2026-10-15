@@ -122,12 +122,12 @@ describe('la facade devant vous', () => {
     expect(t.s.position().etat).toBe('refusee');
     expect(t.s.cible()).toBeNull();
     expect(t.s.rangerPhoto(PHOTO)).toBeNull();
-    const ouest = t.s.liste().batiments.find((b) => b.cle === 'chezVoisin')?.facades.find((f) => f.facade.orientation === 'Ouest');
-    t.s.photographier('chezVoisin', ouest?.cote ?? -1);
+    const ouest = t.s.liste().batiments.find((b) => b.cle === 'maison')?.facades.find((f) => f.facade.orientation === 'Ouest');
+    t.s.photographier('maison', ouest?.cote ?? -1);
     expect(t.s.ecran()).toBe('prise');
     expect(t.ctx.ouvrir3d).toHaveBeenCalled();
-    expect(t.s.cible()).toMatchObject({ nom: 'la façade ouest de chezVoisin', choisie: true, distance: null, plan: null });
-    expect(t.s.rangerPhoto(PHOTO)).toEqual({ cle: 'chezVoisin', cote: ouest?.cote });
+    expect(t.s.cible()).toMatchObject({ nom: 'la façade ouest de maison', choisie: true, distance: null, plan: null });
+    expect(t.s.rangerPhoto(PHOTO)).toEqual({ cle: 'maison', cote: ouest?.cote });
     t.s.suivreLaPosition();
     expect(t.s.cible()).toBeNull();
     expect(t.messages[0]).toMatch(/^Position refusée/);
@@ -269,10 +269,8 @@ describe('la vue epuree et la vue d ensemble (second essai d AE 101)', () => {
     // Ni les voisins, ni les arbres, ni rien d'autre du plan.
     expect(garder?.('chezVoisin')).toBe(false);
     expect(garder?.('arbre')).toBe(false);
-    // Un mitoyen choisi dans la liste se montre, le temps de le photographier.
-    const ouest = t.s.liste().batiments.find((b) => b.cle === 'chezVoisin')?.facades.find((f) => f.facade.orientation === 'Ouest');
-    t.s.photographier('chezVoisin', ouest?.cote ?? -1);
-    expect(epurer.mock.calls.at(-1)?.[0]?.('chezVoisin')).toBe(true);
+    // La maison voisine n'est pas dans la liste : rien ne la fait apparaitre.
+    expect(t.s.liste().batiments.map((b) => b.cle)).toEqual(['maison', 'garage']);
     // L'audit ferme : tout revient, et le projet n'a pas bouge.
     t.s.suspendre();
     expect(epurer).toHaveBeenLastCalledWith(null);
@@ -407,5 +405,75 @@ describe('les textes', () => {
     const q = questionRepriseParcelle(c, () => {}, () => {}, () => {});
     expect(q.texte).toBe('L’audit commencé le 1er octobre est gardé sur cet appareil : 2 photos, capture terminée.');
     expect(q.secondaire.libelle).toBe('Le jeter');
+  });
+});
+
+describe('le verrou d un batiment pour la prise (annexe sur la parcelle)', () => {
+  it('ne vise plus que le batiment verrouille, et rend la main sur demande', () => {
+    const t = session({ epurer: vi.fn() });
+    t.s.reprendre();
+    t.gps({ x: 10, y: 3 }); t.cap(0);
+    expect(t.s.cible()?.cle).toBe('maison');
+    expect(t.s.verrou()).toBeNull();
+    t.s.verrouiller('garage');
+    expect(t.s.verrou()).toBe('garage');
+    // La maison est en face, mais verrouillee ailleurs : elle n'est plus proposee.
+    expect(t.s.cible()?.cle ?? 'garage').toBe('garage');
+    t.s.verrouiller(null);
+    expect(t.s.verrou()).toBeNull();
+    expect(t.s.cible()?.cle).toBe('maison');
+  });
+
+  it('refuse un batiment qui n est pas de la liste, et suit un choix explicite chez l autre', () => {
+    const t = session({ epurer: vi.fn() });
+    t.s.reprendre();
+    t.s.verrouiller('chezVoisin');
+    expect(t.s.verrou()).toBeNull();
+    t.s.verrouiller('garage');
+    const sud = t.s.liste().batiments.find((b) => b.cle === 'maison')?.facades.find((f) => f.facade.orientation === 'Sud');
+    // Choisir une facade de la maison dans la liste, c'est choisir la maison : le verrou la suit.
+    t.s.photographier('maison', sud?.cote ?? -1);
+    expect(t.s.verrou()).toBe('maison');
+    expect(t.s.cible()?.cle).toBe('maison');
+  });
+
+  it('n affiche que le batiment verrouille dans la Vue 3D, et le sol', () => {
+    const epurer = vi.fn<(g: ((cle: string) => boolean) | null) => void>();
+    const t = session({ vue: { poser: vi.fn(() => true), rapportVisible: () => 0.8, azimut: () => 0 }, epurer });
+    t.s.reprendre();
+    t.s.montrer('prise');
+    t.s.verrouiller('garage');
+    const garder = epurer.mock.calls.at(-1)?.[0];
+    expect(garder?.('garage')).toBe(true);
+    expect(garder?.('maison')).toBe(false);
+    expect(garder?.('parcelle')).toBe(true);
+    t.s.verrouiller(null);
+    expect(epurer.mock.calls.at(-1)?.[0]?.('maison')).toBe(true);
+  });
+
+  it('ne masque rien hors de la prise : les rendus pour Claude se dessinent sur cette scene epuree', () => {
+    const epurer = vi.fn<(g: ((cle: string) => boolean) | null) => void>();
+    const t = session({ vue: { poser: vi.fn(() => true), rapportVisible: () => 0.8, azimut: () => 0 }, epurer });
+    t.s.reprendre();
+    t.s.montrer('prise');
+    t.s.verrouiller('garage');
+    expect(epurer.mock.calls.at(-1)?.[0]?.('maison')).toBe(false);
+    // De retour a la liste (puis a l'analyse), toutes les maisons de la parcelle sont la, le verrou reste pose pour la prochaine prise.
+    t.s.montrer('liste');
+    const garder = epurer.mock.calls.at(-1)?.[0];
+    expect(['maison', 'garage', 'parcelle'].every((c) => garder?.(c))).toBe(true);
+    expect(garder?.('chezVoisin')).toBe(false);
+    expect(garder?.('arbre')).toBe(false);
+    expect(t.s.verrou()).toBe('garage');
+    t.s.montrer('prise');
+    expect(epurer.mock.calls.at(-1)?.[0]?.('maison')).toBe(false);
+  });
+
+  it('tombe quand l ecran se ferme : la prochaine visite repart sans verrou', () => {
+    const t = session({ epurer: vi.fn() });
+    t.s.reprendre();
+    t.s.verrouiller('garage');
+    t.s.suspendre();
+    expect(t.s.verrou()).toBeNull();
   });
 });

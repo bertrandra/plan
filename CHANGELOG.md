@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Verrouiller un bâtiment pour la prise** (audit de la parcelle, `MD/spec-audit.md` §12.2). Quand la
+  parcelle porte une annexe à côté de la maison, l'écran de prise propose un bouton par bâtiment
+  (« Verrouiller : Maison, Annexe »). C'est un geste volontaire : verrouillé, seul ce bâtiment est
+  reconnu devant vous et touché dans la Vue 3D, qui ne montre que lui. Toucher le bouton verrouillé
+  rend la main ; choisir une façade d'un autre bâtiment dans la liste déplace le verrou. Il ne vaut que
+  sur l'écran de prise, et tombe à la fermeture de l'audit.
 - **L'avant et l'après des propositions d'un audit, en deux vues 3D** (`MD/spec-audit.md` §14 ;
   `three/comparaison3d.ts`). L'écran des propositions s'ouvre désormais sur « Les deux » : la Vue 3D
   montre côte à côte « Avant », le projet tel qu'il est, et « Après », avec les propositions cochées
@@ -1156,6 +1162,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les maisons voisines sortent de l'audit de la parcelle** (`MD/spec-audit.md` §12.1). La liste, le
+  compteur, « Ce qui manque », la reconnaissance et l'analyse de Claude ne regardent plus que les
+  bâtiments de la parcelle du projet ; la section « Bâtiments voisins, facultatif » disparaît. Les
+  maisons voisines restent dans la scène comme obstacles à la vue. Une photo rangée chez un voisin par un
+  ancien brouillon n'entre plus dans l'analyse.
+- **Le rendu que Claude reçoit montre la façade entière**, du pied du mur au haut du pignon ou du pan
+  (`three/renduPrise.ts`). Il était pris depuis la position de la photo, à 1,5 m, dans l'axe du
+  téléphone : trop zoomé, il coupait le haut du mur et le toit. La caméra reste du même côté que la
+  photo et recule (45 m au plus) jusqu'à ce que les quatre coins tiennent dans l'image ; la
+  consigne de l'analyse (`deploy/prompt-analyse.md`) le dit, et précise que le rendu ne montre que les
+  bâtiments de la parcelle et le sol (la scène épurée de l'audit : ni arbres, ni clôtures, ni voisins).
+  `BANC_CLAUDE=1` les produit sur AE 101.
 - **L'audit de la parcelle ne montre que le bâtiment** (`MD/spec-audit.md` §12.2 ; demande de
   l'utilisateur du 15 octobre, AE 101 au téléphone). Pendant tout l'audit, la Vue 3D est épurée : les
   bâtiments de la parcelle (et celui d'un mitoyen choisi dans sa ligne, le temps de le photographier)
@@ -1416,6 +1434,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le rendu pour Claude ne dépend plus de l'inclinaison du capteur** (« le paramètre incliné ne
+  fonctionne pas »). Cette inclinaison est celle que le capteur donne au retour de l'appareil photo,
+  c'est-à-dire le téléphone retourné dans la main, pas au moment de la photo : elle n'est pas fiable
+  (cause probable, non vérifiée sur un téléphone). L'inclinaison du rendu se déduit de la géométrie :
+  la caméra vise le milieu de la façade, du pied du mur au haut du toit. La valeur du capteur reste
+  notée avec la photo (« inclinée de … ° »), pour Claude comme avant.
 - **L'écran des propositions de l'audit cachait la parcelle** (`zones/parcours/PropositionsAudit.tsx`,
   `MD/spec-audit.md` §14). Au doigt, une carte en bas haute au plus de 46 % de l'écran : le titre, le
   compte, « Avant / Après » et les boutons restent en place, la liste défile entre eux, et « Replier »

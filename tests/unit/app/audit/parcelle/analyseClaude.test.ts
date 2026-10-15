@@ -112,7 +112,7 @@ describe('l analyse par Claude', () => {
     expect(blocs.filter((b) => b.type === 'image')).toHaveLength(3);
     const textes = blocs.filter((b): b is { type: 'text'; text: string } => b.type === 'text').map((b) => b.text);
     expect(textes[0]).toBe('Image 1 : photo de la façade sud de maison, prise à 8 m, vers 0°.');
-    expect(textes[1]).toBe('Image 2 : rendu du modèle actuel de Plan, même point de vue que l’image 1.');
+    expect(textes[1]).toBe('Image 2 : rendu du modèle actuel de Plan, façade entière du pied du mur au haut du toit, vue du même côté que l’image 1.');
     expect(textes[2]).toMatch(/^Image 3 : orthophoto/);
     expect(textes[3]).toMatch(/Façades à décrire \(étiquettes\) : sud\./);
     expect(textes[3]).toMatch(/Indices LiDAR chiffrés : aucune mesure LiDAR/);
