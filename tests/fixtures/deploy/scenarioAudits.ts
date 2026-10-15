@@ -17,6 +17,14 @@ export interface NavigationAudits {
 
 const ECRITURE = { 'X-Plan-Admin': '1', 'Content-Type': 'application/json' };
 
+/** Le dossier ou le serveur a range un audit (`audits/<nature>/<classe>/<id>/`), d'apres son index. */
+export function dossierRange(dossier: string, id: string): string {
+  const index = JSON.parse(fs.readFileSync(path.join(dossier, 'audits', 'index.json'), 'utf8')) as { audits: Record<string, { dossier: string }> };
+  const e = index.audits[id];
+  if (!e) throw new Error('audit ' + id + ' absent de l index');
+  return path.join(dossier, 'audits', e.dossier);
+}
+
 export async function jouerScenarioAudits(n: NavigationAudits, plateforme: ContextePlateforme): Promise<void> {
   const texte = JSON.stringify(fichierAudit());
   const poster = (entetes: Record<string, string>, corps = texte) => n.navigateur('admin/audits', { method: 'POST', headers: entetes, body: corps });
@@ -37,9 +45,13 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   expect(id).toMatch(/^\d{8}-\d{6}-[0-9a-f]{8}$/);
   expect(retrait).toMatch(/^[0-9a-f]{48}$/);
   expect(plateforme.entetes.at(-1)).toMatchObject({ authorization: 'Bearer ' + JETON, 'x-product': 'plan' });
-  expect(fs.readFileSync(path.join(n.dossier, 'audits', id + '.json'), 'utf8')).toBe(texte);
-  const fiche = JSON.parse(fs.readFileSync(path.join(n.dossier, 'audits', id + '.fiche.json'), 'utf8')) as Record<string, unknown>;
-  expect(fiche).toMatchObject({ id, organisation: ORGANISATION, idu: '78650000AE0101', adresse: '2 allée des Limites', taille: Buffer.byteLength(texte) });
+  // Range dans son dossier, classe par nature et par parcelle : audits/parcelle/<IDU>/<id>/.
+  const range = dossierRange(n.dossier, id);
+  expect(path.relative(path.join(n.dossier, 'audits'), range)).toBe(path.join('parcelle', '78650000AE0101', id));
+  expect(fs.readFileSync(path.join(range, 'audit.json'), 'utf8')).toBe(texte);
+  const fiche = JSON.parse(fs.readFileSync(path.join(range, 'fiche.json'), 'utf8')) as Record<string, unknown>;
+  expect(fiche).toMatchObject({ id, organisation: ORGANISATION, nature: 'parcelle', idu: '78650000AE0101', adresse: '2 allée des Limites', taille: Buffer.byteLength(texte) });
+  expect(JSON.parse(fs.readFileSync(path.join(range, 'decisions.json'), 'utf8'))).toEqual({ format: 'plan-audit-decisions', version: 1, nature: 'parcelle', propositions: [], decisions: [] });
   // Le serveur n'en garde que l'empreinte du secret.
   expect(JSON.stringify(fiche)).not.toContain(retrait);
 
@@ -51,12 +63,12 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   const retirer = (secret: string, i = id) => n.navigateur('admin/audits/' + i, { method: 'DELETE', headers: { 'X-Plan-Admin': '1', 'X-Plan-Retrait': secret } });
   expect((await retirer('0'.repeat(48))).status).toBe(403);
   expect((await retirer(retrait)).status).toBe(200);
-  expect(fs.existsSync(path.join(n.dossier, 'audits', id + '.json'))).toBe(false);
+  expect(fs.existsSync(range)).toBe(false);
   expect((await retirer(retrait)).status).toBe(404);
 
   // La sauvegarde de la capture (15) : marquee a l'envoi, puis remplacee sous le meme identifiant par
   // son secret ; la fiche dit ses photos et sa phase, pour le catalogue de l'administrateur.
-  const ficheDe = (i: string) => JSON.parse(fs.readFileSync(path.join(n.dossier, 'audits', i + '.fiche.json'), 'utf8')) as Record<string, unknown>;
+  const ficheDe = (i: string) => JSON.parse(fs.readFileSync(path.join(dossierRange(n.dossier, i), 'fiche.json'), 'utf8')) as Record<string, unknown>;
   const enCapture = { ...(fichierAudit() as Record<string, unknown>), finCapture: null, cloture: { photos: [{ type: 'image/jpeg', base64: 'AAAA' }] } };
   const jeton = { ...ECRITURE, Authorization: 'Bearer ' + JETON };
   expect((await poster({ ...jeton, 'X-Plan-Depot': 'brouillon' })).status).toBe(400);
@@ -72,7 +84,7 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   const r2 = await remplacer(sauve.id, { ...jeton, 'X-Plan-Retrait': sauve.retrait });
   expect(r2.status).toBe(200);
   expect(await r2.json()).toEqual({ id: sauve.id, remplace: true });
-  expect(fs.readFileSync(path.join(n.dossier, 'audits', sauve.id + '.json'), 'utf8')).toBe(fini);
+  expect(fs.readFileSync(path.join(dossierRange(n.dossier, sauve.id), 'audit.json'), 'utf8')).toBe(fini);
   expect(ficheDe(sauve.id)).toMatchObject({ id: sauve.id, organisation: ORGANISATION, marque: 'sauvegarde', photos: 2, phase: 'analyse', taille: Buffer.byteLength(fini) });
   expect(JSON.stringify(ficheDe(sauve.id))).not.toContain(sauve.retrait);
   // Le meme secret retire toujours le depot remplace.

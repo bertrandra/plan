@@ -431,7 +431,7 @@ describe('la consommation : filtres et lignes', () => {
     ]);
     expect(choixConsommation(lignes, p)).toEqual({
       organisations: ['admin', 'org-1', 'org-2'], modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'],
-      usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+      usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
     });
   });
 });

@@ -132,12 +132,24 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
 };
 
 // Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
-export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
+export function verifierAudit(d: unknown): { nature: 'parcelle' | 'promenade'; idu: string; adresse: string | null; commune?: string | null };
 /** Les marques d'un depot : `sauvegarde` de la capture, ou partage pour le `corpus` (par defaut). */
 export const MARQUES_AUDIT: readonly ('corpus' | 'sauvegarde')[];
 export function marqueAudit(entete: string | string[] | undefined, defaut?: 'corpus' | 'sauvegarde'): 'corpus' | 'sauvegarde';
 /** Ce que la fiche dit du fichier pour le catalogue : photos, phase, debut de la visite. */
-export function resumeAudit(d: unknown): { photos: number; phase: 'capture' | 'analyse'; debut: string | null };
+export function resumeAudit(d: unknown): {
+  photos: number; phase: 'capture' | 'analyse'; debut: string | null;
+  propositions?: { total: number; claude: number; mesures: number; validees: number; refusees: number; enAttente: number };
+  cas?: number; statuts?: Record<string, number>;
+};
+/** La conclusion d'un audit, lisible a la main (`decisions.json`). */
+export function decisionsAudit(d: unknown): Record<string, unknown>;
+/** Un nom de dossier sur : ASCII, lettres, chiffres, `-` et `_`. */
+export function nomSur(v: string | null | undefined, defaut: string, minuscules?: boolean): string;
+/** Le dossier d'un audit, relatif a `audits/`. */
+export function dossierRelatifAudit(fiche: { id: string; nature?: string; idu?: string; commune?: string | null }): string;
+/** Le texte brut d'une ligne de resultats d'Anthropic. */
+export function texteBrut(ligne: unknown): string | null;
 
 // Les mesures des indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3).
 export const MESURES_CONFORMITE_MAX: number;
@@ -145,6 +157,7 @@ export function verifierMesureConformite<T>(d: T): T;
 
 export function creerAnalyseAdmin(options: {
   dossier: string;
+  donnees?: import('./donnees.mjs').DossiersDonnees | null;
   actif: boolean;
   sessionValide: (req: IncomingMessage) => boolean;
   cle: string | undefined;

@@ -389,7 +389,12 @@ function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validati
     mesuresPretes: () => validation().lancer(),
     client: a?.client ?? null,
     // L'audit du journal : la parcelle et l'heure du debut, pour distinguer deux audits du meme jour.
-    identite: () => ({ ...(a?.identite?.() ?? { projet: null, idu: ctx.idu, adresse: null }), audit: idAuditAnalyse(capture.lire()) }),
+    // Le depot de la sauvegarde (ou du partage) sur le serveur : l'analyse y est gardee, entree et
+    // sortie (spec-audit 15.5), pour que l'administrateur la relise et la compare a ses rejeux.
+    identite: () => ({
+      ...(a?.identite?.() ?? { projet: null, idu: ctx.idu, adresse: null }), audit: idAuditAnalyse(capture.lire()),
+      depot: capture.lire().sauvegarde?.id ?? capture.lire().partage?.envoi?.id ?? null,
+    }),
     images: a?.images ?? fabriqueImagesNavigateur(),
     // Le renfort des facades (lot L18) : ses graines recalees sur l'elevation de chaque facade mesuree.
     renforcer: a?.renforcer ?? ((par) => renforcerFacades(par, validation().entrees().mesures, decoderImageNavigateur)),
@@ -457,7 +462,10 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   // validation ; il lit le fichier, qui lit la validation : lie de meme.
   let validation: Validation, analyse: AnalyseClaude, corpus: Corpus | null = null, sauvegarde: Sauvegarde;
   analyse = analyseDe(ctx, capture, () => validation, maintenant);
-  validation = validationDe(ctx, capture, liste, maintenant, () => analyse, () => { void corpus?.envoyer(); });
+  // Apres « Valider », l'audit repart au serveur avec ses decisions : le partage, et la sauvegarde
+  // quand elle part d'elle-meme (administrateur, ou accord du partage) ; le catalogue lit ainsi ce qui
+  // a ete valide ou refuse.
+  validation = validationDe(ctx, capture, liste, maintenant, () => analyse, () => { void corpus?.envoyer(); sauvegarde.planifier(); });
   const fichier = fichierDe(ctx, capture, liste, validation, maintenant);
   const admin = () => ctx.admin?.() ?? false;
   sauvegarde = creerSauvegarde({

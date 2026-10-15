@@ -78,9 +78,19 @@ describe('le client du partage des audits', () => {
     const audits = await creerClientAudits(f, () => null).lister();
     expect((f.mock.calls[0] as unknown as [string, RequestInit])[0]).toBe('admin/audits');
     expect(audits).toEqual([
-      { id: 'b', recuLe: '2026-10-14T10:00:00Z', organisation: 'org', idu: '78650000AE0101', adresse: '2 allée des Limites', taille: 2048, marque: 'sauvegarde', photos: 12, phase: 'capture', debut: '2026-10-14T09:00:00.000Z' },
-      { id: 'a', recuLe: '2026-10-13T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: null, taille: 1024, marque: 'corpus', photos: null, phase: null, debut: null },
+      { id: 'b', recuLe: '2026-10-14T10:00:00Z', organisation: 'org', nature: 'parcelle', idu: '78650000AE0101', commune: null, dossier: null, propositions: null, cas: null, statuts: null,
+        adresse: '2 allée des Limites', taille: 2048, marque: 'sauvegarde', photos: 12, phase: 'capture', debut: '2026-10-14T09:00:00.000Z' },
+      { id: 'a', recuLe: '2026-10-13T10:00:00Z', organisation: 'admin', nature: 'parcelle', idu: '78650000AE0101', commune: null, dossier: null, propositions: null, cas: null, statuts: null,
+        adresse: null, taille: 1024, marque: 'corpus', photos: null, phase: null, debut: null },
     ]);
+    // Une fiche du rangement par dossier (spec-audit 15.4) : nature, dossier, conclusion ; une promenade.
+    const g = vi.fn(async () => reponse(200, { audits: [
+      { id: 'c', recuLe: '2026-10-15T10:00:00Z', organisation: 'admin', nature: 'parcelle', idu: '78650000AE0101', dossier: 'parcelle/78650000AE0101/c', propositions: { total: 3, claude: 2, mesures: 1, validees: 1, refusees: 1, enAttente: 1 } },
+      { id: 'p', recuLe: '2026-10-15T09:00:00Z', organisation: 'admin', nature: 'promenade', idu: '', commune: 'Le Vésinet', cas: 2, statuts: { a_corriger: 1, valide: 1 } },
+    ] }));
+    const [c, p] = await creerClientAudits(g, () => null).lister();
+    expect(c).toMatchObject({ nature: 'parcelle', dossier: 'parcelle/78650000AE0101/c', propositions: { total: 3, claude: 2, validees: 1, enAttente: 1 } });
+    expect(p).toMatchObject({ nature: 'promenade', idu: '', commune: 'Le Vésinet', cas: 2, statuts: { a_corriger: 1, valide: 1 }, propositions: null });
     expect(lireFicheAudit(null)).toBeNull();
   });
 

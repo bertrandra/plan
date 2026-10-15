@@ -264,6 +264,17 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditsParcelle.garder': etape(Z8, CATALOGUE_AUDITS, 'Garder l’audit reçu (renoncer au retrait)', { repete: true }),
   'auditsParcelle.relire': etape(Z8, CATALOGUE_AUDITS, 'Relire la liste des audits reçus'),
   'auditsParcelle.fermer': etape(Z8, CATALOGUE_AUDITS, 'Fermer le catalogue des audits reçus'),
+  // Les donnees, la conclusion, les analyses et les rejeux d'un audit (spec-audit 15.4, 15.5). Rien
+  // n'ecrit dans le projet ; un rejeu part chez Claude sous les plafonds de l'analyse.
+  'auditsParcelle.details': etape(Z8, CATALOGUE_AUDITS, 'Voir les données, la conclusion et les analyses d’un audit reçu', { repete: true }),
+  'auditsParcelle.deposer': etape(Z8, CATALOGUE_AUDITS, 'Ajouter au serveur un fichier d’audit du poste (parcelle ou promenade)'),
+  'auditsParcelle.modeleRejeu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le modèle du prochain rejeu', { repete: true }),
+  'auditsParcelle.rejouer': etape(Z8, CATALOGUE_AUDITS, 'Rejouer l’analyse par Claude d’un audit stocké, avec le prompt actuel et le modèle choisi', { repete: true }),
+  'auditsParcelle.relireAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Relire les analyses d’un audit, et suivre celles en cours', { repete: true }),
+  'auditsParcelle.exporterAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Exporter en CSV la comparaison des analyses d’un audit', { repete: true }),
+  'auditsParcelle.voirAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Voir une analyse en entier : ce qui est parti chez Claude et ce qu’il a rendu', { repete: true }),
+  'auditsParcelle.exporterAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Exporter une analyse en JSON (entrant, sortant, résumé)', { repete: true }),
+  'auditsParcelle.fermerAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Refermer le détail d’une analyse', { repete: true }),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),

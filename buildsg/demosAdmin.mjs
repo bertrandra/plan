@@ -60,9 +60,11 @@ function lireCorps(req, max) {
 }
 
 /**
- * @param {{ dossier: string, motDePasse: string | undefined, maintenant?: () => number }} options
+ * `dossier` : celui des demos ; `palette` et `controleurs` : leurs fichiers (donnees.mjs), par defaut
+ * `.palette.json` et `.controleurs.json` du dossier des demos (l'ancienne disposition).
+ * @param {{ dossier: string, motDePasse: string | undefined, palette?: string, controleurs?: string, maintenant?: () => number }} options
  */
-export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.now() }) {
+export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossier, '.palette.json'), controleurs = path.join(dossier, '.controleurs.json'), maintenant = () => Date.now() }) {
   const actif = typeof motDePasse === 'string' && motDePasse.length > 0;
   /** jeton -> expiration. En memoire : un redemarrage demande de se reconnecter, c'est voulu. */
   const sessions = new Map();
@@ -177,7 +179,7 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
       // --- La palette ---------------------------------------------------------------------------
       // Les couleurs de l'interface (styles/paletteServeur.ts), lues SANS session par chaque page
       // (deploy/admin.php, meme route). L'ecriture, plus bas, demande la session.
-      const fPalette = path.join(dossier, '.palette.json');
+      const fPalette = palette;
       if (url.pathname === '/admin/palette' && lecture) {
         if (!fs.existsSync(fPalette)) return erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
         res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(fPalette).mtime.toUTCString() });
@@ -229,7 +231,7 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
       // L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des
       // demos. Le point en tete le garde hors de la liste des demos.
       if (url.pathname === '/admin/controleurs') {
-        const f = path.join(dossier, '.controleurs.json');
+        const f = controleurs;
         if (lecture) {
           if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucun registre des contrôleurs enregistré.');
           res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -238,6 +240,7 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
         }
         if (methode === 'PUT') {
           const document = verifierRegistre(await lireCorps(req, TAILLE_MAX));
+          fs.mkdirSync(path.dirname(f), { recursive: true });
           if (fs.existsSync(f)) fs.copyFileSync(f, f + '.bak');
           const tmp = f + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
           fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');
@@ -250,6 +253,7 @@ export function creerAdminDemos({ dossier, motDePasse, maintenant = () => Date.n
       if (url.pathname === '/admin/palette') {
         if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         const document = verifierPalette(await lireCorps(req, 65536));
+        fs.mkdirSync(path.dirname(fPalette), { recursive: true });
         if (fs.existsSync(fPalette)) fs.copyFileSync(fPalette, fPalette + '.bak');
         const tmp = fPalette + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
         fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');

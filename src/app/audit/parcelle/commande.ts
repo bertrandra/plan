@@ -11,8 +11,9 @@
 //   Un fichier dont la capture n'etait pas terminee (une sauvegarde) reprend sur la liste de controle.
 // - « Envoyer l'audit au serveur » (§15) : la sauvegarde sur le serveur de Plan, tout de suite ; elle
 //   part aussi d'elle-meme apres les photos (sauvegarde.ts). Elle n'ecrit rien dans le projet.
-// - Admin › « Audits de parcelle » (§15) : le catalogue des audits recus (catalogue.ts), admin des
-//   demos seulement, comme la Conformite ; « Ouvrir dans ce projet » passe par le meme import.
+// - Admin › « Audits » (§15, 15.4, 15.5) : le catalogue des audits recus (catalogue.ts), parcelles et
+//   promenades, admin des demos seulement, comme la Conformite ; « Ouvrir dans ce projet » passe par
+//   le meme import ; « Rejouer l'analyse » renvoie l'analyse d'un audit stocke avec le modele choisi.
 
 import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
@@ -21,6 +22,9 @@ import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAudi
 import { preparerImport } from './fichier.js';
 import { brancherDoigtAudit } from '../controleur.js';
 import { creerCatalogue } from './catalogue.js';
+import { preparerRejeu } from './rejeu.js';
+import { fabriqueImagesNavigateur } from './analyseClaude.js';
+import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
 import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
@@ -183,11 +187,13 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     executer: () => { void session?.sauvegarde.envoyer(); },
   });
 
-  // Admin › « Audits de parcelle » : le catalogue, ouvert sur le projet en cours.
+  // Admin › « Audits » : le catalogue, ouvert sur le projet en cours. Les analyses gardees se lisent
+  // par la session admin (cookie) ; le rejeu passe par le client de l'analyse, sous ses plafonds.
+  const analysesAudits = creerClientAnalysesAudits((entree, init) => fetch(entree, init));
   cmd.declarer({
     id: 'admin.auditsParcelle',
-    libelle: 'Audits de parcelle',
-    description: 'Liste les audits de parcelle reçus sur le serveur (sauvegardes et partages) : les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
+    libelle: 'Audits',
+    description: 'Les audits reçus sur le serveur, de parcelle et de promenade : leurs données, leur conclusion et ce qui en a été fait, leurs analyses par Claude et leurs rejeux par modèle ; les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
     groupe: 'admin',
     actif: () => enAdmin(),
     executer: () => {
@@ -196,8 +202,16 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
         iduProjet: () => parcelleCadastrale(a.etat.objects),
         refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
         ouvrir: (texte, fiche) => importer(texte, fiche),
-        telecharger: (nom, texte) => telechargerTexte(nom, texte, 'application/json'),
+        telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
         signaler: a.signaler,
+        choisirFichier: a.choisirFichier ?? choisirFichierNavigateur(a.signaler),
+        rejeu: {
+          analyses: () => (enAdmin() ? analysesAudits : null),
+          analyse: () => (enAdmin() ? a.analyse?.client ?? null : null),
+          preparer: (texte, fiche, modele) => preparerRejeu({
+            texte, depot: fiche.id, modele, objets: a.etat.objects, iduProjet: parcelleCadastrale(a.etat.objects), projet: a.analyse?.identite?.().projet ?? null,
+          }, a.analyse?.images ?? fabriqueImagesNavigateur()),
+        },
       });
       parcours.ouvrir({ type: 'auditsParcelle', catalogue });
       void catalogue.relire();

@@ -35,18 +35,28 @@ export interface DemandeAnalyse {
   idu: string | null;
   adresse: string | null;
   audit: string;
+  /**
+   * L'audit du serveur (`admin/audits/<id>`) dont c'est l'analyse : le serveur y garde ce qui part et
+   * ce qui revient (MD/spec-audit.md 15.5). Exige par un rejeu ; absent, rien n'est garde.
+   */
+  depot?: string | null;
+  /** Le modele choisi (un rejeu pour comparer) ; absent, celui que l'administrateur a regle pour l'usage. */
+  modele?: string;
   usage: UsageAnalyse;
   requetes: RequeteAnalyse[];
 }
 
 /**
  * Les usages demandes : l'analyse d'une maison (batch), le renfort d'une facade (batch ou appel
- * immediat), et les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page).
+ * immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), et le
+ * rejeu d'un audit stocke (administrateur, spec-audit 15.5).
  */
-export type UsageAnalyse = 'analyse' | 'renfort' | 'candidats';
+export type UsageAnalyse = 'analyse' | 'renfort' | 'candidats' | 'rejeu';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
+  /** Les modeles que le serveur admet (`MODELES`) : ceux qu'un rejeu peut choisir. */
+  modeles?: string[];
   prompt: number;
   schema: number;
   organisation: string | null;
@@ -87,7 +97,8 @@ export class EchecAnalyse extends Error {
 
 export interface ClientAnalyse {
   etat(): Promise<EtatServeurAnalyse>;
-  creerBatch(d: DemandeAnalyse): Promise<{ batch: VueBatch; modele: string; prompt: number; schema: number }>;
+  /** `trace` : l'analyse gardee dans le dossier de l'audit (`depot`), ou null. */
+  creerBatch(d: DemandeAnalyse): Promise<{ batch: VueBatch; modele: string; prompt: number; schema: number; trace?: string | null }>;
   etatBatch(id: string): Promise<VueBatch>;
   /** 409 (`pasPret`) tant que le batch n'est pas termine. */
   resultats(id: string): Promise<ResultatsBatch>;
@@ -136,7 +147,10 @@ export function creerClientAnalyse(f: Fetch, jeton: () => string | null): Client
   return {
     async etat() {
       const d = await appeler<Partial<EtatServeurAnalyse>>('/etat', 'état de l’analyse');
-      return { actif: d.actif === true, prompt: Number(d.prompt ?? 0), schema: Number(d.schema ?? 0), organisation: typeof d.organisation === 'string' ? d.organisation : null, admin: d.admin === true };
+      return {
+        actif: d.actif === true, prompt: Number(d.prompt ?? 0), schema: Number(d.schema ?? 0), organisation: typeof d.organisation === 'string' ? d.organisation : null, admin: d.admin === true,
+        modeles: Array.isArray(d.modeles) ? d.modeles.filter((m): m is string => typeof m === 'string') : [],
+      };
     },
     creerBatch: (d) => appeler('/batches', 'envoi de l’analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),
     etatBatch: (id) => appeler('/batches/' + encodeURIComponent(id), 'suivi de l’analyse'),
