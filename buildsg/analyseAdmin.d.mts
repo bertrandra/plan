@@ -94,11 +94,23 @@ export function verifierDemande(d: unknown, plafonds: Plafonds, modeles?: Readon
   usage: string; modele: string;
   requetes: { id: string; passe: number | null; images: number; facades: number; usage: string; modele: string; contenu: unknown[] }[];
 };
+/** La consigne qui precede le schema de la reponse dans le prompt (deploy/analyse.php, meme texte). */
+export const CONSIGNE_JSON: string;
+/** Le prompt envoye en system : la partie fixe, puis le schema de la reponse. */
+export function promptAvecSchema(prompt: string, schema: unknown): string;
+/** L'objet JSON d'une reponse : le texte entier, sinon de la premiere accolade a la derniere. */
+export function objetJsonDuTexte(texte: string): Record<string, unknown> | null;
+/** Un terme ramene a la graphie du vocabulaire (minuscules, sans accents, tirets). */
+export function termeNormalise(v: string): string;
+/** `v` ramene au schema `s` ; `ok` faux quand il ne s'y ramene pas. */
+export function conformer(v: unknown, s: unknown, defs: unknown, racine?: boolean): { ok: boolean; v: unknown };
+/** La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON. */
+export function sortieConforme(texte: string, schema: unknown): Record<string, unknown> | null;
 export function parametresRequete(modele: string, prompt: string, schema: unknown, contenu: unknown[]): Record<string, unknown>;
 export function verifierTarifs(d: unknown): Tarifs;
 export function passeGarde(ancien: Tarifs | null, nouveau: Tarifs, jour: string): boolean;
 export function verifierPlafonds(d: unknown): Plafonds;
-export function lireResultat(ligne: unknown): ResultatLu;
+export function lireResultat(ligne: unknown, schema?: unknown): ResultatLu;
 
 export interface FiltresConsommation {
   du: string;
@@ -120,12 +132,24 @@ export function choixConsommation(lignes: unknown[], plafonds: Plafonds): {
 };
 
 // Les audits de parcelle partages pour le corpus (MD/spec-audit.md 15, lot L21).
-export function verifierAudit(d: unknown): { idu: string; adresse: string | null };
+export function verifierAudit(d: unknown): { nature: 'parcelle' | 'promenade'; idu: string; adresse: string | null; commune?: string | null };
 /** Les marques d'un depot : `sauvegarde` de la capture, ou partage pour le `corpus` (par defaut). */
 export const MARQUES_AUDIT: readonly ('corpus' | 'sauvegarde')[];
 export function marqueAudit(entete: string | string[] | undefined, defaut?: 'corpus' | 'sauvegarde'): 'corpus' | 'sauvegarde';
 /** Ce que la fiche dit du fichier pour le catalogue : photos, phase, debut de la visite. */
-export function resumeAudit(d: unknown): { photos: number; phase: 'capture' | 'analyse'; debut: string | null };
+export function resumeAudit(d: unknown): {
+  photos: number; phase: 'capture' | 'analyse'; debut: string | null;
+  propositions?: { total: number; claude: number; mesures: number; validees: number; refusees: number; enAttente: number };
+  cas?: number; statuts?: Record<string, number>;
+};
+/** La conclusion d'un audit, lisible a la main (`decisions.json`). */
+export function decisionsAudit(d: unknown): Record<string, unknown>;
+/** Un nom de dossier sur : ASCII, lettres, chiffres, `-` et `_`. */
+export function nomSur(v: string | null | undefined, defaut: string, minuscules?: boolean): string;
+/** Le dossier d'un audit, relatif a `audits/`. */
+export function dossierRelatifAudit(fiche: { id: string; nature?: string; idu?: string; commune?: string | null }): string;
+/** Le texte brut d'une ligne de resultats d'Anthropic. */
+export function texteBrut(ligne: unknown): string | null;
 
 // Les mesures des indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3).
 export const MESURES_CONFORMITE_MAX: number;
@@ -133,6 +157,7 @@ export function verifierMesureConformite<T>(d: T): T;
 
 export function creerAnalyseAdmin(options: {
   dossier: string;
+  donnees?: import('./donnees.mjs').DossiersDonnees | null;
   actif: boolean;
   sessionValide: (req: IncomingMessage) => boolean;
   cle: string | undefined;

@@ -220,7 +220,11 @@ export async function entreeDuBatiment(o: ObjetPlan, b: LigneBatiment, e: Entree
   return { cle: b.cle, facades, etiquettes, contenu };
 }
 
-export interface IdentiteAnalyse { projet: string | null; idu: string | null; adresse: string | null; audit: string }
+export interface IdentiteAnalyse {
+  projet: string | null; idu: string | null; adresse: string | null; audit: string;
+  /** L'audit du serveur (sauvegarde ou partage) ou l'analyse est gardee (spec-audit 15.5). */
+  depot?: string | null;
+}
 
 /** Un identifiant de requete admis par le serveur (`[A-Za-z0-9_-]`) : le rang du batiment, pas sa cle. */
 /**

@@ -1,6 +1,6 @@
 ---
-version: 1
-note: Partie fixe du prompt du renfort de Claude pour le calage et la détection des façades (spec-facades-calage-detection.md §12 bis, lot L18), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 : coins en repères de la grille, ouvertures manquées en mètres sur l'élévation, avis sur chaque ouverture numérotée. Sans exemples annotés : ils viendront du corpus validé.
+version: 2
+note: Partie fixe du prompt du renfort de Claude pour le calage et la détection des façades (spec-facades-calage-detection.md §12 bis, lot L18), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 : coins en repères de la grille, ouvertures manquées en mètres sur l'élévation, avis sur chaque ouverture numérotée. Sans exemples annotés : ils viendront du corpus validé. Version 2 (15 octobre 2026) : le texte ne change pas, mais le schéma de la réponse le suit dans le même bloc system (deploy/analyse.php::promptAvecSchema) au lieu de partir en sortie structurée, dont l'API refusait la grammaire.
 ---
 # Rôle
 

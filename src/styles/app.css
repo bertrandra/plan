@@ -1520,6 +1520,35 @@
   .raisonAuditRecu{ margin:4px 0 0; font-size:0.72rem; color:var(--ink-soft); }
   .confirmationAuditRecu{ margin-top:6px; padding-top:6px; border-top:1px solid var(--hairline); }
   html:not([data-classe="large"]) .actionsAuditRecu button, html:not([data-classe="large"]) .sauvegardeAudit button{ min-height:44px; }
+  /* Admin › Audits : l'outil du bureau d'abord. Sur grand ecran le dialogue prend la largeur qu'il
+     faut pour comparer les analyses cote a cote ; au doigt, le tableau defile dans sa boite et la
+     page ne deborde pas. */
+  html[data-classe="large"] .dialogueAuditsParcelle{ width:min(1180px,96vw); }
+  .sectionAuditsRecus{ margin-top:12px; }
+  .titreSectionAudits{ margin:0; font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .carteAuditRecu.ouverte{ border-color:var(--rule); }
+  .conclusionAuditRecu{ font-variant-numeric:tabular-nums; }
+  .detailAuditRecu{ margin-top:8px; padding-top:6px; border-top:1px solid var(--hairline); }
+  .sectionDetailAudit{ margin-top:6px; }
+  .sectionDetailAudit > summary{ cursor:pointer; font-family:var(--sans); font-size:0.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); padding:4px 0; }
+  .listeDetailAudit{ list-style:none; margin:4px 0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .ligneDetailAudit{ font-size:0.8rem; }
+  .facadeDetailAudit{ margin:2px 0 0 10px; }
+  .vignettesAudit{ display:flex; flex-wrap:wrap; gap:4px; margin-top:3px; align-items:center; }
+  .vignettesAudit img{ width:72px; height:54px; object-fit:cover; border-radius:6px; border:1px solid var(--hairline); background:var(--paper-deep); }
+  .defileAudit{ max-width:100%; overflow-x:auto; }
+  table.tableAudit{ font-size:0.74rem; font-variant-numeric:tabular-nums; }
+  table.tableAudit td, table.tableAudit th{ white-space:nowrap; }
+  table.tableAudit tr.choisie{ background:var(--accent-light); color:var(--on-accent-light); }
+  .choixModeleRejeu{ display:inline-flex; align-items:center; gap:6px; font-family:var(--sans); font-size:0.74rem; }
+  .choixModeleRejeu select{ min-height:32px; }
+  html:not([data-classe="large"]) .choixModeleRejeu select{ min-height:44px; }
+  .traceAudit{ margin-top:8px; padding:8px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); }
+  .traceAudit details > summary{ cursor:pointer; font-size:0.78rem; padding:3px 0; }
+  .blocTrace{ margin:4px 0 6px 6px; }
+  .texteTrace{ margin:3px 0; padding:6px 8px; max-height:320px; overflow:auto; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); font-size:0.7rem;
+    background:var(--paper-deep); border-radius:6px; }
+  .imageTrace{ display:block; max-width:min(320px,100%); margin:4px 0; border-radius:6px; border:1px solid var(--hairline); }
   /* Au doigt, la raison d'un refus s'ecrit sous l'entree du menu (l'infobulle n'existe pas). */
   details.menu li.refusMenu{ padding:0 12px 6px 30px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); line-height:1.35; }
   html:not([data-classe="large"]) .enteteLigneAudit button, html:not([data-classe="large"]) .auditPrise button,

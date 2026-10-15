@@ -29,8 +29,11 @@ sont jamais touchés.
    celui où l'on dépose le contenu de `buildsg/`, fichier de démarrage `app.js`.
 2. Variable d'environnement facultative `BACKPROD_API_URL` (défaut : `https://www.raillard.org`).
    Pour l'admin des démos (`?admin`, `?demofile=<id>`, voir `MD/spec-demos-admin.md`) :
-   `ADMIN_PASSWORD` (sans elle, l'admin n'existe pas) et `DEMOS_DIR`, un dossier **hors** de celui
-   de l'application pour qu'une mise en ligne n'efface pas les démos.
+   `ADMIN_PASSWORD` (sans elle, l'admin n'existe pas) et `DATA_DIR`, le dossier de toutes les
+   données (démos, journal de Claude, audits…), par défaut `data/` à côté du dossier de
+   l'application, donc **hors** de lui : une mise en ligne n'efface rien (`donnees.mjs`). Un ancien
+   `DEMOS_DIR` donné seul garde l'ancienne disposition ; avec `DATA_DIR`, il est déplacé dans `data/`
+   au premier démarrage.
 3. Déposer le dossier (sans `node_modules/` ni `dist/`), lancer **npm install**.
 4. Démarrer / redémarrer l'application. Au premier démarrage, `app.js` lance `vite build`
    (quelques secondes) ; aux suivants, il reprend `dist/` tant que `SOURCE` et

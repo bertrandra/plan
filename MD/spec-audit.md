@@ -478,8 +478,9 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 | les mesures du §13.1 | il ne les recalcule pas ; il s'en sert comme indices |
 | les photos dont le **calage** ou la **détection** n'est pas sûr (coins non trouvés, façade mal vue, ouvertures douteuses) | des coins et des ouvertures **proposés**, que Plan recale sur l'image avant de s'en servir (`spec-facades-calage-detection.md` §12 bis) |
 
-- **Réponse fermée** : sortie structurée (schéma JSON), vocabulaire de `spec-regles-toits.md` §2 et §3,
-  `indetermine` partout. **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
+- **Réponse fermée** : schéma JSON, vocabulaire de `spec-regles-toits.md` §2 et §3, `indetermine`
+  partout. Le schéma part à la suite du prompt et le serveur y ramène la réponse (voir
+  `spec-regles-toits.md` §14.2, point 1). **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
   d'un cas douteux vers un modèle plus fin : les garde-fous de `spec-regles-toits.md` §14.2.
 - **Ce qui revient** : une liste de propositions, chacune avec son objet (façade, ouverture, toit,
   cheminée…), l'avant, l'après, les **indices** vus et sur quelle image, et une confiance.
@@ -491,18 +492,21 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     environ 60 000 tokens d'entrée par passe, soit environ 0,003 $ ; la sortie, environ 0,001 $ ;
   - avec trois passes, **de l'ordre de 1 à 2 centimes par parcelle** ;
   - quelques dizaines de centimes si une partie passe à l'escalade.
-  - **Depuis le 14 octobre 2026, le modèle plus fin (Sonnet) est celui de l'analyse par défaut** (voir
-    ci-dessous) : ses prix sont vingt fois ceux du modèle rapide, soit **de l'ordre de 20 à 40 centimes
-    par parcelle**. Les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête
-    (0,005 $) datent du modèle rapide : l'administrateur les relève dans « Réglages ».
-- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026* : sur les photos d'un vrai
-  audit, le modèle rapide ne trouvait rien) est un réglage du serveur, choisi par l'administrateur dans
+  - **Depuis le 15 octobre 2026, le modèle rapide (Haiku) est de nouveau celui de tous les usages par
+    défaut** (voir ci-dessous) ; les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation
+    par requête (0,005 $) lui correspondent. Un usage passé au modèle plus fin (Sonnet) dans
+    « Réglages » coûte vingt fois plus, soit **de l'ordre de 20 à 40 centimes par parcelle** pour
+    l'analyse : l'administrateur relève alors les plafonds.
+- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026*) est un réglage du serveur, choisi par l'administrateur dans
   le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
   (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
   modèles que le serveur admet (`MODELES` de `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`) et
-  refuse les autres. Par défaut : le modèle plus fin pour l'analyse des audits, le renfort des façades
-  et l'aide immédiate ; l'escalade reste au plus fin des modèles admis ; les cas candidats
-  (`spec-regles-toits.md`), nombreux et revus par une personne, au modèle rapide. Un modèle réglé que
+  refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits, escalade,
+  renfort des façades, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
+  l'utilisateur, 15 octobre 2026*). Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
+  au modèle plus fin le 14 octobre, venait du schéma que l'API refusait (sortie structurée trop grande,
+  §13.2 point « Réponse fermée »), pas du modèle. L'administrateur passe un usage au modèle plus fin
+  s'il le faut. Un modèle réglé que
   le serveur n'admet plus retombe sur le défaut. Une demande qui nomme son modèle le garde, comme
   avant. Le réglage vaut pour les envois suivants : un batch déjà créé garde le modèle écrit dans sa
   fiche.
@@ -573,7 +577,7 @@ du champ `usage` que l'API renvoie, jamais d'une estimation.
 | `idu`, `adresse` | la parcelle auditée |
 | `audit` | l'identifiant de l'audit (une capture et son analyse) |
 | `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
-| `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, Sonnet 5.5 en escalade…) |
+| `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, ou Sonnet 5.5 pour un usage que l'administrateur y a passé) |
 | `batch` | vrai si l'appel est passé par l'API Batch |
 | `idBatch` | l'identifiant du batch (hors batch : vide) ; la vue « Par modèle » compte les batches |
 | `passe` | 1, 2 ou 3 (le vote) |
@@ -717,6 +721,8 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
 
 ## 15. Le fichier, pour le corpus
 
+### 15.1 Le format, et qui le produit
+
 - Nom : `audit-parcelle-AAAA-MM-JJ-<idu>.json`, format `plan-audit-parcelle`, version 1.
 - Contenu :
   - la parcelle (IDU, adresse, origine), la version du code et des règles ;
@@ -744,7 +750,8 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
   (même IDU) : il reprend à la phase 3. C'est le cas d'un audit fait par l'administrateur pour un
   client.
 
-**Fait (lot L21)** :
+### 15.2 Fait (lot L21)
+
 - `model/fichierAuditParcelle.ts` écrit et relit le format `plan-audit-parcelle` version 1 ; il
   recopie sans recalculer. Chaque validation garde les propositions telles qu'elles étaient
   (`DecisionAudit.propositions`) : une proposition écrite ne se propose plus, le fichier la redit
@@ -766,9 +773,12 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
   validation renvoie le fichier et retire le précédent. La liste et la lecture sont à
   l'administrateur seul.
 
-**Sauvegarde pendant la capture, et catalogue de l'administrateur** (demande de l'administrateur du
+### 15.3 Sauvegarde pendant la capture, et catalogue de l'administrateur
+
+Demande de l'administrateur du
 14 octobre : « il faut pouvoir pousser un audit parcelle pour le rejouer ; si problème, on perd
-tout ») :
+tout ».
+
 - Le brouillon de l'appareil se perd avec le téléphone ou le navigateur. Quand quelqu'un peut envoyer
   (même condition que le corpus : session admin ou jeton de la plateforme), le fichier de l'audit
   part aussi au serveur de Plan **pendant la capture** (`app/audit/parcelle/sauvegarde.ts`) :
@@ -806,7 +816,7 @@ tout ») :
   c'est l'accord d'envoyer le fichier, photos comprises, au serveur de Plan). Décocher la case retire
   aussi la sauvegarde d'un utilisateur ; ensuite rien ne part sans le bouton. L'administrateur garde
   toujours la sienne, et sa case le dit (« La sauvegarde de l'audit reste sur le serveur de Plan »).
-- **Admin › « Audits de parcelle »** (`admin.auditsParcelle`, menu Admin à côté de « Conformité »,
+- **Admin › « Audits de parcelle »**, devenu « Audits » (15.4) (`admin.auditsParcelle`, menu Admin à côté de « Conformité »,
   admin des démos seulement) : un parcours de Z8 (`zones/parcours/AuditsParcelle.tsx`), et non un écran
   plein page comme la Conformité, parce qu'il rouvre un audit dans le projet ouvert dessous. Une carte
   par audit reçu, du plus récent au plus ancien : date de réception, sauvegarde ou partage, capture en
@@ -828,6 +838,125 @@ tout ») :
   `retirer`, `lister`, `lire`). Fumée : point 85.
 - Restent : verser les audits reçus au corpus du dépôt (§21), et les corrections faites dans l'éditeur
   du relevé, qui attendent son ouverture depuis la ligne d'une façade.
+
+### 15.4 Les données du serveur, et l'écran « Audits »
+
+Demandes de l'administrateur du 15 octobre : « les fichiers contenant des données : dans un répertoire
+en dessous de public_html, comme tous les fichiers de données — sous la racine un répertoire `data`
+avec toutes les données, et des sous-répertoires » ; « les audits eux-mêmes sont dans data, classés
+dans des répertoires pour faciliter » ; « regrouper les audits promenade et audit parcelle dans
+l'écran audit en les séparant, accès aux données et conclusion, action prise ou non » ; « c'est mon
+outil pour travailler à mon bureau suite à des audits. Je veux pouvoir tout analyser, entrant,
+sortant… » ; « je ne jette rien, tout est utile pour l'instant ».
+
+- **Un seul dossier `data/`**, frère de `public_html/` (à côté de `plan-admin-config.php`), jamais
+  servi : `deploy/donnees.php` et `buildsg/donnees.mjs`, même contrat. Réglage `dossierDonnees` de la
+  configuration (Node : `DATA_DIR`), par défaut `data/` à côté de la racine web, même quand Plan est
+  dans un sous-dossier. Sous-dossiers : `demo/` (les démos de l'admin et de la vitrine
+  `?mode=demo`), `admin/` (palette, registre des contrôleurs, échecs de connexion), `claude/`
+  (journal, tarifs, plafonds, modèles, batches), `audits/`, `conformite/`, et `migration.json`.
+- **Compatibilité** : une configuration qui ne dit que `dossierDemos` (celles d'avant) garde
+  l'ancienne disposition telle quelle (tout dans ce dossier, `.palette.json` à sa racine) : une mise
+  en ligne ne déplace rien sans que l'administrateur le demande. Avec `dossierDonnees`, au premier
+  passage, l'ancien dossier (`dossierDemos` s'il est encore là, puis `plan-demos/` à côté de la
+  configuration ou de la racine web, puis `demos/` à côté d'`admin.php`) est **déplacé** dans `data/`,
+  élément par élément, sous verrou, une fois : les démos dans `demo/`, `.palette.json` et
+  `.controleurs.json` dans `admin/`, `claude/`, `audits/` et `conformite/` tels quels. Rien n'est
+  écrasé : un élément déjà présent dans `data/` reste, et l'ancien aussi. `data/migration.json` dit ce
+  qui a été déplacé et ce qui est resté, l'ancien dossier reçoit `DEPLACE-VERS-DATA.txt`, le journal
+  d'erreurs de PHP (ou la console de Node) une ligne, et `GET admin/claude/etat` le montre à
+  l'administrateur (`donnees`). Les sessions PHP restent où PHP les range (`session.save_path`, hors
+  du site sur SiteGround).
+- **Chaque audit a son dossier**, classé pour s'y retrouver à la main (gestionnaire de fichiers,
+  FTP) : `audits/parcelle/<IDU>/<id>/` et `audits/promenade/<commune>/<id>/` — `audit.json` (le
+  fichier tel qu'il est arrivé, à l'octet près), `fiche.json`, `decisions.json` (la conclusion,
+  lisible : chaque proposition, sa source et sa décision ; chaque cas d'une promenade et son statut),
+  `analyses/` et `images/` (15.5). L'`<id>` commence par la date et l'heure de réception
+  (`AAAAMMJJ-HHMMSS-xxxxxxxx`) ; les noms sont en ASCII sans espaces (`nomSur`, même table d'accents
+  dans les deux serveurs). `audits/index.json` garde les fiches sans les secrets : la liste se lit
+  d'un coup ; supprimé, il se reconstruit en relisant l'arborescence. Les audits rangés à plat avant
+  ce rangement (`audits/<id>.json` et `<id>.fiche.json`) y sont rangés au premier passage. Le format
+  du fichier d'audit ne change pas.
+- **Les promenades des toits** (`plan-audit`, `model/audit.ts`) se déposent aussi sur le serveur, par
+  l'administrateur seul (« Ajouter un fichier d'audit… » de l'écran, qui envoie aussi bien un audit
+  de parcelle) ; leur fiche dit la commune, les cas et leur nombre par statut. Elles ne s'ouvrent pas
+  dans un projet et ne se rejouent pas par Claude.
+- **L'audit validé repart au serveur avec ses décisions** : après « Valider », le partage (D7) et la
+  sauvegarde quand elle part d'elle-même (administrateur, ou accord du partage) ; la fiche compte les
+  propositions (`propositions` : total, Claude, mesures, validées, refusées, en attente).
+- **Admin › « Audits »** (`admin.auditsParcelle`, l'ancien « Audits de parcelle ») : deux sections,
+  « Audits de parcelle » et « Promenades des toits ». La carte dit en une ligne la conclusion (« 3
+  propositions (Claude 2, mesures 1) : 1 validée, 1 refusée, 1 en attente », ou « À corriger 1,
+  Validé 1 »). « Détails » l'ouvre sur ses **données** (les photos en vignettes, bâtiment par bâtiment
+  et façade par façade avec ce que les mesures en ont tiré ; cas par cas pour une promenade), sa
+  **conclusion** (tableau des propositions : objet, avant, après, source, décision ; pour une
+  promenade, statut et « fait écrit » d'après `regles/toits/faits.json`) et, pour un audit de
+  parcelle, ses **analyses** (15.5). Sur grand écran le dialogue s'élargit (1 180 px) ; au doigt, les
+  tableaux défilent dans leur boîte. « Retirer » reste confirmé et emporte le dossier entier.
+- Pas de purge automatique : rien ne s'efface sans « Retirer » (administrateur, ou le secret de
+  retrait de la personne qui reprend son accord, D7).
+
+### 15.5 Garder l'entrant et le sortant, rejouer et comparer
+
+Rejouer l'analyse par Claude d'un audit stocké, avec le prompt et le schéma actuels
+(`deploy/prompt-*.md`, `deploy/schema-*.json`, versionnés) et le modèle choisi, sans refaire la
+visite, pour comparer les réponses d'une version du prompt à l'autre et d'un modèle à l'autre.
+
+- **La trace** : un batch qui nomme son audit (`depot`, l'identifiant du serveur) garde, dans le
+  dossier de l'audit, `analyses/<AAAAMMJJ-HHMMSS>-<modele>-<xxxx>/` :
+  - `entrant.json` : pour chaque usage, la version du prompt et du schéma et **le texte complet
+    envoyé en system** (prompt puis schéma, `promptAvecSchema`) ; `max_tokens`, effort ; chaque
+    requête (identifiant, passe, usage, modèle, façades, images) et ses blocs dans l'ordre — le texte
+    tel quel, chaque image par son nom `images/<sha256>.<ext>` et sa taille. Les images sont gardées
+    une fois par audit (deux rejeux envoient les mêmes photos réduites : un seul fichier). On garde
+    l'image **envoyée** (réduite à 1 024 px, rendu du modèle, orthophoto, carte LiDAR), qui n'est pas
+    celle du fichier d'audit : c'est elle que Claude a vue ;
+  - `sortant.json` : pour chaque requête, le statut, l'arrêt, l'erreur (type, message), **le texte
+    brut de Claude** tel qu'il l'a écrit, la sortie ramenée au schéma (`conformer`), les tokens, le
+    coût, le tarif, les comptes (`trouve`) ; le batch et l'heure de fin ;
+  - `resume.json` : nature (`analyse` ou `rejeu`), état (`en_cours`, `termine`), dates, batch,
+    organisation, usage, modèle, effort, versions, nombre de requêtes et d'images, puis les comptes,
+    tokens et coût de chaque requête. C'est ce que la liste montre.
+  Le journal de `claude/` ne change pas : il ne garde toujours ni photo ni réponse.
+- **Qui nomme son audit** : l'analyse de la session, quand l'audit a déjà un dépôt sur le serveur
+  (sa sauvegarde, sinon son partage) — si ce dépôt a été retiré ou n'est pas celui de l'organisation,
+  l'analyse part quand même, sans trace ; et le **rejeu**, qui l'exige (404 sinon).
+- **Le rejeu** (`app/audit/parcelle/rejeu.ts`) : depuis la carte ouverte, « Rejouer l'analyse » avec
+  le modèle choisi dans la liste des modèles que le serveur admet (`MODELES`, lus dans
+  `admin/claude/etat`). Il demande le projet ouvert de la même parcelle (le modèle actuel, l'orthophoto,
+  le relief et le rendu de la Vue 3D en viennent, comme à l'analyse ; sans Vue 3D construite, pas de
+  rendu). Les photos, les mesures et « Ce que je vois » viennent du fichier (`captureDuFichier`,
+  `mesuresDuFichier`), les entrées de `preparerDemande`, trois passes par bâtiment. Le renfort des
+  façades n'est pas rejoué. La demande part en batch, usage **`rejeu`** (modèle par défaut celui des
+  autres usages, réglable dans Réglages › Modèles ; ici toujours explicite), `depot` et `modele`
+  nommés : **les mêmes plafonds qu'une analyse** (dépense du jour et du mois, engagé, estimation), et
+  le tableau de bord en dit le coût à part (« Rejeu des audits »). Réservé à l'administrateur (403
+  pour un jeton) ; un rejeu ne porte que l'analyse des maisons (400 sinon) ; pas d'appel immédiat.
+- **Le suivi** : la carte ouverte relit les analyses ; celles en cours voient leur batch relu toutes
+  les vingt secondes (et à « Relire les analyses ») ; un batch fini est lu (`resultats`), ce qui
+  complète la trace côté serveur (une fois, avec le journal). Un batch fini pendant que personne ne
+  regarde est aussi lu au batch suivant de la même organisation (`engagements`).
+- **La comparaison** (`export/benchmarkAnalyses.ts`) : une ligne par analyse ou rejeu, dans l'ordre
+  des essais — date, nature, modèle, versions du prompt et du schéma, réussies sur requêtes, réponses
+  vides, puis ouvertures, pignons, lucarnes, écarts, déterminés, coût, durée (de l'envoi à la fin du
+  batch). Les comptes d'une analyse sont, pour chaque bâtiment, la **médiane de ses passes lues**
+  (le vote), additionnée sur les bâtiments ; une passe en échec ne compte pas. « Exporter en CSV »
+  rend le tableau au format du tableau de bord (`;`, virgule décimale, BOM).
+- **Le détail d'une analyse** (« Voir ») : l'entrant (le texte du prompt envoyé, chaque requête avec
+  ses textes et ses images en vignettes), le sortant (pour chaque requête : statut, arrêt, erreur,
+  tokens, coût, ce qui a été trouvé, la réponse brute et la sortie remise en forme), le vote par
+  bâtiment ; « Exporter (JSON) » donne le tout (`plan-audit-analyse-complete`) pour le travailler
+  ailleurs. Les propositions et leur décision sont celles de l'audit (sa conclusion) : un rejeu ne
+  modifie pas l'audit et ne recalcule pas de propositions.
+- Routes (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, administrateur seul, en lecture) :
+  `GET admin/audits/<id>/analyses`, `GET admin/audits/<id>/analyses/<trace>`,
+  `GET admin/audits/<id>/images/<sha256>.<ext>` ; `POST admin/claude/batches` accepte `depot`
+  (identifiant d'audit) et rend `trace`. Client : `io/analysesAudits.ts`. Scénario commun
+  `tests/fixtures/deploy/scenarioDonnees.ts` (dont : rien n'est écrit hors de `data/`). Fumée :
+  points 85 et 86.
+- Restent : le rejeu par Claude des promenades (il faudrait construire les entrées depuis les cas,
+  sans projet) et celui du renfort des façades ; les propositions qu'un rejeu donnerait (il faudrait
+  rejouer `propositionsClaude` sur le projet) ; la comparaison de deux réponses brutes côte à côte.
 
 ## 16. Ce que l'audit de parcelle ne fait pas
 
