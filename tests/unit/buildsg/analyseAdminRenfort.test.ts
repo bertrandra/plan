@@ -35,7 +35,7 @@ const requeteRenfort = (id: string, passe: number) => ({
 describe('le prompt et le schema du renfort', () => {
   it('sont versionnes, et le schema respecte les limites de la sortie structuree', () => {
     const p = lirePrompt(PROMPT);
-    expect(p.version).toBe(1);
+    expect(p.version).toBe(2);
     expect(p.texte).toMatch(/^# Rôle/);
     expect(SCHEMA.version).toBe(1);
     const verifier = (n: unknown, ou: string): void => {
@@ -127,20 +127,20 @@ describe('le renfort, routes', () => {
   });
 
   it('dit les versions du renfort dans l etat', async () => {
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ prompt: 1, schema: 1, renfort: { prompt: 1, schema: 1 } });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ prompt: 2, schema: 1, renfort: { prompt: 2, schema: 1 } });
   });
 
   it('envoie une requete de renfort dans le batch de l analyse, avec son prompt et son schema, et la journalise sous son usage', async () => {
     const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1', 1)] };
     expect((await ecrire('admin/claude/batches', d)).status).toBe(201);
     const [p1, r1] = faux.batches[0]!.corps.requests;
-    expect((p1!.params.output_config as { format: { schema: { required: string[] } } }).format.schema.required).toContain('forme');
-    expect((r1!.params.output_config as { format: { schema: unknown } }).format.schema).toEqual(SCHEMA.schema);
+    expect((p1!.params.system as { text: string }[])[0]!.text).toContain('"required":["forme",');
+    expect((r1!.params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(SCHEMA.schema))).toBe(true);
     expect((r1!.params.system as { text: string }[])[0]!.text).toMatch(/relever une façade photographiée/);
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'renfort']]);
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-sonnet-5-5', batch: true, facades: 1, prompt: 1, schema: 1, trouve: null });
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-sonnet-5-5', batch: true, facades: 1, prompt: 2, schema: 1, trouve: null });
   });
 
   it('fait l appel immediat en trois passes, au tarif normal, et le journalise', async () => {
@@ -149,9 +149,9 @@ describe('le renfort, routes', () => {
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
-    expect(faux.messages[0]).toMatchObject({ model: 'claude-sonnet-5-5', output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA.schema } } });
+    expect(faux.messages[0]).toMatchObject({ model: 'claude-sonnet-5-5', output_config: { effort: 'low' } });
     const cout = coutAppel(tokensDeUsage(USAGE_P2), FIN, false);
-    expect(corps).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 1, schema: 1 });
+    expect(corps).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 2, schema: 1 });
     expect(corps.resultats.map((x: { id: string; statut: string; passe: number; usage: string; cout: number }) => [x.id, x.statut, x.passe, x.usage, x.cout])).toEqual([['r1', 'reussi', 1, 'renfort', cout], ['r2', 'reussi', 2, 'renfort', cout], ['r3', 'reussi', 3, 'renfort', cout]]);
     expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
     expect(journal()).toHaveLength(3);

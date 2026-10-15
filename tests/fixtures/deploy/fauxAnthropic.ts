@@ -168,10 +168,32 @@ export const COUT_P2_FIN = 0.01275;
 /** Les comptes de la sortie par defaut (`forme` seule, determinee) : une reponse qui n'est pas vide. */
 export const TROUVE_DEFAUT = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 1, vide: false };
 
-/** La reponse par defaut : p1 et p2 reussies, `rate` en erreur. */
+/**
+ * Une reponse comme Claude l'ecrit sans sortie structuree : du texte autour, un bloc de code, des
+ * accents et des majuscules, un nombre en texte, un terme hors vocabulaire, des champs absents.
+ */
+export const TEXTE_DESORDONNE = 'Voici mon observation :\n```json\n' + JSON.stringify({
+  forme: { valeur: 'Deux pans', indices: [{ image: '2', vu: 'pignon sur rue' }, { vu: 'sans image' }] },
+  lucarnes: { nombre: 'indéterminé', types: ['jacobine', 'inconnue'] },
+  bouts: { gauche: 'Pignon' },
+  elements: [{ element: 'cheminee' }, { element: 'verrière', indices: [] }],
+  facades: [{ facade: 'sud', ouvertures: { niveaux: 2, parNiveau: [3, '4', 'x'] }, materiau: 'Meulière' }],
+  confiance: 'Forte',
+  enTrop: 'hors schema'
+}) + '\n```\nFin.';
+
+/** Un message reussi dont le texte est donne tel quel. */
+export function reussiTexte(customId: string, usage: Record<string, unknown>, texte: string): object {
+  const r = reussi(customId, usage) as { result: { message: { content: unknown[] } } };
+  r.result.message.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: texte }];
+  return r;
+}
+
+/** La reponse par defaut : p1 et p2 reussies, p3 reussie en texte desordonne, `rate` en erreur. */
 export const reponseParDefaut: Reponse = (id) => {
   if (id === 'p1') return reussi(id, USAGE_P1);
   if (id === 'p2') return reussi(id, USAGE_P2);
+  if (id === 'p3') return reussiTexte(id, USAGE_P2, TEXTE_DESORDONNE);
   return { custom_id: id, result: { type: 'errored', error: { type: 'error', error: { type: 'overloaded_error', message: 'Surcharge' } } } };
 };
 
