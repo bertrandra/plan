@@ -5,6 +5,7 @@ import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { clotureDImport } from '../../../../../src/model/cloture.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/types.js';
+import { IDU_AE101, importerAE101, rechercheAE101, coteAllee } from '../../../../fixtures/cloture/ae101.js';
 
 // Les propositions de l'audit sans Claude (MD/spec-audit.md §13.1, §14) : ce que les mesures et les
 // observations proposent, l'avant et l'apres de chacune, ce qui arrive decoche, et quand un batiment
@@ -155,5 +156,22 @@ describe('vérifié sur place', () => {
     const sansArdoise = new Set([...mesures].filter((id) => id !== couverture.id));
     expect(verifications(e.liste, e.capture, [...p, zinc], sansArdoise)[0]?.raison).toBe('2 propositions décochées');
     expect(verifications(e.liste, e.capture, [...p.filter((x) => x.effet.type !== 'hauteur'), solo], new Set(p.filter((x) => x.effet.type !== 'hauteur').map((x) => x.id)))[0]?.raison).toBe('1 proposition décochée');
+  });
+});
+
+describe('la cloture et le portail vus sur place, sans portail dans le projet', () => {
+  it('AE 101 : posent le portail et la cloture cote rue, pas sur le plus long cote, mitoyen', () => {
+    // Un projet sans portail (cree avant la cloture d'import, ou portail retire) : le cote sur rue se
+    // devine comme pour un portail neuf, ici au point d'adresse.
+    const objets = importerAE101({ recherche: rechercheAE101('adresse') });
+    const parcelle = objets[0] as ObjetPlan;
+    delete parcelle.cloture;
+    const c = captureVide(IDU_AE101);
+    c.cloture = { type: 'mur', hauteurM: 1.6, photos: [] };
+    c.portail = { nature: 'portail', position: 'centre', largeurM: 3.5, photos: [] };
+    const p = new Map(propositionsDeLAudit(entrees(objets, c, new Map())).map((x) => [x.id, x]));
+    const allee = coteAllee(parcelle);
+    expect(p.get('parcelle:cloture')?.effet).toMatchObject({ type: 'cloture', cote: allee });
+    expect(p.get('parcelle:portail')?.effet).toMatchObject({ type: 'portail', cote: allee, nature: 'portail' });
   });
 });

@@ -245,6 +245,41 @@ function uvDeroule(pts2d: { x: number; y: number }[]) {
   };
 }
 
+/** La plus grande maille d'un ruban drape : celle de la grille LiDAR la plus fine (50 cm). */
+export const PAS_DRAPE_M = 0.5;
+
+/**
+ * La geometrie d'un ruban drape sur le sol : entre les deux bords mitres de `ribbonChemin`, des
+ * quadrilateres recoupes en mailles d'au plus `pas` metres en long comme en travers, chaque sommet a
+ * `sol(p) + decalage`. `null` si le trace ne fait pas de ruban.
+ */
+export function geometrieRubanDrape(trace: PtBrut[], largeur: number, versLocal: VersLocal, sol: (p: PtBrut) => number, decalage: number, pas = PAS_DRAPE_M): THREE_NS.BufferGeometry | null {
+  const ruban = ribbonChemin(trace, largeur);
+  const n = trace.length;
+  if (!ruban || ruban.length !== 2 * n) return null;
+  const gauche = ruban.slice(0, n), droite = ruban.slice(n).reverse();
+  const positions: number[] = [], uv: number[] = [];
+  const sommet = (p: PtBrut) => { const l = versLocal(p); positions.push(l.x, sol(p) + decalage, l.z); uv.push(l.x, -l.z); };
+  const mix = (a: PtBrut, b: PtBrut, t: number): PtBrut => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const travers = Math.max(1, Math.ceil(largeur / pas));
+  for (let i = 0; i < n - 1; i++) {
+    const g0 = sommetDe(gauche, i), g1 = sommetDe(gauche, i + 1), d0 = sommetDe(droite, i), d1 = sommetDe(droite, i + 1);
+    const long = Math.max(1, Math.ceil(Math.max(dist(g0, g1), dist(d0, d1)) / pas));
+    for (let a = 0; a < long; a++) for (let b = 0; b < travers; b++) {
+      const coin = (ta: number, tb: number) => mix(mix(g0, g1, ta), mix(d0, d1, ta), tb);
+      const p00 = coin(a / long, b / travers), p10 = coin((a + 1) / long, b / travers);
+      const p01 = coin(a / long, (b + 1) / travers), p11 = coin((a + 1) / long, (b + 1) / travers);
+      [p00, p01, p11, p00, p11, p10].forEach(sommet);
+    }
+  }
+  if (!positions.length) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 /**
  * Monte chaque sommet d'une forme a plat (deja tournee, y = 0) a la hauteur du sol sous lui.
  * ShapeGeometry ne garde que les sommets du contour : chacun retrouve son point du plan par ses
@@ -271,7 +306,36 @@ export interface ContextePrimitives {
   chargerTexture: (url: string, repetition?: number) => THREE_NS.Texture;
 }
 
-export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePrimitives) {
+/**
+ * Le materiau d'un ruban pose au sol (un chemin) : sa couleur, sa texture a l'echelle du carreau
+ * (ses coordonnees de texture sont des metres), et sa couche (COUCHES_SOL), percee au droit d'un bassin.
+ */
+function materiauRuban(color: CouleurTrois, opacity: number | undefined, texRef: unknown, couche: number | undefined, chargerTexture: ContextePrimitives['chargerTexture']): THREE_NS.MeshStandardMaterial {
+  const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
+  appliquerOpacite(mat, opacity);
+  const urlTex = urlTexture(texRef);
+  if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
+  if (couche) { poserEnCouche(mat, couche); percerSol(mat); }
+  return mat;
+}
+
+type ArgsRubanDrape = [trace: PtBrut[], largeur: number, color: CouleurTrois, decalage: number, opacity: number | undefined, texRef: unknown, couche: number, sol: (p: PtBrut) => number];
+
+/**
+ * Un ruban drape sur le sol en relief (un chemin) : les deux bords de `ribbonChemin`, recoupes en
+ * mailles d'au plus PAS_DRAPE_M, chaque sommet a la hauteur du sol sous lui plus `decalage`. Les
+ * coordonnees de texture sont celles du ruban plat (metres du plan, centres sur la scene).
+ */
+function ajouterRubanDrape({ scene, versLocal, chargerTexture }: ContextePrimitives, ...[trace, largeur, color, decalage, opacity, texRef, couche, sol]: ArgsRubanDrape): THREE_NS.Mesh | null {
+  const geo = geometrieRubanDrape(trace, largeur, versLocal, sol, decalage);
+  if (!geo) return null;
+  const mesh = new THREE.Mesh(geo, materiauRuban(color, opacity, texRef, couche, chargerTexture));
+  scene.add(mesh);
+  return mesh;
+}
+
+export function creerPrimitives(contexte: ContextePrimitives) {
+  const { scene, versLocal, chargerTexture } = contexte;
   // Extrude une emprise du plan vers le haut. ExtrudeGeometry construit en XY et pousse selon +Z :
   // la forme est posee en (x, -z) puis tournee d'un quart de tour autour de X. Non biseautee, elle
   // construit TOUJOURS le groupe 0 = les deux capuchons (horizontaux apres la rotation) puis le
@@ -330,23 +394,20 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
   // ruban monte alors a cette hauteur plus `yLevel`. Entre deux sommets le ruban reste plan : un
   // long chemin droit sur un sol bombe peut passer dessous par endroits — un trait au sol n'a pas
   // d'epaisseur a offrir, et subdiviser un ruban mitre demanderait une triangulation a part.
-  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number, sol?: (p: PtBrut) => number): void {
-    if (!poly || poly.length < 3) return;
+  function addRibbonFlat(poly: PtBrut[] | null | undefined, color: CouleurTrois, yLevel: number, opacity?: number, texRef?: unknown, couche?: number, sol?: (p: PtBrut) => number): THREE_NS.Mesh | null {
+    if (!poly || poly.length < 3) return null;
     const shape = new THREE.Shape();
     poly.forEach((q, i) => { const p = versLocal(q); if (i === 0) shape.moveTo(p.x, -p.z); else shape.lineTo(p.x, -p.z); });
     shape.closePath();
     const geo = new THREE.ShapeGeometry(shape);
     geo.rotateX(-Math.PI / 2);
     if (sol) poserSommetsSurSol(geo, poly, versLocal, sol);
-    const mat = new THREE.MeshStandardMaterial({ color, side: THREE.DoubleSide });
-    appliquerOpacite(mat, opacity);
-    const urlTex = urlTexture(texRef);
-    // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : meme echelle.
-    if (urlTex) mat.map = chargerTexture(urlTex, 1 / METRES_PAR_CARREAU);
-    if (couche) { poserEnCouche(mat, couche); percerSol(mat); }
+    // ShapeGeometry pousse les coordonnees locales brutes (des metres) comme UV : l'echelle du carreau.
+    const mat = materiauRuban(color, opacity, texRef, couche, chargerTexture);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.y = yLevel;
     scene.add(mesh);
+    return mesh;
   }
 
   // Une piece de bois, coupee au contour dans lequel elle s'arrete plutot qu'a 90 degres.
@@ -416,7 +477,8 @@ export function creerPrimitives({ scene, versLocal, chargerTexture }: ContextePr
     tete.position.set(P.x, yTop - hTete / 2, P.z); scene.add(tete);
   }
 
-  return { addPrism, addGroundOutline, addRibbonFlat, addBeam, addBande, addPost, addPlot };
+  const addRubanDrape = (...a: ArgsRubanDrape) => ajouterRubanDrape(contexte, ...a);
+  return { addPrism, addGroundOutline, addRibbonFlat, addRubanDrape, addBeam, addBande, addPost, addPlot };
 }
 
 export type Primitives = ReturnType<typeof creerPrimitives>;
