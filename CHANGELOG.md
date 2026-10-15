@@ -1347,6 +1347,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Audit de la parcelle : l'analyse par Claude était refusée avant même de lire les photos**
+  (AE 101, 15 octobre 2026 : « The compiled grammar is too large… » ; seules les mesures étaient
+  proposées). Le schéma de la réponse partait en sortie structurée (`output_config.format`), que l'API
+  compile en grammaire ; celle de l'analyse d'une maison dépasse sa limite, et chaque requête
+  échouait. Le schéma part désormais à la suite du prompt, dans le même bloc en cache, et le serveur
+  (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, même règle) ramène la réponse à sa forme : le
+  texte autour et un bloc de code sont laissés, les termes sont lus sans accents ni majuscules, un
+  terme hors vocabulaire devient `indetermine`, un champ absent prend `indetermine` ou le vide de
+  son type. Rien n'est inventé : un élément de liste à qui manque un nombre (numéro d'ouverture,
+  cote, image) ou un terme sans `indetermine` est écarté, et une confiance absente est `faible`. La
+  page reçoit la même forme qu'avant ; le renfort des façades suit la même voie. Les prompts passent
+  en version 2 (le journal le dit pour chaque réponse). Relancer l'analyse d'un audit déjà fait.
+
 - **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
   adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
   depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent

@@ -284,14 +284,151 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
     return $meta + ['usage' => $usage, 'modele' => $modele, 'requetes' => $requetes];
 }
 
-/** Les parametres d'une requete du batch : le prompt en cache, la sortie structuree, l'effort. */
+// --- La forme de la reponse ---------------------------------------------------------------------
+// Le schema ne part plus en sortie structuree (`output_config.format`) : l'API le compile en
+// grammaire, et celle de l'analyse d'une maison depasse sa limite (« The compiled grammar is too
+// large », audit d'AE 101, 15 octobre 2026) ; aucune reponse n'etait lue. Il part a la suite du
+// prompt, et la reponse y est ramenee ici (`conformer`) : un terme hors vocabulaire devient
+// `indetermine`, un champ manquant prend sa valeur par defaut, un element de liste illisible est
+// ecarte. La page recoit donc la meme forme qu'avant. buildsg/analyseAdmin.mjs fait de meme.
+
+const CONSIGNE_JSON = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, conforme à ce schéma JSON :';
+
+/** Le prompt envoye en system : la partie fixe, puis le schema de la reponse (les deux en cache). */
+function promptAvecSchema(string $prompt, $schema): string {
+    return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_JSON . "\n\n" . json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/** L'objet JSON d'une reponse : le texte entier, sinon ce qui va de la premiere accolade a la derniere. */
+function objetJsonDuTexte(string $texte) {
+    $t = trim($texte);
+    $d = json_decode($t);
+    if (is_object($d)) return $d;
+    $i = strpos($t, '{');
+    $j = strrpos($t, '}');
+    if ($i === false || $j === false || $j <= $i) return null;
+    $d = json_decode(substr($t, $i, $j - $i + 1));
+    return is_object($d) ? $d : null;
+}
+
+/** Un terme ecrit par Claude, ramene a la graphie du vocabulaire (minuscules, sans accents, tirets). */
+function termeNormalise(string $v): string {
+    $v = strtr(mb_strtolower(trim($v)), ['à' => 'a', 'â' => 'a', 'ä' => 'a', 'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'î' => 'i', 'ï' => 'i',
+                                         'ô' => 'o', 'ö' => 'o', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ç' => 'c', 'œ' => 'oe', '_' => '-', ' ' => '-']);
+    return $v;
+}
+
+function schemaResolu($s, $defs) {
+    for ($n = 0; is_object($s) && isset($s->{'$ref'}) && $n < 8; $n++) {
+        $nom = preg_replace('~^#/\$defs/~', '', (string)$s->{'$ref'});
+        $s = is_object($defs) && isset($defs->$nom) ? $defs->$nom : null;
+    }
+    return $s;
+}
+
+/**
+ * La valeur d'un champ manquant ou illisible, `[vrai, valeur]` quand il en a une sans rien inventer :
+ * `indetermine` si son vocabulaire l'a, une liste vide, un texte vide, un objet ramene a son schema.
+ * Un nombre (un numero d'ouverture, une cote, une image) ou un terme sans `indetermine` n'en a pas :
+ * l'objet qui le porte est alors ecarte de sa liste plutot que complete.
+ */
+function valeurParDefaut($s, $defs): array {
+    $s = schemaResolu($s, $defs);
+    if (!is_object($s)) return [false, null];
+    if (isset($s->anyOf) && is_array($s->anyOf)) {
+        foreach ($s->anyOf as $b) {
+            $b = schemaResolu($b, $defs);
+            if (is_object($b) && is_array($b->enum ?? null) && in_array('indetermine', $b->enum, true)) return [true, 'indetermine'];
+        }
+        return [false, null];
+    }
+    if (is_array($s->enum ?? null)) return in_array('indetermine', $s->enum, true) ? [true, 'indetermine'] : [false, null];
+    switch ($s->type ?? null) {
+        case 'array': return [true, []];
+        case 'string': return [true, ''];
+        case 'object': $o = conformer(new stdClass(), $s, $defs, $ok); return [$ok, $o];
+        default: return [false, null];
+    }
+}
+
+/**
+ * `$v` ramene au schema `$s` ; `$ok` faux quand il ne s'y ramene pas (le parent decide alors). A la
+ * racine, un terme manquant sans `indetermine` prend le premier du vocabulaire : c'est `confiance`,
+ * et son premier terme, `faible`, est le plus prudent.
+ */
+function conformer($v, $s, $defs, ?bool &$ok = null, bool $racine = false) {
+    $ok = true;
+    $s = schemaResolu($s, $defs);
+    if (!is_object($s)) return $v;
+    if (isset($s->anyOf) && is_array($s->anyOf)) {
+        foreach ($s->anyOf as $b) { $r = conformer($v, $b, $defs, $okB); if ($okB) return $r; }
+        $ok = false;
+        return null;
+    }
+    if (is_array($s->enum ?? null)) {
+        if (is_string($v)) { $t = termeNormalise($v); if (in_array($t, $s->enum, true)) return $t; }
+        $ok = false;
+        return null;
+    }
+    switch ($s->type ?? null) {
+        case 'object':
+            if (!is_object($v)) break;
+            $o = new stdClass();
+            foreach ((array)($s->properties ?? []) as $k => $p) {
+                $r = conformer(property_exists($v, (string)$k) ? $v->$k : null, $p, $defs, $okP);
+                if ($okP) { $o->$k = $r; continue; }
+                [$a, $d] = valeurParDefaut($p, $defs);
+                if ($a) { $o->$k = $d; continue; }
+                $p = schemaResolu($p, $defs);
+                if ($racine && is_object($p) && is_array($p->enum ?? null) && $p->enum) { $o->$k = $p->enum[0]; continue; }
+                $ok = false;
+                return null;
+            }
+            return $o;
+        case 'array':
+            if (!is_array($v)) break;
+            $l = [];
+            foreach ($v as $x) { $r = conformer($x, $s->items ?? null, $defs, $okI); if ($okI) $l[] = $r; }
+            return $l;
+        case 'integer':
+            if (is_int($v)) return $v;
+            if (is_float($v) && is_finite($v)) return (int)round($v);
+            if (is_string($v) && preg_match('/^\s*-?\d+\s*$/', $v)) return (int)trim($v);
+            break;
+        case 'number':
+            if (is_int($v) || (is_float($v) && is_finite($v))) return $v;
+            if (is_string($v) && preg_match('/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/', trim($v))) return 0 + trim($v);
+            break;
+        case 'string':
+            if (is_string($v)) return $v;
+            break;
+        case 'boolean':
+            if (is_bool($v)) return $v;
+            break;
+        default:
+            return $v;
+    }
+    $ok = false;
+    return null;
+}
+
+/** La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON. */
+function sortieConforme(string $texte, $schema) {
+    $d = objetJsonDuTexte($texte);
+    if ($d === null) return null;
+    if (!is_object($schema)) return $d;
+    $r = conformer($d, $schema, $schema->{'$defs'} ?? null, $ok, true);
+    return $ok && is_object($r) ? $r : null;
+}
+
+/** Les parametres d'une requete du batch : le prompt et le schema en cache, l'effort. */
 function parametresRequete(string $modele, string $prompt, $schema, array $contenu): array {
     return [
         'model' => $modele,
         'max_tokens' => MAX_TOKENS,
-        'system' => [['type' => 'text', 'text' => $prompt, 'cache_control' => ['type' => 'ephemeral']]],
+        'system' => [['type' => 'text', 'text' => promptAvecSchema($prompt, $schema), 'cache_control' => ['type' => 'ephemeral']]],
         'messages' => [['role' => 'user', 'content' => $contenu]],
-        'output_config' => ['effort' => EFFORT, 'format' => ['type' => 'json_schema', 'schema' => $schema]],
+        'output_config' => ['effort' => EFFORT],
     ];
 }
 
@@ -526,7 +663,7 @@ function choixConsommation(array $lignes, array $p): array {
 }
 
 /** Ce qu'une ligne de resultats d'Anthropic devient : pour la page, et pour le journal. */
-function lireResultat($ligne): array {
+function lireResultat($ligne, $schema = null): array {
     $r = is_object($ligne) && isset($ligne->result) && is_object($ligne->result) ? $ligne->result : new stdClass();
     $type = $r->type ?? '';
     $statut = ['succeeded' => 'reussi', 'errored' => 'echoue', 'expired' => 'expire', 'canceled' => 'annule'][$type] ?? 'echoue';
@@ -536,16 +673,17 @@ function lireResultat($ligne): array {
     $sortie = null;
     $erreur = null;
     if ($message) {
+        // Les blocs de texte bout a bout : la reflexion vient dans ses propres blocs, ignores ici.
         $texte = null;
         foreach ((is_array($message->content ?? null) ? $message->content : []) as $b) {
-            if (is_object($b) && ($b->type ?? null) === 'text') { $texte = (string)($b->text ?? ''); break; }
+            if (is_object($b) && ($b->type ?? null) === 'text') $texte = ($texte ?? '') . (string)($b->text ?? '');
         }
         $arret = $message->stop_reason ?? null;
         if ($arret === 'refusal') $erreur = ['type' => 'refusal', 'message' => 'Analyse refusée par le modèle.'];
         elseif ($arret === 'max_tokens') $erreur = ['type' => 'max_tokens', 'message' => 'Réponse coupée (max_tokens).'];
         else {
-            // En objets, pas en tableaux : la sortie revient a la page telle que Claude l'a ecrite.
-            $sortie = $texte === null ? null : json_decode($texte);
+            // En objets, pas en tableaux : `{}` et `[]` repartent tels quels vers la page.
+            $sortie = $texte === null ? null : sortieConforme($texte, $schema);
             if ($sortie === null) $erreur = ['type' => 'sortie_illisible', 'message' => 'Sortie non JSON.'];
         }
     } elseif ($type === 'errored') {
@@ -817,9 +955,14 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
     [$statut, $texte] = anthropic('GET', '/v1/messages/batches/' . rawurlencode($fiche['id']) . '/results');
     if ($statut !== 200) return ['erreur' => [$statut, $texte]];
     $lus = [];
+    $schemas = [];
     foreach (explode("\n", $texte) as $l) {
         if (trim($l) === '') continue;
-        $lus[] = lireResultat(json_decode($l));
+        $ligne = json_decode($l);
+        // Chaque reponse se ramene au schema de son usage (le renfort a le sien dans le batch de l'analyse).
+        $usageL = (string)($fiche['requetes'][(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')]['usage'] ?? $fiche['usage']);
+        if (!array_key_exists($usageL, $schemas)) { try { $schemas[$usageL] = promptEtSchema($usageL)[1]['schema']; } catch (RuntimeException $e) { $schemas[$usageL] = null; } }
+        $lus[] = lireResultat($ligne, $schemas[$usageL]);
     }
     $fin = is_string($fiche['finLe'] ?? null) ? strtotime($fiche['finLe']) : false;
     $t = $fin !== false ? gmdate('Y-m-d\TH:i:s\Z', $fin) : maintenant();
@@ -953,10 +1096,10 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
     $journal = [];
     $resultats = [];
     foreach ($demande['requetes'] as $r) {
-        $x = lireResultat($lignesApi[$r['id']] ?? null);
+        [$pR, $sR] = $prompts[$r['usage']];
+        $x = lireResultat($lignesApi[$r['id']] ?? null, $sR['schema']);
         $ligneTarif = tarifEnVigueur($table, $r['modele'], substr($t, 0, 10));
         $cout = coutAppel($x['tokens'], $ligneTarif, false);
-        [$pR, $sR] = $prompts[$r['usage']];
         $journal[] = ['t' => $t] + $identite + ['usage' => $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
             'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage'])];

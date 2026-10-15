@@ -478,8 +478,9 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 | les mesures du §13.1 | il ne les recalcule pas ; il s'en sert comme indices |
 | les photos dont le **calage** ou la **détection** n'est pas sûr (coins non trouvés, façade mal vue, ouvertures douteuses) | des coins et des ouvertures **proposés**, que Plan recale sur l'image avant de s'en servir (`spec-facades-calage-detection.md` §12 bis) |
 
-- **Réponse fermée** : sortie structurée (schéma JSON), vocabulaire de `spec-regles-toits.md` §2 et §3,
-  `indetermine` partout. **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
+- **Réponse fermée** : schéma JSON, vocabulaire de `spec-regles-toits.md` §2 et §3, `indetermine`
+  partout. Le schéma part à la suite du prompt et le serveur y ramène la réponse (voir
+  `spec-regles-toits.md` §14.2, point 1). **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
   d'un cas douteux vers un modèle plus fin : les garde-fous de `spec-regles-toits.md` §14.2.
 - **Ce qui revient** : une liste de propositions, chacune avec son objet (façade, ouverture, toit,
   cheminée…), l'avant, l'après, les **indices** vus et sur quelle image, et une confiance.

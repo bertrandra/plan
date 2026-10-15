@@ -1,6 +1,6 @@
 ---
-version: 1
-note: Partie fixe du prompt « béton » (spec-regles-toits.md §14.3, spec-audit.md §13.2), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 (lot L17) : les façades aussi — photos par façade, rendu du modèle depuis la même prise de vue, ouvertures détectées par Plan, détails et matériau du parement. Toujours sans exemples annotés : ils viendront du corpus validé (§14.3, point 5).
+version: 2
+note: Partie fixe du prompt « béton » (spec-regles-toits.md §14.3, spec-audit.md §13.2), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 (lot L17) : les façades aussi — photos par façade, rendu du modèle depuis la même prise de vue, ouvertures détectées par Plan, détails et matériau du parement. Toujours sans exemples annotés : ils viendront du corpus validé (§14.3, point 5). Version 2 (15 octobre 2026) : le texte ne change pas, mais le schéma de la réponse le suit dans le même bloc system (deploy/analyse.php::promptAvecSchema) au lieu de partir en sortie structurée, dont l'API refusait la grammaire.
 ---
 # Rôle
 
