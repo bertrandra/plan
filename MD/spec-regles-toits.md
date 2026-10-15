@@ -1077,8 +1077,10 @@ erreur), donc la stabilité vient de la structure, pas d'un réglage.
    le **taux d'accord** par attribut. Seuls les attributs au-dessus de 95 % d'accord peuvent être
    pré-acceptés ; les autres restent des propositions. Le taux est recalculé à chaque changement de
    modèle ou de prompt.
-6. **Escalade.** Un cas sans majorité ou en contradiction peut être repassé une fois à Claude
-   Sonnet 5.5 (plus fin, environ 20 fois plus cher, §14.4) avant d'arriver chez la personne.
+6. **Escalade.** Un cas sans majorité ou en contradiction peut être repassé une fois au modèle de
+   l'usage `escalade` avant d'arriver chez la personne : le modèle rapide par défaut depuis le
+   15 octobre 2026, Claude Sonnet 5.5 (plus fin, environ 20 fois plus cher, §14.4) si l'administrateur
+   l'a réglé (`spec-audit.md` §13.2).
 
 ### 14.3 Le prompt « béton »
 

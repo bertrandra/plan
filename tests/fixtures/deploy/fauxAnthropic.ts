@@ -81,7 +81,7 @@ export const SORTIE_ANALYSE = {
 };
 /** Ses comptes : 3 + 4 + 2 baies, forme, faitage et terrasse determines. */
 export const TROUVE_ANALYSE = { ouvertures: 9, manquees: 1, enTrop: 1, bouts: 1, lucarnes: 2, elements: 1, ecarts: 1, coins: 0, determines: 3, vide: false };
-/** Une sortie qui ne trouve rien : ce que rendait le modele rapide sur les photos d'un vrai audit. */
+/** Une sortie qui ne trouve rien : tout `indetermine`, aucune baie. */
 export const SORTIE_VIDE = {
   forme: { indices: [], valeur: 'indetermine' },
   bouts: { indices: [], gauche: 'indetermine', droite: 'sans-objet' },
@@ -159,12 +159,6 @@ export const USAGE_P2 = { input_tokens: 4000, cache_creation_input_tokens: 0, ca
 /** Leur cout au tarif Batch de Claude Haiku 5.5 (0,05 $ / 0,25 $ par MTok, cache a moitie prix). */
 export const COUT_P1 = 0.0021375;
 export const COUT_P2 = 0.0007;
-/**
- * Les memes au tarif Batch du modele plus fin (1 $ / 5 $ par MTok, ecriture du cache 1,25 $, lecture
- * 0,05 $), celui de l'analyse par defaut depuis que le modele rapide ne trouvait rien sur les photos.
- */
-export const COUT_P1_FIN = 0.04275;
-export const COUT_P2_FIN = 0.01275;
 /** Les comptes de la sortie par defaut (`forme` seule, determinee) : une reponse qui n'est pas vide. */
 export const TROUVE_DEFAUT = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 1, vide: false };
 

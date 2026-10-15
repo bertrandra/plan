@@ -44,11 +44,11 @@ export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
 /**
  * Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
- * deploy/analyse.php, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
- * immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
- * plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
+ * deploy/analyse.php, memes valeurs). Le modele rapide partout, decision de l'utilisateur du
+ * 15 octobre 2026 : le "rien trouve" des audits venait du schema que l'API refusait (PR #317), pas
+ * du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
  */
-export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' });
+export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' });
 /**
  * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
  * siens ; les autres usages lisent ceux de l'analyse d'une maison.
