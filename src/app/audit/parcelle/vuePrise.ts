@@ -24,7 +24,7 @@
 // Les calculs sont dans le repere du plan (y vers le nord) ; la pose dans la scene passe par son
 // repere local (three/primitives.ts::versLocalDepuis : x vers l'est, z vers le sud, y vers le haut).
 
-import { vue3d } from '../../../three/etat3d.js';
+import { vue3d, affichage3d } from '../../../three/etat3d.js';
 import { versLocalDepuis } from '../../../three/primitives.js';
 import { solDeLaFacadeDevant } from '../../../three/facadeDevant3d.js';
 import { distancePointSegment, lineSegIntersect } from '../../../geometry/segments.js';
@@ -315,6 +315,10 @@ export function vuePieton(): VuePieton {
     },
     cadrer(c) { cache = c; },
     rapportVisible() {
+      // Les deux vues avant / apres (three/comparaison3d.ts) rendent chacune la camera dans leur propre
+      // rectangle : c'est a la forme de l'une d'elles que la maison doit tenir, pas a celle du canevas.
+      const d = affichage3d.comparaison;
+      if (d) return Math.max(1, d.avant.l) / Math.max(1, d.avant.h);
       const m = mesure();
       return m ? Math.max(1, m.w - m.droite) / Math.max(1, m.h - m.bas) : null;
     },

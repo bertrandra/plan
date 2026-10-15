@@ -663,9 +663,32 @@ validation (§14).
    montre sa ligne, la photo qui le justifie et les indices de Claude.
    - **L'écran des propositions laisse voir la parcelle** (essai d'AE 101, 15 octobre : il la
      couvrait). Au doigt, une carte en bas, haute au plus de 46 % de l'écran : le titre, le compte,
-     « Avant / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
+     « Avant / Les deux / Après » et les boutons restent en place, la liste défile entre eux, et **« Replier »**
      la range. Sur un écran en largeur, un panneau à droite. La Vue 3D, épurée comme pendant la prise,
-     cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir.
+     cadre la parcelle et ses bâtiments en vue d'ensemble dans ce que l'écran laisse voir (une seule
+     vue : « Avant » ou « Après » seul).
+
+   **Les deux vues** (demande de l'utilisateur du 15 octobre 2026 : « Je dois pouvoir avoir deux vues
+   3D, avant / après, afin de pouvoir décider »). L'écran s'ouvre sur « Les deux » :
+   - deux vues de la **même** Vue 3D, « Avant » (le projet) et « Après » (les propositions cochées),
+     étiquetées dans leur coin bas gauche ; elles prennent la part du canevas que l'écran des
+     propositions laisse libre (le plus grand bandeau à côté de lui), côte à côte ou l'une au-dessus
+     de l'autre selon ce qui donne à chacune la forme la plus proche du 4:3 — l'une au-dessus de
+     l'autre au téléphone ; l'écran des propositions est la carte du bas au doigt et le panneau de droite sur un écran en
+     largeur, et les deux vues prennent le reste ; la caméra ne se décale pas en plus (les vues
+     évitent déjà l'écran) ;
+   - **une seule caméra**, rendue deux fois par image dans un seul contexte WebGL (viewport et
+     scissor), cadrée sur la forme de l'une des vues (`vuePrise.ts::rapportVisible`) pour que la maison
+     la remplisse : tourner, zoomer ou déplacer dans l'une fait de même dans l'autre, par construction. La
+     molette vise le point de la vue sous le curseur ;
+   - les bâtiments que les cases cochées changent passent sur une couche « Avant », leurs copies sur
+     une couche « Après » ; le reste de la scène est commun. La clôture proposée s'y compare aussi,
+     sur une copie de la parcelle ;
+   - chaque case, chaque nouveau calcul des propositions (mesures, réponses de Claude) met « Après »
+     à jour ; la scène rebâtie, les deux vues s'y reposent ; l'écran fermé, la vue unique revient ;
+   - à l'arrêt, la vue ne se redessine que quand la caméra bouge (et quelques fois par seconde pour
+     une texture arrivée) ; l'occlusion de la qualité Soignée est mise de côté le temps des deux vues ;
+   - rien n'est écrit avant « Valider », qui referme les deux vues avant d'écrire.
 2. **La liste**, une ligne par changement, avec l'avant, l'après et l'origine (mesure ou Claude) :
    - « Façade sud : 6 ouvertures relevées (Plan en avait mis 4), texture de la photo » ;
    - « Façade sud : 5,82 m à l'égout, mesurés (le bâtiment a 6,00 m) » ;
@@ -715,7 +738,8 @@ renfort, qui les confirme plutôt que d'en poser une seconde.
 
 **Fait (lot L11, sans Claude)** : les mesures du téléphone (`app/audit/parcelle/mesures.ts`) et les
 observations deviennent des propositions (`model/propositions.ts`, source `mesure`, prêtes pour la
-source `claude`) ; Avant / Après dans la Vue 3D sur des copies des bâtiments ; cases, choix à la main
+source `claude`) ; Avant / Après dans la Vue 3D sur des copies des bâtiments, puis les deux ensemble
+(`three/comparaison3d.ts`, `model/propositions.ts::projetApres`, point de fumée 90) ; cases, choix à la main
 décochés (« Remplace votre choix : … ») ; « Valider » en un pas d'historique ; `verifieSurPlace`.
 Restent : la forme du toit vue (forme, faîtage, bouts, lucarnes), qui attend les règles et Claude ;
 la photo et les indices touchés depuis la 3D ; l'éditeur du relevé ouvert depuis la ligne d'une

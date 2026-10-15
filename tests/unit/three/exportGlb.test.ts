@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type * as THREE_NS from 'three';
+import * as T from 'three';
 import { detacherCartesSansImage, masquerGabarits } from '../../../src/three/exportGlb.js';
+import { COUCHE_APRES, COUCHE_AVANT } from '../../../src/three/comparaison3d.js';
 import { EXPORT_SEULEMENT, HORS_EXPORT } from '../../../src/three/primitives.js';
 
 // Une scene factice : `traverse` et le drapeau `isMesh` suffisent a la fonction.
@@ -30,6 +32,24 @@ describe('export GLB — textures jamais arrivees', () => {
     const m = { map: chargee };
     expect(detacherCartesSansImage(scene([{ material: m }])).nombre).toBe(0);
     expect(m.map).toBe(chargee);
+  });
+});
+
+describe('export GLB — l apercu d un audit', () => {
+  it('ne part pas : les copies de la vue « Après » sont cachees le temps de l export, puis rendues', () => {
+    const s = new T.Scene();
+    const plan = new T.Mesh(), avant = new T.Mesh(), apres = new T.Mesh(), modeleApres = new T.Mesh();
+    avant.layers.set(COUCHE_AVANT);
+    apres.layers.set(COUCHE_APRES);
+    // Le dessin reserve a l'export d'une copie de l'apres ne part pas non plus.
+    modeleApres.layers.set(COUCHE_APRES);
+    modeleApres.userData[EXPORT_SEULEMENT] = true;
+    modeleApres.visible = false;
+    s.add(plan, avant, apres, modeleApres);
+    const remettre = masquerGabarits(s);
+    expect([plan.visible, avant.visible, apres.visible, modeleApres.visible]).toEqual([true, true, false, false]);
+    remettre();
+    expect([apres.visible, modeleApres.visible]).toEqual([true, false]);
   });
 });
 

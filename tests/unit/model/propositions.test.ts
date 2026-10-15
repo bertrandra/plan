@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  abscisseDuPortail, appliquerPropositions, cocheeParDefaut, jourIso, releveALaHauteur, type Proposition, type EffetProposition,
+  abscisseDuPortail, appliquerPropositions, cocheeParDefaut, jourIso, projetApres, releveALaHauteur, type Proposition, type EffetProposition,
 } from '../../../src/model/propositions.js';
 import { couleurMursRetenue, textureDesMurs } from '../../../src/model/couleurMur.js';
 import { clotureDImport, clotureDe } from '../../../src/model/cloture.js';
@@ -156,5 +156,34 @@ describe('les petits calculs', () => {
 
   it('donne le jour de la visite', () => {
     expect(jourIso(new Date(2026, 9, 3, 23, 30))).toBe('2026-10-03');
+  });
+});
+
+describe('le projet apres les propositions, pour l apercu', () => {
+  it('copie les objets vises et y ecrit les propositions, sans toucher le projet', () => {
+    const objets = projet();
+    const avant = JSON.stringify(objets);
+    const r = projetApres(objets, [
+      proposition('couverture', { type: 'couverture', couverture: 'ardoise' }),
+      proposition('cloture', { type: 'cloture', cote: 0, typeCloture: 'mur', hauteurM: 1.6 }),
+    ], '2026-10-15');
+    expect(JSON.stringify(objets)).toBe(avant);
+    expect([...r.touches].sort()).toEqual(['maison', 'parcelle']);
+    const [parcelle, maison] = r.objets as [ObjetPlan, ObjetPlan];
+    expect(maison).not.toBe(objets[1]);
+    expect(maison.toit?.couverture).toBe('ardoise');
+    // La cloture, modifiee en place par model/cloture.ts, est une copie profonde.
+    expect(parcelle.cloture).not.toBe(objets[0]?.cloture);
+    expect(clotureDe(parcelle).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
+    expect(clotureDe(objets[0] as ObjetPlan).cotes.find((c) => c.cote === 0)?.type).not.toBe('mur');
+  });
+
+  it('rend les objets non vises tels quels, dans le meme ordre', () => {
+    const objets = [...projet(), obj('abri', { fonction: 'annexe', pts: rect(0, 0, 2, 2) })];
+    const r = projetApres(objets, [proposition('couverture', { type: 'couverture', couverture: 'zinc' })], '2026-10-15');
+    expect(r.objets.map((o) => o.key)).toEqual(['parcelle', 'maison', 'abri']);
+    expect(r.objets[0]).toBe(objets[0]);
+    expect(r.objets[2]).toBe(objets[2]);
+    expect(r.touches).toEqual(['maison']);
   });
 });

@@ -21,6 +21,7 @@ import { partageDe, photosDeLaCapture, type CaptureParcelle, type EnvoiCorpus } 
 import { focalePx, planDePrise } from '../../../facade/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { epurerVue3d, objetSousLePointeur } from '../../../three/scene.js';
+import { affichage3d } from '../../../three/etat3d.js';
 import { cadreDe, facadeTouchee, forceDuTrait, suiviPieton, vuePieton, type CacheVue, type VuePieton } from './vuePrise.js';
 import { poserTraitDePres } from '../../../three/traitDePres.js';
 import { filtrePosition, surLaParcelle } from './positionFiltree.js';
@@ -175,7 +176,7 @@ export interface SessionAuditParcelle {
   toucher(ndc: { x: number; y: number }): void;
   /** Un doigt fait tourner la Vue 3D : elle reste ou il l'a mise un moment avant de reprendre le suivi. */
   lacherVue(): void;
-  /** Une scene vient d'etre batie : la camera de la prise s'y repose. */
+  /** Une scene vient d'etre batie : la camera de la prise, ou l'apercu des propositions, s'y repose. */
   sceneBatie(): void;
   /**
    * Le coin haut gauche de l'ecran de prise ou des propositions, en pixels de la fenetre (null : rien
@@ -442,7 +443,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const maintenant = ctx.maintenant ?? (() => new Date());
   const capture = creerCapture(ctx.idu, maintenant);
   const abonnes = new Set<() => void>();
-  const publier = () => abonnes.forEach((f) => f());
+  // Sur l'ecran des propositions, tout changement (mesures, reponses de Claude, cases) peut changer
+  // l'apercu de la Vue 3D : il s'y repose, s'il a change, avant que l'ecran ne se redessine.
+  const publier = () => { if (ecran === 'propositions') validation.synchroniser(); abonnes.forEach((f) => f()); };
   let ecran: EcranAudit = 'liste';
   let dernier: string | null = null;
   /** La liste ne se recalcule que si la capture ou les objets du plan ont change. */
@@ -536,7 +539,8 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       if (r === 'choisie') publier();
     },
     lacherVue: () => vue.lacher(),
-    sceneBatie() { if (ecran !== 'liste') vue.suivre(true); },
+    // La camera se repose sur la scene neuve, puis les copies de « Apres » y reviennent (deux vues).
+    sceneBatie() { if (ecran !== 'liste') vue.suivre(true); if (ecran === 'propositions') validation.reposer(); },
     cadrerVue: (cache) => vue.cadrer(cache),
     rangerPhoto(photo) {
       const c = visee.cible(capture);
@@ -559,7 +563,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     // L'ecran ferme rend la Vue 3D telle qu'elle etait : tous les objets, et la camera libre.
     suspendre() { sens.arreter(); visee.oublier(); vue.activer(null); vue.epurer(false); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
-    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); vue.epurer(true); if (ecran !== 'liste') vue.activer(ecran); },
+    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); vue.epurer(true); if (ecran !== 'liste') vue.activer(ecran); if (ecran === 'propositions') validation.synchroniser(); },
     autoriserBoussole: () => sens.autoriser(),
     ecrireBrouillon: () => brouillon.vider(),
     proposerReprise: (pret) => brouillon.proposer(pret),
@@ -771,7 +775,8 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
     const cles = batimentsGardes();
     const contours = contoursDe(cles);
     const parcelle = parcelleDuProjet(ctx.etat.objects);
-    if (ecran === 'propositions' && parcelle && aDesSommets(parcelle)) contours.push(parcelle.pts);
+    // Deux vues avant / apres : ce qui se compare, ce sont les batiments, que la parcelle entiere rendrait petits.
+    if (ecran === 'propositions' && parcelle && aDesSommets(parcelle) && !affichage3d.comparaison) contours.push(parcelle.pts);
     let azimut: number | null = null;
     const cadreSans = cadreDe(contours, hauteurDe(cles), null);
     if (!cadreSans) return;

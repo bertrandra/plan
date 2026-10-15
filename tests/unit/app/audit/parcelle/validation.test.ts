@@ -111,6 +111,74 @@ describe('la validation des propositions', () => {
     expect(t.etat.objects.find((o) => o.key === 'maison')?.verifieSurPlace).toBeUndefined();
   });
 
+  it('montre par defaut l avant et l apres en deux vues, qui suivent les cases', async () => {
+    const t = monter();
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    const cadrer3d = vi.fn<NonNullable<ProjetAudit['cadrer3d']>>();
+    Object.assign(t.projet, { comparer3d, cadrer3d });
+    await t.v.lancer();
+    const avant = t.plan();
+    expect(t.v.apercu()).toBe('deux');
+    t.v.synchroniser();
+    const apres = comparer3d.mock.calls.at(-1)?.[0];
+    expect(apres?.cles).toEqual(['maison']);
+    // L'apres est fait de copies : la maison avec l'ardoise et ses cheminees, la parcelle avec le mur.
+    const maison = apres?.objets.find((o) => o.key === 'maison');
+    expect(maison).not.toBe(t.etat.objects[1]);
+    expect(maison?.toit?.couverture).toBe('ardoise');
+    expect(apres?.parcelle).not.toBe(t.etat.objects[0]);
+    expect(clotureDe(apres?.parcelle as ObjetPlan).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
+    expect(t.plan()).toBe(avant);
+    // Rien n'a change : rien ne se repose.
+    t.v.synchroniser();
+    expect(comparer3d).toHaveBeenCalledTimes(1);
+    // Decocher : l'apres suit, sans la couverture.
+    t.v.basculer('maison:couverture');
+    expect(comparer3d).toHaveBeenCalledTimes(2);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    // La cloture decochee : la parcelle ne se compare plus.
+    t.v.basculer('parcelle:cloture');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.parcelle).toBeNull();
+    // L'ecran dit ou il est ; les deux vues l'evitent.
+    t.v.cadrer({ left: 0, top: 400, right: 390, bottom: 840 });
+    expect(cadrer3d).toHaveBeenLastCalledWith({ left: 0, top: 400, right: 390, bottom: 840 });
+    // « Après » seul : les deux vues se ferment, les copies remplacent les batiments.
+    t.v.montrer('apres');
+    expect(comparer3d).toHaveBeenLastCalledWith(null);
+    expect(t.remplacer3d.mock.calls.at(-1)?.[0]).toEqual(['maison']);
+    // De nouveau les deux : le batiment repose revient au plan, puis les deux vues.
+    t.v.montrer('deux');
+    expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.cles).toEqual(['maison']);
+    // L'ecran se ferme : la Vue 3D revient au plan ; le choix reste pour la prochaine fois.
+    t.v.oublierApercu();
+    expect(comparer3d).toHaveBeenLastCalledWith(null);
+    expect(t.v.apercu()).toBe('deux');
+    expect(t.plan()).toBe(avant);
+    expect(t.historique.pile.taille).toBe(0);
+  });
+
+  it('repose les deux vues quand la Vue 3D arrive, et les ferme avant d ecrire', async () => {
+    const t = monter();
+    let scene = false;
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>((a) => scene || a === null);
+    Object.assign(t.projet, { comparer3d });
+    await t.v.lancer();
+    // Pas encore de scene : la Vue 3D s'ouvre.
+    t.v.synchroniser();
+    expect(comparer3d).toHaveBeenCalledTimes(1);
+    scene = true;
+    t.v.reposer();
+    expect(comparer3d).toHaveBeenCalledTimes(2);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.cles).toEqual(['maison']);
+    const ordre: string[] = [];
+    comparer3d.mockImplementation((a) => { ordre.push(a ? 'comparer' : 'fermer'); return true; });
+    const empiler = t.projet.pushHistory;
+    t.projet.pushHistory = () => { ordre.push('historique'); empiler(); };
+    expect(t.v.valider()?.ecrites).toBe(4);
+    expect(ordre).toEqual(['fermer', 'historique']);
+  });
+
   it('n ecrit rien quand rien n est coche', async () => {
     const t = monter();
     await t.v.lancer();

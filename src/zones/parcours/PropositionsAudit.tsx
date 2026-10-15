@@ -2,17 +2,19 @@
 //
 // Pose sur la Vue 3D comme l'ecran de prise : en bas au doigt, a droite sur un ecran en largeur. Sa
 // hauteur est bornee et sa liste se replie (« Replier ») : la parcelle reste visible au-dessus ou a
-// cote, la Vue 3D la cadre dans ce qu'il laisse voir (cadrageVue.ts), et la scene reste manipulable.
-// Le premier essai sur le terrain (AE 101, 15 octobre) : l'ecran couvrait la parcelle. La bascule
-// « Avant / Après » y montre le projet tel qu'il est, ou tel qu'il sera avec les propositions
-// cochees ; la liste dit, ligne par ligne, l'avant, l'apres et l'origine. Une valeur choisie a la
-// main n'est jamais remplacee en silence : sa ligne arrive decochee et le dit. « Valider » ecrit ce
-// qui est coche en un seul pas d'historique (app/audit/parcelle/validation.ts).
+// cote, et la scene reste manipulable. Le premier essai sur le terrain (AE 101, 15 octobre) : l'ecran
+// couvrait la parcelle. Par defaut, la Vue 3D montre deux vues qui tournent ensemble, « Avant » (le
+// projet tel qu'il est) et « Après » (avec les propositions cochees), dans la part du canevas que cet
+// ecran laisse libre (three/comparaison3d.ts) ; « Avant » ou « Après » seul la rendent a une vue, que
+// la camera cadre dans ce que l'ecran laisse voir (cadrageVue.ts). La liste dit, ligne par ligne,
+// l'avant, l'apres et l'origine. Une valeur choisie a la main n'est jamais remplacee en silence : sa
+// ligne arrive decochee et le dit. « Valider » ecrit ce qui est coche en un seul pas d'historique
+// (app/audit/parcelle/validation.ts).
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
+import type { Apercu } from '../../app/audit/parcelle/validation.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
-import { useCadrerVue } from './cadrageVue.js';
 import { Icone } from '../icones.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
@@ -92,31 +94,56 @@ function texteMesures(session: SessionAuditParcelle): string | null {
   return null;
 }
 
+/** Les trois apercus de la Vue 3D, dans l'ordre de l'ecran : « Les deux » au milieu, ce qui s'ouvre. */
+const APERCUS: readonly { a: Apercu; libelle: string }[] = [
+  { a: 'avant', libelle: 'Avant' }, { a: 'deux', libelle: 'Les deux' }, { a: 'apres', libelle: 'Après' },
+];
+
 export function PropositionsAudit({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
   const v = session.validation;
+  const apercu = v.apercu();
+  // L'ecran dit ou il est a chaque changement de taille (une ligne de plus, la liste repliee, l'ecran
+  // qui tourne), et plus rien quand il se ferme. Deux vues : elles evitent l'ecran elles-memes (zone
+  // libre, comparaison3d.ts), et la camera cadre une de leurs formes, sans se decaler en plus ; elles
+  // se posent donc AVANT la camera. Une seule vue : la camera cadre ce que l'ecran laisse voir.
+  const cadre = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = cadre.current;
+    if (!el) return;
+    const dire = () => {
+      const r = el.getBoundingClientRect();
+      v.cadrer(r);
+      session.cadrerVue(apercu === 'deux' ? null : { haut: r.top, gauche: r.left });
+    };
+    dire();
+    const obs = typeof ResizeObserver === 'function' ? new ResizeObserver(dire) : null;
+    obs?.observe(el);
+    window.addEventListener('resize', dire);
+    return () => { obs?.disconnect(); window.removeEventListener('resize', dire); v.cadrer(null); session.cadrerVue(null); };
+  }, [v, session, apercu]);
   const propositions = v.propositions();
   const cochees = propositions.filter((p) => v.cochee(p.id)).length;
   const verifs = v.verifications();
   const verifies = verifs.filter((x) => x.verifie).length;
   const enCours = texteMesures(session);
-  const apercu = v.apercu();
   const observations = v.observations();
   const comptes = { propositions: propositions.filter((p) => p.source === 'claude').length, observations: nombreObservations(observations) };
   // Replier ne garde que le titre, le compte, Avant / Après et les boutons : la parcelle se voit en grand.
   const [replie, setReplie] = useState(false);
-  const cadre = useCadrerVue(session);
   return (
-    <div ref={cadre} className={'auditPrise auditPropositions' + (replie ? ' replie' : '')} role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
+    <div ref={cadre} className={'auditPrise auditPropositions' + (apercu === 'deux' ? ' deuxVues' : '') + (replie ? ' replie' : '')} role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
       <div className="entetePropositions">
         <div className="titreParcours">Propositions de l’audit</div>
         <button type="button" className="secondary small boutonReplier" data-controle="auditParcelle.replier" aria-expanded={!replie} aria-controls="corpsPropositions"
           onClick={() => setReplie(!replie)}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={16} /><span>{replie ? 'Déplier' : 'Replier'}</span></button>
       </div>
       <div className="detailPhoto" aria-live="polite">{enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : comptes.observations ? 'Aucune proposition à cocher : lisez plus bas ce que Claude a vu.' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
-      <div className="segmente avantApresAudit" role="group" aria-label="Vue 3D : avant ou après les propositions">
-        {(['avant', 'apres'] as const).map((a) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{a === 'avant' ? 'Avant' : 'Après'}</button>)}
+      {/* L'apercu d'abord : c'est lui que l'on regarde en cochant ; l'accord de Claude vient ensuite. */}
+      <div className="segmente avantApresAudit" role="group" aria-label="Vue 3D : avant, les deux ensemble, ou après les propositions">
+        {APERCUS.map(({ a, libelle }) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{libelle}</button>)}
       </div>
       <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
+        {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées.</p>}
         <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />
         {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
           {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} />)}

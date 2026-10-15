@@ -13,6 +13,7 @@ import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d
 import { showToast, showErrBanner } from '../shell/dialogs.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import { estMesh } from './gardes.js';
+import { COUCHE_APRES } from './comparaison3d.js';
 import { GABARIT_SOL, HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
@@ -36,17 +37,22 @@ type MateriauCarte = THREE_NS.Material & { map?: THREE_NS.Texture | null };
  * Cache, le temps de l'export, le gabarit qui perce le sol au droit d'un bassin (three/piscine3d.ts) :
  * il ne vaut que pour le tampon de gabarit de la Vue 3D, et un lecteur glTF le dessinerait comme
  * une surface blanche sur l'eau. La position GPS de l'appareil (three/positionGps3d.ts) n'a rien a faire
- * dans le modele non plus. Rend de quoi le remettre.
+ * dans le modele non plus, ni les copies de la vue « Après » d'un audit (three/comparaison3d.ts) : le
+ * modele est le projet. Rend de quoi le remettre.
  */
 export function masquerGabarits(scene: THREE_NS.Object3D): () => void {
   const caches: THREE_NS.Object3D[] = [];
   const montres: THREE_NS.Object3D[] = [];
+  const apres = 1 << COUCHE_APRES;
   scene.traverse(o => {
-    if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT]) && o.visible) { o.visible = false; caches.push(o); }
+    // Une copie de l'apres reste cachee, meme quand elle porte un dessin reserve a l'export. Un
+    // objet sans couches (une scene factice) n'en est jamais une.
+    const copieApres = (o.layers as THREE_NS.Layers | undefined)?.mask === apres;
+    if ((o.userData[GABARIT_SOL] || o.userData[HORS_EXPORT] || copieApres) && o.visible) { o.visible = false; caches.push(o); }
     // Ce que l'ecran a remplace par un dessin plus fin repart tel qu'avant dans le modele. Sa
     // marque est retiree le temps de l'export : l'exporteur ecrit `userData` dans les `extras` du
     // noeud, et le modele ne serait plus tout a fait celui d'avant.
-    else if (o.userData[EXPORT_SEULEMENT] && !o.visible) { o.visible = true; delete o.userData[EXPORT_SEULEMENT]; montres.push(o); }
+    else if (o.userData[EXPORT_SEULEMENT] && !o.visible && !copieApres) { o.visible = true; delete o.userData[EXPORT_SEULEMENT]; montres.push(o); }
   });
   return () => { caches.forEach(o => { o.visible = true; }); montres.forEach(o => { o.visible = false; o.userData[EXPORT_SEULEMENT] = true; }); };
 }

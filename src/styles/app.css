@@ -1457,6 +1457,24 @@
     html:not([data-classe="compact"]) .auditPrise{ width:clamp(300px, 34vw, 420px); max-height:calc(100dvh - var(--reserve-haut, 56px) - var(--hauteur-etat, 30px) - 24px); }
   }
   .avantApresAudit{ margin:8px 0 4px; }
+  .noteAvantApres{ margin:2px 0 4px; font-size:0.72rem; color:var(--ink-soft); }
+  /* « Les deux » (three/comparaison3d.ts) : les deux vues prennent la part du canevas que l'ecran
+     laisse libre. Au doigt, il se fait un peu plus bas (les vues s'empilent au-dessus de lui) ; sur un
+     ecran en largeur il reste le panneau de droite, comme la prise, et les vues se posent cote a cote
+     a sa gauche. */
+  html[data-classe="compact"] .auditPropositions.deuxVues{ max-height:42dvh; }
+  html[data-classe="moyen"] .auditPropositions.deuxVues{ max-height:48dvh; }
+  @media (orientation: landscape){
+    html:not([data-classe="compact"]) .auditPropositions.deuxVues{ max-height:calc(100dvh - var(--reserve-haut, 56px) - var(--hauteur-etat, 30px) - 24px); }
+  }
+  /* Le nom de chaque vue, dans son coin bas gauche, et le filet entre elles : ni l'un ni l'autre ne
+     capte de geste, la scene se tourne au travers. Le mot porte l'information, pas la couleur. */
+  .etiquetteDeuxVues{
+    position:absolute; z-index:1; transform:translateY(-100%); pointer-events:none;
+    padding:3px 10px; border-radius:999px; border:1px solid var(--border); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
+    font-family:var(--sans); font-size:0.68rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .filetDeuxVues{ position:absolute; z-index:1; pointer-events:none; background:var(--panel-bg); }
   .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
   .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
   .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }

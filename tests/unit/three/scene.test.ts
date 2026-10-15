@@ -5,11 +5,12 @@ import * as THREE_NS from 'three';
 const bannieres: string[] = [];
 vi.mock('../../../src/shell/dialogs.js', () => ({ showErrBanner: (m: string) => { bannieres.push(m); }, showToast: () => {} }));
 
-import { buildThreeScene, remplacerObjets3d, epurerVue3d, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
+import { buildThreeScene, remplacerObjets3d, comparerObjets3d, epurerVue3d, visibilite3d, PART_CIEL_JOINTS, PART_CIEL_SOUS_PLATELAGE, DECALAGE_CHEMIN_M, type ContexteScene3d } from '../../../src/three/scene.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from '../../../src/three/primitives.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { polygonOffset } from '../../../src/geometry/polygon.js';
-import { vue3d, hotes3d } from '../../../src/three/etat3d.js';
+import { vue3d, hotes3d, rendre3d } from '../../../src/three/etat3d.js';
+import { COUCHE_APRES, COUCHE_AVANT } from '../../../src/three/comparaison3d.js';
 import { normaliserEnObjetsDuPlan } from '../../../src/app/assemblage/formes.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
@@ -23,6 +24,14 @@ class FauxRendu {
   domElement = document.createElement('canvas');
   shadowMap = { enabled: false, type: 0 };
   render = vi.fn();
+  // Le rendu en deux vues (three/comparaison3d.ts) decoupe le canevas : viewport, scissor, effacement.
+  setScissorTest() {}
+  setScissor() {}
+  setViewport() {}
+  getClearColor(c: THREE_NS.Color) { return c; }
+  getClearAlpha() { return 1; }
+  setClearColor() {}
+  clear() {}
   getContext() { return { isContextLost: () => contextePerdu }; }
   setSize() {}
   setPixelRatio() {}
@@ -143,6 +152,67 @@ describe('buildThreeScene', () => {
     buildThreeScene(terrasse(), etat(), contexte());
     expect(vue3d.scene).toBeNull();
     expect(bannieres[0]).toMatch(/contexte 3D/);
+  });
+});
+
+describe('l avant et l apres d un audit en deux vues', () => {
+  /** Les maillages de la scene rangés sur exactement ces couches (masque de bits). */
+  const surCouches = (m: number) => { let n = 0; vue3d.scene?.scene.traverse((o) => { if (((o as THREE_NS.Mesh).isMesh || (o as THREE_NS.Line).isLine) && o.layers.mask === m) n++; }); return n; };
+  const AVANT = 1 << COUCHE_AVANT, APRES = 1 << COUCHE_APRES;
+
+  it('pose les copies sur la couche « Après », le plan touche sur « Avant », puis rend la scene telle quelle', () => {
+    buildThreeScene(terrasse(), etat(), contexte());
+    const sc = vue3d.scene!;
+    const total = maillages();
+    const maison = objets.find((o) => o.key === 'maison')!;
+    const copie = { ...maison, elevation: 9 } as ObjetPlan;
+    const plan = JSON.stringify(objets);
+    expect(comparerObjets3d({ cles: ['maison'], etat: { ...etat(), objects: objets.map((o) => (o === maison ? copie : o)) }, parcelle: null })).toBe(true);
+    expect(vue3d.scene).toBe(sc);
+    expect(sc.enDeux).toBeTypeOf('function');
+    expect(surCouches(AVANT)).toBeGreaterThan(0);
+    expect(surCouches(APRES)).toBeGreaterThan(0);
+    // Le reste de la scene est commun aux deux vues ; le plan n'est pas touche.
+    expect(surCouches(1)).toBe(total - surCouches(AVANT));
+    expect(JSON.stringify(objets)).toBe(plan);
+    // Chaque image rend les deux vues, chacune avec ses couches.
+    const rendu = sc.renderer.render as unknown as ReturnType<typeof vi.fn>;
+    rendu.mockClear();
+    const couches: number[] = [];
+    rendu.mockImplementation((_s: unknown, c: THREE_NS.Camera) => { couches.push(c.layers.mask); });
+    rendre3d(sc);
+    expect(couches).toEqual([1 | AVANT, 1 | APRES]);
+    // Un nouvel appel remplace le precedent, rien ne s'accumule.
+    const apresUn = maillages();
+    comparerObjets3d({ cles: ['maison'], etat: { ...etat(), objects: objets.map((o) => (o === maison ? copie : o)) }, parcelle: null });
+    expect(maillages()).toBe(apresUn);
+    // La vue unique revient : copies retirees, plan sur la couche commune.
+    expect(comparerObjets3d(null)).toBe(true);
+    expect(sc.enDeux).toBeUndefined();
+    expect(surCouches(AVANT) + surCouches(APRES)).toBe(0);
+    expect(maillages()).toBe(total);
+  });
+
+  it('compare aussi la cloture de la parcelle, sur une copie', () => {
+    const parcelle = objets.find((o) => o.key === 'parcelle')!;
+    const ctx = contexte({ trouverParcelleCloture: () => parcelle });
+    buildThreeScene(terrasse(), etat(), ctx);
+    const copie = { ...parcelle, clotureHauteur: 1.2, cloture: null } as ObjetPlan;
+    expect(comparerObjets3d({ cles: [], etat: etat(), parcelle: copie })).toBe(true);
+    expect(surCouches(AVANT)).toBeGreaterThan(0);
+    expect(surCouches(APRES)).toBeGreaterThan(0);
+    comparerObjets3d(null);
+    expect(surCouches(AVANT) + surCouches(APRES)).toBe(0);
+  });
+
+  it('meurt avec sa scene, et dit faux sans scene', () => {
+    buildThreeScene(terrasse(), etat(), contexte());
+    comparerObjets3d({ cles: ['maison'], etat: etat(), parcelle: null });
+    buildThreeScene(terrasse(), etat(), contexte());
+    expect(vue3d.scene?.enDeux).toBeUndefined();
+    expect(surCouches(AVANT) + surCouches(APRES)).toBe(0);
+    vue3d.scene = null;
+    expect(comparerObjets3d({ cles: ['maison'], etat: etat(), parcelle: null })).toBe(false);
   });
 });
 

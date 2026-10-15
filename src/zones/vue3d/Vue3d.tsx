@@ -18,6 +18,7 @@ import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
+import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
@@ -67,6 +68,25 @@ function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { comm
       aria-pressed={actif === undefined ? undefined : actif} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       <Icone nom={icone} taille={20} />
     </button>
+  );
+}
+
+/**
+ * L'avant et l'apres d'un audit en deux vues (three/comparaison3d.ts) : le nom de chaque vue dans son
+ * coin bas gauche (le haut gauche est a l'horloge), et le filet qui les separe. Ils ne captent aucun
+ * geste : la scene se tourne au travers. Les positions sont celles que three/ a calculees.
+ */
+function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
+  const { avant, apres, sens } = vues;
+  const filet = sens === 'cote'
+    ? { left: avant.x + avant.l, top: avant.y, width: Math.max(0, apres.x - avant.x - avant.l), height: avant.h }
+    : { left: avant.x, top: avant.y + avant.h, width: avant.l, height: Math.max(0, apres.y - avant.y - avant.h) };
+  return (
+    <>
+      <div className="filetDeuxVues" style={filet} aria-hidden="true" />
+      <span className="etiquetteDeuxVues" data-vue="avant" style={{ left: avant.x + 8, top: avant.y + avant.h - 8 }}>Avant</span>
+      <span className="etiquetteDeuxVues" data-vue="apres" style={{ left: apres.x + 8, top: apres.y + apres.h - 8 }}>Après</span>
+    </>
   );
 }
 
@@ -183,6 +203,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
+          {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
           <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>

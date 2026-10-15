@@ -234,6 +234,26 @@ export function appliquerPropositions(objets: ObjetPlan[], propositions: readonl
   return [...touches];
 }
 
+/**
+ * Le projet tel qu'il serait avec ces propositions, sans le toucher : ce que montrent « Après » et la
+ * vue « Après » des deux vues de la Vue 3D. Les objets vises sont copies, les autres sont ceux du
+ * projet ; rend aussi les cles des copies touchees.
+ *
+ * Une copie de surface suffit sur un batiment (chaque effet remplace le champ qu'il ecrit) ; la
+ * cloture, modifiee en place par model/cloture.ts, est copiee en profondeur, elle seule : la parcelle
+ * porte aussi son relief et son cadastre, qu'aucune proposition ne touche.
+ */
+export function projetApres(objets: readonly ObjetPlan[], propositions: readonly Proposition[], jour: string): { objets: ObjetPlan[]; touches: string[] } {
+  const visees = new Set(propositions.map((p) => cleDeLaCible(p.cible) ?? 'parcelle'));
+  const copies = new Map(objets.filter((o) => visees.has(o.key)).map((o) => {
+    const copie = { ...o } as ObjetPlan;
+    if (o.cloture) copie.cloture = JSON.parse(JSON.stringify(o.cloture)) as NonNullable<ObjetPlan['cloture']>;
+    return [o.key, copie] as const;
+  }));
+  const touches = appliquerPropositions([...copies.values()], propositions, [], jour);
+  return { objets: objets.map((o) => copies.get(o.key) ?? o), touches };
+}
+
 /** Le jour d'une date, AAAA-MM-JJ, dans le fuseau de l'appareil : c'est le jour de la visite. */
 export function jourIso(d: Date): string {
   const z = (n: number) => String(n).padStart(2, '0');

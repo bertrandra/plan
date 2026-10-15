@@ -486,6 +486,31 @@ const ligneProposition = async (page, texte) => {
   if (!(await l.count())) return null;
   return { cochee: await l.locator('input[type="checkbox"]').isChecked(), texte: ((await l.textContent()) || '').replace(/\s+/g, ' ').trim() };
 };
+/**
+ * Les deux vues avant / apres de la Vue 3D (three/comparaison3d.ts), lues sur le canevas : leurs
+ * rectangles, l'ecart moyen de couleur entre elles (0 a 255 ; 0 : la meme image), et l'image de
+ * « Après » reduite, pour voir si elle bouge. Le canevas garde son image (preserveDrawingBuffer).
+ */
+const lireDeuxVues = (page) => page.evaluate(() => {
+  const v = window.__plan.deuxVues();
+  const c = document.querySelector('#terrasse3dCanvasHost canvas');
+  if (!v || !c) return null;
+  const k = c.width / (c.clientWidth || 1);
+  const t = document.createElement('canvas');
+  t.width = c.width; t.height = c.height;
+  const x = t.getContext('2d');
+  x.drawImage(c, 0, 0);
+  const lire = (r) => x.getImageData(Math.round(r.x * k), Math.round(r.y * k), Math.max(1, Math.round(r.l * k)), Math.max(1, Math.round(r.h * k))).data;
+  const a = lire(v.avant), b = lire(v.apres);
+  let s = 0;
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+  const image = [];
+  for (let i = 0; i < b.length; i += 4 * 97) image.push(b[i], b[i + 1], b[i + 2]);
+  return { vues: v, ecart: s / Math.max(1, n / 4) / 3, image };
+});
+/** L'ecart moyen entre deux images reduites (0 : identiques). */
+const ecartImages = (a, b) => { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) s += Math.abs(a[i] - b[i]); return s / Math.max(1, n); };
 
 /**
  * L'adresse des points cadastraux, la meme depuis la `1.1.0` : c'est elle qui rend les valeurs que
@@ -1735,6 +1760,9 @@ const POINTS = {
     await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
     await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
     await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    // L'ecran s'ouvre sur « Les deux » (point 90) : ici, la vue unique, que la camera cadre au-dessus de la carte.
+    await etape('une vue', () => page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 }));
+    await page.waitForTimeout(800);
     await arretee();
     const carte = await page.evaluate(() => { const r = document.querySelector('.auditPropositions').getBoundingClientRect(); return { h: r.height, gauche: r.left, vh: innerHeight, vw: innerWidth }; });
     const propositions = await maisonVue('.auditPropositions');
@@ -2204,6 +2232,59 @@ const POINTS = {
       && /Audit de la parcelle importé/.test(importe) && !!murs?.cochee && !!releve && !releve.cochee && caseCorpus === false && intact
       && e.murs?.materiau === 'brique' && annule && !deborde;
     return { ok, mesure: `fichier ${texte ? Math.round(texte.length / 1024) + ' Ko' : 'ABSENT'} ; Ctrl+Z ${defait ? 'défait' : 'NON'} ; autre parcelle : « ${refus.slice(0, 70)}… » ; question de remplacement ${demande ? 'posée' : 'ABSENTE'} ; « ${importe.slice(0, 60)}… » ; murs ${murs ? (murs.cochee ? 'cochés' : 'DÉCOCHÉS') : 'ABSENTS'}, relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; partage ${caseCorpus === false ? 'décoché' : String(caseCorpus)} ; projet ${intact ? 'intact avant Valider' : 'MODIFIÉ'} ; Valider : murs ${e.murs?.materiau ?? '—'} ; Ctrl+Z ${annule ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  90: async (page, f) => {
+    // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
+    // sur « Les deux » ; deux vues de la meme Vue 3D, « Avant » et « Après », a cote de l'ecran (l'une
+    // au-dessus de l'autre au telephone) ; elles different tant qu'une case touche un batiment ou la
+    // cloture, plus du tout quand tout est decoche ; tourner l'une tourne l'autre ; rien n'est ecrit.
+    const avant = await etatAudite(page);
+    await captureJusquAuxPropositions(page);
+    await page.waitForTimeout(2500);
+    const nomClasse = await classe(page);
+    const presse = ((await page.locator('button[data-controle="auditParcelle.avantApres"][aria-pressed="true"]').textContent()) || '').trim();
+    const etiquettes = await page.locator('.etiquetteDeuxVues').allTextContents();
+    const d1 = await lireDeuxVues(page);
+    // Les vues et leurs etiquettes evitent l'ecran des propositions.
+    const recouvre = await page.evaluate(() => {
+      const p = document.querySelector('.auditPropositions')?.getBoundingClientRect();
+      const c = document.querySelector('#terrasse3dCanvasHost canvas')?.getBoundingClientRect();
+      const v = window.__plan.deuxVues();
+      if (!p || !c || !v) return true;
+      const coupe = (a) => a.left < p.right - 1 && a.right > p.left + 1 && a.top < p.bottom - 1 && a.bottom > p.top + 1;
+      const enFenetre = (r) => ({ left: c.left + r.x, top: c.top + r.y, right: c.left + r.x + r.l, bottom: c.top + r.y + r.h });
+      return coupe(enFenetre(v.avant)) || coupe(enFenetre(v.apres)) || [...document.querySelectorAll('.etiquetteDeuxVues')].some((e) => coupe(e.getBoundingClientRect()));
+    });
+    const sensAttendu = nomClasse === 'compact' ? 'pile' : 'cote';
+    // Tourner la vue « Avant » : « Après » tourne avec elle.
+    const c = await page.locator('#terrasse3dCanvasHost canvas').boundingBox();
+    if (c && d1) await glisser(page, { x: c.x + d1.vues.avant.x + d1.vues.avant.l / 2, y: c.y + d1.vues.avant.y + d1.vues.avant.h / 2 }, Math.min(80, d1.vues.avant.l / 3), 10);
+    await page.waitForTimeout(2500);
+    const d2 = await lireDeuxVues(page);
+    const tourne = d1 && d2 ? ecartImages(d1.image, d2.image) : 0;
+    // Tout decocher : les deux vues montrent la meme chose ; recocher les murs : elles different.
+    // Une case decochee quitte `:checked` : on decoche toujours la premiere qui reste.
+    const cochees = page.locator('.ligneProposition input[type="checkbox"]:checked');
+    for (let i = 0; i < 10 && (await cochees.count()); i++) { await cochees.first().click({ timeout: 30000 }); await page.waitForTimeout(300); }
+    await page.waitForTimeout(2500);
+    const d3 = await lireDeuxVues(page);
+    await page.locator('.ligneProposition', { hasText: 'Matériau des murs de Maison' }).locator('input[type="checkbox"]').check({ timeout: 30000 });
+    await page.waitForTimeout(2500);
+    const d4 = await lireDeuxVues(page);
+    const pendant = await etatAudite(page);
+    // « Avant » seul ferme les deux vues, « Les deux » les rouvre.
+    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 });
+    await page.waitForTimeout(800);
+    const seule = await page.locator('.etiquetteDeuxVues').count();
+    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Les deux' }).click({ timeout: 30000 });
+    await page.waitForTimeout(1500);
+    const rouvertes = await page.locator('.etiquetteDeuxVues').count();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const e = (x) => (x ? x.ecart.toFixed(1) : '—');
+    const ok = presse === 'Les deux' && etiquettes.join(',') === 'Avant,Après' && !!d1 && d1.vues.sens === sensAttendu && !recouvre
+      && d1.ecart > 1.5 && !!d2 && d2.ecart > 1.5 && tourne > 2 && !!d3 && d3.ecart < 0.5 && !!d4 && d4.ecart > 1
+      && pendant === avant && seule === 0 && rouvertes === 2 && !deborde;
+    return { ok, mesure: `« ${presse} » ; étiquettes ${etiquettes.join(', ') || 'AUCUNE'} ; vues ${d1 ? d1.vues.sens + ' ' + d1.vues.avant.l + '×' + d1.vues.avant.h : 'ABSENTES'} (attendu ${sensAttendu}) ; ${recouvre ? 'SOUS L’ÉCRAN' : 'à côté de l’écran'} ; écart avant/après ${e(d1)} ; après glisser « Après » bouge de ${tourne.toFixed(1)}, écart ${e(d2)} ; tout décoché ${e(d3)} ; murs recochés ${e(d4)} ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} ; « Avant » : ${seule} étiquette(s), « Les deux » : ${rouvertes} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   85: async (page, f) => {
     // La sauvegarde de l'audit de parcelle sur le serveur, et le catalogue de l'administrateur (§15) :
@@ -2819,7 +2900,8 @@ function pointsPour(nomClasse) {
   // 86 : Admin › Audits : donnees, conclusion, analyses cote a cote, rejeu par modele et son detail (§15.4, §15.5).
   // 88 : la vue epuree et la vue d'ensemble de l'audit de parcelle ; les propositions laissent voir la maison.
   // 89 : le trait renforce de la facade, de pres.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89];
+  // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
