@@ -57,9 +57,22 @@ export function pointAdresse(parcelle: ObjetPlan): PtBrut | null {
 const longueur = (a: PtBrut, b: PtBrut) => Math.hypot(b.x - a.x, b.y - a.y);
 
 /** Les contours des parcelles voisines du plan, plus ceux que l'appelant connait sans les avoir poses (l'import). */
-function contoursVoisins(parcelle: ObjetPlan, objets: readonly ObjetPlan[], autres: readonly (readonly PtBrut[])[]): (readonly PtBrut[])[] {
+function contoursVoisins(parcelle: ObjetPlan & { pts: PtBrut[] }, objets: readonly ObjetPlan[], autres: readonly (readonly PtBrut[])[]): (readonly PtBrut[])[] {
   const duPlan = objets.filter((o) => o !== parcelle && o.fonction === 'terrain' && !!o.cadastre?.idu && aDesSommets(o) && o.pts.length >= 3).map((o) => (o as ObjetPlan & { pts: PtBrut[] }).pts);
-  return [...duPlan, ...autres.filter((c) => c.length >= 3)];
+  // Un voisinage etendu compte des centaines de parcelles : seules celles dont l'emprise touche la
+  // parcelle sont mesurees, l'inspecteur refait ce calcul a chaque rendu.
+  const b = emprise(parcelle.pts), m = TOLERANCE_FRONTIERE_M;
+  return [...duPlan, ...autres].filter((c) => {
+    if (c.length < 3) return false;
+    const e = emprise(c);
+    return e.xMin <= b.xMax + m && e.xMax >= b.xMin - m && e.yMin <= b.yMax + m && e.yMax >= b.yMin - m;
+  });
+}
+
+function emprise(pts: readonly PtBrut[]): { xMin: number; xMax: number; yMin: number; yMax: number } {
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const p of pts) { xMin = Math.min(xMin, p.x); xMax = Math.max(xMax, p.x); yMin = Math.min(yMin, p.y); yMax = Math.max(yMax, p.y); }
+  return { xMin, xMax, yMin, yMax };
 }
 
 /** La limite commune d'un cote avec un contour, ses bouts retires (MARGE_COIN_M). */
