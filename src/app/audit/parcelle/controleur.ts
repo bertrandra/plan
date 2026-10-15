@@ -162,7 +162,7 @@ export interface SessionAuditParcelle {
   toucher(ndc: { x: number; y: number }): void;
   /** Un doigt fait tourner la Vue 3D : elle reste ou il l'a mise un moment avant de reprendre le suivi. */
   lacherVue(): void;
-  /** Une scene vient d'etre batie : la camera de la prise s'y repose. */
+  /** Une scene vient d'etre batie : la camera de la prise, ou l'apercu des propositions, s'y repose. */
   sceneBatie(): void;
   /** Le haut de l'ecran de prise, en pixels de la fenetre (null : rien ne cache la vue) : la Vue 3D cadre au-dessus. */
   cadrerVue(hautEcranPx: number | null): void;
@@ -421,7 +421,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const maintenant = ctx.maintenant ?? (() => new Date());
   const capture = creerCapture(ctx.idu, maintenant);
   const abonnes = new Set<() => void>();
-  const publier = () => abonnes.forEach((f) => f());
+  // Sur l'ecran des propositions, tout changement (mesures, reponses de Claude, cases) peut changer
+  // l'apercu de la Vue 3D : il s'y repose, s'il a change, avant que l'ecran ne se redessine.
+  const publier = () => { if (ecran === 'propositions') validation.synchroniser(); abonnes.forEach((f) => f()); };
   let ecran: EcranAudit = 'liste';
   let dernier: string | null = null;
   /** La liste ne se recalcule que si la capture ou les objets du plan ont change. */
@@ -510,7 +512,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       if (r === 'choisie') publier();
     },
     lacherVue: () => vue.lacher(),
-    sceneBatie() { if (ecran === 'prise') vue.suivre(true); },
+    sceneBatie() { if (ecran === 'prise') vue.suivre(true); else if (ecran === 'propositions') validation.reposer(); },
     cadrerVue: (haut) => vue.cadrer(haut),
     rangerPhoto(photo) {
       const c = visee.cible(capture);
@@ -532,7 +534,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     },
     suspendre() { sens.arreter(); visee.oublier(); vue.activer(false); validation.oublierApercu(); },
     // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
-    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); if (ecran === 'prise') vue.activer(true); },
+    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); if (ecran === 'prise') vue.activer(true); else if (ecran === 'propositions') validation.synchroniser(); },
     autoriserBoussole: () => sens.autoriser(),
     ecrireBrouillon: () => brouillon.vider(),
     proposerReprise: (pret) => brouillon.proposer(pret),

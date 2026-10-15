@@ -28,6 +28,7 @@ import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
+import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues, imageAttendue } from './comparaison3d.js';
 import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
 import { placeEchelle, poserObjetsEchelle } from './objetsEchelle.js';
 import { accorderFocale } from './presentation.js';
@@ -653,8 +654,95 @@ function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets):
  * `userData` : l'export GLB recopierait ce dernier dans le fichier.
  */
 const poseParObjet = new Map<string, THREE_NS.Object3D[]>();
+/** Ce que la cloture de la parcelle du projet a pose : l'apres d'un audit peut la remplacer. */
+let poseCloture: THREE_NS.Object3D[] = [];
+/**
+ * L'avant et l'apres d'un audit (three/comparaison3d.ts) : les copies posees en plus, par cle, et ce
+ * qui, du plan, ne se voit plus que dans « Avant ».
+ */
+const comparaison = { apres: new Map<string, THREE_NS.Object3D[]>(), avant: new Set<THREE_NS.Object3D>() };
 /** La derniere scene batie et ce qu'il faut pour y reposer un objet. */
 let derniere: { sc: SceneVue3d; co: ContexteObjets; obj: ObjetPlan | null; ground: THREE_NS.Mesh } | null = null;
+
+/** Range tout ce qu'un objet a pose sur une seule couche (les couches ne s'heritent pas en three.js). */
+function surLaCouche(racine: THREE_NS.Object3D, couche: number): void {
+  racine.traverse((x) => { x.layers.set(couche); });
+}
+
+/** Retire de la scene ce qu'un objet y avait pose ; les geometries lui sont propres, pas les materiaux. */
+function retirerPose(scene: THREE_NS.Object3D, racines: readonly THREE_NS.Object3D[]): void {
+  for (const m of racines) {
+    scene.remove(m);
+    m.traverse((x) => { (x as { geometry?: { dispose?: () => void } }).geometry?.dispose?.(); });
+  }
+}
+
+/** Ce qu'ajoute un geste a la scene : les enfants directs poses entre avant et apres lui. */
+function poseePar(scene: THREE_NS.Object3D, poser: () => void): THREE_NS.Object3D[] {
+  const n0 = scene.children.length;
+  poser();
+  return scene.children.slice(n0);
+}
+
+/** Defait l'apres pose : les copies quittent la scene, le plan revient sur la couche commune. */
+function oublierComparaison(scene: THREE_NS.Object3D): void {
+  for (const racines of comparaison.apres.values()) retirerPose(scene, racines);
+  comparaison.apres.clear();
+  for (const m of comparaison.avant) surLaCouche(m, 0);
+  comparaison.avant.clear();
+}
+
+/** Ce que montre l'apres d'un audit : les batiments copies, et la parcelle copiee si sa cloture change. */
+export interface Apres3d {
+  /** Les batiments dont les copies remplacent, dans « Après », ceux du plan. */
+  cles: readonly string[];
+  /** Le plan avec ces copies a la place des originaux : c'est sur lui qu'elles se posent. */
+  etat: PlanVuDeLa3d;
+  /** La parcelle du projet avec la cloture proposee, ou null si la cloture ne change pas. */
+  parcelle: ObjetPlan | null;
+}
+
+/**
+ * L'avant et l'apres d'un audit en deux vues de la Vue 3D ouverte, sans la rebatir : les batiments
+ * touches passent sur la couche « Avant », leurs copies sont posees sur la couche « Après », de
+ * meme pour la cloture ; le reste de la scene est commun aux deux vues. Un nouvel appel remplace le
+ * precedent ; `null` revient a la vue unique. Faux quand la scene n'est plus celle qui a ete batie.
+ */
+export function comparerObjets3d(apres: Apres3d | null): boolean {
+  const d = derniere;
+  if (!d || !vue3d.scene || d.sc !== vue3d.scene) return false;
+  oublierComparaison(d.co.scene);
+  if (!apres) {
+    couperDeuxVues(d.sc);
+    appliquerOmbres(d.co.scene, d.ground);
+    rendre3d(d.sc);
+    return true;
+  }
+  const co: ContexteObjets = { ...d.co, objets: apres.etat.objects };
+  // La scene ne montre que la terrasse (et ses piscines) : aucun batiment a comparer, la cloture si.
+  if (vue3d.tousLesObjets || !d.obj) {
+    for (const cle of apres.cles) {
+      for (const m of poseParObjet.get(cle) ?? []) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
+      const o = apres.etat.objects.find((x) => x.key === cle);
+      if (!o) continue;
+      const neufs = poseePar(co.scene, () => ajouterUnObjet(o, d.obj, apres.etat, co));
+      neufs.forEach((m) => surLaCouche(m, COUCHE_APRES));
+      comparaison.apres.set(cle, neufs);
+    }
+  }
+  // La cloture n'est posee qu'avec le reste du plan (pas d'objet isole) : sans elle, rien a comparer.
+  const parcelle = apres.parcelle;
+  if (parcelle && poseCloture.length) {
+    for (const m of poseCloture) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
+    const neufs = poseePar(co.scene, () => ajouterCloture(co.prim, co.scene, co.versLocal, { ...co.ctx, trouverParcelleCloture: () => parcelle }, co.sol));
+    neufs.forEach((m) => surLaCouche(m, COUCHE_APRES));
+    comparaison.apres.set('', neufs);
+  }
+  appliquerOmbres(co.scene, d.ground);
+  activerDeuxVues(d.sc);
+  rendre3d(d.sc);
+  return true;
+}
 
 /** Pose un objet et retient ce qu'il a ajoute a la scene. */
 function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
@@ -710,14 +798,14 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
   if (!(vue3d.tousLesObjets || !d.obj)) return true;
   const co: ContexteObjets = { ...d.co, objets: etat.objects };
   for (const cle of cles) {
-    for (const m of poseParObjet.get(cle) ?? []) {
-      co.scene.remove(m);
-      // Les geometries sont propres a l'objet ; les materiaux et textures peuvent etre partages.
-      m.traverse((x) => { (x as { geometry?: { dispose?: () => void } }).geometry?.dispose?.(); });
-    }
+    const anciens = poseParObjet.get(cle) ?? [];
+    anciens.forEach((m) => comparaison.avant.delete(m));
+    retirerPose(co.scene, anciens);
     poseParObjet.delete(cle);
     const o = etat.objects.find((x) => x.key === cle);
     if (o) poserEtRetenir(o, d.obj, etat, co);
+    // Un batiment relu pendant une comparaison (les toits en tache de fond) reste du cote « Avant ».
+    if (comparaison.apres.has(cle)) for (const m of poseParObjet.get(cle) ?? []) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
   }
   appliquerOmbres(co.scene, d.ground);
   return true;
@@ -921,6 +1009,11 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     : null;
   ctx.disposeThreeScene();
   poseParObjet.clear();
+  poseCloture = [];
+  // Une comparaison avant / apres meurt avec sa scene : a son auteur de la reposer (signalerSceneBatie).
+  comparaison.apres.clear();
+  comparaison.avant.clear();
+  couperDeuxVues(null);
   derniere = null;
   // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
   const host = hotes3d.vue3d;
@@ -963,7 +1056,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Les masques d'affichage s'appliquent : un objet isole ne laisse que lui et ses associes.
   else ajouterPiscinesSeules(etat, co);
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
-  if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
+  if (!etat.isolement) poseCloture = poseePar(scene, () => ajouterCloture(prim, scene, versLocal, ctx, sol));
   // Les objets d'echelle (R5), a la demande : une voiture cote rue, une silhouette dans la parcelle.
   if (vue3d.objetsEchelle && !etat.isolement && pcl && aDesSommets(pcl) && pcl.pts.length >= 3) {
     const voisines = etat.objects.filter((o) => o.voisinage && o.fonction === 'terrain' && aDesSommets(o)).map((o) => enPoints(o).pts);
@@ -999,7 +1092,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
   const solCentre = sol ? sol.hauteur(cen) : 0;
-  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); actualiserFeuillesProches(scene, camera); rendre3d(sc); };
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); actualiserFeuillesProches(scene, camera); if (imageAttendue(sc)) rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);

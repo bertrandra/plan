@@ -16,7 +16,7 @@
 import type * as THREE_NS from 'three';
 import { HORS_EXPORT } from './primitives.js';
 import type { ParametresQualite } from './qualite.js';
-import type { SceneVue3d } from './etat3d.js';
+import { rendre3d, type SceneVue3d } from './etat3d.js';
 
 /** L'exposition de la courbe de film : reglee a l'oeil sur le banc d'AE 101 (scripts/banc-visuel.mjs). */
 export const EXPOSITION = 1.15;
@@ -380,7 +380,7 @@ export function monterRendu(sc: SceneVue3d, niveau: ParametresQualite, procheM: 
       sc.rendre = o.render;
       sc.redimensionner = o.setSize;
       sc.rapportPixels = o.setPixelRatio;
-      o.render();
+      rendre3d(sc);
     });
   }
   return etat;
@@ -408,16 +408,12 @@ export function accorderAuSoleil(sc: SceneVue3d, soleil: { elevRad: number; azRa
       etat.environnement = false;
       return;
     }
-    rendreDe(sc);
+    // Par rendre3d : en deux vues (three/comparaison3d.ts), l'image doit les montrer toutes deux.
+    rendre3d(sc);
   };
   if (!etat.cible) { recalculer(); return; }
   if (etat.minuterie) clearTimeout(etat.minuterie);
   etat.minuterie = setTimeout(recalculer, 150);
-}
-
-function rendreDe(sc: SceneVue3d): void {
-  if (sc.rendre) sc.rendre();
-  else sc.renderer.render(sc.scene, sc.camera);
 }
 
 /** Libere ce que le rendu a pose : l'environnement, l'occlusion, la minuterie. */

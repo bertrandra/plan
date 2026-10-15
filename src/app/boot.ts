@@ -87,7 +87,7 @@ import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
-import { vue3d, rendre3d } from '../three/etat3d.js';
+import { vue3d, rendre3d, affichage3d } from '../three/etat3d.js';
 import { creerIsolement, objetAIsoler } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
@@ -455,6 +455,9 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       pushHistory: p.pushHistory, render: p.render,
       refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
       remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
+      // L'avant et l'apres en deux vues (three/comparaison3d.ts), qui evitent l'ecran des propositions.
+      comparer3d: (apres) => tardifs.vues?.comparerObjets3d(apres) ?? false,
+      cadrer3d: (panneau) => { tardifs.vues?.cadrerDeuxVues(panneau); },
     },
     // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
     audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
@@ -783,7 +786,9 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
     selectionnerCle: (cle: string | null) => explorateur.selectionner(cle),
     magasin: () => magasin.store.getState(),
     // La scene 3D affichee : la fumee y place la camera pour regarder un objet precis.
-    scene3d: () => vue3d.scene
+    scene3d: () => vue3d.scene,
+    // Les deux vues avant / apres d'un audit (three/comparaison3d.ts), en pixels du canevas.
+    deuxVues: () => affichage3d.comparaison
   } });
 }
 

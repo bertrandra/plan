@@ -10,6 +10,7 @@
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
 import { au } from '../util/tableaux.js';
+import { sousLePointeur } from './comparaison3d.js';
 import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type * as THREE_NS from 'three';
@@ -226,11 +227,10 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     e.stopImmediatePropagation();
     const f = facteurMolette(e.deltaY);
     if (f === 1) return;
-    const dom = sc.renderer.domElement, r = dom.getBoundingClientRect();
     const maintenant = performance.now();
     if (!molette || maintenant - molette.t > GESTE_MOLETTE_MS || Math.hypot(e.clientX - molette.x, e.clientY - molette.y) > GESTE_MOLETTE_PX) {
-      const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
-      molette = { point: pointSousLePointeur(sc, ndc), t: maintenant, x: e.clientX, y: e.clientY };
+      // En deux vues (avant / apres d'un audit), le point vise est celui de la vue sous le curseur.
+      molette = { point: sousLePointeur(sc, e.clientX, e.clientY, (ndc) => pointSousLePointeur(sc, ndc)), t: maintenant, x: e.clientX, y: e.clientY };
     }
     molette.t = maintenant;
     const { camera, controls } = sc;

@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **L'avant et l'après des propositions d'un audit, en deux vues 3D** (`MD/spec-audit.md` §14 ;
+  `three/comparaison3d.ts`). L'écran des propositions s'ouvre désormais sur « Les deux » : la Vue 3D
+  montre côte à côte « Avant », le projet tel qu'il est, et « Après », avec les propositions cochées
+  (l'une au-dessus de l'autre au téléphone), dans la part de l'écran que la liste laisse libre — elle
+  se range à gauche sur grand écran. Les deux vues tournent, zooment et se déplacent ensemble :
+  c'est la même caméra, rendue deux fois dans un seul contexte WebGL. Cocher ou décocher une ligne,
+  ou l'arrivée des propositions de Claude, met « Après » à jour ; la clôture proposée s'y voit aussi.
+  « Avant » et « Après » seuls restent proposés. Rien n'est écrit avant « Valider » ; à l'arrêt, la
+  vue ne se redessine que quand la caméra bouge. Point de fumée 90.
 - **La caméra et la présentation de la Vue 3D** (`MD/roadmap-realisme-3d.md`, R6 ;
   `three/presentation.ts`). À hauteur d'homme, la focale s'ouvre à 55°, celle d'un œil qui regarde
   devant lui ; elle revient en douceur aux 45° de la vue d'ensemble en prenant de la hauteur (la prise

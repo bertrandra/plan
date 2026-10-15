@@ -14,6 +14,7 @@ import type { EtatRendu } from './rendu.js';
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
+import type { DeuxVues } from './comparaison3d.js';
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -50,11 +51,17 @@ export interface SceneTroisBase {
   redimensionner?: (w: number, h: number) => void;
   /** Ce qui suit le rapport de pixels du rendu (une capture haute definition, three/presentation.ts). */
   rapportPixels?: (r: number) => void;
+  /**
+   * L'avant et l'apres d'un audit en deux vues (three/comparaison3d.ts) : tant qu'il est pose, il
+   * l'emporte sur tout autre rendu, pour que chaque image, d'ou qu'elle vienne, montre les deux.
+   */
+  enDeux?: () => void;
 }
 
 /** Rend une image de la scene, par ses passes si elle en a. */
 export function rendre3d(sc: SceneTroisBase): void {
-  if (sc.rendre) sc.rendre();
+  if (sc.enDeux) sc.enDeux();
+  else if (sc.rendre) sc.rendre();
   else sc.renderer.render(sc.scene, sc.camera);
 }
 
@@ -284,7 +291,9 @@ export const affichage3d = {
   indicationGlb: '',
   pleinePageGlb: false,
   /** Un .glb en cours de production : pour le telecharger (`export`) ou pour la visionneuse. */
-  generation: null as null | 'export' | 'generation'
+  generation: null as null | 'export' | 'generation',
+  /** Les deux vues avant / apres d'un audit, en pixels du canevas : ou poser leurs etiquettes. */
+  comparaison: null as null | DeuxVues
 };
 
 /**

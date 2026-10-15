@@ -1438,6 +1438,23 @@
      plus haute ; la Vue 3D reste visible au-dessus pour comparer avant et apres. */
   .auditPropositions{ width:min(640px, calc(100vw - 32px)); max-height:68dvh; }
   .avantApresAudit{ margin:8px 0 4px; }
+  .noteAvantApres{ margin:2px 0 4px; font-size:0.72rem; color:var(--ink-soft); }
+  /* « Les deux » (three/comparaison3d.ts) : les deux vues prennent la part du canevas que l'ecran
+     laisse libre. Il se fait donc plus bas au doigt (les vues s'empilent au-dessus de lui), et se
+     range a gauche sur grand ecran, ou les vues se posent cote a cote a sa droite ; les commandes de
+     camera, a droite, restent a portee. */
+  html[data-classe="compact"] .auditPropositions.deuxVues{ max-height:42dvh; }
+  html[data-classe="moyen"] .auditPropositions.deuxVues{ max-height:48dvh; }
+  html[data-classe="large"] .dialogueVoile:has(> .auditPropositions.deuxVues){ justify-content:flex-start; padding-left:16px; }
+  html[data-classe="large"] .auditPropositions.deuxVues{ width:min(400px, 34vw); max-height:calc(100dvh - 120px); }
+  /* Le nom de chaque vue, dans son coin bas gauche, et le filet entre elles : ni l'un ni l'autre ne
+     capte de geste, la scene se tourne au travers. Le mot porte l'information, pas la couleur. */
+  .etiquetteDeuxVues{
+    position:absolute; z-index:1; transform:translateY(-100%); pointer-events:none;
+    padding:3px 10px; border-radius:999px; border:1px solid var(--border); background:var(--panel-bg); color:var(--ink); box-shadow:var(--ombre);
+    font-family:var(--sans); font-size:0.68rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .filetDeuxVues{ position:absolute; z-index:1; pointer-events:none; background:var(--panel-bg); }
   .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
   .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
   .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }
