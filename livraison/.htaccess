@@ -61,7 +61,8 @@ RedirectMatch 404 ^/data(/|$)
 # sous-dossier de l'hote.
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^(plan-demos|demos)(/|$) - [R=404,L]
+  # data/ (deploy/donnees.php) vit hors de la racine web ; pose ici par erreur, il ne se sert pas.
+  RewriteRule ^(plan-demos|demos|data)(/|$) - [R=404,L]
   # Le jeton de la plateforme (`Authorization: Bearer`, lot L17) : PHP en CGI ou FPM ne recoit pas
   # cet en-tete sans ce passage par une variable d'environnement (`HTTP_AUTHORIZATION`, ou
   # `REDIRECT_HTTP_AUTHORIZATION` apres la reecriture ; analyse.php lit les deux).
