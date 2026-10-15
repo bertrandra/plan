@@ -7,11 +7,11 @@ import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
 import {
   creerAnalyseAdmin, coutAppel, tarifEnVigueur, tokensDeUsage, depenses, lirePrompt, verifierDemande, verifierTarifs, passeGarde,
-  verifierPlafonds, lireResultat, parametresRequete, PLAFONDS_DEFAUT, MAX_TOKENS, lireFiltres, moisEntre, decalerJour, filtrerConsommation,
+  verifierPlafonds, lireResultat, parametresRequete, sortieConforme, CONSIGNE_JSON, PLAFONDS_DEFAUT, MAX_TOKENS, lireFiltres, moisEntre, decalerJour, filtrerConsommation,
   etatOrganisations, choixConsommation, type Tarifs, type Plafonds
 } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
-import { CLE, COUT_P1, COUT_P1_FIN, COUT_P2, COUT_P2_FIN, TROUVE_DEFAUT, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, COUT_P1, COUT_P2, TEXTE_DESORDONNE, TROUVE_DEFAUT, USAGE_P1, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 
 // L'analyse par Claude, cote serveur (MD/spec-audit.md 13.2 et 13.3) : le calcul du cout et du
@@ -91,7 +91,7 @@ describe('le cout et le journal, sur des reponses simulees', () => {
 describe('le prompt, le schema et la demande', () => {
   it('versionne le prompt et le schema', () => {
     const p = lirePrompt(fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8'));
-    expect(p.version).toBe(1);
+    expect(p.version).toBe(2);
     expect(p.texte).toMatch(/^# Rôle/);
     expect(p.texte).not.toMatch(/^version:/m);
     expect(SCHEMA.version).toBe(1);
@@ -132,19 +132,40 @@ describe('le prompt, le schema et la demande', () => {
     const p = parametresRequete('claude-haiku-5-5', 'PROMPT', SCHEMA.schema, [{ type: 'text', text: 'x' }]);
     expect(p).toEqual({
       model: 'claude-haiku-5-5', max_tokens: MAX_TOKENS,
-      system: [{ type: 'text', text: 'PROMPT', cache_control: { type: 'ephemeral' } }],
+      // Le schema suit le prompt dans le meme bloc en cache : la sortie structuree en faisait une
+      // grammaire que l'API refusait (« The compiled grammar is too large »).
+      system: [{ type: 'text', text: 'PROMPT\n\n# Forme de la réponse\n\n' + CONSIGNE_JSON + '\n\n' + JSON.stringify(SCHEMA.schema), cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: [{ type: 'text', text: 'x' }] }],
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA.schema } }
+      output_config: { effort: 'low' }
     });
+  });
+
+  it('ramene une reponse ecrite sans sortie structuree a la forme du schema, sans rien inventer', () => {
+    type Sortie = Record<string, unknown> & { facades: unknown[] };
+    const s = sortieConforme(TEXTE_DESORDONNE, SCHEMA.schema) as Sortie;
+    // Le texte autour et le bloc de code sont laisses ; la graphie des termes est celle du vocabulaire.
+    expect(s.forme).toEqual({ indices: [{ image: 2, vu: 'pignon sur rue' }], valeur: 'deux-pans' });
+    expect(s.bouts).toEqual({ indices: [], gauche: 'pignon', droite: 'indetermine' });
+    expect(s.lucarnes).toEqual({ indices: [], nombre: 'indetermine', types: ['jacobine'], pan: 'indetermine' });
+    // Un element hors vocabulaire n'est pas remplace par un autre : il est ecarte.
+    expect(s.elements).toEqual([{ indices: [], element: 'verriere' }]);
+    expect(s.facades[0]).toMatchObject({ facade: 'sud', ouvertures: { niveaux: 2, parNiveau: [3, 4], manquees: 'indetermine', enTrop: 'indetermine' }, materiau: 'meuliere', ecart: '' });
+    expect(s.confiance).toBe('forte');
+    expect(s).not.toHaveProperty('enTrop');
+    expect(Object.keys(s)).toEqual(Object.keys((SCHEMA.schema as { properties: object }).properties));
+    // Sans objet JSON, rien n'est lu ; sans confiance, la plus prudente.
+    expect(sortieConforme('Je ne peux pas analyser ces images.', SCHEMA.schema)).toBeNull();
+    expect(sortieConforme('[1, 2]', SCHEMA.schema)).toBeNull();
+    expect((sortieConforme('{}', SCHEMA.schema) as Record<string, unknown>).confiance).toBe('faible');
   });
 
   it('n admet que des blocs texte et image, et des modeles connus', () => {
     const p = PLAFONDS_DEFAUT as Plafonds;
     const d = verifierDemande(demande(), p);
-    // L'analyse part par defaut au modele plus fin : le modele rapide ne trouvait rien sur les photos.
-    expect(d.modele).toBe('claude-sonnet-5-5');
+    // Le modele rapide par defaut, pour l'analyse comme pour l'escalade.
+    expect(d.modele).toBe('claude-haiku-5-5');
     expect(d.requetes.map((r) => [r.id, r.passe, r.images])).toEqual([['p1', 1, 1], ['p2', 2, 1]]);
-    expect(verifierDemande({ ...demande(), usage: 'escalade' }, p).modele).toBe('claude-sonnet-5-5');
+    expect(verifierDemande({ ...demande(), usage: 'escalade' }, p).modele).toBe('claude-haiku-5-5');
     const avec = (r: object) => ({ ...demande(), requetes: [{ id: 'p1', passe: 1, contenu: [r] }] });
     expect(() => verifierDemande(avec({ type: 'document', source: {} }), p)).toThrow(/non admis/);
     expect(() => verifierDemande(avec({ type: 'image', source: { type: 'url', url: 'https://x' } }), p)).toThrow(/non admis/);
@@ -217,7 +238,7 @@ describe('analyse par Claude, routes', () => {
     expect(await connecterAdmin(navigateur, MDP)).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
     const etat = await (await navigateur('admin/claude/etat')).json();
-    expect(etat).toMatchObject({ actif: true, prompt: 1, schema: 1, effort: 'low', organisation: 'admin', admin: true });
+    expect(etat).toMatchObject({ actif: true, prompt: 2, schema: 1, effort: 'low', organisation: 'admin', admin: true });
     expect(faux.batches).toHaveLength(0);
   });
 
@@ -272,7 +293,7 @@ describe('analyse par Claude, routes', () => {
     // Ce qui part chez Anthropic : le prompt du serveur en cache, son schema, l'effort, la cle.
     const envoye = faux.batches[0]!.corps.requests;
     expect(envoye.map((r) => r.custom_id)).toEqual(['p1', 'p2']);
-    expect(envoye[0]!.params).toMatchObject({ model: 'claude-sonnet-5-5', max_tokens: MAX_TOKENS, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA.schema } } });
+    expect(envoye[0]!.params).toMatchObject({ model: 'claude-haiku-5-5', max_tokens: MAX_TOKENS, output_config: { effort: 'low' } });
     expect((envoye[0]!.params.system as { text: string; cache_control: unknown }[])[0]!.text).toMatch(/^# Rôle/);
     expect(envoye[0]!.params).not.toHaveProperty('temperature');
     expect(faux.entetes[0]!['x-api-key']).toBe(CLE);
@@ -283,16 +304,17 @@ describe('analyse par Claude, routes', () => {
 
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
-    expect(lu.resultats.map((r: { id: string; passe: number; cout: number; statut: string }) => [r.id, r.passe, r.cout, r.statut]).sort()).toEqual([['p1', 1, COUT_P1_FIN, 'reussi'], ['p2', 2, COUT_P2_FIN, 'reussi']]);
-    expect(lu.resultats.find((r: { id: string }) => r.id === 'p1').sortie).toEqual({ forme: { indices: [], valeur: 'deux-pans' } });
+    expect(lu.resultats.map((r: { id: string; passe: number; cout: number; statut: string }) => [r.id, r.passe, r.cout, r.statut]).sort()).toEqual([['p1', 1, COUT_P1, 'reussi'], ['p2', 2, COUT_P2, 'reussi']]);
+    // La sortie revient dans la forme du schema : ce que la reponse ne dit pas est `indetermine` ou vide.
+    expect(lu.resultats.find((r: { id: string }) => r.id === 'p1').sortie).toMatchObject({ forme: { indices: [], valeur: 'deux-pans' }, profil: { indices: [], valeur: 'indetermine' }, elements: [], confiance: 'faible' });
 
     const lignes = journal();
     expect(lignes).toHaveLength(2);
     expect(lignes.find((l) => l.requete === 'p1')).toEqual({
       t: '2026-10-14T10:00:00.000Z', organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet',
-      audit: 'audit-1', usage: 'analyse', modele: 'claude-sonnet-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
-      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1_FIN,
-      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 1, schema: 1, trouve: TROUVE_DEFAUT
+      audit: 'audit-1', usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
+      tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1,
+      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 2, schema: 1, trouve: TROUVE_DEFAUT
     });
     // Ni photo ni contenu de reponse dans le journal.
     expect(JSON.stringify(lignes)).not.toMatch(/QUJDRA|deux-pans/);
@@ -313,8 +335,6 @@ describe('analyse par Claude, routes', () => {
   it('refuse au plafond, en comptant les batches encore ouverts, et le journalise', async () => {
     await demarrer(CLE);
     await connecterAdmin(navigateur, MDP);
-    // Les montants de ce scenario sont ceux du modele rapide : il est regle pour l'analyse.
-    expect((await ecrire('admin/claude/modeles', 'PUT', { format: 'plan-claude-modeles', usages: { analyse: 'claude-haiku-5-5' } })).status).toBe(200);
     expect((await ecrire('admin/claude/plafonds', 'PUT', { ...PLAFONDS_DEFAUT, defaut: { jour: 0.01, mois: 1 }, estimationRequete: 0.004 })).status).toBe(200);
     expect((await ecrire('admin/claude/batches', 'POST', demande())).status).toBe(201);
     // Deux requetes engagees, une demandee : 3 x 0,004 $ > 0,01 $.

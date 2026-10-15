@@ -1151,7 +1151,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   audit (`MD/spec-audit.md` §13.2). L'escalade reste au plus fin des modèles admis, les cas candidats
   au modèle rapide. Le coût d'une parcelle passe de 1 à 2 centimes à **20 à 40 centimes** environ :
   les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête sont à relever dans
-  « Réglages ». L'administrateur peut revenir au modèle rapide usage par usage.
+  « Réglages ». L'administrateur peut revenir au modèle rapide usage par usage. *Défaut abandonné
+  le 15 octobre 2026, voir l'entrée suivante.*
+- **Tous les usages de l'analyse par Claude repassent par défaut au modèle rapide (Haiku)**
+  (décision de l'utilisateur, 15 octobre 2026) : analyse des audits, escalade, renfort des façades,
+  aide immédiate et cas candidats (`MODELE_PAR_USAGE` de `deploy/analyse.php` et
+  `buildsg/analyseAdmin.mjs`). Le « rien trouvé » des audits venait du schéma que l'API refusait, pas
+  du modèle (voir « Corrigé »). Le coût d'une parcelle revient à 1 à 2 centimes environ, dans les
+  plafonds par défaut. L'administrateur passe un usage au modèle plus fin (Sonnet) dans « Réglages »
+  › « Modèles » s'il le faut ; un réglage déjà posé garde son choix.
 
 - **Audit de la parcelle, « Photographier en marchant »** (`MD/spec-audit.md` §12.2, demande de
   l'utilisateur) :
@@ -1346,6 +1354,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   explicitement : un export d'hier reste identique.
 
 ### Corrigé
+
+- **Audit de la parcelle : l'analyse par Claude était refusée avant même de lire les photos**
+  (AE 101, 15 octobre 2026 : « The compiled grammar is too large… » ; seules les mesures étaient
+  proposées). Le schéma de la réponse partait en sortie structurée (`output_config.format`), que l'API
+  compile en grammaire ; celle de l'analyse d'une maison dépasse sa limite, et chaque requête
+  échouait. Le schéma part désormais à la suite du prompt, dans le même bloc en cache, et le serveur
+  (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, même règle) ramène la réponse à sa forme : le
+  texte autour et un bloc de code sont laissés, les termes sont lus sans accents ni majuscules, un
+  terme hors vocabulaire devient `indetermine`, un champ absent prend `indetermine` ou le vide de
+  son type. Rien n'est inventé : un élément de liste à qui manque un nombre (numéro d'ouverture,
+  cote, image) ou un terme sans `indetermine` est écarté, et une confiance absente est `faible`. La
+  page reçoit la même forme qu'avant ; le renfort des façades suit la même voie. Les prompts passent
+  en version 2 (le journal le dit pour chaque réponse). Relancer l'analyse d'un audit déjà fait.
 
 - **Vue 3D, après le réalisme (R1 à R6) : les lames, le chemin, l'herbe et la promenade.**
   - *Les lames de la terrasse se voient à nouveau* (`three/scene.ts`, `ombrerSousLePlatelage`).

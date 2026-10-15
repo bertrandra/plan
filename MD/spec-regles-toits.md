@@ -1056,9 +1056,17 @@ L'analyse de Claude n'est pas reproductible au bit près : sur un cas ambigu, de
 diverger. Claude Haiku 5.5 n'accepte pas de température réglée (une valeur non par défaut renvoie une
 erreur), donc la stabilité vient de la structure, pas d'un réglage.
 
-1. **Réponse fermée.** Sortie structurée (`output_config.format`, schéma JSON). Les mêmes champs que
+1. **Réponse fermée.** Un schéma JSON (`deploy/schema-analyse.json`). Les mêmes champs que
    l'observation du §7, avec le vocabulaire du §2 et du §3 seulement, et la valeur
-   `"indetermine"` partout. Le schéma garantit un JSON valide.
+   `"indetermine"` partout. Le schéma ne part plus en sortie structurée (`output_config.format`) :
+   l'API le compile en grammaire, et celle de l'analyse d'une maison dépasse sa limite (« The
+   compiled grammar is too large », audit d'AE 101, 15 octobre 2026). Il suit le prompt, dans le même
+   bloc en cache, et le serveur ramène la réponse à sa forme (`deploy/analyse.php::conformer`,
+   `buildsg/analyseAdmin.mjs`, même règle) : le texte autour et un bloc de code sont laissés, un terme
+   est lu sans accents ni majuscules, un terme hors vocabulaire devient `indetermine`, un champ absent
+   prend `indetermine` ou le vide de son type. Rien n'est inventé : un élément de liste dont un nombre
+   ou un terme sans `indetermine` manque est écarté, et une confiance absente est `faible`. Une
+   réponse sans objet JSON reste « illisible ».
 2. **Une grille de critères.** Les signatures du §3.2 deviennent des questions oui / non par forme. La
    réponse cite, pour chaque attribut, les **indices** vus, et sur quelle image.
 3. **Trois passes et un vote.** Trois analyses indépendantes, à la majorité, attribut par attribut.
@@ -1069,8 +1077,10 @@ erreur), donc la stabilité vient de la structure, pas d'un réglage.
    le **taux d'accord** par attribut. Seuls les attributs au-dessus de 95 % d'accord peuvent être
    pré-acceptés ; les autres restent des propositions. Le taux est recalculé à chaque changement de
    modèle ou de prompt.
-6. **Escalade.** Un cas sans majorité ou en contradiction peut être repassé une fois à Claude
-   Sonnet 5.5 (plus fin, environ 20 fois plus cher, §14.4) avant d'arriver chez la personne.
+6. **Escalade.** Un cas sans majorité ou en contradiction peut être repassé une fois au modèle de
+   l'usage `escalade` avant d'arriver chez la personne : le modèle rapide par défaut depuis le
+   15 octobre 2026, Claude Sonnet 5.5 (plus fin, environ 20 fois plus cher, §14.4) si l'administrateur
+   l'a réglé (`spec-audit.md` §13.2).
 
 ### 14.3 Le prompt « béton »
 
