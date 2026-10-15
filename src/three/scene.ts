@@ -9,6 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { animerMateriaux } from './materiauxVivants.js';
 import { reposerPositionGps } from './positionGps3d.js';
 import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
@@ -983,6 +984,9 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   vue3d.scene = sc;
   // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).
   monterRendu(sc, parametresQualite(vue3d.qualite), rayonParcelle ?? extent, !vue3d.apresSoleil);
+  // Le relief des textures dessinees (R3), a l'ecran, hors qualite Econome.
+  const animer = () => { if (vue3d.qualite !== 'econome') animerMateriaux(scene); };
+  animer();
   derniere = { sc, co, obj, ground };
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); actualiserFeuillesProches(scene, camera); rendre3d(sc); };
@@ -1006,6 +1010,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     if(vue3d.scene !== sc) return;
     if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur });
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
+    animer();
     rendre3d(sc);
   }, 0);
 }

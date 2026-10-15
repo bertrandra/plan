@@ -44,7 +44,7 @@ class Groupe {
 
 beforeAll(() => {
   (globalThis as Record<string, unknown>).THREE = {
-    BufferGeometry: Geo, Float32BufferAttribute: Attr, BoxGeometry: Box, Mesh, LineSegments: Lignes, Color: Couleur, Group: Groupe,
+    BufferGeometry: Geo, Float32BufferAttribute: Attr, BoxGeometry: Box, CylinderGeometry: Geo, Mesh, LineSegments: Lignes, Color: Couleur, Group: Groupe,
     MeshStandardMaterial: class { constructor(public p: Record<string, unknown>) {} },
     LineBasicMaterial: class { constructor(public p: unknown) {} },
     DoubleSide: 2,
@@ -222,6 +222,11 @@ describe('les facades de pres (R2)', () => {
     // 1925 : corniche, bandeaux et chaines d'angle, hors export eux aussi.
     const maconnerie = ajoutes.find((m) => m.name === 'batiment-maconnerie');
     expect(maconnerie?.userData.horsExport).toBe(true);
+    // Le vieillissement (R3) : voiles et descentes, hors export eux aussi.
+    expect((ajoutes.find((m) => m.name === 'batiment-vieillissement') as unknown as Groupe | undefined)?.userData.horsExport).toBe(true);
+    const descentes = ajoutes.find((m) => m.name === 'batiment-descentes') as unknown as Groupe | undefined;
+    expect(descentes?.userData.horsExport).toBe(true);
+    expect(descentes?.children).toHaveLength(2);
   });
 
   it('sans relief, rien ne change : les baies a plat, visibles, sans maconnerie', () => {

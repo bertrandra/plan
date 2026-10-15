@@ -33,6 +33,7 @@ import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, rep
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
 import { niveaux } from '../facade/ouvertures.js';
+import { poserCoulures, poserSalissure, maillageVoiles, poserDescentes, ECART_DESCENTE_BAIE } from './vieillissement.js';
 
 /** Ce que la scene prete a ce module. */
 export interface ContexteDetails {
@@ -486,8 +487,33 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
       ctx.scene.add(m);
     }
     poserMaconnerieDesFacades(ctx, contour, facades, volumes, releves, relief.parCote, options);
+    poserVieillissement(ctx, facades, volumes, releves, relief.parCote, options.porte !== false);
   }
   poserDetailsOuvertures(ctx, poses);
+}
+
+/**
+ * Le vieillissement des murs donnant dehors (R3, three/vieillissement.ts) : coulures sous les appuis,
+ * salissure au-dessus du soubassement ; et, sur le corps principal, deux descentes d'eau pluviale aux
+ * bouts de son plus long mur.
+ */
+function poserVieillissement(ctx: ContexteDetails, facades: readonly Facade[], volumes: readonly Volume[], releves: ReadonlySet<number>, baies: ReadonlyMap<number, BaieRelief[]>, principal: boolean): void {
+  const coulures = new Batisseur(), salissure = new Batisseur();
+  const dehors = facades.filter((f) => !releves.has(f.cote));
+  dehors.forEach((f) => {
+    const pt = repereFacade(ctx.toLocal, f);
+    poserCoulures(coulures, pt, baies.get(f.cote) ?? []);
+    poserSalissure(salissure, pt, f.largeur, HAUTEUR_SOUBASSEMENT_M);
+  });
+  const voiles = maillageVoiles(coulures, salissure);
+  if (voiles) ctx.scene.add(voiles);
+  const long = principal ? dehors.reduce<Facade | null>((m, f) => (!m || f.largeur > m.largeur ? f : m), null) : null;
+  if (long && long.largeur > 3) {
+    const g = ctx.toLocal(long.gauche), d = ctx.toLocal(long.droite);
+    const ux = (d.x - g.x) / long.largeur, uz = (d.z - g.z) / long.largeur;
+    const e = ECART_DESCENTE_BAIE;
+    poserDescentes(ctx.scene, [{ x: g.x + ux * e, z: g.z + uz * e }, { x: d.x - ux * e, z: d.z - uz * e }], { x: long.normale.x, z: -long.normale.y }, hauteurDuMur(long, volumes) - 0.05, ctx.base ?? 0);
+  }
 }
 
 /** Les baies en creux d'un batiment : quatre maillages (pierre, menuiserie, vitre, porte), hors export. */

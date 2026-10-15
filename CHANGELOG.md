@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les matériaux vivants** (`MD/roadmap-realisme-3d.md`, R3 ; `three/materiauxVivants.ts`,
+  `three/vieillissement.ts`). Les textures dessinées des murs (brique, pierre, meulière, béton, enduit,
+  bois) et des couvertures prennent du relief : une carte de normales tirée de leur dessin, joints en
+  creux, tuiles qui se recouvrent, que la lumière rasante fait vivre. Les murs proches vieillissent :
+  une coulure sous chaque appui, une salissure au-dessus du soubassement, deux descentes d'eau
+  pluviale aux bouts du plus long mur. Hors qualité Économe, à l'écran seulement : le relief est retiré
+  le temps d'un export, les voiles et les descentes ne partent pas dans le .glb (empreinte inchangée).
 - **Les façades de près** (`MD/roadmap-realisme-3d.md`, R2 ; `three/fenetresRelief.ts`). Sur la
   parcelle du projet et ses abords (45 m), hors qualité Économe, les baies se creusent : encadrement en
   pierre claire saillant (tableaux et linteau), appui qui déborde, menuiserie et vitre au nu du mur ;

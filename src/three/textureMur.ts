@@ -6,6 +6,7 @@
 // materiau ou choisie) la teinte. Les coordonnees de texture des murs sont en metres ; chaque texture
 // couvre TAILLE_M[materiau] metres, a l'echelle reelle des briques, des pierres ou des planches.
 
+import { inscrireHauteurs } from './materiauxVivants.js';
 import type * as THREE_NS from 'three';
 import type { MateriauTexture } from '../model/couleurMur.js';
 
@@ -166,6 +167,12 @@ export function pixelsTextureMur(materiau: MateriauTexture, cote = COTE_TEXTURE_
   return px;
 }
 
+/** Le relief de chaque materiau : le sens (le joint clair en creux) et la force. */
+const RELIEF_MUR: Record<MateriauTexture, { clairEnCreux: boolean; force: number }> = {
+  brique: { clairEnCreux: true, force: 3 }, pierre: { clairEnCreux: true, force: 3 }, meuliere: { clairEnCreux: true, force: 4 },
+  beton: { clairEnCreux: false, force: 1.2 }, enduit: { clairEnCreux: false, force: 2 }, bois: { clairEnCreux: false, force: 2 },
+};
+
 const cache = new Map<MateriauTexture, THREE_NS.Texture>();
 
 /** La texture des murs d'un materiau, ou `null` sans canevas (tests, environnement sans DOM). */
@@ -178,9 +185,12 @@ export function textureMur(materiau: MateriauTexture): THREE_NS.Texture | null {
   const c2d = canevas.getContext('2d');
   if (!c2d) return null;
   const img = c2d.createImageData(COTE_TEXTURE_MUR, COTE_TEXTURE_MUR);
-  img.data.set(pixelsTextureMur(materiau));
+  const pixels = pixelsTextureMur(materiau);
+  img.data.set(pixels);
   c2d.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canevas);
+  // Le relief de la texture (R3, three/materiauxVivants.ts) : les joints, plus clairs, sont en creux.
+  inscrireHauteurs(tex, pixels, COTE_TEXTURE_MUR, RELIEF_MUR[materiau].clairEnCreux, RELIEF_MUR[materiau].force);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   // Les coordonnees des murs sont en metres : une texture couvre TAILLE_M metres.
   tex.repeat.set(1 / TAILLE_M[materiau], 1 / TAILLE_M[materiau]);
