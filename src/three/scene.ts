@@ -736,6 +736,7 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
     for (const m of poseCloture) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
     const neufs = poseePar(co.scene, () => ajouterCloture(co.prim, co.scene, co.versLocal, { ...co.ctx, trouverParcelleCloture: () => parcelle }, co.sol));
     neufs.forEach((m) => surLaCouche(m, COUCHE_APRES));
+    // Sous une cle qu'aucun objet du plan ne porte : la cloture n'est pas un objet.
     comparaison.apres.set('', neufs);
   }
   appliquerOmbres(co.scene, d.ground);
