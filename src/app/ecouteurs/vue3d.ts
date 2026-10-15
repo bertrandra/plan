@@ -56,6 +56,8 @@ export interface ReglagesVue3d {
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
+  /** Une voiture et une silhouette pour l'echelle : preference d'affichage de la session, decochee par defaut. */
+  basculerObjetsEchelle(actif: boolean): void;
   /**
    * Le niveau de qualite (three/qualite.ts) : preference de l'appareil, rangee dans le navigateur.
    * Choisir un niveau remet la case « Ombres » a ce qu'il propose ; elle reste libre ensuite.
@@ -209,6 +211,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
      */
     basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; }),
+    basculerObjetsEchelle: (actif) => preference(() => { vue3d.objetsEchelle = actif; }),
     choisirQualite: (q) => preference(() => {
       vue3d.qualite = q;
       vue3d.ombres = parametresQualite(q).ombresParDefaut;

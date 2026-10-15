@@ -14,7 +14,8 @@
 // (scripts/fumee-reseau.mjs) : la parcelle, ses voisines, la BD TOPO, le LiDAR et l'orthophoto
 // d'un passage enregistre. `BANC_RESEAU=temoin|direct|enregistrer` force le mode, comme
 // `FUMEE_RESEAU` pour la fumee. `BANC_QUALITES=normale,soignee` limite les niveaux mesures ;
-// `BANC_VUES=0` ne fait que les mesures, `BANC_MESURES=0` que les images.
+// `BANC_VUES=0` ne fait que les mesures, `BANC_MESURES=0` que les images ; `BANC_ECHELLE=1` coche les
+// objets d'echelle (une voiture, une silhouette) avant les vues.
 //
 // Les chiffres viennent d'un Chromium sans carte graphique (rendu logiciel) : ils se comparent entre
 // eux, d'une etape a l'autre, pas a un vrai telephone. Le profil « telephone » ajoute un
@@ -204,6 +205,12 @@ async function partie(navigateur, net, f, theme, qualite) {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   }
   await ouvrir3d(page);
+  // Les objets d'echelle (R5), decoches par defaut : `BANC_ECHELLE=1` les montre.
+  if (process.env.BANC_ECHELLE === '1') {
+    await page.evaluate(() => document.getElementById('terrasse3dEchelle')?.click());
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('objets-echelle'), null, { timeout: 30000 }).catch(() => {});
+    await immobile(page);
+  }
   return { contexte, page };
 }
 

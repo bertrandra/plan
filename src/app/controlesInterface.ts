@@ -122,6 +122,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.objetsEchelle': { libelle: 'Objets d’échelle (Vue 3D)', zone: Z4, nature: 'vue', description: 'Une voiture et une silhouette, pour l’échelle ; jamais exportées' },
   'vue3d.qualite': { libelle: 'Qualité (Vue 3D)', zone: Z4, nature: 'vue', description: 'Économe, Normale ou Soignée : ce que la scène se permet en ombres, lissage et effets, propre à cet appareil' },
   'vue3d.tiroir': { libelle: 'Déplier ou replier les réglages (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Le tiroir des réglages, replié sur son titre par défaut, sur bureau' },
   'vue3d.horloge': { libelle: 'Horloge : régler l’heure et la date (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Ouvre sous l’horloge du canevas le curseur d’heure et la date' },

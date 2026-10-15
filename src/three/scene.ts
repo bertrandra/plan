@@ -29,6 +29,7 @@ import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
 import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
+import { placeEchelle, poserObjetsEchelle } from './objetsEchelle.js';
 import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
@@ -962,6 +963,12 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   else ajouterPiscinesSeules(etat, co);
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
   if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
+  // Les objets d'echelle (R5), a la demande : une voiture cote rue, une silhouette dans la parcelle.
+  if (vue3d.objetsEchelle && !etat.isolement && pcl && aDesSommets(pcl) && pcl.pts.length >= 3) {
+    const voisines = etat.objects.filter((o) => o.voisinage && o.fonction === 'terrain' && aDesSommets(o)).map((o) => enPoints(o).pts);
+    const place = placeEchelle(pcl.pts, voisines);
+    if (place) poserObjetsEchelle(scene, versLocal, place, sol ? (p: PtBrut) => sol.hauteur(p) : undefined);
+  }
   // Les clotures du voisinage : un reglage de la parcelle du projet, avec le reste du plan.
   if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
     ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture);

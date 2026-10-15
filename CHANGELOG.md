@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Objets d'échelle dans la Vue 3D** (`MD/roadmap-realisme-3d.md`, R5 ; `three/objetsEchelle.ts`). Une
+  case « Objets d'échelle » dans les réglages de la vue 3D (groupe « Scène »), décochée par défaut :
+  une voiture garée côté rue (le bord de la parcelle qu'aucune voisine ne borde) et une silhouette de
+  1,75 m dans la parcelle. Ils donnent la taille des choses d'un coup d'œil, et ne partent jamais dans
+  le .glb. Le banc visuel les montre avec `BANC_ECHELLE=1`.
 - **Les matériaux vivants** (`MD/roadmap-realisme-3d.md`, R3 ; `three/materiauxVivants.ts`,
   `three/vieillissement.ts`). Les textures dessinées des murs (brique, pierre, meulière, béton, enduit,
   bois) et des couvertures prennent du relief : une carte de normales tirée de leur dessin, joints en

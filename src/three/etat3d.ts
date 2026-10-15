@@ -198,6 +198,8 @@ export const vue3d: {
    * dont l'exporteur travaille par petites taches sur le meme fil que le rendu.
    */
   pauseRendu: boolean;
+  /** Une voiture et une silhouette, pour l'echelle (three/objetsEchelle.ts) ; decochees par defaut. */
+  objetsEchelle: boolean;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -213,7 +215,8 @@ export const vue3d: {
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
   ombres: true,
   qualite: 'normale',
-  pauseRendu: false
+  pauseRendu: false,
+  objetsEchelle: false
 };
 
 /**

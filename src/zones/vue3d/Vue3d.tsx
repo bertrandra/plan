@@ -107,6 +107,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
               <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
+              <Case id="terrasse3dEchelle" controle="vue3d.objetsEchelle" libelle="Objets d'échelle" coche={vue3d.objetsEchelle} onChange={r.basculerObjetsEchelle}
+                titre="Une voiture côté rue et une silhouette dans la parcelle : la taille des choses d'un coup d'œil (jamais exportées)" />
               <label className="etiquetteReglage" title={QUALITES_3D.find((x) => x.id === vue3d.qualite)?.aide}>Qualité
                 <select id="terrasse3dQualite" data-controle="vue3d.qualite" value={vue3d.qualite} onChange={(e) => { if (estQualite3d(e.target.value)) r.choisirQualite(e.target.value); }}>
                   {QUALITES_3D.map((x) => <option key={x.id} value={x.id} title={x.aide}>{x.libelle}</option>)}
