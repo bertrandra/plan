@@ -1349,9 +1349,38 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 - **Points 13, 14 et 15 de la fumée** : ils visaient une interface disparue (« Ajouter les parcelles
   adjacentes », `#pluInterrogerBtn`), et le 14 éteignait le fond orthophoto, allumé par défaut
-  depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent la boîte « Actualiser depuis l'IGN » et la
-  commande `plu.interroger` d'aujourd'hui, jouent sur les deux opacités de l'orthophoto, et comptent à
+  depuis la 2.2.0, en croyant l'allumer ; leur échec se confondait avec celui du réseau. Ils suivent
+  la boîte « Actualiser depuis l'IGN » et la commande `plu.interroger` d'aujourd'hui, jouent sur les deux opacités de l'orthophoto, et comptent à
   part le voisinage dessiné (sur téléphone, une partie tombe hors du cadre).
+- **Audit de la parcelle, l'analyse par Claude « ne trouvait rien »** (essai sur téléphone ;
+  `MD/spec-audit.md` §13.2 et §14) :
+  - **Ce que Claude voit sans que le projet sache l'écrire se lit enfin** : sous les propositions,
+    bâtiment par bâtiment, en lignes d'information sans case (rien n'est écrit dans le projet) — la
+    forme du toit vue face à celle du modèle, les pignons ou croupes aux bouts du faîtage, les
+    lucarnes, les éléments (fenêtre de toit, garde-corps…), les volets et balcons de chaque façade,
+    les ouvertures non détectées ou en trop, les écarts au modèle, et ce que le renfort a fait des
+    ouvertures, par type (« 1 porte ajoutée, 1 fenêtre en pointillé »). Chaque ligne dit sur quelle
+    image Claude l'a vue et la part des passes d'accord. Le vote les calculait puis les jetait.
+  - **« Propositions de Claude prêtes » dit combien** : « 2 propositions et 7 observations », ou
+    « Claude a répondu, mais n'a rien vu à proposer ni à signaler » au lieu d'un « prêtes » sur une
+    liste vide.
+  - **Le renfort des façades n'est plus perdu à la reprise d'un brouillon** : quand l'onglet est
+    déchargé (le cas courant sur téléphone), le batch était souvent fini avant les mesures des
+    photos, et un renfort vide restait noté pour toujours. Les réponses brutes du renfort sont
+    gardées dans la capture, et chaque façade est recalée quand sa mesure est faite ; un brouillon
+    déjà touché relit le batch au serveur une fois.
+  - **Les ouvertures que Claude ajoute en pointillé sont proposées**, sur une ligne à part, décochée,
+    qui dit « vue par Claude, non confirmée sur la photo » ; elles étaient calculées puis jamais
+    montrées. Les baies devinées du relevé passent au renfort, qui les confirme au lieu d'en ajouter
+    une seconde par-dessus.
+  - **Plus de 40 images par requête, plus de batch refusé** : le serveur refuse toute la demande
+    au-delà de 40 images ; la page s'arrête à 40 et garde d'abord l'orthophoto et la carte LiDAR, la
+    meilleure photo de chaque façade (prise à la boussole) et son rendu, puis les autres. Un refus du
+    serveur s'affiche avec son message (« Trop d'images dans une requête… ») au lieu de « répondu de
+    travers ».
+  - Le fichier de l'audit ne porte pas ces observations : son format n'a pas de place pour elles, et
+    il n'a pas changé.
+
 - **Audit de la parcelle, ce que l'essai sur le terrain d'AE 101 a montré** (`MD/spec-audit.md`
   §12.1 et §12.2) :
   - **La maison d'à côté n'est plus proposée** : la liste mettait votre maison et six mitoyens à

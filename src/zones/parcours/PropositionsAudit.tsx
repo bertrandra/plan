@@ -9,6 +9,7 @@
 import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
+import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
 import type { Proposition } from '../../model/propositions.js';
 
 const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude' };
@@ -49,6 +50,34 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
+/**
+ * Ce que Claude a vu sans que le projet sache l'ecrire (app/audit/parcelle/observationsClaude.ts) :
+ * des lignes a lire, batiment par batiment, sans case. Une case laisserait croire que l'on peut
+ * l'ecrire dans le projet ; rien ne l'est.
+ */
+function ObservationsClaude({ batiments }: { batiments: readonly ObservationsBatiment[] }) {
+  if (!batiments.length) return null;
+  return (
+    <section className="observationsClaude" aria-label="Vu par Claude">
+      <div className="titreObservations">Vu par Claude, à vérifier sur place</div>
+      <p className="noteObservations">Ces observations ne changent rien au projet.</p>
+      {batiments.map((b) => (
+        <div key={b.cle} className="observationsBatiment">
+          <div className="nomObservations">{b.nom}</div>
+          <ul className="listeObservations">
+            {b.observations.map((o) => (
+              <li key={o.id} className="ligneObservation">
+                <span>{o.texte}</span>
+                {(o.ou.length > 0 || o.accord !== null) && <span className="origineProposition">{[o.ou.length ? 'vu sur : ' + o.ou.join(', ') : null, o.accord !== null ? 'passes d’accord ' + Math.round(o.accord * 100) + ' %' : null].filter(Boolean).join(' · ')}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 /** Ce que dit l'ecran des mesures en cours. */
 function texteMesures(session: SessionAuditParcelle): string | null {
   const m = session.validation.mesures();
@@ -65,17 +94,20 @@ export function PropositionsAudit({ session, fermer }: { session: SessionAuditPa
   const verifies = verifs.filter((x) => x.verifie).length;
   const enCours = texteMesures(session);
   const apercu = v.apercu();
+  const observations = v.observations();
+  const comptes = { propositions: propositions.filter((p) => p.source === 'claude').length, observations: nombreObservations(observations) };
   return (
     <div className="auditPrise auditPropositions" role="dialog" aria-modal="false" aria-label="Propositions de l’audit">
       <div className="titreParcours">Propositions de l’audit</div>
-      <div className="detailPhoto" aria-live="polite">{enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
-      <AnalyseClaudeAudit analyse={session.analyse} />
+      <div className="detailPhoto" aria-live="polite">{enCours ?? (propositions.length ? cochees + ' sur ' + propositions.length + ' cochée' + (cochees > 1 ? 's' : '') + '. Rien n’est écrit avant « Valider ».' : comptes.observations ? 'Aucune proposition à cocher : lisez plus bas ce que Claude a vu.' : 'Aucune proposition : photographiez une façade ou notez ce que vous voyez dans la liste.')}</div>
+      <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />
       <div className="segmente avantApresAudit" role="group" aria-label="Vue 3D : avant ou après les propositions">
         {(['avant', 'apres'] as const).map((a) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{a === 'avant' ? 'Avant' : 'Après'}</button>)}
       </div>
       {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
         {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} />)}
       </ul>}
+      <ObservationsClaude batiments={observations} />
       {verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
         {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
       </ul>}

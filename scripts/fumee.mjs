@@ -1887,7 +1887,10 @@ const POINTS = {
     const toasts = await page.evaluate(() => window.__toastsVus);
     const parti = toasts.some((t) => /^Vos photos sont parties à l’analyse par Claude \(accord du /.test(t));
     const pret = toasts.some((t) => /^Les propositions de Claude sont prêtes : 1 bâtiment analysé\.$/.test(t));
-    const d = serveur.demandes[0];
+    // Le renfort des facades (lot L18) part dans le meme batch, avec ses propres passes et son usage :
+    // seules les requetes de la maison doivent etre trois passes identiques.
+    const d0 = serveur.demandes[0];
+    const d = d0 ? { ...d0, requetes: d0.requetes.filter((r) => !r.usage || r.usage === 'analyse') } : d0;
     const passes = d ? d.requetes.map((r) => r.passe).join(',') : '';
     const identiques = !!d && d.requetes.every((r) => JSON.stringify(r.contenu) === JSON.stringify(d.requetes[0].contenu));
     const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;

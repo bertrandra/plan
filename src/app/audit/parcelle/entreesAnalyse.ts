@@ -113,38 +113,87 @@ function image(img: ImagePreparee, texte: string, etiquettes: EtiquetteImage[], 
   contenu.push({ type: 'text', text: 'Image ' + etiquettes.length + ' : ' + texte + '.' });
 }
 
-/** Les images d'un batiment, dans l'ordre : facades (photo, puis rendu), toit, orthophoto, carte LiDAR. */
-async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages): Promise<{ etiquettes: EtiquetteImage[]; contenu: BlocAnalyse[]; facades: number }> {
-  const etiquettes: EtiquetteImage[] = [];
-  const contenu: BlocAnalyse[] = [];
+/**
+ * Les images d'une requete au plus : le serveur refuse toute la demande au-dela
+ * (`IMAGES_PAR_REQUETE` de deploy/analyse.php et de buildsg/analyseAdmin.mjs, 40) ; une maison bien
+ * photographiee y arrive vite, chaque photo prise a la boussole partant avec le rendu de son point de
+ * vue. Un test tient cette valeur egale a celle des deux serveurs.
+ */
+export const IMAGES_PAR_REQUETE = 40;
+
+/** Une photo vaut d'autant plus qu'elle dit d'ou elle a ete prise : la boussole, puis la position. */
+const valeurPhoto = (p: PhotoCas): number => (p.prise ? 2 : 0) + (p.prise?.sourceAzimut === 'boussole' ? 1 : 0);
+
+/** Une photo candidate, avec sa place dans l'ordre d'envoi et ce qu'on en a retenu. */
+interface Candidate {
+  p: PhotoCas;
+  ordre: number;
+  texte: string;
+  photo: NonNullable<EtiquetteImage['photo']>;
+  img: ImagePreparee | null;
+  rendu: ImagePreparee | null;
+}
+
+/**
+ * Les photos d'un batiment par groupe (chaque facade, puis le toit), chacune rangee de la meilleure
+ * a la moins bonne. L'ordre d'envoi reste celui de la capture.
+ */
+function groupesDePhotos(b: LigneBatiment, e: EntreesPropositions): { groupes: Candidate[][]; facades: number } {
   const bat = e.capture.batiments[b.cle];
-  let facades = 0;
+  const groupes: Candidate[][] = [];
+  let ordre = 0, facades = 0;
   for (const f of b.facades) {
     const photos = bat?.facades[String(f.cote)]?.photos ?? [];
     if (!photos.length) continue;
     facades++;
     const nom = 'façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
-    for (let rang = 0; rang < photos.length; rang++) {
-      const p = photos[rang] as PhotoCas;
-      const img = await fab.photo(p);
-      if (!img) continue;
-      image(img, 'photo de la ' + nom + textePrise(p.prise, distanceAuMur(f.facade, p.prise)), etiquettes, contenu, { cle: b.cle, cote: f.cote, rang });
-      const rendu = p.prise && p.prise.azimutDeg !== null ? fab.rendu(p.prise) : null;
-      if (rendu) image(rendu, 'rendu du modèle actuel de Plan, même point de vue que l’image ' + etiquettes.length, etiquettes, contenu);
-    }
+    groupes.push(photos.map((p, rang) => ({ p, ordre: ordre++, texte: 'photo de la ' + nom + textePrise(p.prise, distanceAuMur(f.facade, p.prise)), photo: { cle: b.cle, cote: f.cote, rang }, img: null, rendu: null })));
   }
-  for (let rang = 0; rang < (bat?.photos.length ?? 0); rang++) {
-    const p = (bat as NonNullable<typeof bat>).photos[rang] as PhotoCas;
-    const img = await fab.photo(p);
-    if (img) image(img, 'photo du toit de ' + b.nom + textePrise(p.prise, null), etiquettes, contenu, { cle: b.cle, rang });
-  }
+  const toit = bat?.photos ?? [];
+  if (toit.length) groupes.push(toit.map((p, rang) => ({ p, ordre: ordre++, texte: 'photo du toit de ' + b.nom + textePrise(p.prise, null), photo: { cle: b.cle, rang }, img: null, rendu: null })));
+  for (const g of groupes) g.sort((a, z) => valeurPhoto(z.p) - valeurPhoto(a.p) || a.ordre - z.ordre);
+  return { groupes, facades };
+}
+
+/**
+ * Les images d'un batiment, `max` au plus, dans l'ordre : facades (photo, puis rendu), toit,
+ * orthophoto, carte LiDAR. Quand tout ne tient pas, on garde d'abord la vue du dessus et le relief
+ * (une image chacune, et tout le toit), puis la meilleure photo de chaque facade et du toit, puis
+ * leur rendu, puis les autres photos tour a tour, et leurs rendus en dernier.
+ */
+async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages, max = IMAGES_PAR_REQUETE): Promise<{ etiquettes: EtiquetteImage[]; contenu: BlocAnalyse[]; facades: number }> {
+  let place = max;
   const contour = 'pts' in o && o.pts ? o.pts : [];
+  let ortho: ImagePreparee | null = null, carte: ImagePreparee | null = null;
   if (contour.length >= 3) {
-    const ortho = await fab.ortho(contour);
-    if (ortho) image(ortho, 'orthophoto, vue du dessus, recadrée sur le contour de ' + b.nom + ' (contour en jaune, nord en haut)', etiquettes, contenu);
-    const carte = fab.carte(o, contour);
-    if (carte) image(carte, 'carte des hauteurs LiDAR de ' + b.nom + ' (bleu bas, rouge haut, contour en noir, échelle)', etiquettes, contenu);
+    if (place > 0) { ortho = await fab.ortho(contour); if (ortho) place--; }
+    if (place > 0) { carte = fab.carte(o, contour); if (carte) place--; }
   }
+  const { groupes, facades } = groupesDePhotos(b, e);
+  const prendrePhoto = async (c: Candidate) => { if (place > 0) { c.img = await fab.photo(c.p); if (c.img) place--; } };
+  const prendreRendu = (c: Candidate) => {
+    // Le rendu ne double que les photos de facade, comme avant le plafond : c'est elles que Claude compare au modele.
+    if (place <= 0 || !c.img || c.photo.cote === undefined || !c.p.prise || c.p.prise.azimutDeg === null) return;
+    c.rendu = fab.rendu(c.p.prise);
+    if (c.rendu) place--;
+  };
+  const premieres = groupes.flatMap((g) => g.slice(0, 1));
+  const autres: Candidate[] = [];
+  for (let k = 1; k < Math.max(0, ...groupes.map((g) => g.length)); k++) for (const g of groupes) { const c = g[k]; if (c) autres.push(c); }
+  for (const c of premieres) await prendrePhoto(c);
+  for (const c of premieres) prendreRendu(c);
+  for (const c of autres) await prendrePhoto(c);
+  for (const c of autres) prendreRendu(c);
+
+  const etiquettes: EtiquetteImage[] = [];
+  const contenu: BlocAnalyse[] = [];
+  for (const c of groupes.flat().sort((a, z) => a.ordre - z.ordre)) {
+    if (!c.img) continue;
+    image(c.img, c.texte, etiquettes, contenu, c.photo);
+    if (c.rendu) image(c.rendu, 'rendu du modèle actuel de Plan, même point de vue que l’image ' + etiquettes.length, etiquettes, contenu);
+  }
+  if (ortho) image(ortho, 'orthophoto, vue du dessus, recadrée sur le contour de ' + b.nom + ' (contour en jaune, nord en haut)', etiquettes, contenu);
+  if (carte) image(carte, 'carte des hauteurs LiDAR de ' + b.nom + ' (bleu bas, rouge haut, contour en noir, échelle)', etiquettes, contenu);
   return { etiquettes, contenu, facades };
 }
 

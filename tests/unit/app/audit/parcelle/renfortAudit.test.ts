@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { creerAnalyseClaude } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
+import { creerAnalyseClaude, type AnalyseClaude } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
-import { cleMesure, type EntreesPropositions } from '../../../../../src/app/audit/parcelle/propositions.js';
+import { cleMesure, cochesParDefaut, type EntreesPropositions } from '../../../../../src/app/audit/parcelle/propositions.js';
+import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
+import { signatureAnalyse } from '../../../../../src/model/auditParcelle.js';
+import type { EtatApp } from '../../../../../src/core/state.js';
 import { murDeLaTexture, rangerRenfort, renforcerFacades, requetesRenfortDuBatiment, type FabriqueImagesRenfortAudit } from '../../../../../src/app/audit/parcelle/entreesRenfort.js';
-import { propositionsRenfort, RESERVE_RENFORT } from '../../../../../src/app/audit/parcelle/propositionsClaude.js';
+import { propositionsRenfort, RESERVE_POINTILLE, RESERVE_RENFORT } from '../../../../../src/app/audit/parcelle/propositionsClaude.js';
 import type { FabriqueImages } from '../../../../../src/app/audit/parcelle/entreesAnalyse.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
@@ -102,6 +105,98 @@ describe('le renfort dans l audit', () => {
     expect(ps[0]!.effet).toMatchObject({ type: 'releve', releve: { texture: RELEVE.texture, grille: { travees: [{}, {}] } } });
     // Rien de change : pas de proposition.
     expect(propositionsRenfort(e, { 'maison#0': { ...rf, resume: null } })).toEqual([]);
+  });
+
+  it('confirme une baie devinee du releve au lieu d en ajouter une seconde', async () => {
+    const e = entrees();
+    const m = e.mesures.get('maison#0')!;
+    const devinee = { type: 'fenetre' as const, x: 6, y: 1, l: 1.2, h: 1.3, source: 'devinee' as const, confiance: 0.4 };
+    const mesures = new Map([['maison#0', { ...m, devinees: [devinee] }]]);
+    const rf = (await renforcerFacades({ 'maison#0': [passe([MANQUEE]), passe([MANQUEE]), passe([])] }, mesures, async () => texture()))['maison#0']!;
+    expect(rf.resume).toBe('1 baie devinée confirmée');
+    expect(rf.ouvertures).toContainEqual(devinee);
+  });
+
+  it('propose a part, decochees, les ouvertures que Claude voit sans que la photo les confirme', async () => {
+    const e = entrees();
+    // Sans texture lisible, rien ne soutient la graine : elle reste en pointille.
+    const renfort = await renforcerFacades({ 'maison#0': [passe([MANQUEE]), passe([MANQUEE]), passe([])] }, e.mesures, async () => null);
+    expect(renfort['maison#0']?.resume).toBe('1 ouverture proposée en pointillé');
+    const ps = propositionsRenfort(e, renfort);
+    expect(ps.map((p) => p.id)).toEqual(['maison#0:claude:pointille']);
+    expect(ps[0]).toMatchObject({ source: 'claude', reserve: RESERVE_POINTILLE, apres: '2 ouvertures, dont 1 fenêtre en pointillé, vue par Claude, non confirmée sur la photo' });
+    expect((ps[0]!.effet as { releve: ReleveFacade }).releve.ouvertures.map((o) => o.source)).toEqual(['detectee', 'claude']);
+    expect(cochesParDefaut(ps).size).toBe(0);
+    // Avec une ouverture pleine en plus : deux lignes, la seconde contient la premiere et le dit.
+    const deux = propositionsRenfort(e, { 'maison#0': { ...renfort['maison#0']!, bilan: { ...renfort['maison#0']!.bilan, typesCorriges: 1 } } });
+    expect(deux.map((p) => p.id)).toEqual(['maison#0:claude:releve', 'maison#0:claude:pointille']);
+    expect(deux[0]!.apres).toBe('1 ouverture avec l’aide de Claude (1 type corrigé)');
+    expect(deux[1]!.reserve).toMatch(/comprend aussi les ouvertures de la ligne « avec l’aide de Claude »/);
+  });
+
+  it('a la reprise d un batch deja fini, attend les mesures pour recaler le renfort, et ne note jamais un renfort vide', async () => {
+    const e = entrees();
+    const etat = { objects: e.objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
+    const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
+    capture.ajouterPhotoFacade('maison', 0, PHOTO);
+    capture.terminer();
+    // Le batch est parti avant que l'onglet ne soit decharge ; quand la page revient, il est fini.
+    const requetes = Object.fromEntries([1, 2, 3].map((p) => ['b0-f0-p' + p, { cle: 'maison', passe: p, cote: 0, usage: 'renfort' as const }]));
+    capture.noterAnalyse({ accord: { t: '2026-10-13T09:30:00.000Z', partage: true }, batch: { id: 'msgbatch_1', creeLe: '2026-10-13T09:30:00.000Z', signature: signatureAnalyse(capture.lire()), requetes, etiquettes: {} } });
+    let lectures = 0;
+    const client: ClientAnalyse = {
+      etat: async () => ({ actif: true, prompt: 1, schema: 1, organisation: null, admin: true }),
+      creerBatch: async () => { throw new Error('rien ne repart'); },
+      etatBatch: async (id) => ({ id, etat: 'ended', compte: null }),
+      resultats: async (id) => { lectures++; return { batch: { id, etat: 'ended', compte: null }, modele: 'modele-simule', prompt: 1, schema: 1, resultats: Object.keys(requetes).map((rid, k) => ({ id: rid, statut: 'reussi' as const, passe: k + 1, usage: 'renfort', sortie: passe(k < 2 ? [MANQUEE] : []), erreur: null })) }; },
+      immediat: async () => { throw new Error('non'); },
+    };
+    const images: FabriqueImages = { photo: async (p) => ({ base64: p.base64, mediaType: 'image/jpeg' }), rendu: () => null, ortho: async () => null, carte: () => null };
+    const projet: ProjetAudit = { pushHistory: () => {}, render: () => {}, refaire3d: () => {}, remplacer3d: () => true };
+    const tours: (() => void)[] = [];
+    const attendre = async () => { for (let k = 0; k < 6; k++) await new Promise((ok) => setTimeout(ok, 0)); };
+    const monter = (mesuresPretes: () => Promise<void>) => {
+      let analyse: AnalyseClaude | null = null;
+      const validation = creerValidation({
+        etat, capture, liste: () => listeDeControle(etat.objects, capture.lire()), projet, signaler: () => {}, maintenant: () => new Date('2026-10-13T10:00:00Z'),
+        mesures: { pixels: async () => null, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] },
+        analyse: { reponses: () => analyse?.reponses() ?? null, version: () => analyse?.version() ?? 0, renfort: () => analyse?.renfort() ?? null },
+      });
+      analyse = creerAnalyseClaude({
+        capture, entrees: () => validation.entrees(), mesuresPretes, client, images,
+        identite: () => ({ projet: null, idu: '78650000AE0101', adresse: null, audit: 'a-1' }), signaler: () => {}, maintenant: () => new Date('2026-10-13T10:00:00Z'),
+        // Comme la session (controleur.ts) : les mesures du moment, lues a l'appel.
+        renforcer: (par) => renforcerFacades(par, validation.entrees().mesures, async () => texture()),
+        planifier: (f) => { tours.push(f); return () => {}; },
+      });
+      return { validation, analyse };
+    };
+    let pretes: () => void = () => {};
+    const s = monter(() => new Promise<void>((ok) => { pretes = ok; }));
+    s.analyse.reprendre();
+    tours.shift()?.();
+    await attendre();
+    // Le batch est lu, mais les mesures ne sont pas faites : rien n'est recale, et rien de vide n'est note.
+    expect(capture.lire().analyse?.resultats?.renfort).toBeUndefined();
+    expect(capture.lire().analyse?.resultats?.renfortBrut?.['maison#0']).toHaveLength(3);
+    expect(s.validation.propositions().some((p) => p.id === 'maison#0:claude:releve')).toBe(false);
+    // Les mesures arrivent : la proposition du releve renforce apparait.
+    s.validation.poserMesures([e.mesures.get('maison#0')!]);
+    pretes();
+    await attendre();
+    expect(s.validation.propositions().find((p) => p.id === 'maison#0:claude:releve')).toMatchObject({ source: 'claude', apres: '2 ouvertures avec l’aide de Claude (1 ouverture ajoutée)' });
+
+    // Un brouillon d'avant la correction : renfort vide note, sans reponses brutes. La reprise relit le
+    // batch au serveur, une fois, et recale quand les mesures sont la.
+    const r = capture.lire().analyse!.resultats!;
+    capture.noterAnalyse({ resultats: { t: r.t, modele: r.modele, schema: r.schema, prompt: r.prompt, parBatiment: r.parBatiment, renfort: {} } });
+    const avant = lectures;
+    const t = monter(async () => {});
+    t.validation.poserMesures([e.mesures.get('maison#0')!]);
+    t.analyse.reprendre();
+    await attendre();
+    expect(lectures).toBe(avant + 1);
+    expect(t.validation.propositions().some((p) => p.id === 'maison#0:claude:releve')).toBe(true);
   });
 
   it('envoie le renfort dans le batch de l analyse et garde son resultat a la lecture', async () => {
