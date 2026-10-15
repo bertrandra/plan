@@ -44,11 +44,11 @@ export const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 export const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats'];
 /**
  * Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`,
- * deploy/analyse.php, memes valeurs). Le modele plus fin pour l'analyse, le renfort et l'aide
- * immediate : sur les photos d'un vrai audit, le modele rapide ne trouvait rien. L'escalade reste au
- * plus fin des modeles admis ; les cas candidats, nombreux et revus par une personne, au rapide.
+ * deploy/analyse.php, memes valeurs). Le modele rapide partout, decision de l'utilisateur du
+ * 15 octobre 2026 : le "rien trouve" des audits venait du schema que l'API refusait (PR #317), pas
+ * du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
  */
-export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' });
+export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' });
 /**
  * Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
  * siens ; les autres usages lisent ceux de l'analyse d'une maison.
@@ -209,14 +209,137 @@ export function verifierDemande(d, plafonds, modeles = MODELE_PAR_USAGE) {
   return { ...meta, usage, modele, requetes };
 }
 
-/** Les parametres d'une requete du batch : le prompt en cache, la sortie structuree, l'effort. */
+// --- La forme de la reponse (deploy/analyse.php, memes noms) ---------------------------------
+// Le schema ne part plus en sortie structuree (`output_config.format`) : l'API le compile en
+// grammaire, et celle de l'analyse d'une maison depasse sa limite (« The compiled grammar is too
+// large », audit d'AE 101, 15 octobre 2026) ; aucune reponse n'etait lue. Il part a la suite du
+// prompt, et la reponse y est ramenee ici (`conformer`) : un terme hors vocabulaire devient
+// `indetermine`, un champ manquant prend sa valeur par defaut, un element de liste illisible est
+// ecarte. La page recoit donc la meme forme qu'avant.
+
+export const CONSIGNE_JSON = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, conforme à ce schéma JSON :';
+
+/** Le prompt envoye en system : la partie fixe, puis le schema de la reponse (les deux en cache). */
+export function promptAvecSchema(prompt, schema) {
+  return prompt + '\n\n# Forme de la réponse\n\n' + CONSIGNE_JSON + '\n\n' + JSON.stringify(schema);
+}
+
+const estObjetJson = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** L'objet JSON d'une reponse : le texte entier, sinon ce qui va de la premiere accolade a la derniere. */
+export function objetJsonDuTexte(texte) {
+  const t = String(texte).trim();
+  const lire = (x) => { try { const d = JSON.parse(x); return estObjetJson(d) ? d : null; } catch { return null; } };
+  const d = lire(t);
+  if (d) return d;
+  const i = t.indexOf('{'), j = t.lastIndexOf('}');
+  return i < 0 || j <= i ? null : lire(t.slice(i, j + 1));
+}
+
+const ACCENTS = { 'à': 'a', 'â': 'a', 'ä': 'a', 'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'î': 'i', 'ï': 'i', 'ô': 'o', 'ö': 'o', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ç': 'c', 'œ': 'oe', '_': '-', ' ': '-' };
+/** Un terme ecrit par Claude, ramene a la graphie du vocabulaire (minuscules, sans accents, tirets). */
+export function termeNormalise(v) {
+  return [...v.trim().toLowerCase()].map((c) => ACCENTS[c] ?? c).join('');
+}
+
+function schemaResolu(s, defs) {
+  for (let n = 0; s && typeof s === 'object' && typeof s.$ref === 'string' && n < 8; n++) s = defs ? defs[s.$ref.replace(/^#\/\$defs\//, '')] : undefined;
+  return s;
+}
+
+/**
+ * La valeur d'un champ manquant ou illisible, `[vrai, valeur]` quand il en a une sans rien inventer :
+ * `indetermine` si son vocabulaire l'a, une liste vide, un texte vide, un objet ramene a son schema.
+ * Un nombre (un numero d'ouverture, une cote, une image) ou un terme sans `indetermine` n'en a pas :
+ * l'objet qui le porte est alors ecarte de sa liste plutot que complete.
+ */
+function valeurParDefaut(s, defs) {
+  s = schemaResolu(s, defs);
+  if (!s || typeof s !== 'object') return [false, null];
+  if (Array.isArray(s.anyOf)) {
+    for (const b0 of s.anyOf) { const b = schemaResolu(b0, defs); if (b && Array.isArray(b.enum) && b.enum.includes('indetermine')) return [true, 'indetermine']; }
+    return [false, null];
+  }
+  if (Array.isArray(s.enum)) return s.enum.includes('indetermine') ? [true, 'indetermine'] : [false, null];
+  if (s.type === 'array') return [true, []];
+  if (s.type === 'string') return [true, ''];
+  if (s.type === 'object') { const r = conformer({}, s, defs); return [r.ok, r.v]; }
+  return [false, null];
+}
+
+/**
+ * `v` ramene au schema `s`, en `{ ok, v }` (`ok` faux quand il ne s'y ramene pas : le parent decide
+ * alors). A la racine, un terme manquant sans `indetermine` prend le premier du vocabulaire : c'est
+ * `confiance`, et son premier terme, `faible`, est le plus prudent.
+ */
+export function conformer(v, s0, defs, racine = false) {
+  const s = schemaResolu(s0, defs);
+  const non = { ok: false, v: null };
+  if (!s || typeof s !== 'object') return { ok: true, v };
+  if (Array.isArray(s.anyOf)) {
+    for (const b of s.anyOf) { const r = conformer(v, b, defs); if (r.ok) return r; }
+    return non;
+  }
+  if (Array.isArray(s.enum)) {
+    if (typeof v === 'string') { const t = termeNormalise(v); if (s.enum.includes(t)) return { ok: true, v: t }; }
+    return non;
+  }
+  switch (s.type) {
+    case 'object': {
+      if (!estObjetJson(v)) return non;
+      const o = {};
+      for (const [k, p] of Object.entries(s.properties || {})) {
+        const r = conformer(Object.prototype.hasOwnProperty.call(v, k) ? v[k] : null, p, defs);
+        if (r.ok) { o[k] = r.v; continue; }
+        const [a, d] = valeurParDefaut(p, defs);
+        if (a) { o[k] = d; continue; }
+        const pr = schemaResolu(p, defs);
+        if (racine && pr && Array.isArray(pr.enum) && pr.enum.length) { o[k] = pr.enum[0]; continue; }
+        return non;
+      }
+      return { ok: true, v: o };
+    }
+    case 'array': {
+      if (!Array.isArray(v)) return non;
+      const l = [];
+      for (const x of v) { const r = conformer(x, s.items, defs); if (r.ok) l.push(r.v); }
+      return { ok: true, v: l };
+    }
+    case 'integer':
+      if (Number.isInteger(v)) return { ok: true, v };
+      if (typeof v === 'number' && Number.isFinite(v)) return { ok: true, v: Math.round(v) };
+      if (typeof v === 'string' && /^\s*-?\d+\s*$/.test(v)) return { ok: true, v: Number.parseInt(v.trim(), 10) };
+      return non;
+    case 'number':
+      if (typeof v === 'number' && Number.isFinite(v)) return { ok: true, v };
+      if (typeof v === 'string' && /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v.trim())) return { ok: true, v: Number(v.trim()) };
+      return non;
+    case 'string':
+      return typeof v === 'string' ? { ok: true, v } : non;
+    case 'boolean':
+      return typeof v === 'boolean' ? { ok: true, v } : non;
+    default:
+      return { ok: true, v };
+  }
+}
+
+/** La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON. */
+export function sortieConforme(texte, schema) {
+  const d = objetJsonDuTexte(texte);
+  if (!d) return null;
+  if (!estObjetJson(schema)) return d;
+  const r = conformer(d, schema, schema.$defs, true);
+  return r.ok && estObjetJson(r.v) ? r.v : null;
+}
+
+/** Les parametres d'une requete du batch : le prompt et le schema en cache, l'effort. */
 export function parametresRequete(modele, prompt, schema, contenu) {
   return {
     model: modele,
     max_tokens: MAX_TOKENS,
-    system: [{ type: 'text', text: prompt, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: promptAvecSchema(prompt, schema), cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: contenu }],
-    output_config: { effort: EFFORT, format: { type: 'json_schema', schema } }
+    output_config: { effort: EFFORT }
   };
 }
 
@@ -416,7 +539,7 @@ export function choixConsommation(lignes, p) {
 const STATUT_RESULTAT ={ succeeded: 'reussi', errored: 'echoue', expired: 'expire', canceled: 'annule' };
 
 /** Ce qu'une ligne de resultats d'Anthropic devient : pour la page, et pour le journal. */
-export function lireResultat(ligne) {
+export function lireResultat(ligne, schema = null) {
   const r = ligne && ligne.result ? ligne.result : {};
   const statut = STATUT_RESULTAT[r.type] || 'echoue';
   const message = r.type === 'succeeded' && r.message ? r.message : null;
@@ -424,11 +547,13 @@ export function lireResultat(ligne) {
   let sortie = null;
   let erreur = null;
   if (message) {
-    const bloc = (Array.isArray(message.content) ? message.content : []).find((b) => b && b.type === 'text');
+    // Les blocs de texte bout a bout : la reflexion vient dans ses propres blocs, ignores ici.
+    const textes = (Array.isArray(message.content) ? message.content : []).filter((b) => b && b.type === 'text');
     if (message.stop_reason === 'refusal') erreur = { type: 'refusal', message: 'Analyse refusée par le modèle.' };
     else if (message.stop_reason === 'max_tokens') erreur = { type: 'max_tokens', message: 'Réponse coupée (max_tokens).' };
     else {
-      try { sortie = JSON.parse(bloc ? bloc.text : ''); } catch { erreur = { type: 'sortie_illisible', message: 'Sortie non JSON.' }; }
+      sortie = textes.length ? sortieConforme(textes.map((b) => String(b.text ?? '')).join(''), schema) : null;
+      if (sortie === null) erreur = { type: 'sortie_illisible', message: 'Sortie non JSON.' };
     }
   } else if (r.type === 'errored') {
     const e = r.error && r.error.error ? r.error.error : r.error || {};
@@ -612,10 +737,10 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
     const table = tarifs();
     const journal = [];
     const resultats = demande.requetes.map((r, i) => {
-      const x = lireResultat(lignesApi[i]);
+      const { prompt, schema } = prompts[r.usage];
+      const x = lireResultat(lignesApi[i], schema.schema);
       const ligneTarif = tarifEnVigueur(table, r.modele, t.slice(0, 10));
       const cout = coutAppel(x.tokens, ligneTarif, false);
-      const { prompt, schema } = prompts[r.usage];
       journal.push({ t, ...identite, usage: r.usage, modele: r.modele, batch: false, idBatch: null, requete: r.id, passe: r.passe, tokens: x.tokens, images: r.images, facades: r.facades,
         cout, tarif: ligneTarif ? ligneTarif.depuis : null, statut: x.statut, arret: x.arret, prompt: prompt.version, schema: schema.version, trouve: trouvailles(x, r.usage) });
       return { id: r.id, statut: x.statut, arret: x.arret, tokens: x.tokens, sortie: x.sortie, erreur: x.erreur, passe: r.passe, usage: r.usage, cout };
@@ -670,7 +795,17 @@ export function creerAnalyseAdmin({ dossier, actif, sessionValide, cle, anthropi
   async function resultats(fiche) {
     const r = await anthropic('GET', '/v1/messages/batches/' + encodeURIComponent(fiche.id) + '/results');
     if (r.statut !== 200) return { erreur: r };
-    const lus = r.texte.split('\n').filter((l) => l.trim()).map((l) => lireResultat(JSON.parse(l)));
+    // Chaque reponse se ramene au schema de son usage (le renfort a le sien dans le batch de l'analyse).
+    const schemas = {};
+    const schemaDe = (usage) => {
+      if (!(usage in schemas)) { try { schemas[usage] = promptEtSchema(usage).schema.schema; } catch { schemas[usage] = null; } }
+      return schemas[usage];
+    };
+    const lus = r.texte.split('\n').filter((l) => l.trim()).map((l) => {
+      const ligne = JSON.parse(l);
+      const req = fiche.requetes[String(ligne && ligne.custom_id)];
+      return lireResultat(ligne, schemaDe((req && req.usage) || fiche.usage));
+    });
     const t = typeof fiche.finLe === 'string' && !Number.isNaN(Date.parse(fiche.finLe)) ? new Date(fiche.finLe).toISOString() : iso();
     const table = tarifs();
     // Une requete du renfort dans le batch de l'analyse a son usage, son modele, son prompt et son schema.

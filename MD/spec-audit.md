@@ -495,8 +495,9 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 | les mesures du §13.1 | il ne les recalcule pas ; il s'en sert comme indices |
 | les photos dont le **calage** ou la **détection** n'est pas sûr (coins non trouvés, façade mal vue, ouvertures douteuses) | des coins et des ouvertures **proposés**, que Plan recale sur l'image avant de s'en servir (`spec-facades-calage-detection.md` §12 bis) |
 
-- **Réponse fermée** : sortie structurée (schéma JSON), vocabulaire de `spec-regles-toits.md` §2 et §3,
-  `indetermine` partout. **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
+- **Réponse fermée** : schéma JSON, vocabulaire de `spec-regles-toits.md` §2 et §3, `indetermine`
+  partout. Le schéma part à la suite du prompt et le serveur y ramène la réponse (voir
+  `spec-regles-toits.md` §14.2, point 1). **Trois passes et un vote**, contrôle croisé avec les indices LiDAR, escalade
   d'un cas douteux vers un modèle plus fin : les garde-fous de `spec-regles-toits.md` §14.2.
 - **Ce qui revient** : une liste de propositions, chacune avec son objet (façade, ouverture, toit,
   cheminée…), l'avant, l'après, les **indices** vus et sur quelle image, et une confiance.
@@ -508,18 +509,21 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     environ 60 000 tokens d'entrée par passe, soit environ 0,003 $ ; la sortie, environ 0,001 $ ;
   - avec trois passes, **de l'ordre de 1 à 2 centimes par parcelle** ;
   - quelques dizaines de centimes si une partie passe à l'escalade.
-  - **Depuis le 14 octobre 2026, le modèle plus fin (Sonnet) est celui de l'analyse par défaut** (voir
-    ci-dessous) : ses prix sont vingt fois ceux du modèle rapide, soit **de l'ordre de 20 à 40 centimes
-    par parcelle**. Les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation par requête
-    (0,005 $) datent du modèle rapide : l'administrateur les relève dans « Réglages ».
-- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026* : sur les photos d'un vrai
-  audit, le modèle rapide ne trouvait rien) est un réglage du serveur, choisi par l'administrateur dans
+  - **Depuis le 15 octobre 2026, le modèle rapide (Haiku) est de nouveau celui de tous les usages par
+    défaut** (voir ci-dessous) ; les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation
+    par requête (0,005 $) lui correspondent. Un usage passé au modèle plus fin (Sonnet) dans
+    « Réglages » coûte vingt fois plus, soit **de l'ordre de 20 à 40 centimes par parcelle** pour
+    l'analyse : l'administrateur relève alors les plafonds.
+- **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026*) est un réglage du serveur, choisi par l'administrateur dans
   le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
   (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
   modèles que le serveur admet (`MODELES` de `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`) et
-  refuse les autres. Par défaut : le modèle plus fin pour l'analyse des audits, le renfort des façades
-  et l'aide immédiate ; l'escalade reste au plus fin des modèles admis ; les cas candidats
-  (`spec-regles-toits.md`), nombreux et revus par une personne, au modèle rapide. Un modèle réglé que
+  refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits, escalade,
+  renfort des façades, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
+  l'utilisateur, 15 octobre 2026*). Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
+  au modèle plus fin le 14 octobre, venait du schéma que l'API refusait (sortie structurée trop grande,
+  §13.2 point « Réponse fermée »), pas du modèle. L'administrateur passe un usage au modèle plus fin
+  s'il le faut. Un modèle réglé que
   le serveur n'admet plus retombe sur le défaut. Une demande qui nomme son modèle le garde, comme
   avant. Le réglage vaut pour les envois suivants : un batch déjà créé garde le modèle écrit dans sa
   fiche.
@@ -590,7 +594,7 @@ du champ `usage` que l'API renvoie, jamais d'une estimation.
 | `idu`, `adresse` | la parcelle auditée |
 | `audit` | l'identifiant de l'audit (une capture et son analyse) |
 | `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
-| `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, Sonnet 5.5 en escalade…) |
+| `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, ou Sonnet 5.5 pour un usage que l'administrateur y a passé) |
 | `batch` | vrai si l'appel est passé par l'API Batch |
 | `idBatch` | l'identifiant du batch (hors batch : vide) ; la vue « Par modèle » compte les batches |
 | `passe` | 1, 2 ou 3 (le vote) |

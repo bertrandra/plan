@@ -1878,7 +1878,7 @@ const POINTS = {
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
-    const defaut = { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' };
+    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' };
     let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());
@@ -1938,7 +1938,7 @@ const POINTS = {
     await etape('onglet Réglages', () => page.getByRole('tab', { name: 'Réglages' }).click({ timeout: 5000 }));
     await etape('liste du modèle de l’analyse', () => page.waitForSelector('#consModele-analyse', { timeout: 5000 }));
     const optionsAnalyse = await page.locator('#consModele-analyse option').allTextContents();
-    await page.selectOption('#consModele-analyse', 'claude-haiku-5-5');
+    await page.selectOption('#consModele-analyse', 'claude-sonnet-5-5');
     await etape('Enregistrer les modèles', () => page.getByRole('button', { name: 'Enregistrer les modèles' }).click({ timeout: 5000 }));
     await page.waitForTimeout(300);
     await etape('formulaire du tarif', () => page.waitForSelector('#consTarif-sortie', { timeout: 5000 }));
@@ -1952,7 +1952,7 @@ const POINTS = {
       && /Claude Haiku 5\.5/.test(infobulle || '') && idus.length === 3 && [...idus].sort().join() === idus.join() && /^consommation-claude-parcelles-.*\.csv$/.test(nomCsv)
       && barres >= 2 && jauges === 2 && ajoute?.sortie === 0.45
       && vides.length === 2 && /^0 %/.test(vides[1] || '') && /^consommation-claude-modeles-.*\.csv$/.test(csvModeles.suggestedFilename())
-      && optionsAnalyse.length === 2 && optionsAnalyse.every((o) => / \$ \/ .* \$/.test(o)) && modelesEnvoyes?.usages?.analyse === 'claude-haiku-5-5';
+      && optionsAnalyse.length === 2 && optionsAnalyse.every((o) => / \$ \/ .* \$/.test(o)) && modelesEnvoyes?.usages?.analyse === 'claude-sonnet-5-5';
     return { ok, mesure: `débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')} ; légende ${legende.join(', ')} ; couleurs ${couleurs.join(' / ')} ; alertes ${alertes.length} ; infobulle « ${(infobulle || '').slice(0, 60)} » ; tri IDU ${premiereAvant} → ${idus.join(', ')} ; CSV ${nomCsv} ; barres ${barres}, jauges ${jauges} ; tarif ajouté ${ajoute ? ajoute.depuis + ' sortie ' + ajoute.sortie : 'NON'} ; réponses vides ${vides.join(' | ')} ; CSV ${csvModeles.suggestedFilename()} ; modèles proposés ${optionsAnalyse.join(' | ')} ; analyse réglée à ${modelesEnvoyes?.usages?.analyse ?? 'RIEN'}` };
   },
   69: async (page, f) => {

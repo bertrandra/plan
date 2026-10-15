@@ -91,16 +91,16 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
   });
 
   it('dit les versions du renfort, et envoie son prompt et son schema dans le batch de l analyse', async () => {
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ renfort: { prompt: 1, schema: 1 } });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ renfort: { prompt: 2, schema: 1 } });
     const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1', 1)] };
     expect((await ecrire('admin/claude/batches', d)).status).toBe(201);
     const r1 = faux.batches[0]!.corps.requests[1]!;
-    expect((r1.params.output_config as { format: { schema: unknown } }).format.schema).toEqual(SCHEMA);
+    expect((r1.params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(SCHEMA))).toBe(true);
     expect((r1.params.system as { text: string }[])[0]!.text).toMatch(/relever une façade photographiée/);
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
     expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'renfort']]);
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-sonnet-5-5', batch: true, facades: 1, prompt: 1, schema: 1, trouve: null });
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 2, schema: 1, trouve: null });
     expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ usage: 'analyse' });
   });
 
@@ -110,7 +110,7 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
-    const cout = coutAppel(tokensDeUsage(USAGE_P2), tarifEnVigueur(TARIFS, 'claude-sonnet-5-5', new Date().toISOString().slice(0, 10)), false);
+    const cout = coutAppel(tokensDeUsage(USAGE_P2), tarifEnVigueur(TARIFS, 'claude-haiku-5-5', new Date().toISOString().slice(0, 10)), false);
     expect(corps.resultats.map((x: { id: string; statut: string; cout: number }) => [x.id, x.statut, x.cout])).toEqual([['r1', 'reussi', cout], ['r2', 'reussi', cout], ['r3', 'reussi', cout]]);
     expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
     expect(journal()).toHaveLength(3);

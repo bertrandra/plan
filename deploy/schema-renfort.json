@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-renfort",
   "version": 1,
-  "note": "Sortie structuree du renfort de Claude pour le calage et la detection des facades (spec-facades-calage-detection.md 12 bis, lot L18). Coins en reperes de la grille dessinee sur la photo (colonnes et lignes de 0 a 10), ouvertures manquees en metres sur l'elevation, avis sur chaque ouverture numerotee par Plan ; indetermine partout, indices avant la conclusion. Plan recale chaque position sur l'image : ce ne sont que des graines. Le schema part tel quel dans output_config.format ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
+  "note": "Sortie structuree du renfort de Claude pour le calage et la detection des facades (spec-facades-calage-detection.md 12 bis, lot L18). Coins en reperes de la grille dessinee sur la photo (colonnes et lignes de 0 a 10), ouvertures manquees en metres sur l'elevation, avis sur chaque ouverture numerotee par Plan ; indetermine partout, indices avant la conclusion. Plan recale chaque position sur l'image : ce ne sont que des graines. Le schema part a la suite du prompt (plus dans output_config.format depuis le 15 octobre 2026 : l'API refusait sa grammaire), et la reponse y est ramenee par le serveur (deploy/analyse.php::conformer) ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
   "schema": {
     "type": "object",
     "additionalProperties": false,

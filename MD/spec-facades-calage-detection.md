@@ -313,7 +313,8 @@ Ailleurs, l'algorithme suffit et Claude n'est pas appelé : coût et délai nuls
 - Le **rendu du modèle** depuis la même prise de vue (`spec-regles-toits.md` §14.1).
 - Ce qui est connu : largeur du mur, hauteur du modèle, nombre de niveaux.
 
-**Ce qu'il rend**, en sortie structurée (schéma JSON), avec `indetermine` partout :
+**Ce qu'il rend**, dans la forme d'un schéma JSON (ramenée par le serveur, `spec-regles-toits.md` §14.2,
+point 1), avec `indetermine` partout :
 - **Calage** : la position approximative des quatre coins, en repères de la grille ; le mur vu, si ce
   n'est pas celui que l'on croit.
 - **Ouvertures** :

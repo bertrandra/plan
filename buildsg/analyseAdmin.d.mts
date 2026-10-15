@@ -94,11 +94,23 @@ export function verifierDemande(d: unknown, plafonds: Plafonds, modeles?: Readon
   usage: string; modele: string;
   requetes: { id: string; passe: number | null; images: number; facades: number; usage: string; modele: string; contenu: unknown[] }[];
 };
+/** La consigne qui precede le schema de la reponse dans le prompt (deploy/analyse.php, meme texte). */
+export const CONSIGNE_JSON: string;
+/** Le prompt envoye en system : la partie fixe, puis le schema de la reponse. */
+export function promptAvecSchema(prompt: string, schema: unknown): string;
+/** L'objet JSON d'une reponse : le texte entier, sinon de la premiere accolade a la derniere. */
+export function objetJsonDuTexte(texte: string): Record<string, unknown> | null;
+/** Un terme ramene a la graphie du vocabulaire (minuscules, sans accents, tirets). */
+export function termeNormalise(v: string): string;
+/** `v` ramene au schema `s` ; `ok` faux quand il ne s'y ramene pas. */
+export function conformer(v: unknown, s: unknown, defs: unknown, racine?: boolean): { ok: boolean; v: unknown };
+/** La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON. */
+export function sortieConforme(texte: string, schema: unknown): Record<string, unknown> | null;
 export function parametresRequete(modele: string, prompt: string, schema: unknown, contenu: unknown[]): Record<string, unknown>;
 export function verifierTarifs(d: unknown): Tarifs;
 export function passeGarde(ancien: Tarifs | null, nouveau: Tarifs, jour: string): boolean;
 export function verifierPlafonds(d: unknown): Plafonds;
-export function lireResultat(ligne: unknown): ResultatLu;
+export function lireResultat(ligne: unknown, schema?: unknown): ResultatLu;
 
 export interface FiltresConsommation {
   du: string;
