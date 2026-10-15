@@ -88,7 +88,7 @@ import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import { vue3d, rendre3d, affichage3d } from '../three/etat3d.js';
-import { visibilite3d } from '../three/scene.js';
+import { epurerLeTemps, visibilite3d } from '../three/scene.js';
 import { creerIsolement, objetAIsoler } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
@@ -791,7 +791,9 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
     // Les deux vues avant / apres d'un audit (three/comparaison3d.ts), en pixels du canevas.
     deuxVues: () => affichage3d.comparaison,
     // Ce que la Vue 3D montre des objets du plan (la vue epuree de l'audit de la parcelle).
-    visibilite3d: () => visibilite3d()
+    visibilite3d: () => visibilite3d(),
+    // Le rendu pour Claude, epure le temps d'un appel (le banc visuel : meme instance que l'application).
+    epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => epurerLeTemps(garder, f)
   } });
 }
 

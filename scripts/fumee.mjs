@@ -1528,7 +1528,7 @@ const POINTS = {
   },
   60: async (page, f) => {
     // L'audit de la parcelle, la liste de controle (lot L9) : « Auditer la parcelle… » depuis le menu
-    // Fichier (feuille Projet au doigt) ; les batiments de la parcelle puis les mitoyens ; une facade
+    // Fichier (feuille Projet au doigt) ; les batiments de la parcelle, sans les maisons voisines ; une facade
     // marquee inaccessible, le toit note, la cloture notee ; fermer puis rouvrir garde tout ; rien
     // n'entre dans le projet ; rien ne deborde de l'ecran.
     const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
@@ -1554,9 +1554,9 @@ const POINTS = {
     const garde = await page.locator('.ligneAudit', { hasText: 'Vu · Quatre pans (croupes)' }).count();
     const apres = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
-    // Les batiments de la parcelle, la parcelle, puis les mitoyens a part (facultatifs, essai d'AE 101).
+    // Les batiments de la parcelle, puis la parcelle, et rien d'autre : plus de maisons voisines (15 octobre).
     const iParcelle = titres.indexOf('La parcelle');
-    const ok = titres[0] === 'Maison' && iParcelle > 0 && titres.slice(iParcelle + 1).length > 0 && titres.slice(iParcelle + 1).every((t) => /mitoyen$/.test(t)) && marquee >= 1 && garde === 1
+    const ok = titres[0] === 'Maison' && iParcelle > 0 && iParcelle === titres.length - 1 && marquee >= 1 && garde === 1
       && /clôture notée/.test(compteur || '') && /1 toit vu sur/.test(compteur || '') && lancerGrise && avant === apres && !debords.some(Boolean);
     return { ok, mesure: `bâtiments ${titres.length - 1} (${titres.slice(0, 3).join(', ')}…) ; « ${compteurAvant} » → « ${compteur} » ; inaccessible ${marquee} ; toit gardé à la réouverture ${garde ? 'oui' : 'NON'} ; Lancer ${lancerGrise ? 'grisé' : 'ACTIF'} sans photo ; projet ${avant === apres ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },

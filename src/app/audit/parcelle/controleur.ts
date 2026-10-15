@@ -170,6 +170,13 @@ export interface SessionAuditParcelle {
   photographier(cle: string, cote: number): void;
   /** Revient a la facade reconnue par la position. */
   suivreLaPosition(): void;
+  /**
+   * Le batiment verrouille pour la prise, ou null (§12.2). La parcelle porte parfois une annexe a
+   * cote de la maison : la personne choisit « ce batiment-ci » et la prise ne vise plus que lui.
+   */
+  verrou(): string | null;
+  /** Verrouille ce batiment, ou rend la main (`null`) : c'est un geste volontaire, jamais deduit. */
+  verrouiller(cle: string | null): void;
   /** « Ce n'est pas cette façade » : la suivante parmi celles devant vous. */
   pasCetteFacade(): void;
   /** Le doigt touche la Vue 3D pendant la prise : la facade touchee devient celle de la prochaine photo. */
@@ -531,6 +538,13 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     prise: () => priseDe(sens, maintenant()),
     photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
     suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.faites(); vue.suivre(true); publier(); },
+    verrou: () => visee.verrou(),
+    verrouiller(cle) {
+      // Un verrou sur un batiment qui n'est pas de la liste n'a pas de sens : il est refuse.
+      if (cle !== null && !liste().batiments.some((b) => b.cle === cle)) return;
+      visee.verrouiller(cle, sens);
+      vue.faites(); vue.suivre(true); publier();
+    },
     pasCetteFacade() { const m = visee.ecarter(sens); if (m) ctx.signaler(m); vue.faites(); vue.suivre(true); publier(); },
     toucher(ndc) {
       if (ecran !== 'prise') return;
@@ -579,6 +593,11 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
   const surligner = ctx.surligner ?? ((f: Facade | null, teinte: number) => poserFacadeDevant(f, teinte));
   let reconnue: FacadeDevant | null = null;
   let choisie: { cle: string; cote: number } | null = null;
+  /**
+   * Le batiment verrouille pour la prise (action volontaire de la personne, quand la parcelle porte
+   * une annexe) : seul lui est reconnu et touche ; les autres restent des obstacles a la vue.
+   */
+  let verrou: string | null = null;
   let capReconnu: number | null = null;
   const ecartees = new Set<string>();
   let ecartDepuis: PtBrut | null = null;
@@ -588,7 +607,7 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
   const proposees = (sens: Sens): FacadeDevant[] => {
     const p = sens.position();
     if (!p) return [];
-    const { batiments, obstacles } = entreesReconnaissance(ctx.etat.objects, liste().batiments, p);
+    const { batiments, obstacles } = entreesReconnaissance(ctx.etat.objects, liste().batiments, p, verrou);
     return facadesProposees(p, sens.cap(), batiments, obstacles);
   };
   /**
@@ -636,8 +655,18 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
     },
     choisir(cle: string | null, cote: number | null): void {
       choisie = cle !== null && cote !== null ? { cle, cote } : null;
+      // Choisir une facade d'un autre batiment, c'est choisir ce batiment : le verrou le suit.
+      if (verrou !== null && cle !== null && cle !== verrou) verrou = cle;
       surlignerCourante();
     },
+    /** Verrouille un batiment (ou rend la main avec `null`) ; la facade reconnue ou choisie chez un autre est oubliee. */
+    verrouiller(cle: string | null, sens: Sens): void {
+      verrou = cle;
+      if (cle !== null && choisie && choisie.cle !== cle) choisie = null;
+      ecartees.clear(); ecartDepuis = null;
+      reconnaitre(sens);
+    },
+    verrou: (): string | null => verrou,
     /** Ecarte la facade reconnue ; rend la phrase a dire quand il n'y en a pas d'autre. */
     ecarter(sens: Sens): string | null {
       if (choisie) { choisie = null; reconnaitre(sens); return null; }
@@ -664,7 +693,7 @@ function viseeDe(ctx: ContexteAuditParcelle, liste: () => ListeDeControle, publi
         distance: f.distance, choisie: !!choisie, photos, plan: f.distance !== null ? textePlanDePrise(f.facade, f.distance) : null,
       };
     },
-    oublier(): void { reconnue = null; surlignee = null; surligner(null, ROUGE_FACADE); },
+    oublier(): void { reconnue = null; verrou = null; surlignee = null; surligner(null, ROUGE_FACADE); },
     facade: (): Facade | null => cibleFacade()?.facade ?? null,
     /** Vrai si la facade visee a ete choisie (touchee, ou dans la liste) plutot que reconnue. */
     choisie: (): boolean => choisie !== null,
@@ -690,13 +719,19 @@ export const DELAI_ENSEMBLE_MS = 2500;
 export type EcranVue = 'prise' | 'propositions' | null;
 
 /**
- * Les batiments que la Vue 3D de l'audit garde : ceux de la parcelle, et celui de la facade visee (un
- * mitoyen choisi dans la liste se montre, le temps de le photographier) ; leurs contours, et la
- * hauteur a cadrer (le plus haut mur, toit compris).
+ * Les batiments que la Vue 3D de l'audit garde : ceux de la parcelle, ou le seul batiment verrouille
+ * pour la prise (`verrouiller`), et celui de la facade visee ; leurs contours, et la hauteur a
+ * cadrer (le plus haut mur, toit compris).
+ *
+ * Le verrou ne vaut que sur l'ecran de prise (`enPrise`). Les rendus que Claude recoit se dessinent
+ * sur cette meme scene epuree (les batiments de la parcelle et le sol, sans arbres, clotures ni
+ * voisins) quand l'analyse est lancee : un verrou encore pose y cacherait toutes les maisons sauf une,
+ * et le rendu de leurs facades montrerait un terrain vide.
  */
-function batimentsDeLaVue(ctx: ContexteAuditParcelle, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle) {
+function batimentsDeLaVue(ctx: ContexteAuditParcelle, visee: ReturnType<typeof viseeDe>, liste: () => ListeDeControle, enPrise: () => boolean) {
   const batimentsGardes = (): Set<string> => {
-    const s = new Set(liste().batiments.filter((b) => !b.mitoyen).map((b) => b.cle));
+    const verrou = enPrise() ? visee.verrou() : null;
+    const s = new Set(verrou !== null ? [verrou] : liste().batiments.map((b) => b.cle));
     const v = visee.cleBatiment();
     if (v) s.add(v);
     return s;
@@ -710,8 +745,8 @@ function batimentsDeLaVue(ctx: ContexteAuditParcelle, visee: ReturnType<typeof v
 
 /**
  * La vue epuree de l'audit : les batiments gardes et le sol, rien d'autre. `poser` l'active (audit
- * ouvert) ou la retire ; `garder` la repose si ce qu'elle garde a change (une facade visee chez un
- * mitoyen), et seulement alors.
+ * ouvert) ou la retire ; `garder` la repose si ce qu'elle garde a change (un batiment verrouille),
+ * et seulement alors.
  */
 function vueEpuree(ctx: ContexteAuditParcelle, batimentsGardes: () => Set<string>) {
   const epurer = ctx.epurer ?? epurerVue3d;
@@ -762,7 +797,7 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
   let ecran: EcranVue = null;
   let mode: 'pieton' | 'ensemble' | null = null;
   let perdueDepuis: number | null = null;
-  const { batimentsGardes, contoursDe, hauteurDe } = batimentsDeLaVue(ctx, visee, liste);
+  const { batimentsGardes, contoursDe, hauteurDe } = batimentsDeLaVue(ctx, visee, liste, () => ecran === 'prise');
   const epure = vueEpuree(ctx, batimentsGardes);
   const garder = epure.garder;
 
@@ -859,7 +894,8 @@ function vueDe(ctx: ContexteAuditParcelle, sens: ReturnType<typeof capteurs>, vi
       if (!suivi.actif() || ecran !== 'prise') return null;
       // Le rayon traverse un arbre, une cloture, un batiment hors de la liste : seule compte la
       // premiere facade de la liste qu'il rencontre.
-      const dansLaListe = (cle: string) => liste().batiments.some((b) => b.cle === cle);
+      const verrou = visee.verrou();
+      const dansLaListe = (cle: string) => (verrou === null || cle === verrou) && liste().batiments.some((b) => b.cle === cle);
       const { cle, point } = (ctx.objetSous ?? objetSousLePointeur)(ndc, dansLaListe);
       if (!cle || !point) return null;
       const ligne = liste().batiments.find((b) => b.cle === cle);

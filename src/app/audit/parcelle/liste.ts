@@ -1,21 +1,18 @@
 // La liste de controle de l'audit de la parcelle (MD/spec-audit.md §12.1) : ce qu'il y a a capturer
-// sur la parcelle du projet et ses mitoyens, et ce qui reste.
+// sur la parcelle du projet, et ce qui reste.
 //
 // Pur : elle se recalcule a chaque geste depuis les objets du plan et la capture en cours. Les
 // batiments de la parcelle sont ceux que l'import y a poses (`surParcellePrincipale`) ou dont le
-// centre y tombe (un batiment dessine a la main) ; les mitoyens, ceux des parcelles qui la touchent
-// (model/mitoyennete.ts).
+// centre y tombe (un batiment dessine a la main).
+//
+// Les maisons des parcelles voisines n'en font plus partie (demande de l'utilisateur du 15 octobre,
+// apres l'essai d'AE 101 : 7 batiments et 33 facades, dont 19 chez les voisins). Elles restent dans
+// la scene, comme obstacles a la vue et comme voisinage, mais ni la liste, ni la reconnaissance, ni
+// l'analyse de Claude ne les regardent.
 //
 // Une facade collee a un autre batiment, ou posee sur la limite d'une parcelle voisine, est
-// « mitoyenne » : rien a photographier. Celle d'un mitoyen qui donne chez un autre voisin est
-// supposee inaccessible ; une touche la rend a la liste.
-//
-// Ce qui compte, ce sont les batiments de la parcelle du projet (essai sur le terrain d'AE 101,
-// 14 octobre : 7 batiments et 33 facades, dont 19 chez les voisins, et la reconnaissance proposait
-// la maison d'a cote). Les mitoyens restent dans la liste, a part et facultatifs : ils n'entrent ni
-// dans le compteur, ni dans ce qui manque, et la reconnaissance ne les propose pas d'elle-meme.
-// Un bout de mur de moins de MUR_COURT_M (un decroche) n'est pas une facade : il est sur la photo
-// du mur qu'il decroche.
+// « mitoyenne » : rien a photographier. Un bout de mur de moins de MUR_COURT_M (un decroche) n'est
+// pas une facade : il est sur la photo du mur qu'il decroche.
 
 import { centroid, pointInPolygon } from '../../../geometry/basic.js';
 import { distancePointContour } from '../../../geometry/proximite.js';
@@ -27,7 +24,6 @@ import { au } from '../../../util/tableaux.js';
 import { elevationOf } from '../../../engine/hauteurs.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../../model/fonctions.js';
-import { batimentsMitoyens, parcellesMitoyennes } from '../../../model/mitoyennete.js';
 import { partieVue, resumePartie, etatCheminees, type PartieVue } from '../../../model/ceQueJeVois.js';
 import { batimentVide, type BatimentCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
@@ -122,13 +118,14 @@ function surLaParcelle(o: Batiment, parcelle: ObjetPlan | undefined): boolean {
   return !!parcelle && aDesSommets(parcelle) && !o.voisinage && pointInPolygon(centroid(o.pts), parcelle.pts);
 }
 
-/** Les batiments de l'audit : ceux de la parcelle d'abord, puis les mitoyens. */
+/**
+ * Les batiments de l'audit : ceux de la parcelle du projet, et eux seuls. `mitoyen` vaut toujours
+ * faux : le champ reste, le fichier de l'audit (§15) le porte depuis ses premieres versions.
+ */
 export function batimentsAudites(objets: readonly ObjetPlan[]): { o: Batiment; mitoyen: boolean }[] {
   const parcelle = parcelleDuProjet(objets as ObjetPlan[]);
   const batis = objets.filter((o): o is Batiment => estBatiment(o) && aDesSommets(o));
-  const propres = batis.filter((o) => surLaParcelle(o, parcelle));
-  const mitoyens = [...batimentsMitoyens(objets, parcellesMitoyennes(objets))].filter((o): o is Batiment => estBatiment(o) && aDesSommets(o));
-  return [...propres.map((o) => ({ o, mitoyen: false })), ...mitoyens.filter((o) => !propres.includes(o)).map((o) => ({ o, mitoyen: true }))];
+  return batis.filter((o) => surLaParcelle(o, parcelle)).map((o) => ({ o, mitoyen: false }));
 }
 
 /** Ce qui est devant un mur, et s'il est colle a un autre batiment ou pose sur une limite voisine. */
@@ -220,6 +217,20 @@ export function profilMurSousToit(o: ObjetPlan, f: Facade): MorceauMur[] {
     if (dernier && Math.abs(dernier.h - m.h) < 0.05) dernier.a = m.a; else net.push({ ...m });
   }
   return net;
+}
+
+/** Sans corps de toit lu, le haut du pignon ou du pan est a cette part de plus que le mur sous le toit. */
+const PART_TOIT_SANS_CORPS = 1.35;
+
+/**
+ * Le haut du pignon ou du pan de cette facade, au-dessus du sol : le faitage le plus haut des corps
+ * de toit dont un mur longe la facade (deux sommets a moins de MUR_PROCHE_M d'elle) ; sans corps, le
+ * mur sous le toit majore. C'est ce que le rendu pour Claude doit faire tenir en entier dans l'image.
+ */
+export function hauteurHautDeFacade(o: ObjetPlan, f: Facade, hauteurMur: number): number {
+  const longe = (c: { pts: PtBrut[] }) => c.pts.filter((q) => distancePointSegment(q, f.gauche, f.droite) < MUR_PROCHE_M).length >= 2;
+  const faitages = (o.corpsToit ?? []).filter(longe).map((c) => c.faitage);
+  return Math.max(hauteurMur + 0.5, ...faitages, faitages.length ? 0 : hauteurMur * PART_TOIT_SANS_CORPS);
 }
 
 /** La hauteur du mur sous le toit : le plus haut de ses morceaux (etage compris). */
@@ -326,8 +337,7 @@ export function listeDeControle(objets: readonly ObjetPlan[], capture: CapturePa
   const audites = batimentsAudites(objets);
   const noms = nommer(audites);
   const batiments = audites.map(({ o, mitoyen }) => ligneBatiment(o, mitoyen, noms.get(o.key) ?? o.key, objets, capture));
-  // Le compteur et ce qui manque ne parlent que de la parcelle du projet ; les mitoyens sont facultatifs.
-  const propres = batiments.filter((b) => !b.mitoyen);
+  const propres = batiments;
   const toutes = propres.flatMap((b) => b.facades);
   const photographiees = toutes.filter((f) => f.statut === 'photographiee').length;
   const aPrendre = toutes.filter((f) => f.statut === 'photographiee' || f.statut === 'aPhotographier').length;
@@ -342,7 +352,6 @@ export function listeDeControle(objets: readonly ObjetPlan[], capture: CapturePa
     facadesAPrendre: aPrendre,
     compteur: compteurDe(propres, photographiees, aPrendre, clotureFaite, portailFait),
     manques: manquesDe(propres, clotureFaite, portailFait),
-    // Une photo d'un mitoyen suffit aussi a lancer l'analyse.
     peutLancer: batiments.some((b) => b.facades.some((f) => f.statut === 'photographiee')),
   };
 }

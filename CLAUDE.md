@@ -118,6 +118,11 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 - **« Relief » et « Courbes de niveau »** (menu Affichage, section Relief) : préférences d'affichage
   sans Ctrl+Z, permises en lecture seule, mais qui **marquent le projet à enregistrer** (attribut
   `enregistre` des champs, `app/ecouteurs/relief.ts`) : l'utilisateur attend de les retrouver.
+- **Audit de la parcelle** : les maisons voisines n'en font pas partie (ni liste, ni reconnaissance,
+  ni analyse). Quand la parcelle porte plusieurs bâtiments, « verrouiller un bâtiment » est un geste
+  volontaire de la personne, valable sur l'écran de prise seulement : le rendu pour Claude se dessine
+  sur la scène épurée avec tous les bâtiments de la parcelle (`app/audit/parcelle/controleur.ts`).
+  Le rendu pour Claude montre la façade entière, pas ce que le téléphone cadrait.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

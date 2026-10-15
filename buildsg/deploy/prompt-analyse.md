@@ -13,7 +13,7 @@ Le calcul du toit et la détection des ouvertures appartiennent au logiciel Plan
 Chaque image arrive avec une étiquette, par exemple « Image 1 : photo de rue, prise à 12 m, vers 245° ». Les images sont numérotées dans l'ordre de leurs étiquettes, à partir de 1. Vous pouvez recevoir :
 
 - **une ou plusieurs photos de rue**, ou **des photos de chaque façade** (étiquette « façade sud », « façade nord »…), prises depuis le jardin ou la rue : la façade la plus proche est au premier plan ; un arbre masque le toit, il n'en fait pas partie ;
-- **le rendu du modèle actuel de Plan**, pris du même point de vue que la photo : c'est le modèle, pas la réalité. La question la plus utile est l'écart entre ce rendu et la photo ;
+- **le rendu du modèle actuel de Plan**, qui montre la façade entière, du pied du mur au haut du pignon ou du pan, vue du même côté que la photo mais de plus loin : c'est le modèle, pas la réalité. Il ne montre que les bâtiments de la parcelle et le sol : ni arbres, ni clôtures, ni maisons voisines. Ce qui manque au rendu et se voit sur la photo (un arbre, une haie) n'est donc pas un écart du modèle. La question la plus utile est l'écart entre ce rendu et la photo ;
 - **ce que Plan a mesuré sur chaque façade** (nombre d'ouvertures détectées, hauteur à l'égout, couleur lue) : des indices, pas des conclusions ; vous dites ce que la photo montre en plus ou en moins ;
 - **l'orthophoto**, vue du dessus, recadrée sur le contour du bâtiment, contour tracé : lignes de faîtage et d'arêtiers, croupes, matériau, verrières ;
 - **la carte des hauteurs LiDAR** : le bleu est bas, le rouge est haut, le contour est tracé et la carte porte une échelle ;

@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { DEMO_OBJECTS } from '../../../../../src/model/demo.js';
-import { batimentsAudites, listeDeControle, situationFacade, statutFacade, texteStatutFacade, aUnToitPlat, MUR_COURT_M, hauteurMurSousToit, profilMurSousToit } from '../../../../../src/app/audit/parcelle/liste.js';
+import { batimentsAudites, listeDeControle, situationFacade, statutFacade, texteStatutFacade, aUnToitPlat, MUR_COURT_M, hauteurMurSousToit, profilMurSousToit, hauteurHautDeFacade } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide, batimentVide } from '../../../../../src/model/auditParcelle.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // La liste de controle de l'audit de la parcelle (MD/spec-audit.md §12.1) : les batiments de la
-// parcelle et ses mitoyens (facultatifs), l'etat de chaque facade, le compteur et ce qui manque.
+// parcelle du projet (les maisons voisines n'en font pas partie), l'etat de chaque facade, le
+// compteur et ce qui manque.
 
 const PHOTO = { type: 'image/jpeg' as const, base64: 'AAAA' };
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
@@ -27,16 +28,15 @@ function quartier(): ObjetPlan[] {
 }
 
 describe('les batiments de l audit', () => {
-  it('prend ceux de la parcelle, puis les mitoyens', () => {
+  it('ne prend que ceux de la parcelle : la maison voisine n est plus dans l audit', () => {
     const b = batimentsAudites(quartier());
-    expect(b.map((x) => [x.o.key, x.mitoyen])).toEqual([['maison', false], ['garage', false], ['chezVoisin', true]]);
+    expect(b.map((x) => [x.o.key, x.mitoyen])).toEqual([['maison', false], ['garage', false]]);
   });
 
-  it('trouve la maison et l abri de la demonstration, et des mitoyens', () => {
+  it('trouve la maison et l abri de la demonstration, et aucun mitoyen', () => {
     const b = batimentsAudites(DEMO_OBJECTS as ObjetPlan[]);
-    const propres = b.filter((x) => !x.mitoyen).map((x) => x.o.key);
-    expect(propres).toEqual(expect.arrayContaining(['maison', 'abri']));
-    expect(b.some((x) => x.mitoyen)).toBe(true);
+    expect(b.map((x) => x.o.key)).toEqual(expect.arrayContaining(['maison', 'abri']));
+    expect(b.some((x) => x.mitoyen)).toBe(false);
   });
 });
 
@@ -83,18 +83,19 @@ describe('la liste et son compteur', () => {
     expect(l.peutLancer).toBe(false);
   });
 
-  it('ne compte que la parcelle du projet : les mitoyens sont facultatifs (essai d AE 101)', () => {
+  it('ne compte que la parcelle du projet : la maison voisine n y est pas (essai d AE 101)', () => {
     const l = listeDeControle(quartier(), captureVide('78650000AE0101'));
-    const propres = l.batiments.filter((b) => !b.mitoyen).flatMap((b) => b.facades).filter((f) => f.statut === 'aPhotographier').length;
-    expect(l.facadesAPrendre).toBe(propres);
+    expect(l.batiments.map((b) => b.cle)).toEqual(['maison', 'garage']);
+    const aPrendre = l.batiments.flatMap((b) => b.facades).filter((f) => f.statut === 'aPhotographier').length;
+    expect(l.facadesAPrendre).toBe(aPrendre);
     expect(l.manques.some((m) => /chezVoisin/.test(m.texte))).toBe(false);
-    // Une photo d'un mitoyen ne compte pas, mais permet de lancer l'analyse.
+    // Une photo rangee chez la voisine (un ancien brouillon) n'entre ni dans le compte, ni dans l'analyse.
     const c = captureVide('78650000AE0101');
     const ouest = facadesDuContour(rect(20, 5, 30, 15), 6).find((f) => f.orientation === 'Ouest')!;
     c.batiments.chezVoisin = { ...batimentVide(), facades: { [String(ouest.cote)]: { photos: [PHOTO] } } };
     const avecVoisin = listeDeControle(quartier(), c);
     expect(avecVoisin.facadesPhotographiees).toBe(0);
-    expect(avecVoisin.peutLancer).toBe(true);
+    expect(avecVoisin.peutLancer).toBe(false);
   });
 
   it('donne au mur sa hauteur sous le toit, etage compris, sans toucher a la facade mesuree', () => {
@@ -187,5 +188,31 @@ describe('la liste et son compteur', () => {
     // Stable : la meme capture redonne les memes cles, dans le meme ordre.
     expect(listeDeControle(objets, captureVide('78650000AE0101')).manques.map((m) => m.cle)).toEqual(cles);
     expect(est.map((m) => m.cle)).toEqual(['facade:maison:1', 'facade:maison:3']);
+  });
+});
+
+describe('le haut du pignon ou du pan d une facade', () => {
+  const o = (corpsToit?: unknown) => ({ key: 'm', name: 'm', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: 6, ...(corpsToit ? { corpsToit } : {}) }) as unknown as ObjetPlan;
+  const sud = facadesDuContour(rect(0, 0, 10, 8), 6).find((f) => f.orientation === 'Sud')!;
+  const corps = (pts: PtBrut[], faitage: number) => ({ pts, posFaitage: 4, faitage, egouts: [6, 6], pignons: [], ecart: 0 });
+
+  it('prend le faitage du corps dont un mur longe la facade', () => {
+    expect(hauteurHautDeFacade(o([corps(rect(0, 0, 10, 8), 9.4)]), sud, 6)).toBe(9.4);
+  });
+
+  it('prend le plus haut quand plusieurs corps la longent, et ignore un corps qui ne la touche pas', () => {
+    const aile = corps(rect(0, 0, 4, 8), 8);
+    const loin = corps(rect(20, 20, 30, 30), 15);
+    expect(hauteurHautDeFacade(o([aile, corps(rect(4, 0, 10, 8), 9.4), loin]), sud, 6)).toBe(9.4);
+  });
+
+  it('sans corps de toit, majore le mur sous le toit : le toit existe, meme non lu', () => {
+    const h = hauteurHautDeFacade(o(), sud, 6);
+    expect(h).toBeGreaterThan(6.5);
+    expect(h).toBeCloseTo(6 * 1.35, 5);
+  });
+
+  it('ne descend jamais sous le mur : un faitage mesure plus bas que l egout n a pas de sens', () => {
+    expect(hauteurHautDeFacade(o([corps(rect(0, 0, 10, 8), 5)]), sud, 6)).toBe(6.5);
   });
 });

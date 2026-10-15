@@ -15,7 +15,9 @@
 // d'un passage enregistre. `BANC_RESEAU=temoin|direct|enregistrer` force le mode, comme
 // `FUMEE_RESEAU` pour la fumee. `BANC_QUALITES=normale,soignee` limite les niveaux mesures ;
 // `BANC_VUES=0` ne fait que les mesures, `BANC_MESURES=0` que les images ; `BANC_ECHELLE=1` coche les
-// objets d'echelle (une voiture, une silhouette) avant les vues.
+// objets d'echelle (une voiture, une silhouette) avant les vues ; `BANC_CLAUDE=1` ajoute les rendus
+// que Claude recoit, un par facade de la maison (la facade entiere, du pied au haut du toit, vue de
+// 5 m devant son milieu : three/renduPrise.ts).
 //
 // Les chiffres viennent d'un Chromium sans carte graphique (rendu logiciel) : ils se comparent entre
 // eux, d'une etape a l'autre, pas a un vrai telephone. Le profil « telephone » ajoute un
@@ -136,6 +138,44 @@ async function pointsDeVue(page) {
   });
 }
 
+/**
+ * Les rendus pour Claude de chaque facade de la maison de la parcelle, comme `analyseClaude.ts` les
+ * demande : la prise 5 m devant le milieu du mur, la facade visee entiere. Le haut est le faitage le
+ * plus haut des corps de toit lus, sinon le mur majore, comme app/audit/parcelle/liste.ts.
+ */
+async function rendusClaude(page) {
+  return page.evaluate(async () => {
+    const mod = await import('/src/three/renduPrise.ts');
+    const epurerLeTemps = window.__plan.epurerLeTemps;
+    const e = window.__plan.etat();
+    const parcelle = e.objects.find((o) => o.key === 'parcelle');
+    const dans = (q, pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], d = pts[j]; if ((a.y > q.y) !== (d.y > q.y) && q.x < (d.x - a.x) * (q.y - a.y) / (d.y - a.y) + a.x) c = !c; } return c; };
+    const centre = (pts) => ({ x: pts.reduce((s, p) => s + p.x, 0) / pts.length, y: pts.reduce((s, p) => s + p.y, 0) / pts.length });
+    const maisons = e.objects.filter((o) => o.fonction === 'batiment' && !o.voisinage && o.pts && dans(centre(o.pts), parcelle.pts));
+    const maison = maisons.sort((a, b) => b.pts.length - a.pts.length)[0];
+    if (!maison) return [];
+    // Comme l'analyse (app/audit/parcelle/entreesAnalyse.ts::gardesDuRendu) : les batiments de la
+    // parcelle et le sol ; ni cloture, ni arbres, ni voisins.
+    const gardes = new Set([...maisons.map((o) => o.key), 'parcelle', ...e.objects.filter((o) => o.fonction === 'terrain').map((o) => o.key)]);
+    const pts = maison.pts, n = pts.length;
+    const haut = Math.max(...(maison.corpsToit ?? []).map((c) => c.faitage), (maison.elevation ?? 6) * 1.35);
+    const sorties = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], d = pts[(i + 1) % n], l = Math.hypot(d.x - a.x, d.y - a.y);
+      if (l < 3) continue;
+      const mx = (a.x + d.x) / 2, my = (a.y + d.y) / 2;
+      let g = a, dr = d, nx = (d.y - a.y) / l, ny = -(d.x - a.x) / l;
+      if (dans({ x: mx + nx * 0.3, y: my + ny * 0.3 }, pts)) { g = d; dr = a; nx = -nx; ny = -ny; }
+      const prise = { x: mx + nx * 5, y: my + ny * 5, azimutDeg: ((Math.atan2(-nx, -ny) * 180) / Math.PI + 360) % 360, inclinaisonDeg: 0, champDeg: 66 };
+      const cible = { gauche: g, droite: dr, hautM: haut };
+      const img = epurerLeTemps((cle) => gardes.has(cle), () => mod.rendreDepuisPrise(prise, cible));
+      const pose = mod.poseFacadeEntiere(prise, cible);
+      if (img) sorties.push({ cote: i, largeurM: Math.round(l * 10) / 10, reculM: pose.reculM, entiere: pose.entiere, inclinaisonDeg: Math.round(pose.inclinaisonDeg), base64: img.base64 });
+    }
+    return sorties;
+  });
+}
+
 async function poserCamera(page, vue) {
   if (!vue) return;
   await page.evaluate((vue) => {
@@ -229,6 +269,14 @@ async function principal() {
         const fichier = `${nom}-${f.nom}-${theme === 'light' ? 'clair' : 'sombre'}.jpg`;
         await page.screenshot({ path: SORTIE + '/' + fichier, type: 'jpeg', quality: 80 });
         console.log('  ' + fichier);
+      }
+      if (process.env.BANC_CLAUDE === '1' && f.nom === 'large' && theme === 'light') {
+        const rendus = await rendusClaude(page);
+        for (const r of rendus) {
+          const fichier = `claude-facade${r.cote}.jpg`;
+          writeFileSync(SORTIE + '/' + fichier, Buffer.from(r.base64, 'base64'));
+          console.log(`  ${fichier} : mur de ${r.largeurM} m, recul ${r.reculM} m, inclinaison ${r.inclinaisonDeg}°, ${r.entiere ? 'entiere' : 'PAS ENTIERE'}`);
+        }
       }
       await contexte.close();
     }

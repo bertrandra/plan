@@ -1420,8 +1420,6 @@
   .manquesAudit > summary{ cursor:pointer; color:var(--ink-soft); min-height:32px; display:flex; align-items:center; }
   .manquesAudit ul{ margin:4px 0 0; padding-left:1.2em; color:var(--ink-soft); line-height:1.5; }
   /* Les mitoyens, facultatifs : replies sous la parcelle, a la taille des sections des batiments. */
-  .voisinsAudit{ font-size:inherit; }
-  .voisinsAudit > .detailPhoto{ margin:4px 0 8px; }
   .boutonFichier.desactive{ opacity:0.45; cursor:not-allowed; }
   .boutonFichier.desactive input{ cursor:not-allowed; }
   /* L'ecran de prise : une carte en bas, le voile s'efface et laisse la Vue 3D visible et manipulable
@@ -1436,6 +1434,10 @@
   .auditPrise .detailPhoto{ font-size:0.76rem; color:var(--ink-soft); margin-top:2px; }
   .auditPrise .rangementAudit{ color:var(--ink); }
   .auditPrise .piedDialogue{ margin-top:10px; }
+  /* Le verrou d'un batiment (annexe sur la parcelle) : une phrase, puis un bouton par batiment. */
+  .verrouBatiment{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; }
+  .verrouBatiment .detailPhoto{ flex:1 1 100%; margin:0; }
+  .verrouBatiment button[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   /* Les propositions de l'audit (zones/parcours/PropositionsAudit.tsx) : la carte de l'ecran de prise,
      a hauteur bornee (la parcelle restait cachee dessous, essai d'AE 101) : la tete, Avant / Apres et
      le pied restent en place, la liste defile entre eux, et « Replier » la range. */

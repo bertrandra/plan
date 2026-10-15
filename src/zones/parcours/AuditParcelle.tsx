@@ -2,8 +2,8 @@
 //
 // Trois ecrans, une session (app/audit/parcelle/controleur.ts) :
 // - la liste de controle, plein ecran : par batiment de la parcelle, les facades, le toit, les
-//   cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le portail ; les
-//   mitoyens a part, replies et facultatifs ; le compteur de ce qui reste, et « Lancer l'analyse » ;
+//   cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le portail ; le
+//   compteur de ce qui reste, et « Lancer l'analyse » (les maisons voisines n'y sont plus) ;
 // - l'ecran de prise, pose en bas de la Vue 3D (le voile s'efface, la scene reste visible) : la
 //   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme ;
 // - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
@@ -121,7 +121,7 @@ function SectionBatiment({ session, b, ouverte, basculer, prendre, photo }: {
 }) {
   return (
     <section className="batimentAudit" aria-label={b.nom}>
-      <h3 className="titreBatimentAudit">{b.nom}{b.mitoyen && <span className="pastilleAudit">mitoyen</span>}</h3>
+      <h3 className="titreBatimentAudit">{b.nom}</h3>
       <ul className="lignesAudit" aria-label={'Façades de ' + b.nom}>
         {b.facades.map((f) => <LigneFacadeVue key={f.cote} session={session} b={b} f={f} ouverte={ouverte === b.cle + '#' + f.cote} basculer={() => basculer(b.cle + '#' + f.cote)} prendre={prendre} />)}
       </ul>
@@ -236,8 +236,6 @@ function Liste({ session, commandes, fermer }: Props) {
   const c = session.capture.lire();
   const basculer = (cle: string) => setOuverte(ouverte === cle ? null : cle);
   const terminee = c.phase === 'analyse';
-  // Les batiments de la parcelle d'abord ; les mitoyens a part, replies : ils sont facultatifs.
-  const voisins = l.batiments.filter((b) => b.mitoyen);
   const section = (b: LigneBatiment) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
     prendre={(cle, cote) => session.photographier(cle, cote)}
     photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />;
@@ -255,14 +253,9 @@ function Liste({ session, commandes, fermer }: Props) {
         <span className="detailPhoto">La Vue 3D ne montre que le bâtiment. Devant une façade, elle vous suit à hauteur d’homme : la façade passe en rouge et la photo s’y range d’elle-même. Sinon, elle montre tout le bâtiment : touchez la façade à photographier.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
-      {l.batiments.filter((b) => !b.mitoyen).map(section)}
+      {l.batiments.map(section)}
       <SectionParcelle session={session} ouverte={ouverte} basculer={basculer}
         photo={(quoi, f) => photo.prendre(f, (p) => (quoi === 'cloture' ? session.capture.ajouterPhotoCloture(p) : session.capture.ajouterPhotoPortail(p)))} />
-      {voisins.length > 0 && <details className="manquesAudit voisinsAudit">
-        <summary>{'Bâtiments voisins, facultatif (' + voisins.length + ')'}</summary>
-        <p className="detailPhoto">Ils ne comptent pas dans l’audit et ne sont jamais proposés d’eux-mêmes : « Photographier » sur une ligne, ou touchez la façade dans la 3D.</p>
-        {voisins.map(section)}
-      </details>}
       {l.peutLancer && l.manques.length > 0 && <details className="manquesAudit">
         <summary>{'Ce qui manque (' + l.manques.length + ')'}</summary>
         <ul>{l.manques.map((m) => <li key={m.cle}>{m.texte}</li>)}</ul>
@@ -295,6 +288,26 @@ function texteVisee(session: SessionAuditParcelle): { titre: string; detail: str
   return { titre: 'Aucune façade de la parcelle devant vous.', detail: 'Placez-vous face à un mur, du côté extérieur, entre 3 et 40 m, ou touchez la façade dans la 3D.' };
 }
 
+/**
+ * Le batiment verrouille pour la prise (action volontaire) : la parcelle porte une annexe a cote de
+ * la maison, et la reconnaissance passait de l'une a l'autre. Un bouton par batiment ; toucher celui
+ * qui est verrouille rend la main. Absent quand la parcelle n'a qu'un batiment.
+ */
+function VerrouBatiment({ session }: { session: SessionAuditParcelle }) {
+  const batiments = session.liste().batiments;
+  const verrou = session.verrou();
+  if (batiments.length < 2) return null;
+  return (
+    <div className="verrouBatiment" role="group" aria-label="Bâtiment photographié">
+      <span className="detailPhoto">{verrou === null ? 'Plusieurs bâtiments sur la parcelle. Verrouiller :' : 'Verrouillé, seul ce bâtiment est visé :'}</span>
+      {batiments.map((b) => (
+        <button key={b.cle} type="button" className="secondary small" data-controle="auditParcelle.verrouiller" aria-pressed={verrou === b.cle}
+          onClick={() => session.verrouiller(verrou === b.cle ? null : b.cle)}>{b.nom}</button>
+      ))}
+    </div>
+  );
+}
+
 function Prise({ session }: { session: SessionAuditParcelle }) {
   const photo = usePhoto(session);
   // La Vue 3D cadre la partie que l'ecran de prise laisse voir.
@@ -310,6 +323,7 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
       {etatGps && <div className="detailPhoto">{etatGps}</div>}
       {session.dernierRangement() && <div className="detailPhoto rangementAudit" role="status">{session.dernierRangement()}</div>}
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
+      <VerrouBatiment session={session} />
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
         {c?.choisie && pos.etat === 'ok'
