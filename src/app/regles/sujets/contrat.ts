@@ -11,6 +11,7 @@ import type { IndiceProposition, Proposition, TypeEffet } from '../../../regles/
 import type { EtiquetteImage } from '../../../model/auditParcelle.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { LigneBatiment } from '../../audit/parcelle/liste.js';
+import type { ReponseAnalyse } from '../../../model/analyseClaude.js';
 
 /** Ce qu'un sujet recoit : le batiment, sa ligne de la liste, le vote des passes, les images, les contradictions LiDAR. */
 export interface EntreeSujet {
@@ -21,6 +22,20 @@ export interface EntreeSujet {
   contra: readonly string[];
 }
 
+/** Ce qu'un sujet recoit pour se dire en observation : le batiment, le vote des passes et les passes elles-memes. */
+export interface EntreeObservation {
+  o: ObjetPlan;
+  v: VoteAnalyse;
+  reponses: readonly ReponseAnalyse[];
+}
+
+/**
+ * Une ligne d'observation : ce que Claude a vu sans que le projet sache l'ecrire. `sujet` en fait l'identifiant
+ * (`<batiment>:obs:<sujet>`), `indices` dit ou Claude l'a vu, `accord` la part des passes d'accord (null :
+ * la ligne ne vient pas d'un vote).
+ */
+export interface LigneObservation { sujet: string; texte: string; indices: readonly IndiceAnalyse[]; accord: number | null }
+
 export interface Sujet {
   /** L'identifiant de sa description (regles/sujets/descriptions/) : le meme, c'est ce qui les apparie. Son nom a l'ecran est celui de la description. */
   id: string;
@@ -30,9 +45,14 @@ export interface Sujet {
   effet?: TypeEffet;
   /** Au plus une proposition ; null quand Claude ne dit rien, ou rien de neuf, ou rien que Plan sache ecrire. */
   proposer?(e: EntreeSujet): Proposition | null;
+  /** Comment le sujet se dit en observation, sans rien ecrire dans le projet ; rien : il n'a pas de ligne a lui. */
+  observer?(e: EntreeObservation): LigneObservation[];
 }
 
 export const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
+/** Le mot accorde au nombre : « vue », « vues ». */
+export const accorde = (n: number, mot: string) => mot + (n > 1 ? 's' : '');
+export const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Les indices d'un vote dans la forme des propositions : la phrase, et la photo quand l'image en etait une. */
 export function indicesDe(indices: readonly IndiceAnalyse[], etiquettes: readonly EtiquetteImage[]): IndiceProposition[] {

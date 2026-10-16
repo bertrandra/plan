@@ -11,7 +11,7 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
-import { contradictionsLidar, indicesLidar, type VoteAnalyse } from '../../../model/analyseClaude.js';
+import { contradictionsLidar, indicesLidar } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
@@ -25,7 +25,7 @@ import type { LigneBatiment } from './liste.js';
 
 // Ce que ce module garde de la facade publique d'avant le registre des sujets (app/regles/sujets/).
 export { couvertureDuVocabulaire } from '../../regles/sujets/couverture.js';
-export { materiauDesFacades } from '../../regles/sujets/materiau.js';
+export { materiauDesFacades } from '../../regles/sujets/facades.js';
 export { indicesDe } from '../../regles/sujets/contrat.js';
 
 /** Les reponses lues pour un batiment, et les etiquettes des images qu'il a recues. */
@@ -34,26 +34,8 @@ export interface ReponsesBatiment {
   etiquettes: EtiquetteImage[];
 }
 
-/** Un ecart en clair, et la facade qu'il concerne (null pour un ecart du toit ou du batiment). */
-export interface EcartClaude { texte: string; facade: string | null }
-
-/** Les ecarts du vote, chacun avec sa facade : l'ecran des propositions y rattache les images de la facade. */
-export function ecartsDuVote(v: VoteAnalyse): EcartClaude[] {
-  const out: EcartClaude[] = v.ecarts.map((e) => ({ texte: e.sujet + ' : ' + e.observe + (e.modele ? ' (le modèle dit : ' + e.modele + ')' : ''), facade: null }));
-  for (const f of v.facades) {
-    const m = f.manquees.valeur, t = f.enTrop.valeur;
-    const dire = (texte: string) => out.push({ texte: 'façade ' + f.facade + ' : ' + texte, facade: f.facade });
-    if (typeof m === 'number' && m > 0) dire(pluriel(m, 'ouverture') + ' non détectée' + (m > 1 ? 's' : '') + ' par Plan');
-    if (typeof t === 'number' && t > 0) dire(pluriel(t, 'ouverture') + ' détectée' + (t > 1 ? 's' : '') + ' en trop');
-    f.ecarts.forEach(dire);
-  }
-  return out;
-}
-
-/** Ce que Claude a releve sans que le projet sache l'ecrire : les ecarts, en clair (observationsClaude.ts les montre). */
-export function ecartsEnClair(v: VoteAnalyse): string[] {
-  return ecartsDuVote(v).map((e) => e.texte);
-}
+// Les ecarts de Claude (sujet « transverse ») : ils se disent en observation, et l'ecran des propositions les relit ici.
+export { ecartsDuVote, ecartsEnClair, type EcartClaude } from '../../regles/sujets/transverse.js';
 
 /** Les propositions de Claude pour un batiment : vote des passes lues, controle croise, puis chaque attribut. */
 export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: ReponsesBatiment): Proposition[] {

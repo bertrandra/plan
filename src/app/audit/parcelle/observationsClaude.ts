@@ -8,10 +8,10 @@
 // (essai d'AE 101 sur telephone : « il ne trouve rien »). Les lignes se lisent batiment par batiment,
 // chacune avec ou Claude l'a vu (l'image citee) et la part des passes d'accord quand un vote la donne.
 
-import type { IndiceAnalyse, ReponseAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
-import { AUTRES_FORMES, FORMES_COURANTES } from '../../../model/ceQueJeVois.js';
-import { ecartsDuVote, ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './propositionsClaude.js';
+import type { IndiceAnalyse, ReponseAnalyse, VoteAnalyse } from '../../../model/analyseClaude.js';
+import { ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './propositionsClaude.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
+import { observerSujets } from '../../regles/sujets/observations.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade } from '../../../model/types.js';
@@ -29,83 +29,20 @@ export interface ObservationClaude {
 
 export interface ObservationsBatiment { cle: string; nom: string; observations: ObservationClaude[] }
 
-const IND = 'indetermine';
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 const accorde = (n: number, mot: string) => mot + (n > 1 ? 's' : '');
-const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Les formes du schema que « Ce que je vois » ne nomme pas. */
-const AUTRES_FORMES_SCHEMA: Record<string, string> = {
-  coyau: 'Coyau', carene: 'Carène', conique: 'Conique', polygonal: 'Polygonal', fleche: 'Flèche', dome: 'Dôme', imperiale: 'Impériale',
-};
-export function libelleForme(code: string): string {
-  return [...FORMES_COURANTES, ...AUTRES_FORMES].find((f) => f.code === code)?.libelle ?? AUTRES_FORMES_SCHEMA[code] ?? code;
-}
-
-const BOUTS: Record<string, [string, string]> = { pignon: ['pignon', 'Pignons'], croupe: ['croupe', 'Croupes'], 'demi-croupe': ['demi-croupe', 'Demi-croupes'], brisis: ['brisis', 'Brisis'] };
-const LUCARNES: Record<string, string> = { jacobine: 'jacobine', capucine: 'capucine', 'chien-assis': 'chien-assis', rampante: 'rampante', meuniere: 'meunière', 'oeil-de-boeuf': 'œil-de-bœuf', outeau: 'outeau' };
-const PANS: Record<string, string> = { rue: 'côté rue', arriere: 'côté jardin', cote: 'sur le côté', plusieurs: 'sur plusieurs pans' };
-const ELEMENTS: Record<string, string> = {
-  'fenetre-de-toit': 'fenêtre de toit', 'chassis-eclairage': 'châssis d’éclairage', verriere: 'verrière', coyau: 'coyau',
-  acrotere: 'acrotère', 'garde-corps': 'garde-corps', lanterneau: 'lanterneau', 'pignon-a-redents': 'pignon à redents',
-};
-const VOLETS: Record<string, string> = { battants: 'volets battants', roulants: 'volets roulants', persiennes: 'persiennes', mixte: 'volets de plusieurs sortes', aucun: 'sans volets' };
-const FORMES_BAIES: Record<string, string> = { cintree: 'baies cintrées', 'oeil-de-boeuf': 'œil-de-bœuf', mixte: 'baies de formes mêlées' };
+// Le libelle d'une forme de toit vit avec le sujet qui la dit (app/regles/sujets/formeToit.ts).
+export { libelleForme } from '../../regles/sujets/formeToit.js';
 
 /** Ou Claude a vu un indice : le debut de l'etiquette de l'image (« photo de la façade sud de Maison »). */
 export function lieuxDe(indices: readonly IndiceAnalyse[], etiquettes: readonly EtiquetteImage[]): string[] {
   return [...new Set(indices.map((i) => etiquettes[i.image - 1]?.texte.split(',')[0]?.trim() || 'image ' + i.image))];
 }
 
-/** Les lignes tirees du vote des passes sur la maison. */
+/** Les lignes tirees du vote des passes sur la maison : chaque sujet du registre dit les siennes (app/regles/sujets/observations.ts). */
 function observationsDuVote(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, reponses: readonly ReponseAnalyse[], et: readonly EtiquetteImage[]): ObservationClaude[] {
-  const out: ObservationClaude[] = [];
-  const dire = (sujet: string, texte: string, indices: readonly IndiceAnalyse[], accord: number | null) => out.push({ id: b.cle + ':obs:' + sujet, texte, ou: lieuxDe(indices, et), accord });
-
-  if (v.forme.valeur !== IND) {
-    const bouts = [v.profil.valeur === 'brise' ? 'profil brisé' : v.profil.valeur === 'courbe' ? 'profil courbe' : null,
-      v.faitage.valeur === 'parallele-rue' ? 'faîtage parallèle à la rue' : v.faitage.valeur === 'perpendiculaire-rue' ? 'faîtage perpendiculaire à la rue' : null].filter(Boolean);
-    const modele = o.toit?.forme;
-    const compare = !modele ? '' : modele === v.forme.valeur ? ', comme le modèle de Plan' : ' ; le modèle de Plan dit : ' + libelleForme(modele).toLowerCase();
-    dire('forme', 'Forme du toit vue : ' + libelleForme(v.forme.valeur).toLowerCase() + (bouts.length ? ', ' + bouts.join(', ') : '') + compare, v.forme.indices, v.forme.accord);
-  }
-
-  const g = BOUTS[v.boutGauche.valeur], d = BOUTS[v.boutDroit.valeur];
-  if (g || d) {
-    const indices = [...(g ? v.boutGauche.indices : []), ...(d ? v.boutDroit.indices : [])];
-    const accord = Math.min(...[g ? v.boutGauche.accord : 1, d ? v.boutDroit.accord : 1]);
-    const texte = g && d && g === d ? g[1] + ' aux deux bouts du faîtage'
-      : 'Bouts du faîtage, vus de la rue : ' + [g ? g[0] + ' à gauche' : null, d ? d[0] + ' à droite' : null].filter(Boolean).join(', ');
-    dire(g?.[0] === 'pignon' || d?.[0] === 'pignon' ? 'pignons' : 'bouts', texte, indices, accord);
-  }
-
-  const n = v.lucarnes.valeur;
-  if (typeof n === 'number' && n > 0) {
-    // Les types ne se votent pas : ceux de la premiere passe qui donne le nombre retenu.
-    const types = [...new Set(reponses.find((r) => r.lucarnes.nombre === n)?.lucarnes.types ?? [])].map((t) => LUCARNES[t]).filter(Boolean);
-    const pan = PANS[v.panLucarnes.valeur];
-    dire('lucarnes', pluriel(n, 'lucarne') + ' ' + accorde(n, 'vue') + (types.length ? ' (' + types.join(', ') + ')' : '') + (pan ? ', ' + pan : ''), v.lucarnes.indices, v.lucarnes.accord);
-  }
-
-  const elements = v.elements.filter((e) => ELEMENTS[e.valeur]);
-  if (elements.length) {
-    dire('elements', 'Vu aussi : ' + elements.map((e) => ELEMENTS[e.valeur]).join(', '), elements.flatMap((e) => e.indices), Math.min(...elements.map((e) => e.accord)));
-  }
-
-  // Les details des ouvertures de chaque facade : volets, balcon, forme des baies.
-  for (const f of v.facades) {
-    const vus = [[f.volets, VOLETS], [f.balcon, { oui: 'balcon' }], [f.formeOuvertures, FORMES_BAIES]] as [Vote<string>, Record<string, string>][];
-    const retenus = vus.filter(([x, table]) => x.valeur !== IND && table[x.valeur]);
-    const indices = reponses.flatMap((r) => r.facades.filter((x) => x.facade === f.facade).flatMap((x) => x.indices));
-    if (retenus.length) dire('details:' + f.facade, 'Façade ' + f.facade + ' : ' + retenus.map(([x, table]) => table[x.valeur]).join(', '), indices, Math.min(...retenus.map(([x]) => x.accord)));
-  }
-
-  // Les ecarts au modele et les ouvertures manquees ou en trop, rattaches aux images de leur facade.
-  ecartsDuVote(v).forEach((e, k) => {
-    const indices = e.facade === null ? [] : reponses.flatMap((r) => r.facades.filter((x) => x.facade === e.facade).flatMap((x) => x.indices));
-    dire('ecart:' + k, majuscule(e.texte), indices, null);
-  });
-  return out;
+  return observerSujets({ o, v, reponses }).map((l) => ({ id: b.cle + ':obs:' + l.sujet, texte: l.texte, ou: lieuxDe(l.indices, et), accord: l.accord }));
 }
 
 const memeBoite = (a: OuvertureFacade, z: OuvertureFacade) => a.x === z.x && a.y === z.y && a.l === z.l && a.h === z.h;

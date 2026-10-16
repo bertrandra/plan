@@ -2,9 +2,9 @@
 
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.js';
-import type { Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
+import type { IndiceAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
-import { deClaude, pluriel, type EntreeSujet, type Sujet } from './contrat.js';
+import { deClaude, pluriel, type EntreeObservation, type EntreeSujet, type LigneObservation, type Sujet } from './contrat.js';
 
 const MATERIAUX: readonly string[] = MATERIAUX_MURS_VUS.map((m) => m.code);
 
@@ -33,4 +33,19 @@ function propositionMateriau({ o, b, v, et }: EntreeSujet): Proposition | null {
   }, 'materiauMurs', m, et, [], choisi ? libelle(choisi) : null);
 }
 
-export const materiau: Sujet = { id: 'facades', attribut: 'materiauMurs', effet: 'materiauMurs', proposer: propositionMateriau };
+const VOLETS: Record<string, string> = { battants: 'volets battants', roulants: 'volets roulants', persiennes: 'persiennes', mixte: 'volets de plusieurs sortes', aucun: 'sans volets' };
+const FORMES_BAIES: Record<string, string> = { cintree: 'baies cintrées', 'oeil-de-boeuf': 'œil-de-bœuf', mixte: 'baies de formes mêlées' };
+
+/** Les details des ouvertures de chaque facade : volets, balcon, forme des baies. */
+function observationsFacades({ v, reponses }: EntreeObservation): LigneObservation[] {
+  const out: LigneObservation[] = [];
+  for (const f of v.facades) {
+    const vus = [[f.volets, VOLETS], [f.balcon, { oui: 'balcon' }], [f.formeOuvertures, FORMES_BAIES]] as [Vote<string>, Record<string, string>][];
+    const retenus = vus.filter(([x, table]) => x.valeur !== 'indetermine' && table[x.valeur]);
+    const indices: IndiceAnalyse[] = reponses.flatMap((r) => r.facades.filter((x) => x.facade === f.facade).flatMap((x) => x.indices));
+    if (retenus.length) out.push({ sujet: 'details:' + f.facade, texte: 'Façade ' + f.facade + ' : ' + retenus.map(([x, table]) => table[x.valeur]).join(', '), indices, accord: Math.min(...retenus.map(([x]) => x.accord)) });
+  }
+  return out;
+}
+
+export const facades: Sujet = { id: 'facades', attribut: 'materiauMurs', effet: 'materiauMurs', proposer: propositionMateriau, observer: observationsFacades };
