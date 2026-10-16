@@ -27,7 +27,7 @@ import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle 
 import { propositionToitDesPhotos } from '../../regles/sujets/formeToit.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
-import type { MesureFacade } from './mesures.js';
+import { cleMesure, type MesureFacade } from './mesures.js';
 
 /** Un ecart de hauteur en deca ne vaut pas une proposition : c'est la precision de la mesure. */
 export const ECART_HAUTEUR_MIN_M = 0.1;
@@ -57,7 +57,7 @@ export interface EntreesPropositions {
   mesures: ReadonlyMap<string, MesureFacade>;
 }
 
-export const cleMesure = (cle: string, cote: number): string => cle + '#' + cote;
+export { cleMesure };
 
 /* ------------------------------------------------------------------------------------------------
  * Les corps : ou poser les cheminees et la terrasse

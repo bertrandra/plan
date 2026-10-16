@@ -27,6 +27,9 @@ import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { silhouetteDeEstimation } from '../../../facade/regles/toits/silhouettes.js';
 import type { ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 
+/** La cle d'une mesure : le batiment et le cote du mur (`cle#cote`). */
+export const cleMesure = (cle: string, cote: number): string => cle + '#' + cote;
+
 /** Ce que les mesures ont tire des photos d'une facade. */
 export interface MesureFacade {
   cle: string;

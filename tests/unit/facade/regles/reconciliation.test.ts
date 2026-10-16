@@ -139,7 +139,7 @@ describe('le calcul', () => {
     expect(regles.attributs.silhouetteFacade.poids.photo).toBe(2.5);
     // Un attribut qui ne donne pas de poids a la source : le poids par defaut de la source.
     const json = fichier();
-    json.attributs.hauteurEgout.poids = {};
+    json.attributs.hauteurEgout!.poids = {};
     const sans = lireReconciliation(json);
     const a = arbitrer([c('lidar', 6)], projet(5), 'hauteurEgout', 'batiment:maison', sans);
     expect(a.retenu?.lignes[0]?.poids).toBe(4);
@@ -147,7 +147,7 @@ describe('le calcul', () => {
 
   it('un seuil propre à l’attribut l’emporte sur celui du fichier', () => {
     const json = fichier();
-    json.attributs.hauteurEgout.scoreAutoMin = 3.8;
+    json.attributs.hauteurEgout!.scoreAutoMin = 3.8;
     const exigeant = lireReconciliation(json);
     expect(arbitrer([c('lidar', 6)], projet(5), 'hauteurEgout', 'batiment:maison', exigeant).decision).toBe('manuelle');
     expect(arb([c('lidar', 6)]).decision).toBe('auto');
