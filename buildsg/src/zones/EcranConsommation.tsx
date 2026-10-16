@@ -6,21 +6,23 @@
 //   - les filtres, sur une ligne : periode d'abord, puis organisation, modele, usage, parcelle ;
 //   - les alertes (plafond a 80 %, derive du cout moyen, echecs), sur les sept derniers jours ;
 //   - les chiffres cles ;
-//   - cinq onglets : dans le temps, par parcelle, par usage, par organisation, tarifs et plafonds.
-// « Exporter en CSV » rend la vue affichee. Les tarifs et les plafonds se reglent dans le dernier
-// onglet (`admin/claude/tarifs`, `admin/claude/plafonds`) : un tarif passe ne se reecrit pas.
+//   - six onglets : dans le temps, par parcelle, par usage, par modele, par organisation, reglages.
+// « Exporter en CSV » rend la vue affichee. « Par modele » compare les modeles sur ce qu'ils coutent
+// et sur ce que leurs reponses contiennent (champ `trouve` du journal). Le modele de chaque usage,
+// les tarifs et les plafonds se reglent dans le dernier onglet (`admin/claude/modeles`,
+// `admin/claude/tarifs`, `admin/claude/plafonds`) : un tarif passe ne se reecrit pas.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   NOMS_USAGES, PERIODES, alertes as calculerAlertes, bornesPeriode, chiffresCles, lireReponseConsommation, nomModele, ordonnerSeries,
-  parOrganisation, parParcelle, parUsage, pasParDefaut, serieDuModele, serieTemps,
+  parModele, parOrganisation, parParcelle, parUsage, pasParDefaut, serieDuModele, serieTemps,
   type Mesure, type Pas, type Periode, type ReponseConsommation
 } from '../model/consommation.js';
-import { csvOrganisations, csvParcelles, csvTemps, csvUsages } from '../export/csvConsommation.js';
+import { csvModeles, csvOrganisations, csvParcelles, csvTemps, csvUsages } from '../export/csvConsommation.js';
 import type { FiltresConsommation } from '../io/depotDemos.js';
-import type { Plafonds, Tarifs } from '../model/tarifsClaude.js';
+import type { Plafonds, ReglageModeles, Tarifs } from '../model/tarifsClaude.js';
 import { Reglages } from './consommation/reglages.js';
-import { TableParcelles, Tuiles, VueOrganisations, VueTemps, VueUsages } from './consommation/vues.js';
+import { TableParcelles, Tuiles, VueModeles, VueOrganisations, VueTemps, VueUsages, type MesureTrouve } from './consommation/vues.js';
 import * as fmt from './consommation/format.js';
 
 export interface PropsEcranConsommation {
@@ -31,17 +33,21 @@ export interface PropsEcranConsommation {
   enregistrerTarifs: (t: Tarifs) => Promise<unknown>;
   lirePlafonds: () => Promise<unknown>;
   enregistrerPlafonds: (p: Plafonds) => Promise<unknown>;
+  lireModeles: () => Promise<unknown>;
+  enregistrerModeles: (r: ReglageModeles) => Promise<unknown>;
   telecharger: (nom: string, texte: string) => void;
   retour?: string;
 }
 
-type Onglet = 'temps' | 'parcelles' | 'usages' | 'organisations' | 'reglages';
+type Onglet = 'temps' | 'parcelles' | 'usages' | 'modeles' | 'organisations' | 'reglages';
 const ONGLETS: { id: Onglet; titre: string }[] = [
   { id: 'temps', titre: 'Dans le temps' },
   { id: 'parcelles', titre: 'Par parcelle' },
   { id: 'usages', titre: 'Par usage' },
+  { id: 'modeles', titre: 'Par modèle' },
   { id: 'organisations', titre: 'Par organisation' },
-  { id: 'reglages', titre: 'Tarifs et plafonds' }
+  // Le modele de chaque usage, les tarifs et les plafonds : les reglages ensemble, apres les vues.
+  { id: 'reglages', titre: 'Réglages' }
 ];
 
 /** L'onglet lu dans l'adresse (`#parcelles`…), ecrit dedans sans entree d'historique. */
@@ -113,6 +119,7 @@ export function EcranConsommation(props: PropsEcranConsommation) {
   const [onglet, choisirOnglet] = useOnglet();
   const [mesure, setMesure] = useState<Mesure>('cout');
   const [pasChoisi, setPasChoisi] = useState<Pas | null>(null);
+  const [mesureTrouve, setMesureTrouve] = useState<MesureTrouve>('total');
 
   const { du, au } = bornesPeriode(filtres.periode, aujourdhui);
   const demande: FiltresConsommation = { du, au };
@@ -127,6 +134,7 @@ export function EcranConsommation(props: PropsEcranConsommation) {
       temps: serieTemps(ls, donnees.du, donnees.au, pas, mesure),
       parcelles: parParcelle(ls),
       usages: parUsage(ls, donnees.choix.usages.length ? donnees.choix.usages : undefined),
+      modeles: parModele(ls),
       organisations: parOrganisation(ls, donnees.organisations),
       cles: chiffresCles(ls),
       alertes: calculerAlertes(donnees.organisations, donnees.recents),
@@ -140,6 +148,7 @@ export function EcranConsommation(props: PropsEcranConsommation) {
     if (onglet === 'temps') telecharger(nom('temps-' + (mesure === 'tokens' ? 'tokens' : 'dollars')), csvTemps(calc.temps, mesure));
     else if (onglet === 'parcelles') telecharger(nom('parcelles'), csvParcelles(calc.parcelles, calc.series));
     else if (onglet === 'usages') telecharger(nom('usages'), csvUsages(calc.usages));
+    else if (onglet === 'modeles') telecharger(nom('modeles'), csvModeles(calc.modeles));
     else if (onglet === 'organisations') telecharger(nom('organisations'), csvOrganisations(calc.organisations));
   };
   const changer = (cle: keyof Filtres, v: string) => {
@@ -162,7 +171,7 @@ export function EcranConsommation(props: PropsEcranConsommation) {
       <div className="consFiltres" role="group" aria-label="Filtres">
         <BarreFiltres filtres={filtres} changer={changer} choix={donnees?.choix} />
         <button type="button" className="secondary consExporter" disabled={!calc || onglet === 'reglages'}
-          title={onglet === 'reglages' ? 'Les tarifs et les plafonds ne s’exportent pas : choisissez une autre vue.' : 'Télécharge la vue affichée, avec les filtres choisis'} onClick={exporter}>
+          title={onglet === 'reglages' ? 'Les réglages ne s’exportent pas : choisissez une autre vue.' : 'Télécharge la vue affichée, avec les filtres choisis'} onClick={exporter}>
           Exporter en CSV
         </button>
         <span className="consEtat" role="status">{etat}</span>
@@ -192,6 +201,7 @@ export function EcranConsommation(props: PropsEcranConsommation) {
             : onglet === 'temps' ? <VueTemps serie={calc.temps} mesure={mesure} pas={pas} choisirMesure={setMesure} choisirPas={setPasChoisi} />
             : onglet === 'parcelles' ? <TableParcelles lignes={calc.parcelles} series={calc.series} />
             : onglet === 'usages' ? <VueUsages usages={calc.usages} />
+            : onglet === 'modeles' ? <VueModeles modeles={calc.modeles} mesure={mesureTrouve} choisirMesure={setMesureTrouve} />
             : <VueOrganisations organisations={calc.organisations} />}
         </section>
       </div>

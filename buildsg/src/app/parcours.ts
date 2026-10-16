@@ -13,6 +13,7 @@ import type { Promenade } from './audit/promenade.js';
 import type { CouleursPhotos } from './audit/couleurFacade.js';
 import type { PrisePhoto } from '../model/audit.js';
 import type { SessionAuditParcelle } from './audit/parcelle/controleur.js';
+import type { CatalogueAudits } from './audit/parcelle/catalogue.js';
 
 export type Parcours =
   | { type: 'cadastre'; importe: ImportCadastre }
@@ -29,7 +30,10 @@ export type Parcours =
   /** Mode audit : la liste de fin de promenade, puis le partage du fichier. */
   | { type: 'auditFin'; promenade: Promenade; modifier: (cle: string) => void; retirer: (cle: string) => void; partager: () => Promise<void> }
   /** L'audit de la parcelle du projet, phase 1 : la liste de controle et l'ecran de prise (app/audit/parcelle/). */
-  | { type: 'auditParcelle'; session: SessionAuditParcelle };
+  /** `retour` : une consultation d'audit recu (Admin › Audits), en lecture seule, d'ou l'on revient aux audits. */
+  | { type: 'auditParcelle'; session: SessionAuditParcelle; retour?: () => void }
+  /** Admin › Audits de parcelle : les audits recus sur le serveur (app/audit/parcelle/catalogue.ts). */
+  | { type: 'auditsParcelle'; catalogue: CatalogueAudits };
 
 let courant: Parcours | null = null;
 /** Change a chaque ouverture : deux parcours du meme type ne partagent pas l'etat de leur ecran. */

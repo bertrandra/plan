@@ -219,7 +219,7 @@ if (page) {
   // L'origine est stockee seule dans le paquet : les chemins du contrat s'y ajoutent a
   // l'execution. On la reconnait en ecartant les origines tierces que le programme nomme par
   // ailleurs — IGN, BAN, les deux CDN, les textures.
-  const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
+  const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org))$/;
   const origine = [...new Set((html.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map((s) => s.slice(1, -1)))]
     .find((o) => !TIERCES.test(o));
   const csp = cspServie;

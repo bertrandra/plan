@@ -208,6 +208,12 @@ export interface LectureToits { version: number; reglages: string; faits?: strin
 export const LECTURES_TOITS: readonly LectureToits[] = [
   // Les seuils sortis du code sans changer une valeur : la lecture d'avant, a l'identique.
   { version: 1, reglages: '3b9b6b2c' },
+  // Le premier fait : l'appentis adosse de la facade sud d'AE 101 (regles/toits/faits.json), et les
+  // seuils de sa lecture (facade/appentisFait.ts) ajoutes aux reglages.
+  { version: 2, reglages: '6d05c3a9', faits: 'acde1a6a' },
+  // Les deux pignons traversants de la facade sud d'AE 101, dits par le proprietaire (fait), et les
+  // seuils de leur lecture (facade/pignonsFait.ts) : la lecture LiDAR servie par l'IGN a change.
+  { version: 3, reglages: 'b472cd75', faits: '43162115' },
 ];
 
 /**

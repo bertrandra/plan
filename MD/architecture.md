@@ -38,7 +38,7 @@ C4Context
   System_Ext(ign, "IGN Géoplateforme", "API Carto cadastre, GPU/PLU, WFS BD TOPO, WMTS orthophoto")
   System_Ext(ban, "BAN", "Address geocoding")
   System_Ext(ph, "Poly Haven", "PBR textures")
-  System_Ext(cdn, "cdnjs / jsDelivr", "three.js r128 + loaders")
+  System_Ext(cdn, "jsDelivr", "three.js 0.186 (modules ES) + exemples")
   System_Ext(mail, "Email", "Invitations, resets, MFA notices")
 
   Rel(member, pi, "Uses")
@@ -705,7 +705,7 @@ Carried deliberately, with the trigger that would force payment.
 | AD-1 | Full redraw on every change (W3) | Fine today; degrades past ~100 objects | FF-14-style benchmark breaches 30 fps |
 | AD-2 | Mixed French/English identifiers | Mild cognitive cost | Never — deliberate (P9) |
 | AD-3 | Hand-written PDF writer, no image support | Logo branding costs 3–4 days | If PDF requirements grow beyond a logo and a footer |
-| AD-4 | three.js pinned at r128 from CDN | Missing five years of upstream fixes | A needed feature or a security advisory |
+| AD-4 | three.js pinned (0.186.1 since 16 Oct 2026, was r128) as ES modules from jsDelivr, behind an import map | A bump is a deliberate migration (colour, light intensities, GLB output) | A needed feature or a security advisory |
 | AD-5 | `unsafe-inline` in the style CSP | Weakens CSP for style vectors | When shell inline styles move to classes; then switch to a nonce |
 | AD-6 | No offline mode | Field users on poor connections | Sustained user complaints; the shape is understood |
 | AD-7 | Single Postgres instance, no replica | Reporting competes with OLTP | R1/R3 p95 sustained > 50 ms |

@@ -136,7 +136,8 @@ describe('lumiere du soleil', () => {
     const l = lumiere();
     const s = reglerSoleil(l, { dateStr: '2026-06-21', minutes: 14 * 60, intensiteSoleil: 1, lumiereAppoint: true }, rennes)!;
     expect(s.elevRad).toBeGreaterThan(1);
-    expect(l.dirLight.intensity).toBeCloseTo(0.75);
+    // Les reglages de la r128 (0,75), multiplies par π : les lumieres d'aujourd'hui sont physiques.
+    expect(l.dirLight.intensity).toBeCloseTo(0.75 * Math.PI);
     expect(l.dirLight.position.z).toBeGreaterThan(0);
     expect([l.dirFill.visible, l.hemiLight.visible]).toEqual([true, true]);
   });

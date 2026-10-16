@@ -14,7 +14,7 @@
 
 import { EchecAnalyse, type ClientAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
 import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type RenfortFacadeCapture, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
-import type { ReponseRenfort } from '../../../facade/renfort.js';
+import { estReponseRenfort, type ReponseRenfort } from '../../../facade/renfort.js';
 import { rangerRenfort } from './entreesRenfort.js';
 import { chargerSource, dessinerElevationRenfort, dessinerPhotoRenfort } from '../../../render/imagesRenfort.js';
 import type { Image, P2 } from '../../../facade/homographie.js';
@@ -25,6 +25,7 @@ import { estReponseAnalyse } from '../../../model/analyseClaude.js';
 import { ortho } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 import { rendreDepuisPrise } from '../../../three/renduPrise.js';
+import { epurerLeTemps } from '../../../three/scene.js';
 import { jourDe } from '../reprise.js';
 import { preparerDemande, type FabriqueImages, type IdentiteAnalyse } from './entreesAnalyse.js';
 import type { ReponsesBatiment } from './propositionsClaude.js';
@@ -83,8 +84,11 @@ export interface ContexteAnalyse {
 
 export interface AnalyseClaude {
   etat(): EtatAnalyse;
-  /** Une phrase pour l'ecran : ce qui se passe, ou pourquoi rien ne se passe. */
-  detail(): string | null;
+  /**
+   * Une phrase pour l'ecran : ce qui se passe, ou pourquoi rien ne se passe. Avec les comptes de
+   * l'ecran des propositions, « prêtes » dit combien de propositions et d'observations Claude a rendues.
+   */
+  detail(comptes?: ComptesClaude): string | null;
   accord(): AccordAnalyse | null;
   /** L'accord est donne (et la case « partager » notee) : l'analyse part. */
   accorder(partage: boolean): Promise<void>;
@@ -116,11 +120,23 @@ const MESSAGES: Record<EchecAnalyse['motif'], string> = {
   serveur: 'Le serveur de l’analyse a répondu de travers : seules les mesures sont proposées.',
 };
 
+/**
+ * Le rendu du modele n'a pas pu etre joint (la Vue 3D fermee, ou le dessin a echoue) : l'analyse part
+ * quand meme, Claude est prevenu dans la requete qu'il n'a pas de rendu a comparer.
+ */
+const messageSansRendu = (noms: readonly string[]): string =>
+  'Le rendu du modèle n’a pas pu être joint pour ' + noms.join(', ') + ' : l’analyse part sans lui (ouvrez la Vue 3D avant de la lancer pour qu’elle compare les photos au modèle).';
+
 /** Les images du navigateur : les photos reduites, la Vue 3D hors ecran, les tuiles du fond, la grille LiDAR. */
 export function fabriqueImagesNavigateur(): FabriqueImages {
   return {
     photo: (p) => reduirePhotoAnalyse(p.base64),
-    rendu: (prise) => (prise.azimutDeg === null ? null : rendreDepuisPrise({ x: prise.x, y: prise.y, azimutDeg: prise.azimutDeg, inclinaisonDeg: prise.inclinaisonDeg ?? null, champDeg: prise.champDeg ?? null })),
+    rendu: (prise, cible, gardes) => {
+      if (prise.azimutDeg === null) return null;
+      const dessiner = () => rendreDepuisPrise({ x: prise.x, y: prise.y, azimutDeg: prise.azimutDeg as number, inclinaisonDeg: prise.inclinaisonDeg ?? null, champDeg: prise.champDeg ?? null }, cible ?? null);
+      // Epure le temps de l'image : la cloture du premier plan cachait le pied du mur.
+      return gardes ? epurerLeTemps(gardes, dessiner) : dessiner();
+    },
     ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
     carte: (o, contour) => (o.toitMesure ? dessinerCarteHauteurs(o.toitMesure, contour) : null),
     renfort: { photo: photoRenfortNavigateur, elevation: elevationRenfortNavigateur },
@@ -163,15 +179,40 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
 }
 
-/** Les reponses du renfort des facades, recalees ; undefined s'il n'y en a pas, ou si le recalage echoue. */
-async function lireRenfort(ctx: ContexteAnalyse, resultats: readonly ResultatBatch[], requetes: BatchAnalyse['requetes']): Promise<Record<string, RenfortFacadeCapture> | undefined> {
-  const par = rangerRenfort(resultats, requetes);
-  if (!Object.keys(par).length || !ctx.renforcer) return undefined;
-  return ctx.renforcer(par).catch(() => undefined);
+/** Les reponses brutes du renfort gardees dans la capture, relues : celles qui ont la forme du schema. */
+function renfortBrutDe(r: ResultatsAnalyse | null | undefined): Record<string, ReponseRenfort[]> {
+  const out: Record<string, ReponseRenfort[]> = {};
+  for (const [cle, l] of Object.entries(r?.renfortBrut ?? {})) {
+    const ok = l.filter(estReponseRenfort);
+    if (ok.length) out[cle] = ok;
+  }
+  return out;
+}
+
+/**
+ * Le message d'un echec, pour l'ecran : la phrase du motif, et ce que le serveur a dit quand il a
+ * refuse la demande elle-meme (un 400 : « Trop d’images dans une requête (40 au plus). »). Sans ce
+ * detail, l'essai sur le terrain n'avait lu que « répondu de travers ».
+ */
+export function messageEchec(e: EchecAnalyse): string {
+  if (e.motif !== 'serveur') return MESSAGES[e.motif];
+  const dit = e.message.replace(/^[^:]*:\s*/, '').trim();
+  return 'Le serveur de l’analyse a refusé ou n’a pas compris la demande' + (dit ? ' (« ' + dit + ' »)' : '') + ' : seules les mesures sont proposées.';
+}
+
+/** Ce que l'ecran des propositions compte pour dire ce que Claude a rendu. */
+export interface ComptesClaude { propositions: number; observations: number }
+
+/** « 2 propositions et 5 observations » ; null sans comptes. */
+function texteComptes(c: ComptesClaude | undefined): string | null {
+  if (!c) return null;
+  const p = c.propositions + ' proposition' + (c.propositions > 1 ? 's' : '');
+  const o = c.observations + ' observation' + (c.observations > 1 ? 's' : '');
+  return p + ' et ' + o;
 }
 
 /** Une phrase pour l'ecran, selon l'etat : ce qui se passe, ou pourquoi rien ne se passe. */
-export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repos' | 'preparation' | 'envoi', erreurSuivi: string | null): string | null {
+export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repos' | 'preparation' | 'envoi', erreurSuivi: string | null, comptes?: ComptesClaude): string | null {
   const batiments = Object.keys(a.resultats?.parBatiment ?? {}).length;
   switch (etat) {
     case 'indisponible': return 'L’analyse par Claude demande un compte de la plateforme : seules les mesures sont proposées.';
@@ -180,10 +221,75 @@ export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repo
     case 'refusee': return 'Analyse par Claude non demandée : seules les mesures sont proposées.';
     case 'preparation': return phase === 'envoi' ? 'Envoi de vos photos à l’analyse…' : 'Préparation des images (photos réduites, rendu du modèle, orthophoto, relief)…';
     case 'enCours': return 'Analyse par Claude en cours (envoyée le ' + jourDe(new Date(a.batch?.creeLe ?? Date.now())) + ')' + (erreurSuivi ? ' — ' + erreurSuivi : ', en général quelques minutes') + '. Vous serez prévenu quand les propositions seront prêtes.';
-    case 'prete': return 'Propositions de Claude prêtes (' + batiments + ' bâtiment' + (batiments > 1 ? 's' : '') + ', accord du ' + jourDe(new Date(a.accord?.t ?? Date.now())) + ').';
+    case 'prete': {
+      const quoi = batiments + ' bâtiment' + (batiments > 1 ? 's' : '') + ', accord du ' + jourDe(new Date(a.accord?.t ?? Date.now()));
+      // « Prêtes » sur une liste vide laissait croire a une panne : on dit ce qui est arrive.
+      if (comptes && !comptes.propositions && !comptes.observations) return 'Claude a répondu (' + quoi + '), mais n’a rien vu à proposer ni à signaler.';
+      const n = texteComptes(comptes);
+      return 'Propositions de Claude prêtes' + (n ? ' : ' + n : '') + ' (' + quoi + ').';
+    }
     case 'aRelancer': return 'Les photos ont changé depuis la dernière analyse : relancez-la pour que Claude les regarde.';
     case 'erreur': return a.erreur ?? null;
   }
+}
+
+/**
+ * Le renfort des facades, recale facade par facade quand sa mesure est la. Les mesures ne se font
+ * qu'apres la capture (et a la reprise d'un brouillon, le batch est souvent deja fini) : on les
+ * attend, puis on recale les facades dont le releve existe et qui n'ont pas encore de renfort. Un
+ * renfort vide n'est jamais note : il fermerait la porte aux mesures suivantes.
+ */
+function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter: (a: Partial<AnalyseCapture>) => void) {
+  let enCours: Promise<void> | null = null;
+  /** Les facades deja tentees, avec le releve d'alors : un recalage sans resultat ne se rejoue pas sur le meme releve. */
+  const tentees = new Map<string, unknown>();
+  const sansRenfort = (r: ResultatsAnalyse): string[] => Object.keys(renfortBrutDe(r)).filter((k) => !r.renfort?.[k]);
+
+  function completer(): Promise<void> {
+    const r0 = lire().resultats;
+    if (enCours || !ctx.renforcer || !r0 || !sansRenfort(r0).length) return enCours ?? Promise.resolve();
+    const renforcer = ctx.renforcer;
+    // Les memes resultats, accord toujours donne : un retrait ou une relance pendant l'attente l'emporte.
+    const memes = () => { const a = lire(); return a.accord && a.resultats && a.resultats.t === r0.t ? a.resultats : null; };
+    enCours = (async () => {
+      await ctx.mesuresPretes().catch(() => {});
+      const r = memes();
+      if (!r) return;
+      const mesures = ctx.entrees().mesures;
+      const brut = renfortBrutDe(r);
+      const aFaire = Object.fromEntries(sansRenfort(r).flatMap((k) => {
+        const releve = mesures.get(k)?.releve;
+        if (!releve || tentees.get(k) === releve) return [];
+        tentees.set(k, releve);
+        return [[k, brut[k] ?? []]];
+      }));
+      if (!Object.keys(aFaire).length) return;
+      const neuf = await renforcer(aFaire).catch(() => ({}));
+      const apres = memes();
+      if (!apres || !Object.keys(neuf).length) return;
+      noter({ resultats: { ...apres, renfort: { ...(apres.renfort ?? {}), ...neuf } } });
+    })().finally(() => { enCours = null; });
+    return enCours;
+  }
+
+  /**
+   * Un brouillon d'avant cette correction a pu noter un renfort vide sans garder les reponses brutes :
+   * le batch, lui, reste lisible au serveur un temps. On le relit une fois pour retrouver les reponses.
+   */
+  let relu = false;
+  async function relireBrut(): Promise<void> {
+    const a = lire(), r = a.resultats, b = a.batch;
+    if (relu || !ctx.client || !ctx.renforcer || !a.accord || !r || !b || r.renfortBrut || Object.keys(r.renfort ?? {}).length) return;
+    if (!Object.values(b.requetes).some((q) => q.usage === 'renfort')) return;
+    relu = true;
+    const lu = await ctx.client.resultats(b.id).catch(() => null);
+    const brut = lu ? rangerRenfort(lu.resultats, b.requetes) : {};
+    const apres = lire().resultats;
+    if (!Object.keys(brut).length || !apres || apres.t !== r.t) return;
+    noter({ resultats: { ...apres, renfortBrut: brut } });
+  }
+
+  return { completer, reprendre: async () => { await relireBrut(); await completer(); } };
 }
 
 export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
@@ -221,22 +327,24 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     return a.resultats ? 'prete' : 'enCours';
   }
 
-  /** Le batch est termine : ses resultats sont lus, ranges par batiment, et l'on previent. */
+  const { completer: completerRenfort, reprendre: reprendreRenfort } = renfortDiffere(ctx, lire, noter);
+
+  /** Le batch est termine : ses resultats sont lus, ranges par batiment, et l'on previent ; le renfort suit, mesures faites. */
   async function lireResultats(batch: BatchAnalyse): Promise<boolean> {
     const client = ctx.client as ClientAnalyse;
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
-    const renfort = await lireRenfort(ctx, lu.resultats, batch.requetes);
-    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, ...(renfort ? { renfort } : {}) };
-    if (!Object.keys(parBatiment).length) {
-      const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
-      noter({ resultats, erreur: 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
-      return true;
+    const brut = rangerRenfort(lu.resultats, batch.requetes);
+    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, ...(Object.keys(brut).length ? { renfortBrut: brut } : {}) };
+    const n = Object.keys(parBatiment).length, s = n > 1 ? 's' : '';
+    const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
+    noter({ resultats, erreur: n ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
+    if (n) {
+      const texte = 'Les propositions de Claude sont prêtes : ' + n + ' bâtiment' + s + ' analysé' + s + '.';
+      ctx.signaler(texte);
+      ctx.notifier?.(texte);
     }
-    noter({ resultats, erreur: null });
-    const texte = 'Les propositions de Claude sont prêtes : ' + Object.keys(parBatiment).length + ' bâtiment' + (Object.keys(parBatiment).length > 1 ? 's' : '') + ' analysé' + (Object.keys(parBatiment).length > 1 ? 's' : '') + '.';
-    ctx.signaler(texte);
-    ctx.notifier?.(texte);
+    await completerRenfort();
     return true;
   }
 
@@ -272,6 +380,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       await ctx.mesuresPretes();
       const prepare = await preparerDemande(ctx.entrees(), ctx.images, ctx.identite());
       if (!prepare) { noter({ erreur: 'Aucune photo à analyser : photographiez une façade ou le toit.' }); return; }
+      if (prepare.sansRendu.length) ctx.signaler(messageSansRendu(prepare.sansRendu));
       phase = 'envoi';
       publier();
       const sig = signature();
@@ -281,7 +390,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       ctx.signaler('Vos photos sont parties à l’analyse par Claude (accord du ' + jourDe(new Date(accord.t)) + ') : les propositions arriveront dans quelques minutes. Vous pouvez retirer cet accord depuis les propositions.');
       suivre();
     } catch (e) {
-      noter({ erreur: e instanceof EchecAnalyse ? MESSAGES[e.motif] : 'L’analyse n’a pas pu partir : ' + String((e as Error).message || e) });
+      noter({ erreur: e instanceof EchecAnalyse ? messageEchec(e) : 'L’analyse n’a pas pu partir : ' + String((e as Error).message || e) });
     } finally {
       phase = 'repos';
       publier();
@@ -292,11 +401,11 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     adopter();
     const a = lire();
     if (!ctx.client || !a.accord || ctx.capture.lire().phase !== 'analyse' || phase !== 'repos') return;
-    if (a.batch && a.batch.signature === signature() && !a.erreur) { if (!a.resultats) suivre(); return; }
+    if (a.batch && a.batch.signature === signature() && !a.erreur) { if (!a.resultats) suivre(); else await reprendreRenfort(); return; }
     await envoyer(a.accord);
   }
 
-  const detail = (): string | null => detailAnalyse(etat(), lire(), phase, erreurSuivi);
+  const detail = (comptes?: ComptesClaude): string | null => detailAnalyse(etat(), lire(), phase, erreurSuivi, comptes);
 
   return {
     etat, detail,
@@ -316,7 +425,9 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       ctx.signaler('Accord retiré pour ce projet : plus aucune photo ne part à l’analyse, et les propositions de Claude sont retirées.');
     },
     lancer,
-    reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch && !a.resultats) suivre(); },
+    // Un brouillon repris : le suivi d'un batch en cours repart ; un batch deja lu dont le renfort
+    // attendait les mesures le recale des qu'elles sont faites.
+    reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch) { if (!a.resultats) suivre(); else void reprendreRenfort(); } },
     arreter() { annulerSuivi?.(); annulerSuivi = null; },
     reponses() {
       const a = lire();

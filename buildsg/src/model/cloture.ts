@@ -213,18 +213,27 @@ export function clotureDImport(pts: readonly PtBrut[], devine: number | null): C
 
 /**
  * Le cote ou poser un acces quand on n'en a pas choisi : celui qui est dit sur rue, sinon celui
- * que le plan devine sur rue (geo/coteRue.ts, passe par l'appelant), sinon le plus long.
+ * que le plan devine sur rue (geo/coteRue.ts, passe par l'appelant), sinon le plus long des cotes
+ * que l'utilisateur n'a pas dits separatifs ou mitoyens (le plus long tout court s'il les a tous dits).
+ * Les chemins de creation passent par geo/coteRue.ts::coteDuNouvelAcces, qui fournit `devine`.
  */
 export function coteDAcces(cl: Cloture, pts: readonly PtBrut[], devine: number | null = null): number {
   const rue = cl.cotes.find(c => c.limite === 'rue' && coteValide(pts, c.cote));
   if (rue) return rue.cote;
   if (devine !== null && coteValide(pts, devine)) return devine;
-  let meilleur = 0, max = -1;
-  for (let i = 0; i < pts.length; i++) {
-    const l = longueurDuCote(pts, i);
-    if (l > max) { max = l; meilleur = i; }
-  }
-  return meilleur;
+  // Un cote dit separatif ne recoit pas le portail par defaut : c'est le voisin qui est derriere.
+  const ditVoisin = (i: number) => cl.cotes.some(c => c.cote === i && (c.limite === 'separative' || !!c.mitoyenne));
+  const plusLong = (garder: (i: number) => boolean): number => {
+    let meilleur = -1, max = -1;
+    for (let i = 0; i < pts.length; i++) {
+      if (!garder(i)) continue;
+      const l = longueurDuCote(pts, i);
+      if (l > max) { max = l; meilleur = i; }
+    }
+    return meilleur;
+  };
+  const libre = plusLong(i => !ditVoisin(i));
+  return libre >= 0 ? libre : Math.max(0, plusLong(() => true));
 }
 
 /** Les acces d'un cote, valides sur ce contour, de gauche a droite. */

@@ -5,6 +5,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **three.js passe de la r128 à la 0.186.1** (la dernière). Les builds UMD et `examples/js` n'existent plus : la
+  bibliothèque arrive en modules ES depuis jsDelivr (`src/three/bibliotheque.ts`), par une table d'import
+  inline dans `index.html` ; elle reste non empaquetée et ne se charge qu'à l'ouverture de la Vue 3D. La
+  politique de contenu ne nomme plus que `cdn.jsdelivr.net` (cdnjs est retiré, ainsi que des origines de la
+  capacité `plan.3d`) ; la table d'import entre dans `script-src` par son empreinte.
+  - **Le rendu est inchangé**, vérifié au banc visuel d'AE 101 (écart au bruit de compression, en Normale
+    comme en Soignée) : gestion des couleurs coupée, sortie linéaire, lumières × π (les lumières sont
+    physiques depuis la r165), courbe de film conservée ; en Soignée, l'occlusion passe par une passe de rendu,
+    la SSAO puis une passe de sortie qui laisse le ciel sans courbe, comme avant.
+  - **Le .glb téléchargé change d'octets, pas de contenu utile** (`tests/fixtures/golden/EMPREINTES.md`) : les
+    mailles à plusieurs matériaux sont désormais indexées par groupe (la r128 faisait dessiner à chaque
+    matériau toute la maille), l'extension `EXT_materials_bump` apparaît, et les images JPEG restent des JPEG.
+    Nœuds, mailles, matériaux, textures et images inchangés ; `glb-structure.json` recapturé. Les six empreintes
+    des exports de chiffrage ne bougent pas.
+  - Outillage : `servirThreeLocal` sert les modules depuis `node_modules/three` quelle que soit la version ;
+    `BANC_QUALITE_VUES=soignee` rend les images du banc à ce niveau.
+
 ### Corrigé
 
 - **Analyse par Claude : ce que le rejeu d'AE 101 a montré** (`MD/spec-audit.md` §13.2). Quatre

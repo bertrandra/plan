@@ -8,6 +8,7 @@
 // pour rester dans la gamme deja reglee a l'oeil : changer l'un des deux change l'aspect de toutes
 // les images produites.
 
+import { ECHELLE_LUMIERE } from './bibliotheque.js';
 import { lireDate } from '../util/date.js';
 import type * as THREE_NS from 'three';
 import { positionSoleil } from '../geo/soleil.js';
@@ -95,10 +96,10 @@ export function reglerSoleil(lum: EclairageSoleil, r: ReglagesSoleil, lieu: { la
     centre.y + Math.sin(elevAffichee) * dist,
     centre.z - Math.cos(azRad) * horiz
   );
-  dirLight.intensity = facteurJour * 0.75 * r.intensiteSoleil;
+  dirLight.intensity = facteurJour * 0.75 * r.intensiteSoleil * ECHELLE_LUMIERE;
   dirLight.color.copy(new THREE.Color(0xff8a4c)).lerp(new THREE.Color(0xffffff), facteurJour);
-  dirFill.intensity = 0.03 + facteurJour * 0.27;
-  hemiLight.intensity = 0.12 + facteurJour * 0.38;
+  dirFill.intensity = (0.03 + facteurJour * 0.27) * ECHELLE_LUMIERE;
+  hemiLight.intensity = (0.12 + facteurJour * 0.38) * ECHELLE_LUMIERE;
   dirFill.visible = r.lumiereAppoint;
   hemiLight.visible = r.lumiereAppoint;
   return { elevRad, azRad };

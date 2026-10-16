@@ -14,6 +14,7 @@
 // en valeurs d'ecran.
 
 import type * as THREE_NS from 'three';
+import { chargerExemple } from './bibliotheque.js';
 import { HORS_EXPORT } from './primitives.js';
 import type { ParametresQualite } from './qualite.js';
 import { rendre3d, type SceneVue3d } from './etat3d.js';
@@ -45,8 +46,9 @@ export function installerCourbeDeFilm(): void {
 /** Pose la courbe de film sur le rendu de la Vue 3D. */
 export function reglerRendu(renderer: THREE_NS.WebGLRenderer): void {
   installerCourbeDeFilm();
-  // `CustomToneMapping` (5) existe dans la r128, mais pas dans ses types.
-  renderer.toneMapping = (THREE as unknown as { CustomToneMapping: THREE_NS.ToneMapping }).CustomToneMapping;
+  // Sortie lineaire : la courbe de film rend elle-meme des valeurs d'ecran (voir bibliotheque.ts).
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+  renderer.toneMapping = THREE.CustomToneMapping;
   renderer.toneMappingExposure = EXPOSITION;
 }
 
@@ -100,6 +102,16 @@ void main() {
   gl_Position = p.xyww;
 }`;
 
+/**
+ * L'opacite que le ciel ecrit : la marque « sans courbe de film ». A l'ecran, la courbe agit dans
+ * chaque materiau et le ciel (un `ShaderMaterial`) y echappe ; en Soignee, la scene se rend dans une
+ * cible et la courbe s'applique d'un bloc a la fin (`brancherOcclusion`, passe de sortie) — au ciel
+ * aussi, qui passait alors du bleu franc au bleu delave. La passe de sortie laisse donc intacts les
+ * pixels dont l'opacite est sous `SEUIL_SANS_COURBE` ; tout le reste ecrit 1.
+ */
+const ALPHA_CIEL = 0.5;
+const SEUIL_SANS_COURBE = 0.75;
+
 const FRAGMENTS_CIEL = `
 uniform vec3 zenith;
 uniform vec3 horizon;
@@ -114,10 +126,10 @@ void main() {
   vec3 c = mix( horizon, zenith, pow( h, 0.55 ) );
   float s = max( dot( d, normalize( soleil ) ), 0.0 );
   c += lueur * ( pow( s, 6.0 ) * 0.22 + pow( s, 90.0 ) * 0.6 ) * forceLueur;
-  gl_FragColor = vec4( c * gain, 1.0 );
+  gl_FragColor = vec4( c * gain, ${ALPHA_CIEL.toFixed(1)} );
   // L'encodage de la cible : sans effet a l'ecran (sortie lineaire), indispensable quand le ciel est
   // rendu dans la carte d'environnement, encodee RGBE — sans lui, la scene entiere virait au noir.
-  #include <encodings_fragment>
+  #include <colorspace_fragment>
 }`;
 
 const NOM_CIEL = 'ciel';
@@ -252,34 +264,23 @@ export function cadreOmbres(rayonParcelle: number | null, extent: number): numbe
 
 // ---- Occlusion ambiante (Soignee) --------------------------------------------------------------
 
-const SCRIPTS_OCCLUSION = [
-  'postprocessing/EffectComposer.js',
-  'postprocessing/ShaderPass.js',
-  'shaders/CopyShader.js',
-  'math/SimplexNoise.js',
-  'shaders/SSAOShader.js',
-  'postprocessing/SSAOPass.js'
-];
-
 let occlusionChargee: Promise<boolean> | null = null;
 
-/** Les exemples de three.js r128 qui font l'occlusion, charges une fois, a la demande. */
+/** Les exemples de three.js qui font l'occlusion, charges une fois, a la demande. */
 export function chargerOcclusion(): Promise<boolean> {
   if (occlusionChargee) return occlusionChargee;
-  // Demandes en parallele, execution dans l'ordre (`async = false`) : chaque script s'appuie sur le
-  // precedent. Une chaine d'attentes successives mettait plusieurs secondes sur un appareil lent.
-  occlusionChargee = Promise.all(SCRIPTS_OCCLUSION.map((chemin) => new Promise<boolean>((fin) => {
-    const s = document.createElement('script');
-    s.async = false;
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/' + chemin;
-    s.onload = () => fin(true);
-    s.onerror = () => fin(false);
-    document.head.appendChild(s);
-  }))).then((oks) => {
-    const ok = oks.every(Boolean);
+  // Demandes en parallele : les modules se resolvent entre eux par leurs adresses relatives.
+  occlusionChargee = Promise.all([
+    chargerExemple('postprocessing/EffectComposer.js', ['EffectComposer']),
+    chargerExemple('postprocessing/RenderPass.js', ['RenderPass']),
+    chargerExemple('postprocessing/OutputPass.js', ['OutputPass']),
+    chargerExemple('shaders/OutputShader.js', ['OutputShader']),
+    chargerExemple('postprocessing/SSAOPass.js', ['SSAOPass']),
+    chargerExemple('shaders/SSAOShader.js', ['SSAOShader'])
+  ]).then(() => true, () => {
     // Un echec (hors ligne) se retente a la prochaine scene ; d'ici la, la scene se rend sans occlusion.
-    if (!ok) occlusionChargee = null;
-    return ok;
+    occlusionChargee = null;
+    return false;
   });
   return occlusionChargee;
 }
@@ -293,8 +294,10 @@ export interface Occlusion {
 }
 
 type ExemplesOcclusion = {
-  EffectComposer: new (r: THREE_NS.WebGLRenderer) => { addPass(p: unknown): void; render(): void; setSize(w: number, h: number): void; setPixelRatio(r: number): void; renderTarget1: THREE_NS.WebGLRenderTarget; renderTarget2: THREE_NS.WebGLRenderTarget };
-  SSAOPass: new (s: THREE_NS.Scene, c: THREE_NS.Camera, w: number, h: number) => { kernelRadius: number; minDistance: number; maxDistance: number; beautyRenderTarget?: THREE_NS.WebGLRenderTarget; setSize(w: number, h: number): void; dispose?(): void };
+  EffectComposer: new (r: THREE_NS.WebGLRenderer, cible?: THREE_NS.WebGLRenderTarget) => { addPass(p: unknown): void; render(): void; setSize(w: number, h: number): void; setPixelRatio(r: number): void; renderTarget1: THREE_NS.WebGLRenderTarget; renderTarget2: THREE_NS.WebGLRenderTarget };
+  RenderPass: new (s: THREE_NS.Scene, c: THREE_NS.Camera) => unknown;
+  OutputPass: new () => { dispose?(): void };
+  SSAOPass: new (s: THREE_NS.Scene, c: THREE_NS.Camera, w: number, h: number) => { kernelRadius: number; minDistance: number; maxDistance: number; setSize(w: number, h: number): void; dispose?(): void };
 };
 
 /** Au-dela de ces distances a la camera, en metres, l'occlusion s'estompe puis disparait. */
@@ -302,6 +305,21 @@ export const OCCLUSION_PLEINE_M = 25;
 export const OCCLUSION_NULLE_M = 60;
 
 let occlusionEstompee = false;
+let sortieExemptee = false;
+
+/** La passe de sortie n'applique pas la courbe de film aux pixels marques par le ciel (`ALPHA_CIEL`). */
+function exempterLeCielDeLaCourbe(): void {
+  if (sortieExemptee) return;
+  const shader = (THREE as unknown as { OutputShader?: { fragmentShader: string } }).OutputShader;
+  if (!shader) return;
+  const lecture = 'gl_FragColor = texture2D( tDiffuse, vUv );';
+  const fin = '#ifdef SRGB_TRANSFER';
+  if (!shader.fragmentShader.includes(lecture) || !shader.fragmentShader.includes(fin)) return;
+  shader.fragmentShader = shader.fragmentShader
+    .replace(lecture, lecture + ' vec4 brut = gl_FragColor;')
+    .replace(fin, 'if ( brut.a < ' + SEUIL_SANS_COURBE.toFixed(2) + ' ) gl_FragColor.rgb = brut.rgb; gl_FragColor.a = 1.0;\n\t\t\t' + fin);
+  sortieExemptee = true;
+}
 
 /**
  * Le tampon de profondeur va de 5 cm a plusieurs centaines de metres : au loin, sa precision ne
@@ -325,28 +343,32 @@ function estomperOcclusionAuLoin(): void {
  */
 export function brancherOcclusion(renderer: THREE_NS.WebGLRenderer, scene: THREE_NS.Scene, camera: THREE_NS.PerspectiveCamera, w: number, h: number): Occlusion | null {
   const T = THREE as unknown as Partial<ExemplesOcclusion>;
-  if (!T.EffectComposer || !T.SSAOPass) return null;
+  if (!T.EffectComposer || !T.SSAOPass || !T.RenderPass || !T.OutputPass) return null;
   estomperOcclusionAuLoin();
-  const composer = new T.EffectComposer(renderer);
+  // L'image de la scene se rend dans une cible a elle, avec un tampon de gabarit : le sol,
+  // l'orthophoto et les chemins ne s'effacaient plus du bassin d'une piscine (`gabaritSol`,
+  // three/primitives.ts), et la pelouse remplissait l'eau en Soignee. Demi-flottant : la lumiere
+  // reste lineaire jusqu'a la passe de sortie, qui y applique la courbe de film.
+  const cible = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, stencilBuffer: true });
+  const composer = new T.EffectComposer(renderer, cible);
   composer.setPixelRatio(renderer.getPixelRatio());
   const passe = new T.SSAOPass(scene, camera, w, h);
-  // L'image de la scene se rend dans la cible de la passe, que three.js cree sans tampon de
-  // gabarit : le sol, l'orthophoto et les chemins ne s'effacaient plus du bassin d'une piscine
-  // (`gabaritSol`, three/primitives.ts), et la pelouse remplissait l'eau en Soignee. La cible n'est
-  // allouee qu'au premier rendu : le reglage, pose avant, est pris.
-  if (passe.beautyRenderTarget) passe.beautyRenderTarget.stencilBuffer = true;
   const profondeur = camera.far - camera.near;
   passe.kernelRadius = 0.8;
   passe.minDistance = 0.02 / profondeur;
   passe.maxDistance = 1.2 / profondeur;
+  exempterLeCielDeLaCourbe();
+  const sortie = new T.OutputPass();
+  composer.addPass(new T.RenderPass(scene, camera));
   composer.addPass(passe);
+  composer.addPass(sortie);
   composer.setSize(w, h);
   return {
     render: () => composer.render(),
     // Le compositeur redimensionne ses passes lui-meme, a la definition du rendu.
     setSize: (l, ht) => composer.setSize(l, ht),
     setPixelRatio: (r) => composer.setPixelRatio(r),
-    dispose: () => { passe.dispose?.(); composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); }
+    dispose: () => { passe.dispose?.(); sortie.dispose?.(); composer.renderTarget1.dispose(); composer.renderTarget2.dispose(); }
   };
 }
 

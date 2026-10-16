@@ -10,9 +10,10 @@
 // Les aretes sont celles des mailles deja posees pour le batiment (EdgesGeometry : une arete ne
 // compte que si ses deux faces font un angle franc), calculees une fois par batiment et par scene ;
 // seules l'epaisseur et l'opacite suivent la distance. L'epaisseur est en pixels grace aux lignes
-// epaisses des exemples de three.js r128 (LineSegments2, LineMaterial), chargees a la demande comme
+// epaisses des exemples de three.js (LineSegments2, LineMaterial), chargees a la demande comme
 // l'occlusion ; hors ligne, un trait d'un pixel les remplace. La couleur est le jeton `--trait-3d`.
 
+import { chargerExemple } from './bibliotheque.js';
 import { vue3d } from './etat3d.js';
 import { HORS_EXPORT } from './primitives.js';
 import { racinesDe3d } from './scene.js';
@@ -44,26 +45,20 @@ type ExemplesLignes = {
   LineSegments2: new (g: unknown, m: MateriauLignes) => THREE_NS.Mesh;
 };
 
-const SCRIPTS_LIGNES = ['lines/LineSegmentsGeometry.js', 'lines/LineMaterial.js', 'lines/LineSegments2.js'];
 let lignesChargees: Promise<boolean> | null = null;
 
-/** Les lignes epaisses de three.js r128, chargees une fois, a la demande (comme l'occlusion). */
+/** Les lignes epaisses de three.js, chargees une fois, a la demande (comme l'occlusion). */
 function chargerLignes(): Promise<boolean> {
   if (lignesChargees) return lignesChargees;
   if (typeof document === 'undefined') return Promise.resolve(false);
-  lignesChargees = Promise.all(SCRIPTS_LIGNES.map((chemin) => new Promise<boolean>((fin) => {
-    const s = document.createElement('script');
-    // Demandes en parallele, execution dans l'ordre : chaque script s'appuie sur le precedent.
-    s.async = false;
-    s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/' + chemin;
-    s.onload = () => fin(true);
-    s.onerror = () => fin(false);
-    document.head.appendChild(s);
-  }))).then((oks) => {
-    const ok = oks.every(Boolean);
+  lignesChargees = Promise.all([
+    chargerExemple('lines/LineSegmentsGeometry.js', ['LineSegmentsGeometry']),
+    chargerExemple('lines/LineMaterial.js', ['LineMaterial']),
+    chargerExemple('lines/LineSegments2.js', ['LineSegments2'])
+  ]).then(() => true, () => {
     // Hors ligne : un trait fin d'ici la, un nouvel essai au prochain batiment.
-    if (!ok) lignesChargees = null;
-    return ok;
+    lignesChargees = null;
+    return false;
   });
   return lignesChargees;
 }

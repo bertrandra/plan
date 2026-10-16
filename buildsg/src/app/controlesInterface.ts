@@ -69,6 +69,7 @@ const IMPORT = 'projet.depuisAdresse', ACTUALISER = 'projet.actualiserIgn', TEXT
 const DIALOGUE = 'toute commande qui pose une question';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 const AUDIT_PARCELLE = 'audit.parcelle';
+const CATALOGUE_AUDITS = 'admin.auditsParcelle';
 const CE_QUE_JE_VOIS = 'audit.parcelle, ou la fiche d’un bâtiment (mode audit)';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
@@ -121,6 +122,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.objetsEchelle': { libelle: 'Objets d’échelle (Vue 3D)', zone: Z4, nature: 'vue', description: 'Une voiture et une silhouette, pour l’échelle ; jamais exportées' },
+  'vue3d.qualite': { libelle: 'Qualité (Vue 3D)', zone: Z4, nature: 'vue', description: 'Économe, Normale ou Soignée : ce que la scène se permet en ombres, lissage et effets, propre à cet appareil' },
   'vue3d.tiroir': { libelle: 'Déplier ou replier les réglages (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Le tiroir des réglages, replié sur son titre par défaut, sur bureau' },
   'vue3d.horloge': { libelle: 'Horloge : régler l’heure et la date (Vue 3D)', zone: Z4, nature: 'navigation', description: 'Ouvre sous l’horloge du canevas le curseur d’heure et la date' },
   ...reglagesVue('visionneuse', 'visionneuse'),
@@ -246,11 +249,34 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.propositions': etape(Z8, AUDIT_PARCELLE, 'Voir les propositions de l’audit, sur la Vue 3D'),
   'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
   'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
+  'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
   // Le fichier de l'audit (§15) : partage pour le corpus (case cochee par defaut, revocable), et le
   // fichier lui-meme pour l'administrateur. Ni l'un ni l'autre n'ecrit dans le projet.
   'auditParcelle.partagerCorpus': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (décocher le retire du serveur)', { repete: true }),
   'auditParcelle.fichier': etape(Z8, AUDIT_PARCELLE, 'Fichier de l’audit : le partager ou le télécharger (administrateur)'),
+  // Admin › Audits de parcelle (zones/parcours/AuditsParcelle.tsx) : les audits recus sur le serveur.
+  // Rien n'ecrit dans le projet : « Ouvrir » reprend l'audit dans sa session, comme un import.
+  'auditsParcelle.avantApres': etape(Z8, CATALOGUE_AUDITS, 'Voir l’avant et l’après d’un audit reçu sur la Vue 3D de ce projet (même parcelle), en lecture seule', { repete: true }),
+  'auditsParcelle.retour': etape(Z8, AUDIT_PARCELLE, 'Revenir aux audits reçus depuis leur avant et après'),
+  'auditsParcelle.ouvrir': etape(Z8, CATALOGUE_AUDITS, 'Ouvrir dans ce projet un audit reçu (même parcelle), à la phase où il en était', { repete: true }),
+  'auditsParcelle.telecharger': etape(Z8, CATALOGUE_AUDITS, 'Télécharger le fichier d’un audit reçu, tel qu’il est arrivé', { repete: true }),
+  'auditsParcelle.retirer': etape(Z8, CATALOGUE_AUDITS, 'Retirer un audit reçu du serveur (demande confirmation)', { repete: true }),
+  'auditsParcelle.confirmerRetrait': etape(Z8, CATALOGUE_AUDITS, 'Confirmer le retrait d’un audit reçu : il quitte le serveur', { repete: true }),
+  'auditsParcelle.garder': etape(Z8, CATALOGUE_AUDITS, 'Garder l’audit reçu (renoncer au retrait)', { repete: true }),
+  'auditsParcelle.relire': etape(Z8, CATALOGUE_AUDITS, 'Relire la liste des audits reçus'),
+  'auditsParcelle.fermer': etape(Z8, CATALOGUE_AUDITS, 'Fermer le catalogue des audits reçus'),
+  // Les donnees, la conclusion, les analyses et les rejeux d'un audit (spec-audit 15.4, 15.5). Rien
+  // n'ecrit dans le projet ; un rejeu part chez Claude sous les plafonds de l'analyse.
+  'auditsParcelle.details': etape(Z8, CATALOGUE_AUDITS, 'Voir les données, la conclusion et les analyses d’un audit reçu', { repete: true }),
+  'auditsParcelle.deposer': etape(Z8, CATALOGUE_AUDITS, 'Ajouter au serveur un fichier d’audit du poste (parcelle ou promenade)'),
+  'auditsParcelle.modeleRejeu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le modèle du prochain rejeu', { repete: true }),
+  'auditsParcelle.rejouer': etape(Z8, CATALOGUE_AUDITS, 'Rejouer l’analyse par Claude d’un audit stocké, avec le prompt actuel et le modèle choisi', { repete: true }),
+  'auditsParcelle.relireAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Relire les analyses d’un audit, et suivre celles en cours', { repete: true }),
+  'auditsParcelle.exporterAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Exporter en CSV la comparaison des analyses d’un audit', { repete: true }),
+  'auditsParcelle.voirAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Voir une analyse en entier : ce qui est parti chez Claude et ce qu’il a rendu', { repete: true }),
+  'auditsParcelle.exporterAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Exporter une analyse en JSON (entrant, sortant, résumé)', { repete: true }),
+  'auditsParcelle.fermerAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Refermer le détail d’une analyse', { repete: true }),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),
@@ -258,10 +284,11 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.partagerAudit': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (cochée par défaut)'),
   'auditParcelle.retirerAccord': etape(Z8, AUDIT_PARCELLE, 'Retirer l’accord : plus aucune photo ne part, les propositions de Claude sont retirées'),
   'auditParcelle.relancerAnalyse': etape(Z8, AUDIT_PARCELLE, 'Relancer l’analyse par Claude (photos changées, ou envoi échoué)'),
-  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle (rien n’est perdu)'),
+  'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
   'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
+  'auditParcelle.verrouiller': etape(Z8, AUDIT_PARCELLE, 'Verrouiller un bâtiment pour la prise (annexe sur la parcelle) : seul lui est visé', { repete: true }),
   'auditParcelle.suivrePosition': etape(Z8, AUDIT_PARCELLE, 'Revenir à la façade reconnue par la position'),
   'auditParcelle.photo': etape(Z8, AUDIT_PARCELLE, 'Prendre une photo, rangée sur la façade visée', { repete: true }),
   // « Ce que je vois » (zones/parcours/CeQueJeVois.tsx), partage par l'audit de la parcelle et la

@@ -294,9 +294,6 @@ export function peindreOrthoSurSol(tuiles: readonly TuileOrtho[], bornes: Empris
   g.fillStyle = '#' + mat.color.getHexString();
   g.fillRect(0, 0, canvas.width, canvas.height);
   const tex = new THREE.CanvasTexture(canvas);
-  // Meme garde-fou que les dalles plates (three/scene.ts) : `colorSpace` n'existe qu'a partir de la r152.
-  const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
-  if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
   mat.map = tex;
   mat.color.set(0xffffff);
   mat.needsUpdate = true;

@@ -72,18 +72,20 @@ describe('rendu photographique de la Vue 3D', () => {
 
 describe('l occlusion ambiante (Soignee) et le bassin des piscines', () => {
   it('rend la scene dans une cible qui garde le tampon de gabarit : le sol ne remplit plus le bassin', () => {
-    // Les exemples de three.js r128 ne sont pas charges ici : des doublures qui gardent la cible
-    // de la passe telle que three.js la cree (sans gabarit).
-    class FausseComposition { renderTarget1 = new THREE_NS.WebGLRenderTarget(4, 4); renderTarget2 = new THREE_NS.WebGLRenderTarget(4, 4); addPass() {} render() {} setSize() {} setPixelRatio() {} }
+    // Les exemples de three.js ne sont pas charges ici : des doublures, dont le compositeur garde la
+    // cible de rendu qu'on lui donne (c'est elle qui doit porter le tampon de gabarit).
     const cibles: THREE_NS.WebGLRenderTarget[] = [];
-    class FaussePasse {
-      kernelRadius = 0; minDistance = 0; maxDistance = 0;
-      beautyRenderTarget = new THREE_NS.WebGLRenderTarget(4, 4);
-      constructor() { cibles.push(this.beautyRenderTarget); }
-      setSize() {}
+    class FausseComposition {
+      renderTarget1 = new THREE_NS.WebGLRenderTarget(4, 4); renderTarget2 = new THREE_NS.WebGLRenderTarget(4, 4);
+      passes: unknown[] = [];
+      constructor(_r: unknown, cible?: THREE_NS.WebGLRenderTarget) { if (cible) cibles.push(cible); }
+      addPass(p: unknown) { this.passes.push(p); } render() {} setSize() {} setPixelRatio() {}
     }
+    class FaussePasse { kernelRadius = 0; minDistance = 0; maxDistance = 0; setSize() {} }
+    class FausseRendu { }
+    class FausseSortie { }
     const T = THREE as unknown as Record<string, unknown>;
-    T.EffectComposer = FausseComposition; T.SSAOPass = FaussePasse;
+    T.EffectComposer = FausseComposition; T.SSAOPass = FaussePasse; T.RenderPass = FausseRendu; T.OutputPass = FausseSortie;
     try {
       expect(new THREE_NS.WebGLRenderTarget(4, 4).stencilBuffer).toBe(false);
       const rendu = { getPixelRatio: () => 1 } as unknown as THREE_NS.WebGLRenderer;
@@ -92,7 +94,7 @@ describe('l occlusion ambiante (Soignee) et le bassin des piscines', () => {
       expect(cibles).toHaveLength(1);
       expect(cibles[0]?.stencilBuffer).toBe(true);
     } finally {
-      delete T.EffectComposer; delete T.SSAOPass;
+      delete T.EffectComposer; delete T.SSAOPass; delete T.RenderPass; delete T.OutputPass;
     }
   });
 });

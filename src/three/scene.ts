@@ -9,6 +9,7 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { ECHELLE_LUMIERE } from './bibliotheque.js';
 import { animerMateriaux } from './materiauxVivants.js';
 import { reposerPositionGps } from './positionGps3d.js';
 import { reposerFacadeDevant } from './facadeDevant3d.js';
@@ -220,6 +221,8 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // Le rapport de pixels suit l'ecran jusqu'au plafond du niveau : a 1 (Normale), le cout d'avant.
   renderer.setPixelRatio(Math.min(niveau.pixelRatioMax, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
   renderer.setSize(w, h);
+  // Sortie lineaire, comme a la r128 (voir three/bibliotheque.ts) ; reglerRendu la maintient.
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.shadowMap.enabled = vue3d.ombres;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
@@ -272,9 +275,9 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
  * l'heure et le lieu : les valeurs d'ici ne servent qu'a exister.
  */
 function poserLumieres(scene: THREE_NS.Scene, extent: number, cadre: number) {
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5 * ECHELLE_LUMIERE);
   scene.add(hemiLight);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75 * ECHELLE_LUMIERE);
   dirLight.position.set(extent, extent * 1.5, extent * 0.6);
   if (vue3d.ombres) {
     // Le cadrage de la shadow map est resserre sur la parcelle du projet et ses abords (R1,
@@ -294,7 +297,7 @@ function poserLumieres(scene: THREE_NS.Scene, extent: number, cadre: number) {
     dirLight.shadow.normalBias = 0.02;
   }
   scene.add(dirLight);
-  const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
+  const dirFill = new THREE.DirectionalLight(0xffffff, 0.3 * ECHELLE_LUMIERE);
   dirFill.position.set(-extent * 0.8, extent * 1.1, -extent * 0.5);
   scene.add(dirFill);
   return { hemiLight, dirLight, dirFill };
@@ -344,11 +347,6 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     const cadre = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
     if (!cadre) return;
     const tex = chargeurOrtho.load(t.dataUri);
-    // `SRGBColorSpace` / `colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la r128, donc
-    // cette ligne ne fait rien aujourd'hui. Garde-fou tourne vers l'avenir, ecrit ainsi expres : le
-    // remplacer par l'ancien couple `sRGBEncoding`/`encoding` changerait le rendu des tuiles.
-    const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
-    if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
     // Au-dessus du terrain, sous les chemins : une couche, pas seulement un millimetre (COUCHES_SOL).
     // Aucun decalage : c'est le sol vert, dessous, qui est recule (COUCHES_SOL). Tiree vers la
@@ -911,7 +909,7 @@ export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle
   const sc = vue3d.scene, d = derniere;
   if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
   const rayon = new THREE.Raycaster();
-  rayon.setFromCamera(ndc, sc.camera);
+  rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), sc.camera);
   const versPlan = (v: THREE_NS.Vector3): PtBrut => ({ x: v.x + sc.cen.x, y: sc.cen.y - v.z });
   // Chaque objet pose a ses enfants directs de la scene : on remonte de la maille touchee jusqu'a eux.
   const proprietaire = new Map<THREE_NS.Object3D, string>();

@@ -10,6 +10,8 @@ export interface PositionGps {
   lat: number;
   lon: number;
   precisionM: number;
+  /** L'instant de la mesure (ms depuis 1970), quand le navigateur le donne : le lissage s'y regle. */
+  t?: number;
 }
 
 export type RaisonSansPosition = 'refusee' | 'indisponible' | 'delai';
@@ -47,7 +49,7 @@ export function lirePositionGps(delaiMs = 15000): Promise<PositionGps> {
 export function suivrePositionGps(sur: (p: PositionGps) => void, erreur: (e: SansPosition) => void): () => void {
   if (!geolocalisationDisponible()) { erreur(new SansPosition('indisponible')); return () => {}; }
   const id = navigator.geolocation.watchPosition(
-    (p) => sur({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy }),
+    (p) => sur({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy, t: p.timestamp }),
     (err) => erreur(new SansPosition(err.code === err.PERMISSION_DENIED ? 'refusee' : err.code === err.TIMEOUT ? 'delai' : 'indisponible')),
     { enableHighAccuracy: true, maximumAge: 2000 },
   );

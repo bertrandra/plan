@@ -5,10 +5,10 @@
 //
 // Aucune photo ne part sans « Envoyer » ; « Seulement les mesures » laisse les mesures seules. Le
 // bloc ne dit que ce qui se passe : les propositions de Claude, elles, sont des lignes de la liste
-// comme les autres, avec leur origine.
+// comme les autres, avec leur origine, et ce qu'il a vu sans le proposer suit en observations.
 
 import { useState } from 'react';
-import type { AnalyseClaude } from '../../app/audit/parcelle/analyseClaude.js';
+import type { AnalyseClaude, ComptesClaude } from '../../app/audit/parcelle/analyseClaude.js';
 
 /** La question de l'accord : ce que Claude recevra, la case « partager », Envoyer ou Seulement les mesures. */
 function Accord({ analyse }: { analyse: AnalyseClaude }) {
@@ -29,11 +29,12 @@ function Accord({ analyse }: { analyse: AnalyseClaude }) {
   );
 }
 
-export function AnalyseClaudeAudit({ analyse }: { analyse: AnalyseClaude }) {
+/** `comptes` : ce que l'ecran des propositions a recu de Claude, pour que « prêtes » dise combien. */
+export function AnalyseClaudeAudit({ analyse, comptes }: { analyse: AnalyseClaude; comptes?: ComptesClaude }) {
   const etat = analyse.etat();
   if (etat === 'attente') return null;
   if (etat === 'sansAccord') return <Accord analyse={analyse} />;
-  const detail = analyse.detail();
+  const detail = analyse.detail(comptes);
   const peutRelancer = etat === 'aRelancer' || etat === 'erreur';
   const peutRetirer = analyse.accord() !== null;
   const peutDemander = etat === 'refusee';

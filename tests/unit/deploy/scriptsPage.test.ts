@@ -25,6 +25,14 @@ describe('sortirLesScripts', () => {
     expect(empreintesDesScriptsEnLigne(page)).toHaveLength(1);
   });
 
+  it('laisse la table d\'import en ligne : c\'est elle qui dit ou trouver three.js, et elle entre dans la politique par son empreinte', () => {
+    const table = '<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/x.js"}}</script>';
+    const { html, fichiers } = sortirLesScripts(table + page);
+    expect(fichiers).toHaveLength(1);
+    expect(html.startsWith(table)).toBe(true);
+    expect(empreintesDesScriptsEnLigne(html)).toHaveLength(1);
+  });
+
   it('le nom suit le contenu : meme programme, meme nom ; autre programme, autre nom', () => {
     const a = sortirLesScripts(page).fichiers[0]!.nom;
     expect(sortirLesScripts(page).fichiers[0]!.nom).toBe(a);
@@ -40,7 +48,7 @@ describe('le .htaccess du programme sorti', () => {
   it('garde le programme en cache sans limite, sous un type JavaScript, et la politique sur self', () => {
     expect(modele).toMatch(/<FilesMatch "\^plan-\[0-9a-f\]\{16\}\\\.js\$">\s*Header set Cache-Control "public, max-age=31536000, immutable"/);
     expect(modele).toMatch(/AddType text\/javascript \.js/);
-    expect(modele).toMatch(/script-src 'self' @@HACHES_SCRIPT@@ https:\/\/cdnjs/);
+    expect(modele).toMatch(/script-src 'self' @@HACHES_SCRIPT@@ https:\/\/cdn\.jsdelivr\.net;/);
     const politique = /Header always set Content-Security-Policy "([^"]+)"/.exec(modele)![1]!;
     expect(politique.split(';').find((d) => d.trim().startsWith('script-src'))).not.toMatch(/unsafe-inline/);
   });

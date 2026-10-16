@@ -24,7 +24,7 @@ export type Emplacement =
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
   | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
   | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
-  | 'clavier' | 'premierPas' | 'sansObjet';
+  | 'clavier' | 'premierPas' | 'parcours' | 'sansObjet';
 
 type Ligne = Record<Classe, Emplacement[]>;
 
@@ -95,6 +95,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'audit.parcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
   // L'import d'un audit de parcelle (§15) : a cote, dans le meme menu.
   'audit.importerParcelle': { compact: ['feuilleProjet'], moyen: ['feuilleProjet'], large: ['menuFichier'] },
+  // La sauvegarde de l'audit sur le serveur (§15) : la ligne de la liste de controle, dans le parcours (Z8).
+  'audit.envoyerParcelle': partout('parcours'),
 
   // ---- Affichage ------------------------------------------------------------------------------
   'affichage.nord': { compact: ['surimpression', 'feuilleProjet'], moyen: ['surimpression', 'menuAffichage'], large: ['menuAffichage'] },
@@ -158,6 +160,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   '3d.modeZoom': partout('vue3d'),
   '3d.hauteurDesYeux': partout('vue3d'),
   '3d.enregistrerPng': partout('vue3d'),
+  '3d.heureDoree': partout('vue3d'),
+  '3d.captureHd': partout('vue3d'),
+  '3d.promenade': partout('vue3d'),
   '3d.enregistrerPointDeVue': partout('vue3d'),
   // Le mode audit (app/audit/branchement.ts) : sa barre, dans la Vue 3D.
   'audit.suivre': partout('vue3d'),
@@ -167,6 +172,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // ---- Admin (menu Admin de Z1, admin des demos seulement) ------------------------------------
   'admin.consommation': menu('menuAdmin'),
   'admin.conformite': menu('menuAdmin'),
+  'admin.auditsParcelle': menu('menuAdmin'),
   'admin.faitsLocaux': menu('menuAdmin'),
 
   // ---- Visionneuse ----------------------------------------------------------------------------

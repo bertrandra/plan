@@ -16,6 +16,48 @@ export interface TokensJournal {
   sortie: number;
 }
 
+/**
+ * Ce qu'une reponse contenait, compte par le serveur quand il l'a relue (champ `trouve` du journal) :
+ * le journal ne garde pas la reponse, seulement ces nombres. Les cles suivent les deux schemas
+ * (deploy/schema-analyse.json, deploy/schema-renfort.json).
+ */
+export interface Trouvailles {
+  /** Analyse : les ouvertures comptees niveau par niveau ; renfort : celles qu'il garde. */
+  ouvertures: number;
+  /** Les ouvertures que la detection de Plan n'avait pas vues. */
+  manquees: number;
+  /** Analyse : celles comptees en trop ; renfort : celles qu'il retire. */
+  enTrop: number;
+  /** Les bouts du toit reconnus (pignon, croupe, demi-croupe, brisis). */
+  bouts: number;
+  lucarnes: number;
+  /** Les elements du toit (fenetre de toit, verriere, acrotere…). */
+  elements: number;
+  /** Les ecarts signales entre le modele de Plan et ce que montre la photo. */
+  ecarts: number;
+  /** Renfort : les coins du mur situes sur la photo. */
+  coins: number;
+  /** Les attributs tranches (forme, profil, faitage, couverture, terrasse ; le mur du renfort). */
+  determines: number;
+  /** La reponse ne dit rien : tout est `indetermine` ou vide. */
+  vide: boolean;
+}
+
+export const CLES_TROUVAILLES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'] as const;
+export type CleTrouvaille = typeof CLES_TROUVAILLES[number];
+
+export const NOMS_TROUVAILLES: Record<CleTrouvaille, string> = {
+  ouvertures: 'Ouvertures',
+  manquees: 'Manquées signalées',
+  enTrop: 'En trop',
+  bouts: 'Pignons et croupes',
+  lucarnes: 'Lucarnes',
+  elements: 'Éléments de toit',
+  ecarts: 'Écarts au modèle',
+  coins: 'Coins situés',
+  determines: 'Attributs tranchés'
+};
+
 /** Une ligne du journal, telle que la route la rend (sans photo ni reponse : des compteurs). */
 export interface LigneConsommation {
   t: string;
@@ -27,6 +69,8 @@ export interface LigneConsommation {
   usage: string;
   modele: string;
   batch: boolean;
+  /** Le batch de la requete ; `null` hors batch, ou sur un journal d'avant. */
+  idBatch: string | null;
   passe: number | null;
   tokens: TokensJournal;
   images: number;
@@ -36,6 +80,8 @@ export interface LigneConsommation {
   cout: number | null;
   /** `reussi`, `echoue`, `expire`, `annule`, ou `plafond` (refuse avant l'appel). */
   statut: string;
+  /** Ce que la reponse contenait ; `null` sans reponse lue, ou sur un journal d'avant les comptes. */
+  trouve: Trouvailles | null;
 }
 
 /** Ce qu'une organisation a depense aujourd'hui et ce mois-ci, et ses plafonds. */
@@ -81,7 +127,11 @@ export const NOMS_USAGES: Record<string, string> = {
   analyse: 'Analyse',
   escalade: 'Escalade',
   renfort: 'Renfort',
-  immediat: 'Immédiat'
+  immediat: 'Immédiat',
+  // Les cas candidats Panoramax du skill regles-toits (lot G3 bis) : leur cout se lit a part.
+  candidats: 'Cas candidats',
+  // Le rejeu d'un audit stocke, pour comparer les modeles et les versions du prompt (spec-audit 15.5).
+  rejeu: 'Rejeu des audits'
 };
 
 /** Le nom d'un modele, ou d'une serie (`autres`), pour l'ecran et le CSV. */
@@ -113,6 +163,14 @@ const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFini
 const texte = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
 const positif = (v: unknown): number => (fini(v) && v > 0 ? v : 0);
 
+/** Les comptes d'une ligne ; `null` quand le journal n'en a pas (ligne d'avant, ou reponse non lue). */
+function lireTrouvailles(v: unknown): Trouvailles | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const t = Object.fromEntries(CLES_TROUVAILLES.map((k) => [k, Math.round(positif(o[k]))])) as Record<CleTrouvaille, number>;
+  return { ...t, vide: o.vide === true };
+}
+
 function lireLigne(d: unknown): LigneConsommation | null {
   if (!d || typeof d !== 'object') return null;
   const o = d as Record<string, unknown>;
@@ -128,12 +186,14 @@ function lireLigne(d: unknown): LigneConsommation | null {
     usage: o.usage,
     modele: o.modele,
     batch: o.batch === true,
+    idBatch: texte(o.idBatch),
     passe: fini(o.passe) ? o.passe : null,
     tokens: { entree: positif(t.entree), ecritureCache: positif(t.ecritureCache), ecritureCache1h: positif(t.ecritureCache1h), lectureCache: positif(t.lectureCache), sortie: positif(t.sortie) },
     images: positif(o.images),
     facades: positif(o.facades),
     cout: fini(o.cout) ? o.cout : null,
-    statut: typeof o.statut === 'string' ? o.statut : 'echoue'
+    statut: typeof o.statut === 'string' ? o.statut : 'echoue',
+    trouve: lireTrouvailles(o.trouve)
   };
 }
 
@@ -332,7 +392,7 @@ export interface LigneUsage {
   partBatch: number;
 }
 
-/** La repartition entre analyse, escalade, renfort et immediat. Les quatre usages sont toujours la. */
+/** La repartition entre analyse, escalade, renfort, immediat et cas candidats. Les cinq usages sont toujours la. */
 export function parUsage(ls: LigneConsommation[], usages: string[] = Object.keys(NOMS_USAGES)): LigneUsage[] {
   const total = ls.filter(appel).reduce((n, l) => n + cout(l), 0);
   const ordre = [...usages, ...new Set(ls.map((l) => l.usage).filter((u) => !usages.includes(u)))];
@@ -342,6 +402,68 @@ export function parUsage(ls: LigneConsommation[], usages: string[] = Object.keys
     return {
       usage, appels: u.length, tokens: u.reduce((n, l) => n + totalTokens(l.tokens), 0), cout: arrondi(c),
       partCout: total ? c / total : 0, partBatch: u.length ? u.filter((l) => l.batch).length / u.length : 0
+    };
+  });
+}
+
+export interface LigneModele {
+  modele: string;
+  /** Les appels partis (un refus du plafond n'en est pas un). */
+  requetes: number;
+  /** Les batches distincts ; les appels immediats n'en ont pas. */
+  batchs: number;
+  immediats: number;
+  images: number;
+  tokens: number;
+  cout: number;
+  /** Les facades examinees, comptees sur la premiere passe de chaque requete, quel qu'en soit l'usage. */
+  facades: number;
+  /** Le cout rapporte aux facades examinees ; null sans facade comptee (journal d'avant le lot L17). */
+  coutParFacade: number | null;
+  echecs: number;
+  /** Les reponses dont le serveur a lu les comptes. */
+  lues: number;
+  vides: number;
+  /** Part des reponses lues qui ne disent rien ; null sans reponse lue. */
+  partVide: number | null;
+  /**
+   * Les reponses reussies sans comptes : journal d'avant les comptes, ou sortie coupee, refusee ou
+   * illisible. Ni vides ni pleines : hors du calcul de la part vide.
+   */
+  sansComptes: number;
+  /** Les comptes additionnes sur les reponses lues. */
+  trouve: Record<CleTrouvaille, number>;
+}
+
+/**
+ * Une ligne par modele, sur la periode et les filtres choisis : ce qu'il a coute, et surtout ce que
+ * ses reponses contiennent. Les modeles connus dans l'ordre de leurs couleurs, les autres ensuite.
+ */
+export function parModele(ls: LigneConsommation[]): LigneModele[] {
+  const partis = ls.filter(appel);
+  const connus = MODELES_CONNUS.map((m) => m.id);
+  const ids = [...new Set(partis.map((l) => l.modele))].sort((a, b) => {
+    const ia = connus.indexOf(a), ib = connus.indexOf(b);
+    return (ia < 0 ? connus.length : ia) - (ib < 0 ? connus.length : ib) || a.localeCompare(b);
+  });
+  return ids.map((modele) => {
+    const m = partis.filter((l) => l.modele === modele);
+    const c = m.reduce((n, l) => n + cout(l), 0);
+    const facades = m.reduce((n, l) => n + (l.passe === null || l.passe === 1 ? l.facades : 0), 0);
+    const lues = m.filter((l) => l.trouve !== null);
+    const vides = lues.filter((l) => l.trouve?.vide).length;
+    const trouve = Object.fromEntries(CLES_TROUVAILLES.map((k) => [k, lues.reduce((n, l) => n + (l.trouve?.[k] ?? 0), 0)])) as Record<CleTrouvaille, number>;
+    return {
+      modele, requetes: m.length,
+      batchs: new Set(m.filter((l) => l.batch && l.idBatch).map((l) => l.idBatch)).size,
+      immediats: m.filter((l) => !l.batch).length,
+      images: m.reduce((n, l) => n + l.images, 0),
+      tokens: m.reduce((n, l) => n + totalTokens(l.tokens), 0),
+      cout: arrondi(c), facades, coutParFacade: facades ? arrondi(c / facades) : null,
+      echecs: m.filter(echec).length,
+      lues: lues.length, vides, partVide: lues.length ? vides / lues.length : null,
+      sansComptes: m.filter((l) => l.statut === 'reussi' && l.trouve === null).length,
+      trouve
     };
   });
 }

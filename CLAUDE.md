@@ -134,3 +134,9 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).
+- **three.js 0.186.1, en modules ES depuis jsDelivr** (`src/three/bibliotheque.ts`, seul fournisseur du
+  global `THREE`) : pas empaqueté, table d'import inline dans `index.html` (même URL que `URL_THREE`, testé).
+  Pour garder le rendu de la r128 : `ColorManagement.enabled = false`, sortie linéaire, **toute intensité de
+  lumière se pose × `ECHELLE_LUMIERE` (π)**, la courbe de film reste la nôtre (`rendu.ts`). Un exemple de
+  three (`chargerExemple`) se charge à la demande et se pose sur `THREE`. Monter de version = rejouer le banc
+  visuel (`BANC_QUALITE_VUES=normale` puis `soignee`) et le point 24 (le `.glb` bouge : `EMPREINTES.md`).

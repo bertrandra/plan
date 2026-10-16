@@ -12,6 +12,7 @@ import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterR
 import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/renfortRecalage.js';
 import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../renfortReleve.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
+import { etiquetteFacade } from './liste.js';
 import type { RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
@@ -53,7 +54,7 @@ export async function requetesRenfortDuBatiment(e: EntreesPropositions, cle: str
     const imgElev = await fab.elevation(r);
     if (!imgPhoto || !imgElev) continue;
     const signaux = signauxRenfort({ calage: { note: m.confiance ?? 0, trouve: m.coinsTrouves, sources: r.calage?.photos[0]?.sourceCoins ?? [] }, ouvertures: r.ouvertures, largeurM: r.largeur });
-    const etiquette = f.facade.orientation.toLowerCase() + ' de ' + nom;
+    const etiquette = (b ? etiquetteFacade(b, f) : f.facade.orientation.toLowerCase()) + ' de ' + nom;
     const texte = texteRenfort({ largeurM: r.largeur, hauteurM: r.hauteur, hauteurMesuree: m.hauteurM !== null, ouvertures: r.ouvertures, grille: r.grille ?? null, signaux, coinsTrouves: m.coinsTrouves, etiquette });
     // La facade est deja comptee par la requete de la maison : le renfort n'en ajoute pas au journal.
     for (const q of requetesRenfort(prefixeRenfort(rang, f.cote), contenuRenfort(imgPhoto, imgElev, texte), 0)) {
@@ -88,16 +89,19 @@ export function murDeLaTexture(t: Image, r: Pick<ReleveFacade, 'hauteur' | 'haut
 /**
  * Le renfort applique a chaque facade : vote des passes, recalage des graines sur l'elevation
  * (decodee de la texture du releve mesure), resultat pret a proposer. `decoder` rend les pixels d'une
- * image `data:` ; une facade sans mesure ou sans texture lisible garde ses graines en pointille.
+ * image `data:` ; une facade sans texture lisible garde ses graines en pointille, une facade sans
+ * releve mesure n'a pas de resultat (l'appelant attend les mesures avant, analyseClaude.ts).
  */
 export async function renforcerFacades(parFacade: Record<string, ReponseRenfort[]>, mesures: ReadonlyMap<string, MesureFacade>, decoder: (dataUrl: string) => Promise<Image | null>): Promise<Record<string, RenfortFacadeCapture>> {
   const out: Record<string, RenfortFacadeCapture> = {};
   for (const [cle, reponses] of Object.entries(parFacade)) {
-    const r = mesures.get(cle)?.releve;
+    const m = mesures.get(cle), r = m?.releve;
     if (!r || !reponses.length) continue;
     const texture = r.texture ? await decoder(r.texture).catch(() => null) : null;
     const mur = texture ? murDeLaTexture(texture, r) : null;
-    const res = appliquerRenfort({ ouvertures: r.ouvertures, decochees: [], vote: voterRenfort(reponses), cartes: mur ? cartesAretes(mur, mur.largeur / r.largeur) : null, largeurM: r.largeur, hauteurM: r.hauteur });
+    // Les baies devinees du releve : une boite manquee de Claude au meme endroit les confirme, au lieu
+    // d'ajouter une seconde baie sur la premiere (le releve fait de meme, zones/releve/aide.ts).
+    const res = appliquerRenfort({ ouvertures: r.ouvertures, decochees: m?.devinees ?? [], vote: voterRenfort(reponses), cartes: mur ? cartesAretes(mur, mur.largeur / r.largeur) : null, largeurM: r.largeur, hauteurM: r.hauteur });
     out[cle] = { passes: reponses.length, ouvertures: res.ouvertures, decochees: res.decochees, bilan: { ...res.bilan }, resume: texteBilan(res.bilan) };
   }
   return out;

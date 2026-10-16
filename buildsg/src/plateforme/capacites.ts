@@ -92,7 +92,7 @@ export const CAPACITES = {
     // disparaissent, et three.js n'est jamais demande au CDN — le seul vrai gain reseau de la table.
     // Les commandes internes a la Vue 3D et a la visionneuse ne sont joignables qu'une fois dedans.
     commandes: ['vue.3d', 'vue.visionneuse', 'export.glb'],
-    origines: ['https://cdnjs.cloudflare.com', 'https://cdn.jsdelivr.net', 'https://api.polyhaven.com', 'https://cdn.polyhaven.com', 'https://dl.polyhaven.org']
+    origines: ['https://cdn.jsdelivr.net', 'https://api.polyhaven.com', 'https://cdn.polyhaven.com', 'https://dl.polyhaven.org']
   },
   exportDxf: {
     code: 'plan.export.dxf',

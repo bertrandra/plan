@@ -503,7 +503,7 @@ function empriseDesObjets(objets: readonly ObjetPlan[]): { xMin: number; xMax: n
  * Le doigt sur la Vue 3D : un tapotement (bref, sans glisser) ou un appui long. Un glisser passe la
  * camera en navigation libre. Pose une fois sur l'hote de la scene, qui survit aux reconstructions.
  */
-export function brancherDoigtAudit(c: ControleurAudit, hote: HTMLElement, horloge: Pick<Window, 'setTimeout' | 'clearTimeout'> = window): () => void {
+export function brancherDoigtAudit(c: Pick<ControleurAudit, 'tapoter' | 'appuiLong' | 'lacherSuivi'>, hote: HTMLElement, horloge: Pick<Window, 'setTimeout' | 'clearTimeout'> = window): () => void {
   let debut: { x: number; y: number; t: number } | null = null;
   let glisse = false, long = false;
   let minuteur: number | null = null;

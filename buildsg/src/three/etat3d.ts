@@ -9,9 +9,12 @@
 // Un objet mutable partage plutot que des accesseurs : c'est la meme forme que `etat` pour le plan,
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
+import type { Qualite3d } from './qualite.js';
+import type { EtatRendu } from './rendu.js';
 import type * as THREE_NS from 'three';
-import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
+import type { DeuxVues } from './comparaison3d.js';
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -38,12 +41,41 @@ export interface SceneTroisBase {
   dirLight: THREE_NS.DirectionalLight;
   dirFill: THREE_NS.DirectionalLight;
   hemiLight: THREE_NS.HemisphereLight;
+  /**
+   * Le rendu d'une image, quand il ne se reduit pas a `renderer.render` : l'occlusion ambiante de la
+   * Vue 3D en Soignee (three/rendu.ts) passe par un enchainement de passes. Tout rendu passe par
+   * `rendre3d`, qui le prend s'il existe.
+   */
+  rendre?: () => void;
+  /** Ce qui suit la taille du canevas en plus du rendu et de la camera (les passes de l'occlusion). */
+  redimensionner?: (w: number, h: number) => void;
+  /** Ce qui suit le rapport de pixels du rendu (une capture haute definition, three/presentation.ts). */
+  rapportPixels?: (r: number) => void;
+  /**
+   * L'avant et l'apres d'un audit en deux vues (three/comparaison3d.ts) : tant qu'il est pose, il
+   * l'emporte sur tout autre rendu, pour que chaque image, d'ou qu'elle vienne, montre les deux.
+   */
+  enDeux?: () => void;
+}
+
+/** Rend une image de la scene, par ses passes si elle en a. */
+export function rendre3d(sc: SceneTroisBase): void {
+  if (sc.enDeux) sc.enDeux();
+  else if (sc.rendre) sc.rendre();
+  else sc.renderer.render(sc.scene, sc.camera);
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
 export interface SceneVue3d extends SceneTroisBase {
   extent: number;
   cen: { x: number; y: number };
+  /** Le ciel, l'environnement et l'occlusion (three/rendu.ts), a liberer avec la scene. */
+  rendu?: EtatRendu;
+  /**
+   * La hauteur du sol dessine en un point du plan, sur un sol en relief ; absente, le sol est plat
+   * (a zero). La promenade (three/presentation.ts) garde ainsi les yeux a hauteur d'homme.
+   */
+  hauteurSol?: (p: PtBrut) => number;
 }
 
 /** La scene de la visionneuse : elle cadre un .glb deja produit, donc en coordonnees 3D. */
@@ -173,6 +205,20 @@ export const vue3d: {
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
+  /** Le niveau de qualite de l'appareil (three/qualite.ts) : pose au demarrage, regle dans le panneau. */
+  qualite: Qualite3d;
+  /**
+   * La boucle d'animation ne rend plus d'images : le temps d'un export .glb (three/exportGlb.ts),
+   * dont l'exporteur travaille par petites taches sur le meme fil que le rendu.
+   */
+  pauseRendu: boolean;
+  /** Une voiture et une silhouette, pour l'echelle (three/objetsEchelle.ts) ; decochees par defaut. */
+  objetsEchelle: boolean;
+  /**
+   * La focale est tenue par un autre (la prise de vue de l'audit, app/audit/parcelle/vuePrise.ts) :
+   * elle ne suit plus la hauteur de la camera (three/presentation.ts).
+   */
+  focaleBloquee: boolean;
 } = {
   scene: null,
   dernierObjKey: null,
@@ -186,7 +232,11 @@ export const vue3d: {
   textures: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
-  ombres: true
+  ombres: true,
+  qualite: 'normale',
+  pauseRendu: false,
+  objetsEchelle: false,
+  focaleBloquee: false
 };
 
 /**
@@ -246,7 +296,9 @@ export const affichage3d = {
   indicationGlb: '',
   pleinePageGlb: false,
   /** Un .glb en cours de production : pour le telecharger (`export`) ou pour la visionneuse. */
-  generation: null as null | 'export' | 'generation'
+  generation: null as null | 'export' | 'generation',
+  /** Les deux vues avant / apres d'un audit, en pixels du canevas : ou poser leurs etiquettes. */
+  comparaison: null as null | DeuxVues
 };
 
 /**
