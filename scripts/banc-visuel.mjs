@@ -14,7 +14,7 @@
 // (scripts/fumee-reseau.mjs) : la parcelle, ses voisines, la BD TOPO, le LiDAR et l'orthophoto
 // d'un passage enregistre. `BANC_RESEAU=temoin|direct|enregistrer` force le mode, comme
 // `FUMEE_RESEAU` pour la fumee. `BANC_QUALITES=normale,soignee` limite les niveaux mesures ;
-// `BANC_VUES=0` ne fait que les mesures, `BANC_MESURES=0` que les images ; `BANC_ECHELLE=1` coche les
+// `BANC_QUALITE_VUES=soignee` rend les images a ce niveau (normale par defaut) ; `BANC_VUES=0` ne fait que les mesures, `BANC_MESURES=0` que les images ; `BANC_ECHELLE=1` coche les
 // objets d'echelle (une voiture, une silhouette) avant les vues ; `BANC_CLAUDE=1` ajoute les rendus
 // que Claude recoit, un par facade de la maison (la facade entiere, du pied au haut du toit, vue de
 // 5 m devant son milieu : three/renduPrise.ts).
@@ -262,7 +262,7 @@ async function principal() {
 
   if (process.env.BANC_VUES !== '0') {
     for (const f of CLASSES) for (const theme of THEMES) {
-      const { contexte, page } = await partie(navigateur, net, f, theme, 'normale');
+      const { contexte, page } = await partie(navigateur, net, f, theme, process.env.BANC_QUALITE_VUES || 'normale');
       const vues = await pointsDeVue(page);
       for (const [nom, vue] of Object.entries(vues)) {
         await poserCamera(page, vue);

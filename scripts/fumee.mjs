@@ -1042,6 +1042,7 @@ const POINTS = {
     });
     await page.waitForTimeout(300);
     const glb = await telechargerOctets(page, () => page.evaluate(() => window.__plan.executer('export.glb')), 120000);
+    if (process.env.FUMEE_GARDER_GLB) writeFileSync(process.env.FUMEE_GARDER_GLB, glb);
     const attendu = JSON.parse(readFileSync('tests/fixtures/golden/glb-structure.json', 'utf8')).compteurs;
     // En-tete glTF binaire : 12 octets, puis la longueur du morceau JSON sur 4 octets.
     const g = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'));

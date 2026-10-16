@@ -21,7 +21,7 @@ describe('la table des capacites', () => {
   });
 
   it('nomme les CDN sous la vue 3D : c est la seule capacite qui evite un script distant', () => {
-    expect(CAPACITES.vue3d.origines).toContain('https://cdnjs.cloudflare.com');
+    expect(CAPACITES.vue3d.origines).not.toContain('https://cdnjs.cloudflare.com');
     expect(CAPACITES.vue3d.origines).toContain('https://cdn.jsdelivr.net');
   });
 

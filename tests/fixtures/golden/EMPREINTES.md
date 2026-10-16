@@ -511,6 +511,25 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
   Aucun export de chiffrage n'est touché : les six empreintes de la démonstration témoin
   (`?temoin`) restent identiques.
 
+  **16 octobre 2026 — three.js r128 → 0.186.1 : `glb-structure.json` recapturé.** Mesuré sur la même
+  démonstration, `origin/main` (r128) contre cette branche (0.186.1), le point 24 :
+  - **Inchangés** : 1 183 nœuds, 995 mailles, 1 458 matériaux, 16 textures, 16 images, 1 scène, les
+    1 543 primitives et leurs attributs (positions, normales, coordonnées de texture, couleurs).
+  - **+728 accesseurs et +728 vues tampon (3 407 → 4 135, 3 423 → 4 151)** : des indices. Pour une
+    maille à plusieurs matériaux dont la géométrie n'est pas indexée, l'exporteur r128 écrivait chaque
+    primitive **sans indices** — chaque matériau dessinait donc *toute* la maille ; le 0.186.1 force
+    les indices et découpe par groupe. L'export est plus juste ; l'écart de compteur ne dit pas autre
+    chose (et c'est lui, non une régression, qui fait bouger le témoin).
+  - **+1 extension** : `EXT_materials_bump` (les cartes de relief, ignorées par la r128).
+  - **Octets : 12 470 096 → 12 624 552** (+154 456 : les indices et l'extension). Les images JPEG
+    restent des JPEG : la r128 les rangeait en `RGBFormat` et l'exporteur les réécrivait en JPEG,
+    le 0.186.1 les passerait en PNG (20,6 Mo) sans `userData.mimeType` (`garderLeJpeg`,
+    `three/chargeurs.ts`).
+  - L'en-tête `asset.generator` devient `THREE.GLTFExporter r186`.
+  Aucun autre export ne bouge : les six empreintes texte restent identiques. Les octets du .glb
+  téléchargé changent sans qu'aucun format ne casse ni qu'aucune quantité bouge : au plus une version
+  mineure (`MD/RELEASE.md`), annoncée au CHANGELOG ; `APP_VERSION` n'est pas touchée ici.
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
@@ -521,7 +540,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 460 | `154198b4c0be615e60f8a7f8ede9089f74533cac8dc8e346c7044a991350bedd` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `21d42b16c692aff6bbce2f7faa1e2a936a8bd57424cbe451f7583370a64439f0` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

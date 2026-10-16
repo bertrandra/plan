@@ -22,6 +22,7 @@ import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '..
 import { safeOffset } from '../engine/structure.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
+import { garderLeJpeg } from './chargeurs.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -245,6 +246,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const avecPhoto = !!photo;
     if (photo) {
       const tex = new THREE.TextureLoader().load(photo);
+      garderLeJpeg(tex, photo);
       tex.anisotropy = 4;
       const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide });
       // 1 cm devant le mur ne suffit pas vu de loin : la photo gagne le test de profondeur (COUCHES_SOL).

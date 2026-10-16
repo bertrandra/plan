@@ -58,7 +58,7 @@ const trouves = INTERDITS.filter((i) => i.motif.test(paquet));
 // `https://…/api/v1` ne trouvait donc jamais rien, et le garde-fou annoncait « aucune plateforme »
 // sur un paquet qui en portait une. On cherche une origine qui ne soit aucune des origines
 // tierces que le programme nomme par ailleurs (IGN, BAN, CDN, textures).
-const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org)|api\.panoramax\.xyz|panoramax\.(openstreetmap|ign)\.fr)$/;
+const TIERCES = /^https:\/\/(api-adresse\.data\.gouv\.fr|apicarto\.ign\.fr|data\.geopf\.fr|www\.geoportail-urbanisme\.gouv\.fr|cdn\.jsdelivr\.net|(api|cdn|dl)\.polyhaven\.(com|org)|api\.panoramax\.xyz|panoramax\.(openstreetmap|ign)\.fr)$/;
 const origine = [...new Set((paquet.match(/"https:\/\/[a-z0-9.-]+"/g) || []).map((s) => s.slice(1, -1)))]
   .filter((o) => !TIERCES.test(o)).map((o) => [o]).find(Boolean);
 

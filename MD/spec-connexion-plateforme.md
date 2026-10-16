@@ -280,7 +280,7 @@ and the modules it governs. The mapping is the point: a capability that names no
 | `plan.ortho` | `affichage.orthophoto` and its two sliders | the `data.geopf.fr` WMTS tiles |
 | `plan.plu` | `plu.interroger` | the `apicarto.ign.fr` GPU calls |
 | `plan.terrasse` | the seven `terrasse.*` commands, the five terrace tabs of the drawer | nothing — the engine is local |
-| `plan.3d` | `vue.3d`, `visionneuse.*` | three.js r128 from cdnjs, `OrbitControls`, `GLTFLoader` and `GLTFExporter` from jsdelivr, the Poly Haven texture catalogue |
+| `plan.3d` | `vue.3d`, `visionneuse.*` | three.js 0.186 (ES modules) and its examples (`OrbitControls`, `GLTFLoader`, `GLTFExporter`, ambient occlusion, thick lines) from jsdelivr, the Poly Haven texture catalogue |
 | `plan.export.dxf` | `export.dxf` | nothing |
 | `plan.export.dossier` | `dossier.pdf` | nothing |
 

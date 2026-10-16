@@ -22,8 +22,10 @@ import { createHash } from 'node:crypto';
 export function sortirLesScripts(html) {
   const fichiers = [];
   // Un bloc de donnees (`type="application/json"`, model/produit.ts) n'est pas un script : il reste
-  // dans la page, ou la plateforme le lit sans rien executer.
-  const motif = /<script((?![^>]*\ssrc=)(?![^>]*type="application\/json")[^>]*)>([\s\S]*?)<\/script>/g;
+  // dans la page, ou la plateforme le lit sans rien executer. Il en va de meme de la table d'import
+  // (`type="importmap"`) : elle doit etre en ligne et preceder les modules (index.html), c'est elle
+  // qui dit ou trouver three.js.
+  const motif = /<script((?![^>]*\ssrc=)(?![^>]*type="application\/json")(?![^>]*type="importmap")[^>]*)>([\s\S]*?)<\/script>/g;
   const sortie = html.replace(motif, (tout, attributs, code) => {
     if (!code.trim()) return tout;
     const nom = 'assets/plan-' + createHash('sha256').update(code, 'utf8').digest('hex').slice(0, 16) + '.js';

@@ -198,7 +198,7 @@ function visibleDansLaScene(o: THREE_NS.Object3D | null): boolean {
  */
 function pointSousLePointeur(sc: SceneTroisBase, ndc: { x: number; y: number }): THREE_NS.Vector3 | null {
   const rayon = new THREE.Raycaster();
-  rayon.setFromCamera(ndc, sc.camera);
+  rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), sc.camera);
   const touches = rayon.intersectObjects(sc.scene.children, true);
   const t = touches.find((i) => (i.object as THREE_NS.Mesh).isMesh && visibleDansLaScene(i.object));
   if (t) return t.point.clone();

@@ -1,8 +1,8 @@
 {
   "magic": "glTF",
   "version": 2,
-  "octetsTotal": 12470096,
-  "generator": "THREE.GLTFExporter",
+  "octetsTotal": 12624552,
+  "generator": "THREE.GLTFExporter r186",
   "versionGltf": "2.0",
   "compteurs": {
     "noeuds": 1183,
@@ -10,8 +10,8 @@
     "materiaux": 1458,
     "textures": 16,
     "images": 16,
-    "accesseurs": 3407,
-    "vuesTampon": 3423,
+    "accesseurs": 4135,
+    "vuesTampon": 4151,
     "scenes": 1
   },
   "nomsMailles": [

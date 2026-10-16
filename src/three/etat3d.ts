@@ -12,7 +12,7 @@
 import type { Qualite3d } from './qualite.js';
 import type { EtatRendu } from './rendu.js';
 import type * as THREE_NS from 'three';
-import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
 import type { DeuxVues } from './comparaison3d.js';
 
@@ -27,7 +27,7 @@ import type { DeuxVues } from './comparaison3d.js';
  * (un centre et un rayon en coordonnees 3D). D'ou deux types, pas un seul avec quatre champs
  * facultatifs qui ne seraient jamais tous poses.
  *
- * Ces types sont ecrits depuis `@types/three@0.128.0`, une dependance de type sans dependance de
+ * Ces types sont ecrits depuis `@types/three`, une dependance de type sans dependance de
  * code : la bibliotheque elle-meme arrive du CDN au moment ou l'on ouvre la 3D (voir
  * `three/global.d.ts`).
  */

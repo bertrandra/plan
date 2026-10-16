@@ -168,6 +168,12 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
               if (!dejaActive) disposeThreeScene();
               restaurer();
               ctx.rafraichirVisionneuseGlbSiOuverte();
+            }, (e) => {
+              if (fini) return; fini = true; clearTimeout(filet);
+              remettreSiBesoin();
+              showErrBanner('Export GLB : ' + (e && e.message ? e.message : 'echec de l\'exporteur'));
+              if (!dejaActive) disposeThreeScene();
+              restaurer();
             }, { binary: true });
           } catch (err) {
             remettreSiBesoin();
