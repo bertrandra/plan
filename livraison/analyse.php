@@ -78,8 +78,10 @@ const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.j
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus.
 const REQUETES_IMMEDIATES = 3;
-// Assez pour la reflexion a l'effort `low` et le JSON avec indices (~1 500 attendus, spec-regles-toits 14.4).
-const MAX_TOKENS = 8000;
+// Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
+// rejeu d'AE 101 (15 octobre 2026) a coupe a 8 000 la passe d'une maison de huit murs
+// (reponse perdue, un vote sur deux passes). On ne paie que ce que le modele ecrit.
+const MAX_TOKENS = 16000;
 const EFFORT = 'low';
 const TAILLE_MAX = 48 * 1024 * 1024;
 const ID_VALIDE = '/^[A-Za-z0-9_-]{1,64}$/';
