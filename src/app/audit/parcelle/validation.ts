@@ -139,6 +139,9 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   async function tout(): Promise<void> {
     const liste = aMesurer().filter((x) => faites.get(x.cle)?.signature !== x.sig);
     let n = 0;
+    // Dire quand les photos partent a l'analyse des facades, et ce qu'elle en a tire.
+    const heure = (): string => { const t = ctx.maintenant(); return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); };
+    if (liste.length) ctx.signaler('Photos soumises à l’analyse des façades à ' + heure() + ' : ' + liste.reduce((s, x) => s + x.photos.length, 0) + ' photo(s) sur ' + liste.length + ' façade(s).');
     for (const x of liste) {
       etat = { etat: 'mesure', faites: n, total: liste.length };
       publier();
@@ -152,6 +155,10 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
     }
     etat = { etat: 'pretes' };
     publier();
+    if (liste.length) {
+      const mesures = liste.map((x) => faites.get(x.cle)?.mesure).filter((m): m is MesureFacade => !!m);
+      ctx.signaler('Analyse des photos terminée à ' + heure() + ' : ' + mesures.length + ' façade(s) mesurée(s), coins trouvés sur ' + mesures.filter((m) => m.coinsTrouves).length + '.');
+    }
   }
 
   return {

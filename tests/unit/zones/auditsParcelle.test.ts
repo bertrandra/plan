@@ -290,6 +290,26 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
     expect(cartes()[0]?.querySelector('.detailAuditRecu .raisonAuditRecu')?.textContent).toBe('Ce projet est sur la parcelle 35238000AB0001 : ouvrez le projet de la parcelle ' + IDU + ' pour rejouer son audit.');
   });
 
+  it('relance l analyse des photos a cote du rejeu : l audit s ouvre sans ses mesures ; refuse sur une autre parcelle, avec la raison de l ouverture', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    const bout = bouton(cartes()[0], 'auditsParcelle.remesurer');
+    expect(bout?.textContent).toBe('Relancer l’analyse des photos');
+    expect(bout?.disabled).toBe(false);
+    await cliquer(bout);
+    expect(t.d.ouvrir).toHaveBeenCalledWith(JSON.stringify(fichier), expect.objectContaining({ id: ID }), true);
+    // Rejouer l'analyse n'ouvre rien : les deux boutons sont distincts.
+    expect(t.analyse.creerBatch).not.toHaveBeenCalled();
+    act(() => racine.unmount());
+    racine = createRoot(hote);
+    const ailleurs = monterTout({ iduProjet: () => '35238000AB0001' });
+    await act(async () => { await ailleurs.catalogue.relire(); });
+    await ouvrirDetails();
+    expect(bouton(cartes()[0], 'auditsParcelle.remesurer')?.disabled).toBe(true);
+    expect(bouton(cartes()[0], 'auditsParcelle.remesurer')?.title).toContain('Ce projet est sur la parcelle 35238000AB0001');
+  });
+
   it('rejoue avec le prompt du brouillon des regles quand l administrateur en a un, et le dit', async () => {
     const t = monterTout({}, { brouillon: { enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 } });
     await act(async () => { await t.catalogue.relire(); });

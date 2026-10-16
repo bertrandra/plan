@@ -20,6 +20,7 @@ import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
 import { preparerImport } from './fichier.js';
+import type { FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { brancherDoigtAudit } from '../controleur.js';
 import { creerCatalogue, type CatalogueAudits } from './catalogue.js';
 import { preparerRejeu } from './rejeu.js';
@@ -70,10 +71,12 @@ function choisirFichierNavigateur(signaler: (m: string) => void): (surTexte: (te
 }
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
+/** Les photos de facade d'un fichier d'audit : celles que les mesures reprennent. */
+const photosFacades = (f: FichierAuditParcelle): number => f.batiments.reduce((n, b) => n + b.facades.reduce((m, x) => m + x.photos.length, 0), 0);
 
 /** Ce que le catalogue admin demande a la session de la parcelle : reprendre un fichier, ou le consulter. */
 interface ActionsCatalogue {
-  importer: (texte: string, fiche: FicheAudit) => void;
+  importer: (texte: string, fiche: FicheAudit, remesurer?: boolean) => void;
   consulter: (texte: string, catalogue: CatalogueAudits) => void;
 }
 
@@ -92,7 +95,7 @@ function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, ac
         client: () => a.audits?.() ?? null,
         iduProjet: () => parcelleCadastrale(a.etat.objects),
         refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
-        ouvrir: (texte, fiche) => actions.importer(texte, fiche),
+        ouvrir: (texte, fiche, remesurer) => actions.importer(texte, fiche, remesurer),
         consulter: (texte) => actions.consulter(texte, catalogue),
         telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
         signaler: a.signaler,
@@ -180,7 +183,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
    * raison, ou repris la ou il en etait, a la phase 3 ou sur la liste de controle. Depuis le
    * catalogue, une sauvegarde rouverte reste la meme : les envois suivants la remplacent.
    */
-  function importer(texte: string, depot?: FicheAudit): void {
+  function importer(texte: string, depot?: FicheAudit, remesurer = false): void {
     const idu = parcelleCadastrale(a.etat.objects);
     const r = preparerImport(texte, a.etat.objects, idu);
     if ('refus' in r) { a.signaler('Import refusé : ' + r.refus); return; }
@@ -193,6 +196,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     const sauvegarde = depot?.marque === 'sauvegarde' ? { id: depot.id, retrait: '', t: depot.recuLe } : undefined;
     void s.importer(r.fichier, () => {
       s.montrer(enCapture ? 'liste' : 'propositions');
+      if (remesurer && !enCapture) { a.signaler('Photos de l’audit remises à l’analyse des façades : ' + pluriel(photosFacades(r.fichier), 'photo') + '. Les mesures se refont, puis les façades se relèvent.'); return; }
       parcours.ouvrir({ type: 'auditParcelle', session: s });
       if (enCapture) {
         const photos = r.fichier.batiments.reduce((n, b) => n + b.photos.length + b.facades.reduce((m, f) => m + f.photos.length, 0), 0) + r.fichier.cloture.photos.length + r.fichier.portail.photos.length;
@@ -202,7 +206,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
       const validees = r.fichier.propositions.filter((p) => p.decision === 'validee').length;
       a.signaler('Audit de la parcelle importé' + (validees ? ' : ' + pluriel(validees, 'proposition') + ' validée' + (validees > 1 ? 's' : '') + ' dans le fichier' : '')
         + absents + '. Vérifiez les cases, puis « Valider ».');
-    }, sauvegarde);
+    }, sauvegarde, remesurer);
   }
 
   /**
