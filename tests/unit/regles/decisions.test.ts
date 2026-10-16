@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  abscisseDuPortail, appliquerPropositions, cocheeParDefaut, jourIso, projetApres, releveALaHauteur, type Proposition, type EffetProposition,
+  abscisseDuPortail, appliquerPropositions, avecReserveSurPlace, RESERVE_NOTE_SUR_PLACE, rivalesSurPlace, cocheeParDefaut, jourIso, projetApres, releveALaHauteur, type Proposition, type EffetProposition,
 } from '../../../src/regles/decisions.js';
 import { couleurMursRetenue, textureDesMurs } from '../../../src/model/couleurMur.js';
 import { clotureDImport, clotureDe } from '../../../src/model/cloture.js';
@@ -185,5 +185,39 @@ describe('le projet apres les propositions, pour l apercu', () => {
     expect(r.objets[0]).toBe(objets[0]);
     expect(r.objets[2]).toBe(objets[2]);
     expect(r.touches).toEqual(['maison']);
+  });
+});
+
+// D21 : la valeur notee sur place l'emporte sur celle de Claude (MD/plan-vague-3-generaliser.md).
+describe('les rivales sur place', () => {
+  const base = { avant: 'a', apres: 'b', indices: [], confiance: null, remplaceChoix: null, reserve: null };
+  const p = (id: string, source: 'mesure' | 'claude', type: 'couverture' | 'materiauMurs' | 'hauteur', cle = 'maison'): Proposition => ({
+    ...base, id, cible: { type: 'batiment', cle }, objet: 'o', source,
+    effet: type === 'hauteur' ? { type, hauteurM: 6 } : type === 'couverture' ? { type, couverture: 'zinc' } : { type, materiau: 'brique' },
+  });
+
+  it('sont les lignes de l autre source qui ecrivent le meme attribut du meme batiment', () => {
+    const toutes = [p('n', 'mesure', 'couverture'), p('c', 'claude', 'couverture'), p('autre', 'claude', 'couverture', 'annexe'), p('m', 'claude', 'materiauMurs')];
+    expect(rivalesSurPlace(toutes[0]!, toutes).map((x) => x.id)).toEqual(['c']);
+    expect(rivalesSurPlace(toutes[1]!, toutes).map((x) => x.id)).toEqual(['n']);
+    expect(rivalesSurPlace(toutes[2]!, toutes)).toEqual([]);
+    expect(rivalesSurPlace(toutes[3]!, toutes)).toEqual([]);
+  });
+
+  it('ne concernent que les attributs notes sur place : la hauteur mesuree n a pas de rivale', () => {
+    const toutes = [p('h1', 'mesure', 'hauteur'), p('h2', 'claude', 'hauteur')];
+    expect(rivalesSurPlace(toutes[0]!, toutes)).toEqual([]);
+  });
+
+  it('ajoutent la reserve a celle de la ligne de Claude, sans changer les autres lignes', () => {
+    const toutes = [p('n', 'mesure', 'couverture'), p('c', 'claude', 'couverture'), { ...p('c2', 'claude', 'materiauMurs'), reserve: 'x' }, p('seule', 'claude', 'materiauMurs', 'annexe')];
+    const r = avecReserveSurPlace(toutes);
+    expect(r[0]).toBe(toutes[0]);
+    expect(r[1]?.reserve).toBe(RESERVE_NOTE_SUR_PLACE);
+    // Une reserve deja la (taux d'accord, contradiction) reste, la nouvelle s'y ajoute — quand la ligne a une rivale.
+    expect(avecReserveSurPlace([toutes[0]!, { ...toutes[1]!, reserve: 'x' }])[1]?.reserve).toBe('x ' + RESERVE_NOTE_SUR_PLACE);
+    expect(r[2]).toBe(toutes[2]);
+    expect(r[3]).toBe(toutes[3]);
+    expect(toutes[1]?.reserve).toBeNull();
   });
 });

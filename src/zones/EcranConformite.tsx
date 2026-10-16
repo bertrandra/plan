@@ -6,16 +6,16 @@
 // partages, recus sur le serveur et rejoues ici. De haut en bas :
 //   - la source, « Relire les audits », « Enregistrer la mesure » et l'etat de la lecture ;
 //   - les chiffres cles (le taux, le critere de la phase 1, les colonnes a venir) ;
-//   - six onglets : par forme, par region, par probleme, les cas, l'accord de Claude, l'historique.
+//   - sept onglets : par forme, par region, par probleme, les cas, les facades (lot G13), l'accord de Claude, l'historique.
 // « Enregistrer la mesure » range sur le serveur ce que l'ecran montre, toutes sources comprises
 // (`admin/conformite`) ; l'historique dit si le taux monte, phase apres phase.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { lireMesuresConformite, mesureConformite, resumer, tauxPar, type MesureConformite, type MesureLue, type VerdictCas } from '../regles/conformite.js';
-import { TableAxe, TableCas, TuilesConformite, VueClaude, VueHistorique } from './conformite/vues.js';
+import { lireMesuresConformite, mesureConformite, resumer, resumerFacades, tauxFacadesParRegion, tauxPar, type MesureConformite, type MesureLue, type VerdictCas, type VerdictFacade } from '../regles/conformite.js';
+import { TableAxe, TableCas, TableFacades, TuilesConformite, VueClaude, VueHistorique } from './conformite/vues.js';
 
 /** Les audits recus, juges : ce que app/ecranConformite.ts rend. */
-export interface AuditsJuges { verdicts: VerdictCas[]; lus: number; illisibles: string[] }
+export interface AuditsJuges { verdicts: VerdictCas[]; /** Les facades relevees, jugees (lot G13). */ facades?: VerdictFacade[]; lus: number; illisibles: string[] }
 
 export interface PropsEcranConformite {
   corpus: VerdictCas[];
@@ -27,12 +27,13 @@ export interface PropsEcranConformite {
   retour?: string;
 }
 
-type Onglet = 'forme' | 'region' | 'probleme' | 'cas' | 'claude' | 'historique';
+type Onglet = 'forme' | 'region' | 'probleme' | 'cas' | 'facades' | 'claude' | 'historique';
 const ONGLETS: { id: Onglet; titre: string }[] = [
   { id: 'forme', titre: 'Par forme' },
   { id: 'region', titre: 'Par région' },
   { id: 'probleme', titre: 'Par problème' },
   { id: 'cas', titre: 'Cas' },
+  { id: 'facades', titre: 'Façades' },
   { id: 'claude', titre: 'Accord de Claude' },
   { id: 'historique', titre: 'Historique' }
 ];
@@ -101,14 +102,18 @@ export function EcranConformite(props: PropsEcranConformite) {
     const a = auditsJuges ?? [];
     return source === 'corpus' ? corpus : source === 'audit' ? a : [...corpus, ...a];
   }, [corpus, auditsJuges, source]);
+  // Les facades relevees ne viennent que des audits recus : le corpus des promenades n'en a pas.
+  const facadesAudits = audits.juges?.facades;
+  const facadesMontrees = useMemo<VerdictFacade[]>(() => (source === 'corpus' ? [] : facadesAudits ?? []), [facadesAudits, source]);
   const calc = useMemo(() => ({
-    resume: resumer(montres), forme: tauxPar(montres, 'forme'), region: tauxPar(montres, 'region'), probleme: tauxPar(montres, 'probleme')
-  }), [montres]);
+    resume: resumer(montres), forme: tauxPar(montres, 'forme'), region: tauxPar(montres, 'region'), probleme: tauxPar(montres, 'probleme'),
+    facades: resumerFacades(facadesMontrees), facadesParRegion: tauxFacadesParRegion(facadesMontrees)
+  }), [montres, facadesMontrees]);
 
   const enregistrerMesure = () => {
     setEnvoi(true);
     setMessage(null);
-    const m = mesureConformite({ t: maintenant(), ...versions, corpus, audits: auditsJuges ?? [], auditsLus: audits.juges?.lus ?? 0 });
+    const m = mesureConformite({ t: maintenant(), ...versions, corpus, audits: auditsJuges ?? [], facades: facadesAudits ?? [], auditsLus: audits.juges?.lus ?? 0 });
     enregistrer(m).then(() => { setMessage('Mesure enregistrée sur le serveur.'); historique.relire(); }, (e: unknown) => setMessage((e as Error).message || String(e)))
       .finally(() => setEnvoi(false));
   };
@@ -121,7 +126,7 @@ export function EcranConformite(props: PropsEcranConformite) {
         <h1 className="palTitre">Conformité</h1>
         <p className="palSous">
           Part des cas observés que le calcul d’aujourd’hui satisfait : l’attendu validé et « Ce que je vois » (forme, bouts, lucarnes,
-          cheminées, toit-terrasse), sur le corpus du dépôt et les audits partagés reçus. Calcul {versions.code.version}, lecture des toits {versions.lecture.toits},
+          cheminées, toit-terrasse), sur le corpus du dépôt et les audits partagés reçus ; et, sur les façades relevées de ces audits, la part où la disposition automatique des fenêtres tient le relevé (baies à ± 1, part vitrée à ± 20 %, hauteur des niveaux). Calcul {versions.code.version}, lecture des toits {versions.lecture.toits},
           réglages {versions.lecture.reglages}, faits {versions.lecture.faits}. Visible de l’administrateur seulement.
         </p>
       </header>
@@ -153,7 +158,7 @@ export function EcranConformite(props: PropsEcranConformite) {
       {message && <p className="consNote confMessage" role="status">{message}</p>}
 
       <div className={'consCorps' + (audits.lecture && audits.juges ? ' consRecharge' : '')}>
-        <TuilesConformite r={calc.resume} />
+        <TuilesConformite r={calc.resume} facades={calc.facades} />
 
         <div className="palOnglets consOnglets" role="tablist" aria-label="Vues">
           {ONGLETS.map((o) => (
@@ -164,9 +169,10 @@ export function EcranConformite(props: PropsEcranConformite) {
 
         <section id="confVue" className="consVue" role="tabpanel" aria-labelledby={'confOnglet-' + onglet}>
           {onglet === 'forme' ? <TableAxe titre="Forme" lignes={calc.forme} />
-            : onglet === 'region' ? <TableAxe titre="Région" lignes={calc.region} />
+            : onglet === 'region' ? <TableAxe titre="Région" lignes={calc.region} facadesParRegion={calc.facadesParRegion} />
             : onglet === 'probleme' ? <TableAxe titre="Problème noté" lignes={calc.probleme} />
             : onglet === 'cas' ? <TableCas verdicts={montres} />
+            : onglet === 'facades' ? <TableFacades verdicts={facadesMontrees} />
             : onglet === 'claude' ? <VueClaude />
             : <VueHistorique mesures={historique.mesures} erreur={historique.erreur} />}
         </section>

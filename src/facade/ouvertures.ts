@@ -15,7 +15,7 @@ import { repere, point } from './toitCorps.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { facadesDuContour, pointDeFacade, type Facade } from './geometrie.js';
 import type { Volume } from './profil.js';
-import type { CorpsToit, Fenetre3d, PtBrut } from '../model/types.js';
+import type { CorpsToit, Fenetre3d, OuvertureFacade, PtBrut } from '../model/types.js';
 import { FENETRE, PORTE, ENTRAXE_FENETRES_M } from '../model/fenetres3d.js';
 import { REGLAGES_FACADES, type ValeursFacades } from '../regles/facades/reglages.js';
 
@@ -86,6 +86,41 @@ export function mursAOuvrir(contour: readonly PtBrut[], h: number, cotesReleves:
 }
 
 /**
+ * Les ouvertures d'UN mur de cette largeur et de cette hauteur, sans cote : `y` depuis le pied du mur (la porte a
+ * `y = 0`), `x` depuis la gauche vu de dehors. C'est le coeur de la disposition automatique, que le controle des
+ * facades (facade/regles/facades/conformite.ts) rejoue sur la largeur et la hauteur d'un mur releve. `avecPorte` :
+ * le mur est le plus long du batiment, il porte la porte d'entree (si le mur est assez haut).
+ */
+export function ouverturesDUnMur(largeurMur: number, hMur: number, options: OptionsOuvertures = {}, avecPorte = false): OuvertureFacade[] {
+  const pr = options.profil ?? REGLAGES_FACADES;
+  const largeur = options.largeur ?? pr.FENETRE_LARGEUR_M,
+    hauteur = options.hauteur ?? pr.FENETRE_HAUTEUR_M,
+    appui = options.appui ?? pr.FENETRE_APPUI_M,
+    entraxe = Math.max(options.entraxe ?? pr.ENTRAXE_FENETRES_M, largeur + 0.2);
+  const porte = { l: pr.PORTE_LARGEUR_M, h: pr.PORTE_HAUTEUR_M };
+  const { n, hauteur: hNiveau } = niveaux(hMur, options.etages, pr);
+  if (n < 1) return [];
+  const xs = abscissesFenetres(largeurMur, entraxe, largeur, pr.FENETRES_MAX_PAR_MUR);
+  const hFen = Math.min(hauteur, hNiveau - appui - 0.2);
+  if (hFen < 0.3) return [];
+  const porteIci = options.porte !== false && avecPorte && hMur >= porte.h + 0.3 && xs.length > 0;
+  const iPorte = Math.floor(xs.length / 2);
+  const out: OuvertureFacade[] = [];
+  for (let k = 0; k < n; k++) {
+    xs.forEach((x, j) => {
+      if (k === 0 && porteIci && j === iPorte) {
+        out.push({ type: 'porte', x: x + largeur / 2 - porte.l / 2, y: 0, l: porte.l, h: porte.h });
+        return;
+      }
+      const y = k * hNiveau + appui;
+      if (y + hFen > hMur - 0.15) return;
+      out.push({ type: 'fenetre', x, y, l: largeur, h: hFen });
+    });
+  }
+  return out;
+}
+
+/**
  * Les ouvertures d'un batiment, cote par cote : `y` depuis le pied du mur (la porte a `y = 0`), `x`
  * depuis la gauche du mur vu de dehors. Les dimensions passees valent pour toutes les fenetres ;
  * une fenetre est raccourcie quand le niveau est trop bas pour elle.
@@ -94,35 +129,8 @@ export function ouverturesAutomatiques(contour: readonly PtBrut[], volumes: read
   const pr = options.profil ?? REGLAGES_FACADES;
   const facades = mursAOuvrir(contour, h, options.cotesReleves, pr);
   if (!facades.length) return [];
-  const largeur = options.largeur ?? pr.FENETRE_LARGEUR_M,
-    hauteur = options.hauteur ?? pr.FENETRE_HAUTEUR_M,
-    appui = options.appui ?? pr.FENETRE_APPUI_M,
-    entraxe = Math.max(options.entraxe ?? pr.ENTRAXE_FENETRES_M, largeur + 0.2);
-  const porte = { l: pr.PORTE_LARGEUR_M, h: pr.PORTE_HAUTEUR_M };
   const plusLong = facades.reduce((m, f) => (f.largeur > m.largeur ? f : m), au(facades, 0));
-  const out: Fenetre3d[] = [];
-  facades.forEach((f) => {
-    const hMur = hauteurDuMur(f, volumes);
-    const { n, hauteur: hNiveau } = niveaux(hMur, options.etages, pr);
-    if (n < 1) return;
-    const xs = abscissesFenetres(f.largeur, entraxe, largeur, pr.FENETRES_MAX_PAR_MUR);
-    const hFen = Math.min(hauteur, hNiveau - appui - 0.2);
-    if (hFen < 0.3) return;
-    const porteIci = options.porte !== false && f === plusLong && hMur >= porte.h + 0.3 && xs.length > 0;
-    const iPorte = Math.floor(xs.length / 2);
-    for (let k = 0; k < n; k++) {
-      xs.forEach((x, j) => {
-        if (k === 0 && porteIci && j === iPorte) {
-          out.push({ cote: f.cote, type: 'porte', x: x + largeur / 2 - porte.l / 2, y: 0, l: porte.l, h: porte.h });
-          return;
-        }
-        const y = k * hNiveau + appui;
-        if (y + hFen > hMur - 0.15) return;
-        out.push({ cote: f.cote, type: 'fenetre', x, y, l: largeur, h: hFen });
-      });
-    }
-  });
-  return out;
+  return facades.flatMap((f) => ouverturesDUnMur(f.largeur, hauteurDuMur(f, volumes), options, f === plusLong).map((o): Fenetre3d => ({ cote: f.cote, ...o })));
 }
 
 /** Un pignon trop bas n'a pas de fenetre : moins de cela entre son egout et son faitage (profil par defaut). */

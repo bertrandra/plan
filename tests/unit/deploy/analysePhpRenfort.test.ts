@@ -8,6 +8,7 @@ import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { coutAppel, tarifEnVigueur, tokensDeUsage, type Tarifs } from '../../../buildsg/analyseAdmin.mjs';
 import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
+import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
 // Le renfort de Claude (lot L18) dans analyse.php : memes scenarios que le serveur Node
 // (tests/unit/buildsg/analyseAdminRenfort.test.ts), memes couts. Saute si PHP manque.
@@ -116,5 +117,9 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect(journal()).toHaveLength(3);
     expect(journal()[0]).toMatchObject({ usage: 'renfort', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_RENFORT });
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
+  });
+
+  it('fait l escalade (D20) comme Node : usage escalade, prompt et schema de l analyse, modele demande', async () => {
+    await verifierEscalade({ ecrire: (e, _m, c) => ecrire(e, c), faux, journal });
   });
 });

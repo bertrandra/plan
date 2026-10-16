@@ -16,6 +16,41 @@ Il les découpe en **lots G1 à G20**, un lot par PR, chacun livrable seul. Les 
 
 ---
 
+## 0. État au 16 octobre 2026
+
+Relevé fait en relisant le plan contre le dépôt. Les noms de fichiers du §4 sont ceux du plan ; trois ont changé
+avec le rangement du moteur sous `regles/` (`MD/architecture.md` §5.2.4).
+
+| Lot | État | Où |
+|---|---|---|
+| G1, G2, G3, G3 bis | **fait** | `model/types.ts`, banc des formes, `regles/conformite.ts` + écran Admin › Conformité, `app/candidatsPanoramax.ts` |
+| G11, G12 | **fait** | `model/mesureFacade.ts`, `regles/facades/reglages.json` + `facade/regles/facades/profils.ts` (le profil par défaut seul) |
+| **G13** | **fait** | `facade/regles/facades/conformite.ts` : la disposition automatique d'un mur (`ouverturesDUnMur`) comparée à son relevé ; tuile, colonne par région, onglet « Façades » et historique de l'écran Conformité |
+| G15, G17, G18 bis, masque de G20 | **fait** | `facade/regles/toits/profils.ts` (aucun profil encore), `three/detailsBatiment.ts`, clés des manques par façade, masque hachuré |
+| **G18** | **fait pour D20 et D21, reste la pré-acceptation** | D21 : `regles/decisions.ts` (`rivalesSurPlace`), la ligne de Claude arrive décochée et cocher l'une décoche l'autre. D20 : `app/audit/parcelle/escalade.ts`, un modèle plus fin départage les passes en désaccord (usage `escalade`, appel immédiat, plafonds). `ACCORDS_MESURES` reste vide : la pré-acceptation à plus de 95 % attend le corpus |
+| G19 | **en partie** | la forme du toit et les bouts sont déjà des propositions (`app/regles/sujets/formeToit.ts`), venues avant G4, G5 et G17 ; les lucarnes et les détails d'ouvertures restent des observations |
+| G4 à G10 | à faire | attendent le corpus (phase 1 de T§13.3 : 50 cas observés dont 10 sur des formes inconnues) ; il y en a 2 aujourd'hui |
+| G14, G16 | à faire | `profils` est vide dans `regles/toits/reglages.json` et `regles/facades/reglages.json` ; un profil naît d'un écart que G13 ou une contradiction de cas montre |
+| G20 (taux d'accord, fin du renfort) | à faire | corpus |
+
+**Noms qui ont changé depuis le §4.** `profilsToits.ts` est `facade/regles/toits/profils.ts`, `profilsFacades.ts` est
+`facade/regles/facades/profils.ts`, `model/conformite.ts` est `regles/conformite.ts` ; il n'y a pas de
+`scripts/candidats.ts` (le parcours de village est `app/candidatsPanoramax.ts`).
+
+**Ce que la vague a ajouté sans le plan.** Admin › Règles (le prompt et le schéma de Claude composés par les sujets,
+`MD/architecture.md` §5.2.4), l'essai du brouillon sur le serveur et le rejeu avec lui (`?regles=local`, Admin ›
+Audits), l'édition des réglages et des faits. Ils servent G18 : on mesure l'effet d'un changement de prompt sur un
+audit reçu avant de le livrer.
+
+**Les tolérances de G13.** La spec donne baies à ± 1 et part vitrée à ± 20 %, et dit « hauteur des niveaux » sans
+tolérance : 30 cm est un choix à confirmer par le corpus (`TOLERANCE_HAUTEUR_NIVEAU_M`). La part vitrée se compare en
+relatif à celle du relevé ; un mur sans vitrage au relevé se compare à zéro, à un point de mur près. La porte est posée
+sur la disposition seulement si le relevé en porte une : on compare la place des fenêtres, pas la décision d'avoir une
+porte sur ce mur. Le modèle d'escalade par défaut est celui des autres usages (Haiku) tant que l'administrateur n'a pas
+réglé « Escalade » sur un modèle plus fin dans les réglages des modèles.
+
+---
+
 ## 1. Les règles du plan
 
 Celles du plan précédent (§1) s'appliquent toutes : une PR par lot, avec le circuit de `CLAUDE.md` ;

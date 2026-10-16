@@ -67,7 +67,7 @@ function observationRenfort(b: LigneBatiment, cote: number, orientation: string,
 /** Les observations d'un batiment : le vote de ses passes, puis le renfort de ses facades. */
 export function observationsDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, r: ReponsesBatiment | undefined, renfort: Record<string, RenfortFacadeCapture>): ObservationClaude[] {
   const reponses = passesLues(r?.reponses ?? []);
-  const out = reponses.length ? observationsDuVote(o, b, voterAnalyse(reponses), reponses, r?.etiquettes ?? []) : [];
+  const out = reponses.length ? observationsDuVote(o, b, voterAnalyse(reponses, r?.escalade), reponses, r?.etiquettes ?? []) : [];
   for (const f of b.facades) {
     const id = cleMesure(b.cle, f.cote), rf = renfort[id];
     const x = rf ? observationRenfort(b, f.cote, f.facade.orientation, rf, e.mesures.get(id)?.releve?.ouvertures ?? []) : null;

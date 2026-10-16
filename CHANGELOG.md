@@ -7,6 +7,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La silhouette des façades dit la forme du toit.** Pendant l’audit, chaque photo de façade donne la ligne du haut du mur : triangle de mur (pignon), pan de toit incliné (croupe), trapèze, haut droit, rampe. Plan la mesure sur la photo (silhouette au-dessus de l’égout) et Claude la lit aussi (champ `silhouette` du schéma, prompt version 6, schéma version 2). Le moteur des toits en déduit les bouts du faîtage (`facade/regles/toits/silhouettes.ts` : un mur de bout dit ce qui ferme son bout, un long pan en trapèze dit des croupes, un haut droit des pignons) et les relit sur la mesure LiDAR comme tout fait du bâtiment (`corpsSousContrainte`) : jamais un toit dessiné à la main. Le résultat arrive sur l’écran des propositions comme une ligne « Forme du toit » avec son avant/après dans la Vue 3D, décochée avec ses raisons (un triangle de photo peut être un pignon ou une croupe) ; quand les murs et la vue d’ensemble de Claude divergent, les murs l’emportent et la ligne le dit.
+
+- **Les photos de l’audit alimentent les façades toutes seules.** Dès que la mesure d’une photo de façade est prête (coins trouvés, confiance suffisante, aucune réserve), son relevé (ouvertures et texture) est écrit sur la façade du projet, sans « Valider », en un seul pas d’historique que Ctrl+Z défait. Un relevé fait à la main n’est jamais écrasé : la ligne reste une proposition décochée. Le relevé posé par l’audit porte la marque `depuisAudit` ; une mesure plus récente le remplace, un relevé refait à la main la fait tomber.
+
+- **Conformité des façades (lot G13).** Sur chaque façade relevée d'un audit reçu, la disposition automatique des
+  fenêtres est posée sur le même mur (`ouverturesDUnMur`, extrait de `ouverturesAutomatiques` sans en changer un
+  résultat) et comparée au relevé : baies à ± 1, part vitrée à ± 20 %, hauteur des niveaux à 30 cm. Admin ›
+  Conformité montre le taux (tuile, colonne « Façades » par région, onglet « Façades » avec le relevé et la
+  disposition côte à côte, historique) et la mesure rangée sur le serveur le porte. C'est une mesure : elle ne change
+  aucune valeur produite par Plan, et dit où un profil de façades (G14) servirait.
+- **Un modèle plus fin départage les passes de Claude qui se désaccordent (D20).** Quand les trois passes ne
+  s'accordent pas sur un attribut d'un bâtiment, ce bâtiment repart seul (première passe, mêmes images) par l'appel
+  immédiat, usage `escalade`, sous les plafonds de l'organisation. La réponse ne tranche que les attributs sans
+  unanimité ; la ligne arrive décochée et le dit (« un modèle plus fin a tranché : à vérifier »). Un plafond atteint ou
+  un échec garde le vote des trois passes. Le modèle est celui réglé pour « Escalade » (Haiku par défaut : à passer à
+  un modèle plus fin dans les réglages pour que l'escalade serve à quelque chose).
+- **La valeur notée sur place l'emporte sur celle de Claude (D21).** Sur le matériau des murs, la couverture, les
+  cheminées et le toit-terrasse, la ligne de Claude arrive décochée avec la raison, et cocher l'une décoche l'autre.
+
 - **Admin › Règles : le brouillon s'essaie avant la PR.** « Enregistrer sur le serveur » garde le prompt, le
   schéma et l'état de l'éditeur côté serveur (`admin/claude/regles`, PHP et Node, administrateur seul) ;
   « Reprendre celui du serveur » le rouvre d'un autre navigateur. Il ne remplace jamais le prompt livré : seule une

@@ -127,7 +127,7 @@ describe('l analyse par Claude', () => {
   });
 
   describe('l essai du brouillon des regles (?regles=local)', () => {
-    const BROUILLON: BrouillonServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 };
+    const BROUILLON: BrouillonServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 7, schema: 3 };
 
     it('nomme le brouillon dans la demande quand l administrateur en a un sur le serveur, et le dit', async () => {
       const t = monter(undefined, undefined, () => true);
@@ -136,7 +136,7 @@ describe('l analyse par Claude', () => {
       t.capture.terminer();
       await t.analyse.accorder(true);
       expect(t.faux.demandes[0]).toMatchObject({ usage: 'analyse', essai: 'brouillon' });
-      expect(t.messages.some((m) => /^Essai : l’analyse part avec le prompt du brouillon des règles \(version 6, enregistré le 2026-10-16 10:00\)/.test(m))).toBe(true);
+      expect(t.messages.some((m) => /^Essai : l’analyse part avec le prompt du brouillon des règles \(version 7, enregistré le 2026-10-16 10:00\)/.test(m))).toBe(true);
     });
 
     it('part avec le prompt livre, en le disant, sans brouillon sur le serveur ou hors administrateur', async () => {
@@ -186,6 +186,65 @@ describe('l analyse par Claude', () => {
     expect(t.validation.propositions().find((p) => p.id === 'maison:claude:couverture')).toMatchObject({ source: 'claude', confiance: 1, indices: [{ texte: 'ardoises fines et sombres (orthophoto)' }] });
     // Decochees : aucun taux d'accord mesure.
     expect(t.validation.cochee('maison:claude:couverture')).toBe(false);
+  });
+
+  describe('l escalade des passes en desaccord (D20)', () => {
+    /** Les passes 1 et 3 voient de l'ardoise, la 2 du zinc : pas d'unanimite sur la couverture. */
+    const desaccord = (id: string) => reponse({ couverture: { indices: [{ image: 1, vu: id }], valeur: id.endsWith('p2') ? 'zinc' : 'ardoise' } });
+    const fin = (valeur: string) => async (d: DemandeAnalyse) => ({
+      modele: 'claude-sonnet-5-5', prompt: 5, schema: 1,
+      resultats: d.requetes.map((r): ResultatBatch => ({ id: r.id, statut: 'reussi', passe: r.passe, sortie: reponse({ couverture: { indices: [{ image: 1, vu: 'le modele fin' }], valeur } }), erreur: null })),
+    });
+
+    it('appelle le modele fin pour le seul batiment en desaccord, range sa reponse, et la propose tranchee et decochee', async () => {
+      const t = monter(desaccord);
+      const immediat = vi.fn(fin('zinc'));
+      t.faux.client.immediat = immediat;
+      t.capture.terminer();
+      await t.analyse.accorder(false);
+      await t.validation.lancer();
+      t.faux.etat.fini = true;
+      await t.tour();
+      expect(immediat).toHaveBeenCalledTimes(1);
+      const d = immediat.mock.calls[0]![0];
+      expect(d).toMatchObject({ usage: 'escalade', depot: null });
+      expect(d.requetes.map((r) => [r.id, r.facades])).toEqual([['b0-p1', 0]]);
+      expect(Object.keys(t.capture.lire().analyse?.resultats?.escalade ?? {})).toEqual(['maison']);
+      const p = t.validation.propositions().find((x) => x.id === 'maison:claude:couverture');
+      expect(p?.apres).toMatch(/^Zinc/);
+      expect(p?.reserve).toBe('Les passes de Claude ne s’accordaient pas (67 %) ; un modèle plus fin a tranché : à vérifier.');
+      expect(t.validation.cochee('maison:claude:couverture')).toBe(false);
+      expect(t.analyse.reponses()?.maison?.escalade).toBeDefined();
+    });
+
+    it('au plafond, garde le vote des trois passes, le dit, et ne repart pas a la reprise', async () => {
+      const t = monter(desaccord);
+      const immediat = vi.fn(async () => { throw new EchecAnalyse('plafond', 'demande d’aide : plafond'); });
+      t.faux.client.immediat = immediat;
+      t.capture.terminer();
+      await t.analyse.accorder(false);
+      await t.validation.lancer();
+      t.faux.etat.fini = true;
+      await t.tour();
+      expect(t.messages.some((m) => /plafond de l’analyse est atteint.*plus fin/.test(m))).toBe(true);
+      expect(t.capture.lire().analyse?.resultats?.escalade).toEqual({});
+      expect(t.validation.propositions().find((x) => x.id === 'maison:claude:couverture')?.apres).toMatch(/^Ardoise/);
+      t.analyse.reprendre();
+      await t.tour();
+      expect(immediat).toHaveBeenCalledTimes(1);
+    });
+
+    it('ne part pas quand les trois passes s accordent', async () => {
+      const t = monter();
+      const immediat = vi.fn(fin('zinc'));
+      t.faux.client.immediat = immediat;
+      t.capture.terminer();
+      await t.analyse.accorder(false);
+      t.faux.etat.fini = true;
+      await t.tour();
+      expect(immediat).not.toHaveBeenCalled();
+      expect(t.capture.lire().analyse?.resultats?.escalade).toEqual({});
+    });
   });
 
   it('retire l accord : plus de propositions de Claude, et la question est reposee par « Demander »', async () => {

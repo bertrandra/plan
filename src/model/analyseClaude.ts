@@ -11,6 +11,7 @@
 // proposition de Claude arrive decochee, avec la raison.
 
 import type { ToitMesure, CorpsToit, PtBrut } from './types.js';
+import { silhouetteLue, type SilhouetteFacade } from './silhouetteFacade.js';
 
 /** La version du schema de sortie que ce code sait lire (deploy/schema-analyse.json). */
 export const VERSION_SCHEMA_ANALYSE = 1;
@@ -31,6 +32,8 @@ export interface FacadeAnalyse {
   ouvertures: { niveaux: Compte; parNiveau: Compte[]; manquees: Compte; enTrop: Compte };
   details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string };
   materiau: 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois' | 'indetermine';
+  /** La ligne du haut de la facade (model/silhouetteFacade.ts) ; absente d'une reponse d'avant le prompt version 6. */
+  silhouette?: string;
   ecart: string;
 }
 
@@ -101,6 +104,8 @@ export interface Vote<T> {
   accord: number;
   /** Les indices des passes d'accord, dedoublonnes. */
   indices: IndiceAnalyse[];
+  /** Les passes ne s'accordaient pas et un modele plus fin a tranche (D20 de MD/plan-vague-3-generaliser.md) : sa valeur est retenue, a verifier. */
+  escalade?: true;
 }
 
 export interface FacadeVotee {
@@ -110,6 +115,7 @@ export interface FacadeVotee {
   coffre: Vote<OuiNon>;
   balcon: Vote<OuiNon>;
   formeOuvertures: Vote<string>;
+  silhouette: Vote<SilhouetteFacade>;
   niveaux: Vote<Compte>;
   manquees: Vote<Compte>;
   enTrop: Vote<Compte>;
@@ -147,6 +153,16 @@ const cleDe = (v: unknown): string => JSON.stringify(v);
 function dedoublonner(indices: readonly IndiceAnalyse[]): IndiceAnalyse[] {
   const vus = new Set<string>();
   return indices.filter((i) => { const k = i.image + ':' + i.vu; if (vus.has(k)) return false; vus.add(k); return true; });
+}
+
+/**
+ * Le desaccord des passes tranche par l'escalade : quand le vote n'est pas unanime (`accord` sous 1) et que le modele
+ * plus fin a une valeur (autre qu'`indetermine`), c'est la sienne, avec la part des passes d'accord d'origine et
+ * la marque `escalade`. Unanime, ou sans reponse utile du modele fin : le vote reste tel quel.
+ */
+function tranche<T>(vote: Vote<T>, fin: T | undefined, indicesFin: readonly IndiceAnalyse[], indetermine: T): Vote<T> {
+  if (fin === undefined || vote.accord >= 1 || cleDe(fin) === cleDe(indetermine)) return vote;
+  return { valeur: fin, accord: vote.accord, indices: dedoublonner([...vote.indices, ...indicesFin]), escalade: true };
 }
 
 /**
@@ -188,6 +204,7 @@ function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
       facade: etiquette,
       materiau: v((f) => f.materiau, IND), volets: v((f) => f.details.volets, IND), coffre: v((f) => f.details.coffre, IND),
       balcon: v((f) => f.details.balcon, IND), formeOuvertures: v((f) => f.details.forme, IND),
+      silhouette: v((f) => silhouetteLue(f.silhouette), IND),
       niveaux: v<Compte>((f) => f.ouvertures.niveaux, IND), manquees: v<Compte>((f) => f.ouvertures.manquees, IND), enTrop: v<Compte>((f) => f.ouvertures.enTrop, IND),
       ecarts: [...new Set(fs.map((f) => f.ecart.trim()).filter(Boolean))],
     };
@@ -200,12 +217,17 @@ function voterSimple(reponses: readonly ReponseAnalyse[], champ: ChampSimple): V
   return voterAttribut<string | Compte>(lues.map((l) => l.valeur), lues.map((l) => l.indices), IND);
 }
 
-/** Trois passes (ou moins, si l'une a echoue) deviennent un seul avis par attribut ; `simples` : les champs que les sujets declarent. */
-export function voter(reponses: readonly ReponseAnalyse[], simples: readonly ChampSimple[] = []): VoteAnalyse {
+/**
+ * Trois passes (ou moins, si l'une a echoue) deviennent un seul avis par attribut ; `simples` : les champs que les
+ * sujets declarent ; `fin` : la reponse du modele plus fin appele quand les passes se desaccordent (D20), qui
+ * tranche les attributs sans unanimite (tous sauf les facades, les elements, les ecarts et la confiance).
+ */
+export function voter(reponses: readonly ReponseAnalyse[], simples: readonly ChampSimple[] = [], fin: ReponseAnalyse | null = null): VoteAnalyse {
   const ind = (f: (r: ReponseAnalyse) => readonly IndiceAnalyse[]) => reponses.map(f);
-  const v = <T>(f: (r: ReponseAnalyse) => T, i: (r: ReponseAnalyse) => readonly IndiceAnalyse[], indetermine: T) => voterAttribut(reponses.map(f), ind(i), indetermine);
+  const v = <T>(f: (r: ReponseAnalyse) => T, i: (r: ReponseAnalyse) => readonly IndiceAnalyse[], indetermine: T) =>
+    tranche(voterAttribut(reponses.map(f), ind(i), indetermine), fin ? f(fin) : undefined, fin ? i(fin) : [], indetermine);
   const cheminees = v<Compte>((r) => r.cheminees.nombre, (r) => r.cheminees.indices, IND);
-  const souches = reponses.find((r) => cleDe(r.cheminees.nombre) === cleDe(cheminees.valeur))?.cheminees.souches ?? [];
+  const souches = [...reponses, ...(fin ? [fin] : [])].find((r) => cleDe(r.cheminees.nombre) === cleDe(cheminees.valeur))?.cheminees.souches ?? [];
   const elements = [...new Set(reponses.flatMap((r) => r.elements.map((e) => e.element)))]
     .map((el) => voterAttribut(reponses.map((r) => (r.elements.some((e) => e.element === el) ? el : IND)), reponses.map((r) => r.elements.filter((e) => e.element === el).flatMap((e) => e.indices)), IND))
     .filter((x) => x.valeur !== IND);
@@ -232,9 +254,23 @@ export function voter(reponses: readonly ReponseAnalyse[], simples: readonly Cha
     facades: voterFacades(reponses),
     ecarts: [...ecarts.values()],
     contradictions: [...contradictions.values()],
-    confiance: v((r) => r.confiance, () => [], 'faible'),
-    simples: Object.fromEntries(simples.map((c) => [c.nom, voterSimple(reponses, c)])),
+    confiance: voterAttribut(reponses.map((r) => r.confiance), reponses.map(() => []), 'faible' as ReponseAnalyse['confiance']),
+    simples: Object.fromEntries(simples.map((c) => [c.nom, tranche(voterSimple(reponses, c), fin ? lireSimple(fin, c)?.valeur : undefined, fin ? lireSimple(fin, c)?.indices ?? [] : [], IND)])),
   };
+}
+
+/**
+ * Les attributs sur lesquels les passes ne s'accordent pas toutes (D20) : de quoi decider d'appeler un modele plus fin.
+ * Les facades, les elements du toit, les ecarts et la confiance ne comptent pas : l'escalade ne les tranche pas.
+ */
+export function attributsEnDesaccord(v: VoteAnalyse): string[] {
+  if (v.passes < 2) return [];
+  const scalaires: [string, Vote<unknown>][] = [
+    ['forme', v.forme], ['profil', v.profil], ['faitage', v.faitage], ['boutGauche', v.boutGauche], ['boutDroit', v.boutDroit], ['lucarnes', v.lucarnes], ['panLucarnes', v.panLucarnes],
+    ['cheminees', v.cheminees], ['terrasse', v.terrasse], ['typeTerrasse', v.typeTerrasse], ['acrotere', v.acrotere], ['edicules', v.edicules], ['couverture', v.couverture],
+    ...Object.entries(v.simples),
+  ];
+  return scalaires.filter(([, x]) => x.accord < 1).map(([nom]) => nom);
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -390,8 +426,9 @@ export const ACCORDS_MESURES: Readonly<Partial<Record<AttributClaude, number>>> 
 export const ACCORD_PREACCEPTE = 0.95;
 
 /** La raison pour laquelle une proposition de Claude arrive decochee, ou null si elle peut etre cochee. */
-export function reserveClaude(attribut: AttributClaude, vote: { accord: number }, contradictions: readonly string[]): string | null {
+export function reserveClaude(attribut: AttributClaude, vote: { accord: number; escalade?: true }, contradictions: readonly string[]): string | null {
   if (contradictions.length) return 'Contredit la mesure LiDAR : ' + contradictions.join(' ; ') + '.';
+  if (vote.escalade) return 'Les passes de Claude ne s’accordaient pas (' + Math.round(vote.accord * 100) + ' %) ; un modèle plus fin a tranché : à vérifier.';
   if (vote.accord < 1) return 'Les trois passes de Claude ne sont pas toutes d’accord (' + Math.round(vote.accord * 100) + ' %).';
   const mesure = ACCORDS_MESURES[attribut];
   if (mesure === undefined) return 'Taux d’accord de Claude non encore mesuré sur cet attribut : à vérifier.';

@@ -5,6 +5,7 @@ import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { clotureDImport } from '../../../../../src/model/cloture.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/types.js';
+import type { Proposition } from '../../../../../src/regles/decisions.js';
 import { IDU_AE101, importerAE101, rechercheAE101, coteAllee } from '../../../../fixtures/cloture/ae101.js';
 
 // Les propositions de l'audit sans Claude (MD/spec-audit.md §13.1, §14) : ce que les mesures et les
@@ -173,5 +174,28 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
     const allee = coteAllee(parcelle);
     expect(p.get('parcelle:cloture')?.effet).toMatchObject({ type: 'cloture', cote: allee });
     expect(p.get('parcelle:portail')?.effet).toMatchObject({ type: 'portail', cote: allee, nature: 'portail' });
+  });
+
+  describe('le releve que l audit a pose tout seul (depuisAudit)', () => {
+    it('est deja ecrit quand il vient de la meme mesure : la ligne n est plus proposee', () => {
+      const objets = quartier();
+      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 6), depuisAudit: true }];
+      expect(propositionsDeLAudit(entrees(objets)).some((x) => x.id === 'maison#0:releve')).toBe(false);
+    });
+
+    it('n est pas un choix de la personne : une mesure plus recente le remplace, et le dit', () => {
+      const objets = quartier();
+      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z', depuisAudit: true }];
+      const r = propositionsDeLAudit(entrees(objets)).find((x) => x.id === 'maison#0:releve');
+      expect(r).toMatchObject({ avant: 'relevé automatique du 01/10/2026 (4 ouvertures)', remplaceChoix: null });
+      expect(cochesParDefaut([r as Proposition]).has('maison#0:releve')).toBe(true);
+    });
+
+    it('un releve fait a la main reste un choix : decoche, avec ce qu il remplacerait', () => {
+      const objets = quartier();
+      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
+      const r = propositionsDeLAudit(entrees(objets)).find((x) => x.id === 'maison#0:releve');
+      expect(r?.remplaceChoix).toBe('relevé du 01/10/2026 (4 ouvertures)');
+    });
   });
 });

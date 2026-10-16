@@ -19,6 +19,7 @@ export const facades: DescriptionSujet = {
           "ouvertures",
           "details",
           "materiau",
+          "silhouette",
           "ecart"
         ],
         "properties": {
@@ -106,6 +107,17 @@ export const facades: DescriptionSujet = {
               "indetermine"
             ]
           },
+          "silhouette": {
+            "type": "string",
+            "enum": [
+              "pignon",
+              "croupe",
+              "trapeze",
+              "rectangle",
+              "rampe",
+              "indetermine"
+            ]
+          },
           "ecart": {
             "type": "string"
           }
@@ -119,6 +131,7 @@ export const facades: DescriptionSujet = {
   - \`ouvertures.niveaux\` : le nombre de niveaux d'ouvertures visibles (rez-de-chaussée, étage…), \`parNiveau\` le nombre d'ouvertures de chaque niveau du bas vers le haut, \`manquees\` celles que la détection de Plan n'a pas vues et \`enTrop\` celles qu'elle a comptées sans qu'elles existent (d'après le nombre détecté qui vous est donné) ;
   - \`details.volets\` : \`battants\` (deux vantaux de part et d'autre), \`roulants\` (un tablier qui descend d'un coffre), \`persiennes\` (volets ajourés repliables), \`aucun\`, \`mixte\` ; \`details.coffre\` : un coffre de volet roulant visible au-dessus des ouvertures ; \`details.balcon\` : au moins un balcon ; \`details.forme\` : \`rectangulaire\`, \`cintree\` (linteau en arc), \`oeil-de-boeuf\`, \`mixte\` ;
   - \`materiau\` : le parement du mur — \`pierre\` (pierre de taille ou moellons apparents), \`meuliere\` (pierre alvéolée rousse, joints marqués), \`beton\` (béton brut ou banché), \`brique\` (briques apparentes), \`enduit\` (enduit ou crépi peint), \`bois\` (bardage bois) ;
+  - \`silhouette\` : la ligne du haut de la façade, au-dessus de l'égout, sur la photo — \`pignon\` (un triangle de MUR : le mur monte en pointe sous le toit, avec le parement du mur), \`croupe\` (un pan de TOIT incliné au-dessus de l'égout, couvert de tuiles ou d'ardoises, vu de face), \`trapeze\` (un bandeau de toit dont le haut est plus court que l'égout, vu de côté : long pan d'un toit à croupes), \`rectangle\` (un bandeau de hauteur constante, ou aucun toit visible au-dessus de l'égout), \`rampe\` (le haut monte d'un seul côté : mur d'appentis) ; \`indetermine\` si le haut du mur est hors cadre ou caché ;
   - \`ecart\` : en une phrase, ce qui diffère entre la photo et le rendu du modèle pour cette façade (ouvertures, hauteur, couleur), ou une chaîne vide.` },
   ],
   vocabulaire: [
@@ -133,6 +146,7 @@ export const facades: DescriptionSujet = {
     { rang: 1, titre: `Façades`, texte: `- Comptez les ouvertures d'un niveau de gauche à droite sur la photo ; une porte compte comme une ouverture.
 - Une ouverture masquée par un arbre, une voiture ou une haie n'est ni manquée ni en trop : elle n'est pas vue.
 - Le matériau se juge sur la partie haute du mur, hors soubassement ; un enduit peint sur de la pierre est \`enduit\`.
-- Les détails (volets, coffre, balcon, forme) valent pour la majorité des ouvertures de la façade ; \`mixte\` quand aucune ne domine.` },
+- Les détails (volets, coffre, balcon, forme) valent pour la majorité des ouvertures de la façade ; \`mixte\` quand aucune ne domine.
+- La silhouette se juge sur la ligne qui sépare le mur du ciel : un triangle aux mêmes tuiles que le toit est une \`croupe\`, un triangle au même parement que le mur est un \`pignon\`. Les arbres et les dépendances devant le mur ne la changent pas ; hors cadre, \`indetermine\`.` },
   ],
 };

@@ -11,5 +11,9 @@ export const CHAMPS_SIMPLES = champsSimples(DESCRIPTIONS_SUJETS);
 /** Les passes lues d'un lot de sorties de Claude : celles qui ont la forme du schema. */
 export const passesLues = (sorties: readonly unknown[]): ReponseAnalyse[] => sorties.filter((x): x is ReponseAnalyse => estReponseAnalyse(x, CHAMPS_SIMPLES));
 
-/** Trois passes (ou moins) deviennent un seul avis par attribut, champs des sujets compris. */
-export const voterAnalyse = (reponses: readonly ReponseAnalyse[]): VoteAnalyse => voter(reponses, CHAMPS_SIMPLES);
+/**
+ * Trois passes (ou moins) deviennent un seul avis par attribut, champs des sujets compris. `escalade` : la reponse du
+ * modele plus fin qui departage les attributs sans unanimite (D20) ; une reponse illisible est ignoree.
+ */
+export const voterAnalyse = (reponses: readonly ReponseAnalyse[], escalade: unknown = null): VoteAnalyse =>
+  voter(reponses, CHAMPS_SIMPLES, passesLues([escalade])[0] ?? null);

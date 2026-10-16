@@ -12,7 +12,7 @@
 // - « Valider » ecrit tout ce qui est coche en un seul instantane d'historique : Ctrl+Z le defait, et
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
-import { appliquerPropositions, jourIso, cleDeLaCible, projetApres, type Proposition } from '../../../regles/decisions.js';
+import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
@@ -240,6 +240,31 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
   };
 }
 
+/**
+ * Les photos de l'audit alimentent les facades : un releve mesure sur la photo, aux coins trouves et a la confiance
+ * suffisante (ce que les cases cochent par defaut), est pose sur sa facade des que la mesure est prete, sans
+ * attendre « Valider ». En un pas d'historique (Ctrl+Z le retire). Jamais sur une facade que la personne a relevee
+ * a la main : cette ligne-la reste une proposition decochee qui dit qu'elle remplacerait son choix. Le releve pose
+ * porte `depuisAudit` : une nouvelle photo, mesuree plus tard, le remplace, et la ligne n'est plus proposee.
+ * Rend le nombre de facades relevees.
+ */
+function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): number {
+  const prets = propositionsDeLAudit(e).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p));
+  if (!prets.length) return 0;
+  ctx.projet.pushHistory();
+  appliquerPropositions(ctx.etat.objects, prets, [], jourIso(ctx.maintenant()));
+  for (const p of prets) {
+    if (p.cible.type !== 'facade') continue;
+    const cote = p.cible.cote;
+    const r = ctx.etat.objects.find((o) => o.key === (p.cible as { cle: string }).cle)?.facades?.find((x) => x.cote === cote);
+    if (r) r.depuisAudit = true;
+  }
+  ctx.projet.render();
+  ctx.projet.refaire3d();
+  ctx.signaler(prets.length + ' façade' + (prets.length > 1 ? 's relevées' : ' relevée') + ' automatiquement d’après vos photos (Ctrl+Z pour annuler).');
+  return prets.length;
+}
+
 export function creerValidation(ctx: ContexteValidation): Validation {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
@@ -262,7 +287,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     // Les mesures d'abord, puis Claude (spec-audit §14.2 : l'origine est dite sur chaque ligne).
     const reponses = ctx.analyse?.reponses();
     const renfort = ctx.analyse?.renfort?.();
-    const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])];
+    // D21 : la valeur notee sur place l'emporte sur celle de Claude (la ligne de Claude arrive decochee, et le dit).
+    const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]);
     const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
     calculs++;
@@ -290,14 +316,25 @@ export function creerValidation(ctx: ContexteValidation): Validation {
 
   return {
     mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
-    lancer: () => (figees ? Promise.resolve() : mesureur.lancer()),
+    lancer: async () => {
+      if (figees) return;
+      await mesureur.lancer();
+      if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
+    },
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,
     cochee,
     basculer(id) {
       if (figees) return;
-      choix.set(id, !cochee(id));
+      const vers = !cochee(id);
+      choix.set(id, vers);
+      // D21 : cocher une ligne decoche sa rivale (la note sur place contre la valeur de Claude) ; decocher ne rend rien.
+      if (vers) {
+        const { propositions } = calculer();
+        const p = propositions.find((x) => x.id === id);
+        for (const r of p ? rivalesSurPlace(p, propositions) : []) choix.set(r.id, false);
+      }
       apercu.poser();
       publier();
     },

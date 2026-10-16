@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-analyse",
-  "version": 1,
-  "note": "Sortie structuree de l'analyse d'une maison par Claude (spec-regles-toits.md 14.2 et 14.3 ; spec-audit.md 13.2). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Version 1 (lot L17) : les facades aussi (ouvertures par niveau, manquees ou en trop par la detection, details, materiau du parement). Le schema part a la suite du prompt (plus dans output_config.format depuis le 15 octobre 2026 : l'API refusait sa grammaire), et la reponse y est ramenee par le serveur (deploy/analyse.php::conformer) ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
+  "version": 2,
+  "note": "Sortie structuree de l'analyse d'une maison par Claude (spec-regles-toits.md 14.2 et 14.3 ; spec-audit.md 13.2). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Version 1 (lot L17) : les facades aussi (ouvertures par niveau, manquees ou en trop par la detection, details, materiau du parement). Version 2 : la silhouette du haut de chaque facade (`silhouette`). Le schema part a la suite du prompt (plus dans output_config.format depuis le 15 octobre 2026 : l'API refusait sa grammaire), et la reponse y est ramenee par le serveur (deploy/analyse.php::conformer) ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -324,6 +324,7 @@
             "ouvertures",
             "details",
             "materiau",
+            "silhouette",
             "ecart"
           ],
           "properties": {
@@ -408,6 +409,17 @@
                 "brique",
                 "enduit",
                 "bois",
+                "indetermine"
+              ]
+            },
+            "silhouette": {
+              "type": "string",
+              "enum": [
+                "pignon",
+                "croupe",
+                "trapeze",
+                "rectangle",
+                "rampe",
                 "indetermine"
               ]
             },

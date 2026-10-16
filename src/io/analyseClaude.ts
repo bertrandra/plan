@@ -53,11 +53,11 @@ export interface DemandeAnalyse {
 }
 
 /**
- * Les usages demandes : l'analyse d'une maison (batch), le renfort d'une facade (batch ou appel
- * immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), et le
+ * Les usages demandes : l'analyse d'une maison (batch), l'escalade des passes en desaccord vers un modele plus
+ * fin (appel immediat, D20), le renfort d'une facade (batch ou appel immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), et le
  * rejeu d'un audit stocke (administrateur, spec-audit 15.5).
  */
-export type UsageAnalyse = 'analyse' | 'renfort' | 'candidats' | 'rejeu';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'renfort' | 'candidats' | 'rejeu';
 
 export interface EtatServeurAnalyse {
   actif: boolean;

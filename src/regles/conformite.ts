@@ -14,8 +14,8 @@
 // depot rejoue par le script (regles/conformite.json, verifie par les tests) et les mesures rangees
 // sur le serveur de Plan (`admin/conformite`, deploy/analyse.php et buildsg/analyseAdmin.mjs).
 //
-// Deux colonnes attendent leurs lots : le taux de conformite des facades (la disposition automatique
-// comparee aux releves, F§15.3) et le taux d'accord de Claude par attribut (T§14.2). Leur place est
+// Une colonne attend encore son lot, le taux d'accord de Claude par attribut (T§14.2) ; le taux de
+// conformite des facades (la disposition automatique comparee aux releves, F§15.3) est celui du lot G13. Leur place est
 // dans la mesure (`facades`, `claude` a null) pour que l'ecran et le serveur n'aient pas a changer.
 
 import { AUTRES_FORMES, FORMES_COURANTES, libelleDe, type BoutsVus, type CeQueJeVois, type FormeVue } from '../model/ceQueJeVois.js';
@@ -281,6 +281,69 @@ export const FORMAT_MESURES_CONFORMITE = 'plan-conformite';
 /** Le serveur garde les dernieres mesures, pas plus (deploy/analyse.php, MESURES_CONFORMITE_MAX). */
 export const MESURES_CONFORMITE_MAX = 200;
 
+// --- Les facades (MD/spec-facades-calage-detection.md §15.3, lot G13) ------------------------------------------
+
+/** Deux nombres de baies sont conformes a ± 1 (spec §15.3). */
+export const TOLERANCE_BAIES = 1;
+/** Deux parts vitrees sont conformes a ± 20 % de celle du releve (spec §15.3). */
+export const TOLERANCE_PART_VITREE = 0.2;
+/** Deux hauteurs de niveau sont conformes a 30 cm pres (la spec dit « hauteur des niveaux » sans tolerance : celle-ci est a confirmer par le corpus). */
+export const TOLERANCE_HAUTEUR_NIVEAU_M = 0.3;
+
+/** Un critere compare : la valeur de la disposition automatique, celle du releve, et si elles concordent (null : non juge). */
+export interface CritereFacade { auto: number | null; releve: number | null; tenu: boolean | null }
+
+/** Une facade relevee jugee : la disposition automatique comparee a ce que la personne a releve. */
+export interface VerdictFacade {
+  fichier: string;
+  batiment: string;
+  cote: number;
+  orientation: string | null;
+  region: string;
+  baies: CritereFacade;
+  partVitree: CritereFacade;
+  hauteurNiveau: CritereFacade;
+  /** Tous les criteres juges sont tenus. */
+  conforme: boolean;
+}
+
+/** Les criteres d'une facade, juges sur ses mesures : le releve d'un cote, la disposition automatique de l'autre. */
+export function jugerCriteres(auto: { baies: number; partVitree: number; hauteurNiveauM: number | null }, releve: { baies: number; partVitree: number; hauteurNiveauM: number | null }): Pick<VerdictFacade, 'baies' | 'partVitree' | 'hauteurNiveau' | 'conforme'> {
+  const baies: CritereFacade = { auto: auto.baies, releve: releve.baies, tenu: Math.abs(auto.baies - releve.baies) <= TOLERANCE_BAIES };
+  // Un mur sans vitrage au releve (un pignon aveugle) : la part se compare a zero, a un point de mur pres.
+  const tolPart = Math.max(TOLERANCE_PART_VITREE * releve.partVitree, 0.01);
+  const partVitree: CritereFacade = { auto: auto.partVitree, releve: releve.partVitree, tenu: Math.abs(auto.partVitree - releve.partVitree) <= tolPart };
+  const nivJuge = auto.hauteurNiveauM !== null && releve.hauteurNiveauM !== null;
+  const hauteurNiveau: CritereFacade = { auto: auto.hauteurNiveauM, releve: releve.hauteurNiveauM, tenu: nivJuge ? Math.abs((auto.hauteurNiveauM as number) - (releve.hauteurNiveauM as number)) <= TOLERANCE_HAUTEUR_NIVEAU_M : null };
+  return { baies, partVitree, hauteurNiveau, conforme: [baies, partVitree, hauteurNiveau].every((c) => c.tenu !== false) };
+}
+
+export interface ResumeFacades {
+  total: number;
+  conformes: number;
+  nonConformes: number;
+  /** conformes / total ; null sans facade. */
+  taux: number | null;
+  /** Pour chaque critere, combien de facades l'ont tenu sur combien l'ont juge. */
+  baies: { tenus: number; juges: number };
+  partVitree: { tenus: number; juges: number };
+  hauteurNiveau: { tenus: number; juges: number };
+}
+
+const compter = (v: readonly VerdictFacade[], c: 'baies' | 'partVitree' | 'hauteurNiveau') => ({ tenus: v.filter((x) => x[c].tenu === true).length, juges: v.filter((x) => x[c].tenu !== null).length });
+
+export function resumerFacades(v: readonly VerdictFacade[]): ResumeFacades {
+  const conformes = v.filter((x) => x.conforme).length;
+  return { total: v.length, conformes, nonConformes: v.length - conformes, taux: v.length ? conformes / v.length : null, baies: compter(v, 'baies'), partVitree: compter(v, 'partVitree'), hauteurNiveau: compter(v, 'hauteurNiveau') };
+}
+
+/** Le taux de conformite des facades de chaque region (departement de la parcelle) ; null sans facade. */
+export function tauxFacadesParRegion(v: readonly VerdictFacade[]): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const r of new Set(v.map((x) => x.region))) out[r] = resumerFacades(v.filter((x) => x.region === r)).taux;
+  return out;
+}
+
 /**
  * Une mesure des indicateurs, telle que l'ecran l'envoie (`POST admin/conformite`) : les versions du
  * calcul, ce qui a ete lu, le resume, les tableaux par axe et l'etat de chaque cas (sans ses
@@ -299,8 +362,8 @@ export interface MesureConformite {
   parForme: LigneTaux[];
   parRegion: LigneTaux[];
   parProbleme: LigneTaux[];
-  /** Le taux de conformite des facades (F§15.3) : a venir. */
-  facades: null;
+  /** Le taux de conformite des facades (F§15.3, lot G13) ; null sur une mesure d'avant, ou sans audit recu. */
+  facades: ResumeFacades | null;
   /** Le taux d'accord de Claude par attribut (T§14.2) : a venir. */
   claude: null;
   cas: { source: VerdictCas['source']; fichier: string; id: string; etat: EtatCas }[];
@@ -312,6 +375,8 @@ export interface EntreesMesure {
   lecture: MesureConformite['lecture'];
   corpus: readonly VerdictCas[];
   audits: readonly VerdictCas[];
+  /** Les facades relevees des audits recus, jugees (lot G13) ; absent : pas jugees. */
+  facades?: readonly VerdictFacade[];
   /** Le nombre d'audits recus lus (un audit porte plusieurs batiments). */
   auditsLus: number;
 }
@@ -323,7 +388,7 @@ export function mesureConformite(e: EntreesMesure): MesureConformite {
     format: FORMAT_MESURE_CONFORMITE, version: 1, t: e.t.toISOString(), code: { ...e.code }, lecture: { ...e.lecture },
     sources: { corpus: e.corpus.length, audits: e.auditsLus },
     toits: resumer(tous), parForme: tauxPar(tous, 'forme'), parRegion: tauxPar(tous, 'region'), parProbleme: tauxPar(tous, 'probleme'),
-    facades: null, claude: null,
+    facades: e.facades && e.facades.length ? resumerFacades(e.facades) : null, claude: null,
     cas: tous.map((v) => ({ source: v.source, fichier: v.fichier, id: v.id, etat: v.etat })),
   };
 }
@@ -335,6 +400,8 @@ export interface MesureLue {
   code: { version: string; commit: string | null };
   sources: { corpus: number; audits: number };
   toits: ResumeConformite;
+  /** Le taux de conformite des facades de cette mesure ; null sur une mesure d'avant le lot G13, ou sans facade relevee. */
+  facades: number | null;
 }
 
 const nombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -360,6 +427,7 @@ export function lireMesuresConformite(d: unknown): MesureLue[] | null {
       code: { version: m.code.version, commit: typeof m.code.commit === 'string' ? m.code.commit : null },
       sources: { corpus: nombre(m.sources.corpus) ? m.sources.corpus : 0, audits: nombre(m.sources.audits) ? m.sources.audits : 0 },
       toits,
+      facades: objet(m.facades) && nombre(m.facades.total) && m.facades.total > 0 && nombre(m.facades.taux) ? m.facades.taux : null,
     });
   }
   return out.sort((a, b) => a.t.localeCompare(b.t));

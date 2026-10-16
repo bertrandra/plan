@@ -24,6 +24,7 @@ import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, hauteurDe, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
+import { propositionToitDesPhotos } from '../../regles/sujets/formeToit.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
@@ -156,8 +157,12 @@ function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesProposi
     const m = e.mesures.get(cleMesure(b.cle, f.cote));
     if (!m?.releve) continue;
     const objet = 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
-    const deja = (o.facades ?? []).find((r) => r.cote === f.cote);
-    const avantTexte = deja ? 'relevé du ' + dateFr(deja.releveLe) + ' (' + pluriel(deja.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
+    const existant = (o.facades ?? []).find((r) => r.cote === f.cote);
+    // Le releve que l'audit a pose lui-meme d'apres cette photo (validation.ts) est deja ecrit : rien a proposer. Un releve
+    // pose ainsi d'apres une photo plus ancienne n'est pas un choix de la personne : la nouvelle mesure le remplace.
+    if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) continue;
+    const deja = existant?.depuisAudit ? undefined : existant;
+    const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
     const n = m.releve.ouvertures.length;
     out.push(mesure({
       id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet,
@@ -170,6 +175,14 @@ function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesProposi
     }));
   }
   return out;
+}
+
+/** La forme du toit que disent les silhouettes des facades sur les photos : une ligne decochee, relue par le moteur des toits. */
+function propositionToit(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition | null {
+  return propositionToitDesPhotos(o, b, (f) => {
+    const m = e.mesures.get(cleMesure(b.cle, f.cote));
+    return { silhouette: m?.silhouette ?? 'indetermine', rang: m?.rangReleve ?? null };
+  });
 }
 
 /** La hauteur a l'egout mesuree : la mediane des facades dont les coins ont ete trouves. */
@@ -347,7 +360,7 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     out.push(...propositionsDesFacades(o, b, e));
     for (const p of [propositionHauteur(o, b, e), propositionCouleur(o, b, e)]) if (p) out.push(p);
     out.push(...propositionsMateriaux(o, b, vu));
-    for (const p of [propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
+    for (const p of [propositionToit(o, b, e), propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
   }
   out.push(...propositionsParcelle(e));
   return out;

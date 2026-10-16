@@ -528,13 +528,13 @@ const PARASOL = "o.fonction === 'parasol' && o.type === 'circle'";
  * pans), et l'historique des mesures, qui garde ce que l'ecran y range. `illisible` ajoute un audit
  * d'une version plus recente, que l'ecran doit nommer sans s'arreter.
  */
-async function simulerConformite(page, { illisible = false } = {}) {
+async function simulerConformite(page, { illisible = false, facade = false } = {}) {
   const promenade = JSON.parse(readFileSync(new URL('../tests/fixtures/audit/audit-2026-10-13-1200-le-vesinet.json', import.meta.url), 'utf8'));
   const c = promenade.cas[0];
   const audit = {
     format: 'plan-audit-parcelle', version: 1, parcelle: { idu: '78650000AE0101', adresse: '2 allée des Limites', origine: null },
     code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 }, debut: '2026-10-14T09:00:00Z', finCapture: null, ecritLe: '2026-10-14T10:00:00Z',
-    batiments: [{ cle: 'maison', nom: 'Maison', mitoyen: false, cas: { identite: c.identite, entrees: c.entrees, sorties: c.sorties }, vu: { forme: 'croupes' }, photos: [], facades: [] }],
+    batiments: [{ cle: 'maison', nom: 'Maison', mitoyen: false, cas: { identite: c.identite, entrees: c.entrees, sorties: c.sorties }, vu: { forme: 'croupes' }, photos: [], facades: facade ? [FACADE_RELEVEE] : [] }],
     cloture: { photos: [] }, portail: { photos: [] }, propositions: [], decisions: []
   };
   const recus = [{ id: '20261014-100000-abcdef01', recuLe: '2026-10-14T10:00:00Z', organisation: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites' }];
@@ -560,6 +560,18 @@ async function simulerConformite(page, { illisible = false } = {}) {
   });
   return serveur;
 }
+
+/** Une facade relevee de 9 m sur 5,4 m avec deux fenetres seulement : la disposition automatique en pose bien plus (lot G13). */
+const FACADE_RELEVEE = {
+  cote: 0, orientation: 'Sud', largeurM: 9, hauteurM: 5.4, photos: [],
+  mesure: {
+    releve: {
+      cote: 0, largeur: 9, hauteur: 5.4, texture: null, distance: null, sourceDistance: null, releveLe: '2026-10-14T09:30:00Z',
+      ouvertures: [{ type: 'fenetre', x: 2, y: 0.9, l: 1, h: 1.2 }, { type: 'fenetre', x: 6, y: 0.9, l: 1, h: 1.2 }]
+    },
+    rangReleve: null, coinsTrouves: false, confiance: null, hauteurM: null, couleur: null
+  }
+};
 
 /** L'ecran Admin › Conformité ouvert, les audits recus rejoues (l'etat le dit). */
 async function ouvrirConformite(page) {
@@ -2632,7 +2644,7 @@ const POINTS = {
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les huit sujets du depot, le
     // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
-    // version 6), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
+    // version 7), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
     // « Reglages et faits » (un seuil change sur sa ligne, la ligne de version a ajouter), un sujet retire d'une
     // case, un sujet nouveau en brouillon (prompt, schema, controles), le brouillon qui survit a un rechargement,
     // « Revenir au livre », et les deux telechargements.
@@ -2667,13 +2679,13 @@ const POINTS = {
     const apresEdition = await tuiles();
     const promptEdite = await page.locator('pre.reglSortie').textContent();
     debords.push(await deborde());
-    // Le brouillon sur le serveur : enregistre (version 6, prompt edite), dit, puis retire.
+    // Le brouillon sur le serveur : enregistre (version 7, prompt edite), dit, puis retire.
     const etatServeur = async () => ((await page.locator('p[role="status"]').first().textContent()) || '').replace(/\s+/g, ' ');
     const avantServeur = await etatServeur();
     await page.getByRole('button', { name: 'Enregistrer sur le serveur', exact: true }).click();
-    await page.waitForFunction(() => /prompt version 6/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    await page.waitForFunction(() => /prompt version 7/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const apresEnregistrement = await etatServeur();
-    const gardeAuServeur = !!surServeur && surServeur.prompt === 6 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
+    const gardeAuServeur = !!surServeur && surServeur.prompt === 7 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
     await page.getByRole('button', { name: 'Retirer du serveur', exact: true }).click();
     await page.waitForFunction(() => /Aucun brouillon sur le serveur/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const retire = surServeur === null;
@@ -2714,8 +2726,8 @@ const POINTS = {
     const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
     const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
     const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
-      && /1 ligne change/.test(apresEdition[4] || '') && /version 6/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
-      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 6.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
+      && /1 ligne change/.test(apresEdition[4] || '') && /version 7/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 7.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
       && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 4/.test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
@@ -2745,10 +2757,33 @@ const POINTS = {
     const claude = await page.locator('#confVue tbody tr').count();
     debords.push(await deborde());
     const ok = !debords.some(Boolean) && /33 %/.test(tuiles[0] || '') && /3 \/ 50/.test(tuiles[1] || '') && /À venir/.test(tuiles[4] || '') && /À venir/.test(tuiles[5] || '')
-      && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === 'À venir'
+      && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === '—'
       && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
       && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 5;
     return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  94: async (page, f) => {
+    // Admin › Conformité (lot G13) : une facade relevee de 9 m avec deux fenetres seulement, dans un audit recu ;
+    // la disposition automatique en pose bien plus, la facade n'est pas conforme. On mesure : la tuile « Conformite des
+    // facades » (0 % sur 1 facade), la colonne par region (Yvelines), l'onglet « Facades » (le releve et la disposition
+    // cote a cote, « ecart » sur les baies), la mesure rangee qui porte le resume ; rien ne deborde.
+    const serveur = await simulerConformite(page, { facade: true });
+    await ouvrirConformite(page);
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    const tuile = ((await page.locator('.consTuile').nth(4).textContent()) || '').replace(/\s+/g, ' ');
+    await page.getByRole('tab', { name: 'Par région' }).click({ timeout: 5000 });
+    const region = ((await page.locator('#confVue tbody tr', { hasText: 'Yvelines' }).first().textContent()) || '').replace(/\s+/g, ' ');
+    await page.getByRole('tab', { name: 'Façades', exact: true }).click({ timeout: 5000 });
+    const lignes = (await page.locator('#confVue tbody tr').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    debords.push(await deborde());
+    await page.getByRole('button', { name: /Enregistrer la mesure/ }).click({ timeout: 5000 });
+    await page.waitForFunction(() => /Mesure enregistrée/.test(document.querySelector('.confMessage')?.textContent || ''), null, { timeout: 10000 });
+    const mesure = serveur.posts[0]?.facades;
+    const ok = !debords.some(Boolean) && /0 %/.test(tuile) && /0 conforme sur 1 façade relevée/.test(tuile) && /0 %$/.test(region.trim())
+      && lignes.length === 1 && /Non conforme/.test(lignes[0] || '') && /2 \/ \d+ écart/.test(lignes[0] || '')
+      && !!mesure && mesure.total === 1 && mesure.conformes === 0 && mesure.baies.tenus === 0;
+    return { ok, mesure: `tuile « ${tuile} » ; Yvelines « ${region} » ; ${lignes.length} facade(s) « ${(lignes[0] || '').slice(0, 120)} » ; mesure ${JSON.stringify(mesure && { total: mesure.total, conformes: mesure.conformes })} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   77: async (page, f) => {
     // Admin › Conformité (lot G3) : un audit recu illisible est nomme sans arreter les autres ;
@@ -3119,7 +3154,7 @@ function pointsPour(nomClasse) {
   // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93];
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

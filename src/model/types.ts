@@ -892,6 +892,12 @@ export interface ReleveFacade {
   /** Date du releve, ISO 8601. */
   releveLe: string;
   /**
+   * Pose automatiquement depuis la photo de l'audit de la parcelle, sans que la personne l'ait valide ni retouche
+   * (app/audit/parcelle/validation.ts) : une nouvelle mesure de la facade peut le remplacer. Tombe des qu'elle releve la
+   * facade a la main (app/releve.ts).
+   */
+  depuisAudit?: true;
+  /**
    * Un mur a deux hauteurs d'egout (en L) : la partie basse, de `debut` a `fin` metres depuis la
    * gauche, a son egout a `hauteur` ; la `hauteur` du releve est alors l'egout le plus haut. La
    * partie basse va sur toute la profondeur du batiment (facade/profil.ts, spec §6.2).
