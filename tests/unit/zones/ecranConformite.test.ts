@@ -85,7 +85,7 @@ describe('l ecran de la conformite', () => {
     expect(lignes).toHaveLength(3);
     expect(lignes[2]).toContain('Mansart : forme que Plan ne calcule pas encore');
     await cliquer(hote.querySelector('#confOnglet-claude'));
-    expect(texte(hote, '#confVue tbody tr td:first-child')).toEqual(['Couverture', 'Cheminées', 'Toit-terrasse', 'Matériau des murs']);
+    expect(texte(hote, '#confVue tbody tr td:first-child')).toEqual(['Couverture', 'Cheminées', 'Toit-terrasse', 'Matériau des murs', 'Forme du toit']);
   });
 
   it('enregistre la mesure affichee, toutes sources, et l historique la montre', async () => {

@@ -235,6 +235,7 @@ export const ATTRIBUTS_CLAUDE: readonly { code: AttributClaude; libelle: string 
   { code: 'cheminees', libelle: 'Cheminées' },
   { code: 'terrasse', libelle: 'Toit-terrasse' },
   { code: 'materiauMurs', libelle: 'Matériau des murs' },
+  { code: 'formeToit', libelle: 'Forme du toit' },
 ];
 
 // --- Le corpus du depot, rejoue par le script ----------------------------------------------------

@@ -2654,7 +2654,7 @@ const POINTS = {
     const ok = !debords.some(Boolean) && /33 %/.test(tuiles[0] || '') && /3 \/ 50/.test(tuiles[1] || '') && /À venir/.test(tuiles[4] || '') && /À venir/.test(tuiles[5] || '')
       && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === 'À venir'
       && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
-      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 4;
+      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 5;
     return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   77: async (page, f) => {

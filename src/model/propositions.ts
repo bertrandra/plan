@@ -14,7 +14,7 @@ import { elevationParDefaut } from './defaults.js';
 import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from './cloture.js';
 import type { MateriauTexture } from './couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from './auditParcelle.js';
-import type { Cheminee, CouvertureChoisie, ObjetPlan, ReleveFacade, TerrasseToit } from './types.js';
+import type { Cheminee, CorpsToit, CouvertureChoisie, ObjetPlan, ReleveFacade, TerrasseToit } from './types.js';
 
 /** Qui propose : une mesure faite dans le telephone, ou Claude analyste (a venir, lot L17). */
 export type SourceProposition = 'mesure' | 'claude';
@@ -40,6 +40,8 @@ export type EffetProposition =
   | { type: 'couleurMurs'; couleur: string }
   | { type: 'materiauMurs'; materiau: MateriauTexture }
   | { type: 'couverture'; couverture: CouvertureChoisie }
+  /** Les corps du toit relus sur la mesure sous la forme et les bouts que Claude a vus : ils remplacent ceux du batiment. */
+  | { type: 'corpsToit'; corps: CorpsToit[] }
   /** Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. */
   | { type: 'cheminees'; corps: number; cheminees: Cheminee[] }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit }
@@ -181,6 +183,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       o.couleurMurs = suite;
       return;
     }
+    case 'corpsToit': o.corpsToit = JSON.parse(JSON.stringify(e.corps)) as CorpsToit[]; return;
     case 'couverture': if (o.toit) o.toit = { ...o.toit, couverture: e.couverture }; return;
     case 'cheminees': {
       const corps = o.corpsToit;
@@ -206,7 +209,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, cheminees: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

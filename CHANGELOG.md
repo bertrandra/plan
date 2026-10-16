@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit : la forme du toit vue par Claude devient une proposition à décider.** Ce que Claude lit sur
+  les pignons et les croupes (forme, bouts) est relu sur la mesure LiDAR par le même mécanisme que les
+  faits (`corpsSousContrainte`) : le corps principal est relu parmi les seules formes vues, les autres
+  corps ne bougent pas. La ligne « Forme du toit de … » montre l'avant (la forme lue aujourd'hui) et
+  l'après, l'écart à la mesure avec cette forme (aujourd'hui / après) et les écarts que Claude a relevés
+  entre le rendu et la photo ; elle arrive décochée. Rien n'est fabriqué : une forme que Plan ne sait pas
+  lire (Mansart, demi-croupe…), des bouts qui se contredisent, un écart au-delà de 0,8 m ou l'absence de
+  mesure LiDAR laissent la ligne dans « Vu par Claude ». Cochée et validée, elle remplace les corps du
+  bâtiment (Ctrl+Z). « Forme du toit » est un cinquième attribut dont le taux d'accord se mesurera.
+
 - **Claude lit les pignons d'abord** (prompt d'analyse, version 4) : la silhouette du haut de chaque
   façade (triangle, trapèze, rampe, marches) dit la forme du toit et ses bouts, et chaque désaccord
   entre le rendu et la photo va dans les écarts. Le schéma de la réponse ne change pas.

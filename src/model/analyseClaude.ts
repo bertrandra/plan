@@ -341,7 +341,7 @@ export function contradictionsLidar(vote: VoteAnalyse, indices: IndicesLidar | n
  * --------------------------------------------------------------------------------------------- */
 
 /** Les attributs que Claude propose dans le projet, et sur lesquels un taux d'accord se mesure. */
-export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs';
+export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs' | 'formeToit';
 
 /**
  * Le taux d'accord mesure par attribut sur les cas valides (spec-regles-toits §14.2, point 5). Vide
