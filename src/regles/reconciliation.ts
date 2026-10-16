@@ -37,7 +37,12 @@ export interface DescriptionAttribut {
   margeAutoMin?: number;
 }
 
+/** Une etape de la lecture du LiDAR : ce qu'elle fait, et les modules dont les seuils (regles/toits/reglages.json) la reglent. */
+export interface EtapeLidar { ordre: number; etape: string; modules: string[]; dit: string }
+
 export interface ReglesReconciliation {
+  /** La lecture du LiDAR, etape par etape : de quoi montrer ses seuils par module a cote des regles d'arbitrage. */
+  lecturesLidar: EtapeLidar[];
   seuils: { SCORE_AUTO_MIN: number; MARGE_AUTO_MIN: number; CONFIANCE_ABSENTE: number };
   sources: Record<SourceConstat, DescriptionSource>;
   attributs: Record<IdAttribut, DescriptionAttribut>;
@@ -53,7 +58,7 @@ const nombre = (v: unknown, ou: string, borne: [number, number] = [0, Infinity])
 
 /** Le fichier, verifie : un vocabulaire ferme (sources, attributs, accords), des poids et des seuils finis. */
 export function lireReconciliation(donnees: unknown): ReglesReconciliation {
-  const f = donnees as { format?: unknown; seuils?: Record<string, { valeur?: unknown } | null>; sources?: Record<string, Record<string, unknown>>; attributs?: Record<string, Record<string, unknown>> } | null;
+  const f = donnees as { format?: unknown; seuils?: Record<string, { valeur?: unknown } | null>; sources?: Record<string, Record<string, unknown>>; attributs?: Record<string, Record<string, unknown>>; lecturesLidar?: unknown } | null;
   if (!f || typeof f !== 'object' || f.format !== 'plan-reconciliation' || !f.seuils || !f.sources || !f.attributs) return refus('format inconnu');
   const seuils = {
     SCORE_AUTO_MIN: nombre(f.seuils.SCORE_AUTO_MIN?.valeur, 'SCORE_AUTO_MIN', [0.01, 100]),
@@ -87,7 +92,23 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
     }
     return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}) }];
   })) as Record<IdAttribut, DescriptionAttribut>;
-  return { seuils, sources, attributs };
+  const lecturesLidar = lireEtapes(f.lecturesLidar);
+  return { lecturesLidar, seuils, sources, attributs };
+}
+
+/** Les etapes de la lecture du LiDAR : numerotees, nommees, avec leurs modules, sans qu'un module serve deux etapes. */
+function lireEtapes(v: unknown): EtapeLidar[] {
+  if (!Array.isArray(v) || !v.length) return refus('lecturesLidar : une liste d’étapes est attendue');
+  const modules = new Set<string>();
+  const etapes = (v as Record<string, unknown>[]).map((e, i): EtapeLidar => {
+    const ou = 'lecturesLidar[' + i + '] : ';
+    if (typeof e.etape !== 'string' || !e.etape.trim()) refus(ou + 'sans nom');
+    if (typeof e.dit !== 'string' || !e.dit.trim()) refus(ou + 'sans description');
+    if (!Array.isArray(e.modules) || !e.modules.length || e.modules.some((m) => typeof m !== 'string' || !m.trim())) refus(ou + 'sans modules');
+    for (const m of e.modules as string[]) { if (modules.has(m)) refus(ou + 'le module « ' + m + ' » sert deux étapes'); modules.add(m); }
+    return { ordre: nombre(e.ordre, ou + 'ordre', [1, 100]), etape: String(e.etape), modules: [...(e.modules as string[])], dit: String(e.dit) };
+  });
+  return etapes.sort((a, b) => a.ordre - b.ordre);
 }
 
 /** L'empreinte de ce qui change une decision : les valeurs, jamais les phrases. */

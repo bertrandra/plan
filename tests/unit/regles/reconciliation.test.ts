@@ -26,6 +26,25 @@ describe('les règles de réconciliation des sources', () => {
     expect(RECONCILIATION.attributs.hauteurEgout.poids.photo! * 0.9).toBeLessThan(RECONCILIATION.seuils.SCORE_AUTO_MIN);
   });
 
+  it('la lecture du LiDAR est décrite étape par étape, chaque module de regles/toits/reglages.json dans une étape', () => {
+    expect(RECONCILIATION.lecturesLidar.map((e) => e.ordre)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    const reglages = JSON.parse(readFileSync('regles/toits/reglages.json', 'utf8')) as { seuils: Record<string, { ou: string }> };
+    const modules = RECONCILIATION.lecturesLidar.flatMap((e) => e.modules);
+    for (const [nom, s] of Object.entries(reglages.seuils)) expect(modules.some((m) => s.ou === m || s.ou.startsWith(m + ' ')), nom + ' (' + s.ou + ')').toBe(true);
+    // Une description change l'empreinte seulement si elle change la decision : elle n'en fait pas partie.
+    const j = brut() as unknown as { lecturesLidar: { dit: string }[] }; j.lecturesLidar[0]!.dit = 'autre';
+    expect(empreinteReconciliation(lireReconciliation(j))).toBe(EMPREINTE_RECONCILIATION);
+  });
+
+  it('refuse des étapes mal formées', () => {
+    const essai = (f: (e: { lecturesLidar: Record<string, unknown>[] }) => void) => { const j = brut() as unknown as { lecturesLidar: Record<string, unknown>[] }; f(j); return refuse(j); };
+    expect(essai((j) => { j.lecturesLidar = []; })).toMatch(/une liste d’étapes est attendue/);
+    expect(essai((j) => { delete j.lecturesLidar[0]!.etape; })).toMatch(/lecturesLidar\[0\] : sans nom/);
+    expect(essai((j) => { j.lecturesLidar[1]!.modules = []; })).toMatch(/lecturesLidar\[1\] : sans modules/);
+    expect(essai((j) => { j.lecturesLidar[1]!.modules = ['model/toitMesure.ts']; })).toMatch(/le module « model\/toitMesure.ts » sert deux étapes/);
+    expect(essai((j) => { j.lecturesLidar[2]!.ordre = 0; })).toMatch(/ordre hors de/);
+  });
+
   it('les phrases ne changent pas l’empreinte ; un poids, un seuil ou une tolérance oui', () => {
     const phrases = brut(); phrases.sources.lidar!.voit = 'autre phrase'; (phrases.attributs.formeToit as { libelle: string }).libelle = 'Autre nom';
     expect(empreinteReconciliation(lireReconciliation(phrases))).toBe(EMPREINTE_RECONCILIATION);

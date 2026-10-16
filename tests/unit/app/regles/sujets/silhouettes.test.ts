@@ -123,7 +123,8 @@ describe('la forme du toit arbitrée entre le LiDAR et la silhouette mesurée su
     expect(p?.arbitrages?.map((a) => a.attribut)).toEqual(['formeToit', 'boutsToit']);
     const bouts = p?.arbitrages?.find((a) => a.attribut === 'boutsToit');
     expect(bouts?.groupes.map((g) => [g.valeur, g.retenu, g.lignes.map((l) => l.source)])).toEqual([['croupe + croupe', true, ['photo']], ['pignon + pignon', false, ['lidar']]]);
-    expect(bouts?.groupes[1]?.lignes[0]?.regle).toBe('GAIN_CROUPES');
+    expect(bouts?.groupes[1]?.lignes[0]?.regle).toMatch(/^GAIN_CROUPES = /);
+    expect(bouts?.regles).toEqual(expect.arrayContaining(['MARGE_AUTO_MIN = 1,5']));
     expect(p?.indices.some((i) => i.texte === 'Façade sud (côté 7) : trapèze → croupe' && i.photo?.cote === 6)).toBe(true);
     expect(cochesParDefaut([p as Proposition]).size).toBe(0);
   });

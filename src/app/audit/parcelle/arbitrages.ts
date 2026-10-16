@@ -11,6 +11,7 @@ import { arbitrerTout, direValeur, type Arbitrage, type Constat, type Groupe } f
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, metres } from '../../regles/sujets/formeToit.js';
 import { cibleBatiment, constatsDuBatiment } from './constats.js';
+import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
 import { ECART_HAUTEUR_MIN_M, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
@@ -24,14 +25,26 @@ export type VotesBatiments = Readonly<Record<string, VoteAnalyse | undefined>>;
 const fr = (v: number): string => String(Math.round(v * 100) / 100).replace('.', ',');
 const libelleSource = (r: ReglesReconciliation, s: string): string => r.sources[s as keyof ReglesReconciliation['sources']]?.libelle ?? s;
 
+/**
+ * Une regle dite avec sa valeur quand c'est un seuil : `RETRAIT_EGOUT_M = 0,5 m` (regles/toits/reglages.json), `SCORE_AUTO_MIN = 3`
+ * (regles/reconciliation.json). Les regles LiDAR font ainsi surface sur la ligne, avec le nombre qui a decide.
+ */
+export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIATION): string {
+  const toit = DESCRIPTION_REGLAGES_TOITS[nom as NomReglageToit] as { valeur: number; unite: string } | undefined;
+  if (toit) return nom + ' = ' + fr(toit.valeur) + (toit.unite ? ' ' + toit.unite : '');
+  const arbitrage = regles.seuils[nom as keyof ReglesReconciliation['seuils']];
+  if (arbitrage !== undefined) return nom + ' = ' + fr(arbitrage);
+  return nom;
+}
+
 /** Un arbitrage, tel que la proposition le garde (un fichier d'audit le rejoue sans le moteur). */
 export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = RECONCILIATION): ArbitrageProposition {
   const { accord, libelle } = regles.attributs[a.attribut];
   const groupes: GroupeArbitrage[] = a.groupes.map((g: Groupe) => ({
     valeur: direValeur(g.valeur, accord), score: Math.round(g.score * 100) / 100, retenu: g === a.retenu,
-    lignes: g.lignes.map((l) => ({ source: l.constat.source, libelle: libelleSource(regles, l.constat.source), valeur: direValeur(l.constat.valeur, accord), confiance: l.constat.confiance === null ? null : Math.round(l.constat.confiance * 100) / 100, score: Math.round(l.score * 100) / 100, ...(l.constat.regle ? { regle: l.constat.regle } : {}) })),
+    lignes: g.lignes.map((l) => ({ source: l.constat.source, libelle: libelleSource(regles, l.constat.source), valeur: direValeur(l.constat.valeur, accord), confiance: l.constat.confiance === null ? null : Math.round(l.constat.confiance * 100) / 100, score: Math.round(l.score * 100) / 100, ...(l.constat.regle ? { regle: direRegle(l.constat.regle, regles) } : {}) })),
   }));
-  return { attribut: a.attribut, libelle, decision: a.decision === 'auto' ? 'auto' : 'manuelle', raison: a.raison, avant: direValeur(a.projet.valeur, accord), groupes, regles: a.regles };
+  return { attribut: a.attribut, libelle, decision: a.decision === 'auto' ? 'auto' : 'manuelle', raison: a.raison, avant: direValeur(a.projet.valeur, accord), groupes, regles: a.regles.map((r) => direRegle(r, regles)) };
 }
 
 /** Les indices des constats du groupe retenu : les photos et les phrases qui ont fait dire cela. */

@@ -9,6 +9,8 @@ import { genererFichiers } from '../../../src/regles/sujets/generation.js';
 import { SUJETS } from '../../../src/app/regles/sujets/index.js';
 import type { BrouillonReglesServeur, ClientRegles } from '../../../src/io/reglesServeur.js';
 import { FICHIERS_DONNEES } from '../../../src/regles/donnees/fichiers.js';
+import { RECONCILIATION } from '../../../src/regles/reconciliation.js';
+import { seuilsDuTexte } from '../../../src/regles/donnees/edition.js';
 
 // L'ecran Admin › Regles (`?admin&ecran=regles`) : les sujets du depot, le prompt et le schema recalcules a
 // chaque frappe, ce qui change par rapport au livre, les controles, un sujet nouveau, et le brouillon.
@@ -343,6 +345,50 @@ describe('l ecran des regles', () => {
       expect((second.hote.querySelector('input[aria-label="Valeur de SEUIL_MARCHE_M"]') as HTMLInputElement).value).toBe('0.9');
       await cliquer(bouton(fichier(second.hote, 'reglagesToits'), 'Revenir au livré'));
       expect(mem.texte).toBeNull();
+    });
+  });
+
+  describe('les sources et l arbitrage', () => {
+    const sources = { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')!.livre) };
+    const onglet = (h: HTMLElement) => h.querySelector('#reglVue-sources');
+
+    it('n est pas proposée sans sources ; avec elles, un onglet de plus montre les sources, les attributs et la lecture du LiDAR', async () => {
+      const sans = await monter({ donnees: { versions: { toits: 3, facades: 1 } } });
+      expect(onglet(sans.hote)).toBeNull();
+      act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      expect([...hote.querySelectorAll('[data-source] td:first-child')].map((td) => td.textContent)).toEqual(['IGN (BD TOPO)', 'LiDAR HD', 'Photo de façade', 'Claude', 'Vu sur place']);
+      const lidar = hote.querySelector('[data-source="lidar"]')?.textContent ?? '';
+      expect(lidar).toContain('LiDAR HD4Oui');
+      expect(hote.querySelector('[data-source="claude"]')?.textContent).toContain('Non');
+    });
+
+    it('les attributs disent leur accord et les poids de chaque source, entre parenthèses quand c’est le poids par défaut', async () => {
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      const h = [...hote.querySelectorAll('[data-attribut="hauteurEgout"] td')].map((td) => td.textContent);
+      expect(h.slice(0, 3)).toEqual(['Hauteur à l\'égout', 'Bâtiment', 'à 0,5 m près']);
+      // IGN, LiDAR, photo, Claude, vu sur place.
+      expect(h.slice(3)).toEqual(['2', '4', '3', '(1,5)', '(30)']);
+      expect([...hote.querySelectorAll('[data-attribut="sensFaitage"] td')].map((td) => td.textContent)[2]).toBe('à 15 ° près (modulo 180)');
+      expect([...hote.querySelectorAll('[data-attribut="boutsToit"] td')].map((td) => td.textContent)[2]).toBe('mêmes éléments, dans n’importe quel ordre');
+      expect(hote.querySelector('.reglSources')?.textContent).toContain('SCORE_AUTO_MIN');
+    });
+
+    it('la lecture du LiDAR est dite étape par étape, avec les seuils de chaque étape et leur raison : les règles LiDAR font surface', async () => {
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      const etapes = [...hote.querySelectorAll('[data-etape]')];
+      expect(etapes.map((e) => e.querySelector('strong')?.textContent)).toEqual(['1. Surface mesurée', '2. Rectangles du contour', '3. Formes simples', '4. Corps, marches, pignons et croupes', '5. Appentis et pignons adossés', '6. Garde-fous de vraisemblance', '7. Bâtiment à cheval sur deux parcelles']);
+      const surface = etapes[0]!;
+      expect(surface.querySelector('summary')?.textContent).toBe('11 seuils');
+      const ligne = [...surface.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.startsWith('RETRAIT_EGOUT_M'));
+      expect(ligne?.textContent).toContain('0,5m');
+      expect(ligne?.textContent).toContain('egout se lit a au moins cela des murs');
+      // Tous les seuils du fichier sont dans une etape : aucun n'echappe a l'ecran.
+      const nombre = etapes.reduce((n, e) => n + e.querySelectorAll('tbody tr').length, 0);
+      expect(nombre).toBe(sources.seuilsLidar.length);
     });
   });
 });
