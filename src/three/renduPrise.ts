@@ -3,13 +3,14 @@
 // hors ecran a 1 024 px et rendue en JPEG. C'est l'image que Claude compare a la photo : « le modele,
 // pas la realite ».
 //
-// Quand la facade visee est connue (`CibleFacadeRendu`), le rendu la montre ENTIERE, du pied du mur
-// au haut du pignon ou du pan (demande de l'utilisateur du 15 octobre : le rendu, pris depuis la
-// position de la photo a 1,5 m, zoomait sur le bas du mur et coupait le toit). La camera reste sur
-// la ligne qui va de la facade a la personne et recule jusqu'a ce que les quatre coins tiennent dans
-// l'image ; son inclinaison se deduit alors de la geometrie (elle vise le milieu de la facade), et
-// non du capteur du telephone, que la lecture au retour de l'appareil photo laissait a n'importe
-// quelle valeur : c'est ce « parametre incline » qui ne fonctionnait pas.
+// Quand la facade visee est connue (`CibleFacadeRendu`), le rendu est son ELEVATION : la camera se
+// pose sur la normale du mur, en son milieu, regarde droit vers lui (a l'horizontale) et recule
+// jusqu'a ce que les quatre coins tiennent dans l'image. Elle est a mi-hauteur du mur, donc pas
+// d'inclinaison ni de fuyantes : les verticales restent verticales, les ouvertures gardent leur
+// forme, et c'est ce que Claude compare a la photo (demande de l'utilisateur du 16 octobre : les
+// rendus precedents, pris depuis la position de la personne, montraient la facade de biais, de loin,
+// sous les surimpressions de l'audit). Pendant l'image, la facade surlignee, le point GPS et le trait
+// renforce de l'audit sont caches : ce sont des reperes d'ecran, pas le modele.
 //
 // La scene et son rendu sont ceux de la Vue 3D (le tampon est garde, `preserveDrawingBuffer`) : on
 // change la taille du rendu et la camera le temps d'une image, puis on remet tout en place et on
@@ -17,6 +18,9 @@
 
 import { vue3d } from './etat3d.js';
 import { versLocalDepuis } from './primitives.js';
+import { NOM_FACADE_DEVANT, NOM_FACADES_FAITES } from './facadeDevant3d.js';
+import { NOM_POSITION_GPS } from './positionGps3d.js';
+import { NOM_TRAIT_DE_PRES } from './traitDePres.js';
 
 /** Le telephone tenu a hauteur des yeux (render/couleurPhotoAudit.ts fait de meme). */
 export const HAUTEUR_PRISE_M = 1.5;
@@ -43,78 +47,51 @@ export interface CibleFacadeRendu {
   hautM: number;
 }
 
-/** La camera posee par `poseFacadeEntiere` : sa position (repere du plan), sa hauteur, son cap et son inclinaison. */
+/** La camera posee par `poseFacadeEntiere`: sa position (repere du plan), sa hauteur au-dessus du pied du mur, son cap. */
 export interface PoseFacadeEntiere {
   x: number;
   y: number;
+  /** Mi-hauteur du mur, au-dessus de son pied : la camera regarde droit devant, sans inclinaison. */
   hauteurM: number;
   azimutDeg: number;
+  /** Toujours 0 : la vue est perpendiculaire au mur. */
   inclinaisonDeg: number;
-  /** De combien la camera a recule derriere la position de la prise, en metres. */
+  /** La distance de la camera au mur, en metres, mesuree sur sa normale. */
   reculM: number;
-  /** Les quatre coins tiennent dans l'image (sinon c'est le meilleur recul trouve). */
+  /** Les quatre coins tiennent dans l'image (sinon c'est la distance maximale). */
   entiere: boolean;
 }
 
 /** Un peu d'air autour de la facade : elle occupe au plus cette part de l'image, dans chaque sens. */
 export const PART_IMAGE_FACADE = 0.92;
-/** On ne recule pas plus loin : au-dela la facade n'a plus de detail, et la camera traverserait le voisinage. */
+/** On ne recule pas plus loin : au-dela la facade n'a plus de detail. */
 export const RECUL_MAX_M = 45;
-const PAS_RECUL_M = 0.5;
-/** Plus pres que cela du milieu du mur, ou de son mauvais cote, la direction de la prise ne dit rien : on se met face au mur. */
-const DISTANCE_REPLI_M = 10;
+/** Le toit deborde et les gouttieres sortent du mur : la distance compte cela de plus, vers la camera. */
+const SAILLIE_M = 0.6;
+/** Plus pres, le rendu n'aurait plus rien d'un cliche de facade. */
+const RECUL_MIN_M = 2;
 
 /**
- * La pose qui montre la facade entiere (voir l'en-tete). La camera regarde vers le milieu de la
- * facade depuis la position de la prise, puis recule sur cette ligne par pas de 50 cm jusqu'a ce que
- * les quatre coins (pied et haut du mur, aux deux bouts) tiennent dans le champ, a PART_IMAGE_FACADE
- * pres. L'inclinaison vise le milieu de la hauteur, de sorte que le pied et le haut s'equilibrent.
+ * La pose qui montre la facade en elevation (voir l'en-tete) : sur la normale sortante du mur, en son
+ * milieu, a la distance ou la plus contraignante de la largeur et de la hauteur remplit
+ * PART_IMAGE_FACADE de l'image. Ne depend ni de la position ni du capteur de la photo : la meme
+ * facade donne toujours la meme image.
  */
-export function poseFacadeEntiere(p: PriseRendu, cible: CibleFacadeRendu, largeur = LARGEUR_RENDU_PX, hauteur = HAUTEUR_RENDU_PX): PoseFacadeEntiere {
+export function poseFacadeEntiere(cible: CibleFacadeRendu, champDeg: number = CHAMP_DEFAUT_DEG, largeur = LARGEUR_RENDU_PX, hauteur = HAUTEUR_RENDU_PX): PoseFacadeEntiere {
   const ux = cible.droite.x - cible.gauche.x, uy = cible.droite.y - cible.gauche.y;
   const l = Math.hypot(ux, uy) || 1;
   // La normale sortante : de dehors, la facade se lit de gauche a droite (facade/geometrie.ts).
   const n = { x: uy / l, y: -ux / l };
   const milieu = { x: (cible.gauche.x + cible.droite.x) / 2, y: (cible.gauche.y + cible.droite.y) / 2 };
-  let dx = milieu.x - p.x, dy = milieu.y - p.y;
-  const d0 = Math.hypot(dx, dy);
-  // Du bon cote du mur, assez loin : la direction de la prise. Sinon face au mur, a distance de repli.
-  const dehors = (p.x - milieu.x) * n.x + (p.y - milieu.y) * n.y;
-  let depart = { x: p.x, y: p.y };
-  if (d0 < 0.5 || dehors < 0.3) {
-    dx = -n.x; dy = -n.y;
-    depart = { x: milieu.x + n.x * DISTANCE_REPLI_M, y: milieu.y + n.y * DISTANCE_REPLI_M };
-  } else { dx /= d0; dy /= d0; }
-  const d = Math.hypot(dx, dy) || 1;
-  const dir = { x: dx / d, y: dy / d };
-  const droite = { x: dir.y, y: -dir.x };
-  const champH = p.champDeg ?? CHAMP_DEFAUT_DEG;
-  const tanH = Math.tan(rad(champH) / 2) * PART_IMAGE_FACADE;
-  const tanV = Math.tan(rad(champVertical(champH, largeur, hauteur)) / 2) * PART_IMAGE_FACADE;
-  const coins: { x: number; y: number; h: number }[] = [
-    { ...cible.gauche, h: 0 }, { ...cible.droite, h: 0 }, { ...cible.gauche, h: cible.hautM }, { ...cible.droite, h: cible.hautM },
-  ];
-  const milieuH = cible.hautM / 2;
-  const essai = (recul: number) => {
-    const c = { x: depart.x - dir.x * recul, y: depart.y - dir.y * recul };
-    const devant = Math.max(0.5, (milieu.x - c.x) * dir.x + (milieu.y - c.y) * dir.y);
-    const incl = Math.atan2(milieuH - HAUTEUR_PRISE_M, devant);
-    const ci = Math.cos(incl), si = Math.sin(incl);
-    const entiere = coins.every((q) => {
-      const a = (q.x - c.x) * dir.x + (q.y - c.y) * dir.y;
-      const lat = (q.x - c.x) * droite.x + (q.y - c.y) * droite.y;
-      const dv = q.h - HAUTEUR_PRISE_M;
-      const z = a * ci + dv * si, v = -a * si + dv * ci;
-      return z > 0.1 && Math.abs(lat) / z <= tanH && Math.abs(v) / z <= tanV;
-    });
-    return { c, incl, entiere };
-  };
-  let recul = 0, e = essai(0);
-  while (!e.entiere && recul < RECUL_MAX_M) { recul += PAS_RECUL_M; e = essai(recul); }
+  const tanH = Math.tan(rad(champDeg) / 2) * PART_IMAGE_FACADE;
+  const tanV = Math.tan(rad(champVertical(champDeg, largeur, hauteur)) / 2) * PART_IMAGE_FACADE;
+  const besoin = Math.max(l / 2 / tanH, cible.hautM / 2 / tanV) + SAILLIE_M;
+  const recul = Math.min(RECUL_MAX_M, Math.max(RECUL_MIN_M, besoin));
   return {
-    x: e.c.x, y: e.c.y, hauteurM: HAUTEUR_PRISE_M,
-    azimutDeg: ((Math.atan2(dir.x, dir.y) * 180) / Math.PI + 360) % 360,
-    inclinaisonDeg: (e.incl * 180) / Math.PI, reculM: recul, entiere: e.entiere,
+    x: milieu.x + n.x * recul, y: milieu.y + n.y * recul,
+    hauteurM: cible.hautM / 2,
+    azimutDeg: ((Math.atan2(-n.x, -n.y) * 180) / Math.PI + 360) % 360,
+    inclinaisonDeg: 0, reculM: recul, entiere: besoin <= RECUL_MAX_M,
   };
 }
 
@@ -139,21 +116,29 @@ export interface ImageRendu { base64: string; mediaType: 'image/jpeg'; largeur: 
 export function rendreDepuisPrise(prise: PriseRendu, cible: CibleFacadeRendu | null = null, largeur = LARGEUR_RENDU_PX, hauteur = HAUTEUR_RENDU_PX): ImageRendu | null {
   const s = vue3d.scene;
   if (!s) return null;
-  // La facade visee entiere, ou la prise telle quelle (photo du toit, ou facade inconnue).
+  // La facade visee en elevation, ou la prise telle quelle (photo du toit, ou facade inconnue).
   let p = prise;
+  let hauteurCam = HAUTEUR_PRISE_M;
   if (cible) {
-    const pose = poseFacadeEntiere(prise, cible, largeur, hauteur);
+    const pose = poseFacadeEntiere(cible, prise.champDeg ?? CHAMP_DEFAUT_DEG, largeur, hauteur);
     p = { ...prise, x: pose.x, y: pose.y, azimutDeg: pose.azimutDeg, inclinaisonDeg: pose.inclinaisonDeg };
+    // Mi-hauteur du mur, au-dessus de son pied : sur un sol en relief, le pied n'est pas a zero.
+    const milieu = { x: (cible.gauche.x + cible.droite.x) / 2, y: (cible.gauche.y + cible.droite.y) / 2 };
+    hauteurCam = (s.hauteurSol?.(milieu) ?? 0) + pose.hauteurM;
   }
   const { renderer, scene, camera } = s;
   const taille = { l: renderer.domElement.width, h: renderer.domElement.height };
   const pixelRatio = renderer.getPixelRatio();
   const local = versLocalDepuis(s.cen)({ x: p.x, y: p.y });
   const cam = new THREE.PerspectiveCamera(champVertical(p.champDeg ?? CHAMP_DEFAUT_DEG, largeur, hauteur), largeur / hauteur, camera.near, camera.far);
-  cam.position.set(local.x, HAUTEUR_PRISE_M, local.z);
+  cam.position.set(local.x, hauteurCam, local.z);
   const c = ciblePrise(p, local);
-  cam.lookAt(c.x, c.y, c.z);
+  cam.lookAt(c.x, hauteurCam + (c.y - HAUTEUR_PRISE_M), c.z);
   cam.updateProjectionMatrix();
+  // Les reperes de l'audit (facade surlignee, point GPS, trait renforce) ne sont pas le modele.
+  const reperes = [NOM_FACADE_DEVANT, NOM_FACADES_FAITES, NOM_POSITION_GPS, NOM_TRAIT_DE_PRES]
+    .map((nom) => scene.getObjectByName(nom)).filter((o): o is NonNullable<typeof o> => !!o && o.visible);
+  for (const o of reperes) o.visible = false;
   try {
     renderer.setPixelRatio(1);
     renderer.setSize(largeur, hauteur, false);
@@ -163,6 +148,7 @@ export function rendreDepuisPrise(prise: PriseRendu, cible: CibleFacadeRendu | n
   } catch {
     return null;
   } finally {
+    for (const o of reperes) o.visible = true;
     // L'ecran reprend sa taille et sa camera : le cliche ne doit pas rester visible.
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(taille.l / pixelRatio, taille.h / pixelRatio, false);

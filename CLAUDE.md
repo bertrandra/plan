@@ -124,7 +124,8 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   sur la scène épurée avec tous les bâtiments de la parcelle (`app/audit/parcelle/controleur.ts`).
   Le rendu pour Claude montre la façade entière, pas ce que le téléphone cadrait.
   Une façade **choisie** (touchée, ou prise dans la liste) fixe la vue de prise : la position ne suit
-  plus le GPS, la caméra tourne sur l'axe vertical du bâtiment (`vuePrise.ts`, `orbite`), avec les pas
+  plus le GPS, la caméra arrive en élévation devant la façade (perpendiculaire, à mi-hauteur, comme le rendu pour
+  Claude) puis tourne sur l'axe vertical du bâtiment (`vuePrise.ts`, `orbite`, `poseFace`), avec les pas
   autour de lui ou au doigt sans GPS sûr ; ni zoom ni inclinaison.
   **L'avant/après de l'admin** (Admin › Audits, « Avant / Après ») est l'écran des propositions de
   l'audit, pas une copie : une session de consultation à part (`commande.ts::consulter`) dont la

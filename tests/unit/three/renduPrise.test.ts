@@ -38,83 +38,82 @@ function coinsALEcran(pose: PoseFacadeEntiere, cible: CibleFacadeRendu, champDeg
   const cam = new THREE_NS.PerspectiveCamera(champVertical(champDeg, 1024, 768), 1024 / 768, 0.05, 1000);
   cam.position.set(pose.x, pose.hauteurM, -pose.y);
   const c = ciblePrise({ x: pose.x, y: pose.y, azimutDeg: pose.azimutDeg, inclinaisonDeg: pose.inclinaisonDeg }, { x: pose.x, z: -pose.y });
-  cam.lookAt(c.x, c.y, c.z);
+  cam.lookAt(c.x, pose.hauteurM + (c.y - HAUTEUR_PRISE_M), c.z);
   cam.updateMatrixWorld(); cam.updateProjectionMatrix();
   return [[cible.gauche, 0], [cible.droite, 0], [cible.gauche, cible.hautM], [cible.droite, cible.hautM]]
     .map(([q, h]) => new THREE_NS.Vector3((q as { x: number }).x, h as number, -(q as { y: number }).y).project(cam))
     .map((v) => ({ x: v.x, y: v.y, z: v.z }));
 }
 
-describe('le rendu de la facade entiere (pour Claude)', () => {
-  it('recule depuis la prise jusqu a voir le mur du pied au haut du pignon, de pres comme de loin', () => {
-    // A 4 m et 7 m le mur de 9 m ne tient pas : la camera recule. A 12 m il tient deja.
-    for (const [y, recule] of [[6, true], [3, true], [-2, false]] as const) {
-      const pose = poseFacadeEntiere({ x: 10, y, azimutDeg: 0 }, MUR_SUD);
-      expect(pose.entiere).toBe(true);
-      expect(pose.reculM > 0).toBe(recule);
-      // Les quatre coins sont dans l'image, avec de l'air autour, et devant la camera.
-      for (const v of coinsALEcran(pose, MUR_SUD)) {
-        expect(Math.abs(v.x)).toBeLessThanOrEqual(1);
-        expect(Math.abs(v.y)).toBeLessThanOrEqual(1);
-        expect(v.z).toBeLessThan(1);
-      }
-    }
-  });
-
-  it('regarde vers la facade : plein nord depuis le sud, et monte vers son milieu', () => {
-    const pose = poseFacadeEntiere({ x: 10, y: 4, azimutDeg: 200 }, MUR_SUD);
-    // Le cap de la prise (200 degres, de travers) n'y change rien : la camera vise la facade.
-    expect(pose.azimutDeg).toBeCloseTo(0, 5);
+describe('le rendu de la facade en elevation (pour Claude)', () => {
+  it('se pose en face du mur, sur sa normale, a l horizontale : perpendiculaire, sans inclinaison', () => {
+    const pose = poseFacadeEntiere(MUR_SUD);
+    // Mur sud : la camera est au sud, au droit du milieu (x = 10), et regarde plein nord.
     expect(pose.x).toBeCloseTo(10, 5);
-    // Le milieu du mur (4,5 m) est plus haut que l'oeil (1,5 m) : la camera leve le regard.
-    expect(pose.inclinaisonDeg).toBeGreaterThan(5);
-    expect(pose.inclinaisonDeg).toBeLessThan(45);
+    expect(pose.y).toBeLessThan(10);
+    expect(pose.azimutDeg).toBeCloseTo(0, 5);
+    expect(pose.inclinaisonDeg).toBe(0);
+    // A mi-hauteur du mur : le pied et le haut s'equilibrent, les verticales restent verticales.
+    expect(pose.hauteurM).toBeCloseTo(4.5, 6);
   });
 
-  it('ne depend pas de l inclinaison lue par le capteur, qui n etait pas fiable', () => {
-    const a = poseFacadeEntiere({ x: 10, y: 4, azimutDeg: 0, inclinaisonDeg: -70 }, MUR_SUD);
-    const b = poseFacadeEntiere({ x: 10, y: 4, azimutDeg: 0, inclinaisonDeg: 35 }, MUR_SUD);
-    expect(a).toEqual(b);
-  });
-
-  it('ne recule pas quand le mur tient deja : un petit mur vu de loin', () => {
-    const petit: CibleFacadeRendu = { gauche: { x: 9, y: 10 }, droite: { x: 11, y: 10 }, hautM: 3 };
-    const pose = poseFacadeEntiere({ x: 10, y: -30, azimutDeg: 0 }, petit);
-    expect(pose.reculM).toBe(0);
+  it('montre les quatre coins, symetriques a l ecran, avec de l air autour', () => {
+    const pose = poseFacadeEntiere(MUR_SUD);
     expect(pose.entiere).toBe(true);
+    const [bg, bd, hg, hd] = coinsALEcran(pose, MUR_SUD);
+    for (const v of [bg, bd, hg, hd]) {
+      expect(Math.abs(v?.x ?? 9)).toBeLessThan(1);
+      expect(Math.abs(v?.y ?? 9)).toBeLessThan(1);
+      expect(v?.z ?? 9).toBeLessThan(1);
+    }
+    // De face : le bas est aussi loin du centre que le haut, la gauche que la droite, et le mur est droit.
+    expect((bg?.y ?? 0) + (hg?.y ?? 0)).toBeCloseTo(0, 6);
+    expect((bg?.x ?? 0) + (bd?.x ?? 0)).toBeCloseTo(0, 6);
+    expect(bg?.x).toBeCloseTo(hg?.x ?? 9, 6);
+    expect(bd?.y).toBeCloseTo(bg?.y ?? 9, 6);
   });
 
-  it('un mur plus large qu une facade de maison demande un plus grand recul, borne par RECUL_MAX_M', () => {
+  it('ne depend ni de la position ni du cap de la photo : une facade, une image', () => {
+    const p = poseFacadeEntiere(MUR_SUD);
+    expect(poseFacadeEntiere(MUR_SUD, undefined, 1024, 768)).toEqual(p);
+  });
+
+  it('un petit mur se voit de plus pres qu un grand, jamais sous le minimum', () => {
+    const petit: CibleFacadeRendu = { gauche: { x: 9, y: 10 }, droite: { x: 11, y: 10 }, hautM: 2 };
+    const pPetit = poseFacadeEntiere(petit), pGrand = poseFacadeEntiere(MUR_SUD);
+    expect(pPetit.reculM).toBeLessThan(pGrand.reculM);
+    expect(pPetit.reculM).toBeGreaterThanOrEqual(2);
+  });
+
+  it('un mur tres large demande un plus grand recul, borne par RECUL_MAX_M', () => {
     const large: CibleFacadeRendu = { gauche: { x: -10, y: 10 }, droite: { x: 30, y: 10 }, hautM: 9 };
-    const p1 = poseFacadeEntiere({ x: 10, y: 6, azimutDeg: 0 }, MUR_SUD);
-    const p2 = poseFacadeEntiere({ x: 10, y: 6, azimutDeg: 0 }, large);
-    expect(p2.reculM).toBeGreaterThan(p1.reculM);
-    const demesure = poseFacadeEntiere({ x: 10, y: 6, azimutDeg: 0 }, { gauche: { x: -400, y: 10 }, droite: { x: 400, y: 10 }, hautM: 9 });
-    expect(demesure.reculM).toBeLessThanOrEqual(RECUL_MAX_M + 0.5);
+    expect(poseFacadeEntiere(large).reculM).toBeGreaterThan(poseFacadeEntiere(MUR_SUD).reculM);
+    const demesure = poseFacadeEntiere({ gauche: { x: -400, y: 10 }, droite: { x: 400, y: 10 }, hautM: 9 });
+    expect(demesure.reculM).toBe(RECUL_MAX_M);
     expect(demesure.entiere).toBe(false);
   });
 
-  it('une prise derriere le mur, ou collee a lui, se met face au mur', () => {
-    const dedans = poseFacadeEntiere({ x: 10, y: 15, azimutDeg: 180 }, MUR_SUD);
-    expect(dedans.azimutDeg).toBeCloseTo(0, 5);
-    expect(dedans.y).toBeLessThan(10);
-    expect(dedans.entiere).toBe(true);
-    const colle = poseFacadeEntiere({ x: 10, y: 10.1, azimutDeg: 0 }, MUR_SUD);
-    expect(colle.y).toBeLessThan(10);
-  });
-
   it('suit le champ de l objectif : un champ plus large recule moins', () => {
-    const etroit = poseFacadeEntiere({ x: 10, y: 6, azimutDeg: 0, champDeg: 50 }, MUR_SUD);
-    const large = poseFacadeEntiere({ x: 10, y: 6, azimutDeg: 0, champDeg: 90 }, MUR_SUD);
-    expect(large.reculM).toBeLessThan(etroit.reculM);
+    expect(poseFacadeEntiere(MUR_SUD, 90).reculM).toBeLessThan(poseFacadeEntiere(MUR_SUD, 50).reculM);
   });
 
   it('une facade orientee a l est se voit de l est : la normale se deduit des bouts, vue de dehors', () => {
     // De dehors (a l'est, face a l'ouest), la gauche est au sud.
     const est: CibleFacadeRendu = { gauche: { x: 15, y: 10 }, droite: { x: 15, y: 20 }, hautM: 7 };
-    const pose = poseFacadeEntiere({ x: 22, y: 15, azimutDeg: 270 }, est);
+    const pose = poseFacadeEntiere(est);
     expect(pose.azimutDeg).toBeCloseTo(270, 5);
     expect(pose.x).toBeGreaterThan(15);
+    expect(pose.y).toBeCloseTo(15, 5);
+    expect(pose.entiere).toBe(true);
+  });
+
+  it('une facade oblique est vue de face aussi : la camera est sur sa normale, pas sur l axe nord-sud', () => {
+    // Mur a 45 degres, sud-est : sa normale sortante pointe vers le sud-est.
+    const oblique: CibleFacadeRendu = { gauche: { x: 0, y: 10 }, droite: { x: 7, y: 17 }, hautM: 5 };
+    const pose = poseFacadeEntiere(oblique);
+    expect(pose.azimutDeg).toBeCloseTo(315, 5);
+    const v = { x: pose.x - 3.5, y: pose.y - 13.5 };
+    expect(v.x * 7 + v.y * 7).toBeCloseTo(0, 5);
     expect(pose.entiere).toBe(true);
   });
 });

@@ -796,7 +796,7 @@ function poserOrbite(
   const cadre = cadreDe(vues.contoursDe(new Set([cle])), vues.hauteurDe(new Set([cle])), null);
   if (!cadre) return false;
   const depart = ((Math.atan2(-f.normale.x, -f.normale.y) * 180) / Math.PI + 360) % 360;
-  suivi.orbite(cadre, depart, angleAutour(cadre.centre, sens.position(), sens.precision()), nouvelle, force);
+  suivi.orbite(cadre, depart, angleAutour(cadre.centre, sens.position(), sens.precision()), nouvelle, force, f);
   return true;
 }
 

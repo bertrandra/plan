@@ -27,6 +27,11 @@
 // defiler les facades, soit avec vos pas autour de lui (l'angle ou vous etes, vu du centre, tourne la
 // vue d'autant), soit au doigt quand le GPS manque ou se trompe. Ni zoom ni inclinaison (`verrouiller`).
 //
+// Le quatrieme (16 octobre) : a l'arrivee devant la facade choisie, la vue est son ELEVATION, comme
+// le rendu pour Claude (three/renduPrise.ts) : perpendiculaire au mur, a mi-hauteur, regard
+// horizontal (`poseFace`, `distanceFace`), et l'inclinaison est figee ; la rotation se fait sur l'axe
+// vertical du batiment choisi.
+//
 // Les calculs sont dans le repere du plan (y vers le nord) ; la pose dans la scene passe par son
 // repere local (three/primitives.ts::versLocalDepuis : x vers l'est, z vers le sud, y vers le haut).
 
@@ -132,6 +137,41 @@ export function poseEnsemble(c: CadreEnsemble, azimutDeg: number, rapport: numbe
  */
 export function poseOrbite(c: CadreEnsemble, azimutDeg: number, rapport: number): PosePieton {
   return poseEnsemble(c, azimutDeg, rapport, ELEVATION_ORBITE_DEG);
+}
+
+/** Un peu d'air autour de la facade choisie, et ce que le toit et les gouttieres sortent du mur. */
+const PART_IMAGE_FACE = 0.92;
+const SAILLIE_FACE_M = 0.6;
+/** Plus pres, la vue n'aurait plus rien d'un cliche de facade. */
+const DISTANCE_FACE_MIN_M = 2;
+
+/**
+ * La distance de la camera au centre du batiment pour voir la facade choisie en elevation : la
+ * camera est sur la perpendiculaire du mur, a mi-hauteur, regard horizontal ; la facade (et ce dont
+ * son milieu s'ecarte du centre, de cote) tient en largeur et en hauteur dans la partie visible
+ * (`rapport` : sa largeur sur sa hauteur), comme le rendu pour Claude (three/renduPrise.ts).
+ */
+export function distanceFace(c: CadreEnsemble, facade: Facade, rapport: number, champDeg: number = CHAMP_VISIBLE_DEG): number {
+  const tanV = Math.tan(rad(champDeg) / 2) * PART_IMAGE_FACE, tanH = tanV * Math.max(0.1, rapport);
+  const mx = (facade.gauche.x + facade.droite.x) / 2 - c.centre.x, my = (facade.gauche.y + facade.droite.y) / 2 - c.centre.y;
+  // Le centre du batiment est en retrait du mur de `profondeur` ; de cote, le milieu du mur s'en ecarte de `lateral`.
+  const profondeur = Math.max(0, mx * facade.normale.x + my * facade.normale.y);
+  const lateral = Math.abs(mx * facade.normale.y - my * facade.normale.x);
+  const plan = Math.max((facade.largeur / 2 + lateral) / tanH, c.hauteur / 2 / tanV) + SAILLIE_FACE_M;
+  return Math.max(DISTANCE_FACE_MIN_M, plan) + profondeur;
+}
+
+/**
+ * La pose en elevation devant une facade choisie : la camera a `distance` du centre du batiment, du
+ * cote que regarde `azimutDeg`, a mi-hauteur, regard horizontal sur l'axe vertical du batiment. Les
+ * verticales restent verticales ; tourner la vue la fait pivoter sur cet axe.
+ */
+export function poseFace(c: CadreEnsemble, azimutDeg: number, distance: number): PosePieton {
+  const a = rad(azimutDeg);
+  return {
+    oeil: { x: c.centre.x - Math.sin(a) * distance, y: c.centre.y - Math.cos(a) * distance }, hauteurOeil: c.hauteur / 2,
+    vise: c.centre, hauteurVise: c.hauteur / 2, champ: CHAMP_VISIBLE_DEG,
+  };
 }
 
 /**
@@ -412,10 +452,12 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
   let derniere: PosePieton | null = null;
   /** L'orbite autour d'une facade choisie : le regard courant, le dernier angle ou vous etiez, et un doigt a pris la main. */
   let orbiteAz: number | null = null, orbiteRef: number | null = null, doigt = false;
+  /** La distance de la camera au batiment, fixee a l'arrivee devant la facade (null : l'orbite d'ensemble, un peu haut). */
+  let orbiteDist: number | null = null;
   /** Quitte l'orbite : la camera redevient libre de zoomer et de s'incliner. */
   function sortirOrbite(): void {
     if (orbiteAz === null) return;
-    orbiteAz = null; orbiteRef = null; doigt = false;
+    orbiteAz = null; orbiteRef = null; doigt = false; orbiteDist = null;
     vue.verrouiller?.(false);
   }
   return {
@@ -456,11 +498,13 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
      * `depart`. Ensuite le regard tourne de ce que vous tournez autour du batiment ; un doigt qui
      * glisse prend la main, et la rotation repart de ou il l'a laissee une fois la pause finie.
      */
-    orbite(cadre: CadreEnsemble, depart: number, marcheur: number | null, nouvelle: boolean, force = false): boolean {
+    orbite(cadre: CadreEnsemble, depart: number, marcheur: number | null, nouvelle: boolean, force = false, facade: Facade | null = null): boolean {
       if (!actif) return false;
       const enPause = horloge() < pauseJusqua;
       if (nouvelle || orbiteAz === null) {
         orbiteAz = depart; orbiteRef = marcheur; doigt = false;
+        // Avec la facade choisie : vue de face, perpendiculaire au mur ; la distance reste ensuite celle de l'arrivee.
+        orbiteDist = facade ? distanceFace(cadre, facade, vue.rapportVisible?.() ?? 1) : null;
         // Une nouvelle facade : la camera y va d'un coup, sans glisser entre deux inclinaisons.
         vue.arreter?.();
       } else if (enPause) {
@@ -482,8 +526,8 @@ export function suiviPieton(vue: VuePieton, horloge: () => number = () => Date.n
         orbiteRef = marcheur;
       }
       derniere = null;
-      const pose = poseOrbite(cadre, orbiteAz, vue.rapportVisible?.() ?? 1);
-      vue.verrouiller?.(true, Math.PI / 2 - rad(ELEVATION_ORBITE_DEG));
+      const pose = orbiteDist !== null ? poseFace(cadre, orbiteAz, orbiteDist) : poseOrbite(cadre, orbiteAz, vue.rapportVisible?.() ?? 1);
+      vue.verrouiller?.(true, orbiteDist !== null ? Math.PI / 2 : Math.PI / 2 - rad(ELEVATION_ORBITE_DEG));
       return vue.poser(pose);
     },
     /** La vue d'ensemble sur ce cadre ; sans direction donnee, celle de la camera (un doigt l'a tournee). */

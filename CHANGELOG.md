@@ -44,6 +44,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Écran de prise : une façade choisie se voit de face.** À la sélection (touchée ou prise dans la liste),
+  la caméra arrive en élévation, comme le rendu pour Claude : perpendiculaire au mur, à mi-hauteur,
+  regard horizontal, la façade entière dans la partie visible au-dessus de l'écran de prise. L'inclinaison
+  est figée ; la vue pivote sur l'axe vertical du bâtiment choisi (pas autour de lui ou doigt), à la
+  distance de l'arrivée.
+- **Le rendu du modèle que reçoit Claude est l'élévation de la façade, de face et sans obstacle** (audit
+  de la parcelle, relevé du 16 octobre sur AE 101 : le rendu montrait la façade de biais ou de très loin,
+  sous la façade surlignée, le point GPS et le trait renforcé, avec une annexe ou le relief devant le mur).
+  La caméra se pose sur la normale du mur, en son milieu, à l'horizontale et à mi-hauteur : les verticales
+  restent verticales et les ouvertures gardent leur forme. Pendant l'image, les repères de l'audit sont
+  cachés et seul le bâtiment visé reste avec le sol (plus d'autre bâtiment de la parcelle). La pose ne
+  dépend plus de la position ni du cap de la photo. Les analyses déjà faites gardent leurs anciens
+  rendus ; « Rejouer l'analyse » les redessine.
+
 - **Analyse par Claude : ce que le rejeu d'AE 101 a montré** (`MD/spec-audit.md` §13.2). Quatre
   corrections, lues dans le fichier du rejeu (Haiku 5.5, 2 bâtiments, 6 requêtes, 0,011 $) :
   - **Une passe perdue** : la maison de huit murs a dépassé `max_tokens` (8 000) à la deuxième passe, et

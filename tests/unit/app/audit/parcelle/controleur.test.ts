@@ -482,13 +482,14 @@ describe('la vue fixee sur une facade choisie (16 octobre)', () => {
     t.s.toucher({ x: 0, y: 0 });
     expect(t.s.cible()).toMatchObject({ nom: 'la façade nord de maison', choisie: true });
     const p = derniere(v);
-    // Le regard va du nord vers le sud, sur le centre du batiment : la camera est au nord, un peu haute.
+    // Le regard va du nord vers le sud, sur le centre du batiment : la camera est au nord, de face (elevation).
     expect(p.vise.x).toBeCloseTo(CENTRE.x, 6);
     expect(p.vise.y).toBeCloseTo(CENTRE.y, 6);
     expect(p.oeil.x).toBeCloseTo(CENTRE.x, 6);
     expect(p.oeil.y).toBeGreaterThan(CENTRE.y);
-    expect(p.hauteurOeil).toBeGreaterThan(p.hauteurVise);
-    expect(v.verrouiller).toHaveBeenLastCalledWith(true, expect.closeTo(Math.PI / 2 - (15 * Math.PI) / 180, 6));
+    // Perpendiculaire au mur : l'oeil est a la hauteur du point vise, regard horizontal, inclinaison figee.
+    expect(p.hauteurOeil).toBeCloseTo(p.hauteurVise, 6);
+    expect(v.verrouiller).toHaveBeenLastCalledWith(true, expect.closeTo(Math.PI / 2, 6));
     // Le marcheur s'eloigne ou se rapproche du batiment, sans en faire le tour : la camera ne bouge pas.
     const n = v.poser.mock.calls.length;
     t.gps({ x: 10, y: 0 }); t.gps({ x: 10, y: 0 }); t.gps({ x: 10, y: 0 });
