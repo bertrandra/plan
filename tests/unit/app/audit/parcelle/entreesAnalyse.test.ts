@@ -68,7 +68,7 @@ describe('le plafond des images d une requete', () => {
     expect(gardees(cotes[3]!)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(et.filter((x) => x.photo && x.photo.cote === undefined)).toHaveLength(4);
     const i = et.findIndex((x) => x.photo?.cote === cotes[1]);
-    expect(et[i + 1]?.texte).toBe('rendu du modèle actuel de Plan, façade entière du pied du mur au haut du toit, vue du même côté que l’image ' + (i + 1));
+    expect(et[i + 1]?.texte).toBe('rendu du modèle actuel de Plan, façade vue de face (perpendiculairement au mur, sans obstacle), du pied du mur au haut du toit, côté de l’image ' + (i + 1));
     const ordre = et.filter((x) => x.photo?.cote !== undefined).map((x) => cotes.indexOf(x.photo!.cote!) * 10 + x.photo!.rang);
     expect(ordre).toEqual([...ordre].sort((a, z) => a - z));
   });
@@ -123,6 +123,16 @@ describe('le rendu pour Claude montre la facade entiere', () => {
     const g = gardesDuRendu({ objets: tous, liste: listeDeControle(tous, capture.lire()), capture: capture.lire(), mesures: new Map() });
     expect(['maison', 'parcelle', 'voisine'].every((c) => g(c))).toBe(true);
     expect(g('chezVoisin')).toBe(false);
+  });
+
+  it('avec un batiment vise, ne garde que lui et les terrains : une annexe devant le mur le cacherait', () => {
+    const { objets, capture } = maison();
+    const annexe = { key: 'annexe', name: 'annexe', type: 'polygon', fonction: 'batiment', pts: rect(2, 20, 6, 24), elevation: 3 } as unknown as ObjetPlan;
+    const tous = [...objets, annexe];
+    const g = gardesDuRendu({ objets: tous, liste: listeDeControle(tous, capture.lire()), capture: capture.lire(), mesures: new Map() }, 'maison');
+    expect(g('maison')).toBe(true);
+    expect(g('parcelle')).toBe(true);
+    expect(g('annexe')).toBe(false);
   });
 });
 

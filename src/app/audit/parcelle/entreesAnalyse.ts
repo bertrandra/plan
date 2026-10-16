@@ -135,11 +135,12 @@ export const IMAGES_PAR_REQUETE = 40;
 const valeurPhoto = (p: PhotoCas): number => (p.prise ? 2 : 0) + (p.prise?.sourceAzimut === 'boussole' ? 1 : 0);
 
 /**
- * Ce que le rendu pour Claude montre : les batiments de la liste (ceux de la parcelle du projet) et
- * les terrains, a plat. Ni clotures, ni arbres, ni maisons voisines : comme la Vue 3D de l'audit.
+ * Ce que le rendu pour Claude montre : les terrains, a plat, et le batiment vise (`seulement`) ou, a
+ * defaut, ceux de la liste (la parcelle du projet). Ni clotures, ni arbres, ni maisons voisines, et
+ * avec `seulement` ni les autres batiments de la parcelle : une annexe devant le mur le cacherait.
  */
-export function gardesDuRendu(e: EntreesPropositions): (cle: string) => boolean {
-  const cles = new Set([...e.liste.batiments.map((b) => b.cle), ...e.objets.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key)]);
+export function gardesDuRendu(e: EntreesPropositions, seulement?: string): (cle: string) => boolean {
+  const cles = new Set([...(seulement ? [seulement] : e.liste.batiments.map((b) => b.cle)), ...e.objets.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key)]);
   return (cle) => cles.has(cle);
 }
 
@@ -193,12 +194,12 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
   const prendreRendu = (c: Candidate) => {
     // Le rendu ne double que les photos de facade, comme avant le plafond : c'est elles que Claude compare au modele.
     if (place <= 0 || !c.img || c.photo.cote === undefined || !c.p.prise || c.p.prise.azimutDeg === null) return;
-    // Le rendu montre la facade visee entiere, pas ce que le telephone en cadrait de pres.
+    // Le rendu est l'elevation de la facade visee (de face, entiere, seule), pas ce que le telephone en cadrait.
     const ligne = b.facades.find((f) => f.cote === c.photo.cote);
     const cible: CibleFacadeRendu | undefined = ligne
       ? { gauche: ligne.facade.gauche, droite: ligne.facade.droite, hautM: hauteurHautDeFacade(o, ligne.facade, ligne.hauteurMur) }
       : undefined;
-    c.rendu = fab.rendu(c.p.prise, cible, gardesDuRendu(e));
+    c.rendu = fab.rendu(c.p.prise, cible, gardesDuRendu(e, cible ? b.cle : undefined));
     if (c.rendu) place--;
   };
   const premieres = groupes.flatMap((g) => g.slice(0, 1));
@@ -217,7 +218,7 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
   for (const c of groupes.flat().sort((a, z) => a.ordre - z.ordre)) {
     if (!c.img) continue;
     image(c.img, c.texte, etiquettes, contenu, c.photo);
-    if (c.rendu) image(c.rendu, 'rendu du modèle actuel de Plan, façade entière du pied du mur au haut du toit, vue du même côté que l’image ' + etiquettes.length, etiquettes, contenu);
+    if (c.rendu) image(c.rendu, 'rendu du modèle actuel de Plan, façade vue de face (perpendiculairement au mur, sans obstacle), du pied du mur au haut du toit, côté de l’image ' + etiquettes.length, etiquettes, contenu);
   }
   if (ortho) image(ortho, 'orthophoto, vue du dessus, recadrée sur le contour de ' + b.nom + ' (contour en jaune, nord en haut)', etiquettes, contenu);
   if (carte) image(carte, 'carte des hauteurs LiDAR de ' + b.nom + ' (bleu bas, rouge haut, contour en noir, échelle)', etiquettes, contenu);
