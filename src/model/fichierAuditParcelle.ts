@@ -15,6 +15,7 @@ import type { CasAudit, MetaPromenade, PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
 import type { ReleveFacade } from './types.js';
+import type { SilhouetteFacade } from './silhouetteFacade.js';
 
 export const FORMAT_AUDIT_PARCELLE = 'plan-audit-parcelle';
 /** La version du fichier qu'ecrit ce code. */
@@ -30,6 +31,8 @@ export interface MesureFacadeAuditee {
   confiance: number | null;
   hauteurM: number | null;
   couleur: { couleur: string; pixels: number; rang: number } | null;
+  /** La ligne du haut du mur sur la photo (model/silhouetteFacade.ts) ; absente d'un fichier d'avant elle. */
+  silhouette?: SilhouetteFacade;
 }
 
 export interface FacadeAuditee {
@@ -120,6 +123,7 @@ export function decisionDe(id: string, decisions: readonly DecisionAudit[]): Dec
  */
 const mesureSeule = (m: MesureFacadeAuditee): MesureFacadeAuditee => copie({
   releve: m.releve, rangReleve: m.rangReleve, coinsTrouves: m.coinsTrouves, confiance: m.confiance, hauteurM: m.hauteurM, couleur: m.couleur,
+  ...(m.silhouette ? { silhouette: m.silhouette } : {}),
 });
 
 const sansPropositions =(d: DecisionAudit): DecisionAudit => ({ t: d.t, acceptees: [...d.acceptees], refusees: [...d.refusees], verifies: [...d.verifies] });

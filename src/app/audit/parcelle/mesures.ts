@@ -23,6 +23,8 @@ import type { Facade } from '../../../facade/geometrie.js';
 import type { Image } from '../../../facade/homographie.js';
 import type { Prise } from '../../../zones/releve/capteurs.js';
 import type { PhotoCas } from '../../../model/audit.js';
+import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
+import { silhouetteDeEstimation } from '../../../facade/regles/toits/silhouettes.js';
 import type { ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 
 /** Ce que les mesures ont tire des photos d'une facade. */
@@ -47,6 +49,12 @@ export interface MesureFacade {
    * le format ne les porte pas.
    */
   devinees?: OuvertureFacade[];
+  /**
+   * La ligne du haut du mur sur la photo (pignon, trapeze, rectangle, rampe...), lue par la silhouette au-dessus de l'egout
+   * (facade/toit.ts) : de quoi dire les bouts du toit (facade/regles/toits/silhouettes.ts). `indetermine` quand le toit est
+   * hors cadre. Absente d'une mesure lue dans un fichier d'audit d'avant elle.
+   */
+  silhouette?: SilhouetteFacade;
 }
 
 export interface DependancesMesures {
@@ -124,6 +132,7 @@ async function releveDeLaPhoto(photo: PhotoCas, img: Pixels, f: Facade, bat: Pic
     releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, m.prise.mesure),
     coinsTrouves,
     devinees: a.r.devinees.map(versOuvertureFacade),
+    silhouette: silhouetteDeEstimation(a.r.toitEstime),
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };

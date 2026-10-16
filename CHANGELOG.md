@@ -7,6 +7,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La silhouette des façades dit la forme du toit.** Pendant l’audit, chaque photo de façade donne la ligne du haut du mur : triangle de mur (pignon), pan de toit incliné (croupe), trapèze, haut droit, rampe. Plan la mesure sur la photo (silhouette au-dessus de l’égout) et Claude la lit aussi (champ `silhouette` du schéma, prompt version 6, schéma version 2). Le moteur des toits en déduit les bouts du faîtage (`facade/regles/toits/silhouettes.ts` : un mur de bout dit ce qui ferme son bout, un long pan en trapèze dit des croupes, un haut droit des pignons) et les relit sur la mesure LiDAR comme tout fait du bâtiment (`corpsSousContrainte`) : jamais un toit dessiné à la main. Le résultat arrive sur l’écran des propositions comme une ligne « Forme du toit » avec son avant/après dans la Vue 3D, décochée avec ses raisons (un triangle de photo peut être un pignon ou une croupe) ; quand les murs et la vue d’ensemble de Claude divergent, les murs l’emportent et la ligne le dit.
+
 - **Les photos de l’audit alimentent les façades toutes seules.** Dès que la mesure d’une photo de façade est prête (coins trouvés, confiance suffisante, aucune réserve), son relevé (ouvertures et texture) est écrit sur la façade du projet, sans « Valider », en un seul pas d’historique que Ctrl+Z défait. Un relevé fait à la main n’est jamais écrasé : la ligne reste une proposition décochée. Le relevé posé par l’audit porte la marque `depuisAudit` ; une mesure plus récente le remplace, un relevé refait à la main la fait tomber.
 
 - **Conformité des façades (lot G13).** Sur chaque façade relevée d'un audit reçu, la disposition automatique des
