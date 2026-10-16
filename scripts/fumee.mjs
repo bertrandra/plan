@@ -2632,11 +2632,26 @@ const POINTS = {
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les huit sujets du depot, le
     // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
-    // version 5), un sujet retire d'une case, un sujet nouveau en brouillon (prompt, schema, controles),
-    // le brouillon qui survit a un rechargement, « Revenir au livre », et les deux telechargements.
-    await page.route(/\/admin\//, (route) => (new URL(route.request().url()).pathname.endsWith('/admin/session')
-      ? route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
-      : route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })));
+    // version 6), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
+    // « Reglages et faits » (un seuil change sur sa ligne, la ligne de version a ajouter), un sujet retire d'une
+    // case, un sujet nouveau en brouillon (prompt, schema, controles), le brouillon qui survit a un rechargement,
+    // « Revenir au livre », et les deux telechargements.
+    let surServeur = null;
+    const json = (route, corps, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(corps) });
+    await page.route(/\/admin\//, (route) => {
+      const chemin = new URL(route.request().url()).pathname, methode = route.request().method();
+      if (chemin.endsWith('/admin/session')) return json(route, {});
+      if (chemin.endsWith('/admin/claude/regles')) {
+        if (methode === 'PUT') {
+          const d = JSON.parse(route.request().postData() || '{}');
+          surServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: Number((/version:\s*(\d+)/.exec(d.prompt) || [])[1]), schema: 1, prompt_texte: d.prompt, schema_texte: d.schema, etat: d.etat };
+          return json(route, { brouillon: { enregistreLe: surServeur.enregistreLe, prompt: surServeur.prompt, schema: 1 } });
+        }
+        if (methode === 'DELETE') { surServeur = null; return json(route, { brouillon: null }); }
+        return json(route, { brouillon: surServeur });
+      }
+      return json(route, {}, 404);
+    });
     await page.goto(BASE + '/?admin&ecran=regles');
     await page.waitForSelector('.reglSujet', { timeout: 20000 });
     const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
@@ -2652,6 +2667,26 @@ const POINTS = {
     const apresEdition = await tuiles();
     const promptEdite = await page.locator('pre.reglSortie').textContent();
     debords.push(await deborde());
+    // Le brouillon sur le serveur : enregistre (version 6, prompt edite), dit, puis retire.
+    const etatServeur = async () => ((await page.locator('p[role="status"]').first().textContent()) || '').replace(/\s+/g, ' ');
+    const avantServeur = await etatServeur();
+    await page.getByRole('button', { name: 'Enregistrer sur le serveur', exact: true }).click();
+    await page.waitForFunction(() => /prompt version 6/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    const apresEnregistrement = await etatServeur();
+    const gardeAuServeur = !!surServeur && surServeur.prompt === 6 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
+    await page.getByRole('button', { name: 'Retirer du serveur', exact: true }).click();
+    await page.waitForFunction(() => /Aucun brouillon sur le serveur/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    const retire = surServeur === null;
+    // Les reglages et les faits : un seuil change sur sa ligne, l'empreinte change, la ligne de version est donnee.
+    await page.locator('#reglVue-donnees').click();
+    await page.locator('input[aria-label="Valeur de SEUIL_MARCHE_M"]').fill('0.9');
+    const fichierToits = ((await page.locator('[data-fichier="reglagesToits"]').first().textContent()) || '').replace(/\s+/g, ' ');
+    const ligneVersion = ((await page.locator('[aria-label="Lignes de version à ajouter"]').textContent()) || '').replace(/\s+/g, ' ');
+    const faitsListes = ((await page.locator('[data-fichier="faitsToits"]').textContent()) || '').includes('BATIMENT0000000322509182');
+    debords.push(await deborde());
+    await page.getByRole('button', { name: 'Revenir au livré', exact: true }).first().click();
+    const donneesRevenues = (await page.locator('[aria-label="Lignes de version à ajouter"]').count()) === 0;
+    await page.locator('#reglVue-sujets').click();
     // Un sujet retire d'une case.
     await page.locator('[aria-label="Dans le prompt : Cheminées"]').uncheck();
     const sansCheminees = !(await page.locator('pre.reglSortie').textContent())?.includes('- `cheminees`');
@@ -2679,11 +2714,13 @@ const POINTS = {
     const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
     const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
     const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
-      && /1 ligne change/.test(apresEdition[4] || '') && /version 5/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /1 ligne change/.test(apresEdition[4] || '') && /version 6/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 6.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
+      && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 4/.test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
       && dl1.suggestedFilename() === 'prompt-analyse.md' && dl2.suggestedFilename() === 'schema-analyse.json' && !debords.some(Boolean);
-    return { ok, mesure: `${sujets} sujets ; ${avant[1]} ; édition : « ${apresEdition[4]} » ; sans cheminées : ${sansCheminees} ; brouillon dans prompt ${avecNouveau}, schéma ${dansSchema}, contrôle « ${controle.trim().slice(0, 40)} » ; après rechargement ${apresRechargement} sujets ; revenu : ${revenu[0]}, ${revenu[4]}, brouillon ${stocke === null ? 'effacé' : 'resté'} ; fichiers ${dl1.suggestedFilename()}, ${dl2.suggestedFilename()} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+    return { ok, mesure: `${sujets} sujets ; ${avant[1]} ; édition : « ${apresEdition[4]} » ; serveur : « ${avantServeur.slice(0, 30)} » puis « ${apresEnregistrement.slice(0, 48)} », gardé ${gardeAuServeur}, retiré ${retire} ; réglages : « ${fichierToits.slice(fichierToits.indexOf('1 ligne'), fichierToits.indexOf('1 ligne') + 40)} », ${ligneVersion.slice(0, 60)} ; sans cheminées : ${sansCheminees} ; brouillon dans prompt ${avecNouveau}, schéma ${dansSchema}, contrôle « ${controle.trim().slice(0, 40)} » ; après rechargement ${apresRechargement} sujets ; revenu : ${revenu[0]}, ${revenu[4]}, brouillon ${stocke === null ? 'effacé' : 'resté'} ; fichiers ${dl1.suggestedFilename()}, ${dl2.suggestedFilename()} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   76: async (page, f) => {
     // Admin › Conformité (lot G3) : le corpus du depot (deja juge, compile dans la page) et un audit

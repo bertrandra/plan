@@ -54,11 +54,39 @@ export interface ReponseAnalyse {
 const estTableau = (v: unknown): v is unknown[] => Array.isArray(v);
 const estObjet = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/** Une sortie de Claude a-t-elle la forme attendue ? Le schema le garantit ; on verifie les tetes de chapitre. */
-export function estReponseAnalyse(v: unknown): v is ReponseAnalyse {
+/**
+ * Un champ « simple » de la reponse : `{ indices, valeur }` (un terme du vocabulaire) ou `{ indices, nombre }`
+ * (un compte). Les descriptions de sujets les declarent (regles/sujets/vote.ts) ; le vote les lit sans code
+ * propre a chacun, de sorte qu'un sujet nouveau (un chien-assis...) soit lu et vote des son entree au schema.
+ */
+export interface ChampSimple { nom: string; cle: 'valeur' | 'nombre' }
+/** Ce que l'on lit d'un champ simple dans une passe. */
+export interface LectureSimple { valeur: string | Compte; indices: IndiceAnalyse[] }
+
+/** Les champs de la reponse que le vote lit a la main, un par un : le vote generique ne les reprend pas. */
+export const CHAMPS_LUS_A_LA_MAIN: readonly string[] = ['forme', 'profil', 'faitage', 'bouts', 'bout', 'lucarnes', 'cheminees', 'terrasse', 'couverture', 'elements', 'facades', 'ecarts', 'contradictions', 'confiance'];
+
+/** Le champ simple `nom` d'une passe ; null s'il est absent (une reponse d'avant le sujet) ou mal forme. */
+export function lireSimple(r: ReponseAnalyse, champ: ChampSimple): LectureSimple | null {
+  const c = (r as unknown as Record<string, unknown>)[champ.nom];
+  if (!estObjet(c) || !estTableau(c.indices)) return null;
+  const v = c[champ.cle];
+  // Un compte est un entier ou `indetermine` ; une valeur est un terme (le schema ferme le vocabulaire, le serveur le ramene).
+  const ok = champ.cle === 'nombre' ? Number.isInteger(v) || v === 'indetermine' : typeof v === 'string';
+  if (!ok) return null;
+  return { valeur: v as string | Compte, indices: c.indices as IndiceAnalyse[] };
+}
+
+/**
+ * Une sortie de Claude a-t-elle la forme attendue ? Le schema le garantit ; on verifie les tetes de chapitre.
+ * Un champ simple declare par un sujet est facultatif (les reponses gardees d'avant lui n'en ont pas), mais
+ * mal forme quand il est la, il refuse la passe.
+ */
+export function estReponseAnalyse(v: unknown, simples: readonly ChampSimple[] = []): v is ReponseAnalyse {
   if (!estObjet(v)) return false;
   for (const k of ['forme', 'profil', 'faitage', 'bouts', 'lucarnes', 'cheminees', 'terrasse', 'couverture']) if (!estObjet(v[k])) return false;
   for (const k of ['elements', 'facades', 'ecarts', 'contradictions']) if (!estTableau(v[k])) return false;
+  for (const c of simples) if (c.nom in v && lireSimple(v as unknown as ReponseAnalyse, c) === null) return false;
   return typeof (v.forme as Record<string, unknown>).valeur === 'string' && typeof v.confiance === 'string';
 }
 
@@ -110,6 +138,8 @@ export interface VoteAnalyse {
   ecarts: { sujet: string; modele: string; observe: string }[];
   contradictions: { indiceLidar: string; observation: string }[];
   confiance: Vote<ReponseAnalyse['confiance']>;
+  /** Les champs simples des sujets, votes sans code propre : par nom de champ (regles/sujets/vote.ts les declare). */
+  simples: Record<string, Vote<string | Compte>>;
 }
 
 const cleDe = (v: unknown): string => JSON.stringify(v);
@@ -164,8 +194,14 @@ function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
   });
 }
 
-/** Trois passes (ou moins, si l'une a echoue) deviennent un seul avis par attribut. */
-export function voter(reponses: readonly ReponseAnalyse[]): VoteAnalyse {
+/** Le vote d'un champ simple : les passes qui le donnent, `indetermine` quand aucune ne l'a. */
+function voterSimple(reponses: readonly ReponseAnalyse[], champ: ChampSimple): Vote<string | Compte> {
+  const lues = reponses.map((r) => lireSimple(r, champ)).filter((l): l is LectureSimple => l !== null);
+  return voterAttribut<string | Compte>(lues.map((l) => l.valeur), lues.map((l) => l.indices), IND);
+}
+
+/** Trois passes (ou moins, si l'une a echoue) deviennent un seul avis par attribut ; `simples` : les champs que les sujets declarent. */
+export function voter(reponses: readonly ReponseAnalyse[], simples: readonly ChampSimple[] = []): VoteAnalyse {
   const ind = (f: (r: ReponseAnalyse) => readonly IndiceAnalyse[]) => reponses.map(f);
   const v = <T>(f: (r: ReponseAnalyse) => T, i: (r: ReponseAnalyse) => readonly IndiceAnalyse[], indetermine: T) => voterAttribut(reponses.map(f), ind(i), indetermine);
   const cheminees = v<Compte>((r) => r.cheminees.nombre, (r) => r.cheminees.indices, IND);
@@ -197,6 +233,7 @@ export function voter(reponses: readonly ReponseAnalyse[]): VoteAnalyse {
     ecarts: [...ecarts.values()],
     contradictions: [...contradictions.values()],
     confiance: v((r) => r.confiance, () => [], 'faible'),
+    simples: Object.fromEntries(simples.map((c) => [c.nom, voterSimple(reponses, c)])),
   };
 }
 

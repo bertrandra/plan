@@ -6,29 +6,39 @@
 //     l'accord mesure de Claude) ou s'il observe seulement ; on peut en exclure un du prompt, editer ses
 //     textes et son schema, ou en ajouter un en brouillon ;
 //   - le resultat : le prompt, le schema, ce qui change par rapport au livre, les controles.
-// Rien n'est enregistre sur le serveur : l'ecran EXPLORE. Ce qui est bon se telecharge (le module du
-// sujet, ou les deux fichiers) et entre dans le depot par une PR (`npm run regles:generer`). Le brouillon
-// reste dans ce navigateur, pour ne pas perdre une edition en cours.
+// L'ecran EXPLORE : ce qui est bon se telecharge (le module du sujet, ou les deux fichiers) et entre dans
+// le depot par une PR (`npm run regles:generer`). Le brouillon reste dans ce navigateur, pour ne pas perdre
+// une edition en cours ; « Enregistrer sur le serveur » le garde en plus cote serveur (admin/claude/regles),
+// ou une analyse (`?regles=local`) et un rejeu d'Admin › Audits peuvent partir avec son prompt AVANT la PR.
+// Le prompt livre n'est jamais remplace : seule une demande de l'administrateur qui le nomme le lit.
 
 import { useEffect, useMemo, useState } from 'react';
-import { controler, diffLignes, estimerTokens, insererAvantLaFin, lignesModifiees, remplacerSujet } from '../regles/sujets/edition.js';
+import { controler, diffLignes, insererAvantLaFin, lignesModifiees, remplacerSujet } from '../regles/sujets/edition.js';
 import { genererFichiers } from '../regles/sujets/generation.js';
 import type { DescriptionSujet } from '../regles/sujets/description.js';
 import type { Sujet } from '../app/regles/sujets/contrat.js';
 import { EditeurSujet } from './regles/EditeurSujet.js';
 import { NouveauSujet } from './regles/NouveauSujet.js';
 import { Resultat, type Onglet } from './regles/Resultat.js';
+import { Donnees } from './regles/Donnees.js';
+import { BarreVue, Tuiles } from './regles/Tuiles.js';
+import type { ClientRegles } from '../io/reglesServeur.js';
+import { useBrouillonServeur } from './regles/brouillonServeur.js';
 
 export interface BrouillonRegles { lire(): string | null; ecrire(texte: string): void; effacer(): void }
 
 export interface PropsEcranRegles {
   /** Les sujets tels que le depot les livre. */
   sujets: readonly DescriptionSujet[];
-  /** Ce que l'audit sait proposer, apparie aux sujets par `attributs`. */
-  proposeurs: readonly Pick<Sujet, 'id' | 'libelle' | 'effet'>[];
+  /** Ce que l'audit sait proposer, apparie aux sujets par le meme `id`. */
+  proposeurs: readonly Pick<Sujet, 'id' | 'attribut' | 'effet'>[];
   /** Le taux d'accord de Claude mesure par attribut ; absent : pas encore mesure. */
   accords: Readonly<Partial<Record<string, number>>>;
   brouillon?: BrouillonRegles;
+  /** Le brouillon sur le serveur ; absent : l'ecran n'enregistre qu'ici (tests, pas de session d'administrateur). */
+  serveur?: ClientRegles;
+  /** Les fichiers de donnees (reglages, faits) : la derniere version de lecture de chacun, et leur brouillon local. Absent : l'onglet n'est pas propose. */
+  donnees?: { versions: { toits: number; facades: number }; brouillon?: BrouillonRegles };
   telecharger: (nom: string, contenu: string, type: string) => void;
   copier: (texte: string) => Promise<void>;
   retour?: string;
@@ -48,15 +58,18 @@ function lireBrouillon(texte: string | null, livre: readonly DescriptionSujet[])
 }
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
+const quand = (iso: string | null) => (iso ?? '?').slice(0, 16).replace('T', ' ');
 
 export function EcranRegles(props: PropsEcranRegles) {
-  const { sujets: livres, proposeurs, accords, brouillon, telecharger, copier, retour = '?admin' } = props;
+  const { sujets: livres, proposeurs, accords, brouillon, serveur, donnees, telecharger, copier, retour = '?admin' } = props;
+  const [vue, setVue] = useState<'sujets' | 'donnees'>('sujets');
   const [etat, setEtat] = useState<Etat>(() => lireBrouillon(brouillon?.lire() ?? null, livres));
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [onglet, setOnglet] = useState<Onglet>('prompt');
   const [nouveau, setNouveau] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const { liste, exclus } = etat;
+  const { surServeur, occupe, enregistrer, retirer } = useBrouillonServeur(serveur, setMessage);
 
   // Le brouillon suit l'edition ; revenu au livre, il n'y a plus rien a garder.
   useEffect(() => {
@@ -92,6 +105,17 @@ export function EcranRegles(props: PropsEcranRegles) {
   const basculer = (id: string) => setEtat((e) => ({ ...e, exclus: e.exclus.includes(id) ? e.exclus.filter((x) => x !== id) : [...e.exclus, id] }));
   const toutRevenir = () => { setEtat({ liste: [...livres], exclus: [] }); setOuvert(null); setMessage('Retour au prompt et au schéma du dépôt.'); try { brouillon?.effacer(); } catch { /* rien a effacer */ } };
 
+  /** Garde sur le serveur le prompt et le schema recalcules, et l'etat de l'editeur qui les produit. */
+  const enregistrerSurServeur = () => enregistrer({ prompt: sortie.prompt, schema: sortie.schema, etat });
+  const reprendreDuServeur = () => {
+    const e = surServeur?.etat;
+    const relu = e ? lireBrouillon(JSON.stringify(e), livres) : null;
+    if (!relu || !surServeur) return;
+    setEtat(relu);
+    setOuvert(null);
+    setMessage('Brouillon du serveur repris (enregistré le ' + quand(surServeur.enregistreLe) + ').');
+  };
+
   const copierPrompt = () => { copier(sortie.prompt).then(() => setMessage('Prompt copié.'), () => setMessage('Copie impossible : sélectionnez le texte à la main.')); };
 
   return (
@@ -100,24 +124,17 @@ export function EcranRegles(props: PropsEcranRegles) {
         <a className="ecranRetour" href={retour}><span aria-hidden="true">←</span> Retour au plan</a>
         <h1 className="palTitre">Règles</h1>
         <p className="palSous">
-          Les sujets que l’audit sait lire, et le prompt et le schéma que Claude reçoit, recalculés à chaque frappe. Rien n’est enregistré
-          sur le serveur : ce qui est bon se télécharge et entre dans le dépôt par une PR (<code>npm run regles:generer</code>). Visible de l’administrateur seulement.
+          Les sujets que l’audit sait lire, et le prompt et le schéma que Claude reçoit, recalculés à chaque frappe. « Enregistrer sur le
+          serveur » garde le brouillon pour l’essayer (<code>?regles=local</code>, ou un rejeu dans Admin › Audits) sans toucher au prompt livré :
+          ce qui est bon se télécharge et entre dans le dépôt par une PR (<code>npm run regles:generer</code>). Visible de l’administrateur seulement.
         </p>
       </header>
 
-      <div className="consTuiles" aria-label="Chiffres clés">
-        <div className="consTuile"><span className="consTuileTitre">Sujets</span><span className="consTuileValeur">{actifs.length} / {liste.length}</span>
-          <span className="consTuileNote">{brouillons.length ? pluriel(brouillons.length, 'brouillon') : 'dans le dépôt'}</span></div>
-        <div className="consTuile"><span className="consTuileTitre">Prompt</span><span className="consTuileValeur">≈ {estimerTokens(sortie.prompt).toLocaleString('fr-FR')} tokens</span>
-          <span className="consTuileNote">{sortie.prompt.length.toLocaleString('fr-FR')} caractères · version {sortie.versionPrompt}</span></div>
-        <div className="consTuile"><span className="consTuileTitre">Schéma</span><span className="consTuileValeur">{pluriel(champs, 'champ')}</span>
-          <span className="consTuileNote">version {sortie.versionSchema}</span></div>
-        <div className="consTuile"><span className="consTuileTitre">Contrôles</span><span className="consTuileValeur">{pluriel(erreurs, 'erreur')}</span>
-          <span className="consTuileNote">{pluriel(alertes, 'alerte')}</span></div>
-        <div className="consTuile"><span className="consTuileTitre">Par rapport au livré</span>
-          <span className="consTuileValeur">{identique ? 'Identique' : pluriel(Math.max(changees, 1), 'ligne') + ' change' + (changees > 1 ? 'nt' : '')}</span>
-          <span className="consTuileNote">{identique ? 'prompt v' + livre.versionPrompt + ', schéma v' + livre.versionSchema : 'version ' + sortie.versionPrompt + ' à poser dans versions.ts'}</span></div>
-      </div>
+      {donnees && <BarreVue vue={vue} surVue={setVue} />}
+
+      {vue === 'donnees' && donnees ? <Donnees versions={donnees.versions} brouillon={donnees.brouillon} telecharger={telecharger} /> : <>
+      <Tuiles sujetsActifs={actifs.length} sujets={liste.length} brouillons={brouillons.length} prompt={sortie.prompt} versionPrompt={sortie.versionPrompt}
+        versionSchema={sortie.versionSchema} champs={champs} erreurs={erreurs} alertes={alertes} changees={changees} identique={identique} livre={livre} />
 
       <div className="consFiltres" role="group" aria-label="Actions">
         <button type="button" onClick={() => { setNouveau(true); setOuvert(null); }}>Nouveau sujet</button>
@@ -125,9 +142,21 @@ export function EcranRegles(props: PropsEcranRegles) {
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'prompt-analyse.md tel que le serveur le lirait'} onClick={() => telecharger('prompt-analyse.md', sortie.prompt, 'text/markdown')}>Télécharger le prompt</button>
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'schema-analyse.json tel que le serveur le lirait'} onClick={() => telecharger('schema-analyse.json', sortie.schema, 'application/json')}>Télécharger le schéma</button>
         <button type="button" className="secondary" disabled={identique && !exclus.length} onClick={toutRevenir}>Revenir au livré</button>
+        {serveur && <>
+          <button type="button" disabled={occupe || erreurs > 0 || (identique && !exclus.length)}
+            title={erreurs ? raisonFichiers ?? undefined : identique && !exclus.length ? 'Rien ne diffère du livré : il n’y a rien à essayer.' : 'Garde le prompt et le schéma sur le serveur, pour une analyse ou un rejeu d’essai'}
+            onClick={enregistrerSurServeur}>Enregistrer sur le serveur</button>
+          <button type="button" className="secondary" disabled={occupe || !surServeur || !surServeur.etat} onClick={reprendreDuServeur}>Reprendre celui du serveur</button>
+          <button type="button" className="secondary" disabled={occupe || !surServeur} onClick={retirer}>Retirer du serveur</button>
+        </>}
         <span className="consEtat" role="status">{message ?? ''}</span>
       </div>
       {raisonFichiers && <p className="consNote confRaison">{raisonFichiers}</p>}
+      {serveur && <p className="consNote" role="status">
+        {surServeur === undefined ? 'Lecture du brouillon du serveur…'
+          : surServeur ? 'Brouillon du serveur : prompt version ' + surServeur.prompt + ', schéma version ' + surServeur.schema + ', enregistré le ' + quand(surServeur.enregistreLe) + '. Ouvrez le plan avec ?regles=local pour qu’une analyse parte avec lui.'
+          : 'Aucun brouillon sur le serveur : les analyses partent avec le prompt livré.'}
+      </p>}
 
       <div className="reglCorps">
         <section className="reglSujets" aria-label="Sujets">
@@ -137,7 +166,7 @@ export function EcranRegles(props: PropsEcranRegles) {
             {liste.map((s) => {
               const exclu = exclus.includes(s.id);
               const brouillonDuSujet = !livres.some((l) => l.id === s.id);
-              const propose = s.attributs.map((a) => proposeurs.find((p) => p.id === a)).filter((p): p is NonNullable<typeof p> => !!p);
+              const propose = proposeurs.find((p) => p.id === s.id);
               return (
                 <li key={s.id} className="reglSujet" data-sujet={s.id} data-exclu={exclu ? 'oui' : undefined}>
                   <div className="reglSujetEntete">
@@ -146,10 +175,9 @@ export function EcranRegles(props: PropsEcranRegles) {
                       <strong>{s.libelle}</strong> <code>{s.id}</code>
                     </label>
                     <span className="reglBadges">
-                      {propose.length ? propose.map((p) => <span key={p.id} className="reglBadge">Propose · écrit <code>{p.effet}</code> · accord {accords[p.id] !== undefined ? Math.round((accords[p.id] ?? 0) * 100) + ' %' : 'non mesuré'}</span>)
+                      {propose ? <span className="reglBadge">Propose · écrit <code>{propose.effet}</code> · accord {propose.attribut && accords[propose.attribut] !== undefined ? Math.round((accords[propose.attribut] ?? 0) * 100) + ' %' : 'non mesuré'}</span>
                         : <span className="reglBadge">{brouillonDuSujet ? 'Brouillon · observation seule' : 'Observation seule'}</span>}
-                      {s.attributs.length > propose.length && <span className="reglBadge">attribut sans module de proposition</span>}
-                      {brouillonDuSujet && propose.length > 0 && <span className="reglBadge">Brouillon</span>}
+                      {brouillonDuSujet && propose && <span className="reglBadge">Brouillon</span>}
                       {modifie(s) && <span className="reglBadge reglModifie">Modifié</span>}
                       {exclu && <span className="reglBadge">Hors du prompt</span>}
                     </span>
@@ -175,6 +203,7 @@ export function EcranRegles(props: PropsEcranRegles) {
           <Resultat onglet={onglet} surOnglet={setOnglet} prompt={diffPrompt} schema={diffSchema} ecartsPrompt={diffPrompt} ecartsSchema={diffSchema} controles={controles} />
         </section>
       </div>
+      </>}
     </div>
   );
 }

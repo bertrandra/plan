@@ -48,4 +48,14 @@ describe('la comparaison des analyses d un audit', () => {
     expect(lignes).toHaveLength(3);
     expect(lignes[2]).toContain('Rejeu;2026-10-15T11:00:00Z;Claude Sonnet 5.5;claude-sonnet-5-5;3;2;low;Terminée;4;0;0;0;12;460;200;0,004;200');
   });
+
+  it('marque l essai du brouillon des regles : « brouillon 6 » au lieu de 6, dans le tableau comme dans le CSV', () => {
+    const ls = lignesBenchmark([resume({ id: 'a' }), resume({ id: 'b', creeLe: '2026-10-15T11:00:00Z', prompt: 6, essai: true })]);
+    expect(ls.map((l) => l.essai)).toEqual([false, true]);
+    const lignes = csvBenchmark(ls).trim().split('\r\n');
+    expect(lignes[1]).toContain(';3;2;low;');
+    expect(lignes[2]).toContain(';brouillon 6;2;low;');
+    // Une trace d'avant l'essai n'a pas le champ : ce n'est pas un essai.
+    expect(ligneBenchmark(resume({})).essai).toBe(false);
+  });
 });

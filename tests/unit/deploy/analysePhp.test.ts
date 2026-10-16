@@ -8,6 +8,7 @@ import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { PLAFONDS_DEFAUT, choixConsommation, etatOrganisations, filtrerConsommation, sortieConforme, type Plafonds } from '../../../buildsg/analyseAdmin.mjs';
 import { CLE, COUT_P1, COUT_P2, TEXTE_DESORDONNE, TROUVE_DEFAUT, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
+import { verifierBrouillonDesRegles } from '../../fixtures/deploy/scenarioRegles.js';
 
 // analyse.php, l'analyse par Claude sans Node (deploy/analyse.php), contre une API Message Batches
 // simulee : memes scenarios que buildsg/analyseAdmin.mjs, memes couts au centime pres. Lance par le
@@ -100,7 +101,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect((await navigateur('admin/claude/etat')).status).toBe(401);
     expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 4, schema: 1, effort: 'low', organisation: 'admin', admin: true });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 5, schema: 1, effort: 'low', organisation: 'admin', admin: true });
     // La session admin d'admin.php continue de servir les demos.
     expect((await navigateur('admin/demos')).status).toBe(200);
   });
@@ -161,7 +162,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(lignes.find((l) => l.requete === 'p2')).toMatchObject({
       organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
       usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, facades: 2, cout: COUT_P2,
-      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 4, schema: 1, trouve: TROUVE_DEFAUT
+      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 5, schema: 1, trouve: TROUVE_DEFAUT
     });
     // La page ne recoit pas les comptes : ils ne servent qu'au tableau de bord.
     expect(p1).not.toHaveProperty('trouve');
@@ -245,5 +246,13 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(f.lignes.map((l: { idu: string }) => l.idu)).toEqual(['78650000AE0102']);
     expect((await navigateur('admin/consommation?du=2026-02-30')).status).toBe(400);
     expect((await ecrire('admin/consommation', 'PUT', {})).status).toBe(405);
+  });
+
+  it('garde le brouillon des regles pour l administrateur seul, et ne le lit que sur une demande d essai (comme Node)', async () => {
+    await verifierBrouillonDesRegles({
+      navigateur, ecrire, faux, journal,
+      utilisateur: (entree, init = {}) => navigateur(entree, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: 'Bearer ' + JETON_ORGA } }),
+      connecterAdmin: async () => { expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null); },
+    });
   });
 });

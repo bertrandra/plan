@@ -7,7 +7,6 @@ import type { DescriptionSujet } from '../description.js';
 export const cheminees: DescriptionSujet = {
   id: 'cheminees',
   libelle: `Cheminées`,
-  attributs: ['cheminees'],
   champs: {
     "cheminees": {
       "type": "object",

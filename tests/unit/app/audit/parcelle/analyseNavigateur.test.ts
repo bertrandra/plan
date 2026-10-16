@@ -16,5 +16,7 @@ describe('l analyse dans le navigateur', () => {
     const a = analyseClaudeDuNavigateur(etat, () => 'projet-1');
     expect(a.identite()).toEqual({ projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites' });
     expect(a.client).toBe(null);
+    // L'essai du brouillon des regles est a l'administrateur : sans session d'administrateur, il n'est jamais demande.
+    expect(a.essai()).toBe(false);
   });
 });

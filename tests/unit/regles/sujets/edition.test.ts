@@ -45,12 +45,18 @@ describe('modifier une description', () => {
 });
 
 describe('les contrôles', () => {
-  it('ne trouvent aucune erreur dans les sujets livrés ; les termes que le prompt ne définit pas sont des alertes', () => {
+  it('ne trouvent ni erreur ni alerte dans les sujets livrés : chaque terme du schéma est défini dans le prompt', () => {
     const c = controler(livre);
     expect(c[0]).toMatchObject({ niveau: 'ok' });
     expect(niveaux(c)).not.toContain('erreur');
-    const alertes = c.filter((x) => x.niveau === 'alerte').map((x) => x.message);
-    expect(alertes.some((m) => /« couverture »/.test(m) && /tuile-plate/.test(m))).toBe(true);
+    // Le prompt v5 définit les couvertures, le sens du faîtage et le châssis d'éclairage (plus d'alerte).
+    expect(c.filter((x) => x.niveau === 'alerte').map((x) => x.message)).toEqual([]);
+  });
+
+  it('signalent en alerte les termes que le prompt ne définit pas, et nomment le champ', () => {
+    const sans = remplacerSujet(livre, 'couverture', (s) => ({ ...s, vocabulaire: [] }));
+    const alertes = controler(sans).filter((x) => x.niveau === 'alerte').map((x) => x.message);
+    expect(alertes.some((m) => /« couverture »/.test(m) && /tuile-plate/.test(m) && /bac-acier/.test(m))).toBe(true);
     // « fenetre-de-toit » est dit en toutes lettres (« Fenêtre de toit ») : pas d'alerte.
     expect(alertes.join(' ')).not.toMatch(/fenetre-de-toit/);
   });
@@ -75,7 +81,9 @@ describe('un sujet nouveau, en brouillon', () => {
 
   it('s’intercale avant la fin de la réponse, avec son champ, sa consigne et son vocabulaire', () => {
     const s = nouveauSujet(spec, livre);
-    expect(s).toMatchObject({ id: 'objetJardin', attributs: [] });
+    expect(s).toMatchObject({ id: 'objetJardin' });
+    // Un seul identifiant : la description n'a plus d'`attributs`, c'est le module de meme `id` qui porte l'attribut.
+    expect(s).not.toHaveProperty('attributs');
     const liste = insererAvantLaFin(livre, s);
     expect(liste[liste.length - 2]?.id).toBe('objetJardin');
     expect(liste[liste.length - 1]?.id).toBe('transverse');

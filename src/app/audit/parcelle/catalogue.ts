@@ -17,7 +17,7 @@ import { donneesAudit, type DonneesAudit } from './donneesAudit.js';
 import { csvBenchmark, lignesBenchmark } from '../../../export/benchmarkAnalyses.js';
 import type { ClientAudits, FicheAudit } from '../../../io/auditsServeur.js';
 import type { AnalyseComplete, ClientAnalysesAudits, ResumeAnalyse } from '../../../io/analysesAudits.js';
-import type { ClientAnalyse, DemandeAnalyse } from '../../../io/analyseClaude.js';
+import type { BrouillonServeur, ClientAnalyse, DemandeAnalyse } from '../../../io/analyseClaude.js';
 
 /** Ce que le rejeu demande de plus au catalogue : les analyses gardees, le client de l'analyse, la preparation. */
 export interface DependancesAnalyses {
@@ -75,6 +75,12 @@ export interface EtatCatalogue {
   /** Les modeles que le serveur admet, et celui choisi pour le prochain rejeu. */
   modeles: string[];
   modele: string | null;
+  /** Le brouillon des regles du serveur (Admin › Regles), si l'administrateur en a enregistre un. */
+  brouillon: BrouillonServeur | null;
+  /** Le prochain rejeu part avec le prompt du brouillon et non avec le prompt livre. */
+  essai: boolean;
+  /** L'analyse ouverte, comparee a une autre du meme audit : ce que leurs reponses disent differemment. */
+  comparaison: { audit: string; avec: string; complete: AnalyseComplete | null; erreur: string | null } | null;
 }
 
 export interface CatalogueAudits {
@@ -101,7 +107,12 @@ export interface CatalogueAudits {
   /** Pourquoi cet audit ne se rejoue pas ici ; null s'il se rejoue. */
   raisonRejouer(a: FicheAudit): string | null;
   choisirModele(m: string): void;
+  /** Rejouer avec le prompt du brouillon des regles (essai) plutot qu'avec le prompt livre. */
+  choisirEssai(essai: boolean): void;
   rejouer(a: FicheAudit): Promise<void>;
+  /** Compare l'analyse ouverte a `avec`, une autre analyse du meme audit. */
+  comparer(audit: string, avec: string): Promise<void>;
+  fermerComparaison(): void;
   exporterAnalyses(a: FicheAudit): void;
   voirTrace(audit: string, id: string): Promise<void>;
   fermerTrace(): void;
@@ -127,7 +138,7 @@ interface Noyau {
   lire: (a: FicheAudit) => Promise<string | null>;
 }
 
-type MethodesAnalyses = Pick<CatalogueAudits, 'relireAnalyses' | 'rejeuDisponible' | 'raisonRejouer' | 'choisirModele' | 'rejouer' | 'exporterAnalyses' | 'voirTrace' | 'fermerTrace' | 'exporterTrace' | 'urlImage'>
+type MethodesAnalyses = Pick<CatalogueAudits, 'relireAnalyses' | 'rejeuDisponible' | 'raisonRejouer' | 'choisirModele' | 'choisirEssai' | 'rejouer' | 'comparer' | 'fermerComparaison' | 'exporterAnalyses' | 'voirTrace' | 'fermerTrace' | 'exporterTrace' | 'urlImage'>
   & { suivre(id: string): Promise<void>; chargerModeles(): Promise<void>; arreter(): void };
 
 /** Les analyses et rejeux d'un audit de parcelle : leur suivi, leur comparaison, leur detail, le rejeu. */
@@ -160,8 +171,9 @@ function analysesDuCatalogue(d: DependancesCatalogue, n: Noyau): MethodesAnalyse
       const analyse = d.rejeu?.analyse();
       if (!analyse || n.etat().modeles.length) return;
       try {
-        const modeles = (await analyse.etat()).modeles ?? [];
-        if (modeles.length) n.poser({ modeles, modele: n.etat().modele ?? modeles[0] ?? null });
+        const etat = await analyse.etat();
+        const modeles = etat.modeles ?? [];
+        if (modeles.length) n.poser({ modeles, modele: n.etat().modele ?? modeles[0] ?? null, brouillon: etat.brouillon ?? null });
       } catch { /* l'analyse non configuree : le rejeu le dira */ }
     },
     async relireAnalyses() { const det = n.etat().detail; if (det) await m.suivre(det.id); },
@@ -174,9 +186,11 @@ function analysesDuCatalogue(d: DependancesCatalogue, n: Noyau): MethodesAnalyse
       if (a.idu !== idu) return 'Ce projet est sur la parcelle ' + idu + ' : ouvrez le projet de la parcelle ' + a.idu + ' pour rejouer son audit.';
       if (!a.photos) return 'Cet audit n’a aucune photo à analyser.';
       if (!n.etat().modele) return 'Le serveur ne dit pas quels modèles il admet : l’analyse par Claude est-elle configurée ?';
+      if (n.etat().essai && !n.etat().brouillon) return 'Le serveur n’a pas de brouillon des règles : enregistrez-le dans Admin › Règles (« Enregistrer sur le serveur »).';
       return null;
     },
     choisirModele(x) { if (n.etat().modeles.includes(x)) n.poser({ modele: x }); },
+    choisirEssai(essai) { n.poser({ essai }); },
     async rejouer(a) {
       const raison = m.raisonRejouer(a);
       const r = d.rejeu, analyse = r?.analyse(), modele = n.etat().modele;
@@ -187,8 +201,9 @@ function analysesDuCatalogue(d: DependancesCatalogue, n: Noyau): MethodesAnalyse
       try {
         const demande = await r.preparer(texte, a, modele);
         if ('refus' in demande) { d.signaler('Rejeu refusé : ' + demande.refus); return; }
-        await analyse.creerBatch(demande);
-        d.signaler('Rejeu de l’analyse parti (' + modele + ', ' + demande.requetes.length + ' requêtes) : la réponse arrive en général en quelques minutes.');
+        const essai = n.etat().essai;
+        await analyse.creerBatch(essai ? { ...demande, essai: 'brouillon' } : demande);
+        d.signaler('Rejeu de l’analyse parti (' + modele + (essai ? ', prompt du brouillon des règles' : '') + ', ' + demande.requetes.length + ' requêtes) : la réponse arrive en général en quelques minutes.');
       } catch (e) {
         d.signaler('Le rejeu n’est pas parti : ' + message(e));
         return;
@@ -214,7 +229,19 @@ function analysesDuCatalogue(d: DependancesCatalogue, n: Noyau): MethodesAnalyse
         if (n.etat().trace?.id === id) n.poser({ trace: { audit, id, complete: null, erreur: message(e) } });
       }
     },
-    fermerTrace() { n.poser({ trace: null }); },
+    fermerTrace() { n.poser({ trace: null, comparaison: null }); },
+    async comparer(audit, avec) {
+      const analyses = d.rejeu?.analyses();
+      if (!analyses) { d.signaler(SESSION_EXPIREE); return; }
+      n.poser({ comparaison: { audit, avec, complete: null, erreur: null } });
+      try {
+        const complete = await analyses.lire(audit, avec);
+        if (n.etat().comparaison?.avec === avec) n.poser({ comparaison: { audit, avec, complete, erreur: null } });
+      } catch (e) {
+        if (n.etat().comparaison?.avec === avec) n.poser({ comparaison: { audit, avec, complete: null, erreur: message(e) } });
+      }
+    },
+    fermerComparaison() { n.poser({ comparaison: null }); },
     exporterTrace() {
       const t = n.etat().trace;
       if (!t?.complete) return;
@@ -244,7 +271,7 @@ function deposerFichier(d: DependancesCatalogue, relire: () => Promise<void>): v
 
 export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
   const abonnes = new Set<() => void>();
-  let etat: EtatCatalogue = { chargement: false, audits: null, erreur: null, enCours: null, aConfirmer: null, detail: null, trace: null, modeles: [], modele: null };
+  let etat: EtatCatalogue = { chargement: false, audits: null, erreur: null, enCours: null, aConfirmer: null, detail: null, trace: null, modeles: [], modele: null, brouillon: null, essai: false, comparaison: null };
   const poser = (x: Partial<EtatCatalogue>) => { etat = { ...etat, ...x }; abonnes.forEach((f) => f()); };
 
   async function lire(a: FicheAudit): Promise<string | null> {
@@ -313,7 +340,7 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
       try {
         // L'administrateur retire sans secret : sa session suffit.
         await client.retirer(id, '');
-        poser({ audits: (etat.audits ?? []).filter((x) => x.id !== id), ...(etat.detail?.id === id ? { detail: null, trace: null } : {}) });
+        poser({ audits: (etat.audits ?? []).filter((x) => x.id !== id), ...(etat.detail?.id === id ? { detail: null, trace: null, comparaison: null } : {}) });
         d.signaler('Audit retiré du serveur de Plan.');
       } catch (e) {
         d.signaler(message(e));
@@ -323,8 +350,8 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
     },
     async basculerDetail(a) {
       analyses.arreter();
-      if (etat.detail?.id === a.id) { poser({ detail: null, trace: null }); return; }
-      poser({ detail: { id: a.id, texte: null, donnees: null, analyses: null, erreur: null }, trace: null });
+      if (etat.detail?.id === a.id) { poser({ detail: null, trace: null, comparaison: null }); return; }
+      poser({ detail: { id: a.id, texte: null, donnees: null, analyses: null, erreur: null }, trace: null, comparaison: null });
       const texte = await lire(a);
       if (texte === null) { majDetail(a.id, { erreur: 'Le fichier de l’audit n’a pas pu être lu.' }); return; }
       let donnees: DonneesAudit | null = null, erreur: string | null = null;
@@ -333,7 +360,7 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
       if (a.nature === 'parcelle') { await analyses.chargerModeles(); await analyses.suivre(a.id); }
     },
     relireAnalyses: analyses.relireAnalyses, rejeuDisponible: analyses.rejeuDisponible, raisonRejouer: analyses.raisonRejouer, choisirModele: analyses.choisirModele,
-    rejouer: analyses.rejouer, exporterAnalyses: analyses.exporterAnalyses, voirTrace: analyses.voirTrace, fermerTrace: analyses.fermerTrace,
+    choisirEssai: analyses.choisirEssai, rejouer: analyses.rejouer, comparer: analyses.comparer, fermerComparaison: analyses.fermerComparaison, exporterAnalyses: analyses.exporterAnalyses, voirTrace: analyses.voirTrace, fermerTrace: analyses.fermerTrace,
     exporterTrace: analyses.exporterTrace, urlImage: analyses.urlImage,
     deposerDisponible: () => !!d.choisirFichier,
     deposer() { deposerFichier(d, () => catalogue.relire()); },

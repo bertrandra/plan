@@ -8,7 +8,7 @@ import type { Vote } from '../../../model/analyseClaude.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, FormeToitSimple } from '../../../model/types.js';
 import type { Proposition } from '../../../regles/decisions.js';
-import { deClaude, type EntreeSujet, type Sujet } from './contrat.js';
+import { deClaude, type EntreeObservation, type EntreeSujet, type LigneObservation, type Sujet } from './contrat.js';
 
 /**
  * Les formes que Plan sait lire sur la mesure, dans le vocabulaire du schema de Claude. Les autres
@@ -71,4 +71,35 @@ function propositionForme({ o, b, v, et, contra }: EntreeSujet): Proposition | n
   return { ...p, indices: [...p.indices, ajuste, ...ecarts] };
 }
 
-export const formeToit: Sujet = { id: 'formeToit', libelle: 'Forme du toit', effet: 'corpsToit', proposer: propositionForme };
+/** Les formes du schema que « Ce que je vois » ne nomme pas. */
+const AUTRES_FORMES_SCHEMA: Record<string, string> = {
+  coyau: 'Coyau', carene: 'Carène', conique: 'Conique', polygonal: 'Polygonal', fleche: 'Flèche', dome: 'Dôme', imperiale: 'Impériale',
+};
+export function libelleForme(code: string): string {
+  return [...FORMES_COURANTES, ...AUTRES_FORMES].find((f) => f.code === code)?.libelle ?? AUTRES_FORMES_SCHEMA[code] ?? code;
+}
+
+const BOUTS: Record<string, [string, string]> = { pignon: ['pignon', 'Pignons'], croupe: ['croupe', 'Croupes'], 'demi-croupe': ['demi-croupe', 'Demi-croupes'], brisis: ['brisis', 'Brisis'] };
+
+/** La forme vue (avec son profil et son faitage, comparee au modele), puis les bouts du faitage. */
+function observationsForme({ o, v }: EntreeObservation): LigneObservation[] {
+  const out: LigneObservation[] = [];
+  if (v.forme.valeur !== 'indetermine') {
+    const details = [v.profil.valeur === 'brise' ? 'profil brisé' : v.profil.valeur === 'courbe' ? 'profil courbe' : null,
+      v.faitage.valeur === 'parallele-rue' ? 'faîtage parallèle à la rue' : v.faitage.valeur === 'perpendiculaire-rue' ? 'faîtage perpendiculaire à la rue' : null].filter(Boolean);
+    const modele = o.toit?.forme;
+    const compare = !modele ? '' : modele === v.forme.valeur ? ', comme le modèle de Plan' : ' ; le modèle de Plan dit : ' + libelleForme(modele).toLowerCase();
+    out.push({ sujet: 'forme', texte: 'Forme du toit vue : ' + libelleForme(v.forme.valeur).toLowerCase() + (details.length ? ', ' + details.join(', ') : '') + compare, indices: v.forme.indices, accord: v.forme.accord });
+  }
+  const g = BOUTS[v.boutGauche.valeur], d = BOUTS[v.boutDroit.valeur];
+  if (g || d) {
+    const indices = [...(g ? v.boutGauche.indices : []), ...(d ? v.boutDroit.indices : [])];
+    const accord = Math.min(...[g ? v.boutGauche.accord : 1, d ? v.boutDroit.accord : 1]);
+    const texte = g && d && g === d ? g[1] + ' aux deux bouts du faîtage'
+      : 'Bouts du faîtage, vus de la rue : ' + [g ? g[0] + ' à gauche' : null, d ? d[0] + ' à droite' : null].filter(Boolean).join(', ');
+    out.push({ sujet: g?.[0] === 'pignon' || d?.[0] === 'pignon' ? 'pignons' : 'bouts', texte, indices, accord });
+  }
+  return out;
+}
+
+export const formeToit: Sujet = { id: 'formeToit', attribut: 'formeToit', effet: 'corpsToit', proposer: propositionForme, observer: observationsForme };

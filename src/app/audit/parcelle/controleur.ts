@@ -113,7 +113,7 @@ export interface ContexteAuditParcelle {
    * hors admin), l'identite de la parcelle pour le journal, et ce qui dessine les images (par defaut
    * le navigateur). Absente dans les tests de la capture : l'analyse est alors indisponible.
    */
-  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier' | 'renforcer'>>;
+  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier' | 'renforcer' | 'essai'>>;
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -418,6 +418,7 @@ function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, validati
     ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
     ...(a?.memoire ? { memoire: a.memoire } : {}),
     ...(a?.delaiSuiviMs !== undefined ? { delaiSuiviMs: a.delaiSuiviMs } : {}),
+    ...(a?.essai ? { essai: a.essai } : {}),
     ...(a?.planifier ? { planifier: a.planifier } : {}),
   });
 }

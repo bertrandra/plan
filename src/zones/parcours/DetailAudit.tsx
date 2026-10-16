@@ -13,6 +13,7 @@ import type { CatalogueAudits } from '../../app/audit/parcelle/catalogue.js';
 import type { DonneesAudit, PhotoVue } from '../../app/audit/parcelle/donneesAudit.js';
 import type { FicheAudit } from '../../io/auditsServeur.js';
 import type { AnalyseComplete, ResultatSortant } from '../../io/analysesAudits.js';
+import { comparerAnalyses, type ValeurVotee } from '../../app/audit/parcelle/comparaisonAnalyses.js';
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 const dollars = (v: number | null) => (v === null ? '—' : v.toFixed(4).replace('.', ',') + ' $');
@@ -102,7 +103,7 @@ function Comparaison({ catalogue, a, lignes }: { catalogue: CatalogueAudits; a: 
             <td>{l.creeLe.slice(0, 16).replace('T', ' ')}</td>
             <td>{l.nature === 'rejeu' ? 'Rejeu' : 'Analyse'}</td>
             <td>{nomModele(l.modele)}</td>
-            <td>{l.prompt} · {l.schema}</td>
+            <td>{l.essai ? 'brouillon ' : ''}{l.prompt} · {l.schema}</td>
             <td>{l.etat === 'termine' ? l.reussies + ' / ' + l.requetes : 'En cours'}</td>
             <td>{l.etat === 'termine' ? l.vides : '—'}</td>
             <td>{nombre(l.comptes?.ouvertures)}</td><td>{nombre(l.comptes?.bouts)}</td><td>{nombre(l.comptes?.lucarnes)}</td>
@@ -130,8 +131,44 @@ function Sortie({ r }: { r: ResultatSortant }) {
   );
 }
 
+const valeurVotee = (v: ValeurVotee | null) => (v === null ? '—' : v.valeur + (v.accord === null ? '' : ' (' + Math.round(v.accord * 100) + ' %)'));
+
+/** Ce que les reponses de l'analyse ouverte disent differemment d'une autre du meme audit (le vote des passes, batiment par batiment). */
+function DifferencesAnalyses({ catalogue, ouverte, autres }: { catalogue: CatalogueAudits; ouverte: AnalyseComplete; autres: { id: string; libelle: string }[] }) {
+  const c = catalogue.etat().comparaison;
+  const lue = c?.complete && c.audit === ouverte.audit ? c.complete : null;
+  const cmp = lue ? comparerAnalyses(lue, ouverte) : null;
+  const lignes = cmp ? cmp.lignes.filter((l) => l.change) : [];
+  return (
+    <details open={!!c}>
+      <summary>Comparer les réponses à celles d’une autre analyse</summary>
+      <div className="actionsAuditRecu" role="group" aria-label="Comparer les réponses">
+        <label className="choixModeleRejeu">Avant
+          <select data-controle="auditsParcelle.comparerAvec" value={c?.avec ?? ''} onChange={(ev) => { const v = ev.currentTarget.value; if (v) void catalogue.comparer(ouverte.audit, v); else catalogue.fermerComparaison(); }}>
+            <option value="">—</option>
+            {autres.map((a) => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+          </select>
+        </label>
+      </div>
+      {c && !lue && <p className={c.erreur ? 'erreurParcours' : 'detailPhoto'} role="status">{c.erreur ?? 'Lecture de l’analyse à comparer…'}</p>}
+      {cmp && <>
+        <p className="detailPhoto">
+          {pluriel(cmp.batiments.length, 'bâtiment')} lu{cmp.batiments.length > 1 ? 's' : ''} dans les deux · {pluriel(cmp.changees, 'attribut')} {cmp.changees > 1 ? 'changent' : 'change'} sur {cmp.lignes.length}.
+          {cmp.seulementAvant.length > 0 && ' Seulement dans l’autre : ' + cmp.seulementAvant.join(', ') + '.'}
+          {cmp.seulementApres.length > 0 && ' Seulement dans celle-ci : ' + cmp.seulementApres.join(', ') + '.'}
+        </p>
+        {lignes.length > 0 && <div className="defileAudit"><table className="attrTable tableAudit tableComparaison">
+          <thead><tr><th>Bâtiment</th><th>Attribut</th><th>Avant</th><th>Après (cette analyse)</th></tr></thead>
+          <tbody>{lignes.map((l, i) => <tr key={i}><td>{l.batiment}</td><td>{l.attribut}</td><td>{valeurVotee(l.avant)}</td><td>{valeurVotee(l.apres)}</td></tr>)}</tbody>
+        </table></div>}
+        {lignes.length === 0 && <p className="detailPhoto">Les deux analyses disent la même chose sur tous leurs attributs.</p>}
+      </>}
+    </details>
+  );
+}
+
 /** Une analyse en entier : l'entrant, le sortant, et le vote par batiment. */
-function Trace({ catalogue, complete }: { catalogue: CatalogueAudits; complete: AnalyseComplete }) {
+function Trace({ catalogue, complete, autres }: { catalogue: CatalogueAudits; complete: AnalyseComplete; autres: { id: string; libelle: string }[] }) {
   const { resume, entrant, sortant } = complete;
   const comptes = sortant ? comptesAnalyse(sortant.resultats) : null;
   const batiments = sortant ? [...new Set(sortant.resultats.map((r) => batimentDe(r.id)))] : [];
@@ -141,6 +178,7 @@ function Trace({ catalogue, complete }: { catalogue: CatalogueAudits; complete: 
         <span className="dateAuditRecu">{resume.nature === 'rejeu' ? 'Rejeu' : 'Analyse'} du {resume.creeLe.slice(0, 16).replace('T', ' ')}</span>
         <span className="pastilleAudit">{nomModele(resume.modele)}</span>
         <span className="pastilleAudit">{resume.etat === 'termine' ? 'Terminée' : 'En cours'}</span>
+        {resume.essai && <span className="pastilleAudit" title="Parti avec le brouillon des règles du serveur, pas avec le prompt livré">Brouillon des règles</span>}
       </div>
       <p className="detailPhoto">Batch {resume.idBatch} · prompt {resume.prompt}, schéma {resume.schema} · effort {resume.effort ?? '—'} · {pluriel(resume.requetes, 'requête')}, {pluriel(resume.images, 'image')} · {dollars(resume.cout)}</p>
       <details open>
@@ -164,6 +202,7 @@ function Trace({ catalogue, complete }: { catalogue: CatalogueAudits; complete: 
         <summary>Sortant : ce que Claude a rendu</summary>
         {sortant ? sortant.resultats.map((r) => <Sortie key={r.id} r={r} />) : <p className="detailPhoto">Le batch n’est pas encore lu : « Relire les analyses » le suit jusqu’à sa fin.</p>}
       </details>
+      {sortant && <DifferencesAnalyses catalogue={catalogue} ouverte={complete} autres={autres} />}
       {comptes && <details>
         <summary>Vote : la médiane des passes de chaque bâtiment</summary>
         <p className="detailPhoto">{pluriel(batiments.length, 'bâtiment')} · ouvertures {nombre(comptes.ouvertures)}, pignons {nombre(comptes.bouts)}, lucarnes {nombre(comptes.lucarnes)}, éléments {nombre(comptes.elements)}, écarts {nombre(comptes.ecarts)}, déterminés {nombre(comptes.determines)}. Les propositions qui en découlent et leur décision sont celles de la conclusion de l’audit, pour son analyse ; un rejeu ne modifie pas l’audit.</p>
@@ -202,13 +241,17 @@ export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: F
                 {e.modeles.map((m) => <option key={m} value={m}>{nomModele(m)}</option>)}
               </select>
             </label>
+            <label className="choixModeleRejeu" title={e.brouillon ? 'Prompt version ' + e.brouillon.prompt + ', enregistré dans Admin › Règles' : 'Aucun brouillon enregistré sur le serveur (Admin › Règles)'}>
+              <input type="checkbox" data-controle="auditsParcelle.essaiRejeu" checked={e.essai} disabled={!e.brouillon} onChange={(ev) => catalogue.choisirEssai(ev.currentTarget.checked)} />
+              {' '}Avec le brouillon des règles{e.brouillon ? ' (v' + e.brouillon.prompt + ')' : ''}
+            </label>
             <button type="button" className="small" data-controle="auditsParcelle.rejouer" disabled={raisonRejeu !== null || e.enCours !== null} title={raisonRejeu ?? undefined}
               onClick={() => { void catalogue.rejouer(a); }}>Rejouer l’analyse</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.relireAnalyses" onClick={() => { void catalogue.relireAnalyses(); }}>Relire les analyses</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.exporterAnalyses" disabled={!lignes.length} onClick={() => catalogue.exporterAnalyses(a)}>Exporter en CSV</button>
           </div>
           {raisonRejeu && <p className="raisonAuditRecu">{raisonRejeu}</p>}
-          {e.trace?.audit === a.id && (e.trace.complete ? <Trace catalogue={catalogue} complete={e.trace.complete} />
+          {e.trace?.audit === a.id && (e.trace.complete ? <Trace catalogue={catalogue} complete={e.trace.complete} autres={lignes.filter((l) => l.id !== e.trace?.id && l.etat === 'termine').map((l) => ({ id: l.id, libelle: (l.nature === 'rejeu' ? 'Rejeu' : 'Analyse') + ' du ' + l.creeLe.slice(0, 16).replace('T', ' ') + ' · ' + nomModele(l.modele) + ' · ' + (l.essai ? 'brouillon ' : 'prompt ') + l.prompt }))} />
             : <p className={e.trace.erreur ? 'erreurParcours' : 'detailPhoto'} role="status">{e.trace.erreur ?? 'Lecture de l’analyse…'}</p>)}
         </details>
       )}

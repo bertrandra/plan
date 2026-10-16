@@ -7,6 +7,28 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin › Règles : le brouillon s'essaie avant la PR.** « Enregistrer sur le serveur » garde le prompt, le
+  schéma et l'état de l'éditeur côté serveur (`admin/claude/regles`, PHP et Node, administrateur seul) ;
+  « Reprendre celui du serveur » le rouvre d'un autre navigateur. Il ne remplace jamais le prompt livré : seule une
+  demande de l'administrateur qui le nomme (`essai: "brouillon"`) le lit. **`?regles=local`** (le mode d'essai des
+  faits) fait partir l'analyse de l'audit avec le prompt du brouillon, et le dit ; le batch garde une copie du texte
+  envoyé (la réponse se ramène à *son* schéma, même si le brouillon change ensuite), et le journal, la fiche et la
+  trace portent la marque d'essai.
+- **Admin › Audits : rejouer un audit avec le prompt édité, et comparer les réponses.** Case « Avec le brouillon
+  des règles (vN) » à côté du modèle du rejeu ; la liste des analyses dit « brouillon 6 » dans la colonne du prompt.
+  Une analyse ouverte se compare à une autre du même audit : le vote des trois passes de chaque bâtiment, attribut
+  par attribut (forme, bouts, lucarnes, couverture, façades, champs des sujets ajoutés…), ne montre que ce qui change,
+  avec l'accord de chaque côté.
+- **Admin › Règles édite aussi les réglages et les faits** (onglet « Réglages et faits ») : un seuil change de valeur ou
+  de raison sans reformater le fichier (le diff d'une PR montre sa ligne), le lecteur du code contrôle le texte, et
+  l'écran dit si l'empreinte change (les toits déjà lus seront relus) en donnant la ligne de version à ajouter à
+  `LECTURES_TOITS` ou `LECTURES_FACADES`. Un fichier que le moteur refuserait ne se télécharge pas ; les faits
+  (`regles/toits/faits.json`) s'éditent en texte, avec la liste de leurs bâtiments.
+- **Le vote des passes lit les sujets ajoutés.** Un champ `{ indices, valeur }` ou `{ indices, nombre }` déclaré
+  par une description est lu et voté sans code propre (`VoteAnalyse.simples`, `src/regles/sujets/vote.ts`) ; un
+  champ mal formé refuse la passe, un champ absent d'une réponse gardée d'avant le sujet est ignoré. Un sujet
+  ajouté depuis Admin › Règles se dit aussi en observation (« Chiens-assis vu : 2 ») sans module.
+
 - **Admin › Règles (`?admin&ecran=regles`) : le prompt et le schéma de Claude, composés par les sujets, en
   direct.** Chaque sujet de l'audit a une description (ce que Claude lit, comment il répond, son vocabulaire,
   ses confusions) ; `deploy/prompt-analyse.md` et `deploy/schema-analyse.json` sont désormais **générés** depuis
@@ -53,6 +75,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   512 Ko. EZ-tree (4 Mo) se charge donc à l'ouverture de la Vue 3D même sans bibliothèque du serveur.
 
 ### Modifié
+
+- **Prompt d'analyse version 5 : les termes du schéma que le texte ne définissait pas le sont.** Les contrôles
+  d'Admin › Règles signalaient trois alertes : les matériaux de couverture (`tuile-plate`, `tuile-canal`,
+  `tuile-mecanique`, `ardoise`, `zinc`, `bac-acier`, `membrane`, `gravillons`, `vegetale`), le sens du faîtage
+  (`parallele-rue`, `perpendiculaire-rue`, `sans-faitage`) et `chassis-eclairage` n'étaient définis nulle part, et
+  Claude les devinait de son vocabulaire. Le schéma ne change pas (version 1). **Le texte envoyé à Claude change** :
+  ses réponses sur la couverture, le faîtage et les châssis peuvent changer, donc les propositions d'un rejeu aussi
+  (le rejeu avec le brouillon d'Admin › Règles est fait pour le mesurer) ; aucun calcul de Plan ne bouge.
+- **Les sujets de l'audit portent le même identifiant côté description et côté module.** La description disait
+  `attributs`, le module `id` : le module reprend l'id de sa description (`materiau` devient `facades`, attribut
+  `materiauMurs`), son nom à l'écran est celui de la description, et l'attribut dont l'accord se mesure est
+  `Sujet.attribut`. Les observations sont dites par le registre (`Sujet.observer`, comme `proposer`) : lucarnes,
+  éléments du toit et écarts y entrent, et `observationsClaude.ts` ne code plus la forme, les bouts, les lucarnes ni
+  les éléments. Les lignes montrées et leurs identifiants sont inchangés.
 
 - **Le moteur de règles est rangé en un seul endroit, nommé `regles/`** (`MD/architecture.md` §5.2.4,
   `CLAUDE.md`) : un dossier par couche, `src/regles/` (réglages, profils, faits, décisions, conformité),

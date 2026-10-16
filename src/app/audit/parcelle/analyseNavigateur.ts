@@ -9,6 +9,7 @@
 // mesures sont proposees.
 
 import { enAdmin, sessionCourante } from '../../acces.js';
+import { reglesLocalesDemandees } from '../../ecouteurs/faitsLocaux.js';
 import { creerClientAnalyse, type ClientAnalyse } from '../../../io/analyseClaude.js';
 import { creerMemoireAccords, stockageAccordsNavigateur } from '../../../io/accordAnalyse.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
@@ -21,6 +22,8 @@ export interface AnalyseDuNavigateur {
   memoire: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void };
   notifier(message: string): void;
   preparerNotification(): void;
+  /** `?regles=local` en administrateur : l'analyse essaie le brouillon des regles du serveur. */
+  essai(): boolean;
 }
 
 /** La cle de l'accord : le projet enregistre, a defaut la parcelle (un projet pas encore enregistre). */
@@ -45,6 +48,7 @@ export function analyseClaudeDuNavigateur(etat: { objects: ObjetPlan[] }, projet
       lire: () => { const k = cle(); return k ? accords.lire(k) : null; },
       ecrire: (a) => { const k = cle(); if (k) accords.ecrire(k, a); },
     },
+    essai: () => enAdmin() && reglesLocalesDemandees(),
     notifier(message) {
       if (typeof Notification === 'undefined' || document.visibilityState !== 'hidden' || Notification.permission !== 'granted') return;
       try { new Notification('Plan', { body: message }); } catch { /* un navigateur sans notifications : le toast suffit */ }

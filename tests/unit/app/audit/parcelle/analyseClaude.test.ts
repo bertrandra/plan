@@ -4,7 +4,7 @@ import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { preparerDemande, textePrise, type FabriqueImages } from '../../../../../src/app/audit/parcelle/entreesAnalyse.js';
-import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../../../src/io/analyseClaude.js';
+import { EchecAnalyse, type BrouillonServeur, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../../../src/io/analyseClaude.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import { signatureAnalyse } from '../../../../../src/model/auditParcelle.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
@@ -23,9 +23,9 @@ const PHOTO = { type: 'image/jpeg' as const, base64: 'QUJDRA==', prise: { t: '20
 /** Une API simulee : les demandes recues, un batch qui finit quand on le dit, des resultats choisis. */
 function fauxClient(reponses: (id: string) => unknown = () => reponse()) {
   const demandes: DemandeAnalyse[] = [];
-  const etat = { fini: false, actif: true, refus: null as EchecAnalyse | null };
+  const etat = { fini: false, actif: true, refus: null as EchecAnalyse | null, admin: false, brouillon: null as BrouillonServeur | null };
   const client: ClientAnalyse = {
-    etat: async () => ({ actif: etat.actif, prompt: 1, schema: 1, organisation: 'org-1', admin: false }),
+    etat: async () => ({ actif: etat.actif, prompt: 1, schema: 1, organisation: 'org-1', admin: etat.admin, brouillon: etat.brouillon }),
     creerBatch: async (d) => { if (etat.refus) throw etat.refus; demandes.push(d); return { batch: { id: 'msgbatch_' + demandes.length, etat: 'in_progress', compte: null }, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 }; },
     etatBatch: async (id) => ({ id, etat: etat.fini ? 'ended' : 'in_progress', compte: null }),
     resultats: async (id) => {
@@ -46,7 +46,7 @@ const IMAGES: FabriqueImages = {
   carte: (o) => (o.toitMesure ? { base64: 'Q0FSVEU=', mediaType: 'image/png' } : null),
 };
 
-function monter(reponses?: (id: string) => unknown, memoire?: ContexteAnalyse['memoire']) {
+function monter(reponses?: (id: string) => unknown, memoire?: ContexteAnalyse['memoire'], essai?: () => boolean) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
     obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
@@ -72,6 +72,7 @@ function monter(reponses?: (id: string) => unknown, memoire?: ContexteAnalyse['m
     identite: () => ({ projet: 'p-1', idu: '78650000AE0101', adresse: '2 allée des Limites', audit: 'a-1' }),
     signaler: (m) => messages.push(m), notifier: (m) => notifications.push(m), maintenant: () => new Date('2026-10-13T10:00:00Z'),
     ...(memoire ? { memoire } : {}),
+    ...(essai ? { essai } : {}),
     // Le suivi est planifie par le test : chaque tour se joue a la main.
     planifier: (f) => { planifies.push(f); return () => { const i = planifies.indexOf(f); if (i >= 0) planifies.splice(i, 1); }; },
   });
@@ -123,6 +124,45 @@ describe('l analyse par Claude', () => {
     expect(b?.etiquettes.maison?.[0]).toEqual({ texte: 'photo de la façade sud de maison, prise à 8 m, vers 0°', photo: { cle: 'maison', cote: 0, rang: 0 } });
     expect(t.messages.at(-1)).toMatch(/^Vos photos sont parties à l’analyse par Claude \(accord du 13 octobre\)/);
     expect(t.analyse.etat()).toBe('enCours');
+  });
+
+  describe('l essai du brouillon des regles (?regles=local)', () => {
+    const BROUILLON: BrouillonServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 };
+
+    it('nomme le brouillon dans la demande quand l administrateur en a un sur le serveur, et le dit', async () => {
+      const t = monter(undefined, undefined, () => true);
+      t.faux.etat.admin = true;
+      t.faux.etat.brouillon = BROUILLON;
+      t.capture.terminer();
+      await t.analyse.accorder(true);
+      expect(t.faux.demandes[0]).toMatchObject({ usage: 'analyse', essai: 'brouillon' });
+      expect(t.messages.some((m) => /^Essai : l’analyse part avec le prompt du brouillon des règles \(version 6, enregistré le 2026-10-16 10:00\)/.test(m))).toBe(true);
+    });
+
+    it('part avec le prompt livre, en le disant, sans brouillon sur le serveur ou hors administrateur', async () => {
+      const sansBrouillon = monter(undefined, undefined, () => true);
+      sansBrouillon.faux.etat.admin = true;
+      sansBrouillon.capture.terminer();
+      await sansBrouillon.analyse.accorder(true);
+      expect(sansBrouillon.faux.demandes[0]).not.toHaveProperty('essai');
+      expect(sansBrouillon.messages.some((m) => /le serveur n’a pas de brouillon/.test(m))).toBe(true);
+
+      const pasAdmin = monter(undefined, undefined, () => true);
+      pasAdmin.faux.etat.brouillon = BROUILLON;
+      pasAdmin.capture.terminer();
+      await pasAdmin.analyse.accorder(true);
+      expect(pasAdmin.faux.demandes[0]).not.toHaveProperty('essai');
+    });
+
+    it('ne change rien quand l essai n est pas demande, brouillon ou non', async () => {
+      const t = monter(undefined, undefined, () => false);
+      t.faux.etat.admin = true;
+      t.faux.etat.brouillon = BROUILLON;
+      t.capture.terminer();
+      await t.analyse.accorder(true);
+      expect(t.faux.demandes[0]).not.toHaveProperty('essai');
+      expect(t.messages.some((m) => /Essai/.test(m))).toBe(false);
+    });
   });
 
   it('suit le batch, lit les resultats, previent, et ajoute les propositions de Claude a la liste', async () => {

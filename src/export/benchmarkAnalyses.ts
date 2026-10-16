@@ -19,6 +19,8 @@ export interface LigneBenchmark {
   modele: string;
   prompt: number;
   schema: number;
+  /** Le prompt etait celui du brouillon des regles (essai), pas le prompt livre. */
+  essai: boolean;
   effort: string | null;
   requetes: number;
   reussies: number;
@@ -58,7 +60,7 @@ export function ligneBenchmark(r: ResumeAnalyse): LigneBenchmark {
   const res = r.resultats ?? [];
   const debut = Date.parse(r.creeLe), fin = r.finLe ? Date.parse(r.finLe) : NaN;
   return {
-    id: r.id, nature: r.nature, etat: r.etat, creeLe: r.creeLe, modele: r.modele, prompt: r.prompt, schema: r.schema, effort: r.effort ?? null,
+    id: r.id, nature: r.nature, etat: r.etat, creeLe: r.creeLe, modele: r.modele, prompt: r.prompt, schema: r.schema, essai: r.essai === true, effort: r.effort ?? null,
     requetes: r.requetes, reussies: res.filter((x) => x.statut === 'reussi' && !x.erreur).length, echouees: res.filter((x) => x.statut !== 'reussi' || !!x.erreur).length,
     vides: res.filter((x) => x.trouve?.vide).length, images: r.images,
     tokensEntree: r.tokens ? r.tokens.entree + r.tokens.ecritureCache + r.tokens.ecritureCache1h + r.tokens.lectureCache : 0, tokensSortie: r.tokens?.sortie ?? 0,
@@ -75,6 +77,6 @@ export function lignesBenchmark(rs: readonly ResumeAnalyse[]): LigneBenchmark[] 
 export function csvBenchmark(ls: readonly LigneBenchmark[]): string {
   return csv(['Analyse', 'Nature', 'Envoyée le', 'Modèle', 'Identifiant du modèle', 'Prompt', 'Schéma', 'Effort', 'État', 'Requêtes', 'Réussies', 'Échecs', 'Réponses vides',
     'Images', 'Tokens en entrée', 'Tokens en sortie', 'Coût ($)', 'Durée (s)', ...CLES_TROUVAILLES.map((k) => NOMS_TROUVAILLES[k])],
-  ls.map((l) => [l.id, l.nature === 'rejeu' ? 'Rejeu' : 'Analyse', l.creeLe, nomModele(l.modele), l.modele, l.prompt, l.schema, l.effort, l.etat === 'termine' ? 'Terminée' : 'En cours',
+  ls.map((l) => [l.id, l.nature === 'rejeu' ? 'Rejeu' : 'Analyse', l.creeLe, nomModele(l.modele), l.modele, l.essai ? 'brouillon ' + l.prompt : l.prompt, l.schema, l.effort, l.etat === 'termine' ? 'Terminée' : 'En cours',
     l.requetes, l.reussies, l.echouees, l.vides, l.images, l.tokensEntree, l.tokensSortie, l.cout, l.dureeS, ...CLES_TROUVAILLES.map((k) => (l.comptes ? l.comptes[k] : null))]));
 }

@@ -3,13 +3,12 @@
 // Une description est pure (rien que des textes et un morceau de schema JSON) : l'assembleur
 // (assembler.ts) en tire le prompt et le schema d'analyse, l'ecran Admin › Regles les montre et les
 // recalcule en direct, et un test les compare aux fichiers livres (deploy/). Le pendant qui sait
-// PROPOSER au projet est `Sujet` (app/regles/sujets/contrat.ts), apparie par `attributs`.
+// PROPOSER au projet et a se dire en observation est `Sujet` (app/regles/sujets/contrat.ts), apparie par
+// le meme `id` : un seul identifiant, la description et le module portent le meme.
 //
 // Chaque morceau de texte porte un `rang` : l'ordre dans le prompt. Plusieurs sujets contribuent a la
 // meme section (« Ouvertures et saillies », les confusions) ; le rang dit ou la puce s'intercale, et
 // une puce nouvelle prend un rang libre sans renumeroter les autres.
-
-import type { AttributClaude } from '../../model/analyseClaude.js';
 
 /** Un morceau de schema JSON, tel qu'il est ecrit dans deploy/schema-analyse.json. */
 export type SchemaJson = Record<string, unknown>;
@@ -23,8 +22,6 @@ export interface DescriptionSujet {
   id: string;
   /** Son nom a l'ecran. */
   libelle: string;
-  /** Les attributs dont le taux d'accord de Claude se mesure (regles/conformite.ts) ; vide : observation seule. */
-  attributs: AttributClaude[];
   /** Les proprietes de premier niveau du schema de la reponse, par nom. */
   champs: Record<string, SchemaJson>;
   /** Les definitions (`$defs`) que ces champs referencent et que les autres sujets n'ont pas. */

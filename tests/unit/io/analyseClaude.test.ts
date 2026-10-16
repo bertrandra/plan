@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerClientAnalyse, EchecAnalyse, type DemandeAnalyse } from '../../../src/io/analyseClaude.js';
+import { creerClientAnalyse, EchecAnalyse, lireBrouillonServeur, type DemandeAnalyse } from '../../../src/io/analyseClaude.js';
 
 // Le client des routes de l'analyse (deploy/analyse.php) : le jeton de la plateforme sur chaque appel,
 // l'en-tete d'ecriture sur l'envoi, et un motif par refus du serveur.
@@ -17,7 +17,7 @@ describe('le client de l analyse', () => {
       return reponse(404, { error: { code: 'NOT_FOUND', message: 'route ' + entree + ' ' + (init?.method ?? 'GET') } });
     });
     const c = creerClientAnalyse(f, () => 'jeton-1');
-    expect(await c.etat()).toEqual({ actif: true, prompt: 1, schema: 1, organisation: 'org-1', admin: false, modeles: [] });
+    expect(await c.etat()).toEqual({ actif: true, prompt: 1, schema: 1, organisation: 'org-1', admin: false, modeles: [], brouillon: null });
     expect((await c.creerBatch(DEMANDE)).batch.id).toBe('msgbatch_1');
     expect((await c.etatBatch('msgbatch_1')).etat).toBe('ended');
     expect((await c.resultats('msgbatch_1')).resultats).toEqual([]);
@@ -44,5 +44,22 @@ describe('le client de l analyse', () => {
     expect(await motif(async () => reponse(404, {}))).toEqual(['introuvable', 'suivi de l’analyse : HTTP 404']);
     expect(await motif(async () => { throw new TypeError('Failed to fetch'); })).toEqual(['reseau', 'suivi de l’analyse : Failed to fetch']);
     expect(await motif(async () => reponse(500, {}))).toEqual(['serveur', 'suivi de l’analyse : HTTP 500']);
+  });
+
+  it('lit le brouillon des regles de l etat (administrateur), et l essai nomme dans la demande part tel quel', async () => {
+    const corps: unknown[] = [];
+    const f = vi.fn(async (entree: string, init?: RequestInit) => {
+      if (entree === 'admin/claude/etat') return reponse(200, { actif: true, prompt: 5, schema: 1, organisation: 'admin', admin: true, brouillon: { enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 } });
+      if (entree === 'admin/claude/batches') { corps.push(JSON.parse(init!.body as string)); return reponse(201, { batch: { id: 'msgbatch_1', etat: 'in_progress', compte: null }, modele: 'claude-haiku-5-5', prompt: 6, schema: 1, essai: true }); }
+      return reponse(404, { error: { code: 'NOT_FOUND', message: entree } });
+    });
+    const c = creerClientAnalyse(f, () => null);
+    expect((await c.etat()).brouillon).toEqual({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 });
+    expect((await c.creerBatch({ ...DEMANDE, essai: 'brouillon' })).essai).toBe(true);
+    expect(corps[0]).toMatchObject({ essai: 'brouillon' });
+    // Un serveur d'avant le brouillon, ou un etat sans lui : aucun brouillon.
+    expect(lireBrouillonServeur(undefined)).toBeNull();
+    expect(lireBrouillonServeur(null)).toBeNull();
+    expect(lireBrouillonServeur({ prompt: '6', schema: 2 })).toEqual({ enregistreLe: null, prompt: 6, schema: 2 });
   });
 });

@@ -4,7 +4,7 @@ import { genererFichiers } from '../../../../src/regles/sujets/generation.js';
 import { assemblerPrompt, assemblerSchema } from '../../../../src/regles/sujets/assembler.js';
 import { DESCRIPTIONS_SUJETS } from '../../../../src/regles/sujets/liste.js';
 import { empreinteTexte, versionCourante, VERSIONS_PROMPT, VERSIONS_SCHEMA } from '../../../../src/regles/sujets/versions.js';
-import { ATTRIBUTS_CLAUDE } from '../../../../src/regles/conformite.js';
+import { controler } from '../../../../src/regles/sujets/edition.js';
 import type { DescriptionSujet } from '../../../../src/regles/sujets/description.js';
 
 // Le prompt et le schema d'analyse ne s'ecrivent plus a la main : ils sont assembles depuis les
@@ -42,9 +42,12 @@ describe('les descriptions de sujets', () => {
     expect(Object.keys(schema.schema.properties)).toEqual(DESCRIPTIONS_SUJETS.flatMap((s) => Object.keys(s.champs)));
   });
 
-  it('donnent chacune un attribut mesure au plus, et tous les attributs mesures sont servis', () => {
-    const servis = DESCRIPTIONS_SUJETS.flatMap((s) => s.attributs).sort();
-    expect(servis).toEqual(ATTRIBUTS_CLAUDE.map((a) => a.code).sort());
+  it('ne portent plus d’attributs : le module de meme identifiant dit lequel se mesure', () => {
+    for (const s of DESCRIPTIONS_SUJETS) expect(s, s.id).not.toHaveProperty('attributs');
+  });
+
+  it('définissent chaque terme de leur schéma dans le prompt (aucune alerte des contrôles)', () => {
+    expect(controler(DESCRIPTIONS_SUJETS).filter((c) => c.niveau !== 'ok')).toEqual([]);
   });
 
   it('expliquent chaque champ du schema dans une consigne', () => {
@@ -69,7 +72,7 @@ describe('les descriptions de sujets', () => {
 
 describe('ajouter un sujet', () => {
   const chienAssis: DescriptionSujet = {
-    id: 'chienAssis', libelle: 'Chiens-assis', attributs: [],
+    id: 'chienAssis', libelle: 'Chiens-assis',
     champs: { chienAssis: { type: 'object', additionalProperties: false, required: ['indices', 'nombre'], properties: { indices: { $ref: '#/$defs/indices' }, nombre: { $ref: '#/$defs/compte' } } } },
     definitions: {},
     consignes: [{ rang: 5.5, texte: '- `chienAssis` : le nombre de chiens-assis vus sur le versant.' }],

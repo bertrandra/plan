@@ -7,7 +7,6 @@ import type { DescriptionSujet } from '../description.js';
 export const transverse: DescriptionSujet = {
   id: 'transverse',
   libelle: `Réponse, écarts et prudence`,
-  attributs: [],
   champs: {
     "ecarts": {
       "type": "array",

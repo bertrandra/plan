@@ -1,6 +1,6 @@
 ---
-version: 4
-note: Partie fixe du prompt « béton » (spec-regles-toits.md §14.3, spec-audit.md §13.2), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 (lot L17) : les façades aussi — photos par façade, rendu du modèle depuis la même prise de vue, ouvertures détectées par Plan, détails et matériau du parement. Toujours sans exemples annotés : ils viendront du corpus validé (§14.3, point 5). Version 2 (15 octobre 2026) : le texte ne change pas, mais le schéma de la réponse le suit dans le même bloc system (deploy/analyse.php::promptAvecSchema) au lieu de partir en sortie structurée, dont l'API refusait la grammaire. Version 3 (16 octobre 2026) : sans rendu joint, le texte le dit et le modèle n'en cite aucun (il décrivait « le rendu du modèle » qu'il n'avait pas reçu) ; un mur d'un bâtiment qui en a plusieurs de même orientation porte le numéro de son côté (« est (côté 3) »), une entrée de `facades` par étiquette. Version 4 (17 octobre 2026) : les pignons d'abord — la silhouette du haut de chaque façade (triangle, trapèze, rampe, marches, ligne droite) est lue sur la photo et sur le rendu, et c'est elle qui dit la forme du toit et ses bouts ; tout désaccord de silhouette entre le rendu et la photo va dans `ecarts`. Le rendu d'une façade est coupé à cette façade (ni dépendance devant le mur, ni aile contre ses bouts) et porte le contour noir des murs, du pignon et du toit.
+version: 5
+note: Partie fixe du prompt « béton » (spec-regles-toits.md §14.3, spec-audit.md §13.2), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal. Version 1 (lot L17) : les façades aussi — photos par façade, rendu du modèle depuis la même prise de vue, ouvertures détectées par Plan, détails et matériau du parement. Toujours sans exemples annotés : ils viendront du corpus validé (§14.3, point 5). Version 2 (15 octobre 2026) : le texte ne change pas, mais le schéma de la réponse le suit dans le même bloc system (deploy/analyse.php::promptAvecSchema) au lieu de partir en sortie structurée, dont l'API refusait la grammaire. Version 3 (16 octobre 2026) : sans rendu joint, le texte le dit et le modèle n'en cite aucun (il décrivait « le rendu du modèle » qu'il n'avait pas reçu) ; un mur d'un bâtiment qui en a plusieurs de même orientation porte le numéro de son côté (« est (côté 3) »), une entrée de `facades` par étiquette. Version 4 (17 octobre 2026) : les pignons d'abord — la silhouette du haut de chaque façade (triangle, trapèze, rampe, marches, ligne droite) est lue sur la photo et sur le rendu, et c'est elle qui dit la forme du toit et ses bouts ; tout désaccord de silhouette entre le rendu et la photo va dans `ecarts`. Le rendu d'une façade est coupé à cette façade (ni dépendance devant le mur, ni aile contre ses bouts) et porte le contour noir des murs, du pignon et du toit. Version 5 (16 octobre 2026) : trois familles de termes du schéma que le texte ne définissait pas le sont — les matériaux de couverture (`tuile-plate`, `tuile-canal`, `tuile-mecanique`, `ardoise`, `zinc`, `bac-acier`, `membrane`, `gravillons`, `vegetale`), le sens du faîtage (`parallele-rue`, `perpendiculaire-rue`, `sans-faitage`) et le châssis d'éclairage (`chassis-eclairage`) ; Claude ne les devine plus de son vocabulaire.
 ---
 # Rôle
 
@@ -67,6 +67,12 @@ Restez bref dans les champs `vu`, `modele` et `observe` : une phrase courte suff
 - **Rive** : bord latéral incliné d'un versant, le long d'un mur pignon.
 - **Pignon** : mur triangulaire qui porte les versants au bout d'un toit à deux pans ; au sens étendu, un avant-corps à deux pans perpendiculaire au faîtage.
 
+## Sens du faîtage
+
+- `parallele-rue` : le faîtage longe la façade vue de la rue ; on voit le long pan, et le toit monte vers le fond ;
+- `perpendiculaire-rue` : le faîtage va vers la rue ; on voit un pignon (ou une croupe) face à soi, et le toit descend de part et d'autre ;
+- `sans-faitage` : il n'y a pas de ligne de faîte (toit plat, pavillon, forme à sommet unique).
+
 ## Ouvertures et saillies
 
 - **Lucarne** : ouvrage en saillie sur le versant, qui porte une fenêtre verticale.
@@ -77,7 +83,7 @@ Restez bref dans les champs `vu`, `modele` et `observe` : une phrase courte suff
   - `meuniere` (ou gerbière) : en façade, elle coupe l'égout ;
   - `oeil-de-boeuf` : ronde ou ovale ;
   - `outeau` : petite ouverture triangulaire de ventilation.
-- **Châssis d'éclairage** : fenêtre plane, fixe ou à tabatière, dans le plan du versant.
+- **Châssis d'éclairage** (`chassis-eclairage`) : fenêtre plane, fixe ou à tabatière, dans le plan du versant.
 - **Fenêtre de toit** : ouvrant vitré moderne, à ras de la pente.
 - **Verrière** : grande surface vitrée en toiture.
 - **Souche de cheminée** : maçonnerie qui sort du toit pour évacuer les fumées. Positions : `faitage` (à cheval sur le faîtage), `pan` (dans un versant), `pignon` (dans l'alignement du mur de bout), `facade` (adossée à l'extérieur d'un mur, du sol jusqu'au-dessus de l'égout). Un tubage métallique fin compte comme une cheminée en `metal`.
@@ -93,6 +99,18 @@ Restez bref dans les champs `vu`, `modele` et `observe` : une phrase courte suff
 - `accessible` : une terrasse où l'on vit (dalles, carrelage, lames de bois, garde-corps) ;
 - `vegetalisee` : couverte de plantes ;
 - `technique` : porte des machines (climatisation, ventilation, panneaux solaires).
+
+## Couvertures
+
+- `tuile-plate` : petites tuiles rectangulaires posées en écailles, brun rouge nuancé ;
+- `tuile-canal` : tuiles rondes demi-cylindriques en rangs alternés, ocre à rouge (toits du Sud, faible pente) ;
+- `tuile-mecanique` : grandes tuiles à emboîtement et sillons réguliers, rouge ou brun uniforme ;
+- `ardoise` : plaques fines gris bleuté, bord net, rangs bien alignés ;
+- `zinc` : feuilles métalliques gris clair, joints debout ;
+- `bac-acier` : tôle nervurée laquée, grandes bandes ;
+- `membrane` : revêtement d'étanchéité continu d'un toit plat ;
+- `gravillons` : lit de gravillons sur un toit plat ;
+- `vegetale` : toiture végétalisée (sedum, herbe).
 
 ## Formes
 

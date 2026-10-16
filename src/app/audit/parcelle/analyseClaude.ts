@@ -12,7 +12,7 @@
 // Le navigateur ne compte rien et ne choisit rien : prompt, schema, modele et plafonds sont au
 // serveur ; ici on prepare les images, on envoie, on attend, on lit.
 
-import { EchecAnalyse, type ClientAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
+import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
 import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type RenfortFacadeCapture, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
 import { estReponseRenfort, type ReponseRenfort } from '../../../facade/renfort.js';
 import { rangerRenfort } from './entreesRenfort.js';
@@ -22,6 +22,7 @@ import { chargerPixels } from '../../../render/couleurMurPhoto.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { ReleveFacade } from '../../../model/types.js';
 import { estReponseAnalyse } from '../../../model/analyseClaude.js';
+import { CHAMPS_SIMPLES } from '../../regles/sujets/vote.js';
 import { ortho } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 import { rendreDepuisPrise } from '../../../three/renduPrise.js';
@@ -78,6 +79,11 @@ export interface ContexteAnalyse {
    */
   renforcer?: (parFacade: Record<string, ReponseRenfort[]>) => Promise<Record<string, RenfortFacadeCapture>>;
   delaiSuiviMs?: number;
+  /**
+   * L'essai du brouillon des regles est-il demande (`?regles=local`, administrateur) ? L'analyse part alors
+   * avec le prompt du brouillon enregistre au serveur, s'il y en a un ; sinon avec celui du depot, et on le dit.
+   */
+  essai?: () => boolean;
   /** Pour les tests : qui planifie la relecture. */
   planifier?: (f: () => void, ms: number) => () => void;
 }
@@ -173,7 +179,7 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
   const out: Record<string, { passe: number; sortie: unknown }[]> = {};
   for (const r of resultats) {
     const q = requetes[r.id];
-    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie)) continue;
+    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
@@ -292,6 +298,18 @@ function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter:
   return { completer, reprendre: async () => { await relireBrut(); await completer(); } };
 }
 
+/** En essai du brouillon des regles, la demande le nomme ; sans brouillon au serveur, elle part telle quelle et on le dit. */
+async function avecEssai(ctx: ContexteAnalyse, client: ClientAnalyse, demande: DemandeAnalyse): Promise<DemandeAnalyse> {
+  if (!ctx.essai?.()) return demande;
+  const etat = await client.etat().catch(() => null);
+  if (!etat?.admin || !etat.brouillon) {
+    ctx.signaler('Essai des règles demandé, mais le serveur n’a pas de brouillon (Admin › Règles, « Enregistrer sur le serveur ») : l’analyse part avec le prompt livré.');
+    return demande;
+  }
+  ctx.signaler('Essai : l’analyse part avec le prompt du brouillon des règles (version ' + etat.brouillon.prompt + ', enregistré le ' + (etat.brouillon.enregistreLe ?? '?').slice(0, 16).replace('T', ' ') + ').');
+  return { ...demande, essai: 'brouillon' };
+}
+
 export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
@@ -384,7 +402,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       phase = 'envoi';
       publier();
       const sig = signature();
-      const cree = await client.creerBatch(prepare.demande);
+      const cree = await client.creerBatch(await avecEssai(ctx, client, prepare.demande));
       const batch: BatchAnalyse = { id: cree.batch.id, creeLe: ctx.maintenant().toISOString(), signature: sig, requetes: prepare.requetes, etiquettes: prepare.etiquettes };
       noter({ batch, resultats: null, erreur: null });
       ctx.signaler('Vos photos sont parties à l’analyse par Claude (accord du ' + jourDe(new Date(accord.t)) + ') : les propositions arriveront dans quelques minutes. Vous pouvez retirer cet accord depuis les propositions.');

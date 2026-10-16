@@ -289,7 +289,7 @@ async function envoyer(lots: APreparer[], o: OptionsCandidats, identite: Omit<De
 /** Ce que les passes d'un batiment ont rendu, lisible ; vide si toutes ont echoue. */
 function reponsesDe(rang: number, resultats: ReadonlyMap<string, ResultatBatch>): ReponseAnalyse[] {
   return Array.from({ length: PASSES_ANALYSE }, (_, i) => resultats.get(idRequeteCandidat(rang, i + 1)))
-    .filter((r): r is ResultatBatch => r?.statut === 'reussi').map((r) => r.sortie).filter(estReponseAnalyse);
+    .filter((r): r is ResultatBatch => r?.statut === 'reussi').map((r) => r.sortie).filter((x): x is ReponseAnalyse => estReponseAnalyse(x));
 }
 
 const photoCandidat = (p: PhotoDuBatiment): PhotoCandidat => ({
