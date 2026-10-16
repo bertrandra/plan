@@ -15,11 +15,11 @@ import { createElement } from 'react';
 import corpusLivre from '../../regles/conformite.json';
 import { EcranConformite, type AuditsJuges } from '../zones/EcranConformite.js';
 import { enregistrerMesureConformite, lireAuditRecu, lireMesuresConformiteServeur, listerAuditsRecus } from '../io/depotDemos.js';
-import { casDeLAuditParcelle, jugerCas } from '../facade/conformite.js';
-import { lireCorpusConformite, type MesureConformite, type VerdictCas } from '../model/conformite.js';
+import { casDeLAuditParcelle, jugerCas } from '../facade/regles/conformite.js';
+import { lireCorpusConformite, type MesureConformite, type VerdictCas } from '../regles/conformite.js';
 import { lireFichierAuditParcelle } from '../model/fichierAuditParcelle.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../model/reglagesToits.js';
-import { empreinteFaitsToits, faitsEnVigueur } from '../model/faitsToits.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../regles/toits/reglages.js';
+import { empreinteFaitsToits, faitsEnVigueur } from '../regles/toits/faits.js';
 import { APP_VERSION, BUILD_SHA } from '../model/version.js';
 import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
 

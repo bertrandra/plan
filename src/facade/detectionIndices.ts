@@ -5,7 +5,7 @@
 import { au } from '../util/tableaux.js';
 import type { Image } from './homographie.js';
 import { PX_PAR_M, mediane, type Reduite } from './detectionCartes.js';
-import type { ValeursDetection } from './reglagesDetection.js';
+import type { ValeursDetection } from './regles/facades/detection.js';
 
 /** Une boite en pixels de l'elevation : colonnes [X0, X1[, lignes [Y0, Y1[ (Y vers le bas). */
 export interface BoitePx {

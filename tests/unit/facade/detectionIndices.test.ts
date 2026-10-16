@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { carteOmbre, baieEntreVolets, affiner } from '../../../src/facade/detectionIndices.js';
 import { reduire } from '../../../src/facade/detectionCartes.js';
-import { reglagesDetection } from '../../../src/facade/reglagesDetection.js';
+import { reglagesDetection } from '../../../src/facade/regles/facades/detection.js';
 import type { Image } from '../../../src/facade/homographie.js';
 
 // Les indices d'une ouverture au-dela de l'ecart de teinte (spec-facades §9, lot L14).

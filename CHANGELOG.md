@@ -7,6 +7,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin › Règles (`?admin&ecran=regles`) : le prompt et le schéma de Claude, composés par les sujets, en
+  direct.** Chaque sujet de l'audit a une description (ce que Claude lit, comment il répond, son vocabulaire,
+  ses confusions) ; `deploy/prompt-analyse.md` et `deploy/schema-analyse.json` sont désormais **générés** depuis
+  elles (`npm run regles:generer`, `regles:verifier`), à l'octet identiques à ceux d'avant (prompt version 4, schéma
+  version 1). L'écran montre les sujets (ce qu'ils proposent au projet et ce qu'ils écrivent, l'accord mesuré de
+  Claude), laisse en exclure un du prompt, éditer ses textes et son schéma, ou **ajouter un sujet en brouillon**
+  (un chien-assis, un objet du jardin) : le prompt et le schéma se recalculent à chaque frappe, avec les lignes qui
+  changent par rapport au livré, la version à poser et les contrôles (schéma fermé, une consigne par champ, termes
+  définis, rangs uniques). On télécharge le module du sujet et les deux fichiers ; rien n'est écrit sur le serveur,
+  le brouillon reste dans le navigateur. Un texte changé sous la même version est refusé par un test.
+
+- **Audit : la forme du toit vue par Claude devient une proposition à décider.** Ce que Claude lit sur
+  les pignons et les croupes (forme, bouts) est relu sur la mesure LiDAR par le même mécanisme que les
+  faits (`corpsSousContrainte`) : le corps principal est relu parmi les seules formes vues, les autres
+  corps ne bougent pas. La ligne « Forme du toit de … » montre l'avant (la forme lue aujourd'hui) et
+  l'après, l'écart à la mesure avec cette forme (aujourd'hui / après) et les écarts que Claude a relevés
+  entre le rendu et la photo ; elle arrive décochée. Rien n'est fabriqué : une forme que Plan ne sait pas
+  lire (Mansart, demi-croupe…), des bouts qui se contredisent, un écart au-delà de 0,8 m ou l'absence de
+  mesure LiDAR laissent la ligne dans « Vu par Claude ». Cochée et validée, elle remplace les corps du
+  bâtiment (Ctrl+Z). « Forme du toit » est un cinquième attribut dont le taux d'accord se mesurera.
+
 - **Claude lit les pignons d'abord** (prompt d'analyse, version 4) : la silhouette du haut de chaque
   façade (triangle, trapèze, rampe, marches) dit la forme du toit et ses bouts, et chaque désaccord
   entre le rendu et la photo va dans les écarts. Le schéma de la réponse ne change pas.
@@ -32,6 +53,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   512 Ko. EZ-tree (4 Mo) se charge donc à l'ouverture de la Vue 3D même sans bibliothèque du serveur.
 
 ### Modifié
+
+- **Le moteur de règles est rangé en un seul endroit, nommé `regles/`** (`MD/architecture.md` §5.2.4,
+  `CLAUDE.md`) : un dossier par couche, `src/regles/` (réglages, profils, faits, décisions, conformité),
+  `src/facade/regles/` (appliquer un fait ou un profil, garde-fous, rejeu) et `src/app/regles/sujets/`
+  (ce que l'audit sait proposer, un module par sujet, un registre `SUJETS`). Les modules ont été déplacés
+  et leurs imports réécrits, sans changer une ligne de calcul : AE 101 et les empreintes golden sont
+  identiques. Ajouter un sujet (chien-assis, objet du jardin) = un module, une ligne du registre, son
+  effet et son attribut ; la liste est dans l'architecture.
 
 - **Rendu de la façade pour Claude : la façade seule.** Trois plans de coupe retirent ce qui avance
   devant le mur (une dépendance du même bâtiment, un corps bas) et ce qui dépasse de ses bouts.

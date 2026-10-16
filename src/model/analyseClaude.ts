@@ -341,7 +341,7 @@ export function contradictionsLidar(vote: VoteAnalyse, indices: IndicesLidar | n
  * --------------------------------------------------------------------------------------------- */
 
 /** Les attributs que Claude propose dans le projet, et sur lesquels un taux d'accord se mesure. */
-export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs';
+export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs' | 'formeToit';
 
 /**
  * Le taux d'accord mesure par attribut sur les cas valides (spec-regles-toits §14.2, point 5). Vide
@@ -349,7 +349,7 @@ export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiau
  */
 export const ACCORDS_MESURES: Readonly<Partial<Record<AttributClaude, number>>> = {};
 
-/** Au-dessus, l'attribut peut etre pre-accepte (model/propositions.ts, ACCORD_CLAUDE_MIN). */
+/** Au-dessus, l'attribut peut etre pre-accepte (regles/decisions.ts, ACCORD_CLAUDE_MIN). */
 export const ACCORD_PREACCEPTE = 0.95;
 
 /** La raison pour laquelle une proposition de Claude arrive decochee, ou null si elle peut etre cochee. */

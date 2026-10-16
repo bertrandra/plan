@@ -10,7 +10,7 @@ import { volumesDuBatiment } from '../../facade/profil.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { ouverturesAutomatiques, mursAOuvrir } from '../../facade/ouvertures.js';
 import { fenetres3dDe, reglerFenetres3d, nouvelleFenetre } from '../../model/fenetres3d.js';
-import { valeursFacadesDe } from '../../model/reglagesFacades.js';
+import { valeursFacadesDe } from '../../regles/facades/reglages.js';
 import { estBatiment } from '../../model/fonctions.js';
 import type { Fenetre3d, Fenetres3d, ObjetPlan } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';

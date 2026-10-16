@@ -409,7 +409,7 @@ Les seuils de la lecture (§1 à §4 : surface mesurée, rectangles, formes simp
 recalage, complétion, végétation, à cheval) vivent dans `regles/toits/reglages.json`, chacun avec sa
 valeur, son unité, le module qui le lit (`ou`), sa raison et les cas qui le justifient
 (`MD/spec-regles-toits.md` §6). Les modules gardent leurs noms (`SEUIL_MARCHE_M`…) mais lisent la
-valeur dans `model/reglagesToits.ts`, qui importe le fichier : il est compilé dans le fichier livré.
+valeur dans `regles/toits/reglages.ts`, qui importe le fichier : il est compilé dans le fichier livré.
 - **Changer un seuil** se fait dans le fichier, jamais dans le code (un test refuse `NOM = 0.8` dans
   les modules). Banc avant et après, AE 101, corpus d'audit, ligne de `LECTURES_TOITS` (§6 bis).
 - **Un seuil nouveau** s'ajoute au fichier avec sa raison, puis se lit par `R.NOM` ; les constantes de
@@ -418,11 +418,11 @@ valeur dans `model/reglagesToits.ts`, qui importe le fichier : il est compilé d
   copie prise au chargement : le nom exporté (`export const SEUIL_MARCHE_M = R.SEUIL_MARCHE_M`) ne
   sert qu'aux tests et à la documentation. Un test refuse `const NOM = R.…` et un nom exporté lu dans
   le code. Sinon un profil ne changerait rien.
-- **Les profils** (surcharges par région, §6 de la spec ; lot G15) : `model/profilsToits.ts` lit et
+- **Les profils** (surcharges par région, §6 de la spec ; lot G15) : `regles/toits/profils.ts` lit et
   vérifie `profils` (vocabulaire fermé : `departements`, `latitude`, `materiauxMurs`,
   `materiauxToiture`, `hauteur`, `surface`, `mitoyennete`, `formeContour`, `epoque` ; deux cas cités
   au moins ; seuils connus), choisit seuil par seuil le plus précis, et refuse deux profils de même
-  précision sur le même seuil qui peuvent toucher le même bâtiment. `facade/profilsToits.ts` décrit le
+  précision sur le même seuil qui peuvent toucher le même bâtiment. `facade/regles/toits/profils.ts` décrit le
   bâtiment (lieu du projet, BD TOPO, contour, voisins) et fait le calcul sous ses seuils
   (`avecProfilsDuBatiment`, `avecSeuilsToit` : un calcul **synchrone**, jamais à cheval sur une
   attente réseau). Branché à l'import, en tâche de fond, au recalage, à la réponse « à cheval », au
@@ -446,8 +446,8 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
 ```
 
 - Le script relit les versions 1 et 2 (`model/audit.ts::lireFichierPromenade`), rejoue chaque cas sans
-  réseau (`facade/audit.ts::rejouerCas` : calcul entier, comme la promenade ; mêmes garde-fous que
-  l'import, `facade/vraisemblance.ts`), puis compare aux `sorties` du terrain et à l'`attendu`. Il
+  réseau (`facade/regles/rejeu.ts::rejouerCas` : calcul entier, comme la promenade ; mêmes garde-fous que
+  l'import, `facade/regles/toits/vraisemblance.ts`), puis compare aux `sorties` du terrain et à l'`attendu`. Il
   écrit `q/bati-<cle>.json` (rejeu) et `q/bati-<cle>-terrain.json` (sorties notées) pour `rendu.py`.
 - Un fichier d'**audit de parcelle** (`plan-audit-parcelle`, lot L21), seul ou dans le dossier, n'a
   pas de cas de toit : le script mesure ses façades relevées (lot G11, `model/mesureFacade.ts`), une
@@ -473,12 +473,12 @@ python3 .claude/skills/toits/scripts/rendu.py --montage audit.png bati-<cle> bat
 
 ## 6 quinquies. Les faits : `regles/toits/faits.json`
 
-Une vérité observée sur **un** bâtiment, par sa clé BD TOPO (`cleabs`) : `model/faitsToits.ts` lit et
-vérifie le fichier (compilé dans le fichier livré), `facade/faitsToits.ts` l'applique. Ordre de la
+Une vérité observée sur **un** bâtiment, par sa clé BD TOPO (`cleabs`) : `regles/toits/faits.ts` lit et
+vérifie le fichier (compilé dans le fichier livré), `facade/regles/toits/faits.ts` l'applique. Ordre de la
 spec §9.1 : le calcul, puis le fait (`contrainte` : le corps principal relu parmi les formes et le
 sens admis, hauteurs de la mesure ; `remplacement` : un corps aux dimensions du fait, sans lecture ni
 garde-fou, même sans LiDAR), puis les garde-fous de vraisemblance. Il s'applique à l'import, en tâche
-de fond (`app/toitsLidar.ts::corpsLus`, `toitDuFait`) et au rejeu des cas (`facade/audit.ts`).
+de fond (`app/toitsLidar.ts::corpsLus`, `toitDuFait`) et au rejeu des cas (`facade/regles/rejeu.ts`).
 **Le skill `regles-toits` dit quand écrire un fait plutôt qu'un réglage ou une règle**, et traite un
 fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin (spec §9.2).
 

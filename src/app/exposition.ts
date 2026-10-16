@@ -172,6 +172,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // ---- Admin (menu Admin de Z1, admin des demos seulement) ------------------------------------
   'admin.consommation': menu('menuAdmin'),
   'admin.conformite': menu('menuAdmin'),
+  'admin.regles': menu('menuAdmin'),
   'admin.auditsParcelle': menu('menuAdmin'),
   'admin.faitsLocaux': menu('menuAdmin'),
 

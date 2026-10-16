@@ -10,8 +10,8 @@
 //   npx tsx .claude/skills/toits/scripts/identite.ts | diff /tmp/toits/avant.txt -
 import { readFileSync, readdirSync } from 'node:fs';
 import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
-import { corpsSelonFait } from '../../../../src/facade/faitsToits.ts';
-import { faitDuBatiment } from '../../../../src/model/faitsToits.ts';
+import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
+import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
 const F = new URL('../../../../tests/fixtures/toits/', import.meta.url);
 let ok = true;

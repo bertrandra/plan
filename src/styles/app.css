@@ -2433,6 +2433,67 @@
     .consInfobulle.aGauche{ transform:none; }
   }
 
+  /* L'ecran des regles (`?admin&ecran=regles`, zones/EcranRegles.tsx) : meme forme que la conformite, dont il
+     reprend les classes (tuiles, filtres, onglets). Les sujets a gauche, le prompt et le schema a droite ; sous
+     1 024 px les deux se suivent. Un ajout ou un retrait se dit par un signe (+ / −) : la couleur ne porte
+     jamais seule. */
+  html[data-ecran="regles"] body > :not(#zoneEcranRegles):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="regles"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="regles"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranRegles{ width:100%; min-width:0; }
+  .reglCorps{ display:grid; grid-template-columns:minmax(0, 5fr) minmax(0, 6fr); gap:16px; align-items:start; margin-top:16px; }
+  .reglResultat{ position:sticky; top:8px; min-width:0; }
+  .reglListe{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+  .reglSujet{ padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); }
+  .reglSujet[data-exclu="oui"]{ background:var(--panel-2); }
+  .reglSujet[data-exclu="oui"] .reglSujetEntete strong{ text-decoration:line-through; color:var(--ink-soft); }
+  .reglSujetEntete{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+  .reglInclure{ display:inline-flex; align-items:center; gap:8px; min-height:32px; font-size:0.84rem; flex:1 1 200px; }
+  .reglInclure input{ width:18px; height:18px; }
+  .reglInclure code, .reglBadge code{ font-family:var(--mono); font-size:0.72rem; color:var(--ink-soft); }
+  .reglBadges{ display:inline-flex; flex-wrap:wrap; gap:4px; }
+  .reglBadge{ padding:2px 8px; border-radius:999px; background:var(--accent-light); color:var(--on-accent-light); font-size:0.68rem; }
+  .reglModifie{ background:var(--panel-2); color:var(--ink); border:1px solid var(--rule); }
+  .reglResume{ margin:4px 0 0; }
+  .reglEditeur{ display:grid; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--hairline); }
+  .reglFamille{ margin:0; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-champ); min-width:0; }
+  .reglFamille legend{ padding:0 6px; font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .reglBloc{ display:grid; gap:4px; margin:0 0 8px; }
+  .reglBlocEntete{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; font-size:0.72rem; color:var(--ink-soft); }
+  .reglBlocEntete label{ display:inline-flex; align-items:center; gap:6px; }
+  .reglBlocEntete input{ min-height:32px; font-family:var(--sans); font-size:0.8rem; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); padding:4px 8px; }
+  .reglBlocEntete input[type="number"]{ width:76px; font-variant-numeric:tabular-nums; }
+  .reglTexte{ width:100%; box-sizing:border-box; resize:vertical; font-family:var(--sans); font-size:0.8rem; line-height:1.4; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); padding:6px 8px; }
+  .reglMono{ font-family:var(--mono); font-size:0.74rem; }
+  .reglChamp{ display:grid; gap:4px; margin:0 0 8px; }
+  .reglChampNom{ font-size:0.72rem; color:var(--ink-soft); }
+  .reglErreur{ padding:4px 8px; border-radius:var(--r-champ); background:var(--danger-bg); color:var(--danger); font-size:0.74rem; }
+  .reglActionsSujet{ display:flex; flex-wrap:wrap; gap:8px; }
+  .reglLarge{ grid-column:1 / -1; }
+  .reglNouveau{ margin:0 0 12px; }
+  .reglSortie{ margin:0; max-height:72vh; overflow:auto; padding:10px 0; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-bg); font-family:var(--mono); font-size:0.72rem; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--ink); }
+  .reglSortie:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .reglLigne{ display:block; padding:0 10px 0 0; }
+  .reglSigne{ display:inline-block; width:1.6em; text-align:center; color:var(--ink-soft); user-select:none; }
+  .reglAjout{ background:var(--accent-light); color:var(--on-accent-light); }
+  .reglAjout .reglSigne{ color:inherit; font-weight:700; }
+  .reglRetrait{ background:var(--danger-bg); color:var(--danger); }
+  .reglRetrait .reglSigne{ color:inherit; font-weight:700; }
+  .reglTitreEcart{ margin:12px 0 6px; font-family:var(--serif); font-size:0.95rem; }
+  .reglControles{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+  .reglControles li{ padding:8px 12px; border:1px solid var(--border); border-left-width:4px; border-radius:var(--r-champ); background:var(--panel-bg); font-size:0.8rem; }
+  .reglControles li[data-niveau="erreur"]{ border-left-color:var(--danger); }
+  .reglControles li[data-niveau="alerte"]{ border-left-color:var(--alerte); }
+  .reglControles strong{ margin-right:6px; text-transform:uppercase; font-size:0.66rem; letter-spacing:.1em; }
+  @media (max-width: 1023px){
+    .reglCorps{ grid-template-columns:minmax(0, 1fr); }
+    .reglResultat{ position:static; }
+    .reglSortie{ max-height:60vh; }
+    .reglInclure input{ width:24px; height:24px; }
+    .reglInclure, .reglBlocEntete input, .reglBlocEntete button, .reglActionsSujet button, .reglSujetEntete button{ min-height:44px; }
+    .reglTexte{ font-size:0.9rem; }
+  }
+
   /* L'ecran des arbres (`?admin&ecran=arbres`, zones/EcranArbres.tsx) : la page defile, Plan ne tourne
      pas dessous. Il reprend la mise en page de la palette (.palEcran, .palEntete, .palBarre) ; ce qui
      suit n'ajoute que le formulaire des reglages et l'apercu, en jetons seulement. */

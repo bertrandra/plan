@@ -7,8 +7,8 @@ import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../src/model/types.js';
-import { corpsSelonFait } from '../../../src/facade/faitsToits.js';
-import { faitDuBatiment } from '../../../src/model/faitsToits.js';
+import { corpsSelonFait } from '../../../src/facade/regles/toits/faits.js';
+import { faitDuBatiment } from '../../../src/regles/toits/faits.js';
 
 // La reprise des contours qui ne se decoupent pas tels quels (MD/spec-toit-ign.md §13.7), sur deux
 // releves reels du Vesinet : AE 101, dont les corps ont ete valides et ne doivent pas bouger d'un

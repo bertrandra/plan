@@ -10,7 +10,7 @@
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { differencePolygones } from '../geometry/difference.js';
 import type { CorpsToit, PtBrut } from './types.js';
-import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 
 /** Une part plus petite que cela, ou que cette part du batiment, est un trace du cadastre qui deborde, pas une moitie de maison. */
 export const AIRE_A_CHEVAL_MIN_M2 = R.AIRE_A_CHEVAL_MIN_M2;

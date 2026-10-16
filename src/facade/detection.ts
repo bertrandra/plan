@@ -21,8 +21,8 @@ import type { DetailsOuverture, GrilleFacade, SourceOuverture, TypeOuverture } f
 import { PX_PAR_M, morpho, reduire, taches, type Reduite, type Tache } from './detectionCartes.js';
 import { fondDuMur, type FondDuMur } from './detectionFond.js';
 import { affiner, baieEntreVolets, carteOmbre, gradients, soutienAretes, versElevation, type BoitePx, type FondPx, type Gradients } from './detectionIndices.js';
-import { reglagesDetection, type ValeursDetection } from './reglagesDetection.js';
-import { reglagesStructure, type ValeursStructure } from './reglagesStructure.js';
+import { reglagesDetection, type ValeursDetection } from './regles/facades/detection.js';
+import { reglagesStructure, type ValeursStructure } from './regles/facades/structure.js';
 import { allege, bandeHaute, classer, classerAvecIndices, estVitree, formeDeTache, lamesHorizontales } from './classement.js';
 import { completer, regulariser, structurer, type EvaluerZone } from './structure.js';
 

@@ -7,7 +7,7 @@
 //
 // Pur, sans reseau ni DOM : il ne lit que le corps et un seuil des reglages.
 
-import { REGLAGES_TOITS as R } from './reglagesToits.js';
+import { REGLAGES_TOITS as R } from '../regles/toits/reglages.js';
 import type { FormeVue } from './ceQueJeVois.js';
 import type { BoutToit, CorpsToit, FormeToit, FormeToitCatalogue, FormeToitSimple, PtBrut, Toit } from './types.js';
 
@@ -73,7 +73,7 @@ export function toitDessine<T extends Toit>(toit: T): T {
 export const FAITAGE_PAVILLON_MAX_M = 1;
 /** Et sur un plan presque carre : le long cote au plus 1,25 fois le court (un plan plus allonge garde une arete). */
 export const RAPPORT_PAVILLON_MAX = 1.25;
-/** Un faitage a moins de 1 cm d'un mur est sur le mur : un appentis (la tolerance de `formeDuCorps`, facade/faitsToits.ts). */
+/** Un faitage a moins de 1 cm d'un mur est sur le mur : un appentis (la tolerance de `formeDuCorps`, facade/regles/toits/faits.ts). */
 const SUR_LE_MUR_M = 0.01;
 
 const longueur = (a: PtBrut, b: PtBrut) => Math.hypot(b.x - a.x, b.y - a.y);
@@ -108,7 +108,7 @@ function formeDroite(c: CorpsToit, L: number, W: number): FormeToit {
 /**
  * La forme d'un corps (spec §3.1, §4). Dans l'ordre :
  * - un faitage plus bas que les deux egouts : un papillon (spec §4) ;
- * - sous HAUTEUR_PLAT_M de montee : plat (la regle de `formeDuCorps`, facade/faitsToits.ts) ;
+ * - sous HAUTEUR_PLAT_M de montee : plat (la regle de `formeDuCorps`, facade/regles/toits/faits.ts) ;
  * - un pan brise : Mansart si chaque bout est ferme par un pan (brisis ou croupe), gambrel sinon ;
  * - un pan courbe : carene si un bout est ferme par un pan, berceau sinon (un berceau a ses pignons) ;
  * - un pan retrousse ou un bord en coyau : coyau ;

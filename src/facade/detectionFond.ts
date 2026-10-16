@@ -17,7 +17,7 @@
 
 import { au } from '../util/tableaux.js';
 import { PX_PAR_M, completer, completerRangs, medianeGlissante, medianeMasquee, morpho, taches, type Reduite } from './detectionCartes.js';
-import type { ValeursDetection } from './reglagesDetection.js';
+import type { ValeursDetection } from './regles/facades/detection.js';
 
 export interface FondDuMur {
   /** Le fond local, trois canaux par pixel de travail. */

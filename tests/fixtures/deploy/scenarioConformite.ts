@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect } from 'vitest';
 import { enregistrerMesureConformite, lireMesuresConformiteServeur } from '../../../src/io/depotDemos.js';
-import { lireMesuresConformite, mesureConformite, type VerdictCas } from '../../../src/model/conformite.js';
+import { lireMesuresConformite, mesureConformite, type VerdictCas } from '../../../src/regles/conformite.js';
 
 export interface NavigationConformite {
   navigateur(entree: string, init?: RequestInit): Promise<Response>;

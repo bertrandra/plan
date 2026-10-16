@@ -486,7 +486,7 @@ les **régler par profil**, comme les seuils des toits (`spec-regles-toits.md` �
    entier** (ses dimensions vont ensemble) ; le plus précis (le plus de conditions) l'emporte, et
    deux profils de même précision qui peuvent tomber sur le même bâtiment font refuser le fichier
    (test en CI). Le profil retenu se range sur le bâtiment (`profilFacades : { id, version }`) ;
-   l'empreinte du fichier entre dans `VERSION_LECTURE_FACADES` (`model/reglagesFacades.ts`,
+   l'empreinte du fichier entre dans `VERSION_LECTURE_FACADES` (`regles/facades/reglages.ts`,
    `LECTURES_FACADES`) : une valeur ou un profil changé fait rechoisir les profils en tâche de fond
    (`app/profilsFacadesFond.ts`), sauf sur la parcelle du projet et les bâtiments vérifiés sur
    place. Les dimensions réglées à la main (inspecteur « Fenêtres (3D) », apparence du voisinage)

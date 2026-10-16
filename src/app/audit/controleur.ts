@@ -36,7 +36,7 @@ import { poserFacadeDevant } from '../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
 import { COULEURS_DIAGNOSTIC } from '../diagnostic.js';
 import { VERSION_LECTURE_TOITS } from '../toitsLidar.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../../model/reglagesToits.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../../regles/toits/reglages.js';
 import { VERSION_LECTURE_MURS } from '../mursFond.js';
 import { parcours } from '../parcours.js';
 import { planDeDepart, chargerAutour, fautRecharger, type DependancesChargement } from './chargement.js';

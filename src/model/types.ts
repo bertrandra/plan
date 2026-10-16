@@ -275,8 +275,8 @@ interface ObjetCommun {
   fenetres3d?: Fenetres3d | null;
   /**
    * Le profil de facades retenu pour le batiment (regles/facades/reglages.json,
-   * facade/profilsFacades.ts), et la version de la lecture qui l'a choisi
-   * (model/reglagesFacades.ts, VERSION_LECTURE_FACADES). Absent, le profil par defaut.
+   * facade/regles/facades/profils.ts), et la version de la lecture qui l'a choisi
+   * (regles/facades/reglages.ts, VERSION_LECTURE_FACADES). Absent, le profil par defaut.
    */
   profilFacades?: ProfilFacadesRetenu | null;
   /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */

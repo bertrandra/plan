@@ -19,7 +19,7 @@ import { angleDuPlusLongCote, repereFaitage, ELONGATION_MIN } from '../geometry/
 import { squeletteDroit, demiLargeurApprochee } from '../geometry/squelette.js';
 import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
-import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 import { toitDessine } from './formeToit.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */

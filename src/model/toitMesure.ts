@@ -18,7 +18,7 @@ import { sommetDe } from '../geometry/anneau.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import type { GrilleRelief } from './relief.js';
 import type { PtBrut, ToitMesure } from './types.js';
-import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from './reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 
 /** Une cellule plus haute que la mediane de ses voisines de plus de cela est un arbre ou une cheminee : ramenee a elles. */
 export const SAILLIE_M = R.SAILLIE_M;

@@ -8,9 +8,9 @@
 //
 // Code de sortie 1 : le fichier est illisible, ou une signature depasse FAITS_SEMBLABLES_MAX.
 import { readFileSync } from 'node:fs';
-import { lireFaitsToits, compterFaitsParForme, empreinteFaitsToits, EMPREINTE_FAITS_VIDE, FAITS_SEMBLABLES_MAX } from '../../../../src/model/faitsToits.ts';
+import { lireFaitsToits, compterFaitsParForme, empreinteFaitsToits, EMPREINTE_FAITS_VIDE, FAITS_SEMBLABLES_MAX } from '../../../../src/regles/toits/faits.ts';
 import { LECTURES_TOITS, VERSION_LECTURE_TOITS } from '../../../../src/app/toitsLidar.ts';
-import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/model/reglagesToits.ts';
+import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.ts';
 
 const chemin = process.argv[2] ?? 'regles/toits/faits.json';
 const faits = lireFaitsToits(JSON.parse(readFileSync(chemin, 'utf8')));

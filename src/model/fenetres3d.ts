@@ -3,7 +3,7 @@
 // `fenetres3d` sur le batiment ; la disposition automatique est dans facade/ouvertures.ts.
 
 import type { Fenetre3d, Fenetres3d, ObjetPlan } from './types.js';
-import { REGLAGES_FACADES as R, valeursFacadesDe, type ValeursFacades } from './reglagesFacades.js';
+import { REGLAGES_FACADES as R, valeursFacadesDe, type ValeursFacades } from '../regles/facades/reglages.js';
 
 /**
  * Les ouvertures dessinees par defaut : une fenetre par entraxe, une porte au milieu du plus long mur.

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ajouterDetailsBatiment, contourDecale, niveaux, abscissesFenetres, DEBORD_TOIT_M, DETAIL_FIN_M, EPAISSEUR_TOIT_M, FENETRE, PORTE } from '../../../src/three/detailsBatiment.js';
 import type { CorpsToit, ObjetPolygone, PtBrut } from '../../../src/model/types.js';
-import { REGLAGES_FACADES } from '../../../src/model/reglagesFacades.js';
+import { REGLAGES_FACADES } from '../../../src/regles/facades/reglages.js';
 
 // Les details d'un batiment en 3D (MD/spec-toit-ign.md §6.3), verifies en structure, comme le releve :
 // quelles mailles, combien, a quelle hauteur — avec un THREE minimal qui retient ce qu'on lui donne.

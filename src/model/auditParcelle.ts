@@ -11,7 +11,7 @@
 
 import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
-import type { Proposition } from './propositions.js';
+import type { Proposition } from '../regles/decisions.js';
 import type { OuvertureFacade } from './types.js';
 
 /** La version de la capture ecrite : une capture d'une version inconnue n'est pas reprise. */

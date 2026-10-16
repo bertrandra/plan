@@ -13,7 +13,7 @@
 
 import { au } from '../util/tableaux.js';
 import { classer } from './classement.js';
-import { reglagesStructure, type ValeursStructure } from './reglagesStructure.js';
+import { reglagesStructure, type ValeursStructure } from './regles/facades/structure.js';
 import type { GrilleFacade, TypeOuverture } from '../model/types.js';
 
 /** Ce que la structure lit d'une ouverture : son type et sa boite, en metres (y depuis le sol). */

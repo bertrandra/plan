@@ -290,7 +290,7 @@ export async function enregistrerModelesClaude(f: Fetch, reglage: unknown): Prom
 
 // --- Les indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) ----------------------
 
-/** L'historique des mesures (`GET admin/conformite`) ; model/conformite.ts le relit. */
+/** L'historique des mesures (`GET admin/conformite`) ; regles/conformite.ts le relit. */
 export async function lireMesuresConformiteServeur(f: Fetch): Promise<unknown> {
   return (await appeler(f, '/conformite', 'lecture des mesures de conformité')).json() as Promise<unknown>;
 }

@@ -766,9 +766,9 @@ batch déjà fini recale chaque façade quand sa mesure arrive. Les baies devin�
 renfort, qui les confirme plutôt que d'en poser une seconde.
 
 **Fait (lot L11, sans Claude)** : les mesures du téléphone (`app/audit/parcelle/mesures.ts`) et les
-observations deviennent des propositions (`model/propositions.ts`, source `mesure`, prêtes pour la
+observations deviennent des propositions (`regles/decisions.ts`, source `mesure`, prêtes pour la
 source `claude`) ; Avant / Après dans la Vue 3D sur des copies des bâtiments, puis les deux ensemble
-(`three/comparaison3d.ts`, `model/propositions.ts::projetApres`, point de fumée 90) ; cases, choix à la main
+(`three/comparaison3d.ts`, `regles/decisions.ts::projetApres`, point de fumée 90) ; cases, choix à la main
 décochés (« Remplace votre choix : … ») ; « Valider » en un pas d'historique ; `verifieSurPlace`.
 Restent : la forme du toit vue (forme, faîtage, bouts, lucarnes), qui attend les règles et Claude ;
 la photo et les indices touchés depuis la 3D ; l'éditeur du relevé ouvert depuis la ligne d'une

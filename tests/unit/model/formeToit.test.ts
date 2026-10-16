@@ -6,7 +6,7 @@ import {
   boutsDuCorps, formeDuCorpsToit, formeDesCorps, formeDeLaVue,
 } from '../../../src/model/formeToit.js';
 import { AUTRES_FORMES, FORMES_COURANTES } from '../../../src/model/ceQueJeVois.js';
-import { formeDuCorps } from '../../../src/facade/faitsToits.js';
+import { formeDuCorps } from '../../../src/facade/regles/toits/faits.js';
 import demo from '../../../src/model/demo-projet.json';
 import type { CorpsToit, Toit } from '../../../src/model/types.js';
 
