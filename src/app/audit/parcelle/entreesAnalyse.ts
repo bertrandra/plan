@@ -16,7 +16,7 @@ import { couleurMursRetenue, textureDesMurs } from '../../../model/couleurMur.js
 import { hauteurDe } from '../../../model/propositions.js';
 import { resumePartie, partieVue } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
-import { hauteurHautDeFacade } from './liste.js';
+import { etiquetteFacade, hauteurHautDeFacade } from './liste.js';
 import type { BlocAnalyse, DemandeAnalyse, RequeteAnalyse } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, EtiquetteImage } from '../../../model/auditParcelle.js';
 import { requetesRenfortDuBatiment, type FabriqueImagesRenfortAudit } from './entreesRenfort.js';
@@ -50,6 +50,9 @@ export interface FabriqueImages {
 export interface EntreeBatiment {
   cle: string;
   facades: number;
+  /** Les rendus du modele joints, et les photos de facade dont la prise permettait d'en joindre un. */
+  rendus: number;
+  rendusPossibles: number;
   etiquettes: EtiquetteImage[];
   contenu: BlocAnalyse[];
 }
@@ -85,7 +88,7 @@ export function modeleCompact(o: ObjetPlan, b: LigneBatiment): Record<string, un
     toit: o.toit ? { forme: o.toit.forme, ...(o.toit.couverture ? { couverture: o.toit.couverture } : {}) } : null,
     corps,
     murs: { materiau: textureDesMurs(o) ?? null, couleur: couleurMursRetenue(o)?.couleur ?? null },
-    facades: b.facades.map((f) => ({ etiquette: f.facade.orientation.toLowerCase(), largeurM: Math.round(f.facade.largeur * 10) / 10, ouverturesRelevees: (o.facades ?? []).find((r) => r.cote === f.cote)?.ouvertures.length ?? null })),
+    facades: b.facades.map((f) => ({ etiquette: etiquetteFacade(b, f), largeurM: Math.round(f.facade.largeur * 10) / 10, ouverturesRelevees: (o.facades ?? []).find((r) => r.cote === f.cote)?.ouvertures.length ?? null })),
   };
 }
 
@@ -95,7 +98,7 @@ export function mesuresCompactes(b: LigneBatiment, e: EntreesPropositions): Reco
     const m = e.mesures.get(cleMesure(b.cle, f.cote));
     if (!m) return [];
     return [{
-      facade: f.facade.orientation.toLowerCase(),
+      facade: etiquetteFacade(b, f),
       ouverturesDetectees: m.releve?.ouvertures.length ?? null,
       coinsTrouves: m.coinsTrouves,
       ...(m.hauteurM !== null ? { hauteurEgoutMesureeM: m.hauteurM } : {}),
@@ -162,7 +165,7 @@ function groupesDePhotos(b: LigneBatiment, e: EntreesPropositions): { groupes: C
     const photos = bat?.facades[String(f.cote)]?.photos ?? [];
     if (!photos.length) continue;
     facades++;
-    const nom = 'façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
+    const nom = 'façade ' + etiquetteFacade(b, f) + ' de ' + b.nom;
     groupes.push(photos.map((p, rang) => ({ p, ordre: ordre++, texte: 'photo de la ' + nom + textePrise(p.prise, distanceAuMur(f.facade, p.prise)), photo: { cle: b.cle, cote: f.cote, rang }, img: null, rendu: null })));
   }
   const toit = bat?.photos ?? [];
@@ -177,7 +180,7 @@ function groupesDePhotos(b: LigneBatiment, e: EntreesPropositions): { groupes: C
  * (une image chacune, et tout le toit), puis la meilleure photo de chaque facade et du toit, puis
  * leur rendu, puis les autres photos tour a tour, et leurs rendus en dernier.
  */
-async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages, max = IMAGES_PAR_REQUETE): Promise<{ etiquettes: EtiquetteImage[]; contenu: BlocAnalyse[]; facades: number }> {
+async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages, max = IMAGES_PAR_REQUETE): Promise<{ etiquettes: EtiquetteImage[]; contenu: BlocAnalyse[]; facades: number; rendus: number; rendusPossibles: number }> {
   let place = max;
   const contour = 'pts' in o && o.pts ? o.pts : [];
   let ortho: ImagePreparee | null = null, carte: ImagePreparee | null = null;
@@ -208,6 +211,9 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
 
   const etiquettes: EtiquetteImage[] = [];
   const contenu: BlocAnalyse[] = [];
+  const envoyees = groupes.flat().filter((c) => c.img);
+  const rendusPossibles = envoyees.filter((c) => c.photo.cote !== undefined && c.p.prise && c.p.prise.azimutDeg !== null).length;
+  const rendus = envoyees.filter((c) => c.rendu).length;
   for (const c of groupes.flat().sort((a, z) => a.ordre - z.ordre)) {
     if (!c.img) continue;
     image(c.img, c.texte, etiquettes, contenu, c.photo);
@@ -215,14 +221,16 @@ async function imagesDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropos
   }
   if (ortho) image(ortho, 'orthophoto, vue du dessus, recadrée sur le contour de ' + b.nom + ' (contour en jaune, nord en haut)', etiquettes, contenu);
   if (carte) image(carte, 'carte des hauteurs LiDAR de ' + b.nom + ' (bleu bas, rouge haut, contour en noir, échelle)', etiquettes, contenu);
-  return { etiquettes, contenu, facades };
+  return { etiquettes, contenu, facades, rendus, rendusPossibles };
 }
 
 /** Le texte qui suit les images : indices chiffres, modele, mesures, observations, et la liste des facades a decrire. */
-function texteDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, indices: IndicesLidar | null): string {
+function texteDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, indices: IndicesLidar | null, rendus: number): string {
   const lignes: string[] = [];
   lignes.push('Bâtiment : ' + b.nom + (b.mitoyen ? ' (mitoyen)' : '') + '.');
-  lignes.push('Façades à décrire (étiquettes) : ' + b.facades.filter((f) => (e.capture.batiments[b.cle]?.facades[String(f.cote)]?.photos.length ?? 0) > 0).map((f) => f.facade.orientation.toLowerCase()).join(', ') + '.');
+  lignes.push('Façades à décrire (étiquettes) : ' + b.facades.filter((f) => (e.capture.batiments[b.cle]?.facades[String(f.cote)]?.photos.length ?? 0) > 0).map((f) => etiquetteFacade(b, f)).join(', ') + '.');
+  // Sans cette ligne, Haiku citait « le rendu du modèle » qu'il n'avait pas recu (rejeu d'AE 101).
+  if (!rendus) lignes.push('Aucun rendu du modèle n’est joint à cette requête : le modèle actuel ne se lit que dans le JSON ci-dessous. Ne citez aucun rendu.');
   lignes.push('Indices LiDAR chiffrés : ' + (indices ? JSON.stringify(indices) : 'aucune mesure LiDAR pour ce bâtiment') + '.');
   lignes.push('Modèle actuel de Plan (JSON compact, mètres) : ' + JSON.stringify(modeleCompact(o, b)));
   const mesures = mesuresCompactes(b, e);
@@ -234,11 +242,11 @@ function texteDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions,
 
 /** Les entrees d'un batiment ; null s'il n'a aucune photo (rien a regarder). */
 export async function entreeDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages): Promise<EntreeBatiment | null> {
-  const { etiquettes, contenu, facades } = await imagesDuBatiment(o, b, e, fab);
+  const { etiquettes, contenu, facades, rendus, rendusPossibles } = await imagesDuBatiment(o, b, e, fab);
   if (!etiquettes.some((x) => x.photo)) return null;
   const indices = indicesLidar(o.toitMesure, o.corpsToit);
-  contenu.push({ type: 'text', text: texteDuBatiment(o, b, e, indices) });
-  return { cle: b.cle, facades, etiquettes, contenu };
+  contenu.push({ type: 'text', text: texteDuBatiment(o, b, e, indices, rendus) });
+  return { cle: b.cle, facades, rendus, rendusPossibles, etiquettes, contenu };
 }
 
 export interface IdentiteAnalyse {
@@ -260,7 +268,7 @@ export const idRequete = (rang: number, passe: number): string => 'b' + rang + '
  * La demande entiere : chaque batiment photographie, en trois passes identiques. Rend aussi de quoi
  * relire les resultats : quelle requete est quel batiment, et les etiquettes de ses images.
  */
-export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImages, identite: IdentiteAnalyse): Promise<{ demande: DemandeAnalyse; requetes: BatchAnalyse['requetes']; etiquettes: Record<string, EtiquetteImage[]> } | null> {
+export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImages, identite: IdentiteAnalyse): Promise<{ demande: DemandeAnalyse; requetes: BatchAnalyse['requetes']; etiquettes: Record<string, EtiquetteImage[]>; sansRendu: string[] } | null> {
   const parCle = new Map(e.objets.map((o) => [o.key, o]));
   const entrees: EntreeBatiment[] = [];
   for (const b of e.liste.batiments) {
@@ -290,5 +298,8 @@ export async function preparerDemande(e: EntreesPropositions, fab: FabriqueImage
       Object.assign(requetes, r.parId);
     }
   }
-  return { demande: { ...identite, usage: 'analyse', requetes: liste }, requetes, etiquettes };
+  // Les batiments dont les prises permettaient un rendu et qui n'en ont aucun : la Vue 3D n'etait pas
+  // ouverte, ou le dessin a echoue. La personne le sait, et le texte de la requete le dit a Claude.
+  const sansRendu = entrees.filter((x) => x.rendusPossibles > 0 && x.rendus === 0).map((x) => e.liste.batiments.find((b) => b.cle === x.cle)?.nom ?? x.cle);
+  return { demande: { ...identite, usage: 'analyse', requetes: liste }, requetes, etiquettes, sansRendu };
 }

@@ -537,6 +537,12 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     environ 60 000 tokens d'entrée par passe, soit environ 0,003 $ ; la sortie, environ 0,001 $ ;
   - avec trois passes, **de l'ordre de 1 à 2 centimes par parcelle** ;
   - quelques dizaines de centimes si une partie passe à l'escalade.
+  - **Mesuré sur le rejeu d'AE 101 (16 octobre 2026, Haiku 5.5, batch)** : 0,011 $ pour deux bâtiments
+    (0,003 $ l'abri de jardin, 0,008 $ la maison de seize photos). La sortie pèse 60 % du coût, l'entrée
+    33 %, le cache 7 % (partie fixe : 8 917 tokens, écrite une fois et lue cinq fois, même en batch).
+    La réponse de la maison varie de 5 000 à plus de 8 000 tokens selon la passe : `max_tokens` est à
+    16 000. Chaque mur porte une étiquette unique pour le vote (orientation, et « (côté N) » quand le
+    bâtiment en a plusieurs de même orientation) ; sans rendu du modèle joint, le texte le dit.
   - **Depuis le 15 octobre 2026, le modèle rapide (Haiku) est de nouveau celui de tous les usages par
     défaut** (voir ci-dessous) ; les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation
     par requête (0,005 $) lui correspondent. Un usage passé au modèle plus fin (Sonnet) dans
