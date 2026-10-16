@@ -12,7 +12,7 @@
     "lidar": { "libelle": "LiDAR HD", "poids": 4, "seule": true, "voit": "le sursol tous les 50 cm : l'egout, le faitage, les corps et leurs bouts ; les arbres le trompent" },
     "photo": { "libelle": "Photo de façade", "poids": 3, "seule": false, "voit": "la hauteur du mur, sa silhouette et ses ouvertures, quand les coins du mur sont trouves" },
     "claude": { "libelle": "Claude", "poids": 1.5, "seule": false, "voit": "tous les parametres sans dimension : forme, bouts, silhouette, materiaux, couverture ; jamais seul" },
-    "terrain": { "libelle": "Vu sur place", "poids": 10, "seule": true, "voit": "ce que la personne a vu devant le batiment" }
+    "terrain": { "libelle": "Vu sur place", "poids": 30, "seule": true, "voit": "ce que la personne a vu devant le batiment" }
   },
   "attributs": {
     "hauteurEgout": { "libelle": "Hauteur à l'égout", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.5, "unite": "m" }, "poids": { "lidar": 4, "photo": 3, "ign": 2 } },
