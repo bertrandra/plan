@@ -43,6 +43,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le moteur de règles est identifié dans l'architecture** (`MD/architecture.md` §5.2.4, pointeur dans
+  `CLAUDE.md`) : règle, réglage et fait, l'ordre d'application, ses modules par couche, qui l'appelle,
+  ce qui le garde honnête, et le fait qu'une décision d'audit passe par lui. Documentation seule.
+
 - **Rendu de la façade pour Claude : la façade seule.** Trois plans de coupe retirent ce qui avance
   devant le mur (une dépendance du même bâtiment, un corps bas) et ce qui dépasse de ses bouts.
 - **Audit, vue de la façade choisie : à hauteur d'homme.** La caméra descend à 1,7 m au lieu de la

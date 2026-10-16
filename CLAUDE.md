@@ -65,6 +65,15 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
    cité). Construire dans un worktree à part (`git worktree add --detach … origin/main`, avec un
    lien vers `node_modules`) garde la copie de travail propre. `livraison.zip` est ignoré par git.
 
+## Moteur de règles
+
+Le moteur de règles des toits et des façades est décrit dans `MD/architecture.md` §5.2.4 (où sont
+ses modules, par couche, et dans quel ordre il s'applique) et dans `MD/spec-regles-toits.md`. Trois
+entrées qui ne se mélangent pas : une **règle** (code de `facade/`), un **réglage** (`regles/*/reglages.json`,
+valeur d'un seuil), un **fait** (`regles/toits/faits.json`, un bâtiment). Une décision de l'audit passe
+par le moteur (`corpsSousContrainte`) : elle n'écrit jamais une forme de toit de sa propre main, ni dans
+`faits.json` (qui ne change que par PR). Charger le skill `toits` ou `regles-toits` avant d'y toucher.
+
 ## Interface
 
 - `/?palette` (admin, menu « Admin » de la barre) montre et règle les couleurs, les variables CSS
