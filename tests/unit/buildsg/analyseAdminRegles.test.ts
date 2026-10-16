@@ -22,11 +22,11 @@ const MDP = 'secret-admin';
 describe('le brouillon des règles, calcul pur', () => {
   it('lit le prompt et le schéma, garde leurs versions, refuse ce que le serveur ne saurait pas envoyer', () => {
     const b = verifierBrouillonRegles(BROUILLON, '2026-10-16T10:00:00.000Z');
-    expect(vueBrouillonRegles(b)).toEqual({ enregistreLe: '2026-10-16T10:00:00.000Z', prompt: 7, schema: 3 });
-    expect(b).toMatchObject({ format: 'plan-regles-brouillon', versionPrompt: 7, versionSchema: 3, etat: BROUILLON.etat });
+    expect(vueBrouillonRegles(b)).toEqual({ enregistreLe: '2026-10-16T10:00:00.000Z', prompt: 8, schema: 4 });
+    expect(b).toMatchObject({ format: 'plan-regles-brouillon', versionPrompt: 8, versionSchema: 4, etat: BROUILLON.etat });
     expect(() => verifierBrouillonRegles(null, 'x')).toThrow(/illisible/);
     expect(() => verifierBrouillonRegles({ ...BROUILLON, prompt: 'sans en-tete' }, 'x')).toThrow(/en-tete/);
-    expect(() => verifierBrouillonRegles({ ...BROUILLON, prompt: '---\nversion: 7\n---\n  \n' }, 'x')).toThrow(/vide/);
+    expect(() => verifierBrouillonRegles({ ...BROUILLON, prompt: '---\nversion: 8\n---\n  \n' }, 'x')).toThrow(/vide/);
     expect(() => verifierBrouillonRegles({ ...BROUILLON, schema: '[]' }, 'x')).toThrow(/Schéma/);
     expect(() => verifierBrouillonRegles({ ...BROUILLON, etat: [] }, 'x')).toThrow(/état/);
     expect(vueBrouillonRegles(null)).toBeNull();

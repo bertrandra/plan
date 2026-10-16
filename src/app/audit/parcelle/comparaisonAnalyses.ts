@@ -65,6 +65,7 @@ export function aplatirVote(v: VoteAnalyse): Map<string, ValeurVotee> {
     poser(p + 'balcon', f.balcon);
     poser(p + 'forme des ouvertures', f.formeOuvertures);
     poser(p + 'silhouette', f.silhouette);
+    poser(p + 'bout', f.bout);
     poser(p + 'niveaux', f.niveaux);
     poser(p + 'ouvertures manquées', f.manquees);
     poser(p + 'ouvertures en trop', f.enTrop);

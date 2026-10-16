@@ -101,7 +101,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect((await navigateur('admin/claude/etat')).status).toBe(401);
     expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 6, schema: 2, effort: 'low', organisation: 'admin', admin: true });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ actif: true, prompt: 7, schema: 3, effort: 'low', organisation: 'admin', admin: true });
     // La session admin d'admin.php continue de servir les demos.
     expect((await navigateur('admin/demos')).status).toBe(200);
   });
@@ -162,7 +162,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(lignes.find((l) => l.requete === 'p2')).toMatchObject({
       organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
       usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', passe: 2, images: 1, facades: 2, cout: COUT_P2,
-      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 6, schema: 2, trouve: TROUVE_DEFAUT
+      tokens: { entree: 4000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 25000, sortie: 1500 }, statut: 'reussi', prompt: 7, schema: 3, trouve: TROUVE_DEFAUT
     });
     // La page ne recoit pas les comptes : ils ne servent qu'au tableau de bord.
     expect(p1).not.toHaveProperty('trouve');
