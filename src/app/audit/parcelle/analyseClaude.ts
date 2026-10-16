@@ -298,6 +298,18 @@ function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter:
   return { completer, reprendre: async () => { await relireBrut(); await completer(); } };
 }
 
+/** En essai du brouillon des regles, la demande le nomme ; sans brouillon au serveur, elle part telle quelle et on le dit. */
+async function avecEssai(ctx: ContexteAnalyse, client: ClientAnalyse, demande: DemandeAnalyse): Promise<DemandeAnalyse> {
+  if (!ctx.essai?.()) return demande;
+  const etat = await client.etat().catch(() => null);
+  if (!etat?.admin || !etat.brouillon) {
+    ctx.signaler('Essai des règles demandé, mais le serveur n’a pas de brouillon (Admin › Règles, « Enregistrer sur le serveur ») : l’analyse part avec le prompt livré.');
+    return demande;
+  }
+  ctx.signaler('Essai : l’analyse part avec le prompt du brouillon des règles (version ' + etat.brouillon.prompt + ', enregistré le ' + (etat.brouillon.enregistreLe ?? '?').slice(0, 16).replace('T', ' ') + ').');
+  return { ...demande, essai: 'brouillon' };
+}
+
 export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
@@ -377,18 +389,6 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     annulerSuivi = planifier(() => { void tour(); }, 0);
   }
 
-  /** En essai du brouillon des regles, la demande le nomme ; sans brouillon au serveur, elle part telle quelle et on le dit. */
-  async function avecEssai(client: ClientAnalyse, demande: DemandeAnalyse): Promise<DemandeAnalyse> {
-    if (!ctx.essai?.()) return demande;
-    const etat = await client.etat().catch(() => null);
-    if (!etat?.admin || !etat.brouillon) {
-      ctx.signaler('Essai des règles demandé, mais le serveur n’a pas de brouillon (Admin › Règles, « Enregistrer sur le serveur ») : l’analyse part avec le prompt livré.');
-      return demande;
-    }
-    ctx.signaler('Essai : l’analyse part avec le prompt du brouillon des règles (version ' + etat.brouillon.prompt + ', enregistré le ' + (etat.brouillon.enregistreLe ?? '?').slice(0, 16).replace('T', ' ') + ').');
-    return { ...demande, essai: 'brouillon' };
-  }
-
   /** Prepare les entrees et envoie les trois passes ; note le batch, ou l'erreur. */
   async function envoyer(accord: AccordAnalyse): Promise<void> {
     const client = ctx.client as ClientAnalyse;
@@ -402,7 +402,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       phase = 'envoi';
       publier();
       const sig = signature();
-      const cree = await client.creerBatch(await avecEssai(client, prepare.demande));
+      const cree = await client.creerBatch(await avecEssai(ctx, client, prepare.demande));
       const batch: BatchAnalyse = { id: cree.batch.id, creeLe: ctx.maintenant().toISOString(), signature: sig, requetes: prepare.requetes, etiquettes: prepare.etiquettes };
       noter({ batch, resultats: null, erreur: null });
       ctx.signaler('Vos photos sont parties à l’analyse par Claude (accord du ' + jourDe(new Date(accord.t)) + ') : les propositions arriveront dans quelques minutes. Vous pouvez retirer cet accord depuis les propositions.');

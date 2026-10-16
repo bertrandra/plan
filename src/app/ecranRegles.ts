@@ -13,6 +13,8 @@ import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
 import { ACCORDS_MESURES } from '../model/analyseClaude.js';
 import { SUJETS } from './regles/sujets/index.js';
 import { telechargerTexte } from '../shell/download.js';
+import { LECTURES_TOITS } from './toitsLidar.js';
+import { LECTURES_FACADES } from '../regles/facades/reglages.js';
 import { creerClientRegles } from '../io/reglesServeur.js';
 
 /** L'adresse demande-t-elle l'ecran des regles ? */
@@ -21,14 +23,15 @@ export function demandeEcranRegles(recherche: string): boolean {
 }
 
 const CLE_BROUILLON = 'plan.regles.brouillon';
+const CLE_BROUILLON_DONNEES = 'plan.regles.donnees';
 
 /** Le brouillon dans le navigateur ; sans stockage (fenetre privee, acces refuse), l'edition reste a l'ecran. */
-function brouillonLocal(): BrouillonRegles {
+function brouillonLocal(cle: string = CLE_BROUILLON): BrouillonRegles {
   const sur = <T,>(f: () => T, repli: T): T => { try { return f(); } catch { return repli; } };
   return {
-    lire: () => sur(() => localStorage.getItem(CLE_BROUILLON), null),
-    ecrire: (t) => sur(() => localStorage.setItem(CLE_BROUILLON, t), undefined),
-    effacer: () => sur(() => localStorage.removeItem(CLE_BROUILLON), undefined),
+    lire: () => sur(() => localStorage.getItem(cle), null),
+    ecrire: (t) => sur(() => localStorage.setItem(cle, t), undefined),
+    effacer: () => sur(() => localStorage.removeItem(cle), undefined),
   };
 }
 
@@ -46,6 +49,10 @@ export function ouvrirEcranRegles(): void {
     accords: ACCORDS_MESURES,
     brouillon: brouillonLocal(),
     serveur: creerClientRegles((entree, init) => fetch(entree, init)),
+    donnees: {
+      versions: { toits: Math.max(...LECTURES_TOITS.map((l) => l.version)), facades: Math.max(...LECTURES_FACADES.map((l) => l.version)) },
+      brouillon: brouillonLocal(CLE_BROUILLON_DONNEES),
+    },
     telecharger: (nom, contenu, type) => telechargerTexte(nom, contenu, type),
     copier: (texte) => navigator.clipboard.writeText(texte),
   }));
