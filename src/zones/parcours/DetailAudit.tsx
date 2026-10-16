@@ -221,6 +221,7 @@ export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: F
   if (!d || d.id !== a.id) return null;
   const lignes = d.analyses ? lignesBenchmark(d.analyses) : [];
   const raisonRejeu = catalogue.raisonRejouer(a);
+  const raisonOuvrir = catalogue.raisonOuvrir(a);
   return (
     <div className="detailAuditRecu">
       {d.erreur && <div className="erreurParcours" role="alert">{d.erreur}</div>}
@@ -247,6 +248,8 @@ export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: F
             </label>
             <button type="button" className="small" data-controle="auditsParcelle.rejouer" disabled={raisonRejeu !== null || e.enCours !== null} title={raisonRejeu ?? undefined}
               onClick={() => { void catalogue.rejouer(a); }}>Rejouer l’analyse</button>
+            <button type="button" className="secondary small" data-controle="auditsParcelle.remesurer" disabled={raisonOuvrir !== null || e.enCours !== null} title={raisonOuvrir ?? 'Remet les photos de l’audit à l’analyse des façades : mesures, silhouettes, relevé des façades du projet'}
+              onClick={() => { void catalogue.remesurer(a); }}>Relancer l’analyse des photos</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.relireAnalyses" onClick={() => { void catalogue.relireAnalyses(); }}>Relire les analyses</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.exporterAnalyses" disabled={!lignes.length} onClick={() => catalogue.exporterAnalyses(a)}>Exporter en CSV</button>
           </div>

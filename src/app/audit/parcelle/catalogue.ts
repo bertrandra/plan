@@ -37,7 +37,7 @@ export interface DependancesCatalogue {
   /** Pourquoi ce projet ne peut rien recevoir (lecture seule), null s'il peut. */
   refusEcriture: () => string | null;
   /** Reprend le fichier dans la session de cette parcelle, par le chemin de l'import (commande.ts). */
-  ouvrir: (texte: string, fiche: FicheAudit) => void;
+  ouvrir: (texte: string, fiche: FicheAudit, remesurer?: boolean) => void;
   /**
    * Montre l'avant et l'apres de cet audit sur l'ecran des propositions, en lecture seule, dans une
    * session a part (commande.ts) : ni l'audit en cours ni le projet n'en sont changes. Absent, pas de consultation.
@@ -89,6 +89,12 @@ export interface CatalogueAudits {
   /** Pourquoi cet audit ne s'ouvre pas dans ce projet ; null s'il s'y ouvre. */
   raisonOuvrir(a: FicheAudit): string | null;
   ouvrir(a: FicheAudit): Promise<void>;
+  /**
+   * Relance l'analyse des photos des facades : l'audit s'ouvre dans ce projet comme avec `ouvrir`, mais sans ses mesures ni ses
+   * decisions. Ses photos repassent par les mesures d'aujourd'hui (releve des facades, silhouettes, toit) et se poussent sur les
+   * facades du projet, comme en fin de capture. Meme raison de refus que `ouvrir`.
+   */
+  remesurer(a: FicheAudit): Promise<void>;
   /** Pourquoi l'avant et l'apres de cet audit ne se voient pas ici ; null s'ils se voient. */
   raisonConsulter(a: FicheAudit): string | null;
   /** L'avant et l'apres de l'audit, sur la Vue 3D du projet ouvert (meme parcelle) : la base des decisions. */
@@ -306,6 +312,12 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
       if (raison) { d.signaler(raison); return; }
       const texte = await lire(a);
       if (texte !== null) d.ouvrir(texte, a);
+    },
+    async remesurer(a) {
+      const raison = catalogue.raisonOuvrir(a);
+      if (raison) { d.signaler(raison); return; }
+      const texte = await lire(a);
+      if (texte !== null) d.ouvrir(texte, a, true);
     },
     raisonConsulter(a) {
       if (a.nature === 'promenade') return 'Une promenade des toits n’a pas d’avant ni d’après à comparer.';

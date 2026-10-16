@@ -156,9 +156,10 @@ export interface SessionAuditParcelle {
    * mesures et ses cases) si la capture etait terminee, sur la liste de controle sinon. Une capture
    * en cours sur l'appareil n'est remplacee qu'apres confirmation ; `pret` ensuite. `depot` : le
    * depot du serveur d'ou vient le fichier (catalogue de l'administrateur), que la sauvegarde
-   * remplacera desormais au lieu d'en creer un autre.
+   * remplacera desormais au lieu d'en creer un autre. `remesurer` : les mesures et les decisions du fichier ne sont pas
+   * reprises, ses photos repassent par les mesures d'aujourd'hui (Admin › Audits, « Relancer l'analyse des photos »).
    */
-  importer(f: FichierAuditParcelle, pret: () => void, depot?: EnvoiCorpus): Promise<void>;
+  importer(f: FichierAuditParcelle, pret: () => void, depot?: EnvoiCorpus, remesurer?: boolean): Promise<void>;
   /**
    * Consultation d'un audit recu (Admin › Audits) : cette session, a part de celle de l'audit en
    * cours, ne montre que les propositions du fichier et ce qui en a ete decide, sur le meme ecran et
@@ -520,12 +521,14 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     fichier: fichier.ecrire,
     fichierDisponible: () => ctx.admin?.() ?? false,
     partagerLeFichier: fichier.partager,
-    async importer(f, pret, depot) {
+    async importer(f, pret, depot, remesurer) {
       const nouvelle = captureDuFichier(f);
       await brouillon.remplacer(depot ? { ...nouvelle, sauvegarde: { ...depot } } : nouvelle, () => {
-        validation.poserMesures(mesuresDuFichier(f));
-        const d = derniereDecision(f);
-        if (d) validation.preregler(d);
+        if (!remesurer) {
+          validation.poserMesures(mesuresDuFichier(f));
+          const d = derniereDecision(f);
+          if (d) validation.preregler(d);
+        }
         pret();
       });
     },

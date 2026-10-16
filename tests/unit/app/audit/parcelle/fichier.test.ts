@@ -95,6 +95,25 @@ describe('le fichier de l audit de parcelle', () => {
     expect(b.etat.objects.find((o) => o.key === 'bat-1')?.couleurMurs?.materiau).toBe('brique');
   });
 
+  it('relance l analyse des photos : les mesures et les decisions du fichier ne sont pas reprises, les photos repassent par les mesures', async () => {
+    const a = await auditFait();
+    const texte = JSON.stringify(await a.s.fichier());
+    const b = session(projet('bat-1'));
+    const r = preparerImport(texte, b.etat.objects, IDU);
+    if ('refus' in r) throw new Error(r.refus);
+    await b.s.importer(r.fichier, vi.fn(), undefined, true);
+    expect(b.s.capture.lire().batiments['bat-1']?.facades['0']?.photos).toEqual([PHOTO]);
+    expect(b.s.validation.mesuresFaites().size).toBe(0);
+    b.s.montrer('propositions');
+    await b.s.validation.lancer();
+    // La photo repart a l'analyse : le navigateur la relit, et l'ecran le dit avec l'heure.
+    expect(b.mesures.pixels).toHaveBeenCalled();
+    expect(b.messages).toContain('Photos soumises à l’analyse des façades à ' + new Date('2026-10-13T09:00:00Z').toTimeString().slice(0, 5) + ' : 1 photo(s) sur 1 façade(s).');
+    expect(b.messages.some((m) => /^Analyse des photos terminée à \d\d:\d\d : 1 façade\(s\) mesurée\(s\), coins trouvés sur 0\.$/.test(m))).toBe(true);
+    // Les cases suivent les mesures d'aujourd'hui, pas les decisions du fichier : rien n'est ecrit avant Valider.
+    expect(b.projetAudit.pushHistory).not.toHaveBeenCalled();
+  });
+
   it('demande avant de remplacer un audit en cours sur l appareil', async () => {
     const a = await auditFait();
     const f = await a.s.fichier();

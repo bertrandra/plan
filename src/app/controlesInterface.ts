@@ -273,6 +273,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditsParcelle.deposer': etape(Z8, CATALOGUE_AUDITS, 'Ajouter au serveur un fichier d’audit du poste (parcelle ou promenade)'),
   'auditsParcelle.modeleRejeu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le modèle du prochain rejeu', { repete: true }),
   'auditsParcelle.essaiRejeu': etape(Z8, CATALOGUE_AUDITS, 'Rejouer avec le prompt du brouillon des règles (Admin › Règles) au lieu du prompt livré', { repete: true }),
+  'auditsParcelle.remesurer': etape(Z8, CATALOGUE_AUDITS, 'Relancer l’analyse des photos de façade d’un audit stocké : ses photos repassent par les mesures d’aujourd’hui et se poussent sur les façades du projet', { repete: true }),
   'auditsParcelle.rejouer': etape(Z8, CATALOGUE_AUDITS, 'Rejouer l’analyse par Claude d’un audit stocké, avec le prompt actuel (ou celui du brouillon des règles) et le modèle choisi', { repete: true }),
   'auditsParcelle.comparerAvec': etape(Z8, CATALOGUE_AUDITS, 'Comparer les réponses de l’analyse ouverte à celles d’une autre analyse du même audit', { repete: true }),
   'auditsParcelle.relireAnalyses': etape(Z8, CATALOGUE_AUDITS, 'Relire les analyses d’un audit, et suivre celles en cours', { repete: true }),
