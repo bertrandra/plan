@@ -10,6 +10,7 @@
 //   GET|PUT admin/claude/tarifs               la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
+//   GET|PUT|DELETE admin/claude/regles        le brouillon des regles (prompt et schema edites dans Admin › Regles), administrateur
 //   GET  admin/consommation                  le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //   GET|POST admin/conformite                 l'historique des mesures de conformite, une mesure de plus (T13.5, G3)
 //
@@ -57,6 +58,11 @@ export const MODELE_PAR_USAGE = Object.freeze({ analyse: 'claude-haiku-5-5', esc
  */
 export const FICHIERS_PAR_USAGE = Object.freeze({ renfort: ['prompt-renfort.md', 'schema-renfort.json'] });
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
+// Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
+// l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
+// jamais deploy/ : seule une demande de l'administrateur qui le nomme (`essai: 'brouillon'`) le lit.
+const FICHIER_BROUILLON = 'regles-brouillon.json';
+const BROUILLON_MAX = 2 * 1024 * 1024;
 /** Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus. */
 export const REQUETES_IMMEDIATES = 3;
 /**
@@ -99,6 +105,23 @@ export function lirePrompt(texte) {
   if (!v) throw new Error('prompt-analyse.md : version manquante');
   return { version: Number(v[1]), texte: texte.slice(m[0].length).trim() };
 }
+
+/** Ce qu'une demande ecrit comme brouillon : le prompt (avec son en-tete), le schema (son texte JSON) et l'etat de l'editeur. */
+export function verifierBrouillonRegles(d, maintenantIso) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw refus('Brouillon illisible.');
+  if (typeof d.prompt !== 'string' || typeof d.schema !== 'string') throw refus('Le brouillon porte un prompt et un schéma (texte).');
+  if (!d.etat || typeof d.etat !== 'object' || Array.isArray(d.etat)) throw refus('Le brouillon porte l’état de l’éditeur.');
+  let p;
+  try { p = lirePrompt(d.prompt); } catch (e) { throw refus(e.message); }
+  if (!p.texte) throw refus('Prompt vide.');
+  let s;
+  try { s = JSON.parse(d.schema); } catch { throw refus('Schéma illisible : un objet avec `version` et `schema`.'); }
+  if (!estObjetJson(s) || !estObjetJson(s.schema) || !Number.isInteger(s.version)) throw refus('Schéma illisible : un objet avec `version` et `schema`.');
+  return { format: 'plan-regles-brouillon', version: 1, enregistreLe: maintenantIso, versionPrompt: p.version, versionSchema: s.version, prompt: d.prompt, schema: d.schema, etat: d.etat };
+}
+
+/** Ce que l'etat dit du brouillon : ses versions et sa date, jamais son texte. */
+export const vueBrouillonRegles = (b) => (b ? { enregistreLe: b.enregistreLe ?? null, prompt: Number(b.versionPrompt) || 0, schema: Number(b.versionSchema) || 0 } : null);
 
 /** Les compteurs de `usage`, tels que l'API les renvoie, sous les noms du journal. */
 export function tokensDeUsage(usage) {
@@ -182,6 +205,10 @@ export function verifierDemande(d, plafonds, modeles = MODELE_PAR_USAGE) {
   const depot = d.depot === undefined ? null : d.depot;
   if (depot !== null && (typeof depot !== 'string' || !ID_AUDIT.test(depot))) throw refus('Champ « depot » invalide.');
   meta.depot = depot;
+  // L'essai du brouillon des regles : l'analyse part avec le prompt et le schema edites (administrateur seul, verifie par la route).
+  const essai = d.essai === undefined ? null : d.essai;
+  if (essai !== null && essai !== 'brouillon') throw refus('Champ « essai » invalide.');
+  meta.essai = essai === 'brouillon';
   const usage = d.usage === undefined ? 'analyse' : d.usage;
   if (!USAGES.includes(usage)) throw refus('Usage inconnu : ' + String(usage) + '.');
   const modele = d.modele === undefined ? modeles[usage] : d.modele;
@@ -739,6 +766,7 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
   const fTarifs = path.join(dossierClaude, 'tarifs.json');
   const fPlafonds = path.join(dossierClaude, 'plafonds.json');
   const fModeles = path.join(dossierClaude, 'modeles.json');
+  const fBrouillon = path.join(dossierClaude, FICHIER_BROUILLON);
   const avecCle = typeof cle === 'string' && cle.length > 0;
 
   const iso = () => new Date(maintenant()).toISOString();
@@ -780,16 +808,27 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
     return texte.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } });
   }
 
-  function promptEtSchema(usage = 'analyse') {
+  /** Le brouillon des regles tel que le serveur le garde, ou null. */
+  function lireBrouillonRegles() {
+    const b = lireJson(fBrouillon);
+    return b && typeof b.prompt === 'string' && typeof b.schema === 'string' ? b : null;
+  }
+
+  function promptEtSchema(usage = 'analyse', brouillon = null) {
+    // L'essai : les usages de l'analyse lisent le brouillon ; le renfort garde ses fichiers (il n'est pas dans Admin › Regles).
+    if (brouillon && !FICHIERS_PAR_USAGE[usage]) {
+      const s = JSON.parse(brouillon.schema);
+      return { prompt: lirePrompt(brouillon.prompt), schema: { version: s.version, schema: s.schema } };
+    }
     const [fPrompt, fSchema] = FICHIERS_PAR_USAGE[usage] || FICHIERS_DEFAUT;
     const prompt = lirePrompt(fs.readFileSync(path.join(deploy, fPrompt), 'utf8'));
     const s = JSON.parse(fs.readFileSync(path.join(deploy, fSchema), 'utf8'));
     return { prompt, schema: { version: s.version, schema: s.schema } };
   }
   /** Le prompt et le schema de chaque usage des requetes, lus une fois. */
-  function promptsDesRequetes(requetes) {
+  function promptsDesRequetes(requetes, brouillon = null) {
     const par = {};
-    for (const r of requetes) if (!par[r.usage]) par[r.usage] = promptEtSchema(r.usage);
+    for (const r of requetes) if (!par[r.usage]) par[r.usage] = promptEtSchema(r.usage, brouillon);
     return par;
   }
 
@@ -892,7 +931,7 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
     // Chaque reponse se ramene au schema de son usage (le renfort a le sien dans le batch de l'analyse).
     const schemas = {};
     const schemaDe = (usage) => {
-      if (!(usage in schemas)) { try { schemas[usage] = promptEtSchema(usage).schema.schema; } catch { schemas[usage] = null; } }
+      if (!(usage in schemas)) { try { schemas[usage] = promptEtSchema(usage, fiche.brouillonCopie && typeof fiche.brouillonCopie === 'object' ? fiche.brouillonCopie : null).schema.schema; } catch { schemas[usage] = null; } }
       return schemas[usage];
     };
     const bruts = {};
@@ -1283,7 +1322,22 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
         // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
         let renfort = null;
         try { const r = promptEtSchema('renfort'); renfort = { prompt: r.prompt.version, schema: r.schema.version }; } catch { renfort = null; }
-        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, modelesParUsage: modelesParUsage(reglageModeles()), prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin, ...(qui.admin && donnees ? { donnees: vueDonnees(donnees) } : {}) });
+        return json(200, { actif: avecCle, modeles: MODELES, usages: USAGES, modelesParUsage: modelesParUsage(reglageModeles()), prompt: prompt.version, schema: schema.version, effort: EFFORT, renfort, organisation, admin: qui.admin, ...(qui.admin && donnees ? { donnees: vueDonnees(donnees) } : {}), ...(qui.admin ? { brouillon: vueBrouillonRegles(lireBrouillonRegles()) } : {}) });
+      }
+
+      // Le brouillon des regles (Admin › Regles) : a l'administrateur seul. Il ne change jamais le prompt
+      // livre ; une demande qui le nomme (`essai`) le lit, les autres n'y touchent pas.
+      if (chemin === 'regles') {
+        if (reserveAdmin()) return true;
+        if (lecture) {
+          const b = lireBrouillonRegles();
+          return json(200, { brouillon: b ? { ...vueBrouillonRegles(b), prompt_texte: b.prompt, schema_texte: b.schema, etat: b.etat ?? null } : null });
+        }
+        if (methode === 'DELETE') { try { fs.unlinkSync(fBrouillon); } catch { /* deja absent */ } return json(200, { brouillon: null }); }
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const b = verifierBrouillonRegles(await lireCorps(req, BROUILLON_MAX), iso());
+        ecrireJson(fBrouillon, b);
+        return json(200, { brouillon: vueBrouillonRegles(b) });
       }
 
       if (chemin === '@consommation') {
@@ -1343,6 +1397,13 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
           if (demande.depot === null) throw refus('Un rejeu nomme son audit (depot).');
           if (demande.requetes.some((r) => r.usage !== 'rejeu')) throw refus('Un rejeu ne porte que l’analyse des maisons.');
         }
+        // L'essai du brouillon des regles : l'administrateur seul, et un brouillon doit exister.
+        let brouillon = null;
+        if (demande.essai) {
+          if (reserveAdmin()) return true;
+          brouillon = lireBrouillonRegles();
+          if (!brouillon) throw refus('Aucun brouillon des règles enregistré sur le serveur (Admin › Règles, « Enregistrer sur le serveur »).');
+        }
         // La trace va dans le dossier de l'audit nomme. Un rejeu exige cet audit ; l'analyse de la
         // session, elle, part sans trace si son depot a ete retire entre-temps ou n'est pas le sien.
         let dirAudit = null;
@@ -1352,9 +1413,9 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
           if (entree && (qui.admin || entree.organisation === organisation)) dirAudit = dossierAudit(demande.depot);
         }
         const t = iso();
-        const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true };
-        const { prompt, schema } = promptEtSchema(demande.usage);
-        const prompts = promptsDesRequetes(demande.requetes);
+        const identite = { organisation, projet: demande.projet ?? (qui.admin ? 'admin' : null), idu: demande.idu, adresse: demande.adresse, audit: demande.audit, usage: demande.usage, modele: demande.modele, batch: true, ...(demande.essai ? { essai: true } : {}) };
+        const { prompt, schema } = promptEtSchema(demande.usage, brouillon);
+        const prompts = promptsDesRequetes(demande.requetes, brouillon);
         const images = demande.requetes.reduce((s, r) => s + r.images, 0);
         // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
         const facades = demande.requetes.reduce((s, r) => s + ((r.passe ?? 1) === 1 ? r.facades : 0), 0);
@@ -1392,7 +1453,7 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
           ecrireJson(path.join(dt, 'entrant.json'), entrantTrace(demande, prompts, dirAudit));
           ecrireJson(path.join(dt, 'resume.json'), {
             format: 'plan-audit-analyse', version: 1, id: idTrace, audit: demande.depot, nature: demande.usage === 'rejeu' ? 'rejeu' : 'analyse', etat: 'en_cours',
-            creeLe: t.replace(/\.\d{3}Z$/, 'Z'), finLe: null, idBatch: b.id, organisation, usage: demande.usage, modele: demande.modele, effort: EFFORT, prompt: prompt.version, schema: schema.version,
+            creeLe: t.replace(/\.\d{3}Z$/, 'Z'), finLe: null, idBatch: b.id, organisation, usage: demande.usage, modele: demande.modele, effort: EFFORT, prompt: prompt.version, schema: schema.version, essai: demande.essai,
             versions: Object.fromEntries(Object.entries(prompts).map(([u, x]) => [u, { prompt: x.prompt.version, schema: x.schema.version }])),
             requetes: demande.requetes.length, images, facades, resultats: null, cout: null, tokens: null
           });
@@ -1401,9 +1462,11 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
         ecrireJson(fBatch(b.id), {
           id: b.id, creeLe: t, ...identite, promptVersion: prompt.version, schemaVersion: schema.version,
           requetes: Object.fromEntries(demande.requetes.map((x) => [x.id, { passe: x.passe, images: x.images, facades: x.facades, usage: x.usage, modele: x.modele, prompt: prompts[x.usage].prompt.version, schema: prompts[x.usage].schema.version }])),
-          etat: b.processing_status, journalise: false, trace
+          etat: b.processing_status, journalise: false, trace,
+          // Le texte du brouillon qui est parti : la reponse se ramene a SON schema, meme si le brouillon change ensuite.
+          ...(brouillon ? { brouillonCopie: { prompt: brouillon.prompt, schema: brouillon.schema } } : {})
         });
-        return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version, trace: trace ? trace.id : null });
+        return json(201, { batch: vueBatch(b), modele: demande.modele, prompt: prompt.version, schema: schema.version, essai: demande.essai, trace: trace ? trace.id : null });
       }
 
       if (chemin === 'messages') {
@@ -1414,6 +1477,7 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
         if (d && typeof d === 'object' && !Array.isArray(d) && d.usage === undefined) d.usage = 'renfort';
         if (d && typeof d === 'object' && d.usage === 'rejeu') throw refus('Un rejeu passe par un batch.');
         const demande = verifierDemande(d, { ...p, requetesParBatch: Math.min(REQUETES_IMMEDIATES, p.requetesParBatch) }, modelesParUsage(reglageModeles()));
+        if (demande.essai) throw refus('L’essai du brouillon passe par un batch.');
         const r = await appelImmediat(demande, organisation, qui.admin);
         return r.refus ? json(...r.refus) : json(200, r.reponse);
       }
@@ -1437,7 +1501,7 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
         if (b.processing_status !== 'ended') return erreur(409, 'NOT_READY', 'Le batch n’est pas terminé (' + b.processing_status + ').');
         const lu = await resultats({ ...fiche, finLe: b.ended_at || null });
         if (lu.erreur) return erreur(502, 'UPSTREAM', 'Anthropic : ' + lu.erreur.statut + ' ' + messageApi(lu.erreur.texte));
-        return json(200, { batch: vueBatch(b), modele: fiche.modele, prompt: fiche.promptVersion, schema: fiche.schemaVersion, resultats: lu.sortie });
+        return json(200, { batch: vueBatch(b), modele: fiche.modele, prompt: fiche.promptVersion, schema: fiche.schemaVersion, essai: fiche.essai === true, resultats: lu.sortie });
       }
       return erreur(404, 'NOT_FOUND', 'Introuvable');
     } catch (e) {

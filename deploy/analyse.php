@@ -14,6 +14,7 @@
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
+//   GET|PUT|DELETE admin/claude/regles        le brouillon des regles (prompt et schema edites dans Admin › Regles), administrateur
 //   GET  admin/consommation                  le journal filtre, pour le tableau de bord (13.3, L16 bis)
 //   POST admin/audits                         depose un fichier `plan-audit-parcelle` (15, lot L21)
 //   GET  admin/audits                         la liste des audits recus (administrateur)
@@ -76,6 +77,11 @@ const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude
 // siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
 const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
+// Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
+// l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
+// jamais deploy/ : seule une demande de l'administrateur qui le nomme (`essai: "brouillon"`) le lit.
+const FICHIER_BROUILLON = 'regles-brouillon.json';
+const BROUILLON_MAX = 2 * 1024 * 1024;
 // Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus.
 const REQUETES_IMMEDIATES = 3;
 // Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
@@ -253,6 +259,10 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
     $depot = $d['depot'] ?? null;
     if ($depot !== null && (!is_string($depot) || !preg_match(ID_AUDIT, $depot))) throw new Refus('Champ « depot » invalide.');
     $meta['depot'] = $depot;
+    // L'essai du brouillon des regles : l'analyse part avec le prompt et le schema edites (administrateur seul, verifie par la route).
+    $essai = $d['essai'] ?? null;
+    if ($essai !== null && $essai !== 'brouillon') throw new Refus('Champ « essai » invalide.');
+    $meta['essai'] = $essai === 'brouillon';
     $usage = $d['usage'] ?? 'analyse';
     if (!in_array($usage, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usage) ? $usage : '?') . '.');
     $modele = $d['modele'] ?? $modeles[$usage];
@@ -775,7 +785,36 @@ function lireJournal(string $dossierClaude, string $t): array {
     return $lignes;
 }
 
-function promptEtSchema(string $usage = 'analyse'): array {
+/** Le brouillon des regles tel que le serveur le garde, ou null. */
+function lireBrouillonRegles(string $dossierClaude): ?array {
+    $b = lireJson($dossierClaude . '/' . FICHIER_BROUILLON);
+    return is_array($b) && is_string($b['prompt'] ?? null) && is_string($b['schema'] ?? null) ? $b : null;
+}
+
+/** Ce qu'une demande ecrit comme brouillon : le prompt (avec son en-tete), le schema (son texte JSON) et l'etat de l'editeur. */
+function verifierBrouillonRegles($d): array {
+    if (!is_array($d) || array_is_list($d)) throw new Refus('Brouillon illisible.');
+    if (!is_string($d['prompt'] ?? null) || !is_string($d['schema'] ?? null)) throw new Refus('Le brouillon porte un prompt et un schéma (texte).');
+    if (!is_array($d['etat'] ?? null)) throw new Refus('Le brouillon porte l’état de l’éditeur.');
+    try { $p = lirePrompt($d['prompt']); } catch (RuntimeException $e) { throw new Refus($e->getMessage()); }
+    if ($p['texte'] === '') throw new Refus('Prompt vide.');
+    $s = json_decode($d['schema']);
+    if (!is_object($s) || !isset($s->schema) || !is_object($s->schema) || !isset($s->version) || !is_int($s->version)) throw new Refus('Schéma illisible : un objet avec `version` et `schema`.');
+    return ['format' => 'plan-regles-brouillon', 'version' => 1, 'enregistreLe' => maintenant(), 'versionPrompt' => $p['version'], 'versionSchema' => $s->version,
+            'prompt' => $d['prompt'], 'schema' => $d['schema'], 'etat' => $d['etat']];
+}
+
+/** Ce que l'etat dit du brouillon : ses versions et sa date, jamais son texte. */
+function vueBrouillonRegles(?array $b): ?array {
+    return $b === null ? null : ['enregistreLe' => $b['enregistreLe'] ?? null, 'prompt' => (int)($b['versionPrompt'] ?? 0), 'schema' => (int)($b['versionSchema'] ?? 0)];
+}
+
+function promptEtSchema(string $usage = 'analyse', ?array $brouillon = null): array {
+    // L'essai : les usages de l'analyse lisent le brouillon ; le renfort garde ses fichiers (il n'est pas dans Admin › Regles).
+    if ($brouillon !== null && !isset(FICHIERS_PAR_USAGE[$usage])) {
+        $s = json_decode($brouillon['schema']);
+        return [lirePrompt($brouillon['prompt']), ['version' => (int)$s->version, 'schema' => $s->schema]];
+    }
     [$fPrompt, $fSchema] = FICHIERS_PAR_USAGE[$usage] ?? FICHIERS_DEFAUT;
     $prompt = lirePrompt((string)@file_get_contents(__DIR__ . '/' . $fPrompt));
     // Le schema en objets : `{}` et `[]` doivent repartir tels quels vers l'API.
@@ -785,9 +824,9 @@ function promptEtSchema(string $usage = 'analyse'): array {
 }
 
 /** Le prompt et le schema de chaque usage des requetes, lus une fois. */
-function promptsDesRequetes(array $requetes): array {
+function promptsDesRequetes(array $requetes, ?array $brouillon = null): array {
     $par = [];
-    foreach ($requetes as $r) if (!isset($par[$r['usage']])) $par[$r['usage']] = promptEtSchema($r['usage']);
+    foreach ($requetes as $r) if (!isset($par[$r['usage']])) $par[$r['usage']] = promptEtSchema($r['usage'], $brouillon);
     return $par;
 }
 
@@ -1211,7 +1250,7 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         $ligne = json_decode($l);
         // Chaque reponse se ramene au schema de son usage (le renfort a le sien dans le batch de l'analyse).
         $usageL = (string)($fiche['requetes'][(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')]['usage'] ?? $fiche['usage']);
-        if (!array_key_exists($usageL, $schemas)) { try { $schemas[$usageL] = promptEtSchema($usageL)[1]['schema']; } catch (RuntimeException $e) { $schemas[$usageL] = null; } }
+        if (!array_key_exists($usageL, $schemas)) { try { $schemas[$usageL] = promptEtSchema($usageL, is_array($fiche['brouillonCopie'] ?? null) ? $fiche['brouillonCopie'] : null)[1]['schema']; } catch (RuntimeException $e) { $schemas[$usageL] = null; } }
         $lus[] = lireResultat($ligne, $schemas[$usageL]);
         $bruts[(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')] = texteBrut($ligne);
     }
@@ -1529,7 +1568,26 @@ try {
         }
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
                        'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]
-                       + ($qui['admin'] ? ['donnees' => vueDonnees($donnees)] : []));
+                       + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
+    }
+
+    // Le brouillon des regles (Admin › Regles) : a l'administrateur seul. Il ne change jamais le prompt
+    // livre ; une demande qui le nomme (`essai`) le lit, les autres n'y touchent pas.
+    if ($chemin === 'regles') {
+        $reserveAdmin();
+        $f = $dossierClaude . '/' . FICHIER_BROUILLON;
+        if ($lecture) {
+            $b = lireBrouillonRegles($dossierClaude);
+            repondre(200, ['brouillon' => $b === null ? null : vueBrouillonRegles($b) + ['prompt_texte' => $b['prompt'], 'schema_texte' => $b['schema'], 'etat' => $b['etat'] ?? null]]);
+        }
+        if ($methode === 'DELETE') {
+            if (is_file($f)) @unlink($f);
+            repondre(200, ['brouillon' => null]);
+        }
+        if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $b = verifierBrouillonRegles(lireCorps(BROUILLON_MAX));
+        ecrireJson($f, $b);
+        repondre(200, ['brouillon' => vueBrouillonRegles($b)]);
     }
 
     // `admin/consommation` (.htaccess : `chemin=@consommation`) : il ne fait que relire le journal.
@@ -1601,6 +1659,13 @@ try {
             if ($demande['depot'] === null) throw new Refus('Un rejeu nomme son audit (depot).');
             foreach ($demande['requetes'] as $r) if ($r['usage'] !== 'rejeu') throw new Refus('Un rejeu ne porte que l’analyse des maisons.');
         }
+        // L'essai du brouillon des regles : l'administrateur seul, et un brouillon doit exister.
+        $brouillon = null;
+        if ($demande['essai']) {
+            $reserveAdmin();
+            $brouillon = lireBrouillonRegles($dossierClaude);
+            if ($brouillon === null) throw new Refus('Aucun brouillon des règles enregistré sur le serveur (Admin › Règles, « Enregistrer sur le serveur »).');
+        }
         // La trace va dans le dossier de l'audit nomme. Un rejeu exige cet audit ; l'analyse de la
         // session, elle, part sans trace si son depot a ete retire entre-temps ou n'est pas le sien.
         $dirAudit = null;
@@ -1612,9 +1677,10 @@ try {
         }
         $t = maintenant();
         $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($qui['admin'] ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'],
-                     'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true];
-        [$prompt, $schema] = promptEtSchema($demande['usage']);
-        $prompts = promptsDesRequetes($demande['requetes']);
+                     'audit' => $demande['audit'], 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'batch' => true]
+                  + ($demande['essai'] ? ['essai' => true] : []);
+        [$prompt, $schema] = promptEtSchema($demande['usage'], $brouillon);
+        $prompts = promptsDesRequetes($demande['requetes'], $brouillon);
         $images = array_sum(array_column($demande['requetes'], 'images'));
         // Les passes d'une maison couvrent les memes facades : on les compte sur la premiere passe.
         $facades = array_sum(array_map(fn($r) => ($r['passe'] ?? 1) === 1 ? $r['facades'] : 0, $demande['requetes']));
@@ -1667,13 +1733,15 @@ try {
             foreach ($prompts as $u => [$pU, $sU]) $versions[$u] = ['prompt' => $pU['version'], 'schema' => $sU['version']];
             ecrireJson($dt . '/resume.json', ['format' => 'plan-audit-analyse', 'version' => 1, 'id' => $idTrace, 'audit' => $demande['depot'],
                 'nature' => $demande['usage'] === 'rejeu' ? 'rejeu' : 'analyse', 'etat' => 'en_cours', 'creeLe' => $t, 'finLe' => null, 'idBatch' => $b['id'],
-                'organisation' => $organisation, 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'effort' => EFFORT, 'prompt' => $prompt['version'], 'schema' => $schema['version'],
+                'organisation' => $organisation, 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'effort' => EFFORT, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'essai' => $demande['essai'],
                 'versions' => (object)$versions, 'requetes' => count($demande['requetes']), 'images' => $images, 'facades' => $facades, 'resultats' => null, 'cout' => null, 'tokens' => null]);
             $trace = ['audit' => $demande['depot'], 'id' => $idTrace];
         }
         ecrireFiche($dossierBatches, ['id' => $b['id'], 'creeLe' => $t] + $identite + ['promptVersion' => $prompt['version'], 'schemaVersion' => $schema['version'],
-                    'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false, 'trace' => $trace]);
-        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'trace' => $trace['id'] ?? null]);
+                    'requetes' => $parRequete, 'etat' => $b['processing_status'] ?? null, 'journalise' => false, 'trace' => $trace]
+                    // Le texte du brouillon qui est parti : la reponse se ramene a SON schema, meme si le brouillon change ensuite.
+                    + ($brouillon !== null ? ['brouillonCopie' => ['prompt' => $brouillon['prompt'], 'schema' => $brouillon['schema']]] : []));
+        repondre(201, ['batch' => vueBatch($b), 'modele' => $demande['modele'], 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'essai' => $demande['essai'], 'trace' => $trace['id'] ?? null]);
     }
 
     if ($chemin === 'messages') {
@@ -1684,6 +1752,7 @@ try {
         if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
         if (is_array($d) && ($d['usage'] ?? null) === 'rejeu') throw new Refus('Un rejeu passe par un batch.');
         $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
+        if ($demande['essai']) throw new Refus('L’essai du brouillon passe par un batch.');
         repondre(200, appelImmediat($dossierClaude, $dossierBatches, $demande, $organisation, $qui['admin'], $avecCle, $p));
     }
 
@@ -1706,7 +1775,7 @@ try {
         if (($b['processing_status'] ?? null) !== 'ended') erreur(409, 'NOT_READY', 'Le batch n’est pas terminé (' . (string)($b['processing_status'] ?? '?') . ').');
         $lu = resultats($dossierClaude, $dossierBatches, ['finLe' => $b['ended_at'] ?? null] + $fiche);
         if (isset($lu['erreur'])) erreur(502, 'UPSTREAM', 'Anthropic : ' . $lu['erreur'][0] . ' ' . messageApi($lu['erreur'][1]));
-        repondre(200, ['batch' => vueBatch($b), 'modele' => $fiche['modele'], 'prompt' => $fiche['promptVersion'], 'schema' => $fiche['schemaVersion'], 'resultats' => $lu['sortie']]);
+        repondre(200, ['batch' => vueBatch($b), 'modele' => $fiche['modele'], 'prompt' => $fiche['promptVersion'], 'schema' => $fiche['schemaVersion'], 'essai' => ($fiche['essai'] ?? false) === true, 'resultats' => $lu['sortie']]);
     }
     erreur(404, 'NOT_FOUND', 'Introuvable');
 } catch (Refus $e) {

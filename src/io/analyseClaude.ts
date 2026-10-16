@@ -42,6 +42,12 @@ export interface DemandeAnalyse {
   depot?: string | null;
   /** Le modele choisi (un rejeu pour comparer) ; absent, celui que l'administrateur a regle pour l'usage. */
   modele?: string;
+  /**
+   * L'essai du brouillon des regles (Admin › Regles, « Enregistrer sur le serveur ») : l'analyse part avec
+   * le prompt et le schema du brouillon au lieu de ceux du depot. Administrateur seul ; le serveur refuse
+   * s'il n'a pas de brouillon. Jamais pour le renfort des facades.
+   */
+  essai?: 'brouillon';
   usage: UsageAnalyse;
   requetes: RequeteAnalyse[];
 }
@@ -61,7 +67,12 @@ export interface EtatServeurAnalyse {
   schema: number;
   organisation: string | null;
   admin: boolean;
+  /** Le brouillon des regles enregistre au serveur (administrateur seul) ; null : aucun. */
+  brouillon?: BrouillonServeur | null;
 }
+
+/** Ce que l'etat dit du brouillon des regles du serveur : ses versions et sa date. */
+export interface BrouillonServeur { enregistreLe: string | null; prompt: number; schema: number }
 
 export interface VueBatch {
   id: string;
@@ -85,6 +96,8 @@ export interface ResultatsBatch {
   modele: string;
   prompt: number;
   schema: number;
+  /** Le batch est parti avec le brouillon des regles. */
+  essai?: boolean;
   resultats: ResultatBatch[];
 }
 
@@ -98,7 +111,7 @@ export class EchecAnalyse extends Error {
 export interface ClientAnalyse {
   etat(): Promise<EtatServeurAnalyse>;
   /** `trace` : l'analyse gardee dans le dossier de l'audit (`depot`), ou null. */
-  creerBatch(d: DemandeAnalyse): Promise<{ batch: VueBatch; modele: string; prompt: number; schema: number; trace?: string | null }>;
+  creerBatch(d: DemandeAnalyse): Promise<{ batch: VueBatch; modele: string; prompt: number; schema: number; essai?: boolean; trace?: string | null }>;
   etatBatch(id: string): Promise<VueBatch>;
   /** 409 (`pasPret`) tant que le batch n'est pas termine. */
   resultats(id: string): Promise<ResultatsBatch>;
@@ -114,6 +127,13 @@ export interface ResultatsImmediats {
   prompt: number;
   schema: number;
   resultats: ResultatBatch[];
+}
+
+/** Le brouillon d'un etat de serveur ; null quand il n'y en a pas (ou sur un serveur d'avant). */
+export function lireBrouillonServeur(v: unknown): BrouillonServeur | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  return { enregistreLe: typeof o.enregistreLe === 'string' ? o.enregistreLe : null, prompt: Number(o.prompt) || 0, schema: Number(o.schema) || 0 };
 }
 
 const MOTIFS: Record<number, MotifAnalyse> = { 401: 'refuse', 403: 'refuse', 404: 'introuvable', 409: 'pasPret', 429: 'plafond', 503: 'nonConfigure' };
@@ -150,6 +170,7 @@ export function creerClientAnalyse(f: Fetch, jeton: () => string | null): Client
       return {
         actif: d.actif === true, prompt: Number(d.prompt ?? 0), schema: Number(d.schema ?? 0), organisation: typeof d.organisation === 'string' ? d.organisation : null, admin: d.admin === true,
         modeles: Array.isArray(d.modeles) ? d.modeles.filter((m): m is string => typeof m === 'string') : [],
+        brouillon: lireBrouillonServeur(d.brouillon),
       };
     },
     creerBatch: (d) => appeler('/batches', 'envoi de l’analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),

@@ -6,11 +6,13 @@
 //     l'accord mesure de Claude) ou s'il observe seulement ; on peut en exclure un du prompt, editer ses
 //     textes et son schema, ou en ajouter un en brouillon ;
 //   - le resultat : le prompt, le schema, ce qui change par rapport au livre, les controles.
-// Rien n'est enregistre sur le serveur : l'ecran EXPLORE. Ce qui est bon se telecharge (le module du
-// sujet, ou les deux fichiers) et entre dans le depot par une PR (`npm run regles:generer`). Le brouillon
-// reste dans ce navigateur, pour ne pas perdre une edition en cours.
+// L'ecran EXPLORE : ce qui est bon se telecharge (le module du sujet, ou les deux fichiers) et entre dans
+// le depot par une PR (`npm run regles:generer`). Le brouillon reste dans ce navigateur, pour ne pas perdre
+// une edition en cours ; « Enregistrer sur le serveur » le garde en plus cote serveur (admin/claude/regles),
+// ou une analyse (`?regles=local`) et un rejeu d'Admin › Audits peuvent partir avec son prompt AVANT la PR.
+// Le prompt livre n'est jamais remplace : seule une demande de l'administrateur qui le nomme le lit.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { controler, diffLignes, estimerTokens, insererAvantLaFin, lignesModifiees, remplacerSujet } from '../regles/sujets/edition.js';
 import { genererFichiers } from '../regles/sujets/generation.js';
 import type { DescriptionSujet } from '../regles/sujets/description.js';
@@ -18,6 +20,8 @@ import type { Sujet } from '../app/regles/sujets/contrat.js';
 import { EditeurSujet } from './regles/EditeurSujet.js';
 import { NouveauSujet } from './regles/NouveauSujet.js';
 import { Resultat, type Onglet } from './regles/Resultat.js';
+import type { BrouillonReglesServeur, ClientRegles } from '../io/reglesServeur.js';
+import type { BrouillonServeur } from '../io/analyseClaude.js';
 
 export interface BrouillonRegles { lire(): string | null; ecrire(texte: string): void; effacer(): void }
 
@@ -29,6 +33,8 @@ export interface PropsEcranRegles {
   /** Le taux d'accord de Claude mesure par attribut ; absent : pas encore mesure. */
   accords: Readonly<Partial<Record<string, number>>>;
   brouillon?: BrouillonRegles;
+  /** Le brouillon sur le serveur ; absent : l'ecran n'enregistre qu'ici (tests, pas de session d'administrateur). */
+  serveur?: ClientRegles;
   telecharger: (nom: string, contenu: string, type: string) => void;
   copier: (texte: string) => Promise<void>;
   retour?: string;
@@ -48,15 +54,25 @@ function lireBrouillon(texte: string | null, livre: readonly DescriptionSujet[])
 }
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
+const quand = (iso: string | null) => (iso ?? '?').slice(0, 16).replace('T', ' ');
 
 export function EcranRegles(props: PropsEcranRegles) {
-  const { sujets: livres, proposeurs, accords, brouillon, telecharger, copier, retour = '?admin' } = props;
+  const { sujets: livres, proposeurs, accords, brouillon, serveur, telecharger, copier, retour = '?admin' } = props;
   const [etat, setEtat] = useState<Etat>(() => lireBrouillon(brouillon?.lire() ?? null, livres));
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [onglet, setOnglet] = useState<Onglet>('prompt');
   const [nouveau, setNouveau] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Le brouillon du serveur : `undefined` tant qu'on ne l'a pas lu, `null` quand il n'y en a pas.
+  const [surServeur, setSurServeur] = useState<BrouillonReglesServeur | null | undefined>(serveur ? undefined : null);
+  const [occupe, setOccupe] = useState(false);
   const { liste, exclus } = etat;
+  const monte = useRef(true);
+  useEffect(() => () => { monte.current = false; }, []);
+  useEffect(() => {
+    if (!serveur) return;
+    serveur.lire().then((b) => { if (monte.current) setSurServeur(b); }, (e: Error) => { if (monte.current) { setSurServeur(null); setMessage('Le brouillon du serveur n’a pas pu être lu : ' + e.message); } });
+  }, [serveur]);
 
   // Le brouillon suit l'edition ; revenu au livre, il n'y a plus rien a garder.
   useEffect(() => {
@@ -92,6 +108,31 @@ export function EcranRegles(props: PropsEcranRegles) {
   const basculer = (id: string) => setEtat((e) => ({ ...e, exclus: e.exclus.includes(id) ? e.exclus.filter((x) => x !== id) : [...e.exclus, id] }));
   const toutRevenir = () => { setEtat({ liste: [...livres], exclus: [] }); setOuvert(null); setMessage('Retour au prompt et au schéma du dépôt.'); try { brouillon?.effacer(); } catch { /* rien a effacer */ } };
 
+  /** Garde sur le serveur le prompt et le schema recalcules, et l'etat de l'editeur qui les produit. */
+  const enregistrerSurServeur = () => {
+    if (!serveur) return;
+    setOccupe(true);
+    serveur.enregistrer({ prompt: sortie.prompt, schema: sortie.schema, etat }).then((b: BrouillonServeur) => {
+      if (!monte.current) return;
+      setSurServeur({ ...b, promptTexte: sortie.prompt, schemaTexte: sortie.schema, etat });
+      setMessage('Brouillon enregistré sur le serveur (prompt version ' + b.prompt + '). Essayez-le : ouvrez le plan avec ?regles=local, ou « Rejouer avec le brouillon » dans Admin › Audits.');
+    }, (e: Error) => { if (monte.current) setMessage('Enregistrement impossible : ' + e.message); }).finally(() => { if (monte.current) setOccupe(false); });
+  };
+  const reprendreDuServeur = () => {
+    const e = surServeur?.etat;
+    const relu = e ? lireBrouillon(JSON.stringify(e), livres) : null;
+    if (!relu || !surServeur) return;
+    setEtat(relu);
+    setOuvert(null);
+    setMessage('Brouillon du serveur repris (enregistré le ' + quand(surServeur.enregistreLe) + ').');
+  };
+  const retirerDuServeur = () => {
+    if (!serveur) return;
+    setOccupe(true);
+    serveur.retirer().then(() => { if (monte.current) { setSurServeur(null); setMessage('Brouillon retiré du serveur : les analyses repartent avec le prompt livré.'); } },
+      (e: Error) => { if (monte.current) setMessage('Retrait impossible : ' + e.message); }).finally(() => { if (monte.current) setOccupe(false); });
+  };
+
   const copierPrompt = () => { copier(sortie.prompt).then(() => setMessage('Prompt copié.'), () => setMessage('Copie impossible : sélectionnez le texte à la main.')); };
 
   return (
@@ -100,8 +141,9 @@ export function EcranRegles(props: PropsEcranRegles) {
         <a className="ecranRetour" href={retour}><span aria-hidden="true">←</span> Retour au plan</a>
         <h1 className="palTitre">Règles</h1>
         <p className="palSous">
-          Les sujets que l’audit sait lire, et le prompt et le schéma que Claude reçoit, recalculés à chaque frappe. Rien n’est enregistré
-          sur le serveur : ce qui est bon se télécharge et entre dans le dépôt par une PR (<code>npm run regles:generer</code>). Visible de l’administrateur seulement.
+          Les sujets que l’audit sait lire, et le prompt et le schéma que Claude reçoit, recalculés à chaque frappe. « Enregistrer sur le
+          serveur » garde le brouillon pour l’essayer (<code>?regles=local</code>, ou un rejeu dans Admin › Audits) sans toucher au prompt livré :
+          ce qui est bon se télécharge et entre dans le dépôt par une PR (<code>npm run regles:generer</code>). Visible de l’administrateur seulement.
         </p>
       </header>
 
@@ -125,9 +167,21 @@ export function EcranRegles(props: PropsEcranRegles) {
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'prompt-analyse.md tel que le serveur le lirait'} onClick={() => telecharger('prompt-analyse.md', sortie.prompt, 'text/markdown')}>Télécharger le prompt</button>
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'schema-analyse.json tel que le serveur le lirait'} onClick={() => telecharger('schema-analyse.json', sortie.schema, 'application/json')}>Télécharger le schéma</button>
         <button type="button" className="secondary" disabled={identique && !exclus.length} onClick={toutRevenir}>Revenir au livré</button>
+        {serveur && <>
+          <button type="button" data-controle="regles.enregistrerServeur" disabled={occupe || erreurs > 0 || (identique && !exclus.length)}
+            title={erreurs ? raisonFichiers ?? undefined : identique && !exclus.length ? 'Rien ne diffère du livré : il n’y a rien à essayer.' : 'Garde le prompt et le schéma sur le serveur, pour une analyse ou un rejeu d’essai'}
+            onClick={enregistrerSurServeur}>Enregistrer sur le serveur</button>
+          <button type="button" className="secondary" data-controle="regles.reprendreServeur" disabled={occupe || !surServeur || !surServeur.etat} onClick={reprendreDuServeur}>Reprendre celui du serveur</button>
+          <button type="button" className="secondary" data-controle="regles.retirerServeur" disabled={occupe || !surServeur} onClick={retirerDuServeur}>Retirer du serveur</button>
+        </>}
         <span className="consEtat" role="status">{message ?? ''}</span>
       </div>
       {raisonFichiers && <p className="consNote confRaison">{raisonFichiers}</p>}
+      {serveur && <p className="consNote" role="status" data-controle="regles.etatServeur">
+        {surServeur === undefined ? 'Lecture du brouillon du serveur…'
+          : surServeur ? 'Brouillon du serveur : prompt version ' + surServeur.prompt + ', schéma version ' + surServeur.schema + ', enregistré le ' + quand(surServeur.enregistreLe) + '. Ouvrez le plan avec ?regles=local pour qu’une analyse parte avec lui.'
+          : 'Aucun brouillon sur le serveur : les analyses partent avec le prompt livré.'}
+      </p>}
 
       <div className="reglCorps">
         <section className="reglSujets" aria-label="Sujets">
