@@ -1,4 +1,4 @@
-// Sujet « materiauMurs » : le parement que Claude voit sur les facades (la texture des murs en 3D).
+// Sujet « facades » : le parement que Claude voit sur les facades (attribut materiauMurs : la texture des murs en 3D).
 
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.js';
@@ -33,4 +33,4 @@ function propositionMateriau({ o, b, v, et }: EntreeSujet): Proposition | null {
   }, 'materiauMurs', m, et, [], choisi ? libelle(choisi) : null);
 }
 
-export const materiau: Sujet = { id: 'materiauMurs', libelle: 'Matériau des murs', effet: 'materiauMurs', proposer: propositionMateriau };
+export const materiau: Sujet = { id: 'facades', attribut: 'materiauMurs', effet: 'materiauMurs', proposer: propositionMateriau };

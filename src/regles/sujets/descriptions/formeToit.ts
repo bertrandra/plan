@@ -7,7 +7,6 @@ import type { DescriptionSujet } from '../description.js';
 export const formeToit: DescriptionSujet = {
   id: 'formeToit',
   libelle: `Forme du toit`,
-  attributs: ['formeToit'],
   champs: {
     "forme": {
       "type": "object",

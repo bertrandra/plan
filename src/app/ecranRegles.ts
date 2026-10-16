@@ -40,7 +40,7 @@ export function ouvrirEcranRegles(): void {
   document.title = 'Admin — règles';
   createRoot(hote).render(createElement(EcranRegles, {
     sujets: DESCRIPTIONS_SUJETS,
-    proposeurs: SUJETS.map((s) => ({ id: s.id, libelle: s.libelle, effet: s.effet })),
+    proposeurs: SUJETS.filter((s) => s.proposer).map((s) => ({ id: s.id, ...(s.attribut ? { attribut: s.attribut } : {}), ...(s.effet ? { effet: s.effet } : {}) })),
     accords: ACCORDS_MESURES,
     brouillon: brouillonLocal(),
     telecharger: (nom, contenu, type) => telechargerTexte(nom, contenu, type),

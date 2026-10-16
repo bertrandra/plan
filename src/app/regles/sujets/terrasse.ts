@@ -27,4 +27,4 @@ function propositionTerrasse({ o, b, v, et, contra }: EntreeSujet): Proposition 
   }, 'terrasse', v.terrasse, et, contra);
 }
 
-export const terrasse: Sujet = { id: 'terrasse', libelle: 'Toit-terrasse', effet: 'terrasse', proposer: propositionTerrasse };
+export const terrasse: Sujet = { id: 'terrasse', attribut: 'terrasse', effet: 'terrasse', proposer: propositionTerrasse };

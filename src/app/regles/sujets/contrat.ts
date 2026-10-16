@@ -22,14 +22,14 @@ export interface EntreeSujet {
 }
 
 export interface Sujet {
-  /** L'attribut dont le taux d'accord de Claude se mesure (model/analyseClaude.ts, regles/conformite.ts). */
-  id: AttributClaude;
-  /** Son nom dans l'ecran de conformite. */
-  libelle: string;
+  /** L'identifiant de sa description (regles/sujets/descriptions/) : le meme, c'est ce qui les apparie. Son nom a l'ecran est celui de la description. */
+  id: string;
+  /** L'attribut dont le taux d'accord de Claude se mesure (model/analyseClaude.ts, regles/conformite.ts) ; absent : le sujet ne propose rien. */
+  attribut?: AttributClaude;
   /** Ce que sa proposition ecrit dans le projet : le type d'effet que le moteur applique (regles/decisions.ts). */
-  effet: TypeEffet;
+  effet?: TypeEffet;
   /** Au plus une proposition ; null quand Claude ne dit rien, ou rien de neuf, ou rien que Plan sache ecrire. */
-  proposer(e: EntreeSujet): Proposition | null;
+  proposer?(e: EntreeSujet): Proposition | null;
 }
 
 export const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');

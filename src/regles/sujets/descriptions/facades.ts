@@ -7,7 +7,6 @@ import type { DescriptionSujet } from '../description.js';
 export const facades: DescriptionSujet = {
   id: 'facades',
   libelle: `Façades`,
-  attributs: ['materiauMurs'],
   champs: {
     "facades": {
       "type": "array",

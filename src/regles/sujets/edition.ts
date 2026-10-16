@@ -69,8 +69,8 @@ export const IDENTIFIANT = /^[a-z][a-zA-Z0-9]*$/;
 /**
  * La description d'un sujet a partir de ce que l'on sait en dire : un champ `{ indices, valeur }` (ou
  * `{ indices, nombre }`), une consigne, et son vocabulaire. Elle s'intercale avant `transverse` (la fin de
- * la reponse) ; son vocabulaire ferme le « Vocabulaire ». `attributs` reste vide : un sujet nouveau est une
- * observation tant que son module de proposition et son attribut n'existent pas dans le code.
+ * la reponse) ; son vocabulaire ferme le « Vocabulaire ». Un sujet nouveau est lu, vote et montre en observation
+ * sans autre code (regles/sujets/vote.ts) ; il ne propose rien tant qu'un module de meme `id` n'existe pas.
  */
 export function nouveauSujet(spec: SpecSujetNouveau, existants: readonly DescriptionSujet[]): DescriptionSujet {
   const consignes = new Set(existants.flatMap((s) => s.consignes.map((b) => b.rang)));
@@ -81,7 +81,7 @@ export function nouveauSujet(spec: SpecSujetNouveau, existants: readonly Descrip
     : { $ref: '#/$defs/compte' };
   const dernier = Math.max(0, ...existants.filter((s) => s.id !== 'transverse').flatMap((s) => s.consignes.map((b) => b.rang)));
   return {
-    id: spec.id, libelle: spec.libelle.trim() || spec.id, attributs: [],
+    id: spec.id, libelle: spec.libelle.trim() || spec.id,
     champs: { [spec.id]: { type: 'object', additionalProperties: false, required: ['indices', termes.length ? 'valeur' : 'nombre'], properties: { indices: { $ref: '#/$defs/indices' }, [termes.length ? 'valeur' : 'nombre']: valeur } } },
     definitions: {},
     consignes: [{ rang: rangLibre(consignes, dernier), texte: '- `' + spec.id + '` : ' + spec.question.trim() + '.' }],
@@ -251,7 +251,6 @@ const liste = (blocs: readonly string[]): string => '[' + blocs.map((b) => '\n  
  * test relit les huit et exige le meme texte), donc un diff de PR lisible.
  */
 export function sourceDescription(s: DescriptionSujet): string {
-  const attributs = '[' + s.attributs.map((a) => "'" + a + "'").join(', ') + ']';
   return [
     '// Description du sujet « ' + s.id + ' » : ce que Claude doit lire, comment il doit repondre, ce que l\'on',
     '// en assemble dans le prompt et le schema d\'analyse (src/regles/sujets/assembler.ts).',
@@ -262,7 +261,6 @@ export function sourceDescription(s: DescriptionSujet): string {
     'export const ' + s.id + ': DescriptionSujet = {',
     "  id: '" + s.id + "',",
     '  libelle: ' + gabarit(s.libelle) + ',',
-    '  attributs: ' + attributs + ',',
     '  champs: ' + indente(s.champs) + ',',
     '  definitions: ' + indente(s.definitions) + ',',
     '  consignes: ' + liste(s.consignes.map((b) => '{ rang: ' + b.rang + ', texte: ' + gabarit(b.texte) + ' }')) + ',',

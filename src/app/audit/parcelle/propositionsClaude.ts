@@ -63,7 +63,7 @@ export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: 
   const contra = [...contradictionsLidar(v, indicesLidar(o.toitMesure, o.corpsToit)), ...v.contradictions.map((c) => c.observation + ' (' + c.indiceLidar + ')')];
   const out: Proposition[] = [];
   for (const s of SUJETS) {
-    const p = s.proposer({ o, b, v, et: r.etiquettes, contra });
+    const p = s.proposer?.({ o, b, v, et: r.etiquettes, contra });
     if (p) out.push(p);
   }
   return out;

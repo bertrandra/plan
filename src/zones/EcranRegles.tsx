@@ -24,8 +24,8 @@ export interface BrouillonRegles { lire(): string | null; ecrire(texte: string):
 export interface PropsEcranRegles {
   /** Les sujets tels que le depot les livre. */
   sujets: readonly DescriptionSujet[];
-  /** Ce que l'audit sait proposer, apparie aux sujets par `attributs`. */
-  proposeurs: readonly Pick<Sujet, 'id' | 'libelle' | 'effet'>[];
+  /** Ce que l'audit sait proposer, apparie aux sujets par le meme `id`. */
+  proposeurs: readonly Pick<Sujet, 'id' | 'attribut' | 'effet'>[];
   /** Le taux d'accord de Claude mesure par attribut ; absent : pas encore mesure. */
   accords: Readonly<Partial<Record<string, number>>>;
   brouillon?: BrouillonRegles;
@@ -137,7 +137,7 @@ export function EcranRegles(props: PropsEcranRegles) {
             {liste.map((s) => {
               const exclu = exclus.includes(s.id);
               const brouillonDuSujet = !livres.some((l) => l.id === s.id);
-              const propose = s.attributs.map((a) => proposeurs.find((p) => p.id === a)).filter((p): p is NonNullable<typeof p> => !!p);
+              const propose = proposeurs.find((p) => p.id === s.id);
               return (
                 <li key={s.id} className="reglSujet" data-sujet={s.id} data-exclu={exclu ? 'oui' : undefined}>
                   <div className="reglSujetEntete">
@@ -146,10 +146,9 @@ export function EcranRegles(props: PropsEcranRegles) {
                       <strong>{s.libelle}</strong> <code>{s.id}</code>
                     </label>
                     <span className="reglBadges">
-                      {propose.length ? propose.map((p) => <span key={p.id} className="reglBadge">Propose · écrit <code>{p.effet}</code> · accord {accords[p.id] !== undefined ? Math.round((accords[p.id] ?? 0) * 100) + ' %' : 'non mesuré'}</span>)
+                      {propose ? <span className="reglBadge">Propose · écrit <code>{propose.effet}</code> · accord {propose.attribut && accords[propose.attribut] !== undefined ? Math.round((accords[propose.attribut] ?? 0) * 100) + ' %' : 'non mesuré'}</span>
                         : <span className="reglBadge">{brouillonDuSujet ? 'Brouillon · observation seule' : 'Observation seule'}</span>}
-                      {s.attributs.length > propose.length && <span className="reglBadge">attribut sans module de proposition</span>}
-                      {brouillonDuSujet && propose.length > 0 && <span className="reglBadge">Brouillon</span>}
+                      {brouillonDuSujet && propose && <span className="reglBadge">Brouillon</span>}
                       {modifie(s) && <span className="reglBadge reglModifie">Modifié</span>}
                       {exclu && <span className="reglBadge">Hors du prompt</span>}
                     </span>
