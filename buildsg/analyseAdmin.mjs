@@ -956,7 +956,8 @@ export function creerAnalyseAdmin({ dossier, donnees = null, actif, sessionValid
         t, organisation: fiche.organisation, projet: fiche.projet, idu: fiche.idu, adresse: fiche.adresse, audit: fiche.audit,
         usage: x.usage, modele, batch: true, idBatch: fiche.id, requete: x.id, passe: x.passe,
         tokens: x.tokens, images: req.images ?? 0, facades: req.facades ?? 0, cout: x.cout, tarif,
-        statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion, trouve
+        statut: x.statut, arret: x.arret, prompt: req.prompt ?? fiche.promptVersion, schema: req.schema ?? fiche.schemaVersion, trouve,
+        ...(fiche.essai === true ? { essai: true } : {})
       })));
       if (fiche.trace) completerTrace(fiche, detail, bruts, t);
       ecrireJson(fBatch(fiche.id), { ...fiche, journalise: true, etat: 'ended' });

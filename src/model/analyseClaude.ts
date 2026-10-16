@@ -71,8 +71,10 @@ export function lireSimple(r: ReponseAnalyse, champ: ChampSimple): LectureSimple
   const c = (r as unknown as Record<string, unknown>)[champ.nom];
   if (!estObjet(c) || !estTableau(c.indices)) return null;
   const v = c[champ.cle];
-  if (typeof v !== 'string' && typeof v !== 'number') return null;
-  return { valeur: v, indices: c.indices as IndiceAnalyse[] };
+  // Un compte est un entier ou `indetermine` ; une valeur est un terme (le schema ferme le vocabulaire, le serveur le ramene).
+  const ok = champ.cle === 'nombre' ? Number.isInteger(v) || v === 'indetermine' : typeof v === 'string';
+  if (!ok) return null;
+  return { valeur: v as string | Compte, indices: c.indices as IndiceAnalyse[] };
 }
 
 /**

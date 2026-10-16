@@ -1278,7 +1278,8 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
                          'adresse' => $fiche['adresse'], 'audit' => $fiche['audit'], 'usage' => $x['usage'], 'modele' => $x['modele'],
                          'batch' => true, 'idBatch' => $fiche['id'], 'requete' => $x['id'], 'passe' => $x['passe'], 'tokens' => $x['tokens'],
                          'images' => $x['images'], 'facades' => $x['facades'], 'cout' => $x['cout'], 'tarif' => $x['tarif'], 'statut' => $x['statut'],
-                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']];
+                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']]
+                         + (($fiche['essai'] ?? false) === true ? ['essai' => true] : []);
         }
         journaliser($dossierClaude, $lignes);
         if (is_array($fiche['trace'] ?? null)) completerTrace($fiche, $sortie, $bruts, $t);

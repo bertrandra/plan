@@ -2485,12 +2485,22 @@
   .reglControles li[data-niveau="erreur"]{ border-left-color:var(--danger); }
   .reglControles li[data-niveau="alerte"]{ border-left-color:var(--alerte); }
   .reglControles strong{ margin-right:6px; text-transform:uppercase; font-size:0.66rem; letter-spacing:.1em; }
+  /* L'onglet « Reglages et faits » : un fichier par carte, le tableau des seuils defile dans sa boite (sans
+     `min-width:0`, la grille prenait la largeur du tableau et la page entiere debordait). */
+  .reglDonnees{ min-width:0; margin-top:16px; }
+  .reglDonnees .reglListe{ grid-template-columns:minmax(0, 1fr); }
+  .reglDonnees .reglSujet, .reglSeuils{ min-width:0; }
+  .reglSeuils{ display:grid; gap:8px; }
+  .reglDonnees code{ overflow-wrap:anywhere; }
+  .reglDonnees .tableAudit textarea{ min-width:14em; }
+  .reglValeur{ width:7em; min-height:32px; box-sizing:border-box; font-family:var(--sans); font-variant-numeric:tabular-nums; color:var(--ink); background:var(--input-bg); border:1px solid var(--rule); border-radius:var(--r-champ); padding:4px 8px; }
   @media (max-width: 1023px){
     .reglCorps{ grid-template-columns:minmax(0, 1fr); }
     .reglResultat{ position:static; }
     .reglSortie{ max-height:60vh; }
     .reglInclure input{ width:24px; height:24px; }
     .reglInclure, .reglBlocEntete input, .reglBlocEntete button, .reglActionsSujet button, .reglSujetEntete button{ min-height:44px; }
+    .reglValeur, .reglSeuils input[type="search"], .reglDonnees .reglActionsSujet button{ min-height:44px; }
     .reglTexte{ font-size:0.9rem; }
   }
 

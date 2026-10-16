@@ -143,16 +143,16 @@ export function EcranRegles(props: PropsEcranRegles) {
         <button type="button" className="secondary" disabled={raisonFichiers !== null} title={raisonFichiers ?? 'schema-analyse.json tel que le serveur le lirait'} onClick={() => telecharger('schema-analyse.json', sortie.schema, 'application/json')}>Télécharger le schéma</button>
         <button type="button" className="secondary" disabled={identique && !exclus.length} onClick={toutRevenir}>Revenir au livré</button>
         {serveur && <>
-          <button type="button" data-controle="regles.enregistrerServeur" disabled={occupe || erreurs > 0 || (identique && !exclus.length)}
+          <button type="button" disabled={occupe || erreurs > 0 || (identique && !exclus.length)}
             title={erreurs ? raisonFichiers ?? undefined : identique && !exclus.length ? 'Rien ne diffère du livré : il n’y a rien à essayer.' : 'Garde le prompt et le schéma sur le serveur, pour une analyse ou un rejeu d’essai'}
             onClick={enregistrerSurServeur}>Enregistrer sur le serveur</button>
-          <button type="button" className="secondary" data-controle="regles.reprendreServeur" disabled={occupe || !surServeur || !surServeur.etat} onClick={reprendreDuServeur}>Reprendre celui du serveur</button>
-          <button type="button" className="secondary" data-controle="regles.retirerServeur" disabled={occupe || !surServeur} onClick={retirer}>Retirer du serveur</button>
+          <button type="button" className="secondary" disabled={occupe || !surServeur || !surServeur.etat} onClick={reprendreDuServeur}>Reprendre celui du serveur</button>
+          <button type="button" className="secondary" disabled={occupe || !surServeur} onClick={retirer}>Retirer du serveur</button>
         </>}
         <span className="consEtat" role="status">{message ?? ''}</span>
       </div>
       {raisonFichiers && <p className="consNote confRaison">{raisonFichiers}</p>}
-      {serveur && <p className="consNote" role="status" data-controle="regles.etatServeur">
+      {serveur && <p className="consNote" role="status">
         {surServeur === undefined ? 'Lecture du brouillon du serveur…'
           : surServeur ? 'Brouillon du serveur : prompt version ' + surServeur.prompt + ', schéma version ' + surServeur.schema + ', enregistré le ' + quand(surServeur.enregistreLe) + '. Ouvrez le plan avec ?regles=local pour qu’une analyse parte avec lui.'
           : 'Aucun brouillon sur le serveur : les analyses partent avec le prompt livré.'}

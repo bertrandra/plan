@@ -6,7 +6,9 @@ import { AuditsParcelle } from '../../../src/zones/parcours/AuditsParcelle.js';
 import { creerCatalogue, type DependancesCatalogue } from '../../../src/app/audit/parcelle/catalogue.js';
 import { EchecPartageAudit, type ClientAudits, type FicheAudit } from '../../../src/io/auditsServeur.js';
 import type { ClientAnalysesAudits, ResumeAnalyse } from '../../../src/io/analysesAudits.js';
-import type { ClientAnalyse, DemandeAnalyse } from '../../../src/io/analyseClaude.js';
+import type { BrouillonServeur, ClientAnalyse, DemandeAnalyse } from '../../../src/io/analyseClaude.js';
+import type { AnalyseComplete, ResultatSortant } from '../../../src/io/analysesAudits.js';
+import { reponse } from '../../fixtures/audit/reponseClaude.js';
 
 // Admin › « Audits de parcelle » (Z8, MD/spec-audit.md §15) : la liste des audits recus, et pour
 // chacun « Ouvrir dans ce projet » (meme parcelle), « Télécharger » et « Retirer » (confirme sur la carte).
@@ -179,7 +181,7 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
     tokens, resultats: [resultat], ...plus,
   });
 
-  function monterTout(plus: Partial<DependancesCatalogue> = {}) {
+  function monterTout(plus: Partial<DependancesCatalogue> = {}, options: { brouillon?: BrouillonServeur } = {}) {
     const promenade = fiche({ id: '20261012-100000-0000beef', nature: 'promenade', idu: '', commune: 'Le Vésinet', adresse: 'Le Vésinet', marque: 'corpus', cas: 2, statuts: { a_corriger: 1, valide: 1 } });
     const parcelle = fiche({ marque: 'corpus', phase: 'analyse', photos: 2, propositions: { total: 3, claude: 2, mesures: 1, validees: 1, refusees: 1, enAttente: 1 } });
     const c: ClientAudits = { envoyer: vi.fn(async () => ({ id: 'x', retrait: '' })), remplacer: vi.fn(), retirer: vi.fn(async () => {}), lister: vi.fn(async () => [parcelle, promenade]), lire: vi.fn(async () => JSON.stringify(fichier)) };
@@ -193,7 +195,7 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
       urlImage: (a: string, n: string) => 'admin/audits/' + a + '/images/' + n,
     };
     const analyse: ClientAnalyse = {
-      etat: vi.fn(async () => ({ actif: true, prompt: 3, schema: 2, organisation: 'admin', admin: true, modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'] })),
+      etat: vi.fn(async () => ({ actif: true, prompt: 3, schema: 2, organisation: 'admin', admin: true, modeles: ['claude-haiku-5-5', 'claude-sonnet-5-5'], brouillon: options.brouillon ?? null })),
       creerBatch: vi.fn(async () => ({ batch: { id: 'msgbatch_3', etat: 'in_progress', compte: null }, modele: 'claude-sonnet-5-5', prompt: 3, schema: 2, trace: 't' })),
       etatBatch: vi.fn(async () => { fini = true; return { id: 'msgbatch_2', etat: 'ended', compte: null }; }),
       resultats: vi.fn(async () => ({ batch: { id: 'msgbatch_2', etat: 'ended', compte: null }, modele: 'claude-sonnet-5-5', prompt: 3, schema: 2, resultats: [] })),
@@ -286,5 +288,70 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
     await ouvrirDetails();
     expect(bouton(cartes()[0], 'auditsParcelle.rejouer')?.disabled).toBe(true);
     expect(cartes()[0]?.querySelector('.detailAuditRecu .raisonAuditRecu')?.textContent).toBe('Ce projet est sur la parcelle 35238000AB0001 : ouvrez le projet de la parcelle ' + IDU + ' pour rejouer son audit.');
+  });
+
+  it('rejoue avec le prompt du brouillon des regles quand l administrateur en a un, et le dit', async () => {
+    const t = monterTout({}, { brouillon: { enregistreLe: '2026-10-16T10:00:00Z', prompt: 6, schema: 1 } });
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    const case_ = cartes()[0]?.querySelector<HTMLInputElement>('[data-controle="auditsParcelle.essaiRejeu"]');
+    expect(case_?.disabled).toBe(false);
+    expect(case_?.checked).toBe(false);
+    expect(case_?.closest('label')?.textContent).toContain('Avec le brouillon des règles (v6)');
+    // Sans la case, le rejeu part avec le prompt livre : la demande ne nomme aucun essai.
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    expect(t.analyse.creerBatch).toHaveBeenLastCalledWith(expect.not.objectContaining({ essai: expect.anything() }));
+    await cliquer(case_ ?? null);
+    expect(t.catalogue.etat().essai).toBe(true);
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    expect(t.analyse.creerBatch).toHaveBeenLastCalledWith(expect.objectContaining({ usage: 'rejeu', depot: ID, essai: 'brouillon' }));
+    expect(t.d.signaler).toHaveBeenLastCalledWith(expect.stringContaining('prompt du brouillon des règles'));
+  });
+
+  it('ne propose pas l essai sans brouillon sur le serveur, et refuse de rejouer s il a ete demande quand meme', async () => {
+    const t = monterTout();
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    const case_ = cartes()[0]?.querySelector<HTMLInputElement>('[data-controle="auditsParcelle.essaiRejeu"]');
+    expect(case_?.disabled).toBe(true);
+    expect(case_?.closest('label')?.getAttribute('title')).toContain('Aucun brouillon enregistré');
+    act(() => t.catalogue.choisirEssai(true));
+    expect(t.catalogue.raisonRejouer(t.catalogue.etat().audits?.[0] as FicheAudit)).toMatch(/brouillon des règles/);
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    expect(t.analyse.creerBatch).not.toHaveBeenCalled();
+  });
+
+  it('compare les reponses d une analyse a celles d une autre : ce que le vote des passes dit differemment', async () => {
+    const t = monterTout();
+    const IDS = { analyse: '20261014-100000-claude-haiku-5-5-abcd', rejeu: '20261015-100000-claude-sonnet-5-5-beef' };
+    const sortie = (forme: string) => reponse({ forme: { indices: [], valeur: forme } });
+    const resultats = (forme: string): ResultatSortant[] => ['b0-p1', 'b0-p2', 'b0-p3'].map((id) => ({ ...resultat, id, passe: Number(id.slice(-1)), usage: 'rejeu', texte: null, sortie: sortie(forme), tarif: null }));
+    const complete = (id: keyof typeof IDS, forme: string): AnalyseComplete => ({
+      audit: ID, resume: resume({ id: IDS[id], nature: id === 'rejeu' ? 'rejeu' : 'analyse', essai: id === 'rejeu' }), entrant: null,
+      sortant: { idBatch: 'msgbatch_x', finLe: '2026-10-15T10:05:00Z', resultats: resultats(forme) },
+    });
+    t.analyses.lire = vi.fn(async (_a: string, trace: string) => (trace === IDS.rejeu ? complete('rejeu', 'croupes') : complete('analyse', 'deux-pans')));
+    await act(async () => { await t.catalogue.relire(); });
+    await ouvrirDetails();
+    await act(async () => { await t.catalogue.voirTrace(ID, IDS.rejeu); });
+    await attendre();
+    const trace = hote.querySelector('.traceAudit');
+    expect(trace?.textContent).toContain('Brouillon des règles');
+    // L'autre analyse est proposee a la comparaison : la seule terminee, celle du prompt livre.
+    const choix = trace?.querySelector<HTMLSelectElement>('[data-controle="auditsParcelle.comparerAvec"]');
+    expect([...(choix?.options ?? [])].map((o) => o.value)).toEqual(['', IDS.analyse]);
+    await act(async () => { await t.catalogue.comparer(ID, IDS.analyse); });
+    await attendre();
+    const lignes = [...(hote.querySelectorAll('.traceAudit details .tableComparaison tbody tr'))].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent));
+    expect(lignes).toEqual([['b0', 'Forme du toit', 'deux-pans (100 %)', 'croupes (100 %)']]);
+    expect(trace?.textContent).toContain('1 bâtiment lu dans les deux · 1 attribut change sur');
+    // Deux analyses qui disent la meme chose : rien a montrer, et on le dit.
+    t.analyses.lire = vi.fn(async () => complete('analyse', 'croupes'));
+    await act(async () => { await t.catalogue.comparer(ID, IDS.analyse); });
+    await attendre();
+    expect(hote.querySelector('.traceAudit')?.textContent).toContain('Les deux analyses disent la même chose sur tous leurs attributs.');
+    // Fermer l'analyse ferme aussi la comparaison.
+    act(() => t.catalogue.fermerTrace());
+    expect(t.catalogue.etat().comparaison).toBeNull();
   });
 });

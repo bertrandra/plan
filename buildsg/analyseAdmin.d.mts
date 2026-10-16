@@ -92,8 +92,21 @@ export function trouvailles(x: Pick<ResultatLu, 'statut' | 'erreur' | 'sortie'>,
 export function verifierDemande(d: unknown, plafonds: Plafonds, modeles?: Readonly<Record<string, string>>): {
   projet: string | null; idu: string | null; adresse: string | null; audit: string | null;
   usage: string; modele: string;
+  /** La demande nomme l'essai du brouillon des regles (Admin › Regles) ; le serveur le reserve a l'administrateur. */
+  essai: boolean;
   requetes: { id: string; passe: number | null; images: number; facades: number; usage: string; modele: string; contenu: unknown[] }[];
 };
+
+/** Le brouillon des regles tel que le serveur le garde (admin/claude/regles). */
+export interface BrouillonRegles {
+  format: 'plan-regles-brouillon'; version: 1; enregistreLe: string;
+  versionPrompt: number; versionSchema: number;
+  prompt: string; schema: string; etat: Record<string, unknown>;
+}
+/** Ce qu'une demande ecrit comme brouillon : refuse (`refus`) ce que le serveur ne saurait pas envoyer. */
+export function verifierBrouillonRegles(d: unknown, maintenantIso: string): BrouillonRegles;
+/** Ce que l'etat dit du brouillon : ses versions et sa date, jamais son texte. */
+export function vueBrouillonRegles(b: Pick<BrouillonRegles, 'enregistreLe' | 'versionPrompt' | 'versionSchema'> | null): { enregistreLe: string | null; prompt: number; schema: number } | null;
 /** La consigne qui precede le schema de la reponse dans le prompt (deploy/analyse.php, meme texte). */
 export const CONSIGNE_JSON: string;
 /** Le prompt envoye en system : la partie fixe, puis le schema de la reponse. */

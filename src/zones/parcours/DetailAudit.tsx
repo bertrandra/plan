@@ -152,7 +152,7 @@ function DifferencesAnalyses({ catalogue, ouverte, autres }: { catalogue: Catalo
       </div>
       {c && !lue && <p className={c.erreur ? 'erreurParcours' : 'detailPhoto'} role="status">{c.erreur ?? 'Lecture de l’analyse à comparer…'}</p>}
       {cmp && <>
-        <p className="detailPhoto" data-controle="auditsParcelle.resumeComparaison">
+        <p className="detailPhoto">
           {pluriel(cmp.batiments.length, 'bâtiment')} lu{cmp.batiments.length > 1 ? 's' : ''} dans les deux · {pluriel(cmp.changees, 'attribut')} {cmp.changees > 1 ? 'changent' : 'change'} sur {cmp.lignes.length}.
           {cmp.seulementAvant.length > 0 && ' Seulement dans l’autre : ' + cmp.seulementAvant.join(', ') + '.'}
           {cmp.seulementApres.length > 0 && ' Seulement dans celle-ci : ' + cmp.seulementApres.join(', ') + '.'}

@@ -45,7 +45,7 @@ export function BarreVue({ vue, surVue }: { vue: VueRegles; surVue: (v: VueRegle
   return (
     <div className="palOnglets consOnglets" role="tablist" aria-label="Ce que le moteur lit">
       {([['sujets', 'Sujets, prompt et schéma'], ['donnees', 'Réglages et faits']] as const).map(([id, titre]) => (
-        <button key={id} type="button" role="tab" id={'reglVue-' + id} aria-selected={vue === id} className={'palOnglet' + (vue === id ? ' actif' : '')} data-controle={'regles.vue.' + id} onClick={() => surVue(id)}>{titre}</button>
+        <button key={id} type="button" role="tab" id={'reglVue-' + id} aria-selected={vue === id} className={'palOnglet' + (vue === id ? ' actif' : '')} onClick={() => surVue(id)}>{titre}</button>
       ))}
     </div>
   );

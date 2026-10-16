@@ -487,22 +487,29 @@ src/regles/sujets/           layer 2 — what Claude reads, as data; assembled i
   description.ts  liste.ts  descriptions/<id>.ts    one description per subject, and the list in prompt order
   gabarit.ts  assembler.ts  generation.ts  versions.ts   the fixed text, the assembly, the version table
   edition.ts                 what the Admin screen does with descriptions: edit, draft, control, diff
+src/regles/donnees/          layer 2 — the engine's three data files as Admin › Règles edits them
+  fichiers.ts                reglages des toits, des facades, faits des toits: raw text, reader, fingerprint
+  edition.ts                 change a threshold without reformatting the file, control, diff, fingerprint
 src/app/regles/              layer 6 — what the audit can see and propose
-  sujets/                    one module per subject (couverture, cheminees, terrasse, materiau, formeToit)
-    contrat.ts               the `Sujet` contract (id, libelle, effet, proposer); index.ts is the registry (`SUJETS`)
+  sujets/                    one module per subject, same `id` as its description (couverture, cheminees, terrasse,
+                             facades, formeToit, lucarnes, elements, transverse)
+    contrat.ts               the `Sujet` contract (id, attribut?, effet?, proposer?, observer?); index.ts is the registry (`SUJETS`)
+    observations.ts          the observations, said by the registry in prompt order (a simple field with no module says itself)
+    vote.ts                  the vote of the passes as the audit reads it (the subjects' simple fields included)
 src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/ecranRegles.ts
 ```
 
 The calculation itself (`facade/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
 proposes and prices, the engine arbitrates. `app/toitsLidar.ts` and `app/toitsFond.ts` orchestrate
 (import, background re-reading, `VERSION_LECTURE_TOITS`); `app/ecouteurs/faitsLocaux.ts` is the
-`?regles=local` trial mode.
+`?regles=local` trial mode (facts from a file; the same address also sends the audit's analysis out with the
+draft prompt saved from Admin › Règles).
 
 **Adding a subject the audit can propose** (a dormer, an object found in the garden…). One module
 and one line, then the vocabulary Claude reads:
 
-1. `src/app/regles/sujets/<sujet>.ts` exports a `Sujet` (`id`, `libelle`, `proposer`); `index.ts`
-   registers it in `SUJETS`.
+1. `src/app/regles/sujets/<sujet>.ts` exports a `Sujet` (`id` — the id of its description —, `attribut`,
+   `effet`, `proposer`); `index.ts` registers it in `SUJETS`.
 2. The effect it writes: a new member of `EffetProposition` and its `case` in `appliquerEffet`
    (`src/regles/decisions.ts`, with its rank in `RANG_EFFET`). The subject never writes the plan
    itself.
@@ -517,11 +524,26 @@ and one line, then the vocabulary Claude reads:
    (`src/regles/sujets/versions.ts`, one more line in `VERSIONS_PROMPT` / `VERSIONS_SCHEMA`):
    `tests/unit/regles/sujets/generation.test.ts` refuses a delivered file that differs from the
    generation, and a text changed under the same version. The vote that reads the answer
-   (`model/analyseClaude.ts`) is still written by hand for a field with its own shape.
+   (`model/analyseClaude.ts`) is written by hand only for a field with its own shape: a field
+   `{ indices, valeur }` or `{ indices, nombre }` declared by a description is read and voted
+   without code (`VoteAnalyse.simples`, `src/regles/sujets/vote.ts`), and says itself in
+   observation (`app/regles/sujets/observations.ts`). The module of a subject has the **same `id`**
+   as its description; `attribut` (the one whose agreement rate is measured), `effet` and `proposer`
+   exist only if it proposes, `observer` only if it has lines of its own.
    **Admin › Règles** (`?admin&ecran=regles`) does steps 1 to 4 on screen before any file is written:
    the subjects, their texts and schemas editable, a new subject as a draft, and the prompt and schema
    recomputed on every keystroke with the diff against the delivered ones and the controls; it
-   downloads the subject's module and the two files, and writes nothing on the server.
+   downloads the subject's module and the two files. "Save on the server" keeps the draft
+   (`admin/claude/regles`, administrator only, `deploy/analyse.php` and `buildsg/analyseAdmin.mjs`)
+   **without ever replacing the delivered prompt**: only an administrator request that names it
+   (`essai: "brouillon"`) reads it. With `?regles=local` the audit's analysis goes out with the draft;
+   Admin › Audits replays an audit with it ("Avec le brouillon des règles") and compares the answers of two
+   analyses, attribute by attribute (`app/audit/parcelle/comparaisonAnalyses.ts`). The batch keeps a copy
+   of the text it sent, so the answer is conformed to *its* schema; the journal, the batch file and the
+   trace carry `essai`. A second tab, "Réglages et faits", edits `regles/*/reglages.json` and
+   `regles/toits/faits.json`: a threshold's value or reason changes on its own line, the reader of the
+   code controls the text, and the screen says whether the fingerprint changes (so which line to add to
+   `LECTURES_TOITS` / `LECTURES_FACADES`).
 5. If the subject changes a roof, it goes through the engine (a fact in constraint,
    `corpsSousContrainte`), never a shape of its own; a new threshold goes to `reglages.json` with its
    reason.
