@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  angleAutour, cadreDe, capDeLaVue, champComplet, champPourLaFacade, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, poseOrbite, posePieton, reculLibre, suiviPieton,
+  angleAutour, cadreDe, capDeLaVue, champComplet, champPourLaFacade, distanceFace, facadeTouchee, forceDuTrait, partieCachee, poseEnsemble, poseFace, poseOrbite, posePieton, reculLibre, suiviPieton,
   TRAIT_NUL_M, TRAIT_PLEIN_M,
   CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, ELEVATION_ORBITE_DEG, PRECISION_ORBITE_MAX_M, ZONE_MORTE_ORBITE_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
 } from '../../../../../src/app/audit/parcelle/vuePrise.js';
@@ -254,6 +254,42 @@ describe('la vue fixee sur une facade choisie (16 octobre)', () => {
     expect(Math.atan2(p.hauteurOeil - p.hauteurVise, recul) * 180 / Math.PI).toBeCloseTo(ELEVATION_ORBITE_DEG, 6);
     const d = Math.hypot(recul, p.hauteurOeil - p.hauteurVise);
     expect(Math.asin(Math.hypot(cadre.rayon, cadre.hauteur / 2) / d) * 180 / Math.PI).toBeLessThan((p.champ ?? 0) / 2);
+  });
+
+  // Le mur sud d'un batiment de 12 m sur 8, centre a l'origine : de dehors, la gauche est a l'ouest.
+  const murSud = facade({ x: -6, y: -4 }, { x: 6, y: -4 });
+  const batiment = { centre: { x: 0, y: 0 }, rayon: 7.2, hauteur: 8, azimutDeg: null };
+
+  it('l elevation se pose sur la perpendiculaire du mur, a mi-hauteur, regard horizontal sur l axe du batiment', () => {
+    const d = distanceFace(batiment, murSud, 1);
+    const p = poseFace(batiment, 0, d);
+    // Mur sud, regard plein nord : la camera est au sud, au droit du centre, et ne monte ni ne descend.
+    expect(p.oeil.x).toBeCloseTo(0, 6);
+    expect(p.oeil.y).toBeCloseTo(-d, 6);
+    expect(p.hauteurOeil).toBeCloseTo(4, 6);
+    expect(p.hauteurVise).toBeCloseTo(p.hauteurOeil, 6);
+    expect(p.vise).toEqual(batiment.centre);
+    // La facade (12 m x 8 m) tient en largeur et en hauteur dans le champ, a cette distance.
+    const dMur = d - 4;
+    expect(Math.atan(6 / dMur) * 180 / Math.PI).toBeLessThan(Math.atan(Math.tan(CHAMP_VISIBLE_DEG * Math.PI / 360)) * 180 / Math.PI);
+    expect(Math.atan(4 / dMur) * 180 / Math.PI).toBeLessThan(CHAMP_VISIBLE_DEG / 2);
+  });
+
+  it('une vue plus etroite (telephone debout) recule plus pour la meme facade', () => {
+    expect(distanceFace(batiment, murSud, 0.5)).toBeGreaterThan(distanceFace(batiment, murSud, 1.5));
+  });
+
+  it('avec une facade choisie, la camera arrive de face, se fige a l horizontale et garde sa distance en tournant', () => {
+    const { vue } = montre();
+    const s = suiviPieton(vue, () => 0);
+    s.activer(true);
+    expect(s.orbite(batiment, 0, 0, true, false, murSud)).toBe(true);
+    expect(vue.verrouiller).toHaveBeenLastCalledWith(true, Math.PI / 2);
+    const d = distanceFace(batiment, murSud, 1);
+    expect(Math.hypot(cote(vue).x, cote(vue).y)).toBeCloseTo(d, 6);
+    // Un pas de 90 degres autour du batiment : la camera pivote sur son axe, a la meme distance.
+    expect(s.orbite(batiment, 0, 90, false, false, murSud)).toBe(true);
+    expect(Math.hypot(cote(vue).x, cote(vue).y)).toBeCloseTo(d, 6);
   });
 
   const montre = () => {

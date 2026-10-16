@@ -44,6 +44,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Écran de prise : une façade choisie se voit de face.** À la sélection (touchée ou prise dans la liste),
+  la caméra arrive en élévation, comme le rendu pour Claude : perpendiculaire au mur, à mi-hauteur,
+  regard horizontal, la façade entière dans la partie visible au-dessus de l'écran de prise. L'inclinaison
+  est figée ; la vue pivote sur l'axe vertical du bâtiment choisi (pas autour de lui ou doigt), à la
+  distance de l'arrivée.
 - **Le rendu du modèle que reçoit Claude est l'élévation de la façade, de face et sans obstacle** (audit
   de la parcelle, relevé du 16 octobre sur AE 101 : le rendu montrait la façade de biais ou de très loin,
   sous la façade surlignée, le point GPS et le trait renforcé, avec une annexe ou le relief devant le mur).
