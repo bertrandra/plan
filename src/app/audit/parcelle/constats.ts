@@ -10,6 +10,7 @@ import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
 import { azimutFaitage, boutsDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes } from '../../../facade/regles/toits/silhouettes.js';
+import { libelleSilhouette } from '../../../model/silhouetteFacade.js';
 import { materiauDesFacades } from '../../regles/sujets/facades.js';
 import { couvertureDuVocabulaire } from '../../regles/sujets/couverture.js';
 import { murs } from '../../regles/sujets/formeToit.js';
@@ -17,6 +18,7 @@ import { etiquetteFacade, type LigneBatiment } from './liste.js';
 import { REGLES_LIDAR } from './reglesLidar.js';
 import type { Constat, EtatProjet, ValeurConstat } from '../../../facade/regles/reconciliation.js';
 import type { IdAttribut } from '../../../regles/reconciliation.js';
+import type { IndiceProposition } from '../../../regles/decisions.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../model/types.js';
@@ -101,14 +103,14 @@ function bouts(o: ObjetPlan, b: LigneBatiment, lu: Parameters<typeof murs>[1]) {
 }
 
 /** Les constats que deduit le moteur des silhouettes (bouts, sens, forme) d'une source. */
-function constatsDesSilhouettes(source: 'photo' | 'claude', cible: string, dits: ReturnType<typeof bouts>, confiance: number, regle: string): Constat[] {
+function constatsDesSilhouettes(source: 'photo' | 'claude', cible: string, dits: ReturnType<typeof bouts>, confiance: number, regle: string, indices: readonly IndiceProposition[] = []): Constat[] {
   if (!dits) return [];
   const out: Constat[] = [];
   const { bouts: b, faitage, forme } = dits.observation;
-  if (b) out.push({ cible, attribut: 'boutsToit', source, valeur: [...b], confiance, regle });
-  if (faitage?.par === 'azimut') out.push({ cible, attribut: 'sensFaitage', source, valeur: faitage.azimutDeg, confiance, regle });
+  if (b) out.push({ cible, attribut: 'boutsToit', source, valeur: [...b], confiance, regle, indices });
+  if (faitage?.par === 'azimut') out.push({ cible, attribut: 'sensFaitage', source, valeur: faitage.azimutDeg, confiance, regle, indices });
   const f = forme?.[0] ?? (b ? formeDesBouts(b) : null);
-  if (f) out.push({ cible, attribut: 'formeToit', source, valeur: formeArbitree(f), confiance, regle });
+  if (f) out.push({ cible, attribut: 'formeToit', source, valeur: formeArbitree(f), confiance, regle, indices });
   return out;
 }
 
@@ -126,7 +128,13 @@ function constatsPhoto({ o, b, mesures }: EntreesConstats): Constat[] {
   }
   const confiance = Math.min(1, ...lues.filter((x) => x.m?.silhouette && x.m.silhouette !== 'indetermine').map((x) => (x.m?.confiance ?? 0.6) * (x.m?.coinsTrouves ? 1 : 0.8)));
   const dits = bouts(o, b, (f) => ({ silhouette: mesures.get(cleMesure(b.cle, f.cote))?.silhouette ?? 'indetermine' }));
-  out.push(...constatsDesSilhouettes('photo', cible, dits, confiance, REGLES_LIDAR.photo.silhouette));
+  // La photo de chaque mur qui a parle, avec ce qu'elle y montre.
+  const indices = (dits?.vus ?? []).flatMap((v) => {
+    const f = b.facades.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
+    const rang = f ? mesures.get(cleMesure(b.cle, f.cote))?.rangReleve : null;
+    return f ? [{ texte: v.nom[0]?.toUpperCase() + v.nom.slice(1) + ' : ' + libelleSilhouette(v.silhouette) + ' → ' + v.dit, ...(rang != null ? { photo: { cle: b.cle, cote: f.cote, rang } } : {}) }] : [];
+  });
+  out.push(...constatsDesSilhouettes('photo', cible, dits, confiance, REGLES_LIDAR.photo.silhouette, indices));
   for (const { f, m } of lues) if (m?.silhouette && m.silhouette !== 'indetermine') out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'silhouetteFacade', source: 'photo', valeur: m.silhouette, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.silhouette });
   return out;
 }

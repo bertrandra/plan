@@ -16,8 +16,40 @@ import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 
-/** Qui propose : une mesure faite dans le telephone, ou Claude analyste (a venir, lot L17). */
-export type SourceProposition = 'mesure' | 'claude';
+/**
+ * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
+ * reconciliation (MD/spec-reconciliation.md) : alors `arbitrages` dit chaque source et la raison de la decision.
+ */
+export type SourceProposition = 'mesure' | 'claude' | 'arbitrage';
+
+/** Un constat d'une source dans une proposition arbitree : ce qu'elle dit, sa confiance, ce qu'elle pese, et la regle qui l'a lu. */
+export interface LigneArbitrage {
+  /** `ign`, `lidar`, `photo`, `claude`, `terrain` (regles/reconciliation.ts). */
+  source: string;
+  libelle: string;
+  /** Sa valeur, en clair : « 6,2 m », « pignon + croupe ». */
+  valeur: string;
+  confiance: number | null;
+  score: number;
+  regle?: string;
+}
+
+/** Les sources qui s'accordent sur une valeur : le groupe retenu d'abord. */
+export interface GroupeArbitrage { valeur: string; score: number; retenu: boolean; lignes: LigneArbitrage[] }
+
+/** L'arbitrage d'un attribut qui a fait une proposition : la decision du moteur, sa raison, et tous les constats. */
+export interface ArbitrageProposition {
+  /** `hauteurEgout`, `formeToit`, `boutsToit`, `sensFaitage`... */
+  attribut: string;
+  libelle: string;
+  decision: 'auto' | 'manuelle';
+  raison: string;
+  /** Ce que le projet a aujourd'hui, en clair. */
+  avant: string;
+  groupes: GroupeArbitrage[];
+  /** Les seuils et les regles qui ont decide. */
+  regles: string[];
+}
 
 /** Ce qui justifie une proposition : une phrase, et la photo ou on le voit. */
 export interface IndiceProposition {
@@ -68,6 +100,8 @@ export interface Proposition {
   /** Pourquoi elle arrive decochee, hors choix remplace : « coins non trouvés sur la photo ». */
   reserve: string | null;
   effet: EffetProposition;
+  /** Les arbitrages dont la proposition est la decision (source `arbitrage`) : un par attribut, tous les constats. */
+  arbitrages?: ArbitrageProposition[];
 }
 
 /** En deca, une proposition arrive decochee (spec-audit §14.3). */
@@ -78,6 +112,8 @@ export const ACCORD_CLAUDE_MIN = 0.95;
 /** La case d'une proposition a son arrivee : jamais cochee si elle remplace un choix fait a la main. */
 export function cocheeParDefaut(p: Proposition): boolean {
   if (p.remplaceChoix || p.reserve) return false;
+  // Une decision arbitree : cochee quand le moteur l'a prise seul (aucun constat ne se contredit, aucun veto).
+  if (p.arbitrages?.length) return p.arbitrages.every((a) => a.decision === 'auto');
   if (p.confiance === null) return true;
   return p.confiance >= (p.source === 'claude' ? ACCORD_CLAUDE_MIN : CONFIANCE_MIN);
 }

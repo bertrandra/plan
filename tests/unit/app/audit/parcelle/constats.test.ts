@@ -10,7 +10,6 @@ import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { Constat } from '../../../../../src/facade/regles/reconciliation.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import type { FacadeAnalyse } from '../../../../../src/model/analyseClaude.js';
-import type { SilhouetteFacade } from '../../../../../src/model/silhouetteFacade.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // Les constats d'un batiment, source par source (lot R3) : sur AE 101 (faitage a 74 degres, murs est et ouest en bout, sud et

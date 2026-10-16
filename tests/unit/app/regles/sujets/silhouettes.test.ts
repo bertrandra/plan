@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { propositionsClaudeDuBatiment } from '../../../../../src/app/audit/parcelle/propositionsClaude.js';
-import { propositionsDeLAudit, cochesParDefaut, cleMesure } from '../../../../../src/app/audit/parcelle/propositions.js';
+import { cochesParDefaut } from '../../../../../src/app/audit/parcelle/propositions.js';
+import { propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
+import { cleMesure } from '../../../../../src/app/audit/parcelle/mesures.js';
+import { voterAnalyse } from '../../../../../src/app/regles/sujets/vote.js';
 import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
@@ -101,24 +104,39 @@ describe('la forme du toit lue sur la silhouette des façades vues par Claude', 
   });
 });
 
-describe('la forme du toit lue sur la silhouette mesurée sur les photos de l’audit', () => {
+describe('la forme du toit arbitrée entre le LiDAR et la silhouette mesurée sur les photos de l’audit', () => {
   const mesures = (parMur: Partial<Record<keyof typeof COTES, SilhouetteFacade>>): Map<string, MesureFacade> => new Map(Object.entries(parMur).map(([m, silhouette]) => {
     const cote = COTES[m as keyof typeof COTES];
     return [cleMesure('maison', cote), { cle: 'maison', cote, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, silhouette }];
   }));
   const propose = (o: ObjetPlan, parMur: Partial<Record<keyof typeof COTES, SilhouetteFacade>>): Proposition | undefined => {
     const capture = captureVide('78650000AE0101');
-    return propositionsDeLAudit({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: mesures(parMur) }).find((p) => p.effet.type === 'corpsToit');
+    return propositionsArbitrees({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: mesures(parMur) }, {}).find((p) => p.effet.type === 'corpsToit');
   };
 
-  it('des trapèzes sur les longs pans : une ligne des mesures, jamais cochée d’office, avec photo et avant/après', () => {
+  it('des trapèzes sur les longs pans contre un LiDAR en deux pans : la décision est à prendre, avec les deux sources et la photo', () => {
     const o = maison();
     const p = propose(o, { sud: 'trapeze', nord: 'trapeze' });
-    expect(p).toMatchObject({ id: 'maison:toit:silhouettes', source: 'mesure', objet: 'Forme du toit de maison', avant: 'deux pans' });
-    expect(p?.apres).toMatch(/^quatre pans \(croupes\), relue sur la mesure LiDAR d’après la silhouette de vos photos \(bouts en croupe, faîtage à 7\d°\)/);
-    expect(p?.reserve).toMatch(/un triangle de mur \(pignon\) et un pan de toit vu de face \(croupe\) se ressemblent/);
-    expect(p?.indices[0]).toMatchObject({ texte: 'Façade sud (côté 7) : trapèze → croupe', photo: { cle: 'maison', cote: 6, rang: 0 } });
+    expect(p).toMatchObject({ id: 'maison:toit', source: 'arbitrage', objet: 'Forme du toit de maison', avant: 'deux pans' });
+    expect(p?.apres).toMatch(/^quatre pans \(croupes\), relue sur la mesure LiDAR \(quatre pans \(croupes\), bouts en croupe, faîtage à 7\d°\) d’après /);
+    expect(p?.reserve).toMatch(/Les sources se contredisent/);
+    expect(p?.arbitrages?.map((a) => a.attribut)).toEqual(['formeToit', 'boutsToit']);
+    const bouts = p?.arbitrages?.find((a) => a.attribut === 'boutsToit');
+    expect(bouts?.groupes.map((g) => [g.valeur, g.retenu, g.lignes.map((l) => l.source)])).toEqual([['croupe + croupe', true, ['photo']], ['pignon + pignon', false, ['lidar']]]);
+    expect(bouts?.groupes[1]?.lignes[0]?.regle).toBe('GAIN_CROUPES');
+    expect(p?.indices.some((i) => i.texte === 'Façade sud (côté 7) : trapèze → croupe' && i.photo?.cote === 6)).toBe(true);
     expect(cochesParDefaut([p as Proposition]).size).toBe(0);
+  });
+
+  it('une seule source qui parle contre un LiDAR de poids voisin ne décide pas ; deux sources qui s’accordent contre lui, si', () => {
+    const o = maison();
+    const capture = captureVide('78650000AE0101');
+    const e = { objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: mesures({ sud: 'trapeze', nord: 'trapeze' }) };
+    const vote = (() => { const r = reponse({ forme: { indices: [], valeur: 'croupes' }, bouts: { indices: [], gauche: 'croupe', droite: 'croupe' }, facades: [] }); return voterAnalyse([r, r, r]); })();
+    const p = propositionsArbitrees(e, { maison: vote }).find((x) => x.effet.type === 'corpsToit');
+    expect(p?.arbitrages?.every((a) => a.decision === 'auto')).toBe(true);
+    expect(p?.reserve).toBeNull();
+    expect(cochesParDefaut([p as Proposition]).has('maison:toit')).toBe(true);
   });
 
   it('des pignons là où le toit est déjà en deux pans : rien à proposer', () => {
@@ -132,5 +150,12 @@ describe('la forme du toit lue sur la silhouette mesurée sur les photos de l’
     const copie = { ...o } as ObjetPlan;
     expect(appliquerPropositions([copie], [p], [], '2026-10-17')).toEqual(['maison']);
     expect(copie.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
+  });
+
+  it('un toit saisi à la main est un veto : la ligne arrive décochée, et le dit', () => {
+    const o = { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' } } as ObjetPlan;
+    const p = propose(o, { sud: 'trapeze', nord: 'trapeze' });
+    expect(p?.remplaceChoix).toBe('forme du toit saisie');
+    expect(cochesParDefaut([p as Proposition]).size).toBe(0);
   });
 });

@@ -22,9 +22,8 @@ import {
 import { accesDuCote, clotureDe, coteRegle, reglageDuCote, resumeReglage } from '../../../model/cloture.js';
 import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
-import { cocheeParDefaut, hauteurDe, type Proposition } from '../../../regles/decisions.js';
+import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
-import { propositionToitDesPhotos } from '../../regles/sujets/formeToit.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
@@ -175,34 +174,6 @@ function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesProposi
     }));
   }
   return out;
-}
-
-/** La forme du toit que disent les silhouettes des facades sur les photos : une ligne decochee, relue par le moteur des toits. */
-function propositionToit(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition | null {
-  return propositionToitDesPhotos(o, b, (f) => {
-    const m = e.mesures.get(cleMesure(b.cle, f.cote));
-    return { silhouette: m?.silhouette ?? 'indetermine', rang: m?.rangReleve ?? null };
-  });
-}
-
-/** La hauteur a l'egout mesuree : la mediane des facades dont les coins ont ete trouves. */
-function propositionHauteur(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition | null {
-  const mesures = b.facades.map((f) => e.mesures.get(cleMesure(b.cle, f.cote))).filter((m): m is MesureFacade => !!m && m.coinsTrouves && m.hauteurM !== null);
-  if (!mesures.length) return null;
-  const h = [...mesures.map((m) => m.hauteurM as number)].sort((a, c) => a - c);
-  const mediane = h.length % 2 ? (h[(h.length - 1) / 2] as number) : ((h[h.length / 2 - 1] as number) + (h[h.length / 2] as number)) / 2;
-  const actuelle = hauteurDe(o);
-  if (Math.abs(mediane - actuelle) < ECART_HAUTEUR_MIN_M) return null;
-  // Sans attributs IGN, la hauteur a ete saisie a la main : elle n'est pas remplacee en silence.
-  const saisie = !o.bdtopo && typeof o.elevation === 'number';
-  return mesure({
-    id: b.cle + ':hauteur', cible: { type: 'batiment', cle: b.cle }, objet: 'Hauteur à l’égout de ' + b.nom,
-    avant: fr(actuelle) + ' m', apres: fr(mediane) + ' m, mesurés sur ' + pluriel(mesures.length, 'façade'),
-    indices: mesures.map((m) => ({ texte: 'Mesurée sur la façade ' + (b.facades.find((f) => f.cote === m.cote)?.facade.orientation.toLowerCase() ?? ''), ...(m.rangReleve !== null ? { photo: { cle: b.cle, cote: m.cote, rang: m.rangReleve } } : {}) })),
-    confiance: Math.min(...mesures.map((m) => m.confiance ?? 1)),
-    remplaceChoix: saisie ? 'hauteur saisie, ' + fr(actuelle) + ' m' : null,
-    effet: { type: 'hauteur', hauteurM: Math.round(mediane * 100) / 100 },
-  });
 }
 
 /** La couleur des murs : la lecture qui a le plus de points, parmi les photos des facades. */
@@ -358,9 +329,10 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     if (!o) continue;
     const vu = e.capture.batiments[b.cle]?.vu ?? {};
     out.push(...propositionsDesFacades(o, b, e));
-    for (const p of [propositionHauteur(o, b, e), propositionCouleur(o, b, e)]) if (p) out.push(p);
+    // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts).
+    for (const p of [propositionCouleur(o, b, e)]) if (p) out.push(p);
     out.push(...propositionsMateriaux(o, b, vu));
-    for (const p of [propositionToit(o, b, e), propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
+    for (const p of [propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
   }
   out.push(...propositionsParcelle(e));
   return out;

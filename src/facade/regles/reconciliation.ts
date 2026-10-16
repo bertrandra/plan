@@ -123,9 +123,9 @@ export function arbitrer(constats: readonly Constat[], projet: EtatProjet, attri
   const ecarts = groupes.map(dit).join(' ; ');
   const manuelle = (raison: string, seuils: string[]): Arbitrage => ({ ...base, retenu, decision: 'manuelle', raison, regles: [...seuils, ...regleDe(retenu)] });
   if (projet.choisi) return manuelle('Remplace une valeur que vous avez choisie (' + direValeur(projet.valeur, accord) + ') : ' + ecarts + '.', []);
+  if (second && retenu.score < margeMin * second.score) return manuelle('Les sources se contredisent (' + fr(retenu.score) + ' contre ' + fr(second.score) + ', il faut ×' + fr(margeMin) + ') : ' + ecarts + '.', ['MARGE_AUTO_MIN']);
   if (seulNonSeul) return manuelle(regles.sources[retenu.sources[0] as SourceConstat].libelle + ' seul ne décide pas : ' + ecarts + '.', []);
   if (retenu.score < scoreMin) return manuelle('Score insuffisant (' + fr(retenu.score) + ' pour ' + fr(scoreMin) + ' requis) : ' + ecarts + '.', ['SCORE_AUTO_MIN']);
-  if (second && retenu.score < margeMin * second.score) return manuelle('Les sources se contredisent (' + fr(retenu.score) + ' contre ' + fr(second.score) + ', il faut ×' + fr(margeMin) + ') : ' + ecarts + '.', ['MARGE_AUTO_MIN']);
   return { ...base, retenu, decision: 'auto', raison: (retenu.sources.length > 1 ? 'Les sources s’accordent' : 'Une seule source, sûre') + ' (score ' + fr(retenu.score) + ') : ' + dit(retenu) + '.', regles: ['SCORE_AUTO_MIN', ...regleDe(retenu)] };
 }
 

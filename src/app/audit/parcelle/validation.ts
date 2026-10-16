@@ -15,7 +15,8 @@
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsDeClaude, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsArbitrees } from './arbitrages.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
@@ -295,7 +296,10 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     const reponses = ctx.analyse?.reponses();
     const renfort = ctx.analyse?.renfort?.();
     // D21 : la valeur notee sur place l'emporte sur celle de Claude (la ligne de Claude arrive decochee, et le dit).
-    const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]);
+    // La toiture et la hauteur a l'egout sont decidees par l'arbitrage des sources (arbitrages.ts) : les lignes de Claude qui
+    // ecrivaient les corps du toit y sont entrees comme un constat de plus.
+    const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => p.effet.type !== 'corpsToit') : [];
+    const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsArbitrees(e, reponses ? votesDesBatiments(reponses) : {}), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]);
     const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
     calculs++;

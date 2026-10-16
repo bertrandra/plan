@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { propositionsDeLAudit, cochesParDefaut, souchesSurLeCorps, verifications, cleMesure, terrasseVueSurLeCorps } from '../../../../../src/app/audit/parcelle/propositions.js';
+import { propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { clotureDImport } from '../../../../../src/model/cloture.js';
@@ -55,12 +56,20 @@ function entrees(objets = quartier(), c = capture(), ms = mesures()) {
 describe('les propositions des mesures et des observations', () => {
   it('propose le releve, la hauteur, la couleur, les materiaux, les cheminees, la terrasse, la cloture et le portail', () => {
     const p = propositionsDeLAudit(entrees());
+    // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts), pas par cette liste.
     expect(p.map((x) => x.id)).toEqual([
-      'maison#0:releve', 'maison:hauteur', 'maison:couleurMurs', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail',
+      'maison#0:releve', 'maison:couleurMurs', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail',
     ]);
     const parId = new Map(p.map((x) => [x.id, x]));
     expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'mesure', confiance: 0.8 });
-    expect(parId.get('maison:hauteur')).toMatchObject({ avant: '6,00 m', apres: '5,82 m, mesurés sur 1 façade', effet: { type: 'hauteur', hauteurM: 5.82 } });
+    // La photo seule ne decide pas d'une hauteur (score 2,4 sous 3) : la ligne arrive decochee, avec ses sources.
+    const h = propositionsArbitrees(entrees(quartier(), capture(), mesures({ hauteurM: 5 })), {}).find((x) => x.id === 'maison:hauteur');
+    expect(h).toMatchObject({ source: 'arbitrage', avant: '6 m', apres: '5 m, Photo de façade', effet: { type: 'hauteur', hauteurM: 5 } });
+    // A 18 cm de ce que le projet a, la photo ne propose rien : c'est dans la tolerance de la hauteur (0,5 m).
+    expect(propositionsArbitrees(entrees(), {}).some((x) => x.id === 'maison:hauteur')).toBe(false);
+    expect(h?.arbitrages?.[0]).toMatchObject({ attribut: 'hauteurEgout', decision: 'manuelle' });
+    expect(h?.reserve).toMatch(/Photo de façade seul ne décide pas/);
+    expect(cochesParDefaut([h as Proposition]).size).toBe(0);
     expect(parId.get('maison:couleurMurs')).toMatchObject({ avant: '#C9B99A (matériau)', apres: '#c9b49a, lue sur vos photos' });
     expect(parId.get('maison:materiauMurs')).toMatchObject({ avant: 'Pierre (fichiers fonciers)', apres: 'Brique, vu sur place' });
     expect(parId.get('maison:couverture')).toMatchObject({ avant: 'déduite par Plan', apres: 'Ardoise, vue sur place' });
@@ -126,14 +135,14 @@ describe('les cheminees et la terrasse vues, dans les corps', () => {
 describe('vérifié sur place', () => {
   it('demande toutes les facades vues, le toit vu et toutes les propositions cochees', () => {
     const e = entrees();
-    const p = propositionsDeLAudit(e);
+    const p = [...propositionsDeLAudit(e), ...propositionsArbitrees(e, {})];
     const tout = new Set(p.map((x) => x.id));
     // Les autres facades de la maison ne sont pas photographiees : elle n'est pas encore verifiee.
     expect(verifications(e.liste, e.capture, p, tout)[0]).toMatchObject({ cle: 'maison', verifie: false });
     const c = capture();
     for (const cote of ['1', '2', '3']) c.batiments.maison!.facades[cote] = { photos: [], inaccessible: true };
-    const e2 = entrees(quartier(), c);
-    const p2 = propositionsDeLAudit(e2);
+    const e2 = entrees(quartier(), c, mesures({ hauteurM: 5 }));
+    const p2 = [...propositionsDeLAudit(e2), ...propositionsArbitrees(e2, {})];
     expect(verifications(e2.liste, e2.capture, p2, new Set(p2.map((x) => x.id)))[0]).toEqual({ cle: 'maison', nom: 'maison', verifie: true, raison: null });
     const moins = new Set(p2.map((x) => x.id).filter((id) => id !== 'maison:hauteur'));
     expect(verifications(e2.liste, e2.capture, p2, moins)[0]?.raison).toBe('1 proposition décochée');

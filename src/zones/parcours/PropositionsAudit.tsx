@@ -19,14 +19,37 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
-import type { Proposition } from '../../regles/decisions.js';
+import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 
-const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude' };
+const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude', arbitrage: 'Sources arbitrées' };
 const DECISIONS_FICHIER = { validee: 'Validée', refusee: 'Refusée' } as const;
 
 /** Ce que l'audit recu a fait d'une proposition (consultation) : la case ne dit que oui ou non. */
 const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'En attente');
+
+/**
+ * Les sources d'un attribut arbitre (MD/spec-reconciliation.md) : la decision du moteur et sa raison, puis chaque constat, groupe
+ * retenu en tete : ce que chaque source dit, sa confiance, ce qu'elle pese, et la regle qui l'a lu. Un mot dit le groupe
+ * retenu : la couleur ne porte pas seule.
+ */
+export function Arbitrage({ a }: { a: ArbitrageProposition }) {
+  const pct = (c: number | null) => (c === null ? '—' : Math.round(c * 100) + ' %');
+  return (
+    <details className="arbitrageProposition">
+      <summary><span className="decisionArbitrage">{a.decision === 'auto' ? 'Décision automatique' : 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+      <p className="raisonArbitrage">{a.raison}</p>
+      <div className="defileAudit">
+        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle}>
+          <thead><tr><th>Source</th><th>Dit</th><th>Confiance</th><th>Score</th><th>Règle</th><th>Groupe</th></tr></thead>
+          <tbody>{a.groupes.flatMap((g) => g.lignes.map((l, i) => (
+            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
+          )))}</tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
 
 /** Une ligne : la case, l'objet, l'avant et l'apres, l'origine, et ce qui la fait arriver decochee. */
 function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition } }) {
@@ -34,6 +57,7 @@ function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; co
   return (
     <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '')}>
       <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
+      <div className="corpsProposition">
       <label htmlFor={id} className="texteProposition">
         <span className="objetProposition">{p.objet}</span>
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
@@ -42,6 +66,8 @@ function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; co
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
       </label>
+      {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} />)}
+      </div>
     </li>
   );
 }

@@ -11,7 +11,7 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
-import { contradictionsLidar, indicesLidar } from '../../../model/analyseClaude.js';
+import { contradictionsLidar, indicesLidar, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
@@ -50,6 +50,13 @@ export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: 
     const p = s.proposer?.({ o, b, v, et: r.etiquettes, contra });
     if (p) out.push(p);
   }
+  return out;
+}
+
+/** Le vote des passes de Claude, par batiment : ce que l'arbitrage des sources lit de lui (arbitrages.ts). */
+export function votesDesBatiments(parBatiment: Record<string, ReponsesBatiment>): Record<string, VoteAnalyse> {
+  const out: Record<string, VoteAnalyse> = {};
+  for (const [cle, r] of Object.entries(parBatiment)) { const reponses = passesLues(r.reponses); if (reponses.length) out[cle] = voterAnalyse(reponses, r.escalade); }
   return out;
 }
 
