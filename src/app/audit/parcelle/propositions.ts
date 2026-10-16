@@ -156,8 +156,12 @@ function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesProposi
     const m = e.mesures.get(cleMesure(b.cle, f.cote));
     if (!m?.releve) continue;
     const objet = 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
-    const deja = (o.facades ?? []).find((r) => r.cote === f.cote);
-    const avantTexte = deja ? 'relevé du ' + dateFr(deja.releveLe) + ' (' + pluriel(deja.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
+    const existant = (o.facades ?? []).find((r) => r.cote === f.cote);
+    // Le releve que l'audit a pose lui-meme d'apres cette photo (validation.ts) est deja ecrit : rien a proposer. Un releve
+    // pose ainsi d'apres une photo plus ancienne n'est pas un choix de la personne : la nouvelle mesure le remplace.
+    if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) continue;
+    const deja = existant?.depuisAudit ? undefined : existant;
+    const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
     const n = m.releve.ouvertures.length;
     out.push(mesure({
       id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet,

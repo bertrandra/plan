@@ -7,6 +7,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Les photos de l’audit alimentent les façades toutes seules.** Dès que la mesure d’une photo de façade est prête (coins trouvés, confiance suffisante, aucune réserve), son relevé (ouvertures et texture) est écrit sur la façade du projet, sans « Valider », en un seul pas d’historique que Ctrl+Z défait. Un relevé fait à la main n’est jamais écrasé : la ligne reste une proposition décochée. Le relevé posé par l’audit porte la marque `depuisAudit` ; une mesure plus récente le remplace, un relevé refait à la main la fait tomber.
+
 - **Conformité des façades (lot G13).** Sur chaque façade relevée d'un audit reçu, la disposition automatique des
   fenêtres est posée sur le même mur (`ouverturesDUnMur`, extrait de `ouverturesAutomatiques` sans en changer un
   résultat) et comparée au relevé : baies à ± 1, part vitrée à ± 20 %, hauteur des niveaux à 30 cm. Admin ›

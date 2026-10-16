@@ -111,7 +111,10 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       const o = batiment();
       if (!o) return;
       ctx.pushHistory();
-      o.facades = [...(o.facades || []).filter((r) => r.cote !== releve.cote), releve].sort((a, b) => a.cote - b.cote);
+      // Releve a la main : il n'est plus celui que l'audit a pose tout seul (une nouvelle photo ne le remplacera plus).
+      const faite = { ...releve };
+      delete faite.depuisAudit;
+      o.facades = [...(o.facades || []).filter((r) => r.cote !== releve.cote), faite].sort((a, b) => a.cote - b.cote);
       if (toit) o.toit = toit;
       // La hauteur du batiment n'est pas touchee : la photo a ete ramenee a elle. La mesure est dite,
       // pour que l'ecart avec le cadastre se voie.
