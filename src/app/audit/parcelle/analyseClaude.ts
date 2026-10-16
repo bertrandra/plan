@@ -22,6 +22,7 @@ import { chargerPixels } from '../../../render/couleurMurPhoto.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { ReleveFacade } from '../../../model/types.js';
 import { estReponseAnalyse } from '../../../model/analyseClaude.js';
+import { CHAMPS_SIMPLES } from '../../regles/sujets/vote.js';
 import { ortho } from '../../../render/ortho.js';
 import { dessinerCarteHauteurs, dessinerOrthoRecadree, reduirePhotoAnalyse } from '../../../render/imagesAnalyse.js';
 import { rendreDepuisPrise } from '../../../three/renduPrise.js';
@@ -173,7 +174,7 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
   const out: Record<string, { passe: number; sortie: unknown }[]> = {};
   for (const r of resultats) {
     const q = requetes[r.id];
-    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie)) continue;
+    if (!q || r.statut !== 'reussi' || !estReponseAnalyse(r.sortie, CHAMPS_SIMPLES)) continue;
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));

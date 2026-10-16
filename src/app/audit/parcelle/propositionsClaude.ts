@@ -11,13 +11,14 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
-import { contradictionsLidar, indicesLidar, voter, estReponseAnalyse, type ReponseAnalyse, type VoteAnalyse } from '../../../model/analyseClaude.js';
+import { contradictionsLidar, indicesLidar, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
 import { bilanVide, texteBilan } from '../../../facade/renfortRecalage.js';
 import { avecGrille } from '../../../facade/verification.js';
 import { SUJETS } from '../../regles/sujets/index.js';
+import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
 import { pluriel } from '../../regles/sujets/contrat.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { LigneBatiment } from './liste.js';
@@ -56,9 +57,9 @@ export function ecartsEnClair(v: VoteAnalyse): string[] {
 
 /** Les propositions de Claude pour un batiment : vote des passes lues, controle croise, puis chaque attribut. */
 export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: ReponsesBatiment): Proposition[] {
-  const reponses = r.reponses.filter(estReponseAnalyse) as ReponseAnalyse[];
+  const reponses = passesLues(r.reponses);
   if (!reponses.length) return [];
-  const v = voter(reponses);
+  const v = voterAnalyse(reponses);
   const contra = [...contradictionsLidar(v, indicesLidar(o.toitMesure, o.corpsToit)), ...v.contradictions.map((c) => c.observation + ' (' + c.indiceLidar + ')')];
   const out: Proposition[] = [];
   for (const s of SUJETS) {

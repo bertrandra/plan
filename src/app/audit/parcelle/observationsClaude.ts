@@ -8,9 +8,10 @@
 // (essai d'AE 101 sur telephone : « il ne trouve rien »). Les lignes se lisent batiment par batiment,
 // chacune avec ou Claude l'a vu (l'image citee) et la part des passes d'accord quand un vote la donne.
 
-import { voter, estReponseAnalyse, type IndiceAnalyse, type ReponseAnalyse, type Vote, type VoteAnalyse } from '../../../model/analyseClaude.js';
+import type { IndiceAnalyse, ReponseAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
 import { AUTRES_FORMES, FORMES_COURANTES } from '../../../model/ceQueJeVois.js';
 import { ecartsDuVote, ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './propositionsClaude.js';
+import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade } from '../../../model/types.js';
@@ -128,8 +129,8 @@ function observationRenfort(b: LigneBatiment, cote: number, orientation: string,
 
 /** Les observations d'un batiment : le vote de ses passes, puis le renfort de ses facades. */
 export function observationsDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, r: ReponsesBatiment | undefined, renfort: Record<string, RenfortFacadeCapture>): ObservationClaude[] {
-  const reponses = (r?.reponses ?? []).filter(estReponseAnalyse) as ReponseAnalyse[];
-  const out = reponses.length ? observationsDuVote(o, b, voter(reponses), reponses, r?.etiquettes ?? []) : [];
+  const reponses = passesLues(r?.reponses ?? []);
+  const out = reponses.length ? observationsDuVote(o, b, voterAnalyse(reponses), reponses, r?.etiquettes ?? []) : [];
   for (const f of b.facades) {
     const id = cleMesure(b.cle, f.cote), rf = renfort[id];
     const x = rf ? observationRenfort(b, f.cote, f.facade.orientation, rf, e.mesures.get(id)?.releve?.ouvertures ?? []) : null;
