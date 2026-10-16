@@ -7,7 +7,7 @@
 // typee (regles/decisions.ts) : l'effet qu'elle ecrit est applique par le moteur, jamais par le sujet.
 
 import { reserveClaude, type AttributClaude, type IndiceAnalyse, type Vote, type VoteAnalyse } from '../../../model/analyseClaude.js';
-import type { IndiceProposition, Proposition } from '../../../regles/decisions.js';
+import type { IndiceProposition, Proposition, TypeEffet } from '../../../regles/decisions.js';
 import type { EtiquetteImage } from '../../../model/auditParcelle.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { LigneBatiment } from '../../audit/parcelle/liste.js';
@@ -26,6 +26,8 @@ export interface Sujet {
   id: AttributClaude;
   /** Son nom dans l'ecran de conformite. */
   libelle: string;
+  /** Ce que sa proposition ecrit dans le projet : le type d'effet que le moteur applique (regles/decisions.ts). */
+  effet: TypeEffet;
   /** Au plus une proposition ; null quand Claude ne dit rien, ou rien de neuf, ou rien que Plan sache ecrire. */
   proposer(e: EntreeSujet): Proposition | null;
 }

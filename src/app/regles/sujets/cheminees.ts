@@ -26,4 +26,4 @@ function propositionCheminees({ o, b, v, et, contra }: EntreeSujet): Proposition
   }, 'cheminees', v.cheminees, et, contra);
 }
 
-export const cheminees: Sujet = { id: 'cheminees', libelle: 'Cheminées', proposer: propositionCheminees };
+export const cheminees: Sujet = { id: 'cheminees', libelle: 'Cheminées', effet: 'cheminees', proposer: propositionCheminees };

@@ -68,6 +68,16 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     executer: () => { location.assign('?admin&ecran=conformite'); }
   });
 
+  /**
+   * Les regles (MD/architecture.md 5.2.4) : un ecran de l'admin des demos, comme la conformite. Les sujets
+   * de l'audit et le prompt de Claude qu'ils composent, recalcules a chaque frappe ; rien n'y est enregistre.
+   */
+  cmd.declarer({
+    id: 'admin.regles', libelle: 'Règles', groupe: 'admin', actif: () => enAdmin(),
+    description: 'Ouvre les règles : les sujets que l’audit sait lire et proposer, et le prompt et le schéma d’analyse de Claude qu’ils composent, recalculés en direct (administrateur seulement)',
+    executer: () => { location.assign('?admin&ecran=regles'); }
+  });
+
   /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
   cmd.declarer({ id: 'vue.ajuster', libelle: 'Ajuster à la sélection', groupe: 'vue', executer: () => {
     a.fitToObject(a.etat.objects.find(o => o.key === a.etat.selectedKey) || null);

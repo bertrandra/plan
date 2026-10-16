@@ -33,4 +33,4 @@ function propositionMateriau({ o, b, v, et }: EntreeSujet): Proposition | null {
   }, 'materiauMurs', m, et, [], choisi ? libelle(choisi) : null);
 }
 
-export const materiau: Sujet = { id: 'materiauMurs', libelle: 'Matériau des murs', proposer: propositionMateriau };
+export const materiau: Sujet = { id: 'materiauMurs', libelle: 'Matériau des murs', effet: 'materiauMurs', proposer: propositionMateriau };

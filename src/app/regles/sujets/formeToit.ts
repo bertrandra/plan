@@ -71,4 +71,4 @@ function propositionForme({ o, b, v, et, contra }: EntreeSujet): Proposition | n
   return { ...p, indices: [...p.indices, ajuste, ...ecarts] };
 }
 
-export const formeToit: Sujet = { id: 'formeToit', libelle: 'Forme du toit', proposer: propositionForme };
+export const formeToit: Sujet = { id: 'formeToit', libelle: 'Forme du toit', effet: 'corpsToit', proposer: propositionForme };

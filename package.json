@@ -22,7 +22,9 @@
     "gate:client": "node scripts/generer-client.mjs --verifier",
     "contrat": "node scripts/extraire-contrat.mjs",
     "verifier-paquet": "node scripts/verifier-paquet.mjs",
-    "livraison": "node scripts/livraison.mjs"
+    "livraison": "node scripts/livraison.mjs",
+    "regles:generer": "npx tsx scripts/generer-prompt-analyse.ts",
+    "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier"
   },
   "devDependencies": {
     "@dgreenheck/ez-tree": "1.1.0",

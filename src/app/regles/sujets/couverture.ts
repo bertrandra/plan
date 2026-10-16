@@ -22,4 +22,4 @@ function propositionCouverture({ o, b, v, et, contra }: EntreeSujet): Propositio
   }, 'couverture', v.couverture, et, contra, choisie ? libelleDe(COUVERTURES_VUES, choisie).toLowerCase() : null);
 }
 
-export const couverture: Sujet = { id: 'couverture', libelle: 'Couverture', proposer: propositionCouverture };
+export const couverture: Sujet = { id: 'couverture', libelle: 'Couverture', effet: 'couverture', proposer: propositionCouverture };

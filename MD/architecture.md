@@ -483,9 +483,14 @@ src/facade/regles/           layer 3 — the rules themselves, pure and synchron
   toits/{faits,appentis,pignons,profils,vraisemblance}.ts     apply a fact, a profile, the guards
   facades/{detection,structure,profils}.ts                    facade settings and profiles
   rejeu.ts   conformite.ts                                    replay an audit case, score it
+src/regles/sujets/           layer 2 — what Claude reads, as data; assembled into deploy/ by `npm run regles:generer`
+  description.ts  liste.ts  descriptions/<id>.ts    one description per subject, and the list in prompt order
+  gabarit.ts  assembler.ts  generation.ts  versions.ts   the fixed text, the assembly, the version table
+  edition.ts                 what the Admin screen does with descriptions: edit, draft, control, diff
 src/app/regles/              layer 6 — what the audit can see and propose
   sujets/                    one module per subject (couverture, cheminees, terrasse, materiau, formeToit)
-    contrat.ts               the `Sujet` contract; index.ts is the registry (`SUJETS`)
+    contrat.ts               the `Sujet` contract (id, libelle, effet, proposer); index.ts is the registry (`SUJETS`)
+src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/ecranRegles.ts
 ```
 
 The calculation itself (`facade/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
@@ -504,10 +509,19 @@ and one line, then the vocabulary Claude reads:
 3. Its attribute in `AttributClaude` (`model/analyseClaude.ts`) and `ATTRIBUTS_CLAUDE`
    (`src/regles/conformite.ts`) — `tests/unit/app/regles/sujets.test.ts` refuses a subject without
    an attribute and an attribute without a subject.
-4. What Claude reads and answers: the term in `deploy/schema-analyse.json` and its definition in
-   `deploy/prompt-analyse.md` (new prompt version, copied to `buildsg/deploy/`), and the vote in
-   `model/analyseClaude.ts`. These three are still written by hand: generating them from the registry
-   is the next step, not done.
+4. What Claude reads and answers: a `DescriptionSujet` in `src/regles/sujets/descriptions/<id>.ts`
+   (its schema fields, its instruction, its vocabulary, its confusions — pure data, each text with a
+   `rang` that places it in the prompt), one line in `src/regles/sujets/liste.ts`, then
+   `npm run regles:generer`: `deploy/prompt-analyse.md` and `deploy/schema-analyse.json` (and their copies
+   in `buildsg/deploy/`) are *generated*, never edited by hand. A text change raises the version
+   (`src/regles/sujets/versions.ts`, one more line in `VERSIONS_PROMPT` / `VERSIONS_SCHEMA`):
+   `tests/unit/regles/sujets/generation.test.ts` refuses a delivered file that differs from the
+   generation, and a text changed under the same version. The vote that reads the answer
+   (`model/analyseClaude.ts`) is still written by hand for a field with its own shape.
+   **Admin › Règles** (`?admin&ecran=regles`) does steps 1 to 4 on screen before any file is written:
+   the subjects, their texts and schemas editable, a new subject as a draft, and the prompt and schema
+   recomputed on every keystroke with the diff against the delivered ones and the controls; it
+   downloads the subject's module and the two files, and writes nothing on the server.
 5. If the subject changes a roof, it goes through the engine (a fact in constraint,
    `corpsSousContrainte`), never a shape of its own; a new threshold goes to `reglages.json` with its
    reason.

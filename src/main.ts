@@ -47,6 +47,14 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
     ouvrirEcranConformite();
     return true;
   }
+  // L'ecran des regles (`?admin&ecran=regles`, MD/architecture.md 5.2.4) : les sujets de l'audit et le
+  // prompt de Claude qu'ils composent, en direct. Plan ne demarre pas dessous.
+  const { demandeEcranRegles, ouvrirEcranRegles } = await import('./app/ecranRegles.js');
+  if (demandeEcranRegles(location.search)) {
+    document.documentElement.dataset.ecran = 'regles';
+    ouvrirEcranRegles();
+    return true;
+  }
   // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
   // generees par EZ-tree. Plan ne demarre pas dessous.
   const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/ecranArbres.js');
@@ -112,7 +120,7 @@ async function demarrer(): Promise<void> {
         chargement(false);
         return;
       }
-      // Les ecrans secondaires de l'admin (controleurs, consommation, conformite) : Plan ne demarre
+      // Les ecrans secondaires de l'admin (controleurs, consommation, conformite, regles) : Plan ne demarre
       // pas dessous.
       if (await ouvrirEcranAdmin()) {
         chargement(false);

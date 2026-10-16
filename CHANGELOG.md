@@ -7,6 +7,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Admin › Règles (`?admin&ecran=regles`) : le prompt et le schéma de Claude, composés par les sujets, en
+  direct.** Chaque sujet de l'audit a une description (ce que Claude lit, comment il répond, son vocabulaire,
+  ses confusions) ; `deploy/prompt-analyse.md` et `deploy/schema-analyse.json` sont désormais **générés** depuis
+  elles (`npm run regles:generer`, `regles:verifier`), à l'octet identiques à ceux d'avant (prompt version 4, schéma
+  version 1). L'écran montre les sujets (ce qu'ils proposent au projet et ce qu'ils écrivent, l'accord mesuré de
+  Claude), laisse en exclure un du prompt, éditer ses textes et son schéma, ou **ajouter un sujet en brouillon**
+  (un chien-assis, un objet du jardin) : le prompt et le schéma se recalculent à chaque frappe, avec les lignes qui
+  changent par rapport au livré, la version à poser et les contrôles (schéma fermé, une consigne par champ, termes
+  définis, rangs uniques). On télécharge le module du sujet et les deux fichiers ; rien n'est écrit sur le serveur,
+  le brouillon reste dans le navigateur. Un texte changé sous la même version est refusé par un test.
+
 - **Audit : la forme du toit vue par Claude devient une proposition à décider.** Ce que Claude lit sur
   les pignons et les croupes (forme, bouts) est relu sur la mesure LiDAR par le même mécanisme que les
   faits (`corpsSousContrainte`) : le corps principal est relu parmi les seules formes vues, les autres

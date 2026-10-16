@@ -2629,6 +2629,62 @@ const POINTS = {
       && !!e && e.niveaux === 2 && e.travees === 3 && e.gestes.includes('ajout') && e.gestes.includes('deplacement') && e.sources.includes('ajoutee') && e.sources.includes('corrigee') && retour;
     return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
+  93: async (page, f) => {
+    // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les huit sujets du depot, le
+    // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
+    // version 5), un sujet retire d'une case, un sujet nouveau en brouillon (prompt, schema, controles),
+    // le brouillon qui survit a un rechargement, « Revenir au livre », et les deux telechargements.
+    await page.route(/\/admin\//, (route) => (new URL(route.request().url()).pathname.endsWith('/admin/session')
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+      : route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })));
+    await page.goto(BASE + '/?admin&ecran=regles');
+    await page.waitForSelector('.reglSujet', { timeout: 20000 });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    const tuiles = async () => (await page.locator('.consTuile').allTextContents()).map((t) => t.replace(/\s+/g, ' '));
+    const sujets = await page.locator('.reglSujet').count();
+    const avant = await tuiles();
+    const promptLivre = await page.locator('pre.reglSortie').textContent();
+    // Edition : la consigne de la couverture, au clavier.
+    await page.locator('[data-sujet="couverture"] button.small').click();
+    const champ = page.locator('textarea[aria-label="Consignes (comment répondre) 1"]');
+    await champ.fill('- `couverture` : le matériau de couverture du corps principal, vu sur le versant sud.');
+    const apresEdition = await tuiles();
+    const promptEdite = await page.locator('pre.reglSortie').textContent();
+    debords.push(await deborde());
+    // Un sujet retire d'une case.
+    await page.locator('[aria-label="Dans le prompt : Cheminées"]').uncheck();
+    const sansCheminees = !(await page.locator('pre.reglSortie').textContent())?.includes('- `cheminees`');
+    await page.locator('[aria-label="Dans le prompt : Cheminées"]').check();
+    // Un sujet nouveau.
+    await page.getByRole('button', { name: 'Nouveau sujet', exact: true }).click();
+    await page.locator('input[name="id"]').fill('chienAssis');
+    await page.locator('input[name="libelle"]').fill('Chiens-assis');
+    await page.locator('input[name="question"]').fill('le nombre de chiens-assis vus sur le versant, ou « indetermine »');
+    await page.getByRole('button', { name: 'Ajouter en brouillon' }).click();
+    const avecNouveau = (await page.locator('pre.reglSortie').textContent())?.includes('- `chienAssis`');
+    await page.locator('#reglOnglet-schema').click();
+    const dansSchema = (await page.locator('pre.reglSortie').textContent())?.includes('"chienAssis"');
+    await page.locator('#reglOnglet-controles').click();
+    const controle = (await page.locator('.reglControles li').first().textContent()) || '';
+    debords.push(await deborde());
+    // Le brouillon survit a un rechargement ; « Revenir au livre » l'efface.
+    await page.reload();
+    await page.waitForSelector('.reglSujet', { timeout: 20000 });
+    const apresRechargement = await page.locator('.reglSujet').count();
+    await page.getByRole('button', { name: 'Revenir au livré' }).click();
+    const revenu = await tuiles();
+    const stocke = await page.evaluate(() => { try { return localStorage.getItem('plan.regles.brouillon'); } catch { return 'illisible'; } });
+    // Les deux fichiers, tels que le serveur les lirait.
+    const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
+    const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
+    const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
+      && /1 ligne change/.test(apresEdition[4] || '') && /version 5/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
+      && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
+      && dl1.suggestedFilename() === 'prompt-analyse.md' && dl2.suggestedFilename() === 'schema-analyse.json' && !debords.some(Boolean);
+    return { ok, mesure: `${sujets} sujets ; ${avant[1]} ; édition : « ${apresEdition[4]} » ; sans cheminées : ${sansCheminees} ; brouillon dans prompt ${avecNouveau}, schéma ${dansSchema}, contrôle « ${controle.trim().slice(0, 40)} » ; après rechargement ${apresRechargement} sujets ; revenu : ${revenu[0]}, ${revenu[4]}, brouillon ${stocke === null ? 'effacé' : 'resté'} ; fichiers ${dl1.suggestedFilename()}, ${dl2.suggestedFilename()} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   76: async (page, f) => {
     // Admin › Conformité (lot G3) : le corpus du depot (deja juge, compile dans la page) et un audit
     // partage recu, rejoue dans la page. On mesure : le taux des deux sources (AE 101 conforme ; la
@@ -3025,7 +3081,8 @@ function pointsPour(nomClasse) {
   // 89 : le trait renforce de la facade, de pres.
   // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92];
+  // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
