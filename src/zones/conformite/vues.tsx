@@ -5,7 +5,7 @@
 
 import {
   ATTRIBUTS_CLAUDE, PHASE1_CAS_OBSERVES, PHASE1_HORS_CALCUL, libelleRegion, pourCent,
-  type EtatCas, type LigneTaux, type MesureLue, type ResumeConformite, type VerdictCas
+  type CritereFacade, type EtatCas, type LigneTaux, type MesureLue, type ResumeConformite, type ResumeFacades, type VerdictCas, type VerdictFacade
 } from '../../regles/conformite.js';
 import { AUTRES_FORMES, FORMES_COURANTES, libelleDe } from '../../model/ceQueJeVois.js';
 
@@ -27,21 +27,22 @@ function Tuile({ titre, valeur, note }: { titre: string; valeur: string; note: s
   );
 }
 
-export function TuilesConformite({ r }: { r: ResumeConformite }) {
+export function TuilesConformite({ r, facades }: { r: ResumeConformite; facades?: ResumeFacades }) {
   return (
     <section className="consTuiles" aria-label="Chiffres clés">
       <Tuile titre="Conformité des toits" valeur={pourCent(r.taux)} note={r.conformes + ' conforme' + (r.conformes > 1 ? 's' : '') + ' sur ' + pluriel(r.conformes + r.nonConformes, 'cas jugé')} />
       <Tuile titre="Cas observés" valeur={r.observes + ' / ' + PHASE1_CAS_OBSERVES} note={'Phase 1 : ' + PHASE1_CAS_OBSERVES + ' cas observés · ' + r.total + ' cas lus'} />
       <Tuile titre="Formes hors calcul" valeur={r.horsCalcul + ' / ' + PHASE1_HORS_CALCUL} note="Cas sur ce que Plan ne calcule pas encore" />
       <Tuile titre="À revoir" valeur={String(r.aRevoir)} note="Le calcul a changé depuis le terrain" />
-      <Tuile titre="Conformité des façades" valeur={A_VENIR} note="Disposition automatique comparée aux relevés" />
+      <Tuile titre="Conformité des façades" valeur={facades && facades.total ? pourCent(facades.taux) : A_VENIR}
+        note={facades && facades.total ? facades.conformes + ' conforme' + (facades.conformes > 1 ? 's' : '') + ' sur ' + pluriel(facades.total, 'façade') + ' relevée' + (facades.total > 1 ? 's' : '') : 'Disposition automatique comparée aux relevés des audits reçus'} />
       <Tuile titre="Accord de Claude" valeur={A_VENIR} note="Par attribut, sur les validations réelles" />
     </section>
   );
 }
 
-/** Un tableau par axe (forme, region ou probleme) ; la colonne des facades attend son lot. */
-export function TableAxe({ titre, lignes }: { titre: string; lignes: LigneTaux[] }) {
+/** Un tableau par axe (forme, region ou probleme) ; la colonne des facades n'a de taux que par region (le departement de la parcelle). */
+export function TableAxe({ titre, lignes, facadesParRegion }: { titre: string; lignes: LigneTaux[]; facadesParRegion?: Record<string, number | null> }) {
   if (!lignes.length) return <p className="consVide">Aucun cas à montrer pour cette source.</p>;
   return (
     <div className="consTableau">
@@ -58,13 +59,19 @@ export function TableAxe({ titre, lignes }: { titre: string; lignes: LigneTaux[]
             <tr key={l.cle}>
               <td>{l.libelle}</td><td className="num">{l.cas}</td><td className="num">{l.conformes}</td><td className="num">{l.nonConformes}</td>
               <td className="num">{l.aRevoir}</td><td className="num">{l.sansObservation}</td>
-              <td className="num"><strong>{pourCent(l.taux)}</strong></td><td className="num consNote">{A_VENIR}</td>
+              <td className="num"><strong>{pourCent(l.taux)}</strong></td>{cellFacades(l.cle, facadesParRegion)}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+}
+
+/** La cellule « Facades » d'une ligne : le taux de la region si on le connait, un tiret sur les axes qui n'en ont pas. */
+function cellFacades(cle: string, parRegion?: Record<string, number | null>) {
+  if (!parRegion) return <td className="num consNote" title="Le taux des façades se lit par région">—</td>;
+  return <td className="num"><strong>{cle in parRegion ? pourCent(parRegion[cle] ?? null) : '—'}</strong></td>;
 }
 
 const libelleForme = (f: VerdictCas['forme']) => (f === 'non-notee' ? '—' : libelleDe([...FORMES_COURANTES, ...AUTRES_FORMES], f));
@@ -96,6 +103,39 @@ export function TableCas({ verdicts }: { verdicts: VerdictCas[] }) {
               <td>{v.cle}</td><td>{v.statut ? STATUTS[v.statut] ?? v.statut : '—'}</td>
               <td>{libelleForme(v.forme)}</td><td>{libelleRegion(v.region)}</td>
               <td className="confEcarts">{ecarts(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const CRITERES: { cle: 'baies' | 'partVitree' | 'hauteurNiveau'; titre: string }[] = [
+  { cle: 'baies', titre: 'Baies' }, { cle: 'partVitree', titre: 'Part vitrée' }, { cle: 'hauteurNiveau', titre: 'Hauteur des niveaux' },
+];
+const valeurCritere = (c: CritereFacade, cle: string) => (c.releve === null ? '—' : cle === 'baies' ? String(c.releve) + ' / ' + String(c.auto) : cle === 'partVitree' ? Math.round(c.releve * 100) + ' % / ' + Math.round((c.auto ?? 0) * 100) + ' %' : c.releve.toFixed(2).replace('.', ',') + ' m / ' + (c.auto === null ? '—' : c.auto.toFixed(2).replace('.', ',') + ' m'));
+const motCritere = (c: CritereFacade) => (c.tenu === null ? 'non jugé' : c.tenu ? 'tenu' : 'écart');
+
+/** Les facades relevees des audits reçus, une par ligne : le relevé d'un côté, la disposition automatique de l'autre. */
+export function TableFacades({ verdicts }: { verdicts: VerdictFacade[] }) {
+  if (!verdicts.length) return <p className="consVide">Aucune façade relevée dans les audits reçus : le corpus des promenades n’en a pas.</p>;
+  return (
+    <div className="consTableau">
+      <p className="hint">Chaque critère montre le relevé puis la disposition automatique (« relevé / auto ») et dit s’il tient. Une façade est conforme quand tous les critères jugés tiennent.</p>
+      <table className="attrTable consTable confCas">
+        <thead>
+          <tr>
+            <th scope="col">État</th><th scope="col">Audit</th><th scope="col">Bâtiment</th><th scope="col">Façade</th><th scope="col">Région</th>
+            {CRITERES.map((c) => <th key={c.cle} scope="col">{c.titre}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {verdicts.map((v) => (
+            <tr key={v.fichier + v.batiment + v.cote} data-etat={v.conforme ? 'conforme' : 'non-conforme'}>
+              <td><strong>{v.conforme ? 'Conforme' : 'Non conforme'}</strong></td>
+              <td><span className="consNote">{v.fichier}</span></td><td>{v.batiment}</td><td>{v.orientation ?? 'côté ' + v.cote}</td><td>{libelleRegion(v.region)}</td>
+              {CRITERES.map((c) => <td key={c.cle}>{valeurCritere(v[c.cle], c.cle)} <span className="consNote">{motCritere(v[c.cle])}</span></td>)}
             </tr>
           ))}
         </tbody>
@@ -138,7 +178,7 @@ export function VueHistorique({ mesures, erreur }: { mesures: MesureLue[] | null
         <thead>
           <tr>
             <th scope="col">Mesure</th><th scope="col">Version</th><th scope="col" className="num">Corpus</th><th scope="col" className="num">Audits</th>
-            <th scope="col" className="num">Toits</th><th scope="col" className="num">Jugés</th><th scope="col" className="num">À revoir</th><th scope="col" className="num">Hors calcul</th>
+            <th scope="col" className="num">Toits</th><th scope="col" className="num">Façades</th><th scope="col" className="num">Jugés</th><th scope="col" className="num">À revoir</th><th scope="col" className="num">Hors calcul</th>
           </tr>
         </thead>
         <tbody>
@@ -146,7 +186,7 @@ export function VueHistorique({ mesures, erreur }: { mesures: MesureLue[] | null
             <tr key={m.t + (m.recuLe ?? '')}>
               <td>{date(m.t)}</td><td>{m.code.version}{m.code.commit ? ' · ' + m.code.commit : ''}</td>
               <td className="num">{m.sources.corpus}</td><td className="num">{m.sources.audits}</td>
-              <td className="num"><strong>{pourCent(m.toits.taux)}</strong></td><td className="num">{m.toits.conformes + ' / ' + (m.toits.conformes + m.toits.nonConformes)}</td>
+              <td className="num"><strong>{pourCent(m.toits.taux)}</strong></td><td className="num">{pourCent(m.facades)}</td><td className="num">{m.toits.conformes + ' / ' + (m.toits.conformes + m.toits.nonConformes)}</td>
               <td className="num">{m.toits.aRevoir}</td><td className="num">{m.toits.horsCalcul}</td>
             </tr>
           ))}

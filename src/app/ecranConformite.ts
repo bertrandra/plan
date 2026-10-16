@@ -16,7 +16,8 @@ import corpusLivre from '../../regles/conformite.json';
 import { EcranConformite, type AuditsJuges } from '../zones/EcranConformite.js';
 import { enregistrerMesureConformite, lireAuditRecu, lireMesuresConformiteServeur, listerAuditsRecus } from '../io/depotDemos.js';
 import { casDeLAuditParcelle, jugerCas } from '../facade/regles/conformite.js';
-import { lireCorpusConformite, type MesureConformite, type VerdictCas } from '../regles/conformite.js';
+import { facadesDeLAuditParcelle, jugerFacade } from '../facade/regles/facades/conformite.js';
+import { lireCorpusConformite, type MesureConformite, type VerdictCas, type VerdictFacade } from '../regles/conformite.js';
 import { lireFichierAuditParcelle } from '../model/fichierAuditParcelle.js';
 import { EMPREINTE_REGLAGES_TOITS } from '../regles/toits/reglages.js';
 import { empreinteFaitsToits, faitsEnVigueur } from '../regles/toits/faits.js';
@@ -43,10 +44,14 @@ export async function jugerAuditsRecus(f: Fetch, progres: (fait: number, total: 
   const liste = (await listerAuditsRecus(f)).filter((a) => a.marque !== 'sauvegarde');
   const illisibles: string[] = [];
   const cas = [];
+  const facades: VerdictFacade[] = [];
   let lus = 0;
   for (const a of liste) {
     try {
-      cas.push(...casDeLAuditParcelle(a.id, lireFichierAuditParcelle(await lireAuditRecu(f, a.id))));
+      const fichier = lireFichierAuditParcelle(await lireAuditRecu(f, a.id));
+      cas.push(...casDeLAuditParcelle(a.id, fichier));
+      // Les facades relevees (lot G13) : la disposition automatique comparee au releve, sans reseau.
+      facades.push(...facadesDeLAuditParcelle(a.id, fichier).map((x) => jugerFacade(x)));
       lus++;
     } catch (e) {
       illisibles.push(a.id + ' : ' + ((e as Error).message || String(e)));
@@ -59,7 +64,7 @@ export async function jugerAuditsRecus(f: Fetch, progres: (fait: number, total: 
     verdicts.push(jugerCas(o));
     progres(verdicts.length, cas.length);
   }
-  return { verdicts, lus, illisibles };
+  return { verdicts, facades, lus, illisibles };
 }
 
 /** Les versions du calcul qui a juge : celles de ce fichier livre. */
