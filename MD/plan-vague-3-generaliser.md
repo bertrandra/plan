@@ -29,7 +29,7 @@ avec le rangement du moteur sous `regles/` (`MD/architecture.md` §5.2.4).
 | G15, G17, G18 bis, masque de G20 | **fait** | `facade/regles/toits/profils.ts` (aucun profil encore), `three/detailsBatiment.ts`, clés des manques par façade, masque hachuré |
 | **G18** | **fait pour D20 et D21, reste la pré-acceptation** | D21 : `regles/decisions.ts` (`rivalesSurPlace`), la ligne de Claude arrive décochée et cocher l'une décoche l'autre. D20 : `app/audit/parcelle/escalade.ts`, un modèle plus fin départage les passes en désaccord (usage `escalade`, appel immédiat, plafonds). `ACCORDS_MESURES` reste vide : la pré-acceptation à plus de 95 % attend le corpus |
 | G19 | **en partie** | la forme du toit et les bouts sont déjà des propositions (`app/regles/sujets/formeToit.ts`), venues avant G4, G5 et G17 ; les lucarnes et les détails d'ouvertures restent des observations |
-| G4 à G10 | à faire | attendent le corpus (phase 1 de T§13.3 : 50 cas observés dont 10 sur des formes inconnues) ; il y en a 2 aujourd'hui |
+| G4 à G10 | à faire (le dessin 3D est fait) | le **dessin** des lucarnes, du Mansart, du gambrel et de la demi-croupe est fait (`facade/toitFormes.ts`, spec §4) ; leur **lecture** sur le LiDAR attend le corpus (phase 1 de T§13.3 : 50 cas observés dont 10 sur des formes inconnues) ; il y en a 2 aujourd'hui |
 | G14, G16 | à faire | `profils` est vide dans `regles/toits/reglages.json` et `regles/facades/reglages.json` ; un profil naît d'un écart que G13 ou une contradiction de cas montre |
 | G20 (taux d'accord, fin du renfort) | à faire | corpus |
 

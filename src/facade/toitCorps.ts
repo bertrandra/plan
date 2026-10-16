@@ -18,6 +18,7 @@
 //      sur au moins 1,5 m (`detecterPignons`). Le corps est ensuite reajuste sans eux.
 
 import { au } from '../util/tableaux.js';
+import { hauteurEtendue } from './toitFormes.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { hauteurToitMesure, decouperParHauteurs } from '../model/toitMesure.js';
@@ -103,7 +104,10 @@ export function planCroupe(c: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts
 }
 
 /** La hauteur du toit d'un corps au point (s, t) : ses pans, coupes par ses croupes quand il en a. */
-export function hauteurCorpsEn(c: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts' | 'croupes'>, L: number, W: number, s: number, t: number): number {
+export function hauteurCorpsEn(c: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts' | 'croupes'> & Partial<Pick<CorpsToit, 'profil' | 'bouts' | 'pignons'>>, L: number, W: number, s: number, t: number): number {
+  // Un profil brise, une demi-croupe ou un brisis : la plus basse de leurs facettes (facade/toitFormes.ts).
+  const etendu = hauteurEtendue(c, L, W, s, t);
+  if (etendu !== null) return etendu;
   let z = hauteurCorps(c, W, t);
   const [h0, h1] = c.croupes ?? [0, 0];
   if (h0 > 0) z = Math.min(z, planCroupe(c, W, h0, s, t));
