@@ -43,7 +43,7 @@ export const elements: DescriptionSujet = {
     { rang: 9, texte: `- \`elements\` : les éléments qui ne se voient que sur photo ou orthophoto (fenêtres de toit, châssis, verrière, coyau, acrotère, garde-corps, lanterneau, pignon à redents), un par entrée, seulement s'ils sont vus.` },
   ],
   vocabulaire: [
-    { section: `Ouvertures et saillies`, rang: 11, texte: `- **Châssis d'éclairage** : fenêtre plane, fixe ou à tabatière, dans le plan du versant.
+    { section: `Ouvertures et saillies`, rang: 11, texte: `- **Châssis d'éclairage** (\`chassis-eclairage\`) : fenêtre plane, fixe ou à tabatière, dans le plan du versant.
 - **Fenêtre de toit** : ouvrant vitré moderne, à ras de la pente.
 - **Verrière** : grande surface vitrée en toiture.` },
     { section: `Ouvertures et saillies`, rang: 14, texte: `- **Coyau** : adoucissement de la pente en bas du versant, qui relève l'égout.

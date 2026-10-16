@@ -147,6 +147,9 @@ export const formeToit: DescriptionSujet = {
 - **Ligne de bris** : ligne horizontale entre le brisis et le terrasson.
 - **Rive** : bord latéral incliné d'un versant, le long d'un mur pignon.
 - **Pignon** : mur triangulaire qui porte les versants au bout d'un toit à deux pans ; au sens étendu, un avant-corps à deux pans perpendiculaire au faîtage.` },
+    { section: `Sens du faîtage`, rang: 3, texte: `- \`parallele-rue\` : le faîtage longe la façade vue de la rue ; on voit le long pan, et le toit monte vers le fond ;
+- \`perpendiculaire-rue\` : le faîtage va vers la rue ; on voit un pignon (ou une croupe) face à soi, et le toit descend de part et d'autre ;
+- \`sans-faitage\` : il n'y a pas de ligne de faîte (toit plat, pavillon, forme à sommet unique).` },
     { section: `Formes`, rang: 30, texte: `- \`plat\` : toit-terrasse, pente de moins de 5 %.
 - \`appentis\` : monopente, un seul pan, adossé à un mur ou libre.
 - \`deux-pans\` : deux pans et deux murs pignons aux bouts.
