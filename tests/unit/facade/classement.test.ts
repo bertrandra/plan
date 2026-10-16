@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { classer, classerAvecIndices, formeDeTache, lamesHorizontales, estVitree } from '../../../src/facade/classement.js';
-import { reglagesStructure } from '../../../src/facade/reglagesStructure.js';
+import { reglagesStructure } from '../../../src/facade/regles/facades/structure.js';
 import type { Image } from '../../../src/facade/homographie.js';
 
 // Le classement des ouvertures (spec-facades §11, lot L15) : les regles de taille d'avant le lot, et

@@ -7,7 +7,7 @@
 //   npx tsx .claude/skills/toits/scripts/banc.ts <nom> --reference formes-<nom>.json     # apres
 //
 // Chaque batiment est relu sous les seuils de ses profils de toits (regles/toits/reglages.json,
-// facade/profilsToits.ts), comme dans l'application ; `--profils` en essaie d'autres (une liste au format
+// facade/regles/toits/profils.ts), comme dans l'application ; `--profils` en essaie d'autres (une liste au format
 // de `profils`, verifiee comme le fichier livre) a la place, pour mesurer un profil avant de l'ecrire.
 // Le lieu : le departement de l'IDU de la parcelle, la latitude si le JSON du village la donne.
 //
@@ -36,15 +36,15 @@ import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
-import { PROFILS_TOITS, REGLAGES_TOITS, avecSeuilsToit } from '../../../../src/model/reglagesToits.ts';
-import { lireProfilsToits } from '../../../../src/model/profilsToits.ts';
-import { departementDuCode, profilsDuBatiment } from '../../../../src/facade/profilsToits.ts';
+import { PROFILS_TOITS, REGLAGES_TOITS, avecSeuilsToit } from '../../../../src/regles/toits/reglages.ts';
+import { lireProfilsToits } from '../../../../src/regles/toits/profils.ts';
+import { departementDuCode, profilsDuBatiment } from '../../../../src/facade/regles/toits/profils.ts';
 import {
   chargerDeduction, formesDuBatiment, lignesFormes, lireReference, changementsDeForme, changementsDeCorps,
   bilanChangements, ecartsCompteurs, ABSENT, type FormesBatiment, type ReferenceFormes, type CompteursBanc,
 } from '../../../../tests/banc/toits/formes.ts';
-import { corpsSelonFait } from '../../../../src/facade/faitsToits.ts';
-import { faitDuBatiment } from '../../../../src/model/faitsToits.ts';
+import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
+import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
 const args = process.argv.slice(2);

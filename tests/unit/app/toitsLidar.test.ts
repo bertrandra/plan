@@ -4,8 +4,8 @@ import { hauteurToitEn, plansDuToit } from '../../../src/facade/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
-import { lireProfilsToits } from '../../../src/model/profilsToits.js';
-import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../src/model/reglagesToits.js';
+import { lireProfilsToits } from '../../../src/regles/toits/profils.js';
+import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../src/regles/toits/reglages.js';
 
 // L'etape « toits sur le LiDAR » d'un import ou d'une actualisation (MD/spec-toit-ign.md §10) :
 // quels batiments, dans quel ordre, ce qui est garde, ce qui est ecrit.

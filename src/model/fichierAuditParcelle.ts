@@ -13,7 +13,7 @@
 import { idCaptureParcelle, VERSION_CAPTURE_PARCELLE, type BatimentCapture, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type FacadeCapturee, type PortailCapture } from './auditParcelle.js';
 import type { CasAudit, MetaPromenade, PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
-import type { Proposition } from './propositions.js';
+import type { Proposition } from '../regles/decisions.js';
 import type { ReleveFacade } from './types.js';
 
 export const FORMAT_AUDIT_PARCELLE = 'plan-audit-parcelle';

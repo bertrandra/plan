@@ -20,12 +20,12 @@ import { partsACheval, douteACheval, type PartACheval } from '../model/aCheval.j
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { GrilleRelief } from '../model/relief.js';
 import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../model/types.js';
-import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../model/reglagesToits.js';
-import { contexteProfils, surchargesDuBatiment } from '../facade/profilsToits.js';
-import type { ProfilToit } from '../model/profilsToits.js';
-import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../model/faitsToits.js';
-import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/faitsToits.js';
-import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/vraisemblance.js';
+import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../regles/toits/reglages.js';
+import { contexteProfils, surchargesDuBatiment } from '../facade/regles/toits/profils.js';
+import type { ProfilToit } from '../regles/toits/profils.js';
+import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../regles/toits/faits.js';
+import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/regles/toits/faits.js';
+import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/regles/toits/vraisemblance.js';
 import { estVerifieSurPlace } from '../model/toitVerifie.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
@@ -58,7 +58,7 @@ export const surParcellePrincipale = (o: ObjetAToit): boolean => surParcelleDuPr
 export { batimentsMitoyens };
 
 /** Les garde-fous de vraisemblance (vegetation, egout), purs, partages avec le rejeu des cas d'audit. */
-export { corpsVraisemblables, mesureVraisemblable, DEPASSEMENT_VEGETATION_M } from '../facade/vraisemblance.js';
+export { corpsVraisemblables, mesureVraisemblable, DEPASSEMENT_VEGETATION_M } from '../facade/regles/toits/vraisemblance.js';
 
 /** Les maisons voisines recoivent-elles leurs corps et pignons ? Le reglage de la parcelle du projet, oui par defaut. */
 function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
@@ -113,7 +113,7 @@ export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToi
 }
 
 /**
- * Les corps d'un batiment lus sur sa mesure, puis son fait en contrainte (model/faitsToits.ts), puis
+ * Les corps d'un batiment lus sur sa mesure, puis son fait en contrainte (regles/toits/faits.ts), puis
  * les garde-fous de vraisemblance : l'ordre de MD/spec-regles-toits.md §9.1. `coupes` faux : la
  * version allegee du voisinage.
  */
@@ -195,8 +195,8 @@ export const DELAI_TOITS_LIDAR_MS = 20000;
 export const MAX_BATIMENTS_LIDAR = 30;
 /**
  * Une version de la lecture des toits : l'empreinte des reglages qu'elle lisait
- * (regles/toits/reglages.json, model/reglagesToits.ts) et celle des faits
- * (regles/toits/faits.json, model/faitsToits.ts) ; sans `faits`, aucun fait.
+ * (regles/toits/reglages.json, regles/toits/reglages.ts) et celle des faits
+ * (regles/toits/faits.json, regles/toits/faits.ts) ; sans `faits`, aucun fait.
  */
 export interface LectureToits { version: number; reglages: string; faits?: string }
 
@@ -209,10 +209,10 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Les seuils sortis du code sans changer une valeur : la lecture d'avant, a l'identique.
   { version: 1, reglages: '3b9b6b2c' },
   // Le premier fait : l'appentis adosse de la facade sud d'AE 101 (regles/toits/faits.json), et les
-  // seuils de sa lecture (facade/appentisFait.ts) ajoutes aux reglages.
+  // seuils de sa lecture (facade/regles/toits/appentis.ts) ajoutes aux reglages.
   { version: 2, reglages: '6d05c3a9', faits: 'acde1a6a' },
   // Les deux pignons traversants de la facade sud d'AE 101, dits par le proprietaire (fait), et les
-  // seuils de leur lecture (facade/pignonsFait.ts) : la lecture LiDAR servie par l'IGN a change.
+  // seuils de leur lecture (facade/regles/toits/pignons.ts) : la lecture LiDAR servie par l'IGN a change.
   { version: 3, reglages: 'b472cd75', faits: '43162115' },
 ];
 
@@ -236,7 +236,7 @@ export function versionDeLecture(lectures: readonly LectureToits[], empreinte: s
  */
 export const VERSION_LECTURE_TOITS = versionDeLecture(LECTURES_TOITS, EMPREINTE_REGLAGES_TOITS, EMPREINTE_FAITS_TOITS);
 /**
- * La marque d'un batiment lu avec des faits d'essai (`?regles=local`, model/faitsToits.ts) : lu pour
+ * La marque d'un batiment lu avec des faits d'essai (`?regles=local`, regles/toits/faits.ts) : lu pour
  * la seance, mais pas a la version du depot. Enregistre ainsi, il sera relu a la prochaine ouverture,
  * avec les faits livres : l'essai ne laisse rien derriere lui.
  */
@@ -406,7 +406,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       if (!ech.length) continue;
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
       const principal = surParcellePrincipale(o);
-      // Les profils de toits du batiment (regles/toits/reglages.json, facade/profilsToits.ts), choisis
+      // Les profils de toits du batiment (regles/toits/reglages.json, facade/regles/toits/profils.ts), choisis
       // une fois, sur le contour d'avant le recalage : sans profil livre, aucune surcharge.
       const seuils = surchargesDuBatiment(o, lieu, options.profils);
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
@@ -415,7 +415,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
         const large = await recalerSurLidar(o, grille, proj, lireGrille, seuils);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
-      // Le toit, sous les seuils du profil du batiment (facade/profilsToits.ts) : un calcul synchrone.
+      // Le toit, sous les seuils du profil du batiment (facade/regles/toits/profils.ts) : un calcul synchrone.
       avecSeuilsToit(seuils, () => poserLeToit(o, objets, ech, grille, { principal, mitoyen: estMitoyen(o), voisins }, bilan));
     }
   };

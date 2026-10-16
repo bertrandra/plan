@@ -22,7 +22,7 @@ import {
 import { accesDuCote, clotureDe, coteRegle, reglageDuCote, resumeReglage } from '../../../model/cloture.js';
 import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
-import { cocheeParDefaut, hauteurDe, type Proposition } from '../../../model/propositions.js';
+import { cocheeParDefaut, hauteurDe, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';

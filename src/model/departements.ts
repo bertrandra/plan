@@ -1,7 +1,7 @@
 // Le departement d'une parcelle, tire de son IDU (identifiant cadastral : code INSEE de la commune,
 // prefixe, section, numero). C'est le declencheur « region » des profils (MD/plan-vague-3-generaliser.md,
 // decision D19, MD/spec-regles-toits.md §6) et l'axe « par region » des indicateurs de conformite
-// (model/conformite.ts) : une donnee lue, jamais une adresse.
+// (regles/conformite.ts) : une donnee lue, jamais une adresse.
 
 /** Les departements, par code (deux caracteres en metropole, trois outre-mer). */
 export const DEPARTEMENTS: Readonly<Record<string, string>> = {

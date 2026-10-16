@@ -25,7 +25,7 @@ import { rectanglesDuContour, rectanglesEnTranches } from '../model/volumesToit.
 import { ajusterToit, diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from './toitLidar.js';
 import { angleDuPlusLongCote, repereFaitage } from '../geometry/faitage.js';
 import type { CorpsToit, PignonToit, PtBrut, ToitMesure } from '../model/types.js';
-import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../model/reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 
 /** Le pas des positions de faitage essayees dans la largeur d'un corps. */
 export const PAS_FAITAGE_M = R.PAS_FAITAGE_M;
@@ -252,13 +252,13 @@ export function ajusterCorps(m: ToitMesure, rect: readonly PtBrut[], contour: re
   return best?.c ?? null;
 }
 
-/** Le rectangle repris depuis son deuxieme sommet, pour les faits (facade/faitsToits.ts) : le faitage y suit l'autre sens. */
+/** Le rectangle repris depuis son deuxieme sommet, pour les faits (facade/regles/toits/faits.ts) : le faitage y suit l'autre sens. */
 export const rectangleTourne = tourne;
 
 /**
  * Le toit d'un corps dont le faitage est impose en `p` (0 ou la largeur : un appentis), ajuste sur la
  * mesure, ou un toit plat a la mediane des mesures (`'plat'`). Rien n'y est choisi : c'est ce que
- * demande un fait (facade/faitsToits.ts), qui restreint les formes et laisse la mesure donner les
+ * demande un fait (facade/regles/toits/faits.ts), qui restreint les formes et laisse la mesure donner les
  * hauteurs. Null sans assez de mesures ou sans toit plausible a cette position.
  */
 export function corpsImpose(m: ToitMesure, pts: readonly PtBrut[], contour: readonly PtBrut[], p: number | 'plat'): CorpsToit | null {
@@ -626,7 +626,7 @@ function corpsSurBoite(m: ToitMesure, contour: readonly PtBrut[], grille: Grille
   return c ? [c] : null;
 }
 
-// Les seuils de la completion, lus dans S (model/reglagesToits.ts) a chaque appel :
+// Les seuils de la completion, lus dans S (regles/toits/reglages.ts) a chaque appel :
 // - S.PAS_COMPLETION_M, S.COMPLETION_MAX_M : le pas dont un corps s'etend pour couvrir le contour, et son
 //   plus long trajet ;
 // - S.PART_COMPLETION_MIN : la part de la bande devant un cote qui doit etre du contour sans toit pour que

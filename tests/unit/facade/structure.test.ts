@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ajouterDansLaGrille, completer, croisementsLibres, mediane, memeHauteurNiveau, memeTailleTravee, regulariser, structurer, type BoiteOuverture, type EvaluerZone } from '../../../src/facade/structure.js';
-import { REGLAGES_STRUCTURE, reglagesStructure, type NomReglageStructure } from '../../../src/facade/reglagesStructure.js';
+import { REGLAGES_STRUCTURE, reglagesStructure, type NomReglageStructure } from '../../../src/facade/regles/facades/structure.js';
 
 // La structure d'une facade (spec-facades §10, lot L15) : niveaux et travees, regularisation bornee a
 // 10 cm, completion dans les zones cachees ou peu sures, gestes de la verification (§12).

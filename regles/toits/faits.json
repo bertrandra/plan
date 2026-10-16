@@ -1,7 +1,7 @@
 {
   "format": "plan-faits-toits",
   "version": 1,
-  "pourquoi": "Les faits des toits (MD/spec-regles-toits.md §5) : une verite observee sur UN batiment, rangee par sa cle BD TOPO (cleabs), qui survit aux mises a jour du contour. 'contrainte' (par defaut) restreint les formes du calcul et laisse la mesure donner les hauteurs ; 'remplacement' donne aussi les dimensions (un batiment sans LiDAR, une mesure trompeuse). Un fait s'applique a tous les projets qui contiennent le batiment. Ce fichier est compile dans le fichier livre (model/faitsToits.ts) et son empreinte entre dans VERSION_LECTURE_TOITS (app/toitsLidar.ts) : un fait ajoute relit les toits deja lus. Le skill regles-toits (.claude/skills/regles-toits/) dit quand ecrire un fait plutot qu'un reglage ou une regle.",
+  "pourquoi": "Les faits des toits (MD/spec-regles-toits.md §5) : une verite observee sur UN batiment, rangee par sa cle BD TOPO (cleabs), qui survit aux mises a jour du contour. 'contrainte' (par defaut) restreint les formes du calcul et laisse la mesure donner les hauteurs ; 'remplacement' donne aussi les dimensions (un batiment sans LiDAR, une mesure trompeuse). Un fait s'applique a tous les projets qui contiennent le batiment. Ce fichier est compile dans le fichier livre (regles/toits/faits.ts) et son empreinte entre dans VERSION_LECTURE_TOITS (app/toitsLidar.ts) : un fait ajoute relit les toits deja lus. Le skill regles-toits (.claude/skills/regles-toits/) dit quand ecrire un fait plutot qu'un reglage ou une regle.",
   "faits": {
     "BATIMENT0000000322509182": {
       "observation": {

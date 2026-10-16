@@ -11,7 +11,7 @@
 // (`admin/conformite`) ; l'historique dit si le taux monte, phase apres phase.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { lireMesuresConformite, mesureConformite, resumer, tauxPar, type MesureConformite, type MesureLue, type VerdictCas } from '../model/conformite.js';
+import { lireMesuresConformite, mesureConformite, resumer, tauxPar, type MesureConformite, type MesureLue, type VerdictCas } from '../regles/conformite.js';
 import { TableAxe, TableCas, TuilesConformite, VueClaude, VueHistorique } from './conformite/vues.js';
 
 /** Les audits recus, juges : ce que app/ecranConformite.ts rend. */

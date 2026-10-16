@@ -9,10 +9,10 @@
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { lireFichierPromenade, PROBLEMES_AUDIT, type CasAudit } from '../../../../src/model/audit.ts';
-import { rejouerCas } from '../../../../src/facade/audit.ts';
-import { formeDuCorps, ecartsAuFait } from '../../../../src/facade/faitsToits.ts';
-import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, signatureFait } from '../../../../src/model/faitsToits.ts';
-import { REGLAGES_TOITS } from '../../../../src/model/reglagesToits.ts';
+import { rejouerCas } from '../../../../src/facade/regles/rejeu.ts';
+import { formeDuCorps, ecartsAuFait } from '../../../../src/facade/regles/toits/faits.ts';
+import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, signatureFait } from '../../../../src/regles/toits/faits.ts';
+import { REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.ts';
 
 const args = process.argv.slice(2);
 const iFaits = args.indexOf('--faits');

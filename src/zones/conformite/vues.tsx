@@ -1,12 +1,12 @@
 // Les vues de l'ecran des indicateurs de conformite (MD/spec-regles-toits.md 13.5, lot G3) : chiffres
 // cles, tableaux par axe, cas un a un, accord de Claude, historique. Elles ne calculent rien :
-// model/conformite.ts l'a fait, elles mettent en page. Un taux s'ecrit toujours en chiffres et en
+// regles/conformite.ts l'a fait, elles mettent en page. Un taux s'ecrit toujours en chiffres et en
 // mots ; aucune couleur ne porte seule une information.
 
 import {
   ATTRIBUTS_CLAUDE, PHASE1_CAS_OBSERVES, PHASE1_HORS_CALCUL, libelleRegion, pourCent,
   type EtatCas, type LigneTaux, type MesureLue, type ResumeConformite, type VerdictCas
-} from '../../model/conformite.js';
+} from '../../regles/conformite.js';
 import { AUTRES_FORMES, FORMES_COURANTES, libelleDe } from '../../model/ceQueJeVois.js';
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');

@@ -7,7 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
 import { creerAnalyseAdmin, verifierMesureConformite, MESURES_CONFORMITE_MAX } from '../../../buildsg/analyseAdmin.mjs';
 import { connecterAdmin, enregistrerMesureConformite, lireMesuresConformiteServeur } from '../../../src/io/depotDemos.js';
-import { lireMesuresConformite, MESURES_CONFORMITE_MAX as MAX_PAGE } from '../../../src/model/conformite.js';
+import { lireMesuresConformite, MESURES_CONFORMITE_MAX as MAX_PAGE } from '../../../src/regles/conformite.js';
 import { jouerScenarioConformite, mesureEssai } from '../../fixtures/deploy/scenarioConformite.js';
 
 // Les mesures de conformite, cote Node (buildsg/analyseAdmin.mjs, `admin/conformite` ; lot G3) : le

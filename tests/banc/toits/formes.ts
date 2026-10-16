@@ -15,7 +15,7 @@
 
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { REGLAGES_TOITS as R } from '../../../src/model/reglagesToits.js';
+import { REGLAGES_TOITS as R } from '../../../src/regles/toits/reglages.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 /** Un batiment dont aucun corps n'est reconstruit, avec ou sans surface mesuree. */
@@ -41,7 +41,7 @@ export const ORDRE_FORMES: readonly string[] = [
 export const FAITAGE_PAVILLON_MAX_M = 1;
 /** Et sur un plan presque carre (le long cote au plus 1,25 fois le court) ; meme seuil que G1. */
 export const RAPPORT_PAVILLON_MAX = 1.25;
-/** Un faitage a moins de 1 cm d'un mur est sur le mur : un appentis (tolerance de facade/faitsToits.ts). */
+/** Un faitage a moins de 1 cm d'un mur est sur le mur : un appentis (tolerance de facade/regles/toits/faits.ts). */
 const SUR_LE_MUR_M = 0.01;
 
 type CorpsBanc = Pick<CorpsToit, 'pts' | 'posFaitage' | 'faitage' | 'egouts'> & { croupes?: readonly number[] | undefined };

@@ -23,7 +23,7 @@ import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../fac
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
-import type { ValeursFacades } from '../model/reglagesFacades.js';
+import type { ValeursFacades } from '../regles/facades/reglages.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
 import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
@@ -87,7 +87,7 @@ export interface OptionsDetails {
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];
-  /** Le profil de facades retenu (facade/profilsFacades.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
+  /** Le profil de facades retenu (facade/regles/facades/profils.ts) : ses dimensions quand `fenetres` n'en donne pas, et ses seuils. */
   profil?: ValeursFacades;
 }
 

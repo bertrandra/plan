@@ -9,7 +9,7 @@ import { creerPromenade } from '../../../src/app/audit/promenade.js';
 import { creerEtat } from '../../../src/core/state.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
-import type { Proposition } from '../../../src/model/propositions.js';
+import type { Proposition } from '../../../src/regles/decisions.js';
 
 // L'ecran de l'audit de la parcelle (Z8) : la liste de controle par batiment, les gestes qui la
 // remplissent, l'ecran de prise ; et « Ce que je vois », le meme composant dans la fiche de la promenade.

@@ -1,5 +1,5 @@
 // Le taux de conformite du corpus du depot (MD/spec-regles-toits.md §13.5, lot G3) : chaque cas de
-// tests/fixtures/audit/ est rejoue avec le code courant (facade/conformite.ts) et juge sur ce que vous
+// tests/fixtures/audit/ est rejoue avec le code courant (facade/regles/conformite.ts) et juge sur ce que vous
 // avez vu. Le tableau dit le taux, par forme, par region et par probleme, puis l'etat de chaque cas.
 //
 //   npx tsx .claude/skills/toits/scripts/conformite.ts            # le tableau ; code 1 si regles/conformite.json n'est plus a jour
@@ -11,8 +11,8 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { lireFichierPromenade } from '../../../../src/model/audit.ts';
-import { corpusConformite, texteCorpusConformite } from '../../../../src/facade/conformite.ts';
-import { pourCent, resumer, tauxPar, type AxeConformite } from '../../../../src/model/conformite.ts';
+import { corpusConformite, texteCorpusConformite } from '../../../../src/facade/regles/conformite.ts';
+import { pourCent, resumer, tauxPar, type AxeConformite } from '../../../../src/regles/conformite.ts';
 
 const racine = join(import.meta.dirname, '../../../..');
 const dossier = join(racine, 'tests/fixtures/audit');

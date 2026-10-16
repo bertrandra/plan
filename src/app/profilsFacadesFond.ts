@@ -2,7 +2,7 @@
 // de la vague 3, G12).
 //
 // Chaque batiment porte le profil de facades retenu pour lui (`profilFacades`) et la version de la
-// lecture qui l'a choisi (model/reglagesFacades.ts, VERSION_LECTURE_FACADES, ou entre l'empreinte de
+// lecture qui l'a choisi (regles/facades/reglages.ts, VERSION_LECTURE_FACADES, ou entre l'empreinte de
 // regles/facades/reglages.json). Un batiment sans marque, ou marque d'une version plus ancienne, voit
 // son profil rechoisi ici, par lots, sans bloquer l'interface : une pause entre deux lots rend la main
 // au navigateur. Le choix ne lit pas le reseau (les attributs BD TOPO sont deja dans le plan) ; seuls
@@ -18,8 +18,8 @@
 // Les ecritures ne passent pas par l'historique (Ctrl+Z ne defait pas un choix de profil), mais
 // marquent le projet a enregistrer : la marque evite de rechoisir a la reouverture.
 
-import { contexteProfilsFacades, profilFacadesDuBatiment } from '../facade/profilsFacades.js';
-import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type ProfilFacades } from '../model/reglagesFacades.js';
+import { contexteProfilsFacades, profilFacadesDuBatiment } from '../facade/regles/facades/profils.js';
+import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type ProfilFacades } from '../regles/facades/reglages.js';
 import { estVerifieSurPlace } from '../model/toitVerifie.js';
 import { surParcelleDuProjet } from '../model/fonctions.js';
 import type { ObjetPlan } from '../model/types.js';

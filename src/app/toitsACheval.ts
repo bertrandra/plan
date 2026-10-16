@@ -13,7 +13,7 @@ import { libelleParcelle } from '../geo/bdtopo.js';
 import { partsACheval, corpsQuiFranchissent, type PartACheval } from '../model/aCheval.js';
 import { signedArea } from '../geometry/basic.js';
 import { corpsParParcelle } from './toitsLidar.js';
-import { avecProfilsDuBatiment, contexteProfils } from '../facade/profilsToits.js';
+import { avecProfilsDuBatiment, contexteProfils } from '../facade/regles/toits/profils.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 export interface ContexteToitsACheval {

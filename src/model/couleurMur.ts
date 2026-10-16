@@ -134,7 +134,7 @@ const PART_LISIBLE_MIN = 0.25;
 /**
  * Distance RGB sous laquelle un point est « de la teinte dominante », et part des points lisibles qui
  * doit l'etre. C'est aussi le seuil au-dela duquel deux couleurs de facade ne sont plus la meme teinte :
- * le rejeu d'un cas d'audit propose `facade.couleur` (MD/spec-audit.md §18.4, facade/audit.ts).
+ * le rejeu d'un cas d'audit propose `facade.couleur` (MD/spec-audit.md §18.4, facade/regles/rejeu.ts).
  */
 export const ECART_TEINTE = 40;
 const PART_COHERENTE = 0.7;

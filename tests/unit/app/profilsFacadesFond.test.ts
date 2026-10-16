@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { creerProfilsFacadesFond, rechoisirProfilsFacades, profilARechoisir } from '../../../src/app/profilsFacadesFond.js';
-import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../src/model/reglagesFacades.js';
+import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../src/regles/facades/reglages.js';
 import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
 
 // Le choix des profils de facades en tache de fond (F§15.2, G12) : rien sans profil, la parcelle du

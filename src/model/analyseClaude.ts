@@ -349,7 +349,7 @@ export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiau
  */
 export const ACCORDS_MESURES: Readonly<Partial<Record<AttributClaude, number>>> = {};
 
-/** Au-dessus, l'attribut peut etre pre-accepte (model/propositions.ts, ACCORD_CLAUDE_MIN). */
+/** Au-dessus, l'attribut peut etre pre-accepte (regles/decisions.ts, ACCORD_CLAUDE_MIN). */
 export const ACCORD_PREACCEPTE = 0.95;
 
 /** La raison pour laquelle une proposition de Claude arrive decochee, ou null si elle peut etre cochee. */

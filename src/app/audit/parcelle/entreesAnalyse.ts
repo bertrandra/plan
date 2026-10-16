@@ -13,7 +13,7 @@
 
 import { contourCompact, indicesLidar, PASSES_ANALYSE, type IndicesLidar } from '../../../model/analyseClaude.js';
 import { couleurMursRetenue, textureDesMurs } from '../../../model/couleurMur.js';
-import { hauteurDe } from '../../../model/propositions.js';
+import { hauteurDe } from '../../../regles/decisions.js';
 import { resumePartie, partieVue } from '../../../model/ceQueJeVois.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import { etiquetteFacade, hauteurHautDeFacade } from './liste.js';

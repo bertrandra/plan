@@ -1,5 +1,5 @@
 {
-  "pourquoi": "Des profils d'essai pour les tests du choix des profils de facades (tests/unit/model/reglagesFacades.test.ts, facade/profilsFacades.test.ts, app/profilsFacadesFond.test.ts). Ils ne sont pas livres : ils ne viennent d'aucune facade relevee, ils montrent seulement que les declencheurs, les priorites et les surcharges font bouger la disposition.",
+  "pourquoi": "Des profils d'essai pour les tests du choix des profils de facades (tests/unit/model/reglagesFacades.test.ts, facade/regles/facades/profils.test.ts, app/profilsFacadesFond.test.ts). Ils ne sont pas livres : ils ne viennent d'aucune facade relevee, ils montrent seulement que les declencheurs, les priorites et les surcharges font bouger la disposition.",
   "profils": [
     {
       "id": "pavillon-essai",

@@ -1,6 +1,6 @@
 ---
 name: regles-toits
-description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. Cherche aussi des cas candidats sur les photos de rue Panoramax d'un village (Claude analyste, statut propose, scripts/candidats.ts). À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, demande des cas candidats pour une forme, ou avant de toucher à regles/toits/faits.json, model/faitsToits.ts, facade/faitsToits.ts, model/casCandidats.ts ou app/candidatsPanoramax.ts. S'appuie sur le skill toits.
+description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. Cherche aussi des cas candidats sur les photos de rue Panoramax d'un village (Claude analyste, statut propose, scripts/candidats.ts). À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, demande des cas candidats pour une forme, ou avant de toucher à regles/toits/faits.json, regles/toits/faits.ts, facade/regles/toits/faits.ts, model/casCandidats.ts ou app/candidatsPanoramax.ts. S'appuie sur le skill toits.
 ---
 
 # Règles des toits : d'une promenade à la PR
@@ -94,7 +94,7 @@ Pour **chaque cas** :
 }
 ```
 
-Le vocabulaire est fermé (`model/faitsToits.ts::lireFaitsToits` refuse le reste, avec un message) :
+Le vocabulaire est fermé (`regles/toits/faits.ts::lireFaitsToits` refuse le reste, avec un message) :
 
 | Champ | Valeurs | Ce que le calcul en fait |
 |---|---|---|

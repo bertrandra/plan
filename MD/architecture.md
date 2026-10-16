@@ -443,9 +443,11 @@ time and don't count. Dynamic imports are resolved after load and don't count ei
 
 ### 5.2.4 The rules engine — where it is, what it is made of
 
-*17 October 2026. Until now the engine was described only in `MD/spec-regles-toits.md` and
-`.claude/skills/toits/`; nothing in this document named it, and its modules sit in three layers.
-This section is its map. It adds no code.*
+*17 October 2026. The engine was described only in `MD/spec-regles-toits.md` and
+`.claude/skills/toits/`; nothing here named it and its modules were scattered across `model/`,
+`facade/` and `app/`. They are now gathered under one name, `regles/`, one folder per layer.
+Behaviour is unchanged: files were moved and imports rewritten, golden fingerprints and AE 101 stay
+identical.*
 
 **What it is.** The calculation proposes and prices (every candidate roof shape, with its error
 against the LiDAR measure); the **rules decide**. The engine is the set of modules that decide
@@ -466,19 +468,54 @@ setting or fact re-reads the roofs on the next opening, except buildings verifie
 and the building's profile → the building's fact (constrains or replaces) → plausibility
 guards (vegetation, completion, covered strips), last, except on a replaced roof.
 
-**Where the modules are**, by layer (the layer rule of §5.2.3 still holds; the engine is not a
-layer of its own, it is a vertical slice):
+**Where the modules are.** The engine is a vertical slice, and the layer rule of §5.2.3 forbids a
+single folder (settings are read by `model/`, facts are applied with `facade/` code, decisions are
+orchestrated by `app/`). So it has **one name, `regles/`, in each layer it needs**: grep `/regles/`
+lists the engine, and nothing else lives in those folders.
 
-| Layer | Modules | Role |
-|---|---|---|
-| `model/` (pure, domain) | `reglagesToits`, `reglagesFacades` — read and validate the settings, hold `SEUILS_TOITS`; `profilsToits` — profiles and their precedence; `faitsToits` — read and validate the facts; `formeToit` — shape vocabulary; `propositions` — what an accepted decision writes (`EffetProposition`); `conformite` — the conformity measure | vocabulary, validation, data in force |
-| `facade/` (computation) | `toitCorps`, `toitLidar` — the calculation; `faitsToits`, `appentisFait`, `pignonsFait` — apply a fact (`corpsSousContrainte`); `profilsToits`, `profilsFacades` — choose and apply a profile; `vraisemblance` — the guards; `reglagesDetection`, `reglagesStructure` — facade settings; `audit`, `conformite` — replay a case and score it | the rules themselves; pure, synchronous, no network |
-| `app/` (orchestration) | `toitsLidar` — import and recalibration, calls the engine in order, owns `VERSION_LECTURE_TOITS`; `toitsFond` — background re-reading; `ecouteurs/faitsLocaux` — the `?regles=local` trial mode; `audit/parcelle/propositionsClaude` — turns what Claude saw into decisions, by calling the engine (`corpsSousContrainte`), never by writing a shape itself | when and on what the engine runs |
+```
+regles/                      data, the JSON the engine reads (repository root, compiled in the build)
+  toits/{reglages,faits}.json   facades/reglages.json   conformite.json
+src/regles/                  layer 2 — contract and validated data, pure
+  decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
+  toits/{reglages,profils,faits}.ts    facades/reglages.ts    conformite.ts
+src/facade/regles/           layer 3 — the rules themselves, pure and synchronous
+  toits/{faits,appentis,pignons,profils,vraisemblance}.ts     apply a fact, a profile, the guards
+  facades/{detection,structure,profils}.ts                    facade settings and profiles
+  rejeu.ts   conformite.ts                                    replay an audit case, score it
+src/app/regles/              layer 6 — what the audit can see and propose
+  sujets/                    one module per subject (couverture, cheminees, terrasse, materiau, formeToit)
+    contrat.ts               the `Sujet` contract; index.ts is the registry (`SUJETS`)
+```
+
+The calculation itself (`facade/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
+proposes and prices, the engine arbitrates. `app/toitsLidar.ts` and `app/toitsFond.ts` orchestrate
+(import, background re-reading, `VERSION_LECTURE_TOITS`); `app/ecouteurs/faitsLocaux.ts` is the
+`?regles=local` trial mode.
+
+**Adding a subject the audit can propose** (a dormer, an object found in the garden…). One module
+and one line, then the vocabulary Claude reads:
+
+1. `src/app/regles/sujets/<sujet>.ts` exports a `Sujet` (`id`, `libelle`, `proposer`); `index.ts`
+   registers it in `SUJETS`.
+2. The effect it writes: a new member of `EffetProposition` and its `case` in `appliquerEffet`
+   (`src/regles/decisions.ts`, with its rank in `RANG_EFFET`). The subject never writes the plan
+   itself.
+3. Its attribute in `AttributClaude` (`model/analyseClaude.ts`) and `ATTRIBUTS_CLAUDE`
+   (`src/regles/conformite.ts`) — `tests/unit/app/regles/sujets.test.ts` refuses a subject without
+   an attribute and an attribute without a subject.
+4. What Claude reads and answers: the term in `deploy/schema-analyse.json` and its definition in
+   `deploy/prompt-analyse.md` (new prompt version, copied to `buildsg/deploy/`), and the vote in
+   `model/analyseClaude.ts`. These three are still written by hand: generating them from the registry
+   is the next step, not done.
+5. If the subject changes a roof, it goes through the engine (a fact in constraint,
+   `corpsSousContrainte`), never a shape of its own; a new threshold goes to `reglages.json` with its
+   reason.
 
 **Who consumes it.** The address import, the background re-reading, the recalibration, the case
-replay (`facade/audit.ts`, CI), the bench (`scripts/`), and the audit's proposals (§ below).
+replay (`facade/regles/rejeu.ts`, CI), the bench (`scripts/`), and the audit's proposals (§ below).
 
-**Decisions from the audit go through the engine.** An audit proposal (`model/propositions.ts`)
+**Decisions from the audit go through the engine.** An audit proposal (`regles/decisions.ts`)
 is a typed effect that `valider()` applies in one history step. When Claude's observation concerns
 a roof, the proposal's value is not Claude's word: it is the building's measure re-read under
 what Claude saw, as a fact in constraint would be. If the measure does not carry that shape, or
@@ -491,11 +528,6 @@ threshold in module code, every `LECTURES_TOITS` line matches its fingerprint),
 validated case replayed), `conformite.test.ts` (the rate recorded in `regles/conformite.json`),
 and the golden fingerprints. A rule change that moves a quantity or an export is a major version
 (`MD/RELEASE.md`).
-
-**Known gap.** The folder layout does not show it: engine modules sit beside unrelated ones in
-`model/` and `facade/`, and the layer test does not know the slice. Naming them (a `regles`
-prefix, or a folder per layer) is possible without a behaviour change; it is left to a decision
-because it renames about thirty imports.
 
 ### 5.3 Data view
 

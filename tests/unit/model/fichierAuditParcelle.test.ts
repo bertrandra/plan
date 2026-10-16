@@ -4,7 +4,7 @@ import {
   mesuresDuFichier, nomFichierAuditParcelle, refusParcelle, renommerBatiments, type EntreesFichierAudit, type FichierAuditParcelle,
 } from '../../../src/model/fichierAuditParcelle.js';
 import { captureVide, partageDe, type CaptureParcelle } from '../../../src/model/auditParcelle.js';
-import type { Proposition } from '../../../src/model/propositions.js';
+import type { Proposition } from '../../../src/regles/decisions.js';
 
 // Le fichier de l'audit de parcelle (MD/spec-audit.md §15), format `plan-audit-parcelle` version 1 :
 // il recopie sans recalculer, se relit a l'identique, dit de chaque proposition si elle a ete validee

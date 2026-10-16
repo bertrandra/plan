@@ -107,7 +107,7 @@ la détection et le calage, pas la disposition automatique.
   `max` exclu), `usages` (`usage_1`), `etages` (plage), `mitoyennete` (`aucune`, `partielle`,
   `forte`). Le plus précis l'emporte ; deux profils de même précision qui peuvent se rencontrer font
   refuser le fichier (`tests/unit/model/reglagesFacades.test.ts`).
-- **Changer le fichier** : ajouter à `LECTURES_FACADES` (`model/reglagesFacades.ts`) la ligne
+- **Changer le fichier** : ajouter à `LECTURES_FACADES` (`regles/facades/reglages.ts`) la ligne
   `{ version: n + 1, reglages: '<empreinte>' }` que le test donne. Les projets ouverts rechoisissent
   alors leurs profils en tâche de fond (`app/profilsFacadesFond.ts`), sauf la parcelle du projet et
   les bâtiments vérifiés sur place.

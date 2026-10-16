@@ -16,7 +16,7 @@ import { au } from '../util/tableaux.js';
 import { angleDuPlusLongCote, plansDuToit, hauteurToitEn, facettesToit, hauteurSurPans, profondeurToit, repereFaitage } from './toit.js';
 import { HAUTEUR_TOIT_MIN_M, PENTE_MIN_DEG, PENTE_MAX_DEG } from '../model/toitBdTopo.js';
 import type { PtBrut, Toit, FormeToit } from '../model/types.js';
-import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../model/reglagesToits.js';
+import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 
 /** Une mesure : un point du plan et la hauteur du sursol au-dessus du sol, en metres. */
 export interface EchantillonHauteur {

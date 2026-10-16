@@ -128,7 +128,7 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Verifie sur place par un audit de la parcelle (MD/spec-audit.md §14) : pose seulement s'il l'est.
     if(o.verifieSurPlace) out.verifieSurPlace = { date: o.verifieSurPlace.date };
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
-    // Le profil de facades retenu (facade/profilsFacades.ts) : sans lui, la tache de fond le rechoisirait a chaque ouverture.
+    // Le profil de facades retenu (facade/regles/facades/profils.ts) : sans lui, la tache de fond le rechoisirait a chaque ouverture.
     if(o.profilFacades) out.profilFacades = { id: o.profilFacades.id, version: o.profilFacades.version };
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.

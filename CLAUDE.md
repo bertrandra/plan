@@ -67,12 +67,17 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 
 ## Moteur de règles
 
-Le moteur de règles des toits et des façades est décrit dans `MD/architecture.md` §5.2.4 (où sont
-ses modules, par couche, et dans quel ordre il s'applique) et dans `MD/spec-regles-toits.md`. Trois
-entrées qui ne se mélangent pas : une **règle** (code de `facade/`), un **réglage** (`regles/*/reglages.json`,
-valeur d'un seuil), un **fait** (`regles/toits/faits.json`, un bâtiment). Une décision de l'audit passe
-par le moteur (`corpsSousContrainte`) : elle n'écrit jamais une forme de toit de sa propre main, ni dans
-`faits.json` (qui ne change que par PR). Charger le skill `toits` ou `regles-toits` avant d'y toucher.
+Le moteur est rangé sous un seul nom, `regles/`, un dossier par couche (`MD/architecture.md` §5.2.4) :
+`src/regles/` (contrat et données validées : réglages, profils, faits, décisions), `src/facade/regles/`
+(les règles : appliquer un fait, un profil, les garde-fous, rejouer un cas) et `src/app/regles/sujets/`
+(ce que l'audit sait proposer, un module par sujet, enregistré dans `SUJETS`). Les données sont dans
+`regles/` à la racine. Trois entrées qui ne se mélangent pas : une **règle** (code), un **réglage**
+(`regles/*/reglages.json`, un seuil), un **fait** (`regles/toits/faits.json`, un bâtiment).
+**Rien du moteur ne va hors de ces dossiers**, et ils ne contiennent rien d'autre. Ajouter un sujet à
+l'audit (chien-assis, objet du jardin…) : la liste de `MD/architecture.md` §5.2.4. Une décision de
+l'audit passe par le moteur (`corpsSousContrainte`) : elle n'écrit jamais une forme de toit de sa propre
+main, ni dans `faits.json` (qui ne change que par PR). Charger le skill `toits` ou `regles-toits` avant
+d'y toucher.
 
 ## Interface
 

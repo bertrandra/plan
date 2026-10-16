@@ -18,7 +18,7 @@
 import type { Image } from './homographie.js';
 import type { BoitePx, FondPx } from './detectionIndices.js';
 import type { DetailsOuverture, TypeOuverture } from '../model/types.js';
-import type { ValeursStructure } from './reglagesStructure.js';
+import type { ValeursStructure } from './regles/facades/structure.js';
 
 /** Le type d'une baie, d'apres sa taille et sa hauteur d'appui (spec §11, regles d'avant le lot). */
 export function classer(y: number, l: number, h: number): TypeOuverture {

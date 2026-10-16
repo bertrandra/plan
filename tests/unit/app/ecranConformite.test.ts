@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { jugerAuditsRecus, versionsDuCalcul } from '../../../src/app/ecranConformite.js';
 import { lireFichierPromenade } from '../../../src/model/audit.js';
 import { FORMAT_AUDIT_PARCELLE, VERSION_FICHIER_AUDIT_PARCELLE } from '../../../src/model/fichierAuditParcelle.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../../../src/model/reglagesToits.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../../../src/regles/toits/reglages.js';
 import { APP_VERSION } from '../../../src/model/version.js';
 
 // Les audits recus, lus sur le serveur puis rejoues dans la page (lot G3) : un audit illisible est

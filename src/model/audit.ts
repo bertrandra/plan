@@ -179,7 +179,7 @@ export interface MetaPromenade {
   code: { version: string; commit: string | null };
   /**
    * Les versions des regles qui ont produit les sorties. `reglagesToits` : l'empreinte de
-   * regles/toits/reglages.json (model/reglagesToits.ts), absente d'un fichier plus ancien ; le rejeu
+   * regles/toits/reglages.json (regles/toits/reglages.ts), absente d'un fichier plus ancien ; le rejeu
    * dit si les seuils ont change depuis le terrain.
    */
   regles: { lectureToits: number; lectureMurs: number; reglagesToits?: string };

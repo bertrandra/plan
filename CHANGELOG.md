@@ -43,9 +43,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
-- **Le moteur de règles est identifié dans l'architecture** (`MD/architecture.md` §5.2.4, pointeur dans
-  `CLAUDE.md`) : règle, réglage et fait, l'ordre d'application, ses modules par couche, qui l'appelle,
-  ce qui le garde honnête, et le fait qu'une décision d'audit passe par lui. Documentation seule.
+- **Le moteur de règles est rangé en un seul endroit, nommé `regles/`** (`MD/architecture.md` §5.2.4,
+  `CLAUDE.md`) : un dossier par couche, `src/regles/` (réglages, profils, faits, décisions, conformité),
+  `src/facade/regles/` (appliquer un fait ou un profil, garde-fous, rejeu) et `src/app/regles/sujets/`
+  (ce que l'audit sait proposer, un module par sujet, un registre `SUJETS`). Les modules ont été déplacés
+  et leurs imports réécrits, sans changer une ligne de calcul : AE 101 et les empreintes golden sont
+  identiques. Ajouter un sujet (chien-assis, objet du jardin) = un module, une ligne du registre, son
+  effet et son attribut ; la liste est dans l'architecture.
 
 - **Rendu de la façade pour Claude : la façade seule.** Trois plans de coupe retirent ce qui avance
   devant le mur (une dépendance du même bâtiment, un corps bas) et ce qui dépasse de ses bouts.

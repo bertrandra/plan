@@ -481,7 +481,7 @@ reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
 | `longueur` | `"toute"` (seule valeur, et valeur par défaut) | sur tout ce côté de corps |
 | `profondeurM`, `egoutM`, `hautM` | mètres, facultatifs | les cotes données l'emportent ; les autres sont **lues sur la mesure** |
 
-- **Lecture des cotes** (`facade/appentisFait.ts`) sur la grille brute du MNH, qui déborde du
+- **Lecture des cotes** (`facade/regles/toits/appentis.ts`) sur la grille brute du MNH, qui déborde du
   contour : la profondeur, bande de 25 cm après bande depuis le mur, tant qu'au moins la moitié des
   cellules lisibles sont à hauteur d'appentis (entre 1,8 m et l'égout du mur moins 50 cm) plutôt qu'au
   sol ; une bande toute sous un arbre, ou hors de la grille, ne l'arrête pas. Les hauteurs : le plan
@@ -583,7 +583,7 @@ il ne porte plus de nombre en dur.
   bâtiment : ce serait un fait déguisé.
 - Deux profils qui touchent le même seuil : le plus précis (le plus de conditions) l'emporte ; à
   précision égale, la CI refuse le fichier.
-- *Mis en œuvre au lot G15* (`model/profilsToits.ts`, `facade/profilsToits.ts`). Les conditions :
+- *Mis en œuvre au lot G15* (`regles/toits/profils.ts`, `facade/regles/toits/profils.ts`). Les conditions :
   `departements` (codes, tirés du code INSEE ou de l'IDU de la parcelle du projet), `latitude`,
   `hauteur` (égout BD TOPO), `surface` (aire du contour), `epoque` (année de `date_d_apparition`) en
   plages `{ min, max }` (min compris, max exclu) ; `materiauxMurs` (`pierre`, `meuliere`, `beton`,
@@ -743,9 +743,9 @@ scripts (`banc.ts`, `rendu.py`, `diag.ts`).
 | Étape | Contenu | Vérifié par |
 |---|---|---|
 | 1 | Cette spec ; fiche d'audit « Ce que je vois » (forme, faîtage, bouts, lucarnes, cheminées) | fumée de l'audit |
-| 2 | `reglages.json` : seuils sortis du code **sans changer de valeur** *(fait, lot L19 : 74 seuils, empreinte dans `VERSION_LECTURE_TOITS` ; moteur des profils fait au lot G15 : `model/profilsToits.ts`, `facade/profilsToits.ts`, appliqué à l'import, en tâche de fond, au rejeu et au banc, fichier livré sans profil)* | empreintes, banc, AE 101 identiques |
+| 2 | `reglages.json` : seuils sortis du code **sans changer de valeur** *(fait, lot L19 : 74 seuils, empreinte dans `VERSION_LECTURE_TOITS` ; moteur des profils fait au lot G15 : `regles/toits/profils.ts`, `facade/regles/toits/profils.ts`, appliqué à l'import, en tâche de fond, au rejeu et au banc, fichier livré sans profil)* | empreintes, banc, AE 101 identiques |
 | 3 | Corpus `tests/fixtures/toits/cas/` et `regles.test.ts` ; import d'un fichier de promenade *(en partie, lot L19 : le corpus vit dans `tests/fixtures/audit/`, fichiers de promenade tels quels, rejoués par `tests/unit/facade/audit.test.ts` ; les assertions d'observation du §7 restent à faire)* | premiers cas réels |
-| 4 | `faits.json` appliqué (contrainte, remplacement) *(fait, lot L20 : `model/faitsToits.ts`, `facade/faitsToits.ts` ; à l'import, en tâche de fond et au rejeu des cas ; empreinte dans `VERSION_LECTURE_TOITS` ; mode d'essai `?regles=local` pour les faits seulement ; fichier livré vide)* | cas observés |
+| 4 | `faits.json` appliqué (contrainte, remplacement) *(fait, lot L20 : `regles/toits/faits.ts`, `facade/regles/toits/faits.ts` ; à l'import, en tâche de fond et au rejeu des cas ; empreinte dans `VERSION_LECTURE_TOITS` ; mode d'essai `?regles=local` pour les faits seulement ; fichier livré vide)* | cas observés |
 | 5 | Skill `regles-toits` *(fait, lot L20 : `.claude/skills/regles-toits/`, scripts `trier.ts` et `faits.ts`, `audit.ts --faits` pour les images d'après)* | une promenade traitée de bout en bout |
 | 6 | Formes nouvelles, une par PR, dans l'ordre de ce que l'audit trouve : **lucarnes** (et séparation lucarne / avant-corps), **Mansart et gambrel** (profil brisé), **demi-croupe**, **cheminées**, **asymétrique** (reconnaissance seule : déjà représentable), puis papillon, toit en M, coyau (sur observation), berceau et carène, formes axiales (conique, dôme, flèche, impériale) | cas du corpus, banc |
 | 7 | Profils | cas qui se contredisent |

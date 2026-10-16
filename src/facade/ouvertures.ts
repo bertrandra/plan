@@ -4,7 +4,7 @@
 // l'inspecteur s'en sert pour initialiser une liste reglee une par une (ui/champs/fenetres3d.ts).
 //
 // Les dimensions et les seuils viennent du profil de facades retenu pour le batiment
-// (regles/facades/reglages.json, facade/profilsFacades.ts) ; sans profil, celui par defaut, egal aux
+// (regles/facades/reglages.json, facade/regles/facades/profils.ts) ; sans profil, celui par defaut, egal aux
 // constantes d'avant. Les dimensions passees en options (un reglage de l'inspecteur, l'apparence du
 // voisinage) l'emportent sur le profil.
 
@@ -17,7 +17,7 @@ import { facadesDuContour, pointDeFacade, type Facade } from './geometrie.js';
 import type { Volume } from './profil.js';
 import type { CorpsToit, Fenetre3d, PtBrut } from '../model/types.js';
 import { FENETRE, PORTE, ENTRAXE_FENETRES_M } from '../model/fenetres3d.js';
-import { REGLAGES_FACADES, type ValeursFacades } from '../model/reglagesFacades.js';
+import { REGLAGES_FACADES, type ValeursFacades } from '../regles/facades/reglages.js';
 
 export { FENETRE, PORTE, ENTRAXE_FENETRES_M };
 
@@ -33,7 +33,7 @@ export interface OptionsOuvertures {
   entraxe?: number;
   /** `false` : pas de porte (un corps de batiment apres le premier, qui porte la porte d'entree). */
   porte?: boolean;
-  /** Les valeurs du profil de facades retenu (facade/profilsFacades.ts) ; absent, le profil par defaut. */
+  /** Les valeurs du profil de facades retenu (facade/regles/facades/profils.ts) ; absent, le profil par defaut. */
   profil?: ValeursFacades;
 }
 

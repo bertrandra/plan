@@ -4,7 +4,7 @@
 // - Les mesures (app/audit/parcelle/mesures.ts) se font une fois par facade et se gardent tant que
 //   ses photos ne changent pas ; elles se font l'une apres l'autre, l'ecran dit ou elles en sont.
 // - L'apercu ne touche pas le projet : les objets concernes sont copies, les propositions cochees
-//   ecrites sur les copies (model/propositions.ts::projetApres). Par defaut, la Vue 3D montre deux
+//   ecrites sur les copies (regles/decisions.ts::projetApres). Par defaut, la Vue 3D montre deux
 //   vues, « Avant » et « Après », avec la meme camera (three/comparaison3d.ts) ; « Après » seul y
 //   repose les copies a la place des batiments (three/scene.ts::remplacerObjets3d) ; « Avant », ou
 //   l'ecran ferme, y rend le plan. Ainsi ni l'enregistrement ni les taches de fond ne voient jamais
@@ -12,7 +12,7 @@
 // - « Valider » ecrit tout ce qui est coche en un seul instantane d'historique : Ctrl+Z le defait, et
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
-import { appliquerPropositions, jourIso, cleDeLaCible, projetApres, type Proposition } from '../../../model/propositions.js';
+import { appliquerPropositions, jourIso, cleDeLaCible, projetApres, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
@@ -183,7 +183,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
 /**
  * Ce que la Vue 3D montre des propositions : le plan (« Avant »), les deux vues (« Les deux », par
  * defaut : l'utilisateur veut voir l'avant et l'apres ensemble pour decider), ou les copies a la place
- * des batiments (« Après »). Les copies viennent de model/propositions.ts::projetApres : le plan reste
+ * des batiments (« Après »). Les copies viennent de regles/decisions.ts::projetApres : le plan reste
  * intact, ni l'enregistrement ni les taches de fond ne voient l'apercu. `lire` rend les propositions
  * du moment, celles qui sont cochees, et le numero de leur calcul.
  */

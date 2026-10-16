@@ -19,7 +19,7 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
-import type { Proposition } from '../../model/propositions.js';
+import type { Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 
 const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude' };

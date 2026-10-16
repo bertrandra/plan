@@ -8,7 +8,7 @@ vi.mock('../../../../src/shell/dialogs.js', () => ({
 
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { brancherFaitsLocaux, essayerFaitsLocaux, reglesLocalesDemandees } from '../../../../src/app/ecouteurs/faitsLocaux.js';
-import { essayerFaitsToits, essaiDeFaits, faitDuBatiment, FaitsToitsIllisibles } from '../../../../src/model/faitsToits.js';
+import { essayerFaitsToits, essaiDeFaits, faitDuBatiment, FaitsToitsIllisibles } from '../../../../src/regles/toits/faits.js';
 import { droits } from './faux.js';
 import { entrerEnAdmin } from '../../../../src/app/acces.js';
 import type { ObjetAToit } from '../../../../src/app/toitsLidar.js';

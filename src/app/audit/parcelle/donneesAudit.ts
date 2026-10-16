@@ -6,7 +6,7 @@
 
 import { lireFichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { lireFichierPromenade, PROBLEMES_AUDIT, CATEGORIES_AUDIT, type StatutCas } from '../../../model/audit.js';
-import { faitsEnVigueur } from '../../../model/faitsToits.js';
+import { faitsEnVigueur } from '../../../regles/toits/faits.js';
 import type { PhotoCas } from '../../../model/audit.js';
 
 export interface PhotoVue { base64: string; legende: string }

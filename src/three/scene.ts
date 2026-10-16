@@ -48,7 +48,7 @@ import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
 import { geometrieGazon, materiauGazon, empreintesAuSol } from './gazon.js';
 import { voisinage3dDe, apparenceVoisin, fenetresDuVoisin } from '../model/voisinage3d.js';
-import { valeursFacadesDe } from '../model/reglagesFacades.js';
+import { valeursFacadesDe } from '../regles/facades/reglages.js';
 import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
@@ -1103,7 +1103,7 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
         detailFin: parametresQualite(vue3d.qualite).detailFinM,
         // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
         ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-      // Le profil de facades retenu pour le batiment (facade/profilsFacades.ts) : ses dimensions et ses seuils.
+      // Le profil de facades retenu pour le batiment (facade/regles/facades/profils.ts) : ses dimensions et ses seuils.
       o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o),
         ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
         // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
