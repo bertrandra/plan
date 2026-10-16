@@ -2,7 +2,7 @@
 // deploy/donnees.php, meme disposition et meme migration (MD/spec-demos-admin.md).
 //
 //   data/demo/         les demos de l'admin et de la vitrine ?mode=demo
-//   data/admin/        palette.json, controleurs.json (les echecs de connexion restent en memoire)
+//   data/admin/        palette.json, controleurs.json, arbres.json (les echecs de connexion restent en memoire)
 //   data/claude/       journal, tarifs, plafonds, modeles, batches/
 //   data/audits/       les audits recus, et pour chacun <id>/analyses/ et <id>/images/
 //   data/conformite/   mesures.json
@@ -27,14 +27,14 @@ export function dossiersDonnees({ dossierDonnees = null, dossierDemos = null, pa
   const net = (v) => (typeof v === 'string' && v.trim() ? v.replace(/\/+$/, '') : null);
   const donnees = net(dossierDonnees), demos = net(dossierDemos);
   if (!donnees && demos) {
-    return { disposition: 'ancienne', racine: demos, demos, admin: demos, palette: path.join(demos, '.palette.json'), controleurs: path.join(demos, '.controleurs.json'), echecs: path.join(demos, '.echecs.json'), anciens: [] };
+    return { disposition: 'ancienne', racine: demos, demos, admin: demos, palette: path.join(demos, '.palette.json'), controleurs: path.join(demos, '.controleurs.json'), arbres: path.join(demos, '.arbres.json'), echecs: path.join(demos, '.echecs.json'), anciens: [] };
   }
   const racine = donnees || path.join(parent, 'data');
   const liste = [];
   for (const a of [demos, ...anciens]) if (a && a !== racine && !liste.includes(a)) liste.push(a);
   return {
     disposition: 'data', racine, demos: path.join(racine, 'demo'), admin: path.join(racine, 'admin'),
-    palette: path.join(racine, 'admin', 'palette.json'), controleurs: path.join(racine, 'admin', 'controleurs.json'), echecs: path.join(racine, 'admin', 'echecs.json'), anciens: liste
+    palette: path.join(racine, 'admin', 'palette.json'), controleurs: path.join(racine, 'admin', 'controleurs.json'), arbres: path.join(racine, 'admin', 'arbres.json'), echecs: path.join(racine, 'admin', 'echecs.json'), anciens: liste
   };
 }
 
@@ -43,7 +43,7 @@ function contenuAncien(dossier) {
   try { return fs.readdirSync(dossier).filter((n) => n !== NOTE_DEPLACEMENT); } catch { return []; }
 }
 
-const REGLAGES = { '.palette.json': 'palette.json', '.palette.json.bak': 'palette.json.bak', '.controleurs.json': 'controleurs.json', '.controleurs.json.bak': 'controleurs.json.bak', '.echecs.json': 'echecs.json' };
+const REGLAGES = { '.palette.json': 'palette.json', '.palette.json.bak': 'palette.json.bak', '.controleurs.json': 'controleurs.json', '.controleurs.json.bak': 'controleurs.json.bak', '.arbres.json': 'arbres.json', '.arbres.json.bak': 'arbres.json.bak', '.echecs.json': 'echecs.json' };
 
 /** Ou va une entree de l'ancien dossier ; null : elle reste ou elle est. */
 function destinationAncienne(nom, dossier, d) {

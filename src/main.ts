@@ -47,6 +47,14 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
     ouvrirEcranConformite();
     return true;
   }
+  // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
+  // generees par EZ-tree. Plan ne demarre pas dessous.
+  const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/ecranArbres.js');
+  if (demandeEcranArbres(location.search)) {
+    document.documentElement.dataset.ecran = 'arbres';
+    await ouvrirEcranArbres();
+    return true;
+  }
   return false;
 }
 
@@ -68,6 +76,10 @@ async function demarrer(): Promise<void> {
     // La palette de l'interface enregistree sur le serveur (app/paletteServeur.ts) : chargee sans
     // attendre, posee sur la page des qu'elle arrive. Sans elle, les couleurs d'origine.
     void import('./app/paletteServeur.js').then(({ chargerPaletteServeur }) => chargerPaletteServeur());
+
+    // Les essences d'arbres du serveur (io/arbresServeur.ts) : lues sans attendre ; la 3D et
+    // l'inspecteur les prennent des qu'elles sont la. Sans elles, les arbres sont simplifies.
+    void import('./io/arbresServeur.js').then(({ chargerEspecesServeur }) => chargerEspecesServeur());
 
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.

@@ -41,6 +41,25 @@ export const ECHELLE_LUMIERE = Math.PI;
 
 type Module = Record<string, unknown>;
 
+/**
+ * EZ-tree (@dgreenheck/ez-tree), le generateur d'arbres : un module ES de plus de 4 Mo (ses textures
+ * y sont incluses), qui importe `three` par la table d'import de la page. Il n'est charge que si la
+ * bibliotheque d'essences du serveur n'est pas vide (three/ezTree.ts) et dans l'ecran admin des arbres.
+ */
+export const VERSION_EZ_TREE = '1.1.0';
+export const URL_EZ_TREE = 'https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@' + VERSION_EZ_TREE + '/build/ez-tree.es.js';
+
+let ezTree: Promise<typeof import('@dgreenheck/ez-tree')> | null = null;
+
+/** Charge EZ-tree une seule fois, apres three (meme instance : la table d'import). */
+export function chargerEzTree(): Promise<typeof import('@dgreenheck/ez-tree')> {
+  ezTree ??= chargerThree().then(() => importer(URL_EZ_TREE) as unknown as Promise<typeof import('@dgreenheck/ez-tree')>).catch((e: unknown) => {
+    ezTree = null;
+    throw e;
+  });
+  return ezTree;
+}
+
 /** Un import dynamique que ni Vite ni Rollup ne cherchent a resoudre au build : l'adresse est une donnee. */
 const importer = (url: string): Promise<Module> => import(/* @vite-ignore */ url) as Promise<Module>;
 

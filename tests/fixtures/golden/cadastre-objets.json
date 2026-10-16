@@ -657,8 +657,6 @@
    "locked": false,
    "elevation": 12,
    "diametreArbre": 5,
-   "portArbre": "rond",
-   "essenceArbre": "caduc",
    "bdtopo": {
     "couche": "estimation",
     "origine": "VEG0001",
@@ -691,8 +689,6 @@
    "locked": false,
    "elevation": 12,
    "diametreArbre": 5,
-   "portArbre": "rond",
-   "essenceArbre": "caduc",
    "bdtopo": {
     "couche": "estimation",
     "origine": "VEG0001",
@@ -725,8 +721,6 @@
    "locked": false,
    "elevation": 12,
    "diametreArbre": 5,
-   "portArbre": "rond",
-   "essenceArbre": "caduc",
    "bdtopo": {
     "couche": "estimation",
     "origine": "VEG0001",

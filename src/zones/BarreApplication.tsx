@@ -281,6 +281,11 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
             <span className="coche" aria-hidden="true" />Palette de l’interface
           </button>
         </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.arbres" onClick={aller('?admin&ecran=arbres')}>
+            <span className="coche" aria-hidden="true" />Arbres (bibliothèque)
+          </button>
+        </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
         <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />

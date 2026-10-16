@@ -1,3 +1,4 @@
+import { poserEspeces } from '../../../src/model/especesArbre.js';
 import { describe, it, expect } from 'vitest';
 import { sectionsObjet, titreObjet } from '../../../src/ui/champs/objet.js';
 import { champsVisibles, type ChampChoix, type ContexteChamps } from '../../../src/ui/champs/types.js';
@@ -38,25 +39,34 @@ describe('sections de l inspecteur par fonction', () => {
   it('range les reglages du feuillage dans une section Arbre', () => {
     const c = contexte('arbre', 'circle');
     expect(ids(c)).toContain('arbre');
-    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'portArbre', 'essenceArbre', 'styleArbre', 'couleurArbre', 'textureArbre']);
+    expect(cles(c, 'arbre')).toEqual(['diametreArbre', 'especeArbre', 'couleurArbre']);
     expect(cles(c, 'apparence')).not.toContain('diametreArbre');
     expect(ids(contexte('massif', 'circle'))).not.toContain('arbre');
   });
 
-  it('le dessin des arbres (3D) : celui des autres arbres, le dome par defaut, ecrit sur tous les arbres a la fois', () => {
-    const autre = { key: 'a2', name: 'A2', fonction: 'arbre', type: 'circle', center: { x: 5, y: 5 }, r: 0.3 } as unknown as ObjetPlan;
-    const terrasse = { key: 't', name: 'T', fonction: 'terrasse', type: 'polygon', pts: [] } as unknown as ObjetPlan;
-    const c = contexte('arbre', 'circle', {}, [autre, terrasse]);
-    const champ = sectionsObjet(c).find(s => s.id === 'arbre')!.champs.find(ch => ch.cle === 'styleArbre') as ChampChoix;
-    expect(champ.sale).toBe(false);
-    expect(champ.enregistre).toBe(true);
-    expect(champ.options(c).map(o => o.valeur)).toEqual(['actuel', 'dome', 'touffes', 'taille', 'architecte']);
-    expect(champ.lire(c)).toBe('dome');
-    champ.ecrire(c, 'touffes');
-    expect([c.obj.styleArbre, autre.styleArbre, terrasse.styleArbre]).toEqual(['touffes', 'touffes', undefined]);
-    // Un arbre ajoute ensuite, sans dessin, suit les autres.
-    const nouveau = contexte('arbre', 'circle', {}, [autre]);
-    expect(champ.lire(nouveau)).toBe('touffes');
+  it('l\'essence vient de la bibliotheque, et la choisir propose sa hauteur et son diametre', () => {
+    const e = { id: 'chene', nom: 'Chêne', caduc: true, natures: [], hauteurM: 15, diametreM: 10, reglages: { seed: 1 } };
+    poserEspeces([e, { ...e, id: 'pin', nom: 'Pin', hauteurM: 12, diametreM: 6 }]);
+    try {
+      const c = contexte('arbre', 'circle');
+      const champ = sectionsObjet(c).find(s => s.id === 'arbre')!.champs.find(ch => ch.cle === 'especeArbre') as ChampChoix;
+      expect(champ.options(c).map(o => [o.valeur, o.libelle])).toEqual([['chene', 'Chêne'], ['pin', 'Pin']]);
+      expect(champ.lire(c)).toBe('chene');
+      champ.ecrire(c, 'pin');
+      expect([c.obj.especeArbre, c.obj.elevation, c.obj.diametreArbre]).toEqual(['pin', 12, 6]);
+      // Une essence inconnue ne change rien.
+      champ.ecrire(c, 'disparu');
+      expect(c.obj.especeArbre).toBe('pin');
+    } finally {
+      poserEspeces([]);
+    }
+  });
+
+  it('sans bibliotheque, l\'essence dit qu\'il n\'y en a pas', () => {
+    const c = contexte('arbre', 'circle');
+    const champ = sectionsObjet(c).find(s => s.id === 'arbre')!.champs.find(ch => ch.cle === 'especeArbre') as ChampChoix;
+    expect(champ.options(c)).toHaveLength(1);
+    expect(champ.lire(c)).toBe('');
   });
 
   it('ne montre ni matiere ni priorite sur un point de vue', () => {

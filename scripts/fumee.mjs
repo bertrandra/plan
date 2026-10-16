@@ -2248,6 +2248,96 @@ const POINTS = {
       && e.murs?.materiau === 'brique' && annule && !deborde;
     return { ok, mesure: `fichier ${texte ? Math.round(texte.length / 1024) + ' Ko' : 'ABSENT'} ; Ctrl+Z ${defait ? 'défait' : 'NON'} ; autre parcelle : « ${refus.slice(0, 70)}… » ; question de remplacement ${demande ? 'posée' : 'ABSENTE'} ; « ${importe.slice(0, 60)}… » ; murs ${murs ? (murs.cochee ? 'cochés' : 'DÉCOCHÉS') : 'ABSENTS'}, relevé ${releve ? (releve.cochee ? 'COCHÉ' : 'décoché') : 'ABSENT'} ; partage ${caseCorpus === false ? 'décoché' : String(caseCorpus)} ; projet ${intact ? 'intact avant Valider' : 'MODIFIÉ'} ; Valider : murs ${e.murs?.materiau ?? '—'} ; Ctrl+Z ${annule ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  91: async (page) => {
+    // Les arbres d'EZ-tree (MD/spec-arbres-3d.md) : la bibliotheque du serveur est simulee (un chene
+    // et un pin, tires des presets d'EZ-tree), la Vue 3D du plan de demonstration dessine ses arbres en
+    // instances. On mesure : EZ-tree se charge, des lots `InstancedMesh` existent et couvrent tous les
+    // arbres, un caduc perd ses feuilles en janvier et un persistant les garde, le cout du dessin.
+    const preset = (n) => JSON.parse(readFileSync('node_modules/@dgreenheck/ez-tree/src/lib/presets/' + n + '.json', 'utf8'));
+    const biblio = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [
+      { id: 'chene', nom: 'Chêne', caduc: true, natures: ['feuillu'], hauteurM: 14, diametreM: 10, reglages: preset('oak_small') },
+      { id: 'pin', nom: 'Pin', caduc: false, natures: ['conif'], hauteurM: 16, diametreM: 6, reglages: preset('pine_small') }] };
+    await page.route('**/admin/arbres', (route) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(biblio) }));
+    await page.reload();
+    await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
+    // Un des arbres du plan prend le pin : deux lots d'essences differentes.
+    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) o.especeArbre = 'pin'; });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('arbres-lots'), null, { timeout: 60000 }).catch(() => {});
+    await image3dStable(page, 3500);
+    const lire = () => page.evaluate(() => {
+      const sc = window.__plan.scene3d();
+      const lots = sc?.scene.getObjectByName('arbres-lots');
+      const mailles = lots ? lots.children : [];
+      const arbres = [];
+      sc?.scene.traverse((o) => { if (o.name === 'arbre') arbres.push(o); });
+      const bois = mailles.filter((m) => m.name === 'arbres-branches'), feuilles = mailles.filter((m) => m.name === 'arbres-feuilles');
+      sc.renderer.info.reset();
+      sc.renderer.render(sc.scene, sc.camera);
+      return {
+        arbres: arbres.length, lots: bois.length, instances: bois.reduce((n, m) => n + m.count, 0),
+        triangles: sc.renderer.info.render.triangles, appels: sc.renderer.info.render.calls,
+        feuillesVisibles: feuilles.filter((m) => m.visible).length, feuillesTotal: feuilles.length,
+        essences: [...new Set(feuilles.map((m) => m.userData.caduc))].sort().join('/')
+      };
+    });
+    const ete = await lire();
+    const changerDate = (d) => page.evaluate((d) => {
+      const i = document.querySelector('[data-controle="vue3d.date"]');
+      if (!i) return;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, d);
+      i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
+    }, d);
+    await changerDate('2026-01-15');
+    await page.waitForTimeout(500);
+    const hiver = await lire();
+    await changerDate('2026-06-21');
+    const ok = ete.arbres > 0 && ete.lots >= 2 && ete.instances === ete.arbres && ete.feuillesVisibles === ete.feuillesTotal
+      && hiver.feuillesTotal === ete.feuillesTotal && hiver.feuillesVisibles > 0 && hiver.feuillesVisibles < hiver.feuillesTotal;
+    return { ok, mesure: `${ete.arbres} arbres du plan en ${ete.lots} lots (${ete.instances} instances), ${ete.triangles} triangles et ${ete.appels} appels de dessin en tout ; été : ${ete.feuillesVisibles}/${ete.feuillesTotal} lots de feuilles, hiver : ${hiver.feuillesVisibles}/${hiver.feuillesTotal} (le pin garde les siennes)` };
+  },
+  92: async (page, f) => {
+    // Admin › Arbres (`?admin&ecran=arbres`) : la bibliotheque du serveur est simulee. On mesure : EZ-tree
+    // se charge, l'apercu donne ses triangles, une essence s'ajoute depuis un modele, se renomme, et
+    // « Enregistrer » envoie un document `plan-arbres` valide avec l'en-tete admin ; rien ne deborde.
+    let envoye = null, entete = null;
+    const biblio = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [
+      { id: 'chene', nom: 'Chêne', caduc: true, natures: [], hauteurM: 14, diametreM: 10, reglages: JSON.parse(readFileSync('node_modules/@dgreenheck/ez-tree/src/lib/presets/oak_small.json', 'utf8')) }] };
+    await page.route('**/admin/**', (route) => {
+      const req = route.request(), u = new URL(req.url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/palette')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      if (u.pathname.endsWith('/admin/arbres')) {
+        if (req.method() === 'PUT') { envoye = JSON.parse(req.postData() || 'null'); entete = req.headers()['x-plan-admin']; return json({ modifieLe: envoye?.modifieLe ?? null }); }
+        return json(biblio);
+      }
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.goto(BASE + '/?admin&ecran=arbres');
+    await etape('liste des essences', () => page.locator('.arbEssence').first().waitFor({ timeout: 20000 }));
+    await etape('chiffres de l\'apercu', () => page.locator('.arbChiffres').waitFor({ timeout: 60000 }));
+    const triangles = await page.locator('.arbChiffres dd').first().textContent();
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const debords = [await deborde()];
+    // Ajouter une essence depuis un modele d'EZ-tree, puis la renommer.
+    await etape('modele Pine Small', () => page.locator('#arbPreset').selectOption('Pine Small'));
+    await etape('nouvelle essence', () => page.locator('.arbEssence').nth(1).waitFor({ timeout: 5000 }));
+    await page.locator('.arbFiche input[type="text"]').first().fill('Pin test');
+    await etape('chiffres du pin', () => page.waitForFunction(() => /Pin test/.test(document.querySelector('.arbEssence.actif')?.textContent || ''), null, { timeout: 5000 }));
+    await page.waitForTimeout(800);
+    const nbEssences = await page.locator('.arbEssence').count();
+    debords.push(await deborde());
+    await etape('enregistrement', async () => {
+      await page.getByRole('button', { name: 'Enregistrer', exact: true }).click({ timeout: 5000 });
+      await page.waitForFunction(() => /Bibliothèque enregistrée/.test(document.querySelector('.arbMessage')?.textContent || ''), null, { timeout: 8000 });
+    });
+    const ids = (envoye?.especes ?? []).map((e) => e.id + ':' + e.caduc);
+    const ok = nbEssences === 2 && /^\d/.test(triangles || '') && entete === '1' && envoye?.format === 'plan-arbres' && ids.join() === 'chene:true,pine-petit:false' && envoye?.especes?.[1]?.nom === 'Pin test' && !debords.some(Boolean);
+    return { ok, mesure: `${nbEssences} essences, aperçu à ${triangles} triangles ; envoyé : ${ids.join(', ') || 'RIEN'} ; en-tête admin ${entete ?? 'ABSENT'} ; débordement ${debords.some(Boolean) ? 'OUI' : 'non'}` };
+  },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
     // sur « Les deux » ; deux vues de la meme Vue 3D, « Avant » et « Après », a cote de l'ecran (l'une
@@ -2931,7 +3021,8 @@ function pointsPour(nomClasse) {
   // 88 : la vue epuree et la vue d'ensemble de l'audit de parcelle ; les propositions laissent voir la maison.
   // 89 : le trait renforce de la facade, de pres.
   // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90];
+  // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -61,7 +61,7 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
 de `plan-admin-config.php`), jamais servi (`deploy/donnees.php`, `buildsg/donnees.mjs` ;
 `MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
-(`palette.json`, `controleurs.json`, `echecs.json`), `data/claude/`, `data/audits/`,
+(`palette.json`, `controleurs.json`, `arbres.json`, `echecs.json`), `data/claude/`, `data/audits/`,
 `data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
 par défaut `data/` à côté de la racine web (même quand Plan est dans un sous-dossier) ; `.htaccess`
 refuse de toute façon `data/`, `plan-demos/` et `demos/`. Node : `DATA_DIR`, par défaut `data/` à
@@ -90,6 +90,8 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `GET`, `PUT /admin/controleurs` | lit, remplace le registre des contrôleurs (`.controleurs.json`, `.bak` gardé) |
 | `GET /admin/palette` | **sans session** : la palette de l'interface (`.palette.json`), que chaque page de Plan applique au démarrage ; 404 sans palette (couleurs d'origine) |
 | `PUT /admin/palette` | remplace la palette (session ; `{format: 'plan-palette', couleurs: {clair, sombre}}`, chaque couleur `#RRGGBB` ; `.bak` gardé) |
+| `GET /admin/arbres` | **sans session** : la bibliothèque d'essences d'arbres (`data/admin/arbres.json`, `MD/spec-arbres-3d.md`), que la 3D de chaque page lit ; 404 sans bibliothèque (arbres simplifiés) |
+| `PUT /admin/arbres` | remplace la bibliothèque (session ; `{format: 'plan-arbres', especes: [{id, nom, caduc, reglages…}]}`, identifiants `[a-z0-9-]` sans doublon, 256 Ko au plus ; `.bak` gardé) |
 | `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page

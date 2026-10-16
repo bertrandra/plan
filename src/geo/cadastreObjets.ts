@@ -12,7 +12,7 @@ import { fusionnerAnneaux, chainerSegments, type LimiteBrute } from '../geometry
 import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
-import { portParNature } from '../model/arbre.js';
+import { especeParNature } from '../model/especesArbre.js';
 import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
 import { coteDuNouvelAcces } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
@@ -436,8 +436,8 @@ function arbres(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPl
   return x.importe.vegetation.filter(retenu).flatMap(v=>{
     const nature = (v.props && v.props.nature) as string | undefined;
     const haut = hauteurVegetation(nature);
-    // Le port et l'essence suivent la nature de la zone : un bois de coniferes donne des cones persistants.
-    const { port, essence } = portParNature(nature);
+    // L'essence suit la nature de la zone (celle de la bibliotheque dont un mot figure dans la nature) ; sans bibliotheque, aucune.
+    const espece = especeParNature(nature);
     return arbresEstimes(v.pts, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES).map((a, i)=>{
       const c2 = x.dec(a);
       return {
@@ -447,7 +447,7 @@ function arbres(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPl
         center:{x:c2.x, y:c2.y}, r: 2.5,
         showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false,
-        elevation: haut, diametreArbre: 5, portArbre: port, essenceArbre: essence,
+        elevation: haut, diametreArbre: 5, ...(espece ? { especeArbre: espece.id } : {}),
         bdtopo: { couche:'estimation', origine: v.id, estime:true, hauteurRetenueM: haut, recupereLe: x.recupereLe }
       };
     });

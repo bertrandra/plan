@@ -1,161 +1,99 @@
 # Arbres en 3D — spécification
 
-**Version :** 1.0 — non publiée. Modules `model/arbre.ts`, `three/arbre3d.ts`.
+**Version :** 2.0 — non publiée. Modules `model/especesArbre.ts`, `model/reglagesEz.ts`,
+`three/ezTree.ts`, `three/arbre3d.ts`, `three/apercuArbre.ts`, `io/arbresServeur.ts`,
+`zones/EcranArbres.tsx`. Remplace la 1.0 (lobes, ports, dessins A à E, feuilles instanciées), supprimée.
 
 ## 1. Ce que fait la fonction
 
-Un arbre du plan (fonction `arbre`, un cercle le plus souvent) est dessiné en 3D comme un arbre et
-non plus comme une sphère sur un cylindre : un tronc conique, des branches, un **houppier en
-lobes** dont la forme suit le **port** de l'arbre, coloré en **deux tons** (dessus clair, dessous
-sombre), et une **essence** : un caduc est nu de novembre à mars, à la date de l'étude
-d'ensoleillement. C'est pour l'ombre portée sur la terrasse qu'on dessine l'arbre, et cette ombre
-change avec la saison.
+Un arbre du plan (fonction `arbre`, un cercle) est dessiné en 3D par **EZ-tree**
+(`@dgreenheck/ez-tree`, un générateur d'arbres procédural) à partir d'une **essence** : un nom, caduc
+ou persistant, des dimensions proposées et les réglages d'EZ-tree. Les essences forment une
+**bibliothèque que l'administrateur crée** dans l'écran Admin › Arbres et qui vit sur le serveur. Pour
+l'utilisateur, rien ne change que la liste : il choisit une essence dans l'inspecteur, avec sa hauteur
+et le diamètre de son feuillage.
 
-Rien n'est chargé : pas d'image, pas de modèle. L'export GLB (et donc la réalité augmentée) emporte
-l'arbre tel qu'il est vu.
+C'est pour l'ombre portée sur la terrasse qu'on dessine l'arbre, et cette ombre change avec la saison :
+un caduc est nu de novembre à mars, à la date de l'étude d'ensoleillement.
 
-### 1.1 Ce qui a été décidé
+### 1.1 Ce qui a été décidé (15–16 octobre 2026)
 
-- **Procédural et déterministe** : le houppier est tiré de la clé de l'objet (`graineDe`, comme
-  l'apparence des maisons du voisinage). Le même arbre a le même houppier à chaque ouverture, et
-  deux arbres voisins diffèrent. L'empreinte GLB est donc stable.
-- **Le diamètre annoncé est respecté** : les lobes tiennent dans le diamètre du feuillage réglé
-  dans l'inspecteur, qui reste ce que le plan montre et ce que l'ombre suit.
-- **Proposé, pas imposé** : un arbre importé reçoit un port et une essence d'après la nature de
-  la zone BD TOPO ; l'inspecteur les change.
-- **Ni panneaux croisés, ni modèles glTF** : les premiers demandent des images et donnent une ombre
-  plate ; les seconds pèsent trop pour l'export et l'AR (voir la proposition dans le CHANGELOG).
+- **Essences nommées, pas de correspondance.** L'inspecteur n'a plus Port, Essence (caduc/persistant),
+  Dessin (3D) ni Texture du feuillage : une seule liste « Essence ». Les anciens champs
+  (`portArbre`, `essenceArbre`, `styleArbre`) ne sont plus lus ; un ancien plan dessine ses arbres avec la
+  première essence. Les anciens dessins sont supprimés.
+- **Réglages publiés, génération dans la page.** Le serveur ne garde que les réglages d'EZ-tree (un JSON
+  léger) ; chaque page génère les arbres qu'elle montre. EZ-tree (plus de 4 Mo, textures comprises) ne se
+  charge **que si la bibliothèque n'est pas vide** et qu'on ouvre la 3D, ou dans l'écran admin.
+- **Instances.** Les arbres d'une même essence et d'une même variante se partagent une `InstancedMesh`
+  (branches) et une autre (feuilles) : cent chênes, deux maillages (§4).
+- **Repli.** Sans essence ou sans EZ-tree (hors ligne), un arbre est un tronc et une boule à la taille
+  voulue : ce qu'il faut pour voir où il est et projeter une ombre.
 
-## 2. Le modèle (`model/arbre.ts`)
+## 2. La bibliothèque (`model/especesArbre.ts`)
 
-| Champ | Valeurs | Défaut | Absent d'un ancien fichier |
-|---|---|---|---|
-| `portArbre` | `rond`, `etale`, `colonnaire`, `conique`, `parasol` | `rond` | lu comme `rond` |
-| `essenceArbre` | `caduc`, `persistant` | `caduc` | lu comme `caduc` |
+Un document `plan-arbres`, `data/admin/arbres.json` sur le serveur (`admin/arbres`, comme la palette :
+**lisible sans session** par chaque page, écrit avec la session admin, 256 Ko au plus, 40 essences au plus).
 
-`diametreArbre`, `couleurArbre`, `textureArbre` et la hauteur de l'objet (le tronc) sont inchangés.
-Sérialisés seulement quand ils sont posés (`io/serialisation.ts`) : un plan sans arbre réglé garde
-exactement sa forme.
+| Champ d'une essence | Rôle |
+|---|---|
+| `id` | `[a-z0-9-]`, 40 signes au plus, stable : c'est ce que porte l'objet (`especeArbre`) |
+| `nom` | ce que l'utilisateur voit (« Chêne ») |
+| `caduc` | nu de novembre à mars ; `true` par défaut |
+| `natures` | mots de la nature BD TOPO (« conif », « verger ») pour lesquels l'essence est proposée à l'import du cadastre ; sinon la première |
+| `hauteurM`, `diametreM` | les dimensions proposées quand l'utilisateur choisit l'essence |
+| `reglages` | `Tree.options` d'EZ-tree (graine, branches, écorce, feuilles…), des valeurs simples sur quatre niveaux |
 
-**Proportions par port** (hauteur du houppier pour un diamètre de 1, nombre de lobes, étalement) :
+La lecture est **tolérante** : une essence sans identifiant valide ou sans réglages est ignorée, jamais
+l'interface (`lireDocumentArbres`). L'essence d'un objet (`especeDe`) est celle qu'il porte, sinon la
+première, sinon rien.
 
-| Port | Hauteur | Lobes | Étalement | Aplatissement des satellites |
-|---|---|---|---|---|
-| rond | 1,0 | 7 | 0,32 | 1 |
-| étalé | 0,6 | 9 | 0,42 | 0,65 |
-| colonnaire | 2,6 | 6 | 0,12 | 1 |
-| conique | 2,2 | 1 (un cône) | — | — |
-| parasol | 0,45 | 8 | 0,40 | 0,5 |
+Côté serveur : `deploy/admin.php` et `buildsg/demosAdmin.mjs`, même contrat (`GET admin/arbres` sans
+session, `PUT` avec session et `X-Plan-Admin`, `.bak` de la version précédente).
 
-`houppier(port, diametre, graine)` rend un lobe central (aussi haut que le houppier) et des lobes
-satellites répartis autour et en hauteur, enfoncés dans le central ; chaque satellite reste dans
-le diamètre (`dist ≤ r − rayon`). Une branche part du sommet du tronc vers chaque satellite.
+## 3. L'objet du plan
 
-`arbreNu(essence, dateStr)` : vrai pour un caduc quand le mois est de novembre à mars ; une date
-illisible laisse l'arbre en feuilles.
+- `especeArbre` : l'essence. `diametreArbre` : la largeur du houppier. `elevation` : la **hauteur de
+  l'arbre** (plus celle du tronc seul). `couleurArbre` : une teinte des feuilles (blanc : aucune).
+- Choisir une essence dans l'inspecteur pose aussi sa hauteur et son diamètre proposés.
+- L'import du cadastre (arbres estimés : hauteur de la végétation, diamètre 5 m) propose l'essence par la
+  nature de la zone (`especeParNature`).
 
-`portParNature(nature)` : conifères → conique persistant ; verger → étalé ; haie → colonnaire
-persistant ; peupleraie → colonnaire caduc ; le reste → rond caduc.
+## 4. Le rendu
 
-## 3. Le rendu (`three/arbre3d.ts`)
+- **`three/ezTree.ts`** — génère le *modèle* d'une essence (geometrie des branches et des feuilles, deux
+  matériaux) : **une génération par essence et par variante** (`NB_VARIANTES = 3` graines autour de celle de
+  l'essence), en cache hors des scènes. Les matériaux d'EZ-tree sont refaits (sans son code de vent) ; ses
+  cartes de couleur sont lues telles quelles (`NoColorSpace`), comme le reste de la scène (sortie linéaire,
+  `three/bibliotheque.ts`).
+- **`three/arbre3d.ts`** — l'arbre du plan est un groupe `arbre` **sans maille** (pied, rotation tirée de la
+  clé, dimensions dans `userData.arbre`) ; `synchroniserArbres` en déduit les lots d'instances
+  (`arbres-branches`, `arbres-feuilles`, une matrice par arbre, la teinte par instance pour les feuilles) et
+  les refait quand la scène change (arbre posé, retiré, masqué par la vue épurée). Le plan reste la source
+  de vérité. Un rayon qui touche une instance remonte à son groupe (`arbreDeLInstance`).
+- **Saison** : `actualiserSaison` masque le lot de feuilles d'un caduc (`userData.caduc`) de novembre à mars ;
+  un persistant garde les siennes.
+- **Ombres** : les feuilles sont des plans à transparence (`alphaTest`), l'ombre est celle de leur découpe.
+- **Export GLB** : les lots partent en `EXT_mesh_gpu_instancing` (obligatoire pour qui lit le fichier ;
+  la visionneuse de Plan et model-viewer la lisent) ; l'écorce n'emporte que sa couleur ; les JPEG restent
+  des JPEG. Une essence ajoute environ 1,8 Mo de textures au fichier.
+- **Coût** : mesuré sur `oak_small` : 6 800 triangles par variante, générés en 30 ms ; `oak_medium` : 13 800.
+  L'écran admin affiche les chiffres de l'essence en cours et prévient au-delà de 30 000 triangles.
 
-- **Tronc** : cylindre conique (rayon au pied = rayon du cercle du plan, 70 % en haut), couleur
-  bois `#6b5236`. **Branches** : cylindres fins orientés du sommet du tronc vers chaque satellite.
-- **Lobes** : une sphère (14 × 10) mise à l'échelle de l'ellipsoïde, déformée par un bruit radial
-  de ± 7 % reproductible, colorée sommet par sommet : la couleur du feuillage × 1,22 au zénith de
-  la normale, × 0,68 au nadir (`tonDuSommet`). Un conique est un cône (16 côtés). La texture
-  Poly Haven, si « Texture » est cochée, se pose par-dessus les tons.
-- **Saison** : le groupe `arbre-feuillage` est masqué si `arbreNu` ; `actualiserSaison(scene, date)`
-  le rejoue à chaque changement de date (`three/soleilVue3d.ts::appliquer`), sans reconstruire la
-  scène. L'export GLB n'emporte que le visible : un caduc exporté en janvier part nu.
-- **Ombres** : les volumes sont pleins, les ombres sont celles du réglage en place.
-- **Relief** : l'arbre est posé dans un groupe au sol en son centre, comme les autres objets.
+## 5. L'écran Admin › Arbres (`?admin&ecran=arbres`)
 
-Noms des mailles : `arbre` (groupe, `userData.essence`), `arbre-tronc`, `arbre-branche`,
-`arbre-feuillage` (groupe), `arbre-lobe`, `arbre-feuilles` (instanciée, §3.1).
+Menu Admin › « Arbres (bibliothèque) ». À gauche, la liste des essences, « Ajouter à partir d'un modèle »
+(les quinze presets d'EZ-tree) ou vierge, la fiche (nom, caduc, dimensions, natures BD TOPO) et les
+réglages d'EZ-tree par groupe (forme, écorce, tronc et branches, finesse du maillage, feuilles), plus une
+zone JSON pour tout le reste. À droite, l'aperçu 3D (sa propre scène, mêmes lumières que la Vue 3D) avec
+triangles, sommets, durée de génération et dimensions du modèle, et une case « arbre nu ». « Enregistrer »
+écrit sur le serveur ; la page elle-même prend la nouvelle bibliothèque, les autres pages au chargement.
 
-### 3.1 Les feuilles, de près (`three/feuilles.ts`)
+## 6. Vérifié
 
-De loin, les lobes suffisent ; de près, un houppier lisse ressemble à une boule. Sur la surface des
-lobes, `feuillesDuHouppier` (`model/arbre.ts`) tire de petites feuilles :
-
-- **Placement** : sur chaque lobe au prorata de son aire (formule de Thomsen), sans celles qui
-  tomberaient dans un autre lobe ; un peu écartées vers l'extérieur. Sur un conique, des
-  **aiguilles** sur le flanc du cône. Une suite de tirage à part de celle du houppier : changer le
-  nombre de feuilles ne déplace pas les lobes.
-- **Nombre et taille** : 14 feuilles par m² de houppier, **900 au plus** par arbre ; leur longueur
-  couvre le houppier au tiers (entre 8 et 40 cm), une aiguille 1,4 fois plus longue et bien plus
-  fine.
-- **Forme** : quatre sommets, la pointe levée de 0,6 rad vers l'extérieur (`LEVEE_FEUILLE`) ; la
-  normale d'éclairage reste celle de la surface du houppier, pour qu'une feuille levée s'éclaire
-  comme le houppier sous elle au lieu de virer au noir. Une rotation et une inclinaison (± 0,2 rad)
-  propres à chaque feuille, une taille de 0,75 à 1,25, une nuance de 0,9 à 1,15 ; la moitié du ton
-  deux tons de sa place.
-- **Rendu** : **une seule maille instanciée par arbre** (`InstancedMesh`), une matrice et une
-  couleur par feuille, dans le groupe du feuillage : elles tombent avec lui en hiver. Jamais
-  écartée du champ par Three (sa boîte ne serait qu'une feuille à l'origine).
-- **De près seulement** : `actualiserFeuillesProches`, à chaque image, les montre quand la caméra
-  est à moins de **30 m** de l'arbre et les cache au-delà de 33 m (sans cette marge, elles
-  clignoteraient à la limite).
-- **Pas d'ombre** : l'ombre reste celle des lobes, la même quelle que soit la place de la caméra.
-
-**L'export.** `GLTFExporter` de three r128 ne connaît pas l'instanciation : il écrirait une feuille
-par arbre. `cuireFeuillesPourExport` (appelé par `three/exportGlb.ts`, comme le masquage des
-gabarits) remplace, le temps de l'export, chaque maille instanciée par une maille ordinaire
-`arbre-feuilles-cuites` qui contient toutes ses feuilles, avec une couleur par sommet, puis remet
-tout. Seuls les arbres en feuilles (pas un caduc l'hiver) à moins de **40 m** du centre de la scène
-sont cuits, **12 000 feuilles au plus** en tout, les plus proches d'abord : un voisinage de soixante
-arbres ne doit pas faire un fichier de dix mégaoctets. La visionneuse et la réalité augmentée
-montrent donc les feuilles. Les données des feuilles vivent hors de `userData`, que l'exporteur
-écrit dans le fichier (`extras`) : elles y faisaient 1,5 Mo de JSON au premier essai.
-
-Coût : moins de 2 000 triangles de feuilles par arbre, en une passe de dessin ; à l'export, environ
-140 Ko par arbre de 800 feuilles.
-
-Coût : environ 7 lobes × 14 × 10 segments, soit moins de 2 000 triangles par arbre.
-
-### 3.3 Les cinq dessins (`three/houppiers3d.ts`)
-
-Le houppier se dessine de l'une de cinq façons, la même pour tous les arbres du plan
-(`model/arbre.ts::StyleArbre`, `styleDesArbres`). Elles ont été comparées en maquette le
-11 octobre 2026, côte à côte et sur les quatre ports à houppier.
-
-| | Dessin | Ce qu'il fait | Coût (4 arbres) |
-|---|---|---|---:|
-| A | Lobes | le dessin ci-dessus, tel quel : le dernier satellite d'un houppier rond dépasse d'un demi-rayon (le « toupet »), et le bruit tiré sommet par sommet entrouvre la couture des sphères | 8 300 triangles |
-| B | **Dôme** (défaut) | les mêmes lobes, sans toupet (`sousLeHouppier` : sous le haut d'une couronne plate ; ailleurs, le sommet et les épaules du satellite dans le lobe central grossi de 12 % en largeur et 4 % en hauteur, sinon il descend par pas de 5 %), sphères de 22 × 16, bruit continu (`bruit3`) | 20 600 triangles |
-| C | Touffes | 10 à 46 icosaèdres bosselés sur l'enveloppe du port, autour d'un cœur sombre, **fusionnés en une maille** par arbre | 17 000 à 26 000 triangles |
-| D | Taillé | le lobe central et deux à quatre satellites en icosaèdres sans lissage (`flatShading`) ; un cône à sept faces | 1 500 triangles |
-| E | Maquette d'architecte | un ellipsoïde lisse, la couleur du feuillage tirée à 55 % vers un vert doux, un tronc fin gris-brun qui entre dans le houppier | 8 800 triangles |
-
-Les branches ne vont qu'aux lobes (A, B) ; les feuilles instanciées ne se posent que sur eux. Les
-dessins B à E ont un tronc à l'échelle du houppier (un rayon de 9 % du diamètre, 5 % pour E, jamais plus que le cercle du plan),
-parce que le cercle du plan est parfois le houppier lui-même (arbres estimés : 5 m de diamètre). Un
-conifère reste un cône. Tous gardent le diamètre et la hauteur du houppier : son ombre sur la
-terrasse ne dépend pas du dessin.
-
-## 4. L'interface
-
-Section **Arbre** de l'inspecteur (`ui/champs/objet.ts`) : Diamètre du feuillage, **Port**,
-**Essence**, **Dessin (3D)**, Couleur du feuillage, Texture du feuillage. Effet `scene3d`.
-
-« Dessin (3D) » est une préférence d'affichage comme « Gazon (3D) » (`sale: false`,
-`enregistre: true`), mais pour tout le plan : elle s'écrit sur chaque arbre (`styleArbre`), et un
-arbre qui ne la porte pas encore suit les autres. Sans choix, le Dôme.
-
-## 5. Vérifié
-
-- `tests/unit/model/arbre.test.ts` : défauts, nature BD TOPO, saison, proportions par port,
-  reproductibilité, lobes dans le diamètre, branches.
-- `tests/unit/three/arbre3d.test.ts` : structure des mailles avec un THREE minimal, cône du
-  conifère, nudité en janvier, reproductibilité, texture seulement avec les textures,
-  `actualiserSaison`, tons.
-- `tests/unit/model/arbre.test.ts` (feuilles) : reproductibles, plafonnées, sur la surface d'un lobe
-  et hors des autres, aiguilles sur le cône, taille qui suit le houppier.
-- `tests/unit/three/feuilles.test.ts` : gabarit, matrices orthonormées, couleur, cuisson ; la maille
-  instanciée (cachée, sans ombre, jamais écartée du champ), l'affichage de près avec sa marge, la
-  cuisson à l'export et sa remise, un caduc nu exporté sans feuilles, rien dans `userData`.
-- Témoins : `cadastre-objets.json` (les arbres estimés portent port et essence) et
-  `glb-structure.json` (les arbres de la démonstration ont plus de mailles), recapturés et notés
-  dans `EMPREINTES.md`. La fumée 24 fixe la date au 21 juin pour que le témoin ne dépende pas du
-  jour où elle se joue.
+- `tests/unit/model/especesArbre.test.ts` : lecture tolérante, document, bibliothèque chargée, nature, saison.
+- `tests/unit/three/arbre3d.test.ts` : groupe sans maille, repli, lots d'instances (taille, partage, masque,
+  teinte, retrouver l'arbre touché), saison. EZ-tree y est remplacé par un faux générateur.
+- `tests/unit/{deploy/adminPhp,buildsg/demosAdmin}.test.ts` : la route `admin/arbres`, côté PHP et côté Node.
+- Fumée 91 (les arbres en instances, la saison) et 92 (l'écran admin).
+- Témoins : `glb-structure.json` et `cadastre-objets.json` recapturés, notés dans `EMPREINTES.md`.

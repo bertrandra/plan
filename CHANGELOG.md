@@ -5,7 +5,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Les arbres sont générés par EZ-tree, depuis une bibliothèque d'essences que l'administrateur crée**
+  (`MD/spec-arbres-3d.md` 2.0). Nouvel écran Admin › Arbres (`?admin&ecran=arbres`) : on y crée des
+  essences (un nom, caduc ou persistant, des dimensions, les réglages d'EZ-tree à partir des quinze modèles
+  ou d'un arbre vierge) avec un aperçu 3D, ses triangles et le temps de génération. La bibliothèque vit sur le
+  serveur (`admin/arbres`, lisible sans session, PHP et Node). L'inspecteur d'un arbre ne propose plus qu'une
+  liste « Essence », avec le diamètre du feuillage ; choisir une essence propose sa hauteur et son diamètre.
+  Les arbres d'une même essence se dessinent en `InstancedMesh`. EZ-tree (4 Mo) ne se charge que si la
+  bibliothèque n'est pas vide ; sans lui ni essence, l'arbre est un tronc et une boule.
+
 ### Modifié
+
+- **Les anciens dessins d'arbres sont supprimés** (lobes, dôme, touffes, taillé, maquette d'architecte,
+  feuilles instanciées, port, essence caduc/persistant, texture du feuillage), sans correspondance : un
+  ancien plan dessine ses arbres avec la première essence de la bibliothèque. La hauteur d'un arbre est
+  maintenant celle de l'arbre entier. L'export GLB emporte les arbres en instances
+  (`EXT_mesh_gpu_instancing`) ; `glb-structure.json` et `cadastre-objets.json` recapturés
+  (`tests/fixtures/golden/EMPREINTES.md`).
 
 - **three.js passe de la r128 à la 0.186.1** (la dernière). Les builds UMD et `examples/js` n'existent plus : la
   bibliothèque arrive en modules ES depuis jsDelivr (`src/three/bibliotheque.ts`), par une table d'import

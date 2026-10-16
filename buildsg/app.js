@@ -50,6 +50,7 @@ const adminDemos = creerAdminDemos({
   dossier: donnees.demos,
   palette: donnees.palette,
   controleurs: donnees.controleurs,
+  arbres: donnees.arbres,
   motDePasse: process.env.ADMIN_PASSWORD
 });
 

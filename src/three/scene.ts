@@ -23,10 +23,8 @@ import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } 
 import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
-import { styleDesArbres } from '../model/arbre.js';
-import { ajouterArbre3d } from './arbre3d.js';
+import { ajouterArbre3d, synchroniserArbres, arbreDeLInstance } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
-import { actualiserFeuillesProches } from './feuilles.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
 import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues, imageAttendue } from './comparaison3d.js';
@@ -653,19 +651,24 @@ function ajouterParasol(par: ObjetCercle, co: ContexteObjets): void {
 }
 
 /**
- * Un arbre (three/arbre3d.ts) : son tronc a la hauteur de l'objet, son houppier par-dessus, pose sur
- * le sol en son centre, dans le dessin choisi pour tous les arbres du plan. Le feuillage d'un caduc
- * suit la date de l'etude d'ensoleillement.
+ * Un arbre (three/arbre3d.ts) : un groupe pose sur le sol en son centre, a la hauteur de l'objet
+ * (sinon celle de son essence) ; les arbres d'une meme essence se dessinent ensemble, en instances
+ * (`rafraichirArbres`). Le feuillage d'un caduc suit la date de l'etude d'ensoleillement.
  */
 function ajouterArbreDuPlan(o: ObjetPlan, co: ContexteObjets): void {
   const h = co.ctx.elevationOf(o);
-  if (h <= 0) return;
   const centre = centreDe(o);
   const cible = groupeAuSol(co.scene, co.sol, centre);
-  ajouterArbre3d(
-    { scene: cible, toLocal: co.versLocal, textures: vue3d.textures, chargerTexture: co.ctx.chargerTexturePolyhaven, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o), style: styleDesArbres(co.objets) },
-    o, h, o.type === 'circle' ? o.r : 0.3
-  );
+  ajouterArbre3d({ scene: cible, toLocal: co.versLocal, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o) }, o, h > 0 ? h : 0);
+}
+
+/**
+ * Refait les lots d'instances des arbres d'apres ce que la scene montre (three/arbre3d.ts) : a
+ * rappeler des qu'un arbre est pose, retire ou masque. Les lots neufs recoivent leurs ombres.
+ */
+function rafraichirArbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
+  synchroniserArbres(scene, soleilVue3d.dateStr, visibleDansLaScene);
+  appliquerOmbres(scene, ground);
 }
 
 /**
@@ -851,6 +854,8 @@ function appliquerEpure(): void {
   };
   for (const [cle, racines] of poseParObjet) for (const r of racines) masquer(r, !!garder && !garder(cle));
   for (const r of horsObjets) masquer(r, !!garder);
+  // Les arbres masques quittent leurs lots, ceux qui reviennent y rentrent.
+  if (derniere && vue3d.scene && derniere.sc === vue3d.scene) rafraichirArbres(derniere.sc.scene, derniere.ground);
 }
 
 /**
@@ -916,10 +921,11 @@ export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle
   for (const [cle, racines] of poseParObjet) for (const r of racines) proprietaire.set(r, cle);
   let premierPoint: PtBrut | null = null;
   for (const t of rayon.intersectObjects(sc.scene.children, true)) {
-    // Le rayon de three r128 ne regarde pas `visible` : un objet masque (vue epuree) ne se touche pas.
+    // Le rayon de three ne regarde pas `visible` : un objet masque (vue epuree) ne se touche pas.
     if (!estMesh(t.object) || !visibleDansLaScene(t.object)) continue;
     premierPoint ??= versPlan(t.point);
-    for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
+    // Un arbre touche par une instance : on remonte de son groupe, pas du lot qui le dessine.
+    for (let o: THREE_NS.Object3D | null = arbreDeLInstance(t.object, t.instanceId) ?? t.object; o; o = o.parent) {
       const cle = proprietaire.get(o);
       // `retenir` laisse le rayon traverser ce qui ne compte pas pour l'appelant : un arbre devant
       // la facade a photographier (audit de la parcelle).
@@ -959,7 +965,7 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
   }
   // Un batiment repose (l'apercu « Après » de l'audit) suit la vue epuree comme les autres.
   if (garderSeulement) appliquerEpure();
-  appliquerOmbres(co.scene, d.ground);
+  rafraichirArbres(co.scene as THREE_NS.Scene, d.ground);
   return true;
 }
 
@@ -1232,7 +1238,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
       cadre: bornes,
     });
   }
-  appliquerOmbres(scene, ground);
+  rafraichirArbres(scene, ground);
 
   const sc: SceneVue3d = {
     renderer, scene, camera, controls, raf: null,
@@ -1248,10 +1254,9 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   derniere = { sc, co, obj, ground };
   // L'audit de la parcelle en cours : la scene neuve ne montre que ce qu'il garde.
   if (garderSeulement) appliquerEpure();
-  // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
   // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
   const solCentre = sol ? sol.hauteur(cen) : 0;
-  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); actualiserFeuillesProches(scene, camera); if (imageAttendue(sc)) rendre3d(sc); };
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); if (imageAttendue(sc)) rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);
