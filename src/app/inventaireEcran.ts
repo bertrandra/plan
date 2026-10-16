@@ -111,7 +111,7 @@ export function ecartsDeZone(doc: Document): EcartZone[] {
 }
 
 /** Ce qui n'est pas Plan : l'ecran des controleurs lui-meme et la porte. */
-const EXCLUS = '#zoneControleurs, #zoneEcranPalette, #zonePorte';
+const EXCLUS = '#zoneControleurs, #zoneEcranPalette, #zoneEcranArbres, #zonePorte';
 const CONTROLES = 'button, input:not([type="hidden"]), select, textarea, [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [role="slider"]';
 const RATTACHE = '[data-commande], [data-controle], [data-cle], [data-section]';
 

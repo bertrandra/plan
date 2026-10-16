@@ -192,7 +192,8 @@ interface ObjetCommun {
    * Textures Poly Haven posees par l'utilisateur, choisies dans `ui/texturePicker.ts`.
    *
    * `textureVerticale`/`textureHorizontale` s'appliquent aux faces d'un objet de terrasse (le
-   * platelage vu de dessus, ses tranches vues de cote) ; `textureArbre` au feuillage d'un arbre.
+   * platelage vu de dessus, ses tranches vues de cote). `textureArbre` n'est plus lue depuis les arbres d'EZ-tree ; le champ reste ecrit
+   * (a null) pour que le format du fichier, et ses empreintes, ne bougent pas.
    */
   textureVerticale?: TextureAppliquee | null;
   textureHorizontale?: TextureAppliquee | null;
@@ -257,11 +258,8 @@ interface ObjetCommun {
   modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps';
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
   ruesVoisinage?: RuesVoisinage | null;
-  /** Le port (forme du houppier) et l'essence (caduc, persistant) d'un arbre en 3D (model/arbre.ts). Absents : rond, caduc. */
-  portArbre?: 'rond' | 'etale' | 'colonnaire' | 'conique' | 'parasol';
-  essenceArbre?: 'caduc' | 'persistant';
-  /** Le dessin des arbres en 3D (model/arbre.ts::StyleArbre), ecrit sur tous les arbres a la fois. Absent : celui des autres, sinon le dome. */
-  styleArbre?: 'actuel' | 'dome' | 'touffes' | 'taille' | 'architecte';
+  /** L'essence d'un arbre en 3D : l'identifiant d'une essence de la bibliotheque du serveur (model/especesArbre.ts). Absent : la premiere. */
+  especeArbre?: string;
   /**
    * Releves de facade d'un batiment : un par mur photographie, rattache au cote du contour qui le
    * porte (`MD/spec-releve-facade.md`). Absent tant que rien n'a ete releve - le fichier de projet

@@ -175,4 +175,8 @@ export async function servirThreeLocal(page) {
   const servir = (route, fichier) => existsSync(fichier) ? route.fulfill({ path: fichier, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' } }) : route.continue();
   await page.route(/cdn\.jsdelivr\.net\/npm\/three@[\d.]+\/(.*)/, (route) =>
     servir(route, racine + route.request().url().split(/three@[\d.]+\//)[1].split('?')[0]));
+  // EZ-tree (le generateur d'arbres, three/bibliotheque.ts), de node_modules lui aussi.
+  const ez = new URL('../node_modules/@dgreenheck/ez-tree/', import.meta.url).pathname;
+  await page.route(/cdn\.jsdelivr\.net\/npm\/@dgreenheck\/ez-tree@[\d.]+\/(.*)/, (route) =>
+    servir(route, ez + route.request().url().split(/ez-tree@[\d.]+\//)[1].split('?')[0]));
 }

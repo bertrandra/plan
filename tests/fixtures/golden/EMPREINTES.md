@@ -530,6 +530,25 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
   téléchargé changent sans qu'aucun format ne casse ni qu'aucune quantité bouge : au plus une version
   mineure (`MD/RELEASE.md`), annoncée au CHANGELOG ; `APP_VERSION` n'est pas touchée ici.
 
+  **16 octobre 2026 — les arbres d'EZ-tree : `glb-structure.json` et `cadastre-objets.json` recapturés.**
+  Les anciens dessins d'arbres (lobes, dôme, touffes, taillé, maquette, feuilles instanciées) sont
+  supprimés ; un arbre est généré par EZ-tree d'après une essence de la bibliothèque du serveur
+  (`MD/spec-arbres-3d.md`). Le témoin se capture **sans bibliothèque** (la fumée n'en simule pas au
+  point 24), donc avec le *repli* : un tronc et une boule.
+  - `glb-structure.json` : le point 24 rend **1 144 nœuds, 956 mailles, 1 455 matériaux, 16 textures
+    et 16 images, 3 958 accesseurs, 3 974 vues tampon, 11 717 344 octets** (avant : 1 183 / 995 / 1 458 /
+    16 / 16 / 4 135 / 4 151, 12 624 552 octets) : −39 nœuds, −39 mailles (un arbre n'a plus ses
+    branches ni ses lobes, mais un tronc et une boule), −3 matériaux, −177 accesseurs.
+  - `cadastre-objets.json` : les trois arbres estimés de l'import n'écrivent plus `portArbre` ni
+    `essenceArbre` (six lignes) ; ils portent `especeArbre` quand une bibliothèque est chargée, aucun
+    ici. `projet.json` et les quatre autres empreintes ne bougent pas.
+  - Avec une bibliothèque de deux essences (un chêne et un pin d'EZ-tree, `oak_small`, `pine_small`),
+    mesuré le même jour sur la démonstration : **15 355 592 octets**, 1 140 nœuds, 954 mailles, 22
+    textures. Les arbres y sont des lots `InstancedMesh` (extension `EXT_mesh_gpu_instancing`,
+    obligatoire pour qui lit le fichier : la visionneuse de Plan et model-viewer la lisent) ; l'écorce
+    n'emporte que sa couleur, les cartes de relief et d'occlusion sont retirées le temps de l'export.
+    Le reste du poids vient des textures d'EZ-tree (écorce et feuilles) : environ 1,8 Mo par essence.
+
 ## Les fichiers
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
@@ -540,7 +559,7 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `21d42b16c692aff6bbce2f7faa1e2a936a8bd57424cbe451f7583370a64439f0` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
 
 ## La rupture du 29 août 2026

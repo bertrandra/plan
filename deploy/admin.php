@@ -13,6 +13,8 @@
 //   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
 //   GET    admin/palette          la palette de l'interface, SANS session : chaque page l'applique
 //   PUT    admin/palette          la remplace (session ; styles/paletteServeur.ts)
+//   GET    admin/arbres           la bibliotheque d'essences d'arbres, SANS session : la 3D la lit
+//   PUT    admin/arbres           la remplace (session ; model/especesArbre.ts)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -121,6 +123,20 @@ if ($chemin === 'palette' && $lecture) {
     header('Access-Control-Allow-Origin: *');
     $f = $donnees['palette'];
     if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune palette enregistrée.');
+    header('Cache-Control: no-cache');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
+// --- Les essences d'arbres ----------------------------------------------------------------------
+// La bibliotheque d'EZ-tree (model/especesArbre.ts) : la 3D de chaque page en a besoin pour dessiner
+// les arbres, donc lisible sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'arbres' && $lecture) {
+    header('Access-Control-Allow-Origin: *');
+    $f = $donnees['arbres'];
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune bibliothèque d’arbres enregistrée.');
     header('Cache-Control: no-cache');
     header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
     http_response_code(200);
@@ -294,6 +310,33 @@ if ($chemin === 'palette') {
         }
     }
     if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une palette (couleurs #RRGGBB, thèmes clair et sombre).');
+    if (is_file($f)) copy($f, $f . '.bak');
+    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
+        @unlink($tmp);
+        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    }
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les essences d'arbres, en ecriture : un document `plan-arbres`, des essences a identifiant [a-z0-9-] et reglages.
+if ($chemin === 'arbres') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $donnees['arbres'];
+    $texte = (string)file_get_contents('php://input', false, null, 0, 262145);
+    if (strlen($texte) > 262144) erreur(413, 'TOO_LARGE', 'Bibliothèque trop grosse (256 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-arbres' && isset($d['especes']) && is_array($d['especes']) && count($d['especes']) <= 40;
+    if ($valide) {
+        $ids = [];
+        foreach ($d['especes'] as $e) {
+            if (!is_array($e) || !isset($e['id']) || !is_string($e['id']) || !preg_match('/^[a-z0-9][a-z0-9-]{0,39}$/', $e['id']) || isset($ids[$e['id']])
+                || !isset($e['reglages']) || !is_array($e['reglages'])) { $valide = false; break; }
+            $ids[$e['id']] = true;
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).');
     if (is_file($f)) copy($f, $f . '.bak');
     $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
     $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

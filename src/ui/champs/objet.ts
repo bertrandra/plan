@@ -7,7 +7,7 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
-import { PORTS, ESSENCES, STYLES_ARBRE, LIBELLES_PORT, LIBELLES_ESSENCE, LIBELLES_STYLE_ARBRE, portDe, essenceDe, styleDesArbres, type PortArbre, type EssenceArbre, type StyleArbre } from '../../model/arbre.js';
+import { especeDe, especesChargees, especeParId } from '../../model/especesArbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
@@ -63,7 +63,7 @@ export function titreObjet(c: ContexteChamps): string {
 }
 
 /** Un champ texture : la vignette, le nom, choisir, retirer. */
-function texture(cle: 'textureVerticale' | 'textureHorizontale' | 'textureArbre', libelle: string): Champ {
+function texture(cle: 'textureVerticale' | 'textureHorizontale', libelle: string): Champ {
   return {
     type: 'texture', cle, libelle, effets: ['inspecteur', 'scene3d'],
     lire: (c) => c.obj[cle],
@@ -261,37 +261,28 @@ const sectionArbre: Section = {
   champs: [
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
-      aide: 'Diamètre du houppier posé sur le tronc, utilisé par la Vue 3D',
+      aide: 'Largeur du houppier : l’arbre 3D est mis à cette largeur (sa hauteur est celle de l’objet)',
       lire: (c) => c.obj.diametreArbre ?? 3, ecrire: (c, v) => { c.obj.diametreArbre = Math.max(0.1, v) || 3; }
     },
+    // L'essence vient de la bibliotheque que l'administrateur cree (ecran « Arbres ») : choisir une
+    // essence propose aussi ses dimensions, que l'on regle ensuite a la main.
     {
-      type: 'choix', cle: 'portArbre', libelle: 'Port', effets: ['scene3d'],
-      aide: 'La forme du houppier en 3D : rond, étalé, colonnaire, conique, parasol',
-      options: () => PORTS.map((p) => ({ valeur: p, libelle: LIBELLES_PORT[p] })),
-      lire: (c) => portDe(c.obj), ecrire: (c, v) => { c.obj.portArbre = v as PortArbre; }
+      type: 'choix', cle: 'especeArbre', libelle: 'Essence', effets: ['scene3d', 'inspecteur'],
+      aide: 'L’essence de l’arbre en 3D ; un caduc est nu de novembre à mars, à la date de l’étude d’ensoleillement',
+      options: () => especesChargees().length ? especesChargees().map((e) => ({ valeur: e.id, libelle: e.nom })) : [{ valeur: '', libelle: 'Aucune essence en bibliothèque (arbre simplifié)' }],
+      lire: (c) => especeDe(c.obj)?.id ?? '',
+      ecrire: (c, v) => {
+        const e = especeParId(v);
+        if (!e) return;
+        c.obj.especeArbre = e.id;
+        c.obj.elevation = e.hauteurM;
+        c.obj.diametreArbre = e.diametreM;
+      }
     },
     {
-      type: 'choix', cle: 'essenceArbre', libelle: 'Essence', effets: ['scene3d'],
-      aide: 'Un caduc est nu de novembre à mars, à la date de l’étude d’ensoleillement ; son ombre change avec la saison',
-      options: () => ESSENCES.map((e) => ({ valeur: e, libelle: LIBELLES_ESSENCE[e] })),
-      lire: (c) => essenceDe(c.obj), ecrire: (c, v) => { c.obj.essenceArbre = v as EssenceArbre; }
-    },
-    // Le dessin des arbres en 3D (A a E, maquettes comparees) : une preference d'affichage, comme
-    // « Gazon (3D) », mais pour tout le plan a la fois. Elle s'ecrit sur chaque arbre, pour etre
-    // retrouvee a la reouverture ; un arbre ajoute ensuite suit les autres (model/arbre.ts::styleDesArbres).
-    {
-      type: 'choix', cle: 'styleArbre', libelle: 'Dessin (3D)', sale: false, enregistre: true, effets: ['scene3d', 'inspecteur'],
-      aide: 'La façon de dessiner les arbres dans la Vue 3D ; leur emprise, leur hauteur et leur ombre ne changent pas',
-      note: () => 'Pour tous les arbres du plan',
-      options: () => STYLES_ARBRE.map((s) => ({ valeur: s, libelle: LIBELLES_STYLE_ARBRE[s] })),
-      lire: (c) => styleDesArbres(c.objets.filter((o) => o.fonction === 'arbre')),
-      ecrire: (c, v) => { for (const o of c.objets) if (o.fonction === 'arbre') o.styleArbre = v as StyleArbre; }
-    },
-    {
-      type: 'couleur', cle: 'couleurArbre', libelle: 'Couleur du feuillage', effets: ['scene3d'],
-      lire: (c) => c.obj.couleurArbre || '#4a7c3a', ecrire: (c, v) => { c.obj.couleurArbre = v; }
-    },
-    texture('textureArbre', 'Texture du feuillage')
+      type: 'couleur', cle: 'couleurArbre', libelle: 'Teinte du feuillage', effets: ['scene3d'],
+      lire: (c) => c.obj.couleurArbre || '#ffffff', ecrire: (c, v) => { c.obj.couleurArbre = v; }
+    }
   ]
 };
 

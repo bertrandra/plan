@@ -8,9 +8,10 @@
 // qui garantit que le fichier livre montre ce que l'utilisateur a vu.
 
 import { retirerReliefsEcran } from './materiauxVivants.js';
-import { cuireFeuillesPourExport } from './feuilles.js';
 import { vue3d, glb, affichage3d, signaler3d, type PlanVuDeLa3d } from './etat3d.js';
 import { showToast, showErrBanner } from '../shell/dialogs.js';
+import { garderLesJpegDeLaScene } from './chargeurs.js';
+import { allegerArbresPourExport } from './arbre3d.js';
 import { ensureThreeLoaded, ensureGLTFExporterLoaded, attendreTexturesPretes, disposeThreeScene } from './glbViewer.js';
 import { estMesh } from './gardes.js';
 import { COUCHE_APRES } from './comparaison3d.js';
@@ -137,9 +138,11 @@ export function genererGlb(etat: PlanVuDeLa3d, telecharger: boolean, ctx: Contex
             const remettreGabarits = masquerGabarits(sc.scene);
             // Le relief des textures dessinees est propre a l'ecran (three/materiauxVivants.ts).
             const remettreReliefs = retirerReliefsEcran(sc.scene);
-            // Les feuilles instanciees, que l'exporteur ne sait pas ecrire, deviennent des mailles ordinaires (three/feuilles.ts).
-            const feuilles = cuireFeuillesPourExport(sc.scene);
-            remettreSiBesoin = () => { sansImage.remettre(); remettreGabarits(); remettreReliefs(); feuilles.remettre(); };
+            // Les images JPEG (ecorces d'EZ-tree, textures Poly Haven) restent des JPEG dans le .glb.
+            garderLesJpegDeLaScene(sc.scene);
+            // Les ecorces des arbres n'emportent que leur couleur (three/arbre3d.ts).
+            const remettreEcorces = allegerArbresPourExport(sc.scene);
+            remettreSiBesoin = () => { sansImage.remettre(); remettreGabarits(); remettreReliefs(); remettreEcorces(); };
             let fini = false;
             const filet = setTimeout(() => {
               if (fini) return; fini = true;

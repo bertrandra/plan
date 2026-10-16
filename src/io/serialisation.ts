@@ -45,7 +45,7 @@ function allegerVoisinage(out: Record<string, unknown>): void {
   // voisinage d'un kilometre : un megaoctet sur dix (MD/roadmap-toits-fond.md).
   if(!out.clotureActive){ delete out.clotureHauteur; delete out.clotureCouleur; }
   if(out.fonction !== 'parasol') delete out.hauteurParasol;
-  if(out.fonction !== 'arbre'){ for(const k of ['diametreArbre', 'couleurArbre', 'portArbre', 'essenceArbre', 'styleArbre']) delete out[k]; }
+  if(out.fonction !== 'arbre'){ for(const k of ['diametreArbre', 'couleurArbre', 'especeArbre']) delete out[k]; }
 }
 
 export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
@@ -63,7 +63,7 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       clotureActive: !!o.clotureActive, clotureHauteur: o.clotureHauteur,
       clotureCouleur: o.clotureCouleur, clotureTexture: o.clotureTexture || null,
       diametreArbre: o.diametreArbre, couleurArbre: o.couleurArbre,
-      portArbre: o.portArbre, essenceArbre: o.essenceArbre, styleArbre: o.styleArbre,
+      especeArbre: o.especeArbre,
       textureArbre: o.textureArbre || null,
       latitude: o.latitude, longitude: o.longitude, nomLieu: o.nomLieu,
       hauteurParasol: o.hauteurParasol, terrasseLieeKey: o.terrasseLieeKey || null,

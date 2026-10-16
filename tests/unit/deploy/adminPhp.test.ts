@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette, lireArbres, enregistrerArbres } from '../../../src/io/depotDemos.js';
 
 // admin.php, l'admin des demos sans Node (deploy/admin.php), contre le depot de la page : memes
 // scenarios que buildsg/demosAdmin.mjs. Lance par le serveur integre de PHP ; saute si PHP manque.
@@ -194,5 +194,24 @@ describe.skipIf(!php)('admin.php', () => {
     await expect(enregistrerPalette(navigateur, { format: 'plan-palette', couleurs: { clair: { accent: 'rouge' } } })).rejects.toMatchObject({ reason: 'server' });
     await expect(enregistrerPalette(navigateur, { couleurs: {} })).rejects.toMatchObject({ reason: 'server' });
     expect(await lirePalette(navigateur)).toEqual(palette);
+  });
+
+  it('sert la bibliotheque d arbres sans session, et ne l ecrit qu avec la session', async () => {
+    
+    expect(await lireArbres(navigateur)).toBe(null);
+    const arbres = { format: 'plan-arbres', version: 1, modifieLe: '2026-10-16T08:00:00.000Z', especes: [{ id: 'chene', nom: 'Chêne', caduc: true, reglages: { seed: 1, branch: { levels: 3 } } }] };
+    await expect(enregistrerArbres(navigateur, arbres)).rejects.toThrow(/session admin/);
+    await connecterAdmin(navigateur, 'secret-admin');
+    await enregistrerArbres(navigateur, arbres);
+    const r = await fetch(base + '/admin/arbres');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    expect(await r.json()).toEqual(arbres);
+    // Un identifiant hors [a-z0-9-], un doublon ou un document d'un autre format sont refuses.
+    await expect(enregistrerArbres(navigateur, { ...arbres, especes: [{ id: 'Chêne', reglages: { a: 1 } }] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerArbres(navigateur, { ...arbres, especes: [arbres.especes[0], arbres.especes[0]] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerArbres(navigateur, { format: 'plan-palette', especes: [] })).rejects.toMatchObject({ reason: 'server' });
+    expect(await lireArbres(navigateur)).toEqual(arbres);
   });
 });

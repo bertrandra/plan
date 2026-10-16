@@ -199,6 +199,31 @@ export async function lirePalette(f: Fetch): Promise<unknown> {
   return r.json() as Promise<unknown>;
 }
 
+/**
+ * La bibliotheque d'essences d'arbres du serveur (`admin/arbres`, model/especesArbre.ts), ou `null`
+ * s'il n'y en a pas. Lue SANS session : la 3D de chaque page en a besoin.
+ */
+export async function lireArbres(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/arbres', { credentials: 'same-origin', cache: 'no-cache' });
+  } catch (e) {
+    throw echec('lecture de la bibliotheque d\'arbres : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture de la bibliotheque d\'arbres');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace la bibliotheque d'arbres du serveur ; il garde la precedente en `.bak`. */
+export async function enregistrerArbres(f: Fetch, document: unknown): Promise<void> {
+  await appeler(f, '/arbres', 'enregistrement de la bibliotheque d\'arbres', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN },
+    body: JSON.stringify(document)
+  });
+}
+
 /** Remplace la palette du serveur ; il garde la precedente en `.bak`. */
 export async function enregistrerPalette(f: Fetch, document: unknown): Promise<void> {
   await appeler(f, '/palette', 'enregistrement de la palette', {

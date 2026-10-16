@@ -13,6 +13,7 @@ import type * as THREE_NS from 'three';
 import { vue3d, glb, chargement, affichage3d, hotes3d, signaler3d, type SceneGlb } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
 import { chargerExemple, ECHELLE_LUMIERE } from './bibliotheque.js';
+import { preparerEzTree } from './ezTree.js';
 import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded, estTexturePartagee } from './chargeurs.js';
@@ -84,7 +85,8 @@ export function attendreTexturesPretes(scene: THREE_NS.Object3D, delaiMaxMs: num
 export function ensureThreeLoaded(cb: () => void): void {
   if (chargement.three && window.THREE && window.THREE.OrbitControls) { cb(); return; }
   // La bibliotheque, puis ses controles ; une erreur de `cb` ne doit pas passer pour une erreur de reseau.
-  chargerExemple('controls/OrbitControls.js', ['OrbitControls']).then(
+  // Puis EZ-tree, s'il y a des essences d'arbres a dessiner : il ne leve jamais, hors ligne les arbres restent simplifies.
+  chargerExemple('controls/OrbitControls.js', ['OrbitControls']).then(preparerEzTree).then(
     () => { chargement.three = true; cb(); },
     () => showErrBanner('Impossible de charger la bibliotheque 3D (connexion internet requise pour cette fonctionnalite).')
   );

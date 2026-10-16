@@ -95,7 +95,7 @@ describe.skipIf(!php)('les donnees, cote PHP', () => {
     // L'ancien reglage seul garde l'ancienne disposition.
     expect(donneesPhp("dossiersDonnees(['dossierDemos' => '/h/plan-demos'], '/h/public_html', '/h/public_html', '/h/plan-admin-config.php')")).toEqual({
       disposition: 'ancienne', racine: '/h/plan-demos', demos: '/h/plan-demos', admin: '/h/plan-demos', palette: '/h/plan-demos/.palette.json',
-      controleurs: '/h/plan-demos/.controleurs.json', echecs: '/h/plan-demos/.echecs.json', anciens: [] });
+      controleurs: '/h/plan-demos/.controleurs.json', arbres: '/h/plan-demos/.arbres.json', echecs: '/h/plan-demos/.echecs.json', anciens: [] });
     // Sans reglage : data/ a cote de la racine web, meme quand Plan est dans un sous-dossier.
     expect(donneesPhp("dossiersDonnees(['motDePasse' => 'x'], '/h/public_html', '/h/public_html/plan', '/h/plan-admin-config.php')")).toMatchObject({
       disposition: 'data', racine: '/h/data', demos: '/h/data/demo', palette: '/h/data/admin/palette.json', anciens: ['/h/plan-demos', '/h/public_html/plan/demos'] });

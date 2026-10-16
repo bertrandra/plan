@@ -131,6 +131,13 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   validation est figée sur le fichier (`validation.figer`), en lecture seule. Ne pas écrire un second
   aperçu 3D : toute évolution de l'avant/après (et plus tard les décisions) se fait dans
   `validation.ts` / `PropositionsAudit.tsx`, pour les deux.
+- **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences de l'admin**
+  (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) ; l'utilisateur choisit une essence
+  et ses dimensions, rien d'autre. Les anciens dessins (ports, lobes, feuilles) sont supprimés, sans
+  correspondance. Un arbre du plan est un groupe sans maille, dessiné par des lots `InstancedMesh`
+  refaits par `synchroniserArbres` (`three/arbre3d.ts`) : tout code qui pose, retire ou masque un arbre doit
+  repasser par `rafraichirArbres` (scene.ts). Les textures d'EZ-tree se lisent en `NoColorSpace`. Le témoin
+  GLB se capture **sans bibliothèque** (repli : tronc et boule).
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).

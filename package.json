@@ -25,6 +25,7 @@
     "livraison": "node scripts/livraison.mjs"
   },
   "devDependencies": {
+    "@dgreenheck/ez-tree": "1.1.0",
     "@eslint/js": "^9.17.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.3.0",

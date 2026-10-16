@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { URL_THREE, VERSION_THREE, urlExemple } from '../../../src/three/bibliotheque';
+import { URL_THREE, VERSION_THREE, VERSION_EZ_TREE, URL_EZ_TREE, urlExemple } from '../../../src/three/bibliotheque';
 
 const racine = new URL('../../../', import.meta.url);
 const lire = (chemin: string): string => readFileSync(new URL(chemin, racine), 'utf8');
@@ -22,5 +22,11 @@ describe('three/bibliotheque', () => {
     const pkg = JSON.parse(lire('package.json')) as { devDependencies: Record<string, string> };
     expect(pkg.devDependencies.three).toBe(VERSION_THREE);
     expect(urlExemple('controls/OrbitControls.js')).toBe('https://cdn.jsdelivr.net/npm/three@' + VERSION_THREE + '/examples/jsm/controls/OrbitControls.js');
+  });
+
+  it('EZ-tree est epingle a la version de package.json, chez jsDelivr', () => {
+    const pkg = JSON.parse(lire('package.json')) as { devDependencies: Record<string, string> };
+    expect(pkg.devDependencies['@dgreenheck/ez-tree']).toBe(VERSION_EZ_TREE);
+    expect(URL_EZ_TREE).toBe('https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@' + VERSION_EZ_TREE + '/build/ez-tree.es.js');
   });
 });

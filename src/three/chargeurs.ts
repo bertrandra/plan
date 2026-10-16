@@ -42,6 +42,20 @@ export const METRES_PAR_CARREAU = 2;
  */
 const partagees = new Map<string, THREE_NS.Texture>();
 
+/** Les cartes d'une scene dont l'image est un JPEG gardent ce format a l'export (`garderLeJpeg`). */
+export function garderLesJpegDeLaScene(scene: THREE_NS.Object3D): void {
+  scene.traverse((o) => {
+    const m = (o as THREE_NS.Mesh).material as THREE_NS.Material | THREE_NS.Material[] | undefined;
+    for (const mat of Array.isArray(m) ? m : m ? [m] : []) {
+      for (const v of Object.values(mat)) {
+        const t = v as THREE_NS.Texture | null;
+        const src = (t && (t as { isTexture?: boolean }).isTexture ? (t.image as { src?: unknown } | undefined)?.src : undefined);
+        if (typeof src === 'string') garderLeJpeg(t as THREE_NS.Texture, src);
+      }
+    }
+  });
+}
+
 /**
  * Une image JPEG sort en JPEG du .glb. Jusqu'a la r128, `TextureLoader` rangeait les JPEG en
  * `RGBFormat` et l'exporteur les reecrivait en JPEG ; depuis, toute texture est RGBA et il choisit
