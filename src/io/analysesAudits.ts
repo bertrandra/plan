@@ -48,6 +48,8 @@ export interface ResumeAnalyse {
   effort: string | null;
   prompt: number;
   schema: number;
+  /** Parti avec le brouillon des regles du serveur (Admin › Regles) et non avec le prompt livre ; absent d'une trace d'avant. */
+  essai?: boolean;
   versions: Record<string, { prompt: number; schema: number }>;
   requetes: number;
   images: number;
