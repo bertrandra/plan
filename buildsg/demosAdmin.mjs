@@ -60,11 +60,11 @@ function lireCorps(req, max) {
 }
 
 /**
- * `dossier` : celui des demos ; `palette` et `controleurs` : leurs fichiers (donnees.mjs), par defaut
- * `.palette.json` et `.controleurs.json` du dossier des demos (l'ancienne disposition).
- * @param {{ dossier: string, motDePasse: string | undefined, palette?: string, controleurs?: string, maintenant?: () => number }} options
+ * `dossier` : celui des demos ; `palette`, `controleurs` et `arbres` : leurs fichiers (donnees.mjs), par defaut
+ * `.palette.json`, `.controleurs.json` et `.arbres.json` du dossier des demos (l'ancienne disposition).
+ * @param {{ dossier: string, motDePasse: string | undefined, palette?: string, controleurs?: string, arbres?: string, maintenant?: () => number }} options
  */
-export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossier, '.palette.json'), controleurs = path.join(dossier, '.controleurs.json'), maintenant = () => Date.now() }) {
+export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossier, '.palette.json'), controleurs = path.join(dossier, '.controleurs.json'), arbres = path.join(dossier, '.arbres.json'), maintenant = () => Date.now() }) {
   const actif = typeof motDePasse === 'string' && motDePasse.length > 0;
   /** jeton -> expiration. En memoire : un redemarrage demande de se reconnecter, c'est voulu. */
   const sessions = new Map();
@@ -187,6 +187,17 @@ export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossi
         return true;
       }
 
+      // --- Les essences d'arbres ----------------------------------------------------------------
+      // La bibliotheque d'EZ-tree (model/especesArbre.ts), lue SANS session par chaque page : la 3D
+      // en a besoin pour dessiner les arbres (deploy/admin.php, meme route).
+      const fArbres = arbres;
+      if (url.pathname === '/admin/arbres' && lecture) {
+        if (!fs.existsSync(fArbres)) return erreur(404, 'NOT_FOUND', 'Aucune bibliothèque d’arbres enregistrée.');
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(fArbres).mtime.toUTCString() });
+        res.end(methode === 'HEAD' ? undefined : fs.readFileSync(fArbres, 'utf8'));
+        return true;
+      }
+
       // --- La session ---------------------------------------------------------------------------
       if (url.pathname === '/admin/session') {
         if (lecture) return sessionValide(req) ? json(200, { admin: true }) : erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
@@ -261,6 +272,17 @@ export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossi
         return json(200, { modifieLe: document.modifieLe ?? null });
       }
 
+      if (url.pathname === '/admin/arbres') {
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const document = verifierArbres(await lireCorps(req, 262144));
+        fs.mkdirSync(path.dirname(fArbres), { recursive: true });
+        if (fs.existsSync(fArbres)) fs.copyFileSync(fArbres, fArbres + '.bak');
+        const tmp = fArbres + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');
+        fs.renameSync(tmp, fArbres);
+        return json(200, { modifieLe: document.modifieLe ?? null });
+      }
+
       const m = /^\/admin\/demos\/([^/]+)$/.exec(url.pathname);
       if (m) {
         const id = decodeURIComponent(m[1]);
@@ -320,6 +342,21 @@ function verifierPalette(texte) {
     for (const [nom, v] of Object.entries(valeurs)) {
       if (!/^[a-z0-9-]{1,40}$/.test(nom) || typeof v !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(v)) throw refus();
     }
+  }
+  return d;
+}
+
+/** Les essences d'arbres : `{format: 'plan-arbres', especes: [{id, nom, reglages: {...}}]}`. */
+function verifierArbres(texte) {
+  let d;
+  try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
+  const refus = () => Object.assign(new Error('Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).'), { statut: 400 });
+  if (!d || d.format !== 'plan-arbres' || !Array.isArray(d.especes) || d.especes.length > 40) throw refus();
+  const ids = new Set();
+  for (const e of d.especes) {
+    if (!e || typeof e !== 'object' || typeof e.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(e.id) || ids.has(e.id)) throw refus();
+    if (!e.reglages || typeof e.reglages !== 'object' || Array.isArray(e.reglages)) throw refus();
+    ids.add(e.id);
   }
   return d;
 }
