@@ -1,10 +1,10 @@
 // La bibliotheque d'essences d'arbres du serveur (`admin/arbres`, model/especesArbre.ts), lue une fois
 // par page, sans session : la 3D en a besoin pour dessiner les arbres, et l'inspecteur pour les
-// proposer. Sans admin configure (404), sans reseau ou sans essence, elle est vide et rien ne change :
-// les arbres se dessinent en repli (three/arbre3d.ts).
+// proposer. Sans admin configure (404), sans reseau ou sans essence enregistree, c'est la bibliotheque
+// livree avec Plan (model/especesParDefaut.ts) qui reste en usage.
 
 import { lireArbres } from './depotDemos.js';
-import { lireDocumentArbres, poserEspeces, especesChargees, type EspeceArbre } from '../model/especesArbre.js';
+import { lireDocumentArbres, poserEspeces, especesChargees, bibliothequeEnUsage, type EspeceArbre } from '../model/especesArbre.js';
 
 let lecture: Promise<readonly EspeceArbre[]> | null = null;
 
@@ -17,7 +17,7 @@ export function chargerEspecesServeur(f: (entree: string, init?: RequestInit) =>
   lecture ??= (async () => {
     try {
       const lue = lireDocumentArbres(await lireArbres(f));
-      if (lue) poserEspeces(lue.especes);
+      poserEspeces(bibliothequeEnUsage(lue?.especes ?? []));
     } catch {
       /* hors ligne : la bibliotheque reste ce qu'elle etait */
     }

@@ -1030,6 +1030,9 @@ const POINTS = {
     };
   },
   24: async (page) => {
+    // Le temoin se capture sans bibliotheque d'essences (repli : un tronc et une boule), pas avec celle
+    // livree avec Plan : elle depend d'EZ-tree et du reseau, et l'empreinte ne doit dependre ni de l'un ni de l'autre.
+    await page.evaluate(() => window.__plan.poserEspeces([]));
     const vue = await POINTS[22](page);
     if (!vue.ok) return { ok: vue.ok, mesure: 'vue 3D préalable : ' + vue.mesure };
     // La date de l'etude est fixee a l'ete : un arbre caduc est nu de novembre a mars, et le temoin

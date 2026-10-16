@@ -32,6 +32,9 @@
 // horizontal (`poseFace`, `distanceFace`), et l'inclinaison est figee ; la rotation se fait sur l'axe
 // vertical du batiment choisi.
 //
+// Le cinquieme (17 octobre) : la camera descend a hauteur d'homme (OEIL_M) au lieu de la mi-hauteur
+// du batiment ; le regard reste horizontal et la distance est calculee pour que le haut du mur tienne.
+//
 // Les calculs sont dans le repere du plan (y vers le nord) ; la pose dans la scene passe par son
 // repere local (three/primitives.ts::versLocalDepuis : x vers l'est, z vers le sud, y vers le haut).
 
@@ -157,20 +160,21 @@ export function distanceFace(c: CadreEnsemble, facade: Facade, rapport: number, 
   // Le centre du batiment est en retrait du mur de `profondeur` ; de cote, le milieu du mur s'en ecarte de `lateral`.
   const profondeur = Math.max(0, mx * facade.normale.x + my * facade.normale.y);
   const lateral = Math.abs(mx * facade.normale.y - my * facade.normale.x);
-  const plan = Math.max((facade.largeur / 2 + lateral) / tanH, c.hauteur / 2 / tanV) + SAILLIE_FACE_M;
+  // L'oeil est a hauteur d'homme, regard horizontal : le haut du mur (et le toit) est ce qui monte le plus loin.
+  const plan = Math.max((facade.largeur / 2 + lateral) / tanH, Math.max(OEIL_M, c.hauteur - OEIL_M) / tanV) + SAILLIE_FACE_M;
   return Math.max(DISTANCE_FACE_MIN_M, plan) + profondeur;
 }
 
 /**
  * La pose en elevation devant une facade choisie : la camera a `distance` du centre du batiment, du
- * cote que regarde `azimutDeg`, a mi-hauteur, regard horizontal sur l'axe vertical du batiment. Les
+ * cote que regarde `azimutDeg`, a hauteur d'homme (OEIL_M, 17 octobre), regard horizontal. Les
  * verticales restent verticales ; tourner la vue la fait pivoter sur cet axe.
  */
 export function poseFace(c: CadreEnsemble, azimutDeg: number, distance: number): PosePieton {
   const a = rad(azimutDeg);
   return {
-    oeil: { x: c.centre.x - Math.sin(a) * distance, y: c.centre.y - Math.cos(a) * distance }, hauteurOeil: c.hauteur / 2,
-    vise: c.centre, hauteurVise: c.hauteur / 2, champ: CHAMP_VISIBLE_DEG,
+    oeil: { x: c.centre.x - Math.sin(a) * distance, y: c.centre.y - Math.cos(a) * distance }, hauteurOeil: OEIL_M,
+    vise: c.centre, hauteurVise: OEIL_M, champ: CHAMP_VISIBLE_DEG,
   };
 }
 

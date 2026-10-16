@@ -11,6 +11,7 @@
 // de app/ecranArbres.ts, qui les branche sur three/apercuArbre.ts et three/ezTree.ts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ESPECES_PAR_DEFAUT, completerParDefaut } from '../model/especesParDefaut.js';
 import { documentArbres, idDepuisNom, lireDocumentArbres, MAX_ESPECES, type EspeceArbre, type ReglagesEz } from '../model/especesArbre.js';
 import { ecrireChemin, GROUPES_EZ, hexEnTeinte, lireChemin, niveauActif, NOMS_PRESETS_EZ, teinteEnHex, type ChampEz } from '../model/reglagesEz.js';
 import type { ApercuArbre, ChiffresArbre } from '../three/apercuArbre.js';
@@ -116,6 +117,30 @@ interface PropsApercu {
   lourd: boolean;
 }
 
+/** Les essences par defaut ajoutees a la bibliotheque (pour les retoucher), et ce qu'on en dit ; `liste` : null si rien ne change. */
+function repriseParDefaut(especes: readonly EspeceArbre[]): { liste: EspeceArbre[] | null; message: string } {
+  const { liste, ajoutees, restantes } = completerParDefaut(especes, MAX_ESPECES);
+  if (!ajoutees && !restantes) return { liste: null, message: 'Toutes les essences par défaut sont déjà dans la bibliothèque.' };
+  const message = restantes ? ajoutees + ' essence(s) par défaut ajoutée(s) : la bibliothèque est pleine (' + MAX_ESPECES + ' au plus).'
+    : ajoutees + ' essence(s) par défaut ajoutée(s). Enregistrez pour qu’elles remplacent la bibliothèque livrée avec Plan.';
+  return { liste: ajoutees ? liste : null, message };
+}
+
+/** « Reprendre les essences par défaut » : les essences livrées avec Plan s'ajoutent à la bibliothèque, pour les retoucher. */
+function BoutonReprise({ especes, setEspeces, setChoisie, setMessage }: {
+  especes: EspeceArbre[]; setEspeces: (l: EspeceArbre[]) => void; setChoisie: (f: (c: string | null) => string | null) => void; setMessage: (m: string) => void;
+}) {
+  return (
+    <button type="button" className="secondary" id="arbDefaut" onClick={() => {
+      const r = repriseParDefaut(especes);
+      setMessage(r.message);
+      if (!r.liste) return;
+      setEspeces(r.liste);
+      setChoisie((c) => c ?? r.liste?.[0]?.id ?? null);
+    }}>Reprendre les essences par défaut</button>
+  );
+}
+
 /** L'arbre tel que la 3D le dessinera, et ce qu'il pese. */
 function PanneauApercu({ hote, chargement, courante, nu, setNu, chiffres, lourd }: PropsApercu) {
   return (
@@ -152,7 +177,6 @@ export function EcranArbres({ enregistrees, enregistrer, preparer, monterApercu,
   const [json, setJson] = useState<string | null>(null);
   const hoteApercu = useRef<HTMLDivElement | null>(null);
   const apercu = useRef<ApercuArbre | null>(null);
-
   const courante = especes.find((e) => e.id === choisie) ?? null;
   const modifiee = JSON.stringify(especes) !== reference;
 
@@ -263,7 +287,7 @@ export function EcranArbres({ enregistrees, enregistrer, preparer, monterApercu,
                 {e.nom}<small>{e.caduc ? 'caduc' : 'persistant'}</small>
               </button>
             ))}
-            {!especes.length && <p className="palIdee">Aucune essence : les arbres du plan sont dessinés en volumes simples. Ajoutez-en une.</p>}
+            {!especes.length && <p className="palIdee">Aucune essence enregistrée : Plan utilise sa bibliothèque par défaut ({ESPECES_PAR_DEFAUT.length} essences). Reprenez-les ci-dessous pour les retoucher, ou ajoutez les vôtres : une bibliothèque enregistrée remplace celle de Plan.</p>}
           </div>
           <div className="arbAjout">
             <select aria-label="Partir d’un modèle d’EZ-tree" id="arbPreset" defaultValue="" disabled={!ez} onChange={(e) => {
@@ -276,6 +300,7 @@ export function EcranArbres({ enregistrees, enregistrer, preparer, monterApercu,
               {presets.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <button type="button" className="secondary" disabled={!ez} onClick={() => ez && ajouter(ez.defaut, 'Nouvelle essence')}>Ajouter une essence vierge</button>
+            <BoutonReprise especes={especes} setEspeces={setEspeces} setChoisie={setChoisie} setMessage={setMessage} />
           </div>
 
           {courante && (

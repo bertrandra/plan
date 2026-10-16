@@ -260,19 +260,19 @@ describe('la vue fixee sur une facade choisie (16 octobre)', () => {
   const murSud = facade({ x: -6, y: -4 }, { x: 6, y: -4 });
   const batiment = { centre: { x: 0, y: 0 }, rayon: 7.2, hauteur: 8, azimutDeg: null };
 
-  it('l elevation se pose sur la perpendiculaire du mur, a mi-hauteur, regard horizontal sur l axe du batiment', () => {
+  it('l elevation se pose sur la perpendiculaire du mur, a hauteur d homme, regard horizontal', () => {
     const d = distanceFace(batiment, murSud, 1);
     const p = poseFace(batiment, 0, d);
     // Mur sud, regard plein nord : la camera est au sud, au droit du centre, et ne monte ni ne descend.
     expect(p.oeil.x).toBeCloseTo(0, 6);
     expect(p.oeil.y).toBeCloseTo(-d, 6);
-    expect(p.hauteurOeil).toBeCloseTo(4, 6);
+    expect(p.hauteurOeil).toBeCloseTo(OEIL_M, 6);
     expect(p.hauteurVise).toBeCloseTo(p.hauteurOeil, 6);
     expect(p.vise).toEqual(batiment.centre);
     // La facade (12 m x 8 m) tient en largeur et en hauteur dans le champ, a cette distance.
     const dMur = d - 4;
     expect(Math.atan(6 / dMur) * 180 / Math.PI).toBeLessThan(Math.atan(Math.tan(CHAMP_VISIBLE_DEG * Math.PI / 360)) * 180 / Math.PI);
-    expect(Math.atan(4 / dMur) * 180 / Math.PI).toBeLessThan(CHAMP_VISIBLE_DEG / 2);
+    expect(Math.atan((8 - OEIL_M) / dMur) * 180 / Math.PI).toBeLessThan(CHAMP_VISIBLE_DEG / 2);
   });
 
   it('une vue plus etroite (telephone debout) recule plus pour la meme facade', () => {
