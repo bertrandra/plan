@@ -10,13 +10,15 @@ import reglagesToitsBrut from '../../../regles/toits/reglages.json?raw';
 import reglagesFacadesBrut from '../../../regles/facades/reglages.json?raw';
 import faitsToitsBrut from '../../../regles/toits/faits.json?raw';
 import silhouettesToitsBrut from '../../../regles/toits/silhouettes.json?raw';
+import reconciliationBrut from '../../../regles/reconciliation.json?raw';
 import { empreinteReglagesToits, lireReglagesToits } from '../toits/reglages.js';
 import { formeEmpreinteProfils, lireProfilsToits } from '../toits/profils.js';
 import { empreinteFaitsToits, lireFaitsToits } from '../toits/faits.js';
 import { empreinteReglagesFacades, lireReglagesFacades } from '../facades/reglages.js';
 import { empreinteSilhouettesToits, lireSilhouettesToits } from '../toits/silhouettes.js';
+import { empreinteReconciliation, lireReconciliation } from '../reconciliation.js';
 
-export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits';
+export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits' | 'reconciliation';
 
 export interface FichierDonnees {
   id: IdDonnees;
@@ -66,5 +68,11 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     refus: (j) => essayer(() => lireSilhouettesToits(j)),
     empreinte: (j) => { try { return empreinteSilhouettesToits(lireSilhouettesToits(j)); } catch { return null; } },
     consequence: { ou: 'aucune ligne de version : ce fichier ne change aucune toiture déjà lue', effet: 'les prochaines propositions de forme du toit, à l’audit d’une parcelle, lisent les silhouettes des façades avec ces règles' },
+  },
+  {
+    id: 'reconciliation', libelle: 'Réconciliation des sources', chemin: 'regles/reconciliation.json', livre: reconciliationBrut, seuils: true,
+    refus: (j) => essayer(() => lireReconciliation(j)),
+    empreinte: (j) => { try { return empreinteReconciliation(lireReconciliation(j)); } catch { return null; } },
+    consequence: { ou: 'aucune ligne de version : ce fichier ne change aucune toiture déjà lue', effet: 'les prochaines propositions de l’audit arbitrent les sources avec ces poids et ces seuils' },
   },
 ];

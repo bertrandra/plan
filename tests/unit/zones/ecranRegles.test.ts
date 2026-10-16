@@ -276,13 +276,13 @@ describe('l ecran des regles', () => {
     const fichier = (h: HTMLElement, id: string) => h.querySelector('[data-fichier="' + id + '"]') as HTMLElement;
     const toits = FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')!;
 
-    it('n est pas proposé sans fichiers, et ouvre les quatre fichiers du moteur sans rien changer', async () => {
+    it('n est pas proposé sans fichiers, et ouvre les cinq fichiers du moteur sans rien changer', async () => {
       const sans = await monter();
       expect(onglet(sans.hote)).toBeNull();
       act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
       const { hote } = await monter({ donnees });
       await cliquer(onglet(hote));
-      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits']);
+      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'reconciliation']);
       expect(hote.querySelector('.reglSujet[data-sujet]')).toBeNull();
       for (const f of FICHIERS_DONNEES) expect(fichier(hote, f.id).textContent).toContain('Le moteur l’accepte.');
       // Rien ne change : rien a telecharger, rien a ajouter aux versions de lecture.

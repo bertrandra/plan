@@ -1,0 +1,28 @@
+{
+  "format": "plan-reconciliation",
+  "version": 1,
+  "pourquoi": "Comment les sources d'un batiment (IGN, LiDAR, photo de facade, Claude, ce que la personne a vu sur place) s'arbitrent quand elles divergent (MD/spec-reconciliation.md). Chaque constat vaut le poids de sa source (ou celui que l'attribut lui donne) fois sa confiance ; les constats qui s'accordent forment un groupe, le groupe de plus haut score est retenu, et la decision est automatique quand son score atteint SCORE_AUTO_MIN, qu'il l'emporte d'au moins MARGE_AUTO_MIN fois sur le second, qu'aucune valeur choisie a la main ne s'y oppose et qu'il n'a pas pour seule source une source qui n'a pas le droit d'etre seule. Sinon elle est manuelle : la personne choisit une source ou force une valeur. Le fichier est compile dans le fichier livre ; il ne change aucun toit deja lu, il regle les propositions de l'audit.",
+  "seuils": {
+    "SCORE_AUTO_MIN": { "valeur": 3, "unite": "score", "ou": "facade/regles/reconciliation.ts", "pourquoi": "Le score qu'un groupe de constats doit atteindre pour que la decision soit automatique : un LiDAR a 0,9 de confiance (4 x 0,9) y suffit seul, une photo seule (3 x 0,9) non, la photo et l'IGN ensemble oui.", "cas": [] },
+    "MARGE_AUTO_MIN": { "valeur": 1.5, "unite": "fois", "ou": "facade/regles/reconciliation.ts", "pourquoi": "Le groupe retenu doit peser au moins cette fois le second pour que la decision soit automatique : deux sources qui se contredisent a poids voisins font une decision manuelle.", "cas": [] },
+    "CONFIANCE_ABSENTE": { "valeur": 0.8, "unite": "part", "ou": "facade/regles/reconciliation.ts", "pourquoi": "La confiance d'un constat dont la source n'en donne pas (une couleur lue, une cote IGN) : ni pleine, ni douteuse.", "cas": [] }
+  },
+  "sources": {
+    "ign": { "libelle": "IGN (BD TOPO)", "poids": 2, "seule": true, "voit": "le contour, la hauteur a l'egout, les altitudes de toit, le materiau des fichiers fonciers ; ses hauteurs sont a ±1 m" },
+    "lidar": { "libelle": "LiDAR HD", "poids": 4, "seule": true, "voit": "le sursol tous les 50 cm : l'egout, le faitage, les corps et leurs bouts ; les arbres le trompent" },
+    "photo": { "libelle": "Photo de façade", "poids": 3, "seule": false, "voit": "la hauteur du mur, sa silhouette et ses ouvertures, quand les coins du mur sont trouves" },
+    "claude": { "libelle": "Claude", "poids": 1.5, "seule": false, "voit": "tous les parametres sans dimension : forme, bouts, silhouette, materiaux, couverture ; jamais seul" },
+    "terrain": { "libelle": "Vu sur place", "poids": 10, "seule": true, "voit": "ce que la personne a vu devant le batiment" }
+  },
+  "attributs": {
+    "hauteurEgout": { "libelle": "Hauteur à l'égout", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.5, "unite": "m" }, "poids": { "lidar": 4, "photo": 3, "ign": 2 } },
+    "hauteurTotale": { "libelle": "Hauteur totale (faîtage)", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.8, "unite": "m" }, "poids": { "lidar": 5, "ign": 1.5, "photo": 2 } },
+    "formeToit": { "libelle": "Forme du toit", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "lidar": 3, "photo": 3, "claude": 2, "ign": 1 } },
+    "boutsToit": { "libelle": "Bouts du faîtage", "cible": "batiment", "accord": { "type": "ensemble" }, "poids": { "photo": 3.5, "lidar": 3, "claude": 2 } },
+    "sensFaitage": { "libelle": "Sens du faîtage", "cible": "batiment", "accord": { "type": "angle", "tolerance": 15, "unite": "degres" }, "poids": { "photo": 3.5, "lidar": 3.5, "claude": 1 } },
+    "silhouetteFacade": { "libelle": "Silhouette de la façade", "cible": "facade", "accord": { "type": "egal" }, "poids": { "claude": 2, "photo": 2.5 } },
+    "ouverturesFacade": { "libelle": "Ouvertures de la façade", "cible": "facade", "accord": { "type": "nombre", "tolerance": 1, "unite": "ouvertures" }, "poids": { "photo": 3.5, "claude": 1.5 } },
+    "materiauMurs": { "libelle": "Matériau des murs", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2, "photo": 1.5 } },
+    "couverture": { "libelle": "Couverture du toit", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2.5 } }
+  }
+}
