@@ -57,7 +57,7 @@ function propositionForme({ o, b, v, et, contra }: EntreeSujet): Proposition | n
   if (JSON.stringify(corps) === JSON.stringify(o.corpsToit ?? null)) return null;
   if (ecartPrincipal(corps) > ECART_FORME_MAX_M) return null;
   const votes = [forme ? v.forme : null, bouts ? v.boutGauche : null, bouts ? v.boutDroit : null].filter((x): x is Vote<string> => !!x);
-  const vote: Vote<unknown> = { valeur: observation, accord: Math.min(...votes.map((x) => x.accord)), indices: votes.flatMap((x) => x.indices) };
+  const vote: Vote<unknown> = { valeur: observation, accord: Math.min(...votes.map((x) => x.accord)), indices: votes.flatMap((x) => x.indices), ...(votes.some((x) => x.escalade) ? { escalade: true as const } : {}) };
   const vus = [forme ? libelleDeForme(v.forme.valeur).toLowerCase() : null, bouts ? (bouts[0] === bouts[1] ? 'bouts en ' + bouts[0] : 'un bout en ' + bouts[0] + ', l’autre en ' + bouts[1]) : null].filter(Boolean).join(', ');
   const p = deClaude({
     id: b.cle + ':claude:formeToit', cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom,

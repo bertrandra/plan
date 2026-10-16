@@ -32,6 +32,8 @@ export { indicesDe } from '../../regles/sujets/contrat.js';
 export interface ReponsesBatiment {
   reponses: unknown[];
   etiquettes: EtiquetteImage[];
+  /** La reponse du modele plus fin qui a departage les passes en desaccord (D20), si l'escalade a eu lieu pour ce batiment. */
+  escalade?: unknown;
 }
 
 // Les ecarts de Claude (sujet « transverse ») : ils se disent en observation, et l'ecran des propositions les relit ici.
@@ -41,7 +43,7 @@ export { ecartsDuVote, ecartsEnClair, type EcartClaude } from '../../regles/suje
 export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: ReponsesBatiment): Proposition[] {
   const reponses = passesLues(r.reponses);
   if (!reponses.length) return [];
-  const v = voterAnalyse(reponses);
+  const v = voterAnalyse(reponses, r.escalade);
   const contra = [...contradictionsLidar(v, indicesLidar(o.toitMesure, o.corpsToit)), ...v.contradictions.map((c) => c.observation + ' (' + c.indiceLidar + ')')];
   const out: Proposition[] = [];
   for (const s of SUJETS) {

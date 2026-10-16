@@ -170,6 +170,11 @@ export interface ResultatsAnalyse {
    * chaque facade quand sa mesure arrive, au lieu de noter un renfort vide pour toujours.
    */
   renfortBrut?: Record<string, unknown[]>;
+  /**
+   * L'escalade (D20) : la reponse du modele plus fin pour chaque batiment dont les passes se desaccordaient, par cle.
+   * Presente (meme vide) des que l'escalade a ete tentee : elle ne repart pas a la reprise d'un brouillon.
+   */
+  escalade?: Record<string, unknown>;
 }
 
 /** Ce que le renfort de Claude a fait des ouvertures d'une facade, pret a proposer (F§12 bis). */

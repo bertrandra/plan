@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ACCORDS_MESURES, compterSommets, contradictionsLidar, estReponseAnalyse, indicesLidar, reserveClaude, voter, voterAttribut,
+  ACCORDS_MESURES, attributsEnDesaccord, compterSommets, contradictionsLidar, estReponseAnalyse, indicesLidar, reserveClaude, voter, voterAttribut,
 } from '../../../src/model/analyseClaude.js';
 import { reponse } from '../../fixtures/audit/reponseClaude.js';
 import type { CorpsToit, ToitMesure } from '../../../src/model/types.js';
@@ -103,5 +103,54 @@ describe('les indices LiDAR chiffres et le controle croise', () => {
     expect(reserveClaude('couverture', { accord: 1 }, [])).toMatch(/non encore mesuré/);
     expect(reserveClaude('couverture', { accord: 2 / 3 }, [])).toMatch(/67 %/);
     expect(reserveClaude('couverture', { accord: 1 }, ['toit plat annoncé'])).toMatch(/^Contredit la mesure LiDAR : toit plat annoncé/);
+  });
+});
+
+// D20 : quand les passes se desaccordent, la reponse d'un modele plus fin tranche (MD/plan-vague-3-generaliser.md).
+describe('l escalade sur desaccord des passes', () => {
+  const passe = (forme: string, couverture = 'ardoise') => reponse({ forme: { indices: [{ image: 1, vu: 'a' }], valeur: forme }, couverture: { indices: [], valeur: couverture } });
+
+  it('nomme les attributs sans unanimite, et rien quand les passes s accordent ou qu il n y en a qu une', () => {
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('deux-pans')]);
+    expect(attributsEnDesaccord(v)).toEqual(['forme']);
+    expect(attributsEnDesaccord(voter([passe('deux-pans'), passe('deux-pans'), passe('deux-pans')]))).toEqual([]);
+    expect(attributsEnDesaccord(voter([passe('deux-pans')]))).toEqual([]);
+    expect(attributsEnDesaccord(voter([passe('deux-pans', 'zinc'), passe('croupes', 'ardoise'), passe('deux-pans', 'zinc')]))).toEqual(['forme', 'couverture']);
+  });
+
+  it('retient la valeur du modele fin sur l attribut en desaccord, avec la marque, l accord d origine et ses indices', () => {
+    const fin = reponse({ forme: { indices: [{ image: 2, vu: 'deux pignons nets' }], valeur: 'croupes' } });
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('deux-pans')], [], fin);
+    expect(v.forme).toMatchObject({ valeur: 'croupes', accord: 2 / 3, escalade: true });
+    expect(v.forme.indices).toEqual(expect.arrayContaining([{ image: 2, vu: 'deux pignons nets' }]));
+  });
+
+  it('ne change jamais un attribut unanime, meme si le modele fin dit autre chose', () => {
+    const fin = reponse({ forme: { indices: [], valeur: 'croupes' }, couverture: { indices: [], valeur: 'zinc' } });
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('deux-pans')], [], fin);
+    expect(v.couverture).toMatchObject({ valeur: 'ardoise', accord: 1 });
+    expect(v.couverture).not.toHaveProperty('escalade');
+  });
+
+  it('garde le vote des passes quand le modele fin ne sait pas non plus (indetermine)', () => {
+    const fin = reponse({ forme: { indices: [], valeur: 'indetermine' } });
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('deux-pans')], [], fin);
+    expect(v.forme).toMatchObject({ valeur: 'deux-pans', accord: 2 / 3 });
+    expect(v.forme).not.toHaveProperty('escalade');
+  });
+
+  it('tranche un attribut sans majorite (trois valeurs) et prend les souches de la reponse fine', () => {
+    const fin = reponse({ forme: { indices: [], valeur: 'plat' }, cheminees: { indices: [], nombre: 1, souches: [{ position: 'pignon', materiau: 'brique' }] } });
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('mansart')], [], fin);
+    expect(v.forme).toMatchObject({ valeur: 'plat', escalade: true });
+    expect(voter([passe('deux-pans'), passe('croupes'), passe('mansart')]).forme.valeur).toBe('indetermine');
+  });
+
+  it('la reserve dit que les passes se desaccordaient et qu un modele plus fin a tranche : la case reste decochee', () => {
+    const fin = reponse({ forme: { indices: [], valeur: 'croupes' } });
+    const v = voter([passe('deux-pans'), passe('croupes'), passe('deux-pans')], [], fin);
+    expect(reserveClaude('formeToit', v.forme, [])).toBe('Les passes de Claude ne s’accordaient pas (67 %) ; un modèle plus fin a tranché : à vérifier.');
+    // Une contradiction LiDAR passe avant.
+    expect(reserveClaude('formeToit', v.forme, ['toit plat annoncé'])).toMatch(/^Contredit la mesure LiDAR/);
   });
 });

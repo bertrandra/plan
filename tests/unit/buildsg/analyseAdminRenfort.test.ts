@@ -9,6 +9,7 @@ import { creerAnalyseAdmin, coutAppel, lirePrompt, tarifEnVigueur, tokensDeUsage
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
+import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
 // Le renfort de Claude pour le calage et la detection (MD/spec-facades-calage-detection.md §12 bis,
 // lot L18), cote serveur Node : son prompt et son schema, une requete de renfort dans le batch de
@@ -171,5 +172,9 @@ describe('le renfort, routes', () => {
     expect(refus.status).toBe(429);
     expect(journal().at(-1)).toMatchObject({ statut: 'plafond', batch: false, usage: 'renfort' });
     expect((await navigateur('admin/claude/messages')).status).toBe(405);
+  });
+
+  it('fait l escalade (D20) par l appel immediat : usage escalade, prompt et schema de l analyse, modele demande', async () => {
+    await verifierEscalade({ ecrire: (e, m, c) => navigateur(e, { method: m, headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(c) }), faux, journal });
   });
 });

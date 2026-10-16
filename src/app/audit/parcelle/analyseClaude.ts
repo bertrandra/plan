@@ -29,6 +29,7 @@ import { rendreDepuisPrise } from '../../../three/renduPrise.js';
 import { epurerLeTemps } from '../../../three/scene.js';
 import { jourDe } from '../reprise.js';
 import { preparerDemande, type FabriqueImages, type IdentiteAnalyse } from './entreesAnalyse.js';
+import { escaladerLeBatch } from './escalade.js';
 import type { ReponsesBatiment } from './propositionsClaude.js';
 import type { EntreesPropositions } from './propositions.js';
 import type { CaptureEnCours } from './capture.js';
@@ -298,6 +299,13 @@ function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter:
   return { completer, reprendre: async () => { await relireBrut(); await completer(); } };
 }
 
+/** Les reponses lues de la capture, par batiment, avec les etiquettes de ses images et, si l'escalade a eu lieu pour lui, la reponse du modele fin. */
+function reponsesDe(a: AnalyseCapture): Record<string, ReponsesBatiment> | null {
+  if (!a.accord || !a.resultats || !a.batch) return null;
+  const fins = a.resultats.escalade ?? {};
+  return Object.fromEntries(Object.entries(a.resultats.parBatiment).map(([cle, reponses]) => [cle, { reponses, etiquettes: a.batch?.etiquettes[cle] ?? [], ...(cle in fins ? { escalade: fins[cle] } : {}) }]));
+}
+
 /** En essai du brouillon des regles, la demande le nomme ; sans brouillon au serveur, elle part telle quelle et on le dit. */
 async function avecEssai(ctx: ContexteAnalyse, client: ClientAnalyse, demande: DemandeAnalyse): Promise<DemandeAnalyse> {
   if (!ctx.essai?.()) return demande;
@@ -353,7 +361,10 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
     const brut = rangerRenfort(lu.resultats, batch.requetes);
-    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, ...(Object.keys(brut).length ? { renfortBrut: brut } : {}) };
+    // D20 : un modele plus fin departage les passes en desaccord (appel immediat, sous les plafonds), avant les propositions.
+    const esc = await escaladerLeBatch({ client, entrees: ctx.entrees, images: ctx.images, identite: ctx.identite }, parBatiment);
+    if (esc.message) ctx.signaler(esc.message);
+    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(brut).length ? { renfortBrut: brut } : {}) };
     const n = Object.keys(parBatiment).length, s = n > 1 ? 's' : '';
     const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
     noter({ resultats, erreur: n ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
@@ -447,11 +458,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     // attendait les mesures le recale des qu'elles sont faites.
     reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch) { if (!a.resultats) suivre(); else void reprendreRenfort(); } },
     arreter() { annulerSuivi?.(); annulerSuivi = null; },
-    reponses() {
-      const a = lire();
-      if (!a.accord || !a.resultats || !a.batch) return null;
-      return Object.fromEntries(Object.entries(a.resultats.parBatiment).map(([cle, reponses]) => [cle, { reponses, etiquettes: a.batch?.etiquettes[cle] ?? [] }]));
-    },
+    reponses: () => reponsesDe(lire()),
     renfort() {
       const a = lire();
       return a.accord && a.resultats?.renfort ? a.resultats.renfort : null;
