@@ -12,6 +12,7 @@ import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterR
 import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/renfortRecalage.js';
 import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../renfortReleve.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
+import { etiquetteFacade } from './liste.js';
 import type { RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
@@ -53,7 +54,7 @@ export async function requetesRenfortDuBatiment(e: EntreesPropositions, cle: str
     const imgElev = await fab.elevation(r);
     if (!imgPhoto || !imgElev) continue;
     const signaux = signauxRenfort({ calage: { note: m.confiance ?? 0, trouve: m.coinsTrouves, sources: r.calage?.photos[0]?.sourceCoins ?? [] }, ouvertures: r.ouvertures, largeurM: r.largeur });
-    const etiquette = f.facade.orientation.toLowerCase() + ' de ' + nom;
+    const etiquette = (b ? etiquetteFacade(b, f) : f.facade.orientation.toLowerCase()) + ' de ' + nom;
     const texte = texteRenfort({ largeurM: r.largeur, hauteurM: r.hauteur, hauteurMesuree: m.hauteurM !== null, ouvertures: r.ouvertures, grille: r.grille ?? null, signaux, coinsTrouves: m.coinsTrouves, etiquette });
     // La facade est deja comptee par la requete de la maison : le renfort n'en ajoute pas au journal.
     for (const q of requetesRenfort(prefixeRenfort(rang, f.cote), contenuRenfort(imgPhoto, imgElev, texte), 0)) {

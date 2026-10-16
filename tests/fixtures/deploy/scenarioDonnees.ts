@@ -138,7 +138,7 @@ export async function jouerScenarioDonnees(s: ServeurDonnees): Promise<void> {
   const dt = path.join(dirAncien, 'analyses', trace);
   const entrant = JSON.parse(fs.readFileSync(path.join(dt, 'entrant.json'), 'utf8'));
   const nomImage = 'e12e115acf4552b2568b55e93cbd39394c4ef81c82447fafc997882a02d23677.jpg';
-  expect(entrant).toMatchObject({ format: 'plan-audit-entrant', version: 1, max_tokens: 8000, effort: 'low', usages: { rejeu: { prompt: expect.any(Number), schema: expect.any(Number) } } });
+  expect(entrant).toMatchObject({ format: 'plan-audit-entrant', version: 1, max_tokens: 16000, effort: 'low', usages: { rejeu: { prompt: expect.any(Number), schema: expect.any(Number) } } });
   expect(entrant.usages.rejeu.systeme).toContain('# Forme de la réponse');
   expect(entrant.requetes[0]).toEqual({ id: 'b0-p1', passe: 1, usage: 'rejeu', modele: 'claude-sonnet-5-5', facades: 1, images: 1,
     contenu: [{ type: 'image', media_type: 'image/jpeg', image: nomImage, octets: 4 }, { type: 'text', text: 'Image 1 : photo de la façade sud.' }, { type: 'text', text: 'Bâtiment : Maison.' }] });

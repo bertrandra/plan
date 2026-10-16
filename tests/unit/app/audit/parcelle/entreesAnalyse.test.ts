@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { IMAGES_PAR_REQUETE, preparerDemande, gardesDuRendu, type FabriqueImages } from '../../../../../src/app/audit/parcelle/entreesAnalyse.js';
 import { creerAnalyseClaude, messageEchec } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
@@ -123,5 +123,102 @@ describe('le rendu pour Claude montre la facade entiere', () => {
     const g = gardesDuRendu({ objets: tous, liste: listeDeControle(tous, capture.lire()), capture: capture.lire(), mesures: new Map() });
     expect(['maison', 'parcelle', 'voisine'].every((c) => g(c))).toBe(true);
     expect(g('chezVoisin')).toBe(false);
+  });
+});
+
+describe('les etiquettes de facade, uniques par mur (rejeu d AE 101 : trois murs « est » en une seule reponse)', () => {
+  /** Un L : deux murs est et deux murs nord, un sud et un ouest. */
+  function maisonEnL() {
+    const objets = normalizeObjects([
+      { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(-5, -5, 30, 30), cadastre: { idu: '78650000AE0101' } },
+      { key: 'maison', name: 'Maison', type: 'polygon', fonction: 'batiment', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 4 }, { x: 6, y: 4 }, { x: 6, y: 8 }, { x: 0, y: 8 }], elevation: 6 },
+    ] as ObjetBrut[]) as ObjetPlan[];
+    const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
+    return { objets, capture };
+  }
+  const textes = (d: Awaited<ReturnType<typeof preparerDemande>>) => d!.demande.requetes[0]!.contenu.filter((b) => b.type === 'text').map((b) => (b as { text: string }).text);
+
+  it('porte le numero du cote du polygone quand plusieurs murs ont la meme orientation, et l orientation seule sinon', async () => {
+    const { objets, capture } = maisonEnL();
+    const b = listeDeControle(objets, capture.lire()).batiments[0]!;
+    const est = b.facades.filter((f) => f.facade.orientation === 'Est');
+    const sud = b.facades.find((f) => f.facade.orientation === 'Sud')!;
+    expect(est).toHaveLength(2);
+    for (const f of [...est, sud]) capture.ajouterPhotoFacade('maison', f.cote, avec(f.cote));
+    const e = { objets, liste: listeDeControle(objets, capture.lire()), capture: capture.lire(), mesures: new Map() };
+    const d = await preparerDemande(e, FAB, { projet: null, idu: null, adresse: null, audit: 'a' });
+    const t = textes(d);
+    const cotes = est.map((f) => 'est (côté ' + (f.cote + 1) + ')');
+    expect(t.at(-1)).toContain('Façades à décrire (étiquettes) : ' + ['sud', ...cotes].join(', ') + '.');
+    // Chaque photo porte l'etiquette de son mur, le modele JSON celle de tous les murs.
+    for (const c of cotes) expect(t.some((x) => x.includes('photo de la façade ' + c + ' de Maison'))).toBe(true);
+    expect(t.at(-1)).toContain('"etiquette":"sud"');
+    for (const c of cotes) expect(t.at(-1)).toContain('"etiquette":"' + c + '"');
+    expect(t.at(-1)).toContain('"etiquette":"nord (côté 3)"');
+    expect(t.at(-1)).not.toContain('"etiquette":"est"');
+  });
+
+  it('une orientation unique garde son nom simple (les etiquettes d aujourd hui ne bougent pas)', async () => {
+    const { objets, capture } = maison();
+    const sud = listeDeControle(objets, capture.lire()).batiments[0]!.facades.find((f) => f.facade.orientation === 'Sud')!;
+    capture.ajouterPhotoFacade('maison', sud.cote, avec(1));
+    const e = { objets, liste: listeDeControle(objets, capture.lire()), capture: capture.lire(), mesures: new Map() };
+    const d = await preparerDemande(e, FAB, { projet: null, idu: null, adresse: null, audit: 'a' });
+    expect(textes(d).at(-1)).toContain('Façades à décrire (étiquettes) : sud.');
+  });
+});
+
+describe('le rendu du modele absent est dit a Claude et a la personne', () => {
+  const dem = (e: Parameters<typeof preparerDemande>[0], fab: FabriqueImages) => preparerDemande(e, fab, { projet: null, idu: null, adresse: null, audit: 'a' });
+  const dernierTexte = (d: Awaited<ReturnType<typeof preparerDemande>>) => (d!.demande.requetes[0]!.contenu.at(-1) as { text: string }).text;
+  const PHRASE = 'Aucun rendu du modèle n’est joint à cette requête';
+
+  function avecPhoto(photo: PhotoCas) {
+    const { objets, capture } = maison();
+    const sud = listeDeControle(objets, capture.lire()).batiments[0]!.facades.find((f) => f.facade.orientation === 'Sud')!;
+    capture.ajouterPhotoFacade('maison', sud.cote, photo);
+    return { objets, liste: listeDeControle(objets, capture.lire()), capture: capture.lire(), mesures: new Map() };
+  }
+
+  it('sans rendu, le texte le dit et le batiment est signale (la prise permettait pourtant d en joindre un)', async () => {
+    const d = await dem(avecPhoto(avec(1)), { ...FAB, rendu: () => null });
+    expect(dernierTexte(d)).toContain(PHRASE + ' : le modèle actuel ne se lit que dans le JSON ci-dessous. Ne citez aucun rendu.');
+    expect(d!.sansRendu).toEqual(['maison']);
+  });
+
+  it('avec un rendu, rien n est dit et rien n est signale', async () => {
+    const d = await dem(avecPhoto(avec(1)), FAB);
+    expect(dernierTexte(d)).not.toContain(PHRASE);
+    expect(d!.sansRendu).toEqual([]);
+  });
+
+  it('une photo sans boussole n a jamais permis de rendu : le texte le dit, la personne n a rien a corriger', async () => {
+    const d = await dem(avecPhoto(sans(1)), FAB);
+    expect(dernierTexte(d)).toContain(PHRASE);
+    expect(d!.sansRendu).toEqual([]);
+  });
+
+  it('l analyse previent la personne quand le rendu n a pas pu etre joint, et part quand meme', async () => {
+    const { objets, capture } = maison();
+    capture.ajouterPhotoFacade('maison', listeDeControle(objets, capture.lire()).batiments[0]!.facades[0]!.cote, avec(1));
+    capture.terminer();
+    const messages: string[] = [];
+    const creerBatch = vi.fn(async () => ({ batch: { id: 'msgbatch_1', etat: 'in_progress' as const, compte: null }, modele: 'claude-haiku-5-5', prompt: 3, schema: 1 }));
+    const client = { creerBatch, etatBatch: async () => null } as unknown as ClientAnalyse;
+    const a = creerAnalyseClaude({
+      capture, entrees: () => ({ objets, liste: listeDeControle(objets, capture.lire()), capture: capture.lire(), mesures: new Map() }), mesuresPretes: async () => {}, client,
+      images: { ...FAB, rendu: () => null }, identite: () => ({ projet: null, idu: null, adresse: null, audit: 'a' }), signaler: (m) => messages.push(m),
+      maintenant: () => new Date('2026-10-13T10:00:00Z'), planifier: () => () => {},
+    });
+    await a.accorder(true);
+    expect(creerBatch).toHaveBeenCalledOnce();
+    expect(messages[0]).toBe('Le rendu du modèle n’a pas pu être joint pour maison : l’analyse part sans lui (ouvrez la Vue 3D avant de la lancer pour qu’elle compare les photos au modèle).');
+  });
+});
+
+describe('le plafond de la reponse (rejeu d AE 101 : une passe coupee a 8 000 tokens)', () => {
+  it('vaut 16 000 sur les deux serveurs, et le meme des deux', () => {
+    const valeurs = ['deploy/analyse.php', 'buildsg/analyseAdmin.mjs'].map((f) => Number(/MAX_TOKENS = (\d+);/.exec(readFileSync(f, 'utf8'))?.[1]));
+    expect(valeurs).toEqual([16000, 16000]);
   });
 });

@@ -69,6 +69,17 @@ export interface LigneFacade {
   libelle: string;
 }
 
+/**
+ * Le nom d'un mur pour Claude : son orientation, avec le numero de son cote dans le polygone
+ * (« est (côté 3) », comme « Côté 3 » de l'inspecteur) quand le batiment a plusieurs murs de meme
+ * orientation. Le vote regroupe les reponses par etiquette : deux murs sous un meme nom n'auraient
+ * qu'une voix, et leurs ouvertures se confondraient (rejeu d'AE 101 : trois murs « est »).
+ */
+export function etiquetteFacade(b: LigneBatiment, f: LigneFacade): string {
+  const o = f.facade.orientation.toLowerCase();
+  return b.facades.filter((x) => x.facade.orientation.toLowerCase() === o).length > 1 ? o + ' (côté ' + (f.cote + 1) + ')' : o;
+}
+
 export interface LignePartie {
   partie: PartieVue;
   vu: boolean;

@@ -5,7 +5,23 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
-### Ajouté
+### Corrigé
+
+- **Analyse par Claude : ce que le rejeu d'AE 101 a montré** (`MD/spec-audit.md` §13.2). Quatre
+  corrections, lues dans le fichier du rejeu (Haiku 5.5, 2 bâtiments, 6 requêtes, 0,011 $) :
+  - **Une passe perdue** : la maison de huit murs a dépassé `max_tokens` (8 000) à la deuxième passe, et
+    son vote s'est fait sur deux passes (28 % de la facture pour rien). Le plafond passe à 16 000 ;
+    on ne paie que ce que le modèle écrit (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`).
+  - **Un rendu du modèle cité sans avoir été reçu** : aucune des 66 images n'était un rendu, et Haiku
+    écrivait « le rendu du modèle ne montre pas le colombage ». Le texte de la requête dit maintenant
+    « Aucun rendu du modèle n'est joint » quand c'est le cas, et le prompt (version 3) interdit d'en
+    citer un. Quand la prise de vue permettait d'en joindre un et que le dessin a échoué, un message
+    le dit à la personne avant l'envoi.
+  - **Trois murs « est » en une seule réponse** : les étiquettes des façades étaient l'orientation
+    seule, et le vote regroupe par étiquette. Un bâtiment qui a plusieurs murs de même orientation les
+    nomme avec le numéro de leur côté dans le polygone (« est (côté 3) », comme « Côté 3 » de
+    l'inspecteur) ; les autres gardent leur nom simple. Photos, modèle JSON, mesures et renfort s'en
+    servent.
 
 - **Admin › « Audits » : l'avant et l'après d'un audit reçu** (`MD/spec-audit.md` 15.4). Le bouton
   « Avant / Après » de la carte d'un audit de parcelle ouvre, sur la Vue 3D du projet (même parcelle),

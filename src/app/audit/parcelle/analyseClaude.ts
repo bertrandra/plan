@@ -120,6 +120,13 @@ const MESSAGES: Record<EchecAnalyse['motif'], string> = {
   serveur: 'Le serveur de l’analyse a répondu de travers : seules les mesures sont proposées.',
 };
 
+/**
+ * Le rendu du modele n'a pas pu etre joint (la Vue 3D fermee, ou le dessin a echoue) : l'analyse part
+ * quand meme, Claude est prevenu dans la requete qu'il n'a pas de rendu a comparer.
+ */
+const messageSansRendu = (noms: readonly string[]): string =>
+  'Le rendu du modèle n’a pas pu être joint pour ' + noms.join(', ') + ' : l’analyse part sans lui (ouvrez la Vue 3D avant de la lancer pour qu’elle compare les photos au modèle).';
+
 /** Les images du navigateur : les photos reduites, la Vue 3D hors ecran, les tuiles du fond, la grille LiDAR. */
 export function fabriqueImagesNavigateur(): FabriqueImages {
   return {
@@ -373,6 +380,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       await ctx.mesuresPretes();
       const prepare = await preparerDemande(ctx.entrees(), ctx.images, ctx.identite());
       if (!prepare) { noter({ erreur: 'Aucune photo à analyser : photographiez une façade ou le toit.' }); return; }
+      if (prepare.sansRendu.length) ctx.signaler(messageSansRendu(prepare.sansRendu));
       phase = 'envoi';
       publier();
       const sig = signature();

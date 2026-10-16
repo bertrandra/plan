@@ -2052,6 +2052,10 @@ const POINTS = {
     const identiques = !!d && d.requetes.every((r) => JSON.stringify(r.contenu) === JSON.stringify(d.requetes[0].contenu));
     const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
     const facades = d ? d.requetes[0].facades : 0;
+    // Sans boussole, la photo n'a pas de prise de vue : pas de rendu du modele. Le texte de la requete
+    // le dit a Claude (il citait « le rendu » qu'il n'avait pas), et la personne n'a rien a corriger.
+    const sansRenduDit = !!d && d.requetes[0].contenu.some((b) => b.type === 'text' && b.text.includes('Aucun rendu du modèle n’est joint à cette requête'));
+    const sansAlerteRendu = !toasts.some((t) => /^Le rendu du modèle n’a pas pu être joint/.test(t));
     const claude = await page.locator('.ligneProposition.source-claude').count();
     const couverture = await ligneProposition(page, 'Couverture de Maison');
     const zinc = await page.locator('.ligneProposition.source-claude', { hasText: 'Zinc' }).first();
@@ -2060,11 +2064,11 @@ const POINTS = {
     const etat = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((x) => x.scrollWidth > x.clientWidth + 1), f.width);
     const apres = await etatAudite(page);
-    const ok = question === 1 && partage === true && !!d && passes === '1,2,3' && identiques && images >= 1 && facades === 1 && serveur.jetons.every((j) => j === 'Bearer jeton')
+    const ok = question === 1 && partage === true && !!d && passes === '1,2,3' && identiques && images >= 1 && facades === 1 && sansRenduDit && sansAlerteRendu && serveur.jetons.every((j) => j === 'Bearer jeton')
       && parti && pret && claude >= 2 && claude + lignesAvant === (await page.locator('.ligneProposition').count()) && !!couverture
       && /Claude/.test(zincTexte) && /passes d’accord 100 %/.test(zincTexte) && /Taux d’accord de Claude non encore mesuré/.test(zincTexte) && zincCoche === false
       && /^Claude : Propositions de Claude prêtes/.test(etat) && apres === avant && !deborde;
-    return { ok, mesure: `question ${question ? 'posée' : 'ABSENTE'}, partage ${partage ? 'coché' : 'DÉCOCHÉ'} ; envoi ${d ? `passes ${passes}, ${identiques ? 'identiques' : 'DIFFÉRENTES'}, ${images} image(s), ${facades} façade(s), jeton ${serveur.jetons[0] ?? '—'}` : 'AUCUN'} ; toasts ${parti ? 'parti' : 'NON parti'} / ${pret ? 'prêt' : 'NON prêt'} ; ${claude} ligne(s) de Claude (${lignesAvant} des mesures) ; « ${zincTexte.slice(0, 160)} » ${zincCoche ? 'COCHÉE' : 'décochée'} ; « ${etat.slice(0, 80)} » ; projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+    return { ok, mesure: `question ${question ? 'posée' : 'ABSENTE'}, partage ${partage ? 'coché' : 'DÉCOCHÉ'} ; envoi ${d ? `passes ${passes}, ${identiques ? 'identiques' : 'DIFFÉRENTES'}, ${images} image(s), ${facades} façade(s), ${sansRenduDit ? 'sans rendu, dit à Claude' : 'SANS la mention « aucun rendu »'}${sansAlerteRendu ? '' : ', ALERTE inutile'}, jeton ${serveur.jetons[0] ?? '—'}` : 'AUCUN'} ; toasts ${parti ? 'parti' : 'NON parti'} / ${pret ? 'prêt' : 'NON prêt'} ; ${claude} ligne(s) de Claude (${lignesAvant} des mesures) ; « ${zincTexte.slice(0, 160)} » ${zincCoche ? 'COCHÉE' : 'décochée'} ; « ${etat.slice(0, 80)} » ; projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   70: async (page) => {
     // L'analyse par Claude (lot L17), sans accord ou sans reseau, puis le retrait : « Seulement les
