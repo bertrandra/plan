@@ -174,3 +174,33 @@ describe('le calcul', () => {
     expect(tout.map((a) => a.cible + '/' + a.attribut)).toEqual(['batiment:maison/hauteurEgout', 'batiment:annexe/hauteurEgout', 'batiment:maison/formeToit']);
   });
 });
+
+describe('la main de la personne', () => {
+  const desaccord = () => [c('lidar', 6), c('ign', 8)];
+  const avec = (choix: Parameters<typeof arbitrer>[5]) => arbitrer(desaccord(), projet(5), 'hauteurEgout', 'batiment:maison', RECONCILIATION, choix);
+
+  it('retenir un groupe en fait la décision choisie, avec sa raison', () => {
+    const a = avec({ type: 'groupe', index: 1 });
+    expect(a.decision).toBe('choisie');
+    expect(a.retenu).toBe(a.groupes[1]);
+    expect(a.raison).toMatch(/^Retenu par vous : /);
+  });
+  it('forcer une valeur la pose comme source terrain, hors des groupes', () => {
+    const a = avec({ type: 'force', valeur: 7.3 });
+    expect(a.decision).toBe('forcee');
+    expect(a.retenu?.valeur).toBe(7.3);
+    expect(a.groupes.some((g) => g === a.retenu)).toBe(false);
+    expect(a.raison).toMatch(/^Forcé par vous : 7,3 m/);
+  });
+  it('retenir ou forcer ce que le projet a déjà ne propose rien', () => {
+    expect(arb([c('lidar', 6)], projet(6)).decision).toBe('rien');
+    expect(arbitrer(desaccord(), projet(5), 'hauteurEgout', 'batiment:maison', RECONCILIATION, { type: 'force', valeur: 5.2 }).decision).toBe('rien');
+  });
+  it('un index inconnu laisse le moteur décider seul', () => {
+    expect(avec({ type: 'groupe', index: 9 }).decision).toBe(avec(undefined).decision);
+  });
+  it('arbitrerTout passe le choix de chaque objet et attribut', () => {
+    const [a] = arbitrerTout(desaccord(), () => projet(5), RECONCILIATION, (cible, attribut) => (cible === 'batiment:maison' && attribut === 'hauteurEgout' ? { type: 'force', valeur: 7 } : undefined));
+    expect(a?.decision).toBe('forcee');
+  });
+});

@@ -19,6 +19,7 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
+import type { Validation } from '../../app/audit/parcelle/validation.js';
 import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 
@@ -33,11 +34,17 @@ const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'E
  * retenu en tete : ce que chaque source dit, sa confiance, ce qu'elle pese, et la regle qui l'a lu. Un mot dit le groupe
  * retenu : la couleur ne porte pas seule.
  */
-export function Arbitrage({ a }: { a: ArbitrageProposition }) {
+export interface MainArbitrage { retenir(index: number): void; forcer(valeur: string): void; reprendre(): void }
+
+const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
+
+export function Arbitrage({ a, main }: { a: ArbitrageProposition; main?: MainArbitrage }) {
   const pct = (c: number | null) => (c === null ? '—' : Math.round(c * 100) + ' %');
+  const [force, setForce] = useState('');
+  const delaMain = a.decision === 'choisie' || a.decision === 'forcee';
   return (
-    <details className="arbitrageProposition">
-      <summary><span className="decisionArbitrage">{a.decision === 'auto' ? 'Décision automatique' : 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+    <details className="arbitrageProposition" open={a.decision === 'manuelle' && !!main ? true : undefined}>
+      <summary><span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
       <p className="raisonArbitrage">{a.raison}</p>
       <div className="defileAudit">
         <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle}>
@@ -47,7 +54,49 @@ export function Arbitrage({ a }: { a: ArbitrageProposition }) {
           )))}</tbody>
         </table>
       </div>
+      {main && (
+        <div className="mainArbitrage" role="group" aria-label={'Décider : ' + a.libelle}>
+          {a.groupes.map((g, i) => !g.retenu || a.decision === 'manuelle'
+            ? <button key={g.valeur} type="button" className="secondary small" data-controle="auditParcelle.retenirSource" onClick={() => main.retenir(i)}>{'Retenir « ' + g.valeur + ' »'}</button> : null)}
+          {a.options
+            ? <select aria-label={'Forcer : ' + a.libelle} data-controle="auditParcelle.forcerValeur" value={force} onChange={(e) => { setForce(''); if (e.target.value) main.forcer(e.target.value); }}>
+                <option value="">Forcer une valeur…</option>
+                {a.options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
+              </select>
+            : (a.accord === 'nombre' || a.accord === 'angle') && (
+              <span className="forcerNombre">
+                <input type="number" step="any" aria-label={'Forcer : ' + a.libelle + (a.unite ? ' (' + a.unite + ')' : '')} value={force} onChange={(e) => setForce(e.target.value)} />
+                <button type="button" className="secondary small" data-controle="auditParcelle.forcerValeur" disabled={force === '' || !Number.isFinite(Number(force))} onClick={() => { main.forcer(force); setForce(''); }}>Forcer</button>
+              </span>)}
+          {delaMain && <button type="button" className="secondary small" data-controle="auditParcelle.reprendreChoix" onClick={main.reprendre}>Reprendre le choix du moteur</button>}
+        </div>
+      )}
     </details>
+  );
+}
+
+/**
+ * Toutes les sources d'un batiment, attribut par attribut (y compris ceux qui ne proposent rien) : c'est ici que l'on
+ * retient une source ou que l'on force une valeur quand l'audit ne propose rien ou propose la mauvaise.
+ */
+function SourcesDesBatiments({ v }: { v: Validation }) {
+  const batiments = v.arbitrages().filter((b) => b.arbitrages.length);
+  if (!batiments.length) return null;
+  const lectureSeule = v.lectureSeule();
+  return (
+    <section className="sourcesBatiments" aria-label="Sources des bâtiments">
+      <div className="titreObservations">Sources, bâtiment par bâtiment</div>
+      {batiments.map((b) => (
+        <details key={b.cle} className="sourcesBatiment">
+          <summary className="nomObservations">{b.nom}</summary>
+          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} {...(lectureSeule ? {} : { main: {
+            retenir: (i: number) => v.decider(a.cible, a.attribut, { type: 'groupe', index: i }),
+            forcer: (t: string) => v.decider(a.cible, a.attribut, { type: 'force', valeur: JSON.parse(t) as never }),
+            reprendre: () => v.decider(a.cible, a.attribut, null),
+          } })} />)}
+        </details>
+      ))}
+    </section>
   );
 }
 
@@ -190,6 +239,7 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
           {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
         </ul>}
+        <SourcesDesBatiments v={v} />
         <ObservationsClaude batiments={observations} />
         {!lecture && verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
           {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}

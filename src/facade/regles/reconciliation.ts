@@ -42,7 +42,14 @@ export interface Groupe {
   sources: SourceConstat[];
 }
 
-export type DecisionArbitrage = 'auto' | 'manuelle' | 'rien';
+/**
+ * `auto` : le moteur a decide seul ; `manuelle` : a la personne ; `rien` : rien a proposer ; `choisie` : la personne a retenu
+ * l'une des sources ; `forcee` : elle a donne une valeur que nulle source ne disait.
+ */
+export type DecisionArbitrage = 'auto' | 'manuelle' | 'rien' | 'choisie' | 'forcee';
+
+/** Ce que la personne decide d'un attribut : retenir le groupe de sources a cet index (l'ordre de `groupes`), ou forcer une valeur. */
+export type ChoixArbitrage = { type: 'groupe'; index: number } | { type: 'force'; valeur: ValeurConstat };
 
 export interface Arbitrage {
   cible: string;
@@ -90,7 +97,13 @@ function moyenne(lignes: readonly LigneConstat[], accord: Accord): ValeurConstat
  * Arbitre les constats d'un attribut d'un objet. Une source qui parle deux fois ne compte que par son constat qui pese le
  * plus (elle ne s'aide pas elle-meme).
  */
-export function arbitrer(constats: readonly Constat[], projet: EtatProjet, attribut: IdAttribut, cible: string, regles: ReglesReconciliation = RECONCILIATION): Arbitrage {
+export function arbitrer(constats: readonly Constat[], projet: EtatProjet, attribut: IdAttribut, cible: string, regles: ReglesReconciliation = RECONCILIATION, choix?: ChoixArbitrage): Arbitrage {
+  const a = arbitrerSeul(constats, projet, attribut, cible, regles);
+  return choix ? avecLeChoix(a, choix, regles) : a;
+}
+
+/** L'arbitrage du moteur, sans la main de la personne. */
+function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut: IdAttribut, cible: string, regles: ReglesReconciliation): Arbitrage {
   const desc = regles.attributs[attribut];
   const { accord } = desc;
   const poidsDe = (s: SourceConstat): number => desc.poids[s] ?? regles.sources[s].poids;
@@ -111,7 +124,7 @@ export function arbitrer(constats: readonly Constat[], projet: EtatProjet, attri
   groupes.sort((a, b) => b.score - a.score);
   const base = { cible, attribut, groupes, projet, regles: [] as string[] };
   const retenu = groupes[0] ?? null;
-  if (!retenu) return { ...base, retenu: null, decision: 'rien', raison: 'Aucune source ne dit rien de cet attribut.' };
+  if (!retenu) return { ...base, retenu: null, decision: 'rien', raison: 'Aucune source ne se prononce sur cet attribut.' };
   const dit = (g: Groupe) => g.sources.map((s) => regles.sources[s].libelle).join(' et ') + ' : ' + direValeur(g.valeur, accord);
   const regleDe = (g: Groupe) => g.lignes.map((l) => l.constat.regle).filter((x): x is string => !!x);
   if (projet.valeur !== null && accorde(retenu.valeur, projet.valeur, accord)) {
@@ -129,9 +142,26 @@ export function arbitrer(constats: readonly Constat[], projet: EtatProjet, attri
   return { ...base, retenu, decision: 'auto', raison: (retenu.sources.length > 1 ? 'Les sources s’accordent' : 'Une seule source, sûre') + ' (score ' + fr(retenu.score) + ') : ' + dit(retenu) + '.', regles: ['SCORE_AUTO_MIN', ...regleDe(retenu)] };
 }
 
+/**
+ * La decision de la personne a la place de celle du moteur : le groupe qu'elle retient, ou la valeur qu'elle force (un groupe qui ne pese rien : sa seule
+ * source est elle, et qui n'est pas dans `groupes`). Si cela redonne ce que le projet a deja, il n'y a rien a proposer.
+ */
+function avecLeChoix(a: Arbitrage, choix: ChoixArbitrage, regles: ReglesReconciliation): Arbitrage {
+  const { accord } = regles.attributs[a.attribut];
+  if (choix.type === 'groupe') {
+    const g = a.groupes[choix.index];
+    if (!g) return a;
+    const inchange = a.projet.valeur !== null && accorde(g.valeur, a.projet.valeur, accord);
+    return { ...a, retenu: g, decision: inchange ? 'rien' : 'choisie', raison: inchange ? 'Le projet a déjà cette valeur.' : 'Retenu par vous : ' + g.sources.map((s) => regles.sources[s].libelle).join(' et ') + ' : ' + direValeur(g.valeur, accord) + '.' };
+  }
+  const forcee: Groupe = { valeur: choix.valeur, lignes: [{ constat: { cible: a.cible, attribut: a.attribut, source: 'terrain', valeur: choix.valeur, confiance: 1, regle: 'valeur forcée' }, poids: 0, score: 0 }], score: 0, sources: ['terrain'] };
+  const inchange = a.projet.valeur !== null && accorde(choix.valeur, a.projet.valeur, accord);
+  return { ...a, retenu: forcee, decision: inchange ? 'rien' : 'forcee', raison: inchange ? 'Le projet a déjà cette valeur.' : 'Forcé par vous : ' + direValeur(choix.valeur, accord) + '.' };
+}
+
 /** Tous les arbitrages d'une liste de constats : un par (objet, attribut), dans l'ordre ou ils apparaissent. */
-export function arbitrerTout(constats: readonly Constat[], projetDe: (cible: string, attribut: IdAttribut) => EtatProjet, regles: ReglesReconciliation = RECONCILIATION): Arbitrage[] {
+export function arbitrerTout(constats: readonly Constat[], projetDe: (cible: string, attribut: IdAttribut) => EtatProjet, regles: ReglesReconciliation = RECONCILIATION, choixDe?: (cible: string, attribut: IdAttribut) => ChoixArbitrage | undefined): Arbitrage[] {
   const cles = new Map<string, Constat[]>();
   for (const c of constats) { const k = c.cible + '|' + c.attribut; cles.set(k, [...(cles.get(k) ?? []), c]); }
-  return [...cles.values()].map((cs) => { const [c] = cs as [Constat]; return arbitrer(cs, projetDe(c.cible, c.attribut), c.attribut, c.cible, regles); });
+  return [...cles.values()].map((cs) => { const [c] = cs as [Constat]; return arbitrer(cs, projetDe(c.cible, c.attribut), c.attribut, c.cible, regles, choixDe?.(c.cible, c.attribut)); });
 }

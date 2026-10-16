@@ -7,15 +7,16 @@
 // toits sur la mesure LiDAR (`corpsSousContrainte`) avec les valeurs retenues : une decision n'ecrit jamais une forme de sa main.
 // Le materiau des murs et la couverture gardent les lignes d'avant (valeur notee sur place contre Claude, D21).
 
-import { arbitrerTout, direValeur, type Arbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
+import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
-import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, metres } from '../../regles/sujets/formeToit.js';
+import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { cibleBatiment, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
 import { ECART_HAUTEUR_MIN_M, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
+import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import type { FormeToitSimple, ObjetPlan } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 
@@ -37,14 +38,26 @@ export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIA
   return nom;
 }
 
+/** Les mots d'un attribut, en clair : la forme du toit et la silhouette ont leur libelle, le reste se dit tel quel. */
+const libelleDe = (attribut: string): ((mot: string) => string) | undefined =>
+  attribut === 'formeToit' ? libelleForme : attribut === 'silhouetteFacade' ? (m) => libelleSilhouette(m as SilhouetteFacade) : undefined;
+
 /** Un arbitrage, tel que la proposition le garde (un fichier d'audit le rejoue sans le moteur). */
 export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = RECONCILIATION): ArbitrageProposition {
-  const { accord, libelle } = regles.attributs[a.attribut];
+  const desc = regles.attributs[a.attribut];
+  const { accord, libelle } = desc;
+  const mot = libelleDe(a.attribut);
   const groupes: GroupeArbitrage[] = a.groupes.map((g: Groupe) => ({
-    valeur: direValeur(g.valeur, accord), score: Math.round(g.score * 100) / 100, retenu: g === a.retenu,
-    lignes: g.lignes.map((l) => ({ source: l.constat.source, libelle: libelleSource(regles, l.constat.source), valeur: direValeur(l.constat.valeur, accord), confiance: l.constat.confiance === null ? null : Math.round(l.constat.confiance * 100) / 100, score: Math.round(l.score * 100) / 100, ...(l.constat.regle ? { regle: direRegle(l.constat.regle, regles) } : {}) })),
+    valeur: direValeur(g.valeur, accord, mot), score: Math.round(g.score * 100) / 100, retenu: g === a.retenu,
+    lignes: g.lignes.map((l) => ({ source: l.constat.source, libelle: libelleSource(regles, l.constat.source), valeur: direValeur(l.constat.valeur, accord, mot), confiance: l.constat.confiance === null ? null : Math.round(l.constat.confiance * 100) / 100, score: Math.round(l.score * 100) / 100, ...(l.constat.regle ? { regle: direRegle(l.constat.regle, regles) } : {}) })),
   }));
-  return { attribut: a.attribut, libelle, decision: a.decision === 'auto' ? 'auto' : 'manuelle', raison: a.raison, avant: direValeur(a.projet.valeur, accord), groupes, regles: a.regles.map((r) => direRegle(r, regles)) };
+  const decision = a.decision;
+  return {
+    cible: a.cible, attribut: a.attribut, libelle, decision, accord: accord.type, ...('unite' in accord && accord.unite ? { unite: accord.unite } : {}),
+    ...(desc.valeurs ? { options: desc.valeurs.map((v) => ({ valeur: JSON.stringify(v), libelle: direValeur(v, accord, mot) })) } : {}),
+    ...(a.decision === 'forcee' && a.retenu ? { forcee: direValeur(a.retenu.valeur, accord, mot) } : {}),
+    raison: a.raison, avant: direValeur(a.projet.valeur, accord, mot), groupes, regles: a.regles.map((r) => direRegle(r, regles)),
+  };
 }
 
 /** Les indices des constats du groupe retenu : les photos et les phrases qui ont fait dire cela. */
@@ -104,23 +117,51 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   };
 }
 
-/** Tous les arbitrages d'un batiment : un par attribut dont une source au moins parle. */
-export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION): Arbitrage[] {
+/** Ce que la personne a decide, par `cible|attribut` : un groupe de sources retenu, ou une valeur forcee. */
+export type ChoixArbitrages = Readonly<Record<string, ChoixArbitrage | undefined>>;
+export const cleChoix = (cible: string, attribut: string): string => cible + '|' + attribut;
+
+/** Tous les arbitrages d'un batiment : un par attribut dont une source au moins parle, avec ce que la personne en a decide. */
+export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Arbitrage[] {
   const { constats, projet } = constatsDuBatiment({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote });
-  return arbitrerTout(constats, projet, regles);
+  const choixDe = (cible: string, attribut: string) => choix[cleChoix(cible, attribut)];
+  const faits = arbitrerTout(constats, projet, regles, choixDe);
+  // Meme sans source, ces attributs restent proposes a la personne : c'est ainsi qu'elle peut forcer une valeur que personne n'a lue.
+  const cible = cibleBatiment(b.cle);
+  const muets = ATTRIBUTS_FORCABLES.filter((id) => !faits.some((a) => a.cible === cible && a.attribut === id)).map((id) => arbitrer([], projet(cible, id), id, cible, regles, choixDe(cible, id)));
+  return [...faits, ...muets];
 }
 
-/** Les propositions decidees par l'arbitrage des sources, batiment par batiment (hauteur, puis toiture). */
-export function propositionsArbitrees(e: EntreesPropositions, votes: VotesBatiments, regles: ReglesReconciliation = RECONCILIATION): Proposition[] {
+/** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'formeToit'];
+
+/** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
+export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
+
+/** Les arbitrages de tous les batiments de la liste de controle. */
+export function arbitragesParBatiment(e: EntreesPropositions, votes: VotesBatiments, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): ArbitragesBatiment[] {
+  const parCle = new Map(e.objets.map((o) => [o.key, o]));
+  return e.liste.batiments.flatMap((b) => {
+    const o = parCle.get(b.cle);
+    return o ? [{ cle: b.cle, nom: b.nom, arbitrages: arbitragesDuBatiment(e, o, b, votes[b.cle] ?? null, regles, choix) }] : [];
+  });
+}
+
+/** Les propositions que decident ces arbitrages, batiment par batiment (hauteur, puis toiture). */
+export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: readonly ArbitragesBatiment[], regles: ReglesReconciliation = RECONCILIATION): Proposition[] {
   const parCle = new Map(e.objets.map((o) => [o.key, o]));
   const out: Proposition[] = [];
-  for (const b of e.liste.batiments) {
-    const o = parCle.get(b.cle);
-    if (!o) continue;
-    const arbitrages = arbitragesDuBatiment(e, o, b, votes[b.cle] ?? null, regles);
-    const cible = cibleBatiment(b.cle);
+  for (const { cle, arbitrages } of parBatiment) {
+    const o = parCle.get(cle), b = e.liste.batiments.find((x) => x.cle === cle);
+    if (!o || !b) continue;
+    const cible = cibleBatiment(cle);
     const parAttribut = (id: IdAttribut) => arbitrages.find((a) => a.cible === cible && a.attribut === id);
     for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles)]) if (p) out.push(p);
   }
   return out;
+}
+
+/** Les propositions decidees par l'arbitrage des sources, de bout en bout (les arbitrages, puis leurs propositions). */
+export function propositionsArbitrees(e: EntreesPropositions, votes: VotesBatiments, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Proposition[] {
+  return propositionsDesArbitrages(e, arbitragesParBatiment(e, votes, regles, choix), regles);
 }

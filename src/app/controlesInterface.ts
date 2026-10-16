@@ -249,6 +249,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // propositions, montrees avant et apres dans la Vue 3D ; seul « Valider » ecrit dans le projet.
   'auditParcelle.propositions': etape(Z8, AUDIT_PARCELLE, 'Voir les propositions de l’audit, sur la Vue 3D'),
   'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
+  'auditParcelle.retenirSource': etape(Z8, AUDIT_PARCELLE, 'Retenir le groupe de sources que l’on juge juste', { repete: true }),
+  'auditParcelle.forcerValeur': etape(Z8, AUDIT_PARCELLE, 'Forcer une valeur pour un attribut', { repete: true }),
+  'auditParcelle.reprendreChoix': etape(Z8, AUDIT_PARCELLE, 'Reprendre le choix du moteur', { repete: true }),
   'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
   'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),

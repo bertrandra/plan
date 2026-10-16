@@ -189,6 +189,51 @@ describe('la validation des propositions', () => {
   });
 });
 
+describe('la main de la personne sur les arbitrages', () => {
+  // La forme du toit est vue sur place (deux-pans) : l'arbitrage existe, il n'y a rien a changer. La hauteur, elle, se force.
+  const attr = (t: ReturnType<typeof monter>, id: string) => t.v.arbitrages().flatMap((b) => b.arbitrages).find((a) => a.attribut === id);
+  const hauteur = (t: ReturnType<typeof monter>) => t.v.propositions().find((x) => x.id === 'maison:hauteur');
+
+  it('liste les sources d un attribut meme quand rien n est a changer', async () => {
+    const t = monter();
+    await t.v.lancer();
+    expect(attr(t, 'formeToit')?.decision).toBe('rien');
+    expect(attr(t, 'formeToit')?.options?.map((o) => o.libelle)).toContain('Plat (terrasse)');
+  });
+
+  it('forcer une valeur cree la proposition, la coche, et n ecrit rien avant Valider', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    expect(hauteur(t)).toBeUndefined();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    expect(attr(t, 'hauteurEgout')?.decision).toBe('forcee');
+    expect(hauteur(t)).toBeDefined();
+    expect(t.v.cochee('maison:hauteur')).toBe(true);
+    expect(t.plan()).toBe(avant);
+  });
+
+  it('reprendre le choix du moteur retire la proposition et sa case', async () => {
+    const t = monter();
+    await t.v.lancer();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    t.v.decider('batiment:maison', 'hauteurEgout', null);
+    expect(hauteur(t)).toBeUndefined();
+    expect(t.v.cochee('maison:hauteur')).toBe(false);
+  });
+
+  it('valider ecrit la valeur forcee dans le projet, et Ctrl+Z la defait', async () => {
+    const t = monter();
+    await t.v.lancer();
+    const avant = t.plan();
+    t.v.decider('batiment:maison', 'hauteurEgout', { type: 'force', valeur: 7.4 });
+    t.v.valider();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.elevation).toBe(7.4);
+    t.historique.annuler();
+    expect(t.plan()).toBe(avant);
+  });
+});
+
 describe('la consultation d un audit recu (Admin › Audits)', () => {
   /** Les propositions d'une session ordinaire, avec ce qu'un audit recu en a decide. */
   async function fichier(decisions: Record<string, 'validee' | 'refusee' | null>) {

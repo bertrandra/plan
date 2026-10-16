@@ -39,10 +39,20 @@ export interface GroupeArbitrage { valeur: string; score: number; retenu: boolea
 
 /** L'arbitrage d'un attribut qui a fait une proposition : la decision du moteur, sa raison, et tous les constats. */
 export interface ArbitrageProposition {
+  /** L'objet : `batiment:<cle>`, `facade:<cle>#<cote>` (regles/reconciliation.ts). */
+  cible: string;
   /** `hauteurEgout`, `formeToit`, `boutsToit`, `sensFaitage`... */
   attribut: string;
   libelle: string;
-  decision: 'auto' | 'manuelle';
+  /** `auto` : le moteur a decide seul ; `manuelle` : a la personne ; `choisie` : elle a retenu une source ; `forcee` : elle a donne sa valeur. */
+  decision: 'auto' | 'manuelle' | 'rien' | 'choisie' | 'forcee';
+  /** Comment se force l'attribut : une cote (`nombre`), un angle, un mot (`egal`) ou des mots (`ensemble`) ; l'unite d'une cote. */
+  accord: 'nombre' | 'angle' | 'egal' | 'ensemble';
+  unite?: string;
+  /** Les valeurs que l'on peut forcer quand l'attribut est en mots : la valeur (JSON) et son libelle. */
+  options?: { valeur: string; libelle: string }[];
+  /** Ce que la personne a force, en clair. */
+  forcee?: string;
   raison: string;
   /** Ce que le projet a aujourd'hui, en clair. */
   avant: string;
@@ -112,8 +122,8 @@ export const ACCORD_CLAUDE_MIN = 0.95;
 /** La case d'une proposition a son arrivee : jamais cochee si elle remplace un choix fait a la main. */
 export function cocheeParDefaut(p: Proposition): boolean {
   if (p.remplaceChoix || p.reserve) return false;
-  // Une decision arbitree : cochee quand le moteur l'a prise seul (aucun constat ne se contredit, aucun veto).
-  if (p.arbitrages?.length) return p.arbitrages.every((a) => a.decision === 'auto');
+  // Une decision arbitree : cochee quand le moteur l'a prise seul (aucun constat ne se contredit, aucun veto) ou que la personne l'a prise.
+  if (p.arbitrages?.length) return p.arbitrages.every((a) => a.decision !== 'manuelle');
   if (p.confiance === null) return true;
   return p.confiance >= (p.source === 'claude' ? ACCORD_CLAUDE_MIN : CONFIANCE_MIN);
 }

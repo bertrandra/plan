@@ -32,6 +32,8 @@ export interface DescriptionAttribut {
   accord: Accord;
   /** Le poids des sources pour cet attribut ; une source absente vaut son poids par defaut. */
   poids: Partial<Record<SourceConstat, number>>;
+  /** Les valeurs que la personne peut forcer quand l'attribut est un mot ou un ensemble de mots ; absent : une cote ou un angle, qui se tape. */
+  valeurs?: readonly (string | readonly string[])[];
   /** Les seuils propres a l'attribut ; absents : ceux du fichier. */
   scoreAutoMin?: number;
   margeAutoMin?: number;
@@ -90,10 +92,23 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
       if (!(SOURCES as readonly string[]).includes(src)) refus(ou + 'poids d’une source « ' + src + ' » inconnue');
       poids[src as SourceConstat] = nombre(v, ou + 'poids de ' + src, [0, 100]);
     }
-    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}) }];
+    const valeurs = lireValeurs(a.valeurs, accord, ou);
+    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}) }];
   })) as Record<IdAttribut, DescriptionAttribut>;
   const lecturesLidar = lireEtapes(f.lecturesLidar);
   return { lecturesLidar, seuils, sources, attributs };
+}
+
+/** Les valeurs forcables d'un attribut en mots : des mots, ou des ensembles de mots quand l'accord est un ensemble ; absentes, rien n'est propose. */
+function lireValeurs(v: unknown, accord: Accord, ou: string): readonly (string | readonly string[])[] | undefined {
+  if (v === undefined) return undefined;
+  if (accord.type === 'nombre' || accord.type === 'angle') return refus(ou + 'valeurs : une cote ou un angle se tape, il n’a pas de liste');
+  if (!Array.isArray(v) || !v.length) return refus(ou + 'valeurs : une liste est attendue');
+  return v.map((x) => {
+    if (accord.type === 'egal' && typeof x === 'string' && x.trim()) return x;
+    if (accord.type === 'ensemble' && Array.isArray(x) && x.length && x.every((m) => typeof m === 'string' && m.trim())) return [...(x as string[])];
+    return refus(ou + 'valeurs : une valeur ne va pas avec l’accord « ' + accord.type + ' »');
+  });
 }
 
 /** Les etapes de la lecture du LiDAR : numerotees, nommees, avec leurs modules, sans qu'un module serve deux etapes. */
@@ -113,7 +128,7 @@ function lireEtapes(v: unknown): EtapeLidar[] {
 
 /** L'empreinte de ce qui change une decision : les valeurs, jamais les phrases. */
 export function empreinteReconciliation(r: ReglesReconciliation): string {
-  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null])]));
+  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].valeurs ?? null, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null])]));
 }
 
 /** Les regles en vigueur : celles du depot. */

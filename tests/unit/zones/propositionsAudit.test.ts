@@ -81,7 +81,7 @@ describe('les observations de Claude dans l ecran des propositions', () => {
 
 describe('les sources d un attribut arbitre dans l ecran des propositions', () => {
   const a = {
-    attribut: 'boutsToit', libelle: 'Bouts du faîtage', decision: 'manuelle' as const, raison: 'Les sources se contredisent (3,15 contre 2,4, il faut ×1,5) : Photo de façade : croupe + croupe ; LiDAR HD : pignon + pignon.', avant: 'pignon + pignon', regles: ['MARGE_AUTO_MIN', 'GAIN_CROUPES'],
+    cible: 'batiment:maison', accord: 'ensemble' as const, attribut: 'boutsToit', libelle: 'Bouts du faîtage', decision: 'manuelle' as const, raison: 'Les sources se contredisent (3,15 contre 2,4, il faut ×1,5) : Photo de façade : croupe + croupe ; LiDAR HD : pignon + pignon.', avant: 'pignon + pignon', regles: ['MARGE_AUTO_MIN', 'GAIN_CROUPES'],
     groupes: [
       { valeur: 'croupe + croupe', score: 3.15, retenu: true, lignes: [{ source: 'photo', libelle: 'Photo de façade', valeur: 'croupe + croupe', confiance: 0.9, score: 3.15, regle: 'regles/toits/silhouettes.json' }] },
       { valeur: 'pignon + pignon', score: 2.4, retenu: false, lignes: [{ source: 'lidar', libelle: 'LiDAR HD', valeur: 'pignon + pignon', confiance: 0.79, score: 2.4, regle: 'GAIN_CROUPES' }] },
@@ -104,5 +104,21 @@ describe('les sources d un attribut arbitre dans l ecran des propositions', () =
     act(() => racine.render(createElement(Arbitrage, { a: { ...a, decision: 'auto', groupes: [{ ...a.groupes[0]!, lignes: [{ ...a.groupes[0]!.lignes[0]!, confiance: null, regle: undefined as never }] }] } })));
     expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Décision automatique');
     expect([...hote.querySelectorAll('tbody td')].map((td) => td.textContent).slice(2, 5)).toEqual(['—', '3,15', '—']);
+  });
+
+  it('avec la main : retenir un groupe, forcer une valeur du menu, reprendre le choix du moteur', () => {
+    const main = { retenir: vi.fn(), forcer: vi.fn(), reprendre: vi.fn() };
+    const avecOptions = { ...a, options: [{ valeur: '"pignon"', libelle: 'Pignon' }], decision: 'forcee' as const };
+    act(() => racine.render(createElement(Arbitrage, { a: avecOptions, main })));
+    const boutons = [...hote.querySelectorAll('.mainArbitrage button')] as HTMLButtonElement[];
+    expect(boutons.map((b) => b.textContent)).toEqual(['Retenir « pignon + pignon »', 'Reprendre le choix du moteur']);
+    act(() => boutons[0]!.click());
+    expect(main.retenir).toHaveBeenCalledWith(1);
+    act(() => boutons[1]!.click());
+    expect(main.reprendre).toHaveBeenCalled();
+    const menu = hote.querySelector('select') as HTMLSelectElement;
+    act(() => { menu.value = '"pignon"'; menu.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(main.forcer).toHaveBeenCalledWith('"pignon"');
+    expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Forcé par vous');
   });
 });

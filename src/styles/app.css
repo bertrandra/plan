@@ -1493,6 +1493,12 @@
   .arbitrageProposition > summary{ cursor:pointer; color:var(--ink-soft); }
   .decisionArbitrage{ font-weight:600; color:var(--ink); }
   .raisonArbitrage{ margin:4px 0; overflow-wrap:anywhere; }
+  .mainArbitrage{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0 2px; }
+  .mainArbitrage select, .forcerNombre input{ font-size:0.74rem; min-height:32px; }
+  .forcerNombre{ display:inline-flex; gap:4px; align-items:center; }
+  .forcerNombre input{ width:6rem; }
+  .sourcesBatiments{ margin:10px 0; }
+  .sourcesBatiment > summary{ cursor:pointer; padding:4px 0; }
   .tableArbitrage{ font-size:0.72rem; font-variant-numeric:tabular-nums; }
   .objetProposition{ font-weight:600; }
   .avantApres{ font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
