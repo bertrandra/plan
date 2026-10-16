@@ -3,6 +3,9 @@
 // hors ecran a 1 024 px et rendue en JPEG. C'est l'image que Claude compare a la photo : « le modele,
 // pas la realite ».
 //
+// Dans cette elevation, seule la facade reste : trois plans de coupe (`plansDeCoupeFacade`) retirent ce
+// qui avance devant son mur et ce qui depasse de ses bouts, y compris une dependance du meme batiment.
+//
 // Quand la facade visee est connue (`CibleFacadeRendu`), le rendu est son ELEVATION : la camera se
 // pose sur la normale du mur, en son milieu, regarde droit vers lui (a l'horizontale) et recule
 // jusqu'a ce que les quatre coins tiennent dans l'image. Elle est a mi-hauteur du mur, donc pas
@@ -16,6 +19,7 @@
 // change la taille du rendu et la camera le temps d'une image, puis on remet tout en place et on
 // redessine la vue, pour que l'ecran ne garde pas le cliche.
 
+import type * as THREE_NS from 'three';
 import { vue3d } from './etat3d.js';
 import { versLocalDepuis } from './primitives.js';
 import { NOM_FACADE_DEVANT, NOM_FACADES_FAITES } from './facadeDevant3d.js';
@@ -95,6 +99,76 @@ export function poseFacadeEntiere(cible: CibleFacadeRendu, champDeg: number = CH
   };
 }
 
+/** Ce que la facade garde devant son plan (debord du toit, gouttiere) et de chaque cote (rive) : le reste est coupe. */
+export const DEBORD_COUPE_M = 0.5;
+export const RIVE_COUPE_M = 0.3;
+
+/** Un plan de coupe dans le repere local de la scene : on garde les points ou `n . p + c >= 0`. */
+export interface PlanCoupe { n: { x: number; y: number; z: number }; c: number }
+
+/**
+ * Les trois plans qui ne laissent que la facade visee : un devant son mur, un a chaque bout. Une
+ * dependance ou un corps bas (une annexe) qui avance devant le mur, ou une aile contre son bout, est
+ * ainsi coupe de l'image meme quand il fait partie du meme batiment, ce que le tri des objets ne peut
+ * pas faire. Les points sont dans le repere du plan ; `versLocal` les met dans celui de la scene
+ * (x vers l'est, z vers le sud).
+ */
+export function plansDeCoupeFacade(cible: CibleFacadeRendu, versLocal: (p: { x: number; y: number }) => { x: number; z: number }): PlanCoupe[] {
+  const g = versLocal(cible.gauche), d = versLocal(cible.droite);
+  const ux = d.x - g.x, uz = d.z - g.z;
+  const l = Math.hypot(ux, uz) || 1;
+  const u = { x: ux / l, z: uz / l };
+  // La normale sortante du mur, dans le repere de la scene : de dehors, la facade se lit de gauche a droite.
+  const n = { x: -u.z, z: u.x };
+  const milieu = { x: (g.x + d.x) / 2, z: (g.z + d.z) / 2 };
+  const nMilieu = n.x * milieu.x + n.z * milieu.z;
+  return [
+    { n: { x: -n.x, y: 0, z: -n.z }, c: nMilieu + DEBORD_COUPE_M },
+    { n: { x: u.x, y: 0, z: u.z }, c: -(u.x * g.x + u.z * g.z) + RIVE_COUPE_M },
+    { n: { x: -u.x, y: 0, z: -u.z }, c: u.x * d.x + u.z * d.z + RIVE_COUPE_M },
+  ];
+}
+
+/** L'angle au-dela duquel deux faces voisines font une arete dessinee (mur et pan de toit, pignon et mur : bien au-dessus). */
+export const ANGLE_ARETE_DEG = 25;
+/** Le contour est tire un peu vers la camera pour ne pas se noyer dans la face qu'il borde (z-fighting). */
+const TIRAGE_CONTOUR_M = 0.03;
+/** Le trait de 1 px est epaissi de ces decalages d'image (3 px de large, 3 de haut) : lisible a 1 024 px. */
+export const DECALAGES_CONTOUR_PX: readonly (readonly [number, number])[] = [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]];
+const COULEUR_CONTOUR = 0x0b0b0b;
+
+/** Une maille pleine qui a du volume : le sol, le gazon et les nappes a plat n'ont pas d'arete utile. */
+const aDuVolume = (m: THREE_NS.Mesh): boolean => {
+  const g = m.geometry;
+  if (!g.boundingBox) g.computeBoundingBox();
+  const b = g.boundingBox;
+  return !!b && b.max.y - b.min.y > 0.05 && !(m as { isInstancedMesh?: boolean }).isInstancedMesh;
+};
+
+/**
+ * Les aretes de ce que la scene montre (murs, pans de toit, pignons), dans une scene a part : le
+ * rendu les dessine apres le modele, en noir et plus epais, pour que la limite entre la facade, le
+ * pignon et le toit se lise sans hesiter (demande du 17 octobre). Rien n'est ajoute a la scene vue.
+ */
+function scenePourLesContours(scene: THREE_NS.Scene, versCamera: THREE_NS.Vector3): { lignes: THREE_NS.Scene; liberer: () => void } {
+  const lignes = new THREE.Scene();
+  const matiere = new THREE.LineBasicMaterial({ color: COULEUR_CONTOUR });
+  const geometries: THREE_NS.BufferGeometry[] = [];
+  scene.updateMatrixWorld(true);
+  scene.traverseVisible((o) => {
+    const m = o as THREE_NS.Mesh;
+    if (!m.isMesh || !m.geometry || !aDuVolume(m)) return;
+    const g = new THREE.EdgesGeometry(m.geometry, ANGLE_ARETE_DEG);
+    geometries.push(g);
+    const l = new THREE.LineSegments(g, matiere);
+    l.matrixAutoUpdate = false;
+    l.matrixWorldAutoUpdate = false;
+    l.matrixWorld.copy(m.matrixWorld).premultiply(new THREE.Matrix4().makeTranslation(versCamera.x * TIRAGE_CONTOUR_M, versCamera.y * TIRAGE_CONTOUR_M, versCamera.z * TIRAGE_CONTOUR_M));
+    lignes.add(l);
+  });
+  return { lignes, liberer: () => { matiere.dispose(); geometries.forEach((g) => g.dispose()); } };
+}
+
 /** Le champ vertical de la camera three.js, d'apres le champ horizontal et les proportions de l'image. */
 export function champVertical(champHorizontalDeg: number, largeur: number, hauteur: number): number {
   return (2 * Math.atan(Math.tan(rad(champHorizontalDeg) / 2) * hauteur / largeur) * 180) / Math.PI;
@@ -105,6 +179,26 @@ export function ciblePrise(p: PriseRendu, local: { x: number; z: number }): { x:
   const az = rad(p.azimutDeg), inc = rad(p.inclinaisonDeg ?? 0);
   const d = 10;
   return { x: local.x + Math.sin(az) * Math.cos(inc) * d, y: HAUTEUR_PRISE_M + Math.sin(inc) * d, z: local.z - Math.cos(az) * Math.cos(inc) * d };
+}
+
+/** Dessine les aretes par-dessus le rendu, epaissies, sans effacer l'image ni sa profondeur. */
+function contourner(renderer: THREE_NS.WebGLRenderer, scene: THREE_NS.Scene, cam: THREE_NS.PerspectiveCamera, largeur: number, hauteur: number): void {
+  const versCamera = new THREE.Vector3();
+  cam.getWorldDirection(versCamera);
+  versCamera.negate();
+  const { lignes, liberer } = scenePourLesContours(scene, versCamera);
+  const autoClear = renderer.autoClear;
+  try {
+    renderer.autoClear = false;
+    for (const [dx, dy] of DECALAGES_CONTOUR_PX) {
+      cam.setViewOffset(largeur, hauteur, dx, dy, largeur, hauteur);
+      renderer.render(lignes, cam);
+    }
+  } finally {
+    cam.clearViewOffset();
+    renderer.autoClear = autoClear;
+    liberer();
+  }
 }
 
 export interface ImageRendu { base64: string; mediaType: 'image/jpeg'; largeur: number; hauteur: number }
@@ -139,15 +233,21 @@ export function rendreDepuisPrise(prise: PriseRendu, cible: CibleFacadeRendu | n
   const reperes = [NOM_FACADE_DEVANT, NOM_FACADES_FAITES, NOM_POSITION_GPS, NOM_TRAIT_DE_PRES]
     .map((nom) => scene.getObjectByName(nom)).filter((o): o is NonNullable<typeof o> => !!o && o.visible);
   for (const o of reperes) o.visible = false;
+  // La facade seule : ni dependance devant le mur, ni aile contre ses bouts (plansDeCoupeFacade).
+  const coupesAvant = renderer.clippingPlanes;
+  if (cible) renderer.clippingPlanes = plansDeCoupeFacade(cible, versLocalDepuis(s.cen)).map((q) => new THREE.Plane(new THREE.Vector3(q.n.x, q.n.y, q.n.z), q.c));
   try {
     renderer.setPixelRatio(1);
     renderer.setSize(largeur, hauteur, false);
     renderer.render(scene, cam);
+    // L'elevation d'une facade porte son contour : facade, pignon et toit se separent nettement.
+    if (cible) contourner(renderer, scene, cam, largeur, hauteur);
     const url = renderer.domElement.toDataURL('image/jpeg', 0.85);
     return { base64: url.slice(url.indexOf(',') + 1), mediaType: 'image/jpeg', largeur, hauteur };
   } catch {
     return null;
   } finally {
+    renderer.clippingPlanes = coupesAvant;
     for (const o of reperes) o.visible = true;
     // L'ecran reprend sa taille et sa camera : le cliche ne doit pas rester visible.
     renderer.setPixelRatio(pixelRatio);

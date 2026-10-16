@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Claude lit les pignons d'abord** (prompt d'analyse, version 4) : la silhouette du haut de chaque
+  façade (triangle, trapèze, rampe, marches) dit la forme du toit et ses bouts, et chaque désaccord
+  entre le rendu et la photo va dans les écarts. Le schéma de la réponse ne change pas.
+- **Contour noir sur le rendu de la façade pour Claude** : arêtes des murs, du pignon et du toit,
+  épaissies, pour que la limite façade / pignon / toit se lise sans hésiter.
+
 - **Les arbres sont générés par EZ-tree, depuis une bibliothèque d'essences que l'administrateur crée**
   (`MD/spec-arbres-3d.md` 2.0). Nouvel écran Admin › Arbres (`?admin&ecran=arbres`) : on y crée des
   essences (un nom, caduc ou persistant, des dimensions, les réglages d'EZ-tree à partir des quinze modèles
@@ -26,6 +32,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   512 Ko. EZ-tree (4 Mo) se charge donc à l'ouverture de la Vue 3D même sans bibliothèque du serveur.
 
 ### Modifié
+
+- **Rendu de la façade pour Claude : la façade seule.** Trois plans de coupe retirent ce qui avance
+  devant le mur (une dépendance du même bâtiment, un corps bas) et ce qui dépasse de ses bouts.
+- **Audit, vue de la façade choisie : à hauteur d'homme.** La caméra descend à 1,7 m au lieu de la
+  mi-hauteur du bâtiment, le regard reste horizontal et la distance garde le haut du mur dans l'image.
 
 - **Les anciens dessins d'arbres sont supprimés** (lobes, dôme, touffes, taillé, maquette d'architecte,
   feuilles instanciées, port, essence caduc/persistant, texture du feuillage), sans correspondance : un

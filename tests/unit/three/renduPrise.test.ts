@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE_NS from 'three';
-import { champVertical, ciblePrise, HAUTEUR_PRISE_M, rendreDepuisPrise, poseFacadeEntiere, RECUL_MAX_M, type CibleFacadeRendu, type PoseFacadeEntiere } from '../../../src/three/renduPrise.js';
+import { champVertical, ciblePrise, HAUTEUR_PRISE_M, rendreDepuisPrise, plansDeCoupeFacade, poseFacadeEntiere, RECUL_MAX_M, type CibleFacadeRendu, type PoseFacadeEntiere } from '../../../src/three/renduPrise.js';
 
 // Le rendu du modele depuis une prise de vue (MD/spec-regles-toits.md §14.1) : la camera posee la ou le
 // telephone etait, dans son axe ; sans Vue 3D ouverte, pas d'image.
@@ -115,5 +115,40 @@ describe('le rendu de la facade en elevation (pour Claude)', () => {
     const v = { x: pose.x - 3.5, y: pose.y - 13.5 };
     expect(v.x * 7 + v.y * 7).toBeCloseTo(0, 5);
     expect(pose.entiere).toBe(true);
+  });
+});
+
+describe('les plans de coupe de la facade seule', () => {
+  // Repere de la scene : x vers l'est, z vers le sud (z = -y du plan).
+  const versLocal = (p: { x: number; y: number }) => ({ x: p.x, z: -p.y });
+  const garde = (plans: ReturnType<typeof plansDeCoupeFacade>, p: { x: number; z: number }) => plans.every((q) => q.n.x * p.x + q.n.z * p.z + q.c >= 0);
+
+  it('garde le mur et son debord, coupe une dependance qui avance devant lui', () => {
+    const plans = plansDeCoupeFacade(MUR_SUD, versLocal);
+    expect(plans).toHaveLength(3);
+    // Mur sud a y = 10 : le mur est en z = -10 ; devant (dehors) est au sud, donc z plus grand.
+    expect(garde(plans, { x: 10, z: -10 })).toBe(true);
+    expect(garde(plans, { x: 10, z: -9.7 })).toBe(true);
+    expect(garde(plans, { x: 10, z: -9 })).toBe(false);
+    expect(garde(plans, { x: 10, z: -3 })).toBe(false);
+    // Derriere le mur, l'interieur de la maison reste.
+    expect(garde(plans, { x: 10, z: -14 })).toBe(true);
+  });
+
+  it('coupe ce qui depasse des bouts de la facade, garde sa rive', () => {
+    const plans = plansDeCoupeFacade(MUR_SUD, versLocal);
+    expect(garde(plans, { x: 4.8, z: -10 })).toBe(true);
+    expect(garde(plans, { x: 15.2, z: -10 })).toBe(true);
+    expect(garde(plans, { x: 3, z: -10 })).toBe(false);
+    expect(garde(plans, { x: 17, z: -10 })).toBe(false);
+  });
+
+  it('suit l orientation du mur : un mur est coupe sur sa propre normale', () => {
+    // Mur est (x = 20), de dehors la gauche est au sud : l'avant est a l'est.
+    const est: CibleFacadeRendu = { gauche: { x: 20, y: 0 }, droite: { x: 20, y: 10 }, hautM: 6 };
+    const plans = plansDeCoupeFacade(est, versLocal);
+    expect(garde(plans, { x: 20, z: -5 })).toBe(true);
+    expect(garde(plans, { x: 22, z: -5 })).toBe(false);
+    expect(garde(plans, { x: 18, z: -5 })).toBe(true);
   });
 });
