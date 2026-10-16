@@ -10,17 +10,16 @@
 //   (sauf sous un toit plat). Un mur de bout l'emporte sur elle.
 // - Le sens retenu est celui que soutiennent le plus de murs (leur largeur) ; les murs qui en disent un autre ne comptent pas.
 // - Un `bout` que le moteur ne sait pas produire (demi-croupe, brisis) donne le sens du faitage, jamais les bouts.
+//
+// Les seuils et la table de lecture ne sont pas ici : ils sont dans regles/toits/silhouettes.json (src/regles/toits/silhouettes.ts),
+// que l'ecran Admin › Regles montre et edite. Ce module les applique.
 
 import { azimutDe, azimutFaitage, plusGrand } from './faits.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, FormeToitSimple, PtBrut } from '../../../model/types.js';
 import { libelleSilhouette, type BoutVu, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
+import { SILHOUETTES_TOITS, type SilhouettesToits, type ValeurSilhouette } from '../../../regles/toits/silhouettes.js';
 import type { ToitEstime } from '../../toit.js';
-
-/** Un mur dont la normale est a moins de cela de l'axe du faitage ferme un bout ; a plus de 60 degres, c'est un long pan. */
-export const TOLERANCE_BOUT_DEG = 30;
-/** Un second sens de faitage pese-t-il autant que cette part du premier : il est signale (plusieurs corps, ou murs qui se contredisent). */
-const PART_SECOND_SENS = 0.4;
 
 /** Ce que l'on sait d'une facade : l'azimut de sa normale sortante (0 = nord, sens horaire), sa largeur, sa silhouette, ce qu'elle ferme, son nom. */
 export interface SilhouetteLue { azimut: number; largeurM: number; silhouette: SilhouetteFacade; bout?: BoutVu; nom: string }
@@ -50,29 +49,20 @@ export function axeDuToit(corps: readonly CorpsToit[] | null | undefined, contou
   return meilleur ? meilleur.a : null;
 }
 
-type Valeur = BoutFait | 'appentis' | 'hors-moteur' | null;
-/** Le role d'un mur et ce qu'il dit : `bout` du mur d'abord (c'est Claude qui le donne), sa silhouette sinon (la photo mesuree). */
+type Valeur = ValeurSilhouette | null;
+/** Le role d'un mur et ce qu'il dit. */
 interface Lecture { role: 'bout' | 'long'; valeur: Valeur }
 
-function ditLePan(s: SilhouetteFacade, plat: boolean): Valeur {
-  if (s === 'trapeze') return 'croupe';
-  if (s === 'ligne-droite' && !plat) return 'pignon';
-  return null;
-}
-
-function lire(l: SilhouetteLue, plat: boolean): Lecture | null {
+/** La premiere ligne de la table dont la condition est tenue (regles/toits/silhouettes.json) : le `bout` de Claude d'abord, la silhouette sinon. */
+function lire(l: SilhouetteLue, plat: boolean, regles: SilhouettesToits): Lecture | null {
   const b = l.bout ?? 'indetermine';
-  if (b === 'pignon' || b === 'croupe') return { role: 'bout', valeur: b };
-  if (b === 'demi-croupe' || b === 'brisis') return { role: 'bout', valeur: 'hors-moteur' };
-  // Un mur qui n'est pas un bout ne montre ni triangle, ni marches, ni rampe : Claude se contredit, le mur ne dit rien.
-  if (b === 'sans-objet' && ['triangle', 'marches', 'rampe'].includes(l.silhouette)) return null;
-  switch (l.silhouette) {
-    case 'triangle': case 'marches': return { role: 'bout', valeur: 'pignon' };
-    case 'rampe': return { role: 'bout', valeur: 'appentis' };
-    // Sous un toit plat, une ligne droite n'est pas un long pan : il n'y a pas de faitage.
-    case 'trapeze': case 'ligne-droite': return l.silhouette === 'ligne-droite' && plat ? null : { role: 'long', valeur: ditLePan(l.silhouette, plat) };
-    default: return null;
+  for (const r of regles.lecture) {
+    if (r.si.bout !== undefined && r.si.bout !== b) continue;
+    if (r.si.silhouette && !(r.si.silhouette as readonly string[]).includes(l.silhouette)) continue;
+    if (r.si.toitPlat === false && plat) continue;
+    return r.role === null ? null : { role: r.role, valeur: r.valeur ?? null };
   }
+  return null;
 }
 
 /** L'azimut du faitage que dit un mur, modulo 180 : perpendiculaire a un mur de bout, parallele a un long pan. */
@@ -86,8 +76,9 @@ const commune = <T>(xs: readonly T[]): T | null => (xs.length && xs.every((x) =>
  * `plat` : le toit lu est plat, une ligne droite ne dit alors rien des bouts. Sans les deux bouts, l'observation ne porte que
  * le sens du faitage : c'est encore un parametre que le moteur sait tenir.
  */
-export function observationDesSilhouettes(lues: readonly SilhouetteLue[], plat = false): BoutsLus | null {
-  const dits = lues.flatMap((l) => { const d = lire(l, plat); return d ? [{ l, ...d, axe: axeDit(l.azimut, d.role) }] : []; });
+export function observationDesSilhouettes(lues: readonly SilhouetteLue[], plat = false, regles: SilhouettesToits = SILHOUETTES_TOITS): BoutsLus | null {
+  const { TOLERANCE_BOUT_DEG, PART_SECOND_SENS } = regles.seuils;
+  const dits = lues.flatMap((l) => { const d = lire(l, plat, regles); return d ? [{ l, ...d, axe: axeDit(l.azimut, d.role) }] : []; });
   if (!dits.length) return null;
   // Le sens que soutiennent le plus de murs (leur largeur) ; a poids egal, celui du premier.
   const poids = (a: number) => dits.filter((d) => ecart180(d.axe, a) <= TOLERANCE_BOUT_DEG).reduce((s, d) => s + Math.max(d.l.largeurM, 0.1), 0);
