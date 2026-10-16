@@ -12,7 +12,7 @@
 // - « Valider » ecrit tout ce qui est coche en un seul instantane d'historique : Ctrl+Z le defait, et
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
-import { appliquerPropositions, jourIso, cleDeLaCible, projetApres, type Proposition } from '../../../regles/decisions.js';
+import { appliquerPropositions, avecReserveSurPlace, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
@@ -262,7 +262,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     // Les mesures d'abord, puis Claude (spec-audit §14.2 : l'origine est dite sur chaque ligne).
     const reponses = ctx.analyse?.reponses();
     const renfort = ctx.analyse?.renfort?.();
-    const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])];
+    // D21 : la valeur notee sur place l'emporte sur celle de Claude (la ligne de Claude arrive decochee, et le dit).
+    const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]);
     const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
     calculs++;
@@ -297,7 +298,14 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     cochee,
     basculer(id) {
       if (figees) return;
-      choix.set(id, !cochee(id));
+      const vers = !cochee(id);
+      choix.set(id, vers);
+      // D21 : cocher une ligne decoche sa rivale (la note sur place contre la valeur de Claude) ; decocher ne rend rien.
+      if (vers) {
+        const { propositions } = calculer();
+        const p = propositions.find((x) => x.id === id);
+        for (const r of p ? rivalesSurPlace(p, propositions) : []) choix.set(r.id, false);
+      }
       apercu.poser();
       publier();
     },

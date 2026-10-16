@@ -82,6 +82,28 @@ export function cocheeParDefaut(p: Proposition): boolean {
   return p.confiance >= (p.source === 'claude' ? ACCORD_CLAUDE_MIN : CONFIANCE_MIN);
 }
 
+/**
+ * Les effets qu'une valeur notee sur place (« Ce que je vois », source `mesure`) et une valeur vue par Claude peuvent
+ * ecrire tous les deux. Sur ceux-la, la personne qui etait devant le batiment l'emporte (decision D21 de
+ * MD/plan-vague-3-generaliser.md) : cocher l'une decoche l'autre.
+ */
+export const EFFETS_NOTES_SUR_PLACE: readonly TypeEffet[] = ['materiauMurs', 'couverture', 'cheminees', 'terrasse'];
+
+/** Les propositions qui ecrivent le meme attribut du meme batiment, d'une autre source : la valeur notee sur place et celle de Claude. */
+export function rivalesSurPlace(p: Proposition, toutes: readonly Proposition[]): Proposition[] {
+  if (!EFFETS_NOTES_SUR_PLACE.includes(p.effet.type)) return [];
+  const cible = JSON.stringify(p.cible);
+  return toutes.filter((x) => x.id !== p.id && x.source !== p.source && x.effet.type === p.effet.type && JSON.stringify(x.cible) === cible);
+}
+
+/** La phrase d'une ligne de Claude qui a une rivale notee sur place : elle arrive decochee et dit pourquoi. */
+export const RESERVE_NOTE_SUR_PLACE = 'Vous avez noté cet attribut sur place, et cela l’emporte : cocher cette ligne décoche votre note.';
+
+/** Les propositions, avec la reserve D21 ajoutee a celle de chaque ligne de Claude qui a une rivale notee sur place ; les autres sont rendues telles quelles. */
+export function avecReserveSurPlace(propositions: readonly Proposition[]): Proposition[] {
+  return propositions.map((p) => (p.source === 'claude' && rivalesSurPlace(p, propositions).length ? { ...p, reserve: p.reserve ? p.reserve + ' ' + RESERVE_NOTE_SUR_PLACE : RESERVE_NOTE_SUR_PLACE } : p));
+}
+
 /** La cle du batiment que la proposition touche ; null pour la parcelle. */
 export const cleDeLaCible = (c: CibleProposition): string | null => (c.type === 'parcelle' ? null : c.cle);
 
