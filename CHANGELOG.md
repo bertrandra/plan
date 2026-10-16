@@ -16,6 +16,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   Les arbres d'une même essence se dessinent en `InstancedMesh`. EZ-tree (4 Mo) ne se charge que si la
   bibliothèque n'est pas vide ; sans lui ni essence, l'arbre est un tronc et une boule.
 
+- **Une bibliothèque d'essences livrée avec Plan : 145 arbres, arbustes et haies** (`MD/spec-arbres-3d.md`
+  §2.1). Feuillus caducs (chênes, hêtres, érables, tilleuls, platane, bouleaux, saules, peupliers…),
+  fruitiers, ornement, conifères (pins, épicéas, sapins, cèdres, cyprès, thuyas, if, mélèze…), persistants
+  (chêne vert, olivier, lauriers, houx, buis…) et haies. Elle sert tant que le serveur n'a enregistré aucune
+  bibliothèque ; une bibliothèque enregistrée la remplace. L'import du cadastre propose l'essence d'après la
+  nature de la zone (verger : pommier, conifères : pin sylvestre, haie : charme…). Admin › Arbres : bouton
+  « Reprendre les essences par défaut » pour les retoucher ; le serveur accepte désormais 200 essences et
+  512 Ko. EZ-tree (4 Mo) se charge donc à l'ouverture de la Vue 3D même sans bibliothèque du serveur.
+
 ### Modifié
 
 - **Les anciens dessins d'arbres sont supprimés** (lobes, dôme, touffes, taillé, maquette d'architecte,

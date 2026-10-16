@@ -274,7 +274,7 @@ export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossi
 
       if (url.pathname === '/admin/arbres') {
         if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
-        const document = verifierArbres(await lireCorps(req, 262144));
+        const document = verifierArbres(await lireCorps(req, 524288));
         fs.mkdirSync(path.dirname(fArbres), { recursive: true });
         if (fs.existsSync(fArbres)) fs.copyFileSync(fArbres, fArbres + '.bak');
         const tmp = fArbres + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
@@ -351,7 +351,7 @@ function verifierArbres(texte) {
   let d;
   try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
   const refus = () => Object.assign(new Error('Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).'), { statut: 400 });
-  if (!d || d.format !== 'plan-arbres' || !Array.isArray(d.especes) || d.especes.length > 40) throw refus();
+  if (!d || d.format !== 'plan-arbres' || !Array.isArray(d.especes) || d.especes.length > 200) throw refus();
   const ids = new Set();
   for (const e of d.especes) {
     if (!e || typeof e !== 'object' || typeof e.id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(e.id) || ids.has(e.id)) throw refus();

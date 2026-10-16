@@ -324,10 +324,10 @@ if ($chemin === 'palette') {
 if ($chemin === 'arbres') {
     if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
     $f = $donnees['arbres'];
-    $texte = (string)file_get_contents('php://input', false, null, 0, 262145);
-    if (strlen($texte) > 262144) erreur(413, 'TOO_LARGE', 'Bibliothèque trop grosse (256 Ko au plus).');
+    $texte = (string)file_get_contents('php://input', false, null, 0, 524289);
+    if (strlen($texte) > 524288) erreur(413, 'TOO_LARGE', 'Bibliothèque trop grosse (512 Ko au plus).');
     $d = json_decode($texte, true);
-    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-arbres' && isset($d['especes']) && is_array($d['especes']) && count($d['especes']) <= 40;
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-arbres' && isset($d['especes']) && is_array($d['especes']) && count($d['especes']) <= 200;
     if ($valide) {
         $ids = [];
         foreach ($d['especes'] as $e) {

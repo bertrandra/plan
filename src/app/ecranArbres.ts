@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranArbres } from '../zones/EcranArbres.js';
 import { enregistrerArbres, lireArbres } from '../io/depotDemos.js';
-import { lireDocumentArbres, poserEspeces } from '../model/especesArbre.js';
+import { lireDocumentArbres, poserEspeces, bibliothequeEnUsage } from '../model/especesArbre.js';
 import { chargerEzTreeAdmin, libererModeles, presetsEz, reglagesParDefaut } from '../three/ezTree.js';
 import { monterApercuArbre } from '../three/apercuArbre.js';
 import { showErrBanner } from '../shell/dialogs.js';
@@ -50,7 +50,7 @@ export async function ouvrirEcranArbres(): Promise<void> {
         await enregistrerArbres(f, document);
         // La page elle-meme prend la nouvelle bibliotheque : les modeles generes sont ceux d'avant.
         const lue = lireDocumentArbres(document);
-        if (lue) { libererModeles(); poserEspeces(lue.especes); }
+        if (lue) { libererModeles(); poserEspeces(bibliothequeEnUsage(lue.especes)); }
         return null;
       } catch (e) {
         return (e as Error).message || String(e);

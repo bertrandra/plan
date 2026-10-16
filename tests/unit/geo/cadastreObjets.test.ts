@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { objetsDepuisCadastre, type ImportCadastral, type ParcelleCadastrale, type ObjetBdTopo } from '../../../src/geo/cadastreObjets.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut } from '../../../src/model/types.js';
+import { poserEspeces } from '../../../src/model/especesArbre.js';
+import { ESPECES_PAR_DEFAUT } from '../../../src/model/especesParDefaut.js';
 
 // Un import cadastral complet et fige : deux parcelles de propriete a fusionner (elles partagent un
 // cote, qui devient une limite interne), une voisine retenue, deux batiments (l'un chez soi, l'autre
@@ -46,8 +48,10 @@ function importFige(): ImportCadastral {
   };
 }
 
-beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-28T08:00:00Z')); });
-afterAll(() => { vi.useRealTimers(); });
+// Le temoin se capture sans bibliotheque d'essences (les arbres estimes n'ont alors pas d'essence), pour
+// ne pas dependre de la liste livree avec Plan ; un test plus bas dit ce que l'import propose avec elle.
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-28T08:00:00Z')); poserEspeces([]); });
+afterAll(() => { vi.useRealTimers(); poserEspeces(ESPECES_PAR_DEFAUT); });
 
 describe('objetsDepuisCadastre, sur un import complet fige', () => {
   it('reproduit le temoin a l identique', () => {
@@ -59,6 +63,15 @@ describe('objetsDepuisCadastre, sur un import complet fige', () => {
     if (process.env.RECAPTURER_CADASTRE) writeFileSync(temoin, texte + '\n');
     expect(existsSync(temoin), 'temoin absent : ' + temoin).toBe(true);
     expect(texte + '\n').toBe(readFileSync(temoin, 'utf8'));
+  });
+
+  it('propose aux arbres estimes une essence de la bibliotheque de Plan, d apres la nature de la zone', () => {
+    poserEspeces(ESPECES_PAR_DEFAUT);
+    try {
+      const arbres = objetsDepuisCadastre(importFige()).filter(o => o.fonction === 'arbre');
+      expect(arbres.length).toBeGreaterThan(0);
+      for (const a of arbres) expect(ESPECES_PAR_DEFAUT.some(e => e.id === a.especeArbre), String(a.especeArbre)).toBe(true);
+    } finally { poserEspeces([]); }
   });
 
   it('fusionne la propriete, trace la limite interne, et garde les voisines et le bati', () => {

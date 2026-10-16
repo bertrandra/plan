@@ -9,12 +9,13 @@
 // l'interface), et l'etat de la bibliotheque chargee, que la 3D, l'inspecteur et l'import lisent.
 
 import type { ObjetPlan } from './types.js';
+import { ESPECES_PAR_DEFAUT } from './especesParDefaut.js';
 
 export const FORMAT_ARBRES = 'plan-arbres';
-/** Au plus autant d'essences : la bibliotheque est une liste de choix, pas un catalogue. */
-export const MAX_ESPECES = 40;
+/** Au plus autant d'essences : de quoi reprendre toute la bibliotheque par defaut (especesParDefaut.ts) et y ajouter les siennes. */
+export const MAX_ESPECES = 200;
 /** Le document entier, en octets une fois serialise (les routes serveur le refusent au-dela). */
-export const MAX_OCTETS_ARBRES = 262144;
+export const MAX_OCTETS_ARBRES = 524288;
 export const ID_ESPECE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 export const DIAMETRE_DEFAUT_M = 3;
@@ -111,12 +112,21 @@ export function idDepuisNom(nom: string, pris: ReadonlySet<string>): string {
 
 // ---- La bibliotheque chargee -------------------------------------------------------------------
 
-let courante: readonly EspeceArbre[] = [];
+let courante: readonly EspeceArbre[] = ESPECES_PAR_DEFAUT;
 const ecouteurs = new Set<() => void>();
 
-/** La bibliotheque que la page a lue du serveur ; vide sans admin configure, sans reseau ou sans essence. */
+/**
+ * La bibliotheque en usage : celle que l'administrateur a enregistree sur le serveur, sinon (sans admin
+ * configure, sans reseau, ou sans essence enregistree) celle livree avec Plan (especesParDefaut.ts).
+ */
 export function especesChargees(): readonly EspeceArbre[] { return courante; }
 
+/** La bibliotheque a mettre en usage pour ce que le serveur a enregistre : la sienne, ou celle de Plan si elle est vide. */
+export function bibliothequeEnUsage(enregistrees: readonly EspeceArbre[]): readonly EspeceArbre[] {
+  return enregistrees.length ? enregistrees : ESPECES_PAR_DEFAUT;
+}
+
+/** Pose la bibliotheque en usage, telle quelle : vide, les arbres se dessinent en repli (le temoin des empreintes s'y met). */
 export function poserEspeces(especes: readonly EspeceArbre[]): void {
   courante = especes;
   for (const f of [...ecouteurs]) f();

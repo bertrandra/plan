@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { ESPECES_PAR_DEFAUT } from '../../../src/model/especesParDefaut.js';
 import {
-  arbreNu, especeDe, especeParNature, especeParId, especesChargees, poserEspeces, surChangementEspeces, idDepuisNom,
+  arbreNu, especeDe, especeParNature, especeParId, especesChargees, poserEspeces, bibliothequeEnUsage, surChangementEspeces, idDepuisNom,
   lireDocumentArbres, lireEspece, documentArbres, diametreDe, FORMAT_ARBRES, MAX_ESPECES, DIAMETRE_DEFAUT_M, HAUTEUR_DEFAUT_M, type EspeceArbre
 } from '../../../src/model/especesArbre.js';
 
@@ -78,7 +79,19 @@ describe('la bibliotheque chargee', () => {
     expect(appels).toBe(1);
   });
 
-  it('donne a un objet son essence, sinon la premiere, sinon rien', () => {
+  it('commence avec la bibliotheque de Plan, et rend celle-ci quand le serveur n\'a rien enregistre', async () => {
+    // Un module neuf : les autres tests de ce fichier ont deja vide la bibliotheque.
+    vi.resetModules();
+    const neuf = await import('../../../src/model/especesArbre.js');
+    const defaut = await import('../../../src/model/especesParDefaut.js');
+    expect(neuf.especesChargees()).toBe(defaut.ESPECES_PAR_DEFAUT);
+    expect(bibliothequeEnUsage([])).toBe(ESPECES_PAR_DEFAUT);
+    const sienne = [e('a')];
+    expect(bibliothequeEnUsage(sienne)).toBe(sienne);
+  });
+
+  it('donne a un objet son essence, sinon la premiere, sinon rien (bibliotheque vide : le repli)', () => {
+    poserEspeces([]);
     expect(especeDe({})).toBeNull();
     poserEspeces([e('a'), e('b')]);
     expect(especeDe({ especeArbre: 'b' })?.id).toBe('b');
