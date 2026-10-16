@@ -66,7 +66,7 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   // Les deux vues 3D : leurs panneaux, et l'hote ou three/ pose chaque canvas.
   createRoot(conteneur('zoneVues3d')).render(<><Vue3d magasin={magasin} commandes={commandes} vues={vues3d} /><Visionneuse magasin={magasin} commandes={commandes} vues={vues3d} /></>);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
-  createRoot(conteneur('zoneDialogues')).render(<><Dialogues /><Parcours /></>);
+  createRoot(conteneur('zoneDialogues')).render(<><Dialogues /><Parcours commandes={commandes} /></>);
   createRoot(conteneur('zoneNotifications')).render(<><Notifications /><Attente /></>);
   // Le telephone et la tablette (spec-ihm-mobile §6) : la barre de navigation, la feuille de
   // selection, et le voile des feuilles. Rien a l'ecran sur bureau.

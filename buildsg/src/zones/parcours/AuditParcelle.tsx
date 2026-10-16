@@ -1,28 +1,35 @@
 // Z8, l'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §12).
 //
 // Trois ecrans, une session (app/audit/parcelle/controleur.ts) :
-// - la liste de controle, plein ecran : par batiment de la parcelle et des mitoyens, les facades, le
-//   toit, les cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le
-//   portail ; le compteur de ce qui reste, et « Lancer l'analyse » ;
+// - la liste de controle, plein ecran : par batiment de la parcelle, les facades, le toit, les
+//   cheminees, la toiture-terrasse et les materiaux ; puis la cloture cote rue et le portail ; le
+//   compteur de ce qui reste, et « Lancer l'analyse » (les maisons voisines n'y sont plus) ;
 // - l'ecran de prise, pose en bas de la Vue 3D (le voile s'efface, la scene reste visible) : la
 //   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme ;
 // - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
 //
 // Tout s'ecrit dans la capture a chaque geste, gardee dans le brouillon de l'appareil : fermer ne perd
-// rien, et rien n'entre dans le projet avant la validation des propositions.
+// rien, et rien n'entre dans le projet avant la validation des propositions. Quand quelqu'un peut
+// envoyer, la liste dit aussi ou en est la sauvegarde sur le serveur de Plan (« Envoyer l'audit au
+// serveur », une commande du registre).
 
 import { useEffect, useReducer, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
+import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
+import { BoutonCommande } from '../composants/BoutonCommande.js';
+import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
+import { useCadrerVue } from './cadrageVue.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
+import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
 
-interface Props { session: SessionAuditParcelle; fermer: () => void }
+interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void; retour?: () => void }
 
 /** La session change (un geste, une position, la boussole) : l'ecran se redessine. */
 function useSuivreSession(session: SessionAuditParcelle): void {
@@ -115,7 +122,7 @@ function SectionBatiment({ session, b, ouverte, basculer, prendre, photo }: {
 }) {
   return (
     <section className="batimentAudit" aria-label={b.nom}>
-      <h3 className="titreBatimentAudit">{b.nom}{b.mitoyen && <span className="pastilleAudit">mitoyen</span>}</h3>
+      <h3 className="titreBatimentAudit">{b.nom}</h3>
       <ul className="lignesAudit" aria-label={'Façades de ' + b.nom}>
         {b.facades.map((f) => <LigneFacadeVue key={f.cote} session={session} b={b} f={f} ouverte={ouverte === b.cle + '#' + f.cote} basculer={() => basculer(b.cle + '#' + f.cote)} prendre={prendre} />)}
       </ul>
@@ -192,6 +199,22 @@ function SectionParcelle({ session, ouverte, basculer, photo }: { session: Sessi
   );
 }
 
+/**
+ * La sauvegarde sur le serveur de Plan (§15) : le bouton et ce qui est parti, ce qui va partir, ou
+ * pourquoi rien ne part (hors ligne, trop gros, refus du serveur). Absente quand personne ne peut envoyer.
+ */
+function SauvegardeAudit({ session, commandes }: { session: SessionAuditParcelle; commandes: RegistreCommandes }) {
+  const e = session.sauvegarde.etat();
+  if (!e.disponible) return null;
+  const alerte = e.etat === 'erreur' || e.etat === 'tropGros';
+  return (
+    <div className={'sauvegardeAudit etat-' + e.etat}>
+      <BoutonCommande commandes={commandes} id="audit.envoyerParcelle" className="secondary small" enCours={e.etat === 'envoi' ? 'Envoi…' : false}>Envoyer l’audit au serveur</BoutonCommande>
+      <p className={'noteSauvegarde' + (alerte ? ' alerte' : '')} role={alerte ? 'alert' : 'status'}>{texteDeLaSauvegarde(e)}</p>
+    </div>
+  );
+}
+
 /** La photo prise, reduite, avec la prise de vue relevee au retour de l'appareil. */
 function usePhoto(session: SessionAuditParcelle): { enCours: boolean; erreur: string; prendre: (f: File, ranger: (p: PhotoCas) => boolean | void) => void } {
   const [enCours, setEnCours] = useState(false);
@@ -207,13 +230,16 @@ function usePhoto(session: SessionAuditParcelle): { enCours: boolean; erreur: st
   return { enCours, erreur, prendre };
 }
 
-function Liste({ session, fermer }: Props) {
+function Liste({ session, commandes, fermer }: Props) {
   const [ouverte, setOuverte] = useState<string | null>(null);
   const photo = usePhoto(session);
   const l = session.liste();
   const c = session.capture.lire();
   const basculer = (cle: string) => setOuverte(ouverte === cle ? null : cle);
   const terminee = c.phase === 'analyse';
+  const section = (b: LigneBatiment) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
+    prendre={(cle, cote) => session.photographier(cle, cote)}
+    photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />;
   return (
     <div className="dialogueImperatif dialogueAudit dialogueAuditParcelle" role="dialog" aria-modal="true" aria-label="Audit de la parcelle">
       <div className="titreParcours">Audit de la parcelle</div>
@@ -225,18 +251,17 @@ function Liste({ session, fermer }: Props) {
       </div>}
       <div className="actionsAudit">
         <button type="button" data-controle="auditParcelle.prise" onClick={() => session.montrer('prise')}>Photographier en marchant</button>
-        <span className="detailPhoto">La façade devant vous est reconnue ; la photo s’y range d’elle-même.</span>
+        <span className="detailPhoto">La Vue 3D ne montre que le bâtiment. Devant une façade, elle vous suit à hauteur d’homme : la façade passe en rouge et la photo s’y range d’elle-même. Sinon, elle montre tout le bâtiment : touchez la façade à photographier.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
-      {l.batiments.map((b) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
-        prendre={(cle, cote) => session.photographier(cle, cote)}
-        photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />)}
+      {l.batiments.map(section)}
       <SectionParcelle session={session} ouverte={ouverte} basculer={basculer}
         photo={(quoi, f) => photo.prendre(f, (p) => (quoi === 'cloture' ? session.capture.ajouterPhotoCloture(p) : session.capture.ajouterPhotoPortail(p)))} />
       {l.peutLancer && l.manques.length > 0 && <details className="manquesAudit">
         <summary>{'Ce qui manque (' + l.manques.length + ')'}</summary>
         <ul>{l.manques.map((m) => <li key={m.cle}>{m.texte}</li>)}</ul>
       </details>}
+      <SauvegardeAudit session={session} commandes={commandes} />
       <div className="piedDialogue">
         {!terminee && !l.peutLancer && <span className="detailPhoto">Photographiez au moins une façade pour lancer l’analyse.</span>}
         <button type="button" className="secondary" data-controle="auditParcelle.fermer" onClick={fermer}>Fermer</button>
@@ -255,28 +280,54 @@ function texteVisee(session: SessionAuditParcelle): { titre: string; detail: str
   const photos = (n: number) => n + ' photo' + (n > 1 ? 's' : '');
   if (c) {
     const titre = c.choisie
-      ? 'Photo pour ' + c.nom + ' (choisie dans la liste) — ' + photos(c.photos)
+      ? 'Photo pour ' + c.nom + ' (choisie) — ' + photos(c.photos)
       : 'Vous êtes devant ' + c.nom + (c.distance !== null ? ', ' + metres(c.distance) : '') + ' — ' + photos(c.photos);
     return { titre: titre.charAt(0).toUpperCase() + titre.slice(1), detail: c.plan };
   }
-  if (pos.etat === 'refusee') return { titre: 'Position refusée.', detail: 'Choisissez la façade dans la liste : « Photographier » sur sa ligne.' };
-  if (pos.etat === 'attente') return { titre: 'En attente de votre position…', detail: 'Sans position, choisissez la façade dans la liste.' };
-  return { titre: 'Aucune façade de la parcelle devant vous.', detail: 'Placez-vous face à un mur, du côté extérieur, entre 3 et 40 m.' };
+  if (pos.etat === 'refusee') return { titre: 'Position refusée.', detail: 'Touchez la façade dans la 3D, ou choisissez-la dans la liste : « Photographier » sur sa ligne.' };
+  if (pos.etat === 'attente') return { titre: 'En attente de votre position…', detail: 'Sans position, touchez la façade dans la 3D ou choisissez-la dans la liste.' };
+  return { titre: 'Aucune façade de la parcelle devant vous.', detail: 'Placez-vous face à un mur, du côté extérieur, entre 3 et 40 m, ou touchez la façade dans la 3D.' };
 }
 
-function Prise({ session }: { session: SessionAuditParcelle }) {
+/**
+ * Le batiment verrouille pour la prise (action volontaire) : la parcelle porte une annexe a cote de
+ * la maison, et la reconnaissance passait de l'une a l'autre. Un bouton par batiment ; toucher celui
+ * qui est verrouille rend la main. Absent quand la parcelle n'a qu'un batiment.
+ */
+function VerrouBatiment({ session }: { session: SessionAuditParcelle }) {
+  const batiments = session.liste().batiments;
+  const verrou = session.verrou();
+  if (batiments.length < 2) return null;
+  return (
+    <div className="verrouBatiment" role="group" aria-label="Bâtiment photographié">
+      <span className="detailPhoto">{verrou === null ? 'Plusieurs bâtiments sur la parcelle. Verrouiller :' : 'Verrouillé, seul ce bâtiment est visé :'}</span>
+      {batiments.map((b) => (
+        <button key={b.cle} type="button" className="secondary small" data-controle="auditParcelle.verrouiller" aria-pressed={verrou === b.cle}
+          onClick={() => session.verrouiller(verrou === b.cle ? null : b.cle)}>{b.nom}</button>
+      ))}
+    </div>
+  );
+}
+
+function Prise({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
   const photo = usePhoto(session);
+  // La Vue 3D cadre la partie que l'ecran de prise laisse voir.
+  const cadre = useCadrerVue(session);
   const c = session.cible();
   const pos = session.position();
   const { titre, detail } = texteVisee(session);
   const etatGps = pos.etat === 'ok' ? 'GPS ± ' + Math.round(pos.precisionM ?? 0) + ' m' + (pos.boussole ? ' · boussole' : ' · sans boussole : la façade la plus proche') : null;
   return (
-    <div className="auditPrise" role="dialog" aria-modal="false" aria-label="Photographier les façades">
-      <div className="titreParcours" aria-live="polite">{titre}</div>
+    <div ref={cadre} className="auditPrise" role="dialog" aria-modal="false" aria-label="Photographier les façades">
+      <div className="enteteCarteAudit">
+        <div className="titreParcours" aria-live="polite">{titre}</div>
+        <BoutonFermerAudit fermer={fermer} />
+      </div>
       {detail && <div className="detailPhoto">{detail}</div>}
       {etatGps && <div className="detailPhoto">{etatGps}</div>}
       {session.dernierRangement() && <div className="detailPhoto rangementAudit" role="status">{session.dernierRangement()}</div>}
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
+      <VerrouBatiment session={session} />
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
         {c?.choisie && pos.etat === 'ok'
@@ -289,9 +340,9 @@ function Prise({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
-export function AuditParcelle({ session, fermer }: Props) {
+export function AuditParcelle({ session, commandes, fermer, retour }: Props) {
   useSuivreSession(session);
   const e = session.ecran();
-  if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} />;
-  return e === 'prise' ? <Prise session={session} /> : <Liste session={session} fermer={fermer} />;
+  if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} {...(retour ? { retour } : {})} />;
+  return e === 'prise' ? <Prise session={session} fermer={fermer} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
 }

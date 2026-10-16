@@ -5,9 +5,13 @@
 // - Safari (iOS) donne `webkitCompassHeading`, deja un cap. Il faut l'autorisation de la personne,
 //   demandee pendant un geste (`DeviceOrientationEvent.requestPermission`) : `autoriserBoussole` est
 //   appelee depuis un bouton.
-// - Chrome (Android) donne `deviceorientationabsolute`, dont `alpha` tourne dans l'autre sens : le cap
-//   est 360 - alpha.
-// Dans les deux cas, un ecran tourne en paysage decale le cap de son angle.
+// - Chrome (Android) donne `deviceorientationabsolute`, dont `alpha` tourne dans l'autre sens : a plat,
+//   le cap du haut du telephone est 360 - alpha. Mais l'audit se fait telephone debout, pour
+//   photographier : `alpha` seul n'y dit plus rien (`beta` vaut 90, et `alpha` et `gamma` se partagent
+//   la meme rotation). On prend alors le cap de l'appareil photo arriere, calcule sur les trois angles
+//   (`capAppareilPhoto`) : c'est vers lui que l'on regarde, et vers lui que la Vue 3D doit tourner.
+// A plat, un ecran tourne en paysage decale le cap de son angle ; debout, l'appareil photo vise au
+// meme endroit quel que soit le sens de l'ecran.
 //
 // Le meme evenement donne l'attitude du telephone (`beta`, `gamma`) : l'inclinaison de la visee et
 // le roulis de l'image, gardes avec une photo (MD/spec-audit.md §5).
@@ -17,9 +21,30 @@ export interface OrientationLue {
   alpha: number | null;
   absolute: boolean;
   webkitCompassHeading?: number | undefined;
+  beta?: number | null | undefined;
+  gamma?: number | null | undefined;
 }
 
 const modulo360 = (a: number) => ((a % 360) + 360) % 360;
+const RAD = Math.PI / 180;
+
+/**
+ * Plus a plat que cela (la part horizontale de l'axe de l'appareil photo), le telephone regarde le sol :
+ * son cap est celui de son haut. Au-dessus (incline de plus de 30 degres), celui de l'appareil photo.
+ */
+const PART_HORIZONTALE_MIN = 0.5;
+
+/**
+ * Le cap de l'appareil photo arriere (l'axe -z du telephone, W3C Z-X'-Y'') depuis `alpha` (nord
+ * connu), `beta` et `gamma` ; null quand le telephone est presque a plat et vise le sol.
+ */
+export function capAppareilPhoto(alpha: number, beta: number, gamma: number): number | null {
+  const a = alpha * RAD, b = beta * RAD, g = gamma * RAD;
+  const est = -Math.cos(a) * Math.sin(g) - Math.sin(a) * Math.sin(b) * Math.cos(g);
+  const nord = -Math.sin(a) * Math.sin(g) + Math.cos(a) * Math.sin(b) * Math.cos(g);
+  if (Math.hypot(est, nord) < PART_HORIZONTALE_MIN) return null;
+  return modulo360((Math.atan2(est, nord) * 180) / Math.PI);
+}
 
 /**
  * Le cap depuis un evenement d'orientation et l'angle de l'ecran (0 en portrait, 90 en paysage),
@@ -27,7 +52,14 @@ const modulo360 = (a: number) => ((a % 360) + 360) % 360;
  */
 export function capDepuisOrientation(e: OrientationLue, angleEcran = 0): number | null {
   if (typeof e.webkitCompassHeading === 'number' && Number.isFinite(e.webkitCompassHeading)) return modulo360(e.webkitCompassHeading + angleEcran);
-  if (e.absolute && typeof e.alpha === 'number' && Number.isFinite(e.alpha)) return modulo360(360 - e.alpha + angleEcran);
+  if (e.absolute && typeof e.alpha === 'number' && Number.isFinite(e.alpha)) {
+    const { beta, gamma } = e;
+    if (typeof beta === 'number' && typeof gamma === 'number' && Number.isFinite(beta) && Number.isFinite(gamma)) {
+      const camera = capAppareilPhoto(e.alpha, beta, gamma);
+      if (camera !== null) return camera;
+    }
+    return modulo360(360 - e.alpha + angleEcran);
+  }
   return null;
 }
 
@@ -51,7 +83,6 @@ export interface Attitude {
 
 /** Au-dela, la visee est presque verticale : le roulis ne se mesure plus (le haut de l'image est arbitraire). */
 const INCLINAISON_ROULIS_MAX_DEG = 80;
-const RAD = Math.PI / 180;
 
 /**
  * L'attitude depuis `beta` et `gamma` de l'orientation (W3C, angles Z-X'-Y'').
@@ -105,7 +136,7 @@ export function suivreBoussole(sur: (capDeg: number) => void, surAttitude?: (a: 
   const angle = () => (typeof screen !== 'undefined' && screen.orientation ? screen.orientation.angle : 0);
   const ecouter = (e: Event) => {
     const o = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
-    const cap = capDepuisOrientation({ alpha: o.alpha, absolute: o.absolute || e.type === 'deviceorientationabsolute', webkitCompassHeading: o.webkitCompassHeading }, angle());
+    const cap = capDepuisOrientation({ alpha: o.alpha, absolute: o.absolute || e.type === 'deviceorientationabsolute', webkitCompassHeading: o.webkitCompassHeading, beta: o.beta, gamma: o.gamma }, angle());
     if (cap !== null) sur(cap);
     if (surAttitude) {
       const a = attitudeDepuisOrientation(o.beta, o.gamma);

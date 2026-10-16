@@ -10,7 +10,8 @@
 // en arriere-plan — le reglage se ferait alors sans effet visible au retour.
 
 import { au } from '../util/tableaux.js';
-import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
+import { sousLePointeur } from './comparaison3d.js';
+import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type * as THREE_NS from 'three';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
@@ -56,7 +57,7 @@ function poserCamera(sc: SceneTroisBase, vp: PointDeVue, centroide: { x: number;
   sc.camera.position.set(position.x, position.y, position.z);
   sc.controls.target.set(cible.x, cible.y, cible.z);
   sc.controls.update();
-  sc.renderer.render(sc.scene, sc.camera);
+  rendre3d(sc);
 }
 
 /**
@@ -92,7 +93,8 @@ function redimensionner(sc: SceneTroisBase | null, host: HTMLElement | null): vo
   sc.camera.aspect = w / h;
   sc.camera.updateProjectionMatrix();
   sc.renderer.setSize(w, h);
-  sc.renderer.render(sc.scene, sc.camera);
+  sc.redimensionner?.(w, h);
+  rendre3d(sc);
 }
 
 /**
@@ -196,7 +198,7 @@ function visibleDansLaScene(o: THREE_NS.Object3D | null): boolean {
  */
 function pointSousLePointeur(sc: SceneTroisBase, ndc: { x: number; y: number }): THREE_NS.Vector3 | null {
   const rayon = new THREE.Raycaster();
-  rayon.setFromCamera(ndc, sc.camera);
+  rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), sc.camera);
   const touches = rayon.intersectObjects(sc.scene.children, true);
   const t = touches.find((i) => (i.object as THREE_NS.Mesh).isMesh && visibleDansLaScene(i.object));
   if (t) return t.point.clone();
@@ -225,14 +227,13 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     e.stopImmediatePropagation();
     const f = facteurMolette(e.deltaY);
     if (f === 1) return;
-    const dom = sc.renderer.domElement, r = dom.getBoundingClientRect();
     const maintenant = performance.now();
     if (!molette || maintenant - molette.t > GESTE_MOLETTE_MS || Math.hypot(e.clientX - molette.x, e.clientY - molette.y) > GESTE_MOLETTE_PX) {
-      const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 };
-      molette = { point: pointSousLePointeur(sc, ndc), t: maintenant, x: e.clientX, y: e.clientY };
+      // En deux vues (avant / apres d'un audit), le point vise est celui de la vue sous le curseur.
+      molette = { point: sousLePointeur(sc, e.clientX, e.clientY, (ndc) => pointSousLePointeur(sc, ndc)), t: maintenant, x: e.clientX, y: e.clientY };
     }
     molette.t = maintenant;
-    const { camera, controls, renderer, scene } = sc;
+    const { camera, controls } = sc;
     // Le ciel : rien a viser, la molette rapproche de la cible comme avant.
     if (!molette.point) { repli(f); return; }
     // En s'eloignant, la scene ne doit pas sortir du plan lointain de la camera.
@@ -243,7 +244,7 @@ function zoomALaMolette(repli: (f: number) => void): { onMolette: (e: WheelEvent
     camera.position.set(pas.camera.x, pas.camera.y, pas.camera.z);
     controls.target.set(cible.x, cible.y, cible.z);
     controls.update();
-    renderer.render(scene, camera);
+    rendre3d(sc);
   }
   return { onMolette, oublier: () => { molette = null; } };
 }
@@ -261,7 +262,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
    */
   function zoom3D(factor: number): void {
     if (!vue3d.scene) return;
-    const { camera, controls, renderer, scene } = vue3d.scene;
+    const { camera, controls } = vue3d.scene;
     const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
     offset.multiplyScalar(factor);
     if (offset.length() < 0.3) return;
@@ -269,7 +270,7 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     if (factor > 1 && offset.length() > camera.far * 0.5) return;
     camera.position.copy(controls.target).add(offset);
     controls.update();
-    renderer.render(scene, camera);
+    rendre3d(vue3d.scene);
   }
 
   // Le zoom au glisser est tenu a la main. OrbitControls sait remapper le glisser en rotation ou en
@@ -349,10 +350,10 @@ export function creerNavigation3d(etat: PlanVuDeLa3d, ctx: ContexteNavigation) {
     hauteurDesYeux() {
       const obj = etat.objects.find(o => o.key === etat.terrasseSelectedKey);
       if (!obj || !vue3d.scene) return;
-      const { camera, controls, renderer, scene } = vue3d.scene;
+      const { camera, controls } = vue3d.scene;
       camera.position.y = ctx.hauteurFinieMm(obj) / 1000 + HAUTEUR_YEUX_M;
       controls.update();
-      renderer.render(scene, camera);
+      rendre3d(vue3d.scene);
     },
 
     allerAuPointDeVue: (vp: PointDeVue) => allerAuPointDeVue(etat, ctx, vp),

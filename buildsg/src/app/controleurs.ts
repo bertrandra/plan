@@ -62,7 +62,7 @@ const ZONES: { cle: string; nom: string; emplacements: Emplacement[] }[] = [
   { cle: 'Z4', nom: 'Canevas', emplacements: ['surimpression', 'selection', 'vue3d', 'visionneuse'] },
   { cle: 'Z5', nom: 'Inspecteur', emplacements: ['inspecteur'] },
   { cle: 'Z6', nom: 'Résultats', emplacements: ['tiroir'] },
-  { cle: 'Z8', nom: 'Dialogues', emplacements: ['premierPas'] },
+  { cle: 'Z8', nom: 'Dialogues', emplacements: ['premierPas', 'parcours'] },
   { cle: 'clavier', nom: 'Raccourcis clavier', emplacements: ['clavier'] }
 ];
 
@@ -72,7 +72,7 @@ const NOMS_EMPLACEMENTS: Record<Emplacement, string> = {
   menuFichier: 'Menu Fichier', menuExporter: 'Menu Exporter', menuAffichage: 'Menu Affichage', menuAide: 'Menu Aide', menuAdmin: 'Menu Admin',
   surimpression: 'Surimpression du plan', selection: 'Barre de sélection', inspecteur: 'Inspecteur', explorateur: 'Explorateur',
   tiroir: 'Tiroir des résultats', vue3d: 'Vue 3D', visionneuse: 'Visionneuse GLB', clavier: 'Clavier',
-  premierPas: 'Premier pas', sansObjet: 'Sans objet'
+  premierPas: 'Premier pas', parcours: 'Parcours (dialogue en plusieurs étapes)', sansObjet: 'Sans objet'
 };
 
 const NOMS_GROUPES: Record<string, string> = {

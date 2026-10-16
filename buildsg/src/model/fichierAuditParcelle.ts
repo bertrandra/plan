@@ -221,7 +221,11 @@ function decisionAvecPropositions(d: DecisionAudit, propositions: readonly Propo
   return { ...sansPropositions(d), ...(decidees.length ? { propositions: decidees } : {}) };
 }
 
-/** La capture du fichier, terminee, telle que la session la reprend a la phase 3. */
+/**
+ * La capture du fichier, telle que la session la reprend : terminee (phase 3) quand le fichier dit la
+ * fin de la capture, en cours sinon. Un fichier ecrit pendant la capture (la sauvegarde sur le
+ * serveur, §15) se reprend ainsi la ou il en etait, sur la liste de controle.
+ */
 export function captureDuFichier(f: FichierAuditParcelle): CaptureParcelle {
   const batiments: Record<string, BatimentCapture> = {};
   for (const b of f.batiments) {
@@ -235,7 +239,7 @@ export function captureDuFichier(f: FichierAuditParcelle): CaptureParcelle {
   }
   return {
     version: VERSION_CAPTURE_PARCELLE, id: idCaptureParcelle(f.parcelle.idu), debut: f.debut, idu: f.parcelle.idu,
-    phase: 'analyse', finCapture: f.finCapture ?? f.ecritLe, batiments,
+    ...(f.finCapture ? { phase: 'analyse' as const, finCapture: f.finCapture } : { phase: 'capture' as const, finCapture: null }), batiments,
     cloture: { ...f.cloture, photos: [...f.cloture.photos] }, portail: { ...f.portail, photos: [...f.portail.photos] },
     ...(f.decisions.length ? { decisions: f.decisions.map((d) => decisionAvecPropositions(d, f.propositions)) } : {}),
     // Un audit venu d'un fichier est deja connu de qui l'a ecrit (l'administrateur, pour un client) :

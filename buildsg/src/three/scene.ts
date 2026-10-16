@@ -9,6 +9,8 @@
 // d'etat residuel. Un seul detail y resiste, et il est traite en tete : si on reconstruit la MEME
 // terrasse, la camera reste ou l'utilisateur l'avait laissee.
 
+import { ECHELLE_LUMIERE } from './bibliotheque.js';
+import { animerMateriaux } from './materiauxVivants.js';
 import { reposerPositionGps } from './positionGps3d.js';
 import { reposerFacadeDevant } from './facadeDevant3d.js';
 import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
@@ -25,7 +27,13 @@ import { styleDesArbres } from '../model/arbre.js';
 import { ajouterArbre3d } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { actualiserFeuillesProches } from './feuilles.js';
-import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { cadreOmbres, monterRendu } from './rendu.js';
+import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues, imageAttendue } from './comparaison3d.js';
+import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
+import { placeEchelle, poserObjetsEchelle } from './objetsEchelle.js';
+import { accorderFocale } from './presentation.js';
+import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm, dessusTerrasseM } from '../engine/hauteurs.js';
@@ -40,13 +48,14 @@ import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';
 import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { ajouterClotureVoisinage, limitesDuVoisinage } from './clotureVoisinage.js';
-import { geometrieGazon, materiauGazon } from './gazon.js';
-import { voisinage3dDe, apparenceVoisin } from '../model/voisinage3d.js';
+import { geometrieGazon, materiauGazon, empreintesAuSol } from './gazon.js';
+import { voisinage3dDe, apparenceVoisin, fenetresDuVoisin } from '../model/voisinage3d.js';
+import { valeursFacadesDe } from '../model/reglagesFacades.js';
 import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE,
+  creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
@@ -183,7 +192,7 @@ export function distanceDeCadrage(rayon: number, aspect: number): number {
  * mais rend un contexte deja perdu — sans ce test, la compilation du premier shader plantait sur
  * « Argument 1 ('shader') ... must be an instance of WebGLShader » au lieu d'un message clair.
  */
-function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean }) {
+function monterScene(host: HTMLElement, extent: number, conservee: CameraConservee, terrain: { sol: SolRelief | null; cen: PtBrut; versLocal: VersLocal; bornes: Emprise; serre: boolean; rayonParcelle: number | null }) {
   const w = host.clientWidth || 600, h = host.clientHeight || 420;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xdfe7ea);
@@ -202,13 +211,18 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
   // isole gardent leur recul, qui laisse voir la maison autour.
   const recul = terrain.serre ? distanceDeCadrage(extent / 2, w / h) / Math.sqrt(3) : extent * 0.9;
   camera.position.set(recul, recul + hCible, recul);
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  const niveau = parametresQualite(vue3d.qualite);
+  const renderer = new THREE.WebGLRenderer({ antialias: niveau.anticrenelage, preserveDrawingBuffer: true });
   const glCtx3d = renderer.getContext && renderer.getContext();
   if (!glCtx3d || (glCtx3d.isContextLost && glCtx3d.isContextLost())) {
     showErrBanner('Vue 3D : le navigateur a refuse de creer un contexte 3D (trop d\'onglets/vues 3D ouverts ?). Ferme quelques onglets ou recharge la page, puis reessaie.');
     return null;
   }
+  // Le rapport de pixels suit l'ecran jusqu'au plafond du niveau : a 1 (Normale), le cout d'avant.
+  renderer.setPixelRatio(Math.min(niveau.pixelRatioMax, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
   renderer.setSize(w, h);
+  // Sortie lineaire, comme a la r128 (voir three/bibliotheque.ts) ; reglerRendu la maintient.
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
   renderer.shadowMap.enabled = vue3d.ombres;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   host.appendChild(renderer.domElement);
@@ -226,7 +240,7 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
     controls.target.copy(conservee.cible);
     controls.update();
   }
-  const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent);
+  const { hemiLight, dirLight, dirFill } = poserLumieres(scene, extent, cadreOmbres(terrain.rayonParcelle, extent));
 
   const matSol = new THREE.MeshStandardMaterial({ color: 0x9fb98c });
   // Le sol est la couche la plus basse : on le recule plutot que de tirer vers la camera ce qui est
@@ -260,26 +274,30 @@ function monterScene(host: HTMLElement, extent: number, conservee: CameraConserv
  * Position, intensite et couleur sont posees ensuite par `appliquerLumiereVue3d`, d'apres la date,
  * l'heure et le lieu : les valeurs d'ici ne servent qu'a exister.
  */
-function poserLumieres(scene: THREE_NS.Scene, extent: number) {
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5);
+function poserLumieres(scene: THREE_NS.Scene, extent: number, cadre: number) {
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x4a3c2a, 0.5 * ECHELLE_LUMIERE);
   scene.add(hemiLight);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.75 * ECHELLE_LUMIERE);
   dirLight.position.set(extent, extent * 1.5, extent * 0.6);
   if (vue3d.ombres) {
-    // Le cadrage de la shadow map suit l'etendue de LA scene affichee, et la depasse : une ombre de
-    // fin de journee s'allonge bien au-dela de l'objet qui la projette. Seule la lumiere principale
-    // projette — une deuxieme direction d'ombres ajouterait de la confusion pour peu de gain.
+    // Le cadrage de la shadow map est resserre sur la parcelle du projet et ses abords (R1,
+    // three/rendu.ts) : sur l'etendue entiere d'un voisinage, ses 2 048 pixels faisaient des ombres
+    // floues au pied des murs. Sans parcelle, il suit l'etendue de la scene, comme avant. Seule la
+    // lumiere principale projette — une deuxieme direction d'ombres ajouterait de la confusion.
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
-    const d = extent * 1.8;
+    const carte = parametresQualite(vue3d.qualite).carteOmbre;
+    dirLight.shadow.mapSize.set(carte, carte);
+    const d = cadre;
     dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = extent * 9;
     dirLight.shadow.bias = -0.0005;
+    // Le cadre resserre affine la carte : un decalage selon la normale evite les stries sur les murs.
+    dirLight.shadow.normalBias = 0.02;
   }
   scene.add(dirLight);
-  const dirFill = new THREE.DirectionalLight(0xffffff, 0.3);
+  const dirFill = new THREE.DirectionalLight(0xffffff, 0.3 * ECHELLE_LUMIERE);
   dirFill.position.set(-extent * 0.8, extent * 1.1, -extent * 0.5);
   scene.add(dirFill);
   return { hemiLight, dirLight, dirFill };
@@ -329,11 +347,6 @@ function ajouterOrtho(scene: THREE_NS.Scene, versLocal: VersLocal, ctx: Contexte
     const cadre = intersectionEmprises({ xMin: t.xMin, xMax: t.xMin + t.largeur, yMin: t.yMin, yMax: t.yMin + t.hauteur }, bornes);
     if (!cadre) return;
     const tex = chargeurOrtho.load(t.dataUri);
-    // `SRGBColorSpace` / `colorSpace` n'existent qu'a partir de la r152 ; le CDN sert la r128, donc
-    // cette ligne ne fait rien aujourd'hui. Garde-fou tourne vers l'avenir, ecrit ainsi expres : le
-    // remplacer par l'ancien couple `sRGBEncoding`/`encoding` changerait le rendu des tuiles.
-    const troisFutur = THREE as typeof THREE & { SRGBColorSpace?: unknown };
-    if (troisFutur.SRGBColorSpace) (tex as typeof tex & { colorSpace?: unknown }).colorSpace = troisFutur.SRGBColorSpace;
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
     // Au-dessus du terrain, sous les chemins : une couche, pas seulement un millimetre (COUCHES_SOL).
     // Aucun decalage : c'est le sol vert, dessous, qui est recule (COUCHES_SOL). Tiree vers la
@@ -424,11 +437,15 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // cadre est une lambourde de rive. L'empilement perd une couche au milieu.
   const plotSimple = estPlots(c) && !c.plotAvecSolives;
   const pieds = piedsDesAppuis(obj, layers, cible.sol);
+  const g = groupes.structure;
+  const debutDessous = g.children.length;
   if (estPlots(c)) layers.vis.forEach((p, i) => prim.addPlot(p, hauteurVisM, 0x6E7A84, c.plotSurfaceAssise || PLOT_ASSISE_MIN_CM2, pieds[i] ?? 0));
   else layers.vis.forEach((p, i) => prim.addPost(p, enterreM, hauteurVisM, 0.03, 0x8a96a8, pieds[i] ?? 0));
   layers.solives.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, soliveH, soliveW, 0x6b4a2a, contour));
+  const dessous = g.children.slice(debutDessous);
   // Le cadre est au niveau des pieces auxquelles il appartient, et suit le contour.
   prim.addBande(layers.bandes.cadre, hauteurVisM, plotSimple ? lambH : soliveH, 0x4a2f18);
+  const debutLambourdes = g.children.length;
   // Le chevetre d'un bassin : des pieces de la section du cadre, autour de l'ouverture (engine/structure.ts).
   layers.chevetres?.forEach(seg => prim.addBeam(seg.a, seg.b, hauteurVisM, plotSimple ? lambH : soliveH, soliveW, 0x4a2f18, contour));
   let lameBase = hauteurVisM + (plotSimple ? 0 : soliveH);
@@ -436,6 +453,8 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
     layers.lambourdes.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lambH, lambW, 0xb45a2a, contour));
     lameBase += lambH;
   }
+  dessous.push(...g.children.slice(debutLambourdes));
+  const debutLames = g.children.length;
   // En filaire, les lames ne sont plus qu'un contour : on voit l'implantation des appuis et le sens
   // des solives, que le platelage plein masque.
   const lamesFilaire = !!c.lames3dFilaire;
@@ -449,6 +468,7 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // Autour d'un bassin ou d'une tremie, chaque lame est coupee a la forme du trou.
   layers.lames.forEach(seg => prim.addBeam(seg.a, seg.b, lameBase, lameH, lameW,
     lamesFilaire ? 0x7a5c2e : 0xc9a15a, layers.lamesFieldPoly, lamesFilaire, texturesTerrasse, opaciteLames, layers.trous ?? []));
+  ombrerSousLePlatelage(dessous, g.children.slice(debutLames));
   if (c.avecLameRive) {
     // Pend sous les lames et couvre la structure : son haut est au dessous des lames.
     const riveH = (c.hauteurLameRive || 200) / 1000;
@@ -460,6 +480,33 @@ function construireStructureTerrasse(obj: ObjetPlan, layers: Couches, c: Constru
   // fini — herisson, massifs, futs de vis — se voit aussi. Elle est de niveau au point haut, dans le
   // groupe de la terrasse ; seuls les massifs suivent chaque plot a son sol (three/assise3d.ts).
   ajouterAssise3d({ prim: primitivesDans(groupes.terrasse), scene: groupes.terrasse, versLocal: cible.versLocal }, contour, layers, c, vue3d.solEnCoupe, decaisseM, vue3d.platelageTranslucide, pieds);
+}
+
+/**
+ * La part du ciel qui eclaire les chants des lames (le fond des joints) et la structure sous le
+ * platelage. Depuis l'eclairage par le ciel (R1, three/rendu.ts), ces faces recevaient tout le ciel,
+ * comme le dessus des lames : un joint de 6 mm sur 25 de profondeur, ou une lambourde sous le
+ * platelage, n'en voit presque rien. Les joints s'allumaient aussi clair que les lames, et le
+ * platelage se lisait comme une planche unie. Un reglage d'ecran : l'export ne le porte pas.
+ */
+export const PART_CIEL_JOINTS = 0.1;
+export const PART_CIEL_SOUS_PLATELAGE = 0.25;
+
+type MateriauCiel = THREE_NS.Material & { envMapIntensity?: number };
+const materiauxDe = (o: THREE_NS.Object3D): MateriauCiel[] => {
+  const m = (o as THREE_NS.Object3D & { material?: MateriauCiel | MateriauCiel[] }).material;
+  return Array.isArray(m) ? m : m ? [m] : [];
+};
+
+/**
+ * Retire le ciel du dessous du platelage : toute la structure qu'il couvre, et les chants des lames
+ * (le second materiau d'une lame texturee, ses faces verticales, three/primitives.ts). Une lame sans
+ * texture n'a qu'un materiau pour toutes ses faces : son dessus garde le ciel, ses joints aussi.
+ */
+export function ombrerSousLePlatelage(dessous: readonly THREE_NS.Object3D[], lames: readonly THREE_NS.Object3D[]): void {
+  const regler = (m: MateriauCiel | undefined, part: number) => { if (m && 'envMapIntensity' in m) m.envMapIntensity = part; };
+  dessous.forEach(o => o.traverse(x => materiauxDe(x).forEach(m => regler(m, PART_CIEL_SOUS_PLATELAGE))));
+  lames.forEach(o => { const ms = materiauxDe(o); if (ms.length >= 2) regler(ms[1], PART_CIEL_JOINTS); });
 }
 
 /** Les lames d'une terrasse isolee : assez pour lire le platelage, assez peu pour voir dessous. */
@@ -531,6 +578,12 @@ const texturesDe = (o: ObjetPlan) => {
 };
 
 /**
+ * La hauteur d'un chemin drape au-dessus du sol en relief : au-dessus du gazon (4 mm), assez pour
+ * qu'une maille du sol un peu plus bombee que la sienne ne le traverse pas.
+ */
+export const DECALAGE_CHEMIN_M = 0.02;
+
+/**
  * Un chemin a sa largeur reelle (le meme champ que le trait du plan 2D), pas son seul axe, et suit
  * le reglage « Point / Courbe » comme en 2D.
  */
@@ -544,7 +597,17 @@ function ajouterChemin(o: ObjetPlan, { prim, ctx, sol, scene, versLocal }: Conte
     const pose = poseSurSol(sol, poly, centroid(poly), h);
     prim.addPrism(poly, pose.yBase, pose.hauteur, couleur, false, opaciteDe(o), texturesDe(o));
   }
-  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin, sol ? sol.hauteur : undefined);
+  else if (poly && sol) {
+    // Sur un sol en relief, le ruban plat ne tient le sol qu'a ses sommets : entre deux, sur une
+    // bosse, la pelouse passait par-dessus. A l'ecran, un ruban drape sur le sol par mailles d'un
+    // demi-metre, un peu au-dessus de l'herbe ; le .glb garde le ruban d'avant (EXPORT_SEULEMENT).
+    const tex = vue3d.textures ? o.textureHorizontale : null;
+    const drape = prim.addRubanDrape(trace, o.width || 1, couleur, DECALAGE_CHEMIN_M, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
+    if (drape) drape.userData[HORS_EXPORT] = true;
+    const modele = prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
+    if (modele && drape) { modele.userData[EXPORT_SEULEMENT] = true; modele.visible = false; }
+  }
+  else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin);
   else if (sol) scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(traitSurSol(trace, sol, versLocal, 0.008, false)), new THREE.LineBasicMaterial({ color: o.stroke || couleur })));
   else prim.addGroundOutline(trace, o.stroke || couleur, false);
 }
@@ -616,15 +679,32 @@ function ajouterContourParcelle(o: ObjetPlan, { scene, versLocal, sol }: Context
   scene.add(trait);
 }
 
-/** Le gazon de la parcelle : pose sur le sol, dans la couche du terrain, perce au droit d'un bassin. */
-function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets): void {
-  const mat = materiauGazon();
-  poserEnCouche(mat, COUCHES_SOL.terrain);
-  percerSol(mat);
-  const m = new THREE.Mesh(geometrieGazon(pts, versLocal, sol ? sol.hauteur : undefined, undefined, sol ? sol.relief : undefined), mat);
-  m.name = 'gazon';
-  m.receiveShadow = vue3d.ombres;
-  scene.add(m);
+/**
+ * Le gazon de la parcelle : pose sur le sol, dans la couche du terrain, perce de l'empreinte de
+ * chaque objet qui occupe le sol (three/gazon.ts, `empreintesAuSol`) — l'herbe ne passe plus dans
+ * le bassin, sous la terrasse ni au travers d'un chemin.
+ *
+ * A l'ecran seulement : le .glb garde le gazon d'avant, entier (`EXPORT_SEULEMENT`), et son
+ * empreinte golden ne bouge pas. Il porte toujours le nom `gazon` dans le modele ; celui de l'ecran
+ * s'appelle `gazon-ecran`.
+ */
+function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol, objets, ctx }: ContexteObjets): void {
+  const hauteur = sol ? sol.hauteur : undefined, grille = sol ? sol.relief : undefined;
+  const poser = (geo: THREE_NS.BufferGeometry, nom: string): THREE_NS.Mesh => {
+    const mat = materiauGazon();
+    poserEnCouche(mat, COUCHES_SOL.terrain);
+    percerSol(mat);
+    const m = new THREE.Mesh(geo, mat);
+    m.name = nom;
+    m.receiveShadow = vue3d.ombres;
+    scene.add(m);
+    return m;
+  };
+  const ecran = poser(geometrieGazon(pts, versLocal, hauteur, undefined, grille, empreintesAuSol(objets, ctx.objetMasque)), 'gazon-ecran');
+  ecran.userData[HORS_EXPORT] = true;
+  const modele = poser(geometrieGazon(pts, versLocal, hauteur, undefined, grille), 'gazon');
+  modele.userData[EXPORT_SEULEMENT] = true;
+  modele.visible = false;
 }
 
 /**
@@ -639,8 +719,107 @@ function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol }: ContexteObjets):
  * `userData` : l'export GLB recopierait ce dernier dans le fichier.
  */
 const poseParObjet = new Map<string, THREE_NS.Object3D[]>();
+/** Ce que la cloture de la parcelle du projet a pose : l'apres d'un audit peut la remplacer. */
+let poseCloture: THREE_NS.Object3D[] = [];
+/**
+ * L'avant et l'apres d'un audit (three/comparaison3d.ts) : les copies posees en plus, par cle, et ce
+ * qui, du plan, ne se voit plus que dans « Avant ».
+ */
+const comparaison = { apres: new Map<string, THREE_NS.Object3D[]>(), avant: new Set<THREE_NS.Object3D>() };
 /** La derniere scene batie et ce qu'il faut pour y reposer un objet. */
 let derniere: { sc: SceneVue3d; co: ContexteObjets; obj: ObjetPlan | null; ground: THREE_NS.Mesh } | null = null;
+/**
+ * Ce que la scene pose sans qu'un objet du plan le porte, et qu'une vue epuree retire : la cloture de
+ * la parcelle, celles du voisinage, les objets d'echelle, la terrasse courante et ses piscines.
+ */
+let horsObjets: THREE_NS.Object3D[] = [];
+/**
+ * La vue epuree de l'audit de la parcelle (MD/spec-audit.md §12.2) : seuls les objets dont la cle est
+ * retenue restent visibles, plus rien de ce qui n'appartient a aucun objet. `null` : tout se voit.
+ * Gardee ici, et non dans la scene : une scene rebatie pendant l'audit s'epure de meme.
+ */
+let garderSeulement: ((cle: string) => boolean) | null = null;
+
+/** Range tout ce qu'un objet a pose sur une seule couche (les couches ne s'heritent pas en three.js). */
+function surLaCouche(racine: THREE_NS.Object3D, couche: number): void {
+  racine.traverse((x) => { x.layers.set(couche); });
+}
+
+/** Retire de la scene ce qu'un objet y avait pose ; les geometries lui sont propres, pas les materiaux. */
+function retirerPose(scene: THREE_NS.Object3D, racines: readonly THREE_NS.Object3D[]): void {
+  for (const m of racines) {
+    scene.remove(m);
+    m.traverse((x) => { (x as { geometry?: { dispose?: () => void } }).geometry?.dispose?.(); });
+  }
+}
+
+/** Ce qu'ajoute un geste a la scene : les enfants directs poses entre avant et apres lui. */
+function poseePar(scene: THREE_NS.Object3D, poser: () => void): THREE_NS.Object3D[] {
+  const n0 = scene.children.length;
+  poser();
+  return scene.children.slice(n0);
+}
+
+/** Defait l'apres pose : les copies quittent la scene, le plan revient sur la couche commune. */
+function oublierComparaison(scene: THREE_NS.Object3D): void {
+  for (const racines of comparaison.apres.values()) retirerPose(scene, racines);
+  comparaison.apres.clear();
+  for (const m of comparaison.avant) surLaCouche(m, 0);
+  comparaison.avant.clear();
+}
+
+/** Ce que montre l'apres d'un audit : les batiments copies, et la parcelle copiee si sa cloture change. */
+export interface Apres3d {
+  /** Les batiments dont les copies remplacent, dans « Après », ceux du plan. */
+  cles: readonly string[];
+  /** Le plan avec ces copies a la place des originaux : c'est sur lui qu'elles se posent. */
+  etat: PlanVuDeLa3d;
+  /** La parcelle du projet avec la cloture proposee, ou null si la cloture ne change pas. */
+  parcelle: ObjetPlan | null;
+}
+
+/**
+ * L'avant et l'apres d'un audit en deux vues de la Vue 3D ouverte, sans la rebatir : les batiments
+ * touches passent sur la couche « Avant », leurs copies sont posees sur la couche « Après », de
+ * meme pour la cloture ; le reste de la scene est commun aux deux vues. Un nouvel appel remplace le
+ * precedent ; `null` revient a la vue unique. Faux quand la scene n'est plus celle qui a ete batie.
+ */
+export function comparerObjets3d(apres: Apres3d | null): boolean {
+  const d = derniere;
+  if (!d || !vue3d.scene || d.sc !== vue3d.scene) return false;
+  oublierComparaison(d.co.scene);
+  if (!apres) {
+    couperDeuxVues(d.sc);
+    appliquerOmbres(d.co.scene, d.ground);
+    rendre3d(d.sc);
+    return true;
+  }
+  const co: ContexteObjets = { ...d.co, objets: apres.etat.objects };
+  // La scene ne montre que la terrasse (et ses piscines) : aucun batiment a comparer, la cloture si.
+  if (vue3d.tousLesObjets || !d.obj) {
+    for (const cle of apres.cles) {
+      for (const m of poseParObjet.get(cle) ?? []) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
+      const o = apres.etat.objects.find((x) => x.key === cle);
+      if (!o) continue;
+      const neufs = poseePar(co.scene, () => ajouterUnObjet(o, d.obj, apres.etat, co));
+      neufs.forEach((m) => surLaCouche(m, COUCHE_APRES));
+      comparaison.apres.set(cle, neufs);
+    }
+  }
+  // La cloture n'est posee qu'avec le reste du plan (pas d'objet isole) : sans elle, rien a comparer.
+  const parcelle = apres.parcelle;
+  if (parcelle && poseCloture.length) {
+    for (const m of poseCloture) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
+    const neufs = poseePar(co.scene, () => ajouterCloture(co.prim, co.scene, co.versLocal, { ...co.ctx, trouverParcelleCloture: () => parcelle }, co.sol));
+    neufs.forEach((m) => surLaCouche(m, COUCHE_APRES));
+    // Sous une cle qu'aucun objet du plan ne porte : la cloture n'est pas un objet.
+    comparaison.apres.set('', neufs);
+  }
+  appliquerOmbres(co.scene, d.ground);
+  activerDeuxVues(d.sc);
+  rendre3d(d.sc);
+  return true;
+}
 
 /** Pose un objet et retient ce qu'il a ajoute a la scene. */
 function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
@@ -649,27 +828,103 @@ function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d,
   if (co.scene.children.length > n0) poseParObjet.set(o.key, co.scene.children.slice(n0));
 }
 
+/** Ce que `poser` ajoute a la scene, retenu comme pose hors objets (masque par la vue epuree). */
+function retenirHorsObjets(scene: THREE_NS.Scene, poser: () => void): void {
+  const n0 = scene.children.length;
+  poser();
+  horsObjets.push(...scene.children.slice(n0));
+}
+
+/**
+ * Ce que la vue epuree a masque elle-meme. Seuls ceux-la reviennent a la fin de l'audit : une maille
+ * deja invisible (le gazon entier et le ruban du chemin que seul l'export montre, EXPORT_SEULEMENT)
+ * doit le rester.
+ */
+let masquesParEpure = new WeakSet<THREE_NS.Object3D>();
+
+/** Masque ou montre ce que la vue epuree ecarte ; un simple drapeau `visible`, rien n'est rebati. */
+function appliquerEpure(): void {
+  const garder = garderSeulement;
+  const masquer = (r: THREE_NS.Object3D, oui: boolean) => {
+    if (oui) { if (r.visible) { r.visible = false; masquesParEpure.add(r); } }
+    else if (masquesParEpure.has(r)) { masquesParEpure.delete(r); r.visible = true; }
+  };
+  for (const [cle, racines] of poseParObjet) for (const r of racines) masquer(r, !!garder && !garder(cle));
+  for (const r of horsObjets) masquer(r, !!garder);
+}
+
+/**
+ * Epure la Vue 3D : seuls les objets du plan que `garder` retient restent visibles (le batiment
+ * audite, le sol), et rien de ce que la scene pose d'elle-meme (clotures, terrasse, objets
+ * d'echelle). `null` rend tout. Un affichage : ni le projet ni la scene ne sont touches, et une
+ * scene rebatie entre-temps s'epure de meme.
+ */
+export function epurerVue3d(garder: ((cle: string) => boolean) | null): void {
+  garderSeulement = garder;
+  if (derniere && vue3d.scene && derniere.sc === vue3d.scene) appliquerEpure();
+}
+
+/**
+ * Epure la scene le temps de `f`, puis rend la vue telle qu'elle etait. Les rendus que Claude recoit
+ * (three/renduPrise.ts) l'utilisent : ils ne montrent que les batiments de la parcelle et le sol, sans
+ * clotures, arbres ni voisins, que l'ecran de l'audit soit epure ou non (la cloture du premier plan
+ * cachait le pied du mur). La Vue 3D de l'ecran ne bouge pas : l'epure revient avant le rendu suivant.
+ */
+export function epurerLeTemps<T>(garder: (cle: string) => boolean, f: () => T): T {
+  const avant = garderSeulement;
+  epurerVue3d(garder);
+  try { return f(); } finally { epurerVue3d(avant); }
+}
+
+/**
+ * Ce que la Vue 3D montre : les cles des objets du plan visibles et masques, et combien de poses hors
+ * objets (clotures, terrasse, objets d'echelle) restent visibles. Pour la fumee (scripts/fumee.mjs).
+ */
+export function visibilite3d(): { visibles: string[]; masques: string[]; horsObjetsVisibles: number } {
+  const visibles: string[] = [], masques: string[] = [];
+  for (const [cle, racines] of poseParObjet) {
+    if (racines.some((r) => masquesParEpure.has(r))) masques.push(cle);
+    else if (racines.some((r) => r.visible)) visibles.push(cle);
+  }
+  return { visibles, masques, horsObjetsVisibles: horsObjets.filter((r) => r.visible).length };
+}
+
+/** Ce que la Vue 3D ouverte a pose pour cet objet du plan (le trait renforce de l'audit les parcourt). */
+export function racinesDe3d(cle: string): readonly THREE_NS.Object3D[] {
+  return derniere && vue3d.scene && derniere.sc === vue3d.scene ? poseParObjet.get(cle) ?? [] : [];
+}
+
+/** Vrai si l'objet et tous ses parents sont visibles : un groupe masque cache ses mailles. */
+function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
+  for (let x: THREE_NS.Object3D | null = o; x; x = x.parent) if (!x.visible) return false;
+  return true;
+}
+
 /**
  * Ce que montre un point de l'ecran (coordonnees normalisees -1..1) dans la Vue 3D ouverte : la cle
  * de l'objet du plan touche le premier, et le point touche dans le repere du plan (le sol, si aucun
  * objet n'est touche). Le mode audit (app/audit/) s'en sert pour marquer un batiment au doigt.
  */
-export function objetSousLePointeur(ndc: { x: number; y: number }): { cle: string | null; point: PtBrut | null } {
+export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle: string) => boolean = () => true): { cle: string | null; point: PtBrut | null } {
   const sc = vue3d.scene, d = derniere;
   if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
   const rayon = new THREE.Raycaster();
-  rayon.setFromCamera(ndc, sc.camera);
+  rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), sc.camera);
   const versPlan = (v: THREE_NS.Vector3): PtBrut => ({ x: v.x + sc.cen.x, y: sc.cen.y - v.z });
   // Chaque objet pose a ses enfants directs de la scene : on remonte de la maille touchee jusqu'a eux.
   const proprietaire = new Map<THREE_NS.Object3D, string>();
   for (const [cle, racines] of poseParObjet) for (const r of racines) proprietaire.set(r, cle);
   let premierPoint: PtBrut | null = null;
   for (const t of rayon.intersectObjects(sc.scene.children, true)) {
-    if (!estMesh(t.object) || !t.object.visible) continue;
+    // Le rayon de three r128 ne regarde pas `visible` : un objet masque (vue epuree) ne se touche pas.
+    if (!estMesh(t.object) || !visibleDansLaScene(t.object)) continue;
     premierPoint ??= versPlan(t.point);
     for (let o: THREE_NS.Object3D | null = t.object; o; o = o.parent) {
       const cle = proprietaire.get(o);
-      if (cle) return { cle, point: versPlan(t.point) };
+      // `retenir` laisse le rayon traverser ce qui ne compte pas pour l'appelant : un arbre devant
+      // la facade a photographier (audit de la parcelle).
+      if (cle && retenir(cle)) return { cle, point: versPlan(t.point) };
+      if (cle) break;
     }
   }
   const plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -693,15 +948,17 @@ export function remplacerObjets3d(cles: readonly string[], etat: PlanVuDeLa3d): 
   if (!(vue3d.tousLesObjets || !d.obj)) return true;
   const co: ContexteObjets = { ...d.co, objets: etat.objects };
   for (const cle of cles) {
-    for (const m of poseParObjet.get(cle) ?? []) {
-      co.scene.remove(m);
-      // Les geometries sont propres a l'objet ; les materiaux et textures peuvent etre partages.
-      m.traverse((x) => { (x as { geometry?: { dispose?: () => void } }).geometry?.dispose?.(); });
-    }
+    const anciens = poseParObjet.get(cle) ?? [];
+    anciens.forEach((m) => comparaison.avant.delete(m));
+    retirerPose(co.scene, anciens);
     poseParObjet.delete(cle);
     const o = etat.objects.find((x) => x.key === cle);
     if (o) poserEtRetenir(o, d.obj, etat, co);
+    // Un batiment relu pendant une comparaison (les toits en tache de fond) reste du cote « Avant ».
+    if (comparaison.apres.has(cle)) for (const m of poseParObjet.get(cle) ?? []) { surLaCouche(m, COUCHE_AVANT); comparaison.avant.add(m); }
   }
+  // Un batiment repose (l'apercu « Après » de l'audit) suit la vue epuree comme les autres.
+  if (garderSeulement) appliquerEpure();
   appliquerOmbres(co.scene, d.ground);
   return true;
 }
@@ -830,12 +1087,18 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
     // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
     // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
     const f3d = fenetres3dDe(o);
-    const fenetres = apparence ? apparence.fenetres : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
+    const fenetres = apparence ? fenetresDuVoisin(apparence, co.voisinage3d) : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
     ajouterDetailsBatiment(
       { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
+        // Les facades de pres (R2) : baies en creux et maconnerie sur la parcelle et ses abords, hors
+        // qualite Econome ; l'epoque (BD TOPO) choisit petits bois et maconnerie.
+        relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M,
+        annee: anneeDe((o.bdtopo as { dateApparition?: unknown } | null | undefined)?.dateApparition),
+        detailFin: parametresQualite(vue3d.qualite).detailFinM,
         // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
         ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres,
+      // Le profil de facades retenu pour le batiment (facade/profilsFacades.ts) : ses dimensions et ses seuils.
+      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o),
         ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
         // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
         ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
@@ -898,6 +1161,13 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     : null;
   ctx.disposeThreeScene();
   poseParObjet.clear();
+  poseCloture = [];
+  horsObjets = [];
+  masquesParEpure = new WeakSet();
+  // Une comparaison avant / apres meurt avec sa scene : a son auteur de la reposer (signalerSceneBatie).
+  comparaison.apres.clear();
+  comparaison.avant.clear();
+  couperDeuxVues(null);
   derniere = null;
   // L'hote est enregistre par le panneau de la Vue 3D (zones/vue3d/) : sans lui, rien a dessiner.
   const host = hotes3d.vue3d;
@@ -918,14 +1188,18 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // plat (pas de relief, ou « Sol en relief » decoche) : rien ne bouge, la structure est celle d'avant.
   const solMoteur = sol ? solDuProjet(etat.objects) : null;
   const bornes = bornesDuSol(etat, ctx, cen, extent);
-  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj) });
+  // Le rayon de la parcelle du projet autour du centre de la scene : le cadre des ombres et le debut
+  // de la brume s'y accordent (three/rendu.ts).
+  const pcl = ctx.trouverParcelleCloture();
+  const rayonParcelle = pcl && aDesSommets(pcl) && pcl.pts.length >= 3 ? Math.max(...pcl.pts.map((p: PtBrut) => Math.hypot(p.x - cen.x, p.y - cen.y))) : null;
+  const base = monterScene(host, extent, conservee, { sol, cen, versLocal, bornes, serre: !etat.isolement && (vue3d.tousLesObjets || !obj), rayonParcelle });
   if(!base) return;
   vue3d.dernierObjKey = cleVue;
   vue3d.centre = cen;
   const { scene, camera, renderer, controls, ground } = base;
   const prim = creerPrimitives({ scene, versLocal, chargerTexture: ctx.chargerTexturePolyhaven });
 
-  if(obj) ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts));
+  if(obj) retenirHorsObjets(scene, () => ajouterContourTerrasse(scene, obj, versLocal, zReferenceOuvrage(solMoteur, enPoints(obj).pts)));
   ajouterOrtho(scene, versLocal, ctx, sol, bornes, base.ground);
   const voisinage3d = voisinage3dDe(ctx.trouverParcelleCloture());
   const latitude = (ctx.trouverParcelleCloture()?.cadastre as { origineLat?: unknown } | null | undefined)?.origineLat;
@@ -934,12 +1208,20 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   // Une piscine fait partie du projet de terrasse (elle la perce, sa plage la prolonge) : elle se
   // voit meme quand les autres objets du plan sont caches. Isolee, la terrasse reste seule.
   // Les masques d'affichage s'appliquent : un objet isole ne laisse que lui et ses associes.
-  else ajouterPiscinesSeules(etat, co);
+  else retenirHorsObjets(scene, () => ajouterPiscinesSeules(etat, co));
   // La cloture est celle de la parcelle : masquee avec elle quand un objet est isole.
-  if (!etat.isolement) ajouterCloture(prim, scene, versLocal, ctx, sol);
+  // La cloture est retenue deux fois : pour la comparaison avant / apres (poseCloture) et comme pose
+  // hors objets, que la vue epuree de l'audit masque (horsObjets).
+  if (!etat.isolement) { poseCloture = poseePar(scene, () => ajouterCloture(prim, scene, versLocal, ctx, sol)); horsObjets.push(...poseCloture); }
+  // Les objets d'echelle (R5), a la demande : une voiture cote rue, une silhouette dans la parcelle.
+  if (vue3d.objetsEchelle && !etat.isolement && pcl && aDesSommets(pcl) && pcl.pts.length >= 3) {
+    const voisines = etat.objects.filter((o) => o.voisinage && o.fonction === 'terrain' && aDesSommets(o)).map((o) => enPoints(o).pts);
+    const place = placeEchelle(pcl.pts, voisines);
+    if (place) retenirHorsObjets(scene, () => poserObjetsEchelle(scene, versLocal, place, sol ? (p: PtBrut) => sol.hauteur(p) : undefined));
+  }
   // Les clotures du voisinage : un reglage de la parcelle du projet, avec le reste du plan.
   if (voisinage3d.cloture.afficher && !etat.isolement && (vue3d.tousLesObjets || !obj)) {
-    ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture);
+    retenirHorsObjets(scene, () => ajouterClotureVoisinage(scene, versLocal, limitesDuVoisinage(etat.objects, ctx.objetMasque), sol ? sol.hauteur : undefined, voisinage3d.cloture));
   }
   // Le nom des rues, au sol, avec le reste du plan (three/rues3d.ts).
   const rues = ctx.trouverParcelleCloture()?.ruesVoisinage?.rues;
@@ -954,12 +1236,22 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
 
   const sc: SceneVue3d = {
     renderer, scene, camera, controls, raf: null,
-    dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen
+    dirLight: base.dirLight, dirFill: base.dirFill, hemiLight: base.hemiLight, extent, cen,
+    ...(sol ? { hauteurSol: (p: PtBrut) => sol.hauteur(p) } : {})
   };
   vue3d.scene = sc;
+  // Courbe de film, ciel, brume, occlusion (R1) ; la vitrine peint son propre ciel (soleilVitrine.ts).
+  monterRendu(sc, parametresQualite(vue3d.qualite), rayonParcelle ?? extent, !vue3d.apresSoleil);
+  // Le relief des textures dessinees (R3), a l'ecran, hors qualite Econome.
+  const animer = () => { if (vue3d.qualite !== 'econome') animerMateriaux(scene); };
+  animer();
   derniere = { sc, co, obj, ground };
+  // L'audit de la parcelle en cours : la scene neuve ne montre que ce qu'il garde.
+  if (garderSeulement) appliquerEpure();
   // Les feuilles des arbres ne paraissent que de pres (three/feuilles.ts) : la distance se relit a chaque image.
-  const animate = () => { sc.raf = requestAnimationFrame(animate); controls.update(); actualiserFeuillesProches(scene, camera); renderer.render(scene, camera); };
+  // La focale suit la hauteur de la camera (R6) : celle de l'oeil a hauteur d'homme, la vue d'ensemble au-dessus.
+  const solCentre = sol ? sol.hauteur(cen) : 0;
+  const animate = () => { sc.raf = requestAnimationFrame(animate); if (vue3d.pauseRendu) return; controls.update(); if (!vue3d.focaleBloquee) accorderFocale(camera, solCentre); actualiserFeuillesProches(scene, camera); if (imageAttendue(sc)) rendre3d(sc); };
   animate();
   // La position GPS de l'appareil, si elle est suivie : posee sur le sol de cette scene.
   reposerPositionGps(sol ? sol.hauteur : undefined);
@@ -978,8 +1270,10 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
     // La scene a pu etre remplacee entre-temps : construire dans une scene morte laisserait des
     // meshes orphelins et un canevas noir.
     if(vue3d.scene !== sc) return;
-    if(obj && layers) construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur });
+    if(obj && layers) retenirHorsObjets(scene, () => construireStructureTerrasse(obj, layers, c, prim, ctx, etat.isolement === obj.key, { scene, versLocal, sol: solMoteur }));
+    if (garderSeulement) appliquerEpure();
     appliquerOmbres(scene, ground);   // les pieces qui viennent d'arriver projettent aussi
-    renderer.render(scene, camera);
+    animer();
+    rendre3d(sc);
   }, 0);
 }

@@ -42,11 +42,14 @@ export async function planDeDepart(lon: number, lat: number, d: DependancesCharg
   const projPoint = projecteurLocal(lat, lon);
   const features = await (d.interrogerCadastre ?? interrogerCadastre)(empriseGeoJSON(lon, lat, projPoint, RAYON_DEPART_M), null);
   // Le point est l'origine du repere de la recherche : la parcelle qui le contient vient en tete.
-  const principale = classerCandidats(construireCandidats(features, projPoint, { x: 0, y: 0 }, false))[0];
+  const candidats = classerCandidats(construireCandidats(features, projPoint, { x: 0, y: 0 }, false));
+  const principale = candidats[0];
   if (!principale) return null;
   const objets = objetsDepuisCadastre({
     principale, parcellesPropriete: () => [], proj: projPoint, simplifier: false,
-    voisinesRetenues: () => [], importerBatiments: false, batiments: [], haies: [], vegetation: [], voisinageEtendu: null,
+    // Les parcelles lues autour ne sont pas posees, mais disent ou est le mitoyen (portail cote rue).
+    voisinesRetenues: () => [], voisinesConnues: () => candidats.slice(1),
+    importerBatiments: false, batiments: [], haies: [], vegetation: [], voisinageEtendu: null,
   });
   return { objets, proj: projecteurDuPlan(objets, projPoint) };
 }

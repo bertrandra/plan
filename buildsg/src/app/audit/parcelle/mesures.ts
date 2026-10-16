@@ -23,7 +23,7 @@ import type { Facade } from '../../../facade/geometrie.js';
 import type { Image } from '../../../facade/homographie.js';
 import type { Prise } from '../../../zones/releve/capteurs.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { ObjetPolygone, PtBrut, ReleveFacade } from '../../../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 
 /** Ce que les mesures ont tire des photos d'une facade. */
 export interface MesureFacade {
@@ -41,6 +41,12 @@ export interface MesureFacade {
   hauteurM: number | null;
   /** La couleur du mur, la lecture la plus sure de ses photos. */
   couleur: { couleur: string; pixels: number; rang: number } | null;
+  /**
+   * Les baies devinees par la structure, laissees en pointille par le releve : le renfort de Claude
+   * peut les confirmer (entreesRenfort.ts). Absentes d'une mesure lue dans un fichier d'audit, dont
+   * le format ne les porte pas.
+   */
+  devinees?: OuvertureFacade[];
 }
 
 export interface DependancesMesures {
@@ -117,6 +123,7 @@ async function releveDeLaPhoto(photo: PhotoCas, img: Pixels, f: Facade, bat: Pic
   return {
     releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, m.prise.mesure),
     coinsTrouves,
+    devinees: a.r.devinees.map(versOuvertureFacade),
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };

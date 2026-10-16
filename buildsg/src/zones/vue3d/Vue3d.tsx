@@ -13,9 +13,12 @@ import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'reac
 import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
+import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
+import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
+import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
@@ -36,6 +39,28 @@ function Case({ id, controle, libelle, coche, titre, onChange }: { id: string; c
   );
 }
 
+/** Le groupe « Présentation » (R6) : heure dorée, promenade, capture HD, chacun une commande. */
+function GroupePresentation({ commandes }: { commandes: RegistreCommandes }) {
+  return (
+    <fieldset className="groupe3d">
+      <legend>Présentation</legend>
+      {(['3d.heureDoree', '3d.promenade', '3d.captureHd'] as const).map((id) => {
+        const e = commandes.etat(id);
+        if (!e.utilisable && e.raison === 'capacite') return null;
+        const libelle = id === '3d.promenade' && promenadeActive() ? 'Arrêter la promenade' : (commandes.obtenir(id)?.libelle ?? id);
+        return (
+          <button key={id} data-commande={id} type="button" className="objbtn small boutonVue3d"
+            title={(!e.utilisable && 'message' in e ? e.message : null) ?? commandes.obtenir(id)?.description}
+            disabled={!e.utilisable}
+            onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
+            <Icone nom={id === '3d.heureDoree' ? 'soleil' : id === '3d.captureHd' ? 'image' : 'pointDeVue'} taille={18} /><span className="libelleVue3d">{libelle}</span>
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 /** Un bouton de camera sur le canevas : une commande, une icone, son etat actif le cas echeant. */
 function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { commandes: RegistreCommandes; id: string; domId: string; icone: Parameters<typeof Icone>[0]['nom']; libelle: string; titre: string; actif?: boolean }) {
   return (
@@ -43,6 +68,25 @@ function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { comm
       aria-pressed={actif === undefined ? undefined : actif} onClick={(e) => { commandes.executer(id, e.currentTarget); }}>
       <Icone nom={icone} taille={20} />
     </button>
+  );
+}
+
+/**
+ * L'avant et l'apres d'un audit en deux vues (three/comparaison3d.ts) : le nom de chaque vue dans son
+ * coin bas gauche (le haut gauche est a l'horloge), et le filet qui les separe. Ils ne captent aucun
+ * geste : la scene se tourne au travers. Les positions sont celles que three/ a calculees.
+ */
+function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
+  const { avant, apres, sens } = vues;
+  const filet = sens === 'cote'
+    ? { left: avant.x + avant.l, top: avant.y, width: Math.max(0, apres.x - avant.x - avant.l), height: avant.h }
+    : { left: avant.x, top: avant.y + avant.h, width: avant.l, height: Math.max(0, apres.y - avant.y - avant.h) };
+  return (
+    <>
+      <div className="filetDeuxVues" style={filet} aria-hidden="true" />
+      <span className="etiquetteDeuxVues" data-vue="avant" style={{ left: avant.x + 8, top: avant.y + avant.h - 8 }}>Avant</span>
+      <span className="etiquetteDeuxVues" data-vue="apres" style={{ left: apres.x + 8, top: apres.y + apres.h - 8 }}>Après</span>
+    </>
   );
 }
 
@@ -106,11 +150,19 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
               <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
+              <Case id="terrasse3dEchelle" controle="vue3d.objetsEchelle" libelle="Objets d'échelle" coche={vue3d.objetsEchelle} onChange={r.basculerObjetsEchelle}
+                titre="Une voiture côté rue et une silhouette dans la parcelle : la taille des choses d'un coup d'œil (jamais exportées)" />
+              <label className="etiquetteReglage" title={QUALITES_3D.find((x) => x.id === vue3d.qualite)?.aide}>Qualité
+                <select id="terrasse3dQualite" data-controle="vue3d.qualite" value={vue3d.qualite} onChange={(e) => { if (estQualite3d(e.target.value)) r.choisirQualite(e.target.value); }}>
+                  {QUALITES_3D.map((x) => <option key={x.id} value={x.id} title={x.aide}>{x.libelle}</option>)}
+                </select>
+              </label>
             </fieldset>
             <fieldset className="groupe3d groupeSoleil3d">
               <legend>Soleil</legend>
               <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
             </fieldset>
+            <GroupePresentation commandes={commandes} />
             <fieldset className="groupe3d">
               <legend>Points de vue</legend>
               <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small boutonVue3d"
@@ -150,7 +202,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliotheque 3D…</div>
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
-          style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
+          style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
+          {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
           <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>

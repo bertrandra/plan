@@ -12,12 +12,21 @@
 //
 // Le maillage suit exactement le contour de la parcelle, coupe en mailles d'un metre : sur un sol
 // en relief, chaque sommet prend la hauteur du sol, et la pelouse epouse la pente.
+//
+// L'herbe s'arrete la ou un objet occupe le sol (`occupeLeSol`, model/fonctions.ts) : le maillage
+// est perce de leurs empreintes (`empreintesAuSol`). Avant, elle passait sous tout et ne comptait
+// que sur le tampon de gabarit pour s'effacer du bassin d'une piscine ; or la qualite Soignee rend
+// la scene dans une cible sans gabarit (l'occlusion, three/rendu.ts), et l'herbe remplissait l'eau.
+// Elle se voyait aussi entre les lames d'une terrasse, et percait un chemin pose sur un sol bombe.
 
 import type * as THREE_NS from 'three';
-import { clipPolygonByConvex } from '../geometry/polygon.js';
-import { pointInPolygon } from '../geometry/basic.js';
-import type { PtBrut } from '../model/types.js';
-import type { VersLocal } from './primitives.js';
+import { clipPolygonByConvex, polygonOffset } from '../geometry/polygon.js';
+import { differencePolygones } from '../geometry/difference.js';
+import { pointInPolygon, signedArea } from '../geometry/basic.js';
+import { occupeLeSol, estPiscine } from '../model/fonctions.js';
+import { calculerPiscine } from '../engine/piscine.js';
+import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { cerclePoly, courbePolyligne, ribbonChemin, type VersLocal } from './primitives.js';
 
 /** Le cote de la texture en pixels, et ce qu'elle couvre en metres (1,5 mm par pixel : un brin fait 4 a 10 pixels de long). */
 export const COTE_TEXTURE_GAZON = 1024;
@@ -172,27 +181,102 @@ export function teinteGazon(p: PtBrut): [number, number, number] {
 }
 
 /**
+ * Ce dont l'herbe se retire sous chaque objet : l'empreinte est rentree de quelques centimetres,
+ * pour que le bord de l'objet recouvre celui de la pelouse plutot que de laisser voir le sol entre
+ * les deux — deux maillages qui suivent le relief chacun a sa facon ne se raccordent pas au millimetre.
+ */
+export const RETRAIT_EMPREINTE_M = 0.03;
+
+/** Un contour rentre de `d` metres, ou tel quel si le retrait le retourne (un objet plus etroit que 2 d). */
+function rentrer(pts: readonly PtBrut[], d: number): PtBrut[] {
+  const r = polygonOffset(pts as PtBrut[], d);
+  const ok = r.length >= 3 && r.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)) && Math.sign(signedArea(r)) === Math.sign(signedArea(pts));
+  return ok ? r : pts.slice();
+}
+
+/**
+ * Les empreintes au sol des objets du plan, en coordonnees du plan, rentrees de `RETRAIT_EMPREINTE_M` :
+ * une seule regle pour tous (`occupeLeSol`). Une piscine couvre son bassin, ses margelles et sa
+ * plage ; un chemin, son ruban a sa largeur ; un cercle, son disque ; un polygone, son contour.
+ * `masque` : un objet masque dans la Vue 3D n'y est pas dessine, l'herbe reste.
+ */
+export function empreintesAuSol(objets: ObjetPlan[], masque: (o: ObjetPlan) => boolean = (o) => !!o.hidden): PtBrut[][] {
+  const out: PtBrut[][] = [];
+  objets.forEach((o) => {
+    if (!occupeLeSol(o) || masque(o)) return;
+    if (estPiscine(o)) {
+      const calc = calculerPiscine(o, objets);
+      if (calc) out.push(rentrer(calc.plageExt, RETRAIT_EMPREINTE_M));
+      return;
+    }
+    if (o.type === 'path') {
+      const ruban = o.pts.length >= 2 ? ribbonChemin(courbePolyligne(o.pts, !!o.curve), Math.max(0.02, (o.width || 1) - 2 * RETRAIT_EMPREINTE_M)) : null;
+      if (ruban) out.push(ruban);
+      return;
+    }
+    if (o.type === 'circle') {
+      if (o.r > RETRAIT_EMPREINTE_M) out.push(cerclePoly(o.center, o.r - RETRAIT_EMPREINTE_M));
+      return;
+    }
+    if (o.pts.length >= 3) out.push(rentrer(o.pts, RETRAIT_EMPREINTE_M));
+  });
+  return out;
+}
+
+interface Boite { x0: number; y0: number; x1: number; y1: number }
+const boiteDe = (pts: readonly PtBrut[]): Boite => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  pts.forEach(p => { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
+  return { x0, y0, x1, y1 };
+};
+const seCroisent = (a: Boite, b: Boite): boolean => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/** Les triangles d'un morceau de maille, prive des empreintes qui le touchent. */
+function trianglesPerces(morceau: PtBrut[], trous: readonly PtBrut[][]): PtBrut[][] {
+  const out: PtBrut[][] = [];
+  differencePolygones(morceau, trous as PtBrut[][]).forEach(({ contour, trous: anneaux }) => {
+    const points = contour.concat(...anneaux);
+    const indices = THREE.ShapeUtils.triangulateShape(contour.map(q => new THREE.Vector2(q.x, q.y)), anneaux.map(a => a.map(q => new THREE.Vector2(q.x, q.y))));
+    indices.forEach((tri) => {
+      const t = tri.map(k => points[k]);
+      if (t.length !== 3 || !t.every((s): s is PtBrut => !!s)) return;
+      // Garde-fou : deux empreintes qui se chevauchent dans une meme maille ne sont pas fusionnees
+      // (geometry/difference.ts) ; un triangle dont le centre tombe dans l'une d'elles ne reste pas.
+      const [p0, p1, p2] = t as [PtBrut, PtBrut, PtBrut];
+      const c = { x: (p0.x + p1.x + p2.x) / 3, y: (p0.y + p1.y + p2.y) / 3 };
+      if (!trous.some(e => pointInPolygon(c, e))) out.push(t);
+    });
+  });
+  return out;
+}
+
+/**
  * Les triangles d'un polygone coupe en mailles carrees de `pas` metres, dans le repere du plan : les
  * mailles entieres en deux triangles, celles du bord coupees au contour. Les lignes passent par
  * `origine` : sur un sol en relief, ce sont celles de sa grille, et les deux triangles d'une maille
  * ont la meme diagonale que ceux du sol (sud-ouest, nord-est) — le gazon le recouvre exactement, sans
- * que le sol perce entre deux sommets.
+ * que le sol perce entre deux sommets. `trous` : les empreintes ou l'herbe ne pousse pas ; seules
+ * les mailles qu'elles touchent sont recalculees.
  */
-export function maillesDuPolygone(poly: readonly PtBrut[], pas = PAS_GAZON_M, origine: PtBrut = { x: 0, y: 0 }): PtBrut[][] {
+export function maillesDuPolygone(poly: readonly PtBrut[], pas = PAS_GAZON_M, origine: PtBrut = { x: 0, y: 0 }, trous: readonly PtBrut[][] = []): PtBrut[][] {
   const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   xs.forEach(x => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); });
   ys.forEach(y => { y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
   const triangles: PtBrut[][] = [];
   const contour = poly as PtBrut[];
+  const boitePoly = { x0, y0, x1, y1 };
+  const empreintes = trous.filter(t => t.length >= 3).map(t => ({ t, b: boiteDe(t) })).filter(e => seCroisent(e.b, boitePoly));
   for (let i = Math.floor((x0 - origine.x) / pas); origine.x + i * pas < x1; i++) for (let j = Math.floor((y0 - origine.y) / pas); origine.y + j * pas < y1; j++) {
     const a = { x: origine.x + i * pas, y: origine.y + j * pas }, b = { x: a.x + pas, y: a.y }, c = { x: a.x + pas, y: a.y + pas }, d = { x: a.x, y: a.y + pas };
     const coins = [a, b, c, d];
     const dedans = coins.every(q => pointInPolygon(q, contour));
     const traverse = poly.some(q => q.x > a.x && q.x < c.x && q.y > a.y && q.y < c.y);
-    if (dedans && !traverse) { triangles.push([a, b, c], [a, c, d]); continue; }
-    const morceau = clipPolygonByConvex(contour, coins);
+    const touches = empreintes.filter(e => seCroisent(e.b, { x0: a.x, y0: a.y, x1: c.x, y1: c.y })).map(e => e.t);
+    if (dedans && !traverse && !touches.length) { triangles.push([a, b, c], [a, c, d]); continue; }
+    const morceau = dedans && !traverse ? coins : clipPolygonByConvex(contour, coins);
     if (morceau.length < 3) continue;
+    if (touches.length) { triangles.push(...trianglesPerces(morceau, touches)); continue; }
     const indices = THREE.ShapeUtils.triangulateShape(morceau.map(q => new THREE.Vector2(q.x, q.y)), []);
     indices.forEach((tri) => {
       const t = tri.map(k => morceau[k]);
@@ -204,15 +288,16 @@ export function maillesDuPolygone(poly: readonly PtBrut[], pas = PAS_GAZON_M, or
 
 /**
  * La geometrie du gazon d'une parcelle : ses triangles poses sur le sol (`sol`, absent : a plat),
- * `decalage` au-dessus, les coordonnees de texture en metres, la teinte lente dans les couleurs des sommets.
+ * `decalage` au-dessus, les coordonnees de texture en metres, la teinte lente dans les couleurs des
+ * sommets. `trous` : les empreintes au sol des objets (`empreintesAuSol`), ou l'herbe s'arrete.
  */
 export function geometrieGazon(poly: readonly PtBrut[], versLocal: VersLocal, sol?: (p: PtBrut) => number, decalage = 0.004,
-  grille?: { pas: number; x0: number; y0: number }): THREE_NS.BufferGeometry {
+  grille?: { pas: number; x0: number; y0: number }, trous: readonly PtBrut[][] = []): THREE_NS.BufferGeometry {
   const positions: number[] = [], uv: number[] = [], couleurs: number[] = [];
   // Sur un sol en relief, les mailles du gazon sont exactement celles du sol : plus larges, le sol
   // perce entre leurs sommets ; plus fines, elles ne suivraient rien de plus.
   const pas = grille ? grille.pas : PAS_GAZON_M;
-  maillesDuPolygone(poly, pas, grille ? { x: grille.x0, y: grille.y0 } : undefined).forEach(t => {
+  maillesDuPolygone(poly, pas, grille ? { x: grille.x0, y: grille.y0 } : undefined, trous).forEach(t => {
     const [p0, p1, p2] = t as [PtBrut, PtBrut, PtBrut];
     // Vu du ciel, le triangle doit tourner dans le sens qui donne une normale vers le haut : le plan
     // a le nord en +y, la 3D en -z, et le sens trigonometrique du plan reste celui vu d'en haut.

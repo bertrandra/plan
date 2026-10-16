@@ -10,6 +10,7 @@ import { volumesDuBatiment } from '../../facade/profil.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { ouverturesAutomatiques, mursAOuvrir } from '../../facade/ouvertures.js';
 import { fenetres3dDe, reglerFenetres3d, nouvelleFenetre } from '../../model/fenetres3d.js';
+import { valeursFacadesDe } from '../../model/reglagesFacades.js';
 import { estBatiment } from '../../model/fonctions.js';
 import type { Fenetre3d, Fenetres3d, ObjetPlan } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
@@ -36,7 +37,7 @@ function automatiques(c: ContexteChamps): Fenetre3d[] {
   const h = hauteur(c), p = pts(c.obj);
   const x = r(c);
   const etages = (c.obj.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
-  return ouverturesAutomatiques(p, volumesDuBatiment(p, h, c.obj.facades), h, { largeur: x.largeur, hauteur: x.hauteur, appui: x.appui, entraxe: x.entraxe, cotesReleves: cotesReleves(c.obj), etages: typeof etages === 'number' ? etages : null });
+  return ouverturesAutomatiques(p, volumesDuBatiment(p, h, c.obj.facades), h, { largeur: x.largeur, hauteur: x.hauteur, appui: x.appui, entraxe: x.entraxe, cotesReleves: cotesReleves(c.obj), etages: typeof etages === 'number' ? etages : null, profil: valeursFacadesDe(c.obj) });
 }
 
 function libelleCote(c: ContexteChamps, i: number): string {
@@ -48,7 +49,7 @@ function libelleCote(c: ContexteChamps, i: number): string {
 export function sectionFenetres3d(c: ContexteChamps): Section | null {
   const o = c.obj;
   if (o.type !== 'polygon' || !estBatiment(o) || o.voisinage) return null;
-  if (!mursAOuvrir(pts(o), hauteur(c), cotesReleves(o)).length) return null;
+  if (!mursAOuvrir(pts(o), hauteur(c), cotesReleves(o), valeursFacadesDe(o)).length) return null;
   const toutes = (cc: ContexteChamps) => r(cc).mode === 'toutes';
   const uneParUne = (cc: ContexteChamps) => r(cc).mode === 'uneParUne';
   const liste = (cc: ContexteChamps): Fenetre3d[] => r(cc).liste ?? [];

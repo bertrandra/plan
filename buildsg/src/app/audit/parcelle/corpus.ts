@@ -21,6 +21,11 @@ export interface DependancesCorpus {
   fichier: () => Promise<FichierAuditParcelle>;
   signaler: (message: string) => void;
   maintenant: () => Date;
+  /**
+   * La case decochee : ce qui doit suivre l'accord retire (la sauvegarde d'un utilisateur part avec
+   * son accord, sauvegarde.ts ; elle est retiree avec lui).
+   */
+  apresRevocation?: () => void;
 }
 
 export interface EtatPartage extends PartageCorpus {
@@ -40,10 +45,17 @@ export interface Corpus {
 
 const jour = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR'); };
 
-/** La phrase sous la case : ce qui partira, ou ce qui est parti. */
-export function texteDuPartage(e: EtatPartage): string {
+/**
+ * La phrase sous la case : ce qui partira, ou ce qui est parti. `sauvegarde` : la sauvegarde de
+ * l'audit reste sur le serveur quoi qu'il arrive a la case (celle de l'administrateur) ; la phrase
+ * ne doit pas promettre alors que rien ne quitte l'appareil.
+ */
+export function texteDuPartage(e: EtatPartage, sauvegarde = false): string {
   if (e.enCours) return e.accord ? 'Envoi de l’audit au serveur de Plan…' : 'Retrait de l’audit du serveur de Plan…';
   if (e.accord && e.envoi) return 'Partagé le ' + jour(e.envoi.t) + ', photos comprises. Décochez pour le retirer du serveur de Plan.';
+  if (sauvegarde) return e.accord
+    ? 'À la validation, le fichier de l’audit, photos comprises, est aussi partagé pour améliorer Plan. La sauvegarde de l’audit reste sur le serveur de Plan, pour le reprendre.'
+    : 'Rien n’est partagé pour améliorer Plan. La sauvegarde de l’audit reste sur le serveur de Plan, pour le reprendre.';
   if (e.accord) return 'À la validation, le fichier de l’audit, photos comprises, part sur le serveur de Plan. Décochez pour que rien ne quitte cet appareil.';
   return 'Rien ne quitte cet appareil.';
 }
@@ -84,6 +96,7 @@ export function creerCorpus(d: DependancesCorpus): Corpus {
   async function revoquer(): Promise<void> {
     const client = d.client(), envoi = lire().envoi;
     noter({ accord: false, envoi });
+    d.apresRevocation?.();
     if (!envoi || !client) return;
     enCours = true;
     publier();

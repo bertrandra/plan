@@ -4,7 +4,8 @@
 // que le relier a l'etat propre de la Vue 3D (`soleilVue3d` dans `etat3d.ts`), que son panneau lit.
 
 import { actualiserSaison } from './arbre3d.js';
-import { vue3d, soleilVue3d, affichage3d, signaler3d } from './etat3d.js';
+import { vue3d, soleilVue3d, affichage3d, signaler3d, rendre3d } from './etat3d.js';
+import { accorderAuSoleil } from './rendu.js';
 import { reglerSoleil, libelleSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 
@@ -47,11 +48,13 @@ export function appliquer(ctx: ContexteSoleilVue3d): void {
   if (!position) return;
   // Les caducs se denudent de novembre a mars : la date change aussi le feuillage, donc l'ombre.
   actualiserSaison(vue3d.scene.scene, soleilVue3d.dateStr);
+  // Le ciel, la brume et l'eclairage par le ciel suivent le soleil (three/rendu.ts).
+  accorderAuSoleil(vue3d.scene, position);
   vue3d.apresSoleil?.(position);
   affichage3d.soleilInfo = libelleSoleil(position.elevRad, position.azRad);
   signaler3d();
   // Rendu immediat, sans attendre la boucle d'animation : celle-ci tourne sur
   // requestAnimationFrame, que le navigateur met en pause des que l'onglet passe en arriere-plan —
   // le reglage se ferait alors sans effet visible au retour.
-  vue3d.scene.renderer.render(vue3d.scene.scene, vue3d.scene.camera);
+  rendre3d(vue3d.scene);
 }

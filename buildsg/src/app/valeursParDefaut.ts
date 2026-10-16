@@ -18,7 +18,7 @@ export function estImporte(o: { key?: string; fonction?: string; cadastre?: unkn
 export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
   if (!estImporte(o)) return o;
   const copie: ObjetBrut = { ...o, ...(apparenceIgnParDefaut(o) ?? {}), textureVerticale: null, textureHorizontale: null, textureArbre: null };
-  for (const cle of ['couleurMurs', 'fenetres3d', 'modeToit', 'gazon3d', 'voisinage3d'] as const) delete (copie as Partial<ObjetPlan>)[cle];
+  for (const cle of ['couleurMurs', 'fenetres3d', 'profilFacades', 'modeToit', 'gazon3d', 'voisinage3d'] as const) delete (copie as Partial<ObjetPlan>)[cle];
   if (o.fonction === 'batiment' && o.toit) {
     // Un toit « bdtopo » sans couleur : l'actualisation le recalcule sur le contour relu, le LiDAR
     // le reprend corps par corps, l'orthophoto lui redonne sa couleur.

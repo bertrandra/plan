@@ -6,6 +6,7 @@
 // repli ou choisie) la teinte par le materiau. Une texture couvre un metre sur un metre ; les
 // coordonnees de texture d'un pan sont en metres (`uvDuPan`), les rangs suivent l'egout.
 
+import { inscrireHauteurs } from './materiauxVivants.js';
 import type * as THREE_NS from 'three';
 import type { MateriauCouverture } from '../model/couleurToit.js';
 
@@ -192,6 +193,8 @@ export function textureCouverture(materiau: MateriauCouverture): THREE_NS.Textur
   DESSINS[materiau](img.data);
   c2d.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canevas);
+  // Le relief de la couverture (R3, three/materiauxVivants.ts) : l'ombre sous chaque tuile est en creux.
+  inscrireHauteurs(tex, new Uint8ClampedArray(img.data), COTE, false, materiau === 'zinc' ? 1.5 : 3);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 4;
   cache.set(materiau, tex);

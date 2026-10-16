@@ -34,11 +34,13 @@ export function demandeEcranConformite(recherche: string): boolean {
 const pause = () => new Promise<void>((ok) => setTimeout(ok, 0));
 
 /**
- * Les audits recus, lus puis rejoues batiment par batiment. Un audit illisible (version plus
- * recente, fichier abime) est nomme et saute : il ne bloque pas les autres.
+ * Les audits partages recus, lus puis rejoues batiment par batiment. Un audit illisible (version plus
+ * recente, fichier abime) est nomme et saute : il ne bloque pas les autres. Les sauvegardes de capture
+ * (MD/spec-audit.md §15) ne comptent pas : une capture inachevee n'a rien valide, et un audit partage
+ * ensuite serait compte deux fois.
  */
 export async function jugerAuditsRecus(f: Fetch, progres: (fait: number, total: number) => void): Promise<AuditsJuges> {
-  const liste = await listerAuditsRecus(f);
+  const liste = (await listerAuditsRecus(f)).filter((a) => a.marque !== 'sauvegarde');
   const illisibles: string[] = [];
   const cas = [];
   let lus = 0;

@@ -3,17 +3,20 @@
 //
 // - Les mesures (app/audit/parcelle/mesures.ts) se font une fois par facade et se gardent tant que
 //   ses photos ne changent pas ; elles se font l'une apres l'autre, l'ecran dit ou elles en sont.
-// - L'apercu « Après » ne touche pas le projet : les batiments concernes sont copies, les propositions
-//   cochees ecrites sur les copies, et la Vue 3D repose ces copies a la place des batiments
-//   (three/scene.ts::remplacerObjets3d). « Avant », ou l'ecran ferme, y repose les batiments du plan.
-//   Ainsi ni l'enregistrement ni les taches de fond ne voient jamais un apercu.
+// - L'apercu ne touche pas le projet : les objets concernes sont copies, les propositions cochees
+//   ecrites sur les copies (model/propositions.ts::projetApres). Par defaut, la Vue 3D montre deux
+//   vues, « Avant » et « Après », avec la meme camera (three/comparaison3d.ts) ; « Après » seul y
+//   repose les copies a la place des batiments (three/scene.ts::remplacerObjets3d) ; « Avant », ou
+//   l'ecran ferme, y rend le plan. Ainsi ni l'enregistrement ni les taches de fond ne voient jamais
+//   un apercu. Chaque case cochee ou decochee, chaque nouveau calcul des propositions, s'y reflete.
 // - « Valider » ecrit tout ce qui est coche en un seul instantane d'historique : Ctrl+Z le defait, et
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
-import { appliquerPropositions, jourIso, cleDeLaCible, type Proposition } from '../../../model/propositions.js';
+import { appliquerPropositions, jourIso, cleDeLaCible, projetApres, type Proposition } from '../../../model/propositions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
+import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
@@ -21,6 +24,7 @@ import type { EtatApp } from '../../../core/state.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
+import type { DecisionProposition, PropositionAuditee } from '../../../model/fichierAuditParcelle.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
 export interface ProjetAudit {
@@ -34,10 +38,23 @@ export interface ProjetAudit {
    * plan. Faux quand la scene n'est plus celle qui a ete batie.
    */
   remplacer3d(cles: readonly string[], objets?: readonly ObjetPlan[]): boolean;
+  /**
+   * Les deux vues de la Vue 3D ouverte (three/comparaison3d.ts) : « Avant », le plan, et « Après »,
+   * ces copies ; null revient a la vue unique. Faux quand il n'y a pas de scene ou qu'elle n'est plus
+   * celle qui a ete batie. Absente (tests, projet muet) : rien ne se compare.
+   */
+  comparer3d?(apres: ApresAudit | null): boolean;
+  /** Ou est l'ecran des propositions, en pixels de la fenetre : les deux vues l'evitent. */
+  cadrer3d?(panneau: RectEcran | null): void;
 }
 
+/** Ce que la vue « Après » montre a la place du plan : les batiments copies, et la parcelle si sa cloture change. */
+export interface ApresAudit { cles: string[]; objets: ObjetPlan[]; parcelle: ObjetPlan | null }
+export interface RectEcran { left: number; top: number; right: number; bottom: number }
+
 export type EtatMesures = { etat: 'attente' } | { etat: 'mesure'; faites: number; total: number } | { etat: 'pretes' };
-export type Apercu = 'avant' | 'apres';
+/** Ce que montre la Vue 3D : le plan, les deux cote a cote (par defaut), ou les propositions cochees. */
+export type Apercu = 'avant' | 'deux' | 'apres';
 
 export interface ContexteValidation {
   etat: EtatApp;
@@ -60,14 +77,25 @@ export interface Validation {
   /** Les entrees des propositions a cet instant (le plan, la liste, la capture, les mesures faites). */
   entrees(): EntreesPropositions;
   propositions(): readonly Proposition[];
+  /** Ce que Claude a vu sans que le projet sache l'ecrire, batiment par batiment : a lire, rien a cocher. */
+  observations(): readonly ObservationsBatiment[];
   cochee(id: string): boolean;
   basculer(id: string): void;
   apercu(): Apercu;
   montrer(a: Apercu): void;
+  /**
+   * La Vue 3D montre l'apercu choisi d'apres les propositions et les cases d'aujourd'hui : rien ne se
+   * repose si rien n'a change. A appeler quand les propositions ont pu changer (mesures, Claude).
+   */
+  synchroniser(): void;
+  /** La Vue 3D vient d'etre rebatie : l'apercu s'y repose. */
+  reposer(): void;
+  /** Ou est l'ecran des propositions (null : il est ferme) : les deux vues l'evitent. */
+  cadrer(panneau: RectEcran | null): void;
   verifications(): EtatVerification[];
   /** Ecrit ce qui est coche, en un pas d'historique ; null s'il n'y a rien a ecrire. */
   valider(): { ecrites: number; verifies: number } | null;
-  /** La Vue 3D revient au plan (l'ecran se ferme, on revient a la liste). */
+  /** La Vue 3D revient au plan (l'ecran se ferme, on revient a la liste) ; le choix d'apercu reste. */
   oublierApercu(): void;
   /** Les mesures a jour, par `cle#cote` : ce que le fichier de l'audit recopie (§15). */
   mesuresFaites(): ReadonlyMap<string, MesureFacade>;
@@ -78,6 +106,17 @@ export interface Validation {
   poserMesures(mesures: readonly MesureFacade[]): void;
   /** Les cases d'une validation passee (un fichier importe) : acceptees cochees, refusees decochees. */
   preregler(d: DecisionAudit): void;
+  /**
+   * Consultation d'un audit recu (Admin › Audits) : les propositions et les decisions du fichier,
+   * telles qu'elles y sont, prennent la place de celles que la session calculerait. Rien ne se mesure
+   * ni ne s'ecrit ; l'apercu avant / apres est le meme, avec les memes cases. Une decision du fichier
+   * fait la case (validee : cochee) ; sans aucune decision, les cases par defaut de l'audit.
+   */
+  figer(propositions: readonly PropositionAuditee[]): void;
+  /** Vrai pour une consultation : les cases ne se touchent pas et « Valider » n'ecrit rien. */
+  lectureSeule(): boolean;
+  /** Ce que le fichier dit de cette proposition (consultation) ; null hors consultation ou si elle n'est pas decidee. */
+  decision(id: string): DecisionProposition;
   abonner(f: () => void): () => void;
 }
 
@@ -141,18 +180,82 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   };
 }
 
+/**
+ * Ce que la Vue 3D montre des propositions : le plan (« Avant »), les deux vues (« Les deux », par
+ * defaut : l'utilisateur veut voir l'avant et l'apres ensemble pour decider), ou les copies a la place
+ * des batiments (« Après »). Les copies viennent de model/propositions.ts::projetApres : le plan reste
+ * intact, ni l'enregistrement ni les taches de fond ne voient l'apercu. `lire` rend les propositions
+ * du moment, celles qui sont cochees, et le numero de leur calcul.
+ */
+function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Proposition[]; choisies: Proposition[]; calculs: number }) {
+  let mode: Apercu = 'deux';
+  /** Les batiments reposes d'apres leurs copies dans la vue unique « Après ». */
+  let montres: string[] = [];
+  /** Les deux vues sont posees dans la Vue 3D. */
+  let compare = false;
+  /** Ce que la Vue 3D montre (mode, calcul, cases) : rien ne se repose s'il n'a pas change. */
+  let montre: string | null = null;
+
+  /** La Vue 3D revient au plan : les deux vues se referment, les batiments reposes reviennent. */
+  function retirer(): void {
+    if (compare) { ctx.projet.comparer3d?.(null); compare = false; }
+    if (montres.length) { ctx.projet.remplacer3d(montres); montres = []; }
+  }
+
+  function poser(): void {
+    const { toutes, choisies, calculs } = lire();
+    const signature = mode + '|' + calculs + '|' + choisies.map((p) => p.id).join(',');
+    if (signature === montre) return;
+    montre = signature;
+    if (mode === 'avant') { retirer(); return; }
+    const apres = projetApres(ctx.etat.objects, choisies, jourIso(ctx.maintenant()));
+    if (mode === 'deux') {
+      if (montres.length) { ctx.projet.remplacer3d(montres); montres = []; }
+      // Seuls les batiments que les cases cochees changent different d'une vue a l'autre.
+      const cles = apres.touches.filter((c) => c !== 'parcelle');
+      const parcelle = apres.touches.includes('parcelle') ? (apres.objets.find((o) => o.key === 'parcelle') ?? null) : null;
+      compare = ctx.projet.comparer3d?.({ cles, objets: apres.objets, parcelle }) ?? false;
+      // Pas de scene encore (la Vue 3D s'ouvre) : `reposer` reprendra quand elle sera batie.
+      if (!compare) montre = null;
+      return;
+    }
+    if (compare) { ctx.projet.comparer3d?.(null); compare = false; }
+    // La vue unique ne repose que les batiments, tous ceux que les propositions visent : un decoche y
+    // revient ainsi au plan.
+    const cles = [...new Set(toutes.map((p) => cleDeLaCible(p.cible)).filter((c): c is string => c !== null))];
+    if (!cles.length && !montres.length) return;
+    const tous = [...new Set([...montres, ...cles])];
+    if (ctx.projet.remplacer3d(tous, apres.objets)) montres = cles;
+    else { montres = []; montre = null; }
+  }
+
+  return {
+    mode: () => mode,
+    choisir(a: Apercu): void { mode = a; poser(); },
+    poser,
+    /** La scene neuve n'a ni deux vues ni batiments reposes : rien a defaire, tout a reposer. */
+    reposer(): void { compare = false; montres = []; montre = null; poser(); },
+    /** L'ecran se ferme, ou l'on ecrit : la Vue 3D revient au plan ; le mode reste. */
+    oublier(): void { retirer(); montre = null; },
+  };
+}
+
 export function creerValidation(ctx: ContexteValidation): Validation {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
   const mesureur = mesureurDe(ctx, () => { memo = null; publier(); });
   /** Les cases touchees a la main : elles survivent a un nouveau calcul des propositions. */
   const choix = new Map<string, boolean>();
-  let apercu: Apercu = 'avant';
-  let montres: string[] = [];
-  let memo: { cle: string; objets: unknown; propositions: Proposition[]; defaut: Set<string> } | null = null;
+  /** Augmente a chaque nouveau calcul des propositions : l'apercu se repose alors. */
+  let calculs = 0;
+  let memo: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
+  /** Les propositions d'un audit recu, posees par `figer` : elles tiennent lieu de tout calcul. */
+  const decisionsFigees = new Map<string, DecisionProposition>();
+  let figees: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
 
   const entrees = (): EntreesPropositions => ({ objets: ctx.etat.objects, liste: ctx.liste(), capture: ctx.capture.lire(), mesures: mesureur.lues() });
   function calculer() {
+    if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0);
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
     const e = entrees();
@@ -160,7 +263,9 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     const reponses = ctx.analyse?.reponses();
     const renfort = ctx.analyse?.renfort?.();
     const propositions = [...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])];
-    memo = { cle, objets: ctx.etat.objects, propositions, defaut: cochesParDefaut(propositions) };
+    const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
+    memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
+    calculs++;
     return memo;
   }
   /**
@@ -178,48 +283,38 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const cochees = () => new Set(calculer().propositions.filter((p) => cochee(p.id)).map((p) => p.id));
   const verifs = () => verifications(ctx.liste(), ctx.capture.lire(), calculer().propositions, cochees());
 
-  /** Les batiments que les propositions touchent : ceux que l'apercu repose dans la Vue 3D. */
-  const batimentsTouches = () => [...new Set(calculer().propositions.map((p) => cleDeLaCible(p.cible)).filter((c): c is string => c !== null))];
-
-  /** La Vue 3D montre l'apercu choisi : les copies avec les propositions cochees, ou le plan. */
-  function poserApercu(): void {
-    const cles = apercu === 'apres' ? batimentsTouches() : montres;
-    if (!cles.length && !montres.length) return;
-    if (apercu === 'avant') { ctx.projet.remplacer3d(montres); montres = []; return; }
-    // Une copie de surface suffit : sur un batiment, chaque effet remplace le champ qu'il ecrit
-    // (model/propositions.ts), il ne modifie rien en place. Le plan reste intact.
-    const copies = new Map(ctx.etat.objects.filter((o) => cles.includes(o.key)).map((o) => [o.key, { ...o } as ObjetPlan]));
-    const choisies = calculer().propositions.filter((p) => cochee(p.id) && p.cible.type !== 'parcelle');
-    appliquerPropositions([...copies.values()], choisies, [], jourIso(ctx.maintenant()));
-    const apres = ctx.etat.objects.map((o) => copies.get(o.key) ?? o);
-    // Les batiments montres avant et plus touches maintenant reviennent au plan.
-    const tous = [...new Set([...montres, ...cles])];
-    ctx.projet.remplacer3d(tous, apres);
-    montres = cles;
-  }
+  const apercu = apercuDe(ctx, () => {
+    const { propositions } = calculer();
+    return { toutes: propositions, choisies: propositions.filter((p) => cochee(p.id)), calculs };
+  });
 
   return {
-    mesures: () => mesureur.etat(),
-    lancer: () => mesureur.lancer(),
+    mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
+    lancer: () => (figees ? Promise.resolve() : mesureur.lancer()),
     entrees,
     propositions: () => calculer().propositions,
+    observations: () => calculer().observations,
     cochee,
     basculer(id) {
+      if (figees) return;
       choix.set(id, !cochee(id));
-      if (apercu === 'apres') poserApercu();
+      apercu.poser();
       publier();
     },
-    apercu: () => apercu,
-    montrer(a) { apercu = a; poserApercu(); publier(); },
+    apercu: () => apercu.mode(),
+    montrer(a) { apercu.choisir(a); publier(); },
+    synchroniser: () => apercu.poser(),
+    reposer: () => apercu.reposer(),
+    cadrer(panneau) { ctx.projet.cadrer3d?.(panneau); },
     verifications: verifs,
     valider() {
+      if (figees) return null;
       const { propositions } = calculer();
       const choisies = propositions.filter((p) => cochee(p.id));
       const verifies = verifs().filter((v) => v.verifie).map((v) => v.cle);
       if (!choisies.length && !verifies.length) { ctx.signaler('Aucune proposition cochée : rien n’est écrit dans le projet.'); return null; }
-      // L'apercu revient au plan avant l'ecriture : la Vue 3D sera rebatie d'apres le projet ecrit.
-      apercu = 'avant';
-      montres = [];
+      // L'apercu quitte la Vue 3D avant l'ecriture : elle sera rebatie d'apres le projet ecrit.
+      apercu.oublier();
       const maintenant = ctx.maintenant();
       ctx.projet.pushHistory();
       appliquerPropositions(ctx.etat.objects, choisies, verifies, jourIso(maintenant));
@@ -241,7 +336,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       ctx.apresValidation?.();
       return { ecrites: n, verifies: v };
     },
-    oublierApercu() { if (apercu === 'apres' || montres.length) { apercu = 'avant'; poserApercu(); } },
+    oublierApercu: () => apercu.oublier(),
     mesuresFaites: () => mesureur.lues(),
     poserMesures: (mesures) => mesureur.poser(mesures),
     preregler(d) {
@@ -250,6 +345,19 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       for (const id of d.refusees) preregle.set(id, false);
       publier();
     },
+    figer(propositions) {
+      // La decision n'est pas une proposition : elle reste a part (decisionsFigees), et la copie ne la porte pas.
+      const copies = propositions.map((p) => JSON.parse(JSON.stringify({ ...p, decision: undefined })) as Proposition);
+      const decidees = propositions.some((p) => p.decision !== null);
+      const defaut = decidees ? new Set(propositions.filter((p) => p.decision === 'validee').map((p) => p.id)) : cochesParDefaut(copies);
+      decisionsFigees.clear();
+      for (const p of propositions) decisionsFigees.set(p.id, p.decision);
+      figees = { cle: 'figees', objets: null, propositions: copies, observations: [], defaut };
+      calculs++;
+      publier();
+    },
+    lectureSeule: () => figees !== null,
+    decision: (id) => decisionsFigees.get(id) ?? null,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };
 }

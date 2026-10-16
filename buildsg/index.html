@@ -21,6 +21,9 @@
   @keyframes chargementTourne{ to{ transform:rotate(360deg); } }
   @keyframes chargementPulse{ 50%{ opacity:0.45; } }
 </style>
+<!-- La table d'import des modules de three.js (src/three/bibliotheque.ts, qui nomme le meme fichier ;
+     tests/unit/three/bibliotheque.test.ts le verifie). Elle precede tout script de module. -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js"}}</script>
 <script type="module" src="/src/main.ts"></script>
 </head>
 <body>

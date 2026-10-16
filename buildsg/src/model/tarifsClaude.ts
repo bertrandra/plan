@@ -123,3 +123,55 @@ export function erreurPlafonds(p: Plafonds): string | null {
   if (!(fini(p.estimationRequete) && p.estimationRequete >= 0)) return 'L’estimation par requête est un montant positif.';
   return null;
 }
+
+// --- Le modele de chaque usage (route `admin/claude/modeles`) --------------------------------------
+// Le serveur choisit le modele de chaque requete d'apres ce reglage, quand la demande n'en impose
+// pas : la page n'envoie que des images et du texte. Il refuse un modele hors de sa liste (`admis`).
+
+/** Les usages que l'administrateur regle, dans l'ordre de l'ecran. */
+export const USAGES_REGLABLES: { id: string; libelle: string }[] = [
+  { id: 'analyse', libelle: 'Analyse des audits' },
+  { id: 'renfort', libelle: 'Renfort des façades' },
+  { id: 'immediat', libelle: 'Aide immédiate' },
+  { id: 'escalade', libelle: 'Escalade' },
+  { id: 'candidats', libelle: 'Cas candidats' },
+  { id: 'rejeu', libelle: 'Rejeu des audits' }
+];
+
+/** Ce que rend `GET admin/claude/modeles` : le modele de chaque usage, les defauts, les modeles admis. */
+export interface ModelesDesUsages {
+  usages: Record<string, string>;
+  defaut: Record<string, string>;
+  admis: string[];
+  /** L'administrateur a-t-il deja regle quelque chose (sinon, ce sont les defauts du serveur). */
+  regle: boolean;
+}
+
+const chaines = (v: unknown): Record<string, string> => (v && typeof v === 'object' && !Array.isArray(v)
+  ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string'))
+  : {});
+
+/** La reponse du serveur, ou `null` si elle n'en a pas la forme. */
+export function lireModeles(d: unknown): ModelesDesUsages | null {
+  if (!d || typeof d !== 'object') return null;
+  const o = d as Record<string, unknown>;
+  if (o.format !== 'plan-claude-modeles' || !Array.isArray(o.admis)) return null;
+  return { usages: chaines(o.usages), defaut: chaines(o.defaut), admis: o.admis.filter((m): m is string => typeof m === 'string'), regle: o.regle === true };
+}
+
+/** Le reglage tel que le serveur le garde (`modeles.json`) : un modele par usage. */
+export interface ReglageModeles {
+  format: 'plan-claude-modeles';
+  usages: Record<string, string>;
+}
+
+/** Le corps du `PUT` : un modele par usage (le serveur refuse un modele hors de sa liste). */
+export function reglageModeles(usages: Record<string, string>): ReglageModeles {
+  return { format: 'plan-claude-modeles', usages: { ...usages } };
+}
+
+/** Le prix d'un modele en vigueur ce jour, en dollars par million de tokens, hors remise Batch. */
+export function prixAuMillion(t: Tarifs | null, modele: string, jour: string): { entree: number; sortie: number } | null {
+  const l = t ? tarifDuJour(t, modele, jour) : null;
+  return l ? { entree: l.entree, sortie: l.sortie } : null;
+}

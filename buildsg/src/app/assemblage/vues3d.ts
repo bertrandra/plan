@@ -14,13 +14,14 @@ import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from '../../engine/hauteu
 import { positionMat } from '../../engine/parasol.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { ortho } from '../../render/ortho.js';
-import { buildThreeScene as construireScene3D, remplacerObjets3d } from '../../three/scene.js';
+import { buildThreeScene as construireScene3D, remplacerObjets3d, comparerObjets3d } from '../../three/scene.js';
+import { cadrerDeuxVues, type RectFenetre } from '../../three/comparaison3d.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import { controleurAudit } from '../audit/branchement.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../../three/navigation.js';
 import { genererGlb as genererGlbModule } from '../../three/exportGlb.js';
 import { chargerTexturePolyhaven } from '../../three/chargeurs.js';
-import { glb, soleilVue3d, signaler3d } from '../../three/etat3d.js';
+import { glb, soleilVue3d, signaler3d, vue3d } from '../../three/etat3d.js';
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d, syncControles as syncControlesSoleil, appliquer as appliquerSoleilVue3d
 } from '../../three/soleilVue3d.js';
@@ -77,7 +78,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     setGlbViewerPleinePage: (a) => nav3d.setGlbViewerPleinePage(a),
     vue3dPleinePage: () => nav3d.vue3dPleinePage,
     glbViewerPleinePage: () => nav3d.glbViewerPleinePage,
-    resizeThreeScene: () => nav3d.resizeThreeScene(), resizeGlbViewerScene: () => nav3d.resizeGlbViewerScene()
+    resizeThreeScene: () => nav3d.resizeThreeScene(), resizeGlbViewerScene: () => nav3d.resizeGlbViewerScene(),
+    appliquerLumiere: appliquerLumiereVue3d, lieuActuel
   }, commandes);
 
   const modes = creerModes({
@@ -132,6 +134,14 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
      * (app/audit/parcelle/validation.ts) ; le plan lui-meme n'est pas touche.
      */
     remplacerObjets3d: (cles: readonly string[], objets?: readonly ObjetPlan[]) => remplacerObjets3d(cles, objets ? { ...etat, objects: [...objets] } : etat),
+    /**
+     * L'avant et l'apres d'un audit en deux vues de la Vue 3D ouverte (three/comparaison3d.ts), sur la
+     * meme scene et la meme camera ; null revient a la vue unique. Le plan n'est pas touche.
+     */
+    comparerObjets3d: (apres: { cles: readonly string[]; objets: readonly ObjetPlan[]; parcelle: ObjetPlan | null } | null) =>
+      comparerObjets3d(apres ? { cles: apres.cles, etat: { ...etat, objects: [...apres.objets] }, parcelle: apres.parcelle } : null),
+    /** Ou est l'ecran pose sur la Vue 3D (pixels de la fenetre) : les deux vues l'evitent. */
+    cadrerDeuxVues: (panneau: RectFenetre | null) => cadrerDeuxVues(panneau, vue3d.scene),
     allerAuPointDeVue: vues3d.allerAuPointDeVue,
     refreshTerrasseView: () => modes.refreshTerrasseView()
   };

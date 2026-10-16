@@ -107,6 +107,13 @@ export interface CaptureParcelle<P = PhotoCas> {
    */
   partage?: PartageCorpus;
   /**
+   * La sauvegarde sur le serveur de Plan pendant la capture (§15) : le depot que chaque envoi
+   * remplace, et quand il est parti. Absente tant que rien n'est parti. Comme le partage, elle reste
+   * sur l'appareil : le fichier de l'audit ne la recopie pas, le secret de retrait non plus. Un
+   * secret vide : le depot a ete rouvert par l'administrateur, sa session suffit a le remplacer.
+   */
+  sauvegarde?: EnvoiCorpus | null;
+  /**
    * L'analyse par Claude (§13.2, lot L17) : l'accord de l'utilisateur, le batch en cours et ses
    * resultats. Absente tant que la question n'a pas ete posee. Elle vit dans la capture pour
    * survivre a un rechargement (brouillon) et pour le fichier de l'audit (§15).
@@ -152,9 +159,17 @@ export interface ResultatsAnalyse {
   parBatiment: Record<string, unknown[]>;
   /**
    * Le renfort de Claude sur chaque facade (lot L18), par `cle#cote` : ses graines deja recalees sur
-   * l'elevation de la facade. Calcule une fois, a la lecture des resultats : le recalage lit l'image.
+   * l'elevation de la facade. Calcule une fois par facade, quand sa mesure est prete (le recalage lit
+   * l'image du releve) ; jamais note vide.
    */
   renfort?: Record<string, RenfortFacadeCapture>;
+  /**
+   * Les reponses brutes du renfort, par `cle#cote` (schema-renfort, non verifiees ici) : le recalage
+   * demande le releve mesure de la facade, qui n'existe qu'apres les mesures du telephone. A la reprise
+   * d'un brouillon, le batch peut etre fini avant elles ; on garde donc les reponses pour recaler
+   * chaque facade quand sa mesure arrive, au lieu de noter un renfort vide pour toujours.
+   */
+  renfortBrut?: Record<string, unknown[]>;
 }
 
 /** Ce que le renfort de Claude a fait des ouvertures d'une facade, pret a proposer (F§12 bis). */

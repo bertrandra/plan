@@ -103,6 +103,9 @@ export const DESCRIPTIONS: Record<string, string> = {
   '3d.zoomArriere': 'Éloigne la caméra',
   '3d.hauteurDesYeux': 'Place la caméra à hauteur d’yeux, debout sur la terrasse sélectionnée',
   '3d.enregistrerPng': 'Télécharge l’image de la vue 3D en PNG',
+  '3d.heureDoree': 'Place le soleil à l’heure dorée du jour choisi, une cinquantaine de minutes avant son coucher',
+  '3d.captureHd': 'Télécharge la vue 3D en haute définition (trois fois l’écran), pour la montrer au client',
+  '3d.promenade': 'Enchaîne les points de vue enregistrés puis fait le tour de la maison, au pas ; un geste sur la vue l’arrête',
   '3d.enregistrerPointDeVue': 'Ajoute au plan un point de vue qui retient la caméra actuelle',
   '3d.pleinePage': 'Affiche la vue 3D sur toute la page',
 

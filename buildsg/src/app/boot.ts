@@ -32,6 +32,7 @@ import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from './toits
 import { creerRegulateur, brancherRegulateur } from './regulateur.js';
 import { modeDiagnostic, couleurDiagnostic } from './diagnostic.js';
 import { brancherToitsFond } from './ecouteurs/toitsFond.js';
+import { creerProfilsFacadesFond } from './profilsFacadesFond.js';
 import { brancherFaitsLocaux } from './ecouteurs/faitsLocaux.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { brancherPointeur } from '../interaction/pointeur.js';
@@ -86,7 +87,8 @@ import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
-import { vue3d } from '../three/etat3d.js';
+import { vue3d, rendre3d, affichage3d } from '../three/etat3d.js';
+import { epurerLeTemps, visibilite3d } from '../three/scene.js';
 import { creerIsolement, objetAIsoler } from './isolement.js';
 import { EXPOSITION } from './exposition.js';
 import { APP_VERSION } from '../model/version.js';
@@ -356,9 +358,20 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       if (vue3d.scene && !tardifs.vues?.remplacerObjets3d(cles)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
     }
   });
+  // Les profils de facades rechoisis apres un changement de reglages (app/profilsFacadesFond.ts) : sans
+  // reseau, par lots ; seuls les batiments dont le profil change se redessinent dans la Vue 3D ouverte.
+  const profilsFacades = creerProfilsFacadesFond({
+    objets: () => etat.objects,
+    lectureSeule: () => !!etat.lectureSeule || !toitsFondPermis,
+    apresLot: (b) => {
+      p.markDirty();
+      if (b.changes.length && vue3d.scene && !tardifs.vues?.remplacerObjets3d(b.changes)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
+    }
+  });
   const apresActualisation = () => {
     questionsACheval();
     toitsFond.relancer();
+    void profilsFacades.relancer();
     const refaire3d = () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); };
     p.render();
     refaire3d();
@@ -378,10 +391,12 @@ function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     // Un autre plan : la lecture en cours s'arrete, et reprend sur celui-ci.
     toitsFond.arreter();
     toitsFond.relancer();
+    profilsFacades.arreter();
+    void profilsFacades.relancer();
     return r;
   };
   return {
-    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond,
+    ctxOrtho, appliquerProjetImporte, questionsACheval, toitsFond, profilsFacades,
     restaurerAffichage: () => restaurerAffichageDuProjet(etat, ctxProjetImporte()),
     ouvrirImportCadastre() {
       const importe = creerImportCadastre({ apiSave, appliquerProjetImporte, withProjectParam,
@@ -441,6 +456,9 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       pushHistory: p.pushHistory, render: p.render,
       refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
       remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
+      // L'avant et l'apres en deux vues (three/comparaison3d.ts), qui evitent l'ecran des propositions.
+      comparer3d: (apres) => tardifs.vues?.comparerObjets3d(apres) ?? false,
+      cadrer3d: (panneau) => { tardifs.vues?.cadrerDeuxVues(panneau); },
     },
     // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
     audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
@@ -687,7 +705,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
-  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); }
+  else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer(); }
   if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {
@@ -735,7 +753,7 @@ function brancherIsolement(p: Plan): void {
       sc.camera.position.set(c.pos.x, c.pos.y, c.pos.z);
       sc.controls.target.set(c.cible.x, c.cible.y, c.cible.z);
       sc.controls.update();
-      sc.renderer.render(sc.scene, sc.camera);
+      rendre3d(sc);
     },
     notifier: () => magasin.notifier()
   });
@@ -769,7 +787,13 @@ function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
     selectionnerCle: (cle: string | null) => explorateur.selectionner(cle),
     magasin: () => magasin.store.getState(),
     // La scene 3D affichee : la fumee y place la camera pour regarder un objet precis.
-    scene3d: () => vue3d.scene
+    scene3d: () => vue3d.scene,
+    // Les deux vues avant / apres d'un audit (three/comparaison3d.ts), en pixels du canevas.
+    deuxVues: () => affichage3d.comparaison,
+    // Ce que la Vue 3D montre des objets du plan (la vue epuree de l'audit de la parcelle).
+    visibilite3d: () => visibilite3d(),
+    // Le rendu pour Claude, epure le temps d'un appel (le banc visuel : meme instance que l'application).
+    epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => epurerLeTemps(garder, f)
   } });
 }
 

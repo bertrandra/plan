@@ -5,6 +5,7 @@
 
 import { chargement } from './etat3d.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import { chargerExemple } from './bibliotheque.js';
 import type * as THREE_NS from 'three';
 
 /**
@@ -93,7 +94,7 @@ export function chargerTexturePolyhaven(url: string, repetition = 1): THREE_NS.T
       const ctx2d = c.getContext('2d');
       if (ctx2d) {
         ctx2d.drawImage(img0, 0, 0, c.width, c.height);
-        tex.image = c;
+        tex.image = c as unknown as HTMLImageElement;
         tex.needsUpdate = true;
       }
     }
@@ -131,9 +132,8 @@ export function nombreDeTexturesPartagees(): number {
  */
 export function ensureGLTFLoaderLoaded(cb: () => void): void {
   if (chargement.lecteurGltf && window.THREE && window.THREE.GLTFLoader) { cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-  s.onload = () => { chargement.lecteurGltf = true; cb(); };
-  s.onerror = () => showErrBanner('Impossible de charger le lecteur GLB (connexion internet requise pour cette fonctionnalite).');
-  document.head.appendChild(s);
+  chargerExemple('loaders/GLTFLoader.js', ['GLTFLoader']).then(
+    () => { chargement.lecteurGltf = true; cb(); },
+    () => showErrBanner('Impossible de charger le lecteur GLB (connexion internet requise pour cette fonctionnalite).')
+  );
 }

@@ -8,14 +8,28 @@
 // - « Importer un audit de parcelle… » (§15) reprend un fichier `plan-audit-parcelle` de la meme
 //   parcelle (meme IDU) a la phase 3, sur ses propositions : un audit fait par l'administrateur pour
 //   un client. Rien n'entre dans le projet avant « Valider » ; Ctrl+Z le defait alors en un pas.
+//   Un fichier dont la capture n'etait pas terminee (une sauvegarde) reprend sur la liste de controle.
+// - « Envoyer l'audit au serveur » (§15) : la sauvegarde sur le serveur de Plan, tout de suite ; elle
+//   part aussi d'elle-meme apres les photos (sauvegarde.ts). Elle n'ecrit rien dans le projet.
+// - Admin › « Audits » (§15, 15.4, 15.5) : le catalogue des audits recus (catalogue.ts), parcelles et
+//   promenades, admin des demos seulement, comme la Conformite ; « Ouvrir dans ce projet » passe par
+//   le meme import ; « Rejouer l'analyse » renvoie l'analyse d'un audit stocke avec le modele choisi.
 
-import { PERMISSION_ECRITURE } from '../../acces.js';
+import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
 import { preparerImport } from './fichier.js';
+import { brancherDoigtAudit } from '../controleur.js';
+import { creerCatalogue, type CatalogueAudits } from './catalogue.js';
+import { preparerRejeu } from './rejeu.js';
+import { fabriqueImagesNavigateur } from './analyseClaude.js';
+import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
+import { telechargerTexte } from '../../../shell/download.js';
+import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { ObjetPlan } from '../../../model/types.js';
+import type { FicheAudit } from '../../../io/auditsServeur.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
 /** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
@@ -57,20 +71,77 @@ function choisirFichierNavigateur(signaler: (m: string) => void): (surTexte: (te
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 
+/** Ce que le catalogue admin demande a la session de la parcelle : reprendre un fichier, ou le consulter. */
+interface ActionsCatalogue {
+  importer: (texte: string, fiche: FicheAudit) => void;
+  consulter: (texte: string, catalogue: CatalogueAudits) => void;
+}
+
+function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, actions: ActionsCatalogue): void {
+  // Admin › « Audits » : le catalogue, ouvert sur le projet en cours. Les analyses gardees se lisent
+  // par la session admin (cookie) ; le rejeu passe par le client de l'analyse, sous ses plafonds.
+  const analysesAudits = creerClientAnalysesAudits((entree, init) => fetch(entree, init));
+  cmd.declarer({
+    id: 'admin.auditsParcelle',
+    libelle: 'Audits',
+    description: 'Les audits reçus sur le serveur, de parcelle et de promenade : leurs données, leur conclusion et ce qui en a été fait, leurs analyses par Claude et leurs rejeux par modèle ; les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
+    groupe: 'admin',
+    actif: () => enAdmin(),
+    executer: () => {
+      const catalogue: CatalogueAudits = creerCatalogue({
+        client: () => a.audits?.() ?? null,
+        iduProjet: () => parcelleCadastrale(a.etat.objects),
+        refusEcriture: () => { const e = cmd.etat('audit.importerParcelle'); return e.utilisable ? null : 'message' in e ? e.message : 'Ce projet ne peut pas recevoir d’audit.'; },
+        ouvrir: (texte, fiche) => actions.importer(texte, fiche),
+        consulter: (texte) => actions.consulter(texte, catalogue),
+        telecharger: (nom, texte, type) => telechargerTexte(nom, texte, type ?? 'application/json'),
+        signaler: a.signaler,
+        choisirFichier: a.choisirFichier ?? choisirFichierNavigateur(a.signaler),
+        rejeu: {
+          analyses: () => (enAdmin() ? analysesAudits : null),
+          analyse: () => (enAdmin() ? a.analyse?.client ?? null : null),
+          preparer: (texte, fiche, modele) => preparerRejeu({
+            texte, depot: fiche.id, modele, objets: a.etat.objects, iduProjet: parcelleCadastrale(a.etat.objects), projet: a.analyse?.identite?.().projet ?? null,
+          }, a.analyse?.images ?? fabriqueImagesNavigateur()),
+        },
+      });
+      parcours.ouvrir({ type: 'auditsParcelle', catalogue });
+      void catalogue.relire();
+    },
+  });
+}
+
 export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreCommandes): { session: () => SessionAuditParcelle | null } {
   let session: SessionAuditParcelle | null = null;
   let iduSession: string | null = null;
+  /** La consultation d'un audit recu (Admin › Audits) : une session a part, en lecture seule, jetee a sa fermeture. */
+  let consultation: SessionAuditParcelle | null = null;
 
   // L'ecran ferme (Echap, Fermer, un autre parcours) : les capteurs s'arretent et le brouillon s'ecrit.
   parcours.abonner(() => {
     const p = parcours.courant();
     if (session && !(p?.type === 'auditParcelle' && p.session === session)) { session.suspendre(); void session.ecrireBrouillon(); }
+    // La consultation ne garde rien : fermee, ou remplacee par un autre ecran, la Vue 3D revient au plan.
+    if (consultation && !(p?.type === 'auditParcelle' && p.session === consultation)) { consultation.suspendre(); consultation = null; }
   });
   // L'ecran qui se verrouille, l'onglet mis en arriere-plan : le brouillon s'ecrit sans attendre.
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') void session?.ecrireBrouillon(); });
     window.addEventListener('pagehide', () => { void session?.ecrireBrouillon(); });
   }
+
+  // Le doigt sur la Vue 3D pendant la prise (vuePrise.ts) : toucher une facade la choisit, faire
+  // tourner la vue suspend un moment le suivi. Pose une fois sur l'hote de la scene, qui survit aux
+  // reconstructions ; hors de l'ecran de prise, la session ne fait rien de ces gestes.
+  let hote: HTMLElement | null = null;
+  const brancherHote = () => {
+    if (hote || !hotes3d.vue3d) return;
+    hote = hotes3d.vue3d;
+    brancherDoigtAudit({
+      tapoter: (ndc) => session?.toucher(ndc), appuiLong: (ndc) => session?.toucher(ndc), lacherSuivi: () => session?.lacherVue(),
+    }, hote);
+  };
+  abonnerSceneBatie(() => { brancherHote(); session?.sceneBatie(); consultation?.sceneBatie(); });
 
   /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
   function sessionDe(idu: string): SessionAuditParcelle {
@@ -104,20 +175,56 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     },
   });
 
-  /** Le texte d'un fichier choisi : refuse avec sa raison, ou repris a la phase 3. */
-  function importer(texte: string): void {
+  /**
+   * Le texte d'un fichier (choisi sur le poste, ou ouvert depuis le catalogue) : refuse avec sa
+   * raison, ou repris la ou il en etait, a la phase 3 ou sur la liste de controle. Depuis le
+   * catalogue, une sauvegarde rouverte reste la meme : les envois suivants la remplacent.
+   */
+  function importer(texte: string, depot?: FicheAudit): void {
     const idu = parcelleCadastrale(a.etat.objects);
     const r = preparerImport(texte, a.etat.objects, idu);
     if ('refus' in r) { a.signaler('Import refusé : ' + r.refus); return; }
     if (!idu) return;
     const s = sessionDe(idu);
+    const enCapture = !r.fichier.finCapture;
+    const absents = r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '';
+    // La question du remplacement (Z8) ne doit pas s'ouvrir sous le catalogue.
+    if (parcours.courant()?.type === 'auditsParcelle') parcours.fermer();
+    const sauvegarde = depot?.marque === 'sauvegarde' ? { id: depot.id, retrait: '', t: depot.recuLe } : undefined;
     void s.importer(r.fichier, () => {
-      s.montrer('propositions');
+      s.montrer(enCapture ? 'liste' : 'propositions');
       parcours.ouvrir({ type: 'auditParcelle', session: s });
+      if (enCapture) {
+        const photos = r.fichier.batiments.reduce((n, b) => n + b.photos.length + b.facades.reduce((m, f) => m + f.photos.length, 0), 0) + r.fichier.cloture.photos.length + r.fichier.portail.photos.length;
+        a.signaler('Audit de la parcelle repris en capture' + (photos ? ' : ' + pluriel(photos, 'photo') : '') + absents + '. Complétez la liste, puis « Lancer l’analyse ».');
+        return;
+      }
       const validees = r.fichier.propositions.filter((p) => p.decision === 'validee').length;
       a.signaler('Audit de la parcelle importé' + (validees ? ' : ' + pluriel(validees, 'proposition') + ' validée' + (validees > 1 ? 's' : '') + ' dans le fichier' : '')
-        + (r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '')
-        + '. Vérifiez les cases, puis « Valider ».');
+        + absents + '. Vérifiez les cases, puis « Valider ».');
+    }, sauvegarde);
+  }
+
+  /**
+   * L'avant et l'apres d'un audit recu, sur l'ecran des propositions de l'audit (une seule source) :
+   * une session a part, sans capteurs, brouillon ni partage, dont les propositions et les decisions
+   * sont celles du fichier. L'audit en cours de l'administrateur n'est pas touche.
+   */
+  function consulter(texte: string, catalogue: CatalogueAudits): void {
+    const idu = parcelleCadastrale(a.etat.objects);
+    const r = preparerImport(texte, a.etat.objects, idu);
+    if ('refus' in r) { a.signaler('Consultation refusée : ' + r.refus); return; }
+    if (!idu) return;
+    // Un autre ecran du meme parcours : la session de l'audit en cours se suspend, comme a toute fermeture.
+    consultation?.suspendre();
+    // Sans analyse par Claude ni envoi : elle ne fait que montrer.
+    const base: AtelierAuditParcelle = { ...a, stockage: null, audits: () => null, admin: () => false };
+    delete base.analyse;
+    const s = creerSessionAuditParcelle({ ...base, idu });
+    consultation = s;
+    s.consulter(r.fichier, () => {
+      s.montrer('propositions');
+      parcours.ouvrir({ type: 'auditParcelle', session: s, retour: () => parcours.ouvrir({ type: 'auditsParcelle', catalogue }) });
     });
   }
 
@@ -126,7 +233,27 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     libelle: 'Importer un audit de parcelle…',
     description: 'Reprend le fichier d’un audit de cette parcelle (même IDU), fait sur un autre appareil, à l’étape des propositions',
     ...condition,
-    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))(importer),
+    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))((texte) => importer(texte)),
   });
+
+  // « Envoyer l'audit au serveur » : la ligne de la liste de controle ; elle n'existe que si quelqu'un
+  // peut envoyer (session admin ou jeton de la plateforme). Rien n'ecrit dans le projet.
+  const etatEnvoi = () => session?.sauvegarde.etat() ?? null;
+  cmd.declarer({
+    id: 'audit.envoyerParcelle',
+    libelle: 'Envoyer l’audit au serveur',
+    description: 'Met l’audit de la parcelle à l’abri sur le serveur de Plan, photos comprises, pour le reprendre ailleurs ; il part aussi de lui-même après chaque photo',
+    groupe: 'audit',
+    actif: () => { const e = etatEnvoi(); return !!e?.disponible && e.etat !== 'envoi'; },
+    raisonInactive: () => {
+      const e = etatEnvoi();
+      if (!e) return null;
+      if (!e.disponible) return 'Connectez-vous à la plateforme pour envoyer l’audit au serveur de Plan.';
+      return e.etat === 'envoi' ? 'Un envoi est en cours.' : null;
+    },
+    executer: () => { void session?.sauvegarde.envoyer(); },
+  });
+
+  declarerAuditsAdmin(a, cmd, { importer, consulter });
   return { session: () => session };
 }
