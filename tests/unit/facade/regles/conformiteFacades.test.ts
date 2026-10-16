@@ -18,7 +18,7 @@ describe('la disposition d un seul mur', () => {
     const maison = [p(0, 0), p(12, 0), p(12, 8), p(0, 8)];
     const tout = ouverturesAutomatiques(maison, [{ pts: maison, hauteur: 6 }], 6, { etages: 2 });
     // Le mur 0 mesure 12 m : c'est le plus long, il porte la porte.
-    const sansCote = (l: typeof tout) => l.map(({ cote: _c, ...o }) => o);
+    const sansCote = (l: typeof tout) => l.map((o) => Object.fromEntries(Object.entries(o).filter(([k]) => k !== 'cote')));
     expect(ouverturesDUnMur(12, 6, { etages: 2 }, true)).toEqual(sansCote(tout.filter((o) => o.cote === 0)));
     expect(ouverturesDUnMur(8, 6, { etages: 2 }, false)).toEqual(sansCote(tout.filter((o) => o.cote === 1)));
   });
