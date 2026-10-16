@@ -19,6 +19,7 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
+import { tauxAutomatique, type TauxAutomatique } from '../../app/audit/parcelle/arbitrages.js';
 import type { Validation } from '../../app/audit/parcelle/validation.js';
 import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
@@ -34,6 +35,12 @@ const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'E
  * retenu en tete : ce que chaque source dit, sa confiance, ce qu'elle pese, et la regle qui l'a lu. Un mot dit le groupe
  * retenu : la couleur ne porte pas seule.
  */
+/** Une phrase : ce que le moteur a tranche seul, ce qui attend la personne, ce qu'elle a decide. */
+function texteTaux(t: TauxAutomatique): string {
+  if (!t.decides) return 'Rien à arbitrer : le projet a déjà ce que disent les sources.';
+  return t.decides + ' décision' + (t.decides > 1 ? 's' : '') + ' : ' + t.auto + ' automatique' + (t.auto > 1 ? 's' : '') + ', ' + t.manuelles + ' à vous' + (t.main ? ', ' + t.main + ' déjà prise' + (t.main > 1 ? 's' : '') + ' par vous' : '') + '.';
+}
+
 export interface MainArbitrage { retenir(index: number): void; forcer(valeur: string): void; reprendre(): void }
 
 const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
@@ -86,6 +93,7 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
   return (
     <section className="sourcesBatiments" aria-label="Sources des bâtiments">
       <div className="titreObservations">Sources, bâtiment par bâtiment</div>
+      <p className="noteObservations tauxAutomatique">{texteTaux(tauxAutomatique(batiments.flatMap((b) => b.arbitrages)))}</p>
       {batiments.map((b) => (
         <details key={b.cle} className="sourcesBatiment">
           <summary className="nomObservations">{b.nom}</summary>

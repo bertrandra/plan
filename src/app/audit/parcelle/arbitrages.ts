@@ -165,3 +165,14 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
 export function propositionsArbitrees(e: EntreesPropositions, votes: VotesBatiments, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Proposition[] {
   return propositionsDesArbitrages(e, arbitragesParBatiment(e, votes, regles, choix), regles);
 }
+
+/** Combien d'arbitrages le moteur a tranches seul, combien attendent la personne, combien elle a decides : la mesure a maximiser par les donnees. */
+export interface TauxAutomatique { decides: number; auto: number; manuelles: number; main: number; part: number }
+
+export function tauxAutomatique(arbitrages: readonly Pick<ArbitrageProposition, 'decision'>[]): TauxAutomatique {
+  const compte = (d: ArbitrageProposition['decision']) => arbitrages.filter((a) => a.decision === d).length;
+  const auto = compte('auto'), manuelles = compte('manuelle'), main = compte('choisie') + compte('forcee');
+  // « Rien » (le projet a deja la valeur) n'est pas une decision a prendre : il n'entre pas dans le compte.
+  const decides = auto + manuelles + main;
+  return { decides, auto, manuelles, main, part: decides ? auto / decides : 1 };
+}

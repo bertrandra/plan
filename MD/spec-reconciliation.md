@@ -63,5 +63,5 @@ LiDAR (`regles/toits/reglages.json`) à côté des règles d'arbitrage.
 | R3 | les collecteurs de constats : IGN, LiDAR, photo, Claude, terrain, projet |
 | R4 | le câblage dans l'audit : un arbitrage par attribut, des cases cochées par la décision |
 | R5 | les règles LiDAR à l'écran (Admin › Règles, constats avec leur règle) |
-| R6 | la décision manuelle : choisir une source, forcer une valeur, rangées dans le fichier de l'audit |
-| R7 | le taux de décisions automatiques sur le corpus et les audits reçus |
+| R6 ✔ | la décision manuelle : choisir une source, forcer une valeur (`validation.decider`), rangées dans le fichier de l'audit avec la proposition |
+| R7 ✔ | le taux de décisions automatiques (`tauxAutomatique`, affiché dans le panneau Sources) ; il se maximise en réglant les poids et seuils du fichier, jamais dans le code |

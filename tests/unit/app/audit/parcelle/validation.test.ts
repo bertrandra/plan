@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
+import { tauxAutomatique } from '../../../../../src/app/audit/parcelle/arbitrages.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { creerHistorique } from '../../../../../src/core/historique.js';
@@ -231,6 +232,14 @@ describe('la main de la personne sur les arbitrages', () => {
     expect(t.etat.objects.find((o) => o.key === 'maison')?.elevation).toBe(7.4);
     t.historique.annuler();
     expect(t.plan()).toBe(avant);
+  });
+});
+
+describe('le taux de decisions automatiques', () => {
+  it('compte ce que le moteur tranche seul, ce qui attend, ce que la personne a pris ; « rien » n entre pas', () => {
+    const t = tauxAutomatique([{ decision: 'auto' }, { decision: 'auto' }, { decision: 'manuelle' }, { decision: 'forcee' }, { decision: 'rien' }]);
+    expect(t).toEqual({ decides: 4, auto: 2, manuelles: 1, main: 1, part: 0.5 });
+    expect(tauxAutomatique([{ decision: 'rien' }]).part).toBe(1);
   });
 });
 
