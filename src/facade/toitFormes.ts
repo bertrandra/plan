@@ -17,8 +17,8 @@ import { couperDemiPlan } from './toit.js';
 import { signedArea } from '../geometry/basic.js';
 import type { BoutToit, CorpsToit, Lucarne, PtBrut } from '../model/types.js';
 
-/** Un sommet dans le repere du corps : `s` le long du faitage, `t` en travers, `z` la hauteur au-dessus du sol. */
-export interface Sommet { s: number; t: number; z: number }
+import { estSpecial, facettesSpeciales, hauteurSpeciale, type Sommet, type Debords } from './toitSpeciaux.js';
+export type { Sommet, Debords };
 
 /** Un plan z = a s + b t + c, dans le repere du corps. */
 interface Plan { a: number; b: number; c: number }
@@ -45,7 +45,7 @@ export interface FormeEtendue {
   famille: 'mansart' | 'gambrel' | 'demi-croupe';
 }
 
-type CorpsForme = Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts' | 'croupes'> & Partial<Pick<CorpsToit, 'profil' | 'bouts' | 'pignons'>>;
+type CorpsForme = Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts' | 'croupes'> & Partial<Pick<CorpsToit, 'profil' | 'bouts' | 'pignons' | 'speciale'>>;
 
 /** Les bouts d'un corps : ceux qu'il porte, sinon ceux que disent ses croupes. */
 function boutsDe(c: CorpsForme): [BoutToit, BoutToit] {
@@ -139,6 +139,8 @@ function formeDe(c: CorpsForme, L: number, W: number): { f: FormeEtendue; plans:
 
 /** La hauteur du toit au point (s, t) d'un corps de forme etendue ; null pour les autres (le dessin d'avant). */
 export function hauteurEtendue(c: CorpsForme, L: number, W: number, s: number, t: number): number | null {
+  const special = hauteurSpeciale(c, L, W, s, t);
+  if (special !== null) return special;
   const x = formeDe(c, L, W);
   return x ? Math.min(...x.plans.map((p) => zDe(p, s, t))) : null;
 }
@@ -152,9 +154,11 @@ function sansDoublons(poly: PtBrut[]): PtBrut[] {
 }
 
 /** Les facettes planes du toit, dans le repere du corps. `debord` : l'egout (en t) et la rive (en s) que le dessin prolonge. */
-export interface Debords { egout0: number; egout1: number; rive0: number; rive1: number }
 
 export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords, bas: number): { pans: Sommet[][]; murs: Sommet[][] } | null {
+  // Un toit a profil libre ou de revolution (toitSpeciaux.ts) : ni faitage ni plans a couper.
+  const special = facettesSpeciales(c, L, W, d, bas);
+  if (special) return special;
   const x = formeDe(c, L, W);
   if (!x) return null;
   const { plans } = x;
@@ -211,17 +215,33 @@ const PENTE_CHIEN_ASSIS = 0.27;
  */
 export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[] }, L: number, W: number): { pans: Sommet[][]; murs: Sommet[][] } {
   const pans: Sommet[][] = [], murs: Sommet[][] = [];
+  // Sur un toit a profil libre ou de revolution, la hauteur du pan n'est pas celle d'un pan droit : pas de lucarne posee a l'aveugle.
+  if (estSpecial(c, W)) return { pans, murs };
   const f = formeDe(c, L, W)?.f ?? null;
   for (const l of c.lucarnes ?? []) {
     const n = l.pan, largeur = n === 0 ? c.posFaitage : W - c.posFaitage, F = c.faitage;
-    if (largeur < 0.5 || F - c.egouts[n] < 0.3) continue;
+    if (largeur < 0.5 || (F - c.egouts[n] < 0.3 && l.type !== 'lanterneau')) continue;
     const bris = f ? f.bris[n] : null;
     const zP = (d: number) => hauteurPan(c, W, n, d, bris);
     // La distance a laquelle le pan atteint la hauteur z (le pan monte avec d).
     const dePour = (z: number): number => { let a = 0, b = largeur; for (let i = 0; i < 40; i++) { const m = (a + b) / 2; if (zP(m) < z) a = m; else b = m; } return (a + b) / 2; };
-    const x0 = Math.max(0.1, l.debutM), x1 = Math.min(L - 0.1, l.finM), w = x1 - x0;
+    let x0 = Math.max(0.1, l.debutM), x1 = Math.min(L - 0.1, l.finM);
+    const w = x1 - x0;
     if (w < 0.4) continue;
-    const sm = (x0 + x1) / 2, demi = w / 2;
+    const sm = (x0 + x1) / 2;
+    // Un outeau est une petite lucarne a croupe : au plus un metre de large.
+    const demi = l.type === 'outeau' ? Math.min(w / 2, 0.5) : w / 2;
+    if (l.type === 'outeau') { x0 = sm - demi; x1 = sm + demi; }
+    if (l.type === 'lanterneau') {
+      // Un lanterneau : un coffre bas a dessus plat vitre, pose sur le pan (ou sur le toit plat).
+      const d0 = Math.max(0, Math.min(largeur - 1.2, l.profondeurM)), d1 = d0 + Math.min(1.2, largeur);
+      const A = zP(d0), B = zP(d1), zT = Math.max(l.faitageM, Math.max(A, B) + 0.3);
+      const T = (s: number, d: number, z: number): Sommet => ({ s, t: n === 0 ? d : W - d, z });
+      murs.push([T(x0, d0, A), T(x1, d0, A), T(x1, d0, zT), T(x0, d0, zT)], [T(x0, d1, B), T(x1, d1, B), T(x1, d1, zT), T(x0, d1, zT)]);
+      murs.push([T(x0, d0, A), T(x0, d1, B), T(x0, d1, zT), T(x0, d0, zT)], [T(x1, d0, A), T(x1, d1, B), T(x1, d1, zT), T(x1, d0, zT)]);
+      pans.push([T(x0, d0, zT), T(x1, d0, zT), T(x1, d1, zT), T(x0, d1, zT)]);
+      continue;
+    }
     const zf = Math.min(Math.max(l.faitageM, c.egouts[n] + 0.6), F - 0.1);
     const meuniere = l.type === 'meuniere';
     const dB = dePour(zf);
@@ -232,6 +252,15 @@ export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[]
     // Le toit d'une lucarne a deux pans ou a croupe : l'egout de ses pans, plus bas que le faitage de la moitie de sa largeur.
     const ze = Math.max(zf - demi * PENTE_LUCARNE, z0 + 0.25);
     const dE = dePour(ze);
+    if (l.type === 'oeil-de-boeuf') {
+      // Un oeil-de-boeuf : un disque debout sur le pan, et un cylindre court qui le rejoint.
+      const rr = Math.min(0.55, Math.max(0.25, (zf - z0) * 0.45), w / 2), zc = z0 + rr + 0.1, N = 12;
+      const anneau = (d: (z: number) => number) => Array.from({ length: N }, (_, k) => { const a = (k / N) * 2 * Math.PI; const z = zc + rr * Math.sin(a); return S(sm + rr * Math.cos(a), d(z), z); });
+      const face = anneau(() => dF), fond = anneau((z) => dePour(z));
+      for (let k = 0; k < N; k++) pans.push([face[k] as Sommet, face[(k + 1) % N] as Sommet, fond[(k + 1) % N] as Sommet, fond[k] as Sommet]);
+      murs.push(face);
+      continue;
+    }
     if (l.type === 'chien-assis' || l.type === 'rampante') {
       // Un seul pan : le chien-assis descend vers le faitage du corps (pente inverse), la rampante monte, moins raide que le pan.
       const pente = l.type === 'chien-assis' ? -PENTE_CHIEN_ASSIS : 0.5 * Math.max(0, (F - c.egouts[n]) / largeur);
@@ -246,7 +275,7 @@ export function facettesLucarnes(c: CorpsForme & { lucarnes?: readonly Lucarne[]
       continue;
     }
     // Jacobine, meuniere, inconnue : deux pans et un petit pignon en facade ; capucine : une croupe en facade.
-    const capucine = l.type === 'capucine';
+    const capucine = l.type === 'capucine' || l.type === 'outeau';
     if (capucine) {
       const dr = dF + demi;
       murs.push([S(x0, dF, z0), S(x1, dF, z0), S(x1, dF, ze), S(x0, dF, ze)]);

@@ -6,7 +6,8 @@
 // quand il existe. Tout vient de la liste a plat de model/chaine.ts : cet ecran ne sait rien de ce qu'il montre.
 
 import { useMemo, useState } from 'react';
-import { CHAINE, construireArbre, repartitionDesModes, verifierChaine, type ArbreNoeud, type ModeNoeud, type NoeudChaine } from '../model/chaine.js';
+import { construireArbre, repartitionDesModes, type ArbreNoeud, type ModeNoeud, type NoeudChaine } from '../model/chaine.js';
+import type { ChaineVivante, NoeudVivant } from '../app/chaineVivante.js';
 import { EXEMPLES_TOITS, vueIsometrique } from '../facade/catalogueToits.js';
 
 const MODES: Record<ModeNoeud, string> = { auto: 'Automatique', manuel: 'Manuel', mixte: 'Automatique puis manuel' };
@@ -29,7 +30,7 @@ export function VignetteToit({ forme }: { forme: string }) {
   );
 }
 
-function Ligne({ n, filtre, parId }: { n: NoeudChaine; filtre: Filtre; parId: Map<string, NoeudChaine> }) {
+function Ligne({ n, filtre, parId }: { n: NoeudVivant; filtre: Filtre; parId: Map<string, NoeudChaine> }) {
   const renvoi = n.voir ? parId.get(n.voir) : undefined;
   return (
     <div className="chaineLigne" data-genre={n.genre} data-mode={n.mode ?? ''} data-attenue={filtre !== 'tous' && n.mode !== filtre ? 'oui' : undefined}>
@@ -39,8 +40,14 @@ function Ligne({ n, filtre, parId }: { n: NoeudChaine; filtre: Filtre; parId: Ma
           <span className="chaineGenre">{GENRES[n.genre]}</span>
           <strong id={'chaine-' + n.id}>{n.titre}</strong>
           {n.mode && <span className="chaineMode" data-mode={n.mode}>{MODES[n.mode]}</span>}
+          {n.lu && <span className="chaineLu" title="Cette ligne vient des données : elle n’est écrite nulle part">Lu des données</span>}
         </div>
         {n.detail && <p className="chaineDetail">{n.detail}</p>}
+        {n.lignes && n.lignes.length > 0 && (
+          <ul className="chaineSeuils" aria-label={'Seuils : ' + n.titre}>
+            {n.lignes.map((l) => <li key={l.nom} title={l.pourquoi}><code>{l.nom}</code> <span>{l.valeur}</span></li>)}
+          </ul>
+        )}
         <div className="chaineLiens">
           {n.ecran && <a href={n.ecran} className="chaineEcran">Ouvrir l’écran</a>}
           {renvoi && <a href={'#chaine-' + renvoi.id} className="chaineVoir">{'Voir : ' + renvoi.titre}</a>}
@@ -51,7 +58,7 @@ function Ligne({ n, filtre, parId }: { n: NoeudChaine; filtre: Filtre; parId: Ma
   );
 }
 
-function Branche({ a, filtre, parId, niveau }: { a: ArbreNoeud; filtre: Filtre; parId: Map<string, NoeudChaine>; niveau: number }) {
+function Branche({ a, filtre, parId, niveau }: { a: ArbreNoeud<NoeudVivant>; filtre: Filtre; parId: Map<string, NoeudChaine>; niveau: number }) {
   const formes = a.enfants.filter((e) => e.noeud.forme);
   const autres = a.enfants.filter((e) => !e.noeud.forme);
   return (
@@ -67,12 +74,12 @@ function Branche({ a, filtre, parId, niveau }: { a: ArbreNoeud; filtre: Filtre; 
   );
 }
 
-export function EcranChaine({ retour = '?admin' }: { retour?: string }) {
+export function EcranChaine({ chaine, retour = '?admin' }: { chaine: ChaineVivante; retour?: string }) {
   const [filtre, setFiltre] = useState<Filtre>('tous');
-  const arbre = useMemo(() => construireArbre(CHAINE), []);
-  const parId = useMemo(() => new Map(CHAINE.map((n) => [n.id, n])), []);
-  const erreurs = useMemo(() => verifierChaine(CHAINE), []);
-  const modes = useMemo(() => repartitionDesModes(CHAINE), []);
+  const { noeuds, problemes: erreurs, lecture } = chaine;
+  const arbre = useMemo(() => construireArbre(noeuds), [noeuds]);
+  const parId = useMemo(() => new Map<string, NoeudChaine>(noeuds.map((n) => [n.id, n])), [noeuds]);
+  const modes = useMemo(() => repartitionDesModes(noeuds), [noeuds]);
   const total = modes.auto + modes.manuel + modes.mixte;
   return (
     <div className="consEcran chaineEcran">
@@ -84,7 +91,11 @@ export function EcranChaine({ retour = '?admin' }: { retour?: string }) {
           le processus d’audit. Chaque ligne dit si elle se décide seule, à la main, ou les deux, et renvoie vers l’écran qui la règle quand il existe.
         </p>
       </header>
-      {erreurs.length > 0 && <p className="chaineErreur" role="alert">{'La liste de la chaîne est incohérente : ' + erreurs.join(' ; ')}</p>}
+      <p className="chaineLecture" aria-live="polite">
+        {'Lu en direct des fichiers : prompt v' + lecture.promptVersion + ', schéma v' + lecture.schemaVersion + ', lecture des toits v' + lecture.lectureToits + ' · '
+          + lecture.sources + ' sources, ' + lecture.attributs + ' attributs, ' + lecture.seuils + ' seuils, ' + lecture.sujets + ' sujets · empreintes ' + lecture.empreintes.reconciliation + ' (réconciliation), ' + lecture.empreintes.reglagesToits + ' (réglages des toits).'}
+      </p>
+      {erreurs.length > 0 && <ul className="chaineErreur" role="alert" aria-label="Ce qui n’est plus à jour">{erreurs.map((e) => <li key={e}>{e}</li>)}</ul>}
       <nav className="chaineSchema" aria-label="Les étapes">
         <ol>{arbre.map((a, i) => (
           <li key={a.noeud.id}>

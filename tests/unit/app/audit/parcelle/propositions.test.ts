@@ -55,11 +55,12 @@ function entrees(objets = quartier(), c = capture(), ms = mesures()) {
 
 describe('les propositions des mesures et des observations', () => {
   it('propose le releve, la hauteur, la couleur, les materiaux, les cheminees, la terrasse, la cloture et le portail', () => {
-    const p = propositionsDeLAudit(entrees());
-    // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts), pas par cette liste.
-    expect(p.map((x) => x.id)).toEqual([
-      'maison#0:releve', 'maison:couleurMurs', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail',
-    ]);
+    // La hauteur a l'egout, la toiture, le materiau des murs et la couverture sont decides par l'arbitrage des sources (arbitrages.ts), pas par cette liste.
+    const seules = propositionsDeLAudit(entrees());
+    expect(seules.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:couleurMurs', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail']);
+    const arbitrees = propositionsArbitrees(entrees(), {});
+    expect(arbitrees.map((x) => x.id)).toEqual(['maison:materiauMurs', 'maison:couverture']);
+    const p = [...seules, ...arbitrees];
     const parId = new Map(p.map((x) => [x.id, x]));
     expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'mesure', confiance: 0.8 });
     // La photo seule ne decide pas d'une hauteur (score 2,4 sous 3) : la ligne arrive decochee, avec ses sources.
@@ -71,8 +72,9 @@ describe('les propositions des mesures et des observations', () => {
     expect(h?.reserve).toMatch(/Photo de façade seul ne décide pas/);
     expect(cochesParDefaut([h as Proposition]).size).toBe(0);
     expect(parId.get('maison:couleurMurs')).toMatchObject({ avant: '#C9B99A (matériau)', apres: '#c9b49a, lue sur vos photos' });
-    expect(parId.get('maison:materiauMurs')).toMatchObject({ avant: 'Pierre (fichiers fonciers)', apres: 'Brique, vu sur place' });
-    expect(parId.get('maison:couverture')).toMatchObject({ avant: 'déduite par Plan', apres: 'Ardoise, vue sur place' });
+    expect(parId.get('maison:materiauMurs')).toMatchObject({ source: 'arbitrage', avant: 'Pierre (fichiers fonciers)', apres: 'Brique, vu sur place', effet: { type: 'materiauMurs', materiau: 'brique' } });
+    expect(parId.get('maison:materiauMurs')?.arbitrages?.[0]).toMatchObject({ attribut: 'materiauMurs', decision: 'auto' });
+    expect(parId.get('maison:couverture')).toMatchObject({ source: 'arbitrage', avant: 'déduite par Plan', apres: 'Ardoise, vue sur place', effet: { type: 'couverture', couverture: 'ardoise' } });
     expect(parId.get('maison:cheminees')).toMatchObject({ avant: 'aucune cheminée', apres: '2 cheminées · au faîtage, adossée en façade, vues sur place', effet: { type: 'cheminees', corps: 0 } });
     expect(parId.get('maison:terrasse')).toMatchObject({ avant: 'toit plat, sans détail', effet: { type: 'terrasse', corps: 1 } });
     expect(parId.get('parcelle:cloture')).toMatchObject({ avant: 'Palissade bois 1,80 m · verticales', apres: 'Mur · 1,6 m, vue sur place' });
@@ -86,7 +88,7 @@ describe('les propositions des mesures et des observations', () => {
     m.couleurMurs = { source: 'plan' };
     m.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile' };
     m.facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
-    const p = propositionsDeLAudit(entrees(objets));
+    const p = [...propositionsDeLAudit(entrees(objets)), ...propositionsArbitrees(entrees(objets), {})];
     const parId = new Map(p.map((x) => [x.id, x]));
     expect(parId.get('maison:couleurMurs')?.remplaceChoix).toBe('couleur du plan');
     expect(parId.get('maison:couverture')?.remplaceChoix).toBe('tuiles mécaniques');
@@ -155,7 +157,7 @@ describe('vérifié sur place', () => {
     const c = capture();
     for (const cote of ['1', '2', '3']) c.batiments.maison!.facades[cote] = { photos: [], inaccessible: true };
     const e = entrees(quartier(), c);
-    const p = propositionsDeLAudit(e);
+    const p = [...propositionsDeLAudit(e), ...propositionsArbitrees(e, {})];
     const couverture = p.find((x) => x.effet.type === 'couverture')!;
     // Claude voit du zinc la ou la personne a note de l'ardoise ; une cheminee, sans concurrente.
     const zinc = { ...couverture, id: 'maison:claude:couverture', source: 'claude' as const, effet: { type: 'couverture' as const, couverture: 'zinc' as const } };

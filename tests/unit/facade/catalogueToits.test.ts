@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { EXEMPLES_TOITS, vueIsometrique } from '../../../src/facade/catalogueToits.js';
+import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique } from '../../../src/facade/catalogueToits.js';
+import { formeDesCorps, FORMES_TOIT_CATALOGUE } from '../../../src/model/formeToit.js';
+import { TYPES_LUCARNE } from '../../../src/model/corpsToitEtendu.js';
 
-// Le catalogue des formes de toit : chaque vignette vient des facettes que calcule la 3D.
+// Le catalogue des formes de toit : chaque vignette vient des facettes que calcule la 3D, et chaque forme que le modele nomme y est.
+
+const exemple = (id: string) => EXEMPLES_TOITS.find((e) => e.id === id)!;
+const pans = (id: string) => vueIsometrique(exemple(id)).facettes.filter((f) => !f.mur && !f.lucarne).length;
+const lucarnes = (id: string) => vueIsometrique(exemple(id)).facettes.filter((f) => f.lucarne).length;
 
 describe('le catalogue des formes de toit', () => {
   it('dessine chaque forme avec des facettes de toit et de mur, bien formees', () => {
@@ -15,20 +21,33 @@ describe('le catalogue des formes de toit', () => {
       }
     }
   });
-  it('compte les pans : deux pans 2, quatre pans 4, un pan 1, plat 1, mansart 6', () => {
-    const pans = (id: string) => vueIsometrique(EXEMPLES_TOITS.find((e) => e.id === id)!).facettes.filter((f) => !f.mur && !f.lucarne).length;
-    expect([pans('deux-pans'), pans('croupes'), pans('appentis'), pans('plat')]).toEqual([2, 4, 1, 1]);
-    expect(pans('gambrel')).toBe(4);
-    expect(pans('mansart')).toBe(8);
+
+  it('a un exemple pour chaque forme du catalogue de la spec, et le modele reconnait chacun sous son nom', () => {
+    const ids = EXEMPLES_TOITS.map((e) => e.id);
+    for (const f of FORMES_TOIT_CATALOGUE) expect(ids, f).toContain(f);
+    for (const e of EXEMPLES_TOITS.filter((x) => x.famille === 'toit')) expect(formeDesCorps(corpsDeLExemple(e)), e.id).toBe(e.id);
   });
-  it('une lucarne ajoute ses facettes au toit, une forme sans lucarne n en a pas', () => {
-    const lucarnes = (id: string) => vueIsometrique(EXEMPLES_TOITS.find((e) => e.id === id)!).facettes.filter((f) => f.lucarne).length;
-    for (const id of ['jacobine', 'capucine', 'chien-assis', 'rampante', 'meuniere']) expect(lucarnes(id), id).toBeGreaterThan(0);
+
+  it('compte les pans : deux pans 2, quatre pans 4, un pan 1, plat 1, gambrel 4, papillon 2, shed 3, M et décalés 4', () => {
+    expect([pans('deux-pans'), pans('croupes'), pans('appentis'), pans('plat'), pans('gambrel'), pans('papillon')]).toEqual([2, 4, 1, 1, 4, 2]);
+    expect([pans('shed'), pans('toit-en-m'), pans('deux-pans-decales'), pans('mansart')]).toEqual([3, 4, 4, 8]);
+  });
+
+  it('les toits de revolution ont des facettes autour de leur axe : pyramide à n faces, cône, dôme et bulbe en anneaux', () => {
+    expect(pans('polygonal')).toBe(6 + 1);
+    expect(pans('fleche')).toBe(8 + 1);
+    expect(pans('conique')).toBeGreaterThan(24);
+    expect(pans('dome')).toBeGreaterThan(pans('conique'));
+    expect(pans('imperiale')).toBeGreaterThan(pans('dome'));
+  });
+
+  it('un berceau, un coyau et un papillon ont leurs pans en bandes selon leur profil', () => {
+    expect(pans('berceau')).toBe(20);
+    expect(pans('coyau')).toBe(4);
+  });
+
+  it('chaque type de lucarne du modele a un exemple qui ajoute ses facettes au toit', () => {
+    for (const t of TYPES_LUCARNE.filter((x) => x !== 'inconnue')) expect(lucarnes(t), t).toBeGreaterThan(0);
     expect(lucarnes('deux-pans')).toBe(0);
-  });
-  it('une demi-croupe coupe le toit plus bas qu un pignon', () => {
-    const haut = (id: string) => Math.min(...vueIsometrique(EXEMPLES_TOITS.find((e) => e.id === id)!).facettes.flatMap((f) => f.points.map((p) => p[1])));
-    expect(vueIsometrique(EXEMPLES_TOITS.find((e) => e.id === 'demi-croupe')!).facettes.filter((f) => !f.mur).length).toBeGreaterThanOrEqual(3);
-    expect(haut('demi-croupe')).toBeGreaterThanOrEqual(0);
   });
 });

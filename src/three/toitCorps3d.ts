@@ -11,6 +11,7 @@ import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
 import { facettesEtendues, facettesLucarnes } from '../facade/toitFormes.js';
+import { estSpecial } from '../facade/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
@@ -28,6 +29,8 @@ export const NOM_MUR_CORPS = 'toit-corps-mur';
 export const DEBORD_EGOUT_M = 0.35;
 /** Le debord a la rive, au-dela d'un pignon. */
 export const DEBORD_RIVE_M = 0.2;
+/** L'epaisseur d'un acrotere, en metres. */
+const ACROTERE_EPAISSEUR_M = 0.2;
 /** En deca, un mur au-dessus du prisme ne se dessine pas. */
 const MUR_MIN_M = 0.02;
 
@@ -51,13 +54,15 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   const r = repere(c.pts);
   const { L, W } = r;
   const p = c.posFaitage, F = c.faitage, [e0, e1] = c.egouts;
-  const bas = Math.min(e0, e1);
+  // Un papillon descend sous ses egouts, vers sa noue : le prisme s'arrete a la noue, les murs montent de la jusqu'aux egouts.
+  const special = estSpecial(c, W);
+  const bas = special ? Math.min(e0, e1, F) : Math.min(e0, e1);
   const P = (s: number, t: number, z: number): S3 => ({ ...point(r, s, t), z });
   const facade = (cote: 's0' | 'sL' | 't0' | 'tW') => debord && enFacade(r, contour, cote);
   const dE0 = facade('t0') ? DEBORD_EGOUT_M : 0, dE1 = facade('tW') ? DEBORD_EGOUT_M : 0;
   const dR0 = facade('s0') ? DEBORD_RIVE_M : 0, dRL = facade('sL') ? DEBORD_RIVE_M : 0;
   const pans: S3[][] = [], murs: S3[][] = [];
-  const plat = F - Math.min(e0, e1) < 0.05;
+  const plat = !special && F - Math.min(e0, e1) < 0.05;
   // Les croupes : le faitage s'arrete a h0 et h1 des murs de bout, les pans deviennent des trapezes.
   const [h0, h1] = !plat && p > 0.01 && p < W - 0.01 ? c.croupes ?? [0, 0] : [0, 0];
   // Un pan, dans son repere : `s` le long du faitage, `d` la distance a son mur d'egout (negative
@@ -135,6 +140,18 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     pans.push([P(sc, T(-dE), pg.faitage), P(droite, T(-dE), zD), P(piedD, T(0), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
     murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
   }
+  // L'acrotere d'un toit-terrasse : le muret qui borde le toit, de l'epaisseur d'un parpaing, dessine par ses faces et son dessus.
+  const acro = plat ? c.terrasse?.acrotereM ?? 0 : 0;
+  if (acro > 0.05) {
+    const ep = Math.min(ACROTERE_EPAISSEUR_M, L / 4, W / 4), z0 = F, z1 = F + acro;
+    const coins: [number, number][] = [[0, 0], [L, 0], [L, W], [0, W]], interieur: [number, number][] = [[ep, ep], [L - ep, ep], [L - ep, W - ep], [ep, W - ep]];
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4, [a, b] = [coins[i] as [number, number], coins[j] as [number, number]], [ai, bi] = [interieur[i] as [number, number], interieur[j] as [number, number]];
+      murs.push([P(a[0], a[1], z0), P(b[0], b[1], z0), P(b[0], b[1], z1), P(a[0], a[1], z1)]);
+      murs.push([P(ai[0], ai[1], z0), P(bi[0], bi[1], z0), P(bi[0], bi[1], z1), P(ai[0], ai[1], z1)]);
+      pans.push([P(a[0], a[1], z1), P(b[0], b[1], z1), P(bi[0], bi[1], z1), P(ai[0], ai[1], z1)]);
+    }
+  }
   // Les lucarnes se posent sur le pan, au-dessus de lui.
   if (c.lucarnes?.length) {
     const lu = facettesLucarnes(c, L, W);
@@ -209,7 +226,7 @@ export function facettesSurContour(corps: readonly CorpsToit[], contour: readonl
   const bas = Math.min(...corps.flatMap((c) => c.egouts));
   const pans: S3[][] = [];
   for (const c of corps) {
-    const plat = c.faitage - Math.min(...c.egouts) < 0.05;
+    const plat = !estSpecial(c, repere(c.pts).W) && c.faitage - Math.min(...c.egouts) < 0.05;
     // Un toit plat a l'egout le plus bas est le dessus du prisme : le redessiner les ferait scintiller.
     if (plat && c.faitage - bas < 0.05) continue;
     const facettes = plat ? [c.pts.map((q) => ({ ...q, z: c.faitage }))] : facettesCorps(c, null, false).pans;

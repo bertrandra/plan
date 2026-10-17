@@ -6,6 +6,7 @@
 // `projet` n'est pas une source : c'est la valeur que le projet a aujourd'hui, et si une personne l'a choisie a la main (un veto).
 
 import { formeDesCorps, formeDeLaVue } from '../../../model/formeToit.js';
+import { lireFormes } from '../../../facade/lectureFormes.js';
 import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
 import { azimutFaitage, boutsDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
@@ -31,7 +32,11 @@ export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cl
  * La forme d'un toit comme l'arbitrage la compare : un quatre-pans, des croupes et un pavillon ne font qu'un (le dessin est le
  * meme, spec des toits §3.3) ; le reste garde son nom.
  */
-export const formeArbitree = (f: string): string => (f === 'quatre-pans' || f === 'croupes' || f === 'pavillon' ? 'croupes' : f === 'demi-croupe' ? 'demi-croupes' : f);
+/**
+ * La forme dans le vocabulaire de l'arbitrage. Les noms que le moteur sait dessiner mais pas encore arbitrer (asymetrique, shed, toit
+ * en M...) se disent par la forme simple qu'ils sont, pour que l'arbitrage ne voie pas un desaccord la ou il n'y a qu'un nom.
+ */
+export const formeArbitree = (f: string): string => (f === 'quatre-pans' || f === 'croupes' || f === 'pavillon' ? 'croupes' : f === 'demi-croupe' ? 'demi-croupes' : f === 'asymetrique' || f === 'deux-pans-decales' || f === 'toit-en-m' ? 'deux-pans' : f === 'shed' ? 'appentis' : f);
 
 /** La forme que disent deux bouts de faitage (le vocabulaire du moteur : pignon, croupe), quand rien d'autre n'est dit. */
 export function formeDesBouts(bouts: readonly string[]): string | null {
@@ -73,6 +78,7 @@ function constatsIgn({ o, b }: EntreesConstats): Constat[] {
   else if (typeof bd?.hauteurRetenueM === 'number') out.push({ cible, attribut: 'hauteurEgout', source: 'ign', valeur: cm(bd.hauteurRetenueM), confiance: 0.4, regle: REGLES_LIDAR.ign.estimee });
   const mursFonciers = materiauMurs(bd?.materiauxMurs);
   if (mursFonciers) out.push({ cible, attribut: 'materiauMurs', source: 'ign', valeur: mursFonciers.texture, confiance: 0.7, regle: REGLES_LIDAR.ign.materiau });
+  if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'hauteurTotale', source: 'ign', valeur: cm(hauteurDe(o) + o.toit.hauteur), confiance: 0.4, regle: REGLES_LIDAR.ign.toit });
   if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'formeToit', source: 'ign', valeur: formeArbitree(o.toit.forme), confiance: 0.4, regle: REGLES_LIDAR.ign.forme });
   return out;
 }
@@ -89,7 +95,10 @@ function constatsLidar({ o, b }: EntreesConstats): Constat[] {
   if (c && o.toit?.source !== 'saisie') {
     const confiance = confianceCorps(c.ecart);
     const forme = formeDesCorps(o.corpsToit);
-    if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
+    // Une forme du catalogue que la surface dit mieux que les formes simples (facade/lectureFormes.ts) remplace la lecture des corps.
+    const mieux = o.toitMesure && 'pts' in o && o.pts ? lireFormes(o.toitMesure, o.corpsToit ?? [], o.pts)[0] : undefined;
+    if (mieux) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(mieux.forme), confiance: confianceCorps(mieux.ecart), regle: mieux.regle, indices: [{ texte: 'Lecture des formes : ' + mieux.dit }] });
+    else if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
     out.push({ cible, attribut: 'boutsToit', source: 'lidar', valeur: boutsDuCorps(c), confiance, regle: REGLES_LIDAR.lidar.bouts });
     out.push({ cible, attribut: 'sensFaitage', source: 'lidar', valeur: cm(azimutFaitage(c)), confiance, regle: REGLES_LIDAR.lidar.sens });
   }
@@ -160,7 +169,8 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
   const m = materiauDesFacades(v);
   if (m) out.push({ cible, attribut: 'materiauMurs', source: 'claude', valeur: m.valeur, confiance: m.accord, regle: 'parement vu par Claude' });
   const couv = couvertureDuVocabulaire(v.couverture.valeur);
-  if (couv) out.push({ cible, attribut: 'couverture', source: 'claude', valeur: couv, confiance: v.couverture.accord, regle: 'couverture vue par Claude' });
+  // Quand les passes ne s'accordaient pas, c'est un modele plus fin qui a tranche : la regle le dit, et le constat pese la part des passes d'accord.
+  if (couv) out.push({ cible, attribut: 'couverture', source: 'claude', valeur: couv, confiance: v.couverture.accord, regle: v.couverture.escalade ? 'couverture tranchée par un modèle plus fin (les passes ne s’accordaient pas)' : 'couverture vue par Claude', indices: v.couverture.indices.map((i) => ({ texte: i.vu })) });
   return out;
 }
 

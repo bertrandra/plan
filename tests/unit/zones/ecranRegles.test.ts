@@ -284,7 +284,7 @@ describe('l ecran des regles', () => {
       act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
       const { hote } = await monter({ donnees });
       await cliquer(onglet(hote));
-      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'reconciliation']);
+      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'formesToits', 'reconciliation']);
       expect(hote.querySelector('.reglSujet[data-sujet]')).toBeNull();
       for (const f of FICHIERS_DONNEES) expect(fichier(hote, f.id).textContent).toContain('Le moteur l’accepte.');
       // Rien ne change : rien a telecharger, rien a ajouter aux versions de lecture.

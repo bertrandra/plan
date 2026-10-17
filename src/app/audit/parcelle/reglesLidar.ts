@@ -9,6 +9,7 @@ export const REGLES_LIDAR = {
     estimee: 'hauteur estimée par la BD TOPO (étages × 2,7 m)',
     materiau: 'matériaux des fichiers fonciers (BD TOPO)',
     forme: 'toit de repli de la BD TOPO',
+    toit: 'hauteur du toit de la BD TOPO (égout + pente par défaut)',
   },
   lidar: {
     /** L'egout se lit loin des murs (10e centile) : RETRAIT_EGOUT_M. */

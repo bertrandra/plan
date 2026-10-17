@@ -10,6 +10,8 @@ export interface PropsSources {
   regles: ReglesReconciliation;
   /** Les seuils de la lecture des toits (regles/toits/reglages.json), avec le module qui les lit. */
   seuilsLidar: readonly Seuil[];
+  /** Les seuils de la lecture des formes du catalogue (regles/toits/formes.json) : le Mansart, le papillon, le coyau, le berceau, la demi-croupe, les toits de revolution. */
+  seuilsFormes?: readonly Seuil[];
 }
 
 const fr = (v: number): string => String(v).replace('.', ',');
@@ -24,7 +26,7 @@ function direAccord(a: Accord): string {
 /** Les seuils qu'une etape lit : ceux dont le module (`ou`) est un des siens, `(NOM)` des constantes comprises. */
 const seuilsDeLEtape = (modules: readonly string[], seuils: readonly Seuil[]): Seuil[] => seuils.filter((s) => modules.some((m) => s.ou === m || s.ou.startsWith(m + ' ')));
 
-export function Sources({ regles, seuilsLidar }: PropsSources) {
+export function Sources({ regles, seuilsLidar, seuilsFormes = [] }: PropsSources) {
   const attributs = Object.entries(regles.attributs);
   return (
     <div className="reglSources">
@@ -82,6 +84,21 @@ export function Sources({ regles, seuilsLidar }: PropsSources) {
           </li>
         );
       })}</ol>
+
+      {seuilsFormes.length > 0 && <>
+        <h2 className="consSousTitre">La lecture des formes du catalogue</h2>
+        <p className="consNote">
+          Le moteur des corps lit des toits à pentes droites. Plan cherche ensuite si la mesure dit mieux : un pan qui se brise (Mansart, gambrel), s’adoucit (coyau) ou se courbe (berceau),
+          un milieu plus bas que les bords (papillon), un faîtage qui baisse à un bout (demi-croupe), un cône ou un dôme sur un plan carré. Chaque forme est dessinée par le code de la 3D et
+          n’est retenue que si elle colle à la mesure bien mieux que le corps de départ. Ce fichier ne change aucune toiture déjà lue : il règle les constats de l’audit.
+        </p>
+        <div className="defileAudit">
+          <table className="attrTable tableAudit" aria-label="Seuils : lecture des formes">
+            <thead><tr><th>Seuil</th><th>Valeur</th><th>Unité</th><th>Pourquoi</th></tr></thead>
+            <tbody>{seuilsFormes.map((s) => <tr key={s.nom}><td><code>{s.nom}</code></td><td>{fr(s.valeur)}</td><td>{s.unite}</td><td>{s.pourquoi}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </>}
     </div>
   );
 }

@@ -30,10 +30,9 @@ describe('la liste de la chaine', () => {
     expect(m.auto).toBeGreaterThan(0); expect(m.manuel).toBeGreaterThan(0); expect(m.mixte).toBeGreaterThan(0);
     expect(duGenre('source').length).toBe(7);
   });
-  it('chaque objet 3D renvoie vers un exemple du catalogue, et chaque exemple est dans la chaine', () => {
+  it('chaque objet 3D écrit renvoie vers un exemple du catalogue (ceux que la liste n’écrit pas viennent des données)', () => {
     const formes = duGenre('objet3d').map((x) => x.forme);
     expect(formes.every((f) => EXEMPLES_TOITS.some((e) => e.id === f))).toBe(true);
-    expect(EXEMPLES_TOITS.every((e) => formes.includes(e.id))).toBe(true);
   });
   it('les ecrans cites sont des ecrans qui existent', () => {
     const connus = ['?admin&ecran=regles', '?admin&ecran=arbres', '?admin&ecran=conformite', '?palette'];

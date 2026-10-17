@@ -13,6 +13,7 @@ import { rejouerCas } from '../../../../src/facade/regles/rejeu.ts';
 import { formeDuCorps, ecartsAuFait } from '../../../../src/facade/regles/toits/faits.ts';
 import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, signatureFait } from '../../../../src/regles/toits/faits.ts';
 import { REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.ts';
+import { faitCandidat } from '../../../../src/facade/regles/toits/candidatFait.ts';
 
 const args = process.argv.slice(2);
 const iFaits = args.indexOf('--faits');
@@ -75,5 +76,12 @@ for (const c of f.cas) {
   for (const x of pistes) console.log(`   - ${x.p} (${libelle.get(x.p) ?? '?'}) -> ${x.niveau}${x.seuils.length ? ' ; seuils : ' + x.seuils.filter(seuilConnu).map((s) => s + '=' + REGLAGES_TOITS[s as keyof typeof REGLAGES_TOITS]).join(', ') : ''}`);
   if (!pistes.length) console.log('   - aucun probleme coche : un cas de reference (valider son attendu) ou une note a lire');
   if (fait) { const e = ecartsAuFait(fait, r.sorties.corps, c.entrees.pts); console.log(`   fait en vigueur : ${signatureFait(fait)} ; ${e.length ? 'non tenu : ' + e.join(', ') : 'tenu'}`); }
-  else if (pistes.some((x) => x.niveau.includes('fait'))) { const s = squelette(c, nom); if (s) console.log('   squelette de fait (regles/toits/faits.json) :\n     ' + s); }
+  else {
+    // Le fait que « Ce que je vois » et la photo du cas permettent d'ecrire, et ce qu'ils laissent a verifier (src/facade/regles/toits/candidatFait.ts).
+    const cand = faitCandidat(c, nom) ;
+    if (cand && Object.keys(cand.fait.observation).length) console.log('   fait candidat (regles/toits/faits.json) :\n     ' + JSON.stringify({ [cand.cle]: cand.fait }));
+    else if (pistes.some((x) => x.niveau.includes('fait'))) { const s = squelette(c, nom); if (s) console.log('   squelette de fait (rien de ce que vous avez vu ne s\'ecrit encore) :\n     ' + s); }
+    for (const v of cand?.aVerifier ?? []) console.log('   a verifier : ' + v);
+    for (const v of cand?.pistes ?? []) console.log('   piste : ' + v);
+  }
 }

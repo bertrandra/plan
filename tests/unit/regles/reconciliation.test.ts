@@ -82,3 +82,11 @@ describe('les règles de réconciliation des sources', () => {
     expect(refuse(poidsNeg)).toMatch(/poids de lidar hors de/);
   });
 });
+
+describe('les valeurs que la personne peut forcer', () => {
+  it('le matériau des murs et la couverture proposent exactement les mots du projet (« terrasse » n’est pas une couverture)', async () => {
+    const { MATERIAUX_MURS_VUS, COUVERTURES_VUES } = await import('../../../src/model/ceQueJeVois.js');
+    expect(RECONCILIATION.attributs.materiauMurs.valeurs).toEqual(MATERIAUX_MURS_VUS.map((m) => m.code));
+    expect(RECONCILIATION.attributs.couverture.valeurs).toEqual(COUVERTURES_VUES.map((m) => m.code).filter((c) => c !== 'terrasse'));
+  });
+});

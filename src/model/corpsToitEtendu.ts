@@ -8,7 +8,7 @@
 // pignons et les cheminees (io/serialisation.ts).
 
 import { boutsDuCorps } from './formeToit.js';
-import type { BordsToit, BoutToit, Lucarne, ProfilPan, TypeLucarne } from './types.js';
+import type { BordsToit, BoutToit, Lucarne, ProfilPan, SpecialeToit, TypeLucarne } from './types.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -37,7 +37,7 @@ export function boutToitValide(v: unknown): BoutToit | null {
 }
 
 /** Les types de lucarne connus (spec §2.3). */
-export const TYPES_LUCARNE: readonly TypeLucarne[] = ['jacobine', 'capucine', 'chien-assis', 'rampante', 'meuniere', 'inconnue'];
+export const TYPES_LUCARNE: readonly TypeLucarne[] = ['jacobine', 'capucine', 'chien-assis', 'rampante', 'meuniere', 'oeil-de-boeuf', 'outeau', 'lanterneau', 'inconnue'];
 
 /** Une lucarne bien formee ; null sinon. */
 export function lucarneValide(v: unknown): Lucarne | null {
@@ -46,6 +46,17 @@ export function lucarneValide(v: unknown): Lucarne | null {
   if (!positifOuNul(v.debutM) || !fini(v.finM) || !(v.finM > v.debutM) || !positif(v.faitageM) || !positif(v.profondeurM)) return null;
   if (v.source !== 'lidar' && v.source !== 'observation') return null;
   return { type: v.type as TypeLucarne, pan: v.pan, debutM: v.debutM, finM: v.finM, faitageM: v.faitageM, profondeurM: v.profondeurM, source: v.source };
+}
+
+/** Le nombre de faces d'une pyramide : un entier de 3 a 16. */
+const cotesValides = (v: unknown): v is number => fini(v) && Number.isInteger(v) && v >= 3 && v <= 16;
+
+/** Un toit de revolution bien forme ; null sinon. */
+export function specialeValide(v: unknown): SpecialeToit | null {
+  if (!objet(v)) return null;
+  if (v.type === 'conique' || v.type === 'dome' || v.type === 'imperiale') return { type: v.type };
+  if ((v.type === 'polygonal' || v.type === 'fleche') && cotesValides(v.cotes)) return { type: v.type, cotes: v.cotes };
+  return null;
 }
 
 /** Les bords bien formes, sans les cles mal formees ; null s'il n'en reste rien. */
@@ -79,6 +90,7 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
     if (l.length) c.lucarnes = l; else delete c.lucarnes;
   }
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
+  if ('speciale' in c) { const x = specialeValide(c.speciale); if (x) c.speciale = x; else delete c.speciale; }
 }
 
 const memeBout = (a: BoutToit, b: BoutToit) => JSON.stringify(a) === JSON.stringify(b);

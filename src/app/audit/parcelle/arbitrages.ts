@@ -2,22 +2,27 @@
 // plusieurs sources parlent, un arbitrage (facade/regles/reconciliation.ts) qui dit la valeur retenue, si la decision est
 // automatique ou a prendre, et pourquoi ; et la proposition qui l'ecrit dans le projet, avec tous les constats en dessous.
 //
-// Aujourd'hui : la hauteur a l'egout (IGN, LiDAR, photo de facade) et la toiture (forme, bouts et sens du faitage : LiDAR,
+// Aujourd'hui : la hauteur a l'egout (IGN, LiDAR, photo de facade), la hauteur totale d'un batiment sans corps (IGN, LiDAR) et la toiture (forme, bouts et sens du faitage : LiDAR,
 // silhouette des facades vue par la photo et par Claude, ce que la personne a vu). La toiture est recalculee par le moteur des
 // toits sur la mesure LiDAR (`corpsSousContrainte`) avec les valeurs retenues : une decision n'ecrit jamais une forme de sa main.
-// Le materiau des murs et la couverture gardent les lignes d'avant (valeur notee sur place contre Claude, D21).
+// Le materiau des murs et la couverture (fichiers fonciers, Claude, ce que la personne a vu) s'arbitrent de la meme facon : la valeur
+// notee sur place l'emporte (poids 30, D21), et une valeur que la personne a choisie dans le projet n'est jamais remplacee en silence.
 
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
+import { lireForme } from '../../../facade/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { cibleBatiment, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
+import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
 import { ECART_HAUTEUR_MIN_M, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
-import type { FormeToitSimple, ObjetPlan } from '../../../model/types.js';
+import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe } from '../../../model/ceQueJeVois.js';
+import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
+import type { CouvertureChoisie, FormeToitSimple, ObjetPlan } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 
 /** Le vote des passes de Claude, par batiment (cle) ; absent : Claude n'a rien dit de ce batiment. */
@@ -31,7 +36,7 @@ const libelleSource = (r: ReglesReconciliation, s: string): string => r.sources[
  * (regles/reconciliation.json). Les regles LiDAR font ainsi surface sur la ligne, avec le nombre qui a decide.
  */
 export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIATION): string {
-  const toit = DESCRIPTION_REGLAGES_TOITS[nom as NomReglageToit] as { valeur: number; unite: string } | undefined;
+  const toit = (DESCRIPTION_REGLAGES_TOITS[nom as NomReglageToit] ?? DESCRIPTION_SEUILS_FORMES[nom as NomSeuilForme]) as { valeur: number; unite: string } | undefined;
   if (toit) return nom + ' = ' + fr(toit.valeur) + (toit.unite ? ' ' + toit.unite : '');
   const arbitrage = regles.seuils[nom as keyof ReglesReconciliation['seuils']];
   if (arbitrage !== undefined) return nom + ' = ' + fr(arbitrage);
@@ -40,7 +45,9 @@ export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIA
 
 /** Les mots d'un attribut, en clair : la forme du toit et la silhouette ont leur libelle, le reste se dit tel quel. */
 const libelleDe = (attribut: string): ((mot: string) => string) | undefined =>
-  attribut === 'formeToit' ? libelleForme : attribut === 'silhouetteFacade' ? (m) => libelleSilhouette(m as SilhouetteFacade) : undefined;
+  attribut === 'formeToit' ? libelleForme : attribut === 'silhouetteFacade' ? (m) => libelleSilhouette(m as SilhouetteFacade)
+    : attribut === 'materiauMurs' ? (m) => libelleDeListe(MATERIAUX_MURS_VUS, m as (typeof MATERIAUX_MURS_VUS)[number]['code'])
+    : attribut === 'couverture' ? (m) => libelleDeListe(COUVERTURES_VUES, m as (typeof COUVERTURES_VUES)[number]['code']) : undefined;
 
 /** Un arbitrage, tel que la proposition le garde (un fichier d'audit le rejoue sans le moteur). */
 export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = RECONCILIATION): ArbitrageProposition {
@@ -80,6 +87,92 @@ function propositionHauteur(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undef
   };
 }
 
+/** Ce qui dit d'ou vient la valeur retenue : ce que la personne a vu, ou les sources qui s'accordent. */
+const dOu = (a: Arbitrage, regles: ReglesReconciliation, feminin = false): string => {
+  const sources = a.retenu?.sources ?? [];
+  return sources.length === 1 && sources[0] === 'terrain' ? (feminin ? 'vue sur place' : 'vu sur place') : 'd’après ' + sourcesDuRetenu(a, regles);
+};
+
+/** Le materiau des murs : la valeur que les sources retiennent, ecrite comme ce que « Ce que je vois » ecrivait. */
+function propositionMateriauMurs(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'string') return null;
+  const v = a.retenu.valeur as (typeof MATERIAUX_MURS_VUS)[number]['code'];
+  if (!MATERIAUX_MURS_VUS.some((m) => m.code === v)) return null;
+  const actuel = textureDesMurs(o as never);
+  if (actuel === v) return null;
+  const libelle = (m: typeof v) => libelleDeListe(MATERIAUX_MURS_VUS, m);
+  const bdtopo = materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs);
+  const choisi = o.couleurMurs?.materiau;
+  return {
+    id: b.cle + ':materiauMurs', cible: { type: 'batiment', cle: b.cle }, objet: 'Matériau des murs de ' + b.nom, source: 'arbitrage',
+    avant: actuel ? libelle(actuel) + (choisi ? ' (vu sur place)' : bdtopo ? ' (fichiers fonciers)' : '') : o.couleurMurs?.source === 'plan' ? 'couleur du plan, sans texture' : 'non renseigné',
+    apres: libelle(v) + ', ' + dOu(a, regles), confiance: null, indices: indicesDuRetenu(a),
+    remplaceChoix: choisi ? libelle(choisi) : o.couleurMurs?.source === 'plan' ? 'couleur du plan, sans texture' : null,
+    reserve: a.decision === 'manuelle' && !a.projet.choisi ? a.raison : null,
+    effet: { type: 'materiauMurs', materiau: v }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
+/** La couverture : meme chose. Un batiment sans toit n'a pas de couverture a ecrire. */
+function propositionCouverture(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'string' || !o.toit) return null;
+  const v = a.retenu.valeur as CouvertureChoisie;
+  if (!COUVERTURES_VUES.some((m) => m.code === v)) return null;
+  const choisie = o.toit.couverture;
+  if (choisie === v) return null;
+  const libelle = (m: CouvertureChoisie) => libelleDeListe(COUVERTURES_VUES, m);
+  return {
+    id: b.cle + ':couverture', cible: { type: 'batiment', cle: b.cle }, objet: 'Couverture de ' + b.nom, source: 'arbitrage',
+    avant: choisie ? libelle(choisie) : 'déduite par Plan', apres: libelle(v) + ', ' + dOu(a, regles, true), confiance: null, indices: indicesDuRetenu(a),
+    remplaceChoix: choisie ? libelle(choisie).toLowerCase() : null,
+    reserve: a.decision === 'manuelle' && !a.projet.choisi ? a.raison : null,
+    effet: { type: 'couverture', couverture: v }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
+/**
+ * La hauteur totale (au faitage) : seulement pour un batiment sans corps, dont le toit n'est qu'une hauteur au-dessus de l'egout ;
+ * quand les corps sont lus, c'est eux qui portent le faitage (la toiture est recalculee par le moteur des toits).
+ */
+function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'number' || !o.toit || o.corpsToit?.length) return null;
+  const actuelle = hauteurDe(o) + o.toit.hauteur, v = Math.round(a.retenu.valeur * 100) / 100;
+  if (Math.abs(v - actuelle) < ECART_HAUTEUR_MIN_M) return null;
+  return {
+    id: b.cle + ':hauteurTotale', cible: { type: 'batiment', cle: b.cle }, objet: 'Hauteur totale de ' + b.nom, source: 'arbitrage',
+    avant: fr(actuelle) + ' m', apres: fr(v) + ' m, ' + sourcesDuRetenu(a, regles), indices: indicesDuRetenu(a), confiance: null,
+    remplaceChoix: null, reserve: a.decision === 'manuelle' ? a.raison : null,
+    effet: { type: 'hauteurToit', faitageM: v }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
+/** Les formes du catalogue que la lecture des formes sait ajuster sur la surface mesuree (facade/lectureFormes.ts). */
+const FORMES_AJUSTABLES: ReadonlySet<string> = new Set(['mansart', 'gambrel', 'demi-croupes', 'coyau', 'berceau', 'papillon', 'conique', 'dome', 'imperiale', 'fleche']);
+
+/**
+ * Une forme du catalogue retenue par les sources, ajustee sur la mesure LiDAR : si la mesure la porte, le corps qui la dessine est
+ * propose. Quand le LiDAR ne l'a pas vue lui-meme (c'est Claude, la photo ou la personne qui la disent), l'ajustement se fait « au
+ * mieux » : il ne doit pas etre pire que le corps lu par les formes simples, et la ligne le dit.
+ */
+function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], forme: string, regles: ReglesReconciliation): Proposition | null {
+  if (!o.toitMesure || !o.corpsToit?.length || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
+  const a = arbs.find((x) => x.attribut === 'formeToit');
+  if (!a?.retenu || a.decision === 'rien') return null;
+  const vueParLidar = a.retenu.sources.includes('lidar');
+  const lecture = lireForme(o.toitMesure, o.corpsToit, o.pts, forme as never, { souple: !vueParLidar });
+  if (!lecture || JSON.stringify(lecture.corps) === JSON.stringify(o.corpsToit)) return null;
+  const sources = sourcesDuRetenu(a, regles);
+  const manuelles = arbs.filter((x) => x.decision === 'manuelle');
+  return {
+    id: b.cle + ':toit', cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom, source: 'arbitrage',
+    avant: dire(o.corpsToit, o.toit?.forme), apres: libelleForme(forme).toLowerCase() + ', ajustée sur la mesure LiDAR (' + lecture.dit + ') d’après ' + sources, confiance: null,
+    indices: [...indicesDuRetenu(a), { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(lecture.ecart) + (vueParLidar ? '' : ' (forme demandée, ajustée au mieux)') }],
+    remplaceChoix: a.projet.choisi ? 'forme du toit saisie' : null,
+    reserve: manuelles.length ? manuelles.map((x) => regles.attributs[x.attribut].libelle + ' : ' + x.raison).join(' ') : null,
+    effet: { type: 'corpsToit', corps: lecture.corps }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles)),
+  };
+}
+
 const estBout = (m: string): m is BoutFait => m === 'pignon' || m === 'croupe';
 
 /**
@@ -93,6 +186,8 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   if (!arbs.some((a) => a.decision !== 'rien')) return null;
   const retenu = (id: IdAttribut) => arbs.find((a) => a.attribut === id)?.retenu?.valeur;
   const f = retenu('formeToit'), bt = retenu('boutsToit'), sens = retenu('sensFaitage');
+  // Une forme du catalogue (Mansart, papillon, dome...) : le moteur des toits ne la lit pas, la lecture des formes la fit sur la mesure.
+  if (typeof f === 'string' && FORMES_AJUSTABLES.has(f)) return propositionForme(o, b, arbs, f, regles);
   let forme: FormeToitSimple | undefined = typeof f === 'string' ? FORMES_LUES[f] : undefined;
   if (typeof f === 'string' && f !== 'indetermine' && !forme) return null;
   const mots = Array.isArray(bt) ? (bt as readonly string[]) : null;
@@ -133,7 +228,7 @@ export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: Li
 }
 
 /** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
-const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'formeToit'];
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture'];
 
 /** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
 export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
@@ -156,7 +251,7 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
     if (!o || !b) continue;
     const cible = cibleBatiment(cle);
     const parAttribut = (id: IdAttribut) => arbitrages.find((a) => a.cible === cible && a.attribut === id);
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles)]) if (p) out.push(p);
   }
   return out;
 }

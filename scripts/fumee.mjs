@@ -2763,8 +2763,8 @@ const POINTS = {
     return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   95: async (page, f) => {
-    // Admin › « De l'IGN a ma maison » (`?admin&ecran=chaine`) : le schema des sept etapes, les douze vignettes 3D (gambrel,
-    // demi-croupe, meuniere et rampante compris), le filtre par mode qui attenue le reste, un lien vers l'ecran des regles,
+    // Admin › « De l'IGN a ma maison » (`?admin&ecran=chaine`) : le schema des sept etapes, les vingt-neuf vignettes 3D (toutes les formes
+    // du catalogue et toutes les lucarnes : gambrel, demi-croupe, papillon, coyau, berceau, tourelles, meuniere, rampante...), le filtre par mode qui attenue le reste, un lien vers l'ecran des regles,
     // et le renvoi d'une ligne vers sa cible ; rien ne deborde.
     await page.route(/\/admin\//, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
     await page.goto(BASE + '/?admin&ecran=chaine');
@@ -2782,10 +2782,14 @@ const POINTS = {
     const voir = page.locator('a.chaineVoir').first();
     const cible = (await voir.getAttribute('href')) || '';
     const cibleExiste = cible.startsWith('#') && (await page.locator('[id="' + cible.slice(1) + '"]').count()) > 0;
+    const lecture = ((await page.locator('.chaineLecture').textContent()) || '').replace(/\s+/g, ' ');
+    const seuils = await page.locator('.chaineSeuils li').count();
+    const lues = await page.locator('.chaineLu').count();
+    const perimees = await page.locator('ul.chaineErreur li').count();
     const sans = !(await deborde());
-    const formesVoulues = ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
-    const ok = etapes === 7 && vignettes === 12 && formesVoulues && polygones > 60 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans;
-    return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; gambrel, demi-croupe, meunière, rampante ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    const formesVoulues = ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante', 'Papillon', 'Coyau', 'Berceau', 'Carène', 'Conique', 'Dôme', 'Impériale', 'Shed', 'Œil-de-bœuf', 'Outeau', 'Lanterneau'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
+    const ok = etapes === 7 && vignettes >= 29 && formesVoulues && polygones > 400 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans && /Lu en direct des fichiers : prompt v\d+/.test(lecture) && seuils > 5 && lues > 5 && perimees === 0;
+    return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; les formes du catalogue et les lucarnes ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; « ${lecture.slice(0, 60)}… », ${seuils} seuil(s) lus, ${lues} ligne(s) venues des données, ${perimees} ligne(s) périmée(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   94: async (page, f) => {
     // Admin › Conformité (lot G13) : une facade relevee de 9 m avec deux fenetres seulement, dans un audit recu ;

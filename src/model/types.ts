@@ -1044,7 +1044,20 @@ export interface CorpsToit {
   lucarnes?: Lucarne[];
   /** Les bords, quand une observation les precise ; absents : les defauts du dessin (35 cm, 20 cm). */
   bords?: BordsToit;
+  /** Un toit de revolution sur le rectangle du corps (tourelle, kiosque, clocher) ; absent : un toit a faitage. */
+  speciale?: SpecialeToit;
 }
+
+/**
+ * Un toit de revolution : un solide dont l'axe est vertical, au centre du rectangle du corps, de rayon la moitie du plus petit
+ * cote, de l'egout (le plus bas) au faitage (`faitage` du corps). `cotes` : le nombre de faces d'une pyramide.
+ */
+export type SpecialeToit =
+  | { type: 'conique' }
+  | { type: 'polygonal'; cotes: number }
+  | { type: 'fleche'; cotes: number }
+  | { type: 'dome' }
+  | { type: 'imperiale' };
 
 /**
  * La coupe en travers d'un pan, de l'egout au faitage (MD/spec-regles-toits.md §4) : droite (le sens
@@ -1073,7 +1086,7 @@ export type BoutToit =
   | { type: 'redents' };
 
 /** Les types de lucarne que l'on distingue (MD/spec-regles-toits.md §2.3). */
-export type TypeLucarne = 'jacobine' | 'capucine' | 'chien-assis' | 'rampante' | 'meuniere' | 'inconnue';
+export type TypeLucarne = 'jacobine' | 'capucine' | 'chien-assis' | 'rampante' | 'meuniere' | 'oeil-de-boeuf' | 'outeau' | 'lanterneau' | 'inconnue';
 
 /** Une lucarne sur un pan du corps (MD/spec-regles-toits.md §2.3, §4). */
 export interface Lucarne {

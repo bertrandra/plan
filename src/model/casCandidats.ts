@@ -115,7 +115,7 @@ export function formeDuSchema(v: string): FormeToit | null {
 const BOUTS_SCHEMA: Readonly<Record<string, BoutToit['type']>> = { pignon: 'pignon', croupe: 'croupe', 'demi-croupe': 'demi-croupe', brisis: 'brisis' };
 const PROFILS_SCHEMA: Readonly<Record<string, ProfilPan['type']>> = { droit: 'droit', brise: 'brise', courbe: 'courbe' };
 /** L'oeil-de-boeuf et l'outeau n'ont pas de type dans le modele (spec §4) : une lucarne `inconnue`. */
-const LUCARNES_SCHEMA: Readonly<Record<string, TypeLucarne>> = { jacobine: 'jacobine', capucine: 'capucine', 'chien-assis': 'chien-assis', rampante: 'rampante', meuniere: 'meuniere', 'oeil-de-boeuf': 'inconnue', outeau: 'inconnue' };
+const LUCARNES_SCHEMA: Readonly<Record<string, TypeLucarne>> = { jacobine: 'jacobine', capucine: 'capucine', 'chien-assis': 'chien-assis', rampante: 'rampante', meuniere: 'meuniere', 'oeil-de-boeuf': 'oeil-de-boeuf', outeau: 'outeau' };
 
 /** Les types de lucarnes vus, dedoublonnes, d'une reponse ou de toutes. */
 export function typesLucarnes(types: readonly string[]): TypeLucarne[] {

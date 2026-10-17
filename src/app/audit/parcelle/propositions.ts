@@ -8,15 +8,16 @@
 // Ce qui se propose :
 // - par facade photographiee : le releve (ouvertures, texture) mesure sur la photo ;
 // - par batiment : la hauteur a l'egout mesuree (coins trouves seulement), la couleur des murs lue sur
-//   les photos, le materiau des murs et de la couverture vus, les cheminees et la toiture-terrasse
-//   vues, posees dans les corps du toit (MD/spec-regles-toits.md §2.6, §2.7) ;
+//   les photos, les cheminees et la toiture-terrasse vues, posees dans les corps du toit
+//   (MD/spec-regles-toits.md §2.6, §2.7) ; le materiau des murs et la couverture sont arbitres
+//   entre les sources (app/audit/parcelle/arbitrages.ts) ;
 // - pour la parcelle : la cloture cote rue et le portail.
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
 
-import { couleurMursRetenue, textureDesMurs, materiauMurs, type MateriauTexture } from '../../../model/couleurMur.js';
+import { couleurMursRetenue } from '../../../model/couleurMur.js';
 import {
-  COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe, resumePartie, terrasseVue, toitVu,
+  resumePartie, terrasseVue, toitVu,
   type CeQueJeVois, type SoucheVue,
 } from '../../../model/ceQueJeVois.js';
 import { accesDuCote, clotureDe, coteRegle, reglageDuCote, resumeReglage } from '../../../model/cloture.js';
@@ -25,7 +26,7 @@ import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
-import type { Cheminee, CorpsToit, CouvertureChoisie, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
+import type { Cheminee, CorpsToit, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
 
 /** Un ecart de hauteur en deca ne vaut pas une proposition : c'est la precision de la mesure. */
@@ -198,40 +199,6 @@ function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesProposition
   });
 }
 
-const LIBELLE_TEXTURE: Record<MateriauTexture, string> = Object.fromEntries(MATERIAUX_MURS_VUS.map((m) => [m.code, m.libelle])) as Record<MateriauTexture, string>;
-
-/** Le materiau des murs et celui de la couverture vus (§8.1). */
-function propositionsMateriaux(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition[] {
-  const out: Proposition[] = [];
-  if (vu.murs) {
-    const actuel = textureDesMurs(o);
-    if (actuel !== vu.murs) {
-      const bdtopo = materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs);
-      const choisi = o.couleurMurs?.materiau;
-      out.push(mesure({
-        id: b.cle + ':materiauMurs', cible: { type: 'batiment', cle: b.cle }, objet: 'Matériau des murs de ' + b.nom,
-        avant: actuel ? LIBELLE_TEXTURE[actuel] + (choisi ? ' (vu sur place)' : bdtopo ? ' (fichiers fonciers)' : '') : o.couleurMurs?.source === 'plan' ? 'couleur du plan, sans texture' : 'non renseigné',
-        apres: LIBELLE_TEXTURE[vu.murs] + ', vu sur place',
-        remplaceChoix: choisi ? LIBELLE_TEXTURE[choisi] : o.couleurMurs?.source === 'plan' ? 'couleur du plan, sans texture' : null,
-        effet: { type: 'materiauMurs', materiau: vu.murs },
-      }));
-    }
-  }
-  if (vu.couverture && vu.couverture !== 'terrasse' && o.toit) {
-    const choisie = o.toit.couverture;
-    if (choisie !== vu.couverture) {
-      out.push(mesure({
-        id: b.cle + ':couverture', cible: { type: 'batiment', cle: b.cle }, objet: 'Couverture de ' + b.nom,
-        avant: choisie ? libelleDe(COUVERTURES_VUES, choisie) : 'déduite par Plan',
-        apres: libelleDe(COUVERTURES_VUES, vu.couverture) + ', vue sur place',
-        remplaceChoix: choisie ? libelleDe(COUVERTURES_VUES, choisie).toLowerCase() : null,
-        effet: { type: 'couverture', couverture: vu.couverture as CouvertureChoisie },
-      }));
-    }
-  }
-  return out;
-}
-
 /** Le corps qui porte les souches : le plus grand en pente, a defaut le plus grand ; -1 sans corps. */
 export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
   const i = plusGrand(corps, (c) => !estPlat(c));
@@ -331,7 +298,6 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     out.push(...propositionsDesFacades(o, b, e));
     // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts).
     for (const p of [propositionCouleur(o, b, e)]) if (p) out.push(p);
-    out.push(...propositionsMateriaux(o, b, vu));
     for (const p of [propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
   }
   out.push(...propositionsParcelle(e));

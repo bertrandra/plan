@@ -182,10 +182,11 @@ describe('l analyse par Claude', () => {
     expect(t.messages.at(-1)).toBe('Les propositions de Claude sont prêtes : 1 bâtiment analysé.');
     expect(t.notifications).toEqual(['Les propositions de Claude sont prêtes : 1 bâtiment analysé.']);
     const ids = t.validation.propositions().map((p) => p.id);
-    expect(ids).toEqual(['maison:materiauMurs', 'maison:claude:couverture', 'maison:claude:cheminees', 'maison:claude:materiauMurs']);
-    expect(t.validation.propositions().find((p) => p.id === 'maison:claude:couverture')).toMatchObject({ source: 'claude', confiance: 1, indices: [{ texte: 'ardoises fines et sombres (orthophoto)' }] });
-    // Decochees : aucun taux d'accord mesure.
-    expect(t.validation.cochee('maison:claude:couverture')).toBe(false);
+    // La couverture et le materiau des murs sont arbitres entre les sources : Claude n'y est qu'un constat de plus.
+    expect(ids).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:claude:cheminees']);
+    expect(t.validation.propositions().find((p) => p.id === 'maison:couverture')).toMatchObject({ source: 'arbitrage', indices: [{ texte: 'ardoises fines et sombres' }] });
+    // Claude seul ne decide pas : la ligne arrive decochee.
+    expect(t.validation.cochee('maison:couverture')).toBe(false);
   });
 
   describe('l escalade des passes en desaccord (D20)', () => {
@@ -210,10 +211,10 @@ describe('l analyse par Claude', () => {
       expect(d).toMatchObject({ usage: 'escalade', depot: null });
       expect(d.requetes.map((r) => [r.id, r.facades])).toEqual([['b0-p1', 0]]);
       expect(Object.keys(t.capture.lire().analyse?.resultats?.escalade ?? {})).toEqual(['maison']);
-      const p = t.validation.propositions().find((x) => x.id === 'maison:claude:couverture');
+      const p = t.validation.propositions().find((x) => x.id === 'maison:couverture');
       expect(p?.apres).toMatch(/^Zinc/);
-      expect(p?.reserve).toBe('Les passes de Claude ne s’accordaient pas (67 %) ; un modèle plus fin a tranché : à vérifier.');
-      expect(t.validation.cochee('maison:claude:couverture')).toBe(false);
+      expect(p?.arbitrages?.[0]?.groupes[0]?.lignes[0]).toMatchObject({ source: 'claude', confiance: 0.67, regle: 'couverture tranchée par un modèle plus fin (les passes ne s’accordaient pas)' });
+      expect(t.validation.cochee('maison:couverture')).toBe(false);
       expect(t.analyse.reponses()?.maison?.escalade).toBeDefined();
     });
 
@@ -228,7 +229,7 @@ describe('l analyse par Claude', () => {
       await t.tour();
       expect(t.messages.some((m) => /plafond de l’analyse est atteint.*plus fin/.test(m))).toBe(true);
       expect(t.capture.lire().analyse?.resultats?.escalade).toEqual({});
-      expect(t.validation.propositions().find((x) => x.id === 'maison:claude:couverture')?.apres).toMatch(/^Ardoise/);
+      expect(t.validation.propositions().find((x) => x.id === 'maison:couverture')?.apres).toMatch(/^Ardoise/);
       t.analyse.reprendre();
       await t.tour();
       expect(immediat).toHaveBeenCalledTimes(1);
