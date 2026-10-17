@@ -85,9 +85,12 @@ describe('l ecran de calibration', () => {
     const champ = hote.querySelector('[data-controle="calibration.photo"]') as HTMLInputElement;
     Object.defineProperty(champ, 'files', { value: [new File(['x'], 'p.jpg')], configurable: true });
     await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
-    await attendre(10);
+    // Ajouter une photo cherche ses coins, redresse le mur et propose la detection, sans autre geste.
+    await attendre(600);
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
     expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
+    expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés)/);
+    expect(bouton('calibration.proposer')).not.toBeNull();
     const valide = hote.querySelector('[data-controle="calibration.valide"]') as HTMLInputElement;
     await act(async () => { valide.click(); });
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
@@ -99,6 +102,23 @@ describe('l ecran de calibration', () => {
     expect(hote.textContent).toContain('Maison nord');
     expect(bouton('calibration.enregistrerCas')).toBeNull();
   });
+
+  it('ajoute une seconde photo : redressement et fusion seuls, la photo qui ne se recale pas est signalee et gardee', async () => {
+    const grise: Image = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(640 * 480 * 4).fill(128) };
+    let n = 0;
+    const { deps } = fausses({ decoder: async () => (n++ < 2 ? scene.image : grise) });
+    await monter(deps);
+    await act(async () => { bouton('calibration.nouveauCas')?.click(); });
+    const champ = hote.querySelector('[data-controle="calibration.photo"]') as HTMLInputElement;
+    for (let k = 0; k < 2; k++) {
+      Object.defineProperty(champ, 'files', { value: [new File(['x'], 'p' + k + '.jpg')], configurable: true });
+      await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
+      await attendre(1500);
+    }
+    expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
+    expect(hote.textContent).toMatch(/coins devinés, à vérifier/);
+    expect(hote.querySelector('[data-controle="calibration.avisFusion"]')?.textContent).toMatch(/vue \d n’est pas fusionnée/);
+  }, 60_000);
 
   it('redresse un cas, part de la detection pour annoter, et enregistre', async () => {
     const { deps, stock } = fausses();

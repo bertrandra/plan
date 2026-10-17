@@ -301,6 +301,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
   'calibration.redresser': etape(Z8, CALIBRATION, 'Redresser le mur d’après les quatre coins placés'),
   'calibration.proposer': etape(Z8, CALIBRATION, 'Partir des ouvertures que la détection propose'),
+  'calibration.originePhoto': etape(Z8, CALIBRATION, 'Lire d’où viennent les coins d’une photo ajoutée (trouvés, devinés à vérifier, posés à la main)', { repete: true }),
+  'calibration.avisFusion': etape(Z8, CALIBRATION, 'Lire ce que la fusion automatique des photos a trouvé à redire (vue non fusionnée, part du mur cachée)'),
   'calibration.tracer': etape(Z8, CALIBRATION, 'Basculer le tracé d’ouvertures sur le mur redressé (coupé : le doigt fait défiler la page)'),
   'calibration.viderBaies': etape(Z8, CALIBRATION, 'Effacer toutes les ouvertures annotées'),
   'calibration.retirerBaie': etape(Z8, CALIBRATION, 'Retirer l’ouverture choisie', { repete: true }),
