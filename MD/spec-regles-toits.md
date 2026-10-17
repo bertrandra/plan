@@ -424,6 +424,19 @@ interface Terrasse {
   en M, deux pans décalés : G10), que la déduction nomme encore par leur corps principal ; les
   lucarnes et les bouts écrits depuis « Ce que je vois », dont le vocabulaire ne donne pas encore
   les dimensions (G4, G7).
+- **Fait (dessin des formes étendues, lots G4, G5, G6, G7 côté 3D)** : `facade/toitFormes.ts` dessine le **profil
+  brisé** (gambrel : bris des deux pans, bouts en pignon ; Mansart : bris des deux pans et `brisis` aux deux bouts),
+  la **demi-croupe** (`bouts[i]` : un petit pignon de `hauteurPignonM` sous une croupe de `profondeurM`) et les
+  **lucarnes** (`jacobine`, `capucine`, `chien-assis`, `rampante`, `meuniere`, `inconnue`). Un toit de ces formes est
+  la plus basse de ses facettes planes (les pentes diminuent vers le haut : il est concave) ; chaque facette est la part
+  du rectangle où son plan est le plus bas, et la hauteur du toit en un point (`hauteurCorpsEn`, donc les murs, les
+  fenêtres et la 3D) sort des mêmes plans. Le débord de l'égout et la rive prolongent les plans. Une lucarne se pose
+  sur le pan, au-dessus de lui : `faitageM` est la hauteur de son faîtage ; `profondeurM`, à plat, la distance de sa
+  face au point où son faîtage rejoint le pan ; une meunière affleure le mur d'égout. Un corps sans `profil` brisé ni
+  bout en demi-croupe ou brisis garde le dessin d'avant à l'identique (AE 101 compris). Ce que le dessin ne sait pas
+  faire (un brisis avec une croupe, une demi-croupe avec un profil brisé, des pignons traversants sur un pan brisé)
+  n'est pas dessiné : le corps garde son dessin d'avant. **Aucune règle ne produit encore ces champs** : les lire sur
+  le LiDAR (G4, G5, G7) ou les écrire depuis les propositions de Claude reste à faire.
 
 ---
 

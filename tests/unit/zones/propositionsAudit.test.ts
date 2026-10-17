@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { PropositionsAudit } from '../../../src/zones/parcours/PropositionsAudit.js';
+import { Arbitrage, PropositionsAudit } from '../../../src/zones/parcours/PropositionsAudit.js';
 import { creerSessionAuditParcelle } from '../../../src/app/audit/parcelle/controleur.js';
 import { creerEtat } from '../../../src/core/state.js';
 import { reponse } from '../../fixtures/audit/reponseClaude.js';
@@ -76,5 +76,49 @@ describe('les observations de Claude dans l ecran des propositions', () => {
     const n = lignes.length;
     expect(hote.querySelector('.etatAnalyse')?.textContent).toContain('Propositions de Claude prêtes : 0 proposition et ' + n + ' observations');
     expect(hote.textContent).toContain('Aucune proposition à cocher : lisez plus bas ce que Claude a vu.');
+  });
+});
+
+describe('les sources d un attribut arbitre dans l ecran des propositions', () => {
+  const a = {
+    cible: 'batiment:maison', accord: 'ensemble' as const, attribut: 'boutsToit', libelle: 'Bouts du faîtage', decision: 'manuelle' as const, raison: 'Les sources se contredisent (3,15 contre 2,4, il faut ×1,5) : Photo de façade : croupe + croupe ; LiDAR HD : pignon + pignon.', avant: 'pignon + pignon', regles: ['MARGE_AUTO_MIN', 'GAIN_CROUPES'],
+    groupes: [
+      { valeur: 'croupe + croupe', score: 3.15, retenu: true, lignes: [{ source: 'photo', libelle: 'Photo de façade', valeur: 'croupe + croupe', confiance: 0.9, score: 3.15, regle: 'regles/toits/silhouettes.json' }] },
+      { valeur: 'pignon + pignon', score: 2.4, retenu: false, lignes: [{ source: 'lidar', libelle: 'LiDAR HD', valeur: 'pignon + pignon', confiance: 0.79, score: 2.4, regle: 'GAIN_CROUPES' }] },
+    ],
+  };
+
+  it('dit la décision et sa raison, puis chaque source : ce qu’elle dit, sa confiance, son score, sa règle, et si son groupe est retenu', () => {
+    act(() => racine.render(createElement(Arbitrage, { a })));
+    expect(hote.querySelector('summary')?.textContent).toBe('À arbitrer · Bouts du faîtage (aujourd’hui : pignon + pignon)');
+    expect(hote.querySelector('.raisonArbitrage')?.textContent).toMatch(/^Les sources se contredisent/);
+    const lignes = [...hote.querySelectorAll('tbody tr')].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent));
+    expect(lignes).toEqual([
+      ['Photo de façade', 'croupe + croupe', '90 %', '3,15', 'regles/toits/silhouettes.json', 'Retenu (3,15)'],
+      ['LiDAR HD', 'pignon + pignon', '79 %', '2,4', 'GAIN_CROUPES', 'Écarté (2,4)'],
+    ]);
+    expect(hote.querySelector('table')?.getAttribute('aria-label')).toBe('Sources : Bouts du faîtage');
+  });
+
+  it('une décision automatique se dit automatique ; une confiance absente s’écrit « — »', () => {
+    act(() => racine.render(createElement(Arbitrage, { a: { ...a, decision: 'auto', groupes: [{ ...a.groupes[0]!, lignes: [{ ...a.groupes[0]!.lignes[0]!, confiance: null, regle: undefined as never }] }] } })));
+    expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Décision automatique');
+    expect([...hote.querySelectorAll('tbody td')].map((td) => td.textContent).slice(2, 5)).toEqual(['—', '3,15', '—']);
+  });
+
+  it('avec la main : retenir un groupe, forcer une valeur du menu, reprendre le choix du moteur', () => {
+    const main = { retenir: vi.fn(), forcer: vi.fn(), reprendre: vi.fn() };
+    const avecOptions = { ...a, options: [{ valeur: '"pignon"', libelle: 'Pignon' }], decision: 'forcee' as const };
+    act(() => racine.render(createElement(Arbitrage, { a: avecOptions, main })));
+    const boutons = [...hote.querySelectorAll('.mainArbitrage button')] as HTMLButtonElement[];
+    expect(boutons.map((b) => b.textContent)).toEqual(['Retenir « pignon + pignon »', 'Reprendre le choix du moteur']);
+    act(() => boutons[0]!.click());
+    expect(main.retenir).toHaveBeenCalledWith(1);
+    act(() => boutons[1]!.click());
+    expect(main.reprendre).toHaveBeenCalled();
+    const menu = hote.querySelector('select') as HTMLSelectElement;
+    act(() => { menu.value = '"pignon"'; menu.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(main.forcer).toHaveBeenCalledWith('"pignon"');
+    expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Forcé par vous');
   });
 });

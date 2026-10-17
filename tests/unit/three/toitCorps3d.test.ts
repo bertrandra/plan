@@ -7,7 +7,7 @@ import { pointInPolygon, signedArea } from '../../../src/geometry/basic.js';
 import { trianguler } from '../../../src/facade/toit.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
-import { facettesSurContour, facettesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
+import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
 import { segmentEnFacade } from '../../../src/geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -197,5 +197,60 @@ describe('AE 103 : deux quatre-pans et une terrasse sur un contour de biais', ()
     }
     // Sur la terrasse, rien ne monte au-dessus d'elle ailleurs qu'au droit des corps plus hauts.
     expect(murs.every((m) => m.every((q) => q.z >= 3.7 - 1e-6))).toBe(true);
+  });
+});
+
+describe('les formes étendues dans le dessin des corps (profil brisé, demi-croupe, brisis, lucarnes)', () => {
+  const BRIS = { type: 'brise' as const, largeurBrisisM: 1, hauteurBrisM: 6.5 };
+  const mansart = (plus: Partial<CorpsToit> = {}): CorpsToit => ({ ...corps([], [5, 5]), faitage: 8, profil: [BRIS, BRIS], bouts: [{ type: 'brisis', largeurM: 1 }, { type: 'brisis', largeurM: 1 }], ...plus });
+  const lucarne = { type: 'jacobine' as const, pan: 0 as const, debutM: 4, finM: 6, faitageM: 6.2, profondeurM: 1, source: 'observation' as const };
+
+  it('un corps sans forme étendue garde le dessin d’avant : même nombre de facettes, mêmes sommets', () => {
+    const f = facettesCorps(corps());
+    expect(f.pans).toHaveLength(2);
+    expect(f.murs).toHaveLength(2);
+    expect(facettesCorps({ ...corps(), profil: [{ type: 'droit' }, { type: 'droit' }] })).toEqual(f);
+  });
+
+  it('un Mansart se dessine en facettes planes, avec le débord de l’égout sur les façades seulement', () => {
+    const f = facettesCorps(mansart(), [p(0, 0), p(12, 0), p(12, 8), p(0, 8)]);
+    expect(f.pans.length).toBeGreaterThanOrEqual(8);
+    expect(Math.max(...zs(f.pans))).toBe(8);
+    expect(Math.min(...ys(f.pans))).toBeCloseTo(-DEBORD_EGOUT_M, 6);
+    // Sans contour, le débord est partout (le dessin d'avant) ; sans débord, le toit s'arrête au mur.
+    expect(Math.min(...ys(facettesCorps(mansart(), null, false).pans))).toBeCloseTo(0, 6);
+  });
+
+  it('la hauteur du toit en un point suit le brisis : 6,5 m à la ligne de bris, l’égout au mur', () => {
+    const c = mansart();
+    expect(hauteurDesCorps([c], p(6, 1))).toBeCloseTo(6.5, 6);
+    expect(hauteurDesCorps([c], p(6, 0.01))).toBeCloseTo(5, 1);
+    expect(hauteurDesCorps([c], p(6, 4))).toBeCloseTo(8, 6);
+  });
+
+  it('posé sur un contour, un Mansart donne ses facettes découpées et ses murs montent jusqu’au brisis', () => {
+    const contour = [p(0, 0), p(12, 0), p(12, 8), p(0, 8)];
+    const f = facettesSurContour([mansart()], contour);
+    expect(f.pans.length).toBeGreaterThanOrEqual(8);
+    expect(Math.max(...zs(f.pans))).toBe(8);
+    expect(f.bas).toBe(5);
+  });
+
+  it('les lucarnes d’un corps s’ajoutent à ses pans et à ses murs, y compris sur un contour', () => {
+    const sans = facettesCorps(corps());
+    const avec = facettesCorps({ ...corps(), lucarnes: [lucarne] });
+    expect(avec.pans).toHaveLength(sans.pans.length + 2);
+    expect(avec.murs).toHaveLength(sans.murs.length + 3);
+    const contour = [p(0, 0), p(12, 0), p(12, 8), p(0, 8)];
+    const a = facettesSurContour([corps()], contour), b = facettesSurContour([{ ...corps(), lucarnes: [lucarne] }], contour);
+    expect(b.pans.length).toBe(a.pans.length + 2);
+    expect(b.murs.length).toBe(a.murs.length + 3);
+  });
+
+  it('la 3D pose les facettes d’un Mansart à lucarnes dans la scène, en couverture et en murs', () => {
+    const scene = { added: [] as { name: string }[], add(m: { name: string }) { this.added.push(m); } };
+    const r = ajouterToitCorps3d({ scene: scene as never, toLocal: (q) => ({ x: q.x, z: q.y }) as never, couleurMur: '#ccc', textures: false }, [mansart({ lucarnes: [lucarne] })], null, null);
+    expect(r.pans).toBeGreaterThanOrEqual(10);
+    expect(scene.added.map((m) => m.name)).toContain(NOM_TOIT_CORPS);
   });
 });

@@ -38,13 +38,13 @@ export function Tuiles(p: PropsTuiles) {
   );
 }
 
-export type VueRegles = 'sujets' | 'donnees';
+export type VueRegles = 'sujets' | 'donnees' | 'sources';
 
-/** Les deux vues de l'ecran : ce que Claude lit (sujets, prompt, schema), et ce que le moteur lit (reglages, faits). */
-export function BarreVue({ vue, surVue }: { vue: VueRegles; surVue: (v: VueRegles) => void }) {
+/** Les vues de l'ecran : ce que Claude lit (sujets, prompt, schema), ce que le moteur lit (reglages, faits) et comment les sources s'arbitrent. */
+export function BarreVue({ vue, surVue, vues = ['sujets', 'donnees'] }: { vue: VueRegles; surVue: (v: VueRegles) => void; vues?: readonly VueRegles[] }) {
   return (
     <div className="palOnglets consOnglets" role="tablist" aria-label="Ce que le moteur lit">
-      {([['sujets', 'Sujets, prompt et schéma'], ['donnees', 'Réglages et faits']] as const).map(([id, titre]) => (
+      {([['sujets', 'Sujets, prompt et schéma'], ['donnees', 'Réglages et faits'], ['sources', 'Sources et arbitrage']] as const).filter(([id]) => vues.includes(id)).map(([id, titre]) => (
         <button key={id} type="button" role="tab" id={'reglVue-' + id} aria-selected={vue === id} className={'palOnglet' + (vue === id ? ' actif' : '')} onClick={() => surVue(id)}>{titre}</button>
       ))}
     </div>

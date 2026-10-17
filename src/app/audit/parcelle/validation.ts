@@ -15,7 +15,10 @@
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, propositionsRenfort, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsDeClaude, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { arbitragesParBatiment, cleChoix, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
+import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
+import type { ArbitrageProposition } from '../../../regles/decisions.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
@@ -79,6 +82,13 @@ export interface Validation {
   propositions(): readonly Proposition[];
   /** Ce que Claude a vu sans que le projet sache l'ecrire, batiment par batiment : a lire, rien a cocher. */
   observations(): readonly ObservationsBatiment[];
+  /** Tous les arbitrages de chaque batiment (y compris ceux sans proposition), avec la main de la personne. */
+  arbitrages(): readonly { cle: string; nom: string; arbitrages: readonly ArbitrageProposition[] }[];
+  /**
+   * La personne decide d'un attribut : retenir le groupe de sources a cet index, forcer une valeur, ou (null)
+   * reprendre le choix du moteur. Cocher la proposition qui en resulte ; rien n'est ecrit avant « Valider ».
+   */
+  decider(cible: string, attribut: string, choix: ChoixArbitrage | null): void;
   cochee(id: string): boolean;
   basculer(id: string): void;
   apercu(): Apercu;
@@ -272,6 +282,22 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
   return prets.length;
 }
 
+/**
+ * Tout ce que l'audit propose a cet instant : les mesures d'abord, puis Claude (spec-audit §14.2 : l'origine est dite sur
+ * chaque ligne). D21 : la valeur notee sur place l'emporte sur celle de Claude (la ligne de Claude arrive decochee, et le dit).
+ * La toiture et la hauteur a l'egout sont decidees par l'arbitrage des sources (arbitrages.ts) : les lignes de Claude qui
+ * ecrivaient les corps du toit y sont entrees comme un constat de plus.
+ */
+function proposer(e: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
+  const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => p.effet.type !== 'corpsToit') : [];
+  const arbitrages = arbitragesParBatiment(e, reponses ? votesDesBatiments(reponses) : {}, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
+  const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsDesArbitrages(e, arbitrages), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]);
+  const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
+  return { propositions, observations, arbitrages };
+}
+
+type Memo = { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string>; arbitrages: ArbitragesBatiment[] };
+
 export function creerValidation(ctx: ContexteValidation): Validation {
   const abonnes = new Set<() => void>();
   const publier = () => abonnes.forEach((f) => f());
@@ -280,24 +306,21 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const choix = new Map<string, boolean>();
   /** Augmente a chaque nouveau calcul des propositions : l'apercu se repose alors. */
   let calculs = 0;
-  let memo: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
+  /** Les decisions de la personne sur les arbitrages (`cible|attribut`) ; chacune change le calcul. */
+  const decisions = new Map<string, ChoixArbitrage>();
+  let versionDecisions = 0;
+  let memo: Memo | null = null;
   /** Les propositions d'un audit recu, posees par `figer` : elles tiennent lieu de tout calcul. */
   const decisionsFigees = new Map<string, DecisionProposition>();
-  let figees: { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string> } | null = null;
+  let figees: Memo | null = null;
 
   const entrees = (): EntreesPropositions => ({ objets: ctx.etat.objects, liste: ctx.liste(), capture: ctx.capture.lire(), mesures: mesureur.lues() });
   function calculer() {
     if (figees) return figees;
-    const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0);
+    const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0) + ':' + versionDecisions;
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
-    const e = entrees();
-    // Les mesures d'abord, puis Claude (spec-audit §14.2 : l'origine est dite sur chaque ligne).
-    const reponses = ctx.analyse?.reponses();
-    const renfort = ctx.analyse?.renfort?.();
-    // D21 : la valeur notee sur place l'emporte sur celle de Claude (la ligne de Claude arrive decochee, et le dit).
-    const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...(reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]);
-    const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
-    memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions) };
+    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.renfort?.(), decisions);
+    memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions), arbitrages };
     calculs++;
     return memo;
   }
@@ -321,6 +344,24 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     return { toutes: propositions, choisies: propositions.filter((p) => cochee(p.id)), calculs };
   });
 
+  /** Decider, c'est vouloir : la proposition qui en resulte se coche (sa rivale sur place, elle, se decoche). */
+  function decider(cible: string, attribut: string, choixArb: ChoixArbitrage | null) {
+    if (figees) return;
+    const k = cleChoix(cible, attribut);
+    // La case d'une proposition qui disparait avec le choix ne doit pas survivre : elle cocherait la prochaine du meme id.
+    for (const q of calculer().propositions) if (q.arbitrages?.some((a) => a.cible === cible && a.attribut === attribut)) choix.delete(q.id);
+    if (choixArb) decisions.set(k, choixArb); else decisions.delete(k);
+    versionDecisions++; memo = null;
+    const { propositions } = calculer();
+    const p = propositions.find((x) => x.arbitrages?.some((a) => a.cible === cible && a.attribut === attribut));
+    if (p) {
+      const main = p.arbitrages?.some((a) => a.cible === cible && a.attribut === attribut && (a.decision === 'choisie' || a.decision === 'forcee'));
+      if (main) { choix.set(p.id, true); for (const r of rivalesSurPlace(p, propositions)) choix.set(r.id, false); } else choix.delete(p.id);
+    }
+    apercu.poser();
+    publier();
+  }
+
   return {
     mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
     lancer: async () => {
@@ -331,6 +372,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,
+    arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a)) })),
+    decider: (cible, attribut, choixArb) => decider(cible, attribut, choixArb),
     cochee,
     basculer(id) {
       if (figees) return;
@@ -396,7 +439,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       const defaut = decidees ? new Set(propositions.filter((p) => p.decision === 'validee').map((p) => p.id)) : cochesParDefaut(copies);
       decisionsFigees.clear();
       for (const p of propositions) decisionsFigees.set(p.id, p.decision);
-      figees = { cle: 'figees', objets: null, propositions: copies, observations: [], defaut };
+      figees = { cle: 'figees', objets: null, propositions: copies, observations: [], defaut, arbitrages: [] };
       calculs++;
       publier();
     },

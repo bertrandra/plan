@@ -127,7 +127,7 @@ describe('l analyse par Claude', () => {
   });
 
   describe('l essai du brouillon des regles (?regles=local)', () => {
-    const BROUILLON: BrouillonServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 7, schema: 3 };
+    const BROUILLON: BrouillonServeur = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 8, schema: 4 };
 
     it('nomme le brouillon dans la demande quand l administrateur en a un sur le serveur, et le dit', async () => {
       const t = monter(undefined, undefined, () => true);
@@ -136,7 +136,7 @@ describe('l analyse par Claude', () => {
       t.capture.terminer();
       await t.analyse.accorder(true);
       expect(t.faux.demandes[0]).toMatchObject({ usage: 'analyse', essai: 'brouillon' });
-      expect(t.messages.some((m) => /^Essai : l’analyse part avec le prompt du brouillon des règles \(version 7, enregistré le 2026-10-16 10:00\)/.test(m))).toBe(true);
+      expect(t.messages.some((m) => /^Essai : l’analyse part avec le prompt du brouillon des règles \(version 8, enregistré le 2026-10-16 10:00\)/.test(m))).toBe(true);
     });
 
     it('part avec le prompt livre, en le disant, sans brouillon sur le serveur ou hors administrateur', async () => {

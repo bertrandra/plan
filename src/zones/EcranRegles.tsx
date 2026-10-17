@@ -21,6 +21,7 @@ import { EditeurSujet } from './regles/EditeurSujet.js';
 import { NouveauSujet } from './regles/NouveauSujet.js';
 import { Resultat, type Onglet } from './regles/Resultat.js';
 import { Donnees } from './regles/Donnees.js';
+import { Sources, type PropsSources } from './regles/Sources.js';
 import { BarreVue, Tuiles } from './regles/Tuiles.js';
 import type { ClientRegles } from '../io/reglesServeur.js';
 import { useBrouillonServeur } from './regles/brouillonServeur.js';
@@ -39,6 +40,8 @@ export interface PropsEcranRegles {
   serveur?: ClientRegles;
   /** Les fichiers de donnees (reglages, faits) : la derniere version de lecture de chacun, et leur brouillon local. Absent : l'onglet n'est pas propose. */
   donnees?: { versions: { toits: number; facades: number }; brouillon?: BrouillonRegles };
+  /** Les sources et leur arbitrage, et la lecture du LiDAR avec ses seuils (MD/spec-reconciliation.md). Absent : la vue n'est pas proposee. */
+  sources?: PropsSources;
   telecharger: (nom: string, contenu: string, type: string) => void;
   copier: (texte: string) => Promise<void>;
   retour?: string;
@@ -61,8 +64,8 @@ const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 const quand = (iso: string | null) => (iso ?? '?').slice(0, 16).replace('T', ' ');
 
 export function EcranRegles(props: PropsEcranRegles) {
-  const { sujets: livres, proposeurs, accords, brouillon, serveur, donnees, telecharger, copier, retour = '?admin' } = props;
-  const [vue, setVue] = useState<'sujets' | 'donnees'>('sujets');
+  const { sujets: livres, proposeurs, accords, brouillon, serveur, donnees, sources, telecharger, copier, retour = '?admin' } = props;
+  const [vue, setVue] = useState<'sujets' | 'donnees' | 'sources'>('sujets');
   const [etat, setEtat] = useState<Etat>(() => lireBrouillon(brouillon?.lire() ?? null, livres));
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [onglet, setOnglet] = useState<Onglet>('prompt');
@@ -130,9 +133,9 @@ export function EcranRegles(props: PropsEcranRegles) {
         </p>
       </header>
 
-      {donnees && <BarreVue vue={vue} surVue={setVue} />}
+      {(donnees || sources) && <BarreVue vue={vue} surVue={setVue} vues={['sujets', ...(donnees ? ['donnees' as const] : []), ...(sources ? ['sources' as const] : [])]} />}
 
-      {vue === 'donnees' && donnees ? <Donnees versions={donnees.versions} brouillon={donnees.brouillon} telecharger={telecharger} /> : <>
+      {vue === 'sources' && sources ? <Sources {...sources} /> : vue === 'donnees' && donnees ? <Donnees versions={donnees.versions} brouillon={donnees.brouillon} telecharger={telecharger} /> : <>
       <Tuiles sujetsActifs={actifs.length} sujets={liste.length} brouillons={brouillons.length} prompt={sortie.prompt} versionPrompt={sortie.versionPrompt}
         versionSchema={sortie.versionSchema} champs={champs} erreurs={erreurs} alertes={alertes} changees={changees} identique={identique} livre={livre} />
 

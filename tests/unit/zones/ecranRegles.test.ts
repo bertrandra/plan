@@ -9,6 +9,8 @@ import { genererFichiers } from '../../../src/regles/sujets/generation.js';
 import { SUJETS } from '../../../src/app/regles/sujets/index.js';
 import type { BrouillonReglesServeur, ClientRegles } from '../../../src/io/reglesServeur.js';
 import { FICHIERS_DONNEES } from '../../../src/regles/donnees/fichiers.js';
+import { RECONCILIATION } from '../../../src/regles/reconciliation.js';
+import { seuilsDuTexte } from '../../../src/regles/donnees/edition.js';
 
 // L'ecran Admin › Regles (`?admin&ecran=regles`) : les sujets du depot, le prompt et le schema recalcules a
 // chaque frappe, ce qui change par rapport au livre, les controles, un sujet nouveau, et le brouillon.
@@ -86,13 +88,13 @@ describe('l ecran des regles', () => {
     expect(texte(hote, '[data-diff="ajoute"]').join('\n')).toContain('vu sur le versant sud');
     const tuiles = texte(hote, '.consTuile');
     expect(tuiles[4]).toContain('1 ligne change');
-    expect(tuiles[4]).toContain('version 7 à poser dans versions.ts');
-    expect(tuiles[1]).toContain('version 7');
+    expect(tuiles[4]).toContain('version 8 à poser dans versions.ts');
+    expect(tuiles[1]).toContain('version 8');
     expect(hote.querySelector('[data-sujet="couverture"]')?.textContent).toContain('Modifié');
     await cliquer(hote.querySelector('#reglOnglet-ecarts'));
     // La version de l'en-tete change avec le texte (5 -> 6), et la consigne d'avant disparait.
     expect(texte(hote, '.reglRetrait').join('\n')).toContain('- `couverture` : le matériau de couverture du corps principal.');
-    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 7');
+    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 8');
     await cliquer(bouton(hote, 'Revenir au livré'));
     expect(texte(hote, '.consTuile')[4]).toContain('Identique');
   });
@@ -186,7 +188,7 @@ describe('l ecran des regles', () => {
       let garde = depart;
       const client: ClientRegles = {
         lire: vi.fn(async () => garde),
-        enregistrer: vi.fn(async (b) => { garde = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 7, schema: 3, promptTexte: b.prompt, schemaTexte: b.schema, etat: b.etat }; return { enregistreLe: garde.enregistreLe, prompt: 7, schema: 3 }; }),
+        enregistrer: vi.fn(async (b) => { garde = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 8, schema: 4, promptTexte: b.prompt, schemaTexte: b.schema, etat: b.etat }; return { enregistreLe: garde.enregistreLe, prompt: 8, schema: 4 }; }),
         retirer: vi.fn(async () => { garde = null; }),
       };
       return client;
@@ -217,12 +219,12 @@ describe('l ecran des regles', () => {
       await cliquer(enregistrer);
       await attendre();
       const envoi = vi.mocked(serveur.enregistrer).mock.calls[0]![0];
-      expect(envoi.prompt).toContain('version: 7');
+      expect(envoi.prompt).toContain('version: 8');
       expect(envoi.prompt).toContain('vu sur le versant sud');
-      expect(JSON.parse(envoi.schema).version).toBe(2);
+      expect(JSON.parse(envoi.schema).version).toBe(3);
       expect(envoi.etat).toMatchObject({ exclus: [], liste: expect.any(Array) });
-      expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon enregistré sur le serveur (prompt version 7)');
-      expect(etat(hote)).toContain('Brouillon du serveur : prompt version 7, schéma version 3, enregistré le 2026-10-16 10:00.');
+      expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon enregistré sur le serveur (prompt version 8)');
+      expect(etat(hote)).toContain('Brouillon du serveur : prompt version 8, schéma version 4, enregistré le 2026-10-16 10:00.');
       expect(etat(hote)).toContain('?regles=local');
       await cliquer(bouton(hote, 'Retirer du serveur'));
       await attendre();
@@ -245,11 +247,11 @@ describe('l ecran des regles', () => {
     it('reprend l éditeur tel que le serveur l a gardé, d un autre navigateur', async () => {
       const g = genererFichiers();
       const gardeEtat = { liste: DESCRIPTIONS_SUJETS, exclus: ['elements'] };
-      const serveur = fauxServeur({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 7, schema: 3, promptTexte: g.prompt, schemaTexte: g.schema, etat: gardeEtat });
+      const serveur = fauxServeur({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 8, schema: 4, promptTexte: g.prompt, schemaTexte: g.schema, etat: gardeEtat });
       const { hote } = await monter({ serveur });
       await attendre();
       expect(texte(hote, '.consTuile')[0]).toContain('8 / 8');
-      expect(etat(hote)).toContain('prompt version 7');
+      expect(etat(hote)).toContain('prompt version 8');
       await cliquer(bouton(hote, 'Reprendre celui du serveur'));
       expect(texte(hote, '.consTuile')[0]).toContain('7 / 8');
       expect(hote.querySelector('[data-sujet="elements"]')?.textContent).toContain('Hors du prompt');
@@ -276,13 +278,13 @@ describe('l ecran des regles', () => {
     const fichier = (h: HTMLElement, id: string) => h.querySelector('[data-fichier="' + id + '"]') as HTMLElement;
     const toits = FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')!;
 
-    it('n est pas proposé sans fichiers, et ouvre les trois fichiers du moteur sans rien changer', async () => {
+    it('n est pas proposé sans fichiers, et ouvre les cinq fichiers du moteur sans rien changer', async () => {
       const sans = await monter();
       expect(onglet(sans.hote)).toBeNull();
       act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
       const { hote } = await monter({ donnees });
       await cliquer(onglet(hote));
-      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits']);
+      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'reconciliation']);
       expect(hote.querySelector('.reglSujet[data-sujet]')).toBeNull();
       for (const f of FICHIERS_DONNEES) expect(fichier(hote, f.id).textContent).toContain('Le moteur l’accepte.');
       // Rien ne change : rien a telecharger, rien a ajouter aux versions de lecture.
@@ -343,6 +345,50 @@ describe('l ecran des regles', () => {
       expect((second.hote.querySelector('input[aria-label="Valeur de SEUIL_MARCHE_M"]') as HTMLInputElement).value).toBe('0.9');
       await cliquer(bouton(fichier(second.hote, 'reglagesToits'), 'Revenir au livré'));
       expect(mem.texte).toBeNull();
+    });
+  });
+
+  describe('les sources et l arbitrage', () => {
+    const sources = { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')!.livre) };
+    const onglet = (h: HTMLElement) => h.querySelector('#reglVue-sources');
+
+    it('n est pas proposée sans sources ; avec elles, un onglet de plus montre les sources, les attributs et la lecture du LiDAR', async () => {
+      const sans = await monter({ donnees: { versions: { toits: 3, facades: 1 } } });
+      expect(onglet(sans.hote)).toBeNull();
+      act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      expect([...hote.querySelectorAll('[data-source] td:first-child')].map((td) => td.textContent)).toEqual(['IGN (BD TOPO)', 'LiDAR HD', 'Photo de façade', 'Claude', 'Vu sur place']);
+      const lidar = hote.querySelector('[data-source="lidar"]')?.textContent ?? '';
+      expect(lidar).toContain('LiDAR HD4Oui');
+      expect(hote.querySelector('[data-source="claude"]')?.textContent).toContain('Non');
+    });
+
+    it('les attributs disent leur accord et les poids de chaque source, entre parenthèses quand c’est le poids par défaut', async () => {
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      const h = [...hote.querySelectorAll('[data-attribut="hauteurEgout"] td')].map((td) => td.textContent);
+      expect(h.slice(0, 3)).toEqual(['Hauteur à l\'égout', 'Bâtiment', 'à 0,5 m près']);
+      // IGN, LiDAR, photo, Claude, vu sur place.
+      expect(h.slice(3)).toEqual(['2', '4', '3', '(1,5)', '(30)']);
+      expect([...hote.querySelectorAll('[data-attribut="sensFaitage"] td')].map((td) => td.textContent)[2]).toBe('à 15 ° près (modulo 180)');
+      expect([...hote.querySelectorAll('[data-attribut="boutsToit"] td')].map((td) => td.textContent)[2]).toBe('mêmes éléments, dans n’importe quel ordre');
+      expect(hote.querySelector('.reglSources')?.textContent).toContain('SCORE_AUTO_MIN');
+    });
+
+    it('la lecture du LiDAR est dite étape par étape, avec les seuils de chaque étape et leur raison : les règles LiDAR font surface', async () => {
+      const { hote } = await monter({ sources });
+      await cliquer(onglet(hote));
+      const etapes = [...hote.querySelectorAll('[data-etape]')];
+      expect(etapes.map((e) => e.querySelector('strong')?.textContent)).toEqual(['1. Surface mesurée', '2. Rectangles du contour', '3. Formes simples', '4. Corps, marches, pignons et croupes', '5. Appentis et pignons adossés', '6. Garde-fous de vraisemblance', '7. Bâtiment à cheval sur deux parcelles']);
+      const surface = etapes[0]!;
+      expect(surface.querySelector('summary')?.textContent).toBe('11 seuils');
+      const ligne = [...surface.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.startsWith('RETRAIT_EGOUT_M'));
+      expect(ligne?.textContent).toContain('0,5m');
+      expect(ligne?.textContent).toContain('egout se lit a au moins cela des murs');
+      // Tous les seuils du fichier sont dans une etape : aucun n'echappe a l'ecran.
+      const nombre = etapes.reduce((n, e) => n + e.querySelectorAll('tbody tr').length, 0);
+      expect(nombre).toBe(sources.seuilsLidar.length);
     });
   });
 });

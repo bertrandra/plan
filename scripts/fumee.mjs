@@ -2644,7 +2644,7 @@ const POINTS = {
   93: async (page, f) => {
     // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les huit sujets du depot, le
     // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
-    // version 7), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
+    // version 8), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
     // « Reglages et faits » (un seuil change sur sa ligne, la ligne de version a ajouter), un sujet retire d'une
     // case, un sujet nouveau en brouillon (prompt, schema, controles), le brouillon qui survit a un rechargement,
     // « Revenir au livre », et les deux telechargements.
@@ -2679,13 +2679,13 @@ const POINTS = {
     const apresEdition = await tuiles();
     const promptEdite = await page.locator('pre.reglSortie').textContent();
     debords.push(await deborde());
-    // Le brouillon sur le serveur : enregistre (version 7, prompt edite), dit, puis retire.
+    // Le brouillon sur le serveur : enregistre (version 8, prompt edite), dit, puis retire.
     const etatServeur = async () => ((await page.locator('p[role="status"]').first().textContent()) || '').replace(/\s+/g, ' ');
     const avantServeur = await etatServeur();
     await page.getByRole('button', { name: 'Enregistrer sur le serveur', exact: true }).click();
-    await page.waitForFunction(() => /prompt version 7/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    await page.waitForFunction(() => /prompt version 8/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const apresEnregistrement = await etatServeur();
-    const gardeAuServeur = !!surServeur && surServeur.prompt === 7 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
+    const gardeAuServeur = !!surServeur && surServeur.prompt === 8 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
     await page.getByRole('button', { name: 'Retirer du serveur', exact: true }).click();
     await page.waitForFunction(() => /Aucun brouillon sur le serveur/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const retire = surServeur === null;
@@ -2726,8 +2726,8 @@ const POINTS = {
     const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
     const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
     const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
-      && /1 ligne change/.test(apresEdition[4] || '') && /version 7/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
-      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 7.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
+      && /1 ligne change/.test(apresEdition[4] || '') && /version 8/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 8.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
       && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 4/.test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
@@ -2761,6 +2761,31 @@ const POINTS = {
       && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
       && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 5;
     return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  95: async (page, f) => {
+    // Admin › « De l'IGN a ma maison » (`?admin&ecran=chaine`) : le schema des sept etapes, les douze vignettes 3D (gambrel,
+    // demi-croupe, meuniere et rampante compris), le filtre par mode qui attenue le reste, un lien vers l'ecran des regles,
+    // et le renvoi d'une ligne vers sa cible ; rien ne deborde.
+    await page.route(/\/admin\//, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+    await page.goto(BASE + '/?admin&ecran=chaine');
+    await page.waitForSelector('.chaineEtape', { timeout: 20000 });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const etapes = await page.locator('.chaineSchema a').count();
+    const vignettes = await page.locator('svg.chaineVignette').count();
+    const nomsVignettes = await page.locator('svg.chaineVignette').evaluateAll((l) => l.map((e) => e.getAttribute('aria-label')));
+    const polygones = await page.locator('svg.chaineVignette polygon').count();
+    const lienRegles = await page.locator('a.chaineEcran[href="?admin&ecran=regles"]').count();
+    await page.getByRole('button', { name: /^Manuel/ }).click();
+    const attenuees = await page.locator('.chaineLigne[data-attenue="oui"]').count();
+    await page.getByRole('button', { name: /^Tout/ }).click();
+    const apres = await page.locator('.chaineLigne[data-attenue="oui"]').count();
+    const voir = page.locator('a.chaineVoir').first();
+    const cible = (await voir.getAttribute('href')) || '';
+    const cibleExiste = cible.startsWith('#') && (await page.locator('[id="' + cible.slice(1) + '"]').count()) > 0;
+    const sans = !(await deborde());
+    const formesVoulues = ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
+    const ok = etapes === 7 && vignettes === 12 && formesVoulues && polygones > 60 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans;
+    return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; gambrel, demi-croupe, meunière, rampante ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   94: async (page, f) => {
     // Admin › Conformité (lot G13) : une facade relevee de 9 m avec deux fenetres seulement, dans un audit recu ;
@@ -3154,7 +3179,8 @@ function pointsPour(nomClasse) {
   // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94];
+  // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

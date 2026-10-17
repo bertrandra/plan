@@ -55,6 +55,13 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
     ouvrirEcranRegles();
     return true;
   }
+  // L'ecran de la chaine (`?admin&ecran=chaine`) : de l'IGN a ma maison, de bout en bout. Plan ne demarre pas dessous.
+  const { demandeEcranChaine, ouvrirEcranChaine } = await import('./app/ecranChaine.js');
+  if (demandeEcranChaine(location.search)) {
+    document.documentElement.dataset.ecran = 'chaine';
+    ouvrirEcranChaine();
+    return true;
+  }
   // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
   // generees par EZ-tree. Plan ne demarre pas dessous.
   const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/ecranArbres.js');

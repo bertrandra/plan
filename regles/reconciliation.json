@@ -1,0 +1,37 @@
+{
+  "format": "plan-reconciliation",
+  "version": 1,
+  "pourquoi": "Comment les sources d'un batiment (IGN, LiDAR, photo de facade, Claude, ce que la personne a vu sur place) s'arbitrent quand elles divergent (MD/spec-reconciliation.md). Chaque constat vaut le poids de sa source (ou celui que l'attribut lui donne) fois sa confiance ; les constats qui s'accordent forment un groupe, le groupe de plus haut score est retenu, et la decision est automatique quand son score atteint SCORE_AUTO_MIN, qu'il l'emporte d'au moins MARGE_AUTO_MIN fois sur le second, qu'aucune valeur choisie a la main ne s'y oppose et qu'il n'a pas pour seule source une source qui n'a pas le droit d'etre seule. Sinon elle est manuelle : la personne choisit une source ou force une valeur. Le fichier est compile dans le fichier livre ; il ne change aucun toit deja lu, il regle les propositions de l'audit.",
+  "seuils": {
+    "SCORE_AUTO_MIN": { "valeur": 3, "unite": "score", "ou": "facade/regles/reconciliation.ts", "pourquoi": "Le score qu'un groupe de constats doit atteindre pour que la decision soit automatique : un LiDAR a 0,9 de confiance (4 x 0,9) y suffit seul, une photo seule (3 x 0,9) non, la photo et l'IGN ensemble oui.", "cas": [] },
+    "MARGE_AUTO_MIN": { "valeur": 1.5, "unite": "fois", "ou": "facade/regles/reconciliation.ts", "pourquoi": "Le groupe retenu doit peser au moins cette fois le second pour que la decision soit automatique : deux sources qui se contredisent a poids voisins font une decision manuelle.", "cas": [] },
+    "CONFIANCE_ABSENTE": { "valeur": 0.8, "unite": "part", "ou": "facade/regles/reconciliation.ts", "pourquoi": "La confiance d'un constat dont la source n'en donne pas (une couleur lue, une cote IGN) : ni pleine, ni douteuse.", "cas": [] }
+  },
+  "sources": {
+    "ign": { "libelle": "IGN (BD TOPO)", "poids": 2, "seule": true, "voit": "le contour, la hauteur a l'egout, les altitudes de toit, le materiau des fichiers fonciers ; ses hauteurs sont a ±1 m" },
+    "lidar": { "libelle": "LiDAR HD", "poids": 4, "seule": true, "voit": "le sursol tous les 50 cm : l'egout, le faitage, les corps et leurs bouts ; les arbres le trompent" },
+    "photo": { "libelle": "Photo de façade", "poids": 3, "seule": false, "voit": "la hauteur du mur, sa silhouette et ses ouvertures, quand les coins du mur sont trouves" },
+    "claude": { "libelle": "Claude", "poids": 1.5, "seule": false, "voit": "tous les parametres sans dimension : forme, bouts, silhouette, materiaux, couverture ; jamais seul" },
+    "terrain": { "libelle": "Vu sur place", "poids": 30, "seule": true, "voit": "ce que la personne a vu devant le batiment" }
+  },
+  "attributs": {
+    "hauteurEgout": { "libelle": "Hauteur à l'égout", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.5, "unite": "m" }, "poids": { "lidar": 4, "photo": 3, "ign": 2 } },
+    "hauteurTotale": { "libelle": "Hauteur totale (faîtage)", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.8, "unite": "m" }, "poids": { "lidar": 5, "ign": 1.5, "photo": 2 } },
+    "formeToit": { "libelle": "Forme du toit", "cible": "batiment", "accord": { "type": "egal" }, "valeurs": ["deux-pans", "croupes", "appentis", "plat"], "poids": { "lidar": 3, "photo": 3, "claude": 2, "ign": 1 } },
+    "boutsToit": { "libelle": "Bouts du faîtage", "cible": "batiment", "accord": { "type": "ensemble" }, "valeurs": [["pignon", "pignon"], ["pignon", "croupe"], ["croupe", "croupe"]], "poids": { "photo": 3.5, "lidar": 3, "claude": 2 } },
+    "sensFaitage": { "libelle": "Sens du faîtage", "cible": "batiment", "accord": { "type": "angle", "tolerance": 15, "unite": "degres" }, "poids": { "photo": 3.5, "lidar": 3.5, "claude": 1 } },
+    "silhouetteFacade": { "libelle": "Silhouette de la façade", "cible": "facade", "accord": { "type": "egal" }, "valeurs": ["triangle", "trapeze", "rampe", "ligne-droite", "marches", "plusieurs-sommets"], "poids": { "claude": 2, "photo": 2.5 } },
+    "ouverturesFacade": { "libelle": "Ouvertures de la façade", "cible": "facade", "accord": { "type": "nombre", "tolerance": 1, "unite": "ouvertures" }, "poids": { "photo": 3.5, "claude": 1.5 } },
+    "materiauMurs": { "libelle": "Matériau des murs", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2, "photo": 1.5 } },
+    "couverture": { "libelle": "Couverture du toit", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2.5 } }
+  },
+  "lecturesLidar": [
+    { "ordre": 1, "etape": "Surface mesurée", "modules": ["model/toitMesure.ts"], "dit": "Nettoie la grille du sursol : le sol entre deux toits, les arbres, les saillies et les trous sont retirés ou bouchés ; l'égout se lit loin des murs (10e centile), le faîtage sur la surface écrêtée." },
+    { "ordre": 2, "etape": "Rectangles du contour", "modules": ["model/volumesToit.ts"], "dit": "Met le contour à l'équerre, lisse les décrochés et le couvre de rectangles maximaux : un corps par rectangle." },
+    { "ordre": 3, "etape": "Formes simples", "modules": ["facade/toitLidar.ts"], "dit": "Ajuste un toit plat, à un pan, à deux pans, à croupes ou à quatre pans aux moindres carrés sur la surface ; au-delà de l'écart toléré, la BD TOPO reste." },
+    { "ordre": 4, "etape": "Corps, marches, pignons et croupes", "modules": ["facade/toitCorps.ts"], "dit": "Coupe le toit aux marches de la couverture, refond ce qui est continu, relit le toit de chaque corps (faîtage, égouts), détecte les pignons depuis le faîtage et les croupes, retire les bandes recouvertes et complète le contour." },
+    { "ordre": 5, "etape": "Appentis et pignons adossés", "modules": ["facade/regles/toits/appentis.ts", "facade/regles/toits/pignons.ts"], "dit": "Lit sur la mesure les cotes d'un appentis adossé (porche, galerie) ou d'un pignon traversant dits par un fait du bâtiment." },
+    { "ordre": 6, "etape": "Garde-fous de vraisemblance", "modules": ["facade/regles/toits/vraisemblance.ts"], "dit": "Écarte un toit qu'aucun bâtiment ne porte : un houppier d'arbre au-dessus de la hauteur BD TOPO, un égout hors des bornes." },
+    { "ordre": 7, "etape": "Bâtiment à cheval sur deux parcelles", "modules": ["model/aCheval.ts"], "dit": "Quand un corps passe par-dessus une limite de parcelle, la mesure ne tranche pas : Plan pose la question." }
+  ]
+}

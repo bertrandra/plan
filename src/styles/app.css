@@ -1486,7 +1486,20 @@
   .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
   .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
   .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }
+  .corpsProposition{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
   .texteProposition{ display:flex; flex-direction:column; gap:1px; min-width:0; cursor:pointer; }
+  /* Les sources d'un attribut arbitre : un detail replie sous la ligne, la decision en premier mot. */
+  .arbitrageProposition{ font-size:0.74rem; margin-top:2px; }
+  .arbitrageProposition > summary{ cursor:pointer; color:var(--ink-soft); }
+  .decisionArbitrage{ font-weight:600; color:var(--ink); }
+  .raisonArbitrage{ margin:4px 0; overflow-wrap:anywhere; }
+  .mainArbitrage{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0 2px; }
+  .mainArbitrage select, .forcerNombre input{ font-size:0.74rem; min-height:32px; }
+  .forcerNombre{ display:inline-flex; gap:4px; align-items:center; }
+  .forcerNombre input{ width:6rem; }
+  .sourcesBatiments{ margin:10px 0; }
+  .sourcesBatiment > summary{ cursor:pointer; padding:4px 0; }
+  .tableArbitrage{ font-size:0.72rem; font-variant-numeric:tabular-nums; }
   .objetProposition{ font-weight:600; }
   .avantApres{ font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .avantProposition{ color:var(--ink-soft); }
@@ -1506,7 +1519,7 @@
   .etatAnalyse{ margin:8px 0 4px; padding:6px 10px; border-left:2px solid var(--accent); font-size:0.78rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 6px; }
   .etatAnalyse .actionsAnalyse{ width:100%; }
   .etatAnalyse.etat-erreur{ border-left-color:var(--alerte); }
-  .ligneProposition.source-claude{ box-shadow:inset 3px 0 0 var(--accent-light); padding-left:8px; }
+  .ligneProposition.source-claude, .ligneProposition.source-arbitrage{ box-shadow:inset 3px 0 0 var(--accent-light); padding-left:8px; }
   /* Ce que Claude a vu sans le proposer : des lignes a lire, sans case, sous les propositions ; le
      meme filet d'accent que ses propositions dit l'origine, le titre dit que rien ne s'ecrit. */
   .observationsClaude{ margin-top:10px; padding-top:8px; border-top:1px solid var(--rule); }
@@ -2487,7 +2500,11 @@
   .reglControles strong{ margin-right:6px; text-transform:uppercase; font-size:0.66rem; letter-spacing:.1em; }
   /* L'onglet « Reglages et faits » : un fichier par carte, le tableau des seuils defile dans sa boite (sans
      `min-width:0`, la grille prenait la largeur du tableau et la page entiere debordait). */
-  .reglDonnees{ min-width:0; margin-top:16px; }
+  .reglDonnees, .reglSources{ min-width:0; margin-top:16px; }
+  /* Sources et arbitrage : la lecture du LiDAR en etapes numerotees, chacune avec ses seuils repliables. */
+  .reglEtapes{ list-style:none; margin:8px 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .reglEtape{ padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); min-width:0; }
+  .reglEtape p{ margin:4px 0; overflow-wrap:anywhere; }
   .reglDonnees .reglListe{ grid-template-columns:minmax(0, 1fr); }
   .reglDonnees .reglSujet, .reglSeuils{ min-width:0; }
   .reglSeuils{ display:grid; gap:8px; }
@@ -2547,3 +2564,36 @@
     .arbChamp{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); min-height:44px; }
     .arbChiffres{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   }
+
+  /* L'ecran Admin › Chaine (`?admin&ecran=chaine`) : le schema des etapes, puis chaque etape et ses noeuds. Le mode de decision
+     se dit par un mot, jamais par la couleur seule. Les vignettes 3D portent la couleur de leur exposition, pas un jeton. */
+  html[data-ecran="chaine"] body > :not(#zoneEcranChaine):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="chaine"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="chaine"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranChaine{ width:100%; min-width:0; }
+  .chaineSchema ol{ list-style:none; margin:12px 0; padding:0; display:flex; flex-wrap:wrap; gap:6px 4px; align-items:center; }
+  .chaineSchema li{ display:inline-flex; align-items:center; gap:4px; }
+  .chaineSchema a{ padding:6px 12px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--panel-bg); color:var(--ink); text-decoration:none; font-size:0.8rem; min-height:32px; display:inline-flex; align-items:center; }
+  .chaineSchema a:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .chaineFleche{ color:var(--ink-soft); }
+  .chaineFiltre{ margin:8px 0 16px; flex-wrap:wrap; }
+  .chaineErreur{ padding:8px 12px; border:1px solid var(--alerte); border-radius:var(--r-champ); color:var(--danger); background:var(--danger-bg); }
+  .chaineEtape{ margin:0 0 20px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); }
+  .chaineEtapeTitre{ margin:0 0 4px; font-family:var(--serif); font-size:1.1rem; }
+  .chaineListe{ list-style:none; margin:8px 0 0; padding:0 0 0 14px; border-left:1px solid var(--hairline); display:grid; gap:8px; }
+  .chaineLigne{ display:flex; gap:12px; align-items:flex-start; padding:6px 8px; border-radius:var(--r-champ); }
+  .chaineLigne[data-attenue="oui"]{ opacity:0.4; }
+  .chaineTexte{ min-width:0; flex:1 1 auto; }
+  .chaineTitre{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+  .chaineGenre{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .chaineMode{ padding:1px 8px; border-radius:999px; font-size:0.68rem; background:var(--panel-2); border:1px solid var(--rule); }
+  .chaineMode[data-mode="auto"]{ background:var(--accent-light); color:var(--on-accent-light); border-color:transparent; }
+  .chaineMode[data-mode="manuel"]{ background:var(--paper-deep); }
+  .chaineDetail{ margin:2px 0 0; font-size:0.78rem; color:var(--ink-soft); }
+  .chaineLiens{ display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:4px; font-size:0.74rem; align-items:center; }
+  .chaineLiens a{ color:var(--ink); text-underline-offset:2px; min-height:24px; display:inline-flex; align-items:center; }
+  .chaineOu{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .chaineGalerie{ list-style:none; margin:8px 0 0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px; }
+  .chaineGalerie .chaineLigne{ flex-direction:column; border:1px solid var(--hairline); background:var(--panel-2); height:100%; }
+  .chaineVignette{ width:100%; max-width:200px; height:auto; align-self:center; color:var(--ink-soft); }
+  @media (max-width: 1023px){ .chaineEtape{ padding:10px; } .chaineListe{ padding-left:8px; } }

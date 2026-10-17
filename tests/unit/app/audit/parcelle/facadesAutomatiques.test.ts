@@ -82,7 +82,7 @@ describe('les photos de l audit alimentent les facades', () => {
     const m = await mesureDeReference();
     expect(m.coinsTrouves, 'la mesure de reference doit avoir des coins trouves').toBe(true);
     // La photo donne aussi la ligne du haut du mur, de quoi dire les bouts du toit (silhouettes.ts).
-    expect(['pignon', 'trapeze', 'rectangle', 'rampe', 'indetermine']).toContain(m.silhouette);
+    expect(['triangle', 'trapeze', 'ligne-droite', 'rampe', 'indetermine']).toContain(m.silhouette);
     const attendu = m.coinsTrouves && (m.confiance ?? 1) >= CONFIANCE_MIN && !!m.releve;
     const t = monter();
     expect(t.maison().facades ?? []).toHaveLength(0);

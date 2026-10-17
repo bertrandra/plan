@@ -15,7 +15,7 @@ export interface PropositionVue {
   objet: string;
   avant: string;
   apres: string;
-  source: 'claude' | 'mesure';
+  source: 'claude' | 'mesure' | 'arbitrage';
   decision: 'validee' | 'refusee' | null;
 }
 

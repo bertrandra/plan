@@ -10,6 +10,7 @@
 import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
+import { facettesEtendues, facettesLucarnes } from '../facade/toitFormes.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
@@ -89,7 +90,12 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     contour.push({ s: h1 > 0 ? L - h1 : L + dRL, d: haut });
     pans.push(contour.map((q) => Q(q.s, q.d)));
   };
-  if (!plat) {
+  // Un profil brise, une demi-croupe ou un brisis : le toit est la plus basse de ses facettes (facade/toitFormes.ts).
+  const etendue = plat ? null : facettesEtendues(c, L, W, { egout0: dE0, egout1: dE1, rive0: dR0, rive1: dRL }, bas);
+  if (etendue) {
+    pans.push(...etendue.pans.map((f) => f.map((q) => P(q.s, q.t, q.z))));
+    murs.push(...etendue.murs.map((f) => f.map((q) => P(q.s, q.t, q.z))));
+  } else if (!plat) {
     // Le pan 0, de t = 0 au faitage ; le pan 1, du faitage a t = W. Un appentis n'en a qu'un.
     pan(0);
     pan(1);
@@ -128,6 +134,12 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     pans.push([P(gauche, T(-dE), zG), P(sc, T(-dE), pg.faitage), P(sc, T(D), pg.faitage), P(piedG, T(0), pg.debut <= 0.3 ? zG : e)]);
     pans.push([P(sc, T(-dE), pg.faitage), P(droite, T(-dE), zD), P(piedD, T(0), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
     murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
+  }
+  // Les lucarnes se posent sur le pan, au-dessus de lui.
+  if (c.lucarnes?.length) {
+    const lu = facettesLucarnes(c, L, W);
+    pans.push(...lu.pans.map((f) => f.map((q) => P(q.s, q.t, q.z))));
+    murs.push(...lu.murs.map((f) => f.map((q) => P(q.s, q.t, q.z))));
   }
   return { pans, murs };
 }
@@ -225,6 +237,12 @@ export function facettesSurContour(corps: readonly CorpsToit[], contour: readonl
     return Math.min(...z);
   });
   murs.push(...mursEntreCorps(corps, contour, bas));
+  // Les faces et les joues des lucarnes (leurs toits sont deja dans les pans) : elles ne dependent pas du contour.
+  for (const c of corps) {
+    if (!c.lucarnes?.length) continue;
+    const r = repere(c.pts);
+    murs.push(...facettesLucarnes(c, r.L, r.W).murs.map((f) => f.map((q) => ({ ...point(r, q.s, q.t), z: q.z }))));
+  }
   return { pans, murs, bas, hauteursMurs };
 }
 

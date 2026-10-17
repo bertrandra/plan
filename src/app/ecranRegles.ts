@@ -16,6 +16,9 @@ import { telechargerTexte } from '../shell/download.js';
 import { LECTURES_TOITS } from './toitsLidar.js';
 import { LECTURES_FACADES } from '../regles/facades/reglages.js';
 import { creerClientRegles } from '../io/reglesServeur.js';
+import { RECONCILIATION } from '../regles/reconciliation.js';
+import { FICHIERS_DONNEES } from '../regles/donnees/fichiers.js';
+import { seuilsDuTexte } from '../regles/donnees/edition.js';
 
 /** L'adresse demande-t-elle l'ecran des regles ? */
 export function demandeEcranRegles(recherche: string): boolean {
@@ -53,6 +56,7 @@ export function ouvrirEcranRegles(): void {
       versions: { toits: Math.max(...LECTURES_TOITS.map((l) => l.version)), facades: Math.max(...LECTURES_FACADES.map((l) => l.version)) },
       brouillon: brouillonLocal(CLE_BROUILLON_DONNEES),
     },
+    sources: { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')?.livre ?? '') },
     telecharger: (nom, contenu, type) => telechargerTexte(nom, contenu, type),
     copier: (texte) => navigator.clipboard.writeText(texte),
   }));

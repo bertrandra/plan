@@ -19,14 +19,94 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
-import type { Proposition } from '../../regles/decisions.js';
+import { tauxAutomatique, type TauxAutomatique } from '../../app/audit/parcelle/arbitrages.js';
+import type { Validation } from '../../app/audit/parcelle/validation.js';
+import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
 import type { DecisionProposition } from '../../model/fichierAuditParcelle.js';
 
-const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude' };
+const ORIGINES: Record<Proposition['source'], string> = { mesure: 'Mesure de Plan', claude: 'Claude', arbitrage: 'Sources arbitrées' };
 const DECISIONS_FICHIER = { validee: 'Validée', refusee: 'Refusée' } as const;
 
 /** Ce que l'audit recu a fait d'une proposition (consultation) : la case ne dit que oui ou non. */
 const texteDecision = (d: DecisionProposition) => (d ? DECISIONS_FICHIER[d] : 'En attente');
+
+/**
+ * Les sources d'un attribut arbitre (MD/spec-reconciliation.md) : la decision du moteur et sa raison, puis chaque constat, groupe
+ * retenu en tete : ce que chaque source dit, sa confiance, ce qu'elle pese, et la regle qui l'a lu. Un mot dit le groupe
+ * retenu : la couleur ne porte pas seule.
+ */
+/** Une phrase : ce que le moteur a tranche seul, ce qui attend la personne, ce qu'elle a decide. */
+function texteTaux(t: TauxAutomatique): string {
+  if (!t.decides) return 'Rien à arbitrer : le projet a déjà ce que disent les sources.';
+  return t.decides + ' décision' + (t.decides > 1 ? 's' : '') + ' : ' + t.auto + ' automatique' + (t.auto > 1 ? 's' : '') + ', ' + t.manuelles + ' à vous' + (t.main ? ', ' + t.main + ' déjà prise' + (t.main > 1 ? 's' : '') + ' par vous' : '') + '.';
+}
+
+export interface MainArbitrage { retenir(index: number): void; forcer(valeur: string): void; reprendre(): void }
+
+const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
+
+export function Arbitrage({ a, main }: { a: ArbitrageProposition; main?: MainArbitrage }) {
+  const pct = (c: number | null) => (c === null ? '—' : Math.round(c * 100) + ' %');
+  const [force, setForce] = useState('');
+  const delaMain = a.decision === 'choisie' || a.decision === 'forcee';
+  return (
+    <details className="arbitrageProposition" open={a.decision === 'manuelle' && !!main ? true : undefined}>
+      <summary><span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+      <p className="raisonArbitrage">{a.raison}</p>
+      <div className="defileAudit">
+        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle}>
+          <thead><tr><th>Source</th><th>Dit</th><th>Confiance</th><th>Score</th><th>Règle</th><th>Groupe</th></tr></thead>
+          <tbody>{a.groupes.flatMap((g) => g.lignes.map((l, i) => (
+            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
+          )))}</tbody>
+        </table>
+      </div>
+      {main && (
+        <div className="mainArbitrage" role="group" aria-label={'Décider : ' + a.libelle}>
+          {a.groupes.map((g, i) => !g.retenu || a.decision === 'manuelle'
+            ? <button key={g.valeur} type="button" className="secondary small" data-controle="auditParcelle.retenirSource" onClick={() => main.retenir(i)}>{'Retenir « ' + g.valeur + ' »'}</button> : null)}
+          {a.options
+            ? <select aria-label={'Forcer : ' + a.libelle} data-controle="auditParcelle.forcerValeur" value={force} onChange={(e) => { setForce(''); if (e.target.value) main.forcer(e.target.value); }}>
+                <option value="">Forcer une valeur…</option>
+                {a.options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
+              </select>
+            : (a.accord === 'nombre' || a.accord === 'angle') && (
+              <span className="forcerNombre">
+                <input type="number" step="any" aria-label={'Forcer : ' + a.libelle + (a.unite ? ' (' + a.unite + ')' : '')} value={force} onChange={(e) => setForce(e.target.value)} />
+                <button type="button" className="secondary small" data-controle="auditParcelle.forcerValeur" disabled={force === '' || !Number.isFinite(Number(force))} onClick={() => { main.forcer(force); setForce(''); }}>Forcer</button>
+              </span>)}
+          {delaMain && <button type="button" className="secondary small" data-controle="auditParcelle.reprendreChoix" onClick={main.reprendre}>Reprendre le choix du moteur</button>}
+        </div>
+      )}
+    </details>
+  );
+}
+
+/**
+ * Toutes les sources d'un batiment, attribut par attribut (y compris ceux qui ne proposent rien) : c'est ici que l'on
+ * retient une source ou que l'on force une valeur quand l'audit ne propose rien ou propose la mauvaise.
+ */
+function SourcesDesBatiments({ v }: { v: Validation }) {
+  const batiments = v.arbitrages().filter((b) => b.arbitrages.length);
+  if (!batiments.length) return null;
+  const lectureSeule = v.lectureSeule();
+  return (
+    <section className="sourcesBatiments" aria-label="Sources des bâtiments">
+      <div className="titreObservations">Sources, bâtiment par bâtiment</div>
+      <p className="noteObservations tauxAutomatique">{texteTaux(tauxAutomatique(batiments.flatMap((b) => b.arbitrages)))}</p>
+      {batiments.map((b) => (
+        <details key={b.cle} className="sourcesBatiment">
+          <summary className="nomObservations">{b.nom}</summary>
+          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} {...(lectureSeule ? {} : { main: {
+            retenir: (i: number) => v.decider(a.cible, a.attribut, { type: 'groupe', index: i }),
+            forcer: (t: string) => v.decider(a.cible, a.attribut, { type: 'force', valeur: JSON.parse(t) as never }),
+            reprendre: () => v.decider(a.cible, a.attribut, null),
+          } })} />)}
+        </details>
+      ))}
+    </section>
+  );
+}
 
 /** Une ligne : la case, l'objet, l'avant et l'apres, l'origine, et ce qui la fait arriver decochee. */
 function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition } }) {
@@ -34,6 +114,7 @@ function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; co
   return (
     <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '')}>
       <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
+      <div className="corpsProposition">
       <label htmlFor={id} className="texteProposition">
         <span className="objetProposition">{p.objet}</span>
         <span className="avantApres"><span className="avantProposition">{p.avant}</span><span aria-hidden="true"> → </span><span className="texteMasque">, devient </span><span>{p.apres}</span></span>
@@ -42,6 +123,8 @@ function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; co
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
       </label>
+      {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} />)}
+      </div>
     </li>
   );
 }
@@ -164,6 +247,7 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
           {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
         </ul>}
+        <SourcesDesBatiments v={v} />
         <ObservationsClaude batiments={observations} />
         {!lecture && verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
           {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}

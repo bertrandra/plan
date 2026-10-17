@@ -11,7 +11,7 @@
 // proposition de Claude arrive decochee, avec la raison.
 
 import type { ToitMesure, CorpsToit, PtBrut } from './types.js';
-import { silhouetteLue, type SilhouetteFacade } from './silhouetteFacade.js';
+import { boutLu, silhouetteLue, type BoutVu, type SilhouetteFacade } from './silhouetteFacade.js';
 
 /** La version du schema de sortie que ce code sait lire (deploy/schema-analyse.json). */
 export const VERSION_SCHEMA_ANALYSE = 1;
@@ -32,8 +32,9 @@ export interface FacadeAnalyse {
   ouvertures: { niveaux: Compte; parNiveau: Compte[]; manquees: Compte; enTrop: Compte };
   details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string };
   materiau: 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois' | 'indetermine';
-  /** La ligne du haut de la facade (model/silhouetteFacade.ts) ; absente d'une reponse d'avant le prompt version 6. */
+  /** La ligne du haut de la facade et ce qu'elle ferme (model/silhouetteFacade.ts) ; absents d'une reponse d'avant le prompt version 7. */
   silhouette?: string;
+  bout?: string;
   ecart: string;
 }
 
@@ -116,6 +117,7 @@ export interface FacadeVotee {
   balcon: Vote<OuiNon>;
   formeOuvertures: Vote<string>;
   silhouette: Vote<SilhouetteFacade>;
+  bout: Vote<BoutVu>;
   niveaux: Vote<Compte>;
   manquees: Vote<Compte>;
   enTrop: Vote<Compte>;
@@ -204,7 +206,7 @@ function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
       facade: etiquette,
       materiau: v((f) => f.materiau, IND), volets: v((f) => f.details.volets, IND), coffre: v((f) => f.details.coffre, IND),
       balcon: v((f) => f.details.balcon, IND), formeOuvertures: v((f) => f.details.forme, IND),
-      silhouette: v((f) => silhouetteLue(f.silhouette), IND),
+      silhouette: v((f) => silhouetteLue(f.silhouette), IND), bout: v((f) => boutLu(f.bout), IND),
       niveaux: v<Compte>((f) => f.ouvertures.niveaux, IND), manquees: v<Compte>((f) => f.ouvertures.manquees, IND), enTrop: v<Compte>((f) => f.ouvertures.enTrop, IND),
       ecarts: [...new Set(fs.map((f) => f.ecart.trim()).filter(Boolean))],
     };

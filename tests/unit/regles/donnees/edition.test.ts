@@ -8,15 +8,20 @@ import { EMPREINTE_REGLAGES_FACADES } from '../../../../src/regles/facades/regla
 // Les fichiers de donnees du moteur dans Admin › Regles : controles par le lecteur du code, un seuil change
 // sans reformater le fichier, et l'empreinte qui dit si une version de lecture doit s'ajouter.
 
+import { EMPREINTE_RECONCILIATION } from '../../../../src/regles/reconciliation.js';
+import { EMPREINTE_SILHOUETTES_TOITS } from '../../../../src/regles/toits/silhouettes.js';
+
 const fichier = (id: string) => FICHIERS_DONNEES.find((f) => f.id === id)!;
 const toits = fichier('reglagesToits'), facades = fichier('reglagesFacades'), faits = fichier('faitsToits');
 
 describe('les fichiers livrés', () => {
   it('sont acceptés tels quels par le lecteur du code, et leur empreinte est celle que le code calcule', () => {
-    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json']);
+    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json', 'regles/toits/silhouettes.json', 'regles/reconciliation.json']);
     expect(controlerDonnees(toits, toits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_TOITS });
     expect(controlerDonnees(facades, facades.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_FACADES });
     expect(controlerDonnees(faits, faits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_FAITS_TOITS });
+    expect(controlerDonnees(fichier('reconciliation'), fichier('reconciliation').livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_RECONCILIATION });
+    expect(controlerDonnees(fichier('silhouettesToits'), fichier('silhouettesToits').livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_SILHOUETTES_TOITS });
   });
 
   it('ne montrent aucun écart avec eux-mêmes', () => {

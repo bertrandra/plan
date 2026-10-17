@@ -81,7 +81,7 @@ function Conclusion({ d }: { d: DonneesAudit }) {
       <table className="attrTable tableAudit">
         <thead><tr><th>Objet</th><th>Avant</th><th>Après</th><th>Source</th><th>Décision</th></tr></thead>
         <tbody>{d.propositions.map((p, i) => (
-          <tr key={i}><td>{p.objet}</td><td>{p.avant}</td><td>{p.apres}</td><td>{p.source === 'claude' ? 'Claude' : 'Mesure'}</td><td>{p.decision ? DECISIONS[p.decision] : 'En attente'}</td></tr>
+          <tr key={i}><td>{p.objet}</td><td>{p.avant}</td><td>{p.apres}</td><td>{p.source === 'claude' ? 'Claude' : p.source === 'arbitrage' ? 'Sources arbitrées' : 'Mesure'}</td><td>{p.decision ? DECISIONS[p.decision] : 'En attente'}</td></tr>
         ))}</tbody>
       </table>
     </>

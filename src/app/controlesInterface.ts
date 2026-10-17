@@ -101,6 +101,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'projet.choisir': { libelle: 'Choisir le projet à ouvrir', zone: Z1, nature: 'navigation', description: 'Ouvre un autre projet (ou une autre démo, en admin) ; le projet courant n’est pas modifié' },
   'admin.audit': { libelle: 'Mode audit (promenade)', zone: Z1, nature: 'navigation', description: 'Ouvre le mode audit : promenade GPS en Vue 3D, bâtiments à noter, fichier partagé (administrateur seulement)' },
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
+  'admin.chaine': { libelle: 'De l’IGN à ma maison', zone: Z1, nature: 'navigation', description: 'Ouvre le schéma de bout en bout : sources, polygone, corps de toit, objets 3D, textures, réconciliation et audit (admin des démos seulement)' },
   'admin.arbres': { libelle: 'Arbres (bibliothèque)', zone: Z1, nature: 'navigation', description: 'Ouvre la bibliothèque d’essences d’arbres générées par EZ-tree (admin des démos seulement)' },
   'admin.palette': { libelle: 'Palette de l’interface', zone: Z1, nature: 'navigation', description: 'Ouvre la palette : couleurs, variables CSS, typographie (admin des démos seulement)' },
   'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },
@@ -249,6 +250,9 @@ export const CONTROLES: Record<string, ControleInterface> = {
   // propositions, montrees avant et apres dans la Vue 3D ; seul « Valider » ecrit dans le projet.
   'auditParcelle.propositions': etape(Z8, AUDIT_PARCELLE, 'Voir les propositions de l’audit, sur la Vue 3D'),
   'auditParcelle.avantApres': etape(Z8, AUDIT_PARCELLE, 'Vue 3D avant ou après les propositions cochées (sans modifier le projet)', { repete: true }),
+  'auditParcelle.retenirSource': etape(Z8, AUDIT_PARCELLE, 'Retenir le groupe de sources que l’on juge juste', { repete: true }),
+  'auditParcelle.forcerValeur': etape(Z8, AUDIT_PARCELLE, 'Forcer une valeur pour un attribut', { repete: true }),
+  'auditParcelle.reprendreChoix': etape(Z8, AUDIT_PARCELLE, 'Reprendre le choix du moteur', { repete: true }),
   'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
   'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),

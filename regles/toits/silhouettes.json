@@ -1,0 +1,20 @@
+{
+  "format": "plan-silhouettes-toits",
+  "version": 1,
+  "pourquoi": "Comment la silhouette du haut de chaque facade (`silhouette` et `bout`, les mots de la reponse de Claude : model/silhouetteFacade.ts) dit le sens du faitage et les bouts du toit (facade/regles/toits/silhouettes.ts, MD/spec-regles-toits.md §14). Une facade qui ferme un bout du faitage a le faitage perpendiculaire a elle, un long pan l'a parallele. Les lignes de `lecture` se lisent de haut en bas : la premiere dont la condition `si` est tenue donne le role et ce que la facade dit. Le fichier est compile dans le fichier livre ; il ne change aucune toiture deja lue (il ne sert qu'aux propositions de l'audit), son empreinte n'entre donc pas dans la version de lecture des toits.",
+  "seuils": {
+    "TOLERANCE_BOUT_DEG": { "valeur": 30, "unite": "degres", "ou": "facade/regles/toits/silhouettes.ts", "pourquoi": "Un mur dont la normale est a moins de cela de l'axe du faitage ferme un bout ; a plus de 60 degres (90 moins cela), c'est un long pan ; entre les deux, il ne dit rien. Deux sens de faitage a moins de cela l'un de l'autre sont le meme.", "cas": [] },
+    "PART_SECOND_SENS": { "valeur": 0.4, "unite": "part", "ou": "facade/regles/toits/silhouettes.ts", "pourquoi": "Des murs qui disent un autre sens de faitage et pesent (largeur) au moins cette part du sens retenu font signaler deux sens : plusieurs corps, ou des murs qui se contredisent. Moins, c'est une annexe ou une lucarne et le signalement ne sert a rien.", "cas": [] }
+  },
+  "lecture": [
+    { "si": { "bout": "pignon" }, "role": "bout", "valeur": "pignon", "pourquoi": "Claude dit que cette facade ferme un bout en pignon : le bout de Claude fait foi." },
+    { "si": { "bout": "croupe" }, "role": "bout", "valeur": "croupe", "pourquoi": "Idem, en croupe." },
+    { "si": { "bout": "demi-croupe" }, "role": "bout", "valeur": "hors-moteur", "pourquoi": "Le moteur ne produit pas de demi-croupe : la facade donne le sens du faitage, jamais les bouts." },
+    { "si": { "bout": "brisis" }, "role": "bout", "valeur": "hors-moteur", "pourquoi": "Idem pour le brisis du Mansart." },
+    { "si": { "bout": "sans-objet", "silhouette": ["triangle", "marches", "rampe"] }, "role": null, "pourquoi": "Un mur qui n'est pas un bout ne montre ni triangle, ni marches, ni rampe : Claude se contredit, le mur ne dit rien." },
+    { "si": { "silhouette": ["triangle", "marches"] }, "role": "bout", "valeur": "pignon", "pourquoi": "Sans `bout` (la photo mesuree seule) : un triangle ou des marches sont un mur pignon, le faitage lui est perpendiculaire. Seul Claude voit qu'un triangle couvert comme le toit est une croupe." },
+    { "si": { "silhouette": ["rampe"] }, "role": "bout", "valeur": "appentis", "pourquoi": "Une seule rampe : le mur d'un appentis, dont le haut s'appuie sur un mur ; faitage perpendiculaire." },
+    { "si": { "silhouette": ["trapeze"] }, "role": "long", "valeur": "croupe", "pourquoi": "Un bandeau de toit plus court que l'egout, vu de cote : le long pan d'un toit a croupes ; il dit des croupes aux deux bouts." },
+    { "si": { "silhouette": ["ligne-droite"], "toitPlat": false }, "role": "long", "valeur": "pignon", "pourquoi": "Une ligne droite sous un toit en pente : le long pan vu de face sous l'egout d'un deux-pans ; il dit des pignons aux deux bouts. Sous un toit plat, il n'y a pas de faitage et la ligne ne dit rien." }
+  ]
+}

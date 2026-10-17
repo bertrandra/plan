@@ -1,5 +1,5 @@
 // Les fichiers de donnees du moteur dans Admin › Regles : les reglages des toits et des facades (un seuil, sa valeur,
-// sa raison) et les faits des toits. Meme principe que les sujets : on edite, l'ecran controle avec le lecteur
+// sa raison), les faits des toits et la lecture des silhouettes de facades. Meme principe que les sujets : on edite, l'ecran controle avec le lecteur
 // du code, dit ce qui change et ce que le changement declenche, et le fichier se telecharge pour entrer dans le depot
 // par une PR. Une valeur changee dans un seuil ne reformate pas le fichier : le diff montre sa ligne, pas tout.
 
@@ -154,7 +154,7 @@ export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, tele
   return (
     <div className="reglDonnees">
       <p className="consNote">
-        Les trois fichiers que le moteur lit : une valeur ne change pas le fichier d’un octet de plus que sa ligne. Un fichier que le moteur refuserait ne se télécharge pas.
+        Les fichiers que le moteur lit : une valeur ne change pas le fichier d’un octet de plus que sa ligne. Un fichier que le moteur refuserait ne se télécharge pas.
         Une empreinte qui change demande une ligne de version, sinon les toits déjà lus ne seraient pas relus.
       </p>
       {(ligneToits || ligneFacades) && <div className="reglControles" role="status" aria-label="Lignes de version à ajouter">
