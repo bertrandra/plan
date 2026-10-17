@@ -42,6 +42,8 @@ Plus deux sorties qui ne touchent pas au calcul des toits :
 cp ~/audit-2026-10-13-0905-le-vesinet.json tests/fixtures/audit/
 # 1. Premier tri : niveau suggere par probleme, seuils en jeu, fait existant, squelette de fait
 npx tsx .claude/skills/regles-toits/scripts/trier.ts tests/fixtures/audit/audit-2026-10-13-0905-le-vesinet.json
+# (le tri propose aussi un « fait candidat » quand « Ce que je vois » et la photo du cas le permettent, avec ce qu'il suppose (« a verifier »)
+#  et ce qu'un fait ne sait pas dire (« piste » : une forme du catalogue lue sur la surface LiDAR) : src/facade/regles/toits/candidatFait.ts)
 # 2. Rejeu et cartes AVANT (code courant)
 TOITS_DOSSIER=/tmp/toits/avant npx tsx .claude/skills/toits/scripts/audit.ts tests/fixtures/audit/audit-….json
 TOITS_DOSSIER=/tmp/toits/avant python3 .claude/skills/toits/scripts/rendu.py --montage planche.png bati-<cle> bati-<cle>-terrain
