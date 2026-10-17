@@ -14,6 +14,7 @@ import { repere, penteDominante } from '../../facade/toitCorps.js';
 import { materiauCouverture, type MateriauCouverture } from '../../model/couleurToit.js';
 import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
+import { formeDuCorps } from '../../facade/regles/toits/faits.js';
 import type { CorpsToit, CouvertureChoisie, FormeToit, TerrasseToit, Toit } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
@@ -31,6 +32,9 @@ function toitDe(c: ContexteChamps): Toit {
 }
 
 const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
+
+/** Les rangs des corps du batiment qui sont des appentis (le reglage « ouvert / ferme » ne vaut que pour eux). */
+const indicesAppentis = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (formeDuCorps(c) === 'appentis' ? [i] : []));
 
 /** D'ou vient la couleur d'une couverture que Plan a posee (MD/spec-toit-ign.md §6.1). */
 function origineCouleur(toit: Toit | null | undefined): string {
@@ -138,6 +142,35 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
   };
 }
 
+/**
+ * Un appentis (galerie, porche) ouvert ou ferme : meme reglage que la ligne « Appentis de … » de l'avant / apres, sans passer par l'audit.
+ * Il s'ecrit sur tous les appentis du batiment ; « sans indication » retire la cle (le dessin du toit seul).
+ */
+function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
+  const vus = (cc: ContexteChamps) => new Set(indicesAppentis(cc.obj).map((i) => (cc.obj.corpsToit?.[i] as CorpsToit).ouvert));
+  return {
+    type: 'choix',
+    cle: 'appentisOuvert',
+    libelle: 'Appentis',
+    visible: (cc) => mode(cc) === 'corps' && indicesAppentis(cc.obj).length > 0,
+    historique: true,
+    effets: ['scene3d', 'inspecteur'],
+    aide: 'Ouvert : une galerie ou un porche, des poteaux et pas de mur extérieur. Fermé : des murs du sol à l’égout et aux bouts. Sans indication : le dessin du toit seul.',
+    options: () => [{ valeur: '', libelle: 'Sans indication' }, { valeur: 'ouvert', libelle: 'Ouvert (galerie, porche)' }, { valeur: 'ferme', libelle: 'Fermé' }],
+    lire: (cc) => { const v = vus(cc); return v.size === 1 ? (v.has(true) ? 'ouvert' : v.has(false) ? 'ferme' : '') : ''; },
+    note: (cc) => (vus(cc).size > 1 ? 'les appentis du bâtiment ne sont pas tous réglés pareil' : ''),
+    ecrire: (cc, v) => {
+      const cibles = new Set(indicesAppentis(cc.obj));
+      cc.obj.corpsToit = (cc.obj.corpsToit ?? []).map((k, i) => {
+        if (!cibles.has(i)) return k;
+        const neuf = { ...k };
+        delete neuf.ouvert;
+        return v === 'ouvert' ? { ...neuf, ouvert: true } : v === 'ferme' ? { ...neuf, ouvert: false } : neuf;
+      });
+    },
+  };
+}
+
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
 function champsDuToit(): Champ[] {
   // Le toit unique ne se montre que si c'est lui que la 3D dessine : en surface mesuree ou en
@@ -180,6 +213,7 @@ function champsDuToit(): Champ[] {
       visible: (cc) => mode(cc) === 'corps',
       valeur: (cc) => decrireCorps(cc.obj.corpsToit ?? []).join(' · '),
     },
+    champAppentis(mode),
     {
       type: 'lecture',
       cle: 'toitMesure',

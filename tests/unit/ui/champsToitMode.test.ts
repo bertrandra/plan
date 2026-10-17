@@ -135,3 +135,29 @@ describe('Materiau de la couverture', () => {
     expect(cles(c)).not.toContain('toitMateriau');
   });
 });
+
+describe('Appentis ouvert ou ferme', () => {
+  const MAISON: CorpsToit = { pts: [{ x: 0, y: 3 }, { x: 12, y: 3 }, { x: 12, y: 8 }, { x: 0, y: 8 }], posFaitage: 2.5, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
+  const GALERIE: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 3 }, { x: 0, y: 3 }], posFaitage: 3, faitage: 3.4, egouts: [2.4, 3.4], pignons: [], ecart: 0.1 };
+
+  it('se montre quand un corps est un appentis, et s ecrit sur tous les appentis sans toucher aux autres corps', () => {
+    const c = contexte({ corpsToit: [MAISON, GALERIE], modeToit: 'corps' });
+    expect(cles(c)).toContain('appentisOuvert');
+    const ch = champ<ChampChoix>(c, 'appentisOuvert');
+    expect(ch.lire(c)).toBe('');
+    ch.ecrire(c, 'ouvert');
+    expect(c.obj.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, true]);
+    expect(ch.lire(c)).toBe('ouvert');
+    ch.ecrire(c, 'ferme');
+    expect(c.obj.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, false]);
+    expect(ch.lire(c)).toBe('ferme');
+    // « Sans indication » retire la cle : le dessin redevient celui du toit seul.
+    ch.ecrire(c, '');
+    expect(c.obj.corpsToit?.[1]).not.toHaveProperty('ouvert');
+  });
+
+  it('ne se montre pas sans appentis, ni hors du mode corps et pignons', () => {
+    expect(cles(contexte({ corpsToit: [MAISON], modeToit: 'corps' }))).not.toContain('appentisOuvert');
+    expect(cles(contexte({ corpsToit: [MAISON, GALERIE], modeToit: 'simple' }))).not.toContain('appentisOuvert');
+  });
+});
