@@ -19,6 +19,19 @@ import { creerClientRegles } from '../io/reglesServeur.js';
 import { RECONCILIATION } from '../regles/reconciliation.js';
 import { FICHIERS_DONNEES } from '../regles/donnees/fichiers.js';
 import { seuilsDuTexte } from '../regles/donnees/edition.js';
+import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle, type FichierAuditParcelle } from '../model/fichierAuditParcelle.js';
+import { justessesDesAudits, poidsProposes } from './audit/parcelle/poidsAuto.js';
+import type { ProposerPoids } from '../zones/regles/Poids.js';
+
+/** Les poids que des audits recus proposent : les fichiers qui ne sont pas un audit de parcelle sont comptes a part, pas lus. */
+export const proposerPoids: ProposerPoids = (textes, regles) => {
+  const audits: FichierAuditParcelle[] = [];
+  let ignores = 0;
+  for (const t of textes) {
+    try { const j = JSON.parse(t) as { format?: string }; if (j.format === FORMAT_AUDIT_PARCELLE) audits.push(lireFichierAuditParcelle(j)); else ignores++; } catch { ignores++; }
+  }
+  return { audits: audits.length, ignores, propositions: poidsProposes(justessesDesAudits(audits), regles) };
+};
 
 /** L'adresse demande-t-elle l'ecran des regles ? */
 export function demandeEcranRegles(recherche: string): boolean {
@@ -55,6 +68,7 @@ export function ouvrirEcranRegles(): void {
     donnees: {
       versions: { toits: Math.max(...LECTURES_TOITS.map((l) => l.version)), facades: Math.max(...LECTURES_FACADES.map((l) => l.version)) },
       brouillon: brouillonLocal(CLE_BROUILLON_DONNEES),
+      proposerPoids,
     },
     sources: { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')?.livre ?? ''), seuilsFormes: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'formesToits')?.livre ?? '') },
     telecharger: (nom, contenu, type) => telechargerTexte(nom, contenu, type),

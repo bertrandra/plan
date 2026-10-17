@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FICHIERS_DONNEES, type FichierDonnees, type IdDonnees } from '../../regles/donnees/fichiers.js';
 import { bilanDonnees, changerSeuil, lireDonnees, seuilsDuTexte } from '../../regles/donnees/edition.js';
 import type { BrouillonRegles } from '../EcranRegles.js';
+import { Poids, type ProposerPoids } from './Poids.js';
 
 type Textes = Record<IdDonnees, string>;
 
@@ -17,6 +18,8 @@ export interface PropsDonnees {
   versions: { toits: number; facades: number };
   brouillon?: BrouillonRegles | undefined;
   telecharger: (nom: string, contenu: string, type: string) => void;
+  /** Lit des audits recus et dit les poids de la reconciliation a changer ; absent : les poids ne s'editent qu'a la main. */
+  proposerPoids?: ProposerPoids | undefined;
 }
 
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
@@ -89,7 +92,7 @@ function ListeFaits({ texte }: { texte: string }) {
 }
 
 /** `remonter` : le texte change ailleurs que dans le champ d'un seuil, qui doit alors se relire. */
-function Fichier({ f, texte, surTexte, telecharger, cle }: { f: FichierDonnees; texte: string; surTexte: (t: string, remonter: boolean) => void; telecharger: PropsDonnees['telecharger']; cle: number }) {
+function Fichier({ f, texte, surTexte, telecharger, cle, proposerPoids }: { f: FichierDonnees; texte: string; surTexte: (t: string, remonter: boolean) => void; telecharger: PropsDonnees['telecharger']; cle: number; proposerPoids?: ProposerPoids | undefined }) {
   const bilan = useMemo(() => bilanDonnees(f, texte), [f, texte]);
   const changees = bilan.diff.filter((l) => l.type !== '=');
   return (
@@ -103,6 +106,7 @@ function Fichier({ f, texte, surTexte, telecharger, cle }: { f: FichierDonnees; 
       </div>
       {bilan.controle.erreur && <p className="reglErreur" role="alert">Le moteur refuserait ce fichier : {bilan.controle.erreur}</p>}
       {bilan.controle.valide && <p className="consNote" role="status">Le moteur l’accepte.{bilan.empreinteChange ? ' L’empreinte passe de ' + bilan.empreinteLivree + ' à ' + bilan.controle.empreinte + ' : ' + f.consequence.effet + '. Ajoutez la ligne de version dans ' + f.consequence.ou + '.' : bilan.lignes > 0 ? ' L’empreinte ne change pas (les raisons, les cas et l’historique n’entrent pas dans un calcul) : aucun toit n’est relu.' : ''}</p>}
+      {f.id === 'reconciliation' && <details open><summary>Poids des sources</summary><Poids texte={texte} livre={f.livre} surTexte={surTexte} cle={cle} proposer={proposerPoids} /></details>}
       {f.seuils ? <Seuils f={f} texte={texte} surTexte={(t) => surTexte(t, false)} cle={cle} /> : <ListeFaits texte={texte} />}
       <details>
         <summary>Texte du fichier</summary>
@@ -124,7 +128,7 @@ function Fichier({ f, texte, surTexte, telecharger, cle }: { f: FichierDonnees; 
   );
 }
 
-export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, telecharger }: PropsDonnees) {
+export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, telecharger, proposerPoids }: PropsDonnees) {
   const [textes, setTextes] = useState<Textes>(() => lireTextes(brouillon?.lire() ?? null, fichiers));
   // Remonte les champs de seuils non controles quand un texte change d'ailleurs (retour au livre, texte du fichier).
   const [cles, setCles] = useState<Record<string, number>>({});
@@ -162,7 +166,7 @@ export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, tele
         {ligneFacades && <p className="consNote">À ajouter à <code>LECTURES_FACADES</code> (<code>src/regles/facades/reglages.ts</code>) : <code>{ligneFacades}</code></p>}
       </div>}
       <div className="reglListe">
-        {fichiers.map((f) => <Fichier key={f.id} f={f} texte={textes[f.id]} cle={cles[f.id] ?? 0} telecharger={telecharger}
+        {fichiers.map((f) => <Fichier key={f.id} f={f} texte={textes[f.id]} cle={cles[f.id] ?? 0} telecharger={telecharger} proposerPoids={proposerPoids}
           surTexte={(t, remonter) => poser(f, t, remonter)} />)}
       </div>
     </div>

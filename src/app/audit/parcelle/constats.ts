@@ -50,6 +50,9 @@ export function formeDesBouts(bouts: readonly string[]): string | null {
 /** Ce que les mots de « Ce que je vois » disent des bouts. */
 const BOUTS_VUS: Record<string, readonly string[]> = { pignons: ['pignon', 'pignon'], croupes: ['croupe', 'croupe'], 'pignon-croupe': ['pignon', 'croupe'] };
 
+/** Le pan des lucarnes que dit Claude, dans les mots de « Ce que je vois ». */
+const PAN_CLAUDE: Record<string, 'rue' | 'jardin' | 'les-deux'> = { rue: 'rue', arriere: 'jardin', cote: 'rue', plusieurs: 'les-deux' };
+
 const cm = (v: number): number => Math.round(v * 100) / 100;
 const borne = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
 /** La confiance d'une lecture LiDAR d'un corps : son ecart a la mesure (m) ; 0 m, 0,95 ; 1,2 m et plus, 0,4. */
@@ -201,6 +204,11 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
     });
     out.push({ cible, attribut: 'cheminees', source: 'claude', valeur: nCheminees, confiance: v.cheminees.accord, regle: 'cheminées vues par Claude', indices: v.cheminees.indices.map((i) => ({ texte: i.vu })), charge: { souches, texte: (nCheminees ? pluriel(nCheminees, 'cheminée') : 'Aucune cheminée') + ', vue' + (nCheminees > 1 ? 's' : '') + ' par Claude' } });
   }
+  const nLucarnes = v.lucarnes.valeur;
+  if (typeof nLucarnes === 'number') {
+    const types = [...new Set(v.lucarnesTypes)];
+    out.push({ cible, attribut: 'lucarnes', source: 'claude', valeur: nLucarnes, confiance: v.lucarnes.accord, regle: 'lucarnes vues par Claude', indices: v.lucarnes.indices.map((i) => ({ texte: i.vu })), charge: { types, pan: PAN_CLAUDE[v.panLucarnes.valeur] ?? 'rue', texte: (nLucarnes ? pluriel(nLucarnes, 'lucarne') : 'Aucune lucarne') + ', vue' + (nLucarnes > 1 ? 's' : '') + ' par Claude' } });
+  }
   const couv = couvertureDuVocabulaire(v.couverture.valeur);
   // Quand les passes ne s'accordaient pas, c'est un modele plus fin qui a tranche : la regle le dit, et le constat pese la part des passes d'accord.
   if (couv) out.push({ cible, attribut: 'couverture', source: 'claude', valeur: couv, confiance: v.couverture.accord, regle: v.couverture.escalade ? 'couverture tranchée par un modèle plus fin (les passes ne s’accordaient pas)' : 'couverture vue par Claude', indices: v.couverture.indices.map((i) => ({ texte: i.vu })) });
@@ -219,6 +227,7 @@ function constatsTerrain({ b, vu }: EntreesConstats): Constat[] {
   if (vu.murs) dit('materiauMurs', vu.murs);
   if (vu.couverture && vu.couverture !== 'terrasse') dit('couverture', vu.couverture);
   // Les cheminees notees : leur nombre s'arbitre, leurs souches (position, materiau) sont ce que la proposition ecrit si cette valeur l'emporte.
+  if (vu.lucarnes) out.push({ cible, attribut: 'lucarnes', source: 'terrain', valeur: vu.lucarnes.nombre, confiance: 1, regle: 'Ce que je vois', charge: { types: [], pan: vu.lucarnes.pan ?? 'rue', texte: (vu.lucarnes.nombre ? pluriel(vu.lucarnes.nombre, 'lucarne') : 'Aucune lucarne') + ', vue' + (vu.lucarnes.nombre > 1 ? 's' : '') + ' sur place' } });
   if (vu.cheminees) out.push({ cible, attribut: 'cheminees', source: 'terrain', valeur: vu.cheminees.nombre, confiance: 1, regle: 'Ce que je vois', charge: { souches: vu.cheminees.souches, texte: majuscule(resumePartie(vu, 'cheminees').toLowerCase()) + ', vues sur place' } });
   return out;
 }
@@ -236,6 +245,7 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
       case 'cheminees': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
       case 'ouverturesFacade': { const f = (o.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
+      case 'lucarnes': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: false };
       case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.couleurMurs?.materiau };
       case 'couverture': return { valeur: o.toit?.couverture ?? null, choisi: !!o.toit?.couverture };
       default: return vide;

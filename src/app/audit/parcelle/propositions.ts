@@ -26,7 +26,7 @@ import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
 import type { CaptureParcelle, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
-import type { Cheminee, CorpsToit, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
+import type { Cheminee, CorpsToit, EdiculeTerrasse, Lucarne, ObjetPlan, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
 
 /** Un ecart de hauteur en deca ne vaut pas une proposition : c'est la precision de la mesure. */
@@ -179,6 +179,37 @@ function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesProposition
 export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
   const i = plusGrand(corps, (c) => !estPlat(c));
   return i >= 0 ? i : plusGrand(corps, () => true);
+}
+
+/** La largeur d'une lucarne, en metres, selon son type (un outeau est une petite lucarne a croupe). */
+const LARGEUR_LUCARNE_M: Partial<Record<TypeLucarne, number>> = { outeau: 0.9, 'oeil-de-boeuf': 0.8, lanterneau: 1.2, rampante: 1.6 };
+/** Ou le faitage d'une lucarne rejoint le pan, en part de la hauteur de l'egout au faitage ; sa face recule d'autant. */
+const MONTEE_LUCARNE = 0.6;
+const PROFONDEUR_LUCARNE_M = 1.2;
+
+/**
+ * Les lucarnes vues, posees sur un corps : repartie(s) a egale distance le long du faitage, sur le pan que dit la vue (rue : le pan 0,
+ * jardin : le pan 1, les deux : tour a tour). La photo ne donne ni leur place exacte ni leur largeur : ce sont des valeurs par type.
+ */
+export function lucarnesSurLeCorps(c: CorpsToit, n: number, types: readonly TypeLucarne[], pan: 'rue' | 'jardin' | 'les-deux'): Lucarne[] {
+  const r = repereCorps(c);
+  if (!r || n <= 0) return [];
+  const pans: (0 | 1)[] = pan === 'rue' ? [0] : pan === 'jardin' ? [1] : [0, 1];
+  const parPan = pans.map((_, k) => Array.from({ length: n }, (__, i) => i).filter((i) => i % pans.length === k));
+  const out: Lucarne[] = [];
+  pans.forEach((p, k) => {
+    const idx = parPan[k] ?? [];
+    const largeurPan = p === 0 ? c.posFaitage : r.W - c.posFaitage;
+    const e = c.egouts[p];
+    if (largeurPan < 0.5 || c.faitage - e < 0.3) return;
+    idx.forEach((i, j) => {
+      const type = types[i % Math.max(1, types.length)] ?? 'inconnue';
+      const w = LARGEUR_LUCARNE_M[type] ?? 1.2;
+      const centre = ((j + 1) / (idx.length + 1)) * r.L;
+      out.push({ type, pan: p, debutM: Math.round((centre - w / 2) * 100) / 100, finM: Math.round((centre + w / 2) * 100) / 100, faitageM: Math.round((e + MONTEE_LUCARNE * (c.faitage - e)) * 100) / 100, profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' });
+    });
+  });
+  return out;
 }
 
 /** Le corps qui porte la toiture-terrasse : le plus grand corps plat ; -1 s'il n'y en a pas. */

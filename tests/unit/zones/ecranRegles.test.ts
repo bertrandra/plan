@@ -331,6 +331,54 @@ describe('l ecran des regles', () => {
       expect((bouton(f, 'Télécharger reglages.json') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it('les poids de la réconciliation se changent à la main : une ligne du fichier, le reste intact', async () => {
+      const { hote, telechargements } = await monter({ donnees });
+      await cliquer(onglet(hote));
+      const f = fichier(hote, 'reconciliation');
+      expect(f.querySelectorAll('[data-attribut]').length).toBe(11);
+      await taper(f.querySelector('input[aria-label="Poids de LiDAR HD pour Hauteur à l\'égout"]'), '5');
+      expect(f.textContent).toContain('1 ligne change');
+      expect(f.querySelector('[data-attribut="hauteurEgout"]')?.textContent).toContain('Modifié');
+      await cliquer(bouton(f, 'Télécharger reconciliation.json'));
+      const t = telechargements.at(-1)!.contenu;
+      expect(JSON.parse(t).attributs.hauteurEgout.poids.lidar).toBe(5);
+      expect(t.split('\n').length).toBe(FICHIERS_DONNEES.find((x) => x.id === 'reconciliation')!.livre.split('\n').length);
+      // Remettre la valeur du livré defait le changement ; vider le champ retire le poids (la source reprend son poids par défaut).
+      await taper(f.querySelector('input[aria-label="Poids de LiDAR HD pour Hauteur à l\'égout"]'), '4');
+      expect(f.textContent).not.toContain('1 ligne change');
+      await taper(f.querySelector('input[aria-label="Poids de LiDAR HD pour Hauteur à l\'égout"]'), '');
+      expect(f.textContent).toContain('1 ligne change');
+    });
+
+    it('recale les poids sur des audits reçus : les poids proposés s appliquent un à un ou tous ensemble', async () => {
+      const proposerPoids = vi.fn(() => ({ audits: 2, ignores: 1, propositions: [
+        { attribut: 'hauteurEgout', source: 'photo' as const, actuel: 3, propose: 1.5, taux: 0.2, decisions: 10 },
+        { attribut: 'hauteurTotale', source: 'lidar' as const, actuel: 5, propose: 6, taux: 0.95, decisions: 12 },
+      ] }));
+      const { hote } = await monter({ donnees: { ...donnees, proposerPoids } });
+      await cliquer(onglet(hote));
+      const f = fichier(hote, 'reconciliation');
+      const champ = f.querySelector('input[type="file"]') as HTMLInputElement;
+      const audit = { text: async () => '{}' };
+      await act(async () => { Object.defineProperty(champ, 'files', { value: [audit], configurable: true }); champ.dispatchEvent(new Event('change', { bubbles: true })); });
+      expect(proposerPoids).toHaveBeenCalledTimes(1);
+      const poids = f.querySelector('[aria-label="Poids proposés"]') as HTMLElement;
+      expect(poids.textContent).toContain('2 audits lus, 1 fichier ignoré');
+      expect(poids.querySelectorAll('tbody tr')).toHaveLength(2);
+      await cliquer(bouton(poids, 'Appliquer'));
+      expect(f.textContent).toContain('1 ligne change');
+      expect((f.querySelector('input[aria-label="Poids de Photo de façade pour Hauteur à l\'égout"]') as HTMLInputElement).value).toBe('1.5');
+      expect(poids.querySelectorAll('tbody tr')).toHaveLength(1);
+      await cliquer(bouton(poids, 'Tout appliquer'));
+      expect(f.textContent).toContain('2 lignes changent');
+    });
+
+    it('sans fonction de recalage, les poids ne s éditent qu à la main', async () => {
+      const { hote } = await monter({ donnees });
+      await cliquer(onglet(hote));
+      expect(fichier(hote, 'reconciliation').querySelector('input[type="file"]')).toBeNull();
+    });
+
     it('garde les fichiers édités dans le navigateur, à part du brouillon des sujets', async () => {
       const mem: { texte: string | null } = { texte: null };
       const brouillon = { lire: () => mem.texte, ecrire: (t: string) => { mem.texte = t; }, effacer: () => { mem.texte = null; } };

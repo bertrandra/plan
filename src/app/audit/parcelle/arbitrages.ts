@@ -16,14 +16,14 @@ import { cibleBatiment, cibleFacade, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
-import { cleMesure, corpsDesCheminees, dateFr, ECART_HAUTEUR_MIN_M, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
+import { cleMesure, corpsDesCheminees, dateFr, ECART_HAUTEUR_MIN_M, lucarnesSurLeCorps, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe, type SoucheVue } from '../../../model/ceQueJeVois.js';
 import { pluriel } from '../../regles/sujets/contrat.js';
 import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
-import type { CouvertureChoisie, FormeToitSimple, ObjetPlan, ReleveFacade } from '../../../model/types.js';
+import type { CouvertureChoisie, FormeToitSimple, ObjetPlan, ReleveFacade, TypeLucarne } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 
 /** Le vote des passes de Claude, par batiment (cle) ; absent : Claude n'a rien dit de ce batiment. */
@@ -269,6 +269,36 @@ function propositionReleve(o: ObjetPlan, b: LigneBatiment, f: LigneBatiment['fac
   };
 }
 
+/** Les types de lucarnes que dit Claude, dans le vocabulaire du modele. */
+const TYPES_LUCARNE_VUS: ReadonlySet<string> = new Set(['jacobine', 'capucine', 'chien-assis', 'rampante', 'meuniere', 'oeil-de-boeuf', 'outeau', 'lanterneau']);
+
+/**
+ * Les lucarnes : leur nombre s'arbitre entre ce que la personne a note et ce que Claude voit (le LiDAR, a 50 cm la cellule, ne les voit
+ * pas) ; ce qui s'ecrit, ce sont des lucarnes posees a egale distance sur le pan dit, sur le plus grand corps en pente. Leur place exacte
+ * et leur largeur sont des valeurs par type : la ligne arrive toujours decochee, et le dit.
+ */
+function propositionLucarnes(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  const corps = o.corpsToit ?? [];
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'number' || !corps.length) return null;
+  const n = Math.max(0, Math.round(a.retenu.valeur));
+  const i = corpsDesCheminees(corps), c = corps[i];
+  if (!c) return null;
+  const existantes = corps.flatMap((k) => k.lucarnes ?? []);
+  if (n === 0 && !existantes.some((l) => l.source === 'observation')) return null;
+  const charge = (a.retenu.lignes[0]?.constat.charge ?? null) as { types: string[]; pan: 'rue' | 'jardin' | 'les-deux'; texte: string } | null;
+  const types = (charge?.types ?? []).filter((t) => TYPES_LUCARNE_VUS.has(t)) as TypeLucarne[];
+  const lucarnes = lucarnesSurLeCorps(c, n, types, charge?.pan ?? 'rue');
+  const place = 'Leur place est répartie le long du faîtage et leur largeur est celle de leur type : la photo ne les donne pas, à ajuster dans l’inspecteur.';
+  return {
+    id: b.cle + ':lucarnes', cible: { type: 'batiment', cle: b.cle }, objet: 'Lucarnes de ' + b.nom, source: 'arbitrage',
+    avant: existantes.length ? pluriel(existantes.length, 'lucarne') : 'aucune lucarne',
+    apres: charge?.texte ?? ((n ? pluriel(n, 'lucarne') : 'Aucune lucarne') + (a.decision === 'forcee' ? ', forcée' + (n > 1 ? 's' : '') + ' par vous' : '')),
+    confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
+    reserve: [a.decision === 'manuelle' ? a.raison : null, n ? place : null].filter(Boolean).join(' ') || null,
+    effet: { type: 'lucarnes', corps: i, lucarnes }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
 export type ChoixArbitrages = Readonly<Record<string, ChoixArbitrage | undefined>>;
 export const cleChoix = (cible: string, attribut: string): string => cible + '|' + attribut;
 
@@ -284,7 +314,7 @@ export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: Li
 }
 
 /** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
-const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture', 'cheminees'];
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes'];
 
 /** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
 export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
@@ -311,7 +341,7 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
       const p = propositionReleve(o, b, f, arbitrages.find((x) => x.cible === cibleFacade(cle, f.cote) && x.attribut === 'ouverturesFacade'), e, regles);
       if (p) out.push(p);
     }
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles), propositionLucarnes(o, b, parAttribut('lucarnes'), regles)]) if (p) out.push(p);
   }
   return out;
 }

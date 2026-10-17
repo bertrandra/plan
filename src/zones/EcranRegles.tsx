@@ -21,6 +21,7 @@ import { EditeurSujet } from './regles/EditeurSujet.js';
 import { NouveauSujet } from './regles/NouveauSujet.js';
 import { Resultat, type Onglet } from './regles/Resultat.js';
 import { Donnees } from './regles/Donnees.js';
+import type { ProposerPoids } from './regles/Poids.js';
 import { Sources, type PropsSources } from './regles/Sources.js';
 import { BarreVue, Tuiles } from './regles/Tuiles.js';
 import type { ClientRegles } from '../io/reglesServeur.js';
@@ -39,7 +40,7 @@ export interface PropsEcranRegles {
   /** Le brouillon sur le serveur ; absent : l'ecran n'enregistre qu'ici (tests, pas de session d'administrateur). */
   serveur?: ClientRegles;
   /** Les fichiers de donnees (reglages, faits) : la derniere version de lecture de chacun, et leur brouillon local. Absent : l'onglet n'est pas propose. */
-  donnees?: { versions: { toits: number; facades: number }; brouillon?: BrouillonRegles };
+  donnees?: { versions: { toits: number; facades: number }; brouillon?: BrouillonRegles; proposerPoids?: ProposerPoids };
   /** Les sources et leur arbitrage, et la lecture du LiDAR avec ses seuils (MD/spec-reconciliation.md). Absent : la vue n'est pas proposee. */
   sources?: PropsSources;
   telecharger: (nom: string, contenu: string, type: string) => void;
@@ -135,7 +136,7 @@ export function EcranRegles(props: PropsEcranRegles) {
 
       {(donnees || sources) && <BarreVue vue={vue} surVue={setVue} vues={['sujets', ...(donnees ? ['donnees' as const] : []), ...(sources ? ['sources' as const] : [])]} />}
 
-      {vue === 'sources' && sources ? <Sources {...sources} /> : vue === 'donnees' && donnees ? <Donnees versions={donnees.versions} brouillon={donnees.brouillon} telecharger={telecharger} /> : <>
+      {vue === 'sources' && sources ? <Sources {...sources} /> : vue === 'donnees' && donnees ? <Donnees versions={donnees.versions} brouillon={donnees.brouillon} telecharger={telecharger} proposerPoids={donnees.proposerPoids} /> : <>
       <Tuiles sujetsActifs={actifs.length} sujets={liste.length} brouillons={brouillons.length} prompt={sortie.prompt} versionPrompt={sortie.versionPrompt}
         versionSchema={sortie.versionSchema} champs={champs} erreurs={erreurs} alertes={alertes} changees={changees} identique={identique} livre={livre} />
 
