@@ -130,7 +130,7 @@ describe('ce qui change', () => {
 });
 
 describe('le module du dépôt', () => {
-  it('reproduit à l’octet les huit descriptions livrées : ce que l’écran exporte se pose tel quel', () => {
+  it('reproduit à l’octet les neuf descriptions livrées : ce que l’écran exporte se pose tel quel', () => {
     for (const s of livre) {
       const fichier = readFileSync('src/regles/sujets/descriptions/' + s.id + '.ts', 'utf8');
       expect(sourceDescription(s) === fichier, s.id).toBe(true);
@@ -142,7 +142,7 @@ describe('le module du dépôt', () => {
     const t = sourceDescription(s);
     expect(t).toContain("export const objetJardin: DescriptionSujet = {");
     expect(t).toContain('libelle: `Objets du \\`jardin\\``,');
-    expect(t).toContain('{ rang: 10.5, texte: `- \\`objetJardin\\` : les objets du jardin.` },');
+    expect(t).toContain('{ rang: 10.75, texte: `- \\`objetJardin\\` : les objets du jardin.` },');
   });
 });
 

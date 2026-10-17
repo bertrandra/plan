@@ -2642,9 +2642,9 @@ const POINTS = {
     return { ok, mesure: `${n0} ouverture(s) proposée(s) ; « Ajouter dans la grille » ${grilleActif ? 'actif' : 'GRISÉ'} → ${n1} (« ${ajoutee.trim()} ») ; « Même taille pour la travée » ${tailleActif ? 'actif, puis ' + (apresTaille ? 'TOUJOURS actif' : 'grisé') : 'GRISÉ'} (« ${fiche} ») ; écrit : ${e ? `${e.ouvertures} ouvertures, grille ${e.niveaux} × ${e.travees}, corrections [${e.gestes.join(', ')}], sources [${e.sources.join(', ')}]` : 'RIEN'} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
   93: async (page, f) => {
-    // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les huit sujets du depot, le
+    // Admin › Règles (`?admin&ecran=regles`, MD/architecture.md §5.2.4) : les neuf sujets du depot, le
     // prompt livre a l'octet, puis une edition qui se voit tout de suite dans le prompt (une ligne change,
-    // version 9), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
+    // version 10), le brouillon enregistre sur le serveur (simule : enregistrer, relire, retirer), l'onglet
     // « Reglages et faits » (un seuil change sur sa ligne, la ligne de version a ajouter), un sujet retire d'une
     // case, un sujet nouveau en brouillon (prompt, schema, controles), le brouillon qui survit a un rechargement,
     // « Revenir au livre », et les deux telechargements.
@@ -2679,13 +2679,13 @@ const POINTS = {
     const apresEdition = await tuiles();
     const promptEdite = await page.locator('pre.reglSortie').textContent();
     debords.push(await deborde());
-    // Le brouillon sur le serveur : enregistre (version 9, prompt edite), dit, puis retire.
+    // Le brouillon sur le serveur : enregistre (version 10, prompt edite), dit, puis retire.
     const etatServeur = async () => ((await page.locator('p[role="status"]').first().textContent()) || '').replace(/\s+/g, ' ');
     const avantServeur = await etatServeur();
     await page.getByRole('button', { name: 'Enregistrer sur le serveur', exact: true }).click();
-    await page.waitForFunction(() => /prompt version 9/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
+    await page.waitForFunction(() => /prompt version 10/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const apresEnregistrement = await etatServeur();
-    const gardeAuServeur = !!surServeur && surServeur.prompt === 9 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
+    const gardeAuServeur = !!surServeur && surServeur.prompt === 10 && surServeur.prompt_texte.includes('vu sur le versant sud') && Array.isArray(surServeur.etat?.liste);
     await page.getByRole('button', { name: 'Retirer du serveur', exact: true }).click();
     await page.waitForFunction(() => /Aucun brouillon sur le serveur/.test(document.querySelector('p[role="status"]')?.textContent || ''), null, { timeout: 10000 });
     const retire = surServeur === null;
@@ -2725,12 +2725,12 @@ const POINTS = {
     // Les deux fichiers, tels que le serveur les lirait.
     const [dl1] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le prompt' }).click()]);
     const [dl2] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }), page.getByRole('button', { name: 'Télécharger le schéma' }).click()]);
-    const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
-      && /1 ligne change/.test(apresEdition[4] || '') && /version 9/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
-      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 9.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
+    const ok = sujets === 9 && /9 \/ 9/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
+      && /1 ligne change/.test(apresEdition[4] || '') && /version 10/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
+      && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 10.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
       && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 5.*formes: /.test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
-      && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
+      && apresRechargement === 10 && /9 \/ 9/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
       && dl1.suggestedFilename() === 'prompt-analyse.md' && dl2.suggestedFilename() === 'schema-analyse.json' && !debords.some(Boolean);
     return { ok, mesure: `${sujets} sujets ; ${avant[1]} ; édition : « ${apresEdition[4]} » ; serveur : « ${avantServeur.slice(0, 30)} » puis « ${apresEnregistrement.slice(0, 48)} », gardé ${gardeAuServeur}, retiré ${retire} ; réglages : « ${fichierToits.slice(fichierToits.indexOf('1 ligne'), fichierToits.indexOf('1 ligne') + 40)} », ${ligneVersion.slice(0, 60)} ; sans cheminées : ${sansCheminees} ; brouillon dans prompt ${avecNouveau}, schéma ${dansSchema}, contrôle « ${controle.trim().slice(0, 40)} » ; après rechargement ${apresRechargement} sujets ; revenu : ${revenu[0]}, ${revenu[4]}, brouillon ${stocke === null ? 'effacé' : 'resté'} ; fichiers ${dl1.suggestedFilename()}, ${dl2.suggestedFilename()} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },

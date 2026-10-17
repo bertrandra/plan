@@ -31,7 +31,7 @@ import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { aDesDetails, aUneForme, cadreEtVitreFormes, poserDetailsOuvertures, repereFacade, type PoseOuverture } from './detailsOuvertures.js';
 import { HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
-import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
+import { batisseursBaies, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, couleurPierre, VITRE, type BaieRelief, type BatisseursBaies } from './fenetresRelief.js';
 import { niveaux } from '../facade/ouvertures.js';
 import { poserCoulures, poserSalissure, maillageVoiles, poserDescentes, ECART_DESCENTE_BAIE } from './vieillissement.js';
 
@@ -408,7 +408,7 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
   const poses: PoseOuverture[] = [];
   // De pres, l'ecran montre les baies en creux (R2) ; le maillage a plat ci-dessus reste pour l'export.
   const relief = ctx.relief ? { b: batisseursBaies(), formes: new Batisseur(), cadresFormes: [] as (() => void)[], vitresFormes: [] as (() => void)[], portesFormes: [] as (() => void)[], parCote: new Map<number, BaieRelief[]>() } : null;
-  const carreaux = (o: Fenetre3d) => carreauxSelonEpoque(ctx.annee ?? null, o.h);
+  const carreaux = (o: Fenetre3d) => carreauxDesDetails(o.details, o.h, carreauxSelonEpoque(ctx.annee ?? null, o.h));
   const noterBaie = (f: Facade, o: BaieRelief) => { if (!relief) return; const l = relief.parCote.get(f.cote) ?? []; l.push(o); relief.parCote.set(f.cote, l); };
   // Une baie cintree ou ronde : son cadre et sa vitre suivent son contour (lot G17) ; les autres
   // gardent exactement leurs deux quads d'avant.
@@ -437,7 +437,8 @@ function poserOuvertures(ctx: ContexteDetails, contour: readonly PtBrut[], volum
         portes.push(() => rect(f, o.x, yp, o.l, o.h, DECOLLEMENT * 2));
         if (relief) {
           const baie = { x: o.x, y: yp, l: o.l, h: o.h };
-          (o.type === 'garage' ? poserGarageEnCreux : poserPorteEnCreux)(relief.b, repereFacade(ctx.toLocal, f), baie, hMur);
+          if (o.type === 'garage') poserGarageEnCreux(relief.b, repereFacade(ctx.toLocal, f), baie, hMur, o.details?.garage);
+          else poserPorteEnCreux(relief.b, repereFacade(ctx.toLocal, f), baie, hMur, o.details?.remplissage);
           noterBaie(f, baie);
         }
       }

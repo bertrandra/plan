@@ -268,8 +268,22 @@ dont le banc mesure la justesse :
 | **Balcon, garde-corps** | une bande horizontale sous une porte-fenêtre, qui déborde de ses tableaux | `allege: 'balcon'` ou `'garde-corps'` |
 | **Forme** | haut en arc (cintre), ou baie ronde (œil-de-bœuf) | `forme: 'cintre'` ou `'rond'` |
 
-Plus tard, Claude analyste (`spec-regles-toits.md` §14) peut proposer ces détails sur la photo, au
-statut « proposé », comme pour les toits.
+Claude analyste (`spec-regles-toits.md` §14) les propose sur la photo, façade par façade (prompt
+d'analyse version 9) : volets et **leur couleur**, coffre, forme, et des détails que le classement ne lit pas
+(encore) sur les pixels :
+
+| Détail | Vocabulaire (`DetailsOuverture`) | Pour quelles ouvertures | En 3D, de près |
+|---|---|---|---|
+| **Vitrage** | `vitrage` : `plein`, `petits-bois`, `imposte-petits-bois` | fenêtre, porte-fenêtre | petits bois, ou vantaux seuls ; l'imposte a sa traverse et ses petits bois au-dessus |
+| **Ouvrant** | `ouvrant` : `battants`, `coulissant`, `guillotine`, `soufflet`, `fixe` | fenêtre (porte-fenêtre : ni guillotine ni soufflet) | meneau central, traverse de guillotine, rien sur un fixe |
+| **Porte d'entrée** | `remplissage` : `pleine`, `vitree`, `semi-vitree` | porte | la vitre à la place d'un ou des deux panneaux |
+| **Porte de garage** | `garage` : `sectionnelle`, `basculante`, `battants`, `enroulable` | garage | lames de 50 cm, panneau lisse, joint vertical, lames de 10 cm |
+| **Couleur des volets** | `couleurVolets` (hexadécimal) | une baie qui a des volets | le matériau des volets |
+
+Claude décrit la majorité des ouvertures d'une façade : l'effet `detailsOuvertures` (`regles/decisions.ts`)
+ne complète, sur le relevé coché à l'écriture, que les ouvertures du type concerné et que ce qu'elles n'ont
+pas (`model/ouverturesVues.ts::completerDetails`). Une ouverture sans ces détails se dessine comme avant
+(petits bois selon l'époque).
 
 ## 12. La vérification, et ce qu'elle apprend
 

@@ -114,6 +114,15 @@ describe('poserDetailsOuvertures', () => {
     return ajoutes;
   };
 
+  it('les volets d une couleur vue ont leur materiau, apres les quatre d avant', () => {
+    const [m] = poser(fenetre({ volets: 'battants', couleurVolets: '#5E7D5E' }));
+    expect(m!.geometry.groups.map((g) => g.materialIndex)).toEqual([4]);
+    expect((m!.material as { p: { color: { c: unknown } } }[])[4]!.p.color.c).toBe('#5E7D5E');
+    const [d] = poser(fenetre({ volets: 'battants' }));
+    expect(d!.geometry.groups.map((g) => g.materialIndex)).toEqual([0]);
+    expect(d!.material as unknown[]).toHaveLength(4);
+  });
+
   it('n ajoute rien sans details', () => {
     expect(poser(fenetre())).toHaveLength(0);
     expect(poser(fenetre({ volets: 'aucun', allege: 'pleine' }))).toHaveLength(0);

@@ -24,14 +24,15 @@ describe('les champs simples déclarés par les descriptions', () => {
   });
 
   it('laissent au vote à la main tous les champs que le vote lit déjà un par un', () => {
-    // Les sujets livrés ne declarent que des champs lus a la main : aucun n'est vote deux fois.
-    expect(champsSimples(DESCRIPTIONS_SUJETS)).toEqual([]);
-    expect(CHAMPS_SIMPLES).toEqual([]);
-    for (const d of DESCRIPTIONS_SUJETS) for (const nom of Object.keys(d.champs)) expect(CHAMPS_LUS_A_LA_MAIN, nom).toContain(nom);
+    // Les sujets livres declarent des champs lus a la main, et les deux champs simples des murs : aucun n'est vote deux fois.
+    const SIMPLES_LIVRES = [{ nom: 'teinteMurs', cle: 'valeur' }, { nom: 'decorMurs', cle: 'valeur' }];
+    expect(champsSimples(DESCRIPTIONS_SUJETS)).toEqual(SIMPLES_LIVRES);
+    expect(CHAMPS_SIMPLES).toEqual(SIMPLES_LIVRES);
+    for (const d of DESCRIPTIONS_SUJETS) for (const nom of Object.keys(d.champs)) if (!SIMPLES_LIVRES.some((c) => c.nom === nom)) expect(CHAMPS_LUS_A_LA_MAIN, nom).toContain(nom);
   });
 
   it('prennent ceux d’un sujet ajouté, dans l’ordre du prompt', () => {
-    expect(champsSimples([...DESCRIPTIONS_SUJETS, chienAssis, objetJardin])).toEqual([{ nom: 'chienAssis', cle: 'nombre' }, { nom: 'objetJardin', cle: 'valeur' }]);
+    expect(champsSimples([...DESCRIPTIONS_SUJETS, chienAssis, objetJardin])).toEqual([{ nom: 'teinteMurs', cle: 'valeur' }, { nom: 'decorMurs', cle: 'valeur' }, { nom: 'chienAssis', cle: 'nombre' }, { nom: 'objetJardin', cle: 'valeur' }]);
   });
 });
 

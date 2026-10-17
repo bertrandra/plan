@@ -25,14 +25,17 @@ export function ecartsEnClair(v: VoteAnalyse): string[] {
   return ecartsDuVote(v).map((e) => e.texte);
 }
 
-/** Les ecarts au modele et les ouvertures manquees ou en trop, rattaches aux images de leur facade. */
+/** Les ecarts au modele et les ouvertures manquees ou en trop, rattaches aux images de leur facade ; puis les images hors sujet, a reprendre. */
 function observationsEcarts({ v, reponses }: EntreeObservation): LigneObservation[] {
-  return ecartsDuVote(v).map((e, k) => ({
+  const horsSujet: LigneObservation[] = v.imagesHorsSujet.map((n) => ({
+    sujet: 'horsSujet:' + n, texte: 'L’image ' + n + ' ne montre pas ce bâtiment, d’après Claude : à reprendre', indices: [{ image: n, vu: 'ne montre pas ce bâtiment' }], accord: null,
+  }));
+  return [...ecartsDuVote(v).map((e, k) => ({
     sujet: 'ecart:' + k,
     texte: majuscule(e.texte),
     indices: e.facade === null ? [] : reponses.flatMap((r) => r.facades.filter((x) => x.facade === e.facade).flatMap((x) => x.indices)),
     accord: null,
-  }));
+  })), ...horsSujet];
 }
 
 export const transverse: Sujet = { id: 'transverse', observer: observationsEcarts };

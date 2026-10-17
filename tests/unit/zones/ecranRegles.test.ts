@@ -56,12 +56,12 @@ describe('l ecran des regles', () => {
     expect(demandeEcranRegles('?admin&ecran=conformite')).toBe(false);
   });
 
-  it('montre les huit sujets du dépôt, le prompt livré et un état identique', async () => {
+  it('montre les neuf sujets du dépôt, le prompt livré et un état identique', async () => {
     const { hote } = await monter();
     expect(hote.querySelector('h1')?.textContent).toBe('Règles');
     expect([...hote.querySelectorAll('.reglSujet')].map((l) => l.getAttribute('data-sujet'))).toEqual(DESCRIPTIONS_SUJETS.map((s) => s.id));
     const tuiles = texte(hote, '.consTuile');
-    expect(tuiles[0]).toContain('8 / 8');
+    expect(tuiles[0]).toContain('9 / 9');
     expect(tuiles[1]).toMatch(/tokens/);
     expect(tuiles[4]).toContain('Identique');
     // Le prompt est celui du fichier livre, a l'octet, ligne a ligne (le signe de marge s'ajoute devant).
@@ -88,13 +88,13 @@ describe('l ecran des regles', () => {
     expect(texte(hote, '[data-diff="ajoute"]').join('\n')).toContain('vu sur le versant sud');
     const tuiles = texte(hote, '.consTuile');
     expect(tuiles[4]).toContain('1 ligne change');
-    expect(tuiles[4]).toContain('version 9 à poser dans versions.ts');
-    expect(tuiles[1]).toContain('version 9');
+    expect(tuiles[4]).toContain('version 10 à poser dans versions.ts');
+    expect(tuiles[1]).toContain('version 10');
     expect(hote.querySelector('[data-sujet="couverture"]')?.textContent).toContain('Modifié');
     await cliquer(hote.querySelector('#reglOnglet-ecarts'));
     // La version de l'en-tete change avec le texte (5 -> 6), et la consigne d'avant disparait.
     expect(texte(hote, '.reglRetrait').join('\n')).toContain('- `couverture` : le matériau de couverture du corps principal.');
-    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 9');
+    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 10');
     await cliquer(bouton(hote, 'Revenir au livré'));
     expect(texte(hote, '.consTuile')[4]).toContain('Identique');
   });
@@ -103,7 +103,7 @@ describe('l ecran des regles', () => {
     const { hote } = await monter();
     await cliquer(hote.querySelector('[aria-label="Dans le prompt : Cheminées"]'));
     expect(sortie(hote)).not.toContain('- `cheminees`');
-    expect(texte(hote, '.consTuile')[0]).toContain('7 / 8');
+    expect(texte(hote, '.consTuile')[0]).toContain('8 / 9');
     expect(hote.querySelector('[data-sujet="cheminees"]')?.textContent).toContain('Hors du prompt');
   });
 
@@ -117,7 +117,7 @@ describe('l ecran des regles', () => {
     expect((bouton(hote, 'Ajouter en brouillon') as HTMLButtonElement).disabled).toBe(false);
     await cliquer(bouton(hote, 'Ajouter en brouillon'));
     expect(sortie(hote)).toContain('- `chienAssis` : le nombre de chiens-assis vus sur le versant, ou « indetermine ».');
-    expect(texte(hote, '.consTuile')[0]).toContain('9 / 9');
+    expect(texte(hote, '.consTuile')[0]).toContain('10 / 10');
     expect(texte(hote, '.consTuile')[0]).toContain('1 brouillon');
     expect(hote.querySelector('[data-sujet="chienAssis"]')?.textContent).toContain('Brouillon');
     await cliquer(hote.querySelector('#reglOnglet-schema'));
@@ -170,15 +170,15 @@ describe('l ecran des regles', () => {
     // La page se ferme : l'ecran se demonte, le navigateur garde le brouillon.
     if (monte) { const m = monte; act(() => m.racine.unmount()); m.hote.remove(); monte = null; }
     const second = await monter({ brouillon: { lire: () => memoire.texte, ecrire: (t) => { memoire.texte = t; }, effacer: () => { memoire.texte = null; } } });
-    expect(texte(second.hote, '.consTuile')[0]).toContain('7 / 8');
+    expect(texte(second.hote, '.consTuile')[0]).toContain('8 / 9');
     await cliquer(bouton(second.hote, 'Revenir au livré'));
     expect(memoire.texte).toBeNull();
-    expect(texte(second.hote, '.consTuile')[0]).toContain('8 / 8');
+    expect(texte(second.hote, '.consTuile')[0]).toContain('9 / 9');
   });
 
   it('un brouillon abîmé est ignoré : on repart du dépôt', async () => {
     const { hote } = await monter({ brouillon: { lire: () => '{ pas du json', ecrire: () => undefined, effacer: () => undefined } });
-    expect(texte(hote, '.consTuile')[0]).toContain('8 / 8');
+    expect(texte(hote, '.consTuile')[0]).toContain('9 / 9');
   });
 
   // Le brouillon sur le serveur (admin/claude/regles) : lu a l'ouverture, enregistre, repris, retire.
@@ -219,9 +219,9 @@ describe('l ecran des regles', () => {
       await cliquer(enregistrer);
       await attendre();
       const envoi = vi.mocked(serveur.enregistrer).mock.calls[0]![0];
-      expect(envoi.prompt).toContain('version: 9');
+      expect(envoi.prompt).toContain('version: 10');
       expect(envoi.prompt).toContain('vu sur le versant sud');
-      expect(JSON.parse(envoi.schema).version).toBe(4);
+      expect(JSON.parse(envoi.schema).version).toBe(5);
       expect(envoi.etat).toMatchObject({ exclus: [], liste: expect.any(Array) });
       expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon enregistré sur le serveur (prompt version 9)');
       expect(etat(hote)).toContain('Brouillon du serveur : prompt version 9, schéma version 5, enregistré le 2026-10-16 10:00.');
@@ -250,10 +250,10 @@ describe('l ecran des regles', () => {
       const serveur = fauxServeur({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 9, schema: 5, promptTexte: g.prompt, schemaTexte: g.schema, etat: gardeEtat });
       const { hote } = await monter({ serveur });
       await attendre();
-      expect(texte(hote, '.consTuile')[0]).toContain('8 / 8');
+      expect(texte(hote, '.consTuile')[0]).toContain('9 / 9');
       expect(etat(hote)).toContain('prompt version 9');
       await cliquer(bouton(hote, 'Reprendre celui du serveur'));
-      expect(texte(hote, '.consTuile')[0]).toContain('7 / 8');
+      expect(texte(hote, '.consTuile')[0]).toContain('8 / 9');
       expect(hote.querySelector('[data-sujet="elements"]')?.textContent).toContain('Hors du prompt');
       expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon du serveur repris');
     });
@@ -267,7 +267,7 @@ describe('l ecran des regles', () => {
       await cliquer(bouton(hote, 'Enregistrer sur le serveur'));
       await attendre();
       expect(hote.querySelector('.consEtat')?.textContent).toBe('Enregistrement impossible : Prompt vide.');
-      expect(texte(hote, '.consTuile')[0]).toContain('7 / 8');
+      expect(texte(hote, '.consTuile')[0]).toContain('8 / 9');
     });
   });
 
@@ -293,7 +293,7 @@ describe('l ecran des regles', () => {
       // Les faits sont listes avec leur clé et leur adresse.
       expect(fichier(hote, 'faitsToits').textContent).toContain('BATIMENT0000000322509182');
       await cliquer(hote.querySelector('#reglVue-sujets'));
-      expect(hote.querySelectorAll('.reglSujet[data-sujet]')).toHaveLength(8);
+      expect(hote.querySelectorAll('.reglSujet[data-sujet]')).toHaveLength(9);
     });
 
     it('change un seuil : une ligne change, l empreinte aussi, la ligne de version est donnée, le fichier se télécharge', async () => {
