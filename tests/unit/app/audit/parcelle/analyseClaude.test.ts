@@ -183,7 +183,7 @@ describe('l analyse par Claude', () => {
     expect(t.notifications).toEqual(['Les propositions de Claude sont prêtes : 1 bâtiment analysé.']);
     const ids = t.validation.propositions().map((p) => p.id);
     // La couverture et le materiau des murs sont arbitres entre les sources : Claude n'y est qu'un constat de plus.
-    expect(ids).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:claude:cheminees']);
+    expect(ids).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:cheminees']);
     expect(t.validation.propositions().find((p) => p.id === 'maison:couverture')).toMatchObject({ source: 'arbitrage', indices: [{ texte: 'ardoises fines et sombres' }] });
     // Claude seul ne decide pas : la ligne arrive decochee.
     expect(t.validation.cochee('maison:couverture')).toBe(false);
@@ -254,11 +254,12 @@ describe('l analyse par Claude', () => {
     await t.analyse.accorder(true);
     t.faux.etat.fini = true;
     await t.tour();
-    expect(t.validation.propositions().some((p) => p.source === 'claude')).toBe(true);
+    const vientDeClaude = () => t.validation.propositions().some((p) => p.source === 'claude' || p.arbitrages?.some((a) => a.groupes.some((g) => g.lignes.some((l) => l.source === 'claude'))));
+    expect(vientDeClaude()).toBe(true);
     t.analyse.retirerAccord();
     expect(t.analyse.etat()).toBe('refusee');
     expect(t.analyse.reponses()).toBe(null);
-    expect(t.validation.propositions().some((p) => p.source === 'claude')).toBe(false);
+    expect(vientDeClaude()).toBe(false);
     expect(t.messages.at(-1)).toMatch(/^Accord retiré/);
   });
 

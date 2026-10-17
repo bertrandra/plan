@@ -15,7 +15,7 @@ export const CIBLES_ATTRIBUT = ['batiment', 'facade', 'parcelle'] as const;
 export type CibleAttribut = (typeof CIBLES_ATTRIBUT)[number];
 
 /** Ce que sont les attributs que le moteur arbitre. */
-export const ATTRIBUTS = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'boutsToit', 'sensFaitage', 'silhouetteFacade', 'ouverturesFacade', 'materiauMurs', 'couverture'] as const;
+export const ATTRIBUTS = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'boutsToit', 'sensFaitage', 'silhouetteFacade', 'ouverturesFacade', 'cheminees', 'materiauMurs', 'couverture'] as const;
 export type IdAttribut = (typeof ATTRIBUTS)[number];
 
 /** Quand deux valeurs s'accordent : a une tolerance (`nombre`, `angle` modulo 180), exactement (`egal`), comme deux ensembles (`ensemble`). */

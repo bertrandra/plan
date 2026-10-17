@@ -16,11 +16,12 @@ import { cibleBatiment, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
-import { ECART_HAUTEUR_MIN_M, type EntreesPropositions } from './propositions.js';
+import { corpsDesCheminees, ECART_HAUTEUR_MIN_M, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
-import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe } from '../../../model/ceQueJeVois.js';
+import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe, type SoucheVue } from '../../../model/ceQueJeVois.js';
+import { pluriel } from '../../regles/sujets/contrat.js';
 import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
 import type { CouvertureChoisie, FormeToitSimple, ObjetPlan } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
@@ -173,6 +174,33 @@ function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], for
   };
 }
 
+/**
+ * Les cheminees : leur nombre s'arbitre entre ce que la personne a note et ce que Claude voit ; ce qui s'ecrit, ce sont les souches
+ * (position, materiau) du constat qui l'emporte, posees sur le plus grand corps en pente. Un nombre force n'a pas de souches : elles
+ * sont posees au faitage, comme une souche dont on ne sait que l'existence.
+ */
+function propositionCheminees(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  const corps = o.corpsToit ?? [];
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'number' || !corps.length) return null;
+  const n = Math.max(0, Math.round(a.retenu.valeur));
+  const existantes = corps.flatMap((c) => c.cheminees ?? []);
+  const i = corpsDesCheminees(corps), c = corps[i];
+  if (!c) return null;
+  const charge = (a.retenu.lignes[0]?.constat.charge ?? null) as { souches: SoucheVue[]; texte: string } | null;
+  const souches = charge?.souches ?? Array.from({ length: n }, () => ({} as SoucheVue));
+  const cheminees = souchesSurLeCorps(c, souches.slice(0, n));
+  // Rien de neuf : le meme nombre de cheminees, toutes posees par le calcul ou par une autre source, et aucune a ecrire.
+  if (n === 0 && !existantes.some((x) => x.source === 'observation')) return null;
+  return {
+    id: b.cle + ':cheminees', cible: { type: 'batiment', cle: b.cle }, objet: 'Cheminées de ' + b.nom, source: 'arbitrage',
+    avant: existantes.length ? pluriel(existantes.length, 'cheminée') : 'aucune cheminée',
+    apres: charge?.texte ?? ((n ? pluriel(n, 'cheminée') : 'Aucune cheminée') + (a.decision === 'forcee' ? ', forcée' + (n > 1 ? 's' : '') + ' par vous' : '')),
+    confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
+    reserve: a.decision === 'manuelle' ? a.raison : null,
+    effet: { type: 'cheminees', corps: i, cheminees }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
 const estBout = (m: string): m is BoutFait => m === 'pignon' || m === 'croupe';
 
 /**
@@ -228,7 +256,7 @@ export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: Li
 }
 
 /** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
-const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture'];
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture', 'cheminees'];
 
 /** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
 export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
@@ -251,7 +279,7 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
     if (!o || !b) continue;
     const cible = cibleBatiment(cle);
     const parAttribut = (id: IdAttribut) => arbitrages.find((a) => a.cible === cible && a.attribut === id);
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles)]) if (p) out.push(p);
   }
   return out;
 }

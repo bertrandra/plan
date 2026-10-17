@@ -28,6 +28,8 @@ export interface Constat {
   /** La regle qui l'a produit (un seuil de regles/toits/reglages.json, une ligne de regles/toits/silhouettes.json...). */
   regle?: string;
   indices?: readonly IndiceProposition[];
+  /** Ce que la source dit en plus de la valeur arbitree (les souches vues, le releve de la facade) : le moteur n'y touche pas, la proposition l'ecrit. */
+  charge?: unknown;
 }
 
 /** Ce que le projet a aujourd'hui de cet attribut : l'avant, et si une personne l'a choisi a la main (un veto). */

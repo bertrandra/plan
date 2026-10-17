@@ -57,9 +57,9 @@ describe('les propositions des mesures et des observations', () => {
   it('propose le releve, la hauteur, la couleur, les materiaux, les cheminees, la terrasse, la cloture et le portail', () => {
     // La hauteur a l'egout, la toiture, le materiau des murs et la couverture sont decides par l'arbitrage des sources (arbitrages.ts), pas par cette liste.
     const seules = propositionsDeLAudit(entrees());
-    expect(seules.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:couleurMurs', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail']);
+    expect(seules.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:couleurMurs', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail']);
     const arbitrees = propositionsArbitrees(entrees(), {});
-    expect(arbitrees.map((x) => x.id)).toEqual(['maison:materiauMurs', 'maison:couverture']);
+    expect(arbitrees.map((x) => x.id)).toEqual(['maison:materiauMurs', 'maison:couverture', 'maison:cheminees']);
     const p = [...seules, ...arbitrees];
     const parId = new Map(p.map((x) => [x.id, x]));
     expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'mesure', confiance: 0.8 });
@@ -75,7 +75,8 @@ describe('les propositions des mesures et des observations', () => {
     expect(parId.get('maison:materiauMurs')).toMatchObject({ source: 'arbitrage', avant: 'Pierre (fichiers fonciers)', apres: 'Brique, vu sur place', effet: { type: 'materiauMurs', materiau: 'brique' } });
     expect(parId.get('maison:materiauMurs')?.arbitrages?.[0]).toMatchObject({ attribut: 'materiauMurs', decision: 'auto' });
     expect(parId.get('maison:couverture')).toMatchObject({ source: 'arbitrage', avant: 'déduite par Plan', apres: 'Ardoise, vue sur place', effet: { type: 'couverture', couverture: 'ardoise' } });
-    expect(parId.get('maison:cheminees')).toMatchObject({ avant: 'aucune cheminée', apres: '2 cheminées · au faîtage, adossée en façade, vues sur place', effet: { type: 'cheminees', corps: 0 } });
+    expect(parId.get('maison:cheminees')).toMatchObject({ source: 'arbitrage', avant: 'aucune cheminée', apres: '2 cheminées · au faîtage, adossée en façade, vues sur place', effet: { type: 'cheminees', corps: 0 } });
+    expect(parId.get('maison:cheminees')?.arbitrages?.[0]).toMatchObject({ attribut: 'cheminees', decision: 'auto' });
     expect(parId.get('maison:terrasse')).toMatchObject({ avant: 'toit plat, sans détail', effet: { type: 'terrasse', corps: 1 } });
     expect(parId.get('parcelle:cloture')).toMatchObject({ avant: 'Palissade bois 1,80 m · verticales', apres: 'Mur · 1,6 m, vue sur place' });
     expect(parId.get('parcelle:portail')).toMatchObject({ avant: 'portail 3,50 m', effet: { type: 'portail', cote: 0, nature: 'portail', position: 'gauche', largeurM: 3.5 } });

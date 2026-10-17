@@ -299,7 +299,7 @@ function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Propos
 }
 
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
-const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture'];
+const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture', 'cheminees'];
 
 function proposer(e: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
   const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type)) : [];

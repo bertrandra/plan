@@ -8,9 +8,9 @@
 // Ce qui se propose :
 // - par facade photographiee : le releve (ouvertures, texture) mesure sur la photo ;
 // - par batiment : la hauteur a l'egout mesuree (coins trouves seulement), la couleur des murs lue sur
-//   les photos, les cheminees et la toiture-terrasse vues, posees dans les corps du toit
-//   (MD/spec-regles-toits.md §2.6, §2.7) ; le materiau des murs et la couverture sont arbitres
-//   entre les sources (app/audit/parcelle/arbitrages.ts) ;
+//   les photos, la toiture-terrasse vue, posee dans les corps du toit (MD/spec-regles-toits.md §2.7) ;
+//   les cheminees, le materiau des murs et la couverture sont arbitres entre les sources
+//   (app/audit/parcelle/arbitrages.ts) ;
 // - pour la parcelle : la cloture cote rue et le portail.
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
@@ -208,24 +208,6 @@ export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
 /** Le corps qui porte la toiture-terrasse : le plus grand corps plat ; -1 s'il n'y en a pas. */
 export const corpsDeLaTerrasse = (corps: readonly CorpsToit[]): number => plusGrand(corps, estPlat);
 
-/** Les cheminees vues, posees sur le plus grand corps en pente (a defaut, le plus grand). */
-function propositionCheminees(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
-  const corps = o.corpsToit ?? [];
-  if (!vu.cheminees || !corps.length) return null;
-  const existantes = corps.flatMap((c) => c.cheminees ?? []);
-  if (!vu.cheminees.nombre && !existantes.some((c) => c.source === 'observation')) return null;
-  const i = corpsDesCheminees(corps);
-  const c = corps[i];
-  if (!c) return null;
-  const cheminees = souchesSurLeCorps(c, vu.cheminees.souches);
-  return mesure({
-    id: b.cle + ':cheminees', cible: { type: 'batiment', cle: b.cle }, objet: 'Cheminées de ' + b.nom,
-    avant: existantes.length ? pluriel(existantes.length, 'cheminée') : 'aucune cheminée',
-    apres: majuscule(resumePartie(vu, 'cheminees').toLowerCase()) + ', vues sur place',
-    effet: { type: 'cheminees', corps: i, cheminees },
-  });
-}
-
 /** La toiture-terrasse vue, sur le plus grand corps plat. */
 function propositionTerrasse(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
   const corps = o.corpsToit ?? [];
@@ -298,7 +280,7 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     out.push(...propositionsDesFacades(o, b, e));
     // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts).
     for (const p of [propositionCouleur(o, b, e)]) if (p) out.push(p);
-    for (const p of [propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
+    for (const p of [propositionTerrasse(o, b, vu)]) if (p) out.push(p);
   }
   out.push(...propositionsParcelle(e));
   return out;
