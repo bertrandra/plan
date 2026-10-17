@@ -65,3 +65,11 @@ LiDAR (`regles/toits/reglages.json`) à côté des règles d'arbitrage.
 | R5 | les règles LiDAR à l'écran (Admin › Règles, constats avec leur règle) |
 | R6 ✔ | la décision manuelle : choisir une source, forcer une valeur (`validation.decider`), rangées dans le fichier de l'audit avec la proposition |
 | R7 ✔ | le taux de décisions automatiques (`tauxAutomatique`, affiché dans le panneau Sources) ; il se maximise en réglant les poids et seuils du fichier, jamais dans le code |
+
+
+## Suites (octobre 2026)
+
+- **Matériau des murs et couverture** : arbitrés comme la hauteur et la toiture (`app/audit/parcelle/arbitrages.ts`), `valeurs` dans `regles/reconciliation.json` pour forcer.
+- **Hauteur totale** : IGN (toit de repli de la BD TOPO) et LiDAR (faîtage de la surface) ; seulement pour un bâtiment sans corps. Effet `hauteurToit`.
+- **Formes du catalogue** : un constat LiDAR de `formeToit` peut être une forme lue par `facade/lectureFormes.ts` ; retenue, elle s'écrit comme corps (`propositionForme`). Une forme demandée par Claude ou la personne et que le LiDAR n'a pas vue s'ajuste au mieux (`ECART_FORME_DEMANDEE_M`), et la ligne le dit.
+- **Taux automatique** : `app/audit/parcelle/tauxAuto.ts`, `scripts/taux-automatique.ts`.
