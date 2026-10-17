@@ -49,7 +49,7 @@ describe('les observations de Claude', () => {
     expect(textes).toContain('Pignons aux deux bouts du faîtage');
     expect(textes).toContain('2 lucarnes vues (jacobine), côté rue');
     expect(textes).toContain('Vu aussi : fenêtre de toit');
-    expect(textes).toContain('Façade sud : volets battants');
+    expect(textes).toContain('Façade sud : 2 niveaux d’ouvertures (3 + 3), volets battants');
     expect(textes).toContain('Façade sud : 2 ouvertures non détectées par Plan');
     expect(textes).toContain('Façade sud : la porte d’entrée manque au modèle');
     const pignons = obs[0]!.observations.find((o) => o.id === 'maison:obs:pignons');

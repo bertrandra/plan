@@ -30,6 +30,6 @@ describe('le registre des sujets de l’audit', () => {
   });
 
   it('garde l’ordre des lignes de l’écran des propositions (celles qui proposent, dans l’ordre du registre)', () => {
-    expect(SUJETS.filter((s) => s.proposer).map((s) => s.id)).toEqual(['couverture', 'cheminees', 'terrasse', 'facades', 'formeToit']);
+    expect(SUJETS.filter((s) => s.proposer).map((s) => s.id)).toEqual(['couverture', 'cheminees', 'terrasse', 'facades', 'murs', 'formeToit']);
   });
 });

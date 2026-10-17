@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
 import {
-  anneeDe, carreauxSelonEpoque, maconnerieSelonEpoque, poserFenetreEnCreux, poserMaconnerie, batisseursBaies, couleurPierre,
+  anneeDe, carreauxSelonEpoque, carreauxDesDetails, maconnerieSelonEpoque, poserFenetreEnCreux, poserPorteEnCreux, poserGarageEnCreux, poserMaconnerie, batisseursBaies, couleurPierre,
   ENCADREMENT, APPUI, LINTEAU_M, CORNICHE, type Point3
 } from '../../../src/three/fenetresRelief.js';
 import { Batisseur } from '../../../src/three/batisseur.js';
@@ -91,5 +91,42 @@ describe('les facades de pres (R2)', () => {
     const p = couleurPierre(0x8a6a50);
     const m = new THREE_NS.Color(0x8a6a50);
     expect(p.r + p.g + p.b).toBeGreaterThan(m.r + m.g + m.b);
+  });
+
+  it('le vitrage et l ouvrant vus l emportent sur l epoque ; sans eux, rien ne change', () => {
+    const epoque = carreauxSelonEpoque(1900, 1.4);
+    expect(carreauxDesDetails(undefined, 1.4, epoque)).toBe(epoque);
+    expect(carreauxDesDetails({ volets: 'battants' }, 1.4, epoque)).toBe(epoque);
+    expect(carreauxDesDetails({ vitrage: 'plein' }, 1.4, epoque)).toEqual({ colonnes: 2, rangs: 1 });
+    expect(carreauxDesDetails({ vitrage: 'plein', ouvrant: 'fixe' }, 1.4, epoque)).toBe(null);
+    expect(carreauxDesDetails({ vitrage: 'petits-bois' }, 1.4, null)).toEqual({ colonnes: 2, rangs: 3 });
+    expect(carreauxDesDetails({ vitrage: 'petits-bois', ouvrant: 'guillotine' }, 1.4, null)).toEqual({ colonnes: 2, rangs: 4, traverse: true });
+    expect(carreauxDesDetails({ ouvrant: 'guillotine' }, 1.4, epoque)).toEqual({ colonnes: 1, rangs: 2, traverse: true });
+    expect(carreauxDesDetails({ vitrage: 'imposte-petits-bois' }, 1.4, null)).toEqual({ colonnes: 2, rangs: 1, imposte: { part: 0.3, colonnes: 4 } });
+  });
+
+  it('une imposte a petits bois : une traverse large, ses petits bois au-dessus seulement', () => {
+    const b = batisseursBaies();
+    poserFenetreEnCreux(b, pt, { x: 0, y: 1, l: 1.2, h: 1.4 }, { colonnes: 1, rangs: 1, imposte: { part: 0.3, colonnes: 4 } }, 6);
+    const nu = batisseursBaies();
+    poserFenetreEnCreux(nu, pt, { x: 0, y: 1, l: 1.2, h: 1.4 }, null, 6);
+    // La traverse et trois petits bois : quatre paves de plus (20 sommets chacun).
+    expect(sommets(b.menuiserie).length).toBe(sommets(nu.menuiserie).length + 4 * 20);
+    const traverse = 1 + 1.4 - 0.06 - (1.4 - 0.12) * 0.3;
+    const hautsBois = sommets(b.menuiserie).slice(sommets(nu.menuiserie).length + 20);
+    expect(Math.min(...hautsBois.map((q) => q[1]))).toBeGreaterThan(traverse);
+  });
+
+  it('la porte vitree pose sa vitre a la place des panneaux, le garage suit son type', () => {
+    const porte = (r?: 'vitree' | 'semi-vitree') => { const b = batisseursBaies(); poserPorteEnCreux(b, pt, { x: 0, y: 0, l: 1, h: 2.1 }, 6, r); return b; };
+    expect(sommets(porte().vitre)).toHaveLength(0);
+    expect(sommets(porte('vitree').vitre)).toHaveLength(4);
+    expect(sommets(porte('vitree').porte).length).toBe(sommets(porte().porte).length - 2 * 20);
+    expect(sommets(porte('semi-vitree').porte).length).toBe(sommets(porte().porte).length - 20);
+    const garage = (g?: 'sectionnelle' | 'basculante' | 'battants' | 'enroulable') => { const b = batisseursBaies(); poserGarageEnCreux(b, pt, { x: 0, y: 0, l: 2.4, h: 2 }, 6, g); return sommets(b.porte).length; };
+    expect(garage('sectionnelle')).toBe(garage());
+    expect(garage('basculante')).toBe(4);
+    expect(garage('battants')).toBe(4 + 20);
+    expect(garage('enroulable')).toBeGreaterThan(garage());
   });
 });

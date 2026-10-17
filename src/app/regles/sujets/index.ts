@@ -15,9 +15,10 @@ import { couverture } from './couverture.js';
 import { cheminees } from './cheminees.js';
 import { terrasse } from './terrasse.js';
 import { facades } from './facades.js';
+import { murs } from './murs.js';
 import { formeToit } from './formeToit.js';
 import { lucarnes } from './lucarnes.js';
 import { elements } from './elements.js';
 import { transverse } from './transverse.js';
 
-export const SUJETS: readonly Sujet[] = [couverture, cheminees, terrasse, facades, formeToit, lucarnes, elements, transverse];
+export const SUJETS: readonly Sujet[] = [couverture, cheminees, terrasse, facades, murs, formeToit, lucarnes, elements, transverse];

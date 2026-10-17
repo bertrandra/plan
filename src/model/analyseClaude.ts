@@ -30,7 +30,8 @@ export interface FacadeAnalyse {
   /** L'etiquette donnee dans le prompt : « sud », « nord »… */
   facade: string;
   ouvertures: { niveaux: Compte; parNiveau: Compte[]; manquees: Compte; enTrop: Compte };
-  details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string };
+  /** `vitrage`, `ouvrant`, `porte`, `garage`, `couleurVolets` : absents d'une reponse d'avant le schema version 5. */
+  details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string; vitrage?: string; ouvrant?: string; porte?: string; garage?: string; couleurVolets?: string };
   materiau: 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois' | 'indetermine';
   /** La ligne du haut de la facade et ce qu'elle ferme (model/silhouetteFacade.ts) ; absents d'une reponse d'avant le prompt version 7. */
   silhouette?: string;
@@ -53,6 +54,8 @@ export interface ReponseAnalyse {
   ecarts: { indices: IndiceAnalyse[]; sujet: string; modele: string; observe: string }[];
   contradictions: { indiceLidar: string; observation: string }[];
   confiance: 'faible' | 'moyenne' | 'forte';
+  /** Les numeros des images qui ne montrent pas ce batiment (une autre maison, un mur voisin) ; absent d'une reponse d'avant le schema version 5. */
+  imagesHorsSujet?: number[];
 }
 
 const estTableau = (v: unknown): v is unknown[] => Array.isArray(v);
@@ -68,7 +71,7 @@ export interface ChampSimple { nom: string; cle: 'valeur' | 'nombre' }
 export interface LectureSimple { valeur: string | Compte; indices: IndiceAnalyse[] }
 
 /** Les champs de la reponse que le vote lit a la main, un par un : le vote generique ne les reprend pas. */
-export const CHAMPS_LUS_A_LA_MAIN: readonly string[] = ['forme', 'profil', 'faitage', 'bouts', 'bout', 'lucarnes', 'cheminees', 'terrasse', 'couverture', 'elements', 'facades', 'ecarts', 'contradictions', 'confiance'];
+export const CHAMPS_LUS_A_LA_MAIN: readonly string[] = ['forme', 'profil', 'faitage', 'bouts', 'bout', 'lucarnes', 'cheminees', 'terrasse', 'couverture', 'elements', 'facades', 'ecarts', 'contradictions', 'confiance', 'imagesHorsSujet'];
 
 /** Le champ simple `nom` d'une passe ; null s'il est absent (une reponse d'avant le sujet) ou mal forme. */
 export function lireSimple(r: ReponseAnalyse, champ: ChampSimple): LectureSimple | null {
@@ -116,9 +119,16 @@ export interface FacadeVotee {
   coffre: Vote<OuiNon>;
   balcon: Vote<OuiNon>;
   formeOuvertures: Vote<string>;
+  vitrage: Vote<string>;
+  ouvrant: Vote<string>;
+  porte: Vote<string>;
+  garage: Vote<string>;
+  couleurVolets: Vote<string>;
   silhouette: Vote<SilhouetteFacade>;
   bout: Vote<BoutVu>;
   niveaux: Vote<Compte>;
+  /** Les ouvertures de chaque niveau, du bas vers le haut ; `indetermine` quand un niveau ne se compte pas. */
+  parNiveau: Vote<number[] | 'indetermine'>;
   manquees: Vote<Compte>;
   enTrop: Vote<Compte>;
   ecarts: string[];
@@ -148,6 +158,8 @@ export interface VoteAnalyse {
   ecarts: { sujet: string; modele: string; observe: string }[];
   contradictions: { indiceLidar: string; observation: string }[];
   confiance: Vote<ReponseAnalyse['confiance']>;
+  /** Les images que plus de la moitie des passes disent hors sujet, dans l'ordre de leur numero. */
+  imagesHorsSujet: number[];
   /** Les champs simples des sujets, votes sans code propre : par nom de champ (regles/sujets/vote.ts les declare). */
   simples: Record<string, Vote<string | Compte>>;
 }
@@ -198,6 +210,10 @@ export function voterAttribut<T>(valeurs: readonly T[], indices: readonly (reado
 
 const IND = 'indetermine' as const;
 
+/** Les ouvertures par niveau d'une passe : des nombres, un par niveau ; sinon `indetermine`. */
+const lireParNiveau = (p: readonly Compte[] | undefined): number[] | 'indetermine' =>
+  Array.isArray(p) && p.length && p.every((n) => typeof n === 'number' && n >= 0) ? p as number[] : IND;
+
 function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
   const etiquettes = [...new Set(reponses.flatMap((r) => r.facades.map((f) => f.facade)))];
   return etiquettes.map((etiquette) => {
@@ -208,8 +224,10 @@ function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
       facade: etiquette,
       materiau: v((f) => f.materiau, IND), volets: v((f) => f.details.volets, IND), coffre: v((f) => f.details.coffre, IND),
       balcon: v((f) => f.details.balcon, IND), formeOuvertures: v((f) => f.details.forme, IND),
+      vitrage: v((f) => f.details.vitrage ?? IND, IND), ouvrant: v((f) => f.details.ouvrant ?? IND, IND), porte: v((f) => f.details.porte ?? IND, IND),
+      garage: v((f) => f.details.garage ?? IND, IND), couleurVolets: v((f) => f.details.couleurVolets ?? IND, IND),
       silhouette: v((f) => silhouetteLue(f.silhouette), IND), bout: v((f) => boutLu(f.bout), IND),
-      niveaux: v<Compte>((f) => f.ouvertures.niveaux, IND), manquees: v<Compte>((f) => f.ouvertures.manquees, IND), enTrop: v<Compte>((f) => f.ouvertures.enTrop, IND),
+      niveaux: v<Compte>((f) => f.ouvertures.niveaux, IND), parNiveau: v((f) => lireParNiveau(f.ouvertures.parNiveau), IND as number[] | 'indetermine'), manquees: v<Compte>((f) => f.ouvertures.manquees, IND), enTrop: v<Compte>((f) => f.ouvertures.enTrop, IND),
       ecarts: [...new Set(fs.map((f) => f.ecart.trim()).filter(Boolean))],
     };
   });
@@ -261,6 +279,8 @@ export function voter(reponses: readonly ReponseAnalyse[], simples: readonly Cha
     ecarts: [...ecarts.values()],
     contradictions: [...contradictions.values()],
     confiance: voterAttribut(reponses.map((r) => r.confiance), reponses.map(() => []), 'faible' as ReponseAnalyse['confiance']),
+    imagesHorsSujet: [...new Set(reponses.flatMap((r) => (Array.isArray(r.imagesHorsSujet) ? r.imagesHorsSujet : []).filter((n) => Number.isInteger(n))))]
+      .filter((n) => reponses.filter((r) => r.imagesHorsSujet?.includes(n)).length * 2 > reponses.length).sort((a, z) => a - z),
     simples: Object.fromEntries(simples.map((c) => [c.nom, tranche(voterSimple(reponses, c), fin ? lireSimple(fin, c)?.valeur : undefined, fin ? lireSimple(fin, c)?.indices ?? [] : [], IND)])),
   };
 }
@@ -274,7 +294,8 @@ export function attributsEnDesaccord(v: VoteAnalyse): string[] {
   const scalaires: [string, Vote<unknown>][] = [
     ['forme', v.forme], ['profil', v.profil], ['faitage', v.faitage], ['boutGauche', v.boutGauche], ['boutDroit', v.boutDroit], ['lucarnes', v.lucarnes], ['panLucarnes', v.panLucarnes],
     ['cheminees', v.cheminees], ['terrasse', v.terrasse], ['typeTerrasse', v.typeTerrasse], ['acrotere', v.acrotere], ['edicules', v.edicules], ['couverture', v.couverture],
-    ...Object.entries(v.simples),
+    // Un champ simple qu'aucune passe ne donne (une reponse d'avant son entree au schema, ou toutes `indetermine`) n'a rien a departager.
+    ...Object.entries(v.simples).filter(([, x]) => x.valeur !== IND || x.accord > 0),
   ];
   return scalaires.filter(([, x]) => x.accord < 1).map(([nom]) => nom);
 }
@@ -420,7 +441,7 @@ export function contradictionsLidar(vote: VoteAnalyse, indices: IndicesLidar | n
  * --------------------------------------------------------------------------------------------- */
 
 /** Les attributs que Claude propose dans le projet, et sur lesquels un taux d'accord se mesure. */
-export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs' | 'formeToit';
+export type AttributClaude = 'couverture' | 'cheminees' | 'terrasse' | 'materiauMurs' | 'couleurMurs' | 'formeToit';
 
 /**
  * Le taux d'accord mesure par attribut sur les cas valides (spec-regles-toits §14.2, point 5). Vide
@@ -440,6 +461,15 @@ export function reserveClaude(attribut: AttributClaude, vote: { accord: number; 
   if (mesure === undefined) return 'Taux d’accord de Claude non encore mesuré sur cet attribut : à vérifier.';
   if (mesure < ACCORD_PREACCEPTE) return 'Taux d’accord de Claude mesuré à ' + Math.round(mesure * 100) + ' % sur cet attribut : à vérifier.';
   return null;
+}
+
+/**
+ * Ce que Claude dit de sa propre observation (`confiance`, votee sur les passes) : `faible` quand les images
+ * sont mauvaises, masquees ou en desaccord. Une reserve de plus sur chacune de ses propositions, qui arrive
+ * deja decochee : la personne sait que Claude lui-meme doute. Null pour `moyenne` et `forte`.
+ */
+export function reserveConfiance(confiance: Vote<ReponseAnalyse['confiance']>): string | null {
+  return confiance.valeur === 'faible' ? 'Claude se dit peu sûr de ce qu’il voit (images mauvaises, masquées ou en désaccord).' : null;
 }
 
 /** Le contour d'un batiment en JSON compact, au decimetre : ce que Claude recoit du modele actuel. */
