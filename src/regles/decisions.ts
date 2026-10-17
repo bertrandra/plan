@@ -79,6 +79,8 @@ export type EffetProposition =
   /** Le releve d'une facade, a la hauteur mesuree : il est ramene a celle du batiment a l'ecriture. */
   | { type: 'releve'; releve: ReleveFacade }
   | { type: 'hauteur'; hauteurM: number }
+  /** La hauteur totale (au faitage) d'un batiment sans corps : la hauteur de son toit au-dessus de l'egout en est deduite. */
+  | { type: 'hauteurToit'; faitageM: number }
   | { type: 'couleurMurs'; couleur: string }
   | { type: 'materiauMurs'; materiau: MateriauTexture }
   | { type: 'couverture'; couverture: CouvertureChoisie }
@@ -238,6 +240,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'hauteur': o.elevation = cm(e.hauteurM); return;
+    case 'hauteurToit': if (o.toit) o.toit = { ...o.toit, hauteur: Math.max(0.1, cm(e.faitageM - hauteurDe(o))) }; return;
     case 'couleurMurs': {
       // Valider la couleur vue sur place, c'est la choisir : un choix de source anterieur tombe.
       const suite = { ...(o.couleurMurs ?? {}), terrain: { couleur: e.couleur, date: '' } };
@@ -277,7 +280,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

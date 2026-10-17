@@ -2,7 +2,7 @@
 // plusieurs sources parlent, un arbitrage (facade/regles/reconciliation.ts) qui dit la valeur retenue, si la decision est
 // automatique ou a prendre, et pourquoi ; et la proposition qui l'ecrit dans le projet, avec tous les constats en dessous.
 //
-// Aujourd'hui : la hauteur a l'egout (IGN, LiDAR, photo de facade) et la toiture (forme, bouts et sens du faitage : LiDAR,
+// Aujourd'hui : la hauteur a l'egout (IGN, LiDAR, photo de facade), la hauteur totale d'un batiment sans corps (IGN, LiDAR) et la toiture (forme, bouts et sens du faitage : LiDAR,
 // silhouette des facades vue par la photo et par Claude, ce que la personne a vu). La toiture est recalculee par le moteur des
 // toits sur la mesure LiDAR (`corpsSousContrainte`) avec les valeurs retenues : une decision n'ecrit jamais une forme de sa main.
 // Le materiau des murs et la couverture (fichiers fonciers, Claude, ce que la personne a vu) s'arbitrent de la meme facon : la valeur
@@ -128,6 +128,22 @@ function propositionCouverture(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | un
   };
 }
 
+/**
+ * La hauteur totale (au faitage) : seulement pour un batiment sans corps, dont le toit n'est qu'une hauteur au-dessus de l'egout ;
+ * quand les corps sont lus, c'est eux qui portent le faitage (la toiture est recalculee par le moteur des toits).
+ */
+function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'number' || !o.toit || o.corpsToit?.length) return null;
+  const actuelle = hauteurDe(o) + o.toit.hauteur, v = Math.round(a.retenu.valeur * 100) / 100;
+  if (Math.abs(v - actuelle) < ECART_HAUTEUR_MIN_M) return null;
+  return {
+    id: b.cle + ':hauteurTotale', cible: { type: 'batiment', cle: b.cle }, objet: 'Hauteur totale de ' + b.nom, source: 'arbitrage',
+    avant: fr(actuelle) + ' m', apres: fr(v) + ' m, ' + sourcesDuRetenu(a, regles), indices: indicesDuRetenu(a), confiance: null,
+    remplaceChoix: null, reserve: a.decision === 'manuelle' ? a.raison : null,
+    effet: { type: 'hauteurToit', faitageM: v }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
 const estBout = (m: string): m is BoutFait => m === 'pignon' || m === 'croupe';
 
 /**
@@ -181,7 +197,7 @@ export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: Li
 }
 
 /** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
-const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'formeToit', 'materiauMurs', 'couverture'];
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture'];
 
 /** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
 export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
@@ -204,7 +220,7 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
     if (!o || !b) continue;
     const cible = cibleBatiment(cle);
     const parAttribut = (id: IdAttribut) => arbitrages.find((a) => a.cible === cible && a.attribut === id);
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles)]) if (p) out.push(p);
   }
   return out;
 }

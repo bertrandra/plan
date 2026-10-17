@@ -77,6 +77,7 @@ function constatsIgn({ o, b }: EntreesConstats): Constat[] {
   else if (typeof bd?.hauteurRetenueM === 'number') out.push({ cible, attribut: 'hauteurEgout', source: 'ign', valeur: cm(bd.hauteurRetenueM), confiance: 0.4, regle: REGLES_LIDAR.ign.estimee });
   const mursFonciers = materiauMurs(bd?.materiauxMurs);
   if (mursFonciers) out.push({ cible, attribut: 'materiauMurs', source: 'ign', valeur: mursFonciers.texture, confiance: 0.7, regle: REGLES_LIDAR.ign.materiau });
+  if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'hauteurTotale', source: 'ign', valeur: cm(hauteurDe(o) + o.toit.hauteur), confiance: 0.4, regle: REGLES_LIDAR.ign.toit });
   if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'formeToit', source: 'ign', valeur: formeArbitree(o.toit.forme), confiance: 0.4, regle: REGLES_LIDAR.ign.forme });
   return out;
 }
