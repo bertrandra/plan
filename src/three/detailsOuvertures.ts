@@ -158,6 +158,8 @@ function lames(b: Batisseur, pt: Point3, x0: number, x1: number, y0: number, y1:
 /** Ce que les details d'un mur ajoutent, groupe par materiau. */
 interface Pieces {
   volets: (() => void)[];
+  /** Les volets d'une couleur vue (`details.couleurVolets`), par couleur : chacune son materiau, apres les autres groupes. */
+  voletsColores: Map<string, (() => void)[]>;
   coffres: (() => void)[];
   dalles: (() => void)[];
   gardeCorps: (() => void)[];
@@ -180,8 +182,10 @@ function volets(b: Batisseur, pt: Point3, o: Baie, cadre: number, hMur: number, 
     if (ferme) p.coffres.push(() => lames(b, pt, x, x + l, y, y + h, D.saillieVolet, D.saillieVolet + 0.01, D.pasTablier));
     return;
   }
+  const couleur = o.details?.couleurVolets;
+  const groupe = couleur ? p.voletsColores.get(couleur) ?? (p.voletsColores.set(couleur, []).get(couleur) as (() => void)[]) : p.volets;
   const vantail = (x0: number, x1: number, s: number) =>
-    p.volets.push(() => (v === 'persiennes' ? lames(b, pt, x0, x1, y, y + h, s - 0.015, s + 0.015, D.pasLames) : panneau(b, pt, x0, x1, y, y + h, s)));
+    groupe.push(() => (v === 'persiennes' ? lames(b, pt, x0, x1, y, y + h, s - 0.015, s + 0.015, D.pasLames) : panneau(b, pt, x0, x1, y, y + h, s)));
   if (ferme) {
     const j = D.jeuVantaux / 2;
     vantail(x, x + l / 2 - j, D.saillieVoletFerme);
@@ -269,13 +273,15 @@ export function poserDetailsOuvertures(ctx: ContexteDetailsOuvertures, poses: re
   const habillees = poses.filter((q) => aDesDetails(q.o.details));
   if (!habillees.length) return;
   const b = new Batisseur();
-  const p: Pieces = { volets: [], coffres: [], dalles: [], gardeCorps: [] };
+  const p: Pieces = { volets: [], voletsColores: new Map(), coffres: [], dalles: [], gardeCorps: [] };
   habillees.forEach((q) => {
     const pt = repereFacade(ctx.toLocal, q.f);
     volets(b, pt, q.o, q.cadre, q.hMur, q.f, p);
     allege(b, pt, q.o, q.f, p);
   });
-  const groupes = [p.volets, p.coffres, p.dalles, p.gardeCorps];
+  // Les volets de couleur vue viennent apres les quatre groupes d'avant : sans eux, la maille ne change pas.
+  const colores = [...p.voletsColores];
+  const groupes = [p.volets, p.coffres, p.dalles, p.gardeCorps, ...colores.map(([, g]) => g)];
   if (!groupes.some((g) => g.length)) return;
   groupes.forEach((g, k) => {
     g.forEach((f) => f());
@@ -286,6 +292,7 @@ export function poserDetailsOuvertures(ctx: ContexteDetailsOuvertures, poses: re
     new THREE.MeshStandardMaterial({ color: COULEUR_COFFRE, roughness: 0.6, side: THREE.DoubleSide }),
     new THREE.MeshStandardMaterial({ color: COULEUR_DALLE, roughness: 0.9, side: THREE.DoubleSide }),
     new THREE.MeshStandardMaterial({ color: COULEUR_GARDE_CORPS, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide }),
+    ...colores.map(([c]) => new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.8, side: THREE.DoubleSide })),
   ];
   // Plaques contre le mur (volets ouverts a 3 cm) : de loin, elles doivent gagner le test de profondeur.
   materiaux.forEach((m) => poserEnCouche(m, COUCHES_SOL.surMur));

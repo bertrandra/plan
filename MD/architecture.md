@@ -492,7 +492,7 @@ src/regles/donnees/          layer 2 — the engine's three data files as Admin 
   edition.ts                 change a threshold without reformatting the file, control, diff, fingerprint
 src/app/regles/              layer 6 — what the audit can see and propose
   sujets/                    one module per subject, same `id` as its description (couverture, cheminees, terrasse,
-                             facades, formeToit, lucarnes, elements, transverse)
+                             facades, murs, formeToit, lucarnes, elements, transverse)
     contrat.ts               the `Sujet` contract (id, attribut?, effet?, proposer?, observer?); index.ts is the registry (`SUJETS`)
     observations.ts          the observations, said by the registry in prompt order (a simple field with no module says itself)
     vote.ts                  the vote of the passes as the audit reads it (the subjects' simple fields included)

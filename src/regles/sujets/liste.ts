@@ -9,6 +9,7 @@ import { terrasse } from './descriptions/terrasse.js';
 import { couverture } from './descriptions/couverture.js';
 import { elements } from './descriptions/elements.js';
 import { facades } from './descriptions/facades.js';
+import { murs } from './descriptions/murs.js';
 import { transverse } from './descriptions/transverse.js';
 
-export const DESCRIPTIONS_SUJETS: readonly DescriptionSujet[] = [formeToit, lucarnes, cheminees, terrasse, couverture, elements, facades, transverse];
+export const DESCRIPTIONS_SUJETS: readonly DescriptionSujet[] = [formeToit, lucarnes, cheminees, terrasse, couverture, elements, facades, murs, transverse];

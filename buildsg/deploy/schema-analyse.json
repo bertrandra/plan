@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-analyse",
-  "version": 4,
-  "note": "Sortie structuree de l'analyse d'une maison par Claude (spec-regles-toits.md 14.2 et 14.3 ; spec-audit.md 13.2). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Version 1 (lot L17) : les facades aussi (ouvertures par niveau, manquees ou en trop par la detection, details, materiau du parement). Version 2 : la silhouette du haut de chaque facade (`silhouette`). Version 3 : la silhouette dans le vocabulaire des pignons, et le `bout` que chaque facade ferme. Le schema part a la suite du prompt (plus dans output_config.format depuis le 15 octobre 2026 : l'API refusait sa grammaire), et la reponse y est ramenee par le serveur (deploy/analyse.php::conformer) ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal. Version 4 : la couverture admet `ardoise-losange`.",
+  "version": 5,
+  "note": "Sortie structuree de l'analyse d'une maison par Claude (spec-regles-toits.md 14.2 et 14.3 ; spec-audit.md 13.2). Vocabulaire ferme des paragraphes 2 et 3, indetermine partout, indices avant la conclusion. Version 1 (lot L17) : les facades aussi (ouvertures par niveau, manquees ou en trop par la detection, details, materiau du parement). Version 2 : la silhouette du haut de chaque facade (`silhouette`). Version 3 : la silhouette dans le vocabulaire des pignons, et le `bout` que chaque facade ferme. Le schema part a la suite du prompt (plus dans output_config.format depuis le 15 octobre 2026 : l'API refusait sa grammaire), et la reponse y est ramenee par le serveur (deploy/analyse.php::conformer) ; un changement de champ ou de terme change la version, qui suit chaque ligne du journal. Version 4 : la couverture admet `ardoise-losange`. Version 5 : `teinteMurs` et `decorMurs` (champs simples), `imagesHorsSujet` (les numeros des images qui ne montrent pas le batiment), et dans `facades[].details` : `vitrage`, `ouvrant`, `porte`, `garage`, `couleurVolets`.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -16,9 +16,12 @@
       "couverture",
       "elements",
       "facades",
+      "teinteMurs",
+      "decorMurs",
       "ecarts",
       "contradictions",
-      "confiance"
+      "confiance",
+      "imagesHorsSujet"
     ],
     "properties": {
       "forme": {
@@ -370,7 +373,12 @@
                 "volets",
                 "coffre",
                 "balcon",
-                "forme"
+                "forme",
+                "vitrage",
+                "ouvrant",
+                "porte",
+                "garage",
+                "couleurVolets"
               ],
               "properties": {
                 "volets": {
@@ -397,6 +405,67 @@
                     "cintree",
                     "oeil-de-boeuf",
                     "mixte",
+                    "indetermine"
+                  ]
+                },
+                "vitrage": {
+                  "type": "string",
+                  "enum": [
+                    "plein",
+                    "petits-bois",
+                    "imposte-petits-bois",
+                    "mixte",
+                    "indetermine"
+                  ]
+                },
+                "ouvrant": {
+                  "type": "string",
+                  "enum": [
+                    "battants",
+                    "coulissant",
+                    "guillotine",
+                    "soufflet",
+                    "fixe",
+                    "mixte",
+                    "indetermine"
+                  ]
+                },
+                "porte": {
+                  "type": "string",
+                  "enum": [
+                    "pleine",
+                    "vitree",
+                    "semi-vitree",
+                    "sans-objet",
+                    "indetermine"
+                  ]
+                },
+                "garage": {
+                  "type": "string",
+                  "enum": [
+                    "sectionnelle",
+                    "basculante",
+                    "battants",
+                    "enroulable",
+                    "sans-objet",
+                    "indetermine"
+                  ]
+                },
+                "couleurVolets": {
+                  "type": "string",
+                  "enum": [
+                    "blanc",
+                    "creme",
+                    "gris-clair",
+                    "gris-fonce",
+                    "bleu",
+                    "vert",
+                    "rouge",
+                    "brun",
+                    "bois",
+                    "noir",
+                    "mixte",
+                    "sans-objet",
                     "indetermine"
                   ]
                 }
@@ -432,6 +501,58 @@
             "ecart": {
               "type": "string"
             }
+          }
+        }
+      },
+      "teinteMurs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indices",
+          "valeur"
+        ],
+        "properties": {
+          "indices": {
+            "$ref": "#/$defs/indices"
+          },
+          "valeur": {
+            "type": "string",
+            "enum": [
+              "blanc",
+              "creme",
+              "beige",
+              "ocre",
+              "rose",
+              "gris-clair",
+              "gris-fonce",
+              "brun",
+              "rouge-brique",
+              "indetermine"
+            ]
+          }
+        }
+      },
+      "decorMurs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "indices",
+          "valeur"
+        ],
+        "properties": {
+          "indices": {
+            "$ref": "#/$defs/indices"
+          },
+          "valeur": {
+            "type": "string",
+            "enum": [
+              "aucun",
+              "colombages",
+              "chainages-brique",
+              "bandeaux",
+              "mixte",
+              "indetermine"
+            ]
           }
         }
       },
@@ -501,6 +622,12 @@
           "moyenne",
           "forte"
         ]
+      },
+      "imagesHorsSujet": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        }
       }
     },
     "$defs": {

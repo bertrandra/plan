@@ -14,7 +14,8 @@ import { elevationParDefaut } from '../model/defaults.js';
 import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/auditParcelle.js';
-import type { Cheminee, CorpsToit, CouvertureChoisie, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
+import type { Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
+import { completerDetails } from '../model/ouverturesVues.js';
 
 /**
  * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
@@ -78,6 +79,12 @@ export type CibleProposition =
 export type EffetProposition =
   /** Le releve d'une facade, a la hauteur mesuree : il est ramene a celle du batiment a l'ecriture. */
   | { type: 'releve'; releve: ReleveFacade }
+  /**
+   * Les details que Claude voit sur la majorite des ouvertures d'une facade (volets et leur couleur, vitrage, ouvrant,
+   * porte, garage) : ils completent, sur le releve de la facade `cote` tel qu'il est a l'ecriture, les ouvertures du type
+   * qu'ils concernent et qui ne les ont pas (model/ouverturesVues.ts). Ecrits apres les releves : ils valent pour celui qui est coche.
+   */
+  | { type: 'detailsOuvertures'; cote: number; details: DetailsOuverture }
   | { type: 'hauteur'; hauteurM: number }
   /** La hauteur totale (au faitage) d'un batiment sans corps : la hauteur de son toit au-dessus de l'egout en est deduite. */
   | { type: 'hauteurToit'; faitageM: number }
@@ -243,6 +250,11 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       o.facades = [...(o.facades ?? []).filter((x) => x.cote !== r.cote), r].sort((a, b) => a.cote - b.cote);
       return;
     }
+    case 'detailsOuvertures': {
+      const r = (o.facades ?? []).find((x) => x.cote === e.cote);
+      if (r) r.ouvertures = r.ouvertures.map((x) => { const d = completerDetails(x.type, x.details, e.details); return d ? { ...x, details: d } : x; });
+      return;
+    }
     case 'hauteur': o.elevation = cm(e.hauteurM); return;
     case 'hauteurToit': if (o.toit) o.toit = { ...o.toit, hauteur: Math.max(0.1, cm(e.faitageM - hauteurDe(o))) }; return;
     case 'couleurMurs': {
@@ -302,7 +314,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

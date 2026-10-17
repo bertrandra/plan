@@ -89,6 +89,27 @@ describe('les propositions de Claude', () => {
     expect(c?.reserve).toMatch(/^Contredit la mesure LiDAR : toit plat annoncé/);
   });
 
+  it('complete la terrasse par la couverture du toit plat et les elements vus sur le toit', () => {
+    const membrane = reponse({ couverture: { indices: [{ image: 3, vu: 'membrane grise' }], valeur: 'membrane' }, terrasse: { indices: [], presente: 'indetermine', type: 'indetermine', acrotere: 'indetermine', edicules: 'indetermine' }, elements: [{ indices: [{ image: 3, vu: 'muret en rive' }], element: 'acrotere' }] });
+    const t = propositions([membrane, membrane, membrane]).find((x) => x.id === 'maison:claude:terrasse');
+    expect(t).toMatchObject({ apres: 'Toiture-terrasse en membrane, acrotère, vue par Claude', confiance: 1, effet: { type: 'terrasse', corps: 1, terrasse: { revetement: 'membrane', acrotereM: 0.6 } } });
+    expect(t?.indices).toEqual([{ texte: 'membrane grise (orthophoto)' }]);
+    // Les passes disent qu'il n'y a pas de terrasse : la couverture seule ne la fait pas.
+    const non = reponse({ couverture: { indices: [], valeur: 'gravillons' } });
+    expect(propositions([non, non, non]).some((x) => x.id === 'maison:claude:terrasse')).toBe(false);
+    // Un garde-corps ne dit la terrasse que si elle est accessible.
+    const acces = reponse({ terrasse: { indices: [], presente: 'oui', type: 'accessible', acrotere: 'non', edicules: 0 }, couverture: { indices: [], valeur: 'vegetale' }, elements: [{ indices: [], element: 'garde-corps' }] });
+    expect(propositions([acces, acces, acces]).find((x) => x.id === 'maison:claude:terrasse')?.effet).toMatchObject({ terrasse: { accessible: true, revetement: 'vegetalise', acrotereM: 0, gardeCorps: true } });
+  });
+
+  it('ajoute une reserve a chaque ligne quand Claude se dit peu sur', () => {
+    const faible = reponse({ confiance: 'faible' });
+    const p = propositions([faible, faible, faible]);
+    expect(p.length).toBeGreaterThan(0);
+    for (const x of p) expect(x.reserve).toMatch(/non encore mesuré.*Claude se dit peu sûr/);
+    expect(propositions([reponse(), reponse(), reponse()]).some((x) => /peu sûr/.test(x.reserve ?? ''))).toBe(false);
+  });
+
   it('ignore les reponses qui n ont pas la forme du schema', () => {
     expect(propositions([{ forme: 'plat' }, null])).toEqual([]);
     expect(propositions([])).toEqual([]);
