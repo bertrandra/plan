@@ -15,7 +15,7 @@
 // Panoramax (la photo n'est pas dans le cas), la reponse a la question d'un batiment a cheval (les
 // parcelles n'y sont pas), et le toit BD TOPO d'un batiment qu'aucune forme n'explique.
 
-import { reconstruireCorps } from '../toitCorps.js';
+import { corpsCalcules } from './toits/catalogue.js';
 import { ajusterToit } from '../toitLidar.js';
 import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, elevationApresLecture, hauteurBdTopo } from './toits/vraisemblance.js';
 import { echantillonsDeGrille } from '../../geo/mnh.js';
@@ -73,7 +73,7 @@ function rejouer(c: CasAudit, faits: FaitsToits): RejeuCas {
   const ech = echantillonsDeGrille(grille, pts);
   const ajuste = ajusteVraisemblable(b, ajusteSelonFait(fait, pts, ech, ajusterToit(pts, ech)));
   const mesure = mesureVraisemblable(b, toitMesureDepuisGrille(grille, pts));
-  const corps = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, reconstruireCorps(mesure, pts, { coupes: true, grille }), mesure, pts, grille)) : null;
+  const corps = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, corpsCalcules(mesure, pts, { coupes: true, grille, hauteurBdTopo: hauteur }), mesure, pts, grille)) : null;
   const principal = estPrincipal(c.entrees.bdtopo);
   // Comme app/toitsLidar.ts : le projet garde sa surface et en tire son egout ; un mitoyen ne garde la
   // surface qu'avec des corps, et son egout vient de la forme ajustee.

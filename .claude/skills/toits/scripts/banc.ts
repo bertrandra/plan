@@ -32,9 +32,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
+import { hauteurBdTopo } from '../../../../src/facade/regles/toits/vraisemblance.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
 import { PROFILS_TOITS, REGLAGES_TOITS, avecSeuilsToit } from '../../../../src/regles/toits/reglages.ts';
 import { lireProfilsToits } from '../../../../src/regles/toits/profils.ts';
@@ -44,6 +44,7 @@ import {
   bilanChangements, ecartsCompteurs, ABSENT, type FormesBatiment, type ReferenceFormes, type CompteursBanc,
 } from '../../../../tests/banc/toits/formes.ts';
 import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
+import { corpsCalcules } from '../../../../src/facade/regles/toits/catalogue.ts';
 import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
 const S = (process.env.TOITS_DOSSIER || '/tmp/toits').replace(/\/?$/, '/');
@@ -84,7 +85,7 @@ for (const b of D.batiments) {
   // app/toitsLidar.ts::corpsLus.
   const { m, corps } = avecSeuilsToit(choix.surcharges, () => {
     const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
-    return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), reconstruireCorps(m, b.pts, { coupes: fort, grille: b.grille }), m, b.pts, b.grille)) ?? [] : [] };
+    return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [] };
   });
   const reprise = !rectanglesDuContour(b.pts);
   if (reprise) nReprise++;

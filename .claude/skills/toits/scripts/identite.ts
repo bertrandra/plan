@@ -9,7 +9,7 @@
 //   npx tsx .claude/skills/toits/scripts/identite.ts > /tmp/toits/avant.txt     # avant la modification
 //   npx tsx .claude/skills/toits/scripts/identite.ts | diff /tmp/toits/avant.txt -
 import { readFileSync, readdirSync } from 'node:fs';
-import { reconstruireCorps } from '../../../../src/facade/toitCorps.ts';
+import { corpsCalcules } from '../../../../src/facade/regles/toits/catalogue.ts';
 import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
 import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
@@ -19,7 +19,7 @@ for (const f of readdirSync(F).filter((x) => x.endsWith('.json')).sort()) {
   const d = JSON.parse(readFileSync(new URL(f, F), 'utf8'));
   if (!d.contour || !d.toitMesure) continue;
   for (const g of [undefined, d.grille]) {
-    const c = reconstruireCorps(d.toitMesure, d.contour, { grille: g });
+    const c = corpsCalcules(d.toitMesure, d.contour, { grille: g });
     let etat = '';
     if (f === 'vesinet-ae101.json') {
       const meme = JSON.stringify(c) === JSON.stringify(d.corps);
@@ -31,7 +31,7 @@ for (const f of readdirSync(F).filter((x) => x.endsWith('.json')).sort()) {
   // Sous les faits livres : ce que l'application pose sur le batiment (app/toitsLidar.ts::corpsLus).
   const fait = d.cleabs ? faitDuBatiment({ bdtopo: { cleabs: d.cleabs } }) : null;
   if (!fait) continue;
-  const c = corpsSelonFait(fait, reconstruireCorps(d.toitMesure, d.contour, { grille: d.grille }), d.toitMesure, d.contour, d.grille);
+  const c = corpsSelonFait(fait, corpsCalcules(d.toitMesure, d.contour, { grille: d.grille }), d.toitMesure, d.contour, d.grille);
   let etat = '';
   if (f === 'vesinet-ae101.json') {
     const meme = JSON.stringify(c) === JSON.stringify(d.corpsAvecFaits);
