@@ -5,6 +5,7 @@
 // (`.claude/skills/facades`), avant et apres, jamais par une seule scene.
 
 import type { Reglage } from './detection.js';
+import { surchargesCalibrees } from './surcharges.js';
 
 export const REGLAGES_STRUCTURE = {
   'facades.structure.niveauRecouvrementMin': {
@@ -130,6 +131,6 @@ export type ValeursStructure = Record<NomReglageStructure, number>;
 
 export function reglagesStructure(surcharges: Partial<ValeursStructure> = {}): ValeursStructure {
   const v = {} as ValeursStructure;
-  for (const nom of Object.keys(REGLAGES_STRUCTURE) as NomReglageStructure[]) v[nom] = surcharges[nom] ?? REGLAGES_STRUCTURE[nom].valeur;
+  for (const nom of Object.keys(REGLAGES_STRUCTURE) as NomReglageStructure[]) v[nom] = surcharges[nom] ?? surchargesCalibrees()[nom] ?? REGLAGES_STRUCTURE[nom].valeur;
   return v;
 }

@@ -77,6 +77,12 @@ export interface Validation {
   mesures(): EtatMesures;
   /** Mesure les facades photographiees qui ne le sont pas encore ; rend quand tout est pret. */
   lancer(): Promise<void>;
+  /**
+   * « Rejouer redressement + fusion » : refait le redressement des photos et leur fusion pour une facade (`cle` et
+   * `cote`), pour un batiment (`cle`) ou pour tout l'audit (rien). Ne remplace que les derives : les photos d'origine
+   * et les corrections manuelles (coins, echelle) restent, et priment sur le calcul. Rend le nombre de facades rejouees.
+   */
+  rejouerRedressement(cle?: string, cote?: number): Promise<number>;
   /** Les entrees des propositions a cet instant (le plan, la liste, la capture, les mesures faites). */
   entrees(): EntreesPropositions;
   propositions(): readonly Proposition[];
@@ -131,7 +137,7 @@ export interface Validation {
 }
 
 /** Les photos d'une facade, et ce qui les distingue : une photo ajoutee ou retiree relance la mesure. */
-const signature = (photos: readonly PhotoCas[]) => photos.map((p) => p.base64.length + ':' + (p.prise?.t ?? '')).join('|');
+const signature = (photos: readonly PhotoCas[], corrections?: object) => photos.map((p) => p.base64.length + ':' + (p.prise?.t ?? '')).join('|') + (corrections && Object.keys(corrections).length ? '#' + JSON.stringify(corrections) : '');
 
 /** Les mesures des facades photographiees, faites une fois, l'une apres l'autre. */
 function mesureurDe(ctx: ContexteValidation, publier: () => void) {
@@ -142,8 +148,9 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
 
   /** Les facades a mesurer : photographiees, avec leurs photos d'aujourd'hui. */
   const aMesurer = () => ctx.liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => {
-    const photos = ctx.capture.lire().batiments[b.cle]?.facades[String(f.cote)]?.photos ?? [];
-    return { b, f, photos, cle: cleMesure(b.cle, f.cote), sig: signature(photos) };
+    const saisie = ctx.capture.lire().batiments[b.cle]?.facades[String(f.cote)];
+    const photos = saisie?.photos ?? [];
+    return { b, f, photos, corrections: saisie?.corrections ?? {}, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections) };
   }));
 
   async function tout(): Promise<void> {
@@ -157,7 +164,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       publier();
       const bat = ctx.etat.objects.find((o) => o.key === x.b.cle);
       if (bat && 'pts' in bat && bat.pts) {
-        const m = await mesurerFacade(x.b.cle, x.f.facade, { pts: bat.pts }, x.photos, ctx.mesures);
+        const m = await mesurerFacade(x.b.cle, x.f.facade, { pts: bat.pts }, x.photos, ctx.mesures, x.corrections);
         faites.set(x.cle, { signature: x.sig, mesure: m });
         version++;
       }
@@ -185,11 +192,20 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       enCours ??= tout().finally(() => { enCours = null; });
       return enCours;
     },
+    /** Oublie les mesures de ces facades (leurs derives) et les refait ; les photos et les corrections ne bougent pas. */
+    async rejouer(cle?: string, cote?: number): Promise<number> {
+      const cibles = aMesurer().filter((x) => (cle === undefined || x.b.cle === cle) && (cote === undefined || x.f.cote === cote));
+      for (const x of cibles) faites.delete(x.cle);
+      if (cibles.length) { version++; await this.lancer(); }
+      publier();
+      return cibles.length;
+    },
     /** Des mesures venues d'ailleurs, signees des photos de la capture d'aujourd'hui. */
     poser(mesures: readonly MesureFacade[]): void {
       for (const m of mesures) {
-        const photos = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)]?.photos ?? [];
-        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos), mesure: m });
+        const saisie = ctx.capture.lire().batiments[m.cle]?.facades[String(m.cote)];
+        const photos = saisie?.photos ?? [];
+        if (photos.length) faites.set(cleMesure(m.cle, m.cote), { signature: signature(photos, saisie?.corrections), mesure: m });
       }
       version++;
       publier();
@@ -380,9 +396,9 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     mesures: () => (figees ? { etat: 'pretes' } : mesureur.etat()),
     lancer: async () => {
       if (figees) return;
-      await mesureur.lancer();
-      if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
+      await mesureur.lancer(); if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
     },
+    rejouerRedressement: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)),
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,

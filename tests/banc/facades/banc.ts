@@ -726,7 +726,7 @@ function tableauVues(b: ResultatBanc): string[] {
   const scenes = b.scenes.filter((r) => r.vues);
   if (!scenes.length) return [];
   const l: string[] = [];
-  l.push('### Fusion de plusieurs vues (lot L13 : recalage en deux dimensions, occlusions par la parallaxe, composition par qualité)', '');
+  l.push('### Fusion de plusieurs vues (lot L13, recalage ORB + RANSAC : similitude recalée et vérifiée par corrélation, occlusions par la parallaxe, composition par qualité)', '');
   l.push(
     "Une vue : la chaîne du relevé sur la seule vue principale ; fusion : `analyserVues` sur toutes les vues (coins vrais, décalés de quelques pixels sur les vues de plus). Caché : part du mur que la vue principale ne voit pas (vérité du générateur) ; rendu au mur : parmi ces pixels, ceux que l'élévation montre comme le mur. Masque : part du mur restée cachée sur toutes les vues, selon la fusion. Recalage : décalage trouvé pour chaque vue de plus, en cm (x, y).",
     '',

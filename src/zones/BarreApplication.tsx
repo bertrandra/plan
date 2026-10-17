@@ -287,6 +287,11 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
           </button>
         </li>
         <li role="menuitem">
+          <button type="button" data-controle="admin.calibration" onClick={aller('?admin&ecran=calibration')}>
+            <span className="coche" aria-hidden="true" />Calibrer la détection
+          </button>
+        </li>
+        <li role="menuitem">
           <button type="button" data-controle="admin.chaine" onClick={aller('?admin&ecran=chaine')}>
             <span className="coche" aria-hidden="true" />De l’IGN à ma maison
           </button>

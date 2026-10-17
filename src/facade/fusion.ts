@@ -1,4 +1,4 @@
-// Fusion de plusieurs vues d'une meme partie du mur (MD/spec-facades-calage-detection.md §8, lot L13).
+// Fusion de plusieurs vues d'une meme partie du mur (MD/spec-facades-calage-detection.md §8).
 //
 // La mosaique (facade/mosaique.ts) met des morceaux cote a cote. Ici, chaque photo montre le mur
 // entier, de face ou de biais : une voiture, une haie ou un poteau cachent une baie sur l'une, pas
@@ -8,9 +8,9 @@
 //    (largeur du plan, hauteur mesuree par la perspective : la mediane des vues). Chaque pixel recoit
 //    une **qualite** (spec §7) : la resolution de la photo source au mur, dans le sens le moins bien
 //    vu (une vue de biais ecrase les largeurs), et une surexposition qui la fait tomber.
-// 2. **Le recalage fin.** Des coins poses a quelques centimetres pres decalent les elevations les
-//    unes des autres : le decalage en x et en y qui les fait coincider est cherche par correlation
-//    normalisee, comme la mosaique, mais en deux dimensions et sur quelques decimetres seulement.
+// 2. **Le recalage par points d'interet.** ORB sur chaque elevation, appariement, RANSAC, verification de la
+//    partie commune (facade/recalageOrb.ts). Le plus grand groupe de photos qui se recalent est fusionne ; les
+//    autres restent independantes, avec leur motif, et ne sont jamais supprimees.
 // 3. **Les occlusions par la parallaxe.** Ce qui est devant le mur n'est pas dans son plan : d'une
 //    elevation a l'autre, le mur reste en place, l'obstacle se deplace. Le centre optique de chaque
 //    vue se tire de son homographie et de sa focale ; un point a `r` metres devant le mur, vu en x sur
@@ -27,7 +27,11 @@
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './homographie.js';
 import { finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
+import { voter, type VueVotante, type VoteOuverture } from './voteVues.js';
 import { focalePx as focaleParDefaut } from './cadrage.js';
+import { recalerElevations, type BilanPaire, type StatutFusion } from './recalageOrb.js';
+import { appliquerSimilitude, inverse, type Similitude } from './ransac.js';
 
 /** Une photo du mur entier, ses coins (haut gauche, haut droit, bas droit, bas gauche) et sa focale. */
 export interface VuePhoto {
@@ -45,11 +49,15 @@ export interface EntreeFusion extends MurDuReleve {
 
 /** Ce que la fusion dit de chaque vue. */
 export interface BilanVue {
-  /** Decalage du recalage fin au milieu du mur, en metres (la vue est lue en x + dx, y + dy). */
+  /** Elle est dans le groupe fusionne. */
+  fusionnee: boolean;
+  /** Pourquoi elle ne l'est pas ; `null` si elle l'est. */
+  motif: string | null;
+  /** Decalage qui la recale sur la reference, au milieu du mur, en metres (la vue est lue en x + dx, y + dy). */
   dxM: number;
   dyM: number;
-  /** Ressemblance avec la vue de reference apres recalage, de -1 a 1 (1 pour la reference). */
-  ressemblance: number;
+  /** Les correspondances qui l'ont reliee au groupe ; 0 pour la reference et hors groupe. */
+  inliers: number;
   /** Qualite moyenne de la vue sur le mur, en pixels par metre au mur. */
   qualite: number;
   /** Part du mur vu ou cette vue montre un obstacle. */
@@ -59,9 +67,19 @@ export interface BilanVue {
 }
 
 export interface ResultatFusion extends ResultatAnalyse {
+  /** Ce que le vote entre vues a dit de chaque baie qu'il a jugee (celles que plusieurs vues voient). Vide avec moins de deux vues fusionnees. */
+  votes: Map<OuvertureDetectee, VoteOuverture>;
+  statut: StatutFusion;
+  /** Une entree par photo, dans l'ordre des vues d'entree. */
   vues: BilanVue[];
-  /** L'indice de la vue de reference : la meilleure en moyenne. */
+  paires: BilanPaire[];
+  /** L'indice de la vue de reference : la meilleure en moyenne du groupe. */
   reference: number;
+  /** Les vues du groupe fusionne (la reference comprise), et les autres. */
+  groupe: number[];
+  independantes: number[];
+  /** Pour chaque vue, la similitude qui la recale dans le repere de la reference ; `null` hors groupe. */
+  modeles: (Similitude | null)[];
   /** Part du mur cachee sur toutes les vues. */
   masque: number;
   /** Le masque d'occlusion restant, pixel par pixel de l'elevation (mur seul) : 1 = cache partout. */
@@ -70,8 +88,6 @@ export interface ResultatFusion extends ResultatAnalyse {
   source: Uint8Array;
 }
 
-/** Plage du recalage fin entre deux elevations, en metres. */
-export const PLAGE_RECALAGE_M = 0.3;
 /** Resolution de l'analyse des occlusions : une fenetre de 7 x 7 pixels y couvre 28 cm. */
 export const PX_PAR_M_OCCLUSION = 25;
 /** Distance au mur jusqu'a laquelle on cherche un obstacle : une voiture, une haie, un poteau. */
@@ -258,155 +274,29 @@ function reduireSansMemoire(img: Image, vu: Uint8Array, depuis: number, facteur:
 }
 
 /**
- * Correlation normalisee de A(x, y) et B(x + sx, y + sy), une ligne et une colonne sur `pas`, sur les
- * colonnes `x0` a `x1` de A (toutes par defaut).
+ * La vue dans le repere de la reference : chaque pixel du repere commun est lu sur la vue la ou la similitude `modele` (de la vue vers
+ * le repere commun) le renvoie. Image, pixels vus et qualite suivent ; le centre optique aussi, au decalage du milieu du mur.
  */
-function correlation2D(A: Reduite, B: Reduite, sx: number, sy: number, pas: number, colonnes: readonly [number, number] = [0, A.l]): number {
-  let n = 0,
-    sa = 0,
-    sb = 0,
-    saa = 0,
-    sbb = 0,
-    sab = 0;
-  const y0 = Math.max(0, -sy),
-    y1 = Math.min(A.h, B.h - sy),
-    x0 = Math.max(colonnes[0], -sx),
-    x1 = Math.min(colonnes[1], A.l, B.l - sx);
-  for (let y = y0; y < y1; y += pas) {
-    for (let x = x0; x < x1; x += pas) {
-      const ia = y * A.l + x,
-        ib = (y + sy) * B.l + x + sx;
-      if (!A.vu[ia] || !B.vu[ib]) continue;
-      const a = A.lum[ia] ?? 0,
-        b = B.lum[ib] ?? 0;
-      n++;
-      sa += a;
-      sb += b;
-      saa += a * a;
-      sbb += b * b;
-      sab += a * b;
-    }
-  }
-  if (n < 50) return -1;
-  const cov = sab - (sa * sb) / n,
-    va = saa - (sa * sa) / n,
-    vb = sbb - (sb * sb) / n;
-  return va > 1e-9 && vb > 1e-9 ? cov / Math.sqrt(va * vb) : -1;
-}
-
-type Images = { image: Image; vu: Uint8Array };
-
-/** Un decalage en pixels de l'elevation, et la ressemblance qu'il donne. */
-export interface Decalage {
-  sx: number;
-  sy: number;
-  score: number;
-}
-
-/**
- * Le meilleur decalage autour de (sx, sy) a +/- `plagePx` pixels de l'elevation, cherche niveau par
- * niveau : chaque facteur de reduction affine le precedent. `colonnes` borne la partie comparee.
- */
-function chercherDecalage(A: Images, B: Images, depuis: number, facteurs: number[], sx0: number, sy0: number, plagePx: number, colonnes: readonly [number, number] | null): Decalage {
-  let sx = sx0,
-    sy = sy0,
-    score = -1,
-    precedent = 0;
-  for (const f of facteurs) {
-    const a = reduire(A.image, A.vu, depuis, f),
-      b = reduire(B.image, B.vu, depuis, f);
-    const cx = Math.round(sx / f),
-      cy = Math.round(sy / f);
-    const R = precedent ? Math.ceil(precedent / f) + 1 : Math.max(1, Math.ceil(plagePx / f));
-    const pas = f === 1 ? 2 : 1;
-    const cols: [number, number] = colonnes ? [Math.floor(colonnes[0] / f), Math.ceil(colonnes[1] / f)] : [0, a.l];
-    let meilleur = { x: cx, y: cy, s: -2 };
-    for (let dy = -R; dy <= R; dy++)
-      for (let dx = -R; dx <= R; dx++) {
-        const s = correlation2D(a, b, cx + dx, cy + dy, pas, cols);
-        if (s > meilleur.s) meilleur = { x: cx + dx, y: cy + dy, s };
-      }
-    sx = meilleur.x * f;
-    sy = meilleur.y * f;
-    score = meilleur.s;
-    precedent = f;
-  }
-  return { sx, sy, score };
-}
-
-/**
- * Le decalage (en pixels de l'elevation) qui fait coincider la vue `B` avec la reference `A` : B est
- * lue en (x + sx, y + sy). Recherche exhaustive a 10 px/m sur la plage, puis affinage a 33 px/m et au
- * pixel autour du meilleur.
- */
-export function recalage2D(A: Images, B: Images, depuis: number, pxParM: number, plageM = PLAGE_RECALAGE_M): Decalage {
-  const facteurs = [...new Set([Math.max(1, Math.round(pxParM / 10)), Math.max(1, Math.round(pxParM / 33)), 1])].sort((a, b) => b - a);
-  const d = chercherDecalage(A, B, depuis, facteurs, 0, 0, plageM * pxParM, null);
-  // Jamais au-dela de la plage : un pic plus loin serait une baie voisine, pas le meme mur.
-  const max = Math.ceil(plageM * pxParM);
-  return { sx: Math.max(-max, Math.min(max, d.sx)), sy: Math.max(-max, Math.min(max, d.sy)), score: d.score };
-}
-
-/** Un recalage qui varie lineairement le long du mur : (sx, sy) = (ax + bx x, ay + by x), en pixels. */
-export interface RecalageLineaire extends Decalage {
-  bx: number;
-  by: number;
-}
-
-/** Ecart que le recalage local peut prendre autour du recalage global, en metres. */
-const PLAGE_LOCALE_M = 0.08;
-
-/**
- * Le recalage affine le long du mur. Des coins decales de quelques pixels sur une vue de biais ne
- * decalent pas l'elevation d'un bloc : le bout eloigne du mur bouge plus que le bout proche. Le
- * recalage global est donc repris sur chaque tiers du mur, et une droite passe par les trois.
- */
-export function recalageLineaire(A: Images, B: Images, depuis: number, pxParM: number, global: Decalage): RecalageLineaire {
-  const L = A.image.largeur;
-  const facteurs = [...new Set([Math.max(1, Math.round(pxParM / 33)), 1])].sort((a, b) => b - a);
-  const tiers = [0, 1, 2].map((k) => {
-    const cols: [number, number] = [Math.round((k * L) / 3), Math.round(((k + 1) * L) / 3)];
-    return { x: (cols[0] + cols[1]) / 2, ...chercherDecalage(A, B, depuis, facteurs, global.sx, global.sy, PLAGE_LOCALE_M * pxParM, cols) };
-  });
-  const surs = tiers.filter((t) => t.score > 0.3);
-  if (surs.length < 2) return { ...global, bx: 0, by: 0 };
-  // Moindres carres d'une droite par les tiers surs.
-  const mx = surs.reduce((s, t) => s + t.x, 0) / surs.length;
-  const vx = surs.reduce((s, t) => s + (t.x - mx) ** 2, 0);
-  const pente = (f: (t: Decalage) => number) => (vx > 0 ? surs.reduce((s, t) => s + (t.x - mx) * (f(t) - surs.reduce((u, w) => u + f(w), 0) / surs.length), 0) / vx : 0);
-  const bx = pente((t) => t.sx),
-    by = pente((t) => t.sy);
-  const ax = surs.reduce((s, t) => s + t.sx, 0) / surs.length - bx * mx,
-    ay = surs.reduce((s, t) => s + t.sy, 0) / surs.length - by * mx;
-  return { sx: ax, sy: ay, bx, by, score: global.score };
-}
-
-/** La vue lue en (x + sx(x), y + sy(x)) : image, pixels vus et qualite decales d'autant, colonne par colonne. */
-function decaler(v: VueRedressee, r: RecalageLineaire, pxParM: number): VueRedressee {
+function deplacer(v: VueRedressee, modele: Similitude, pxParM: number): VueRedressee {
+  const inv = inverse(modele);
   const { largeur: L, hauteur: H } = v.image;
-  const donnees = new Uint8ClampedArray(L * H * 4),
-    vu = new Uint8Array(L * H),
-    qualite = new Float32Array(L * H);
-  for (let x = 0; x < L; x++) {
-    const xs = x + Math.round(r.sx + r.bx * x),
-      dy = Math.round(r.sy + r.by * x);
-    if (xs < 0 || xs >= L) continue;
-    for (let y = 0; y < H; y++) {
-      const ys = y + dy;
-      if (ys < 0 || ys >= H) continue;
-      const i = y * L + x,
-        j = ys * L + xs;
+  if (!inv) return v;
+  const donnees = new Uint8ClampedArray(L * H * 4), vu = new Uint8Array(L * H), qualite = new Float32Array(L * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < L; x++) {
+      const p = appliquerSimilitude(inv, { x, y });
+      const xs = Math.round(p.x), ys = Math.round(p.y);
+      if (xs < 0 || xs >= L || ys < 0 || ys >= H) continue;
+      const i = y * L + x, j = ys * L + xs;
       for (let c = 0; c < 4; c++) donnees[i * 4 + c] = v.image.donnees[j * 4 + c] ?? 0;
       vu[i] = v.vu[j] ?? 0;
       qualite[i] = v.qualite[j] ?? 0;
     }
   }
-  // Le centre optique suit, au decalage du milieu du mur : le point x du repere commun est le point
-  // x + s de la vue.
+  // Le point x du repere commun est le point x + s de la vue : le centre optique se decale de l'ecart au milieu du mur.
   const c = v.centre;
-  const sx = r.sx + (r.bx * L) / 2,
-    sy = r.sy + (r.by * L) / 2;
-  const centre: V3 | null = c ? [c[0] - sx / pxParM, c[1] - sy / pxParM, c[2]] : null;
+  const milieu = appliquerSimilitude(inv, { x: L / 2, y: H / 2 });
+  const centre: V3 | null = c ? [c[0] - (milieu.x - L / 2) / pxParM, c[1] - (milieu.y - H / 2) / pxParM, c[2]] : null;
   return { image: { largeur: L, hauteur: H, donnees }, vu, qualite, centre };
 }
 
@@ -858,36 +748,61 @@ function qualiteMoyenne(v: VueRedressee, egout: number): number {
   return n ? s / n : 0;
 }
 
-/** Ce que la fusion dit de chaque vue : son recalage, sa qualite, ses obstacles, sa part du mur. */
-function bilans(vues: VueRedressee[], occ: Uint8Array[], c: Composition, g: Grille, recalages: RecalageLineaire[], qualites: number[]): BilanVue[] {
+/** Ce que la fusion dit de chaque vue du groupe : ses obstacles, sa part du mur (indices du groupe : `j`). */
+function partsDuGroupe(vues: VueRedressee[], occ: Uint8Array[], c: Composition, g: Grille, groupe: readonly number[]): { occultee: number; part: number }[] {
   const L = c.image.largeur;
   const total = c.source.length;
-  return vues.map((v, k) => {
-    let vus = 0,
-      occultes = 0,
-      part = 0;
+  return vues.map((v, j) => {
+    let vus = 0, occultes = 0, part = 0;
     for (let m = 0; m < total; m++) {
       const i = g.egout * L + m;
       if (!v.vu[i]) continue;
       vus++;
-      const x = m % L,
-        y = Math.floor(m / L);
-      const gi = Math.min(g.l - 1, Math.floor(x / g.facteur)),
-        gj = Math.min(g.h - 1, Math.floor(y / g.facteur));
-      if (au(occ, k)[gj * g.l + gi]) occultes++;
-      else if (c.source[m] === k || c.source[m] === MEDIANE) part++;
+      const x = m % L, y = Math.floor(m / L);
+      const gi = Math.min(g.l - 1, Math.floor(x / g.facteur)), gj = Math.min(g.h - 1, Math.floor(y / g.facteur));
+      if (au(occ, j)[gj * g.l + gi]) occultes++;
+      else if (c.source[m] === au(groupe, j) || c.source[m] === MEDIANE) part++;
     }
-    const r = au(recalages, k);
     const arrondi = (x: number) => Math.round(x * 1000) / 1000;
-    // Le decalage au milieu du mur : le recalage varie le long du mur (recalageLineaire).
-    return { dxM: arrondi((r.sx + (r.bx * L) / 2) / g.pxParM), dyM: arrondi((r.sy + (r.by * L) / 2) / g.pxParM), ressemblance: Math.round(r.score * 100) / 100, qualite: Math.round(au(qualites, k) * 10) / 10, occultee: vus ? arrondi(occultes / vus) : 0, part: arrondi(part / total) };
+    return { occultee: vus ? arrondi(occultes / vus) : 0, part: arrondi(part / total) };
   });
 }
 
 /**
- * Plusieurs vues du meme mur (de face, de biais), fondues en un seul releve : la hauteur mesuree, le
- * recalage fin, le masque d'occlusion, la composition, puis la suite commune (ouvertures, toit,
- * texture). `null` si aucune vue ne se redresse.
+ * Le vote entre vues (voteVues.ts) : chaque vue du groupe, ramenee dans le repere de la reference, est lue seule ; ses baies
+ * et ce qu'elle voit servent a ponderer les baies de la fusion. Une seule vue : pas de vote.
+ */
+function voterLesVues(res: ResultatAnalyse, vues: VueRedressee[], occ: Uint8Array[], g: Grille, egout: number, pxParM: number) {
+  if (vues.length < 2) return { ouvertures: res.ouvertures, votes: new Map<OuvertureDetectee, VoteOuverture>() };
+  const hauteur = vues[0] ? vues[0].image.hauteur - egout : 0;
+  const votantes: VueVotante[] = vues.map((v, j) => {
+    const L = v.image.largeur;
+    const mur = { largeur: L, hauteur, donnees: v.image.donnees.subarray(egout * L * 4) };
+    const vu = v.vu.subarray(egout * L);
+    const lues = detecterOuvertures(mur, pxParM, vu);
+    // Les pixels d'une boite : x en metres depuis la gauche, y en metres depuis le sol.
+    const sur = (o: OuvertureDetectee, f: (i: number, x: number, y: number) => number): number => {
+      const x0 = Math.max(0, Math.floor(o.x * pxParM)), x1 = Math.min(L, Math.ceil((o.x + o.l) * pxParM));
+      const y0 = Math.max(0, Math.floor(hauteur - (o.y + o.h) * pxParM)), y1 = Math.min(hauteur, Math.ceil(hauteur - o.y * pxParM));
+      let n = 0, tot = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { tot++; n += f(y * L + x, x, y); }
+      return tot ? n / tot : 0;
+    };
+    const cellule = (x: number, y: number) => Math.min(g.l - 1, Math.floor(x / g.facteur)) + Math.min(g.h - 1, Math.floor(y / g.facteur)) * g.l;
+    return {
+      ouvertures: lues,
+      partVue: (o) => sur(o, (i) => vu[i] ?? 0),
+      partObstacle: (o) => sur(o, (_, x, y) => au(occ, j)[cellule(x, y)] ?? 0),
+    };
+  });
+  return voter(res.ouvertures, votantes);
+}
+
+/**
+ * Plusieurs vues du meme mur (de face, de biais), fondues en un seul releve : la hauteur mesuree, le recalage par points d'interet, le
+ * plus grand groupe de vues qui se recalent, le masque d'occlusion, la composition, puis la suite commune (ouvertures, toit, texture).
+ * Une vue qui ne se recale sur aucune autre reste independante (son motif est dit) : le releve se fait alors sur la meilleure vue seule.
+ * `null` si aucune vue ne se redresse.
  */
 export function analyserVues(e: EntreeFusion): ResultatFusion | null {
   if (!e.vues.length) return null;
@@ -895,19 +810,47 @@ export function analyserVues(e: EntreeFusion): ResultatFusion | null {
   const E = hauteurBande(e.largeur);
   const pxParM = resolutionTexture(e.largeur, hauteur + E);
   const brutes = e.vues.map((v) => redresserVue(v, e.largeur, hauteur, E, pxParM));
-  if (brutes.some((v) => !v)) return null;
-  const redressees = brutes as VueRedressee[];
+  if (!brutes.some((v) => v)) return null;
   const egout = Math.round(E * pxParM);
-  const qualites = redressees.map((v) => qualiteMoyenne(v, egout));
-  const reference = qualites.indexOf(Math.max(...qualites));
-  const ref = au(redressees, reference);
-  const recalages: RecalageLineaire[] = redressees.map((v, k) => (k === reference ? { sx: 0, sy: 0, bx: 0, by: 0, score: 1 } : recalageLineaire(ref, v, egout, pxParM, recalage2D(ref, v, egout, pxParM))));
-  const vues = redressees.map((v, k) => (k === reference ? v : decaler(v, au(recalages, k), pxParM)));
+  const qualites = brutes.map((v) => (v ? qualiteMoyenne(v, egout) : 0));
+  const n = e.vues.length;
+  const rec = recalerElevations(brutes.map((v) => (v ? { image: v.image, vu: v.vu } : null)), qualites, pxParM, egout);
+  // Les vues du groupe, ramenees dans le repere de la reference ; les autres ne servent pas a la composition.
+  const groupe = rec.groupe;
+  const ref = au(brutes as VueRedressee[], rec.reference);
+  const vues = groupe.map((k) => {
+    const v = au(brutes as VueRedressee[], k);
+    const m = rec.modeles[k];
+    return k === rec.reference || !m ? v : deplacer(v, m, pxParM);
+  });
+  const refLocal = groupe.indexOf(rec.reference);
   const facteur = Math.max(1, Math.round(pxParM / PX_PAR_M_OCCLUSION));
   const g: Grille = { facteur, pxParM, egout, E, l: Math.max(1, Math.floor(ref.image.largeur / facteur)), h: Math.max(1, Math.floor((ref.image.hauteur - egout) / facteur)) };
-  const occ = vues.length > 1 ? occlusions(g, vues, reference) : vues.map(() => new Uint8Array(g.l * g.h));
-  const c = composer(g, vues, occ, reference);
+  const occ = vues.length > 1 ? occlusions(g, vues, refLocal) : vues.map(() => new Uint8Array(g.l * g.h));
+  const c = composer(g, vues, occ, refLocal);
+  // La composition numerote les vues du groupe ; on rend les numeros des photos d'entree.
+  const source = c.source.map((x) => (x === MEDIANE ? MEDIANE : groupe[x] ?? x));
   const res = finaliserReleve(c.image, c.vu, E, pxParM, { ...e, hauteur }, null, mesuree);
+  const vote = voterLesVues(res, vues, occ, g, egout, pxParM);
   const masque = c.occlusion.reduce((s, v) => s + v, 0) / Math.max(1, c.occlusion.length);
-  return { ...res, vues: bilans(vues, occ, c, g, recalages, qualites), reference, masque: Math.round(masque * 1000) / 1000, occlusion: c.occlusion, source: c.source };
+  const parts = partsDuGroupe(vues, occ, { ...c, source }, g, groupe);
+  const L = c.image.largeur, H = c.image.hauteur;
+  const arrondi = (x: number) => Math.round(x * 1000) / 1000;
+  const bilans: BilanVue[] = Array.from({ length: n }, (_, k) => {
+    const j = groupe.indexOf(k);
+    const m = rec.modeles[k];
+    // Le decalage au milieu du mur : la similitude envoie un point de la vue dans le repere de la reference.
+    const centre = m ? appliquerSimilitude(m, { x: L / 2, y: H / 2 }) : null;
+    return {
+      fusionnee: j >= 0 && (groupe.length >= 2 || n === 1),
+      motif: rec.motifs[k] ?? null,
+      dxM: centre ? arrondi((L / 2 - centre.x) / pxParM) : 0,
+      dyM: centre ? arrondi((H / 2 - centre.y) / pxParM) : 0,
+      inliers: au(rec.inliers, k),
+      qualite: Math.round(au(qualites, k) * 10) / 10,
+      occultee: j >= 0 ? au(parts, j).occultee : 0,
+      part: j >= 0 ? au(parts, j).part : 0,
+    };
+  });
+  return { ...res, ouvertures: vote.ouvertures, votes: vote.votes, statut: rec.statut, vues: bilans, paires: rec.paires, reference: rec.reference, groupe, independantes: rec.independantes, modeles: rec.modeles, masque: Math.round(masque * 1000) / 1000, occlusion: c.occlusion, source };
 }

@@ -70,6 +70,7 @@ const DIALOGUE = 'toute commande qui pose une question';
 const FICHE_AUDIT = 'appui long sur un bâtiment (mode audit), ou audit.cas';
 const AUDIT_PARCELLE = 'audit.parcelle';
 const CATALOGUE_AUDITS = 'admin.auditsParcelle';
+const CALIBRATION = 'Admin › Calibrer la détection (?admin&ecran=calibration)';
 const CE_QUE_JE_VOIS = 'audit.parcelle, ou la fiche d’un bâtiment (mode audit)';
 
 /** Les reglages d'une vue 3D, la meme liste pour la Vue 3D et pour la visionneuse. */
@@ -103,6 +104,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
   'admin.chaine': { libelle: 'De l’IGN à ma maison', zone: Z1, nature: 'navigation', description: 'Ouvre le schéma de bout en bout : sources, polygone, corps de toit, objets 3D, textures, réconciliation et audit (admin des démos seulement)' },
   'admin.principes': { libelle: 'Les principes de Plan', zone: Z1, nature: 'navigation', description: 'Ouvre l’écran des principes : processus, actions et ce qui se passe derrière, avec sommaire et recherche (admin des démos seulement)' },
+  'admin.calibration': { libelle: 'Calibrer la détection', zone: Z1, nature: 'navigation', description: 'Ouvre l’écran de calibration de la détection des ouvertures : photos annotées, mesure, réglages enregistrés sur le serveur (admin des démos seulement)' },
   'admin.arbres': { libelle: 'Arbres (bibliothèque)', zone: Z1, nature: 'navigation', description: 'Ouvre la bibliothèque d’essences d’arbres générées par EZ-tree (admin des démos seulement)' },
   'admin.palette': { libelle: 'Palette de l’interface', zone: Z1, nature: 'navigation', description: 'Ouvre la palette : couleurs, variables CSS, typographie (admin des démos seulement)' },
   'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },
@@ -288,12 +290,41 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditsParcelle.fermerAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Refermer le détail d’une analyse', { repete: true }),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
+  // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la
+  // detection sur elles et les reglages calibres, enregistres sur le serveur (data/admin/). Rien n'ecrit dans un projet.
+  'calibration.nouveauCas': etape(Z8, CALIBRATION, 'Nouveau cas de calibration : photographier une façade'),
+  'calibration.ouvrirCas': etape(Z8, CALIBRATION, 'Ouvrir un cas de calibration', { repete: true }),
+  'calibration.nomCas': etape(Z8, CALIBRATION, 'Nommer le cas'),
+  'calibration.largeurM': etape(Z8, CALIBRATION, 'Largeur réelle du mur du cas'),
+  'calibration.hauteurM': etape(Z8, CALIBRATION, 'Hauteur du mur du cas, à l’égout'),
+  'calibration.photo': etape(Z8, CALIBRATION, 'Prendre ou choisir une photo du mur (jusqu’à quatre)', { repete: true }),
+  'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
+  'calibration.redresser': etape(Z8, CALIBRATION, 'Redresser le mur d’après les quatre coins placés'),
+  'calibration.proposer': etape(Z8, CALIBRATION, 'Partir des ouvertures que la détection propose'),
+  'calibration.tracer': etape(Z8, CALIBRATION, 'Basculer le tracé d’ouvertures sur le mur redressé (coupé : le doigt fait défiler la page)'),
+  'calibration.viderBaies': etape(Z8, CALIBRATION, 'Effacer toutes les ouvertures annotées'),
+  'calibration.retirerBaie': etape(Z8, CALIBRATION, 'Retirer l’ouverture choisie', { repete: true }),
+  'calibration.valide': etape(Z8, CALIBRATION, 'Marquer le cas relu sur la photo : il compte dans la calibration'),
+  'calibration.enregistrerCas': etape(Z8, CALIBRATION, 'Enregistrer le cas sur le serveur'),
+  'calibration.fermerCas': etape(Z8, CALIBRATION, 'Fermer le cas sans rien changer de plus'),
+  'calibration.supprimerCas': etape(Z8, CALIBRATION, 'Supprimer le cas (le fichier est mis de côté sur le serveur)'),
+  'calibration.charger': etape(Z8, CALIBRATION, 'Charger les cas validés : redressement fait une fois'),
+  'calibration.calibrer': etape(Z8, CALIBRATION, 'Chercher de meilleurs réglages de détection sur les cas validés'),
+  'calibration.appliquer': etape(Z8, CALIBRATION, 'Appliquer les réglages proposés : enregistrés sur le serveur, pris par chaque page'),
+  'calibration.revenir': etape(Z8, CALIBRATION, 'Revenir aux valeurs livrées avec Plan (l’historique est gardé)'),
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),
   'auditParcelle.sansAnalyse': etape(Z8, AUDIT_PARCELLE, 'Seulement les mesures : ne pas envoyer les photos'),
   'auditParcelle.partagerAudit': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (cochée par défaut)'),
   'auditParcelle.retirerAccord': etape(Z8, AUDIT_PARCELLE, 'Retirer l’accord : plus aucune photo ne part, les propositions de Claude sont retirées'),
   'auditParcelle.relancerAnalyse': etape(Z8, AUDIT_PARCELLE, 'Relancer l’analyse par Claude (photos changées, ou envoi échoué)'),
   'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
+  'auditParcelle.rejouerRedressement': etape(Z8, AUDIT_PARCELLE, 'Rejouer redressement + fusion des photos de façade (une façade, ou tout l’audit) : ne remplace que les images dérivées', { repete: true }),
+  'auditParcelle.placerCoins': etape(Z8, AUDIT_PARCELLE, 'Placer à la main les quatre coins du mur sur une photo (erreur du redressement automatique)', { repete: true }),
+  'auditParcelle.echelleMur': etape(Z8, AUDIT_PARCELLE, 'Corriger l’échelle : la largeur réelle du mur', { repete: true }),
+  'auditParcelle.appliquerCoins': etape(Z8, AUDIT_PARCELLE, 'Appliquer les quatre coins placés : le redressement est rejoué avec eux', { repete: true }),
+  'auditParcelle.retablirCoins': etape(Z8, AUDIT_PARCELLE, 'Revenir au redressement automatique de cette photo', { repete: true }),
+  'auditParcelle.annulerCoins': etape(Z8, AUDIT_PARCELLE, 'Fermer la pose des coins sans rien changer', { repete: true }),
+  'auditParcelle.statutFusion': etape(Z8, AUDIT_PARCELLE, 'Lire le statut du redressement et de la fusion d’une façade', { repete: true }),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
   'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),

@@ -27,12 +27,12 @@ function avisHauteur(r: ResultatAnalyse, hauteurEstimee: number): string | null 
 }
 
 /**
- * Ce que la fusion de plusieurs vues trouve a redire (lot L13) : une vue qui ne se recale pas sur les
- * autres (ses coins sont sans doute mal places), ou une part du mur cachee sur toutes les vues.
+ * Ce que la fusion de plusieurs vues trouve a redire : une vue qui ne se recale sur aucune autre (elle reste independante, son motif est
+ * dit, ses coins sont sans doute mal places), ou une part du mur cachee sur toutes les vues.
  */
-export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'reference'>): string | null {
-  const mauvaise = r.vues.findIndex((v, k) => k !== r.reference && v.ressemblance < 0.5);
-  if (mauvaise >= 0) return `La vue ${mauvaise + 1} se raccorde mal aux autres : vérifiez ses coins, ou retirez-la.`;
+export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>): string | null {
+  const hors = r.vues.findIndex((v) => !v.fusionnee);
+  if (r.statut !== 'seule' && hors >= 0) return `La vue ${hors + 1} n’est pas fusionnée : ${r.vues[hors]?.motif ?? 'elle ne se recale sur aucune autre'}. Vérifiez ses coins, ou prenez-en une autre en gardant un tiers de mur en commun.`;
   if (r.masque >= 0.02)
     return `Une partie du mur (${Math.round(r.masque * 100)} %) reste cachée sur toutes les vues : aucune ouverture n'y est cherchée. Une vue prise d'un autre endroit la dégagerait.`;
   return null;

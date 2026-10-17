@@ -184,6 +184,30 @@ pixels sur les vues de plus, comparée à la chaîne du relevé sur la seule vue
 fusion ») : rappel, précision, corrections ; part du mur cachée sur la vue principale (vérité du
 générateur, `cacheDepuis`) et, parmi ces pixels, ceux que l'élévation montre comme le mur (à moins de
 30 niveaux du mur peint sans obstacle) ; masque restant ; recalage trouvé pour chaque vue de plus.
+Depuis le recalage ORB + RANSAC (octobre 2026), `analyserVues` recale les vues par des points ORB
+(`facade/orb.ts`) et une similitude RANSAC (`facade/ransac.ts`), acceptée seulement si elle tient les
+`CRITERES_FUSION` de `facade/recalageOrb.ts` (points communs, part d'inliers, échelle, rotation,
+erreur, déplacement, corrélation). Le banc ne doit pas baisser : ensemble 80 % → 100 % de rappel,
+80 % → 96 % de précision, 2,8 → 0,3 correction par façade, 13 % → 59 % de rendu au mur (c'est le
+chiffre de l'ancien recalage en deux dimensions, retrouvé). Seuil RANSAC 4 px et erreur 3,5 px : à 2,5 px
+la scène `18-` (deux vues seulement) n'était plus fusionnée. L'audit de la parcelle redresse **toutes** les
+photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous `SEUIL_VERTICALES_DEG`) et les fusionne dès deux
+photos sans échec ; « Rejouer redressement + fusion » (liste de contrôle) refait ces dérivés sans toucher
+aux photos ni aux corrections manuelles (`FacadeCapturee.corrections`).
+**Vote entre vues** (`facade/voteVues.ts`) : chaque vue du groupe fusionné est aussi lue seule ; une baie de la fusion
+que plusieurs vues voient mais que peu retrouvent (une haie, une voiture) perd de la confiance (`VOTE`), une baie
+retrouvée par toutes en gagne un peu, une baie que plusieurs vues voient et que la fusion a ratée est ajoutée. Le banc de
+synthèse n'a plus de faux positif à retirer sur les scènes à vues : le gain se juge sur le **corpus réel** (ci-dessous).
+
+**Calibrer depuis l'admin** (`?admin&ecran=calibration`, `facade/corpusReel.ts::calibrer`) : des photos prises dans l'écran, annotées,
+puis une descente par coordonnée sur les réglages nommés de `detection.ts` et `structure.ts` ; le résultat s'enregistre dans
+`data/admin/calibration.json` (`admin/calibration`) et se superpose aux valeurs livrées (`regles/facades/surcharges.ts`), sans jamais
+les remplacer dans le dépôt. Un seuil qui se justifie sur plus de vingt cas validés peut ensuite être reporté dans le code.
+
+**Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
+annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
+Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies
+justes pour une confiance moyenne de 0,70 (8 baies, surtout des devinées) : à confirmer sur le réel avant de toucher à la formule.
 Les scènes `16-` à `18-` sont faites pour cela : chaque partie cachée sur une vue se voit sur une
 autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui doit finir dans le masque.
 

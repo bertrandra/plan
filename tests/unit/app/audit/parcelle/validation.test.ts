@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/parcelle/validation.js';
+import type { DependancesMesures } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { tauxAutomatique } from '../../../../../src/app/audit/parcelle/arbitrages.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
@@ -17,7 +18,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x:
 const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
 const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
 
-function monter() {
+function monter(mesures?: DependancesMesures) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 }, cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
     obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
@@ -38,7 +39,7 @@ function monter() {
   const v = creerValidation({
     etat, capture, liste: () => listeDeControle(etat.objects, capture.lire()), projet, signaler: (m) => messages.push(m),
     maintenant: () => new Date('2026-10-13T09:00:00Z'),
-    mesures: { pixels: async () => null, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] },
+    mesures: mesures ?? { pixels: async () => null, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] },
   });
   const plan = () => JSON.stringify(serializeObjects(etat.objects));
   return { etat, historique, capture, projet, remplacer3d, v, messages, plan };
@@ -298,5 +299,32 @@ describe('la consultation d un audit recu (Admin › Audits)', () => {
     expect(t.etat.objects.find((o) => o.key === 'maison')?.couleurMurs?.materiau).toBeUndefined();
     t.v.montrer('avant');
     expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+  });
+});
+
+describe('« Rejouer redressement + fusion »', () => {
+  it('refait les images derivees sans toucher aux photos ni aux corrections', async () => {
+    let lectures = 0;
+    const t = monter({ pixels: async () => { lectures++; return null; }, chercherCoins: async () => ({ distorsion: null, coins: null }), jpeg: () => '', limites: () => [] });
+    const f = listeDeControle(t.etat.objects, t.capture.lire()).batiments[0]!.facades.find((x) => x.statut !== 'mitoyenne')!;
+    const photo = { type: 'image/jpeg' as const, base64: 'AAAA', prise: { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, lon: null, precisionM: 4, azimutDeg: 0, sourceAzimut: 'boussole' as const, inclinaisonDeg: 5, roulisDeg: 0, champDeg: 67 } };
+    t.capture.ajouterPhotoFacade('maison', f.cote, photo);
+    t.capture.ajouterPhotoFacade('maison', f.cote, { ...photo, base64: 'BBBBB' });
+    t.capture.corrigerRedressement('maison', f.cote, 1, { echelleLargeurM: 9 });
+    await t.v.lancer();
+    const premieres = lectures;
+    expect(premieres).toBeGreaterThan(0);
+    // Sans rejeu, une seconde analyse ne refait rien : les mesures sont gardees.
+    await t.v.lancer();
+    expect(lectures).toBe(premieres);
+    const photosAvant = JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)]);
+    expect(await t.v.rejouerRedressement('maison', f.cote)).toBe(1);
+    expect(lectures).toBeGreaterThan(premieres);
+    // Les originaux et la correction manuelle sont intacts.
+    expect(JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)])).toBe(photosAvant);
+    expect(t.capture.lire().batiments['maison']?.facades[String(f.cote)]?.corrections?.['1']).toEqual({ echelleLargeurM: 9 });
+    // Une facade qui n'a pas de photo n'est pas rejouee ; tout l'audit rejoue les facades photographiees.
+    expect(await t.v.rejouerRedressement('maison', 99)).toBe(0);
+    expect(await t.v.rejouerRedressement()).toBe(1);
   });
 });

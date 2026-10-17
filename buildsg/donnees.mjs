@@ -27,14 +27,14 @@ export function dossiersDonnees({ dossierDonnees = null, dossierDemos = null, pa
   const net = (v) => (typeof v === 'string' && v.trim() ? v.replace(/\/+$/, '') : null);
   const donnees = net(dossierDonnees), demos = net(dossierDemos);
   if (!donnees && demos) {
-    return { disposition: 'ancienne', racine: demos, demos, admin: demos, palette: path.join(demos, '.palette.json'), controleurs: path.join(demos, '.controleurs.json'), arbres: path.join(demos, '.arbres.json'), echecs: path.join(demos, '.echecs.json'), anciens: [] };
+    return { disposition: 'ancienne', racine: demos, demos, admin: demos, palette: path.join(demos, '.palette.json'), controleurs: path.join(demos, '.controleurs.json'), arbres: path.join(demos, '.arbres.json'), calibration: path.join(demos, '.calibration.json'), calibrationCas: path.join(demos, '.calibration-cas'), echecs: path.join(demos, '.echecs.json'), anciens: [] };
   }
   const racine = donnees || path.join(parent, 'data');
   const liste = [];
   for (const a of [demos, ...anciens]) if (a && a !== racine && !liste.includes(a)) liste.push(a);
   return {
     disposition: 'data', racine, demos: path.join(racine, 'demo'), admin: path.join(racine, 'admin'),
-    palette: path.join(racine, 'admin', 'palette.json'), controleurs: path.join(racine, 'admin', 'controleurs.json'), arbres: path.join(racine, 'admin', 'arbres.json'), echecs: path.join(racine, 'admin', 'echecs.json'), anciens: liste
+    palette: path.join(racine, 'admin', 'palette.json'), controleurs: path.join(racine, 'admin', 'controleurs.json'), arbres: path.join(racine, 'admin', 'arbres.json'), calibration: path.join(racine, 'admin', 'calibration.json'), calibrationCas: path.join(racine, 'admin', 'calibration-cas'), echecs: path.join(racine, 'admin', 'echecs.json'), anciens: liste
   };
 }
 

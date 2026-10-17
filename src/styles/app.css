@@ -2521,6 +2521,47 @@
     .reglTexte{ font-size:0.9rem; }
   }
 
+  /* L'ecran de calibration de la detection (`?admin&ecran=calibration`, zones/EcranCalibration.tsx) : meme mise en page
+     que les arbres (.palEcran, .palEntete, .palBarre) ; ce qui suit n'ajoute que l'editeur de cas et les tableaux. */
+  html[data-ecran="calibration"] body > :not(#zoneEcranCalibration):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="calibration"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="calibration"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranCalibration{ width:100%; min-width:0; }
+  .calEcran section{ text-align:left; margin-top:16px; }
+  .calTitre2{ margin:0 0 8px; font-family:var(--serif); font-size:1.1rem; }
+  .calTitre3{ margin:14px 0 6px; font-family:var(--sans); font-size:0.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; }
+  .calLigne{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:8px 0; }
+  .calChamp{ display:grid; gap:2px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); }
+  .calChamp input, .calChamp select{ min-height:36px; box-sizing:border-box; padding:2px 8px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font:inherit; font-size:0.85rem; font-variant-numeric:tabular-nums; }
+  .calNote{ margin:4px 0; font-size:0.74rem; font-style:italic; color:var(--ink-soft); }
+  .calCase{ display:flex; gap:8px; align-items:center; margin:12px 0; font-size:0.85rem; }
+  .calCase input{ width:20px; height:20px; }
+  .calVignettes{ display:flex; flex-wrap:wrap; gap:10px; padding:0; margin:8px 0; list-style:none; }
+  .calVignettes li{ display:grid; gap:4px; justify-items:start; }
+  .calVignette{ padding:0; border:2px solid var(--rule); border-radius:var(--r-tuile); background:var(--panel-bg); cursor:pointer; overflow:hidden; }
+  .calVignettes li.actif .calVignette{ border-color:var(--accent); }
+  .calVignette img{ display:block; height:84px; width:auto; }
+  .calToile{ width:100%; max-height:70vh; display:block; touch-action:none; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-2); }
+  .calBaie{ fill:transparent; stroke:var(--accent); stroke-width:2; cursor:pointer; }
+  .calBaie.choisie{ stroke:var(--danger); stroke-width:3; fill:var(--accent-light); fill-opacity:0.35; }
+  .calTrace{ fill:var(--accent-light); fill-opacity:0.35; stroke:var(--accent); stroke-dasharray:5 3; }
+  .calFiche{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:8px 0; padding:8px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .calTable{ width:100%; margin:8px 0; font-variant-numeric:tabular-nums; }
+  .calTable th[scope="row"]{ text-align:left; font-weight:600; }
+  .calParams ul{ columns:2 280px; margin:6px 0; padding:0; list-style:none; font-size:0.8rem; }
+  .calParams li{ break-inside:avoid; min-height:28px; }
+  .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
+  .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
+  .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
+  @media (max-width: 1023px){
+    .calEcran button, .calChamp input, .calChamp select{ min-height:44px; }
+    /* 16 px au moins : en dessous, le navigateur du telephone zoome la page au focus d'un champ. */
+    .calChamp input, .calChamp select{ font-size:16px; }
+    /* La barre d'etat collante recouvrait le formulaire sur un petit ecran : elle defile avec la page. */
+    .calEcran .palBarre{ position:static; }
+    .calEcran .calLigne > button, .calEcran .calLigne > label{ flex:1 1 auto; }
+  }
+
   /* L'ecran des arbres (`?admin&ecran=arbres`, zones/EcranArbres.tsx) : la page defile, Plan ne tourne
      pas dessous. Il reprend la mise en page de la palette (.palEcran, .palEntete, .palBarre) ; ce qui
      suit n'ajoute que le formulaire des reglages et l'apercu, en jetons seulement. */
