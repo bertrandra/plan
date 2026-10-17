@@ -102,6 +102,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'admin.audit': { libelle: 'Mode audit (promenade)', zone: Z1, nature: 'navigation', description: 'Ouvre le mode audit : promenade GPS en Vue 3D, bâtiments à noter, fichier partagé (administrateur seulement)' },
   'admin.controleurs': { libelle: 'Contrôleurs de l’écran', zone: Z1, nature: 'navigation', description: 'Ouvre l’arbre des contrôleurs (admin des démos seulement)' },
   'admin.chaine': { libelle: 'De l’IGN à ma maison', zone: Z1, nature: 'navigation', description: 'Ouvre le schéma de bout en bout : sources, polygone, corps de toit, objets 3D, textures, réconciliation et audit (admin des démos seulement)' },
+  'admin.principes': { libelle: 'Les principes de Plan', zone: Z1, nature: 'navigation', description: 'Ouvre l’écran des principes : processus, actions et ce qui se passe derrière, avec sommaire et recherche (admin des démos seulement)' },
   'admin.arbres': { libelle: 'Arbres (bibliothèque)', zone: Z1, nature: 'navigation', description: 'Ouvre la bibliothèque d’essences d’arbres générées par EZ-tree (admin des démos seulement)' },
   'admin.palette': { libelle: 'Palette de l’interface', zone: Z1, nature: 'navigation', description: 'Ouvre la palette : couleurs, variables CSS, typographie (admin des démos seulement)' },
   'admin.seDeconnecter': { libelle: 'Se déconnecter de l’admin des démos', zone: Z1, nature: 'navigation', description: 'Ferme la session admin ; le mot de passe sera redemandé' },

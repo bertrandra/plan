@@ -2597,6 +2597,47 @@
   .chaineGalerie .chaineLigne{ flex-direction:column; border:1px solid var(--hairline); background:var(--panel-2); height:100%; }
   .chaineVignette{ width:100%; max-width:200px; height:auto; align-self:center; color:var(--ink-soft); }
   @media (max-width: 1023px){ .chaineEtape{ padding:10px; } .chaineListe{ padding-left:8px; } }
+  /* L'ecran Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille, puis chaque principe sous trois angles. Chaque acteur
+     se dit par un mot, jamais par la couleur seule. */
+  html[data-ecran="principes"] body > :not(#zoneEcranPrincipes):not(#zoneNotifications):not(#zonePorte){ display:none !important; }
+  html[data-ecran="principes"]{ overflow:auto; height:auto; background:var(--paper); }
+  html[data-ecran="principes"] body{ overflow:visible; height:auto; background:var(--paper); align-items:stretch; }
+  #zoneEcranPrincipes{ width:100%; min-width:0; }
+  .princOutils{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:flex-end; margin:8px 0 16px; }
+  .princOutils .reglChamp{ flex:1 1 260px; }
+  .princCorps{ display:grid; grid-template-columns:minmax(200px, 260px) minmax(0, 1fr); gap:16px; align-items:start; }
+  .princSommaire{ position:sticky; top:8px; max-height:calc(100vh - 16px); overflow:auto; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); }
+  .princFamille{ margin:0 0 10px; }
+  .princFamille strong{ font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .princFamille ul{ list-style:none; margin:4px 0 0; padding:0; display:grid; gap:2px; }
+  .princFamille a{ display:flex; align-items:center; min-height:32px; padding:2px 8px; border-radius:var(--r-champ); color:var(--ink); text-decoration:none; font-size:0.8rem; }
+  .princFamille a:hover{ background:var(--accent-light); color:var(--on-accent-light); }
+  .princFamilleTitre{ margin:0 0 2px; font-family:var(--serif); font-size:1.15rem; }
+  .princFamilleDit{ margin:0 0 10px; font-size:0.78rem; color:var(--ink-soft); }
+  .princSection{ margin:0 0 24px; }
+  .princFiche{ margin:0 0 14px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--r-panneau); background:var(--panel-bg); scroll-margin-top:8px; }
+  .princTitre{ margin:0 0 4px; font-family:var(--serif); font-size:1.05rem; }
+  .princResume{ margin:0 0 4px; font-size:0.85rem; }
+  .princPourquoi{ margin:0 0 8px; font-size:0.78rem; color:var(--ink-soft); }
+  .princBloc{ margin:10px 0 0; padding-top:8px; border-top:1px solid var(--hairline); }
+  .princAngle{ margin:0 0 6px; font-family:var(--sans); font-size:0.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .princEtapes{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:8px; }
+  .princEtape{ display:flex; gap:8px; align-items:flex-start; padding:8px; border:1px solid var(--hairline); border-radius:var(--r-champ); background:var(--panel-2); }
+  .princEtape p, .princAction p{ margin:2px 0 0; font-size:0.76rem; color:var(--ink-soft); }
+  .princNum{ flex:none; width:22px; height:22px; border-radius:999px; background:var(--accent); color:var(--on-accent); font-size:0.72rem; display:inline-flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
+  .princActions{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+  .princAction{ display:flex; gap:10px; align-items:flex-start; }
+  .princActeur{ flex:none; min-width:52px; text-align:center; padding:1px 8px; border-radius:999px; font-size:0.68rem; background:var(--panel-2); border:1px solid var(--rule); }
+  .princActeur[data-acteur="vous"]{ background:var(--accent-light); color:var(--on-accent-light); border-color:transparent; }
+  .princEcran, .princVoir a{ color:var(--ink); text-underline-offset:2px; font-size:0.74rem; min-height:24px; display:inline-flex; align-items:center; }
+  .princCoulisses{ list-style:none; margin:0; padding:0; display:grid; gap:4px; font-size:0.78rem; }
+  .princCoulisses code{ font-family:var(--mono); font-size:0.7rem; color:var(--ink-soft); }
+  .princVoir{ margin:10px 0 0; font-size:0.74rem; color:var(--ink-soft); }
+  @media (max-width: 1023px){
+    .princCorps{ grid-template-columns:minmax(0, 1fr); }
+    .princSommaire{ position:static; max-height:none; }
+    .princFiche{ padding:10px; }
+  }
   .chaineLecture{ margin:8px 0; font-size:0.74rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
   .chaineLu{ padding:1px 8px; border-radius:999px; font-size:0.68rem; border:1px dashed var(--rule); color:var(--ink-soft); }
   .chaineSeuils{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:4px 8px; font-size:0.72rem; }
