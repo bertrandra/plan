@@ -2728,7 +2728,7 @@ const POINTS = {
     const ok = sujets === 8 && /8 \/ 8/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
       && /1 ligne change/.test(apresEdition[4] || '') && /version 9/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
       && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 9.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
-      && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 4/.test(ligneVersion) && faitsListes && donneesRevenues
+      && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 5.*formes: /.test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 9 && /8 \/ 8/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
       && dl1.suggestedFilename() === 'prompt-analyse.md' && dl2.suggestedFilename() === 'schema-analyse.json' && !debords.some(Boolean);

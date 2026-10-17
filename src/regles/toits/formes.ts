@@ -1,9 +1,9 @@
 // Les seuils de la lecture des formes du catalogue sur la surface LiDAR, sortis du code dans regles/toits/formes.json
 // (MD/spec-regles-toits.md §3.2). L'application est dans facade/lectureFormes.ts.
 //
-// Le fichier est importe, donc compile dans le fichier livre. Il ne change aucune toiture deja lue : il ne sert
-// qu'aux constats et aux propositions de l'audit, son empreinte n'entre donc pas dans la version de lecture des toits
-// (app/toitsLidar.ts).
+// Le fichier est importe, donc compile dans le fichier livre. Depuis que la lecture des toits applique les formes du
+// catalogue (facade/regles/toits/catalogue.ts), son empreinte entre dans la version de lecture (`formes` dans
+// LECTURES_TOITS, app/toitsLidar.ts) : un seuil change, et les toits deja lus sont relus.
 
 import fichier from '../../../regles/toits/formes.json';
 import { fnv1a } from './reglages.js';
@@ -13,7 +13,7 @@ export interface DescriptionSeuilForme { valeur: number; unite: string; pourquoi
 export const NOMS_SEUILS_FORMES = [
   'PAS_BANDE_M', 'BANDES_MIN', 'ECART_MESURE_MIN_M', 'GAIN_PROFIL', 'ECART_PENTE_MIN_DEG', 'PART_BRIS_MIN', 'PART_BRIS_MAX', 'FLECHE_MIN_M',
   'CREUX_PAPILLON_M', 'PART_NOUE_MIN', 'ZONE_FAITAGE_M', 'CHUTE_DEMI_CROUPE_M', 'PIGNON_DEMI_CROUPE_MIN_M', 'RAPPORT_CARRE_MAX', 'GAIN_REVOLUTION',
-  'ELANCEMENT_FLECHE', 'ECART_FORME_MAX_M', 'ECART_FORME_DEMANDEE_M',
+  'ELANCEMENT_FLECHE', 'ECART_FORME_MAX_M', 'ECART_FORME_DEMANDEE_M', 'DEPASSEMENT_REVOLUTION_M',
 ] as const;
 export type NomSeuilForme = (typeof NOMS_SEUILS_FORMES)[number];
 export type SeuilsFormes = Readonly<Record<NomSeuilForme, number>>;

@@ -1,3 +1,4 @@
+import { EMPREINTE_FORMES_TOITS } from '../../../../src/regles/toits/formes.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -49,6 +50,7 @@ describe('regles/toits/reglages.json', () => {
   it('les reglages livres ont leur ligne dans LECTURES_TOITS (sinon : ajouter une version de lecture)', () => {
     expect(LECTURES_TOITS.at(-1)?.reglages, 'une valeur de reglages.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_REGLAGES_TOITS);
     expect(LECTURES_TOITS.at(-1)?.faits ?? EMPREINTE_FAITS_VIDE, 'un fait de regles/toits/faits.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FAITS_TOITS);
+    expect(LECTURES_TOITS.at(-1)?.formes, 'un seuil de regles/toits/formes.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\', formes: \'' + EMPREINTE_FORMES_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FORMES_TOITS);
     expect(VERSION_LECTURE_TOITS).toBe(LECTURES_TOITS.at(-1)?.version);
   });
 
@@ -166,6 +168,11 @@ describe('empreinte et version de lecture', () => {
     expect(versionDeLecture(l, 'aaaa')).toBe(2);
     expect(versionDeLecture(l, 'bbbb')).toBe(3);
     expect(versionDeLecture(l, 'cccc')).toBe(4);
+    // Depuis que la lecture applique les formes du catalogue, leurs seuils comptent : une ligne sans `formes` ne les lisait pas.
+    const f = [...l, { version: 4, reglages: 'bbbb', formes: 'ffff' }];
+    expect(versionDeLecture(f, 'bbbb', undefined, 'ffff')).toBe(4);
+    expect(versionDeLecture(f, 'bbbb', undefined, 'gggg')).toBe(5);
+    expect(versionDeLecture(f, 'bbbb')).toBe(3);
   });
 
   it('les faits entrent dans la version : une ligne sans faits est une lecture sans fait', () => {

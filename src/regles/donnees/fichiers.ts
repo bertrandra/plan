@@ -75,7 +75,7 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     id: 'formesToits', libelle: 'Formes du catalogue (lecture LiDAR)', chemin: 'regles/toits/formes.json', livre: formesToitsBrut, seuils: true,
     refus: (j) => essayer(() => lireFormesToits(j)),
     empreinte: (j) => { try { return empreinteFormesToits(lireFormesToits(j).seuils); } catch { return null; } },
-    consequence: { ou: 'aucune ligne de version : ce fichier ne change aucune toiture déjà lue', effet: 'les prochains constats LiDAR de l’audit lisent le papillon, le coyau, le berceau, le gambrel, le Mansart, la demi-croupe et les toits de révolution avec ces seuils' },
+    consequence: { ou: 'LECTURES_TOITS (src/app/toitsLidar.ts), clé « formes »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture : la lecture y reconnaît le papillon, le coyau, le berceau, le gambrel, le Mansart, la demi-croupe et les toits de révolution avec ces seuils' },
   },
   {
     id: 'reconciliation', libelle: 'Réconciliation des sources', chemin: 'regles/reconciliation.json', livre: reconciliationBrut, seuils: true,

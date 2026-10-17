@@ -701,16 +701,22 @@ La photo n'y est pas : elle reste dans le fichier de promenade, archivé à part
 
 1. Le calcul produit les candidats et leurs écarts (inchangé).
 2. Les **règles** du code arbitrent, avec les seuils de `reglages.json`, surchargés par le **profil**
-   du bâtiment.
+   du bâtiment. Depuis le 17 octobre 2026, la lecture des **formes du catalogue** en fait partie
+   (`facade/regles/toits/catalogue.ts`, seuils de `formes.json`) : un toit que la mesure porte nettement
+   mieux en Mansart, gambrel, berceau, carène, papillon, demi-croupe ou toit de révolution prend cette
+   forme dès la lecture, sans audit. Le coyau attend qu'on le demande (le lissage de la surface imite
+   son pied adouci) ; un toit de révolution dont l'égout passe la hauteur BD TOPO de plus de
+   `DEPASSEMENT_REVOLUTION_M` est un houppier.
 3. Un **fait** sur ce bâtiment restreint ou remplace le résultat.
 4. Les garde-fous de vraisemblance (végétation, complétion, bandes recouvertes) passent en dernier,
    sauf sur un toit en `remplacement`.
 
 ### 9.2 Reproductibilité
 
-- `faits.json` et `reglages.json` sont **dans le dépôt** et **compilés dans le fichier livré** : pas
-  de lecture réseau, un toit calculé hier se recalcule à l'identique.
-- Leur empreinte entre dans la version de lecture des toits (`VERSION_LECTURE_TOITS`). Un changement
+- `faits.json`, `reglages.json` et `formes.json` sont **dans le dépôt** et **compilés dans le fichier
+  livré** : pas de lecture réseau, un toit calculé hier se recalcule à l'identique.
+- Leur empreinte entre dans la version de lecture des toits (`VERSION_LECTURE_TOITS` ; `formes` depuis
+  la version 4). Un changement
   relance la lecture en tâche de fond sur les projets ouverts. Les toits choisis à la main ne sont
   jamais touchés.
 - Un mode d'essai pour l'admin (`?regles=local`) charge un JSON depuis le poste, sans l'enregistrer :

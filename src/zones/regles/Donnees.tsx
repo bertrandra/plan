@@ -145,11 +145,11 @@ export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, tele
     if (remonter) setCles((c) => ({ ...c, [f.id]: (c[f.id] ?? 0) + 1 }));
   };
   // La ligne que les versions de lecture des toits demandent quand les reglages OU les faits changent : une seule ligne pour les deux.
-  const rt = fichiers.find((f) => f.id === 'reglagesToits'), ft = fichiers.find((f) => f.id === 'faitsToits');
-  const bt = rt ? bilanDonnees(rt, textes[rt.id]) : null, bf = ft ? bilanDonnees(ft, textes[ft.id]) : null;
-  const toitsChangent = !!((bt?.empreinteChange && bt.controle.valide) || (bf?.empreinteChange && bf.controle.valide));
+  const rt = fichiers.find((f) => f.id === 'reglagesToits'), ft = fichiers.find((f) => f.id === 'faitsToits'), fo = fichiers.find((f) => f.id === 'formesToits');
+  const bt = rt ? bilanDonnees(rt, textes[rt.id]) : null, bf = ft ? bilanDonnees(ft, textes[ft.id]) : null, bo = fo ? bilanDonnees(fo, textes[fo.id]) : null;
+  const toitsChangent = !!((bt?.empreinteChange && bt.controle.valide) || (bf?.empreinteChange && bf.controle.valide) || (bo?.empreinteChange && bo.controle.valide));
   const ligneToits = toitsChangent
-    ? `{ version: ${versions.toits + 1}, reglages: '${bt?.controle.empreinte ?? bt?.empreinteLivree}', faits: '${bf?.controle.empreinte ?? bf?.empreinteLivree}' },`
+    ? `{ version: ${versions.toits + 1}, reglages: '${bt?.controle.empreinte ?? bt?.empreinteLivree}', faits: '${bf?.controle.empreinte ?? bf?.empreinteLivree}'${bo ? `, formes: '${bo.controle.empreinte ?? bo.empreinteLivree}'` : ''} },`
     : null;
   const rf = fichiers.find((f) => f.id === 'reglagesFacades');
   const bff = rf ? bilanDonnees(rf, textes[rf.id]) : null;

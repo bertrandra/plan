@@ -306,7 +306,7 @@ describe('l ecran des regles', () => {
       expect(f.textContent).toContain('les toits déjà lus sur le LiDAR sont relus');
       expect(f.querySelector('[data-seuil="SEUIL_MARCHE_M"]')?.textContent).toContain('Modifié');
       const ligne = hote.querySelector('[aria-label="Lignes de version à ajouter"]')?.textContent ?? '';
-      expect(ligne).toMatch(/LECTURES_TOITS.*\{ version: 4, reglages: '[0-9a-f]{8}', faits: '[0-9a-f]{8}' \},/);
+      expect(ligne).toMatch(/LECTURES_TOITS.*\{ version: 4, reglages: '[0-9a-f]{8}', faits: '[0-9a-f]{8}', formes: '[0-9a-f]{8}' \},/);
       await cliquer(bouton(f, 'Télécharger reglages.json'));
       expect(telechargements).toHaveLength(1);
       expect(telechargements[0]!.nom).toBe('reglages.json');

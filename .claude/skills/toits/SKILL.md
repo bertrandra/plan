@@ -77,6 +77,14 @@ fond (`app/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLi
    hauteur BD TOPO de plus de 3 m est un houppier (`DEPASSEMENT_VEGETATION_M`), il est écarté. Si
    toute la surface est dans ce cas, ni surface ni forme ajustée ne sont gardées.
 5. **Corps et pignons** (`facade/toitCorps.ts::reconstruireCorps`, §3).
+5 bis. **Formes du catalogue** (`facade/regles/toits/catalogue.ts::corpsCalcules`, depuis le 17 octobre
+   2026, version de lecture 4) : la lecture des formes (`facade/lectureFormes.ts`, seuils de
+   `regles/toits/formes.json`) remplace le corps principal par un Mansart, un gambrel, un berceau, une
+   carène, un papillon, une demi-croupe ou un toit de révolution quand la mesure le porte nettement
+   mieux (écart sous 0,4 m et au plus 0,6 fois celui des formes simples). Pas le coyau (le lissage
+   3 × 3 l'imite) ; pas un toit de révolution dont l'égout passe la hauteur BD TOPO de plus de 1 m
+   (`DEPASSEMENT_REVOLUTION_M` : un arbre, Le Vésinet 28267565). Le fait et les garde-fous passent
+   après. C'est la même chaîne partout : `corpsLus`, `corpsParParcelle`, le rejeu, `banc.ts`, `identite.ts`.
 6. **Ce que la 3D montre** (`modeToitActif`) : `modeToit` choisi ; sinon les corps, sinon les
    volumes, sinon la forme simple. `'mesure'` seulement si l'utilisateur la choisit.
 
@@ -524,6 +532,16 @@ fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin 
   d'un bâtiment dont la hauteur BD TOPO est trop basse.
 
 ## 9. Chantiers ouverts
+
+- **Mansart au LiDAR** : la lecture du catalogue est en place (5 bis), mais le banc du 17 octobre 2026
+  n'a reconnu aucun Mansart à Versailles. Les deux « candidats » (28283510, 28283290) n'ont pas de
+  bande raide le long des murs dans la grille brute (moins de 1,3 m de montée au-dessus de l'égout) :
+  sans photo, rien ne dit qu'ils en sont. Il faut des Mansarts confirmés (une promenade, Claude) avant
+  d'écrire une règle de brisis ; la surface nettoyée (sous l'égout − 0,3 m retiré, lissage 3 × 3)
+  efface un brisis étroit, c'est la grille brute qu'il faudra lire.
+- **Banc des formes du catalogue (17 octobre 2026)** : sur Le Vésinet, Hucqueliers, Gordes, Versailles,
+  Eguisheim et Beuvron, trois bâtiments changent, tous en demi-croupes (Gordes 16860215, Eguisheim
+  4359945 et 4360047) ; compteurs identiques, AE 101 identique.
 
 - **Pavillon est de la longère d'Hucqueliers** (37248484) : ses ailes restent recoupées (le toit
   entier ne tient pas la mesure), avec une bande de 2,4 m qui n'est couverte qu'en partie. Piste :
