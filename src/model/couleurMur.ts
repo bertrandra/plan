@@ -173,6 +173,32 @@ export function ecartTeintes(a: string, b: string): number | null {
   const p = versRgb(a), q = versRgb(b);
   return p && q ? distance(p, q) : null;
 }
+
+/**
+ * Les teintes de mur que Claude nomme sur les photos (`teinteMurs`, regles/sujets/descriptions/murs.ts), et la
+ * couleur qui en tient lieu dans le projet : une famille, pas la teinte exacte que la lecture des pixels donne.
+ */
+export const TEINTES_MURS: readonly { code: string; libelle: string; couleur: string }[] = [
+  { code: 'blanc', libelle: 'blanc', couleur: '#EEEBE4' },
+  { code: 'creme', libelle: 'crème', couleur: '#E9DFC6' },
+  { code: 'beige', libelle: 'beige', couleur: '#D9C7A5' },
+  { code: 'ocre', libelle: 'ocre', couleur: '#D2A564' },
+  { code: 'rose', libelle: 'rose', couleur: '#D9B3A3' },
+  { code: 'gris-clair', libelle: 'gris clair', couleur: '#C8C6C0' },
+  { code: 'gris-fonce', libelle: 'gris foncé', couleur: '#85827C' },
+  { code: 'brun', libelle: 'brun', couleur: '#7D5E45' },
+  { code: 'rouge-brique', libelle: 'rouge brique', couleur: '#A3533C' },
+];
+
+/** La famille de teinte la plus proche d'une couleur ; null si ce n'en est pas une. */
+export function teinteDe(hex: string): string | null {
+  let meilleure: { code: string; d: number } | null = null;
+  for (const t of TEINTES_MURS) {
+    const d = ecartTeintes(hex, t.couleur);
+    if (d !== null && (!meilleure || d < meilleure.d)) meilleure = { code: t.code, d };
+  }
+  return meilleure?.code ?? null;
+}
 /**
  * Le feuillage d'une haie ou d'un arbre devant le mur : le vert passe le bleu, et ne le cede guere au
  * rouge - une haie de thuyas a l'ombre est olive (#464631), pas verte. Un enduit beige ou une

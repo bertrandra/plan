@@ -15,7 +15,8 @@
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsDeClaude, propositionsDetails, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { avecReserveDesNiveaux } from './niveauxClaude.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
@@ -319,9 +320,14 @@ const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couver
 
 function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
   const e: EntreesPropositions = { ...entrees, renfort };
-  const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type)) : [];
-  const arbitrages = arbitragesParBatiment(e, reponses ? votesDesBatiments(reponses) : {}, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
-  const propositions = dansLOrdre(e, avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsDesArbitrages(e, arbitrages), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]));
+  const deLAudit = propositionsDeLAudit(e);
+  // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
+  const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
+  const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type) && !(p.effet.type === 'couleurMurs' && couleurLue.has(cleDeLaCible(p.cible)))) : [];
+  const votes = reponses ? votesDesBatiments(reponses) : {};
+  const arbitrages = arbitragesParBatiment(e, votes, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
+  const arbitrees = avecReserveDesNiveaux(propositionsDesArbitrages(e, arbitrages), e.objets, votes);
+  const propositions = dansLOrdre(e, avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]));
   const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
   return { propositions, observations, arbitrages };
 }

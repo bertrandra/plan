@@ -2,7 +2,7 @@
 
 import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.js';
-import type { IndiceAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
+import type { FacadeVotee, IndiceAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import { deClaude, pluriel, type EntreeObservation, type EntreeSujet, type LigneObservation, type Sujet } from './contrat.js';
 
@@ -38,14 +38,24 @@ const SILHOUETTES: Record<string, string> = { triangle: 'haut en triangle', trap
 const BOUT_FACADE: Record<string, string> = { pignon: 'ferme un bout du faîtage en pignon', croupe: 'ferme un bout du faîtage en croupe', 'demi-croupe': 'ferme un bout du faîtage en demi-croupe', brisis: 'ferme un bout du faîtage en brisis', 'sans-objet': 'long pan, sans bout' };
 const FORMES_BAIES: Record<string, string> = { cintree: 'baies cintrées', 'oeil-de-boeuf': 'œil-de-bœuf', mixte: 'baies de formes mêlées' };
 
-/** Les details des ouvertures de chaque facade : volets, balcon, forme des baies, silhouette du haut. */
+/** Les niveaux d'ouvertures d'une facade, en clair : « 2 niveaux d'ouvertures (3 + 2) » ; null quand Claude ne les compte pas. */
+export function niveauxEnClair(f: FacadeVotee): string | null {
+  const n = f.niveaux.valeur, par = f.parNiveau.valeur;
+  if (typeof n !== 'number' || n <= 0) return null;
+  return n + (n > 1 ? ' niveaux' : ' niveau') + ' d’ouvertures' + (par !== 'indetermine' && par.length === n ? ' (' + par.join(' + ') + ')' : '');
+}
+
+/** Les details des ouvertures de chaque facade : niveaux, volets, balcon, forme des baies, silhouette du haut. */
 function observationsFacades({ v, reponses }: EntreeObservation): LigneObservation[] {
   const out: LigneObservation[] = [];
   for (const f of v.facades) {
     const vus = [[f.volets, VOLETS], [f.balcon, { oui: 'balcon' }], [f.formeOuvertures, FORMES_BAIES], [f.silhouette, SILHOUETTES], [f.bout, BOUT_FACADE]] as [Vote<string>, Record<string, string>][];
     const retenus = vus.filter(([x, table]) => x.valeur !== 'indetermine' && table[x.valeur]);
+    const niveaux = niveauxEnClair(f);
     const indices: IndiceAnalyse[] = reponses.flatMap((r) => r.facades.filter((x) => x.facade === f.facade).flatMap((x) => x.indices));
-    if (retenus.length) out.push({ sujet: 'details:' + f.facade, texte: 'Façade ' + f.facade + ' : ' + retenus.map(([x, table]) => table[x.valeur]).join(', '), indices, accord: Math.min(...retenus.map(([x]) => x.accord)) });
+    const textes = [...(niveaux ? [niveaux] : []), ...retenus.map(([x, table]) => table[x.valeur] as string)];
+    const accords = [...(niveaux ? [f.niveaux.accord] : []), ...retenus.map(([x]) => x.accord)];
+    if (textes.length) out.push({ sujet: 'details:' + f.facade, texte: 'Façade ' + f.facade + ' : ' + textes.join(', '), indices, accord: Math.min(...accords) });
   }
   return out;
 }
