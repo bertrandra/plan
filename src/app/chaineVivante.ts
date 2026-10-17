@@ -13,6 +13,7 @@ import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
 import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../regles/sujets/versions.js';
 import { SUJETS } from './regles/sujets/index.js';
 import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
+import * as FORME_TOIT from '../model/formeToit.js';
 import { EXEMPLES_TOITS } from '../facade/catalogueToits.js';
 
 /** Un seuil tel que l'ecran le montre : son nom, sa valeur avec son unite, et pourquoi il vaut cela. */
@@ -76,6 +77,8 @@ export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante 
     if (genre === 'poids') { const s = (r.sources as Record<string, { poids: number; seule: boolean }>)[nom]; return s ? nombre(s.poids) + (s.seule ? '' : ', ne décide pas seul') : null; }
     if (genre === 'recon') { const v = (r.seuils as Record<string, number>)[nom]; return v === undefined ? null : nombre(v); }
     if (genre === 'seuil') return seuil(nom);
+    // Les seuils de nommage que le modele garde dans son code (model/formeToit.ts) : leur valeur est celle de la constante.
+    if (genre === 'modele') { const v = (FORME_TOIT as Record<string, unknown>)[nom]; return typeof v === 'number' ? nombre(v) : null; }
     return null;
   };
   const resoudre = (id: string, texte: string): string => texte.replace(/\{\{([A-Za-z0-9_.]+)\}\}/g, (_, cle: string) => {

@@ -35,7 +35,8 @@ describe('verification des champs etendus', () => {
   it('lucarnes : un type connu, un pan, des bords dans l ordre, des hauteurs, une source', () => {
     expect(TYPES_LUCARNE).toContain('inconnue');
     expect(lucarneValide({ ...lucarne, extra: 1 })).toEqual(lucarne);
-    expect(lucarneValide({ ...lucarne, type: 'oeil-de-boeuf' })).toBeNull();
+    expect(lucarneValide({ ...lucarne, type: 'oeil-de-boeuf' })).toEqual({ ...lucarne, type: 'oeil-de-boeuf' });
+    expect(lucarneValide({ ...lucarne, type: 'abat-jour' })).toBeNull();
     expect(lucarneValide({ ...lucarne, pan: 2 })).toBeNull();
     expect(lucarneValide({ ...lucarne, finM: 2 })).toBeNull();
     expect(lucarneValide({ ...lucarne, profondeurM: 0 })).toBeNull();

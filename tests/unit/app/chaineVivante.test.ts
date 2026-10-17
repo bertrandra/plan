@@ -52,6 +52,7 @@ describe('la chaine lue en direct', () => {
     for (const a of ATTRIBUTS) expect(ids.has('decision.attr.' + a), a).toBe(true);
     for (const e of ENTREES_CHAINE.reconciliation.lecturesLidar) expect(ids.has('toit.lidar.' + e.ordre)).toBe(true);
     for (const s of ENTREES_CHAINE.sujets) expect(ids.has('audit.sujet.' + s.id), s.id).toBe(true);
+    for (const f of ENTREES_CHAINE.formes) expect(chaineVivante().noeuds.some((n) => n.forme === f.id), f.id).toBe(true);
   });
 
   it('une forme ou un sujet ajouté aux données apparaît sans toucher la liste écrite', () => {

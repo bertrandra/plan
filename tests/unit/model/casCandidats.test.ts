@@ -25,7 +25,7 @@ describe('du vote a la forme visee', () => {
     expect(formeDuSchema('mansart')).toBe('mansart');
     expect(formeDuSchema('croupes')).toBe('croupes');
     expect(formeDuSchema('indetermine')).toBeNull();
-    expect(typesLucarnes(['jacobine', 'oeil-de-boeuf', 'jacobine', 'outeau', 'indetermine'])).toEqual(['jacobine', 'inconnue']);
+    expect(typesLucarnes(['jacobine', 'oeil-de-boeuf', 'jacobine', 'outeau', 'indetermine'])).toEqual(['jacobine', 'oeil-de-boeuf', 'outeau']);
   });
 
   it('ne garde que ce que la majorite des passes affirme', () => {

@@ -31,7 +31,11 @@ export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cl
  * La forme d'un toit comme l'arbitrage la compare : un quatre-pans, des croupes et un pavillon ne font qu'un (le dessin est le
  * meme, spec des toits §3.3) ; le reste garde son nom.
  */
-export const formeArbitree = (f: string): string => (f === 'quatre-pans' || f === 'croupes' || f === 'pavillon' ? 'croupes' : f === 'demi-croupe' ? 'demi-croupes' : f);
+/**
+ * La forme dans le vocabulaire de l'arbitrage. Les noms que le moteur sait dessiner mais pas encore arbitrer (asymetrique, shed, toit
+ * en M...) se disent par la forme simple qu'ils sont, pour que l'arbitrage ne voie pas un desaccord la ou il n'y a qu'un nom.
+ */
+export const formeArbitree = (f: string): string => (f === 'quatre-pans' || f === 'croupes' || f === 'pavillon' ? 'croupes' : f === 'demi-croupe' ? 'demi-croupes' : f === 'asymetrique' || f === 'deux-pans-decales' || f === 'toit-en-m' ? 'deux-pans' : f === 'shed' ? 'appentis' : f);
 
 /** La forme que disent deux bouts de faitage (le vocabulaire du moteur : pignon, croupe), quand rien d'autre n'est dit. */
 export function formeDesBouts(bouts: readonly string[]): string | null {

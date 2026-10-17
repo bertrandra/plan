@@ -4,6 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { chaineVivante } from "../../../src/app/chaineVivante.js";
 import { EcranChaine } from '../../../src/zones/EcranChaine.js';
+import { EXEMPLES_TOITS } from '../../../src/facade/catalogueToits.js';
 import { demandeEcranChaine } from '../../../src/app/ecranChaine.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,8 +27,8 @@ describe('l ecran de la chaine', () => {
   });
   it('dessine une vignette par forme de toit et lucarne, gambrel, demi-croupe, meuniere et rampante compris', () => {
     const noms = [...hote.querySelectorAll('svg.chaineVignette')].map((s) => s.getAttribute('aria-label'));
-    expect(noms.length).toBe(12);
-    for (const m of ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante']) expect(noms).toContain('Vue 3D : ' + m);
+    expect(noms.length).toBe(EXEMPLES_TOITS.length);
+    for (const m of ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante', 'Papillon', 'Coyau', 'Berceau', 'Dôme', 'Impériale', 'Shed', 'Lanterneau']) expect(noms).toContain('Vue 3D : ' + m);
   });
   it('lie vers les ecrans qui existent et dit le mode de chaque ligne en toutes lettres', () => {
     expect([...hote.querySelectorAll('a.chaineEcran')].some((a) => a.getAttribute('href') === '?admin&ecran=regles')).toBe(true);

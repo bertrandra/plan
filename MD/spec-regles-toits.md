@@ -227,23 +227,23 @@ reste ouverte : une forme vue en audit qui n'y figure pas s'y ajoute, avec sa si
 | 2 | **Monopente** (appentis, à pupitre) | Standard | 1 | Un seul pan. Adossé à un mur (rive de tête) ou libre ; extensions, garages, maisons de village provençales. | Oui (`appentis`) |
 | 3 | **Deux pans à pignons** (« en bâtière ») | Standard | 2 | La forme classique en V renversé, deux murs pignons aux bouts ; combles simples à aménager. | Oui (`deux-pans`) |
 | 4 | **Croupe** (quatre pans) | Standard | 4 | Deux grands pans et deux croupes triangulaires aux bouts ; bonne tenue au vent. | Oui (`croupes`) |
-| 5 | **Pavillon** (pyramide) | Standard | 4 | Quatre pans triangulaires égaux réunis en un point ; plan carré. | Approché (croupes à faîtage nul) |
-| 6 | **Demi-croupe** | Standard | 2 à 4 | Deux pans dont le haut des bouts est fermé par une courte croupe, un petit pignon dessous ; Normandie, Alsace, Jura. | **Non** |
-| 7 | **Mansart** (mansardé, toit brisé) | Standard | 4 brisés | Chaque face a deux pentes : terrasson en haut, brisis en bas ; brisis aussi aux bouts. Volume habitable maximal ; lucarnes dans le brisis. Paris, Île-de-France, villes. | **Non** |
-| 8 | **Asymétrique** (« saltbox ») | Spécifique | 2 inégaux | Deux pans, l'un nettement plus long, qui descend plus bas (parfois jusqu'au rez-de-chaussée). | Représentable (faîtage décentré, égouts inégaux) ; non reconnu comme tel |
-| 9 | **Deux pans décalés** | Spécifique | 2 | Deux pans dont les faîtages sont à des hauteurs différentes, séparés par une bande verticale (souvent vitrée). | Approché (deux corps) |
-| 10 | **Toit en M** (double pignon) | Spécifique | 4 | Deux toits à deux pans parallèles et accolés, réunis par une noue centrale. | Approché (deux corps) |
-| 11 | **Papillon** (en V) | Spécifique | 2 inversés | Deux pans inclinés vers l'intérieur, noue centrale ; contemporain, verrières hautes. | **Non** |
-| 12 | **Gambrel** | Spécifique | 2 brisés | Double pente du Mansart, mais sur les deux longs côtés seulement, avec des murs pignons (grange américaine ; « Mansart à deux brisis »). | **Non** |
-| 13 | **Coyau** (toit retroussé) | Spécifique | 2 ou 4 | Le bas de chaque pan s'évase et s'adoucit vers l'extérieur ; éloigne l'eau des murs. Fermes et maisons anciennes. | **Non** (variante du bord, §2.4) |
-| 14 | **Shed** (dents de scie) | Spécifique | multiples | Appentis répétés : pan court vitré (souvent au nord), pan long aveugle ; bâtiments industriels, ateliers. | Approché (plusieurs corps) |
-| 15 | **Berceau** (voûte) | Spécifique | 1 courbe | Toit en demi-cylindre ou en arc surbaissé ; hangars, halles, gymnases. | **Non** |
-| 16 | **Carène** (Philibert de l'Orme) | Spécifique | 2 ou 4 courbes | Silhouette convexe en coque de bateau renversée ; grand volume intérieur, style d'époque. | **Non** |
-| 17 | **Conique** (poivrière) | Spécifique | 1 cône | Cône sur une tourelle ronde ou polygonale. | **Non** |
-| 18 | **Polygonal** | Spécifique | 5 et plus | Pavillon sur un plan hexagonal ou octogonal (kiosque, tour). | **Non** |
-| 19 | **Flèche** | Spécifique | 4 à 8, très aigus | Pyramide ou cône très élancé (clocher, tourelle d'angle). | **Non** |
-| 20 | **Dôme** (coupole) | Spécifique | base ronde | Hémisphère ou calotte sur une base ronde ou polygonale ; monuments, tourelles. | **Non** |
-| 21 | **Impériale** (bulbe) | Spécifique | courbe convexe puis concave | Galbe en S, d'abord bombé puis effilé ; clochers de l'Est, kiosques. | **Non** |
+| 5 | **Pavillon** (pyramide) | Standard | 4 | Quatre pans triangulaires égaux réunis en un point ; plan carré. | Oui, nommé (croupes à faîtage de moins de 1 m sur plan carré), dessiné |
+| 6 | **Demi-croupe** | Standard | 2 à 4 | Deux pans dont le haut des bouts est fermé par une courte croupe, un petit pignon dessous ; Normandie, Alsace, Jura. | Dessinée (bout `demi-croupe`) ; nommée depuis les corps ; lecture LiDAR à venir |
+| 7 | **Mansart** (mansardé, toit brisé) | Standard | 4 brisés | Chaque face a deux pentes : terrasson en haut, brisis en bas ; brisis aussi aux bouts. Volume habitable maximal ; lucarnes dans le brisis. Paris, Île-de-France, villes. | Dessiné (profil brisé et bouts `brisis`) ; nommé depuis les corps ; lecture LiDAR à venir |
+| 8 | **Asymétrique** (« saltbox ») | Spécifique | 2 inégaux | Deux pans, l'un nettement plus long, qui descend plus bas (parfois jusqu'au rez-de-chaussée). | Oui, nommée (`formeDuCorpsNommee` : grand pan ≥ 1,6 fois le petit, pignons) et dessinée comme un deux-pans à faîtage décentré |
+| 9 | **Deux pans décalés** | Spécifique | 2 | Deux pans dont les faîtages sont à des hauteurs différentes, séparés par une bande verticale (souvent vitrée). | Oui, nommés depuis les corps accolés (`formeDeLEnsemble`) ; dessinés par deux corps |
+| 10 | **Toit en M** (double pignon) | Spécifique | 4 | Deux toits à deux pans parallèles et accolés, réunis par une noue centrale. | Oui, nommé depuis les corps accolés (`formeDeLEnsemble`) ; dessiné par deux corps |
+| 11 | **Papillon** (en V) | Spécifique | 2 inversés | Deux pans inclinés vers l'intérieur, noue centrale ; contemporain, verrières hautes. | Dessiné (`facade/toitSpeciaux.ts` : faîtage plus bas que les égouts, noue au milieu) ; nommé ; lecture LiDAR à venir |
+| 12 | **Gambrel** | Spécifique | 2 brisés | Double pente du Mansart, mais sur les deux longs côtés seulement, avec des murs pignons (grange américaine ; « Mansart à deux brisis »). | Dessiné (profil brisé, bouts en pignon) ; nommé depuis les corps ; lecture LiDAR à venir |
+| 13 | **Coyau** (toit retroussé) | Spécifique | 2 ou 4 | Le bas de chaque pan s'évase et s'adoucit vers l'extérieur ; éloigne l'eau des murs. Fermes et maisons anciennes. | Dessiné (profil `coyau` : bas du pan adouci) ; nommé ; lecture à venir |
+| 14 | **Shed** (dents de scie) | Spécifique | multiples | Appentis répétés : pan court vitré (souvent au nord), pan long aveugle ; bâtiments industriels, ateliers. | Oui, nommé depuis les corps accolés (`formeDeLEnsemble`) ; dessiné par des appentis accolés |
+| 15 | **Berceau** (voûte) | Spécifique | 1 courbe | Toit en demi-cylindre ou en arc surbaissé ; hangars, halles, gymnases. | Dessiné (profil `courbe`, pignons aux bouts) ; nommé ; lecture à venir |
+| 16 | **Carène** (Philibert de l'Orme) | Spécifique | 2 ou 4 courbes | Silhouette convexe en coque de bateau renversée ; grand volume intérieur, style d'époque. | Dessinée (profil `courbe` ; bouts en pignon, les croupes courbes viendront) ; nommée ; lecture à venir |
+| 17 | **Conique** (poivrière) | Spécifique | 1 cône | Cône sur une tourelle ronde ou polygonale. | Dessiné (`speciale: conique`, cône sur dalle) ; observation ou fait |
+| 18 | **Polygonal** | Spécifique | 5 et plus | Pavillon sur un plan hexagonal ou octogonal (kiosque, tour). | Dessiné (`speciale: polygonal`, pyramide à n faces) ; observation ou fait |
+| 19 | **Flèche** | Spécifique | 4 à 8, très aigus | Pyramide ou cône très élancé (clocher, tourelle d'angle). | Dessinée (`speciale: fleche`, pyramide élancée) ; observation ou fait |
+| 20 | **Dôme** (coupole) | Spécifique | base ronde | Hémisphère ou calotte sur une base ronde ou polygonale ; monuments, tourelles. | Dessiné (`speciale: dome`, anneaux de facettes) ; observation ou fait |
+| 21 | **Impériale** (bulbe) | Spécifique | courbe convexe puis concave | Galbe en S, d'abord bombé puis effilé ; clochers de l'Est, kiosques. | Dessinée (`speciale: imperiale`, bulbe en anneaux) ; observation ou fait |
 
 Variantes qui ne sont pas des formes à part, mais des **éléments** d'une forme (§2) :
 - **Pignon à redents** (à gradins, Flandres) : un pignon dont le mur dépasse le toit en marches. C'est un **bout**, sans effet sur la forme.
