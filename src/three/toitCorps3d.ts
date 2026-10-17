@@ -46,6 +46,26 @@ export function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[
   return segmentEnFacade(a, b, milieu, contour);
 }
 
+/** La section d'un poteau d'appentis ouvert, son retrait du bord de l'egout et l'entraxe voulu entre deux poteaux. */
+const POTEAU_COTE_M = 0.14;
+const POTEAU_RETRAIT_M = 0.12;
+const ENTRAXE_POTEAUX_M = 2.5;
+
+/** Les poteaux d'un appentis ouvert, le long de son egout (`t` fixe) : quatre faces chacun, du sol a l'egout. */
+function poteauxDAppentis(L: number, t: number, egout: number): { s: number; t: number; z: number }[][] {
+  const n = Math.max(2, Math.ceil(L / ENTRAXE_POTEAUX_M) + 1), h = POTEAU_COTE_M / 2;
+  const faces: { s: number; t: number; z: number }[][] = [];
+  for (let i = 0; i < n; i++) {
+    const s = POTEAU_RETRAIT_M + (i * (L - 2 * POTEAU_RETRAIT_M)) / (n - 1);
+    const c = [[s - h, t - h], [s + h, t - h], [s + h, t + h], [s - h, t + h]] as const;
+    for (let k = 0; k < 4; k++) {
+      const [a, b] = [c[k] as readonly [number, number], c[(k + 1) % 4] as readonly [number, number]];
+      faces.push([{ s: a[0], t: a[1], z: 0 }, { s: b[0], t: b[1], z: 0 }, { s: b[0], t: b[1], z: egout }, { s: a[0], t: a[1], z: egout }]);
+    }
+  }
+  return faces;
+}
+
 /**
  * Les facettes d'un corps dans le plan : les pans du toit (corps et pignons) et les murs qui montent
  * au-dessus de son prisme. Le debord (a l'egout, a la rive) n'existe que sur une facade du `contour`.
@@ -63,6 +83,8 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   const dR0 = facade('s0') ? DEBORD_RIVE_M : 0, dRL = facade('sL') ? DEBORD_RIVE_M : 0;
   const pans: S3[][] = [], murs: S3[][] = [];
   const plat = !special && F - Math.min(e0, e1) < 0.05;
+  // Un appentis : un seul pan, le faitage sur un mur (celui de la maison qui le porte).
+  const appentis = !special && (p <= 0.01 || p >= W - 0.01);
   // Les croupes : le faitage s'arrete a h0 et h1 des murs de bout, les pans deviennent des trapezes.
   const [h0, h1] = !plat && p > 0.01 && p < W - 0.01 ? c.croupes ?? [0, 0] : [0, 0];
   // Un pan, dans son repere : `s` le long du faitage, `d` la distance a son mur d'egout (negative
@@ -114,8 +136,19 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
         pans.push([P(a, -dE0, z(a, -dE0)), P(b, W + dE1, z(b, W + dE1)), P(sommet, p, F)]);
         continue;
       }
-      const profil = [P(s, 0, bas), P(s, 0, e0), ...(p > 0.01 && p < W - 0.01 ? [P(s, p, F)] : []), P(s, W, e1), P(s, W, bas)];
+      // Un appentis ouvert (galerie, porche) n'a pas de mur de bout : ses poteaux le portent ; ferme, ses murs descendent jusqu'au sol.
+      if (appentis && c.ouvert === true) continue;
+      const sol = appentis && c.ouvert === false ? 0 : bas;
+      const profil = [P(s, 0, sol), P(s, 0, e0), ...(p > 0.01 && p < W - 0.01 ? [P(s, p, F)] : []), P(s, W, e1), P(s, W, sol)];
       murs.push(profil);
+    }
+  }
+  // Sous l'egout d'un appentis : un mur plein jusqu'au sol (ferme), ou des poteaux (ouvert, sans mur exterieur).
+  if (appentis && c.ouvert !== undefined && !plat) {
+    const tBas = p <= 0.01 ? W : 0, eBas = p <= 0.01 ? e1 : e0;
+    if (eBas > MUR_MIN_M) {
+      if (c.ouvert === false) murs.push([P(0, tBas, 0), P(L, tBas, 0), P(L, tBas, eBas), P(0, tBas, eBas)]);
+      else murs.push(...poteauxDAppentis(L, tBas === 0 ? POTEAU_RETRAIT_M : W - POTEAU_RETRAIT_M, eBas).map((f) => f.map((q) => P(q.s, q.t, q.z))));
     }
   }
   // Le mur d'un pan plus haut que le prisme.

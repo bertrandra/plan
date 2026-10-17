@@ -307,6 +307,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vu.sensFaitage': etape(Z8, CE_QUE_JE_VOIS, 'Sens du faîtage par rapport à la rue', { repete: true }),
   'vu.bouts': etape(Z8, CE_QUE_JE_VOIS, 'Bouts du toit (pignons, croupes)', { repete: true }),
   'vu.lucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de lucarnes', { repete: true }),
+  'vu.appentis': etape(Z8, CE_QUE_JE_VOIS, 'Appentis ouvert ou fermé', { repete: true }),
   'vu.panLucarnes': etape(Z8, CE_QUE_JE_VOIS, 'Pan des lucarnes', { repete: true }),
   'vu.cheminees': etape(Z8, CE_QUE_JE_VOIS, 'Nombre de cheminées', { repete: true }),
   'vu.positionCheminee': etape(Z8, CE_QUE_JE_VOIS, 'Position d’une cheminée', { repete: true }),

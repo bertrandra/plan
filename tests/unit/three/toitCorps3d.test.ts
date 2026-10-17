@@ -254,3 +254,40 @@ describe('les formes étendues dans le dessin des corps (profil brisé, demi-cro
     expect(scene.added.map((m) => m.name)).toContain(NOM_TOIT_CORPS);
   });
 });
+
+describe('un appentis ouvert ou ferme', () => {
+  // Une galerie contre un mur : le faitage sur le mur (posFaitage = 0), l'egout cote jardin, 3 m de large sur 8 m.
+  const galerie = (plus: Partial<CorpsToit> = {}): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 3 }, { x: 0, y: 3 }], posFaitage: 0, faitage: 3.4, egouts: [3.4, 2.4], pignons: [], ecart: 0, ...plus });
+  const hauteurs = (f: { z: number }[][]) => f.flatMap((q) => q.map((s) => s.z));
+
+  it('sans indication, le dessin d avant : des murs de bout depuis l egout, rien sous lui', () => {
+    // Les deux murs de bout, et le mur de la maison au-dessus de l'egout bas (y = 0, de 2,4 a 3,4 m).
+    const { murs } = facettesCorps(galerie());
+    expect(murs).toHaveLength(3);
+    expect(Math.min(...hauteurs(murs))).toBeCloseTo(2.4, 5);
+  });
+
+  it('ferme : les murs de bout et le mur de l egout descendent jusqu au sol', () => {
+    const { murs } = facettesCorps(galerie({ ouvert: false }));
+    expect(murs).toHaveLength(4);
+    expect(Math.min(...hauteurs(murs))).toBe(0);
+  });
+
+  it('ouvert : pas de mur, des poteaux du sol a l egout le long de l egout', () => {
+    const { murs, pans } = facettesCorps(galerie({ ouvert: true }));
+    // 8 m a 2,5 m d'entraxe : 5 poteaux de 4 faces, sans mur de bout.
+    expect(murs).toHaveLength(21);
+    expect(Math.min(...hauteurs(murs))).toBe(0);
+    const poteaux = murs.filter((f) => Math.min(...hauteurs([f])) === 0);
+    expect(poteaux).toHaveLength(20);
+    expect(Math.max(...hauteurs(poteaux))).toBeCloseTo(2.4, 5);
+    expect(pans.length).toBeGreaterThan(0);
+    // Les poteaux sont du cote de l'egout (y = 3), pas contre le mur de la maison (y = 0).
+    expect(poteaux.every((f) => f.every((q) => q.y > 2.5))).toBe(true);
+  });
+
+  it('un autre toit qu un appentis n est pas touche par l option', () => {
+    const deuxPans: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 6, egouts: [3, 3], pignons: [], ecart: 0 };
+    expect(facettesCorps({ ...deuxPans, ouvert: true }).murs).toEqual(facettesCorps(deuxPans).murs);
+  });
+});

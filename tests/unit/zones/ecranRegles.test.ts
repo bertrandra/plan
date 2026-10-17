@@ -335,7 +335,7 @@ describe('l ecran des regles', () => {
       const { hote, telechargements } = await monter({ donnees });
       await cliquer(onglet(hote));
       const f = fichier(hote, 'reconciliation');
-      expect(f.querySelectorAll('[data-attribut]').length).toBe(11);
+      expect(f.querySelectorAll('[data-attribut]').length).toBe(Object.keys(RECONCILIATION.attributs).length);
       await taper(f.querySelector('input[aria-label="Poids de LiDAR HD pour Hauteur à l\'égout"]'), '5');
       expect(f.textContent).toContain('1 ligne change');
       expect(f.querySelector('[data-attribut="hauteurEgout"]')?.textContent).toContain('Modifié');

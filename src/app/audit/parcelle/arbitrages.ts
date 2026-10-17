@@ -12,6 +12,7 @@ import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { lireForme } from '../../../facade/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
+import { formeDuCorps } from '../../../facade/regles/toits/faits.js';
 import { cibleBatiment, cibleFacade, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
@@ -299,6 +300,28 @@ function propositionLucarnes(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | unde
   };
 }
 
+/**
+ * L'appentis (galerie, porche) ouvert ou ferme : ce que la personne a vu sur place, ou ce qu'elle force ici (les colonial, les galeries
+ * d'Amerique : des poteaux, pas de mur exterieur). Ni le LiDAR ni la photo de rue ne le disent. S'ecrit sur tous les appentis du batiment.
+ */
+function propositionAppentis(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+  const corps = o.corpsToit ?? [];
+  if (!a || a.decision === 'rien' || !a.retenu || (a.retenu.valeur !== 'ouvert' && a.retenu.valeur !== 'ferme')) return null;
+  const cibles = corps.flatMap((c, i) => (formeDuCorps(c) === 'appentis' ? [i] : []));
+  if (!cibles.length) return null;
+  const ouvert = a.retenu.valeur === 'ouvert';
+  const actuel = new Set(cibles.map((i) => (corps[i] as { ouvert?: boolean }).ouvert));
+  const dit = (v: boolean | undefined) => (v === undefined ? 'sans indication (le toit seul)' : v ? 'ouvert' : 'fermé');
+  return {
+    id: b.cle + ':appentis', cible: { type: 'batiment', cle: b.cle }, objet: 'Appentis de ' + b.nom, source: 'arbitrage',
+    avant: actuel.size === 1 ? dit([...actuel][0]) : 'ouverts et fermés',
+    apres: (ouvert ? 'Ouvert : des poteaux, pas de mur extérieur' : 'Fermé : des murs jusqu’au sol') + (cibles.length > 1 ? ' (' + cibles.length + ' appentis)' : '') + (a.decision === 'forcee' ? ', choisi par vous' : ', vu sur place'),
+    confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
+    reserve: a.decision === 'manuelle' ? a.raison : null,
+    effet: { type: 'appentis', corps: cibles, ouvert }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
 export type ChoixArbitrages = Readonly<Record<string, ChoixArbitrage | undefined>>;
 export const cleChoix = (cible: string, attribut: string): string => cible + '|' + attribut;
 
@@ -314,7 +337,7 @@ export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: Li
 }
 
 /** Les attributs d'un batiment qu'une personne peut toujours forcer, meme quand aucune source ne les lit. */
-const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes'];
+const ATTRIBUTS_FORCABLES: readonly IdAttribut[] = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
 /** Les arbitrages d'un batiment de la liste : de quoi montrer toutes ses sources, et en tirer les propositions. */
 export interface ArbitragesBatiment { cle: string; nom: string; arbitrages: Arbitrage[] }
@@ -341,7 +364,7 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
       const p = propositionReleve(o, b, f, arbitrages.find((x) => x.cible === cibleFacade(cle, f.cote) && x.attribut === 'ouverturesFacade'), e, regles);
       if (p) out.push(p);
     }
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles), propositionLucarnes(o, b, parAttribut('lucarnes'), regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles), propositionLucarnes(o, b, parAttribut('lucarnes'), regles), propositionAppentis(o, b, parAttribut('appentis'), regles)]) if (p) out.push(p);
   }
   return out;
 }

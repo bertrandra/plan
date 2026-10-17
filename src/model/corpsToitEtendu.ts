@@ -90,6 +90,7 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
     if (l.length) c.lucarnes = l; else delete c.lucarnes;
   }
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
+  if ('ouvert' in c && typeof c.ouvert !== 'boolean') delete c.ouvert;
   if ('speciale' in c) { const x = specialeValide(c.speciale); if (x) c.speciale = x; else delete c.speciale; }
 }
 

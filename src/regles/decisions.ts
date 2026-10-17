@@ -88,6 +88,8 @@ export type EffetProposition =
   | { type: 'corpsToit'; corps: CorpsToit[] }
   /** Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. */
   | { type: 'cheminees'; corps: number; cheminees: Cheminee[] }
+  /** Les appentis des corps `corps`, ouverts (poteaux, sans mur exterieur) ou fermes (murs jusqu'au sol). */
+  | { type: 'appentis'; corps: number[]; ouvert: boolean }
   /** Les lucarnes vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees (celles du LiDAR restent). */
   | { type: 'lucarnes'; corps: number; lucarnes: Lucarne[] }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit }
@@ -137,7 +139,7 @@ export function cocheeParDefaut(p: Proposition): boolean {
  * ecrire tous les deux. Sur ceux-la, la personne qui etait devant le batiment l'emporte (decision D21 de
  * MD/plan-vague-3-generaliser.md) : cocher l'une decoche l'autre.
  */
-export const EFFETS_NOTES_SUR_PLACE: readonly TypeEffet[] = ['materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'terrasse'];
+export const EFFETS_NOTES_SUR_PLACE: readonly TypeEffet[] = ['materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 /** Les propositions qui ecrivent le meme attribut du meme batiment, d'une autre source : la valeur notee sur place et celle de Claude. */
 export function rivalesSurPlace(p: Proposition, toutes: readonly Proposition[]): Proposition[] {
@@ -270,6 +272,12 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       });
       return;
     }
+    case 'appentis': {
+      const corps = o.corpsToit;
+      if (!corps) return;
+      o.corpsToit = corps.map((c, i) => (e.corps.includes(i) ? { ...c, ouvert: e.ouvert } : c));
+      return;
+    }
     case 'lucarnes': {
       const corps = o.corpsToit;
       if (!corps || !corps[e.corps]) return;
@@ -294,7 +302,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

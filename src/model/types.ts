@@ -1046,6 +1046,11 @@ export interface CorpsToit {
   bords?: BordsToit;
   /** Un toit de revolution sur le rectangle du corps (tourelle, kiosque, clocher) ; absent : un toit a faitage. */
   speciale?: SpecialeToit;
+  /**
+   * Un appentis ouvert (galerie, porche : des poteaux, pas de mur exterieur) ou ferme (des murs du sol a l'egout et aux bouts).
+   * Absent : le dessin d'avant, qui ne dit rien sous l'egout. Sans effet sur un autre toit qu'un appentis.
+   */
+  ouvert?: boolean;
 }
 
 /**
