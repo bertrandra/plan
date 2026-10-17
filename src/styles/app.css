@@ -2597,3 +2597,9 @@
   .chaineGalerie .chaineLigne{ flex-direction:column; border:1px solid var(--hairline); background:var(--panel-2); height:100%; }
   .chaineVignette{ width:100%; max-width:200px; height:auto; align-self:center; color:var(--ink-soft); }
   @media (max-width: 1023px){ .chaineEtape{ padding:10px; } .chaineListe{ padding-left:8px; } }
+  .chaineLecture{ margin:8px 0; font-size:0.74rem; color:var(--ink-soft); font-variant-numeric:tabular-nums; }
+  .chaineLu{ padding:1px 8px; border-radius:999px; font-size:0.68rem; border:1px dashed var(--rule); color:var(--ink-soft); }
+  .chaineSeuils{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:4px 8px; font-size:0.72rem; }
+  .chaineSeuils li{ padding:1px 8px; border-radius:var(--r-champ); background:var(--panel-2); border:1px solid var(--hairline); font-variant-numeric:tabular-nums; }
+  .chaineSeuils code{ font-family:var(--mono); font-size:0.68rem; color:var(--ink-soft); }
+  ul.chaineErreur{ list-style:none; margin:8px 0; }

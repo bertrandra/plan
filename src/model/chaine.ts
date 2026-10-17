@@ -29,34 +29,41 @@ export interface NoeudChaine {
   forme?: string;
   /** Ou c'est dans le code ou dans les donnees. */
   ou?: string;
+  /** Les seuils de `regles/toits/reglages.json` qui le reglent : l'ecran en lit la valeur, l'unite et le pourquoi en direct. */
+  seuils?: string[];
 }
+
+/**
+ * Un `detail` peut porter des valeurs lues en direct, `{{poids.lidar}}`, `{{seuil.SEUIL_MARCHE_M}}`, `{{recon.SCORE_AUTO_MIN}}` :
+ * app/chaineVivante.ts les remplace par ce que les fichiers de donnees disent aujourd'hui, et dit celles qu'elle ne connait pas.
+ */
 
 const REGLES = '?admin&ecran=regles';
 
 export const CHAINE: readonly NoeudChaine[] = [
   // 1. Les sources
   { id: 'sources', parent: null, genre: 'etape', titre: '1. Les sources', detail: 'Ce que chaque donnee sait d’un bâtiment, avec sa confiance. Rien n’y décide : chaque source dit, le moteur arbitre.' },
-  { id: 'sources.cadastre', parent: 'sources', genre: 'source', titre: 'Cadastre IGN : la parcelle', detail: 'Le polygone de la parcelle (IDU), ses voisines, les limites.', mode: 'auto', ou: 'geo/cadastre*.ts' },
-  { id: 'sources.bdtopo', parent: 'sources', genre: 'source', titre: 'BD TOPO : le polygone du bâtiment', detail: 'Contour, hauteur à l’égout, altitudes du toit, étages, matériau des murs. Poids 2 : fiable au mètre près, parfois faux.', mode: 'auto', ou: 'geo/bdtopo.ts' },
-  { id: 'sources.lidar', parent: 'sources', genre: 'source', titre: 'LiDAR HD : la surface du toit', detail: 'La hauteur du sursol tous les 50 cm. Poids 4 : la source qui pèse le plus.', mode: 'auto', ou: 'geo/mnh.ts' },
-  { id: 'sources.ortho', parent: 'sources', genre: 'source', titre: 'Orthophoto : couleurs', detail: 'La couleur du toit vue du ciel.', mode: 'auto', ou: 'render/couleurToit*.ts' },
-  { id: 'sources.photo', parent: 'sources', genre: 'source', titre: 'Photos de façade (audit)', detail: 'La silhouette de la façade (pignon, trapèze, rampe, marches) donne le sens du faîtage et les bouts. Poids 3, ne décide pas seule.', mode: 'mixte', voir: 'audit.photos' },
-  { id: 'sources.claude', parent: 'sources', genre: 'source', titre: 'Claude : lecture des photos', detail: 'Trois passes et un vote : forme, bouts, matériau, couverture, lucarnes. Poids 1,5, ne décide pas seul.', mode: 'mixte', ecran: REGLES, ou: 'deploy/prompt-analyse.md' },
-  { id: 'sources.terrain', parent: 'sources', genre: 'source', titre: 'Ce que je vois (sur place)', detail: 'Ce que la personne note devant le bâtiment : poids 30, elle l’emporte.', mode: 'manuel', voir: 'audit.liste' },
+  { id: 'sources.cadastre', parent: 'sources', genre: 'source', titre: 'Cadastre IGN : la parcelle', detail: 'Le polygone de la parcelle (IDU), ses voisines, les limites.', mode: 'auto', ou: 'geo/cadastreObjets.ts' },
+  { id: 'sources.ign', parent: 'sources', genre: 'source', titre: 'BD TOPO : le polygone du bâtiment', detail: 'Contour, hauteur à l’égout, altitudes du toit, étages, matériau des murs. Poids {{poids.ign}} : fiable au mètre près, parfois faux.', mode: 'auto', ou: 'geo/bdtopo.ts' },
+  { id: 'sources.lidar', parent: 'sources', genre: 'source', titre: 'LiDAR HD : la surface du toit', detail: 'La hauteur du sursol tous les 50 cm. Poids {{poids.lidar}}.', mode: 'auto', ou: 'geo/mnh.ts' },
+  { id: 'sources.ortho', parent: 'sources', genre: 'source', titre: 'Orthophoto : couleurs', detail: 'La couleur du toit vue du ciel.', mode: 'auto', ou: 'render/couleurToitOrtho.ts' },
+  { id: 'sources.photo', parent: 'sources', genre: 'source', titre: 'Photos de façade (audit)', detail: 'La silhouette de la façade (pignon, trapèze, rampe, marches) donne le sens du faîtage et les bouts. Poids {{poids.photo}}.', mode: 'mixte', voir: 'audit.photos' },
+  { id: 'sources.claude', parent: 'sources', genre: 'source', titre: 'Claude : lecture des photos', detail: 'Trois passes et un vote : forme, bouts, matériau, couverture, lucarnes. Poids {{poids.claude}}.', mode: 'mixte', ecran: REGLES, ou: 'deploy/prompt-analyse.md' },
+  { id: 'sources.terrain', parent: 'sources', genre: 'source', titre: 'Ce que je vois (sur place)', detail: 'Ce que la personne note devant le bâtiment : poids {{poids.terrain}}, elle l’emporte.', mode: 'manuel', voir: 'audit.liste' },
 
   // 2. Le polygone devient un objet de Plan
   { id: 'objet', parent: null, genre: 'etape', titre: '2. Le polygone devient ma maison', detail: 'Un contour IGN devient un objet de Plan : prisme, hauteur, fonction.' },
   { id: 'objet.polygone', parent: 'objet', genre: 'objet', titre: 'Le polygone', detail: 'Contour du bâtiment dans le repère du plan, recalé sur le LiDAR si le contour est décalé (le bâtiment entier, jamais un corps).', mode: 'auto', ou: 'app/toitsLidar.ts' },
-  { id: 'objet.prisme', parent: 'objet', genre: 'objet', titre: 'Le prisme et sa hauteur', detail: 'Du sol à l’égout. La hauteur BD TOPO est remplacée par l’égout LiDAR si l’écart passe 0,3 m.', mode: 'mixte', voir: 'decision.hauteur' },
+  { id: 'objet.prisme', parent: 'objet', genre: 'objet', titre: 'Le prisme et sa hauteur', detail: 'Du sol à l’égout. La hauteur BD TOPO est remplacée par l’égout LiDAR si l’écart passe {{seuil.ECART_EGOUT_MIN_M}}.', mode: 'mixte', voir: 'decision.hauteur' },
   { id: 'objet.fonction', parent: 'objet', genre: 'objet', titre: 'Fonction : bâtiment, terrasse, parasol…', detail: 'Ce que la fonction permet est décrit une fois (`model/fonctions.ts`).', mode: 'manuel', ou: 'model/fonctions.ts' },
 
   // 3. Le toit
   { id: 'toit', parent: null, genre: 'etape', titre: '3. Le toit : découpage en corps', detail: 'Du contour et de la surface mesurée au toit construit.' },
-  { id: 'toit.simple', parent: 'toit', genre: 'regle', titre: 'Forme simple', detail: 'Plat, appentis, deux pans, croupes, quatre pans, ajustés par moindres carrés (au moins 20 mesures, écart < 0,8 m).', mode: 'auto', ou: 'facade/toitLidar.ts' },
+  { id: 'toit.simple', parent: 'toit', genre: 'regle', titre: 'Forme simple', detail: 'Plat, appentis, deux pans, croupes, quatre pans, ajustés par moindres carrés (au moins {{seuil.ECHANTILLONS_MIN}}, écart au plus {{seuil.ECART_MAX_M}}).', mode: 'auto', ou: 'facade/toitLidar.ts', seuils: ['ECHANTILLONS_MIN', 'ECART_MAX_M', 'ECART_MAX_APPENTIS_M'] },
   { id: 'toit.rectangles', parent: 'toit', genre: 'regle', titre: 'Rectangles maximaux', detail: 'Le contour mis à l’équerre se couvre de rectangles ; ils se chevauchent par construction.', mode: 'auto', ou: 'model/volumesToit.ts' },
-  { id: 'toit.marches', parent: 'toit', genre: 'regle', titre: 'Marches et refonte', detail: 'On coupe là où la couverture saute de 0,8 m ; le toit lu sur le rectangle entier l’emporte s’il n’est pas moins bon (1,15 fois).', mode: 'auto', ecran: REGLES, ou: 'regles/toits/reglages.json' },
+  { id: 'toit.marches', parent: 'toit', genre: 'regle', titre: 'Marches et refonte', detail: 'On coupe là où la couverture saute de {{seuil.SEUIL_MARCHE_M}} ; le toit lu sur le rectangle entier l’emporte s’il n’est pas plus de {{seuil.TOLERANCE_REFONTE}} fois moins bon.', mode: 'auto', ecran: REGLES, ou: 'regles/toits/reglages.json', seuils: ['SEUIL_MARCHE_M', 'TOLERANCE_REFONTE', 'LARGEUR_BLOC_MIN_M', 'CONTINUITE_M'] },
   { id: 'toit.corps', parent: 'toit', genre: 'objet', titre: 'Les corps de toit', detail: 'Un corps = un rectangle, un faîtage, des égouts, des pignons ou des croupes, un profil, des bouts, des lucarnes.', mode: 'auto', ou: 'model/types.ts#CorpsToit' },
-  { id: 'toit.pignons', parent: 'toit', genre: 'regle', titre: 'Pignons, croupes, bandes recouvertes', detail: 'Les saillies de 80 cm le long d’un mur sont des pignons ; la lecture en croupes l’emporte si elle gagne 20 %.', mode: 'auto', ou: 'facade/toitCorps.ts' },
+  { id: 'toit.pignons', parent: 'toit', genre: 'regle', titre: 'Pignons, croupes, bandes recouvertes', detail: 'Une saillie de {{seuil.SURPLUS_PIGNON_M}} le long d’un mur est un pignon ; la lecture en croupes l’emporte si son écart est au plus {{seuil.GAIN_CROUPES}} fois celui des pignons.', mode: 'auto', ou: 'facade/toitCorps.ts', seuils: ['SURPLUS_PIGNON_M', 'LARGEUR_PIGNON_MIN_M', 'LARGEUR_PIGNON_MAX_M', 'GAIN_CROUPES', 'PART_RECOUVERTE_MAX'] },
   { id: 'toit.faits', parent: 'toit', genre: 'regle', titre: 'Faits : l’exception d’un bâtiment', detail: 'Ce qu’un humain a vu et que la mesure ne peut pas dire (une galerie, une demi-croupe) : un fait par bâtiment, par PR.', mode: 'manuel', ecran: REGLES, ou: 'regles/toits/faits.json' },
 
   // 4. Les objets 3D
@@ -77,20 +84,20 @@ export const CHAINE: readonly NoeudChaine[] = [
   { id: 'o3d.meuniere', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Meunière', detail: 'Affleure le mur d’égout.', forme: 'meuniere', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'objets3d.elements', parent: 'objets3d', genre: 'objet', titre: 'Éléments de bâtiment' },
   { id: 'o3d.murs', parent: 'objets3d.elements', genre: 'objet', titre: 'Murs, pignons et murs hauts', detail: 'Le prisme à l’égout le plus bas, puis les murs jusqu’au faîtage.', mode: 'auto', ou: 'three/toitCorps3d.ts' },
-  { id: 'o3d.fenetres', parent: 'objets3d.elements', genre: 'objet', titre: 'Fenêtres et portes', detail: 'Niveaux de 2,7 m ; relevé de façade sur photo, sinon disposition automatique.', mode: 'mixte', ou: 'facade/ouvertures.ts' },
+  { id: 'o3d.fenetres', parent: 'objets3d.elements', genre: 'objet', titre: 'Fenêtres et portes', detail: 'Relevé de façade sur photo, sinon disposition automatique.', mode: 'mixte', ou: 'facade/ouvertures.ts' },
   { id: 'o3d.cheminees', parent: 'objets3d.elements', genre: 'objet', titre: 'Cheminées', detail: 'Souches notées sur place ou vues par Claude.', mode: 'mixte', ou: 'model/types.ts#Cheminee' },
   { id: 'o3d.arbres', parent: 'objets3d.elements', genre: 'objet', titre: 'Arbres', detail: 'Générés par EZ-tree depuis la bibliothèque d’essences.', mode: 'manuel', ecran: '?admin&ecran=arbres', ou: 'three/arbre3d.ts' },
 
   // 5. Les textures
   { id: 'textures', parent: null, genre: 'etape', titre: '5. Les textures', detail: 'Une valeur lue sur photo quand elle est cohérente, sinon un repli ; la source est gardée ; un choix manuel n’est jamais touché.' },
   { id: 'tex.murs', parent: 'textures', genre: 'texture', titre: 'Murs : brique, pierre, meulière, enduit…', detail: 'Matériau BD TOPO, photo Panoramax ou choix ; texture à l’échelle réelle teintée par la couleur retenue.', mode: 'mixte', ou: 'three/textureMur.ts' },
-  { id: 'tex.couverture', parent: 'textures', genre: 'texture', titre: 'Couverture : ardoise, tuile, zinc, gravillons', detail: 'Matériau des fichiers fonciers, puis pente (tuile plate, canal, romaine) ; toit-terrasse en gravillons.', mode: 'mixte', ou: 'three/materiauCouverture*.ts' },
+  { id: 'tex.couverture', parent: 'textures', genre: 'texture', titre: 'Couverture : ardoise, tuile, zinc, gravillons', detail: 'Matériau des fichiers fonciers, puis pente (tuile plate, canal, romaine) ; toit-terrasse en gravillons.', mode: 'mixte', ou: 'model/couleurToit.ts' },
   { id: 'tex.sol', parent: 'textures', genre: 'texture', titre: 'Sol : gazon, photo aérienne, relief', detail: 'Gazon montré par défaut sur la parcelle, au-dessus de l’orthophoto.', mode: 'mixte', ou: 'three/gazon.ts' },
   { id: 'tex.palette', parent: 'textures', genre: 'texture', titre: 'Couleurs de l’interface', mode: 'manuel', ecran: '?palette' },
 
   // 6. Réconciliation
   { id: 'decision', parent: null, genre: 'etape', titre: '6. Réconciliation : une valeur par attribut', detail: 'Pour chaque attribut, les constats de toutes les sources sont groupés par accord, pesés (poids × confiance) et départagés.' },
-  { id: 'decision.regle', parent: 'decision', genre: 'regle', titre: 'La règle de décision', detail: 'Automatique si le score atteint SCORE_AUTO_MIN, l’écart au suivant MARGE_AUTO_MIN, aucun veto, et si la source n’est pas une photo ou Claude seule. Sinon, à vous.', mode: 'mixte', ecran: REGLES, ou: 'regles/reconciliation.json' },
+  { id: 'decision.regle', parent: 'decision', genre: 'regle', titre: 'La règle de décision', detail: 'Automatique si le score atteint {{recon.SCORE_AUTO_MIN}}, l’écart au suivant {{recon.MARGE_AUTO_MIN}} fois, aucun veto, et si la source n’est pas une photo ou Claude seule. Sinon, à vous.', mode: 'mixte', ecran: REGLES, ou: 'regles/reconciliation.json' },
   { id: 'decision.hauteur', parent: 'decision', genre: 'regle', titre: 'Hauteur à l’égout', detail: 'IGN, LiDAR, photo, terrain.', mode: 'mixte', ecran: REGLES },
   { id: 'decision.toit', parent: 'decision', genre: 'regle', titre: 'Forme, bouts et sens du faîtage', detail: 'Retenus puis relus par le moteur des toits sur la mesure LiDAR.', mode: 'mixte', ecran: REGLES },
   { id: 'decision.facade', parent: 'decision', genre: 'regle', titre: 'Silhouette et ouvertures d’une façade', mode: 'mixte', ecran: REGLES },
@@ -132,14 +139,14 @@ export function verifierChaine(noeuds: readonly NoeudChaine[] = CHAINE): string[
   return erreurs;
 }
 
-export interface ArbreNoeud { noeud: NoeudChaine; enfants: ArbreNoeud[] }
+export interface ArbreNoeud<N extends NoeudChaine = NoeudChaine> { noeud: N; enfants: ArbreNoeud<N>[] }
 
 /** L'arbre deduit de la liste, dans l'ordre de la liste. */
-export function construireArbre(noeuds: readonly NoeudChaine[] = CHAINE): ArbreNoeud[] {
-  const par = new Map<string, ArbreNoeud>(noeuds.map((n) => [n.id, { noeud: n, enfants: [] }]));
-  const racines: ArbreNoeud[] = [];
+export function construireArbre<N extends NoeudChaine = NoeudChaine>(noeuds: readonly N[] = CHAINE as readonly N[]): ArbreNoeud<N>[] {
+  const par = new Map<string, ArbreNoeud<N>>(noeuds.map((n) => [n.id, { noeud: n, enfants: [] }]));
+  const racines: ArbreNoeud<N>[] = [];
   for (const n of noeuds) {
-    const a = par.get(n.id) as ArbreNoeud;
+    const a = par.get(n.id) as ArbreNoeud<N>;
     if (n.parent === null) racines.push(a); else par.get(n.parent)?.enfants.push(a);
   }
   return racines;

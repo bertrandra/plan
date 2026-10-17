@@ -2,13 +2,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { chaineVivante } from "../../../src/app/chaineVivante.js";
 import { EcranChaine } from '../../../src/zones/EcranChaine.js';
 import { demandeEcranChaine } from '../../../src/app/ecranChaine.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let racine: Root, hote: HTMLElement;
-beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); racine = createRoot(hote); act(() => racine.render(createElement(EcranChaine, {}))); });
+beforeEach(() => { hote = document.createElement('div'); document.body.appendChild(hote); racine = createRoot(hote); act(() => racine.render(createElement(EcranChaine, { chaine: chaineVivante() }))); });
 afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 
 describe('l ecran de la chaine', () => {

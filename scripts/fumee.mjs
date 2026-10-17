@@ -2782,10 +2782,14 @@ const POINTS = {
     const voir = page.locator('a.chaineVoir').first();
     const cible = (await voir.getAttribute('href')) || '';
     const cibleExiste = cible.startsWith('#') && (await page.locator('[id="' + cible.slice(1) + '"]').count()) > 0;
+    const lecture = ((await page.locator('.chaineLecture').textContent()) || '').replace(/\s+/g, ' ');
+    const seuils = await page.locator('.chaineSeuils li').count();
+    const lues = await page.locator('.chaineLu').count();
+    const perimees = await page.locator('ul.chaineErreur li').count();
     const sans = !(await deborde());
     const formesVoulues = ['Gambrel', 'Demi-croupe', 'Lucarne meunière', 'Lucarne rampante'].every((m) => nomsVignettes.includes('Vue 3D : ' + m));
-    const ok = etapes === 7 && vignettes === 12 && formesVoulues && polygones > 60 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans;
-    return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; gambrel, demi-croupe, meunière, rampante ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    const ok = etapes === 7 && vignettes === 12 && formesVoulues && polygones > 60 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans && /Lu en direct des fichiers : prompt v\d+/.test(lecture) && seuils > 5 && lues > 5 && perimees === 0;
+    return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; gambrel, demi-croupe, meunière, rampante ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; « ${lecture.slice(0, 60)}… », ${seuils} seuil(s) lus, ${lues} ligne(s) venues des données, ${perimees} ligne(s) périmée(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   94: async (page, f) => {
     // Admin › Conformité (lot G13) : une facade relevee de 9 m avec deux fenetres seulement, dans un audit recu ;
