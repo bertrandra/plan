@@ -148,7 +148,7 @@ function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage |
 }
 
 /** Les formes du catalogue que la lecture des formes sait ajuster sur la surface mesuree (facade/lectureFormes.ts). */
-const FORMES_AJUSTABLES: ReadonlySet<string> = new Set(['mansart', 'gambrel', 'demi-croupes', 'coyau', 'berceau', 'papillon', 'conique', 'dome', 'imperiale', 'fleche']);
+const FORMES_AJUSTABLES: ReadonlySet<string> = new Set(['mansart', 'gambrel', 'demi-croupes', 'coyau', 'berceau', 'carene', 'papillon', 'conique', 'polygonal', 'dome', 'imperiale', 'fleche']);
 
 /**
  * Une forme du catalogue retenue par les sources, ajustee sur la mesure LiDAR : si la mesure la porte, le corps qui la dessine est

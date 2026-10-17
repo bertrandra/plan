@@ -89,7 +89,52 @@ const hauteurProfil = (p: readonly PointProfil[], d: number): number => {
   return (p[0] as PointProfil).z;
 };
 
+/** La profondeur de la croupe a chaque bout d'un pan a profil libre (une carene) ; 0 : un pignon. */
+function croupesProfilees(c: CorpsSpecial, L: number): [number, number] {
+  const prof = (i: 0 | 1) => { const b = c.bouts?.[i]; return b && b.type === 'croupe' ? Math.min(b.profondeurM, L / 2) : 0; };
+  return [prof(0), prof(1)];
+}
+
+/**
+ * La hauteur d'un pan a profil libre au point (s, t) : le profil en travers, que chaque bout en croupe limite par le meme profil
+ * ramene a la profondeur de la croupe (la carene : un berceau dont les bouts sont fermes par un pan qui s'arrondit comme les cotes).
+ */
+function hauteurProfilee(c: CorpsSpecial, L: number, W: number, s: number, t: number): number {
+  const p = c.posFaitage;
+  const n: 0 | 1 = t <= p && p > 0.01 ? 0 : 1;
+  const pr = profilDuPan(c, n, W);
+  const dist = n === 0 ? t : W - t;
+  const largeur = n === 0 ? p : W - p;
+  let z = hauteurProfil(pr, dist);
+  const [d0, d1] = croupesProfilees(c, L);
+  for (const [dep, sd] of [[d0, s], [d1, L - s]] as const) {
+    if (dep > 0.01 && sd < dep) z = Math.min(z, hauteurProfil(pr, (sd * largeur) / dep));
+  }
+  return z;
+}
+
+/** Une carene : les facettes en triangles sur une grille (s, t), le toit etant gauche. */
+function facettesCarene(c: CorpsSpecial, L: number, W: number, bas: number): { pans: Sommet[][]; murs: Sommet[][] } {
+  const [d0, d1] = croupesProfilees(c, L);
+  const ds = (dep: number, depuis: (u: number) => number): number[] => (dep > 0.01 ? Array.from({ length: SEGMENTS_COURBE + 1 }, (_, k) => depuis((k / SEGMENTS_COURBE) * dep)) : []);
+  const S = [...new Set([0, ...ds(d0, (u) => u), ...ds(d1, (u) => L - u), L].map((x) => Math.round(x * 1e6) / 1e6))].sort((a, b) => a - b);
+  const T = [...new Set([0, c.posFaitage, W, ...([0, 1] as const).flatMap((n) => profilDuPan(c, n, W).map((q) => (n === 0 ? q.d : W - q.d)))].map((x) => Math.round(x * 1e6) / 1e6))].sort((a, b) => a - b);
+  const pt = (s: number, t: number): Sommet => ({ s, t, z: hauteurProfilee(c, L, W, s, t) });
+  const pans: Sommet[][] = [];
+  for (let i = 1; i < S.length; i++) for (let j = 1; j < T.length; j++) {
+    const [s0, s1, t0, t1] = [S[i - 1] as number, S[i] as number, T[j - 1] as number, T[j] as number];
+    pans.push([pt(s0, t0), pt(s1, t0), pt(s1, t1)], [pt(s0, t0), pt(s1, t1), pt(s0, t1)]);
+  }
+  const murs: Sommet[][] = [];
+  for (const s of [0, L]) {
+    const bord = T.map((t) => pt(s, t));
+    murs.push([{ s, t: 0, z: bas }, ...bord, { s, t: W, z: bas }]);
+  }
+  return { pans, murs };
+}
+
 function facettesProfilees(c: CorpsSpecial, L: number, W: number, d: Debords, bas: number): { pans: Sommet[][]; murs: Sommet[][] } {
+  if (croupesProfilees(c, L).some((x) => x > 0.01) && !estPapillon(c, W)) return facettesCarene(c, L, W, bas);
   const p = c.posFaitage;
   const pans: Sommet[][] = [], murs: Sommet[][] = [];
   const profils = ([0, 1] as const).map((n) => ((n === 0 ? p : W - p) > 0.01 ? profilDuPan(c, n, W) : null));
@@ -116,11 +161,6 @@ function facettesProfilees(c: CorpsSpecial, L: number, W: number, d: Debords, ba
   return { pans, murs };
 }
 
-function hauteurProfilee(c: CorpsSpecial, W: number, t: number): number {
-  const p = c.posFaitage;
-  if (t <= p && p > 0.01) return hauteurProfil(profilDuPan(c, 0, W), t);
-  return hauteurProfil(profilDuPan(c, 1, W), W - t);
-}
 
 /* ------------------------------------------------------------------------------------------------
  * Les toits de revolution
@@ -178,7 +218,13 @@ function facettesRevolution(c: CorpsSpecial & { speciale: NonNullable<CorpsToit[
 function hauteurRevolution(c: CorpsSpecial & { speciale: NonNullable<CorpsToit['speciale']> }, L: number, W: number, s: number, t: number): number {
   const e = Math.min(...c.egouts), F = c.faitage;
   const R = Math.min(L, W) / 2;
-  const r = Math.hypot(s - L / 2, t - W / 2) / R;
+  const n = c.speciale && 'cotes' in c.speciale ? c.speciale.cotes : 0;
+  let r = Math.hypot(s - L / 2, t - W / 2) / R;
+  if (n >= 3 && r > 0) {
+    // Une pyramide a n faces : le rayon se mesure a l'apotheme de la face la plus proche (les faces sont centrees sur 2*pi*i/n), pas au cercle.
+    const phi = Math.abs(((Math.atan2(t - W / 2, s - L / 2) % (2 * Math.PI / n)) + 2 * Math.PI / n) % (2 * Math.PI / n) - Math.PI / n);
+    r = (r * Math.cos(Math.PI / n - phi)) / Math.cos(Math.PI / n);
+  }
   if (r >= 1) return e;
   const profil = profilRevolution(c.speciale.type);
   // Le rayon decroit de la base au sommet, sauf le col du bulbe : la hauteur du premier anneau qui passe sous r.
@@ -197,7 +243,7 @@ function hauteurRevolution(c: CorpsSpecial & { speciale: NonNullable<CorpsToit['
 export function facettesSpeciales(c: CorpsSpecial, L: number, W: number, d: Debords, bas: number): { pans: Sommet[][]; murs: Sommet[][] } | null {
   if (c.speciale) return facettesRevolution({ ...c, speciale: c.speciale }, L, W, Math.min(bas, ...c.egouts));
   if (estPapillon(c, W) || aProfilLibre(c)) {
-    // Un papillon, un coyau ou une courbe ferme ses bouts par des pignons : la croupe ou la demi-croupe n'a pas de sens sur un profil libre.
+    // Un papillon, un coyau ou une courbe ferme ses bouts par des pignons ; une courbe aux bouts en croupe est une carene.
     return facettesProfilees(c, L, W, d, estPapillon(c, W) ? Math.min(bas, c.faitage) : bas);
   }
   return null;
@@ -206,6 +252,6 @@ export function facettesSpeciales(c: CorpsSpecial, L: number, W: number, d: Debo
 /** La hauteur d'un toit special au point (s, t) ; null pour les autres. */
 export function hauteurSpeciale(c: CorpsSpecial, L: number, W: number, s: number, t: number): number | null {
   if (c.speciale) return hauteurRevolution({ ...c, speciale: c.speciale }, L, W, s, t);
-  if (estPapillon(c, W) || aProfilLibre(c)) return hauteurProfilee(c, W, t);
+  if (estPapillon(c, W) || aProfilLibre(c)) return hauteurProfilee(c, L, W, s, t);
   return null;
 }

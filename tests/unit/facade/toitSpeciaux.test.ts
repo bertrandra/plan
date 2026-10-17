@@ -131,3 +131,19 @@ describe('le fichier', () => {
     expect('speciale' in c).toBe(false);
   });
 });
+
+describe('la carene : un pan bombe dont les bouts sont fermes par une croupe', () => {
+  const c = { pts: [], posFaitage: 4, faitage: 6.8, egouts: [3, 3] as [number, number], pignons: [], ecart: 0, profil: [{ type: 'courbe' as const, flecheM: 1.3 }, { type: 'courbe' as const, flecheM: 1.3 }] as [{ type: 'courbe'; flecheM: number }, { type: 'courbe'; flecheM: number }], bouts: [{ type: 'croupe' as const, profondeurM: 2.5 }, { type: 'croupe' as const, profondeurM: 2.5 }] as [{ type: 'croupe'; profondeurM: number }, { type: 'croupe'; profondeurM: number }] };
+  it('descend a l egout au bout et garde le faitage plus loin', () => {
+    expect(hauteurSpeciale(c, 12, 8, 0, 4)).toBeCloseTo(3, 2);
+    expect(hauteurSpeciale(c, 12, 8, 6, 4)).toBeCloseTo(6.8, 2);
+    expect(hauteurSpeciale(c, 12, 8, 1, 4) as number).toBeGreaterThan(3.1);
+    expect(hauteurSpeciale(c, 12, 8, 1, 4) as number).toBeLessThan(6.7);
+  });
+  it('se dessine en triangles et ferme ses bouts au niveau de l egout', () => {
+    const f = facettesSpeciales(c, 12, 8, { egout0: 0, egout1: 0, rive0: 0, rive1: 0 } as never, 0);
+    expect(f?.pans.every((p) => p.length === 3)).toBe(true);
+    expect(f?.pans.length).toBeGreaterThan(100);
+    expect(Math.max(...(f?.murs[0] ?? []).map((q) => q.z))).toBeCloseTo(3, 2);
+  });
+});

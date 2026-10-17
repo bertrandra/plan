@@ -22,6 +22,9 @@ const FORMES: [string, number, number, Partial<CorpsToit>][] = [
   ['berceau', 12, 8, { faitage: 6, profil: [{ type: 'courbe', flecheM: 0.9 }, { type: 'courbe', flecheM: 0.9 }] }],
   ['papillon', 12, 8, { faitage: 3, egouts: [5.5, 5.5] }],
   ['demi-croupes', 12, 8, { faitage: 7, bouts: [{ type: 'demi-croupe', profondeurM: 1.8, hauteurPignonM: 2.4 }, { type: 'pignon' }] }],
+  ['carene', 12, 8, { faitage: 6.8, egouts: [3, 3], profil: [{ type: 'courbe', flecheM: 1.3 }, { type: 'courbe', flecheM: 1.3 }], bouts: [{ type: 'croupe', profondeurM: 2.5 }, { type: 'croupe', profondeurM: 2.5 }] }],
+  ['polygonal', 8, 8, { faitage: 8, speciale: { type: 'polygonal', cotes: 6 } }],
+  ['polygonal', 8, 8, { faitage: 8, speciale: { type: 'polygonal', cotes: 8 } }],
   ['conique', 8, 8, { faitage: 9, speciale: { type: 'conique' } }],
   ['dome', 8, 8, { faitage: 7, speciale: { type: 'dome' } }],
   ['imperiale', 8, 8, { faitage: 10, speciale: { type: 'imperiale' } }],
@@ -39,6 +42,16 @@ describe('la lecture des formes du catalogue sur une surface mesuree', () => {
       expect(lectures[0]?.corps.length).toBe(forme === 'papillon' ? 1 : base.length);
     });
   }
+
+  it('lit le nombre de faces d une pyramide, et une carene par les croupes de son pan bombe', () => {
+    for (const cotes of [5, 6, 8]) {
+      const { lectures } = lire(corps(8, 8, { faitage: 8, speciale: { type: 'polygonal', cotes } }), 8, 8);
+      expect(lectures[0]?.corps.at(-1)?.speciale, 'cotes ' + cotes).toEqual({ type: 'polygonal', cotes });
+    }
+    const { lectures } = lire(corps(12, 8, { faitage: 6.8, egouts: [3, 3], profil: [{ type: 'courbe', flecheM: 1.3 }, { type: 'courbe', flecheM: 1.3 }], bouts: [{ type: 'croupe', profondeurM: 2.5 }, { type: 'croupe', profondeurM: 2.5 }] }), 12, 8);
+    const c = lectures[0]?.corps.at(-1);
+    expect(c?.bouts?.map((b) => b.type)).toEqual(['croupe', 'croupe']);
+  });
 
   it('chaque regle citee par une lecture est un seuil de regles/toits/formes.json', () => {
     for (const [, L, W, plus] of FORMES) {
