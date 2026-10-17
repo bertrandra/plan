@@ -288,10 +288,23 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
  * La toiture et la hauteur a l'egout sont decidees par l'arbitrage des sources (arbitrages.ts) : les lignes de Claude qui
  * ecrivaient les corps du toit y sont entrees comme un constat de plus.
  */
+/** L'ordre d'une liste : par batiment (celui de la liste de controle), puis ce qui se mesure, ce qui se decide, ce qui se voit ; la parcelle a la fin. */
+const RANG_EFFETS: readonly string[] = ['releve', 'hauteur', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'cheminees', 'terrasse'];
+
+function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
+  const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
+  const rang = (p: Proposition): number => { const i = RANG_EFFETS.indexOf(p.effet.type); return i < 0 ? RANG_EFFETS.length : i; };
+  // Un tri stable : a egalite, l'ordre d'avant (mesures, arbitrage, Claude, renfort) reste.
+  return propositions.map((p, i) => ({ p, i })).sort((a, b) => (batiment(a.p) - batiment(b.p) || rang(a.p) - rang(b.p) || a.i - b.i)).map((x) => x.p);
+}
+
+/** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
+const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture'];
+
 function proposer(e: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
-  const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => p.effet.type !== 'corpsToit') : [];
+  const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type)) : [];
   const arbitrages = arbitragesParBatiment(e, reponses ? votesDesBatiments(reponses) : {}, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
-  const propositions = avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsDesArbitrages(e, arbitrages), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]);
+  const propositions = dansLOrdre(e, avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsDesArbitrages(e, arbitrages), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]));
   const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
   return { propositions, observations, arbitrages };
 }

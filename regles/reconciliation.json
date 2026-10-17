@@ -22,8 +22,8 @@
     "sensFaitage": { "libelle": "Sens du faîtage", "cible": "batiment", "accord": { "type": "angle", "tolerance": 15, "unite": "degres" }, "poids": { "photo": 3.5, "lidar": 3.5, "claude": 1 } },
     "silhouetteFacade": { "libelle": "Silhouette de la façade", "cible": "facade", "accord": { "type": "egal" }, "valeurs": ["triangle", "trapeze", "rampe", "ligne-droite", "marches", "plusieurs-sommets"], "poids": { "claude": 2, "photo": 2.5 } },
     "ouverturesFacade": { "libelle": "Ouvertures de la façade", "cible": "facade", "accord": { "type": "nombre", "tolerance": 1, "unite": "ouvertures" }, "poids": { "photo": 3.5, "claude": 1.5 } },
-    "materiauMurs": { "libelle": "Matériau des murs", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2, "photo": 1.5 } },
-    "couverture": { "libelle": "Couverture du toit", "cible": "batiment", "accord": { "type": "egal" }, "poids": { "claude": 2, "ign": 2.5 } }
+    "materiauMurs": { "libelle": "Matériau des murs", "cible": "batiment", "accord": { "type": "egal" }, "valeurs": ["enduit", "pierre", "meuliere", "brique", "beton", "bois"], "poids": { "claude": 2, "ign": 2, "photo": 1.5 } },
+    "couverture": { "libelle": "Couverture du toit", "cible": "batiment", "accord": { "type": "egal" }, "valeurs": ["tuile", "tuile-plate", "tuile-canal", "ardoise", "zinc"], "poids": { "claude": 2, "ign": 2.5 } }
   },
   "lecturesLidar": [
     { "ordre": 1, "etape": "Surface mesurée", "modules": ["model/toitMesure.ts"], "dit": "Nettoie la grille du sursol : le sol entre deux toits, les arbres, les saillies et les trous sont retirés ou bouchés ; l'égout se lit loin des murs (10e centile), le faîtage sur la surface écrêtée." },

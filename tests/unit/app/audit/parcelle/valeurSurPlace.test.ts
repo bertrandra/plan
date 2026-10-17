@@ -3,14 +3,13 @@ import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
-import { RESERVE_NOTE_SUR_PLACE } from '../../../../../src/regles/decisions.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { EtatApp } from '../../../../../src/core/state.js';
 import type { CorpsToit, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
-// Decision D21 (MD/plan-vague-3-generaliser.md) : la valeur notee sur place et celle de Claude, toutes deux
-// proposees, ne sont pas cochees ensemble. La personne qui etait devant le batiment l'emporte : cocher la
-// ligne de Claude decoche la note, et la ligne de Claude arrive decochee.
+// Decision D21 (MD/plan-vague-3-generaliser.md), maintenant tenue par l'arbitrage des sources : la valeur notee sur place et celle de
+// Claude sont deux constats d'un meme attribut, et la personne qui etait devant le batiment l'emporte par son poids. Une seule ligne
+// est proposee ; l'autre valeur se lit dessous, et la personne peut la retenir.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
@@ -35,56 +34,51 @@ function monter(noteSurPlace: boolean, couvertureClaude = 'zinc') {
   });
   return { etat, v };
 }
-const note = 'maison:couverture', claude = 'maison:claude:couverture';
+const couverture = 'maison:couverture';
+const decision = (t: ReturnType<typeof monter>) => t.v.propositions().find((p) => p.id === couverture)?.arbitrages?.[0];
 
-describe('la valeur notee sur place et celle de Claude', () => {
-  it('les deux sont proposees, celle de Claude arrive decochee avec la raison, la note est cochee', async () => {
+describe('la valeur notee sur place et celle de Claude, arbitrees', () => {
+  it('une seule ligne, cochee : ce que la personne a note l emporte, et les deux sources se lisent dessous', async () => {
     const t = monter(true);
     await t.v.lancer();
-    const ids = t.v.propositions().map((p) => p.id);
-    expect(ids).toContain(note);
-    expect(ids).toContain(claude);
-    // La raison d'avant (taux d'accord non mesure) reste, la nouvelle s'y ajoute.
-    expect(t.v.propositions().find((p) => p.id === claude)?.reserve).toMatch(/Taux d’accord de Claude non encore mesuré.* Vous avez noté cet attribut sur place/);
-    expect(t.v.cochee(note)).toBe(true);
-    expect(t.v.cochee(claude)).toBe(false);
+    const lignes = t.v.propositions().filter((p) => p.effet.type === 'couverture');
+    expect(lignes.map((p) => p.id)).toEqual([couverture]);
+    expect(lignes[0]).toMatchObject({ source: 'arbitrage', apres: 'Ardoise, vue sur place', effet: { couverture: 'ardoise' } });
+    expect(decision(t)).toMatchObject({ attribut: 'couverture', decision: 'auto' });
+    expect(decision(t)?.groupes.map((g) => [g.valeur, g.retenu])).toEqual([['Ardoise', true], ['Zinc', false]]);
+    expect(t.v.cochee(couverture)).toBe(true);
   });
 
-  it('cocher la ligne de Claude decoche la note, et inversement : jamais les deux', async () => {
+  it('la personne choisit Claude : la ligne dit zinc, se coche, et c est le zinc qui s ecrit', async () => {
     const t = monter(true);
     await t.v.lancer();
-    t.v.basculer(claude);
-    expect(t.v.cochee(claude)).toBe(true);
-    expect(t.v.cochee(note)).toBe(false);
-    t.v.basculer(note);
-    expect(t.v.cochee(note)).toBe(true);
-    expect(t.v.cochee(claude)).toBe(false);
-    // Decocher ne rend rien a personne.
-    t.v.basculer(note);
-    expect(t.v.cochee(note)).toBe(false);
-    expect(t.v.cochee(claude)).toBe(false);
+    t.v.decider('batiment:maison', 'couverture', { type: 'groupe', index: 1 });
+    expect(decision(t)).toMatchObject({ decision: 'choisie' });
+    expect(t.v.propositions().find((p) => p.id === couverture)).toMatchObject({ apres: expect.stringContaining('Zinc') });
+    expect(t.v.cochee(couverture)).toBe(true);
+    t.v.valider();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('zinc');
   });
 
-  it('ecrit la valeur de Claude quand la personne la choisit, et celle de la note sinon', async () => {
-    const choisi = monter(true);
-    await choisi.v.lancer();
-    choisi.v.basculer(claude);
-    choisi.v.valider();
-    expect(choisi.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('zinc');
-    const parDefaut = monter(true);
-    await parDefaut.v.lancer();
-    parDefaut.v.valider();
-    expect(parDefaut.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
+  it('reprendre le choix du moteur rend l ardoise ; sans rien changer, l ardoise s ecrit', async () => {
+    const t = monter(true);
+    await t.v.lancer();
+    t.v.decider('batiment:maison', 'couverture', { type: 'groupe', index: 1 });
+    t.v.decider('batiment:maison', 'couverture', null);
+    expect(decision(t)?.decision).toBe('auto');
+    t.v.valider();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
   });
 
-  it('sans note sur place, Claude garde sa raison d avant (le taux d accord) et rien ne change', async () => {
+  it('sans note sur place, Claude seul ne decide pas : la ligne arrive decochee, avec sa raison', async () => {
     const t = monter(false);
     await t.v.lancer();
-    const p = t.v.propositions().find((x) => x.id === claude);
+    const p = t.v.propositions().find((x) => x.id === couverture);
     expect(p).toBeDefined();
-    expect(p?.reserve).not.toContain(RESERVE_NOTE_SUR_PLACE);
-    expect(t.v.propositions().some((x) => x.id === note)).toBe(false);
-    t.v.basculer(claude);
-    expect(t.v.cochee(claude)).toBe(true);
+    expect(p?.arbitrages?.[0]).toMatchObject({ decision: 'manuelle' });
+    expect(p?.reserve).toMatch(/Claude seul ne décide pas/);
+    expect(t.v.cochee(couverture)).toBe(false);
+    t.v.basculer(couverture);
+    expect(t.v.cochee(couverture)).toBe(true);
   });
 });
