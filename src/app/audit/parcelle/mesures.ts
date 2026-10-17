@@ -215,6 +215,7 @@ async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Fac
   const ok = manuelle || essai.vert === null || essai.vert <= SEUIL_VERTICALES_DEG;
   const bilan: BilanPhotoRedressement = {
     rang, statut: manuelle ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
+    coinsPx: essai.p.morceau.coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })),
     ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(SEUIL_VERTICALES_DEG).replace('.', ',') + '°) : placez les quatre coins à la main' }),
   };
   return { bilan, essai };

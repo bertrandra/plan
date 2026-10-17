@@ -194,6 +194,15 @@ la scène `18-` (deux vues seulement) n'était plus fusionnée. L'audit de la pa
 photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous `SEUIL_VERTICALES_DEG`) et les fusionne dès deux
 photos sans échec ; « Rejouer redressement + fusion » (liste de contrôle) refait ces dérivés sans toucher
 aux photos ni aux corrections manuelles (`FacadeCapturee.corrections`).
+**Vote entre vues** (`facade/voteVues.ts`) : chaque vue du groupe fusionné est aussi lue seule ; une baie de la fusion
+que plusieurs vues voient mais que peu retrouvent (une haie, une voiture) perd de la confiance (`VOTE`), une baie
+retrouvée par toutes en gagne un peu, une baie que plusieurs vues voient et que la fusion a ratée est ajoutée. Le banc de
+synthèse n'a plus de faux positif à retirer sur les scènes à vues : le gain se juge sur le **corpus réel** (ci-dessous).
+
+**Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
+annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
+Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies
+justes pour une confiance moyenne de 0,70 (8 baies, surtout des devinées) : à confirmer sur le réel avant de toucher à la formule.
 Les scènes `16-` à `18-` sont faites pour cela : chaque partie cachée sur une vue se voit sur une
 autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui doit finir dans le masque.
 

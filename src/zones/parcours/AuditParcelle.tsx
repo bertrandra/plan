@@ -24,11 +24,13 @@ import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
+import { CoinsPhotoAudit } from './CoinsPhotoAudit.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
 import { useCadrerVue } from './cadrageVue.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
+import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
 
 interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void; retour?: () => void }
@@ -79,16 +81,33 @@ function Vignettes({ photos, nom, retirer }: { photos: readonly PhotoCas[]; nom:
  */
 function Redressement({ session, cle, cote, nom }: { session: SessionAuditParcelle; cle: string; cote: number; nom: string }) {
   const [enCours, setEnCours] = useState(false);
-  const bilan = session.validation.mesuresFaites().get(cleMesure(cle, cote))?.redressement;
+  const [coinsRang, setCoinsRang] = useState<number | null>(null);
+  const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
+  const bilan = mesure?.redressement;
+  const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
   const rejouer = () => { setEnCours(true); void session.validation.rejouerRedressement(cle, cote).finally(() => setEnCours(false)); };
+  // Une correction ecrite dans la capture, puis la facade rejouee : le calcul reprend les points de la personne.
+  const corriger = (rang: number, c: CorrectionRedressement | null) => {
+    const avant = saisie?.corrections?.[String(rang)];
+    session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
+    rejouer();
+  };
+  const photo = coinsRang !== null ? saisie?.photos[coinsRang] : undefined;
   return (
     <div className="redressementAudit" aria-label={'Redressement et fusion : ' + nom}>
       {bilan
         ? <>
           <div className="detailPhoto" data-controle="auditParcelle.statutFusion" role="status">{texteFusion(bilan)}</div>
-          <ul className="detailPhoto">{bilan.photos.map((p) => <li key={p.rang} className={'statut-' + p.statut}>{textePhoto(p)}</li>)}</ul>
+          <ul className="detailPhoto">{bilan.photos.map((p) => <li key={p.rang} className={'statut-' + p.statut}>
+            {textePhoto(p)}{' '}
+            <button type="button" className={p.statut === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer les quatre coins de la photo ' + (p.rang + 1) + ' : ' + nom} onClick={() => setCoinsRang(p.rang)}>Placer les 4 coins</button>
+          </li>)}</ul>
         </>
         : <div className="detailPhoto">Pas encore redressée : lancez l’analyse.</div>}
+      {photo && coinsRang !== null && <CoinsPhotoAudit photo={photo} rang={coinsRang} nom={nom} largeurPlanM={null}
+        depart={saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
+        echelleDepart={saisie?.corrections?.[String(coinsRang)]?.echelleLargeurM}
+        appliquer={(c) => corriger(coinsRang, c)} retablir={() => corriger(coinsRang, null)} fermer={() => setCoinsRang(null)} />}
       <button type="button" className="secondary small" data-controle="auditParcelle.rejouerRedressement" disabled={enCours} aria-label={LIBELLE_REJOUER + ' : ' + nom} onClick={rejouer}>{enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>
     </div>
   );

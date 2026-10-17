@@ -27,6 +27,8 @@
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './homographie.js';
 import { finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
+import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
+import { voter, type VueVotante, type VoteOuverture } from './voteVues.js';
 import { focalePx as focaleParDefaut } from './cadrage.js';
 import { recalerElevations, type BilanPaire, type StatutFusion } from './recalageOrb.js';
 import { appliquerSimilitude, inverse, type Similitude } from './ransac.js';
@@ -65,6 +67,8 @@ export interface BilanVue {
 }
 
 export interface ResultatFusion extends ResultatAnalyse {
+  /** Ce que le vote entre vues a dit de chaque baie qu'il a jugee (celles que plusieurs vues voient). Vide avec moins de deux vues fusionnees. */
+  votes: Map<OuvertureDetectee, VoteOuverture>;
   statut: StatutFusion;
   /** Une entree par photo, dans l'ordre des vues d'entree. */
   vues: BilanVue[];
@@ -765,6 +769,36 @@ function partsDuGroupe(vues: VueRedressee[], occ: Uint8Array[], c: Composition, 
 }
 
 /**
+ * Le vote entre vues (voteVues.ts) : chaque vue du groupe, ramenee dans le repere de la reference, est lue seule ; ses baies
+ * et ce qu'elle voit servent a ponderer les baies de la fusion. Une seule vue : pas de vote.
+ */
+function voterLesVues(res: ResultatAnalyse, vues: VueRedressee[], occ: Uint8Array[], g: Grille, egout: number, pxParM: number) {
+  if (vues.length < 2) return { ouvertures: res.ouvertures, votes: new Map<OuvertureDetectee, VoteOuverture>() };
+  const hauteur = vues[0] ? vues[0].image.hauteur - egout : 0;
+  const votantes: VueVotante[] = vues.map((v, j) => {
+    const L = v.image.largeur;
+    const mur = { largeur: L, hauteur, donnees: v.image.donnees.subarray(egout * L * 4) };
+    const vu = v.vu.subarray(egout * L);
+    const lues = detecterOuvertures(mur, pxParM, vu);
+    // Les pixels d'une boite : x en metres depuis la gauche, y en metres depuis le sol.
+    const sur = (o: OuvertureDetectee, f: (i: number, x: number, y: number) => number): number => {
+      const x0 = Math.max(0, Math.floor(o.x * pxParM)), x1 = Math.min(L, Math.ceil((o.x + o.l) * pxParM));
+      const y0 = Math.max(0, Math.floor(hauteur - (o.y + o.h) * pxParM)), y1 = Math.min(hauteur, Math.ceil(hauteur - o.y * pxParM));
+      let n = 0, tot = 0;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { tot++; n += f(y * L + x, x, y); }
+      return tot ? n / tot : 0;
+    };
+    const cellule = (x: number, y: number) => Math.min(g.l - 1, Math.floor(x / g.facteur)) + Math.min(g.h - 1, Math.floor(y / g.facteur)) * g.l;
+    return {
+      ouvertures: lues,
+      partVue: (o) => sur(o, (i) => vu[i] ?? 0),
+      partObstacle: (o) => sur(o, (_, x, y) => au(occ, j)[cellule(x, y)] ?? 0),
+    };
+  });
+  return voter(res.ouvertures, votantes);
+}
+
+/**
  * Plusieurs vues du meme mur (de face, de biais), fondues en un seul releve : la hauteur mesuree, le recalage par points d'interet, le
  * plus grand groupe de vues qui se recalent, le masque d'occlusion, la composition, puis la suite commune (ouvertures, toit, texture).
  * Une vue qui ne se recale sur aucune autre reste independante (son motif est dit) : le releve se fait alors sur la meilleure vue seule.
@@ -797,6 +831,7 @@ export function analyserVues(e: EntreeFusion): ResultatFusion | null {
   // La composition numerote les vues du groupe ; on rend les numeros des photos d'entree.
   const source = c.source.map((x) => (x === MEDIANE ? MEDIANE : groupe[x] ?? x));
   const res = finaliserReleve(c.image, c.vu, E, pxParM, { ...e, hauteur }, null, mesuree);
+  const vote = voterLesVues(res, vues, occ, g, egout, pxParM);
   const masque = c.occlusion.reduce((s, v) => s + v, 0) / Math.max(1, c.occlusion.length);
   const parts = partsDuGroupe(vues, occ, { ...c, source }, g, groupe);
   const L = c.image.largeur, H = c.image.hauteur;
@@ -817,5 +852,5 @@ export function analyserVues(e: EntreeFusion): ResultatFusion | null {
       part: j >= 0 ? au(parts, j).part : 0,
     };
   });
-  return { ...res, statut: rec.statut, vues: bilans, paires: rec.paires, reference: rec.reference, groupe, independantes: rec.independantes, modeles: rec.modeles, masque: Math.round(masque * 1000) / 1000, occlusion: c.occlusion, source };
+  return { ...res, ouvertures: vote.ouvertures, votes: vote.votes, statut: rec.statut, vues: bilans, paires: rec.paires, reference: rec.reference, groupe, independantes: rec.independantes, modeles: rec.modeles, masque: Math.round(masque * 1000) / 1000, occlusion: c.occlusion, source };
 }

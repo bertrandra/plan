@@ -47,6 +47,8 @@ export interface BilanPhotoRedressement {
   verticaliteDeg: number | null;
   /** Les coins viennent du calage fin sur les aretes (`trouve`), des points calcules (`predit`) ou de la main. */
   coins: 'trouve' | 'predit' | 'main';
+  /** Les quatre coins du mur (hg, hd, bd, bg) en pixels de la photo, tels que le redressement les a utilises : de quoi partir pour les corriger. */
+  coinsPx?: { x: number; y: number }[];
   /** Pourquoi `echec` ; absent sinon. */
   motif?: string;
 }
