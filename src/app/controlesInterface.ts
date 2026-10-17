@@ -312,6 +312,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.calibrer': etape(Z8, CALIBRATION, 'Chercher de meilleurs réglages de détection sur les cas validés'),
   'calibration.appliquer': etape(Z8, CALIBRATION, 'Appliquer les réglages proposés : enregistrés sur le serveur, pris par chaque page'),
   'calibration.revenir': etape(Z8, CALIBRATION, 'Revenir aux valeurs livrées avec Plan (l’historique est gardé)'),
+  'auditParcelle.confirmerObservation': etape(Z8, AUDIT_PARCELLE, 'Je confirme : une observation de Claude sur le toit devient ce que vous avez vu (« Ce que je vois »), relue ensuite par le moteur des toits', { repete: true }),
   'auditParcelle.accordAnalyse': etape(Z8, AUDIT_PARCELLE, 'Envoyer les photos à l’analyse par Claude (accord, une fois par projet)'),
   'auditParcelle.sansAnalyse': etape(Z8, AUDIT_PARCELLE, 'Seulement les mesures : ne pas envoyer les photos'),
   'auditParcelle.partagerAudit': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (cochée par défaut)'),

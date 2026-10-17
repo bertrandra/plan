@@ -79,6 +79,46 @@ describe('les observations de Claude dans l ecran des propositions', () => {
   });
 });
 
+describe('confirmer une observation de Claude sur le toit', () => {
+  const mur = (facade: string, silhouette: string, bout: string) => ({ ...reponse().facades[0]!, facade, materiau: 'indetermine' as const, silhouette, bout, ouvertures: { niveaux: 2, parNiveau: [3, 3], manquees: 0, enTrop: 0 } });
+  const vu = () => reponse({
+    couverture: { indices: [], valeur: 'ardoise' }, cheminees: { indices: [], nombre: 'indetermine', souches: [] },
+    bouts: { indices: [], gauche: 'indetermine', droite: 'indetermine' },
+    // Des pignons sur les murs de bout, des longs pans sur les autres : ce que l'audit du bac a sable montrait sans le dire.
+    facades: [mur('sud', 'ligne-droite', 'sans-objet'), mur('est', 'triangle', 'pignon'), mur('nord', 'ligne-droite', 'sans-objet'), mur('ouest', 'triangle', 'pignon')],
+  });
+
+  it('lit les silhouettes des facades comme une ligne, avec « Je confirme » ; confirmer la note dans « Ce que je vois »', async () => {
+    const s = await session(vu());
+    const ligne = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes des façades'));
+    expect(ligne).toBeDefined();
+    expect(ligne?.textContent).toContain('pignon');
+    const bouton = ligne?.querySelector('button[data-controle="auditParcelle.confirmerObservation"]') as HTMLButtonElement;
+    expect(bouton).not.toBeNull();
+    // Cette maison n'a pas de mesure LiDAR : la ligne le dit avant de promettre un dessin.
+    expect(ligne?.textContent).toContain('pas de mesure LiDAR');
+    expect(s.capture.lire().batiments['maison']?.vu.bouts).toBeUndefined();
+    act(() => bouton.click());
+    expect(s.capture.lire().batiments['maison']?.vu).toMatchObject({ bouts: 'pignons', forme: 'deux-pans' });
+    // L'ecran se redessine par la session (AuditParcelle) : ici on le refait a la main.
+    act(() => racine.render(createElement(PropositionsAudit, { session: s, fermer: vi.fn() })));
+    const apres = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes'));
+    expect(apres?.textContent).toContain('Confirmé par vous');
+    expect(apres?.querySelector('button')).toBeNull();
+  });
+
+  it('ne propose pas de confirmer quand les murs se contredisent', async () => {
+    const contraire = reponse({
+      couverture: { indices: [], valeur: 'ardoise' }, cheminees: { indices: [], nombre: 'indetermine', souches: [] },
+      facades: [mur('sud', 'triangle', 'pignon'), mur('est', 'triangle', 'pignon')],
+    });
+    await session(contraire);
+    const ligne = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes'));
+    expect(ligne?.textContent).toContain('contradiction');
+    expect(ligne?.querySelector('button')).toBeNull();
+  });
+});
+
 describe('les sources d un attribut arbitre dans l ecran des propositions', () => {
   const a = {
     cible: 'batiment:maison', accord: 'ensemble' as const, attribut: 'boutsToit', libelle: 'Bouts du faîtage', decision: 'manuelle' as const, raison: 'Les sources se contredisent (3,15 contre 2,4, il faut ×1,5) : Photo de façade : croupe + croupe ; LiDAR HD : pignon + pignon.', avant: 'pignon + pignon', regles: ['MARGE_AUTO_MIN', 'GAIN_CROUPES'],
