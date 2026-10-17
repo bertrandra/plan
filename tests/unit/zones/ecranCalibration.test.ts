@@ -106,7 +106,7 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
     await act(async () => { bouton('calibration.redresser')?.click(); });
-    await attendre(50);
+    await attendre(300);
     expect(bouton('calibration.proposer')).not.toBeNull();
     await act(async () => { bouton('calibration.viderBaies')?.click(); });
     expect(hote.textContent).toContain('0 ouverture');

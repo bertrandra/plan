@@ -30,7 +30,7 @@ export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y:
 interface Elevation { url: string; largeurM: number; hauteurM: number; propositions: OuvertureVraie[] }
 
 /** Le mur redresse, avec les ouvertures annotees : tracer un rectangle en ajoute une, toucher un rectangle le choisit. */
-function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter }: { elevation: Elevation; ouvertures: readonly OuvertureVraie[]; choisie: number | null; choisir: (k: number | null) => void; ajouter: (o: OuvertureVraie) => void }) {
+function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter, trace: tracer }: { trace: boolean; elevation: Elevation; ouvertures: readonly OuvertureVraie[]; choisie: number | null; choisir: (k: number | null) => void; ajouter: (o: OuvertureVraie) => void }) {
   const svg = useRef<SVGSVGElement>(null);
   const [trace, setTrace] = useState<{ a: P2; b: P2 } | null>(null);
   const { largeurM: L, hauteurM: H } = elevation;
@@ -45,8 +45,8 @@ function ToileAnnotation({ elevation, ouvertures, choisie, choisir, ajouter }: {
     ajouter({ type: 'fenetre', x: arrondi(x), l: arrondi(l), y: arrondi(H - (haut + h)), h: arrondi(h) });
   };
   return (
-    <svg ref={svg} className="calToile" viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Mur redressé : tracez un rectangle autour d’une ouverture pour l’ajouter"
-      onPointerDown={(e) => { if (e.target === svg.current || (e.target as Element).tagName === 'image') { choisir(null); const p = sur(e); setTrace({ a: p, b: p }); (e.currentTarget as Element).setPointerCapture(e.pointerId); } }}
+    <svg ref={svg} className={'calToile' + (tracer ? ' trace' : '')} viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Mur redressé : en mode tracé, glissez un rectangle autour d’une ouverture pour l’ajouter"
+      onPointerDown={(e) => { if (tracer && (e.target === svg.current || (e.target as Element).tagName === 'image')) { choisir(null); const p = sur(e); setTrace({ a: p, b: p }); (e.currentTarget as Element).setPointerCapture(e.pointerId); } }}
       onPointerMove={(e) => { if (trace) setTrace({ ...trace, b: sur(e) }); }} onPointerUp={finir} onPointerCancel={() => setTrace(null)}>
       <image href={elevation.url} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
       {ouvertures.map((o, k) => (
@@ -91,6 +91,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [courante, setCourante] = useState(0);
   const [elevation, setElevation] = useState<Elevation | null>(null);
   const [choisie, setChoisie] = useState<number | null>(null);
+  const [tracer, setTracer] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [dims, setDims] = useState<Record<number, { l: number; h: number }>>({});
@@ -116,6 +117,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const redresser = async () => {
     setOccupe(true); setMessage(null);
     try {
+      // Rendre la main un instant : « Calcul… » doit s'afficher avant que le redressement, long sur un telephone, occupe le fil.
+      await new Promise((ok) => setTimeout(ok, 30));
       const images = await Promise.all(cas.images.map((u) => outils.decoder(u)));
       const p: CasPrepare | null = preparerCas(cas, images);
       if (!p) { setMessage('Le mur ne se redresse pas avec ces coins : replacez-les sur les quatre angles du mur.'); setElevation(null); return; }
@@ -172,12 +175,13 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       </div>
 
       {elevation && <>
-        <p className="calNote">Mur redressé. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (glisser sur le mur), ajustez les cotes.</p>
+        <p className="calNote">Mur redressé. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
         <div className="calLigne">
           <button type="button" className="secondary" data-controle="calibration.proposer" onClick={() => { modifier((c) => ({ ...c, ouvertures: elevation.propositions.map((o) => ({ ...o })) })); setChoisie(null); }}>Partir de la détection ({elevation.propositions.length})</button>
+          <button type="button" className={tracer ? '' : 'secondary'} aria-pressed={tracer} data-controle="calibration.tracer" onClick={() => setTracer((t) => !t)}>{tracer ? 'Tracé en cours : toucher pour défiler' : 'Tracer une ouverture'}</button>
           <button type="button" className="secondary" data-controle="calibration.viderBaies" onClick={() => { modifier((c) => ({ ...c, ouvertures: [] })); setChoisie(null); }} disabled={!cas.ouvertures.length}>Tout effacer</button>
         </div>
-        <ToileAnnotation elevation={elevation} ouvertures={cas.ouvertures} choisie={choisie} choisir={setChoisie} ajouter={(o) => { modifier((c) => ({ ...c, ouvertures: [...c.ouvertures, o] })); setChoisie(cas.ouvertures.length); }} />
+        <ToileAnnotation trace={tracer} elevation={elevation} ouvertures={cas.ouvertures} choisie={choisie} choisir={setChoisie} ajouter={(o) => { modifier((c) => ({ ...c, ouvertures: [...c.ouvertures, o] })); setChoisie(cas.ouvertures.length); }} />
         {choisie !== null && cas.ouvertures[choisie] && <FicheOuverture o={cas.ouvertures[choisie] as OuvertureVraie} modifier={(o) => modifier((c) => ({ ...c, ouvertures: c.ouvertures.map((x, i) => (i === choisie ? o : x)) }))} retirer={() => { modifier((c) => ({ ...c, ouvertures: c.ouvertures.filter((_, i) => i !== choisie) })); setChoisie(null); }} />}
         <p className="calNote">{cas.ouvertures.length} ouverture{cas.ouvertures.length > 1 ? 's' : ''} annotée{cas.ouvertures.length > 1 ? 's' : ''}.</p>
       </>}

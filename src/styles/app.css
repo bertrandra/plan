@@ -2551,8 +2551,15 @@
   .calParams ul{ columns:2 280px; margin:6px 0; padding:0; list-style:none; font-size:0.8rem; }
   .calParams li{ break-inside:avoid; min-height:28px; }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
+  .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
+  .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){
     .calEcran button, .calChamp input, .calChamp select{ min-height:44px; }
+    /* 16 px au moins : en dessous, le navigateur du telephone zoome la page au focus d'un champ. */
+    .calChamp input, .calChamp select{ font-size:16px; }
+    /* La barre d'etat collante recouvrait le formulaire sur un petit ecran : elle defile avec la page. */
+    .calEcran .palBarre{ position:static; }
+    .calEcran .calLigne > button, .calEcran .calLigne > label{ flex:1 1 auto; }
   }
 
   /* L'ecran des arbres (`?admin&ecran=arbres`, zones/EcranArbres.tsx) : la page defile, Plan ne tourne
