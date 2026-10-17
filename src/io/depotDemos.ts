@@ -224,6 +224,46 @@ export async function enregistrerArbres(f: Fetch, document: unknown): Promise<vo
   });
 }
 
+/** Les reglages calibres de la detection (`admin/calibration`), lus SANS session ; null quand rien n'est enregistre. */
+export async function lireCalibration(f: Fetch): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await f(RACINE_ADMIN + '/calibration', { credentials: 'same-origin', cache: 'no-cache' });
+  } catch (e) {
+    throw echec('lecture de la calibration : ' + ((e as Error).message || String(e)), 'network');
+  }
+  if (r.status === 404) return null;
+  if (!r.ok) throw await refus(r, 'lecture de la calibration');
+  return r.json() as Promise<unknown>;
+}
+
+/** Remplace la calibration du serveur ; il garde la precedente en `.bak`. */
+export async function enregistrerCalibration(f: Fetch, document: unknown): Promise<void> {
+  await appeler(f, '/calibration', 'enregistrement de la calibration', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(document) });
+}
+
+/** Le resume d'un cas de calibration (la liste ne porte pas les photos). */
+export interface ResumeCasCalibration { id: string; nom: string; statut: 'brouillon' | 'valide'; photos: number; ouvertures: number; updatedAt: string }
+
+export async function listerCasCalibration(f: Fetch): Promise<ResumeCasCalibration[]> {
+  const r = await appeler(f, '/calibration-cas', 'liste des cas de calibration');
+  const d = await r.json() as { cas?: ResumeCasCalibration[] };
+  return Array.isArray(d.cas) ? d.cas : [];
+}
+
+export async function lireCasCalibration(f: Fetch, id: string): Promise<unknown> {
+  const r = await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'ouverture du cas de calibration');
+  return r.json() as Promise<unknown>;
+}
+
+export async function enregistrerCasCalibration(f: Fetch, id: string, document: unknown): Promise<void> {
+  await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'enregistrement du cas de calibration', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(document) });
+}
+
+export async function supprimerCasCalibration(f: Fetch, id: string): Promise<void> {
+  await appeler(f, '/calibration-cas/' + encodeURIComponent(id), 'suppression du cas de calibration', { method: 'DELETE', headers: ENTETE_ADMIN });
+}
+
 /** Remplace la palette du serveur ; il garde la precedente en `.bak`. */
 export async function enregistrerPalette(f: Fetch, document: unknown): Promise<void> {
   await appeler(f, '/palette', 'enregistrement de la palette', {

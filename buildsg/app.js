@@ -51,6 +51,8 @@ const adminDemos = creerAdminDemos({
   palette: donnees.palette,
   controleurs: donnees.controleurs,
   arbres: donnees.arbres,
+  calibration: donnees.calibration,
+  calibrationCas: donnees.calibrationCas,
   motDePasse: process.env.ADMIN_PASSWORD
 });
 

@@ -62,9 +62,9 @@ function lireCorps(req, max) {
 /**
  * `dossier` : celui des demos ; `palette`, `controleurs` et `arbres` : leurs fichiers (donnees.mjs), par defaut
  * `.palette.json`, `.controleurs.json` et `.arbres.json` du dossier des demos (l'ancienne disposition).
- * @param {{ dossier: string, motDePasse: string | undefined, palette?: string, controleurs?: string, arbres?: string, maintenant?: () => number }} options
+ * @param {{ dossier: string, motDePasse: string | undefined, palette?: string, controleurs?: string, arbres?: string, calibration?: string, calibrationCas?: string, maintenant?: () => number }} options
  */
-export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossier, '.palette.json'), controleurs = path.join(dossier, '.controleurs.json'), arbres = path.join(dossier, '.arbres.json'), maintenant = () => Date.now() }) {
+export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossier, '.palette.json'), controleurs = path.join(dossier, '.controleurs.json'), arbres = path.join(dossier, '.arbres.json'), calibration = path.join(dossier, '.calibration.json'), calibrationCas = path.join(dossier, '.calibration-cas'), maintenant = () => Date.now() }) {
   const actif = typeof motDePasse === 'string' && motDePasse.length > 0;
   /** jeton -> expiration. En memoire : un redemarrage demande de se reconnecter, c'est voulu. */
   const sessions = new Map();
@@ -198,6 +198,16 @@ export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossi
         return true;
       }
 
+      // --- Les reglages calibres de la detection --------------------------------------------------
+      // Les valeurs calibrees sur les photos de l'admin (facade/regles/facades/surcharges.ts), lues SANS session par
+      // chaque page (deploy/admin.php, meme route). L'ecriture, plus bas, demande la session.
+      if (url.pathname === '/admin/calibration' && lecture) {
+        if (!fs.existsSync(calibration)) return erreur(404, 'NOT_FOUND', 'Aucune calibration enregistrée.');
+        res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*', 'Last-Modified': fs.statSync(calibration).mtime.toUTCString() });
+        res.end(methode === 'HEAD' ? undefined : fs.readFileSync(calibration, 'utf8'));
+        return true;
+      }
+
       // --- La session ---------------------------------------------------------------------------
       if (url.pathname === '/admin/session') {
         if (lecture) return sessionValide(req) ? json(200, { admin: true }) : erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
@@ -283,6 +293,52 @@ export function creerAdminDemos({ dossier, motDePasse, palette = path.join(dossi
         return json(200, { modifieLe: document.modifieLe ?? null });
       }
 
+      // Les reglages calibres de la detection, en ecriture.
+      if (url.pathname === '/admin/calibration') {
+        if (methode !== 'PUT') return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const document = verifierCalibration(await lireCorps(req, 262144));
+        ecrireAtomique(calibration, document);
+        return json(200, { modifieLe: document.modifieLe ?? null });
+      }
+
+      // Les cas de calibration : une facade photographiee et annotee, photos comprises (data:image/jpeg).
+      if (url.pathname === '/admin/calibration-cas') {
+        if (!lecture) return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        const cas = [];
+        for (const n of fs.existsSync(calibrationCas) ? fs.readdirSync(calibrationCas) : []) {
+          if (!n.endsWith('.json') || !ID_VALIDE.test(n.slice(0, -5))) continue;
+          try {
+            const f = path.join(calibrationCas, n), c = JSON.parse(fs.readFileSync(f, 'utf8'));
+            cas.push({ id: n.slice(0, -5), nom: typeof c.nom === 'string' ? c.nom : n.slice(0, -5), statut: c.statut === 'valide' ? 'valide' : 'brouillon', photos: Array.isArray(c.photos) ? c.photos.length : 0, ouvertures: Array.isArray(c.ouvertures) ? c.ouvertures.length : 0, updatedAt: fs.statSync(f).mtime.toISOString() });
+          } catch { /* un cas illisible ne se liste pas */ }
+        }
+        cas.sort((a, b) => a.id.localeCompare(b.id, 'fr', { numeric: true }));
+        return json(200, { cas });
+      }
+      const mc = /^\/admin\/calibration-cas\/([^/]+)$/.exec(url.pathname);
+      if (mc) {
+        const id = decodeURIComponent(mc[1]);
+        if (!ID_VALIDE.test(id)) return erreur(400, 'BAD_ID', 'Identifiant de cas invalide.');
+        const f = path.join(calibrationCas, id + '.json');
+        if (lecture) {
+          if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucun cas « ' + id + ' ».');
+          res.writeHead(200, { ...base, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+          res.end(methode === 'HEAD' ? undefined : fs.readFileSync(f, 'utf8'));
+          return true;
+        }
+        if (methode === 'PUT') {
+          ecrireAtomique(f, verifierCasCalibration(await lireCorps(req, TAILLE_MAX)));
+          return json(200, { id });
+        }
+        if (methode === 'DELETE') {
+          if (!fs.existsSync(f)) return erreur(404, 'NOT_FOUND', 'Aucun cas « ' + id + ' ».');
+          // Rien ne s'efface pour de bon : le fichier est renomme, on le retrouve a la main.
+          fs.renameSync(f, f + '.supprime-' + new Date(maintenant()).toISOString().replace(/[:.]/g, '-'));
+          return json(200, {});
+        }
+        return erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+      }
+
       const m = /^\/admin\/demos\/([^/]+)$/.exec(url.pathname);
       if (m) {
         const id = decodeURIComponent(m[1]);
@@ -358,6 +414,39 @@ function verifierArbres(texte) {
     if (!e.reglages || typeof e.reglages !== 'object' || Array.isArray(e.reglages)) throw refus();
     ids.add(e.id);
   }
+  return d;
+}
+
+/** Ecrit un document JSON hors demos : dossier cree au besoin, version precedente gardee en `.bak`, ecriture atomique. */
+function ecrireAtomique(f, document) {
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  if (fs.existsSync(f)) fs.copyFileSync(f, f + '.bak');
+  const tmp = f + '.' + crypto.randomBytes(6).toString('hex') + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(document, null, 2) + '\n');
+  fs.renameSync(tmp, f);
+}
+
+/** Les reglages calibres : `{format: 'plan-calibration', parametres: {'facades.detection.x': 0.7}, historique?: [...]}`. */
+function verifierCalibration(texte) {
+  let d;
+  try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
+  const refus = () => Object.assign(new Error('Ce n’est pas une calibration (réglages facades.detection.* ou facades.structure.* numériques).'), { statut: 400 });
+  if (!d || d.format !== 'plan-calibration' || !d.parametres || typeof d.parametres !== 'object' || Array.isArray(d.parametres) || Object.keys(d.parametres).length > 200) throw refus();
+  if (d.historique !== undefined && (!Array.isArray(d.historique) || d.historique.length > 200)) throw refus();
+  for (const [nom, v] of Object.entries(d.parametres)) {
+    if (!/^facades\.(detection|structure)\.[A-Za-z0-9]{1,40}$/.test(nom) || typeof v !== 'number' || !Number.isFinite(v)) throw refus();
+  }
+  return d;
+}
+
+/** Un cas de calibration : `{format: 'plan-facade-reelle', version: 1, nom, photos: [...], images: ['data:image/…'], ouvertures: [...]}`. */
+function verifierCasCalibration(texte) {
+  let d;
+  try { d = JSON.parse(texte); } catch { throw Object.assign(new Error('JSON illisible.'), { statut: 400 }); }
+  const refus = () => Object.assign(new Error('Ce n’est pas un cas de calibration (nom, 1 à 8 photos avec leur image, ouvertures).'), { statut: 400 });
+  if (!d || d.format !== 'plan-facade-reelle' || d.version !== 1 || typeof d.nom !== 'string') throw refus();
+  if (!Array.isArray(d.photos) || d.photos.length < 1 || d.photos.length > 8 || !Array.isArray(d.images) || d.images.length !== d.photos.length) throw refus();
+  if (!Array.isArray(d.ouvertures) || d.ouvertures.length > 100 || d.images.some((i) => typeof i !== 'string' || !i.startsWith('data:image/'))) throw refus();
   return d;
 }
 

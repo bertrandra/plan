@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { creerAdminDemos } from '../../../buildsg/demosAdmin.mjs';
-import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette, lireArbres, enregistrerArbres } from '../../../src/io/depotDemos.js';
+import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette, lireArbres, enregistrerArbres, lireCalibration, enregistrerCalibration, listerCasCalibration, lireCasCalibration, enregistrerCasCalibration, supprimerCasCalibration } from '../../../src/io/depotDemos.js';
 
 // L'admin des demos (MD/spec-demos-admin.md), cote serveur et cote page, l'un contre l'autre : un
 // vrai serveur HTTP sur un dossier temporaire, et le depot de la page qui lui parle.
@@ -268,5 +268,41 @@ describe('app.js sert le programme sorti de la page', () => {
     await expect(enregistrerArbres(navigateur, { ...arbres, especes: [arbres.especes[0], arbres.especes[0]] })).rejects.toMatchObject({ reason: 'server' });
     await expect(enregistrerArbres(navigateur, { format: 'plan-palette', especes: [] })).rejects.toMatchObject({ reason: 'server' });
     expect(await lireArbres(navigateur)).toEqual(arbres);
+  });
+  it('sert la calibration sans session ; les cas de calibration (avec leurs photos) ne se lisent et ne s ecrivent qu avec elle', async () => {
+    await demarrer(MDP);
+    expect(await lireCalibration(navigateur)).toBe(null);
+    const calib = { format: 'plan-calibration', version: 1, modifieLe: '2026-10-17T08:00:00.000Z', parametres: { 'facades.detection.areteNette': 0.7 }, historique: [] };
+    await expect(enregistrerCalibration(navigateur, calib)).rejects.toThrow(/session admin/);
+    await expect(listerCasCalibration(navigateur)).rejects.toThrow(/session admin/);
+    await connecterAdmin(navigateur, MDP);
+    await enregistrerCalibration(navigateur, calib);
+    const r = await fetch(base + '/admin/calibration');
+    expect(r.status).toBe(200);
+    expect(r.headers.get('set-cookie')).toBe(null);
+    expect(r.headers.get('access-control-allow-origin')).toBe('*');
+    expect(await r.json()).toEqual(calib);
+    await expect(enregistrerCalibration(navigateur, { ...calib, parametres: { 'autre.nom': 1 } })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCalibration(navigateur, { ...calib, parametres: { 'facades.detection.areteNette': 'x' } })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCalibration(navigateur, { format: 'plan-arbres', parametres: {} })).rejects.toMatchObject({ reason: 'server' });
+    expect(await lireCalibration(navigateur)).toEqual(calib);
+
+    expect(await listerCasCalibration(navigateur)).toEqual([]);
+    const coins = [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 5 }, { x: 0, y: 5 }];
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Maison nord', statut: 'valide', largeurM: 9, hauteurM: 5, photos: [{ fichier: 'p0', coins }], images: ['data:image/jpeg;base64,AAAA'], ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.2 }] };
+    await expect(enregistrerCasCalibration(navigateur, 'cas 1', cas)).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCasCalibration(navigateur, 'cas1', { ...cas, images: [] })).rejects.toMatchObject({ reason: 'server' });
+    await expect(enregistrerCasCalibration(navigateur, 'cas1', { ...cas, images: ['pas une image'] })).rejects.toMatchObject({ reason: 'server' });
+    await enregistrerCasCalibration(navigateur, 'cas1', cas);
+    const liste = await listerCasCalibration(navigateur);
+    expect(liste).toHaveLength(1);
+    expect(liste[0]).toMatchObject({ id: 'cas1', nom: 'Maison nord', statut: 'valide', photos: 1, ouvertures: 1 });
+    expect(await lireCasCalibration(navigateur, 'cas1')).toEqual(cas);
+    // Les photos ne se lisent pas sans session.
+    cookie = '';
+    expect((await fetch(base + '/admin/calibration-cas/cas1')).status).toBe(401);
+    await connecterAdmin(navigateur, MDP);
+    await supprimerCasCalibration(navigateur, 'cas1');
+    expect(await listerCasCalibration(navigateur)).toEqual([]);
   });
 });

@@ -8,6 +8,8 @@
 // Une valeur changee ici change ce que propose le releve : elle se justifie par le banc
 // (`.claude/skills/facades`), avant et apres, jamais par une seule scene.
 
+import { surchargesCalibrees } from './surcharges.js';
+
 export interface Reglage {
   valeur: number;
   unite: 'm' | 'm2' | 'niveaux' | 'rapport' | 'part' | 'nombre';
@@ -139,6 +141,6 @@ export type ValeursDetection = Record<NomReglageDetection, number>;
 
 export function reglagesDetection(surcharges: Partial<ValeursDetection> = {}): ValeursDetection {
   const v = {} as ValeursDetection;
-  for (const nom of Object.keys(REGLAGES_DETECTION) as NomReglageDetection[]) v[nom] = surcharges[nom] ?? REGLAGES_DETECTION[nom].valeur;
+  for (const nom of Object.keys(REGLAGES_DETECTION) as NomReglageDetection[]) v[nom] = surcharges[nom] ?? surchargesCalibrees()[nom] ?? REGLAGES_DETECTION[nom].valeur;
   return v;
 }

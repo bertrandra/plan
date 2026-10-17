@@ -77,6 +77,13 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
     await ouvrirEcranArbres();
     return true;
   }
+  // L'ecran de calibration de la detection (`?admin&ecran=calibration`) : photos annotees, mesure, reglages calibres.
+  const { demandeEcranCalibration, ouvrirEcranCalibration } = await import('./app/ecranCalibration.js');
+  if (demandeEcranCalibration(location.search)) {
+    document.documentElement.dataset.ecran = 'calibration';
+    ouvrirEcranCalibration();
+    return true;
+  }
   return false;
 }
 
@@ -102,6 +109,8 @@ async function demarrer(): Promise<void> {
     // Les essences d'arbres du serveur (io/arbresServeur.ts) : lues sans attendre ; la 3D et
     // l'inspecteur les prennent des qu'elles sont la. Sans elles, les arbres sont simplifies.
     void import('./io/arbresServeur.js').then(({ chargerEspecesServeur }) => chargerEspecesServeur());
+    // Les reglages de la detection calibres par l'admin (io/calibrationServeur.ts) : poses des qu'ils arrivent.
+    void import('./io/calibrationServeur.js').then(({ chargerCalibrationServeur }) => chargerCalibrationServeur());
 
     // La vitrine publique (app/vitrine.ts) : la Vue 3D du plan de demonstration, sans porte ni
     // session. Elle s'aiguille avant tout le reste : rien de la plateforme n'est charge ni appele.

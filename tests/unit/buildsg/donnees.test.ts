@@ -68,7 +68,7 @@ describe('les donnees, cote Node', () => {
   it('choisit la disposition comme deploy/donnees.php', () => {
     expect(dossiersDonnees({ dossierDemos: '/h/plan-demos', parent: '/h' })).toEqual({
       disposition: 'ancienne', racine: '/h/plan-demos', demos: '/h/plan-demos', admin: '/h/plan-demos', palette: '/h/plan-demos/.palette.json',
-      controleurs: '/h/plan-demos/.controleurs.json', arbres: '/h/plan-demos/.arbres.json', echecs: '/h/plan-demos/.echecs.json', anciens: [] });
+      controleurs: '/h/plan-demos/.controleurs.json', arbres: '/h/plan-demos/.arbres.json', calibration: '/h/plan-demos/.calibration.json', calibrationCas: '/h/plan-demos/.calibration-cas', echecs: '/h/plan-demos/.echecs.json', anciens: [] });
     expect(dossiersDonnees({ parent: '/h', anciens: ['/h/app/demos'] })).toMatchObject({ disposition: 'data', racine: '/h/data', demos: '/h/data/demo', palette: '/h/data/admin/palette.json', anciens: ['/h/app/demos'] });
     expect(dossiersDonnees({ dossierDonnees: '/d/data/', dossierDemos: '/d/vieux', parent: '/', anciens: ['/w/demos'] })).toMatchObject({ racine: '/d/data', anciens: ['/d/vieux', '/w/demos'] });
   });

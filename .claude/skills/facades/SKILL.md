@@ -199,6 +199,11 @@ que plusieurs vues voient mais que peu retrouvent (une haie, une voiture) perd d
 retrouvée par toutes en gagne un peu, une baie que plusieurs vues voient et que la fusion a ratée est ajoutée. Le banc de
 synthèse n'a plus de faux positif à retirer sur les scènes à vues : le gain se juge sur le **corpus réel** (ci-dessous).
 
+**Calibrer depuis l'admin** (`?admin&ecran=calibration`, `facade/corpusReel.ts::calibrer`) : des photos prises dans l'écran, annotées,
+puis une descente par coordonnée sur les réglages nommés de `detection.ts` et `structure.ts` ; le résultat s'enregistre dans
+`data/admin/calibration.json` (`admin/calibration`) et se superpose aux valeurs livrées (`regles/facades/surcharges.ts`), sans jamais
+les remplacer dans le dépôt. Un seuil qui se justifie sur plus de vingt cas validés peut ensuite être reporté dans le code.
+
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
 annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
 Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies
