@@ -25,8 +25,8 @@ const CHAMP_FORME = {
 
 /** Un brouillon valide : un prompt a repérer dans la requete, et un schema reduit a un seul champ. */
 export const BROUILLON = {
-  prompt: '---\nversion: 8\nnote: essai\n---\n# Rôle\n\nPROMPT DU BROUILLON : dites la forme du toit.\n',
-  schema: JSON.stringify({ format: 'plan-schema-analyse', version: 4, note: 'essai', schema: { type: 'object', additionalProperties: false, required: ['forme'], properties: { forme: CHAMP_FORME } } }, null, 2) + '\n',
+  prompt: '---\nversion: 9\nnote: essai\n---\n# Rôle\n\nPROMPT DU BROUILLON : dites la forme du toit.\n',
+  schema: JSON.stringify({ format: 'plan-schema-analyse', version: 5, note: 'essai', schema: { type: 'object', additionalProperties: false, required: ['forme'], properties: { forme: CHAMP_FORME } } }, null, 2) + '\n',
   etat: { liste: [{ id: 'formeToit' }], exclus: ['facades'] },
 };
 
@@ -53,17 +53,17 @@ export async function verifierBrouillonDesRegles(h: HoteRegles): Promise<void> {
   expect((await h.navigateur('admin/claude/regles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(BROUILLON) })).status).toBe(403);
   expect((await h.ecrire('admin/claude/regles', 'PUT', { ...BROUILLON, prompt: '# Rôle sans en-tête' })).status).toBe(400);
   expect((await h.ecrire('admin/claude/regles', 'PUT', { ...BROUILLON, schema: '{ pas du json' })).status).toBe(400);
-  expect((await h.ecrire('admin/claude/regles', 'PUT', { ...BROUILLON, schema: JSON.stringify({ version: 4 }) })).status).toBe(400);
+  expect((await h.ecrire('admin/claude/regles', 'PUT', { ...BROUILLON, schema: JSON.stringify({ version: 5 }) })).status).toBe(400);
   expect((await h.ecrire('admin/claude/regles', 'PUT', { prompt: BROUILLON.prompt, schema: BROUILLON.schema })).status).toBe(400);
   expect((await h.ecrire('admin/claude/regles', 'POST', BROUILLON)).status).toBe(405);
 
   // L'enregistrement rend les versions ; l'etat les dit sans le texte ; la lecture rend tout, etat de l'editeur compris.
   const ecrit = await h.ecrire('admin/claude/regles', 'PUT', BROUILLON);
   expect(ecrit.status).toBe(200);
-  expect((await ecrit.json()).brouillon).toMatchObject({ prompt: 8, schema: 4 });
-  expect((await (await h.navigateur('admin/claude/etat')).json()).brouillon).toMatchObject({ prompt: 8, schema: 4 });
-  expect((await (await h.navigateur('admin/claude/etat')).json()).prompt).not.toBe(8);
-  expect((await (await h.navigateur('admin/claude/regles')).json()).brouillon).toMatchObject({ prompt: 8, schema: 4, prompt_texte: BROUILLON.prompt, schema_texte: BROUILLON.schema, etat: BROUILLON.etat });
+  expect((await ecrit.json()).brouillon).toMatchObject({ prompt: 9, schema: 5 });
+  expect((await (await h.navigateur('admin/claude/etat')).json()).brouillon).toMatchObject({ prompt: 9, schema: 5 });
+  expect((await (await h.navigateur('admin/claude/etat')).json()).prompt).not.toBe(9);
+  expect((await (await h.navigateur('admin/claude/regles')).json()).brouillon).toMatchObject({ prompt: 9, schema: 5, prompt_texte: BROUILLON.prompt, schema_texte: BROUILLON.schema, etat: BROUILLON.etat });
 
   // Sans `essai`, l'analyse part avec le prompt LIVRE : le brouillon n'y est pour rien.
   const livre = await h.ecrire('admin/claude/batches', 'POST', demande());
@@ -75,7 +75,7 @@ export async function verifierBrouillonDesRegles(h: HoteRegles): Promise<void> {
   // Avec `essai`, elle part avec le texte et le schema du brouillon.
   const essai = await h.ecrire('admin/claude/batches', 'POST', { ...demande(), essai: 'brouillon' });
   expect(essai.status).toBe(201);
-  expect(await essai.json()).toMatchObject({ prompt: 8, schema: 4, essai: true, batch: { id: 'msgbatch_2' } });
+  expect(await essai.json()).toMatchObject({ prompt: 9, schema: 5, essai: true, batch: { id: 'msgbatch_2' } });
   expect(systeme(faux)).toContain('PROMPT DU BROUILLON');
   expect(systeme(faux)).toContain('"forme"');
   expect(systeme(faux)).not.toContain('"chassis-eclairage"');
@@ -89,9 +89,9 @@ export async function verifierBrouillonDesRegles(h: HoteRegles): Promise<void> {
   expect((await (await h.navigateur('admin/claude/etat')).json()).brouillon).toBeNull();
   faux.terminer();
   const lu = await (await h.navigateur('admin/claude/batches/msgbatch_2/resultats')).json();
-  expect(lu).toMatchObject({ prompt: 8, schema: 4, essai: true });
+  expect(lu).toMatchObject({ prompt: 9, schema: 5, essai: true });
   expect(Object.keys(lu.resultats[0].sortie)).toEqual(['forme']);
-  expect(h.journal().filter((l) => l.idBatch === 'msgbatch_2').every((l) => l.essai === true && l.prompt === 8)).toBe(true);
+  expect(h.journal().filter((l) => l.idBatch === 'msgbatch_2').every((l) => l.essai === true && l.prompt === 9)).toBe(true);
   // Le batch du prompt livre, lui, garde sa forme entiere et ne porte pas la marque d'essai.
   const normal = await (await h.navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
   expect(normal.essai).toBe(false);

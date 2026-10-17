@@ -26,6 +26,7 @@ export const couverture: DescriptionSujet = {
             "tuile-canal",
             "tuile-mecanique",
             "ardoise",
+            "ardoise-losange",
             "zinc",
             "bac-acier",
             "membrane",
@@ -46,6 +47,7 @@ export const couverture: DescriptionSujet = {
 - \`tuile-canal\` : tuiles rondes demi-cylindriques en rangs alternés, ocre à rouge (toits du Sud, faible pente) ;
 - \`tuile-mecanique\` : grandes tuiles à emboîtement et sillons réguliers, rouge ou brun uniforme ;
 - \`ardoise\` : plaques fines gris bleuté, bord net, rangs bien alignés ;
+- \`ardoise-losange\` : grandes ardoises carrées posées sur la pointe, en losanges, gris bleuté, joints en diagonale (pas de rangs horizontaux) ;
 - \`zinc\` : feuilles métalliques gris clair, joints debout ;
 - \`bac-acier\` : tôle nervurée laquée, grandes bandes ;
 - \`membrane\` : revêtement d'étanchéité continu d'un toit plat ;

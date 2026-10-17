@@ -117,6 +117,7 @@ export const COUVERTURES_VUES: readonly { code: CouvertureVue; libelle: string }
   { code: 'tuile-plate', libelle: 'Tuiles plates' },
   { code: 'tuile-canal', libelle: 'Tuiles canal' },
   { code: 'ardoise', libelle: 'Ardoise' },
+  { code: 'ardoise-losange', libelle: 'Grande ardoise en losange' },
   { code: 'zinc', libelle: 'Zinc' },
   { code: 'terrasse', libelle: 'Étanchéité (terrasse)' },
 ];

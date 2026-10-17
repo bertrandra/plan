@@ -44,9 +44,9 @@ function origineCouleur(toit: Toit | null | undefined): string {
 }
 
 export const LIBELLES_COUVERTURE: Record<MateriauCouverture, string> = {
-  tuile: 'Tuile romane', 'tuile-plate': 'Tuile plate', 'tuile-canal': 'Tuile canal', ardoise: 'Ardoise', zinc: 'Zinc', terrasse: 'Toit-terrasse',
+  tuile: 'Tuile romane', 'tuile-plate': 'Tuile plate', 'tuile-canal': 'Tuile canal', ardoise: 'Ardoise', 'ardoise-losange': 'Grande ardoise en losange', zinc: 'Zinc', terrasse: 'Toit-terrasse',
 };
-const COUVERTURES_CHOISIES: CouvertureChoisie[] = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'zinc'];
+const COUVERTURES_CHOISIES: CouvertureChoisie[] = ['tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc'];
 
 /**
  * Le materiau que Plan deduit, sans le choix de l'inspecteur : les memes indices que la 3D

@@ -88,13 +88,13 @@ describe('l ecran des regles', () => {
     expect(texte(hote, '[data-diff="ajoute"]').join('\n')).toContain('vu sur le versant sud');
     const tuiles = texte(hote, '.consTuile');
     expect(tuiles[4]).toContain('1 ligne change');
-    expect(tuiles[4]).toContain('version 8 à poser dans versions.ts');
-    expect(tuiles[1]).toContain('version 8');
+    expect(tuiles[4]).toContain('version 9 à poser dans versions.ts');
+    expect(tuiles[1]).toContain('version 9');
     expect(hote.querySelector('[data-sujet="couverture"]')?.textContent).toContain('Modifié');
     await cliquer(hote.querySelector('#reglOnglet-ecarts'));
     // La version de l'en-tete change avec le texte (5 -> 6), et la consigne d'avant disparait.
     expect(texte(hote, '.reglRetrait').join('\n')).toContain('- `couverture` : le matériau de couverture du corps principal.');
-    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 8');
+    expect(texte(hote, '.reglAjout').join('\n')).toContain('version: 9');
     await cliquer(bouton(hote, 'Revenir au livré'));
     expect(texte(hote, '.consTuile')[4]).toContain('Identique');
   });
@@ -188,7 +188,7 @@ describe('l ecran des regles', () => {
       let garde = depart;
       const client: ClientRegles = {
         lire: vi.fn(async () => garde),
-        enregistrer: vi.fn(async (b) => { garde = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 8, schema: 4, promptTexte: b.prompt, schemaTexte: b.schema, etat: b.etat }; return { enregistreLe: garde.enregistreLe, prompt: 8, schema: 4 }; }),
+        enregistrer: vi.fn(async (b) => { garde = { enregistreLe: '2026-10-16T10:00:00Z', prompt: 9, schema: 5, promptTexte: b.prompt, schemaTexte: b.schema, etat: b.etat }; return { enregistreLe: garde.enregistreLe, prompt: 9, schema: 5 }; }),
         retirer: vi.fn(async () => { garde = null; }),
       };
       return client;
@@ -219,12 +219,12 @@ describe('l ecran des regles', () => {
       await cliquer(enregistrer);
       await attendre();
       const envoi = vi.mocked(serveur.enregistrer).mock.calls[0]![0];
-      expect(envoi.prompt).toContain('version: 8');
+      expect(envoi.prompt).toContain('version: 9');
       expect(envoi.prompt).toContain('vu sur le versant sud');
-      expect(JSON.parse(envoi.schema).version).toBe(3);
+      expect(JSON.parse(envoi.schema).version).toBe(4);
       expect(envoi.etat).toMatchObject({ exclus: [], liste: expect.any(Array) });
-      expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon enregistré sur le serveur (prompt version 8)');
-      expect(etat(hote)).toContain('Brouillon du serveur : prompt version 8, schéma version 4, enregistré le 2026-10-16 10:00.');
+      expect(hote.querySelector('.consEtat')?.textContent).toContain('Brouillon enregistré sur le serveur (prompt version 9)');
+      expect(etat(hote)).toContain('Brouillon du serveur : prompt version 9, schéma version 5, enregistré le 2026-10-16 10:00.');
       expect(etat(hote)).toContain('?regles=local');
       await cliquer(bouton(hote, 'Retirer du serveur'));
       await attendre();
@@ -247,11 +247,11 @@ describe('l ecran des regles', () => {
     it('reprend l éditeur tel que le serveur l a gardé, d un autre navigateur', async () => {
       const g = genererFichiers();
       const gardeEtat = { liste: DESCRIPTIONS_SUJETS, exclus: ['elements'] };
-      const serveur = fauxServeur({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 8, schema: 4, promptTexte: g.prompt, schemaTexte: g.schema, etat: gardeEtat });
+      const serveur = fauxServeur({ enregistreLe: '2026-10-16T10:00:00Z', prompt: 9, schema: 5, promptTexte: g.prompt, schemaTexte: g.schema, etat: gardeEtat });
       const { hote } = await monter({ serveur });
       await attendre();
       expect(texte(hote, '.consTuile')[0]).toContain('8 / 8');
-      expect(etat(hote)).toContain('prompt version 8');
+      expect(etat(hote)).toContain('prompt version 9');
       await cliquer(bouton(hote, 'Reprendre celui du serveur'));
       expect(texte(hote, '.consTuile')[0]).toContain('7 / 8');
       expect(hote.querySelector('[data-sujet="elements"]')?.textContent).toContain('Hors du prompt');

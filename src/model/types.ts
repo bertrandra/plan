@@ -1173,7 +1173,7 @@ export interface VolumeToit {
 }
 
 /** Les couvertures d'un toit en pente que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). */
-export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc';
+export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'ardoise-losange' | 'zinc';
 
 export interface Toit {
   forme: FormeToit;

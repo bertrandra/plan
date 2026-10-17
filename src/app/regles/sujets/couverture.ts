@@ -7,7 +7,7 @@ import { deClaude, type EntreeSujet, type Sujet } from './contrat.js';
 
 /** Le materiau de couverture de Claude dans le vocabulaire du projet ; null quand le projet n'a pas ce terme. */
 export function couvertureDuVocabulaire(v: string): CouvertureChoisie | null {
-  const table: Record<string, CouvertureChoisie> = { 'tuile-plate': 'tuile-plate', 'tuile-canal': 'tuile-canal', 'tuile-mecanique': 'tuile', ardoise: 'ardoise', zinc: 'zinc' };
+  const table: Record<string, CouvertureChoisie> = { 'tuile-plate': 'tuile-plate', 'tuile-canal': 'tuile-canal', 'tuile-mecanique': 'tuile', ardoise: 'ardoise', 'ardoise-losange': 'ardoise-losange', zinc: 'zinc' };
   return table[v] ?? null;
 }
 

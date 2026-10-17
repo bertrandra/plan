@@ -23,12 +23,12 @@ export async function verifierEscalade(h: HoteEscalade): Promise<void> {
   const systeme = (h.faux.messages[0]!.system as { text: string }[])[0]!.text;
   expect(systeme).toMatch(/Vous observez une maison/);
   expect(systeme).not.toMatch(/relever une façade photographiée/);
-  expect(lu).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 7, schema: 3 });
+  expect(lu).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 8, schema: 4 });
   expect(lu.resultats.map((x: { id: string; statut: string; passe: number; usage: string }) => [x.id, x.statut, x.passe, x.usage])).toEqual([['e1', 'reussi', 1, 'escalade']]);
   // La reponse revient dans la forme du schema de l'analyse (toutes ses tetes de chapitre).
   expect(Object.keys(lu.resultats[0].sortie)).toEqual(expect.arrayContaining(['forme', 'couverture', 'cheminees', 'facades', 'confiance']));
   expect(h.journal()).toHaveLength(1);
-  expect(h.journal()[0]).toMatchObject({ usage: 'escalade', modele: 'claude-sonnet-5-5', batch: false, idBatch: null, requete: 'e1', facades: 0, statut: 'reussi', prompt: 7 });
+  expect(h.journal()[0]).toMatchObject({ usage: 'escalade', modele: 'claude-sonnet-5-5', batch: false, idBatch: null, requete: 'e1', facades: 0, statut: 'reussi', prompt: 8 });
   // Un usage inconnu reste refuse ; un modele hors liste aussi.
   expect((await h.ecrire('admin/claude/messages', 'POST', { ...corps, usage: 'escalade-fine' })).status).toBe(400);
   expect((await h.ecrire('admin/claude/messages', 'POST', { ...corps, modele: 'claude-fable-5-1' })).status).toBe(400);
