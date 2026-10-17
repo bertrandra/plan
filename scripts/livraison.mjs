@@ -19,6 +19,7 @@
 //   claude-tarifs.json         la premiere table des tarifs, posee dans data/claude/ au premier usage
 //   data/demo/1.json           la demonstration integree, premiere demo de l'admin (data/ se pose hors racine)
 //   data/demo/2.json…          les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
+//   data/admin/arbres.json     la bibliotheque d'essences d'arbres livree (quarante essences, dix par taille) : le code n'en a aucune
 //   cerfa/cerfa_13703-12.pdf   le formulaire officiel de la declaration prealable, rempli par la page
 //   LISEZMOI-DEPLOIEMENT.txt   les etapes
 
@@ -71,6 +72,9 @@ writeFileSync(resolve(sortie, 'data/demo/1.json'), JSON.stringify({
 // Les autres demos livrees : des exports de Plan ranges dans deploy/plan-demos/, copies tels quels.
 const autresDemos = resolve(racine, 'deploy/plan-demos');
 if (existsSync(autresDemos)) cpSync(autresDemos, resolve(sortie, 'data/demo'), { recursive: true });
+// La bibliotheque d'essences d'arbres : un fichier de donnees (data/admin/arbres.json), lu par la 3D et retouche par Admin › Arbres.
+mkdirSync(resolve(sortie, 'data/admin'), { recursive: true });
+cpSync(resolve(racine, 'data/admin/arbres.json'), resolve(sortie, 'data/admin/arbres.json'));
 let commit = 'inconnu';
 try { commit = execSync('git rev-parse --short HEAD', { cwd: racine, encoding: 'utf8' }).trim(); } catch { /* hors git */ }
 
@@ -121,6 +125,11 @@ Sur l'hebergement, trois choses voisines :
       Si data/ existe deja la-bas, ne pas l'ecraser : ce sont vos donnees. Pour recevoir une demo
       livree, copier ce seul fichier dans data/demo/, apres avoir garde l'ancien si vous l'aviez
       modifie. Puis supprimer public_html/data/.
+      Les arbres : data/admin/arbres.json est la bibliotheque d'essences (quarante essences, dix par
+      taille : petits, moyens, grands, tres grands) que la 3D lit et que l'ecran Admin > Arbres
+      retouche. Le code n'en a aucune : sans ce fichier, les arbres se dessinent en tronc et boule.
+      Sur une installation qui a deja data/, copier ce seul fichier dans data/admin/ (garder l'ancien
+      s'il a ete retouche dans l'admin).
    d. Droits : data/ et ses sous-dossiers doivent etre lisibles et inscriptibles par PHP (dossiers
       755, fichiers 644, meme utilisateur que le site). Un fichier present mais illisible, ou une
       configuration absente, laisse la vitrine (?mode=demo&file=<n>) sur la demonstration

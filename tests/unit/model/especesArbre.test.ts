@@ -1,7 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { ESPECES_PAR_DEFAUT } from '../../../src/model/especesParDefaut.js';
 import {
-  arbreNu, especeDe, especeParNature, especeParId, especesChargees, poserEspeces, bibliothequeEnUsage, surChangementEspeces, idDepuisNom,
+  arbreNu, especeDe, especeParNature, especeParId, especesChargees, poserEspeces, surChangementEspeces, tailleDe, especesParTaille, idDepuisNom,
   lireDocumentArbres, lireEspece, documentArbres, diametreDe, FORMAT_ARBRES, MAX_ESPECES, DIAMETRE_DEFAUT_M, HAUTEUR_DEFAUT_M, type EspeceArbre
 } from '../../../src/model/especesArbre.js';
 
@@ -79,15 +78,11 @@ describe('la bibliotheque chargee', () => {
     expect(appels).toBe(1);
   });
 
-  it('commence avec la bibliotheque de Plan, et rend celle-ci quand le serveur n\'a rien enregistre', async () => {
-    // Un module neuf : les autres tests de ce fichier ont deja vide la bibliotheque.
+  it('commence vide : le code n\'a aucune essence, la bibliotheque vient du serveur', async () => {
+    // Un module neuf : les autres tests de ce fichier ont deja pose des essences.
     vi.resetModules();
     const neuf = await import('../../../src/model/especesArbre.js');
-    const defaut = await import('../../../src/model/especesParDefaut.js');
-    expect(neuf.especesChargees()).toBe(defaut.ESPECES_PAR_DEFAUT);
-    expect(bibliothequeEnUsage([])).toBe(ESPECES_PAR_DEFAUT);
-    const sienne = [e('a')];
-    expect(bibliothequeEnUsage(sienne)).toBe(sienne);
+    expect(neuf.especesChargees()).toEqual([]);
   });
 
   it('donne a un objet son essence, sinon la premiere, sinon rien (bibliotheque vide : le repli)', () => {
@@ -130,5 +125,18 @@ describe('un identifiant tire du nom', () => {
     expect(idDepuisNom('Chêne rouge', new Set())).toBe('chene-rouge');
     expect(idDepuisNom('Chêne rouge', new Set(['chene-rouge']))).toBe('chene-rouge-2');
     expect(idDepuisNom('  !!  ', new Set())).toBe('arbre');
+  });
+});
+
+describe('les tailles', () => {
+  const h = (hauteurM: number) => ({ hauteurM, nom: 'x' });
+  it('rangent une hauteur dans sa classe, bornes comprises : 6, 12 et 20 m ferment petit, moyen et grand', () => {
+    expect([1.4, 6, 6.5, 12, 12.5, 20, 20.5, 35].map((v) => tailleDe(h(v)).id)).toEqual(['petit', 'petit', 'moyen', 'moyen', 'grand', 'grand', 'tres-grand', 'tres-grand']);
+  });
+  it('presentent les essences par classe, chacune par nom, sans classe vide', () => {
+    const g = especesParTaille([{ hauteurM: 25, nom: 'Frêne' }, { hauteurM: 5, nom: 'Pommier' }, { hauteurM: 30, nom: 'Chêne' }, { hauteurM: 4, nom: 'Érable' }]);
+    expect(g.map((x) => x.taille.id)).toEqual(['petit', 'tres-grand']);
+    expect(g[0]?.especes.map((x) => x.nom)).toEqual(['Érable', 'Pommier']);
+    expect(g[1]?.especes.map((x) => x.nom)).toEqual(['Chêne', 'Frêne']);
   });
 });

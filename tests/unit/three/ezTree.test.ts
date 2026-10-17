@@ -57,13 +57,18 @@ describe('le modele d\'une essence', () => {
     expect(modeleArbre(espece({ reglages: { seed: 100, branch: { levels: 2 } } }), 0)).not.toBe(a);
   });
 
-  it('refait le materiau des feuilles : meme carte et meme teinte, la transparence d\'EZ-tree, sans son code de vent', () => {
+  it('refait le materiau des feuilles : meme carte et meme teinte, la transparence d\'EZ-tree, avec le vent de Plan et non celui d\'EZ-tree', () => {
     const m = modeleArbre(espece(), 0)!;
     const f = m.matFeuilles as THREE_NS.MeshPhongMaterial;
     expect(f.alphaTest).toBe(0.4);
     expect(f.color.getHex()).toBe(0x88aa88);
     expect(f.side).toBe(THREE_NS.DoubleSide);
-    expect(f.onBeforeCompile.toString()).toBe(new THREE_NS.MeshPhongMaterial().onBeforeCompile.toString());
+    // Le vent est celui de Plan (three/vent.ts, fait pour les instances), pas le code d'EZ-tree (bruit de simplex, un arbre seul).
+    expect(f.customProgramCacheKey()).toBe('vent-feuilles');
+    const shader = { uniforms: {} as Record<string, unknown>, vertexShader: 'void main() {\n#include <begin_vertex>\n}' };
+    f.onBeforeCompile(shader as never, undefined as never);
+    expect(shader.vertexShader).toContain('uVentTemps');
+    expect(shader.vertexShader).not.toContain('simplex3');
   });
 
   it('rend null, sans lever, quand la generation echoue', () => {

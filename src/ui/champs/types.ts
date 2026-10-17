@@ -124,7 +124,8 @@ export interface ChampCase extends ChampBase {
 
 export interface ChampChoix extends ChampBase {
   type: 'choix';
-  options: (c: ContexteChamps) => { valeur: string; libelle: string }[];
+  /** `groupe` : le titre sous lequel la liste deroulante range l'option (options voisines du meme groupe) ; absent : hors groupe. */
+  options: (c: ContexteChamps) => { valeur: string; libelle: string; groupe?: string }[];
   lire: (c: ContexteChamps) => string;
   ecrire: (c: ContexteChamps, v: string) => void;
 }

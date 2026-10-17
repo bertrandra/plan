@@ -184,7 +184,9 @@ function Commande({ champ, c, inspecteur }: PropsChamp) {
         </span>;
       }
       return <select value={champ.lire(c)} disabled={!actif} title={champ.aide} aria-label={champ.libelle} onChange={(e) => ecrire<string>((v) => champ.ecrire(c, v))(e.target.value)}>
-        {options.map(o => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
+        {optionsParGroupe(options).map((g) => g.titre === null
+          ? g.options.map(o => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)
+          : <optgroup key={g.titre} label={g.titre}>{g.options.map(o => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}</optgroup>)}
       </select>;
     }
     case 'couleur':
@@ -349,6 +351,18 @@ const SECTIONS_GEOMETRIE = new Set(['cotes', 'coins', 'alignement']);
 // « Façades et toit » decrit la construction d'un batiment, comme les sections d'une terrasse.
 const SECTIONS_CONSTRUCTION = new Set(['implantation', 'fondation', 'appuis', 'structure', 'lames', 'finitions', 'optimisation', 'parametres', 'releve', 'pergola', 'metragePergola', 'prixPergola',
   'piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'chiffragePiscine', 'prixPiscine', 'noteCalcul', 'cloture', 'portails']);
+/** Les options d'une liste deroulante rangees sous leurs titres (`groupe`) : des options voisines du meme groupe vont ensemble. */
+function optionsParGroupe<T extends { groupe?: string }>(options: readonly T[]): { titre: string | null; options: T[] }[] {
+  const out: { titre: string | null; options: T[] }[] = [];
+  for (const o of options) {
+    const titre = o.groupe ?? null;
+    const dernier = out[out.length - 1];
+    if (dernier && dernier.titre === titre) dernier.options.push(o);
+    else out.push({ titre, options: [o] });
+  }
+  return out;
+}
+
 export function familleDe(idSection: string): Famille {
   if (SECTIONS_GEOMETRIE.has(idSection)) return 'geometrie';
   if (SECTIONS_CONSTRUCTION.has(idSection)) return 'construction';
