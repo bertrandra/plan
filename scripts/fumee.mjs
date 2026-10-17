@@ -2791,6 +2791,32 @@ const POINTS = {
     const ok = etapes === 7 && vignettes >= 29 && formesVoulues && polygones > 400 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans && /Lu en direct des fichiers : prompt v\d+/.test(lecture) && seuils > 5 && lues > 5 && perimees === 0;
     return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; les formes du catalogue et les lucarnes ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; « ${lecture.slice(0, 60)}… », ${seuils} seuil(s) lus, ${lues} ligne(s) venues des données, ${perimees} ligne(s) périmée(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  96: async (page, f) => {
+    // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe
+    // (processus, actions, coulisses), le choix d'un angle qui masque les autres, la recherche qui filtre, un lien vers l'ecran des regles ; rien ne deborde.
+    await page.route(/\/admin\//, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+    await page.goto(BASE + '/?admin&ecran=principes');
+    await page.waitForSelector('.princFiche', { timeout: 20000 });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || window.innerWidth > l + 1, f.width);
+    const fiches = await page.locator('article.princFiche').count();
+    const liens = await page.locator('.princSommaire a').count();
+    const angles = await page.locator('section[data-angle]').count();
+    const lienRegles = await page.locator('a.princEcran[href="?admin&ecran=regles"]').count();
+    const cible = await page.locator('.princSommaire a').first().getAttribute('href');
+    const cibleExiste = !!cible && (await page.locator('[id="' + cible.slice(1) + '"]').count()) > 0;
+    await page.getByRole('button', { name: 'Coulisses', exact: true }).click();
+    const seules = await page.locator('section[data-angle="coulisses"]').count();
+    const autres = await page.locator('section[data-angle="processus"], section[data-angle="actions"]').count();
+    await page.getByRole('button', { name: 'Tout', exact: true }).click();
+    await page.getByLabel('Chercher un principe').fill('poids');
+    const filtres = await page.locator('article.princFiche').count();
+    await page.getByLabel('Chercher un principe').fill('xyzzy');
+    const aucun = await page.locator('article.princFiche').count();
+    await page.getByLabel('Chercher un principe').fill('');
+    const sans = !(await deborde());
+    const ok = fiches >= 12 && liens === fiches && angles === 3 * fiches && lienRegles >= 1 && cibleExiste && seules === fiches && autres === 0 && filtres > 0 && filtres < fiches && aucun === 0 && sans;
+    return { ok, mesure: `${fiches} principes, ${liens} liens de sommaire, ${angles} angles ; ${lienRegles} lien(s) vers les règles, ancre ${cibleExiste ? 'trouvée' : 'CASSÉE'} ; angle « Coulisses » : ${seules} bloc(s), ${autres} autre(s) ; recherche « poids » : ${filtres} principe(s), « xyzzy » : ${aucun} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
   94: async (page, f) => {
     // Admin › Conformité (lot G13) : une facade relevee de 9 m avec deux fenetres seulement, dans un audit recu ;
     // la disposition automatique en pose bien plus, la facade n'est pas conforme. On mesure : la tuile « Conformite des
@@ -3183,8 +3209,8 @@ function pointsPour(nomClasse) {
   // 90 : l'avant et l'apres des propositions en deux vues de la Vue 3D, synchronisees.
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
-  // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95];
+  // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit. 96 : Admin › Principes.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

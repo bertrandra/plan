@@ -62,6 +62,13 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
     ouvrirEcranChaine();
     return true;
   }
+  // L'ecran des principes (`?admin&ecran=principes`) : processus, actions et coulisses de chaque principe. Plan ne demarre pas dessous.
+  const { demandeEcranPrincipes, ouvrirEcranPrincipes } = await import('./app/ecranPrincipes.js');
+  if (demandeEcranPrincipes(location.search)) {
+    document.documentElement.dataset.ecran = 'principes';
+    ouvrirEcranPrincipes();
+    return true;
+  }
   // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
   // generees par EZ-tree. Plan ne demarre pas dessous.
   const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/ecranArbres.js');

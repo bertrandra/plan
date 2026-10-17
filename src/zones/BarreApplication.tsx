@@ -291,6 +291,11 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
             <span className="coche" aria-hidden="true" />De l’IGN à ma maison
           </button>
         </li>
+        <li role="menuitem">
+          <button type="button" data-controle="admin.principes" onClick={aller('?admin&ecran=principes')}>
+            <span className="coche" aria-hidden="true" />Les principes de Plan
+          </button>
+        </li>
         <Entree commandes={commandes} id="admin.consommation" libelle="Consommation de Claude" />
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
         <Entree commandes={commandes} id="admin.regles" libelle="Règles" />
