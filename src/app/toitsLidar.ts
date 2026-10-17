@@ -12,7 +12,7 @@ import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLid
 import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
 import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
-import { reconstruireCorps, decalageSurMesure, partVideSous } from '../facade/toitCorps.js';
+import { decalageSurMesure, partVideSous } from '../facade/toitCorps.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { surParcelleDuProjet } from '../model/fonctions.js';
 import { batimentsMitoyens } from '../model/mitoyennete.js';
@@ -23,9 +23,11 @@ import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } fro
 import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../regles/toits/reglages.js';
 import { contexteProfils, surchargesDuBatiment } from '../facade/regles/toits/profils.js';
 import type { ProfilToit } from '../regles/toits/profils.js';
+import { EMPREINTE_FORMES_TOITS } from '../regles/toits/formes.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../regles/toits/faits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/regles/toits/faits.js';
-import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/regles/toits/vraisemblance.js';
+import { corpsCalcules } from '../facade/regles/toits/catalogue.js';
+import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/regles/toits/vraisemblance.js';
 import { estVerifieSurPlace } from '../model/toitVerifie.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
@@ -92,7 +94,7 @@ async function recalerSurLidar(o: ObjetAToit & { pts: PtBrut[] }, grille: Grille
  * parcelle, chacun arrete a la limite. Null quand aucune part ne se lit.
  */
 export function corpsParParcelle(o: ObjetAToit, parts: readonly PartACheval[], mesure: ToitMesure, grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
-  const corps = parts.flatMap((p) => reconstruireCorps(mesure, p.pts, { coupes, grille }) ?? []);
+  const corps = parts.flatMap((p) => corpsCalcules(mesure, p.pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }) ?? []);
   return corps.length ? corpsVraisemblables(o, corps) : null;
 }
 
@@ -113,12 +115,13 @@ export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToi
 }
 
 /**
- * Les corps d'un batiment lus sur sa mesure, puis son fait en contrainte (regles/toits/faits.ts), puis
- * les garde-fous de vraisemblance : l'ordre de MD/spec-regles-toits.md §9.1. `coupes` faux : la
- * version allegee du voisinage.
+ * Les corps d'un batiment lus sur sa mesure (pentes droites, puis formes du catalogue :
+ * facade/regles/toits/catalogue.ts), puis son fait en contrainte (regles/toits/faits.ts), puis les
+ * garde-fous de vraisemblance : l'ordre de MD/spec-regles-toits.md §9.1. `coupes` faux : la version
+ * allegee du voisinage.
  */
 export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut[], grille: GrilleRelief | null, coupes = true): CorpsToit[] | null {
-  return corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), reconstruireCorps(mesure, pts, { coupes, grille }), mesure, pts, grille));
+  return corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), corpsCalcules(mesure, pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }), mesure, pts, grille));
 }
 
 
@@ -195,10 +198,12 @@ export const DELAI_TOITS_LIDAR_MS = 20000;
 export const MAX_BATIMENTS_LIDAR = 30;
 /**
  * Une version de la lecture des toits : l'empreinte des reglages qu'elle lisait
- * (regles/toits/reglages.json, regles/toits/reglages.ts) et celle des faits
- * (regles/toits/faits.json, regles/toits/faits.ts) ; sans `faits`, aucun fait.
+ * (regles/toits/reglages.json, regles/toits/reglages.ts), celle des faits
+ * (regles/toits/faits.json, regles/toits/faits.ts) ; sans `faits`, aucun fait ; et, depuis la
+ * version 4, celle des seuils des formes du catalogue (regles/toits/formes.json), que la lecture
+ * applique ; sans `formes`, la lecture ne les appliquait pas.
  */
-export interface LectureToits { version: number; reglages: string; faits?: string }
+export interface LectureToits { version: number; reglages: string; faits?: string; formes?: string }
 
 /**
  * Les versions de la lecture des toits. Une regle de toit qui change assez pour meriter de tout
@@ -214,6 +219,9 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Les deux pignons traversants de la facade sud d'AE 101, dits par le proprietaire (fait), et les
   // seuils de leur lecture (facade/regles/toits/pignons.ts) : la lecture LiDAR servie par l'IGN a change.
   { version: 3, reglages: 'b472cd75', faits: '43162115' },
+  // Les formes du catalogue a la lecture (facade/regles/toits/catalogue.ts) : un Mansart, un coyau, une demi-croupe, un toit de
+  // revolution que la mesure porte nettement mieux que les pentes droites remplace le corps principal ; tous les toits sont relus.
+  { version: 4, reglages: 'b472cd75', faits: '43162115', formes: '83c56e39' },
 ];
 
 /**
@@ -221,11 +229,11 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
  * Des empreintes qu'aucune ligne ne connait (une valeur ou un fait change sans ligne nouvelle) donnent
  * la version suivante : mieux vaut relire les toits que les garder lus avec d'autres seuils.
  */
-export function versionDeLecture(lectures: readonly LectureToits[], empreinte: string, faits: string = EMPREINTE_FAITS_VIDE): number {
+export function versionDeLecture(lectures: readonly LectureToits[], empreinte: string, faits: string = EMPREINTE_FAITS_VIDE, formes: string | null = null): number {
   let connue = 0, derniere = 0;
   for (const l of lectures) {
     derniere = Math.max(derniere, l.version);
-    if (l.reglages === empreinte && (l.faits ?? EMPREINTE_FAITS_VIDE) === faits) connue = Math.max(connue, l.version);
+    if (l.reglages === empreinte && (l.faits ?? EMPREINTE_FAITS_VIDE) === faits && (l.formes ?? null) === formes) connue = Math.max(connue, l.version);
   }
   return connue || derniere + 1;
 }
@@ -234,7 +242,7 @@ export function versionDeLecture(lectures: readonly LectureToits[], empreinte: s
  * La version de la lecture qui a marque un batiment (`toitLidarLu`) : les batiments marques d'une
  * version plus ancienne redeviennent a lire. L'empreinte des reglages y entre (§9.2 des regles).
  */
-export const VERSION_LECTURE_TOITS = versionDeLecture(LECTURES_TOITS, EMPREINTE_REGLAGES_TOITS, EMPREINTE_FAITS_TOITS);
+export const VERSION_LECTURE_TOITS = versionDeLecture(LECTURES_TOITS, EMPREINTE_REGLAGES_TOITS, EMPREINTE_FAITS_TOITS, EMPREINTE_FORMES_TOITS);
 /**
  * La marque d'un batiment lu avec des faits d'essai (`?regles=local`, regles/toits/faits.ts) : lu pour
  * la seance, mais pas a la version du depot. Enregistre ainsi, il sera relu a la prochaine ouverture,
