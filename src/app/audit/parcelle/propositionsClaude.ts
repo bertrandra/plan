@@ -79,6 +79,12 @@ const AVEC_LE_RENFORT = ' Cochée, cette ligne comprend aussi les ouvertures de 
 /** Le bilan d'une facade sans les ouvertures en pointille : elles ont leur propre ligne. */
 const resumeSansPointille = (rf: RenfortFacadeCapture): string | null => texteBilan({ ...bilanVide(), ...rf.bilan, pointille: 0 });
 
+/** Le releve mesure, avec ces ouvertures a la place des siennes (la grille se recale dessus). */
+export function releveAvecOuvertures(mesure0: ReleveFacade, liste: readonly OuvertureFacade[]): ReleveFacade {
+  const { ouvertures, grille } = avecGrille([...liste], mesure0.largeur);
+  return { ...mesure0, ouvertures, ...(grille ? { grille } : {}) };
+}
+
 /** Les ouvertures que Claude ajoute en pointille (graines que les contours ne soutiennent pas assez). */
 export const ouverturesPointillees = (rf: RenfortFacadeCapture): OuvertureFacade[] => rf.decochees.filter((o) => o.source === 'claude');
 
@@ -116,11 +122,9 @@ export function propositionsRenfort(e: EntreesPropositions, renfort: Record<stri
       avant: pluriel(n0, 'ouverture') + ' mesurée' + (n0 > 1 ? 's' : '') + ' sur la photo',
       source: 'claude' as const, indices: [], confiance: rf.passes / 3, remplaceChoix: null,
     };
-    const releveAvec = (liste: readonly OuvertureFacade[]): ReleveFacade => {
-      const { ouvertures, grille } = avecGrille([...liste], mesure0.largeur);
-      return { ...mesure0, ouvertures, ...(grille ? { grille } : {}) };
-    };
+    const releveAvec = (liste: readonly OuvertureFacade[]): ReleveFacade => releveAvecOuvertures(mesure0, liste);
     const resume = resumeSansPointille(rf);
+    // Son nombre d'ouvertures est aussi un constat de l'arbitrage des facades (arbitrages.ts) ; cette ligne garde ce qu'il affine (types, details).
     if (resume) {
       const releve = releveAvec(rf.ouvertures);
       out.push({ ...base, id: id + ':claude:releve', apres: pluriel(releve.ouvertures.length, 'ouverture') + ' avec l’aide de Claude (' + resume + ')', effet: { type: 'releve', releve }, reserve: RESERVE_RENFORT });

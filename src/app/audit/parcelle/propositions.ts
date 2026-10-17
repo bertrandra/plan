@@ -25,7 +25,7 @@ import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
-import type { CaptureParcelle } from '../../../model/auditParcelle.js';
+import type { CaptureParcelle, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { Cheminee, CorpsToit, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
 
@@ -45,7 +45,7 @@ const EDICULE = { coteM: 2.4, hauteurM: 2.5 };
 
 const fr = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
-const dateFr = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR'); };
+export const dateFr = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR'); };
 const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Ce qu'il faut pour proposer : le plan, la liste de controle, la capture et les mesures des facades. */
@@ -55,6 +55,8 @@ export interface EntreesPropositions {
   capture: CaptureParcelle;
   /** Par `cle#cote`. */
   mesures: ReadonlyMap<string, MesureFacade>;
+  /** Le renfort de Claude sur les facades (par `cle#cote`) ; absent sans analyse. */
+  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
 }
 
 export { cleMesure };
@@ -150,32 +152,6 @@ type SansDefaut = Omit<Proposition, 'source' | 'indices' | 'confiance' | 'rempla
 
 /** Une proposition des mesures, avec ses champs par defaut. */
 const mesure = (p: SansDefaut): Proposition => ({ source: 'mesure', indices: [], confiance: null, remplaceChoix: null, reserve: null, ...p });
-
-function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition[] {
-  const out: Proposition[] = [];
-  for (const f of b.facades) {
-    const m = e.mesures.get(cleMesure(b.cle, f.cote));
-    if (!m?.releve) continue;
-    const objet = 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
-    const existant = (o.facades ?? []).find((r) => r.cote === f.cote);
-    // Le releve que l'audit a pose lui-meme d'apres cette photo (validation.ts) est deja ecrit : rien a proposer. Un releve
-    // pose ainsi d'apres une photo plus ancienne n'est pas un choix de la personne : la nouvelle mesure le remplace.
-    if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) continue;
-    const deja = existant?.depuisAudit ? undefined : existant;
-    const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
-    const n = m.releve.ouvertures.length;
-    out.push(mesure({
-      id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet,
-      avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + ', texture de la photo',
-      indices: m.rangReleve !== null ? [{ texte: 'Photo ' + (m.rangReleve + 1) + ' de la façade', photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [],
-      confiance: m.confiance,
-      remplaceChoix: deja ? avantTexte : null,
-      reserve: m.coinsTrouves ? null : 'Les coins du mur n’ont pas été trouvés sur la photo : ils sont prédits par la prise de vue, à vérifier.',
-      effet: { type: 'releve', releve: m.releve },
-    }));
-  }
-  return out;
-}
 
 /** La couleur des murs : la lecture qui a le plus de points, parmi les photos des facades. */
 function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition | null {
@@ -277,7 +253,6 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     const o = parCle.get(b.cle);
     if (!o) continue;
     const vu = e.capture.batiments[b.cle]?.vu ?? {};
-    out.push(...propositionsDesFacades(o, b, e));
     // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts).
     for (const p of [propositionCouleur(o, b, e)]) if (p) out.push(p);
     for (const p of [propositionTerrasse(o, b, vu)]) if (p) out.push(p);

@@ -134,7 +134,7 @@ function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut
   }
   const second = groupes[1];
   const scoreMin = desc.scoreAutoMin ?? regles.seuils.SCORE_AUTO_MIN, margeMin = desc.margeAutoMin ?? regles.seuils.MARGE_AUTO_MIN;
-  const seulNonSeul = retenu.sources.length === 1 && !regles.sources[retenu.sources[0] as SourceConstat].seule;
+  const seulNonSeul = retenu.sources.length === 1 && !regles.sources[retenu.sources[0] as SourceConstat].seule && !desc.seules?.includes(retenu.sources[0] as SourceConstat);
   const ecarts = groupes.map(dit).join(' ; ');
   const manuelle = (raison: string, seuils: string[]): Arbitrage => ({ ...base, retenu, decision: 'manuelle', raison, regles: [...seuils, ...regleDe(retenu)] });
   if (projet.choisi) return manuelle('Remplace une valeur que vous avez choisie (' + direValeur(projet.valeur, accord) + ') : ' + ecarts + '.', []);

@@ -12,18 +12,18 @@ import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { lireForme } from '../../../facade/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
-import { cibleBatiment, constatsDuBatiment } from './constats.js';
+import { cibleBatiment, cibleFacade, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
-import { corpsDesCheminees, ECART_HAUTEUR_MIN_M, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
+import { cleMesure, corpsDesCheminees, dateFr, ECART_HAUTEUR_MIN_M, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { COUVERTURES_VUES, MATERIAUX_MURS_VUS, libelleDe as libelleDeListe, type SoucheVue } from '../../../model/ceQueJeVois.js';
 import { pluriel } from '../../regles/sujets/contrat.js';
 import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
-import type { CouvertureChoisie, FormeToitSimple, ObjetPlan } from '../../../model/types.js';
+import type { CouvertureChoisie, FormeToitSimple, ObjetPlan, ReleveFacade } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 
 /** Le vote des passes de Claude, par batiment (cle) ; absent : Claude n'a rien dit de ce batiment. */
@@ -241,12 +241,40 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
 }
 
 /** Ce que la personne a decide, par `cible|attribut` : un groupe de sources retenu, ou une valeur forcee. */
+/**
+ * Le releve des ouvertures d'une facade : leur nombre s'arbitre entre la photo (ses contours) et Claude (son releve renforce) ; ce qui
+ * s'ecrit, c'est le releve du constat qui l'emporte, texture de la photo comprise. Un releve pose par l'audit d'apres cette photo est
+ * deja ecrit ; un releve pose d'apres une photo plus ancienne n'est pas un choix : la nouvelle mesure le remplace.
+ */
+function propositionReleve(o: ObjetPlan, b: LigneBatiment, f: LigneBatiment['facades'][number], a: Arbitrage | undefined, e: EntreesPropositions, regles: ReglesReconciliation): Proposition | null {
+  if (!a || a.decision === 'rien' || !a.retenu) return null;
+  const m = e.mesures.get(cleMesure(b.cle, f.cote));
+  if (!m?.releve) return null;
+  const existant = (o.facades ?? []).find((r) => r.cote === f.cote);
+  if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) return null;
+  const deja = existant?.depuisAudit ? undefined : existant;
+  const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
+  const charge = (a.retenu.lignes[0]?.constat.charge ?? null) as { releve: ReleveFacade; coinsTrouves?: boolean; rang?: number | null } | null;
+  // Une valeur forcee n'a pas de releve : la mesure de la photo, ou le nombre n'est qu'un reglage a refaire a la main.
+  const releve = charge?.releve ?? m.releve;
+  const n = releve.ouvertures.length;
+  const deClaude = a.retenu.sources.length === 1 && a.retenu.sources[0] === 'claude';
+  return {
+    id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom, source: 'arbitrage',
+    avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + (deClaude ? ', avec l’aide de Claude' : ', texture de la photo'),
+    indices: indicesDuRetenu(a), confiance: null,
+    remplaceChoix: deja ? avantTexte : null,
+    reserve: [a.decision === 'manuelle' ? a.raison : null, m.coinsTrouves ? null : 'Les coins du mur n’ont pas été trouvés sur la photo : ils sont prédits par la prise de vue, à vérifier.'].filter(Boolean).join(' ') || null,
+    effet: { type: 'releve', releve }, arbitrages: [resumeArbitrage(a, regles)],
+  };
+}
+
 export type ChoixArbitrages = Readonly<Record<string, ChoixArbitrage | undefined>>;
 export const cleChoix = (cible: string, attribut: string): string => cible + '|' + attribut;
 
 /** Tous les arbitrages d'un batiment : un par attribut dont une source au moins parle, avec ce que la personne en a decide. */
 export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Arbitrage[] {
-  const { constats, projet } = constatsDuBatiment({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote });
+  const { constats, projet } = constatsDuBatiment({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, renfort: e.renfort });
   const choixDe = (cible: string, attribut: string) => choix[cleChoix(cible, attribut)];
   const faits = arbitrerTout(constats, projet, regles, choixDe);
   // Meme sans source, ces attributs restent proposes a la personne : c'est ainsi qu'elle peut forcer une valeur que personne n'a lue.
@@ -279,6 +307,10 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
     if (!o || !b) continue;
     const cible = cibleBatiment(cle);
     const parAttribut = (id: IdAttribut) => arbitrages.find((a) => a.cible === cible && a.attribut === id);
+    for (const f of b.facades) {
+      const p = propositionReleve(o, b, f, arbitrages.find((x) => x.cible === cibleFacade(cle, f.cote) && x.attribut === 'ouverturesFacade'), e, regles);
+      if (p) out.push(p);
+    }
     for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles)]) if (p) out.push(p);
   }
   return out;

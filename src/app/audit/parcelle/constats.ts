@@ -25,6 +25,8 @@ import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { resumePartie, type CeQueJeVois, type SoucheVue } from '../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
+import { releveAvecOuvertures } from './propositionsClaude.js';
+import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 
 export const cibleBatiment = (cle: string): string => 'batiment:' + cle;
 export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cle + '#' + cote;
@@ -62,6 +64,8 @@ export interface EntreesConstats {
   vu: CeQueJeVois;
   /** Le vote des passes de Claude pour ce batiment ; null sans analyse. */
   vote: VoteAnalyse | null;
+  /** Le renfort de Claude sur les facades (ses ouvertures), par `cle#cote` ; absent sans analyse. */
+  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
 }
 
 export interface ConstatsBatiment {
@@ -146,6 +150,26 @@ function constatsPhoto({ o, b, mesures }: EntreesConstats): Constat[] {
   });
   out.push(...constatsDesSilhouettes('photo', cible, dits, confiance, REGLES_LIDAR.photo.silhouette, indices));
   for (const { f, m } of lues) if (m?.silhouette && m.silhouette !== 'indetermine') out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'silhouetteFacade', source: 'photo', valeur: m.silhouette, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.silhouette });
+  // Le releve d'ouvertures de chaque mur : son nombre s'arbitre, le releve lui-meme est ce que la proposition ecrit si cette valeur l'emporte.
+  for (const { f, m } of lues) {
+    if (!m?.releve) continue;
+    const n = m.releve.ouvertures.length;
+    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'photo', valeur: n, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.ouvertures,
+      indices: m.rangReleve != null ? [{ texte: 'Photo ' + (m.rangReleve + 1) + ' de la façade', photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [],
+      charge: { releve: m.releve, coinsTrouves: m.coinsTrouves, rang: m.rangReleve } });
+  }
+  return out;
+}
+
+/** Les constats de Claude sur les ouvertures : son releve renforce, mur par mur, pose sur le releve mesure. */
+function constatsRenfort({ b, mesures, renfort }: EntreesConstats): Constat[] {
+  const out: Constat[] = [];
+  for (const f of b.facades) {
+    const id = cleMesure(b.cle, f.cote), rf = renfort?.[id], releve0 = mesures.get(id)?.releve;
+    if (!rf?.resume || !releve0) continue;
+    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'claude', valeur: rf.ouvertures.length, confiance: rf.passes / 3, regle: REGLES_LIDAR.claude.ouvertures,
+      charge: { releve: releveAvecOuvertures(releve0, rf.ouvertures) } });
+  }
   return out;
 }
 
@@ -203,7 +227,7 @@ function constatsTerrain({ b, vu }: EntreesConstats): Constat[] {
 function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => EtatProjet {
   const c = principal(o.corpsToit);
   const vide: EtatProjet = { valeur: null, choisi: false };
-  return (_cible, attribut) => {
+  return (cible, attribut) => {
     switch (attribut) {
       case 'hauteurEgout': return { valeur: cm(hauteurDe(o)), choisi: !o.bdtopo && typeof o.elevation === 'number' };
       case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.toit ? cm(hauteurDe(o) + o.toit.hauteur) : null, choisi: false };
@@ -211,6 +235,7 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
       case 'boutsToit': return { valeur: c ? boutsDuCorps(c) : null, choisi: false };
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
       case 'cheminees': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
+      case 'ouverturesFacade': { const f = (o.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
       case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.couleurMurs?.materiau };
       case 'couverture': return { valeur: o.toit?.couverture ?? null, choisi: !!o.toit?.couverture };
       default: return vide;
@@ -220,5 +245,5 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
 
 /** Tous les constats d'un batiment, source par source, et l'etat du projet pour les comparer. */
 export function constatsDuBatiment(e: EntreesConstats): ConstatsBatiment {
-  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
+  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsRenfort(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
 }
