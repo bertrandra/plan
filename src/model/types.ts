@@ -831,6 +831,16 @@ export interface DetailsOuverture {
   ferme?: boolean;
   allege?: 'pleine' | 'balcon' | 'garde-corps';
   forme?: 'rect' | 'cintre' | 'rond';
+  /** Le vitrage : d'un seul verre, a petits bois, ou d'un seul verre sous une imposte a petits bois. */
+  vitrage?: 'plein' | 'petits-bois' | 'imposte-petits-bois';
+  /** Comment la fenetre s'ouvre : a la francaise (deux vantaux), coulissante, a guillotine, a soufflet, ou fixe. */
+  ouvrant?: 'battants' | 'coulissant' | 'guillotine' | 'soufflet' | 'fixe';
+  /** Le vantail d'une porte : plein, vitre sur toute sa hauteur, ou vitre en partie haute. */
+  remplissage?: 'pleine' | 'vitree' | 'semi-vitree';
+  /** Une porte de garage : sectionnelle (panneaux horizontaux), basculante (un seul panneau), a battants, enroulable (lames fines). */
+  garage?: 'sectionnelle' | 'basculante' | 'battants' | 'enroulable';
+  /** La couleur des volets ou du tablier, en hexadecimal ; absente : la couleur par defaut du dessin. */
+  couleurVolets?: string;
 }
 
 /**

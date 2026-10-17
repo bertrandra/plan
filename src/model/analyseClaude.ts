@@ -30,7 +30,8 @@ export interface FacadeAnalyse {
   /** L'etiquette donnee dans le prompt : « sud », « nord »… */
   facade: string;
   ouvertures: { niveaux: Compte; parNiveau: Compte[]; manquees: Compte; enTrop: Compte };
-  details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string };
+  /** `vitrage`, `ouvrant`, `porte`, `garage`, `couleurVolets` : absents d'une reponse d'avant le schema version 5. */
+  details: { volets: string; coffre: OuiNon; balcon: OuiNon; forme: string; vitrage?: string; ouvrant?: string; porte?: string; garage?: string; couleurVolets?: string };
   materiau: 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois' | 'indetermine';
   /** La ligne du haut de la facade et ce qu'elle ferme (model/silhouetteFacade.ts) ; absents d'une reponse d'avant le prompt version 7. */
   silhouette?: string;
@@ -118,6 +119,11 @@ export interface FacadeVotee {
   coffre: Vote<OuiNon>;
   balcon: Vote<OuiNon>;
   formeOuvertures: Vote<string>;
+  vitrage: Vote<string>;
+  ouvrant: Vote<string>;
+  porte: Vote<string>;
+  garage: Vote<string>;
+  couleurVolets: Vote<string>;
   silhouette: Vote<SilhouetteFacade>;
   bout: Vote<BoutVu>;
   niveaux: Vote<Compte>;
@@ -218,6 +224,8 @@ function voterFacades(reponses: readonly ReponseAnalyse[]): FacadeVotee[] {
       facade: etiquette,
       materiau: v((f) => f.materiau, IND), volets: v((f) => f.details.volets, IND), coffre: v((f) => f.details.coffre, IND),
       balcon: v((f) => f.details.balcon, IND), formeOuvertures: v((f) => f.details.forme, IND),
+      vitrage: v((f) => f.details.vitrage ?? IND, IND), ouvrant: v((f) => f.details.ouvrant ?? IND, IND), porte: v((f) => f.details.porte ?? IND, IND),
+      garage: v((f) => f.details.garage ?? IND, IND), couleurVolets: v((f) => f.details.couleurVolets ?? IND, IND),
       silhouette: v((f) => silhouetteLue(f.silhouette), IND), bout: v((f) => boutLu(f.bout), IND),
       niveaux: v<Compte>((f) => f.ouvertures.niveaux, IND), parNiveau: v((f) => lireParNiveau(f.ouvertures.parNiveau), IND as number[] | 'indetermine'), manquees: v<Compte>((f) => f.ouvertures.manquees, IND), enTrop: v<Compte>((f) => f.ouvertures.enTrop, IND),
       ecarts: [...new Set(fs.map((f) => f.ecart.trim()).filter(Boolean))],

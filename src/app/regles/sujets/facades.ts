@@ -4,6 +4,8 @@ import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { textureDesMurs, type MateriauTexture } from '../../../model/couleurMur.js';
 import type { FacadeVotee, IndiceAnalyse, Vote, VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
+import type { DetailsOuverture } from '../../../model/types.js';
+import { COULEURS_VOLETS, GARAGES_VUS, OUVRANTS_VUS, PORTES_VUES, VITRAGES_VUS } from '../../../model/ouverturesVues.js';
 import { deClaude, pluriel, type EntreeObservation, type EntreeSujet, type LigneObservation, type Sujet } from './contrat.js';
 
 const MATERIAUX: readonly string[] = MATERIAUX_MURS_VUS.map((m) => m.code);
@@ -38,6 +40,49 @@ const SILHOUETTES: Record<string, string> = { triangle: 'haut en triangle', trap
 const BOUT_FACADE: Record<string, string> = { pignon: 'ferme un bout du faîtage en pignon', croupe: 'ferme un bout du faîtage en croupe', 'demi-croupe': 'ferme un bout du faîtage en demi-croupe', brisis: 'ferme un bout du faîtage en brisis', 'sans-objet': 'long pan, sans bout' };
 const FORMES_BAIES: Record<string, string> = { cintree: 'baies cintrées', 'oeil-de-boeuf': 'œil-de-bœuf', mixte: 'baies de formes mêlées' };
 
+const VOLETS_CLAUDE: Readonly<Record<string, NonNullable<DetailsOuverture['volets']>>> = { battants: 'battants', roulants: 'roulant', persiennes: 'persiennes', aucun: 'aucun' };
+const DIRE_VOLETS: Readonly<Record<NonNullable<DetailsOuverture['volets']>, string>> = { battants: 'volets battants', roulant: 'volets roulants', persiennes: 'persiennes', aucun: 'sans volets' };
+const DIRE_VITRAGE: Readonly<Record<NonNullable<DetailsOuverture['vitrage']>, string>> = { plein: 'verre plein', 'petits-bois': 'petits carreaux', 'imposte-petits-bois': 'imposte à petits carreaux' };
+const DIRE_OUVRANT: Readonly<Record<NonNullable<DetailsOuverture['ouvrant']>, string>> = { battants: 'à la française', coulissant: 'coulissantes', guillotine: 'à guillotine', soufflet: 'à soufflet', fixe: 'fixes' };
+const DIRE_PORTE: Readonly<Record<NonNullable<DetailsOuverture['remplissage']>, string>> = { pleine: 'porte pleine', vitree: 'porte vitrée', 'semi-vitree': 'porte semi-vitrée' };
+const DIRE_GARAGE: Readonly<Record<NonNullable<DetailsOuverture['garage']>, string>> = { sectionnelle: 'garage sectionnel', basculante: 'garage basculant', battants: 'garage à battants', enroulable: 'garage enroulable' };
+
+/** Ce que Claude dit des ouvertures d'une facade, dans le vocabulaire des details du releve, et en clair ; vide quand il ne dit rien d'utilisable. */
+export function detailsDeLaFacade(f: FacadeVotee): { details: DetailsOuverture; votes: Vote<string>[]; textes: string[] } {
+  const details: DetailsOuverture = {};
+  const votes: Vote<string>[] = [];
+  const textes: string[] = [];
+  const poser = <K extends keyof DetailsOuverture>(k: K, valeur: DetailsOuverture[K] | undefined, vote: Vote<string>, texte: string | undefined) => {
+    if (valeur === undefined) return;
+    details[k] = valeur;
+    votes.push(vote);
+    if (texte) textes.push(texte);
+  };
+  const volets = VOLETS_CLAUDE[f.volets.valeur];
+  // Un coffre au-dessus des baies dit un volet roulant, meme quand les tabliers sont releves.
+  if (volets) poser('volets', volets, f.volets, undefined);
+  else if (f.coffre.valeur === 'oui' && f.volets.valeur === 'indetermine') poser('volets', 'roulant', f.coffre, undefined);
+  const couleur = COULEURS_VOLETS.find((c) => c.code === f.couleurVolets.valeur);
+  if (details.volets && details.volets !== 'aucun') {
+    textes.push(DIRE_VOLETS[details.volets] + (couleur ? ' ' + couleur.libelle : ''));
+    poser('couleurVolets', couleur?.couleur, f.couleurVolets, undefined);
+  } else if (details.volets) textes.push(DIRE_VOLETS[details.volets]);
+  if (f.formeOuvertures.valeur === 'cintree') poser('forme', 'cintre', f.formeOuvertures, 'baies cintrées');
+  const vitrage = VITRAGES_VUS[f.vitrage.valeur], ouvrant = OUVRANTS_VUS[f.ouvrant.valeur];
+  poser('vitrage', vitrage, f.vitrage, vitrage && DIRE_VITRAGE[vitrage]);
+  poser('ouvrant', ouvrant, f.ouvrant, ouvrant && 'fenêtres ' + DIRE_OUVRANT[ouvrant]);
+  const porte = PORTES_VUES[f.porte.valeur], garage = GARAGES_VUS[f.garage.valeur];
+  poser('remplissage', porte, f.porte, porte && DIRE_PORTE[porte]);
+  poser('garage', garage, f.garage, garage && DIRE_GARAGE[garage]);
+  return { details, votes, textes };
+}
+
+const COULEURS_DITES: Record<string, string> = Object.fromEntries(COULEURS_VOLETS.map((c) => [c.code, 'volets ' + c.libelle]));
+const VITRAGES_DITS: Record<string, string> = { plein: 'verre plein', 'petits-bois': 'petits carreaux', 'imposte-petits-bois': 'imposte à petits carreaux', mixte: 'vitrages de plusieurs sortes' };
+const OUVRANTS_DITS: Record<string, string> = { battants: 'fenêtres à la française', coulissant: 'fenêtres coulissantes', guillotine: 'fenêtres à guillotine', soufflet: 'fenêtres à soufflet', fixe: 'châssis fixes', mixte: 'ouvrants de plusieurs sortes' };
+const PORTES_DITES: Record<string, string> = { pleine: 'porte pleine', vitree: 'porte vitrée', 'semi-vitree': 'porte semi-vitrée' };
+const GARAGES_DITS: Record<string, string> = { sectionnelle: 'porte de garage sectionnelle', basculante: 'porte de garage basculante', battants: 'porte de garage à battants', enroulable: 'porte de garage enroulable' };
+
 /** Les niveaux d'ouvertures d'une facade, en clair : « 2 niveaux d'ouvertures (3 + 2) » ; null quand Claude ne les compte pas. */
 export function niveauxEnClair(f: FacadeVotee): string | null {
   const n = f.niveaux.valeur, par = f.parNiveau.valeur;
@@ -49,7 +94,8 @@ export function niveauxEnClair(f: FacadeVotee): string | null {
 function observationsFacades({ v, reponses }: EntreeObservation): LigneObservation[] {
   const out: LigneObservation[] = [];
   for (const f of v.facades) {
-    const vus = [[f.volets, VOLETS], [f.balcon, { oui: 'balcon' }], [f.formeOuvertures, FORMES_BAIES], [f.silhouette, SILHOUETTES], [f.bout, BOUT_FACADE]] as [Vote<string>, Record<string, string>][];
+    const vus = [[f.volets, VOLETS], [f.couleurVolets, COULEURS_DITES], [f.balcon, { oui: 'balcon' }], [f.formeOuvertures, FORMES_BAIES], [f.vitrage, VITRAGES_DITS], [f.ouvrant, OUVRANTS_DITS],
+      [f.porte, PORTES_DITES], [f.garage, GARAGES_DITS], [f.silhouette, SILHOUETTES], [f.bout, BOUT_FACADE]] as [Vote<string>, Record<string, string>][];
     const retenus = vus.filter(([x, table]) => x.valeur !== 'indetermine' && table[x.valeur]);
     const niveaux = niveauxEnClair(f);
     const indices: IndiceAnalyse[] = reponses.flatMap((r) => r.facades.filter((x) => x.facade === f.facade).flatMap((x) => x.indices));

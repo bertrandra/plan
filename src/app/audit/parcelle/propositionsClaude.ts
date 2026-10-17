@@ -12,21 +12,23 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
-import { contradictionsLidar, indicesLidar, reserveConfiance, type FacadeVotee, type Vote, type VoteAnalyse } from '../../../model/analyseClaude.js';
+import { contradictionsLidar, indicesLidar, reserveConfiance, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
-import type { DetailsOuverture, ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
+import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
 import { bilanVide, texteBilan } from '../../../facade/renfortRecalage.js';
 import { avecGrille } from '../../../facade/verification.js';
 import { SUJETS } from '../../regles/sujets/index.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
-import { indicesDe, pluriel } from '../../regles/sujets/contrat.js';
+import { indicesDe, majuscule, pluriel } from '../../regles/sujets/contrat.js';
+import { completerDetails } from '../../../model/ouverturesVues.js';
+import { detailsDeLaFacade } from '../../regles/sujets/facades.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import { etiquetteFacade, type LigneBatiment } from './liste.js';
 
 // Ce que ce module garde de la facade publique d'avant le registre des sujets (app/regles/sujets/).
 export { couvertureDuVocabulaire } from '../../regles/sujets/couverture.js';
-export { materiauDesFacades } from '../../regles/sujets/facades.js';
+export { detailsDeLaFacade, materiauDesFacades } from '../../regles/sujets/facades.js';
 export { indicesDe } from '../../regles/sujets/contrat.js';
 
 /** Les reponses lues pour un batiment, et les etiquettes des images qu'il a recues. */
@@ -149,58 +151,35 @@ export function propositionsRenfort(e: EntreesPropositions, renfort: Record<stri
 /** Les details de Claude valent pour la majorite des ouvertures d'une facade, pas pour chacune : jamais coches d'office. */
 export const RESERVE_DETAILS = 'Taux d’accord de Claude non encore mesuré sur les détails des ouvertures, qui valent pour la majorité des ouvertures de la façade : vérifiez-les sur la photo.';
 
-const VOLETS_CLAUDE: Readonly<Record<string, NonNullable<DetailsOuverture['volets']>>> = { battants: 'battants', roulants: 'roulant', persiennes: 'persiennes', aucun: 'aucun' };
-const DIRE_VOLETS: Readonly<Record<NonNullable<DetailsOuverture['volets']>, string>> = { battants: 'volets battants', roulant: 'volets roulants', persiennes: 'persiennes', aucun: 'sans volets' };
-/** Les volets et les baies cintrees ne se posent que sur les fenetres et les portes-fenetres : une porte ou un garage n'en ont pas. */
-const AVEC_DETAILS: ReadonlySet<TypeOuverture> = new Set(['fenetre', 'porte-fenetre']);
-
-/** Ce que Claude dit des ouvertures d'une facade, dans le vocabulaire des details du releve ; vide quand il ne dit rien d'utilisable. */
-export function detailsDeLaFacade(f: FacadeVotee): { details: DetailsOuverture; votes: Vote<string>[] } {
-  const details: DetailsOuverture = {};
-  const votes: Vote<string>[] = [];
-  const volets = VOLETS_CLAUDE[f.volets.valeur];
-  // Un coffre au-dessus des baies dit un volet roulant, meme quand les tabliers sont releves.
-  if (volets) { details.volets = volets; votes.push(f.volets); } else if (f.coffre.valeur === 'oui' && f.volets.valeur === 'indetermine') { details.volets = 'roulant'; votes.push(f.coffre); }
-  if (f.formeOuvertures.valeur === 'cintree') { details.forme = 'cintre'; votes.push(f.formeOuvertures); }
-  return { details, votes };
-}
-
 /**
- * Les details des ouvertures que Claude voit (volets, coffre, baies cintrees), poses sur le releve mesure d'une facade que le
- * renfort n'a pas touchee (le renfort les donne ouverture par ouverture, et mieux). Seuls les details que la detection n'a pas
- * reconnus sont completes, sur les fenetres et les portes-fenetres. La ligne contient tout le releve mesure : cochee, elle
- * l'emporte sur la ligne de la mesure (meme facade, meme effet, ecrit apres).
+ * Les details des ouvertures que Claude voit sur une facade (volets et leur couleur, coffre, baies cintrees, vitrage, ouvrant,
+ * porte d'entree, porte de garage) : une ligne par facade qui a un releve (celui de la mesure, sinon celui du projet). L'effet
+ * `detailsOuvertures` les pose a l'ecriture sur le releve tel qu'il est alors (mesure ou renfort, celui qui est coche), sur les
+ * ouvertures du type qu'ils concernent et qui ne les ont pas : le renfort, qui les donne ouverture par ouverture, l'emporte.
  */
 export function propositionsDetails(e: EntreesPropositions, parBatiment: Record<string, ReponsesBatiment>): Proposition[] {
   const out: Proposition[] = [];
+  const parCle = new Map(e.objets.map((o) => [o.key, o]));
   for (const b of e.liste.batiments) {
     const r = parBatiment[b.cle];
     const reponses = r ? passesLues(r.reponses) : [];
     if (!r || !reponses.length) continue;
     const v = voterAnalyse(reponses, r.escalade);
     for (const f of b.facades) {
-      const id = cleMesure(b.cle, f.cote), mesure0 = e.mesures.get(id)?.releve;
-      if (!mesure0?.ouvertures.length || e.renfort?.[id]?.resume) continue;
+      const id = cleMesure(b.cle, f.cote);
+      const base = e.mesures.get(id)?.releve ?? parCle.get(b.cle)?.facades?.find((x) => x.cote === f.cote) ?? null;
       const fv = v.facades.find((x) => x.facade === etiquetteFacade(b, f));
-      if (!fv) continue;
-      const { details, votes } = detailsDeLaFacade(fv);
+      if (!base?.ouvertures.length || !fv) continue;
+      const { details, votes, textes } = detailsDeLaFacade(fv);
       if (!votes.length) continue;
-      let completees = 0;
-      const ouvertures = mesure0.ouvertures.map((o) => {
-        if (!AVEC_DETAILS.has(o.type)) return o;
-        const ajout = Object.fromEntries(Object.entries(details).filter(([k]) => o.details?.[k as keyof DetailsOuverture] === undefined)) as DetailsOuverture;
-        if (!Object.keys(ajout).length) return o;
-        completees++;
-        return { ...o, details: { ...o.details, ...ajout } };
-      });
+      const completees = base.ouvertures.filter((o) => completerDetails(o.type, o.details, details)).length;
       if (!completees) continue;
-      const dits = [details.volets ? DIRE_VOLETS[details.volets] : null, details.forme === 'cintre' ? 'baies cintrées' : null].filter(Boolean).join(', ');
       out.push({
-        id: id + ':claude:details', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
-        avant: pluriel(mesure0.ouvertures.length, 'ouverture') + ' mesurée' + (mesure0.ouvertures.length > 1 ? 's' : '') + ' sur la photo',
-        apres: dits + ' sur ' + pluriel(completees, 'ouverture') + ', vu par Claude',
+        id: id + ':claude:details', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Ouvertures de la façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
+        avant: pluriel(base.ouvertures.length, 'ouverture') + ' au relevé',
+        apres: majuscule(textes.join(', ')) + ', vu par Claude (' + pluriel(completees, 'ouverture') + ' à compléter)',
         source: 'claude', indices: indicesDe(votes.flatMap((x) => x.indices), r.etiquettes), confiance: Math.min(...votes.map((x) => x.accord)), remplaceChoix: null,
-        effet: { type: 'releve', releve: { ...mesure0, ouvertures } }, reserve: RESERVE_DETAILS,
+        effet: { type: 'detailsOuvertures', cote: f.cote, details }, reserve: RESERVE_DETAILS,
       });
     }
   }

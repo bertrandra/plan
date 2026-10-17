@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { propositionsDeClaude, propositionsDetails, detailsDeLaFacade } from '../../../../../src/app/audit/parcelle/propositionsClaude.js';
+import { completerDetails } from '../../../../../src/model/ouverturesVues.js';
+import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { observationsDeClaude } from '../../../../../src/app/audit/parcelle/observationsClaude.js';
 import { avecReserveDesNiveaux, niveauxSousEgout, reserveNiveaux } from '../../../../../src/app/audit/parcelle/niveauxClaude.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
@@ -99,21 +101,49 @@ describe('les détails des ouvertures', () => {
     { type: 'porte', x: 8, y: 0, l: 1, h: 2.1, source: 'detectee' },
   ] } as ReleveFacade;
   const mesures = () => new Map<string, MesureFacade>([['maison#0', { cle: 'maison', cote: 0, releve, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null }]]);
+  const details = (plus: Record<string, string>) => avec({ facades: [{ ...reponse().facades[0]!, details: { ...reponse().facades[0]!.details, ...plus } }] });
 
-  it('traduit les volets, le coffre et les baies cintrées dans le vocabulaire du relevé', () => {
-    const v = voter([avec({ facades: [{ ...reponse().facades[0]!, details: { volets: 'indetermine', coffre: 'oui', balcon: 'non', forme: 'cintree' } }] })]);
-    expect(detailsDeLaFacade(v.facades[0]!).details).toEqual({ volets: 'roulant', forme: 'cintre' });
-    expect(detailsDeLaFacade(voter([avec({ facades: [{ ...reponse().facades[0]!, details: { volets: 'mixte', coffre: 'non', balcon: 'non', forme: 'mixte' } }] })]).facades[0]!).votes).toEqual([]);
+  it('traduit volets, couleur, coffre, baies cintrées, vitrage, ouvrant, porte et garage dans le vocabulaire du relevé', () => {
+    const v = voter([details({ volets: 'indetermine', coffre: 'oui', forme: 'cintree', vitrage: 'imposte-petits-bois', ouvrant: 'guillotine', porte: 'semi-vitree', garage: 'sectionnelle', couleurVolets: 'vert' })]);
+    const d = detailsDeLaFacade(v.facades[0]!);
+    expect(d.details).toEqual({ volets: 'roulant', couleurVolets: '#5E7D5E', forme: 'cintre', vitrage: 'imposte-petits-bois', ouvrant: 'guillotine', remplissage: 'semi-vitree', garage: 'sectionnelle' });
+    expect(d.textes).toEqual(['volets roulants verts', 'baies cintrées', 'imposte à petits carreaux', 'fenêtres à guillotine', 'porte semi-vitrée', 'garage sectionnel']);
+    // Mixte, sans objet ou indetermine : rien a poser.
+    expect(detailsDeLaFacade(voter([details({ volets: 'mixte', forme: 'mixte', vitrage: 'mixte', ouvrant: 'mixte', porte: 'sans-objet', garage: 'indetermine', couleurVolets: 'mixte' })]).facades[0]!).votes).toEqual([]);
+    // Une reponse d'avant le schema version 5 : ses details d'avant seulement.
+    expect(detailsDeLaFacade(voter([reponse()]).facades[0]!).details).toEqual({ volets: 'battants' });
   });
 
-  it('complète les fenêtres sans détail, jamais une porte ni un détail déjà reconnu, et arrive décochée', () => {
+  it('complète chaque ouverture des détails de son type qu’elle n’a pas', () => {
+    const f = { volets: 'battants', couleurVolets: '#5E7D5E', vitrage: 'petits-bois', ouvrant: 'guillotine', remplissage: 'vitree', garage: 'basculante' } as const;
+    expect(completerDetails('fenetre', undefined, f)).toEqual({ volets: 'battants', couleurVolets: '#5E7D5E', vitrage: 'petits-bois', ouvrant: 'guillotine' });
+    expect(completerDetails('fenetre', { volets: 'roulant' }, f)).toEqual({ volets: 'roulant', couleurVolets: '#5E7D5E', vitrage: 'petits-bois', ouvrant: 'guillotine' });
+    expect(completerDetails('porte-fenetre', { volets: 'aucun' }, f)).toEqual({ volets: 'aucun', vitrage: 'petits-bois' });
+    expect(completerDetails('porte', undefined, f)).toEqual({ remplissage: 'vitree' });
+    expect(completerDetails('garage', { garage: 'sectionnelle' }, f)).toBe(null);
+  });
+
+  it('se propose par façade, décochée, et s’écrit sur le relevé coché au moment de l’écriture', () => {
     const e = entrees(mesures());
-    const [p] = propositionsDetails(e, { maison: { reponses: [reponse(), reponse(), reponse()], etiquettes: ETIQUETTES } });
-    expect(p).toMatchObject({ id: 'maison#0:claude:details', source: 'claude', apres: 'volets battants sur 1 ouverture, vu par Claude', confiance: 1, cible: { type: 'facade', cle: 'maison', cote: 0 } });
-    const ouvertures = (p?.effet as { releve: ReleveFacade }).releve.ouvertures;
-    expect(ouvertures.map((o) => o.details?.volets)).toEqual(['battants', 'roulant', undefined]);
+    const r = details({ vitrage: 'petits-bois', couleurVolets: 'bleu', porte: 'pleine' });
+    const [p] = propositionsDetails(e, { maison: { reponses: [r, r, r], etiquettes: ETIQUETTES } });
+    expect(p).toMatchObject({ id: 'maison#0:claude:details', source: 'claude', apres: 'Volets battants bleus, petits carreaux, porte pleine, vu par Claude (3 ouvertures à compléter)', confiance: 1, cible: { type: 'facade', cle: 'maison', cote: 0 } });
+    expect(p?.effet).toEqual({ type: 'detailsOuvertures', cote: 0, details: { volets: 'battants', couleurVolets: '#5B7A99', vitrage: 'petits-bois', remplissage: 'pleine' } });
     expect(p?.reserve).toMatch(/majorité des ouvertures/);
-    // Le renfort a touche la facade : il donne les details ouverture par ouverture, la ligne s'efface.
-    expect(propositionsDetails({ ...e, renfort: { 'maison#0': { resume: '…' } as never } }, { maison: { reponses: [reponse()], etiquettes: [] } })).toEqual([]);
+    // L'ecriture : le releve d'abord (rang 1), puis ses details (rang 2), quel que soit l'ordre de la liste.
+    const objets = structuredClone(e.objets) as ObjetPlan[];
+    const releveCoche = { id: 'maison#0:releve', cible: { type: 'facade', cle: 'maison', cote: 0 }, effet: { type: 'releve', releve } } as unknown as Proposition;
+    appliquerPropositions(objets, [p!, releveCoche], [], '2026-10-17');
+    const ecrites = (objets[1] as ObjetPlan).facades?.[0]?.ouvertures ?? [];
+    expect(ecrites.map((o) => o.details)).toEqual([
+      { volets: 'battants', couleurVolets: '#5B7A99', vitrage: 'petits-bois' },
+      { volets: 'roulant', couleurVolets: '#5B7A99', vitrage: 'petits-bois' },
+      { remplissage: 'pleine' },
+    ]);
+    // Ce qui se dit aussi en observation, facade par facade.
+    const obs = observationsDeClaude(e, { maison: { reponses: [r, r, r], etiquettes: ETIQUETTES } }, {});
+    expect(obs[0]?.observations.map((o) => o.texte)).toContain('Façade sud : 2 niveaux d’ouvertures (3 + 3), volets battants, volets bleus, petits carreaux, porte pleine');
+    // Sans releve (ni mesure ni projet), rien a completer : pas de ligne.
+    expect(propositionsDetails(entrees(), { maison: { reponses: [r], etiquettes: [] } })).toEqual([]);
   });
 });

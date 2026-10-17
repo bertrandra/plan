@@ -16,6 +16,7 @@
 // abords (`RELIEF_FENETRES_M`) en recoivent, et pas en qualite Econome.
 
 import type * as THREE_NS from 'three';
+import type { DetailsOuverture } from '../model/types.js';
 import { Batisseur, type S3 } from './batisseur.js';
 
 /** Le repere d'une facade : abscisse le long du mur, hauteur, saillie hors du mur (metres). */
@@ -41,6 +42,31 @@ const S_VITRE = 0.012;
 export interface Carreaux {
   colonnes: number;
   rangs: number;
+  /** Une traverse au milieu aussi large que le dormant : les deux chassis d'une fenetre a guillotine. */
+  traverse?: boolean;
+  /** Une imposte a petits bois en haut de la baie : sa part de la hauteur et ses carreaux en largeur ; le bas reste en `colonnes` x `rangs`. */
+  imposte?: { part: number; colonnes: number };
+}
+
+/** La part de la hauteur d'une imposte a petits bois au-dessus d'un verre plein. */
+export const PART_IMPOSTE = 0.3;
+
+/**
+ * Les carreaux d'une baie dont le releve dit le vitrage ou l'ouvrant (model/ouverturesVues.ts, vus par Claude) ; sans eux,
+ * ceux de l'epoque (`parEpoque`), comme avant. Petits bois : trois carreaux de haut (deux si la baie est basse), quatre sur
+ * une guillotine (deux par chassis) ; verre plein : les vantaux seuls (un meneau entre deux battants ou deux coulissants, une
+ * traverse sur une guillotine, rien sur un chassis fixe ou a soufflet).
+ */
+export function carreauxDesDetails(d: DetailsOuverture | undefined, hauteur: number, parEpoque: Carreaux | null): Carreaux | null {
+  const vitrage = d?.vitrage, ouvrant = d?.ouvrant;
+  if (!vitrage && !ouvrant) return parEpoque;
+  const guillotine = ouvrant === 'guillotine', unSeul = ouvrant === 'fixe' || ouvrant === 'soufflet';
+  const colonnes = guillotine || unSeul ? 1 : 2;
+  const plein: Carreaux | null = guillotine ? { colonnes: 1, rangs: 2, traverse: true } : colonnes > 1 ? { colonnes, rangs: 1 } : null;
+  if (vitrage === 'petits-bois') return guillotine ? { colonnes: 2, rangs: 4, traverse: true } : { colonnes: Math.max(colonnes, 2), rangs: hauteur >= 1.1 ? 3 : 2 };
+  if (vitrage === 'imposte-petits-bois') return { ...(plein ?? { colonnes: 1, rangs: 1 }), imposte: { part: PART_IMPOSTE, colonnes: 4 } };
+  // Verre plein, ou un ouvrant vu sans le vitrage : les vantaux seuls, sans les petits bois de l'epoque.
+  return plein;
 }
 
 /**
@@ -116,23 +142,39 @@ function poserMenuiserie(b: BatisseursBaies, pt: Point3, o: BaieRelief, carreaux
   pave(b.menuiserie, pt, o.x + m, o.x + o.l - m, o.y, o.y + m, 0, e);
   if (carreaux) {
     const p = PETITS_BOIS_M, ep = e * 0.7;
-    const l = o.l - 2 * m, h = o.h - 2 * m;
+    const l = o.l - 2 * m;
+    // Une imposte : une traverse aussi large que le dormant, et ses petits bois au-dessus ; le reste de la baie dessous.
+    const hImposte = carreaux.imposte ? (o.h - 2 * m) * carreaux.imposte.part : 0;
+    const haut = o.y + o.h - m - hImposte;
+    if (carreaux.imposte) {
+      pave(b.menuiserie, pt, o.x + m, o.x + o.l - m, haut - m / 2, haut + m / 2, 0, e);
+      for (let c = 1; c < carreaux.imposte.colonnes; c++) {
+        const xc = o.x + m + (l * c) / carreaux.imposte.colonnes;
+        pave(b.menuiserie, pt, xc - p / 2, xc + p / 2, haut + m / 2, o.y + o.h - m, 0, ep);
+      }
+    }
+    const h = haut - (carreaux.imposte ? m / 2 : 0) - (o.y + m);
     for (let c = 1; c < carreaux.colonnes; c++) {
       const xc = o.x + m + (l * c) / carreaux.colonnes;
       // Le meneau central des deux vantaux est aussi large que le dormant.
       const w = c * 2 === carreaux.colonnes ? m : p;
-      pave(b.menuiserie, pt, xc - w / 2, xc + w / 2, o.y + m, o.y + o.h - m, 0, e);
+      pave(b.menuiserie, pt, xc - w / 2, xc + w / 2, o.y + m, o.y + m + h, 0, e);
     }
     for (let r = 1; r < carreaux.rangs; r++) {
       const yr = o.y + m + (h * r) / carreaux.rangs;
-      pave(b.menuiserie, pt, o.x + m, o.x + o.l - m, yr - p / 2, yr + p / 2, 0, ep);
+      // La traverse d'une guillotine, entre ses deux chassis, est aussi large que le dormant.
+      const w = carreaux.traverse && r * 2 === carreaux.rangs ? m : p;
+      pave(b.menuiserie, pt, o.x + m, o.x + o.l - m, yr - w / 2, yr + w / 2, 0, w === m ? e : ep);
     }
   }
   b.vitre.quad(pt(o.x, o.y, S_VITRE), pt(o.x + o.l, o.y, S_VITRE), pt(o.x + o.l, o.y + o.h, S_VITRE), pt(o.x, o.y + o.h, S_VITRE));
 }
 
-/** La porte d'entree : encadrement sans appui, un vantail a deux panneaux en relief, une imposte vitree au-dessus d'une porte haute. */
-export function poserPorteEnCreux(b: BatisseursBaies, pt: Point3, o: BaieRelief, hMur: number): void {
+/**
+ * La porte d'entree : encadrement sans appui, un vantail a deux panneaux en relief, une imposte vitree au-dessus d'une porte haute.
+ * `remplissage` (vu par Claude) : vitree, la vitre remplace les deux panneaux ; semi-vitree, le panneau du haut.
+ */
+export function poserPorteEnCreux(b: BatisseursBaies, pt: Point3, o: BaieRelief, hMur: number, remplissage?: DetailsOuverture['remplissage']): void {
   const L = ENCADREMENT.largeur, S = ENCADREMENT.saillie;
   const haut = Math.min(o.y + o.h + LINTEAU_M, hMur - 0.05);
   pave(b.encadrement, pt, o.x - L, o.x, o.y, o.y + o.h, 0, S);
@@ -144,20 +186,34 @@ export function poserPorteEnCreux(b: BatisseursBaies, pt: Point3, o: BaieRelief,
   // Deux panneaux en relief, l'un sur l'autre.
   const marge = Math.min(0.12, o.l * 0.15);
   const h1 = hv * 0.38, ecart = 0.1;
-  pave(b.porte, pt, o.x + marge, o.x + o.l - marge, o.y + marge, o.y + marge + h1, S_VITRE, S_VITRE + 0.02);
-  pave(b.porte, pt, o.x + marge, o.x + o.l - marge, o.y + marge + h1 + ecart, o.y + hv - marge, S_VITRE, S_VITRE + 0.02);
+  // La vitre d'une porte, devant le vantail (elle doit gagner le test de profondeur sur lui).
+  const vitre = (y0: number, y1: number) => b.vitre.quad(pt(o.x + marge, y0, S_VITRE + 0.005), pt(o.x + o.l - marge, y0, S_VITRE + 0.005), pt(o.x + o.l - marge, y1, S_VITRE + 0.005), pt(o.x + marge, y1, S_VITRE + 0.005));
+  if (remplissage === 'vitree') vitre(o.y + marge, o.y + hv - marge);
+  else pave(b.porte, pt, o.x + marge, o.x + o.l - marge, o.y + marge, o.y + marge + h1, S_VITRE, S_VITRE + 0.02);
+  if (remplissage === 'semi-vitree') vitre(o.y + marge + h1 + ecart, o.y + hv - marge);
+  else if (remplissage !== 'vitree') pave(b.porte, pt, o.x + marge, o.x + o.l - marge, o.y + marge + h1 + ecart, o.y + hv - marge, S_VITRE, S_VITRE + 0.02);
   if (imposte) poserMenuiserie(b, pt, { x: o.x, y: o.y + hv, l: o.l, h: imposte }, null);
 }
 
-/** La porte de garage : encadrement, et des lames horizontales qui accrochent la lumiere. */
-export function poserGarageEnCreux(b: BatisseursBaies, pt: Point3, o: BaieRelief, hMur: number): void {
+/**
+ * La porte de garage : encadrement, et des lames horizontales qui accrochent la lumiere (sectionnelle, ou inconnue).
+ * `garage` (vu par Claude) : basculante, un panneau lisse ; a battants, un joint vertical au milieu ; enroulable, des lames fines.
+ */
+export function poserGarageEnCreux(b: BatisseursBaies, pt: Point3, o: BaieRelief, hMur: number, garage?: DetailsOuverture['garage']): void {
   const L = ENCADREMENT.largeur * 0.8, S = ENCADREMENT.saillie * 0.6;
   const haut = Math.min(o.y + o.h + LINTEAU_M, hMur - 0.05);
   pave(b.encadrement, pt, o.x - L, o.x, o.y, o.y + o.h, 0, S);
   pave(b.encadrement, pt, o.x + o.l, o.x + o.l + L, o.y, o.y + o.h, 0, S);
   pave(b.encadrement, pt, o.x - L, o.x + o.l + L, o.y + o.h, haut, 0, S);
   b.porte.quad(pt(o.x, o.y, S_VITRE), pt(o.x + o.l, o.y, S_VITRE), pt(o.x + o.l, o.y + o.h, S_VITRE), pt(o.x, o.y + o.h, S_VITRE));
-  const lame = 0.5, joint = 0.03;
+  const joint = 0.03;
+  if (garage === 'battants') {
+    const xm = o.x + o.l / 2;
+    pave(b.porte, pt, xm - joint / 2, xm + joint / 2, o.y, o.y + o.h, S_VITRE, S_VITRE + 0.015);
+    return;
+  }
+  if (garage === 'basculante') return;
+  const lame = garage === 'enroulable' ? 0.1 : 0.5;
   for (let y = o.y + lame; y < o.y + o.h - 0.05; y += lame) {
     pave(b.porte, pt, o.x, o.x + o.l, y - joint / 2, y + joint / 2, S_VITRE, S_VITRE + 0.015);
   }
