@@ -100,6 +100,12 @@ export function typesEnClair(ouvertures: readonly Pick<OuvertureFacade, 'type'>[
   return [...comptes].map(([t, n]) => n + ' ' + TYPES_OUVERTURE[t][n > 1 ? 1 : 0]).join(', ');
 }
 
+/** « 4 fenêtres, 1 porte ; volets sur 3 » : ce que le releve compte, types et volets lus, en clair. */
+export function ouverturesEnClair(ouvertures: readonly Pick<OuvertureFacade, 'type' | 'details'>[]): string {
+  const volets = ouvertures.filter((o) => o.details?.volets && o.details.volets !== 'aucun').length;
+  return typesEnClair(ouvertures) + (volets ? ' ; volets sur ' + volets : '');
+}
+
 /**
  * Le renfort de Claude sur les facades (MD/spec-facades-calage-detection.md §12 bis, lot L18) : pour
  * chaque facade ou il a change quelque chose, le releve mesure avec ses ouvertures renforcees (graines

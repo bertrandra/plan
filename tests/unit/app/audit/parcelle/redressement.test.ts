@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mesurerFacade, verticaliteDeg, type DependancesMesures } from '../../../../../src/app/audit/parcelle/mesures.js';
-import { LIBELLE_REJOUER, texteFusion, textePhoto, texteRejeu } from '../../../../../src/app/audit/parcelle/redressement.js';
+import { LIBELLE_REJOUER, avertissementPrise, texteFusion, textePhoto, texteRejeu } from '../../../../../src/app/audit/parcelle/redressement.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { rechercher } from '../../../../../src/zones/releve/serie.js';
 import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
@@ -147,5 +147,21 @@ describe('les phrases', () => {
     expect(texteFusion({ photos, fusion: 'independantes', fusionnees: [], motifFusion: 'x' })).toMatch(/indépendantes/);
     expect(texteRejeu(0)).toMatch(/Aucune/);
     expect(texteRejeu(2)).toMatch(/2 façades/);
+  });
+});
+
+describe('l avertissement a la prise de vue', () => {
+  const photos = [0, 1, 2].map((rang) => ({ rang, statut: 'auto' as const, verticaliteDeg: 0.2, coins: 'trouve' as const }));
+  it('dit de reprendre la facade avec des chevauchements quand la fusion est impossible', () => {
+    expect(avertissementPrise({ photos, fusion: 'independantes', fusionnees: [], motifFusion: 'trop peu de points communs' }))
+      .toBe('Fusion des photos impossible : reprenez la façade avec des chevauchements entre les photos.');
+    expect(avertissementPrise({ photos: photos.slice(0, 2), fusion: 'sans', fusionnees: [] })).toMatch(/^Fusion des photos impossible/);
+  });
+  it('nomme les photos qui ne se recalent pas quand la fusion est partielle', () => {
+    expect(avertissementPrise({ photos, fusion: 'partielle', fusionnees: [0, 1] })).toBe('Fusion des photos impossible pour la photo 3 : reprenez la façade avec des chevauchements entre les photos.');
+  });
+  it('se tait pour une fusion reussie ou une photo seule', () => {
+    expect(avertissementPrise({ photos, fusion: 'fusionnee', fusionnees: [0, 1, 2] })).toBeNull();
+    expect(avertissementPrise({ photos: photos.slice(0, 1), fusion: 'sans', fusionnees: [] })).toBeNull();
   });
 });
