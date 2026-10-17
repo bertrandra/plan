@@ -7,6 +7,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Audit, avant / après : la ligne d’une façade relevée dit ce qu’elle compte.** Au lieu de « 6 ouvertures relevées, texture de la photo », elle détaille les types et les volets lus : « 6 ouvertures relevées (4 fenêtres, 1 porte-fenêtre, 1 porte ; volets sur 4), texture de la photo ». Le dessin 3D ne change pas.
+
 - **Audit : à la prise de vue, un message dit quand la fusion des photos d’une façade est impossible.** Dès la deuxième photo d’une façade, Plan la redresse et tente la fusion sur place ; si elle échoue (ou ne recale pas une photo), l’écran de prise affiche « Fusion des photos impossible : reprenez la façade avec des chevauchements entre les photos » (en nommant la photo quand la fusion n’est que partielle), pendant qu’on peut encore la reprendre. Le message s’efface à la photo suivante, le temps du nouveau calcul.
 
 - **Calibration admin : l’automatique est la valeur par défaut, ouvertures comprises.** Ajouter une photo à un cas cherche les coins, redresse, fusionne et part de la détection pour les ouvertures (un cas déjà annoté n’est jamais écrasé) ; une case « Automatique » la désactive pour retrouver la pose des coins à la main. Les ouvertures proposées sont à relire avant de marquer le cas « relu sur la photo ».

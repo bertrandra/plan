@@ -34,7 +34,7 @@ const nombre = (p: ReturnType<typeof releveDe>) => (p?.effet as { releve: Releve
 describe('les ouvertures des facades arbitrees', () => {
   it('la photo seule decide : le releve s ecrit, cochable d office', () => {
     const p = releveDe(monter(4, null));
-    expect(p).toMatchObject({ source: 'arbitrage', avant: 'aucun relevé', apres: '4 ouvertures relevées, texture de la photo' });
+    expect(p).toMatchObject({ source: 'arbitrage', avant: 'aucun relevé', apres: '4 ouvertures relevées (4 fenêtres), texture de la photo' });
     expect(p?.arbitrages?.[0]).toMatchObject({ attribut: 'ouverturesFacade', decision: 'auto' });
   });
 

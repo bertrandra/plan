@@ -26,6 +26,7 @@ import { pluriel } from '../../regles/sujets/contrat.js';
 import { materiauMurs, textureDesMurs } from '../../../model/couleurMur.js';
 import type { CouvertureChoisie, FormeToitSimple, ObjetPlan, ReleveFacade, TypeLucarne } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
+import { ouverturesEnClair } from './propositionsClaude.js';
 
 /** Le vote des passes de Claude, par batiment (cle) ; absent : Claude n'a rien dit de ce batiment. */
 export type VotesBatiments = Readonly<Record<string, VoteAnalyse | undefined>>;
@@ -262,7 +263,7 @@ function propositionReleve(o: ObjetPlan, b: LigneBatiment, f: LigneBatiment['fac
   const deClaude = a.retenu.sources.length === 1 && a.retenu.sources[0] === 'claude';
   return {
     id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom, source: 'arbitrage',
-    avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + (deClaude ? ', avec l’aide de Claude' : ', texture de la photo'),
+    avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + (n ? ' (' + ouverturesEnClair(releve.ouvertures) + ')' : '') + (deClaude ? ', avec l’aide de Claude' : ', texture de la photo'),
     indices: indicesDuRetenu(a), confiance: null,
     remplaceChoix: deja ? avantTexte : null,
     reserve: [a.decision === 'manuelle' ? a.raison : null, m.coinsTrouves ? null : 'Les coins du mur n’ont pas été trouvés sur la photo : ils sont prédits par la prise de vue, à vérifier.'].filter(Boolean).join(' ') || null,
