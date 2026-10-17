@@ -109,7 +109,7 @@ export const CHAINE: readonly NoeudChaine[] = [
   // 5. Les textures
   { id: 'textures', parent: null, genre: 'etape', titre: '5. Les textures', detail: 'Une valeur lue sur photo quand elle est cohérente, sinon un repli ; la source est gardée ; un choix manuel n’est jamais touché.' },
   { id: 'tex.murs', parent: 'textures', genre: 'texture', titre: 'Murs : brique, pierre, meulière, enduit…', detail: 'Matériau BD TOPO, photo Panoramax ou choix ; texture à l’échelle réelle teintée par la couleur retenue.', mode: 'mixte', ou: 'three/textureMur.ts' },
-  { id: 'tex.couverture', parent: 'textures', genre: 'texture', titre: 'Couverture : ardoise, tuile, zinc, gravillons', detail: 'Matériau des fichiers fonciers, puis pente (tuile plate, canal, romaine) ; toit-terrasse en gravillons.', mode: 'mixte', ou: 'model/couleurToit.ts' },
+  { id: 'tex.couverture', parent: 'textures', genre: 'texture', titre: 'Couverture : ardoise (droite ou en losange), tuile, zinc, gravillons', detail: 'Matériau des fichiers fonciers, puis pente (tuile plate, canal, romaine) ; la grande ardoise posée en losange se choisit ou se voit ; toit-terrasse en gravillons.', mode: 'mixte', ou: 'model/couleurToit.ts' },
   { id: 'tex.sol', parent: 'textures', genre: 'texture', titre: 'Sol : gazon, photo aérienne, relief', detail: 'Gazon montré par défaut sur la parcelle, au-dessus de l’orthophoto.', mode: 'mixte', ou: 'three/gazon.ts' },
   { id: 'tex.palette', parent: 'textures', genre: 'texture', titre: 'Couleurs de l’interface', mode: 'manuel', ecran: '?palette' },
 

@@ -96,6 +96,7 @@ describe('le modele de couverture : materiau des fichiers fonciers, pente, latit
   it('un toit-terrasse est en gravillons ; ardoise et zinc sont des couvertures grises', () => {
     expect(materiauCouverture(rouge, {}, true)).toBe('terrasse');
     expect(couvertureGrise('zinc')).toBe(true);
+    expect(couvertureGrise('ardoise-losange')).toBe(true);
     expect(couvertureGrise('tuile-plate')).toBe(false);
   });
 });
@@ -126,6 +127,8 @@ describe('le materiau choisi dans l inspecteur', () => {
   it('l emporte sur les fichiers fonciers, la couleur et la pente, sauf sur un toit plat', () => {
     expect(materiauCouverture({ origineCouleur: 'gris' }, { materiauxToiture: '2', choix: 'tuile-plate' })).toBe('tuile-plate');
     expect(materiauCouverture(null, { pente: 50, choix: 'zinc' })).toBe('zinc');
+    expect(materiauCouverture(null, { pente: 50, choix: 'ardoise-losange' })).toBe('ardoise-losange');
+    expect(materiauCouverture(null, { choix: 'ardoise-losange' }, true)).toBe('terrasse');
     expect(materiauCouverture(null, { choix: 'ardoise' }, true)).toBe('terrasse');
     expect(materiauCouverture(null, { materiauxToiture: '2', choix: null })).toBe('ardoise');
   });

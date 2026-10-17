@@ -60,6 +60,13 @@ export const PANS_LUCARNES: readonly { code: PanLucarnes; libelle: string }[] = 
   { code: 'les-deux', libelle: 'Des deux côtés' },
 ];
 
+/** Un appentis (galerie, porche, annexe a un pan) est ouvert (des poteaux, pas de mur exterieur) ou ferme (des murs jusqu'au sol). */
+export type EtatAppentis = 'ouvert' | 'ferme';
+export const ETATS_APPENTIS: readonly { code: EtatAppentis; libelle: string }[] = [
+  { code: 'ouvert', libelle: 'Ouvert (galerie, poteaux)' },
+  { code: 'ferme', libelle: 'Fermé (murs)' },
+];
+
 export const POSITIONS_CHEMINEE: readonly { code: PositionCheminee; libelle: string }[] = [
   { code: 'faitage', libelle: 'Au faîtage' },
   { code: 'pan', libelle: 'Dans un pan' },
@@ -110,6 +117,7 @@ export const COUVERTURES_VUES: readonly { code: CouvertureVue; libelle: string }
   { code: 'tuile-plate', libelle: 'Tuiles plates' },
   { code: 'tuile-canal', libelle: 'Tuiles canal' },
   { code: 'ardoise', libelle: 'Ardoise' },
+  { code: 'ardoise-losange', libelle: 'Grande ardoise en losange' },
   { code: 'zinc', libelle: 'Zinc' },
   { code: 'terrasse', libelle: 'Étanchéité (terrasse)' },
 ];
@@ -127,6 +135,8 @@ export interface CeQueJeVois {
   sensFaitage?: SensFaitage;
   bouts?: BoutsVus;
   lucarnes?: { nombre: number; pan?: PanLucarnes };
+  /** L'appentis du batiment, quand il en a un : ouvert ou ferme. */
+  appentis?: EtatAppentis;
   /** `nombre: 0` : on a regarde, il n'y en a aucune. Une souche par cheminee, dans l'ordre ou on les note. */
   cheminees?: { nombre: number; souches: SoucheVue[] };
   terrasse?: { accessible?: boolean; revetement?: RevetementTerrasse; acrotereM?: number; gardeCorps?: boolean; edicules?: number };
@@ -141,7 +151,7 @@ export const NOMBRE_VU_MAX = 6;
 export type PartieVue = 'toit' | 'cheminees' | 'terrasse' | 'materiaux';
 
 /** Le toit est-il vu : sa forme, le sens du faitage, ses bouts ou ses lucarnes. */
-export const toitVu = (v: CeQueJeVois): boolean => v.forme !== undefined || v.sensFaitage !== undefined || v.bouts !== undefined || v.lucarnes !== undefined;
+export const toitVu = (v: CeQueJeVois): boolean => v.forme !== undefined || v.sensFaitage !== undefined || v.bouts !== undefined || v.lucarnes !== undefined || v.appentis !== undefined;
 /** Les cheminees : pas encore regardees, aucune, ou vues (avec leur nombre). */
 export function etatCheminees(v: CeQueJeVois): 'aVoir' | 'aucune' | 'vues' {
   if (!v.cheminees) return 'aVoir';
@@ -195,6 +205,7 @@ export function resumePartie(v: CeQueJeVois, p: PartieVue): string {
     if (v.forme) morceaux.push(libelleDe([...FORMES_COURANTES, ...AUTRES_FORMES], v.forme));
     if (v.sensFaitage) morceaux.push(libelleDe(SENS_FAITAGE, v.sensFaitage).toLowerCase());
     if (v.bouts) morceaux.push(libelleDe(BOUTS, v.bouts).toLowerCase());
+    if (v.appentis) morceaux.push('appentis ' + (v.appentis === 'ouvert' ? 'ouvert' : 'fermé'));
     if (v.lucarnes) morceaux.push(v.lucarnes.nombre ? v.lucarnes.nombre + ' lucarne' + (v.lucarnes.nombre > 1 ? 's' : '') : 'sans lucarne');
   } else if (p === 'cheminees') {
     const c = v.cheminees;

@@ -9,7 +9,7 @@ import { formeDesCorps, formeDeLaVue } from '../../../model/formeToit.js';
 import { lireFormes } from '../../../facade/lectureFormes.js';
 import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
-import { azimutFaitage, boutsDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
+import { azimutFaitage, boutsDuCorps, formeDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes } from '../../../facade/regles/toits/silhouettes.js';
 import { libelleSilhouette } from '../../../model/silhouetteFacade.js';
 import { materiauDesFacades } from '../../regles/sujets/facades.js';
@@ -227,6 +227,7 @@ function constatsTerrain({ b, vu }: EntreesConstats): Constat[] {
   if (vu.murs) dit('materiauMurs', vu.murs);
   if (vu.couverture && vu.couverture !== 'terrasse') dit('couverture', vu.couverture);
   // Les cheminees notees : leur nombre s'arbitre, leurs souches (position, materiau) sont ce que la proposition ecrit si cette valeur l'emporte.
+  if (vu.appentis) dit('appentis', vu.appentis);
   if (vu.lucarnes) out.push({ cible, attribut: 'lucarnes', source: 'terrain', valeur: vu.lucarnes.nombre, confiance: 1, regle: 'Ce que je vois', charge: { types: [], pan: vu.lucarnes.pan ?? 'rue', texte: (vu.lucarnes.nombre ? pluriel(vu.lucarnes.nombre, 'lucarne') : 'Aucune lucarne') + ', vue' + (vu.lucarnes.nombre > 1 ? 's' : '') + ' sur place' } });
   if (vu.cheminees) out.push({ cible, attribut: 'cheminees', source: 'terrain', valeur: vu.cheminees.nombre, confiance: 1, regle: 'Ce que je vois', charge: { souches: vu.cheminees.souches, texte: majuscule(resumePartie(vu, 'cheminees').toLowerCase()) + ', vues sur place' } });
   return out;
@@ -245,6 +246,11 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
       case 'cheminees': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
       case 'ouverturesFacade': { const f = (o.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
+      case 'appentis': {
+        const ap = (o.corpsToit ?? []).filter((k) => formeDuCorps(k) === 'appentis');
+        const etats = new Set(ap.map((k) => k.ouvert));
+        return { valeur: etats.size === 1 && ap[0]?.ouvert !== undefined ? (ap[0].ouvert ? 'ouvert' : 'ferme') : null, choisi: false };
+      }
       case 'lucarnes': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: false };
       case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.couleurMurs?.materiau };
       case 'couverture': return { valeur: o.toit?.couverture ?? null, choisi: !!o.toit?.couverture };

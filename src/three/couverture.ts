@@ -1,4 +1,4 @@
-// Les textures des couvertures en 3D : tuiles romanes, plates ou canal, ardoises, zinc a joints
+// Les textures des couvertures en 3D : tuiles romanes, plates ou canal, ardoises (et grande ardoise en losange), zinc a joints
 // debout, gravillons d'un toit-terrasse (MD/spec-toit-ign.md §6.2).
 //
 // Elles sont dessinees, pas telechargees : la vue 3D les a sans reseau, et l'export GLB les emporte.
@@ -70,6 +70,33 @@ function ardoises(px: Uint8ClampedArray): void {
       px[k] = px[k + 1] = px[k + 2] = Math.round(255 * v);
       px[k + 3] = 255;
     }
+  }
+}
+
+/**
+ * Grande ardoise posee en losange (a la pointe de diamant) : des ardoises carrees d'environ 35 cm posees sur la pointe, donc des losanges
+ * de 50 cm de diagonale, 2 par metre ; les rangs se decalent d'une demi-diagonale et les joints courent en diagonale. Chaque ardoise a sa
+ * nuance, et la pointe du haut est ombree par le recouvrement de la ardoise du dessus. Le motif tient sur la texture (4 rangs, 2 losanges).
+ */
+function ardoisesLosange(px: Uint8ClampedArray): void {
+  const rnd = tirage(41), diag = COTE / 2, rangs = 4, pas = diag / 2;
+  const nuance = Array.from({ length: rangs * 2 }, () => 0.64 + 0.28 * rnd());
+  // Les centres des losanges, avec un tour de plus de chaque cote pour que le motif se raccorde d'une texture a l'autre.
+  const centres: { x: number; y: number; n: number }[] = [];
+  for (let j = -1; j <= rangs; j++) for (let i = -1; i <= 2; i++) {
+    const jm = ((j % rangs) + rangs) % rangs, im = ((i % 2) + 2) % 2;
+    centres.push({ x: i * diag + (jm % 2 ? diag / 2 : 0), y: j * pas, n: nuance[jm * 2 + im] as number });
+  }
+  for (let y = 0; y < COTE; y++) for (let x = 0; x < COTE; x++) {
+    // Le losange le plus proche, a distance de Manhattan : son rayon est la demi-diagonale.
+    let best = centres[0] as { x: number; y: number; n: number }, d = Infinity;
+    for (const c of centres) { const m = Math.abs(x - c.x) + Math.abs(y - c.y); if (m < d) { d = m; best = c; } }
+    const bord = diag / 2 - d;
+    const joint = bord < 1.6;
+    // Le haut de chaque ardoise passe sous celle du dessus : un degrade d'ombre sur sa moitie haute.
+    const haut = Math.max(0, (best.y - y) / (diag / 2));
+    const ombre = 1 - 0.3 * haut * Math.min(1, (diag / 2 - d + 6) / 14);
+    poser(px, x, y, joint ? 0.38 : Math.min(1, best.n * ombre * (0.97 + 0.05 * rnd())));
   }
 }
 
@@ -160,7 +187,7 @@ function terrasse(px: Uint8ClampedArray): void {
 }
 
 const DESSINS: Record<MateriauCouverture, (px: Uint8ClampedArray) => void> = {
-  tuile: tuiles, 'tuile-plate': tuilesPlates, 'tuile-canal': tuilesCanal, ardoise: ardoises, zinc, terrasse,
+  tuile: tuiles, 'tuile-plate': tuilesPlates, 'tuile-canal': tuilesCanal, ardoise: ardoises, 'ardoise-losange': ardoisesLosange, zinc, terrasse,
 };
 
 /** Les pixels (RGBA a plat, en gris) d'une couverture, sur COTE pixels de cote : pour les tests. */
@@ -173,7 +200,7 @@ export function pixelsCouverture(materiau: MateriauCouverture): Uint8ClampedArra
 /** La matiere d'une couverture en 3D : une tuile est mate, une ardoise un peu moins, le zinc brille un peu. */
 export function matiereCouverture(materiau: MateriauCouverture): { roughness: number; metalness: number } {
   if (materiau === 'zinc') return { roughness: 0.45, metalness: 0.35 };
-  if (materiau === 'ardoise') return { roughness: 0.7, metalness: 0 };
+  if (materiau === 'ardoise' || materiau === 'ardoise-losange') return { roughness: 0.7, metalness: 0 };
   if (materiau === 'terrasse') return { roughness: 0.95, metalness: 0 };
   return { roughness: 0.85, metalness: 0 };
 }

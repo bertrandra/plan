@@ -91,10 +91,10 @@ describe('le cout et le journal, sur des reponses simulees', () => {
 describe('le prompt, le schema et la demande', () => {
   it('versionne le prompt et le schema', () => {
     const p = lirePrompt(fs.readFileSync(path.join(deploy, 'prompt-analyse.md'), 'utf8'));
-    expect(p.version).toBe(7);
+    expect(p.version).toBe(8);
     expect(p.texte).toMatch(/^# Rôle/);
     expect(p.texte).not.toMatch(/^version:/m);
-    expect(SCHEMA.version).toBe(3);
+    expect(SCHEMA.version).toBe(4);
   });
 
   it('respecte les limites de la sortie structuree : objets fermes, tous les champs requis', () => {
@@ -238,7 +238,7 @@ describe('analyse par Claude, routes', () => {
     expect(await connecterAdmin(navigateur, MDP)).toBe(null);
     expect((await navigateur('admin/claude/batches', { method: 'POST', body: JSON.stringify(demande()) })).status).toBe(403);
     const etat = await (await navigateur('admin/claude/etat')).json();
-    expect(etat).toMatchObject({ actif: true, prompt: 7, schema: 3, effort: 'low', organisation: 'admin', admin: true });
+    expect(etat).toMatchObject({ actif: true, prompt: 8, schema: 4, effort: 'low', organisation: 'admin', admin: true });
     expect(faux.batches).toHaveLength(0);
   });
 
@@ -314,7 +314,7 @@ describe('analyse par Claude, routes', () => {
       t: '2026-10-14T10:00:00.000Z', organisation: 'admin', projet: 'projet-1', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet',
       audit: 'audit-1', usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
       tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, facades: 2, cout: COUT_P1,
-      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 7, schema: 3, trouve: TROUVE_DEFAUT
+      tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 8, schema: 4, trouve: TROUVE_DEFAUT
     });
     // Ni photo ni contenu de reponse dans le journal.
     expect(JSON.stringify(lignes)).not.toMatch(/QUJDRA|deux-pans/);

@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import {
   ACROTERES, AUTRES_FORMES, BOUTS, COUVERTURES_VUES, COURONNEMENTS, FORMES_COURANTES, MATERIAUX_CHEMINEE, MATERIAUX_MURS_VUS,
-  NOMBRE_VU_MAX, PANS_LUCARNES, POSITIONS_CHEMINEE, REVETEMENTS_TERRASSE, SENS_FAITAGE, avecNombreDeCheminees, avecSouche,
+  ETATS_APPENTIS, NOMBRE_VU_MAX, PANS_LUCARNES, POSITIONS_CHEMINEE, REVETEMENTS_TERRASSE, SENS_FAITAGE, avecNombreDeCheminees, avecSouche,
   type CeQueJeVois as Vu, type PartieVue,
 } from '../../model/ceQueJeVois.js';
 
@@ -62,6 +62,11 @@ function Toit({ vu, changer }: { vu: Vu; changer: (v: Vu) => void }) {
         {PANS_LUCARNES.map((p) => <button key={p.code} type="button" data-controle="vu.panLucarnes" aria-pressed={vu.lucarnes?.pan === p.code}
           onClick={() => vu.lucarnes && changer(avec(vu, 'lucarnes', avec(vu.lucarnes, 'pan', basculer(vu.lucarnes.pan, p.code))))}>{p.libelle}</button>)}
       </div>}
+      <div className="libelleChamp">Appentis (galerie, porche)</div>
+      <div className="puces" role="group" aria-label="Appentis ouvert ou fermé">
+        {ETATS_APPENTIS.map((e) => <button key={e.code} type="button" data-controle="vu.appentis" aria-pressed={vu.appentis === e.code}
+          onClick={() => changer(avec(vu, 'appentis', basculer(vu.appentis, e.code)))}>{e.libelle}</button>)}
+      </div>
     </>
   );
 }

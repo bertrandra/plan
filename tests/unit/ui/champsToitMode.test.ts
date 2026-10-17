@@ -121,7 +121,7 @@ describe('Materiau de la couverture', () => {
     expect(cles(c)).toContain('toitMateriau');
     expect(m.lire(c)).toBe('');
     expect(m.options(c)[0]).toEqual({ valeur: '', libelle: 'Automatique (ardoise)' });
-    expect(m.options(c).map((o) => o.valeur)).toEqual(['', 'tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'zinc']);
+    expect(m.options(c).map((o) => o.valeur)).toEqual(['', 'tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc']);
     m.ecrire(c, 'zinc');
     expect(c.obj.toit?.couverture).toBe('zinc');
     // Le materiau deduit ne change pas avec le choix : il reste lisible dans « Automatique ».

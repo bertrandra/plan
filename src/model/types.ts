@@ -1046,6 +1046,11 @@ export interface CorpsToit {
   bords?: BordsToit;
   /** Un toit de revolution sur le rectangle du corps (tourelle, kiosque, clocher) ; absent : un toit a faitage. */
   speciale?: SpecialeToit;
+  /**
+   * Un appentis ouvert (galerie, porche : des poteaux, pas de mur exterieur) ou ferme (des murs du sol a l'egout et aux bouts).
+   * Absent : le dessin d'avant, qui ne dit rien sous l'egout. Sans effet sur un autre toit qu'un appentis.
+   */
+  ouvert?: boolean;
 }
 
 /**
@@ -1168,7 +1173,7 @@ export interface VolumeToit {
 }
 
 /** Les couvertures d'un toit en pente que l'on peut imposer (model/couleurToit.ts, `MateriauCouverture`). */
-export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'zinc';
+export type CouvertureChoisie = 'tuile' | 'tuile-plate' | 'tuile-canal' | 'ardoise' | 'ardoise-losange' | 'zinc';
 
 export interface Toit {
   forme: FormeToit;

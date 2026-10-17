@@ -127,7 +127,7 @@ describe('le renfort, routes', () => {
   });
 
   it('dit les versions du renfort dans l etat', async () => {
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ prompt: 7, schema: 3, renfort: { prompt: 2, schema: 1 } });
+    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ prompt: 8, schema: 4, renfort: { prompt: 2, schema: 1 } });
   });
 
   it('envoie une requete de renfort dans le batch de l analyse, avec son prompt et son schema, et la journalise sous son usage', async () => {
