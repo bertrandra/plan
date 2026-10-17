@@ -7,6 +7,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Inspecteur : régler un appentis ouvert ou fermé directement sur un bâtiment.** Quand le toit est en « Corps et pignons (LiDAR) » et qu’un corps est un appentis (galerie, porche), la section « Facades et toit » gagne le choix « Appentis » : sans indication, ouvert (poteaux, pas de mur extérieur) ou fermé (murs jusqu’au sol). Il s’écrit sur tous les appentis du bâtiment, avec Ctrl+Z, comme la ligne « Appentis de … » de l’avant / après, sans passer par l’audit. Aucune quantité ni aucun export ne change ; un bâtiment sans réglage garde son dessin.
+
 - **Audit, avant / après : la ligne d’une façade relevée dit ce qu’elle compte.** Au lieu de « 6 ouvertures relevées, texture de la photo », elle détaille les types et les volets lus : « 6 ouvertures relevées (4 fenêtres, 1 porte-fenêtre, 1 porte ; volets sur 4), texture de la photo ». Le dessin 3D ne change pas.
 
 - **Audit : à la prise de vue, un message dit quand la fusion des photos d’une façade est impossible.** Dès la deuxième photo d’une façade, Plan la redresse et tente la fusion sur place ; si elle échoue (ou ne recale pas une photo), l’écran de prise affiche « Fusion des photos impossible : reprenez la façade avec des chevauchements entre les photos » (en nommant la photo quand la fusion n’est que partielle), pendant qu’on peut encore la reprendre. Le message s’efface à la photo suivante, le temps du nouveau calcul.
