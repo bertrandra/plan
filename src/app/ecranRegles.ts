@@ -56,7 +56,7 @@ export function ouvrirEcranRegles(): void {
       versions: { toits: Math.max(...LECTURES_TOITS.map((l) => l.version)), facades: Math.max(...LECTURES_FACADES.map((l) => l.version)) },
       brouillon: brouillonLocal(CLE_BROUILLON_DONNEES),
     },
-    sources: { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')?.livre ?? '') },
+    sources: { regles: RECONCILIATION, seuilsLidar: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'reglagesToits')?.livre ?? ''), seuilsFormes: seuilsDuTexte(FICHIERS_DONNEES.find((f) => f.id === 'formesToits')?.livre ?? '') },
     telecharger: (nom, contenu, type) => telechargerTexte(nom, contenu, type),
     copier: (texte) => navigator.clipboard.writeText(texte),
   }));

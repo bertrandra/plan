@@ -119,10 +119,10 @@ export function hauteurCorpsEn(c: Pick<CorpsToit, 'posFaitage' | 'faitage' | 'eg
 export type Grille = Pick<ToitMesure, 'pas' | 'x0' | 'y0' | 'nx' | 'ny' | 'z'>;
 
 /** Une mesure dans le repere d'un corps. */
-interface Mesure { s: number; t: number; z: number }
+export interface Mesure { s: number; t: number; z: number }
 
 /** Les cellules de la surface mesuree dans le rectangle (et dans le contour), dans son repere. */
-function mesuresDans(m: ToitMesure, r: Repere, rect: readonly PtBrut[], contour: readonly PtBrut[], exclure: readonly PtBrut[][] = []): Mesure[] {
+export function mesuresDans(m: ToitMesure, r: Repere, rect: readonly PtBrut[], contour: readonly PtBrut[], exclure: readonly PtBrut[][] = []): Mesure[] {
   const out: Mesure[] = [];
   for (let j = 0; j < m.ny; j++) for (let i = 0; i < m.nx; i++) {
     const z = m.z[j * m.nx + i];

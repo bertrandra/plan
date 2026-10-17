@@ -17,7 +17,7 @@
   "attributs": {
     "hauteurEgout": { "libelle": "Hauteur à l'égout", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.5, "unite": "m" }, "poids": { "lidar": 4, "photo": 3, "ign": 2 } },
     "hauteurTotale": { "libelle": "Hauteur totale (faîtage)", "cible": "batiment", "accord": { "type": "nombre", "tolerance": 0.8, "unite": "m" }, "poids": { "lidar": 5, "ign": 1.5, "photo": 2 } },
-    "formeToit": { "libelle": "Forme du toit", "cible": "batiment", "accord": { "type": "egal" }, "valeurs": ["deux-pans", "croupes", "appentis", "plat"], "poids": { "lidar": 3, "photo": 3, "claude": 2, "ign": 1 } },
+    "formeToit": { "libelle": "Forme du toit", "cible": "batiment", "accord": { "type": "egal" }, "valeurs": ["deux-pans", "croupes", "appentis", "plat", "mansart", "gambrel", "demi-croupes", "coyau", "berceau", "papillon", "conique", "dome", "imperiale", "fleche"], "poids": { "lidar": 3, "photo": 3, "claude": 2, "ign": 1 } },
     "boutsToit": { "libelle": "Bouts du faîtage", "cible": "batiment", "accord": { "type": "ensemble" }, "valeurs": [["pignon", "pignon"], ["pignon", "croupe"], ["croupe", "croupe"]], "poids": { "photo": 3.5, "lidar": 3, "claude": 2 } },
     "sensFaitage": { "libelle": "Sens du faîtage", "cible": "batiment", "accord": { "type": "angle", "tolerance": 15, "unite": "degres" }, "poids": { "photo": 3.5, "lidar": 3.5, "claude": 1 } },
     "silhouetteFacade": { "libelle": "Silhouette de la façade", "cible": "facade", "accord": { "type": "egal" }, "valeurs": ["triangle", "trapeze", "rampe", "ligne-droite", "marches", "plusieurs-sommets"], "poids": { "claude": 2, "photo": 2.5 } },

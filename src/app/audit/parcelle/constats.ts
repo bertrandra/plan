@@ -6,6 +6,7 @@
 // `projet` n'est pas une source : c'est la valeur que le projet a aujourd'hui, et si une personne l'a choisie a la main (un veto).
 
 import { formeDesCorps, formeDeLaVue } from '../../../model/formeToit.js';
+import { lireFormes } from '../../../facade/lectureFormes.js';
 import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
 import { azimutFaitage, boutsDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
@@ -94,7 +95,10 @@ function constatsLidar({ o, b }: EntreesConstats): Constat[] {
   if (c && o.toit?.source !== 'saisie') {
     const confiance = confianceCorps(c.ecart);
     const forme = formeDesCorps(o.corpsToit);
-    if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
+    // Une forme du catalogue que la surface dit mieux que les formes simples (facade/lectureFormes.ts) remplace la lecture des corps.
+    const mieux = o.toitMesure && 'pts' in o && o.pts ? lireFormes(o.toitMesure, o.corpsToit ?? [], o.pts)[0] : undefined;
+    if (mieux) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(mieux.forme), confiance: confianceCorps(mieux.ecart), regle: mieux.regle, indices: [{ texte: 'Lecture des formes : ' + mieux.dit }] });
+    else if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
     out.push({ cible, attribut: 'boutsToit', source: 'lidar', valeur: boutsDuCorps(c), confiance, regle: REGLES_LIDAR.lidar.bouts });
     out.push({ cible, attribut: 'sensFaitage', source: 'lidar', valeur: cm(azimutFaitage(c)), confiance, regle: REGLES_LIDAR.lidar.sens });
   }

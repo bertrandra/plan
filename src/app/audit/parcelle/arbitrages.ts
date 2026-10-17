@@ -10,9 +10,11 @@
 
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
+import { lireForme } from '../../../facade/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { cibleBatiment, constatsDuBatiment } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
+import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
 import { ECART_HAUTEUR_MIN_M, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
@@ -34,7 +36,7 @@ const libelleSource = (r: ReglesReconciliation, s: string): string => r.sources[
  * (regles/reconciliation.json). Les regles LiDAR font ainsi surface sur la ligne, avec le nombre qui a decide.
  */
 export function direRegle(nom: string, regles: ReglesReconciliation = RECONCILIATION): string {
-  const toit = DESCRIPTION_REGLAGES_TOITS[nom as NomReglageToit] as { valeur: number; unite: string } | undefined;
+  const toit = (DESCRIPTION_REGLAGES_TOITS[nom as NomReglageToit] ?? DESCRIPTION_SEUILS_FORMES[nom as NomSeuilForme]) as { valeur: number; unite: string } | undefined;
   if (toit) return nom + ' = ' + fr(toit.valeur) + (toit.unite ? ' ' + toit.unite : '');
   const arbitrage = regles.seuils[nom as keyof ReglesReconciliation['seuils']];
   if (arbitrage !== undefined) return nom + ' = ' + fr(arbitrage);
@@ -144,6 +146,33 @@ function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage |
   };
 }
 
+/** Les formes du catalogue que la lecture des formes sait ajuster sur la surface mesuree (facade/lectureFormes.ts). */
+const FORMES_AJUSTABLES: ReadonlySet<string> = new Set(['mansart', 'gambrel', 'demi-croupes', 'coyau', 'berceau', 'papillon', 'conique', 'dome', 'imperiale', 'fleche']);
+
+/**
+ * Une forme du catalogue retenue par les sources, ajustee sur la mesure LiDAR : si la mesure la porte, le corps qui la dessine est
+ * propose. Quand le LiDAR ne l'a pas vue lui-meme (c'est Claude, la photo ou la personne qui la disent), l'ajustement se fait « au
+ * mieux » : il ne doit pas etre pire que le corps lu par les formes simples, et la ligne le dit.
+ */
+function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], forme: string, regles: ReglesReconciliation): Proposition | null {
+  if (!o.toitMesure || !o.corpsToit?.length || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
+  const a = arbs.find((x) => x.attribut === 'formeToit');
+  if (!a?.retenu || a.decision === 'rien') return null;
+  const vueParLidar = a.retenu.sources.includes('lidar');
+  const lecture = lireForme(o.toitMesure, o.corpsToit, o.pts, forme as never, { souple: !vueParLidar });
+  if (!lecture || JSON.stringify(lecture.corps) === JSON.stringify(o.corpsToit)) return null;
+  const sources = sourcesDuRetenu(a, regles);
+  const manuelles = arbs.filter((x) => x.decision === 'manuelle');
+  return {
+    id: b.cle + ':toit', cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom, source: 'arbitrage',
+    avant: dire(o.corpsToit, o.toit?.forme), apres: libelleForme(forme).toLowerCase() + ', ajustée sur la mesure LiDAR (' + lecture.dit + ') d’après ' + sources, confiance: null,
+    indices: [...indicesDuRetenu(a), { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(lecture.ecart) + (vueParLidar ? '' : ' (forme demandée, ajustée au mieux)') }],
+    remplaceChoix: a.projet.choisi ? 'forme du toit saisie' : null,
+    reserve: manuelles.length ? manuelles.map((x) => regles.attributs[x.attribut].libelle + ' : ' + x.raison).join(' ') : null,
+    effet: { type: 'corpsToit', corps: lecture.corps }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles)),
+  };
+}
+
 const estBout = (m: string): m is BoutFait => m === 'pignon' || m === 'croupe';
 
 /**
@@ -157,6 +186,8 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   if (!arbs.some((a) => a.decision !== 'rien')) return null;
   const retenu = (id: IdAttribut) => arbs.find((a) => a.attribut === id)?.retenu?.valeur;
   const f = retenu('formeToit'), bt = retenu('boutsToit'), sens = retenu('sensFaitage');
+  // Une forme du catalogue (Mansart, papillon, dome...) : le moteur des toits ne la lit pas, la lecture des formes la fit sur la mesure.
+  if (typeof f === 'string' && FORMES_AJUSTABLES.has(f)) return propositionForme(o, b, arbs, f, regles);
   let forme: FormeToitSimple | undefined = typeof f === 'string' ? FORMES_LUES[f] : undefined;
   if (typeof f === 'string' && f !== 'indetermine' && !forme) return null;
   const mots = Array.isArray(bt) ? (bt as readonly string[]) : null;

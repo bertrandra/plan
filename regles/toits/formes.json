@@ -1,0 +1,25 @@
+{
+  "format": "plan-formes-toits",
+  "version": 1,
+  "pourquoi": "Les seuils de la lecture des formes du catalogue sur la surface LiDAR (MD/spec-regles-toits.md §3.2) : le profil en travers d'un pan (brise, coyau, courbe), le creux d'un papillon, la chute du faitage d'une demi-croupe, la symetrie d'un toit de revolution. La lecture (facade/lectureFormes.ts) construit un corps candidat, le dessine par le meme code que la 3D (facade/toitSpeciaux.ts, toitFormes.ts) et ne le garde que s'il colle a la mesure bien mieux que le corps lu par les formes simples. Le fichier est compile dans le fichier livre ; il ne change aucune toiture deja lue (il ne sert qu'aux propositions de l'audit), son empreinte n'entre donc pas dans la version de lecture des toits.",
+  "seuils": {
+    "PAS_BANDE_M": { "valeur": 0.5, "unite": "m", "pourquoi": "La largeur d'une bande du profil : la mediane des mesures d'une bande est un point du profil du pan." },
+    "BANDES_MIN": { "valeur": 6, "unite": "bandes", "pourquoi": "Un profil de moins de cela de bandes ne dit pas sa forme." },
+    "ECART_MESURE_MIN_M": { "valeur": 0.12, "unite": "m", "pourquoi": "Si la droite colle deja a la mesure a moins de cela, il n'y a rien a adoucir ni a bomber." },
+    "GAIN_PROFIL": { "valeur": 0.6, "unite": "rapport", "pourquoi": "Une forme a profil libre n'est retenue que si son ecart a la mesure est au plus cette part de celui du corps lu par les formes simples." },
+    "ECART_PENTE_MIN_DEG": { "valeur": 12, "unite": "degres", "pourquoi": "Un bris ou un coyau separe deux pentes qui different d'au moins cela ; en deca, c'est une droite un peu courbee." },
+    "PART_BRIS_MIN": { "valeur": 0.25, "unite": "part", "pourquoi": "La ligne de bris est au moins a cette part de la largeur du pan." },
+    "PART_BRIS_MAX": { "valeur": 0.75, "unite": "part", "pourquoi": "Et au plus a celle-ci : plus pres du faitage ou de l'egout, ce n'est pas un bris." },
+    "FLECHE_MIN_M": { "valeur": 0.25, "unite": "m", "pourquoi": "Un pan courbe s'ecarte de sa corde d'au moins cela." },
+    "CREUX_PAPILLON_M": { "valeur": 0.3, "unite": "m", "pourquoi": "Le milieu du toit est plus bas que ses deux bords d'au moins cela : une noue, pas un faitage." },
+    "PART_NOUE_MIN": { "valeur": 0.25, "unite": "part", "pourquoi": "La noue d'un papillon est au moins a cette part de la largeur ; plus pres d'un mur, c'est un appentis a rebord." },
+    "ZONE_FAITAGE_M": { "valeur": 0.6, "unite": "m", "pourquoi": "Le faitage se lit sur la bande de cette demi-largeur autour de la ligne de faite." },
+    "CHUTE_DEMI_CROUPE_M": { "valeur": 0.8, "unite": "m", "pourquoi": "Le faitage baisse d'au moins cela vers un bout, sans atteindre l'egout : une demi-croupe, pas un pignon ni une croupe." },
+    "PIGNON_DEMI_CROUPE_MIN_M": { "valeur": 0.8, "unite": "m", "pourquoi": "Le petit pignon sous une demi-croupe monte d'au moins cela au-dessus de l'egout." },
+    "RAPPORT_CARRE_MAX": { "valeur": 1.2, "unite": "rapport", "pourquoi": "Un toit de revolution se pose sur un plan presque carre : le long cote est au plus cette fois le court." },
+    "GAIN_REVOLUTION": { "valeur": 0.6, "unite": "rapport", "pourquoi": "Un toit de revolution n'est retenu que si son ecart a la mesure est au plus cette part de celui du corps lu par les formes simples." },
+    "ELANCEMENT_FLECHE": { "valeur": 2, "unite": "rapport", "pourquoi": "Un cone ou une pyramide au moins cette fois plus haut que son rayon est une fleche." },
+    "ECART_FORME_MAX_M": { "valeur": 0.4, "unite": "m", "pourquoi": "Au-dela, la mesure ne porte pas la forme : pas de lecture. Plus strict que les formes simples (0,8 m, spec des toits §2) : une forme rare doit coller, sinon le corps lu par les formes simples vaut mieux." },
+    "ECART_FORME_DEMANDEE_M": { "valeur": 1.2, "unite": "m", "pourquoi": "Une forme que la personne ou Claude demandent, et que le LiDAR n'a pas vue, s'ajuste a la mesure pourvu que l'ecart reste sous cela : la personne etait devant le toit, la mesure peut etre moins nette (arbre, ombre). L'ecart est dit sur la ligne." }
+  }
+}

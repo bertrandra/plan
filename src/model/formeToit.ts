@@ -190,7 +190,7 @@ function reperDuCorps(c: Pick<CorpsToit, 'pts'>): { p0: PtBrut; u: PtBrut; v: Pt
 }
 
 /** Deux corps accoles par un long cote, de meme sens de faitage : le second a droite ou a gauche du premier. */
-function accoles(a: CorpsToit, b: CorpsToit): boolean {
+export function accoles(a: CorpsToit, b: CorpsToit): boolean {
   const A = reperDuCorps(a), B = reperDuCorps(b);
   if (Math.abs(A.u.x * B.u.x + A.u.y * B.u.y) < Math.cos((PARALLELE_DEG * Math.PI) / 180)) return false;
   // Les quatre coins de b dans le repere de a.

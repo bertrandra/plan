@@ -9,6 +9,7 @@
 import { CHAINE, verifierChaine, type NoeudChaine } from '../model/chaine.js';
 import { RECONCILIATION, EMPREINTE_RECONCILIATION, SOURCES, ATTRIBUTS, type ReglesReconciliation } from '../regles/reconciliation.js';
 import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, type DescriptionReglage } from '../regles/toits/reglages.js';
+import { SEUILS_FORMES, DESCRIPTION_SEUILS_FORMES } from '../regles/toits/formes.js';
 import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
 import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../regles/sujets/versions.js';
 import { SUJETS } from './regles/sujets/index.js';
@@ -40,6 +41,9 @@ export interface EntreesChaine {
   reconciliation: Readonly<ReglesReconciliation>;
   seuils: Readonly<Record<string, number>>;
   descriptions: Readonly<Record<string, DescriptionReglage>>;
+  /** Les seuils de la lecture des formes du catalogue (regles/toits/formes.json), cites comme ceux des reglages. */
+  seuilsFormes: Readonly<Record<string, number>>;
+  descriptionsFormes: Readonly<Record<string, { unite: string; pourquoi: string }>>;
   sujets: readonly { id: string; libelle: string; propose: boolean }[];
   formes: readonly { id: string; titre: string; aussi?: string; famille: 'toit' | 'lucarne' }[];
   versions: { prompt: number; schema: number; lectureToits: number; empreintes: { reconciliation: string; reglagesToits: string } };
@@ -52,6 +56,8 @@ export const ENTREES_CHAINE: EntreesChaine = {
   reconciliation: RECONCILIATION,
   seuils: REGLAGES_TOITS,
   descriptions: DESCRIPTION_REGLAGES_TOITS as Readonly<Record<string, DescriptionReglage>>,
+  seuilsFormes: SEUILS_FORMES,
+  descriptionsFormes: DESCRIPTION_SEUILS_FORMES,
   sujets: DESCRIPTIONS_SUJETS.map((d) => ({ id: d.id, libelle: d.libelle, propose: proposeurs.has(d.id) })),
   formes: EXEMPLES_TOITS,
   versions: { prompt: versionCourante(VERSIONS_PROMPT).version, schema: versionCourante(VERSIONS_SCHEMA).version, lectureToits: VERSION_LECTURE_TOITS, empreintes: { reconciliation: EMPREINTE_RECONCILIATION, reglagesToits: EMPREINTE_REGLAGES_TOITS } },
@@ -69,7 +75,8 @@ const avecUnite = (v: number, unite: string): string => {
 export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante {
   const problemes: string[] = [...verifierChaine(e.noeuds)];
   const { reconciliation: r } = e;
-  const seuil = (nom: string): string | null => (nom in e.seuils ? avecUnite(e.seuils[nom] as number, e.descriptions[nom]?.unite ?? '') : null);
+  const seuil = (nom: string): string | null => (nom in e.seuils ? avecUnite(e.seuils[nom] as number, e.descriptions[nom]?.unite ?? '')
+    : nom in e.seuilsFormes ? avecUnite(e.seuilsFormes[nom] as number, e.descriptionsFormes[nom]?.unite ?? '') : null);
 
   // Les valeurs citees par `{{...}}` : une par donnee, jamais recopiee.
   const valeur = (cle: string): string | null => {
@@ -89,7 +96,7 @@ export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante 
   const lignesDe = (id: string, noms: readonly string[]): LigneSeuil[] => noms.flatMap((nom) => {
     const v = seuil(nom);
     if (v === null) { problemes.push(id + ' : le seuil ' + nom + ' n’existe plus dans regles/toits/reglages.json'); return []; }
-    return [{ nom, valeur: v, pourquoi: e.descriptions[nom]?.pourquoi ?? '' }];
+    return [{ nom, valeur: v, pourquoi: e.descriptions[nom]?.pourquoi ?? e.descriptionsFormes[nom]?.pourquoi ?? '' }];
   });
 
   const noeuds: NoeudVivant[] = e.noeuds.map((n) => ({
@@ -128,6 +135,6 @@ export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante 
   problemes.push(...verifierChaine(noeuds).filter((p) => !problemes.includes(p)));
   return {
     noeuds, problemes,
-    lecture: { promptVersion: e.versions.prompt, schemaVersion: e.versions.schema, lectureToits: e.versions.lectureToits, empreintes: e.versions.empreintes, sources: SOURCES.length, attributs: ATTRIBUTS.length, seuils: Object.keys(e.seuils).length, sujets: e.sujets.length },
+    lecture: { promptVersion: e.versions.prompt, schemaVersion: e.versions.schema, lectureToits: e.versions.lectureToits, empreintes: e.versions.empreintes, sources: SOURCES.length, attributs: ATTRIBUTS.length, seuils: Object.keys(e.seuils).length + Object.keys(e.seuilsFormes).length, sujets: e.sujets.length },
   };
 }
