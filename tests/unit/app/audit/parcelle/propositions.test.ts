@@ -62,7 +62,7 @@ describe('les propositions des mesures et des observations', () => {
     expect(arbitrees.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees']);
     const p = [...seules, ...arbitrees];
     const parId = new Map(p.map((x) => [x.id, x]));
-    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'arbitrage', effet: { type: 'releve' } });
+    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées (6 fenêtres), texture de la photo', source: 'arbitrage', effet: { type: 'releve' } });
     expect(parId.get('maison#0:releve')?.arbitrages?.[0]).toMatchObject({ attribut: 'ouverturesFacade', decision: 'auto' });
     // La photo seule ne decide pas d'une hauteur (score 2,4 sous 3) : la ligne arrive decochee, avec ses sources.
     const h = propositionsArbitrees(entrees(quartier(), capture(), mesures({ hauteurM: 5 })), {}).find((x) => x.id === 'maison:hauteur');
@@ -210,5 +210,16 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
       const r = propositionsArbitrees(entrees(objets), {}).find((x) => x.id === 'maison#0:releve');
       expect(r?.remplaceChoix).toBe('relevé du 01/10/2026 (4 ouvertures)');
     });
+  });
+});
+
+describe('la ligne du releve des ouvertures', () => {
+  it('dit les types et les volets lus, en clair', async () => {
+    const { ouverturesEnClair } = await import('../../../../../src/app/audit/parcelle/propositionsClaude.js');
+    expect(ouverturesEnClair([
+      { type: 'fenetre', details: { volets: 'battants' } }, { type: 'fenetre', details: { volets: 'aucun' } },
+      { type: 'fenetre' }, { type: 'porte-fenetre', details: { volets: 'roulant' } }, { type: 'porte' },
+    ])).toBe('3 fenêtres, 1 porte-fenêtre, 1 porte ; volets sur 2');
+    expect(ouverturesEnClair([{ type: 'fenetre' }])).toBe('1 fenêtre');
   });
 });

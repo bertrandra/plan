@@ -10,7 +10,7 @@
 
 import { analyserReleve } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
-import { analyserVues } from './fusion.js';
+import { analyserVues, type ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
 import { REGLAGES_STRUCTURE } from './regles/facades/structure.js';
 import { recouvrement } from './voteVues.js';
@@ -95,14 +95,19 @@ export interface CasPrepare {
   pxParM: number;
   /** Les ouvertures de la chaine ordinaire (reglages en usage), avec le vote entre vues quand il y a plusieurs photos. */
   ouvertures: OuvertureDetectee[];
+  /** Ce que la fusion a dit des vues (laquelle ne se recale sur aucune autre, et pourquoi) ; null pour une photo seule. */
+  fusion: Pick<ResultatFusion, 'statut' | 'vues' | 'masque'> | null;
 }
 
 /** Redresse (et fusionne) les photos d'un cas. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse. */
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true): CasPrepare | null {
   const commun = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
   const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null }));
-  const r = multiVues && photos.length > 1 ? analyserVues({ ...commun, vues: photos }) : analyserReleve({ ...commun, photo: (photos[0] as (typeof photos)[number]).photo, coins: (photos[0] as (typeof photos)[number]).coins, focalePx: (photos[0] as (typeof photos)[number]).focalePx });
-  return r ? { cas, elevation: r.elevation, pxParM: r.pxParM, ouvertures: r.ouvertures } : null;
+  const fusionnee = multiVues && photos.length > 1;
+  const r = fusionnee ? analyserVues({ ...commun, vues: photos }) : analyserReleve({ ...commun, photo: (photos[0] as (typeof photos)[number]).photo, coins: (photos[0] as (typeof photos)[number]).coins, focalePx: (photos[0] as (typeof photos)[number]).focalePx });
+  if (!r) return null;
+  const fusion = fusionnee ? (r as ResultatFusion) : null;
+  return { cas, elevation: r.elevation, pxParM: r.pxParM, ouvertures: r.ouvertures, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque } : null };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {

@@ -29,6 +29,20 @@ export function texteFusion(b: BilanRedressement): string {
   return 'Photo seule, redressée : pas de fusion';
 }
 
+/**
+ * Ce que la personne doit savoir tout de suite, a la prise de vue, quand ses photos d'une facade ne se fusionnent pas
+ * (ou pas toutes) : reprendre la facade avec des chevauchements. Null : rien a dire (fusionnee, ou une seule photo).
+ */
+export function avertissementPrise(b: BilanRedressement): string | null {
+  if (b.photos.length < 2 || b.fusion === 'fusionnee') return null;
+  const conseil = 'reprenez la façade avec des chevauchements entre les photos.';
+  if (b.fusion === 'partielle') {
+    const seules = b.photos.filter((p) => !b.fusionnees.includes(p.rang)).map((p) => p.rang + 1);
+    return 'Fusion des photos impossible pour la photo ' + seules.join(', ') + ' : ' + conseil;
+  }
+  return 'Fusion des photos impossible : ' + conseil;
+}
+
 /** Le compte rendu d'un rejeu, pour l'annonce a l'ecran. */
 export function texteRejeu(facades: number): string {
   if (!facades) return 'Aucune façade photographiée à rejouer.';
