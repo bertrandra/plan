@@ -25,8 +25,46 @@ export const PHOTOS_PAR_LIGNE_MAX = 4;
 /** `capture` : sur place ; `analyse` : la capture est terminee, l'analyse (§13) la reprendra. */
 export type PhaseAuditParcelle = 'capture' | 'analyse';
 
+/**
+ * Ce que la personne a corrige a la main sur le redressement d'une photo de facade : les quatre coins du mur
+ * (hg, hd, bd, bg, en pixels de la photo) et/ou l'echelle (la largeur reelle du mur, en metres). Une correction
+ * l'emporte toujours sur le calcul automatique, et un rejeu ne l'efface jamais : l'original est immuable, seul le
+ * derive (la photo redressee, la fusion) se recalcule.
+ */
+export interface CorrectionRedressement {
+  coins?: { x: number; y: number }[];
+  echelleLargeurM?: number;
+}
+
+export type StatutRedressement = 'auto' | 'manuelle' | 'echec';
+export type StatutFusionFacade = 'sans' | 'fusionnee' | 'partielle' | 'independantes';
+
+/** Le redressement d'une photo : comment il s'est fait, la verticalite mesuree apres coup, et pourquoi il a echoue. */
+export interface BilanPhotoRedressement {
+  rang: number;
+  statut: StatutRedressement;
+  /** Ecart des verticales a la verticale, en degres, sur la photo redressee ; null quand aucune ligne n'a pu etre lue. */
+  verticaliteDeg: number | null;
+  /** Les coins viennent du calage fin sur les aretes (`trouve`), des points calcules (`predit`) ou de la main. */
+  coins: 'trouve' | 'predit' | 'main';
+  /** Pourquoi `echec` ; absent sinon. */
+  motif?: string;
+}
+
+/** Le redressement et la fusion des photos d'une facade, ce que le bouton « Rejouer » recalcule. Derive : jamais source de verite. */
+export interface BilanRedressement {
+  photos: BilanPhotoRedressement[];
+  fusion: StatutFusionFacade;
+  /** Les rangs des photos assemblees dans l'image fusionnee ; vide sans fusion. */
+  fusionnees: number[];
+  /** Pourquoi les autres photos restent seules (ou pourquoi aucune fusion n'a eu lieu) ; absent sinon. */
+  motifFusion?: string;
+}
+
 export interface FacadeCapturee<P = PhotoCas> {
   photos: P[];
+  /** Les corrections manuelles du redressement, par rang de photo dans `photos` (le rang en texte). */
+  corrections?: Record<string, CorrectionRedressement>;
   /**
    * Marquee a la main : `true` inaccessible (cote voisin, cachee), `false` accessible malgre ce que
    * la liste supposait (le mur d'un mitoyen vu depuis le jardin). Absente : ce que la liste suppose.

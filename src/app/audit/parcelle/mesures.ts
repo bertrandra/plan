@@ -9,11 +9,15 @@
 // - La couleur du mur (lot L3) : lue sur chaque photo prise avec la boussole ; on garde la lecture
 //   qui a le plus de points.
 //
-// Une photo par facade sert au releve : la premiere qui a sa prise de vue. L'assemblage de plusieurs
-// photos d'un meme mur (mosaique, fusion des vues) viendra avec les lots L13 a L15.
+// Toutes les photos d'une facade sont redressees (verticales sous SEUIL_VERTICALES_DEG, sinon repli sur les coins
+// calcules, sinon echec dit avec son motif) ; a partir de deux photos redressees, elles sont fusionnees (facade/fusion.ts :
+// ORB + RANSAC, criteres nommes dans facade/recalageOrb.ts). Aucune photo n'est jamais supprimee : une photo qui ne se
+// fusionne pas reste seule, redressee. Les originaux sont immuables ; les corrections manuelles (coins, echelle) priment
+// sur le calcul et ne sont jamais ecrasees par un rejeu.
 
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
 import { versOuvertureFacade } from '../../../facade/verification.js';
+import { detecterSegments } from '../../../facade/segments.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
@@ -23,6 +27,7 @@ import type { Facade } from '../../../facade/geometrie.js';
 import type { Image } from '../../../facade/homographie.js';
 import type { Prise } from '../../../zones/releve/capteurs.js';
 import type { PhotoCas } from '../../../model/audit.js';
+import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { silhouetteDeEstimation } from '../../../facade/regles/toits/silhouettes.js';
 import type { ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
@@ -58,6 +63,11 @@ export interface MesureFacade {
    * hors cadre. Absente d'une mesure lue dans un fichier d'audit d'avant elle.
    */
   silhouette?: SilhouetteFacade;
+  /**
+   * Le redressement de chaque photo (automatique, manuel ou en echec, avec son motif) et la fusion. Derive : le bouton
+   * « Rejouer redressement + fusion » le recalcule, les originaux et les corrections manuelles n'y changent jamais.
+   */
+  redressement?: BilanRedressement;
 }
 
 export interface DependancesMesures {
@@ -114,25 +124,70 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
   return meilleure;
 }
 
-/** Le releve d'une photo : coins predits puis cherches, analyse, et ce qui s'ecrirait pour le mur. */
-async function releveDeLaPhoto(photo: PhotoCas, img: Pixels, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures) {
+
+/** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
+export const SEUIL_VERTICALES_DEG = 0.5;
+/** Les segments pris pour des verticales : a moins de cet angle de la verticale. */
+const ANGLE_VERTICALE_MAX_DEG = 12;
+/** Il faut au moins ce nombre de verticales lues pour oser une mesure. */
+const VERTICALES_MIN = 2;
+
+/**
+ * L'ecart des verticales a la verticale sur le mur redresse, en degres (valeur absolue de la mediane ponderee par la
+ * longueur) ; null quand le mur n'offre pas assez de lignes verticales pour le dire (mur lisse : on ne conclut pas).
+ */
+export function verticaliteDeg(elevation: Image): number | null {
+  const lignes: { ecart: number; poids: number }[] = [];
+  for (const s of detecterSegments(elevation)) {
+    const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
+    // L'angle a la verticale, signe, ramene dans ]-90 ; 90].
+    let a = (Math.atan2(dx, Math.abs(dy)) * 180) / Math.PI;
+    if (dy < 0) a = -a;
+    if (Math.abs(a) <= ANGLE_VERTICALE_MAX_DEG) lignes.push({ ecart: a, poids: s.longueur });
+  }
+  if (lignes.length < VERTICALES_MIN) return null;
+  lignes.sort((p, q) => p.ecart - q.ecart);
+  const total = lignes.reduce((t, l) => t + l.poids, 0);
+  let cumul = 0;
+  for (const l of lignes) { cumul += l.poids; if (cumul >= total / 2) return Math.round(Math.abs(l.ecart) * 100) / 100; }
+  return null;
+}
+
+/** Une photo prete pour l'analyse : ses coins, d'ou ils viennent, et son morceau. */
+interface PhotoPreparee {
+  rang: number;
+  morceau: Morceau;
+  coins: BilanPhotoRedressement['coins'];
+}
+
+/** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon predits puis cherches sur les aretes. */
+async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, d: DependancesMesures, correction: CorrectionRedressement | undefined, predits: boolean): Promise<PhotoPreparee> {
   const prise = priseDeLaPhoto(photo, versImage(img), f);
-  const entree = entreeRecherche(prise, f.largeur, f.hauteur, false, f.azimut);
   const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, false, f.azimut), recherche: true };
+  if (correction?.coins && correction.coins.length === 4) {
+    return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
+  }
+  if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };
+  const entree = entreeRecherche(prise, f.largeur, f.hauteur, false, f.azimut);
   const r = entree ? await d.chercherCoins(entree).catch(() => null) : null;
   // La photo corrigee de la distorsion n'a pas besoin d'URL ici : on ne l'affiche pas.
   const m = r ? appliquerResultat(depart, r, r.distorsion ? 'corrigee' : null) : { ...depart, recherche: false };
-  const a = analyserSerie([m], f, f.hauteur, bat as ObjetPolygone);
-  if (!a) return null;
-  const calage = calageDeSerie([m], f.largeur, a.r.hauteur, f.azimut);
+  return { rang, morceau: m, coins: m.sources?.includes('trouve') ? 'trouve' : 'predit' };
+}
+
+type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
+
+/** Le releve d'une analyse (une photo ou une fusion), tel qu'il s'ecrit pour le mur. */
+function releveDeLAnalyse(a: Analyse, morceaux: Morceau[], f: Facade, d: DependancesMesures, assemblage: 'morceaux' | 'vues') {
+  const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
   const resultat: Resultat = {
     texture: d.jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, hauteurMesuree: a.r.hauteurMesuree, couverture: a.r.couverture,
     toitPropose: a.r.toitPropose, avis: a.avis, partieBasse: a.r.partieBasse, calage,
   };
   const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
-  const coinsTrouves = !!m.sources?.includes('trouve');
+  const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
   return {
-    releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, m.prise.mesure),
+    releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, au0(morceaux).prise.mesure),
     coinsTrouves,
     devinees: a.r.devinees.map(versOuvertureFacade),
     silhouette: silhouetteDeEstimation(a.r.toitEstime),
@@ -140,9 +195,42 @@ async function releveDeLaPhoto(photo: PhotoCas, img: Pixels, f: Facade, bat: Pic
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };
 }
+const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
 
-/** Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien. */
-export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, photos: readonly PhotoCas[], d: DependancesMesures): Promise<MesureFacade> {
+/** Le redressement d'une photo seule : son analyse, sa verticalite, le repli sur les coins calcules, son statut. */
+async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures, correction: CorrectionRedressement | undefined) {
+  const analyser = async (predits: boolean) => {
+    const p = await preparerPhoto(rang, photo, img, f, d, correction, predits);
+    const a = analyserSerie([p.morceau], f, f.hauteur, bat as ObjetPolygone);
+    return a ? { p, a, vert: verticaliteDeg(a.r.texture) } : null;
+  };
+  let essai = await analyser(false).catch(() => null);
+  if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible' } satisfies BilanPhotoRedressement, essai: null };
+  const manuelle = essai.p.coins === 'main';
+  // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.
+  if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
+    const repli = await analyser(true).catch(() => null);
+    if (repli && repli.vert !== null && repli.vert < essai.vert) essai = repli;
+  }
+  const ok = manuelle || essai.vert === null || essai.vert <= SEUIL_VERTICALES_DEG;
+  const bilan: BilanPhotoRedressement = {
+    rang, statut: manuelle ? 'manuelle' : ok ? 'auto' : 'echec', verticaliteDeg: essai.vert, coins: essai.p.coins,
+    ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(SEUIL_VERTICALES_DEG).replace('.', ',') + '°) : placez les quatre coins à la main' }),
+  };
+  return { bilan, essai };
+}
+
+/** Les motifs, en clair, de ce qui n'a pas ete fusionne. */
+const motifFusion = (motifs: readonly string[]): string | undefined => {
+  const uniques = [...new Set(motifs.filter((m) => !!m))];
+  return uniques.length ? uniques.join(' ; ') : undefined;
+};
+
+/**
+ * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
+ * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
+ */
+export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -152,11 +240,51 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   };
   const vide: MesureFacade = { cle, cote: f.cote, releve: null, rangReleve: null, coinsTrouves: false, confiance: null, hauteurM: null, couleur: null };
   const couleur = await couleurDesPhotos(photos, images, f, d).catch(() => null);
-  // La photo du releve : la premiere qui a sa prise de vue, sinon la premiere.
-  const rang = Math.max(0, photos.findIndex((p) => !!p.prise));
-  const photo = photos[rang];
-  const img = photo ? await images(rang) : null;
-  if (!photo || !img) return { ...vide, couleur };
-  const r = await releveDeLaPhoto(photo, img, f, bat, d).catch(() => null);
-  return r ? { ...vide, ...r, rangReleve: rang, couleur } : { ...vide, couleur };
+  if (!photos.length) return { ...vide, couleur };
+  // L'echelle corrigee a la main (la largeur reelle du mur) vaut pour toutes les photos du mur : la premiere donnee l'emporte.
+  const largeurM = Object.keys(corrections).map(Number).sort((a, b) => a - b).map((k) => corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
+  const fm: Facade = largeurM ? { ...f, largeur: largeurM } : f;
+
+  // 1. Le redressement de chaque photo, l'une apres l'autre (la premiere avec une prise de vue d'abord).
+  const ordre = photos.map((_, i) => i).sort((a, b) => Number(!photos[a]?.prise) - Number(!photos[b]?.prise) || a - b);
+  const faits: Awaited<ReturnType<typeof redresserPhoto>>[] = [];
+  const bilans: BilanPhotoRedressement[] = [];
+  for (const i of ordre) {
+    const photo = photos[i] as PhotoCas;
+    const img = await images(i);
+    if (!img) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
+    const r = await redresserPhoto(i, photo, img, fm, bat, d, corrections[String(i)]).catch(() => null);
+    if (!r) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'redressement impossible' }); continue; }
+    faits.push(r);
+    bilans.push(r.bilan);
+  }
+  bilans.sort((a, b) => a.rang - b.rang);
+  const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
+
+  // 2. La photo qui sert au releve seule : la premiere redressee sans echec, sinon la premiere analysee (jamais rien de perdu).
+  const seule = faits.find((x) => x.bilan.statut !== 'echec' && x.essai) ?? faits.find((x) => x.essai);
+  if (!seule || !seule.essai) return { ...vide, couleur, redressement: bilan('sans', [], faits.length ? undefined : 'aucune photo n’a pu être redressée') };
+  const utilisables = faits.filter((x) => x.bilan.statut !== 'echec' && x.essai);
+  const essaiSeul = seule.essai;
+  const unique = () => ({ ...vide, ...releveDeLAnalyse(essaiSeul.a, [essaiSeul.p.morceau], fm, d, 'morceaux'), rangReleve: seule.bilan.rang, couleur });
+  if (utilisables.length < 2) {
+    const motif = photos.length > 1 ? 'moins de deux photos redressées : pas de fusion' : undefined;
+    return { ...unique(), redressement: bilan('sans', [], motif) };
+  }
+
+  // 3. La fusion (ORB + RANSAC) des photos redressees ; sinon chacune reste seule.
+  const morceaux = utilisables.map((x) => (x.essai as NonNullable<typeof x.essai>).p.morceau);
+  const fusion = analyserSerie(morceaux, fm, fm.hauteur, bat as ObjetPolygone, 'vues');
+  const res = fusion?.fusion;
+  if (!fusion || !res || (res.statut !== 'fusionnee' && res.statut !== 'partielle')) {
+    const motifs = res ? res.vues.map((v) => v.motif ?? '') : ['la fusion n’a pas pu s’appliquer'];
+    return { ...unique(), redressement: bilan('independantes', [], motifFusion(motifs) ?? 'les photos ne se recoupent pas assez') };
+  }
+  const rangDe = (k: number) => (utilisables[k] as typeof utilisables[number]).bilan.rang;
+  const fusionnees = res.groupe.map(rangDe).sort((a, b) => a - b);
+  const autres = res.independantes.map((k) => (res.vues[k]?.motif ?? ''));
+  return {
+    ...vide, ...releveDeLAnalyse(fusion, morceaux, fm, d, 'vues'), rangReleve: rangDe(res.reference), couleur,
+    redressement: bilan(res.statut === 'fusionnee' ? 'fusionnee' : 'partielle', fusionnees, res.statut === 'partielle' ? motifFusion(autres) : undefined),
+  };
 }

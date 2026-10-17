@@ -237,10 +237,12 @@ describe('releve : plusieurs vues du mur entier (lot L13)', () => {
   });
 
   it('dit ce que la fusion trouve a redire', () => {
-    const vue = (ressemblance: number) => ({ dxM: 0, dyM: 0, ressemblance, qualite: 80, occultee: 0, part: 0.5 });
-    expect(avisFusion({ reference: 0, masque: 0, vues: [vue(1), vue(0.9)] })).toBeNull();
-    expect(avisFusion({ reference: 0, masque: 0, vues: [vue(1), vue(0.9), vue(0.3)] })).toMatch(/^La vue 3 se raccorde mal/);
-    expect(avisFusion({ reference: 1, masque: 0.05, vues: [vue(0.8), vue(1)] })).toMatch(/5 %\) reste cachée sur toutes les vues/);
+    const vue = (fusionnee: boolean, motif: string | null = null) => ({ fusionnee, motif, dxM: 0, dyM: 0, inliers: 0, qualite: 80, occultee: 0, part: 0.5 });
+    expect(avisFusion({ statut: 'fusionnee', masque: 0, vues: [vue(true), vue(true)] })).toBeNull();
+    expect(avisFusion({ statut: 'partielle', masque: 0, vues: [vue(true), vue(true), vue(false, 'trop peu de points communs')] })).toMatch(/^La vue 3 n’est pas fusionnée : trop peu de points communs/);
+    expect(avisFusion({ statut: 'fusionnee', masque: 0.05, vues: [vue(true), vue(true)] })).toMatch(/5 %\) reste cachée sur toutes les vues/);
+    // Une seule photo n'a rien a fusionner : pas de reproche.
+    expect(avisFusion({ statut: 'seule', masque: 0, vues: [vue(true)] })).toBeNull();
   });
 });
 

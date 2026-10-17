@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { analyserVues, centreOptique, transfert, recalage2D, recalageLineaire, type VuePhoto } from '../../../src/facade/fusion.js';
+import { analyserVues, centreOptique, transfert, type VuePhoto } from '../../../src/facade/fusion.js';
 import { analyserReleve } from '../../../src/facade/analyse.js';
-import { homographie, type Image } from '../../../src/facade/homographie.js';
+import { homographie } from '../../../src/facade/homographie.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
 import { photographier, coinsVrais, stenope, cacheDepuis, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';
@@ -79,31 +79,6 @@ describe('fusion : la geometrie des vues', () => {
     expect(retour?.y).toBeCloseTo(4.5, 9);
     // Deux vues de part et d'autre du mur ne se comparent pas.
     expect(transfert(A, [5, 4, 10], 3, 4.5, 1)).toBeNull();
-  });
-
-  it('recale une elevation decalee de quelques centimetres, en x et en y', () => {
-    const L = 400,
-      H = 240;
-    const motif = (x: number, y: number) => 120 + 60 * Math.sin(x / 9) * Math.cos(y / 13) + ((x * 7 + y * 13) % 11);
-    const image = (dx: number, dy: number): { image: Image; vu: Uint8Array } => {
-      const d = new Uint8ClampedArray(L * H * 4);
-      for (let y = 0; y < H; y++)
-        for (let x = 0; x < L; x++) {
-          const v = motif(x + dx, y + dy);
-          d.set([v, v * 0.9, v * 0.8, 255], (y * L + x) * 4);
-        }
-      return { image: { largeur: L, hauteur: H, donnees: d }, vu: new Uint8Array(L * H).fill(1) };
-    };
-    // B est A lue 7 px plus a gauche et 4 px plus haut : B(x) = A(x - 7, y + 4).
-    const A = image(0, 0),
-      B = image(-7, 4);
-    const r = recalage2D(A, B, 0, 100);
-    expect(r.sx).toBe(7);
-    expect(r.sy).toBe(-4);
-    expect(r.score).toBeGreaterThan(0.95);
-    const lin = recalageLineaire(A, B, 0, 100, r);
-    expect(lin.sx + lin.bx * 200).toBeCloseTo(7, 0);
-    expect(Math.abs(lin.bx)).toBeLessThan(0.01);
   });
 });
 

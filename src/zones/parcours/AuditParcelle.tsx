@@ -17,6 +17,8 @@ import { useEffect, useReducer, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
+import { LIBELLE_REJOUER, texteFusion, textePhoto, texteRejeu } from '../../app/audit/parcelle/redressement.js';
+import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
 import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
@@ -71,6 +73,42 @@ function Vignettes({ photos, nom, retirer }: { photos: readonly PhotoCas[]; nom:
   );
 }
 
+/**
+ * Le redressement et la fusion des photos d'une facade : le statut de chacune (automatique, a la main, echec et son motif),
+ * celui de l'ensemble, et « Rejouer redressement + fusion ». Un rejeu ne remplace que les images derivees.
+ */
+function Redressement({ session, cle, cote, nom }: { session: SessionAuditParcelle; cle: string; cote: number; nom: string }) {
+  const [enCours, setEnCours] = useState(false);
+  const bilan = session.validation.mesuresFaites().get(cleMesure(cle, cote))?.redressement;
+  const rejouer = () => { setEnCours(true); void session.validation.rejouerRedressement(cle, cote).finally(() => setEnCours(false)); };
+  return (
+    <div className="redressementAudit" aria-label={'Redressement et fusion : ' + nom}>
+      {bilan
+        ? <>
+          <div className="detailPhoto" data-controle="auditParcelle.statutFusion" role="status">{texteFusion(bilan)}</div>
+          <ul className="detailPhoto">{bilan.photos.map((p) => <li key={p.rang} className={'statut-' + p.statut}>{textePhoto(p)}</li>)}</ul>
+        </>
+        : <div className="detailPhoto">Pas encore redressée : lancez l’analyse.</div>}
+      <button type="button" className="secondary small" data-controle="auditParcelle.rejouerRedressement" disabled={enCours} aria-label={LIBELLE_REJOUER + ' : ' + nom} onClick={rejouer}>{enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>
+    </div>
+  );
+}
+
+/** « Rejouer redressement + fusion » pour tout l'audit : chaque facade photographiee refait ses images derivees. */
+function RejouerTout({ session }: { session: SessionAuditParcelle }) {
+  const [etat, setEtat] = useState<{ enCours: boolean; texte: string }>({ enCours: false, texte: '' });
+  const rejouer = () => {
+    setEtat({ enCours: true, texte: '' });
+    void session.validation.rejouerRedressement().then((n) => setEtat({ enCours: false, texte: texteRejeu(n) }), () => setEtat({ enCours: false, texte: 'Le rejeu a échoué : vos photos sont intactes.' }));
+  };
+  return (
+    <div className="actionsAudit">
+      <button type="button" className="secondary" data-controle="auditParcelle.rejouerRedressement" disabled={etat.enCours} onClick={rejouer}>{etat.enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>
+      <span className="detailPhoto" role="status">{etat.texte || 'Refait le redressement de chaque photo et leur fusion, sans toucher aux photos ni à vos corrections.'}</span>
+    </div>
+  );
+}
+
 /** Une facade : son statut, « Photographier », « Inaccessible » ; ses photos en la depliant. */
 function LigneFacadeVue({ session, b, f, ouverte, basculer, prendre }: { session: SessionAuditParcelle; b: LigneBatiment; f: LigneFacade; ouverte: boolean; basculer: () => void; prendre: (cle: string, cote: number) => void }) {
   const photos = session.capture.lire().batiments[b.cle]?.facades[String(f.cote)]?.photos ?? [];
@@ -89,6 +127,7 @@ function LigneFacadeVue({ session, b, f, ouverte, basculer, prendre }: { session
           onClick={() => session.capture.basculerInaccessible(b.cle, f.cote, f.statut === 'inaccessible')}>Inaccessible</button>}
       </div>
       {ouverte && <Vignettes photos={photos} nom={nom} retirer={(r) => session.capture.retirerPhotoFacade(b.cle, f.cote, r)} />}
+      {ouverte && photos.length > 0 && <Redressement session={session} cle={b.cle} cote={f.cote} nom={nom} />}
     </li>
   );
 }
@@ -254,6 +293,7 @@ function Liste({ session, commandes, fermer }: Props) {
         <span className="detailPhoto">La Vue 3D ne montre que le bâtiment. Devant une façade, elle vous suit à hauteur d’homme : la façade passe en rouge et la photo s’y range d’elle-même. Sinon, elle montre tout le bâtiment : touchez la façade à photographier.</span>
       </div>
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
+      {l.peutLancer && <RejouerTout session={session} />}
       {l.batiments.map(section)}
       <SectionParcelle session={session} ouverte={ouverte} basculer={basculer}
         photo={(quoi, f) => photo.prendre(f, (p) => (quoi === 'cloture' ? session.capture.ajouterPhotoCloture(p) : session.capture.ajouterPhotoPortail(p)))} />

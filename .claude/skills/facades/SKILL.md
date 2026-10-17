@@ -184,6 +184,16 @@ pixels sur les vues de plus, comparée à la chaîne du relevé sur la seule vue
 fusion ») : rappel, précision, corrections ; part du mur cachée sur la vue principale (vérité du
 générateur, `cacheDepuis`) et, parmi ces pixels, ceux que l'élévation montre comme le mur (à moins de
 30 niveaux du mur peint sans obstacle) ; masque restant ; recalage trouvé pour chaque vue de plus.
+Depuis le recalage ORB + RANSAC (octobre 2026), `analyserVues` recale les vues par des points ORB
+(`facade/orb.ts`) et une similitude RANSAC (`facade/ransac.ts`), acceptée seulement si elle tient les
+`CRITERES_FUSION` de `facade/recalageOrb.ts` (points communs, part d'inliers, échelle, rotation,
+erreur, déplacement, corrélation). Le banc ne doit pas baisser : ensemble 80 % → 100 % de rappel,
+80 % → 96 % de précision, 2,8 → 0,3 correction par façade, 13 % → 59 % de rendu au mur (c'est le
+chiffre de l'ancien recalage en deux dimensions, retrouvé). Seuil RANSAC 4 px et erreur 3,5 px : à 2,5 px
+la scène `18-` (deux vues seulement) n'était plus fusionnée. L'audit de la parcelle redresse **toutes** les
+photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous `SEUIL_VERTICALES_DEG`) et les fusionne dès deux
+photos sans échec ; « Rejouer redressement + fusion » (liste de contrôle) refait ces dérivés sans toucher
+aux photos ni aux corrections manuelles (`FacadeCapturee.corrections`).
 Les scènes `16-` à `18-` sont faites pour cela : chaque partie cachée sur une vue se voit sur une
 autre, sauf ce qui est caché partout (le milieu de la voiture de `16-`), qui doit finir dans le masque.
 

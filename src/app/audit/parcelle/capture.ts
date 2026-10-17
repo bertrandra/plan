@@ -7,7 +7,7 @@
 
 import {
   batimentVide, captureVide, PHOTOS_PAR_FACADE_MAX, PHOTOS_PAR_LIGNE_MAX,
-  type AnalyseCapture, type BatimentCapture, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
+  type AnalyseCapture, type BatimentCapture, type CorrectionRedressement, type CaptureParcelle, type ClotureCapturee, type DecisionAudit, type EnvoiCorpus, type PartageCorpus, type PortailCapture,
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
@@ -22,6 +22,8 @@ export interface CaptureEnCours {
   /** Une photo de plus sur cette facade ; au-dela du maximum, elle est ignoree (faux). */
   ajouterPhotoFacade(cle: string, cote: number, photo: PhotoCas): boolean;
   retirerPhotoFacade(cle: string, cote: number, rang: number): void;
+  /** Une correction manuelle du redressement de cette photo (null : la retire). Elle prime sur le calcul et survit au rejeu. */
+  corrigerRedressement(cle: string, cote: number, rang: number, correction: CorrectionRedressement | null): void;
   /** Inaccessible, ou rendue a la liste : la touche inverse ce que la liste montre. */
   basculerInaccessible(cle: string, cote: number, inaccessibleAvant: boolean): void;
   noterVu(cle: string, vu: CeQueJeVois): void;
@@ -83,6 +85,21 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       const f = capture.batiments[cle]?.facades[String(cote)];
       if (!f) return;
       f.photos = sans(f.photos, rang);
+      // Les corrections suivent leur photo : celles des rangs suivants descendent d'un cran.
+      if (f.corrections) {
+        const suite: Record<string, CorrectionRedressement> = {};
+        for (const [k, c] of Object.entries(f.corrections)) { const r = Number(k); if (r < rang) suite[k] = c; else if (r > rang) suite[String(r - 1)] = c; }
+        if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
+      }
+      changer();
+    },
+    corrigerRedressement(cle, cote, rang, correction) {
+      const f = facade(cle, cote);
+      if (rang < 0 || rang >= f.photos.length) return;
+      const suite = { ...(f.corrections ?? {}) };
+      if (correction && (correction.coins || correction.echelleLargeurM !== undefined)) suite[String(rang)] = JSON.parse(JSON.stringify(correction)) as CorrectionRedressement;
+      else delete suite[String(rang)];
+      if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
       changer();
     },
     basculerInaccessible(cle, cote, inaccessibleAvant) {

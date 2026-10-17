@@ -294,6 +294,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.retirerAccord': etape(Z8, AUDIT_PARCELLE, 'Retirer l’accord : plus aucune photo ne part, les propositions de Claude sont retirées'),
   'auditParcelle.relancerAnalyse': etape(Z8, AUDIT_PARCELLE, 'Relancer l’analyse par Claude (photos changées, ou envoi échoué)'),
   'auditParcelle.fermer': etape(Z8, AUDIT_PARCELLE, 'Fermer l’audit de la parcelle, depuis la liste, la prise ou les propositions (rien n’est perdu)'),
+  'auditParcelle.rejouerRedressement': etape(Z8, AUDIT_PARCELLE, 'Rejouer redressement + fusion des photos de façade (une façade, ou tout l’audit) : ne remplace que les images dérivées', { repete: true }),
+  'auditParcelle.statutFusion': etape(Z8, AUDIT_PARCELLE, 'Lire le statut du redressement et de la fusion d’une façade', { repete: true }),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),
   'auditParcelle.pasCetteFacade': etape(Z8, AUDIT_PARCELLE, 'Ce n’est pas cette façade : proposer la suivante'),
