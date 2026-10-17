@@ -15,7 +15,12 @@ import { observerSujets } from '../../regles/sujets/observations.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade } from '../../../model/types.js';
-import type { LigneBatiment } from './liste.js';
+import { etiquetteFacade, type LigneBatiment } from './liste.js';
+import { formeDesCorps } from '../../../model/formeToit.js';
+import { observationDesSilhouettes } from '../../../facade/regles/toits/silhouettes.js';
+import { libelleSilhouette } from '../../../model/silhouetteFacade.js';
+import { direBouts, murs } from '../../regles/sujets/formeToit.js';
+import type { BoutsVus, CeQueJeVois, FormeVue } from '../../../model/ceQueJeVois.js';
 
 export interface ObservationClaude {
   id: string;
@@ -25,6 +30,13 @@ export interface ObservationClaude {
   ou: string[];
   /** La part des passes d'accord ; null quand la ligne ne vient pas d'un vote (un ecart, le renfort). */
   accord: number | null;
+  /**
+   * Ce que « Je confirme » note dans « Ce que je vois » (la capture, pas le projet) : l'observation de Claude devient celle de la personne,
+   * qui l'emporte sur lui dans l'arbitrage et que le moteur des toits relit ensuite sur la mesure. Absent : rien a confirmer ici.
+   */
+  confirmer?: Partial<CeQueJeVois>;
+  /** Pourquoi la confirmation ne redessinera pas le toit, quand on le sait d'avance (pas de mesure LiDAR). */
+  raison?: string;
 }
 
 export interface ObservationsBatiment { cle: string; nom: string; observations: ObservationClaude[] }
@@ -42,7 +54,48 @@ export function lieuxDe(indices: readonly IndiceAnalyse[], etiquettes: readonly 
 
 /** Les lignes tirees du vote des passes sur la maison : chaque sujet du registre dit les siennes (app/regles/sujets/observations.ts). */
 function observationsDuVote(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, reponses: readonly ReponseAnalyse[], et: readonly EtiquetteImage[]): ObservationClaude[] {
-  return observerSujets({ o, v, reponses }).map((l) => ({ id: b.cle + ':obs:' + l.sujet, texte: l.texte, ou: lieuxDe(l.indices, et), accord: l.accord }));
+  const lignes = observerSujets({ o, v, reponses }).map((l): ObservationClaude => ({ id: b.cle + ':obs:' + l.sujet, texte: l.texte, ou: lieuxDe(l.indices, et), accord: l.accord, ...(confirmationDuVote(l.sujet, v) ? { confirmer: confirmationDuVote(l.sujet, v) as Partial<CeQueJeVois> } : {}) }));
+  const sil = observationSilhouettes(o, b, v, et);
+  const out = [...lignes, ...(sil ? [sil] : [])];
+  // Sans mesure LiDAR, la confirmation est gardee avec l'audit mais le toit ne se redessine pas : le dire avant, pas apres.
+  return o.toitMesure ? out : out.map((l) => (l.confirmer ? { ...l, raison: 'Ce toit n’a pas de mesure LiDAR : confirmer garde votre observation avec l’audit, mais le toit ne se redessine pas.' } : l));
+}
+
+const FORMES_CONFIRMABLES: ReadonlySet<string> = new Set<FormeVue>(['plat', 'appentis', 'deux-pans', 'croupes', 'pavillon', 'demi-croupe', 'mansart']);
+const boutsVus = (g: string, d: string): BoutsVus | null => (g === 'pignon' && d === 'pignon' ? 'pignons' : g === 'croupe' && d === 'croupe' ? 'croupes' : (g === 'pignon' && d === 'croupe') || (g === 'croupe' && d === 'pignon') ? 'pignon-croupe' : null);
+
+/** Ce que confirmer une ligne du vote note dans « Ce que je vois » : la forme, ou les bouts, que Claude a dits. */
+function confirmationDuVote(sujet: string, v: VoteAnalyse): Partial<CeQueJeVois> | null {
+  if (sujet === 'forme') return FORMES_CONFIRMABLES.has(v.forme.valeur) ? { forme: v.forme.valeur as FormeVue } : null;
+  if (sujet === 'pignons' || sujet === 'bouts') { const x = boutsVus(v.boutGauche.valeur, v.boutDroit.valeur); return x ? { bouts: x } : null; }
+  return null;
+}
+
+/**
+ * Ce que disent de la toiture les silhouettes que Claude a lues au-dessus de l'egout de chaque facade (pignon, trapeze, rampe…),
+ * dans le vocabulaire du moteur : les bouts et le sens du faitage. La meme lecture que l'arbitrage, rendue visible : sans elle, des
+ * pignons vus sur six murs ne laissaient aucune ligne, et rien a confirmer. Une contradiction entre murs se dit et ne se confirme pas.
+ */
+function observationSilhouettes(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, et: readonly EtiquetteImage[]): ObservationClaude | null {
+  const parMur = new Map(v.facades.map((f) => [f.facade, f]));
+  const plat = !!o.corpsToit?.length && formeDesCorps(o.corpsToit) === 'plat';
+  const lus = observationDesSilhouettes(murs(b, (f) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; }), plat);
+  if (!lus?.vus.length) return null;
+  const { bouts, faitage, forme } = lus.observation;
+  const dit = lus.vus.map((x) => x.nom + ' : ' + libelleSilhouette(x.silhouette) + ' → ' + x.dit).join(' ; ');
+  const conclusion = [bouts ? direBouts(bouts) : null, faitage?.par === 'azimut' ? 'faîtage à ' + Math.round(faitage.azimutDeg) + '°' : null, forme?.[0] ? 'toit à un pan' : null].filter(Boolean).join(', ');
+  const confirmable = !lus.conflits.length;
+  const vubouts = bouts ? boutsVus(bouts[0], bouts[1]) : null;
+  const vuForme: FormeVue | null = forme?.[0] === 'appentis' ? 'appentis' : bouts ? (bouts[0] === 'pignon' && bouts[1] === 'pignon' ? 'deux-pans' : bouts.includes('croupe') ? 'croupes' : null) : null;
+  const confirmer: Partial<CeQueJeVois> = { ...(vubouts ? { bouts: vubouts } : {}), ...(vuForme ? { forme: vuForme } : {}) };
+  const facades = v.facades.filter((f) => f.silhouette.valeur !== 'indetermine' || f.bout.valeur !== 'indetermine');
+  const indices = facades.flatMap((f) => [...f.silhouette.indices, ...f.bout.indices]);
+  return {
+    id: b.cle + ':obs:silhouettes',
+    texte: 'Toit lu sur les silhouettes des façades' + (conclusion ? ' (' + conclusion + ')' : '') + ' — ' + dit + (lus.conflits.length ? ' — contradiction : ' + lus.conflits.join(' ; ') : ''),
+    ou: lieuxDe(indices, et), accord: facades.length ? Math.min(...facades.map((f) => Math.min(f.silhouette.accord, f.bout.accord))) : null,
+    ...(confirmable && Object.keys(confirmer).length ? { confirmer } : {}),
+  };
 }
 
 const memeBoite = (a: OuvertureFacade, z: OuvertureFacade) => a.x === z.x && a.y === z.y && a.l === z.l && a.h === z.h;

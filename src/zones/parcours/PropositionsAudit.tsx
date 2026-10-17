@@ -18,6 +18,7 @@ import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
 import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
+import type { CeQueJeVois } from '../../model/ceQueJeVois.js';
 import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
 import { tauxAutomatique, type TauxAutomatique } from '../../app/audit/parcelle/arbitrages.js';
 import type { Validation } from '../../app/audit/parcelle/validation.js';
@@ -148,30 +149,44 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
+/** La capture porte-t-elle deja ce que « Je confirme » noterait ? */
+const dejaConfirme = (vu: CeQueJeVois, c: Partial<CeQueJeVois>): boolean => Object.entries(c).every(([k, x]) => JSON.stringify(vu[k as keyof CeQueJeVois]) === JSON.stringify(x));
+
 /**
- * Ce que Claude a vu sans que le projet sache l'ecrire (app/audit/parcelle/observationsClaude.ts) :
- * des lignes a lire, batiment par batiment, sans case. Une case laisserait croire que l'on peut
- * l'ecrire dans le projet ; rien ne l'est.
+ * Ce que Claude a vu, batiment par batiment. Une ligne qui porte une observation sur le toit (forme, bouts, silhouettes des facades)
+ * se confirme : « Je confirme » la note dans « Ce que je vois », l'observation de la personne, qui l'emporte sur Claude ; le moteur
+ * des toits la relit alors sur la mesure LiDAR et, s'il sait la dessiner, une proposition arrive a cocher. Rien n'est ecrit dans le
+ * projet avant « Valider ». En consultation (lecture seule), on lit sans confirmer.
  */
-function ObservationsClaude({ batiments }: { batiments: readonly ObservationsBatiment[] }) {
+function ObservationsClaude({ batiments, session, lecture }: { batiments: readonly ObservationsBatiment[]; session: SessionAuditParcelle; lecture: boolean }) {
   if (!batiments.length) return null;
   return (
     <section className="observationsClaude" aria-label="Vu par Claude">
       <div className="titreObservations">Vu par Claude, à vérifier sur place</div>
-      <p className="noteObservations">Ces observations ne changent rien au projet.</p>
-      {batiments.map((b) => (
-        <div key={b.cle} className="observationsBatiment">
-          <div className="nomObservations">{b.nom}</div>
-          <ul className="listeObservations">
-            {b.observations.map((o) => (
-              <li key={o.id} className="ligneObservation">
-                <span>{o.texte}</span>
-                {(o.ou.length > 0 || o.accord !== null) && <span className="origineProposition">{[o.ou.length ? 'vu sur : ' + o.ou.join(', ') : null, o.accord !== null ? 'passes d’accord ' + Math.round(o.accord * 100) + ' %' : null].filter(Boolean).join(' · ')}</span>}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <p className="noteObservations">{lecture ? 'Ces observations ne changent rien au projet.' : 'Ces observations ne changent rien au projet tant que vous ne les confirmez pas : « Je confirme » les note comme ce que vous avez vu sur place, et le moteur des toits les relit sur la mesure.'}</p>
+      {batiments.map((b) => {
+        const vu = session.capture.lire().batiments[b.cle]?.vu ?? {};
+        return (
+          <div key={b.cle} className="observationsBatiment">
+            <div className="nomObservations">{b.nom}</div>
+            <ul className="listeObservations">
+              {b.observations.map((o) => {
+                const fait = o.confirmer ? dejaConfirme(vu, o.confirmer) : false;
+                return (
+                  <li key={o.id} className="ligneObservation">
+                    <span>{o.texte}</span>
+                    {(o.ou.length > 0 || o.accord !== null) && <span className="origineProposition">{[o.ou.length ? 'vu sur : ' + o.ou.join(', ') : null, o.accord !== null ? 'passes d’accord ' + Math.round(o.accord * 100) + ' %' : null].filter(Boolean).join(' · ')}</span>}
+                    {o.confirmer && !lecture && (fait
+                      ? <span className="origineProposition" role="status">Confirmé par vous : noté dans « Ce que je vois ».</span>
+                      : <button type="button" className="secondary small" data-controle="auditParcelle.confirmerObservation" aria-label={'Je confirme : ' + o.texte} onClick={() => session.capture.noterVu(b.cle, { ...vu, ...o.confirmer })}>Je confirme</button>)}
+                    {o.confirmer && !lecture && !fait && o.raison && <span className="origineProposition">{o.raison}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -248,7 +263,7 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
           {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
         </ul>}
         <SourcesDesBatiments v={v} />
-        <ObservationsClaude batiments={observations} />
+        <ObservationsClaude batiments={observations} session={session} lecture={lecture} />
         {!lecture && verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
           {verifs.map((x) => <li key={x.cle} className={x.verifie ? 'verifie' : ''}>{x.verifie ? x.nom + ' sera marqué « vérifié sur place ».' : x.nom + ' : pas encore vérifié sur place (' + x.raison + ').'}</li>)}
         </ul>}

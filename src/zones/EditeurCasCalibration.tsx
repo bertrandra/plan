@@ -10,6 +10,8 @@ import { Coins } from './releve/Coins.js';
 import { pointSvg } from './releve/commun.js';
 import { LIBELLES_OUVERTURE } from './releve/commun.js';
 import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } from '../facade/corpusReel.js';
+import { avisFusion } from './releve/analyse.js';
+import { coinsAuto } from './releve/coinsAuto.js';
 import type { Image, P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
@@ -26,6 +28,10 @@ export interface OutilsPhotos {
 
 /** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
 export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
+
+/** D'ou viennent les coins d'une photo : trouves sur ses aretes, devines (a verifier), ou poses a la main. */
+type OrigineCoins = 'trouves' | 'devines' | 'main';
+const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'coins posés à la main' };
 
 interface Elevation { url: string; largeurM: number; hauteurM: number; propositions: OuvertureVraie[] }
 
@@ -95,34 +101,47 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [dims, setDims] = useState<Record<number, { l: number; h: number }>>({});
+  const [origines, setOrigines] = useState<Record<number, OrigineCoins>>({});
+  // Ce que le redressement et la fusion automatiques ont a redire (une vue non fusionnee, une part du mur cachee).
+  const [avis, setAvis] = useState<string | null>(null);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
 
   const ajouterPhotos = async (fichiers: FileList | null) => {
     if (!fichiers?.length) return;
-    setOccupe(true); setMessage(null);
+    setOccupe(true); setMessage(null); setAvis(null);
     try {
       let suite = cas;
       for (const f of Array.from(fichiers).slice(0, PHOTOS_CAS_MAX - cas.photos.length)) {
         const url = await outils.reduirePhoto(f);
         const img = await outils.decoder(url);
-        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (suite.photos.length + 1), coins: coinsParDefaut(img.largeur, img.hauteur) }] };
-        setDims((d) => ({ ...d, [suite.photos.length - 1]: { l: img.largeur, h: img.hauteur } }));
+        // Les coins se cherchent seuls sur les aretes du mur ; ce qui reste devine est dit, la personne le corrige au doigt.
+        await new Promise((ok) => setTimeout(ok, 0));
+        const auto = coinsAuto(img, suite.largeurM, suite.hauteurM);
+        const k = suite.photos.length;
+        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: auto.coins }] };
+        setDims((d) => ({ ...d, [k]: { l: img.largeur, h: img.hauteur } }));
+        setOrigines((o) => ({ ...o, [k]: auto.trouves ? 'trouves' : 'devines' }));
       }
       setCas(suite); setElevation(null);
+      // Le redressement et la fusion suivent l'ajout : la photo reste dans le cas meme quand ils doutent.
+      await redresser(suite);
     } catch (e) { setMessage('Photo illisible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
-  const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setCourante(0); setElevation(null); };
-  const poserCoins = (coins: P2[]) => modifier((c) => ({ ...c, photos: c.photos.map((p, i) => (i === courante ? { ...p, coins } : p)) }));
+  // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
+  const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
+  const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setCourante(0); setElevation(null); setAvis(null); };
+  const poserCoins = (coins: P2[]) => { modifier((c) => ({ ...c, photos: c.photos.map((p, i) => (i === courante ? { ...p, coins } : p)) })); setOrigines((o) => ({ ...o, [courante]: 'main' })); };
 
-  const redresser = async () => {
-    setOccupe(true); setMessage(null);
+  const redresser = async (depart: CasStocke = cas) => {
+    setOccupe(true); setMessage(null); setAvis(null);
     try {
       // Rendre la main un instant : « Calcul… » doit s'afficher avant que le redressement, long sur un telephone, occupe le fil.
       await new Promise((ok) => setTimeout(ok, 30));
-      const images = await Promise.all(cas.images.map((u) => outils.decoder(u)));
-      const p: CasPrepare | null = preparerCas(cas, images);
+      const images = await Promise.all(depart.images.map((u) => outils.decoder(u)));
+      const p: CasPrepare | null = preparerCas(depart, images);
       if (!p) { setMessage('Le mur ne se redresse pas avec ces coins : replacez-les sur les quatre angles du mur.'); setElevation(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
+      setAvis(p.fusion ? avisFusion(p.fusion) : null);
     } catch (e) { setMessage('Redressement impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   const sauver = async () => {
@@ -153,13 +172,14 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
           <input type="file" accept="image/*" capture="environment" multiple disabled={cas.photos.length >= PHOTOS_CAS_MAX || occupe} data-controle="calibration.photo" onChange={(e) => { const f = e.target.files; void ajouterPhotos(f).then(() => { e.target.value = ''; }); }} />
           <span>{cas.photos.length ? 'Ajouter une photo du même mur' : 'Prendre ou choisir une photo'}</span>
         </label>
-        <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. Plusieurs photos du même mur permettent de juger la fusion.</span>
+        <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. Les coins se cherchent seuls, puis le mur se redresse et les photos se fusionnent ; corrigez au doigt ce qui est signalé.</span>
       </div>
       {cas.photos.length > 0 && (
         <ul className="calVignettes" aria-label="Photos du cas">
           {cas.images.map((u, k) => (
             <li key={k} className={k === courante ? 'actif' : ''}>
               <button type="button" className="calVignette" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => setCourante(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
+              {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
               <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirerPhoto(k)}>Retirer</button>
             </li>
           ))}
@@ -173,6 +193,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       <div className="calLigne">
         <button type="button" data-controle="calibration.redresser" disabled={!cas.photos.length || occupe} onClick={() => { void redresser(); }}>{occupe ? 'Calcul…' : 'Redresser le mur'}</button>
       </div>
+      {avis && <p className="calNote" role="status" data-controle="calibration.avisFusion">{avis}</p>}
 
       {elevation && <>
         <p className="calNote">Mur redressé. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>
