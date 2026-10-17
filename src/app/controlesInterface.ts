@@ -328,6 +328,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.appliquerCoins': etape(Z8, AUDIT_PARCELLE, 'Appliquer les quatre coins placés : le redressement est rejoué avec eux', { repete: true }),
   'auditParcelle.retablirCoins': etape(Z8, AUDIT_PARCELLE, 'Revenir au redressement automatique de cette photo', { repete: true }),
   'auditParcelle.annulerCoins': etape(Z8, AUDIT_PARCELLE, 'Fermer la pose des coins sans rien changer', { repete: true }),
+  'auditParcelle.avertissementFusion': etape(Z8, AUDIT_PARCELLE, 'Lire, à la prise de vue, que la fusion des photos de la façade est impossible (reprendre avec des chevauchements)'),
   'auditParcelle.statutFusion': etape(Z8, AUDIT_PARCELLE, 'Lire le statut du redressement et de la fusion d’une façade', { repete: true }),
   'auditParcelle.lancer': etape(Z8, AUDIT_PARCELLE, 'Lancer l’analyse : terminer la capture'),
   'auditParcelle.liste': etape(Z8, AUDIT_PARCELLE, 'Revenir à la liste de contrôle'),

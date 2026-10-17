@@ -386,6 +386,7 @@ function Prise({ session, fermer }: { session: SessionAuditParcelle; fermer: () 
       {etatGps && <div className="detailPhoto">{etatGps}</div>}
       {session.dernierRangement() && <div className="detailPhoto rangementAudit" role="status">{session.dernierRangement()}</div>}
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
+      {session.avertissementPrise() && <div className="erreurParcours" role="alert" data-controle="auditParcelle.avertissementFusion">{session.avertissementPrise()}</div>}
       <VerrouBatiment session={session} />
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>

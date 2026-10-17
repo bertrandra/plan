@@ -47,7 +47,8 @@ import type { IdentiteAnalyse } from './entreesAnalyse.js';
 import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
-import type { DependancesMesures } from './mesures.js';
+import { cleMesure, type DependancesMesures } from './mesures.js';
+import { avertissementPrise } from './redressement.js';
 import type { ClientAudits } from '../../../io/auditsServeur.js';
 import type { GrilleRelief } from '../../../model/relief.js';
 import type { Facade } from '../../../facade/geometrie.js';
@@ -203,6 +204,11 @@ export interface SessionAuditParcelle {
   rangerPhoto(photo: PhotoCas): { cle: string; cote: number } | null;
   /** La phrase de la derniere photo rangee : « Photo rangée sur la façade sud de Maison (2 photos). » */
   dernierRangement(): string | null;
+  /**
+   * A la prise de vue, quand la facade a au moins deux photos et que leur fusion est impossible : « Fusion des photos
+   * impossible : reprenez la façade avec des chevauchements entre les photos. » Null sinon, ou tant que le calcul tourne.
+   */
+  avertissementPrise(): string | null;
   lancerAnalyse(): void;
   /** Les capteurs s'arretent (l'ecran est ferme) ; `reprendre` les relance. */
   suspendre(): void;
@@ -456,6 +462,30 @@ function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, liste: (
   };
 }
 
+/**
+ * La fusion des photos d'une facade, verifiee a la prise de vue : des la deuxieme photo la facade se redresse et se fusionne ;
+ * si elle ne le peut pas, on le dit sur place, pendant qu'on peut encore la reprendre avec des chevauchements.
+ */
+function fusionAPriseDe(validation: () => Validation, publier: () => void) {
+  let avertissement: string | null = null;
+  let suivi = 0;
+  return {
+    lire: () => avertissement,
+    effacer() { suivi++; avertissement = null; },
+    verifier(cle: string, cote: number, photos: number): void {
+      avertissement = null;
+      const n = ++suivi;
+      if (photos < 2) return;
+      void validation().rejouerRedressement(cle, cote).catch(() => 0).then(() => {
+        if (n !== suivi) return;
+        const bilan = validation().mesuresFaites().get(cleMesure(cle, cote))?.redressement;
+        const dit = bilan ? avertissementPrise(bilan) : null;
+        if (dit !== avertissement) { avertissement = dit; publier(); }
+      });
+    },
+  };
+}
+
 export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAuditParcelle {
   const maintenant = ctx.maintenant ?? (() => new Date());
   const capture = creerCapture(ctx.idu, maintenant);
@@ -465,6 +495,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const publier = () => { if (ecran === 'propositions') validation.synchroniser(); abonnes.forEach((f) => f()); };
   let ecran: EcranAudit = 'liste';
   let dernier: string | null = null;
+  const fusionAPrise = fusionAPriseDe(() => validation, () => publier());
   /** La liste ne se recalcule que si la capture ou les objets du plan ont change. */
   let memo: { version: number; objets: unknown; liste: ListeDeControle } | null = null;
   const liste = (): ListeDeControle => {
@@ -554,7 +585,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.precision(), boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
-    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
+    photographier(cle, cote) { fusionAPrise.effacer(); sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
     suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.faites(); vue.suivre(true); publier(); },
     verrou: () => visee.verrou(),
     verrouiller(cle) {
@@ -579,10 +610,12 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       if (!c) return null;
       if (!capture.ajouterPhotoFacade(c.cle, c.cote, photo)) { ctx.signaler('Cette façade a déjà toutes ses photos : retirez-en une depuis la liste.'); return null; }
       dernier = 'Photo rangée sur ' + c.nom + ' (' + pluriel(c.photos + 1, 'photo') + ').';
+      fusionAPrise.verifier(c.cle, c.cote, c.photos + 1);
       publier();
       return { cle: c.cle, cote: c.cote };
     },
     dernierRangement: () => dernier,
+    avertissementPrise: () => fusionAPrise.lire(),
     lancerAnalyse() {
       capture.terminer();
       void brouillon.vider();
