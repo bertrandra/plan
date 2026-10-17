@@ -91,6 +91,7 @@ describe('l ecran de calibration', () => {
     expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés)/);
     expect(bouton('calibration.proposer')).not.toBeNull();
+    expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
     const valide = hote.querySelector('[data-controle="calibration.valide"]') as HTMLInputElement;
     await act(async () => { valide.click(); });
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
@@ -128,6 +129,7 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.redresser')?.click(); });
     await attendre(300);
     expect(bouton('calibration.proposer')).not.toBeNull();
+    expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
     await act(async () => { bouton('calibration.viderBaies')?.click(); });
     expect(hote.textContent).toContain('0 ouverture');
     await act(async () => { bouton('calibration.proposer')?.click(); });

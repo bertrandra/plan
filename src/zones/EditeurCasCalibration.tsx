@@ -104,6 +104,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   const [origines, setOrigines] = useState<Record<number, OrigineCoins>>({});
   // Ce que le redressement et la fusion automatiques ont a redire (une vue non fusionnee, une part du mur cachee).
   const [avis, setAvis] = useState<string | null>(null);
+  // Par defaut tout est automatique : coins, redressement, fusion, et ouvertures proposees par la detection (a relire).
+  const [auto, setAuto] = useState(true);
   const modifier = (f: (c: CasStocke) => CasStocke) => setCas((c) => f(c));
 
   const ajouterPhotos = async (fichiers: FileList | null) => {
@@ -116,15 +118,15 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         const img = await outils.decoder(url);
         // Les coins se cherchent seuls sur les aretes du mur ; ce qui reste devine est dit, la personne le corrige au doigt.
         await new Promise((ok) => setTimeout(ok, 0));
-        const auto = coinsAuto(img, suite.largeurM, suite.hauteurM);
         const k = suite.photos.length;
-        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: auto.coins }] };
+        const trouvees = auto ? coinsAuto(img, suite.largeurM, suite.hauteurM) : null;
+        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: trouvees?.coins ?? coinsParDefaut(img.largeur, img.hauteur) }] };
         setDims((d) => ({ ...d, [k]: { l: img.largeur, h: img.hauteur } }));
-        setOrigines((o) => ({ ...o, [k]: auto.trouves ? 'trouves' : 'devines' }));
+        if (trouvees) setOrigines((o) => ({ ...o, [k]: trouvees.trouves ? 'trouves' : 'devines' }));
       }
       setCas(suite); setElevation(null);
       // Le redressement et la fusion suivent l'ajout : la photo reste dans le cas meme quand ils doutent.
-      await redresser(suite);
+      if (auto) await redresser(suite);
     } catch (e) { setMessage('Photo illisible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
@@ -142,6 +144,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       if (!p) { setMessage('Le mur ne se redresse pas avec ces coins : replacez-les sur les quatre angles du mur.'); setElevation(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
       setAvis(p.fusion ? avisFusion(p.fusion) : null);
+      // Un cas sans annotation part de la detection ; une annotation deja faite n'est jamais ecrasee.
+      if (auto) { const propositions = p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })); modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: propositions })); setChoisie(null); }
     } catch (e) { setMessage('Redressement impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
   const sauver = async () => {
@@ -167,12 +171,13 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         {nombreM('largeurM', 'Largeur du mur (m)')}{nombreM('hauteurM', 'Hauteur à l’égout (m)')}
       </div>
 
+      <label className="calCase"><input type="checkbox" checked={auto} data-controle="calibration.auto" onChange={(e) => setAuto(e.target.checked)} /> Automatique : chercher les coins, redresser, fusionner et proposer les ouvertures dès l’ajout d’une photo</label>
       <div className="calLigne">
         <label className={'boutonFichier' + (cas.photos.length >= PHOTOS_CAS_MAX || occupe ? ' desactive' : '')}>
           <input type="file" accept="image/*" capture="environment" multiple disabled={cas.photos.length >= PHOTOS_CAS_MAX || occupe} data-controle="calibration.photo" onChange={(e) => { const f = e.target.files; void ajouterPhotos(f).then(() => { e.target.value = ''; }); }} />
           <span>{cas.photos.length ? 'Ajouter une photo du même mur' : 'Prendre ou choisir une photo'}</span>
         </label>
-        <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. Les coins se cherchent seuls, puis le mur se redresse et les photos se fusionnent ; corrigez au doigt ce qui est signalé.</span>
+        <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. {auto ? 'Tout se fait seul à l’ajout ; corrigez au doigt ce qui est signalé et relisez les ouvertures.' : 'Placez les coins, puis redressez.'}</span>
       </div>
       {cas.photos.length > 0 && (
         <ul className="calVignettes" aria-label="Photos du cas">
