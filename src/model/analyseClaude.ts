@@ -133,6 +133,8 @@ export interface VoteAnalyse {
   boutDroit: Vote<string>;
   lucarnes: Vote<Compte>;
   panLucarnes: Vote<string>;
+  /** Les types de lucarnes de la premiere passe qui donne le nombre retenu. */
+  lucarnesTypes: string[];
   cheminees: Vote<Compte>;
   /** Les souches de la premiere passe qui donne le nombre retenu. */
   souches: SoucheAnalyse[];
@@ -230,6 +232,8 @@ export function voter(reponses: readonly ReponseAnalyse[], simples: readonly Cha
     tranche(voterAttribut(reponses.map(f), ind(i), indetermine), fin ? f(fin) : undefined, fin ? i(fin) : [], indetermine);
   const cheminees = v<Compte>((r) => r.cheminees.nombre, (r) => r.cheminees.indices, IND);
   const souches = [...reponses, ...(fin ? [fin] : [])].find((r) => cleDe(r.cheminees.nombre) === cleDe(cheminees.valeur))?.cheminees.souches ?? [];
+  const lucarnes = v<Compte>((r) => r.lucarnes.nombre, (r) => r.lucarnes.indices, IND);
+  const lucarnesTypes = [...reponses, ...(fin ? [fin] : [])].find((r) => cleDe(r.lucarnes.nombre) === cleDe(lucarnes.valeur))?.lucarnes.types ?? [];
   const elements = [...new Set(reponses.flatMap((r) => r.elements.map((e) => e.element)))]
     .map((el) => voterAttribut(reponses.map((r) => (r.elements.some((e) => e.element === el) ? el : IND)), reponses.map((r) => r.elements.filter((e) => e.element === el).flatMap((e) => e.indices)), IND))
     .filter((x) => x.valeur !== IND);
@@ -244,7 +248,7 @@ export function voter(reponses: readonly ReponseAnalyse[], simples: readonly Cha
     faitage: v((r) => r.faitage.sens, (r) => r.faitage.indices, IND),
     boutGauche: v((r) => r.bouts.gauche, (r) => r.bouts.indices, IND),
     boutDroit: v((r) => r.bouts.droite, (r) => r.bouts.indices, IND),
-    lucarnes: v<Compte>((r) => r.lucarnes.nombre, (r) => r.lucarnes.indices, IND),
+    lucarnes, lucarnesTypes,
     panLucarnes: v((r) => r.lucarnes.pan, (r) => r.lucarnes.indices, IND),
     cheminees, souches,
     terrasse: v((r) => r.terrasse.presente, (r) => r.terrasse.indices, IND),

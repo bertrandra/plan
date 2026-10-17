@@ -14,7 +14,7 @@ import { elevationParDefaut } from '../model/defaults.js';
 import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/auditParcelle.js';
-import type { Cheminee, CorpsToit, CouvertureChoisie, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
+import type { Cheminee, CorpsToit, CouvertureChoisie, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 
 /**
  * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
@@ -88,6 +88,8 @@ export type EffetProposition =
   | { type: 'corpsToit'; corps: CorpsToit[] }
   /** Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. */
   | { type: 'cheminees'; corps: number; cheminees: Cheminee[] }
+  /** Les lucarnes vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees (celles du LiDAR restent). */
+  | { type: 'lucarnes'; corps: number; lucarnes: Lucarne[] }
   | { type: 'terrasse'; corps: number; terrasse: TerrasseToit }
   | { type: 'cloture'; cote: number; typeCloture: TypeClotureVue; hauteurM?: number; soubassement?: boolean }
   | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number };
@@ -135,7 +137,7 @@ export function cocheeParDefaut(p: Proposition): boolean {
  * ecrire tous les deux. Sur ceux-la, la personne qui etait devant le batiment l'emporte (decision D21 de
  * MD/plan-vague-3-generaliser.md) : cocher l'une decoche l'autre.
  */
-export const EFFETS_NOTES_SUR_PLACE: readonly TypeEffet[] = ['materiauMurs', 'couverture', 'cheminees', 'terrasse'];
+export const EFFETS_NOTES_SUR_PLACE: readonly TypeEffet[] = ['materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'terrasse'];
 
 /** Les propositions qui ecrivent le meme attribut du meme batiment, d'une autre source : la valeur notee sur place et celle de Claude. */
 export function rivalesSurPlace(p: Proposition, toutes: readonly Proposition[]): Proposition[] {
@@ -268,6 +270,18 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       });
       return;
     }
+    case 'lucarnes': {
+      const corps = o.corpsToit;
+      if (!corps || !corps[e.corps]) return;
+      o.corpsToit = corps.map((c, i) => {
+        const gardees = (c.lucarnes ?? []).filter((l) => l.source !== 'observation');
+        const suite = i === e.corps ? [...gardees, ...e.lucarnes.map((l) => ({ ...l }))] : gardees;
+        const copie = { ...c };
+        if (suite.length) copie.lucarnes = suite; else delete copie.lucarnes;
+        return copie;
+      });
+      return;
+    }
     case 'terrasse': {
       const corps = o.corpsToit;
       if (!corps || !corps[e.corps]) return;
@@ -280,7 +294,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

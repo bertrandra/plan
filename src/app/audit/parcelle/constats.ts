@@ -15,15 +15,18 @@ import { libelleSilhouette } from '../../../model/silhouetteFacade.js';
 import { materiauDesFacades } from '../../regles/sujets/facades.js';
 import { couvertureDuVocabulaire } from '../../regles/sujets/couverture.js';
 import { murs } from '../../regles/sujets/formeToit.js';
+import { majuscule, pluriel } from '../../regles/sujets/contrat.js';
 import { etiquetteFacade, type LigneBatiment } from './liste.js';
 import { REGLES_LIDAR } from './reglesLidar.js';
 import type { Constat, EtatProjet, ValeurConstat } from '../../../facade/regles/reconciliation.js';
 import type { IdAttribut } from '../../../regles/reconciliation.js';
 import type { IndiceProposition } from '../../../regles/decisions.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
-import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
+import { resumePartie, type CeQueJeVois, type SoucheVue } from '../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
+import { releveAvecOuvertures } from './propositionsClaude.js';
+import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 
 export const cibleBatiment = (cle: string): string => 'batiment:' + cle;
 export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cle + '#' + cote;
@@ -47,6 +50,9 @@ export function formeDesBouts(bouts: readonly string[]): string | null {
 /** Ce que les mots de « Ce que je vois » disent des bouts. */
 const BOUTS_VUS: Record<string, readonly string[]> = { pignons: ['pignon', 'pignon'], croupes: ['croupe', 'croupe'], 'pignon-croupe': ['pignon', 'croupe'] };
 
+/** Le pan des lucarnes que dit Claude, dans les mots de « Ce que je vois ». */
+const PAN_CLAUDE: Record<string, 'rue' | 'jardin' | 'les-deux'> = { rue: 'rue', arriere: 'jardin', cote: 'rue', plusieurs: 'les-deux' };
+
 const cm = (v: number): number => Math.round(v * 100) / 100;
 const borne = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
 /** La confiance d'une lecture LiDAR d'un corps : son ecart a la mesure (m) ; 0 m, 0,95 ; 1,2 m et plus, 0,4. */
@@ -61,6 +67,8 @@ export interface EntreesConstats {
   vu: CeQueJeVois;
   /** Le vote des passes de Claude pour ce batiment ; null sans analyse. */
   vote: VoteAnalyse | null;
+  /** Le renfort de Claude sur les facades (ses ouvertures), par `cle#cote` ; absent sans analyse. */
+  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
 }
 
 export interface ConstatsBatiment {
@@ -145,6 +153,26 @@ function constatsPhoto({ o, b, mesures }: EntreesConstats): Constat[] {
   });
   out.push(...constatsDesSilhouettes('photo', cible, dits, confiance, REGLES_LIDAR.photo.silhouette, indices));
   for (const { f, m } of lues) if (m?.silhouette && m.silhouette !== 'indetermine') out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'silhouetteFacade', source: 'photo', valeur: m.silhouette, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.silhouette });
+  // Le releve d'ouvertures de chaque mur : son nombre s'arbitre, le releve lui-meme est ce que la proposition ecrit si cette valeur l'emporte.
+  for (const { f, m } of lues) {
+    if (!m?.releve) continue;
+    const n = m.releve.ouvertures.length;
+    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'photo', valeur: n, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.ouvertures,
+      indices: m.rangReleve != null ? [{ texte: 'Photo ' + (m.rangReleve + 1) + ' de la façade', photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [],
+      charge: { releve: m.releve, coinsTrouves: m.coinsTrouves, rang: m.rangReleve } });
+  }
+  return out;
+}
+
+/** Les constats de Claude sur les ouvertures : son releve renforce, mur par mur, pose sur le releve mesure. */
+function constatsRenfort({ b, mesures, renfort }: EntreesConstats): Constat[] {
+  const out: Constat[] = [];
+  for (const f of b.facades) {
+    const id = cleMesure(b.cle, f.cote), rf = renfort?.[id], releve0 = mesures.get(id)?.releve;
+    if (!rf?.resume || !releve0) continue;
+    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'claude', valeur: rf.ouvertures.length, confiance: rf.passes / 3, regle: REGLES_LIDAR.claude.ouvertures,
+      charge: { releve: releveAvecOuvertures(releve0, rf.ouvertures) } });
+  }
   return out;
 }
 
@@ -168,6 +196,19 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
   }
   const m = materiauDesFacades(v);
   if (m) out.push({ cible, attribut: 'materiauMurs', source: 'claude', valeur: m.valeur, confiance: m.accord, regle: 'parement vu par Claude' });
+  const nCheminees = v.cheminees.valeur;
+  if (typeof nCheminees === 'number') {
+    const souches: SoucheVue[] = Array.from({ length: nCheminees }, (_, k) => {
+      const sv = v.souches[k];
+      return { ...(sv && sv.position !== 'indetermine' ? { position: sv.position } : {}), ...(sv && sv.materiau !== 'indetermine' ? { materiau: sv.materiau } : {}) };
+    });
+    out.push({ cible, attribut: 'cheminees', source: 'claude', valeur: nCheminees, confiance: v.cheminees.accord, regle: 'cheminées vues par Claude', indices: v.cheminees.indices.map((i) => ({ texte: i.vu })), charge: { souches, texte: (nCheminees ? pluriel(nCheminees, 'cheminée') : 'Aucune cheminée') + ', vue' + (nCheminees > 1 ? 's' : '') + ' par Claude' } });
+  }
+  const nLucarnes = v.lucarnes.valeur;
+  if (typeof nLucarnes === 'number') {
+    const types = [...new Set(v.lucarnesTypes)];
+    out.push({ cible, attribut: 'lucarnes', source: 'claude', valeur: nLucarnes, confiance: v.lucarnes.accord, regle: 'lucarnes vues par Claude', indices: v.lucarnes.indices.map((i) => ({ texte: i.vu })), charge: { types, pan: PAN_CLAUDE[v.panLucarnes.valeur] ?? 'rue', texte: (nLucarnes ? pluriel(nLucarnes, 'lucarne') : 'Aucune lucarne') + ', vue' + (nLucarnes > 1 ? 's' : '') + ' par Claude' } });
+  }
   const couv = couvertureDuVocabulaire(v.couverture.valeur);
   // Quand les passes ne s'accordaient pas, c'est un modele plus fin qui a tranche : la regle le dit, et le constat pese la part des passes d'accord.
   if (couv) out.push({ cible, attribut: 'couverture', source: 'claude', valeur: couv, confiance: v.couverture.accord, regle: v.couverture.escalade ? 'couverture tranchée par un modèle plus fin (les passes ne s’accordaient pas)' : 'couverture vue par Claude', indices: v.couverture.indices.map((i) => ({ texte: i.vu })) });
@@ -185,6 +226,9 @@ function constatsTerrain({ b, vu }: EntreesConstats): Constat[] {
   if (bouts) dit('boutsToit', bouts);
   if (vu.murs) dit('materiauMurs', vu.murs);
   if (vu.couverture && vu.couverture !== 'terrasse') dit('couverture', vu.couverture);
+  // Les cheminees notees : leur nombre s'arbitre, leurs souches (position, materiau) sont ce que la proposition ecrit si cette valeur l'emporte.
+  if (vu.lucarnes) out.push({ cible, attribut: 'lucarnes', source: 'terrain', valeur: vu.lucarnes.nombre, confiance: 1, regle: 'Ce que je vois', charge: { types: [], pan: vu.lucarnes.pan ?? 'rue', texte: (vu.lucarnes.nombre ? pluriel(vu.lucarnes.nombre, 'lucarne') : 'Aucune lucarne') + ', vue' + (vu.lucarnes.nombre > 1 ? 's' : '') + ' sur place' } });
+  if (vu.cheminees) out.push({ cible, attribut: 'cheminees', source: 'terrain', valeur: vu.cheminees.nombre, confiance: 1, regle: 'Ce que je vois', charge: { souches: vu.cheminees.souches, texte: majuscule(resumePartie(vu, 'cheminees').toLowerCase()) + ', vues sur place' } });
   return out;
 }
 
@@ -192,13 +236,16 @@ function constatsTerrain({ b, vu }: EntreesConstats): Constat[] {
 function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => EtatProjet {
   const c = principal(o.corpsToit);
   const vide: EtatProjet = { valeur: null, choisi: false };
-  return (_cible, attribut) => {
+  return (cible, attribut) => {
     switch (attribut) {
       case 'hauteurEgout': return { valeur: cm(hauteurDe(o)), choisi: !o.bdtopo && typeof o.elevation === 'number' };
       case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.toit ? cm(hauteurDe(o) + o.toit.hauteur) : null, choisi: false };
       case 'formeToit': { const f = formeDesCorps(o.corpsToit) ?? o.toit?.forme; return { valeur: f ? formeArbitree(f) : null, choisi: o.toit?.source === 'saisie' }; }
       case 'boutsToit': return { valeur: c ? boutsDuCorps(c) : null, choisi: false };
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
+      case 'cheminees': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
+      case 'ouverturesFacade': { const f = (o.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
+      case 'lucarnes': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: false };
       case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.couleurMurs?.materiau };
       case 'couverture': return { valeur: o.toit?.couverture ?? null, choisi: !!o.toit?.couverture };
       default: return vide;
@@ -208,5 +255,5 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
 
 /** Tous les constats d'un batiment, source par source, et l'etat du projet pour les comparer. */
 export function constatsDuBatiment(e: EntreesConstats): ConstatsBatiment {
-  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
+  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsRenfort(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
 }

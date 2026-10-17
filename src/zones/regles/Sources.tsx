@@ -1,7 +1,7 @@
 // La vue « Sources et arbitrage » de Admin › Regles (MD/spec-reconciliation.md) : les sources d'un batiment, les attributs qu'elles
 // renseignent, comment elles s'arbitrent, et la lecture du LiDAR etape par etape avec les seuils qui la reglent. Les regles du
 // LiDAR font surface ici : leurs seuils (regles/toits/reglages.json) a cote des poids des sources. Lecture seule : les valeurs
-// se changent dans « Reglages et faits », ou dans le fichier du depot par une PR.
+// se changent dans « Reglages et faits » (les poids ont leur tableau, a la main ou recales sur des audits recus), ou dans le fichier du depot par une PR.
 
 import { SOURCES, type Accord, type ReglesReconciliation } from '../../regles/reconciliation.js';
 import type { Seuil } from '../../regles/donnees/edition.js';

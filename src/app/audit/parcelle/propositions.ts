@@ -8,9 +8,9 @@
 // Ce qui se propose :
 // - par facade photographiee : le releve (ouvertures, texture) mesure sur la photo ;
 // - par batiment : la hauteur a l'egout mesuree (coins trouves seulement), la couleur des murs lue sur
-//   les photos, les cheminees et la toiture-terrasse vues, posees dans les corps du toit
-//   (MD/spec-regles-toits.md §2.6, §2.7) ; le materiau des murs et la couverture sont arbitres
-//   entre les sources (app/audit/parcelle/arbitrages.ts) ;
+//   les photos, la toiture-terrasse vue, posee dans les corps du toit (MD/spec-regles-toits.md §2.7) ;
+//   les cheminees, le materiau des murs et la couverture sont arbitres entre les sources
+//   (app/audit/parcelle/arbitrages.ts) ;
 // - pour la parcelle : la cloture cote rue et le portail.
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
@@ -25,8 +25,8 @@ import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
-import type { CaptureParcelle } from '../../../model/auditParcelle.js';
-import type { Cheminee, CorpsToit, EdiculeTerrasse, ObjetPlan, PtBrut, TerrasseToit } from '../../../model/types.js';
+import type { CaptureParcelle, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { Cheminee, CorpsToit, EdiculeTerrasse, Lucarne, ObjetPlan, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
 
 /** Un ecart de hauteur en deca ne vaut pas une proposition : c'est la precision de la mesure. */
@@ -45,7 +45,7 @@ const EDICULE = { coteM: 2.4, hauteurM: 2.5 };
 
 const fr = (v: number, n = 2) => v.toFixed(n).replace('.', ',');
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
-const dateFr = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR'); };
+export const dateFr = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR'); };
 const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Ce qu'il faut pour proposer : le plan, la liste de controle, la capture et les mesures des facades. */
@@ -55,6 +55,8 @@ export interface EntreesPropositions {
   capture: CaptureParcelle;
   /** Par `cle#cote`. */
   mesures: ReadonlyMap<string, MesureFacade>;
+  /** Le renfort de Claude sur les facades (par `cle#cote`) ; absent sans analyse. */
+  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
 }
 
 export { cleMesure };
@@ -151,32 +153,6 @@ type SansDefaut = Omit<Proposition, 'source' | 'indices' | 'confiance' | 'rempla
 /** Une proposition des mesures, avec ses champs par defaut. */
 const mesure = (p: SansDefaut): Proposition => ({ source: 'mesure', indices: [], confiance: null, remplaceChoix: null, reserve: null, ...p });
 
-function propositionsDesFacades(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition[] {
-  const out: Proposition[] = [];
-  for (const f of b.facades) {
-    const m = e.mesures.get(cleMesure(b.cle, f.cote));
-    if (!m?.releve) continue;
-    const objet = 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom;
-    const existant = (o.facades ?? []).find((r) => r.cote === f.cote);
-    // Le releve que l'audit a pose lui-meme d'apres cette photo (validation.ts) est deja ecrit : rien a proposer. Un releve
-    // pose ainsi d'apres une photo plus ancienne n'est pas un choix de la personne : la nouvelle mesure le remplace.
-    if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) continue;
-    const deja = existant?.depuisAudit ? undefined : existant;
-    const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
-    const n = m.releve.ouvertures.length;
-    out.push(mesure({
-      id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet,
-      avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + ', texture de la photo',
-      indices: m.rangReleve !== null ? [{ texte: 'Photo ' + (m.rangReleve + 1) + ' de la façade', photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [],
-      confiance: m.confiance,
-      remplaceChoix: deja ? avantTexte : null,
-      reserve: m.coinsTrouves ? null : 'Les coins du mur n’ont pas été trouvés sur la photo : ils sont prédits par la prise de vue, à vérifier.',
-      effet: { type: 'releve', releve: m.releve },
-    }));
-  }
-  return out;
-}
-
 /** La couleur des murs : la lecture qui a le plus de points, parmi les photos des facades. */
 function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesPropositions): Proposition | null {
   let lue: { couleur: string; pixels: number; cote: number; rang: number } | null = null;
@@ -205,26 +181,39 @@ export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
   return i >= 0 ? i : plusGrand(corps, () => true);
 }
 
+/** La largeur d'une lucarne, en metres, selon son type (un outeau est une petite lucarne a croupe). */
+const LARGEUR_LUCARNE_M: Partial<Record<TypeLucarne, number>> = { outeau: 0.9, 'oeil-de-boeuf': 0.8, lanterneau: 1.2, rampante: 1.6 };
+/** Ou le faitage d'une lucarne rejoint le pan, en part de la hauteur de l'egout au faitage ; sa face recule d'autant. */
+const MONTEE_LUCARNE = 0.6;
+const PROFONDEUR_LUCARNE_M = 1.2;
+
+/**
+ * Les lucarnes vues, posees sur un corps : repartie(s) a egale distance le long du faitage, sur le pan que dit la vue (rue : le pan 0,
+ * jardin : le pan 1, les deux : tour a tour). La photo ne donne ni leur place exacte ni leur largeur : ce sont des valeurs par type.
+ */
+export function lucarnesSurLeCorps(c: CorpsToit, n: number, types: readonly TypeLucarne[], pan: 'rue' | 'jardin' | 'les-deux'): Lucarne[] {
+  const r = repereCorps(c);
+  if (!r || n <= 0) return [];
+  const pans: (0 | 1)[] = pan === 'rue' ? [0] : pan === 'jardin' ? [1] : [0, 1];
+  const parPan = pans.map((_, k) => Array.from({ length: n }, (__, i) => i).filter((i) => i % pans.length === k));
+  const out: Lucarne[] = [];
+  pans.forEach((p, k) => {
+    const idx = parPan[k] ?? [];
+    const largeurPan = p === 0 ? c.posFaitage : r.W - c.posFaitage;
+    const e = c.egouts[p];
+    if (largeurPan < 0.5 || c.faitage - e < 0.3) return;
+    idx.forEach((i, j) => {
+      const type = types[i % Math.max(1, types.length)] ?? 'inconnue';
+      const w = LARGEUR_LUCARNE_M[type] ?? 1.2;
+      const centre = ((j + 1) / (idx.length + 1)) * r.L;
+      out.push({ type, pan: p, debutM: Math.round((centre - w / 2) * 100) / 100, finM: Math.round((centre + w / 2) * 100) / 100, faitageM: Math.round((e + MONTEE_LUCARNE * (c.faitage - e)) * 100) / 100, profondeurM: PROFONDEUR_LUCARNE_M, source: 'observation' });
+    });
+  });
+  return out;
+}
+
 /** Le corps qui porte la toiture-terrasse : le plus grand corps plat ; -1 s'il n'y en a pas. */
 export const corpsDeLaTerrasse = (corps: readonly CorpsToit[]): number => plusGrand(corps, estPlat);
-
-/** Les cheminees vues, posees sur le plus grand corps en pente (a defaut, le plus grand). */
-function propositionCheminees(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
-  const corps = o.corpsToit ?? [];
-  if (!vu.cheminees || !corps.length) return null;
-  const existantes = corps.flatMap((c) => c.cheminees ?? []);
-  if (!vu.cheminees.nombre && !existantes.some((c) => c.source === 'observation')) return null;
-  const i = corpsDesCheminees(corps);
-  const c = corps[i];
-  if (!c) return null;
-  const cheminees = souchesSurLeCorps(c, vu.cheminees.souches);
-  return mesure({
-    id: b.cle + ':cheminees', cible: { type: 'batiment', cle: b.cle }, objet: 'Cheminées de ' + b.nom,
-    avant: existantes.length ? pluriel(existantes.length, 'cheminée') : 'aucune cheminée',
-    apres: majuscule(resumePartie(vu, 'cheminees').toLowerCase()) + ', vues sur place',
-    effet: { type: 'cheminees', corps: i, cheminees },
-  });
-}
 
 /** La toiture-terrasse vue, sur le plus grand corps plat. */
 function propositionTerrasse(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
@@ -295,10 +284,9 @@ export function propositionsDeLAudit(e: EntreesPropositions): Proposition[] {
     const o = parCle.get(b.cle);
     if (!o) continue;
     const vu = e.capture.batiments[b.cle]?.vu ?? {};
-    out.push(...propositionsDesFacades(o, b, e));
     // La hauteur a l'egout et la toiture sont decidees par l'arbitrage des sources (arbitrages.ts).
     for (const p of [propositionCouleur(o, b, e)]) if (p) out.push(p);
-    for (const p of [propositionCheminees(o, b, vu), propositionTerrasse(o, b, vu)]) if (p) out.push(p);
+    for (const p of [propositionTerrasse(o, b, vu)]) if (p) out.push(p);
   }
   out.push(...propositionsParcelle(e));
   return out;

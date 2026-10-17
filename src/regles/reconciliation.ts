@@ -15,7 +15,7 @@ export const CIBLES_ATTRIBUT = ['batiment', 'facade', 'parcelle'] as const;
 export type CibleAttribut = (typeof CIBLES_ATTRIBUT)[number];
 
 /** Ce que sont les attributs que le moteur arbitre. */
-export const ATTRIBUTS = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'boutsToit', 'sensFaitage', 'silhouetteFacade', 'ouverturesFacade', 'materiauMurs', 'couverture'] as const;
+export const ATTRIBUTS = ['hauteurEgout', 'hauteurTotale', 'formeToit', 'boutsToit', 'sensFaitage', 'silhouetteFacade', 'ouverturesFacade', 'cheminees', 'lucarnes', 'materiauMurs', 'couverture'] as const;
 export type IdAttribut = (typeof ATTRIBUTS)[number];
 
 /** Quand deux valeurs s'accordent : a une tolerance (`nombre`, `angle` modulo 180), exactement (`egal`), comme deux ensembles (`ensemble`). */
@@ -37,6 +37,8 @@ export interface DescriptionAttribut {
   /** Les seuils propres a l'attribut ; absents : ceux du fichier. */
   scoreAutoMin?: number;
   margeAutoMin?: number;
+  /** Les sources qui ont le droit d'etre seules pour cet attribut, en plus de celles que le fichier autorise (une photo sur ses ouvertures). */
+  seules?: readonly SourceConstat[];
 }
 
 /** Une etape de la lecture du LiDAR : ce qu'elle fait, et les modules dont les seuils (regles/toits/reglages.json) la reglent. */
@@ -93,10 +95,16 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
       poids[src as SourceConstat] = nombre(v, ou + 'poids de ' + src, [0, 100]);
     }
     const valeurs = lireValeurs(a.valeurs, accord, ou);
-    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}) }];
+    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}), ...(a.seules !== undefined ? { seules: lireSeules(a.seules, ou) } : {}) }];
   })) as Record<IdAttribut, DescriptionAttribut>;
   const lecturesLidar = lireEtapes(f.lecturesLidar);
   return { lecturesLidar, seuils, sources, attributs };
+}
+
+/** Les sources admises seules pour un attribut : une liste de noms de sources. */
+function lireSeules(v: unknown, ou: string): readonly SourceConstat[] {
+  if (!Array.isArray(v) || v.some((s) => !(SOURCES as readonly string[]).includes(String(s)))) return refus(ou + 'seules : une liste de sources connues est attendue');
+  return v as SourceConstat[];
 }
 
 /** Les valeurs forcables d'un attribut en mots : des mots, ou des ensembles de mots quand l'accord est un ensemble ; absentes, rien n'est propose. */
@@ -128,7 +136,7 @@ function lireEtapes(v: unknown): EtapeLidar[] {
 
 /** L'empreinte de ce qui change une decision : les valeurs, jamais les phrases. */
 export function empreinteReconciliation(r: ReglesReconciliation): string {
-  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].valeurs ?? null, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null])]));
+  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].valeurs ?? null, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null, r.attributs[a].seules ?? null])]));
 }
 
 /** Les regles en vigueur : celles du depot. */

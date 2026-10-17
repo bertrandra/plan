@@ -24,9 +24,11 @@ export const REGLES_LIDAR = {
   photo: {
     hauteur: 'hauteur mesurée sur la photo (coins trouvés)',
     silhouette: 'regles/toits/silhouettes.json',
+    ouvertures: 'ouvertures detectees sur la photo (contours, coins trouves)',
   },
   claude: {
     silhouette: 'regles/toits/silhouettes.json',
+    ouvertures: 'ouvertures renforcees par Claude sur la photo',
   },
 } as const;
 

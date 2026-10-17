@@ -26,8 +26,10 @@ saisie) est un **veto** : aucune source ne la remplace sans que la personne le d
   la règle qui l'a produite (`SEUIL_MARCHE_M`, `ECART_EGOUT_MIN_M`… : c'est ce qui fait surface des règles LiDAR) et ses
   indices (photo, phrase).
 - **Attribut** : ce qui se compare, par objet : `hauteurEgout`, `hauteurTotale`, `formeToit`, `boutsToit`, `sensFaitage`,
-  `silhouetteFacade`, `ouverturesFacade`, `materiauMurs`, `couverture`. Chacun dit comment deux valeurs s'accordent
-  (`nombre` à une tolérance, `egal`, `ensemble`).
+  `silhouetteFacade`, `ouverturesFacade`, `cheminees`, `materiauMurs`, `couverture`. Chacun dit comment deux valeurs s'accordent
+  (`nombre` à une tolérance, `egal`, `ensemble`), et peut abaisser le score requis (`scoreAutoMin`) ou admettre une source seule
+  (`seules` : la photo pour les ouvertures d'une façade). Un constat peut porter une **charge** (`charge`), que le moteur ignore :
+  les souches des cheminées, le relevé d'une façade ; la proposition écrit la charge de la première ligne du groupe retenu.
 - **Arbitrage** : les constats d'un attribut d'un objet, regroupés par accord, comptés, et la décision.
 
 ## 3. Le moteur

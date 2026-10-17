@@ -57,12 +57,13 @@ describe('les propositions des mesures et des observations', () => {
   it('propose le releve, la hauteur, la couleur, les materiaux, les cheminees, la terrasse, la cloture et le portail', () => {
     // La hauteur a l'egout, la toiture, le materiau des murs et la couverture sont decides par l'arbitrage des sources (arbitrages.ts), pas par cette liste.
     const seules = propositionsDeLAudit(entrees());
-    expect(seules.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:couleurMurs', 'maison:cheminees', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail']);
+    expect(seules.map((x) => x.id)).toEqual(['maison:couleurMurs', 'maison:terrasse', 'parcelle:cloture', 'parcelle:portail']);
     const arbitrees = propositionsArbitrees(entrees(), {});
-    expect(arbitrees.map((x) => x.id)).toEqual(['maison:materiauMurs', 'maison:couverture']);
+    expect(arbitrees.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees']);
     const p = [...seules, ...arbitrees];
     const parId = new Map(p.map((x) => [x.id, x]));
-    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'mesure', confiance: 0.8 });
+    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées, texture de la photo', source: 'arbitrage', effet: { type: 'releve' } });
+    expect(parId.get('maison#0:releve')?.arbitrages?.[0]).toMatchObject({ attribut: 'ouverturesFacade', decision: 'auto' });
     // La photo seule ne decide pas d'une hauteur (score 2,4 sous 3) : la ligne arrive decochee, avec ses sources.
     const h = propositionsArbitrees(entrees(quartier(), capture(), mesures({ hauteurM: 5 })), {}).find((x) => x.id === 'maison:hauteur');
     expect(h).toMatchObject({ source: 'arbitrage', avant: '6 m', apres: '5 m, Photo de façade', effet: { type: 'hauteur', hauteurM: 5 } });
@@ -75,7 +76,8 @@ describe('les propositions des mesures et des observations', () => {
     expect(parId.get('maison:materiauMurs')).toMatchObject({ source: 'arbitrage', avant: 'Pierre (fichiers fonciers)', apres: 'Brique, vu sur place', effet: { type: 'materiauMurs', materiau: 'brique' } });
     expect(parId.get('maison:materiauMurs')?.arbitrages?.[0]).toMatchObject({ attribut: 'materiauMurs', decision: 'auto' });
     expect(parId.get('maison:couverture')).toMatchObject({ source: 'arbitrage', avant: 'déduite par Plan', apres: 'Ardoise, vue sur place', effet: { type: 'couverture', couverture: 'ardoise' } });
-    expect(parId.get('maison:cheminees')).toMatchObject({ avant: 'aucune cheminée', apres: '2 cheminées · au faîtage, adossée en façade, vues sur place', effet: { type: 'cheminees', corps: 0 } });
+    expect(parId.get('maison:cheminees')).toMatchObject({ source: 'arbitrage', avant: 'aucune cheminée', apres: '2 cheminées · au faîtage, adossée en façade, vues sur place', effet: { type: 'cheminees', corps: 0 } });
+    expect(parId.get('maison:cheminees')?.arbitrages?.[0]).toMatchObject({ attribut: 'cheminees', decision: 'auto' });
     expect(parId.get('maison:terrasse')).toMatchObject({ avant: 'toit plat, sans détail', effet: { type: 'terrasse', corps: 1 } });
     expect(parId.get('parcelle:cloture')).toMatchObject({ avant: 'Palissade bois 1,80 m · verticales', apres: 'Mur · 1,6 m, vue sur place' });
     expect(parId.get('parcelle:portail')).toMatchObject({ avant: 'portail 3,50 m', effet: { type: 'portail', cote: 0, nature: 'portail', position: 'gauche', largeurM: 3.5 } });
@@ -99,7 +101,7 @@ describe('les propositions des mesures et des observations', () => {
   });
 
   it('ne propose pas de hauteur quand les coins n ont pas ete trouves, et decoche le releve', () => {
-    const p = propositionsDeLAudit(entrees(quartier(), capture(), mesures({ coinsTrouves: false, confiance: null, hauteurM: null })));
+    const p = propositionsArbitrees(entrees(quartier(), capture(), mesures({ coinsTrouves: false, confiance: null, hauteurM: null })), {});
     expect(p.some((x) => x.id === 'maison:hauteur')).toBe(false);
     const r = p.find((x) => x.id === 'maison#0:releve');
     expect(r?.reserve).toMatch(/prédits par la prise de vue/);
@@ -191,13 +193,13 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
     it('est deja ecrit quand il vient de la meme mesure : la ligne n est plus proposee', () => {
       const objets = quartier();
       (objets[1] as ObjetPlan).facades = [{ ...releve(0, 6), depuisAudit: true }];
-      expect(propositionsDeLAudit(entrees(objets)).some((x) => x.id === 'maison#0:releve')).toBe(false);
+      expect(propositionsArbitrees(entrees(objets), {}).some((x) => x.id === 'maison#0:releve')).toBe(false);
     });
 
     it('n est pas un choix de la personne : une mesure plus recente le remplace, et le dit', () => {
       const objets = quartier();
       (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z', depuisAudit: true }];
-      const r = propositionsDeLAudit(entrees(objets)).find((x) => x.id === 'maison#0:releve');
+      const r = propositionsArbitrees(entrees(objets), {}).find((x) => x.id === 'maison#0:releve');
       expect(r).toMatchObject({ avant: 'relevé automatique du 01/10/2026 (4 ouvertures)', remplaceChoix: null });
       expect(cochesParDefaut([r as Proposition]).has('maison#0:releve')).toBe(true);
     });
@@ -205,7 +207,7 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
     it('un releve fait a la main reste un choix : decoche, avec ce qu il remplacerait', () => {
       const objets = quartier();
       (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
-      const r = propositionsDeLAudit(entrees(objets)).find((x) => x.id === 'maison#0:releve');
+      const r = propositionsArbitrees(entrees(objets), {}).find((x) => x.id === 'maison#0:releve');
       expect(r?.remplaceChoix).toBe('relevé du 01/10/2026 (4 ouvertures)');
     });
   });

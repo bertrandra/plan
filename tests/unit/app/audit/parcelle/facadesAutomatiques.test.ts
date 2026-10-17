@@ -116,13 +116,15 @@ describe('les photos de l audit alimentent les facades', () => {
   it('ne touche jamais une facade que la personne a relevee a la main : la ligne reste une proposition decochee', async () => {
     const m = await mesureDeReference();
     expect(m.releve).not.toBeNull();
-    const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.4 }] };
+    const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [0, 1, 2, 3, 4].map((k) => ({ type: 'fenetre' as const, x: 1 + k, y: 1, l: 0.8, h: 1.4 })) };
     const t = monter({ facades: [main] });
     await t.v.lancer();
     expect(t.maison().facades).toEqual([main]);
     expect(t.projet.pushHistory).not.toHaveBeenCalled();
     const p = t.v.propositions().find((x) => x.id === 'maison#0:releve');
     expect(p?.remplaceChoix).toMatch(/^relevé du 01\/10\/2026/);
+    // Une valeur choisie a la main est un veto : la decision est a la personne.
+    expect(p?.arbitrages?.[0]).toMatchObject({ attribut: 'ouverturesFacade', decision: 'manuelle' });
     expect(t.v.cochee('maison#0:releve')).toBe(false);
   }, 30000);
 

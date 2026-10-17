@@ -87,3 +87,40 @@ export function bilanDonnees(f: FichierDonnees, texte: string): BilanDonnees {
   const diff = diffLignes(f.livre, texte);
   return { controle, diff, lignes: lignesModifiees(diff), empreinteLivree: livre.empreinte, empreinteChange: controle.empreinte !== null && controle.empreinte !== livre.empreinte };
 }
+
+/** Un poids du fichier de reconciliation : celui d'une source par defaut (`attribut` absent), ou celui qu'un attribut lui donne. */
+export interface CiblePoids { source: string; attribut?: string }
+
+const NOMBRE = '-?\\d+(?:\\.\\d+)?';
+
+/**
+ * Le texte de regles/reconciliation.json avec un poids change, le reste de l'octet identique. Le poids d'un attribut qui n'en avait
+ * pas pour cette source est ajoute a la fin de son `poids` ; `valeur` null retire ce poids (la source reprend son poids par defaut).
+ * Null quand la ligne n'a pas la forme attendue : le poids s'edite alors dans le texte du fichier.
+ */
+export function changerPoids(texte: string, cible: CiblePoids, valeur: number | null): string | null {
+  const lignes = texte.split('\n');
+  const nom = echapper(cible.attribut ?? cible.source);
+  const i = lignes.findIndex((l) => new RegExp('^\\s*"' + nom + '"\\s*:\\s*\\{').test(l) && l.includes(cible.attribut ? '"accord"' : '"libelle"'));
+  if (i < 0) return null;
+  const ligne = lignes[i] as string;
+  if (!cible.attribut) {
+    if (valeur === null) return null;
+    const re = new RegExp('("poids"\\s*:\\s*)' + NOMBRE);
+    if (!re.test(ligne)) return null;
+    lignes[i] = ligne.replace(re, (_, avant: string) => avant + String(valeur));
+    return lignes.join('\n');
+  }
+  const m = /("poids"\s*:\s*\{)([^}]*)(\})/.exec(ligne);
+  if (!m) return null;
+  const dedans = m[2] as string;
+  const reSource = new RegExp('("' + echapper(cible.source) + '"\\s*:\\s*)' + NOMBRE);
+  let neuf: string;
+  if (reSource.test(dedans)) {
+    if (valeur === null) neuf = dedans.replace(new RegExp(',?\\s*"' + echapper(cible.source) + '"\\s*:\\s*' + NOMBRE + '\\s*'), ' ').replace(/^\s*,/, '').replace(/\s+$/, ' ');
+    else neuf = dedans.replace(reSource, (_, avant: string) => avant + String(valeur));
+  } else if (valeur === null) neuf = dedans;
+  else neuf = (dedans.trim() ? dedans.replace(/\s*$/, '') + ', ' : ' ') + '"' + cible.source + '": ' + String(valeur) + ' ';
+  lignes[i] = ligne.slice(0, m.index) + (m[1] as string) + neuf + (m[3] as string) + ligne.slice(m.index + m[0].length);
+  return lignes.join('\n');
+}

@@ -16,7 +16,7 @@ import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, c
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
-import { arbitragesParBatiment, cleChoix, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
+import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
@@ -266,7 +266,7 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
  * Rend le nombre de facades relevees.
  */
 function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): number {
-  const prets = propositionsDeLAudit(e).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p));
+  const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p));
   if (!prets.length) return 0;
   ctx.projet.pushHistory();
   appliquerPropositions(ctx.etat.objects, prets, [], jourIso(ctx.maintenant()));
@@ -289,7 +289,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
  * ecrivaient les corps du toit y sont entrees comme un constat de plus.
  */
 /** L'ordre d'une liste : par batiment (celui de la liste de controle), puis ce qui se mesure, ce qui se decide, ce qui se voit ; la parcelle a la fin. */
-const RANG_EFFETS: readonly string[] = ['releve', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'cheminees', 'terrasse'];
+const RANG_EFFETS: readonly string[] = ['releve', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'cheminees', 'lucarnes', 'terrasse'];
 
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
@@ -299,9 +299,10 @@ function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Propos
 }
 
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
-const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture'];
+const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes'];
 
-function proposer(e: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
+function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
+  const e: EntreesPropositions = { ...entrees, renfort };
   const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type)) : [];
   const arbitrages = arbitragesParBatiment(e, reponses ? votesDesBatiments(reponses) : {}, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
   const propositions = dansLOrdre(e, avecReserveSurPlace([...propositionsDeLAudit(e), ...propositionsDesArbitrages(e, arbitrages), ...deClaude, ...(renfort ? propositionsRenfort(e, renfort) : [])]));

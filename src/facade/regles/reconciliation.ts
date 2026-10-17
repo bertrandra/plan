@@ -28,6 +28,8 @@ export interface Constat {
   /** La regle qui l'a produit (un seuil de regles/toits/reglages.json, une ligne de regles/toits/silhouettes.json...). */
   regle?: string;
   indices?: readonly IndiceProposition[];
+  /** Ce que la source dit en plus de la valeur arbitree (les souches vues, le releve de la facade) : le moteur n'y touche pas, la proposition l'ecrit. */
+  charge?: unknown;
 }
 
 /** Ce que le projet a aujourd'hui de cet attribut : l'avant, et si une personne l'a choisi a la main (un veto). */
@@ -132,7 +134,7 @@ function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut
   }
   const second = groupes[1];
   const scoreMin = desc.scoreAutoMin ?? regles.seuils.SCORE_AUTO_MIN, margeMin = desc.margeAutoMin ?? regles.seuils.MARGE_AUTO_MIN;
-  const seulNonSeul = retenu.sources.length === 1 && !regles.sources[retenu.sources[0] as SourceConstat].seule;
+  const seulNonSeul = retenu.sources.length === 1 && !regles.sources[retenu.sources[0] as SourceConstat].seule && !desc.seules?.includes(retenu.sources[0] as SourceConstat);
   const ecarts = groupes.map(dit).join(' ; ');
   const manuelle = (raison: string, seuils: string[]): Arbitrage => ({ ...base, retenu, decision: 'manuelle', raison, regles: [...seuils, ...regleDe(retenu)] });
   if (projet.choisi) return manuelle('Remplace une valeur que vous avez choisie (' + direValeur(projet.valeur, accord) + ') : ' + ecarts + '.', []);

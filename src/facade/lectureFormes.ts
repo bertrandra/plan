@@ -143,6 +143,11 @@ function profilDuPan(pan: Pan, S: SeuilsFormes, souple: boolean): ProfilLu | nul
   return trouves.sort((a, b) => a.rmse - b.rmse)[0] ?? null;
 }
 
+/** Le nombre de faces d'une pyramide que la lecture essaie (quatre faces : un pavillon, que le moteur des corps lit deja, sauf si elle est elancee : c'est une fleche). */
+const FACES_POLYGONALES: readonly number[] = [4, 5, 6, 8];
+/** La profondeur d'une croupe de carene, en part de la largeur du toit. */
+const PARTS_CROUPE_CARENE: readonly number[] = [0.2, 0.3, 0.4, 0.5];
+
 const sans = (c: CorpsToit): CorpsToit => { const { croupes: _c, ...reste } = c; void _c; return { ...reste, pignons: [] } as CorpsToit; };
 
 /** Les corps qui se lisent ensemble : le principal et ceux qui lui sont accoles, de meme sens (un papillon se lit par le moteur comme deux appentis). */
@@ -216,6 +221,8 @@ export function lireFormes(m: ToitMesure, corps: readonly CorpsToit[], contour: 
       // quand le moteur y a vu des croupes : on garde la variante qui colle le mieux a la mesure.
       const lb = profils.flatMap((p) => (p.type === 'brise' ? [p.largeurBrisisM] : []));
       const variantes: CorpsToit[] = [{ ...gabarit, bouts: boutsDuCorps(base) }];
+      // Un pan courbe dont les bouts sont fermes par un pan est une carene : la profondeur des croupes se cherche au plus pres de la mesure.
+      if (profils.some((p) => p.type === 'courbe')) for (const part of PARTS_CROUPE_CARENE) variantes.push({ ...gabarit, bouts: [{ type: 'croupe', profondeurM: cm(part * W) }, { type: 'croupe', profondeurM: cm(part * W) }] });
       if (lb.length === 2) variantes.push({ ...gabarit, bouts: [{ type: 'brisis', largeurM: cm(lb[0] as number) }, { type: 'brisis', largeurM: cm(lb[1] as number) }] });
       const acceptees = variantes.map((c) => ({ c, e: accepte(c, S.GAIN_PROFIL) })).filter((x): x is { c: CorpsToit; e: number } => x.e !== null).sort((a, b) => a.e - b.e);
       const retenue = (options.forme ? acceptees.find((x) => formeDuCorpsNommee(x.c) === options.forme) : undefined) ?? acceptees[0];
@@ -279,7 +286,7 @@ export function lireFormes(m: ToitMesure, corps: readonly CorpsToit[], contour: 
   // 4. Un toit de revolution sur un plan presque carre : l'egout et le faitage se lisent aux moindres carres, pour chaque solide.
   if (Math.max(L, W) <= S.RAPPORT_CARRE_MAX * Math.min(L, W)) {
     const R = Math.min(L, W) / 2;
-    const candidats: NonNullable<CorpsToit['speciale']>[] = [{ type: 'conique' }, { type: 'dome' }, { type: 'imperiale' }];
+    const candidats: NonNullable<CorpsToit['speciale']>[] = [{ type: 'conique' }, { type: 'dome' }, { type: 'imperiale' }, ...FACES_POLYGONALES.map((cotes) => ({ type: 'polygonal' as const, cotes }))];
     let meilleur: { c: CorpsToit; e: number; F: number; e0: number } | null = null;
     for (const speciale of candidats) {
       // z = e + (F - e) g(r) : lineaire en (e, F) ; g est le profil du solide, de 0 (au bord) a 1 (a l'axe).
@@ -291,12 +298,14 @@ export function lireFormes(m: ToitMesure, corps: readonly CorpsToit[], contour: 
       if (Math.abs(det) < 1e-9) continue;
       const e0 = (sza * sbb - szb * sab) / det, F = (saa * szb - sab * sza) / det;
       if (!(F > e0 + 0.5)) continue;
-      const finale: NonNullable<CorpsToit['speciale']> = speciale.type === 'conique' && F - e0 >= S.ELANCEMENT_FLECHE * R ? { type: 'fleche', cotes: 4 } : speciale;
+      // Quatre faces sous un toit trapu, c'est un pavillon : le moteur des corps le lit deja.
+      if (speciale.type === 'polygonal' && speciale.cotes === 4 && F - e0 < S.ELANCEMENT_FLECHE * R) continue;
+      const finale: NonNullable<CorpsToit['speciale']> = speciale.type === 'conique' && F - e0 >= S.ELANCEMENT_FLECHE * R ? { type: 'fleche', cotes: 4 } : speciale.type === 'polygonal' && F - e0 >= S.ELANCEMENT_FLECHE * R ? { type: 'fleche', cotes: speciale.cotes } : speciale;
       const c: CorpsToit = { ...unite, faitage: cm(F), egouts: [cm(e0), cm(e0)], speciale: finale };
       const ecart = accepte(c, S.GAIN_REVOLUTION);
       if (ecart !== null && (!meilleur || ecart < meilleur.e)) meilleur = { c, e: ecart, F, e0 };
     }
-    if (meilleur) poser(meilleur.c, meilleur.e, 'GAIN_REVOLUTION', 'un toit de révolution autour du centre du plan, haut de ' + fr(meilleur.F - meilleur.e0) + ' m');
+    if (meilleur) poser(meilleur.c, meilleur.e, 'GAIN_REVOLUTION', (meilleur.c.speciale && 'cotes' in meilleur.c.speciale ? 'une pyramide à ' + meilleur.c.speciale.cotes + ' faces' : 'un toit de révolution') + ' autour du centre du plan, haut de ' + fr(meilleur.F - meilleur.e0) + ' m');
   }
   return lectures.sort((a, b) => a.ecart - b.ecart);
 }
