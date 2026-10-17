@@ -9,10 +9,9 @@
 // l'interface), et l'etat de la bibliotheque chargee, que la 3D, l'inspecteur et l'import lisent.
 
 import type { ObjetPlan } from './types.js';
-import { ESPECES_PAR_DEFAUT } from './especesParDefaut.js';
 
 export const FORMAT_ARBRES = 'plan-arbres';
-/** Au plus autant d'essences : de quoi reprendre toute la bibliotheque par defaut (especesParDefaut.ts) et y ajouter les siennes. */
+/** Au plus autant d'essences : la bibliotheque livree en compte 40 (data/admin/arbres.json), l'administrateur peut y ajouter les siennes. */
 export const MAX_ESPECES = 200;
 /** Le document entier, en octets une fois serialise (les routes serveur le refusent au-dela). */
 export const MAX_OCTETS_ARBRES = 524288;
@@ -112,19 +111,15 @@ export function idDepuisNom(nom: string, pris: ReadonlySet<string>): string {
 
 // ---- La bibliotheque chargee -------------------------------------------------------------------
 
-let courante: readonly EspeceArbre[] = ESPECES_PAR_DEFAUT;
+let courante: readonly EspeceArbre[] = [];
 const ecouteurs = new Set<() => void>();
 
 /**
- * La bibliotheque en usage : celle que l'administrateur a enregistree sur le serveur, sinon (sans admin
- * configure, sans reseau, ou sans essence enregistree) celle livree avec Plan (especesParDefaut.ts).
+ * La bibliotheque en usage : celle du serveur (`admin/arbres`, le fichier data/admin/arbres.json, que l'ecran Admin › Arbres
+ * retouche). Le code n'a aucune essence : sans serveur, sans reseau ou sans fichier, elle est vide et les arbres se
+ * dessinent en repli (un tronc et une boule).
  */
 export function especesChargees(): readonly EspeceArbre[] { return courante; }
-
-/** La bibliotheque a mettre en usage pour ce que le serveur a enregistre : la sienne, ou celle de Plan si elle est vide. */
-export function bibliothequeEnUsage(enregistrees: readonly EspeceArbre[]): readonly EspeceArbre[] {
-  return enregistrees.length ? enregistrees : ESPECES_PAR_DEFAUT;
-}
 
 /** Pose la bibliotheque en usage, telle quelle : vide, les arbres se dessinent en repli (le temoin des empreintes s'y met). */
 export function poserEspeces(especes: readonly EspeceArbre[]): void {
@@ -162,4 +157,26 @@ export function arbreNu(caduc: boolean, dateStr: string | null | undefined): boo
 
 export function diametreDe(o: Pick<ObjetPlan, 'diametreArbre'>, e: EspeceArbre | null = null): number {
   return nombreFini(o.diametreArbre) && o.diametreArbre > 0 ? o.diametreArbre : e?.diametreM ?? DIAMETRE_DEFAUT_M;
+}
+
+// ---- Les tailles : comment la bibliotheque se presente -----------------------------------------
+
+export type TailleArbre = 'petit' | 'moyen' | 'grand' | 'tres-grand';
+
+/** Les classes de taille, de la plus petite a la plus grande : `jusqua` est la hauteur proposee (m) qu'elles couvrent, bornes comprises. */
+export const TAILLES: readonly { id: TailleArbre; libelle: string; jusqua: number }[] = [
+  { id: 'petit', libelle: 'Petits (jusqu’à 6 m)', jusqua: 6 },
+  { id: 'moyen', libelle: 'Moyens (de 6 à 12 m)', jusqua: 12 },
+  { id: 'grand', libelle: 'Grands (de 12 à 20 m)', jusqua: 20 },
+  { id: 'tres-grand', libelle: 'Très grands (plus de 20 m)', jusqua: Infinity },
+];
+
+/** La classe de taille d'une essence, d'apres la hauteur qu'elle propose : une essence retouchee en hauteur change de classe. */
+export function tailleDe(e: Pick<EspeceArbre, 'hauteurM'>): (typeof TAILLES)[number] {
+  return TAILLES.find((t) => e.hauteurM <= t.jusqua) ?? (TAILLES[TAILLES.length - 1] as (typeof TAILLES)[number]);
+}
+
+/** Les essences rangees par classe de taille (les classes vides n'y sont pas), chacune par nom. */
+export function especesParTaille<T extends Pick<EspeceArbre, 'hauteurM' | 'nom'>>(especes: readonly T[]): { taille: (typeof TAILLES)[number]; especes: T[] }[] {
+  return TAILLES.map((taille) => ({ taille, especes: especes.filter((e) => tailleDe(e) === taille).sort((a, b) => a.nom.localeCompare(b.nom, 'fr')) })).filter((g) => g.especes.length > 0);
 }

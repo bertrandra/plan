@@ -19,6 +19,10 @@ import type { Tree } from '@dgreenheck/ez-tree';
 import { chargerEzTree } from './bibliotheque.js';
 import { especesChargees, type EspeceArbre, type ReglagesEz } from '../model/especesArbre.js';
 import { chargerEspecesServeur } from '../io/arbresServeur.js';
+import { habillerDeVent } from './vent.js';
+
+/** La raideur d'un resineux au vent, face a un feuillu (1) : ses aiguilles et ses branches courtes bougent moins. */
+const SOUPLESSE_RESINEUX = 0.55;
 
 /** Combien de graines differentes par essence : de quoi ne pas voir deux fois le meme arbre cote a cote. */
 export const NB_VARIANTES = 3;
@@ -150,6 +154,10 @@ export function modeleArbre(e: EspeceArbre, variante: number): ModeleArbre | nul
     });
     feuille.dispose();
     const { largeur, hauteur } = mesurer(branches, feuilles);
+    // Le vent se joue dans le shader des deux materiaux partages par les instances (three/vent.ts).
+    const souplesse = e.reglages.type === 'evergreen' ? SOUPLESSE_RESINEUX : 1;
+    habillerDeVent(bois, hauteur, souplesse, false);
+    habillerDeVent(matFeuilles, hauteur, souplesse, true);
     const m: ModeleArbre = { branches, feuilles, matBois: bois, matFeuilles, largeur, hauteur, triangles: arbre.triangleCount };
     modeles.set(cle, m);
     return m;

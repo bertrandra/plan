@@ -7,7 +7,7 @@
 // un rectangle qui sortirait de la parcelle, le rayon d'un cercle aussi — mais elles sont ici, a
 // cote du champ, et non au fond d'un ecouteur.
 
-import { especeDe, especesChargees, especeParId } from '../../model/especesArbre.js';
+import { especeDe, especesChargees, especeParId, especesParTaille } from '../../model/especesArbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
@@ -269,7 +269,8 @@ const sectionArbre: Section = {
     {
       type: 'choix', cle: 'especeArbre', libelle: 'Essence', effets: ['scene3d', 'inspecteur'],
       aide: 'L’essence de l’arbre en 3D ; un caduc est nu de novembre à mars, à la date de l’étude d’ensoleillement',
-      options: () => especesChargees().length ? especesChargees().map((e) => ({ valeur: e.id, libelle: e.nom })) : [{ valeur: '', libelle: 'Aucune essence en bibliothèque (arbre simplifié)' }],
+      // Par taille (petits, moyens, grands, tres grands), chacune par nom : la liste se lit d'un coup d'oeil.
+      options: () => especesChargees().length ? especesParTaille(especesChargees()).flatMap((g) => g.especes.map((e) => ({ valeur: e.id, libelle: e.nom, groupe: g.taille.libelle }))) : [{ valeur: '', libelle: 'Aucune essence en bibliothèque (arbre simplifié)' }],
       lire: (c) => especeDe(c.obj)?.id ?? '',
       ecrire: (c, v) => {
         const e = especeParId(v);

@@ -15,6 +15,8 @@ import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
 import type { DeuxVues } from './comparaison3d.js';
+import { mesurerImage, perfActive } from './perf.js';
+import { reglerVent } from './vent.js';
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.
@@ -60,9 +62,16 @@ export interface SceneTroisBase {
 
 /** Rend une image de la scene, par ses passes si elle en a. */
 export function rendre3d(sc: SceneTroisBase): void {
-  if (sc.enDeux) sc.enDeux();
-  else if (sc.rendre) sc.rendre();
-  else sc.renderer.render(sc.scene, sc.camera);
+  // Le vent des arbres (three/vent.ts) lit l'horloge de l'image qu'on va rendre.
+  reglerVent(vue3d.vent, performance.now());
+  const rendu = () => {
+    if (sc.enDeux) sc.enDeux();
+    else if (sc.rendre) sc.rendre();
+    else sc.renderer.render(sc.scene, sc.camera);
+  };
+  // `?fps=on` : l'image est mesuree (three/perf.ts) ; sans lui, aucun compteur n'est touche.
+  if (perfActive()) mesurerImage(sc.renderer, rendu);
+  else rendu();
 }
 
 /** La scene de la Vue 3D : elle cadre le plan, donc son etendue et son centroide, en metres. */
@@ -205,6 +214,8 @@ export const vue3d: {
   objetsOpaques: boolean;
   textures: boolean;
   ombres: boolean;
+  /** Le vent dans les arbres (three/vent.ts) : montre par defaut, une preference d'affichage. */
+  vent: boolean;
   /** Le niveau de qualite de l'appareil (three/qualite.ts) : pose au demarrage, regle dans le panneau. */
   qualite: Qualite3d;
   /**
@@ -230,6 +241,7 @@ export const vue3d: {
   platelageTranslucide: false,
   objetsOpaques: true,
   textures: true,
+  vent: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
   ombres: true,

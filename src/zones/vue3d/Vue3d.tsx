@@ -152,6 +152,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
               <Case id="terrasse3dEchelle" controle="vue3d.objetsEchelle" libelle="Objets d'échelle" coche={vue3d.objetsEchelle} onChange={r.basculerObjetsEchelle}
                 titre="Une voiture côté rue et une silhouette dans la parcelle : la taille des choses d'un coup d'œil (jamais exportées)" />
+              <Case id="terrasse3dVent" controle="vue3d.vent" libelle="Vent" coche={vue3d.vent} onChange={r.basculerVent}
+                titre="Les arbres bougent au vent (balancement des branches, frémissement des feuilles) ; sans effet sur l'export ni sur les ombres" />
               <label className="etiquetteReglage" title={QUALITES_3D.find((x) => x.id === vue3d.qualite)?.aide}>Qualité
                 <select id="terrasse3dQualite" data-controle="vue3d.qualite" value={vue3d.qualite} onChange={(e) => { if (estQualite3d(e.target.value)) r.choisirQualite(e.target.value); }}>
                   {QUALITES_3D.map((x) => <option key={x.id} value={x.id} title={x.aide}>{x.libelle}</option>)}

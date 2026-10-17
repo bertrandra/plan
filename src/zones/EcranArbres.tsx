@@ -11,8 +11,7 @@
 // de app/ecranArbres.ts, qui les branche sur three/apercuArbre.ts et three/ezTree.ts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ESPECES_PAR_DEFAUT, completerParDefaut } from '../model/especesParDefaut.js';
-import { documentArbres, idDepuisNom, lireDocumentArbres, MAX_ESPECES, type EspeceArbre, type ReglagesEz } from '../model/especesArbre.js';
+import { documentArbres, especesParTaille, idDepuisNom, lireDocumentArbres, MAX_ESPECES, tailleDe, type EspeceArbre, type ReglagesEz } from '../model/especesArbre.js';
 import { ecrireChemin, GROUPES_EZ, hexEnTeinte, lireChemin, niveauActif, NOMS_PRESETS_EZ, teinteEnHex, type ChampEz } from '../model/reglagesEz.js';
 import type { ApercuArbre, ChiffresArbre } from '../three/apercuArbre.js';
 import { TRIANGLES_CONSEILLES_MAX } from '../three/apercuArbre.js';
@@ -74,6 +73,7 @@ function FicheEssence({ courante, peutDupliquer, rapport, json, setJson, modifie
                 <input type="checkbox" checked={courante.caduc} onChange={(e) => modifier(courante.id, (x) => ({ ...x, caduc: e.target.checked }))} /></label>
               <label className="arbChamp"><span className="arbLibelle">Hauteur proposée (m)</span>
                 <input type="number" min={0.5} max={60} step={0.5} value={courante.hauteurM} onChange={(e) => { const n = parseFloat(e.target.value); if (n > 0) modifier(courante.id, (x) => ({ ...x, hauteurM: Math.min(60, n) })); }} /></label>
+              <p className="arbNote">Taille : {tailleDe(courante).libelle.replace(/ \(.*$/, '').toLowerCase()} — elle suit la hauteur proposée.</p>
               <label className="arbChamp"><span className="arbLibelle">Diamètre proposé (m)</span>
                 <input type="number" min={0.5} max={40} step={0.5} value={courante.diametreM} onChange={(e) => { const n = parseFloat(e.target.value); if (n > 0) modifier(courante.id, (x) => ({ ...x, diametreM: Math.min(40, n) })); }} /></label>
               <label className="arbChamp" title="Mots de la nature BD TOPO (conifère, verger…) pour lesquels cette essence est proposée à l’import du cadastre"><span className="arbLibelle">Proposée pour (BD TOPO)</span>
@@ -117,30 +117,6 @@ interface PropsApercu {
   lourd: boolean;
 }
 
-/** Les essences par defaut ajoutees a la bibliotheque (pour les retoucher), et ce qu'on en dit ; `liste` : null si rien ne change. */
-function repriseParDefaut(especes: readonly EspeceArbre[]): { liste: EspeceArbre[] | null; message: string } {
-  const { liste, ajoutees, restantes } = completerParDefaut(especes, MAX_ESPECES);
-  if (!ajoutees && !restantes) return { liste: null, message: 'Toutes les essences par défaut sont déjà dans la bibliothèque.' };
-  const message = restantes ? ajoutees + ' essence(s) par défaut ajoutée(s) : la bibliothèque est pleine (' + MAX_ESPECES + ' au plus).'
-    : ajoutees + ' essence(s) par défaut ajoutée(s). Enregistrez pour qu’elles remplacent la bibliothèque livrée avec Plan.';
-  return { liste: ajoutees ? liste : null, message };
-}
-
-/** « Reprendre les essences par défaut » : les essences livrées avec Plan s'ajoutent à la bibliothèque, pour les retoucher. */
-function BoutonReprise({ especes, setEspeces, setChoisie, setMessage }: {
-  especes: EspeceArbre[]; setEspeces: (l: EspeceArbre[]) => void; setChoisie: (f: (c: string | null) => string | null) => void; setMessage: (m: string) => void;
-}) {
-  return (
-    <button type="button" className="secondary" id="arbDefaut" onClick={() => {
-      const r = repriseParDefaut(especes);
-      setMessage(r.message);
-      if (!r.liste) return;
-      setEspeces(r.liste);
-      setChoisie((c) => c ?? r.liste?.[0]?.id ?? null);
-    }}>Reprendre les essences par défaut</button>
-  );
-}
-
 /** L'arbre tel que la 3D le dessinera, et ce qu'il pese. */
 function PanneauApercu({ hote, chargement, courante, nu, setNu, chiffres, lourd }: PropsApercu) {
   return (
@@ -162,6 +138,25 @@ function PanneauApercu({ hote, chargement, courante, nu, setNu, chiffres, lourd 
           {lourd && <p className="arbMessage">Cet arbre pèse plus de {TRIANGLES_CONSEILLES_MAX.toLocaleString('fr-FR')} triangles : trois variantes par essence et des centaines d’exemplaires dans un voisinage ralentiront les téléphones et alourdiront l’export. Réduisez les niveaux, les sections ou les feuilles.</p>}
           <p className="arbNote">Les arbres d’une même essence sont dessinés en instances : le poids d’un modèle compte une fois par variante (trois), pas une fois par arbre.</p>
         </aside>
+  );
+}
+
+/** La liste des essences, rangee par taille (petits, moyens, grands, tres grands) : un titre, puis les essences de la classe. */
+function ListeEssences({ especes, choisie, choisir }: { especes: readonly EspeceArbre[]; choisie: string | null; choisir: (id: string) => void }) {
+  return (
+    <div className="arbListe" role="group" aria-label="Liste des essences">
+      {especesParTaille(especes).map((g) => (
+        <section key={g.taille.id} className="arbTaille" aria-label={g.taille.libelle}>
+          <h3 className="arbTailleTitre">{g.taille.libelle} <small>{g.especes.length}</small></h3>
+          {g.especes.map((e) => (
+            <button key={e.id} type="button" className={'arbEssence' + (e.id === choisie ? ' actif' : '')} aria-pressed={e.id === choisie} onClick={() => choisir(e.id)}>
+              {e.nom}<small>{e.caduc ? 'caduc' : 'persistant'}</small>
+            </button>
+          ))}
+        </section>
+      ))}
+      {!especes.length && <p className="palIdee">Aucune essence enregistrée : les arbres se dessinent en tronc et boule. La bibliothèque livrée avec Plan est le fichier data/admin/arbres.json du serveur (quarante essences, dix par taille) ; sans lui, ajoutez les vôtres ci-dessous.</p>}
+    </div>
   );
 }
 
@@ -281,14 +276,7 @@ export function EcranArbres({ enregistrees, enregistrer, preparer, monterApercu,
 
       <div className="arbCorps">
         <section className="arbEdition" aria-label="Essences">
-          <div className="arbListe" role="group" aria-label="Liste des essences">
-            {especes.map((e) => (
-              <button key={e.id} type="button" className={'arbEssence' + (e.id === choisie ? ' actif' : '')} aria-pressed={e.id === choisie} onClick={() => { setChoisie(e.id); setJson(null); }}>
-                {e.nom}<small>{e.caduc ? 'caduc' : 'persistant'}</small>
-              </button>
-            ))}
-            {!especes.length && <p className="palIdee">Aucune essence enregistrée : Plan utilise sa bibliothèque par défaut ({ESPECES_PAR_DEFAUT.length} essences). Reprenez-les ci-dessous pour les retoucher, ou ajoutez les vôtres : une bibliothèque enregistrée remplace celle de Plan.</p>}
-          </div>
+          <ListeEssences especes={especes} choisie={choisie} choisir={(id) => { setChoisie(id); setJson(null); }} />
           <div className="arbAjout">
             <select aria-label="Partir d’un modèle d’EZ-tree" id="arbPreset" defaultValue="" disabled={!ez} onChange={(e) => {
               const n = e.target.value;
@@ -300,7 +288,6 @@ export function EcranArbres({ enregistrees, enregistrer, preparer, monterApercu,
               {presets.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
             <button type="button" className="secondary" disabled={!ez} onClick={() => ez && ajouter(ez.defaut, 'Nouvelle essence')}>Ajouter une essence vierge</button>
-            <BoutonReprise especes={especes} setEspeces={setEspeces} setChoisie={setChoisie} setMessage={setMessage} />
           </div>
 
           {courante && (

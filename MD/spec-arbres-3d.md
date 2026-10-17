@@ -44,24 +44,37 @@ Un document `plan-arbres`, `data/admin/arbres.json` sur le serveur (`admin/arbre
 | `hauteurM`, `diametreM` | les dimensions proposées quand l'utilisateur choisit l'essence |
 | `reglages` | `Tree.options` d'EZ-tree (graine, branches, écorce, feuilles…), des valeurs simples sur quatre niveaux |
 
-### 2.1 La bibliothèque par défaut (`model/especesParDefaut.ts`)
+### 2.1 La bibliothèque livrée (`data/admin/arbres.json`)
 
-Plan livre **145 essences** (feuillus caducs, persistants, conifères, fruitiers, arbustes et haies) : c'est la
-bibliothèque en usage tant que le serveur n'en a enregistré aucune (pas d'admin, hors ligne, 404, document
-vide) ; **dès qu'une bibliothèque est enregistrée, c'est la sienne qui prime** (`bibliothequeEnUsage`). Un plan
-a donc toujours des essences, et un arbre n'est dessiné en repli (tronc et boule) que si EZ-tree ne se charge pas.
+Plan livre **quarante essences, dix par taille**, dans un fichier de données : `data/admin/arbres.json`, celui que le
+serveur sert (`admin/arbres`) et que l'écran Admin › Arbres lit et enregistre. **Le code n'a aucune essence** : sans
+fichier (pas d'admin, hors ligne, 404, document vide), la bibliothèque est vide et les arbres se dessinent en repli
+(tronc et boule). Un arbre du plan dont l'essence a disparu suit la première essence de la bibliothèque (le chêne
+pédonculé, qui ouvre le fichier).
 
-EZ-tree n'a que quatre feuilles et quatre écorces : une essence se distingue par son **preset de base**
-(`model/presetsBase.ts`, copie d'EZ-tree 1.1.0 testée contre le paquet), ses proportions proposées (un
-cyprès de Provence fait 18 m sur 2,5 m, un cèdre du Liban 22 m sur 20 m), l'ouverture de ses branches, la
-teinte du feuillage et de l'écorce, et sa caducité (le mélèze, le cyprès chauve et le métaséquoia perdent
-leurs aiguilles). Ce sont des maquettes pour l'ombre portée, pas des portraits botaniques ; chacune se génère
-en moins de 25 000 triangles. Les `natures` couvrent les zones de végétation BD TOPO (feuillus, conifères,
-mixte, forêt, peupleraie, verger, haie, lande, vigne) ; l'ordre de la liste compte, le chêne pédonculé étant
-l'essence de repli. L'écran Admin › Arbres a un bouton « Reprendre les essences par défaut » : il les ajoute
-à la bibliothèque du serveur (200 essences au plus) pour les retoucher, et l'enregistrement remplace alors
-celle de Plan. Le témoin GLB et `cadastre-objets.json` se capturent **sans bibliothèque** (`poserEspeces([])`,
-fumée 24) : ils ne dépendent ni de cette liste ni du réseau.
+| Taille | Hauteur proposée | Les dix |
+|---|---|---|
+| Petits | jusqu'à 6 m | genêt, vigne, haie de charme, buis, hortensia, lilas, laurier-palme, érable du Japon, pêcher, pommier |
+| Moyens | de 6 à 12 m | olivier, cerisier à fleurs, arbre de Judée, magnolia caduc, houx, thuya occidental, if, sorbier des oiseleurs, érable champêtre, bouleau de l'Himalaya |
+| Grands | de 12 à 20 m | pin sylvestre, charme, bouleau verruqueux, noyer, robinier, saule pleureur, pin parasol, chêne vert, cyprès de Provence, eucalyptus |
+| Très grands | plus de 20 m | chêne pédonculé, hêtre, peuplier noir, platane, érable sycomore, frêne, épicéa, cèdre du Liban, séquoia, peuplier d'Italie |
+
+La taille n'est pas un champ : elle se déduit de la hauteur proposée (`tailleDe`, `TAILLES` dans `model/especesArbre.ts`),
+si bien qu'une essence retouchée à 15 m change de classe. L'écran admin range sa liste par taille, et le choix
+« Essence » de l'inspecteur la présente de même (groupes de la liste déroulante).
+
+EZ-tree n'a que quatre feuilles et quatre écorces : une essence se distingue par ses **réglages** (partis d'un preset
+d'EZ-tree 1.1.0), ses proportions proposées (un cyprès de Provence fait 18 m sur 2,5 m, un cèdre du Liban 22 m sur
+20 m), l'ouverture de ses branches (le saule pleureur retombe, le peuplier d'Italie se dresse), la teinte du feuillage
+et de l'écorce, et sa caducité. Ce sont des maquettes pour l'ombre portée, pas des portraits botaniques. Les `natures`
+couvrent les zones de végétation BD TOPO (feuillus, conifères, mixte, forêt, peupleraie, verger, haie, lande, vigne) ;
+l'ordre du fichier compte pour les huit premières, le chêne pédonculé étant l'essence de repli. Le témoin GLB et
+`cadastre-objets.json` se capturent **sans bibliothèque** (`poserEspeces([])`, fumée 24) : ils ne dépendent ni de ce
+fichier ni du réseau.
+
+**Installer le fichier.** La livraison (`livraison/data/admin/arbres.json`) le pose avec les autres données ; une
+installation qui a déjà un `data/` ne l'écrase pas (ce sont ses données) : copier ce seul fichier dans `data/admin/`,
+après avoir gardé l'ancien s'il a été retouché.
 
 La lecture est **tolérante** : une essence sans identifiant valide ou sans réglages est ignorée, jamais
 l'interface (`lireDocumentArbres`). L'essence d'un objet (`especeDe`) est celle qu'il porte, sinon la
@@ -115,6 +128,6 @@ triangles, sommets, durée de génération et dimensions du modèle, et une case
   teinte, retrouver l'arbre touché), saison. EZ-tree y est remplacé par un faux générateur.
 - `tests/unit/{deploy/adminPhp,buildsg/demosAdmin}.test.ts` : la route `admin/arbres`, côté PHP et côté Node.
 - Fumée 91 (les arbres en instances, la saison) et 92 (l'écran admin).
-- `tests/unit/model/especesParDefaut.test.ts` : identifiants valides et uniques, lecture sans perte, document sous
-  512 Ko, presets de base égaux à ceux d'EZ-tree, essence pour chaque nature BD TOPO, silhouettes.
+- `tests/unit/model/bibliothequeLivree.test.ts` : le fichier `data/admin/arbres.json` (dix essences par taille,
+  identifiants valides et uniques, lecture sans perte, document sous 256 Ko, essence pour chaque nature BD TOPO, silhouettes).
 - Témoins : `glb-structure.json` et `cadastre-objets.json` recapturés, notés dans `EMPREINTES.md`.
