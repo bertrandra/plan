@@ -7,7 +7,7 @@ import { pointInPolygon, signedArea } from '../../../src/geometry/basic.js';
 import { trianguler } from '../../../src/facade/toit.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
-import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M, estAppentisOuvert } from '../../../src/three/toitCorps3d.js';
+import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M, DEBORD_RIVE_M, estAppentisOuvert, appentisAdosse } from '../../../src/three/toitCorps3d.js';
 import { segmentEnFacade } from '../../../src/geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -297,5 +297,25 @@ describe('un appentis ouvert ou ferme', () => {
     expect(estAppentisOuvert(galerie({ ouvert: false }))).toBe(false);
     expect(estAppentisOuvert(galerie())).toBe(false);
     expect(estAppentisOuvert({ pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 6, egouts: [3, 3], pignons: [], ecart: 0, ouvert: true })).toBe(false);
+  });
+
+  it('adosse a la maison, son toit s arrete au nu de ses murs : ni rive aux bouts, ni debord au-dela du mur haut', () => {
+    // AE 101 : la rive de la galerie sud passait le coin de la maison. La maison au nord de la galerie (y < 0), son mur sud sur y = 0.
+    const maison: CorpsToit = { pts: [{ x: 0, y: -8 }, { x: 8, y: -8 }, { x: 8, y: 0 }, { x: 0, y: 0 }], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0 };
+    const g = galerie({ ouvert: true });
+    expect(appentisAdosse(g, [maison, g])).toBe(true);
+    expect(appentisAdosse(g, [g])).toBe(false);
+    expect(appentisAdosse(maison, [maison, g])).toBe(false);
+    const xs = (f: { x: number }[][]) => f.flatMap((q) => q.map((p) => p.x));
+    const ys = (f: { y: number }[][]) => f.flatMap((q) => q.map((p) => p.y));
+    const libre = facettesCorps(g).pans, adosse = facettesCorps(g, null, true, true).pans;
+    // Seul, le pan deborde de la rive aux bouts et monte au-dela du mur haut ; adosse, il tient entre 0 et 8, et ne passe pas y = 0.
+    expect(Math.min(...xs(libre))).toBeCloseTo(-DEBORD_RIVE_M, 5);
+    expect(Math.min(...ys(libre))).toBeLessThan(0);
+    expect(Math.min(...xs(adosse))).toBeCloseTo(0, 5);
+    expect(Math.max(...xs(adosse))).toBeCloseTo(8, 5);
+    expect(Math.min(...ys(adosse))).toBeCloseTo(0, 5);
+    // Le debord de l'egout, cote jardin, reste.
+    expect(Math.max(...ys(adosse))).toBeCloseTo(3 + DEBORD_EGOUT_M, 5);
   });
 });

@@ -225,6 +225,9 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Un appentis adosse s'arrete ou s'arrete le mur du contour (ECART_FACADE_APPENTIS_M) : la galerie d'AE 101 ne passe plus le
   // coin sud-ouest de la maison.
   { version: 5, reglages: '1e1e5338', faits: '43162115', formes: '83c56e39' },
+  // Retour sur la version 5 : coupee au mur du contour, la galerie d'AE 101 s'arretait avant le coin du mur dessine. Elle court de
+  // nouveau sur tout le cote du corps qui la porte (reglages de la version 4) ; c'est le dessin qui l'arrete au nu des murs.
+  { version: 6, reglages: 'b472cd75', faits: '43162115', formes: '83c56e39' },
 ];
 
 /**
