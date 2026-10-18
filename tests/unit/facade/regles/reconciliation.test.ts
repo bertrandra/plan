@@ -204,3 +204,37 @@ describe('la main de la personne', () => {
     expect(a?.decision).toBe('forcee');
   });
 });
+
+describe('la silhouette des façades décide de la forme du toit', () => {
+  const SIL = 'regles/toits/silhouettes.json';
+  const f = (source: SourceConstat, valeur: Constat['valeur'], confiance: number, regle?: string): Constat => ({ cible: 'batiment:maison', attribut: 'formeToit', source, valeur, confiance, ...(regle ? { regle } : {}) });
+
+  it('l’emporte sur un LiDAR plus lourd : la photo et Claude disent des croupes, le LiDAR deux pans', () => {
+    const a = arbitrer([f('lidar', 'deux-pans', 0.95, 'SEUIL_MARCHE_M'), f('ign', 'deux-pans', 0.8), f('photo', 'croupes', 0.6, SIL), f('claude', 'croupes', 0.8, SIL)], projet('deux-pans'), 'formeToit', 'batiment:maison');
+    expect(a.groupes[0]?.valeur).toBe('deux-pans');
+    expect(a.retenu?.valeur).toBe('croupes');
+    expect(a.decision).toBe('auto');
+    expect(a.raison).toContain('la silhouette des façades décide');
+  });
+
+  it('ne décide pas seule quand sa source n’a pas le droit d’être seule : la personne tranche, la silhouette proposée', () => {
+    const a = arbitrer([f('lidar', 'deux-pans', 0.95, 'SEUIL_MARCHE_M'), f('claude', 'croupes', 0.9, SIL)], projet('deux-pans'), 'formeToit', 'batiment:maison');
+    expect(a.retenu?.valeur).toBe('croupes');
+    expect(a.decision).toBe('manuelle');
+  });
+
+  it('cède à ce qui a été vu sur place', () => {
+    const a = arbitrer([f('photo', 'croupes', 0.9, SIL), f('claude', 'croupes', 0.9, SIL), f('terrain', 'deux-pans', 1)], projet('croupes'), 'formeToit', 'batiment:maison');
+    expect(a.retenu?.valeur).toBe('deux-pans');
+  });
+
+  it('sans silhouette, le LiDAR décide comme avant ; la vue d’ensemble de Claude n’est pas une silhouette', () => {
+    const a = arbitrer([f('lidar', 'deux-pans', 0.95, 'SEUIL_MARCHE_M'), f('claude', 'croupes', 0.9, 'forme du toit vue par Claude')], projet('plat'), 'formeToit', 'batiment:maison');
+    expect(a.retenu?.valeur).toBe('deux-pans');
+  });
+
+  it('est déclarée dans le fichier pour la forme, les bouts et le sens du faîtage, pas ailleurs', () => {
+    const avec = Object.entries(RECONCILIATION.attributs).filter(([, d]) => d.prioritaires?.length).map(([id]) => id);
+    expect(avec.sort()).toEqual(['boutsToit', 'formeToit', 'sensFaitage']);
+  });
+});

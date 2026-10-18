@@ -39,6 +39,12 @@ export interface DescriptionAttribut {
   margeAutoMin?: number;
   /** Les sources qui ont le droit d'etre seules pour cet attribut, en plus de celles que le fichier autorise (une photo sur ses ouvertures). */
   seules?: readonly SourceConstat[];
+  /**
+   * Les regles dont les constats l'emportent pour cet attribut, quel que soit leur score : un groupe qui en porte un (ou un constat vu
+   * sur place) est retenu avant tout autre, et seuls ces groupes se departagent entre eux. La silhouette des facades dit la forme du
+   * toit, ses bouts et le sens du faitage (decision de l'utilisateur, 18 octobre 2026) ; le LiDAR ne fait que suivre.
+   */
+  prioritaires?: readonly string[];
 }
 
 /** Une etape de la lecture du LiDAR : ce qu'elle fait, et les modules dont les seuils (regles/toits/reglages.json) la reglent. */
@@ -95,7 +101,7 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
       poids[src as SourceConstat] = nombre(v, ou + 'poids de ' + src, [0, 100]);
     }
     const valeurs = lireValeurs(a.valeurs, accord, ou);
-    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}), ...(a.seules !== undefined ? { seules: lireSeules(a.seules, ou) } : {}) }];
+    return [id, { libelle: String(a.libelle), cible: a.cible as CibleAttribut, accord, poids, ...(valeurs ? { valeurs } : {}), ...(a.scoreAutoMin !== undefined ? { scoreAutoMin: nombre(a.scoreAutoMin, ou + 'scoreAutoMin', [0.01, 100]) } : {}), ...(a.margeAutoMin !== undefined ? { margeAutoMin: nombre(a.margeAutoMin, ou + 'margeAutoMin', [1, 100]) } : {}), ...(a.seules !== undefined ? { seules: lireSeules(a.seules, ou) } : {}), ...(a.prioritaires !== undefined ? { prioritaires: lirePrioritaires(a.prioritaires, ou) } : {}) }];
   })) as Record<IdAttribut, DescriptionAttribut>;
   const lecturesLidar = lireEtapes(f.lecturesLidar);
   return { lecturesLidar, seuils, sources, attributs };
@@ -105,6 +111,12 @@ export function lireReconciliation(donnees: unknown): ReglesReconciliation {
 function lireSeules(v: unknown, ou: string): readonly SourceConstat[] {
   if (!Array.isArray(v) || v.some((s) => !(SOURCES as readonly string[]).includes(String(s)))) return refus(ou + 'seules : une liste de sources connues est attendue');
   return v as SourceConstat[];
+}
+
+/** Les regles prioritaires d'un attribut : une liste de noms de regles (ceux que portent les constats). */
+function lirePrioritaires(v: unknown, ou: string): readonly string[] {
+  if (!Array.isArray(v) || !v.length || v.some((r) => typeof r !== 'string' || !r.trim())) return refus(ou + 'prioritaires : une liste de noms de regles est attendue');
+  return v as string[];
 }
 
 /** Les valeurs forcables d'un attribut en mots : des mots, ou des ensembles de mots quand l'accord est un ensemble ; absentes, rien n'est propose. */
@@ -136,7 +148,7 @@ function lireEtapes(v: unknown): EtapeLidar[] {
 
 /** L'empreinte de ce qui change une decision : les valeurs, jamais les phrases. */
 export function empreinteReconciliation(r: ReglesReconciliation): string {
-  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].valeurs ?? null, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null, r.attributs[a].seules ?? null])]));
+  return fnv1a(JSON.stringify([r.seuils, SOURCES.map((s) => [s, r.sources[s].poids, r.sources[s].seule]), ATTRIBUTS.map((a) => [a, r.attributs[a].cible, r.attributs[a].accord, r.attributs[a].poids, r.attributs[a].valeurs ?? null, r.attributs[a].scoreAutoMin ?? null, r.attributs[a].margeAutoMin ?? null, r.attributs[a].seules ?? null, r.attributs[a].prioritaires ?? null])]));
 }
 
 /** Les regles en vigueur : celles du depot. */

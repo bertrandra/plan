@@ -117,7 +117,7 @@ export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante 
     const a = r.attributs[id];
     const poids = SOURCES.map((s) => r.sources[s].libelle + ' ' + nombre(a.poids[s] ?? r.sources[s].poids)).join(' · ');
     const accord = a.accord.type === 'nombre' || a.accord.type === 'angle' ? 'tolérance ' + nombre(a.accord.tolerance) + (a.accord.unite ? ' ' + a.accord.unite : '') : a.accord.type === 'ensemble' ? 'mêmes mots, dans n’importe quel ordre' : 'même mot';
-    ajouter({ id: cle('decision.attr.') + id, parent: 'decision', genre: 'regle', titre: a.libelle, detail: 'Accord : ' + accord + '. Poids : ' + poids + '.' + (a.scoreAutoMin !== undefined || a.margeAutoMin !== undefined ? ' Seuils propres : score ' + nombre(a.scoreAutoMin ?? r.seuils.SCORE_AUTO_MIN) + ', marge ' + nombre(a.margeAutoMin ?? r.seuils.MARGE_AUTO_MIN) + '.' : ''), mode: 'mixte', ecran: '?admin&ecran=regles' });
+    ajouter({ id: cle('decision.attr.') + id, parent: 'decision', genre: 'regle', titre: a.libelle, detail: 'Accord : ' + accord + '. Poids : ' + poids + '.' + (a.scoreAutoMin !== undefined || a.margeAutoMin !== undefined ? ' Seuils propres : score ' + nombre(a.scoreAutoMin ?? r.seuils.SCORE_AUTO_MIN) + ', marge ' + nombre(a.margeAutoMin ?? r.seuils.MARGE_AUTO_MIN) + '.' : '') + (a.prioritaires?.length ? ' Prioritaire : ' + a.prioritaires.join(', ') + ' (le LiDAR suit).' : ''), mode: 'mixte', ecran: '?admin&ecran=regles' });
   }
   // La lecture du LiDAR, etape par etape, avec les seuils de chaque module.
   for (const etape of r.lecturesLidar) {

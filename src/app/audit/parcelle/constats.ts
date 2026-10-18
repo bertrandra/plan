@@ -190,8 +190,10 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
   const parMur = new Map(v.facades.map((f) => [f.facade, f]));
   const dits = bouts(o, b, (f) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; });
   const confiance = Math.min(1, ...v.facades.flatMap((f) => (f.silhouette.valeur !== 'indetermine' || f.bout.valeur !== 'indetermine' ? [f.silhouette.accord, f.bout.accord] : [])));
-  // Les murs disent les bouts et le sens mieux que la vue d'ensemble : leurs constats la remplacent.
-  const deMurs = constatsDesSilhouettes('claude', cible, dits, confiance, REGLES_LIDAR.claude.silhouette).filter((c) => c.attribut !== 'formeToit' || !out.some((x) => x.attribut === 'formeToit'));
+  // La silhouette des murs dit la forme, les bouts et le sens du toit (decision de l'utilisateur, 18 octobre 2026) : ses constats
+  // remplacent ceux de la vue d'ensemble. Une forme que les silhouettes ne savent pas dire (un brisis, une demi-croupe : aucun
+  // bout pour le moteur) laisse celle de la vue d'ensemble.
+  const deMurs = constatsDesSilhouettes('claude', cible, dits, confiance, REGLES_LIDAR.claude.silhouette);
   for (const c of deMurs) { const k = out.findIndex((x) => x.attribut === c.attribut && x.source === c.source); if (k >= 0) out.splice(k, 1); out.push(c); }
   for (const f of v.facades) {
     const cote = b.facades.find((x) => etiquetteFacade(b, x) === f.facade)?.cote;
