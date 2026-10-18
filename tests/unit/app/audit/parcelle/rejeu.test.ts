@@ -60,4 +60,16 @@ describe('le rejeu de l analyse d un audit stocke', () => {
     for (const f of vide.batiments[0]?.facades ?? []) f.photos = [];
     expect(await preparerRejeu({ texte: JSON.stringify(vide), depot: DEPOT, modele: 'claude-haiku-5-5', objets, iduProjet: IDU, projet: null }, FAB)).toEqual({ refus: 'Aucune photo de bâtiment à analyser dans cet audit.' });
   });
+
+  it('refuse de partir sans un batiment de l audit que le projet ne reconnait pas, au lieu de payer une analyse sans lui', async () => {
+    const objets = projet();
+    const texte = fichier(objets);
+    // La maison est marquee voisine dans le projet ouvert : la liste de l'audit ne la compte plus.
+    const voisine = objets.map((o) => (o.key === 'maison' ? { ...o, voisinage: true } : o)) as ObjetPlan[];
+    const d = await preparerRejeu({ texte, depot: DEPOT, modele: 'claude-haiku-5-5', objets: voisine, iduProjet: IDU, projet: null }, FAB);
+    expect(d).toEqual({ refus: expect.stringContaining('« Maison » (2 photos) n’est pas reconnu comme bâtiment de la parcelle') });
+    // Le projet qui la reconnait, lui, part.
+    const ok = await preparerRejeu({ texte, depot: DEPOT, modele: 'claude-haiku-5-5', objets, iduProjet: IDU, projet: null }, FAB);
+    expect('refus' in ok).toBe(false);
+  });
 });

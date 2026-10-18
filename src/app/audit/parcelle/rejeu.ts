@@ -36,6 +36,17 @@ export async function preparerRejeu(d: DemandeRejeu, fab: FabriqueImages): Promi
     objets: d.objets, capture, liste: listeDeControle(d.objets, capture),
     mesures: new Map(mesuresDuFichier(r.fichier).map((m) => [cleMesure(m.cle, m.cote), m])),
   };
+  // Un batiment de l'audit qui a des photos mais que le projet ouvert ne reconnait pas comme batiment de la parcelle serait absent du
+  // rejeu, sans un mot, et le rejeu serait paye quand meme (le 18 octobre : l'abri seul, sans la maison, sur le bac a sable). On refuse.
+  const reconnus = new Set(entrees.liste.batiments.map((b) => b.cle));
+  const noms = new Map(r.fichier.batiments.map((b) => [b.cle, b.nom]));
+  const absents = Object.entries(capture.batiments).flatMap(([cle, b]) => {
+    const photos = b.photos.length + Object.values(b.facades).reduce((n, f) => n + f.photos.length, 0);
+    return photos > 0 && !reconnus.has(cle) ? [{ nom: noms.get(cle) ?? cle, photos }] : [];
+  });
+  if (absents.length) {
+    return { refus: absents.map((a) => '« ' + a.nom + ' » (' + a.photos + ' photo' + (a.photos > 1 ? 's' : '') + ')').join(', ') + (absents.length > 1 ? ' ne sont pas reconnus' : ' n’est pas reconnu') + ' comme bâtiment de la parcelle dans le projet ouvert : ' + (absents.length > 1 ? 'ils seraient absents' : 'il serait absent') + ' de l’analyse. Vérifiez qu’il est posé sur la parcelle du projet (import du cadastre) et qu’il n’est pas marqué voisin, puis rejouez.' };
+  }
   // L'analyse des maisons seule : sans `renfort`, la fabrique n'en prepare pas.
   const sansRenfort: FabriqueImages = { photo: fab.photo, rendu: fab.rendu, ortho: fab.ortho, carte: fab.carte };
   const prepare = await preparerDemande(entrees, sansRenfort, { projet: d.projet, idu: r.fichier.parcelle.idu, adresse: r.fichier.parcelle.adresse, audit: d.depot });

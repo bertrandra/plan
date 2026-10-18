@@ -217,6 +217,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Admin › Audits : un rejeu ne part plus sans un bâtiment de l’audit.** Le 18 octobre, sur le bac à sable (AE 101), un rejeu est parti avec le seul abri de jardin : le projet ouvert ne reconnaissait pas la maison comme bâtiment de la parcelle (3 requêtes au lieu de 6, 15 images au lieu de 111), et l’analyse, facturée, n’avait aucune ligne pour elle, sans un mot. Le rejeu compare maintenant les bâtiments qui ont des photos dans l’audit à ceux du projet ouvert : s’il en manque un, il refuse de partir et dit lequel (« « Maison » (12 photos) n’est pas reconnu comme bâtiment de la parcelle… »), en demandant de vérifier qu’il est posé sur la parcelle et qu’il n’est pas marqué voisin.
+
 - **Calibrer la détection sur téléphone.** La barre d’état collée en bas recouvrait le formulaire : elle défile maintenant avec la page. Les champs font 16 px au moins (le navigateur du téléphone ne zoome plus la page au focus). Le mur redressé ne bloque plus le défilement du doigt : on tape « Tracer une ouverture » pour dessiner un rectangle, et le tracé coupé laisse le doigt faire défiler. « Calcul… » s’affiche avant que le redressement n’occupe le fil. Parcours rejoué dans Chromium en émulation iPhone 13 (390 px, tactile) : prise d’une photo de 12 Mpx, pose des coins, redressement, annotation, enregistrement.
 
 - **Écran de prise : une façade choisie se voit de face.** À la sélection (touchée ou prise dans la liste),
