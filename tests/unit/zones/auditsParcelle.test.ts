@@ -278,6 +278,13 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
     expect([...(choix?.options ?? [])].map((o) => o.textContent)).toEqual(['Claude Haiku 5.5', 'Claude Sonnet 5.5']);
     act(() => t.catalogue.choisirModele('claude-sonnet-5-5'));
     await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    // Rien ne part avant la confirmation : c'est un appel facture.
+    expect(t.analyse.creerBatch).not.toHaveBeenCalled();
+    expect(cartes()[0]?.querySelector('[aria-label="Confirmer le rejeu de l’analyse"]')?.textContent).toContain('appel facturé');
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.annulerRejeu'));
+    expect(t.analyse.creerBatch).not.toHaveBeenCalled();
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.confirmerRejeu'));
     expect(t.preparer).toHaveBeenCalledWith(JSON.stringify(fichier), expect.objectContaining({ id: ID }), 'claude-sonnet-5-5');
     expect(t.analyse.creerBatch).toHaveBeenCalledWith(expect.objectContaining({ usage: 'rejeu', depot: ID, modele: 'claude-sonnet-5-5' }));
     expect(t.d.signaler).toHaveBeenCalledWith('Rejeu de l’analyse parti (claude-sonnet-5-5, 1 requêtes) : la réponse arrive en général en quelques minutes.');
@@ -320,10 +327,12 @@ describe('l ecran des audits : donnees, conclusion, analyses et rejeux', () => {
     expect(case_?.closest('label')?.textContent).toContain('Avec le brouillon des règles (v6)');
     // Sans la case, le rejeu part avec le prompt livre : la demande ne nomme aucun essai.
     await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.confirmerRejeu'));
     expect(t.analyse.creerBatch).toHaveBeenLastCalledWith(expect.not.objectContaining({ essai: expect.anything() }));
     await cliquer(case_ ?? null);
     expect(t.catalogue.etat().essai).toBe(true);
     await cliquer(bouton(cartes()[0], 'auditsParcelle.rejouer'));
+    await cliquer(bouton(cartes()[0], 'auditsParcelle.confirmerRejeu'));
     expect(t.analyse.creerBatch).toHaveBeenLastCalledWith(expect.objectContaining({ usage: 'rejeu', depot: ID, essai: 'brouillon' }));
     expect(t.d.signaler).toHaveBeenLastCalledWith(expect.stringContaining('prompt du brouillon des règles'));
   });
