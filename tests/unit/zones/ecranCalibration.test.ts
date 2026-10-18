@@ -59,6 +59,8 @@ async function monter(deps: DepsCalibration) {
   await act(async () => { racine.render(createElement(EcranCalibration, { deps })); await Promise.resolve(); await Promise.resolve(); });
 }
 const attendre = async (ms = 0) => { await act(async () => { await new Promise((ok) => setTimeout(ok, ms)); }); };
+/** Attend qu'une condition tienne (le calcul automatique dure plus ou moins selon la machine), 10 s au plus. */
+const attendreQue = async (ok: () => boolean) => { for (let t = 0; t < 100 && !ok(); t++) await attendre(100); };
 
 describe('l ecran de calibration', () => {
   it('liste les cas du serveur et propose un nouveau cas', async () => {
@@ -86,10 +88,10 @@ describe('l ecran de calibration', () => {
     Object.defineProperty(champ, 'files', { value: [new File(['x'], 'p.jpg')], configurable: true });
     await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
     // Ajouter une photo cherche ses coins, redresse le mur et propose la detection, sans autre geste.
-    await attendre(600);
+    await attendreQue(() => !!bouton('calibration.proposer'));
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
     expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
-    expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés)/);
+    expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
     expect(bouton('calibration.proposer')).not.toBeNull();
     expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
     const valide = hote.querySelector('[data-controle="calibration.valide"]') as HTMLInputElement;

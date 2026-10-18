@@ -204,6 +204,16 @@ puis une descente par coordonnée sur les réglages nommés de `detection.ts` et
 `data/admin/calibration.json` (`admin/calibration`) et se superpose aux valeurs livrées (`regles/facades/surcharges.ts`), sans jamais
 les remplacer dans le dépôt. Un seuil qui se justifie sur plus de vingt cas validés peut ensuite être reporté dans le code.
 
+**Redressement par les points de fuite** (`facade/redressementFuites.ts`, `facade/mosaiqueFuites.ts`, `zones/releve/coinsAuto.ts::coinsAutoDeSerie`,
+octobre 2026) : pour la calibration, où les photos réelles montrent rarement le mur entier. Chaque photo est tournée de face par
+ses points de fuite vertical et horizontal (rotation pure K R K⁻¹, focale d'un téléphone supposée, sans coins ni distance), les vues
+redressées s'assemblent par ORB + RANSAC de similitude à échelle libre (et, sous 15 points communs, une corrélation de la partie
+commune), le mur est lu sur la mosaïque (égout : plus longue horizontale du haut ; pied : plus basse longue horizontale, à au moins le
+cinquième de la largeur sous l'égout), puis ses coins sont reportés dans chaque photo. Sur les 4 cas du bac à sable (Hardencourt,
+16 photos) : 16/16 redressées (contre 1 aux coins trouvés), deux cas fusionnés entièrement. Ce qui reste fragile : un mur sans
+gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/facade/redressementFuites.test.ts` le garde sur les
+scènes `08` et `16`. Le banc (relevé, audit) n'utilise pas ce chemin et ne bouge pas.
+
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
 annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
 Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies

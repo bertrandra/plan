@@ -83,10 +83,10 @@ export interface FuiteVerticale {
  * Le point de fuite des verticales d'une photo, lu sur ses seuls segments ; null quand la photo n'offre pas assez de verticales
  * qui s'accordent (on ne conclut pas).
  */
-export function fuiteVerticaleDesSegments(segments: readonly Segment[], largeurPx: number, hauteurPx: number): FuiteVerticale | null {
+export function fuiteVerticaleDesSegments(segments: readonly Segment[], largeurPx: number, hauteurPx: number, angleMaxDeg = ANGLE_MAX_DEG): FuiteVerticale | null {
   // Coordonnees centrees et reduites : la matrice reste bien conditionnee.
   const cx = largeurPx / 2, cy = hauteurPx / 2, e = Math.max(largeurPx, hauteurPx);
-  const candidats = segments.filter((g) => g.longueur >= 0.03 * hauteurPx && Math.atan2(Math.abs(g.x2 - g.x1), Math.abs(g.y2 - g.y1)) < rad(ANGLE_MAX_DEG));
+  const candidats = segments.filter((g) => g.longueur >= 0.03 * hauteurPx && Math.atan2(Math.abs(g.x2 - g.x1), Math.abs(g.y2 - g.y1)) < rad(angleMaxDeg));
   let retenus = candidats;
   let point: V3 | null = null;
   for (let tour = 0; tour < 6 && retenus.length >= SEGMENTS_MIN; tour++) {
