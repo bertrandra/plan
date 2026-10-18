@@ -70,20 +70,20 @@ describe('la promenade', () => {
     expect(f).toHaveBeenCalled();
   });
 
-  it('garde jusqu a six photos par cas, dans l ordre, et en retire une par son rang', () => {
+  it('garde jusqu a huit photos par cas, dans l ordre, et en retire une par son rang', () => {
     const p = creerPromenade({ figer: () => JSON.parse(JSON.stringify(fige)) });
     const c = p.marquer('b1', { x: 0, y: 0 }, null)!;
-    for (let i = 1; i <= 7; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
-    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'P6']);
+    for (let i = 1; i <= 9; i++) p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P' + i } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']);
     p.completer('b1', { retirerPhoto: 1 });
-    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6']);
-    p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P8' } });
-    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6', 'P8']);
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']);
+    p.completer('b1', { ajouterPhoto: { type: 'image/jpeg', base64: 'P10' } });
+    expect(c.constat.photos.map((x) => x.base64)).toEqual(['P1', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P10']);
     const f = p.fichier({ commune: null, origine: { lat: 48.9, lon: 2.13 }, emprise: null, code: { version: '2.2.0', commit: null }, regles: { lectureToits: 1, lectureMurs: 2 } });
     expect(f.version).toBe(2);
     // Le fichier est une copie : une photo retiree ensuite n'en part pas.
     p.completer('b1', { retirerPhoto: 0 });
-    expect(f.cas[0]!.constat.photos).toHaveLength(6);
+    expect(f.cas[0]!.constat.photos).toHaveLength(8);
   });
 
   it('range une couleur de facade par photo ; retirer une photo retire la sienne et decale les suivantes', () => {

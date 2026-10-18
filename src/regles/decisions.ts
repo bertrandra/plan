@@ -93,6 +93,8 @@ export type EffetProposition =
   | { type: 'couverture'; couverture: CouvertureChoisie }
   /** Les corps du toit relus sur la mesure sous la forme et les bouts que Claude a vus : ils remplacent ceux du batiment. */
   | { type: 'corpsToit'; corps: CorpsToit[] }
+  /** Un seul corps du toit, au rang `corps`, relu sous les silhouettes de ses murs (corps par corps) : les autres ne bougent pas. */
+  | { type: 'corpsDuToit'; corps: number; toit: CorpsToit }
   /** Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. */
   | { type: 'cheminees'; corps: number; cheminees: Cheminee[] }
   /** Les appentis des corps `corps`, ouverts (poteaux, sans mur exterieur) ou fermes (murs jusqu'au sol). */
@@ -271,6 +273,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'corpsToit': o.corpsToit = JSON.parse(JSON.stringify(e.corps)) as CorpsToit[]; return;
+    case 'corpsDuToit': if (o.corpsToit?.[e.corps]) o.corpsToit = o.corpsToit.map((c, i) => (i === e.corps ? (JSON.parse(JSON.stringify(e.toit)) as CorpsToit) : c)); return;
     case 'couverture': if (o.toit) o.toit = { ...o.toit, couverture: e.couverture }; return;
     case 'cheminees': {
       const corps = o.corpsToit;
@@ -314,7 +317,7 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
 }
 
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
-const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
+const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur

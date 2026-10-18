@@ -1,6 +1,6 @@
 // Z8, la fiche d'un batiment marque en mode audit (MD/spec-audit.md §8.2) : la categorie, les
 // problemes a cocher, une note, « Ce que je vois » (§8.1, facultatif, le composant de l'audit de la
-// parcelle), jusqu'a six photos (§5), chacune avec ce que l'on sait de sa prise et la couleur de la
+// parcelle), jusqu'a huit photos (§5), chacune avec ce que l'on sait de sa prise et la couleur de la
 // facade qu'elle montre (§6.2). Tout s'ecrit dans la promenade a chaque geste
 // (app/audit/promenade.ts) : fermer ne perd rien, et il n'y a rien a valider.
 
@@ -211,7 +211,7 @@ export function AuditCas({ promenade, cle, retirer, prise, couleurs, fermer }: P
               onChange={(e) => { prendrePhoto(e.target.files?.[0]); e.target.value = ''; }} />
             <span>{photoEnCours ? 'Réduction de la photo…' : constat.photos.length ? 'Ajouter une photo' : 'Prendre une photo'}</span>
           </label>
-          : <div className="detailPhoto">Six photos au plus : retirez-en une pour en prendre une autre.</div>}
+          : <div className="detailPhoto">Huit photos au plus : retirez-en une pour en prendre une autre.</div>}
         {erreurPhoto && <div className="erreurParcours" role="alert">{erreurPhoto}</div>}
       </div>
       <div className="piedDialogue">

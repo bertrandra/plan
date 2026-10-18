@@ -1114,7 +1114,8 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
         ...(toitMesure || corpsToit ? { sansToit: true } : {}),
         // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
         // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
-        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit } : {}) }
+        // Un appentis ouvert n'a pas de mur : pas de fenetre non plus.
+        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}) }
     );
   }
 }

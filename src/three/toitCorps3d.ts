@@ -19,6 +19,7 @@ import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '..
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
+import { distancePointSegment } from '../geometry/segments.js';
 import type { CorpsToit, PtBrut, Toit } from '../model/types.js';
 
 export const NOM_TOIT_CORPS = 'toit-corps';
@@ -56,6 +57,23 @@ export function estAppentisOuvert(c: CorpsToit): boolean {
   return !estSpecial(c, W) && (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.05;
 }
 
+/** Un appentis est adosse quand les deux bouts de son mur haut sont a moins de cela d'un mur d'un autre corps. */
+const ADOSSE_M = 0.05;
+
+/**
+ * Un appentis adosse a un autre corps du batiment (une galerie, un porche contre la maison) : son mur haut est un mur de ce corps.
+ * Son toit s'arrete au nu des murs de la maison, sans rive aux bouts ni debord au-dela du mur haut : la rive passait le coin de la
+ * maison (AE 101, galerie sud).
+ */
+export function appentisAdosse(c: CorpsToit, corps: readonly CorpsToit[]): boolean {
+  const { W } = repere(c.pts);
+  if (estSpecial(c, W) || !(c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) || c.faitage - Math.min(...c.egouts) < 0.05) return false;
+  // Le mur haut : pts[0] -> pts[1] (faitage a t = 0), sinon pts[2] -> pts[3].
+  const [a, b] = (c.posFaitage <= 0.01 ? [c.pts[0], c.pts[1]] : [c.pts[2], c.pts[3]]) as [PtBrut, PtBrut];
+  const surUnMur = (p: PtBrut, o: CorpsToit) => o.pts.some((q, i) => distancePointSegment(p, q, o.pts[(i + 1) % o.pts.length] as PtBrut) <= ADOSSE_M);
+  return corps.some((o) => o !== c && surUnMur(a, o) && surUnMur(b, o));
+}
+
 /** La section d'un poteau d'appentis ouvert, son retrait du bord de l'egout et l'entraxe voulu entre deux poteaux. */
 const POTEAU_COTE_M = 0.14;
 const POTEAU_RETRAIT_M = 0.12;
@@ -80,7 +98,7 @@ function poteauxDAppentis(L: number, t: number, egout: number): { s: number; t: 
  * Les facettes d'un corps dans le plan : les pans du toit (corps et pignons) et les murs qui montent
  * au-dessus de son prisme. Le debord (a l'egout, a la rive) n'existe que sur une facade du `contour`.
  */
-export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = null, debord = true): { pans: S3[][]; murs: S3[][] } {
+export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = null, debord = true, adosse = false): { pans: S3[][]; murs: S3[][] } {
   const r = repere(c.pts);
   const { L, W } = r;
   const p = c.posFaitage, F = c.faitage, [e0, e1] = c.egouts;
@@ -89,8 +107,10 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   const bas = special ? Math.min(e0, e1, F) : Math.min(e0, e1);
   const P = (s: number, t: number, z: number): S3 => ({ ...point(r, s, t), z });
   const facade = (cote: 's0' | 'sL' | 't0' | 'tW') => debord && enFacade(r, contour, cote);
-  const dE0 = facade('t0') ? DEBORD_EGOUT_M : 0, dE1 = facade('tW') ? DEBORD_EGOUT_M : 0;
-  const dR0 = facade('s0') ? DEBORD_RIVE_M : 0, dRL = facade('sL') ? DEBORD_RIVE_M : 0;
+  // Un appentis adosse (appentisAdosse) n'a ni rive aux bouts ni debord au-dela de son mur haut, qui est celui de la maison.
+  const hautEnT0 = c.posFaitage <= 0.01;
+  const dE0 = facade('t0') && !(adosse && hautEnT0) ? DEBORD_EGOUT_M : 0, dE1 = facade('tW') && !(adosse && !hautEnT0) ? DEBORD_EGOUT_M : 0;
+  const dR0 = facade('s0') && !adosse ? DEBORD_RIVE_M : 0, dRL = facade('sL') && !adosse ? DEBORD_RIVE_M : 0;
   const pans: S3[][] = [], murs: S3[][] = [];
   const plat = !special && F - Math.min(e0, e1) < 0.05;
   // Un appentis : un seul pan, le faitage sur un mur (celui de la maison qui le porte).
@@ -396,7 +416,7 @@ export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: read
 /** Pose les toits et les murs hauts des corps d'un batiment. `toitRef` porte la couleur de la couverture ; `contour` dit ou sont les facades. */
 export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[] | null = null): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
-  corps.forEach((c) => { const f = facettesCorps(c, contour); pans.push(...f.pans); murs.push(...f.murs); });
+  corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
   return { pans: pans.length, murs: murs.length };
 }

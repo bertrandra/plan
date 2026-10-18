@@ -1146,7 +1146,7 @@ promenade ne change pas : la promenade note, elle ne corrige pas.
   - quelques dizaines de Ko par cas, surtout la grille LiDAR ;
   - une photo fait environ 300 Ko, soit environ 400 Ko en base64 ;
   - trente cas sans photo tiennent dans 2 Mo ; avec une photo chacun, environ 14 Mo ;
-  - six photos par cas pèsent environ 2,4 Mo, une élévation redressée environ 150 Ko. Le résumé de
+  - huit photos par cas pèsent environ 3,2 Mo, une élévation redressée environ 150 Ko. Le résumé de
     fin le dit avant le partage.
 - **Version 2** du format, avec les photos multiples et les lectures (étape 5). Un fichier de version 1
   se relit tel quel : sa `photo` unique devient `photos[0]`.

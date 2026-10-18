@@ -96,8 +96,8 @@ export interface PrisePhoto {
 /** Une photo prise sur place, reduite (environ 300 Ko), en base64, avec sa prise de vue. */
 export interface PhotoCas { type: 'image/jpeg'; base64: string; prise?: PrisePhoto }
 
-/** Les photos d'un cas de promenade, au plus (spec §5) : six pesent deja environ 2,4 Mo. */
-export const PHOTOS_PAR_CAS_MAX = 6;
+/** Les photos d'un cas de promenade, au plus (spec §5) : huit pesent deja environ 3,2 Mo. */
+export const PHOTOS_PAR_CAS_MAX = 8;
 
 export interface ConstatCas {
   categorie: CategorieAudit;
@@ -107,7 +107,7 @@ export interface ConstatCas {
   t: string;
   /** Votre position au moment de la marque, dans le repere du plan. */
   position: { x: number; y: number; precisionM: number | null };
-  /** De zero a six photos, dans l'ordre de la prise (version 2 ; la version 1 n'en avait qu'une, `photo`). */
+  /** De zero a huit photos, dans l'ordre de la prise (version 2 ; la version 1 n'en avait qu'une, `photo`). */
   photos: PhotoCas[];
 }
 

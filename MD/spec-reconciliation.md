@@ -28,7 +28,13 @@ saisie) est un **veto** : aucune source ne la remplace sans que la personne le d
 - **Attribut** : ce qui se compare, par objet : `hauteurEgout`, `hauteurTotale`, `formeToit`, `boutsToit`, `sensFaitage`,
   `silhouetteFacade`, `ouverturesFacade`, `cheminees`, `materiauMurs`, `couverture`. Chacun dit comment deux valeurs s'accordent
   (`nombre` à une tolérance, `egal`, `ensemble`), et peut abaisser le score requis (`scoreAutoMin`) ou admettre une source seule
-  (`seules` : la photo pour les ouvertures d'une façade). Un constat peut porter une **charge** (`charge`), que le moteur ignore :
+  (`seules` : la photo pour les ouvertures d'une façade), ou donner le dernier mot à des règles (`prioritaires`) : pour la forme du
+  toit, ses bouts et le sens du faîtage, un groupe qui porte un constat tiré de la silhouette des façades
+  (`regles/toits/silhouettes.json`), ou ce qui a été vu sur place, est retenu avant tout autre, et seuls ces groupes se
+  départagent ; le LiDAR suit (décision de l'utilisateur, 18 octobre 2026). Une source qui n'a pas le droit d'être seule (Claude, la
+  photo) laisse encore la décision à la personne, la silhouette proposée. Les silhouettes s'arbitrent **corps par corps** :
+  une façade parle du corps qui la porte (`facade/regles/toits/murDuCorps.ts`) ; le corps principal a la cible du bâtiment
+  (`batiment:<clé>`), un autre corps la sienne (`corps:<clé>#<rang>`), et sa proposition ne relit que lui (`corpsDuToit`). Un constat peut porter une **charge** (`charge`), que le moteur ignore :
   les souches des cheminées, le relevé d'une façade ; la proposition écrit la charge de la première ligne du groupe retenu.
 - **Arbitrage** : les constats d'un attribut d'un objet, regroupés par accord, comptés, et la décision.
 

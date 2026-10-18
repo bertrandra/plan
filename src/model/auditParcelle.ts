@@ -20,7 +20,7 @@ export const VERSION_CAPTURE_PARCELLE = 1;
 /** Les photos d'une facade, au plus : de face, de gauche a droite, de biais, plus un gros plan du parement. */
 export const PHOTOS_PAR_FACADE_MAX = 8;
 /** Les photos du toit d'un batiment, de la cloture ou du portail, au plus. */
-export const PHOTOS_PAR_LIGNE_MAX = 4;
+export const PHOTOS_PAR_LIGNE_MAX = 8;
 
 /** `capture` : sur place ; `analyse` : la capture est terminee, l'analyse (§13) la reprendra. */
 export type PhaseAuditParcelle = 'capture' | 'analyse';

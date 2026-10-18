@@ -165,7 +165,8 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       publier();
       const bat = ctx.etat.objects.find((o) => o.key === x.b.cle);
       if (bat && 'pts' in bat && bat.pts) {
-        const m = await mesurerFacade(x.b.cle, x.f.facade, { pts: bat.pts }, x.photos, ctx.mesures, x.corrections);
+        // Le mur a la hauteur que lit le LiDAR (sous le toit, corps compris), pas celle du prisme : rien ne se mesure sur place.
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts }, x.photos, ctx.mesures, x.corrections);
         faites.set(x.cle, { signature: x.sig, mesure: m });
         version++;
       }
@@ -306,7 +307,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
  * ecrivaient les corps du toit y sont entrees comme un constat de plus.
  */
 /** L'ordre d'une liste : par batiment (celui de la liste de controle), puis ce qui se mesure, ce qui se decide, ce qui se voit ; la parcelle a la fin. */
-const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
+const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur', 'hauteurToit', 'couleurMurs', 'materiauMurs', 'couverture', 'corpsToit', 'corpsDuToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
@@ -316,7 +317,7 @@ function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Propos
 }
 
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
-const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
+const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
 function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
   const e: EntreesPropositions = { ...entrees, renfort };
