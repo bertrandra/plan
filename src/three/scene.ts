@@ -19,7 +19,7 @@ import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '.
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
-import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, facettesSurContour } from './toitCorps3d.js';
+import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from './toitCorps3d.js';
 import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
@@ -1044,7 +1044,8 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   const volumes = surContour
     ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
     : corpsToit
-    ? corpsToit.map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
+    // Un appentis ouvert n'a pas de prisme : des poteaux le portent, et le mur est celui du corps qui le porte.
+    ? corpsToit.filter((c) => !estAppentisOuvert(c)).map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
     : toitMesure
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
