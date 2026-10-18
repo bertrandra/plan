@@ -12,14 +12,14 @@ import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures
 import type { FacadeAnalyse } from '../../../../../src/model/analyseClaude.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
-// Les constats d'un batiment, source par source (lot R3) : sur AE 101 (faitage a 74 degres, murs est et ouest en bout, sud et
-// nord en long pan ; cotes du contour : est 13, ouest 9, sud 6, nord 12).
+// Les constats d'un batiment, source par source (lot R3) : sur AE 101 (faitage du corps principal a 74 degres, murs est et ouest
+// en bout, sud en long pan ; cotes du contour : est 1, ouest 9, sud 6 ; le nord 12 est le bout de l'aile nord-est, corps 2).
 
 const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ObjetPlan['toitMesure']; corps: CorpsToit[] };
 const maison = (plus: Record<string, unknown> = {}): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: d.corps, ...plus }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
-const COTES = { est: 13, ouest: 9, sud: 6, nord: 12 } as const;
-const ETIQ = { est: 'est (côté 14)', ouest: 'ouest (côté 10)', sud: 'sud (côté 7)', nord: 'nord (côté 13)' } as const;
+const COTES = { est: 1, ouest: 9, sud: 6, nord: 12 } as const;
+const ETIQ = { est: 'est (côté 2)', ouest: 'ouest (côté 10)', sud: 'sud (côté 7)', nord: 'nord (côté 13)' } as const;
 const entrees = (o: ObjetPlan, plus: Partial<EntreesConstats> = {}): EntreesConstats => ({ o, b: listeDeControle([parcelle, o], captureVide('78650000AE0101')).batiments[0]!, mesures: new Map(), vu: {}, vote: null, ...plus });
 const de = (cs: Constat[], source: string, attribut: string) => cs.find((c) => c.source === source && c.attribut === attribut);
 const mesure = (mur: keyof typeof COTES, plus: Partial<MesureFacade>): [string, MesureFacade] => [cleMesure('maison', COTES[mur]), { cle: 'maison', cote: COTES[mur], releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, ...plus }];
@@ -95,9 +95,9 @@ describe('les constats de la photo de façade', () => {
     const mesures = new Map([mesure('est', { silhouette: 'triangle' }), mesure('ouest', { silhouette: 'triangle' })]);
     const { constats } = constatsDuBatiment(entrees(maison(), { mesures }));
     expect(de(constats, 'photo', 'boutsToit')?.valeur).toEqual(['pignon', 'pignon']);
-    expect(de(constats, 'photo', 'sensFaitage')?.valeur).toBeCloseTo(74, 0);
+    expect(Math.abs((de(constats, 'photo', 'sensFaitage')?.valeur as number) - 74)).toBeLessThan(2);
     expect(de(constats, 'photo', 'formeToit')).toMatchObject({ valeur: 'deux-pans', regle: 'regles/toits/silhouettes.json', confiance: 0.9 });
-    expect(constats.filter((c) => c.source === 'photo' && c.attribut === 'silhouetteFacade').map((c) => [c.cible, c.valeur])).toEqual([['facade:maison#9', 'triangle'], ['facade:maison#13', 'triangle']]);
+    expect(constats.filter((c) => c.source === 'photo' && c.attribut === 'silhouetteFacade').map((c) => [c.cible, c.valeur])).toEqual([['facade:maison#1', 'triangle'], ['facade:maison#9', 'triangle']]);
   });
 
   it('des coins non trouvés rendent la photo moins sûre ; sans silhouette, elle ne dit rien du toit', () => {

@@ -13,6 +13,7 @@ import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';
 import { azimutFaitage, boutsDuCorps, formeDuCorps, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes } from '../../../facade/regles/toits/silhouettes.js';
+import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
 import { libelleSilhouette } from '../../../model/silhouetteFacade.js';
 import { materiauDesFacades } from '../../regles/sujets/facades.js';
 import { couvertureDuVocabulaire } from '../../regles/sujets/couverture.js';
@@ -32,6 +33,10 @@ import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 
 export const cibleBatiment = (cle: string): string => 'batiment:' + cle;
 export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cle + '#' + cote;
+/** Un corps du toit autre que le principal (le principal parle pour le batiment), par son rang dans `corpsToit`. */
+export const cibleCorps = (cle: string, k: number): string => 'corps:' + cle + '#' + k;
+/** Le rang du corps d'une cible `corps:`, null pour une autre cible. */
+export const indiceDeCorps = (cible: string): number | null => { const m = /^corps:.*#(\d+)$/.exec(cible); return m ? Number(m[1]) : null; };
 
 /**
  * La forme d'un toit comme l'arbitrage la compare : un quatre-pans, des croupes et un pavillon ne font qu'un (le dessin est le
@@ -112,14 +117,47 @@ function constatsLidar({ o, b }: EntreesConstats): Constat[] {
     else if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
     out.push({ cible, attribut: 'boutsToit', source: 'lidar', valeur: boutsDuCorps(c), confiance, regle: REGLES_LIDAR.lidar.bouts });
     out.push({ cible, attribut: 'sensFaitage', source: 'lidar', valeur: cm(azimutFaitage(c)), confiance, regle: REGLES_LIDAR.lidar.sens });
+    // Les autres corps, chacun le sien : les silhouettes de leurs murs s'arbitrent contre eux (corps par corps).
+    const corps = o.corpsToit ?? [], kp = plusGrand(corps);
+    corps.forEach((k, i) => {
+      if (i === kp) return;
+      const ci = cibleCorps(b.cle, i), q = confianceCorps(k.ecart);
+      out.push({ cible: ci, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(formeDuCorps(k)), confiance: q, regle: REGLES_LIDAR.lidar.corps });
+      out.push({ cible: ci, attribut: 'boutsToit', source: 'lidar', valeur: boutsDuCorps(k), confiance: q, regle: REGLES_LIDAR.lidar.bouts });
+      out.push({ cible: ci, attribut: 'sensFaitage', source: 'lidar', valeur: cm(azimutFaitage(k)), confiance: q, regle: REGLES_LIDAR.lidar.sens });
+    });
   }
   return out;
 }
 
-/** Les murs d'un batiment, lus sur ce qu'une source dit de leur silhouette. */
-function bouts(o: ObjetPlan, b: LigneBatiment, lu: Parameters<typeof murs>[1]) {
-  const plat = !!o.corpsToit?.length && formeDesCorps(o.corpsToit) === 'plat';
-  return observationDesSilhouettes(murs(b, lu), plat);
+/** Un groupe de murs : ceux d'un meme corps du toit, la cible de leurs constats, et si ce corps est plat. */
+interface GroupeDeMurs { cible: string; principal: boolean; facades: LigneBatiment['facades']; plat: boolean }
+
+/**
+ * Les murs d'un batiment, corps par corps (facade/regles/toits/murDuCorps.ts) : la silhouette d'une facade dit le bout ou le long
+ * pan du corps qu'elle ferme, pas le batiment entier (decision de l'utilisateur, 18 octobre 2026). Le corps principal parle pour le
+ * batiment (`cibleBatiment`) ; un autre corps a sa cible (`cibleCorps`). Sans corps lus, tous les murs parlent pour le batiment ; un
+ * mur qu'aucun corps ne longe ne dit rien.
+ */
+function groupesDeMurs(o: ObjetPlan, b: LigneBatiment): GroupeDeMurs[] {
+  const corps = o.corpsToit ?? [];
+  if (!corps.length) return [{ cible: cibleBatiment(b.cle), principal: true, facades: b.facades, plat: false }];
+  const kp = plusGrand(corps);
+  const parCorps = new Map<number, LigneBatiment['facades']>();
+  for (const f of b.facades) {
+    const m = murDuCorps(corps, f.facade.gauche, f.facade.droite);
+    if (m) parCorps.set(m.corps, [...(parCorps.get(m.corps) ?? []), f]);
+  }
+  return [...parCorps.entries()].sort((x, y) => Number(y[0] === kp) - Number(x[0] === kp) || x[0] - y[0]).map(([k, facades]) => ({
+    cible: k === kp ? cibleBatiment(b.cle) : cibleCorps(b.cle, k), principal: k === kp, facades, plat: formeDuCorps(corps[k] as CorpsToit) === 'plat',
+  }));
+}
+
+/** Les murs d'un groupe, lus sur ce qu'une source dit de leur silhouette. */
+function bouts(b: LigneBatiment, g: GroupeDeMurs, lu: Parameters<typeof murs>[1]) {
+  // Les etiquettes se font sur le batiment entier (« sud (côté 7) » quand il a plusieurs murs au sud), puis on garde ceux du groupe.
+  const tous = murs(b, lu);
+  return observationDesSilhouettes(tous.filter((_, i) => g.facades.includes(b.facades[i] as LigneBatiment['facades'][number])), g.plat);
 }
 
 /** Les constats que deduit le moteur des silhouettes (bouts, sens, forme) d'une source. */
@@ -151,14 +189,16 @@ function constatsPhoto({ o, b, mesures }: EntreesConstats): Constat[] {
       indices: hauteurs.map((x) => ({ texte: 'Mesurée sur la façade ' + x.f.facade.orientation.toLowerCase(), ...(x.m?.rangReleve != null ? { photo: { cle: b.cle, cote: x.f.cote, rang: x.m.rangReleve } } : {}) })) });
   }
   const confiance = Math.min(1, ...lues.filter((x) => x.m?.silhouette && x.m.silhouette !== 'indetermine').map((x) => (x.m?.confiance ?? 0.6) * (x.m?.coinsTrouves ? 1 : 0.8)));
-  const dits = bouts(o, b, (f) => ({ silhouette: mesures.get(cleMesure(b.cle, f.cote))?.silhouette ?? 'indetermine' }));
-  // La photo de chaque mur qui a parle, avec ce qu'elle y montre.
-  const indices = (dits?.vus ?? []).flatMap((v) => {
-    const f = b.facades.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
-    const rang = f ? mesures.get(cleMesure(b.cle, f.cote))?.rangReleve : null;
-    return f ? [{ texte: v.nom[0]?.toUpperCase() + v.nom.slice(1) + ' : ' + libelleSilhouette(v.silhouette) + ' → ' + v.dit, ...(rang != null ? { photo: { cle: b.cle, cote: f.cote, rang } } : {}) }] : [];
-  });
-  out.push(...constatsDesSilhouettes('photo', cible, dits, confiance, REGLES_LIDAR.photo.silhouette, indices));
+  for (const g of groupesDeMurs(o, b)) {
+    const dits = bouts(b, g, (f) => ({ silhouette: mesures.get(cleMesure(b.cle, f.cote))?.silhouette ?? 'indetermine' }));
+    // La photo de chaque mur qui a parle, avec ce qu'elle y montre.
+    const indices = (dits?.vus ?? []).flatMap((v) => {
+      const f = b.facades.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
+      const rang = f ? mesures.get(cleMesure(b.cle, f.cote))?.rangReleve : null;
+      return f ? [{ texte: v.nom[0]?.toUpperCase() + v.nom.slice(1) + ' : ' + libelleSilhouette(v.silhouette) + ' → ' + v.dit, ...(rang != null ? { photo: { cle: b.cle, cote: f.cote, rang } } : {}) }] : [];
+    });
+    out.push(...constatsDesSilhouettes('photo', g.cible, dits, confiance, REGLES_LIDAR.photo.silhouette, indices));
+  }
   for (const { f, m } of lues) if (m?.silhouette && m.silhouette !== 'indetermine') out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'silhouetteFacade', source: 'photo', valeur: m.silhouette, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.silhouette });
   // Le releve d'ouvertures de chaque mur : son nombre s'arbitre, le releve lui-meme est ce que la proposition ecrit si cette valeur l'emporte.
   for (const { f, m } of lues) {
@@ -192,13 +232,17 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
   const g = v.boutGauche.valeur, d = v.boutDroit.valeur;
   if ((g === 'pignon' || g === 'croupe') && (d === 'pignon' || d === 'croupe')) out.push({ cible, attribut: 'boutsToit', source: 'claude', valeur: [g, d], confiance: Math.min(v.boutGauche.accord, v.boutDroit.accord), regle: 'bouts du faîtage vus par Claude' });
   const parMur = new Map(v.facades.map((f) => [f.facade, f]));
-  const dits = bouts(o, b, (f) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; });
+  const lu = (f: LigneBatiment['facades'][number]) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; };
+  const groupes = groupesDeMurs(o, b);
   const confiance = Math.min(1, ...v.facades.flatMap((f) => (f.silhouette.valeur !== 'indetermine' || f.bout.valeur !== 'indetermine' ? [f.silhouette.accord, f.bout.accord] : [])));
   // La silhouette des murs dit la forme, les bouts et le sens du toit (decision de l'utilisateur, 18 octobre 2026) : ses constats
   // remplacent ceux de la vue d'ensemble. Une forme que les silhouettes ne savent pas dire (un brisis, une demi-croupe : aucun
   // bout pour le moteur), ou qu'elles ne tirent que de longs pans, laisse celle de la vue d'ensemble.
-  const deMurs = constatsDesSilhouettes('claude', cible, dits, confiance, REGLES_LIDAR.claude.silhouette).filter((c) => c.attribut !== 'formeToit' || c.regle === REGLES_LIDAR.claude.silhouette || !out.some((x) => x.attribut === 'formeToit'));
-  for (const c of deMurs) { const k = out.findIndex((x) => x.attribut === c.attribut && x.source === c.source); if (k >= 0) out.splice(k, 1); out.push(c); }
+  // La vue d'ensemble de Claude parle du corps principal ; les murs de chaque autre corps parlent de lui seul.
+  for (const g of groupes) {
+    const deMurs = constatsDesSilhouettes('claude', g.cible, bouts(b, g, lu), confiance, REGLES_LIDAR.claude.silhouette).filter((c) => !g.principal || c.attribut !== 'formeToit' || c.regle === REGLES_LIDAR.claude.silhouette || !out.some((x) => x.attribut === 'formeToit'));
+    for (const c of deMurs) { const k = out.findIndex((x) => x.cible === c.cible && x.attribut === c.attribut && x.source === c.source); if (k >= 0) out.splice(k, 1); out.push(c); }
+  }
   for (const f of v.facades) {
     const cote = b.facades.find((x) => etiquetteFacade(b, x) === f.facade)?.cote;
     if (cote !== undefined && f.silhouette.valeur !== 'indetermine') out.push({ cible: cibleFacade(b.cle, cote), attribut: 'silhouetteFacade', source: 'claude', valeur: f.silhouette.valeur, confiance: f.silhouette.accord, regle: REGLES_LIDAR.claude.silhouette, indices: f.silhouette.indices.map((i) => ({ texte: i.vu })) });
@@ -247,6 +291,16 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
   const c = principal(o.corpsToit);
   const vide: EtatProjet = { valeur: null, choisi: false };
   return (cible, attribut) => {
+    // Un corps autre que le principal : sa forme, ses bouts, son sens.
+    const k = indiceDeCorps(cible);
+    if (k !== null) {
+      const ck = o.corpsToit?.[k];
+      if (!ck) return vide;
+      if (attribut === 'formeToit') return { valeur: formeArbitree(formeDuCorps(ck)), choisi: o.toit?.source === 'saisie' };
+      if (attribut === 'boutsToit') return { valeur: boutsDuCorps(ck), choisi: false };
+      if (attribut === 'sensFaitage') return { valeur: cm(azimutFaitage(ck)), choisi: false };
+      return vide;
+    }
     switch (attribut) {
       case 'hauteurEgout': return { valeur: cm(hauteurDe(o)), choisi: !o.bdtopo && typeof o.elevation === 'number' };
       case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.toit ? cm(hauteurDe(o) + o.toit.hauteur) : null, choisi: false };
