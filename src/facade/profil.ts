@@ -16,7 +16,9 @@ import { au } from '../util/tableaux.js';
 import { homographie, appliquer, type P2 } from './homographie.js';
 import { facadesDuContour, pointDeFacade } from './geometrie.js';
 import { sommetDe } from '../geometry/anneau.js';
-import type { OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../model/types.js';
+import { hauteurDuToitEn } from './toitCorps.js';
+import type { Facade } from './geometrie.js';
+import type { CorpsToit, OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../model/types.js';
 
 export type { PartieBasse };
 
@@ -92,6 +94,32 @@ export function ouverturesDansLeMur<T extends Pick<OuvertureFacade, 'x' | 'y' | 
     const milieu = o.x + o.l / 2;
     return o.y + o.h <= egoutEn(milieu, hauteur, p) + 0.1;
   });
+}
+
+/** Le pas, le long du mur, auquel se lit le haut du mur sous les corps : 10 cm, la pointe d'un pignon a 5 cm pres. */
+const PAS_SILHOUETTE_M = 0.1;
+/** Le haut du mur se lit a 2 cm en retrait de sa face : sur le mur (plus loin, un long pan lirait deja la pente au-dessus de l'egout). */
+const RETRAIT_SILHOUETTE_M = 0.02;
+
+/**
+ * La silhouette d'un mur sous les corps du toit (le pied, puis le haut lu de droite a gauche) : l'egout d'un long pan, le
+ * triangle d'un pignon, les marches de deux corps de hauteurs differentes. Coupee a `plafond` (le haut de la photo : au-dessus,
+ * elle n'a rien a montrer) ; la ou aucun corps ne couvre le mur, `repli` (l'egout du prisme). Dans le repere du mur : x le long,
+ * depuis la gauche ; y en hauteur. Decision de l'utilisateur, 18 octobre 2026 : la photo epouse la silhouette de la facade.
+ */
+export function silhouetteDuMur(f: Facade, corps: readonly CorpsToit[], plafond: number, repli: number): P2[] {
+  const L = f.largeur, n = Math.max(1, Math.ceil(L / PAS_SILHOUETTE_M));
+  const haut: P2[] = [];
+  for (let k = 0; k <= n; k++) {
+    const x = (L * k) / n;
+    const q = { x: f.gauche.x + ((f.droite.x - f.gauche.x) * x) / L - f.normale.x * RETRAIT_SILHOUETTE_M, y: f.gauche.y + ((f.droite.y - f.gauche.y) * x) / L - f.normale.y * RETRAIT_SILHOUETTE_M };
+    const y = Math.min(plafond, hauteurDuToitEn(corps, q) ?? repli);
+    // Trois points alignes n'en font qu'un : la silhouette garde ses angles, pas ses dix centimetres.
+    const a = haut[haut.length - 2], b = haut[haut.length - 1];
+    if (a && b && Math.abs((b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x)) < 1e-6) haut[haut.length - 1] = { x, y };
+    else haut.push({ x, y });
+  }
+  return [{ x: 0, y: 0 }, { x: L, y: 0 }, ...haut.reverse()];
 }
 
 /** Le contour du mur en L, dans le repere du mur (x depuis la gauche, y depuis le sol). */
