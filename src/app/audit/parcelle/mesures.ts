@@ -18,6 +18,7 @@
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
 import { versOuvertureFacade } from '../../../facade/verification.js';
 import { detecterSegments } from '../../../facade/segments.js';
+import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../../../facade/verticales.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
@@ -92,21 +93,30 @@ const versImage = (p: Pixels): Image => ({ largeur: p.largeur, hauteur: p.hauteu
 
 /**
  * La prise du releve d'apres la photo de l'audit : sa position donne la distance au mur (a la
- * precision du GPS), la boussole le cap, le telephone son attitude, l'EXIF le champ de l'objectif.
+ * precision du GPS), la boussole le cap, l'EXIF le champ de l'objectif.
  * Le cap du sens de la marche ne dit pas ou visait le telephone : il n'est pas repris.
+ *
+ * L'attitude n'est pas reprise non plus : elle est lue au retour de l'appareil photo, telephone baisse vers l'ecran, pas au
+ * declenchement. Sur l'audit d'AE 101 (18 octobre), elle valait -17 a -48 degres pour des photos prises vers le haut : le calage,
+ * qui ne lui laisse que 3 degres de marge, cherchait les coins la ou le mur n'etait pas. Inconnue, elle se lit sur la photo (le
+ * point de fuite des verticales, calageFin.ts), dans une marge de 20 degres.
  */
 export function priseDeLaPhoto(photo: PhotoCas, image: Image, facade: Facade): Prise {
   const p = photo.prise;
   const distance = p ? distanceAuMur(facade, p) : 0;
+  // Un GPS de telephone se trompe de 3 a 8 m : a cette distance du mur, il ne dit pas ou se tenait la personne (AE 101 : 2,7 m
+  // pour un pignon vu en entier, a 7 m). La distance ne sert que si elle depasse deux fois la precision ; sinon le cadrage la
+  // suppose (le mur sur les sept dixiemes de la photo), avec sa marge.
+  const fiable = distance > 0.5 && p?.precisionM != null && distance > 2 * p.precisionM;
   const champ = p?.champDeg ?? null;
   return {
     photo: { image, url: '', champ, focalePx: null },
-    mesure: distance > 0.5 ? { distance: Math.round(distance * 100) / 100, source: 'gps' } : null,
+    mesure: fiable ? { distance: Math.round(distance * 100) / 100, source: 'gps' } : null,
     reperes: null,
     champ: champ ?? CHAMP_GRAND_COTE_DEFAUT,
     photosPrevues: null,
     cap: p?.sourceAzimut === 'boussole' ? p.azimutDeg : null,
-    attitude: typeof p?.inclinaisonDeg === 'number' ? { inclinaisonDeg: p.inclinaisonDeg, roulisDeg: p.roulisDeg ?? null } : null,
+    attitude: null,
   };
 }
 
@@ -163,7 +173,9 @@ interface PhotoPreparee {
 /** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon predits puis cherches sur les aretes. */
 async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, d: DependancesMesures, correction: CorrectionRedressement | undefined, predits: boolean): Promise<PhotoPreparee> {
   const prise = priseDeLaPhoto(photo, versImage(img), f);
-  const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, false, f.azimut), recherche: true };
+  // Les coins predits tels quels : ramenes au bord du cadre (ce que fait l'ecran pour le doigt), ils ne seraient plus le mur, et
+  // le redressement deformerait la photo au lieu de la redresser (un mur de 7 m photographie a 4 m deborde de l'image).
+  const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, false, f.azimut, false), recherche: true };
   if (correction?.coins && correction.coins.length === 4) {
     return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
   }
@@ -197,6 +209,17 @@ function releveDeLAnalyse(a: Analyse, morceaux: Morceau[], f: Facade, d: Dependa
 }
 const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
 
+/** L'essai d'une photo dont les coins sont ramenes sur ses verticales (facade/verticales.ts) ; null si elle n'en offre pas assez. */
+function surLesVerticales(p: PhotoPreparee, f: Facade, bat: Pick<ObjetPolygone, 'pts'>) {
+  const img = p.morceau.prise.photo.image;
+  const fuite = fuiteVerticaleDesSegments(detecterSegments(img), img.largeur, img.hauteur);
+  const coins = fuite ? coinsSurLaVerticale(p.morceau.coins, fuite.point) : null;
+  if (!coins) return null;
+  const q: PhotoPreparee = { ...p, morceau: { ...p.morceau, coins } };
+  const a = analyserSerie([q.morceau], f, f.hauteur, bat as ObjetPolygone);
+  return a ? { p: q, a, vert: verticaliteDeg(a.r.texture) } : null;
+}
+
 /** Le redressement d'une photo seule : son analyse, sa verticalite, le repli sur les coins calcules, son statut. */
 async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures, correction: CorrectionRedressement | undefined) {
   const analyser = async (predits: boolean) => {
@@ -211,6 +234,11 @@ async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Fac
   if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
     const repli = await analyser(true).catch(() => null);
     if (repli && repli.vert !== null && repli.vert < essai.vert) essai = repli;
+  }
+  // Toujours penchees : les cotes du quadrilatere ramenes sur le point de fuite des verticales lues sur la photo.
+  if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
+    const droit = surLesVerticales(essai.p, f, bat);
+    if (droit && droit.vert !== null && droit.vert < essai.vert) essai = droit;
   }
   const ok = manuelle || essai.vert === null || essai.vert <= SEUIL_VERTICALES_DEG;
   const bilan: BilanPhotoRedressement = {

@@ -7,6 +7,7 @@
 // de Claude, la sortie remise en forme, l'erreur, les tokens, le cout). La logique vit dans
 // app/audit/parcelle/catalogue.ts ; ici on affiche.
 
+import { useState } from 'react';
 import { lignesBenchmark, comptesAnalyse, batimentDe, type LigneBenchmark } from '../../export/benchmarkAnalyses.js';
 import { nomModele } from '../../model/consommation.js';
 import type { CatalogueAudits } from '../../app/audit/parcelle/catalogue.js';
@@ -216,6 +217,8 @@ function Trace({ catalogue, complete, autres }: { catalogue: CatalogueAudits; co
 }
 
 export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: FicheAudit }) {
+  // Rejouer envoie les photos a Claude : un appel facture, qui se confirme sur la carte (comme le retrait d'un audit).
+  const [rejeuAConfirmer, setRejeuAConfirmer] = useState<string | null>(null);
   const e = catalogue.etat();
   const d = e.detail;
   if (!d || d.id !== a.id) return null;
@@ -247,12 +250,21 @@ export function DetailAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: F
               {' '}Avec le brouillon des règles{e.brouillon ? ' (v' + e.brouillon.prompt + ')' : ''}
             </label>
             <button type="button" className="small" data-controle="auditsParcelle.rejouer" disabled={raisonRejeu !== null || e.enCours !== null} title={raisonRejeu ?? undefined}
-              onClick={() => { void catalogue.rejouer(a); }}>Rejouer l’analyse</button>
+              onClick={() => setRejeuAConfirmer(a.id)}>Rejouer l’analyse</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.remesurer" disabled={raisonOuvrir !== null || e.enCours !== null} title={raisonOuvrir ?? 'Remet les photos de l’audit à l’analyse des façades : mesures, silhouettes, relevé des façades du projet'}
               onClick={() => { void catalogue.remesurer(a); }}>Relancer l’analyse des photos</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.relireAnalyses" onClick={() => { void catalogue.relireAnalyses(); }}>Relire les analyses</button>
             <button type="button" className="secondary small" data-controle="auditsParcelle.exporterAnalyses" disabled={!lignes.length} onClick={() => catalogue.exporterAnalyses(a)}>Exporter en CSV</button>
           </div>
+          {rejeuAConfirmer === a.id && raisonRejeu === null && (
+            <div className="confirmationAuditRecu" role="group" aria-label="Confirmer le rejeu de l’analyse">
+              <p className="detailPhoto">Rejouer l’analyse renvoie les photos de cet audit à Claude ({e.modele ? nomModele(e.modele) : 'modèle non choisi'}, {e.essai ? 'prompt du brouillon des règles' : 'prompt livré'}) : c’est un appel facturé, qui s’ajoute aux analyses gardées. Confirmer le rejeu ?</p>
+              <div className="actionsAuditRecu">
+                <button type="button" className="small" data-controle="auditsParcelle.confirmerRejeu" disabled={e.enCours !== null} onClick={() => { setRejeuAConfirmer(null); void catalogue.rejouer(a); }}>Confirmer le rejeu</button>
+                <button type="button" className="secondary small" data-controle="auditsParcelle.annulerRejeu" onClick={() => setRejeuAConfirmer(null)}>Annuler</button>
+              </div>
+            </div>
+          )}
           {raisonRejeu && <p className="raisonAuditRecu">{raisonRejeu}</p>}
           {e.trace?.audit === a.id && (e.trace.complete ? <Trace catalogue={catalogue} complete={e.trace.complete} autres={lignes.filter((l) => l.id !== e.trace?.id && l.etat === 'termine').map((l) => ({ id: l.id, libelle: (l.nature === 'rejeu' ? 'Rejeu' : 'Analyse') + ' du ' + l.creeLe.slice(0, 16).replace('T', ' ') + ' · ' + nomModele(l.modele) + ' · ' + (l.essai ? 'brouillon ' : 'prompt ') + l.prompt }))} />
             : <p className={e.trace.erreur ? 'erreurParcours' : 'detailPhoto'} role="status">{e.trace.erreur ?? 'Lecture de l’analyse…'}</p>)}
