@@ -177,6 +177,11 @@ l'égout pour le pignon, ciel repeint à la teinte du mur. Deux ajouts :
 - **Carte de qualité** par pixel de l'élévation : résolution source, angle d'incidence (de face, c'est
   mieux), surexposition. Elle sert à la fusion (§8).
 
+- **Pas de chaîne en haute définition** (essai du 18 octobre 2026, skill `facades` §4) : relever sur une
+  photo de 2 560 px, avec une élévation jusqu'à 2 048 px, ne gagne que 2 mm au calage fin, rien en
+  détection (cartes à 5 cm le pixel), dégrade la fusion et triple le temps. La photo reste à 1 280 px,
+  l'élévation et la copie pour Claude à 1 024 px.
+
 ## 8. Fusion de plusieurs vues
 
 Aujourd'hui, seule la mosaïque de gauche à droite existe. On ajoute les **vues de face et de biais
