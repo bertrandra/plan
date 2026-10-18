@@ -5,7 +5,9 @@
 // celui que l'attribut lui donne) fois sa confiance ; le groupe de plus haut score est retenu. La decision est
 // **automatique** quand le score atteint `SCORE_AUTO_MIN`, l'emporte `MARGE_AUTO_MIN` fois sur le second, qu'aucune valeur
 // choisie a la main ne s'y oppose et que le groupe n'a pas pour seule source une source qui n'a pas le droit d'etre seule ;
-// sinon elle est **manuelle**, et dit pourquoi. Les poids, la tolerance et les seuils sont dans regles/reconciliation.json :
+// sinon elle est **manuelle**, et dit pourquoi. Pour un attribut qui a des regles `prioritaires` (la silhouette des facades
+// pour la forme du toit, ses bouts et le sens du faitage), seuls les groupes qui en portent une, ou ce qui a ete vu sur place,
+// se disputent la decision : le LiDAR ne la retourne pas. Les poids, la tolerance et les seuils sont dans regles/reconciliation.json :
 // ce module ne porte aucun nombre.
 //
 // Pur : ni projet, ni reseau. Il ne propose rien a lui seul : l'audit en fait des propositions (app/audit/parcelle).
@@ -125,14 +127,19 @@ function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut
   for (const g of groupes) { g.score = g.lignes.reduce((s, l) => s + l.score, 0); g.valeur = moyenne(g.lignes, accord); g.sources = SOURCES.filter((s) => g.lignes.some((l) => l.constat.source === s)); }
   groupes.sort((a, b) => b.score - a.score);
   const base = { cible, attribut, groupes, projet, regles: [] as string[] };
-  const retenu = groupes[0] ?? null;
+  // Les regles prioritaires de l'attribut (la silhouette des facades pour le toit) : leurs groupes, et ce qui a ete vu sur place,
+  // passent avant tout autre ; l'ordre des groupes, lui, ne change pas (un choix enregistre y renvoie par son rang).
+  const prioritaire = (g: Groupe) => !!desc.prioritaires?.length && g.lignes.some((l) => l.constat.source === 'terrain' || (!!l.constat.regle && desc.prioritaires?.includes(l.constat.regle)));
+  const enTete = groupes.filter(prioritaire);
+  const candidats = enTete.length ? enTete : groupes;
+  const retenu = candidats[0] ?? null;
   if (!retenu) return { ...base, retenu: null, decision: 'rien', raison: 'Aucune source ne se prononce sur cet attribut.' };
   const dit = (g: Groupe) => g.sources.map((s) => regles.sources[s].libelle).join(' et ') + ' : ' + direValeur(g.valeur, accord);
   const regleDe = (g: Groupe) => g.lignes.map((l) => l.constat.regle).filter((x): x is string => !!x);
   if (projet.valeur !== null && accorde(retenu.valeur, projet.valeur, accord)) {
     return { ...base, retenu, decision: 'rien', raison: 'Le projet a déjà cette valeur (' + dit(retenu) + ').', regles: regleDe(retenu) };
   }
-  const second = groupes[1];
+  const second = candidats[1];
   const scoreMin = desc.scoreAutoMin ?? regles.seuils.SCORE_AUTO_MIN, margeMin = desc.margeAutoMin ?? regles.seuils.MARGE_AUTO_MIN;
   const seulNonSeul = retenu.sources.length === 1 && !regles.sources[retenu.sources[0] as SourceConstat].seule && !desc.seules?.includes(retenu.sources[0] as SourceConstat);
   const ecarts = groupes.map(dit).join(' ; ');
@@ -141,7 +148,8 @@ function arbitrerSeul(constats: readonly Constat[], projet: EtatProjet, attribut
   if (second && retenu.score < margeMin * second.score) return manuelle('Les sources se contredisent (' + fr(retenu.score) + ' contre ' + fr(second.score) + ', il faut ×' + fr(margeMin) + ') : ' + ecarts + '.', ['MARGE_AUTO_MIN']);
   if (seulNonSeul) return manuelle(regles.sources[retenu.sources[0] as SourceConstat].libelle + ' seul ne décide pas : ' + ecarts + '.', []);
   if (retenu.score < scoreMin) return manuelle('Score insuffisant (' + fr(retenu.score) + ' pour ' + fr(scoreMin) + ' requis) : ' + ecarts + '.', ['SCORE_AUTO_MIN']);
-  return { ...base, retenu, decision: 'auto', raison: (retenu.sources.length > 1 ? 'Les sources s’accordent' : 'Une seule source, sûre') + ' (score ' + fr(retenu.score) + ') : ' + dit(retenu) + '.', regles: ['SCORE_AUTO_MIN', ...regleDe(retenu)] };
+  const devant = enTete.length && groupes[0] !== retenu ? ' Elle l’emporte sur ' + dit(groupes[0] as Groupe) + ' : la silhouette des façades décide.' : '';
+  return { ...base, retenu, decision: 'auto', raison: (retenu.sources.length > 1 ? 'Les sources s’accordent' : 'Une seule source, sûre') + ' (score ' + fr(retenu.score) + ') : ' + dit(retenu) + '.' + devant, regles: ['SCORE_AUTO_MIN', ...(devant ? ['prioritaires'] : []), ...regleDe(retenu)] };
 }
 
 /**

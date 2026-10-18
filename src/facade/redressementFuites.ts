@@ -12,8 +12,11 @@
 // meme mur ne different plus que d'une similitude (echelle et translation), ce qui rend leur recalage possible
 // (facade/mosaiqueFuites.ts).
 //
-// La focale, quand la photo ne la donne pas, est celle d'un telephone (CHAMP_GRAND_COTE_DEFAUT) : une erreur de focale laisse les
-// verticales verticales et les horizontales horizontales, et ne fausse que les proportions, de quelques pour cent. Pure, sans DOM.
+// La focale, quand la photo ne la donne pas, se lit sur les deux points de fuite : la verticale et l'horizontale du mur sont
+// orthogonales, et deux directions orthogonales vues par un appareil de point principal c verifient (v - c).(h - c) = -f^2. Les
+// photos de l'audit d'octobre 2026 (AE 101), sans EXIF, etaient prises a l'ultra grand-angle (0,5x) : la moitie de la focale d'un
+// telephone. A defaut (une prise de face met le point horizontal a l'infini), celle d'un telephone (CHAMP_GRAND_COTE_DEFAUT) : une
+// erreur de focale laisse verticales et horizontales droites, mais fausse les proportions et la place de l'horizon. Pure, sans DOM.
 
 import { CHAMP_GRAND_COTE_DEFAUT } from './cadrage.js';
 import { appliquer, type Homographie, type Image, type P2 } from './homographie.js';
@@ -36,6 +39,14 @@ const TIRAGES = 600;
 const ETIREMENT_MAX = 6;
 /** Le grand cote de l'image redressee, au plus. */
 const COTE_MAX_PX = 1600;
+/**
+ * La focale lue sur les points de fuite n'est crue que si les deux points sont a moins de cette part du grand cote du centre (plus
+ * loin, une prise presque de face, le calcul ne tient plus), et entre ces parts de la focale d'un telephone (de l'ultra grand-angle
+ * au zoom 2x).
+ */
+const FUITE_FOCALE_MAX = 4;
+const FOCALE_MIN_PART = 0.35;
+const FOCALE_MAX_PART = 2.2;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 const norme = (v: V3): number => Math.hypot(v[0], v[1], v[2]);
@@ -100,6 +111,34 @@ export function fuiteHorizontaleDesSegments(segments: readonly Segment[], largeu
   return { point: meilleur.v, segments: meilleur.n, soutien: meilleur.s };
 }
 
+/** La focale d'un telephone, en pixels, pour une image de cette taille (CHAMP_GRAND_COTE_DEFAUT). */
+export function focaleParDefaut(largeurPx: number, hauteurPx: number): number {
+  return Math.max(largeurPx, hauteurPx) / 2 / Math.tan(rad(CHAMP_GRAND_COTE_DEFAUT) / 2);
+}
+
+/**
+ * La focale, en pixels, que donnent les points de fuite vertical `v` et horizontal `h` du mur (orthogonaux), le point principal au
+ * centre de l'image. Null quand le calcul ne tient pas (un point trop loin ou a l'infini, des points du meme cote du centre) ou
+ * donne une focale hors des telephones.
+ */
+export function focaleDesFuites(v: V3, h: V3, largeurPx: number, hauteurPx: number): number | null {
+  const grand = Math.max(largeurPx, hauteurPx), cx = largeurPx / 2, cy = hauteurPx / 2;
+  if (Math.abs(v[2]) < 1e-12 || Math.abs(h[2]) < 1e-12) return null;
+  const a = [v[0] / v[2] - cx, v[1] / v[2] - cy] as const, b = [h[0] / h[2] - cx, h[1] / h[2] - cy] as const;
+  if (Math.hypot(a[0], a[1]) > FUITE_FOCALE_MAX * grand || Math.hypot(b[0], b[1]) > FUITE_FOCALE_MAX * grand) return null;
+  const p = -(a[0] * b[0] + a[1] * b[1]);
+  if (!(p > 0)) return null;
+  const f = Math.sqrt(p), f0 = focaleParDefaut(largeurPx, hauteurPx);
+  return f >= FOCALE_MIN_PART * f0 && f <= FOCALE_MAX_PART * f0 ? f : null;
+}
+
+/** Les points de fuite d'une photo et la focale qu'ils donnent (null : pas lue), sans la redresser. */
+export function focaleDeLaPhotoParFuites(segments: readonly Segment[], largeurPx: number, hauteurPx: number): number | null {
+  const v = fuiteVerticaleDesSegments(segments, largeurPx, hauteurPx, ANGLE_VERTICALE_MAX_DEG);
+  const h = v ? fuiteHorizontaleDesSegments(segments, largeurPx, hauteurPx) : null;
+  return v && h ? focaleDesFuites(v.point, h.point, largeurPx, hauteurPx) : null;
+}
+
 export interface RedressementFuites {
   /** La photo vue de face : verticales et horizontales du mur droites. */
   image: Image;
@@ -109,6 +148,8 @@ export interface RedressementFuites {
   versPhoto: Homographie;
   /** Les points de fuite lus : vertical toujours, horizontal quand le mur en montre assez. */
   horizontale: boolean;
+  /** D'ou vient la focale : donnee (EXIF, ou celle de la serie), lue sur les points de fuite, ou celle d'un telephone. */
+  sourceFocale: 'donnee' | 'fuites' | 'defaut';
 }
 
 /** La matrice 3 x 3 (lignes) d'une homographie. */
@@ -184,11 +225,13 @@ export function rendre(photo: Image, versPhoto: Homographie, L: number, H: numbe
  */
 export function redresserParFuites(photo: Image, segments: readonly Segment[], focalePx: number | null = null): RedressementFuites | null {
   const W = photo.largeur, Hp = photo.hauteur;
-  const f = focalePx ?? Math.max(W, Hp) / 2 / Math.tan(rad(CHAMP_GRAND_COTE_DEFAUT) / 2);
   // Une photo prise vers le haut fait converger ses verticales : jusqu'a 25 degres de la verticale de l'image au bord.
   const v = fuiteVerticaleDesSegments(segments, W, Hp, ANGLE_VERTICALE_MAX_DEG);
   if (!v) return null;
   const h = fuiteHorizontaleDesSegments(segments, W, Hp);
+  const lue = focalePx === null && h ? focaleDesFuites(v.point, h.point, W, Hp) : null;
+  const f = focalePx ?? lue ?? focaleParDefaut(W, Hp);
+  const sourceFocale = focalePx !== null ? 'donnee' : lue !== null ? 'fuites' : 'defaut';
   const versFace = rotationDeFace(v.point, h?.point ?? null, f, W / 2, Hp / 2);
   if (!versFace) return null;
   // L'emprise de la photo dans la vue de face. Pres de la ligne de fuite du mur (prise tres de biais), un pixel de la photo couvre
@@ -218,5 +261,5 @@ export function redresserParFuites(photo: Image, segments: readonly Segment[], f
   const sortieVersFace = deM([[1 / k, 0, x0], [0, 1 / k, y0], [0, 0, 1]]);
   const versPhoto = deM(produit(M(deFace), M(sortieVersFace)));
   const { image, vu } = rendre(photo, versPhoto, L, H);
-  return { image, vu, versPhoto, horizontale: !!h };
+  return { image, vu, versPhoto, horizontale: !!h, sourceFocale };
 }

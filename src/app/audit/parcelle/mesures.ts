@@ -18,11 +18,12 @@
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
 import { versOuvertureFacade } from '../../../facade/verification.js';
 import { detecterSegments } from '../../../facade/segments.js';
+import { focaleDeLaPhotoParFuites } from '../../../facade/redressementFuites.js';
 import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../../../facade/verticales.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
-import { coinsAutoDeSerie, quadrilatereSain } from '../../../zones/releve/coinsAuto.js';
+import { quadrilatereSain, reporterCoins } from '../../../zones/releve/coinsAuto.js';
 import type { SourceCoin } from '../../../facade/calageFin.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
@@ -103,14 +104,16 @@ const versImage = (p: Pixels): Image => ({ largeur: p.largeur, hauteur: p.hauteu
  * qui ne lui laisse que 3 degres de marge, cherchait les coins la ou le mur n'etait pas. Inconnue, elle se lit sur la photo (le
  * point de fuite des verticales, calageFin.ts), dans une marge de 20 degres.
  */
-export function priseDeLaPhoto(photo: PhotoCas, image: Image, facade: Facade): Prise {
+export function priseDeLaPhoto(photo: PhotoCas, image: Image, facade: Facade, champLu: number | null = null): Prise {
   const p = photo.prise;
   const distance = p ? distanceAuMur(facade, p) : 0;
   // Un GPS de telephone se trompe de 3 a 8 m : a cette distance du mur, il ne dit pas ou se tenait la personne (AE 101 : 2,7 m
   // pour un pignon vu en entier, a 7 m). La distance ne sert que si elle depasse deux fois la precision ; sinon le cadrage la
   // suppose (le mur sur les sept dixiemes de la photo), avec sa marge.
   const fiable = distance > 0.5 && p?.precisionM != null && distance > 2 * p.precisionM;
-  const champ = p?.champDeg ?? null;
+  // Sans EXIF, le champ note est celui d'un telephone : celui que donnent les points de fuite de la photo l'emporte (AE 101 : des
+  // photos a l'ultra grand-angle, deux fois plus larges que le champ suppose ; l'inclinaison lue sur les verticales en depend).
+  const champ = p?.sourceFocale === 'defaut' || p?.champDeg == null ? (champLu ?? p?.champDeg ?? null) : p.champDeg;
   return {
     photo: { image, url: '', champ, focalePx: null },
     mesure: fiable ? { distance: Math.round(distance * 100) / 100, source: 'gps' } : null,
@@ -172,21 +175,21 @@ interface PhotoPreparee {
   coins: BilanPhotoRedressement['coins'];
 }
 
-const SERIE_DANS_L_AUDIT = false;
-/** Les coins d'une photo lus sur l'assemblage de la serie, et si l'egout et le pied y ont ete lus. */
+/** Les coins d'une photo reportes depuis une autre photo du mur par l'assemblage, et s'ils comptent pour trouves. */
 interface CoinsSerie { coins: readonly P2[]; lu: boolean }
 
-/** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon ceux de la serie, sinon predits puis cherches sur les aretes. */
+/** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon ceux reportes d'une autre photo, sinon predits puis cherches sur les aretes. */
 async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, d: DependancesMesures, correction: CorrectionRedressement | undefined, predits: boolean, serie: CoinsSerie | null = null): Promise<PhotoPreparee> {
-  const prise = priseDeLaPhoto(photo, versImage(img), f);
+  const image = versImage(img);
+  const prise = priseDeLaPhoto(photo, image, f, photo.prise?.sourceFocale === 'exif' ? null : champDesFuites(image));
   // Les coins predits tels quels : ramenes au bord du cadre (ce que fait l'ecran pour le doigt), ils ne seraient plus le mur, et
   // le redressement deformerait la photo au lieu de la redresser (un mur de 7 m photographie a 4 m deborde de l'image).
   const depart: Morceau = { prise, coins: coinsDePrise(prise, f.largeur, f.hauteur, false, f.azimut, false), recherche: true };
   if (correction?.coins && correction.coins.length === 4) {
     return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
   }
-  // Les coins lus sur l'assemblage des photos redressees par leurs points de fuite (zones/releve/coinsAuto.ts) : trouves quand
-  // l'egout et le pied s'y sont lus, aux proportions du plan sinon.
+  // Les coins reportes d'une autre photo du mur, ou ils ont ete poses au doigt, par l'assemblage des vues redressees
+  // (zones/releve/coinsAuto.ts::reporterCoins) : comptes trouves.
   if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), recherche: false } };
   if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };
   const entree = entreeRecherche(prise, f.largeur, f.hauteur, false, f.azimut);
@@ -194,6 +197,12 @@ async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Faca
   // La photo corrigee de la distorsion n'a pas besoin d'URL ici : on ne l'affiche pas.
   const m = r ? appliquerResultat(depart, r, r.distorsion ? 'corrigee' : null) : { ...depart, recherche: false };
   return { rang, morceau: m, coins: m.sources?.includes('trouve') ? 'trouve' : 'predit' };
+}
+
+/** Le champ du grand cote de la photo (degres) que donnent ses points de fuite, quand ils le disent ; null sinon. */
+function champDesFuites(image: Image): number | null {
+  const f = focaleDeLaPhotoParFuites(detecterSegments(image), image.largeur, image.hauteur);
+  return f === null ? null : (2 * Math.atan(Math.max(image.largeur, image.hauteur) / 2 / f) * 180) / Math.PI;
 }
 
 type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
@@ -236,8 +245,8 @@ async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Fac
     const a = analyserSerie([p.morceau], f, f.hauteur, bat as ObjetPolygone);
     return a ? { p, a, vert: verticaliteDeg(a.r.texture) } : null;
   };
-  // Les coins trouves sur les aretes de la photo (le mur entier y est, au centimetre) d'abord ; sinon ceux de la serie, lus sur
-  // l'assemblage des photos ; sinon les coins predits.
+  // Les coins trouves sur les aretes de la photo (le mur entier y est, au centimetre) d'abord ; sinon ceux reportes de la photo
+  // du mur posee au doigt ; sinon les coins predits.
   let essai = await analyser(false).catch(() => null);
   const aretes = essai?.p.coins === 'trouve' && quadrilatereSain(essai.p.morceau.coins, essai.p.morceau.prise.photo.image);
   if (serie && !correction?.coins && !aretes) {
@@ -265,17 +274,33 @@ async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Fac
   return { bilan, essai };
 }
 
-/** Les coins de la serie, photo par photo (null : photo hors de l'assemblage) ; aucun quand la serie ne se redresse pas. */
-async function coinsDeLaSerie(photos: readonly PhotoCas[], images: (i: number) => Promise<Pixels | null>, f: Facade): Promise<(CoinsSerie | null)[]> {
+type Redressee = Awaited<ReturnType<typeof redresserPhoto>>;
+
+/**
+ * Remplace, dans `faits` et `bilans`, les photos aux coins predits par celles aux coins reportes de la photo ou le mur a ete pose au
+ * doigt. Pas d'une photo ou il est « trouve » sur les aretes : sur AE 101 (octobre 2026), un mur trouve sur une photo prise de loin
+ * s'arretait a un poteau du pan de bois, et le report le recopiait sur l'autre photo (fusionnee, mais sans ses fenetres).
+ */
+async function reporterLeMur(photos: readonly PhotoCas[], images: (i: number) => Promise<Pixels | null>, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>>, faits: Redressee[], bilans: BilanPhotoRedressement[]): Promise<void> {
+  const source = faits.find((x) => x.essai && x.bilan.coins === 'main');
+  const aReporter = faits.filter((x) => x.bilan.coins === 'predit' && !corrections[String(x.bilan.rang)]?.coins);
+  if (!source?.essai || !aReporter.length) return;
   try {
-    const imgs = await Promise.all(photos.map((_, i) => images(i)));
-    const lisibles = imgs.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
-    if (!lisibles.length) return [];
-    const sr = coinsAutoDeSerie(lisibles.map((i) => versImage(imgs[i] as Pixels)), f.largeur, f.hauteur);
-    const out: (CoinsSerie | null)[] = photos.map(() => null);
-    lisibles.forEach((i, k) => { const c = sr?.coins[k]; if (c) out[i] = { coins: c, lu: !!sr?.lu }; });
-    return out;
-  } catch { return []; }
+    const pixels = await Promise.all(photos.map((_, i) => images(i)));
+    const lisibles = pixels.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
+    const k0 = lisibles.indexOf(source.bilan.rang);
+    if (k0 < 0) return;
+    const portes = reporterCoins(lisibles.map((i) => versImage(pixels[i] as Pixels)), k0, source.essai.p.morceau.coins);
+    for (const x of aReporter) {
+      const k = lisibles.indexOf(x.bilan.rang), coins = portes[k];
+      const img = pixels[x.bilan.rang];
+      if (!coins || !img) continue;
+      const r = await redresserPhoto(x.bilan.rang, photos[x.bilan.rang] as PhotoCas, img, f, bat, d, undefined, { coins, lu: true }).catch(() => null);
+      if (!r?.essai || r.bilan.statut === 'echec') continue;
+      faits[faits.indexOf(x)] = r;
+      bilans[bilans.findIndex((b) => b.rang === x.bilan.rang)] = r.bilan;
+    }
+  } catch { /* l'assemblage n'a pas pu se faire : chaque photo garde ses coins */ }
 }
 
 /** Les motifs, en clair, de ce qui n'a pas ete fusionne. */
@@ -303,9 +328,6 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const largeurM = Object.keys(corrections).map(Number).sort((a, b) => a - b).map((k) => corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
   const fm: Facade = largeurM ? { ...f, largeur: largeurM } : f;
 
-  // 0. Les coins du mur lus ensemble sur toutes les photos : chacune redressee par ses points de fuite, l'assemblage, le mur aux
-  // proportions du plan (largeur du cadastre, hauteur du LiDAR). Rien ne se mesure sur place.
-  const series: (CoinsSerie | null)[] = SERIE_DANS_L_AUDIT ? await coinsDeLaSerie(photos, images, fm) : [];
   // 1. Le redressement de chaque photo, l'une apres l'autre (la premiere avec une prise de vue d'abord).
   const ordre = photos.map((_, i) => i).sort((a, b) => Number(!photos[a]?.prise) - Number(!photos[b]?.prise) || a - b);
   const faits: Awaited<ReturnType<typeof redresserPhoto>>[] = [];
@@ -314,11 +336,14 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     const photo = photos[i] as PhotoCas;
     const img = await images(i);
     if (!img) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
-    const r = await redresserPhoto(i, photo, img, fm, bat, d, corrections[String(i)], series[i] ?? null).catch(() => null);
+    const r = await redresserPhoto(i, photo, img, fm, bat, d, corrections[String(i)]).catch(() => null);
     if (!r) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'redressement impossible' }); continue; }
     faits.push(r);
     bilans.push(r.bilan);
   }
+  // 1 bis. Le mur pose au doigt sur une photo, reporte sur celles qui n'en ont que des coins predits, par l'assemblage de leurs
+  // vues redressees : toutes montrent alors le meme mur, et se croisent a la fusion. Quatre coins poses une fois pour toutes.
+  await reporterLeMur(photos, images, fm, bat, d, corrections, faits, bilans);
   bilans.sort((a, b) => a.rang - b.rang);
   const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
 

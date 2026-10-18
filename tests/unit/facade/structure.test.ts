@@ -56,6 +56,25 @@ describe('regulariser', () => {
     expect(r[1]).toEqual(os[1]);
   });
 
+  it('n aligne pas deux baies seules : leur mediane serait leur moyenne, et tirerait la bonne vers l autre', () => {
+    const os = [f(1, 0.9, 1.2, 1.34), f(4, 0.93, 1.2, 1.34)];
+    expect(regulariser(os, structurer(os, 9.6))).toEqual(os);
+  });
+
+  it('met une rangee de fenetres sous le meme linteau, et une travee sur le meme axe, a 5 cm pres', () => {
+    // Trois fenetres d'un etage mesurees sur une photo : linteaux a 2,24 / 2,27 / 2,22 ; une travee de trois, axes 1,61 / 1,64 / 1,61.
+    const os = [f(1, 0.9, 1.2, 1.34), f(4, 0.93, 1.2, 1.34), f(7, 0.88, 1.2, 1.34), f(1.04, 3.8, 1.2, 1.34), f(1, 6.7, 1.2, 1.34)];
+    const r = regulariser(os, structurer(os, 9.6));
+    expect(new Set(r.slice(0, 3).map((o) => Math.round((o.y + o.h) * 100)))).toEqual(new Set([224]));
+    expect((r[3]?.x ?? 0) + (r[3]?.l ?? 0) / 2).toBeCloseTo((r[0]?.x ?? 0) + (r[0]?.l ?? 0) / 2, 2);
+  });
+
+  it('laisse a sa place une baie a plus de 5 cm du linteau de sa rangee (un oeil-de-boeuf, une imposte)', () => {
+    const os = [f(1, 0.9, 1.2, 1.34), f(4, 0.9, 1.2, 1.34), f(7, 1.0, 1.2, 1.34)];
+    const r = regulariser(os, structurer(os, 9.6));
+    expect(r[2]?.y).toBe(1.0);
+  });
+
   it('ne touche pas une baie a plus de 5 cm de la mediane', () => {
     const os = [f(1, 0.9, 1.2), f(1.05, 3.8, 1.1), f(1, 6.7, 1.2)];
     const r = regulariser(os, structurer(os, 9.6));

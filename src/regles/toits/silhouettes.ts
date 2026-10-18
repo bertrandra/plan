@@ -32,7 +32,7 @@ export interface LigneLecture {
 }
 
 export interface SilhouettesToits {
-  seuils: { TOLERANCE_BOUT_DEG: number; PART_SECOND_SENS: number };
+  seuils: { TOLERANCE_BOUT_DEG: number; PART_SECOND_SENS: number; MUR_CORPS_DISTANCE_M: number; MUR_CORPS_RECOUVREMENT: number };
   lecture: readonly LigneLecture[];
 }
 
@@ -53,7 +53,7 @@ export function lireSilhouettesToits(donnees: unknown): SilhouettesToits {
     if (v < borne[0] || v > borne[1]) return refus(nom + ' hors de [' + borne[0] + ', ' + borne[1] + ']');
     return v;
   };
-  const seuils = { TOLERANCE_BOUT_DEG: seuil('TOLERANCE_BOUT_DEG', [1, 44]), PART_SECOND_SENS: seuil('PART_SECOND_SENS', [0, 1]) };
+  const seuils = { TOLERANCE_BOUT_DEG: seuil('TOLERANCE_BOUT_DEG', [1, 44]), PART_SECOND_SENS: seuil('PART_SECOND_SENS', [0, 1]), MUR_CORPS_DISTANCE_M: seuil('MUR_CORPS_DISTANCE_M', [0.1, 5]), MUR_CORPS_RECOUVREMENT: seuil('MUR_CORPS_RECOUVREMENT', [0.1, 1]) };
   const lecture = (f.lecture as Record<string, unknown>[]).map((l, i): LigneLecture => {
     const ou = 'lecture[' + i + '] : ';
     const si = (l.si ?? {}) as Record<string, unknown>;

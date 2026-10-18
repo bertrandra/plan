@@ -38,6 +38,9 @@ export interface Structure {
 
 const cm = (v: number) => Math.round(v * 100) / 100;
 
+/** Les places (linteau d'une rangee, axe d'une travee) ne s'alignent qu'a partir de ce nombre de baies : une vraie mediane. */
+const ALIGNEES_MIN = 3;
+
 export function mediane(v: readonly number[]): number {
   if (!v.length) return 0;
   const s = [...v].sort((a, b) => a - b);
@@ -118,6 +121,9 @@ export function ecartBords(a: BoiteOuverture, b: BoiteOuverture): number {
  * Regularise les ouvertures sur leur structure (§10.2, §10.3, §10.6) :
  * - dans une travee, pour un meme type, la largeur mediane, a 5 cm au plus (centre garde) ;
  * - dans une rangee, pour un meme type, la hauteur mediane, a 5 cm au plus (appui garde) ;
+ * - puis les places, a partir de trois baies : dans une rangee, pour un meme type, le linteau median (une rangee de fenetres est
+ *   posee sous un meme linteau) ; dans une travee, l'axe median (une travee est montee a l'aplomb, porte comprise) ; a 5 cm au plus. Une photo
+ *   seule mesure chaque baie a quelques centimetres pres, dans un sens ou dans l'autre : la structure les remet sur la ligne ;
  * - jamais un bord a plus de 10 cm de sa mesure : sinon la baie garde sa mesure.
  */
 export function regulariser<B extends BoiteOuverture>(ouvertures: readonly B[], s: Structure, reglages: Partial<ValeursStructure> = {}): B[] {
@@ -150,7 +156,19 @@ export function regulariser<B extends BoiteOuverture>(ouvertures: readonly B[], 
     for (const membres of parType.values()) {
       const m = cm(mediane(membres.map((o) => o.h)));
       for (const o of membres) if (Math.abs(o.h - m) <= tol) o.h = m;
+      // Le linteau de la rangee : la hauteur deja egalisee, la baie glisse sous lui. Il faut trois baies : la mediane de deux est
+      // leur moyenne, qui tirerait une baie bien mesuree a mi-chemin de l'autre (banc : 0 -> 1 cm sur la brique a volets).
+      if (membres.length < ALIGNEES_MIN) continue;
+      const l = cm(mediane(membres.map((o) => o.y + o.h)));
+      for (const o of membres) if (Math.abs(o.y + o.h - l) <= tol) o.y = cm(l - o.h);
     }
+  });
+  // L'axe de la travee, tous types : la porte sous la fenetre partage son aplomb.
+  s.grille.travees.forEach((_, t) => {
+    const membres = res.filter((_, i) => s.traveeDe[i] === t);
+    if (membres.length < ALIGNEES_MIN) return;
+    const m = cm(mediane(membres.map((o) => o.x + o.l / 2)));
+    for (const o of membres) if (Math.abs(o.x + o.l / 2 - m) <= tol) o.x = cm(m - o.l / 2);
   });
   return res.map((o, i) => (ecartBords(o, au(ouvertures, i)) > rg['facades.structure.gardeFouM'] + 1e-9 ? { ...au(ouvertures, i) } : o));
 }
