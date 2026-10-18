@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { redresserParFuites, inverser } from '../../../src/facade/redressementFuites.js';
+import { redresserParFuites, inverser, focaleDeLaPhotoParFuites } from '../../../src/facade/redressementFuites.js';
 import { mosaiqueDesVues } from '../../../src/facade/mosaiqueFuites.js';
 import { detecterSegments } from '../../../src/facade/segments.js';
 import { appliquer, type P2 } from '../../../src/facade/homographie.js';
@@ -71,5 +71,25 @@ describe('l assemblage des vues redressees', () => {
         expect(Math.hypot(a.x - b.x, a.y - b.y) / largeur).toBeLessThan(0.02);
       }
     }
+  });
+});
+
+describe('la focale lue sur les points de fuite', () => {
+  it('se lit sur une photo prise vers le haut et de biais, a 10 % pres', () => {
+    // Grand-angle (19 mm), une focale que l'appareil ne donne pas : celle d'un telephone (67 degres) se tromperait de 60 %.
+    const s = scene('14-');
+    const ph = photographier(s, 100, s.synthese.prise as PriseCamera);
+    if (!ph?.focalePx) throw new Error('prise impossible');
+    const f = focaleDeLaPhotoParFuites(detecterSegments(ph.image), ph.image.largeur, ph.image.hauteur);
+    expect(f).not.toBeNull();
+    expect(Math.abs((f as number) / ph.focalePx - 1)).toBeLessThan(0.1);
+  });
+
+  it('ne se dit pas sur une photo d aplomb et de face : les points de fuite sont a l infini', () => {
+    const s = scene('02-');
+    const ph = photographier(s, 100, s.synthese.prise as PriseCamera);
+    if (!ph) throw new Error('prise impossible');
+    expect(focaleDeLaPhotoParFuites(detecterSegments(ph.image), ph.image.largeur, ph.image.hauteur)).toBeNull();
+    expect(redresserParFuites(ph.image, detecterSegments(ph.image))?.sourceFocale).toBe('defaut');
   });
 });

@@ -10,7 +10,7 @@
 import { apparier, detecterOrb, type DescripteurOrb } from './orb.js';
 import { appliquerSimilitude, composer, echelleDe, inverse, ransacSimilitude, rotationDeg, IDENTITE, type Similitude } from './ransac.js';
 import { appliquer, type Image } from './homographie.js';
-import type { RedressementFuites } from './redressementFuites.js';
+import { inverser as inverserHomographie, type RedressementFuites } from './redressementFuites.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
 const COTE_RECHERCHE_PX = 900;
@@ -332,5 +332,27 @@ export function coinsSurLesPhotos(vues: readonly RedressementFuites[], places: r
     const inv = s ? inverse(s) : null;
     if (!inv) return null;
     return coins.map((c) => appliquer(v.versPhoto, appliquerSimilitude(inv, c)));
+  });
+}
+
+/**
+ * Des points d'une photo de l'assemblage (`depuis`, en pixels de la photo) portes sur chacune des autres : photo -> vue redressee
+ * (l'inverse de `versPhoto`) -> mosaique (sa place) -> autre vue (l'inverse de sa place) -> autre photo. Null pour une photo
+ * restee a part, ou quand un point passe derriere l'appareil.
+ */
+export function porterCoins(vues: readonly RedressementFuites[], places: readonly (Similitude | null)[], depuis: number, points: readonly { x: number; y: number }[]): ({ x: number; y: number }[] | null)[] {
+  const v0 = vues[depuis], s0 = places[depuis];
+  const versVue0 = v0 ? inverserHomographie(v0.versPhoto) : null;
+  if (!v0 || !s0 || !versVue0) return vues.map(() => null);
+  const dansMosaique = points.map((p) => appliquerSimilitude(s0, appliquer(versVue0, p)));
+  return vues.map((v, i) => {
+    const s = places[i];
+    const inv = s ? inverse(s) : null;
+    if (!inv) return null;
+    const H = v.versPhoto;
+    const dansVue = dansMosaique.map((c) => appliquerSimilitude(inv, c));
+    // Un point de la vue de face qui tombe derriere l'appareil de cette photo n'y a pas d'image.
+    if (dansVue.some((c) => H[6] * c.x + H[7] * c.y + H[8] <= 0)) return null;
+    return dansVue.map((c) => appliquer(H, c));
   });
 }

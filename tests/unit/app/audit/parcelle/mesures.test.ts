@@ -47,6 +47,13 @@ describe('la prise du releve d apres la photo de l audit', () => {
     expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, precisionM: null } }, img, sud()).mesure).toBeNull();
   });
 
+  it('prend le champ lu sur les points de fuite quand la photo n a pas d EXIF, jamais a la place de l EXIF (AE 101 : ultra grand-angle)', () => {
+    const img = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(4) };
+    expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, champDeg: 67, sourceFocale: 'defaut' } }, img, sud(), 104).photo.champ).toBe(104);
+    expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, champDeg: 67, sourceFocale: 'exif' } }, img, sud(), 104).photo.champ).toBe(67);
+    expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, champDeg: 67, sourceFocale: 'defaut' } }, img, sud(), null).photo.champ).toBe(67);
+  });
+
   it('ne reprend pas le cap du sens de la marche', () => {
     const p = priseDeLaPhoto({ ...PHOTO, prise: { ...prise, sourceAzimut: 'deplacement' } }, { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(4) }, sud());
     expect(p.cap).toBeNull();
@@ -75,4 +82,26 @@ describe('les mesures d une facade', () => {
     });
     expect(m).toMatchObject({ releve: null, couleur: null, hauteurM: null, coinsTrouves: false });
   });
+});
+
+describe('les coins poses au doigt sur une photo', () => {
+  it('se reportent sur les autres photos du mur, qui se croisent alors a la fusion', async () => {
+    const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
+    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
+    if (!s) throw new Error('scene absente');
+    const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
+    const images = prises.map((p) => photographier(s, 100, p)?.image);
+    const vrais = coinsVrais(s, prises[0]);
+    if (images.some((i) => !i) || !vrais) throw new Error('prise impossible');
+    const pts = rect(0, 0, s.verite.largeur, 8);
+    const f = { ...(facadesDuContour(pts, s.verite.hauteur).find((x) => x.orientation === 'Sud') as Facade), hauteur: s.verite.hauteur };
+    const photos: PhotoCas[] = ['A', 'B'].map((b) => ({ type: 'image/jpeg', base64: b }));
+    const m = await mesurerFacade('maison', f, { pts }, photos, {
+      pixels: async (b) => { const img = images[b === 'A' ? 0 : 1]; return img ? { data: img.donnees, largeur: img.largeur, hauteur: img.hauteur } : null; },
+      chercherCoins: async (e) => rechercher(e), jpeg: () => 'data:image/jpeg;base64,TEXTURE', limites: () => [],
+    }, { '0': { coins: vrais.map((c) => ({ x: c.x, y: c.y })) } });
+    expect(m.redressement?.photos.map((p) => p.coins)).toEqual(['main', 'trouve']);
+    expect(m.redressement?.fusion).toBe('fusionnee');
+  }, 60000);
 });
