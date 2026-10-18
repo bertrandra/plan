@@ -160,6 +160,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Audit : huit photos partout.** Une promenade garde jusqu’à huit photos par cas (six auparavant) ; l’audit de la parcelle, huit pour le toit d’un bâtiment, la clôture et le portail (quatre auparavant), comme pour une façade et dans l’éditeur de calibration. Huit photos d’un cas pèsent environ 3,2 Mo.
+
 - **Admin › Calibrer la détection : jusqu’à huit photos par façade** (quatre auparavant), comme l’audit de la parcelle et le serveur, qui les acceptaient déjà.
 - **Admin › Audits : « Rejouer l’analyse » demande une confirmation.** Le rejeu renvoie les photos de l’audit à Claude (un appel facturé qui s’ajoute aux analyses gardées) : le bouton ouvre d’abord, sur la carte, une question qui dit le modèle et le prompt (livré ou brouillon des règles), avec « Confirmer le rejeu » et « Annuler », comme pour le retrait d’un audit. Rien ne part avant la confirmation. « Relancer l’analyse des photos », qui est locale et gratuite, ne demande rien.
 

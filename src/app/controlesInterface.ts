@@ -221,7 +221,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'audit.probleme': etape(Z8, FICHE_AUDIT, 'Problème constaté (plusieurs possibles)', { repete: true }),
   'audit.note': etape(Z8, FICHE_AUDIT, 'Note sur le bâtiment'),
   'audit.ceQueJeVois': etape(Z8, FICHE_AUDIT, 'Déplier « Ce que je vois » (facultatif)'),
-  'audit.photo': etape(Z8, FICHE_AUDIT, 'Prendre une photo du bâtiment (six au plus)', { repete: true }),
+  'audit.photo': etape(Z8, FICHE_AUDIT, 'Prendre une photo du bâtiment (huit au plus)', { repete: true }),
   'audit.retirerPhoto': etape(Z8, FICHE_AUDIT, 'Retirer une photo', { repete: true }),
   'audit.toucherPhoto': etape(Z8, FICHE_AUDIT, 'Toucher la façade sur une photo dont la couleur n’a pas été lue', { repete: true }),
   'audit.toucherFacade': etape(Z8, FICHE_AUDIT, 'Point touché sur la façade de la photo : sa couleur est lue autour'),

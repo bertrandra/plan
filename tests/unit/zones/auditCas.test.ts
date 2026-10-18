@@ -36,23 +36,23 @@ const vignettes = () => hote.querySelectorAll('.photosAudit li');
 const champPhoto = () => hote.querySelector<HTMLInputElement>('input[data-controle="audit.photo"]');
 
 describe('la fiche a plusieurs photos', () => {
-  it('montre six vignettes avec leur prise de vue, et n en propose pas de septieme', () => {
-    fiche(6);
-    expect(vignettes()).toHaveLength(6);
-    expect(hote.textContent).toContain('Photos (6 sur 6)');
+  it('montre huit vignettes avec leur prise de vue, et n en propose pas de neuvieme', () => {
+    fiche(8);
+    expect(vignettes()).toHaveLength(8);
+    expect(hote.textContent).toContain('Photos (8 sur 8)');
     expect(vignettes()[0]!.textContent).toContain('Prise à ± 5 m, vers 245° (OSO), boussole');
     expect(vignettes()[0]!.textContent).toContain('Objectif 26 mm (69°), lu dans la photo · visée 4° vers le haut, penchée de 3° à droite');
     expect(champPhoto()).toBeNull();
-    expect(hote.textContent).toContain('Six photos au plus');
+    expect(hote.textContent).toContain('Huit photos au plus');
   });
 
   it('retire la photo choisie, et propose d en ajouter une autre', () => {
-    const p = fiche(6);
+    const p = fiche(8);
     const retirer = vignettes()[1]!.querySelector<HTMLButtonElement>('button[data-controle="audit.retirerPhoto"]')!;
     expect(retirer.getAttribute('aria-label')).toBe('Retirer la photo 2');
     act(() => retirer.click());
-    expect(p.cas('b1')!.constat.photos.map((x) => x.base64)).toEqual(['P0', 'P2', 'P3', 'P4', 'P5']);
-    expect(vignettes()).toHaveLength(5);
+    expect(p.cas('b1')!.constat.photos.map((x) => x.base64)).toEqual(['P0', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7']);
+    expect(vignettes()).toHaveLength(7);
     expect(champPhoto()).not.toBeNull();
     expect(hote.textContent).toContain('Ajouter une photo');
   });

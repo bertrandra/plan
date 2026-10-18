@@ -41,7 +41,7 @@ function Donnees({ d }: { d: DonneesAudit }) {
           <li key={i}>
             <div className="ligneDetailAudit"><strong>{c.titre}</strong> · {c.categorie}{c.problemes.length ? ' : ' + c.problemes.join(', ') : ''}</div>
             {c.note && <div className="detailPhoto">« {c.note} »</div>}
-            <Vignettes photos={c.photos} max={6} />
+            <Vignettes photos={c.photos} max={8} />
           </li>
         ))}
       </ul>

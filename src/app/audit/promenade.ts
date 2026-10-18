@@ -24,7 +24,7 @@ export interface Completion {
   categorie?: CategorieAudit;
   problemes?: string[];
   note?: string;
-  /** Une photo de plus, a la suite des autres ; au-dela de six, elle est ignoree. */
+  /** Une photo de plus, a la suite des autres ; au-dela de huit, elle est ignoree. */
   ajouterPhoto?: PhotoCas;
   /** Retire la photo de ce rang (et la couleur qu'elle a donnee). */
   retirerPhoto?: number;
