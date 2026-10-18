@@ -35,6 +35,7 @@ import { CAPACITES } from '../plateforme/capacites.js';
 import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
 import { avecReglages, resumeRelief } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { idusCadastraux } from '../model/cadastre.js';
 import { valeursParDefaut } from './valeursParDefaut.js';
 import { estVerifieSurPlace } from '../model/toitVerifie.js';
 import { APPARENCES_IGN, batimentDeLaPropriete } from '../geo/cadastreObjets.js';
@@ -166,14 +167,14 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
         // Le plan est dans le repere de la projection du calage : ses coordonnees se lisent telles quelles.
         const proj = projecteurLocal(cad.origineLat, cad.origineLon);
         const centre = centroid(sommetsDe(parcelle));
-        const idus = new Set(ctx.etat.objects.flatMap(o => { const idu = o.cadastre?.idu; return typeof idu === 'string' ? [idu] : []; }));
+        const idus = new Set(ctx.etat.objects.flatMap(idusCadastraux));
         const ids = new Set(ctx.etat.objects.flatMap(o => { const id = (o.bdtopo as { id?: unknown } | null | undefined)?.id; return typeof id === 'string' ? [id] : []; }));
         const lectures = new Map<number, Promise<VoisinageRayon>>();
         // Une seule lecture par palier et par ouverture du dialogue : le curseur filtre ensuite localement.
         const lire = (rayonM: number): Promise<VoisinageRayon> => {
           const palier = rayonDeLecture(rayonM);
           let lecture = lectures.get(palier);
-          if (!lecture) { lecture = lireVoisinageRayon(centre, proj, palier, !!cad.simplifieM, new Set([cad.idu as string])); lectures.set(palier, lecture); }
+          if (!lecture) { lecture = lireVoisinageRayon(centre, proj, palier, !!cad.simplifieM, new Set(idusCadastraux(parcelle))); lectures.set(palier, lecture); }
           return lecture;
         };
         return { centre, idus, ids, lire };
@@ -438,7 +439,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
-    const avant: ObjetBrut[] = ctx.serializeObjects(ctx.etat.objects);
+    const avant = sansVoisinesDeLaPropriete(ctx.serializeObjects(ctx.etat.objects), parcelle, bilan);
     const anciensBatiments = avant.filter(aRecreer);
     const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
       // Un batiment verifie sur place est le 100 % du projet : il ressort tel qu'il est entre.
@@ -546,6 +547,17 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 }
 
 /**
+ * Une parcelle de la propriete posee en voisine par une relecture d'avant (model/cadastre.ts) recouvrait
+ * le terrain : elle s'en va, le terrain fusionne la porte deja.
+ */
+function sansVoisinesDeLaPropriete(objets: ObjetBrut[], parcelle: ObjetPlan, bilan: string[]): ObjetBrut[] {
+  const dansLaPropriete = new Set(idusCadastraux(parcelle));
+  const gardes = objets.filter(o => !(o.voisinage && o.key !== parcelle.key && typeof o.cadastre?.idu === 'string' && dansLaPropriete.has(o.cadastre.idu)));
+  if(gardes.length < objets.length) bilan.push((objets.length - gardes.length) + ' parcelle(s) de la propriete retiree(s) du voisinage');
+  return gardes;
+}
+
+/**
  * Une parcelle voisine telle qu'elle entre dans le plan : verrouillee, marquee voisinage, avec sa
  * fiche cadastrale, et sans nom affiche (comme son bati) : des centaines de references par-dessus
  * le plan le rendaient illisible.
@@ -611,8 +623,8 @@ export async function construireVoisinage(
     ? { adjacentes: await auPlusPres(async r => construireCandidats(await interrogerCadastreEtendu(empriseGeoJSON(centreDeg.lon, centreDeg.lat, proj, r), plafondLecture(r)), proj, centreParc, simplifier).filter(c => c.idu !== principale.idu)) }
     : trierVoisines(principale, construireCandidats(await interrogerCadastre(emprise, cad.codeInsee), proj, centreParc, simplifier));
 
-  const iduPresents = new Set(dejaSerialises.flatMap(o=>o.cadastre && o.cadastre.idu ? [o.cadastre.idu as string] : []));
-  iduPresents.add(cad.idu as string);
+  // Les parcelles d'une propriete fusionnee sont deja dans le plan : dans le terrain (model/cadastre.ts).
+  const iduPresents = new Set([...dejaSerialises.flatMap(idusCadastraux), ...idusCadastraux({ cadastre: cad })]);
   const clesPrises = new Set(dejaSerialises.map(o=>o.key));
   const cleUnique = (base: string | undefined) => {
     let cle = (base || 'objet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'objet';

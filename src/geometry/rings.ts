@@ -84,8 +84,20 @@ export function chainerSegments(segments: LimiteBrute[], tol: number): PtBrut[][
   return chaines;
 }
 
-export function fusionnerAnneaux(anneaux: PtBrut[][], tol: number): AnneauxFusionnes | null {
-  if(anneaux.length === 1) return { contour: au(anneaux, 0).map(p=>({x:p.x,y:p.y})), limites: [] };
+// Deux sommets d'un meme anneau a moins de la tolerance l'un de l'autre sont un seul point pour la
+// fusion : l'arete qui les joint, plus courte que la tolerance, rendait le chainage ambigu (son
+// extremite « rejoint » deja l'arete suivante du voisin), restait inutilisee, et la fusion etait
+// refusee (Gordes, BK 154 + BK 158 : un sommet a 4 cm du coin commun).
+export function sansSommetsProches(anneau: PtBrut[], tol: number): PtBrut[] {
+  const out: PtBrut[] = [];
+  anneau.forEach(p=>{ if(!out.length || !memePoint(p, au(out, out.length-1), tol)) out.push(p); });
+  while(out.length > 3 && memePoint(au(out, out.length-1), au(out, 0), tol)) out.pop();
+  return out.length >= 3 ? out : anneau;
+}
+
+export function fusionnerAnneaux(anneauxBruts: PtBrut[][], tol: number): AnneauxFusionnes | null {
+  if(anneauxBruts.length === 1) return { contour: au(anneauxBruts, 0).map(p=>({x:p.x,y:p.y})), limites: [] };
+  const anneaux = anneauxBruts.map(a=>sansSommetsProches(a, tol));
   const tousSommets = ([] as PtBrut[]).concat(...anneaux);
   const decoupes = anneaux.map(a=>decouperAnneau(a, tousSommets, tol));
   const aretes: AreteAnneau[] = [];
