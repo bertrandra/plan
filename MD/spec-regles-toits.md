@@ -491,7 +491,7 @@ reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
 | Champ | Valeurs | Ce que le calcul en fait |
 |---|---|---|
 | `facade.azimutDeg` | azimut de la **normale sortante** de la façade (0 = nord, sens horaire : 180 pour la façade sud) | le côté de corps en façade du contour dont la normale est à moins de `toleranceDeg` (45° par défaut, `TOLERANCE_FACADE_DEG`), le plus long s'il y en a plusieurs |
-| `longueur` | `"toute"` (seule valeur, et valeur par défaut) | sur tout ce côté de corps, borné au mur du contour : du premier au dernier sommet du contour à moins de `ECART_FACADE_APPENTIS_M` (50 cm) de la façade |
+| `longueur` | `"toute"` (seule valeur, et valeur par défaut) | sur tout ce côté de corps |
 | `profondeurM`, `egoutM`, `hautM` | mètres, facultatifs | les cotes données l'emportent ; les autres sont **lues sur la mesure** |
 
 - **Lecture des cotes** (`facade/regles/toits/appentis.ts`) sur la grille brute du MNH, qui déborde du
@@ -505,10 +505,12 @@ reconstruction des corps ne la voit jamais. Le fait l'**ajoute** :
   `SEUIL_DECROCHE_M` disparaissent dans les rectangles), et un décroché de l'appentis plus petit ne
   se lit ni sur le contour ni sur une grille de 50 cm. Deux pans décalés demanderaient de dire où est
   le décroché : ce n'est pas encore dans le vocabulaire.
-- **Ses bouts suivent le mur du contour**, pas le côté du corps : un rectangle lisse un retrait de
-  moins de `SEUIL_DECROCHE_M` et passe alors le coin réel de la maison. Sur AE 101, la galerie sud
-  dépassait ainsi de 85 cm le coin sud-ouest, en retrait de 1,1 m (remarqué par le propriétaire le
-  18 octobre 2026). Sans deux sommets du contour sur la façade, le côté entier.
+- **Ses bouts sont ceux du mur dessiné** : le côté du corps qui le porte, le mur que montre la 3D (un
+  rectangle lisse un retrait de moins de `SEUIL_DECROCHE_M`). Adossé à un autre corps, il n'a ni rive aux
+  bouts ni débord au-delà de son mur haut (`three/toitCorps3d.ts::appentisAdosse`) : son toit s'arrête au
+  nu des murs de la maison. Sur AE 101, la rive de la galerie sud passait le coin de la maison ; coupée
+  au mur du contour (version de lecture 5, 18 octobre 2026), elle s'arrêtait 85 cm avant le coin du mur
+  dessiné. Remarques du propriétaire, 18 octobre 2026.
 - Le corps produit est un **appentis ordinaire** : `pts[0] → pts[1]` sur le mur (faîtage et rive de
   tête), `posFaitage` = 0, `egouts` = [haut, égout]. La 3D le dessine comme les autres appentis
   (`three/toitCorps3d.ts`). Ouvert (`ouvert: true`, une galerie, un porche), il n'a ni prisme ni mur :

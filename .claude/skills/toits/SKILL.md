@@ -196,7 +196,8 @@ Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
 mur haut. Pas de débord en reprise.
 Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
-du corps qui le porte derrière. Un appentis adossé par un fait s'arrête au mur du contour (`bornesSurLeMur`).
+du corps qui le porte derrière. Un appentis adossé à un autre corps n'a ni rive ni débord
+au-delà de son mur haut (`appentisAdosse`) : son toit s'arrête au nu des murs ; ses fenêtres ne sont pas posées s'il est ouvert.
 
 ## 4 bis. La couleur des murs et des toits
 

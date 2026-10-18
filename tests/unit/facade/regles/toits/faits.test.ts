@@ -11,7 +11,6 @@ import {
 } from '../../../../../src/facade/regles/toits/faits.js';
 import { lireFaitsToits, faitDuBatiment, FAITS_TOITS_LIVRES, type FaitToit } from '../../../../../src/regles/toits/faits.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../../../src/model/types.js';
-import { bornesSurLeMur, type FacadeDeCorps } from '../../../../../src/facade/regles/toits/appentis.js';
 import type { GrilleRelief } from '../../../../../src/model/relief.js';
 
 // Un fait applique a un toit (MD/spec-regles-toits.md §5, §9.1) : en contrainte, il restreint les
@@ -249,14 +248,9 @@ describe('les faits livres', () => {
     expect(corps[0]!.pignons.every((p) => p.faitage === corps[0]!.faitage)).toBe(true);
     expect(corps).toEqual(r.corpsAvecFaits);
     const a = corps[3]!;
-    // Contre le mur sud du corps principal, cotes lues sur le LiDAR, de bout en bout du mur du contour : le cote du corps passe
-    // le coin sud-ouest de 85 cm (le retrait de 1,1 m que les rectangles lissent), la galerie s'arrete au coin.
-    const [m0, m1] = [r.corps[0]!.pts[2]!, r.corps[0]!.pts[3]!];
-    const surLeMur = (p: PtBrut) => Math.abs((m1.x - m0.x) * (p.y - m0.y) - (m1.y - m0.y) * (p.x - m0.x)) / Math.hypot(m1.x - m0.x, m1.y - m0.y);
-    expect(surLeMur(a.pts[0]!)).toBeLessThan(0.02);
-    expect(surLeMur(a.pts[1]!)).toBeLessThan(0.02);
-    expect(Math.hypot(a.pts[0]!.x - m0.x, a.pts[0]!.y - m0.y)).toBeCloseTo(0.85, 1);
-    expect(Math.hypot(a.pts[1]!.x - m1.x, a.pts[1]!.y - m1.y)).toBeLessThan(0.15);
+    // Contre le mur sud du corps principal, sur toute sa longueur, cotes lues sur le LiDAR : le toit s'arrete au nu des murs de
+    // bout de la maison dessinee (three/toitCorps3d.ts, pas de rive pour un appentis adosse).
+    expect(a.pts.slice(0, 2)).toEqual([r.corps[0]!.pts[2], r.corps[0]!.pts[3]]);
     expect(a).toMatchObject({ posFaitage: 0, faitage: 3.2, egouts: [3.2, 2.4] });
     expect(repere(a.pts).W).toBeCloseTo(1.25, 1);
     expect(ecartsAuFait(f, corps, r.contour)).toEqual([]);
@@ -302,17 +296,3 @@ describe('les faits livres', () => {
   });
 });
 
-describe('les bouts d un appentis adosse', () => {
-  // Un corps de 10 m sur le mur sud (y = 0), la normale vers -y ; le contour s'arrete 1 m avant son coin ouest (un retrait de
-  // 1,1 m que les rectangles lissent).
-  const f: FacadeDeCorps = { corps: 0, cote: 0, a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, n: { x: 0, y: -1 }, L: 10, egout: 6 };
-
-  it('s arretent aux sommets du contour sur la facade', () => {
-    const contour = [{ x: 1, y: 0.1 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }, { x: 0, y: 1.1 }, { x: 1, y: 1.1 }];
-    expect(bornesSurLeMur(f, contour)).toEqual([1, 10]);
-  });
-
-  it('gardent le cote entier sans deux sommets sur la facade', () => {
-    expect(bornesSurLeMur(f, [{ x: 5, y: 0 }, { x: 5, y: 8 }, { x: 0, y: 8 }])).toEqual([0, 10]);
-  });
-});
