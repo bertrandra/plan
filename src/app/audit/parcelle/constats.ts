@@ -127,6 +127,10 @@ function constatsDesSilhouettes(source: 'photo' | 'claude', cible: string, dits:
   if (!dits) return [];
   const out: Constat[] = [];
   const { bouts: b, faitage, forme } = dits.observation;
+  // La silhouette n'a pas le dernier mot (regle prioritaire, regles/reconciliation.json) quand seules des lignes droites de longs
+  // pans l'ont dite : c'est le haut d'un deux-pans comme celui d'un appentis (l'abri d'AE 101 passait en deux pans). Un trapeze,
+  // lui, ne se lit qu'en croupes.
+  if (dits.vus.every((v) => v.role === 'long' && v.silhouette === 'ligne-droite')) regle = regle + ' (longs pans seuls)';
   if (b) out.push({ cible, attribut: 'boutsToit', source, valeur: [...b], confiance, regle, indices });
   if (faitage?.par === 'azimut') out.push({ cible, attribut: 'sensFaitage', source, valeur: faitage.azimutDeg, confiance, regle, indices });
   const f = forme?.[0] ?? (b ? formeDesBouts(b) : null);
@@ -192,8 +196,8 @@ function constatsClaude({ o, b, vote: v }: EntreesConstats): Constat[] {
   const confiance = Math.min(1, ...v.facades.flatMap((f) => (f.silhouette.valeur !== 'indetermine' || f.bout.valeur !== 'indetermine' ? [f.silhouette.accord, f.bout.accord] : [])));
   // La silhouette des murs dit la forme, les bouts et le sens du toit (decision de l'utilisateur, 18 octobre 2026) : ses constats
   // remplacent ceux de la vue d'ensemble. Une forme que les silhouettes ne savent pas dire (un brisis, une demi-croupe : aucun
-  // bout pour le moteur) laisse celle de la vue d'ensemble.
-  const deMurs = constatsDesSilhouettes('claude', cible, dits, confiance, REGLES_LIDAR.claude.silhouette);
+  // bout pour le moteur), ou qu'elles ne tirent que de longs pans, laisse celle de la vue d'ensemble.
+  const deMurs = constatsDesSilhouettes('claude', cible, dits, confiance, REGLES_LIDAR.claude.silhouette).filter((c) => c.attribut !== 'formeToit' || c.regle === REGLES_LIDAR.claude.silhouette || !out.some((x) => x.attribut === 'formeToit'));
   for (const c of deMurs) { const k = out.findIndex((x) => x.attribut === c.attribut && x.source === c.source); if (k >= 0) out.splice(k, 1); out.push(c); }
   for (const f of v.facades) {
     const cote = b.facades.find((x) => etiquetteFacade(b, x) === f.facade)?.cote;

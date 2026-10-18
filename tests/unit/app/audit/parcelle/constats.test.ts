@@ -131,6 +131,15 @@ describe('les constats de Claude', () => {
     expect(constats.filter((c) => c.source === 'claude' && c.attribut === 'silhouetteFacade').map((c) => c.valeur)).toEqual(['triangle', 'triangle']);
   });
 
+  it('la forme dite par les murs remplace celle de l’ensemble et a le dernier mot ; dite par des lignes droites de longs pans seules, non', () => {
+    const bouts = constatsDuBatiment(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'deux-pans' }, facades: [mur('est', 'triangle', 'croupe'), mur('ouest', 'triangle', 'croupe')] }) })).constats;
+    expect(bouts.filter((c) => c.source === 'claude' && c.attribut === 'formeToit').map((c) => [c.valeur, c.regle])).toEqual([['croupes', 'regles/toits/silhouettes.json']]);
+    // L'abri d'AE 101 : Claude voit un appentis, et une ligne droite sur un long pan (celle d'un appentis aussi bien que d'un deux-pans).
+    const longs = constatsDuBatiment(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'appentis' }, facades: [mur('sud', 'ligne-droite', 'sans-objet')] }) })).constats;
+    expect(longs.filter((c) => c.source === 'claude' && c.attribut === 'formeToit').map((c) => c.valeur)).toEqual(['appentis']);
+    expect(longs.filter((c) => c.source === 'claude' && (c.attribut === 'sensFaitage' || c.attribut === 'boutsToit') && c.regle?.startsWith('regles/toits/silhouettes.json')).every((c) => c.regle?.endsWith('(longs pans seuls)'))).toBe(true);
+  });
+
   it('sans analyse, Claude ne dit rien', () => {
     expect(constatsDuBatiment(entrees(maison())).constats.filter((c) => c.source === 'claude')).toEqual([]);
   });
