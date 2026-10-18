@@ -1,0 +1,251 @@
+{
+  "nom": "21-ebrasements-profonds-biais",
+  "description": "Mur de pierre calcaire de 50 cm : chaque baie en retrait de 40 cm, ses quatre ebrasements perpendiculaires au mur. Pris tres de biais (35°), a hauteur d'oeil des fenetres du rez-de-chaussee : les aretes des ebrasements fuient vers la normale du mur et, pres de l'horizon, paraissent presque horizontales (le piege des points de fuite lus sur les fenetres).",
+  "difficultes": [
+    "ebrasements",
+    "biais-fort",
+    "pierre",
+    "horizon-dans-les-baies"
+  ],
+  "verite": {
+    "largeur": 10,
+    "hauteur": 5.8,
+    "coins": [
+      {
+        "x": 183.69,
+        "y": 221.9
+      },
+      {
+        "x": 1169.02,
+        "y": -113.28
+      },
+      {
+        "x": 1263.84,
+        "y": 816.46
+      },
+      {
+        "x": 174.78,
+        "y": 730.7
+      }
+    ],
+    "ouvertures": [
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "menuiserie": [
+            236,
+            234,
+            228
+          ],
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "porte",
+        "x": 4.5,
+        "y": 0,
+        "l": 0.95,
+        "h": 2.15,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "couleur": [
+            90,
+            60,
+            45
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 0.9,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "menuiserie": [
+            236,
+            234,
+            228
+          ],
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 1,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "menuiserie": [
+            236,
+            234,
+            228
+          ],
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 4.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "menuiserie": [
+            236,
+            234,
+            228
+          ],
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      },
+      {
+        "type": "fenetre",
+        "x": 7.4,
+        "y": 3.8,
+        "l": 1.2,
+        "h": 1.35,
+        "rendu": {
+          "ebrasement": {
+            "profondeur": 0.4,
+            "couleur": [
+              208,
+              200,
+              186
+            ]
+          },
+          "menuiserie": [
+            236,
+            234,
+            228
+          ],
+          "carreaux": [
+            2,
+            3
+          ]
+        }
+      }
+    ]
+  },
+  "synthese": {
+    "graine": 21,
+    "bruit": 4,
+    "mur": {
+      "parement": {
+        "type": "pierre",
+        "couleurs": [
+          [
+            214,
+            204,
+            182
+          ],
+          [
+            198,
+            188,
+            166
+          ],
+          [
+            224,
+            214,
+            194
+          ],
+          [
+            188,
+            178,
+            156
+          ]
+        ],
+        "joint": [
+          232,
+          226,
+          212
+        ],
+        "assises": [
+          0.18,
+          0.32
+        ],
+        "longueurs": [
+          0.3,
+          0.6
+        ]
+      },
+      "toit": {
+        "hauteur": 1,
+        "couleur": [
+          150,
+          72,
+          52
+        ]
+      }
+    },
+    "prise": {
+      "type": "camera",
+      "distance": 8,
+      "focale35": 26,
+      "largeurPx": 1280,
+      "hauteurPx": 960,
+      "biais": 35,
+      "ecartCap": 6,
+      "tangage": 6,
+      "roulis": 2,
+      "bruit": 3,
+      "flou": 1
+    }
+  }
+}

@@ -214,6 +214,14 @@ ainsi par ses arêtes, même quand sa couleur ne se détache pas.
 d'arête verticale franche sur ses côtés, est une ombre. Il est écarté, ou rogné quand l'ombre colle au
 linteau.
 
+**C bis. Ébrasements** (18 octobre 2026, `facade/detectionEbrasements.ts`). Une baie en retrait d'un mur
+épais, vue de biais, montre d'un côté la face de son ébrasement : même teinte que le mur, autre luminosité,
+comme une ombre, mais **unie** (sans le grain ni les joints du parement) et **collée à un seul côté** de la
+vitre. Le filtre d'ombre la retirait, et la baie se réduisait à la vitre. Une bande de cet aspect sur toute
+la hauteur d'un côté, et pas de l'autre, appartient à la baie de maçonnerie : la boîte s'étend jusqu'au nu
+du mur (seuils `facades.detection.ebrasement*`). Les côtés seulement : en haut et en bas, une ligne ne
+traverse qu'une assise et un bloc de pierre uni y ressemble à une face.
+
 **Fusion des indices.** Un candidat est gardé s'il a un indice fort (A ou B net sur ses quatre côtés) ou
 deux indices faibles. Sa **confiance** combine :
 - le remplissage de la boîte (indice d'aujourd'hui) ;

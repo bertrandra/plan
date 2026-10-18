@@ -25,6 +25,7 @@ import { reglagesDetection, type ValeursDetection } from './regles/facades/detec
 import { reglagesStructure, type ValeursStructure } from './regles/facades/structure.js';
 import { allege, bandeHaute, classer, classerAvecIndices, estVitree, formeDeTache, lamesHorizontales } from './classement.js';
 import { completer, regulariser, structurer, type EvaluerZone } from './structure.js';
+import { avecEbrasements } from './detectionEbrasements.js';
 
 export type { TypeOuverture };
 export { classer };
@@ -350,7 +351,8 @@ function detecterBrutes(img: Image, pxParM: number, vu: Uint8Array | null, rg: V
   const retenus = candidats(R, b, G, rg);
   const disjoint = (t: Tache) => retenus.every(({ tache: u }) => t.x1 < u.x0 || u.x1 < t.x0 || t.y1 < u.y0 || u.y1 < t.y0);
   retenus.push(...candidats(R, carteCandidats(R, F, ombre, true), G, rg, true).filter((c) => disjoint(c.tache)));
-  const brutes = retenus.map((c) => mesurer(img, pxParM, vu, R, F, c, rg, G.franc));
+  // La baie de maconnerie va jusqu'au nu du mur : la face d'ebrasement visible d'un cote lui appartient (detectionEbrasements.ts).
+  const brutes = retenus.map((c) => avecEbrasements(mesurer(img, pxParM, vu, R, F, c, rg, G.franc), R, F, rg));
   return { ouvertures: finaliser(brutes, rg), R, F };
 }
 
