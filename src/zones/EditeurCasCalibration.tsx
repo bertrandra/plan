@@ -1,6 +1,6 @@
 // Admin › Calibrer la detection : un cas = une facade photographiee et annotee (facade/corpusReel.ts).
 //
-// On prend (ou choisit) une a quatre photos du meme mur, on place les quatre coins sur chacune, on donne la largeur et la
+// On prend (ou choisit) une a huit photos du meme mur, on place les quatre coins sur chacune, on donne la largeur et la
 // hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
@@ -16,7 +16,7 @@ import type { Image, P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
 
-export const PHOTOS_CAS_MAX = 4;
+export const PHOTOS_CAS_MAX = 8;
 const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'garage'];
 
 /** Ce que l'editeur demande au navigateur : reduire une photo, la decoder, montrer une elevation. */

@@ -158,6 +158,7 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Admin › Calibrer la détection : jusqu’à huit photos par façade** (quatre auparavant), comme l’audit de la parcelle et le serveur, qui les acceptaient déjà.
 - **Admin › Audits : « Rejouer l’analyse » demande une confirmation.** Le rejeu renvoie les photos de l’audit à Claude (un appel facturé qui s’ajoute aux analyses gardées) : le bouton ouvre d’abord, sur la carte, une question qui dit le modèle et le prompt (livré ou brouillon des règles), avec « Confirmer le rejeu » et « Annuler », comme pour le retrait d’un audit. Rien ne part avant la confirmation. « Relancer l’analyse des photos », qui est locale et gratuite, ne demande rien.
 
 - **Le code n’a plus aucune essence d’arbre.** Les 145 essences de `model/especesParDefaut.ts` (et les presets de base) sont retirées : sans fichier sur le serveur (`data/admin/arbres.json`), les arbres se dessinent en tronc et boule. La livraison pose le fichier dans `data/admin/` ; une installation qui a déjà un `data/` copie ce seul fichier. Un arbre dont l’essence n’est plus dans la bibliothèque suit la première (le chêne pédonculé). Le bouton « Reprendre les essences par défaut » disparaît de l’écran admin. Aucune quantité ni aucun export ne change ; les témoins se capturent sans bibliothèque.
