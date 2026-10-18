@@ -22,10 +22,12 @@ import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../../../facade/
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
+import { coinsAutoDeSerie, quadrilatereSain } from '../../../zones/releve/coinsAuto.js';
+import type { SourceCoin } from '../../../facade/calageFin.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../facade/geometrie.js';
-import type { Image } from '../../../facade/homographie.js';
+import type { Image, P2 } from '../../../facade/homographie.js';
 import type { Prise } from '../../../zones/releve/capteurs.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
@@ -170,8 +172,12 @@ interface PhotoPreparee {
   coins: BilanPhotoRedressement['coins'];
 }
 
-/** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon predits puis cherches sur les aretes. */
-async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, d: DependancesMesures, correction: CorrectionRedressement | undefined, predits: boolean): Promise<PhotoPreparee> {
+const SERIE_DANS_L_AUDIT = false;
+/** Les coins d'une photo lus sur l'assemblage de la serie, et si l'egout et le pied y ont ete lus. */
+interface CoinsSerie { coins: readonly P2[]; lu: boolean }
+
+/** Le morceau d'une photo : coins de la correction manuelle s'il y en a, sinon ceux de la serie, sinon predits puis cherches sur les aretes. */
+async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, d: DependancesMesures, correction: CorrectionRedressement | undefined, predits: boolean, serie: CoinsSerie | null = null): Promise<PhotoPreparee> {
   const prise = priseDeLaPhoto(photo, versImage(img), f);
   // Les coins predits tels quels : ramenes au bord du cadre (ce que fait l'ecran pour le doigt), ils ne seraient plus le mur, et
   // le redressement deformerait la photo au lieu de la redresser (un mur de 7 m photographie a 4 m deborde de l'image).
@@ -179,6 +185,9 @@ async function preparerPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Faca
   if (correction?.coins && correction.coins.length === 4) {
     return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
   }
+  // Les coins lus sur l'assemblage des photos redressees par leurs points de fuite (zones/releve/coinsAuto.ts) : trouves quand
+  // l'egout et le pied s'y sont lus, aux proportions du plan sinon.
+  if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), recherche: false } };
   if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };
   const entree = entreeRecherche(prise, f.largeur, f.hauteur, false, f.azimut);
   const r = entree ? await d.chercherCoins(entree).catch(() => null) : null;
@@ -221,13 +230,20 @@ function surLesVerticales(p: PhotoPreparee, f: Facade, bat: Pick<ObjetPolygone, 
 }
 
 /** Le redressement d'une photo seule : son analyse, sa verticalite, le repli sur les coins calcules, son statut. */
-async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures, correction: CorrectionRedressement | undefined) {
-  const analyser = async (predits: boolean) => {
-    const p = await preparerPhoto(rang, photo, img, f, d, correction, predits);
+async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, d: DependancesMesures, correction: CorrectionRedressement | undefined, serie: CoinsSerie | null = null) {
+  const analyser = async (predits: boolean, s: CoinsSerie | null = null) => {
+    const p = await preparerPhoto(rang, photo, img, f, d, correction, predits, s);
     const a = analyserSerie([p.morceau], f, f.hauteur, bat as ObjetPolygone);
     return a ? { p, a, vert: verticaliteDeg(a.r.texture) } : null;
   };
+  // Les coins trouves sur les aretes de la photo (le mur entier y est, au centimetre) d'abord ; sinon ceux de la serie, lus sur
+  // l'assemblage des photos ; sinon les coins predits.
   let essai = await analyser(false).catch(() => null);
+  const aretes = essai?.p.coins === 'trouve' && quadrilatereSain(essai.p.morceau.coins, essai.p.morceau.prise.photo.image);
+  if (serie && !correction?.coins && !aretes) {
+    const parSerie = await analyser(false, serie).catch(() => null);
+    if (parSerie) essai = parSerie;
+  }
   if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible' } satisfies BilanPhotoRedressement, essai: null };
   const manuelle = essai.p.coins === 'main';
   // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.
@@ -247,6 +263,19 @@ async function redresserPhoto(rang: number, photo: PhotoCas, img: Pixels, f: Fac
     ...(ok ? {} : { motif: 'verticales à ' + String(essai.vert).replace('.', ',') + '° (au-delà de ' + String(SEUIL_VERTICALES_DEG).replace('.', ',') + '°) : placez les quatre coins à la main' }),
   };
   return { bilan, essai };
+}
+
+/** Les coins de la serie, photo par photo (null : photo hors de l'assemblage) ; aucun quand la serie ne se redresse pas. */
+async function coinsDeLaSerie(photos: readonly PhotoCas[], images: (i: number) => Promise<Pixels | null>, f: Facade): Promise<(CoinsSerie | null)[]> {
+  try {
+    const imgs = await Promise.all(photos.map((_, i) => images(i)));
+    const lisibles = imgs.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
+    if (!lisibles.length) return [];
+    const sr = coinsAutoDeSerie(lisibles.map((i) => versImage(imgs[i] as Pixels)), f.largeur, f.hauteur);
+    const out: (CoinsSerie | null)[] = photos.map(() => null);
+    lisibles.forEach((i, k) => { const c = sr?.coins[k]; if (c) out[i] = { coins: c, lu: !!sr?.lu }; });
+    return out;
+  } catch { return []; }
 }
 
 /** Les motifs, en clair, de ce qui n'a pas ete fusionne. */
@@ -274,6 +303,9 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const largeurM = Object.keys(corrections).map(Number).sort((a, b) => a - b).map((k) => corrections[String(k)]?.echelleLargeurM).find((v) => typeof v === 'number' && v > 0);
   const fm: Facade = largeurM ? { ...f, largeur: largeurM } : f;
 
+  // 0. Les coins du mur lus ensemble sur toutes les photos : chacune redressee par ses points de fuite, l'assemblage, le mur aux
+  // proportions du plan (largeur du cadastre, hauteur du LiDAR). Rien ne se mesure sur place.
+  const series: (CoinsSerie | null)[] = SERIE_DANS_L_AUDIT ? await coinsDeLaSerie(photos, images, fm) : [];
   // 1. Le redressement de chaque photo, l'une apres l'autre (la premiere avec une prise de vue d'abord).
   const ordre = photos.map((_, i) => i).sort((a, b) => Number(!photos[a]?.prise) - Number(!photos[b]?.prise) || a - b);
   const faits: Awaited<ReturnType<typeof redresserPhoto>>[] = [];
@@ -282,7 +314,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     const photo = photos[i] as PhotoCas;
     const img = await images(i);
     if (!img) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'image illisible' }); continue; }
-    const r = await redresserPhoto(i, photo, img, fm, bat, d, corrections[String(i)]).catch(() => null);
+    const r = await redresserPhoto(i, photo, img, fm, bat, d, corrections[String(i)], series[i] ?? null).catch(() => null);
     if (!r) { bilans.push({ rang: i, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'redressement impossible' }); continue; }
     faits.push(r);
     bilans.push(r.bilan);

@@ -11,6 +11,9 @@ import { enregistrerCalibration, enregistrerCasCalibration, lireCalibration, lir
 import { chargerCalibrationServeur } from '../io/calibrationServeur.js';
 import { lireDocumentCalibration } from '../facade/corpusReel.js';
 import { canevasPour, chargerUrl, imageDuCanevas, versJpeg } from '../ui/releve/camera.js';
+import { creerClientAudits } from '../io/auditsServeur.js';
+import { lireFichierAuditParcelle } from '../model/fichierAuditParcelle.js';
+import { casDepuisFacade, facadesACalibrer } from './audit/parcelle/casDeCalibration.js';
 
 /** L'adresse demande-t-elle l'ecran de calibration ? */
 export function demandeEcranCalibration(recherche: string): boolean {
@@ -45,6 +48,7 @@ const message = (e: unknown) => (e as Error).message || String(e);
 
 export function ouvrirEcranCalibration(): void {
   const f = (entree: string, init?: RequestInit) => fetch(entree, init);
+  const audits = creerClientAudits(f, () => null);
   const deps: DepsCalibration = {
     lireCalibration: async () => lireDocumentCalibration(await lireCalibration(f)),
     enregistrerCalibration: async (d) => {
@@ -63,6 +67,17 @@ export function ouvrirEcranCalibration(): void {
     decoder,
     elevationEnUrl: (img) => versJpeg(img, 0.9),
     maintenant: () => new Date(),
+    // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
+    audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')
+      .map((a) => ({ id: a.id, libelle: [a.adresse ?? a.idu, (a.debut ?? a.recuLe).slice(0, 10), (a.photos ?? 0) + ' photos'].filter(Boolean).join(' · ') })),
+    facadesDAudit: async (id) => {
+      const fichier = lireFichierAuditParcelle(JSON.parse(await audits.lire(id)));
+      const idu = fichier.parcelle?.idu ?? null;
+      return facadesACalibrer(fichier).map((f) => ({
+        libelle: f.nom + ' · façade ' + f.orientation.toLowerCase() + ' · ' + String(f.largeurM).replace('.', ',') + ' × ' + String(f.hauteurM).replace('.', ',') + ' m' + (f.sourceHauteur === 'lidar' ? ' (LiDAR)' : '') + ' · ' + f.photos.length + ' photo' + (f.photos.length > 1 ? 's' : ''),
+        cas: casDepuisFacade(f, idu),
+      }));
+    },
   };
   let hote = document.getElementById('zoneEcranCalibration');
   if (!hote) {

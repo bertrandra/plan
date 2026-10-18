@@ -165,7 +165,8 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       publier();
       const bat = ctx.etat.objects.find((o) => o.key === x.b.cle);
       if (bat && 'pts' in bat && bat.pts) {
-        const m = await mesurerFacade(x.b.cle, x.f.facade, { pts: bat.pts }, x.photos, ctx.mesures, x.corrections);
+        // Le mur a la hauteur que lit le LiDAR (sous le toit, corps compris), pas celle du prisme : rien ne se mesure sur place.
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts }, x.photos, ctx.mesures, x.corrections);
         faites.set(x.cle, { signature: x.sig, mesure: m });
         version++;
       }

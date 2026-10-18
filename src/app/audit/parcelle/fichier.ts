@@ -68,7 +68,7 @@ export async function ecrireFichierAudit(e: EntreesEcriture): Promise<FichierAud
       : null;
     return {
       cle: b.cle, nom: b.nom, mitoyen: b.mitoyen, cas,
-      facades: b.facades.map((f) => ({ cote: f.cote, orientation: f.facade.orientation, largeurM: Math.round(f.facade.largeur * 100) / 100, hauteurM: Math.round(f.facade.hauteur * 100) / 100 })),
+      facades: b.facades.map((f) => ({ cote: f.cote, orientation: f.facade.orientation, largeurM: Math.round(f.facade.largeur * 100) / 100, hauteurM: Math.round(f.hauteurMur * 100) / 100 })),
     };
   }));
   return fichierAuditParcelle({
