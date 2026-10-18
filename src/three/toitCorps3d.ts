@@ -46,6 +46,16 @@ export function enFacade(r: ReturnType<typeof repere>, contour: readonly PtBrut[
   return segmentEnFacade(a, b, milieu, contour);
 }
 
+/**
+ * Un appentis ouvert (galerie, porche) : un seul pan, des poteaux dessous, pas de mur. Son corps n'a donc pas de prisme : ce qui se
+ * voit sous lui est le mur du corps qui le porte (scene.ts).
+ */
+export function estAppentisOuvert(c: CorpsToit): boolean {
+  if (c.ouvert !== true) return false;
+  const { W } = repere(c.pts);
+  return !estSpecial(c, W) && (c.posFaitage <= 0.01 || c.posFaitage >= W - 0.01) && c.faitage - Math.min(...c.egouts) >= 0.05;
+}
+
 /** La section d'un poteau d'appentis ouvert, son retrait du bord de l'egout et l'entraxe voulu entre deux poteaux. */
 const POTEAU_COTE_M = 0.14;
 const POTEAU_RETRAIT_M = 0.12;

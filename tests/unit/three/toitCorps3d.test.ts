@@ -7,7 +7,7 @@ import { pointInPolygon, signedArea } from '../../../src/geometry/basic.js';
 import { trianguler } from '../../../src/facade/toit.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
-import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M } from '../../../src/three/toitCorps3d.js';
+import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M, estAppentisOuvert } from '../../../src/three/toitCorps3d.js';
 import { segmentEnFacade } from '../../../src/geometry/facadeExterieure.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -289,5 +289,13 @@ describe('un appentis ouvert ou ferme', () => {
   it('un autre toit qu un appentis n est pas touche par l option', () => {
     const deuxPans: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 6, egouts: [3, 3], pignons: [], ecart: 0 };
     expect(facettesCorps({ ...deuxPans, ouvert: true }).murs).toEqual(facettesCorps(deuxPans).murs);
+  });
+
+  it('ouvert, il n a pas de prisme : sous lui, on voit le mur du corps qui le porte (scene.ts)', () => {
+    // AE 101 : la galerie ouverte restait une boite pleine du sol a son egout, devant le mur de la maison.
+    expect(estAppentisOuvert(galerie({ ouvert: true }))).toBe(true);
+    expect(estAppentisOuvert(galerie({ ouvert: false }))).toBe(false);
+    expect(estAppentisOuvert(galerie())).toBe(false);
+    expect(estAppentisOuvert({ pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 6, egouts: [3, 3], pignons: [], ecart: 0, ouvert: true })).toBe(false);
   });
 });

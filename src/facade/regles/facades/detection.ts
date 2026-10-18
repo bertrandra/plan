@@ -87,6 +87,31 @@ export const REGLAGES_DETECTION = {
     unite: 'm',
     pourquoi: "Hauteur de la bande horizontale du fond de rang : un soubassement, un bandeau, l'ombre du debord sont des bandes ; leur teinte devient le fond de leur rang.",
   },
+  'facades.detection.ebrasementContrasteMin': {
+    valeur: 0.06,
+    unite: 'rapport',
+    pourquoi: "Une face d'ebrasement ne regarde pas le meme ciel que le nu du mur : sa luminosite s'ecarte de celle du fond d'au moins cette part (plus claire ou plus sombre), sa teinte restant celle du mur.",
+  },
+  'facades.detection.ebrasementPartMin': {
+    valeur: 0.8,
+    unite: 'part',
+    pourquoi: "Une colonne (ou une ligne) le long d'une baie n'appartient a l'ebrasement que si cette part de ses pixels en a l'aspect : une face court sur toute la hauteur de la baie.",
+  },
+  'facades.detection.ebrasementUniformiteMax': {
+    valeur: 0.06,
+    unite: 'rapport',
+    pourquoi: "Une face d'ebrasement est lisse : l'ecart type de sa luminance reste sous cette part de la moyenne, la ou un parement de pierre ou de brique montre ses joints et son grain.",
+  },
+  'facades.detection.ebrasementMinM': {
+    valeur: 0.1,
+    unite: 'm',
+    pourquoi: "Sous cette largeur, la bande le long d'une baie est le dormant ou l'ombre d'un tableau, pas une face d'ebrasement.",
+  },
+  'facades.detection.ebrasementMaxM': {
+    valeur: 0.5,
+    unite: 'm',
+    pourquoi: "La face d'ebrasement visible ne passe pas l'epaisseur d'un mur de pierre (50 cm) vue de biais : au-dela, ce n'est plus elle.",
+  },
   'facades.detection.ombreChromaMax': {
     valeur: 0.025,
     unite: 'rapport',

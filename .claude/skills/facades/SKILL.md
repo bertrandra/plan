@@ -545,6 +545,58 @@ centimètre près ; seuls les faux « cintre » de `07` et `17` disparaissent.
   navigateur, l'œil-de-bœuf de `20` n'est pas toujours lu « rond » (mur de la maison de 10,14 m, coins
   au pixel près) : la forme ronde d'une petite baie reste fragile.
 
+### Après le lot « ébrasements » (baies en retrait)
+
+Mesuré le 18 octobre 2026 sur `claude/fuite-fenetres`, avec la scène `21-ebrasements-profonds-biais`
+ajoutée (pierre calcaire, baies en retrait de 40 cm, prise à 35° de biais, fenêtres du rez-de-chaussée à
+hauteur d'œil). Le générateur pose une baie en retrait (`rendu.ebrasement`) : la vitre au fond, les quatre
+faces entre le nu du mur et elle, rendues au lancer de rayons (leurs arêtes fuient vers la normale du mur).
+
+- **Points de fuite** : malgré les arêtes des ébrasements, le calage fin reste à 4/4, azimut à 0°. Un reflet
+  dans une vitre ne trompe pas non plus : un miroir plan garde les directions parallèles au mur, le reflet
+  d'une façade d'en face vise le même point de fuite. Rien à changer dans `pointsFuite.ts` tant que le banc
+  ne montre pas d'erreur.
+- **Détection** : la face d'ébrasement visible était retirée par le filtre d'ombre (même teinte, autre
+  luminosité) et la baie se réduisait à la vitre. `facade/detectionEbrasements.ts` étend la baie sur une bande
+  unie, de la teinte du mur, collée à **un seul** côté (deux côtés : des volets ou le mur). Seuls les côtés se
+  lisent : une ligne le long du linteau ne traverse qu'une assise, et un grand bloc de pierre uni y prenait
+  l'aspect d'une face (élévation de la scène 21). Scène 21, chaîne du relevé : cotes 11,5 → **4 cm**,
+  corrections 6 → **4**, 6/6 sans fausse ; les 21 autres scènes identiques, élévation et photo.
+- **Ce qui reste** : le dessous du linteau et le dessus de l'appui (vus quand l'objectif est loin au-dessous
+  ou au-dessus de la baie) ne s'ajoutent pas encore ; une colonne de transition entre la vitre et la face
+  (l'arête vive) est tolérée, pas deux.
+
+### Essai : la photo en haute définition pour redresser, fusionner et détecter
+
+Mesuré le 18 octobre 2026 sur `main` (6ca4cff), sans rien changer au dépôt : les 22 scènes rejouées avec des
+photos de synthèse à deux fois plus de pixels (`largeurPx` et `hauteurPx` des scènes doublés, `pxParM` du
+rendu à 200). Question posée : relever sur la photo HD gardée sur l'appareil, et ne stocker et envoyer à
+Claude que les copies réduites, est-il plus précis ?
+
+- **A** (en service) : photo de 1 280 px (`COTE_PHOTO_MAX_PX`), élévation à 1 024 px au plus.
+- **B** : photo de 2 560 px, élévation gardée à 1 024 px.
+- **C** : photo de 2 560 px, élévation à 2 048 px au plus et 200 px/m (`resolutionTexture`).
+
+| | A (1 280) | B (HD) | C (HD + élévation 2 048) |
+|---|---|---|---|
+| Photo seule : précision / rappel | 95 % / 91 % | 95 % / 92 % | 95 % / 92 % |
+| Chaîne du relevé : précision / rappel | 93 % / 90 % | 92 % / 90 % | 93 % / 90 % |
+| Corrections par façade | 2,0 | 2,1 | 1,9 |
+| Calage fin, écart médian | 0,6 cm | 0,4 cm | 0,4 cm |
+| Fusion de vues : corrections restantes | 0,3 | 0,3 | 0,8 |
+| Temps par scène (PC), médiane / pire | 1,5 s / 6 s | 3,8 s / 12 s | 4,7 s / 18 s |
+
+- **Pas de gain utile** : le calage gagne 2 mm sur un écart déjà sous le centimètre ; la détection travaille
+  sur des cartes réduites à 5 cm le pixel (`PX_PAR_M`) et ne voit pas les pixels de plus. Les écarts sont
+  de ±1 baie sur trois scènes, dans les deux sens (`03`, `12`, `16`).
+- **La fusion se dégrade** avec une élévation plus fine (C) : 0,8 correction restante au lieu de 0,3.
+- **Le coût** : temps × 2,5 à 3 sur un PC, mémoire de décodage × 4 ; sur un téléphone, c'est le relevé qui
+  ralentit.
+- **Décision** : on garde 1 280 px pour la photo, 1 024 px pour l'élévation et pour Claude. Le banc ne
+  mesure ni le JPEG, ni le bruit, ni les détails fins d'une vraie photo : si la lecture des détails
+  (petits bois, ouvrant) bute un jour sur la résolution, la piste est un recadrage HD de chaque baie
+  pour Claude, pas une chaîne entière en HD.
+
 ## 5. Ce que disent les chiffres de départ
 
 - **Coins proposés (L1)** : aucun coin à moins de 10 cm, même de face (`02`). `coinsProposes`

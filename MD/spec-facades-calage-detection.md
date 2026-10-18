@@ -177,6 +177,11 @@ l'égout pour le pignon, ciel repeint à la teinte du mur. Deux ajouts :
 - **Carte de qualité** par pixel de l'élévation : résolution source, angle d'incidence (de face, c'est
   mieux), surexposition. Elle sert à la fusion (§8).
 
+- **Pas de chaîne en haute définition** (essai du 18 octobre 2026, skill `facades` §4) : relever sur une
+  photo de 2 560 px, avec une élévation jusqu'à 2 048 px, ne gagne que 2 mm au calage fin, rien en
+  détection (cartes à 5 cm le pixel), dégrade la fusion et triple le temps. La photo reste à 1 280 px,
+  l'élévation et la copie pour Claude à 1 024 px.
+
 ## 8. Fusion de plusieurs vues
 
 Aujourd'hui, seule la mosaïque de gauche à droite existe. On ajoute les **vues de face et de biais
@@ -213,6 +218,14 @@ ainsi par ses arêtes, même quand sa couleur ne se détache pas.
 (`r/(r+g+b)`, `g/(r+g+b)`). Un candidat qui ne diffère du fond que par la luminance, et qui n'a pas
 d'arête verticale franche sur ses côtés, est une ombre. Il est écarté, ou rogné quand l'ombre colle au
 linteau.
+
+**C bis. Ébrasements** (18 octobre 2026, `facade/detectionEbrasements.ts`). Une baie en retrait d'un mur
+épais, vue de biais, montre d'un côté la face de son ébrasement : même teinte que le mur, autre luminosité,
+comme une ombre, mais **unie** (sans le grain ni les joints du parement) et **collée à un seul côté** de la
+vitre. Le filtre d'ombre la retirait, et la baie se réduisait à la vitre. Une bande de cet aspect sur toute
+la hauteur d'un côté, et pas de l'autre, appartient à la baie de maçonnerie : la boîte s'étend jusqu'au nu
+du mur (seuils `facades.detection.ebrasement*`). Les côtés seulement : en haut et en bas, une ligne ne
+traverse qu'une assise et un bloc de pierre uni y ressemble à une face.
 
 **Fusion des indices.** Un candidat est gardé s'il a un indice fort (A ou B net sur ses quatre côtés) ou
 deux indices faibles. Sa **confiance** combine :

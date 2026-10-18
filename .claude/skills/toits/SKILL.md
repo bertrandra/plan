@@ -195,6 +195,8 @@ skill `facades` §1 ter) : un profil de façades peut les changer pour le voisin
 Dessin des pans : débord de 35 cm à l'égout et rive de 20 cm aux bouts, **sur les façades
 seulement** (contre un autre corps, le toit s'arrête au mur). Un appentis déborde aussi au-delà de son
 mur haut. Pas de débord en reprise.
+Un appentis ouvert (`ouvert: true`) n'a pas de prisme (`estAppentisOuvert`, `scene.ts`) : des poteaux, et le mur
+du corps qui le porte derrière. Un appentis adossé par un fait s'arrête au mur du contour (`bornesSurLeMur`).
 
 ## 4 bis. La couleur des murs et des toits
 

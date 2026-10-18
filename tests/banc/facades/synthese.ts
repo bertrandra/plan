@@ -56,6 +56,12 @@ export interface RenduOuverture {
    * arc surbaisse de fleche 0,4 h), ou une baie ronde inscrite dans la boite. Hors du contour, le mur.
    */
   forme?: 'cintre' | 'rond';
+  /**
+   * La baie en retrait du nu du mur (un mur de pierre epais) : la menuiserie et la vitre a `profondeur` metres
+   * derriere le mur, et les quatre faces de l'ebrasement entre les deux, perpendiculaires au mur. Leurs aretes
+   * fuient vers le troisieme point de fuite (la normale du mur), pas vers celui du mur. Baie rectangulaire seule.
+   */
+  ebrasement?: { profondeur: number; couleur?: RGB };
 }
 
 /** Une ouverture vraie, dans le repere du mur : x depuis la gauche, y (appui) depuis le sol. */
@@ -750,7 +756,9 @@ export function photographier(s: SceneFacade, pxParM: number, prise: PriseCamera
         }
         const tm = -st.C[1] / D[1];
         if (tm > 0 && tm < t) {
-          const cm = lire(elev, HT, pxParM, st.C[0] + tm * D[0], st.C[2] + tm * D[2]);
+          const Xm = st.C[0] + tm * D[0], Zm = st.C[2] + tm * D[2];
+          const eb = ebrasementTouche(s.verite.ouvertures, Xm, Zm);
+          const cm = eb ? couleurEbrasement(eb, st.C, D, elev, HT, pxParM) : lire(elev, HT, pxParM, Xm, Zm);
           if (cm) {
             t = tm;
             c = cm;
@@ -773,6 +781,39 @@ export function photographier(s: SceneFacade, pxParM: number, prise: PriseCamera
   const image = { largeur: W, hauteur: H, donnees: d };
   if (p.flou) flouter(image, p.flou);
   return { image, focalePx: st.f };
+}
+
+/** L'ouverture a ebrasement dont la baie contient le point (X, Z) du nu du mur, s'il y en a une. */
+function ebrasementTouche(ouvertures: readonly OuvertureVraie[], X: number, Z: number): OuvertureVraie | null {
+  return ouvertures.find((o) => o.rendu?.ebrasement && !o.rendu.forme && X >= o.x && X < o.x + o.l && Z >= o.y && Z < o.y + o.h) ?? null;
+}
+
+/**
+ * Ce que voit un rayon entre dans la baie `o` par le nu du mur : la menuiserie et la vitre s'il atteint le fond
+ * (`profondeur` derriere le mur, peints comme sur l'elevation), sinon la face de l'ebrasement qu'il touche d'abord,
+ * eclairee selon son orientation (le dessous du linteau le plus sombre, l'appui le plus clair).
+ */
+function couleurEbrasement(o: OuvertureVraie, C: V3, D: V3, elev: ReturnType<typeof peindreElevation>, HT: number, pxParM: number): RGB | null {
+  const e = o.rendu?.ebrasement as NonNullable<RenduOuverture['ebrasement']>;
+  const t0 = -C[1] / D[1], t1 = (e.profondeur - C[1]) / D[1];
+  const Xf = C[0] + t1 * D[0], Zf = C[2] + t1 * D[2];
+  if (Xf >= o.x && Xf < o.x + o.l && Zf >= o.y && Zf < o.y + o.h) return lire(elev, HT, pxParM, Math.min(o.x + o.l - 1e-6, Math.max(o.x, Xf)), Math.min(o.y + o.h - 1e-6, Math.max(o.y, Zf)));
+  const base = e.couleur ?? [206, 199, 187];
+  const faces: [number, number][] = [];
+  // Le rayon sort de la boite de la baie par la premiere face qu'il franchit entre le nu du mur et le fond.
+  const essai = (t: number, eclairage: number, dedans: (X: number, Z: number) => boolean) => {
+    if (t > t0 && t < t1 && dedans(C[0] + t * D[0], C[2] + t * D[2])) faces.push([t, eclairage]);
+  };
+  if (Math.abs(D[0]) > 1e-12) {
+    essai((o.x - C[0]) / D[0], 0.82, (_, Z) => Z >= o.y && Z <= o.y + o.h);
+    essai((o.x + o.l - C[0]) / D[0], 0.68, (_, Z) => Z >= o.y && Z <= o.y + o.h);
+  }
+  if (Math.abs(D[2]) > 1e-12) {
+    essai((o.y - C[2]) / D[2], 0.95, (X) => X >= o.x && X <= o.x + o.l);
+    essai((o.y + o.h - C[2]) / D[2], 0.5, (X) => X >= o.x && X <= o.x + o.l);
+  }
+  const f = faces.sort((a, b) => a[0] - b[0])[0];
+  return f ? assombrir(base, f[1]) : base;
 }
 
 /**
