@@ -26,18 +26,25 @@ function image() {
   return { data, largeur: L, hauteur: H };
 }
 
-const prise: PrisePhoto = { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, lon: null, precisionM: 4, azimutDeg: 0, sourceAzimut: 'boussole', inclinaisonDeg: 5, roulisDeg: 0, champDeg: 67 };
+const prise: PrisePhoto = { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, lon: null, precisionM: 3, azimutDeg: 0, sourceAzimut: 'boussole', inclinaisonDeg: 5, roulisDeg: 0, champDeg: 67 };
 const PHOTO: PhotoCas = { type: 'image/jpeg', base64: 'AAAA', prise };
 
 describe('la prise du releve d apres la photo de l audit', () => {
-  it('tire la distance au mur de la position, le cap de la boussole, l attitude du telephone', () => {
+  it('tire la distance au mur de la position et le cap de la boussole, sans l attitude du telephone', () => {
     const f = sud();
     expect(distanceAuMur(f, { x: 10, y: 2 })).toBeCloseTo(8, 6);
     const p = priseDeLaPhoto(PHOTO, { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(4) }, f);
     expect(p.mesure).toEqual({ distance: 8, source: 'gps' });
     expect(p.cap).toBe(0);
-    expect(p.attitude).toEqual({ inclinaisonDeg: 5, roulisDeg: 0 });
+    // L'attitude est lue au retour de l'appareil photo, pas au declenchement : elle se lit sur la photo.
+    expect(p.attitude).toBeNull();
     expect(p.champ).toBe(67);
+  });
+
+  it('ne garde pas une distance plus courte que deux fois la precision du GPS (AE 101 : 2,7 m a 5 m pres)', () => {
+    const img = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(4) };
+    expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, precisionM: 5 } }, img, sud()).mesure).toBeNull();
+    expect(priseDeLaPhoto({ ...PHOTO, prise: { ...prise, precisionM: null } }, img, sud()).mesure).toBeNull();
   });
 
   it('ne reprend pas le cap du sens de la marche', () => {

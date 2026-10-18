@@ -254,7 +254,7 @@ export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: nu
  * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage.ts) : un tangage
  * de 6 degres a 12 m decalait les coins centres de 1,3 m.
  */
-export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): P2[] {
+export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null, borner = true): P2[] {
   const w = p.photo.image.largeur,
     h = p.photo.image.hauteur;
   const f = focaleDePrise(p);
@@ -272,7 +272,8 @@ export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: numbe
     au(c, 1).x = au(c, 2).x = b * w;
   }
   // A courte distance, le mur deborde de l'image : les coins projetes tombent loin hors cadre.
-  // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>).
+  // On les ramene dans la marge ou le doigt peut les saisir (celle de <Coins>) ; un calcul sans ecran (`borner` faux) les garde.
+  if (!borner) return c;
   const m = Math.max(w, h) * 0.2;
   return c.map((q) => ({ x: Math.max(-m, Math.min(w + m, q.x)), y: Math.max(-m, Math.min(h + m, q.y)) }));
 }
