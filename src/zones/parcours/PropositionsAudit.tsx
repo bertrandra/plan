@@ -110,10 +110,10 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
 }
 
 /** Une ligne : la case, l'objet, l'avant et l'apres, l'origine, et ce qui la fait arriver decochee. */
-function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition } }) {
+function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition }; choisie: boolean; choisir: () => void }) {
   const id = 'proposition-' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_');
   return (
-    <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '')}>
+    <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '') + (choisie ? ' choisie' : '')}>
       <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
       <div className="corpsProposition">
       <label htmlFor={id} className="texteProposition">
@@ -126,6 +126,11 @@ function LigneProposition({ p, cochee, basculer, lecture }: { p: Proposition; co
       </label>
       {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} />)}
       </div>
+      {/* Voir dans la 3D : ce que la ligne vise est surligne dans les deux vues, et « Après » la montre meme decochee. */}
+      <button type="button" className="secondary small voirProposition" data-controle="auditParcelle.voirLigne" aria-pressed={choisie}
+        aria-label={(choisie ? 'Ne plus surligner : ' : 'Voir dans la 3D : ') + p.objet} title={choisie ? 'Ne plus surligner' : 'Voir dans la 3D'} onClick={choisir}>
+        <Icone nom="oeil" taille={16} />
+      </button>
     </li>
   );
 }
@@ -257,10 +262,11 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {APERCUS.map(({ a, libelle }) => <button key={a} type="button" className={apercu === a ? 'actif' : ''} data-controle="auditParcelle.avantApres" aria-pressed={apercu === a} onClick={() => v.montrer(a)}>{libelle}</button>)}
       </div>
       <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
-        {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées.</p>}
+        {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées{v.selection() ? ', et la ligne surlignée' : ''}.</p>}
         {!lecture && <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />}
         {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
-          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
+          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
+            choisir={() => v.selectionner(v.selection() === p.id ? null : p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
         </ul>}
         <SourcesDesBatiments v={v} />
         <ObservationsClaude batiments={observations} session={session} lecture={lecture} />
