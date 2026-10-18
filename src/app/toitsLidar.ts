@@ -222,6 +222,9 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Les formes du catalogue a la lecture (facade/regles/toits/catalogue.ts) : un Mansart, un coyau, une demi-croupe, un toit de
   // revolution que la mesure porte nettement mieux que les pentes droites remplace le corps principal ; tous les toits sont relus.
   { version: 4, reglages: 'b472cd75', faits: '43162115', formes: '83c56e39' },
+  // Un appentis adosse s'arrete ou s'arrete le mur du contour (ECART_FACADE_APPENTIS_M) : la galerie d'AE 101 ne passe plus le
+  // coin sud-ouest de la maison.
+  { version: 5, reglages: '1e1e5338', faits: '43162115', formes: '83c56e39' },
 ];
 
 /**
