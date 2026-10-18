@@ -192,12 +192,28 @@ const PART_LIGNE_MIN = 0.3;
 /** Un mur fait au moins cette part de sa largeur vue en hauteur. */
 const HAUTEUR_MUR_MIN_PART = 0.2;
 
+/** Le rectangle du mur lu sur la mosaique, et ce qui a ete lu (egout, pied, cotes) ou suppose. */
+export interface MurLu extends Rect { egout: boolean; pied: boolean; cotes: boolean }
+
+/** Un cote du mur (une chaine d'angle, l'arete d'un pignon) se cherche a cette part de sa largeur supposee de part et d'autre. */
+const PORTEE_COTE = 0.15;
+/** Une arete de cote couvre au moins cette part de la hauteur du mur. */
+const PART_COTE_MIN = 0.5;
+/** Une verticale de la mosaique ne penche pas de plus que cela. */
+const VERTICALE_MAX_DEG = 2;
+
+type SegmentPlan = { x1: number; y1: number; x2: number; y2: number; longueur: number };
+
 /**
  * Le rectangle du mur sur la mosaique, vue de face : en largeur, la partie vue a mi-hauteur ; en hauteur, de l'egout (la plus haute
  * longue horizontale de la moitie haute, une gouttiere, le bas d'un debord) au pied (la plus basse longue horizontale de la moitie
  * basse : le sol, le haut d'un soubassement). `segments` : ceux de la mosaique. Sans ces lignes, la partie vue.
+ *
+ * `rapport` : la hauteur du mur sur sa largeur, quand le plan les donne (largeur du cadastre, hauteur du LiDAR). La largeur se deduit
+ * alors de la hauteur lue (ou la hauteur de la largeur vue, sans pied), et les cotes se calent sur les plus longues verticales qui
+ * tombent pres d'eux (les chaines d'angle de la maison). On ne mesure rien sur place.
  */
-export function rectangleDuMur(m: { image: Image; vu: Uint8Array }, segments: readonly { x1: number; y1: number; x2: number; y2: number; longueur: number }[]): Rect {
+export function rectangleDuMur(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], rapport: number | null = null): MurLu {
   const { largeur: L, hauteur: H } = m.image;
   // La largeur vue : les colonnes vues sur la bande du milieu.
   const vueA = (y: number) => { let a = -1, b = -1; for (let x = 0; x < L; x++) if (m.vu[y * L + x]) { if (a < 0) a = x; b = x; } return [a, b] as const; };
@@ -215,10 +231,93 @@ export function rectangleDuMur(m: { image: Image; vu: Uint8Array }, segments: re
   const limiteHaute = haut + 0.6 * (bas - haut);
   const egout = lignes.filter((g) => g.y > haut && g.y < limiteHaute).sort((a, b) => b.l - a.l)[0]?.y;
   // Le pied : la plus basse longue horizontale, a une hauteur de mur plausible sous l'egout (un mur fait au moins le cinquieme de
-  // sa largeur vue : une bande entre la gouttiere et un store n'en est pas un).
-  const plancher = (egout ?? haut) + HAUTEUR_MUR_MIN_PART * largeurVue;
+  // sa largeur vue : une bande entre la gouttiere et un store n'en est pas un ; avec le rapport du plan, la moitie de la hauteur attendue).
+  const plancher = (egout ?? haut) + (rapport ? 0.5 * rapport * largeurVue : HAUTEUR_MUR_MIN_PART * largeurVue);
   const pied = lignes.filter((g) => g.y > plancher && g.y < bas).sort((a, b) => b.y - a.y)[0]?.y;
-  return { x0, x1, y0: egout ?? haut, y1: pied ?? bas };
+  const lu = { x0, x1, y0: egout ?? haut, y1: pied ?? bas, egout: egout !== undefined, pied: pied !== undefined, cotes: false };
+  if (!rapport || !(rapport > 0)) return lu;
+  // Les proportions du plan : sans pied, il tombe sous l'egout a la hauteur que donne la largeur vue.
+  if (egout !== undefined && pied === undefined) lu.y1 = Math.min(bas, egout + rapport * largeurVue);
+  const h = lu.y1 - lu.y0, w = h / rapport;
+  if (!(w > 0)) return lu;
+  // Les cotes, a la largeur que donnent les proportions : sur les plus longues verticales pres de la place supposee, sinon centres.
+  const verticales = segments.filter((g) => Math.atan2(Math.abs(g.x2 - g.x1), Math.abs(g.y2 - g.y1)) < (VERTICALE_MAX_DEG * Math.PI) / 180 && g.longueur >= PART_COTE_MIN * h
+    && Math.min(g.y1, g.y2) < lu.y1 && Math.max(g.y1, g.y2) > lu.y0);
+  const pres = (x: number) => verticales.filter((g) => Math.abs((g.x1 + g.x2) / 2 - x) < PORTEE_COTE * w).sort((a, b) => b.longueur - a.longueur)[0];
+  const xc = (x0 + x1) / 2;
+  const gauche = pres(xc - w / 2), droite = pres(xc + w / 2);
+  if (gauche && droite) { lu.x0 = (gauche.x1 + gauche.x2) / 2; lu.x1 = (droite.x1 + droite.x2) / 2; lu.cotes = true; }
+  else if (gauche) { lu.x0 = (gauche.x1 + gauche.x2) / 2; lu.x1 = lu.x0 + w; }
+  else if (droite) { lu.x1 = (droite.x1 + droite.x2) / 2; lu.x0 = lu.x1 - w; }
+  else { lu.x0 = xc - w / 2; lu.x1 = xc + w / 2; }
+  return lu;
+}
+
+/** Les proportions du rectangle cherche peuvent s'ecarter de celles du plan de cette part (pignon, egout mal lu, focale supposee). */
+const ECART_RAPPORT = 0.3;
+/** Le mur couvre au moins cette part de la largeur de la mosaique. */
+const LARGEUR_MUR_MIN = 0.25;
+/** Le poids de la taille dans la note d'un rectangle (sa largeur en part de la mosaique). */
+const POIDS_TAILLE = 1.5;
+/** Les droites candidates : les plus longues, au plus tant de chaque sens. */
+const DROITES_MAX = 30;
+/** Deux segments a moins de cette part du grand cote l'un de l'autre font une seule droite. */
+const FUSION_DROITES = 0.006;
+
+interface Droite { p: number; troncons: [number, number][] }
+
+/** Les droites horizontales (p = y) ou verticales (p = x) de la mosaique : segments presque alignes regroupes, avec leurs troncons. */
+function droites(segments: readonly SegmentPlan[], vertical: boolean, grand: number): Droite[] {
+  const sel = segments.filter((g) => vertical
+    ? Math.atan2(Math.abs(g.x2 - g.x1), Math.abs(g.y2 - g.y1)) < (VERTICALE_MAX_DEG * Math.PI) / 180
+    : Math.atan2(Math.abs(g.y2 - g.y1), Math.abs(g.x2 - g.x1)) < (HORIZONTALE_MAX_DEG * Math.PI) / 180);
+  const out: Droite[] = [];
+  for (const g of [...sel].sort((a, b) => b.longueur - a.longueur)) {
+    const p = vertical ? (g.x1 + g.x2) / 2 : (g.y1 + g.y2) / 2;
+    const t: [number, number] = vertical ? [Math.min(g.y1, g.y2), Math.max(g.y1, g.y2)] : [Math.min(g.x1, g.x2), Math.max(g.x1, g.x2)];
+    const d = out.find((x) => Math.abs(x.p - p) < FUSION_DROITES * grand);
+    if (d) d.troncons.push(t); else out.push({ p, troncons: [t] });
+  }
+  const longueur = (d: Droite) => d.troncons.reduce((s, [a, b]) => s + b - a, 0);
+  return out.sort((a, b) => longueur(b) - longueur(a)).slice(0, DROITES_MAX);
+}
+
+/** La part de [a, b] que couvrent les troncons d'une droite (troncons qui se recouvrent comptes une fois, a 1 % pres). */
+function couverture(d: Droite, a: number, b: number): number {
+  if (!(b > a)) return 0;
+  const n = 100, pas = (b - a) / n;
+  let k = 0;
+  for (let i = 0; i < n; i++) { const t = a + (i + 0.5) * pas; if (d.troncons.some(([u, v]) => t >= u && t <= v)) k++; }
+  return k / n;
+}
+
+/**
+ * Le rectangle du mur cherche sur ses aretes, aux proportions du plan (`rapport` = hauteur / largeur, a ECART_RAPPORT pres) : deux
+ * verticales (les angles de la maison) et deux horizontales (l'egout, le pied) qui couvrent le mieux ses quatre cotes. Les cotes
+ * comptent plus que l'egout (un pignon n'a pas de ligne a l'egout) et que le pied (le sol, une haie). Null sans candidat.
+ */
+export function rectangleSurLesAretes(m: { image: Image }, segments: readonly SegmentPlan[], rapport: number): (Rect & { score: number }) | null {
+  const { largeur: L, hauteur: H } = m.image;
+  const grand = Math.max(L, H);
+  const vs = droites(segments, true, grand), hs = droites(segments, false, grand);
+  let meilleur: (Rect & { score: number }) | null = null;
+  for (let i = 0; i < vs.length; i++) for (let j = 0; j < vs.length; j++) {
+    const g = vs[i] as Droite, d = vs[j] as Droite;
+    const w = d.p - g.p;
+    // Une photo de facade montre le mur sur au moins le quart de sa largeur : en deca, c'est une fenetre, un colombage.
+    if (!(w > LARGEUR_MUR_MIN * L)) continue;
+    for (let k = 0; k < hs.length; k++) for (let l = 0; l < hs.length; l++) {
+      const h0 = hs[k] as Droite, h1 = hs[l] as Droite;
+      const h = h1.p - h0.p;
+      if (!(h > 0) || Math.abs(h / w / rapport - 1) > ECART_RAPPORT) continue;
+      const cotes = couverture(g, h0.p, h1.p) + couverture(d, h0.p, h1.p);
+      if (cotes < 0.6) continue;
+      // Le plus grand rectangle bien soutenu : les baies et les colombages dessinent aussi des rectangles nets, plus petits.
+      const score = cotes + 0.6 * couverture(h0, g.p, d.p) + 0.4 * couverture(h1, g.p, d.p) + POIDS_TAILLE * (w / L);
+      if (!meilleur || score > meilleur.score) meilleur = { x0: g.p, x1: d.p, y0: h0.p, y1: h1.p, score };
+    }
+  }
+  return meilleur;
 }
 
 /**

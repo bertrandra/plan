@@ -6,7 +6,7 @@
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Coins } from './releve/Coins.js';
 import { pointSvg } from './releve/commun.js';
 import { LIBELLES_OUVERTURE } from './releve/commun.js';
@@ -39,13 +39,14 @@ const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés
  * assemblees, le mur lu sur l'assemblage puis reporte dans chacune. Les coins poses a la main ou trouves ne sont pas repris. La hauteur suit
  * les proportions du mur lu, a la largeur donnee. `message` : les photos restees a part, a reprendre au doigt.
  */
-function coinsDeSerie(depart: CasStocke, images: readonly Image[], origines: Readonly<Record<number, OrigineCoins>>): { cas: CasStocke; origines: Record<number, OrigineCoins>; message: string | null } {
-  const sr = coinsAutoDeSerie(images, depart.largeurM);
+function coinsDeSerie(depart: CasStocke, images: readonly Image[], origines: Readonly<Record<number, OrigineCoins>>, dimsDuPlan = false): { cas: CasStocke; origines: Record<number, OrigineCoins>; message: string | null } {
+  // Des dimensions du plan (cadastre, LiDAR) fixent les proportions du mur cherche, et ne sont pas remplacees par celles lues.
+  const sr = coinsAutoDeSerie(images, depart.largeurM, dimsDuPlan ? depart.hauteurM : null);
   if (!sr) return { cas: depart, origines: {}, message: 'Aucune photo ne se redresse seule : placez les coins à la main.' };
   // Les coins poses a la main, et ceux trouves sur les aretes d'une photo qui montre le mur entier (au centimetre), restent.
   const garder = (k: number) => origines[k] === 'main' || origines[k] === 'trouves';
   const lus = sr.coins.map((c, k) => (c && !garder(k) ? c : null));
-  const cas: CasStocke = { ...depart, ...(sr.hauteurM ? { hauteurM: sr.hauteurM } : {}), photos: depart.photos.map((p, k) => (lus[k] ? { ...p, coins: lus[k] as P2[] } : p)) };
+  const cas: CasStocke = { ...depart, ...(sr.hauteurM && !dimsDuPlan ? { hauteurM: sr.hauteurM } : {}), photos: depart.photos.map((p, k) => (lus[k] ? { ...p, coins: lus[k] as P2[] } : p)) };
   const aPart = sr.aPart.filter((a) => !garder(a.vue));
   return {
     cas,
@@ -111,9 +112,14 @@ interface Props {
   enregistrer: (cas: CasStocke) => Promise<string | null>;
   supprimer: (() => Promise<string | null>) | null;
   fermer: () => void;
+  /**
+   * Le cas vient d'un audit : ses dimensions sont celles du plan (cadastre, LiDAR) et restent ; les coins se cherchent des
+   * l'ouverture, aux proportions du plan.
+   */
+  chercherCoins?: boolean;
 }
 
-export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer }: Props) {
+export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false }: Props) {
   const [cas, setCas] = useState<CasStocke>(depart);
   const [courante, setCourante] = useState(0);
   const [elevation, setElevation] = useState<Elevation | null>(null);
@@ -158,7 +164,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
 
   const coinsDeLaSerie = async (depart: CasStocke): Promise<CasStocke> => {
     await new Promise((ok) => setTimeout(ok, 30));
-    const r = coinsDeSerie(depart, await Promise.all(depart.images.map((u) => outils.decoder(u))), origines);
+    const r = coinsDeSerie(depart, await Promise.all(depart.images.map((u) => outils.decoder(u))), origines, chercherCoins);
     setOrigines((o) => ({ ...o, ...r.origines }));
     setCas(r.cas);
     setMessage(r.message);
@@ -168,6 +174,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOccupe(true); setMessage(null); setAvis(null);
     try { await redresser(await coinsDeLaSerie(cas)); } catch (e) { setMessage('Coins introuvables : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
   };
+  // Un cas tire d'un audit cherche ses coins des l'ouverture : il n'y a rien a placer avant.
+  useEffect(() => { if (chercherCoins) void recalculerCoins(); }, []);
   const redresser = async (depart: CasStocke = cas) => {
     setOccupe(true); setMessage(null); setAvis(null);
     try {

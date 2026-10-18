@@ -24,6 +24,36 @@ export interface DepsCalibration extends OutilsPhotos {
   enregistrerCas: (id: string, cas: CasStocke) => Promise<string | null>;
   supprimerCas: (id: string) => Promise<string | null>;
   maintenant: () => Date;
+  /** Les audits de parcelle recus, pour en tirer des cas (facultatif : sans eux, le bouton n'est pas propose). */
+  audits?: () => Promise<{ id: string; libelle: string }[]>;
+  /** Les facades photographiees d'un audit, chacune deja en cas : photos, largeur du cadastre, hauteur du LiDAR. */
+  facadesDAudit?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
+}
+
+/**
+ * Creer un cas depuis une facade d'un audit de parcelle : ses photos, et les dimensions du mur que donne le plan (largeur du
+ * cadastre, hauteur du LiDAR), sans rien mesurer sur place.
+ */
+function DepuisUnAudit({ deps, choisir }: { deps: DepsCalibration; choisir: (cas: CasStocke) => void }) {
+  const [audits, setAudits] = useState<{ id: string; libelle: string }[] | null>(null);
+  const [facades, setFacades] = useState<{ libelle: string; cas: CasStocke }[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  if (!deps.audits || !deps.facadesDAudit) return null;
+  const lister = async () => { try { setAudits(await (deps.audits as NonNullable<DepsCalibration['audits']>)()); setFacades(null); setMessage(null); } catch (e) { setMessage('Audits illisibles : ' + ((e as Error).message || String(e))); } };
+  const lire = async (id: string) => { try { setFacades(await (deps.facadesDAudit as NonNullable<DepsCalibration['facadesDAudit']>)(id)); setMessage(null); } catch (e) { setMessage('Audit illisible : ' + ((e as Error).message || String(e))); } };
+  return (
+    <div className="calDepuisAudit">
+      <button type="button" className="secondary" data-controle="calibration.depuisAudit" onClick={() => { void lister(); }}>Créer un cas depuis un audit</button>
+      {message && <p className="arbMessage" role="alert">{message}</p>}
+      {audits && !facades && (audits.length
+        ? <ul className="calListe" aria-label="Audits reçus">{audits.map((a) => <li key={a.id}><button type="button" className="secondary small" data-controle="calibration.choisirAudit" onClick={() => { void lire(a.id); }}>{a.libelle}</button></li>)}</ul>
+        : <p className="calNote">Aucun audit de parcelle reçu.</p>)}
+      {facades && (facades.length
+        ? <><p className="calNote">Largeur du mur d’après le cadastre, hauteur d’après le LiDAR : rien à mesurer.</p>
+          <ul className="calListe" aria-label="Façades photographiées">{facades.map((f, k) => <li key={k}><button type="button" className="secondary small" data-controle="calibration.choisirFacade" onClick={() => choisir(f.cas)}>{f.libelle}</button></li>)}</ul></>
+        : <p className="calNote">Cet audit n’a pas de façade photographiée.</p>)}
+    </div>
+  );
 }
 
 /** Les reglages proposes par defaut a la calibration : ceux qui decident le plus de ce qu'est une ouverture. */
@@ -137,7 +167,7 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
 export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibration; retour?: string }) {
   const [doc, setDoc] = useState<DocumentCalibration>({ format: FORMAT_CALIBRATION, version: 1, modifieLe: '', parametres: {}, historique: [] });
   const [resumes, setResumes] = useState<ResumeCasCalibration[]>([]);
-  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke } | null>(null);
+  const [edition, setEdition] = useState<{ id: string | null; cas: CasStocke; chercher?: boolean } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const rafraichir = async () => {
@@ -182,7 +212,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
       {message && <p className="arbMessage" role="alert">{message}</p>}
 
       {edition
-        ? <EditeurCasCalibration key={edition.id ?? 'nouveau'} cas={edition.cas} id={edition.id} outils={deps}
+        ? <EditeurCasCalibration key={edition.id ?? 'nouveau'} cas={edition.cas} id={edition.id} outils={deps} chercherCoins={!!edition.chercher}
           enregistrer={async (cas) => {
             const id = edition.id ?? 'cas-' + deps.maintenant().getTime().toString(36);
             const e = await deps.enregistrerCas(id, cas);
@@ -194,6 +224,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
         : <section className="calCas" aria-label="Cas de calibration">
           <h2 className="calTitre2">Cas de calibration</h2>
           <div className="calLigne"><button type="button" data-controle="calibration.nouveauCas" onClick={nouveau}>Nouveau cas (photos)</button></div>
+          <DepuisUnAudit deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: true })} />
           {resumes.length === 0
             ? <p className="calNote">Aucun cas. Prenez des photos de façades variées : brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton. Une vingtaine de cas validés donnent des réglages fiables.</p>
             : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="visuallyHidden">Ouvrir</span></th></tr></thead>
