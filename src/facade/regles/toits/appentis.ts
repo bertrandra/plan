@@ -34,8 +34,6 @@ export const EGOUT_APPENTIS_MIN_M = R.EGOUT_APPENTIS_MIN_M;
 export const SOUS_EGOUT_APPENTIS_M = R.SOUS_EGOUT_APPENTIS_M;
 /** Il faut tant de cellules sur le pan pour en lire la pente. */
 export const MESURES_APPENTIS_MIN = R.MESURES_APPENTIS_MIN;
-/** Les sommets du contour a moins de cela de la facade en donnent les bouts : l'appentis s'arrete ou s'arrete le mur. */
-export const ECART_FACADE_APPENTIS_M = R.ECART_FACADE_APPENTIS_M;
 
 const cm = (v: number) => Math.round(v * 100) / 100;
 const dixieme = (v: number) => Math.round(v * 10) / 10;
@@ -137,33 +135,11 @@ export function cotesAppentis(f: FacadeDeCorps, grille: Grille | null, fait: App
   return { profondeurM: D, egoutM: egout, hautM: haut, ecart: cm(ecart) };
 }
 
-/**
- * La part du cote `a -> b` que le mur du contour occupe vraiment : de la projection du premier sommet du contour a moins de
- * ECART_FACADE_APPENTIS_M de la facade a celle du dernier, bornee au cote. Le cote d'un corps lisse les decroches (les
- * rectangles du contour) et peut passer le coin reel de la maison ; un appentis qui le suivrait deborderait dans le vide
- * (AE 101 : la galerie sud passait de 85 cm le coin sud-ouest, en retrait de 1,1 m). Sans deux sommets sur la facade, le cote entier.
- */
-export function bornesSurLeMur(f: FacadeDeCorps, contour: readonly PtBrut[], ecartM = S.ECART_FACADE_APPENTIS_M): [number, number] {
-  const u = { x: (f.b.x - f.a.x) / f.L, y: (f.b.y - f.a.y) / f.L };
-  const s = contour.flatMap((p) => {
-    const dx = p.x - f.a.x, dy = p.y - f.a.y;
-    return Math.abs(dx * f.n.x + dy * f.n.y) <= ecartM ? [Math.min(f.L, Math.max(0, dx * u.x + dy * u.y))] : [];
-  });
-  if (s.length < 2) return [0, f.L];
-  const s0 = Math.min(...s), s1 = Math.max(...s);
-  return s1 - s0 >= 1 ? [s0, s1] : [0, f.L];
-}
-
-/**
- * Le corps de l'appentis : `pts[0] -> pts[1]` sur le mur (faitage et rive de tete), `pts[3]` vers l'exterieur. `bornes` : la
- * part du cote ou il s'adosse (`bornesSurLeMur`), le cote entier sans elles.
- */
-export function corpsAppentis(f: FacadeDeCorps, c: CotesAppentis, bornes: readonly [number, number] = [0, f.L]): CorpsToit {
+/** Le corps de l'appentis : `pts[0] -> pts[1]` sur le mur (faitage et rive de tete), `pts[3]` vers l'exterieur. */
+export function corpsAppentis(f: FacadeDeCorps, c: CotesAppentis): CorpsToit {
   const D = c.profondeurM;
-  const u = { x: (f.b.x - f.a.x) / f.L, y: (f.b.y - f.a.y) / f.L };
-  const a = { x: f.a.x + u.x * bornes[0], y: f.a.y + u.y * bornes[0] }, b = { x: f.a.x + u.x * bornes[1], y: f.a.y + u.y * bornes[1] };
   const P = (p: PtBrut, d: number): PtBrut => ({ x: cm(p.x + f.n.x * d), y: cm(p.y + f.n.y * d) });
-  return { pts: [P(a, 0), P(b, 0), P(b, D), P(a, D)], posFaitage: 0, faitage: c.hautM, egouts: [c.hautM, c.egoutM], pignons: [], ecart: c.ecart };
+  return { pts: [P(f.a, 0), P(f.b, 0), P(f.b, D), P(f.a, D)], posFaitage: 0, faitage: c.hautM, egouts: [c.hautM, c.egoutM], pignons: [], ecart: c.ecart };
 }
 
 /**
@@ -192,7 +168,7 @@ export function avecAppentis(appentis: readonly AppentisFait[] | undefined, corp
   for (const ap of appentis) {
     const f = facadeDesignee(corps, contour, ap.facade.azimutDeg, ap.facade.toleranceDeg);
     const cotes = f ? cotesAppentis(f, grille, ap) : null;
-    if (f && cotes) out.push(corpsAppentis(f, cotes, bornesSurLeMur(f, contour)));
+    if (f && cotes) out.push(corpsAppentis(f, cotes));
   }
   return out;
 }
