@@ -9,6 +9,7 @@
 // pour ecrire dans l'une en croyant lire l'autre.
 
 import { fusionnerAnneaux, chainerSegments, type LimiteBrute } from '../geometry/rings.js';
+import { idusCadastraux } from '../model/cadastre.js';
 import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
@@ -377,7 +378,7 @@ export const SANS_NOM_VOISINAGE = { locked: true, voisinage: true, showName: fal
 function voisinageEtendu(x: ContexteImport, deja: ObjetPlan[]): ObjetPlan[] {
   const v = x.importe.voisinageEtendu;
   if(!v) return [];
-  const iduPris = new Set(deja.flatMap(o=>{ const idu = o.cadastre?.idu; return typeof idu === 'string' ? [idu] : []; }));
+  const iduPris = new Set(deja.flatMap(idusCadastraux));
   iduPris.add(x.importe.principale.idu);
   const idsPris = new Set(deja.flatMap(o=>{ const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id ? [id] : []; }));
   const out: ObjetPlan[] = [];

@@ -66,6 +66,15 @@ describe('fusionnerAnneaux', () => {
     expect(shoelace(r!.contour)).toBeCloseTo(200, 6);
     expect(r!.limites.length).toBeGreaterThanOrEqual(1);
   });
+  it('fusionne malgre un sommet a moins de la tolerance du coin commun (Gordes, BK 154 + BK 158)', () => {
+    // Le sommet en trop fait une arete de 3 cm : sans le confondre avec le coin, le chainage du contour
+    // la sautait, et la fusion etait refusee.
+    const gauche = [p(0, 0), p(10, 0), p(10, 10), p(0, 10)];
+    const droite = [p(10, 0), p(20, 0), p(20, 10), p(10.03, 10.01), p(10, 10)];
+    const r = fusionnerAnneaux([gauche, droite], 0.05);
+    expect(r).not.toBeNull();
+    expect(shoelace(r!.contour)).toBeCloseTo(200, 0);
+  });
   it('rend l anneau seul tel quel', () => {
     const r = fusionnerAnneaux([carre], 0.01);
     expect(shoelace(r!.contour)).toBeCloseTo(100, 9);
