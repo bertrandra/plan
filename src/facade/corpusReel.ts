@@ -95,8 +95,13 @@ export interface CasPrepare {
   pxParM: number;
   /** Les ouvertures de la chaine ordinaire (reglages en usage), avec le vote entre vues quand il y a plusieurs photos. */
   ouvertures: OuvertureDetectee[];
-  /** Ce que la fusion a dit des vues (laquelle ne se recale sur aucune autre, et pourquoi) ; null pour une photo seule. */
-  fusion: Pick<ResultatFusion, 'statut' | 'vues' | 'masque'> | null;
+  /** Les baies devinees par la structure, peu sures : proposees en pointille (l'ecran des etapes les montre). */
+  devinees: OuvertureDetectee[];
+  /**
+   * Ce que la fusion a dit des vues (laquelle ne se recale sur aucune autre, et pourquoi), la vue de reference et le masque
+   * d'occlusion de l'elevation (1 : cache sur toutes les vues) ; null pour une photo seule.
+   */
+  fusion: Pick<ResultatFusion, 'statut' | 'vues' | 'masque' | 'reference' | 'occlusion'> | null;
 }
 
 /** Redresse (et fusionne) les photos d'un cas. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse. */
@@ -107,7 +112,7 @@ export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = 
   const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { cas, elevation: r.elevation, pxParM: r.pxParM, ouvertures: r.ouvertures, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque } : null };
+  return { cas, elevation: r.elevation, pxParM: r.pxParM, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {
