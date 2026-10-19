@@ -130,6 +130,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="projet.actualiser" libelle="Actualiser le projet…" />
         <Entree commandes={commandes} id="projet.toitsFond" libelle={(toitsFond?.etat === 'enCours' ? 'Suspendre' : 'Reprendre') + (LECTURE_MURS_EN_FOND ? ' la lecture des toits et des murs' : ' la lecture des toits')} />
         <Entree commandes={commandes} id="projet.supprimerVoisinage" libelle="Supprimer le voisinage…" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons…" />
         <li className="separateur" role="separator" />
         {/* L'audit de la parcelle (MD/spec-audit.md §11) : la visite sur place, telephone en main. */}
         <Entree commandes={commandes} id="audit.parcelle" libelle="Auditer la parcelle…" />
@@ -305,6 +306,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
         <Entree commandes={commandes} id="admin.regles" libelle="Règles" />
         <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />
+        <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons du projet…" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>

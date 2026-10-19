@@ -46,6 +46,7 @@ import { brancherAffichage } from './ecouteurs/affichage.js';
 import { brancherPositionGps } from './ecouteurs/positionGps.js';
 import { brancherAuditParcelle } from './audit/parcelle/commande.js';
 import { brancherVoisinage } from './ecouteurs/voisinage.js';
+import { brancherDoublons } from './ecouteurs/doublons.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
@@ -447,6 +448,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
   }, commandes);
   brancherVoisinage(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
+  brancherDoublons(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
   // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).

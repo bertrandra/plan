@@ -12,6 +12,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'projet.reinitialiser': 'Remet tous les objets et toutes les cotes dans leur état du chargement ; Ctrl+Z revient en arrière',
   'projet.toitsFond': 'Suspend ou reprend la lecture sur le LiDAR HD des toits du voisinage qui ne l’ont pas encore été : du plus proche au plus loin, par lots, sans bloquer le plan',
   'projet.actualiser': 'Relit à l’IGN et recalcule avec la version actuelle tout ce qui en vient (parcelle, bâtiments de la parcelle et du voisinage, végétation, toits, couleurs, relief, PLU) et le ramène aux valeurs par défaut (couleurs, textures, gazon) ; ce que vous avez dessiné n’est pas touché ; Ctrl+Z revient en arrière',
+  'projet.doublons': 'Retire les objets identiques à un autre (même forme, mêmes réglages) et reporte leurs cotes sur celui qui reste ; Ctrl+Z les rend',
   'projet.supprimerVoisinage': 'Supprime tous les objets du voisinage (parcelles, bâtiments, végétation) et les cotes qui s’y appuient ; Ctrl+Z les rend',
   'fichier.importerSvg': 'Ajoute les formes d’un fichier SVG au plan, ou remplace le plan selon l’option du menu',
   'fichier.importerJson': 'Ouvre un projet exporté en JSON : remplace le plan, ou ajoute ses objets selon l’option du menu',
