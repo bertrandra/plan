@@ -13,7 +13,7 @@ import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../.
 import { lireForme } from '../../../facade/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ECART_FORME_MAX_M, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { corpsConforme, formeDuCorps, meilleurCorpsSelonObservation } from '../../../facade/regles/toits/faits.js';
-import { cibleBatiment, cibleCorps, cibleFacade, constatsDuBatiment, indiceDeCorps } from './constats.js';
+import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeMurs, indiceDeCorps } from './constats.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
@@ -210,7 +210,7 @@ const estBout = (m: string): m is BoutFait => m === 'pignon' || m === 'croupe';
  * proposition quand les trois sont ce que le projet a deja, quand la forme retenue n'est pas une que le moteur produit
  * (Mansart, demi-croupe : le dessin les sait, le calcul pas encore), ou quand la mesure ne la porte pas.
  */
-function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttribut) => Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttribut) => Arbitrage | undefined, regles: ReglesReconciliation, murs: readonly Arbitrage[] = []): Proposition | null {
   if (!o.toitMesure || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
   const arbs = (['formeToit', 'boutsToit', 'sensFaitage'] as const).map(parAttribut).filter((a): a is Arbitrage => !!a?.retenu);
   if (!arbs.some((a) => a.decision !== 'rien')) return null;
@@ -228,7 +228,7 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   const corps = corpsSousObservation({ ...o, pts: o.pts }, observation);
   if (!corps) return null;
   const involves = arbs.filter((a) => a.decision !== 'rien');
-  const manuelles = involves.filter((a) => a.decision === 'manuelle');
+  const manuelles = [...involves, ...murs].filter((a) => a.decision === 'manuelle');
   const vus = [forme ? dire(corps, undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
   const sources = [...new Set(involves.flatMap((a) => a.retenu?.sources ?? []))].map((s) => libelleSource(regles, s)).join(', ');
   const ecart = 'Écart à la mesure LiDAR avec cette forme : ' + metres(ecartPrincipal(corps)) + (o.corpsToit?.length ? ' (aujourd’hui ' + metres(ecartPrincipal(o.corpsToit)) + ')' : '');
@@ -238,7 +238,7 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
     indices: [...involves.flatMap(indicesDuRetenu), { texte: ecart }],
     remplaceChoix: involves.some((a) => a.projet.choisi) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((a) => regles.attributs[a.attribut].libelle + ' : ' + a.raison).join(' ') : null,
-    effet: { type: 'corpsToit', corps }, arbitrages: involves.map((a) => resumeArbitrage(a, regles)),
+    effet: { type: 'corpsToit', corps }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles)),
   };
 }
 
@@ -247,7 +247,7 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
  * des murs de ce corps, arbitree contre sa lecture LiDAR, le relit sur la mesure dans la forme, les bouts et le sens retenus ; les
  * autres corps ne bougent pas.
  */
-function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut: (a: IdAttribut) => Arbitrage | undefined, regles: ReglesReconciliation): Proposition | null {
+function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut: (a: IdAttribut) => Arbitrage | undefined, regles: ReglesReconciliation, murs: readonly Arbitrage[] = []): Proposition | null {
   const c = o.corpsToit?.[k];
   if (!c || !o.toitMesure || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
   const arbs = (['formeToit', 'boutsToit', 'sensFaitage'] as const).map(parAttribut).filter((a): a is Arbitrage => !!a?.retenu);
@@ -267,7 +267,7 @@ function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut
   if (!Object.keys(observation).length || corpsConforme(c, observation, o.pts)) return null;
   const relu = meilleurCorpsSelonObservation(o.toitMesure, c.pts, o.pts, observation);
   if (!relu || relu.ecart > ECART_FORME_MAX_M) return null;
-  const manuelles = involves.filter((a) => a.decision === 'manuelle');
+  const manuelles = [...involves, ...murs].filter((a) => a.decision === 'manuelle');
   const vus = [forme ? dire([relu], undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
   const sources = [...new Set(involves.flatMap((a) => a.retenu?.sources ?? []))].map((s) => libelleSource(regles, s)).join(', ');
   const nom = 'corps ' + (k + 1) + ' (' + metres(Math.hypot((c.pts[1]?.x ?? 0) - (c.pts[0]?.x ?? 0), (c.pts[1]?.y ?? 0) - (c.pts[0]?.y ?? 0))) + ' de long)';
@@ -277,7 +277,7 @@ function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut
     indices: [...involves.flatMap(indicesDuRetenu), { texte: 'Écart à la mesure LiDAR de ce corps : ' + metres(relu.ecart) + ' (aujourd’hui ' + metres(c.ecart) + ')' }],
     remplaceChoix: involves.some((a) => a.projet.choisi) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((a) => regles.attributs[a.attribut].libelle + ' : ' + a.raison).join(' ') : null,
-    effet: { type: 'corpsDuToit', corps: k, toit: relu }, arbitrages: involves.map((a) => resumeArbitrage(a, regles)),
+    effet: { type: 'corpsDuToit', corps: k, toit: relu }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles)),
   };
 }
 
@@ -367,8 +367,9 @@ export const cleChoix = (cible: string, attribut: string): string => cible + '|'
 
 /** Tous les arbitrages d'un batiment : un par attribut dont une source au moins parle, avec ce que la personne en a decide. */
 export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Arbitrage[] {
-  const { constats, projet } = constatsDuBatiment({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, renfort: e.renfort });
   const choixDe = (cible: string, attribut: string) => choix[cleChoix(cible, attribut)];
+  // D'abord la silhouette de chaque mur (la photo gagne sur le LiDAR), puis le toit qu'elles disent, corps par corps.
+  const { constats, projet } = constatsReconcilies({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, renfort: e.renfort }, regles, choixDe);
   const faits = arbitrerTout(constats, projet, regles, choixDe);
   // Meme sans source, ces attributs restent proposes a la personne : c'est ainsi qu'elle peut forcer une valeur que personne n'a lue.
   const cible = cibleBatiment(b.cle);
@@ -404,12 +405,15 @@ export function propositionsDesArbitrages(e: EntreesPropositions, parBatiment: r
       const p = propositionReleve(o, b, f, arbitrages.find((x) => x.cible === cibleFacade(cle, f.cote) && x.attribut === 'ouverturesFacade'), e, regles);
       if (p) out.push(p);
     }
+    // La silhouette de chaque mur d'un corps, arbitree : elle se lit sous la proposition du toit qu'elle a fait dire.
+    const groupes = groupesDeMurs(o, b);
+    const mursDe = (cibleGroupe: string): Arbitrage[] => (groupes.find((g) => g.cible === cibleGroupe)?.facades ?? []).flatMap((f) => arbitrages.filter((a) => a.cible === cibleFacade(cle, f.cote) && a.attribut === 'silhouetteFacade' && a.groupes.some((g) => g.sources.some((x) => x !== 'lidar'))));
     // Les corps autres que le principal, chacun sous les silhouettes de ses murs.
     for (const k of [...new Set(arbitrages.map((a) => indiceDeCorps(a.cible)).filter((x): x is number => x !== null))].sort((x, y) => x - y)) {
-      const p = propositionCorps(o, b, k, (id) => arbitrages.find((a) => a.cible === cibleCorps(cle, k) && a.attribut === id), regles);
+      const p = propositionCorps(o, b, k, (id) => arbitrages.find((a) => a.cible === cibleCorps(cle, k) && a.attribut === id), regles, mursDe(cibleCorps(cle, k)));
       if (p) out.push(p);
     }
-    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles), propositionLucarnes(o, b, parAttribut('lucarnes'), regles), propositionAppentis(o, b, parAttribut('appentis'), regles)]) if (p) out.push(p);
+    for (const p of [propositionHauteur(o, b, parAttribut('hauteurEgout'), regles), propositionToit(o, b, parAttribut, regles, mursDe(cible)), propositionMateriauMurs(o, b, parAttribut('materiauMurs'), regles), propositionCouverture(o, b, parAttribut('couverture'), regles), propositionHauteurTotale(o, b, parAttribut('hauteurTotale'), regles), propositionCheminees(o, b, parAttribut('cheminees'), regles), propositionLucarnes(o, b, parAttribut('lucarnes'), regles), propositionAppentis(o, b, parAttribut('appentis'), regles)]) if (p) out.push(p);
   }
   return out;
 }

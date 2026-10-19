@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { silhouetteDuMur } from '../../../src/facade/profil.js';
+import { silhouetteDuMur, silhouetteDesCorps, motDuHaut } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { hauteurDuToitEn } from '../../../src/facade/toitCorps.js';
 import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
@@ -46,5 +46,31 @@ describe('silhouetteDuMur', () => {
     expect(Math.max(...silhouetteDuMur(bout, [corps], 6, 5).map((q) => q.y))).toBe(6);
     const loin = facadesDuContour([p(20, 0), p(24, 0), p(24, 3), p(20, 3)], 4)[0]!;
     expect(silhouetteDuMur(loin, [corps], 20, 4).slice(2).every((q) => q.y === 4)).toBe(true);
+  });
+});
+
+describe('silhouetteDesCorps', () => {
+  it('dit ce que les corps montrent au-dessus du mur : un triangle au bout, une ligne droite au long pan', () => {
+    expect(silhouetteDesCorps(bout, [corps], 5)).toBe('triangle');
+    expect(silhouetteDesCorps(longPan, [corps], 5)).toBe('ligne-droite');
+    expect(silhouetteDesCorps(longPan, [], 5)).toBe('indetermine');
+  });
+  it('lit le haut sur le corps qui porte le mur : une saillie devant le pignon montre le pignon', () => {
+    // Un bow-window de 2 m sort de 60 cm devant le pignon (x = 0) : son mur est en x = -0,6, de y = 2 a y = 4.
+    const saillie = facadesDuContour([p(-0.6, 4), p(-0.6, 2), p(0, 2), p(0, 4)], 3)[0]!;
+    expect(Math.abs(saillie.gauche.x + 0.6)).toBeLessThan(1e-9);
+    expect(silhouetteDesCorps(saillie, [corps], 3)).toBe('triangle');
+  });
+});
+
+describe('motDuHaut', () => {
+  const q = (pts: [number, number][]) => pts.map(([x, y]) => p(x, y));
+  it('nomme les hauts de mur comme la photo et Claude', () => {
+    expect(motDuHaut(q([[0, 5], [10, 5.1]]))).toBe('ligne-droite');
+    expect(motDuHaut(q([[0, 5], [3, 8], [6, 5]]))).toBe('triangle');
+    expect(motDuHaut(q([[0, 5], [2, 7], [6, 7], [8, 5]]))).toBe('trapeze');
+    expect(motDuHaut(q([[0, 3], [6, 5]]))).toBe('rampe');
+    expect(motDuHaut(q([[0, 3.4], [3.5, 3.4], [3.6, 5.9], [6.8, 7.7], [9.6, 5.9]]))).toBe('marches');
+    expect(motDuHaut(q([[0, 5], [2, 7.5], [4, 5.2], [7, 7.7], [9, 5.3]]))).toBe('plusieurs-sommets');
   });
 });
