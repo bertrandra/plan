@@ -73,10 +73,16 @@ describe('le sens du faîtage et les bouts lus sur la silhouette des façades', 
     expect(r?.observation.bouts).toBeUndefined();
   });
 
-  it('plusieurs sens de faîtage : celui que soutiennent les murs les plus larges l’emporte, l’autre est signalé', () => {
+  it('plusieurs sens de faîtage : celui que soutiennent les murs les plus larges l’emporte ; un pignon en travers est un pignon traversant, autre chose est signalé', () => {
     const r = observationDesSilhouettes([est('triangle', 'pignon', 12), ouest('triangle', 'pignon', 12), nord('triangle', 'pignon', 12)]);
     expect(r?.observation.faitage).toEqual({ par: 'azimut', azimutDeg: 90 });
-    expect(r?.conflits[0]).toMatch(/deux sens de faîtage \(façade nord : un autre sens que le principal\)/);
+    // Decision de l'utilisateur, 19 octobre 2026 : le triangle du mur nord, en travers du faitage, est un pignon traversant.
+    expect(r?.traversants.map((t) => t.nom)).toEqual(['façade nord']);
+    expect(r?.conflits).toEqual([]);
+    // Une rampe en travers n'est pas un pignon : elle reste un second sens, signale.
+    const rampe = observationDesSilhouettes([est('triangle', 'pignon', 12), ouest('triangle', 'pignon', 12), nord('rampe', undefined, 12)]);
+    expect(rampe?.traversants).toEqual([]);
+    expect(rampe?.conflits[0]).toMatch(/deux sens de faîtage \(façade nord : un autre sens que le principal\)/);
     // Un mur isolé, bien plus petit, ne fait pas conflit (une lucarne, une annexe).
     expect(observationDesSilhouettes([est('triangle', 'pignon', 12), ouest('triangle', 'pignon', 12), nord('triangle', 'pignon', 2)])?.conflits).toEqual([]);
   });

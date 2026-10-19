@@ -31,6 +31,11 @@ export interface BoutsLus {
   vus: { nom: string; silhouette: SilhouetteFacade; role: 'bout' | 'long'; dit: string }[];
   /** Un bout dit autrement par un mur de bout et par un long pan, ou par deux murs du meme bout ; deux sens de faitage. */
   conflits: string[];
+  /**
+   * Les murs qui montrent un pignon en travers du sens retenu : des pignons traversants sur le long pan qu'ils sont (decision de
+   * l'utilisateur, 19 octobre 2026). Ils ne comptent pas comme un second sens de faitage.
+   */
+  traversants: SilhouetteLue[];
 }
 
 const ecart180 = (a: number, b: number): number => { const d = Math.abs(a - b) % 180; return Math.min(d, 180 - d); };
@@ -85,7 +90,10 @@ export function observationDesSilhouettes(lues: readonly SilhouetteLue[], plat =
   const axe = dits.map((d) => d.axe).reduce((m, a) => (poids(a) > poids(m) + 1e-9 ? a : m));
   const retenus = dits.filter((d) => ecart180(d.axe, axe) <= TOLERANCE_BOUT_DEG);
   const conflits: string[] = [];
-  const autres = dits.filter((d) => ecart180(d.axe, axe) > TOLERANCE_BOUT_DEG);
+  const enTravers = dits.filter((d) => ecart180(d.axe, axe) > TOLERANCE_BOUT_DEG);
+  // Un mur qui ferme un bout en pignon en travers du sens retenu : un pignon traversant, pas un second sens.
+  const traversants = enTravers.filter((d) => d.role === 'bout' && d.valeur === 'pignon');
+  const autres = enTravers.filter((d) => !traversants.includes(d));
   if (autres.length && autres.reduce((s, d) => s + Math.max(d.l.largeurM, 0.1), 0) >= PART_SECOND_SENS * poids(axe)) {
     conflits.push('les façades disent deux sens de faîtage (' + autres.map((d) => d.l.nom).join(', ') + ' : un autre sens que le principal) : plusieurs corps ?');
   }
@@ -104,7 +112,7 @@ export function observationDesSilhouettes(lues: readonly SilhouetteLue[], plat =
   if (estBout(a) && estBout(b)) observation.bouts = [a, b];
   else if ((a === 'appentis' || b === 'appentis') && valeur.every((x) => x === 'appentis' || x === null)) observation.forme = ['appentis' satisfies FormeToitSimple];
   const vus: BoutsLus['vus'] = retenus.map((d) => ({ nom: d.l.nom, silhouette: d.l.silhouette, role: d.role, dit: d.valeur === null ? 'sans bout' : d.valeur === 'hors-moteur' ? (d.l.bout ?? 'bout') : d.valeur }));
-  return { observation, vus, conflits };
+  return { observation, vus, conflits, traversants: traversants.map((d) => d.l) };
 }
 
 /** Les murs lus, en clair : « façade est : triangle ». */

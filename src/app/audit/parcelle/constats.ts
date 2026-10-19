@@ -329,26 +329,30 @@ export function constatsDuToitParSilhouettes(o: ObjetPlan, b: LigneBatiment, arb
   const retenue = new Map<number, Arbitrage>();
   for (const f of b.facades) {
     const a = arbitrages.find((x) => x.cible === cibleFacade(b.cle, f.cote) && x.attribut === 'silhouetteFacade');
-    if (a?.retenu && typeof a.retenu.valeur === 'string' && a.retenu.valeur !== 'indetermine') retenue.set(f.cote, a);
+    // Un mur dont la silhouette n'est retenue que par le LiDAR ne dit rien de plus que ses corps : il ne parle pas ici.
+    if (a?.retenu && typeof a.retenu.valeur === 'string' && a.retenu.valeur !== 'indetermine' && a.retenu.sources.some((x) => x !== 'lidar')) retenue.set(f.cote, a);
   }
+  const lignes = (f: LigneBatiment['facades'][number]) => retenue.get(f.cote)?.retenu?.lignes ?? [];
+  // La silhouette retenue de chaque mur, quelle que soit la source ; ce qu'il ferme, quand Claude est de ceux qui l'ont dite.
+  const lu = (f: LigneBatiment['facades'][number]): { silhouette: SilhouetteFacade; bout?: BoutVu } => {
+    const a = retenue.get(f.cote);
+    if (!a) return { silhouette: 'indetermine' };
+    const bout = (lignes(f).find((l) => l.constat.source === 'claude')?.constat.charge as { bout?: BoutVu } | undefined)?.bout;
+    return { silhouette: a.retenu?.valeur as SilhouetteFacade, ...(bout ? { bout } : {}) };
+  };
   const out: Constat[] = [];
   for (const g of groupesDeMurs(o, b)) {
+    const dits = bouts(b, g, lu);
+    if (!dits) continue;
+    // Les sources qui ont fait retenir une silhouette de ces murs parlent toutes du meme toit : celui des silhouettes retenues.
     for (const source of ['photo', 'claude', 'terrain'] as const) {
-      const lignes = (f: LigneBatiment['facades'][number]) => (retenue.get(f.cote)?.retenu?.lignes ?? []).filter((l) => l.constat.source === source);
-      const lu = (f: LigneBatiment['facades'][number]): { silhouette: SilhouetteFacade; bout?: BoutVu } => {
-        const l = lignes(f)[0];
-        if (!l) return { silhouette: 'indetermine' };
-        const bout = (l.constat.charge as { bout?: BoutVu } | undefined)?.bout;
-        return { silhouette: retenue.get(f.cote)?.retenu?.valeur as SilhouetteFacade, ...(bout ? { bout } : {}) };
-      };
-      const parlent = g.facades.filter((f) => lignes(f).length);
-      if (!parlent.length) continue;
-      const confiance = Math.min(1, ...parlent.flatMap((f) => lignes(f).map((l) => l.constat.confiance ?? 1)));
-      const dits = bouts(b, g, lu);
+      const siennes = g.facades.flatMap((f) => lignes(f).filter((l) => l.constat.source === source));
+      if (!siennes.length) continue;
+      const confiance = Math.min(1, ...siennes.map((l) => l.constat.confiance ?? 1));
       // Chaque mur qui a parle, avec ce qu'il dit du toit et la photo qui le montre.
-      const indices = (dits?.vus ?? []).flatMap((v) => {
-        const f = parlent.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
-        const photo = f ? lignes(f)[0]?.constat.indices?.find((i) => i.photo)?.photo : undefined;
+      const indices = dits.vus.flatMap((v) => {
+        const f = g.facades.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
+        const photo = f ? lignes(f).flatMap((l) => l.constat.indices ?? []).find((i) => i.photo)?.photo : undefined;
         return f ? [{ texte: v.nom[0]?.toUpperCase() + v.nom.slice(1) + ' : ' + libelleSilhouette(v.silhouette) + ' → ' + v.dit, ...(photo ? { photo } : {}) }] : [];
       });
       const regle = source === 'terrain' ? 'silhouette forcée par vous' : REGLES_LIDAR[source].silhouette;
@@ -356,6 +360,23 @@ export function constatsDuToitParSilhouettes(o: ObjetPlan, b: LigneBatiment, arb
     }
   }
   return out;
+}
+
+/**
+ * Les murs d'un groupe qui portent un pignon traversant (facade/regles/toits/pignons.ts::pignonTraversant), d'apres les silhouettes
+ * retenues mur par mur, quelle que soit la source qui les a fait retenir : un triangle en travers du faitage que dit le mur le plus
+ * large (decision de l'utilisateur, 19 octobre 2026).
+ */
+export function traversantsDuGroupe(b: LigneBatiment, g: GroupeDeMurs, silhouettes: readonly Arbitrage[]): LigneBatiment['facades'] {
+  const lu = (f: LigneBatiment['facades'][number]): { silhouette: SilhouetteFacade; bout?: BoutVu } => {
+    const a = silhouettes.find((x) => x.cible === cibleFacade(b.cle, f.cote) && x.attribut === 'silhouetteFacade');
+    const v = a?.retenu?.valeur;
+    if (typeof v !== 'string' || !a?.retenu?.sources.some((x) => x !== 'lidar')) return { silhouette: 'indetermine' };
+    const bout = (a?.retenu?.lignes.find((l) => l.constat.source === 'claude')?.constat.charge as { bout?: BoutVu } | undefined)?.bout;
+    return { silhouette: v as SilhouetteFacade, ...(bout ? { bout } : {}) };
+  };
+  const dits = bouts(b, g, lu);
+  return (dits?.traversants ?? []).flatMap((t) => g.facades.filter((f) => 'façade ' + etiquetteFacade(b, f) === t.nom));
 }
 
 /**
