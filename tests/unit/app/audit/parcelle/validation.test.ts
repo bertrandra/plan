@@ -355,4 +355,19 @@ describe('« Rejouer redressement + fusion »', () => {
     expect(await t.v.rejouerRedressement('maison', 99)).toBe(0);
     expect(await t.v.rejouerRedressement()).toBe(1);
   });
+
+  it('« Réinitialiser » défait aussi les « Je confirme » faits sur les observations de Claude, et rien d’autre', () => {
+    const t = monter();
+    const vu = () => t.capture.lire().batiments['maison']?.vu;
+    expect(t.v.aDesDecisions()).toBe(false);
+    t.v.confirmerObservation('maison', { forme: 'croupes', bouts: ['pignon', 'pignon'] } as never);
+    expect(vu()?.forme).toBe('croupes');
+    expect(t.v.aDesDecisions()).toBe(true);
+    // Une note a la main, ailleurs, sur une autre cle : elle reste.
+    t.capture.noterVu('maison', { ...vu(), murs: 'pierre' });
+    t.v.reinitialiser();
+    expect(vu()?.forme).toBe('deux-pans');
+    expect(vu()?.murs).toBe('pierre');
+    expect(t.v.aDesDecisions()).toBe(false);
+  });
 });
