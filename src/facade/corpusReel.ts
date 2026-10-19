@@ -9,6 +9,7 @@
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
 import { analyserLeMur } from './analyseMur.js';
+import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
 import { type ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
@@ -98,6 +99,9 @@ export interface CasPrepare {
   /** La texture plaquee sur la facade en 3D (le mur et la bande au-dessus de l'egout), et la hauteur qu'elle couvre. */
   texture: Image;
   hauteurTexture: number;
+  /** La silhouette du haut du mur, mesuree, et le modele de toit qui la porte le mieux ; null quand le toit est hors cadre. */
+  profilToit: ResultatAnalyse['profilToit'];
+  toitEstime: ResultatAnalyse['toitEstime'];
   /** Les baies devinees par la structure, peu sures : proposees en pointille (l'ecran des etapes les montre). */
   devinees: OuvertureDetectee[];
   /**
@@ -115,7 +119,7 @@ export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = 
   const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
+  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {

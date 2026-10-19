@@ -2567,6 +2567,9 @@
   .calQuad{ fill:var(--accent-light); fill-opacity:0.18; stroke:var(--accent); stroke-width:2; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
+  .calEgout{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3; }
+  .calSilhouette{ fill:none; stroke:var(--accent); stroke-width:3; }
+  .calModele{ fill:none; stroke:var(--danger); stroke-width:2; stroke-dasharray:6 4; }
   .calEtapes .calListe{ margin:4px 0; padding-left:18px; font-size:0.78rem; }
   .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){

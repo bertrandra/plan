@@ -19,6 +19,8 @@ import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
 import { elevationAvecMasque, photoRedressee } from './etapesCalibration.js';
 import { sansOmbres } from '../facade/sansOmbres.js';
+import { silhouetteDeEstimation } from '../facade/regles/toits/silhouettes.js';
+import { SILHOUETTES_FACADE } from '../model/silhouetteFacade.js';
 import type { Image, P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
@@ -123,6 +125,8 @@ interface Etapes {
   /** La texture posee sur la facade en 3D, telle quelle et sans les ombres de la photo (case « Facades sans ombres »). */
   surFacade: string;
   sansOmbres: string;
+  /** La silhouette du haut du mur sur la texture : la mesure, le modele retenu, et les hauteurs (egout, texture). */
+  silhouette: { profil: CasPrepare['profilToit']; toit: CasPrepare['toitEstime']; hauteurMurM: number; hauteurTextureM: number; largeurM: number };
 }
 
 /** Les images des etapes d'un cas redresse. */
@@ -135,7 +139,40 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
     surFacade: outils.elevationEnUrl(p.texture),
     // Les baies de la detection tiennent lieu de celles du releve, que la 3D met de cote pour lire l'eclairage du mur.
     sansOmbres: outils.elevationEnUrl(sansOmbres(p.texture, p.pxParM, p.ouvertures, depart.hauteurM)),
+    silhouette: { profil: p.profilToit, toit: p.toitEstime, hauteurMurM: p.elevation.hauteur / p.pxParM, hauteurTextureM: p.texture.hauteur / p.pxParM, largeurM: p.texture.largeur / p.pxParM },
   };
+}
+
+/** Le modele de toit retenu, trace sur `n` points entre x0 et x1 : hauteur au-dessus de l'egout en chaque point. */
+function modeleToit(t: NonNullable<CasPrepare['toitEstime']>, profil: readonly number[]): (u: number) => number {
+  const H = t.hauteur;
+  if (t.forme === 'plat') return () => 0;
+  if (t.forme === 'appentis') { const monte = (profil[profil.length - 1] ?? 0) >= (profil[0] ?? 0); return (u) => H * (monte ? u : 1 - u); }
+  if (t.forme === 'quatre-pans') return (u) => H * Math.min(1, u / 0.25, (1 - u) / 0.25);
+  return t.faitage === 'perpendiculaire' ? (u) => H * (1 - Math.abs(2 * u - 1)) : () => H;
+}
+
+/** La texture, l'egout, la silhouette mesuree au-dessus (trait plein) et le modele de toit qui la porte le mieux (pointille). */
+function VueSilhouette({ s, texture }: { s: Etapes['silhouette']; texture: string }) {
+  const { largeurM: L, hauteurTextureM: HT, hauteurMurM: H, profil, toit } = s;
+  const egout = HT - H;
+  const forme = silhouetteDeEstimation(toit);
+  const libelle = SILHOUETTES_FACADE.find((x) => x.code === forme)?.libelle;
+  const n = profil?.hauteurs.length ?? 0;
+  const x = (k: number) => (profil ? profil.x0M + ((k + 0.5) / n) * (profil.x1M - profil.x0M) : 0);
+  const modele = toit && profil ? modeleToit(toit, profil.hauteurs) : null;
+  return (
+    <figure>
+      <svg className="calEtape large" viewBox={`0 0 ${L} ${HT}`} role="img" aria-label="Silhouette du haut du mur">
+        <image href={texture} x={0} y={0} width={L} height={HT} preserveAspectRatio="none" />
+        <line className="calEgout" x1={0} x2={L} y1={egout} y2={egout} vectorEffect="non-scaling-stroke" />
+        {profil && <polyline className="calSilhouette" points={profil.hauteurs.map((h, k) => x(k) + ',' + (egout - h)).join(' ')} vectorEffect="non-scaling-stroke" />}
+        {profil && modele && <polyline className="calModele" points={Array.from({ length: 41 }, (_, k) => { const u = k / 40; return (profil.x0M + u * (profil.x1M - profil.x0M)) + ',' + (egout - modele(u)); }).join(' ')} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      <figcaption>{!profil ? 'Le haut du mur est hors cadre : la silhouette ne se lit pas, rien n’est proposé pour le toit.'
+        : 'En trait plein, la silhouette mesurée au-dessus de l’égout (ligne fine) ; en tirets, le modèle de toit retenu : ' + (libelle ? libelle.toLowerCase() : 'rien au-dessus de l’égout (toit plat, ou ciel)') + (toit && toit.hauteur > 0 ? ', faîtage à ' + metres(toit.hauteur) + ' m au-dessus de l’égout (écart ' + metres(toit.ecart) + ' m)' : '') + '.'}</figcaption>
+    </figure>
+  );
 }
 
 const metres = (v: number) => String(Math.round(v * 100) / 100).replace('.', ',');
@@ -206,6 +243,8 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           <figcaption>Sans les ombres de la photo (case « Façades sans ombres » de la Vue 3D) : la 3D pose les siennes, à l’heure choisie.</figcaption>
         </figure></li>
       </ul>
+      <h4 className="calTitre3">6. La silhouette du haut du mur</h4>
+      <VueSilhouette s={etapes.silhouette} texture={etapes.surFacade} />
     </details>
   );
 }
