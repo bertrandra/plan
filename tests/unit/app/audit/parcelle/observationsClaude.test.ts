@@ -80,7 +80,7 @@ describe('les observations de Claude', () => {
       bilan: { pleines: 1, pointille: 1, typesCorriges: 1 }, resume: '…',
     };
     const obs = observationsDeClaude(entrees(new Map([['maison#0', m]])), {}, { 'maison#0': rf });
-    expect(obs[0]!.observations.map((o) => o.texte)).toEqual(['Façade sud, relevé revu par Claude : 1 porte ajoutée, 1 fenêtre en pointillé, vue par Claude, non confirmée sur la photo, 1 type corrigé']);
+    expect(obs[0]!.observations.map((o) => o.texte)).toEqual(['Façade sud (côté 1), relevé revu par Claude : 1 porte ajoutée, 1 fenêtre en pointillé, vue par Claude, non confirmée sur la photo, 1 type corrigé']);
   });
 
   it('dit combien de propositions et d observations sont pretes, ou que Claude n a rien vu', () => {

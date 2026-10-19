@@ -45,6 +45,8 @@ export interface ArbitrageProposition {
   /** `hauteurEgout`, `formeToit`, `boutsToit`, `sensFaitage`... */
   attribut: string;
   libelle: string;
+  /** La facade visee, quand l'arbitrage est celui d'un mur : « sud (côté 3) » (point cardinal et numero du cote). */
+  cibleNom?: string;
   /** `auto` : le moteur a decide seul ; `manuelle` : a la personne ; `choisie` : elle a retenu une source ; `forcee` : elle a donne sa valeur. */
   decision: 'auto' | 'manuelle' | 'rien' | 'choisie' | 'forcee';
   /** Comment se force l'attribut : une cote (`nombre`), un angle, un mot (`egal`) ou des mots (`ensemble`) ; l'unite d'une cote. */

@@ -12,6 +12,7 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import { contradictionsLidar, indicesLidar, reserveConfiance, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
@@ -129,7 +130,7 @@ export function propositionsRenfort(e: EntreesPropositions, renfort: Record<stri
     if (!rf?.resume || !mesure0) continue;
     const n0 = mesure0.ouvertures.length;
     const base = {
-      cible: { type: 'facade' as const, cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
+      cible: { type: 'facade' as const, cle: b.cle, cote: f.cote }, objet: 'Façade ' + nomFacade(f.facade.orientation, f.cote) + ' de ' + b.nom,
       avant: pluriel(n0, 'ouverture') + ' mesurée' + (n0 > 1 ? 's' : '') + ' sur la photo',
       source: 'claude' as const, indices: [], confiance: rf.passes / 3, remplaceChoix: null,
     };
@@ -181,7 +182,7 @@ export function propositionsDetails(e: EntreesPropositions, parBatiment: Record<
       const completees = base.ouvertures.filter((o) => completerDetails(o.type, o.details, details)).length;
       if (!completees) continue;
       out.push({
-        id: id + ':claude:details', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Ouvertures de la façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom,
+        id: id + ':claude:details', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Ouvertures de la façade ' + nomFacade(f.facade.orientation, f.cote) + ' de ' + b.nom,
         avant: pluriel(base.ouvertures.length, 'ouverture') + ' au relevé',
         apres: majuscule(textes.join(', ')) + ', vu par Claude (' + pluriel(completees, 'ouverture') + ' à compléter)',
         source: 'claude', indices: indicesDe(votes.flatMap((x) => x.indices), r.etiquettes), confiance: Math.min(...votes.map((x) => x.accord)), remplaceChoix: null,

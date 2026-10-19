@@ -5,6 +5,7 @@
 //
 // `projet` n'est pas une source : c'est la valeur que le projet a aujourd'hui, et si une personne l'a choisie a la main (un veto).
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import { formeDesCorps, formeDeLaVue } from '../../../model/formeToit.js';
 import { lireFormes } from '../../../facade/lectureFormes.js';
 import { lectureVraisemblable } from '../../../facade/regles/toits/catalogue.js';
@@ -194,12 +195,12 @@ function constatsPhoto({ b, mesures }: EntreesConstats): Constat[] {
     const h = hauteurs.map((x) => x.m?.hauteurM as number).sort((a, c) => a - c);
     const mediane = h.length % 2 ? (h[(h.length - 1) / 2] as number) : ((h[h.length / 2 - 1] as number) + (h[h.length / 2] as number)) / 2;
     out.push({ cible, attribut: 'hauteurEgout', source: 'photo', valeur: cm(mediane), confiance: Math.min(...hauteurs.map((x) => x.m?.confiance ?? 1)), regle: REGLES_LIDAR.photo.hauteur,
-      indices: hauteurs.map((x) => ({ texte: 'Mesurée sur la façade ' + x.f.facade.orientation.toLowerCase(), ...(x.m?.rangReleve != null ? { photo: { cle: b.cle, cote: x.f.cote, rang: x.m.rangReleve } } : {}) })) });
+      indices: hauteurs.map((x) => ({ texte: 'Mesurée sur la façade ' + nomFacade(x.f.facade.orientation, x.f.cote), ...(x.m?.rangReleve != null ? { photo: { cle: b.cle, cote: x.f.cote, rang: x.m.rangReleve } } : {}) })) });
   }
   // La silhouette de chaque mur, avec sa photo : le toit se deduit des silhouettes une fois arbitrees mur par mur (constatsDuToitParSilhouettes).
   for (const { f, m } of lues) {
     if (!m?.silhouette || m.silhouette === 'indetermine') continue;
-    const indices = m.rangReleve != null ? [{ texte: 'Façade ' + etiquetteFacade(b, f) + ' : ' + libelleSilhouette(m.silhouette), photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [];
+    const indices = m.rangReleve != null ? [{ texte: 'Façade ' + nomFacade(f.facade.orientation, f.cote) + ' : ' + libelleSilhouette(m.silhouette), photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } }] : [];
     out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'silhouetteFacade', source: 'photo', valeur: m.silhouette, confiance: (m.confiance ?? 0.6) * (m.coinsTrouves ? 1 : 0.8), regle: REGLES_LIDAR.photo.silhouette, indices });
   }
   // Le releve d'ouvertures de chaque mur : son nombre s'arbitre, le releve lui-meme est ce que la proposition ecrit si cette valeur l'emporte.
@@ -351,7 +352,7 @@ export function constatsDuToitParSilhouettes(o: ObjetPlan, b: LigneBatiment, arb
       const confiance = Math.min(1, ...siennes.map((l) => l.constat.confiance ?? 1));
       // Chaque mur qui a parle, avec ce qu'il dit du toit et la photo qui le montre.
       const indices = dits.vus.flatMap((v) => {
-        const f = g.facades.find((x) => 'façade ' + etiquetteFacade(b, x) === v.nom);
+        const f = g.facades.find((x) => 'façade ' + nomFacade(x.facade.orientation, x.cote) === v.nom);
         const photo = f ? lignes(f).flatMap((l) => l.constat.indices ?? []).find((i) => i.photo)?.photo : undefined;
         return f ? [{ texte: v.nom[0]?.toUpperCase() + v.nom.slice(1) + ' : ' + libelleSilhouette(v.silhouette) + ' → ' + v.dit, ...(photo ? { photo } : {}) }] : [];
       });
@@ -376,7 +377,7 @@ export function traversantsDuGroupe(b: LigneBatiment, g: GroupeDeMurs, silhouett
     return { silhouette: v as SilhouetteFacade, ...(bout ? { bout } : {}) };
   };
   const dits = bouts(b, g, lu);
-  return (dits?.traversants ?? []).flatMap((t) => g.facades.filter((f) => 'façade ' + etiquetteFacade(b, f) === t.nom));
+  return (dits?.traversants ?? []).flatMap((t) => g.facades.filter((f) => 'façade ' + nomFacade(f.facade.orientation, f.cote) === t.nom));
 }
 
 /**

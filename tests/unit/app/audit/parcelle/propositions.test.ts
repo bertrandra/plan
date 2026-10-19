@@ -62,7 +62,7 @@ describe('les propositions des mesures et des observations', () => {
     expect(arbitrees.map((x) => x.id)).toEqual(['maison#0:releve', 'maison:materiauMurs', 'maison:couverture', 'maison:cheminees']);
     const p = [...seules, ...arbitrees];
     const parId = new Map(p.map((x) => [x.id, x]));
-    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées (6 fenêtres), texture de la photo', source: 'arbitrage', effet: { type: 'releve' } });
+    expect(parId.get('maison#0:releve')).toMatchObject({ objet: 'Façade sud (côté 1) de maison', avant: 'aucun relevé', apres: '6 ouvertures relevées (6 fenêtres), texture de la photo', source: 'arbitrage', effet: { type: 'releve' } });
     expect(parId.get('maison#0:releve')?.arbitrages?.[0]).toMatchObject({ attribut: 'ouverturesFacade', decision: 'auto' });
     // La photo seule ne decide pas d'une hauteur (score 2,4 sous 3) : la ligne arrive decochee, avec ses sources.
     const h = propositionsArbitrees(entrees(quartier(), capture(), mesures({ hauteurM: 5 })), {}).find((x) => x.id === 'maison:hauteur');
@@ -221,5 +221,11 @@ describe('la ligne du releve des ouvertures', () => {
       { type: 'fenetre' }, { type: 'porte-fenetre', details: { volets: 'roulant' } }, { type: 'porte' },
     ])).toBe('3 fenêtres, 1 porte-fenêtre, 1 porte ; volets sur 2');
     expect(ouverturesEnClair([{ type: 'fenetre' }])).toBe('1 fenêtre');
+  });
+
+  it('nomme une facade par son point cardinal et le numero de son cote, dans l’objet et dans l’arbitrage', () => {
+    const releve = propositionsArbitrees(entrees(), {}).find((p) => p.effet.type === 'releve');
+    expect(releve?.objet).toMatch(/^Façade [a-zé-]+ \(côté \d+\) de /);
+    expect(releve?.arbitrages?.[0]?.cibleNom).toMatch(/^[a-zé-]+ \(côté \d+\)$/);
   });
 });

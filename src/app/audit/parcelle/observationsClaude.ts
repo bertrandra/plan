@@ -8,6 +8,7 @@
 // (essai d'AE 101 sur telephone : « il ne trouve rien »). Les lignes se lisent batiment par batiment,
 // chacune avec ou Claude l'a vu (l'image citee) et la part des passes d'accord quand un vote la donne.
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import type { IndiceAnalyse, ReponseAnalyse, VoteAnalyse } from '../../../model/analyseClaude.js';
 import { ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './propositionsClaude.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
@@ -114,7 +115,7 @@ function observationRenfort(b: LigneBatiment, cote: number, orientation: string,
   if (n('typesCorriges')) bouts.push(pluriel(n('typesCorriges'), 'type') + ' ' + accorde(n('typesCorriges'), 'corrigé'));
   if (n('detailsAjoutes')) bouts.push(pluriel(n('detailsAjoutes'), 'détail') + ' ' + accorde(n('detailsAjoutes'), 'ajouté'));
   if (!bouts.length) return null;
-  return { id: b.cle + ':obs:renfort:' + cote, texte: 'Façade ' + orientation.toLowerCase() + ', relevé revu par Claude : ' + bouts.join(', '), ou: ['photo de la façade ' + orientation.toLowerCase() + ' de ' + b.nom], accord: null };
+  return { id: b.cle + ':obs:renfort:' + cote, texte: 'Façade ' + nomFacade(orientation, cote) + ', relevé revu par Claude : ' + bouts.join(', '), ou: ['photo de la façade ' + nomFacade(orientation, cote) + ' de ' + b.nom], accord: null };
 }
 
 /** Les observations d'un batiment : le vote de ses passes, puis le renfort de ses facades. */

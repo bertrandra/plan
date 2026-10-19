@@ -8,6 +8,7 @@
 // Le materiau des murs et la couverture (fichiers fonciers, Claude, ce que la personne a vu) s'arbitrent de la meme facon : la valeur
 // notee sur place l'emporte (poids 30, D21), et une valeur que la personne a choisie dans le projet n'est jamais remplacee en silence.
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { lireForme } from '../../../facade/lectureFormes.js';
@@ -17,7 +18,6 @@ import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeM
 import { pignonTraversant } from '../../../facade/regles/toits/pignons.js';
 import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
 import { repere } from '../../../facade/toitCorps.js';
-import { etiquetteFacade } from './liste.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
@@ -56,8 +56,15 @@ const libelleDe = (attribut: string): ((mot: string) => string) | undefined =>
     : attribut === 'materiauMurs' ? (m) => libelleDeListe(MATERIAUX_MURS_VUS, m as (typeof MATERIAUX_MURS_VUS)[number]['code'])
     : attribut === 'couverture' ? (m) => libelleDeListe(COUVERTURES_VUES, m as (typeof COUVERTURES_VUES)[number]['code']) : undefined;
 
+/** La facade que vise un arbitrage (`facade:<cle>#<cote>`), nommee « sud (côté 3) » : sans elle, dix silhouettes de la liste se ressemblent. */
+function nomDeLaCible(b: LigneBatiment | undefined, cible: string): string | undefined {
+  const cote = /^facade:[^#]+#(\d+)$/.exec(cible)?.[1];
+  const f = cote === undefined ? undefined : b?.facades.find((x) => x.cote === Number(cote));
+  return f ? nomFacade(f.facade.orientation, f.cote) : undefined;
+}
+
 /** Un arbitrage, tel que la proposition le garde (un fichier d'audit le rejoue sans le moteur). */
-export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = RECONCILIATION): ArbitrageProposition {
+export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = RECONCILIATION, b?: LigneBatiment): ArbitrageProposition {
   const desc = regles.attributs[a.attribut];
   const { accord, libelle } = desc;
   const mot = libelleDe(a.attribut);
@@ -67,7 +74,7 @@ export function resumeArbitrage(a: Arbitrage, regles: ReglesReconciliation = REC
   }));
   const decision = a.decision;
   return {
-    cible: a.cible, attribut: a.attribut, libelle, decision, accord: accord.type, ...('unite' in accord && accord.unite ? { unite: accord.unite } : {}),
+    cible: a.cible, ...(nomDeLaCible(b, a.cible) ? { cibleNom: nomDeLaCible(b, a.cible) as string } : {}), attribut: a.attribut, libelle, decision, accord: accord.type, ...('unite' in accord && accord.unite ? { unite: accord.unite } : {}),
     ...(desc.valeurs ? { options: desc.valeurs.map((v) => ({ valeur: JSON.stringify(v), libelle: direValeur(v, accord, mot) })) } : {}),
     ...(a.decision === 'forcee' && a.retenu ? { forcee: direValeur(a.retenu.valeur, accord, mot) } : {}),
     raison: a.raison, avant: direValeur(a.projet.valeur, accord, mot), groupes, regles: a.regles.map((r) => direRegle(r, regles)),
@@ -83,7 +90,7 @@ function propositionHauteur(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | undef
   if (!a || a.decision === 'rien' || !a.retenu || typeof a.retenu.valeur !== 'number') return null;
   const actuelle = hauteurDe(o), v = Math.round(a.retenu.valeur * 100) / 100;
   if (Math.abs(v - actuelle) < ECART_HAUTEUR_MIN_M) return null;
-  const arbitrage = resumeArbitrage(a, regles);
+  const arbitrage = resumeArbitrage(a, regles, b);
   return {
     id: b.cle + ':hauteur', cible: { type: 'batiment', cle: b.cle }, objet: 'Hauteur à l’égout de ' + b.nom, source: 'arbitrage',
     avant: fr(actuelle) + ' m', apres: fr(v) + ' m, ' + sourcesDuRetenu(a, regles), indices: indicesDuRetenu(a), confiance: null,
@@ -116,7 +123,7 @@ function propositionMateriauMurs(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | 
     apres: libelle(v) + ', ' + dOu(a, regles), confiance: null, indices: indicesDuRetenu(a),
     remplaceChoix: choisi ? libelle(choisi) : o.couleurMurs?.source === 'plan' ? 'couleur du plan, sans texture' : null,
     reserve: a.decision === 'manuelle' && !a.projet.choisi ? a.raison : null,
-    effet: { type: 'materiauMurs', materiau: v }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'materiauMurs', materiau: v }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -133,7 +140,7 @@ function propositionCouverture(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | un
     avant: choisie ? libelle(choisie) : 'déduite par Plan', apres: libelle(v) + ', ' + dOu(a, regles, true), confiance: null, indices: indicesDuRetenu(a),
     remplaceChoix: choisie ? libelle(choisie).toLowerCase() : null,
     reserve: a.decision === 'manuelle' && !a.projet.choisi ? a.raison : null,
-    effet: { type: 'couverture', couverture: v }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'couverture', couverture: v }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -149,7 +156,7 @@ function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage |
     id: b.cle + ':hauteurTotale', cible: { type: 'batiment', cle: b.cle }, objet: 'Hauteur totale de ' + b.nom, source: 'arbitrage',
     avant: fr(actuelle) + ' m', apres: fr(v) + ' m, ' + sourcesDuRetenu(a, regles), indices: indicesDuRetenu(a), confiance: null,
     remplaceChoix: null, reserve: a.decision === 'manuelle' ? a.raison : null,
-    effet: { type: 'hauteurToit', faitageM: v }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'hauteurToit', faitageM: v }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -176,7 +183,7 @@ function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], for
     indices: [...indicesDuRetenu(a), { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(lecture.ecart) + (vueParLidar ? '' : ' (forme demandée, ajustée au mieux)') }],
     remplaceChoix: a.projet.choisi ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((x) => regles.attributs[x.attribut].libelle + ' : ' + x.raison).join(' ') : null,
-    effet: { type: 'corpsToit', corps: lecture.corps }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles)),
+    effet: { type: 'corpsToit', corps: lecture.corps }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles, b)),
   };
 }
 
@@ -203,7 +210,7 @@ function propositionCheminees(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | und
     apres: charge?.texte ?? ((n ? pluriel(n, 'cheminée') : 'Aucune cheminée') + (a.decision === 'forcee' ? ', forcée' + (n > 1 ? 's' : '') + ' par vous' : '')),
     confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
     reserve: a.decision === 'manuelle' ? a.raison : null,
-    effet: { type: 'cheminees', corps: i, cheminees }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'cheminees', corps: i, cheminees }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -231,9 +238,9 @@ function avecTraversants(c: CorpsToit, murs: readonly Mur[], o: ObjetPlan & { pt
 }
 
 /** Ce que la proposition dit d'un pignon traversant, et comment le changer : c'est la silhouette des murs qui en decide. */
-function direTraversants(b: LigneBatiment, poses: readonly Mur[]): { apres: string; indices: { texte: string }[] } {
+function direTraversants(poses: readonly Mur[]): { apres: string; indices: { texte: string }[] } {
   if (!poses.length) return { apres: '', indices: [] };
-  const noms = poses.map((f) => 'façade ' + etiquetteFacade(b, f));
+  const noms = poses.map((f) => 'façade ' + nomFacade(f.facade.orientation, f.cote));
   return {
     apres: ', pignon traversant sur la ' + noms.join(' et la '),
     indices: [{ texte: 'Pignon traversant : la ' + noms.join(' et la ') + ' montre un triangle en travers du faîtage que dit le mur le plus large. Pour n’avoir aucun pignon, forcez « ligne droite » sur la ' + noms.join(' et la ') + ' ci-dessous ; pour faire tourner le faîtage, forcez « ligne droite » sur le mur le plus large (si la mesure LiDAR ne porte pas un faîtage dans ce sens, rien n’est proposé).' }],
@@ -272,14 +279,14 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   const vus = [forme ? dire(corps, undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
   const sources = [...new Set([...involves, ...murs].flatMap((a) => a.retenu?.sources ?? []))].map((s) => libelleSource(regles, s)).join(', ');
   const ecart = 'Écart à la mesure LiDAR avec cette forme : ' + metres(ecartPrincipal(corps)) + (o.corpsToit?.length ? ' (aujourd’hui ' + metres(ecartPrincipal(o.corpsToit)) + ')' : '');
-  const t = direTraversants(b, poses);
+  const t = direTraversants(poses);
   return {
     id: b.cle + ':toit', cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom, source: 'arbitrage',
     avant: dire(o.corpsToit, o.toit?.forme), apres: dire(corps, undefined) + (relus ? ', relue sur la mesure LiDAR (' + vus + ')' : '') + t.apres + ' d’après ' + sources, confiance: null,
     indices: [...involves.flatMap(indicesDuRetenu), ...t.indices, { texte: ecart }],
     remplaceChoix: involves.some((a) => a.projet.choisi) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((a) => regles.attributs[a.attribut].libelle + ' : ' + a.raison).join(' ') : null,
-    effet: { type: 'corpsToit', corps }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles)),
+    effet: { type: 'corpsToit', corps }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles, b)),
   };
 }
 
@@ -319,14 +326,14 @@ function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut
   const vus = [forme ? dire([toit], undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
   const sources = [...new Set([...involves, ...murs].flatMap((a) => a.retenu?.sources ?? []))].map((s) => libelleSource(regles, s)).join(', ');
   const nom = 'corps ' + (k + 1) + ' (' + metres(Math.hypot((c.pts[1]?.x ?? 0) - (c.pts[0]?.x ?? 0), (c.pts[1]?.y ?? 0) - (c.pts[0]?.y ?? 0))) + ' de long)';
-  const t = direTraversants(b, poses);
+  const t = direTraversants(poses);
   return {
     id: b.cle + ':toit:' + k, cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom + ', ' + nom, source: 'arbitrage',
     avant: dire([c], undefined), apres: dire([toit], undefined) + (relu ? ', relue sur la mesure LiDAR (' + vus + ')' : '') + t.apres + ' d’après ' + sources, confiance: null,
     indices: [...involves.flatMap(indicesDuRetenu), ...t.indices, { texte: 'Écart à la mesure LiDAR de ce corps : ' + metres(toit.ecart) + ' (aujourd’hui ' + metres(c.ecart) + ')' }],
     remplaceChoix: involves.some((a) => a.projet.choisi) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((a) => regles.attributs[a.attribut].libelle + ' : ' + a.raison).join(' ') : null,
-    effet: { type: 'corpsDuToit', corps: k, toit }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles)),
+    effet: { type: 'corpsDuToit', corps: k, toit }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles, b)),
   };
 }
 
@@ -350,12 +357,12 @@ function propositionReleve(o: ObjetPlan, b: LigneBatiment, f: LigneBatiment['fac
   const n = releve.ouvertures.length;
   const deClaude = a.retenu.sources.length === 1 && a.retenu.sources[0] === 'claude';
   return {
-    id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + f.facade.orientation.toLowerCase() + ' de ' + b.nom, source: 'arbitrage',
+    id: cleMesure(b.cle, f.cote) + ':releve', cible: { type: 'facade', cle: b.cle, cote: f.cote }, objet: 'Façade ' + nomFacade(f.facade.orientation, f.cote) + ' de ' + b.nom, source: 'arbitrage',
     avant: avantTexte, apres: pluriel(n, 'ouverture') + ' relevée' + (n > 1 ? 's' : '') + (n ? ' (' + ouverturesEnClair(releve.ouvertures) + ')' : '') + (deClaude ? ', avec l’aide de Claude' : ', texture de la photo'),
     indices: indicesDuRetenu(a), confiance: null,
     remplaceChoix: deja ? avantTexte : null,
     reserve: [a.decision === 'manuelle' ? a.raison : null, m.coinsTrouves ? null : 'Les coins du mur n’ont pas été trouvés sur la photo : ils sont prédits par la prise de vue, à vérifier.'].filter(Boolean).join(' ') || null,
-    effet: { type: 'releve', releve }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'releve', releve }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -385,7 +392,7 @@ function propositionLucarnes(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | unde
     apres: charge?.texte ?? ((n ? pluriel(n, 'lucarne') : 'Aucune lucarne') + (a.decision === 'forcee' ? ', forcée' + (n > 1 ? 's' : '') + ' par vous' : '')),
     confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
     reserve: [a.decision === 'manuelle' ? a.raison : null, n ? place : null].filter(Boolean).join(' ') || null,
-    effet: { type: 'lucarnes', corps: i, lucarnes }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'lucarnes', corps: i, lucarnes }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
@@ -407,7 +414,7 @@ function propositionAppentis(o: ObjetPlan, b: LigneBatiment, a: Arbitrage | unde
     apres: (ouvert ? 'Ouvert : des poteaux, pas de mur extérieur' : 'Fermé : des murs jusqu’au sol') + (cibles.length > 1 ? ' (' + cibles.length + ' appentis)' : '') + (a.decision === 'forcee' ? ', choisi par vous' : ', vu sur place'),
     confiance: null, indices: indicesDuRetenu(a), remplaceChoix: null,
     reserve: a.decision === 'manuelle' ? a.raison : null,
-    effet: { type: 'appentis', corps: cibles, ouvert }, arbitrages: [resumeArbitrage(a, regles)],
+    effet: { type: 'appentis', corps: cibles, ouvert }, arbitrages: [resumeArbitrage(a, regles, b)],
   };
 }
 
