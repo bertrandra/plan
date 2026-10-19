@@ -18,6 +18,7 @@ import type { Facade } from '../facade/geometrie.js';
 import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
 import { elevationAvecMasque, photoRedressee } from './etapesCalibration.js';
+import { sansOmbres } from '../facade/sansOmbres.js';
 import type { Image, P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
@@ -119,6 +120,9 @@ interface Etapes {
   fusion: CasPrepare['fusion'];
   propositions: readonly OuvertureDetectee[];
   devinees: readonly OuvertureDetectee[];
+  /** La texture posee sur la facade en 3D, telle quelle et sans les ombres de la photo (case « Facades sans ombres »). */
+  surFacade: string;
+  sansOmbres: string;
 }
 
 /** Les images des etapes d'un cas redresse. */
@@ -128,6 +132,9 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
     redressees: images.map((im, k) => enUrl(photoRedressee(im, depart.photos[k]?.coins ?? [], depart.largeurM, depart.hauteurM))),
     masque: outils.elevationEnUrl(elevationAvecMasque(p.elevation, p.fusion?.occlusion ?? null)),
     largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, fusion: p.fusion, propositions: p.ouvertures, devinees: p.devinees,
+    surFacade: outils.elevationEnUrl(p.texture),
+    // Les baies de la detection tiennent lieu de celles du releve, que la 3D met de cote pour lire l'eclairage du mur.
+    sansOmbres: outils.elevationEnUrl(sansOmbres(p.texture, p.pxParM, p.ouvertures, depart.hauteurM)),
   };
 }
 
@@ -188,6 +195,17 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
         </svg>
         <figcaption>{etapes.propositions.length} ouverture{etapes.propositions.length > 1 ? 's' : ''} proposée{etapes.propositions.length > 1 ? 's' : ''} (trait plein){etapes.devinees.length ? ', ' + etapes.devinees.length + ' devinée' + (etapes.devinees.length > 1 ? 's' : '') + ' par la structure (pointillé)' : ''}.</figcaption>
       </figure>
+      <h4 className="calTitre3">5. L’image posée sur la façade en 3D</h4>
+      <ul className="calGrille deux" aria-label="Image de la façade en 3D">
+        <li><figure>
+          <img className="calEtape large" src={etapes.surFacade} alt="Image posée sur la façade, telle que photographiée" />
+          <figcaption>Telle que photographiée : le mur, et au-dessus de l’égout la bande que la 3D pose sur le pignon (ciel repeint à la teinte du mur).</figcaption>
+        </figure></li>
+        <li><figure>
+          <img className="calEtape large" src={etapes.sansOmbres} alt="Image posée sur la façade, sans les ombres de la photo" />
+          <figcaption>Sans les ombres de la photo (case « Façades sans ombres » de la Vue 3D) : la 3D pose les siennes, à l’heure choisie.</figcaption>
+        </figure></li>
+      </ul>
     </details>
   );
 }

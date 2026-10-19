@@ -95,6 +95,9 @@ export interface CasPrepare {
   pxParM: number;
   /** Les ouvertures de la chaine ordinaire (reglages en usage), avec le vote entre vues quand il y a plusieurs photos. */
   ouvertures: OuvertureDetectee[];
+  /** La texture plaquee sur la facade en 3D (le mur et la bande au-dessus de l'egout), et la hauteur qu'elle couvre. */
+  texture: Image;
+  hauteurTexture: number;
   /** Les baies devinees par la structure, peu sures : proposees en pointille (l'ecran des etapes les montre). */
   devinees: OuvertureDetectee[];
   /**
@@ -112,7 +115,7 @@ export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = 
   const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { cas, elevation: r.elevation, pxParM: r.pxParM, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
+  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {

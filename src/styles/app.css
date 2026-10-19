@@ -2562,6 +2562,8 @@
   .calEtapes figcaption{ font-size:0.72rem; color:var(--ink-soft); }
   .calEtape{ display:block; width:100%; height:auto; max-height:220px; object-fit:contain; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); }
   .calEtape.large{ max-height:50vh; }
+  .calGrille.deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 599px){ .calGrille.deux{ grid-template-columns:1fr; } }
   .calQuad{ fill:var(--accent-light); fill-opacity:0.18; stroke:var(--accent); stroke-width:2; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
