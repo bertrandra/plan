@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { murDuCorps } from '../../../../../src/facade/regles/toits/murDuCorps.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
-import { propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
+import { cleChoix, propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
+import { silhouetteDesCorps } from '../../../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { cleMesure, type MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
@@ -55,6 +56,35 @@ describe('la silhouette arbitrée corps par corps', () => {
 
   it('des croupes ne se posent pas en travers d’un corps plus large que long : rien n’est proposé plutôt qu’un toit faux', () => {
     const { p } = proposer({ 13: 'trapeze', 11: 'trapeze' });
+    expect(p.find((x) => x.id === 'maison:toit:2')).toBeUndefined();
+  });
+
+  it('deux triangles sur deux murs voisins du même corps : le plus large dit le faîtage, l’autre devient un pignon traversant, que la proposition dit et que la silhouette des murs change', () => {
+    // AE 101, l'aile nord-est : un triangle au nord (cote 12, son bout, 7,8 m) et a l'est (cote 13, son long pan, 5,9 m).
+    const { o, p } = proposer({ 12: 'triangle', 13: 'triangle' });
+    const aile = p.find((x) => x.id === 'maison:toit:2');
+    expect(aile?.apres).toMatch(/pignon traversant sur la façade est \(côté 14\)/);
+    expect(aile?.indices.some((i) => /Pignon traversant .* forcez « ligne droite » sur la façade est/.test(i.texte))).toBe(true);
+    // L'option se change sous la proposition : la silhouette de chaque mur de ce corps, avec ce que le LiDAR en lit.
+    const murs = aile?.arbitrages?.filter((a) => a.attribut === 'silhouetteFacade') ?? [];
+    expect(murs.map((a) => a.cible).sort()).toEqual(['facade:maison#12', 'facade:maison#13']);
+    expect(murs.find((a) => a.cible === 'facade:maison#13')?.groupes.map((g) => [g.valeur, g.retenu])).toEqual([['ligne droite', false], ['triangle', true]]);
+    expect(murs.every((a) => a.options?.some((x) => x.libelle === 'ligne droite'))).toBe(true);
+    appliquerPropositions([o], [aile!], [], '2026-10-19');
+    const c = o.corpsToit![2]!;
+    // Le faitage reste celui que dit le mur nord ; le pignon prend le long pan est, jusqu'au faitage.
+    expect(c.pignons.filter((g) => g.fin - g.debut > 4)).toHaveLength(1);
+    expect(c.pignons[0]?.faitage).toBe(c.faitage);
+    // Le haut du mur est montre maintenant un triangle : la photo s'y plaquera en triangle.
+    expect(silhouetteDesCorps(facade(13), o.corpsToit!, 6)).toBe('triangle');
+  });
+
+  it('forcer « ligne droite » sur le mur nord retire le pignon traversant ; un faîtage tourné que la mesure ne porte pas n’est pas proposé', () => {
+    const o = maison(), capture = captureVide('78650000AE0101');
+    const choix = { [cleChoix('facade:maison#12', 'silhouetteFacade')]: { type: 'force' as const, valeur: 'ligne-droite' } };
+    const p = propositionsArbitrees({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures: mesures({ 12: 'triangle', 13: 'triangle' }) }, {}, undefined, choix);
+    // Le triangle est dit maintenant seul le sens du faitage (est-ouest) ; sur l'aile nord-est, large de 5,9 m, le LiDAR ne tient
+    // pas de faitage dans ce sens : pas de toit invente, et plus de pignon traversant. Le choix reste dans « Sources ».
     expect(p.find((x) => x.id === 'maison:toit:2')).toBeUndefined();
   });
 

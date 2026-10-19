@@ -1488,6 +1488,10 @@
   .listePropositions, .verificationsAudit{ list-style:none; margin:6px 0 0; padding:0; }
   .ligneProposition{ display:flex; align-items:flex-start; gap:10px; padding:6px 0; border-bottom:1px solid var(--hairline); }
   .ligneProposition input[type="checkbox"]{ width:18px; height:18px; margin:3px 0 0; flex:none; accent-color:var(--accent); }
+  /* La ligne surlignee dans la 3D : son bouton « voir » actif, et un filet d'accent qui la designe (le trait 3D est orange). */
+  .ligneProposition .voirProposition{ flex:none; margin-left:auto; display:inline-flex; align-items:center; justify-content:center; min-width:32px; min-height:32px; padding:0; }
+  .ligneProposition .voirProposition[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .ligneProposition.choisie{ background:var(--accent-light); color:var(--on-accent-light); border-radius:var(--r-champ); }
   .corpsProposition{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
   .texteProposition{ display:flex; flex-direction:column; gap:1px; min-width:0; cursor:pointer; }
   /* Les sources d'un attribut arbitre : un detail replie sous la ligne, la decision en premier mot. */
@@ -1546,6 +1550,7 @@
   html:not([data-classe="large"]) .partageAudit input[type="checkbox"]{ width:20px; height:20px; }
   html:not([data-classe="large"]) .ligneProposition{ min-height:44px; }
   html:not([data-classe="large"]) .ligneProposition input[type="checkbox"]{ width:20px; height:20px; margin-top:2px; }
+  html:not([data-classe="large"]) .ligneProposition .voirProposition{ min-width:44px; min-height:44px; }
   html:not([data-classe="large"]) .avantApresAudit button{ min-height:44px; }
   /* La sauvegarde sur le serveur (§15), sous la liste de controle : le bouton, et ce qui est parti.
      Une erreur se dit en mots, la bordure d'alerte ne fait que l'accompagner. */

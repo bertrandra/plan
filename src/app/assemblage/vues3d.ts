@@ -14,7 +14,7 @@ import { hauteurAppuiMm, hauteurFinieMm, elevationOf } from '../../engine/hauteu
 import { positionMat } from '../../engine/parasol.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { ortho } from '../../render/ortho.js';
-import { buildThreeScene as construireScene3D, remplacerObjets3d, comparerObjets3d } from '../../three/scene.js';
+import { buildThreeScene as construireScene3D, remplacerObjets3d, comparerObjets3d, surlignerDans3d, type Surbrillance3d } from '../../three/scene.js';
 import { cadrerDeuxVues, type RectFenetre } from '../../three/comparaison3d.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import { controleurAudit } from '../audit/branchement.js';
@@ -140,6 +140,8 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
      */
     comparerObjets3d: (apres: { cles: readonly string[]; objets: readonly ObjetPlan[]; parcelle: ObjetPlan | null } | null) =>
       comparerObjets3d(apres ? { cles: apres.cles, etat: { ...etat, objects: [...apres.objets] }, parcelle: apres.parcelle } : null),
+    /** Surligne ce que vise la ligne choisie des propositions d'un audit, dans les deux vues ; null efface. */
+    surlignerDans3d: (s: Surbrillance3d | null) => surlignerDans3d(s),
     /** Ou est l'ecran pose sur la Vue 3D (pixels de la fenetre) : les deux vues l'evitent. */
     cadrerDeuxVues: (panneau: RectFenetre | null) => cadrerDeuxVues(panneau, vue3d.scene),
     allerAuPointDeVue: vues3d.allerAuPointDeVue,

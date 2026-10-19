@@ -259,6 +259,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.forcerValeur': etape(Z8, AUDIT_PARCELLE, 'Forcer une valeur pour un attribut', { repete: true }),
   'auditParcelle.reprendreChoix': etape(Z8, AUDIT_PARCELLE, 'Reprendre le choix du moteur', { repete: true }),
   'auditParcelle.cocher': etape(Z8, AUDIT_PARCELLE, 'Cocher ou décocher une proposition', { repete: true }),
+  'auditParcelle.voirLigne': etape(Z8, AUDIT_PARCELLE, 'Voir dans la 3D ce que vise une proposition : surlignée dans les deux vues, la caméra tournée vers elle, montrée dans « Après » même décochée', { repete: true }),
   'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
   // Le fichier de l'audit (§15) : partage pour le corpus (case cochee par defaut, revocable), et le

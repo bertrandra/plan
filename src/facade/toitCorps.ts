@@ -984,6 +984,23 @@ export function ecartAuCorps(m: ToitMesure, c: CorpsToit, contour: readonly PtBr
   return Math.sqrt(ms.reduce((a, q) => a + Math.min(S.ECART_ABERRANT_M, Math.abs(q.z - hauteurAvecPignons(c, r, q.s, q.t))) ** 2, 0) / ms.length);
 }
 
+/**
+ * La hauteur du toit au point `q` du plan : celle du plus haut des corps dont le rectangle le contient (a `marge` metres pres),
+ * pignons compris ; null quand aucun corps ne le couvre. C'est le haut du mur sous le toit, vu de pres : la photo d'une facade
+ * s'y decoupe (three/releve3d.ts).
+ */
+export function hauteurDuToitEn(corps: readonly CorpsToit[], q: PtBrut, marge = 0.05): number | null {
+  let h: number | null = null;
+  for (const c of corps) {
+    const r = repere(c.pts);
+    const s = (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y, t = (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y;
+    if (s < -marge || s > r.L + marge || t < -marge || t > r.W + marge) continue;
+    const z = hauteurAvecPignons(c, r, Math.min(r.L, Math.max(0, s)), Math.min(r.W, Math.max(0, t)));
+    if (h === null || z > h) h = z;
+  }
+  return h;
+}
+
 /** La hauteur d'un corps, ses pignons compris : chacun, deux pans perpendiculaires au faitage, de son mur a sa profondeur. */
 function hauteurAvecPignons(c: CorpsToit, r: Repere, s: number, t: number): number {
   let z = hauteurCorpsEn(c, r.L, r.W, s, t);
