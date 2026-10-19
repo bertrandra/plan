@@ -356,18 +356,30 @@ describe('« Rejouer redressement + fusion »', () => {
     expect(await t.v.rejouerRedressement()).toBe(1);
   });
 
-  it('« Réinitialiser » défait aussi les « Je confirme » faits sur les observations de Claude, et rien d’autre', () => {
+  it('décocher une confirmation rend la valeur d’avant ; « Réinitialiser » rend toutes les confirmations, et rien d’autre', () => {
     const t = monter();
     const vu = () => t.capture.lire().batiments['maison']?.vu;
     expect(t.v.aDesDecisions()).toBe(false);
-    t.v.confirmerObservation('maison', { forme: 'croupes', bouts: ['pignon', 'pignon'] } as never);
-    expect(vu()?.forme).toBe('croupes');
-    expect(t.v.aDesDecisions()).toBe(true);
-    // Une note a la main, ailleurs, sur une autre cle : elle reste.
+    expect(t.v.aDesConfirmations()).toBe(false);
+    t.v.confirmerObservation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    t.v.confirmerObservation('maison', 'maison:obs:silhouettes', { bouts: 'pignons' } as never);
+    expect(vu()).toMatchObject({ forme: 'croupes', bouts: 'pignons' });
+    expect(t.v.aDesConfirmations()).toBe(true);
+    // Une seule case decochee : sa valeur revient, l'autre confirmation reste.
+    t.v.annulerConfirmation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    expect(vu()?.forme).toBe('deux-pans');
+    expect(vu()?.bouts).toBe('pignons');
+    // Une note a la main, ailleurs, reste ; « Réinitialiser mes decisions » rend l'autre confirmation.
     t.capture.noterVu('maison', { ...vu(), murs: 'pierre' });
     t.v.reinitialiser();
-    expect(vu()?.forme).toBe('deux-pans');
+    expect(vu()?.bouts).toBeUndefined();
     expect(vu()?.murs).toBe('pierre');
     expect(t.v.aDesDecisions()).toBe(false);
+    // Le bouton du bas de « Vu par Claude » ne rend que les confirmations.
+    t.v.confirmerObservation('maison', 'maison:obs:forme', { forme: 'croupes' } as never);
+    t.v.basculer('maison:couverture');
+    t.v.reinitialiserConfirmations();
+    expect(vu()?.forme).toBe('deux-pans');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
   });
 });

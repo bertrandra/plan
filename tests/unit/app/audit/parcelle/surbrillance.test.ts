@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { surbrillanceDe, surbrillanceObservation } from '../../../../../src/app/audit/parcelle/surbrillance.js';
+import { surbrillanceArbitrage, surbrillanceDe, surbrillanceObservation } from '../../../../../src/app/audit/parcelle/surbrillance.js';
 import type { Proposition } from '../../../../../src/regles/decisions.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
@@ -42,5 +42,22 @@ describe('la surbrillance d une ligne de propositions', () => {
     expect(surbrillanceObservation('maison:obs:forme', [maison])?.formes[0]).toMatchObject({ bas: 6, haut: 9, ferme: true });
     expect(surbrillanceObservation('maison:obs:decorMurs', [maison])?.formes[0]).toMatchObject({ bas: 0, haut: 6, ferme: true });
     expect(surbrillanceObservation('maison:obs:forme', [])).toBeNull();
+  });
+
+  it('une facade nommee : son mur au contour en gras, pour une proposition, une observation ou un arbitrage', () => {
+    const p = surbrillanceDe(ligne({ type: 'facade', cle: 'maison', cote: 0 }, { type: 'couleurMurs', couleur: '#fff' }), [maison]);
+    expect(p?.formes[0]?.epais).toBe(true);
+    expect(surbrillanceObservation('maison:obs:renfort:0', [maison])?.formes[0]?.epais).toBe(true);
+    expect(surbrillanceArbitrage('facade:maison#0', 'silhouetteFacade', [maison])?.formes[0]).toMatchObject({ epais: true, ferme: false });
+    // Un corps de toit ou le batiment entier ne sont pas une facade nommee.
+    expect(surbrillanceDe(ligne({ type: 'batiment', cle: 'maison' }, { type: 'corpsDuToit', corps: 1, toit: CORPS[1] as CorpsToit }), [maison])?.formes[0]?.epais).toBeUndefined();
+  });
+
+  it('un arbitrage de « Sources » : le toit, les murs ou le batiment selon l’attribut ; rien quand le batiment a disparu', () => {
+    expect(surbrillanceArbitrage('batiment:maison', 'formeToit', [maison])?.formes[0]).toMatchObject({ bas: 6, haut: 9 });
+    expect(surbrillanceArbitrage('batiment:maison', 'hauteurEgout', [maison])?.formes[0]).toMatchObject({ bas: 0, haut: 6 });
+    expect(surbrillanceArbitrage('batiment:maison', 'ouverturesFacade', [maison])?.formes[0]).toMatchObject({ bas: 0, haut: 9 });
+    expect(surbrillanceArbitrage('batiment:maison', 'formeToit', [])).toBeNull();
+    expect(surbrillanceArbitrage('n’importe quoi', 'formeToit', [maison])).toBeNull();
   });
 });

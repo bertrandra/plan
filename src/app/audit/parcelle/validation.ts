@@ -29,7 +29,7 @@ import type { EtatApp } from '../../../core/state.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
-import { surbrillanceDe, surbrillanceObservation, type Surbrillance } from './surbrillance.js';
+import { surbrillanceArbitrage, surbrillanceDe, surbrillanceObservation, type Surbrillance } from './surbrillance.js';
 import type { DecisionProposition, PropositionAuditee } from '../../../model/fichierAuditParcelle.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
@@ -105,10 +105,13 @@ export interface Validation {
   /** La personne a-t-elle pris une decision (case changee, source retenue ou valeur forcee) que « Réinitialiser » defait ? */
   aDesDecisions(): boolean;
   /**
-   * « Je confirme » sur une observation de Claude : note `confirmer` dans « Ce que je vois » de la capture, en retenant ce qu'il y avait,
-   * pour que « Réinitialiser » le rende. Une decision de la personne sur Claude, comme une case ou une source.
+   * « Je confirme » sur l'observation `id` de Claude : note `confirmer` dans « Ce que je vois » de la capture, en retenant ce qu'il y avait.
+   * `annulerConfirmation` (case decochee) rend cette valeur ; `reinitialiserConfirmations` rend toutes celles-la, sans toucher aux cases ni aux sources.
    */
-  confirmerObservation(cle: string, confirmer: Partial<CeQueJeVois>): void;
+  confirmerObservation(cle: string, id: string, confirmer: Partial<CeQueJeVois>): void;
+  annulerConfirmation(cle: string, id: string, confirmer: Partial<CeQueJeVois>): void;
+  reinitialiserConfirmations(): void;
+  aDesConfirmations(): boolean;
   /** Defait toutes les decisions de la personne : les cases et les arbitrages reviennent a ce que le moteur propose. */
   reinitialiser(): void;
   /**
@@ -295,29 +298,41 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
 }
 
 /**
- * Les « Je confirme » faits sur les observations de Claude, et la valeur qu'ils ont remplacee : « Réinitialiser mes decisions » les defait.
- * Seules les cles confirmees sont rendues ; le reste de « Ce que je vois » (note a la main ailleurs) ne bouge pas.
+ * Les « Je confirme » faits sur les observations de Claude, observation par observation, et la valeur que chacun a remplacee :
+ * decocher la case d'une observation rend sa valeur, « Réinitialiser » les rend toutes. Seules les cles confirmees bougent ; le
+ * reste de « Ce que je vois » (note a la main ailleurs) reste. Sans trace d'une confirmation (la capture portait deja la valeur),
+ * decocher retire les cles de l'observation.
  */
-function confirmationsDe(ctx: ContexteValidation) {
-  const avant = new Map<string, Map<string, unknown>>();
+function confirmationsDe(ctx: ContexteValidation, publier: () => void) {
+  const faites = new Map<string, { cle: string; avant: Map<string, unknown> }>();
   const vuDe = (cle: string) => (ctx.capture.lire().batiments[cle]?.vu ?? {}) as Record<string, unknown>;
-  return {
-    confirmerObservation(cle: string, confirmer: Partial<CeQueJeVois>): void {
-      const vu = vuDe(cle), memo = avant.get(cle) ?? new Map<string, unknown>();
-      for (const k of Object.keys(confirmer)) if (!memo.has(k)) memo.set(k, vu[k]);
-      avant.set(cle, memo);
-      ctx.capture.noterVu(cle, { ...vu, ...confirmer } as CeQueJeVois);
-    },
-    aDesConfirmations: () => avant.size > 0,
-    defaireConfirmations(): void {
-      for (const [cle, memo] of avant) {
-        const vu = { ...vuDe(cle) };
-        for (const [k, v] of memo) { if (v === undefined) delete vu[k]; else vu[k] = v; }
-        ctx.capture.noterVu(cle, vu as CeQueJeVois);
-      }
-      avant.clear();
-    },
+  /** Rend a la capture ce que la confirmation `id` avait remplace (ou retire `cles` quand il n'y a pas de trace). */
+  const rendre = (cle: string, id: string, cles: readonly string[]): void => {
+    const vu = { ...vuDe(cle) }, trace = faites.get(id)?.avant;
+    for (const k of trace ? [...trace.keys()] : cles) { const v = trace?.get(k); if (v === undefined) delete vu[k]; else vu[k] = v; }
+    faites.delete(id);
+    ctx.capture.noterVu(cle, vu as CeQueJeVois);
   };
+  const defaire = (): void => { for (const [id, f] of [...faites].reverse()) rendre(f.cle, id, []); };
+  return {
+    api: {
+      confirmerObservation(cle: string, id: string, confirmer: Partial<CeQueJeVois>): void {
+        const vu = vuDe(cle);
+        if (!faites.has(id)) faites.set(id, { cle, avant: new Map(Object.keys(confirmer).map((k) => [k, vu[k]])) });
+        ctx.capture.noterVu(cle, { ...vu, ...confirmer } as CeQueJeVois);
+      },
+      annulerConfirmation: (cle: string, id: string, confirmer: Partial<CeQueJeVois>): void => rendre(cle, id, Object.keys(confirmer)),
+      aDesConfirmations: (): boolean => faites.size > 0,
+      reinitialiserConfirmations(): void { defaire(); publier(); },
+    },
+    defaireConfirmations: defaire,
+  };
+}
+
+/** La zone d'une ligne qui n'est pas une proposition : une observation de Claude (`cle:obs:sujet`) ou un arbitrage de « Sources » (`cible:arb:attribut`). */
+function zoneDeLaLigne(id: string, objets: readonly ObjetPlan[]): Surbrillance | null {
+  const [cible = '', attribut = ''] = id.split(':arb:');
+  return id.includes(':arb:') ? surbrillanceArbitrage(cible, attribut, objets) : surbrillanceObservation(id, objets);
 }
 
 /**
@@ -329,13 +344,13 @@ function selectionDe(ctx: ContexteValidation, propositions: () => readonly Propo
   // `viser` : la camera va vers la ligne choisie (son geste), pas a chaque case cochee.
   const surligner = (viser = false): void => {
     // Une seule ligne a la fois, proposition ou observation de Claude (`cle:obs:sujet`) : l'une efface l'autre.
-    const observation = id !== null && id.includes(':obs:');
+    const observation = id !== null && (id.includes(':obs:') || id.includes(':arb:'));
     const p = id && !observation ? propositions().find((x) => x.id === id) : null;
     // Une ligne qui a disparu (un nouveau calcul) n'est plus choisie.
     if (id && !observation && !p) id = null;
     // Toute ligne cochee est marquee dans la 3D : c'est ce qui va changer, sans avoir a cliquer l'oeil.
     const aussi = propositions().filter((x) => x.id !== id && cochee(x.id)).map((x) => surbrillanceDe(x, ctx.etat.objects)).filter((x): x is Surbrillance => x !== null);
-    ctx.projet.surligner3d?.(p ? surbrillanceDe(p, ctx.etat.objects) : observation && id ? surbrillanceObservation(id, ctx.etat.objects) : null, aussi, viser);
+    ctx.projet.surligner3d?.(p ? surbrillanceDe(p, ctx.etat.objects) : observation && id ? zoneDeLaLigne(id, ctx.etat.objects) : null, aussi, viser);
   };
   return {
     id: () => id,
@@ -445,7 +460,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const cochees = () => new Set(calculer().propositions.filter((p) => cochee(p.id)).map((p) => p.id));
   const verifs = () => verifications(ctx.liste(), ctx.capture.lire(), calculer().propositions, cochees());
 
-  const confirmations = confirmationsDe(ctx), choix3d = selectionDe(ctx, () => calculer().propositions, (id) => cochee(id)); // « Après » : les lignes cochees, et la ligne choisie meme decochee.
+  const confirmations = confirmationsDe(ctx, () => publier()), choix3d = selectionDe(ctx, () => calculer().propositions, (id) => cochee(id)); // « Après » : les lignes cochees, et la ligne choisie meme decochee.
   const apercu = apercuDe(ctx, () => ({ toutes: calculer().propositions, choisies: calculer().propositions.filter((p) => cochee(p.id) || p.id === choix3d.id()), calculs }));
 
   /** Decider, c'est vouloir : la proposition qui en resulte se coche (sa rivale sur place, elle, se decoche). */
@@ -479,7 +494,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a)) })),
     decider: (cible, attribut, choixArb) => decider(cible, attribut, choixArb),
     cochee,
-    aDesDecisions: () => !figees && (choix.size > 0 || decisions.size > 0 || confirmations.aDesConfirmations()), confirmerObservation: confirmations.confirmerObservation, reinitialiser() { if (figees) return; choix.clear(); decisions.clear(); confirmations.defaireConfirmations(); versionDecisions++; memo = null; choix3d.choisir(null); apercu.poser(); choix3d.surligner(); publier(); },
+    aDesDecisions: () => !figees && (choix.size > 0 || decisions.size > 0 || confirmations.api.aDesConfirmations()), ...confirmations.api, reinitialiser() { if (figees) return; choix.clear(); decisions.clear(); confirmations.defaireConfirmations(); versionDecisions++; memo = null; choix3d.choisir(null); apercu.poser(); choix3d.surligner(); publier(); },
     basculer(id) {
       if (figees) return;
       const vers = !cochee(id);

@@ -825,7 +825,7 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
 }
 
 /** Une forme a surligner : une ligne de points du plan, tracee a deux hauteurs au-dessus du sol et reliee par des verticales. */
-export interface FormeSurlignee3d { pts: readonly PtBrut[]; bas: number; haut: number; ferme: boolean }
+export interface FormeSurlignee3d { pts: readonly PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean }
 /** Ce qu'une ligne de propositions vise (app/audit/parcelle/surbrillance.ts), et d'ou le regarder : devant un mur, sa normale. */
 export interface Surbrillance3d { formes: readonly FormeSurlignee3d[]; centre: PtBrut; hautM: number; normale: PtBrut | null }
 
@@ -864,6 +864,22 @@ export function surlignerDans3d(s: Surbrillance3d | null, aussi: readonly Surbri
     lignes.renderOrder = 999;
     scene.add(lignes);
     surbrillance.push(lignes);
+    // Une facade nommee : un cadre en gras (quatre bandes de 12 cm dans le plan du mur), que le trait de 1 px ne donne pas.
+    if (f.epais && !f.ferme && n === 2) {
+      const [a, b] = f.pts as [PtBrut, PtBrut];
+      const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, e = Math.min(0.12, f.haut - f.bas);
+      const dx = ((b.x - a.x) / L) * e, dy = ((b.y - a.y) / L) * e;
+      const a2 = { x: a.x + dx, y: a.y + dy }, b2 = { x: b.x - dx, y: b.y - dy };
+      const bande = (p1: PtBrut, h1: number, p2: PtBrut, h2: number, p3: PtBrut, h3: number, p4: PtBrut, h4: number) =>
+        [v(p1, h1), v(p2, h2), v(p3, h3), v(p1, h1), v(p3, h3), v(p4, h4)];
+      const gras = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([
+        ...bande(a, f.bas, b, f.bas, b, f.bas + e, a, f.bas + e), ...bande(a, f.haut - e, b, f.haut - e, b, f.haut, a, f.haut),
+        ...bande(a, f.bas, a2, f.bas, a2, f.haut, a, f.haut), ...bande(b2, f.bas, b, f.bas, b, f.haut, b2, f.haut),
+      ]), new THREE.MeshBasicMaterial({ color: COULEUR_SURBRILLANCE, depthTest: false, side: THREE.DoubleSide }));
+      gras.renderOrder = 1000;
+      scene.add(gras);
+      surbrillance.push(gras);
+    }
     // Un mur : un voile sur sa face, pour qu'il se voie aussi de loin.
     if (!f.ferme && n === 2) {
       const [a, b] = f.pts as [PtBrut, PtBrut];
