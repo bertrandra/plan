@@ -332,7 +332,8 @@ function confirmationsDe(ctx: ContexteValidation, publier: () => void) {
 /** La zone d'une ligne qui n'est pas une proposition : une observation de Claude (`cle:obs:sujet`) ou un arbitrage de « Sources » (`cible:arb:attribut`). */
 function zoneDeLaLigne(id: string, objets: readonly ObjetPlan[]): Surbrillance | null {
   const [cible = '', attribut = ''] = id.split(':arb:');
-  return id.includes(':arb:') ? surbrillanceArbitrage(cible, attribut, objets) : surbrillanceObservation(id, objets);
+  // `@ligne` : l'arbitrage montre dans sa ligne de proposition (meme zone que celui de « Sources »).
+  return id.includes(':arb:') ? surbrillanceArbitrage(cible, attribut.split('@')[0] ?? attribut, objets) : surbrillanceObservation(id, objets);
 }
 
 /**

@@ -1503,6 +1503,7 @@
   .mainArbitrage select, .forcerNombre input{ font-size:0.74rem; min-height:32px; }
   .forcerNombre{ display:inline-flex; gap:4px; align-items:center; }
   .forcerNombre input{ width:6rem; }
+  .pictoSilhouette{ vertical-align:middle; margin-right:6px; color:var(--accent); flex:none; }
   .niveauPropositions > summary{ cursor:pointer; padding:4px 0; }
   .niveauPropositions.sousNiveau{ margin-left:12px; }
   .niveauPropositions.contientChoix:not([open]) > summary{ background:var(--accent-light); color:var(--on-accent-light); border-radius:var(--r-champ); }
