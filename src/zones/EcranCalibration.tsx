@@ -28,6 +28,46 @@ export interface DepsCalibration extends OutilsPhotos {
   audits?: () => Promise<{ id: string; libelle: string }[]>;
   /** Les facades photographiees d'un audit, chacune deja en cas : photos, largeur du cadastre, hauteur du LiDAR. */
   facadesDAudit?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
+  /** Les projets du serveur (fichiers de demo) dont un batiment a une facade relevee (facultatif). */
+  projets?: () => Promise<{ id: string; libelle: string }[]>;
+  /** Les facades relevees d'un projet du serveur, chacune deja en cas : la texture, les dimensions, les ouvertures validees. */
+  facadesDeProjet?: (id: string) => Promise<{ libelle: string; cas: CasStocke }[]>;
+  /** Les facades relevees d'un fichier de projet (« Exporter le projet (JSON) »). */
+  facadesDeFichier?: (f: File) => Promise<{ libelle: string; cas: CasStocke }[]>;
+}
+
+/**
+ * Creer un cas depuis une facade relevee d'un batiment : celle d'un projet du serveur, ou d'un fichier de projet. Le releve
+ * garde l'elevation redressee et les ouvertures que la personne a validees : un cas de detection, deja annote.
+ */
+function DepuisUnBatiment({ deps, choisir }: { deps: DepsCalibration; choisir: (cas: CasStocke) => void }) {
+  const [projets, setProjets] = useState<{ id: string; libelle: string }[] | null>(null);
+  const [facades, setFacades] = useState<{ libelle: string; cas: CasStocke }[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  if (!deps.facadesDeProjet && !deps.facadesDeFichier) return null;
+  const erreur = (quoi: string) => (e: unknown) => setMessage(quoi + ' : ' + ((e as Error).message || String(e)));
+  const lister = async () => { try { setProjets(await (deps.projets as NonNullable<DepsCalibration['projets']>)()); setFacades(null); setMessage(null); } catch (e) { erreur('Projets illisibles')(e); } };
+  const lire = async (id: string) => { try { setFacades(await (deps.facadesDeProjet as NonNullable<DepsCalibration['facadesDeProjet']>)(id)); setMessage(null); } catch (e) { erreur('Projet illisible')(e); } };
+  const fichier = async (f: File | undefined) => { if (!f) return; try { setProjets(null); setFacades(await (deps.facadesDeFichier as NonNullable<DepsCalibration['facadesDeFichier']>)(f)); setMessage(null); } catch (e) { erreur('Fichier illisible')(e); } };
+  return (
+    <div className="calDepuisAudit">
+      <div className="calLigne">
+        {deps.projets && deps.facadesDeProjet && <button type="button" className="secondary" data-controle="calibration.depuisProjet" onClick={() => { void lister(); }}>Créer un cas depuis un bâtiment d’un projet</button>}
+        {deps.facadesDeFichier && <label className="boutonFichier secondary">
+          <input type="file" accept="application/json,.json" data-controle="calibration.depuisFichier" onChange={(e) => { void fichier(e.target.files?.[0]).then(() => { e.target.value = ''; }); }} />
+          <span>Depuis un fichier de projet (JSON)</span>
+        </label>}
+      </div>
+      {message && <p className="arbMessage" role="alert">{message}</p>}
+      {projets && !facades && (projets.length
+        ? <ul className="calListe" aria-label="Projets">{projets.map((p) => <li key={p.id}><button type="button" className="secondary small" data-controle="calibration.choisirProjet" onClick={() => { void lire(p.id); }}>{p.libelle}</button></li>)}</ul>
+        : <p className="calNote">Aucun projet sur le serveur.</p>)}
+      {facades && (facades.length
+        ? <><p className="calNote">Le mur redressé du relevé, ses dimensions, et les ouvertures validées au relevé comme point de départ : relisez-les sur la photo.</p>
+          <ul className="calListe" aria-label="Façades relevées">{facades.map((f, k) => <li key={k}><button type="button" className="secondary small" data-controle="calibration.choisirReleve" onClick={() => choisir(f.cas)}>{f.libelle}</button></li>)}</ul></>
+        : <p className="calNote">Aucune façade relevée avec sa photo dans ce projet (une photo restée sur un autre appareil ne se relit pas ici).</p>)}
+    </div>
+  );
 }
 
 /**
@@ -225,6 +265,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
           <h2 className="calTitre2">Cas de calibration</h2>
           <div className="calLigne"><button type="button" data-controle="calibration.nouveauCas" onClick={nouveau}>Nouveau cas (photos)</button></div>
           <DepuisUnAudit deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: true })} />
+          <DepuisUnBatiment deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: false })} />
           {resumes.length === 0
             ? <p className="calNote">Aucun cas. Prenez des photos de façades variées : brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton. Une vingtaine de cas validés donnent des réglages fiables.</p>
             : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="visuallyHidden">Ouvrir</span></th></tr></thead>

@@ -2559,6 +2559,23 @@
   .calParams li{ break-inside:avoid; min-height:28px; }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
   .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
+  /* Les etapes d'un cas en images : une vignette par photo (coins, redressement), puis le mur fusionne et la detection. */
+  .calEtapes{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .calEtapes > summary{ cursor:pointer; font-family:var(--serif); font-size:0.95rem; min-height:32px; display:flex; align-items:center; }
+  .calGrille{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; padding:0; margin:6px 0; list-style:none; }
+  .calEtapes figure{ margin:0; display:grid; gap:4px; }
+  .calEtapes figcaption{ font-size:0.72rem; color:var(--ink-soft); }
+  .calEtape{ display:block; width:100%; height:auto; max-height:220px; object-fit:contain; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); }
+  .calEtape.large{ max-height:50vh; }
+  .calGrille.deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 599px){ .calGrille.deux{ grid-template-columns:1fr; } }
+  .calQuad{ fill:var(--accent-light); fill-opacity:0.18; stroke:var(--accent); stroke-width:2; }
+  .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
+  .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
+  .calEgout{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3; }
+  .calSilhouette{ fill:none; stroke:var(--accent); stroke-width:3; }
+  .calModele{ fill:none; stroke:var(--danger); stroke-width:2; stroke-dasharray:6 4; }
+  .calEtapes .calListe{ margin:4px 0; padding-left:18px; font-size:0.78rem; }
   .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){
     .calEcran button, .calChamp input, .calChamp select{ min-height:44px; }
