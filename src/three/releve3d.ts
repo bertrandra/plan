@@ -12,10 +12,11 @@ import type { VolumeToit } from '../model/types.js';
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type * as THREE_NS from 'three';
-import type { ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '../model/types.js';
+import type { CorpsToit, ObjetPolygone, PtBrut, OuvertureFacade, PartieBasse, Toit } from '../model/types.js';
 import { hauteurDuMur } from '../facade/ouvertures.js';
 import { facadesDuContour, type Facade } from '../facade/geometrie.js';
 import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
+import { silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
@@ -139,12 +140,14 @@ interface Habillage {
 
 /**
  * La photo redressee, plaquee sur le mur jusqu'a l'egout ; le reste de la texture ira au pignon. Un mur
- * en L recoit une photo en L : au-dessus de la partie basse, il n'y a pas de mur.
+ * en L recoit une photo en L : au-dessus de la partie basse, il n'y a pas de mur. Sous des corps de toit
+ * (LiDAR), la photo epouse la silhouette du mur : son egout, son pignon jusqu'au faitage, ses marches ; a
+ * l'echelle (un metre de photo pour un metre de mur), et elle s'arrete ou la photo s'arrete.
  */
-function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartieBasse | null) {
+function plaquerTexture(ctx: ContexteReleve3d, hab: Habillage, hauteur: number, partie: PartieBasse | null, corps: readonly CorpsToit[] | null = null) {
   const { pt } = repereMur(ctx, hab.f);
   const L = hab.f.largeur;
-  const contour = contourDuMur(L, hauteur, partie);
+  const contour = corps?.length ? silhouetteDuMur(hab.f, corps, hab.hauteurTexture, hauteur) : contourDuMur(L, hauteur, partie);
   const sommets = contour.flatMap((q) => pt(q.x, q.y, DECOLLEMENT));
   const uv = contour.flatMap((q) => [q.x / L, Math.min(1, q.y / hab.hauteurTexture)]);
   const m = maillage(sommets, trianguler(contour).flat(), hab.mat, uv);
@@ -291,7 +294,7 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: nu
 }
 
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
-export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false): void {
+export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
   if (!o.facades?.length && !o.toit && !volumesToit) return;
   const volumes = volumesDuBatiment(o.pts, h, o.facades);
   const facades = facadesDuContour(o.pts, h);
@@ -314,7 +317,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       poserEnCouche(mat, COUCHES_SOL.surMur);
       const hab = { f, mat, hauteurTexture: r.hauteurTexture || r.hauteur };
       habillages.push(hab);
-      plaquerTexture(ctx, hab, hMur, partie);
+      plaquerTexture(ctx, hab, hMur, partie, corps);
     }
     const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01);
     posees.forEach((ov) => poserOuverture(ctx, f, ov, avecPhoto));

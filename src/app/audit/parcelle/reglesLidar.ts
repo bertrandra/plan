@@ -20,6 +20,8 @@ export const REGLES_LIDAR = {
     corps: 'SEUIL_MARCHE_M',
     bouts: 'GAIN_CROUPES',
     sens: 'SEUIL_MARCHE_M',
+    /** La silhouette d'un mur sous les corps lus, lue sur le cote du corps qui le porte (facade/regles/toits/silhouetteDesCorps.ts). */
+    silhouette: 'silhouette du mur sous les corps lus (LiDAR)',
   },
   photo: {
     hauteur: 'hauteur mesurée sur la photo (coins trouvés)',

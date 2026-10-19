@@ -107,6 +107,29 @@ export function pignonsAuxBouts(c: CorpsToit, pan: 0 | 1, pf: PignonsFait, m: To
 }
 
 /**
+ * Un pignon traversant sur le pan `pan` du corps, de `s0` a `s1` le long du faitage : le triangle qu'une photo voit sur un mur
+ * de long pan, en travers du faitage que disent les autres murs du corps (decision de l'utilisateur, 19 octobre 2026 : « deux
+ * murs voisins d'un meme corps montrent chacun un triangle : le plus large dit le faitage, l'autre est un pignon traversant »).
+ * Il monte au faitage du corps, comme un pignon que dit un fait (`haut: 'faitage'`) : sa hauteur lue le long du mur est celle de
+ * ses rampants, pas de sa pointe (AE 101, cote 13 : 3,6 m lus, quand la photo montre la pointe a la hauteur du faitage). Le pan
+ * se reajuste sans ses mesures quand il en reste assez, comme pour un pignon detecte. Un pignon deja la, sur la moitie du
+ * morceau au moins, est garde tel quel.
+ */
+export function pignonTraversant(c: CorpsToit, pan: 0 | 1, s0: number, s1: number, m: ToitMesure, contour: readonly PtBrut[]): CorpsToit {
+  const r = repere(c.pts);
+  if (c.posFaitage <= 0.01 || c.posFaitage >= r.W - 0.01 || c.faitage - Math.min(...c.egouts) < S.HAUTEUR_PLAT_M) return c;
+  const a = Math.max(0, Math.min(s0, s1)), b = Math.min(r.L, Math.max(s0, s1));
+  if (b - a < S.LARGEUR_PIGNON_MIN_M) return c;
+  if (c.pignons.some((p) => p.pan === pan && Math.min(p.fin, b) - Math.max(p.debut, a) >= 0.5 * (b - a))) return c;
+  const largeurPan = pan === 0 ? c.posFaitage : r.W - c.posFaitage;
+  const provisoire: PignonToit = { pan, debut: a, fin: b, faitage: c.faitage, profondeur: largeurPan };
+  // Un pignon qui prend plus que PART_LONGUEUR_MAX du pan ne laisse pas assez de mesure pour le relire : le pan reste tel que lu.
+  const reajuste = b - a <= PART_LONGUEUR_MAX * r.L ? (ajusterCorps(m, c.pts, contour, [...c.pignons, provisoire].map((p) => empreintePignon(c, p)), true) ?? c) : c;
+  const lp = pan === 0 ? reajuste.posFaitage : repere(reajuste.pts).W - reajuste.posFaitage;
+  return { ...reajuste, pignons: [...c.pignons, { pan, debut: cm(a), fin: cm(b), faitage: dixieme(reajuste.faitage), profondeur: cm(lp) }] };
+}
+
+/**
  * Les corps avec les pignons que le fait place sur les facades de leur corps principal (le plus
  * grand). Une facade qui n'est pas un mur de pan (un mur de bout) ne porte pas de pignon traversant.
  */

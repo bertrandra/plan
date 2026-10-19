@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { cibleBatiment, cibleFacade, confianceCorps, constatsDuBatiment, formeArbitree, formeDesBouts, type EntreesConstats } from '../../../../../src/app/audit/parcelle/constats.js';
+import { cibleBatiment, cibleFacade, confianceCorps, constatsDuBatiment, constatsReconcilies, formeArbitree, formeDesBouts, type EntreesConstats } from '../../../../../src/app/audit/parcelle/constats.js';
 import { REGLES_LIDAR, SEUILS_LIDAR_CITES } from '../../../../../src/app/audit/parcelle/reglesLidar.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { cleMesure } from '../../../../../src/app/audit/parcelle/mesures.js';
@@ -91,9 +91,9 @@ describe('les constats de la photo de façade', () => {
     expect(h?.indices).toHaveLength(2);
   });
 
-  it('la silhouette des murs dit les bouts, le sens du faîtage et la forme', () => {
+  it('la silhouette des murs, arbitrée mur par mur, dit les bouts, le sens du faîtage et la forme', () => {
     const mesures = new Map([mesure('est', { silhouette: 'triangle' }), mesure('ouest', { silhouette: 'triangle' })]);
-    const { constats } = constatsDuBatiment(entrees(maison(), { mesures }));
+    const { constats } = constatsReconcilies(entrees(maison(), { mesures }));
     expect(de(constats, 'photo', 'boutsToit')?.valeur).toEqual(['pignon', 'pignon']);
     expect(Math.abs((de(constats, 'photo', 'sensFaitage')?.valeur as number) - 74)).toBeLessThan(2);
     expect(de(constats, 'photo', 'formeToit')).toMatchObject({ valeur: 'deux-pans', regle: 'regles/toits/silhouettes.json', confiance: 0.9 });
@@ -102,8 +102,34 @@ describe('les constats de la photo de façade', () => {
 
   it('des coins non trouvés rendent la photo moins sûre ; sans silhouette, elle ne dit rien du toit', () => {
     const mesures = new Map([mesure('est', { silhouette: 'triangle', coinsTrouves: false }), mesure('ouest', { silhouette: 'triangle', coinsTrouves: false })]);
-    expect(de(constatsDuBatiment(entrees(maison(), { mesures })).constats, 'photo', 'boutsToit')?.confiance).toBeCloseTo(0.72, 6);
-    expect(constatsDuBatiment(entrees(maison(), { mesures: new Map([mesure('est', { silhouette: 'indetermine' })]) })).constats.filter((c) => c.source === 'photo')).toEqual([]);
+    expect(de(constatsReconcilies(entrees(maison(), { mesures })).constats, 'photo', 'boutsToit')?.confiance).toBeCloseTo(0.72, 6);
+    expect(constatsReconcilies(entrees(maison(), { mesures: new Map([mesure('est', { silhouette: 'indetermine' })]) })).constats.filter((c) => c.source === 'photo')).toEqual([]);
+  });
+});
+
+describe('la silhouette de chaque mur : la photo gagne sur le LiDAR, et le toit suit', () => {
+  it('le LiDAR dit la silhouette de chaque mur sous ses corps, lue sur le corps qui le porte', () => {
+    const { constats } = constatsDuBatiment(entrees(maison()));
+    const lidar = new Map(constats.filter((c) => c.source === 'lidar' && c.attribut === 'silhouetteFacade').map((c) => [c.cible, c.valeur]));
+    // Le cote 3 est une saillie devant le pignon est du corps principal : c'est le pignon qu'on lit, pas la saillie a 3,4 m.
+    expect(lidar.get('facade:maison#3')).toBe('triangle');
+    expect(lidar.get('facade:maison#13')).toBe('ligne-droite');
+    expect(lidar.get('facade:maison#6')).toBe('plusieurs-sommets');
+  });
+
+  it('un triangle sur la photo contre une ligne droite au LiDAR : le triangle est retenu, et le corps qui porte le mur prend un pignon de ce côté', () => {
+    const mesures = new Map([[cleMesure('maison', 13), { cle: 'maison', cote: 13, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, silhouette: 'triangle' as const }]]);
+    const r = constatsReconcilies(entrees(maison(), { mesures }));
+    const mur = r.silhouettes.find((a) => a.cible === 'facade:maison#13');
+    expect(mur?.retenu?.valeur).toBe('triangle');
+    expect(mur?.decision).toBe('auto');
+    expect(mur?.groupes.map((g) => [g.valeur, g.sources])).toEqual([['ligne-droite', ['lidar']], ['triangle', ['photo']]]);
+    // Le mur 13 est un long pan du corps 3 (cible corps:maison#2) : son triangle en fait un bout, le faitage passe perpendiculaire a lui.
+    const sens = r.constats.find((c) => c.source === 'photo' && c.attribut === 'sensFaitage' && c.cible === 'corps:maison#2');
+    const lidar = r.constats.find((c) => c.source === 'lidar' && c.attribut === 'sensFaitage' && c.cible === 'corps:maison#2');
+    const ecart = Math.abs(((sens?.valeur as number) - (lidar?.valeur as number) + 360) % 180);
+    expect(Math.min(ecart, 180 - ecart)).toBeGreaterThan(60);
+    expect(sens?.indices?.[0]).toMatchObject({ texte: expect.stringMatching(/ : triangle → /), photo: { cle: 'maison', cote: 13, rang: 0 } });
   });
 });
 
@@ -115,7 +141,7 @@ describe('les constats de Claude', () => {
   const vote = (plus: Parameters<typeof reponse>[0] = {}) => { const r = reponse(plus); return voterAnalyse([r, r, r]); };
 
   it('la forme et les bouts de l’ensemble, le matériau et la couverture, avec l’accord des passes', () => {
-    const { constats } = constatsDuBatiment(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'croupes' }, bouts: { indices: [], gauche: 'croupe', droite: 'croupe' } }) }));
+    const { constats } = constatsReconcilies(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'croupes' }, bouts: { indices: [], gauche: 'croupe', droite: 'croupe' } }) }));
     expect(de(constats, 'claude', 'formeToit')).toMatchObject({ valeur: 'croupes', confiance: 1 });
     expect(de(constats, 'claude', 'boutsToit')?.valeur).toEqual(['croupe', 'croupe']);
     expect(de(constats, 'claude', 'materiauMurs')).toMatchObject({ valeur: 'brique' });
@@ -124,7 +150,7 @@ describe('les constats de Claude', () => {
 
   it('les murs disent les bouts et le sens mieux que la vue d’ensemble : leurs constats la remplacent', () => {
     const v = vote({ bouts: { indices: [], gauche: 'pignon', droite: 'pignon' }, facades: [mur('est', 'triangle', 'croupe'), mur('ouest', 'triangle', 'croupe')] });
-    const { constats } = constatsDuBatiment(entrees(maison(), { vote: v }));
+    const { constats } = constatsReconcilies(entrees(maison(), { vote: v }));
     expect(constats.filter((c) => c.source === 'claude' && c.attribut === 'boutsToit')).toHaveLength(1);
     expect(de(constats, 'claude', 'boutsToit')?.valeur).toEqual(['croupe', 'croupe']);
     expect(de(constats, 'claude', 'sensFaitage')).toBeDefined();
@@ -132,10 +158,10 @@ describe('les constats de Claude', () => {
   });
 
   it('la forme dite par les murs remplace celle de l’ensemble et a le dernier mot ; dite par des lignes droites de longs pans seules, non', () => {
-    const bouts = constatsDuBatiment(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'deux-pans' }, facades: [mur('est', 'triangle', 'croupe'), mur('ouest', 'triangle', 'croupe')] }) })).constats;
+    const bouts = constatsReconcilies(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'deux-pans' }, facades: [mur('est', 'triangle', 'croupe'), mur('ouest', 'triangle', 'croupe')] }) })).constats;
     expect(bouts.filter((c) => c.source === 'claude' && c.attribut === 'formeToit').map((c) => [c.valeur, c.regle])).toEqual([['croupes', 'regles/toits/silhouettes.json']]);
     // L'abri d'AE 101 : Claude voit un appentis, et une ligne droite sur un long pan (celle d'un appentis aussi bien que d'un deux-pans).
-    const longs = constatsDuBatiment(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'appentis' }, facades: [mur('sud', 'ligne-droite', 'sans-objet')] }) })).constats;
+    const longs = constatsReconcilies(entrees(maison(), { vote: vote({ forme: { indices: [], valeur: 'appentis' }, facades: [mur('sud', 'ligne-droite', 'sans-objet')] }) })).constats;
     expect(longs.filter((c) => c.source === 'claude' && c.attribut === 'formeToit').map((c) => c.valeur)).toEqual(['appentis']);
     expect(longs.filter((c) => c.source === 'claude' && (c.attribut === 'sensFaitage' || c.attribut === 'boutsToit') && c.regle?.startsWith('regles/toits/silhouettes.json')).every((c) => c.regle?.endsWith('(longs pans seuls)'))).toBe(true);
   });

@@ -824,6 +824,73 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
   return true;
 }
 
+/** Une forme a surligner : une ligne de points du plan, tracee a deux hauteurs au-dessus du sol et reliee par des verticales. */
+export interface FormeSurlignee3d { pts: readonly PtBrut[]; bas: number; haut: number; ferme: boolean }
+/** Ce qu'une ligne de propositions vise (app/audit/parcelle/surbrillance.ts), et d'ou le regarder : devant un mur, sa normale. */
+export interface Surbrillance3d { formes: readonly FormeSurlignee3d[]; centre: PtBrut; hautM: number; normale: PtBrut | null }
+
+/** Le contour orange de la ligne choisie : une couleur que ni un mur, ni un toit, ni le gazon ne portent. */
+const COULEUR_SURBRILLANCE = 0xff7a1a;
+let surbrillance: THREE_NS.Object3D[] = [];
+
+/**
+ * Surligne dans la Vue 3D ce que vise la ligne choisie de l'ecran des propositions (demande de l'utilisateur, 18 octobre
+ * 2026), dans les deux vues : le trace est sur la couche commune et passe devant le reste (sans test de profondeur), un voile
+ * leger remplit un mur. La camera se tourne vers lui : devant un mur, de face ; sinon elle garde son angle et le recentre.
+ * `null` efface. Faux quand il n'y a pas de scene.
+ */
+export function surlignerDans3d(s: Surbrillance3d | null): boolean {
+  const d = derniere;
+  if (!d || !vue3d.scene || d.sc !== vue3d.scene) return false;
+  for (const m of surbrillance) { m.parent?.remove(m); const g = (m as THREE_NS.Mesh).geometry; g?.dispose(); }
+  surbrillance = [];
+  if (!s) { rendre3d(d.sc); return true; }
+  const { versLocal, sol, scene } = d.co;
+  const yDe = (p: PtBrut, h: number) => (sol ? sol.hauteur(p) : 0) + h;
+  const trait = new THREE.LineBasicMaterial({ color: COULEUR_SURBRILLANCE, depthTest: false, transparent: true });
+  const voile = new THREE.MeshBasicMaterial({ color: COULEUR_SURBRILLANCE, transparent: true, opacity: 0.22, depthTest: false, side: THREE.DoubleSide });
+  for (const f of s.formes) {
+    const v = (p: PtBrut, h: number) => { const l = versLocal(p); return new THREE.Vector3(l.x, yDe(p, h), l.z); };
+    const n = f.pts.length, segs: THREE_NS.Vector3[] = [];
+    const bords = f.ferme ? n : n - 1;
+    for (let i = 0; i < bords; i++) {
+      const a = f.pts[i] as PtBrut, b = f.pts[(i + 1) % n] as PtBrut;
+      segs.push(v(a, f.bas), v(b, f.bas), v(a, f.haut), v(b, f.haut));
+    }
+    for (const p of f.pts) segs.push(v(p, f.bas), v(p, f.haut));
+    const lignes = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), trait);
+    lignes.renderOrder = 999;
+    scene.add(lignes);
+    surbrillance.push(lignes);
+    // Un mur : un voile sur sa face, pour qu'il se voie aussi de loin.
+    if (!f.ferme && n === 2) {
+      const [a, b] = f.pts as [PtBrut, PtBrut];
+      const g = new THREE.BufferGeometry().setFromPoints([v(a, f.bas), v(b, f.bas), v(b, f.haut), v(a, f.bas), v(b, f.haut), v(a, f.haut)]);
+      const m = new THREE.Mesh(g, voile);
+      m.renderOrder = 998;
+      scene.add(m);
+      surbrillance.push(m);
+    }
+  }
+  // La camera vers la cible : meme distance, face au mur ou dans le meme angle.
+  const { camera, controls } = d.sc;
+  const c = versLocal(s.centre);
+  const cible = new THREE.Vector3(c.x, yDe(s.centre, s.hautM / 2), c.z);
+  const recul = camera.position.clone().sub(controls.target);
+  const distance = Math.max(8, recul.length());
+  let dir = recul.normalize();
+  if (s.normale) {
+    const o = versLocal({ x: s.centre.x + s.normale.x, y: s.centre.y + s.normale.y });
+    dir = new THREE.Vector3(o.x - c.x, 0.35, o.z - c.z).normalize();
+  }
+  controls.target.copy(cible);
+  camera.position.copy(cible.clone().add(dir.multiplyScalar(distance)));
+  camera.lookAt(cible);
+  controls.update();
+  rendre3d(d.sc);
+  return true;
+}
+
 /** Pose un objet et retient ce qu'il a ajoute a la scene. */
 function poserEtRetenir(o: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   const n0 = co.scene.children.length;
@@ -1066,7 +1133,7 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
   const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude, choix: o.toit?.couverture ?? null } : undefined;
   if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
-    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit);
+    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
   }
   if (o.type === 'polygon' && corpsToit && surContour) {
     ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
