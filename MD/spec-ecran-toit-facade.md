@@ -88,3 +88,33 @@ Trois écrans qui se répondent (three.js, les mêmes faces que le dessin de fa�
 - Valider écrit dans le projet (ici : `committedStr`) ; *Revenir au départ* de B revient à la dernière façade validée.
 - Seule la façade sud est modifiable dans la maquette ; choisir une autre façade (toucher un mur en A) reste à dessiner.
 - Les voisins ne se modifient pas (cadenas), comme la parcelle voisine de CLAUDE.md.
+
+## Version 4 : une séquence d'éléments de départ (`MD/maquettes/toit-sequence-ae101.html`)
+
+**La clé : les éléments définis au départ.** La maison n'est ni des façades ni des blocs, c'est une suite d'éléments
+choisis dans un catalogue. Un élément est une **recette** : il peut ajouter un volume, un toit, *et découper la façade*.
+
+- Exemple vécu, AE 101 : la **galerie coloniale** coupe la façade sud. Sa recette = un appentis adossé + des poteaux +
+  un **retrait** du mur du rez-de-chaussée (le décroché d'environ 50 cm du fait). Sans cet élément, le mur serait d'un seul tenant.
+- Le catalogue de la maquette : *Volume* (aile) · *Toit* (pignon, appentis, jacobine, chien-assis, fenêtre de toit,
+  solaire, cheminée) · *Façade* (galerie coloniale). Un nouvel élément s'ajoute au catalogue (images, paramètres, recette)
+  sans changer l'écran : porche, bow-window, lucarne rampante, balcon… seront d'autres recettes.
+
+**La séquence.** Bande d'étapes en vignettes, numérotées dans l'ordre de construction : AE 101 =
+1 corps · 2-3 pignons · 4 galerie · 5-6 ailes · 7 cheminée. Toucher une étape l'ouvre dans la vue qui lui convient :
+
+| Étape | Vue | Poignées |
+|---|---|---|
+| Corps, aile | **Face** ou **Coupe** (bascule en haut à gauche) ; la coupe montre toujours la forme entière | forme (images), faîtage, égout, profondeur |
+| Pignon | Face | largeur, hauteur (colle au faîtage), saillie |
+| Galerie coloniale | Face | bouts, égout, profondeur, **retrait** du mur |
+| Cheminée, lucarnes | Face (position) | taille |
+
+Les étapes **suivantes s'estompent** pendant qu'on règle une étape plus ancienne ; la vignette 3D montre la fusion.
+**+** ouvre le catalogue ; un élément se supprime avec son étape ; tout reste annulable.
+
+**Ce qui découpe la façade** est une propriété de la recette (`retrait`), pas un cas particulier du dessin : le mur de face
+est tracé par morceaux autour du retrait (`frontWall`), les fenêtres du rez-de-chaussée reculent avec lui, et la 3D reçoit les mêmes faces.
+
+**À décider avant de coder** : l'ordre des étapes ne compte que pour les recettes qui retranchent (retrait, cour) ; il faut
+dire s'il se déplace à la main ou s'il est déduit (volumes d'abord, découpes ensuite, éléments à la fin).
