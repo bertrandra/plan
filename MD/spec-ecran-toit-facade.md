@@ -74,3 +74,17 @@ La pastille de cotes (largeur, angle, hauteur, saillie ou profondeur) apparaît 
 Le départ de l'écran est la lecture du bâtiment (calcul puis fait, §9.1) ; ce que la personne change devient un fait
 `contrainte` ou `remplacement`, proposé puis validé, jamais écrit en silence (`regles-toits` : « un fait est une
 observation, pas une hypothèse »). Dernier garde-fou : AE 101 reste identique au centimètre tant que la personne n'y touche pas.
+
+## Version 3 : on part de la 3D (`MD/maquettes/toit-3d-facade.html`)
+
+Trois écrans qui se répondent (three.js, les mêmes faces que le dessin de façade, donc rien de dessiné deux fois) :
+
+| Écran | Ce que je vois | Ce que je fais |
+|---|---|---|
+| **A. 3D du terrain** (départ) | la parcelle, ma maison, les maisons voisines ; Dessus / 3D | je touche une **silhouette** : elle prend ses arêtes et une teinte d'accent, et *Modifier* apparaît ; un voisin montre un cadenas |
+| **B. Façade** | la façade (version 2) et, en haut à droite, une **vignette 3D** qui suit chaque geste | je modifie ; **✓ Valider** renvoie en A avec la façade validée ; ← revient en A (si j'ai changé quelque chose, une question : abandonner ou continuer) |
+| **C. Vignette en grand** | la maison en cours, seule, avec Dessus / 3D et l'orbite au doigt | ← revient à la façade |
+
+- Valider écrit dans le projet (ici : `committedStr`) ; *Revenir au départ* de B revient à la dernière façade validée.
+- Seule la façade sud est modifiable dans la maquette ; choisir une autre façade (toucher un mur en A) reste à dessiner.
+- Les voisins ne se modifient pas (cadenas), comme la parcelle voisine de CLAUDE.md.
