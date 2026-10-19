@@ -101,6 +101,10 @@ export interface Validation {
   decider(cible: string, attribut: string, choix: ChoixArbitrage | null): void;
   cochee(id: string): boolean;
   basculer(id: string): void;
+  /** La personne a-t-elle pris une decision (case changee, source retenue ou valeur forcee) que « Réinitialiser » defait ? */
+  aDesDecisions(): boolean;
+  /** Defait toutes les decisions de la personne : les cases et les arbitrages reviennent a ce que le moteur propose. */
+  reinitialiser(): void;
   /**
    * La ligne choisie (null : aucune) : ce qu'elle vise est surligne dans les deux vues et la camera se tourne vers lui ; decochee,
    * elle se montre quand meme dans « Après », en apercu (la photo d'une facade se juge sur le mur avant de la cocher).
@@ -377,8 +381,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   let calculs = 0;
   /** Les decisions de la personne sur les arbitrages (`cible|attribut`) ; chacune change le calcul. */
   const decisions = new Map<string, ChoixArbitrage>();
-  let versionDecisions = 0;
-  let memo: Memo | null = null;
+  let versionDecisions = 0, memo: Memo | null = null;
   /** Les propositions d'un audit recu, posees par `figer` : elles tiennent lieu de tout calcul. */
   const decisionsFigees = new Map<string, DecisionProposition>();
   let figees: Memo | null = null;
@@ -442,6 +445,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a)) })),
     decider: (cible, attribut, choixArb) => decider(cible, attribut, choixArb),
     cochee,
+    aDesDecisions: () => !figees && (choix.size > 0 || decisions.size > 0), reinitialiser() { if (figees) return; choix.clear(); decisions.clear(); versionDecisions++; memo = null; choix3d.choisir(null); apercu.poser(); choix3d.surligner(); publier(); },
     basculer(id) {
       if (figees) return;
       const vers = !cochee(id);

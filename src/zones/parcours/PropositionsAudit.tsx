@@ -157,6 +157,16 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
 /** La capture porte-t-elle deja ce que « Je confirme » noterait ? */
 const dejaConfirme = (vu: CeQueJeVois, c: Partial<CeQueJeVois>): boolean => Object.entries(c).every(([k, x]) => JSON.stringify(vu[k as keyof CeQueJeVois]) === JSON.stringify(x));
 
+/** Le type d'objet d'une observation, d'apres son sujet (`cle:obs:sujet`) : memes niveaux que l'arbre des propositions. */
+const NIVEAUX_VUS = [{ id: 'facades', libelle: 'Façades' }, { id: 'toit', libelle: 'Toit' }, { id: 'murs', libelle: 'Murs' }, { id: 'autres', libelle: 'Autres' }] as const;
+function typeVu(id: string): (typeof NIVEAUX_VUS)[number]['id'] {
+  const sujet = id.split(':obs:')[1] ?? '';
+  if (/^(silhouettes|renfort|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
+  if (/^(forme|bouts|faitage|lucarne|cheminee|couverture|terrasse|appentis|toit|hauteurToit)/i.test(sujet)) return 'toit';
+  if (/^(decor|mur|couleur|materiau|hauteur)/i.test(sujet)) return 'murs';
+  return 'autres';
+}
+
 /**
  * Ce que Claude a vu, batiment par batiment. Une ligne qui porte une observation sur le toit (forme, bouts, silhouettes des facades)
  * se confirme : « Je confirme » la note dans « Ce que je vois », l'observation de la personne, qui l'emporte sur Claude ; le moteur
@@ -171,11 +181,14 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
       <p className="noteObservations">{lecture ? 'Ces observations ne changent rien au projet.' : 'Ces observations ne changent rien au projet tant que vous ne les confirmez pas : « Je confirme » les note comme ce que vous avez vu sur place, et le moteur des toits les relit sur la mesure.'}</p>
       {batiments.map((b) => {
         const vu = session.capture.lire().batiments[b.cle]?.vu ?? {};
+        // Meme arbre que les propositions : batiment > type (facades, toit, murs...) > lignes.
+        const niveaux = NIVEAUX_VUS.map((n) => ({ ...n, os: b.observations.filter((o) => typeVu(o.id) === n.id) })).filter((n) => n.os.length);
         return (
-          <div key={b.cle} className="observationsBatiment">
-            <div className="nomObservations">{b.nom}</div>
+          <Niveau key={b.cle} chemin={'vu:' + b.cle} titre={b.nom} compte={b.observations.length}>
+            {niveaux.map((n) => (
+            <Niveau key={n.id} chemin={'vu:' + b.cle + '/' + n.id} titre={n.libelle} compte={n.os.length} profond>
             <ul className="listeObservations">
-              {b.observations.map((o) => {
+              {n.os.map((o) => {
                 const fait = o.confirmer ? dejaConfirme(vu, o.confirmer) : false;
                 return (
                   <li key={o.id} className="ligneObservation">
@@ -189,7 +202,9 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
                 );
               })}
             </ul>
-          </div>
+            </Niveau>
+            ))}
+          </Niveau>
         );
       })}
     </section>
@@ -331,6 +346,8 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {lecture
           ? retour && <button type="button" className="secondary" data-controle="auditsParcelle.retour" onClick={retour}>Retour aux audits</button>
           : <>
+              <button type="button" className="secondary" data-controle="auditParcelle.reinitialiser" disabled={!v.aDesDecisions()}
+                title="Défait vos cases et vos choix de sources : tout revient à ce que le moteur propose" onClick={() => v.reinitialiser()}>Réinitialiser mes décisions</button>
               <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
               {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}
               <button type="button" data-controle="auditParcelle.valider" disabled={enCours !== null || (!cochees && !verifies)}
