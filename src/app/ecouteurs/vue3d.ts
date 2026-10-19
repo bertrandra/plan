@@ -61,6 +61,8 @@ export interface ReglagesVue3d {
   basculerPlatelageTranslucide(actif: boolean): void;
   basculerOpaques(actif: boolean): void;
   basculerTextures(actif: boolean): void;
+  /** Les ombres de la photo estompees sur les facades relevees : une preference d'affichage, sans effet sur l'export. */
+  basculerFacadesSansOmbres(actif: boolean): void;
   basculerOmbres(actif: boolean): void;
   /** Une voiture et une silhouette pour l'echelle : preference d'affichage de la session, decochee par defaut. */
   basculerObjetsEchelle(actif: boolean): void;
@@ -270,6 +272,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
      * texture de chaque objet un par un — pratique pour comparer les deux rendus.
      */
     basculerTextures: (actif) => preference(() => { vue3d.textures = actif; }),
+    basculerFacadesSansOmbres: (actif) => preference(() => { vue3d.facadesSansOmbres = actif; }),
     /**
      * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
