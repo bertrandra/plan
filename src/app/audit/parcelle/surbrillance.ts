@@ -3,14 +3,20 @@
 // relit seul, ou le contour du batiment (de la parcelle). Les formes se lisent sur le plan d'avant : elles sont les memes dans
 // les deux vues. Pur.
 
-import { facadesDuContour } from '../../../facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../../../facade/geometrie.js';
+import { silhouetteDuMur } from '../../../facade/regles/toits/silhouetteDesCorps.js';
 import { hauteurDe, type Proposition } from '../../../regles/decisions.js';
 import { hauteurMurSousToit } from './liste.js';
 import { typeObservation } from './observationsClaude.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 
 /** Une forme a surligner : une ligne de points du plan, tracee a deux hauteurs (au-dessus du sol) et reliee par des verticales. */
-export interface FormeSurlignee { pts: PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean }
+export interface FormeSurlignee {
+  pts: PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean;
+  /** Une facade nommee : sa silhouette reelle dans le plan du mur (x le long depuis la gauche, y en hauteur) et ses ouvertures, au lieu d'un rectangle. */
+  profil?: { x: number; y: number }[];
+  ouvertures?: { x: number; y: number; l: number; h: number }[];
+}
 
 /** Les formes d'une ligne, et d'ou la regarder : devant un mur (sa normale sortante), sinon d'ou l'on est. */
 export interface Surbrillance { formes: FormeSurlignee[]; centre: PtBrut; hautM: number; normale: PtBrut | null }
@@ -20,6 +26,20 @@ const sommets = (o: ObjetPlan | undefined): PtBrut[] | null => (o && 'pts' in o 
 
 /** Un cadre cible : la zone seule, centree, a regarder de face quand c'est un mur. */
 const zone = (formes: FormeSurlignee[], centre: PtBrut, hautM: number, normale: PtBrut | null = null): Surbrillance => ({ formes, centre, hautM, normale });
+
+/**
+ * Une facade nommee : sa silhouette telle que les corps du toit la dessinent au-dessus du mur (pignon en triangle, trapeze, marches...),
+ * pas un rectangle, et les ouvertures du releve dans son plan. Sans corps de toit lu, le mur jusqu'a l'egout. Contour en gras.
+ */
+function murNomme(o: ObjetPlan, f: Facade): Surbrillance {
+  const sousToit = hauteurMurSousToit(o, f);
+  const profil = o.corpsToit?.length ? silhouetteDuMur(f, o.corpsToit, Number.POSITIVE_INFINITY, sousToit)
+    : [{ x: 0, y: 0 }, { x: f.largeur, y: 0 }, { x: f.largeur, y: sousToit }, { x: 0, y: sousToit }];
+  const haut = Math.max(sousToit, ...profil.map((q) => q.y));
+  const releve = ((o as { facades?: { cote: number; ouvertures: { x: number; y: number; l: number; h: number }[] }[] | null }).facades ?? []).find((r) => r.cote === f.cote);
+  const ouvertures = (releve?.ouvertures ?? []).map(({ x, y, l, h }) => ({ x, y, l, h }));
+  return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true, profil, ouvertures }], centreDe([f.gauche, f.droite]), haut, f.normale);
+}
 
 /** La surbrillance d'une ligne de proposition : la zone que son effet change, pas le batiment entier ; null quand elle n'est plus dans le plan. */
 export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Surbrillance | null {
@@ -46,8 +66,7 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
     const cote = p.cible.cote;
     const f = facadesDuContour(pts, mur).find((x) => x.cote === cote);
     if (!f) return null;
-    const haut = hauteurMurSousToit(o, f);
-    return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
+    return murNomme(o, f);
   }
   const corps = (i: number) => o.corpsToit?.[i];
   const pan = (c: { pts: PtBrut[]; faitage: number }): Surbrillance => zone([{ pts: c.pts, bas: mur, haut: c.faitage, ferme: true }], centreDe(c.pts), (mur + c.faitage) / 2 + 0.01);
@@ -94,10 +113,7 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
   const cote = /^renfort:(\d+)/.exec(sujet)?.[1];
   if (cote !== undefined) {
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
-    if (f) {
-      const haut = hauteurMurSousToit(o, f);
-      return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
-    }
+    if (f) return murNomme(o, f);
   }
   const type = typeObservation(id);
   if (type === 'toit') {
@@ -127,10 +143,7 @@ export function surbrillanceArbitrage(cible: string, attribut: string, objets: r
   const faite = Math.max(mur, ...(o.corpsToit ?? []).map((c) => c.faitage));
   if (genre === 'facade' && cote !== undefined) {
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
-    if (f) {
-      const haut = hauteurMurSousToit(o, f);
-      return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
-    }
+    if (f) return murNomme(o, f);
   }
   if (ATTRIBUTS_TOIT.test(attribut)) {
     const formes = o.corpsToit?.length ? o.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];

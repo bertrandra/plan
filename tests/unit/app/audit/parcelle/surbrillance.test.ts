@@ -60,4 +60,20 @@ describe('la surbrillance d une ligne de propositions', () => {
     expect(surbrillanceArbitrage('batiment:maison', 'formeToit', [])).toBeNull();
     expect(surbrillanceArbitrage('n’importe quoi', 'formeToit', [maison])).toBeNull();
   });
+
+  it('une facade nommee garde sa vraie silhouette (pas un rectangle) et ses ouvertures', () => {
+    const avecReleve = { ...maison, facades: [{ cote: 0, largeur: 14, hauteur: 6, texture: null, ouvertures: [{ type: 'fenetre', x: 2, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '2026-10-19' }] } as unknown as ObjetPlan;
+    for (const z of [
+      surbrillanceDe(ligne({ type: 'facade', cle: 'maison', cote: 0 }, { type: 'couleurMurs', couleur: '#fff' }), [avecReleve]),
+      surbrillanceObservation('maison:obs:renfort:0', [avecReleve]),
+      surbrillanceArbitrage('facade:maison#0', 'silhouetteFacade', [avecReleve]),
+    ]) {
+      const f = z?.formes[0];
+      expect(f?.profil?.length).toBeGreaterThanOrEqual(3);
+      // Le pied est a 0 ; le haut suit les corps du toit, il depasse le mur de 6 m quelque part.
+      expect(Math.min(...(f?.profil ?? []).map((q) => q.y))).toBe(0);
+      expect(Math.max(...(f?.profil ?? []).map((q) => q.y))).toBeGreaterThan(6);
+      expect(f?.ouvertures).toEqual([{ x: 2, y: 1, l: 1, h: 1.2 }]);
+    }
+  });
 });

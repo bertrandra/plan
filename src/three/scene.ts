@@ -825,7 +825,12 @@ export function comparerObjets3d(apres: Apres3d | null): boolean {
 }
 
 /** Une forme a surligner : une ligne de points du plan, tracee a deux hauteurs au-dessus du sol et reliee par des verticales. */
-export interface FormeSurlignee3d { pts: readonly PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean }
+export interface FormeSurlignee3d {
+  pts: readonly PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean;
+  /** Une facade nommee : sa silhouette dans le plan du mur (x le long depuis `pts[0]`, y en hauteur) et ses ouvertures. */
+  profil?: readonly { x: number; y: number }[];
+  ouvertures?: readonly { x: number; y: number; l: number; h: number }[];
+}
 /** Ce qu'une ligne de propositions vise (app/audit/parcelle/surbrillance.ts), et d'ou le regarder : devant un mur, sa normale. */
 export interface Surbrillance3d { formes: readonly FormeSurlignee3d[]; centre: PtBrut; hautM: number; normale: PtBrut | null }
 
@@ -853,6 +858,34 @@ export function surlignerDans3d(s: Surbrillance3d | null, aussi: readonly Surbri
   const formes = [...aussi.flatMap((x) => x.formes), ...(s ? s.formes : [])];
   for (const f of formes) {
     const v = (p: PtBrut, h: number) => { const l = versLocal(p); return new THREE.Vector3(l.x, yDe(p, h), l.z); };
+    // Une facade nommee avec sa silhouette : le contour reel du mur (pignon, trapeze, marches...) en gras, un voile sur toute sa surface,
+    // et chaque ouverture cernee ; pas le rectangle du pied au haut du mur.
+    const profil = f.profil;
+    if (profil && profil.length >= 3 && f.pts.length === 2) {
+      const [a, b] = f.pts as [PtBrut, PtBrut];
+      const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+      const W = (x: number, y: number) => v({ x: a.x + ux * x, y: a.y + uy * x }, y);
+      const bande = (p: { x: number; y: number }, q: { x: number; y: number }, e: number): THREE_NS.Vector3[] => {
+        const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy) || 1, nx = (-dy / d) * (e / 2), ny = (dx / d) * (e / 2);
+        const [p1, p2, q1, q2] = [W(p.x + nx, p.y + ny), W(p.x - nx, p.y - ny), W(q.x + nx, q.y + ny), W(q.x - nx, q.y - ny)];
+        return [p1, p2, q1, p2, q2, q1];
+      };
+      const pointsDeBandes: THREE_NS.Vector3[] = [];
+      profil.forEach((p, i) => pointsDeBandes.push(...bande(p, profil[(i + 1) % profil.length] ?? p, f.epais ? 0.14 : 0.05)));
+      for (const o of f.ouvertures ?? []) {
+        const c = [{ x: o.x, y: o.y }, { x: o.x + o.l, y: o.y }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x, y: o.y + o.h }];
+        c.forEach((p, i) => pointsDeBandes.push(...bande(p, c[(i + 1) % 4] ?? p, 0.05)));
+      }
+      const gras = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints(pointsDeBandes), new THREE.MeshBasicMaterial({ color: COULEUR_SURBRILLANCE, depthTest: false, side: THREE.DoubleSide }));
+      gras.renderOrder = 1000;
+      const contour = profil.map((q) => new THREE.Vector2(q.x, q.y));
+      const tri = THREE.ShapeUtils.triangulateShape(contour, []);
+      const surface = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints(tri.flat().map((k) => W(profil[k]?.x ?? 0, profil[k]?.y ?? 0))), voile);
+      surface.renderOrder = 998;
+      scene.add(gras, surface);
+      surbrillance.push(gras, surface);
+      continue;
+    }
     const n = f.pts.length, segs: THREE_NS.Vector3[] = [];
     const bords = f.ferme ? n : n - 1;
     for (let i = 0; i < bords; i++) {

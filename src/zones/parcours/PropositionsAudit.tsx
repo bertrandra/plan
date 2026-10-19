@@ -42,6 +42,25 @@ function texteTaux(t: TauxAutomatique): string {
   return t.decides + ' décision' + (t.decides > 1 ? 's' : '') + ' : ' + t.auto + ' automatique' + (t.auto > 1 ? 's' : '') + ', ' + t.manuelles + ' à vous' + (t.main ? ', ' + t.main + ' déjà prise' + (t.main > 1 ? 's' : '') + ' par vous' : '') + '.';
 }
 
+/** Le dessin d'un haut de mur, dans les mots de model/silhouetteFacade.ts : le mur (rectangle) et la ligne qui le couronne. */
+const HAUTS_SILHOUETTE: Record<string, string> = {
+  'triangle': '0,10 20,0 40,10', 'trapeze': '0,10 12,1 28,1 40,10', 'une seule rampe': '0,10 40,1', 'rampe': '0,10 40,1',
+  'ligne droite': '0,6 40,6', 'marches': '0,10 14,10 14,5 28,5 28,1 40,1', 'plusieurs sommets': '0,10 10,2 20,8 30,2 40,10',
+};
+function PictoSilhouette({ valeur }: { valeur: string }) {
+  const mot = valeur.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/-/g, ' ').trim();
+  const haut = HAUTS_SILHOUETTE[mot];
+  if (!haut) return null;
+  const pts = haut.split(' ').map((q) => q.split(',').map(Number) as [number, number]);
+  const dernier = pts[pts.length - 1] as [number, number];
+  const contour = [[0, 24], ...pts.map(([x, y]) => [x, y + 6]), [dernier[0], 24]].map((q) => q.join(',')).join(' ');
+  return (
+    <svg className="pictoSilhouette" viewBox="-2 0 44 26" width="44" height="26" role="img" aria-label={'Silhouette : ' + valeur}>
+      <polygon points={contour} fill="currentColor" fillOpacity="0.14" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export interface MainArbitrage { retenir(index: number): void; forcer(valeur: string): void; reprendre(): void }
 
 const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
@@ -53,13 +72,13 @@ export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitragePropositi
   return (
     <details className={'arbitrageProposition' + (choisie ? ' choisie' : '')} open={(a.decision === 'manuelle' && !!main) || choisie ? true : undefined} aria-current={choisie ? 'true' : undefined}
       onClick={(e) => { if (choisir && !choisie && !(e.target as HTMLElement).closest('button, input, select')) choisir(); }}>
-      <summary><span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+      <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
       <p className="raisonArbitrage">{a.raison}</p>
       <div className="defileAudit">
         <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle}>
           <thead><tr><th>Source</th><th>Dit</th><th>Confiance</th><th>Score</th><th>Règle</th><th>Groupe</th></tr></thead>
           <tbody>{a.groupes.flatMap((g) => g.lignes.map((l, i) => (
-            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
+            <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{a.attribut === 'silhouetteFacade' && <PictoSilhouette valeur={l.valeur} />}{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>
           )))}</tbody>
         </table>
       </div>
