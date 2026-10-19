@@ -262,6 +262,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.voirLigne': etape(Z8, AUDIT_PARCELLE, 'Voir dans la 3D ce que vise une proposition : surlignée dans les deux vues, la caméra tournée vers elle, montrée dans « Après » même décochée', { repete: true }),
   'auditParcelle.replier': etape(Z8, AUDIT_PARCELLE, 'Replier ou déplier la liste des propositions : la parcelle se voit en grand (affichage seul)', { repete: true }),
   'auditParcelle.valider': etape(Z8, AUDIT_PARCELLE, 'Valider : écrire les propositions cochées dans le projet, en un seul pas d’annulation', { ecrit: { annulable: true, droits: 'commande' } }),
+  'auditParcelle.reinitialiser': etape(Z8, AUDIT_PARCELLE, 'Réinitialiser mes décisions : défaire les cases et les choix de sources, tout revient à ce que le moteur propose (aperçu seul, rien n’est écrit)', { repete: true }),
   // Le fichier de l'audit (§15) : partage pour le corpus (case cochee par defaut, revocable), et le
   // fichier lui-meme pour l'administrateur. Ni l'un ni l'autre n'ecrit dans le projet.
   'auditParcelle.partagerCorpus': etape(Z8, AUDIT_PARCELLE, 'Partager cet audit pour améliorer Plan (décocher le retire du serveur)', { repete: true }),

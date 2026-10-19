@@ -46,6 +46,7 @@ import { brancherAffichage } from './ecouteurs/affichage.js';
 import { brancherPositionGps } from './ecouteurs/positionGps.js';
 import { brancherAuditParcelle } from './audit/parcelle/commande.js';
 import { brancherVoisinage } from './ecouteurs/voisinage.js';
+import { brancherDoublons } from './ecouteurs/doublons.js';
 import { brancherFichiers } from './ecouteurs/fichiers.js';
 import { brancherDivers, brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { creerRegistre } from './commandes.js';
@@ -447,6 +448,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     ctxOrtho: ch.ctxOrtho, buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o)
   }, commandes);
   brancherVoisinage(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
+  brancherDoublons(atelier, { buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o) }, commandes);
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
   // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
@@ -460,7 +462,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       // L'avant et l'apres en deux vues (three/comparaison3d.ts), qui evitent l'ecran des propositions.
       comparer3d: (apres) => tardifs.vues?.comparerObjets3d(apres) ?? false,
       cadrer3d: (panneau) => { tardifs.vues?.cadrerDeuxVues(panneau); },
-      surligner3d: (s) => tardifs.vues?.surlignerDans3d(s) ?? false,
+      surligner3d: (s, aussi, viser) => tardifs.vues?.surlignerDans3d(s, aussi, viser) ?? false,
     },
     // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
     audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),

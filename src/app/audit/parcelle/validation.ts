@@ -52,7 +52,7 @@ export interface ProjetAudit {
   /** Ou est l'ecran des propositions, en pixels de la fenetre : les deux vues l'evitent. */
   cadrer3d?(panneau: RectEcran | null): void;
   /** Surligne dans la Vue 3D ce que vise la ligne choisie (app/audit/parcelle/surbrillance.ts) ; null efface. */
-  surligner3d?(s: Surbrillance | null): boolean;
+  surligner3d?(s: Surbrillance | null, aussi?: readonly Surbrillance[], viser?: boolean): boolean;
 }
 
 /** Ce que la vue « Après » montre a la place du plan : les batiments copies, et la parcelle si sa cloture change. */
@@ -101,6 +101,10 @@ export interface Validation {
   decider(cible: string, attribut: string, choix: ChoixArbitrage | null): void;
   cochee(id: string): boolean;
   basculer(id: string): void;
+  /** La personne a-t-elle pris une decision (case changee, source retenue ou valeur forcee) que « Réinitialiser » defait ? */
+  aDesDecisions(): boolean;
+  /** Defait toutes les decisions de la personne : les cases et les arbitrages reviennent a ce que le moteur propose. */
+  reinitialiser(): void;
   /**
    * La ligne choisie (null : aucune) : ce qu'elle vise est surligne dans les deux vues et la camera se tourne vers lui ; decochee,
    * elle se montre quand meme dans « Après », en apercu (la photo d'une facade se juge sur le mur avant de la cocher).
@@ -288,19 +292,22 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
  * La ligne choisie de l'ecran des propositions : ce qu'elle vise est surligne dans la Vue 3D (app/audit/parcelle/surbrillance.ts),
  * et « Après » la montre meme decochee. Oubliee quand l'ecran se ferme ou que l'on ecrit.
  */
-function selectionDe(ctx: ContexteValidation, propositions: () => readonly Proposition[]) {
+function selectionDe(ctx: ContexteValidation, propositions: () => readonly Proposition[], cochee: (id: string) => boolean) {
   let id: string | null = null;
-  const surligner = (): void => {
+  // `viser` : la camera va vers la ligne choisie (son geste), pas a chaque case cochee.
+  const surligner = (viser = false): void => {
     const p = id ? propositions().find((x) => x.id === id) : null;
     // Une ligne qui a disparu (un nouveau calcul) n'est plus choisie.
     if (id && !p) id = null;
-    ctx.projet.surligner3d?.(p ? surbrillanceDe(p, ctx.etat.objects) : null);
+    // Toute ligne cochee est marquee dans la 3D : c'est ce qui va changer, sans avoir a cliquer l'oeil.
+    const aussi = propositions().filter((x) => x.id !== id && cochee(x.id)).map((x) => surbrillanceDe(x, ctx.etat.objects)).filter((x): x is Surbrillance => x !== null);
+    ctx.projet.surligner3d?.(p ? surbrillanceDe(p, ctx.etat.objects) : null, aussi, viser);
   };
   return {
     id: () => id,
     choisir(v: string | null): void { id = v; },
     surligner,
-    oublier(): void { if (id !== null) { id = null; ctx.projet.surligner3d?.(null); } },
+    oublier(): void { id = null; ctx.projet.surligner3d?.(null); },
   };
 }
 
@@ -374,8 +381,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   let calculs = 0;
   /** Les decisions de la personne sur les arbitrages (`cible|attribut`) ; chacune change le calcul. */
   const decisions = new Map<string, ChoixArbitrage>();
-  let versionDecisions = 0;
-  let memo: Memo | null = null;
+  let versionDecisions = 0, memo: Memo | null = null;
   /** Les propositions d'un audit recu, posees par `figer` : elles tiennent lieu de tout calcul. */
   const decisionsFigees = new Map<string, DecisionProposition>();
   let figees: Memo | null = null;
@@ -405,7 +411,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const cochees = () => new Set(calculer().propositions.filter((p) => cochee(p.id)).map((p) => p.id));
   const verifs = () => verifications(ctx.liste(), ctx.capture.lire(), calculer().propositions, cochees());
 
-  const choix3d = selectionDe(ctx, () => calculer().propositions); // « Après » : les lignes cochees, et la ligne choisie meme decochee.
+  const choix3d = selectionDe(ctx, () => calculer().propositions, (id) => cochee(id)); // « Après » : les lignes cochees, et la ligne choisie meme decochee.
   const apercu = apercuDe(ctx, () => ({ toutes: calculer().propositions, choisies: calculer().propositions.filter((p) => cochee(p.id) || p.id === choix3d.id()), calculs }));
 
   /** Decider, c'est vouloir : la proposition qui en resulte se coche (sa rivale sur place, elle, se decoche). */
@@ -422,7 +428,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       const main = p.arbitrages?.some((a) => a.cible === cible && a.attribut === attribut && (a.decision === 'choisie' || a.decision === 'forcee'));
       if (main) { choix.set(p.id, true); for (const r of rivalesSurPlace(p, propositions)) choix.set(r.id, false); } else choix.delete(p.id);
     }
-    apercu.poser();
+    apercu.poser(); choix3d.surligner();
     publier();
   }
 
@@ -439,6 +445,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a)) })),
     decider: (cible, attribut, choixArb) => decider(cible, attribut, choixArb),
     cochee,
+    aDesDecisions: () => !figees && (choix.size > 0 || decisions.size > 0), reinitialiser() { if (figees) return; choix.clear(); decisions.clear(); versionDecisions++; memo = null; choix3d.choisir(null); apercu.poser(); choix3d.surligner(); publier(); },
     basculer(id) {
       if (figees) return;
       const vers = !cochee(id);
@@ -449,12 +456,12 @@ export function creerValidation(ctx: ContexteValidation): Validation {
         const p = propositions.find((x) => x.id === id);
         for (const r of p ? rivalesSurPlace(p, propositions) : []) choix.set(r.id, false);
       }
-      apercu.poser();
+      apercu.poser(); choix3d.surligner();
       publier();
     },
-    selectionner(id) { choix3d.choisir(id); apercu.poser(); choix3d.surligner(); publier(); }, selection: () => choix3d.id(),
+    selectionner(id) { choix3d.choisir(id); apercu.poser(); choix3d.surligner(true); publier(); }, selection: () => choix3d.id(),
     apercu: () => apercu.mode(),
-    montrer(a) { apercu.choisir(a); publier(); },
+    montrer(a) { apercu.choisir(a); choix3d.surligner(); publier(); },
     synchroniser: () => apercu.poser(),
     // La Vue 3D rebatie a perdu le trait : il se repose avec l'apercu.
     reposer: () => { apercu.reposer(); choix3d.surligner(); },

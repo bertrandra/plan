@@ -141,7 +141,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     comparerObjets3d: (apres: { cles: readonly string[]; objets: readonly ObjetPlan[]; parcelle: ObjetPlan | null } | null) =>
       comparerObjets3d(apres ? { cles: apres.cles, etat: { ...etat, objects: [...apres.objets] }, parcelle: apres.parcelle } : null),
     /** Surligne ce que vise la ligne choisie des propositions d'un audit, dans les deux vues ; null efface. */
-    surlignerDans3d: (s: Surbrillance3d | null) => surlignerDans3d(s),
+    surlignerDans3d: (s: Surbrillance3d | null, aussi?: readonly Surbrillance3d[], viser?: boolean) => surlignerDans3d(s, aussi, viser),
     /** Ou est l'ecran pose sur la Vue 3D (pixels de la fenetre) : les deux vues l'evitent. */
     cadrerDeuxVues: (panneau: RectFenetre | null) => cadrerDeuxVues(panneau, vue3d.scene),
     allerAuPointDeVue: vues3d.allerAuPointDeVue,

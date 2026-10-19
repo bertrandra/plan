@@ -157,6 +157,16 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
 /** La capture porte-t-elle deja ce que « Je confirme » noterait ? */
 const dejaConfirme = (vu: CeQueJeVois, c: Partial<CeQueJeVois>): boolean => Object.entries(c).every(([k, x]) => JSON.stringify(vu[k as keyof CeQueJeVois]) === JSON.stringify(x));
 
+/** Le type d'objet d'une observation, d'apres son sujet (`cle:obs:sujet`) : memes niveaux que l'arbre des propositions. */
+const NIVEAUX_VUS = [{ id: 'facades', libelle: 'Façades' }, { id: 'toit', libelle: 'Toit' }, { id: 'murs', libelle: 'Murs' }, { id: 'autres', libelle: 'Autres' }] as const;
+function typeVu(id: string): (typeof NIVEAUX_VUS)[number]['id'] {
+  const sujet = id.split(':obs:')[1] ?? '';
+  if (/^(silhouettes|renfort|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
+  if (/^(forme|bouts|faitage|lucarne|cheminee|couverture|terrasse|appentis|toit|hauteurToit)/i.test(sujet)) return 'toit';
+  if (/^(decor|mur|couleur|materiau|hauteur)/i.test(sujet)) return 'murs';
+  return 'autres';
+}
+
 /**
  * Ce que Claude a vu, batiment par batiment. Une ligne qui porte une observation sur le toit (forme, bouts, silhouettes des facades)
  * se confirme : « Je confirme » la note dans « Ce que je vois », l'observation de la personne, qui l'emporte sur Claude ; le moteur
@@ -171,11 +181,14 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
       <p className="noteObservations">{lecture ? 'Ces observations ne changent rien au projet.' : 'Ces observations ne changent rien au projet tant que vous ne les confirmez pas : « Je confirme » les note comme ce que vous avez vu sur place, et le moteur des toits les relit sur la mesure.'}</p>
       {batiments.map((b) => {
         const vu = session.capture.lire().batiments[b.cle]?.vu ?? {};
+        // Meme arbre que les propositions : batiment > type (facades, toit, murs...) > lignes.
+        const niveaux = NIVEAUX_VUS.map((n) => ({ ...n, os: b.observations.filter((o) => typeVu(o.id) === n.id) })).filter((n) => n.os.length);
         return (
-          <div key={b.cle} className="observationsBatiment">
-            <div className="nomObservations">{b.nom}</div>
+          <Niveau key={b.cle} chemin={'vu:' + b.cle} titre={b.nom} compte={b.observations.length}>
+            {niveaux.map((n) => (
+            <Niveau key={n.id} chemin={'vu:' + b.cle + '/' + n.id} titre={n.libelle} compte={n.os.length} profond>
             <ul className="listeObservations">
-              {b.observations.map((o) => {
+              {n.os.map((o) => {
                 const fait = o.confirmer ? dejaConfirme(vu, o.confirmer) : false;
                 return (
                   <li key={o.id} className="ligneObservation">
@@ -189,10 +202,64 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
                 );
               })}
             </ul>
-          </div>
+            </Niveau>
+            ))}
+          </Niveau>
         );
       })}
     </section>
+  );
+}
+
+/** Le niveau d'objet d'une proposition dans l'arbre : un par type (facades, toit, murs, cloture...), comme pour un batiment. */
+const NIVEAUX: readonly { id: string; libelle: string; de: (p: Proposition) => boolean }[] = [
+  { id: 'facades', libelle: 'Façades', de: (p) => p.cible.type === 'facade' },
+  { id: 'toit', libelle: 'Toit', de: (p) => ['corpsToit', 'corpsDuToit', 'hauteurToit', 'couverture', 'cheminees', 'lucarnes', 'appentis', 'terrasse'].includes(p.effet.type) },
+  { id: 'murs', libelle: 'Murs', de: (p) => ['hauteur', 'couleurMurs', 'materiauMurs'].includes(p.effet.type) },
+  { id: 'cloture', libelle: 'Clôture et portail', de: (p) => p.effet.type === 'cloture' || p.effet.type === 'portail' },
+];
+const NIVEAU_AUTRE = { id: 'autres', libelle: 'Autres' };
+
+/** Les niveaux ouverts survivent aux rendus : chacun s'ouvre et se ferme seul, sans refermer les autres. */
+const ouverts = new Set<string>();
+
+function Niveau({ chemin, titre, compte, profond, children }: { chemin: string; titre: string; compte: number; profond?: boolean; children: React.ReactNode }) {
+  const [ouvert, setOuvert] = useState(() => !ouverts.has('ferme:' + chemin));
+  return (
+    <details className={'niveauPropositions' + (profond ? ' sousNiveau' : '')} open={ouvert} onToggle={(e) => {
+      const o = (e.currentTarget as HTMLDetailsElement).open;
+      if (o) ouverts.delete('ferme:' + chemin); else ouverts.add('ferme:' + chemin);
+      setOuvert(o);
+    }}>
+      <summary className="nomObservations">{titre + ' (' + compte + ')'}</summary>
+      {children}
+    </details>
+  );
+}
+
+/** L'arbre des lignes : objet (batiment, parcelle) > type (facades, toit, murs...) > lignes. */
+function ArbrePropositions({ propositions, noms, ligne }: { propositions: readonly Proposition[]; noms: ReadonlyMap<string, string>; ligne: (p: Proposition) => React.ReactNode }) {
+  const parObjet = new Map<string, Proposition[]>();
+  for (const p of propositions) {
+    const k = p.cible.type === 'parcelle' ? 'parcelle' : p.cible.cle;
+    parObjet.set(k, [...(parObjet.get(k) ?? []), p]);
+  }
+  return (
+    <>
+      {[...parObjet].map(([k, ps]) => {
+        const nom = k === 'parcelle' ? 'Parcelle' : noms.get(k) ?? ps[0]?.objet.split(' de ').pop() ?? k;
+        const niveaux = [...NIVEAUX.map((n) => ({ id: n.id, libelle: n.libelle, ps: ps.filter(n.de) })), { ...NIVEAU_AUTRE, ps: ps.filter((p) => !NIVEAUX.some((m) => m.de(p))) }].filter((n) => n.ps.length);
+        return (
+          <Niveau key={k} chemin={k} titre={nom} compte={ps.length}>
+            {niveaux.map((n) => (
+              <Niveau key={n.id} chemin={k + '/' + n.id} titre={n.libelle} compte={n.ps.length} profond>
+                <ul className="listePropositions" aria-label={n.libelle + ' de ' + nom}>{n.ps.map(ligne)}</ul>
+              </Niveau>
+            ))}
+          </Niveau>
+        );
+      })}
+    </>
   );
 }
 
@@ -264,10 +331,10 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
       <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
         {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées{v.selection() ? ', et la ligne surlignée' : ''}.</p>}
         {!lecture && <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />}
-        {propositions.length > 0 && <ul className="listePropositions" aria-label="Propositions">
-          {propositions.map((p) => <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
-            choisir={() => v.selectionner(v.selection() === p.id ? null : p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />)}
-        </ul>}
+        {propositions.length > 0 && <ArbrePropositions propositions={propositions} noms={new Map(v.arbitrages().map((b) => [b.cle, b.nom]))} ligne={(p) => (
+          <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
+            choisir={() => v.selectionner(v.selection() === p.id ? null : p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />
+        )} />}
         <SourcesDesBatiments v={v} />
         <ObservationsClaude batiments={observations} session={session} lecture={lecture} />
         {!lecture && verifs.length > 0 && <ul className="verificationsAudit" aria-label="Vérifié sur place">
@@ -279,6 +346,8 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {lecture
           ? retour && <button type="button" className="secondary" data-controle="auditsParcelle.retour" onClick={retour}>Retour aux audits</button>
           : <>
+              <button type="button" className="secondary" data-controle="auditParcelle.reinitialiser" disabled={!v.aDesDecisions()}
+                title="Défait vos cases et vos choix de sources : tout revient à ce que le moteur propose" onClick={() => v.reinitialiser()}>Réinitialiser mes décisions</button>
               <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
               {session.fichierDisponible() && <button type="button" className="secondary" data-controle="auditParcelle.fichier" onClick={() => { void session.partagerLeFichier(); }}>Fichier de l’audit</button>}
               <button type="button" data-controle="auditParcelle.valider" disabled={enCours !== null || (!cochees && !verifies)}

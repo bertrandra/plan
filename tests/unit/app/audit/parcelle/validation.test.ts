@@ -128,15 +128,17 @@ describe('la validation des propositions', () => {
     // Decochee, elle se voit dans « Après » le temps d'etre choisie ; rien ne s'ecrit pour autant.
     expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
     const s = surligner3d.mock.calls.at(-1)?.[0];
-    expect(s?.formes[0]).toMatchObject({ bas: 0, haut: 9, ferme: true });
+    // Le toit seul : de l'egout (au-dessus du sol) au faitage.
+    expect(s?.formes[0]).toMatchObject({ haut: 9, ferme: true });
+    expect(s?.formes[0]?.bas).toBeGreaterThan(0);
     expect(s?.formes[0]?.pts).toHaveLength(4);
     t.v.selectionner(null);
-    expect(surligner3d).toHaveBeenLastCalledWith(null);
+    expect(surligner3d.mock.calls.at(-1)?.[0]).toBeNull();
     expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
     t.v.selectionner('maison:cheminees');
     t.v.oublierApercu();
     expect(t.v.selection()).toBeNull();
-    expect(surligner3d).toHaveBeenLastCalledWith(null);
+    expect(surligner3d.mock.calls.at(-1)?.[0]).toBeNull();
   });
 
   it('montre par defaut l avant et l apres en deux vues, qui suivent les cases', async () => {
