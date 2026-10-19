@@ -127,6 +127,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'vue3d.platelageTranslucide': { libelle: 'Platelage translucide : voir les plots (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.objetsOpaques': { libelle: 'Objets opaques (Vue 3D)', zone: Z4, nature: 'vue' },
   'vue3d.textures': { libelle: 'Textures (Vue 3D)', zone: Z4, nature: 'vue' },
+  'vue3d.facadesSansOmbres': { libelle: 'Façades sans ombres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Estompe les ombres de la photo sur les façades relevées ; jamais exporté' },
   'vue3d.vent': { libelle: 'Vent dans les arbres (Vue 3D)', zone: Z4, nature: 'vue', description: 'Les arbres bougent au vent ; jamais exporté' },
   'vue3d.objetsEchelle': { libelle: 'Objets d’échelle (Vue 3D)', zone: Z4, nature: 'vue', description: 'Une voiture et une silhouette, pour l’échelle ; jamais exportées' },
   'vue3d.qualite': { libelle: 'Qualité (Vue 3D)', zone: Z4, nature: 'vue', description: 'Économe, Normale ou Soignée : ce que la scène se permet en ombres, lissage et effets, propre à cet appareil' },

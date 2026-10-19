@@ -213,6 +213,8 @@ export const vue3d: {
   platelageTranslucide: boolean;
   objetsOpaques: boolean;
   textures: boolean;
+  /** Les ombres de la photo estompees sur les facades relevees (facade/sansOmbres.ts) : une preference d'affichage, jamais exportee. */
+  facadesSansOmbres: boolean;
   ombres: boolean;
   /** Le vent dans les arbres (three/vent.ts) : montre par defaut, une preference d'affichage. */
   vent: boolean;
@@ -241,6 +243,7 @@ export const vue3d: {
   platelageTranslucide: false,
   objetsOpaques: true,
   textures: true,
+  facadesSansOmbres: true,
   vent: true,
   // Ombres allumees d'office : elles coutent a calculer, mais c'est ce qu'on vient voir en 3D - la
   // course du soleil sur la terrasse. L'horloge du canevas (zones/vue3d/Horloge.tsx) les suit.
