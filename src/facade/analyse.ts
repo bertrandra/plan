@@ -63,6 +63,11 @@ export interface ResultatAnalyse {
    * est faible : proposees en pointille, decochees. Les devinees sures sont dans `ouvertures`.
    */
   devinees: OuvertureDetectee[];
+  /**
+   * La silhouette mesuree au-dessus de l'egout (facade/toit.ts::profilSilhouette) : la hauteur du bati, en metres, colonne par
+   * colonne, de `x0M` a `x1M` le long du mur ; null quand le toit est hors cadre. L'ecran des etapes de la calibration la montre.
+   */
+  profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;
   /** La structure des ouvertures proposees (niveaux, travees, spec §10) ; `null` sans ouverture. */
   grille: GrilleFacade | null;
   toitEstime: ToitEstime | null;
@@ -206,8 +211,11 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
   // conclure a un toit plat.
   let toitEstime: ToitEstime | null = null;
   let toitPropose: Toit | null = null;
+  let profilToit: ResultatAnalyse['profilToit'] = null;
   if (vusBande >= 0.33 * bandeToit.vu.length) {
-    toitEstime = classerProfil(profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu));
+    const hauteurs = profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu);
+    profilToit = { x0M: haute ? au(haute, 0) : 0, x1M: haute ? au(haute, 1) : texture.largeur / pxParM, hauteurs };
+    toitEstime = classerProfil(hauteurs);
     toitPropose = toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance);
   }
   // La teinte du mur (mediane de ce qui en a ete vu) remplace le ciel au-dessus de l'egout.
@@ -225,6 +233,7 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
     grille: detection.grille,
     toitEstime,
     toitPropose,
+    profilToit,
     partieBasse: partie,
   };
 }

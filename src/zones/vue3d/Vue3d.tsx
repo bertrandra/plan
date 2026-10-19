@@ -148,6 +148,8 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
                 titre="Objets opaques (sinon l'opacité qu'ils ont sur le plan)" />
               <Case id="terrasse3dTextures" controle="vue3d.textures" libelle="Textures" coche={vue3d.textures} onChange={r.basculerTextures}
                 titre="Décochez pour ignorer les textures et revenir à la couleur unie du plan, sans avoir à les retirer de chaque objet" />
+              {vue3d.textures && <Case id="terrasse3dSansOmbres" controle="vue3d.facadesSansOmbres" libelle="Façades sans ombres" coche={vue3d.facadesSansOmbres} onChange={r.basculerFacadesSansOmbres}
+                titre="Estompe les ombres de la photo sur les façades relevées (débord du toit, balcon, arbre) : la Vue 3D pose les siennes. Sans effet sur la photo enregistrée ni sur l'export" />}
               <Case id="terrasse3dShadows" controle="vue3d.ombres" libelle="Ombres" coche={vue3d.ombres} onChange={r.basculerOmbres}
                 titre="Ombre portée : chaque objet projette une ombre sur ce qu'il survole (plus lent à calculer)" />
               <Case id="terrasse3dEchelle" controle="vue3d.objetsEchelle" libelle="Objets d'échelle" coche={vue3d.objetsEchelle} onChange={r.basculerObjetsEchelle}
