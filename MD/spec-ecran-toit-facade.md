@@ -139,3 +139,21 @@ La v4 alignait les corps le long de la façade. Une maison à plusieurs corps (L
 **Limites connues** : les corps se touchent mais ne se pénètrent pas (pas de noue entre deux faîtages qui se croisent dans la
 façade dessinée ; la 3D, elle, les superpose correctement) ; un corps tourné ne reçoit ni pignon ni galerie ; la hauteur d'un
 retour n'est pas encore contrainte par celle du corps principal.
+
+## Version 6 : la façade d'un seul tenant, avec un bow-window (`MD/maquettes/toit-bow-ae101.html`)
+
+Problème : un bow-window (trois facettes en saillie) découpe visuellement la façade en morceaux. Réponse : **une pièce n'est jamais un
+morceau de façade, c'est un élément porté par elle.**
+
+- **Une façade = un côté de la maison** (regroupement par azimut avec tolérance, comme `facade.azimutDeg` des faits). Tous les corps
+  dont le mur est de ce côté, alignés ou décalés, en sont des tronçons. Rien ne la coupe.
+- **Un bow-window est un élément de la recette « façade »** : trois facettes, petit toit en lean-to, hauteur, saillie. Ses facettes sont
+  les siennes (poignées largeur ↔, hauteur ↕, saillie ↗) ; le mur derrière reste un seul mur.
+- **Le développé** (bandeau en bas de la vue Face) met la façade à plat : un tronçon par corps (plus bas s'il est en retrait),
+  un repère par pièce (pignon, galerie, bow, cheminée). Toucher un repère ouvre son étape ; l'étape choisie y est surlignée, les
+  suivantes estompées. C'est la règle continue sur laquelle on se repère.
+- **L'hôte se déduit tout seul** (« Auto ») : on glisse le bow le long de la façade, il change de corps sans geste (aimant au centre
+  et aux bords du tronçon) et se réduit s'il ne tient pas. La noue d'un pignon traversant se calcule de même, jamais à la main.
+- Le bow se pose depuis le catalogue (*Façade*). Un exemple est posé sur l'aile gauche d'AE 101 : **ce n'est pas un relevé**.
+
+À décider : un bow à cheval sur deux corps (se coupe-t-il, ou refuse-t-on ?) ; le bow fermé par le haut (balcon, étage en surplomb).
