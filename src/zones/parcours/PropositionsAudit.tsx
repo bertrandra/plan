@@ -46,12 +46,13 @@ export interface MainArbitrage { retenir(index: number): void; forcer(valeur: st
 
 const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
 
-export function Arbitrage({ a, main }: { a: ArbitrageProposition; main?: MainArbitrage }) {
+export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitrageProposition; main?: MainArbitrage; choisie?: boolean; choisir?: () => void }) {
   const pct = (c: number | null) => (c === null ? '—' : Math.round(c * 100) + ' %');
   const [force, setForce] = useState('');
   const delaMain = a.decision === 'choisie' || a.decision === 'forcee';
   return (
-    <details className="arbitrageProposition" open={a.decision === 'manuelle' && !!main ? true : undefined}>
+    <details className={'arbitrageProposition' + (choisie ? ' choisie' : '')} open={(a.decision === 'manuelle' && !!main) || choisie ? true : undefined} aria-current={choisie ? 'true' : undefined}
+      onClick={(e) => { if (choisir && !choisie && !(e.target as HTMLElement).closest('button, input, select')) choisir(); }}>
       <summary><span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
       <p className="raisonArbitrage">{a.raison}</p>
       <div className="defileAudit">
@@ -83,6 +84,9 @@ export function Arbitrage({ a, main }: { a: ArbitrageProposition; main?: MainArb
   );
 }
 
+/** L'identifiant de selection d'un arbitrage de « Sources » : sa zone se montre dans la Vue 3D (surbrillance.ts::surbrillanceArbitrage). */
+const idArbitrage = (a: ArbitrageProposition): string => a.cible + ':arb:' + a.attribut;
+
 /**
  * Toutes les sources d'un batiment, attribut par attribut (y compris ceux qui ne proposent rien) : c'est ici que l'on
  * retient une source ou que l'on force une valeur quand l'audit ne propose rien ou propose la mauvaise.
@@ -91,13 +95,14 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
   const batiments = v.arbitrages().filter((b) => b.arbitrages.length);
   if (!batiments.length) return null;
   const lectureSeule = v.lectureSeule();
+  const choixSources: ChoixArbre = { id: v.selection(), efface: () => v.selectionner(null) };
   return (
     <section className="sourcesBatiments" aria-label="Sources des bâtiments">
       <div className="titreObservations">Sources, bâtiment par bâtiment</div>
       <p className="noteObservations tauxAutomatique">{texteTaux(tauxAutomatique(batiments.flatMap((b) => b.arbitrages)))}</p>
       {batiments.map((b, rang) => (
-        <Niveau key={b.cle} groupe="src" id={b.cle} titre={b.nom} compte={b.arbitrages.length} premier={rang === 0}>
-          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} {...(lectureSeule ? {} : { main: {
+        <Niveau key={b.cle} groupe="src" id={b.cle} titre={b.nom} compte={b.arbitrages.length} premier={rang === 0} ids={b.arbitrages.map(idArbitrage)} choix={choixSources}>
+          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} choisie={v.selection() === idArbitrage(a)} choisir={() => v.selectionner(idArbitrage(a))} {...(lectureSeule ? {} : { main: {
             retenir: (i: number) => v.decider(a.cible, a.attribut, { type: 'groupe', index: i }),
             forcer: (t: string) => v.decider(a.cible, a.attribut, { type: 'force', valeur: JSON.parse(t) as never }),
             reprendre: () => v.decider(a.cible, a.attribut, null),
@@ -168,6 +173,7 @@ const NIVEAUX_VUS = [{ id: 'facades', libelle: 'Façades' }, { id: 'toit', libel
 function ObservationsClaude({ batiments, session, lecture }: { batiments: readonly ObservationsBatiment[]; session: SessionAuditParcelle; lecture: boolean }) {
   if (!batiments.length) return null;
   const v = session.validation;
+  const choixVu: ChoixArbre = { id: v.selection(), efface: () => v.selectionner(null) };
   return (
     <section className="observationsClaude" aria-label="Vu par Claude">
       <div className="titreObservations">Vu par Claude, à vérifier sur place</div>
@@ -177,9 +183,9 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
         // Meme arbre que les propositions : batiment > type (facades, toit, murs...) > lignes.
         const niveaux = NIVEAUX_VUS.map((n) => ({ ...n, os: b.observations.filter((o) => typeObservation(o.id) === n.id) })).filter((n) => n.os.length);
         return (
-          <Niveau key={b.cle} groupe="vu" id={b.cle} titre={b.nom} compte={b.observations.length} premier={rang === 0}>
+          <Niveau key={b.cle} groupe="vu" id={b.cle} titre={b.nom} compte={b.observations.length} premier={rang === 0} ids={b.observations.map((o) => o.id)} choix={choixVu}>
             {niveaux.map((n, r) => (
-            <Niveau key={n.id} groupe={'vu/' + b.cle} id={n.id} titre={n.libelle} compte={n.os.length} profond premier={r === 0}>
+            <Niveau key={n.id} groupe={'vu/' + b.cle} id={n.id} titre={n.libelle} compte={n.os.length} profond premier={r === 0} ids={n.os.map((o) => o.id)} choix={choixVu}>
             <ul className="listeObservations">
               {n.os.map((o) => {
                 const fait = o.confirmer ? dejaConfirme(vu, o.confirmer) : false;
@@ -187,9 +193,12 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
                   <li key={o.id} className={'ligneObservation' + (v.selection() === o.id ? ' choisie' : '')} aria-current={v.selection() === o.id ? 'true' : undefined} onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) v.selectionner(o.id); }}>
                     <span>{o.texte}</span>
                     {(o.ou.length > 0 || o.accord !== null) && <span className="origineProposition">{[o.ou.length ? 'vu sur : ' + o.ou.join(', ') : null, o.accord !== null ? 'passes d’accord ' + Math.round(o.accord * 100) + ' %' : null].filter(Boolean).join(' · ')}</span>}
-                    {o.confirmer && !lecture && (fait
-                      ? <span className="origineProposition" role="status">Confirmé par vous : noté dans « Ce que je vois ».</span>
-                      : <button type="button" className="secondary small" data-controle="auditParcelle.confirmerObservation" aria-label={'Je confirme : ' + o.texte} onClick={() => v.confirmerObservation(b.cle, o.confirmer ?? {})}>Je confirme</button>)}
+                    {o.confirmer && !lecture && (
+                      <label className="confirmerObservation">
+                        <input type="checkbox" data-controle="auditParcelle.confirmerObservation" checked={fait} aria-label={'Je confirme : ' + o.texte}
+                          onChange={() => (fait ? v.annulerConfirmation(b.cle, o.id, o.confirmer ?? {}) : v.confirmerObservation(b.cle, o.id, o.confirmer ?? {}))} />
+                        <span role="status">{fait ? 'Confirmé par vous : noté dans « Ce que je vois ». Décochez pour revenir dessus.' : 'Je confirme'}</span>
+                      </label>)}
                     {o.confirmer && !lecture && !fait && o.raison && <span className="origineProposition">{o.raison}</span>}
                   </li>
                 );
@@ -200,6 +209,8 @@ function ObservationsClaude({ batiments, session, lecture }: { batiments: readon
           </Niveau>
         );
       })}
+      {!lecture && <button type="button" className="secondary small" data-controle="auditParcelle.reinitialiserConfirmations" disabled={!v.aDesConfirmations()}
+        title="Défait vos « Je confirme » : « Ce que je vois » retrouve ce qu’il disait avant" onClick={() => v.reinitialiserConfirmations()}>Réinitialiser mes confirmations</button>}
     </section>
   );
 }
@@ -221,7 +232,10 @@ const ouvertDe = new Map<string, string | null>();
 const abonnesNiveaux = new Set<() => void>();
 const choisirNiveau = (groupe: string, id: string | null) => { ouvertDe.set(groupe, id); abonnesNiveaux.forEach((f) => f()); };
 
-function Niveau({ groupe, id, titre, compte, profond, premier, children }: { groupe: string; id: string; titre: string; compte: number; profond?: boolean; premier?: boolean; children: React.ReactNode }) {
+/** La ligne choisie vue de l'arbre : son identifiant, et de quoi l'effacer. */
+interface ChoixArbre { id: string | null; efface: () => void }
+
+function Niveau({ groupe, id, titre, compte, profond, premier, ids, choix, children }: { groupe: string; id: string; titre: string; compte: number; profond?: boolean; premier?: boolean; ids: readonly string[]; choix: ChoixArbre; children: React.ReactNode }) {
   const [, rafraichir] = useState(0);
   useEffect(() => {
     const f = () => rafraichir((n) => n + 1);
@@ -229,19 +243,23 @@ function Niveau({ groupe, id, titre, compte, profond, premier, children }: { gro
     return () => { abonnesNiveaux.delete(f); };
   }, []);
   const ouvert = ouvertDe.has(groupe) ? ouvertDe.get(groupe) === id : !!premier;
+  // La ligne choisie est dans ce niveau : replie, il le dit (le trait reste dans la 3D) ; ouvrir un autre niveau la deselectionne.
+  const contientChoix = choix.id !== null && ids.includes(choix.id);
   return (
-    <details className={'niveauPropositions' + (profond ? ' sousNiveau' : '')} open={ouvert} onToggle={(e) => {
+    <details className={'niveauPropositions' + (profond ? ' sousNiveau' : '') + (contientChoix ? ' contientChoix' : '')} open={ouvert} onToggle={(e) => {
       const o = (e.currentTarget as HTMLDetailsElement).open;
-      if (o !== ouvert) choisirNiveau(groupe, o ? id : null);
+      if (o === ouvert) return;
+      if (o && choix.id !== null && !contientChoix) choix.efface();
+      choisirNiveau(groupe, o ? id : null);
     }}>
-      <summary className="nomObservations">{titre + ' (' + compte + ')'}</summary>
+      <summary className="nomObservations">{(contientChoix && !ouvert ? '● ' : '') + titre + ' (' + compte + ')'}</summary>
       {children}
     </details>
   );
 }
 
 /** L'arbre des lignes : objet (batiment, parcelle) > type (facades, toit, murs...) > lignes. */
-function ArbrePropositions({ propositions, noms, ligne }: { propositions: readonly Proposition[]; noms: ReadonlyMap<string, string>; ligne: (p: Proposition) => React.ReactNode }) {
+function ArbrePropositions({ propositions, noms, ligne, choix }: { propositions: readonly Proposition[]; noms: ReadonlyMap<string, string>; ligne: (p: Proposition) => React.ReactNode; choix: ChoixArbre }) {
   const parObjet = new Map<string, Proposition[]>();
   for (const p of propositions) {
     const k = p.cible.type === 'parcelle' ? 'parcelle' : p.cible.cle;
@@ -253,9 +271,9 @@ function ArbrePropositions({ propositions, noms, ligne }: { propositions: readon
         const nom = k === 'parcelle' ? 'Parcelle' : noms.get(k) ?? ps[0]?.objet.split(' de ').pop() ?? k;
         const niveaux = [...NIVEAUX.map((n) => ({ id: n.id, libelle: n.libelle, ps: ps.filter(n.de) })), { ...NIVEAU_AUTRE, ps: ps.filter((p) => !NIVEAUX.some((m) => m.de(p))) }].filter((n) => n.ps.length);
         return (
-          <Niveau key={k} groupe="prop" id={k} titre={nom} compte={ps.length} premier={rang === 0}>
+          <Niveau key={k} groupe="prop" id={k} titre={nom} compte={ps.length} premier={rang === 0} ids={ps.map((p) => p.id)} choix={choix}>
             {niveaux.map((n, r) => (
-              <Niveau key={n.id} groupe={'prop/' + k} id={n.id} titre={n.libelle} compte={n.ps.length} profond premier={r === 0}>
+              <Niveau key={n.id} groupe={'prop/' + k} id={n.id} titre={n.libelle} compte={n.ps.length} profond premier={r === 0} ids={n.ps.map((p) => p.id)} choix={choix}>
                 <ul className="listePropositions" aria-label={n.libelle + ' de ' + nom}>{n.ps.map(ligne)}</ul>
               </Niveau>
             ))}
@@ -334,7 +352,7 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
       <div id="corpsPropositions" className="corpsPropositions" hidden={replie}>
         {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées{v.selection() ? ', et la ligne surlignée' : ''}.</p>}
         {!lecture && <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />}
-        {propositions.length > 0 && <ArbrePropositions propositions={propositions} noms={new Map(v.arbitrages().map((b) => [b.cle, b.nom]))} ligne={(p) => (
+        {propositions.length > 0 && <ArbrePropositions choix={{ id: v.selection(), efface: () => v.selectionner(null) }} propositions={propositions} noms={new Map(v.arbitrages().map((b) => [b.cle, b.nom]))} ligne={(p) => (
           <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
             choisir={() => v.selectionner(v.selection() === p.id ? null : p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />
         )} />}

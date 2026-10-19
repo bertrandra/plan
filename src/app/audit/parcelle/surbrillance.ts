@@ -10,7 +10,7 @@ import { typeObservation } from './observationsClaude.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 
 /** Une forme a surligner : une ligne de points du plan, tracee a deux hauteurs (au-dessus du sol) et reliee par des verticales. */
-export interface FormeSurlignee { pts: PtBrut[]; bas: number; haut: number; ferme: boolean }
+export interface FormeSurlignee { pts: PtBrut[]; bas: number; haut: number; ferme: boolean; epais?: boolean }
 
 /** Les formes d'une ligne, et d'ou la regarder : devant un mur (sa normale sortante), sinon d'ou l'on est. */
 export interface Surbrillance { formes: FormeSurlignee[]; centre: PtBrut; hautM: number; normale: PtBrut | null }
@@ -47,7 +47,7 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
     const f = facadesDuContour(pts, mur).find((x) => x.cote === cote);
     if (!f) return null;
     const haut = hauteurMurSousToit(o, f);
-    return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false }], centreDe([f.gauche, f.droite]), haut, f.normale);
+    return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
   }
   const corps = (i: number) => o.corpsToit?.[i];
   const pan = (c: { pts: PtBrut[]; faitage: number }): Surbrillance => zone([{ pts: c.pts, bas: mur, haut: c.faitage, ferme: true }], centreDe(c.pts), (mur + c.faitage) / 2 + 0.01);
@@ -96,7 +96,7 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
     if (f) {
       const haut = hauteurMurSousToit(o, f);
-      return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false }], centreDe([f.gauche, f.droite]), haut, f.normale);
+      return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
     }
   }
   const type = typeObservation(id);
@@ -105,5 +105,37 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
     return zone(formes, centreDe(pts), (mur + faite) / 2);
   }
   if (type === 'murs' || type === 'facades') return zone([{ pts, bas: 0, haut: mur, ferme: true }], centreDe(pts), mur);
+  return zone([{ pts, bas: 0, haut: faite, ferme: true }], centreDe(pts), faite);
+}
+
+/** Les attributs d'un batiment qui parlent du toit, des murs ; les autres (ouvertures, silhouettes) parlent des facades. */
+const ATTRIBUTS_TOIT = /^(formeToit|boutsToit|sensFaitage|hauteurTotale|couverture|lucarnes|cheminees|terrasse)/;
+const ATTRIBUTS_MURS = /^(hauteurEgout|couleurMurs|materiauMurs)/;
+
+/**
+ * La zone d'un arbitrage de « Sources » (`cible|attribut`, cible = `batiment:<cle>` ou `facade:<cle>#<cote>`) : le mur nomme (contour
+ * en gras) pour une facade, le toit ou les murs pour un attribut du batiment. Meme trace que les propositions.
+ */
+export function surbrillanceArbitrage(cible: string, attribut: string, objets: readonly ObjetPlan[]): Surbrillance | null {
+  const m = /^(batiment|facade):([^#]+)(?:#(\d+))?$/.exec(cible);
+  if (!m) return null;
+  const [, genre, cle = '', cote] = m;
+  const o = objets.find((x) => x.key === cle);
+  const pts = sommets(o);
+  if (!o || !pts) return null;
+  const mur = hauteurDe(o);
+  const faite = Math.max(mur, ...(o.corpsToit ?? []).map((c) => c.faitage));
+  if (genre === 'facade' && cote !== undefined) {
+    const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
+    if (f) {
+      const haut = hauteurMurSousToit(o, f);
+      return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true }], centreDe([f.gauche, f.droite]), haut, f.normale);
+    }
+  }
+  if (ATTRIBUTS_TOIT.test(attribut)) {
+    const formes = o.corpsToit?.length ? o.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];
+    return zone(formes, centreDe(pts), (mur + faite) / 2);
+  }
+  if (ATTRIBUTS_MURS.test(attribut) || genre === 'facade') return zone([{ pts, bas: 0, haut: mur, ferme: true }], centreDe(pts), mur);
   return zone([{ pts, bas: 0, haut: faite, ferme: true }], centreDe(pts), faite);
 }

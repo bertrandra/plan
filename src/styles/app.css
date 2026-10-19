@@ -1505,6 +1505,8 @@
   .forcerNombre input{ width:6rem; }
   .niveauPropositions > summary{ cursor:pointer; padding:4px 0; }
   .niveauPropositions.sousNiveau{ margin-left:12px; }
+  .niveauPropositions.contientChoix:not([open]) > summary{ background:var(--accent-light); color:var(--on-accent-light); border-radius:var(--r-champ); }
+  .arbitrageProposition.choisie{ background:var(--accent-light); color:var(--on-accent-light); border-radius:var(--r-champ); }
   .sourcesBatiments{ margin:10px 0; }
   .sourcesBatiment > summary{ cursor:pointer; padding:4px 0; }
   .tableArbitrage{ font-size:0.72rem; font-variant-numeric:tabular-nums; }
@@ -1536,6 +1538,8 @@
   .nomObservations{ font-weight:600; margin-top:6px; }
   .listeObservations{ list-style:none; margin:2px 0 0; padding:0; }
   .ligneObservation{ cursor:pointer; }
+  .confirmerObservation{ display:flex; align-items:flex-start; gap:8px; cursor:pointer; }
+  .confirmerObservation input{ width:18px; height:18px; margin:2px 0 0; flex:none; accent-color:var(--accent); }
   .ligneObservation.choisie{ background:var(--accent-light); color:var(--on-accent-light); border-radius:var(--r-champ); }
   .ligneObservation{ display:flex; flex-direction:column; gap:1px; padding:4px 0 4px 8px; border-bottom:1px solid var(--hairline); box-shadow:inset 3px 0 0 var(--accent-light); overflow-wrap:anywhere; }
   html:not([data-classe="large"]) .casePartage{ min-height:44px; }

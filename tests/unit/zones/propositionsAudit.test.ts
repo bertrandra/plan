@@ -67,7 +67,8 @@ describe('les observations de Claude dans l ecran des propositions', () => {
     expect(s.analyse.etat()).toBe('prete');
     const bloc = hote.querySelector('section.observationsClaude');
     expect(bloc).not.toBeNull();
-    expect(bloc?.querySelectorAll('input').length).toBe(0);
+    // Aucune case de proposition (les cases « Je confirme » des observations de toit n'en sont pas).
+    expect(bloc?.querySelectorAll('input[data-controle="auditParcelle.cocher"]').length).toBe(0);
     const lignes = [...hote.querySelectorAll('.ligneObservation')].map((li) => li.textContent ?? '');
     expect(lignes.some((t) => t.startsWith('Pignons aux deux bouts du faîtage') && t.includes('vu sur : photo de la façade sud de Maison'))).toBe(true);
     expect(lignes.some((t) => t.startsWith('Façade sud : 1 ouverture non détectée par Plan'))).toBe(true);
@@ -93,8 +94,9 @@ describe('confirmer une observation de Claude sur le toit', () => {
     const ligne = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes des façades'));
     expect(ligne).toBeDefined();
     expect(ligne?.textContent).toContain('pignon');
-    const bouton = ligne?.querySelector('button[data-controle="auditParcelle.confirmerObservation"]') as HTMLButtonElement;
+    const bouton = ligne?.querySelector('input[data-controle="auditParcelle.confirmerObservation"]') as HTMLInputElement;
     expect(bouton).not.toBeNull();
+    expect(bouton.checked).toBe(false);
     // Cette maison n'a pas de mesure LiDAR : la ligne le dit avant de promettre un dessin.
     expect(ligne?.textContent).toContain('pas de mesure LiDAR');
     expect(s.capture.lire().batiments['maison']?.vu.bouts).toBeUndefined();
@@ -104,7 +106,14 @@ describe('confirmer une observation de Claude sur le toit', () => {
     act(() => racine.render(createElement(PropositionsAudit, { session: s, fermer: vi.fn() })));
     const apres = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes'));
     expect(apres?.textContent).toContain('Confirmé par vous');
-    expect(apres?.querySelector('button')).toBeNull();
+    // La case reste, cochee : la decocher revient sur la decision.
+    const casee = apres?.querySelector('input[data-controle="auditParcelle.confirmerObservation"]') as HTMLInputElement;
+    expect(casee.checked).toBe(true);
+    act(() => casee.click());
+    expect(s.capture.lire().batiments['maison']?.vu.bouts).toBeUndefined();
+    act(() => racine.render(createElement(PropositionsAudit, { session: s, fermer: vi.fn() })));
+    const reprise = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes'));
+    expect((reprise?.querySelector('input[data-controle="auditParcelle.confirmerObservation"]') as HTMLInputElement).checked).toBe(false);
   });
 
   it('ne propose pas de confirmer quand les murs se contredisent', async () => {
