@@ -47,3 +47,30 @@ hauteur, taille) n'apparaît que dans une pastille posée sur l'objet touché.
 1. Partir de la lecture automatique (LiDAR + audit) et laisser la personne corriger, ou de zéro ?
 2. Ajouter / supprimer une zone (une aile) : geste « + » au bord du bâtiment ?
 3. Vue de face seule, ou bascule 3/4 (la 3D existante) ?
+
+## Version 2 : la façade d'AE 101 (`MD/maquettes/toit-facade-ae101.html`)
+
+Demande : modifier un toit **comme AE 101**, d'un geste, par exemple les deux pignons ajoutés sur la façade avec
+le toit en appentis. L'écran part donc d'AE 101 (deux pans, deux pignons traversants de 3,7 m au faîtage, galerie
+sur toute la façade sud) et chaque pièce se manie de la même façon : **je touche, je déplace, je tire une poignée**.
+
+| Pièce | Je la pose | Je la déplace | Poignées | Barre |
+|---|---|---|---|---|
+| Pignon traversant | image *Pignon*, tapée ou glissée sur la façade | glisser (aimant : bords, symétrie) | ↔ largeur · ↕ hauteur (aimant au faîtage) · ↗ saillie | dupliquer, supprimer |
+| Appentis adossé | image *Appentis* | glisser | ↔ ↔ bouts · ↕ égout · ↗ profondeur | sur poteaux / fermé, supprimer |
+| Élément (cheminée, lucarne…) | onglet *Éléments* | glisser sur le pan | ↗ taille | − +, retourner, dupliquer, supprimer |
+
+La pastille de cotes (largeur, angle, hauteur, saillie ou profondeur) apparaît sur la pièce touchée, jamais ailleurs.
+
+**Ce que l'écran écrit : un fait.** Les gestes se traduisent dans le vocabulaire de `MD/spec-regles-toits.md` §5, sans rien de nouveau :
+
+- pignon → `pignons: [{ facade: { azimutDeg }, position: "bouts", haut: "faitage", largeurM }]` ; la hauteur coupée sous le
+  faîtage et la saillie n'existent pas encore dans le vocabulaire (à ajouter) ;
+- appentis → `appentis: [{ facade: { azimutDeg }, longueur: "toute", profondeurM, egoutM, hautM }]` ; `hautM` suit
+  `egoutM + 0,6 × profondeurM` dans la maquette (≈ 31°), AE 101 mesure 3,2 m pour 2,4 m d'égout et 1,25 m de profondeur ;
+  `longueur` partielle (deux bouts libres) n'existe pas encore (§5.1 : « Un seul pan par façade ») ;
+- ouvert / fermé → `ouvert: true` du corps produit.
+
+Le départ de l'écran est la lecture du bâtiment (calcul puis fait, §9.1) ; ce que la personne change devient un fait
+`contrainte` ou `remplacement`, proposé puis validé, jamais écrit en silence (`regles-toits` : « un fait est une
+observation, pas une hypothèse »). Dernier garde-fou : AE 101 reste identique au centimètre tant que la personne n'y touche pas.
