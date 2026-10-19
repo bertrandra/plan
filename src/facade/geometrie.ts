@@ -36,6 +36,9 @@ export interface Facade {
 
 const HUIT_VENTS = ['Nord', 'Nord-Est', 'Est', 'Sud-Est', 'Sud', 'Sud-Ouest', 'Ouest', 'Nord-Ouest'];
 
+/** Une facade nommee dans une liste : son point cardinal et le numero de son cote dans le contour (le meme que celui du tiroir), « sud (côté 3) ». */
+export const nomFacade = (orientation: string, cote: number): string => orientation.toLowerCase() + ' (côté ' + (cote + 1) + ')';
+
 /** Le point cardinal le plus proche d'un azimut, parmi huit. */
 export function nomOrientation(azimut: number): string {
   const a = ((azimut % 360) + 360) % 360;

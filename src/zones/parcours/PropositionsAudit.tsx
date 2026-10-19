@@ -76,10 +76,10 @@ export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitragePropositi
         const o = (e.currentTarget as HTMLDetailsElement).open;
         if (choisir && o !== !!choisie) choisir(o);
       }}>
-      <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
+      <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + (a.cibleNom ? ' · ' + a.cibleNom : '') + ' (aujourd’hui : ' + a.avant + ')'}</summary>
       <p className="raisonArbitrage">{a.raison}</p>
       <div className="defileAudit">
-        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle}>
+        <table className="attrTable tableArbitrage" aria-label={'Sources : ' + a.libelle + (a.cibleNom ? ' · ' + a.cibleNom : '')}>
           <thead><tr><th>Source</th><th>Dit</th><th>Confiance</th><th>Score</th><th>Règle</th><th>Groupe</th></tr></thead>
           <tbody>{a.groupes.flatMap((g) => g.lignes.map((l, i) => (
             <tr key={g.valeur + l.source}><td>{l.libelle}</td><td>{a.attribut === 'silhouetteFacade' && <PictoSilhouette valeur={l.valeur} />}{l.valeur}</td><td>{pct(l.confiance)}</td><td>{String(l.score).replace('.', ',')}</td><td>{l.regle ?? '—'}</td><td>{i === 0 ? (g.retenu ? 'Retenu' : 'Écarté') + ' (' + String(g.score).replace('.', ',') + ')' : ''}</td></tr>

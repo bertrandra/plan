@@ -15,6 +15,7 @@
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import { couleurMursRetenue } from '../../../model/couleurMur.js';
 import {
   resumePartie, terrasseVue, toitVu,
@@ -165,7 +166,8 @@ function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesProposition
   if (retenue?.couleur.toLowerCase() === lue.couleur.toLowerCase()) return null;
   const source = o.couleurMurs?.source;
   const avant = retenue ? retenue.couleur + (retenue.source === 'photo' ? (o.couleurMurs?.terrain ? ' (vos photos)' : ' (photo de rue)') : ' (matériau)') : 'couleur du plan';
-  const orientation = b.facades.find((f) => f.cote === lue?.cote)?.facade.orientation.toLowerCase() ?? '';
+  const mur = b.facades.find((f) => f.cote === lue?.cote);
+  const orientation = mur ? nomFacade(mur.facade.orientation, mur.cote) : '';
   return mesure({
     id: b.cle + ':couleurMurs', cible: { type: 'batiment', cle: b.cle }, objet: 'Murs de ' + b.nom,
     avant, apres: lue.couleur + ', lue sur vos photos',
@@ -336,7 +338,7 @@ export function verifications(liste: ListeDeControle, capture: CaptureParcelle, 
     const decochees = propositions.filter((p) => p.cible.type !== 'parcelle' && p.cible.cle === b.cle && !cochees.has(p.id) && !tranchee(p, propositions, cochees)).length;
     let raison: string | null = null;
     if (!photographiee) raison = 'aucune façade photographiée';
-    else if (sansPhoto.length) raison = sansPhoto.map((f) => 'façade ' + f.facade.orientation.toLowerCase()).join(', ') + ' : pas de photo';
+    else if (sansPhoto.length) raison = sansPhoto.map((f) => 'façade ' + nomFacade(f.facade.orientation, f.cote)).join(', ') + ' : pas de photo';
     else if (!toitVu(vu)) raison = 'toit non vu';
     else if (decochees) raison = pluriel(decochees, 'proposition') + ' décochée' + (decochees > 1 ? 's' : '');
     return { cle: b.cle, nom: b.nom, verifie: raison === null, raison };

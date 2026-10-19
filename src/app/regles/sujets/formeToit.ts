@@ -1,6 +1,7 @@
 // Sujet « formeToit » : la forme du toit vue par Claude sur les pignons et les croupes, relue sur la
 // mesure LiDAR par le moteur (facade/regles/toits/faits.ts) : le sujet ne dessine jamais un toit.
 
+import { nomFacade } from '../../../facade/geometrie.js';
 import { AUTRES_FORMES, FORMES_COURANTES, libelleDe } from '../../../model/ceQueJeVois.js';
 import { corpsSousContrainte, ecartsAuFait, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes, type BoutsLus, type SilhouetteLue } from '../../../facade/regles/toits/silhouettes.js';
@@ -69,7 +70,7 @@ export interface MurLu { silhouette: SilhouetteFacade; bout?: BoutVu }
 
 /** Les silhouettes des facades d'un batiment, dans le vocabulaire du moteur : l'azimut, la largeur et ce que la photo montre au-dessus de l'egout. */
 export function murs(b: LigneBatiment, lu: (f: LigneFacade) => MurLu): SilhouetteLue[] {
-  return b.facades.map((f) => ({ azimut: f.facade.azimut, largeurM: f.facade.largeur, nom: 'façade ' + etiquetteFacade(b, f), ...lu(f) }));
+  return b.facades.map((f) => ({ azimut: f.facade.azimut, largeurM: f.facade.largeur, nom: 'façade ' + nomFacade(f.facade.orientation, f.cote), ...lu(f) }));
 }
 
 const platOuNon = (o: ObjetPlan): boolean => !!o.corpsToit?.length && formeDesCorps(o.corpsToit) === 'plat';

@@ -492,7 +492,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,
-    arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a)) })),
+    arbitrages: () => calculer().arbitrages.map((b) => ({ cle: b.cle, nom: b.nom, arbitrages: b.arbitrages.map((a) => resumeArbitrage(a, undefined, ctx.liste().batiments.find((l) => l.cle === b.cle))) })),
     decider: (cible, attribut, choixArb) => decider(cible, attribut, choixArb),
     cochee,
     aDesDecisions: () => !figees && (choix.size > 0 || decisions.size > 0 || confirmations.api.aDesConfirmations()), ...confirmations.api, reinitialiser() { if (figees) return; choix.clear(); decisions.clear(); confirmations.defaireConfirmations(); versionDecisions++; memo = null; choix3d.choisir(null); apercu.poser(); choix3d.surligner(); publier(); },
