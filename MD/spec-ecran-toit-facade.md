@@ -118,3 +118,24 @@ est tracé par morceaux autour du retrait (`frontWall`), les fenêtres du rez-de
 
 **À décider avant de coder** : l'ordre des étapes ne compte que pour les recettes qui retranchent (retrait, cour) ; il faut
 dire s'il se déplace à la main ou s'il est déduit (volumes d'abord, découpes ensuite, éléments à la fin).
+
+## Version 5 : plusieurs corps (`MD/maquettes/toit-multicorps-ae101.html`)
+
+La v4 alignait les corps le long de la façade. Une maison à plusieurs corps (L, T, U, aile en retour) demande de les
+**poser librement en plan**, d'où la vue **Plan**, point d'entrée de chaque étape-corps (Plan · Face · Coupe).
+
+- Un corps = un rectangle au sol (`x`, `z0` = décalage en profondeur, largeur `w`, profondeur `d`) + un sens de faîtage
+  (`dir` : x, parallèle à la façade, ou z, vers le fond) + sa forme de toit. Il se déplace (aimant aux bords des autres corps,
+  jamais de chevauchement), s'étire (↔ ↕), se tourne d'un quart de tour (⟳, seulement s'il n'a ni pignon, ni galerie, ni élément).
+- Le catalogue pose un corps à une place libre : **Aile** (dans la ligne, à droite) ou **Retour** (derrière le corps principal,
+  faîtage vers le fond). AE 101 démarre avec une aile en retour **d'exemple** (pas relevée sur place) pour montrer le multi-corps.
+- Le plan dessine le faîtage de chaque forme (une ligne, des arêtiers pour les croupes, un X pour le pavillon) et l'emprise
+  des pièces (pignons en pointillé, galerie, cheminée).
+- **Un seul dessin par corps.** Le corps se dessine toujours dans son repère propre (faîtage selon x, face vers z = 0) ; la
+  pose dans le monde (`worldPt`) ajoute un décalage ou une symétrie d'un quart de tour. Une symétrie garde les faces visibles
+  visibles : façade, plan et 3D reprennent les mêmes faces. Les corps se peignent du fond vers l'avant.
+- Les pignons, la galerie et les éléments restent attachés à un corps parallèle à la façade (`dir` x). Un corps tourné n'en porte pas encore.
+
+**Limites connues** : les corps se touchent mais ne se pénètrent pas (pas de noue entre deux faîtages qui se croisent dans la
+façade dessinée ; la 3D, elle, les superpose correctement) ; un corps tourné ne reçoit ni pignon ni galerie ; la hauteur d'un
+retour n'est pas encore contrainte par celle du corps principal.
