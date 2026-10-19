@@ -21,7 +21,9 @@ import { versOuvertureFacade } from '../../../facade/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
 import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
-import { redresserEtFusionner, type PhotoARedresser } from '../../../zones/releve/chaine.js';
+import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../zones/releve/chaine.js';
+import { redresser, resolutionTexture } from '../../../facade/homographie.js';
+import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../facade/geometrie.js';
@@ -69,6 +71,13 @@ export interface MesureFacade {
    * « Rejouer redressement + fusion » le recalcule, les originaux et les corrections manuelles n'y changent jamais.
    */
   redressement?: BilanRedressement;
+  /**
+   * Chaque photo redressee seule, en JPEG, entre les coins que la chaine a retenus : ce que le modele voyait le jour de la
+   * mesure. Les photos brutes et les corrections restent la source d'un rejeu ; ces images disent ce qu'il change.
+   */
+  redressees?: PhotoRedresseeAuditee[];
+  /** La version de la chaine des facades qui a fait ces mesures (zones/releve/chaine.ts). */
+  versionChaine?: number;
 }
 
 export interface DependancesMesures {
@@ -162,6 +171,21 @@ function releveDeLAnalyse(a: Analyse, morceaux: Morceau[], f: Facade, d: Dependa
 const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
 
 /**
+ * Chaque photo redressee seule, a la resolution de la texture (1 024 px au plus), entre les coins retenus : sur l'image que la
+ * chaine a lue (corrigee de la distorsion du grand-angle s'il y a lieu). Une photo sans essai n'en a pas.
+ */
+function photosRedressees(c: ResultatChaine, f: Facade, d: DependancesMesures): PhotoRedresseeAuditee[] {
+  const out: PhotoRedresseeAuditee[] = [];
+  for (const x of c.faits) {
+    const m = x.essai?.p.morceau;
+    if (!m) continue;
+    const r = redresser(m.prise.photo.image, m.coins, f.largeur, f.hauteur, resolutionTexture(f.largeur, f.hauteur));
+    if (r) out.push({ rang: x.bilan.rang, image: d.jpeg(r.image) });
+  }
+  return out.sort((a, b) => a.rang - b.rang);
+}
+
+/**
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
@@ -193,10 +217,11 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     entrees.push({ rang: i, image, prise: (champLu) => priseDeLaPhoto(photo, image, fm, champLu), champConnu: photo.prise?.sourceFocale === 'exif' });
   }
   const c = await redresserEtFusionner(entrees, fm, bat, { chercherCoins: d.chercherCoins }, corrections, illisibles);
+  const trace = { redressement: c.redressement, redressees: photosRedressees(c, fm, d), versionChaine: VERSION_CHAINE_FACADES };
   if (!c.fusion) {
     const seule = c.seule, essai = seule?.photo.essai;
-    if (!seule || !essai) return { ...vide, couleur, redressement: c.redressement };
-    return { ...vide, ...releveDeLAnalyse(seule.a, [essai.p.morceau], fm, d, 'morceaux'), rangReleve: seule.photo.bilan.rang, couleur, redressement: c.redressement };
+    if (!seule || !essai) return { ...vide, couleur, ...trace };
+    return { ...vide, ...releveDeLAnalyse(seule.a, [essai.p.morceau], fm, d, 'morceaux'), rangReleve: seule.photo.bilan.rang, couleur, ...trace };
   }
-  return { ...vide, ...releveDeLAnalyse(c.fusion.a, c.fusion.morceaux, fm, d, 'vues'), rangReleve: c.fusion.rangReference, couleur, redressement: c.redressement };
+  return { ...vide, ...releveDeLAnalyse(c.fusion.a, c.fusion.morceaux, fm, d, 'vues'), rangReleve: c.fusion.rangReference, couleur, ...trace };
 }
