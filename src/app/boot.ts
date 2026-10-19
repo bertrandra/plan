@@ -460,7 +460,7 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
       // L'avant et l'apres en deux vues (three/comparaison3d.ts), qui evitent l'ecran des propositions.
       comparer3d: (apres) => tardifs.vues?.comparerObjets3d(apres) ?? false,
       cadrer3d: (panneau) => { tardifs.vues?.cadrerDeuxVues(panneau); },
-      surligner3d: (s) => tardifs.vues?.surlignerDans3d(s) ?? false,
+      surligner3d: (s, aussi, viser) => tardifs.vues?.surlignerDans3d(s, aussi, viser) ?? false,
     },
     // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
     audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),

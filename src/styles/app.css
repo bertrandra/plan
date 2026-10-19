@@ -1503,6 +1503,8 @@
   .mainArbitrage select, .forcerNombre input{ font-size:0.74rem; min-height:32px; }
   .forcerNombre{ display:inline-flex; gap:4px; align-items:center; }
   .forcerNombre input{ width:6rem; }
+  .niveauPropositions > summary{ cursor:pointer; padding:4px 0; }
+  .niveauPropositions.sousNiveau{ margin-left:12px; }
   .sourcesBatiments{ margin:10px 0; }
   .sourcesBatiment > summary{ cursor:pointer; padding:4px 0; }
   .tableArbitrage{ font-size:0.72rem; font-variant-numeric:tabular-nums; }

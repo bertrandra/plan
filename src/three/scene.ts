@@ -839,17 +839,19 @@ let surbrillance: THREE_NS.Object3D[] = [];
  * leger remplit un mur. La camera se tourne vers lui : devant un mur, de face ; sinon elle garde son angle et le recentre.
  * `null` efface. Faux quand il n'y a pas de scene.
  */
-export function surlignerDans3d(s: Surbrillance3d | null): boolean {
+export function surlignerDans3d(s: Surbrillance3d | null, aussi: readonly Surbrillance3d[] = [], viser = true): boolean {
   const d = derniere;
   if (!d || !vue3d.scene || d.sc !== vue3d.scene) return false;
   for (const m of surbrillance) { m.parent?.remove(m); const g = (m as THREE_NS.Mesh).geometry; g?.dispose(); }
   surbrillance = [];
-  if (!s) { rendre3d(d.sc); return true; }
+  if (!s && !aussi.length) { rendre3d(d.sc); return true; }
   const { versLocal, sol, scene } = d.co;
   const yDe = (p: PtBrut, h: number) => (sol ? sol.hauteur(p) : 0) + h;
   const trait = new THREE.LineBasicMaterial({ color: COULEUR_SURBRILLANCE, depthTest: false, transparent: true });
   const voile = new THREE.MeshBasicMaterial({ color: COULEUR_SURBRILLANCE, transparent: true, opacity: 0.22, depthTest: false, side: THREE.DoubleSide });
-  for (const f of s.formes) {
+  // Les lignes cochees sont marquees partout (voile et trait seuls) ; la ligne choisie ajoute la camera.
+  const formes = [...aussi.flatMap((x) => x.formes), ...(s ? s.formes : [])];
+  for (const f of formes) {
     const v = (p: PtBrut, h: number) => { const l = versLocal(p); return new THREE.Vector3(l.x, yDe(p, h), l.z); };
     const n = f.pts.length, segs: THREE_NS.Vector3[] = [];
     const bords = f.ferme ? n : n - 1;
@@ -872,12 +874,15 @@ export function surlignerDans3d(s: Surbrillance3d | null): boolean {
       surbrillance.push(m);
     }
   }
+  if (!s || !viser) { rendre3d(d.sc); return true; }
   // La camera vers la cible : meme distance, face au mur ou dans le meme angle.
   const { camera, controls } = d.sc;
   const c = versLocal(s.centre);
   const cible = new THREE.Vector3(c.x, yDe(s.centre, s.hautM / 2), c.z);
   const recul = camera.position.clone().sub(controls.target);
-  const distance = Math.max(8, recul.length());
+  // Cadrer la zone : la distance suit sa taille (un mur, une souche), pas celle de la vue d'avant.
+  const rayon = Math.max(1, ...s.formes.flatMap((f) => f.pts.map((q) => Math.hypot(q.x - s.centre.x, q.y - s.centre.y))), s.hautM / 2);
+  const distance = Math.min(80, Math.max(5, rayon * 2.8));
   let dir = recul.normalize();
   if (s.normale) {
     const o = versLocal({ x: s.centre.x + s.normale.x, y: s.centre.y + s.normale.y });
