@@ -35,7 +35,14 @@ export interface MesureFacadeAuditee {
   silhouette?: SilhouetteFacade;
   /** Le redressement de chaque photo et la fusion (derives, rejouables) ; absent d'un fichier d'avant eux. */
   redressement?: BilanRedressement;
+  /** Chaque photo redressee seule, telle que la chaine l'a vue le jour de la mesure ; absente d'un fichier d'avant elles. */
+  redressees?: PhotoRedresseeAuditee[];
+  /** La version de la chaine des facades qui a fait ces mesures ; absente d'un fichier d'avant elle. */
+  versionChaine?: number;
 }
+
+/** Une photo d'une facade redressee seule : son rang parmi les photos de la facade, et l'image (`data:image/jpeg;base64,…`). */
+export interface PhotoRedresseeAuditee { rang: number; image: string }
 
 export interface FacadeAuditee {
   cote: number;
@@ -129,6 +136,8 @@ const mesureSeule = (m: MesureFacadeAuditee): MesureFacadeAuditee => copie({
   releve: m.releve, rangReleve: m.rangReleve, coinsTrouves: m.coinsTrouves, confiance: m.confiance, hauteurM: m.hauteurM, couleur: m.couleur,
   ...(m.silhouette ? { silhouette: m.silhouette } : {}),
   ...(m.redressement ? { redressement: m.redressement } : {}),
+  ...(m.redressees ? { redressees: m.redressees } : {}),
+  ...(m.versionChaine !== undefined ? { versionChaine: m.versionChaine } : {}),
 });
 
 const sansPropositions =(d: DecisionAudit): DecisionAudit => ({ t: d.t, acceptees: [...d.acceptees], refusees: [...d.refusees], verifies: [...d.verifies] });

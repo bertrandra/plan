@@ -3,6 +3,7 @@ import { mesurerFacade, verticaliteDeg, type DependancesMesures } from '../../..
 import { LIBELLE_REJOUER, avertissementPrise, texteFusion, textePhoto, texteRejeu } from '../../../../../src/app/audit/parcelle/redressement.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { rechercher } from '../../../../../src/zones/releve/serie.js';
+import { VERSION_CHAINE_FACADES } from '../../../../../src/zones/releve/chaine.js';
 import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
@@ -66,6 +67,13 @@ describe('le redressement de toutes les photos', () => {
     if (m.redressement?.fusion === 'independantes') expect(m.redressement.motifFusion).toBeTruthy();
     expect(m.releve).not.toBeNull();
   }, 120000);
+
+  it('garde chaque photo redressee seule et la version de la chaine, de quoi comparer un rejeu', async () => {
+    const m = await mesurerFacade('maison', sud(), { pts: PTS }, [photo('a'), photo('b')], dep());
+    expect(m.versionChaine).toBe(VERSION_CHAINE_FACADES);
+    expect(m.redressees?.map((r) => r.rang)).toEqual([0, 1]);
+    for (const r of m.redressees ?? []) expect(r.image).toMatch(/^data:image\/jpeg/);
+  }, 60000);
 
   it('rejouer deux fois donne le meme resultat', async () => {
     const photos = [photo('a'), photo('b')];

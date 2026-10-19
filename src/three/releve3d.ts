@@ -24,6 +24,8 @@ import { safeOffset } from '../engine/structure.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 import { garderLeJpeg } from './chargeurs.js';
+import { sansOmbres } from '../facade/sansOmbres.js';
+import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
 export interface ContexteReleve3d {
@@ -34,6 +36,8 @@ export interface ContexteReleve3d {
   couleurMur: string | number;
   /** `false` quand la case « Texture » de la vue 3D est decochee : on garde les formes. */
   textures: boolean;
+  /** Vrai : les ombres de la photo s'estompent sur la facade (case « Facades sans ombres », facade/sansOmbres.ts). */
+  sansOmbres?: boolean;
   /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
   couverture?: ContexteCouverture | undefined;
 }
@@ -68,6 +72,63 @@ function repereMur(ctx: ContexteReleve3d, f: Facade) {
   /** Un point du mur : `x` le long du mur depuis la gauche, `y` en hauteur, `s` en saillie. */
   const pt = (x: number, y: number, s: number): [number, number, number] => [g.x + ux * x + nx * s, y, g.z + uz * x + nz * s];
   return { pt, ux, uz };
+}
+
+/** Les textures deja corrigees, par photo : la scene se rebatit a chaque case cochee, le calcul (~100 ms) ne se refait pas. */
+const corrigees = new Map<string, HTMLCanvasElement>();
+const CORRIGEES_MAX = 24;
+/** La cle, sous `userData`, de l'image d'origine d'une texture corrigee : l'export .glb la remet (retirerOmbresEcran). */
+const IMAGE_BRUTE = 'imageBrute';
+
+/** La photo de la facade en canevas, ses ombres estompees ; null quand le navigateur n'a pas de contexte 2D. */
+function corriger(img: HTMLImageElement, r: ReleveFacade): HTMLCanvasElement | null {
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height;
+  const c2d = c.getContext('2d');
+  if (!c2d || !c.width || !c.height || !(r.largeur > 0)) return null;
+  c2d.drawImage(img, 0, 0);
+  const d = c2d.getImageData(0, 0, c.width, c.height);
+  const net = sansOmbres({ largeur: c.width, hauteur: c.height, donnees: d.data }, c.width / r.largeur, r.ouvertures.map(({ x, y, l, h }) => ({ x, y, l, h })), r.hauteur);
+  d.data.set(net.donnees);
+  c2d.putImageData(d, 0, 0);
+  return c;
+}
+
+/**
+ * La texture d'une facade relevee, ombres de la photo estompees des que l'image est la. La photo enregistree ne change pas ; son
+ * image d'origine reste sur la texture pour l'export, qui n'emporte jamais une preference d'affichage.
+ */
+function textureSansOmbres(photo: string, r: ReleveFacade): THREE_NS.Texture {
+  const deja = corrigees.get(photo);
+  const poser = (tex: THREE_NS.Texture, c: HTMLCanvasElement) => {
+    tex.userData = { ...tex.userData, [IMAGE_BRUTE]: tex.image };
+    tex.image = c as unknown as HTMLImageElement;
+    tex.needsUpdate = true;
+  };
+  const tex: THREE_NS.Texture = new THREE.TextureLoader().load(photo, () => {
+    try {
+      const c = deja ?? corriger(tex.image as HTMLImageElement, r);
+      if (!c) return;
+      if (!deja) { corrigees.set(photo, c); if (corrigees.size > CORRIGEES_MAX) corrigees.delete(corrigees.keys().next().value as string); }
+      poser(tex, c);
+    } catch { /* une image illisible reste telle quelle */ }
+  });
+  return tex;
+}
+
+/** Remet, le temps d'un export .glb, l'image d'origine des facades dont les ombres ont ete estompees ; rend de quoi revenir. */
+export function retirerOmbresEcran(scene: THREE_NS.Object3D): () => void {
+  const remises: { tex: THREE_NS.Texture; image: unknown }[] = [];
+  scene.traverse((o) => {
+    const mat = (o as THREE_NS.Mesh).material as THREE_NS.MeshStandardMaterial | undefined;
+    const tex = mat && !Array.isArray(mat) ? mat.map : null;
+    const brute = tex?.userData?.[IMAGE_BRUTE];
+    if (!tex || !brute || remises.some((x) => x.tex === tex)) return;
+    remises.push({ tex, image: tex.image });
+    tex.image = brute;
+    tex.needsUpdate = true;
+  });
+  return () => remises.forEach(({ tex, image }) => { tex.image = image; tex.needsUpdate = true; });
 }
 
 /** Une facade photographiee : son mur, sa texture, et la hauteur que la texture couvre. */
@@ -248,7 +309,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
     const photo = ctx.textures ? r.texture : null;
     const avecPhoto = !!photo;
     if (photo) {
-      const tex = new THREE.TextureLoader().load(photo);
+      const tex = ctx.sansOmbres ? textureSansOmbres(photo, r) : new THREE.TextureLoader().load(photo);
       garderLeJpeg(tex, photo);
       tex.anisotropy = 4;
       const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, side: THREE.DoubleSide });

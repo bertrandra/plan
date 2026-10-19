@@ -22,6 +22,13 @@ import { appliquerResultat, coinsDePrise, entreeRecherche, type Assemblage, type
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
 import type { Prise } from './capteurs.js';
 
+/**
+ * La version de la chaine : elle monte quand un changement de la chaine change les coins, les redressements ou la fusion qu'elle
+ * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
+ * les images d'origine, et ce qui a change.
+ */
+export const VERSION_CHAINE_FACADES = 1;
+
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 export const SEUIL_VERTICALES_DEG = 0.5;
 /** Les segments pris pour des verticales : a moins de cet angle de la verticale. */
