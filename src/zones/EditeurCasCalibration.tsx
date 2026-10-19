@@ -1,7 +1,7 @@
 // Admin › Calibrer la detection : un cas = une facade photographiee et annotee (facade/corpusReel.ts).
 //
-// On prend (ou choisit) une a huit photos du meme mur, on place les quatre coins sur chacune (ou on les laisse trouver : chaque
-// photo redressee par ses points de fuite, les vues assemblees, le mur lu sur la mosaique, zones/releve/coinsAuto.ts), on donne
+// On prend (ou choisit) une a huit photos du meme mur, on place les quatre coins sur chacune (ou on les laisse trouver, par la
+// chaine de l'audit et du releve, zones/releve/chaine.ts), on donne
 // la largeur et la hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
@@ -12,7 +12,9 @@ import { pointSvg } from './releve/commun.js';
 import { LIBELLES_OUVERTURE } from './releve/commun.js';
 import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } from '../facade/corpusReel.js';
 import { avisFusion } from './releve/analyse.js';
-import { coinsAuto, coinsAutoDeSerie } from './releve/coinsAuto.js';
+import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
+import { rechercher } from './releve/serie.js';
+import type { Facade } from '../facade/geometrie.js';
 import type { Image, P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
@@ -30,29 +32,28 @@ export interface OutilsPhotos {
 /** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
 export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
-/** D'ou viennent les coins d'une photo : trouves sur ses aretes, devines (a verifier), ou poses a la main. */
-type OrigineCoins = 'trouves' | 'serie' | 'devines' | 'main';
-const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', serie: 'coins lus sur l’assemblage des photos', devines: 'coins devinés, à vérifier', main: 'coins posés à la main' };
+/** D'ou viennent les coins d'une photo : trouves (sur ses aretes, ou sur l'assemblage des photos), devines (a verifier), ou poses a la main. */
+type OrigineCoins = 'trouves' | 'devines' | 'main';
+const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'coins posés à la main' };
 
 /**
- * Les coins du mur sur toutes les photos, lus ensemble (coinsAutoDeSerie) : les photos redressees par leurs points de fuite,
- * assemblees, le mur lu sur l'assemblage puis reporte dans chacune. Les coins poses a la main ou trouves ne sont pas repris. La hauteur suit
- * les proportions du mur lu, a la largeur donnee. `message` : les photos restees a part, a reprendre au doigt.
+ * Les coins du mur sur toutes les photos, par la chaine de l'audit et du releve (releve/chaine.ts) : coins poses a la main
+ * gardes, les autres trouves sur les aretes (distorsion du grand-angle corrigee), reportes de la photo posee a la main ou lus sur
+ * l'assemblage des vues, sinon predits ; des verticales qui penchent font essayer d'autres coins. Une photo n'a ni GPS ni
+ * boussole : son champ vient de l'EXIF, sinon de ses points de fuite. `message` : les photos qui doutent, a reprendre au doigt.
  */
-function coinsDeSerie(depart: CasStocke, images: readonly Image[], origines: Readonly<Record<number, OrigineCoins>>, dimsDuPlan = false): { cas: CasStocke; origines: Record<number, OrigineCoins>; message: string | null } {
-  // Des dimensions du plan (cadastre, LiDAR) fixent les proportions du mur cherche, et ne sont pas remplacees par celles lues.
-  const sr = coinsAutoDeSerie(images, depart.largeurM, dimsDuPlan ? depart.hauteurM : null);
-  if (!sr) return { cas: depart, origines: {}, message: 'Aucune photo ne se redresse seule : placez les coins à la main.' };
-  // Les coins poses a la main, et ceux trouves sur les aretes d'une photo qui montre le mur entier (au centimetre), restent.
-  const garder = (k: number) => origines[k] === 'main' || origines[k] === 'trouves';
-  const lus = sr.coins.map((c, k) => (c && !garder(k) ? c : null));
-  const cas: CasStocke = { ...depart, ...(sr.hauteurM && !dimsDuPlan ? { hauteurM: sr.hauteurM } : {}), photos: depart.photos.map((p, k) => (lus[k] ? { ...p, coins: lus[k] as P2[] } : p)) };
-  const aPart = sr.aPart.filter((a) => !garder(a.vue));
-  return {
-    cas,
-    origines: Object.fromEntries(lus.flatMap((c, k) => (c ? [[k, 'serie' as OrigineCoins]] : []))),
-    message: aPart.length ? aPart.map((a) => 'Photo ' + (a.vue + 1) + ' : ' + a.motif + ' ; placez ses coins à la main.').join(' ') : null,
-  };
+export async function coinsDeSerie(depart: CasStocke, images: readonly Image[], origines: Readonly<Record<number, OrigineCoins>>, dimsDuPlan = false): Promise<{ cas: CasStocke; origines: Record<number, OrigineCoins>; message: string | null }> {
+  const L = depart.largeurM, H = depart.hauteurM;
+  const f: Facade = { cote: 0, gauche: { x: 0, y: 0 }, droite: { x: L, y: 0 }, largeur: L, hauteur: H, normale: { x: 0, y: -1 }, azimut: 180, orientation: 'Sud' };
+  const entrees = images.map((image, k) => { const fp = depart.photos[k]?.focalePx ?? null; return { rang: k, image, prise: priseSansCapteurs(image, fp), champConnu: fp != null }; });
+  const corrections = Object.fromEntries(depart.photos.flatMap((p, k) => (origines[k] === 'main' ? [[String(k), { coins: p.coins }]] : [])));
+  const c = await redresserEtFusionner(entrees, f, { pts: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }] }, { chercherCoins: async (e) => rechercher(e), hauteurDuPlan: dimsDuPlan, lireSurLAssemblage: true, coinsSeuls: true }, corrections);
+  const parRang = new Map(c.redressement.photos.map((b) => [b.rang, b]));
+  const cas: CasStocke = { ...depart, photos: depart.photos.map((p, k) => { const px = parRang.get(k)?.coinsPx; return px?.length === 4 && origines[k] !== 'main' ? { ...p, coins: px } : p; }) };
+  const nouvelles: Record<number, OrigineCoins> = {};
+  for (const b of c.redressement.photos) nouvelles[b.rang] = b.coins === 'main' ? 'main' : b.coins === 'trouve' && b.statut !== 'echec' ? 'trouves' : 'devines';
+  const doutes = c.redressement.photos.filter((b) => b.statut === 'echec' && b.motif);
+  return { cas, origines: nouvelles, message: doutes.length ? doutes.map((b) => 'Photo ' + (b.rang + 1) + ' : ' + b.motif + '.').join(' ') : null };
 }
 
 interface Elevation { url: string; largeurM: number; hauteurM: number; propositions: OuvertureVraie[] }
@@ -143,13 +144,10 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       for (const f of Array.from(fichiers).slice(0, PHOTOS_CAS_MAX - cas.photos.length)) {
         const url = await outils.reduirePhoto(f);
         const img = await outils.decoder(url);
-        // Les coins se cherchent seuls sur les aretes du mur ; ce qui reste devine est dit, la personne le corrige au doigt.
-        await new Promise((ok) => setTimeout(ok, 0));
+        // Les coins se cherchent ensuite sur toute la serie (coinsDeSerie) ; ce qui reste devine est dit, la personne le corrige au doigt.
         const k = suite.photos.length;
-        const trouvees = auto ? coinsAuto(img, suite.largeurM, suite.hauteurM) : null;
-        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: trouvees?.coins ?? coinsParDefaut(img.largeur, img.hauteur) }] };
+        suite = { ...suite, images: [...suite.images, url], photos: [...suite.photos, { fichier: 'photo-' + (k + 1), coins: coinsParDefaut(img.largeur, img.hauteur) }] };
         setDims((d) => ({ ...d, [k]: { l: img.largeur, h: img.hauteur } }));
-        if (trouvees) setOrigines((o) => ({ ...o, [k]: trouvees.trouves ? 'trouves' : 'devines' }));
       }
       setCas(suite); setElevation(null);
       // Les coins de toute la serie, lus ensemble sur l'assemblage des photos redressees, puis le redressement et la fusion : la
@@ -164,8 +162,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
 
   const coinsDeLaSerie = async (depart: CasStocke): Promise<CasStocke> => {
     await new Promise((ok) => setTimeout(ok, 30));
-    const r = coinsDeSerie(depart, await Promise.all(depart.images.map((u) => outils.decoder(u))), origines, chercherCoins);
-    setOrigines((o) => ({ ...o, ...r.origines }));
+    const r = await coinsDeSerie(depart, await Promise.all(depart.images.map((u) => outils.decoder(u))), origines, chercherCoins);
+    setOrigines(r.origines);
     setCas(r.cas);
     setMessage(r.message);
     return r.cas;

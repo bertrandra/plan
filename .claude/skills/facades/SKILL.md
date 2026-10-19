@@ -663,6 +663,13 @@ l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes 
 
 ## 6. Pièges
 
+- **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`), le relevé (`zones/Releve.tsx`) et la calibration
+  (`zones/EditeurCasCalibration.tsx`, `facade/corpusReel.ts`) redressent, fusionnent et cotent par `zones/releve/chaine.ts`
+  (coins, replis, report, fusion) et `facade/analyseMur.ts` (une photo, des morceaux, des vues). Un repli, un seuil ou une
+  étape de plus s'y ajoute, jamais dans un écran : `tests/unit/zones/chaine.test.ts` vérifie que le relevé et la calibration
+  rendent le même mur. Le banc, lui, appelle `analyserReleve` et `analyserVues` directement : il mesure l'algorithme seul.
+  La lecture du mur sur l'assemblage des vues (`lireSurLAssemblage`) ne sert qu'à la calibration : à l'audit, elle comptait
+  des coins pour trouvés et posait le relevé tout seul (point 62 de la fumée).
 - **Moiré** : la photo lit l'élévation au plus proche voisin, à 1 cm. Sur la brique, cela fait des
   moirés, comme un vrai capteur. Ce n'est pas un défaut du générateur.
 - **Recouvrement à 50 % pile** : il ne compte pas (« plus de 50 % »). Une baie avec ses volets

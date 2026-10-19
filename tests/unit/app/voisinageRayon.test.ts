@@ -57,6 +57,16 @@ describe('le disque', () => {
 });
 
 describe('le voisinage dans un rayon de 500 m', () => {
+  it('ne repose pas en voisine une parcelle de la propriete fusionnee (cadastre.fusionDe)', async () => {
+    service();
+    const fusionnee = { ...cad, fusionDe: [{ idu: 'IDU145' }, { idu: 'IDU146' }] };
+    const r = await construireVoisinage(parcelle, fusionnee, proj, true, { batiments: false, vegetation: false, arbres: false, rayonM: 500 }, []);
+    const idus = r.objets.map(o => o.cadastre?.idu);
+    expect(idus).not.toContain('IDU146');
+    expect(idus).not.toContain('IDU145');
+    expect(idus).toContain('IDU147');
+  });
+
   it('pagine le cadastre et la BD TOPO, ne garde que le disque, et ne refait pas la parcelle du projet', async () => {
     const s = service(100, 50);   // des petites pages : la pagination est forcee
     const r = await construireVoisinage(parcelle, cad, proj, true, { batiments: true, vegetation: false, arbres: false, rayonM: 500 }, []);

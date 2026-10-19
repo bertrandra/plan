@@ -46,6 +46,7 @@ import type { SourceCoin } from '../facade/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from './releve/analyse.js';
+import { analyserSansRien, champDesFuites } from './releve/chaine.js';
 import { masqueDeFusion } from './releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
@@ -184,6 +185,12 @@ function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<
   );
 }
 
+/** Sans EXIF, le champ de l'objectif se lit sur les points de fuite de la photo, comme a l'audit (releve/chaine.ts). */
+function avecChampLu(photo: Photo): Photo {
+  const lu = photo.champ == null && photo.focalePx == null ? champDesFuites(photo.image) : null;
+  return lu === null ? photo : { ...photo, champ: lu };
+}
+
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
   // La hauteur du batiment (le cadastre, ou un releve precedent) n'est qu'une estimation : elle aide a
   // viser et propose les coins ; la photo mesure la vraie.
@@ -229,7 +236,8 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
     setEtape('analyse'); setMorceaux((ms) => ms.map(arreterRecherche));
     // Laisser le navigateur peindre l'ecran d'analyse avant le calcul, qui tient le fil une seconde.
     setTimeout(() => {
-      const a = analyserSerie(morceaux, facade, hauteurEstimee, bat, assemblage);
+      const { a, retenus } = analyserSansRien(morceaux, facade, hauteurEstimee, bat, assemblage); // la chaine de l'audit (releve/chaine.ts)
+      if (retenus !== morceaux) setMorceaux(retenus);
       if (!a) {
         setAvis('Les quatre coins ne forment pas un quadrilatère : reprenez-les.');
         setEtape('coins');
@@ -237,7 +245,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       }
       const { r } = a;
       setHauteurMur(r.hauteur);
-      setResultat(resultatDe(a, morceaux, facade, assemblage));
+      setResultat(resultatDe(a, retenus, facade, assemblage));
       ouv.poser(r);
       setExtras(extrasDe(a));
       setToit(r.toitPropose);
@@ -272,7 +280,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   };
   // Une photo importee ou de rue n'a ni reperes ni plan de prise : ses coins se proposent d'apres
   // la distance quand on la connait (photo de rue), sinon au centre de l'image.
-  const surPhoto = (photo: Photo, mesure: MesureDistance | null) => surPrise({ photo, mesure, reperes: null, champ: photo.champ ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null });
+  const surPhoto = (photo: Photo, mesure: MesureDistance | null) => { const p = avecChampLu(photo); surPrise({ photo: p, mesure, reperes: null, champ: p.champ ?? CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null }); };
   const corrigerHauteur = (v: number) => {
     if (!resultat || !(hauteurMur > 0)) return;
     const e = etirerEnHauteur(resultat, [], toit, v / hauteurMur);
