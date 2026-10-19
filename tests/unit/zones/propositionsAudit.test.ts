@@ -110,7 +110,8 @@ describe('confirmer une observation de Claude sur le toit', () => {
   it('ne propose pas de confirmer quand les murs se contredisent', async () => {
     const contraire = reponse({
       couverture: { indices: [], valeur: 'ardoise' }, cheminees: { indices: [], nombre: 'indetermine', souches: [] },
-      facades: [mur('sud', 'triangle', 'pignon'), mur('est', 'triangle', 'pignon')],
+      // Deux triangles voisins font un pignon traversant (decision du 19 octobre 2026) ; une croupe en travers, une contradiction.
+      facades: [mur('sud', 'triangle', 'pignon'), mur('est', 'triangle', 'croupe')],
     });
     await session(contraire);
     const ligne = [...hote.querySelectorAll('.ligneObservation')].find((li) => (li.textContent ?? '').startsWith('Toit lu sur les silhouettes'));

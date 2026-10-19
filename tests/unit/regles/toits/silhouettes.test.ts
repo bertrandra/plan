@@ -54,8 +54,13 @@ describe('les règles de lecture des silhouettes des façades', () => {
     expect(observationDesSilhouettes(lues, false, lireSilhouettesToits(j))?.observation.bouts).toEqual(['croupe', 'croupe']);
     // Un mur a 35 degres de l'axe ferme un bout avec 40 degres de tolerance, plus avec 30.
     const biais = [mur('est', 90, 'triangle'), mur('ouest', 270, 'triangle'), { nom: 'nord-est', azimut: 55, largeurM: 8, silhouette: 'triangle' as const }];
-    expect(observationDesSilhouettes(biais)?.conflits).toEqual([expect.stringMatching(/deux sens de faîtage \(nord-est/)]);
+    // A 30 degres, le triangle nord-est est en travers du faitage : un pignon traversant (decision du 19 octobre 2026).
+    expect(observationDesSilhouettes(biais)?.traversants.map((t) => t.nom)).toEqual(['nord-est']);
     const k = brut(); k.seuils.TOLERANCE_BOUT_DEG!.valeur = 40;
+    expect(observationDesSilhouettes(biais, false, lireSilhouettesToits(k))?.traversants).toEqual([]);
     expect(observationDesSilhouettes(biais, false, lireSilhouettesToits(k))?.conflits).toEqual([]);
+    // Une croupe en travers n'est pas un pignon traversant : c'est un second sens, signale.
+    const croupe = [...biais.slice(0, 2), { ...biais[2]!, bout: 'croupe' as const }];
+    expect(observationDesSilhouettes(croupe)?.conflits).toEqual([expect.stringMatching(/deux sens de faîtage \(nord-est/)]);
   });
 });

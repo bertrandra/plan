@@ -113,6 +113,32 @@ describe('la validation des propositions', () => {
     expect(t.etat.objects.find((o) => o.key === 'maison')?.verifieSurPlace).toBeUndefined();
   });
 
+  it('surligne la ligne choisie dans la 3D et la montre dans « Après » meme decochee ; fermer l oublie', async () => {
+    const t = monter();
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    const surligner3d = vi.fn<NonNullable<ProjetAudit['surligner3d']>>(() => true);
+    Object.assign(t.projet, { comparer3d, surligner3d });
+    await t.v.lancer();
+    t.v.synchroniser();
+    t.v.basculer('maison:couverture');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    t.v.selectionner('maison:couverture');
+    expect(t.v.selection()).toBe('maison:couverture');
+    expect(t.v.cochee('maison:couverture')).toBe(false);
+    // Decochee, elle se voit dans « Après » le temps d'etre choisie ; rien ne s'ecrit pour autant.
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
+    const s = surligner3d.mock.calls.at(-1)?.[0];
+    expect(s?.formes[0]).toMatchObject({ bas: 0, haut: 9, ferme: true });
+    expect(s?.formes[0]?.pts).toHaveLength(4);
+    t.v.selectionner(null);
+    expect(surligner3d).toHaveBeenLastCalledWith(null);
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    t.v.selectionner('maison:cheminees');
+    t.v.oublierApercu();
+    expect(t.v.selection()).toBeNull();
+    expect(surligner3d).toHaveBeenLastCalledWith(null);
+  });
+
   it('montre par defaut l avant et l apres en deux vues, qui suivent les cases', async () => {
     const t = monter();
     const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
