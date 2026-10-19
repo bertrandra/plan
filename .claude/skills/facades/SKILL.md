@@ -607,6 +607,30 @@ Claude que les copies réduites, est-il plus précis ?
   (petits bois, ouvrant) bute un jour sur la résolution, la piste est un recadrage HD de chaque baie
   pour Claude, pas une chaîne entière en HD.
 
+### Façades sans ombres (Vue 3D)
+
+Mesuré le 19 octobre 2026 (`facade/sansOmbres.ts`, réglages `facades.texture.*` dans
+`facade/regles/facades/texture.ts`). Chaque scène est rendue deux fois, avec et sans ses ombres (ombres
+portées, ombres des balcons, dégradé) ; on compare la texture du relevé corrigée à celle du mur sans
+ombre, sur le mur hors des baies.
+
+| Scène | Mur entier | Dans l'ombre |
+|---|---|---|
+| 05 débord et balcon | 17,1 → 9,5 % | 34,3 → 13,8 % |
+| 11 ombre d'un arbre | 6,8 → 3,1 % | 35,1 → 14,7 % |
+| 02 enduit uni (petite ombre) | 1,1 → 1,0 % | 19,9 → 17,9 % |
+| 04 soubassement en pierre, 10 meulière, 03 brique | 0 → ≤ 0,5 % | — |
+
+- **Ce qui a été essayé et écarté** : une fenêtre d'éclairage de 0,3 m suivait les pierres d'une meulière
+  (1,8 % d'écart sur un mur sans ombre) ; 0,5 m ne corrigeait plus les petites ombres ; 0,4 m est retenu.
+  Un test du grain du parement (écart type relatif) pour reconnaître une pierre bloquait aussi les ombres
+  pommelées d'un arbre : retiré au profit de la règle du soubassement (une bande sombre sur la moitié de la
+  largeur au moins, depuis le pied).
+- **Liserés** : le gain ne porte jamais un pixel au-delà du mur au soleil (+5 %), à 5 cm et au pixel ;
+  sans ce plafond, le côté éclairé du bord d'une ombre s'éclaircissait en un trait blanc.
+- **Ce qui reste** : un ourlet pâle au bord net d'une ombre (une fenêtre de 0,4 m), le motif d'une ombre
+  pommelée très atténué mais visible, et une petite ombre (moins d'une fenêtre) à peine corrigée.
+
 ## 5. Ce que disent les chiffres de départ
 
 - **Coins proposés (L1)** : aucun coin à moins de 10 cm, même de face (`02`). `coinsProposes`
