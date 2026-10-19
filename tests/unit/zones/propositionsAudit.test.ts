@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { act, createElement } from 'react';
+import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { Arbitrage, PropositionsAudit } from '../../../src/zones/parcours/PropositionsAudit.js';
 import { creerSessionAuditParcelle } from '../../../src/app/audit/parcelle/controleur.js';
@@ -170,5 +170,26 @@ describe('les sources d un attribut arbitre dans l ecran des propositions', () =
     act(() => { menu.value = '"pignon"'; menu.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(main.forcer).toHaveBeenCalledWith('"pignon"');
     expect(hote.querySelector('.decisionArbitrage')?.textContent).toBe('Forcé par vous');
+  });
+
+  it('un seul détail ouvert à la fois : ouvrir un arbitrage referme l’autre et le choisit ; le fermer le désélectionne', async () => {
+    const autre = { ...a, attribut: 'sensFaitage', libelle: 'Sens du faîtage' };
+    function Deux() {
+      const [id, setId] = useState<string | null>(null);
+      return createElement('div', null, [a, autre].map((x) => createElement(Arbitrage, { key: x.attribut, a: x, choisie: id === x.attribut, choisir: (oui: boolean) => setId(oui ? x.attribut : null) })));
+    }
+    act(() => racine.render(createElement(Deux)));
+    const details = () => [...hote.querySelectorAll('details.arbitrageProposition')] as HTMLDetailsElement[];
+    const ouverts = () => details().map((d) => d.open);
+    expect(ouverts()).toEqual([false, false]);
+    const basculer = async (d: HTMLDetailsElement, ouvert: boolean) => { await act(async () => { d.open = ouvert; await new Promise((r) => setTimeout(r, 0)); }); };
+    await basculer(details()[0]!, true);
+    expect(ouverts()).toEqual([true, false]);
+    await basculer(details()[1]!, true);
+    expect(ouverts()).toEqual([false, true]);
+    expect(details()[1]?.classList.contains('choisie')).toBe(true);
+    await basculer(details()[1]!, false);
+    expect(ouverts()).toEqual([false, false]);
+    expect(hote.querySelector('.choisie')).toBeNull();
   });
 });

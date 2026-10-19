@@ -65,13 +65,17 @@ export interface MainArbitrage { retenir(index: number): void; forcer(valeur: st
 
 const MOTS_DECISION = { auto: 'Décision automatique', manuelle: 'À arbitrer', rien: 'Rien à changer', choisie: 'Choisi par vous', forcee: 'Forcé par vous' } as const;
 
-export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitrageProposition; main?: MainArbitrage; choisie?: boolean; choisir?: () => void }) {
+export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitrageProposition; main?: MainArbitrage; choisie?: boolean; choisir?: (oui: boolean) => void }) {
   const pct = (c: number | null) => (c === null ? '—' : Math.round(c * 100) + ' %');
   const [force, setForce] = useState('');
   const delaMain = a.decision === 'choisie' || a.decision === 'forcee';
   return (
-    <details className={'arbitrageProposition' + (choisie ? ' choisie' : '')} open={(a.decision === 'manuelle' && !!main) || choisie ? true : undefined} aria-current={choisie ? 'true' : undefined}
-      onClick={(e) => { if (choisir && !choisie && !(e.target as HTMLElement).closest('button, input, select')) choisir(); }}>
+    <details className={'arbitrageProposition' + (choisie ? ' choisie' : '')} open={choisir ? !!choisie : (a.decision === 'manuelle' && !!main) || undefined} aria-current={choisie ? 'true' : undefined}
+      onToggle={(e) => {
+        // Un seul detail ouvert a la fois dans tout l'ecran : l'ouvrir le choisit (surbrillance dans la Vue 3D) et referme le precedent ; le fermer le deselectionne.
+        const o = (e.currentTarget as HTMLDetailsElement).open;
+        if (choisir && o !== !!choisie) choisir(o);
+      }}>
       <summary>{a.attribut === 'silhouetteFacade' && a.groupes[0] && <PictoSilhouette valeur={a.groupes.find((g) => g.retenu)?.valeur ?? a.groupes[0].valeur} />}<span className="decisionArbitrage">{MOTS_DECISION[a.decision as keyof typeof MOTS_DECISION] ?? 'À arbitrer'}</span>{' · ' + a.libelle + ' (aujourd’hui : ' + a.avant + ')'}</summary>
       <p className="raisonArbitrage">{a.raison}</p>
       <div className="defileAudit">
@@ -105,6 +109,8 @@ export function Arbitrage({ a, main, choisie, choisir }: { a: ArbitragePropositi
 
 /** L'identifiant de selection d'un arbitrage de « Sources » : sa zone se montre dans la Vue 3D (surbrillance.ts::surbrillanceArbitrage). */
 const idArbitrage = (a: ArbitrageProposition): string => a.cible + ':arb:' + a.attribut;
+/** Le meme arbitrage montre dans sa ligne de proposition : un autre identifiant, pour qu'un seul des deux soit ouvert. */
+const idArbitrageDeLigne = (a: ArbitrageProposition): string => idArbitrage(a) + '@ligne';
 
 /**
  * Toutes les sources d'un batiment, attribut par attribut (y compris ceux qui ne proposent rien) : c'est ici que l'on
@@ -121,7 +127,7 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
       <p className="noteObservations tauxAutomatique">{texteTaux(tauxAutomatique(batiments.flatMap((b) => b.arbitrages)))}</p>
       {batiments.map((b, rang) => (
         <Niveau key={b.cle} groupe="src" id={b.cle} titre={b.nom} compte={b.arbitrages.length} premier={rang === 0} ids={b.arbitrages.map(idArbitrage)} choix={choixSources}>
-          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} choisie={v.selection() === idArbitrage(a)} choisir={() => v.selectionner(idArbitrage(a))} {...(lectureSeule ? {} : { main: {
+          {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} choisie={v.selection() === idArbitrage(a)} choisir={(oui) => v.selectionner(oui ? idArbitrage(a) : null)} {...(lectureSeule ? {} : { main: {
             retenir: (i: number) => v.decider(a.cible, a.attribut, { type: 'groupe', index: i }),
             forcer: (t: string) => v.decider(a.cible, a.attribut, { type: 'force', valeur: JSON.parse(t) as never }),
             reprendre: () => v.decider(a.cible, a.attribut, null),
@@ -133,11 +139,11 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
 }
 
 /** Une ligne : la case, l'objet, l'avant et l'apres, l'origine, et ce qui la fait arriver decochee. */
-function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition }; choisie: boolean; choisir: () => void }) {
+function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir, selection, selectionner }: { selection: string | null; selectionner: (id: string | null) => void; p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition }; choisie: boolean; choisir: () => void }) {
   const id = 'proposition-' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_');
   return (
     <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '') + (choisie ? ' choisie' : '')} aria-current={choisie ? 'true' : undefined}
-      onClick={(e) => { if (!choisie && !(e.target as HTMLElement).closest('button, input, select, summary')) choisir(); }}>
+      onClick={(e) => { if (!choisie && !(e.target as HTMLElement).closest('button, input, select, summary, details')) choisir(); }}>
       <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
       <div className="corpsProposition">
       <label htmlFor={id} className="texteProposition">
@@ -148,7 +154,7 @@ function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir }: { 
         {p.remplaceChoix && <span className="reserveProposition">{'Remplace votre choix : ' + p.remplaceChoix}</span>}
         {p.reserve && <span className="reserveProposition">{p.reserve}</span>}
       </label>
-      {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} />)}
+      {p.arbitrages?.map((a) => <Arbitrage key={a.attribut} a={a} choisie={selection === idArbitrageDeLigne(a)} choisir={(oui) => selectionner(oui ? idArbitrageDeLigne(a) : null)} />)}
       </div>
       {/* Voir dans la 3D : ce que la ligne vise est surligne dans les deux vues, et « Après » la montre meme decochee. */}
       <button type="button" className="secondary small voirProposition" data-controle="auditParcelle.voirLigne" aria-pressed={choisie}
@@ -277,6 +283,9 @@ function Niveau({ groupe, id, titre, compte, profond, premier, ids, choix, child
   );
 }
 
+/** La ligne et les arbitrages qu'elle porte : tout ce qui, choisi, la rend visible dans son niveau. */
+const idsDeLaLigne = (p: Proposition): string[] => [p.id, ...(p.arbitrages ?? []).map(idArbitrageDeLigne)];
+
 /** L'arbre des lignes : objet (batiment, parcelle) > type (facades, toit, murs...) > lignes. */
 function ArbrePropositions({ propositions, noms, ligne, choix }: { propositions: readonly Proposition[]; noms: ReadonlyMap<string, string>; ligne: (p: Proposition) => React.ReactNode; choix: ChoixArbre }) {
   const parObjet = new Map<string, Proposition[]>();
@@ -290,9 +299,9 @@ function ArbrePropositions({ propositions, noms, ligne, choix }: { propositions:
         const nom = k === 'parcelle' ? 'Parcelle' : noms.get(k) ?? ps[0]?.objet.split(' de ').pop() ?? k;
         const niveaux = [...NIVEAUX.map((n) => ({ id: n.id, libelle: n.libelle, ps: ps.filter(n.de) })), { ...NIVEAU_AUTRE, ps: ps.filter((p) => !NIVEAUX.some((m) => m.de(p))) }].filter((n) => n.ps.length);
         return (
-          <Niveau key={k} groupe="prop" id={k} titre={nom} compte={ps.length} premier={rang === 0} ids={ps.map((p) => p.id)} choix={choix}>
+          <Niveau key={k} groupe="prop" id={k} titre={nom} compte={ps.length} premier={rang === 0} ids={ps.flatMap(idsDeLaLigne)} choix={choix}>
             {niveaux.map((n, r) => (
-              <Niveau key={n.id} groupe={'prop/' + k} id={n.id} titre={n.libelle} compte={n.ps.length} profond premier={r === 0} ids={n.ps.map((p) => p.id)} choix={choix}>
+              <Niveau key={n.id} groupe={'prop/' + k} id={n.id} titre={n.libelle} compte={n.ps.length} profond premier={r === 0} ids={n.ps.flatMap(idsDeLaLigne)} choix={choix}>
                 <ul className="listePropositions" aria-label={n.libelle + ' de ' + nom}>{n.ps.map(ligne)}</ul>
               </Niveau>
             ))}
@@ -372,7 +381,7 @@ export function PropositionsAudit({ session, fermer, retour }: { session: Sessio
         {apercu === 'deux' && <p className="noteAvantApres">Les deux vues tournent ensemble ; « Après » montre les propositions cochées{v.selection() ? ', et la ligne surlignée' : ''}.</p>}
         {!lecture && <AnalyseClaudeAudit analyse={session.analyse} comptes={comptes} />}
         {propositions.length > 0 && <ArbrePropositions choix={{ id: v.selection(), efface: () => v.selectionner(null) }} propositions={propositions} noms={new Map(v.arbitrages().map((b) => [b.cle, b.nom]))} ligne={(p) => (
-          <LigneProposition key={p.id} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
+          <LigneProposition key={p.id} selection={v.selection()} selectionner={v.selectionner} p={p} cochee={v.cochee(p.id)} basculer={() => v.basculer(p.id)} choisie={v.selection() === p.id}
             choisir={() => v.selectionner(v.selection() === p.id ? null : p.id)} {...(lecture ? { lecture: { decision: v.decision(p.id) } } : {})} />
         )} />}
         <SourcesDesBatiments v={v} />
