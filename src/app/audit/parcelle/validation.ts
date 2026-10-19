@@ -28,6 +28,7 @@ import type { EtatApp } from '../../../core/state.js';
 import type { ObjetPlan } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
+import { surbrillanceDe, type Surbrillance } from './surbrillance.js';
 import type { DecisionProposition, PropositionAuditee } from '../../../model/fichierAuditParcelle.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
@@ -50,6 +51,8 @@ export interface ProjetAudit {
   comparer3d?(apres: ApresAudit | null): boolean;
   /** Ou est l'ecran des propositions, en pixels de la fenetre : les deux vues l'evitent. */
   cadrer3d?(panneau: RectEcran | null): void;
+  /** Surligne dans la Vue 3D ce que vise la ligne choisie (app/audit/parcelle/surbrillance.ts) ; null efface. */
+  surligner3d?(s: Surbrillance | null): boolean;
 }
 
 /** Ce que la vue « Après » montre a la place du plan : les batiments copies, et la parcelle si sa cloture change. */
@@ -98,6 +101,12 @@ export interface Validation {
   decider(cible: string, attribut: string, choix: ChoixArbitrage | null): void;
   cochee(id: string): boolean;
   basculer(id: string): void;
+  /**
+   * La ligne choisie (null : aucune) : ce qu'elle vise est surligne dans les deux vues et la camera se tourne vers lui ; decochee,
+   * elle se montre quand meme dans « Après », en apercu (la photo d'une facade se juge sur le mur avant de la cocher).
+   */
+  selectionner(id: string | null): void;
+  selection(): string | null;
   apercu(): Apercu;
   montrer(a: Apercu): void;
   /**
@@ -276,6 +285,26 @@ function apercuDe(ctx: ContexteValidation, lire: () => { toutes: readonly Propos
 }
 
 /**
+ * La ligne choisie de l'ecran des propositions : ce qu'elle vise est surligne dans la Vue 3D (app/audit/parcelle/surbrillance.ts),
+ * et « Après » la montre meme decochee. Oubliee quand l'ecran se ferme ou que l'on ecrit.
+ */
+function selectionDe(ctx: ContexteValidation, propositions: () => readonly Proposition[]) {
+  let id: string | null = null;
+  const surligner = (): void => {
+    const p = id ? propositions().find((x) => x.id === id) : null;
+    // Une ligne qui a disparu (un nouveau calcul) n'est plus choisie.
+    if (id && !p) id = null;
+    ctx.projet.surligner3d?.(p ? surbrillanceDe(p, ctx.etat.objects) : null);
+  };
+  return {
+    id: () => id,
+    choisir(v: string | null): void { id = v; },
+    surligner,
+    oublier(): void { if (id !== null) { id = null; ctx.projet.surligner3d?.(null); } },
+  };
+}
+
+/**
  * Les photos de l'audit alimentent les facades : un releve mesure sur la photo, aux coins trouves et a la confiance
  * suffisante (ce que les cases cochent par defaut), est pose sur sa facade des que la mesure est prete, sans
  * attendre « Valider ». En un pas d'historique (Ctrl+Z le retire). Jamais sur une facade que la personne a relevee
@@ -376,10 +405,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
   const cochees = () => new Set(calculer().propositions.filter((p) => cochee(p.id)).map((p) => p.id));
   const verifs = () => verifications(ctx.liste(), ctx.capture.lire(), calculer().propositions, cochees());
 
-  const apercu = apercuDe(ctx, () => {
-    const { propositions } = calculer();
-    return { toutes: propositions, choisies: propositions.filter((p) => cochee(p.id)), calculs };
-  });
+  const choix3d = selectionDe(ctx, () => calculer().propositions); // « Après » : les lignes cochees, et la ligne choisie meme decochee.
+  const apercu = apercuDe(ctx, () => ({ toutes: calculer().propositions, choisies: calculer().propositions.filter((p) => cochee(p.id) || p.id === choix3d.id()), calculs }));
 
   /** Decider, c'est vouloir : la proposition qui en resulte se coche (sa rivale sur place, elle, se decoche). */
   function decider(cible: string, attribut: string, choixArb: ChoixArbitrage | null) {
@@ -425,10 +452,12 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       apercu.poser();
       publier();
     },
+    selectionner(id) { choix3d.choisir(id); apercu.poser(); choix3d.surligner(); publier(); }, selection: () => choix3d.id(),
     apercu: () => apercu.mode(),
     montrer(a) { apercu.choisir(a); publier(); },
     synchroniser: () => apercu.poser(),
-    reposer: () => apercu.reposer(),
+    // La Vue 3D rebatie a perdu le trait : il se repose avec l'apercu.
+    reposer: () => { apercu.reposer(); choix3d.surligner(); },
     cadrer(panneau) { ctx.projet.cadrer3d?.(panneau); },
     verifications: verifs,
     valider() {
@@ -437,8 +466,8 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       const choisies = propositions.filter((p) => cochee(p.id));
       const verifies = verifs().filter((v) => v.verifie).map((v) => v.cle);
       if (!choisies.length && !verifies.length) { ctx.signaler('Aucune proposition cochée : rien n’est écrit dans le projet.'); return null; }
-      // L'apercu quitte la Vue 3D avant l'ecriture : elle sera rebatie d'apres le projet ecrit.
-      apercu.oublier();
+      // L'apercu quitte la Vue 3D avant l'ecriture : elle sera rebatie d'apres le projet ecrit ; la ligne choisie n'y est plus.
+      apercu.oublier(); choix3d.oublier();
       const maintenant = ctx.maintenant();
       ctx.projet.pushHistory();
       appliquerPropositions(ctx.etat.objects, choisies, verifies, jourIso(maintenant));
@@ -460,7 +489,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       ctx.apresValidation?.();
       return { ecrites: n, verifies: v };
     },
-    oublierApercu: () => apercu.oublier(),
+    oublierApercu: () => { apercu.oublier(); choix3d.oublier(); },
     mesuresFaites: () => mesureur.lues(),
     poserMesures: (mesures) => mesureur.poser(mesures),
     preregler(d) {

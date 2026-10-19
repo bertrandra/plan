@@ -121,7 +121,11 @@ describe('la forme du toit arbitrée entre le LiDAR et la silhouette mesurée su
     expect(p?.apres).toMatch(/^quatre pans \(croupes\), relue sur la mesure LiDAR \(quatre pans \(croupes\), bouts en croupe, faîtage à 7\d°\) d’après /);
     // La silhouette l'emporte sur le LiDAR (regles prioritaires) ; mais une photo seule ne decide pas.
     expect(p?.reserve).toMatch(/Photo de façade seul ne décide pas/);
-    expect(p?.arbitrages?.map((a) => a.attribut)).toEqual(['formeToit', 'boutsToit']);
+    expect(p?.arbitrages?.map((a) => a.attribut)).toEqual(['formeToit', 'boutsToit', 'silhouetteFacade']);
+    // La silhouette du mur sud, arbitree d'abord : la photo gagne sur ce que montrent les corps lus au LiDAR.
+    const sud = p?.arbitrages?.find((a) => a.attribut === 'silhouetteFacade');
+    expect(sud).toMatchObject({ cible: 'facade:maison#6', decision: 'auto' });
+    expect(sud?.groupes.map((g) => [g.valeur, g.retenu, g.lignes.map((l) => l.source)])).toEqual([['plusieurs sommets', false, ['lidar']], ['trapèze', true, ['photo']]]);
     const bouts = p?.arbitrages?.find((a) => a.attribut === 'boutsToit');
     expect(bouts?.groupes.map((g) => [g.valeur, g.retenu, g.lignes.map((l) => l.source)])).toEqual([['croupe + croupe', true, ['photo']], ['pignon + pignon', false, ['lidar']]]);
     expect(bouts?.groupes[1]?.lignes[0]?.regle).toMatch(/^GAIN_CROUPES = /);
