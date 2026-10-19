@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { surbrillanceDe } from '../../../../../src/app/audit/parcelle/surbrillance.js';
+import { surbrillanceDe, surbrillanceObservation } from '../../../../../src/app/audit/parcelle/surbrillance.js';
 import type { Proposition } from '../../../../../src/regles/decisions.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
@@ -32,5 +32,15 @@ describe('la surbrillance d une ligne de propositions', () => {
     const p = ligne({ type: 'batiment', cle: 'maison' }, { type: 'cheminees', corps: 0, cheminees: [] });
     expect(surbrillanceDe(p, [maison])?.formes[0]).toMatchObject({ haut: 9, ferme: true });
     expect(surbrillanceDe(p, [])).toBeNull();
+  });
+
+  it('une observation de Claude : le mur d’un relevé revu, le toit, ou les murs ; rien quand le bâtiment a disparu', () => {
+    const mur = surbrillanceObservation('maison:obs:renfort:0', [maison]);
+    expect(mur?.formes[0]).toMatchObject({ bas: 0, ferme: false });
+    expect(mur?.normale).not.toBeNull();
+    // Un toit : de l'egout (6 m) au faitage, corps par corps.
+    expect(surbrillanceObservation('maison:obs:forme', [maison])?.formes[0]).toMatchObject({ bas: 6, haut: 9, ferme: true });
+    expect(surbrillanceObservation('maison:obs:decorMurs', [maison])?.formes[0]).toMatchObject({ bas: 0, haut: 6, ferme: true });
+    expect(surbrillanceObservation('maison:obs:forme', [])).toBeNull();
   });
 });

@@ -141,3 +141,13 @@ export function observationsDeClaude(e: EntreesPropositions, parBatiment: Record
 
 /** Combien de lignes d'observation en tout : l'ecran les compte avec les propositions. */
 export const nombreObservations = (l: readonly ObservationsBatiment[]): number => l.reduce((s, b) => s + b.observations.length, 0);
+
+/** Le type d'objet d'une observation, d'apres son sujet (`cle:obs:sujet`) : les memes niveaux que l'arbre des propositions. */
+export type TypeObservation = 'facades' | 'toit' | 'murs' | 'autres';
+export function typeObservation(id: string): TypeObservation {
+  const sujet = id.split(':obs:')[1] ?? '';
+  if (/^(silhouettes|renfort|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
+  if (/^(forme|bouts|faitage|lucarne|cheminee|couverture|terrasse|appentis|toit|hauteurToit)/i.test(sujet)) return 'toit';
+  if (/^(decor|mur|couleur|materiau|hauteur)/i.test(sujet)) return 'murs';
+  return 'autres';
+}

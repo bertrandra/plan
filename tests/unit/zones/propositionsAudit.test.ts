@@ -72,7 +72,7 @@ describe('les observations de Claude dans l ecran des propositions', () => {
     expect(lignes.some((t) => t.startsWith('Pignons aux deux bouts du faîtage') && t.includes('vu sur : photo de la façade sud de Maison'))).toBe(true);
     expect(lignes.some((t) => t.startsWith('Façade sud : 1 ouverture non détectée par Plan'))).toBe(true);
     expect(lignes.some((t) => t.startsWith('Façade sud : une porte d’entrée que le modèle n’a pas'))).toBe(true);
-    expect(hote.querySelector('.nomObservations')?.textContent).toBe('Maison');
+    expect(hote.querySelector('.nomObservations')?.textContent).toMatch(/^Maison \(\d+\)$/);
     const n = lignes.length;
     expect(hote.querySelector('.etatAnalyse')?.textContent).toContain('Propositions de Claude prêtes : 0 proposition et ' + n + ' observations');
     expect(hote.textContent).toContain('Aucune proposition à cocher : lisez plus bas ce que Claude a vu.');

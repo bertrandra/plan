@@ -11,7 +11,7 @@
 // ligne arrive decochee et le dit. « Valider » ecrit ce qui est coche en un seul pas d'historique
 // (app/audit/parcelle/validation.ts).
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { texteDuPartage } from '../../app/audit/parcelle/corpus.js';
 import type { Apercu } from '../../app/audit/parcelle/validation.js';
 import { AnalyseClaudeAudit } from './AnalyseClaudeAudit.js';
@@ -19,7 +19,7 @@ import { Icone } from '../icones.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { CeQueJeVois } from '../../model/ceQueJeVois.js';
-import { nombreObservations, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
+import { nombreObservations, typeObservation, type ObservationsBatiment } from '../../app/audit/parcelle/observationsClaude.js';
 import { tauxAutomatique, type TauxAutomatique } from '../../app/audit/parcelle/arbitrages.js';
 import type { Validation } from '../../app/audit/parcelle/validation.js';
 import type { ArbitrageProposition, Proposition } from '../../regles/decisions.js';
@@ -95,15 +95,14 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
     <section className="sourcesBatiments" aria-label="Sources des bâtiments">
       <div className="titreObservations">Sources, bâtiment par bâtiment</div>
       <p className="noteObservations tauxAutomatique">{texteTaux(tauxAutomatique(batiments.flatMap((b) => b.arbitrages)))}</p>
-      {batiments.map((b) => (
-        <details key={b.cle} className="sourcesBatiment">
-          <summary className="nomObservations">{b.nom}</summary>
+      {batiments.map((b, rang) => (
+        <Niveau key={b.cle} groupe="src" id={b.cle} titre={b.nom} compte={b.arbitrages.length} premier={rang === 0}>
           {b.arbitrages.map((a) => <Arbitrage key={a.cible + a.attribut} a={a} {...(lectureSeule ? {} : { main: {
             retenir: (i: number) => v.decider(a.cible, a.attribut, { type: 'groupe', index: i }),
             forcer: (t: string) => v.decider(a.cible, a.attribut, { type: 'force', valeur: JSON.parse(t) as never }),
             reprendre: () => v.decider(a.cible, a.attribut, null),
           } })} />)}
-        </details>
+        </Niveau>
       ))}
     </section>
   );
@@ -113,7 +112,8 @@ function SourcesDesBatiments({ v }: { v: Validation }) {
 function LigneProposition({ p, cochee, basculer, lecture, choisie, choisir }: { p: Proposition; cochee: boolean; basculer: () => void; lecture?: { decision: DecisionProposition }; choisie: boolean; choisir: () => void }) {
   const id = 'proposition-' + p.id.replace(/[^a-zA-Z0-9_-]/g, '_');
   return (
-    <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '') + (choisie ? ' choisie' : '')}>
+    <li className={'ligneProposition source-' + p.source + (cochee ? ' cochee' : '') + (choisie ? ' choisie' : '')} aria-current={choisie ? 'true' : undefined}
+      onClick={(e) => { if (!choisie && !(e.target as HTMLElement).closest('button, input, select, summary')) choisir(); }}>
       <input type="checkbox" id={id} data-controle="auditParcelle.cocher" checked={cochee} disabled={!!lecture} onChange={basculer} />
       <div className="corpsProposition">
       <label htmlFor={id} className="texteProposition">
@@ -157,16 +157,8 @@ function PartageAudit({ session }: { session: SessionAuditParcelle }) {
 /** La capture porte-t-elle deja ce que « Je confirme » noterait ? */
 const dejaConfirme = (vu: CeQueJeVois, c: Partial<CeQueJeVois>): boolean => Object.entries(c).every(([k, x]) => JSON.stringify(vu[k as keyof CeQueJeVois]) === JSON.stringify(x));
 
-/** Le type d'objet d'une observation, d'apres son sujet (`cle:obs:sujet`) : memes niveaux que l'arbre des propositions. */
+/** Les niveaux de « Vu par Claude » : les memes que l'arbre des propositions (le type vient de app/audit/parcelle/observationsClaude.ts). */
 const NIVEAUX_VUS = [{ id: 'facades', libelle: 'Façades' }, { id: 'toit', libelle: 'Toit' }, { id: 'murs', libelle: 'Murs' }, { id: 'autres', libelle: 'Autres' }] as const;
-function typeVu(id: string): (typeof NIVEAUX_VUS)[number]['id'] {
-  const sujet = id.split(':obs:')[1] ?? '';
-  if (/^(silhouettes|renfort|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
-  if (/^(forme|bouts|faitage|lucarne|cheminee|couverture|terrasse|appentis|toit|hauteurToit)/i.test(sujet)) return 'toit';
-  if (/^(decor|mur|couleur|materiau|hauteur)/i.test(sujet)) return 'murs';
-  return 'autres';
-}
-
 /**
  * Ce que Claude a vu, batiment par batiment. Une ligne qui porte une observation sur le toit (forme, bouts, silhouettes des facades)
  * se confirme : « Je confirme » la note dans « Ce que je vois », l'observation de la personne, qui l'emporte sur Claude ; le moteur
@@ -175,28 +167,29 @@ function typeVu(id: string): (typeof NIVEAUX_VUS)[number]['id'] {
  */
 function ObservationsClaude({ batiments, session, lecture }: { batiments: readonly ObservationsBatiment[]; session: SessionAuditParcelle; lecture: boolean }) {
   if (!batiments.length) return null;
+  const v = session.validation;
   return (
     <section className="observationsClaude" aria-label="Vu par Claude">
       <div className="titreObservations">Vu par Claude, à vérifier sur place</div>
       <p className="noteObservations">{lecture ? 'Ces observations ne changent rien au projet.' : 'Ces observations ne changent rien au projet tant que vous ne les confirmez pas : « Je confirme » les note comme ce que vous avez vu sur place, et le moteur des toits les relit sur la mesure.'}</p>
-      {batiments.map((b) => {
+      {batiments.map((b, rang) => {
         const vu = session.capture.lire().batiments[b.cle]?.vu ?? {};
         // Meme arbre que les propositions : batiment > type (facades, toit, murs...) > lignes.
-        const niveaux = NIVEAUX_VUS.map((n) => ({ ...n, os: b.observations.filter((o) => typeVu(o.id) === n.id) })).filter((n) => n.os.length);
+        const niveaux = NIVEAUX_VUS.map((n) => ({ ...n, os: b.observations.filter((o) => typeObservation(o.id) === n.id) })).filter((n) => n.os.length);
         return (
-          <Niveau key={b.cle} chemin={'vu:' + b.cle} titre={b.nom} compte={b.observations.length}>
-            {niveaux.map((n) => (
-            <Niveau key={n.id} chemin={'vu:' + b.cle + '/' + n.id} titre={n.libelle} compte={n.os.length} profond>
+          <Niveau key={b.cle} groupe="vu" id={b.cle} titre={b.nom} compte={b.observations.length} premier={rang === 0}>
+            {niveaux.map((n, r) => (
+            <Niveau key={n.id} groupe={'vu/' + b.cle} id={n.id} titre={n.libelle} compte={n.os.length} profond premier={r === 0}>
             <ul className="listeObservations">
               {n.os.map((o) => {
                 const fait = o.confirmer ? dejaConfirme(vu, o.confirmer) : false;
                 return (
-                  <li key={o.id} className="ligneObservation">
+                  <li key={o.id} className={'ligneObservation' + (v.selection() === o.id ? ' choisie' : '')} aria-current={v.selection() === o.id ? 'true' : undefined} onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) v.selectionner(o.id); }}>
                     <span>{o.texte}</span>
                     {(o.ou.length > 0 || o.accord !== null) && <span className="origineProposition">{[o.ou.length ? 'vu sur : ' + o.ou.join(', ') : null, o.accord !== null ? 'passes d’accord ' + Math.round(o.accord * 100) + ' %' : null].filter(Boolean).join(' · ')}</span>}
                     {o.confirmer && !lecture && (fait
                       ? <span className="origineProposition" role="status">Confirmé par vous : noté dans « Ce que je vois ».</span>
-                      : <button type="button" className="secondary small" data-controle="auditParcelle.confirmerObservation" aria-label={'Je confirme : ' + o.texte} onClick={() => session.capture.noterVu(b.cle, { ...vu, ...o.confirmer })}>Je confirme</button>)}
+                      : <button type="button" className="secondary small" data-controle="auditParcelle.confirmerObservation" aria-label={'Je confirme : ' + o.texte} onClick={() => v.confirmerObservation(b.cle, o.confirmer ?? {})}>Je confirme</button>)}
                     {o.confirmer && !lecture && !fait && o.raison && <span className="origineProposition">{o.raison}</span>}
                   </li>
                 );
@@ -220,16 +213,26 @@ const NIVEAUX: readonly { id: string; libelle: string; de: (p: Proposition) => b
 ];
 const NIVEAU_AUTRE = { id: 'autres', libelle: 'Autres' };
 
-/** Les niveaux ouverts survivent aux rendus : chacun s'ouvre et se ferme seul, sans refermer les autres. */
-const ouverts = new Set<string>();
+/**
+ * Un seul niveau ouvert a la fois parmi les freres d'un meme groupe (accordeon) : en ouvrir un referme les autres, a chaque
+ * niveau de l'arbre. Le choix survit aux rendus ; `premier` ouvre le premier frere tant que la personne n'a rien choisi.
+ */
+const ouvertDe = new Map<string, string | null>();
+const abonnesNiveaux = new Set<() => void>();
+const choisirNiveau = (groupe: string, id: string | null) => { ouvertDe.set(groupe, id); abonnesNiveaux.forEach((f) => f()); };
 
-function Niveau({ chemin, titre, compte, profond, children }: { chemin: string; titre: string; compte: number; profond?: boolean; children: React.ReactNode }) {
-  const [ouvert, setOuvert] = useState(() => !ouverts.has('ferme:' + chemin));
+function Niveau({ groupe, id, titre, compte, profond, premier, children }: { groupe: string; id: string; titre: string; compte: number; profond?: boolean; premier?: boolean; children: React.ReactNode }) {
+  const [, rafraichir] = useState(0);
+  useEffect(() => {
+    const f = () => rafraichir((n) => n + 1);
+    abonnesNiveaux.add(f);
+    return () => { abonnesNiveaux.delete(f); };
+  }, []);
+  const ouvert = ouvertDe.has(groupe) ? ouvertDe.get(groupe) === id : !!premier;
   return (
     <details className={'niveauPropositions' + (profond ? ' sousNiveau' : '')} open={ouvert} onToggle={(e) => {
       const o = (e.currentTarget as HTMLDetailsElement).open;
-      if (o) ouverts.delete('ferme:' + chemin); else ouverts.add('ferme:' + chemin);
-      setOuvert(o);
+      if (o !== ouvert) choisirNiveau(groupe, o ? id : null);
     }}>
       <summary className="nomObservations">{titre + ' (' + compte + ')'}</summary>
       {children}
@@ -246,13 +249,13 @@ function ArbrePropositions({ propositions, noms, ligne }: { propositions: readon
   }
   return (
     <>
-      {[...parObjet].map(([k, ps]) => {
+      {[...parObjet].map(([k, ps], rang) => {
         const nom = k === 'parcelle' ? 'Parcelle' : noms.get(k) ?? ps[0]?.objet.split(' de ').pop() ?? k;
         const niveaux = [...NIVEAUX.map((n) => ({ id: n.id, libelle: n.libelle, ps: ps.filter(n.de) })), { ...NIVEAU_AUTRE, ps: ps.filter((p) => !NIVEAUX.some((m) => m.de(p))) }].filter((n) => n.ps.length);
         return (
-          <Niveau key={k} chemin={k} titre={nom} compte={ps.length}>
-            {niveaux.map((n) => (
-              <Niveau key={n.id} chemin={k + '/' + n.id} titre={n.libelle} compte={n.ps.length} profond>
+          <Niveau key={k} groupe="prop" id={k} titre={nom} compte={ps.length} premier={rang === 0}>
+            {niveaux.map((n, r) => (
+              <Niveau key={n.id} groupe={'prop/' + k} id={n.id} titre={n.libelle} compte={n.ps.length} profond premier={r === 0}>
                 <ul className="listePropositions" aria-label={n.libelle + ' de ' + nom}>{n.ps.map(ligne)}</ul>
               </Niveau>
             ))}
