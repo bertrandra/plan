@@ -1,27 +1,12 @@
-// Les quatre coins d'une photo de facade, trouves sans geste (admin › calibration : ajouter des photos redresse et fusionne seul).
-//
-// Une photo importee n'a ni GPS, ni boussole, ni distance : le cadre propose est celui du releve sans capteurs (sept dixiemes de la
-// largeur, facade/calage.ts), puis le calage fin cherche les aretes du mur sur la photo (facade/calageFin.ts). Ce qu'il ne trouve
-// pas reste predit : l'appelant le signale, la personne corrige au doigt. Sans DOM, testable seul.
+// Les coins du mur sur une serie de photos, par l'assemblage de leurs vues redressees par leurs points de fuite : lus sur la
+// mosaique (coinsAutoDeSerie), ou reportes d'une photo ou ils sont connus (reporterCoins). La chaine de tous (chaine.ts) s'en sert
+// pour les photos qui doutent. Sans DOM, testable seul.
 
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
-import { intersection, ligneParPoints, type Ligne, type SourceCoin } from '../../facade/calageFin.js';
+import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin.js';
 import type { Image, P2 } from '../../facade/homographie.js';
-import type { Prise } from './capteurs.js';
-import { appliquerResultat, coinsDePrise, entreeRecherche, rechercher, type Morceau } from './serie.js';
 import { detecterSegments } from '../../facade/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../../facade/redressementFuites.js';
 import { coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes } from '../../facade/mosaiqueFuites.js';
-
-export interface CoinsAuto {
-  /** Haut gauche, haut droit, bas droit, bas gauche, en pixels de la photo. */
-  coins: P2[];
-  sources: SourceCoin[];
-  /** Les quatre coins sont-ils trouves sur les aretes de la photo (et non seulement predits) ? */
-  trouves: boolean;
-  /** La note du calage fin, de 0 a 1 ; 0 sans calage fin. */
-  note: number;
-}
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -33,27 +18,6 @@ export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hau
   if (!signes.every((x) => x === signes[0] && x !== 0)) return false;
   const aire = Math.abs(c.reduce((s, p, i) => { const q = c[(i + 1) % 4] as P2; return s + p.x * q.y - q.x * p.y; }, 0)) / 2;
   return aire >= 0.05 * image.largeur * image.hauteur;
-}
-
-/**
- * Cherche les coins du mur sur une photo seule. `focalePx` : la focale quand la photo la donne, sinon le champ par defaut.
- * Ne rejette jamais : un echec rend les coins predits.
- */
-export function coinsAuto(image: Image, largeurM: number, hauteurM: number, focalePx: number | null = null): CoinsAuto {
-  const prise: Prise = { photo: { image, url: '', champ: null, focalePx }, mesure: null, reperes: null, champ: CHAMP_GRAND_COTE_DEFAUT, photosPrevues: null };
-  const depart: Morceau = { prise, coins: coinsDePrise(prise, largeurM, hauteurM, false), recherche: true };
-  const predits = (): CoinsAuto => ({ coins: depart.coins, sources: depart.coins.map(() => 'predit'), trouves: false, note: 0 });
-  try {
-    const entree = entreeRecherche(prise, largeurM, hauteurM, false);
-    if (!entree) return predits();
-    // Une photo corrigee de la distorsion changerait de repere : sans son URL, ses coins ne servent pas (appliquerResultat les ignore).
-    const m = appliquerResultat(depart, rechercher(entree), null);
-    const sources: SourceCoin[] = m.sources ? [...m.sources] : m.coins.map(() => 'predit');
-    // Un quadrilatere croise ou ecrase n'est pas un mur (cas Hardencourt, octobre 2026) : ses coins ne sont pas « trouves ».
-    return { coins: m.coins, sources, trouves: sources.every((s) => s === 'trouve') && quadrilatereSain(m.coins, image), note: m.fin?.trouve ? m.fin.note : 0 };
-  } catch {
-    return predits();
-  }
 }
 
 /** Ce que la serie redressee par ses points de fuite donne : les coins du mur sur chaque photo, et la hauteur qui en garde les proportions. */

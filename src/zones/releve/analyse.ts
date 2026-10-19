@@ -2,9 +2,9 @@
 
 import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../facade/geometrie.js';
-import { analyserReleve, type ResultatAnalyse } from '../../facade/analyse.js';
-import { analyserMosaique } from '../../facade/mosaique.js';
-import { analyserVues, type ResultatFusion } from '../../facade/fusion.js';
+import { type ResultatAnalyse } from '../../facade/analyse.js';
+import { type ResultatFusion } from '../../facade/fusion.js';
+import { analyserLeMur } from '../../facade/analyseMur.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
 import { avecGrille } from '../../facade/verification.js';
@@ -46,29 +46,18 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
  * celle du cadastre.
  */
 export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null; fusion?: ResultatFusion } | null {
-  const commun = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  if (morceaux.length > 1 && assemblage === 'vues') {
-    const r = analyserVues({ ...commun, vues: morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m) })) });
-    // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et
-    // montre l'autre a Claude (lot G20).
-    return r ? { r, avis: avisFusion(r) ?? avisHauteur(r, hauteurEstimee), fusion: r } : null;
-  }
-  if (morceaux.length === 1) {
-    const m = au(morceaux, 0);
-    const r = analyserReleve({ ...commun, photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null });
-    return r ? { r, avis: avisHauteur(r, hauteurEstimee) } : null;
-  }
-  const r = analyserMosaique({
-    ...commun,
-    morceaux: morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m) })),
-  });
-  if (!r) return null;
-  const mauvaise = r.jointures.findIndex((s) => s < 0.5);
+  const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null })), assemblage);
+  if (!a) return null;
+  // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et montre l'autre a Claude (lot G20).
+  if (a.fusion) return { r: a.r, avis: avisFusion(a.fusion) ?? avisHauteur(a.r, hauteurEstimee), fusion: a.fusion };
+  if (!a.mosaique) return { r: a.r, avis: avisHauteur(a.r, hauteurEstimee) };
+  const mauvaise = a.mosaique.jointures.findIndex((s) => s < 0.5);
   let avis: string | null = null;
   if (mauvaise >= 0) avis = `Les photos ${mauvaise + 1} et ${mauvaise + 2} se raccordent mal : reprenez-en une en gardant un tiers de mur en commun.`;
-  else if (Math.abs(r.rapportLargeur - 1) > 0.06) avis = "Les photos s'assemblent mal : vérifiez les coins, surtout ceux des extrémités.";
-  else avis = avisHauteur(r, hauteurEstimee);
-  return { r, avis };
+  else if (Math.abs(a.mosaique.rapportLargeur - 1) > 0.06) avis = "Les photos s'assemblent mal : vérifiez les coins, surtout ceux des extrémités.";
+  else avis = avisHauteur(a.r, hauteurEstimee);
+  return { r: a.r, avis };
 }
 
 /**
