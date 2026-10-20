@@ -78,12 +78,16 @@
   #zonePalette .outil:hover{ background:var(--accent-light); border-color:var(--border); opacity:1; }
   #zonePalette .outil:disabled{ opacity:0.35; cursor:not-allowed; }
   /* Le groupe « Toit » : l'interrupteur des Regles, les onglets du catalogue, puis les gestes en images. */
+  #zonePalette .toitRegles{ width:100%; }
+  #zonePalette .toitRegles .libelle{ color:inherit; }
   #zonePalette .toitRegles[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  #zonePalette .toitRegles[aria-pressed="true"] .libelle{ color:var(--on-accent); }
   #zonePalette .toitOnglets{ display:flex; gap:2px; margin:4px 0; }
   #zonePalette .toitOnglet{ flex:1; min-height:28px; padding:2px 4px; font:inherit; font-size:0.72rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:4px; cursor:pointer; }
   #zonePalette .toitOnglet[aria-selected="true"]{ background:var(--accent-light); border-color:var(--accent); }
-  #zonePalette .toitCatalogue{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:4px; }
-  #zonePalette .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:84px; height:auto; }
+  #zonePalette .toitCatalogue{ display:grid; grid-template-columns:minmax(0, 1fr); gap:4px; }
+  #zonePalette .paletteTuiles .toitCatalogue{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  #zonePalette .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:56px; height:auto; }
   #zonePalette .toitPiece .libelle{ font-size:0.68rem; line-height:1.1; }
   #zonePalette .glyphe{ font-size:1.15rem; line-height:1; }
   #zonePalette .libelle{ font-family:var(--sans); font-size:0.58rem; line-height:1.1; text-align:center; color:var(--ink-soft); }

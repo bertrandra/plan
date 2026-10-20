@@ -1,0 +1,217 @@
+// Les elements poses sur une facade qui touchent au toit : bow-window, galerie, appentis (palette, groupe « Toit »,
+// onglet « Facade »).
+//
+// Un element est un corps du toit (`CorpsToit`) qui porte sa `saillie` : sur quel mur de quel corps, ou, de quelle
+// taille et de quelle forme. Le rectangle `pts` du corps en est toujours deduit ici : changer un reglage de la
+// saillie, c'est la replacer (`placerSaillie`), jamais deplacer des points a la main. Le dessin 3D d'un bow-window
+// (three/saillie3d.ts) lit l'emprise de ce module ; une galerie ou un appentis, eux, sont des appentis adosses
+// que le dessin des corps sait deja faire (three/toitCorps3d.ts).
+//
+// Pur : pas de reseau, pas de DOM.
+
+import { repere, point } from '../../toitCorps.js';
+import { corpsDeLExemple, vueIsometrique, type ExempleToit, type VueIso } from '../../catalogueToits.js';
+import type { CorpsToit, FormeSaillie, GenreSaillie, PtBrut, SaillieFacade } from '../../../model/types.js';
+
+/** Un point du dessin, `z` etant la hauteur au-dessus du sol du batiment. */
+export interface Pt3 { x: number; y: number; z: number }
+
+/** La hauteur d'un rez-de-chaussee : ce que monte un bow-window « sous le premier etage ». */
+export const HAUTEUR_RDC_M = 2.7;
+/** Le recul des poteaux d'une galerie neuve : l'egout deborde de cela au-dessus d'eux. */
+export const RETRAIT_GALERIE_M = 0.3;
+
+const dixieme = (v: number) => Math.round(v * 10) / 10;
+const centimetre = (v: number) => Math.round(v * 100) / 100;
+
+/** Les mesures d'un genre, a la pose : largeur, saillie, forme, toit et hauteur d'egout cherchee. */
+export const DEFAUTS_SAILLIE: Record<GenreSaillie, { largeurM: number; profondeurM: number; forme: FormeSaillie; niveau: 'rdc' | 'toit'; toit: 'pan' | 'pavillon' | 'plat' }> = {
+  'bow-window': { largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan' },
+  galerie: { largeurM: 5, profondeurM: 1.5, forme: 'rectangle', niveau: 'rdc', toit: 'pan' },
+  appentis: { largeurM: 4, profondeurM: 3, forme: 'rectangle', niveau: 'rdc', toit: 'pan' }
+};
+
+/** Le mur `i` d'un corps : ses deux bouts, sa longueur, son vecteur unitaire et la normale qui sort du corps. */
+export function murDuCorps(h: CorpsToit, i: number): { a: PtBrut; b: PtBrut; L: number; u: PtBrut; n: PtBrut } {
+  const n4 = h.pts.length;
+  const a = h.pts[((i % n4) + n4) % n4] as PtBrut, b = h.pts[(((i + 1) % n4) + n4) % n4] as PtBrut;
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+  const cx = h.pts.reduce((t, q) => t + q.x, 0) / n4, cy = h.pts.reduce((t, q) => t + q.y, 0) / n4;
+  let n = { x: u.y, y: -u.x };
+  // La normale sort du corps : elle s'eloigne du centre.
+  if ((a.x - cx) * n.x + (a.y - cy) * n.y < 0) n = { x: -n.x, y: -n.y };
+  return { a, b, L, u, n };
+}
+
+/** Les reglages bornes : la saillie tient sur son mur, sans depasser ses bouts. */
+export function bornerSaillie(h: CorpsToit, s: SaillieFacade): SaillieFacade {
+  const { L } = murDuCorps(h, s.mur);
+  const largeurM = centimetre(Math.min(Math.max(s.largeurM, 0.6), Math.max(0.6, L - 0.2)));
+  const centreM = centimetre(Math.min(Math.max(s.centreM, largeurM / 2), Math.max(largeurM / 2, L - largeurM / 2)));
+  return { ...s, largeurM, centreM, profondeurM: centimetre(Math.min(Math.max(s.profondeurM, 0.3), 6)) };
+}
+
+/** Le rectangle d'une saillie sur son mur : `pts[0]-pts[1]` le long du mur, `pts[0]-pts[3]` vers l'exterieur. */
+export function rectangleDeSaillie(h: CorpsToit, s: SaillieFacade): PtBrut[] {
+  const { a, u, n } = murDuCorps(h, s.mur);
+  const p0 = { x: a.x + u.x * (s.centreM - s.largeurM / 2), y: a.y + u.y * (s.centreM - s.largeurM / 2) };
+  const p1 = { x: p0.x + u.x * s.largeurM, y: p0.y + u.y * s.largeurM };
+  const d = s.profondeurM;
+  return [p0, p1, { x: p1.x + n.x * d, y: p1.y + n.y * d }, { x: p0.x + n.x * d, y: p0.y + n.y * d }].map((q) => ({ x: centimetre(q.x), y: centimetre(q.y) }));
+}
+
+/** L'egout le plus bas du corps qui porte la saillie : la hauteur ou monte un bow-window « jusqu'au toit ». */
+const egoutBas = (h: CorpsToit) => Math.min(...h.egouts);
+
+/**
+ * Le corps d'une saillie pour son hote : le rectangle, le toit propre et les hauteurs. Une galerie est ouverte
+ * (des poteaux, sans mur), un appentis ferme ; un bow-window n'a ni l'un ni l'autre, son dessin est a part.
+ */
+export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
+  const s = bornerSaillie(h, brute);
+  const pts = rectangleDeSaillie(h, s);
+  const d = s.profondeurM, L = s.largeurM;
+  const haut = egoutBas(h);
+  const egout = s.genre === 'galerie' ? Math.min(2.4, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut);
+  let faitage = egout, posFaitage = 0, croupes: [number, number] | undefined;
+  if (s.toit === 'pan') {
+    // Le pan monte contre le mur ; sous la pente d'une galerie ou d'un appentis (une vingtaine de degres), pas sous celle d'un bow-window.
+    const montee = s.genre === 'bow-window' ? Math.min(1.2, d * 0.6) : Math.min(Math.max(haut - egout, 0.4), d * 0.4);
+    faitage = dixieme(egout + montee);
+  } else if (s.toit === 'pavillon') {
+    faitage = dixieme(egout + Math.min(1.5, Math.min(L, d) * 0.5));
+    posFaitage = centimetre(d / 2);
+    const c = centimetre(Math.min(d / 2, L / 2 - 0.05));
+    croupes = [c, c];
+  }
+  const corps: CorpsToit = { pts, posFaitage, faitage, egouts: [centimetre(egout), centimetre(egout)], pignons: [], ecart: 0, saillie: s };
+  if (croupes) corps.croupes = croupes;
+  if (s.genre === 'galerie') { corps.ouvert = true; corps.retraitM = RETRAIT_GALERIE_M; }
+  if (s.genre === 'appentis') corps.ouvert = false;
+  return corps;
+}
+
+/** Les corps du batiment dont la saillie est celle d'un bow-window : ceux que dessine three/saillie3d.ts. */
+export const estBowWindow = (c: CorpsToit): boolean => c.saillie?.genre === 'bow-window';
+
+/** La saillie `rang` replacee sur son hote, ce qui la reecrit en entier ; les autres corps sont intacts. */
+export function replacerSaillie(corps: readonly CorpsToit[], rang: number, changement: Partial<SaillieFacade>): CorpsToit[] {
+  const c = corps[rang];
+  if (!c?.saillie) return [...corps];
+  const s = { ...c.saillie, ...changement };
+  const hote = corps[s.hote];
+  if (!hote || s.hote === rang) return [...corps];
+  const neuf = corpsDeSaillie(hote, s);
+  // Ce que la personne a regle sur le corps et que le placement ne dit pas (lucarnes, cheminees) reste.
+  const reste: CorpsToit = { ...neuf };
+  if (c.lucarnes) reste.lucarnes = c.lucarnes;
+  if (c.cheminees) reste.cheminees = c.cheminees;
+  if (c.retraitM !== undefined && s.genre === 'galerie') reste.retraitM = c.retraitM;
+  return corps.map((k, i) => (i === rang ? reste : k));
+}
+
+/** Un mur libre pour une saillie neuve : le plus long mur de l'hote qui n'en porte pas deja, sinon le plus long. */
+export function murLibre(corps: readonly CorpsToit[], hote: number): number {
+  const h = corps[hote] as CorpsToit;
+  const pris = new Set(corps.filter((c) => c.saillie && c.saillie.hote === hote).map((c) => c.saillie?.mur));
+  const murs = h.pts.map((_, i) => ({ i, L: murDuCorps(h, i).L })).sort((x, y) => y.L - x.L);
+  return (murs.find((m) => !pris.has(m.i)) ?? murs[0] as { i: number }).i;
+}
+
+/** L'emprise au sol d'une saillie, dans le plan : le rectangle, un demi-ellipse (arc) ou un rectangle aux angles exterieurs arrondis (conge). */
+export function empriseDeSaillie(c: CorpsToit): PtBrut[] {
+  const r = repere(c.pts);
+  const forme = c.saillie?.forme ?? 'rectangle';
+  const L = r.L, d = r.W;
+  const P = (s: number, t: number) => point(r, s, t);
+  if (forme === 'arc') {
+    const N = 12;
+    return Array.from({ length: N + 1 }, (_, k) => { const th = (Math.PI * k) / N; return P((L / 2) * (1 - Math.cos(th)), d * Math.sin(th)); });
+  }
+  if (forme === 'conge') {
+    const rayon = Math.min(L, d) * 0.4, N = 4;
+    // Chaque coin exterieur : un quart de cercle, du cote vers le fond (l'angle decroit).
+    const arc = (cx: number, cy: number, a0: number) => Array.from({ length: N + 1 }, (_, k) => { const a = a0 - (Math.PI / 2) * (k / N); return P(cx + rayon * Math.cos(a), cy + rayon * Math.sin(a)); });
+    return [P(0, 0), ...arc(rayon, d - rayon, Math.PI), ...arc(L - rayon, d - rayon, Math.PI / 2), P(L, 0)];
+  }
+  // Du mur, par un cote, le fond, l'autre cote : le dernier cote (celui du mur de la maison) reste a fermer.
+  return [P(0, 0), P(0, d), P(L, d), P(L, 0)];
+}
+
+/**
+ * Les facettes d'un bow-window : ses murs du sol a l'egout (sans celui qui est contre la maison) et son toit propre.
+ * `emprise` va de `pts[0]` a `pts[1]` en passant par l'exterieur ; son dernier cote ferme le mur de la maison.
+ */
+export function facettesBowWindow(c: CorpsToit): { pans: Pt3[][]; murs: Pt3[][] } {
+  const pans: Pt3[][] = [], murs: Pt3[][] = [];
+  const e = empriseDeSaillie(c);
+  const r = repere(c.pts);
+  const top = Math.min(...c.egouts), F = c.faitage, d = r.W, L = r.L;
+  const T = (q: PtBrut) => Math.max(0, (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y);
+  const Z = (q: PtBrut, z: number): Pt3 => ({ x: q.x, y: q.y, z });
+  for (let i = 0; i < e.length - 1; i++) { const a = e[i] as PtBrut, b = e[i + 1] as PtBrut; murs.push([Z(a, 0), Z(b, 0), Z(b, top), Z(a, top)]); }
+  const toit = c.saillie?.toit ?? 'pan';
+  if (toit === 'plat') pans.push(e.map((q) => Z(q, top)));
+  else if (toit === 'pan') pans.push(e.map((q) => Z(q, top + (F - top) * (1 - T(q) / d))));
+  else if (c.saillie?.forme && c.saillie.forme !== 'rectangle') {
+    const apex = { x: e.reduce((t, q) => t + q.x, 0) / e.length, y: e.reduce((t, q) => t + q.y, 0) / e.length };
+    const sommet = { x: apex.x, y: apex.y, z: F };
+    for (let i = 0; i < e.length - 1; i++) pans.push([Z(e[i] as PtBrut, top), Z(e[i + 1] as PtBrut, top), sommet]);
+  } else {
+    const m = Math.min(d / 2, L / 2);
+    const R = (s: number, t: number, z: number): Pt3 => ({ ...point(r, s, t), z });
+    pans.push([R(0, d, top), R(L, d, top), R(L - m, d / 2, F), R(m, d / 2, F)]);
+    pans.push([R(0, 0, top), R(0, d, top), R(m, d / 2, F)]);
+    pans.push([R(L, d, top), R(L, 0, top), R(L - m, d / 2, F)]);
+  }
+  return { pans, murs };
+}
+
+/** Les corps sans la saillie `rang` ; les saillies posees sur un corps place apres elle gardent leur hote (son rang descend d'un). */
+export function retirerSaillie(corps: readonly CorpsToit[], rang: number): CorpsToit[] {
+  return corps.flatMap((c, i) => {
+    if (i === rang) return [];
+    if (!c.saillie || c.saillie.hote < rang) return [c];
+    return [{ ...c, saillie: { ...c.saillie, hote: c.saillie.hote - 1 } }];
+  });
+}
+
+/** Le nom d'une saillie dans l'inspecteur. */
+export const NOM_SAILLIE: Record<GenreSaillie, string> = { 'bow-window': 'Bow-window', galerie: 'Galerie', appentis: 'Appentis' };
+
+/** Les corps sans leurs bow-windows (null s'il n'en reste aucun), et les bow-windows : ce que le prisme du batiment et ses fenetres lisent, et ce qui se dessine a part. */
+export function separerBowWindows(corps: readonly CorpsToit[] | null): { hotes: CorpsToit[] | null; bows: CorpsToit[] } {
+  if (!corps) return { hotes: null, bows: [] };
+  const bows = corps.filter(estBowWindow), hotes = corps.filter((c) => !estBowWindow(c));
+  return { hotes: bows.length ? (hotes.length ? hotes : null) : corps.slice(), bows };
+}
+
+/**
+ * La vignette d'un element de facade de la palette : un deux-pans, l'element pose contre son mur de devant. Elle est
+ * calculee par les memes fonctions que la 3D (`corpsDeSaillie`, `facettesBowWindow`), pas dessinee a part.
+ * `nom` : `bow-rectangle`, `bow-arc`, `bow-conge`, `galerie`, `appentis-ferme`.
+ */
+export function vueDeSaillie(nom: string): VueIso {
+  // Le mur de la maison, une dalle mince et haute : l'element se lit mieux contre un mur seul que contre une maison entiere.
+  const mur: ExempleToit = { id: 'mur', titre: 'Mur', famille: 'toit', corps: [{ corps: { posFaitage: 0.15, faitage: 3.4, egouts: [3.4, 3.4] }, w: 0.3, l: 7 }] };
+  const hote = corpsDeLExemple(mur)[0];
+  if (!hote) return { facettes: [], largeur: 0, hauteur: 0 };
+  const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
+  const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : 'rectangle';
+  const d = DEFAUTS_SAILLIE[genre];
+  const profondeurM = genre === 'bow-window' ? (forme === 'arc' ? 2 : 1.6) : genre === 'galerie' ? 2 : 3;
+  const c = corpsDeSaillie(hote, { genre, hote: 0, mur: 2, centreM: 3.5, largeurM: genre === 'bow-window' ? 4 : 6.4, profondeurM, forme, niveau: d.niveau, toit: d.toit });
+  const f = facettesBowWindow(c);
+  const toS = (q: Pt3) => ({ s: q.x, t: q.y, z: q.z });
+  let murs = f.murs;
+  if (genre === 'galerie') {
+    // Une galerie est ouverte : des poteaux sur son bord, pas de mur.
+    const r = repere(c.pts), egout = c.egouts[0];
+    murs = [0, 0.5, 1].map((k) => {
+      const s0 = k * (r.L - 0.2), P = (s: number, z: number): Pt3 => ({ ...point(r, s, r.W - 0.1), z });
+      return [P(s0, 0), P(s0 + 0.2, 0), P(s0 + 0.2, egout), P(s0, egout)];
+    });
+  }
+  return vueIsometrique(mur, [...murs.map((m) => ({ f: m.map(toS), mur: true })), ...f.pans.map((p) => ({ f: p.map(toS), mur: false }))]);
+}

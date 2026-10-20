@@ -1067,6 +1067,36 @@ export interface CorpsToit {
    * Absent : le dessin d'avant, qui ne dit rien sous l'egout. Sans effet sur un autre toit qu'un appentis.
    */
   ouvert?: boolean;
+  /** Le recul des poteaux d'un appentis ouvert depuis le bord de l'egout, en metres ; absent : le dessin d'avant (12 cm). */
+  retraitM?: number;
+  /**
+   * Cet element est pose sur un mur d'un autre corps (bow-window, galerie, appentis) : ce qui le place et le forme.
+   * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/regles/toits/saillies.ts).
+   */
+  saillie?: SaillieFacade;
+}
+
+/** Ce qu'est un element pose sur une facade. */
+export type GenreSaillie = 'bow-window' | 'galerie' | 'appentis';
+/** La forme du plan d'un bow-window : un rectangle, un demi-cercle (arc) ou un rectangle aux angles arrondis (conge). */
+export type FormeSaillie = 'rectangle' | 'arc' | 'conge';
+
+/**
+ * Un element de facade qui touche au toit, pose sur un mur d'un corps. `hote` : le rang du corps qui le porte
+ * dans `corpsToit` ; `mur` : le cote de ce corps (de `pts[mur]` a `pts[mur + 1]`) ; `centreM` : son milieu le long
+ * du mur, depuis `pts[mur]`. `niveau` : sous le premier etage (rdc) ou jusqu'au toit.
+ */
+export interface SaillieFacade {
+  genre: GenreSaillie;
+  hote: number;
+  mur: number;
+  centreM: number;
+  largeurM: number;
+  profondeurM: number;
+  forme: FormeSaillie;
+  niveau: 'rdc' | 'toit';
+  /** Le toit propre : un pan contre le mur, quatre pans, ou plat. */
+  toit: 'pan' | 'pavillon' | 'plat';
 }
 
 /**

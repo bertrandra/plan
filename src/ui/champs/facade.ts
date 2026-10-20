@@ -15,7 +15,8 @@ import { materiauCouverture, type MateriauCouverture } from '../../model/couleur
 import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
 import { formeDuCorps } from '../../facade/regles/toits/faits.js';
-import type { CorpsToit, CouvertureChoisie, FormeToit, TerrasseToit, Toit } from '../../model/types.js';
+import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
+import { NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/regles/toits/saillies.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 
@@ -34,7 +35,7 @@ function toitDe(c: ContexteChamps): Toit {
 const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
 
 /** Les rangs des corps du batiment qui sont des appentis (le reglage « ouvert / ferme » ne vaut que pour eux). */
-const indicesAppentis = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (formeDuCorps(c) === 'appentis' ? [i] : []));
+const indicesAppentis = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (!c.saillie && formeDuCorps(c) === 'appentis' ? [i] : []));
 
 /** D'ou vient la couleur d'une couverture que Plan a posee (MD/spec-toit-ign.md §6.1). */
 function origineCouleur(toit: Toit | null | undefined): string {
@@ -169,6 +170,60 @@ function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
       });
     },
   };
+}
+
+/** Les rangs des corps qui sont des elements de facade (bow-window, galerie, appentis poses sur un mur). */
+const rangsSaillies = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (c.saillie ? [i] : []));
+
+/**
+ * Une ligne par element de facade du batiment : ses reglages (forme, niveau, toit propre, mur, position, taille) et son retrait.
+ * Chaque ecriture replace l'element sur son mur (facade/regles/toits/saillies.ts), fige le toit et s'annule par Ctrl+Z.
+ */
+function champsSaillies(c: ContexteChamps): Champ[] {
+  return rangsSaillies(c.obj).map((rang): Champ => {
+    const lire = (cc: ContexteChamps) => cc.obj.corpsToit?.[rang]?.saillie;
+    const regler = (cc: ContexteChamps, changement: Partial<SaillieFacade>) => {
+      cc.obj.corpsToit = replacerSaillie(cc.obj.corpsToit ?? [], rang, changement);
+      cc.obj.toitFige = true;
+    };
+    const genre = lire(c)?.genre ?? 'bow-window';
+    const bow = genre === 'bow-window';
+    const nombre = (cle: string, libelle: string, cle2: 'largeurM' | 'profondeurM' | 'centreM', min: number, max: (cc: ContexteChamps) => number): Champ => ({
+      type: 'nombre', cle, libelle, unite: 'm', pas: 0.1, min, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
+      lire: (cc) => lire(cc)?.[cle2] ?? 0, ecrire: (cc, v) => { regler(cc, { [cle2]: Math.min(v, max(cc)) }); }
+    });
+    const murLong = (cc: ContexteChamps) => { const s = lire(cc); const h = s ? cc.obj.corpsToit?.[s.hote] : undefined; return h && s ? murDuCorps(h, s.mur).L : 10; };
+    return {
+      type: 'ligne', cle: 'saillie' + rang, libelle: NOM_SAILLIE[genre],
+      champs: [
+        { type: 'choix', cle: 'mur', libelle: 'Mur', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le mur du corps qui porte l’élément, dans l’ordre du contour',
+          options: (cc) => { const h = cc.obj.corpsToit?.[lire(cc)?.hote ?? 0]; return (h?.pts ?? []).map((_, i) => ({ valeur: String(i), libelle: 'Mur ' + (i + 1) })); },
+          lire: (cc) => String(lire(cc)?.mur ?? 0), ecrire: (cc, v) => { regler(cc, { mur: Number(v), centreM: murDuCorps(cc.obj.corpsToit?.[lire(cc)?.hote ?? 0] as CorpsToit, Number(v)).L / 2 }); } },
+        ...(bow ? [
+          { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
+            options: () => [{ valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
+            lire: (cc) => lire(cc)?.forme ?? 'rectangle', ecrire: (cc, v) => { regler(cc, { forme: v as FormeSaillie }); } } satisfies Champ,
+          { type: 'choix', cle: 'niveau', libelle: 'Niveau', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Sous le premier étage, ou jusqu’au toit',
+            options: () => [{ valeur: 'rdc', libelle: 'Sous le 1er étage' }, { valeur: 'toit', libelle: 'Jusqu’au toit' }],
+            lire: (cc) => lire(cc)?.niveau ?? 'rdc', ecrire: (cc, v) => { regler(cc, { niveau: v === 'toit' ? 'toit' : 'rdc' }); } } satisfies Champ
+        ] : []),
+        { type: 'choix', cle: 'toit', libelle: 'Toit', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
+          options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }],
+          lire: (cc) => lire(cc)?.toit ?? 'pan', ecrire: (cc, v) => { regler(cc, { toit: v === 'plat' ? 'plat' : v === 'pavillon' ? 'pavillon' : 'pan' }); } },
+        nombre('largeur', 'Largeur', 'largeurM', 0.6, murLong),
+        nombre('saillie', 'Saillie', 'profondeurM', 0.3, () => 6),
+        nombre('position', 'Position sur le mur', 'centreM', 0, murLong),
+        ...(genre === 'galerie' ? [{
+          type: 'nombre', cle: 'retrait', libelle: 'Retrait des poteaux', unite: 'm', pas: 0.05, min: 0, max: 1, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
+          aide: 'Le recul des poteaux depuis le bord de l’égout',
+          lire: (cc) => cc.obj.corpsToit?.[rang]?.retraitM ?? RETRAIT_GALERIE_M,
+          ecrire: (cc, v) => { const k = cc.obj.corpsToit?.[rang]; if (k) { k.retraitM = Math.min(Math.max(v, 0), 1); cc.obj.toitFige = true; } }
+        } satisfies Champ] : []),
+        { type: 'bouton', cle: 'retirer', libelle: 'Retirer', aide: 'Retirer cet élément (Ctrl+Z pour revenir)', agit: 'projet',
+          executer: (cc) => { cc.pushHistory(); cc.obj.corpsToit = retirerSaillie(cc.obj.corpsToit ?? [], rang); cc.obj.toitFige = true; cc.render(); } }
+      ]
+    };
+  });
 }
 
 /** Les champs du toit : les corps de batiment, puis le toit unique (forme, hauteur, faitage, couverture). */
@@ -384,6 +439,6 @@ export function sectionReleve(c: ContexteChamps): Section {
     });
   });
 
-  champs.push(...champsDuToit());
+  champs.push(...champsSaillies(c), ...champsDuToit());
   return { id: 'releve', titre: 'Façades et toit', champs };
 }

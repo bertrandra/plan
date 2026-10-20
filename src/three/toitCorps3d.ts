@@ -15,6 +15,7 @@ import { estSpecial } from '../facade/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
+import { estBowWindow, facettesBowWindow } from '../facade/regles/toits/saillies.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
@@ -80,11 +81,11 @@ const POTEAU_RETRAIT_M = 0.12;
 const ENTRAXE_POTEAUX_M = 2.5;
 
 /** Les poteaux d'un appentis ouvert, le long de son egout (`t` fixe) : quatre faces chacun, du sol a l'egout. */
-function poteauxDAppentis(L: number, t: number, egout: number): { s: number; t: number; z: number }[][] {
+function poteauxDAppentis(L: number, t: number, egout: number, retrait: number = POTEAU_RETRAIT_M): { s: number; t: number; z: number }[][] {
   const n = Math.max(2, Math.ceil(L / ENTRAXE_POTEAUX_M) + 1), h = POTEAU_COTE_M / 2;
   const faces: { s: number; t: number; z: number }[][] = [];
   for (let i = 0; i < n; i++) {
-    const s = POTEAU_RETRAIT_M + (i * (L - 2 * POTEAU_RETRAIT_M)) / (n - 1);
+    const s = retrait + (i * (L - 2 * retrait)) / (n - 1);
     const c = [[s - h, t - h], [s + h, t - h], [s + h, t + h], [s - h, t + h]] as const;
     for (let k = 0; k < 4; k++) {
       const [a, b] = [c[k] as readonly [number, number], c[(k + 1) % 4] as readonly [number, number]];
@@ -175,10 +176,11 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
   }
   // Sous l'egout d'un appentis : un mur plein jusqu'au sol (ferme), ou des poteaux (ouvert, sans mur exterieur).
   if (appentis && c.ouvert !== undefined && !plat) {
+    const retrait = c.retraitM ?? POTEAU_RETRAIT_M;
     const tBas = p <= 0.01 ? W : 0, eBas = p <= 0.01 ? e1 : e0;
     if (eBas > MUR_MIN_M) {
       if (c.ouvert === false) murs.push([P(0, tBas, 0), P(L, tBas, 0), P(L, tBas, eBas), P(0, tBas, eBas)]);
-      else murs.push(...poteauxDAppentis(L, tBas === 0 ? POTEAU_RETRAIT_M : W - POTEAU_RETRAIT_M, eBas).map((f) => f.map((q) => P(q.s, q.t, q.z))));
+      else murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait).map((f) => f.map((q) => P(q.s, q.t, q.z))));
     }
   }
   // Le mur d'un pan plus haut que le prisme.
@@ -418,6 +420,17 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
   const pans: S3[][] = [], murs: S3[][] = [];
   corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
+  return { pans: pans.length, murs: murs.length };
+}
+
+/**
+ * Les bow-windows d'un batiment : leurs murs du sol a l'egout et leur toit propre (facade/regles/toits/saillies.ts), a la
+ * forme de leur plan (rectangle, arc, conge). Ils ne passent ni par le prisme du batiment ni par la liste des corps.
+ */
+export function ajouterBowWindows3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined): { pans: number; murs: number } {
+  const pans: S3[][] = [], murs: S3[][] = [];
+  corps.filter(estBowWindow).forEach((c) => { const f = facettesBowWindow(c); pans.push(...f.pans); murs.push(...f.murs); });
+  if (pans.length || murs.length) poserFacettes(ctx, pans, murs, toitRef, null);
   return { pans: pans.length, murs: murs.length };
 }
 

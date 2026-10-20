@@ -14,9 +14,10 @@ import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { Icone, type NomIcone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
-import { VignetteToit } from './EcranChaine.js';
+import { VignetteToit, VignetteVue } from './EcranChaine.js';
 import { batimentsVises, reglesAllumees } from '../app/ecouteurs/toitCatalogue.js';
-import { piecesDe, raisonIndisponible, type FamillePiece } from '../facade/regles/toits/gestes.js';
+import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../facade/regles/toits/gestes.js';
+import { vueDeSaillie } from '../facade/regles/toits/saillies.js';
 
 export interface PropsPalette { magasin: Magasin; commandes: RegistreCommandes }
 
@@ -58,6 +59,16 @@ const ONGLETS_TOIT: { id: FamillePiece; libelle: string }[] = [
   { id: 'toit', libelle: 'Toit' }, { id: 'sur', libelle: 'Sur le toit' }, { id: 'facade', libelle: 'Façade' }
 ];
 
+const vuesFacade = new Map<string, ReturnType<typeof vueDeSaillie>>();
+/** L'image d'une piece : la vignette du catalogue, ou celle de l'element de facade (calculee une fois). */
+function ImagePiece({ p }: { p: PieceCatalogue }) {
+  if (p.exemple) return <VignetteToit forme={p.exemple} />;
+  const nom = p.id.replace(/^[a-z]+:/, '');
+  if (p.famille !== 'facade') return <Icone nom="polygone" />;
+  if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeSaillie(nom));
+  return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
+}
+
 /**
  * Le groupe « Toit », montre quand un batiment ou la parcelle est selectionne : l'interrupteur des Regles
  * (la lecture automatique du toit), puis le catalogue en images. Un geste pose coupe les Regles du batiment.
@@ -93,7 +104,7 @@ function GroupeToit({ magasin, commandes, compact }: PropsPalette & { compact: b
             <button key={p.id} type="button" className="outil toitPiece" data-commande="toit.poser" data-piece={p.id}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
               onClick={(e) => { if (compact) magasin.definirFeuille(null); commandes.executer('toit.poser', e.currentTarget); }}>
-              <span className="glyphe">{p.exemple ? <VignetteToit forme={p.exemple} /> : <Icone nom="polygone" />}</span>
+              <span className="glyphe"><ImagePiece p={p} /></span>
               <span className="libelle">{p.libelle}</span>
             </button>
           );

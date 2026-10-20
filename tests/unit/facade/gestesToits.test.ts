@@ -48,11 +48,30 @@ describe('poser un geste', () => {
     expect(appliquerPiece(o, id)).toBe(true);
     expect(corpsPrincipal(o)!.lucarnes?.length).toBe(1);
   });
-  it('un geste de facade demande un appentis', () => {
+  it('une galerie neuve est un appentis ouvert adosse a un mur', () => {
     const o = batiment();
-    expect(raisonIndisponible(o, 'facade:galerie')).toMatch(/appentis/);
-    expect(appliquerPiece(o, 'facade:galerie')).toBe(false);
-    expect(o.toitFige).toBeUndefined();
+    expect(raisonIndisponible(o, 'facade:galerie')).toBeNull();
+    expect(appliquerPiece(o, 'facade:galerie')).toBe(true);
+    expect(o.corpsToit).toHaveLength(2);
+    const g = o.corpsToit![1]!;
+    expect(g.ouvert).toBe(true);
+    expect(g.saillie?.genre).toBe('galerie');
+    expect(g.posFaitage).toBe(0);
+    expect(o.toitFige).toBe(true);
+    // Le corps principal reste le premier, et reste le principal.
+    expect(corpsPrincipal(o)).toBe(o.corpsToit![0]);
+  });
+  it('un appentis ferme est ferme', () => {
+    const o = batiment();
+    appliquerPiece(o, 'facade:appentis-ferme');
+    expect(o.corpsToit![1]!.ouvert).toBe(false);
+  });
+  it('deux elements se posent sur deux murs differents', () => {
+    const o = batiment();
+    appliquerPiece(o, 'facade:bow-rectangle');
+    appliquerPiece(o, 'facade:bow-arc');
+    const [a, b] = [o.corpsToit![1]!.saillie!, o.corpsToit![2]!.saillie!];
+    expect(a.mur).not.toBe(b.mur);
   });
   it('refuse un geste inconnu', () => {
     expect(appliquerPiece(batiment(), 'forme:nexistepas')).toBe(false);

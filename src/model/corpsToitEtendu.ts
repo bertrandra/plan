@@ -8,7 +8,7 @@
 // pignons et les cheminees (io/serialisation.ts).
 
 import { boutsDuCorps } from './formeToit.js';
-import type { BordsToit, BoutToit, Lucarne, ProfilPan, SpecialeToit, TypeLucarne } from './types.js';
+import type { BordsToit, BoutToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TypeLucarne } from './types.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -91,7 +91,21 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
   }
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
   if ('ouvert' in c && typeof c.ouvert !== 'boolean') delete c.ouvert;
+  if ('retraitM' in c && !positifOuNul(c.retraitM)) delete c.retraitM;
+  if ('saillie' in c) { const x = saillieValide(c.saillie); if (x) c.saillie = x; else delete c.saillie; }
   if ('speciale' in c) { const x = specialeValide(c.speciale); if (x) c.speciale = x; else delete c.speciale; }
+}
+
+/** Un element de facade bien forme, recopie sans ses cles inconnues ; null sinon. */
+export function saillieValide(v: unknown): SaillieFacade | null {
+  if (!objet(v)) return null;
+  const { genre, forme, niveau, toit } = v;
+  if (genre !== 'bow-window' && genre !== 'galerie' && genre !== 'appentis') return null;
+  if (forme !== 'rectangle' && forme !== 'arc' && forme !== 'conge') return null;
+  if (niveau !== 'rdc' && niveau !== 'toit') return null;
+  if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat') return null;
+  if (!positifOuNul(v.hote) || !positifOuNul(v.mur) || !fini(v.centreM) || !positif(v.largeurM) || !positif(v.profondeurM)) return null;
+  return { genre, hote: v.hote, mur: v.mur, centreM: v.centreM, largeurM: v.largeurM, profondeurM: v.profondeurM, forme, niveau, toit };
 }
 
 const memeBout = (a: BoutToit, b: BoutToit) => JSON.stringify(a) === JSON.stringify(b);

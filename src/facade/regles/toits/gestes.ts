@@ -22,7 +22,8 @@ import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToi
 import { angleDuPlusLongCote } from '../../toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../../toitCorps.js';
 import { formeDuCorps } from './faits.js';
-import type { BoutToit, Cheminee, CorpsToit, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../../../model/types.js';
+import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from './saillies.js';
+import type { BoutToit, Cheminee, CorpsToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../../../model/types.js';
 
 export type FamillePiece = 'toit' | 'sur' | 'facade';
 
@@ -46,6 +47,9 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'sur:pignon', famille: 'sur', libelle: 'Pignon' },
   { id: 'sur:cheminee', famille: 'sur', libelle: 'Cheminée' },
   ...lucarnes.map((e) => ({ id: 'sur:' + e.id, famille: 'sur' as const, libelle: e.titre.replace(/^Lucarne /, ''), exemple: e.id })),
+  { id: 'facade:bow-rectangle', famille: 'facade', libelle: 'Bow-window' },
+  { id: 'facade:bow-arc', famille: 'facade', libelle: 'Bow en arc' },
+  { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi' },
   { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
   { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' }
 ];
@@ -56,9 +60,9 @@ export const piecesDe = (famille: FamillePiece): PieceCatalogue[] => PIECES.filt
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const aire = (c: CorpsToit): number => { const r = repere(c.pts); return r.L * r.W; };
 
-/** Le corps qui porte ce que l'on pose : le plus grand. */
+/** Le corps qui porte ce que l'on pose : le plus grand, sans compter ce qui est pose sur une facade. */
 export const corpsPrincipal = (o: ObjetPlan): CorpsToit | null => {
-  const l = o.corpsToit ?? [];
+  const l = (o.corpsToit ?? []).filter((c) => !c.saillie);
   return l.length ? l.reduce((a, b) => (aire(b) > aire(a) ? b : a)) : null;
 };
 
@@ -132,10 +136,20 @@ export function corpsDepuisToitSimple(o: ObjetPlan): CorpsToit | null {
   return { pts: rect, posFaitage: forme === 'appentis' ? 0 : r.W / 2, faitage: plat ? egout : dixieme(egout + haut), egouts: [egout, egout], pignons: [], ecart: 0 };
 }
 
-/** Le corps sur lequel poser, cree depuis le toit simple s'il n'y en a pas encore. Null : le batiment n'a pas de contour. */
+/** Le contour est-il a peu pres son rectangle englobant ? Sinon un corps unique ne le decrit pas (une maison en L, en U). */
+function contourRectangulaire(o: ObjetPlan): boolean {
+  const pts = enPoints(o).pts as PtBrut[] | undefined;
+  const rect = pts && pts.length >= 3 ? boiteOrientee(pts) : null;
+  if (!pts || !rect) return false;
+  const aire = (l: readonly PtBrut[]) => Math.abs(l.reduce((t, q, i) => { const r = l[(i + 1) % l.length] as PtBrut; return t + q.x * r.y - r.x * q.y; }, 0)) / 2;
+  return aire(pts) >= 0.9 * aire(rect);
+}
+
+/** Le corps sur lequel poser, cree depuis le toit simple s'il n'y en a pas encore. Null : pas de contour, ou un contour que le rectangle decrit mal. */
 function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
   const deja = corpsPrincipal(o);
   if (deja) return deja;
+  if (!contourRectangulaire(o)) return null;
   const c = corpsDepuisToitSimple(o);
   if (!c) return null;
   o.corpsToit = [c];
@@ -148,13 +162,15 @@ export function raisonIndisponible(o: ObjetPlan, id: string): string | null {
   if (!p) return 'Geste inconnu.';
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   if (p.famille === 'toit') return null;
+  // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
+  if (!corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
   if (id === 'sur:pignon') {
     const c = corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
     return c && formeDuCorps(c) === 'appentis' ? 'Un appentis n’a pas de pignon sur son long pan.' : null;
   }
   if (p.famille === 'sur') return null;
-  // Facade : l'appentis ouvert ou ferme se regle sur un appentis qui existe.
-  return (o.corpsToit ?? []).some((c) => formeDuCorps(c) === 'appentis') ? null : 'Aucun appentis sur ce bâtiment.';
+  // Facade : un element se pose sur un mur du corps principal ; ce corps se deduit du toit simple au besoin.
+  return null;
 }
 
 const toitDe = (o: ObjetPlan) => {
@@ -215,9 +231,20 @@ export function appliquerPiece(o: ObjetPlan, id: string): boolean {
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else {
-    const ouvert = nom === 'galerie';
-    o.corpsToit = (o.corpsToit ?? []).map((c) => (formeDuCorps(c) === 'appentis' ? { ...c, ouvert } : c));
+    const hote = corpsPourPoser(o);
+    if (!hote || !o.corpsToit) return false;
+    const rang = o.corpsToit.indexOf(hote);
+    const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
+    const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : 'rectangle';
+    const d = DEFAUTS_SAILLIE[genre];
+    const mur = murLibre(o.corpsToit, rang);
+    const { L } = murDuCorps(hote, mur);
+    const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
+    // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.
+    const profondeurM = forme === 'arc' ? Math.min(largeurM / 2, 1.2) : d.profondeurM;
+    o.corpsToit = [...o.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
     o.modeToit = 'corps';
+    toitDe(o).source = 'saisie';
   }
   o.toitFige = true;
   return true;

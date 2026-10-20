@@ -19,7 +19,8 @@ import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '.
 import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
 import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
-import { ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from './toitCorps3d.js';
+import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from './toitCorps3d.js';
+import { separerBowWindows } from '../facade/regles/toits/saillies.js';
 import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
@@ -1152,7 +1153,8 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
   const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
-  const corpsToit = modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null;
+  // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.
+  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null);
   const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
   // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
   // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
@@ -1194,8 +1196,8 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   } else if (o.type === 'polygon' && corpsToit) {
     ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
   }
-  // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui
-  // n'en porte pas (tous ceux lus sur le LiDAR) ne pose rien de plus.
+  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.toit);
+  // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
   if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
     const sol = co.sol;
     const ctxObs = { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture,
