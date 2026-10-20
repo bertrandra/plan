@@ -23,7 +23,7 @@ describe('les poignees', () => {
     const corps = avecTout();
     const ids = (t: Parameters<typeof poigneesDe>[1]) => poigneesDe(corps, t).map((p) => p.id);
     expect(ids({ type: 'saillie', rang: 1, i: 0 })).toEqual(['pos', 'larg', 'prof', 'haut']);
-    expect(ids({ type: 'pignon', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
+    expect(ids({ type: 'pignon', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut', 'prof']);
     expect(ids({ type: 'lucarne', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
     expect(ids({ type: 'cheminee', rang: 0, i: 0 })).toEqual(['pos']);
     expect(ids({ type: 'solaire', rang: 0, i: 1 })).toEqual(['pos', 'taille']);
@@ -51,6 +51,20 @@ describe('glisser', () => {
     const corps = avecTout(), avant = JSON.stringify(corps);
     glisser(corps, { type: 'pignon', rang: 0, i: 0 }, 'pos', { long: 3 });
     expect(JSON.stringify(corps)).toBe(avant);
+  });
+
+  it('avance un pignon au-dela du mur : borne a 2,5 m, la saillie nulle s efface, les poignees suivent la face avancee', () => {
+    const corps = avecTout(), cible = { type: 'pignon', rang: 0, i: 0 } as const;
+    const a = glisser(corps, cible, 'prof', { prof: 1.03 });
+    expect(a.corps[0]!.pignons[0]!.saillieM).toBe(1.05);
+    expect(cotesDe(a.corps, cible).find((c) => c.cle === 'prof')!.texte).toBe('1,05 m');
+    expect(glisser(a.corps, cible, 'prof', { prof: 9 }).corps[0]!.pignons[0]!.saillieM).toBe(2.5);
+    // De retour au nu du mur, le champ disparait : le fichier est celui d'avant.
+    expect('saillieM' in glisser(a.corps, cible, 'prof', { prof: -5 }).corps[0]!.pignons[0]!).toBe(false);
+    const avant = poigneesDe(corps, cible).find((p) => p.id === 'haut')!.point, apres = poigneesDe(a.corps, cible).find((p) => p.id === 'haut')!.point;
+    expect(Math.hypot(apres.x - avant.x, apres.y - avant.y)).toBeCloseTo(1.05, 5);
+    // Le corps de depart n'a pas bouge.
+    expect(corps[0]!.pignons[0]!.saillieM).toBeUndefined();
   });
 
   it('deplace un pignon, le colle aux bords et le garde dans le corps', () => {

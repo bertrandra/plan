@@ -1011,6 +1011,11 @@ export interface PignonToit {
   faitage: number;
   /** Sa longueur depuis le mur vers l'interieur, en metres : jusqu'au faitage du corps quand il en part. */
   profondeur: number;
+  /**
+   * L'avancee du pignon au-dela du mur, en metres (0 a 2,5) : son triangle et ses murs de cote sortent d'autant du nu
+   * de la facade, le toit du pignon avance avec eux. Absente ou nulle, le pignon est au nu du mur.
+   */
+  saillieM?: number;
 }
 
 /** Le doute sur la toiture d'un batiment a cheval sur deux parcelles, et sa reponse (model/aCheval.ts). */

@@ -8,10 +8,11 @@
 // Pur : pas de DOM, pas de scene.
 
 import { point, repere } from '../../toitCorps.js';
-import { bornerSaillie, murDuCorps, replacerSaillie } from './saillies.js';
+import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
 import type { CibleElement } from './elements.js';
 import type { CorpsToit, PtBrut } from '../../../model/types.js';
+import { SAILLIE_PIGNON_MAX_M } from '../../../model/corpsToitEtendu.js';
 
 export type Axe = 'long' | 'vert' | 'prof';
 
@@ -106,11 +107,13 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   if (t.type === 'pignon') {
     const g = c.pignons[t.i];
     if (!g) return [];
-    const e = c.egouts[g.pan];
+    const e = c.egouts[g.pan], sa = g.saillieM ?? 0, mi = (g.debut + g.fin) / 2;
+    // Les poignees suivent la face avancee du pignon ; celle de la saillie est a mi-hauteur de son triangle.
     return [
-      { id: 'pos', point: P((g.debut + g.fin) / 2, 0, e), axes: ['long'], libelle: 'Position' },
-      { id: 'larg', point: P(g.fin, 0, e), axes: ['long'], libelle: 'Largeur' },
-      { id: 'haut', point: P((g.debut + g.fin) / 2, 0, g.faitage), axes: ['vert'], libelle: 'Hauteur du faîte' }
+      { id: 'pos', point: P(mi, sa, e), axes: ['long'], libelle: 'Position' },
+      { id: 'larg', point: P(g.fin, sa, e), axes: ['long'], libelle: 'Largeur' },
+      { id: 'haut', point: P(mi, sa, g.faitage), axes: ['vert'], libelle: 'Hauteur du faîte' },
+      { id: 'prof', point: P(mi, sa, (e + g.faitage) / 2), axes: ['prof'], libelle: 'Saillie' }
     ];
   }
   if (t.type === 'lucarne') {
@@ -148,7 +151,7 @@ export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
     const g = c.pignons[t.i];
     if (!g) return [];
     const demi = (g.fin - g.debut) / 2, e = c.egouts[g.pan];
-    return [{ cle: 'w', texte: fr(g.fin - g.debut) }, { cle: 'ang', texte: Math.round((Math.atan2(g.faitage - e, demi) * 180) / Math.PI) + '°' }, { cle: 'h', texte: fr(g.faitage) }];
+    return [{ cle: 'w', texte: fr(g.fin - g.debut) }, { cle: 'ang', texte: Math.round((Math.atan2(g.faitage - e, demi) * 180) / Math.PI) + '°' }, { cle: 'h', texte: fr(g.faitage) }, ...(g.saillieM ? [{ cle: 'prof', texte: fr(g.saillieM) }] : [])];
   }
   if (t.type === 'lucarne') { const l = c.lucarnes?.[t.i]; return l ? [{ cle: 'w', texte: fr(l.finM - l.debutM) }, { cle: 'h', texte: fr(l.faitageM) }] : []; }
   if (t.type === 'cheminee') { const h = c.cheminees?.[t.i]; return h ? [{ cle: 'w', texte: fr(h.largeurM) }, { cle: 'h', texte: fr(h.sommetM) }] : []; }
@@ -237,6 +240,7 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     const w = g.fin - g.debut;
     if (id === 'pos') { const debut = borne(collerElement(g.debut + dl, w), 0, f.L - w); return { corps: avec(depart, t.rang, { ...c, pignons: remplace(c.pignons, t.i, { ...g, debut: centi(debut), fin: centi(debut + w) }) }), guides }; }
     if (id === 'larg') { const fin = borne(coller(g.fin + dl), g.debut + 1.4, Math.min(g.debut + 8, f.L)); return { corps: avec(depart, t.rang, { ...c, pignons: remplace(c.pignons, t.i, { ...g, fin: centi(fin) }) }), guides }; }
+    if (id === 'prof') { const sa = borne(vingt((g.saillieM ?? 0) + dp), 0, SAILLIE_PIGNON_MAX_M); return { corps: avec(depart, t.rang, { ...c, pignons: remplace(c.pignons, t.i, saillieDe(g, sa)) }), guides }; }
     if (id === 'haut') { const e = c.egouts[g.pan], f2 = borne(vingt(g.faitage + dv), e + 0.8, c.faitage); return { corps: avec(depart, t.rang, { ...c, pignons: remplace(c.pignons, t.i, { ...g, faitage: centi(f2) }) }), guides }; }
     return rien;
   }

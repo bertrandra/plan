@@ -10,7 +10,7 @@
 // Pur : pas de reseau, pas de DOM.
 
 import { repere, point } from '../../toitCorps.js';
-import type { CorpsToit, FormeSaillie, GenreSaillie, PtBrut, SaillieFacade } from '../../../model/types.js';
+import type { CorpsToit, FormeSaillie, GenreSaillie, PignonToit, PtBrut, SaillieFacade } from '../../../model/types.js';
 
 /** Un point du dessin, `z` etant la hauteur au-dessus du sol du batiment. */
 export interface Pt3 { x: number; y: number; z: number }
@@ -269,4 +269,11 @@ export function murLePlusProche(h: CorpsToit, p: PtBrut): { mur: number; centreM
     if (d < dmin) { dmin = d; meilleur = { mur: i, centreM: s }; }
   }
   return meilleur;
+}
+
+/** Le pignon avec sa saillie ; nulle, le champ s'efface (un fichier sans saillie reste identique). */
+export function saillieDe(g: PignonToit, m: number): PignonToit {
+  const neuf: PignonToit = { ...g, saillieM: m };
+  if (!(m > 0.01)) delete neuf.saillieM;
+  return neuf;
 }

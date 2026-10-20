@@ -29,6 +29,6 @@ const TRACES: Record<string, ReactNode> = {
 /** L'image d'un choix, ou son texte quand il n'a pas de trace (les retraits : « 0 », « ½ », « 1 »). */
 export function ImageChoix({ groupe, valeur }: { groupe: string; valeur: string }) {
   const trace = TRACES[groupe + ':' + valeur];
-  if (!trace) return <span aria-hidden="true">{valeur === '0.5' ? '½' : valeur}</span>;
+  if (!trace) return <span aria-hidden="true">{valeur === '0.5' ? '½' : valeur.replace('.', ',')}</span>;
   return <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{trace}</svg>;
 }
