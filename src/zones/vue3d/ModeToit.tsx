@@ -131,6 +131,8 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
 export function ModeToit({ magasin, commandes }: Props) {
   useStore(magasin.store, (s) => s.version);
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
+  // Sur telephone le panneau est une feuille : repliee, elle ne laisse que sa barre et la scene respire.
+  const [replie, setReplie] = useState(false);
   const e = etatToit(), s = sessionToit();
   if (!e.actif || !s) return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
@@ -142,7 +144,9 @@ export function ModeToit({ magasin, commandes }: Props) {
     <PlanToit magasin={magasin} commandes={commandes} />
     <IndiceMain magasin={magasin} />
     <PoigneesToit magasin={magasin} />
-    <div className="panneauToit" role="region" aria-label="Mode Toit">
+    <div className={'panneauToit' + (replie ? ' replie' : '')} role="region" aria-label="Mode Toit">
+      <button type="button" className="languetteToit" aria-expanded={!replie} aria-label={replie ? 'Déployer le catalogue' : 'Replier le catalogue'}
+        title={replie ? 'Déployer le catalogue' : 'Replier le catalogue'} onClick={() => { setReplie(!replie); }}><Icone nom={replie ? 'chevronHaut' : 'chevronBas'} taille={20} /></button>
       <div className="barreToit" role="toolbar" aria-label="Session du toit">
         <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
         <BoutonToit commandes={commandes} id="toit.annuler" icone="annuler" libelle="Annuler (Ctrl+Z)" />
@@ -153,6 +157,7 @@ export function ModeToit({ magasin, commandes }: Props) {
         <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
         <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
         <BoutonToit commandes={commandes} id="toit.vueDessus" icone="ajuster" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
+        <BoutonToit commandes={commandes} id="toit.voirValide" icone="toit" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
         <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
         <span className="espaceToit" />
         <BoutonToit commandes={commandes} id="toit.valider" icone="coche" libelle="Valider" texte="Valider" valider />

@@ -94,7 +94,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   }, []);
 
   const s = sessionToit(), e = etatToit();
-  if (!s || !e.actif) return null;
+  if (!s || !e.actif || e.validee) return null;
   const plan = e.vue === 'dessus';
   // De dessus, seul un corps choisi a des poignees ; de face, un corps choisi se regle par la facade courante.
   if (plan && e.selection?.type !== 'corps') return null;
