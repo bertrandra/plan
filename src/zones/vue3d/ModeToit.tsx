@@ -32,11 +32,11 @@ function ImagePiece({ p }: { p: PieceCatalogue }) {
 }
 
 /** Un bouton de la barre de session : une commande, une icone, son etat (grise avec sa raison, ou enfonce). */
-function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider }: { commandes: RegistreCommandes; id: string; icone: NomIcone; libelle: string; texte?: string; presse?: boolean; valider?: boolean }) {
+function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider, miroir }: { commandes: RegistreCommandes; id: string; icone: NomIcone; libelle: string; texte?: string; presse?: boolean; valider?: boolean; miroir?: boolean }) {
   const e = commandes.etat(id);
   const refus = !e.utilisable && 'message' in e ? e.message : null;
   return (
-    <button type="button" className={'boutonToit' + (valider ? ' valider' : '')} data-commande={id} aria-label={libelle} aria-pressed={presse}
+    <button type="button" className={'boutonToit' + (valider ? ' valider' : '') + (miroir ? ' miroir' : '')} data-commande={id} aria-label={libelle} aria-pressed={presse}
       title={libelle + (refus ? ' — ' + refus : '')} disabled={!e.utilisable} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
       <Icone nom={icone} taille={20} />{texte && <span>{texte}</span>}
     </button>
@@ -58,7 +58,7 @@ export function ModeToit({ magasin, commandes }: Props) {
       <div className="barreToit" role="toolbar" aria-label="Session du toit">
         <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
         <BoutonToit commandes={commandes} id="toit.annuler" icone="annuler" libelle="Annuler (Ctrl+Z)" />
-        <BoutonToit commandes={commandes} id="toit.retablir" icone="annuler" libelle="Rétablir (Ctrl+Maj+Z)" />
+        <BoutonToit commandes={commandes} id="toit.retablir" icone="annuler" libelle="Rétablir (Ctrl+Maj+Z)" miroir />
         <BoutonToit commandes={commandes} id="toit.depart" icone="positionInitiale" libelle="Revenir au départ (annulable)" />
         <BoutonToit commandes={commandes} id="toit.isoler" icone={e.isole ? 'oeilBarre' : 'oeil'} libelle="Isoler ce bâtiment" presse={e.isole} />
         <span className="separateurToit" aria-hidden="true" />

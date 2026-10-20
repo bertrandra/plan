@@ -95,6 +95,7 @@
   .panneauToit .boutonToit{ min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:4px 8px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .boutonToit:disabled{ opacity:.35; cursor:not-allowed; }
   .panneauToit .boutonToit[aria-pressed="true"]{ background:var(--accent-light); border-color:var(--accent); }
+  .panneauToit .boutonToit.miroir svg{ transform:scaleX(-1); }
   .panneauToit .boutonToit.valider{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .panneauToit .indiceToit{ margin:0; font-size:.85rem; color:var(--ink-soft); }
   .panneauToit .toitRegles{ align-self:flex-start; min-height:44px; padding:4px 10px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
