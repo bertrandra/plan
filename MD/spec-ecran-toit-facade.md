@@ -198,7 +198,7 @@ Exemple dans AE 101 (pas un relevé) : un retour qui entre dans le toit, une ail
 
 ### Correctif v8 : un bâtiment qui en cache un autre
 
-- **Choisir un bâtiment que d'autres cachent** (3D du terrain, façade d'un corps derrière un autre) : ce qui cache devient transparent tout seul.
+- **Choisir un bâtiment que d'autres cachent** (3D du terrain, façade d'un corps derrière un autre) : ce qui cache perd son volume et ne garde que son **contour pointillé** (la transparence seule était illisible : les volumes se mélangent). On voit où il est, sans qu'il cache.
   Des rayons de visée partent vers le bâtiment (ou vers le mur choisi) ; le premier autre corps touché est fantôme. Le bâtiment choisi
   reste touchable à travers lui.
 - **Œil « Isoler »** (3D du terrain à côté de *Modifier* ; barre de vues de la façade) : masque tous les autres corps.

@@ -787,14 +787,15 @@ function buildParts(m){
   parts.forEach(pt=>{
     const by={};
     pt.F.forEach(f=>{const k=MATKEY[f.c];if(!k)return;const a=by[k]||(by[k]=[]);faceTris(f.p).forEach(t=>t.forEach(q=>a.push(q[0],q[1],q[2])));});
-    const g=new T.Group(),mats=[],edges=new T.Group();edges.visible=false;
+    const g=new T.Group(),mats=[],meshes=[],edges=new T.Group(),cont=new T.Group();edges.visible=false;cont.visible=false;
     Object.keys(by).forEach(k=>{
       const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(by[k],3));geo.computeVertexNormals();
       const mat=new T.MeshLambertMaterial({color:pal[k],side:T.DoubleSide});mats.push(mat);
-      const mesh=new T.Mesh(geo,mat);mesh.frustumCulled=false;g.add(mesh);
+      const mesh=new T.Mesh(geo,mat);mesh.frustumCulled=false;g.add(mesh);meshes.push(mesh);
+      const lc=new T.LineSegments(new T.EdgesGeometry(geo,28),new T.LineDashedMaterial({color:css('--ink-soft'),dashSize:.4,gapSize:.3}));lc.computeLineDistances();lc.frustumCulled=false;cont.add(lc);
       const ln=new T.LineSegments(new T.EdgesGeometry(geo,28),new T.LineBasicMaterial({color:acc}));ln.frustumCulled=false;edges.add(ln);
     });
-    g.add(edges);g.userData={pid:pt.id,kind:pt.kind,zone:pt.zone,mats,edges};
+    g.add(edges);g.add(cont);g.userData={pid:pt.id,kind:pt.kind,zone:pt.zone,mats,meshes,edges,cont};
     let b=[1e9,1e9,-1e9,-1e9];
     pt.F.forEach(f=>f.p.forEach(q=>{const s2=P(q[0],q[1],q[2]);b=[Math.min(b[0],s2[0]),Math.min(b[1],s2[1]),Math.max(b[2],s2[0]),Math.max(b[3],s2[1])];}));
     box[pt.id]={x:b[0],y:b[1],width:b[2]-b[0],height:b[3]-b[1]};
@@ -849,7 +850,8 @@ function facePaint(){
     const cache=autre&&(isolate||occ[u.zone]);
     g.visible=!(autre&&isolate);u.ghost=!!cache;
     u.edges.visible=on;
-    u.mats.forEach(m=>{m.emissive.set(on?acc:noir);m.emissiveIntensity=on?.14:0;m.transparent=!!cache;m.opacity=cache?.15:1;m.depthWrite=!cache;m.needsUpdate=true;});
+    u.mats.forEach(m=>{m.emissive.set(on?acc:noir);m.emissiveIntensity=on?.14:0;});
+    u.meshes.forEach(m=>{m.visible=!cache;});u.cont.visible=!!cache&&!isolate;
   });
   if(setFaceCam())FACE.r.render(FACE.sc,FACE.cam);
 }
@@ -1348,19 +1350,20 @@ function buildGroup(m,id){
   VIEW=null;
   const{F,box}=modelFaces(m),pal=palette(),by={},inner=new T.Group();
   F.forEach(f=>{const k=MATKEY[f.c];if(!k)return;const a=by[k]||(by[k]=[]);faceTris(f.p).forEach(t=>t.forEach(q=>a.push(q[0],q[1],q[2])));});
-  const mats=[],edges=new T.Group();edges.visible=false;
+  const mats=[],meshes=[],edges=new T.Group(),cont=new T.Group();edges.visible=false;cont.visible=false;
   Object.keys(by).forEach(k=>{
     const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(by[k],3));geo.computeVertexNormals();
     const mat=new T.MeshLambertMaterial({color:pal[k],side:T.DoubleSide});mats.push(mat);
-    inner.add(new T.Mesh(geo,mat));
+    const mesh=new T.Mesh(geo,mat);meshes.push(mesh);inner.add(mesh);
+    const lc=new T.LineSegments(new T.EdgesGeometry(geo,28),new T.LineDashedMaterial({color:css('--ink-soft'),dashSize:.4,gapSize:.3}));lc.computeLineDistances();cont.add(lc);
     if(k==='wall'||k==='roof')edges.add(new T.LineSegments(new T.EdgesGeometry(geo,28),new T.LineBasicMaterial({color:css('--accent')})));
   });
   const cx=(box.x0+box.x1)/2,cz=(box.z0+box.z1)/2;
-  inner.position.set(-cx,0,cz);inner.add(edges);
+  inner.position.set(-cx,0,cz);inner.add(edges);inner.add(cont);
   const root=new T.Group();root.userData.id=id;root.userData.off={cx,cz};root.add(inner);
   root.userData.setSel=on=>{edges.visible=on;mats.forEach(q=>{q.emissive.set(on?css('--accent'):'#000000');q.emissiveIntensity=on?.16:0;});};
-  // 0 plein, 1 fantome (il cache le batiment choisi), 2 absent (on isole le batiment choisi)
-  root.userData.setGhost=lv=>{root.visible=lv<2;root.userData.ghost=lv===1;mats.forEach(q=>{q.transparent=lv===1;q.opacity=lv===1?.15:1;q.depthWrite=lv!==1;q.needsUpdate=true;});};
+  // 0 plein, 1 contour pointille seul (il cache le batiment choisi : on voit ou il est, pas son volume), 2 absent (on isole)
+  root.userData.setGhost=lv=>{root.visible=lv<2;root.userData.ghost=lv===1;meshes.forEach(m=>{m.visible=lv!==1;});cont.visible=lv===1;};
   return root;
 }
 const VOISINS=[
