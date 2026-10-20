@@ -284,7 +284,7 @@ function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtB
  * batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
  */
 function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  const garde = (o: ObjetBrut) => options.verifies !== 'relire' && estVerifieSurPlace(o);
+  const garde = (o: ObjetBrut) => o.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o));
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }

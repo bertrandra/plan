@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { construireArbre, repartitionDesModes, type ArbreNoeud, type ModeNoeud, type NoeudChaine } from '../model/chaine.js';
 import type { ChaineVivante, NoeudVivant } from '../app/chaineVivante.js';
-import { EXEMPLES_TOITS, vueIsometrique } from '../three/catalogueToits.js';
+import { EXEMPLES_TOITS, vueIsometrique, type VueIso } from '../three/catalogueToits.js';
 
 const MODES: Record<ModeNoeud, string> = { auto: 'Automatique', manuel: 'Manuel', mixte: 'Automatique puis manuel' };
 const GENRES: Record<NoeudChaine['genre'], string> = { etape: 'Étape', source: 'Source', objet: 'Objet', regle: 'Règle', objet3d: 'Objet 3D', texture: 'Texture', processus: 'Processus' };
@@ -19,8 +19,13 @@ export function VignetteToit({ forme }: { forme: string }) {
   const exemple = EXEMPLES_TOITS.find((e) => e.id === forme);
   const vue = useMemo(() => (exemple ? vueIsometrique(exemple) : null), [exemple]);
   if (!exemple || !vue) return null;
+  return <VignetteVue vue={vue} titre={exemple.titre} />;
+}
+
+/** Une vue isometrique deja calculee (catalogue, element de facade) : les facettes, teintees par leur exposition. */
+export function VignetteVue({ vue, titre }: { vue: VueIso; titre: string }) {
   return (
-    <svg className="chaineVignette" viewBox={'0 0 ' + Math.round(vue.largeur) + ' ' + Math.round(vue.hauteur)} role="img" aria-label={'Vue 3D : ' + exemple.titre}>
+    <svg className="chaineVignette" viewBox={'0 0 ' + Math.round(vue.largeur) + ' ' + Math.round(vue.hauteur)} role="img" aria-label={'Vue 3D : ' + titre}>
       {vue.facettes.map((f, i) => {
         const g = Math.round(60 + f.ton * 170);
         const fill = f.mur ? 'rgb(' + g + ',' + (g - 8) + ',' + (g - 20) + ')' : 'rgb(' + g + ',' + Math.round(g * 0.45) + ',' + Math.round(g * 0.35) + ')';

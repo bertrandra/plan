@@ -127,6 +127,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.couleurMurs) out.couleurMurs = JSON.parse(JSON.stringify(o.couleurMurs));
     // Verifie sur place par un audit de la parcelle (MD/spec-audit.md §14) : pose seulement s'il l'est.
     if(o.verifieSurPlace) out.verifieSurPlace = { date: o.verifieSurPlace.date };
+    // Lecture automatique du toit coupee (palette › Toit › Règles) : posee seulement si elle l'est.
+    if(o.toitFige) out.toitFige = true;
     if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
     // Le profil de facades retenu (facade/regles/facades/profils.ts) : sans lui, la tache de fond le rechoisirait a chaque ouverture.
     if(o.profilFacades) out.profilFacades = { id: o.profilFacades.id, version: o.profilFacades.version };

@@ -51,6 +51,7 @@ export interface ObjetAToit {
   toitLidarLu?: number | null;
   /** Verifie sur place par un audit de la parcelle (model/toitVerifie.ts) : la lecture ne le touche plus. */
   verifieSurPlace?: { date: string } | null;
+  toitFige?: boolean;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -267,6 +268,8 @@ const EN_PARALLELE = 4;
 /** Un batiment dont Plan choisit le toit : pas de toit, ou un toit BD TOPO ou LiDAR. */
 export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } {
   if (o.fonction !== 'batiment' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
+  // « Règles » coupées pour ce batiment (palette › Toit) : la lecture automatique ne le touche pas.
+  if (o.toitFige) return false;
   const s = o.toit?.source;
   return !o.toit || s === 'bdtopo' || s === 'lidar';
 }

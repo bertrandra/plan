@@ -25,6 +25,7 @@ import { restaurerOrthoDuProjet, basculerOrthophoto, chargerOrthophoto, ortho, r
 import { dessinerCourbesRelief } from '../render/relief.js';
 import { dessinerNomsDesRues } from '../render/rues.js';
 import { brancherRelief } from './ecouteurs/relief.js';
+import { brancherToitCatalogue } from './ecouteurs/toitCatalogue.js';
 import { lectureRelief } from '../core/lectureRelief.js';
 import { lectureToits } from '../core/lectureToits.js';
 import { creerApercuVue } from '../render/apercuVue.js';
@@ -473,6 +474,11 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {
     reference: () => referenceGeoPlan(ch.ctxOrtho()),
+    buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
+    rafraichir: () => magasin.notifier()
+  }, commandes);
+  // Le catalogue du toit et les « Regles » (palette, groupe Toit).
+  brancherToitCatalogue(atelier, {
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     rafraichir: () => magasin.notifier()
   }, commandes);

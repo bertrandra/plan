@@ -111,8 +111,11 @@ function facettesSimples(c: Corps, L: number, W: number): { pans: Sommet[][]; mu
 export interface FacettePlate { points: [number, number][]; ton: number; mur: boolean; lucarne: boolean }
 export interface VueIso { facettes: FacettePlate[]; largeur: number; hauteur: number }
 
-/** Les facettes d'un exemple, en projection isometrique (x vers la droite, y vers le bas), de l'arriere vers l'avant. */
-export function vueIsometrique(e: ExempleToit): VueIso {
+/**
+ * Les facettes d'un exemple, en projection isometrique (x vers la droite, y vers le bas), de l'arriere vers l'avant.
+ * `plus` : des facettes de plus, dans le repere de l'exemple (un element de facade pose contre son mur).
+ */
+export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur: boolean }[] = []): VueIso {
   const liste: { f: Sommet[]; mur: boolean; lucarne: boolean }[] = [];
   for (const { corps: c, t0 = 0, w: W = LARGEUR_M, l: L = LONGUEUR_M } of e.corps) {
     // Un avant-corps a pignon (corps.pignons) se dessine comme la 3D : le grand pan est entaille le long des noues du pignon.
@@ -130,6 +133,7 @@ export function vueIsometrique(e: ExempleToit): VueIso {
       ...dormers.murs.map((f) => ({ f: decale(f), mur: true, lucarne: true })), ...dormers.pans.map((f) => ({ f: decale(f), mur: false, lucarne: true })),
     );
   }
+  liste.push(...plus.map(({ f, mur }) => ({ f, mur, lucarne: false })));
   const K = 22, cos = Math.cos(Math.PI / 6), sin = Math.sin(Math.PI / 6);
   const proj = (m: Sommet): [number, number] => [(m.s - m.t) * cos * K, (m.s + m.t) * sin * K - m.z * K];
   const profondeur = (f: Sommet[]) => f.reduce((a, m) => a + m.s + m.t, 0) / f.length;
