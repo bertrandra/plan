@@ -44,6 +44,7 @@ import {
   bilanChangements, ecartsCompteurs, ABSENT, type FormesBatiment, type ReferenceFormes, type CompteursBanc,
 } from '../../../../tests/banc/toits/formes.ts';
 import { corpsSelonFait } from '../../../../src/facade/regles/toits/faits.ts';
+import { saillies } from '../../../../src/facade/regles/toits/baies.ts';
 import { corpsCalcules } from '../../../../src/facade/regles/toits/catalogue.ts';
 import { faitDuBatiment } from '../../../../src/regles/toits/faits.ts';
 
@@ -73,6 +74,8 @@ const lieu = { departement: departementDuCode(D.parcelle), latitude: typeof D.la
 mkdirSync(S + 'q', { recursive: true });
 const dims = (c: any) => { const [a, b, , d] = c.pts; return [Math.hypot(b.x - a.x, b.y - a.y), Math.hypot(d.x - a.x, d.y - a.y)]; };
 let nCorps = 0, nSus = 0, nSans = 0, nReprise = 0;
+// Les bay windows possibles du contour (facade/regles/toits/baies.ts) : un repere, jamais un toit (spec §3.4 n°9).
+const baiesPossibles: string[] = [];
 const lignes: string[] = [];
 const formes: Record<string, FormesBatiment> = {};
 const t0 = performance.now();
@@ -87,6 +90,7 @@ for (const b of D.batiments) {
     const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
     return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [] };
   });
+  for (const sa of saillies(b.pts)) baiesPossibles.push(`${b.key} ${sa.largeurM} x ${sa.saillieM} m, face a ${sa.azimutDeg} deg`);
   const reprise = !rectanglesDuContour(b.pts);
   if (reprise) nReprise++;
   const h = b.bdtopo?.hauteurRetenueM ?? b.bdtopo?.hauteurM ?? null;
@@ -95,7 +99,7 @@ for (const b of D.batiments) {
   for (const c of corps) {
     const [L, W] = dims(c); const [e0, e1] = c.egouts; const F = c.faitage, p = c.posFaitage;
     const plat = F - Math.min(e0, e1) < 0.05, app = !plat && (p <= 0.01 || p >= W - 0.01);
-    if (Math.min(L, W) < 3) pb.push(`etroit ${Math.min(L, W).toFixed(1)}`);
+    if (Math.min(L, W) < 3 && !c.baie) pb.push(`etroit ${Math.min(L, W).toFixed(1)}`);
     if (app && c.pignons.length) pb.push('appentis+pignon');
     if (!plat && !app && Math.abs(e0 - e1) > 1.5) pb.push(`egouts ${e0}/${e1}`);
     if (Math.min(e0, e1) < 1.5) pb.push(`egout bas ${Math.min(e0, e1)}`);
@@ -113,6 +117,7 @@ for (const b of D.batiments) {
 }
 const compteurs: CompteursBanc = { batiments: D.batiments.length, corps: nCorps, suspects: nSus, sansCorps: nSans, reprise: nReprise };
 console.log(nom, 'temps', (performance.now() - t0).toFixed(0), 'ms batiments', D.batiments.length, 'corps', nCorps, 'suspects', nSus, 'sans corps', nSans, 'contours en reprise', nReprise);
+console.log('bay windows possibles (saillies du contour) :', baiesPossibles.length, ...baiesPossibles.map((l) => '\n  ' + l));
 for (const l of lignesFormes(formes)) console.log(l);
 console.log('deduction des formes :', deduction.source === 'modele' ? 'model/formeToit.ts' : 'locale (tests/banc/toits/formes.ts, G1 absent)');
 

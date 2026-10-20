@@ -228,6 +228,8 @@ export const LECTURES_TOITS: readonly LectureToits[] = [
   // Retour sur la version 5 : coupee au mur du contour, la galerie d'AE 101 s'arretait avant le coin du mur dessine. Elle court de
   // nouveau sur tout le cote du corps qui la porte (reglages de la version 4) ; c'est le dessin qui l'arrete au nu des murs.
   { version: 6, reglages: 'b472cd75', faits: '43162115', formes: '83c56e39' },
+  // La bay window de la face est d'AE 101 (fait, regles/toits/faits.json) et les seuils de leur lecture (facade/regles/toits/baies.ts).
+  { version: 7, reglages: 'becf6fa1', faits: '2427f5f5', formes: '83c56e39' },
 ];
 
 /**

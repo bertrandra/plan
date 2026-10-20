@@ -17,6 +17,7 @@
 import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from '../../toitCorps.js';
 import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../../toitLidar.js';
 import { appentisVers, avecAppentis } from './appentis.js';
+import { avecBaies, baiePosee } from './baies.js';
 import { avecPignons, pignonsManquants } from './pignons.js';
 import { signedArea } from '../../../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../../../regles/toits/faits.js';
@@ -170,7 +171,7 @@ export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: T
   // Les pignons d'une facade se posent sur le corps principal relu ; les appentis adosses se lisent
   // ensuite sur la grille brute (la surface mesuree s'arrete au contour).
   const principaux = avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour);
-  return avecAppentis(f.observation.appentis, principaux, contour, grille);
+  return avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille);
 }
 
 /** Les corps lus, le corps principal relu dans les formes et le sens observes, le nombre de corps tenu. */
@@ -203,7 +204,7 @@ function corpsPrincipauxSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m
  */
 export function corpsDeRemplacement(f: FaitToit, contour: readonly PtBrut[]): CorpsToit[] | null {
   // Sans mesure, un appentis adosse ne se pose qu'avec toutes ses cotes.
-  return avecAppentis(f.observation.appentis, corpsSurBoiteDuFait(f, contour), contour, null);
+  return avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, corpsSurBoiteDuFait(f, contour), contour, null), contour, null);
 }
 
 /** Le corps du remplacement, sur la boite orientee du contour. */
@@ -274,7 +275,7 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   const o = f.observation;
   // Les appentis adosses que le fait a ajoutes ne comptent pas parmi les corps du batiment.
   const adosses = (o.appentis ?? []).filter((ap) => corps?.some((c) => appentisVers(c, ap)));
-  const n = (corps?.length ?? 0) - adosses.length;
+  const n = (corps?.filter((c) => !c.baie).length ?? 0) - adosses.length;
   const out: string[] = [];
   if ((o.corps?.min !== undefined && n < o.corps.min) || (o.corps?.max !== undefined && n > o.corps.max)) out.push('corps : ' + n);
   if (!corps?.length) return [...out, 'aucun corps'];
@@ -286,6 +287,7 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   if (!dans(Math.min(...c.egouts), o.egout)) out.push('egout : ' + Math.min(...c.egouts));
   if (!dans(c.faitage, o.faitageM)) out.push('faitage : ' + c.faitage + ' m');
   for (const ap of o.appentis ?? []) if (!adosses.includes(ap)) out.push('appentis vers ' + ap.facade.azimutDeg + ' : non lu');
+  for (const bf of o.baies ?? []) if (!baiePosee(bf, corps, contour)) out.push('bay window vers ' + bf.facade.azimutDeg + ' : non posee');
   for (const pf of o.pignons ?? []) { const n = pignonsManquants(pf, c, contour); if (n) out.push('pignons vers ' + pf.facade.azimutDeg + ' : ' + (2 - n) + ' sur 2'); }
   return out;
 }
