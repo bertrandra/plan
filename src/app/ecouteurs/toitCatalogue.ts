@@ -141,7 +141,9 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   // Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : l'element arme se pose, sinon la facade se choisit.
   const doc = typeof document === 'undefined' ? null : document;
   let appui: { x: number; y: number } | null = null;
-  doc?.addEventListener('pointerdown', (e) => { appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  // Une poignee (zones/vue3d/PoigneesToit.tsx) garde son geste : ni toucher ni orbite.
+  const surPoignee = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-poignee]');
+  doc?.addEventListener('pointerdown', (e) => { appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) && !surPoignee(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
   doc?.addEventListener('pointerup', (e) => {
     const debut = appui; appui = null;
     const hote = hotes3d.vue3d;

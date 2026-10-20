@@ -20,7 +20,7 @@ import { showToast } from '../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/regles/toits/elements.js';
 import type { Atelier } from './atelier.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut } from '../model/types.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
 
@@ -117,6 +117,14 @@ let derniereVue = '';
 const FANTOMES_MS = 200;
 let surveillerLaVue: () => void = () => {};
 
+/** Le mode de la session en cours : les zones qui dessinent des poignees (zones/vue3d/PoigneesToit.tsx) s'y adressent sans passer par une commande. */
+let pilote: ModeToit | null = null;
+export const modeToitCourant = (): ModeToit | null => pilote;
+
+/** Le rythme maximal auquel un glisser reconstruit la scene : au-dela, seul le dernier etat compte. */
+const GLISSER_MS = 140;
+let dernierRebatir = 0;
+
 export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
   objetsCourants = () => a.etat.objects;
   const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
@@ -154,7 +162,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
 
   const vues = creerVuesToit(ctx, batiment, rebatir);
 
-  return {
+  const mode = {
     /** Entre dans le mode sur le batiment selectionne. */
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
@@ -251,6 +259,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     hote: () => hotes3d.vue3d,
     ...vues.methodes
   };
+  pilote = mode;
+  return mode;
 }
 
 
@@ -293,6 +303,35 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
   return {
     quitterLaFacade,
     methodes: {
+    /** Un glisser en cours : les corps remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
+    apercu(corps: CorpsToit[]): void {
+      const o = batiment();
+      if (!o || !session) return;
+      o.corpsToit = corps;
+      o.toitFige = true;
+      const t = Date.now();
+      if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
+    },
+
+    /** Le glisser s'acheve : le batiment est reconstruit tel quel et la session empile une etape (une seule, quel que soit le trajet). */
+    finGlisser(): boolean {
+      const o = batiment(), s = session;
+      if (!o || !s) return false;
+      const change = empiler(s.hist, o);
+      rebatir();
+      ctx.rafraichir();
+      return change;
+    },
+
+    /** Echap pendant un glisser : le batiment retrouve l'etat de la pile. */
+    annulerGlisser(): void {
+      const o = batiment(), s = session;
+      if (!o || !s) return;
+      restaurer(o, s.hist.pas[s.hist.i] ?? {});
+      rebatir();
+      ctx.rafraichir();
+    },
+
     /** Le toucher sur la scene : la facade du batiment la plus proche du point touche. Vrai si le toucher a choisi une facade. */
     toucher(ndc: { x: number; y: number }): boolean {
       const o = batiment();
