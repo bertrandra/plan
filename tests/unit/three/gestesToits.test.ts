@@ -88,3 +88,24 @@ describe('rallumer les regles', () => {
     expect(o.modeToit).toBeUndefined();
   });
 });
+
+describe('le pignon sur la facade choisie', () => {
+  it('refuse un cote court et un toit sans pignon, le dit, et se pose du cote du mur choisi', () => {
+    const o = batiment();
+    appliquerPiece(o, 'forme:deux-pans');
+    expect(raisonIndisponible(o, 'sur:pignon', { rang: 0, mur: 1 })).toBe('Pas de pignon sur cette façade.');
+    expect(raisonIndisponible(o, 'sur:pignon', { rang: 0, mur: 3 })).toBe('Pas de pignon sur cette façade.');
+    expect(raisonIndisponible(o, 'sur:pignon', { rang: 0, mur: 0 })).toBeNull();
+    // Un refus ne pose rien.
+    expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 1 })).toBe(false);
+    expect(o.corpsToit![0]!.pignons).toHaveLength(0);
+    // Le long pan d'en face : le pignon est du pan 1.
+    expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 2 })).toBe(true);
+    expect(o.corpsToit![0]!.pignons[0]!.pan).toBe(1);
+    const plat = batiment();
+    appliquerPiece(plat, 'forme:plat');
+    expect(raisonIndisponible(plat, 'sur:pignon', { rang: 0, mur: 0 })).toBe('Pas de pignon sur cette façade.');
+    // Sans facade choisie, rien ne change : le geste d'avant.
+    expect(raisonIndisponible(o, 'sur:pignon')).toBeNull();
+  });
+});

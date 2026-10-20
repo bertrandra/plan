@@ -36,6 +36,39 @@ export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.t
 /** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
 const GLISSER_PX = 5;
 
+interface DepsClavier {
+  enSession: () => boolean;
+  aUnChoix: () => boolean;
+  mode: ReturnType<typeof creerModeToit>;
+  cmd: RegistreCommandes;
+  rafraichir: () => void;
+}
+
+/** Les touches du mode : Echap (arme, selection, vue, abandon), Suppr / Retour arriere (supprime l'element choisi), Ctrl+Z / Ctrl+Y (ceux de la session). */
+function touchesDuMode(e: KeyboardEvent, d: DepsClavier): void {
+  if (!d.enSession()) return;
+  const cible = e.target as HTMLElement | null;
+  // Une saisie dans un champ garde ses propres touches (Ctrl+Z du champ, Echap du dialogue).
+  if (cible && (cible.tagName === 'INPUT' || cible.tagName === 'TEXTAREA' || cible.tagName === 'SELECT')) return;
+  if (e.key === 'Escape') {
+    if (saillieArmee()) { desarmerSaillie(); d.rafraichir(); } else d.mode.echap();
+    return;
+  }
+  // Le corps principal reste : la commande le refuse sans rien ecrire.
+  if ((e.key === 'Delete' || e.key === 'Backspace') && d.aUnChoix()) {
+    e.preventDefault();
+    e.stopPropagation();
+    d.cmd.executer('toit.supprimer');
+    return;
+  }
+  const z = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z', y = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y';
+  if (!z && !y) return;
+  // Pendant la session, Ctrl+Z est celui de la session : le projet n'a rien a defaire.
+  e.preventDefault();
+  e.stopPropagation();
+  if (y || e.shiftKey) d.mode.retablir(); else d.mode.annuler();
+}
+
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
   const mode = creerModeToit(a, { rebatir: (o) => ctx.buildThreeScene(o), rafraichir: ctx.rafraichir });
   const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
@@ -89,6 +122,8 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.supprimer', 'Supprimer l’élément', () => !!choisi(), () => {
     const c = choisi();
     if (!c) return;
+    // Le corps principal ne se supprime pas : rien a ecrire, rien a empiler.
+    if (c.t.type === 'corps' && supprimerElement(c.corps, c.t).length === c.corps.length) return;
     mode.ecrire((x) => { x.corpsToit = supprimerElement(c.corps, c.t); x.toitFige = true; });
     mode.selectionner(null);
   });
@@ -109,10 +144,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     enSession, (source) => {
       const id = source?.dataset.piece, o = batiment();
       if (!id || !o) return;
-      const raison = raisonIndisponible(o, id);
+      const facade = sessionToit()?.facade ?? sessionToit()?.derniere ?? null, raison = raisonIndisponible(o, id, facade);
       if (raison) { showToast(raison); return; }
       const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
-      if (!mode.ecrire((x) => appliquerPiece(x, id))) return;
+      if (!mode.ecrire((x) => appliquerPiece(x, id, facade))) return;
       // L'element que le geste vient de poser se choisit : l'inspecteur le regle tout de suite.
       mode.selectionner(cibleAjoutee(avant, batiment()?.corpsToit ?? []));
       // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
@@ -158,22 +193,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     if (saillieArmee()) placerSurLeMurTouche(ndc);
     else mode.toucher(ndc);
   }, true);
-  doc?.addEventListener('keydown', (e) => {
-    if (!enSession()) return;
-    const cible = e.target as HTMLElement | null;
-    // Une saisie dans un champ garde ses propres touches (Ctrl+Z du champ, Echap du dialogue).
-    if (cible && (cible.tagName === 'INPUT' || cible.tagName === 'TEXTAREA' || cible.tagName === 'SELECT')) return;
-    if (e.key === 'Escape') {
-      if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); } else mode.echap();
-      return;
-    }
-    const z = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z', y = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y';
-    if (!z && !y) return;
-    // Pendant la session, Ctrl+Z est celui de la session : le projet n'a rien a defaire.
-    e.preventDefault();
-    e.stopPropagation();
-    if (y || e.shiftKey) mode.retablir(); else mode.annuler();
-  }, true);
+  doc?.addEventListener('keydown', (e) => { touchesDuMode(e, { enSession, aUnChoix: () => !!choisi(), mode, cmd, rafraichir: ctx.rafraichir }); }, true);
 
   // Quitter la Vue 3D ou choisir un autre objet met fin a la session : le toit revient, sans question.
   let vueAvant = ctx.magasin.store.getState().vue, cleAvant = a.etat.selectedKey;

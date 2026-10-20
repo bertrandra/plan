@@ -164,14 +164,15 @@ export function ModeToit({ magasin, commandes }: Props) {
         {'Règles ' + (allumees ? 'allumées' : 'coupées')}
       </button>
       <ElementsToit corps={o?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
-      <div className="toitOnglets" role="tablist" aria-label="Catalogue du toit">
+      <h3 className="titrePlateau" id="titrePlateauToit">Ajouter un élément</h3>
+      <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
         {ONGLETS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
         ))}
       </div>
       <div className="toitCatalogue">
         {piecesDe(onglet).map((p) => {
-          const refus = o ? raisonIndisponible(o, p.id) : 'Aucun bâtiment.';
+          const facade = sessionToit()?.facade ?? sessionToit()?.derniere ?? null, refus = o ? raisonIndisponible(o, p.id, facade) : 'Aucun bâtiment.';
           return (
             <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}

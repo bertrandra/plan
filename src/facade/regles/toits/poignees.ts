@@ -102,6 +102,11 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
       { id: 'prof', point: P(s.centreM, s.profondeurM, top / 2), axes: ['prof'], libelle: 'Saillie' },
       { id: 'haut', point: P(s.centreM - s.largeurM / 2, s.profondeurM, top), axes: ['vert'], libelle: 'Hauteur à l’égout' }
     ];
+    // Une galerie ou un appentis a deux bords qui se tirent chacun, et le retrait de son mur (les poteaux reculent vers la maison).
+    if (s.genre !== 'bow-window') l.push(
+      { id: 'gauche', point: P(s.centreM - s.largeurM / 2, 0, top), axes: ['long'], libelle: 'Bord gauche' },
+      { id: 'retrait', point: P(s.centreM, Math.max(0.1, s.profondeurM - (c.retraitM ?? 0)), 0.4), axes: ['prof'], libelle: 'Retrait du mur' }
+    );
     return l;
   }
   if (t.type === 'pignon') {
@@ -146,7 +151,7 @@ export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
   if (!c) return [];
   if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }]; }
   if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }]; }
-  if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }];
+  if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }, ...(c.saillie.genre !== 'bow-window' && (c.retraitM ?? 0) > 0.02 ? [{ cle: 'retrait', texte: fr(c.retraitM ?? 0) }] : [])];
   if (t.type === 'pignon') {
     const g = c.pignons[t.i];
     if (!g) return [];
@@ -230,6 +235,15 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
     if (!h) return rien;
     if (id === 'pos') { const demi = s.largeurM / 2, bas = collerElement(s.centreM + dl - demi, s.largeurM); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, centreM: bas + demi })), guides }; }
     if (id === 'larg') { const droite = coller(s.centreM + s.largeurM / 2 + dl), gauche = s.centreM - s.largeurM / 2, w = borne(droite - gauche, 1.2, 6); return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: gauche + w / 2 })), guides }; }
+    if (id === 'gauche') {
+      const droite = s.centreM + s.largeurM / 2, gauche = coller(s.centreM - s.largeurM / 2 + dl), w = borne(droite - gauche, 1.2, 6);
+      return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, largeurM: w, centreM: droite - w / 2 })), guides };
+    }
+    if (id === 'retrait') {
+      // Tirer le point vers la maison recule le mur : de 0 a 1 m, au plus la moitie de la profondeur.
+      const r = borne(vingt((c.retraitM ?? 0) - dp), 0, Math.min(1, s.profondeurM / 2));
+      return { corps: avec(depart, t.rang, { ...c, retraitM: r }), guides };
+    }
     if (id === 'prof') return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, profondeurM: borne(s.profondeurM + dp, 0.2, s.niveau === 'rdc' ? 1.5 : 6) })), guides };
     if (id === 'haut') return { corps: replacerSaillie(depart, t.rang, bornerSaillie(h, { ...s, hauteurM: centi(borne(Math.min(...c.egouts) + dv, 1, 12)) })), guides };
     return rien;
