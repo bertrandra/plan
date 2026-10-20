@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CHAINE, construireArbre, duGenre, repartitionDesModes, verifierChaine, type NoeudChaine } from '../../../src/model/chaine.js';
-import { EXEMPLES_TOITS } from '../../../src/facade/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
 
 // La chaine de l'IGN a ma maison, a plat : une liste de noeuds dont l'arbre se deduit.
 

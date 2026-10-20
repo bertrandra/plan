@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique } from '../../../src/facade/catalogueToits.js';
+import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique } from '../../../src/three/catalogueToits.js';
 import { formeDesCorps, FORMES_TOIT_CATALOGUE } from '../../../src/model/formeToit.js';
 import { TYPES_LUCARNE } from '../../../src/model/corpsToitEtendu.js';
 
@@ -44,6 +44,19 @@ describe('le catalogue des formes de toit', () => {
   it('un berceau, un coyau et un papillon ont leurs pans en bandes selon leur profil', () => {
     expect(pans('berceau')).toBe(20);
     expect(pans('coyau')).toBe(4);
+  });
+
+  it('l avant-corps a pignon : le grand pan est entaille et deux pans de pignon, plus son triangle de mur, montent jusqu au faitage', () => {
+    const e = exemple('avant-corps');
+    expect(e.corps[0]!.corps.pignons).toHaveLength(1);
+    expect(corpsDeLExemple(e)[0]!.pignons).toEqual(e.corps[0]!.corps.pignons);
+    // Le grand pan du cote du pignon est entaille (un polygone a plus de quatre sommets), l'autre reste entier.
+    const v = vueIsometrique(e);
+    const toits = v.facettes.filter((f) => !f.mur);
+    expect(toits.length).toBe(pans('deux-pans') + 2);
+    expect(toits.some((f) => f.points.length > 4)).toBe(true);
+    expect(v.facettes.filter((f) => f.mur && f.points.length === 3)).toHaveLength(1);
+    expect(lucarnes('avant-corps')).toBe(0);
   });
 
   it('chaque type de lucarne du modele a un exemple qui ajoute ses facettes au toit', () => {

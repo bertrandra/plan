@@ -173,7 +173,7 @@ export const PRINCIPES: readonly Principe[] = [
     coulisses: [
       { quoi: 'Les pans, bouts, croupes, lucarnes', ou: 'src/facade/toitFormes.ts' },
       { quoi: 'Papillon, coyau, berceau, carène, toits de révolution', ou: 'src/facade/toitSpeciaux.ts' },
-      { quoi: 'Le catalogue de vignettes', ou: 'src/facade/catalogueToits.ts' },
+      { quoi: 'Le catalogue de vignettes', ou: 'src/three/catalogueToits.ts' },
       { quoi: 'Le dessin 3D des corps', ou: 'src/three/toitCorps3d.ts' },
     ],
     voir: ['lecture-lidar'],

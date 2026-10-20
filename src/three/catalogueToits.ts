@@ -2,15 +2,17 @@
 //
 // Chaque forme est un petit corps de reference (10 m sur 7 m) dont les facettes viennent du meme code que la 3D :
 // `facettesEtendues` pour le brisis, le gambrel et la demi-croupe (croupe meuniere), `facettesLucarnes` pour les
-// lucarnes, et des plans simples pour deux-pans, croupes, appentis et plat. Rien n'est dessine a la main : si le calcul
+// lucarnes, `facettesCorps` (le dessin meme de la 3D) pour l'avant-corps a pignon, et des plans simples pour deux-pans, croupes,
+// appentis et plat. Il vit dans three/ pour cela : la couche facade n'importe pas la 3D. Rien n'est dessine a la main : si le calcul
 // d'une forme change, sa vignette change avec lui.
 
-import { facettesEtendues, facettesLucarnes, type Sommet } from './toitFormes.js';
-import { couperDemiPlan } from './toit.js';
-import type { CorpsToit, Lucarne, PtBrut, TypeLucarne } from '../model/types.js';
+import { facettesEtendues, facettesLucarnes, type Sommet } from '../facade/toitFormes.js';
+import { couperDemiPlan } from '../facade/toit.js';
+import { facettesCorps } from './toitCorps3d.js';
+import type { CorpsToit, Lucarne, PignonToit, PtBrut, TypeLucarne } from '../model/types.js';
 
 /** Un corps de reference : tout ce qui decrit le toit, sans le contour (le rectangle est donne par la longueur, la largeur et le decalage). */
-type Corps = Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts'> & Partial<Pick<CorpsToit, 'croupes' | 'profil' | 'bouts' | 'speciale' | 'terrasse'>> & { lucarnes?: Lucarne[] };
+type Corps = Pick<CorpsToit, 'posFaitage' | 'faitage' | 'egouts'> & Partial<Pick<CorpsToit, 'croupes' | 'profil' | 'bouts' | 'speciale' | 'terrasse'>> & { lucarnes?: Lucarne[]; pignons?: PignonToit[] };
 
 export interface ExempleToit {
   id: string;
@@ -28,7 +30,7 @@ export const LARGEUR_M = 7;
 /** Le corps de l'exemple, avec son contour : de quoi demander sa forme au modele. */
 export function corpsDeLExemple(e: ExempleToit): CorpsToit[] {
   return e.corps.map(({ corps, t0 = 0, w = LARGEUR_M, l = LONGUEUR_M }) => ({
-    ...corps, pts: [{ x: 0, y: t0 }, { x: l, y: t0 }, { x: l, y: t0 + w }, { x: 0, y: t0 + w }], pignons: [], ecart: 0,
+    ...corps, pts: [{ x: 0, y: t0 }, { x: l, y: t0 }, { x: l, y: t0 + w }, { x: 0, y: t0 + w }], pignons: corps.pignons ?? [], ecart: 0,
   }) as CorpsToit);
 }
 
@@ -70,6 +72,7 @@ export const EXEMPLES_TOITS: readonly ExempleToit[] = [
   { id: 'meuniere', titre: 'Lucarne meunière', aussi: 'dans le mur d’égout', famille: 'lucarne', corps: [un({ ...base, lucarnes: [lucarne('meuniere')] })] },
   { id: 'oeil-de-boeuf', titre: 'Œil-de-bœuf', aussi: 'lucarne ronde', famille: 'lucarne', corps: [un({ ...base, lucarnes: [{ ...lucarne('oeil-de-boeuf'), debutM: 4.4, finM: 5.6, profondeurM: 1.2 }] })] },
   { id: 'outeau', titre: 'Outeau', aussi: 'petite lucarne à croupe', famille: 'lucarne', corps: [un({ ...base, lucarnes: [{ ...lucarne('outeau'), debutM: 4.2, finM: 5.8 }] })] },
+  { id: 'avant-corps', titre: 'Avant-corps à pignon', aussi: 'pignon depuis le faîtage', famille: 'lucarne', corps: [un({ ...base, pignons: [{ pan: 1, debut: 3.4, fin: 6.6, faitage: 7, profondeur: 3.5 }] })] },
   { id: 'lanterneau', titre: 'Lanterneau', aussi: 'sur toit plat', famille: 'lucarne', corps: [un({ posFaitage: 3.5, faitage: 3, egouts: [3, 3], lucarnes: [{ ...lucarne('lanterneau'), faitageM: 3.6, profondeurM: 2.2, debutM: 3.5, finM: 5.5 }] })] },
 ];
 
@@ -112,11 +115,14 @@ export interface VueIso { facettes: FacettePlate[]; largeur: number; hauteur: nu
 export function vueIsometrique(e: ExempleToit): VueIso {
   const liste: { f: Sommet[]; mur: boolean; lucarne: boolean }[] = [];
   for (const { corps: c, t0 = 0, w: W = LARGEUR_M, l: L = LONGUEUR_M } of e.corps) {
-    const etendu = facettesEtendues(c, L, W, { egout0: 0, egout1: 0, rive0: 0, rive1: 0 }, 0);
-    const { pans, murs: mursSimples } = etendu ?? facettesSimples(c, L, W);
+    // Un avant-corps a pignon (corps.pignons) se dessine comme la 3D : le grand pan est entaille le long des noues du pignon.
+    const avecPignons = c.pignons?.length ? facettesCorps({ ...c, pts: [{ x: 0, y: t0 }, { x: L, y: t0 }, { x: L, y: t0 + W }, { x: 0, y: t0 + W }], pignons: c.pignons, ecart: 0 } as CorpsToit, null, false) : null;
+    const etendu = avecPignons ? null : facettesEtendues(c, L, W, { egout0: 0, egout1: 0, rive0: 0, rive1: 0 }, 0);
+    const monde = (f: { x: number; y: number; z: number }[]): Sommet[] => f.map((q) => ({ s: q.x, t: q.y - t0, z: q.z }));
+    const { pans, murs: mursSimples } = avecPignons ? { pans: avecPignons.pans.map(monde), murs: avecPignons.murs.map(monde) } : etendu ?? facettesSimples(c, L, W);
     // Le dessin etendu ne rend que les murs de bout : les murs d'egout sont ceux du prisme.
     const prisme = (t: number, z: number): Sommet[] => [{ s: 0, t, z: 0 }, { s: L, t, z: 0 }, { s: L, t, z }, { s: 0, t, z }];
-    const murs = etendu ? [...etendu.murs, prisme(0, c.egouts[0]), prisme(W, c.egouts[1])] : mursSimples;
+    const murs = etendu ? [...etendu.murs, prisme(0, c.egouts[0]), prisme(W, c.egouts[1])] : avecPignons ? [...mursSimples, prisme(0, c.egouts[0]), prisme(W, c.egouts[1]), [{ s: 0, t: 0, z: 0 }, { s: 0, t: W, z: 0 }, { s: 0, t: W, z: c.egouts[1] }, { s: 0, t: 0, z: c.egouts[0] }], [{ s: L, t: 0, z: 0 }, { s: L, t: W, z: 0 }, { s: L, t: W, z: c.egouts[1] }, { s: L, t: 0, z: c.egouts[0] }]] : mursSimples;
     const dormers = facettesLucarnes(c, L, W);
     const decale = (f: Sommet[]): Sommet[] => f.map((q) => ({ ...q, t: q.t + t0 }));
     liste.push(
