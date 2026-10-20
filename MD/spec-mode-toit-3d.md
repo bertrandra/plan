@@ -245,7 +245,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
 ### Étape 3 — Le plateau « Ajouter un élément » et l'inspecteur contextuel  *(livrée : PR « mode Toit, étape 3 »)*
 
-> Code : `src/facade/regles/toits/elements.ts` (liste, sélection par toucher, suppression, duplication, taille, choix en groupes — pur, testé), `src/zones/vue3d/iconesToit.tsx` (images des choix), `ModeToit.tsx` (pastilles et inspecteur), commandes `toit.selection|regler|dupliquer|supprimer|plus|moins`, `ElementDeToit` (`elementsToit`) et `facettesElementsToit` (fenêtre de toit 0,8 × 1,2 m, solaire 2,55 × 1,1 m). Écarts : l'onglet **Corps** et la saillie d'un pignon (avancée au-delà du mur) passent à l'étape 5 / 4 avec leurs poignées ; la largeur et la position d'un pignon se règlent par − + en attendant les poignées.
+> Code : `src/facade/regles/toits/elements.ts` (liste, sélection par toucher, suppression, duplication, taille, choix en groupes — pur, testé), `src/zones/vue3d/iconesToit.tsx` (images des choix), `ModeToit.tsx` (pastilles et inspecteur), commandes `toit.selection|regler|dupliquer|supprimer|plus|moins`, `ElementDeToit` (`elementsToit`) et `facettesElementsToit` (fenêtre de toit 0,8 × 1,2 m, solaire 2,55 × 1,1 m). Écarts : l'onglet **Corps** (étape 5) et la saillie d'un pignon (avancée au-delà du mur, livrée ensuite avec sa poignée) n'y étaient pas encore ; la largeur et la position d'un pignon se réglaient par − + en attendant les poignées.
 - Plateau à quatre onglets d'images (Corps · Toit · Sur le toit · Façade) avec les vignettes calculées par le dessin 3D (§2.3), états `aria-pressed` / désactivé avec raison.
 - Inspecteur contextuel **en boutons-images à choix exclusif** (jamais de formulaire) : tableau du §3. La ligne `champsSaillies` actuelle de l'inspecteur du plan reste (réglages fins en chiffres) ; l'inspecteur du mode en est la version « images ».
 - Extensions de modèle du §4.2 : fenêtre de toit, solaire, pignon enrichi, retrait à trois valeurs. Dessin 3D, validation à la lecture, compactage à l'écriture, tests d'aller-retour de fichier ancien.
@@ -259,6 +259,8 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - Un glisser = un instantané de session. Échap annule le glisser. Cibles tactiles ≥ 44 px au doigt.
 - **Commencer par le bow-window** (déjà modélisé) pour valider la chaîne projection → poignée → écriture → redessin, puis généraliser.
 **Critères :** poignée sous le doigt et à la souris, cotes justes au centimètre, aimantation, pas d'écriture au simple survol.
+
+> Conformité (relecture après l'étape 6) : le titre « Ajouter un élément », Suppr / Retour arrière (suppriment l'élément choisi), les poignées de bord gauche et de retrait d'une galerie ou d'un appentis, et le motif « Pas de pignon sur cette façade. » (côté court, toit plat, papillon ou pavillon ; le pignon se pose sur la façade choisie) sont livrés. Restent hors de cette livraison : lignes de faîtage et marqueurs du mode Plan, cote de rotation, « 3D » de l'ensemble validé (la vue libre montre la session), plateau en feuille et navigateur replié sur téléphone, rail sur tablette.
 
 ### Étape 5 — Les corps et le mode Plan  *(livrée : PR « mode Toit, étape 5 »)*
 
