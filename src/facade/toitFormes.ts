@@ -15,7 +15,7 @@
 
 import { couperDemiPlan } from './toit.js';
 import { signedArea } from '../geometry/basic.js';
-import type { BoutToit, CorpsToit, Lucarne, PtBrut } from '../model/types.js';
+import type { BoutToit, CorpsToit, ElementDeToit, Lucarne, PtBrut } from '../model/types.js';
 
 import { estSpecial, facettesSpeciales, hauteurSpeciale, type Sommet, type Debords } from './toitSpeciaux.js';
 export type { Sommet, Debords };
@@ -204,6 +204,40 @@ export function facettesEtendues(c: CorpsForme, L: number, W: number, d: Debords
  * --------------------------------------------------------------------------------------------- */
 
 /** La pente du toit d'une lucarne a deux pans ou a croupe (tangente) : 35 degres. */
+/** Les dimensions d'un element de toit type, en metres : sa largeur le long du faitage et sa longueur sur la pente. */
+export const DIMENSIONS_ELEMENT_TOIT = { 'fenetre-toit': { w: 0.8, l: 1.2 }, solaire: { w: 2.55, l: 1.1 } } as const;
+const CADRE_ELEMENT_M = 0.06;
+const RELIEF_ELEMENT_M = 0.04;
+
+/** Un element de toit dessine : son cadre (un peu plus grand) et sa vitre ou ses cellules, poses sur le pan. */
+export interface ElementDessine { type: 'fenetre-toit' | 'solaire'; cadre: Sommet[]; vitre: Sommet[] }
+
+/**
+ * Les fenetres de toit et panneaux solaires d'un corps, poses sur leur pan : un quadrilatere de cadre et un de vitre, a quelques
+ * centimetres au-dessus du pan pour ne pas scintiller avec lui. Rien sur un toit de revolution, ni sur un pan trop bas.
+ */
+export function facettesElementsToit(c: CorpsForme & { elementsToit?: readonly ElementDeToit[] }, L: number, W: number): ElementDessine[] {
+  const res: ElementDessine[] = [];
+  if (estSpecial(c, W)) return res;
+  const f = formeDe(c, L, W)?.f ?? null;
+  for (const el of c.elementsToit ?? []) {
+    const n = el.pan, largeur = n === 0 ? c.posFaitage : W - c.posFaitage, F = c.faitage, egout = c.egouts[n] ?? 0;
+    if (largeur < 0.5 || F - egout < 0.3) continue;
+    const bris = f ? f.bris[n] ?? null : null;
+    const zP = (d: number) => hauteurPan(c, W, n, d, bris);
+    const dim = DIMENSIONS_ELEMENT_TOIT[el.type], k = el.echelle ?? 1;
+    // La longueur sur la pente se projette a plat : la pente de l'ensemble du pan en donne le cosinus.
+    const cos = 1 / Math.sqrt(1 + ((F - egout) / largeur) ** 2);
+    const w = Math.min(dim.w * k, L - 0.2), lp = Math.min(dim.l * k * cos, largeur - 0.1);
+    if (w < 0.3 || lp < 0.2) continue;
+    const s0 = Math.min(Math.max(el.sM - w / 2, 0.1), L - 0.1 - w), d0 = Math.min(Math.max(el.dM - lp / 2, 0.05), largeur - 0.05 - lp);
+    const T = (s: number, d: number, dz: number): Sommet => ({ s, t: n === 0 ? d : W - d, z: zP(d) + dz });
+    const quad = (m: number, dz: number): Sommet[] => [T(s0 - m, d0 - m, dz), T(s0 + w + m, d0 - m, dz), T(s0 + w + m, d0 + lp + m, dz), T(s0 - m, d0 + lp + m, dz)];
+    res.push({ type: el.type, cadre: quad(CADRE_ELEMENT_M, RELIEF_ELEMENT_M), vitre: quad(0, RELIEF_ELEMENT_M * 1.6) });
+  }
+  return res;
+}
+
 const PENTE_LUCARNE = 0.7;
 /** La pente inverse du toit d'un chien-assis (tangente) : 15 degres. */
 const PENTE_CHIEN_ASSIS = 0.27;

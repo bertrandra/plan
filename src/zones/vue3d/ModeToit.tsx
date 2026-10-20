@@ -8,10 +8,13 @@ import { useStore } from 'zustand';
 import { etatToit, sessionToit } from '../../app/modeToit.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
-import { vueDeSaillie } from '../../three/vueSaillie.js';
+import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
 import { Icone, type NomIcone } from '../icones.js';
+import { ImageChoix } from './iconesToit.js';
+import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
+import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
@@ -26,6 +29,10 @@ const vuesFacade = new Map<string, ReturnType<typeof vueDeSaillie>>();
 function ImagePiece({ p }: { p: PieceCatalogue }) {
   if (p.exemple) return <VignetteToit forme={p.exemple} />;
   const nom = p.id.replace(/^[a-z]+:/, '');
+  if (nom === 'fenetre-toit' || nom === 'solaire') {
+    if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeElementToit(nom));
+    return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
+  }
   if (p.famille !== 'facade') return <Icone nom="polygone" />;
   if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeSaillie(nom));
   return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
@@ -40,6 +47,45 @@ function BoutonToit({ commandes, id, icone, libelle, texte, presse, valider, mir
       title={libelle + (refus ? ' — ' + refus : '')} disabled={!e.utilisable} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}>
       <Icone nom={icone} taille={20} />{texte && <span>{texte}</span>}
     </button>
+  );
+}
+
+/** Les elements du batiment, une pastille chacun, et l'inspecteur de celui qui est choisi : des boutons-images a choix exclusif, sans formulaire. */
+function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsToit[]; selection: CibleElement | null; commandes: RegistreCommandes }) {
+  const liste = listerElements(corps);
+  if (!liste.length) return null;
+  const groupes = selection ? groupesDe(corps, selection) : [];
+  const bouton = (id: string, icone: NomIcone, libelle: string, danger = false) => (
+    <button type="button" className={'boutonToit' + (danger ? ' danger' : '')} data-commande={id} aria-label={libelle} title={libelle}
+      disabled={!commandes.etat(id).utilisable} onClick={(ev) => { commandes.executer(id, ev.currentTarget); }}><Icone nom={icone} taille={20} /></button>
+  );
+  return (
+    <div className="elementsToit">
+      <div className="puces" role="group" aria-label="Éléments du bâtiment">
+        {liste.map((e) => (
+          <button key={e.cible.type + e.cible.rang + ':' + e.cible.i} type="button" className="puceToit" data-commande="toit.selection" data-type={e.cible.type} data-rang={e.cible.rang} data-i={e.cible.i}
+            aria-pressed={memeCible(e.cible, selection)} onClick={(ev) => { commandes.executer('toit.selection', ev.currentTarget); }}>{e.libelle}</button>
+        ))}
+      </div>
+      {selection && (
+        <div className="inspecteurToit" role="group" aria-label="Réglages de l’élément">
+          {groupes.map((g) => (
+            <div key={g.groupe} className="groupeChoix" role="group" aria-label={g.groupe}>
+              {g.valeurs.map((v) => (
+                <button key={v.valeur} type="button" className="boutonToit" data-commande="toit.regler" data-groupe={g.groupe} data-valeur={v.valeur} title={v.libelle} aria-label={v.libelle}
+                  aria-pressed={valeurDuGroupe(corps, selection, g.groupe) === v.valeur} onClick={(ev) => { commandes.executer('toit.regler', ev.currentTarget); }}><ImageChoix groupe={g.groupe} valeur={v.valeur} /></button>
+              ))}
+            </div>
+          ))}
+          <div className="groupeChoix" role="group" aria-label="actions">
+            {bouton('toit.moins', 'moins', 'Réduire')}
+            {bouton('toit.plus', 'plus', 'Agrandir')}
+            {bouton('toit.dupliquer', 'dupliquer', 'Dupliquer')}
+            {bouton('toit.supprimer', 'supprimer', 'Supprimer', true)}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -75,6 +121,7 @@ export function ModeToit({ magasin, commandes }: Props) {
         onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
         {'Règles ' + (allumees ? 'allumées' : 'coupées')}
       </button>
+      <ElementsToit corps={o?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
       <div className="toitOnglets" role="tablist" aria-label="Catalogue du toit">
         {ONGLETS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>

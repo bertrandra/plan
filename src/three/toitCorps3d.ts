@@ -10,7 +10,7 @@
 import type * as THREE_NS from 'three';
 import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
-import { facettesEtendues, facettesLucarnes } from '../facade/toitFormes.js';
+import { facettesElementsToit, facettesEtendues, facettesLucarnes } from '../facade/toitFormes.js';
 import { estSpecial } from '../facade/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
@@ -182,7 +182,8 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     const retrait = c.retraitM ?? POTEAU_RETRAIT_M;
     const tBas = p <= 0.01 ? W : 0, eBas = p <= 0.01 ? e1 : e0;
     if (eBas > MUR_MIN_M) {
-      if (c.ouvert === false) murs.push([P(0, tBas, 0), P(L, tBas, 0), P(L, tBas, eBas), P(0, tBas, eBas)]);
+      // Un mur ferme peut etre recule du bord de l'egout (retrait) : le toit le couvre encore.
+      if (c.ouvert === false) { const tm = tBas === 0 ? Math.min(c.retraitM ?? 0, W / 2) : W - Math.min(c.retraitM ?? 0, W / 2); murs.push([P(0, tm, 0), P(L, tm, 0), P(L, tm, eBas), P(0, tm, eBas)]); }
       else murs.push(...poteauxDAppentis(L, tBas === 0 ? retrait : W - retrait, eBas, retrait).map((f) => f.map((q) => P(q.s, q.t, q.z))));
     }
   }
@@ -415,6 +416,7 @@ export function uvDuMur(poly: readonly S3[]): number[] {
 export function ajouterToitCorpsSurContour3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined, contour: readonly PtBrut[]): { pans: number; murs: number } {
   const { pans, murs } = facettesSurContour(corps, contour);
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
+  ajouterElementsToit3d(ctx, corps);
   return { pans: pans.length, murs: murs.length };
 }
 
@@ -423,7 +425,34 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
   const pans: S3[][] = [], murs: S3[][] = [];
   corps.forEach((c) => { const f = facettesCorps(c, contour, true, appentisAdosse(c, corps)); pans.push(...f.pans); murs.push(...f.murs); });
   poserFacettes(ctx, pans, murs, toitRef, penteDominante(corps));
+  ajouterElementsToit3d(ctx, corps);
   return { pans: pans.length, murs: murs.length };
+}
+
+/** Les couleurs des elements de toit : cadre et vitre d'une fenetre de toit, cadre et cellules d'un panneau solaire. */
+const COULEURS_ELEMENT = { 'fenetre-toit': { cadre: 0x8e9499, vitre: 0x6f8aa6 }, solaire: { cadre: 0xb8bcc2, vitre: 0x1c2b4a } } as const;
+export const NOM_ELEMENTS_TOIT = 'toit-elements';
+
+/** Pose les fenetres de toit et les panneaux solaires des corps : un maillage de cadres et un de vitres par type. */
+export function ajouterElementsToit3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[]): number {
+  const par = { 'fenetre-toit': { cadre: [] as S3[][], vitre: [] as S3[][] }, solaire: { cadre: [] as S3[][], vitre: [] as S3[][] } };
+  for (const c of corps) {
+    if (!c.elementsToit?.length) continue;
+    const r = repere(c.pts), plan = (q: { s: number; t: number; z: number }): S3 => ({ ...point(r, q.s, q.t), z: q.z });
+    for (const e of facettesElementsToit(c, r.L, r.W)) { par[e.type].cadre.push(e.cadre.map(plan)); par[e.type].vitre.push(e.vitre.map(plan)); }
+  }
+  let n = 0;
+  for (const type of ['fenetre-toit', 'solaire'] as const) {
+    for (const piece of ['cadre', 'vitre'] as const) {
+      const faces = par[type][piece];
+      if (!faces.length) continue;
+      const m = new THREE.Mesh(maille(faces, ctx.toLocal, false), new THREE.MeshStandardMaterial({ color: COULEURS_ELEMENT[type][piece], roughness: piece === 'vitre' ? 0.25 : 0.6, metalness: piece === 'vitre' ? 0.3 : 0.1, side: THREE.DoubleSide }));
+      m.name = NOM_ELEMENTS_TOIT;
+      ctx.scene.add(m);
+      n += faces.length;
+    }
+  }
+  return n;
 }
 
 /**

@@ -23,7 +23,7 @@ import { angleDuPlusLongCote } from '../facade/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/regles/toits/saillies.js';
-import type { BoutToit, Cheminee, CorpsToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
+import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
 
 export type FamillePiece = 'toit' | 'sur' | 'facade';
 
@@ -34,6 +34,8 @@ export interface PieceCatalogue {
   libelle: string;
   /** L'exemple du catalogue (facade/catalogueToits.ts) dont la vignette est l'image de la piece ; absent : un glyphe. */
   exemple?: string;
+  /** Pas proposee par la palette : un ancien identifiant que `appliquerPiece` comprend encore (les trois formes de bow-window d'avant). */
+  cachee?: true;
 }
 
 /** Les tourelles ne se posent pas sur un batiment entier : le catalogue les garde, la palette non. */
@@ -46,16 +48,19 @@ export const PIECES: readonly PieceCatalogue[] = [
   ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
   { id: 'sur:pignon', famille: 'sur', libelle: 'Pignon' },
   { id: 'sur:cheminee', famille: 'sur', libelle: 'Cheminée' },
+  { id: 'sur:fenetre-toit', famille: 'sur', libelle: 'Fenêtre de toit' },
+  { id: 'sur:solaire', famille: 'sur', libelle: 'Solaire' },
   ...lucarnes.map((e) => ({ id: 'sur:' + e.id, famille: 'sur' as const, libelle: e.titre.replace(/^Lucarne /, ''), exemple: e.id })),
-  { id: 'facade:bow-rectangle', famille: 'facade', libelle: 'Bow-window' },
-  { id: 'facade:bow-arc', famille: 'facade', libelle: 'Bow en arc' },
-  { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi' },
+  { id: 'facade:bow-window', famille: 'facade', libelle: 'Bow-window' },
+  { id: 'facade:bow-rectangle', famille: 'facade', libelle: 'Bow-window', cachee: true },
+  { id: 'facade:bow-arc', famille: 'facade', libelle: 'Bow en arc', cachee: true },
+  { id: 'facade:bow-conge', famille: 'facade', libelle: 'Bow arrondi', cachee: true },
   { id: 'facade:galerie', famille: 'facade', libelle: 'Galerie' },
   { id: 'facade:appentis-ferme', famille: 'facade', libelle: 'Appentis fermé' }
 ];
 
 export const piece = (id: string): PieceCatalogue | undefined => PIECES.find((p) => p.id === id);
-export const piecesDe = (famille: FamillePiece): PieceCatalogue[] => PIECES.filter((p) => p.famille === famille);
+export const piecesDe = (famille: FamillePiece): PieceCatalogue[] => PIECES.filter((p) => p.famille === famille && !p.cachee);
 
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const aire = (c: CorpsToit): number => { const r = repere(c.pts); return r.L * r.W; };
@@ -197,6 +202,13 @@ function chemineeSur(c: CorpsToit): Cheminee {
   return { x: dixieme(p.x), y: dixieme(p.y), largeurM: 0.7, profondeurM: 0.7, sommetM: dixieme(c.faitage + 0.8), position: 'faitage', source: 'observation' };
 }
 
+/** Une fenetre de toit ou un panneau solaire, au milieu du pan 0 ; le suivant se range a cote du precedent. */
+function elementSur(c: CorpsToit, type: 'fenetre-toit' | 'solaire'): ElementDeToit {
+  const r = repere(c.pts);
+  const deja = (c.elementsToit ?? []).filter((e) => e.pan === 0).length;
+  return { type, pan: 0, sM: dixieme((r.L * (deja + 1)) / (deja + 2)), dM: dixieme(Math.max(c.posFaitage, 0.5) / 2) };
+}
+
 function pignonSur(c: CorpsToit): PignonToit {
   const r = repere(c.pts);
   const largeur = Math.min(3.2, r.L / 2);
@@ -226,6 +238,7 @@ export function appliquerPiece(o: ObjetPlan, id: string): boolean {
     const c = corpsPourPoser(o);
     if (!c) return false;
     if (nom === 'cheminee') c.cheminees = [...(c.cheminees ?? []), chemineeSur(c)];
+    else if (nom === 'fenetre-toit' || nom === 'solaire') c.elementsToit = [...(c.elementsToit ?? []), elementSur(c, nom)];
     else if (nom === 'pignon') c.pignons = [...c.pignons, pignonSur(c)];
     else c.lucarnes = [...(c.lucarnes ?? []), lucarneSur(c, nom as TypeLucarne)];
     o.modeToit = 'corps';
@@ -235,7 +248,7 @@ export function appliquerPiece(o: ObjetPlan, id: string): boolean {
     if (!hote || !o.corpsToit) return false;
     const rang = o.corpsToit.indexOf(hote);
     const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
-    const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : 'rectangle';
+    const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
     const d = DEFAUTS_SAILLIE[genre];
     const mur = murLibre(o.corpsToit, rang);
     const { L } = murDuCorps(hote, mur);

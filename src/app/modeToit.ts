@@ -18,6 +18,7 @@ import { hotes3d, vue3d } from '../three/etat3d.js';
 import { dialogues } from '../shell/dialogues.js';
 import { showToast } from '../shell/dialogs.js';
 import type * as THREE_NS from 'three';
+import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/regles/toits/elements.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 
@@ -35,12 +36,16 @@ export interface SessionToit {
   vue: VueToit;
   /** Le corps isole dans la facade (rang dans `corpsToit`), ou null. */
   corpsIsole: number | null;
+  /** L'element choisi (celui que l'inspecteur regle), ou null. */
+  selection: CibleElement | null;
   /** La camera avant d'entrer dans une facade : on la retrouve en la quittant. */
   vueAvant: PoseVue | null;
   isole: boolean;
 }
 
 let session: SessionToit | null = null;
+/** Les objets du plan : de quoi verifier que l'element choisi existe encore ; posee par `creerModeToit`. */
+let objetsCourants: (() => readonly ObjetPlan[]) | null = null;
 /** Le minuteur qui recalcule les fantomes quand la camera bouge ; actif pendant une session. */
 let veille: ReturnType<typeof setInterval> | null = null;
 
@@ -65,15 +70,25 @@ export interface EtatToit {
   /** Un corps est isole, ou la facade courante est celle d'un corps qu'on peut isoler. */
   corpsIsole: boolean;
   peutIsolerCorps: boolean;
+  /** L'element choisi, s'il existe encore (une annulation a pu le retirer). */
+  selection: CibleElement | null;
+}
+
+/** La selection si l'element existe encore dans le batiment en session. */
+function selectionValide(): CibleElement | null {
+  const s = session;
+  if (!s?.selection || !objetsCourants) return null;
+  const o = objetsCourants().find((x) => x.key === s.cle);
+  return o?.corpsToit && lireElement(o.corpsToit, s.selection) ? s.selection : null;
 }
 
 export function etatToit(): EtatToit {
-  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false };
+  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null };
   const f = session.facade ?? session.derniere;
   return {
     actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
     facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' : null,
-    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null
+    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide()
   };
 }
 
@@ -103,6 +118,7 @@ const FANTOMES_MS = 200;
 let surveillerLaVue: () => void = () => {};
 
 export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
+  objetsCourants = () => a.etat.objects;
   const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
   const rebatir = () => { if (vue3d.scene) ctx.rebatir(batiment() ?? null); derniereVue = ''; };
 
@@ -143,7 +159,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, vueAvant: null, isole: false };
+      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, vueAvant: null, isole: false };
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
       veille = setInterval(surveillerLaVue, FANTOMES_MS);
@@ -166,6 +182,13 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     annuler: () => { const o = batiment(); if (o && session && annuler(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
     retablir: () => { const o = batiment(); if (o && session && retablir(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
     revenirAuDepart: () => { const o = batiment(); if (o && session && revenirAuDepart(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
+
+    /** Choisit un element (ou aucun) : l'inspecteur regle ce qui est choisi. */
+    selectionner(cible: CibleElement | null): void {
+      if (!session || memeCible(session.selection, cible)) return;
+      session.selection = cible;
+      ctx.rafraichir();
+    },
 
     /** Isole le batiment : le reste du voisinage est masque (etat d'affichage, jamais enregistre). */
     basculerIsolement(): void {
@@ -212,7 +235,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     /** Echap : lacher l'element arme est le travail de l'appelant ; ici, la facade, puis le mode. */
     echap(): void {
       if (!session) return;
-      if (session.vue !== 'libre') vues.quitterLaFacade();
+      if (session.selection) { session.selection = null; ctx.rafraichir(); }
+      else if (session.vue !== 'libre') vues.quitterLaFacade();
       else this.abandonner();
     },
 
@@ -275,6 +299,9 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       if (!session || !o) return false;
       const touche = objetSousLePointeur(ndc, (cle) => cle === o.key);
       if (touche.cle !== o.key || !touche.point) return false;
+      // Un element tout pres du point touche se choisit ; sinon c'est un mur, donc une facade.
+      const cible = o.corpsToit ? elementProche(o.corpsToit, touche.point) : null;
+      if (cible) { session.selection = cible; ctx.rafraichir(); return true; }
       const f = facadeProche(facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]), touche.point);
       if (!f) return false;
       entrerDansLaFacade(f);

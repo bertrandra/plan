@@ -133,6 +133,12 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.vueLibre': 'Rend la caméra libre de la vue 3D, comme avant le choix d’une façade',
   'toit.vueFacade': 'Se place en élévation devant la dernière façade choisie',
   'toit.vueDessus': 'Regarde le bâtiment de dessus',
-  'toit.isolerCorps': 'Ne montre que le corps de la façade courante, avec ce qui est posé dessus ; rebasculer rend tous les corps'
+  'toit.isolerCorps': 'Ne montre que le corps de la façade courante, avec ce qui est posé dessus ; rebasculer rend tous les corps',
+  'toit.selection': 'Choisit un élément du toit ou de la façade (bow-window, pignon, lucarne, cheminée, fenêtre de toit, solaire) : l’inspecteur du mode règle ce qui est choisi',
+  'toit.regler': 'Applique le choix en image de l’inspecteur (forme, niveau, toit, poteaux, retrait, hauteur du pignon) à l’élément choisi',
+  'toit.dupliquer': 'Copie l’élément choisi à côté de lui, là où il y a de la place',
+  'toit.supprimer': 'Retire l’élément choisi ; Ctrl+Z le rend',
+  'toit.plus': 'Agrandit l’élément choisi d’un cran',
+  'toit.moins': 'Réduit l’élément choisi d’un cran'
 };
 

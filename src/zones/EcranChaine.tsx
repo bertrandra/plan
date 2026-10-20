@@ -28,7 +28,7 @@ export function VignetteVue({ vue, titre }: { vue: VueIso; titre: string }) {
     <svg className="chaineVignette" viewBox={'0 0 ' + Math.round(vue.largeur) + ' ' + Math.round(vue.hauteur)} role="img" aria-label={'Vue 3D : ' + titre}>
       {vue.facettes.map((f, i) => {
         const g = Math.round(60 + f.ton * 170);
-        const fill = f.mur ? 'rgb(' + g + ',' + (g - 8) + ',' + (g - 20) + ')' : 'rgb(' + g + ',' + Math.round(g * 0.45) + ',' + Math.round(g * 0.35) + ')';
+        const fill = f.vitre ? 'rgb(' + Math.round(g * 0.4) + ',' + Math.round(g * 0.55) + ',' + Math.round(g * 0.8) + ')' : f.mur ? 'rgb(' + g + ',' + (g - 8) + ',' + (g - 20) + ')' : 'rgb(' + g + ',' + Math.round(g * 0.45) + ',' + Math.round(g * 0.35) + ')';
         return <polygon key={i} points={f.points.map((p) => p.join(',')).join(' ')} fill={fill} stroke="currentColor" strokeWidth="0.6" strokeLinejoin="round" />;
       })}
     </svg>
