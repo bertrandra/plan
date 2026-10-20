@@ -130,6 +130,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
+  // Le catalogue du toit : le groupe « Toit » de la palette, montre avec un batiment ou la parcelle selectionne.
+  'toit.regles': outil(),
+  'toit.poser': outil(),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),
   // Le nom des rues : la case et le bouton de la section « Voisinage » (ui/champs/voisinage3d.ts).

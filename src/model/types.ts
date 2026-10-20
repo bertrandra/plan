@@ -249,6 +249,12 @@ interface ObjetCommun {
    */
   verifieSurPlace?: VerifieSurPlace | null;
   /**
+   * « Règles » coupées pour ce bâtiment (palette, groupe Toit) : la lecture automatique du toit (LiDAR,
+   * faits, profils de regles/) ne le touche plus, ni à l'import, ni en tâche de fond, ni à l'actualisation
+   * IGN ; le toit se règle à la main. Absent (ou faux) : la lecture automatique suit, comme avant.
+   */
+  toitFige?: boolean;
+  /**
    * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
    * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par
    * parcelle (les corps relus sur chaque part). Sans reponse, la question revient a l'ouverture.
