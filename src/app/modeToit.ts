@@ -117,6 +117,25 @@ let derniereVue = '';
 const FANTOMES_MS = 200;
 let surveillerLaVue: () => void = () => {};
 
+/**
+ * Rebatit la scene, et rend a la nouvelle camera la pose de l'ancienne : une scene neuve se recadre sur le plan, ce qui chasserait la
+ * personne de la facade qu'elle regarde a chaque retouche.
+ */
+function rebatirEnGardantLaCamera(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefined): () => void {
+  return () => {
+    const avant = vue3d.scene;
+    const pose = avant ? { p: avant.camera.position.clone(), t: avant.controls.target.clone() } : null;
+    if (avant) ctx.rebatir(batiment() ?? null);
+    const apres = vue3d.scene;
+    if (pose && apres && apres !== avant) {
+      apres.camera.position.copy(pose.p);
+      apres.controls.target.copy(pose.t);
+      apres.controls.update();
+    }
+    derniereVue = '';
+  };
+}
+
 /** Le mode de la session en cours : les zones qui dessinent des poignees (zones/vue3d/PoigneesToit.tsx) s'y adressent sans passer par une commande. */
 let pilote: ModeToit | null = null;
 export const modeToitCourant = (): ModeToit | null => pilote;
@@ -128,7 +147,7 @@ let dernierRebatir = 0;
 export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
   objetsCourants = () => a.etat.objects;
   const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
-  const rebatir = () => { if (vue3d.scene) ctx.rebatir(batiment() ?? null); derniereVue = ''; };
+  const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
 
   /** Les batiments qui cachent celui qu'on retouche : leur volume part, leur contour reste en pointille. */
   const fantomes = (): void => {
