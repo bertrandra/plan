@@ -9,6 +9,7 @@
 
 import { point, repere } from '../../toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie } from './saillies.js';
+import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
 import type { CibleElement } from './elements.js';
 import type { CorpsToit, PtBrut } from '../../../model/types.js';
 
@@ -29,8 +30,11 @@ export type Deplacement = Partial<Record<Axe, number>>;
 /** Une cote que l'ecran affiche pres de l'element : sa cle (largeur, hauteur…) et son texte. */
 export interface Cote { cle: string; texte: string }
 
-/** Un mur ou un element de corps : ce qui est choisi dans la facade. `corps` : le corps de la facade courante (pas d'element). */
-export type CibleGlisser = CibleElement | { type: 'corps'; rang: number; i: number; mur: number };
+/**
+ * Ce qui se glisse : un element ou un corps (mode Plan : deplacer, etirer), ou, sans element choisi, le corps de la facade courante
+ * (`facade` : son faitage et la longueur de son mur).
+ */
+export type CibleGlisser = CibleElement | { type: 'facade'; rang: number; i: number; mur: number };
 
 const centi = (v: number) => Math.round(v * 100) / 100;
 const vingt = (v: number) => Math.round(v * 20) / 20;
@@ -50,7 +54,8 @@ export function aimanter(v: number, candidats: readonly number[]): { v: number; 
 export function cadreDe(corps: readonly CorpsToit[], t: CibleGlisser): CadreFacade | null {
   const c = corps[t.rang];
   if (!c) return null;
-  if (t.type === 'corps') { const m = murDuCorps(c, t.mur); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
+  if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
+  if (t.type === 'corps') { const m = murDuCorps(c, 0); return { o: m.a, u: m.u, n: m.n, L: m.L }; }
   if (t.type === 'saillie' && c.saillie) {
     const h = corps[c.saillie.hote];
     if (!h) return null;
@@ -74,6 +79,15 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   if (!c || !f) return [];
   const P = (s: number, prof: number, z: number) => sur(f, s, prof, z);
   if (t.type === 'corps') {
+    // Le mode Plan : se deplacer dans le plan, etirer la longueur (faitage) et la largeur.
+    const r = repere(c.pts), W = r.W;
+    return [
+      { id: 'deplacer', point: P(f.L / 2, -W / 2, c.faitage), axes: ['long', 'prof'], libelle: 'Déplacer le corps' },
+      { id: 'etirerL', point: P(f.L, -W / 2, c.faitage), axes: ['long'], libelle: 'Longueur du corps' },
+      { id: 'etirerW', point: P(f.L / 2, -W, c.faitage), axes: ['prof'], libelle: 'Largeur du corps' }
+    ];
+  }
+  if (t.type === 'facade') {
     return [
       { id: 'haut', point: P(f.L / 2, 0, c.faitage), axes: ['vert'], libelle: 'Hauteur du faîtage' },
       { id: 'long', point: P(f.L, 0, Math.min(...c.egouts)), axes: ['long'], libelle: 'Longueur de la façade' }
@@ -127,7 +141,8 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
 export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
   const c = corps[t.rang];
   if (!c) return [];
-  if (t.type === 'corps') { const m = murDuCorps(c, t.mur); return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }]; }
+  if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }]; }
+  if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }]; }
   if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }];
   if (t.type === 'pignon') {
     const g = c.pignons[t.i];
@@ -182,6 +197,13 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
   };
 
   if (t.type === 'corps') {
+    if (id === 'deplacer') return { corps: deplacerCorps(depart, t.rang, f.u.x * dl + f.n.x * dp, f.u.y * dl + f.n.y * dp), guides };
+    if (id === 'etirerL') return { corps: etirerCorps(depart, t.rang, 'L', dl), guides };
+    // Le bord t = W recule vers l'exterieur du mur 0 : un deplacement vers l'exterieur (prof positif) retrecit la largeur.
+    if (id === 'etirerW') return { corps: etirerCorps(depart, t.rang, 'W', -dp), guides };
+    return rien;
+  }
+  if (t.type === 'facade') {
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, faitage: centi(Math.max(c.faitage + dv, Math.max(...c.egouts) + 0.4)) }), guides };
     if (id === 'long') {
       const m = murDuCorps(c, t.mur), nouvelle = borne(vingt(m.L + dl), 2.5, 30);

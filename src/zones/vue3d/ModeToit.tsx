@@ -12,6 +12,7 @@ import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
 import { PoigneesToit } from './PoigneesToit.js';
+import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
 import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
@@ -22,7 +23,7 @@ import type { RegistreCommandes } from '../../app/commandes.js';
 interface Props { magasin: Magasin; commandes: RegistreCommandes }
 
 const ONGLETS: { id: FamillePiece; libelle: string }[] = [
-  { id: 'toit', libelle: 'Toit' }, { id: 'sur', libelle: 'Sur le toit' }, { id: 'facade', libelle: 'Façade' }
+  { id: 'corps', libelle: 'Corps' }, { id: 'toit', libelle: 'Toit' }, { id: 'sur', libelle: 'Sur le toit' }, { id: 'facade', libelle: 'Façade' }
 ];
 
 const vuesFacade = new Map<string, ReturnType<typeof vueDeSaillie>>();
@@ -79,10 +80,21 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
             </div>
           ))}
           <div className="groupeChoix" role="group" aria-label="actions">
-            {bouton('toit.moins', 'moins', 'Réduire')}
-            {bouton('toit.plus', 'plus', 'Agrandir')}
-            {bouton('toit.dupliquer', 'dupliquer', 'Dupliquer')}
-            {bouton('toit.supprimer', 'supprimer', 'Supprimer', true)}
+            {selection.type === 'corps' ? (
+              <>
+                <button type="button" className="boutonToit" data-commande="toit.tourner" data-sens="1" aria-label="Tourner à gauche" title="Tourner à gauche (15°)"
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
+                <button type="button" className="boutonToit miroir" data-commande="toit.tourner" data-sens="-1" aria-label="Tourner à droite" title="Tourner à droite (15°)"
+                  disabled={!commandes.etat('toit.tourner').utilisable} onClick={(ev) => { commandes.executer('toit.tourner', ev.currentTarget); }}><Icone nom="annuler" taille={20} /></button>
+              </>
+            ) : (
+              <>
+                {bouton('toit.moins', 'moins', 'Réduire')}
+                {bouton('toit.plus', 'plus', 'Agrandir')}
+                {bouton('toit.dupliquer', 'dupliquer', 'Dupliquer')}
+              </>
+            )}
+            {bouton('toit.supprimer', 'supprimer', selection.type === 'corps' ? 'Supprimer ce corps' : 'Supprimer', true)}
           </div>
         </div>
       )}
@@ -101,6 +113,7 @@ export function ModeToit({ magasin, commandes }: Props) {
   return (
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
+    <PlanToit magasin={magasin} commandes={commandes} />
     <PoigneesToit magasin={magasin} />
     <div className="panneauToit" role="region" aria-label="Mode Toit">
       <div className="barreToit" role="toolbar" aria-label="Session du toit">

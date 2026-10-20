@@ -9,9 +9,10 @@
 
 import { point, repere } from '../../toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, retirerSaillie } from './saillies.js';
+import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade } from '../../../model/types.js';
 
-export type TypeElement = 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire';
+export type TypeElement = 'corps' | 'saillie' | 'pignon' | 'lucarne' | 'cheminee' | 'fenetre-toit' | 'solaire';
 
 export interface CibleElement { type: TypeElement; rang: number; i: number }
 
@@ -29,6 +30,8 @@ const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 /** Tous les elements du batiment, dans l'ordre ou on les presente : ce qui est pose sur une facade, puis ce qui est sur le toit. */
 export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
   const l: ElementListe[] = [];
+  // Les corps eux-memes, quand il y en a plusieurs : le principal d'abord, puis les autres dans l'ordre ou on les a poses.
+  if (rangsDeCorps(corps).length > 1) rangsDeCorps(corps).forEach((rang, n) => l.push({ cible: { type: 'corps', rang, i: 0 }, libelle: rang === rangPrincipal(corps) ? 'Corps principal' : 'Corps ' + (n + 1) }));
   corps.forEach((c, rang) => { if (c.saillie) l.push({ cible: { type: 'saillie', rang, i: 0 }, libelle: LIBELLES_SAILLIE[c.saillie.genre] }); });
   corps.forEach((c, rang) => c.pignons.forEach((_, i) => l.push({ cible: { type: 'pignon', rang, i }, libelle: 'Pignon' })));
   corps.forEach((c, rang) => (c.lucarnes ?? []).forEach((x, i) => l.push({ cible: { type: 'lucarne', rang, i }, libelle: LIBELLES_LUCARNE[x.type] ?? 'Lucarne' })));
@@ -40,10 +43,11 @@ export function listerElements(corps: readonly CorpsToit[]): ElementListe[] {
 export const memeCible = (a: CibleElement | null, b: CibleElement | null): boolean => !!a && !!b && a.type === b.type && a.rang === b.rang && a.i === b.i;
 
 /** L'element que nomme la cible dans cette liste de corps, ou null s'il n'existe plus (une annulation l'a retire). */
-export function lireElement(corps: readonly CorpsToit[], t: CibleElement): SaillieFacade | PignonToit | Lucarne | Cheminee | ElementDeToit | null {
+export function lireElement(corps: readonly CorpsToit[], t: CibleElement): CorpsToit | SaillieFacade | PignonToit | Lucarne | Cheminee | ElementDeToit | null {
   const c = corps[t.rang];
   if (!c) return null;
   switch (t.type) {
+    case 'corps': return c.saillie ? null : c;
     case 'saillie': return c.saillie ?? null;
     case 'pignon': return c.pignons[t.i] ?? null;
     case 'lucarne': return c.lucarnes?.[t.i] ?? null;
@@ -63,6 +67,7 @@ const remplace = <T>(l: readonly T[] | undefined, i: number, v: T): T[] => (l ??
 export function supprimerElement(corps: readonly CorpsToit[], t: CibleElement): CorpsToit[] {
   const c = corps[t.rang];
   if (!c) return corps.slice();
+  if (t.type === 'corps') return supprimerCorps(corps, t.rang);
   if (t.type === 'saillie') return retirerSaillie(corps, t.rang);
   const neuf: CorpsToit = { ...c };
   if (t.type === 'pignon') neuf.pignons = sans(c.pignons, t.i);

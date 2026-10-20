@@ -22,10 +22,11 @@ import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToi
 import { angleDuPlusLongCote } from '../facade/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
+import { corpsNeuf, type GenreCorps } from '../facade/regles/toits/corpsNeufs.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/regles/toits/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
 
-export type FamillePiece = 'toit' | 'sur' | 'facade';
+export type FamillePiece = 'corps' | 'toit' | 'sur' | 'facade';
 
 export interface PieceCatalogue {
   /** Stable : `famille:nom`. C'est la valeur que la palette passe a la commande. */
@@ -45,6 +46,10 @@ const formes = EXEMPLES_TOITS.filter((e) => e.famille === 'toit' && !TOURELLES.h
 const lucarnes = EXEMPLES_TOITS.filter((e) => e.famille === 'lucarne');
 
 export const PIECES: readonly PieceCatalogue[] = [
+  // Les corps (mode Plan) : leur vignette est la forme de toit qu'ils prennent a la pose.
+  { id: 'corps:aile', famille: 'corps', libelle: 'Aile', exemple: 'appentis' },
+  { id: 'corps:retour', famille: 'corps', libelle: 'Retour', exemple: 'deux-pans' },
+  { id: 'corps:biaise', famille: 'corps', libelle: 'Biaise', exemple: 'croupes' },
   ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
   { id: 'sur:pignon', famille: 'sur', libelle: 'Pignon' },
   { id: 'sur:cheminee', famille: 'sur', libelle: 'Cheminée' },
@@ -167,6 +172,12 @@ export function raisonIndisponible(o: ObjetPlan, id: string): string | null {
   if (!p) return 'Geste inconnu.';
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
   if (p.famille === 'toit') return null;
+  if (p.famille === 'corps') {
+    const h = corpsPrincipal(o);
+    if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
+    if (h && !corpsNeuf(h, id.split(':')[1] as GenreCorps, o.corpsToit ?? [])) return 'Pas de place contre ce corps.';
+    return null;
+  }
   // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
   if (!corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
   if (id === 'sur:pignon') {
@@ -234,6 +245,13 @@ export function appliquerPiece(o: ObjetPlan, id: string): boolean {
     if (estFormeToit(nom)) toit.forme = nom;
     toit.source = 'saisie';
     delete toit.pente;
+  } else if (prefixe === 'corps') {
+    const hote = corpsPourPoser(o);
+    const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.corpsToit ?? []) : null;
+    if (!hote || !neuf || !o.corpsToit) return false;
+    o.corpsToit = [...o.corpsToit, neuf];
+    o.modeToit = 'corps';
+    toitDe(o).source = 'saisie';
   } else if (prefixe === 'sur') {
     const c = corpsPourPoser(o);
     if (!c) return false;

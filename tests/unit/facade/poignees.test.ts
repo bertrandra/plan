@@ -27,7 +27,7 @@ describe('les poignees', () => {
     expect(ids({ type: 'lucarne', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
     expect(ids({ type: 'cheminee', rang: 0, i: 0 })).toEqual(['pos']);
     expect(ids({ type: 'solaire', rang: 0, i: 1 })).toEqual(['pos', 'taille']);
-    expect(ids({ type: 'corps', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long']);
+    expect(ids({ type: 'facade', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long']);
     expect(ids({ type: 'pignon', rang: 0, i: 9 })).toEqual([]);
   });
 
@@ -94,15 +94,15 @@ describe('glisser', () => {
 
   it('monte la facade d un corps et l etire en gardant ce qui est pose dessus', () => {
     const corps = avecTout();
-    const h = glisser(corps, { type: 'corps', rang: 0, i: 0, mur: 0 }, 'haut', { vert: 1 }).corps[0]!;
+    const h = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'haut', { vert: 1 }).corps[0]!;
     expect(h.faitage).toBeCloseTo(corps[0]!.faitage + 1, 2);
-    const e = glisser(corps, { type: 'corps', rang: 0, i: 0, mur: 0 }, 'long', { long: 2 }).corps;
+    const e = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'long', { long: 2 }).corps;
     expect(repere(e[0]!.pts).L).toBeCloseTo(12, 1);
     expect(e[1]!.saillie).toBeDefined();
     // Trop court : borne a 2,5 m.
-    expect(repere(glisser(corps, { type: 'corps', rang: 0, i: 0, mur: 0 }, 'long', { long: -50 }).corps[0]!.pts).L).toBeCloseTo(2.5, 1);
+    expect(repere(glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'long', { long: -50 }).corps[0]!.pts).L).toBeCloseTo(2.5, 1);
     // Une facade de bout change la largeur et garde le faitage au meme endroit relatif.
-    const w = glisser(corps, { type: 'corps', rang: 0, i: 0, mur: 1 }, 'long', { long: 2 }).corps[0]!;
+    const w = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 1 }, 'long', { long: 2 }).corps[0]!;
     expect(repere(w.pts).W).toBeCloseTo(8, 1);
     expect(w.posFaitage / repere(w.pts).W).toBeCloseTo(corps[0]!.posFaitage / 6, 2);
   });
