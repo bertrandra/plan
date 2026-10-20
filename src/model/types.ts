@@ -1074,6 +1074,11 @@ export interface CorpsToit {
    * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/regles/toits/saillies.ts).
    */
   saillie?: SaillieFacade;
+  /**
+   * Ce corps est une bay window (MD/spec-regles-toits.md §2.3, §4) : une avancee de facade posee sur une saillie du contour, avec son
+   * propre toit. Absent : un corps ordinaire. Sans effet sur le dessin, qui la traite comme un corps plat ou un appentis.
+   */
+  baie?: BaieToit;
 }
 
 /** Ce qu'est un element pose sur une facade. */
@@ -1099,6 +1104,16 @@ export interface SaillieFacade {
   toit: 'pan' | 'pavillon' | 'plat';
   /** Sa hauteur a l'egout, en metres, quand la personne la regle ; absente : celle du `niveau` (un etage, ou l'egout de la maison). */
   hauteurM?: number | undefined;
+}
+
+/** Une bay window : le plan, la hauteur ou elle commence, son toit, et d'ou on le sait. */
+export interface BaieToit {
+  /** Son plan : rectangle, arc de cercle ou rectangle a angles arrondis (`congeM`). Le dessin 3D n'en trace que l'enveloppe rectangulaire. */
+  forme: 'rectangle' | 'arc' | 'conge';
+  congeM?: number;
+  /** Sous le premier etage (le rez-de-chaussee seul) ou sur toute la hauteur du batiment. */
+  pose: 'sous-premier-etage' | 'toute-hauteur';
+  source: 'cadastre' | 'observation';
 }
 
 /**

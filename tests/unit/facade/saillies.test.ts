@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appliquerPiece } from '../../../src/facade/regles/toits/gestes.js';
+import { appliquerPiece } from '../../../src/three/gestesToits.js';
 import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, vitresBowWindow, replacerSaillie, retirerSaillie, murDuCorps, murLePlusProche } from '../../../src/facade/regles/toits/saillies.js';
 import { saillieValide } from '../../../src/model/corpsToitEtendu.js';
 import { repere } from '../../../src/facade/toitCorps.js';

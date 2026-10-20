@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sectionReleve } from '../../../src/ui/champs/facade.js';
 import type { Champ, ChampBouton, ChampChoix, ChampLigne, ChampNombre, ContexteChamps } from '../../../src/ui/champs/types.js';
-import { appliquerPiece } from '../../../src/facade/regles/toits/gestes.js';
+import { appliquerPiece } from '../../../src/three/gestesToits.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Les reglages d'un element de facade (bow-window, galerie) dans la section « Facades et toit » de l'inspecteur.

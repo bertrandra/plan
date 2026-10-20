@@ -5,12 +5,12 @@
 // batiment est fige (`toitFige`) et rien ne le reecrit. Sur une parcelle, elle porte sur tous les
 // batiments de la parcelle du projet. Rallumer reprend la lecture et perd ce que la personne avait
 // regle : c'est une modification du projet, annulable.
-// `toit.poser` : le geste du catalogue (facade/regles/toits/gestes.ts), nomme par `data-piece` sur le
+// `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le
 // bouton qui l'a declenche. Il fige le toit : poser un geste, c'est decider.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
-import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../facade/regles/toits/gestes.js';
+import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';

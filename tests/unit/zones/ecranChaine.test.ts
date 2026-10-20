@@ -4,7 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { chaineVivante } from "../../../src/app/chaineVivante.js";
 import { EcranChaine } from '../../../src/zones/EcranChaine.js';
-import { EXEMPLES_TOITS } from '../../../src/facade/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
 import { demandeEcranChaine } from '../../../src/app/ecranChaine.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

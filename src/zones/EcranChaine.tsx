@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { construireArbre, repartitionDesModes, type ArbreNoeud, type ModeNoeud, type NoeudChaine } from '../model/chaine.js';
 import type { ChaineVivante, NoeudVivant } from '../app/chaineVivante.js';
-import { EXEMPLES_TOITS, vueIsometrique, type VueIso } from '../facade/catalogueToits.js';
+import { EXEMPLES_TOITS, vueIsometrique, type VueIso } from '../three/catalogueToits.js';
 
 const MODES: Record<ModeNoeud, string> = { auto: 'Automatique', manuel: 'Manuel', mixte: 'Automatique puis manuel' };
 const GENRES: Record<NoeudChaine['genre'], string> = { etape: 'Étape', source: 'Source', objet: 'Objet', regle: 'Règle', objet3d: 'Objet 3D', texture: 'Texture', processus: 'Processus' };

@@ -23,13 +23,14 @@ describe('regles/toits/faits.json', () => {
     expect(EMPREINTE_FAITS_TOITS).toBe(empreinteFaitsToits(FAITS_TOITS_LIVRES));
   });
 
-  it('sur AE 101, un seul fait : l appentis et les deux pignons de la facade sud, observes par le proprietaire le 14 octobre 2026', () => {
+  it('sur AE 101, un seul fait : l appentis et les deux pignons de la facade sud (14 octobre 2026), puis la bay window de la face est (20 octobre 2026)', () => {
     // La maison de reference ne bouge pas, sauf par une decision de l'utilisateur : ses observations sur place.
     const ae101 = Object.entries(FAITS_TOITS_LIVRES).filter(([, f]) => /allée des Limites/i.test(f.adresse ?? ''));
     expect(ae101.map(([cle]) => cle)).toEqual(['BATIMENT0000000322509182']);
     expect(ae101[0]![1].observation).toEqual({
       appentis: [{ facade: { azimutDeg: 180 }, longueur: 'toute' }],
       pignons: [{ facade: { azimutDeg: 180 }, position: 'bouts', haut: 'faitage', largeurM: 3.7 }],
+      baies: [{ facade: { azimutDeg: 74 }, forme: 'rectangle', pose: 'sous-premier-etage', toit: 'propre', toitForme: 'plat' }],
     });
   });
 });

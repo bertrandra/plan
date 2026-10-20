@@ -15,7 +15,7 @@ import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../regles/suj
 import { SUJETS } from './regles/sujets/index.js';
 import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
 import * as FORME_TOIT from '../model/formeToit.js';
-import { EXEMPLES_TOITS } from '../facade/catalogueToits.js';
+import { EXEMPLES_TOITS } from '../three/catalogueToits.js';
 
 /** Un seuil tel que l'ecran le montre : son nom, sa valeur avec son unite, et pourquoi il vaut cela. */
 export interface LigneSeuil { nom: string; valeur: string; pourquoi: string }
@@ -129,7 +129,7 @@ export function chaineVivante(e: EntreesChaine = ENTREES_CHAINE): ChaineVivante 
   for (const s of e.sujets) ajouter({ id: cle('audit.sujet.') + s.id, parent: 'audit.sujets', genre: 'processus', titre: s.libelle, detail: s.propose ? 'Propose une valeur au projet.' : 'Observation : rien n’est écrit dans le projet.', mode: s.propose ? 'mixte' : 'auto', ecran: '?admin&ecran=regles' });
   // Les formes du catalogue 3D : une ligne par forme, meme si personne ne l'a decrite.
   const dessinees = new Set(noeuds.filter((n) => n.forme).map((n) => n.forme));
-  for (const f of e.formes) if (!dessinees.has(f.id)) ajouter({ id: cle('o3d.') + f.id, parent: f.famille === 'lucarne' ? 'objets3d.lucarnes' : 'objets3d.formes', genre: 'objet3d', titre: f.titre + (f.aussi ? ' (' + f.aussi + ')' : ''), forme: f.id, mode: 'mixte', ou: 'facade/catalogueToits.ts' });
+  for (const f of e.formes) if (!dessinees.has(f.id)) ajouter({ id: cle('o3d.') + f.id, parent: f.famille === 'lucarne' ? 'objets3d.lucarnes' : 'objets3d.formes', genre: 'objet3d', titre: f.titre + (f.aussi ? ' (' + f.aussi + ')' : ''), forme: f.id, mode: 'mixte', ou: 'three/catalogueToits.ts' });
   for (const n of noeuds) if (n.forme && !e.formes.some((f) => f.id === n.forme)) problemes.push(n.id + ' : la forme « ' + n.forme + ' » n’est plus dans le catalogue');
 
   problemes.push(...verifierChaine(noeuds).filter((p) => !problemes.includes(p)));

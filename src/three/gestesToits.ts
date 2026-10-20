@@ -16,14 +16,14 @@
 //
 // Pur : pas de reseau, pas de DOM, pas d'historique (l'appelant empile l'instantane avant d'ecrire).
 
-import { enPoints } from '../../../model/formes.js';
-import { estFormeToit } from '../../../model/formeToit.js';
-import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from '../../catalogueToits.js';
-import { angleDuPlusLongCote } from '../../toit.js';
-import { boiteOrientee, point, repere, type Repere } from '../../toitCorps.js';
-import { formeDuCorps } from './faits.js';
-import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from './saillies.js';
-import type { BoutToit, Cheminee, CorpsToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../../../model/types.js';
+import { enPoints } from '../model/formes.js';
+import { estFormeToit } from '../model/formeToit.js';
+import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './catalogueToits.js';
+import { angleDuPlusLongCote } from '../facade/toit.js';
+import { boiteOrientee, point, repere, type Repere } from '../facade/toitCorps.js';
+import { formeDuCorps } from '../facade/regles/toits/faits.js';
+import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/regles/toits/saillies.js';
+import type { BoutToit, Cheminee, CorpsToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
 
 export type FamillePiece = 'toit' | 'sur' | 'facade';
 

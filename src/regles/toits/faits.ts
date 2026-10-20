@@ -66,6 +66,26 @@ export interface PignonsFait {
   largeurM?: number;
 }
 
+/**
+ * Une bay window (spec §2.3) : une avancee de facade que le contour cadastral porte (AE 101 : 2,3 x 0,6 m cote est). La facade se
+ * designe par l'azimut de sa normale sortante, comme pour un appentis ; `largeurM` departage deux saillies sur une meme facade.
+ * `toit: 'propre'` : un toit a elle, plat (`hauteurM`) ou en appentis (`hautM` contre le mur, `egoutM` au bord) ; les cotes absentes sont
+ * lues sur la mesure. `'couverte'` : cachee sous le toit d'un appentis voisin, aucun toit a elle. `'traversante'` : son mur monte au toit
+ * du corps et le traverse ; elle se dit, mais n'est pas encore dessinee.
+ */
+export interface BaieFait {
+  facade: { azimutDeg: number; toleranceDeg?: number };
+  largeurM?: number;
+  forme: 'rectangle' | 'arc' | 'conge';
+  congeM?: number;
+  pose: 'sous-premier-etage' | 'toute-hauteur';
+  toit: 'propre' | 'traversante' | 'couverte';
+  toitForme?: 'plat' | 'appentis';
+  hauteurM?: number;
+  hautM?: number;
+  egoutM?: number;
+}
+
 /** Ce que vous avez vu : chaque assertion absente n'est pas imposee (spec §7.1). */
 export interface ObservationFait {
   /**
@@ -82,6 +102,8 @@ export interface ObservationFait {
   appentis?: AppentisFait[];
   /** Les pignons traversants d'une facade du corps principal (spec §5.1). */
   pignons?: PignonsFait[];
+  /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */
+  baies?: BaieFait[];
 }
 
 /** Les dimensions d'un fait en remplacement : la mesure n'en dit rien de juste. */
@@ -176,6 +198,35 @@ function desPignons(v: unknown, quoi: string): PignonsFait[] | undefined {
   });
 }
 
+function desBaies(v: unknown, quoi: string): BaieFait[] | undefined {
+  if (v === undefined) return undefined;
+  if (!Array.isArray(v) || !v.length) throw new FaitsToitsIllisibles(quoi + ' : une liste de bay windows');
+  return v.map((x, i) => {
+    const q = quoi + '[' + i + ']';
+    const b = x as Record<string, unknown> & { facade?: { azimutDeg?: unknown; toleranceDeg?: unknown } } | null;
+    if (!b || typeof b !== 'object' || !b.facade || !estNombre(b.facade.azimutDeg) || (b.facade.toleranceDeg !== undefined && !positif(b.facade.toleranceDeg))) throw new FaitsToitsIllisibles(q + ' : { facade: { azimutDeg }, forme, pose, toit } (l\'azimut de la normale sortante de la face de la bay window)');
+    if (b.forme !== 'rectangle' && b.forme !== 'arc' && b.forme !== 'conge') throw new FaitsToitsIllisibles(q + '.forme : rectangle, arc ou conge');
+    if (b.pose !== 'sous-premier-etage' && b.pose !== 'toute-hauteur') throw new FaitsToitsIllisibles(q + '.pose : sous-premier-etage ou toute-hauteur');
+    if (b.toit !== 'propre' && b.toit !== 'traversante' && b.toit !== 'couverte') throw new FaitsToitsIllisibles(q + '.toit : propre, traversante ou couverte');
+    // Une traversante demande un dessin de pignon que le calcul n'a pas : mieux vaut refuser que la poser sans son toit.
+    if (b.toit === 'traversante') throw new FaitsToitsIllisibles(q + '.toit : traversante n\'est pas encore dessinee (propre ou couverte)');
+    if (b.toit === 'propre' && b.toitForme !== undefined && b.toitForme !== 'plat' && b.toitForme !== 'appentis') throw new FaitsToitsIllisibles(q + '.toitForme : plat ou appentis');
+    if (b.congeM !== undefined && (b.forme !== 'conge' || !positif(b.congeM))) throw new FaitsToitsIllisibles(q + '.congeM : un rayon positif, pour la forme conge');
+    for (const k of ['largeurM', 'hauteurM', 'hautM', 'egoutM'] as const) if (b[k] !== undefined && !positif(b[k])) throw new FaitsToitsIllisibles(q + '.' + k + ' : un nombre de metres positif');
+    if (b.toit !== 'propre' && (b.toitForme !== undefined || b.hauteurM !== undefined || b.hautM !== undefined || b.egoutM !== undefined)) throw new FaitsToitsIllisibles(q + ' : une bay window couverte n\'a pas de toit a elle, sans cote de toit');
+    if (estNombre(b.egoutM) && estNombre(b.hautM) && b.hautM <= b.egoutM) throw new FaitsToitsIllisibles(q + ' : un appentis monte vers le mur (hautM au-dessus de egoutM)');
+    return {
+      facade: { azimutDeg: b.facade.azimutDeg, ...(b.facade.toleranceDeg !== undefined ? { toleranceDeg: b.facade.toleranceDeg as number } : {}) },
+      ...(b.largeurM !== undefined ? { largeurM: b.largeurM as number } : {}),
+      forme: b.forme, ...(b.congeM !== undefined ? { congeM: b.congeM as number } : {}), pose: b.pose, toit: b.toit,
+      ...(b.toitForme !== undefined ? { toitForme: b.toitForme as 'plat' | 'appentis' } : {}),
+      ...(b.hauteurM !== undefined ? { hauteurM: b.hauteurM as number } : {}),
+      ...(b.hautM !== undefined ? { hautM: b.hautM as number } : {}),
+      ...(b.egoutM !== undefined ? { egoutM: b.egoutM as number } : {}),
+    };
+  });
+}
+
 function observation(v: unknown, quoi: string): ObservationFait {
   const o = v as Record<string, unknown> | null;
   if (!o || typeof o !== 'object') throw new FaitsToitsIllisibles(quoi + ' : sans observation');
@@ -188,6 +239,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
   const f = faitage(o.faitage, quoi), eg = fourchette(o.egout, quoi + '.egout'), fm = fourchette(o.faitageM, quoi + '.faitageM');
   const ap = appentis(o.appentis, quoi + '.appentis');
   const pg = desPignons(o.pignons, quoi + '.pignons');
+  const bw = desBaies(o.baies, quoi + '.baies');
   return {
     ...(formes ? { forme: formes as FormeToitSimple[] } : {}),
     ...(f ? { faitage: f } : {}),
@@ -197,6 +249,7 @@ function observation(v: unknown, quoi: string): ObservationFait {
     ...(fm ? { faitageM: fm } : {}),
     ...(ap ? { appentis: ap } : {}),
     ...(pg ? { pignons: pg } : {}),
+    ...(bw ? { baies: bw } : {}),
   };
 }
 
@@ -305,12 +358,13 @@ export const FAITS_SEMBLABLES_MAX = 5;
 export function signatureFait(f: FaitToit): string {
   const o = f.observation;
   // Un fait qui ne dit qu'un appentis adosse ou des pignons de facade ne dit rien de la forme : inutile de le rappeler.
-  const forme = o.forme ? [...o.forme].sort().join('|') : (o.appentis || o.pignons) && !o.faitage && !o.bouts ? '' : 'forme ?';
+  const forme = o.forme ? [...o.forme].sort().join('|') : (o.appentis || o.pignons || o.baies) && !o.faitage && !o.bouts ? '' : 'forme ?';
   const sens = o.faitage ? (o.faitage.par === 'long' ? 'faitage ' + o.faitage.sens + ' au long cote' : 'faitage a azimut') : '';
   const bouts = o.bouts ? 'bouts ' + [...o.bouts].sort().join('+') : '';
   const adosses = o.appentis ? o.appentis.length + ' appentis adosse(s)' : '';
   const pignons = o.pignons ? 'pignons aux bouts de ' + o.pignons.length + ' facade(s)' : '';
-  return [forme, sens, bouts, adosses, pignons, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
+  const baies = o.baies ? o.baies.length + ' bay window(s)' : '';
+  return [forme, sens, bouts, adosses, pignons, baies, f.application === 'remplacement' ? 'remplacement' : ''].filter(Boolean).join(', ');
 }
 
 /** Les faits comptes par signature, les plus nombreux d'abord ; `signal` au-dela de FAITS_SEMBLABLES_MAX. */

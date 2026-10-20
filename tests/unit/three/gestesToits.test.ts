@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal } from '../../../src/facade/regles/toits/gestes.js';
-import { vueIsometrique, EXEMPLES_TOITS } from '../../../src/facade/catalogueToits.js';
+import { PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal } from '../../../src/three/gestesToits.js';
+import { vueIsometrique, EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Un batiment rectangulaire de 10 x 6 m, egout a 3 m, toit simple de 2,5 m.

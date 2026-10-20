@@ -16,8 +16,8 @@ import { Icone, type NomIcone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { VignetteToit, VignetteVue } from './EcranChaine.js';
 import { batimentsVises, reglesAllumees } from '../app/ecouteurs/toitCatalogue.js';
-import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../facade/regles/toits/gestes.js';
-import { vueDeSaillie } from '../facade/regles/toits/saillies.js';
+import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../three/gestesToits.js';
+import { vueDeSaillie } from '../three/vueSaillie.js';
 
 export interface PropsPalette { magasin: Magasin; commandes: RegistreCommandes }
 
