@@ -103,6 +103,15 @@
   .panneauToit .indiceToit{ margin:0; font-size:.85rem; color:var(--ink-soft); }
   .panneauToit .toitRegles{ align-self:flex-start; min-height:44px; padding:4px 10px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .toitRegles[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  /* Le doigt d'invitation : il se pose au-dessus du batiment et bat doucement tant qu'on n'a rien touche. */
+  .indiceMain{ position:absolute; z-index:4; pointer-events:none; color:var(--accent); transform:translate(-50%, -50%); filter:drop-shadow(0 1px 2px rgba(0,0,0,.35)); animation:battementToit 1.4s ease-in-out infinite; }
+  @keyframes battementToit{ 0%,100%{ transform:translate(-50%, -50%); } 50%{ transform:translate(-50%, -62%); } }
+  @media (prefers-reduced-motion: reduce){ .indiceMain{ animation:none; } }
+  /* Sur telephone et tablette : le plan de facades se reduit, le panneau est un bandeau qui ne couvre pas plus de la moitie de la scene. */
+  html[data-classe="compact"] .navigateurToit{ top:56px; width:104px; height:84px; padding:2px; }
+  html[data-classe="compact"] .panneauToit{ left:4px; right:4px; bottom:4px; max-height:52%; padding:4px 6px; }
+  html[data-classe="compact"] .panneauToit .toitPiece{ width:68px; min-height:68px; }
+  html[data-classe="moyen"] .panneauToit{ right:64px; max-height:50%; }
   /* Le mode Plan : les corps vus de dessus se choisissent d'un toucher. */
   .planToit{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; overflow:visible; }
   .planToit .corpsPlan{ pointer-events:auto; cursor:pointer; fill:var(--accent-light); fill-opacity:.18; stroke:var(--accent); stroke-width:2px; }
