@@ -15,7 +15,7 @@ import { estSpecial } from '../facade/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
-import { estBowWindow, facettesBowWindow } from '../facade/regles/toits/saillies.js';
+import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/regles/toits/saillies.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
@@ -27,6 +27,9 @@ export const NOM_TOIT_CORPS = 'toit-corps';
 /** Les facettes plates d'un batiment en corps : un toit-terrasse, en gravillons. */
 export const NOM_TOIT_CORPS_PLAT = 'toit-corps-plat';
 export const NOM_MUR_CORPS = 'toit-corps-mur';
+/** Les vitres d'un bow-window : un bleu-gris, comme celles des fenetres (three/detailsBatiment.ts). */
+export const NOM_VITRES_BOW = 'bow-vitres';
+const COULEUR_VITRE_BOW = 0x6f8aa6;
 /** Le debord du toit au-dela du mur, a l'egout, en metres (mesure a plat). */
 export const DEBORD_EGOUT_M = 0.35;
 /** Le debord a la rive, au-dela d'un pignon. */
@@ -429,8 +432,14 @@ export function ajouterToitCorps3d(ctx: ContexteToitCorps, corps: readonly Corps
  */
 export function ajouterBowWindows3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined): { pans: number; murs: number } {
   const pans: S3[][] = [], murs: S3[][] = [];
-  corps.filter(estBowWindow).forEach((c) => { const f = facettesBowWindow(c); pans.push(...f.pans); murs.push(...f.murs); });
+  const vitres: S3[][] = [];
+  corps.filter(estBowWindow).forEach((c) => { const f = facettesBowWindow(c); pans.push(...f.pans); murs.push(...f.murs); vitres.push(...vitresBowWindow(c)); });
   if (pans.length || murs.length) poserFacettes(ctx, pans, murs, toitRef, null);
+  if (vitres.length) {
+    const m = new THREE.Mesh(maille(vitres, ctx.toLocal, false), new THREE.MeshStandardMaterial({ color: COULEUR_VITRE_BOW, roughness: 0.25, metalness: 0.1, side: THREE.DoubleSide }));
+    m.name = NOM_VITRES_BOW;
+    ctx.scene.add(m);
+  }
   return { pans: pans.length, murs: murs.length };
 }
 

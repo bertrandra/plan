@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { appliquerPiece } from '../../../src/facade/regles/toits/gestes.js';
-import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, replacerSaillie, retirerSaillie, murDuCorps } from '../../../src/facade/regles/toits/saillies.js';
+import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, vitresBowWindow, replacerSaillie, retirerSaillie, murDuCorps, murLePlusProche } from '../../../src/facade/regles/toits/saillies.js';
 import { saillieValide } from '../../../src/model/corpsToitEtendu.js';
 import { repere } from '../../../src/facade/toitCorps.js';
 import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../src/model/types.js';
@@ -79,9 +79,51 @@ describe('l emprise et les facettes d un bow-window', () => {
       const f = facettesBowWindow(c);
       expect(Math.min(...hauteurs(f.murs))).toBe(0);
       expect(Math.max(...hauteurs(f.murs))).toBeCloseTo(c.egouts[0], 5);
-      expect(Math.min(...hauteurs(f.pans))).toBeGreaterThanOrEqual(c.egouts[0] - 1e-6);
+      // Le toit deborde : son bord descend un peu sous l'egout, selon la pente.
+      expect(Math.min(...hauteurs(f.pans))).toBeGreaterThanOrEqual(c.egouts[0] - 0.5);
       expect(Math.max(...hauteurs(f.pans))).toBeCloseTo(c.faitage, 5);
     }
+  });
+});
+
+describe('choisir le mur par un toucher', () => {
+  it('le mur le plus proche du point, et l abscisse sur ce mur', () => {
+    const h = maison();
+    // Un point juste en dehors du mur de gauche (x = 0), a 2 m du bout pts[3] : le mur 3 va de (0,6) a (0,0).
+    const r = murLePlusProche(h, { x: -0.4, y: 4 });
+    expect(r.mur).toBe(3);
+    expect(r.centreM).toBeCloseTo(2, 5);
+    expect(murLePlusProche(h, { x: 5, y: -1 })).toEqual({ mur: 0, centreM: 5 });
+  });
+  it('un point au-dela d un bout reste sur le mur', () => {
+    expect(murLePlusProche(maison(), { x: 14, y: 0.2 }).centreM).toBeLessThanOrEqual(6);
+  });
+});
+
+describe('la hauteur propre, le debord et les vitres', () => {
+  it('une hauteur reglee l emporte sur le niveau, et la retirer rend celle du niveau', () => {
+    const corps = [maison(), corpsDeSaillie(maison(), bow({ niveau: 'rdc' }))];
+    const haut = replacerSaillie(corps, 1, { hauteurM: 4.2 });
+    expect(haut[1]!.egouts[0]).toBeCloseTo(4.2, 2);
+    expect(haut[1]!.saillie!.hauteurM).toBe(4.2);
+    const rendu = replacerSaillie(haut, 1, { niveau: 'rdc', hauteurM: undefined });
+    expect(rendu[1]!.egouts[0]).toBeCloseTo(2.7, 2);
+    expect('hauteurM' in rendu[1]!.saillie!).toBe(false);
+  });
+  it('le toit deborde de ses murs', () => {
+    const c = corpsDeSaillie(maison(), bow({ toit: 'plat', forme: 'rectangle' }));
+    const f = facettesBowWindow(c);
+    const r = repere(c.pts);
+    const sMax = Math.max(...f.pans[0]!.map((q) => (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y));
+    expect(sMax).toBeGreaterThan(r.L + 0.15);
+  });
+  it('un bow rectangle a des fenetres sur sa facade, un arc en a plusieurs qui suivent la courbe, un bow bas ou etroit aucune', () => {
+    const rect = vitresBowWindow(corpsDeSaillie(maison(), bow({ forme: 'rectangle', largeurM: 3 })));
+    expect(rect.length).toBeGreaterThanOrEqual(1);
+    const arc = vitresBowWindow(corpsDeSaillie(maison(), bow({ forme: 'arc', largeurM: 3, profondeurM: 1.5 })));
+    expect(arc.length).toBeGreaterThanOrEqual(2);
+    expect(vitresBowWindow(corpsDeSaillie(maison(), bow({ hauteurM: 1.1 })))).toHaveLength(0);
+    for (const v of rect.concat(arc)) for (const q of v) { expect(q.z).toBeGreaterThanOrEqual(0.9 - 1e-9); expect(q.z).toBeLessThan(2.7); }
   });
 });
 
@@ -91,6 +133,8 @@ describe('le fichier', () => {
     expect(saillieValide({ ...bow(), forme: 'hexagone' })).toBeNull();
     expect(saillieValide({ ...bow(), largeurM: 0 })).toBeNull();
     expect(saillieValide(null)).toBeNull();
+    expect(saillieValide(bow({ hauteurM: 3.5 }))!.hauteurM).toBe(3.5);
+    expect(saillieValide({ ...bow(), hauteurM: -1 })).toEqual(bow());
   });
   it('un bow pose par la palette fait l aller-retour', () => {
     const o = { key: 'b', type: 'polygon', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan;

@@ -1097,6 +1097,8 @@ export interface SaillieFacade {
   niveau: 'rdc' | 'toit';
   /** Le toit propre : un pan contre le mur, quatre pans, ou plat. */
   toit: 'pan' | 'pavillon' | 'plat';
+  /** Sa hauteur a l'egout, en metres, quand la personne la regle ; absente : celle du `niveau` (un etage, ou l'egout de la maison). */
+  hauteurM?: number | undefined;
 }
 
 /**

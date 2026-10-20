@@ -11,6 +11,10 @@
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../facade/regles/toits/gestes.js';
+import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
+import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
+import { hotes3d } from '../../three/etat3d.js';
+import { objetSousLePointeur } from '../../three/scene.js';
 import { showToast } from '../../shell/dialogs.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
@@ -63,6 +67,58 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     }
   });
 
+  /** Replace l'element arme sur le mur que la personne touche dans la Vue 3D ; faux si le toucher ne dit rien (le ciel, un autre objet). */
+  const placerSurLeMurTouche = (ndc: { x: number; y: number }): boolean => {
+    const cible = saillieArmee();
+    const o = cible ? a.etat.objects.find((x) => x.key === cible.cle) : undefined;
+    if (!cible || !o?.corpsToit) return false;
+    const rang = cible.rang, k = o.corpsToit[rang], hote = k?.saillie ? o.corpsToit[k.saillie.hote] : undefined;
+    if (!k?.saillie || !hote) { desarmerSaillie(); return false; }
+    const touche = objetSousLePointeur(ndc, (cle) => cle === cible.cle);
+    if (touche.cle !== cible.cle || !touche.point) return false;
+    a.pushHistory();
+    o.corpsToit = replacerSaillie(o.corpsToit, rang, murLePlusProche(hote, touche.point));
+    o.toitFige = true;
+    desarmerSaillie();
+    a.markDirty();
+    a.render();
+    reconstruire();
+    ctx.rafraichir();
+    return true;
+  };
+
+  // Le toucher (un clic, pas un glisse qui fait tourner la vue) sur la Vue 3D, quand un element est arme.
+  const doc = typeof document === 'undefined' ? null : document;
+  let appui: { x: number; y: number } | null = null;
+  doc?.addEventListener('pointerdown', (e) => { appui = saillieArmee() && hotes3d.vue3d?.contains(e.target as Node) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  doc?.addEventListener('pointerup', (e) => {
+    const debut = appui; appui = null;
+    const hote = hotes3d.vue3d;
+    if (!debut || !hote || !saillieArmee() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > 5) return;
+    const r = hote.getBoundingClientRect();
+    placerSurLeMurTouche({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) });
+  }, true);
+  doc?.addEventListener('keydown', (e) => { if (e.key === 'Escape' && saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); } });
+
+  const armer = (cle: string, rang: number) => {
+    armerSaillie(cle, rang);
+    ctx.rafraichir();
+    showToast(vue3d.scene ? 'Touchez un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler).' : 'Ouvrez la vue 3D, puis touchez un mur du bâtiment pour y poser l’élément.');
+  };
+
+  cmd.declarer({
+    id: 'toit.murSur3d', libelle: 'Choisir le mur dans la 3D', groupe: 'toit',
+    description: 'Arme l’élément de façade choisi : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose',
+    permission: PERMISSION_ECRITURE,
+    actif: () => vises().length === 1,
+    executer: () => {
+      const rang = reprendreSaillieVisee();
+      const o = vises()[0];
+      if (rang === null || !o?.corpsToit?.[rang]?.saillie) return;
+      armer(o.key, rang);
+    }
+  });
+
   cmd.declarer({
     id: 'toit.poser', libelle: 'Poser sur le toit', groupe: 'toit',
     description: 'Pose sur le bâtiment sélectionné la forme de toit, l’élément du toit ou l’élément de façade choisi dans le catalogue ; coupe les règles pour ce bâtiment ; Ctrl+Z revient en arrière',
@@ -80,6 +136,8 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       a.render();
       reconstruire();
       ctx.rafraichir();
+      // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
+      if (id.startsWith('facade:')) armer(o.key, o.corpsToit ? o.corpsToit.length - 1 : 0);
     }
   });
 }

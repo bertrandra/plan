@@ -7,6 +7,7 @@
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
 import { designerFacade } from '../../facade/choix.js';
+import { saillieArmee, viserSaillie } from '../../facade/choixSaillie.js';
 import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';
@@ -16,7 +17,7 @@ import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
 import { formeDuCorps } from '../../facade/regles/toits/faits.js';
 import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
-import { NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/regles/toits/saillies.js';
+import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/regles/toits/saillies.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 
@@ -203,9 +204,13 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
             options: () => [{ valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
             lire: (cc) => lire(cc)?.forme ?? 'rectangle', ecrire: (cc, v) => { regler(cc, { forme: v as FormeSaillie }); } } satisfies Champ,
-          { type: 'choix', cle: 'niveau', libelle: 'Niveau', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Sous le premier étage, ou jusqu’au toit',
-            options: () => [{ valeur: 'rdc', libelle: 'Sous le 1er étage' }, { valeur: 'toit', libelle: 'Jusqu’au toit' }],
-            lire: (cc) => lire(cc)?.niveau ?? 'rdc', ecrire: (cc, v) => { regler(cc, { niveau: v === 'toit' ? 'toit' : 'rdc' }); } } satisfies Champ
+          { type: 'choix', cle: 'niveau', libelle: 'Niveau', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Un étage de haut, ou jusqu’à l’égout de la maison ; choisir un niveau reprend sa hauteur (efface la hauteur réglée)',
+            options: () => [{ valeur: 'rdc', libelle: 'Un étage' }, { valeur: 'toit', libelle: 'Jusqu’à l’égout de la maison' }],
+            lire: (cc) => lire(cc)?.niveau ?? 'rdc', ecrire: (cc, v) => { regler(cc, { niveau: v === 'toit' ? 'toit' : 'rdc', hauteurM: undefined }); } } satisfies Champ,
+          { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur à l’égout', unite: 'm', pas: 0.1, min: 1, max: HAUTEUR_BOW_MAX_M, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
+            aide: 'La hauteur des murs du bow-window, du sol à son égout ; un niveau choisi la remplace',
+            note: (cc) => (lire(cc)?.hauteurM === undefined ? 'celle du niveau' : 'réglée'),
+            lire: (cc) => cc.obj.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ
         ] : []),
         { type: 'choix', cle: 'toit', libelle: 'Toit', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
           options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }],
@@ -219,6 +224,8 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           lire: (cc) => cc.obj.corpsToit?.[rang]?.retraitM ?? RETRAIT_GALERIE_M,
           ecrire: (cc, v) => { const k = cc.obj.corpsToit?.[rang]; if (k) { k.retraitM = Math.min(Math.max(v, 0), 1); cc.obj.toitFige = true; } }
         } satisfies Champ] : []),
+        { type: 'bouton', cle: 'mur3d', libelle: 'Mur dans la 3D', texte: () => (saillieArmee() ? 'Touchez un mur…' : 'Choisir le mur dans la 3D'), aide: 'Touchez ensuite un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler)',
+          agit: { commande: 'toit.murSur3d' }, executer: (cc) => { viserSaillie(rang); cc.executerCommande('toit.murSur3d'); } },
         { type: 'bouton', cle: 'retirer', libelle: 'Retirer', aide: 'Retirer cet élément (Ctrl+Z pour revenir)', agit: 'projet',
           executer: (cc) => { cc.pushHistory(); cc.obj.corpsToit = retirerSaillie(cc.obj.corpsToit ?? [], rang); cc.obj.toitFige = true; cc.render(); } }
       ]

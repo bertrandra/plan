@@ -18,6 +18,10 @@ export interface Pt3 { x: number; y: number; z: number }
 
 /** La hauteur d'un rez-de-chaussee : ce que monte un bow-window « sous le premier etage ». */
 export const HAUTEUR_RDC_M = 2.7;
+/** Le debord du toit d'un bow-window au-dela de ses murs, sur les cotes et en facade (celui d'une maison est de 35 cm). */
+export const DEBORD_BOW_M = 0.2;
+/** Un etage de plus haut que ce que la personne choisit n'est pas plausible : la borne de la hauteur propre. */
+export const HAUTEUR_BOW_MAX_M = 12;
 /** Le recul des poteaux d'une galerie neuve : l'egout deborde de cela au-dessus d'eux. */
 export const RETRAIT_GALERIE_M = 0.3;
 
@@ -73,7 +77,8 @@ export function corpsDeSaillie(h: CorpsToit, brute: SaillieFacade): CorpsToit {
   const pts = rectangleDeSaillie(h, s);
   const d = s.profondeurM, L = s.largeurM;
   const haut = egoutBas(h);
-  const egout = s.genre === 'galerie' ? Math.min(2.4, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut);
+  // La hauteur propre l'emporte ; sinon un etage (sans depasser l'egout de la maison) ou l'egout de la maison.
+  const egout = s.hauteurM ?? (s.genre === 'galerie' ? Math.min(2.4, haut) : s.niveau === 'toit' ? haut : Math.min(HAUTEUR_RDC_M, haut));
   let faitage = egout, posFaitage = 0, croupes: [number, number] | undefined;
   if (s.toit === 'pan') {
     // Le pan monte contre le mur ; sous la pente d'une galerie ou d'un appentis (une vingtaine de degres), pas sous celle d'un bow-window.
@@ -99,7 +104,9 @@ export const estBowWindow = (c: CorpsToit): boolean => c.saillie?.genre === 'bow
 export function replacerSaillie(corps: readonly CorpsToit[], rang: number, changement: Partial<SaillieFacade>): CorpsToit[] {
   const c = corps[rang];
   if (!c?.saillie) return [...corps];
-  const s = { ...c.saillie, ...changement };
+  const s: SaillieFacade = { ...c.saillie, ...changement };
+  // Un reglage mis a `undefined` est retire : la hauteur propre qui redevient celle du niveau.
+  if (s.hauteurM === undefined) delete s.hauteurM;
   const hote = corps[s.hote];
   if (!hote || s.hote === rang) return [...corps];
   const neuf = corpsDeSaillie(hote, s);
@@ -148,19 +155,24 @@ export function facettesBowWindow(c: CorpsToit): { pans: Pt3[][]; murs: Pt3[][] 
   const e = empriseDeSaillie(c);
   const r = repere(c.pts);
   const top = Math.min(...c.egouts), F = c.faitage, d = r.W, L = r.L;
-  const T = (q: PtBrut) => Math.max(0, (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y);
+  const ST = (q: PtBrut) => ({ s: (q.x - r.p0.x) * r.u.x + (q.y - r.p0.y) * r.u.y, t: Math.max(0, (q.x - r.p0.x) * r.v.x + (q.y - r.p0.y) * r.v.y) });
+  const T = (q: PtBrut) => ST(q).t;
   const Z = (q: PtBrut, z: number): Pt3 => ({ x: q.x, y: q.y, z });
   for (let i = 0; i < e.length - 1; i++) { const a = e[i] as PtBrut, b = e[i + 1] as PtBrut; murs.push([Z(a, 0), Z(b, 0), Z(b, top), Z(a, top)]); }
+  // Le toit deborde de ses murs : l'emprise est agrandie autour du milieu du mur de la maison, sans quitter ce mur.
+  const deb = DEBORD_BOW_M;
+  const large = (q: PtBrut): PtBrut => { const { s, t } = ST(q); return point(r, L / 2 + (s - L / 2) * ((L + 2 * deb) / L), t * ((d + deb) / d)); };
+  const eT = e.map(large);
   const toit = c.saillie?.toit ?? 'pan';
-  if (toit === 'plat') pans.push(e.map((q) => Z(q, top)));
-  else if (toit === 'pan') pans.push(e.map((q) => Z(q, top + (F - top) * (1 - T(q) / d))));
+  if (toit === 'plat') pans.push(eT.map((q) => Z(q, top)));
+  else if (toit === 'pan') pans.push(eT.map((q) => Z(q, top + (F - top) * (1 - T(q) / d))));
   else if (c.saillie?.forme && c.saillie.forme !== 'rectangle') {
-    const apex = { x: e.reduce((t, q) => t + q.x, 0) / e.length, y: e.reduce((t, q) => t + q.y, 0) / e.length };
+    const apex = { x: eT.reduce((t, q) => t + q.x, 0) / eT.length, y: eT.reduce((t, q) => t + q.y, 0) / eT.length };
     const sommet = { x: apex.x, y: apex.y, z: F };
-    for (let i = 0; i < e.length - 1; i++) pans.push([Z(e[i] as PtBrut, top), Z(e[i + 1] as PtBrut, top), sommet]);
+    for (let i = 0; i < eT.length - 1; i++) pans.push([Z(eT[i] as PtBrut, top), Z(eT[i + 1] as PtBrut, top), sommet]);
   } else {
     const m = Math.min(d / 2, L / 2);
-    const R = (s: number, t: number, z: number): Pt3 => ({ ...point(r, s, t), z });
+    const R = (s: number, t: number, z: number): Pt3 => ({ ...point(r, L / 2 + (s - L / 2) * ((L + 2 * deb) / L), t * ((d + deb) / d)), z });
     pans.push([R(0, d, top), R(L, d, top), R(L - m, d / 2, F), R(m, d / 2, F)]);
     pans.push([R(0, 0, top), R(0, d, top), R(m, d / 2, F)]);
     pans.push([R(L, d, top), R(L, 0, top), R(L - m, d / 2, F)]);
@@ -214,4 +226,73 @@ export function vueDeSaillie(nom: string): VueIso {
     });
   }
   return vueIsometrique(mur, [...murs.map((m) => ({ f: m.map(toS), mur: true })), ...f.pans.map((p) => ({ f: p.map(toS), mur: false }))]);
+}
+
+/** Un angle de plus de cela entre deux cotes de l'emprise les separe : un arc (15° par cote) reste une seule facade, un angle droit en fait deux. */
+const ANGLE_FACADE_RAD = (20 * Math.PI) / 180;
+/** Une fenetre : sa largeur propre, l'espace voulu entre deux et la hauteur de son appui. */
+const FENETRE_LARGEUR_M = 1.1, FENETRE_ENTRAXE_M = 1.6, FENETRE_MIN_M = 0.5, APPUI_M = 0.9, LINTEAU_MIN_M = 0.3, FENETRE_HAUT_MAX_M = 1.4, RELIEF_VITRE_M = 0.012;
+
+/**
+ * Les vitres d'un bow-window : une ou plusieurs fenetres par facade (suite de cotes presque alignes, ou un arc entier),
+ * posees contre le mur, a hauteur d'appui. Une facade trop courte n'en recoit pas ; l'arc en recoit plusieurs, qui suivent sa courbe.
+ */
+export function vitresBowWindow(c: CorpsToit): Pt3[][] {
+  const top = Math.min(...c.egouts);
+  const bas = APPUI_M, haut = Math.min(top - LINTEAU_MIN_M, bas + FENETRE_HAUT_MAX_M);
+  if (haut - bas < 0.4) return [];
+  const e = empriseDeSaillie(c);
+  // Les facades : des suites de cotes dont la direction change peu.
+  const dir = (i: number) => Math.atan2((e[i + 1] as PtBrut).y - (e[i] as PtBrut).y, (e[i + 1] as PtBrut).x - (e[i] as PtBrut).x);
+  const suites: number[][] = [];
+  for (let i = 0; i < e.length - 1; i++) {
+    const ecart = i > 0 ? Math.abs(Math.atan2(Math.sin(dir(i) - dir(i - 1)), Math.cos(dir(i) - dir(i - 1)))) : Infinity;
+    if (ecart > ANGLE_FACADE_RAD) suites.push([i]); else (suites[suites.length - 1] as number[]).push(i);
+  }
+  const vitres: Pt3[][] = [];
+  const r = repere(c.pts);
+  for (const suite of suites) {
+    const pts = [e[suite[0] as number] as PtBrut, ...suite.map((i) => e[i + 1] as PtBrut)];
+    const cum = [0];
+    for (let k = 1; k < pts.length; k++) cum.push((cum[k - 1] as number) + Math.hypot((pts[k] as PtBrut).x - (pts[k - 1] as PtBrut).x, (pts[k] as PtBrut).y - (pts[k - 1] as PtBrut).y));
+    const total = cum[cum.length - 1] as number;
+    if (total < FENETRE_MIN_M + 0.2) continue;
+    const n = Math.max(1, Math.round(total / FENETRE_ENTRAXE_M));
+    const largeur = Math.min(FENETRE_LARGEUR_M, (total / n) * 0.7);
+    // Le point a l'abscisse `a` de la suite, et la normale sortante du cote qui le porte.
+    const en = (a: number): { p: PtBrut; n: PtBrut; k: number } => {
+      let k = 1; while (k < cum.length - 1 && (cum[k] as number) < a) k++;
+      const A = pts[k - 1] as PtBrut, B = pts[k] as PtBrut, l = (cum[k] as number) - (cum[k - 1] as number) || 1, f = (a - (cum[k - 1] as number)) / l;
+      const ux = (B.x - A.x) / l, uy = (B.y - A.y) / l;
+      // La normale s'eloigne du milieu du mur de la maison.
+      const mid = point(r, r.L / 2, 0);
+      let nx = uy, ny = -ux;
+      if ((A.x - mid.x) * nx + (A.y - mid.y) * ny < 0) { nx = -nx; ny = -ny; }
+      return { p: { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f }, n: { x: nx, y: ny }, k };
+    };
+    for (let w = 0; w < n; w++) {
+      const centre = ((w + 0.5) * total) / n, a0 = centre - largeur / 2, a1 = centre + largeur / 2;
+      // Les sommets de la fenetre : ses deux bouts et les coins de la suite qui tombent entre les deux.
+      const jalons = [a0, ...cum.filter((x) => x > a0 + 1e-6 && x < a1 - 1e-6), a1];
+      const bord = jalons.map((a) => { const q = en(Math.min(Math.max(a, 0), total)); return { x: q.p.x + q.n.x * RELIEF_VITRE_M, y: q.p.y + q.n.y * RELIEF_VITRE_M }; });
+      // Un quadrilatere par cote : une vitre qui suit un arc n'est pas plane, chaque morceau l'est.
+      for (let k = 0; k < bord.length - 1; k++) {
+        const [A, B] = [bord[k] as PtBrut, bord[k + 1] as PtBrut];
+        vitres.push([{ ...A, z: bas }, { ...B, z: bas }, { ...B, z: haut }, { ...A, z: haut }]);
+      }
+    }
+  }
+  return vitres;
+}
+
+/** Le mur de l'hote le plus proche d'un point, et l'abscisse de ce point sur lui : ce que donne un toucher sur la facade. */
+export function murLePlusProche(h: CorpsToit, p: PtBrut): { mur: number; centreM: number } {
+  let meilleur = { mur: 0, centreM: murDuCorps(h, 0).L / 2 }, dmin = Infinity;
+  for (let i = 0; i < h.pts.length; i++) {
+    const { a, L, u } = murDuCorps(h, i);
+    const s = Math.min(Math.max((p.x - a.x) * u.x + (p.y - a.y) * u.y, 0), L);
+    const d = Math.hypot(a.x + u.x * s - p.x, a.y + u.y * s - p.y);
+    if (d < dmin) { dmin = d; meilleur = { mur: i, centreM: s }; }
+  }
+  return meilleur;
 }

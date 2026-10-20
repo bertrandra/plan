@@ -133,6 +133,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Le catalogue du toit : le groupe « Toit » de la palette, montre avec un batiment ou la parcelle selectionne.
   'toit.regles': outil(),
   'toit.poser': outil(),
+  'toit.murSur3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),
   // Le nom des rues : la case et le bouton de la section « Voisinage » (ui/champs/voisinage3d.ts).

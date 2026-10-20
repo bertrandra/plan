@@ -105,7 +105,8 @@ export function saillieValide(v: unknown): SaillieFacade | null {
   if (niveau !== 'rdc' && niveau !== 'toit') return null;
   if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat') return null;
   if (!positifOuNul(v.hote) || !positifOuNul(v.mur) || !fini(v.centreM) || !positif(v.largeurM) || !positif(v.profondeurM)) return null;
-  return { genre, hote: v.hote, mur: v.mur, centreM: v.centreM, largeurM: v.largeurM, profondeurM: v.profondeurM, forme, niveau, toit };
+  const base: SaillieFacade = { genre, hote: v.hote, mur: v.mur, centreM: v.centreM, largeurM: v.largeurM, profondeurM: v.profondeurM, forme, niveau, toit };
+  return positif(v.hauteurM) ? { ...base, hauteurM: v.hauteurM } : base;
 }
 
 const memeBout = (a: BoutToit, b: BoutToit) => JSON.stringify(a) === JSON.stringify(b);
