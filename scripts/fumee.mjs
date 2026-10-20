@@ -2791,6 +2791,41 @@ const POINTS = {
     const ok = etapes === 7 && vignettes >= 29 && formesVoulues && polygones > 400 && lienRegles >= 1 && attenuees > 0 && apres === 0 && cibleExiste && sans && /Lu en direct des fichiers : prompt v\d+/.test(lecture) && seuils > 5 && lues > 5 && perimees === 0;
     return { ok, mesure: `${etapes} étapes ; ${vignettes} vignettes 3D, ${polygones} facettes ; les formes du catalogue et les lucarnes ${formesVoulues ? 'présentes' : 'ABSENTES'} ; ${lienRegles} lien(s) vers l’écran des règles ; filtre « Manuel » : ${attenuees} ligne(s) atténuée(s), « Tout » : ${apres} ; renvoi ${cibleExiste ? 'vers sa cible' : 'CASSÉ'} ; « ${lecture.slice(0, 60)}… », ${seuils} seuil(s) lus, ${lues} ligne(s) venues des données, ${perimees} ligne(s) périmée(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
+  97: async (page, f) => {
+    // Mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : « Modifier la toiture » sur la maison, un panneau avec ses vues et son catalogue, un
+    // panneau solaire pose sur le toit, « Valider » : l'element est la, une seule etape d'historique, un Ctrl+Z le retire ; rien ne deborde.
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
+      delete o.facades; delete o.corpsToit; delete o.volumesToit; delete o.toitMesure;
+      // Les listes par sommet suivent le contour : quatre sommets, quatre entrees (sinon l'inspecteur lit au-dela).
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
+      o.elevation = 4; o.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.etat().measures.length = 0;
+      window.__plan.selectionnerCle('maison');
+    });
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
+    await image3dStable(page, 3000);
+    const aucunAvant = (await page.locator('.panneauToit').count()) === 0;
+    await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
+    await page.locator('.panneauToit').waitFor({ timeout: 20000 });
+    const vues = await page.locator('.panneauToit [data-commande^="toit.vue"], .panneauToit [data-commande="toit.isolerCorps"]').count();
+    const onglets = await page.locator('.toitOnglet').count();
+    await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
+    await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
+    const pastilles = await page.locator('.puceToit').count();
+    const historiqueAvant = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
+    await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
+    await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
+    const historiqueApres = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    const retire = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.length);
+    const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
+    const ok = aucunAvant && vues === 4 && onglets === 4 && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
+    return { ok, mesure: `panneau absent avant : ${aucunAvant}, ${vues} vues, ${onglets} onglets, ${pastilles} pastille(s) ; historique ${historiqueAvant} → ${historiqueApres} ; un Ctrl+Z ${retire ? 'retire tout' : 'LAISSE le toit'} ; débordement ${sans ? 'non' : 'OUI'}` };
+  },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe
     // (processus, actions, coulisses), le choix d'un angle qui masque les autres, la recherche qui filtre, un lien vers l'ecran des regles ; rien ne deborde.
@@ -3210,7 +3245,7 @@ function pointsPour(nomClasse) {
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
   // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit. 96 : Admin › Principes.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96];
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

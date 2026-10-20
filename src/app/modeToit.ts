@@ -38,6 +38,8 @@ export interface SessionToit {
   corpsIsole: number | null;
   /** L'element choisi (celui que l'inspecteur regle), ou null. */
   selection: CibleElement | null;
+  /** Le doigt qui invite a toucher le batiment : vrai jusqu'au premier geste. */
+  indice: boolean;
   /** La camera avant d'entrer dans une facade : on la retrouve en la quittant. */
   vueAvant: PoseVue | null;
   isole: boolean;
@@ -72,6 +74,8 @@ export interface EtatToit {
   peutIsolerCorps: boolean;
   /** L'element choisi, s'il existe encore (une annulation a pu le retirer). */
   selection: CibleElement | null;
+  /** Le doigt d'invitation se montre encore (rien n'a ete touche). */
+  indice: boolean;
 }
 
 /** La selection si l'element existe encore dans le batiment en session. */
@@ -83,12 +87,12 @@ function selectionValide(): CibleElement | null {
 }
 
 export function etatToit(): EtatToit {
-  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null };
+  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false };
   const f = session.facade ?? session.derniere;
   return {
     actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
     facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' : null,
-    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide()
+    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice
   };
 }
 
@@ -206,7 +210,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, vueAvant: null, isole: false };
+      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false };
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
       veille = setInterval(surveillerLaVue, FANTOMES_MS);
@@ -231,6 +235,13 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     annuler: () => { const o = batiment(); if (o && session && annuler(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
     retablir: () => { const o = batiment(); if (o && session && retablir(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
     revenirAuDepart: () => { const o = batiment(); if (o && session && revenirAuDepart(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
+
+    /** Le premier geste de la personne : l'invitation a toucher le batiment disparait. */
+    leverIndice(): void {
+      if (!session?.indice) return;
+      session.indice = false;
+      ctx.rafraichir();
+    },
 
     /** Choisit un element (ou aucun) : l'inspecteur regle ce qui est choisi. */
     selectionner(cible: CibleElement | null): void {

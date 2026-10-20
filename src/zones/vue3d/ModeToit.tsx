@@ -3,9 +3,11 @@
 // Le panneau n'existe que pendant une session (app/modeToit.ts). Tout bouton est une commande du registre ; le panneau ne sait ni
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import { etatToit, sessionToit } from '../../app/modeToit.js';
+import { enPoints } from '../../model/formes.js';
+import { hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
@@ -102,6 +104,30 @@ function ElementsToit({ corps, selection, commandes }: { corps: readonly CorpsTo
   );
 }
 
+/** Le doigt qui invite a toucher le batiment, au-dessus de lui, tant que rien n'a ete touche. */
+function IndiceMain({ magasin }: { magasin: Magasin }) {
+  const [, redessiner] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => redessiner((n) => n + 1), 150);
+    return () => clearInterval(id);
+  }, []);
+  const s = sessionToit(), sc = vue3d.scene, hote = hotes3d.vue3d;
+  if (!s || !s.indice || !sc || !hote) return null;
+  const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
+  const pts = o ? (enPoints(o).pts as { x: number; y: number }[]) : [];
+  if (!pts.length) return null;
+  const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length;
+  const v = new THREE.Vector3(cx - sc.cen.x, (o?.elevation ?? 3) + 2, sc.cen.y - cy).project(sc.camera);
+  if (v.z > 1) return null;
+  const r = hote.getBoundingClientRect();
+  return (
+    <svg className="indiceMain" style={{ left: ((v.x + 1) / 2) * r.width, top: ((1 - v.y) / 2) * r.height }} width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 12V5.5a1.5 1.5 0 013 0V11M12 10.5V9a1.5 1.5 0 013 0v2M15 11a1.5 1.5 0 013 0v4c0 3.5-2.5 6-5.5 6S8 18.5 6.5 15.5L5 12.5a1.5 1.5 0 012.5-1L9 13" />
+    </svg>
+  );
+}
+
 export function ModeToit({ magasin, commandes }: Props) {
   useStore(magasin.store, (s) => s.version);
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
@@ -114,6 +140,7 @@ export function ModeToit({ magasin, commandes }: Props) {
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
     <PlanToit magasin={magasin} commandes={commandes} />
+    <IndiceMain magasin={magasin} />
     <PoigneesToit magasin={magasin} />
     <div className="panneauToit" role="region" aria-label="Mode Toit">
       <div className="barreToit" role="toolbar" aria-label="Session du toit">

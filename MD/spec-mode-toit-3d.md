@@ -263,7 +263,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - Mode Plan (en petit dans le navigateur et en grand) avec lignes de faîtage par forme et marqueurs des éléments posés.
 **Critères :** rotation libre, façades de biais éditables, AE 101 (multi-corps) refait à la main possible ; contour en L/U décrit par corps.
 
-### Étape 6 — Finitions, mobile, livraison
+### Étape 6 — Finitions, mobile, livraison  *(livrée : PR « mode Toit, étape 6 »)*
 - Thème sombre complet, indice « main » (disparaît au premier geste), toast « Façade validée », trois classes d'écran (téléphone : le plateau passe en feuille, le navigateur se replie ; tablette : rail).
 - Fumée pilotée sur tous les points touchés (§6), mise à jour de `tests/CHECKLIST-FUMEE.md` (nouveaux points), `MD/spec-ihm-zones.md` si une commande change de zone, `MD/spec-ecran-toit-facade.md` (renvoi vers cette spec), CHANGELOG.
 - Livraison depuis `main` : `BACKPROD_API_URL=https://www.raillard.org npm run livraison` dans un worktree à part (`git worktree add --detach /tmp/livraison-wt origin/main`, lien `node_modules`), `livraison.zip` ignoré par git.

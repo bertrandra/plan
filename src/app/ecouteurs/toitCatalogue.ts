@@ -148,7 +148,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   let appui: { x: number; y: number } | null = null;
   // Une poignee (zones/vue3d/PoigneesToit.tsx) garde son geste : ni toucher ni orbite.
   const surPoignee = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-poignee],[data-plan-corps]');
-  doc?.addEventListener('pointerdown', (e) => { appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) && !surPoignee(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  doc?.addEventListener('pointerdown', (e) => { if (enSession() && hotes3d.vue3d?.contains(e.target as Node)) mode.leverIndice(); appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) && !surPoignee(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
   doc?.addEventListener('pointerup', (e) => {
     const debut = appui; appui = null;
     const hote = hotes3d.vue3d;
