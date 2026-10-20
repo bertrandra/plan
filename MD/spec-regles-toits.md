@@ -104,7 +104,7 @@ Colonnes :
 | **Verrière** | Grande surface vitrée en toiture (véranda, atelier). | ✘ (hauteur) ; visible sur orthophoto | Non |
 | **Souche de cheminée** (n°11, passage de cheminée) | Maçonnerie qui sort du toit pour évacuer les fumées, souvent au faîtage ou en pignon. | ~ (pic de 0,5 à 1,5 m de côté, de 1 à 2 m au-dessus du toit) | Non (écrêtée comme une saillie) |
 | **Acrotère** | Rebord maçonné en tête de mur autour d'une toiture-terrasse. | ~ | Non |
-| **Bay window** (avancée vitrée, oriel, bow-window) | Avancée d'un mur de façade, souvent vitrée sur ses faces, que le cadastre porte dans le contour du bâtiment (AE 101 : 2,3 × 0,6 m côté est). En plan : un **rectangle**, un **arc de cercle** (demi-cercle ou segment) ou un **rectangle aux angles arrondis** (congé) côté extérieur. Elle a **sa propre hauteur** et son propre toit (plat, appentis, trois pans, pans qui suivent l'arc), ou elle est **traversante** : son mur monte au toit du corps et le traverse, comme un pignon. Elle se pose **sous le premier étage** (rez-de-chaussée seul) ou sur **toute la hauteur** du bâtiment. Une bay window sous un appentis (la galerie d'AE 101) n'a pas de toit à elle : celui de l'appentis la couvre. Voir §3.3 et §4. | ~ (hauteur seule, au-delà de 1,5 m de large ; une saillie de 0,6 m se confond avec l'ombre du mur) ; ✔ sur le cadastre | **Non** : le contour la porte, mais le décroché de moins de `SEUIL_DECROCHE_M` (1,2 m) est lissé, et aucun corps ne la couvre |
+| **Bay window** (avancée vitrée, oriel, bow-window) | Avancée d'un mur de façade, souvent vitrée sur ses faces, que le cadastre porte dans le contour du bâtiment (AE 101 : 2,3 × 0,6 m côté est). En plan : un **rectangle**, un **arc de cercle** (demi-cercle ou segment) ou un **rectangle aux angles arrondis** (congé) côté extérieur. Elle a **sa propre hauteur** et son propre toit (plat, appentis, trois pans, pans qui suivent l'arc), ou elle est **traversante** : son mur monte au toit du corps et le traverse, comme un pignon. Elle se pose **sous le premier étage** (rez-de-chaussée seul) ou sur **toute la hauteur** du bâtiment. Une bay window sous un appentis (la galerie d'AE 101) n'a pas de toit à elle : celui de l'appentis la couvre. Voir §3.3 et §4. | ~ (hauteur seule, au-delà de 1,5 m de large ; une saillie de 0,6 m se confond avec l'ombre du mur) ; ✔ sur le cadastre | Oui, sur fait : le contour la porte, `saillies` la repère (`facade/regles/toits/baies.ts`) ; un fait (`observation.baies`) la pose en petit corps (`baie`) ; sans fait, le décroché est lissé et aucun corps ne la couvre |
 
 ### 2.4 Bords et débords
 
@@ -282,7 +282,7 @@ En termes de modèle (§4) : le **profil** est la coupe en travers d'un pan, les
 | **Corps et aile** (en L, en T) | deux corps qui se rejoignent par une noue | deux faîtages perpendiculaires, la noue en creux à l'angle | Oui (rectangles maximaux, le plus haut l'emporte) |
 | **Avant-corps à pignon** (« pignon depuis le faîtage ») | un corps perpendiculaire qui part du faîtage vers une façade | le long d'une façade, la mesure dépasse le pan sur 1,5 à 6 m et reste haute vers l'intérieur | Oui (`pignons`) |
 | **Corps à hauteurs différentes** | une partie haute et une partie basse (annexe, garage) | une marche nette de plus de 0,8 m | Oui (coupe aux marches) |
-| **Bay window** | une avancée de façade, en plan rectangle, arc de cercle ou rectangle à angles arrondis ; **hauteur propre** avec son toit, ou **traversante** (son mur monte jusqu'au toit du corps) ; **sous le premier étage** ou sur **toute la hauteur** | un décroché du contour de 0,3 à 1 m de saillie sur 1 à 4 m de large, que le LiDAR ne lit qu'à moitié (murs, ombre) ; une saillie qui monte à l'égout ou au faîtage est traversante | **Non** (catalogue seul, §4 : `baies`) |
+| **Bay window** | une avancée de façade, en plan rectangle, arc de cercle ou rectangle à angles arrondis ; **hauteur propre** avec son toit, ou **traversante** (son mur monte jusqu'au toit du corps) ; **sous le premier étage** ou sur **toute la hauteur** | un décroché du contour de 0,3 à 1 m de saillie sur 1 à 4 m de large, que le LiDAR ne lit qu'à moitié (murs, ombre) ; une saillie qui monte à l'égout ou au faîtage est traversante | Oui, sur fait (§5.3 ; AE 101) ; repérée sur le contour par le banc, jamais posée sans fait |
 | **Mitoyens à cheval** | deux maisons sous un seul contour BD TOPO | un corps qui franchit une limite de parcelle | Question posée (« à cheval ») |
 
 ### 3.4 Les confusions qui comptent, et ce qui les tranche
@@ -340,8 +340,8 @@ interface CorpsToit {
   /** Les superstructures detectees ou observees. */
   lucarnes?: Lucarne[];
   cheminees?: Cheminee[];
-  /** Les bay windows (§2.3) : avancees de facade portees par le contour, observees ou lues au cadastre. */
-  baies?: BayWindow[];
+  /** Ce corps est une bay window (§2.3) : posee sur une saillie du contour par un fait (`observation.baies`, §5.3). */
+  baie?: BaieToit;
   /** Un corps plat : ce que l'on sait de la terrasse (§2.7). Absent : un toit plat sans plus. */
   terrasse?: Terrasse;
   /** Les bords, quand une observation les precise ; sinon les defauts du dessin. */
@@ -387,21 +387,15 @@ interface Cheminee {
 }
 
 /**
- * Une bay window (§2.3) : une avancee du mur de facade. `forme` dit son plan ; `largeurM` et `saillieM` sa corde et sa profondeur
- * (un arc : la fleche est la saillie ; un rectangle a angles arrondis : `congeM` est le rayon des angles exterieurs).
+ * Une bay window (§2.3) : le corps qui la porte est un petit rectangle sur la saillie du contour (plat, ou appentis dont le pan monte contre
+ * le mur). `forme` dit son plan (un arc ou un congé n'est dessiné que par son enveloppe rectangulaire) ; `pose` ou elle commence.
+ * Une bay window couverte par un appentis voisin n'a pas de corps ; une traversante (son mur monte au toit du corps) se dit dans le
+ * vocabulaire du fait mais n'est pas encore dessinée : le fichier la refuse.
  */
-interface BayWindow {
-  /** Le cote du contour (numero du mur dans le contour) qui la porte, et sa place le long de ce mur, depuis le sommet de depart. */
-  mur: number; debutM: number; largeurM: number; saillieM: number;
+interface BaieToit {
   forme: 'rectangle' | 'arc' | 'conge';
   congeM?: number;
-  /** Ou elle commence : sous le premier etage (le rez-de-chaussee seul) ou sur toute la hauteur du batiment. */
   pose: 'sous-premier-etage' | 'toute-hauteur';
-  /**
-   * Son toit : a elle (`propre`, de hauteur `hauteurM` avec un toit plat, en appentis ou a pans), `traversante` (son mur monte au
-   * toit du corps et le traverse, comme un pignon) ou `couverte` (cachee sous le toit d'un appentis voisin : aucun toit a elle).
-   */
-  toit: { type: 'propre'; hauteurM: number; forme: 'plat' | 'appentis' | 'pans' } | { type: 'traversante' } | { type: 'couverte' };
   source: 'cadastre' | 'observation';
 }
 
@@ -594,6 +588,23 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
   montent au faîtage relu sans eux (7,6 m sur la lecture du matin, 7,8 m sur celle du soir).
 
 ---
+
+### 5.3 Une bay window
+
+Une avancée de façade que le contour cadastral porte (AE 101 : 2,3 × 0,7 m, face à l'azimut 74°). `saillies` la repère sur le contour
+seul : un U de `SAILLIE_BAIE_MIN_M` à `SAILLIE_BAIE_MAX_M` de saillie, `LARGEUR_BAIE_MIN_M` à `LARGEUR_BAIE_MAX_M` de face, joues à
+`EQUERRE_BAIE_DEG` près de la perpendiculaire et de même saillie à `ECART_JOUES_BAIE_M` près. Un décroché à deux côtés n'en est pas
+une. Le LiDAR ne tranche pas son toit (trois cellules, sous l'ombre du mur) : **jamais de toit sans fait**.
+
+```json
+"baies": [{ "facade": { "azimutDeg": 74 }, "forme": "rectangle", "pose": "sous-premier-etage", "toit": "propre", "toitForme": "plat" }]
+```
+
+`toit` : `propre` (plat à `hauteurM`, ou appentis `hautM` / `egoutM` ; une cote absente se lit sur la mesure), `couverte` (cachée sous
+le toit d'un appentis : rien à poser, le fait dit seulement qu'elle existe), `traversante` (refusée : pas encore dessinée). Ordre :
+après l'appentis adossé et les pignons, avant les garde-fous. `ecartsAuFait` dit « bay window vers 74 : non posée » quand la saillie
+n'existe pas ou qu'aucune cote ne se lit. Cas d'origine : AE 101, le 20 octobre 2026 (la seconde, côté sud-ouest, est sous l'appentis
+de la galerie).
 
 ## 6. Les réglages : `regles/toits/reglages.json`
 

@@ -235,7 +235,7 @@ describe('un appentis adosse le long d une facade', () => {
 });
 
 describe('les faits livres', () => {
-  it('AE 101 : l appentis de la facade sud s ajoute aux trois corps du calcul, ses deux pignons montent au faitage', () => {
+  it('AE 101 : l appentis de la facade sud et la bay window de la face est s ajoutent aux trois corps du calcul, ses deux pignons montent au faitage', () => {
     const r = releve('vesinet-ae101') as Releve & { cleabs: string; corps: CorpsToit[]; corpsAvecFaits: CorpsToit[] };
     const f = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } }, FAITS_TOITS_LIVRES)!;
     expect(f).not.toBe(null);

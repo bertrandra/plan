@@ -1061,6 +1061,21 @@ export interface CorpsToit {
    * Absent : le dessin d'avant, qui ne dit rien sous l'egout. Sans effet sur un autre toit qu'un appentis.
    */
   ouvert?: boolean;
+  /**
+   * Ce corps est une bay window (MD/spec-regles-toits.md §2.3, §4) : une avancee de facade posee sur une saillie du contour, avec son
+   * propre toit. Absent : un corps ordinaire. Sans effet sur le dessin, qui la traite comme un corps plat ou un appentis.
+   */
+  baie?: BaieToit;
+}
+
+/** Une bay window : le plan, la hauteur ou elle commence, son toit, et d'ou on le sait. */
+export interface BaieToit {
+  /** Son plan : rectangle, arc de cercle ou rectangle a angles arrondis (`congeM`). Le dessin 3D n'en trace que l'enveloppe rectangulaire. */
+  forme: 'rectangle' | 'arc' | 'conge';
+  congeM?: number;
+  /** Sous le premier etage (le rez-de-chaussee seul) ou sur toute la hauteur du batiment. */
+  pose: 'sous-premier-etage' | 'toute-hauteur';
+  source: 'cadastre' | 'observation';
 }
 
 /**

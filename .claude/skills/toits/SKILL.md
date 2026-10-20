@@ -444,6 +444,14 @@ valeur dans `regles/toits/reglages.ts`, qui importe le fichier : il est compilé
 - La première extraction (lot L19) n'a changé aucune valeur : banc des quatre villages et AE 101
   identiques au bit près, version de lecture restée 1.
 
+### 6.1 bis Les bay windows (spec §2.3, §3.4 n°9)
+
+`facade/regles/toits/baies.ts` repère sur le contour seul les **saillies** de la taille d'une bay window (U de 0,3 à 1,2 m de
+saillie, 1 à 4 m de face, joues à l'équerre) : le banc les liste (`bay windows possibles`) mais ne leur pose **aucun toit**. Un toit
+vient d'un fait (`observation.baies` : forme, pose, toit propre ou couverte, cotes). Sans cote, la hauteur est la médiane des
+cellules sous la saillie, entre 2 m et l'égout du mur moins 30 cm. Un fait de bay window change l'empreinte des faits : ligne de
+`LECTURES_TOITS` (§6 bis) et référence d'AE 101 (`corpsAvecFaits`).
+
 ## 6 quater. Le corpus d'audit : rejouer une promenade
 
 Un fichier de promenade (mode audit, `MD/spec-audit.md` §19) se range **tel quel** dans

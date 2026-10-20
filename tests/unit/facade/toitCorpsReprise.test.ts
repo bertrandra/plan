@@ -29,12 +29,13 @@ describe('reprise des contours de biais', () => {
 
   it('AE 101 avec ses faits : les corps d apres l appentis de la facade sud, au centimetre', () => {
     // La reference a change une fois, par decision de l'utilisateur (14 octobre 2026) : le calcul
-    // ci-dessus ne bouge pas, le fait ajoute la galerie couverte de la facade sud.
+    // ci-dessus ne bouge pas, le fait ajoute la galerie couverte de la facade sud ; puis, le 20 octobre 2026, la bay window de la
+    // face est (un cinquieme corps, plat, sur la saillie du cadastre).
     const r = releve('101');
     const fait = faitDuBatiment({ bdtopo: { cleabs: r.cleabs } });
     expect(fait).not.toBe(null);
     expect(corpsSelonFait(fait, reconstruireCorps(r.toitMesure, r.contour, { grille: r.grille }), r.toitMesure, r.contour, r.grille)).toEqual(r.corpsAvecFaits);
-    expect(r.corpsAvecFaits).toHaveLength(4);
+    expect(r.corpsAvecFaits).toHaveLength(5);
   });
 
   it('AE 100 : un quatre-pans, lu par les formes simples la ou le modele des corps n avait qu un appentis', () => {
