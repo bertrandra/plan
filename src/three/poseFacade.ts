@@ -15,18 +15,30 @@ export interface PoseCamera {
 /** Plus la marge est grande, plus le mur est petit dans l'image. */
 const MARGE = 1.25;
 
+/** La part de l'image que le panneau du mode recouvre : la facade se cadre dans le reste, pas derriere lui. Tout en pixels. */
+export interface Reserve { largeur: number; hauteur: number; droite: number; bas: number }
+
 /**
  * `a`, `b` : les bouts du mur ; `n` : la normale qui sort du batiment (unitaire, dans le plan) ; `hauteur` : la hauteur du faitage ;
- * `fovDeg` : le champ vertical de la camera ; `aspect` : largeur sur hauteur de l'image.
+ * `fovDeg` : le champ vertical de la camera ; `aspect` : largeur sur hauteur de l'image ; `reserve` : ce que le panneau recouvre.
  */
-export function poseDeFacade(a: PtBrut, b: PtBrut, n: PtBrut, hauteur: number, cen: PtBrut, fovDeg: number, aspect: number): PoseCamera {
+export function poseDeFacade(a: PtBrut, b: PtBrut, n: PtBrut, hauteur: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve): PoseCamera {
   const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
   const largeur = Math.hypot(b.x - a.x, b.y - a.y);
   const demiChamp = Math.tan((fovDeg * Math.PI) / 360);
   const h = Math.max(hauteur, 2);
-  const distance = Math.max(largeur / (2 * demiChamp * Math.max(aspect, 0.3)), h / (2 * demiChamp)) * MARGE + 1;
+  // La partie de l'image qui reste libre, en part de l'image entiere.
+  const libreL = reserve ? Math.max(0.3, 1 - reserve.droite / reserve.largeur) : 1, libreH = reserve ? Math.max(0.3, 1 - reserve.bas / reserve.hauteur) : 1;
+  const distance = Math.max(largeur / (2 * demiChamp * Math.max(aspect, 0.3) * libreL), h / (2 * demiChamp * libreH)) * MARGE + 1;
   const cible = { x: mx - cen.x, y: h / 2, z: cen.y - my };
-  return { cible, position: { x: cible.x + n.x * distance, y: cible.y, z: cible.z - n.y * distance } };
+  // Ce que vaut un metre a l'ecran, en part de la hauteur de l'image : le decalage qui recentre la facade dans la partie libre.
+  const parMetre = 1 / (2 * distance * demiChamp);
+  const ns = { x: n.x, z: -n.y };
+  // Vers la droite de l'ecran quand on regarde le mur : (-fz, fx) avec le regard f = -ns.
+  const droite = { x: ns.z, z: -ns.x };
+  const dx = reserve ? (reserve.droite / reserve.hauteur / 2) / parMetre : 0, dy = reserve ? (reserve.bas / reserve.hauteur / 2) / parMetre : 0;
+  const centre = { x: cible.x + droite.x * dx, y: cible.y - dy, z: cible.z + droite.z * dx };
+  return { cible: centre, position: { x: centre.x + ns.x * distance, y: centre.y, z: centre.z + ns.z * distance } };
 }
 
 /**

@@ -11,7 +11,7 @@ import { enPoints } from '../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart,
   type HistoriqueToit } from '../facade/regles/toits/sessionToit.js';
 import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/regles/toits/facadesDesCorps.js';
-import { poseDeDessus, poseDeFacade } from '../three/poseFacade.js';
+import { poseDeDessus, poseDeFacade, type Reserve } from '../three/poseFacade.js';
 import { objetSousLePointeur, racinesDe3d } from '../three/scene.js';
 import { majFantomes, viderFantomes } from '../three/fantomes.js';
 import { hotes3d, vue3d } from '../three/etat3d.js';
@@ -20,7 +20,7 @@ import { showToast } from '../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/regles/toits/elements.js';
 import type { Atelier } from './atelier.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut } from '../model/types.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
 
@@ -105,6 +105,26 @@ export interface ContexteModeToit {
   rafraichir: () => void;
 }
 
+/** Ce que le panneau du mode recouvre de la scene : une colonne a droite (grand ecran) ou un bandeau en bas ; zero sans panneau. */
+function reserveDuPanneau(): Reserve | undefined {
+  const hote = hotes3d.vue3d, panneau = hote?.querySelector('.panneauToit');
+  if (!hote || !panneau) return undefined;
+  const h = hote.getBoundingClientRect(), p = panneau.getBoundingClientRect();
+  if (!h.width || !h.height) return undefined;
+  // Une colonne (plus etroite que la scene, qui en couvre la hauteur) ou un bandeau (pose en bas).
+  if (p.width < h.width * 0.6) return { largeur: h.width, hauteur: h.height, droite: Math.max(0, h.right - p.left), bas: 0 };
+  return { largeur: h.width, hauteur: h.height, droite: 0, bas: Math.max(0, h.bottom - p.top) };
+}
+
+/** Une facade choisie sur le contour (le batiment n'avait pas de corps) devient le mur du corps qui vient de naitre au meme endroit. */
+function rattacherLesFacades(s: SessionToit, o: ObjetPlan): void {
+  if (!o.corpsToit?.length) return;
+  const murs = facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]);
+  const refaire = (f: FacadeVisee | null): FacadeVisee | null => (f && f.rang === null ? facadeProche(murs, { x: (f.a.x + f.b.x) / 2, y: (f.a.y + f.b.y) / 2 }) ?? f : f);
+  s.facade = refaire(s.facade);
+  s.derniere = refaire(s.derniere);
+}
+
 /** La hauteur du faitage du batiment : de quoi cadrer la facade en entier. */
 function hauteurDe(o: ObjetPlan): number {
   const corps = (o.corpsToit ?? []).map((c) => c.faitage);
@@ -117,10 +137,37 @@ let derniereVue = '';
 const FANTOMES_MS = 200;
 let surveillerLaVue: () => void = () => {};
 
+/**
+ * Rebatit la scene, et rend a la nouvelle camera la pose de l'ancienne : une scene neuve se recadre sur le plan, ce qui chasserait la
+ * personne de la facade qu'elle regarde a chaque retouche.
+ */
+function rebatirEnGardantLaCamera(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefined): () => void {
+  return () => {
+    const avant = vue3d.scene;
+    const pose = avant ? { p: avant.camera.position.clone(), t: avant.controls.target.clone() } : null;
+    if (avant) ctx.rebatir(batiment() ?? null);
+    const apres = vue3d.scene;
+    if (pose && apres && apres !== avant) {
+      apres.camera.position.copy(pose.p);
+      apres.controls.target.copy(pose.t);
+      apres.controls.update();
+    }
+    derniereVue = '';
+  };
+}
+
+/** Le mode de la session en cours : les zones qui dessinent des poignees (zones/vue3d/PoigneesToit.tsx) s'y adressent sans passer par une commande. */
+let pilote: ModeToit | null = null;
+export const modeToitCourant = (): ModeToit | null => pilote;
+
+/** Le rythme maximal auquel un glisser reconstruit la scene : au-dela, seul le dernier etat compte. */
+const GLISSER_MS = 140;
+let dernierRebatir = 0;
+
 export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
   objetsCourants = () => a.etat.objects;
   const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
-  const rebatir = () => { if (vue3d.scene) ctx.rebatir(batiment() ?? null); derniereVue = ''; };
+  const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
 
   /** Les batiments qui cachent celui qu'on retouche : leur volume part, leur contour reste en pointille. */
   const fantomes = (): void => {
@@ -154,7 +201,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
 
   const vues = creerVuesToit(ctx, batiment, rebatir);
 
-  return {
+  const mode = {
     /** Entre dans le mode sur le batiment selectionne. */
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
@@ -173,6 +220,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       const o = batiment(), s = session;
       if (!o || !s) return false;
       if (f(o) === false) return false;
+      // Un geste peut creer le premier corps (le toit simple devient un corps) : la facade choisie sur le contour se rattache a son mur.
+      rattacherLesFacades(s, o);
       empiler(s.hist, o);
       rebatir();
       ctx.rafraichir();
@@ -251,6 +300,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     hote: () => hotes3d.vue3d,
     ...vues.methodes
   };
+  pilote = mode;
+  return mode;
 }
 
 
@@ -278,7 +329,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     s.facade = f;
     s.derniere = f;
     s.vue = 'facade';
-    const pose = poseDeFacade(f.a, f.b, f.n, hauteurDe(o), sc.cen, sc.camera.fov, sc.camera.aspect);
+    const pose = poseDeFacade(f.a, f.b, f.n, hauteurDe(o), sc.cen, sc.camera.fov, sc.camera.aspect, reserveDuPanneau());
     sc.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
     sc.controls.target.set(pose.cible.x, pose.cible.y, pose.cible.z);
     sc.controls.update();
@@ -293,6 +344,35 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
   return {
     quitterLaFacade,
     methodes: {
+    /** Un glisser en cours : les corps remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
+    apercu(corps: CorpsToit[]): void {
+      const o = batiment();
+      if (!o || !session) return;
+      o.corpsToit = corps;
+      o.toitFige = true;
+      const t = Date.now();
+      if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
+    },
+
+    /** Le glisser s'acheve : le batiment est reconstruit tel quel et la session empile une etape (une seule, quel que soit le trajet). */
+    finGlisser(): boolean {
+      const o = batiment(), s = session;
+      if (!o || !s) return false;
+      const change = empiler(s.hist, o);
+      rebatir();
+      ctx.rafraichir();
+      return change;
+    },
+
+    /** Echap pendant un glisser : le batiment retrouve l'etat de la pile. */
+    annulerGlisser(): void {
+      const o = batiment(), s = session;
+      if (!o || !s) return;
+      restaurer(o, s.hist.pas[s.hist.i] ?? {});
+      rebatir();
+      ctx.rafraichir();
+    },
+
     /** Le toucher sur la scene : la facade du batiment la plus proche du point touche. Vrai si le toucher a choisi une facade. */
     toucher(ndc: { x: number; y: number }): boolean {
       const o = batiment();

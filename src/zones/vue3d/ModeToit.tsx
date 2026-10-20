@@ -11,6 +11,7 @@ import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } 
 import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
+import { PoigneesToit } from './PoigneesToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
 import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
@@ -100,6 +101,7 @@ export function ModeToit({ magasin, commandes }: Props) {
   return (
     <>
     <NavigateurFacades magasin={magasin} commandes={commandes} />
+    <PoigneesToit magasin={magasin} />
     <div className="panneauToit" role="region" aria-label="Mode Toit">
       <div className="barreToit" role="toolbar" aria-label="Session du toit">
         <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
