@@ -2645,6 +2645,11 @@
   .calGrille.deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   @media (max-width: 599px){ .calGrille.deux{ grid-template-columns:1fr; } }
   .calQuad{ fill:var(--accent-light); fill-opacity:0.18; stroke:var(--accent); stroke-width:2; }
+  /* Les reperes poses au doigt : un rectangle du mur, pas le mur ; en tirets, pour ne pas le confondre avec le mur reporte. */
+  .calReperes{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
+  /* Le mur cherche sur l'assemblage : l'egout et le sol en trait plein, les bouts en tirets. */
+  .calMurLigne{ stroke:var(--accent); stroke-width:3; }
+  .calMurBout{ stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
   .calEgout{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3; }

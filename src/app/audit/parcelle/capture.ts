@@ -97,7 +97,7 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
       const f = facade(cle, cote);
       if (rang < 0 || rang >= f.photos.length) return;
       const suite = { ...(f.corrections ?? {}) };
-      if (correction && (correction.coins || correction.echelleLargeurM !== undefined)) suite[String(rang)] = JSON.parse(JSON.stringify(correction)) as CorrectionRedressement;
+      if (correction && (correction.coins || correction.reperes || correction.echelleLargeurM !== undefined)) suite[String(rang)] = JSON.parse(JSON.stringify(correction)) as CorrectionRedressement;
       else delete suite[String(rang)];
       if (Object.keys(suite).length) f.corrections = suite; else delete f.corrections;
       changer();

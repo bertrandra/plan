@@ -4,6 +4,7 @@ import { rechercher } from '../../../../../src/zones/releve/serie.js';
 import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
+import type { P2 } from '../../../../../src/facade/homographie.js';
 
 // Les mesures d'une facade photographiee (MD/spec-audit.md §13.1), sans navigateur : une photo de
 // synthese d'un mur enduit beige, prise a 8 m face a la facade sud, boussole a l'appui.
@@ -104,4 +105,43 @@ describe('les coins poses au doigt sur une photo', () => {
     expect(m.redressement?.photos.map((p) => p.coins)).toEqual(['main', 'trouve']);
     expect(m.redressement?.fusion).toBe('fusionnee');
   }, 60000);
+});
+
+describe('quatre reperes poses au doigt sur une photo', () => {
+  it('redressent les photos entieres, sans coupe, puis le mur se cherche sur leur assemblage', async () => {
+    const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
+    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const { homographie, appliquer } = await import('../../../../../src/facade/homographie.js');
+    const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
+    if (!s) throw new Error('scene absente');
+    const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
+    const images = prises.map((p) => photographier(s, 100, p)?.image);
+    const vrais = coinsVrais(s, prises[0]);
+    if (images.some((i) => !i) || !vrais) throw new Error('prise impossible');
+    // Les reperes : les coins d'une fenetre, pas ceux du mur.
+    const { largeur: L, hauteur: H } = s.verite;
+    const murVersPhoto = homographie([{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }], vrais);
+    const o = s.verite.ouvertures[0] as { x: number; y: number; l: number; h: number };
+    if (!murVersPhoto) throw new Error('homographie');
+    const reperes = [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(murVersPhoto, q));
+    const pts = rect(0, 0, L, 8);
+    const f = { ...(facadesDuContour(pts, H).find((x) => x.orientation === 'Sud') as Facade), hauteur: H };
+    const photos: PhotoCas[] = ['A', 'B'].map((b) => ({ type: 'image/jpeg', base64: b }));
+    const tailles: number[] = [];
+    const m = await mesurerFacade('maison', f, { pts }, photos, {
+      pixels: async (b) => { const img = images[b === 'A' ? 0 : 1]; return img ? { data: img.donnees, largeur: img.largeur, hauteur: img.hauteur } : null; },
+      chercherCoins: async (e) => rechercher(e), jpeg: (img) => { tailles.push(img.largeur * img.hauteur); return 'data:image/jpeg;base64,X'; }, limites: () => [],
+    }, { '0': { reperes } });
+    const p0 = m.redressement?.photos.find((p) => p.rang === 0);
+    expect(p0?.statut).toBe('manuelle');
+    // Le mur cherche apres coup sur l'assemblage : ses bouts (les verticales) a 5 % de la largeur du mur pres de la verite. L'egout et
+    // le sol lus sur l'assemblage restent moins surs (une horizontale voisine peut l'emporter) : ce test ne les tient pas.
+    const largeurPx = Math.hypot((vrais[1] as P2).x - (vrais[0] as P2).x, (vrais[1] as P2).y - (vrais[0] as P2).y);
+    expect(p0?.coinsPx).toHaveLength(4);
+    (p0?.coinsPx ?? []).forEach((c, i) => expect(Math.abs(c.x - (vrais[i] as P2).x) / largeurPx).toBeLessThan(0.05));
+    // Les photos redressees gardent la surface de la photo : rien n'est coupe au mur.
+    const photo0 = (images[0] as NonNullable<(typeof images)[0]>);
+    expect(m.redressees?.length).toBe(2);
+    expect(Math.min(...tailles.slice(-2))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
+  }, 90000);
 });

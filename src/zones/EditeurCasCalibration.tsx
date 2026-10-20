@@ -1,7 +1,9 @@
 // Admin › Calibrer la detection : un cas = une facade photographiee et annotee (facade/corpusReel.ts).
 //
-// On prend (ou choisit) une a huit photos du meme mur, on place les quatre coins sur chacune (ou on les laisse trouver, par la
-// chaine de l'audit et du releve, zones/releve/chaine.ts), on donne
+// On prend (ou choisit) une a huit photos du meme mur. Chacune se redresse entiere, sans coupe : par quatre reperes poses au doigt
+// (un rectangle du mur, n'importe lequel), sinon par ses points de fuite ; les vues s'assemblent, l'egout, le sol et les bouts du
+// mur se cherchent sur l'assemblage, puis se reportent dans chaque photo (la chaine de l'audit et du releve, zones/releve/chaine.ts).
+// On donne
 // la largeur et la hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
@@ -14,8 +16,9 @@ import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } fro
 import { avisFusion } from './releve/analyse.js';
 import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
 import { rechercher } from './releve/serie.js';
+import { coinsAutoDeSerie } from './releve/coinsAuto.js';
 import type { Facade } from '../facade/geometrie.js';
-import type { BilanPhotoRedressement } from '../model/auditParcelle.js';
+import type { BilanPhotoRedressement, CorrectionRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
 import { elevationAvecMasque, photoRedressee } from './etapesCalibration.js';
 import { sansOmbres } from '../facade/sansOmbres.js';
@@ -38,9 +41,15 @@ export interface OutilsPhotos {
 /** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
 export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
-/** D'ou viennent les coins d'une photo : trouves (sur ses aretes, ou sur l'assemblage des photos), devines (a verifier), ou poses a la main. */
-type OrigineCoins = 'trouves' | 'devines' | 'main';
-const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'coins posés à la main' };
+/**
+ * D'ou viennent les coins d'une photo : trouves (sur ses aretes, ou sur l'assemblage des photos), devines (a verifier), poses a la main
+ * (un ancien cas), ou cherches sur l'assemblage apres un redressement par les reperes de la personne.
+ */
+type OrigineCoins = 'trouves' | 'devines' | 'main' | 'reperes';
+const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'coins posés à la main', reperes: 'redressée par vos repères' };
+const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
+/** Les reperes d'une photo, s'ils sont quatre. */
+const reperesDe = (p: CasStocke['photos'][number] | undefined): P2[] | null => (p?.reperes?.length === 4 ? p.reperes : null);
 
 /**
  * Les coins du mur sur toutes les photos, par la chaine de l'audit et du releve (releve/chaine.ts) : coins poses a la main
@@ -52,12 +61,14 @@ export async function coinsDeSerie(depart: CasStocke, images: readonly Image[], 
   const L = depart.largeurM, H = depart.hauteurM;
   const f: Facade = { cote: 0, gauche: { x: 0, y: 0 }, droite: { x: L, y: 0 }, largeur: L, hauteur: H, normale: { x: 0, y: -1 }, azimut: 180, orientation: 'Sud' };
   const entrees = images.map((image, k) => { const fp = depart.photos[k]?.focalePx ?? null; return { rang: k, image, prise: priseSansCapteurs(image, fp), champConnu: fp != null }; });
-  const corrections = Object.fromEntries(depart.photos.flatMap((p, k) => (origines[k] === 'main' ? [[String(k), { coins: p.coins }]] : [])));
+  // Les reperes redressent la photo, puis le mur se cherche sur l'assemblage ; des coins poses a la main (ancien cas) restent tels quels.
+  const corrections: Record<string, CorrectionRedressement> = {};
+  depart.photos.forEach((p, k) => { const r = reperesDe(p); if (r) corrections[String(k)] = { reperes: r }; else if (origines[k] === 'main') corrections[String(k)] = { coins: p.coins }; });
   const c = await redresserEtFusionner(entrees, f, { pts: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }] }, { chercherCoins: async (e) => rechercher(e), hauteurDuPlan: dimsDuPlan, lireSurLAssemblage: true, coinsSeuls: true }, corrections);
   const parRang = new Map(c.redressement.photos.map((b) => [b.rang, b]));
   const cas: CasStocke = { ...depart, photos: depart.photos.map((p, k) => { const px = parRang.get(k)?.coinsPx; return px?.length === 4 && origines[k] !== 'main' ? { ...p, coins: px } : p; }) };
   const nouvelles: Record<number, OrigineCoins> = {};
-  for (const b of c.redressement.photos) nouvelles[b.rang] = b.coins === 'main' ? 'main' : b.coins === 'trouve' && b.statut !== 'echec' ? 'trouves' : 'devines';
+  for (const b of c.redressement.photos) nouvelles[b.rang] = b.coins === 'main' ? 'main' : reperesDe(depart.photos[b.rang]) ? 'reperes' : b.coins === 'trouve' && b.statut !== 'echec' ? 'trouves' : 'devines';
   const doutes = c.redressement.photos.filter((b) => b.statut === 'echec' && b.motif);
   return { cas, origines: nouvelles, message: doutes.length ? doutes.map((b) => 'Photo ' + (b.rang + 1) + ' : ' + b.motif + '.').join(' ') : null, bilans: c.redressement.photos };
 }
@@ -113,6 +124,10 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
 
 /** Ce que chaque etape a donne, en images : de quoi voir ou la chaine a doute avant d'annoter. */
 interface Etapes {
+  /** Par photo : la photo entiere redressee (par ses reperes, sinon ses points de fuite), sans coupe ; null si elle ne se redresse pas. */
+  entieres: (string | null)[];
+  /** L'assemblage des photos redressees, et le mur qui y a ete cherche (en pixels de l'assemblage) ; null sans assemblage. */
+  assemblage: { url: string; largeur: number; hauteur: number; mur: { x0: number; y0: number; x1: number; y1: number; egout: boolean; pied: boolean; cotes: boolean } } | null;
   /** Par photo : sa vignette redressee seule (null : ses coins ne forment pas un mur). */
   redressees: (string | null)[];
   /** L'elevation, la part cachee sur toutes les vues hachuree. */
@@ -132,7 +147,11 @@ interface Etapes {
 /** Les images des etapes d'un cas redresse. */
 function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, outils: OutilsPhotos): Etapes {
   const enUrl = (im: Image | null) => (im ? outils.elevationEnUrl(im) : null);
+  // Les deux premiers temps de la chaine, montres tels quels : chaque photo redressee entiere, puis leur assemblage et le mur cherche dessus.
+  const sr = coinsAutoDeSerie(images, depart.largeurM, depart.hauteurM, depart.photos.map(reperesDe));
   return {
+    entieres: images.map((_, k) => enUrl(sr?.vues[k]?.image ?? null)),
+    assemblage: sr ? { url: outils.elevationEnUrl(sr.assemblage.image), largeur: sr.assemblage.image.largeur, hauteur: sr.assemblage.image.hauteur, mur: sr.assemblage.mur } : null,
     redressees: images.map((im, k) => enUrl(photoRedressee(im, depart.photos[k]?.coins ?? [], depart.largeurM, depart.hauteurM))),
     masque: outils.elevationEnUrl(elevationAvecMasque(p.elevation, p.fusion?.occlusion ?? null)),
     largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, fusion: p.fusion, propositions: p.ouvertures, devinees: p.devinees,
@@ -186,7 +205,42 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
   return (
     <details className="calEtapes" open data-controle="calibration.etapes">
       <summary>Les étapes, en images</summary>
-      <h4 className="calTitre3">1. Coins du mur sur chaque photo</h4>
+      <h4 className="calTitre3">1. Les repères sur chaque photo</h4>
+      <ul className="calGrille" aria-label="Repères sur chaque photo">
+        {cas.images.map((u, k) => {
+          const d = dims[k], r = reperesDe(cas.photos[k]);
+          return (
+            <li key={k}><figure>
+              {d ? <svg className="calEtape" viewBox={`0 0 ${d.l} ${d.h}`} role="img" aria-label={'Photo ' + (k + 1) + (r ? ' et ses repères' : '')}>
+                <image href={u} x={0} y={0} width={d.l} height={d.h} />
+                {r && <polygon className="calReperes" points={r.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />}
+              </svg> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
+              <figcaption>Photo {k + 1} : {r ? 'quatre repères posés, ils donnent ses verticales et ses horizontales' : 'sans repère : ses verticales et ses horizontales sont lues sur la photo (points de fuite)'}</figcaption>
+            </figure></li>
+          );
+        })}
+      </ul>
+      <h4 className="calTitre3">2. Chaque photo redressée entière</h4>
+      <ul className="calGrille" aria-label="Photos redressées entières">
+        {etapes.entieres.map((u, k) => (
+          <li key={k}><figure>
+            {u ? <img className="calEtape" src={u} alt={'Photo ' + (k + 1) + ' redressée entière'} /> : <p className="calNote">Elle ne se redresse pas : posez quatre repères.</p>}
+            <figcaption>Photo {k + 1}, de face, sans coupe ni échelle</figcaption>
+          </figure></li>
+        ))}
+      </ul>
+      <h4 className="calTitre3">3. L’assemblage, l’égout et le sol cherchés</h4>
+      {etapes.assemblage ? <figure>
+        <svg className="calEtape large" viewBox={`0 0 ${etapes.assemblage.largeur} ${etapes.assemblage.hauteur}`} role="img" aria-label="Assemblage des photos redressées, et le mur cherché dessus">
+          <image href={etapes.assemblage.url} x={0} y={0} width={etapes.assemblage.largeur} height={etapes.assemblage.hauteur} />
+          <line className="calMurLigne" x1={etapes.assemblage.mur.x0} x2={etapes.assemblage.mur.x1} y1={etapes.assemblage.mur.y0} y2={etapes.assemblage.mur.y0} vectorEffect="non-scaling-stroke" />
+          <line className="calMurLigne" x1={etapes.assemblage.mur.x0} x2={etapes.assemblage.mur.x1} y1={etapes.assemblage.mur.y1} y2={etapes.assemblage.mur.y1} vectorEffect="non-scaling-stroke" />
+          <line className="calMurBout" x1={etapes.assemblage.mur.x0} x2={etapes.assemblage.mur.x0} y1={etapes.assemblage.mur.y0} y2={etapes.assemblage.mur.y1} vectorEffect="non-scaling-stroke" />
+          <line className="calMurBout" x1={etapes.assemblage.mur.x1} x2={etapes.assemblage.mur.x1} y1={etapes.assemblage.mur.y0} y2={etapes.assemblage.mur.y1} vectorEffect="non-scaling-stroke" />
+        </svg>
+        <figcaption>{'Égout (en haut) ' + (etapes.assemblage.mur.egout ? 'trouvé' : 'supposé') + ', sol (en bas) ' + (etapes.assemblage.mur.pied ? 'trouvé' : 'supposé') + ', bouts du mur (tirets) ' + (etapes.assemblage.mur.cotes ? 'trouvés' : 'supposés') + ', aux proportions ' + metres(cas.largeurM) + ' × ' + metres(cas.hauteurM) + ' m.'}</figcaption>
+      </figure> : <p className="calNote">Aucune photo ne se redresse : rien à assembler.</p>}
+      <h4 className="calTitre3">4. Le mur reporté sur chaque photo</h4>
       <ul className="calGrille" aria-label="Coins sur chaque photo">
         {cas.images.map((u, k) => {
           const d = dims[k], c = cas.photos[k]?.coins ?? [], b = bilans[k];
@@ -196,12 +250,12 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
                 <image href={u} x={0} y={0} width={d.l} height={d.h} />
                 <polygon className="calQuad" points={c.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />
               </svg> : <img className="calEtape" src={u} alt={'Photo ' + (k + 1)} />}
-              <figcaption>Photo {k + 1} : {origines[k] ? LIBELLE_ORIGINE[origines[k] as OrigineCoins] : cas.source === 'releve' ? 'mur déjà redressé au relevé' : 'coins à placer'}{b ? ' · ' + (b.statut === 'echec' ? 'à reprendre' : b.statut === 'manuelle' ? 'posés à la main' : 'redressée seule') + degres(b.verticaliteDeg) : ''}{b?.motif ? ' — ' + b.motif : ''}</figcaption>
+              <figcaption>Photo {k + 1} : {origines[k] ? LIBELLE_ORIGINE[origines[k] as OrigineCoins] : cas.source === 'releve' ? 'mur déjà redressé au relevé' : 'coins à placer'}{b ? ' · ' + (b.statut === 'echec' ? 'à reprendre' : b.statut === 'manuelle' ? (reperesDe(cas.photos[k]) ? 'cherchés après vos repères' : 'posés à la main') : 'redressée seule') + degres(b.verticaliteDeg) : ''}{b?.motif ? ' — ' + b.motif : ''}</figcaption>
             </figure></li>
           );
         })}
       </ul>
-      <h4 className="calTitre3">2. Chaque photo redressée seule</h4>
+      <h4 className="calTitre3">5. Chaque photo à l’échelle du mur</h4>
       <ul className="calGrille" aria-label="Photos redressées">
         {etapes.redressees.map((u, k) => (
           <li key={k}><figure>
@@ -210,7 +264,7 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           </figure></li>
         ))}
       </ul>
-      <h4 className="calTitre3">3. Fusion des vues</h4>
+      <h4 className="calTitre3">6. Fusion des vues</h4>
       {etapes.fusion ? <>
         <ul className="calListe" aria-label="Vues de la fusion">
           {cas.images.map((_, k) => {
@@ -223,7 +277,7 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           <figcaption>{etapes.fusion.masque > 0.005 ? 'Hachuré : ' + pourcent(etapes.fusion.masque) + ' du mur caché sur toutes les vues, où rien n’est cherché.' : 'Aucune part du mur n’est cachée sur toutes les vues.'}</figcaption>
         </figure>
       </> : <p className="calNote">Une seule photo : rien à fusionner.</p>}
-      <h4 className="calTitre3">4. Ouvertures proposées par la détection</h4>
+      <h4 className="calTitre3">7. Ouvertures proposées par la détection</h4>
       <figure>
         <svg className="calEtape large" viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Mur redressé et ouvertures proposées">
           <image href={etapes.masque} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
@@ -232,7 +286,7 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
         </svg>
         <figcaption>{etapes.propositions.length} ouverture{etapes.propositions.length > 1 ? 's' : ''} proposée{etapes.propositions.length > 1 ? 's' : ''} (trait plein){etapes.devinees.length ? ', ' + etapes.devinees.length + ' devinée' + (etapes.devinees.length > 1 ? 's' : '') + ' par la structure (pointillé)' : ''}.</figcaption>
       </figure>
-      <h4 className="calTitre3">5. L’image posée sur la façade en 3D</h4>
+      <h4 className="calTitre3">8. L’image posée sur la façade en 3D</h4>
       <ul className="calGrille deux" aria-label="Image de la façade en 3D">
         <li><figure>
           <img className="calEtape large" src={etapes.surFacade} alt="Image posée sur la façade, telle que photographiée" />
@@ -243,9 +297,36 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           <figcaption>Sans les ombres de la photo (case « Façades sans ombres » de la Vue 3D) : la 3D pose les siennes, à l’heure choisie.</figcaption>
         </figure></li>
       </ul>
-      <h4 className="calTitre3">6. La silhouette du haut du mur</h4>
+      <h4 className="calTitre3">9. La silhouette du haut du mur</h4>
       <VueSilhouette s={etapes.silhouette} texture={etapes.surFacade} />
     </details>
+  );
+}
+
+/** Les quatre reperes de la photo courante : ceux poses, sinon les coins du mur retenus (un rectangle du mur, eux aussi). */
+function PlacerReperes({ photo, rang, p, poser, retirer }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; poser: (c: P2[]) => void; retirer: () => void }) {
+  const r = reperesDe(p);
+  return <>
+    <p className="calNote">Photo {rang + 1} : si elle ne se redresse pas seule, placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite.</p>
+    <Coins photo={photo} coins={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} setCoins={poser}
+      sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" />
+    {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
+  </>;
+}
+
+/** Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer. */
+function VignettesDuCas({ images, courante, origines, choisir, retirer }: { images: readonly string[]; courante: number; origines: Readonly<Record<number, OrigineCoins>>; choisir: (k: number) => void; retirer: (k: number) => void }) {
+  if (!images.length) return null;
+  return (
+    <ul className="calVignettes" aria-label="Photos du cas">
+          {images.map((u, k) => (
+            <li key={k} className={k === courante ? 'actif' : ''}>
+              <button type="button" className="calVignette" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
+              {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
+              <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>
+            </li>
+          ))}
+        </ul>
   );
 }
 
@@ -305,7 +386,12 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
   const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
   const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setBilans((b) => decaler(b, k)); setCourante(0); setElevation(null); setEtapes(null); setAvis(null); };
-  const poserCoins = (coins: P2[]) => { modifier((c) => ({ ...c, photos: c.photos.map((p, i) => (i === courante ? { ...p, coins } : p)) })); setOrigines((o) => ({ ...o, [courante]: 'main' })); };
+  // Les reperes de la photo courante : ils la redressent, le mur se cherche ensuite (« Retrouver le mur ») ; null les retire.
+  const reperesCourants = (reperes: P2[] | null) => {
+    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p }; if (reperes) q.reperes = reperes; else delete q.reperes; return q; }) }));
+    setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = 'reperes'; else delete q[courante]; return q; });
+    setElevation(null); setEtapes(null);
+  };
 
   const coinsDeLaSerie = async (depart: CasStocke): Promise<CasStocke> => {
     await new Promise((ok) => setTimeout(ok, 30));
@@ -329,7 +415,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       await new Promise((ok) => setTimeout(ok, 30));
       const images = await Promise.all(depart.images.map((u) => outils.decoder(u)));
       const p: CasPrepare | null = preparerCas(depart, images);
-      if (!p) { setMessage('Le mur ne se redresse pas avec ces coins : replacez-les sur les quatre angles du mur.'); setElevation(null); setEtapes(null); return; }
+      if (!p) { setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur ».'); setElevation(null); setEtapes(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
       setAvis(p.fusion ? avisFusion(p.fusion) : null);
       setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
@@ -369,25 +455,12 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         </label>
         <span className="calNote">{cas.photos.length} / {PHOTOS_CAS_MAX} photos. {auto ? 'Tout se fait seul à l’ajout ; corrigez au doigt ce qui est signalé et relisez les ouvertures.' : 'Placez les coins, puis redressez.'}</span>
       </div>
-      {cas.photos.length > 0 && (
-        <ul className="calVignettes" aria-label="Photos du cas">
-          {cas.images.map((u, k) => (
-            <li key={k} className={k === courante ? 'actif' : ''}>
-              <button type="button" className="calVignette" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => setCourante(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
-              {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
-              <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirerPhoto(k)}>Retirer</button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
-      {photo && <>
-        <p className="calNote">Photo {courante + 1} : placez les quatre coins du mur (égout à gauche, égout à droite, pied à droite, pied à gauche).</p>
-        <Coins photo={photo} coins={cas.photos[courante]?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} setCoins={(c) => { poserCoins(c); setElevation(null); setEtapes(null); }} sources={['doigt', 'doigt', 'doigt', 'doigt']} />
-      </>}
+      {photo && <PlacerReperes photo={photo} rang={courante} p={cas.photos[courante]} poser={reperesCourants} retirer={() => reperesCourants(null)} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.redresser" disabled={!cas.photos.length || occupe} onClick={() => { void redresser(); }}>{occupe ? 'Calcul…' : 'Redresser le mur'}</button>
-        <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void recalculerCoins(); }}>Retrouver les coins sur toutes les photos</button>
+        <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void recalculerCoins(); }}>Retrouver le mur sur toutes les photos</button>
       </div>
       {avis && <p className="calNote" role="status" data-controle="calibration.avisFusion">{avis}</p>}
       {etapes && <EtapesDuCas cas={cas} dims={dims} bilans={bilans} origines={origines} etapes={etapes} />}

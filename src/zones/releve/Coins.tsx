@@ -46,6 +46,8 @@ export function Coins({
   noms = NOMS_COINS,
   ordre = [0, 1, 2, 3],
   sources,
+  etiquettes = true,
+  libelle = 'Photo : placez les quatre coins du mur',
 }: {
   photo: Photo;
   coins: P2[];
@@ -55,6 +57,9 @@ export function Coins({
   ordre?: number[];
   /** La source de chacun des quatre premiers coins : trouve (rond plein), predit (en pointille), doigt. */
   sources?: SourceCoin[] | undefined;
+  /** Les mots « Égout » et « Sol » sur le quadrilatere : faux quand les points sont des reperes, pas les coins du mur. */
+  etiquettes?: boolean;
+  libelle?: string;
 }) {
   const W = photo.image.largeur,
     H = photo.image.hauteur;
@@ -98,16 +103,16 @@ export function Coins({
 
   return (
     <div className="releveCoinsZone">
-      <svg ref={svg} className="releveCoins" viewBox={`${-m} ${-m} ${W + 2 * m} ${H + 2 * m}`} aria-label="Photo : placez les quatre coins du mur">
+      <svg ref={svg} className="releveCoins" viewBox={`${-m} ${-m} ${W + 2 * m} ${H + 2 * m}`} aria-label={libelle}>
         <rect x={-m} y={-m} width={W + 2 * m} height={H + 2 * m} className="releveCoinsFond" />
         <image href={photo.url} x={0} y={0} width={W} height={H} preserveAspectRatio="none" />
         <polygon points={ordre.map((i) => au(coins, i)).map((c) => `${c.x},${c.y}`).join(' ')} className="releveQuad" vectorEffect="non-scaling-stroke" />
-        <text x={haut.x} y={haut.y - r * 1.6} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
+        {etiquettes && <text x={haut.x} y={haut.y - r * 1.6} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
           Égout
-        </text>
-        <text x={bas.x} y={bas.y + r * 2.4} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
+        </text>}
+        {etiquettes && <text x={bas.x} y={bas.y + r * 2.4} fontSize={13 / echelle} textAnchor="middle" className="releveQuadEtiquette">
           Sol
-        </text>
+        </text>}
         {coins.map((c, i) => (
           <g key={i}>
             <circle

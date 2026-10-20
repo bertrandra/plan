@@ -26,6 +26,11 @@ export interface PhotoReelle {
   fichier: string;
   /** Haut gauche, haut droit, bas droit, bas gauche, en pixels de la photo. */
   coins: P2[];
+  /**
+   * Quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui redressent la photo entiere ; les coins du mur se
+   * cherchent ensuite sur l'assemblage (zones/releve/coinsAuto.ts). Absents : la photo se redresse par ses points de fuite.
+   */
+  reperes?: P2[];
   focalePx?: number | null;
 }
 export interface CasReel {

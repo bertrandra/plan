@@ -32,7 +32,13 @@ export type PhaseAuditParcelle = 'capture' | 'analyse';
  * derive (la photo redressee, la fusion) se recalcule.
  */
 export interface CorrectionRedressement {
+  /** Les quatre coins du mur poses au doigt (egout et pied) : la forme d'avant, gardee pour les anciens audits. */
   coins?: { x: number; y: number }[];
+  /**
+   * Quatre reperes poses au doigt (haut gauche, haut droit, bas droit, bas gauche) : n'importe quel rectangle du mur (une fenetre,
+   * une porte, le mur). Ils redressent la photo entiere, sans la couper ; l'egout et le sol se cherchent ensuite, sur l'assemblage.
+   */
+  reperes?: { x: number; y: number }[];
   echelleLargeurM?: number;
 }
 

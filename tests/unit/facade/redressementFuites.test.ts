@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { redresserParFuites, inverser, focaleDeLaPhotoParFuites } from '../../../src/facade/redressementFuites.js';
+import { redresserParFuites, redresserParReperes, fuitesDesReperes, inverser, focaleDeLaPhotoParFuites } from '../../../src/facade/redressementFuites.js';
 import { mosaiqueDesVues } from '../../../src/facade/mosaiqueFuites.js';
 import { detecterSegments } from '../../../src/facade/segments.js';
-import { appliquer, type P2 } from '../../../src/facade/homographie.js';
+import { appliquer, homographie, type P2 } from '../../../src/facade/homographie.js';
 import { appliquerSimilitude } from '../../../src/facade/ransac.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
 import { photographier, coinsVrais, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
@@ -91,5 +91,45 @@ describe('la focale lue sur les points de fuite', () => {
     if (!ph) throw new Error('prise impossible');
     expect(focaleDeLaPhotoParFuites(detecterSegments(ph.image), ph.image.largeur, ph.image.hauteur)).toBeNull();
     expect(redresserParFuites(ph.image, detecterSegments(ph.image))?.sourceFocale).toBe('defaut');
+  });
+});
+
+describe('le redressement par quatre reperes poses a la main', () => {
+  // Les reperes ne sont pas les coins du mur : les coins d'une fenetre (un rectangle du mur, n'importe lequel).
+  const prise = () => {
+    const s = scene('08-'), p = s.synthese.prise as PriseCamera;
+    const ph = photographier(s, 100, p), coins = coinsVrais(s, p);
+    if (!ph || !coins) throw new Error('prise impossible');
+    const { largeur: L, hauteur: H } = s.verite;
+    // Le mur (x depuis la gauche, y depuis le sol) -> la photo, par ses coins vrais.
+    const murVersPhoto = homographie([{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }], coins);
+    if (!murVersPhoto) throw new Error('homographie');
+    const f = s.verite.ouvertures[0] as { x: number; y: number; l: number; h: number };
+    const fenetre = [{ x: f.x, y: f.y + f.h }, { x: f.x + f.l, y: f.y + f.h }, { x: f.x + f.l, y: f.y }, { x: f.x, y: f.y }].map((q) => appliquer(murVersPhoto, q));
+    return { ph, coins, fenetre };
+  };
+
+  it('rend droites les verticales et les horizontales du mur entier, sans couper la photo', () => {
+    const { ph, coins, fenetre } = prise();
+    const r = redresserParReperes(ph.image, fenetre);
+    expect(r).not.toBeNull();
+    const versVue = inverser((r as NonNullable<typeof r>).versPhoto) as NonNullable<ReturnType<typeof inverser>>;
+    const [hg, hd, bd, bg] = coins.map((c) => appliquer(versVue, c)) as [P2, P2, P2, P2];
+    const largeur = hd.x - hg.x;
+    // Les bouts du mur verticaux, l'egout et le pied horizontaux, alors que seuls les coins d'une fenetre ont ete poses.
+    expect(Math.abs(hg.x - bg.x) / largeur).toBeLessThan(0.01);
+    expect(Math.abs(hd.x - bd.x) / largeur).toBeLessThan(0.01);
+    expect(Math.abs(hg.y - hd.y) / largeur).toBeLessThan(0.01);
+    expect(Math.abs(bg.y - bd.y) / largeur).toBeLessThan(0.01);
+    // Rien n'est coupe au mur : l'image garde la surface de la photo, et le mur entier y tient.
+    const img = (r as NonNullable<typeof r>).image;
+    expect(img.largeur * img.hauteur).toBeGreaterThan(0.8 * ph.image.largeur * ph.image.hauteur);
+    for (const q of [hg, hd, bd, bg]) { expect(q.x).toBeGreaterThan(0); expect(q.x).toBeLessThan(img.largeur); expect(q.y).toBeGreaterThan(0); expect(q.y).toBeLessThan(img.hauteur); }
+  });
+
+  it('refuse des reperes degeneres', () => {
+    const { ph } = prise();
+    expect(redresserParReperes(ph.image, [{ x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 1 }])).toBeNull();
+    expect(fuitesDesReperes([{ x: 0, y: 0 }])).toBeNull();
   });
 });
