@@ -88,3 +88,31 @@ describe('rallumer les regles', () => {
     expect(o.modeToit).toBeUndefined();
   });
 });
+
+describe('un pignon et un element de mur se posent sur la facade regardee', () => {
+  const avecCorps = () => { const o = batiment(); appliquerPiece(o, 'forme:deux-pans'); return o; };
+
+  it('le pignon va sur le pan de la facade : mur 2, pan 1', () => {
+    const o = avecCorps();
+    expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 2 })).toBe(true);
+    expect(o.corpsToit?.[0]?.pignons.at(-1)?.pan).toBe(1);
+    const p = avecCorps();
+    appliquerPiece(p, 'sur:pignon', { rang: 0, mur: 0 });
+    expect(p.corpsToit?.[0]?.pignons.at(-1)?.pan).toBe(0);
+  });
+
+  it('pas de pignon sur un bout de faitage ni sur un toit plat', () => {
+    const o = avecCorps();
+    expect(raisonIndisponible(o, 'sur:pignon', { rang: 0, mur: 1 })).toBe('Pas de pignon sur cette façade.');
+    expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 3 })).toBe(false);
+    const plat = batiment();
+    appliquerPiece(plat, 'forme:plat');
+    expect(raisonIndisponible(plat, 'sur:pignon')).toBe('Pas de pignon sur un toit plat.');
+  });
+
+  it('un bow-window se pose sur le mur regarde', () => {
+    const o = avecCorps();
+    expect(appliquerPiece(o, 'facade:bow-rectangle', { rang: 0, mur: 1 })).toBe(true);
+    expect(o.corpsToit?.at(-1)?.saillie?.mur).toBe(1);
+  });
+});

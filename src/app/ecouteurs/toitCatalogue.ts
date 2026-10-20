@@ -13,7 +13,7 @@ import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToi
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/regles/toits/corpsNeufs.js';
-import { appliquerChoix, cibleAjoutee, dupliquerElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/regles/toits/elements.js';
+import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/regles/toits/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
@@ -24,7 +24,8 @@ import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 export interface ContexteToitCatalogue {
-  buildThreeScene: (obj: ObjetPlan | null) => void;
+  /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
+  rebatirBatiment: (cle: string) => void;
   /** Redessine les zones : le panneau du mode lit l'etat de la session. */
   rafraichir: () => void;
   magasin: Magasin;
@@ -37,7 +38,7 @@ export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.t
 const GLISSER_PX = 5;
 
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
-  const mode = creerModeToit(a, { rebatir: (o) => ctx.buildThreeScene(o), rafraichir: ctx.rafraichir });
+  const mode = creerModeToit(a, { rebatir: ctx.rebatirBatiment, rafraichir: ctx.rafraichir });
   const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
   const enSession = () => !!sessionToit();
 
@@ -107,17 +108,18 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
 
   commande('toit.poser', 'Poser sur le toit',
     enSession, (source) => {
-      const id = source?.dataset.piece, o = batiment();
+      const id = source?.dataset.piece, o = batiment(), s = sessionToit();
       if (!id || !o) return;
-      const raison = raisonIndisponible(o, id);
+      // Un pignon ou un element de facade se pose sur la facade que la personne regarde (ou la derniere choisie).
+      const facade = s?.facade ?? s?.derniere ?? null;
+      const raison = raisonIndisponible(o, id, facade);
       if (raison) { showToast(raison); return; }
       const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
-      if (!mode.ecrire((x) => appliquerPiece(x, id))) return;
-      // L'element que le geste vient de poser se choisit : l'inspecteur le regle tout de suite.
-      mode.selectionner(cibleAjoutee(avant, batiment()?.corpsToit ?? []));
-      // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
-      const dernier = (batiment()?.corpsToit?.length ?? 1) - 1;
-      if (id.startsWith('facade:') && batiment()) { armerSaillie(o.key, dernier); ctx.rafraichir(); showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).'); }
+      if (!mode.ecrire((x) => appliquerPiece(x, id, facade))) return;
+      // L'element pose se choisit (l'inspecteur le regle) ; un pignon, un element de mur se reglent de face (maquette v8) : la vue passe devant leur facade.
+      const cible = cibleAjoutee(avant, batiment()?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.corpsToit ?? [], cible) : null;
+      mode.selectionner(cible);
+      if (mur) mode.choisirFacade(mur.rang, mur.mur);
     });
 
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',

@@ -166,8 +166,34 @@ function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
   return c;
 }
 
-/** Pourquoi ce geste n'a pas de sens ici ; null quand il en a. */
-export function raisonIndisponible(o: ObjetPlan, id: string): string | null {
+/**
+ * La facade que la personne regarde dans le mode Toit : le mur `mur` du corps `rang` (null : un cote du contour, le batiment n'a pas encore de
+ * corps). Un pignon, un bow-window, un appentis ou une galerie se posent sur elle (maquette v8) ; sans elle, sur le corps principal.
+ */
+export interface FacadeDePose { rang: number | null; mur: number }
+
+/** Le corps de la facade choisie, s'il porte ce qu'on pose (pas un element deja pose sur un mur). */
+function corpsDeLaFacade(o: ObjetPlan, f: FacadeDePose | null | undefined): CorpsToit | null {
+  const c = f && f.rang !== null ? o.corpsToit?.[f.rang] : undefined;
+  return c && !c.saillie ? c : null;
+}
+
+/** Pourquoi un pignon ne va pas sur cette facade ; null quand il y va. Un pignon coupe un long pan : pas un bout de faitage, pas un toit plat. */
+function raisonPignon(o: ObjetPlan, f: FacadeDePose | null | undefined): string | null {
+  const surFacade = f && f.rang !== null ? o.corpsToit?.[f.rang] : undefined;
+  if (surFacade?.saillie) return 'Pas de pignon sur cette façade.';
+  const c = surFacade ?? corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
+  if (!c) return null;
+  const forme = formeDuCorps(c);
+  if (forme === 'appentis') return 'Un appentis n’a pas de pignon sur son long pan.';
+  if (forme === 'plat') return 'Pas de pignon sur un toit plat.';
+  // Les murs 0 et 2 du corps portent ses pans ; 1 et 3 sont les bouts du faitage.
+  if (surFacade && f && f.mur % 2 === 1) return 'Pas de pignon sur cette façade.';
+  return null;
+}
+
+/** Pourquoi ce geste n'a pas de sens ici ; null quand il en a. `facade` : celle que la personne regarde, s'il y en a une. */
+export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeDePose | null): string | null {
   const p = piece(id);
   if (!p) return 'Geste inconnu.';
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
@@ -180,10 +206,7 @@ export function raisonIndisponible(o: ObjetPlan, id: string): string | null {
   }
   // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
   if (!corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
-  if (id === 'sur:pignon') {
-    const c = corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
-    return c && formeDuCorps(c) === 'appentis' ? 'Un appentis n’a pas de pignon sur son long pan.' : null;
-  }
+  if (id === 'sur:pignon') return raisonPignon(o, facade);
   if (p.famille === 'sur') return null;
   // Facade : un element se pose sur un mur du corps principal ; ce corps se deduit du toit simple au besoin.
   return null;
@@ -220,20 +243,20 @@ function elementSur(c: CorpsToit, type: 'fenetre-toit' | 'solaire'): ElementDeTo
   return { type, pan: 0, sM: dixieme((r.L * (deja + 1)) / (deja + 2)), dM: dixieme(Math.max(c.posFaitage, 0.5) / 2) };
 }
 
-function pignonSur(c: CorpsToit): PignonToit {
+function pignonSur(c: CorpsToit, pan: 0 | 1): PignonToit {
   const r = repere(c.pts);
   const largeur = Math.min(3.2, r.L / 2);
-  const sur = c.pignons.some((p) => p.pan === 0 && p.debut < largeur * 0.9);
+  const sur = c.pignons.some((p) => p.pan === pan && p.debut < largeur * 0.9);
   const debut = sur ? r.L - largeur : 0;
-  return { pan: 0, debut: dixieme(debut), fin: dixieme(debut + largeur), faitage: c.faitage, profondeur: dixieme(Math.max(c.posFaitage, r.W - c.posFaitage)) };
+  return { pan, debut: dixieme(debut), fin: dixieme(debut + largeur), faitage: c.faitage, profondeur: dixieme(Math.max(c.posFaitage, r.W - c.posFaitage)) };
 }
 
 /**
  * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
- * c'est la personne qui le regle.
+ * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de facade s'y pose.
  */
-export function appliquerPiece(o: ObjetPlan, id: string): boolean {
-  if (raisonIndisponible(o, id)) return false;
+export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeDePose | null): boolean {
+  if (raisonIndisponible(o, id, facade)) return false;
   const [prefixe = '', nom = ''] = id.split(':');
   if (prefixe === 'forme') {
     const rect = rectangleDuBatiment(o), e = EXEMPLES_TOITS.find((x) => x.id === nom);
@@ -253,22 +276,23 @@ export function appliquerPiece(o: ObjetPlan, id: string): boolean {
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'sur') {
-    const c = corpsPourPoser(o);
+    const surFacade = nom === 'pignon' ? corpsDeLaFacade(o, facade) : null;
+    const c = surFacade ?? corpsPourPoser(o);
     if (!c) return false;
     if (nom === 'cheminee') c.cheminees = [...(c.cheminees ?? []), chemineeSur(c)];
     else if (nom === 'fenetre-toit' || nom === 'solaire') c.elementsToit = [...(c.elementsToit ?? []), elementSur(c, nom)];
-    else if (nom === 'pignon') c.pignons = [...c.pignons, pignonSur(c)];
+    else if (nom === 'pignon') c.pignons = [...c.pignons, pignonSur(c, surFacade && facade?.mur === 2 ? 1 : 0)];
     else c.lucarnes = [...(c.lucarnes ?? []), lucarneSur(c, nom as TypeLucarne)];
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else {
-    const hote = corpsPourPoser(o);
+    const hote = corpsDeLaFacade(o, facade) ?? corpsPourPoser(o);
     if (!hote || !o.corpsToit) return false;
     const rang = o.corpsToit.indexOf(hote);
     const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
     const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
     const d = DEFAUTS_SAILLIE[genre];
-    const mur = murLibre(o.corpsToit, rang);
+    const mur = corpsDeLaFacade(o, facade) === hote && facade ? facade.mur : murLibre(o.corpsToit, rang);
     const { L } = murDuCorps(hote, mur);
     const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
     // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.

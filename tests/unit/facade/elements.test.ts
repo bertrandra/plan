@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { appliquerChoix, cibleAjoutee, dupliquerElement, elementProche, groupesDe, listerElements, lireElement, redimensionnerElement, supprimerElement, valeurDuGroupe,
+import { appliquerChoix, cibleAjoutee, facadeDeLElement, dupliquerElement, elementProche, groupesDe, listerElements, lireElement, redimensionnerElement, supprimerElement, valeurDuGroupe,
   type CibleElement } from '../../../src/facade/regles/toits/elements.js';
 import { appliquerPiece } from '../../../src/three/gestesToits.js';
 import { facettesElementsToit } from '../../../src/facade/toitFormes.js';
@@ -155,5 +155,16 @@ describe('fenetres de toit et panneaux solaires', () => {
     expect(elementDeToitValide({ type: 'solaire', pan: 2, sM: 3, dM: 1 })).toBeNull();
     expect(elementDeToitValide({ type: 'jacuzzi', pan: 0, sM: 3, dM: 1 })).toBeNull();
     expect(elementDeToitValide({ type: 'fenetre-toit', pan: 0, sM: 3, dM: 1, echelle: -1 })).toEqual({ type: 'fenetre-toit', pan: 0, sM: 3, dM: 1 });
+  });
+});
+
+describe('la facade ou se regle un element', () => {
+  it('celle du pan d un pignon, celle du mur d un bow-window, aucune pour une cheminee', () => {
+    const c = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [4, 4] as [number, number], ecart: 0,
+      pignons: [{ pan: 1 as const, debut: 1, fin: 4, faitage: 7, profondeur: 3 }], cheminees: [] };
+    const bow = { ...c, pignons: [], saillie: { genre: 'bow-window' as const, hote: 0, mur: 3, centreM: 3, largeurM: 2, profondeurM: 0.6, forme: 'rectangle' as const, niveau: 'rdc' as const, toit: 'pan' as const } };
+    expect(facadeDeLElement([c, bow], { type: 'pignon', rang: 0, i: 0 })).toEqual({ rang: 0, mur: 2 });
+    expect(facadeDeLElement([c, bow], { type: 'saillie', rang: 1, i: 0 })).toEqual({ rang: 0, mur: 3 });
+    expect(facadeDeLElement([c, bow], { type: 'cheminee', rang: 0, i: 0 })).toBeNull();
   });
 });
