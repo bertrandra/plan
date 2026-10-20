@@ -100,6 +100,16 @@ describe('la camera devant une facade', () => {
     expect(p.position.y).toBeCloseTo(p.cible.y, 5);
   });
 
+  it('se cadre dans la partie libre quand un panneau recouvre l ecran', () => {
+    const sans = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6);
+    const colonne = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6, { largeur: 1400, hauteur: 700, droite: 400, bas: 0 });
+    // La camera recule (moins d'image libre) et se decale a droite : la facade passe a gauche, hors de la colonne.
+    expect(Math.abs(colonne.position.z - colonne.cible.z)).toBeGreaterThan(Math.abs(sans.position.z - sans.cible.z));
+    expect(colonne.cible.x).toBeGreaterThan(sans.cible.x + 0.5);
+    const bandeau = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6, { largeur: 1400, hauteur: 700, droite: 0, bas: 300 });
+    expect(bandeau.cible.y).toBeLessThan(sans.cible.y);
+  });
+
   it('recule davantage devant un long mur', () => {
     const court = poseDeFacade({ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);
     const long = poseDeFacade({ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);

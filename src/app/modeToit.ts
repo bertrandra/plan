@@ -11,7 +11,7 @@ import { enPoints } from '../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart,
   type HistoriqueToit } from '../facade/regles/toits/sessionToit.js';
 import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/regles/toits/facadesDesCorps.js';
-import { poseDeDessus, poseDeFacade } from '../three/poseFacade.js';
+import { poseDeDessus, poseDeFacade, type Reserve } from '../three/poseFacade.js';
 import { objetSousLePointeur, racinesDe3d } from '../three/scene.js';
 import { majFantomes, viderFantomes } from '../three/fantomes.js';
 import { hotes3d, vue3d } from '../three/etat3d.js';
@@ -103,6 +103,17 @@ export interface ContexteModeToit {
   rebatir: (o: ObjetPlan | null) => void;
   /** Redessine les zones. */
   rafraichir: () => void;
+}
+
+/** Ce que le panneau du mode recouvre de la scene : une colonne a droite (grand ecran) ou un bandeau en bas ; zero sans panneau. */
+function reserveDuPanneau(): Reserve | undefined {
+  const hote = hotes3d.vue3d, panneau = hote?.querySelector('.panneauToit');
+  if (!hote || !panneau) return undefined;
+  const h = hote.getBoundingClientRect(), p = panneau.getBoundingClientRect();
+  if (!h.width || !h.height) return undefined;
+  // Une colonne (plus etroite que la scene, qui en couvre la hauteur) ou un bandeau (pose en bas).
+  if (p.width < h.width * 0.6) return { largeur: h.width, hauteur: h.height, droite: Math.max(0, h.right - p.left), bas: 0 };
+  return { largeur: h.width, hauteur: h.height, droite: 0, bas: Math.max(0, h.bottom - p.top) };
 }
 
 /** La hauteur du faitage du batiment : de quoi cadrer la facade en entier. */
@@ -307,7 +318,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     s.facade = f;
     s.derniere = f;
     s.vue = 'facade';
-    const pose = poseDeFacade(f.a, f.b, f.n, hauteurDe(o), sc.cen, sc.camera.fov, sc.camera.aspect);
+    const pose = poseDeFacade(f.a, f.b, f.n, hauteurDe(o), sc.cen, sc.camera.fov, sc.camera.aspect, reserveDuPanneau());
     sc.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
     sc.controls.target.set(pose.cible.x, pose.cible.y, pose.cible.z);
     sc.controls.update();
