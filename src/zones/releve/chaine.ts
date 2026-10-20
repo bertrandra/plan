@@ -27,7 +27,7 @@ import type { Prise } from './capteurs.js';
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
  * les images d'origine, et ce qui a change.
  */
-export const VERSION_CHAINE_FACADES = 1;
+export const VERSION_CHAINE_FACADES = 2;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 export const SEUIL_VERTICALES_DEG = 0.5;
@@ -99,7 +99,12 @@ interface PhotoPreparee {
 }
 
 /** Les coins d'une photo reportes depuis une autre photo du mur par l'assemblage, et s'ils comptent pour trouves. */
-interface CoinsSerie { coins: readonly P2[]; lu: boolean }
+interface CoinsSerie {
+  coins: readonly P2[];
+  lu: boolean;
+  /** Le mur lu sur l'assemblage d'une photo redressee par ses reperes : il l'emporte sur les coins trouves sur ses aretes. */
+  prime?: boolean;
+}
 
 type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
 
@@ -147,16 +152,19 @@ export async function redresserPhoto(e: PhotoARedresser, f: Facade, o: OutilsCha
   const analyser = async (predits: boolean, s: CoinsSerie | null = null) => juger(await preparerPhoto(e, f, o, correction, predits, s));
   // Les coins trouves sur les aretes de la photo (le mur entier y est, au centimetre) d'abord ; sinon ceux reportes de la photo
   // du mur posee au doigt ; sinon les coins predits.
-  let essai = await analyser(false).catch(() => null);
+  // Une photo redressee par les reperes de la personne : le mur lu sur l'assemblage, d'abord.
+  const parReperes = serie?.prime ? await analyser(false, serie).catch(() => null) : null;
+  let essai = parReperes ?? await analyser(false).catch(() => null);
   const aretes = essai?.p.coins === 'trouve' && quadrilatereSain(essai.p.morceau.coins, essai.p.morceau.prise.photo.image);
-  if (serie && !correction?.coins && !aretes) {
+  if (serie && !parReperes && !correction?.coins && !aretes) {
     const parSerie = await analyser(false, serie).catch(() => null);
     if (parSerie) essai = parSerie;
   }
   // Des coins trouves qui ne forment pas un mur : les coins predits, plutot que rien.
   if (!essai && !correction?.coins) essai = await analyser(true).catch(() => null);
   if (!essai) return { bilan: { rang, statut: 'echec', verticaliteDeg: null, coins: 'predit', motif: 'la photo ne montre pas le mur : coins introuvables ou image illisible' }, essai: null };
-  const manuelle = essai.p.coins === 'main';
+  // Des coins poses au doigt, ou le mur lu depuis les reperes de la personne : ils ne se discutent pas.
+  const manuelle = essai.p.coins === 'main' || (!!parReperes && essai === parReperes);
   // Des verticales qui penchent : les points calcules d'apres la prise de vue valent parfois mieux que ceux cherches sur les aretes.
   if (!manuelle && essai.vert !== null && essai.vert > SEUIL_VERTICALES_DEG) {
     const repli = await analyser(true).catch(() => null);
@@ -238,16 +246,31 @@ export function analyserSansRien(morceaux: Morceau[], f: Facade, hauteur: number
  */
 async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: OutilsChaine, corrections: Readonly<Record<string, CorrectionRedressement>>, faits: PhotoRedressee[]): Promise<void> {
   const aReporter = () => faits.filter((x) => x.bilan.coins === 'predit' && !corrections[String(x.bilan.rang)]?.coins);
-  if (!aReporter().length) return;
+  const avecReperes = Object.values(corrections).some((c) => c.reperes?.length === 4);
+  if (!aReporter().length && !avecReperes) return;
   const images = entrees.map((e) => e.image);
   const k = (rang: number) => entrees.findIndex((e) => e.rang === rang);
-  const remplacer = async (x: PhotoRedressee, coins: P2[] | null | undefined, lu: boolean) => {
+  const remplacer = async (x: PhotoRedressee, coins: P2[] | null | undefined, lu: boolean, prime = false) => {
     const e = entrees[k(x.bilan.rang)];
     if (!coins || !e) return;
-    const r = await redresserPhoto(e, f, o, undefined, { coins, lu }).catch(() => null);
+    const r = await redresserPhoto(e, f, o, undefined, { coins, lu, prime }).catch(() => null);
     if (r?.essai && r.bilan.statut !== 'echec') faits[faits.indexOf(x)] = r;
   };
   try {
+    // Des reperes poses a la main : chaque photo se redresse d'abord, entiere (par ses reperes, sinon ses points de fuite), les vues
+    // s'assemblent, et l'egout, le sol et les bouts du mur se cherchent ensuite sur l'assemblage, aux proportions du plan (largeur de
+    // la parcelle, hauteur du LiDAR ou du dessin). Le mur lu l'emporte sur les photos aux reperes, et remplace les coins predits.
+    const reperes = entrees.map((e) => corrections[String(e.rang)]?.reperes ?? null);
+    if (reperes.some((r) => r?.length === 4)) {
+      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes);
+      if (!sr) return;
+      for (const x of [...faits]) {
+        const i = k(x.bilan.rang);
+        if (reperes[i]?.length === 4) await remplacer(x, sr.coins[i], sr.lu, true);
+        else if (aReporter().includes(x)) await remplacer(x, sr.coins[i], sr.lu);
+      }
+      return;
+    }
     const source = faits.find((x) => x.essai && x.bilan.coins === 'main');
     const k0 = source ? k(source.bilan.rang) : -1;
     if (source?.essai && k0 >= 0) {

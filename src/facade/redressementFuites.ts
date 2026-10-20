@@ -234,6 +234,17 @@ export function redresserParFuites(photo: Image, segments: readonly Segment[], f
   const sourceFocale = focalePx !== null ? 'donnee' : lue !== null ? 'fuites' : 'defaut';
   const versFace = rotationDeFace(v.point, h?.point ?? null, f, W / 2, Hp / 2);
   if (!versFace) return null;
+  const r = rendreDeFace(photo, versFace);
+  return r ? { ...r, horizontale: !!h, sourceFocale } : null;
+}
+
+/**
+ * La photo entiere vue par `versFace` (photo -> vue de face) : rien n'est coupe au mur, seule la part de la photo trop etiree pres de
+ * la ligne de fuite est laissee. Meme surface que la photo, au plus COTE_MAX_PX de grand cote : l'echelle n'est pas celle du mur,
+ * elle ne se fixe qu'apres (la largeur du plan, la hauteur du LiDAR ou du dessin).
+ */
+function rendreDeFace(photo: Image, versFace: Homographie): { image: Image; vu: Uint8Array; versPhoto: Homographie } | null {
+  const W = photo.largeur, Hp = photo.hauteur;
   // L'emprise de la photo dans la vue de face. Pres de la ligne de fuite du mur (prise tres de biais), un pixel de la photo couvre
   // une surface de plus en plus grande : on ne garde que la part de la photo ou l'etirement reste sous ETIREMENT_MAX fois celui
   // du centre (l'etirement local d'une homographie varie comme 1 / w^3).
@@ -261,5 +272,38 @@ export function redresserParFuites(photo: Image, segments: readonly Segment[], f
   const sortieVersFace = deM([[1 / k, 0, x0], [0, 1 / k, y0], [0, 0, 1]]);
   const versPhoto = deM(produit(M(deFace), M(sortieVersFace)));
   const { image, vu } = rendre(photo, versPhoto, L, H);
-  return { image, vu, versPhoto, horizontale: !!h, sourceFocale };
+  return { image, vu, versPhoto };
+}
+
+/**
+ * Les points de fuite que donnent quatre reperes poses sur la photo (haut gauche, haut droit, bas droit, bas gauche) : n'importe
+ * quels points du mur qui sont, en vrai, les coins d'un rectangle (une fenetre, une porte, le mur, deux appuis et deux linteaux).
+ * Le haut et le bas sont deux horizontales, la gauche et la droite deux verticales : leurs croisements sont les points de fuite
+ * horizontal et vertical, a l'infini quand les deux droites sont paralleles sur la photo.
+ */
+export function fuitesDesReperes(r: readonly P2[]): { v: V3; h: V3 } | null {
+  if (r.length !== 4) return null;
+  const [a, b, c, d] = r as [P2, P2, P2, P2];
+  const ligne = (p: P2, q: P2): V3 => vect([p.x, p.y, 1], [q.x, q.y, 1]);
+  const h = vect(ligne(a, b), ligne(d, c)), v = vect(ligne(a, d), ligne(b, c));
+  return norme(h) > 1e-12 && norme(v) > 1e-12 ? { v, h } : null;
+}
+
+/**
+ * Redresse une photo par quatre reperes poses a la main (fuitesDesReperes) : la photo entiere tournee de face, sans coupe et sans
+ * echelle — ce que les reperes disent, c'est la direction des verticales et des horizontales du mur, pas ou il commence. L'egout,
+ * le sol et les bouts du mur se cherchent ensuite, sur l'image redressee (zones/releve/coinsAuto.ts). La focale se lit sur les
+ * reperes quand ils la donnent (deux points de fuite finis et orthogonaux) : les droites posees sortent alors exactement droites ;
+ * sinon celle de la photo, sinon celle d'un telephone. Null quand les reperes sont degeneres.
+ */
+export function redresserParReperes(photo: Image, reperes: readonly P2[], focalePx: number | null = null): RedressementFuites | null {
+  const W = photo.largeur, Hp = photo.hauteur;
+  const fu = fuitesDesReperes(reperes);
+  if (!fu) return null;
+  const lue = focaleDesFuites(fu.v, fu.h, W, Hp);
+  const f = lue ?? focalePx ?? focaleParDefaut(W, Hp);
+  const versFace = rotationDeFace(fu.v, fu.h, f, W / 2, Hp / 2);
+  if (!versFace) return null;
+  const r = rendreDeFace(photo, versFace);
+  return r ? { ...r, horizontale: true, sourceFocale: lue !== null ? 'fuites' : focalePx !== null ? 'donnee' : 'defaut' } : null;
 }

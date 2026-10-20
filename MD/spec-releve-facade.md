@@ -374,6 +374,42 @@ biais de −3 à +4°), les ouvertures sont retrouvées à 1–2 cm.
 **Limite.** À courte distance et téléphone d'aplomb, le haut de l'image s'arrête souvent sous le
 pignon : le toit n'est alors pas proposé (§8.2), plutôt que deviné.
 
+### 6.1 bis Les quatre repères de l'audit : redresser d'abord, chercher le mur ensuite (octobre 2026)
+
+À l'audit de la parcelle, « Placer 4 repères » ne demande plus les coins du mur. Les quatre points sont **n'importe quel
+rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, sur une même horizontale, et deux en bas
+(`CorrectionRedressement.reperes`). Ils ne disent que deux choses : la direction des verticales et celle des horizontales du mur.
+
+1. **Redresser, sans couper ni mettre à l'échelle.**
+   - Le haut et le bas des repères se croisent au point de fuite horizontal ; la gauche et la droite au point de fuite vertical
+     (`facade/redressementFuites.ts::fuitesDesReperes`). Une paire parallèle donne un point à l'infini.
+   - La photo **entière** est tournée de face par ces deux points (`redresserParReperes`, la rotation K R K⁻¹ de
+     `redresserParFuites`). La focale se lit sur les repères quand elle le peut, sinon c'est celle de la photo, sinon celle d'un téléphone.
+   - L'image garde la surface de la photo. Rien n'est coupé au mur : seule la part trop étirée près de la ligne de fuite part.
+   - L'échelle n'est pas définie à cette étape. Elle vient de la largeur de la façade (la parcelle) et de la hauteur à l'égout
+     (le LiDAR, ou le dessin à la main).
+2. **Assembler.** Les photos du mur, redressées de face (par leurs repères, sinon par leurs points de fuite), s'assemblent par
+   ORB et une similitude (`facade/mosaiqueFuites.ts`).
+3. **Chercher le mur, automatiquement d'abord.** Sur l'assemblage, sans coupe, on cherche l'égout, le sol et les deux bouts du
+   mur (`rectangleSurLesAretes` aux proportions largeur parcelle / hauteur LiDAR, sinon `rectangleDuMur`). On les reporte ensuite
+   dans chaque photo (`zones/releve/coinsAuto.ts::coinsAutoDeSerie`, `zones/releve/chaine.ts::reporterLeMur`).
+   - Sur une photo à repères, ce mur l'emporte sur les coins trouvés sur ses arêtes ; la photo est marquée « redressée avec vos points ».
+   - Les photos aux coins prédits le reçoivent aussi.
+   - L'élévation métrique, coupée au mur (détection, texture), se calcule ensuite d'après ces coins, comme avant.
+
+Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
+rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
+(`VERSION_CHAINE_FACADES`).
+
+Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
+
+**Ce qui reste.**
+- La lecture automatique de l'égout et du sol sur l'assemblage n'est pas encore sûre. Sur les scènes `02`, `16` et `18`, l'un des
+  deux bords se trompe de 80 à 200 px sur un mur de 900 px (une horizontale voisine l'emporte) ; les bouts du mur sont justes à
+  quelques pixels.
+- La reprise à la main de ces deux lignes sur l'image redressée est l'étape suivante. Le relevé et la calibration gardent pour
+  l'instant leurs quatre coins du mur.
+
 ### 6.2 Un mur à deux hauteurs d'égout (en L)
 
 Une partie à étage prolongée, sur le même alignement, par une partie basse — garage, extension :

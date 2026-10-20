@@ -29,22 +29,25 @@ async function monter(depart?: { x: number; y: number }[]) {
   return { appliquer, retablir, fermer };
 }
 
-describe('la pose des quatre coins', () => {
-  it('montre quatre poignees et applique des coins par defaut dans la photo', async () => {
+describe('la pose de quatre reperes', () => {
+  it('montre quatre poignees et applique des reperes par defaut dans la photo, jamais les coins du mur', async () => {
     const p = await monter();
     expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
     act(() => bouton('auditParcelle.appliquerCoins').click());
     const c = p.appliquer.mock.calls[0]?.[0] as CorrectionRedressement;
-    expect(c.coins).toHaveLength(4);
-    expect(c.coins?.[0]).toEqual({ x: 96, y: 72 });
+    expect(c.reperes).toHaveLength(4);
+    expect(c.reperes?.[0]).toEqual({ x: 96, y: 72 });
+    // Des reperes, pas les coins du mur : ni « Égout » ni « Sol » sur la photo.
+    expect(c.coins).toBeUndefined();
+    expect(hote.textContent).not.toMatch(/Égout|Sol\b/);
     expect(c.echelleLargeurM).toBeUndefined();
     expect(p.fermer).toHaveBeenCalled();
   });
-  it('part des coins du calcul quand on les donne', async () => {
+  it('part des reperes donnes (ceux deja poses, ou le mur du calcul)', async () => {
     const depart = [{ x: 10, y: 20 }, { x: 700, y: 20 }, { x: 700, y: 500 }, { x: 10, y: 500 }];
     const p = await monter(depart);
     act(() => bouton('auditParcelle.appliquerCoins').click());
-    expect(p.appliquer.mock.calls[0]?.[0].coins).toEqual(depart);
+    expect(p.appliquer.mock.calls[0]?.[0].reperes).toEqual(depart);
   });
   it('porte l echelle tapee, et refuse un texte qui n est pas un nombre', async () => {
     const p = await monter();

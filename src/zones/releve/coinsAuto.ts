@@ -5,8 +5,8 @@
 import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin.js';
 import type { Image, P2 } from '../../facade/homographie.js';
 import { detecterSegments } from '../../facade/segments.js';
-import { redresserParFuites, type RedressementFuites } from '../../facade/redressementFuites.js';
-import { coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes } from '../../facade/mosaiqueFuites.js';
+import { redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
+import { coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type Rect } from '../../facade/mosaiqueFuites.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -30,6 +30,21 @@ export interface CoinsDeSerie {
   aPart: { vue: number; motif: string }[];
   /** L'egout et le pied ont ete lus sur la mosaique (et non supposes) : le mur est trouve, pas devine. */
   lu: boolean;
+  /** Par photo : la photo entiere redressee (par ses reperes, sinon ses points de fuite), sans coupe ; null si elle ne se redresse pas. */
+  vues: (RedressementFuites | null)[];
+  /** L'assemblage des vues, et le mur qui y a ete cherche (en pixels de l'assemblage) : ce que l'ecran de calibration montre. */
+  assemblage: { image: Image; mur: Rect & { egout: boolean; pied: boolean; cotes: boolean } };
+}
+
+/**
+ * Chaque photo tournee de face : par les quatre reperes poses a la main quand elle en a (`reperes[i]`), sinon par ses points de
+ * fuite. La photo entiere, sans coupe ni echelle (facade/redressementFuites.ts).
+ */
+export function vuesDeFace(images: readonly Image[], reperes: readonly (readonly P2[] | null | undefined)[] = []): (RedressementFuites | null)[] {
+  return images.map((img, i) => {
+    const r = reperes[i];
+    return (r && r.length === 4 ? redresserParReperes(img, r) : null) ?? redresserParFuites(img, detecterSegments(img));
+  });
 }
 
 /**
@@ -37,9 +52,11 @@ export interface CoinsDeSerie {
  * (facade/redressementFuites.ts), les vues sont assemblees en mosaique (facade/mosaiqueFuites.ts), le rectangle du mur y est lu,
  * puis reporte dans chaque photo. Les photos n'ont pas besoin de montrer le mur entier, ni ses coins. Null quand aucune photo
  * ne se redresse. `hauteurPlanM` : la hauteur du mur que donne le plan (LiDAR), qui en fixe les proportions avec la largeur.
+ * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent.
  */
-export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null): CoinsDeSerie | null {
-  const vues = images.map((img) => redresserParFuites(img, detecterSegments(img)));
+export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = []): CoinsDeSerie | null {
+  // D'abord redresser (les reperes poses, sinon les points de fuite), puis assembler, et seulement ensuite chercher l'egout et le sol.
+  const vues = vuesDeFace(images, reperes);
   const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
   if (!rangs.length) return null;
   const m = mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites));
@@ -58,7 +75,7 @@ export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hau
     ...m.groupes.aPart.map((a) => ({ vue: rangs[a.vue] as number, motif: a.motif })),
   ];
   const hauteurM = r.x1 > r.x0 ? Math.round(((largeurM * (r.y1 - r.y0)) / (r.x1 - r.x0)) * 10) / 10 : null;
-  return { coins, hauteurM, aPart, lu: r.egout && r.pied };
+  return { coins, hauteurM, aPart, lu: r.egout && r.pied, vues, assemblage: { image: m.image, mur: r } };
 }
 
 /**
