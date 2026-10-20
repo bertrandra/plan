@@ -43,11 +43,15 @@ export function poseDeFacade(a: PtBrut, b: PtBrut, n: PtBrut, hauteur: number, c
 
 /**
  * La camera au-dessus d'un batiment, presque a la verticale (un leger recul evite l'alignement degenere de l'orbite) : `etendue` est le plus grand
- * cote du batiment, `centre` son milieu dans le plan.
+ * cote du batiment, `centre` son milieu dans le plan. `reserve` : ce que le panneau recouvre ; le batiment se cadre dans le reste.
  */
-export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number): PoseCamera {
+export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number, reserve?: Reserve): PoseCamera {
   const demiChamp = Math.tan((fovDeg * Math.PI) / 360);
-  const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect, 0.3), 1))) * MARGE + 2;
-  const cible = { x: centre.x - cen.x, y: 0, z: cen.y - centre.y };
+  const libreL = reserve ? Math.max(0.3, 1 - reserve.droite / reserve.largeur) : 1, libreH = reserve ? Math.max(0.3, 1 - reserve.bas / reserve.hauteur) : 1;
+  const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect * libreL, 0.3), libreH))) * MARGE + 2;
+  // De dessus, la droite de l'ecran est +x et le bas de l'ecran +z : decaler la camera vers la droite pousse le batiment vers la gauche, vers le bas vers le haut.
+  const parMetre = 1 / (2 * hauteur * demiChamp);
+  const dx = reserve ? (reserve.droite / reserve.hauteur / 2) / parMetre : 0, dz = reserve ? (reserve.bas / reserve.hauteur / 2) / parMetre : 0;
+  const cible = { x: centre.x - cen.x + dx, y: 0, z: cen.y - centre.y + dz };
   return { cible, position: { x: cible.x, y: hauteur, z: cible.z + hauteur * 0.02 } };
 }
