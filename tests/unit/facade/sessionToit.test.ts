@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart } from '../../../src/facade/regles/toits/sessionToit.js';
 import { corpsVisibles, facadeProche, facadeVersLePoint, facadesDuBatiment, orientationDe } from '../../../src/facade/regles/toits/facadesDesCorps.js';
-import { poseDeDessus, poseDeFacade } from '../../../src/three/poseFacade.js';
+import { OBLIQUE, cadreOblique, poseDeDessus } from '../../../src/three/poseFacade.js';
 import type { CorpsToit, ObjetPlan } from '../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
@@ -88,32 +88,48 @@ describe('les facades du batiment', () => {
   });
 });
 
-describe('la camera devant une facade', () => {
-  it('se place sur la normale, a mi-hauteur, en regardant le milieu du mur', () => {
-    const p = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6);
-    expect(p.cible.x).toBeCloseTo(0, 5);
-    expect(p.cible.y).toBeCloseTo(3.5, 5);
-    expect(p.cible.z).toBeCloseTo(3, 5);
-    // La normale -y du plan devient +z de la scene : la camera est du cote z plus grand.
-    expect(p.position.z).toBeGreaterThan(p.cible.z + 5);
-    expect(p.position.x).toBeCloseTo(p.cible.x, 5);
-    expect(p.position.y).toBeCloseTo(p.cible.y, 5);
+describe('la camera oblique de la facade', () => {
+  // Un mur de 10 m le long de x (plan), normale sortante -y : vu de dehors, sa droite est +x de la scene.
+  const mur = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }] as const;
+  const boite = [0, 10].flatMap((x) => [0, 6].flatMap((y) => [0, 7].map((h) => ({ x, y: h, z: -y }))));
+  const ecran = (c: ReturnType<typeof cadreOblique>, p: { x: number; y: number; z: number }) => {
+    // Le point dans le repere de la camera (inverse d'une rotation pure), puis la projection, en coordonnees normalisees.
+    const m = c.monde, d = [p.x - (m[3] as number), p.y - (m[7] as number), p.z - (m[11] as number)];
+    const v = [0, 1, 2].map((k) => (m[k] as number) * (d[0] as number) + (m[4 + k] as number) * (d[1] as number) + (m[8 + k] as number) * (d[2] as number));
+    const q = c.projection;
+    return { x: (q[0] as number) * (v[0] as number) + (q[2] as number) * (v[2] as number) + (q[3] as number), y: (q[5] as number) * (v[1] as number) + (q[6] as number) * (v[2] as number) + (q[7] as number) };
+  };
+
+  it('montre le mur a l echelle, sans fuite, et fait monter et glisser ce qui est derriere', () => {
+    const c = cadreOblique(mur[0], mur[1], mur[2], boite, { x: 0, y: 0 }, 1000, 600);
+    const g = ecran(c, { x: 0, y: 0, z: 0 }), d = ecran(c, { x: 10, y: 0, z: 0 }), h = ecran(c, { x: 0, y: 7, z: 0 });
+    expect(d.x).toBeGreaterThan(g.x);
+    expect(d.y).toBeCloseTo(g.y, 9);
+    // Un metre de mur vaut autant a l'ecran en largeur qu'en hauteur (pixels carres).
+    expect(((d.x - g.x) * 1000) / 10).toBeCloseTo(((h.y - g.y) * 600) / 7, 6);
+    // Le coin du fond (6 m derriere le mur) glisse a droite et monte, de K et M fois sa profondeur.
+    const fond = ecran(c, { x: 0, y: 0, z: -6 }), metre = (d.x - g.x) / 10;
+    expect((fond.x - g.x) / metre).toBeCloseTo(6 * OBLIQUE.k, 6);
+    expect(((fond.y - g.y) * 600) / (metre * 1000)).toBeCloseTo(6 * OBLIQUE.m, 6);
   });
 
-  it('se cadre dans la partie libre quand un panneau recouvre l ecran', () => {
-    const sans = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6);
-    const colonne = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6, { largeur: 1400, hauteur: 700, droite: 400, bas: 0 });
-    // La camera recule (moins d'image libre) et se decale a droite : la facade passe a gauche, hors de la colonne.
-    expect(Math.abs(colonne.position.z - colonne.cible.z)).toBeGreaterThan(Math.abs(sans.position.z - sans.cible.z));
-    expect(colonne.cible.x).toBeGreaterThan(sans.cible.x + 0.5);
-    const bandeau = poseDeFacade({ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: -1 }, 7, { x: 5, y: 3 }, 50, 1.6, { largeur: 1400, hauteur: 700, droite: 0, bas: 300 });
-    expect(bandeau.cible.y).toBeLessThan(sans.cible.y);
+  it('tient le batiment entier dans l image, et dans la partie libre quand un panneau la recouvre', () => {
+    const libre = cadreOblique(mur[0], mur[1], mur[2], boite, { x: 0, y: 0 }, 1000, 600, { largeur: 1000, hauteur: 600, droite: 400, bas: 0 });
+    for (const p of boite) {
+      const e = ecran(libre, p);
+      expect(Math.abs(e.y)).toBeLessThanOrEqual(1);
+      // A gauche de la colonne du panneau : x normalise sous 1 - 2 * 400 / 1000.
+      expect(e.x).toBeGreaterThanOrEqual(-1);
+      expect(e.x).toBeLessThanOrEqual(0.2 + 1e-9);
+    }
   });
 
-  it('recule davantage devant un long mur', () => {
-    const court = poseDeFacade({ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);
-    const long = poseDeFacade({ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);
-    expect(Math.abs(long.position.z - long.cible.z)).toBeGreaterThan(Math.abs(court.position.z - court.cible.z));
+  it('tourne avec un mur de biais : le mur reste horizontal a l ecran', () => {
+    const a = { x: 0, y: 0 }, b = { x: 6, y: 8 }, n = { x: 0.8, y: -0.6 };
+    const c = cadreOblique(a, b, n, [{ x: 0, y: 0, z: 0 }, { x: 6, y: 5, z: -8 }], { x: 0, y: 0 }, 800, 600);
+    const pa = ecran(c, { x: a.x, y: 0, z: -a.y }), pb = ecran(c, { x: b.x, y: 0, z: -b.y });
+    expect(pb.y).toBeCloseTo(pa.y, 9);
+    expect(pb.x).toBeGreaterThan(pa.x);
   });
 });
 

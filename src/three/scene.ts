@@ -27,7 +27,7 @@ import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
 import { ajouterArbre3d, synchroniserArbres, arbreDeLInstance } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
-import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, type SceneVue3d, soleilVue3d } from './etat3d.js';
+import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, cameraDeVue, type SceneVue3d, soleilVue3d } from './etat3d.js';
 import { cadreOmbres, monterRendu } from './rendu.js';
 import { COUCHE_APRES, COUCHE_AVANT, activerDeuxVues, couperDeuxVues, imageAttendue } from './comparaison3d.js';
 import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
@@ -1029,6 +1029,19 @@ function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
 }
 
 /**
+ * Le rayon de la camera par un point de l'ecran. `setFromCamera` ne connait que la perspective et l'orthographique droite : la camera
+ * oblique de l'editeur de facade (three/vueFacadeToit.ts) se vise par ses deux plans, le proche et le lointain.
+ */
+function rayonDeVue(ndc: { x: number; y: number }, camera: THREE_NS.Camera): THREE_NS.Raycaster {
+  const rayon = new THREE.Raycaster();
+  if ((camera as THREE_NS.PerspectiveCamera).isPerspectiveCamera) { rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera); return rayon; }
+  const proche = new THREE.Vector3(ndc.x, ndc.y, -1).unproject(camera), loin = new THREE.Vector3(ndc.x, ndc.y, 1).unproject(camera);
+  rayon.set(proche, loin.sub(proche).normalize());
+  rayon.camera = camera;
+  return rayon;
+}
+
+/**
  * Ce que montre un point de l'ecran (coordonnees normalisees -1..1) dans la Vue 3D ouverte : la cle
  * de l'objet du plan touche le premier, et le point touche dans le repere du plan (le sol, si aucun
  * objet n'est touche). Le mode audit (app/audit/) s'en sert pour marquer un batiment au doigt.
@@ -1036,8 +1049,7 @@ function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
 export function objetSousLePointeur(ndc: { x: number; y: number }, retenir: (cle: string) => boolean = () => true): { cle: string | null; point: PtBrut | null } {
   const sc = vue3d.scene, d = derniere;
   if (!sc || !d || d.sc !== sc) return { cle: null, point: null };
-  const rayon = new THREE.Raycaster();
-  rayon.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), sc.camera);
+  const rayon = rayonDeVue(ndc, cameraDeVue(sc));
   const versPlan = (v: THREE_NS.Vector3): PtBrut => ({ x: v.x + sc.cen.x, y: sc.cen.y - v.z });
   // Chaque objet pose a ses enfants directs de la scene : on remonte de la maille touchee jusqu'a eux.
   const proprietaire = new Map<THREE_NS.Object3D, string>();

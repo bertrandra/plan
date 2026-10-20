@@ -5,9 +5,9 @@
 
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
-import { etatToit, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
 import { enPoints } from '../../model/formes.js';
-import { hotes3d, vue3d } from '../../three/etat3d.js';
+import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
@@ -117,7 +117,7 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
   const pts = o ? (enPoints(o).pts as { x: number; y: number }[]) : [];
   if (!pts.length) return null;
   const cx = pts.reduce((t, p) => t + p.x, 0) / pts.length, cy = pts.reduce((t, p) => t + p.y, 0) / pts.length;
-  const v = new THREE.Vector3(cx - sc.cen.x, (o?.elevation ?? 3) + 2, sc.cen.y - cy).project(sc.camera);
+  const v = new THREE.Vector3(cx - sc.cen.x, altitudeDuBatiment(o) + (o?.elevation ?? 3) + 2, sc.cen.y - cy).project(cameraDeVue(sc));
   if (v.z > 1) return null;
   const r = hote.getBoundingClientRect();
   return (
@@ -172,7 +172,7 @@ export function ModeToit({ magasin, commandes }: Props) {
       </div>
       <div className="toitCatalogue">
         {piecesDe(onglet).map((p) => {
-          const facade = sessionToit()?.facade ?? sessionToit()?.derniere ?? null, refus = o ? raisonIndisponible(o, p.id, facade) : 'Aucun bâtiment.';
+          const refus = o ? raisonIndisponible(o, p.id, s.facade ?? s.derniere) : 'Aucun bâtiment.';
           return (
             <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}

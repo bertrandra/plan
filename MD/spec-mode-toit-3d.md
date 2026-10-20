@@ -194,6 +194,10 @@ Corps principal 9,9 × 7 m deux-pans (égout 4,6, hauteur 2,9), deux pignons de 
   des chaînes littérales `id: '…'` dans `src/app/`.
 - **Contrôles** : tout `data-controle` est inventorié (`app/controlesInterface.ts`) et testé (`tests/unit/app/controlesInterface.test.ts`) : classer chaque nouveau contrôle (nature, zone, `ecrit`).
 
+- **Ce que la scène montre en façade** : le bâtiment seul (`epurerVue3d`, l'épure de l'audit), jamais la terrasse ni le jardin. Le mode ne passe **jamais** le
+  bâtiment à `buildThreeScene` (qui le prendrait pour la terrasse) : il redessine le bâtiment seul (`remplacerObjets3d`), ou la scène autour de la terrasse
+  courante. Un pignon, un élément de mur se posent sur la façade regardée et ouvrent sa vue.
+
 ### 4.2 Modèle à étendre (étape 3 et 5)
 
 - **Éléments de toit** : ajouter `fenetre-toit` (velux, 1 m) et `solaire` (panneau, 2,55 m) à côté de `Lucarne`/`Cheminee` ; échelle `s` (0,5 à 2,2). Dessin 3D (`three/toitCorps3d.ts`, `facade/toitFormes.ts`).
@@ -219,7 +223,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
 ### Étape 1 — Le mode Toit et le choix de façade  *(livrée : PR « mode Toit, étape 1 »)*
 
-> Écarts de mise en œuvre : la caméra de façade est une **perspective en élévation** (`three/poseFacade.ts`), pas encore l'oblique orthographique de la maquette (elle viendra avec les poignées, étape 4) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/modeToit.ts` (session), `src/facade/regles/toits/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
+> Écarts de mise en œuvre : la caméra de façade est l'**oblique orthographique** de la maquette (`three/poseFacade.ts::cadreOblique`, `three/vueFacadeToit.ts`, posée en `cameraRendu` sur la scène de la Vue 3D) — elle a d'abord été une perspective en élévation dans la scène de la terrasse, ce qui était faux (§4.1) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/modeToit.ts` (session), `src/facade/regles/toits/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
 **Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D, actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
 - Écran A de la maquette : surlignage du bâtiment choisi, barre d'action (Modifier · Isoler), contours en pointillé pour ce qui cache le bâtiment choisi (`setGhost` : maille masquée + `LineSegments`/`EdgesGeometry` en `LineDashedMaterial`),
   œil « Isoler ce bâtiment » (réutiliser `terrasse.isoler`), indice « main ».
@@ -250,7 +254,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
 ### Étape 4 — Les poignées sur la façade  *(livrée : PR « mode Toit, étape 4 »)*
 
-> Code : `src/facade/regles/toits/poignees.ts` (poignées, cotes, `glisser`, aimantation — pur, testé), `src/zones/vue3d/PoigneesToit.tsx` (calque SVG, projection, conversion doigt → mètres sur les axes de la poignée), `modeToit.ts` (`apercu`, `finGlisser`, `annulerGlisser`). Écarts : la caméra reste en perspective (les poignées se calent par projection d'axes, pas par une oblique orthographique) ; la saillie d'un pignon (avancée au-delà du mur) est modélisée depuis (`PignonToit.saillieM`, 0 à 2,5 m : triangle, murs de côté et égout avancent ; inspecteur 0 · ½ · 1 · 1,5 m, poignée « Saillie » sur la face avancée).
+> Code : `src/facade/regles/toits/poignees.ts` (poignées, cotes, `glisser`, aimantation — pur, testé), `src/zones/vue3d/PoigneesToit.tsx` (calque SVG, projection, conversion doigt → mètres sur les axes de la poignée), `modeToit.ts` (`apercu`, `finGlisser`, `annulerGlisser`). Les poignées se calent par projection d'axes, par la caméra qui fait l'image (`cameraDeVue`) ; la saillie d'un pignon (avancée au-delà du mur) est modélisée depuis (`PignonToit.saillieM`, 0 à 2,5 m : triangle, murs de côté et égout avancent ; inspecteur 0 · ½ · 1 · 1,5 m, poignée « Saillie » sur la face avancée).
 - Calque SVG sur la scène (projection de points 3D), poignées du §3 (hauteur de façade, longueur de façade, pignon, bow-window, appentis/galerie, taille d'un élément) ; chip de cotes ; guides ; aimantation à 0,25 m.
 - Un glisser = un instantané de session. Échap annule le glisser. Cibles tactiles ≥ 44 px au doigt.
 - **Commencer par le bow-window** (déjà modélisé) pour valider la chaîne projection → poignée → écriture → redessin, puis généraliser.

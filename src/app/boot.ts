@@ -479,7 +479,9 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
   }, commandes);
   // Le mode Toit de la Vue 3D : session, Regles et catalogue du toit.
   brancherToitCatalogue(atelier, {
-    buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
+    // Le batiment retouche se repose seul dans la scene ; faute de mieux, la scene entiere se rebatit, sur la terrasse courante (jamais sur
+    // le batiment : passe a `buildThreeScene`, il serait pris pour une terrasse).
+    rebatirBatiment: (cle) => { if (vue3d.scene && !tardifs.vues?.remplacerObjets3d([cle])) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
     rafraichir: () => magasin.notifier(),
     magasin
   }, commandes);
