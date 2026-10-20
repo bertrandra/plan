@@ -116,6 +116,15 @@ function reserveDuPanneau(): Reserve | undefined {
   return { largeur: h.width, hauteur: h.height, droite: 0, bas: Math.max(0, h.bottom - p.top) };
 }
 
+/** Une facade choisie sur le contour (le batiment n'avait pas de corps) devient le mur du corps qui vient de naitre au meme endroit. */
+function rattacherLesFacades(s: SessionToit, o: ObjetPlan): void {
+  if (!o.corpsToit?.length) return;
+  const murs = facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]);
+  const refaire = (f: FacadeVisee | null): FacadeVisee | null => (f && f.rang === null ? facadeProche(murs, { x: (f.a.x + f.b.x) / 2, y: (f.a.y + f.b.y) / 2 }) ?? f : f);
+  s.facade = refaire(s.facade);
+  s.derniere = refaire(s.derniere);
+}
+
 /** La hauteur du faitage du batiment : de quoi cadrer la facade en entier. */
 function hauteurDe(o: ObjetPlan): number {
   const corps = (o.corpsToit ?? []).map((c) => c.faitage);
@@ -211,6 +220,8 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       const o = batiment(), s = session;
       if (!o || !s) return false;
       if (f(o) === false) return false;
+      // Un geste peut creer le premier corps (le toit simple devient un corps) : la facade choisie sur le contour se rattache a son mur.
+      rattacherLesFacades(s, o);
       empiler(s.hist, o);
       rebatir();
       ctx.rafraichir();
