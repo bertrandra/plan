@@ -14,7 +14,7 @@ export type NomIcone =
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler';
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
 const TRACES: Record<NomIcone, React.ReactNode> = {
@@ -43,6 +43,7 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   grille: <><rect x="3.5" y="3.5" width="17" height="17" rx="2" /><path d="M3.5 9.5h17M3.5 14.5h17M9.5 3.5v17M14.5 3.5v17" /></>,
   ajuster: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />,
   // Un objet plein au milieu de coins pointilles : ce qu'on garde, et ce qu'on met de cote.
+  toit: <><path d="M3 11.5L12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
   isoler: <><rect x="8" y="8" width="8" height="8" rx="1" /><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3" strokeDasharray="2 2" /></>,
   nord: <><circle cx="12" cy="12" r="8.5" /><path d="M12 5.5l3 8h-6z" fill="currentColor" /></>,
   oeil: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,

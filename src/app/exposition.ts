@@ -130,9 +130,16 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
-  // Le catalogue du toit : le groupe « Toit » de la palette, montre avec un batiment ou la parcelle selectionne.
-  'toit.regles': outil(),
-  'toit.poser': outil(),
+  // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
+  'toit.modifier': partout('vue3d'),
+  'toit.valider': partout('vue3d'),
+  'toit.abandonner': partout('vue3d'),
+  'toit.annuler': partout('vue3d'),
+  'toit.retablir': partout('vue3d'),
+  'toit.depart': partout('vue3d'),
+  'toit.isoler': partout('vue3d'),
+  'toit.regles': partout('vue3d'),
+  'toit.poser': partout('vue3d'),
   'toit.murSur3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),

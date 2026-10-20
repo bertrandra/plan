@@ -477,10 +477,11 @@ function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargem
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     rafraichir: () => magasin.notifier()
   }, commandes);
-  // Le catalogue du toit et les « Regles » (palette, groupe Toit).
+  // Le mode Toit de la Vue 3D : session, Regles et catalogue du toit.
   brancherToitCatalogue(atelier, {
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
-    rafraichir: () => magasin.notifier()
+    rafraichir: () => magasin.notifier(),
+    magasin
   }, commandes);
   brancherToitsFond(ch.toitsFond, commandes);
   // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.

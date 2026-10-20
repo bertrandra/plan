@@ -116,5 +116,18 @@ export const DESCRIPTIONS: Record<string, string> = {
   'visionneuse.zoomAvant': 'Rapproche la caméra de la visionneuse',
   'visionneuse.zoomArriere': 'Éloigne la caméra de la visionneuse',
   'visionneuse.hauteurDesYeux': 'Place la caméra de la visionneuse à hauteur d’yeux',
-  'visionneuse.pleinePage': 'Affiche la visionneuse sur toute la page'
+  'visionneuse.pleinePage': 'Affiche la visionneuse sur toute la page',
+
+  // ---- Mode Toit (Vue 3D) ----------------------------------------------------------------------------
+  'toit.modifier': 'Ouvre le mode Toit sur le bâtiment sélectionné : choisir une façade, poser des éléments sur le toit et la façade, tout annuler ; rien ne touche au projet avant la validation',
+  'toit.valider': 'Écrit le toit retouché dans le projet, en une seule étape que Ctrl+Z défait d’un coup, et quitte le mode Toit',
+  'toit.abandonner': 'Quitte le mode Toit en rendant le toit comme il était à l’entrée ; une question d’abord s’il y a des changements',
+  'toit.annuler': 'Défait la dernière retouche du mode Toit (Ctrl+Z)',
+  'toit.retablir': 'Refait la retouche défaite du mode Toit (Ctrl+Maj+Z)',
+  'toit.depart': 'Remet le toit comme à l’entrée du mode Toit ; la session peut encore l’annuler',
+  'toit.isoler': 'Masque le voisinage pour ne voir que ce bâtiment ; rebasculer le rend',
+  'toit.regles': 'Allume ou coupe la lecture automatique du toit : coupée, le bâtiment reste comme vous l’avez réglé ; rallumée, Plan relit le toit (LiDAR, faits, profils) et remplace ce que vous aviez réglé',
+  'toit.poser': 'Pose sur le bâtiment le geste du catalogue choisi (forme de toit, élément du toit, élément de façade) ; coupe les règles pour ce bâtiment',
+  'toit.murSur3d': 'Arme l’élément de façade choisi : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose'
 };
+

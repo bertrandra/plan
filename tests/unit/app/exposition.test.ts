@@ -53,7 +53,7 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
   explorateur: ['src/zones/Explorateur.tsx'],
   tiroir: ['src/zones/Resultats.tsx', ...fichiers('src/zones/resultats')],
-  vue3d: ['src/zones/vue3d/Vue3d.tsx'],
+  vue3d: [...fichiers('src/zones/vue3d').filter((f) => f.endsWith('.tsx')).filter((f) => !/Visionneuse/.test(f))],
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts'],

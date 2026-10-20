@@ -8,16 +8,11 @@
 // Tactile : cibles de 44 px au moins, libelle sous le glyphe. Sur tablette, la palette est un rail
 // pose sur le plan ; sur telephone, la feuille Outils (spec-ihm-mobile §6.2).
 
-import { useState } from 'react';
 import { useStore } from 'zustand';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { Icone, type NomIcone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
-import { VignetteToit, VignetteVue } from './EcranChaine.js';
-import { batimentsVises, reglesAllumees } from '../app/ecouteurs/toitCatalogue.js';
-import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../three/gestesToits.js';
-import { vueDeSaillie } from '../three/vueSaillie.js';
 
 export interface PropsPalette { magasin: Magasin; commandes: RegistreCommandes }
 
@@ -54,66 +49,6 @@ const GROUPES: Groupe[] = [
     { id: 'objet.aligner', icone: 'aligner', libelle: 'Aligner' }
   ] }
 ];
-
-const ONGLETS_TOIT: { id: FamillePiece; libelle: string }[] = [
-  { id: 'toit', libelle: 'Toit' }, { id: 'sur', libelle: 'Sur le toit' }, { id: 'facade', libelle: 'Façade' }
-];
-
-const vuesFacade = new Map<string, ReturnType<typeof vueDeSaillie>>();
-/** L'image d'une piece : la vignette du catalogue, ou celle de l'element de facade (calculee une fois). */
-function ImagePiece({ p }: { p: PieceCatalogue }) {
-  if (p.exemple) return <VignetteToit forme={p.exemple} />;
-  const nom = p.id.replace(/^[a-z]+:/, '');
-  if (p.famille !== 'facade') return <Icone nom="polygone" />;
-  if (!vuesFacade.has(nom)) vuesFacade.set(nom, vueDeSaillie(nom));
-  return <VignetteVue vue={vuesFacade.get(nom) as ReturnType<typeof vueDeSaillie>} titre={p.libelle} />;
-}
-
-/**
- * Le groupe « Toit », montre quand un batiment ou la parcelle est selectionne : l'interrupteur des Regles
- * (la lecture automatique du toit), puis le catalogue en images. Un geste pose coupe les Regles du batiment.
- */
-function GroupeToit({ magasin, commandes, compact }: PropsPalette & { compact: boolean }) {
-  const [onglet, setOnglet] = useState<FamillePiece>('toit');
-  const etatPlan = magasin.store.getState().etat;
-  const vises = batimentsVises(etatPlan.objects, etatPlan.selectedKey);
-  if (!vises.length) return null;
-  const allumees = reglesAllumees(vises);
-  const unique = vises.length === 1 ? (vises[0] ?? null) : null;
-  const reg = commandes.etat('toit.regles');
-  const pose = commandes.etat('toit.poser');
-  const cadenas = !pose.utilisable && 'message' in pose ? pose.message : null;
-  const pieces = piecesDe(onglet);
-  return (
-    <div className="paletteGroupe paletteToit" role="group" aria-label="Toit">
-      {compact && <h3 className="paletteTitre">Toit</h3>}
-      <button type="button" className="outil toitRegles" data-commande="toit.regles" aria-pressed={allumees}
-        disabled={!reg.utilisable} title={allumees ? 'Règles allumées : le toit se lit tout seul. Cliquez pour le régler vous-même.' : 'Règles coupées : le toit reste comme vous le réglez. Cliquez pour reprendre la lecture automatique.'}
-        onClick={(e) => commandes.executer('toit.regles', e.currentTarget)}>
-        <span className="libelle">{'Règles ' + (allumees ? 'allumées' : 'coupées')}</span>
-      </button>
-      <div className="toitOnglets" role="tablist" aria-label="Catalogue du toit">
-        {ONGLETS_TOIT.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
-        ))}
-      </div>
-      <div className="paletteOutils toitCatalogue">
-        {pieces.map((p) => {
-          const refus = unique ? raisonIndisponible(unique, p.id) : 'Choisissez un seul bâtiment.';
-          return (
-            <button key={p.id} type="button" className="outil toitPiece" data-commande="toit.poser" data-piece={p.id}
-              disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
-              onClick={(e) => { if (compact) magasin.definirFeuille(null); commandes.executer('toit.poser', e.currentTarget); }}>
-              <span className="glyphe"><ImagePiece p={p} /></span>
-              <span className="libelle">{p.libelle}</span>
-            </button>
-          );
-        })}
-      </div>
-      {compact && cadenas && <p className="paletteRefus">{cadenas}</p>}
-    </div>
-  );
-}
 
 export function Palette({ magasin, commandes }: PropsPalette) {
   // La version du plan et l'etat de la pile d'annulation : ce sont les deux choses qui changent ce
@@ -167,7 +102,6 @@ export function Palette({ magasin, commandes }: PropsPalette) {
           </div>
         );
       })}
-      <GroupeToit magasin={magasin} commandes={commandes} compact={compact} />
     </nav>
   );
   if (!compact) return contenu;

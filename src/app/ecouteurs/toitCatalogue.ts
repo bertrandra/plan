@@ -1,143 +1,136 @@
-// Les commandes du catalogue du toit (palette, groupe « Toit ») : poser un geste sur un batiment, et
-// allumer ou couper les « Regles » (la lecture automatique du toit).
+// Les commandes du mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : entrer, valider, abandonner, annuler dans la session, et ce que
+// le mode permet d'y faire — allumer ou couper les « Regles », poser un geste du catalogue, choisir le mur d'un element.
 //
-// `toit.regles` : une bascule. Allumee, le toit se lit tout seul (LiDAR, faits, profils) ; coupee, le
-// batiment est fige (`toitFige`) et rien ne le reecrit. Sur une parcelle, elle porte sur tous les
-// batiments de la parcelle du projet. Rallumer reprend la lecture et perd ce que la personne avait
-// regle : c'est une modification du projet, annulable.
-// `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le
-// bouton qui l'a declenche. Il fige le toit : poser un geste, c'est decider.
+// Toute retouche passe par la session (app/modeToit.ts) : elle ecrit dans le batiment, la scene 3D la montre, et le projet ne recoit
+// qu'une etape d'historique, a la validation.
+//
+// `toit.regles` : une bascule. Allumee, le toit se lit tout seul (LiDAR, faits, profils) ; coupee, le batiment est fige (`toitFige`) et
+// rien ne le reecrit. Rallumer reprend la lecture et perd ce que la personne avait regle : la session l'annule.
+// `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
+import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
 import { showToast } from '../../shell/dialogs.js';
-import { vue3d } from '../../three/etat3d.js';
 import type { Atelier } from '../atelier.js';
+import type { Magasin } from '../magasin.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 export interface ContexteToitCatalogue {
   buildThreeScene: (obj: ObjetPlan | null) => void;
-  /** Redessine les zones : la palette lit l'etat des Regles. */
+  /** Redessine les zones : le panneau du mode lit l'etat de la session. */
   rafraichir: () => void;
+  magasin: Magasin;
 }
 
-/** Les batiments que la palette regle : celui qui est selectionne, ou ceux de la parcelle selectionnee. */
-export function batimentsVises(objets: ObjetPlan[], cle: string | null | undefined): ObjetPlan[] {
-  const o = objets.find((x) => x.key === cle);
-  if (!o) return [];
-  if (estBatiment(o)) return [o];
-  const p = parcelleDuProjet(objets);
-  return p && o.key === p.key ? objets.filter((x) => estBatiment(x) && surParcelleDuProjet(x)) : [];
-}
+/** Les « Regles » sont allumees quand le batiment n'est pas fige. */
+export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.toitFige;
 
-/** Les « Regles » sont allumees quand aucun des batiments vises n'est fige. */
-export const reglesAllumees = (batiments: ObjetPlan[]): boolean => batiments.length > 0 && batiments.every((b) => !b.toitFige);
+/** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
+const GLISSER_PX = 5;
 
 export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cmd: RegistreCommandes): void {
-  const vises = () => batimentsVises(a.etat.objects, a.etat.selectedKey);
-  const reconstruire = () => {
-    if (vue3d.scene) ctx.buildThreeScene(a.etat.objects.find((o) => o.key === a.etat.terrasseSelectedKey) || null);
-  };
+  const mode = creerModeToit(a, { rebatir: (o) => ctx.buildThreeScene(o), rafraichir: ctx.rafraichir });
+  const batiment = (): ObjetPlan | undefined => { const s = sessionToit(); return s ? a.etat.objects.find((o) => o.key === s.cle) : undefined; };
+  const enSession = () => !!sessionToit();
 
-  cmd.declarer({
-    id: 'toit.regles', libelle: 'Règles', groupe: 'toit',
-    description: 'Allume ou coupe la lecture automatique du toit : coupée, le bâtiment reste comme vous l’avez réglé ; rallumée, Plan relit le toit (LiDAR, faits, profils) et remplace ce que vous aviez réglé',
-    permission: PERMISSION_ECRITURE,
-    actif: () => vises().length > 0,
-    executer: () => {
-      const l = vises();
-      if (!l.length) return;
-      const allumer = !reglesAllumees(l);
-      a.pushHistory();
-      for (const b of l) {
-        if (allumer) reprendreLectureAuto(b);
-        else b.toitFige = true;
-      }
-      a.markDirty();
-      a.render();
-      reconstruire();
+  // Les descriptions sont au glossaire (app/descriptions.ts).
+  const commande = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit = true) =>
+    cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), actif, executer });
+
+  commande('toit.modifier', 'Modifier la toiture',
+    () => !enSession() && estRetouchable(a.etat.objects.find((o) => o.key === a.etat.selectedKey)), () => { mode.ouvrir(); });
+  commande('toit.valider', 'Valider le toit',
+    enSession, () => { mode.valider(); });
+  commande('toit.abandonner', 'Abandonner les changements',
+    enSession, () => { mode.abandonner(); });
+  commande('toit.annuler', 'Annuler (toit)', () => etatToit().peutAnnuler, () => { mode.annuler(); });
+  commande('toit.retablir', 'Rétablir (toit)', () => etatToit().peutRetablir, () => { mode.retablir(); });
+  commande('toit.depart', 'Revenir au départ', () => etatToit().change, () => { mode.revenirAuDepart(); });
+  commande('toit.isoler', 'Isoler le bâtiment', enSession, () => { mode.basculerIsolement(); }, false);
+
+  commande('toit.regles', 'Règles',
+    enSession, () => {
+      mode.ecrire((o) => { if (o.toitFige) reprendreLectureAuto(o); else o.toitFige = true; });
+      showToast(batiment()?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu.');
+    });
+
+  commande('toit.poser', 'Poser sur le toit',
+    enSession, (source) => {
+      const id = source?.dataset.piece, o = batiment();
+      if (!id || !o) return;
+      const raison = raisonIndisponible(o, id);
+      if (raison) { showToast(raison); return; }
+      if (!mode.ecrire((x) => appliquerPiece(x, id))) return;
+      // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
+      const dernier = (batiment()?.corpsToit?.length ?? 1) - 1;
+      if (id.startsWith('facade:') && batiment()) { armerSaillie(o.key, dernier); ctx.rafraichir(); showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).'); }
+    });
+
+  commande('toit.murSur3d', 'Choisir le mur dans la 3D',
+    enSession, () => {
+      const rang = reprendreSaillieVisee(), o = batiment();
+      if (rang === null || !o?.corpsToit?.[rang]?.saillie) return;
+      armerSaillie(o.key, rang);
       ctx.rafraichir();
-      showToast(allumer ? 'Règles allumées : le toit sera relu.' : 'Règles coupées : le toit reste tel que vous le réglez.');
-    }
-  });
+      showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).');
+    });
 
-  /** Replace l'element arme sur le mur que la personne touche dans la Vue 3D ; faux si le toucher ne dit rien (le ciel, un autre objet). */
+  /** Replace l'element arme sur le mur que la personne touche ; faux si le toucher ne dit rien (le ciel, un autre objet). */
   const placerSurLeMurTouche = (ndc: { x: number; y: number }): boolean => {
-    const cible = saillieArmee();
-    const o = cible ? a.etat.objects.find((x) => x.key === cible.cle) : undefined;
+    const cible = saillieArmee(), o = batiment();
     if (!cible || !o?.corpsToit) return false;
-    const rang = cible.rang, k = o.corpsToit[rang], hote = k?.saillie ? o.corpsToit[k.saillie.hote] : undefined;
+    const k = o.corpsToit[cible.rang], hote = k?.saillie ? o.corpsToit[k.saillie.hote] : undefined;
     if (!k?.saillie || !hote) { desarmerSaillie(); return false; }
     const touche = objetSousLePointeur(ndc, (cle) => cle === cible.cle);
     if (touche.cle !== cible.cle || !touche.point) return false;
-    a.pushHistory();
-    o.corpsToit = replacerSaillie(o.corpsToit, rang, murLePlusProche(hote, touche.point));
-    o.toitFige = true;
+    const mur = murLePlusProche(hote, touche.point);
+    mode.ecrire((x) => { x.corpsToit = replacerSaillie(x.corpsToit ?? [], cible.rang, mur); x.toitFige = true; });
     desarmerSaillie();
-    a.markDirty();
-    a.render();
-    reconstruire();
-    ctx.rafraichir();
     return true;
   };
 
-  // Le toucher (un clic, pas un glisse qui fait tourner la vue) sur la Vue 3D, quand un element est arme.
+  // Le toucher (un clic, pas un glisser qui fait tourner la vue) sur la Vue 3D : l'element arme se pose, sinon la facade se choisit.
   const doc = typeof document === 'undefined' ? null : document;
   let appui: { x: number; y: number } | null = null;
-  doc?.addEventListener('pointerdown', (e) => { appui = saillieArmee() && hotes3d.vue3d?.contains(e.target as Node) ? { x: e.clientX, y: e.clientY } : null; }, true);
+  doc?.addEventListener('pointerdown', (e) => { appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) ? { x: e.clientX, y: e.clientY } : null; }, true);
   doc?.addEventListener('pointerup', (e) => {
     const debut = appui; appui = null;
     const hote = hotes3d.vue3d;
-    if (!debut || !hote || !saillieArmee() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > 5) return;
+    if (!debut || !hote || !enSession() || Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) return;
     const r = hote.getBoundingClientRect();
-    placerSurLeMurTouche({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) });
+    const ndc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
+    if (saillieArmee()) placerSurLeMurTouche(ndc);
+    else mode.toucher(ndc);
   }, true);
-  doc?.addEventListener('keydown', (e) => { if (e.key === 'Escape' && saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); } });
-
-  const armer = (cle: string, rang: number) => {
-    armerSaillie(cle, rang);
-    ctx.rafraichir();
-    showToast(vue3d.scene ? 'Touchez un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler).' : 'Ouvrez la vue 3D, puis touchez un mur du bâtiment pour y poser l’élément.');
-  };
-
-  cmd.declarer({
-    id: 'toit.murSur3d', libelle: 'Choisir le mur dans la 3D', groupe: 'toit',
-    description: 'Arme l’élément de façade choisi : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose',
-    permission: PERMISSION_ECRITURE,
-    actif: () => vises().length === 1,
-    executer: () => {
-      const rang = reprendreSaillieVisee();
-      const o = vises()[0];
-      if (rang === null || !o?.corpsToit?.[rang]?.saillie) return;
-      armer(o.key, rang);
+  doc?.addEventListener('keydown', (e) => {
+    if (!enSession()) return;
+    const cible = e.target as HTMLElement | null;
+    // Une saisie dans un champ garde ses propres touches (Ctrl+Z du champ, Echap du dialogue).
+    if (cible && (cible.tagName === 'INPUT' || cible.tagName === 'TEXTAREA' || cible.tagName === 'SELECT')) return;
+    if (e.key === 'Escape') {
+      if (saillieArmee()) { desarmerSaillie(); ctx.rafraichir(); } else mode.echap();
+      return;
     }
-  });
+    const z = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z', y = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y';
+    if (!z && !y) return;
+    // Pendant la session, Ctrl+Z est celui de la session : le projet n'a rien a defaire.
+    e.preventDefault();
+    e.stopPropagation();
+    if (y || e.shiftKey) mode.retablir(); else mode.annuler();
+  }, true);
 
-  cmd.declarer({
-    id: 'toit.poser', libelle: 'Poser sur le toit', groupe: 'toit',
-    description: 'Pose sur le bâtiment sélectionné la forme de toit, l’élément du toit ou l’élément de façade choisi dans le catalogue ; coupe les règles pour ce bâtiment ; Ctrl+Z revient en arrière',
-    permission: PERMISSION_ECRITURE,
-    actif: () => { const o = vises()[0]; return vises().length === 1 && !!o; },
-    executer: (source) => {
-      const id = source?.dataset.piece;
-      const o = vises()[0];
-      if (!id || vises().length !== 1 || !o) return;
-      const raison = raisonIndisponible(o, id);
-      if (raison) { showToast(raison); return; }
-      a.pushHistory();
-      if (!appliquerPiece(o, id)) return;
-      a.markDirty();
-      a.render();
-      reconstruire();
-      ctx.rafraichir();
-      // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
-      if (id.startsWith('facade:')) armer(o.key, o.corpsToit ? o.corpsToit.length - 1 : 0);
-    }
+  // Quitter la Vue 3D ou choisir un autre objet met fin a la session : le toit revient, sans question.
+  let vueAvant = ctx.magasin.store.getState().vue, cleAvant = a.etat.selectedKey;
+  ctx.magasin.store.subscribe((s) => {
+    const vue = s.vue, cle = a.etat.selectedKey;
+    const change = vue !== vueAvant || cle !== cleAvant;
+    vueAvant = vue; cleAvant = cle;
+    if (change && enSession() && (vue !== 'vue3d' || cle !== sessionToit()?.cle)) mode.arreterSansDemander('Mode Toit quitté : les changements ont été abandonnés.');
   });
 }

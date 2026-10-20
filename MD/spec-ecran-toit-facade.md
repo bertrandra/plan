@@ -203,3 +203,8 @@ Exemple dans AE 101 (pas un relevé) : un retour qui entre dans le toit, une ail
   reste touchable à travers lui.
 - **Œil « Isoler »** (3D du terrain à côté de *Modifier* ; barre de vues de la façade) : masque tous les autres corps.
 - Le panneau d'ajout porte maintenant son titre : **Ajouter un élément**.
+
+
+## Suite : le mode Toit dans la Vue 3D
+
+La mise en œuvre dans Plan (étapes, modèle, commandes, vérifications) est décrite dans `MD/spec-mode-toit-3d.md`. La v8 ci-dessus en est la référence d'interface, hors mode Coupe.
