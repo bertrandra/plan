@@ -104,6 +104,7 @@ Colonnes :
 | **Verrière** | Grande surface vitrée en toiture (véranda, atelier). | ✘ (hauteur) ; visible sur orthophoto | Non |
 | **Souche de cheminée** (n°11, passage de cheminée) | Maçonnerie qui sort du toit pour évacuer les fumées, souvent au faîtage ou en pignon. | ~ (pic de 0,5 à 1,5 m de côté, de 1 à 2 m au-dessus du toit) | Non (écrêtée comme une saillie) |
 | **Acrotère** | Rebord maçonné en tête de mur autour d'une toiture-terrasse. | ~ | Non |
+| **Bay window** (avancée vitrée, oriel, bow-window) | Avancée d'un mur de façade, souvent vitrée sur ses faces, que le cadastre porte dans le contour du bâtiment (AE 101 : 2,3 × 0,6 m côté est). En plan : un **rectangle**, un **arc de cercle** (demi-cercle ou segment) ou un **rectangle aux angles arrondis** (congé) côté extérieur. Elle a **sa propre hauteur** et son propre toit (plat, appentis, trois pans, pans qui suivent l'arc), ou elle est **traversante** : son mur monte au toit du corps et le traverse, comme un pignon. Elle se pose **sous le premier étage** (rez-de-chaussée seul) ou sur **toute la hauteur** du bâtiment. Une bay window sous un appentis (la galerie d'AE 101) n'a pas de toit à elle : celui de l'appentis la couvre. Voir §3.3 et §4. | ~ (hauteur seule, au-delà de 1,5 m de large ; une saillie de 0,6 m se confond avec l'ombre du mur) ; ✔ sur le cadastre | **Non** : le contour la porte, mais le décroché de moins de `SEUIL_DECROCHE_M` (1,2 m) est lissé, et aucun corps ne la couvre |
 
 ### 2.4 Bords et débords
 
@@ -281,6 +282,7 @@ En termes de modèle (§4) : le **profil** est la coupe en travers d'un pan, les
 | **Corps et aile** (en L, en T) | deux corps qui se rejoignent par une noue | deux faîtages perpendiculaires, la noue en creux à l'angle | Oui (rectangles maximaux, le plus haut l'emporte) |
 | **Avant-corps à pignon** (« pignon depuis le faîtage ») | un corps perpendiculaire qui part du faîtage vers une façade | le long d'une façade, la mesure dépasse le pan sur 1,5 à 6 m et reste haute vers l'intérieur | Oui (`pignons`) |
 | **Corps à hauteurs différentes** | une partie haute et une partie basse (annexe, garage) | une marche nette de plus de 0,8 m | Oui (coupe aux marches) |
+| **Bay window** | une avancée de façade, en plan rectangle, arc de cercle ou rectangle à angles arrondis ; **hauteur propre** avec son toit, ou **traversante** (son mur monte jusqu'au toit du corps) ; **sous le premier étage** ou sur **toute la hauteur** | un décroché du contour de 0,3 à 1 m de saillie sur 1 à 4 m de large, que le LiDAR ne lit qu'à moitié (murs, ombre) ; une saillie qui monte à l'égout ou au faîtage est traversante | **Non** (catalogue seul, §4 : `baies`) |
 | **Mitoyens à cheval** | deux maisons sous un seul contour BD TOPO | un corps qui franchit une limite de parcelle | Question posée (« à cheval ») |
 
 ### 3.4 Les confusions qui comptent, et ce qui les tranche
@@ -312,6 +314,13 @@ Ce sont celles qui produisent les erreurs de l'audit ; chacune appelle une règl
    Une cheminée fait moins de 1,5 m de côté (jusqu'à 2,5 m pour une souche longue à plusieurs
    conduits). Un édicule fait 2 m de côté ou plus et ne se trouve que sur un toit plat. Un petit corps
    (tourelle, avant-corps) touche le contour et porte son propre toit en pente.
+9. **Bay window, avant-corps à pignon ou décroché.** Les trois sont une saillie du contour. Le
+   décroché est un ressaut du mur, sans toit à lui, plus petit que `SEUIL_DECROCHE_M`. L'avant-corps
+   à pignon dépasse de plus de 1,2 m et monte au faîtage. La bay window est entre les deux : une
+   saillie de 0,3 à 1,2 m, vitrée, dont le toit à elle (ou le toit de l'appentis qui la couvre)
+   est plus bas que l'égout du corps, sauf si elle est traversante. Une bay window cachée sous un
+   appentis (la galerie d'AE 101) ne se lit pas : le cadastre la porte, le toit de l'appentis la
+   couvre. C'est une observation ou une photo qui tranche, jamais le LiDAR seul.
 
 ---
 
@@ -331,6 +340,8 @@ interface CorpsToit {
   /** Les superstructures detectees ou observees. */
   lucarnes?: Lucarne[];
   cheminees?: Cheminee[];
+  /** Les bay windows (§2.3) : avancees de facade portees par le contour, observees ou lues au cadastre. */
+  baies?: BayWindow[];
   /** Un corps plat : ce que l'on sait de la terrasse (§2.7). Absent : un toit plat sans plus. */
   terrasse?: Terrasse;
   /** Les bords, quand une observation les precise ; sinon les defauts du dessin. */
@@ -373,6 +384,25 @@ interface Cheminee {
   materiau?: 'brique' | 'enduit' | 'pierre' | 'metal';
   couronnement?: 'dalle' | 'chapeau' | 'mitrons';
   source: 'lidar' | 'observation';
+}
+
+/**
+ * Une bay window (§2.3) : une avancee du mur de facade. `forme` dit son plan ; `largeurM` et `saillieM` sa corde et sa profondeur
+ * (un arc : la fleche est la saillie ; un rectangle a angles arrondis : `congeM` est le rayon des angles exterieurs).
+ */
+interface BayWindow {
+  /** Le cote du contour (numero du mur dans le contour) qui la porte, et sa place le long de ce mur, depuis le sommet de depart. */
+  mur: number; debutM: number; largeurM: number; saillieM: number;
+  forme: 'rectangle' | 'arc' | 'conge';
+  congeM?: number;
+  /** Ou elle commence : sous le premier etage (le rez-de-chaussee seul) ou sur toute la hauteur du batiment. */
+  pose: 'sous-premier-etage' | 'toute-hauteur';
+  /**
+   * Son toit : a elle (`propre`, de hauteur `hauteurM` avec un toit plat, en appentis ou a pans), `traversante` (son mur monte au
+   * toit du corps et le traverse, comme un pignon) ou `couverte` (cachee sous le toit d'un appentis voisin : aucun toit a elle).
+   */
+  toit: { type: 'propre'; hauteurM: number; forme: 'plat' | 'appentis' | 'pans' } | { type: 'traversante' } | { type: 'couverte' };
+  source: 'cadastre' | 'observation';
 }
 
 /** Une toiture-terrasse (§2.7). */
