@@ -2797,7 +2797,9 @@ const POINTS = {
     await page.evaluate(() => {
       const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
       o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
-      delete o.facades; delete o.corpsToit; delete o.volumesToit; delete o.toitMesure; delete o.segmentNames;
+      delete o.facades; delete o.corpsToit; delete o.volumesToit; delete o.toitMesure;
+      // Les listes par sommet suivent le contour : quatre sommets, quatre entrees (sinon l'inspecteur lit au-dela).
+      o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
       o.elevation = 4; o.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
@@ -3243,7 +3245,7 @@ function pointsPour(nomClasse) {
   // 91 et 92 : les arbres d'EZ-tree en instances, et Admin › Arbres.
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
   // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit. 96 : Admin › Principes.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96];
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
