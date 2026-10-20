@@ -245,7 +245,7 @@ function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
 
 /**
  * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
- * c'est la personne qui le regle.
+ * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de mur s'y pose.
  */
 export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie | null): boolean {
   if (raisonIndisponible(o, id, facade)) return false;
@@ -279,13 +279,14 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else {
-    const hote = corpsPourPoser(o);
+    // Un element de mur va sur le mur de la facade choisie (pas sur un element deja pose) ; sans elle, sur un mur libre du corps principal.
+    const surFacade = corpsDeLaFacade(o, facade), hote = surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o);
     if (!hote || !o.corpsToit) return false;
     const rang = o.corpsToit.indexOf(hote);
     const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
     const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
     const d = DEFAUTS_SAILLIE[genre];
-    const mur = murLibre(o.corpsToit, rang);
+    const mur = hote === surFacade && facade ? facade.mur : murLibre(o.corpsToit, rang);
     const { L } = murDuCorps(hote, mur);
     const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
     // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.

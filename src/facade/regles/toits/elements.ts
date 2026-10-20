@@ -293,3 +293,15 @@ export function cibleAjoutee(avant: readonly CorpsToit[], apres: readonly CorpsT
   const nouveaux = listerElements(apres).filter((e) => !vus.has(e.cible.type + ':' + e.cible.rang + ':' + JSON.stringify(lireElement(apres, e.cible))));
   return nouveaux.length ? (nouveaux[nouveaux.length - 1] as ElementListe).cible : null;
 }
+
+/**
+ * La facade ou se regle un element : celle du pan qui porte un pignon (murs 0 et 2 du corps), celle du mur ou est pose un bow-window, un
+ * appentis, une galerie. Null pour ce qui se regle d'ailleurs (un corps, ce qui est pose sur un pan du toit).
+ */
+export function facadeDeLElement(corps: readonly CorpsToit[], t: CibleElement): { rang: number; mur: number } | null {
+  const c = corps[t.rang];
+  if (!c) return null;
+  if (t.type === 'pignon') { const p = c.pignons[t.i]; return p ? { rang: t.rang, mur: p.pan === 1 ? 2 : 0 } : null; }
+  if (t.type === 'saillie' && c.saillie) return { rang: c.saillie.hote, mur: c.saillie.mur };
+  return null;
+}

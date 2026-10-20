@@ -9,11 +9,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
-import { etatToit, modeToitCourant, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/modeToit.js';
 import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/regles/toits/poignees.js';
-import { hotes3d, vue3d } from '../../three/etat3d.js';
+import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
+import { facadeDeLElement, type CibleElement } from '../../facade/regles/toits/elements.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
 const RAYON_PX = 9, SAISIE_PX = 22;
@@ -22,11 +23,14 @@ const AXE_MIN_PX = 6;
 
 interface Ecran { x: number; y: number }
 
-/** Projette un point de la scene (plan + hauteur) dans le calque, en pixels ; null derriere la camera ou sans scene. */
-function projeter(p: Point3): Ecran | null {
+/**
+ * Projette un point de la scene (plan + hauteur) dans le calque, en pixels ; null derriere la camera ou sans scene. `base` : l'altitude d'ou se
+ * comptent les hauteurs du batiment (le relief, `altitudeDuBatiment`). La camera est celle qui fait l'image : l'oblique devant une facade.
+ */
+function projeter(p: Point3, base: number): Ecran | null {
   const sc = vue3d.scene, hote = hotes3d.vue3d;
   if (!sc || !hote) return null;
-  const v = new THREE.Vector3(p.x - sc.cen.x, p.z, sc.cen.y - p.y).project(sc.camera);
+  const v = new THREE.Vector3(p.x - sc.cen.x, base + p.z, sc.cen.y - p.y).project(cameraDeVue(sc));
   if (v.z > 1) return null;
   const r = hote.getBoundingClientRect();
   return { x: ((v.x + 1) / 2) * r.width, y: ((1 - v.y) / 2) * r.height };
@@ -36,11 +40,11 @@ function projeter(p: Point3): Ecran | null {
 const direction = (f: CadreFacade, a: Axe): Point3 => (a === 'long' ? { x: f.u.x, y: f.u.y, z: 0 } : a === 'prof' ? { x: f.n.x, y: f.n.y, z: 0 } : { x: 0, y: 0, z: 1 });
 
 /** Ce que vaut un metre sur chaque axe de la poignee, en pixels de l'ecran, la ou elle est. */
-function vecteursEcran(p: Point3, axes: readonly Axe[], f: CadreFacade): Partial<Record<Axe, Ecran>> {
-  const o = projeter(p), res: Partial<Record<Axe, Ecran>> = {};
+function vecteursEcran(p: Point3, axes: readonly Axe[], f: CadreFacade, base: number): Partial<Record<Axe, Ecran>> {
+  const o = projeter(p, base), res: Partial<Record<Axe, Ecran>> = {};
   if (!o) return res;
   for (const a of axes) {
-    const d = direction(f, a), q = projeter({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z });
+    const d = direction(f, a), q = projeter({ x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, base);
     if (q) res[a] = { x: q.x - o.x, y: q.y - o.y };
   }
   return res;
@@ -79,8 +83,9 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     const id = setInterval(() => {
       const sc = vue3d.scene;
       if (!sc) return;
-      const p = sc.camera.position, t = sc.controls.target;
-      const cle = [p.x, p.y, p.z, t.x, t.y, t.z].map((v) => v.toFixed(2)).join();
+      // La camera qui fait l'image : celle de l'orbite, ou l'oblique de la facade (qui ne bouge qu'au recadrage).
+      const cam = cameraDeVue(sc);
+      const cle = [...cam.matrixWorld.elements, ...cam.projectionMatrix.elements].map((v) => v.toFixed(3)).join();
       if (cle !== derniere) { derniere = cle; redessiner((n) => n + 1); }
     }, 100);
     const echap = (e: KeyboardEvent) => { if (e.key === 'Escape' && glisse.current) { glisse.current = null; modeToitCourant()?.annulerGlisser(); setGuides([]); e.stopPropagation(); } };
@@ -97,7 +102,9 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const corps = o?.corpsToit;
   if (!corps?.length) return null;
   const f = s.facade ?? s.derniere;
-  const choixFace = e.selection && e.selection.type !== 'corps' ? e.selection : null;
+  // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
+  const surCetteFacade = (t: CibleElement): boolean => { const m = facadeDeLElement(corps, t); return !m || !f || (m.rang === f.rang && m.mur === f.mur); };
+  const choixFace = e.selection && e.selection.type !== 'corps' && surCetteFacade(e.selection) ? e.selection : null;
   const cible: CibleGlisser | null = plan ? e.selection : choixFace ?? (f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null);
   if (!cible) return null;
   const cadre = cadreDe(corps, cible);
@@ -106,13 +113,14 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   if (!cadre || !poignees.length || !hote) return null;
   const r = hote.getBoundingClientRect();
   const cotes: Cote[] = cotesDe(corps, cible);
-  const ancre = projeter(poignees[0]?.point as Point3);
+  const base = altitudeDuBatiment(o);
+  const ancre = projeter(poignees[0]?.point as Point3, base);
 
   const demarrer = (ev: React.PointerEvent<SVGGElement>, p: Poignee) => {
     ev.stopPropagation();
     ev.preventDefault();
     (ev.currentTarget as Element).setPointerCapture(ev.pointerId);
-    glisse.current = { id: p.id, depart: JSON.parse(JSON.stringify(corps)) as CorpsToit[], x0: ev.clientX, y0: ev.clientY, cible, poignee: p, vecteurs: vecteursEcran(p.point, p.axes, cadre) };
+    glisse.current = { id: p.id, depart: JSON.parse(JSON.stringify(corps)) as CorpsToit[], x0: ev.clientX, y0: ev.clientY, cible, poignee: p, vecteurs: vecteursEcran(p.point, p.axes, cadre, base) };
   };
   const bouger = (ev: React.PointerEvent<SVGGElement>) => {
     const g = glisse.current;
@@ -134,11 +142,11 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   return (
     <svg className="poigneesToit" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
       {guides.map((g) => {
-        const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 });
+        const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
         return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
       })}
       {poignees.map((p) => {
-        const q = projeter(p.point);
+        const q = projeter(p.point, base);
         if (!q) return null;
         return (
           <g key={p.id} className="poigneeToit" data-poignee={p.id} transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle}

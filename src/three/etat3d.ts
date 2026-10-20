@@ -58,14 +58,23 @@ export interface SceneTroisBase {
    * l'emporte sur tout autre rendu, pour que chaque image, d'ou qu'elle vienne, montre les deux.
    */
   enDeux?: () => void;
+  /**
+   * Une camera qui l'emporte sur `camera` le temps d'un regard particulier : la camera oblique de l'editeur de facade du mode Toit
+   * (three/vueFacadeToit.ts). Elle rend l'image sans les passes, l'orbite ne la touche pas ; tout ce qui projette ou vise la lit par `cameraDeVue`.
+   */
+  cameraRendu?: THREE_NS.Camera | undefined;
 }
+
+/** La camera qui fait l'image : celle de l'editeur de facade quand elle est posee, sinon celle de l'orbite. */
+export const cameraDeVue = (sc: SceneTroisBase): THREE_NS.Camera => sc.cameraRendu ?? sc.camera;
 
 /** Rend une image de la scene, par ses passes si elle en a. */
 export function rendre3d(sc: SceneTroisBase): void {
   // Le vent des arbres (three/vent.ts) lit l'horloge de l'image qu'on va rendre.
   reglerVent(vue3d.vent, performance.now());
   const rendu = () => {
-    if (sc.enDeux) sc.enDeux();
+    if (sc.cameraRendu) sc.renderer.render(sc.scene, sc.cameraRendu);
+    else if (sc.enDeux) sc.enDeux();
     else if (sc.rendre) sc.rendre();
     else sc.renderer.render(sc.scene, sc.camera);
   };

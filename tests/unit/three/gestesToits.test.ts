@@ -89,6 +89,15 @@ describe('rallumer les regles', () => {
   });
 });
 
+describe('un element de mur se pose sur la facade regardee', () => {
+  it('un bow-window va sur le mur choisi, pas sur un mur libre', () => {
+    const o = batiment();
+    appliquerPiece(o, 'forme:deux-pans');
+    expect(appliquerPiece(o, 'facade:bow-rectangle', { rang: 0, mur: 1 })).toBe(true);
+    expect(o.corpsToit?.at(-1)?.saillie?.mur).toBe(1);
+  });
+});
+
 describe('le pignon sur la facade choisie', () => {
   it('refuse un cote court et un toit sans pignon, le dit, et se pose du cote du mur choisi', () => {
     const o = batiment();

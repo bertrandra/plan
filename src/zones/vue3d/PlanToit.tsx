@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
-import { etatToit, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
 import { rangsDeCorps } from '../../facade/regles/toits/corpsNeufs.js';
 import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/regles/toits/planCorps.js';
 import { hotes3d, vue3d } from '../../three/etat3d.js';
@@ -41,9 +41,9 @@ export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: 
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const corps = o?.corpsToit;
   if (!corps?.length) return null;
-  const r = hote.getBoundingClientRect();
+  const r = hote.getBoundingClientRect(), base = altitudeDuBatiment(o);
   const px = (x: number, y: number) => {
-    const v = new THREE.Vector3(x - sc.cen.x, 0, sc.cen.y - y).project(sc.camera);
+    const v = new THREE.Vector3(x - sc.cen.x, base, sc.cen.y - y).project(sc.camera);
     return ((v.x + 1) / 2) * r.width + ',' + ((1 - v.y) / 2) * r.height;
   };
   const actif = commandes.etat('toit.selection').utilisable;
