@@ -242,6 +242,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sg button.danger{color:var(--danger)}
 .sg output{min-width:46px;text-align:center;font-size:.76rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .cards{padding-bottom:2px}
+.tray-titre{margin:0;display:flex;align-items:center;gap:8px;font:600 .66rem var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);padding:2px 4px 0}
+.tray-titre .i{width:16px;height:16px;color:var(--accent)}
+.abar{gap:8px}
+.abar .rond{width:52px;padding:0;justify-content:center;background:var(--panel);color:var(--ink);border:1px solid var(--rule)}
+.abar .rond[aria-pressed="true"]{background:var(--ink);color:var(--on-ink)}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -288,6 +293,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   <symbol id="i-t-croupe" viewBox="0 0 24 24"><path d="M3 19h18M4 19l8-12 8 12"/></symbol>
   <symbol id="i-h-faitage" viewBox="0 0 24 24"><path d="M5 20L12 6l7 14z"/><path d="M2 6h20" stroke-dasharray="2 2"/></symbol>
   <symbol id="i-h-bas" viewBox="0 0 24 24"><path d="M5 20l7-9 7 9z"/><path d="M2 6h20" stroke-dasharray="2 2"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-mur" viewBox="0 0 24 24"><path d="M3 6h18M3 6v13h18V6"/></symbol>
   <symbol id="i-rot-g" viewBox="0 0 24 24"><g transform="translate(24 0) scale(-1 1)"><path d="M20 12a8 8 0 01-14 5"/><path d="M4 12a8 8 0 0114-5"/><path d="M18 3v4h-4M6 21v-4h4"/></g></symbol>
 </svg>
@@ -325,6 +331,7 @@ button{font:inherit;color:inherit;cursor:pointer}
       <button id="fm-face" aria-pressed="true" aria-label="Façade" title="Façade"><svg class="i"><use href="#i-facade"/></svg></button>
       <button id="fm-coupe" aria-pressed="false" aria-label="Coupe" title="Coupe"><svg class="i"><use href="#i-coupe"/></svg></button>
       <button id="fm-3d" aria-label="3D" title="3D"><svg class="i"><use href="#i-cube"/></svg></button>
+      <button id="fm-eye" aria-pressed="false" aria-label="Isoler ce corps" title="Isoler ce corps (masquer les autres)"><svg class="i"><use href="#i-eye"/></svg></button>
     </div>
     <div class="nav" id="nav" role="group" aria-label="Façades de la maison" title="Choisir une façade"><svg preserveAspectRatio="xMidYMid meet"></svg></div>
     <div class="chip" id="chip" hidden></div>
@@ -332,7 +339,8 @@ button{font:inherit;color:inherit;cursor:pointer}
     <div class="hint" id="hint" hidden><svg class="i"><use href="#i-hand"/></svg></div>
   </section>
 
-  <aside class="tray" id="tray" aria-label="Ajouter ou changer">
+  <aside class="tray" id="tray" aria-labelledby="tray-titre">
+    <h2 class="tray-titre" id="tray-titre"><svg class="i"><use href="#i-plus"/></svg>Ajouter un élément</h2>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-corps" data-tab="corps" aria-selected="false"><svg class="i"><use href="#i-plan"/></svg>Corps</button>
       <button role="tab" id="tab-toit" data-tab="toit" aria-selected="false"><svg class="i"><use href="#i-roof"/></svg>Toit</button>
@@ -818,13 +826,30 @@ function faceScene(){
   if(FACE.parts)FACE.sc.remove(FACE.parts.root);
   FACE.parts=buildParts(model);FACE.sc.add(FACE.parts.root);facePaint();
 }
+// les corps qui cachent la facade choisie : des rayons de visee sur le mur, le premier corps touche qui n'est pas le sien la cache
+function occultants(){
+  const zr=zoneOf(sel.c),f=sel.id?findItem(sel.id):null,side=f?(f.o.side||0):sel.side,hs=hostOf(zr,side),wt=SHAPES[hs.shape].mur(hs.e,hs.h),occ={};
+  setCtx(zr,side);const pts=[];
+  [.12,.5,.88].forEach(a=>[.3,.8].forEach(b=>pts.push(PW(zr._x+a*hs.w,b*wt,0))));
+  setCtx(null);
+  const Z0=60,dir=new T.Vector3(-K,-M,-1).normalize();
+  pts.forEach(q=>{
+    FACE.ray.set(new T.Vector3(q[0]+K*Z0,-q[1]+M*Z0,Z0),dir);
+    const hit=FACE.ray.intersectObjects(FACE.parts.root.children,true).find(h=>h.object.isMesh);
+    if(!hit)return;let o=hit.object;while(o&&!(o.userData&&o.userData.pid))o=o.parent;
+    if(o&&o.userData.zone!==sel.c)occ[o.userData.zone]=1;
+  });
+  return occ;
+}
 function facePaint(){
   if(!FACE||!FACE.parts)return;
-  const acc=css('--accent'),noir='#000000';
+  const acc=css('--accent'),noir='#000000',occ=occultants();
   FACE.parts.list.forEach(g=>{
-    const u=g.userData,on=sel.id?sel.id===u.pid:(u.kind==='zone'&&sel.c===u.pid);
+    const u=g.userData,on=sel.id?sel.id===u.pid:(u.kind==='zone'&&sel.c===u.pid),autre=u.zone!==sel.c;
+    const cache=autre&&(isolate||occ[u.zone]);
+    g.visible=!(autre&&isolate);u.ghost=!!cache;
     u.edges.visible=on;
-    u.mats.forEach(m=>{m.emissive.set(on?acc:noir);m.emissiveIntensity=on?.14:0;});
+    u.mats.forEach(m=>{m.emissive.set(on?acc:noir);m.emissiveIntensity=on?.14:0;m.transparent=!!cache;m.opacity=cache?.15:1;m.depthWrite=!cache;m.needsUpdate=true;});
   });
   if(setFaceCam())FACE.r.render(FACE.sc,FACE.cam);
 }
@@ -832,7 +857,8 @@ function pickFace(ev){
   if(!FACE||!FACE.parts||svg.hasAttribute('hidden'))return null;
   const p=svgPt(ev),sx=p.x,u=-p.y,Z0=60;
   FACE.ray.set(new T.Vector3(sx+K*Z0,u+M*Z0,Z0),new T.Vector3(-K,-M,-1).normalize());
-  const hit=FACE.ray.intersectObjects(FACE.parts.root.children,true).find(q=>q.object.isMesh);
+  // on vise a travers ce qui est transparent : le corps cache reste touchable
+  const hit=FACE.ray.intersectObjects(FACE.parts.root.children,true).find(q=>{if(!q.object.isMesh)return false;let o=q.object;while(o&&!(o.userData&&o.userData.pid))o=o.parent;return o&&o.visible&&!o.userData.ghost;});
   if(!hit)return null;
   let o=hit.object;while(o&&!(o.userData&&o.userData.pid))o=o.parent;
   return o?o.userData:null;
@@ -1285,6 +1311,7 @@ function render(){
   svg.toggleAttribute('hidden',m!=='face');svg2.toggleAttribute('hidden',m!=='coupe');svg3.toggleAttribute('hidden',m!=='plan');
   nav.toggleAttribute('hidden',m!=='face');
   ['plan','face','coupe'].forEach(n=>document.getElementById('fm-'+n).setAttribute('aria-pressed',String(m===n)));
+  const eye=document.getElementById('fm-eye');eye.toggleAttribute('hidden',m!=='face');eye.setAttribute('aria-pressed',String(isolate));
   if(m==='plan')renderPlan();else if(m==='coupe')renderCoupe();else renderFace();
   if(m!=='face')hint.hidden=true;
   renderTray();tailBarre();
@@ -1293,6 +1320,7 @@ document.getElementById('fm-plan').addEventListener('click',()=>{mode='plan';sel
 document.getElementById('fm-face').addEventListener('click',()=>{mode='face';render();});
 document.getElementById('fm-coupe').addEventListener('click',()=>{mode='coupe';sel.id=null;render();});
 document.getElementById('fm-3d').addEventListener('click',()=>setView('c'));
+document.getElementById('fm-eye').addEventListener('click',()=>{isolate=!isolate;render();});
 document.getElementById('b-undo').addEventListener('click',undo);
 document.getElementById('b-redo').addEventListener('click',redo);
 document.getElementById('b-reset').addEventListener('click',resetAll);
@@ -1331,11 +1359,14 @@ function buildGroup(m,id){
   inner.position.set(-cx,0,cz);inner.add(edges);
   const root=new T.Group();root.userData.id=id;root.userData.off={cx,cz};root.add(inner);
   root.userData.setSel=on=>{edges.visible=on;mats.forEach(q=>{q.emissive.set(on?css('--accent'):'#000000');q.emissiveIntensity=on?.16:0;});};
+  // 0 plein, 1 fantome (il cache le batiment choisi), 2 absent (on isole le batiment choisi)
+  root.userData.setGhost=lv=>{root.visible=lv<2;root.userData.ghost=lv===1;mats.forEach(q=>{q.transparent=lv===1;q.opacity=lv===1?.15:1;q.depthWrite=lv!==1;q.needsUpdate=true;});};
   return root;
 }
 const VOISINS=[
   {id:'n1',x:-16.5,z:-1,m:{zones:[mkZ({id:'v',nom:'Voisin',x:0,w:8,d:6.5,e:4,shape:'deux-pans',h:2.4})]}},
-  {id:'n2',x:16,z:-3,m:{zones:[mkZ({id:'v',nom:'Voisin',x:0,w:7,d:6,e:3.2,shape:'croupes',h:2})]}}];
+  {id:'n2',x:16,z:-3,m:{zones:[mkZ({id:'v',nom:'Voisin',x:0,w:7,d:6,e:3.2,shape:'croupes',h:2})]}},
+  {id:'n3',x:6.5,z:11.5,m:{zones:[mkZ({id:'v',nom:'Voisin',x:0,w:7.5,d:5.5,e:4,shape:'deux-pans',h:2.2})]}}];
 function newScene(kind,m){
   const sc=new T.Scene();sc.background=new T.Color(css('--stage'));
   sc.add(new T.HemisphereLight(0xffffff,0x7a705c,.62));
@@ -1350,11 +1381,11 @@ function newScene(kind,m){
   return{sc,roots,self};
 }
 const vue3d=document.getElementById('vue3d');
-let main=null, camMode='3d', sel3d=null, hint3On=true, lastHit=null;
+let main=null, camMode='3d', sel3d=null, hint3On=true, lastHit=null, isolate=false;
 function initMain(){
   const r=new T.WebGLRenderer({canvas:document.getElementById('cv-main'),antialias:true}),cam=new T.PerspectiveCamera(42,1,.1,400),ctl=new T.OrbitControls(cam,r.domElement);
   ctl.enablePan=false;ctl.minDistance=10;ctl.maxDistance=70;ctl.maxPolarAngle=Math.PI/2-.04;
-  ctl.addEventListener('change',()=>{drawMain();placeHint3();});
+  ctl.addEventListener('change',()=>{majOcclusion();placeHint3();});
   main={r,cam,ctl,s:null,ray:new T.Raycaster()};
   const cv=r.domElement;let down=null;
   cv.addEventListener('pointerdown',ev=>{hint3On=false;down={x:ev.clientX,y:ev.clientY};placeHint3();});
@@ -1362,7 +1393,7 @@ function initMain(){
     if(!down||view!=='a')return;const d=Math.hypot(ev.clientX-down.x,ev.clientY-down.y);down=null;if(d>6)return;
     const b=cv.getBoundingClientRect(),n=new T.Vector2((ev.clientX-b.left)/b.width*2-1,-((ev.clientY-b.top)/b.height)*2+1);
     main.ray.setFromCamera(n,main.cam);
-    const hit=main.ray.intersectObjects(main.s.sc.children,true).find(q=>q.object.isMesh);
+    const hit=main.ray.intersectObjects(main.s.sc.children,true).find(q=>{if(!q.object.isMesh)return false;let o=q.object;while(o&&!(o.userData&&o.userData.id))o=o.parent;return o&&o.visible&&!o.userData.ghost;});
     let id=null;
     if(hit){let o=hit.object;while(o&&!(o.userData&&o.userData.id))o=o.parent;id=o?o.userData.id:null;
       if(id==='self'){const off=o.userData.off;lastHit={x:hit.point.x+off.cx,z:off.cz-hit.point.z};}}
@@ -1371,6 +1402,25 @@ function initMain(){
   new ResizeObserver(sizeMain).observe(vue3d);
 }
 function drawMain(){if(main&&main.s)main.r.render(main.s.sc,main.cam);}
+// un batiment choisi que d'autres cachent : ils deviennent transparents (ou disparaissent si on isole)
+function majOcclusion(){
+  if(!main||!main.s)return;
+  const roots=main.s.roots,ids=Object.keys(roots);
+  if(view!=='a'||!sel3d||!roots[sel3d]){ids.forEach(k=>roots[k].userData.setGhost(0));drawMain();return;}
+  const sr=roots[sel3d],box=new T.Box3().setFromObject(sr),c=box.getCenter(new T.Vector3()),sz=box.getSize(new T.Vector3()),pts=[];
+  [-.35,0,.35].forEach(a=>[.15,.55].forEach(b=>[-.35,.35].forEach(d=>pts.push(new T.Vector3(c.x+a*sz.x,box.min.y+b*sz.y,c.z+d*sz.z)))));
+  const cam=main.cam.position,occ={};
+  ids.forEach(k=>roots[k].userData.setGhost(0));
+  pts.forEach(p=>{
+    main.ray.set(cam,p.clone().sub(cam).normalize());
+    for(const h of main.ray.intersectObjects(main.s.sc.children,true)){
+      if(!h.object.isMesh)continue;let o=h.object;while(o&&!(o.userData&&o.userData.id))o=o.parent;
+      if(!o)continue;if(o.userData.id!==sel3d)occ[o.userData.id]=1;break;
+    }
+  });
+  ids.forEach(k=>{if(k!==sel3d)roots[k].userData.setGhost(isolate?2:(occ[k]?1:0));});
+  drawMain();
+}
 function sizeMain(){
   if(!main)return;const w=vue3d.clientWidth,h=vue3d.clientHeight;if(!w||!h)return;
   main.r.setPixelRatio(Math.min(devicePixelRatio||1,2));main.r.setSize(w,h,false);main.cam.aspect=w/h;main.cam.updateProjectionMatrix();drawMain();placeHint3();
@@ -1381,7 +1431,7 @@ function preset(m){
   main.ctl.target.set(0,2,m==='top'?-3:-1);main.ctl.update();
   document.getElementById('v-top').setAttribute('aria-pressed',String(m==='top'));
   document.getElementById('v-3d').setAttribute('aria-pressed',String(m!=='top'));
-  drawMain();placeHint3();
+  majOcclusion();placeHint3();
 }
 function buildMain(){
   if(!main)return;main.s=view==='a'?newScene('parcel',JSON.parse(committedStr)):newScene('solo',model);
@@ -1395,9 +1445,11 @@ function choisir3d(id,silencieux){
   else{ab.hidden=false;ab.innerHTML=id==='self'
     ?'<button id="a-edit" aria-label="Modifier cette façade"><svg class="i"><use href="#i-pencil"/></svg>Modifier</button>'
     :'<button disabled aria-label="Maison voisine, non modifiable" title="Maison voisine, non modifiable"><svg class="i"><use href="#i-lock"/></svg></button>';
-    const b=document.getElementById('a-edit');if(b)b.addEventListener('click',entrerFacade);}
+    ab.insertAdjacentHTML('beforeend','<button class="rond" id="a-eye" aria-pressed="'+isolate+'" aria-label="Isoler ce bâtiment" title="Isoler ce bâtiment"><svg class="i"><use href="#i-eye"/></svg></button>');
+    const b=document.getElementById('a-edit');if(b)b.addEventListener('click',entrerFacade);
+    document.getElementById('a-eye').addEventListener('click',ev=>{isolate=!isolate;ev.currentTarget.setAttribute('aria-pressed',String(isolate));majOcclusion();});}
   if(!silencieux){hint3On=false;placeHint3();}
-  drawMain();
+  majOcclusion();
 }
 function placeHint3(){
   const h=document.getElementById('hint3');

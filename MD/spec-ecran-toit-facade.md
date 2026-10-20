@@ -195,3 +195,11 @@ mur dans la vue. Le plan sert à poser, déplacer, étirer et tourner les corps 
 **Ce qui disparaît** : la bande d'étapes, le développé, la vignette 3D permanente (la 3D s'ouvre d'un bouton) : tout ce qui ne sert pas au geste en cours.
 
 Exemple dans AE 101 (pas un relevé) : un retour qui entre dans le toit, une aile biaise à 35°, un bow-window sur l'aile gauche.
+
+### Correctif v8 : un bâtiment qui en cache un autre
+
+- **Choisir un bâtiment que d'autres cachent** (3D du terrain, façade d'un corps derrière un autre) : ce qui cache devient transparent tout seul.
+  Des rayons de visée partent vers le bâtiment (ou vers le mur choisi) ; le premier autre corps touché est fantôme. Le bâtiment choisi
+  reste touchable à travers lui.
+- **Œil « Isoler »** (3D du terrain à côté de *Modifier* ; barre de vues de la façade) : masque tous les autres corps.
+- Le panneau d'ajout porte maintenant son titre : **Ajouter un élément**.
