@@ -22,7 +22,7 @@ export const DEBORD_BOW_M = 0.2;
 /** Un etage de plus haut que ce que la personne choisit n'est pas plausible : la borne de la hauteur propre. */
 export const HAUTEUR_BOW_MAX_M = 12;
 /** Le recul des poteaux d'une galerie neuve : l'egout deborde de cela au-dessus d'eux. */
-export const RETRAIT_GALERIE_M = 0.3;
+export const RETRAIT_GALERIE_M = 0.5;
 
 const dixieme = (v: number) => Math.round(v * 10) / 10;
 const centimetre = (v: number) => Math.round(v * 100) / 100;
@@ -113,7 +113,7 @@ export function replacerSaillie(corps: readonly CorpsToit[], rang: number, chang
   const reste: CorpsToit = { ...neuf };
   if (c.lucarnes) reste.lucarnes = c.lucarnes;
   if (c.cheminees) reste.cheminees = c.cheminees;
-  if (c.retraitM !== undefined && s.genre === 'galerie') reste.retraitM = c.retraitM;
+  if (c.retraitM !== undefined) reste.retraitM = c.retraitM;
   return corps.map((k, i) => (i === rang ? reste : k));
 }
 
@@ -131,6 +131,10 @@ export function empriseDeSaillie(c: CorpsToit): PtBrut[] {
   const forme = c.saillie?.forme ?? 'rectangle';
   const L = r.L, d = r.W;
   const P = (s: number, t: number) => point(r, s, t);
+  if (forme === 'pans') {
+    // Des pans coupes : le fond plat est la moitie de la largeur, les cotes partent du mur en biais.
+    return [P(0, 0), P(L * 0.25, d), P(L * 0.75, d), P(L, 0)];
+  }
   if (forme === 'arc') {
     const N = 12;
     return Array.from({ length: N + 1 }, (_, k) => { const th = (Math.PI * k) / N; return P((L / 2) * (1 - Math.cos(th)), d * Math.sin(th)); });

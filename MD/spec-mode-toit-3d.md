@@ -239,7 +239,9 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - Un bâtiment qui en cache un autre dans la façade : contour pointillé, le choisi reste touchable à travers.
 **Critères :** toutes les façades d'un polygone et d'un corps tourné sont atteignables ; AE 101 (4 corps) naviguable.
 
-### Étape 3 — Le plateau « Ajouter un élément » et l'inspecteur contextuel
+### Étape 3 — Le plateau « Ajouter un élément » et l'inspecteur contextuel  *(livrée : PR « mode Toit, étape 3 »)*
+
+> Code : `src/facade/regles/toits/elements.ts` (liste, sélection par toucher, suppression, duplication, taille, choix en groupes — pur, testé), `src/zones/vue3d/iconesToit.tsx` (images des choix), `ModeToit.tsx` (pastilles et inspecteur), commandes `toit.selection|regler|dupliquer|supprimer|plus|moins`, `ElementDeToit` (`elementsToit`) et `facettesElementsToit` (fenêtre de toit 0,8 × 1,2 m, solaire 2,55 × 1,1 m). Écarts : l'onglet **Corps** et la saillie d'un pignon (avancée au-delà du mur) passent à l'étape 5 / 4 avec leurs poignées ; la largeur et la position d'un pignon se règlent par − + en attendant les poignées.
 - Plateau à quatre onglets d'images (Corps · Toit · Sur le toit · Façade) avec les vignettes calculées par le dessin 3D (§2.3), états `aria-pressed` / désactivé avec raison.
 - Inspecteur contextuel **en boutons-images à choix exclusif** (jamais de formulaire) : tableau du §3. La ligne `champsSaillies` actuelle de l'inspecteur du plan reste (réglages fins en chiffres) ; l'inspecteur du mode en est la version « images ».
 - Extensions de modèle du §4.2 : fenêtre de toit, solaire, pignon enrichi, retrait à trois valeurs. Dessin 3D, validation à la lecture, compactage à l'écriture, tests d'aller-retour de fichier ancien.

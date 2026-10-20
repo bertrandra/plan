@@ -12,6 +12,7 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
+import { appliquerChoix, cibleAjoutee, dupliquerElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/regles/toits/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
@@ -65,6 +66,34 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
   commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
 
+  /** L'element choisi dans la session, avec son batiment : ce que les commandes d'edition lisent. */
+  const choisi = () => { const t = etatToit().selection, o = batiment(); return t && o?.corpsToit ? { t, o, corps: o.corpsToit } : null; };
+
+  commande('toit.selection', 'Choisir un élément', enSession, (source) => {
+    const d = source?.dataset;
+    mode.selectionner(d?.type ? { type: d.type as TypeElement, rang: Number(d.rang), i: Number(d.i) } : null);
+  }, false);
+  commande('toit.regler', 'Régler l’élément', () => !!choisi(), (source) => {
+    const c = choisi(), d = source?.dataset;
+    if (c && d?.groupe && d.valeur !== undefined) mode.ecrire((x) => { x.corpsToit = appliquerChoix(c.corps, c.t, d.groupe as string, d.valeur as string); x.toitFige = true; });
+  });
+  commande('toit.dupliquer', 'Dupliquer l’élément', () => !!choisi(), () => {
+    const c = choisi();
+    if (!c) return;
+    const r = dupliquerElement(c.corps, c.t);
+    if (!r) { showToast('Pas de place à côté : déplacez ou réduisez d’abord.'); return; }
+    mode.ecrire((x) => { x.corpsToit = r.corps; x.toitFige = true; });
+    mode.selectionner(r.cible);
+  });
+  commande('toit.supprimer', 'Supprimer l’élément', () => !!choisi(), () => {
+    const c = choisi();
+    if (!c) return;
+    mode.ecrire((x) => { x.corpsToit = supprimerElement(c.corps, c.t); x.toitFige = true; });
+    mode.selectionner(null);
+  });
+  commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, 1); x.toitFige = true; }); });
+  commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, -1); x.toitFige = true; }); });
+
   commande('toit.regles', 'Règles',
     enSession, () => {
       mode.ecrire((o) => { if (o.toitFige) reprendreLectureAuto(o); else o.toitFige = true; });
@@ -77,7 +106,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       if (!id || !o) return;
       const raison = raisonIndisponible(o, id);
       if (raison) { showToast(raison); return; }
+      const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
       if (!mode.ecrire((x) => appliquerPiece(x, id))) return;
+      // L'element que le geste vient de poser se choisit : l'inspecteur le regle tout de suite.
+      mode.selectionner(cibleAjoutee(avant, batiment()?.corpsToit ?? []));
       // Un element de facade pose arme son choix de mur : le toucher suivant dans la 3D le deplace.
       const dernier = (batiment()?.corpsToit?.length ?? 1) - 1;
       if (id.startsWith('facade:') && batiment()) { armerSaillie(o.key, dernier); ctx.rafraichir(); showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).'); }

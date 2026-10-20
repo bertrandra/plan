@@ -108,15 +108,15 @@ function facettesSimples(c: Corps, L: number, W: number): { pans: Sommet[][]; mu
   return { pans, murs };
 }
 
-export interface FacettePlate { points: [number, number][]; ton: number; mur: boolean; lucarne: boolean }
+export interface FacettePlate { points: [number, number][]; ton: number; mur: boolean; lucarne: boolean; vitre?: boolean }
 export interface VueIso { facettes: FacettePlate[]; largeur: number; hauteur: number }
 
 /**
  * Les facettes d'un exemple, en projection isometrique (x vers la droite, y vers le bas), de l'arriere vers l'avant.
  * `plus` : des facettes de plus, dans le repere de l'exemple (un element de facade pose contre son mur).
  */
-export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur: boolean }[] = []): VueIso {
-  const liste: { f: Sommet[]; mur: boolean; lucarne: boolean }[] = [];
+export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur: boolean; vitre?: boolean }[] = []): VueIso {
+  const liste: { f: Sommet[]; mur: boolean; lucarne: boolean; vitre?: boolean }[] = [];
   for (const { corps: c, t0 = 0, w: W = LARGEUR_M, l: L = LONGUEUR_M } of e.corps) {
     // Un avant-corps a pignon (corps.pignons) se dessine comme la 3D : le grand pan est entaille le long des noues du pignon.
     const avecPignons = c.pignons?.length ? facettesCorps({ ...c, pts: [{ x: 0, y: t0 }, { x: L, y: t0 }, { x: L, y: t0 + W }, { x: 0, y: t0 + W }], pignons: c.pignons, ecart: 0 } as CorpsToit, null, false) : null;
@@ -133,12 +133,12 @@ export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur
       ...dormers.murs.map((f) => ({ f: decale(f), mur: true, lucarne: true })), ...dormers.pans.map((f) => ({ f: decale(f), mur: false, lucarne: true })),
     );
   }
-  liste.push(...plus.map(({ f, mur }) => ({ f, mur, lucarne: false })));
+  liste.push(...plus.map(({ f, mur, vitre }) => ({ f, mur, lucarne: false, vitre: !!vitre })));
   const K = 22, cos = Math.cos(Math.PI / 6), sin = Math.sin(Math.PI / 6);
   const proj = (m: Sommet): [number, number] => [(m.s - m.t) * cos * K, (m.s + m.t) * sin * K - m.z * K];
   const profondeur = (f: Sommet[]) => f.reduce((a, m) => a + m.s + m.t, 0) / f.length;
   const tries = liste.slice().sort((a, b) => profondeur(a.f) - profondeur(b.f) || Number(a.mur) - Number(b.mur));
-  const plates = tries.map(({ f, mur, lucarne }) => {
+  const plates = tries.map(({ f, mur, lucarne, vitre }) => {
     // Le ton vient de la normale : un pan face au soleil (haut-gauche) est clair.
     const [A, B, C] = [f[0] as Sommet, f[1] as Sommet, f[2] as Sommet];
     const [ux, uy, uz] = [B.s - A.s, B.t - A.t, B.z - A.z], [vx, vy, vz] = [C.s - A.s, C.t - A.t, C.z - A.z];
@@ -146,7 +146,7 @@ export function vueIsometrique(e: ExempleToit, plus: readonly { f: Sommet[]; mur
     const n = Math.hypot(nx, ny, nz) || 1; nx /= n; ny /= n; nz /= n;
     const signe = nz < 0 && !mur ? -1 : 1;
     const ton = Math.max(0, Math.min(1, 0.55 + 0.45 * signe * (-0.4 * nx + 0.3 * ny + 0.85 * nz)));
-    return { points: f.map(proj), ton, mur, lucarne };
+    return { points: f.map(proj), ton, mur, lucarne, ...(vitre ? { vitre } : {}) };
   });
   const xs = plates.flatMap((p) => p.points.map((q) => q[0])), ys = plates.flatMap((p) => p.points.map((q) => q[1]));
   const x0 = Math.min(...xs), y0 = Math.min(...ys);

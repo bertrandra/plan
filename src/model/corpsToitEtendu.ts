@@ -8,7 +8,7 @@
 // pignons et les cheminees (io/serialisation.ts).
 
 import { boutsDuCorps } from './formeToit.js';
-import type { BordsToit, BoutToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TypeLucarne } from './types.js';
+import type { BordsToit, BoutToit, ElementDeToit, Lucarne, ProfilPan, SaillieFacade, SpecialeToit, TypeLucarne } from './types.js';
 
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const positif = (v: unknown): v is number => fini(v) && v > 0;
@@ -92,8 +92,22 @@ export function lireChampsEtendus(c: Record<string, unknown>): void {
   if ('bords' in c) { const b = bordsValides(c.bords); if (b) c.bords = b; else delete c.bords; }
   if ('ouvert' in c && typeof c.ouvert !== 'boolean') delete c.ouvert;
   if ('retraitM' in c && !positifOuNul(c.retraitM)) delete c.retraitM;
+  if ('elementsToit' in c) {
+    const l = Array.isArray(c.elementsToit) ? c.elementsToit.map(elementDeToitValide).filter((x): x is ElementDeToit => !!x) : [];
+    if (l.length) c.elementsToit = l; else delete c.elementsToit;
+  }
   if ('saillie' in c) { const x = saillieValide(c.saillie); if (x) c.saillie = x; else delete c.saillie; }
   if ('speciale' in c) { const x = specialeValide(c.speciale); if (x) c.speciale = x; else delete c.speciale; }
+}
+
+/** Une fenetre de toit ou un panneau solaire bien forme, recopie sans ses cles inconnues ; null sinon. */
+export function elementDeToitValide(v: unknown): ElementDeToit | null {
+  if (!objet(v)) return null;
+  if (v.type !== 'fenetre-toit' && v.type !== 'solaire') return null;
+  if (v.pan !== 0 && v.pan !== 1) return null;
+  if (!fini(v.sM) || !positifOuNul(v.dM)) return null;
+  const base: ElementDeToit = { type: v.type, pan: v.pan, sM: v.sM, dM: v.dM };
+  return positif(v.echelle) ? { ...base, echelle: v.echelle } : base;
 }
 
 /** Un element de facade bien forme, recopie sans ses cles inconnues ; null sinon. */
@@ -101,7 +115,7 @@ export function saillieValide(v: unknown): SaillieFacade | null {
   if (!objet(v)) return null;
   const { genre, forme, niveau, toit } = v;
   if (genre !== 'bow-window' && genre !== 'galerie' && genre !== 'appentis') return null;
-  if (forme !== 'rectangle' && forme !== 'arc' && forme !== 'conge') return null;
+  if (forme !== 'pans' && forme !== 'rectangle' && forme !== 'arc' && forme !== 'conge') return null;
   if (niveau !== 'rdc' && niveau !== 'toit') return null;
   if (toit !== 'pan' && toit !== 'pavillon' && toit !== 'plat') return null;
   if (!positifOuNul(v.hote) || !positifOuNul(v.mur) || !fini(v.centreM) || !positif(v.largeurM) || !positif(v.profondeurM)) return null;
@@ -125,5 +139,6 @@ export function compacterChampsEtendus(c: Record<string, unknown>): void {
     if (memeBout(bouts[0], deduits[0]) && memeBout(bouts[1], deduits[1])) delete c.bouts;
   }
   if (Array.isArray(c.lucarnes) && !c.lucarnes.length) delete c.lucarnes;
+  if (Array.isArray(c.elementsToit) && !c.elementsToit.length) delete c.elementsToit;
   if (objet(c.bords) && Object.values(c.bords).every((x) => x === undefined)) delete c.bords;
 }

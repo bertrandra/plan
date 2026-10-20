@@ -201,8 +201,8 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           options: (cc) => { const h = cc.obj.corpsToit?.[lire(cc)?.hote ?? 0]; return (h?.pts ?? []).map((_, i) => ({ valeur: String(i), libelle: 'Mur ' + (i + 1) })); },
           lire: (cc) => String(lire(cc)?.mur ?? 0), ecrire: (cc, v) => { regler(cc, { mur: Number(v), centreM: murDuCorps(cc.obj.corpsToit?.[lire(cc)?.hote ?? 0] as CorpsToit, Number(v)).L / 2 }); } },
         ...(bow ? [
-          { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
-            options: () => [{ valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
+          { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Pans coupés, rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
+            options: () => [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
             lire: (cc) => lire(cc)?.forme ?? 'rectangle', ecrire: (cc, v) => { regler(cc, { forme: v as FormeSaillie }); } } satisfies Champ,
           { type: 'choix', cle: 'niveau', libelle: 'Niveau', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Un étage de haut, ou jusqu’à l’égout de la maison ; choisir un niveau reprend sa hauteur (efface la hauteur réglée)',
             options: () => [{ valeur: 'rdc', libelle: 'Un étage' }, { valeur: 'toit', libelle: 'Jusqu’à l’égout de la maison' }],

@@ -100,6 +100,13 @@
   .panneauToit .indiceToit{ margin:0; font-size:.85rem; color:var(--ink-soft); }
   .panneauToit .toitRegles{ align-self:flex-start; min-height:44px; padding:4px 10px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .toitRegles[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .panneauToit .elementsToit{ display:flex; flex-direction:column; gap:6px; }
+  .panneauToit .puces{ display:flex; gap:4px; flex-wrap:wrap; }
+  .panneauToit .puceToit{ min-height:32px; padding:2px 10px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:16px; cursor:pointer; }
+  .panneauToit .puceToit[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .panneauToit .inspecteurToit{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .panneauToit .groupeChoix{ display:flex; gap:4px; }
+  .panneauToit .boutonToit.danger{ color:var(--danger, #b3261e); }
   .panneauToit .toitOnglets{ display:flex; gap:4px; }
   .panneauToit .toitOnglet{ flex:1; min-height:36px; padding:2px 6px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:6px; cursor:pointer; }
   .panneauToit .toitOnglet[aria-selected="true"]{ background:var(--accent-light); border-color:var(--accent); }

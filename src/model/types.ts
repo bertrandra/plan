@@ -1074,6 +1074,8 @@ export interface CorpsToit {
    * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/regles/toits/saillies.ts).
    */
   saillie?: SaillieFacade;
+  /** Les fenetres de toit et les panneaux solaires poses sur ses pans. Absents : aucun. */
+  elementsToit?: ElementDeToit[];
   /**
    * Ce corps est une bay window (MD/spec-regles-toits.md §2.3, §4) : une avancee de facade posee sur une saillie du contour, avec son
    * propre toit. Absent : un corps ordinaire. Sans effet sur le dessin, qui la traite comme un corps plat ou un appentis.
@@ -1081,10 +1083,23 @@ export interface CorpsToit {
   baie?: BaieToit;
 }
 
+/** Un element pose sur un pan : une fenetre de toit (velux) ou un panneau solaire. */
+export interface ElementDeToit {
+  type: 'fenetre-toit' | 'solaire';
+  /** Le pan qui le porte : 0 du cote `pts[0]-pts[1]` du corps, 1 du cote oppose. */
+  pan: 0 | 1;
+  /** Son milieu le long du faitage, en metres depuis `pts[0]`. */
+  sM: number;
+  /** Son milieu depuis le mur d'egout du pan, a plat, en metres. */
+  dM: number;
+  /** Sa taille par rapport a l'element type (0,5 a 2,2) ; absente : 1. */
+  echelle?: number;
+}
+
 /** Ce qu'est un element pose sur une facade. */
 export type GenreSaillie = 'bow-window' | 'galerie' | 'appentis';
-/** La forme du plan d'un bow-window : un rectangle, un demi-cercle (arc) ou un rectangle aux angles arrondis (conge). */
-export type FormeSaillie = 'rectangle' | 'arc' | 'conge';
+/** La forme du plan d'un bow-window : des pans coupes (un trapeze), un rectangle, un demi-cercle (arc) ou un rectangle aux angles arrondis (conge). */
+export type FormeSaillie = 'pans' | 'rectangle' | 'arc' | 'conge';
 
 /**
  * Un element de facade qui touche au toit, pose sur un mur d'un corps. `hote` : le rang du corps qui le porte
