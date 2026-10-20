@@ -67,6 +67,26 @@ describe('glisser', () => {
     expect(corps[0]!.pignons[0]!.saillieM).toBeUndefined();
   });
 
+  it('une galerie a deux bords et un retrait de mur qui se tirent, un bow-window non', () => {
+    const o = maison();
+    appliquerPiece(o, 'facade:galerie');
+    const corps = o.corpsToit!, rang = corps.findIndex((c) => c.saillie?.genre === 'galerie'), cible = { type: 'saillie', rang, i: 0 } as const;
+    expect(poigneesDe(corps, cible).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut', 'gauche', 'retrait']);
+    const g0 = corps[rang]!.saillie!, droite = g0.centreM + g0.largeurM / 2;
+    // Le bord gauche recule d'un metre : le bord droit ne bouge pas.
+    const a = glisser(corps, cible, 'gauche', { long: -1 }).corps[rang]!.saillie!;
+    expect(a.largeurM).toBeCloseTo(g0.largeurM + 1, 1);
+    expect(a.centreM + a.largeurM / 2).toBeCloseTo(droite, 5);
+    // Le retrait : tirer vers la maison le recule (0,1 m), borne a 1 m ou a la moitie de la profondeur, et la bulle le dit.
+    const r = glisser(corps, cible, 'retrait', { prof: -0.1 }).corps;
+    expect(r[rang]!.retraitM).toBeCloseTo((corps[rang]!.retraitM ?? 0) + 0.1, 5);
+    expect(glisser(corps, cible, 'retrait', { prof: -9 }).corps[rang]!.retraitM).toBe(Math.min(1, g0.profondeurM / 2));
+    expect(glisser(corps, cible, 'retrait', { prof: 9 }).corps[rang]!.retraitM).toBe(0);
+    expect(cotesDe(r, cible).some((c) => c.cle === 'retrait')).toBe(true);
+    const bow = avecTout();
+    expect(poigneesDe(bow, { type: 'saillie', rang: 1, i: 0 }).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut']);
+  });
+
   it('deplace un pignon, le colle aux bords et le garde dans le corps', () => {
     const corps = avecTout();
     const g0 = corps[0]!.pignons[0]!, w = g0.fin - g0.debut;
