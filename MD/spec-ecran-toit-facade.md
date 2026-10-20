@@ -174,8 +174,8 @@ Règle du moteur reprise telle quelle : les corps **se chevauchent par construct
 
 Objectif : pas de modèle métier (les règles sont dans Plan), mais l'interface la plus simple, qui ne montre que ce qui sert.
 
-**Trois familles, trois onglets** (plus *Corps* pour poser un volume) : *Toit* (la forme, en images), *Sur le toit* (cheminée, lucarnes, fenêtre de
-toit, solaire), *Façade* (pignon, appentis, galerie, bow-window : ce qui impacte le toit). Un geste : toucher l'image.
+**Trois familles, trois onglets** (plus *Corps* pour poser un volume) : *Toit* (la forme, en images), *Sur le toit* (pignon, cheminée, lucarnes, fenêtre de
+toit, solaire), *Façade* (appentis, galerie, bow-window : ce qui impacte le toit). Un geste : toucher l'image.
 
 **Un inspecteur qui ne montre que la sélection**, en boutons-images à choix exclusif (jamais de formulaire) :
 

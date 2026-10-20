@@ -1148,7 +1148,7 @@ function emplacement(k){
 function ajouter(k){
   const zr=zoneOf(sel.c),side=sel.id?((findItem(sel.id)||{o:{}}).o.side||0):sel.side;
   if(k==='aile'||k==='retour'||k==='biais'){const pos=emplacement(k);if(!pos)return;const nz=nouveauCorps(pos);model.zones.push(nz);sel={c:nz.id,side:0,id:null};mode='plan';}
-  else if(k==='pig'){if(!sideOk(zr,'pig',side))return;addPig(zr,side);mode='face';tab='facade';}
+  else if(k==='pig'){if(!sideOk(zr,'pig',side))return;addPig(zr,side);mode='face';tab='sur';}
   else if(k==='bow'){addBow(zr,side);mode='face';tab='facade';}
   else if(k==='app'||k==='gal'){addApp(zr,side,k==='gal'?.5:0);mode='face';tab='facade';}
   else if(SHAPES[k]){if(zr.shape!==k){zr.shape=k;zr.h=SHAPES[k].h0;}}
@@ -1190,8 +1190,9 @@ function buildCards(){
   carte(document.getElementById('cards-corps'),'retour',NOM.retour,TH.forme['deux-pans']);
   carte(document.getElementById('cards-corps'),'biais',NOM.biais,TH.forme.croupes);
   ORDRE_FORMES.forEach(k=>carte(document.getElementById('cards-toit'),k,SHAPES[k].nom,TH.forme[k]));
+  carte(document.getElementById('cards-sur'),'pig',NOM.pig,TH.pieces.pig);
   ORDRE_ELEMS.forEach(k=>carte(document.getElementById('cards-sur'),k,ELEMS[k].nom,TH.el[k]));
-  ['pig','app','gal','bow'].forEach(k=>carte(document.getElementById('cards-facade'),k,NOM[k],TH.pieces[k]));
+  ['app','gal','bow'].forEach(k=>carte(document.getElementById('cards-facade'),k,NOM[k],TH.pieces[k]));
 }
 document.getElementById('tray').addEventListener('click',ev=>{
   const t=ev.target.closest('[data-tab]');if(t){tab=t.dataset.tab;render();return;}
@@ -1205,7 +1206,7 @@ function renderTray(){
   const zr=zoneOf(sel.c),side=sel.id?((findItem(sel.id)||{o:{}}).o.side||0):sel.side;
   document.querySelectorAll('#cards-toit .card').forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.add===zr.shape)));
   document.querySelectorAll('#cards-corps .card').forEach(c=>{c.disabled=!emplacement(c.dataset.add);});
-  const pg=document.querySelector('#cards-facade [data-add="pig"]');if(pg){const ok=sideOk(zr,'pig',side);pg.disabled=!ok;pg.title=ok?'Pignon':'Pas de pignon sur cette façade';}
+  const pg=document.querySelector('#cards-sur [data-add="pig"]');if(pg){const ok=sideOk(zr,'pig',side);pg.disabled=!ok;pg.title=ok?'Pignon':'Pas de pignon sur cette façade';}
 }
 
 /* ---------- gestes ---------- */
@@ -1287,7 +1288,7 @@ svg.addEventListener('pointerdown',ev=>{
     const z=zoneOf(sel.c),f=sel.id?findItem(sel.id):null,o=f&&f.o;
     drag={type:h.dataset.h,p0:p,z,f,v0:o?JSON.parse(JSON.stringify(o)):null,h0:z.h,e0:z.e,w0:z.w,d0:z.d,moved:false};ev.preventDefault();
   }else if(pk&&pk.kind!=='zone'){
-    const f=findItem(pk.pid);sel={c:f.z.id,side:f.o.side||0,id:f.o.id};tab=f.k==='el'?'sur':'facade';
+    const f=findItem(pk.pid);sel={c:f.z.id,side:f.o.side||0,id:f.o.id};tab=(f.k==='el'||f.k==='pig')?'sur':'facade';
     if(f.k==='el'){const hs=f.o.side||0,u0=elScreen(f.z,hs,f.o.u,f.o.v);drag={type:'el',f,off:{x:p.x-u0[0],y:p.y-u0[1]},moved:false};}
     else drag={type:f.k==='pig'?'mpig':f.k==='bow'?'mbow':'mapp',f,p0:p,v0:JSON.parse(JSON.stringify(f.o)),moved:false};
     render();ev.preventDefault();
