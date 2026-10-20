@@ -157,3 +157,15 @@ morceau de façade, c'est un élément porté par elle.**
 - Le bow se pose depuis le catalogue (*Façade*). Un exemple est posé sur l'aile gauche d'AE 101 : **ce n'est pas un relevé**.
 
 À décider : un bow à cheval sur deux corps (se coupe-t-il, ou refuse-t-on ?) ; le bow fermé par le haut (balcon, étage en surplomb).
+
+## Version 7 : les corps de toit se superposent (`MD/maquettes/toit-superposition-ae101.html`)
+
+Règle du moteur reprise telle quelle : les corps **se chevauchent par construction** (`volumesToit`), le plus haut l'emporte.
+
+- **Plus de contrainte de non-chevauchement** en plan : un corps se pose où l'on veut, par-dessus un autre ; l'aimant aux bords aide mais n'interdit rien. Le plan montre les recouvrements en transparence (les plus grands dessous).
+- **L'union se calcule, elle ne se dessine pas.** Noues, arêtes et pénétrations (un retour qui traverse le pan arrière du corps principal, un pignon qui sort d'un toit) naissent du tampon de profondeur : le toit visible en chaque point est le plus haut.
+- **La façade est la même scène 3D** que la vue 3D, regardée par une caméra oblique (`x + K·z`, `y + M·z`) : même géométrie, aucun second dessin. Les poignées, pastilles et le développé restent en SVG par-dessus (mêmes coordonnées), le toucher passe par un rayon dans la scène. Une étape suivante s'estompe (transparence), l'étape choisie reçoit ses arêtes.
+- Exemple dans AE 101 : le **retour** (étape 8) entre de 1,5 m dans le corps principal et le dépasse en toit ; ce n'est pas un relevé.
+- Conséquence pour le modèle : un **pignon traversant** est un cas particulier de corps superposé (faîtage perpendiculaire, monté au faîtage du principal). Il pourrait cesser d'être une pièce à part et devenir un corps du catalogue, ce qui supprime la limite « un corps tourné ne porte pas de pignon ».
+
+À surveiller : faces coplanaires de deux corps superposés (scintillement), noues d'un même niveau, hauteur d'égout du corps le plus bas qui ressort dans l'autre.
