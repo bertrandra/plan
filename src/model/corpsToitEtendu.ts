@@ -25,6 +25,9 @@ export function profilPanValide(v: unknown): ProfilPan | null {
   return null;
 }
 
+/** L'avancee d'un pignon au-dela du mur ne depasse pas cette longueur, en metres (PignonToit.saillieM). */
+export const SAILLIE_PIGNON_MAX_M = 2.5;
+
 /** Un bout bien forme ; null sinon. Une croupe de profondeur nulle est un pignon, comme `croupes`. */
 export function boutToitValide(v: unknown): BoutToit | null {
   if (!objet(v)) return null;

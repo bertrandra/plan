@@ -22,6 +22,7 @@ import type { VersLocal } from './primitives.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import { distancePointSegment } from '../geometry/segments.js';
 import type { CorpsToit, PtBrut, Toit } from '../model/types.js';
+import { SAILLIE_PIGNON_MAX_M } from '../model/corpsToitEtendu.js';
 
 export const NOM_TOIT_CORPS = 'toit-corps';
 /** Les facettes plates d'un batiment en corps : un toit-terrasse, en gravillons. */
@@ -205,9 +206,15 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     const zG = e - k * (pg.debut - gauche), zD = e - k * (droite - pg.fin);
     // Chaque pan du pignon s'arrete a sa noue : du pied du pignon au bout de son faitage.
     const piedG = pg.debut <= 0.3 ? gauche : pg.debut, piedD = pg.fin >= L - 0.3 ? droite : pg.fin;
-    pans.push([P(gauche, T(-dE), zG), P(sc, T(-dE), pg.faitage), P(sc, T(D), pg.faitage), P(piedG, T(0), pg.debut <= 0.3 ? zG : e)]);
-    pans.push([P(sc, T(-dE), pg.faitage), P(droite, T(-dE), zD), P(piedD, T(0), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
-    murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
+    // Une saillie avance le triangle, les murs de cote et l'egout du pignon : les pans restent dans leurs plans (ils ne dependent que de `s`).
+    const sa = Math.max(0, Math.min(SAILLIE_PIGNON_MAX_M, pg.saillieM ?? 0)), av = sa > 0.01 ? sa : 0;
+    pans.push([P(gauche, T(-av - dE), zG), P(sc, T(-av - dE), pg.faitage), P(sc, T(D), pg.faitage), P(piedG, T(0), pg.debut <= 0.3 ? zG : e)]);
+    pans.push([P(sc, T(-av - dE), pg.faitage), P(droite, T(-av - dE), zD), P(piedD, T(0), pg.fin >= L - 0.3 ? zD : e), P(sc, T(D), pg.faitage)]);
+    if (av > 0) {
+      // La face avancee, du sol au sommet du triangle, et ses deux murs de cote jusqu'au mur de la maison.
+      murs.push([P(pg.debut, T(-av), bas), P(pg.fin, T(-av), bas), P(pg.fin, T(-av), e), P(sc, T(-av), pg.faitage), P(pg.debut, T(-av), e)]);
+      for (const s of [pg.debut, pg.fin]) murs.push([P(s, T(0), bas), P(s, T(-av), bas), P(s, T(-av), e), P(s, T(0), e)]);
+    } else murs.push([P(pg.debut, T(0), e), P(pg.fin, T(0), e), P(sc, T(0), pg.faitage)]);
   }
   // L'acrotere d'un toit-terrasse : le muret qui borde le toit, de l'epaisseur d'un parpaing, dessine par ses faces et son dessus.
   const acro = plat ? c.terrasse?.acrotereM ?? 0 : 0;

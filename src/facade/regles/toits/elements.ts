@@ -8,7 +8,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { point, repere } from '../../toitCorps.js';
-import { bornerSaillie, murDuCorps, replacerSaillie, retirerSaillie } from './saillies.js';
+import { bornerSaillie, murDuCorps, replacerSaillie, retirerSaillie, saillieDe } from './saillies.js';
 import { rangPrincipal, rangsDeCorps, supprimerCorps } from './corpsNeufs.js';
 import type { Cheminee, CorpsToit, ElementDeToit, Lucarne, PignonToit, PtBrut, SaillieFacade } from '../../../model/types.js';
 
@@ -170,6 +170,9 @@ export function redimensionnerElement(corps: readonly CorpsToit[], t: CibleEleme
 /** Un choix a image qui se regle sur l'element : le groupe (« forme », « niveau »…) et ses valeurs. */
 export interface GroupeChoix { groupe: string; valeurs: { valeur: string; libelle: string }[] }
 
+/** Les avancees que l'inspecteur propose a un pignon, en metres (la poignee regle tout entre 0 et le maximum). */
+const SAILLIES_PIGNON = [0, 0.5, 1, 1.5];
+
 /** Les groupes de choix de l'element, dans l'ordre de la maquette : bow-window (forme, niveau, toit), galerie/appentis (ouvert, retrait), pignon (hauteur). */
 export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeChoix[] {
   const c = corps[t.rang];
@@ -184,7 +187,10 @@ export function groupesDe(corps: readonly CorpsToit[], t: CibleElement): GroupeC
       { groupe: 'retrait', valeurs: [{ valeur: '0', libelle: 'Mur droit' }, { valeur: '0.5', libelle: 'Mur reculé de 0,5 m' }, { valeur: '1', libelle: 'Mur reculé de 1 m' }] }
     ];
   }
-  if (t.type === 'pignon') return [{ groupe: 'hauteur', valeurs: [{ valeur: 'faitage', libelle: 'Monte au faîtage' }, { valeur: 'bas', libelle: 'Plus bas que le faîtage' }] }];
+  if (t.type === 'pignon') return [
+    { groupe: 'hauteur', valeurs: [{ valeur: 'faitage', libelle: 'Monte au faîtage' }, { valeur: 'bas', libelle: 'Plus bas que le faîtage' }] },
+    { groupe: 'saillie', valeurs: [{ valeur: '0', libelle: 'Au nu du mur' }, { valeur: '0.5', libelle: 'Avance de 0,5 m' }, { valeur: '1', libelle: 'Avance de 1 m' }, { valeur: '1.5', libelle: 'Avance de 1,5 m' }] }
+  ];
   return [];
 }
 
@@ -203,6 +209,10 @@ export function valeurDuGroupe(corps: readonly CorpsToit[], t: CibleElement, gro
   if (t.type === 'pignon' && groupe === 'hauteur') {
     const p = c.pignons[t.i];
     return p ? (p.faitage >= c.faitage - 0.05 ? 'faitage' : 'bas') : null;
+  }
+  if (t.type === 'pignon' && groupe === 'saillie') {
+    const p = c.pignons[t.i], r = p?.saillieM ?? 0;
+    return p ? SAILLIES_PIGNON.reduce((m, v) => (Math.abs(v - r) < Math.abs(m - r) ? v : m), 0).toString() : null;
   }
   return null;
 }
@@ -227,6 +237,10 @@ export function appliquerChoix(corps: readonly CorpsToit[], t: CibleElement, gro
       neuf.retraitM = m;
       return avec(corps, t.rang, neuf);
     }
+  }
+  if (t.type === 'pignon' && groupe === 'saillie' && ['0', '0.5', '1', '1.5'].includes(valeur)) {
+    const p = c.pignons[t.i];
+    return p ? avec(corps, t.rang, { ...c, pignons: remplace(c.pignons, t.i, saillieDe(p, Number(valeur))) }) : corps.slice();
   }
   if (t.type === 'pignon' && groupe === 'hauteur') {
     const p = c.pignons[t.i];

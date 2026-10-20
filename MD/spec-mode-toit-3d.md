@@ -250,7 +250,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
 ### Étape 4 — Les poignées sur la façade  *(livrée : PR « mode Toit, étape 4 »)*
 
-> Code : `src/facade/regles/toits/poignees.ts` (poignées, cotes, `glisser`, aimantation — pur, testé), `src/zones/vue3d/PoigneesToit.tsx` (calque SVG, projection, conversion doigt → mètres sur les axes de la poignée), `modeToit.ts` (`apercu`, `finGlisser`, `annulerGlisser`). Écarts : la caméra reste en perspective (les poignées se calent par projection d'axes, pas par une oblique orthographique) ; la saillie d'un pignon (avancée au-delà du mur) n'est pas modélisée.
+> Code : `src/facade/regles/toits/poignees.ts` (poignées, cotes, `glisser`, aimantation — pur, testé), `src/zones/vue3d/PoigneesToit.tsx` (calque SVG, projection, conversion doigt → mètres sur les axes de la poignée), `modeToit.ts` (`apercu`, `finGlisser`, `annulerGlisser`). Écarts : la caméra reste en perspective (les poignées se calent par projection d'axes, pas par une oblique orthographique) ; la saillie d'un pignon (avancée au-delà du mur) est modélisée depuis (`PignonToit.saillieM`, 0 à 2,5 m : triangle, murs de côté et égout avancent ; inspecteur 0 · ½ · 1 · 1,5 m, poignée « Saillie » sur la face avancée).
 - Calque SVG sur la scène (projection de points 3D), poignées du §3 (hauteur de façade, longueur de façade, pignon, bow-window, appentis/galerie, taille d'un élément) ; chip de cotes ; guides ; aimantation à 0,25 m.
 - Un glisser = un instantané de session. Échap annule le glisser. Cibles tactiles ≥ 44 px au doigt.
 - **Commencer par le bow-window** (déjà modélisé) pour valider la chaîne projection → poignée → écriture → redessin, puis généraliser.

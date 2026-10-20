@@ -100,6 +100,21 @@ describe('facettesCorps', () => {
     tri.forEach((q) => expect(q.y).toBe(0));
   });
 
+  it('un pignon qui avance sort son triangle et ses murs de cote du mur, les pans restent plans', () => {
+    const sans = facettesCorps(corps([{ pan: 0, debut: 3, fin: 6, faitage: 8, profondeur: 4 }]));
+    const f = facettesCorps(corps([{ pan: 0, debut: 3, fin: 6, faitage: 8, profondeur: 4, saillieM: 1.5 }]));
+    expect(f.pans).toHaveLength(4);
+    // La face avancee (du sol au sommet) est a 1,5 m devant le mur ; deux murs de cote la rejoignent.
+    const face = f.murs.find((m) => m.length === 5 && m.every((q) => Math.abs(q.y + 1.5) < 1e-9))!;
+    expect(face).toBeDefined();
+    expect(Math.max(...face.map((q) => q.z))).toBeCloseTo(8, 9);
+    const cotes = f.murs.filter((m) => m.length === 4 && m.some((q) => Math.abs(q.y + 1.5) < 1e-9) && m.some((q) => Math.abs(q.y) < 1e-9) && (m.every((q) => Math.abs(q.x - 3) < 1e-9) || m.every((q) => Math.abs(q.x - 6) < 1e-9)));
+    expect(cotes).toHaveLength(2);
+    // Le triangle au nu du mur a disparu, et le debord du pignon suit sa face : l'egout avance de 1,5 m.
+    expect(f.murs.some((m) => m.length === 3)).toBe(false);
+    expect(Math.min(...ys(f.pans)) - Math.min(...ys(sans.pans))).toBeCloseTo(-1.5, 9);
+  });
+
   it('pas de debord contre un mur commun : le toit s y arrete', () => {
     // Le contour du batiment continue au nord (y > 8) : le pan y = 8 est contre un autre corps.
     const contour = [p(0, 0), p(12, 0), p(12, 14), p(0, 14)];
