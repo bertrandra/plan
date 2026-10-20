@@ -217,7 +217,9 @@ Corps principal 9,9 × 7 m deux-pans (égout 4,6, hauteur 2,9), deux pignons de 
 Chaque étape est **livrable seule** : CI verte, CHANGELOG (`## [Non publié]`, Ajouté/Modifié/Corrigé, en français), fumée sur les points touchés, PR vers `main`, merge (commit de merge, pas de squash).
 Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
-### Étape 1 — Le mode Toit et le choix de façade
+### Étape 1 — Le mode Toit et le choix de façade  *(livrée : PR « mode Toit, étape 1 »)*
+
+> Écarts de mise en œuvre : la caméra de façade est une **perspective en élévation** (`three/poseFacade.ts`), pas encore l'oblique orthographique de la maquette (elle viendra avec les poignées, étape 4) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/modeToit.ts` (session), `src/facade/regles/toits/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
 **Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D, actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
 - Écran A de la maquette : surlignage du bâtiment choisi, barre d'action (Modifier · Isoler), contours en pointillé pour ce qui cache le bâtiment choisi (`setGhost` : maille masquée + `LineSegments`/`EdgesGeometry` en `LineDashedMaterial`),
   œil « Isoler ce bâtiment » (réutiliser `terrasse.isoler`), indice « main ».

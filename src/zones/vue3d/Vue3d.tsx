@@ -17,6 +17,7 @@ import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
+import { BoutonModifierToit, ModeToit } from './ModeToit.js';
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { Magasin } from '../../app/magasin.js';
@@ -208,7 +209,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
           {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
-          <Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
+          <ModeToit magasin={magasin} commandes={commandes} /><Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>
             <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
@@ -228,6 +229,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
             <Bouton3d commandes={commandes} id="3d.enregistrerPng" domId="terrasse3dSavePng" icone="image" libelle="Enregistrer la vue en PNG" titre="Enregistrer la vue actuelle en PNG" />
             <div className="separateur3d"></div>
             <Bouton3d commandes={commandes} id="3d.hauteurDesYeux" domId="terrasse3dEyeLevel" icone="personne" libelle="Hauteur des yeux" titre="Hauteur d'yeux (1,60 m au-dessus du platelage) - ne change que l'altitude de la camera, pas sa position au sol" />
+            <BoutonModifierToit commandes={commandes} />
             {commandes.etat('terrasse.isoler').utilisable && (
               <Bouton3d commandes={commandes} id="terrasse.isoler" domId="terrasse3dIsoler" icone="isoler" libelle={libIsoler}
                 titre={libIsoler + ' : lui seul, avec ce qui lui est lié, cadré — rebasculer rend la vue d\'avant'}
