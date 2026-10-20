@@ -98,6 +98,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.vueLibre', 'Vue 3D', enSession, () => { mode.voir('libre'); }, false);
   commande('toit.vueFacade', 'Vue de la façade', () => etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
   commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
+  commande('toit.voirValide', 'Voir le toit du projet', () => enSession() && (etatToit().change || etatToit().validee), () => { mode.voirValide(); }, false);
   commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
 
   /** L'element choisi dans la session, avec son batiment : ce que les commandes d'edition lisent. */

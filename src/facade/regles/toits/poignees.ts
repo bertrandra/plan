@@ -10,6 +10,7 @@
 import { point, repere } from '../../toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
+import { orientationDuCorps } from './planCorps.js';
 import type { CibleElement } from './elements.js';
 import type { CorpsToit, PtBrut } from '../../../model/types.js';
 import { SAILLIE_PIGNON_MAX_M } from '../../../model/corpsToitEtendu.js';
@@ -150,7 +151,7 @@ export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
   const c = corps[t.rang];
   if (!c) return [];
   if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }]; }
-  if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }]; }
+  if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }, { cle: 'rot', texte: Math.round(orientationDuCorps(c)) + '°' }]; }
   if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }, ...(c.saillie.genre !== 'bow-window' && (c.retraitM ?? 0) > 0.02 ? [{ cle: 'retrait', texte: fr(c.retraitM ?? 0) }] : [])];
   if (t.type === 'pignon') {
     const g = c.pignons[t.i];

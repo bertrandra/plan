@@ -43,6 +43,8 @@ export interface SessionToit {
   /** La camera avant d'entrer dans une facade : on la retrouve en la quittant. */
   vueAvant: PoseVue | null;
   isole: boolean;
+  /** Le batiment montre le toit du projet (le depart), pas la session : un geste ramene la session. */
+  validee: boolean;
 }
 
 let session: SessionToit | null = null;
@@ -76,6 +78,8 @@ export interface EtatToit {
   selection: CibleElement | null;
   /** Le doigt d'invitation se montre encore (rien n'a ete touche). */
   indice: boolean;
+  /** La scene montre le toit du projet tel qu'il est avant la session. */
+  validee: boolean;
 }
 
 /** La selection si l'element existe encore dans le batiment en session. */
@@ -87,12 +91,12 @@ function selectionValide(): CibleElement | null {
 }
 
 export function etatToit(): EtatToit {
-  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false };
+  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false, validee: false };
   const f = session.facade ?? session.derniere;
   return {
     actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
     facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' : null,
-    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice
+    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice, validee: session.validee
   };
 }
 
@@ -168,12 +172,8 @@ export const modeToitCourant = (): ModeToit | null => pilote;
 const GLISSER_MS = 140;
 let dernierRebatir = 0;
 
-export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
-  objetsCourants = () => a.etat.objects;
-  const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
-  const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
-
-  /** Les batiments qui cachent celui qu'on retouche : leur volume part, leur contour reste en pointille. */
+/** Les batiments qui cachent celui qu'on retouche : leur volume part, leur contour reste en pointille ; recalcule quand la camera bouge. */
+function brancherLaSurveillance(a: Atelier): void {
   const fantomes = (): void => {
     const sc = vue3d.scene, s = session;
     if (!sc || !s) return;
@@ -190,6 +190,21 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     derniereVue = cle;
     fantomes();
   };
+}
+
+/** Le toit du projet est montre : la session reprend sa place (son dernier etat) avant tout geste. */
+function reprendre(o: ObjetPlan, s: SessionToit): void {
+  if (!s.validee) return;
+  restaurer(o, s.hist.pas[s.hist.i] ?? {});
+  s.validee = false;
+}
+
+export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
+  objetsCourants = () => a.etat.objects;
+  const batiment = (): ObjetPlan | undefined => (session ? a.etat.objects.find((o) => o.key === session?.cle) : undefined);
+  const rebatir = rebatirEnGardantLaCamera(ctx, batiment);
+
+  brancherLaSurveillance(a);
 
   const fermer = (): void => {
     if (!session) return;
@@ -210,7 +225,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false };
+      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false, validee: false };
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
       veille = setInterval(surveillerLaVue, FANTOMES_MS);
@@ -223,6 +238,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ecrire(f: (o: ObjetPlan) => boolean | void): boolean {
       const o = batiment(), s = session;
       if (!o || !s) return false;
+      reprendre(o, s);
       if (f(o) === false) return false;
       // Un geste peut creer le premier corps (le toit simple devient un corps) : la facade choisie sur le contour se rattache a son mur.
       rattacherLesFacades(s, o);
@@ -232,9 +248,23 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       return true;
     },
 
-    annuler: () => { const o = batiment(); if (o && session && annuler(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
-    retablir: () => { const o = batiment(); if (o && session && retablir(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
-    revenirAuDepart: () => { const o = batiment(); if (o && session && revenirAuDepart(session.hist, o)) { rebatir(); ctx.rafraichir(); } },
+    annuler: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (annuler(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
+    retablir: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (retablir(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
+    revenirAuDepart: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (revenirAuDepart(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
+
+    /**
+     * Montre le toit du projet tel qu'il est avant la session (le depart), ou revient a la session. La session ne perd rien : son
+     * dernier etat est dans sa pile, et le moindre geste (ecrire, annuler, retablir, revenir au depart) y revient d'abord.
+     */
+    voirValide(): void {
+      const o = batiment(), s = session;
+      if (!o || !s) return;
+      if (s.validee) reprendre(o, s);
+      else if (aChange(s.hist)) { restaurer(o, s.hist.pas[0] ?? {}); s.validee = true; }
+      else { showToast('Rien n’a changé : c’est déjà le toit du projet.'); return; }
+      rebatir();
+      ctx.rafraichir();
+    },
 
     /** Le premier geste de la personne : l'invitation a toucher le batiment disparait. */
     leverIndice(): void {
@@ -265,6 +295,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     valider(): boolean {
       const o = batiment(), s = session;
       if (!o || !s) return false;
+      reprendre(o, s);
       const final = photographier(o);
       if (aChange(s.hist)) {
         restaurer(o, s.hist.pas[0] ?? {});

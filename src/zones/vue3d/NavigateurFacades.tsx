@@ -4,7 +4,9 @@
 // facade la plus tournee vers la camera. La facade courante est en evidence, avec un triangle qui dit d'ou l'on regarde. Le plan est
 // celui du batiment, nord en haut (l'axe y du plan va vers le bas de l'ecran).
 
+import { useState } from 'react';
 import { useStore } from 'zustand';
+import { Icone } from '../icones.js';
 import { facadesDeSession, sessionToit } from '../../app/modeToit.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -22,6 +24,8 @@ function polygones(facades: readonly FacadeVisee[]): Map<number | null, FacadeVi
 
 export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
   useStore(magasin.store, (s) => s.version);
+  // Sur telephone le plan se replie en un bouton : il ne couvre la scene que si on l'ouvre.
+  const [ouvert, setOuvert] = useState(() => typeof document === 'undefined' || document.documentElement.dataset.classe !== 'compact');
   const s = sessionToit();
   if (!s) return null;
   const facades = facadesDeSession(magasin.store.getState().etat.objects);
@@ -33,7 +37,9 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
   const grands = [...polygones(facades)].sort((p, q) => aire(q[1]) - aire(p[1]));
   const clic = (e: React.MouseEvent<SVGElement>) => { if (actif) commandes.executer('toit.facade', e.currentTarget as unknown as HTMLElement); };
   return (
-    <div className="navigateurToit" role="group" aria-label="Façades du bâtiment" title="Choisir une façade">
+    <div className={'navigateurToit' + (ouvert ? '' : ' replie')} role="group" aria-label="Façades du bâtiment" title="Choisir une façade">
+      <button type="button" className="boutonNavigateur" aria-expanded={ouvert} aria-label={ouvert ? 'Replier le plan des façades' : 'Déplier le plan des façades'}
+        onClick={() => { setOuvert(!ouvert); }}><Icone nom={ouvert ? 'fermer' : 'ajuster'} taille={18} /></button>
       <svg viewBox={f2(x0) + ' ' + f2(y0) + ' ' + f2(x1 - x0) + ' ' + f2(y1 - y0)} preserveAspectRatio="xMidYMid meet">
         {grands.map(([rang, murs]) => (
           <polygon key={'c' + rang} className={'corpsNav' + (courante?.rang === rang ? ' sur' : '')} data-commande="toit.facade" data-corps={rang ?? ''} onClick={clic}
