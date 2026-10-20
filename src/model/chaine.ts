@@ -25,7 +25,7 @@ export interface NoeudChaine {
   ecran?: string;
   /** Un renvoi vers un autre noeud (la meme chose vue d'une autre branche). */
   voir?: string;
-  /** Pour un objet 3D : l'exemple du catalogue (facade/catalogueToits.ts) qui le dessine. */
+  /** Pour un objet 3D : l'exemple du catalogue (three/catalogueToits.ts) qui le dessine. */
   forme?: string;
   /** Ou c'est dans le code ou dans les donnees. */
   ou?: string;
@@ -91,7 +91,7 @@ export const CHAINE: readonly NoeudChaine[] = [
   { id: 'o3d.fleche', parent: 'objets3d.formes', genre: 'objet3d', titre: 'Flèche (clocher)', detail: 'Pyramide très élancée, 3 à 8 faces. Lue sur la surface LiDAR à l’audit quand le cône est élancé (plan presque carré).', forme: 'fleche', mode: 'mixte', ou: 'facade/toitSpeciaux.ts' },
   { id: 'o3d.dome', parent: 'objets3d.formes', genre: 'objet3d', titre: 'Dôme (coupole)', detail: 'Calotte en anneaux de facettes. Lue sur la surface LiDAR à l’audit (plan presque carré).', forme: 'dome', mode: 'mixte', ou: 'facade/toitSpeciaux.ts' },
   { id: 'o3d.imperiale', parent: 'objets3d.formes', genre: 'objet3d', titre: 'Impériale (bulbe)', detail: 'Col, ventre, puis flèche effilée. Lue sur la surface LiDAR à l’audit (plan presque carré).', forme: 'imperiale', mode: 'mixte', ou: 'facade/toitSpeciaux.ts' },
-  { id: 'objets3d.lucarnes', parent: 'objets3d', genre: 'objet', titre: 'Lucarnes' },
+  { id: 'objets3d.lucarnes', parent: 'objets3d', genre: 'objet', titre: 'Lucarnes et avant-corps' },
   { id: 'o3d.jacobine', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Jacobine', forme: 'jacobine', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'o3d.capucine', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Capucine (à croupe)', forme: 'capucine', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'o3d.chien-assis', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Chien-assis', forme: 'chien-assis', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
@@ -99,6 +99,7 @@ export const CHAINE: readonly NoeudChaine[] = [
   { id: 'o3d.meuniere', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Meunière', detail: 'Affleure le mur d’égout.', forme: 'meuniere', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'o3d.oeil-de-boeuf', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Œil-de-bœuf', detail: 'Un disque debout sur le pan et son cylindre court.', forme: 'oeil-de-boeuf', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'o3d.outeau', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Outeau', detail: 'Une petite lucarne à croupe, d’un mètre au plus.', forme: 'outeau', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
+  { id: 'o3d.avant-corps', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Avant-corps à pignon (pignon depuis le faîtage)', detail: 'Un petit toit à deux pans, perpendiculaire au faîtage, qui monte jusqu’au faîtage du corps et dresse son triangle sur la façade : il entaille le grand pan. Lu sur la surface LiDAR (la mesure dépasse le pan de 80 cm le long d’un mur), ou dit par un fait (pignons).', forme: 'avant-corps', mode: 'mixte', ou: 'three/toitCorps3d.ts' },
   { id: 'o3d.lanterneau', parent: 'objets3d.lucarnes', genre: 'objet3d', titre: 'Lanterneau', detail: 'Un coffre bas à dessus plat vitré, sur le pan ou sur le toit plat.', forme: 'lanterneau', mode: 'mixte', ou: 'facade/toitFormes.ts#facettesLucarnes' },
   { id: 'objets3d.elements', parent: 'objets3d', genre: 'objet', titre: 'Éléments de bâtiment' },
   { id: 'o3d.murs', parent: 'objets3d.elements', genre: 'objet', titre: 'Murs, pignons et murs hauts', detail: 'Le prisme à l’égout le plus bas, puis les murs jusqu’au faîtage.', mode: 'auto', ou: 'three/toitCorps3d.ts' },
