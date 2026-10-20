@@ -128,6 +128,11 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.isoler': 'Masque le voisinage pour ne voir que ce bâtiment ; rebasculer le rend',
   'toit.regles': 'Allume ou coupe la lecture automatique du toit : coupée, le bâtiment reste comme vous l’avez réglé ; rallumée, Plan relit le toit (LiDAR, faits, profils) et remplace ce que vous aviez réglé',
   'toit.poser': 'Pose sur le bâtiment le geste du catalogue choisi (forme de toit, élément du toit, élément de façade) ; coupe les règles pour ce bâtiment',
-  'toit.murSur3d': 'Arme l’élément de façade choisi : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose'
+  'toit.murSur3d': 'Arme l’élément de façade choisi : le prochain toucher sur un mur du bâtiment, dans la vue 3D, l’y pose',
+  'toit.facade': 'Choisit la façade du bâtiment que la scène cadre : un mur du plan en petit, ou un corps (sa façade la plus tournée vers la caméra)',
+  'toit.vueLibre': 'Rend la caméra libre de la vue 3D, comme avant le choix d’une façade',
+  'toit.vueFacade': 'Se place en élévation devant la dernière façade choisie',
+  'toit.vueDessus': 'Regarde le bâtiment de dessus',
+  'toit.isolerCorps': 'Ne montre que le corps de la façade courante, avec ce qui est posé dessus ; rebasculer rend tous les corps'
 };
 

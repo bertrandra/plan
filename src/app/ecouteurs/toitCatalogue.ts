@@ -54,6 +54,17 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.depart', 'Revenir au départ', () => etatToit().change, () => { mode.revenirAuDepart(); });
   commande('toit.isoler', 'Isoler le bâtiment', enSession, () => { mode.basculerIsolement(); }, false);
 
+  commande('toit.facade', 'Choisir une façade', enSession, (source) => {
+    // Le bouton du navigateur nomme le corps (`data-rang`, vide : le contour) et son mur (`data-mur`), ou seulement le corps (`data-corps`).
+    const d = source?.dataset;
+    if (d?.corps !== undefined) mode.choisirFacadeDuCorps(Number(d.corps));
+    else if (d?.mur !== undefined) mode.choisirFacade(d.rang === '' || d.rang === undefined ? null : Number(d.rang), Number(d.mur));
+  }, false);
+  commande('toit.vueLibre', 'Vue 3D', enSession, () => { mode.voir('libre'); }, false);
+  commande('toit.vueFacade', 'Vue de la façade', () => etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
+  commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
+  commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
+
   commande('toit.regles', 'Règles',
     enSession, () => {
       mode.ecrire((o) => { if (o.toitFige) reprendreLectureAuto(o); else o.toitFige = true; });
