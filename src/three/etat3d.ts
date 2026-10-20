@@ -232,8 +232,14 @@ export const vue3d: {
    * elle ne suit plus la hauteur de la camera (three/presentation.ts).
    */
   focaleBloquee: boolean;
+  /**
+   * Un corps de toit isole dans la Vue 3D (mode Toit, etape 2) : seul ce corps du batiment `cle` se dessine, avec ce qui est pose sur lui.
+   * Etat d'affichage, jamais enregistre dans le projet.
+   */
+  corpsIsole: { cle: string; rang: number } | null;
 } = {
   scene: null,
+  corpsIsole: null,
   dernierObjKey: null,
   centre: null,
   apresSoleil: null,

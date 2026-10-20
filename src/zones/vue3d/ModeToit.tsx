@@ -10,6 +10,7 @@ import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
 import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
+import { NavigateurFacades } from './NavigateurFacades.js';
 import { Icone, type NomIcone } from '../icones.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -51,6 +52,8 @@ export function ModeToit({ magasin, commandes }: Props) {
   const allumees = reglesAllumees(o);
   const pose = commandes.etat('toit.poser');
   return (
+    <>
+    <NavigateurFacades magasin={magasin} commandes={commandes} />
     <div className="panneauToit" role="region" aria-label="Mode Toit">
       <div className="barreToit" role="toolbar" aria-label="Session du toit">
         <BoutonToit commandes={commandes} id="toit.abandonner" icone="chevronGauche" libelle="Retour : abandonner les changements" />
@@ -58,6 +61,11 @@ export function ModeToit({ magasin, commandes }: Props) {
         <BoutonToit commandes={commandes} id="toit.retablir" icone="annuler" libelle="Rétablir (Ctrl+Maj+Z)" />
         <BoutonToit commandes={commandes} id="toit.depart" icone="positionInitiale" libelle="Revenir au départ (annulable)" />
         <BoutonToit commandes={commandes} id="toit.isoler" icone={e.isole ? 'oeilBarre' : 'oeil'} libelle="Isoler ce bâtiment" presse={e.isole} />
+        <span className="separateurToit" aria-hidden="true" />
+        <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
+        <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
+        <BoutonToit commandes={commandes} id="toit.vueDessus" icone="ajuster" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
+        <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
         <span className="espaceToit" />
         <BoutonToit commandes={commandes} id="toit.valider" icone="coche" libelle="Valider" texte="Valider" valider />
       </div>
@@ -86,6 +94,7 @@ export function ModeToit({ magasin, commandes }: Props) {
         })}
       </div>
     </div>
+    </>
   );
 }
 

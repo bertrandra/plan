@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart } from '../../../src/facade/regles/toits/sessionToit.js';
-import { facadeProche, facadesDuBatiment, orientationDe } from '../../../src/facade/regles/toits/facadesDesCorps.js';
-import { poseDeFacade } from '../../../src/three/poseFacade.js';
+import { corpsVisibles, facadeProche, facadeVersLePoint, facadesDuBatiment, orientationDe } from '../../../src/facade/regles/toits/facadesDesCorps.js';
+import { poseDeDessus, poseDeFacade } from '../../../src/three/poseFacade.js';
 import type { CorpsToit, ObjetPlan } from '../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
@@ -104,5 +104,41 @@ describe('la camera devant une facade', () => {
     const court = poseDeFacade({ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);
     const long = poseDeFacade({ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: -1 }, 5, { x: 0, y: 0 }, 50, 1.6);
     expect(Math.abs(long.position.z - long.cible.z)).toBeGreaterThan(Math.abs(court.position.z - court.cible.z));
+  });
+});
+
+describe('le navigateur et les vues du mode', () => {
+  const aile = (): CorpsToit => ({ pts: [{ x: 10, y: 0 }, { x: 14, y: 0 }, { x: 14, y: 4 }, { x: 10, y: 4 }], posFaitage: 0, faitage: 4, egouts: [3, 3], pignons: [], ecart: 0 });
+  const bow = (): CorpsToit => ({ ...aile(), saillie: { genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2, profondeurM: 1, forme: 'rectangle', niveau: 'rdc', toit: 'pan' } });
+
+  it('tous les corps sont visibles tant qu aucun n est isole', () => {
+    const l = [corps(), aile()];
+    expect(corpsVisibles(l, null)).toHaveLength(2);
+    expect(corpsVisibles(null, 0)).toBeNull();
+  });
+
+  it('isoler un corps garde ce qui est pose sur lui, et seulement lui', () => {
+    const l = [corps(), aile(), bow()];
+    expect(corpsVisibles(l, 0)!.map((c) => c.saillie?.genre ?? 'corps')).toEqual(['corps', 'bow-window']);
+    expect(corpsVisibles(l, 1)).toHaveLength(1);
+    // Un rang qui n'existe plus : tous les corps reviennent.
+    expect(corpsVisibles(l, 9)).toHaveLength(3);
+  });
+
+  it('toucher un corps prend sa facade la plus tournee vers la camera', () => {
+    const f = facadesDuBatiment([corps(), aile()], rect);
+    expect(facadeVersLePoint(f, 0, { x: 5, y: -20 })!.mur).toBe(0);
+    expect(facadeVersLePoint(f, 0, { x: 5, y: 30 })!.mur).toBe(2);
+    expect(facadeVersLePoint(f, 0, { x: 40, y: 3 })!.mur).toBe(1);
+    expect(facadeVersLePoint(f, 7, { x: 5, y: -20 })).toBeNull();
+  });
+
+  it('la camera de dessus est au-dessus du centre, presque a la verticale, et plus haut pour un grand batiment', () => {
+    const petit = poseDeDessus({ x: 5, y: 3 }, 6, { x: 5, y: 3 }, 50, 1.6), grand = poseDeDessus({ x: 5, y: 3 }, 30, { x: 5, y: 3 }, 50, 1.6);
+    expect(petit.cible).toEqual({ x: 0, y: 0, z: 0 });
+    expect(petit.position.x).toBeCloseTo(0, 5);
+    expect(petit.position.y).toBeGreaterThan(5);
+    expect(Math.abs(petit.position.z)).toBeLessThan(petit.position.y * 0.05);
+    expect(grand.position.y).toBeGreaterThan(petit.position.y);
   });
 });

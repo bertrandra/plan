@@ -62,3 +62,26 @@ export function facadeProche(facades: readonly FacadeVisee[], p: PtBrut): Facade
 export function orientationDe(f: FacadeVisee): string {
   return nomOrientation(((Math.atan2(f.n.x, f.n.y) * 180) / Math.PI + 360) % 360);
 }
+
+/**
+ * Les corps que la vue dessine : tous, ou seulement le corps `isole` avec ce qui est pose sur lui (ses bow-windows, galeries, appentis).
+ * Rien d'isole, ou un rang qui n'existe plus : tous. Vide (le corps isole disparait) : null, comme un batiment sans corps.
+ */
+export function corpsVisibles(corps: readonly CorpsToit[] | null | undefined, isole: number | null): CorpsToit[] | null {
+  if (!corps) return null;
+  if (isole === null || !corps[isole]) return corps.slice();
+  const gardes = corps.filter((c, i) => i === isole || c.saillie?.hote === isole);
+  return gardes.length ? gardes : null;
+}
+
+/** Les murs d'un seul corps, pour choisir sa facade la plus proche d'un point de vue (le toucher d'un corps dans le navigateur). */
+export function facadeVersLePoint(facades: readonly FacadeVisee[], rang: number, oeil: PtBrut): FacadeVisee | null {
+  let meilleur: FacadeVisee | null = null, v = -Infinity;
+  for (const f of facades) {
+    if (f.rang !== rang) continue;
+    const mx = (f.a.x + f.b.x) / 2, my = (f.a.y + f.b.y) / 2, dx = oeil.x - mx, dy = oeil.y - my, l = Math.hypot(dx, dy) || 1;
+    const s = (f.n.x * dx + f.n.y * dy) / l;
+    if (s > v) { v = s; meilleur = f; }
+  }
+  return meilleur;
+}

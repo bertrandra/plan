@@ -21,6 +21,7 @@ import { procheDuProjet, type ObjetMitoyen } from '../model/mitoyennete.js';
 import { ajouterToitMesure3d } from './toitMesure3d.js';
 import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from './toitCorps3d.js';
 import { separerBowWindows } from '../facade/regles/toits/saillies.js';
+import { corpsVisibles } from '../facade/regles/toits/facadesDesCorps.js';
 import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toitCorps.js';
@@ -1154,7 +1155,7 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
   const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
   // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.
-  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? o.corpsToit ?? null : null);
+  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? corpsVisibles(o.corpsToit, vue3d.corpsIsole?.cle === o.key ? vue3d.corpsIsole.rang : null) : null);
   const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
   // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
   // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle

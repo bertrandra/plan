@@ -28,3 +28,14 @@ export function poseDeFacade(a: PtBrut, b: PtBrut, n: PtBrut, hauteur: number, c
   const cible = { x: mx - cen.x, y: h / 2, z: cen.y - my };
   return { cible, position: { x: cible.x + n.x * distance, y: cible.y, z: cible.z - n.y * distance } };
 }
+
+/**
+ * La camera au-dessus d'un batiment, presque a la verticale (un leger recul evite l'alignement degenere de l'orbite) : `etendue` est le plus grand
+ * cote du batiment, `centre` son milieu dans le plan.
+ */
+export function poseDeDessus(centre: PtBrut, etendue: number, cen: PtBrut, fovDeg: number, aspect: number): PoseCamera {
+  const demiChamp = Math.tan((fovDeg * Math.PI) / 360);
+  const hauteur = (Math.max(etendue, 4) / (2 * demiChamp * Math.min(Math.max(aspect, 0.3), 1))) * MARGE + 2;
+  const cible = { x: centre.x - cen.x, y: 0, z: cen.y - centre.y };
+  return { cible, position: { x: cible.x, y: hauteur, z: cible.z + hauteur * 0.02 } };
+}

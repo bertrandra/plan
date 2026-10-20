@@ -231,7 +231,9 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 **Critères :** entrer / sortir ne modifie pas le projet ; abandon = projet identique au bit près ; valider = 1 seul Ctrl+Z ; trois classes d'écran ; thème clair et sombre.
 **Tests :** machine à états de session (unitaire pur), `facadeProche` sur un rectangle, un L, un corps tourné ; exposition ; contrôles.
 
-### Étape 2 — Le navigateur de façades et les vues
+### Étape 2 — Le navigateur de façades et les vues  *(livrée : PR « mode Toit, étape 2 »)*
+
+> Code : `src/zones/vue3d/NavigateurFacades.tsx`, `src/three/fantomes.ts` (contours en pointillé : rayons de la caméra vers 12 points du bâtiment, le premier autre bâtiment touché est masqué et remplacé par ses arêtes en `LineDashedMaterial`), `src/facade/regles/toits/facadesDesCorps.ts` (`corpsVisibles`, `facadeVersLePoint`), `vue3d.corpsIsole` dans `three/etat3d.ts`. Commandes `toit.facade`, `toit.vueLibre`, `toit.vueFacade`, `toit.vueDessus`, `toit.isolerCorps`. Le mode « Plan » (poser et tourner des corps) reste à l'étape 5 ; la vue « Dessus » de l'étape 2 est une caméra, pas encore un éditeur.
 - Plan en petit en haut à droite, chaque côté de corps cliquable, façade courante en évidence, repère de point de vue ; clic sur un corps = sa façade la plus proche de la vue (`bestSide`).
 - Sélecteur de vue : Façade · Plan · 3D (ouvre la 3D de l'ensemble validé), œil « Isoler ce corps » (Façade seulement).
 - Un bâtiment qui en cache un autre dans la façade : contour pointillé, le choisi reste touchable à travers.
