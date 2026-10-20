@@ -106,7 +106,7 @@
   .panneauToit .puceToit[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
   .panneauToit .inspecteurToit{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
   .panneauToit .groupeChoix{ display:flex; gap:4px; }
-  .panneauToit .boutonToit.danger{ color:var(--danger, #b3261e); }
+  .panneauToit .boutonToit.danger{ color:var(--danger); }
   .panneauToit .toitOnglets{ display:flex; gap:4px; }
   .panneauToit .toitOnglet{ flex:1; min-height:36px; padding:2px 6px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:6px; cursor:pointer; }
   .panneauToit .toitOnglet[aria-selected="true"]{ background:var(--accent-light); border-color:var(--accent); }
