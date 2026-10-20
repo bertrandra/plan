@@ -138,6 +138,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.regler': 'Applique le choix en image de l’inspecteur (forme, niveau, toit, poteaux, retrait, hauteur du pignon) à l’élément choisi',
   'toit.dupliquer': 'Copie l’élément choisi à côté de lui, là où il y a de la place',
   'toit.supprimer': 'Retire l’élément choisi ; Ctrl+Z le rend',
+  'toit.tourner': 'Tourne le corps choisi de 15 degrés autour de son centre ; ce qui est posé dessus le suit',
   'toit.plus': 'Agrandit l’élément choisi d’un cran',
   'toit.moins': 'Réduit l’élément choisi d’un cran'
 };

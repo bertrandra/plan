@@ -103,6 +103,11 @@
   .panneauToit .indiceToit{ margin:0; font-size:.85rem; color:var(--ink-soft); }
   .panneauToit .toitRegles{ align-self:flex-start; min-height:44px; padding:4px 10px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .toitRegles[aria-pressed="true"]{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  /* Le mode Plan : les corps vus de dessus se choisissent d'un toucher. */
+  .planToit{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; overflow:visible; }
+  .planToit .corpsPlan{ pointer-events:auto; cursor:pointer; fill:var(--accent-light); fill-opacity:.18; stroke:var(--accent); stroke-width:2px; }
+  .planToit .corpsPlan:hover{ fill-opacity:.35; }
+  .planToit .corpsPlan.choisi{ fill-opacity:.4; stroke-width:4px; }
   /* Les poignees : un calque SVG sur la scene ; seules les poignees saisissent le doigt. */
   .poigneesToit{ position:absolute; left:0; top:0; z-index:4; pointer-events:none; overflow:visible; }
   .poigneesToit .poigneeToit{ pointer-events:auto; cursor:grab; touch-action:none; }

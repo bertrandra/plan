@@ -12,6 +12,7 @@ import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
+import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/regles/toits/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/regles/toits/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
@@ -91,6 +92,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     mode.ecrire((x) => { x.corpsToit = supprimerElement(c.corps, c.t); x.toitFige = true; });
     mode.selectionner(null);
   });
+  commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
+    const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
+    if (c && c.t.type === 'corps') mode.ecrire((x) => { x.corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); x.toitFige = true; });
+  });
   commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, 1); x.toitFige = true; }); });
   commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, -1); x.toitFige = true; }); });
 
@@ -142,7 +147,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   const doc = typeof document === 'undefined' ? null : document;
   let appui: { x: number; y: number } | null = null;
   // Une poignee (zones/vue3d/PoigneesToit.tsx) garde son geste : ni toucher ni orbite.
-  const surPoignee = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-poignee]');
+  const surPoignee = (e: Event) => !!(e.target as Element | null)?.closest?.('[data-poignee],[data-plan-corps]');
   doc?.addEventListener('pointerdown', (e) => { appui = enSession() && hotes3d.vue3d?.contains(e.target as Node) && !surPoignee(e) ? { x: e.clientX, y: e.clientY } : null; }, true);
   doc?.addEventListener('pointerup', (e) => {
     const debut = appui; appui = null;

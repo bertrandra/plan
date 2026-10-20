@@ -256,7 +256,9 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - **Commencer par le bow-window** (déjà modélisé) pour valider la chaîne projection → poignée → écriture → redessin, puis généraliser.
 **Critères :** poignée sous le doigt et à la souris, cotes justes au centimètre, aimantation, pas d'écriture au simple survol.
 
-### Étape 5 — Les corps et le mode Plan
+### Étape 5 — Les corps et le mode Plan  *(livrée : PR « mode Toit, étape 5 »)*
+
+> Code : `src/facade/regles/toits/corpsNeufs.ts` (poser, déplacer, étirer, tourner, supprimer, `orienterFaitage` — pur, testé), onglet `Corps` de `ModeToit.tsx`, `PlanToit.tsx` (polygones de la vue de dessus), poignées `deplacer` / `etirerL` / `etirerW` dans `poignees.ts`, commande `toit.tourner`. Écarts : le « mode Plan » est la vue de dessus de la Vue 3D (pas un second dessin) ; les lignes de faîtage par forme et les marqueurs d'éléments de la maquette ne sont pas dessinés dans le calque.
 - Onglet Corps : *Aile*, *Retour*, *Biaise* (emplacements candidats §3), rotation ± 15°, suppression (sauf le principal), déplacement/étirement dans le plan, **superposition** admise, faîtage dans le sens de la longueur (`autoDir`).
 - Mode Plan (en petit dans le navigateur et en grand) avec lignes de faîtage par forme et marqueurs des éléments posés.
 **Critères :** rotation libre, façades de biais éditables, AE 101 (multi-corps) refait à la main possible ; contour en L/U décrit par corps.

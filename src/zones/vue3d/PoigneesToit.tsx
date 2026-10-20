@@ -89,12 +89,16 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   }, []);
 
   const s = sessionToit(), e = etatToit();
-  if (!s || !e.actif || e.vue === 'dessus') return null;
+  if (!s || !e.actif) return null;
+  const plan = e.vue === 'dessus';
+  // De dessus, seul un corps choisi a des poignees ; de face, un corps choisi se regle par la facade courante.
+  if (plan && e.selection?.type !== 'corps') return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const corps = o?.corpsToit;
   if (!corps?.length) return null;
   const f = s.facade ?? s.derniere;
-  const cible: CibleGlisser | null = e.selection ?? (f && f.rang !== null ? { type: 'corps', rang: f.rang, i: 0, mur: f.mur } : null);
+  const choixFace = e.selection && e.selection.type !== 'corps' ? e.selection : null;
+  const cible: CibleGlisser | null = plan ? e.selection : choixFace ?? (f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null);
   if (!cible) return null;
   const cadre = cadreDe(corps, cible);
   const poignees = poigneesDe(corps, cible);

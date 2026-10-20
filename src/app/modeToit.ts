@@ -415,7 +415,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       if (!s.vueAvant) s.vueAvant = { position: { ...sc.camera.position }, cible: { ...sc.controls.target } };
       const pts = enPoints(o).pts as PtBrut[], xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
       const centre = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
-      const pose = poseDeDessus(centre, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), sc.cen, sc.camera.fov, sc.camera.aspect);
+      const pose = poseDeDessus(centre, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)), sc.cen, sc.camera.fov, sc.camera.aspect, reserveDuPanneau());
       sc.camera.position.set(pose.position.x, pose.position.y, pose.position.z);
       sc.controls.target.set(pose.cible.x, pose.cible.y, pose.cible.z);
       sc.controls.update();
