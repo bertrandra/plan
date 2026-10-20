@@ -169,3 +169,29 @@ Règle du moteur reprise telle quelle : les corps **se chevauchent par construct
 - Conséquence pour le modèle : un **pignon traversant** est un cas particulier de corps superposé (faîtage perpendiculaire, monté au faîtage du principal). Il pourrait cesser d'être une pièce à part et devenir un corps du catalogue, ce qui supprime la limite « un corps tourné ne porte pas de pignon ».
 
 À surveiller : faces coplanaires de deux corps superposés (scintillement), noues d'un même niveau, hauteur d'égout du corps le plus bas qui ressort dans l'autre.
+
+## Version 8 : passe sur l'interface (`MD/maquettes/toit-ihm-ae101.html`)
+
+Objectif : pas de modèle métier (les règles sont dans Plan), mais l'interface la plus simple, qui ne montre que ce qui sert.
+
+**Trois familles, trois onglets** (plus *Corps* pour poser un volume) : *Toit* (la forme, en images), *Sur le toit* (cheminée, lucarnes, fenêtre de
+toit, solaire), *Façade* (pignon, appentis, galerie, bow-window : ce qui impacte le toit). Un geste : toucher l'image.
+
+**Un inspecteur qui ne montre que la sélection**, en boutons-images à choix exclusif (jamais de formulaire) :
+
+| Sélection | Ce qu'il propose |
+|---|---|
+| Bow-window | **forme** (pans coupés · rectangle · arc de cercle · rectangle arrondi) · **niveau** (sous le premier étage · monte jusqu'au toit) · **toit** propre (un pan · plat · pointe) ; poignées : largeur, saillie |
+| Galerie | sur poteaux / fermée · retrait du mur (0 · ½ · 1 m) |
+| Pignon | monte au faîtage / plus bas ; poignées : largeur, hauteur, saillie |
+| Corps | tourner ⟲ ⟳ (15°), supprimer ; poignées : faîtage, longueur de la façade |
+| Élément de toit | taille − +, dupliquer, supprimer |
+
+**Toutes les façades, même de biais.** Une façade = un côté de corps (4 par corps). Un corps peut être tourné d'un angle quelconque ; la vue
+tourne alors la maison pour que la façade choisie fasse face. On y arrive de quatre façons : toucher un mur dans la 3D, une arête du **plan**,
+une arête du **navigateur** (le plan en petit, en haut à droite, avec la façade courante et un repère de point de vue), ou toucher un autre
+mur dans la vue. Le plan sert à poser, déplacer, étirer et tourner les corps ; le faîtage se met dans le sens de la longueur tout seul.
+
+**Ce qui disparaît** : la bande d'étapes, le développé, la vignette 3D permanente (la 3D s'ouvre d'un bouton) : tout ce qui ne sert pas au geste en cours.
+
+Exemple dans AE 101 (pas un relevé) : un retour qui entre dans le toit, une aile biaise à 35°, un bow-window sur l'aile gauche.
