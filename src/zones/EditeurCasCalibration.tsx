@@ -17,18 +17,19 @@ import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } fro
 import { avisFusion } from './releve/analyse.js';
 import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
 import { rechercher } from './releve/serie.js';
-import { coinsAutoDeSerie } from './releve/coinsAuto.js';
+import { coinsAutoDeSerie, type CoinsDeSerie } from './releve/coinsAuto.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../facade/gabaritMur.js';
 import { inverser } from '../facade/redressementFuites.js';
 import type { MurLu } from '../facade/mosaiqueFuites.js';
 import type { Facade } from '../facade/geometrie.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
-import { cadreAutour, contourDuGabarit, photoAutourDuMur, type CadreAutour } from './etapesCalibration.js';
 import { sansOmbres } from '../facade/sansOmbres.js';
 import { silhouetteDeEstimation } from '../facade/regles/toits/silhouettes.js';
 import { SILHOUETTES_FACADE } from '../model/silhouetteFacade.js';
-import { appliquer, type Image, type P2 } from '../facade/homographie.js';
+import { appliquer, homographie, type Image, type P2 } from '../facade/homographie.js';
+import { appliquerSimilitude } from '../facade/ransac.js';
+import type { AssemblageDuMur } from '../facade/analyseMur.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
 
@@ -138,9 +139,6 @@ interface Etapes {
   entieres: ({ url: string; l: number; h: number; silhouette: P2[] | null } | null)[];
   /** Par photo : la silhouette du haut du mur, en pixels de la photo (le gabarit du cas pose par ses coins). */
   silhouettes: (P2[] | null)[];
-  /** Le cadre autour du mur (metres) des vues 5 et 6, et le contour du gabarit dans ce repere (y depuis l'egout, le sol en bas). */
-  cadre: CadreAutour;
-  contour: P2[];
   /** La silhouette sur l'image posee sur la facade (la photo redressee et fusionnee), en metres depuis son coin haut gauche. */
   silhouetteTexture: P2[];
   /** La taille de cette image, en metres. */
@@ -148,10 +146,11 @@ interface Etapes {
   /** L'assemblage des photos redressees, et le mur qui y a ete cherche (en pixels de l'assemblage) ; null sans assemblage. */
   assemblage: { url: string; largeur: number; hauteur: number; mur: MurLu } | null;
   /**
-   * La facade complete : l'assemblage (etape 3) redresse a l'echelle du mur, sans coupe, dans le cadre autour du mur. C'est l'image
-   * prise pour la suite (detection, texture) ; null quand aucune photo ne s'assemble.
+   * La facade complete : l'assemblage de l'etape 3, entier et tel quel (l'image prise pour la suite), en pixels de l'assemblage ; le
+   * contour du mur (le sol, puis la silhouette a l'echelle de la facade), et les ouvertures proposees ramenees sur lui. Null quand
+   * aucune photo ne s'assemble.
    */
-  facade: string | null;
+  facade: { url: string; largeur: number; hauteur: number; contour: P2[]; propositions: P2[][]; devinees: P2[][] } | null;
   /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
   vuesAssemblage: { assemblee: boolean; motif: string | null }[];
   propositions: readonly OuvertureDetectee[];
@@ -170,19 +169,56 @@ function avisDuCas(p: CasPrepare): string | null {
   return k >= 0 ? `La photo ${k + 1} reste hors de l’assemblage : ${p.assemblage?.vues[k]?.motif ?? 'elle ne se recale sur aucune autre'}. Prenez-en une autre en gardant un tiers de mur en commun.` : null;
 }
 
+/**
+ * L'assemblage de l'etape 3 (`sr`), pris tel quel pour la suite : son image, ce qu'il montre, et le mur pose dessus. Les coins du mur
+ * sont ceux de la premiere photo assemblee (poses ou ajustes a la main, ou trouves), ramenes sur l'assemblage ; sinon le mur cherche
+ * dessus.
+ */
+function assemblageDeLaSerie(sr: CoinsDeSerie, cas: CasStocke): AssemblageDuMur {
+  const { image, vu, places, mur } = sr.assemblage;
+  let coins: P2[] | null = null;
+  for (let i = 0; i < sr.vues.length && !coins; i++) {
+    const v = sr.vues[i], place = places[i], c = cas.photos[i]?.coins, inv = v ? inverser(v.versPhoto) : null;
+    if (v && place && inv && c?.length === 4) coins = c.map((q) => appliquerSimilitude(place, appliquer(inv, q)));
+  }
+  const motif = new Map(sr.aPart.map((x) => [x.vue, x.motif]));
+  return {
+    image, vu, coins: coins ?? [{ x: mur.x0, y: mur.y0 }, { x: mur.x1, y: mur.y0 }, { x: mur.x1, y: mur.y1 }, { x: mur.x0, y: mur.y1 }],
+    vues: sr.vues.map((_, i) => (motif.has(i) ? { assemblee: false, motif: motif.get(i) ?? null } : { assemblee: true, motif: null })),
+  };
+}
+
+/**
+ * La facade complete sur l'assemblage : le contour du mur (le sol, puis la silhouette mise a l'echelle de la facade par ses coins) et
+ * les ouvertures proposees, ramenees du mur (metres, y depuis le sol) sur l'assemblage par les memes coins.
+ */
+function facadeSurLAssemblage(a: AssemblageDuMur, gabarit: GabaritMur, L: number, H: number, p: CasPrepare, url: string): NonNullable<Etapes['facade']> {
+  const [, , bd, bg] = a.coins as [P2, P2, P2, P2];
+  const versA = homographie([{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }], a.coins);
+  const quad = (o: OuvertureDetectee): P2[] => (versA ? [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(versA, q)) : []);
+  return {
+    url, largeur: a.image.largeur, hauteur: a.image.hauteur,
+    contour: [bg, ...(gabaritSurLaPhoto(gabarit, a.coins) ?? []), bd],
+    propositions: p.ouvertures.map(quad), devinees: p.devinees.map(quad),
+  };
+}
+
+/** L'assemblage de l'etape 3, fait une fois : il est montre, et c'est l'image prise pour la suite (mur, detection, texture). */
+function preparerSurLAssemblage(cas: CasStocke, images: readonly Image[]): { sr: CoinsDeSerie | null; p: CasPrepare | null } {
+  const sr = coinsAutoDeSerie(images, cas.largeurM, cas.hauteurM, cas.photos.map(reperesDe), cas.gabarit ?? GABARIT_RECTANGLE);
+  return { sr, p: preparerCas(cas, images, true, sr ? assemblageDeLaSerie(sr, cas) : null) };
+}
+
 /** Les images des etapes d'un cas redresse. */
-function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, outils: OutilsPhotos): Etapes {
+function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, outils: OutilsPhotos, sr: CoinsDeSerie | null): Etapes {
   const enUrl = (im: Image | null) => (im ? outils.elevationEnUrl(im) : null);
-  // Les deux premiers temps de la chaine, montres tels quels : chaque photo redressee entiere, puis leur assemblage et le mur cherche dessus.
   const gabarit = depart.gabarit ?? GABARIT_RECTANGLE;
-  const sr = coinsAutoDeSerie(images, depart.largeurM, depart.hauteurM, depart.photos.map(reperesDe), gabarit);
   // Le gabarit pose sur chaque photo par ses coins, puis sur chaque vue redressee et sur l'image fusionnee : trace en surimpression.
   const silhouettes = images.map((_, k) => { const q = depart.photos[k]; return q?.coins.length === 4 ? gabaritSurLaPhoto(gabarit, q.coins) : null; });
-  const ref = p.fusion?.reference ?? 0, coinsRef = depart.photos[ref]?.coins, L = depart.largeurM, H = depart.hauteurM;
+  const L = depart.largeurM, H = depart.hauteurM;
   const a = p.assemblage;
-  const cadre = cadreAutour(L, H, gabarit);
   return {
-    silhouettes, cadre, contour: contourDuGabarit(L, H, gabarit),
+    silhouettes,
     // Le contour du mur sur la texture (metres depuis son coin haut gauche) : le sol, puis le gabarit d'un angle a l'autre.
     silhouetteTexture: [{ x: 0, y: p.hauteurTexture }, ...gabarit.map((q) => ({ x: q.u * L, y: p.hauteurTexture - q.v * H })), { x: L, y: p.hauteurTexture }],
     textureM: { l: p.texture.largeur / p.pxParM, h: p.hauteurTexture },
@@ -193,7 +229,7 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
       return { url: u, l: v.image.largeur, h: v.image.hauteur, silhouette: sil && versVue ? sil.map((q) => appliquer(versVue, q)) : null };
     }),
     assemblage: sr ? { url: outils.elevationEnUrl(sr.assemblage.image), largeur: sr.assemblage.image.largeur, hauteur: sr.assemblage.image.hauteur, mur: sr.assemblage.mur } : null,
-    facade: enUrl(a ? photoAutourDuMur(a.image, a.coins, L, H, cadre) : coinsRef ? photoAutourDuMur(images[ref] as Image, coinsRef, L, H, cadre) : null),
+    facade: a ? facadeSurLAssemblage(a, gabarit, L, H, p, outils.elevationEnUrl(a.image)) : null,
     vuesAssemblage: a?.vues ?? [],
     propositions: p.ouvertures, devinees: p.devinees,
     surFacade: outils.elevationEnUrl(p.texture),
@@ -256,14 +292,15 @@ function SurLaSilhouette({ url, etapes, id, libelle }: { url: string; etapes: Et
   );
 }
 
-/** La facade complete a l'echelle du mur, sans coupe (le cadre autour du mur), le contour du gabarit en surimpression. */
-function AutourDuMur({ url, etapes, libelle, children }: { url: string | null; etapes: Etapes; libelle: string; children?: React.ReactNode }) {
-  const c = etapes.cadre;
+/** La facade complete : l'assemblage de l'etape 3 entier, le contour du mur (la silhouette a l'echelle de la facade) en surimpression. */
+function SurLAssemblage({ f, libelle, ouvertures = false }: { f: NonNullable<Etapes['facade']>; libelle: string; ouvertures?: boolean }) {
+  const pts = (l: readonly P2[]) => l.map((p) => p.x + ',' + p.y).join(' ');
   return (
-    <svg className="calEtape large" viewBox={`${c.x0} ${c.y0} ${c.l} ${c.h}`} role="img" aria-label={libelle}>
-      {url && <image href={url} x={c.x0} y={c.y0} width={c.l} height={c.h} preserveAspectRatio="none" />}
-      <polygon className="calMurLigne silhouette" points={etapes.contour.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />
-      {children}
+    <svg className="calEtape large" viewBox={`0 0 ${f.largeur} ${f.hauteur}`} role="img" aria-label={libelle}>
+      <image href={f.url} x={0} y={0} width={f.largeur} height={f.hauteur} />
+      <polygon className="calMurLigne silhouette" points={pts(f.contour)} vectorEffect="non-scaling-stroke" />
+      {ouvertures && f.propositions.map((q, k) => <polygon key={'p' + k} className="calPropose" points={pts(q)} vectorEffect="non-scaling-stroke" />)}
+      {ouvertures && f.devinees.map((q, k) => <polygon key={'d' + k} className="calDevinee" points={pts(q)} vectorEffect="non-scaling-stroke" />)}
     </svg>
   );
 }
@@ -333,15 +370,12 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
       </ul>
       <h4 className="calTitre3">5. La façade complète, redressée et fusionnée</h4>
       {etapes.facade ? <figure>
-        <AutourDuMur url={etapes.facade} etapes={etapes} libelle="La façade complète : l’assemblage redressé à l’échelle du mur, sans coupe, et sa silhouette" />
-        <figcaption>L’assemblage de l’étape 3 mis à l’échelle du mur ({metres(cas.largeurM)} × {metres(cas.hauteurM)} m), avec ce qui l’entoure : la silhouette du mur y est posée, c’est l’image prise pour la suite.</figcaption>
+        <SurLAssemblage f={etapes.facade} libelle="La façade complète : l’assemblage de l’étape 3 entier, et la silhouette du mur à l’échelle de la façade" />
+        <figcaption>L’assemblage de l’étape 3, entier : c’est l’image prise pour la suite. La silhouette du mur ({metres(cas.largeurM)} × {metres(cas.hauteurM)} m à l’égout) y est remise à l’échelle de la façade, entre ses coins.</figcaption>
       </figure> : <p className="calNote">Aucune photo ne s’assemble : posez quatre repères.</p>}
       <h4 className="calTitre3">6. Ouvertures proposées par la détection</h4>
       <figure>
-        <AutourDuMur url={etapes.facade} etapes={etapes} libelle="La façade complète et les ouvertures proposées">
-          {etapes.propositions.map((o, k) => <rect key={'p' + k} className="calPropose" x={o.x} y={cas.hauteurM - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
-          {etapes.devinees.map((o, k) => <rect key={'d' + k} className="calDevinee" x={o.x} y={cas.hauteurM - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
-        </AutourDuMur>
+        {etapes.facade && <SurLAssemblage f={etapes.facade} libelle="La façade complète et les ouvertures proposées" ouvertures />}
         <figcaption>{etapes.propositions.length} ouverture{etapes.propositions.length > 1 ? 's' : ''} proposée{etapes.propositions.length > 1 ? 's' : ''} (trait plein){etapes.devinees.length ? ', ' + etapes.devinees.length + ' devinée' + (etapes.devinees.length > 1 ? 's' : '') + ' par la structure (pointillé)' : ''}.</figcaption>
       </figure>
       <h4 className="calTitre3">7. L’image posée sur la façade en 3D</h4>
@@ -491,12 +525,12 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       // Rendre la main un instant : « Calcul… » doit s'afficher avant que le redressement, long sur un telephone, occupe le fil.
       await new Promise((ok) => setTimeout(ok, 30));
       const images = await Promise.all(depart.images.map((u) => outils.decoder(u)));
-      const p: CasPrepare | null = preparerCas(depart, images);
+      const { sr, p } = preparerSurLAssemblage(depart, images);
       if (!p) { setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur ».'); setElevation(null); setEtapes(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
       setAvis(avisDuCas(p));
       setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
-      setEtapes(etapesDe(p, images, depart, outils));
+      setEtapes(etapesDe(p, images, depart, outils, sr));
       // Un cas sans annotation part de la detection ; une annotation deja faite n'est jamais ecrasee.
       if (auto) { const propositions = p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })); modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: propositions })); setChoisie(null); }
     } catch (e) { setMessage('Redressement impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }

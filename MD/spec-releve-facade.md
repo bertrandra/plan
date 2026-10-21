@@ -491,8 +491,10 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
   - La chaîne compte comme fusionnées les photos de l'assemblage ; une photo restée à part le dit (`analyserSerie`, avis).
   - L'assemblage n'écarte pas un obstacle vu sur une seule photo, comme le faisait la fusion par médiane.
 - **Les étapes, sur la façade complète, sans coupe** :
-  - 5. l'assemblage à l'échelle du mur, avec ce qui l'entoure et la silhouette posée (`etapesCalibration.ts::photoAutourDuMur`) ;
-  - 6. les ouvertures proposées sur cette même image ;
+  - 5. l'assemblage de l'étape 3, **entier et tel quel** : l'écran le fait une fois et le passe à l'analyse
+    (`preparerCas(…, assemblage)`). La silhouette y est remise à l'échelle de la façade, entre les coins du mur ramenés de la photo
+    (`EditeurCasCalibration.tsx::assemblageDeLaSerie`) ;
+  - 6. les ouvertures proposées, ramenées du mur sur cette même image par les mêmes coins ;
   - 7. la texture collée sur sa silhouette, ce que la 3D pose sur le mur ;
   - 8. la silhouette et le toit. Le modèle d'un pignon décentré garde son sommet (`ToitEstime.sommet`).
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
