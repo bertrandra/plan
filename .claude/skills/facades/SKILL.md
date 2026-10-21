@@ -221,7 +221,9 @@ scène est redressée par ses points de fuite, puis par quatre repères aux coin
 largeur du mur près.
 - Départ : égout 8/40, sol 24/40. Les arêtes prenaient le haut des tuiles et un bandeau d'étage.
 - Après l'affinage par la teinte du mur : égout 37/40, sol 37/40, bouts 78/80.
-- Restent le pignon (`11`) et le grand-angle à forte distorsion par les points de fuite (`13`).
+- Avec la silhouette du haut du mur (`silhouetteDuMur`), sur 22 scènes dont deux pignons ajoutés (`22`, `23`) : égout 44/44, sol
+  43/44, silhouette à 2 % 39/42. La colonne « Silhouette » du tableau est le plus grand écart, sur 21 colonnes, à la vraie.
+- Restent le pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13`).
 
 `tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc (relevé, audit) ne joue pas ce chemin.
 

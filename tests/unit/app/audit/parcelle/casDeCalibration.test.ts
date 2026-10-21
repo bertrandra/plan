@@ -30,4 +30,19 @@ describe('les facades d un audit a calibrer', () => {
     expect(cas.images?.[0]).toBe('data:image/jpeg;base64,AAAA');
     expect(cas.photos.every((p) => p.coins.length === 4)).toBe(true);
   });
+
+  it('reprend de l audit les reperes, le mur ajuste a la main et la silhouette, sinon ce que la chaine avait lu', () => {
+    const coins = [{ x: 10, y: 20 }, { x: 90, y: 20 }, { x: 90, y: 80 }, { x: 10, y: 80 }];
+    const sil = [{ x: 10, y: 20 }, { x: 50, y: 5 }, { x: 90, y: 20 }];
+    const f = {
+      cle: 'b1', nom: 'Maison', cote: 1, orientation: 'Est', largeurM: 6, hauteurM: 3.4, sourceHauteur: 'fichier', photos: [photo, photo],
+      corrections: { '0': { reperes: coins, coins, silhouette: sil } },
+      bilans: [{ rang: 1, statut: 'auto', verticaliteDeg: 0.1, coins: 'trouve', coinsPx: coins, silhouettePx: sil.slice(0, 2) }],
+    };
+    const cas = casDepuisFacade(f as never);
+    expect(cas.photos[0]).toMatchObject({ coins, reperes: coins, silhouette: sil, murALaMain: true });
+    // Sans correction : les coins et la silhouette que la chaine avait retenus, le jour de la mesure.
+    expect(cas.photos[1]).toMatchObject({ coins, silhouette: sil.slice(0, 2) });
+    expect(cas.photos[1]?.murALaMain).toBeUndefined();
+  });
 });

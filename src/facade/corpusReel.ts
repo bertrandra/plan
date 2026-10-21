@@ -31,6 +31,10 @@ export interface PhotoReelle {
    * cherchent ensuite sur l'assemblage (zones/releve/coinsAuto.ts). Absents : la photo se redresse par ses points de fuite.
    */
   reperes?: P2[];
+  /** La silhouette du haut du mur ajustee a la main, d'un angle a l'autre, en pixels de la photo (avec des `coins` poses a la main). */
+  silhouette?: P2[];
+  /** Les `coins` ont ete poses (ou le mur ajuste) a la main : ils l'emportent sur ceux que la chaine trouverait, et se reportent. */
+  murALaMain?: boolean;
   focalePx?: number | null;
 }
 export interface CasReel {

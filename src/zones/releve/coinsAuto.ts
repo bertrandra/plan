@@ -3,10 +3,10 @@
 // pour les photos qui doutent. Sans DOM, testable seul.
 
 import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin.js';
-import type { Image, P2 } from '../../facade/homographie.js';
+import { appliquer, type Image, type P2 } from '../../facade/homographie.js';
 import { detecterSegments } from '../../facade/segments.js';
-import { redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
+import { inverser, redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, lireSilhouette, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -58,6 +58,24 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
   const r: MurLu = aretes ? { x0: aretes.x0, x1: aretes.x1, y0: aretes.y0, y1: aretes.y1, egout: true, pied: true, cotes: true } : rectangleDuMur(m, segs, rapport);
   // Les bouts sont surs, l'egout et le sol beaucoup moins : ils s'affinent par la teinte du mur.
   return affinerEgoutEtSol(m, segs, r, rapport);
+}
+
+/**
+ * La silhouette du haut du mur sur une photo, ses coins connus : lue sur la photo redressee entiere par eux (`r`, redresserParReperes)
+ * entre les bouts et le pied (lireSilhouette), puis ramenee sur la photo. Null quand elle ne se lit pas.
+ */
+export function silhouetteSurLaVue(r: RedressementFuites, coins: readonly P2[]): P2[] | null {
+  const versVue = inverser(r.versPhoto);
+  if (!versVue || coins.length !== 4) return null;
+  const [hg, hd, bd, bg] = coins.map((c) => appliquer(versVue, c)) as [P2, P2, P2, P2];
+  const lue = lireSilhouette(r, { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 });
+  return lue ? lue.silhouette.map((p) => { const q = appliquer(r.versPhoto, p); return { x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 }; }) : null;
+}
+
+/** La silhouette du haut du mur sur une photo, ses coins connus (silhouetteSurLaVue, la photo redressee par eux). */
+export function silhouetteSurLaPhoto(image: Image, coins: readonly P2[], focalePx: number | null = null): P2[] | null {
+  const r = coins.length === 4 ? redresserParReperes(image, coins, focalePx) : null;
+  return r ? silhouetteSurLaVue(r, coins) : null;
 }
 
 /**
