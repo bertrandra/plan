@@ -436,8 +436,15 @@ a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du 
 
 **Le gabarit : la silhouette par contrainte** (décision de l'utilisateur, 21 octobre 2026). La silhouette du mur ne se lit pas sur la
 photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur.ts`).
-- **Sa forme.** Le haut du mur sous les corps du toit (`hautDuMurSousCorps`) : un pignon, une rampe, des marches. La largeur vient du
-  cadastre, l'égout du LiDAR. C'est une liste de sommets en parts du mur (`u` de 0 à 1, `v` = 1 à l'égout). Sans corps, un rectangle.
+- **Sa forme.** Le haut de **toute** la façade, vue de dehors, de gauche à droite (`gabaritMur.ts::hautDeLaFacade`).
+  - Pour chaque point du mur, on suit la profondeur depuis 1 m devant la face. Chaque corps du toit donne le haut de son mur là où
+    la vue y entre, en avancée, au nu ou en retrait ; on garde le plus haut.
+  - Un corps plus haut en retrait se voit donc au-dessus d'un plus bas devant : pignons, rampes, marches de plusieurs corps.
+  - La largeur vient du cadastre. Les hauteurs sont en mètres, ramenées à la hauteur du mur que pose la chaîne (`v` = 1 à son égout,
+    0 au sol) : un corps plus bas descend sous 1.
+  - La ligne garde ses sommets à 2 cm près. Sans corps, un rectangle.
+  - Une première version lisait le long d'un seul corps et se ramenait à l'angle le plus bas du mur : sur AE 101, le gabarit de la
+    façade ouest montait à 2,4 fois la hauteur, et celui de la façade nord ignorait le grand corps derrière l'annexe.
 - **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés (`affinerEgoutEtSol`, paramètre
   `gabarit`). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
 - **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur
@@ -472,17 +479,22 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
 - Tout part du mur trouvé. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
 - L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur chaque photo
   et sur l'image redressée et fusionnée posée sur la façade.
-- **L'assemblage est l'image prise pour la suite** (calibration ; décision de l'utilisateur, 21 octobre 2026). Ce sont les photos
+- **L'assemblage est l'image prise pour la suite** (audit, relevé et calibration ; décision de l'utilisateur, 21 octobre 2026). Ce sont les photos
   redressées entières et assemblées (étape 3), avec le mur porté des coins de la première photo (`analyseMur.ts::assemblerLeMur`).
   - Le mur et la bande au-dessus de l'égout s'y redressent à l'échelle du plan (`analyserLAssemblage`), le pignon entier ; ce que
     l'assemblage ne montre pas reste hors champ.
-  - La détection, la texture et le toit en partent (`corpusReel.ts::preparerCas`). Sans assemblage, le cas repasse par la fusion.
+  - La détection, la texture et le toit en partent. C'est `analyseMur.ts::analyserLeMur`, commun à tous, pour une photo seule ou
+    des vues du mur entier. Les repères posés à la main redressent leur photo ; une photo que ses points de fuite ne redressent pas
+    l'est par ses coins. La hauteur se mesure sur la première photo dont la focale le permet.
+  - Sans assemblage, la fusion des photos entre leurs coins ; un mur à deux hauteurs d'égout (décrochement) et des morceaux
+    d'un long mur gardent leur analyse.
+  - La chaîne compte comme fusionnées les photos de l'assemblage ; une photo restée à part le dit (`analyserSerie`, avis).
+  - L'assemblage n'écarte pas un obstacle vu sur une seule photo, comme le faisait la fusion par médiane.
 - **Les étapes, sur la façade complète, sans coupe** :
   - 5. l'assemblage à l'échelle du mur, avec ce qui l'entoure et la silhouette posée (`etapesCalibration.ts::photoAutourDuMur`) ;
   - 6. les ouvertures proposées sur cette même image ;
   - 7. la texture collée sur sa silhouette, ce que la 3D pose sur le mur ;
   - 8. la silhouette et le toit. Le modèle d'un pignon décentré garde son sommet (`ToitEstime.sommet`).
-- L'audit et le relevé gardent la fusion des photos entre leurs coins, qui écarte un obstacle vu sur une seule photo.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui

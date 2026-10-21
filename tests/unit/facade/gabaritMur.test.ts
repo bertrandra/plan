@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hauteurEn, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hautDeLaFacade, hauteurEn, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
 import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -23,6 +23,28 @@ describe('le gabarit tire des corps du LiDAR', () => {
   it('un long pan, ou rien de lu : un rectangle', () => {
     expect(gabaritDesCorps(longPan, [corps], 5)).toBe(GABARIT_RECTANGLE);
     expect(gabaritDesCorps(bout, [], 5)).toBe(GABARIT_RECTANGLE);
+  });
+  it('se lit de gauche a droite vu de dehors : un appentis qui monte vers l est monte a droite de la facade sud', () => {
+    // Un appentis de 6 x 4 : le faitage (5 m) sur le cote est, l'egout (3 m) a l'ouest.
+    const appentis: CorpsToit = { pts: [p(6, 0), p(6, 4), p(0, 4), p(0, 0)], posFaitage: 0, faitage: 5, egouts: [5, 3], pignons: [], ecart: 0 };
+    const sud = facadesDuContour(appentis.pts, 3).find((f) => f.orientation === 'Sud')!;
+    const g = gabaritDesCorps(sud, [appentis], 3);
+    expect(g[0]?.v).toBeCloseTo(1, 1);
+    expect(g[g.length - 1]?.v).toBeCloseTo(5 / 3, 1);
+  });
+  it('prend toute la facade : un corps plus haut en retrait se voit au-dessus d un plus bas devant', () => {
+    // Le deux-pans (egout 5 m) et, devant sa moitie gauche, une annexe plate a 3 m, 2 m en avant : la facade sud les longe tous deux.
+    const annexe: CorpsToit = { pts: [p(0, -2), p(5, -2), p(5, 0), p(0, 0)], posFaitage: 0, faitage: 3, egouts: [3, 3], pignons: [], ecart: 0 };
+    const sud = facadesDuContour([p(0, -2), p(5, -2), p(5, 0), p(10, 0), p(10, 6), p(0, 6)], 5).find((f) => f.orientation === 'Sud' && f.largeur > 4.9 && f.gauche.y === -2)!;
+    const haut = hautDeLaFacade(sud, [corps, annexe]);
+    // Le long pan a 5 m se voit au-dessus de l'annexe a 3 m.
+    expect(Math.min(...haut.map((q) => q.y ?? 0))).toBeCloseTo(5, 1);
+    // Sans le grand corps, l'annexe seule.
+    expect(Math.max(...hautDeLaFacade(sud, [annexe]).map((q) => q.y ?? 0))).toBeCloseTo(3, 1);
+  });
+  it('se ramene a la hauteur du mur que pose la chaine, pas a son angle le plus bas', () => {
+    const g = gabaritDuHaut([{ x: 0, y: 3 }, { x: 0.5, y: 3 }, { x: 0.5, y: 6 }, { x: 1, y: 6 }], 6);
+    expect(g.map((q) => q.v)).toEqual([0.5, 0.5, 1, 1]);
   });
   it('une rampe : l egout est le plus bas des deux angles', () => {
     const g = gabaritDuHaut([{ x: 0, y: 3 }, { x: 1, y: 4.5 }]);

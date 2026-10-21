@@ -8,7 +8,7 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
-import { analyserLAssemblage, analyserLeMur, assemblerLeMur, type AssemblageDuMur } from './analyseMur.js';
+import { analyserLeMur, type AssemblageDuMur } from './analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
 import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
@@ -141,20 +141,18 @@ export interface CasPrepare {
  */
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true): CasPrepare | null {
   const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
-  // Le gabarit du cas (sa forme ne bouge pas), un rectangle sans gabarit : il dit le toit d'un pignon.
+  // Le gabarit du cas pose sur chaque photo par ses coins (sa forme ne bouge pas), un rectangle sans gabarit : il dit le toit d'un pignon.
   const gabarit = cas.gabarit ?? GABARIT_RECTANGLE;
   const choisies = multiVues ? cas.photos : cas.photos.slice(0, 1);
-  const assemblage = assemblerLeMur(choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, reperes: p.reperes ?? null })));
-  const parLAssemblage = assemblage ? analyserLAssemblage(mur, assemblage, gabarit) : null;
-  if (parLAssemblage) {
-    const r = parLAssemblage;
-    return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: null, assemblage };
-  }
-  const photos = choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins) }));
+  const photos = choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins), reperes: p.reperes ?? null }));
   const a = analyserLeMur(mur, photos, 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null, assemblage: null };
+  return {
+    cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees,
+    fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null,
+    assemblage: a.assemblage ?? null,
+  };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {

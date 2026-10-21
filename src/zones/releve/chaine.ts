@@ -314,7 +314,7 @@ export interface ResultatChaine {
   /** La photo qui sert au releve seule, et son analyse : la premiere redressee sans echec qui s'analyse, sinon la premiere analysee ; null si aucune. */
   seule: { photo: PhotoRedressee; a: Analyse } | null;
   /** La fusion des photos redressees (complete ou partielle) ; null sinon. */
-  fusion: { a: Analyse; res: ResultatFusion; morceaux: Morceau[]; rangReference: number } | null;
+  fusion: { a: Analyse; res?: ResultatFusion; morceaux: Morceau[]; rangReference: number } | null;
 }
 
 /**
@@ -338,13 +338,14 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
   const total = entrees.length + echecs.length;
   const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
   if (o.coinsSeuls) return { redressement: bilan('sans', []), faits, seule: null, fusion: null };
-  // La silhouette du haut du mur sur chaque photo, avant l'analyse : le gabarit pose par ses coins (sa forme ne bouge pas) ; sans
-  // gabarit, celle ajustee a la main, sinon celle lue sur la photo redressee entre ses coins. Elle dit le toit quand elle a une forme
-  // (facade/analyse.ts), et le bilan la garde.
+  // Les reperes poses a la main redressent la photo entiere avant l'assemblage. La silhouette du haut du mur sur chaque photo, avant
+  // l'analyse : le gabarit pose par ses coins (sa forme ne bouge pas) ; sans gabarit, celle ajustee a la main, sinon celle lue sur la
+  // photo redressee entre ses coins. Elle dit le toit quand elle a une forme (facade/analyse.ts), et le bilan la garde.
   for (const x of faits) {
     const m = x.essai?.p.morceau;
     if (!m) continue;
     const c = corrections[String(x.bilan.rang)];
+    if (c?.reperes?.length === 4) m.reperes = c.reperes.map((p) => ({ x: p.x, y: p.y }));
     const silhouette = o.gabarit ? gabaritSurLaPhoto(o.gabarit, m.coins)
       : (c?.coins && c.silhouette) ? c.silhouette : silhouetteSurLaPhoto(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
     if (!silhouette) continue;
@@ -365,15 +366,27 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
   const utilisables = faits.filter((x) => x.bilan.statut !== 'echec' && x.essai);
   if (utilisables.length < 2) return { redressement: bilan('sans', [], total > 1 ? 'moins de deux photos redressées : pas de fusion' : undefined), faits, seule: analyserSeule(), fusion: null };
 
-  // La fusion (ORB + RANSAC) des photos redressees ; sinon chacune reste seule.
+  // L'assemblage des photos redressees entieres (facade/analyseMur.ts), sinon leur fusion (ORB + RANSAC) ; sinon chacune reste seule.
   const morceaux = utilisables.map((x) => (x.essai as NonNullable<typeof x.essai>).p.morceau);
   const a = analyserSerie(morceaux, f, f.hauteur, bat as ObjetPolygone, 'vues');
+  const rangDe = (k: number) => (utilisables[k] as PhotoRedressee).bilan.rang;
+  const asm = a?.assemblage;
+  if (a && asm) {
+    const dedans = asm.vues.map((v, k) => (v.assemblee ? k : -1)).filter((k) => k >= 0);
+    if (dedans.length >= 2) {
+      const toutes = dedans.length === asm.vues.length;
+      return {
+        redressement: bilan(toutes ? 'fusionnee' : 'partielle', dedans.map(rangDe).sort((x, y) => x - y), toutes ? undefined : motifFusion(asm.vues.map((v) => v.motif ?? ''))),
+        faits, seule: null, fusion: { a, morceaux, rangReference: rangDe(dedans[0] as number) },
+      };
+    }
+    return { redressement: bilan('independantes', [], motifFusion(asm.vues.map((v) => v.motif ?? '')) ?? 'les photos ne se recoupent pas assez'), faits, seule: analyserSeule(), fusion: null };
+  }
   const res = a?.fusion;
   if (!a || !res || (res.statut !== 'fusionnee' && res.statut !== 'partielle')) {
     const motifs = res ? res.vues.map((v) => v.motif ?? '') : ['la fusion n’a pas pu s’appliquer'];
     return { redressement: bilan('independantes', [], motifFusion(motifs) ?? 'les photos ne se recoupent pas assez'), faits, seule: analyserSeule(), fusion: null };
   }
-  const rangDe = (k: number) => (utilisables[k] as PhotoRedressee).bilan.rang;
   const fusionnees = res.groupe.map(rangDe).sort((x, y) => x - y);
   const autres = res.independantes.map((k) => res.vues[k]?.motif ?? '');
   return {

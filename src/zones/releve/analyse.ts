@@ -4,7 +4,7 @@ import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../facade/geometrie.js';
 import { type ResultatAnalyse } from '../../facade/analyse.js';
 import { type ResultatFusion } from '../../facade/fusion.js';
-import { analyserLeMur } from '../../facade/analyseMur.js';
+import { analyserLeMur, type AssemblageDuMur } from '../../facade/analyseMur.js';
 import { type MesureDistance } from '../../ui/releve/profondeur.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
 import { avecGrille } from '../../facade/verification.js';
@@ -45,10 +45,16 @@ export function avisFusion(r: Pick<ResultatFusion, 'vues' | 'masque' | 'statut'>
  * a redire : deux photos voisines qui se ressemblent mal sur leur partie commune, une hauteur loin de
  * celle du cadastre.
  */
-export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null; fusion?: ResultatFusion } | null {
+export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstimee: number, bat: ObjetPolygone, assemblage: Assemblage = 'morceaux'): { r: ResultatAnalyse; avis: string | null; fusion?: ResultatFusion; assemblage?: AssemblageDuMur } | null {
   const mur = { largeur: facade.largeur, hauteur: hauteurEstimee, contour: bat.pts, cote: facade.cote, distance: au(morceaux, 0).prise.mesure?.distance ?? null };
-  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null, silhouette: m.silhouette ?? null })), assemblage);
+  const a = analyserLeMur(mur, morceaux.map((m) => ({ photo: m.prise.photo.image, coins: m.coins, focalePx: focaleDe(m), decrochement: m.decrochement ?? null, silhouette: m.silhouette ?? null, reperes: m.reperes ?? null })), assemblage);
   if (!a) return null;
+  // L'assemblage des photos redressees entieres : une photo restee a part se dit.
+  if (a.assemblage) {
+    const k = a.assemblage.vues.findIndex((v) => !v.assemblee);
+    const avis = k >= 0 && morceaux.length > 1 ? `La vue ${k + 1} reste hors de l’assemblage : ${a.assemblage.vues[k]?.motif ?? 'elle ne se recale sur aucune autre'}. Vérifiez ses coins, ou prenez-en une autre en gardant un tiers de mur en commun.` : null;
+    return { r: a.r, avis: avis ?? avisHauteur(a.r, hauteurEstimee), assemblage: a.assemblage };
+  }
   // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et montre l'autre a Claude (lot G20).
   if (a.fusion) return { r: a.r, avis: avisFusion(a.fusion) ?? avisHauteur(a.r, hauteurEstimee), fusion: a.fusion };
   if (!a.mosaique) return { r: a.r, avis: avisHauteur(a.r, hauteurEstimee) };

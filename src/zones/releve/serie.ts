@@ -63,6 +63,8 @@ export interface Morceau {
   fin?: ResultatCoins | null;
   /** La silhouette du haut du mur sur la photo (ajustee a la main, ou lue entre ses coins) : elle dit le toit quand elle a une forme. */
   silhouette?: P2[] | null;
+  /** Quatre reperes poses a la main (audit) : ils redressent la photo entiere avant l'assemblage. */
+  reperes?: P2[] | null;
 }
 
 /** Le calage fin d'une photo, sans ce qui ne sert qu'aux images de controle. */
