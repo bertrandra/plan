@@ -8,6 +8,7 @@ import { detecterSegments } from '../../facade/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../../facade/redressementFuites.js';
 import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
 import type { GabaritMur } from '../../facade/gabaritMur.js';
+import type { Similitude } from '../../facade/ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -33,8 +34,11 @@ export interface CoinsDeSerie {
   lu: boolean;
   /** Par photo : la photo entiere redressee (par ses reperes, sinon ses points de fuite), sans coupe ; null si elle ne se redresse pas. */
   vues: (RedressementFuites | null)[];
-  /** L'assemblage des vues, et le mur qui y a ete cherche (en pixels de l'assemblage) : ce que l'ecran de calibration montre. */
-  assemblage: { image: Image; mur: MurLu };
+  /**
+   * L'assemblage des vues, ce qu'il montre (`vu`), la place de chaque vue dedans (null : restee a part), et le mur qui y a ete cherche
+   * (en pixels de l'assemblage) : ce que l'ecran de calibration montre, et l'image prise pour la suite.
+   */
+  assemblage: { image: Image; vu: Uint8Array; places: (Similitude | null)[]; mur: MurLu };
 }
 
 export { vuesDeFace } from '../../facade/mosaiqueFuites.js';
@@ -75,7 +79,9 @@ export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hau
     ...m.groupes.aPart.map((a) => ({ vue: rangs[a.vue] as number, motif: a.motif })),
   ];
   const hauteurM = r.x1 > r.x0 ? Math.round(((largeurM * (r.y1 - r.y0)) / (r.x1 - r.x0)) * 10) / 10 : null;
-  return { coins, hauteurM, aPart, lu: r.egout && r.pied, vues, assemblage: { image: m.image, mur: r } };
+  const places: (Similitude | null)[] = images.map(() => null);
+  rangs.forEach((i, k) => { places[i] = m.places[k] ?? null; });
+  return { coins, hauteurM, aPart, lu: r.egout && r.pied, vues, assemblage: { image: m.image, vu: m.vu, places, mur: r } };
 }
 
 /**
