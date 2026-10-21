@@ -214,6 +214,17 @@ cinquième de la largeur sous l'égout), puis ses coins sont reportés dans chaq
 gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/facade/redressementFuites.test.ts` le garde sur les
 scènes `08` et `16`. Le banc (relevé, audit) n'utilise pas ce chemin et ne bouge pas.
 
+**L'égout et le sol sur l'assemblage** (`zones/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
+octobre 2026) : après le redressement par les repères ou les points de fuite (audit, calibration), le mur se cherche sur l'assemblage.
+`npx tsx .claude/skills/facades/scripts/egout-sol.ts [mots] [--images dossier]` le mesure sur les scènes à prise par caméra. Chaque
+scène est redressée par ses points de fuite, puis par quatre repères aux coins de sa première ouverture. Un bord est juste à 2 % de la
+largeur du mur près.
+- Départ : égout 8/40, sol 24/40. Les arêtes prenaient le haut des tuiles et un bandeau d'étage.
+- Après l'affinage par la teinte du mur : égout 37/40, sol 37/40, bouts 78/80.
+- Restent le pignon (`11`) et le grand-angle à forte distorsion par les points de fuite (`13`).
+
+`tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc (relevé, audit) ne joue pas ce chemin.
+
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
 annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
 Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies

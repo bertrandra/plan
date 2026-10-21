@@ -6,7 +6,7 @@ import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin
 import type { Image, P2 } from '../../facade/homographie.js';
 import { detecterSegments } from '../../facade/segments.js';
 import { redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
-import { coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type Rect } from '../../facade/mosaiqueFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -33,7 +33,7 @@ export interface CoinsDeSerie {
   /** Par photo : la photo entiere redressee (par ses reperes, sinon ses points de fuite), sans coupe ; null si elle ne se redresse pas. */
   vues: (RedressementFuites | null)[];
   /** L'assemblage des vues, et le mur qui y a ete cherche (en pixels de l'assemblage) : ce que l'ecran de calibration montre. */
-  assemblage: { image: Image; mur: Rect & { egout: boolean; pied: boolean; cotes: boolean } };
+  assemblage: { image: Image; mur: MurLu };
 }
 
 /**
@@ -45,6 +45,19 @@ export function vuesDeFace(images: readonly Image[], reperes: readonly (readonly
     const r = reperes[i];
     return (r && r.length === 4 ? redresserParReperes(img, r) : null) ?? redresserParFuites(img, detecterSegments(img));
   });
+}
+
+/**
+ * Le mur sur l'assemblage des vues redressees : l'egout, le sol et ses deux bouts. Le plan donne la largeur (cadastre) et la hauteur
+ * (LiDAR) : le mur est le rectangle a ces proportions (`rapport` = hauteur / largeur) que les aretes de l'assemblage dessinent le
+ * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue.
+ */
+export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null): MurLu {
+  const segs = detecterSegments(m.image);
+  const aretes = rapport ? rectangleSurLesAretes(m, segs, rapport) : null;
+  const r: MurLu = aretes ? { x0: aretes.x0, x1: aretes.x1, y0: aretes.y0, y1: aretes.y1, egout: true, pied: true, cotes: true } : rectangleDuMur(m, segs, rapport);
+  // Les bouts sont surs, l'egout et le sol beaucoup moins : ils s'affinent par la teinte du mur.
+  return affinerEgoutEtSol(m, segs, r, rapport);
 }
 
 /**
@@ -61,12 +74,7 @@ export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hau
   if (!rangs.length) return null;
   const m = mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites));
   if (!m) return null;
-  // Le plan donne la largeur (cadastre) et la hauteur (LiDAR) : le mur est le rectangle a ces proportions que les aretes de la
-  // mosaique dessinent le mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue.
-  const segs = detecterSegments(m.image);
-  const rapport = hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null;
-  const aretes = rapport ? rectangleSurLesAretes(m, segs, rapport) : null;
-  const r = aretes ? { ...aretes, egout: true, pied: true, cotes: true } : rectangleDuMur(m, segs, rapport);
+  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
   const coins: (P2[] | null)[] = images.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });

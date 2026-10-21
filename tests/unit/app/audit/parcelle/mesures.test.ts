@@ -144,4 +144,27 @@ describe('quatre reperes poses au doigt sur une photo', () => {
     expect(m.redressees?.length).toBe(2);
     expect(Math.min(...tailles.slice(-2))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
   }, 90000);
+
+  it('avec le mur ajuste a la main sur la photo redressee, il l emporte et se reporte sur l autre photo', async () => {
+    const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
+    const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
+    const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
+    if (!s) throw new Error('scene absente');
+    const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];
+    const images = prises.map((p) => photographier(s, 100, p)?.image);
+    const vrais = coinsVrais(s, prises[0]);
+    if (images.some((i) => !i) || !vrais) throw new Error('prise impossible');
+    const { largeur: L, hauteur: H } = s.verite;
+    const pts = rect(0, 0, L, 8);
+    const f = { ...(facadesDuContour(pts, H).find((x) => x.orientation === 'Sud') as Facade), hauteur: H };
+    const photos: PhotoCas[] = ['A', 'B'].map((b) => ({ type: 'image/jpeg', base64: b }));
+    // Les reperes : le mur lui-meme ; le mur ajuste : ses vrais coins.
+    const coins = vrais.map((c) => ({ x: c.x, y: c.y }));
+    const m = await mesurerFacade('maison', f, { pts }, photos, {
+      pixels: async (b) => { const img = images[b === 'A' ? 0 : 1]; return img ? { data: img.donnees, largeur: img.largeur, hauteur: img.hauteur } : null; },
+      chercherCoins: async (e) => rechercher(e), jpeg: () => 'data:image/jpeg;base64,X', limites: () => [],
+    }, { '0': { reperes: coins, coins } });
+    expect(m.redressement?.photos.map((p) => p.coins)).toEqual(['main', 'trouve']);
+    expect(m.redressement?.photos.find((p) => p.rang === 0)?.coinsPx?.[0]?.x).toBeCloseTo((vrais[0] as P2).x, 0);
+  }, 90000);
 });

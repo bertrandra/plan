@@ -1,11 +1,14 @@
 // Z8, l'audit de la parcelle : placer a la main quatre reperes sur une photo quand le redressement automatique a echoue (ou pour
 // le reprendre), et corriger l'echelle par la largeur reelle du mur. Les reperes sont n'importe quel rectangle du mur (une fenetre,
 // une porte, le mur) : ils ne disent que les verticales et les horizontales. La photo se redresse entiere, sans coupe ; l'egout et
-// le sol se cherchent ensuite, sur l'assemblage des photos (zones/releve/chaine.ts). Rien n'est ecrit avant « Appliquer » ; la
+// le sol se cherchent ensuite, sur l'assemblage des photos (zones/releve/chaine.ts) ; « Ajuster l'égout et le sol » les reprend a la
+// main sur la photo redressee entiere (zones/releve/AjusterMur.tsx). Rien n'est ecrit avant « Appliquer » ; la
 // correction va dans la capture (elle prime sur le calcul et survit au rejeu), puis la facade est rejouee.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Coins } from '../releve/Coins.js';
+import { AjusterMur } from '../releve/AjusterMur.js';
+import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import type { P2 } from '../../facade/homographie.js';
 import type { Photo } from '../../ui/releve/camera.js';
 import type { CorrectionRedressement } from '../../model/auditParcelle.js';
@@ -17,6 +20,8 @@ interface Props {
   nom: string;
   /** Les reperes de depart : ceux deja poses, sinon les coins du mur que le calcul a retenus (un rectangle du mur, eux aussi). */
   depart: readonly P2[] | undefined;
+  /** Les coins du mur sur la photo, trouves par la chaine ou deja ajustes a la main : le depart de « Ajuster l'égout et le sol ». */
+  mur: readonly P2[] | undefined;
   /** La largeur du mur lue sur le plan, en metres. */
   largeurPlanM: number | null;
   echelleDepart: number | undefined;
@@ -25,16 +30,20 @@ interface Props {
   fermer: () => void;
 }
 
-/** Quatre reperes par defaut, dans les trois quarts centraux de la photo. */
 const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
 
+/** Quatre reperes par defaut, dans les trois quarts centraux de la photo. */
 const parDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
-export function CoinsPhotoAudit({ photo, rang, nom, depart, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: Props) {
+export function CoinsPhotoAudit({ photo, rang, nom, depart, mur, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: Props) {
   const url = 'data:image/jpeg;base64,' + photo.base64;
   const [dims, setDims] = useState<{ l: number; h: number } | null>(null);
   const [coins, setCoins] = useState<P2[] | null>(null);
   const [largeur, setLargeur] = useState(echelleDepart ? String(echelleDepart).replace('.', ',') : '');
+  // Le mur repris a la main sur la photo redressee : null tant que la personne n'y a pas touche (la chaine le cherche seule).
+  const [ajuster, setAjuster] = useState(false);
+  const [murAjuste, setMurAjuste] = useState<P2[] | null>(null);
+  const charger = useCallback(async () => { const p = await pixelsDePhoto(photo.base64); return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: Uint8ClampedArray.from(p.data) } : null; }, [photo.base64]);
   useEffect(() => {
     const img = new window.Image();
     img.onload = () => {
@@ -51,6 +60,11 @@ export function CoinsPhotoAudit({ photo, rang, nom, depart, largeurPlanM, echell
     <div className="coinsPhotoAudit" role="group" aria-label={'Placer quatre repères : ' + nom + ', photo ' + (rang + 1)}>
       <div className="detailPhoto">Placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite.</div>
       {lue && coins ? <Coins photo={lue} coins={coins} setCoins={(c) => setCoins(c)} sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" /> : <div className="detailPhoto">Chargement de la photo…</div>}
+      {coins && <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="auditParcelle.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>}
+      {coins && ajuster && <>
+        <div className="detailPhoto">Sur la photo redressée, tirez l’égout, le sol et les deux bouts du mur s’ils sont mal placés.</div>
+        <AjusterMur charger={charger} reperes={coins} mur={murAjuste ?? mur ?? null} changer={setMurAjuste} />
+      </>}
       <label className="detailPhoto">
         {'Largeur réelle du mur (m), pour l’échelle' + (largeurPlanM ? ' — le plan donne ' + String(Math.round(largeurPlanM * 100) / 100).replace('.', ',') : '') + ' : '}
         <input type="text" inputMode="decimal" value={largeur} aria-invalid={faux} onChange={(e) => setLargeur(e.target.value)} data-controle="auditParcelle.echelleMur" />
@@ -60,7 +74,7 @@ export function CoinsPhotoAudit({ photo, rang, nom, depart, largeurPlanM, echell
         <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
         <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
-          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(echelle ? { echelleLargeurM: echelle } : {}) }); fermer(); } }}>Appliquer</button>
+          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(murAjuste ? { coins: murAjuste } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }); fermer(); } }}>Appliquer</button>
       </div>
     </div>
   );

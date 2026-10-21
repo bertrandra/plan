@@ -27,7 +27,7 @@ import type { Prise } from './capteurs.js';
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
  * les images d'origine, et ce qui a change.
  */
-export const VERSION_CHAINE_FACADES = 2;
+export const VERSION_CHAINE_FACADES = 3;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 export const SEUIL_VERTICALES_DEG = 0.5;
@@ -257,25 +257,32 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
     if (r?.essai && r.bilan.statut !== 'echec') faits[faits.indexOf(x)] = r;
   };
   try {
+    const reperes = entrees.map((e) => corrections[String(e.rang)]?.reperes ?? null);
+    const aReperes = (x: PhotoRedressee) => reperes[k(x.bilan.rang)]?.length === 4 && !corrections[String(x.bilan.rang)]?.coins;
+    // Un mur pose (ou ajuste) au doigt sur une photo : il l'emporte sur tout ce qui est lu, et se reporte sur les photos aux coins
+    // predits comme sur celles qui n'ont que des reperes.
+    const source = faits.find((x) => x.essai && x.bilan.coins === 'main');
+    const k0 = source ? k(source.bilan.rang) : -1;
+    if (source?.essai && k0 >= 0) {
+      const portes = reporterCoins(images, k0, source.essai.p.morceau.coins);
+      for (const x of [...faits]) {
+        if (x === source) continue;
+        if (aReperes(x)) await remplacer(x, portes[k(x.bilan.rang)], true, true);
+        else if (aReporter().includes(x)) await remplacer(x, portes[k(x.bilan.rang)], true);
+      }
+      return;
+    }
     // Des reperes poses a la main : chaque photo se redresse d'abord, entiere (par ses reperes, sinon ses points de fuite), les vues
     // s'assemblent, et l'egout, le sol et les bouts du mur se cherchent ensuite sur l'assemblage, aux proportions du plan (largeur de
     // la parcelle, hauteur du LiDAR ou du dessin). Le mur lu l'emporte sur les photos aux reperes, et remplace les coins predits.
-    const reperes = entrees.map((e) => corrections[String(e.rang)]?.reperes ?? null);
     if (reperes.some((r) => r?.length === 4)) {
       const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes);
       if (!sr) return;
       for (const x of [...faits]) {
         const i = k(x.bilan.rang);
-        if (reperes[i]?.length === 4) await remplacer(x, sr.coins[i], sr.lu, true);
+        if (aReperes(x)) await remplacer(x, sr.coins[i], sr.lu, true);
         else if (aReporter().includes(x)) await remplacer(x, sr.coins[i], sr.lu);
       }
-      return;
-    }
-    const source = faits.find((x) => x.essai && x.bilan.coins === 'main');
-    const k0 = source ? k(source.bilan.rang) : -1;
-    if (source?.essai && k0 >= 0) {
-      const portes = reporterCoins(images, k0, source.essai.p.morceau.coins);
-      for (const x of aReporter()) await remplacer(x, portes[k(x.bilan.rang)], true);
       return;
     }
     if (!o.lireSurLAssemblage) return;

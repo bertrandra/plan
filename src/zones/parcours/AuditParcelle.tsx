@@ -106,6 +106,7 @@ function Redressement({ session, cle, cote, nom }: { session: SessionAuditParcel
         : <div className="detailPhoto">Pas encore redressée : lancez l’analyse.</div>}
       {photo && coinsRang !== null && <CoinsPhotoAudit photo={photo} rang={coinsRang} nom={nom} largeurPlanM={null}
         depart={saisie?.corrections?.[String(coinsRang)]?.reperes ?? saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
+        mur={saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
         echelleDepart={saisie?.corrections?.[String(coinsRang)]?.echelleLargeurM}
         appliquer={(c) => corriger(coinsRang, c)} retablir={() => corriger(coinsRang, null)} fermer={() => setCoinsRang(null)} />}
       <button type="button" className="secondary small" data-controle="auditParcelle.rejouerRedressement" disabled={enCours} aria-label={LIBELLE_REJOUER + ' : ' + nom} onClick={rejouer}>{enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>

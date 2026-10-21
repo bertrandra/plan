@@ -399,16 +399,43 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`).
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l'affinage de l'égout et du sol.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 
-**Ce qui reste.**
-- La lecture automatique de l'égout et du sol sur l'assemblage n'est pas encore sûre. Sur les scènes `02`, `16` et `18`, l'un des
-  deux bords se trompe de 80 à 200 px sur un mur de 900 px (une horizontale voisine l'emporte) ; les bouts du mur sont justes à
-  quelques pixels.
-- La reprise à la main de ces deux lignes sur l'image redressée est l'étape suivante. Le relevé et la calibration gardent pour
-  l'instant leurs quatre coins du mur.
+**L'égout et le sol sur l'assemblage.** Les arêtes trouvent les bouts du mur, mais elles prenaient le haut d'une bande de tuiles
+pour l'égout (la limite du toit et du ciel est la plus franche des horizontales). Elles prenaient aussi un bandeau d'étage pour le sol
+quand une haie ou une voiture cache le pied. Les deux bords s'affinent donc par la matière du mur
+(`facade/mosaiqueFuites.ts::affinerEgoutEtSol`) :
+- La teinte du mur se lit le long de ses bouts, qui sont sûrs. Son milieu peut être pris par des fenêtres à volets.
+- L'écart de teinte admis suit le grain du parement (brique, meulière). Une ombre de même teinte reste du mur.
+- L'égout est la transition « pas du mur » → « mur » la plus haute près du bord des arêtes. Sans transition franche (un pignon), le
+  bord des arêtes reste.
+- Le sol est la transition « mur » → « pas du mur » à ±12 % de la hauteur du plan. Sans elle, il tombe à cette hauteur, et se dit
+  supposé.
+- Un bord trouvé se colle à l'arête horizontale la plus proche.
+
+Mesure : `npx tsx .claude/skills/facades/scripts/egout-sol.ts` sur les 20 scènes à prise par caméra, par points de fuite puis par
+repères. Un bord est juste à 2 % de la largeur du mur près.
+
+| | Avant | Après |
+|---|--:|--:|
+| Égout juste | 8/40 | **37/40** |
+| Sol juste | 24/40 | **37/40** |
+| Bouts justes | 78/80 | 78/80 |
+
+Ce qui reste : l'égout d'un pignon (scène 11), qui se fond dans le triangle de même teinte, et le grand-angle à forte distorsion
+redressé par ses seuls points de fuite (scène 13), dont l'assemblage n'est pas corrigé. Avec des repères, 13 est juste à 2 %.
+
+**La reprise à la main.** « Ajuster l'égout et le sol » (audit : écran des repères ; calibration : photo courante) montre la photo
+redressée entière avec quatre lignes à tirer : l'égout, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
+- Les lignes partent du mur trouvé. Elles se tirent au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
+- Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
+  à côté des `reperes`).
+- La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui
+  n'ont que des repères.
+
+Le relevé garde pour l'instant ses quatre coins du mur.
 
 ### 6.2 Un mur à deux hauteurs d'égout (en L)
 

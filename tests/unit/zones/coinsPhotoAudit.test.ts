@@ -24,7 +24,7 @@ afterEach(() => { act(() => racine.unmount()); hote.remove(); (window as unknown
 const bouton = (c: string) => hote.querySelector(`[data-controle="${c}"]`) as HTMLButtonElement;
 async function monter(depart?: { x: number; y: number }[]) {
   const appliquer = vi.fn<(c: CorrectionRedressement) => void>(), retablir = vi.fn(), fermer = vi.fn();
-  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, nom: 'Façade sud', depart, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer };
+  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, nom: 'Façade sud', depart, mur: undefined, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer };
   await act(async () => { racine.render(createElement(CoinsPhotoAudit, props)); await Promise.resolve(); });
   return { appliquer, retablir, fermer };
 }

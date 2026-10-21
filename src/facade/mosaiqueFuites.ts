@@ -356,3 +356,133 @@ export function porterCoins(vues: readonly RedressementFuites[], places: readonl
     return dansVue.map((c) => appliquer(H, c));
   });
 }
+
+/** Une rangee est du mur quand sa chromaticite mediane est a moins de cela de celle du mur (r et g sur r + g + b). */
+const ECART_CHROMA_MUR = 0.018;
+/**
+ * Et sa luminosite entre ces fois celle du mur : l'ombre d'un debord ou d'un arbre assombrit le mur sans en changer la teinte. Une
+ * ardoise grise sous un enduit clair a presque sa teinte : l'ecart de chromaticite, serre, l'en separe.
+ */
+const LUMIERE_MUR: readonly [number, number] = [0.3, 1.7];
+/** La bande lue de part et d'autre d'un bord candidat, en part de la largeur du mur. */
+const BANDE_BORD = 0.025;
+/** Un bord est une transition : au moins cette part de rangees de mur d'un cote, au plus la part complementaire de l'autre. */
+const PART_TRANSITION = 0.7;
+/** Une arete horizontale a moins de cette part de la largeur du mur attire le bord trouve par la teinte. */
+const AIMANT_ARETE = 0.012;
+/** L'egout se cherche de cette part de la largeur au-dessus du bord des aretes a cette part de la hauteur au-dessous. */
+const EGOUT_AU_DESSUS = 0.1;
+const EGOUT_AU_DESSOUS = 0.3;
+/**
+ * Le sol se cherche entre ces parts de la hauteur attendue (le plan) sous l'egout : le LiDAR donne l'egout a quelques centimetres,
+ * et le haut d'une voiture ou d'une haie, qui coupe aussi le mur, tombe bien plus haut.
+ */
+const SOL_ENTRE: readonly [number, number] = [0.88, 1.12];
+
+interface Rangee { cr: number; cg: number; l: number; n: number }
+
+/**
+ * La chromaticite et la luminosite medianes du mur : deux bandes le long de ses bouts (de 1 a 6 % de sa largeur, a l'interieur), sur le
+ * bas de sa hauteur. Les bouts sont surs, et un mur n'a presque jamais de baie contre ses angles ; son milieu, lui, peut etre pris
+ * presque entier par des fenetres a volets, et son haut par une bande de toit quand l'egout des aretes est trop haut.
+ */
+function teinteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect): { cr: number; cg: number; l: number; grain: number } | null {
+  const { largeur: L, hauteur: H, donnees: d } = m.image;
+  const w = r.x1 - r.x0, h = r.y1 - r.y0;
+  const ya = Math.max(0, Math.round(r.y0 + 0.3 * h)), yb = Math.min(H - 1, Math.round(r.y1 - 0.1 * h));
+  const med = (t: number[]) => { t.sort((u, v) => u - v); return t[t.length >> 1] as number; };
+  const cr: number[] = [], cg: number[] = [], l: number[] = [];
+  const parRangee: { cr: number; cg: number }[] = [];
+  for (let y = ya; y <= yb; y++) {
+    const rcr: number[] = [], rcg: number[] = [];
+    for (const [a, b] of [[r.x0 + 0.01 * w, r.x0 + 0.06 * w], [r.x1 - 0.06 * w, r.x1 - 0.01 * w]] as const) {
+      for (let x = Math.max(0, Math.round(a)); x <= Math.min(L - 1, Math.round(b)); x++) {
+        const i = y * L + x;
+        if (!m.vu[i]) continue;
+        const R = d[i * 4] ?? 0, G = d[i * 4 + 1] ?? 0, B = d[i * 4 + 2] ?? 0, s = R + G + B + 1;
+        cr.push(R / s); cg.push(G / s); l.push(s); rcr.push(R / s); rcg.push(G / s);
+      }
+    }
+    if (rcr.length >= 3) parRangee.push({ cr: med(rcr), cg: med(rcg) });
+  }
+  if (cr.length < 50 || parRangee.length < 3) return null;
+  const mur = { cr: med(cr), cg: med(cg), l: med(l) };
+  // Le grain : l'ecart median d'une rangee a la teinte du mur (une brique et ses joints, une meuliere).
+  return { ...mur, grain: med(parRangee.map((x) => Math.hypot(x.cr - mur.cr, x.cg - mur.cg))) };
+}
+
+/** La couleur mediane de chaque rangee de l'assemblage entre x0 et x1 (pixels vus seulement) : chromaticite et luminosite. */
+function rangees(m: { image: Image; vu: Uint8Array }, x0: number, x1: number): Rangee[] {
+  const { largeur: L, hauteur: H, donnees: d } = m.image;
+  const a = Math.max(0, Math.round(x0)), b = Math.min(L - 1, Math.round(x1));
+  const pas = Math.max(1, Math.floor((b - a) / 160));
+  const med = (t: number[]) => { t.sort((u, v) => u - v); return t.length ? (t[t.length >> 1] as number) : 0; };
+  const out: Rangee[] = [];
+  for (let y = 0; y < H; y++) {
+    const cr: number[] = [], cg: number[] = [], l: number[] = [];
+    for (let x = a; x <= b; x += pas) {
+      const i = y * L + x;
+      if (!m.vu[i]) continue;
+      const R = d[i * 4] ?? 0, G = d[i * 4 + 1] ?? 0, B = d[i * 4 + 2] ?? 0, s = R + G + B + 1;
+      cr.push(R / s); cg.push(G / s); l.push(s);
+    }
+    out.push({ cr: med(cr), cg: med(cg), l: med(l), n: cr.length });
+  }
+  return out;
+}
+
+/**
+ * L'egout et le sol affines par la matiere du mur, ses bouts une fois trouves : les aretes seules prenaient le haut d'une bande de
+ * tuiles pour l'egout (la limite du toit et du ciel est la plus franche des horizontales), et un bandeau d'etage pour le sol quand
+ * une haie ou une voiture cache le pied. Le mur a sa teinte, que l'on lit au milieu du rectangle trouve : l'egout est la premiere
+ * rangee de mur sous le toit, le sol la derniere au-dessus de ce qui n'est plus le mur (le gazon, le trottoir), cherche pres de la
+ * hauteur que donne le plan (`rapport`) ; un bord trouve se colle a l'arete horizontale la plus proche. Un sol cache (haie sur toute
+ * la largeur) tombe a la hauteur du plan, et se dit suppose.
+ */
+export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null): MurLu {
+  const w = r.x1 - r.x0, H = m.image.hauteur;
+  if (!(w > 0)) return r;
+  const marge = 0.05 * w;
+  const lignes = rangees(m, r.x0 + marge, r.x1 - marge);
+  const h0 = r.y1 - r.y0;
+  // La teinte du mur, lue le long de ses bouts (teinteDuMur).
+  const mur = teinteDuMur(m, r);
+  if (!mur) return r;
+  // Un parement a du grain (une brique, une meuliere) : d'une rangee a l'autre, sa teinte mediane varie. L'ecart admis suit ce grain,
+  // lu sur les bandes des bouts (deux fois l'ecart median de leurs rangees), sans descendre sous celui d'un enduit.
+  const ecartDe = (x: Rangee) => Math.hypot(x.cr - mur.cr, x.cg - mur.cg);
+  const ecartAdmis = Math.max(ECART_CHROMA_MUR, 2 * mur.grain);
+  const estMur = lignes.map((x) => x.n >= 5 && ecartDe(x) < ecartAdmis && x.l >= LUMIERE_MUR[0] * mur.l && x.l <= LUMIERE_MUR[1] * mur.l);
+  // La part de rangees de mur dans [a, b] : une bande, pour qu'un joint de brique ou un appui ne coupe pas le mur.
+  const cumul = [0];
+  estMur.forEach((v, y) => { cumul.push((cumul[y] as number) + (v ? 1 : 0)); });
+  const part = (a: number, b: number) => { const A = Math.max(0, Math.round(a)), B = Math.min(H - 1, Math.round(b)); return B >= A ? ((cumul[B + 1] as number) - (cumul[A] as number)) / (B - A + 1) : 0; };
+  const k = Math.max(3, Math.round(BANDE_BORD * w));
+  const debutMur = (y: number) => part(y - k, y - 1) <= 1 - PART_TRANSITION && part(y, y + k - 1) >= PART_TRANSITION;
+  const finMur = (y: number) => part(y - k + 1, y) >= PART_TRANSITION && part(y + 1, y + k) <= 1 - PART_TRANSITION;
+  const horizontales = segments.filter((g) => Math.atan2(Math.abs(g.y2 - g.y1), Math.abs(g.x2 - g.x1)) < (HORIZONTALE_MAX_DEG * Math.PI) / 180 && g.longueur >= 0.2 * w);
+  const aimanter = (y: number) => horizontales.map((g) => (g.y1 + g.y2) / 2).filter((p) => Math.abs(p - y) <= AIMANT_ARETE * w).sort((a, b) => Math.abs(a - y) - Math.abs(b - y))[0] ?? y;
+  // Une transition tient sur quelques rangees : on garde le milieu de chaque suite.
+  const milieux = (ys: number[]) => {
+    const out: number[] = [];
+    for (let i = 0; i < ys.length;) { let j = i; while (j + 1 < ys.length && (ys[j + 1] as number) === (ys[j] as number) + 1) j++; out.push(((ys[i] as number) + (ys[j] as number)) / 2); i = j + 1; }
+    return out;
+  };
+  const out: MurLu = { ...r };
+  // L'egout : la plus haute transition « pas du mur » -> « mur » pres du bord des aretes ; sans transition franche (un pignon, ou le
+  // mur monte jusqu'au toit sans changer de teinte), le bord des aretes reste.
+  const debuts: number[] = [];
+  for (let y = Math.max(k, Math.round(r.y0 - EGOUT_AU_DESSUS * w)); y <= Math.min(H - k, r.y0 + EGOUT_AU_DESSOUS * h0); y++) if (debutMur(y)) debuts.push(y);
+  const egout = milieux(debuts)[0];
+  if (egout !== undefined) { out.y0 = aimanter(egout); out.egout = true; }
+  // Le sol : la transition « mur » -> « pas du mur » la plus proche de la hauteur du plan sous l'egout. Sans elle (une haie cache le
+  // pied sur toute la largeur), la hauteur du plan, dite supposee : un bandeau d'etage dessine une arete plus nette que le pied cache.
+  const attendu = rapport && rapport > 0 ? rapport * w : h0;
+  const cible = out.y0 + attendu;
+  const fins: number[] = [];
+  for (let y = Math.round(out.y0 + SOL_ENTRE[0] * attendu); y <= Math.min(H - 1 - k, out.y0 + SOL_ENTRE[1] * attendu); y++) if (finMur(y)) fins.push(y + 0.5);
+  const sol = milieux(fins).sort((a, b) => Math.abs(a - cible) - Math.abs(b - cible))[0];
+  if (sol !== undefined) { out.y1 = aimanter(sol); out.pied = true; }
+  else if (rapport && rapport > 0) { out.y1 = Math.min(H - 1, cible); out.pied = false; }
+  return out;
+}
