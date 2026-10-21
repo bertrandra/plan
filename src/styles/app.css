@@ -2684,9 +2684,11 @@
   .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
   .calCalage.prise{ cursor:move; touch-action:none; }
   .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
+  .calVue3d{ display:block; width:100%; height:auto; aspect-ratio:1 / 0.62; }
   .ajusterMurEtiquette{ fill:var(--accent); font-family:var(--sans); paint-order:stroke; stroke:var(--panel-bg); stroke-width:3px; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
-  .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
+  /* Une ouverture devinee par la structure : en pointille franc, d'une autre teinte que les trouvees (le mot le dit aussi). */
+  .calDevinee{ fill:transparent; stroke:var(--alerte); stroke-width:2.5; stroke-dasharray:9 6; }
   .calEgout{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3; }
   .calSilhouette{ fill:none; stroke:var(--accent); stroke-width:3; }
   .calModele{ fill:none; stroke:var(--danger); stroke-width:2; stroke-dasharray:6 4; }

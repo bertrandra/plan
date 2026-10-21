@@ -490,17 +490,22 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
     d'un long mur gardent leur analyse.
   - La chaîne compte comme fusionnées les photos de l'assemblage ; une photo restée à part le dit (`analyserSerie`, avis).
   - L'assemblage n'écarte pas un obstacle vu sur une seule photo, comme le faisait la fusion par médiane.
-- **Les étapes, sur la façade complète, sans coupe** :
-  - 5. l'assemblage de l'étape 3, **entier et tel quel** : l'écran le fait une fois et le passe à l'analyse
+- **Les étapes de la calibration** (révisées le 21 octobre 2026 avec l'utilisateur) :
+  - 1. les repères sur chaque photo, ou les points de fuite ;
+  - 2. chaque photo redressée entière, sans coupe ni échelle ;
+  - 3. l'assemblage, l'égout et le sol cherchés, la silhouette posée ;
+  - 4. **la façade complète** : l'assemblage de l'étape 3, entier et tel quel. L'écran le fait une fois et le passe à l'analyse
     (`preparerCas(…, assemblage)`). La silhouette y est remise à l'échelle de la façade, entre les coins du mur ramenés de la photo
     (`EditeurCasCalibration.tsx::assemblageDeLaSerie`) ;
-  - 6. les ouvertures proposées, ramenées du mur sur cette même image par les mêmes coins ;
-  - 7. la texture collée sur sa silhouette, ce que la 3D pose sur le mur ;
-  - 8. la silhouette et le toit. Le modèle d'un pignon décentré garde son sommet (`ToitEstime.sommet`).
-  - 9. **caler la silhouette sur la photo** (`zones/CalageSilhouette.tsx`) : sur l'assemblage entier, la silhouette se déplace et
-    se redimensionne par ses bouts et son sol, **proportions verrouillées** (sa hauteur suit sa largeur, au rapport du plan) ;
-  - 10. **ajuster la hauteur de la photo** : une poignée en haut de l'image l'étire en hauteur autour du sol, en direct (de 50 à
-    200 %), la silhouette ne bouge pas. Une focale mal connue écrase ou allonge la vue de face.
+  - 5. **caler la silhouette** (`zones/CalageSilhouette.tsx`) : sur la façade fusionnée entière, sans rognage. La silhouette se
+    déplace et se redimensionne par ses bouts et son sol, **proportions verrouillées** (sa hauteur suit sa largeur) ;
+  - 6. **ajuster la hauteur de la photo** : une poignée en haut l'étire en hauteur autour du sol, en direct (de 50 à 200 %), rien
+    n'est coupé ; la silhouette ne bouge pas ;
+  - 7. les ouvertures proposées, ramenées sur la même image : trouvées en trait plein, devinées en pointillé (d'une autre teinte) ;
+  - 8. la texture collée sur sa silhouette, telle que photographiée et sans les ombres de la photo ;
+  - 9. **la vue 3D face à la façade** (`zones/VueFacade3d.tsx`) : le mur en volume, à la forme de la silhouette, la texture sur sa
+    face. La caméra est devant, perpendiculaire, à mi-hauteur. three.js se charge à la demande ; sans WebGL, l'étape le dit.
+  - Les anciennes étapes « le mur reporté sur chaque photo » et « la silhouette et le toit » sont retirées.
   - « Appliquer le calage et redresser » rend les coins du mur sur l'assemblage non étiré (l'égout ramené par l'étirement). Ils
     sont reportés sur chaque photo assemblée comme un mur posé à la main, puis le cas se redresse de nouveau.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
