@@ -166,25 +166,44 @@ function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
   return c;
 }
 
-/** Pourquoi ce geste n'a pas de sens ici ; null quand il en a. */
-export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoisie | null): string | null {
+/**
+ * Le corps choisi dans la session (`rang`) : celui sur lequel agit tout geste du toit. Un element de facade (une saillie) renvoie au
+ * corps qui le porte. Null sans choix, ou quand le rang ne designe plus de corps.
+ */
+export function corpsChoisi(o: ObjetPlan, rang: number | null | undefined): CorpsToit | null {
+  const c = rang === null || rang === undefined ? null : o.corpsToit?.[rang] ?? null;
+  return c?.saillie ? o.corpsToit?.[c.saillie.hote] ?? null : c;
+}
+
+/** Le rectangle d'un corps, la longueur selon le grand cote : celui sur lequel une forme du catalogue le remplace. */
+function rectangleDuCorps(c: CorpsToit): PtBrut[] {
+  const r = repere(c.pts), p = c.pts as PtBrut[];
+  return r.L < r.W ? [p[1] as PtBrut, p[2] as PtBrut, p[3] as PtBrut, p[0] as PtBrut] : [...p];
+}
+
+/**
+ * Pourquoi ce geste n'a pas de sens ici ; null quand il en a. `rangChoisi` : le corps choisi dans la session ; tout geste n'agit que
+ * sur lui (decision de l'utilisateur, 21 octobre 2026). Sans choix, la facade regardee, sinon le corps principal.
+ */
+export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoisie | null, rangChoisi: number | null = null): string | null {
   const p = piece(id);
   if (!p) return 'Geste inconnu.';
   if (!rectangleDuBatiment(o)) return 'Ce bâtiment n’a pas de contour.';
+  const choisi = corpsChoisi(o, rangChoisi);
   if (p.famille === 'toit') return null;
   if (p.famille === 'corps') {
-    const h = corpsPrincipal(o);
+    const h = choisi ?? corpsPrincipal(o);
     if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
     if (h && !corpsNeuf(h, id.split(':')[1] as GenreCorps, o.corpsToit ?? [])) return 'Pas de place contre ce corps.';
     return null;
   }
   // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
-  if (!corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
+  if (!choisi && !corpsPrincipal(o) && !contourRectangulaire(o)) return 'Le toit de ce bâtiment n’est pas encore découpé en corps : choisissez d’abord sa forme.';
   if (id === 'sur:pignon') {
-    // Le pignon se pose sur la facade choisie : un long pan (les murs 0 et 2 d'un corps), d'un toit qui dresse un pignon.
-    const c = corpsDeLaFacade(o, facade) ?? corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
+    // Le pignon se pose sur le corps choisi (sinon celui de la facade regardee) : un long pan (les murs 0 et 2), d'un toit qui dresse un pignon.
+    const c = choisi ?? corpsDeLaFacade(o, facade) ?? corpsPrincipal(o) ?? corpsDepuisToitSimple(o);
     if (c && formeDuCorps(c) === 'appentis') return 'Un appentis n’a pas de pignon sur son long pan.';
-    if (facade && facade.rang !== null && facade.mur % 2 === 1) return RAISON_PAS_DE_PIGNON;
+    if (facade && facade.rang !== null && corpsDeLaFacade(o, facade) === c && facade.mur % 2 === 1) return RAISON_PAS_DE_PIGNON;
     return c && !c.speciale && FORMES_SANS_PIGNON.has(formeDuCorps(c)) ? RAISON_PAS_DE_PIGNON : null;
   }
   if (p.famille === 'sur') return null;
@@ -247,10 +266,23 @@ function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
  * Ecrit le geste dans le batiment : rend vrai s'il a change quelque chose. Le toit est fige ensuite :
  * c'est la personne qui le regle. `facade` : celle que la personne regarde ; un pignon ou un element de mur s'y pose.
  */
-export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie | null): boolean {
-  if (raisonIndisponible(o, id, facade)) return false;
+export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie | null, rangChoisi: number | null = null): boolean {
+  if (raisonIndisponible(o, id, facade, rangChoisi)) return false;
   const [prefixe = '', nom = ''] = id.split(':');
-  if (prefixe === 'forme') {
+  const choisi = corpsChoisi(o, rangChoisi);
+  if (prefixe === 'forme' && choisi && o.corpsToit) {
+    // Une forme sur le corps choisi : lui seul change, a son emprise et a ses hauteurs. Il garde son rang (les saillies qui le
+    // designent le suivent) ; les corps de plus que la forme demande s'ajoutent a la fin.
+    const e = EXEMPLES_TOITS.find((x) => x.id === nom);
+    if (!e) return false;
+    const egout = Math.min(...choisi.egouts), montee = Math.max(1, choisi.faitage - egout);
+    const [premier, ...autres] = corpsDepuisExemple(e, rectangleDuCorps(choisi), egout, montee);
+    if (!premier) return false;
+    const rang = o.corpsToit.indexOf(choisi);
+    o.corpsToit = [...o.corpsToit.slice(0, rang), premier, ...o.corpsToit.slice(rang + 1), ...autres];
+    o.modeToit = 'corps';
+    toitDe(o).source = 'saisie';
+  } else if (prefixe === 'forme') {
     const rect = rectangleDuBatiment(o), e = EXEMPLES_TOITS.find((x) => x.id === nom);
     if (!rect || !e) return false;
     const { egout, montee } = hauteursDuBatiment(o);
@@ -261,16 +293,15 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     toit.source = 'saisie';
     delete toit.pente;
   } else if (prefixe === 'corps') {
-    const hote = corpsPourPoser(o);
+    const hote = choisi ?? corpsPourPoser(o);
     const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.corpsToit ?? []) : null;
     if (!hote || !neuf || !o.corpsToit) return false;
     o.corpsToit = [...o.corpsToit, neuf];
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'sur') {
-    const hote = corpsPourPoser(o);
-    // Un pignon va sur le corps de la facade choisie, du cote de son mur ; le reste, sur le corps principal.
-    const c = (nom === 'pignon' ? corpsDeLaFacade(o, facade) : null) ?? hote;
+    // Sur le corps choisi ; sans choix, un pignon va sur le corps de la facade regardee, du cote de son mur, le reste sur le corps principal.
+    const c = choisi ?? (nom === 'pignon' ? corpsDeLaFacade(o, facade) : null) ?? corpsPourPoser(o);
     if (!c) return false;
     if (nom === 'cheminee') c.cheminees = [...(c.cheminees ?? []), chemineeSur(c)];
     else if (nom === 'fenetre-toit' || nom === 'solaire') c.elementsToit = [...(c.elementsToit ?? []), elementSur(c, nom)];
@@ -279,8 +310,9 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else {
-    // Un element de mur va sur le mur de la facade choisie (pas sur un element deja pose) ; sans elle, sur un mur libre du corps principal.
-    const surFacade = corpsDeLaFacade(o, facade), hote = surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o);
+    // Un element de mur va sur le corps choisi ; sans choix, sur le corps de la facade regardee (pas sur un element deja pose), sinon le
+    // corps principal. Sur le mur de cette facade quand elle est a ce corps, sinon sur un mur libre.
+    const surFacade = corpsDeLaFacade(o, facade), hote = choisi ?? (surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o));
     if (!hote || !o.corpsToit) return false;
     const rang = o.corpsToit.indexOf(hote);
     const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';

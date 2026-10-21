@@ -274,6 +274,20 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - Fumée pilotée sur tous les points touchés (§6), mise à jour de `tests/CHECKLIST-FUMEE.md` (nouveaux points), `MD/spec-ihm-zones.md` si une commande change de zone, `MD/spec-ecran-toit-facade.md` (renvoi vers cette spec), CHANGELOG.
 - Livraison depuis `main` : `BACKPROD_API_URL=https://www.raillard.org npm run livraison` dans un worktree à part (`git worktree add --detach /tmp/livraison-wt origin/main`, lien `node_modules`), `livraison.zip` ignoré par git.
 
+### Après l'étape 6 — Le corps choisi  *(21 octobre 2026, décision de la personne)*
+- **Un geste n'agit que sur le corps choisi.** Une forme du catalogue, un corps, un élément du toit ou de façade vont sur le corps choisi
+  (le corps lui-même, ou celui qui porte l'élément choisi ; une saillie renvoie à son corps porteur).
+  - Une forme ne remplace que ce corps, à son emprise et à ses hauteurs. Il garde son rang, et les corps en plus s'ajoutent à la fin.
+  - Sans choix, rien ne change : le corps de la façade regardée, sinon le corps principal.
+  - Le code : `gestesToits.ts::corpsChoisi`, paramètre `rangChoisi` de `raisonIndisponible` et `appliquerPiece`.
+  - Le panneau le dit sous « Ajouter un élément » (`ModeToit.tsx::corpsCible`).
+- **Sa silhouette se trace, lisible.** Un corps choisi montre sa silhouette en vue libre ou de façade : son mur le plus tourné vers la
+  caméra, du pied au haut sous son toit, pignon compris. C'est un trait épais sur un halo clair, avec un voile léger
+  (`PoigneesToit.tsx::silhouetteAEcran`, `TraitCorps`). De dessus, le plan le montre déjà.
+- **La poignée de déplacement se distingue.** `deplacer` (le corps) et `pos` (un élément le long de son mur) sont des carrés pleins à
+  quatre flèches ; les poignées qui étirent ou montent restent rondes.
+- Fumée : point 98.
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

@@ -15,9 +15,42 @@ import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
 import { facadeDeLElement, type CibleElement } from '../../facade/regles/toits/elements.js';
+import { facadesDuContour, type Facade } from '../../facade/geometrie.js';
+import { silhouetteDuMur } from '../../facade/regles/toits/silhouetteDesCorps.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
 const RAYON_PX = 9, SAISIE_PX = 22;
+/**
+ * Les poignees qui deplacent l'element choisi (le corps entier, ou l'element le long de son mur) : un carre plus grand, plein, a
+ * quatre fleches, distinct des poignees rondes qui etirent ou montent.
+ */
+const DEPLACEMENTS = new Set(['deplacer', 'pos']);
+const RAYON_DEPLACER_PX = 12;
+/** Les quatre fleches du deplacement, centrees sur la poignee. */
+const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-3 4.5 H-1 V1 H-4.5 V3 L-8 0 L-4.5 -3 V-1 H-1 V-4.5 H-3 Z';
+
+/**
+ * La silhouette d'un corps a l'ecran : son mur le plus tourne vers la camera, du pied au haut sous son toit (pignon compris), projete
+ * dans le calque. Null sans scene, ou quand un point tombe derriere la camera.
+ */
+function silhouetteAEcran(c: CorpsToit | undefined, base: number): Ecran[] | null {
+  const sc = vue3d.scene;
+  if (!c || !sc) return null;
+  const egout = Math.min(...c.egouts);
+  const cam = cameraDeVue(sc).position, oeil = { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z };
+  const vers = (f: Facade) => { const mx = (f.gauche.x + f.droite.x) / 2, my = (f.gauche.y + f.droite.y) / 2; return (f.normale.x * (oeil.x - mx) + f.normale.y * (oeil.y - my)) / (Math.hypot(oeil.x - mx, oeil.y - my) || 1); };
+  const f = facadesDuContour(c.pts, egout).reduce<Facade | null>((m, x) => (!m || vers(x) > vers(m) ? x : m), null);
+  if (!f) return null;
+  const pts = silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout).map((q) => projeter({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }, base));
+  return pts.every((q): q is Ecran => q !== null) ? pts : null;
+}
+
+/** Le trait de la silhouette du corps choisi : un halo clair sous un trait epais, lisible sur la photo comme sur le crepi. */
+function TraitCorps({ pts }: { pts: readonly Ecran[] }) {
+  const d = pts.map((q) => q.x + ',' + q.y).join(' ');
+  return <g className="silhouetteCorpsToit"><polygon className="halo" points={d} /><polygon className="trait" points={d} /></g>;
+}
+
 /** Au-dessous de cette longueur d'axe a l'ecran (px par metre), l'axe est vu de face : il ne se glisse pas. */
 const AXE_MIN_PX = 6;
 
@@ -96,21 +129,24 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const s = sessionToit(), e = etatToit();
   if (!s || !e.actif || e.validee) return null;
   const plan = e.vue === 'dessus';
-  // De dessus, seul un corps choisi a des poignees ; de face, un corps choisi se regle par la facade courante.
-  if (plan && e.selection?.type !== 'corps') return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const corps = o?.corpsToit;
   if (!corps?.length) return null;
+  // Le corps choisi : sa silhouette, sur son mur le plus tourne vers la camera, tracee lisible (de dessus, le plan le montre deja).
+  const silhouette = !plan && e.selection?.type === 'corps' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o)) : null;
+  const seule = () => (silhouette ? <svg className="poigneesToit" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
+  // De dessus, seul un corps choisi a des poignees ; de face, un corps choisi se regle par la facade courante.
+  if (plan && e.selection?.type !== 'corps') return null;
   const f = s.facade ?? s.derniere;
   // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
   const surCetteFacade = (t: CibleElement): boolean => { const m = facadeDeLElement(corps, t); return !m || !f || (m.rang === f.rang && m.mur === f.mur); };
   const choixFace = e.selection && e.selection.type !== 'corps' && surCetteFacade(e.selection) ? e.selection : null;
   const cible: CibleGlisser | null = plan ? e.selection : choixFace ?? (f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null);
-  if (!cible) return null;
+  if (!cible) return seule();
   const cadre = cadreDe(corps, cible);
   const poignees = poigneesDe(corps, cible);
   const hote = hotes3d.vue3d;
-  if (!cadre || !poignees.length || !hote) return null;
+  if (!cadre || !poignees.length || !hote) return seule();
   const r = hote.getBoundingClientRect();
   const cotes: Cote[] = cotesDe(corps, cible);
   const base = altitudeDuBatiment(o);
@@ -141,6 +177,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
 
   return (
     <svg className="poigneesToit" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
+      {silhouette && <TraitCorps pts={silhouette} />}
       {guides.map((g) => {
         const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);
         return a && b ? <line key={g} className="guideToit" x1={a.x} y1={a.y} x2={b.x} y2={b.y} /> : null;
@@ -149,11 +186,14 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
         const q = projeter(p.point, base);
         if (!q) return null;
         return (
-          <g key={p.id} className="poigneeToit" data-poignee={p.id} transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle}
+          <g key={p.id} className={'poigneeToit' + (DEPLACEMENTS.has(p.id) ? ' deplacer' : '')} data-poignee={p.id} transform={'translate(' + q.x + ',' + q.y + ')'} role="button" aria-label={p.libelle}
             onPointerDown={(ev) => demarrer(ev, p)} onPointerMove={bouger} onPointerUp={finir} onPointerCancel={finir}>
             <title>{p.libelle}</title>
             <circle className="saisiePoignee" r={SAISIE_PX} />
-            <circle className="pointPoignee" r={RAYON_PX} />
+            {DEPLACEMENTS.has(p.id) ? <>
+              <rect className="pointPoignee" x={-RAYON_DEPLACER_PX} y={-RAYON_DEPLACER_PX} width={2 * RAYON_DEPLACER_PX} height={2 * RAYON_DEPLACER_PX} rx={4} />
+              <path className="flechesPoignee" d={FLECHES} />
+            </> : <circle className="pointPoignee" r={RAYON_PX} />}
           </g>
         );
       })}

@@ -90,7 +90,13 @@ function DepuisUnAudit({ deps, choisir }: { deps: DepsCalibration; choisir: (cas
         : <p className="calNote">Aucun audit de parcelle reçu.</p>)}
       {facades && (facades.length
         ? <><p className="calNote">Largeur du mur d’après le cadastre, hauteur d’après le LiDAR : rien à mesurer.</p>
-          <ul className="calListe" aria-label="Façades photographiées">{facades.map((f, k) => <li key={k}><button type="button" className="secondary small" data-controle="calibration.choisirFacade" onClick={() => choisir(f.cas)}>{f.libelle}</button></li>)}</ul></>
+          <ul className="calListe" aria-label="Façades photographiées">{facades.map((f, k) => (
+            <li key={k} className="calFacadeAudit">
+              <button type="button" className="secondary small" data-controle="calibration.choisirFacade" onClick={() => choisir(f.cas)}>{f.libelle}</button>
+              {/* Les photos de la facade, en vignettes au bout de la ligne : de quoi reconnaitre le mur avant de le choisir. */}
+              <span className="calVignettesFacade">{f.cas.images.map((u, i) => <img key={i} src={u} alt={'Photo ' + (i + 1) + ' : ' + f.libelle} loading="lazy" />)}</span>
+            </li>
+          ))}</ul></>
         : <p className="calNote">Cet audit n’a pas de façade photographiée.</p>)}
     </div>
   );

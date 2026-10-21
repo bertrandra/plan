@@ -73,6 +73,20 @@ describe('l ecran de calibration', () => {
     expect(bouton('calibration.revenir')?.disabled).toBe(true);
   });
 
+  it('depuis un audit : chaque facade montre ses photos en vignettes au bout de sa ligne', async () => {
+    const cas = { ...scene.cas, images: ['data:image/jpeg;base64,UN', 'data:image/jpeg;base64,DEUX'] };
+    const { deps } = fausses({ audits: async () => [{ id: 'a1', libelle: 'Audit du 21 octobre' }], facadesDAudit: async () => [{ libelle: 'Maison · façade sud', cas }] });
+    await monter(deps);
+    await act(async () => { bouton('calibration.depuisAudit')?.click(); await Promise.resolve(); });
+    await act(async () => { bouton('calibration.choisirAudit')?.click(); await Promise.resolve(); });
+    const ligne = hote.querySelector('.calFacadeAudit') as HTMLElement;
+    const vignettes = [...ligne.querySelectorAll('.calVignettesFacade img')] as HTMLImageElement[];
+    expect(vignettes.map((i) => i.getAttribute('src'))).toEqual(cas.images);
+    expect(vignettes[1]?.getAttribute('alt')).toBe('Photo 2 : Maison · façade sud');
+    // Les vignettes viennent apres le bouton de la facade, au bout de la ligne.
+    expect(ligne.lastElementChild?.className).toBe('calVignettesFacade');
+  });
+
   it('enregistre un nouveau cas : nom, photo, dimensions, relu sur la photo', async () => {
     const { deps, stock } = fausses();
     await monter(deps);

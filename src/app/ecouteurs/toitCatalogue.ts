@@ -146,12 +146,12 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     enSession, (source) => {
       const id = source?.dataset.piece, o = batiment(), s = sessionToit();
       if (!id || !o) return;
-      // Un pignon ou un element de facade se pose sur la facade que la personne regarde (ou la derniere choisie).
-      const facade = s?.facade ?? s?.derniere ?? null;
-      const raison = raisonIndisponible(o, id, facade);
+      // Le geste n'agit que sur le corps choisi (celui de l'element choisi) ; sans choix, sur la facade regardee (ou la derniere choisie).
+      const facade = s?.facade ?? s?.derniere ?? null, rangChoisi = etatToit().selection?.rang ?? null;
+      const raison = raisonIndisponible(o, id, facade, rangChoisi);
       if (raison) { showToast(raison); return; }
       const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
-      if (!mode.ecrire((x) => appliquerPiece(x, id, facade))) return;
+      if (!mode.ecrire((x) => appliquerPiece(x, id, facade, rangChoisi))) return;
       // L'element pose se choisit (l'inspecteur le regle) ; un pignon, un element de mur se reglent de face (maquette v8) : la vue passe devant leur facade.
       const cible = cibleAjoutee(avant, batiment()?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.corpsToit ?? [], cible) : null;
       mode.selectionner(cible);

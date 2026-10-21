@@ -146,6 +146,15 @@
   .poigneesToit .pointPoignee{ fill:var(--panel-bg); stroke:var(--accent); stroke-width:3px; }
   .poigneesToit .poigneeToit:hover .pointPoignee{ fill:var(--accent); }
   .poigneesToit .guideToit{ stroke:var(--accent); stroke-width:1.5px; stroke-dasharray:6 4; }
+  /* La poignee qui deplace l'element choisi : un carre plein a quatre fleches, distinct des poignees rondes qui etirent ou montent. */
+  .poigneesToit .poigneeToit.deplacer{ cursor:move; }
+  .poigneesToit .poigneeToit.deplacer .pointPoignee{ fill:var(--accent); stroke:var(--panel-bg); stroke-width:2px; }
+  .poigneesToit .poigneeToit.deplacer .flechesPoignee{ fill:var(--on-accent); pointer-events:none; }
+  .poigneesToit .poigneeToit.deplacer:hover .pointPoignee{ fill:var(--ink); }
+  /* La silhouette du corps choisi : un trait epais sur un halo clair, et un voile leger, lisibles sur toute facade. */
+  .poigneesToit .silhouetteCorpsToit{ pointer-events:none; }
+  .poigneesToit .silhouetteCorpsToit .halo{ fill:none; stroke:var(--panel-bg); stroke-width:7px; stroke-linejoin:round; opacity:.9; }
+  .poigneesToit .silhouetteCorpsToit .trait{ fill:var(--accent); fill-opacity:.14; stroke:var(--accent); stroke-width:3.5px; stroke-linejoin:round; }
   .poigneesToit .cotesToit{ display:inline-flex; gap:4px; padding:3px 6px; background:var(--panel-bg); border:1px solid var(--rule); border-radius:12px; font-size:.78rem; color:var(--ink); box-shadow:0 1px 6px rgba(0,0,0,.18); }
   .poigneesToit .coteToit{ white-space:nowrap; }
   .panneauToit .elementsToit{ display:flex; flex-direction:column; gap:6px; }
@@ -2685,6 +2694,10 @@
   .calCalage.prise{ cursor:move; touch-action:none; }
   .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
   .calVue3d{ display:block; width:100%; height:auto; aspect-ratio:1 / 0.62; }
+  /* Creer un cas depuis un audit : les photos de chaque facade en vignettes au bout de sa ligne, entieres (rien n'est coupe). */
+  .calListe li.calFacadeAudit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .calVignettesFacade{ display:flex; gap:4px; margin-left:auto; flex-wrap:wrap; }
+  .calVignettesFacade img{ width:64px; height:48px; object-fit:contain; background:var(--paper-deep); border:1px solid var(--border); border-radius:var(--r-champ); }
   .ajusterMurEtiquette{ fill:var(--accent); font-family:var(--sans); paint-order:stroke; stroke:var(--panel-bg); stroke-width:3px; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   /* Une ouverture devinee par la structure : en pointille franc, d'une autre teinte que les trouvees (le mot le dit aussi). */
