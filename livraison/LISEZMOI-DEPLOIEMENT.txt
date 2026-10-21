@@ -1,4 +1,4 @@
-Plan 2.2.0 (2fa8fbb) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (1c0e1af) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 Sur l'hebergement, trois choses voisines :
