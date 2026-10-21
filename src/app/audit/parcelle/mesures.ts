@@ -23,6 +23,7 @@ import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve
 import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
 import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../zones/releve/chaine.js';
 import { redresserParReperes } from '../../../facade/redressementFuites.js';
+import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
@@ -33,7 +34,7 @@ import type { PhotoCas } from '../../../model/audit.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { silhouetteDeEstimation } from '../../../facade/regles/toits/silhouettes.js';
-import type { ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
+import type { CorpsToit, ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 
 /** La cle d'une mesure : le batiment et le cote du mur (`cle#cote`). */
 export const cleMesure = (cle: string, cote: number): string => cle + '#' + cote;
@@ -78,6 +79,8 @@ export interface MesureFacade {
   redressees?: PhotoRedresseeAuditee[];
   /** La version de la chaine des facades qui a fait ces mesures (zones/releve/chaine.ts). */
   versionChaine?: number;
+  /** Le gabarit du mur (le plan et le LiDAR) pose sur les photos : la reprise a la main le montre tel quel. */
+  gabarit?: GabaritMur;
 }
 
 export interface DependancesMesures {
@@ -190,7 +193,7 @@ function photosRedressees(c: ResultatChaine, d: DependancesMesures): PhotoRedres
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
  */
-export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'>, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
+export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolygone, 'pts'> & { corpsToit?: readonly CorpsToit[] | null }, photos: readonly PhotoCas[], d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>> = {}): Promise<MesureFacade> {
   const charger = d.pixels ?? pixelsDePhoto;
   const cache = new Map<number, Promise<Pixels | null>>();
   const images = (i: number) => {
@@ -217,8 +220,10 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     const image = versImage(img);
     entrees.push({ rang: i, image, prise: (champLu) => priseDeLaPhoto(photo, image, fm, champLu), champConnu: photo.prise?.sourceFocale === 'exif' });
   }
-  const c = await redresserEtFusionner(entrees, fm, bat, { chercherCoins: d.chercherCoins }, corrections, illisibles);
-  const trace = { redressement: c.redressement, redressees: photosRedressees(c, d), versionChaine: VERSION_CHAINE_FACADES };
+  // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
+  const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
+  const c = await redresserEtFusionner(entrees, fm, { pts: bat.pts }, { chercherCoins: d.chercherCoins, gabarit }, corrections, illisibles);
+  const trace = { redressement: c.redressement, redressees: photosRedressees(c, d), versionChaine: VERSION_CHAINE_FACADES, gabarit };
   if (!c.fusion) {
     const seule = c.seule, essai = seule?.photo.essai;
     if (!seule || !essai) return { ...vide, couleur, ...trace };

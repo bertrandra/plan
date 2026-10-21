@@ -18,13 +18,13 @@ import { avisFusion } from './releve/analyse.js';
 import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
 import { rechercher } from './releve/serie.js';
 import { coinsAutoDeSerie } from './releve/coinsAuto.js';
-import { silhouetteSurLaPhoto } from '../facade/mosaiqueFuites.js';
+import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../facade/gabaritMur.js';
 import { inverser } from '../facade/redressementFuites.js';
 import type { MurLu } from '../facade/mosaiqueFuites.js';
 import type { Facade } from '../facade/geometrie.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
-import { elevationAvecMasque, photoRedressee } from './etapesCalibration.js';
+import { cadreAutour, contourDuGabarit, elevationAvecMasque, photoAutourDuMur, type CadreAutour } from './etapesCalibration.js';
 import { sansOmbres } from '../facade/sansOmbres.js';
 import { silhouetteDeEstimation } from '../facade/regles/toits/silhouettes.js';
 import { SILHOUETTES_FACADE } from '../model/silhouetteFacade.js';
@@ -73,9 +73,9 @@ export async function coinsDeSerie(depart: CasStocke, images: readonly Image[], 
   const corrections: Record<string, CorrectionRedressement> = {};
   // Le mur ajuste a la main (sur la photo redressee, ou un ancien cas aux coins poses) l'emporte : il se reporte sur les autres photos.
   depart.photos.forEach((p, k) => { const r = reperesDe(p), main = origines[k] === 'main'; if (r || main) corrections[String(k)] = { ...(r ? { reperes: r } : {}), ...(main ? { coins: p.coins } : {}) }; });
-  const c = await redresserEtFusionner(entrees, f, { pts: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }] }, { chercherCoins: async (e) => rechercher(e), hauteurDuPlan: dimsDuPlan, lireSurLAssemblage: true, coinsSeuls: true }, corrections);
+  const c = await redresserEtFusionner(entrees, f, { pts: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }] }, { chercherCoins: async (e) => rechercher(e), hauteurDuPlan: dimsDuPlan, lireSurLAssemblage: true, coinsSeuls: true, gabarit: depart.gabarit ?? GABARIT_RECTANGLE }, corrections);
   const parRang = new Map(c.redressement.photos.map((b) => [b.rang, b]));
-  // Des coins retrouves : la silhouette d'avant (lue sur d'autres coins) ne vaut plus, les etapes la relisent.
+  // Des coins retrouves : la silhouette d'avant (posee sur d'autres coins) ne vaut plus, les etapes reposent le gabarit.
   const cas: CasStocke = { ...depart, photos: depart.photos.map((p, k) => { const px = parRang.get(k)?.coinsPx; if (!(px?.length === 4 && origines[k] !== 'main')) return p; const q = { ...p, coins: px }; delete q.silhouette; return q; }) };
   const nouvelles: Record<number, OrigineCoins> = {};
   for (const b of c.redressement.photos) nouvelles[b.rang] = b.coins === 'main' ? 'main' : reperesDe(depart.photos[b.rang]) ? 'reperes' : b.coins === 'trouve' && b.statut !== 'echec' ? 'trouves' : 'devines';
@@ -136,15 +136,18 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
 interface Etapes {
   /** Par photo : la photo entiere redressee (par ses reperes, sinon ses points de fuite), sans coupe ; null si elle ne se redresse pas. */
   entieres: ({ url: string; l: number; h: number; silhouette: P2[] | null } | null)[];
-  /** Par photo : la silhouette du haut du mur, en pixels de la photo (ajustee a la main, sinon lue entre ses coins). */
+  /** Par photo : la silhouette du haut du mur, en pixels de la photo (le gabarit du cas pose par ses coins). */
   silhouettes: (P2[] | null)[];
+  /** Le cadre autour du mur (metres) des vues 5 et 6, et le contour du gabarit dans ce repere. */
+  cadre: CadreAutour;
+  contour: P2[];
   /** La silhouette sur l'image posee sur la facade (la photo redressee et fusionnee), en metres depuis son coin haut gauche. */
   silhouetteTexture: P2[] | null;
   /** La taille de cette image, en metres. */
   textureM: { l: number; h: number };
   /** L'assemblage des photos redressees, et le mur qui y a ete cherche (en pixels de l'assemblage) ; null sans assemblage. */
   assemblage: { url: string; largeur: number; hauteur: number; mur: MurLu } | null;
-  /** Par photo : sa vignette redressee seule (null : ses coins ne forment pas un mur). */
+  /** Par photo : sa vignette redressee seule, a l'echelle du mur et sans coupe (le cadre autour) ; null : ses coins ne forment pas un mur. */
   redressees: (string | null)[];
   /** L'elevation, la part cachee sur toutes les vues hachuree. */
   masque: string;
@@ -164,13 +167,15 @@ interface Etapes {
 function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, outils: OutilsPhotos): Etapes {
   const enUrl = (im: Image | null) => (im ? outils.elevationEnUrl(im) : null);
   // Les deux premiers temps de la chaine, montres tels quels : chaque photo redressee entiere, puis leur assemblage et le mur cherche dessus.
-  const sr = coinsAutoDeSerie(images, depart.largeurM, depart.hauteurM, depart.photos.map(reperesDe));
-  // La silhouette du haut du mur sur chaque photo, puis sur chaque vue redressee et sur l'image fusionnee : tracee en surimpression.
-  const silhouettes = images.map((im, k) => { const q = depart.photos[k]; return q?.silhouette ?? (q?.coins.length === 4 ? silhouetteSurLaPhoto(im, q.coins, q.focalePx ?? null) : null); });
+  const gabarit = depart.gabarit ?? GABARIT_RECTANGLE;
+  const sr = coinsAutoDeSerie(images, depart.largeurM, depart.hauteurM, depart.photos.map(reperesDe), gabarit);
+  // Le gabarit pose sur chaque photo par ses coins, puis sur chaque vue redressee et sur l'image fusionnee : trace en surimpression.
+  const silhouettes = images.map((_, k) => { const q = depart.photos[k]; return q?.coins.length === 4 ? gabaritSurLaPhoto(gabarit, q.coins) : null; });
   const ref = p.fusion?.reference ?? 0, coinsRef = depart.photos[ref]?.coins, L = depart.largeurM, H = depart.hauteurM;
+  const cadre = cadreAutour(L, H, gabarit);
   const versMur = coinsRef?.length === 4 ? homographie(coinsRef, [{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }]) : null;
   return {
-    silhouettes,
+    silhouettes, cadre, contour: contourDuGabarit(L, H, gabarit),
     silhouetteTexture: versMur ? silhouettes[ref]?.map((q) => { const m = appliquer(versMur, q); return { x: m.x, y: p.hauteurTexture - m.y }; }) ?? null : null,
     textureM: { l: p.texture.largeur / p.pxParM, h: p.hauteurTexture },
     entieres: images.map((_, k) => {
@@ -180,7 +185,7 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
       return { url: u, l: v.image.largeur, h: v.image.hauteur, silhouette: sil && versVue ? sil.map((q) => appliquer(versVue, q)) : null };
     }),
     assemblage: sr ? { url: outils.elevationEnUrl(sr.assemblage.image), largeur: sr.assemblage.image.largeur, hauteur: sr.assemblage.image.hauteur, mur: sr.assemblage.mur } : null,
-    redressees: images.map((im, k) => enUrl(photoRedressee(im, depart.photos[k]?.coins ?? [], depart.largeurM, depart.hauteurM))),
+    redressees: images.map((im, k) => enUrl(photoAutourDuMur(im, depart.photos[k]?.coins ?? [], L, H, cadre))),
     masque: outils.elevationEnUrl(elevationAvecMasque(p.elevation, p.fusion?.occlusion ?? null)),
     largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, fusion: p.fusion, propositions: p.ouvertures, devinees: p.devinees,
     surFacade: outils.elevationEnUrl(p.texture),
@@ -231,6 +236,21 @@ const metres = (v: number) => String(Math.round(v * 100) / 100).replace('.', ','
 const pourcent = (v: number) => Math.round(v * 100) + ' %';
 const degres = (v: number | null) => (v === null ? '' : ', verticales à ' + String(v).replace('.', ',') + '°');
 
+/**
+ * Une photo redressee a l'echelle du mur, sans coupe (le cadre autour du mur), le contour du gabarit en surimpression ; `mur` : une
+ * image posee sur le mur lui-meme (la fusion), entre ses coins.
+ */
+function AutourDuMur({ url, etapes, libelle, large = false, mur }: { url: string | null; etapes: Etapes; libelle: string; large?: boolean; mur?: { url: string; l: number; h: number } }) {
+  const c = etapes.cadre;
+  return (
+    <svg className={'calEtape' + (large ? ' large' : '')} viewBox={`${c.x0} ${c.y0} ${c.l} ${c.h}`} role="img" aria-label={libelle}>
+      {url && <image href={url} x={c.x0} y={c.y0} width={c.l} height={c.h} preserveAspectRatio="none" />}
+      {mur && <image href={mur.url} x={0} y={0} width={mur.l} height={mur.h} preserveAspectRatio="none" />}
+      <polygon className="calMurLigne silhouette" points={etapes.contour.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 /** Les quatre etapes du cas, chacune en image : coins, redressement de chaque photo, fusion, detection. */
 function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; dims: Readonly<Record<number, { l: number; h: number }>>; bilans: Readonly<Record<number, BilanPhotoRedressement>>; origines: Readonly<Record<number, OrigineCoins>>; etapes: Etapes }) {
   const { largeurM: L, hauteurM: H } = etapes;
@@ -275,7 +295,7 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           <line className="calMurBout" x1={etapes.assemblage.mur.x1} x2={etapes.assemblage.mur.x1} y1={etapes.assemblage.mur.y0} y2={etapes.assemblage.mur.y1} vectorEffect="non-scaling-stroke" />
           {etapes.assemblage.mur.silhouette && <polyline className="calMurLigne silhouette" points={etapes.assemblage.mur.silhouette.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />}
         </svg>
-        <figcaption>{(etapes.assemblage.mur.silhouette ? 'Silhouette du haut du mur lue (ligne brisée), ' : '') + 'Égout ' + (etapes.assemblage.mur.egout ? 'trouvé' : 'supposé') + ', sol (en bas) ' + (etapes.assemblage.mur.pied ? 'trouvé' : 'supposé') + ', bouts du mur (tirets) ' + (etapes.assemblage.mur.cotes ? 'trouvés' : 'supposés') + ', aux proportions ' + metres(cas.largeurM) + ' × ' + metres(cas.hauteurM) + ' m.'}</figcaption>
+        <figcaption>{(etapes.assemblage.mur.silhouette ? 'Silhouette du mur (le plan et le LiDAR) posée sans changer de forme, ' : '') + 'Égout ' + (etapes.assemblage.mur.egout ? 'trouvé' : 'supposé') + ', sol (en bas) ' + (etapes.assemblage.mur.pied ? 'trouvé' : 'supposé') + ', bouts du mur (tirets) ' + (etapes.assemblage.mur.cotes ? 'trouvés' : 'supposés') + ', aux proportions ' + metres(cas.largeurM) + ' × ' + metres(cas.hauteurM) + ' m.'}</figcaption>
       </figure> : <p className="calNote">Aucune photo ne se redresse : rien à assembler.</p>}
       <h4 className="calTitre3">4. Le mur reporté sur chaque photo</h4>
       <ul className="calGrille" aria-label="Coins sur chaque photo">
@@ -297,8 +317,8 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
       <ul className="calGrille" aria-label="Photos redressées">
         {etapes.redressees.map((u, k) => (
           <li key={k}><figure>
-            {u ? <img className="calEtape" src={u} alt={'Photo ' + (k + 1) + ' redressée'} /> : <p className="calNote">Ses coins ne forment pas un mur.</p>}
-            <figcaption>Photo {k + 1}, {metres(cas.largeurM)} × {metres(cas.hauteurM)} m</figcaption>
+            {u ? <AutourDuMur url={u} etapes={etapes} libelle={'Photo ' + (k + 1) + ' redressée à l’échelle du mur, sans coupe, et la silhouette du mur'} /> : <p className="calNote">Ses coins ne forment pas un mur.</p>}
+            <figcaption>Photo {k + 1}, mur de {metres(cas.largeurM)} × {metres(cas.hauteurM)} m, et ce qui l’entoure</figcaption>
           </figure></li>
         ))}
       </ul>
@@ -311,7 +331,8 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           })}
         </ul>
         <figure>
-          <img className="calEtape large" src={etapes.masque} alt="Mur fusionné, la part cachée sur toutes les vues hachurée" />
+          <AutourDuMur url={etapes.redressees[etapes.fusion.reference] ?? null} etapes={etapes} libelle="Mur fusionné, posé dans la photo de référence, la part cachée sur toutes les vues hachurée" large
+            mur={{ url: etapes.masque, l: cas.largeurM, h: cas.hauteurM }} />
           <figcaption>{etapes.fusion.masque > 0.005 ? 'Hachuré : ' + pourcent(etapes.fusion.masque) + ' du mur caché sur toutes les vues, où rien n’est cherché.' : 'Aucune part du mur n’est cachée sur toutes les vues.'}</figcaption>
         </figure>
       </> : <p className="calNote">Une seule photo : rien à fusionner.</p>}
@@ -351,7 +372,7 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
  * Les quatre reperes de la photo courante (ceux poses, sinon les coins du mur retenus : un rectangle du mur, eux aussi), et la reprise
  * a la main de l'egout, du sol et des bouts sur la photo redressee entiere.
  */
-function PlacerReperes({ photo, rang, p, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void }) {
+function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void }) {
   const r = reperesDe(p);
   const [ajuster, setAjuster] = useState(false);
   return <>
@@ -363,8 +384,8 @@ function PlacerReperes({ photo, rang, p, poser, retirer, charger, ajusterMur }: 
       <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="calibration.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>
     </div>
     {ajuster && <>
-      <p className="calNote">Sur la photo redressée, tirez la silhouette du haut du mur (un pignon, une rampe : ses sommets), le sol et les deux bouts s’ils sont mal placés ; puis « Redresser le mur ».</p>
-      <AjusterMur charger={charger} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} mur={p?.coins ?? null} silhouette={p?.silhouette ?? null} changer={ajusterMur} />
+      <p className="calNote">Sur la photo redressée, tirez l’égout, le sol et les deux bouts s’ils sont mal placés : la silhouette du mur les suit sans changer de forme. Puis « Redresser le mur ».</p>
+      <AjusterMur charger={charger} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} mur={p?.coins ?? null} gabarit={gabarit} changer={ajusterMur} />
     </>}
   </>;
 }
@@ -441,9 +462,9 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
   const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
   const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setBilans((b) => decaler(b, k)); setCourante(0); setElevation(null); setEtapes(null); setAvis(null); };
-  // Le mur ajuste a la main sur la photo courante redressee : ses coins, poses a la main ; il se reporte sur les autres photos.
-  const murCourant = ({ coins, silhouette }: MurAjuste) => {
-    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => (i === courante ? { ...p, coins, silhouette, murALaMain: true } : p)) }));
+  // Le mur ajuste a la main sur la photo courante redressee : ses coins seuls (le gabarit s'y pose) ; il se reporte sur les autres photos.
+  const murCourant = ({ coins }: MurAjuste) => {
+    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p, coins, murALaMain: true }; delete q.silhouette; return q; }) }));
     setOrigines((o) => ({ ...o, [courante]: 'main' }));
     setElevation(null); setEtapes(null);
   };
@@ -520,7 +541,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       </div>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
-      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant} />}
+      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.redresser" disabled={!cas.photos.length || occupe} onClick={() => { void redresser(); }}>{occupe ? 'Calcul…' : 'Redresser le mur'}</button>
         <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void recalculerCoins(); }}>Retrouver le mur sur toutes les photos</button>

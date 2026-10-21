@@ -343,7 +343,6 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditParcelle.rejouerRedressement': etape(Z8, AUDIT_PARCELLE, 'Rejouer redressement + fusion des photos de façade (une façade, ou tout l’audit) : ne remplace que les images dérivées', { repete: true }),
   'auditParcelle.placerCoins': etape(Z8, AUDIT_PARCELLE, 'Placer à la main quatre repères (un rectangle du mur) sur une photo : ils la redressent entière (erreur du redressement automatique)', { repete: true }),
   'auditParcelle.echelleMur': etape(Z8, AUDIT_PARCELLE, 'Corriger l’échelle : la largeur réelle du mur', { repete: true }),
-  'releve.ajouterSommet': etape(Z8, AUDIT_PARCELLE, 'Ajouter un sommet à la silhouette du haut du mur (un pignon, une lucarne) sur la photo redressée', { repete: true }),
   'auditParcelle.ajusterMur': etape(Z8, AUDIT_PARCELLE, 'Montrer la photo redressée entière pour tirer à la main l’égout, le sol et les bouts du mur', { repete: true }),
   'auditParcelle.appliquerCoins': etape(Z8, AUDIT_PARCELLE, 'Appliquer les quatre repères placés : la photo se redresse entière, l’égout et le sol sont cherchés ensuite', { repete: true }),
   'auditParcelle.retablirCoins': etape(Z8, AUDIT_PARCELLE, 'Revenir au redressement automatique de cette photo', { repete: true }),

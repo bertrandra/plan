@@ -9,7 +9,7 @@
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
 import { analyserLeMur } from './analyseMur.js';
-import { silhouetteSurLaPhoto } from './mosaiqueFuites.js';
+import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
 import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
 import { type ResultatFusion } from './fusion.js';
@@ -32,7 +32,7 @@ export interface PhotoReelle {
    * cherchent ensuite sur l'assemblage (zones/releve/coinsAuto.ts). Absents : la photo se redresse par ses points de fuite.
    */
   reperes?: P2[];
-  /** La silhouette du haut du mur ajustee a la main, d'un angle a l'autre, en pixels de la photo (avec des `coins` poses a la main). */
+  /** Un ancien cas : la silhouette du haut du mur ajustee a la main, en pixels de la photo. Relue, plus ecrite : le gabarit du cas la remplace. */
   silhouette?: P2[];
   /** Les `coins` ont ete poses (ou le mur ajuste) a la main : ils l'emportent sur ceux que la chaine trouverait, et se reportent. */
   murALaMain?: boolean;
@@ -52,6 +52,11 @@ export interface CasReel {
   ouvertures: OuvertureVraie[];
   /** Ce que la facade a de difficile : haie, voiture, ton sur ton, reflets… (pour lire les resultats par cause). */
   difficultes?: string[];
+  /**
+   * Le gabarit du mur (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, importee d'un audit. Sa forme ne bouge
+   * pas, elle se pose sur chaque photo par ses coins. Absent : un rectangle.
+   */
+  gabarit?: { u: number; v: number }[];
 }
 
 export function lireCasReel(donnees: unknown): CasReel {
@@ -60,7 +65,10 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (typeof c.nom !== 'string' || !(c.largeurM && c.largeurM > 0) || !(c.hauteurM && c.hauteurM > 0)) throw new Error('Cas reel incomplet : nom, largeur, hauteur.');
   if (!Array.isArray(c.photos) || !c.photos.length || c.photos.some((p) => !p.fichier || !Array.isArray(p.coins) || p.coins.length !== 4)) throw new Error('Cas reel incomplet : chaque photo veut un fichier et quatre coins.');
   if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
-  return { ...(c as CasReel), statut: c.statut === 'valide' ? 'valide' : 'brouillon' };
+  const gabarit = lireGabarit(c.gabarit);
+  const reste = { ...(c as CasReel) };
+  delete reste.gabarit;
+  return { ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}) };
 }
 
 /** Une ouverture detectee, jugee : juste si elle recouvre une vraie ouverture (une seule vraie par detectee). */
@@ -125,9 +133,10 @@ export interface CasPrepare {
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true): CasPrepare | null {
   // La chaine du releve et de l'audit (facade/analyseMur.ts) : les photos d'un cas sont des vues du mur entier.
   const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
-  // La silhouette du haut du mur de chaque photo (ajustee a la main, sinon lue entre ses coins) : elle dit le toit d'un pignon.
-  const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null,
-    silhouette: p.silhouette ?? silhouetteSurLaPhoto(images[k] as Image, p.coins, p.focalePx ?? null) }));
+  // La silhouette du haut du mur de chaque photo : le gabarit du cas pose par ses coins (sa forme ne bouge pas), un rectangle sans
+  // gabarit. Elle dit le toit d'un pignon.
+  const gabarit = cas.gabarit ?? GABARIT_RECTANGLE;
+  const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins) }));
   const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
   if (!a) return null;
   const { r, fusion } = a;

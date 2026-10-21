@@ -13,6 +13,7 @@ import type { P2 } from '../../facade/homographie.js';
 import type { Photo } from '../../ui/releve/camera.js';
 import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PhotoCas } from '../../model/audit.js';
+import type { GabaritMur } from '../../facade/gabaritMur.js';
 
 interface Props {
   photo: PhotoCas;
@@ -22,8 +23,8 @@ interface Props {
   depart: readonly P2[] | undefined;
   /** Les coins du mur sur la photo, trouves par la chaine ou deja ajustes a la main : le depart de « Ajuster l'égout et le sol ». */
   mur: readonly P2[] | undefined;
-  /** La silhouette du haut du mur deja ajustee a la main, sur la photo. */
-  silhouette?: readonly P2[] | undefined;
+  /** Le gabarit du mur (le plan et le LiDAR) : la forme du haut du mur, posee entre l'egout, le sol et les bouts. */
+  gabarit?: GabaritMur | undefined;
   /** La largeur du mur lue sur le plan, en metres. */
   largeurPlanM: number | null;
   echelleDepart: number | undefined;
@@ -37,7 +38,7 @@ const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite'
 /** Quatre reperes par defaut, dans les trois quarts centraux de la photo. */
 const parDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
-export function CoinsPhotoAudit({ photo, rang, nom, depart, mur, silhouette, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: Props) {
+export function CoinsPhotoAudit({ photo, rang, nom, depart, mur, gabarit, largeurPlanM, echelleDepart, appliquer, retablir, fermer }: Props) {
   const url = 'data:image/jpeg;base64,' + photo.base64;
   const [dims, setDims] = useState<{ l: number; h: number } | null>(null);
   const [coins, setCoins] = useState<P2[] | null>(null);
@@ -64,8 +65,8 @@ export function CoinsPhotoAudit({ photo, rang, nom, depart, mur, silhouette, lar
       {lue && coins ? <Coins photo={lue} coins={coins} setCoins={(c) => setCoins(c)} sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" /> : <div className="detailPhoto">Chargement de la photo…</div>}
       {coins && <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="auditParcelle.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>}
       {coins && ajuster && <>
-        <div className="detailPhoto">Sur la photo redressée, tirez la silhouette du haut du mur (un pignon, une rampe : ses sommets), le sol et les deux bouts s’ils sont mal placés.</div>
-        <AjusterMur charger={charger} reperes={coins} mur={murAjuste?.coins ?? mur ?? null} silhouette={murAjuste?.silhouette ?? silhouette ?? null} changer={setMurAjuste} />
+        <div className="detailPhoto">Sur la photo redressée, tirez l’égout, le sol et les deux bouts s’ils sont mal placés : la silhouette du mur (le plan et le LiDAR) les suit sans changer de forme.</div>
+        <AjusterMur charger={charger} reperes={coins} mur={murAjuste?.coins ?? mur ?? null} {...(gabarit ? { gabarit } : {})} changer={setMurAjuste} />
       </>}
       <label className="detailPhoto">
         {'Largeur réelle du mur (m), pour l’échelle' + (largeurPlanM ? ' — le plan donne ' + String(Math.round(largeurPlanM * 100) / 100).replace('.', ',') : '') + ' : '}

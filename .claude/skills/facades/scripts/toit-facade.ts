@@ -1,5 +1,6 @@
 // Le toit que dit une facade (facade/analyse.ts::finaliserReleve) : par la bande au-dessus de l'egout (avant), et par la silhouette du
 // haut du mur quand elle a une forme (silhouetteEnPartsDuMur, lue entre les coins vrais par mosaiqueFuites.ts::silhouetteSurLaPhoto).
+// L'audit et la calibration posent le gabarit du LiDAR (facade/gabaritMur.ts) : cette lecture est celle qui sert sans gabarit (le releve).
 //
 //   npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]
 //
