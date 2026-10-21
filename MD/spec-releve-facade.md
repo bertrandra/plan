@@ -497,6 +497,12 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
   - 6. les ouvertures proposées, ramenées du mur sur cette même image par les mêmes coins ;
   - 7. la texture collée sur sa silhouette, ce que la 3D pose sur le mur ;
   - 8. la silhouette et le toit. Le modèle d'un pignon décentré garde son sommet (`ToitEstime.sommet`).
+  - 9. **caler la silhouette sur la photo** (`zones/CalageSilhouette.tsx`) : sur l'assemblage entier, la silhouette se déplace et
+    se redimensionne par ses bouts et son sol, **proportions verrouillées** (sa hauteur suit sa largeur, au rapport du plan) ;
+  - 10. **ajuster la hauteur de la photo** : une poignée en haut de l'image l'étire en hauteur autour du sol, en direct (de 50 à
+    200 %), la silhouette ne bouge pas. Une focale mal connue écrase ou allonge la vue de face.
+  - « Appliquer le calage et redresser » rend les coins du mur sur l'assemblage non étiré (l'égout ramené par l'étirement). Ils
+    sont reportés sur chaque photo assemblée comme un mur posé à la main, puis le cas se redresse de nouveau.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui

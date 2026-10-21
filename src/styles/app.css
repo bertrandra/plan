@@ -2680,6 +2680,10 @@
   .ajusterMurSaisie[aria-orientation="horizontal"]{ cursor:ew-resize; }
   .ajusterMurSaisie:focus-visible{ stroke:var(--accent-light); stroke-opacity:0.6; outline:none; }
   .ajusterMurLigne.silhouette, .calMurLigne.silhouette{ fill:none; }
+  /* Le calage de la silhouette (calibration, etapes 9 et 10) : le contour du mur, voile leger pour le voir sur la facade. */
+  .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
+  .calCalage.prise{ cursor:move; touch-action:none; }
+  .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
   .ajusterMurEtiquette{ fill:var(--accent); font-family:var(--sans); paint-order:stroke; stroke:var(--panel-bg); stroke-width:3px; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }

@@ -28,7 +28,8 @@ import { sansOmbres } from '../facade/sansOmbres.js';
 import { silhouetteDeEstimation } from '../facade/regles/toits/silhouettes.js';
 import { SILHOUETTES_FACADE } from '../model/silhouetteFacade.js';
 import { appliquer, homographie, type Image, type P2 } from '../facade/homographie.js';
-import { appliquerSimilitude } from '../facade/ransac.js';
+import { appliquerSimilitude, inverse } from '../facade/ransac.js';
+import { CalageSilhouette } from './CalageSilhouette.js';
 import type { AssemblageDuMur } from '../facade/analyseMur.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
@@ -151,6 +152,8 @@ interface Etapes {
    * aucune photo ne s'assemble.
    */
   facade: { url: string; largeur: number; hauteur: number; contour: P2[]; propositions: P2[][]; devinees: P2[][] } | null;
+  /** Le calage (etapes 9 et 10) : les coins du mur sur l'assemblage, et de quoi les ramener sur chaque photo ; null sans assemblage. */
+  calage: { coins: P2[]; versPhotos: (coins: readonly P2[]) => (P2[] | null)[] } | null;
   /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
   vuesAssemblage: { assemblee: boolean; motif: string | null }[];
   propositions: readonly OuvertureDetectee[];
@@ -203,6 +206,19 @@ function facadeSurLAssemblage(a: AssemblageDuMur, gabarit: GabaritMur, L: number
   };
 }
 
+/** Des coins du mur sur l'assemblage, ramenes sur chaque photo assemblee (assemblage -> vue de face -> photo) ; null hors assemblage. */
+function versLesPhotos(sr: CoinsDeSerie, coins: readonly P2[]): (P2[] | null)[] {
+  return sr.vues.map((v, i) => {
+    const place = sr.assemblage.places[i], inv = place ? inverse(place) : null;
+    return v && inv ? coins.map((q) => { const p = appliquer(v.versPhoto, appliquerSimilitude(inv, q)); return { x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }; }) : null;
+  });
+}
+
+/** Le cas apres le calage de la silhouette : les coins de chaque photo assemblee, poses a la main. */
+function casCale(cas: CasStocke, parPhoto: readonly (P2[] | null)[]): CasStocke {
+  return { ...cas, photos: cas.photos.map((p, i) => { const c = parPhoto[i]; return c ? { ...p, coins: c, murALaMain: true } : p; }) };
+}
+
 /** L'assemblage de l'etape 3, fait une fois : il est montre, et c'est l'image prise pour la suite (mur, detection, texture). */
 function preparerSurLAssemblage(cas: CasStocke, images: readonly Image[]): { sr: CoinsDeSerie | null; p: CasPrepare | null } {
   const sr = coinsAutoDeSerie(images, cas.largeurM, cas.hauteurM, cas.photos.map(reperesDe), cas.gabarit ?? GABARIT_RECTANGLE);
@@ -230,6 +246,7 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
     }),
     assemblage: sr ? { url: outils.elevationEnUrl(sr.assemblage.image), largeur: sr.assemblage.image.largeur, hauteur: sr.assemblage.image.hauteur, mur: sr.assemblage.mur } : null,
     facade: a ? facadeSurLAssemblage(a, gabarit, L, H, p, outils.elevationEnUrl(a.image)) : null,
+    calage: a && sr ? { coins: a.coins, versPhotos: (c) => versLesPhotos(sr, c) } : null,
     vuesAssemblage: a?.vues ?? [],
     propositions: p.ouvertures, devinees: p.devinees,
     surFacade: outils.elevationEnUrl(p.texture),
@@ -306,7 +323,7 @@ function SurLAssemblage({ f, libelle, ouvertures = false }: { f: NonNullable<Eta
 }
 
 /** Les quatre etapes du cas, chacune en image : coins, redressement de chaque photo, fusion, detection. */
-function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; dims: Readonly<Record<number, { l: number; h: number }>>; bilans: Readonly<Record<number, BilanPhotoRedressement>>; origines: Readonly<Record<number, OrigineCoins>>; etapes: Etapes }) {
+function EtapesDuCas({ cas, dims, bilans, origines, etapes, caler }: { cas: CasStocke; dims: Readonly<Record<number, { l: number; h: number }>>; bilans: Readonly<Record<number, BilanPhotoRedressement>>; origines: Readonly<Record<number, OrigineCoins>>; etapes: Etapes; caler: (parPhoto: (P2[] | null)[]) => void }) {
   return (
     <details className="calEtapes" open data-controle="calibration.etapes">
       <summary>Les étapes, en images</summary>
@@ -391,6 +408,8 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
       </ul>
       <h4 className="calTitre3">8. La silhouette et le toit</h4>
       <VueSilhouette s={etapes.silhouette} texture={etapes.surFacade} />
+      {etapes.facade && etapes.calage && <CalageSilhouette key={etapes.facade.url} url={etapes.facade.url} largeur={etapes.facade.largeur} hauteur={etapes.facade.hauteur}
+        coins={etapes.calage.coins} gabarit={cas.gabarit ?? GABARIT_RECTANGLE} largeurM={cas.largeurM} hauteurM={cas.hauteurM} appliquer={(c) => caler((etapes.calage as NonNullable<Etapes['calage']>).versPhotos(c))} />}
     </details>
   );
 }
@@ -495,6 +514,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOrigines((o) => ({ ...o, [courante]: 'main' }));
     setElevation(null); setEtapes(null);
   };
+  // Le calage de la silhouette (etapes 9 et 10) : un mur pose a la main sur chaque photo, puis le cas redresse de nouveau.
+  const caler = (parPhoto: (P2[] | null)[]) => { const c = casCale(cas, parPhoto); modifier(() => c); setOrigines((o) => ({ ...o, ...Object.fromEntries(parPhoto.flatMap((q, i) => (q ? [[i, 'main' as const]] : []))) })); void redresser(c); };
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent, le mur se cherche ensuite (« Retrouver le mur ») ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
@@ -528,9 +549,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       const { sr, p } = preparerSurLAssemblage(depart, images);
       if (!p) { setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur ».'); setElevation(null); setEtapes(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
-      setAvis(avisDuCas(p));
-      setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
-      setEtapes(etapesDe(p, images, depart, outils, sr));
+      setAvis(avisDuCas(p)); setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }]))); setEtapes(etapesDe(p, images, depart, outils, sr));
       // Un cas sans annotation part de la detection ; une annotation deja faite n'est jamais ecrasee.
       if (auto) { const propositions = p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })); modifier((c) => (c.ouvertures.length ? c : { ...c, ouvertures: propositions })); setChoisie(null); }
     } catch (e) { setMessage('Redressement impossible : ' + ((e as Error).message || String(e))); } finally { setOccupe(false); }
@@ -574,7 +593,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void recalculerCoins(); }}>Retrouver le mur sur toutes les photos</button>
       </div>
       {avis && <p className="calNote" role="status" data-controle="calibration.avisFusion">{avis}</p>}
-      {etapes && <EtapesDuCas cas={cas} dims={dims} bilans={bilans} origines={origines} etapes={etapes} />}
+      {etapes && <EtapesDuCas cas={cas} dims={dims} bilans={bilans} origines={origines} etapes={etapes} caler={caler} />}
 
       {elevation && <>
         <p className="calNote">Mur redressé. Les rectangles sont les ouvertures de la vérité : partez de la détection, retirez les fausses, tracez les manquées (« Tracer une ouverture », puis glissez sur le mur ; le doigt défile la page quand le tracé est coupé), ajustez les cotes.</p>

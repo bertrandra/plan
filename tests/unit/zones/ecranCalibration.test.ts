@@ -90,7 +90,7 @@ describe('l ecran de calibration', () => {
     // Ajouter une photo cherche ses coins, redresse le mur et propose la detection, sans autre geste.
     await attendreQue(() => !!bouton('calibration.proposer'));
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(1);
-    expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
+    expect(hote.querySelectorAll('.releveCoins [role="slider"]')).toHaveLength(4);
     expect(hote.querySelector('[data-controle="calibration.originePhoto"]')?.textContent).toMatch(/coins (trouvés|devinés|lus sur l’assemblage)/);
     expect(bouton('calibration.proposer')).not.toBeNull();
     expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);

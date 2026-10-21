@@ -307,6 +307,8 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'calibration.retirerPhoto': etape(Z8, CALIBRATION, 'Retirer une photo du cas', { repete: true }),
   'calibration.redresser': etape(Z8, CALIBRATION, 'Redresser le mur d’après ses coins (cherchés sur l’assemblage, ou d’un ancien cas)'),
   'calibration.ajusterMur': etape(Z8, CALIBRATION, 'Montrer la photo redressée entière pour tirer à la main l’égout, le sol et les bouts du mur'),
+  'calibration.appliquerCalage': etape(Z8, CALIBRATION, 'Appliquer le calage de la silhouette (bouts, sol, hauteur de la photo) : le mur posé sur chaque photo, puis le cas redressé'),
+  'calibration.retablirCalage': etape(Z8, CALIBRATION, 'Revenir au mur trouvé : la silhouette reprend sa place, la photo sa hauteur'),
   'calibration.retirerReperes': etape(Z8, CALIBRATION, 'Retirer les quatre repères d’une photo : elle se redresse de nouveau par ses points de fuite'),
   'calibration.depuisAudit': etape(Z8, CALIBRATION, 'Créer un cas depuis un audit de parcelle reçu (photos, largeur du cadastre, hauteur du LiDAR)'),
   'calibration.choisirAudit': etape(Z8, CALIBRATION, 'Choisir l’audit dont tirer un cas', { repete: true }),
