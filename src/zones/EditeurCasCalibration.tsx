@@ -8,8 +8,9 @@
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Coins } from './releve/Coins.js';
+import { AjusterMur } from './releve/AjusterMur.js';
 import { pointSvg } from './releve/commun.js';
 import { LIBELLES_OUVERTURE } from './releve/commun.js';
 import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } from '../facade/corpusReel.js';
@@ -46,7 +47,7 @@ export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y:
  * (un ancien cas), ou cherches sur l'assemblage apres un redressement par les reperes de la personne.
  */
 type OrigineCoins = 'trouves' | 'devines' | 'main' | 'reperes';
-const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'coins posés à la main', reperes: 'redressée par vos repères' };
+const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'mur posé à la main', reperes: 'redressée par vos repères' };
 const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
 /** Les reperes d'une photo, s'ils sont quatre. */
 const reperesDe = (p: CasStocke['photos'][number] | undefined): P2[] | null => (p?.reperes?.length === 4 ? p.reperes : null);
@@ -63,7 +64,8 @@ export async function coinsDeSerie(depart: CasStocke, images: readonly Image[], 
   const entrees = images.map((image, k) => { const fp = depart.photos[k]?.focalePx ?? null; return { rang: k, image, prise: priseSansCapteurs(image, fp), champConnu: fp != null }; });
   // Les reperes redressent la photo, puis le mur se cherche sur l'assemblage ; des coins poses a la main (ancien cas) restent tels quels.
   const corrections: Record<string, CorrectionRedressement> = {};
-  depart.photos.forEach((p, k) => { const r = reperesDe(p); if (r) corrections[String(k)] = { reperes: r }; else if (origines[k] === 'main') corrections[String(k)] = { coins: p.coins }; });
+  // Le mur ajuste a la main (sur la photo redressee, ou un ancien cas aux coins poses) l'emporte : il se reporte sur les autres photos.
+  depart.photos.forEach((p, k) => { const r = reperesDe(p), main = origines[k] === 'main'; if (r || main) corrections[String(k)] = { ...(r ? { reperes: r } : {}), ...(main ? { coins: p.coins } : {}) }; });
   const c = await redresserEtFusionner(entrees, f, { pts: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }] }, { chercherCoins: async (e) => rechercher(e), hauteurDuPlan: dimsDuPlan, lireSurLAssemblage: true, coinsSeuls: true }, corrections);
   const parRang = new Map(c.redressement.photos.map((b) => [b.rang, b]));
   const cas: CasStocke = { ...depart, photos: depart.photos.map((p, k) => { const px = parRang.get(k)?.coinsPx; return px?.length === 4 && origines[k] !== 'main' ? { ...p, coins: px } : p; }) };
@@ -303,14 +305,25 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
   );
 }
 
-/** Les quatre reperes de la photo courante : ceux poses, sinon les coins du mur retenus (un rectangle du mur, eux aussi). */
-function PlacerReperes({ photo, rang, p, poser, retirer }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; poser: (c: P2[]) => void; retirer: () => void }) {
+/**
+ * Les quatre reperes de la photo courante (ceux poses, sinon les coins du mur retenus : un rectangle du mur, eux aussi), et la reprise
+ * a la main de l'egout, du sol et des bouts sur la photo redressee entiere.
+ */
+function PlacerReperes({ photo, rang, p, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (c: P2[]) => void }) {
   const r = reperesDe(p);
+  const [ajuster, setAjuster] = useState(false);
   return <>
     <p className="calNote">Photo {rang + 1} : si elle ne se redresse pas seule, placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite.</p>
     <Coins photo={photo} coins={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} setCoins={poser}
       sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" />
-    {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
+    <div className="calLigne">
+      {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
+      <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="calibration.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>
+    </div>
+    {ajuster && <>
+      <p className="calNote">Sur la photo redressée, tirez l’égout, le sol et les deux bouts du mur s’ils sont mal placés ; puis « Redresser le mur ».</p>
+      <AjusterMur charger={charger} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} mur={p?.coins ?? null} changer={ajusterMur} />
+    </>}
   </>;
 }
 
@@ -386,10 +399,18 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   // Les rangs des photos suivantes reculent d'un cran : leurs dimensions et l'origine de leurs coins les suivent.
   const decaler = <T,>(r: Record<number, T>, k: number): Record<number, T> => Object.fromEntries(Object.entries(r).filter(([i]) => Number(i) !== k).map(([i, v]) => [Number(i) > k ? Number(i) - 1 : Number(i), v]));
   const retirerPhoto = (k: number) => { modifier((c) => ({ ...c, images: c.images.filter((_, i) => i !== k), photos: c.photos.filter((_, i) => i !== k) })); setDims((d) => decaler(d, k)); setOrigines((o) => decaler(o, k)); setBilans((b) => decaler(b, k)); setCourante(0); setElevation(null); setEtapes(null); setAvis(null); };
+  // Le mur ajuste a la main sur la photo courante redressee : ses coins, poses a la main ; il se reporte sur les autres photos.
+  const murCourant = (coins: P2[]) => {
+    modifier((c) => ({ ...c, photos: c.photos.map((p, i) => (i === courante ? { ...p, coins } : p)) }));
+    setOrigines((o) => ({ ...o, [courante]: 'main' }));
+    setElevation(null); setEtapes(null);
+  };
+  const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent, le mur se cherche ensuite (« Retrouver le mur ») ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
     modifier((c) => ({ ...c, photos: c.photos.map((p, i) => { if (i !== courante) return p; const q = { ...p }; if (reperes) q.reperes = reperes; else delete q.reperes; return q; }) }));
-    setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = 'reperes'; else delete q[courante]; return q; });
+    // Un mur deja ajuste a la main le reste : les reperes ne font que redresser la photo.
+    setOrigines((o) => { const q = { ...o }; if (reperes) q[courante] = q[courante] === 'main' ? 'main' : 'reperes'; else if (q[courante] !== 'main') delete q[courante]; return q; });
     setElevation(null); setEtapes(null);
   };
 
@@ -457,7 +478,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       </div>
       <VignettesDuCas images={cas.images} courante={courante} origines={origines} choisir={setCourante} retirer={retirerPhoto} />
 
-      {photo && <PlacerReperes photo={photo} rang={courante} p={cas.photos[courante]} poser={reperesCourants} retirer={() => reperesCourants(null)} />}
+      {photo && <PlacerReperes key={courante} photo={photo} rang={courante} p={cas.photos[courante]} poser={reperesCourants} retirer={() => reperesCourants(null)} charger={chargerCourante} ajusterMur={murCourant} />}
       <div className="calLigne">
         <button type="button" data-controle="calibration.redresser" disabled={!cas.photos.length || occupe} onClick={() => { void redresser(); }}>{occupe ? 'Calcul…' : 'Redresser le mur'}</button>
         <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void recalculerCoins(); }}>Retrouver le mur sur toutes les photos</button>
