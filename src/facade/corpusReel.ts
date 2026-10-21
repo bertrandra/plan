@@ -8,7 +8,7 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
-import { analyserLeMur } from './analyseMur.js';
+import { analyserLAssemblage, analyserLeMur, assemblerLeMur, type AssemblageDuMur } from './analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
 import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
@@ -127,20 +127,34 @@ export interface CasPrepare {
    * d'occlusion de l'elevation (1 : cache sur toutes les vues) ; null pour une photo seule.
    */
   fusion: Pick<ResultatFusion, 'statut' | 'vues' | 'masque' | 'reference' | 'occlusion'> | null;
+  /**
+   * L'assemblage des photos redressees entieres, et le mur pose dessus : l'image d'ou viennent le mur, la detection et la texture
+   * (facade/analyseMur.ts::analyserLAssemblage). Null quand aucune photo ne s'assemble : le cas repasse alors par la fusion.
+   */
+  assemblage: AssemblageDuMur | null;
 }
 
-/** Redresse (et fusionne) les photos d'un cas. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse. */
+/**
+ * Redresse les photos d'un cas. Leur assemblage (chaque photo redressee entiere, les vues assemblees, le mur pose dessus) est l'image
+ * prise pour la suite : la facade complete, la detection, la texture (decision de l'utilisateur, 21 octobre 2026). Sans assemblage,
+ * la fusion des photos entre leurs coins. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse.
+ */
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true): CasPrepare | null {
-  // La chaine du releve et de l'audit (facade/analyseMur.ts) : les photos d'un cas sont des vues du mur entier.
   const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
-  // La silhouette du haut du mur de chaque photo : le gabarit du cas pose par ses coins (sa forme ne bouge pas), un rectangle sans
-  // gabarit. Elle dit le toit d'un pignon.
+  // Le gabarit du cas (sa forme ne bouge pas), un rectangle sans gabarit : il dit le toit d'un pignon.
   const gabarit = cas.gabarit ?? GABARIT_RECTANGLE;
-  const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins) }));
-  const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
+  const choisies = multiVues ? cas.photos : cas.photos.slice(0, 1);
+  const assemblage = assemblerLeMur(choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, reperes: p.reperes ?? null })));
+  const parLAssemblage = assemblage ? analyserLAssemblage(mur, assemblage, gabarit) : null;
+  if (parLAssemblage) {
+    const r = parLAssemblage;
+    return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: null, assemblage };
+  }
+  const photos = choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins) }));
+  const a = analyserLeMur(mur, photos, 'vues');
   if (!a) return null;
   const { r, fusion } = a;
-  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null };
+  return { cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees, fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null, assemblage: null };
 }
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {

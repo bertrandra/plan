@@ -46,14 +46,32 @@ describe('les coins d une photo, par la chaine de tous', () => {
 });
 
 describe('le meme mur partout', () => {
-  it('le releve, l audit et la calibration redressent et cotent une photo calee a l identique', () => {
+  it('le releve, l audit et la calibration redressent et cotent une photo calee de meme', () => {
     const { s, ph, vrais } = scene('02-');
     const L = s.verite.largeur, H = s.verite.hauteur;
     const releve = analyserSerie([morceauDe(ph.image, vrais, ph.focalePx, true)], mur(L, H), H, bat(L));
     const calibration = preparerCas(cas(L, H, 'x', vrais, ph.focalePx), [ph.image]);
     expect(releve && calibration).toBeTruthy();
     expect(calibration?.pxParM).toBe(releve?.r.pxParM);
-    expect(calibration?.ouvertures.map(({ x, y, l, h }) => [x, y, l, h])).toEqual(releve?.r.ouvertures.map(({ x, y, l, h }) => [x, y, l, h]));
+    // La calibration lit l'assemblage des photos redressees entieres (un reechantillonnage de plus) : les memes ouvertures, au cm pres.
+    const a = calibration?.ouvertures ?? [], b = releve?.r.ouvertures ?? [];
+    expect(a).toHaveLength(b.length);
+    a.forEach((o, k) => { const q = b[k]; for (const c of ['x', 'y', 'l', 'h'] as const) expect(Math.abs(o[c] - (q?.[c] ?? NaN))).toBeLessThanOrEqual(0.02); });
+  }, 60000);
+});
+
+describe('la calibration lit l assemblage', () => {
+  it('redresse la facade complete d un pignon decentre, et son gabarit dit le toit', () => {
+    const { s, ph, vrais } = scene('22-');
+    const L = s.verite.largeur, H = s.verite.hauteur, pg = s.synthese.mur.pignon ?? 0;
+    const p = preparerCas({ ...cas(L, H, 'x', vrais, null), gabarit: [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pg / H }, { u: 1, v: 1 }] }, [ph.image]);
+    expect(p?.assemblage?.vues).toEqual([{ assemblee: true, motif: null }]);
+    expect(p?.fusion).toBeNull();
+    expect(p?.toitEstime).toMatchObject({ forme: 'deux-pans', faitage: 'perpendiculaire' });
+    expect(p?.toitEstime?.hauteur).toBeCloseTo(pg, 0);
+    expect(p?.toitEstime?.sommet).toBeCloseTo(0.4, 1);
+    // La texture couvre le pignon entier, au-dessus de l'egout.
+    expect(p?.hauteurTexture).toBeGreaterThan(H + pg);
   }, 60000);
 });
 

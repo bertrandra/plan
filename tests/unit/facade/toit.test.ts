@@ -99,6 +99,7 @@ describe('estimation depuis la silhouette', () => {
 
   it('reconnait un pignon', () => {
     const e = classerProfil(Array.from({ length: n }, (_, i) => 3 * (1 - Math.abs(2 * t(i) - 1))));
+    expect(e.sommet).toBeUndefined();
     expect(e.forme).toBe('deux-pans');
     expect(e.faitage).toBe('perpendiculaire');
     expect(e.hauteur).toBeCloseTo(3, 1);
@@ -110,6 +111,7 @@ describe('estimation depuis la silhouette', () => {
     expect(e.forme).toBe('deux-pans');
     expect(e.faitage).toBe('perpendiculaire');
     expect(e.hauteur).toBeCloseTo(3, 1);
+    expect(e.sommet).toBeCloseTo(0.35, 2);
   });
 
   it('reconnait un long pan', () => {

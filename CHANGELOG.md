@@ -207,6 +207,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **La lecture.** Le haut du mur se lit colonne par colonne sur l'assemblage : un pignon y fait un triangle, un appentis une rampe. L'égout devient la hauteur aux angles (le plus bas des deux sous une rampe). Sur 22 scènes (deux pignons ajoutés au banc, l'un décentré, l'autre la rampe d'un appentis), l'égout est juste dans 44 cas sur 44, et la silhouette à 2 % dans 39 cas sur 42.
   - **La reprise à la main.** « Ajuster l'égout et le sol » montre la silhouette comme une ligne brisée dont on tire les sommets (en ajouter, en retirer), avec le sol et les deux bouts.
   - **L'audit et la calibration.** L'audit garde la silhouette de chaque photo, ajustée à la main ou lue. La calibration la reprend en important un audit, avec les repères et le mur ajusté, et la trace sur les photos redressées, l'assemblage et l'image fusionnée.
+- **Admin › Calibration : la façade complète, de l'assemblage à la 3D.** Les étapes 5 à 8 montraient chaque photo ou un morceau de mur. Elles partent maintenant de l'assemblage de l'étape 3 (les photos redressées entières, le mur posé dessus), qui est l'image prise pour la suite.
+  - 5 : la façade complète à l'échelle du mur, avec ce qui l'entoure et sa silhouette.
+  - 6 : les ouvertures proposées sur cette façade.
+  - 7 : l'image collée sur sa silhouette, telle que la 3D la pose.
+  - 8 : la silhouette et le toit ; un pignon décentré garde son sommet.
+  - La détection mesurée par la calibration lit cette même image. Une photo restée hors de l'assemblage est signalée.
 - **Façades : la silhouette du mur vient du plan et du LiDAR, et ne bouge pas.**
   - **Le gabarit.** La silhouette n'est plus lue sur la photo : c'est celle des corps du toit lus sur le LiDAR (pignon, rampe, marches), à la largeur du cadastre ; sans corps, un rectangle. On la pose sur l'image redressée entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que les directions ; la dimension vient de ce calage.
   - **La reprise à la main.** « Ajuster l'égout et le sol » (audit, calibration) n'a plus de sommets à tirer : quatre lignes (égout, sol, deux bouts), et la silhouette les suit sans changer de forme.

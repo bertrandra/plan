@@ -1,25 +1,12 @@
-// Les images des etapes d'un cas de calibration (admin › Calibrer la detection) : chaque photo redressee a l'echelle du mur sans etre
-// coupee a lui (le cadre autour du mur), et l'elevation fusionnee avec la part du mur cachee sur toutes les vues, hachuree. Sans DOM :
-// l'ecran les met en JPEG (outils.elevationEnUrl).
+// Les images des etapes d'un cas de calibration (admin › Calibrer la detection) : la facade complete (l'assemblage des photos
+// redressees) a l'echelle du mur, sans etre coupee a lui (le cadre autour du mur). Sans DOM : l'ecran la met en JPEG
+// (outils.elevationEnUrl).
 
 import { appliquer, homographie, type Image, type P2 } from '../facade/homographie.js';
 import { relief, type GabaritMur } from '../facade/gabaritMur.js';
 
 /** Le grand cote d'une vignette d'etape : de quoi juger un redressement, sans le poids d'une elevation entiere. */
 const COTE_VIGNETTE_PX = 480;
-
-/** L'elevation, la part cachee sur toutes les vues hachuree (une rayure sur trois assombrie) : ce que la detection n'a pas lu. */
-export function elevationAvecMasque(elevation: Image, occlusion: Uint8Array | null): Image {
-  const donnees = new Uint8ClampedArray(elevation.donnees);
-  if (occlusion && occlusion.length === elevation.largeur * elevation.hauteur) {
-    for (let y = 0; y < elevation.hauteur; y++) for (let x = 0; x < elevation.largeur; x++) {
-      const i = y * elevation.largeur + x;
-      if (!occlusion[i] || (x + y) % 9 > 2) continue;
-      donnees[i * 4] = (donnees[i * 4] ?? 0) * 0.3; donnees[i * 4 + 1] = (donnees[i * 4 + 1] ?? 0) * 0.3; donnees[i * 4 + 2] = (donnees[i * 4 + 2] ?? 0) * 0.3;
-    }
-  }
-  return { largeur: elevation.largeur, hauteur: elevation.hauteur, donnees };
-}
 
 /** Le cadre d'une vue autour du mur, en metres : x depuis l'angle gauche, y depuis l'egout vers le bas (le sol a la hauteur du mur). */
 export interface CadreAutour { x0: number; y0: number; l: number; h: number }

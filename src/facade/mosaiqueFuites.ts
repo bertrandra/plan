@@ -10,7 +10,8 @@
 import { apparier, detecterOrb, type DescripteurOrb } from './orb.js';
 import { appliquerSimilitude, composer, echelleDe, inverse, ransacSimilitude, rotationDeg, IDENTITE, type Similitude } from './ransac.js';
 import { appliquer, type Image } from './homographie.js';
-import { inverser as inverserHomographie, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
+import { inverser as inverserHomographie, redresserParFuites, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
+import { detecterSegments } from './segments.js';
 import { gabaritSurLaVue, type GabaritMur } from './gabaritMur.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
@@ -637,4 +638,15 @@ export function silhouetteSurLaVue(r: RedressementFuites, coins: readonly { x: n
 export function silhouetteSurLaPhoto(image: Image, coins: readonly { x: number; y: number }[], focalePx: number | null = null): { x: number; y: number }[] | null {
   const r = coins.length === 4 ? redresserParReperes(image, coins, focalePx) : null;
   return r ? silhouetteSurLaVue(r, coins) : null;
+}
+
+/**
+ * Chaque photo d'une serie vue de face, entiere : redressee par ses quatre reperes s'il y en a, sinon par ses points de fuite ; null
+ * quand elle ne se redresse pas. Le premier temps de la chaine, avant l'assemblage (mosaiqueDesVues).
+ */
+export function vuesDeFace(images: readonly Image[], reperes: readonly (readonly { x: number; y: number }[] | null | undefined)[] = []): (RedressementFuites | null)[] {
+  return images.map((img, i) => {
+    const r = reperes[i];
+    return (r && r.length === 4 ? redresserParReperes(img, r) : null) ?? redresserParFuites(img, detecterSegments(img));
+  });
 }
