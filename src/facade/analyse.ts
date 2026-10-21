@@ -38,6 +38,11 @@ export interface EntreeAnalyse {
   distance: number | null;
   /** Mur a deux hauteurs d'egout : le decrochement pose sur la photo (facade/profil.ts). */
   decrochement?: Decrochement | null;
+  /**
+   * La silhouette du haut du mur, en parts du mur (silhouetteEnPartsDuMur) : `u` de 0 a 1 le long du mur, `v` la hauteur en part de
+   * celle a l'egout (1 a l'egout). Quand elle a une forme (un pignon, une rampe), c'est elle qui dit le toit, plutot que la bande.
+   */
+  silhouette?: { u: number; v: number }[] | null;
 }
 
 export interface ResultatAnalyse {
@@ -162,7 +167,7 @@ export function analyserReleve(e: EntreeAnalyse): ResultatAnalyse | null {
 }
 
 /** Ce que le releve exige du mur, quelle que soit la facon dont l'elevation a ete obtenue. */
-export type MurDuReleve = Pick<EntreeAnalyse, 'hauteur' | 'contour' | 'cote' | 'distance'>;
+export type MurDuReleve = Pick<EntreeAnalyse, 'hauteur' | 'contour' | 'cote' | 'distance' | 'silhouette'>;
 
 /**
  * La suite commune a une photo et a plusieurs : l'elevation etendue (le mur, et la bande de `E`
@@ -180,6 +185,38 @@ function colonnes(img: Image, vu: Uint8Array, x0: number, x1: number): { image: 
     v.set(vu.subarray(y * L + x0, y * L + x0 + l), y * l);
   }
   return { image: { largeur: l, hauteur: img.hauteur, donnees }, vu: v };
+}
+
+/**
+ * La silhouette du haut du mur (sur la photo) en parts du mur : la photo ramenee au rectangle du mur par ses coins (haut gauche, haut
+ * droit, bas droit, bas gauche), `u` de 0 a 1 le long du mur, `v` la hauteur en part de celle a l'egout. Sans echelle : la hauteur du mur
+ * peut encore etre mesuree ensuite. Null sans silhouette ou sans coins.
+ */
+export function silhouetteEnPartsDuMur(coins: readonly P2[], silhouette: readonly P2[] | null | undefined): { u: number; v: number }[] | null {
+  if (!silhouette || silhouette.length < 2 || coins.length !== 4) return null;
+  const versMur = homographie(coins, [{ x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 0 }, { x: 0, y: 0 }]);
+  return versMur ? silhouette.map((p) => { const q = appliquer(versMur, p); return { u: q.x, v: q.y }; }) : null;
+}
+
+/** Au-dessous de cette hauteur au-dessus de l'egout (m), la silhouette du mur est plate : le toit se lit sur la bande. */
+const RELIEF_SILHOUETTE_M = 0.3;
+
+/**
+ * Le profil du toit que dit la silhouette du haut du mur : sa hauteur au-dessus de l'egout sur `colonnes` colonnes, de `x0M` a `x1M`.
+ * Null quand elle est plate (un mur gouttereau : le toit qu'on voit est derriere, la bande le lit) ou trop courte.
+ */
+function profilDeLaSilhouette(s: readonly { u: number; v: number }[], hauteur: number, largeurM: number, colonnes = 60): { x0M: number; x1M: number; hauteurs: number[] } | null {
+  const pts = [...s].sort((a, b) => a.u - b.u);
+  if (pts.length < 2 || !((pts[pts.length - 1] as { u: number }).u - (pts[0] as { u: number }).u > 0.5)) return null;
+  const en = (u: number) => {
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i] as { u: number; v: number }, b = pts[i + 1] as { u: number; v: number };
+      if (u >= a.u && u <= b.u) return a.v + ((b.v - a.v) * (u - a.u)) / Math.max(1e-9, b.u - a.u);
+    }
+    return u < (pts[0] as { u: number }).u ? (pts[0] as { v: number }).v : (pts[pts.length - 1] as { v: number }).v;
+  };
+  const hauteurs = Array.from({ length: colonnes }, (_, k) => Math.max(0, (en((k + 0.5) / colonnes) - 1) * hauteur));
+  return Math.max(...hauteurs) >= RELIEF_SILHOUETTE_M ? { x0M: 0, x1M: largeurM, hauteurs } : null;
 }
 
 export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxParM: number, e: MurDuReleve, partie: PartieBasse | null = null, hauteurMesuree = false): ResultatAnalyse {
@@ -212,7 +249,15 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
   let toitEstime: ToitEstime | null = null;
   let toitPropose: Toit | null = null;
   let profilToit: ResultatAnalyse['profilToit'] = null;
-  if (vusBande >= 0.33 * bandeToit.vu.length) {
+  // La silhouette du haut du mur, quand elle a une forme (un pignon, une rampe, un trapeze de croupe vu de face), dit le toit : forme
+  // et hauteur, dans le plan du mur, donc a l'echelle. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derriere : la
+  // bande au-dessus de l'egout le lit, comme avant. Un mur en L garde la bande (sa partie haute seule porte le toit).
+  const parLaSilhouette = !partie && e.silhouette ? profilDeLaSilhouette(e.silhouette, e.hauteur, texture.largeur / pxParM) : null;
+  if (parLaSilhouette) {
+    profilToit = parLaSilhouette;
+    toitEstime = classerProfil(parLaSilhouette.hauteurs);
+    toitPropose = toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance);
+  } else if (vusBande >= 0.33 * bandeToit.vu.length) {
     const hauteurs = profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu);
     profilToit = { x0M: haute ? au(haute, 0) : 0, x1M: haute ? au(haute, 1) : texture.largeur / pxParM, hauteurs };
     toitEstime = classerProfil(hauteurs);

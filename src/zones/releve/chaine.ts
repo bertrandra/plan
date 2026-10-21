@@ -20,6 +20,7 @@ import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type Assemblage, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
+import { silhouetteSurLaPhoto } from '../../facade/mosaiqueFuites.js';
 import type { Prise } from './capteurs.js';
 
 /**
@@ -27,7 +28,7 @@ import type { Prise } from './capteurs.js';
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
  * les images d'origine, et ce qui a change.
  */
-export const VERSION_CHAINE_FACADES = 4;
+export const VERSION_CHAINE_FACADES = 5;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 export const SEUIL_VERTICALES_DEG = 0.5;
@@ -330,6 +331,17 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
   const total = entrees.length + echecs.length;
   const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
   if (o.coinsSeuls) return { redressement: bilan('sans', []), faits, seule: null, fusion: null };
+  // La silhouette du haut du mur sur chaque photo, avant l'analyse : celle ajustee a la main, sinon celle lue sur la photo redressee
+  // entre ses coins. Elle dit le toit quand elle a une forme (facade/analyse.ts), et le bilan la garde.
+  for (const x of faits) {
+    const m = x.essai?.p.morceau;
+    if (!m) continue;
+    const c = corrections[String(x.bilan.rang)];
+    const silhouette = (c?.coins && c.silhouette) ? c.silhouette : silhouetteSurLaPhoto(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
+    if (!silhouette) continue;
+    m.silhouette = silhouette.map((p) => ({ x: p.x, y: p.y }));
+    x.bilan.silhouettePx = m.silhouette.map((p) => ({ x: p.x, y: p.y }));
+  }
 
   // La photo seule : la premiere redressee sans echec qui s'analyse, sinon la premiere qui s'analyse (jamais rien de perdu).
   const candidates = [...faits.filter((x) => x.bilan.statut !== 'echec' && x.essai), ...faits.filter((x) => x.bilan.statut === 'echec' && x.essai)];

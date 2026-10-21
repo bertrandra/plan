@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analyserReleve, coinsProposes } from '../../../src/facade/analyse.js';
+import { analyserReleve, coinsProposes, silhouetteEnPartsDuMur } from '../../../src/facade/analyse.js';
 import { homographie, appliquer } from '../../../src/facade/homographie.js';
 import { focale35mm, champDepuisFocale35 } from '../../../src/facade/exif.js';
 import { focalePx, distanceParCadrage } from '../../../src/facade/cadrage.js';
@@ -171,5 +171,41 @@ describe('exif', () => {
 
   it('convertit une focale en champ', () => {
     expect(champDepuisFocale35(18)).toBeCloseTo(90, 9);
+  });
+});
+
+describe('le toit dit par la silhouette du haut du mur', () => {
+  const coins = [p(150, 520), p(860, 560), p(850, 900), p(140, 930)];
+  const photo = photographier(coins);
+  // Elevation en metres (y depuis l'egout vers le bas, negatif au-dessus) -> photo.
+  const versPhoto = homographie([p(0, 0), p(8, 0), p(8, 4), p(0, 4)], coins)!;
+  const surPhoto = (l: { x: number; y: number }[]) => l.map((q) => appliquer(versPhoto, q));
+  const entree = { photo, coins, largeur: 8, hauteur: 4, contour: [p(0, 0), p(8, 0), p(8, 6), p(0, 6)], cote: 0, distance: 6 };
+
+  it('ramene la silhouette de la photo en parts du mur (1 a l egout)', () => {
+    const s = silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2), p(8, 0)]))!;
+    expect(s[1]!.u).toBeCloseTo(3 / 8, 3);
+    expect(s[1]!.v).toBeCloseTo(1.5, 3);
+    expect(s[0]!.v).toBeCloseTo(1, 3);
+  });
+
+  it('lit un pignon decentre : forme et hauteur de la silhouette, pas de la bande', () => {
+    const silhouette = silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2.6), p(8, 0)]));
+    const r = analyserReleve({ ...entree, silhouette })!;
+    expect(r.toitEstime!.forme).toBe('deux-pans');
+    expect(r.toitEstime!.faitage).toBe('perpendiculaire');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(2.6, 1);
+  });
+
+  it('lit une rampe d appentis', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(8, -2)])) })!;
+    expect(r.toitEstime!.forme).toBe('appentis');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(2, 1);
+  });
+
+  it('plate, laisse la bande au-dessus de l egout dire le toit', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(8, 0)])) })!;
+    expect(r.toitEstime!.faitage).toBe('perpendiculaire');
+    expect(r.toitEstime!.hauteur).toBeCloseTo(3, 0);
   });
 });

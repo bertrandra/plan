@@ -10,7 +10,7 @@
 import { apparier, detecterOrb, type DescripteurOrb } from './orb.js';
 import { appliquerSimilitude, composer, echelleDe, inverse, ransacSimilitude, rotationDeg, IDENTITE, type Similitude } from './ransac.js';
 import { appliquer, type Image } from './homographie.js';
-import { inverser as inverserHomographie, type RedressementFuites } from './redressementFuites.js';
+import { inverser as inverserHomographie, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
 const COTE_RECHERCHE_PX = 900;
@@ -615,4 +615,22 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
   if (sol !== undefined) { out.y1 = aimanter(sol); out.pied = true; }
   else if (rapport && rapport > 0) { out.y1 = Math.min(H - 1, cible); out.pied = false; }
   return out;
+}
+
+/**
+ * La silhouette du haut du mur sur une photo, ses coins connus : lue sur la photo redressee entiere par eux (`r`, redresserParReperes)
+ * entre les bouts et le pied (lireSilhouette), puis ramenee sur la photo. Null quand elle ne se lit pas.
+ */
+export function silhouetteSurLaVue(r: RedressementFuites, coins: readonly { x: number; y: number }[]): { x: number; y: number }[] | null {
+  const versVue = inverserHomographie(r.versPhoto);
+  if (!versVue || coins.length !== 4) return null;
+  const [hg, hd, bd, bg] = coins.map((c) => appliquer(versVue, c)) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+  const lue = lireSilhouette(r, { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 });
+  return lue ? lue.silhouette.map((p) => { const q = appliquer(r.versPhoto, p); return { x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 }; }) : null;
+}
+
+/** La silhouette du haut du mur sur une photo, ses coins connus (silhouetteSurLaVue, la photo redressee par eux). */
+export function silhouetteSurLaPhoto(image: Image, coins: readonly { x: number; y: number }[], focalePx: number | null = null): { x: number; y: number }[] | null {
+  const r = coins.length === 4 ? redresserParReperes(image, coins, focalePx) : null;
+  return r ? silhouetteSurLaVue(r, coins) : null;
 }
