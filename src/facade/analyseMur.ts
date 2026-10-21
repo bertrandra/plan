@@ -3,9 +3,9 @@
 // calibration (facade/corpusReel.ts) passent tous par elle : ce que l'un redresse, fusionne et cote, les autres le redressent,
 // le fusionnent et le cotent de meme.
 
-import { analyserReleve, finaliserReleve, hauteurBande, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
+import { analyserReleve, finaliserReleve, hauteurBande, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
 import { mosaiqueDesVues, vuesDeFace } from './mosaiqueFuites.js';
-import { inverser } from './redressementFuites.js';
+import { inverser, redresserParReperes } from './redressementFuites.js';
 import { appliquerSimilitude } from './ransac.js';
 import { appliquer, homographie, redresser, resolutionTexture } from './homographie.js';
 import type { GabaritMur } from './gabaritMur.js';
@@ -27,6 +27,8 @@ export interface PhotoDuMur {
   decrochement?: Decrochement | null;
   /** La silhouette du haut du mur sur la photo (ajustee a la main, ou lue entre ses coins) : elle dit le toit quand elle a une forme. */
   silhouette?: P2[] | null;
+  /** Quatre reperes poses a la main (un rectangle du mur) : ils redressent la photo entiere avant l'assemblage. */
+  reperes?: P2[] | null;
 }
 
 /** Ce que le mur donne a toutes les photos : sa largeur (le plan), sa hauteur estimee, le batiment et la distance. */
@@ -35,6 +37,8 @@ export type MurAnalyse = Pick<EntreeAnalyse, 'largeur' | 'hauteur' | 'contour' |
 /** L'analyse, et selon l'assemblage, ce que la fusion ou la mosaique en disent. */
 export interface AnalyseMur {
   r: ResultatAnalyse;
+  /** L'assemblage d'ou vient l'analyse (une photo seule, ou des vues du mur entier) ; absent : la fusion, les morceaux. */
+  assemblage?: AssemblageDuMur;
   fusion?: ResultatFusion;
   mosaique?: ResultatMosaique;
 }
@@ -50,6 +54,15 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
   // rectangle, la silhouette vaut pour la fusion comme pour la photo seule.
   const avec = photos.find((p) => p.silhouette && p.silhouette.length >= 2);
   const mur = { ...murSeul, silhouette: avec ? silhouetteEnPartsDuMur(avec.coins, avec.silhouette) : null };
+  // Une photo seule, ou des vues du mur entier : l'assemblage des photos redressees entieres est l'image prise pour la suite
+  // (decision de l'utilisateur, 21 octobre 2026). Un mur a deux hauteurs d'egout garde son analyse a lui.
+  if ((photos.length === 1 || assemblage === 'vues') && !p0.decrochement) {
+    const a = assemblerLeMur(photos);
+    // La hauteur se mesure sur la premiere photo dont la focale le permet ; l'estimation du plan sert de repli.
+    const mesuree = photos.map((p) => (p.focalePx ? mesurerHauteur(p.coins, mur.largeur, p.focalePx, p.photo.largeur, p.photo.hauteur) : null)).find((h) => h !== null) ?? null;
+    const r = a ? analyserLAssemblage({ ...mur, hauteur: mesuree ?? mur.hauteur }, a, mur.silhouette, mesuree !== null) : null;
+    if (r) return { r, assemblage: a as AssemblageDuMur };
+  }
   if (photos.length > 1 && assemblage === 'vues') {
     const r = analyserVues({ ...mur, vues: photos.map((p) => ({ photo: p.photo, coins: p.coins, focalePx: p.focalePx })) });
     return r ? { r, fusion: r } : null;
@@ -80,7 +93,9 @@ export interface AssemblageDuMur {
  * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins.
  */
 export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): AssemblageDuMur | null {
-  const vues = vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null));
+  // Une photo sans reperes qui ne se redresse pas par ses points de fuite se redresse par ses coins : un rectangle du mur, eux aussi.
+  const vues = vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null))
+    .map((v, i) => v ?? (photos[i]?.coins.length === 4 ? redresserParReperes((photos[i] as { photo: Image }).photo, (photos[i] as { coins: readonly P2[] }).coins) : null));
   const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
   const m = rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as NonNullable<(typeof vues)[number]>)) : null;
   if (!m) return null;
@@ -104,7 +119,7 @@ export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly 
  * meme plan (un pignon y est entier), ce que l'assemblage ne montre pas laisse hors champ. Le gabarit du mur dit le toit quand il a
  * une forme. Null quand les coins ne forment pas un mur.
  */
-export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit: GabaritMur | null = null): ResultatAnalyse | null {
+export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit: GabaritMur | null = null, hauteurMesuree = false): ResultatAnalyse | null {
   const { largeur: L, hauteur: H } = mur;
   const versAssemblage = homographie([{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: H }, { x: 0, y: H }], a.coins);
   if (!versAssemblage) return null;
@@ -118,5 +133,5 @@ export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit
   const vuR = redresser(masque, etendus, L, H + E, pxParM);
   if (!r || !vuR) return null;
   const vu = r.vu.map((v, i) => (v && (vuR.image.donnees[i * 4] ?? 0) > 127 ? 1 : 0));
-  return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null });
+  return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null }, null, hauteurMesuree);
 }

@@ -106,7 +106,7 @@ describe('l ecran de calibration', () => {
     expect(bouton('calibration.enregistrerCas')).toBeNull();
   });
 
-  it('ajoute une seconde photo : redressement et fusion seuls, la photo qui ne se recale pas est signalee et gardee', async () => {
+  it('ajoute une seconde photo : redressement et assemblage seuls, la photo qui ne se recale pas est signalee et gardee', async () => {
     const grise: Image = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(640 * 480 * 4).fill(128) };
     let n = 0;
     const { deps } = fausses({ decoder: async () => (n++ < 2 ? scene.image : grise) });
@@ -120,7 +120,7 @@ describe('l ecran de calibration', () => {
     }
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
     expect(hote.textContent).toMatch(/coins devinés, à vérifier/);
-    expect(hote.querySelector('[data-controle="calibration.avisFusion"]')?.textContent).toMatch(/vue \d n’est pas fusionnée/);
+    expect(hote.querySelector('[data-controle="calibration.avisFusion"]')?.textContent).toMatch(/photo \d reste hors de l’assemblage/);
   }, 60_000);
 
   it('redresse un cas, part de la detection pour annoter, et enregistre', async () => {
