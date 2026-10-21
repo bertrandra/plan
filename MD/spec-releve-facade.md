@@ -399,7 +399,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, et à 5 quand la silhouette dit le toit.
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, et à 6 avec le gabarit.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 
@@ -431,36 +431,50 @@ a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du 
 - La ligne brisée est simplifiée (Douglas-Peucker), et deux sommets presque confondus se fondent.
 - **L'égout** est la hauteur aux angles, la droite des colonnes du bout prolongée jusqu'à eux. Sous une rampe, c'est le plus bas des
   deux. Une silhouette droite garde la règle par transition, moins sensible à un dévers du redressement.
-- La silhouette part avec le bilan de chaque photo (`BilanPhotoRedressement.silhouettePx`). Sur la photo, c'est celle ajustée à la
-  main (`CorrectionRedressement.silhouette`), sinon celle lue entre ses coins (`mosaiqueFuites.ts::silhouetteSurLaPhoto`).
-- La calibration la reprend d'un audit (`casDepuisFacade`), avec les repères et le mur ajusté à la main (`murALaMain`).
-- **Elle dit le toit.** La chaîne la pose sur chaque photo avant l'analyse (`chaine.ts`), ramenée au rectangle du mur
+- Cette lecture sert à **chercher** l'égout. La silhouette retenue, elle, est le gabarit (ci-dessous) ; la silhouette lue ne reste
+  que là où il n'y a pas de gabarit (le relevé).
+
+**Le gabarit : la silhouette par contrainte** (décision de l'utilisateur, 21 octobre 2026). La silhouette du mur ne se lit pas sur la
+photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur.ts`).
+- **Sa forme.** Le haut du mur sous les corps du toit (`hautDuMurSousCorps`) : un pignon, une rampe, des marches. La largeur vient du
+  cadastre, l'égout du LiDAR. C'est une liste de sommets en parts du mur (`u` de 0 à 1, `v` = 1 à l'égout). Sans corps, un rectangle.
+- **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés (`affinerEgoutEtSol`, paramètre
+  `gabarit`). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
+- **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur
+  6 % trop basse). Le sol garde la hauteur du plan.
+- **Dans la chaîne.** L'audit tire le gabarit des corps du bâtiment (`mesures.ts`, `gabaritDesCorps`) et le passe à la chaîne
+  (`OutilsChaine.gabarit`). Chaque photo reçoit le gabarit posé par ses coins (`gabaritSurLaPhoto`), et son bilan le garde
+  (`silhouettePx`). Un cas de calibration importé d'un audit porte le gabarit du cas figé (`CasReel.gabarit`).
+- **Elle dit le toit.** La silhouette de chaque photo (le gabarit posé), ramenée au rectangle du mur
   (`analyse.ts::silhouetteEnPartsDuMur` : `u` le long du mur, `v` = 1 à l'égout). Quand elle s'élève de plus de 0,3 m au-dessus de
   l'égout, son profil, à l'échelle de la hauteur du mur, est celui que `classerProfil` classe : forme et hauteur du pignon viennent de
   la silhouette, plus de la bande au-dessus de l'égout. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derrière : la
   bande le lit, comme avant ; un mur en L aussi. `classerProfil` reconnaît un pignon **décentré** (sommet balayé de 20 à 80 % du mur,
   le centre l'emporte à égalité), qu'il prenait pour une croupe. `.claude/skills/facades/scripts/toit-facade.ts` compare les deux
   lectures : pignons justes (forme, hauteur à 10 %) 1/3 par la bande, 3/3 par la silhouette (`11` sous l'ombre d'un arbre, lu plat
-  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés.
+  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés. Avec le gabarit, la forme du toit est celle du LiDAR.
 
 Le banc a deux scènes de pignon de plus : `22` (décentré, en pierre, de biais) et `23` (la rampe d'un appentis, une haie devant).
 Le générateur sait poser le sommet d'un pignon où l'on veut (`pignonSommet`).
 
-| Sur 44 lectures (22 scènes) | Après l'affinage par la teinte | Avec la silhouette |
-|---|--:|--:|
-| Égout juste | 41/44 | **44/44** |
-| Sol juste | 43/44 | 43/44 |
-| Silhouette à 2 % (21 colonnes) | — | **39/42** |
+| Sur 44 lectures (22 scènes) | Après l'affinage par la teinte | Avec la silhouette lue | Avec le gabarit |
+|---|--:|--:|--:|
+| Égout juste | 41/44 | **44/44** | 44/44 |
+| Sol juste | 43/44 | 43/44 | 43/44 |
+| Silhouette à 2 % (21 colonnes) | — | 39/42 | 39/44 |
 
-Restent le pignon sous l'ombre d'un arbre (`11`, 2 à 2,4 %) et le grand-angle à forte distorsion (`13`).
+Avec le gabarit, l'écart de la silhouette est celui de l'égout et du sol trouvés : la forme est juste par construction. Restent le
+pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13`).
 
 **La reprise à la main.** « Ajuster l'égout et le sol » (audit : écran des repères ; calibration : photo courante) montre la photo
-redressée entière, avec la silhouette du haut du mur, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
-- La silhouette est une ligne brisée dont on tire les sommets. Ses deux bouts sont aux angles, et l'égout est le plus bas des deux.
-- « Ajouter un sommet » coupe le plus long tronçon (une lucarne, un pignon) ; Suppr retire un sommet.
-- Tout part du mur et de la silhouette trouvés. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
-- L'écran de calibration trace la silhouette en surimpression sur les photos redressées entières, sur l'assemblage, sur chaque photo
+redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
+- Le gabarit se pose entre ces lignes. Sa forme ne change pas ; il suit leur échelle. Il n'y a pas de sommet à tirer.
+- Tout part du mur trouvé. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
+- L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur chaque photo
   et sur l'image redressée et fusionnée posée sur la façade.
+- **Aucune vue ne coupe la photo au mur.** L'étape 5 (« Chaque photo à l'échelle du mur ») montre la photo redressée à l'échelle,
+  avec ce qui entoure le mur : le toit au-dessus du gabarit, le sol, les côtés (`etapesCalibration.ts::photoAutourDuMur`).
+  L'étape 6 pose le mur fusionné dans la photo de référence, dans le même cadre.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui

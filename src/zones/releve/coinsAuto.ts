@@ -7,6 +7,7 @@ import type { Image, P2 } from '../../facade/homographie.js';
 import { detecterSegments } from '../../facade/segments.js';
 import { redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
 import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
+import type { GabaritMur } from '../../facade/gabaritMur.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -52,12 +53,12 @@ export function vuesDeFace(images: readonly Image[], reperes: readonly (readonly
  * (LiDAR) : le mur est le rectangle a ces proportions (`rapport` = hauteur / largeur) que les aretes de l'assemblage dessinent le
  * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue.
  */
-export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null): MurLu {
+export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, gabarit: GabaritMur | null = null): MurLu {
   const segs = detecterSegments(m.image);
   const aretes = rapport ? rectangleSurLesAretes(m, segs, rapport) : null;
   const r: MurLu = aretes ? { x0: aretes.x0, x1: aretes.x1, y0: aretes.y0, y1: aretes.y1, egout: true, pied: true, cotes: true } : rectangleDuMur(m, segs, rapport);
   // Les bouts sont surs, l'egout et le sol beaucoup moins : ils s'affinent par la teinte du mur.
-  return affinerEgoutEtSol(m, segs, r, rapport);
+  return affinerEgoutEtSol(m, segs, r, rapport, gabarit);
 }
 
 /**
@@ -67,14 +68,14 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
  * ne se redresse. `hauteurPlanM` : la hauteur du mur que donne le plan (LiDAR), qui en fixe les proportions avec la largeur.
  * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent.
  */
-export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = []): CoinsDeSerie | null {
+export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = [], gabarit: GabaritMur | null = null): CoinsDeSerie | null {
   // D'abord redresser (les reperes poses, sinon les points de fuite), puis assembler, et seulement ensuite chercher l'egout et le sol.
   const vues = vuesDeFace(images, reperes);
   const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
   if (!rangs.length) return null;
   const m = mosaiqueDesVues(rangs.map((i) => vues[i] as RedressementFuites));
   if (!m) return null;
-  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null);
+  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, gabarit);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
   const coins: (P2[] | null)[] = images.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });

@@ -72,5 +72,12 @@ describe('le mur cherche sur l assemblage des photos redressees', () => {
     expect(r.silhouette).toBeDefined();
     const haut = [...(r.silhouette ?? [])].sort((a, b) => a.y - b.y)[0] as P2;
     expect(Math.hypot(haut.x - sommet.x, haut.y - sommet.y) / w).toBeLessThan(0.02);
+    // Avec le gabarit du plan et du LiDAR : il se pose tel quel entre les bords trouves, son sommet a sa place.
+    const pg = s.synthese.mur.pignon ?? 0;
+    const g = murSurLAssemblage(m, H / L, [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pg / H }, { u: 1, v: 1 }]);
+    expect(g.silhouette).toHaveLength(3);
+    const pose = g.silhouette?.[1] as P2;
+    expect(pose.x).toBeCloseTo(g.x0 + 0.4 * (g.x1 - g.x0), 6);
+    expect(Math.hypot(pose.x - sommet.x, pose.y - sommet.y) / w).toBeLessThan(0.03);
   }, 30000);
 });

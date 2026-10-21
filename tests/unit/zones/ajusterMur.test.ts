@@ -26,12 +26,13 @@ const photo = (): Image => ({ largeur: 400, hauteur: 300, donnees: new Uint8Clam
 const REPERES: P2[] = [{ x: 100, y: 80 }, { x: 300, y: 80 }, { x: 300, y: 220 }, { x: 100, y: 220 }];
 const MUR: P2[] = [{ x: 60, y: 50 }, { x: 340, y: 50 }, { x: 340, y: 260 }, { x: 60, y: 260 }];
 
-const PIGNON: P2[] = [{ x: 60, y: 120 }, { x: 200, y: 40 }, { x: 340, y: 120 }];
+/** Un pignon centre qui monte de la moitie de la hauteur du mur au-dessus de l'egout. */
+const PIGNON = [{ u: 0, v: 1 }, { u: 0.5, v: 1.5 }, { u: 1, v: 1 }];
 
-async function monter(silhouette: P2[] | null = null) {
+async function monter(gabarit: { u: number; v: number }[] | null = null) {
   const changer = vi.fn<(m: MurAjuste) => void>();
   const charger = async () => photo();
-  await act(async () => { racine.render(createElement(AjusterMur, { charger, reperes: REPERES, mur: MUR, silhouette, changer })); await new Promise((ok) => setTimeout(ok, 0)); });
+  await act(async () => { racine.render(createElement(AjusterMur, { charger, reperes: REPERES, mur: MUR, ...(gabarit ? { gabarit } : {}), changer })); await new Promise((ok) => setTimeout(ok, 0)); });
   return changer;
 }
 const poignee = (nom: string) => hote.querySelector(`[role="slider"][aria-label="${nom}"]`) as SVGElement;
@@ -39,45 +40,38 @@ const touche = (nom: string, key: string, shiftKey = false) => act(() => { poign
 const dernier = (c: ReturnType<typeof vi.fn<(m: MurAjuste) => void>>) => c.mock.calls.at(-1)?.[0] as MurAjuste;
 
 describe('la reprise a la main du mur sur la photo redressee', () => {
-  it('sans silhouette lue, part d une ligne droite a l egout : deux angles, le sol et les deux bouts', async () => {
+  it('part du mur donne : quatre lignes a tirer, l egout, le sol et les deux bouts', async () => {
     await monter();
-    expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(5);
-    // De face, la vue est la photo a la meme echelle : les poignees tombent sur le mur donne.
-    expect(Number(poignee('Égout, angle gauche').getAttribute('cy'))).toBeCloseTo(50, 0);
+    expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(4);
+    // De face, la vue est la photo a la meme echelle : les lignes tombent sur le mur donne.
+    expect(Number(poignee('Égout').getAttribute('y1'))).toBeCloseTo(50, 0);
     expect(Number(poignee('Sol').getAttribute('y1'))).toBeCloseTo(260, 0);
   });
 
-  it('montre la silhouette d un pignon, et en tire le sommet sans toucher a l egout', async () => {
+  it('pose le gabarit tel quel : le pignon suit l egout et le sol sans changer de forme', async () => {
     const changer = await monter(PIGNON);
-    expect(hote.querySelectorAll('[role="slider"]')).toHaveLength(6);
-    touche('Haut du mur, sommet 1', 'ArrowUp', true);
+    touche('Égout', 'ArrowDown', true);
     const m = dernier(changer);
-    expect((m.silhouette[1] as P2).y).toBeCloseTo(32, 0);
-    // L'egout reste aux angles : les coins du haut du mur ne bougent pas.
-    expect((m.coins[0] as P2).y).toBeCloseTo(120, 0);
-    expect((m.silhouette[0] as P2).x).toBeCloseTo(60, 0);
+    const egout = (m.coins[0] as P2).y, sol = (m.coins[3] as P2).y;
+    expect(egout).toBeCloseTo(58, 0);
+    // Le faite est a la moitie de la hauteur du mur au-dessus de l'egout, au milieu des bouts ; les angles sont a l'egout.
+    expect(m.silhouette).toHaveLength(3);
+    expect((m.silhouette[1] as P2).y).toBeCloseTo(egout - (sol - egout) / 2, 0);
+    expect((m.silhouette[1] as P2).x).toBeCloseTo(200, 0);
+    expect((m.silhouette[0] as P2).y).toBeCloseTo(egout, 0);
   });
 
-  it('prend pour egout le plus bas des deux angles (une rampe)', async () => {
-    const changer = await monter([{ x: 60, y: 120 }, { x: 340, y: 60 }]);
-    touche('Égout, angle droit', 'ArrowDown');
+  it('suit un bout tire : le gabarit s etire en largeur', async () => {
+    const changer = await monter(PIGNON);
+    touche('Bout droit du mur', 'ArrowLeft', true);
     const m = dernier(changer);
-    expect((m.coins[0] as P2).y).toBeCloseTo(120, 0);
-    expect((m.coins[1] as P2).y).toBeCloseTo(120, 0);
-    expect((m.silhouette[1] as P2).y).toBeCloseTo(60.8, 0);
+    expect((m.coins[1] as P2).x).toBeCloseTo(332, 0);
+    expect((m.silhouette[1] as P2).x).toBeCloseTo((60 + 332) / 2, 0);
   });
 
-  it('ajoute un sommet au plus long troncon, et le retire par Suppr', async () => {
+  it('ne laisse pas l egout passer sous le sol', async () => {
     const changer = await monter();
-    act(() => (hote.querySelector('[data-controle="releve.ajouterSommet"]') as HTMLButtonElement).click());
-    expect(dernier(changer).silhouette).toHaveLength(3);
-    touche('Haut du mur, sommet 1', 'Delete');
-    expect(dernier(changer).silhouette).toHaveLength(2);
-  });
-
-  it('ne laisse pas le haut du mur passer sous le sol', async () => {
-    const changer = await monter();
-    for (let i = 0; i < 40; i++) touche('Égout, angle gauche', 'ArrowDown', true);
+    for (let i = 0; i < 40; i++) touche('Égout', 'ArrowDown', true);
     const m = dernier(changer);
     expect((m.coins[0] as P2).y).toBeLessThan((m.coins[3] as P2).y);
   });

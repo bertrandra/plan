@@ -2677,12 +2677,9 @@
   .ajusterMurLigne{ stroke:var(--accent); stroke-width:3; }
   .ajusterMurLigne.gauche, .ajusterMurLigne.droite{ stroke-dasharray:8 5; }
   .ajusterMurSaisie{ stroke:transparent; fill:transparent; cursor:ns-resize; }
-  circle.ajusterMurSaisie{ cursor:move; }
   .ajusterMurSaisie[aria-orientation="horizontal"]{ cursor:ew-resize; }
   .ajusterMurSaisie:focus-visible{ stroke:var(--accent-light); stroke-opacity:0.6; outline:none; }
   .ajusterMurLigne.silhouette, .calMurLigne.silhouette{ fill:none; }
-  .ajusterMurEgout{ stroke:var(--accent); stroke-width:1; stroke-dasharray:3 4; }
-  .ajusterMurSommet{ fill:var(--panel-bg); stroke:var(--accent); stroke-width:2; }
   .ajusterMurEtiquette{ fill:var(--accent); font-family:var(--sans); paint-order:stroke; stroke:var(--panel-bg); stroke-width:3px; }
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   .calDevinee{ fill:transparent; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }

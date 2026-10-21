@@ -227,8 +227,13 @@ largeur du mur près.
 
 `tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc (relevé, audit) ne joue pas ce chemin.
 
+**Le gabarit** (`facade/gabaritMur.ts`) : la silhouette du plan et du LiDAR, une forme fixe. `egout-sol.ts` pose le gabarit vrai de
+chaque scène, comme le LiDAR le donnerait : égout 44/44, sol 43/44, gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et
+du sol trouvés. Le profil lu pour caler un sol caché a été essayé, puis retiré : il dégradait la rampe `23`.
+
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
-par la bande au-dessus de l'égout et celui lu par la silhouette du haut du mur (vrais coins, `silhouetteSurLaPhoto`). Pignons justes
+par la bande au-dessus de l'égout et celui lu par la silhouette du haut du mur lue sur la photo (vrais coins, `silhouetteSurLaPhoto` :
+ce qui sert sans gabarit, au relevé). Pignons justes
 (forme, hauteur à 10 %) : 1/3 par la bande, 3/3 par la silhouette ; les murs gouttereaux (silhouette plate) gardent la bande.
 
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles

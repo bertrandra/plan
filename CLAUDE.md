@@ -150,6 +150,9 @@ d'y toucher.
   validation est figée sur le fichier (`validation.figer`), en lecture seule. Ne pas écrire un second
   aperçu 3D : toute évolution de l'avant/après (et plus tard les décisions) se fait dans
   `validation.ts` / `PropositionsAudit.tsx`, pour les deux.
+- **Silhouette d'une façade (audit, calibration)** : un gabarit tiré du plan et du LiDAR (`facade/gabaritMur.ts`), jamais lu sur
+  la photo ni déformé : il se pose entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que
+  les directions ; la dimension vient de ce calage. Aucune vue ne coupe la photo au mur.
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

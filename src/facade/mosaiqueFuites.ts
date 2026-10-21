@@ -11,6 +11,7 @@ import { apparier, detecterOrb, type DescripteurOrb } from './orb.js';
 import { appliquerSimilitude, composer, echelleDe, inverse, ransacSimilitude, rotationDeg, IDENTITE, type Similitude } from './ransac.js';
 import { appliquer, type Image } from './homographie.js';
 import { inverser as inverserHomographie, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
+import { gabaritSurLaVue, type GabaritMur } from './gabaritMur.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
 const COTE_RECHERCHE_PX = 900;
@@ -559,9 +560,10 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
  * une haie ou une voiture cache le pied. Le mur a sa teinte, que l'on lit au milieu du rectangle trouve : l'egout est la premiere
  * rangee de mur sous le toit, le sol la derniere au-dessus de ce qui n'est plus le mur (le gazon, le trottoir), cherche pres de la
  * hauteur que donne le plan (`rapport`) ; un bord trouve se colle a l'arete horizontale la plus proche. Un sol cache (haie sur toute
- * la largeur) tombe a la hauteur du plan, et se dit suppose.
+ * la largeur) tombe a la hauteur du plan, et se dit suppose. `gabarit` (facade/gabaritMur.ts) : la silhouette du plan et du LiDAR,
+ * posee entre les bords trouves, sans changer de forme ; sans lui, la silhouette lue sur l'image.
  */
-export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null): MurLu {
+export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null, gabarit: GabaritMur | null = null): MurLu {
   const w = r.x1 - r.x0, H = m.image.hauteur;
   if (!(w > 0)) return r;
   const marge = 0.05 * w;
@@ -604,7 +606,7 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
     egout = milieux(debuts)[0] ?? (sil && silPlausible ? sil.egout : undefined);
   }
   if (egout !== undefined) { out.y0 = aimanter(egout); out.egout = true; }
-  if (sil && silPlausible) out.silhouette = sil.silhouette.map((p) => ({ x: p.x, y: Math.min(p.y, out.y0) }));
+  if (sil && silPlausible && !gabarit) out.silhouette = sil.silhouette.map((p) => ({ x: p.x, y: Math.min(p.y, out.y0) }));
   // Le sol : la transition « mur » -> « pas du mur » la plus proche de la hauteur du plan sous l'egout. Sans elle (une haie cache le
   // pied sur toute la largeur), la hauteur du plan, dite supposee : un bandeau d'etage dessine une arete plus nette que le pied cache.
   const attendu = rapport && rapport > 0 ? rapport * w : h0;
@@ -614,6 +616,8 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
   const sol = milieux(fins).sort((a, b) => Math.abs(a - cible) - Math.abs(b - cible))[0];
   if (sol !== undefined) { out.y1 = aimanter(sol); out.pied = true; }
   else if (rapport && rapport > 0) { out.y1 = Math.min(H - 1, cible); out.pied = false; }
+  // Le gabarit se pose entre les bouts, l'egout et le sol trouves : sa forme ne bouge pas, seule son echelle suit le calage.
+  if (gabarit) out.silhouette = gabaritSurLaVue(gabarit, out);
   return out;
 }
 

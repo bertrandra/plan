@@ -18,11 +18,12 @@ import { inverser } from '../../../../src/facade/redressementFuites.ts';
 import { mosaiqueDesVues } from '../../../../src/facade/mosaiqueFuites.ts';
 import { appliquerSimilitude } from '../../../../src/facade/ransac.ts';
 import { murSurLAssemblage, vuesDeFace } from '../../../../src/zones/releve/coinsAuto.ts';
+import { gabaritDuHaut } from '../../../../src/facade/gabaritMur.ts';
 
 const args = process.argv.slice(2);
 const iImages = args.indexOf('--images');
 const dossier = iImages >= 0 ? args[iImages + 1] : null;
-const mots = args.filter((a, i) => !a.startsWith('--') && i !== iImages + 1);
+const mots = args.filter((a, i) => !a.startsWith('--') && (iImages < 0 || i !== iImages + 1));
 if (dossier) mkdirSync(dossier, { recursive: true });
 
 /** Trace un rectangle (bords d'un pixel) sur une copie de l'image. */
@@ -85,7 +86,10 @@ for (const s of chargerCorpus()) {
     const v = vrais.map((c) => appliquerSimilitude(place, appliquer(versVue, c)));
     const verite = { x0: ((v[0] as P2).x + (v[3] as P2).x) / 2, x1: ((v[1] as P2).x + (v[2] as P2).x) / 2, y0: ((v[0] as P2).y + (v[1] as P2).y) / 2, y1: ((v[2] as P2).y + (v[3] as P2).y) / 2 };
     const w = verite.x1 - verite.x0;
-    const r = murSurLAssemblage(m, H / L);
+    // Le gabarit du mur, comme le donnerait le LiDAR : le haut vrai (l'egout, et le pignon au-dessus).
+    const pg0 = s.synthese.mur.pignon ?? 0, sommet0 = s.synthese.mur.pignonSommet ?? 0.5;
+    const gabarit = gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg0 * formePignon(u, sommet0) })));
+    const r = murSurLAssemblage(m, H / L, gabarit);
     const e = { egout: Math.abs(r.y0 - verite.y0) / w, sol: Math.abs(r.y1 - verite.y1) / w, g: Math.abs(r.x0 - verite.x0) / w, d: Math.abs(r.x1 - verite.x1) / w };
     ecarts.egout.push(e.egout); ecarts.sol.push(e.sol); ecarts.bouts.push(e.g, e.d);
     // La silhouette vraie : le haut du mur (l'egout, et le pignon au-dessus), porte du mur dans l'assemblage ; l'ecart est le plus
