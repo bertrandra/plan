@@ -193,7 +193,14 @@ const PART_LIGNE_MIN = 0.3;
 const HAUTEUR_MUR_MIN_PART = 0.2;
 
 /** Le rectangle du mur lu sur la mosaique, et ce qui a ete lu (egout, pied, cotes) ou suppose. */
-export interface MurLu extends Rect { egout: boolean; pied: boolean; cotes: boolean }
+export interface MurLu extends Rect {
+  egout: boolean; pied: boolean; cotes: boolean;
+  /**
+   * La silhouette du haut du mur, d'un bout a l'autre (en pixels de l'image lue) : une ligne brisee, au-dessus de l'egout ou sur lui.
+   * Droite sur un mur gouttereau, un triangle sur un pignon, une rampe sous un appentis. Absente quand elle n'a pas pu se lire.
+   */
+  silhouette?: { x: number; y: number }[];
+}
 
 /** Un cote du mur (une chaine d'angle, l'arete d'un pignon) se cherche a cette part de sa largeur supposee de part et d'autre. */
 const PORTEE_COTE = 0.15;
@@ -373,6 +380,26 @@ const AIMANT_ARETE = 0.012;
 /** L'egout se cherche de cette part de la largeur au-dessus du bord des aretes a cette part de la hauteur au-dessous. */
 const EGOUT_AU_DESSUS = 0.1;
 const EGOUT_AU_DESSOUS = 0.3;
+/** La silhouette se lit sur tant de colonnes, et cherche le haut du mur jusqu'a cette part de la largeur au-dessus du bord trouve. */
+const COLONNES_SILHOUETTE = 64;
+const SILHOUETTE_AU_DESSUS = 0.8;
+/** Le haut du mur dans une colonne : au moins cette part de pixels de mur sur les tant de pixels qui suivent (part de la largeur). */
+const PART_HAUT_MUR = 0.7;
+const SUITE_HAUT_MUR = 0.012;
+/**
+ * Les colonnes des bouts donnent l'egout, un pignon commencant a ses angles : les trois plus proches de chaque bout, la plus basse
+ * (au-dela, la pente d'un pignon les fait deja monter).
+ */
+const COLONNES_BOUT = 3;
+/** La silhouette a une forme (pignon, bosse) quand elle monte de plus que cette part de la largeur au-dessus de l'egout. */
+const RELIEF_SILHOUETTE = 0.05;
+/** Les deux bouts s'ecartent de plus que cette part de la largeur : une rampe (le pignon d'un appentis), pas un devers du redressement. */
+const RAMPE_SILHOUETTE = 0.12;
+/** Une ligne brisee s'ecarte de la silhouette lue de moins que cette part de la largeur (Douglas-Peucker). */
+const TOLERANCE_SILHOUETTE = 0.012;
+/** Deux sommets de la silhouette plus proches que cette part de la largeur se confondent. */
+const SOMMETS_DISTINCTS = 0.04;
+
 /**
  * Le sol se cherche entre ces parts de la hauteur attendue (le plan) sous l'egout : le LiDAR donne l'egout a quelques centimetres,
  * et le haut d'une voiture ou d'une haie, qui coupe aussi le mur, tombe bien plus haut.
@@ -432,6 +459,101 @@ function rangees(m: { image: Image; vu: Uint8Array }, x0: number, x1: number): R
 }
 
 /**
+ * La silhouette du haut du mur sur une image vue de face, ses bouts et son pied connus (`r`) : la teinte du mur lue le long de ses
+ * bouts, l'ecart admis a son grain. Ce que montre « Ajuster l'égout et le sol » au depart (zones/releve/AjusterMur.tsx).
+ */
+export function lireSilhouette(m: { image: Image; vu: Uint8Array }, r: Rect): { silhouette: { x: number; y: number }[]; egout: number; forme: 'droite' | 'pignon' | 'rampe' } | null {
+  const mur = teinteDuMur(m, r);
+  return mur ? silhouetteDuMur(m, r, mur, Math.max(ECART_CHROMA_MUR, 2 * mur.grain) * 1.5) : null;
+}
+
+/** Douglas-Peucker : les sommets d'une ligne brisee qui s'ecartent de plus de `tol` de la corde. */
+function simplifier(pts: readonly { x: number; y: number }[], tol: number): { x: number; y: number }[] {
+  if (pts.length <= 2) return [...pts];
+  const a = pts[0] as { x: number; y: number }, b = pts[pts.length - 1] as { x: number; y: number };
+  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+  let k = -1, dMax = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i] as { x: number; y: number };
+    const d = Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / L;
+    if (d > dMax) { dMax = d; k = i; }
+  }
+  if (dMax <= tol) return [a, b];
+  return [...simplifier(pts.slice(0, k + 1), tol).slice(0, -1), ...simplifier(pts.slice(k), tol)];
+}
+
+/**
+ * La silhouette du haut du mur sur une image vue de face : dans chaque colonne entre ses bouts, la premiere rangee, en descendant du
+ * ciel, ou commence la matiere du mur (`teinte`, a `ecart` de chromaticite pres). Un pignon y fait un triangle, un appentis une rampe ;
+ * une bande de tuiles, n'etant pas du mur, laisse la silhouette a l'egout. L'egout est la hauteur aux angles (la plus basse des deux :
+ * sous une rampe, l'egout est le bas). Null quand trop de colonnes ne se lisent pas.
+ */
+export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, teinte: { cr: number; cg: number; l: number }, ecart: number): { silhouette: { x: number; y: number }[]; egout: number; forme: 'droite' | 'pignon' | 'rampe' } | null {
+  const { largeur: L, hauteur: H, donnees: d } = m.image;
+  const w = r.x1 - r.x0;
+  if (!(w > 0)) return null;
+  const k = Math.max(3, Math.round(SUITE_HAUT_MUR * w));
+  const yDebut = Math.max(0, Math.round(r.y0 - SILHOUETTE_AU_DESSUS * w)), yFin = Math.min(H - 1, Math.round(r.y1));
+  const hauts: { x: number; y: number }[] = [];
+  for (let c = 0; c < COLONNES_SILHOUETTE; c++) {
+    const xc = r.x0 + 0.01 * w + ((c + 0.5) / COLONNES_SILHOUETTE) * 0.98 * w;
+    const xa = Math.max(0, Math.round(xc) - 2), xb = Math.min(L - 1, Math.round(xc) + 2);
+    // Une rangee de la colonne est du mur quand la moyenne de ses cinq pixels en a la teinte (le bruit d'un pixel ne compte pas).
+    const mur: boolean[] = [], vus: boolean[] = [];
+    for (let y = yDebut; y <= yFin; y++) {
+      let R = 0, G = 0, B = 0, n = 0;
+      for (let x = xa; x <= xb; x++) { const i = y * L + x; if (!m.vu[i]) continue; R += d[i * 4] ?? 0; G += d[i * 4 + 1] ?? 0; B += d[i * 4 + 2] ?? 0; n++; }
+      const s = R + G + B + n;
+      vus.push(n > 0);
+      mur.push(n > 0 && Math.hypot(R / s - teinte.cr, G / s - teinte.cg) < ecart && s / n >= LUMIERE_MUR[0] * teinte.l && s / n <= LUMIERE_MUR[1] * teinte.l);
+    }
+    let haut: number | null = null;
+    for (let i = 0; i + k <= mur.length; i++) {
+      if (!mur[i]) continue;
+      let n = 0;
+      for (let j = i; j < i + k; j++) if (mur[j]) n++;
+      if (n >= PART_HAUT_MUR * k) { haut = i; break; }
+    }
+    // Un haut colle au bord de ce que la photo a vu n'est pas le haut du mur, mais celui du cadre : la colonne ne dit rien.
+    const auBord = haut !== null && vus.slice(Math.max(0, haut - k), haut).some((v) => !v);
+    if (haut !== null && haut > 0 && !auBord) hauts.push({ x: xc, y: yDebut + haut });
+  }
+  if (hauts.length < COLONNES_SILHOUETTE / 2) return null;
+  const med = (t: number[]) => { const u = [...t].sort((a, b) => a - b); return u[u.length >> 1] as number; };
+  // Une colonne masquee (un arbre devant le pignon) ne casse pas la ligne : mediane glissante sur cinq colonnes.
+  const lisses = hauts.map((p, i) => ({ x: p.x, y: med(hauts.slice(Math.max(0, i - 2), i + 3).map((q) => q.y)) }));
+  const gauche = lisses.slice(0, COLONNES_BOUT), droite = lisses.slice(-COLONNES_BOUT);
+  if (gauche.length < COLONNES_BOUT || droite.length < COLONNES_BOUT || (gauche[0] as { x: number }).x > r.x0 + 0.1 * w || (droite[droite.length - 1] as { x: number }).x < r.x1 - 0.1 * w) return null;
+  // La hauteur a l'angle : la droite des colonnes du bout, prolongee jusqu'a lui (la pente d'un pignon monte des le premier
+  // centimetre), sans descendre de plus de 3 % de la largeur sous la plus basse d'entre elles.
+  const angle = (cols: readonly { x: number; y: number }[], x: number) => {
+    const n = cols.length, mx = cols.reduce((t, p) => t + p.x, 0) / n, my = cols.reduce((t, p) => t + p.y, 0) / n;
+    const sxx = cols.reduce((t, p) => t + (p.x - mx) ** 2, 0), pente = sxx > 0 ? cols.reduce((t, p) => t + (p.x - mx) * (p.y - my), 0) / sxx : 0;
+    const bas = Math.max(...cols.map((p) => p.y));
+    return Math.min(bas + 0.03 * w, Math.max(bas, my + pente * (x - mx)));
+  };
+  const yG = angle(gauche, r.x0), yD = angle(droite, r.x1);
+  const egout = Math.max(yG, yD);
+  const forme = Math.abs(yG - yD) > RAMPE_SILHOUETTE * w ? 'rampe' : egout - Math.min(...lisses.map((p) => p.y)) > RELIEF_SILHOUETTE * w ? 'pignon' : 'droite';
+  // La silhouette ne descend pas sous l'egout (une fenetre haute, un store) ; ses bouts sont aux angles du mur.
+  const ligne = [{ x: r.x0, y: yG }, ...lisses.map((p) => ({ x: p.x, y: Math.min(p.y, egout) })), { x: r.x1, y: yD }];
+  // Deux sommets presque confondus n'en font qu'un : un faite lu sur deux colonnes devient un sommet a leur milieu, au plus haut des
+  // deux ; un sommet tout pres d'un angle se fond dans l'angle. La ligne se tire alors plus simplement.
+  const sommets = simplifier(ligne, TOLERANCE_SILHOUETTE * w);
+  const proche = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y) < SOMMETS_DISTINCTS * w;
+  const premier = sommets[0] as { x: number; y: number }, fin = sommets[sommets.length - 1] as { x: number; y: number };
+  const nets: { x: number; y: number }[] = [premier];
+  for (const p of sommets.slice(1, -1)) {
+    if (proche(p, premier) || proche(p, fin)) continue;
+    const prec = nets[nets.length - 1] as { x: number; y: number };
+    if (nets.length > 1 && proche(p, prec)) nets[nets.length - 1] = { x: (p.x + prec.x) / 2, y: Math.min(p.y, prec.y) };
+    else nets.push(p);
+  }
+  nets.push(fin);
+  return { silhouette: nets, egout, forme };
+}
+
+/**
  * L'egout et le sol affines par la matiere du mur, ses bouts une fois trouves : les aretes seules prenaient le haut d'une bande de
  * tuiles pour l'egout (la limite du toit et du ciel est la plus franche des horizontales), et un bandeau d'etage pour le sol quand
  * une haie ou une voiture cache le pied. Le mur a sa teinte, que l'on lit au milieu du rectangle trouve : l'egout est la premiere
@@ -469,12 +591,20 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
     return out;
   };
   const out: MurLu = { ...r };
-  // L'egout : la plus haute transition « pas du mur » -> « mur » pres du bord des aretes ; sans transition franche (un pignon, ou le
-  // mur monte jusqu'au toit sans changer de teinte), le bord des aretes reste.
-  const debuts: number[] = [];
-  for (let y = Math.max(k, Math.round(r.y0 - EGOUT_AU_DESSUS * w)); y <= Math.min(H - k, r.y0 + EGOUT_AU_DESSOUS * h0); y++) if (debutMur(y)) debuts.push(y);
-  const egout = milieux(debuts)[0];
+  // D'abord la silhouette du haut du mur. Quand elle a une forme (un pignon, dont le triangle a la teinte du mur, sans transition au-
+  // dessus de l'egout ; une rampe), l'egout est sa hauteur aux angles. Droite, l'egout est la plus haute transition « pas du mur » ->
+  // « mur » pres du bord des aretes, plus sure qu'un angle (un leger devers du redressement fait monter un bout) ; sans transition
+  // franche, la silhouette, sinon le bord des aretes.
+  const sil = silhouetteDuMur(m, r, mur, ecartAdmis * 1.5);
+  const silPlausible = !!sil && sil.egout >= r.y0 - 0.3 * w && sil.egout <= r.y0 + EGOUT_AU_DESSOUS * h0;
+  let egout: number | undefined = sil && silPlausible && sil.forme !== 'droite' ? sil.egout : undefined;
+  if (egout === undefined) {
+    const debuts: number[] = [];
+    for (let y = Math.max(k, Math.round(r.y0 - EGOUT_AU_DESSUS * w)); y <= Math.min(H - k, r.y0 + EGOUT_AU_DESSOUS * h0); y++) if (debutMur(y)) debuts.push(y);
+    egout = milieux(debuts)[0] ?? (sil && silPlausible ? sil.egout : undefined);
+  }
   if (egout !== undefined) { out.y0 = aimanter(egout); out.egout = true; }
+  if (sil && silPlausible) out.silhouette = sil.silhouette.map((p) => ({ x: p.x, y: Math.min(p.y, out.y0) }));
   // Le sol : la transition « mur » -> « pas du mur » la plus proche de la hauteur du plan sous l'egout. Sans elle (une haie cache le
   // pied sur toute la largeur), la hauteur du plan, dite supposee : un bandeau d'etage dessine une arete plus nette que le pied cache.
   const attendu = rapport && rapport > 0 ? rapport * w : h0;

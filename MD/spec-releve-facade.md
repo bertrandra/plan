@@ -399,7 +399,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`), puis à 3 avec l'affinage de l'égout et du sol.
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, et à 4 avec la silhouette.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 
@@ -424,12 +424,35 @@ repères. Un bord est juste à 2 % de la largeur du mur près.
 | Sol juste | 24/40 | **37/40** |
 | Bouts justes | 78/80 | 78/80 |
 
-Ce qui reste : l'égout d'un pignon (scène 11), qui se fond dans le triangle de même teinte, et le grand-angle à forte distorsion
-redressé par ses seuls points de fuite (scène 13), dont l'assemblage n'est pas corrigé. Avec des repères, 13 est juste à 2 %.
+**La silhouette du haut du mur.** L'égout n'est pas toujours une ligne : un pignon fait un triangle, l'appentis une rampe. Le haut du
+mur se lit donc colonne par colonne, sur l'assemblage (`facade/mosaiqueFuites.ts::silhouetteDuMur`). C'est la première rangée qui
+a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du mur, laisse la silhouette à l'égout.
+- Une colonne dont le haut touche le bord du cadre ne dit rien. Une médiane sur cinq colonnes passe un arbre devant le pignon.
+- La ligne brisée est simplifiée (Douglas-Peucker), et deux sommets presque confondus se fondent.
+- **L'égout** est la hauteur aux angles, la droite des colonnes du bout prolongée jusqu'à eux. Sous une rampe, c'est le plus bas des
+  deux. Une silhouette droite garde la règle par transition, moins sensible à un dévers du redressement.
+- La silhouette part avec le bilan de chaque photo (`BilanPhotoRedressement.silhouettePx`). Sur la photo, c'est celle ajustée à la
+  main (`CorrectionRedressement.silhouette`), sinon celle lue entre ses coins (`coinsAuto.ts::silhouetteSurLaPhoto`).
+- La calibration la reprend d'un audit (`casDepuisFacade`), avec les repères et le mur ajusté à la main (`murALaMain`).
+
+Le banc a deux scènes de pignon de plus : `22` (décentré, en pierre, de biais) et `23` (la rampe d'un appentis, une haie devant).
+Le générateur sait poser le sommet d'un pignon où l'on veut (`pignonSommet`).
+
+| Sur 44 lectures (22 scènes) | Après l'affinage par la teinte | Avec la silhouette |
+|---|--:|--:|
+| Égout juste | 41/44 | **44/44** |
+| Sol juste | 43/44 | 43/44 |
+| Silhouette à 2 % (21 colonnes) | — | **39/42** |
+
+Restent le pignon sous l'ombre d'un arbre (`11`, 2 à 2,4 %) et le grand-angle à forte distorsion (`13`).
 
 **La reprise à la main.** « Ajuster l'égout et le sol » (audit : écran des repères ; calibration : photo courante) montre la photo
-redressée entière avec quatre lignes à tirer : l'égout, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
-- Les lignes partent du mur trouvé. Elles se tirent au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
+redressée entière, avec la silhouette du haut du mur, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
+- La silhouette est une ligne brisée dont on tire les sommets. Ses deux bouts sont aux angles, et l'égout est le plus bas des deux.
+- « Ajouter un sommet » coupe le plus long tronçon (une lucarne, un pignon) ; Suppr retire un sommet.
+- Tout part du mur et de la silhouette trouvés. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
+- L'écran de calibration trace la silhouette en surimpression sur les photos redressées entières, sur l'assemblage, sur chaque photo
+  et sur l'image redressée et fusionnée posée sur la façade.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui

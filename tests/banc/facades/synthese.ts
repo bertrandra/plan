@@ -80,8 +80,10 @@ export interface Mur {
   parement: Parement;
   soubassement?: { hauteur: number; parement: Parement };
   bandeaux?: { z: number; h: number; couleur: RGB }[];
-  /** Hauteur du pignon au-dessus de l'egout (triangle centre), en metres. */
+  /** Hauteur du pignon au-dessus de l'egout, en metres : un triangle, centre sauf `pignonSommet`. */
   pignon?: number;
+  /** Ou tombe le sommet du pignon, en part de la largeur depuis la gauche : 0,5 centre ; 1 une rampe (le pignon d'un appentis). */
+  pignonSommet?: number;
   /** Bande de toiture vue au-dessus de l'egout (mur gouttereau). */
   toit?: { hauteur: number; couleur: RGB };
   /** Eclairage qui baisse de gauche a droite : 0,2 = 20 % plus sombre au bout du mur. */
@@ -528,7 +530,7 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
       if (Z > v.hauteur) {
         mur = false;
         const pg = y.mur.pignon;
-        if (pg && Z <= v.hauteur + pg * (1 - Math.abs((2 * X) / v.largeur - 1))) coul = couleurParement(p, X, Z, y.graine, assises);
+        if (pg && Z <= v.hauteur + pg * formePignon(X / v.largeur, y.mur.pignonSommet ?? 0.5)) coul = couleurParement(p, X, Z, y.graine, assises);
         else if (y.mur.toit && Z <= v.hauteur + y.mur.toit.hauteur) coul = (Z - v.hauteur) % 0.18 < 0.025 ? assombrir(y.mur.toit.couleur, 0.7) : y.mur.toit.couleur;
       } else {
         coul = sb && Z < sb.hauteur ? couleurParement(sb.parement, X, Z, y.graine + 3, assisesSb) : couleurParement(p, X, Z, y.graine, assises);
@@ -546,6 +548,12 @@ export function peindreElevation(s: SceneFacade, pxParM: number, obstacles: bool
     }
   }
   return { largeur: L, hauteur: H, donnees: d };
+}
+
+/** La hauteur du pignon en `u` (part de la largeur depuis la gauche), en part de sa hauteur : 1 au sommet `sommet`, 0 aux bouts. */
+export function formePignon(u: number, sommet: number): number {
+  if (u <= sommet) return sommet > 0 ? Math.max(0, u / sommet) : 1;
+  return sommet < 1 ? Math.max(0, (1 - u) / (1 - sommet)) : 1;
 }
 
 /** Les lignes du mur seul (sol -> egout) d'une elevation peinte : ce que lit la detection. */
