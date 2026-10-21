@@ -481,6 +481,22 @@ const etatAudite = (page) => page.evaluate(() => {
   return JSON.stringify({ murs: m?.couleurMurs ?? null, couverture: m?.toit?.couverture ?? null, facades: (m?.facades ?? []).length, cloture: p?.cloture?.cotes ?? null, verifie: m?.verifieSurPlace ?? null });
 });
 /** Une ligne de proposition : cochee ou non, et son texte. */
+/**
+ * Coche la ligne de proposition qui porte ce texte, comme la personne : les niveaux de l'arbre des propositions sont en accordeon
+ * (un seul ouvert par groupe, le premier par defaut, zones/parcours/PropositionsAudit.tsx), la ligne peut donc etre repliee ; on
+ * ouvre d'abord, par leur titre, les niveaux qui la cachent.
+ */
+const cocherLigne = async (page, texte) => {
+  const ligne = page.locator('.ligneProposition', { hasText: texte }).first();
+  await ligne.waitFor({ state: 'attached', timeout: 30000 });
+  const fermes = await ligne.evaluate((e) => {
+    const n = [];
+    for (let x = e.parentElement; x; x = x.parentElement) if (x.tagName === 'DETAILS' && !x.open) n.unshift(x.querySelector(':scope > summary')?.textContent ?? '');
+    return n;
+  });
+  for (const titre of fermes) await page.locator('details.niveauPropositions > summary', { hasText: titre }).first().click({ timeout: 10000 });
+  await ligne.locator('input[type="checkbox"]').check({ timeout: 30000 });
+};
 const ligneProposition = async (page, texte) => {
   const l = page.locator('.ligneProposition', { hasText: texte }).first();
   if (!(await l.count())) return null;
@@ -1892,7 +1908,7 @@ const POINTS = {
     await captureJusquAuxPropositions(page);
     const murs = await ligneProposition(page, 'Matériau des murs de Maison');
     const couverture = await ligneProposition(page, 'Couverture de Maison');
-    await page.locator('.ligneProposition', { hasText: 'Matériau des murs de Maison' }).locator('input[type="checkbox"]').check({ timeout: 30000 });
+    await cocherLigne(page, 'Matériau des murs de Maison');
     await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
     await page.waitForTimeout(1500);
     const e = JSON.parse(await etatAudite(page));
@@ -2388,7 +2404,7 @@ const POINTS = {
     for (let i = 0; i < 10 && (await cochees.count()); i++) { await cochees.first().click({ timeout: 30000 }); await page.waitForTimeout(300); }
     await page.waitForTimeout(2500);
     const d3 = await lireDeuxVues(page);
-    await page.locator('.ligneProposition', { hasText: 'Matériau des murs de Maison' }).locator('input[type="checkbox"]').check({ timeout: 30000 });
+    await cocherLigne(page, 'Matériau des murs de Maison');
     await page.waitForTimeout(2500);
     const d4 = await lireDeuxVues(page);
     const pendant = await etatAudite(page);
