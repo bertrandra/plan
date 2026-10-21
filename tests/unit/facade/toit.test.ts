@@ -104,6 +104,14 @@ describe('estimation depuis la silhouette', () => {
     expect(e.hauteur).toBeCloseTo(3, 1);
   });
 
+  it('reconnait un pignon decentre, pas une croupe', () => {
+    const s = 0.35;
+    const e = classerProfil(Array.from({ length: n }, (_, i) => 3 * (t(i) <= s ? t(i) / s : (1 - t(i)) / (1 - s))));
+    expect(e.forme).toBe('deux-pans');
+    expect(e.faitage).toBe('perpendiculaire');
+    expect(e.hauteur).toBeCloseTo(3, 1);
+  });
+
   it('reconnait un long pan', () => {
     const e = classerProfil(Array.from({ length: n }, () => 1.8));
     expect(e.forme).toBe('deux-pans');

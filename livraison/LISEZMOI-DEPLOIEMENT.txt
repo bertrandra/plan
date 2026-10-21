@@ -1,4 +1,4 @@
-Plan 2.2.0 (0edc453) - deploiement Apache + PHP, sans Node.js
+Plan 2.2.0 (2fa8fbb) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 Sur l'hebergement, trois choses voisines :
@@ -45,6 +45,11 @@ Sur l'hebergement, trois choses voisines :
       Si data/ existe deja la-bas, ne pas l'ecraser : ce sont vos donnees. Pour recevoir une demo
       livree, copier ce seul fichier dans data/demo/, apres avoir garde l'ancien si vous l'aviez
       modifie. Puis supprimer public_html/data/.
+      Les arbres : data/admin/arbres.json est la bibliotheque d'essences (quarante essences, dix par
+      taille : petits, moyens, grands, tres grands) que la 3D lit et que l'ecran Admin > Arbres
+      retouche. Le code n'en a aucune : sans ce fichier, les arbres se dessinent en tronc et boule.
+      Sur une installation qui a deja data/, copier ce seul fichier dans data/admin/ (garder l'ancien
+      s'il a ete retouche dans l'admin).
    d. Droits : data/ et ses sous-dossiers doivent etre lisibles et inscriptibles par PHP (dossiers
       755, fichiers 644, meme utilisateur que le site). Un fichier present mais illisible, ou une
       configuration absente, laisse la vitrine (?mode=demo&file=<n>) sur la demonstration

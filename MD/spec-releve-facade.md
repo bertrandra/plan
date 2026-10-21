@@ -399,7 +399,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, et à 4 avec la silhouette.
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, et à 5 quand la silhouette dit le toit.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 
@@ -432,8 +432,16 @@ a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du 
 - **L'égout** est la hauteur aux angles, la droite des colonnes du bout prolongée jusqu'à eux. Sous une rampe, c'est le plus bas des
   deux. Une silhouette droite garde la règle par transition, moins sensible à un dévers du redressement.
 - La silhouette part avec le bilan de chaque photo (`BilanPhotoRedressement.silhouettePx`). Sur la photo, c'est celle ajustée à la
-  main (`CorrectionRedressement.silhouette`), sinon celle lue entre ses coins (`coinsAuto.ts::silhouetteSurLaPhoto`).
+  main (`CorrectionRedressement.silhouette`), sinon celle lue entre ses coins (`mosaiqueFuites.ts::silhouetteSurLaPhoto`).
 - La calibration la reprend d'un audit (`casDepuisFacade`), avec les repères et le mur ajusté à la main (`murALaMain`).
+- **Elle dit le toit.** La chaîne la pose sur chaque photo avant l'analyse (`chaine.ts`), ramenée au rectangle du mur
+  (`analyse.ts::silhouetteEnPartsDuMur` : `u` le long du mur, `v` = 1 à l'égout). Quand elle s'élève de plus de 0,3 m au-dessus de
+  l'égout, son profil, à l'échelle de la hauteur du mur, est celui que `classerProfil` classe : forme et hauteur du pignon viennent de
+  la silhouette, plus de la bande au-dessus de l'égout. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derrière : la
+  bande le lit, comme avant ; un mur en L aussi. `classerProfil` reconnaît un pignon **décentré** (sommet balayé de 20 à 80 % du mur,
+  le centre l'emporte à égalité), qu'il prenait pour une croupe. `.claude/skills/facades/scripts/toit-facade.ts` compare les deux
+  lectures : pignons justes (forme, hauteur à 10 %) 1/3 par la bande, 3/3 par la silhouette (`11` sous l'ombre d'un arbre, lu plat
+  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés.
 
 Le banc a deux scènes de pignon de plus : `22` (décentré, en pierre, de biais) et `23` (la rampe d'un appentis, une haie devant).
 Le générateur sait poser le sommet d'un pignon où l'on veut (`pignonSommet`).

@@ -4,7 +4,8 @@
 // plan-admin-config.php), avec un sous-dossier par nature. buildsg/donnees.mjs fait de meme.
 //
 //   data/demo/         les demos de l'admin et de la vitrine ?mode=demo (<id>.json, .bak, .supprime-…)
-//   data/admin/        palette.json, controleurs.json, echecs.json (les reglages de l'admin)
+//   data/admin/        palette.json, controleurs.json, arbres.json, calibration.json, echecs.json (les reglages de l'admin)
+//   data/admin/calibration-cas/   les cas de calibration de la detection : photos annotees, un fichier par cas
 //   data/claude/       journal-AAAA-MM.jsonl, tarifs.json, plafonds.json, modeles.json, batches/
 //   data/audits/       <id>.json et <id>.fiche.json ; <id>/analyses/ et <id>/images/ (les traces)
 //   data/conformite/   mesures.json
@@ -40,7 +41,7 @@ function dossiersDonnees(?array $config, string $racineWeb, string $ici, ?string
     if ($donnees === null && $demos !== null) {
         // L'ancienne disposition, celle d'une configuration d'avant `dossierDonnees`.
         return ['disposition' => 'ancienne', 'racine' => $demos, 'demos' => $demos, 'admin' => $demos,
-                'palette' => $demos . '/.palette.json', 'controleurs' => $demos . '/.controleurs.json', 'echecs' => $demos . '/.echecs.json',
+                'palette' => $demos . '/.palette.json', 'controleurs' => $demos . '/.controleurs.json', 'arbres' => $demos . '/.arbres.json', 'calibration' => $demos . '/.calibration.json', 'calibrationCas' => $demos . '/.calibration-cas', 'echecs' => $demos . '/.echecs.json',
                 'anciens' => []];
     }
     $parent = rtrim($racineWeb !== '' ? dirname($racineWeb) : dirname($ici), '/');
@@ -50,7 +51,7 @@ function dossiersDonnees(?array $config, string $racineWeb, string $ici, ?string
         if ($a !== null && $a !== $racine && !in_array($a, $anciens, true)) $anciens[] = $a;
     }
     return ['disposition' => 'data', 'racine' => $racine, 'demos' => $racine . '/demo', 'admin' => $racine . '/admin',
-            'palette' => $racine . '/admin/palette.json', 'controleurs' => $racine . '/admin/controleurs.json', 'echecs' => $racine . '/admin/echecs.json',
+            'palette' => $racine . '/admin/palette.json', 'controleurs' => $racine . '/admin/controleurs.json', 'arbres' => $racine . '/admin/arbres.json', 'calibration' => $racine . '/admin/calibration.json', 'calibrationCas' => $racine . '/admin/calibration-cas', 'echecs' => $racine . '/admin/echecs.json',
             'anciens' => $anciens];
 }
 
@@ -64,7 +65,7 @@ function contenuAncien(string $dossier): array {
 function destinationAncienne(string $nom, bool $dossier, array $d): ?string {
     if ($dossier) return in_array($nom, ['claude', 'audits', 'conformite'], true) ? $d['racine'] . '/' . $nom : null;
     $reglages = ['.palette.json' => 'palette.json', '.palette.json.bak' => 'palette.json.bak', '.controleurs.json' => 'controleurs.json',
-                 '.controleurs.json.bak' => 'controleurs.json.bak', '.echecs.json' => 'echecs.json'];
+                 '.controleurs.json.bak' => 'controleurs.json.bak', '.arbres.json' => 'arbres.json', '.arbres.json.bak' => 'arbres.json.bak', '.echecs.json' => 'echecs.json'];
     if (isset($reglages[$nom])) return $d['admin'] . '/' . $reglages[$nom];
     return str_starts_with($nom, '.') ? null : $d['demos'] . '/' . $nom;
 }

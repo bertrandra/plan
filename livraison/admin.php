@@ -13,6 +13,12 @@
 //   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
 //   GET    admin/palette          la palette de l'interface, SANS session : chaque page l'applique
 //   PUT    admin/palette          la remplace (session ; styles/paletteServeur.ts)
+//   GET    admin/arbres           la bibliotheque d'essences d'arbres, SANS session : la 3D la lit
+//   PUT    admin/arbres           la remplace (session ; model/especesArbre.ts)
+//   GET    admin/calibration      les reglages de la detection des ouvertures calibres, SANS session : chaque page les applique
+//   PUT    admin/calibration      les remplace (session ; facade/corpusReel.ts)
+//   GET    admin/calibration-cas  la liste des cas de calibration : photos de facades annotees (session)
+//   GET|PUT|DELETE admin/calibration-cas/<id>   un cas, avec ses photos (session)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -128,6 +134,34 @@ if ($chemin === 'palette' && $lecture) {
     exit;
 }
 
+// --- Les essences d'arbres ----------------------------------------------------------------------
+// La bibliotheque d'EZ-tree (model/especesArbre.ts) : la 3D de chaque page en a besoin pour dessiner
+// les arbres, donc lisible sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'arbres' && $lecture) {
+    header('Access-Control-Allow-Origin: *');
+    $f = $donnees['arbres'];
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune bibliothèque d’arbres enregistrée.');
+    header('Cache-Control: no-cache');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
+// --- Les reglages calibres de la detection --------------------------------------------------------
+// Les valeurs que l'admin a calibrees sur ses photos (facade/regles/facades/surcharges.ts) : chaque page les applique au
+// demarrage, donc lisibles sans session. Seule l'ecriture, plus bas, demande la session.
+if ($chemin === 'calibration' && $lecture) {
+    header('Access-Control-Allow-Origin: *');
+    $f = $donnees['calibration'];
+    if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucune calibration enregistrée.');
+    header('Cache-Control: no-cache');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', (int)filemtime($f)) . ' GMT');
+    http_response_code(200);
+    if ($methode !== 'HEAD') readfile($f);
+    exit;
+}
+
 // --- La session ---------------------------------------------------------------------------------
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || strtolower(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]) === 'https';
@@ -229,6 +263,19 @@ function ecrire(string $dossier, string $id, array $document): void {
     }
 }
 
+/** Ecrit un document JSON hors demos : dossier cree au besoin, version precedente gardee en `.bak`, ecriture atomique. */
+function ecrireAtomique(string $f, array $document): void {
+    $dir = dirname($f);
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    if (is_file($f)) copy($f, $f . '.bak');
+    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    $texte = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($texte === false || file_put_contents($tmp, $texte . "\n") === false || !rename($tmp, $f)) {
+        @unlink($tmp);
+        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    }
+}
+
 if ($chemin === 'demos') {
     if ($lecture) {
         $demos = [];
@@ -302,6 +349,101 @@ if ($chemin === 'palette') {
         erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
     }
     repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les essences d'arbres, en ecriture : un document `plan-arbres`, des essences a identifiant [a-z0-9-] et reglages.
+if ($chemin === 'arbres') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $donnees['arbres'];
+    $texte = (string)file_get_contents('php://input', false, null, 0, 524289);
+    if (strlen($texte) > 524288) erreur(413, 'TOO_LARGE', 'Bibliothèque trop grosse (512 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-arbres' && isset($d['especes']) && is_array($d['especes']) && count($d['especes']) <= 200;
+    if ($valide) {
+        $ids = [];
+        foreach ($d['especes'] as $e) {
+            if (!is_array($e) || !isset($e['id']) || !is_string($e['id']) || !preg_match('/^[a-z0-9][a-z0-9-]{0,39}$/', $e['id']) || isset($ids[$e['id']])
+                || !isset($e['reglages']) || !is_array($e['reglages'])) { $valide = false; break; }
+            $ids[$e['id']] = true;
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).');
+    if (is_file($f)) copy($f, $f . '.bak');
+    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
+    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
+        @unlink($tmp);
+        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    }
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les reglages calibres de la detection, en ecriture : un document `plan-calibration`, des reglages `facades.<detection|structure>.<nom>` numeriques.
+if ($chemin === 'calibration') {
+    if ($methode !== 'PUT') erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    $f = $donnees['calibration'];
+    $texte = (string)file_get_contents('php://input', false, null, 0, 262145);
+    if (strlen($texte) > 262144) erreur(413, 'TOO_LARGE', 'Calibration trop grosse (256 Ko au plus).');
+    $d = json_decode($texte, true);
+    $valide = is_array($d) && ($d['format'] ?? null) === 'plan-calibration' && isset($d['parametres']) && is_array($d['parametres']) && count($d['parametres']) <= 200
+        && (!isset($d['historique']) || (is_array($d['historique']) && count($d['historique']) <= 200));
+    if ($valide) {
+        foreach ($d['parametres'] as $nom => $v) {
+            if (!is_string($nom) || !preg_match('/^facades\.(detection|structure)\.[A-Za-z0-9]{1,40}$/', $nom) || !(is_int($v) || is_float($v)) || !is_finite((float)$v)) { $valide = false; break; }
+        }
+    }
+    if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une calibration (réglages facades.detection.* ou facades.structure.* numériques).');
+    ecrireAtomique($f, $d);
+    repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
+}
+
+// Les cas de calibration : une facade photographiee, annotee a la main (facade/corpusReel.ts), photos comprises (data:image/jpeg).
+if ($chemin === 'calibration-cas' || preg_match('#^calibration-cas/([^/]+)$#', $chemin, $mc)) {
+    $dossierCas = $donnees['calibrationCas'];
+    if ($chemin === 'calibration-cas') {
+        if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+        $cas = [];
+        foreach (@scandir($dossierCas) ?: [] as $n) {
+            if (!str_ends_with($n, '.json') || !preg_match(ID_VALIDE, substr($n, 0, -5))) continue;
+            $c = json_decode((string)@file_get_contents($dossierCas . '/' . $n), true);
+            if (!is_array($c)) continue;
+            $cas[] = ['id' => substr($n, 0, -5), 'nom' => is_string($c['nom'] ?? null) ? $c['nom'] : substr($n, 0, -5), 'statut' => ($c['statut'] ?? '') === 'valide' ? 'valide' : 'brouillon',
+                'photos' => is_array($c['photos'] ?? null) ? count($c['photos']) : 0, 'ouvertures' => is_array($c['ouvertures'] ?? null) ? count($c['ouvertures']) : 0,
+                'updatedAt' => gmdate('Y-m-d\TH:i:s.000\Z', (int)filemtime($dossierCas . '/' . $n))];
+        }
+        usort($cas, fn($a, $b) => strnatcmp($a['id'], $b['id']));
+        repondre(200, ['cas' => $cas]);
+    }
+    $id = rawurldecode($mc[1]);
+    if (!preg_match(ID_VALIDE, $id)) erreur(400, 'BAD_ID', 'Identifiant de cas invalide.');
+    $f = $dossierCas . '/' . $id . '.json';
+    if ($lecture) {
+        if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun cas « ' . $id . ' ».');
+        header('Cache-Control: no-store');
+        http_response_code(200);
+        if ($methode !== 'HEAD') readfile($f);
+        exit;
+    }
+    if ($methode === 'PUT') {
+        $texte = (string)file_get_contents('php://input', false, null, 0, TAILLE_MAX + 1);
+        if (strlen($texte) > TAILLE_MAX) erreur(413, 'TOO_LARGE', 'Fichier trop gros (25 Mo au plus).');
+        $d = json_decode($texte, true);
+        $n = is_array($d) && is_array($d['photos'] ?? null) ? count($d['photos']) : 0;
+        $valide = is_array($d) && ($d['format'] ?? null) === 'plan-facade-reelle' && ($d['version'] ?? null) === 1 && is_string($d['nom'] ?? null) && $n >= 1 && $n <= 8
+            && is_array($d['images'] ?? null) && count($d['images']) === $n && is_array($d['ouvertures'] ?? null) && count($d['ouvertures']) <= 100;
+        if ($valide) foreach ($d['images'] as $im) { if (!is_string($im) || !str_starts_with($im, 'data:image/')) { $valide = false; break; } }
+        if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas un cas de calibration (nom, 1 à 8 photos avec leur image, ouvertures).');
+        if (!is_dir($dossierCas) && !@mkdir($dossierCas, 0775, true) && !is_dir($dossierCas)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+        ecrireAtomique($f, $d);
+        repondre(200, ['id' => $id]);
+    }
+    if ($methode === 'DELETE') {
+        if (!is_file($f)) erreur(404, 'NOT_FOUND', 'Aucun cas « ' . $id . ' ».');
+        // Rien ne s'efface pour de bon : le fichier est renomme, on le retrouve a la main.
+        rename($f, $f . '.supprime-' . gmdate('Y-m-d\TH-i-s'));
+        repondre(200, new stdClass());
+    }
+    erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
 }
 
 if (preg_match('#^demos/([^/]+)$#', $chemin, $m)) {

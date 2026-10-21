@@ -227,6 +227,10 @@ largeur du mur près.
 
 `tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc (relevé, audit) ne joue pas ce chemin.
 
+**Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
+par la bande au-dessus de l'égout et celui lu par la silhouette du haut du mur (vrais coins, `silhouetteSurLaPhoto`). Pignons justes
+(forme, hauteur à 10 %) : 1/3 par la bande, 3/3 par la silhouette ; les murs gouttereaux (silhouette plate) gardent la bande.
+
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles
 annotées, mesure avec et sans fusion + vote, et **fiabilité de la confiance** (un 0,8 doit valoir 80 % de baies justes).
 Sur le banc de synthèse (120 baies), l'écart de calibration est de 0,03 mais la tranche 0,6–0,8 ne vaut que 38 % de baies

@@ -23,7 +23,6 @@ import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve
 import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
 import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../zones/releve/chaine.js';
 import { redresserParReperes } from '../../../facade/redressementFuites.js';
-import { silhouetteSurLaVue } from '../../../zones/releve/coinsAuto.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
@@ -176,20 +175,13 @@ const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
  * sans etre coupee a ce mur ni mise a son echelle (facade/redressementFuites.ts::redresserParReperes). Sur l'image que la chaine a
  * lue (corrigee de la distorsion du grand-angle s'il y a lieu). Une photo sans essai n'en a pas.
  */
-function photosRedressees(c: ResultatChaine, d: DependancesMesures, corrections: Readonly<Record<string, CorrectionRedressement>>): PhotoRedresseeAuditee[] {
+function photosRedressees(c: ResultatChaine, d: DependancesMesures): PhotoRedresseeAuditee[] {
   const out: PhotoRedresseeAuditee[] = [];
   for (const x of c.faits) {
     const m = x.essai?.p.morceau;
     if (!m) continue;
     const r = redresserParReperes(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
-    if (!r) continue;
-    out.push({ rang: x.bilan.rang, image: d.jpeg(r.image) });
-    // La silhouette du haut du mur sur la photo : celle ajustee a la main, sinon celle lue sur cette vue entre les coins retenus. Le
-    // bilan la garde (en pixels de la photo) : la calibration la reprend avec l'audit.
-    const bilan = c.redressement.photos.find((b) => b.rang === x.bilan.rang);
-    const aLaMain = corrections[String(x.bilan.rang)]?.silhouette;
-    const lue = aLaMain ?? silhouetteSurLaVue(r, m.coins);
-    if (bilan && lue) bilan.silhouettePx = lue.map((p) => ({ x: p.x, y: p.y }));
+    if (r) out.push({ rang: x.bilan.rang, image: d.jpeg(r.image) });
   }
   return out.sort((a, b) => a.rang - b.rang);
 }
@@ -226,7 +218,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
     entrees.push({ rang: i, image, prise: (champLu) => priseDeLaPhoto(photo, image, fm, champLu), champConnu: photo.prise?.sourceFocale === 'exif' });
   }
   const c = await redresserEtFusionner(entrees, fm, bat, { chercherCoins: d.chercherCoins }, corrections, illisibles);
-  const trace = { redressement: c.redressement, redressees: photosRedressees(c, d, corrections), versionChaine: VERSION_CHAINE_FACADES };
+  const trace = { redressement: c.redressement, redressees: photosRedressees(c, d), versionChaine: VERSION_CHAINE_FACADES };
   if (!c.fusion) {
     const seule = c.seule, essai = seule?.photo.essai;
     if (!seule || !essai) return { ...vide, couleur, ...trace };

@@ -17,7 +17,8 @@ import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } fro
 import { avisFusion } from './releve/analyse.js';
 import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
 import { rechercher } from './releve/serie.js';
-import { coinsAutoDeSerie, silhouetteSurLaPhoto } from './releve/coinsAuto.js';
+import { coinsAutoDeSerie } from './releve/coinsAuto.js';
+import { silhouetteSurLaPhoto } from '../facade/mosaiqueFuites.js';
 import { inverser } from '../facade/redressementFuites.js';
 import type { MurLu } from '../facade/mosaiqueFuites.js';
 import type { Facade } from '../facade/geometrie.js';

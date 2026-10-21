@@ -9,6 +9,7 @@
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
 import { analyserLeMur } from './analyseMur.js';
+import { silhouetteSurLaPhoto } from './mosaiqueFuites.js';
 import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
 import { type ResultatFusion } from './fusion.js';
@@ -124,7 +125,9 @@ export interface CasPrepare {
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true): CasPrepare | null {
   // La chaine du releve et de l'audit (facade/analyseMur.ts) : les photos d'un cas sont des vues du mur entier.
   const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
-  const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null }));
+  // La silhouette du haut du mur de chaque photo (ajustee a la main, sinon lue entre ses coins) : elle dit le toit d'un pignon.
+  const photos = cas.photos.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null,
+    silhouette: p.silhouette ?? silhouetteSurLaPhoto(images[k] as Image, p.coins, p.focalePx ?? null) }));
   const a = analyserLeMur(mur, multiVues ? photos : photos.slice(0, 1), 'vues');
   if (!a) return null;
   const { r, fusion } = a;

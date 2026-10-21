@@ -371,7 +371,7 @@ export interface ToitEstime {
  * du bati au-dessus de l'egout dans la colonne i de l'elevation (0 = ciel juste au-dessus du mur).
  *
  * Quatre modeles, ajustes par moindres carres : bande nulle (toit plat, ou acrotere), triangle
- * centre (pignon : deux pans, faitage perpendiculaire), bande constante (egout : deux pans vus du
+ * (pignon : deux pans, faitage perpendiculaire, sommet au centre ou decentre), bande constante (egout : deux pans vus du
  * long pan), trapeze (quatre pans vus du long pan), rampe (appentis). Le plus simple l'emporte a
  * erreur comparable.
  */
@@ -384,9 +384,16 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   const t = profil.map((_, i) => (i + 0.5) / n);
   const eqm = (f: (x: number) => number) => Math.sqrt(profil.reduce((s, v, i) => s + (v - f(au(t, i))) ** 2, 0) / n);
 
-  // Triangle : h(x) = H (1 - |2x - 1|), H par moindres carres.
-  const tri = t.map((x) => 1 - Math.abs(2 * x - 1));
-  const Htri = profil.reduce((s, v, i) => s + v * au(tri, i), 0) / tri.reduce((s, w) => s + w * w, 0);
+  // Triangle : sommet en s (0,5 = centre), h(x) = H x/s puis H (1-x)/(1-s), H par moindres carres. On balaye s : un pignon
+  // decentre (pans de longueurs inegales) n'est pas un trapeze. Un sommet decentre coute un peu, le centre l'emporte a egalite.
+  let meilleurTri = { e: Infinity, H: 0, s: 0.5 };
+  for (let k = 0; k <= 12; k++) {
+    const s = 0.2 + 0.05 * k;
+    const w = t.map((x) => (x <= s ? x / s : (1 - x) / (1 - s)));
+    const H = profil.reduce((q, v, i) => q + v * au(w, i), 0) / w.reduce((q, z) => q + z * z, 0);
+    const e = Math.sqrt(profil.reduce((q, v, i) => q + (v - H * au(w, i)) ** 2, 0) / n) + (Math.abs(s - 0.5) > 0.01 ? 0.01 : 0);
+    if (e < meilleurTri.e) meilleurTri = { e, H, s };
+  }
   // Bande : la mediane, robuste aux cheminees.
   const Hband = au([...profil].sort((a, b) => a - b), Math.floor(n / 2));
   // Rampe : droite par moindres carres, dans un sens ou l'autre.
@@ -404,7 +411,7 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   }
 
   const candidats: (ToitEstime & { cout: number })[] = [
-    { forme: 'deux-pans', faitage: 'perpendiculaire', hauteur: Htri, ecart: eqm((x) => Htri * (1 - Math.abs(2 * x - 1))), cout: 0 },
+    { forme: 'deux-pans', faitage: 'perpendiculaire', hauteur: meilleurTri.H, ecart: meilleurTri.e, cout: 0 },
     { forme: 'deux-pans', faitage: 'parallele', hauteur: Hband, ecart: eqm(() => Hband), cout: 0 },
     { forme: 'quatre-pans', faitage: 'parallele', hauteur: meilleurTrap.H, ecart: meilleurTrap.e, cout: 0.02 },
     {
