@@ -364,6 +364,8 @@ export interface ToitEstime {
   hauteur: number;
   /** Ecart quadratique moyen du modele retenu, en metres. */
   ecart: number;
+  /** Un pignon : la position de son sommet le long du mur, de 0 a 1 (0,5 au milieu) ; absente, au milieu. */
+  sommet?: number;
 }
 
 /**
@@ -411,7 +413,7 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   }
 
   const candidats: (ToitEstime & { cout: number })[] = [
-    { forme: 'deux-pans', faitage: 'perpendiculaire', hauteur: meilleurTri.H, ecart: meilleurTri.e, cout: 0 },
+    { forme: 'deux-pans', faitage: 'perpendiculaire', hauteur: meilleurTri.H, ecart: meilleurTri.e, cout: 0, ...(Math.abs(meilleurTri.s - 0.5) > 0.01 ? { sommet: Math.round(meilleurTri.s * 100) / 100 } : {}) },
     { forme: 'deux-pans', faitage: 'parallele', hauteur: Hband, ecart: eqm(() => Hband), cout: 0 },
     { forme: 'quatre-pans', faitage: 'parallele', hauteur: meilleurTrap.H, ecart: meilleurTrap.e, cout: 0.02 },
     {
@@ -424,8 +426,8 @@ export function classerProfil(profil: readonly number[]): ToitEstime {
   ];
   candidats.forEach((c) => (c.cout += c.ecart));
   candidats.sort((a, b) => a.cout - b.cout);
-  const { forme, faitage, hauteur, ecart } = au(candidats, 0);
-  return { forme, faitage, hauteur, ecart };
+  const { forme, faitage, hauteur, ecart, sommet } = au(candidats, 0);
+  return { forme, faitage, hauteur, ecart, ...(sommet !== undefined ? { sommet } : {}) };
 }
 
 /**

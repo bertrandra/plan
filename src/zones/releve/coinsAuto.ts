@@ -5,8 +5,8 @@
 import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin.js';
 import type { Image, P2 } from '../../facade/homographie.js';
 import { detecterSegments } from '../../facade/segments.js';
-import { redresserParFuites, redresserParReperes, type RedressementFuites } from '../../facade/redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
+import { redresserParFuites, type RedressementFuites } from '../../facade/redressementFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
 import type { GabaritMur } from '../../facade/gabaritMur.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
@@ -37,16 +37,7 @@ export interface CoinsDeSerie {
   assemblage: { image: Image; mur: MurLu };
 }
 
-/**
- * Chaque photo tournee de face : par les quatre reperes poses a la main quand elle en a (`reperes[i]`), sinon par ses points de
- * fuite. La photo entiere, sans coupe ni echelle (facade/redressementFuites.ts).
- */
-export function vuesDeFace(images: readonly Image[], reperes: readonly (readonly P2[] | null | undefined)[] = []): (RedressementFuites | null)[] {
-  return images.map((img, i) => {
-    const r = reperes[i];
-    return (r && r.length === 4 ? redresserParReperes(img, r) : null) ?? redresserParFuites(img, detecterSegments(img));
-  });
-}
+export { vuesDeFace } from '../../facade/mosaiqueFuites.js';
 
 /**
  * Le mur sur l'assemblage des vues redressees : l'egout, le sol et ses deux bouts. Le plan donne la largeur (cadastre) et la hauteur

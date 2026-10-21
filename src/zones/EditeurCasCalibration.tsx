@@ -24,11 +24,11 @@ import type { MurLu } from '../facade/mosaiqueFuites.js';
 import type { Facade } from '../facade/geometrie.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../facade/detection.js';
-import { cadreAutour, contourDuGabarit, elevationAvecMasque, photoAutourDuMur, type CadreAutour } from './etapesCalibration.js';
+import { cadreAutour, contourDuGabarit, photoAutourDuMur, type CadreAutour } from './etapesCalibration.js';
 import { sansOmbres } from '../facade/sansOmbres.js';
 import { silhouetteDeEstimation } from '../facade/regles/toits/silhouettes.js';
 import { SILHOUETTES_FACADE } from '../model/silhouetteFacade.js';
-import { appliquer, homographie, type Image, type P2 } from '../facade/homographie.js';
+import { appliquer, type Image, type P2 } from '../facade/homographie.js';
 import type { Photo } from '../ui/releve/camera.js';
 import type { TypeOuverture } from '../model/types.js';
 
@@ -138,22 +138,22 @@ interface Etapes {
   entieres: ({ url: string; l: number; h: number; silhouette: P2[] | null } | null)[];
   /** Par photo : la silhouette du haut du mur, en pixels de la photo (le gabarit du cas pose par ses coins). */
   silhouettes: (P2[] | null)[];
-  /** Le cadre autour du mur (metres) des vues 5 et 6, et le contour du gabarit dans ce repere. */
+  /** Le cadre autour du mur (metres) des vues 5 et 6, et le contour du gabarit dans ce repere (y depuis l'egout, le sol en bas). */
   cadre: CadreAutour;
   contour: P2[];
   /** La silhouette sur l'image posee sur la facade (la photo redressee et fusionnee), en metres depuis son coin haut gauche. */
-  silhouetteTexture: P2[] | null;
+  silhouetteTexture: P2[];
   /** La taille de cette image, en metres. */
   textureM: { l: number; h: number };
   /** L'assemblage des photos redressees, et le mur qui y a ete cherche (en pixels de l'assemblage) ; null sans assemblage. */
   assemblage: { url: string; largeur: number; hauteur: number; mur: MurLu } | null;
-  /** Par photo : sa vignette redressee seule, a l'echelle du mur et sans coupe (le cadre autour) ; null : ses coins ne forment pas un mur. */
-  redressees: (string | null)[];
-  /** L'elevation, la part cachee sur toutes les vues hachuree. */
-  masque: string;
-  largeurM: number;
-  hauteurM: number;
-  fusion: CasPrepare['fusion'];
+  /**
+   * La facade complete : l'assemblage (etape 3) redresse a l'echelle du mur, sans coupe, dans le cadre autour du mur. C'est l'image
+   * prise pour la suite (detection, texture) ; null quand aucune photo ne s'assemble.
+   */
+  facade: string | null;
+  /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
+  vuesAssemblage: { assemblee: boolean; motif: string | null }[];
   propositions: readonly OuvertureDetectee[];
   devinees: readonly OuvertureDetectee[];
   /** La texture posee sur la facade en 3D, telle quelle et sans les ombres de la photo (case « Facades sans ombres »). */
@@ -161,6 +161,13 @@ interface Etapes {
   sansOmbres: string;
   /** La silhouette du haut du mur sur la texture : la mesure, le modele retenu, et les hauteurs (egout, texture). */
   silhouette: { profil: CasPrepare['profilToit']; toit: CasPrepare['toitEstime']; hauteurMurM: number; hauteurTextureM: number; largeurM: number };
+}
+
+/** Ce que le redressement a a redire : une photo restee hors de l'assemblage (ou, sans assemblage, ce que dit la fusion). */
+function avisDuCas(p: CasPrepare): string | null {
+  if (p.fusion) return avisFusion(p.fusion);
+  const k = p.assemblage?.vues.findIndex((v) => !v.assemblee) ?? -1;
+  return k >= 0 ? `La photo ${k + 1} reste hors de l’assemblage : ${p.assemblage?.vues[k]?.motif ?? 'elle ne se recale sur aucune autre'}. Prenez-en une autre en gardant un tiers de mur en commun.` : null;
 }
 
 /** Les images des etapes d'un cas redresse. */
@@ -172,11 +179,12 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
   // Le gabarit pose sur chaque photo par ses coins, puis sur chaque vue redressee et sur l'image fusionnee : trace en surimpression.
   const silhouettes = images.map((_, k) => { const q = depart.photos[k]; return q?.coins.length === 4 ? gabaritSurLaPhoto(gabarit, q.coins) : null; });
   const ref = p.fusion?.reference ?? 0, coinsRef = depart.photos[ref]?.coins, L = depart.largeurM, H = depart.hauteurM;
+  const a = p.assemblage;
   const cadre = cadreAutour(L, H, gabarit);
-  const versMur = coinsRef?.length === 4 ? homographie(coinsRef, [{ x: 0, y: H }, { x: L, y: H }, { x: L, y: 0 }, { x: 0, y: 0 }]) : null;
   return {
     silhouettes, cadre, contour: contourDuGabarit(L, H, gabarit),
-    silhouetteTexture: versMur ? silhouettes[ref]?.map((q) => { const m = appliquer(versMur, q); return { x: m.x, y: p.hauteurTexture - m.y }; }) ?? null : null,
+    // Le contour du mur sur la texture (metres depuis son coin haut gauche) : le sol, puis le gabarit d'un angle a l'autre.
+    silhouetteTexture: [{ x: 0, y: p.hauteurTexture }, ...gabarit.map((q) => ({ x: q.u * L, y: p.hauteurTexture - q.v * H })), { x: L, y: p.hauteurTexture }],
     textureM: { l: p.texture.largeur / p.pxParM, h: p.hauteurTexture },
     entieres: images.map((_, k) => {
       const v = sr?.vues[k], u = v ? enUrl(v.image) : null;
@@ -185,9 +193,9 @@ function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasStocke, ou
       return { url: u, l: v.image.largeur, h: v.image.hauteur, silhouette: sil && versVue ? sil.map((q) => appliquer(versVue, q)) : null };
     }),
     assemblage: sr ? { url: outils.elevationEnUrl(sr.assemblage.image), largeur: sr.assemblage.image.largeur, hauteur: sr.assemblage.image.hauteur, mur: sr.assemblage.mur } : null,
-    redressees: images.map((im, k) => enUrl(photoAutourDuMur(im, depart.photos[k]?.coins ?? [], L, H, cadre))),
-    masque: outils.elevationEnUrl(elevationAvecMasque(p.elevation, p.fusion?.occlusion ?? null)),
-    largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, fusion: p.fusion, propositions: p.ouvertures, devinees: p.devinees,
+    facade: enUrl(a ? photoAutourDuMur(a.image, a.coins, L, H, cadre) : coinsRef ? photoAutourDuMur(images[ref] as Image, coinsRef, L, H, cadre) : null),
+    vuesAssemblage: a?.vues ?? [],
+    propositions: p.ouvertures, devinees: p.devinees,
     surFacade: outils.elevationEnUrl(p.texture),
     // Les baies de la detection tiennent lieu de celles du releve, que la 3D met de cote pour lire l'eclairage du mur.
     sansOmbres: outils.elevationEnUrl(sansOmbres(p.texture, p.pxParM, p.ouvertures, depart.hauteurM)),
@@ -206,7 +214,8 @@ function modeleToit(t: NonNullable<CasPrepare['toitEstime']>, profil: readonly n
   if (t.forme === 'plat') return () => 0;
   if (t.forme === 'appentis') { const monte = (profil[profil.length - 1] ?? 0) >= (profil[0] ?? 0); return (u) => H * (monte ? u : 1 - u); }
   if (t.forme === 'quatre-pans') return (u) => H * Math.min(1, u / 0.25, (1 - u) / 0.25);
-  return t.faitage === 'perpendiculaire' ? (u) => H * (1 - Math.abs(2 * u - 1)) : () => H;
+  const s = t.sommet ?? 0.5;
+  return t.faitage === 'perpendiculaire' ? (u) => H * (u <= s ? u / s : (1 - u) / (1 - s)) : () => H;
 }
 
 /** La texture, l'egout, la silhouette mesuree au-dessus (trait plein) et le modele de toit qui la porte le mieux (pointille). */
@@ -233,28 +242,34 @@ function VueSilhouette({ s, texture }: { s: Etapes['silhouette']; texture: strin
 }
 
 const metres = (v: number) => String(Math.round(v * 100) / 100).replace('.', ',');
-const pourcent = (v: number) => Math.round(v * 100) + ' %';
 const degres = (v: number | null) => (v === null ? '' : ', verticales à ' + String(v).replace('.', ',') + '°');
 
-/**
- * Une photo redressee a l'echelle du mur, sans coupe (le cadre autour du mur), le contour du gabarit en surimpression ; `mur` : une
- * image posee sur le mur lui-meme (la fusion), entre ses coins.
- */
-function AutourDuMur({ url, etapes, libelle, large = false, mur }: { url: string | null; etapes: Etapes; libelle: string; large?: boolean; mur?: { url: string; l: number; h: number } }) {
+/** La texture de la facade collee sur sa silhouette : ce qui tombe hors du contour du mur n'est pas pose en 3D. */
+function SurLaSilhouette({ url, etapes, id, libelle }: { url: string; etapes: Etapes; id: string; libelle: string }) {
+  const { l, h } = etapes.textureM, contour = etapes.silhouetteTexture.map((p) => p.x + ',' + p.y).join(' ');
+  return (
+    <svg className="calEtape large" viewBox={`0 0 ${l} ${h}`} role="img" aria-label={libelle}>
+      <defs><clipPath id={id}><polygon points={contour} /></clipPath></defs>
+      <image href={url} x={0} y={0} width={l} height={h} preserveAspectRatio="none" clipPath={`url(#${id})`} />
+      <polygon className="calMurLigne silhouette" points={contour} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+/** La facade complete a l'echelle du mur, sans coupe (le cadre autour du mur), le contour du gabarit en surimpression. */
+function AutourDuMur({ url, etapes, libelle, children }: { url: string | null; etapes: Etapes; libelle: string; children?: React.ReactNode }) {
   const c = etapes.cadre;
   return (
-    <svg className={'calEtape' + (large ? ' large' : '')} viewBox={`${c.x0} ${c.y0} ${c.l} ${c.h}`} role="img" aria-label={libelle}>
+    <svg className="calEtape large" viewBox={`${c.x0} ${c.y0} ${c.l} ${c.h}`} role="img" aria-label={libelle}>
       {url && <image href={url} x={c.x0} y={c.y0} width={c.l} height={c.h} preserveAspectRatio="none" />}
-      {mur && <image href={mur.url} x={0} y={0} width={mur.l} height={mur.h} preserveAspectRatio="none" />}
       <polygon className="calMurLigne silhouette" points={etapes.contour.map((p) => p.x + ',' + p.y).join(' ')} vectorEffect="non-scaling-stroke" />
+      {children}
     </svg>
   );
 }
 
 /** Les quatre etapes du cas, chacune en image : coins, redressement de chaque photo, fusion, detection. */
 function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; dims: Readonly<Record<number, { l: number; h: number }>>; bilans: Readonly<Record<number, BilanPhotoRedressement>>; origines: Readonly<Record<number, OrigineCoins>>; etapes: Etapes }) {
-  const { largeurM: L, hauteurM: H } = etapes;
-  const vue = (k: number) => etapes.fusion?.vues[k];
   return (
     <details className="calEtapes" open data-controle="calibration.etapes">
       <summary>Les étapes, en images</summary>
@@ -297,6 +312,9 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
         </svg>
         <figcaption>{(etapes.assemblage.mur.silhouette ? 'Silhouette du mur (le plan et le LiDAR) posée sans changer de forme, ' : '') + 'Égout ' + (etapes.assemblage.mur.egout ? 'trouvé' : 'supposé') + ', sol (en bas) ' + (etapes.assemblage.mur.pied ? 'trouvé' : 'supposé') + ', bouts du mur (tirets) ' + (etapes.assemblage.mur.cotes ? 'trouvés' : 'supposés') + ', aux proportions ' + metres(cas.largeurM) + ' × ' + metres(cas.hauteurM) + ' m.'}</figcaption>
       </figure> : <p className="calNote">Aucune photo ne se redresse : rien à assembler.</p>}
+      {etapes.vuesAssemblage.some((v) => !v.assemblee) && <ul className="calListe" aria-label="Photos restées hors de l’assemblage">
+        {etapes.vuesAssemblage.map((v, k) => (v.assemblee ? null : <li key={k}>Photo {k + 1} : à part — {v.motif ?? 'elle ne se recale sur aucune autre'}</li>))}
+      </ul>}
       <h4 className="calTitre3">4. Le mur reporté sur chaque photo</h4>
       <ul className="calGrille" aria-label="Coins sur chaque photo">
         {cas.images.map((u, k) => {
@@ -313,56 +331,31 @@ function EtapesDuCas({ cas, dims, bilans, origines, etapes }: { cas: CasStocke; 
           );
         })}
       </ul>
-      <h4 className="calTitre3">5. Chaque photo à l’échelle du mur</h4>
-      <ul className="calGrille" aria-label="Photos redressées">
-        {etapes.redressees.map((u, k) => (
-          <li key={k}><figure>
-            {u ? <AutourDuMur url={u} etapes={etapes} libelle={'Photo ' + (k + 1) + ' redressée à l’échelle du mur, sans coupe, et la silhouette du mur'} /> : <p className="calNote">Ses coins ne forment pas un mur.</p>}
-            <figcaption>Photo {k + 1}, mur de {metres(cas.largeurM)} × {metres(cas.hauteurM)} m, et ce qui l’entoure</figcaption>
-          </figure></li>
-        ))}
-      </ul>
-      <h4 className="calTitre3">6. Fusion des vues</h4>
-      {etapes.fusion ? <>
-        <ul className="calListe" aria-label="Vues de la fusion">
-          {cas.images.map((_, k) => {
-            const v = vue(k);
-            return <li key={k}>Photo {k + 1} : {!v ? '—' : v.fusionnee ? (k === etapes.fusion?.reference ? 'référence' : 'fusionnée') + ', ' + pourcent(v.part) + ' du mur pris sur elle' : 'à part — ' + (v.motif ?? 'elle ne se recale sur aucune autre')}</li>;
-          })}
-        </ul>
-        <figure>
-          <AutourDuMur url={etapes.redressees[etapes.fusion.reference] ?? null} etapes={etapes} libelle="Mur fusionné, posé dans la photo de référence, la part cachée sur toutes les vues hachurée" large
-            mur={{ url: etapes.masque, l: cas.largeurM, h: cas.hauteurM }} />
-          <figcaption>{etapes.fusion.masque > 0.005 ? 'Hachuré : ' + pourcent(etapes.fusion.masque) + ' du mur caché sur toutes les vues, où rien n’est cherché.' : 'Aucune part du mur n’est cachée sur toutes les vues.'}</figcaption>
-        </figure>
-      </> : <p className="calNote">Une seule photo : rien à fusionner.</p>}
-      <h4 className="calTitre3">7. Ouvertures proposées par la détection</h4>
+      <h4 className="calTitre3">5. La façade complète, redressée et fusionnée</h4>
+      {etapes.facade ? <figure>
+        <AutourDuMur url={etapes.facade} etapes={etapes} libelle="La façade complète : l’assemblage redressé à l’échelle du mur, sans coupe, et sa silhouette" />
+        <figcaption>L’assemblage de l’étape 3 mis à l’échelle du mur ({metres(cas.largeurM)} × {metres(cas.hauteurM)} m), avec ce qui l’entoure : la silhouette du mur y est posée, c’est l’image prise pour la suite.</figcaption>
+      </figure> : <p className="calNote">Aucune photo ne s’assemble : posez quatre repères.</p>}
+      <h4 className="calTitre3">6. Ouvertures proposées par la détection</h4>
       <figure>
-        <svg className="calEtape large" viewBox={`0 0 ${L} ${H}`} role="img" aria-label="Mur redressé et ouvertures proposées">
-          <image href={etapes.masque} x={0} y={0} width={L} height={H} preserveAspectRatio="none" />
-          {etapes.propositions.map((o, k) => <rect key={'p' + k} className="calPropose" x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
-          {etapes.devinees.map((o, k) => <rect key={'d' + k} className="calDevinee" x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
-        </svg>
+        <AutourDuMur url={etapes.facade} etapes={etapes} libelle="La façade complète et les ouvertures proposées">
+          {etapes.propositions.map((o, k) => <rect key={'p' + k} className="calPropose" x={o.x} y={cas.hauteurM - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
+          {etapes.devinees.map((o, k) => <rect key={'d' + k} className="calDevinee" x={o.x} y={cas.hauteurM - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" />)}
+        </AutourDuMur>
         <figcaption>{etapes.propositions.length} ouverture{etapes.propositions.length > 1 ? 's' : ''} proposée{etapes.propositions.length > 1 ? 's' : ''} (trait plein){etapes.devinees.length ? ', ' + etapes.devinees.length + ' devinée' + (etapes.devinees.length > 1 ? 's' : '') + ' par la structure (pointillé)' : ''}.</figcaption>
       </figure>
-      <h4 className="calTitre3">8. L’image posée sur la façade en 3D</h4>
+      <h4 className="calTitre3">7. L’image posée sur la façade en 3D</h4>
       <ul className="calGrille deux" aria-label="Image de la façade en 3D">
         <li><figure>
-          <svg className="calEtape large" viewBox={`0 0 ${etapes.textureM.l} ${etapes.textureM.h}`} role="img" aria-label="Image posée sur la façade, telle que photographiée, et la silhouette du haut du mur">
-            <image href={etapes.surFacade} x={0} y={0} width={etapes.textureM.l} height={etapes.textureM.h} preserveAspectRatio="none" />
-            {etapes.silhouetteTexture && <TraitSilhouette pts={etapes.silhouetteTexture} />}
-          </svg>
-          <figcaption>Telle que photographiée, redressée et fusionnée : le mur, et au-dessus de l’égout la bande que la 3D pose sur le pignon (ciel repeint à la teinte du mur). En trait épais, la silhouette du haut du mur.</figcaption>
+          <SurLaSilhouette url={etapes.surFacade} etapes={etapes} id="calSurFacade" libelle="La façade complète collée sur sa silhouette, telle que photographiée" />
+          <figcaption>La façade redressée et fusionnée, collée sur sa silhouette (le plan et le LiDAR) : ce que la 3D pose sur le mur.</figcaption>
         </figure></li>
         <li><figure>
-          <svg className="calEtape large" viewBox={`0 0 ${etapes.textureM.l} ${etapes.textureM.h}`} role="img" aria-label="Image posée sur la façade, sans les ombres de la photo, et la silhouette du haut du mur">
-            <image href={etapes.sansOmbres} x={0} y={0} width={etapes.textureM.l} height={etapes.textureM.h} preserveAspectRatio="none" />
-            {etapes.silhouetteTexture && <TraitSilhouette pts={etapes.silhouetteTexture} />}
-          </svg>
+          <SurLaSilhouette url={etapes.sansOmbres} etapes={etapes} id="calSansOmbres" libelle="La façade complète collée sur sa silhouette, sans les ombres de la photo" />
           <figcaption>Sans les ombres de la photo (case « Façades sans ombres » de la Vue 3D) : la 3D pose les siennes, à l’heure choisie.</figcaption>
         </figure></li>
       </ul>
-      <h4 className="calTitre3">9. La silhouette du haut du mur</h4>
+      <h4 className="calTitre3">8. La silhouette et le toit</h4>
       <VueSilhouette s={etapes.silhouette} texture={etapes.surFacade} />
     </details>
   );
@@ -501,7 +494,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
       const p: CasPrepare | null = preparerCas(depart, images);
       if (!p) { setMessage('Le mur ne se redresse pas : posez quatre repères sur la photo, puis « Retrouver le mur ».'); setElevation(null); setEtapes(null); return; }
       setElevation({ url: outils.elevationEnUrl(p.elevation), largeurM: p.elevation.largeur / p.pxParM, hauteurM: p.elevation.hauteur / p.pxParM, propositions: p.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
-      setAvis(p.fusion ? avisFusion(p.fusion) : null);
+      setAvis(avisDuCas(p));
       setDims(Object.fromEntries(images.map((im, k) => [k, { l: im.largeur, h: im.hauteur }])));
       setEtapes(etapesDe(p, images, depart, outils));
       // Un cas sans annotation part de la detection ; une annotation deja faite n'est jamais ecrasee.

@@ -3,7 +3,12 @@
 // calibration (facade/corpusReel.ts) passent tous par elle : ce que l'un redresse, fusionne et cote, les autres le redressent,
 // le fusionnent et le cotent de meme.
 
-import { analyserReleve, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
+import { analyserReleve, finaliserReleve, hauteurBande, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
+import { mosaiqueDesVues, vuesDeFace } from './mosaiqueFuites.js';
+import { inverser } from './redressementFuites.js';
+import { appliquerSimilitude } from './ransac.js';
+import { appliquer, homographie, redresser, resolutionTexture } from './homographie.js';
+import type { GabaritMur } from './gabaritMur.js';
 import { analyserMosaique, type ResultatMosaique } from './mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
 import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './cadrage.js';
@@ -56,4 +61,62 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
   // Des morceaux se mettent a l'echelle par leur focale : inconnue, celle du champ d'un telephone.
   const r = analyserMosaique({ ...mur, morceaux: photos.map((p) => ({ photo: p.photo, coins: p.coins, focalePx: p.focalePx ?? focalePx(p.photo.largeur, p.photo.hauteur, CHAMP_GRAND_COTE_DEFAUT) })) });
   return r ? { r, mosaique: r } : null;
+}
+
+/** L'assemblage des photos d'un mur, redressees entieres, et le mur pose dessus (ses coins, en pixels de l'assemblage). */
+export interface AssemblageDuMur {
+  image: Image;
+  /** Les pixels que montre au moins une photo (1), le reste hors champ (0). */
+  vu: Uint8Array;
+  /** Les coins du mur sur l'assemblage : haut gauche, haut droit, bas droit, bas gauche (l'egout en haut). */
+  coins: P2[];
+  /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
+  vues: { assemblee: boolean; motif: string | null }[];
+}
+
+/**
+ * L'assemblage d'un mur (decision de l'utilisateur, 21 octobre 2026 : c'est l'image prise pour la suite) : chaque photo redressee
+ * entiere (ses reperes, sinon ses points de fuite), les vues assemblees en une seule (facade/mosaiqueFuites.ts), et le mur porte de
+ * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins.
+ */
+export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): AssemblageDuMur | null {
+  const vues = vuesDeFace(photos.map((p) => p.photo), photos.map((p) => p.reperes ?? null));
+  const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+  const m = rangs.length ? mosaiqueDesVues(rangs.map((i) => vues[i] as NonNullable<(typeof vues)[number]>)) : null;
+  if (!m) return null;
+  let coins: P2[] | null = null;
+  for (const [k, i] of rangs.entries()) {
+    const v = vues[i], place = m.places[k], c = photos[i]?.coins, inv = v ? inverser(v.versPhoto) : null;
+    if (!place || !inv || c?.length !== 4) continue;
+    coins = c.map((q) => appliquerSimilitude(place, appliquer(inv, q)));
+    break;
+  }
+  if (!coins) return null;
+  const aPart = new Map(m.groupes.aPart.map((a) => [rangs[a.vue] as number, a.motif]));
+  return {
+    image: m.image, vu: m.vu, coins,
+    vues: photos.map((_, i) => (!vues[i] ? { assemblee: false, motif: 'pas assez de verticales pour redresser la photo' } : aPart.has(i) ? { assemblee: false, motif: aPart.get(i) ?? null } : { assemblee: true, motif: null })),
+  };
+}
+
+/**
+ * Le releve tire de l'assemblage : le mur entre ses coins, et la bande au-dessus de l'egout, redresses a l'echelle du plan dans le
+ * meme plan (un pignon y est entier), ce que l'assemblage ne montre pas laisse hors champ. Le gabarit du mur dit le toit quand il a
+ * une forme. Null quand les coins ne forment pas un mur.
+ */
+export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit: GabaritMur | null = null): ResultatAnalyse | null {
+  const { largeur: L, hauteur: H } = mur;
+  const versAssemblage = homographie([{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: H }, { x: 0, y: H }], a.coins);
+  if (!versAssemblage) return null;
+  const E = hauteurBande(L);
+  const etendus = [{ x: 0, y: -E }, { x: L, y: -E }, { x: L, y: H }, { x: 0, y: H }].map((q) => appliquer(versAssemblage, q));
+  const pxParM = resolutionTexture(L, H + E);
+  const r = redresser(a.image, etendus, L, H + E, pxParM);
+  // Ce que l'assemblage n'a pas vu reste hors champ : son masque, redresse de meme.
+  const masque = { largeur: a.image.largeur, hauteur: a.image.hauteur, donnees: new Uint8ClampedArray(a.vu.length * 4) };
+  a.vu.forEach((v, i) => { masque.donnees[i * 4] = v ? 255 : 0; });
+  const vuR = redresser(masque, etendus, L, H + E, pxParM);
+  if (!r || !vuR) return null;
+  const vu = r.vu.map((v, i) => (v && (vuR.image.donnees[i * 4] ?? 0) > 127 ? 1 : 0));
+  return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null });
 }

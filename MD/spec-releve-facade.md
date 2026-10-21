@@ -472,9 +472,17 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
 - Tout part du mur trouvé. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
 - L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur chaque photo
   et sur l'image redressée et fusionnée posée sur la façade.
-- **Aucune vue ne coupe la photo au mur.** L'étape 5 (« Chaque photo à l'échelle du mur ») montre la photo redressée à l'échelle,
-  avec ce qui entoure le mur : le toit au-dessus du gabarit, le sol, les côtés (`etapesCalibration.ts::photoAutourDuMur`).
-  L'étape 6 pose le mur fusionné dans la photo de référence, dans le même cadre.
+- **L'assemblage est l'image prise pour la suite** (calibration ; décision de l'utilisateur, 21 octobre 2026). Ce sont les photos
+  redressées entières et assemblées (étape 3), avec le mur porté des coins de la première photo (`analyseMur.ts::assemblerLeMur`).
+  - Le mur et la bande au-dessus de l'égout s'y redressent à l'échelle du plan (`analyserLAssemblage`), le pignon entier ; ce que
+    l'assemblage ne montre pas reste hors champ.
+  - La détection, la texture et le toit en partent (`corpusReel.ts::preparerCas`). Sans assemblage, le cas repasse par la fusion.
+- **Les étapes, sur la façade complète, sans coupe** :
+  - 5. l'assemblage à l'échelle du mur, avec ce qui l'entoure et la silhouette posée (`etapesCalibration.ts::photoAutourDuMur`) ;
+  - 6. les ouvertures proposées sur cette même image ;
+  - 7. la texture collée sur sa silhouette, ce que la 3D pose sur le mur ;
+  - 8. la silhouette et le toit. Le modèle d'un pignon décentré garde son sommet (`ToitEstime.sommet`).
+- L'audit et le relevé gardent la fusion des photos entre leurs coins, qui écarte un obstacle vu sur une seule photo.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui
