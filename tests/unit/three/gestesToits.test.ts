@@ -118,3 +118,48 @@ describe('le pignon sur la facade choisie', () => {
     expect(raisonIndisponible(o, 'sur:pignon')).toBeNull();
   });
 });
+
+describe('un geste n agit que sur le corps choisi', () => {
+  // Deux corps : le grand (10 x 6) et une aile de 4 x 3 posee contre lui, chacun a ses hauteurs.
+  const deuxCorps = (): ObjetPlan => {
+    const o = batiment();
+    appliquerPiece(o, 'forme:deux-pans');
+    const aile = { ...JSON.parse(JSON.stringify(o.corpsToit![0])), pts: [{ x: 10, y: 1 }, { x: 14, y: 1 }, { x: 14, y: 4 }, { x: 10, y: 4 }], faitage: 4, egouts: [2.5, 2.5], posFaitage: 1.5, pignons: [] };
+    o.corpsToit = [...o.corpsToit!, aile];
+    return o;
+  };
+  it('une forme ne change que le corps choisi, a son emprise et ses hauteurs ; l autre reste tel quel', () => {
+    const o = deuxCorps(), grand = JSON.stringify(o.corpsToit![0]);
+    expect(appliquerPiece(o, 'forme:croupes', null, 1)).toBe(true);
+    expect(JSON.stringify(o.corpsToit![0])).toBe(grand);
+    const c = o.corpsToit![1]!;
+    const xs = c.pts.map((p) => p.x), ys = c.pts.map((p) => p.y);
+    expect(Math.min(...xs)).toBeCloseTo(10, 1);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(4, 1);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(3, 1);
+    expect(Math.min(...c.egouts)).toBeCloseTo(2.5, 1);
+    expect(c.croupes?.some((v) => v > 0)).toBe(true);
+  });
+  it('un element du toit va sur le corps choisi, pas sur le corps principal', () => {
+    const o = deuxCorps();
+    expect(appliquerPiece(o, 'sur:cheminee', null, 1)).toBe(true);
+    expect(o.corpsToit![1]!.cheminees).toHaveLength(1);
+    expect(o.corpsToit![0]!.cheminees ?? []).toHaveLength(0);
+  });
+  it('un element de facade s adosse au corps choisi, meme si l on regarde la facade d un autre', () => {
+    const o = deuxCorps();
+    expect(appliquerPiece(o, 'facade:galerie', { rang: 0, mur: 0 }, 1)).toBe(true);
+    expect(o.corpsToit![2]!.saillie?.hote).toBe(1);
+  });
+  it('un element choisi (une saillie) renvoie a son corps porteur', () => {
+    const o = deuxCorps();
+    appliquerPiece(o, 'facade:galerie', null, 1);
+    expect(appliquerPiece(o, 'sur:cheminee', null, 2)).toBe(true);
+    expect(o.corpsToit![1]!.cheminees).toHaveLength(1);
+  });
+  it('sans choix, rien ne change : la facade regardee, sinon le corps principal', () => {
+    const o = deuxCorps();
+    expect(appliquerPiece(o, 'sur:cheminee')).toBe(true);
+    expect(o.corpsToit![0]!.cheminees).toHaveLength(1);
+  });
+});

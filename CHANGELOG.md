@@ -207,6 +207,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **La lecture.** Le haut du mur se lit colonne par colonne sur l'assemblage : un pignon y fait un triangle, un appentis une rampe. L'égout devient la hauteur aux angles (le plus bas des deux sous une rampe). Sur 22 scènes (deux pignons ajoutés au banc, l'un décentré, l'autre la rampe d'un appentis), l'égout est juste dans 44 cas sur 44, et la silhouette à 2 % dans 39 cas sur 42.
   - **La reprise à la main.** « Ajuster l'égout et le sol » montre la silhouette comme une ligne brisée dont on tire les sommets (en ajouter, en retirer), avec le sol et les deux bouts.
   - **L'audit et la calibration.** L'audit garde la silhouette de chaque photo, ajustée à la main ou lue. La calibration la reprend en important un audit, avec les repères et le mur ajusté, et la trace sur les photos redressées, l'assemblage et l'image fusionnée.
+- **Mode Toit : le corps choisi.**
+  - Un geste du catalogue (forme, corps, élément du toit ou de façade) n'agit que sur le corps choisi. Une forme ne remplace que ce corps, à son emprise et à ses hauteurs. Le panneau dit sur quel corps vont les gestes. Sans choix, la façade regardée, comme avant.
+  - Un corps choisi montre sa silhouette sur la scène, en trait épais sur un halo clair.
+  - La poignée qui déplace l'élément choisi est un carré à quatre flèches, distinct des poignées rondes qui étirent ou montent.
+  - Nouveau point 98 de la fumée.
+- **Admin › Calibration : les photos de chaque façade en vignettes.** Dans « Créer un cas depuis un audit », chaque façade montre ses photos en vignettes au bout de sa ligne.
 - **Admin › Calibration : les étapes revues, et la vue 3D de la façade.**
   - **L'ordre des étapes :** 1. les repères ; 2. chaque photo redressée entière ; 3. l'assemblage ; 4. la façade complète ; 5. caler la silhouette ; 6. ajuster la hauteur de la photo ; 7. les ouvertures proposées ; 8. l'image posée sur la façade ; 9. la vue 3D face à la façade.
   - **Retirées :** les étapes « le mur reporté sur chaque photo » et « la silhouette et le toit ».

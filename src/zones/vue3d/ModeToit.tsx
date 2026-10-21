@@ -17,7 +17,7 @@ import { PoigneesToit } from './PoigneesToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
-import { groupesDe, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
+import { groupesDe, libelleElement, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -128,6 +128,15 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
   );
 }
 
+/** Ce sur quoi agissent les gestes du catalogue : le corps choisi (celui de l'element choisi) ; sans choix, la facade regardee. */
+function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): string {
+  if (corps.length < 2) return 'Les gestes s’appliquent au toit du bâtiment.';
+  if (!sel) return 'Sans corps choisi, les gestes vont au corps de la façade regardée, sinon au corps principal. Choisissez un corps pour n’agir que sur lui.';
+  const c = corps[sel.rang], rang = c?.saillie ? c.saillie.hote : sel.rang;
+  const nom = libelleElement(corps, { type: 'corps', rang, i: 0 }) || 'le corps choisi';
+  return 'Les gestes s’appliquent seulement à : ' + nom.charAt(0).toLowerCase() + nom.slice(1) + '.';
+}
+
 export function ModeToit({ magasin, commandes }: Props) {
   useStore(magasin.store, (s) => s.version);
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
@@ -170,6 +179,7 @@ export function ModeToit({ magasin, commandes }: Props) {
       </button>
       <ElementsToit corps={o?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
       <h3 className="titrePlateau" id="titrePlateauToit">Ajouter un élément</h3>
+      <p className="indiceToit">{corpsCible(o?.corpsToit ?? [], e.selection)}</p>
       <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
         {ONGLETS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>
@@ -177,7 +187,7 @@ export function ModeToit({ magasin, commandes }: Props) {
       </div>
       <div className="toitCatalogue">
         {piecesDe(onglet).map((p) => {
-          const refus = o ? raisonIndisponible(o, p.id, s.facade ?? s.derniere) : 'Aucun bâtiment.';
+          const refus = o ? raisonIndisponible(o, p.id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.';
           return (
             <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
