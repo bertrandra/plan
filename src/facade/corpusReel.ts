@@ -8,7 +8,7 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
-import { analyserLAssemblage, analyserLeMur, type AssemblageDuMur } from './analyseMur.js';
+import { analyserLAssemblage, analyserLeMur, fondreLesVues, type AssemblageDuMur } from './analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
 import type { ResultatAnalyse } from './analyse.js';
 import { detecterFacade, type OuvertureDetectee } from './detection.js';
@@ -134,26 +134,31 @@ export interface CasPrepare {
   assemblage: AssemblageDuMur | null;
 }
 
+/** Ce que l'ecran de calibration garde d'une fusion. */
+const resumeFusion = (f: ResultatFusion): NonNullable<CasPrepare['fusion']> => ({ statut: f.statut, vues: f.vues, masque: f.masque, reference: f.reference, occlusion: f.occlusion });
+
 /**
  * Redresse les photos d'un cas. `assemblage` : celui que l'ecran a deja fait et montre (l'etape 3), pris tel quel. Leur assemblage (chaque photo redressee entiere, les vues assemblees, le mur pose dessus) est l'image
- * prise pour la suite : la facade complete, la detection, la texture (decision de l'utilisateur, 21 octobre 2026). Sans assemblage,
- * la fusion des photos entre leurs coins. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse.
+ * prise pour la suite : la facade complete, la detection, la texture (decision de l'utilisateur, 21 octobre 2026) ; avec plusieurs vues,
+ * il pose le mur et leur fusion en compose l'image. Sans assemblage, la fusion des photos entre leurs coins. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse.
  */
 export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true, assemblage: AssemblageDuMur | null = null): CasPrepare | null {
   const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
   // Le gabarit du cas pose sur chaque photo par ses coins (sa forme ne bouge pas), un rectangle sans gabarit : il dit le toit d'un pignon.
   const gabarit = cas.gabarit ?? GABARIT_RECTANGLE;
   // L'assemblage donne (celui que l'ecran a montre) est l'image prise pour la suite, telle quelle.
-  const r0 = assemblage ? analyserLAssemblage(mur, assemblage, gabarit) : null;
-  if (r0) return { cas, elevation: r0.elevation, pxParM: r0.pxParM, texture: r0.texture, hauteurTexture: r0.hauteurTexture, profilToit: r0.profilToit ?? null, toitEstime: r0.toitEstime, ouvertures: r0.ouvertures, devinees: r0.devinees, fusion: null, assemblage };
   const choisies = multiVues ? cas.photos : cas.photos.slice(0, 1);
   const photos = choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins), reperes: p.reperes ?? null }));
+  // Plusieurs vues dans cet assemblage : il pose le mur, leur fusion en compose l'image (vote, occultations ; analyseMur.ts::fondreLesVues).
+  const fondue = assemblage ? fondreLesVues(mur, photos, assemblage, gabarit) : null;
+  const r0 = fondue ?? (assemblage ? analyserLAssemblage(mur, assemblage, gabarit) : null);
+  if (r0) return { cas, elevation: r0.elevation, pxParM: r0.pxParM, texture: r0.texture, hauteurTexture: r0.hauteurTexture, profilToit: r0.profilToit ?? null, toitEstime: r0.toitEstime, ouvertures: r0.ouvertures, devinees: r0.devinees, fusion: fondue ? resumeFusion(fondue) : null, assemblage };
   const a = analyserLeMur(mur, photos, 'vues');
   if (!a) return null;
   const { r, fusion } = a;
   return {
     cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees,
-    fusion: fusion ? { statut: fusion.statut, vues: fusion.vues, masque: fusion.masque, reference: fusion.reference, occlusion: fusion.occlusion } : null,
+    fusion: fusion ? resumeFusion(fusion) : null,
     assemblage: a.assemblage ?? null,
   };
 }

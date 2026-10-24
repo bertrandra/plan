@@ -53,7 +53,8 @@ export function analyserSerie(morceaux: Morceau[], facade: Facade, hauteurEstime
   if (a.assemblage) {
     const k = a.assemblage.vues.findIndex((v) => !v.assemblee);
     const avis = k >= 0 && morceaux.length > 1 ? `La vue ${k + 1} reste hors de l’assemblage : ${a.assemblage.vues[k]?.motif ?? 'elle ne se recale sur aucune autre'}. Vérifiez ses coins, ou prenez-en une autre en gardant un tiers de mur en commun.` : null;
-    return { r: a.r, avis: avis ?? avisHauteur(a.r, hauteurEstimee), assemblage: a.assemblage };
+    // Plusieurs vues fondues : la fusion garde son masque d'occlusion, que la verification hachure.
+    return { r: a.r, avis: avis ?? (a.fusion ? avisFusion(a.fusion) : null) ?? avisHauteur(a.r, hauteurEstimee), assemblage: a.assemblage, ...(a.fusion ? { fusion: a.fusion } : {}) };
   }
   // La fusion garde son masque d'occlusion et sa vue de reference : la verification hachure l'un et montre l'autre a Claude (lot G20).
   if (a.fusion) return { r: a.r, avis: avisFusion(a.fusion) ?? avisHauteur(a.r, hauteurEstimee), fusion: a.fusion };
