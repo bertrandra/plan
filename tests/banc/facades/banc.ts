@@ -4,15 +4,16 @@
 // Pour chaque scene :
 // - **elevation** : `detecterOuvertures` sur l'elevation parfaite (vue de face, a l'echelle) - ce que
 //   vaut la detection seule, sans erreur de calage ;
-// - **photo** : `analyserReleve` sur la photo, avec les coins vrais - la chaine du releve : mesure de
-//   la hauteur, redressement, detection ;
+// - **photo** : `analyseMur.ts::analyserLeMur` sur la photo, avec les coins vrais - la chaine de production (audit, releve,
+//   calibration) : la photo redressee entiere et son assemblage, la hauteur mesuree, le mur pose par ses coins, la detection ;
 // - **calage** : les coins que propose le releve (`calage.ts::coinsDuReleve`, ou le cadre a 12 %
 //   sans distance) compares aux coins vrais, et la hauteur retenue par l'analyse comparee a la
 //   vraie ; puis le calage grossier de l'audit (`calage.ts::calageGrossier`) depuis la prise de vue,
 //   avec des capteurs exacts, puis avec les erreurs typiques d'un telephone (`CAPTEURS_BANC`), et la
 //   part des coins vrais qui tombent dans leur zone de recherche ;
 // - **fusion de plusieurs vues** (lot L13) : pour une scene qui porte d'autres vues du mur entier,
-//   `analyserVues` sur toutes les vues (coins vrais, decales de quelques pixels sur les vues de plus),
+//   `analyserLeMur` sur toutes les vues (coins vrais, decales de quelques pixels sur les vues de plus : l'assemblage pose le mur, la
+//   fusion en compose l'image),
 //   comparee a la chaine du releve sur la seule vue principale ; et la part du mur cache sur la vue
 //   principale que la fusion rend au mur ;
 // - **calage fin** (lot L7) : `calageFin.ts` sur la photo, depuis la prise du releve (distance, cap et
@@ -24,8 +25,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection.js';
-import { analyserReleve, coinsProposes, type ResultatAnalyse } from '../../../src/facade/analyse.js';
-import { analyserVues, type BilanVue } from '../../../src/facade/fusion.js';
+import { coinsProposes, type ResultatAnalyse } from '../../../src/facade/analyse.js';
+import { analyserLeMur } from '../../../src/facade/analyseMur.js';
+import type { BilanVue } from '../../../src/facade/fusion.js';
 import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage.js';
 import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
 import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
@@ -244,21 +246,8 @@ function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { imag
   const focaleBrute = p.type === 'camera' ? (p.focaleConnue === false ? focaleParDefaut(W, H) : photo.focalePx) : null;
   const focale = focaleBrute !== null ? focaleBrute * (prep?.modele.echelle ?? 1) : null;
   const distance = p.type === 'camera' ? (p.distanceConnue === false ? null : p.distance) : (p.distance ?? null);
-  const r = analyserReleve({
-    photo: image,
-    coins: coinsImage,
-    largeur: v.largeur,
-    hauteur: hauteurEstimee,
-    focalePx: focale,
-    contour: [
-      { x: 0, y: 0 },
-      { x: v.largeur, y: 0 },
-      { x: v.largeur, y: 6 },
-      { x: 0, y: 6 },
-    ],
-    cote: 0,
-    distance,
-  });
+  // La chaine de production : `analyserLeMur`, qu'appellent l'audit, le releve et la calibration (une photo : son assemblage).
+  const r = analyserLeMur({ largeur: v.largeur, hauteur: hauteurEstimee, contour: CONTOUR(v.largeur), cote: 0, distance }, [{ photo: image, coins: coinsImage, focalePx: focale }], 'vues')?.r ?? null;
   if (r) {
     m.photo = mesurerDetection(v.ouvertures, r.ouvertures);
     m.hauteurCm = Math.round((r.hauteur - v.hauteur) * 100);
@@ -379,19 +368,9 @@ function mesurerVues(s: SceneFacade, p: PriseCamera, photo: { image: Image; foca
     return [{ photo: ph.image, coins: c.map((k) => ({ x: k.x + dx, y: k.y + dy })), focalePx: p.focaleConnue === false ? null : ph.focalePx }];
   });
   const principale = { photo: photo.image, coins: v.coins ?? [], focalePx: p.focaleConnue === false ? null : photo.focalePx };
-  const f = analyserVues({
-    vues: [principale, ...autres],
-    largeur: v.largeur,
-    hauteur: p.hauteurEstimee ?? v.hauteur,
-    contour: [
-      { x: 0, y: 0 },
-      { x: v.largeur, y: 0 },
-      { x: v.largeur, y: 6 },
-      { x: 0, y: 6 },
-    ],
-    cote: 0,
-    distance: p.distanceConnue === false ? null : p.distance,
-  });
+  // La chaine de production : l'assemblage pose le mur, la fusion des vues en compose l'image (analyseMur.ts::fondreLesVues).
+  const a = analyserLeMur({ largeur: v.largeur, hauteur: p.hauteurEstimee ?? v.hauteur, contour: CONTOUR(v.largeur), cote: 0, distance: p.distanceConnue === false ? null : p.distance }, [principale, ...autres], 'vues');
+  const f = a ? { elevation: a.r.elevation, ouvertures: a.r.ouvertures, masque: a.fusion?.masque ?? 0, vues: a.fusion?.vues ?? [], occlusion: a.fusion?.occlusion ?? new Uint8Array(0) } : null;
   const avant = redressee ? renduAuMur(s, p, redressee) : { cache: 0, rendu: 0 };
   const apres = f ? renduAuMur(s, p, f.elevation) : { cache: avant.cache, rendu: 0 };
   const r3 = (x: number) => Math.round(x * 1000) / 1000;
@@ -414,6 +393,9 @@ function mesurerVues(s: SceneFacade, p: PriseCamera, photo: { image: Image; foca
 const chaine = (m: MesurePhoto): ChaineScene => ({ photo: m.photo, hauteurCm: m.hauteurCm, coinsFinCm: m.fin.releve?.coinsCm ?? null });
 
 /** Rejoue une scene. */
+/** Le batiment d'un mur du banc : un rectangle de 6 m de profondeur derriere lui. */
+const CONTOUR = (L: number) => [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }];
+
 export function rejouerScene(s: SceneFacade): ResultatScene {
   const t0 = performance.now();
   const px = s.synthese.pxParM ?? 100;
@@ -649,10 +631,10 @@ export function tableau(b: ResultatBanc): string {
   l.push('### Détection seule (élévation parfaite, `detecterOuvertures`)', '', ...ENTETE_DETECTION);
   for (const r of b.scenes) l.push(ligneDetection(r.nom, r.elevation));
   l.push(ligneSynthese(b.elevation), '');
-  l.push('### Chaîne du relevé (photo, coins vrais, `analyserReleve`)', '', ...ENTETE_DETECTION);
+  l.push('### Chaîne de production (photo, coins vrais, `analyserLeMur`)', '', ...ENTETE_DETECTION);
   for (const r of b.scenes) if (r.photo) l.push(ligneDetection(r.nom, r.photo));
   l.push(ligneSynthese(b.photo), '');
-  l.push('### Calage (coins proposés par le relevé, hauteur retenue par `analyserReleve`)', '');
+  l.push('### Calage (coins proposés par le relevé, hauteur retenue par `analyserLeMur`)', '');
   l.push('`coinsDuReleve` : distance mesurée, cap et attitude au déclenchement (capteurs typiques). Erreur en cm sur le mur : HG, HD, BD, BG.', '');
   l.push('| Façade | Coins proposés (cm) | Coins justes | Hauteur (cm) | Temps (ms) |', '|---|---|--:|--:|--:|');
   for (const r of b.scenes) {
@@ -728,7 +710,7 @@ function tableauVues(b: ResultatBanc): string[] {
   const l: string[] = [];
   l.push('### Fusion de plusieurs vues (lot L13, recalage ORB + RANSAC : similitude recalée et vérifiée par corrélation, occlusions par la parallaxe, composition par qualité)', '');
   l.push(
-    "Une vue : la chaîne du relevé sur la seule vue principale ; fusion : `analyserVues` sur toutes les vues (coins vrais, décalés de quelques pixels sur les vues de plus). Caché : part du mur que la vue principale ne voit pas (vérité du générateur) ; rendu au mur : parmi ces pixels, ceux que l'élévation montre comme le mur. Masque : part du mur restée cachée sur toutes les vues, selon la fusion. Recalage : décalage trouvé pour chaque vue de plus, en cm (x, y).",
+    "Une vue : la chaîne du relevé sur la seule vue principale ; fusion : `analyserLeMur` sur toutes les vues (coins vrais, décalés de quelques pixels sur les vues de plus ; l’assemblage pose le mur, la fusion en compose l’image). Caché : part du mur que la vue principale ne voit pas (vérité du générateur) ; rendu au mur : parmi ces pixels, ceux que l'élévation montre comme le mur. Masque : part du mur restée cachée sur toutes les vues, selon la fusion. Recalage : décalage trouvé pour chaque vue de plus, en cm (x, y).",
     '',
   );
   l.push('| Façade | Vues | Rappel | Précision | Corrections | Caché | Rendu au mur | Masque | Recalage (cm) | Temps (ms) |', '|---|--:|---|---|---|--:|---|--:|---|--:|');

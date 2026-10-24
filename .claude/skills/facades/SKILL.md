@@ -45,7 +45,7 @@ npx tsx .claude/skills/facades/scripts/simuler-claude.ts           # réécrit l
     relevé (croix jaunes), les coins prédits par le calage grossier avec les capteurs typiques et
     leurs zones de recherche (croix et rectangles cyan) ;
   - `<scène>-elevation.png` : l'élévation parfaite, avec la vérité (vert) et la détection (rouge) ;
-  - `<scène>-redressee.png` : l'élévation redressée par `analyserReleve`, mêmes couleurs.
+  - `<scène>-redressee.png` : l'élévation redressée par `analyserLeMur` (la chaîne de production), mêmes couleurs.
 - Avant / après : lancer avec `--json` sur `main` (un worktree détaché suffit) puis sur la branche,
   et comparer scène par scène (`vp`, `fp`, `fn`, `cotes`, `detectees`).
 
@@ -53,6 +53,17 @@ Le code : `tests/banc/facades/` (`synthese.ts` le générateur, `mesure.ts` les 
 rejeu et le tableau, `renfort.ts` le renfort de Claude, `png.ts` l'écriture des images), les scripts
 `scripts/banc.ts` et `scripts/photos.ts` de ce skill, le corpus `tests/fixtures/facades/` et ses
 réponses simulées `tests/fixtures/facades/claude/`.
+
+**Depuis le 24 octobre 2026, le banc joue la chaîne de production** (`facade/analyseMur.ts::analyserLeMur`, celle de l'audit, du
+relevé et de la calibration) au lieu de `analyserReleve` / `analyserVues` : une photo passe par son assemblage (redressée entière par
+ses points de fuite, sinon par ses coins), plusieurs vues par l'assemblage puis leur fusion.
+
+- Mesurée telle quelle, la chaîne faisait moins bien que `analyserReleve` sur une photo seule : précision 93 → 92 %, corrections
+  1,8 → 1,9 par façade, une fausse baie de plus sur `12`, des cotes de 1 à 3 cm plus larges sur `00`, `01`, `09` et `21` (7 cm
+  sur `21`, au-delà des 5 cm que garde `banc.test.ts`). La photo passait par son assemblage déjà rééchantillonné.
+- Corrigé dans la chaîne (`analyseMur.ts::photoCommeAssemblage`) : une photo seule se redresse en une passe depuis la photo
+  d'origine, le mur posé par les mêmes coins. Le tableau redevient celui de `analyserReleve`, scène par scène (précision 93 %,
+  rappel 91 %, cotes 1 cm, 1,8 correction par façade) ; la fusion de vues (`16` à `19`) ne change pas.
 
 ## 1 bis. Mesurer les façades relevées (lot G11)
 
@@ -213,8 +224,8 @@ cinquième de la largeur sous l'égout), puis ses coins sont reportés dans chaq
 l'assemblage (`facade/analyseMur.ts::analyserLeMur`). Sur les 4 cas du bac à sable (Hardencourt,
 16 photos) : 16/16 redressées (contre 1 aux coins trouvés), deux cas fusionnés entièrement. Ce qui reste fragile : un mur sans
 gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/facade/redressementFuites.test.ts` le garde sur les
-scènes `08` et `16`. Le banc des façades (`banc.ts`) mesure encore `analyserReleve` / `analyserVues`, pas `analyserLeMur` : il ne dit
-rien de l'assemblage ; `egout-sol.ts` et `toit-facade.ts` le mesurent.
+scènes `08` et `16`. Le banc des façades (`banc.ts`) joue `analyserLeMur` (la chaîne de production) avec les coins vrais ; la recherche du mur
+sur l'assemblage, elle, se mesure par `egout-sol.ts`, et le toit par `toit-facade.ts`.
 
 **L'égout et le sol sur l'assemblage** (`zones/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
 octobre 2026) : après le redressement par les repères ou les points de fuite (audit, calibration), le mur se cherche sur l'assemblage.
@@ -228,7 +239,7 @@ largeur du mur près.
   43/44, silhouette à 2 % 39/42. La colonne « Silhouette » du tableau est le plus grand écart, sur 21 colonnes, à la vraie.
 - Restent le pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13`).
 
-`tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc des façades (`banc.ts`) ne joue pas ce chemin.
+`tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc des façades (`banc.ts`) pose les coins vrais : il ne joue pas cette recherche.
 
 **Le gabarit** (`facade/gabaritMur.ts`) : la silhouette du plan et du LiDAR, une forme fixe. `egout-sol.ts` pose le gabarit vrai de
 chaque scène, comme le LiDAR le donnerait : égout 44/44, sol 43/44, gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et
