@@ -9,7 +9,7 @@ import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
-import { piecesDe, raisonIndisponible, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
+import { piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
@@ -132,7 +132,7 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
 function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): string {
   if (corps.length < 2) return 'Les gestes s’appliquent au toit du bâtiment.';
   if (!sel) return 'Sans corps choisi, les gestes vont au corps de la façade regardée, sinon au corps principal. Choisissez un corps pour n’agir que sur lui.';
-  const c = corps[sel.rang], rang = c?.saillie ? c.saillie.hote : sel.rang;
+  const rang = rangDuCorpsChoisi(corps, sel.rang) ?? sel.rang;
   const nom = libelleElement(corps, { type: 'corps', rang, i: 0 }) || 'le corps choisi';
   return 'Les gestes s’appliquent seulement à : ' + nom.charAt(0).toLowerCase() + nom.slice(1) + '.';
 }

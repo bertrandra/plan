@@ -171,8 +171,15 @@ function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
  * corps qui le porte. Null sans choix, ou quand le rang ne designe plus de corps.
  */
 export function corpsChoisi(o: ObjetPlan, rang: number | null | undefined): CorpsToit | null {
-  const c = rang === null || rang === undefined ? null : o.corpsToit?.[rang] ?? null;
-  return c?.saillie ? o.corpsToit?.[c.saillie.hote] ?? null : c;
+  const r = rangDuCorpsChoisi(o.corpsToit ?? [], rang);
+  return r === null ? null : o.corpsToit?.[r] ?? null;
+}
+
+/** Le rang du corps sur lequel agit un geste quand `rang` est choisi : une saillie renvoie a son hote. Null sans corps a ce rang. */
+export function rangDuCorpsChoisi(corps: readonly CorpsToit[], rang: number | null | undefined): number | null {
+  const c = rang === null || rang === undefined ? undefined : corps[rang];
+  if (!c) return null;
+  return c.saillie ? (corps[c.saillie.hote] ? c.saillie.hote : null) : (rang as number);
 }
 
 /** Le rectangle d'un corps, la longueur selon le grand cote : celui sur lequel une forme du catalogue le remplace. */

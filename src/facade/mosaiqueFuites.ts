@@ -13,6 +13,7 @@ import { appliquer, type Image } from './homographie.js';
 import { inverser as inverserHomographie, redresserParFuites, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
 import { detecterSegments } from './segments.js';
 import { gabaritSurLaVue, type GabaritMur } from './gabaritMur.js';
+import { simplifierLigne } from '../geometry/simplifierLigne.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
 const COTE_RECHERCHE_PX = 900;
@@ -460,21 +461,6 @@ function rangees(m: { image: Image; vu: Uint8Array }, x0: number, x1: number): R
   return out;
 }
 
-/** Douglas-Peucker : les sommets d'une ligne brisee qui s'ecartent de plus de `tol` de la corde. */
-function simplifier(pts: readonly { x: number; y: number }[], tol: number): { x: number; y: number }[] {
-  if (pts.length <= 2) return [...pts];
-  const a = pts[0] as { x: number; y: number }, b = pts[pts.length - 1] as { x: number; y: number };
-  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  let k = -1, dMax = 0;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const p = pts[i] as { x: number; y: number };
-    const d = Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / L;
-    if (d > dMax) { dMax = d; k = i; }
-  }
-  if (dMax <= tol) return [a, b];
-  return [...simplifier(pts.slice(0, k + 1), tol).slice(0, -1), ...simplifier(pts.slice(k), tol)];
-}
-
 /**
  * La silhouette du haut du mur sur une image vue de face : dans chaque colonne entre ses bouts, la premiere rangee, en descendant du
  * ciel, ou commence la matiere du mur (`teinte`, a `ecart` de chromaticite pres). Un pignon y fait un triangle, un appentis une rampe ;
@@ -532,7 +518,7 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
   const ligne = [{ x: r.x0, y: yG }, ...lisses.map((p) => ({ x: p.x, y: Math.min(p.y, egout) })), { x: r.x1, y: yD }];
   // Deux sommets presque confondus n'en font qu'un : un faite lu sur deux colonnes devient un sommet a leur milieu, au plus haut des
   // deux ; un sommet tout pres d'un angle se fond dans l'angle. La ligne se tire alors plus simplement.
-  const sommets = simplifier(ligne, TOLERANCE_SILHOUETTE * w);
+  const sommets = simplifierLigne(ligne, TOLERANCE_SILHOUETTE * w);
   const proche = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y) < SOMMETS_DISTINCTS * w;
   const premier = sommets[0] as { x: number; y: number }, fin = sommets[sommets.length - 1] as { x: number; y: number };
   const nets: { x: number; y: number }[] = [premier];

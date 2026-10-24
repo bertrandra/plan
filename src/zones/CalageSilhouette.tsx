@@ -11,22 +11,8 @@
 import { useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import type { P2 } from '../facade/homographie.js';
 import { gabaritSurLaVue, type GabaritMur } from '../facade/gabaritMur.js';
+import { bouger, calageDe, coinsDuCalage, egoutDuCalage, ECART_MIN, PAS_CLAVIER, type Calage, type Prise } from '../facade/calageSilhouette.js';
 import { pointSvg, useEchelle } from './releve/commun.js';
-
-/** Le calage : les bouts et le sol de la silhouette (pixels de l'assemblage), et l'etirement vertical de la photo autour du sol. */
-interface Calage { x0: number; x1: number; sol: number; k: number }
-type Prise = 'gauche' | 'droite' | 'sol' | 'tout' | 'haut';
-
-/** Un pas au clavier, en part du grand cote ; l'ecart minimal entre les bouts ; l'etirement admis. */
-const PAS_CLAVIER = 0.002, ECART_MIN = 0.05, ETIREMENT: readonly [number, number] = [0.5, 2];
-
-/** Le calage de depart : le mur retenu (ses coins sur l'assemblage), l'etirement qui fait tomber son egout sur celui de la silhouette. */
-function calageDe(coins: readonly P2[], rapport: number): Calage {
-  const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2];
-  const x0 = (hg.x + bg.x) / 2, x1 = (hd.x + bd.x) / 2, sol = (bd.y + bg.y) / 2, egout = (hg.y + hd.y) / 2;
-  const k = sol - egout > 0 ? ((x1 - x0) * rapport) / (sol - egout) : 1;
-  return { x0, x1, sol, k: Math.min(ETIREMENT[1], Math.max(ETIREMENT[0], k)) };
-}
 
 export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeurM, hauteurM, appliquer }: {
   /** L'assemblage de l'etape 3, et sa taille en pixels. */
@@ -40,22 +26,13 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
 }) {
   const rapport = hauteurM / largeurM;
   const [c, setC] = useState<Calage>(() => calageDe(coins, rapport));
-  const egout = c.sol - (c.x1 - c.x0) * rapport;
+  const egout = egoutDuCalage(c, rapport);
   const haut = gabaritSurLaVue(gabarit, { x0: c.x0, x1: c.x1, y0: egout, y1: c.sol });
   const contour = [{ x: c.x0, y: c.sol }, ...haut, { x: c.x1, y: c.sol }].map((p) => p.x + ',' + p.y).join(' ');
   // Le haut de l'image etiree autour du sol, et l'image elle-meme : y' = sol + k (y - sol).
   const hautImage = c.sol - c.k * c.sol;
   const image = <image href={url} x={0} y={0} width={largeur} height={hauteur} preserveAspectRatio="none" transform={`translate(0 ${c.sol * (1 - c.k)}) scale(1 ${c.k})`} />;
   const min = ECART_MIN * largeur;
-  const bouger = (p: Prise, dx: number, dy: number, d: Calage): Calage => {
-    if (p === 'gauche') return { ...d, x0: Math.min(d.x0 + dx, d.x1 - min) };
-    if (p === 'droite') return { ...d, x1: Math.max(d.x1 + dx, d.x0 + min) };
-    if (p === 'sol') return { ...d, sol: d.sol + dy };
-    if (p === 'tout') return { ...d, x0: d.x0 + dx, x1: d.x1 + dx, sol: d.sol + dy };
-    // La poignee du haut : le haut de l'image suit le doigt, le sol reste ou il est.
-    const k = d.sol > 0 ? (d.sol - (d.sol - d.k * d.sol + dy)) / d.sol : d.k;
-    return { ...d, k: Math.min(ETIREMENT[1], Math.max(ETIREMENT[0], k)) };
-  };
   const vues = [useRef<SVGSVGElement>(null), useRef<SVGSVGElement>(null)] as const;
   const echelle = useEchelle(vues[0], largeur);
   const saisir = (p: Prise, k: 0 | 1) => (e: PE<SVGElement>) => {
@@ -65,7 +42,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
     if (!racine) return;
     el.setPointerCapture(e.pointerId);
     const a = pointSvg(racine, e), depart = c;
-    const suivre = (ev: PointerEvent) => { const q = pointSvg(racine, ev); setC(bouger(p, q.x - a.x, q.y - a.y, depart)); };
+    const suivre = (ev: PointerEvent) => { const q = pointSvg(racine, ev); setC(bouger(p, q.x - a.x, q.y - a.y, depart, min)); };
     const lacher = () => { el.removeEventListener('pointermove', suivre); el.removeEventListener('pointerup', lacher); el.removeEventListener('pointercancel', lacher); };
     el.addEventListener('pointermove', suivre);
     el.addEventListener('pointerup', lacher);
@@ -76,7 +53,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
     const dx = e.key === 'ArrowLeft' ? -pas : e.key === 'ArrowRight' ? pas : 0, dy = e.key === 'ArrowUp' ? -pas : e.key === 'ArrowDown' ? pas : 0;
     if (!dx && !dy) return;
     e.preventDefault();
-    setC((d) => bouger(p, dx, dy, d));
+    setC((d) => bouger(p, dx, dy, d, min));
   };
   const saisie = 44 / echelle;
   const ligne = (p: Prise, nom: string, x1: number, y1: number, x2: number, y2: number, k: 0 | 1) => (
@@ -93,9 +70,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
   );
   const sommet = Math.min(egout, ...haut.map((p) => p.y));
   const valider = () => {
-    // L'egout de la silhouette, ramene sur l'assemblage non etire.
-    const e = c.sol - (c.sol - egout) / c.k;
-    appliquer([{ x: c.x0, y: e }, { x: c.x1, y: e }, { x: c.x1, y: c.sol }, { x: c.x0, y: c.sol }]);
+    appliquer(coinsDuCalage(c, rapport));
   };
   const cadre = `0 ${Math.min(0, hautImage)} ${largeur} ${Math.max(hauteur, c.sol + c.k * (hauteur - c.sol)) - Math.min(0, hautImage)}`;
   return <>

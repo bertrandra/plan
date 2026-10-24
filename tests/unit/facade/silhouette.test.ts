@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { silhouetteDuMur, silhouetteDesCorps, motDuHaut } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
+import { silhouetteDuMur, silhouetteDesCorps, silhouetteVersLOeil, motDuHaut } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { hauteurDuToitEn } from '../../../src/facade/toitCorps.js';
 import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
@@ -72,5 +72,18 @@ describe('motDuHaut', () => {
     expect(motDuHaut(q([[0, 3], [6, 5]]))).toBe('rampe');
     expect(motDuHaut(q([[0, 3.4], [3.5, 3.4], [3.6, 5.9], [6.8, 7.7], [9.6, 5.9]]))).toBe('marches');
     expect(motDuHaut(q([[0, 5], [2, 7.5], [4, 5.2], [7, 7.7], [9, 5.3]]))).toBe('plusieurs-sommets');
+  });
+});
+
+describe('silhouetteVersLOeil', () => {
+  it('trace le mur le plus tourne vers le point de vue : le pignon vu de l ouest monte au faitage', () => {
+    const s = silhouetteVersLOeil(corps, p(-20, 3))!;
+    expect(s.every((q) => Math.abs(q.x) < 1e-9)).toBe(true);
+    expect(Math.max(...s.map((q) => q.z))).toBeCloseTo(8, 1);
+  });
+  it('vu du sud, le long pan : un rectangle a l egout', () => {
+    const s = silhouetteVersLOeil(corps, p(5, -20))!;
+    expect(s.every((q) => Math.abs(q.y) < 1e-9)).toBe(true);
+    expect(Math.max(...s.map((q) => q.z))).toBeCloseTo(5, 1);
   });
 });

@@ -15,8 +15,7 @@ import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
 import { facadeDeLElement, type CibleElement } from '../../facade/regles/toits/elements.js';
-import { facadesDuContour, type Facade } from '../../facade/geometrie.js';
-import { silhouetteDuMur } from '../../facade/regles/toits/silhouetteDesCorps.js';
+import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
 const RAYON_PX = 9, SAISIE_PX = 22;
@@ -36,13 +35,9 @@ const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-
 function silhouetteAEcran(c: CorpsToit | undefined, base: number): Ecran[] | null {
   const sc = vue3d.scene;
   if (!c || !sc) return null;
-  const egout = Math.min(...c.egouts);
-  const cam = cameraDeVue(sc).position, oeil = { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z };
-  const vers = (f: Facade) => { const mx = (f.gauche.x + f.droite.x) / 2, my = (f.gauche.y + f.droite.y) / 2; return (f.normale.x * (oeil.x - mx) + f.normale.y * (oeil.y - my)) / (Math.hypot(oeil.x - mx, oeil.y - my) || 1); };
-  const f = facadesDuContour(c.pts, egout).reduce<Facade | null>((m, x) => (!m || vers(x) > vers(m) ? x : m), null);
-  if (!f) return null;
-  const pts = silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout).map((q) => projeter({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }, base));
-  return pts.every((q): q is Ecran => q !== null) ? pts : null;
+  const cam = cameraDeVue(sc).position;
+  const pts = silhouetteVersLOeil(c, { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z })?.map((q) => projeter(q, base));
+  return pts?.every((q): q is Ecran => q !== null) ? pts : null;
 }
 
 /** Le trait de la silhouette du corps choisi : un halo clair sous un trait epais, lisible sur la photo comme sur le crepi. */

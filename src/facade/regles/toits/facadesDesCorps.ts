@@ -79,9 +79,14 @@ export function facadeVersLePoint(facades: readonly FacadeVisee[], rang: number,
   let meilleur: FacadeVisee | null = null, v = -Infinity;
   for (const f of facades) {
     if (f.rang !== rang) continue;
-    const mx = (f.a.x + f.b.x) / 2, my = (f.a.y + f.b.y) / 2, dx = oeil.x - mx, dy = oeil.y - my, l = Math.hypot(dx, dy) || 1;
-    const s = (f.n.x * dx + f.n.y * dy) / l;
+    const s = tourneVers(f.a, f.b, f.n, oeil);
     if (s > v) { v = s; meilleur = f; }
   }
   return meilleur;
+}
+
+/** Combien un mur (de `a` a `b`, normale `n` vers dehors) se tourne vers un point de vue : 1 de face, 0 de profil, negatif de dos. */
+export function tourneVers(a: PtBrut, b: PtBrut, n: PtBrut, oeil: PtBrut): number {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = oeil.x - mx, dy = oeil.y - my;
+  return (n.x * dx + n.y * dy) / (Math.hypot(dx, dy) || 1);
 }
