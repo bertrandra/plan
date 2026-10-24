@@ -9,7 +9,7 @@
 // L'ecran ne parle ni au serveur ni au navigateur : tout lui vient de app/ecranCalibration.ts, par `DepsCalibration`.
 
 import { useEffect, useState } from 'react';
-import { EditeurCasCalibration, coinsParDefaut, type OutilsPhotos } from './EditeurCasCalibration.js';
+import { EditeurCasCalibration, type OutilsPhotos } from './EditeurCasCalibration.js';
 import {
   CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, FORMAT_CAS_REEL, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke, preparerCas,
   type Bilan, type CasPrepare, type CasStocke, type DocumentCalibration, type ResultatCalibration,
@@ -186,7 +186,7 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
           ...(proposition ? [{ nom: 'Proposition', b: proposition.apres }] : []),
         ]} />
         <details className="calParams"><summary>Réglages à calibrer ({choix.size})</summary>
-          <ul>{PARAMETRES.map((p) => <li key={p.nom}><label title={p.pourquoi}><input type="checkbox" checked={choix.has(p.nom)} onChange={() => bascule(p.nom)} /> {p.nom.replace('facades.', '')} <small>({nombre(p.defaut)} {p.unite})</small></label></li>)}</ul>
+          <ul>{PARAMETRES.map((p) => <li key={p.nom}><label title={p.pourquoi}><input type="checkbox" checked={choix.has(p.nom)} data-controle="calibration.reglageCalibre" onChange={() => bascule(p.nom)} /> {p.nom.replace('facades.', '')} <small>({nombre(p.defaut)} {p.unite})</small></label></li>)}</ul>
         </details>
         <div className="calLigne">
           <button type="button" data-controle="calibration.calibrer" disabled={!!occupe || !choix.size} onClick={() => { void lancer(); }}>Chercher de meilleurs réglages</button>
@@ -199,7 +199,7 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
                 <tbody>{proposition.modifications.map((m) => <tr key={m.nom}><th scope="row">{m.nom.replace('facades.', '')}</th><td>{nombre(m.avant)}</td><td>{nombre(m.apres)}</td><td>+{dec(m.gain, 3)}</td></tr>)}</tbody></table>}
             <div className="calLigne">
               <button type="button" data-controle="calibration.appliquer" disabled={!proposition.modifications.length || !!occupe} onClick={() => { void appliquer(proposition.reglages, proposition).then(() => setProposition(null)); }}>Appliquer sur le serveur</button>
-              <button type="button" className="secondary" onClick={() => setProposition(null)}>Écarter</button>
+              <button type="button" className="secondary" data-controle="calibration.ecarter" onClick={() => setProposition(null)}>Écarter</button>
             </div>
           </div>
         )}
@@ -274,7 +274,7 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
           <DepuisUnBatiment deps={deps} choisir={(cas) => setEdition({ id: null, cas, chercher: false })} />
           {resumes.length === 0
             ? <p className="calNote">Aucun cas. Prenez des photos de façades variées : brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton. Une vingtaine de cas validés donnent des réglages fiables.</p>
-            : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="visuallyHidden">Ouvrir</span></th></tr></thead>
+            : <table className="attrTable calTable"><thead><tr><th scope="col">Cas</th><th scope="col">Statut</th><th scope="col">Photos</th><th scope="col">Ouvertures</th><th scope="col"><span className="texteMasque">Ouvrir</span></th></tr></thead>
               <tbody>{resumes.map((r) => <tr key={r.id}><th scope="row">{r.nom}</th><td>{r.statut === 'valide' ? 'Validé' : 'Brouillon'}</td><td>{r.photos}</td><td>{r.ouvertures}</td><td><button type="button" className="secondary small" data-controle="calibration.ouvrirCas" aria-label={'Ouvrir le cas ' + r.nom} onClick={() => { void ouvrir(r.id); }}>Ouvrir</button></td></tr>)}</tbody></table>}
         </section>}
 
@@ -290,4 +290,3 @@ export function EcranCalibration({ deps, retour = '?admin' }: { deps: DepsCalibr
   );
 }
 
-export { coinsParDefaut };

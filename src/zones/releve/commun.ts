@@ -5,6 +5,12 @@ import type { P2 } from '../../facade/homographie.js';
 import type { TypeOuverture } from '../../model/types.js';
 
 
+/** Les noms des quatre reperes qui redressent une photo, dans l'ordre des coins (haut gauche, haut droit, bas droit, bas gauche). */
+export const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
+
+/** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
+export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
+
 export const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
 
 /** Reglages propres a l'appareil : l'objectif choisi et le champ de chacun. Jamais dans le projet. */

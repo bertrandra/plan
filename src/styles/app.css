@@ -2674,7 +2674,6 @@
   .calEtape.large{ max-height:50vh; }
   .calGrille.deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   @media (max-width: 599px){ .calGrille.deux{ grid-template-columns:1fr; } }
-  .calQuad{ fill:var(--accent-light); fill-opacity:0.18; stroke:var(--accent); stroke-width:2; }
   /* Les reperes poses au doigt : un rectangle du mur, pas le mur ; en tirets, pour ne pas le confondre avec le mur reporte. */
   .calReperes{ fill:none; stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
   /* Le mur cherche sur l'assemblage : l'egout et le sol en trait plein, les bouts en tirets. */
@@ -2689,7 +2688,7 @@
   .ajusterMurSaisie[aria-orientation="horizontal"]{ cursor:ew-resize; }
   .ajusterMurSaisie:focus-visible{ stroke:var(--accent-light); stroke-opacity:0.6; outline:none; }
   .ajusterMurLigne.silhouette, .calMurLigne.silhouette{ fill:none; }
-  /* Le calage de la silhouette (calibration, etapes 9 et 10) : le contour du mur, voile leger pour le voir sur la facade. */
+  /* Le calage de la silhouette (calibration, etapes 5 et 6) : le contour du mur, voile leger pour le voir sur la facade. */
   .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
   .calCalage.prise{ cursor:move; touch-action:none; }
   .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
@@ -2702,9 +2701,6 @@
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   /* Une ouverture devinee par la structure : en pointille franc, d'une autre teinte que les trouvees (le mot le dit aussi). */
   .calDevinee{ fill:transparent; stroke:var(--alerte); stroke-width:2.5; stroke-dasharray:9 6; }
-  .calEgout{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:2 3; }
-  .calSilhouette{ fill:none; stroke:var(--accent); stroke-width:3; }
-  .calModele{ fill:none; stroke:var(--danger); stroke-width:2; stroke-dasharray:6 4; }
   .calEtapes .calListe{ margin:4px 0; padding-left:18px; font-size:0.78rem; }
   .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){

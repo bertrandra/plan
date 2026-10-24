@@ -102,15 +102,6 @@ export function relief(g: GabaritMur): number {
   return Math.max(0, ...g.map((p) => Math.abs(p.v - 1)));
 }
 
-/** La hauteur du gabarit en `u`, en part de celle de l'egout (interpolee entre ses sommets). */
-export function hauteurEn(g: GabaritMur, u: number): number {
-  for (let i = 0; i + 1 < g.length; i++) {
-    const a = g[i] as { u: number; v: number }, b = g[i + 1] as { u: number; v: number };
-    if (u >= a.u && u <= b.u) return b.u > a.u ? a.v + ((b.v - a.v) * (u - a.u)) / (b.u - a.u) : Math.max(a.v, b.v);
-  }
-  return u < (g[0]?.u ?? 0) ? (g[0]?.v ?? 1) : (g[g.length - 1]?.v ?? 1);
-}
-
 /** Le gabarit pose sur une vue de face entre ses bouts (`x0`, `x1`), son egout (`y0`) et son sol (`y1`), en pixels de la vue. */
 export function gabaritSurLaVue(g: GabaritMur, r: { x0: number; x1: number; y0: number; y1: number }): P2[] {
   return g.map((p) => ({ x: r.x0 + p.u * (r.x1 - r.x0), y: r.y1 - p.v * (r.y1 - r.y0) }));

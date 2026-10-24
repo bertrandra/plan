@@ -79,7 +79,7 @@ function Vignettes({ photos, nom, retirer }: { photos: readonly PhotoCas[]; nom:
  * Le redressement et la fusion des photos d'une facade : le statut de chacune (automatique, a la main, echec et son motif),
  * celui de l'ensemble, et « Rejouer redressement + fusion ». Un rejeu ne remplace que les images derivees.
  */
-function Redressement({ session, cle, cote, nom }: { session: SessionAuditParcelle; cle: string; cote: number; nom: string }) {
+function Redressement({ session, cle, cote, nom, largeurPlanM }: { session: SessionAuditParcelle; cle: string; cote: number; nom: string; largeurPlanM: number }) {
   const [enCours, setEnCours] = useState(false);
   const [coinsRang, setCoinsRang] = useState<number | null>(null);
   const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
@@ -104,7 +104,7 @@ function Redressement({ session, cle, cote, nom }: { session: SessionAuditParcel
           </li>)}</ul>
         </>
         : <div className="detailPhoto">Pas encore redressée : lancez l’analyse.</div>}
-      {photo && coinsRang !== null && <CoinsPhotoAudit photo={photo} rang={coinsRang} nom={nom} largeurPlanM={null}
+      {photo && coinsRang !== null && <CoinsPhotoAudit photo={photo} rang={coinsRang} nom={nom} largeurPlanM={largeurPlanM}
         depart={saisie?.corrections?.[String(coinsRang)]?.reperes ?? saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
         mur={saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
         gabarit={mesure?.gabarit}
@@ -148,7 +148,7 @@ function LigneFacadeVue({ session, b, f, ouverte, basculer, prendre }: { session
           onClick={() => session.capture.basculerInaccessible(b.cle, f.cote, f.statut === 'inaccessible')}>Inaccessible</button>}
       </div>
       {ouverte && <Vignettes photos={photos} nom={nom} retirer={(r) => session.capture.retirerPhotoFacade(b.cle, f.cote, r)} />}
-      {ouverte && photos.length > 0 && <Redressement session={session} cle={b.cle} cote={f.cote} nom={nom} />}
+      {ouverte && photos.length > 0 && <Redressement session={session} cle={b.cle} cote={f.cote} nom={nom} largeurPlanM={f.facade.largeur} />}
     </li>
   );
 }

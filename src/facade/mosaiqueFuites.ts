@@ -460,15 +460,6 @@ function rangees(m: { image: Image; vu: Uint8Array }, x0: number, x1: number): R
   return out;
 }
 
-/**
- * La silhouette du haut du mur sur une image vue de face, ses bouts et son pied connus (`r`) : la teinte du mur lue le long de ses
- * bouts, l'ecart admis a son grain. Ce que montre « Ajuster l'égout et le sol » au depart (zones/releve/AjusterMur.tsx).
- */
-export function lireSilhouette(m: { image: Image; vu: Uint8Array }, r: Rect): { silhouette: { x: number; y: number }[]; egout: number; forme: 'droite' | 'pignon' | 'rampe' } | null {
-  const mur = teinteDuMur(m, r);
-  return mur ? silhouetteDuMur(m, r, mur, Math.max(ECART_CHROMA_MUR, 2 * mur.grain) * 1.5) : null;
-}
-
 /** Douglas-Peucker : les sommets d'une ligne brisee qui s'ecartent de plus de `tol` de la corde. */
 function simplifier(pts: readonly { x: number; y: number }[], tol: number): { x: number; y: number }[] {
   if (pts.length <= 2) return [...pts];
@@ -620,24 +611,6 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
   // Le gabarit se pose entre les bouts, l'egout et le sol trouves : sa forme ne bouge pas, seule son echelle suit le calage.
   if (gabarit) out.silhouette = gabaritSurLaVue(gabarit, out);
   return out;
-}
-
-/**
- * La silhouette du haut du mur sur une photo, ses coins connus : lue sur la photo redressee entiere par eux (`r`, redresserParReperes)
- * entre les bouts et le pied (lireSilhouette), puis ramenee sur la photo. Null quand elle ne se lit pas.
- */
-export function silhouetteSurLaVue(r: RedressementFuites, coins: readonly { x: number; y: number }[]): { x: number; y: number }[] | null {
-  const versVue = inverserHomographie(r.versPhoto);
-  if (!versVue || coins.length !== 4) return null;
-  const [hg, hd, bd, bg] = coins.map((c) => appliquer(versVue, c)) as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
-  const lue = lireSilhouette(r, { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 });
-  return lue ? lue.silhouette.map((p) => { const q = appliquer(r.versPhoto, p); return { x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 }; }) : null;
-}
-
-/** La silhouette du haut du mur sur une photo, ses coins connus (silhouetteSurLaVue, la photo redressee par eux). */
-export function silhouetteSurLaPhoto(image: Image, coins: readonly { x: number; y: number }[], focalePx: number | null = null): { x: number; y: number }[] | null {
-  const r = coins.length === 4 ? redresserParReperes(image, coins, focalePx) : null;
-  return r ? silhouetteSurLaVue(r, coins) : null;
 }
 
 /**

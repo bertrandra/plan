@@ -3,16 +3,14 @@
 // On prend (ou choisit) une a huit photos du meme mur. Chacune se redresse entiere, sans coupe : par quatre reperes poses au doigt
 // (un rectangle du mur, n'importe lequel), sinon par ses points de fuite ; les vues s'assemblent, l'egout, le sol et les bouts du
 // mur se cherchent sur l'assemblage, puis se reportent dans chaque photo (la chaine de l'audit et du releve, zones/releve/chaine.ts).
-// On donne
-// la largeur et la hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
+// On donne la largeur et la hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Coins } from './releve/Coins.js';
 import { AjusterMur, type MurAjuste } from './releve/AjusterMur.js';
-import { pointSvg } from './releve/commun.js';
-import { LIBELLES_OUVERTURE } from './releve/commun.js';
+import { coinsParDefaut, LIBELLES_OUVERTURE, NOMS_REPERES, pointSvg } from './releve/commun.js';
 import { preparerCas, type CasPrepare, type CasStocke, type OuvertureVraie } from '../facade/corpusReel.js';
 import { avisFusion } from './releve/analyse.js';
 import { priseSansCapteurs, redresserEtFusionner } from './releve/chaine.js';
@@ -43,16 +41,12 @@ export interface OutilsPhotos {
   elevationEnUrl: (img: Image) => string;
 }
 
-/** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
-export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
-
 /**
  * D'ou viennent les coins d'une photo : trouves (sur ses aretes, ou sur l'assemblage des photos), devines (a verifier), poses a la main
  * (un ancien cas), ou cherches sur l'assemblage apres un redressement par les reperes de la personne.
  */
 type OrigineCoins = 'trouves' | 'devines' | 'main' | 'reperes';
 const LIBELLE_ORIGINE: Record<OrigineCoins, string> = { trouves: 'coins trouvés', devines: 'coins devinés, à vérifier', main: 'mur posé à la main', reperes: 'redressée par vos repères' };
-const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
 /** Ce que la personne avait pose sur les photos d'un cas (un cas tire d'un audit, ou enregistre) : son mur ajuste a la main, ses reperes. */
 const originesDuCas = (cas: CasStocke): Record<number, OrigineCoins> =>
   Object.fromEntries(cas.photos.flatMap((p, k): [number, OrigineCoins][] => (p.murALaMain ? [[k, 'main']] : reperesDe(p) ? [[k, 'reperes']] : [])));
@@ -149,7 +143,7 @@ interface Etapes {
    * aucune photo ne s'assemble.
    */
   facade: { url: string; largeur: number; hauteur: number; contour: P2[]; propositions: P2[][]; devinees: P2[][] } | null;
-  /** Le calage (etapes 9 et 10) : les coins du mur sur l'assemblage, et de quoi les ramener sur chaque photo ; null sans assemblage. */
+  /** Le calage (etapes 5 et 6) : les coins du mur sur l'assemblage, et de quoi les ramener sur chaque photo ; null sans assemblage. */
   calage: { coins: P2[]; versPhotos: (coins: readonly P2[]) => (P2[] | null)[] } | null;
   /** Par photo : est-elle dans l'assemblage, et sinon pourquoi. */
   vuesAssemblage: { assemblee: boolean; motif: string | null }[];
@@ -281,7 +275,7 @@ function SurLAssemblage({ f, libelle, ouvertures = false }: { f: NonNullable<Eta
   );
 }
 
-/** Les quatre etapes du cas, chacune en image : coins, redressement de chaque photo, fusion, detection. */
+/** Les neuf etapes du cas, chacune en image : reperes, photos redressees, assemblage, facade, calage, hauteur, ouvertures, image posee, 3D. */
 function EtapesDuCas({ cas, dims, etapes, caler }: { cas: CasStocke; dims: Readonly<Record<number, { l: number; h: number }>>; etapes: Etapes; caler: (parPhoto: (P2[] | null)[]) => void }) {
   return (
     <details className="calEtapes" open data-controle="calibration.etapes">
@@ -389,7 +383,7 @@ function VignettesDuCas({ images, courante, origines, choisir, retirer }: { imag
     <ul className="calVignettes" aria-label="Photos du cas">
           {images.map((u, k) => (
             <li key={k} className={k === courante ? 'actif' : ''}>
-              <button type="button" className="calVignette" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
+              <button type="button" className="calVignette" data-controle="calibration.choisirPhoto" aria-pressed={k === courante} aria-label={'Photo ' + (k + 1)} onClick={() => choisir(k)}><img src={u} alt={'Photo ' + (k + 1)} /></button>
               {origines[k] && <small className="calNote" data-controle="calibration.originePhoto">{LIBELLE_ORIGINE[origines[k] as OrigineCoins]}</small>}
               <button type="button" className="secondary small" data-controle="calibration.retirerPhoto" aria-label={'Retirer la photo ' + (k + 1)} onClick={() => retirer(k)}>Retirer</button>
             </li>
@@ -411,6 +405,15 @@ interface Props {
    * l'ouverture, aux proportions du plan.
    */
   chercherCoins?: boolean;
+}
+
+/** Une dimension du mur en metres ; une valeur nulle ou illisible ne s'ecrit pas. */
+function NombreM({ libelle, controle, valeur, changer }: { libelle: string; controle: string; valeur: number; changer: (v: number) => void }) {
+  return (
+    <label className="calChamp">{libelle}
+      <input type="number" step="0.1" min="0.5" value={valeur} data-controle={controle} onChange={(e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) changer(v); }} />
+    </label>
+  );
 }
 
 export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, supprimer, fermer, chercherCoins = false }: Props) {
@@ -459,7 +462,7 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     setOrigines((o) => ({ ...o, [courante]: 'main' }));
     setElevation(null); setEtapes(null);
   };
-  // Le calage de la silhouette (etapes 9 et 10) : un mur pose a la main sur chaque photo, puis le cas redresse de nouveau.
+  // Le calage de la silhouette (etapes 5 et 6) : un mur pose a la main sur chaque photo, puis le cas redresse de nouveau.
   const caler = (parPhoto: (P2[] | null)[]) => { const c = casCale(cas, parPhoto); modifier(() => c); setOrigines((o) => ({ ...o, ...Object.fromEntries(parPhoto.flatMap((q, i) => (q ? [[i, 'main' as const]] : []))) })); void redresser(c); };
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent, le mur se cherche ensuite (« Retrouver le mur ») ; null les retire.
@@ -508,17 +511,13 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   };
 
   const photo: Photo | null = cas.images[courante] && dims[courante] ? { image: { largeur: dims[courante].l, hauteur: dims[courante].h, donnees: new Uint8ClampedArray(0) }, url: cas.images[courante] as string, champ: null, focalePx: null } : null;
-  const nombreM = (cle: 'largeurM' | 'hauteurM', libelle: string) => (
-    <label className="calChamp">{libelle}
-      <input type="number" step="0.1" min="0.5" value={cas[cle]} data-controle={'calibration.' + cle} onChange={(e) => { const v = parseFloat(e.target.value); if (Number.isFinite(v) && v > 0) { modifier((c) => ({ ...c, [cle]: v })); setElevation(null); } }} />
-    </label>
-  );
   return (
     <section className="calEditeur" aria-label={id ? 'Cas ' + cas.nom : 'Nouveau cas'}>
       <h2 className="calTitre2">{id ? 'Cas : ' + cas.nom : 'Nouveau cas'}</h2>
       <div className="calLigne">
         <label className="calChamp">Nom<input type="text" value={cas.nom} data-controle="calibration.nomCas" onChange={(e) => modifier((c) => ({ ...c, nom: e.target.value }))} placeholder="Maison de la rue X, façade sud" /></label>
-        {nombreM('largeurM', 'Largeur du mur (m)')}{nombreM('hauteurM', 'Hauteur à l’égout (m)')}
+        <NombreM libelle="Largeur du mur (m)" controle="calibration.largeurM" valeur={cas.largeurM} changer={(v) => { modifier((c) => ({ ...c, largeurM: v })); setElevation(null); }} />
+        <NombreM libelle="Hauteur à l’égout (m)" controle="calibration.hauteurM" valeur={cas.hauteurM} changer={(v) => { modifier((c) => ({ ...c, hauteurM: v })); setElevation(null); }} />
       </div>
 
       <label className="calCase"><input type="checkbox" checked={auto} data-controle="calibration.auto" onChange={(e) => setAuto(e.target.checked)} /> Automatique : chercher les coins, redresser, fusionner et proposer les ouvertures dès l’ajout d’une photo</label>

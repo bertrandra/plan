@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Coins } from '../releve/Coins.js';
 import { AjusterMur, type MurAjuste } from '../releve/AjusterMur.js';
+import { NOMS_REPERES } from '../releve/commun.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import type { P2 } from '../../facade/homographie.js';
 import type { Photo } from '../../ui/releve/camera.js';
@@ -33,7 +34,6 @@ interface Props {
   fermer: () => void;
 }
 
-const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à droite', 'Repère en bas, à droite', 'Repère en bas, à gauche'];
 
 /** Quatre reperes par defaut, dans les trois quarts centraux de la photo. */
 const parDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
@@ -77,7 +77,7 @@ export function CoinsPhotoAudit({ photo, rang, nom, depart, mur, gabarit, largeu
         <button type="button" className="secondary small" data-controle="auditParcelle.retablirCoins" onClick={() => { retablir(); fermer(); }}>Revenir à l’automatique</button>
         <button type="button" className="secondary small" data-controle="auditParcelle.annulerCoins" onClick={fermer}>Annuler</button>
         <button type="button" className="small" data-controle="auditParcelle.appliquerCoins" disabled={!coins || faux}
-          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(murAjuste ? { coins: murAjuste.coins, silhouette: murAjuste.silhouette } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }); fermer(); } }}>Appliquer</button>
+          onClick={() => { if (coins) { appliquer({ reperes: coins.map((c) => ({ x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10 })), ...(murAjuste ? { coins: murAjuste.coins } : {}), ...(echelle ? { echelleLargeurM: echelle } : {}) }); fermer(); } }}>Appliquer</button>
       </div>
     </div>
   );
