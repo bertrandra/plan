@@ -1,15 +1,15 @@
 // Le releve de facade (zones/Releve.tsx) : analyser une serie et ecrire le releve d'un mur. Sans React : testable seul.
 
 import { au } from '../../util/tableaux.js';
-import { type Facade } from '../../facade/geometrie.js';
-import { type ResultatAnalyse } from '../../facade/analyse.js';
-import { type ResultatFusion } from '../../facade/fusion.js';
-import { analyserLeMur, type AssemblageDuMur } from '../../facade/analyseMur.js';
-import { type MesureDistance } from '../../ui/releve/profondeur.js';
-import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../../facade/calage.js';
-import { avecGrille } from '../../facade/verification.js';
+import { type Facade } from '../geometrie.js';
+import { type ResultatAnalyse } from '../analyse.js';
+import { type ResultatFusion } from '../fusion.js';
+import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
+import type { MesureDistance } from './prise.js';
+import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../calage.js';
+import { avecGrille } from '../verification.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture } from '../../model/types.js';
-import { fr } from './commun.js';
+import { chiffreFr as fr } from '../../util/format.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */

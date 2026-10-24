@@ -1,7 +1,7 @@
 // Z8, l'audit de la parcelle : placer a la main quatre reperes sur une photo quand le redressement automatique a echoue (ou pour
 // le reprendre), et corriger l'echelle par la largeur reelle du mur. Les reperes sont n'importe quel rectangle du mur (une fenetre,
 // une porte, le mur) : ils ne disent que les verticales et les horizontales. La photo se redresse entiere, sans coupe ; l'egout et
-// le sol se cherchent ensuite, sur l'assemblage des photos (zones/releve/chaine.ts) ; « Ajuster l'égout et le sol » les reprend a la
+// le sol se cherchent ensuite, sur l'assemblage des photos (facade/releve/chaine.ts) ; « Ajuster l'égout et le sol » les reprend a la
 // main sur la photo redressee entiere (zones/releve/AjusterMur.tsx). Rien n'est ecrit avant « Appliquer » ; la
 // correction va dans la capture (elle prime sur le calcul et survit au rejeu), puis la facade est rejouee.
 

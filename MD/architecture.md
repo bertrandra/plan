@@ -574,12 +574,12 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 |---|---|---|
 | Straighten each whole photo (four landmarks, else vanishing points); nothing is cropped | `facade/redressementFuites.ts` | 3 |
 | Assemble the straightened views (ORB + similarity) | `facade/mosaiqueFuites.ts::mosaiqueDesVues` | 3 |
-| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/mosaiqueFuites.ts::affinerEgoutEtSol`, `zones/releve/coinsAuto.ts::murSurLAssemblage` | 3 / 6 |
+| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/mosaiqueFuites.ts::affinerEgoutEtSol`, `facade/releve/coinsAuto.ts::murSurLAssemblage` | 3 |
 | The template (gabarit): the façade's top line from plan + LiDAR, all roof bodies, a fixed shape | `facade/gabaritMur.ts` | 3 |
-| Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `zones/releve/chaine.ts::redresserEtFusionner` | 6 |
+| Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `facade/releve/chaine.ts::redresserEtFusionner` | 3 |
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
-| Calibration screen computations (no React) | `zones/releve/casCalibration.ts`, `facade/calageSilhouette.ts`, `three/vueFacade3d.ts` | 6 / 3 / 4 |
+| Calibration screen computations (no React) | `facade/releve/casCalibration.ts`, `facade/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
 
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
 ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
@@ -589,6 +589,12 @@ whenever corners, straightening or fusion change (9 since a single photo is stra
 Two LiDAR top-of-wall readings coexist on purpose: `gabaritMur.ts::hautDeLaFacade` (the whole façade seen from outside,
 every body, highest wins) and `regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
 carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
+
+The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
+`masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration (`chaine.ts`), the calibration screen's
+computations (`casCalibration.ts`) and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
+`ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
+call it; none of them holds a step of it.
 
 ### 5.3 Data view
 
@@ -859,7 +865,6 @@ Carried deliberately, with the trigger that would force payment.
 | AD-6 | No offline mode | Field users on poor connections | Sustained user complaints; the shape is understood |
 | AD-7 | Single Postgres instance, no replica | Reporting competes with OLTP | R1/R3 p95 sustained > 50 ms |
 | AD-8 | No collaborative editing | Save conflicts surface as 409s | 409 rate rising — the metric is already instrumented |
-| AD-9 | Façade chain orchestration lives in `zones/releve/` (`chaine.ts`, `coinsAuto.ts`), above `facade/` (§5.2.5) | Pure pipeline code in the UI layer; the calibration screen had to re-derive pieces of it | The next chain change that needs it from `app/` or a worker |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 

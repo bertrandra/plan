@@ -1,4 +1,4 @@
-// Le mur lu sur l'assemblage des vues redressees (zones/releve/coinsAuto.ts::murSurLAssemblage) : l'egout, le sol et les deux bouts,
+// Le mur lu sur l'assemblage des vues redressees (facade/releve/coinsAuto.ts::murSurLAssemblage) : l'egout, le sol et les deux bouts,
 // compares a la verite sur chaque scene du banc. C'est la recherche qui suit le redressement par les reperes de l'audit et de la
 // calibration (MD/spec-releve-facade.md §6.1 bis) ; le banc des facades (banc.ts) ne la joue pas.
 //
@@ -19,7 +19,7 @@ import { appliquer, homographie, type Image, type P2 } from '../../../../src/fac
 import { inverser } from '../../../../src/facade/redressementFuites.ts';
 import { mosaiqueDesVues } from '../../../../src/facade/mosaiqueFuites.ts';
 import { appliquerSimilitude } from '../../../../src/facade/ransac.ts';
-import { murSurLAssemblage, vuesDeFace } from '../../../../src/zones/releve/coinsAuto.ts';
+import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coinsAuto.ts';
 import { gabaritDuHaut } from '../../../../src/facade/gabaritMur.ts';
 
 const args = process.argv.slice(2);

@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { analyserSansRien, morceauRedresse, priseSansCapteurs, redresserEtFusionner } from '../../../src/zones/releve/chaine.js';
-import { analyserSerie } from '../../../src/zones/releve/analyse.js';
-import { rechercher, type Morceau } from '../../../src/zones/releve/serie.js';
-import { coinsDeSerie } from '../../../src/zones/releve/casCalibration.js';
-import { FORMAT_CAS_REEL, preparerCas, type CasStocke } from '../../../src/facade/corpusReel.js';
-import type { Facade } from '../../../src/facade/geometrie.js';
-import type { Image, P2 } from '../../../src/facade/homographie.js';
-import type { ObjetPolygone } from '../../../src/model/types.js';
-import { chargerCorpus } from '../../banc/facades/banc.js';
-import { photographier, coinsVrais, type PriseCamera } from '../../banc/facades/synthese.js';
+import { analyserSansRien, morceauRedresse, priseSansCapteurs, redresserEtFusionner } from '../../../../src/facade/releve/chaine.js';
+import { analyserSerie } from '../../../../src/facade/releve/analyseSerie.js';
+import { rechercher, type Morceau } from '../../../../src/facade/releve/serie.js';
+import { coinsDeSerie } from '../../../../src/facade/releve/casCalibration.js';
+import { FORMAT_CAS_REEL, preparerCas, type CasStocke } from '../../../../src/facade/corpusReel.js';
+import type { Facade } from '../../../../src/facade/geometrie.js';
+import type { Image, P2 } from '../../../../src/facade/homographie.js';
+import type { ObjetPolygone } from '../../../../src/model/types.js';
+import { chargerCorpus } from '../../../banc/facades/banc.js';
+import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';
 
-// Une seule chaine pour l'audit, le releve et la calibration (zones/releve/chaine.ts) : les memes photos y donnent les memes
+// Une seule chaine pour l'audit, le releve et la calibration (facade/releve/chaine.ts) : les memes photos y donnent les memes
 // coins, le meme mur redresse et les memes ouvertures, et rien ne s'y perd.
 
 const scene = (prefixe: string) => {

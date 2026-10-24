@@ -4,7 +4,7 @@
 // Le haut du mur est le gabarit (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, un pignon, une rampe ou une ligne
 // droite. Sa forme ne bouge pas ; il se pose entre les lignes que l'on tire, et suit leur echelle. Les lignes sont horizontales et
 // verticales sur la vue de face : elles ne se tirent que dans leur sens. Tout revient sur la photo par l'homographie du redressement :
-// les quatre coins du mur, que la chaine traite comme poses a la main (zones/releve/chaine.ts) ; le gabarit s'y repose.
+// les quatre coins du mur, que la chaine traite comme poses a la main (facade/releve/chaine.ts) ; le gabarit s'y repose.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import { appliquer, type Image, type P2 } from '../../facade/homographie.js';

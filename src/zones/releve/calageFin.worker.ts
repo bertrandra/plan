@@ -4,10 +4,10 @@
 // temps, et la loupe repond au doigt. La correction de la distorsion du grand-angle (lot L8) s'y fait
 // aussi, juste avant : elle relit chaque pixel de la photo.
 //
-// Le worker recoit une `EntreeRecherche` (zones/releve/serie.ts) et rend la photo corrigee s'il y a
+// Le worker recoit une `EntreeRecherche` (facade/releve/serie.ts) et rend la photo corrigee s'il y a
 // lieu, et le calage sans son detail.
 
-import { rechercher, type EntreeRecherche, type ResultatRecherche } from './serie.js';
+import { rechercher, type EntreeRecherche, type ResultatRecherche } from '../../facade/releve/serie.js';
 
 self.onmessage = (ev: MessageEvent<{ id: number; entree: EntreeRecherche }>) => {
   const { id, entree: e } = ev.data;

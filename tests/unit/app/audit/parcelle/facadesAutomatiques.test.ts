@@ -3,7 +3,7 @@ import { creerValidation, type ProjetAudit } from '../../../../../src/app/audit/
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { mesurerFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
-import { rechercher } from '../../../../../src/zones/releve/serie.js';
+import { rechercher } from '../../../../../src/facade/releve/serie.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
 import { creerHistorique } from '../../../../../src/core/historique.js';
 import { serializeObjects, serializeMeasures } from '../../../../../src/io/serialisation.js';

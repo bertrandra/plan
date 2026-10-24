@@ -1,15 +1,15 @@
 // Le releve de facade (zones/Releve.tsx) : les etapes, la serie de photos et ses coins proposes.
 
 import { au } from '../../util/tableaux.js';
-import { focalePx } from '../../facade/cadrage.js';
-import { coinsProposes } from '../../facade/analyse.js';
-import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../../facade/calage.js';
-import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../../facade/calageFin.js';
-import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../../facade/distorsion.js';
-import { type Decrochement } from '../../facade/profil.js';
-import type { Image, P2 } from '../../facade/homographie.js';
+import { focalePx } from '../cadrage.js';
+import { coinsProposes } from '../analyse.js';
+import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../calage.js';
+import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calageFin.js';
+import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../distorsion.js';
+import { type Decrochement } from '../profil.js';
+import type { Image, P2 } from '../homographie.js';
 import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
-import { type Prise } from './capteurs.js';
+import type { Prise } from './prise.js';
 import type { MasqueReleve } from './masque.js';
 
 /* ------------------------------------------------------------------------------------------------

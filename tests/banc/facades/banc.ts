@@ -260,7 +260,7 @@ function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { imag
   }
   if (p.type === 'camera' && focale) {
     // Le releve : la distance mesuree, le cap et l'attitude au declenchement (capteurs typiques),
-    // comme `zones/releve/serie.ts::coinsDePrise` ; sans distance, le cadre a 12 %.
+    // comme `facade/releve/serie.ts::coinsDePrise` ; sans distance, le cadre a 12 %.
     const lu = capteursSimules(s, p, true);
     const proposes = distance
       ? coinsDuReleve(v.largeur, hauteurEstimee, { largeurPx: W, hauteurPx: H, focalePx: focale, distance, biaisDeg: biaisDepuisCap(lu.capDeg, 180), inclinaisonDeg: lu.inclinaisonDeg, roulisDeg: lu.roulisDeg })

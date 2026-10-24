@@ -154,7 +154,7 @@ médiane sur toutes les cotes), et donne la moyenne des corrections par façade.
 
 **Calage** : pour les prises par caméra, l'erreur de chacun des quatre coins proposés par le
 relevé (haut gauche, haut droit, bas droit, bas gauche) : `facade/calage.ts::coinsDuReleve`, comme
-`zones/releve/serie.ts::coinsDePrise`, avec la distance, le cap et l'attitude au déclenchement ; le
+`facade/releve/serie.ts::coinsDePrise`, avec la distance, le cap et l'attitude au déclenchement ; le
 cadre à 12 % sans distance. Le coin proposé est ramené dans le plan du mur par l'homographie vraie,
 et l'écart au vrai coin est donné en cm sur le mur. « ∞ » : un coin proposé au-delà de l'horizon du
 mur. Un coin à **10 cm au plus** compte pour « trouvé sans geste ». La hauteur est celle que retient
@@ -215,7 +215,7 @@ puis une descente par coordonnée sur les réglages nommés de `detection.ts` et
 `data/admin/calibration.json` (`admin/calibration`) et se superpose aux valeurs livrées (`regles/facades/surcharges.ts`), sans jamais
 les remplacer dans le dépôt. Un seuil qui se justifie sur plus de vingt cas validés peut ensuite être reporté dans le code.
 
-**Redressement par les points de fuite** (`facade/redressementFuites.ts`, `facade/mosaiqueFuites.ts`, `zones/releve/coinsAuto.ts::coinsAutoDeSerie`,
+**Redressement par les points de fuite** (`facade/redressementFuites.ts`, `facade/mosaiqueFuites.ts`, `facade/releve/coinsAuto.ts::coinsAutoDeSerie`,
 octobre 2026) : pour la calibration, où les photos réelles montrent rarement le mur entier. Chaque photo est tournée de face par
 ses points de fuite vertical et horizontal (rotation pure K R K⁻¹, focale d'un téléphone supposée, sans coins ni distance), les vues
 redressées s'assemblent par ORB + RANSAC de similitude à échelle libre (et, sous 15 points communs, une corrélation de la partie
@@ -227,7 +227,7 @@ gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/
 scènes `08` et `16`. Le banc des façades (`banc.ts`) joue `analyserLeMur` (la chaîne de production) avec les coins vrais ; la recherche du mur
 sur l'assemblage, elle, se mesure par `egout-sol.ts`, et le toit par `toit-facade.ts`.
 
-**L'égout et le sol sur l'assemblage** (`zones/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
+**L'égout et le sol sur l'assemblage** (`facade/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
 octobre 2026) : après le redressement par les repères ou les points de fuite (audit, calibration), le mur se cherche sur l'assemblage.
 `npx tsx .claude/skills/facades/scripts/egout-sol.ts [mots] [--images dossier]` le mesure sur les scènes à prise par caméra. Chaque
 scène est redressée par ses points de fuite, puis par quatre repères aux coins de sa première ouverture. Un bord est juste à 2 % de la
@@ -724,7 +724,7 @@ l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes 
 ## 6. Pièges
 
 - **Une seule chaîne** : l'audit (`app/audit/parcelle/mesures.ts`), le relevé (`zones/Releve.tsx`) et la calibration
-  (`zones/EditeurCasCalibration.tsx`, `facade/corpusReel.ts`) redressent, fusionnent et cotent par `zones/releve/chaine.ts`
+  (`zones/EditeurCasCalibration.tsx`, `facade/corpusReel.ts`) redressent, fusionnent et cotent par `facade/releve/chaine.ts`
   (coins, replis, report, fusion) et `facade/analyseMur.ts` (une photo, des morceaux, des vues). Un repli, un seuil ou une
   étape de plus s'y ajoute, jamais dans un écran : `tests/unit/zones/chaine.test.ts` vérifie que le relevé et la calibration
   rendent le même mur. Le banc, lui, appelle `analyserReleve` et `analyserVues` directement : il mesure l'algorithme seul.
@@ -734,7 +734,7 @@ l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes 
   moirés, comme un vrai capteur. Ce n'est pas un défaut du générateur.
 - **Recouvrement à 50 % pile** : il ne compte pas (« plus de 50 % »). Une baie avec ses volets
   battants est pile à la limite.
-- **Coins proposés bruts** : le banc compare `coinsDuReleve` tel quel. `zones/releve/serie.ts`
+- **Coins proposés bruts** : le banc compare `coinsDuReleve` tel quel. `facade/releve/serie.ts`
   ramène ensuite les coins hors cadre dans une marge de 20 %, ce qui ne change rien à l'erreur
   au-delà de cette marge.
 - **Repère du calage** : le générateur pose le mur de (0, 0) à (largeur, 0), la rue vers -Y ; le

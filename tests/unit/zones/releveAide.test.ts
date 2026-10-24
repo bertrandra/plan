@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { MASQUE_NOTABLE, coinsAvecAide, motifAide, propositionRenforcee, signauxDeVerification, signauxDesCoins } from '../../../src/zones/releve/aide.js';
 import { voterRenfort, type ReponseRenfort } from '../../../src/facade/renfort.js';
 import { bilanVide } from '../../../src/facade/renfortRecalage.js';
-import type { Morceau } from '../../../src/zones/releve/serie.js';
+import type { Morceau } from '../../../src/facade/releve/serie.js';
 import type { Image } from '../../../src/facade/homographie.js';
 import type { OuvertureFacade } from '../../../src/model/types.js';
 

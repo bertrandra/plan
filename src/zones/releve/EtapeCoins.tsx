@@ -7,7 +7,7 @@ import { type CoteBas, type Decrochement } from '../../facade/profil.js';
 import type { P2 } from '../../facade/homographie.js';
 import { fr } from './commun.js';
 import { Coins, decrochementPropose, nomsEnL, ordreDuContour } from './Coins.js';
-import { type Assemblage, type Morceau, consigneCoins } from './serie.js';
+import { type Assemblage, type Morceau, consigneCoins } from '../../facade/releve/serie.js';
 
 /** Les photos de la serie, de gauche a droite : on en choisit une pour la reprendre ou la retirer. */
 function BandeauMorceaux({ morceaux, courant, choisir, retirer }: { morceaux: Morceau[]; courant: number; choisir: (k: number) => void; retirer: (k: number) => void }) {

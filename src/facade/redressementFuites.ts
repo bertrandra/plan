@@ -292,7 +292,7 @@ export function fuitesDesReperes(r: readonly P2[]): { v: V3; h: V3 } | null {
 /**
  * Redresse une photo par quatre reperes poses a la main (fuitesDesReperes) : la photo entiere tournee de face, sans coupe et sans
  * echelle — ce que les reperes disent, c'est la direction des verticales et des horizontales du mur, pas ou il commence. L'egout,
- * le sol et les bouts du mur se cherchent ensuite, sur l'image redressee (zones/releve/coinsAuto.ts). La focale se lit sur les
+ * le sol et les bouts du mur se cherchent ensuite, sur l'image redressee (facade/releve/coinsAuto.ts). La focale se lit sur les
  * reperes quand ils la donnent (deux points de fuite finis et orthogonaux) : les droites posees sortent alors exactement droites ;
  * sinon celle de la photo, sinon celle d'un telephone. Null quand les reperes sont degeneres.
  */

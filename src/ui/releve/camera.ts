@@ -5,28 +5,15 @@
 // calcul (facade/) sait traiter - et retour, pour encoder la texture en JPEG.
 
 import type { Image } from '../../facade/homographie.js';
+import type { Photo } from '../../facade/releve/prise.js';
+
+export type { Photo };
 import { focale35mm, champDepuisFocale35 } from '../../facade/exif.js';
 import { grandAngleParmi, zoomGrandAngle } from '../../facade/objectifs.js';
 
 /** Plus grand cote d'une photo traitee : au-dela, le redressement ne gagne rien et coute. */
 export const PHOTO_MAX_PX = 2400;
 
-/** Une photo prete a traiter, et ce qu'on sait de l'objectif. */
-export interface Photo {
-  image: Image;
-  /** L'URL de la photo pour l'afficher (objet blob ou data:). */
-  url: string;
-  /** Champ du grand cote, en degres, quand on le connait (EXIF, module natif). */
-  champ: number | null;
-  /** Focale en pixels quand le module natif la donne directement (intrinseques ARKit). */
-  focalePx: number | null;
-  /**
-   * La distorsion du grand-angle corrigee sur `image` (facade/distorsion.ts, lot L8) : son coefficient,
-   * et le facteur dont l'image corrigee a ete reduite pour garder ses coins, qui reduit la focale
-   * d'autant. Absente d'une photo non corrigee.
-   */
-  distorsion?: { k1: number; echelle: number } | null;
-}
 
 export function cameraDisponible(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;

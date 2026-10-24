@@ -11,7 +11,7 @@ export const NOMS_REPERES = ['Repère en haut, à gauche', 'Repère en haut, à 
 /** Quatre coins par defaut, dans les trois quarts centraux de la photo. */
 export const coinsParDefaut = (l: number, h: number): P2[] => [{ x: l * 0.12, y: h * 0.12 }, { x: l * 0.88, y: h * 0.12 }, { x: l * 0.88, y: h * 0.88 }, { x: l * 0.12, y: h * 0.88 }];
 
-export const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',');
+export { chiffreFr as fr } from '../../util/format.js';
 
 /** Reglages propres a l'appareil : l'objectif choisi et le champ de chacun. Jamais dans le projet. */
 export function lireReglage(cle: string, defaut: number): number {

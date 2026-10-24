@@ -9,7 +9,7 @@ import type { GrilleFacade } from '../../model/types.js';
 import { AideClaude } from './AideClaude.js';
 import { coinsAvecAide, motifAide, ouverturesAvecAide, signauxDeVerification, signauxDesCoins } from './aide.js';
 import type { OuverturesEnCours } from './ouvertures.js';
-import type { Morceau } from './serie.js';
+import type { Morceau } from '../../facade/releve/serie.js';
 
 const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s);
 

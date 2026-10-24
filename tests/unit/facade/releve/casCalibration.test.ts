@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { casCale, originesDuCas } from '../../../src/zones/releve/casCalibration.js';
-import type { CasStocke } from '../../../src/facade/corpusReel.js';
+import { casCale, originesDuCas } from '../../../../src/facade/releve/casCalibration.js';
+import type { CasStocke } from '../../../../src/facade/corpusReel.js';
 
-// Ce que l'editeur d'un cas de calibration calcule sans React (zones/releve/casCalibration.ts).
+// Ce que l'editeur d'un cas de calibration calcule sans React (facade/releve/casCalibration.ts).
 const carre = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }];
 const cas = {
   nom: 'Cas', largeurM: 8, hauteurM: 5, statut: 'brouillon', ouvertures: [], images: ['a', 'b', 'c'],

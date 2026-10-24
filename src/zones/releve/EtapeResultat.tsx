@@ -11,8 +11,8 @@ import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../
 import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
 import { ChampCm, Elevation, LegendeMasque } from './Elevation.js';
-import { type Resultat } from './serie.js';
-import { pxParMDuCalage, textePrecision } from './analyse.js';
+import { type Resultat } from '../../facade/releve/serie.js';
+import { pxParMDuCalage, textePrecision } from '../../facade/releve/analyseSerie.js';
 
 /**
  * Les gestes de la structure (spec facades §12), en une touche : la taille de l'ouverture choisie

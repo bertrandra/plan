@@ -13,7 +13,7 @@ import type { SourceCoin } from '../../facade/calageFin.js';
 import type { Image } from '../../facade/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
 import type { Proposition } from './ouvertures.js';
-import type { Morceau } from './serie.js';
+import type { Morceau } from '../../facade/releve/serie.js';
 
 /** Les signaux de l'etape des coins : ceux du calage fin de la photo courante. */
 export function signauxDesCoins(m: Morceau | undefined): SituationRenfort[] {

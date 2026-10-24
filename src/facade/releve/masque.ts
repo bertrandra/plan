@@ -7,7 +7,7 @@
 // Sans React : le masque, pixel par pixel, devient quelques rectangles en fractions du mur, que
 // l'elevation (Elevation.tsx) pose a l'echelle quelle que soit la hauteur corrigee ensuite.
 
-import type { ResultatFusion } from '../../facade/fusion.js';
+import type { ResultatFusion } from '../fusion.js';
 
 /** Un rectangle du masque, en fractions du mur : x depuis la gauche, y depuis l'egout (vers le bas). */
 export interface ZoneMasque {

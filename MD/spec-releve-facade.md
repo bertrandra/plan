@@ -392,7 +392,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
    ORB et une similitude (`facade/mosaiqueFuites.ts`).
 3. **Chercher le mur, automatiquement d'abord.** Sur l'assemblage, sans coupe, on cherche l'égout, le sol et les deux bouts du
    mur (`rectangleSurLesAretes` aux proportions largeur parcelle / hauteur LiDAR, sinon `rectangleDuMur`). On les reporte ensuite
-   dans chaque photo (`zones/releve/coinsAuto.ts::coinsAutoDeSerie`, `zones/releve/chaine.ts::reporterLeMur`).
+   dans chaque photo (`facade/releve/coinsAuto.ts::coinsAutoDeSerie`, `facade/releve/chaine.ts::reporterLeMur`).
    - Sur une photo à repères, ce mur l'emporte sur les coins trouvés sur ses arêtes ; la photo est marquée « redressée avec vos points ».
    - Les photos aux coins prédits le reçoivent aussi.
    - L'élévation métrique (détection, texture, toit) se calcule ensuite sur l'assemblage entier, le mur posé par ces coins
