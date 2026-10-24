@@ -395,7 +395,8 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
    dans chaque photo (`zones/releve/coinsAuto.ts::coinsAutoDeSerie`, `zones/releve/chaine.ts::reporterLeMur`).
    - Sur une photo à repères, ce mur l'emporte sur les coins trouvés sur ses arêtes ; la photo est marquée « redressée avec vos points ».
    - Les photos aux coins prédits le reçoivent aussi.
-   - L'élévation métrique, coupée au mur (détection, texture), se calcule ensuite d'après ces coins, comme avant.
+   - L'élévation métrique (détection, texture, toit) se calcule ensuite sur l'assemblage entier, le mur posé par ces coins
+     (`facade/analyseMur.ts::analyserLeMur`, plus bas) : rien n'est coupé au mur.
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
@@ -450,8 +451,8 @@ photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur
 - **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur
   6 % trop basse). Le sol garde la hauteur du plan.
 - **Dans la chaîne.** L'audit tire le gabarit des corps du bâtiment (`mesures.ts`, `gabaritDesCorps`) et le passe à la chaîne
-  (`OutilsChaine.gabarit`). Chaque photo reçoit le gabarit posé par ses coins (`gabaritSurLaPhoto`), et son bilan le garde
-  (`silhouettePx`). Un cas de calibration importé d'un audit porte le gabarit du cas figé (`CasReel.gabarit`).
+  (`OutilsChaine.gabarit`). Chaque photo reçoit le gabarit posé par ses coins (`gabaritSurLaPhoto`) ; sans gabarit, aucune
+  silhouette (la bande au-dessus de l'égout lit le toit) : elle ne se lit jamais sur la photo. Un cas de calibration importé d'un audit porte le gabarit du cas figé (`CasReel.gabarit`).
 - **Elle dit le toit.** La silhouette de chaque photo (le gabarit posé), ramenée au rectangle du mur
   (`analyse.ts::silhouetteEnPartsDuMur` : `u` le long du mur, `v` = 1 à l'égout). Quand elle s'élève de plus de 0,3 m au-dessus de
   l'égout, son profil, à l'échelle de la hauteur du mur, est celui que `classerProfil` classe : forme et hauteur du pignon viennent de
@@ -459,7 +460,8 @@ photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur
   bande le lit, comme avant ; un mur en L aussi. `classerProfil` reconnaît un pignon **décentré** (sommet balayé de 20 à 80 % du mur,
   le centre l'emporte à égalité), qu'il prenait pour une croupe. `.claude/skills/facades/scripts/toit-facade.ts` compare les deux
   lectures : pignons justes (forme, hauteur à 10 %) 1/3 par la bande, 3/3 par la silhouette (`11` sous l'ombre d'un arbre, lu plat
-  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés. Avec le gabarit, la forme du toit est celle du LiDAR.
+  par la bande ; `22` décentré ; `23` appentis), murs gouttereaux inchangés. Avec le gabarit, la forme du toit proposé est celle du LiDAR ; l'avis de la photo
+  que l'audit arbitre contre lui reste la seule lecture de la bande (`ResultatAnalyse.toitLu`), sans quoi le LiDAR voterait deux fois.
 
 Le banc a deux scènes de pignon de plus : `22` (décentré, en pierre, de biais) et `23` (la rampe d'un appentis, une haie devant).
 Le générateur sait poser le sommet d'un pignon où l'on veut (`pignonSommet`).
@@ -477,8 +479,8 @@ pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13
 redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zones/releve/AjusterMur.tsx`).
 - Le gabarit se pose entre ces lignes. Sa forme ne change pas ; il suit leur échelle. Il n'y a pas de sommet à tirer.
 - Tout part du mur trouvé. Tout se tire au doigt, ou au clavier avec les flèches (Maj : dix fois plus).
-- L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur chaque photo
-  et sur l'image redressée et fusionnée posée sur la façade.
+- L'écran de calibration trace le gabarit en surimpression : sur les photos redressées entières, sur l'assemblage, sur la façade
+  complète et sur l'image posée sur la façade.
 - **L'assemblage est l'image prise pour la suite** (audit, relevé et calibration ; décision de l'utilisateur, 21 octobre 2026). Ce sont les photos
   redressées entières et assemblées (étape 3), avec le mur porté des coins de la première photo (`analyseMur.ts::assemblerLeMur`).
   - Le mur et la bande au-dessus de l'égout s'y redressent à l'échelle du plan (`analyserLAssemblage`), le pignon entier ; ce que
