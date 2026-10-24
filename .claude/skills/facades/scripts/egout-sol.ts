@@ -7,7 +7,9 @@
 // Pour chaque scene a prise par camera : toutes ses vues redressees par leurs points de fuite (et, en seconde ligne, la vue principale
 // par quatre reperes poses aux coins de sa premiere ouverture), assemblees, puis le mur cherche aux proportions de la verite (ce que
 // donne le plan : largeur du cadastre, hauteur du LiDAR). L'ecart de chaque bord est en part de la largeur du mur ; « juste » : 2 % au
-// plus. La silhouette (le haut du mur, pignon compris) : le plus grand ecart, sur 21 colonnes, a la vraie. `--images` ecrit l'assemblage, la verite en vert et le mur trouve en rouge.
+// plus. Le gabarit vrai de la scene (son haut, pignon compris, comme le LiDAR le donnerait : facade/gabaritMur.ts) est passe a la
+// recherche, qui le pose entre les bords trouves ; « Silhouette » : le plus grand ecart, sur 21 colonnes, entre ce gabarit pose et le
+// vrai haut du mur. `--images` ecrit l'assemblage, la verite en vert et le mur trouve en rouge.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';

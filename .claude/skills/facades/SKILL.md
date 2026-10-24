@@ -209,10 +209,12 @@ octobre 2026) : pour la calibration, où les photos réelles montrent rarement l
 ses points de fuite vertical et horizontal (rotation pure K R K⁻¹, focale d'un téléphone supposée, sans coins ni distance), les vues
 redressées s'assemblent par ORB + RANSAC de similitude à échelle libre (et, sous 15 points communs, une corrélation de la partie
 commune), le mur est lu sur la mosaïque (égout : plus longue horizontale du haut ; pied : plus basse longue horizontale, à au moins le
-cinquième de la largeur sous l'égout), puis ses coins sont reportés dans chaque photo. Sur les 4 cas du bac à sable (Hardencourt,
+cinquième de la largeur sous l'égout), puis ses coins sont reportés dans chaque photo. Depuis la version 7 de la chaîne, l'audit et le relevé passent aussi par
+l'assemblage (`facade/analyseMur.ts::analyserLeMur`). Sur les 4 cas du bac à sable (Hardencourt,
 16 photos) : 16/16 redressées (contre 1 aux coins trouvés), deux cas fusionnés entièrement. Ce qui reste fragile : un mur sans
 gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/facade/redressementFuites.test.ts` le garde sur les
-scènes `08` et `16`. Le banc (relevé, audit) n'utilise pas ce chemin et ne bouge pas.
+scènes `08` et `16`. Le banc des façades (`banc.ts`) mesure encore `analyserReleve` / `analyserVues`, pas `analyserLeMur` : il ne dit
+rien de l'assemblage ; `egout-sol.ts` et `toit-facade.ts` le mesurent.
 
 **L'égout et le sol sur l'assemblage** (`zones/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
 octobre 2026) : après le redressement par les repères ou les points de fuite (audit, calibration), le mur se cherche sur l'assemblage.
@@ -221,19 +223,20 @@ scène est redressée par ses points de fuite, puis par quatre repères aux coin
 largeur du mur près.
 - Départ : égout 8/40, sol 24/40. Les arêtes prenaient le haut des tuiles et un bandeau d'étage.
 - Après l'affinage par la teinte du mur : égout 37/40, sol 37/40, bouts 78/80.
-- Avec la silhouette du haut du mur (`silhouetteDuMur`), sur 22 scènes dont deux pignons ajoutés (`22`, `23`) : égout 44/44, sol
+- Avec la silhouette du haut du mur lue sur l'image (`mosaiqueFuites.ts::silhouetteDuMur`, a ne pas confondre avec
+  `regles/toits/silhouetteDesCorps.ts::silhouetteDuMur`, celle des corps du LiDAR), sur 22 scènes dont deux pignons ajoutés (`22`, `23`) : égout 44/44, sol
   43/44, silhouette à 2 % 39/42. La colonne « Silhouette » du tableau est le plus grand écart, sur 21 colonnes, à la vraie.
 - Restent le pignon sous l'ombre d'un arbre (`11`) et le grand-angle à forte distorsion (`13`).
 
-`tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc (relevé, audit) ne joue pas ce chemin.
+`tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc des façades (`banc.ts`) ne joue pas ce chemin.
 
 **Le gabarit** (`facade/gabaritMur.ts`) : la silhouette du plan et du LiDAR, une forme fixe. `egout-sol.ts` pose le gabarit vrai de
 chaque scène, comme le LiDAR le donnerait : égout 44/44, sol 43/44, gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et
 du sol trouvés. Le profil lu pour caler un sol caché a été essayé, puis retiré : il dégradait la rampe `23`.
 
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
-par la bande au-dessus de l'égout et celui lu par la silhouette du haut du mur lue sur la photo (vrais coins, `silhouetteSurLaPhoto` :
-ce qui sert sans gabarit, au relevé). Pignons justes
+par la bande au-dessus de l'égout (l'avis de la photo seule) et celui que dit le gabarit vrai de la scène, posé entre les vrais coins
+(ce que le LiDAR donnerait). Pignons justes
 (forme, hauteur à 10 %) : 1/3 par la bande, 3/3 par la silhouette ; les murs gouttereaux (silhouette plate) gardent la bande.
 
 **Corpus réel** (`tests/fixtures/facades-reel/`, `scripts/reel.ts`, `tests/banc/facades/reel.ts`) : photos réelles

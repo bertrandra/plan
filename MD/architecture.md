@@ -565,6 +565,30 @@ validated case replayed), `conformite.test.ts` (the rate recorded in `regles/con
 and the golden fingerprints. A rule change that moves a quantity or an export is a major version
 (`MD/RELEASE.md`).
 
+### 5.2.5 The façade chain — where each step lives (October 2026)
+
+One chain turns façade photos into a wall, a texture, openings and a roof, for the audit, the survey (relevé) and the
+calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
+
+| Step | Module | Layer |
+|---|---|---|
+| Straighten each whole photo (four landmarks, else vanishing points); nothing is cropped | `facade/redressementFuites.ts` | 3 |
+| Assemble the straightened views (ORB + similarity) | `facade/mosaiqueFuites.ts::mosaiqueDesVues` | 3 |
+| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/mosaiqueFuites.ts::affinerEgoutEtSol`, `zones/releve/coinsAuto.ts::murSurLAssemblage` | 3 / 6 |
+| The template (gabarit): the façade's top line from plan + LiDAR, all roof bodies, a fixed shape | `facade/gabaritMur.ts` | 3 |
+| Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `zones/releve/chaine.ts::redresserEtFusionner` | 6 |
+| Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
+| Calibration screen computations (no React) | `zones/releve/casCalibration.ts`, `facade/calageSilhouette.ts`, `three/vueFacade3d.ts` | 6 / 3 / 4 |
+
+Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
+ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
+(`ResultatAnalyse.toitLu`), never the template — otherwise the LiDAR would vote twice. `VERSION_CHAINE_FACADES` (7) moves
+whenever corners, straightening or fusion change; an audit stores it with its images.
+
+Two LiDAR top-of-wall readings coexist on purpose: `gabaritMur.ts::hautDeLaFacade` (the whole façade seen from outside,
+every body, highest wins) and `regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
+carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
+
 ### 5.3 Data view
 
 Five tiers, per `spec-data-strategy.md`:
@@ -834,6 +858,9 @@ Carried deliberately, with the trigger that would force payment.
 | AD-6 | No offline mode | Field users on poor connections | Sustained user complaints; the shape is understood |
 | AD-7 | Single Postgres instance, no replica | Reporting competes with OLTP | R1/R3 p95 sustained > 50 ms |
 | AD-8 | No collaborative editing | Save conflicts surface as 409s | 409 rate rising — the metric is already instrumented |
+| AD-9 | Façade chain orchestration lives in `zones/releve/` (`chaine.ts`, `coinsAuto.ts`), above `facade/` (§5.2.5) | Pure pipeline code in the UI layer; the calibration screen had to re-derive pieces of it | The next chain change that needs it from `app/` or a worker |
+| AD-10 | The assemblage path drops what the old fusion had: occlusion masking, per-pixel voting, quality score, hatched hidden parts | Several views of one wall are stitched, not voted | A real-corpus case where a passer-by or a car survives into the texture |
+| AD-11 | The façade bench (`tests/banc/facades/banc.ts`) measures `analyserReleve` / `analyserVues`, not `analyserLeMur` | Bench numbers do not cover the production path; `egout-sol.ts` and `toit-facade.ts` do part of it | Before any change to `analyseMur.ts` |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 
