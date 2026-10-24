@@ -37,6 +37,8 @@ async function monter(gabarit: { u: number; v: number }[] | null = null) {
 }
 const poignee = (nom: string) => hote.querySelector(`[role="slider"][aria-label="${nom}"]`) as SVGElement;
 const touche = (nom: string, key: string, shiftKey = false) => act(() => { poignee(nom).dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true })); });
+// Le haut du mur dessine sur la vue (de face, a l'echelle de la photo) : la polyligne sans ses deux pieds.
+const hautDessine = (): P2[] => (hote.querySelector('.ajusterMurLigne.silhouette')?.getAttribute('points') ?? '').split(' ').map((q) => { const [x, y] = q.split(',').map(Number); return { x: x as number, y: y as number }; }).slice(1, -1);
 const dernier = (c: ReturnType<typeof vi.fn<(m: MurAjuste) => void>>) => c.mock.calls.at(-1)?.[0] as MurAjuste;
 
 describe('la reprise a la main du mur sur la photo redressee', () => {
@@ -55,10 +57,11 @@ describe('la reprise a la main du mur sur la photo redressee', () => {
     const egout = (m.coins[0] as P2).y, sol = (m.coins[3] as P2).y;
     expect(egout).toBeCloseTo(58, 0);
     // Le faite est a la moitie de la hauteur du mur au-dessus de l'egout, au milieu des bouts ; les angles sont a l'egout.
-    expect(m.silhouette).toHaveLength(3);
-    expect((m.silhouette[1] as P2).y).toBeCloseTo(egout - (sol - egout) / 2, 0);
-    expect((m.silhouette[1] as P2).x).toBeCloseTo(200, 0);
-    expect((m.silhouette[0] as P2).y).toBeCloseTo(egout, 0);
+    const haut = hautDessine();
+    expect(haut).toHaveLength(3);
+    expect((haut[1] as P2).y).toBeCloseTo(egout - (sol - egout) / 2, 0);
+    expect((haut[1] as P2).x).toBeCloseTo(200, 0);
+    expect((haut[0] as P2).y).toBeCloseTo(egout, 0);
   });
 
   it('suit un bout tire : le gabarit s etire en largeur', async () => {
@@ -66,7 +69,7 @@ describe('la reprise a la main du mur sur la photo redressee', () => {
     touche('Bout droit du mur', 'ArrowLeft', true);
     const m = dernier(changer);
     expect((m.coins[1] as P2).x).toBeCloseTo(332, 0);
-    expect((m.silhouette[1] as P2).x).toBeCloseTo((60 + 332) / 2, 0);
+    expect((hautDessine()[1] as P2).x).toBeCloseTo((60 + 332) / 2, 0);
   });
 
   it('ne laisse pas l egout passer sous le sol', async () => {

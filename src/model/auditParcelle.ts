@@ -39,11 +39,6 @@ export interface CorrectionRedressement {
    * une porte, le mur). Ils redressent la photo entiere, sans la couper ; l'egout et le sol se cherchent ensuite, sur l'assemblage.
    */
   reperes?: { x: number; y: number }[];
-  /**
-   * La silhouette du haut du mur ajustee a la main (une ligne brisee d'un angle a l'autre, sur la photo) : un pignon, une rampe. Elle
-   * accompagne les `coins` qu'elle a donnes (l'egout est le plus bas de ses deux bouts).
-   */
-  silhouette?: { x: number; y: number }[];
   echelleLargeurM?: number;
 }
 
@@ -60,11 +55,6 @@ export interface BilanPhotoRedressement {
   coins: 'trouve' | 'predit' | 'main';
   /** Les quatre coins du mur (hg, hd, bd, bg) en pixels de la photo, tels que le redressement les a utilises : de quoi partir pour les corriger. */
   coinsPx?: { x: number; y: number }[];
-  /**
-   * La silhouette du haut du mur (une ligne brisee d'un angle a l'autre : un pignon, une rampe), en pixels de la photo : celle ajustee
-   * a la main, sinon celle lue sur la photo redressee entre ses coins. Ce que la calibration reprend d'un audit.
-   */
-  silhouettePx?: { x: number; y: number }[];
   /** Pourquoi `echec` ; absent sinon. */
   motif?: string;
 }

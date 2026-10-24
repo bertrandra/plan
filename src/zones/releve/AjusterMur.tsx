@@ -4,7 +4,7 @@
 // Le haut du mur est le gabarit (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, un pignon, une rampe ou une ligne
 // droite. Sa forme ne bouge pas ; il se pose entre les lignes que l'on tire, et suit leur echelle. Les lignes sont horizontales et
 // verticales sur la vue de face : elles ne se tirent que dans leur sens. Tout revient sur la photo par l'homographie du redressement :
-// les quatre coins du mur, que la chaine traite comme poses a la main (zones/releve/chaine.ts), et le gabarit pose.
+// les quatre coins du mur, que la chaine traite comme poses a la main (zones/releve/chaine.ts) ; le gabarit s'y repose.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import { appliquer, type Image, type P2 } from '../../facade/homographie.js';
@@ -15,8 +15,8 @@ import { pointSvg, useEchelle } from './commun.js';
 
 /** Le mur sur la vue de face : ses bouts (x), son egout et son sol (y). */
 interface MurVue { x0: number; x1: number; egout: number; sol: number }
-/** Ce que la personne a retenu, sur la photo : les quatre coins du mur et le gabarit pose entre eux (la silhouette du haut du mur). */
-export interface MurAjuste { coins: P2[]; silhouette: P2[] }
+/** Ce que la personne a retenu, sur la photo : les quatre coins du mur (le gabarit s'y pose, il ne bouge pas). */
+export interface MurAjuste { coins: P2[] }
 
 /** Un pas au clavier, en part du grand cote de la vue. */
 const PAS_CLAVIER = 0.002;
@@ -77,10 +77,7 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
     const n: MurVue = { x0, x1, egout, sol };
     setCadre(n);
     const versPhoto = (p: P2) => { const q = appliquer(vue.r.versPhoto, p); return { x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 }; };
-    changer({
-      coins: [{ x: x0, y: egout }, { x: x1, y: egout }, { x: x1, y: sol }, { x: x0, y: sol }].map(versPhoto),
-      silhouette: gabaritSurLaVue(gabarit, { x0, x1, y0: egout, y1: sol }).map(versPhoto),
-    });
+    changer({ coins: [{ x: x0, y: egout }, { x: x1, y: egout }, { x: x1, y: sol }, { x: x0, y: sol }].map(versPhoto) });
   };
   const bouger = (l: Ligne, d: number, depart: MurVue) => {
     if (l === 'gauche') poser({ ...depart, x0: depart.x0 + d });

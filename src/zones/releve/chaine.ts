@@ -20,7 +20,6 @@ import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyse.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type Assemblage, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
-import { silhouetteSurLaPhoto } from '../../facade/mosaiqueFuites.js';
 import { gabaritSurLaPhoto, type GabaritMur } from '../../facade/gabaritMur.js';
 import type { Prise } from './capteurs.js';
 
@@ -339,18 +338,15 @@ export async function redresserEtFusionner(entrees: readonly PhotoARedresser[], 
   const bilan = (fusion: BilanRedressement['fusion'], fusionnees: number[], motif?: string): BilanRedressement => ({ photos: bilans, fusion, fusionnees, ...(motif ? { motifFusion: motif } : {}) });
   if (o.coinsSeuls) return { redressement: bilan('sans', []), faits, seule: null, fusion: null };
   // Les reperes poses a la main redressent la photo entiere avant l'assemblage. La silhouette du haut du mur sur chaque photo, avant
-  // l'analyse : le gabarit pose par ses coins (sa forme ne bouge pas) ; sans gabarit, celle ajustee a la main, sinon celle lue sur la
-  // photo redressee entre ses coins. Elle dit le toit quand elle a une forme (facade/analyse.ts), et le bilan la garde.
+  // l'analyse : le gabarit pose par ses coins (sa forme ne bouge pas, elle ne se lit jamais sur la photo). Sans gabarit, aucune : la
+  // bande au-dessus de l'egout lit le toit (facade/analyse.ts).
   for (const x of faits) {
     const m = x.essai?.p.morceau;
     if (!m) continue;
     const c = corrections[String(x.bilan.rang)];
     if (c?.reperes?.length === 4) m.reperes = c.reperes.map((p) => ({ x: p.x, y: p.y }));
-    const silhouette = o.gabarit ? gabaritSurLaPhoto(o.gabarit, m.coins)
-      : (c?.coins && c.silhouette) ? c.silhouette : silhouetteSurLaPhoto(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
-    if (!silhouette) continue;
-    m.silhouette = silhouette.map((p) => ({ x: p.x, y: p.y }));
-    x.bilan.silhouettePx = m.silhouette.map((p) => ({ x: p.x, y: p.y }));
+    const silhouette = o.gabarit ? gabaritSurLaPhoto(o.gabarit, m.coins) : null;
+    if (silhouette) m.silhouette = silhouette;
   }
 
   // La photo seule : la premiere redressee sans echec qui s'analyse, sinon la premiere qui s'analyse (jamais rien de perdu).

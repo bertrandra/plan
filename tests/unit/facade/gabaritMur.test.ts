@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hautDeLaFacade, hauteurEn, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hautDeLaFacade, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
 import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -16,7 +16,7 @@ describe('le gabarit tire des corps du LiDAR', () => {
   it('un pignon : un triangle centre qui monte de 3 m sur 5 a l egout', () => {
     const g = gabaritDesCorps(bout, [corps], 5);
     expect(relief(g)).toBeCloseTo(0.6, 1);
-    expect(hauteurEn(g, 0.5)).toBeCloseTo(1.6, 1);
+    expect(g.find((q) => Math.abs(q.u - 0.5) < 0.02)?.v).toBeCloseTo(1.6, 1);
     expect(g[0]).toEqual({ u: 0, v: 1 });
     expect(g[g.length - 1]?.v).toBeCloseTo(1, 6);
   });
