@@ -7,21 +7,21 @@
 // penchent font essayer les coins predits, puis les cotes ramenes sur le point de fuite des verticales. A partir de deux photos
 // redressees, elles sont fusionnees. Rien ne se perd : une photo qui doute reste, avec son motif, et sert faute de mieux.
 
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
-import { detecterSegments } from '../../facade/segments.js';
-import { focaleDeLaPhotoParFuites } from '../../facade/redressementFuites.js';
-import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../../facade/verticales.js';
-import type { ResultatFusion } from '../../facade/fusion.js';
-import type { SourceCoin } from '../../facade/calageFin.js';
-import type { Facade } from '../../facade/geometrie.js';
-import { redresser, resolutionTexture, type Image, type P2 } from '../../facade/homographie.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../cadrage.js';
+import { detecterSegments } from '../segments.js';
+import { focaleDeLaPhotoParFuites } from '../redressementFuites.js';
+import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../verticales.js';
+import type { ResultatFusion } from '../fusion.js';
+import type { SourceCoin } from '../calageFin.js';
+import type { Facade } from '../geometrie.js';
+import { redresser, resolutionTexture, type Image, type P2 } from '../homographie.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';
-import { analyserSerie } from './analyse.js';
+import { analyserSerie } from './analyseSerie.js';
 import { appliquerResultat, coinsDePrise, entreeRecherche, type Assemblage, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
 import { coinsAutoDeSerie, quadrilatereSain, reporterCoins } from './coinsAuto.js';
-import { gabaritSurLaPhoto, type GabaritMur } from '../../facade/gabaritMur.js';
-import type { Prise } from './capteurs.js';
+import { gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
+import type { Prise } from './prise.js';
 
 /**
  * La version de la chaine : elle monte quand un changement de la chaine change les coins, les redressements ou la fusion qu'elle
@@ -134,7 +134,7 @@ async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, cor
   if (correction?.coins && correction.coins.length === 4) {
     return { rang, coins: 'main', morceau: { ...depart, coins: correction.coins.map((c) => ({ x: c.x, y: c.y })), sources: ['doigt', 'doigt', 'doigt', 'doigt'], recherche: false } };
   }
-  // Les coins reportes d'une autre photo du mur, ou lus sur l'assemblage des vues redressees (zones/releve/coinsAuto.ts) :
+  // Les coins reportes d'une autre photo du mur, ou lus sur l'assemblage des vues redressees (facade/releve/coinsAuto.ts) :
   // comptes trouves quand le mur y a ete lu.
   if (serie) return { rang, coins: serie.lu ? 'trouve' : 'predit', morceau: { ...depart, coins: serie.coins.map((c) => ({ x: c.x, y: c.y })), ...(serie.lu ? { sources: ['trouve', 'trouve', 'trouve', 'trouve'] as SourceCoin[] } : {}), recherche: false } };
   if (predits) return { rang, coins: 'predit', morceau: { ...depart, recherche: false } };

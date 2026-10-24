@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type PointerEvent as PE } from 'rea
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
 import { estIncertaine, retouchee } from '../../facade/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
-import type { ZoneMasque } from './masque.js';
+import type { ZoneMasque } from '../../facade/releve/masque.js';
 
 /* ------------------------------------------------------------------------------------------------
  * 5. Le resultat : ouvertures corrigeables, toit propose

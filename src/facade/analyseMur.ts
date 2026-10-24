@@ -1,5 +1,5 @@
 // L'analyse d'un mur depuis ses photos calees : la seule entree des trois chaines (une photo, des morceaux cote a cote, des vues
-// du mur entier). Le releve de facade (zones/releve/analyse.ts), l'audit de la parcelle (app/audit/parcelle/mesures.ts) et la
+// du mur entier). Le releve de facade (facade/releve/analyseSerie.ts), l'audit de la parcelle (app/audit/parcelle/mesures.ts) et la
 // calibration (facade/corpusReel.ts) passent tous par elle : ce que l'un redresse, fusionne et cote, les autres le redressent,
 // le fusionnent et le cotent de meme.
 

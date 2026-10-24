@@ -402,7 +402,7 @@ quelques dixièmes de centime par façade aidée.
 
 **Mise en œuvre (lot G20, partie sans corpus, 14 octobre 2026)** :
 - **Le masque hachuré** : à la vérification, ce qui reste caché sur toutes les vues d'une fusion (§8)
-  se hachure sur l'élévation, sous les ouvertures, avec une légende (`zones/releve/masque.ts` : le
+  se hachure sur l'élévation, sous les ouvertures, avec une légende (`facade/releve/masque.ts` : le
   masque, pixel par pixel, devient des rectangles de 10 cm en fractions du mur, qui suivent une
   hauteur corrigée). Le masque n'est pas enregistré : il appartient à la série de photos, pas au
   relevé.

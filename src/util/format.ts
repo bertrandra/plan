@@ -13,6 +13,9 @@ export function nombreFr(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Un nombre a `d` decimales, la virgule a la francaise (« 2,35 »). */
+export const chiffreFr = (v: number, d = 2): string => v.toFixed(d).replace('.', ',');
+
 /** Minutes depuis minuit -> "HH:MM". */
 export function formatHeureMin(min: number): string {
   return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');

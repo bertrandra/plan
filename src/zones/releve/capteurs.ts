@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
-import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, type Photo, type ChoixCamera, type OffreGrandAngle } from '../../ui/releve/camera.js';
+import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, type ChoixCamera, type OffreGrandAngle } from '../../ui/releve/camera.js';
 import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../../facade/objectifs.js';
 import { ecouterNatif, webxrDisponible, mesurerWebXR, demanderPermissionOrientation, suivreInclinaison, suivreCap, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { ecrireReglage, lireReglage } from './commun.js';
@@ -26,30 +26,7 @@ export function useMurVise(facade: Facade | null, origine: { lat: number; lon: n
  * 2. La visee
  * --------------------------------------------------------------------------------------------- */
 
-/**
- * Les deux reperes a poser sur les bords du mur : sa largeur est la seule taille connue (le plan), la
- * distance s'en deduit. La hauteur, elle, ne l'est pas - c'est la photo qui la mesure.
- */
-export interface Reperes {
-  a: number;
-  b: number;
-  touches: boolean;
-}
-
-export interface Prise {
-  photo: Photo;
-  mesure: MesureDistance | null;
-  reperes: Reperes | null;
-  champ: number;
-  /** Photos que le plan de prise prevoyait au declenchement (null sans distance). */
-  photosPrevues: number | null;
-  /**
-   * Le cap de la boussole et l'attitude du telephone au declenchement : ils placent les coins
-   * proposes la ou le mur se trouve (facade/calage.ts). Absents d'une photo importee.
-   */
-  cap?: number | null;
-  attitude?: Attitude | null;
-}
+export type { Prise, Reperes } from '../../facade/releve/prise.js';
 
 /**
  * L'objectif choisi (principal ou grand-angle), ce que le telephone offre pour le grand-angle, et le

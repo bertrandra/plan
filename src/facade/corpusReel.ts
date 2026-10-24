@@ -29,7 +29,7 @@ export interface PhotoReelle {
   coins: P2[];
   /**
    * Quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui redressent la photo entiere ; les coins du mur se
-   * cherchent ensuite sur l'assemblage (zones/releve/coinsAuto.ts). Absents : la photo se redresse par ses points de fuite.
+   * cherchent ensuite sur l'assemblage (facade/releve/coinsAuto.ts). Absents : la photo se redresse par ses points de fuite.
    */
   reperes?: P2[];
   /** Un ancien cas : la silhouette du haut du mur ajustee a la main, en pixels de la photo. Relue, plus ecrite : le gabarit du cas la remplace. */

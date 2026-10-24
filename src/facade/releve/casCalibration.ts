@@ -2,21 +2,21 @@
 // coins du mur sur la serie de photos par la chaine de l'audit et du releve, l'assemblage de l'etape 3 pris tel quel pour la suite,
 // la facade complete posee dessus, le calage ramene sur chaque photo, et les images des neuf etapes.
 
-import { preparerCas, type CasPrepare, type CasStocke } from '../../facade/corpusReel.js';
-import { avisFusion } from './analyse.js';
+import { preparerCas, type CasPrepare, type CasStocke } from '../corpusReel.js';
+import { avisFusion } from './analyseSerie.js';
 import { priseSansCapteurs, redresserEtFusionner } from './chaine.js';
 import { rechercher } from './serie.js';
 import { coinsAutoDeSerie, type CoinsDeSerie } from './coinsAuto.js';
-import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../../facade/gabaritMur.js';
-import { inverser } from '../../facade/redressementFuites.js';
-import type { MurLu } from '../../facade/mosaiqueFuites.js';
-import type { Facade } from '../../facade/geometrie.js';
+import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
+import { inverser } from '../redressementFuites.js';
+import type { MurLu } from '../mosaiqueFuites.js';
+import type { Facade } from '../geometrie.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
-import type { OuvertureDetectee } from '../../facade/detection.js';
-import { sansOmbres } from '../../facade/sansOmbres.js';
-import { appliquer, homographie, type Image, type P2 } from '../../facade/homographie.js';
-import { appliquerSimilitude, inverse } from '../../facade/ransac.js';
-import type { AssemblageDuMur } from '../../facade/analyseMur.js';
+import type { OuvertureDetectee } from '../detection.js';
+import { sansOmbres } from '../sansOmbres.js';
+import { appliquer, homographie, type Image, type P2 } from '../homographie.js';
+import { appliquerSimilitude, inverse } from '../ransac.js';
+import type { AssemblageDuMur } from '../analyseMur.js';
 
 /** Ce que l'editeur demande au navigateur : reduire une photo, la decoder, montrer une elevation. */
 export interface OutilsPhotos {

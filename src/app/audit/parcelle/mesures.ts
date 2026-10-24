@@ -9,7 +9,7 @@
 // - La couleur du mur (lot L3) : lue sur chaque photo prise avec la boussole ; on garde la lecture
 //   qui a le plus de points.
 //
-// Toutes les photos d'une facade sont redressees par la chaine de tous (zones/releve/chaine.ts, celle du releve et de la
+// Toutes les photos d'une facade sont redressees par la chaine de tous (facade/releve/chaine.ts, celle du releve et de la
 // calibration : verticales sous SEUIL_VERTICALES_DEG, sinon repli sur les coins calcules, sinon echec dit avec son motif) ; a
 // partir de deux photos redressees, elles sont fusionnees (facade/fusion.ts :
 // ORB + RANSAC, criteres nommes dans facade/recalageOrb.ts). Aucune photo n'est jamais supprimee : une photo qui ne se
@@ -19,9 +19,9 @@
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
 import { versOuvertureFacade } from '../../../facade/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
-import { analyserSerie, calageDeSerie, releveDuMur } from '../../../zones/releve/analyse.js';
-import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../zones/releve/serie.js';
-import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../zones/releve/chaine.js';
+import { analyserSerie, calageDeSerie, releveDuMur } from '../../../facade/releve/analyseSerie.js';
+import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../facade/releve/serie.js';
+import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../facade/releve/chaine.js';
 import { redresserParReperes } from '../../../facade/redressementFuites.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
@@ -77,7 +77,7 @@ export interface MesureFacade {
    * mesure. Les photos brutes et les corrections restent la source d'un rejeu ; ces images disent ce qu'il change.
    */
   redressees?: PhotoRedresseeAuditee[];
-  /** La version de la chaine des facades qui a fait ces mesures (zones/releve/chaine.ts). */
+  /** La version de la chaine des facades qui a fait ces mesures (facade/releve/chaine.ts). */
   versionChaine?: number;
   /** Le gabarit du mur (le plan et le LiDAR) pose sur les photos : la reprise a la main le montre tel quel. */
   gabarit?: GabaritMur;
@@ -149,7 +149,7 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
 }
 
 
-export { SEUIL_VERTICALES_DEG, verticaliteDeg } from '../../../zones/releve/chaine.js';
+export { SEUIL_VERTICALES_DEG, verticaliteDeg } from '../../../facade/releve/chaine.js';
 
 type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
 
@@ -209,7 +209,7 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const fm: Facade = largeurM ? { ...f, largeur: largeurM } : f;
 
   // 1. Le redressement de chaque photo, la premiere avec une prise de vue d'abord, puis la fusion : la chaine de tous
-  // (zones/releve/chaine.ts), celle du releve et de la calibration.
+  // (facade/releve/chaine.ts), celle du releve et de la calibration.
   const ordre = photos.map((_, i) => i).sort((a, b) => Number(!photos[a]?.prise) - Number(!photos[b]?.prise) || a - b);
   const entrees: PhotoARedresser[] = [];
   const illisibles: BilanPhotoRedressement[] = [];

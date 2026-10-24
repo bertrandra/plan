@@ -7,7 +7,7 @@
 // faux.
 
 import { versJpeg } from '../../ui/releve/camera.js';
-import { appliquerResultat, rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from './serie.js';
+import { appliquerResultat, rechercher, type EntreeRecherche, type Morceau, type ResultatRecherche } from '../../facade/releve/serie.js';
 
 type Reponse = { id: number; resultat?: ResultatRecherche; erreur?: string };
 

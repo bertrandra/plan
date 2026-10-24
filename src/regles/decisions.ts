@@ -179,7 +179,7 @@ export function hauteurDe(o: ObjetPlan): number {
 
 /**
  * Un releve ramene a une autre hauteur d'egout : la largeur est celle du plan, c'est la hauteur
- * seule qui change, donc tout ce qui est vertical s'etire du meme facteur (zones/releve/analyse.ts,
+ * seule qui change, donc tout ce qui est vertical s'etire du meme facteur (facade/releve/analyseSerie.ts,
  * `etirerEnHauteur`, fait de meme dans le releve).
  */
 export function releveALaHauteur(r: ReleveFacade, hauteur: number): ReleveFacade {

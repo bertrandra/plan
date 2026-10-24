@@ -14,18 +14,9 @@
 // ici, eteint : dans le module natif, la page se comporte comme dans Safari (camera du navigateur,
 // cadrage), et ne lui envoie aucune commande.
 
-// `gps` : la position de la photo d'un audit de la parcelle, a quelques metres pres (app/audit/parcelle/mesures.ts).
-export type SourceDistance = 'lidar' | 'webxr' | 'cadrage' | 'rue' | 'gps';
+import type { MesureDistance, SourceDistance } from '../../facade/releve/prise.js';
 
-export interface MesureDistance {
-  distance: number;
-  source: SourceDistance;
-  /**
-   * La geometrie de l'image que voit le capteur, quand il la donne (module natif) : sans video dans
-   * la page, c'est elle - et non la taille de l'ecran - qui dit ce que la photo couvrira.
-   */
-  camera?: { largeurPx: number; hauteurPx: number; focalePx: number };
-}
+export type { MesureDistance, SourceDistance };
 
 /** Le canal de messages que le module natif installe dans sa vue web (WKScriptMessageHandler). */
 interface CanalNatif {

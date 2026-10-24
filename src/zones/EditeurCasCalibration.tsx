@@ -2,7 +2,7 @@
 //
 // On prend (ou choisit) une a huit photos du meme mur. Chacune se redresse entiere, sans coupe : par quatre reperes poses au doigt
 // (un rectangle du mur, n'importe lequel), sinon par ses points de fuite ; les vues s'assemblent, l'egout, le sol et les bouts du
-// mur se cherchent sur l'assemblage, puis se reportent dans chaque photo (la chaine de l'audit et du releve, zones/releve/chaine.ts).
+// mur se cherchent sur l'assemblage, puis se reportent dans chaque photo (la chaine de l'audit et du releve, facade/releve/chaine.ts).
 // On donne la largeur et la hauteur reelles, on redresse, puis on annote les ouvertures sur le mur redresse : la detection en propose, on retire les
 // fausses et on trace les manquees. Rien n'est ecrit avant « Enregistrer » ; un cas ne compte dans la calibration qu'une fois
 // marque « relu sur la photo » (valide).
@@ -14,7 +14,7 @@ import { coinsParDefaut, LIBELLES_OUVERTURE, NOMS_REPERES, pointSvg } from './re
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/homographie.js';
-import { avisDuCas, casCale, coinsDeSerie, etapesDe, originesDuCas, preparerSurLAssemblage, reperesDe, type Etapes, type OrigineCoins, type OutilsPhotos } from './releve/casCalibration.js';
+import { avisDuCas, casCale, coinsDeSerie, etapesDe, originesDuCas, preparerSurLAssemblage, reperesDe, type Etapes, type OrigineCoins, type OutilsPhotos } from '../facade/releve/casCalibration.js';
 import { CalageSilhouette } from './CalageSilhouette.js';
 import { VueFacade3d } from './VueFacade3d.js';
 import type { Photo } from '../ui/releve/camera.js';

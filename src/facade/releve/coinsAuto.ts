@@ -2,13 +2,13 @@
 // mosaique (coinsAutoDeSerie), ou reportes d'une photo ou ils sont connus (reporterCoins). La chaine de tous (chaine.ts) s'en sert
 // pour les photos qui doutent. Sans DOM, testable seul.
 
-import { intersection, ligneParPoints, type Ligne } from '../../facade/calageFin.js';
-import type { Image, P2 } from '../../facade/homographie.js';
-import { detecterSegments } from '../../facade/segments.js';
-import { redresserParFuites, type RedressementFuites } from '../../facade/redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../../facade/mosaiqueFuites.js';
-import type { GabaritMur } from '../../facade/gabaritMur.js';
-import type { Similitude } from '../../facade/ransac.js';
+import { intersection, ligneParPoints, type Ligne } from '../calageFin.js';
+import type { Image, P2 } from '../homographie.js';
+import { detecterSegments } from '../segments.js';
+import { redresserParFuites, type RedressementFuites } from '../redressementFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../mosaiqueFuites.js';
+import type { GabaritMur } from '../gabaritMur.js';
+import type { Similitude } from '../ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -41,7 +41,7 @@ export interface CoinsDeSerie {
   assemblage: { image: Image; vu: Uint8Array; places: (Similitude | null)[]; mur: MurLu };
 }
 
-export { vuesDeFace } from '../../facade/mosaiqueFuites.js';
+export { vuesDeFace } from '../mosaiqueFuites.js';
 
 /**
  * Le mur sur l'assemblage des vues redressees : l'egout, le sol et ses deux bouts. Le plan donne la largeur (cadastre) et la hauteur

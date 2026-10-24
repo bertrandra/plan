@@ -2,10 +2,10 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { CELLULE_MASQUE_M, masqueDeFusion, zonesDuMasque, type MasqueReleve } from '../../../src/zones/releve/masque.js';
+import { CELLULE_MASQUE_M, masqueDeFusion, zonesDuMasque, type MasqueReleve } from '../../../src/facade/releve/masque.js';
 import { EtapeResultat, type Verification } from '../../../src/zones/releve/EtapeResultat.js';
 import { useOuvertures } from '../../../src/zones/releve/ouvertures.js';
-import type { Resultat } from '../../../src/zones/releve/serie.js';
+import type { Resultat } from '../../../src/facade/releve/serie.js';
 
 // Le masque d'occlusion d'une fusion de vues, hachure dans l'elevation du releve (lot G20, F§8) : le
 // masque pixel par pixel devient quelques rectangles en fractions du mur ; la verification les
