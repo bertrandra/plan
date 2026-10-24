@@ -154,7 +154,9 @@ d'y toucher.
   la photo ni déformé : le haut de toute la façade, tous corps du toit compris, en mètres ramenés à la hauteur du mur. Il se pose
   entre l'égout, le sol et les bouts trouvés, et seule son échelle suit. Les repères ne disent que les directions ; la dimension
   vient de ce calage. Aucune vue ne coupe la photo au mur. L'assemblage des photos redressées entières est l'image prise pour la
-  suite (mur, détection, texture, toit), pour l'audit, le relevé et la calibration (`analyseMur.ts::analyserLeMur`).
+  suite (mur, détection, texture, toit), pour l'audit, le relevé et la calibration (`analyseMur.ts::analyserLeMur`). Avec
+  plusieurs vues du mur entier, l'assemblage pose le mur et l'image du mur se compose par la fusion de ces mêmes photos (vote des
+  baies, occultations par la parallaxe, meilleure vue pixel par pixel : `analyseMur.ts::fondreLesVues`), dans le même cadre.
 - **Arbres (Vue 3D)** : générés par EZ-tree à partir de la **bibliothèque d'essences** : celle de l'admin
   (`admin/arbres`, `model/especesArbre.ts`, écran `?admin&ecran=arbres`) si elle en a enregistré, sinon les
   quarante essences livrées dans `data/admin/arbres.json` (dix par taille : petits, moyens, grands, très grands ; le code n'a aucune essence, sans fichier les arbres se dessinent en repli) ; les témoins GLB et cadastre se capturent sans bibliothèque (`poserEspeces([])`) ; l'utilisateur choisit une essence

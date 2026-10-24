@@ -61,7 +61,10 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
     // La hauteur se mesure sur la premiere photo dont la focale le permet ; l'estimation du plan sert de repli.
     const mesuree = photos.map((p) => (p.focalePx ? mesurerHauteur(p.coins, mur.largeur, p.focalePx, p.photo.largeur, p.photo.hauteur) : null)).find((h) => h !== null) ?? null;
     const r = a ? analyserLAssemblage({ ...mur, hauteur: mesuree ?? mur.hauteur }, a, mur.silhouette, mesuree !== null) : null;
-    if (r) return { r, assemblage: a as AssemblageDuMur };
+    if (r && a) {
+      const fusion = fondreLesVues(mur, photos, a, mur.silhouette);
+      return fusion ? { r: fusion, assemblage: a, fusion } : { r, assemblage: a };
+    }
   }
   if (photos.length > 1 && assemblage === 'vues') {
     const r = analyserVues({ ...mur, vues: photos.map((p) => ({ photo: p.photo, coins: p.coins, focalePx: p.focalePx })) });
@@ -134,4 +137,17 @@ export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit
   if (!r || !vuR) return null;
   const vu = r.vu.map((v, i) => (v && (vuR.image.donnees[i * 4] ?? 0) > 127 ? 1 : 0));
   return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null }, null, hauteurMesuree);
+}
+
+/**
+ * Plusieurs vues du mur entier dans l'assemblage : l'assemblage pose le mur (ses coins, reportes sur chaque photo par la chaine), et
+ * l'image du mur se compose par la fusion de ces memes photos (facade/fusion.ts) : la vue la mieux vue pixel par pixel, la mediane
+ * a trois vues, ce qui est devant le mur ecarte par la parallaxe et masque quand il cache le mur sur toutes, les baies votees entre
+ * les vues. Le cadre est celui de l'assemblage : le mur et la bande au-dessus de l'egout, a l'echelle du plan. Null avec moins de deux
+ * vues assemblees, ou quand elles ne se recalent pas entre elles : l'assemblage seul fait alors l'image.
+ */
+export function fondreLesVues(mur: MurAnalyse, photos: readonly PhotoDuMur[], a: AssemblageDuMur, gabarit: GabaritMur | null = null): ResultatFusion | null {
+  if (photos.length < 2 || a.vues.filter((v) => v.assemblee).length < 2) return null;
+  const f = analyserVues({ ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null, vues: photos.map((p) => ({ photo: p.photo, coins: p.coins, focalePx: p.focalePx })) });
+  return f && (f.statut === 'fusionnee' || f.statut === 'partielle') ? f : null;
 }

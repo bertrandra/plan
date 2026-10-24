@@ -400,7 +400,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, à 6 avec le gabarit, et à 7 quand l’audit et le relevé passent par l’assemblage.
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, à 6 avec le gabarit, à 7 quand l’audit et le relevé passent par l’assemblage, et à 8 quand plusieurs vues assemblées se fondent.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 
@@ -488,6 +488,12 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
   - La détection, la texture et le toit en partent. C'est `analyseMur.ts::analyserLeMur`, commun à tous, pour une photo seule ou
     des vues du mur entier. Les repères posés à la main redressent leur photo ; une photo que ses points de fuite ne redressent pas
     l'est par ses coins. La hauteur se mesure sur la première photo dont la focale le permet.
+  - **Plusieurs vues dans l'assemblage** (`analyseMur.ts::fondreLesVues`) : l'assemblage pose le mur, reporté sur chaque photo ;
+    l'image du mur se compose par la fusion de ces mêmes photos (`fusion.ts::analyserVues`) : la vue la mieux vue pixel par pixel,
+    la médiane à trois vues, ce qui est devant le mur écarté par la parallaxe et masqué (hachuré au relevé) quand il le cache sur
+    toutes, les baies votées entre les vues. Même cadre que l'assemblage seul (le mur et la bande au-dessus de l'égout). Des vues
+    qui ne se recalent pas entre elles laissent l'assemblage seul faire l'image. Sur les quatre scènes du banc à vues (`16` à `19`,
+    coins vrais) : précision des baies 63–83 % → 86–100 %, rappel 67–83 % → 100 %.
   - Sans assemblage, la fusion des photos entre leurs coins ; un mur à deux hauteurs d'égout (décrochement) et des morceaux
     d'un long mur gardent leur analyse.
   - La chaîne compte comme fusionnées les photos de l'assemblage ; une photo restée à part le dit (`analyserSerie`, avis).
