@@ -75,7 +75,13 @@ export interface ResultatAnalyse {
   profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;
   /** La structure des ouvertures proposees (niveaux, travees, spec §10) ; `null` sans ouverture. */
   grille: GrilleFacade | null;
+  /** Le toit que dit la silhouette du mur (le gabarit du plan et du LiDAR), sinon la bande : ce qui dessine le toit propose. */
   toitEstime: ToitEstime | null;
+  /**
+   * Le toit lu sur la photo seule, par la bande au-dessus de l'egout ; null quand elle est hors cadre. Jamais le gabarit : c'est
+   * l'avis de la photo que l'audit arbitre contre le LiDAR (app/audit/parcelle/constats.ts).
+   */
+  toitLu: ToitEstime | null;
   toitPropose: Toit | null;
   /** La partie basse d'un mur en L, mesuree sur la photo ; `null` pour un mur rectangulaire. */
   partieBasse: PartieBasse | null;
@@ -245,24 +251,22 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
   const vusBande = bandeToit.vu.reduce((s, v) => s + v, 0);
 
   // Moins d'un tiers de la bande vu : le toit est hors cadre, on ne propose rien plutot que de
-  // conclure a un toit plat.
-  let toitEstime: ToitEstime | null = null;
-  let toitPropose: Toit | null = null;
-  let profilToit: ResultatAnalyse['profilToit'] = null;
+  // conclure a un toit plat. La bande est la seule lecture du toit qui vienne de la photo : c'est elle que l'audit compte comme
+  // l'avis de la photo (toitLu), meme quand le gabarit dessine le toit.
+  let toitLu: ToitEstime | null = null;
+  let profilBande: ResultatAnalyse['profilToit'] = null;
+  if (vusBande >= 0.33 * bandeToit.vu.length) {
+    const hauteurs = profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu);
+    profilBande = { x0M: haute ? au(haute, 0) : 0, x1M: haute ? au(haute, 1) : texture.largeur / pxParM, hauteurs };
+    toitLu = classerProfil(hauteurs);
+  }
   // La silhouette du haut du mur, quand elle a une forme (un pignon, une rampe, un trapeze de croupe vu de face), dit le toit : forme
   // et hauteur, dans le plan du mur, donc a l'echelle. Plate (un mur gouttereau), elle ne dit rien du toit qu'on voit derriere : la
-  // bande au-dessus de l'egout le lit, comme avant. Un mur en L garde la bande (sa partie haute seule porte le toit).
+  // bande au-dessus de l'egout le lit. Un mur en L garde la bande (sa partie haute seule porte le toit).
   const parLaSilhouette = !partie && e.silhouette ? profilDeLaSilhouette(e.silhouette, e.hauteur, texture.largeur / pxParM) : null;
-  if (parLaSilhouette) {
-    profilToit = parLaSilhouette;
-    toitEstime = classerProfil(parLaSilhouette.hauteurs);
-    toitPropose = toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance);
-  } else if (vusBande >= 0.33 * bandeToit.vu.length) {
-    const hauteurs = profilSilhouette(bandeToit.image, pxParM, 60, bandeToit.vu);
-    profilToit = { x0M: haute ? au(haute, 0) : 0, x1M: haute ? au(haute, 1) : texture.largeur / pxParM, hauteurs };
-    toitEstime = classerProfil(hauteurs);
-    toitPropose = toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance);
-  }
+  const profilToit = parLaSilhouette ?? profilBande;
+  const toitEstime = parLaSilhouette ? classerProfil(parLaSilhouette.hauteurs) : toitLu;
+  const toitPropose = toitEstime ? toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance) : null;
   // La teinte du mur (mediane de ce qui en a ete vu) remplace le ciel au-dessus de l'egout.
   effacerCiel(r.image, egout, teinteMediane(mur.image, mur.vu), r.vu);
   return {
@@ -277,6 +281,7 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
     devinees,
     grille: detection.grille,
     toitEstime,
+    toitLu,
     toitPropose,
     profilToit,
     partieBasse: partie,

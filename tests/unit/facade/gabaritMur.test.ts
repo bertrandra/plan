@@ -20,6 +20,9 @@ describe('le gabarit tire des corps du LiDAR', () => {
     expect(g[0]).toEqual({ u: 0, v: 1 });
     expect(g[g.length - 1]?.v).toBeCloseTo(1, 6);
   });
+  it('compte dans son relief un corps plus bas, qui descend sous l egout', () => {
+    expect(relief([{ u: 0, v: 1 }, { u: 0.5, v: 1 }, { u: 0.5, v: 0.7 }, { u: 1, v: 0.7 }])).toBeCloseTo(0.3, 6);
+  });
   it('un long pan, ou rien de lu : un rectangle', () => {
     expect(gabaritDesCorps(longPan, [corps], 5)).toBe(GABARIT_RECTANGLE);
     expect(gabaritDesCorps(bout, [], 5)).toBe(GABARIT_RECTANGLE);

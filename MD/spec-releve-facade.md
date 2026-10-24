@@ -399,7 +399,7 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 Les photos redressées que l'audit garde (`MesureFacade.redressees`) sont désormais **entières** : la photo tournée de face par le
 rectangle du mur que la chaîne a retenu, et non plus coupée de l'égout au pied. La version de la chaîne passe à 2
-(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, et à 6 avec le gabarit.
+(`VERSION_CHAINE_FACADES`), puis à 3 avec l’affinage de l’égout et du sol, à 4 avec la silhouette, à 5 quand la silhouette dit le toit, à 6 avec le gabarit, et à 7 quand l’audit et le relevé passent par l’assemblage.
 
 Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), relus comme avant.
 

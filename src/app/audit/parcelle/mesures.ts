@@ -166,7 +166,7 @@ function releveDeLAnalyse(a: Analyse, morceaux: Morceau[], f: Facade, d: Dependa
     releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, au0(morceaux).prise.mesure),
     coinsTrouves,
     devinees: a.r.devinees.map(versOuvertureFacade),
-    silhouette: silhouetteDeEstimation(a.r.toitEstime),
+    silhouette: silhouetteDeEstimation(a.r.toitLu),
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };
