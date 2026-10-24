@@ -6,10 +6,15 @@
 // Le haut se lit sur le cote du corps qui porte le mur (murDuCorps.ts), pas sur la face du mur du cadastre : un bow-window ou un
 // avant-corps sort du corps de quelques dizaines de centimetres, et le pignon qui est derriere est bien ce que montre la photo
 // (AE 101, cote 3 : une saillie de 2,3 m devant le pignon est du corps principal, lue « ligne droite a 3,4 m » sur sa face).
+// Ce n'est pas le gabarit (facade/gabaritMur.ts::hautDeLaFacade) : lui montre toute la facade vue de dehors, tous corps compris, le
+// plus haut l'emportant ; ici, le mur d'un seul corps, celui qui le porte, pour dire sa forme. Les deux lectures different des qu'un
+// corps en retrait depasse au-dessus d'un autre ; ne pas les fondre (les verdicts du LiDAR changeraient).
 // Pur.
 
 import { hauteurDuToitEn } from '../../toitCorps.js';
 import { murDuCorps } from './murDuCorps.js';
+import { tourneVers } from './facadesDesCorps.js';
+import { facadesDuContour } from '../../geometrie.js';
 import type { Facade } from '../../geometrie.js';
 import type { P2 } from '../../homographie.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
@@ -117,4 +122,15 @@ export function motDuHaut(haut: readonly P2[]): SilhouetteFacade {
 export function silhouetteDesCorps(f: Facade, corps: readonly CorpsToit[] | null | undefined, repli: number): SilhouetteFacade {
   if (!corps?.length) return 'indetermine';
   return motDuHaut(hautDuMurSousCorps(f, corps, repli));
+}
+
+/**
+ * La silhouette d'un corps vue d'un point (`oeil`, dans le plan) : son mur le plus tourne vers lui, du pied au haut sous son toit
+ * (pignon compris), en points du plan et hauteurs (`z`, metres). Ce que le mode Toit trace autour du corps choisi.
+ */
+export function silhouetteVersLOeil(c: CorpsToit, oeil: PtBrut): { x: number; y: number; z: number }[] | null {
+  const egout = Math.min(...c.egouts);
+  const f = facadesDuContour(c.pts, egout).reduce<Facade | null>((m, x) => (!m || tourneVers(x.gauche, x.droite, x.normale, oeil) > tourneVers(m.gauche, m.droite, m.normale, oeil) ? x : m), null);
+  if (!f) return null;
+  return silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout).map((q) => ({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }));
 }

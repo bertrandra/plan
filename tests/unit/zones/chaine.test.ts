@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { analyserSansRien, morceauRedresse, priseSansCapteurs, redresserEtFusionner } from '../../../src/zones/releve/chaine.js';
 import { analyserSerie } from '../../../src/zones/releve/analyse.js';
 import { rechercher, type Morceau } from '../../../src/zones/releve/serie.js';
-import { coinsDeSerie } from '../../../src/zones/EditeurCasCalibration.js';
+import { coinsDeSerie } from '../../../src/zones/releve/casCalibration.js';
 import { FORMAT_CAS_REEL, preparerCas, type CasStocke } from '../../../src/facade/corpusReel.js';
 import type { Facade } from '../../../src/facade/geometrie.js';
 import type { Image, P2 } from '../../../src/facade/homographie.js';

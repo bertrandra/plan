@@ -2,11 +2,13 @@
 // tous les corps du toit), une forme fixe. Il ne se lit pas sur la photo et ne s'y deforme jamais : il se pose sur l'image redressee, et seuls ses bouts,
 // son egout et son sol s'y calent (facade/mosaiqueFuites.ts::affinerEgoutEtSol, zones/releve/AjusterMur.tsx). Les reperes ne disent
 // que les directions ; la dimension vient de ce calage (decision de l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
+// Ce n'est pas la silhouette qu'arbitre l'audit (facade/regles/toits/silhouetteDesCorps.ts), qui lit le seul mur du corps porteur.
 
 import { homographie, appliquer, type P2 } from './homographie.js';
 import { hauteurDuToitEn } from './toitCorps.js';
 import type { Facade } from './geometrie.js';
 import type { CorpsToit } from '../model/types.js';
+import { simplifierLigne } from '../geometry/simplifierLigne.js';
 
 /**
  * Le haut de la facade, de l'angle gauche a l'angle droit (vu de dehors) : `u` de 0 a 1 le long du mur, `v` la hauteur en part de
@@ -24,18 +26,6 @@ const RELIEF_GABARIT = 0.03;
 const PAS_LONG_M = 0.1, PAS_PROFONDEUR_M = 0.05, DEVANT_FACE_M = 1, PROFONDEUR_MAX_M = 30;
 /** La ligne du haut garde ses sommets a 2 cm pres (Douglas-Peucker, en metres). */
 const TOLERANCE_M = 0.02;
-
-/** Douglas-Peucker : les sommets d'une ligne brisee qui s'ecartent de plus de `tol` de la corde. */
-function simplifier(pts: readonly P2[], tol: number): P2[] {
-  if (pts.length <= 2) return [...pts];
-  const a = pts[0] as P2, b = pts[pts.length - 1] as P2, L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  let k = -1, dMax = 0;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const p = pts[i] as P2, d = Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / L;
-    if (d > dMax) { dMax = d; k = i; }
-  }
-  return dMax <= tol ? [a, b] : [...simplifier(pts.slice(0, k + 1), tol).slice(0, -1), ...simplifier(pts.slice(k), tol)];
-}
 
 /** Le haut d'un mur se lit a 2 cm en dedans du corps : sur son mur (plus loin, un long pan lirait deja la pente). */
 const DANS_LE_CORPS_M = 0.02;
@@ -73,7 +63,7 @@ export function hautDeLaFacade(f: Facade, corps: readonly CorpsToit[]): ({ x: nu
  */
 export function gabaritDesCorps(f: Facade, corps: readonly CorpsToit[] | null | undefined, hauteurMur: number): GabaritMur {
   if (!corps?.length || !(f.largeur > 0) || !(hauteurMur > 0)) return GABARIT_RECTANGLE;
-  const haut = simplifier(hautDeLaFacade(f, corps).map((p) => ({ x: p.x, y: p.y ?? hauteurMur })), TOLERANCE_M);
+  const haut = simplifierLigne(hautDeLaFacade(f, corps).map((p) => ({ x: p.x, y: p.y ?? hauteurMur })), TOLERANCE_M);
   return gabaritDuHaut(haut.map((p) => ({ x: p.x / f.largeur, y: p.y })), hauteurMur);
 }
 

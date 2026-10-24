@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal } from '../../../src/three/gestesToits.js';
+import { PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal, rangDuCorpsChoisi } from '../../../src/three/gestesToits.js';
 import { vueIsometrique, EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -161,5 +161,16 @@ describe('un geste n agit que sur le corps choisi', () => {
     const o = deuxCorps();
     expect(appliquerPiece(o, 'sur:cheminee')).toBe(true);
     expect(o.corpsToit![0]!.cheminees).toHaveLength(1);
+  });
+});
+
+describe('rangDuCorpsChoisi', () => {
+  const c = { pts: [], posFaitage: 0, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0 };
+  it('rend le corps lui-meme, l hote d une saillie, et rien hors des corps', () => {
+    const corps = [c, { ...c, saillie: { hote: 0 } }] as unknown as Parameters<typeof rangDuCorpsChoisi>[0];
+    expect(rangDuCorpsChoisi(corps, 0)).toBe(0);
+    expect(rangDuCorpsChoisi(corps, 1)).toBe(0);
+    expect(rangDuCorpsChoisi(corps, 5)).toBeNull();
+    expect(rangDuCorpsChoisi(corps, null)).toBeNull();
   });
 });
