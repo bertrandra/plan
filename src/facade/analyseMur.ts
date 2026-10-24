@@ -60,7 +60,11 @@ export function analyserLeMur(murSeul: MurAnalyse, photos: readonly PhotoDuMur[]
     const a = assemblerLeMur(photos);
     // La hauteur se mesure sur la premiere photo dont la focale le permet ; l'estimation du plan sert de repli.
     const mesuree = photos.map((p) => (p.focalePx ? mesurerHauteur(p.coins, mur.largeur, p.focalePx, p.photo.largeur, p.photo.hauteur) : null)).find((h) => h !== null) ?? null;
-    const r = a ? analyserLAssemblage({ ...mur, hauteur: mesuree ?? mur.hauteur }, a, mur.silhouette, mesuree !== null) : null;
+    // Une photo seule : son assemblage et la photo elle-meme sont le meme plan, le mur pose par les memes coins. L'analyse la
+    // redresse en une passe depuis la photo d'origine, plutot que depuis l'assemblage deja reechantillonne (une de moins, la
+    // nettete des baies vues de biais) ; l'assemblage reste ce qui est montre et rendu.
+    const source = a && photos.length === 1 ? photoCommeAssemblage(p0) : a;
+    const r = source ? analyserLAssemblage({ ...mur, hauteur: mesuree ?? mur.hauteur }, source, mur.silhouette, mesuree !== null) : null;
     if (r && a) {
       const fusion = fondreLesVues(mur, photos, a, mur.silhouette);
       return fusion ? { r: fusion, assemblage: a, fusion } : { r, assemblage: a };
@@ -137,6 +141,11 @@ export function analyserLAssemblage(mur: MurAnalyse, a: AssemblageDuMur, gabarit
   if (!r || !vuR) return null;
   const vu = r.vu.map((v, i) => (v && (vuR.image.donnees[i * 4] ?? 0) > 127 ? 1 : 0));
   return finaliserReleve(r.image, vu, E, pxParM, { ...mur, silhouette: gabarit ? gabarit.map((p) => ({ u: p.u, v: p.v })) : null }, null, hauteurMesuree);
+}
+
+/** Une photo prise pour son propre assemblage : toute vue, le mur entre ses coins. */
+function photoCommeAssemblage(p: PhotoDuMur): AssemblageDuMur {
+  return { image: p.photo, vu: new Uint8Array(p.photo.largeur * p.photo.hauteur).fill(1), coins: p.coins, vues: [{ assemblee: true, motif: null }] };
 }
 
 /**

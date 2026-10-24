@@ -584,7 +584,7 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
 ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
 (`ResultatAnalyse.toitLu`), never the template — otherwise the LiDAR would vote twice. `VERSION_CHAINE_FACADES` moves
-whenever corners, straightening or fusion change (8 since several assembled views are fused); an audit stores it with its images.
+whenever corners, straightening or fusion change (9 since a single photo is straightened in one pass); an audit stores it with its images.
 
 Two LiDAR top-of-wall readings coexist on purpose: `gabaritMur.ts::hautDeLaFacade` (the whole façade seen from outside,
 every body, highest wins) and `regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
@@ -860,7 +860,6 @@ Carried deliberately, with the trigger that would force payment.
 | AD-7 | Single Postgres instance, no replica | Reporting competes with OLTP | R1/R3 p95 sustained > 50 ms |
 | AD-8 | No collaborative editing | Save conflicts surface as 409s | 409 rate rising — the metric is already instrumented |
 | AD-9 | Façade chain orchestration lives in `zones/releve/` (`chaine.ts`, `coinsAuto.ts`), above `facade/` (§5.2.5) | Pure pipeline code in the UI layer; the calibration screen had to re-derive pieces of it | The next chain change that needs it from `app/` or a worker |
-| AD-11 | The façade bench (`tests/banc/facades/banc.ts`) measures `analyserReleve` / `analyserVues`, not `analyserLeMur` | Bench numbers do not cover the production path; `egout-sol.ts` and `toit-facade.ts` do part of it | Before any change to `analyseMur.ts` |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 
