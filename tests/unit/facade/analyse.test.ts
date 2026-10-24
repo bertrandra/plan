@@ -197,6 +197,13 @@ describe('le toit dit par la silhouette du haut du mur', () => {
     expect(r.toitEstime!.hauteur).toBeCloseTo(2.6, 1);
   });
 
+  it('garde l avis de la photo a part : la bande, jamais le gabarit (l audit l arbitre contre le LiDAR)', () => {
+    const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(3, -2.6), p(8, 0)])) })!;
+    const seule = analyserReleve(entree)!;
+    expect(r.toitLu).toEqual(seule.toitLu);
+    expect(r.toitLu!.hauteur).toBeCloseTo(3, 0);
+  });
+
   it('lit une rampe d appentis', () => {
     const r = analyserReleve({ ...entree, silhouette: silhouetteEnPartsDuMur(coins, surPhoto([p(0, 0), p(8, -2)])) })!;
     expect(r.toitEstime!.forme).toBe('appentis');

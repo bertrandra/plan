@@ -97,9 +97,9 @@ export function gabaritDuHaut(haut: readonly P2[], reference: number | null = nu
   return g.every((p) => Math.abs(p.v - 1) < RELIEF_GABARIT) ? GABARIT_RECTANGLE : g;
 }
 
-/** La montee du gabarit au-dessus de l'egout, en part de sa hauteur. */
+/** L'ecart du gabarit a l'egout, en part de sa hauteur : un pignon qui monte comme un corps plus bas qui descend. */
 export function relief(g: GabaritMur): number {
-  return Math.max(0, ...g.map((p) => p.v - 1));
+  return Math.max(0, ...g.map((p) => Math.abs(p.v - 1)));
 }
 
 /** La hauteur du gabarit en `u`, en part de celle de l'egout (interpolee entre ses sommets). */
