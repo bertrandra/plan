@@ -1,8 +1,7 @@
 <?php
 // L'admin des demos pour un hebergement Apache + PHP, sans Node (MD/spec-demos-admin.md).
 //
-// Meme contrat que buildsg/demosAdmin.mjs, route pour route : la page ne sait pas lequel lui
-// repond. `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
+// `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
 //
 //   GET    admin/session          200 si la session est ouverte, 401 sinon
 //   POST   admin/session          {motDePasse} -> ouvre la session (cookie)
@@ -19,6 +18,7 @@
 //   PUT    admin/calibration      les remplace (session ; facade/corpusReel.ts)
 //   GET    admin/calibration-cas  la liste des cas de calibration : photos de facades annotees (session)
 //   GET|PUT|DELETE admin/calibration-cas/<id>   un cas, avec ses photos (session)
+//   GET    admin/sauvegarde       une archive zip de tout le dossier des donnees (session ; donnees.php)
 //   GET    admin/vitrine/<id>     la demo <id> en lecture seule, SANS session : ce que la vitrine
 //                                 publique montre (`?mode=demo&file=<id>`)
 //
@@ -230,6 +230,99 @@ if ($chemin === 'session') {
 if (!sessionValide()) erreur(401, 'UNAUTHENTICATED', 'Mot de passe requis.');
 // La session n'est plus ecrite : la liberer laisse passer les requetes paralleles.
 session_write_close();
+
+// --- La sauvegarde ------------------------------------------------------------------------------
+// Tout le dossier des donnees en une archive zip (`GET admin/sauvegarde`, menu Admin > Telecharger
+// une sauvegarde des donnees) : « je ne jette rien » ne vaut que si une copie existe ailleurs.
+// L'archive se construit dans un fichier temporaire, se sert par morceaux puis s'efface : des Mo de
+// photos ne passent jamais par la memoire de PHP. Rien hors du dossier : ni la configuration (le mot
+// de passe, la cle de Claude), ni la cible d'un lien symbolique, qui n'est jamais suivi.
+if ($chemin === 'sauvegarde') {
+    if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
+    if (!class_exists('ZipArchive')) erreur(501, 'ZIP_MISSING', 'Sauvegarde impossible : l’extension PHP « zip » (ZipArchive) manque sur ce serveur. Activez-la dans les réglages PHP de l’hébergeur (chez SiteGround : Site Tools › Devs › PHP Manager › PHP Extensions), puis réessayez.');
+    $racineDonnees = realpath($donnees['racine']);
+    if ($racineDonnees === false || !is_dir($racineDonnees)) erreur(404, 'NOT_FOUND', 'Dossier des données introuvable : ' . $donnees['racine'] . '.');
+    $nomArchive = 'plan-data-' . date('Y-m-d-Hi') . '.zip';
+    if ($methode === 'HEAD') {
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $nomArchive . '"');
+        http_response_code(200);
+        exit;
+    }
+    // Quelques minutes pour des centaines de Mo ; une archive qui depasse est une archive a refaire.
+    @set_time_limit(600);
+    // Le fichier temporaire doit s'effacer meme si le navigateur coupe en route.
+    ignore_user_abort(true);
+    $configReelle = $fichierConfig !== null ? realpath($fichierConfig) : false;
+    $fichiers = [];
+    $dossiersVides = [];
+    $octets = 0;
+    $liensIgnores = 0;
+    // Parcours a la main plutot que RecursiveDirectoryIterator : chaque entree est jugee ici, et un
+    // lien symbolique (fichier ou dossier) est ecarte avant toute lecture.
+    $aVisiter = [''];
+    while ($aVisiter) {
+        $rel = array_pop($aVisiter);
+        $abs = $racineDonnees . ($rel === '' ? '' : '/' . $rel);
+        $noms = @scandir($abs);
+        if ($noms === false) continue;
+        $vide = true;
+        foreach ($noms as $n) {
+            if ($n === '.' || $n === '..') continue;
+            $vide = false;
+            $sousRel = $rel === '' ? $n : $rel . '/' . $n;
+            $sousAbs = $racineDonnees . '/' . $sousRel;
+            if (is_link($sousAbs)) { $liensIgnores++; continue; }
+            $reel = realpath($sousAbs);
+            // Garde-fou : rien dont le chemin reel sorte du dossier des donnees.
+            if ($reel === false || !str_starts_with($reel, $racineDonnees . '/')) continue;
+            if (is_dir($reel)) { $aVisiter[] = $sousRel; continue; }
+            if (!is_file($reel) || !is_readable($reel)) continue;
+            // La configuration ne part jamais, meme posee par erreur dans le dossier des donnees.
+            if (($configReelle !== false && $reel === $configReelle) || preg_match('/admin-config(\.exemple)?\.php$/', $n)) continue;
+            $fichiers[$sousRel] = $reel;
+            $octets += (int)filesize($reel);
+        }
+        if ($vide && $rel !== '') $dossiersVides[] = $rel;
+    }
+    ksort($fichiers, SORT_STRING);
+    $tmp = tempnam(sys_get_temp_dir(), 'plan-sauvegarde-');
+    if ($tmp === false) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : pas de fichier temporaire (dossier temporaire de PHP plein ou interdit).');
+    register_shutdown_function(function () use ($tmp) { if (is_file($tmp)) @unlink($tmp); });
+    $zip = new ZipArchive();
+    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : archive zip impossible a ouvrir.');
+    // L'archive se depose telle quelle : son dossier data/ prend la place de celui du serveur.
+    $manifeste = ['format' => 'plan-sauvegarde', 'version' => 1, 'le' => gmdate('Y-m-d\TH:i:s\Z'), 'disposition' => $donnees['disposition'],
+                  'racine' => $donnees['racine'], 'fichiers' => count($fichiers), 'octets' => $octets, 'liensIgnores' => $liensIgnores, 'php' => PHP_VERSION];
+    $zip->addFromString('sauvegarde.json', (string)json_encode($manifeste, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+    foreach ($dossiersVides as $rel) $zip->addEmptyDir('data/' . $rel);
+    foreach ($fichiers as $rel => $reel) {
+        // addFile ne lit le fichier qu'a la fermeture, par morceaux. Les images sont deja compressees :
+        // les recompresser couterait du temps pour rien.
+        if (!$zip->addFile($reel, 'data/' . $rel)) { $zip->close(); erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : ' . $rel . ' ne s’ajoute pas à l’archive.'); }
+        if (preg_match('/\.(jpe?g|png|webp|gif|avif|zip|glb)$/i', $rel)) $zip->setCompressionName('data/' . $rel, ZipArchive::CM_STORE);
+    }
+    if (!$zip->close()) erreur(500, 'SERVER_ERROR', 'Sauvegarde impossible : l’archive ne se termine pas (disque plein ?).');
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $nomArchive . '"');
+    header('Content-Length: ' . (string)filesize($tmp));
+    header('X-Plan-Sauvegarde: fichiers=' . count($fichiers) . '; octets=' . $octets);
+    http_response_code(200);
+    $h = fopen($tmp, 'rb');
+    if ($h) {
+        while (!feof($h)) {
+            $morceau = fread($h, 1 << 20);
+            if ($morceau === false) break;
+            echo $morceau;
+            flush();
+            if (connection_aborted()) break;
+        }
+        fclose($h);
+    }
+    @unlink($tmp);
+    exit;
+}
 
 // --- Les fichiers -------------------------------------------------------------------------------
 function fichier(string $dossier, string $id): string { return $dossier . '/' . $id . '.json'; }
