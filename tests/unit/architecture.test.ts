@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 // Une regle d'architecture qu'aucun test ne verifie n'est pas une regle, c'est un souhait. Celle-ci
@@ -221,3 +221,30 @@ describe('ce qui n a qu un proprietaire', () => {
     expect(coupables, 'ecritures directes de l etat 3D hors de three/').toEqual([]);
   });
 });
+
+describe('app/ et zones/, la meme couche, un seul sens (AD-16)', () => {
+  it('app/ ne prend a zones/ que des ecrans a monter (.tsx, zones/monter.ts) et les types qu ils declarent', () => {
+    // Les zones lisent l'application (magasin, commandes, services) ; l'application ne monte que les zones. Un calcul, un worker ou
+    // un appel au reseau qu'app/ irait chercher dans zones/ remettrait les deux sens.
+    const coupables = tous.filter(f => relative(src, f).split(sep)[0] === 'app')
+      .flatMap(f => dependances(f).filter(d => !d.type && relative(src, d.cible).split(sep)[0] === 'zones')
+        .filter(d => !existsTsx(d.cible) && relative(src, d.cible) !== join('zones', 'monter'))
+        .map(d => `${relative(src, f)} -> ${relative(src, d.cible)}`));
+    expect(coupables).toEqual([]);
+  });
+
+  it('zones/ n appelle pas le reseau et ne lance pas de worker : il passe par io/, geo/ ou app/', () => {
+    const coupables: string[] = [];
+    for (const f of tous) {
+      if (relative(src, f).split(sep)[0] !== 'zones') continue;
+      readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+        if (!/^\s*(\/\/|\*)/.test(l) && /\bfetch\(|new Worker\b|\?worker\b|XMLHttpRequest/.test(l)) coupables.push(`${relative(src, f)}:${i + 1}`);
+      });
+    }
+    expect(coupables).toEqual([]);
+  });
+});
+
+function existsTsx(cible: string): boolean {
+  return existsSync(cible + '.tsx');
+}

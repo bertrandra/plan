@@ -41,7 +41,7 @@ import { PhotosRue } from './releve/PhotosRue.js';
 import { type Prise, useMurVise } from './releve/capteurs.js';
 import { Visee } from './releve/Visee.js';
 import { type Assemblage, type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche, estPartielle } from '../facade/releve/serie.js';
-import { lancerRecherche } from './releve/rechercheCoins.js';
+import { lancerRecherche } from '../app/releve/rechercheCoins.js';
 import type { SourceCoin } from '../facade/calage/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';

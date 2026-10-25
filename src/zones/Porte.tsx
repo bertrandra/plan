@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Fermeture } from '../plateforme/contexte.js';
+import { sonderPlateforme } from '../io/sondePlateforme.js';
 
 export interface PropsPorte {
   fermeture: Fermeture;
@@ -23,14 +24,10 @@ export interface PropsPorte {
 }
 
 /**
- * La pastille : la plateforme repond-elle, ici et maintenant ?
+ * La pastille : la plateforme repond-elle, ici et maintenant (io/sondePlateforme.ts) ?
  *
- * Elle ne remplace pas le message d'erreur d'une tentative — elle le precede. Quelqu'un qui voit
- * « adresse ou mot de passe refuse » sur une plateforme injoignable cherchera son mot de passe
- * pendant dix minutes ; la pastille lui dit en une seconde que le probleme est ailleurs.
- *
- * On interroge `GET /auth/jwks`, qui est publique, sans corps et sans effet : c'est la seule route
- * du contrat qu'on puisse appeler sans session et sans rien deranger.
+ * Elle ne remplace pas le message d'erreur d'une tentative — elle le precede : elle dit en une
+ * seconde que le probleme est ailleurs.
  */
 type Joignable = 'essai' | 'oui' | 'non';
 
@@ -40,18 +37,8 @@ function Pastille({ plateforme }: { plateforme: string }) {
   useEffect(() => {
     let vivant = true;
     const stop = new AbortController();
-    // Huit secondes : au-dela, une plateforme qui ne repond pas est une plateforme injoignable
-    // pour qui attend devant un formulaire, quelle qu'en soit la raison.
-    const minuterie = setTimeout(() => { stop.abort(); }, 8000);
-    // `cache: 'no-store'` n'est pas un detail : la plateforme declare ses cles publiques
-    // cachables cinq minutes, et sans cela le navigateur repondait 200 depuis son cache alors que
-    // la plateforme etait eteinte. Une pastille qui dit « connectee » sur une plateforme arretee
-    // est pire que pas de pastille du tout.
-    fetch(plateforme.replace(/\/+$/, '') + '/api/v1/auth/jwks', { signal: stop.signal, cache: 'no-store' })
-      .then((r) => { if (vivant) setEtat(r.ok ? 'oui' : 'non'); })
-      .catch(() => { if (vivant) setEtat('non'); })
-      .finally(() => { clearTimeout(minuterie); });
-    return () => { vivant = false; stop.abort(); clearTimeout(minuterie); };
+    void sonderPlateforme(plateforme, stop.signal).then((ok) => { if (vivant) setEtat(ok ? 'oui' : 'non'); });
+    return () => { vivant = false; stop.abort(); };
   }, [plateforme]);
 
   const titre = etat === 'oui' ? 'La plateforme repond : ' + plateforme

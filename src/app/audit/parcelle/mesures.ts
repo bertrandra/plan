@@ -29,7 +29,7 @@ import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../facade/geometrie.js';
 import type { Image } from '../../../facade/vision/homographie.js';
-import type { Prise } from '../../../zones/releve/capteurs.js';
+import type { Prise } from '../../../facade/releve/prise.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
@@ -85,7 +85,7 @@ export interface MesureFacade {
 
 export interface DependancesMesures {
   pixels?: (base64: string) => Promise<Pixels | null>;
-  /** Le calage fin (worker du releve, zones/releve/rechercheCoins.ts). */
+  /** Le calage fin (worker du releve, app/releve/rechercheCoins.ts). */
   chercherCoins: (e: EntreeRecherche) => Promise<ResultatRecherche>;
   /** L'elevation redressee en JPEG (`data:`) : le canevas du navigateur. */
   jpeg: (img: Image) => string;

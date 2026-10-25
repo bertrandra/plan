@@ -44,7 +44,7 @@ import { partagerFichier } from '../../../shell/partage.js';
 import { creerAnalyseClaude, decoderImageNavigateur, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude, type ContexteAnalyse } from './analyseClaude.js';
 import { renforcerFacades } from './entreesRenfort.js';
 import type { IdentiteAnalyse } from './entreesAnalyse.js';
-import { chercherCoins } from '../../../zones/releve/rechercheCoins.js';
+import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
 import { cleMesure, type DependancesMesures } from './mesures.js';
