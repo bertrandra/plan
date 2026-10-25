@@ -23,6 +23,7 @@ import { EMPREINTE_REGLAGES_TOITS } from '../regles/toits/reglages.js';
 import { empreinteFaitsToits, faitsEnVigueur } from '../regles/toits/faits.js';
 import { APP_VERSION, BUILD_SHA } from '../model/version.js';
 import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 type Fetch = (entree: string, init?: RequestInit) => Promise<Response>;
 
@@ -77,12 +78,7 @@ export function versionsDuCalcul(): Pick<MesureConformite, 'code' | 'lecture'> {
 
 export function ouvrirEcranConformite(): void {
   const f: Fetch = (entree, init) => fetch(entree, init);
-  let hote = document.getElementById('zoneEcranConformite');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranConformite';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranConformite');
   document.title = 'Admin — conformité';
   createRoot(hote).render(createElement(EcranConformite, {
     corpus: lireCorpusConformite(corpusLivre),

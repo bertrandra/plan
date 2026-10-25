@@ -12,6 +12,7 @@ import { lireDocumentArbres, poserEspeces } from '../model/especesArbre.js';
 import { chargerEzTreeAdmin, libererModeles, presetsEz, reglagesParDefaut } from '../three/ezTree.js';
 import { monterApercuArbre } from '../three/apercuArbre.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des arbres ? */
 export function demandeEcranArbres(recherche: string): boolean {
@@ -34,12 +35,7 @@ export async function ouvrirEcranArbres(): Promise<void> {
   } catch (e) {
     showErrBanner('Bibliothèque d’arbres illisible : ' + ((e as Error).message || e) + '. Elle est montrée vide.');
   }
-  let hote = document.getElementById('zoneEcranArbres');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranArbres';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranArbres');
   document.title = 'Admin — arbres';
   createRoot(hote).render(createElement(EcranArbres, {
     enregistrees: enregistrees?.especes ?? null,

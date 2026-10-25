@@ -11,6 +11,7 @@ import { EcranControleurs, type Decouverte } from '../zones/EcranControleurs.js'
 import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
 import { lireControleurs, enregistrerControleurs } from '../io/depotDemos.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des controleurs ? */
 export function demandeEcranControleurs(recherche: string): boolean {
@@ -51,12 +52,7 @@ export async function ouvrirEcranControleurs(): Promise<void> {
   } catch (e) {
     showErrBanner('Registre des contrôleurs illisible : ' + ((e as Error).message || e) + '. Une découverte enregistrée le remplacera.');
   }
-  let hote = document.getElementById('zoneControleurs');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneControleurs';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneControleurs');
   document.title = 'Admin — contrôleurs de l’écran';
   createRoot(hote).render(createElement(EcranControleurs, {
     enregistre,

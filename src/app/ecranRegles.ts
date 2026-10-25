@@ -22,6 +22,7 @@ import { seuilsDuTexte } from '../regles/donnees/edition.js';
 import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle, type FichierAuditParcelle } from '../model/fichierAuditParcelle.js';
 import { justessesDesAudits, poidsProposes } from './audit/parcelle/poidsAuto.js';
 import type { ProposerPoids } from '../zones/regles/Poids.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** Les poids que des audits recus proposent : les fichiers qui ne sont pas un audit de parcelle sont comptes a part, pas lus. */
 export const proposerPoids: ProposerPoids = (textes, regles) => {
@@ -52,12 +53,7 @@ function brouillonLocal(cle: string = CLE_BROUILLON): BrouillonRegles {
 }
 
 export function ouvrirEcranRegles(): void {
-  let hote = document.getElementById('zoneEcranRegles');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranRegles';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranRegles');
   document.title = 'Admin — règles';
   createRoot(hote).render(createElement(EcranRegles, {
     sujets: DESCRIPTIONS_SUJETS,

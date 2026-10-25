@@ -7,7 +7,7 @@
 import { DALLE_BETON_EP_M, essenceDe, MASSIF_COTE_M, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele, type TypeSupport } from './constantes.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './portees.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
-import type { Debit } from './debit.js';
+import type { Debit } from './typesDebit.js';
 import type { Construction } from '../model/types.js';
 
 /** Les trois produits achetes a la barre, chacun avec son propre carnet de prix. */

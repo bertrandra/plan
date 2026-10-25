@@ -5,6 +5,7 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranPrincipes } from '../zones/EcranPrincipes.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des principes ? */
 export function demandeEcranPrincipes(recherche: string): boolean {
@@ -12,12 +13,7 @@ export function demandeEcranPrincipes(recherche: string): boolean {
 }
 
 export function ouvrirEcranPrincipes(): void {
-  let hote = document.getElementById('zoneEcranPrincipes');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranPrincipes';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranPrincipes');
   document.title = 'Admin — principes';
   createRoot(hote).render(createElement(EcranPrincipes, {}));
 }

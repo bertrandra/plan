@@ -14,6 +14,7 @@ import {
 } from '../io/depotDemos.js';
 import { telechargerTexte } from '../shell/download.js';
 import type { Plafonds, ReglageModeles, Tarifs } from '../model/tarifsClaude.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la consommation ? */
 export function demandeEcranConsommation(recherche: string): boolean {
@@ -22,12 +23,7 @@ export function demandeEcranConsommation(recherche: string): boolean {
 
 export function ouvrirEcranConsommation(): void {
   const f = (entree: string, init?: RequestInit) => fetch(entree, init);
-  let hote = document.getElementById('zoneEcranConsommation');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranConsommation';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranConsommation');
   document.title = 'Admin — consommation de Claude';
   // Des fonctions stables : l'ecran relit le journal quand un filtre change, pas a chaque rendu.
   createRoot(hote).render(createElement(EcranConsommation, {

@@ -11,6 +11,7 @@ import { lirePalette, enregistrerPalette } from '../io/depotDemos.js';
 import { lireDocumentPalette } from '../styles/paletteServeur.js';
 import { appliquerPalette } from './paletteServeur.js';
 import { showErrBanner } from '../shell/dialogs.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la palette ? */
 export function demandeEcranPalette(recherche: string): boolean {
@@ -28,12 +29,7 @@ export async function ouvrirEcranPalette(): Promise<void> {
   } catch (e) {
     showErrBanner('Palette du serveur illisible : ' + ((e as Error).message || e) + '. Les couleurs d’origine sont montrées.');
   }
-  let hote = document.getElementById('zoneEcranPalette');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranPalette';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranPalette');
   document.title = 'Admin — palette de l’interface';
   createRoot(hote).render(createElement(EcranPalette, {
     enregistree,

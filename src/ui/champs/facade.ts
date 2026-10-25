@@ -6,8 +6,8 @@
 
 import { enPoints } from '../../model/formes.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
-import { designerFacade } from '../../facade/choix.js';
-import { saillieArmee, viserSaillie } from '../../facade/choixSaillie.js';
+import { designerFacade } from '../../interaction/choixFacade.js';
+import { saillieArmee, viserSaillie } from '../../interaction/choixSaillie.js';
 import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toit.js';
 import { volumesActifs, decrireVolumes } from '../../model/volumesToit.js';
 import { modeToitActif } from '../../model/toitMesure.js';

@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranChaine } from '../zones/EcranChaine.js';
 import { chaineVivante } from './chaineVivante.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la chaine ? */
 export function demandeEcranChaine(recherche: string): boolean {
@@ -15,12 +16,7 @@ export function demandeEcranChaine(recherche: string): boolean {
 }
 
 export function ouvrirEcranChaine(): void {
-  let hote = document.getElementById('zoneEcranChaine');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranChaine';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranChaine');
   document.title = 'Admin — chaîne';
   createRoot(hote).render(createElement(EcranChaine, { chaine: chaineVivante() }));
 }

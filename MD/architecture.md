@@ -559,6 +559,11 @@ what Claude saw, as a fact in constraint would be. If the measure does not carry
 the fit exceeds 0.8 m, there is no proposal and the line stays an observation. A decision is not
 written to `faits.json`: that file changes only through a pull request.
 
+**Ambient inputs** (§11 AD-15): four things the pure layers read that a session sets — the detection overrides installed from the
+admin calibration (`facade/regles/facades/surcharges.ts`), facts being tried (`regles/toits/faits.ts::essayerFaitsToits`), the
+tree library (`model/especesArbre.ts`) and the theme inks (`render/theme.ts`). They are the only globals the engine and the
+rules read; a new one goes in this list.
+
 **What keeps it honest** (fitness functions): `tests/unit/regles/toits/reglages.test.ts` (no
 threshold in module code, every `LECTURES_TOITS` line matches its fingerprint),
 `tests/unit/facade/toitCorpsReprise.test.ts` (AE 101 to the centimetre), the replay tests
@@ -926,6 +931,11 @@ Carried deliberately, with the trigger that would force payment.
 | AD-11 | ~~The Mode Toit editor's code was filed under `facade/regles/toits/`~~ | — | **Paid 25 October 2026** (lot G): moved to `facade/modeToit/` |
 | AD-12 | No integrity (SRI) on CDN loads: the three.js import map, EZ-tree, pdf-lib, model-viewer (R9) | A compromised CDN file runs with the page's rights | Any advisory on jsDelivr, or bundling three.js |
 | AD-13 | Leftover references to `legacy.ts` (deleted in `1.1.0`): `tests/unit/architecture.test.ts` still carries the rule "nothing imports `legacy.ts`" (harmless, always green). The ESLint ignore and the coverage exclusion were removed on 25 October 2026 | Misleads a reader into thinking the file exists | Next edit of that test |
+| AD-14 | `three/etat3d.ts` exports mutable objects (`vue3d`, `hotes3d`, `affichage3d`…) written from `app/` (about 26 writes), `three/` and `zones/`, read by `io/projet.ts` | No single owner of the 3D view's state; a write from the wrong layer goes unseen | The next bug that comes from two writers, or a second 3D view on one page |
+| AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`), the theme inks (`render/theme.ts`, eight exported `let`) | The same inputs can give different results depending on the session; listed in §5.2.4 | A result that differs between two sessions of the same project |
+| AD-16 | `app/` and `zones/` (both layer 6) import each other freely (≈126 imports one way, 17 the other); `zones/` still drives pipelines (`Releve.tsx`), a worker (`zones/releve/rechercheCoins.ts`) and network calls (Panoramax, Polyhaven, JWKS) | No direction inside the top layer | A zones module that cannot be tested without the whole app |
+| AD-17 | Large modules: `three/scene.ts` (≈1 420 lines, 56 imports), `app/boot.ts` (95 imports), `app/audit/parcelle/controleur.ts` (≈990 lines, seven concerns), `model/types.ts` (≈1 470 lines, 315 importers) | Every change to them touches everything | Split by concern when next changed (lot J of the October 2026 audit started with facade/ and geometry/) |
+| AD-18 | Ten import cycles that go only through type imports (`tests/unit/architecture.test.ts`, ratchet `PLAFOND = 10`) | Harmless at build time; modules with no reading order | The ratchet: each cycle broken lowers the ceiling |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 
