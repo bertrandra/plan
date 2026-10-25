@@ -5,7 +5,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'legacy/**', 'src/legacy.ts'] },
+  { ignores: ['dist/**', 'node_modules/**', 'legacy/**'] },
   js.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],

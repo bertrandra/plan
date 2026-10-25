@@ -59,7 +59,7 @@ Five external dependencies, all of them **availability dependencies, none of the
 |---|---|---|
 | ASR-1 | Quantities must be reproducible and auditable | Golden-file testing; engine constants in code, not configuration; versioned computed BOM stored with the project |
 | ASR-2 | A project file must open in ten years | Document storage; a migration chain that is never truncated |
-| ASR-3 | Deployment must stay trivial for small installs | Single-file client artefact preserved through the migration |
+| ASR-3 | Deployment must stay trivial for small installs | ~~Single-file client artefact~~ — one folder copied as is: `index.html`, `assets/plan-<hash>.js`, `.htaccess` and the PHP helpers (ADR-4 superseded, §10) |
 | ASR-4 | Multiple organisations, isolated | Tenant key on every row; three-layer isolation; server-side authority |
 | ASR-5 | Features sold and switched per tenant | Feature catalog as data; entitlements enforced server-side; gated code lazily loaded |
 | ASR-6 | Tenants present the tool under their own brand | Theme tokens resolved at runtime, including inside the SVG plan |
@@ -99,8 +99,8 @@ The four drivers, expressed as scenarios with numbers. A scenario without a numb
 | QA-P2 | User opens a project (p99 payload, 600 KB) | p95 **< 40 ms** server, < 250 ms transfer | PK + detoast; brotli; `ETag` on `row_version` → 304 on revalidation |
 | QA-P3 | User drags a vertex on a 12-object plan | sustained **60 fps**; ≥ 30 fps at 100 objects | rAF-coalesced redraw; drag-time partial update (§4.3 — a known gap today) |
 | QA-P4 | User changes a terrace parameter (50 m², plots + joists) | full recompute **< 150 ms** | Synchronous pure engine; memoised structure between BOM and débit passes |
-| QA-P5 | User opens the 3D view | scene ready **< 2 s** on 4G; **0 bytes** downloaded for tenants without `view.3d` | Dynamic `import()` behind `can()`; three.js from CDN, cached |
-| QA-P6 | First visit, cold cache | artefact **≤ 5 MB** (1.2 MB before React, ADR-16), TTI **< 3 s** on 4G | Single-file budget in CI; gated regions code-split out of the main bundle |
+| QA-P5 | User opens the 3D view | scene ready **< 2 s** on 4G; **0 bytes** downloaded for tenants without `view.3d` | Dynamic `import()` behind `can()`; three.js from CDN, cached. *Not true as built (25 Oct 2026): only the three.js **library** (and EZ-tree, pdf-lib) comes from the CDN on first use; Plan's own `three/**` code (57 modules, ~12 000 lines) is statically imported and ships in `assets/plan-<hash>.js` for everyone. No capability is wired yet (`plateforme/capacites.ts`). Debt AD-10.* |
+| QA-P6 | First visit, cold cache | artefact **≤ 5 MB** (1.2 MB before React, ADR-16), TTI **< 3 s** on 4G | Size budget in CI on `index.html` + `assets/*.js` (FF-5; about 3.1 MB on 25 Oct 2026); gated regions are *not* code-split yet (AD-10) |
 | QA-P7 | Cadastre import with full neighbourhood | **< 6 s** end to end | Parallel fan-out to API Carto + WFS; per-call timeouts; partial results usable |
 | QA-P8 | Session bootstrap (every page load) | p95 **< 20 ms**, < 2 ms cached | Resolved feature set cached in T5, invalidated on entitlement/role/branding change |
 
@@ -135,9 +135,9 @@ The four drivers, expressed as scenarios with numbers. A scenario without a numb
 | QA-V1 | Developer pushes a commit | typecheck + lint + unit **< 5 min**; full suite **< 15 min** | Pure unit tests dominate; browser tests are a thin layer |
 | QA-V2 | Typical feature change | touches **≤ 3 files** | One-concern modules; field descriptors; feature keys |
 | QA-V3 | New developer joins | ships a real change **in week 1** | Module map, ADRs, and the fact that boundaries are mechanical (P6) |
-| QA-V4 | Ship a fix to production | **< 30 min** from merge | Single static artefact; publish and done |
+| QA-V4 | Ship a fix to production | **< 30 min** from merge | One built folder (`livraison/`, built from `main`); upload and done |
 | QA-V5 | Two developers work in parallel | **no structural merge conflicts** | Dependency rules prevent the shared-file gravity well |
-| QA-V6 | Release cadence | MINOR every **2–4 weeks** | Trunk-based, squash merges, changelog written in the PR |
+| QA-V6 | Release cadence | MINOR every **2–4 weeks** | Trunk-based, PRs merged with a merge commit (no squash, `CLAUDE.md`), changelog written in the PR |
 
 ---
 
@@ -230,31 +230,29 @@ C4Container
 
 ### 5.2 Client component view
 
+The diagram this section first carried (auth shell, tenancy context, `createApp`) described a
+platform Plan was going to build; identity and tenancy now belong to backprod (§5.4). The layers
+below are the ones `tests/unit/architecture.test.ts` enforces (`NIVEAU`), as of 25 October 2026:
+
 ```
-                        main.ts
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-         auth/shell               tenancy/context
-      (login · mfa · enrol)   (session · features · branding)
-                                        │
-                                theme/apply · theme/read
-                                        │
-                                   createApp(ctx)
-                                        │
-        ┌───────────┬───────────┬───────┴────┬───────────┬──────────┐
-        ▼           ▼           ▼            ▼           ▼          ▼
-      core/       render/   interaction/    ui/       export/     three/
-    state·bus                                                   (lazy)
-        │           │           │            │           │          │
-        └───────────┴───────────┴─────┬──────┴───────────┴──────────┘
-                                      ▼
-                            engine/ · geometry/ · geo/
-                                      ▼
-                                   model/ · util/          ← pure, no DOM, no IO
+  6   app/  ·  zones/ (React)                    orchestration, commands, screens
+        │                         main.ts (bootstrap) sits outside the layers, as do styles/
+  5   ui/                                        field descriptors, pure UI helpers
+        │
+  4   core/ · io/ · render/ · export/ · three/ · interaction/
+        │                                        draw, store, export, manipulate
+  3   engine/ · geo/ · facade/                   compute from the plan, fetch from outside,
+        │      (facade/regles/: the rules,       read façades and roofs
+        │       facade/releve/: the façade chain)
+  2   model/ · regles/ · plateforme/             what a plan is, the rules engine's contract
+        │                                        and data, what the platform promises
+  1   geometry/                                  mathematics
+        │
+  0   util/ · shell/                             primitives; shell touches the DOM, knows no domain
 ```
 
-The arrows only point down. That is P6, and §9 FF-1/FF-2 make it mechanical.
+The arrows only point down: a module imports from its own layer or a lower one, never higher. That
+is P6, and §9 FF-1/FF-2 make it mechanical. A folder missing from `NIVEAU` fails the test.
 
 The **pure core** (`model`, `util`, `geometry`, `engine`) is a library. It happens to be bundled into a browser app today; nothing about it assumes one. That is what makes QA-F4 free and QA-Q2 cheap.
 
@@ -374,7 +372,7 @@ not change the layer picture above.
 
 Taken at `2.1.1`, one week after §5.2.2, and updated the same day once the last `ui/` panels had
 moved to React (§5.2.3, last bullets). Seven layers plus `plateforme/`, **190 modules, about
-23 800 lines**. `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
+23 800 lines** at the time (a historical record: today's counts are in §5.2.6). `src/main.ts` (bootstrap and error trap) and `src/styles/` (`app.css` and the design
 tokens in `jetons.ts`) sit outside the layers.
 
 | Layer | Folder | Modules | Lines | What it holds |
@@ -475,14 +473,17 @@ lists the engine, and nothing else lives in those folders.
 
 ```
 regles/                      data, the JSON the engine reads (repository root, compiled in the build)
-  toits/{reglages,faits}.json   facades/reglages.json   conformite.json
+  toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture}.json   conformite.json   reconciliation.json
 src/regles/                  layer 2 — contract and validated data, pure
   decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
-  toits/{reglages,profils,faits}.ts    facades/reglages.ts    conformite.ts
+  toits/{reglages,profils,faits,formes,silhouettes}.ts    facades/reglages.ts    conformite.ts    reconciliation.ts
 src/facade/regles/           layer 3 — the rules themselves, pure and synchronous
-  toits/{faits,appentis,pignons,profils,vraisemblance}.ts     apply a fact, a profile, the guards
-  facades/{detection,structure,profils}.ts                    facade settings and profiles
-  rejeu.ts   conformite.ts                                    replay an audit case, score it
+  toits/{faits,appentis,pignons,profils,vraisemblance,silhouettes,silhouetteDesCorps,elementsVus,…}.ts
+                                                              apply a fact, a profile, the guards; every audit roof
+                                                              proposal goes through faits.ts::corpsProposesSousFait
+src/facade/modeToit/         layer 3 — the Mode Toit editor's pure code (session, handles, projections, new bodies), not rules
+  facades/{detection,structure,profils,surcharges,texture,conformite}.ts   facade settings and profiles
+  rejeu.ts   conformite.ts   reconciliation.ts                replay an audit case, score it, reconcile
 src/regles/sujets/           layer 2 — what Claude reads, as data; assembled into deploy/ by `npm run regles:generer`
   description.ts  liste.ts  descriptions/<id>.ts    one description per subject, and the list in prompt order
   gabarit.ts  assembler.ts  generation.ts  versions.ts   the fixed text, the assembly, the version table
@@ -558,11 +559,13 @@ what Claude saw, as a fact in constraint would be. If the measure does not carry
 the fit exceeds 0.8 m, there is no proposal and the line stays an observation. A decision is not
 written to `faits.json`: that file changes only through a pull request.
 
-**What keeps it honest** (fitness functions): `tests/unit/model/reglagesToits.test.ts` (no
+**What keeps it honest** (fitness functions): `tests/unit/regles/toits/reglages.test.ts` (no
 threshold in module code, every `LECTURES_TOITS` line matches its fingerprint),
-`toitCorpsReprise.test.ts` (AE 101 to the centimetre), `tests/unit/facade/audit.test.ts` (every
-validated case replayed), `conformite.test.ts` (the rate recorded in `regles/conformite.json`),
-and the golden fingerprints. A rule change that moves a quantity or an export is a major version
+`tests/unit/facade/toitCorpsReprise.test.ts` (AE 101 to the centimetre), the replay tests
+`tests/unit/facade/regles/rejeu.test.ts` and `tests/unit/app/audit/parcelle/rejeu.test.ts` (every
+validated case replayed), `tests/unit/regles/conformite.test.ts` and
+`tests/unit/facade/regles/conformite.test.ts` (the rate recorded in `regles/conformite.json`), and
+the golden fingerprints. A rule change that moves a quantity or an export is a major version
 (`MD/RELEASE.md`).
 
 ### 5.2.5 The façade chain — where each step lives (October 2026)
@@ -587,14 +590,57 @@ ends. And the photo's own opinion of the roof, which the audit weighs against th
 whenever corners, straightening or fusion change (9 since a single photo is straightened in one pass); an audit stores it with its images.
 
 Two LiDAR top-of-wall readings coexist on purpose: `gabaritMur.ts::hautDeLaFacade` (the whole façade seen from outside,
-every body, highest wins) and `regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
+every body, highest wins) and `facade/regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
 carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
 
 The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
 `masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration (`chaine.ts`), the calibration screen's
 computations (`casCalibration.ts`) and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
 `ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
-call it; none of them holds a step of it.
+call it; none of them holds a step of it. The orchestration used to live in `zones/releve/`; it moved to
+`facade/releve/chaine.ts` on 24 October 2026 (PR #410, debt AD-9 paid).
+
+### 5.2.6 Module map, as built — 25 October 2026
+
+The tables of §5.2.1 to §5.2.3 are kept as history; they are not updated. This one is generated from
+the tree (`main` at `cffa028`), counting `.ts` and `.tsx` files and their lines, comments included:
+
+```bash
+cd src && for d in */; do d=${d%/}; printf '%s %s %s\n' "$d" \
+  "$(find "$d" -name '*.ts' -o -name '*.tsx' | wc -l)" \
+  "$(find "$d" \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 cat | wc -l)"; done
+```
+
+Eighteen folders on seven ranks, **635 modules, about 110 000 lines** (`main.ts` and
+`styles/`, 5 modules, sit outside the layers). Re-run the command rather than trusting the numbers
+below a month from now.
+
+| Layer | Folder | Modules | Lines | Note |
+|---:|---|---:|---:|---|
+| 0 | `shell/` | 10 | 689 | |
+| 0 | `util/` | 6 | 226 | |
+| 1 | `geometry/` | 18 | 1 684 | |
+| 2 | `model/` | 51 | 10 081 | includes `migrations.ts`, `version.ts` (`SCHEMA_VERSION`) |
+| 2 | `plateforme/` | 7 | 848 | the backprod contract (`contrat.ts` generated) and the session |
+| 2 | `regles/` | 28 | 3 952 | the rules engine's contract and data (§5.2.4); `regles/sujets/` 17 / 1 532 |
+| 3 | `engine/` | 18 | 4 666 | |
+| 3 | `geo/` | 12 | 2 318 | |
+| 3 | `facade/` | 82 | 18 393 | photos, detection, roofs, LiDAR; `facade/regles/` 27 / 3 751, `facade/releve/` 7 / 1 330 |
+| 4 | `core/` | 6 | 482 | |
+| 4 | `io/` | 19 | 2 868 | |
+| 4 | `render/` | 24 | 3 658 | |
+| 4 | `export/` | 16 | 2 872 | pdf-lib loaded on demand (`chargeurPdfLib.ts`) |
+| 4 | `three/` | 57 | 12 244 | statically imported, not code-split (AD-10) |
+| 4 | `interaction/` | 7 | 1 047 | |
+| 5 | `ui/` | 20 | 3 903 | |
+| 6 | `app/` | 140 | 23 186 | `app/audit/` 43 / 8 994, `app/regles/` 13 / 625 |
+| 6 | `zones/` | 109 | 16 068 | React; `zones/releve/` 17 / 2 429 |
+
+**What changed since 27 September.** `facade/` (layer 3) and `regles/` (layer 2) did not exist in
+§5.2.3; together they are a fifth of the code. `app/` and `zones/` grew fivefold and fourfold with
+the audit, the survey (relevé), the Admin screens and the calibration. The program left the page on
+10 October 2026: the build emits `index.html` (about 200 KB) and `assets/plan-<hash>.js` (about
+2.9 MB), which is what FF-5 now measures.
 
 ### 5.3 Data view
 
@@ -656,7 +702,7 @@ platform's own tests. Detail in `spec-connexion-plateforme.md`.
 
 Environments: `dev` (local, Docker Compose), `staging` (production-shaped, with a copy of production data structure and volume), `production`. The client artefact is identical across all three; only its API origin differs, injected at build time.
 
-**The single-file property survives.** Small on-premise installs remain a matter of copying one HTML file plus running the API container — ASR-3 preserved.
+**The single-file property did not survive** (ADR-4 superseded, §10). What ships is one folder, `livraison/`, built from `main` (`npm run livraison`): `index.html`, `assets/plan-<hash>.js`, `.htaccess`, and the PHP helpers of `deploy/*.php` (admin of demos, Claude analysis proxy, server data). A second deployment, `buildsg/`, serves the same sources from Node. The API, the database and the session belong to backprod, not to this repository. Installing remains a copy of one folder — ASR-3 in spirit.
 
 ### 5.6 Runtime scenario — cold start
 
@@ -673,7 +719,7 @@ Environments: `dev` (local, Docker Compose), `staging` (production-shaped, with 
 6. GET /api/v1/projects/:id  (If-None-Match: W/"<row_version>")
         └─ 304 or 40 KB payload
 7. migrate document to SCHEMA_VERSION → normalizeObjects → createApp → render
-8. features.view3d.on ? nothing yet : three/** never downloaded
+8. features.view3d.on ? nothing yet : three/** never downloaded   ← target, not built: see QA-P5
 ```
 
 ### 5.7 Runtime scenario — save under contention
@@ -750,7 +796,7 @@ Note W3 honestly: full redraw is fine at today's object counts and is the first 
 | Enforced dependency direction — no shared-file gravity well | QA-V5 |
 | Feature keys and field descriptors: new capability = data + one arm | QA-V2 |
 | Living module map + ADR index | QA-V3 |
-| Single-artefact deploy; trunk-based; squash merges | QA-V4, QA-V6 |
+| One-folder deploy (`livraison/`); trunk-based; merge commits, never squash | QA-V4, QA-V6 |
 | Changelog written in the PR, not at release time | QA-V6 |
 
 **The velocity argument in one line:** velocity here comes from *narrow blast radius*, not from skipping steps. The pure core means a terrace-engine change cannot break the 3D view; the dependency rules mean two developers rarely touch the same file; the golden fixtures mean a refactor is safe to merge on a Friday afternoon because the evidence is mechanical.
@@ -767,7 +813,7 @@ Note W3 honestly: full redraw is fine at today's object counts and is the first 
 | **Configuration** | Build-time: API origin, version, SHA. Runtime server-side: connection strings, keys, `minClientVersion`. Runtime data: catalog, entitlements, branding. Never runtime-editable: engine constants and price tables (P8). |
 | **Internationalisation** | UI strings in French, externalised into a message catalog during migration Phase 5 so a second locale is possible. **Domain identifiers are never translated** (P9). |
 | **Accessibility** | Keyboard navigation for panels and dialogs; contrast enforced on branding (rejected below 4.5:1); the SVG canvas is inherently pointer-driven and gets a documented numeric-entry alternative for coordinates. |
-| **Supply chain** | Pinned versions, lockfile, `npm audit` in CI, SRI hashes on the three CDN scripts (currently absent — W8). Bundling three.js remains the fallback if CDN reliability disappoints. |
+| **Supply chain** | Pinned versions (three.js 0.186.1, pdf-lib 1.17.1, EZ-tree, model-viewer, each by exact version in its URL), lockfile. Not done (25 Oct 2026): `npm audit` is not in CI, and no CDN load carries an integrity hash — neither the import map nor the injected scripts (R9, AD-12). Bundling three.js remains the fallback if CDN reliability disappoints. |
 | **Offline** | Not a goal for 2.x. The architecture does not preclude it: 6 KB payloads plus `row_version` reconciliation is a well-understood PWA shape. |
 
 ---
@@ -794,33 +840,40 @@ The sequencing is not negotiable in one respect: **the migration completes befor
 
 ## 9. Fitness functions
 
-P6 in practice. Each runs in CI and fails the build. This is what makes the word "strong" in "strong architecture" mean something checkable.
+P6 in practice. The table is the target; the **Status** column says, honestly, what runs. A fitness
+function listed here and enforced by nothing is a wish, and is marked as one.
 
-| # | Fitness function | Protects | Mechanism |
-|---|---|---|---|
-| FF-1 | No import cycles | layering | Acyclic value-import graph, `tests/unit/architecture.test.ts` |
-| FF-2 | `engine/**`, `geometry/**`, `model/**` import nothing from `ui`, `render`, `three`, `geo`, `persistence`, or the DOM | P2, QA-F4 | Layer rule and purity rule, `tests/unit/architecture.test.ts` |
-| FF-3 | No query selects `projects.data` without a single-row predicate | QA-P1 | Query-log assertion in the integration suite |
-| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | `tests/unit/export/regeneration.test.ts` regenerates five of the six exports from the code and compares them to the fixtures |
-| FF-5 | Bundle ≤ 5 MB (ADR-16); no gated module in the main chunk | QA-P6, QA-P5 | Rollup output analysis |
-| FF-6 | `FeatureKey` union matches the seeded catalog exactly | QA-F2 | Drift test against the DB |
-| FF-7 | Every entitlement-gated route has a 403-without-entitlement test | QA-Q4 | Route registry × test registry reconciliation |
-| FF-8 | RLS enabled on every tenant-scoped table | ASR-4 | `pg_class.relrowsecurity` introspection test |
-| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js`; inline `eslint-disable` refused in those folders |
-| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function` in `eslint.config.js`, no exception |
-| FF-11 | Every `SCHEMA_VERSION` has a migration and an N/N+1 fixture | ASR-2 | Test enumerating the chain |
-| FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging |
-| FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check |
-| FF-14 | Engine benchmark: full terrace recompute < 150 ms | QA-P4 | Vitest bench, threshold |
+| # | Fitness function | Protects | Mechanism | Status (25 Oct 2026) |
+|---|---|---|---|---|
+| FF-1 | No import cycles | layering | Acyclic value-import graph, `tests/unit/architecture.test.ts` | **Runs** (`npm test`, CI) |
+| FF-2 | `engine/**`, `geometry/**`, `model/**` import nothing from `ui`, `render`, `three`, `geo`, `persistence`, or the DOM | P2, QA-F4 | Layer rule (`NIVEAU`) and purity rule, `tests/unit/architecture.test.ts` | **Runs** (`npm test`, CI) |
+| FF-3 | No query selects `projects.data` without a single-row predicate | QA-P1 | Query-log assertion in the integration suite | **Delegated to backprod** — Plan owns no database |
+| FF-4 | Golden artefacts byte-identical | P5, QA-Q1 | `tests/unit/export/regeneration.test.ts` regenerates five exports (SVG, DXF, PDF, dossier PDF, résumé); the engine, relief and cadastre oracles check three more; `glb-structure.json` is checked by smoke point 24 (browser, not CI) | **Runs** (`npm test`, CI), except the GLB |
+| FF-5 | Bundle ≤ 5 MB (ADR-16); no gated module in the main chunk | QA-P6, QA-P5 | Size of `dist/index.html` + `dist/assets/*.js` after the build, in CI | **Runs** for the size (fixed 25 Oct 2026: it measured `index.html` alone, about 200 KB, since the program left the page). The second half (no gated module in the main chunk) has no mechanism, and is false today (AD-10) |
+| FF-6 | `FeatureKey` union matches the seeded catalog exactly | QA-F2 | Drift test against the DB | **Delegated to backprod**; Plan's side is `gate:client` (the generated contract matches `contrat/`) |
+| FF-7 | Every entitlement-gated route has a 403-without-entitlement test | QA-Q4 | Route registry × test registry reconciliation | **Delegated to backprod** |
+| FF-8 | RLS enabled on every tenant-scoped table | ASR-4 | `pg_class.relrowsecurity` introspection test | **Delegated to backprod** |
+| FF-9 | No `any` in `model`/`engine`/`geometry` | QA-Q5 | `no-explicit-any`, scoped, `eslint.config.js`; inline `eslint-disable` refused in those folders | **Runs** (`npm run lint`, CI) |
+| FF-10 | No function over 150 lines | QA-V2 | `max-lines-per-function` in `eslint.config.js`, no exception | **Runs** (`npm run lint`, CI) |
+| FF-11 | Every `SCHEMA_VERSION` has a migration and an N/N+1 fixture | ASR-2 | Test enumerating the chain | **Partial**: `tests/unit/model/migrations.test.ts` checks the chain has no hole up to `SCHEMA_VERSION` and replays each step; there is no N/N+1 fixture file per version |
+| FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging | **Delegated to backprod** (the API is theirs) |
+| FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check | **No mechanism.** Commits are in French, title + why (`CLAUDE.md`), not conventional; the changelog entry is checked at review |
+| FF-14 | Engine benchmark: full terrace recompute < 150 ms | QA-P4 | Vitest bench, threshold | **No mechanism.** No bench file, no threshold in CI |
 
-**What runs today (28 September 2026).** FF-1, FF-2 and FF-4 run with `npm test`, FF-9 and FF-10
-with `npm run lint`, and FF-5 (the 5 MB budget) as a size check on the built file. All of them run
-in CI (`.github/workflows/ci.yml`) on every pull request and every push to `main`, together with the
-type check, the strictness ratchet, the generated-client gate and the no-secret check on the
-shipped file. The others (FF-3, FF-6 to FF-8 and FF-11 to FF-14) are not yet wired to anything.
-Most of them wait on parts of the system Plan now takes from the backprod platform (§5.4). The
-browser smoke list (`scripts/fumee.mjs`) is not in CI: several of its points need the cadastre,
-IGN and Poly Haven services.
+**What runs today.** FF-1, FF-2 and FF-4 run with `npm test`, FF-9 and FF-10 with `npm run lint`,
+FF-5 as a size check after `npm run build`, FF-11 in part. All of them run in CI
+(`.github/workflows/ci.yml`, job `verifier`) on every pull request and every push to `main`,
+together with the type check, the strictness ratchet (`npm run cliquet`), the generated-client gate
+(`gate:client`) and the no-secret check on the built files (`verifier-paquet`). FF-3, FF-6, FF-7,
+FF-8 and FF-12 test a database and an API that belong to backprod (§5.4): Plan cannot run them, and
+does not claim them. FF-13 and FF-14 have no mechanism. The browser smoke list
+(`scripts/fumee.mjs`) is not in CI: several of its points need the cadastre, IGN and Poly Haven
+services.
+
+The golden folder (`tests/fixtures/golden/`) no longer holds the "six artefacts" §5.2.2 speaks of:
+on 25 October 2026 it holds eleven (`plan.svg`, `plan.dxf`, `plan.pdf`, `dossier.pdf`,
+`resume.txt`, `projet.json`, `quantites-demo.txt`, `moteur-terrasses.json`, `relief-moteur.json`,
+`cadastre-objets.json`, `glb-structure.json`) and their fingerprints, `EMPREINTES.md`.
 
 A fitness function that fires often and is routinely overridden is worse than none — it teaches the team that the build lies. Each one above is either fixable in minutes or genuinely wants a design conversation.
 
@@ -828,26 +881,29 @@ A fitness function that fires often and is routinely overridden is worse than no
 
 ## 10. Architecture decision index
 
+Status as of 25 October 2026 in the **Decision** column: *superseded*, *amended*, or *owned by backprod* (the decision
+still stands, but it is taken and enforced in the platform's repository, not here).
+
 | ADR | Decision | Alternative rejected | Driver |
 |---|---|---|---|
 | ADR-1 | TypeScript migration in place, module by module | Rewrite; framework adoption | ASR-1 (golden-file adjudication is only possible in place) |
 | ADR-2 | ~~No UI framework; SVG + direct DOM~~ — *superseded by ADR-16* | React / Svelte | Regression attributability; QA-P3 is about draw strategy, not virtual DOM |
-| ADR-3 | Node + TypeScript API | Keep PHP; Go; Python | P2 — server-side engine reuse at zero cost (QA-F4) |
-| ADR-4 | Single-file client artefact preserved | Conventional multi-asset SPA | ASR-3 |
-| ADR-5 | PostgreSQL, single instance | Mongo; S3-as-database; sharding | 5 GB at target scale; RLS and jsonb both needed |
+| ADR-3 | Node + TypeScript API — *amended*: the platform API (identity, tenancy, projects) is backprod's. What runs server side **in this repository** is PHP, `deploy/*.php` (demo admin, Claude analysis proxy, server data), shipped in `livraison/`; a Node variant of the same helpers lives in `buildsg/` (`app.js`, `*.mjs`). No server reuses the engine yet | Keep PHP; Go; Python | P2 — server-side engine reuse at zero cost (QA-F4) |
+| ADR-4 | ~~Single-file client artefact preserved~~ — *superseded* (10 October 2026): the delivery is `index.html` + `assets/plan-<hash>.js` + `.htaccess` + the PHP helpers, one folder (`livraison/`) | Conventional multi-asset SPA | ASR-3 |
+| ADR-5 | PostgreSQL, single instance — *owned by backprod* | Mongo; S3-as-database; sharding | 5 GB at target scale; RLS and jsonb both needed |
 | ADR-6 | Document storage for the plan | Full normalisation | Array order is semantic; access is whole-document |
-| ADR-7 | Server-side sessions, opaque cookie | JWT in localStorage | Instant revocation; long-lived tabs |
-| ADR-8 | TOTP MFA first; WebAuthn later | WebAuthn first | Interoperability and enrolment friction |
-| ADR-9 | Feature catalog as data; enforcement in code | Feature flags in config files | QA-F2 without a release |
+| ADR-7 | Server-side sessions, opaque cookie — *owned by backprod*; Plan keeps a platform access token in memory (§5.4) | JWT in localStorage | Instant revocation; long-lived tabs |
+| ADR-8 | TOTP MFA first; WebAuthn later — *owned by backprod* | WebAuthn first | Interoperability and enrolment friction |
+| ADR-9 | Feature catalog as data; enforcement in code | Feature flags in config files | QA-F2 without a release. The catalog is backprod's; Plan's side (`plateforme/capacites.ts`) is written but attached to no command yet |
 | ADR-10 | Branding as validated tokens, never raw CSS | Tenant stylesheet | Injection surface |
 | ADR-11 | three.js from CDN with ambient types | Bundle three.js | Bundle budget; revisit if reliability disappoints (W8) |
 | ADR-12 | Engine constants in code | Runtime price configuration | ASR-1 reproducibility |
-| ADR-13 | Optimistic locking on `row_version` | Last-write-wins; pessimistic locks | Whole-document writes make silent loss the default |
-| ADR-14 | Full-copy version history | Diffs; none | ~7 KB per save; one-step restore |
-| ADR-15 | Audit partitioned from day one | Single table | Cannot be retrofitted cheaply |
-| ADR-16 | React + Zustand for the interface zones; plan and gestures stay native DOM ([`docs/adr/0016`](../docs/adr/0016-react-and-zustand-for-the-zones.md)) | Keep hand-built panels (ADR-2) | One state and one command table for nine zones; touch acceptance |
+| ADR-13 | Optimistic locking on `row_version` — *owned by backprod* (projects live on the platform's resource) | Last-write-wins; pessimistic locks | Whole-document writes make silent loss the default |
+| ADR-14 | Full-copy version history — *owned by backprod* | Diffs; none | ~7 KB per save; one-step restore |
+| ADR-15 | Audit partitioned from day one — *owned by backprod* | Single table | Cannot be retrofitted cheaply |
+| ADR-16 | React + Zustand for the interface zones; plan and gestures stay native DOM ([`docs/adr/0016`](../docs/adr/0016-react-and-zustand-for-the-zones.md)) | Keep hand-built panels (ADR-2) | One state and one command table for nine zones; touch acceptance. Its QA-P5 premise ("0 bytes of `three/**`" for a tenant without 3D) is **not true**: `three/**` is statically imported and ships in the program; only the three.js library itself is loaded from the CDN (AD-10) |
 
-Each ADR gets its own file under `docs/adr/NNNN-*.md` in the Nygard format, with status (`proposed` / `accepted` / `superseded`). An ADR is never edited after acceptance — it is superseded by a new one, so the reasoning history survives.
+Only ADR-16 has its file today (`docs/adr/`); the others live in this table. Each ADR gets its own file under `docs/adr/NNNN-*.md` in the Nygard format, with status (`proposed` / `accepted` / `superseded`). An ADR is never edited after acceptance — it is superseded by a new one, so the reasoning history survives.
 
 ---
 
@@ -859,12 +915,17 @@ Carried deliberately, with the trigger that would force payment.
 |---|---|---|---|
 | AD-1 | Full redraw on every change (W3) | Fine today; degrades past ~100 objects | FF-14-style benchmark breaches 30 fps |
 | AD-2 | Mixed French/English identifiers | Mild cognitive cost | Never — deliberate (P9) |
-| AD-3 | Hand-written PDF writer, no image support | Logo branding costs 3–4 days | If PDF requirements grow beyond a logo and a footer |
+| AD-3 | ~~Hand-written PDF writer, no image support~~ — *outdated*: the plan and dossier PDFs still use the hand-written writer (`export/pdf/`), but the déclaration préalable dossier (`export/dossierMairie.ts`, which fills CERFA 13703) uses pdf-lib 1.17.1, loaded on demand from jsDelivr (`export/chargeurPdfLib.ts`) | A second CDN dependency, outside the golden fixtures | When a golden PDF needs what only pdf-lib does |
 | AD-4 | three.js pinned (0.186.1 since 16 Oct 2026, was r128) as ES modules from jsDelivr, behind an import map | A bump is a deliberate migration (colour, light intensities, GLB output) | A needed feature or a security advisory |
 | AD-5 | `unsafe-inline` in the style CSP | Weakens CSP for style vectors | When shell inline styles move to classes; then switch to a nonce |
 | AD-6 | No offline mode | Field users on poor connections | Sustained user complaints; the shape is understood |
-| AD-7 | Single Postgres instance, no replica | Reporting competes with OLTP | R1/R3 p95 sustained > 50 ms |
-| AD-8 | No collaborative editing | Save conflicts surface as 409s | 409 rate rising — the metric is already instrumented |
+| AD-7 | Single Postgres instance, no replica — *backprod's* | Reporting competes with OLTP | Tracked in backprod |
+| AD-8 | No collaborative editing — *backprod's* (the save contract is theirs) | Save conflicts surface as 409s | Tracked in backprod |
+| AD-9 | ~~Façade chain orchestration in `zones/releve/`~~ — **paid 24 October 2026** (PR #410): moved to `facade/releve/chaine.ts`, layer 3 (§5.2.5) | — | — |
+| AD-10 | `three/**` is not code-split: 57 modules, ~12 000 lines, statically imported into `assets/plan-<hash>.js` and downloaded by everyone (QA-P5, FF-5 second half) | About a third of the program for a view some users never open | Capabilities wired (`plateforme/capacites.ts`), or the program nearing the 5 MB budget |
+| AD-11 | ~~The Mode Toit editor's code was filed under `facade/regles/toits/`~~ | — | **Paid 25 October 2026** (lot G): moved to `facade/modeToit/` |
+| AD-12 | No integrity (SRI) on CDN loads: the three.js import map, EZ-tree, pdf-lib, model-viewer (R9) | A compromised CDN file runs with the page's rights | Any advisory on jsDelivr, or bundling three.js |
+| AD-13 | Leftover references to `legacy.ts` (deleted in `1.1.0`): `tests/unit/architecture.test.ts` still carries the rule "nothing imports `legacy.ts`" (harmless, always green). The ESLint ignore and the coverage exclusion were removed on 25 October 2026 | Misleads a reader into thinking the file exists | Next edit of that test |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 
@@ -874,16 +935,16 @@ Reviewed quarterly. Debt that is written down and monitored is a decision; debt 
 
 | # | Risk | Sev | Mitigation | Owner |
 |---|---|---|---|---|
-| R1 | Cross-tenant data exposure | **Critical** | Three isolation layers; FF-8; isolation suite as a release gate; external pentest | Backend |
+| R1 | Cross-tenant data exposure | **Critical** | Three isolation layers; FF-8; isolation suite as a release gate; external pentest | backprod |
 | R2 | Silent drift in computed quantities | **Critical** | Golden fixtures with exact float equality; MAJOR-release rule | Engine |
-| R3 | Migration Phase 4 becomes an unmergeable branch | High | Strict ordering; ≤ 400 lines per PR; `legacy.ts` always compiles | Frontend |
-| R4 | Data loss on concurrent save | High | Optimistic locking; explicit conflict UX; version history | Backend |
-| R5 | Feature gating implemented client-side only | High | FF-7; every gated endpoint ships with its 403 test | Backend |
+| R3 | ~~Migration Phase 4 becomes an unmergeable branch~~ — *closed*: the migration ended in `1.1.0`, `legacy.ts` is gone | — | — | — |
+| R4 | Data loss on concurrent save | High | Optimistic locking; explicit conflict UX; version history | backprod (Plan shows the conflict) |
+| R5 | Feature gating implemented client-side only | High | FF-7; every gated endpoint ships with its 403 test | backprod |
 | R6 | Branding as a CSS injection vector | High | Validated tokens only; no raw CSS; CSP | Frontend |
 | R7 | Scope creep (SSO, billing, WebAuthn, collaboration) into 2.0.0 | High | Explicitly deferred; catalog reserves keys without implementations | Product |
 | R8 | External API drift (IGN, BAN) confounds testing | Medium | HTTP fixtures recorded; tests never hit live endpoints | Frontend |
-| R9 | Supply chain via unpinned CDN scripts | Medium | SRI hashes; bundling as fallback (AD-4) | Frontend |
-| R10 | Backup that has never been restored | Medium | Quarterly drill with documented RTO — QA-Q7 | Ops |
+| R9 | Supply chain via CDN scripts (pinned by version, no SRI yet — AD-12) | Medium | SRI hashes; bundling as fallback (AD-4) | Frontend |
+| R10 | Backup that has never been restored | Medium | Quarterly drill with documented RTO — QA-Q7 | backprod (projects) |
 
 ---
 
