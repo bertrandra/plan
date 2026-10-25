@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Vérification des requêtes du serveur contre la vraie API Claude** (`npm run verifier:api-claude`, avant chaque livraison).
+  Tous les tests passent par un faux Anthropic qui accepte n’importe quel corps : le refus « compiled grammar is too large »
+  n’avait été vu qu’en production. Le script lance le vrai serveur PHP du dépôt (`deploy/analyse.php`, `deploy/admin.php`)
+  sous `php -S`, ouvre la session d’administrateur et envoie par l’appel immédiat une requête minimale (une photo de test)
+  par prompt, schéma et modèle servis : l’analyse (qui couvre l’escalade, les cas candidats et le rejeu, mêmes prompt, schéma
+  et corps) et le renfort. Il échoue au premier refus, avec le message d’Anthropic, ou à une sortie hors schéma, et dit le coût
+  journalisé. La clé se lit dans `ANTHROPIC_API_KEY` et ne s’écrit que dans une configuration temporaire supprimée à la fin ;
+  le serveur lui-même plafonne la dépense (0,05 $ par défaut, `--plafond`). `--modele` essaie un autre modèle admis. Un
+  workflow manuel (`verifier-api.yml`, secret `ANTHROPIC_API_KEY_TEST`) le lance depuis GitHub.
+
 ### Modifié
 
 - **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la

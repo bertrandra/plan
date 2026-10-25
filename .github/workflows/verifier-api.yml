@@ -1,0 +1,46 @@
+# Verification des requetes du serveur PHP contre la VRAIE API Claude (scripts/verifier-api-claude.mjs).
+#
+# Manuelle seulement (onglet Actions, « Vérifier l'API Claude », Run workflow) : elle coute quelques
+# centimes et demande la cle de test. Jamais sur une PR ni un push : une PR d'un fork n'a pas acces
+# aux secrets, et la CI `verifier` ne demande pas le reseau. A lancer avant une livraison
+# (CLAUDE.md, circuit d'une modification, point 5).
+name: Vérifier l'API Claude
+
+on:
+  workflow_dispatch:
+    inputs:
+      modele:
+        description: "Modèle à essayer à la place des modèles par défaut du serveur (vide : ceux du serveur)"
+        required: false
+        default: ""
+      plafond:
+        description: "Plafond de dépense de la vérification, en dollars"
+        required: false
+        default: "0.05"
+
+permissions:
+  contents: read
+
+jobs:
+  verifier-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: PHP et son extension curl
+        run: |
+          php -v
+          php -m | grep -qx curl || { echo "extension curl absente"; exit 1; }
+      - name: Requetes du serveur contre l'API Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
+          MODELE: ${{ inputs.modele }}
+          PLAFOND: ${{ inputs.plafond }}
+        run: |
+          set -euo pipefail
+          args=(--plafond "$PLAFOND")
+          if [ -n "$MODELE" ]; then args+=(--modele "$MODELE"); fi
+          node scripts/verifier-api-claude.mjs "${args[@]}"

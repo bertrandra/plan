@@ -23,6 +23,7 @@
     "contrat": "node scripts/extraire-contrat.mjs",
     "verifier-paquet": "node scripts/verifier-paquet.mjs",
     "livraison": "node scripts/livraison.mjs",
+    "verifier:api-claude": "node scripts/verifier-api-claude.mjs",
     "regles:generer": "npx tsx scripts/generer-prompt-analyse.ts",
     "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier"
   },
