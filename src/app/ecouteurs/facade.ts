@@ -9,7 +9,7 @@
 // qu'on sait de ses murs.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { reprendreFacadeDesignee } from '../../facade/choix.js';
+import { reprendreFacadeDesignee } from '../../interaction/choixFacade.js';
 import { vue3d } from '../../three/etat3d.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { RegistreCommandes } from '../commandes.js';

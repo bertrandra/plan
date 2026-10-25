@@ -1,4 +1,4 @@
-// L'element de facade dont la personne veut choisir le mur dans la Vue 3D (meme role que facade/choix.ts).
+// L'element de facade dont la personne veut choisir le mur dans la Vue 3D (meme role que interaction/choixFacade.ts).
 //
 // Deux temps : le bouton de l'inspecteur dit quel element il vise (`viserSaillie`), puis execute
 // `toit.murSur3d`, qui le reprend et l'arme ; le prochain toucher sur un mur du batiment, dans la 3D,

@@ -14,7 +14,7 @@ import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
-import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
+import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
 import { showToast } from '../../shell/dialogs.js';

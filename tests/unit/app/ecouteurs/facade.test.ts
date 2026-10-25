@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { brancherFacade } from '../../../../src/app/ecouteurs/facade.js';
-import { designerFacade } from '../../../../src/facade/choix.js';
+import { designerFacade } from '../../../../src/interaction/choixFacade.js';
 import { droits } from './faux.js';
 import type { EtatApp } from '../../../../src/core/state.js';
 import type { ServiceReleve } from '../../../../src/app/releve.js';

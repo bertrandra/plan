@@ -19,6 +19,7 @@ import { creerDepotDemos } from '../io/depotDemos.js';
 import { validerProjetJSON } from '../io/validation.js';
 import { magasinPhotos, rentrerLesPhotos } from '../io/photosLocales.js';
 import type { ObjetBrut } from '../model/types.js';
+import { hoteDeZone } from '../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de calibration ? */
 export function demandeEcranCalibration(recherche: string): boolean {
@@ -101,12 +102,7 @@ export function ouvrirEcranCalibration(): void {
       }));
     },
   };
-  let hote = document.getElementById('zoneEcranCalibration');
-  if (!hote) {
-    hote = document.createElement('div');
-    hote.id = 'zoneEcranCalibration';
-    document.body.appendChild(hote);
-  }
+  const hote = hoteDeZone('zoneEcranCalibration');
   document.title = 'Admin — calibrer la détection';
   createRoot(hote).render(createElement(EcranCalibration, { deps }));
 }

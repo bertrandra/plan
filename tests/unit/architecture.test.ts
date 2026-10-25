@@ -143,6 +143,35 @@ describe('aucun cycle d import (architecture.md §9, FF-1)', () => {
     for (const f of tous) if (!etat.has(f)) visiter(f);
     expect(cycles, 'cycles').toEqual([]);
   });
+
+  it('les cycles qui ne passent que par des imports de type ne gagnent pas de terrain (cliquet)', () => {
+    // Effaces au build, ils ne cassent rien ; mais deux modules qui se citent l'un l'autre n'ont plus de sens de lecture, et un
+    // import de type devient vite un import de valeur. Leur nombre (groupes fortement connexes, Tarjan) ne peut que baisser :
+    // baisser PLAFOND quand on en casse un, jamais le monter. Releve le 25 octobre 2026 (audit d'architecture, lot I).
+    const PLAFOND = 10;
+    const index = new Map(tous.map(f => [f.replace(/\.tsx?$/, ''), f]));
+    const voisins = new Map(tous.map(f => [f, dependances(f).filter(d => !d.dynamique)
+      .map(d => index.get(d.cible) ?? index.get(join(d.cible, 'index')))
+      .filter((c): c is string => c !== undefined)]));
+    let n = 0;
+    const rang = new Map<string, number>(), bas = new Map<string, number>(), surPile = new Set<string>(), pile: string[] = [];
+    const groupes: string[][] = [];
+    const relier = (f: string): void => {
+      rang.set(f, n); bas.set(f, n); n++; pile.push(f); surPile.add(f);
+      for (const v of voisins.get(f)!) {
+        if (!rang.has(v)) { relier(v); bas.set(f, Math.min(bas.get(f)!, bas.get(v)!)); }
+        else if (surPile.has(v)) bas.set(f, Math.min(bas.get(f)!, rang.get(v)!));
+      }
+      if (bas.get(f) === rang.get(f)) {
+        const g: string[] = [];
+        let x: string;
+        do { x = pile.pop()!; surPile.delete(x); g.push(relative(src, x)); } while (x !== f);
+        if (g.length > 1) groupes.push(g.sort());
+      }
+    };
+    for (const f of tous) if (!rang.has(f)) relier(f);
+    expect(groupes.length, groupes.map(g => g.join(' + ')).join('\n')).toBeLessThanOrEqual(PLAFOND);
+  });
 });
 
 describe('ce qui doit rester pur', () => {

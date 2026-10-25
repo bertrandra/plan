@@ -14,25 +14,10 @@ import { enPoints } from '../model/formes.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ProduitBarre } from './prix.js';
 import type { ObjetPlan, Segment } from '../model/types.js';
+import type { Debit, RolesLongueur } from './typesDebit.js';
 
-/**
- * Ce que devient une barre d'une longueur donnee : quatre sorts, et deux totaux de chutes.
- *
- * Les distinguer n'est pas cosmetique — c'est ce qui separe une chute de 2 m qui repart dans le pot
- * d'un rebut de 6 cm. Les moyenner produirait un chiffre qui ne decrit ni l'un ni l'autre.
- */
-export interface RolesLongueur {
-  /** Posee telle quelle. */
-  entiere: number;
-  /** Recoupee, avec une chute trop courte pour resservir. */
-  ajustee: number;
-  /** Recoupee, avec une chute qui repart au pot. */
-  recoupee: number;
-  /** Troncon intermediaire d'une travee a joints. */
-  troncon: number;
-  rebutMl: number;
-  potMl: number;
-}
+export type { Debit, RolesLongueur };
+
 
 /** Une piece a prelever dans une barre : la longueur achetee, la longueur utile, et si elle finit la travee. */
 interface PieceDebit { L: number; u: number; finit: boolean }
@@ -40,20 +25,6 @@ interface PieceDebit { L: number; u: number; finit: boolean }
 /** Le jeu de barres le moins cher couvrant une travee. */
 interface PlanDebit { cout: number; pieces: PieceDebit[] }
 
-/** Un debit calcule : ce qu'on achete, ce qu'on pose, ce qu'on jette, ce qu'il reste. */
-export interface Debit {
-  /** Nombre de barres achetees, par longueur. */
-  achats: Record<string, number>;
-  roles: Record<string, RolesLongueur>;
-  /** Metres reellement poses. */
-  reelMl: number;
-  achatMl: number;
-  perdueMl: number;
-  restantMl: number;
-  /** Les chutes reutilisables restantes, de la plus longue a la plus courte. */
-  pool: number[];
-  chuteMl: number;
-}
 
 export function optimiserDebitLames(
   runs: number[], dispo: number[], minReuseM: number, entraxeM: number, joints: boolean
