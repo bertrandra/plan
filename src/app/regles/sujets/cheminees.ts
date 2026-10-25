@@ -1,7 +1,7 @@
 // Sujet « cheminees » : les souches que Claude voit, posees sur le plus grand corps en pente.
 
 import type { SoucheVue } from '../../../model/ceQueJeVois.js';
-import { corpsDesCheminees, souchesSurLeCorps } from '../../audit/parcelle/propositions.js';
+import { corpsDesCheminees, souchesSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import { deClaude, pluriel, type EntreeSujet, type Sujet } from './contrat.js';
 

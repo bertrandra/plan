@@ -5,6 +5,8 @@
 // Aujourd'hui : la hauteur a l'egout (IGN, LiDAR, photo de facade), la hauteur totale d'un batiment sans corps (IGN, LiDAR) et la toiture (forme, bouts et sens du faitage : LiDAR,
 // silhouette des facades vue par la photo et par Claude, ce que la personne a vu). La toiture est recalculee par le moteur des
 // toits sur la mesure LiDAR (`corpsSousContrainte`) avec les valeurs retenues : une decision n'ecrit jamais une forme de sa main.
+// Toute proposition de toit passe enfin par le fait du batiment (`corpsProposesSousFait`) : un fait en remplacement fixe le toit,
+// un fait en contrainte fait tomber la proposition qui ne le tient pas (regles/toits/faits.json ne change que par PR).
 // Le materiau des murs et la couverture (fichiers fonciers, Claude, ce que la personne a vu) s'arbitrent de la meme facon : la valeur
 // notee sur place l'emporte (poids 30, D21), et une valeur que la personne a choisie dans le projet n'est jamais remplacee en silence.
 
@@ -12,8 +14,9 @@ import { nomFacade } from '../../../facade/geometrie.js';
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { lireForme } from '../../../facade/lectureFormes.js';
-import { coherents, corpsSousObservation, dire, direBouts, ECART_FORME_MAX_M, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
-import { corpsConforme, formeDuCorps, meilleurCorpsSelonObservation, plusGrand } from '../../../facade/regles/toits/faits.js';
+import { coherents, corpsSousObservation, dire, direBouts, ECART_FORME_SIMPLE_MAX_M, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
+import { corpsConforme, corpsProposesSousFait, formeDuCorps, meilleurCorpsSelonObservation, plusGrand } from '../../../facade/regles/toits/faits.js';
+import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeMurs, indiceDeCorps, traversantsDuGroupe } from './constats.js';
 import { pignonTraversant } from '../../../facade/regles/toits/pignons.js';
 import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
@@ -175,6 +178,7 @@ function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], for
   const vueParLidar = a.retenu.sources.includes('lidar');
   const lecture = lireForme(o.toitMesure, o.corpsToit, o.pts, forme as never, { souple: !vueParLidar });
   if (!lecture || JSON.stringify(lecture.corps) === JSON.stringify(o.corpsToit)) return null;
+  if ('refus' in corpsProposesSousFait(faitDuBatiment(o), lecture.corps, o.pts)) return null;
   const sources = sourcesDuRetenu(a, regles);
   const manuelles = arbs.filter((x) => x.decision === 'manuelle');
   return {
@@ -274,6 +278,8 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
   const { corps: principal, poses } = avecTraversants(base[kp] as CorpsToit, trav, { ...o, pts: o.pts });
   if (!relus && !poses.length) return null;
   const corps = base.map((c, i) => (i === kp ? principal : c));
+  // Le fait du batiment l'emporte sur l'audit : une proposition qui ne le tient pas n'est pas faite.
+  if ('refus' in corpsProposesSousFait(faitDuBatiment(o), corps, o.pts)) return null;
   const involves = arbs.filter((a) => a.decision !== 'rien');
   const manuelles = [...involves, ...murs].filter((a) => a.decision === 'manuelle');
   const vus = [forme ? dire(corps, undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
@@ -316,12 +322,13 @@ function propositionCorps(o: ObjetPlan, b: LigneBatiment, k: number, parAttribut
   let relu: CorpsToit | null = null;
   if (involves.length && Object.keys(observation).length && !corpsConforme(c, observation, o.pts)) {
     const r = meilleurCorpsSelonObservation(o.toitMesure, c.pts, o.pts, observation);
-    relu = r && r.ecart <= ECART_FORME_MAX_M ? r : null;
+    relu = r && r.ecart <= ECART_FORME_SIMPLE_MAX_M ? r : null;
     if (!relu && !trav.length) return null;
   }
   // Puis les pignons traversants que montrent ses murs.
   const { corps: toit, poses } = avecTraversants(relu ?? c, trav, { ...o, pts: o.pts });
   if (!relu && !poses.length) return null;
+  if ('refus' in corpsProposesSousFait(faitDuBatiment(o), (o.corpsToit ?? []).map((x, i) => (i === k ? toit : x)), o.pts)) return null;
   const manuelles = [...involves, ...murs].filter((a) => a.decision === 'manuelle');
   const vus = [forme ? dire([toit], undefined) : null, bouts ? direBouts(bouts) : null, typeof sens === 'number' ? 'faîtage à ' + Math.round(sens) + '°' : null].filter(Boolean).join(', ');
   const sources = [...new Set([...involves, ...murs].flatMap((a) => a.retenu?.sources ?? []))].map((s) => libelleSource(regles, s)).join(', ');

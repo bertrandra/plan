@@ -10,7 +10,7 @@ import { Icone } from '../icones.js';
 import { facadesDeSession, sessionToit } from '../../app/modeToit.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
-import type { FacadeVisee } from '../../facade/regles/toits/facadesDesCorps.js';
+import type { FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 
 const MARGE_M = 1.2;
 const f2 = (v: number) => (Math.round(v * 100) / 100).toString();

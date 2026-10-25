@@ -17,7 +17,7 @@ import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
 import { formeDuCorps } from '../../facade/regles/toits/faits.js';
 import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
-import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/regles/toits/saillies.js';
+import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/modeToit/saillies.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 
@@ -178,7 +178,7 @@ const rangsSaillies = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.co
 
 /**
  * Une ligne par element de facade du batiment : ses reglages (forme, niveau, toit propre, mur, position, taille) et son retrait.
- * Chaque ecriture replace l'element sur son mur (facade/regles/toits/saillies.ts), fige le toit et s'annule par Ctrl+Z.
+ * Chaque ecriture replace l'element sur son mur (facade/modeToit/saillies.ts), fige le toit et s'annule par Ctrl+Z.
  */
 function champsSaillies(c: ContexteChamps): Champ[] {
   return rangsSaillies(c.obj).map((rang): Champ => {

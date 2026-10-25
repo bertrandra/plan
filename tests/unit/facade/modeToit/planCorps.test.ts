@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ligneDeFaitage, marqueursDuCorps, orientationDuCorps } from '../../../src/facade/regles/toits/planCorps.js';
-import { appliquerPiece } from '../../../src/three/gestesToits.js';
-import type { CorpsToit, ObjetPlan } from '../../../src/model/types.js';
+import { ligneDeFaitage, marqueursDuCorps, orientationDuCorps } from '../../../../src/facade/modeToit/planCorps.js';
+import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 // Un corps de 10 x 6 : faitage le long de x, a y = 3 ; egouts 3 m, faitage 5,5 m.
 const corps = (extra: Partial<CorpsToit> = {}): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 5.5, egouts: [3, 3], pignons: [], ecart: 0.1, ...extra });

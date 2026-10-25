@@ -2,7 +2,7 @@
 // Ce qu'il dit ailleurs la complete : la couverture d'un toit plat (gravillons, membrane, vegetale)
 // devient son revetement, et les elements vus sur le toit (acrotere, garde-corps) ses details.
 
-import { corpsDeLaTerrasse, terrasseVueSurLeCorps } from '../../audit/parcelle/propositions.js';
+import { corpsDeLaTerrasse, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { TerrasseToit } from '../../../model/types.js';
 import type { Proposition } from '../../../regles/decisions.js';

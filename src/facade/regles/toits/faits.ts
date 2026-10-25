@@ -292,6 +292,19 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   return out;
 }
 
+/**
+ * La porte de toute proposition de toit de l'audit (CLAUDE.md : une decision passe par le moteur) : les corps proposes, tenus au
+ * fait du batiment. Un fait en remplacement fixe le toit : rien ne se propose. Un fait en contrainte : une proposition qui ne le
+ * tient pas (forme, bouts, sens, hauteurs, nombre de corps : ecartsAuFait) n'est pas faite, meme quand le toit d'aujourd'hui ne le
+ * tient pas non plus. Sans fait, les corps tels quels. Le refus dit pourquoi.
+ */
+export function corpsProposesSousFait(f: FaitToit | null, corps: CorpsToit[], contour: readonly PtBrut[]): { corps: CorpsToit[] } | { refus: string } {
+  if (!f) return { corps };
+  if (f.application === 'remplacement') return { refus: 'le toit de ce bâtiment est fixé par un fait (regles/toits/faits.json)' };
+  const ecarts = ecartsAuFait(f, corps, contour);
+  return ecarts.length ? { refus: 'la proposition ne tient pas le fait de ce bâtiment (' + ecarts.join(', ') + ')' } : { corps };
+}
+
 /** Les corps lus, sous le fait du batiment quand il est en contrainte ; tels quels sinon (pas de fait, ou un remplacement traite a part). */
 export function corpsSelonFait(f: FaitToit | null, lus: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null = null): CorpsToit[] | null {
   return f?.application === 'contrainte' ? corpsSousContrainte(f, lus, m, contour, grille) : lus;

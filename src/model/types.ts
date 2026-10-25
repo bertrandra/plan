@@ -1076,7 +1076,7 @@ export interface CorpsToit {
   retraitM?: number;
   /**
    * Cet element est pose sur un mur d'un autre corps (bow-window, galerie, appentis) : ce qui le place et le forme.
-   * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/regles/toits/saillies.ts).
+   * Absent : un corps du toit comme les autres. Le rectangle `pts` en est calcule (facade/modeToit/saillies.ts).
    */
   saillie?: SaillieFacade;
   /** Les fenetres de toit et les panneaux solaires poses sur ses pans. Absents : aucun. */

@@ -5,7 +5,7 @@
 
 import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique, type ExempleToit, type VueIso } from './catalogueToits.js';
 import { facettesElementsToit } from '../facade/toitFormes.js';
-import { DEFAUTS_SAILLIE, corpsDeSaillie, facettesBowWindow, type Pt3 } from '../facade/regles/toits/saillies.js';
+import { DEFAUTS_SAILLIE, corpsDeSaillie, facettesBowWindow, type Pt3 } from '../facade/modeToit/saillies.js';
 import { point, repere } from '../facade/toitCorps.js';
 import type { FormeSaillie, GenreSaillie } from '../model/types.js';
 

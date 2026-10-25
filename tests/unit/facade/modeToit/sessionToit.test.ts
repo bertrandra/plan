@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart } from '../../../src/facade/regles/toits/sessionToit.js';
-import { corpsVisibles, facadeProche, facadeVersLePoint, facadesDuBatiment, orientationDe } from '../../../src/facade/regles/toits/facadesDesCorps.js';
-import { OBLIQUE, cadreOblique, poseDeDessus } from '../../../src/three/poseFacade.js';
-import type { CorpsToit, ObjetPlan } from '../../../src/model/types.js';
+import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart } from '../../../../src/facade/modeToit/sessionToit.js';
+import { corpsVisibles, facadeProche, facadeVersLePoint, facadesDuBatiment, orientationDe } from '../../../../src/facade/modeToit/facadesDesCorps.js';
+import { OBLIQUE, cadreOblique, poseDeDessus } from '../../../../src/three/poseFacade.js';
+import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 const batiment = (): ObjetPlan => ({ key: 'b', type: 'polygon', pts: rect, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);

@@ -7,9 +7,9 @@
 //
 // Toutes les operations rendent une NOUVELLE liste de corps. Pur : pas de DOM, pas de scene.
 
-import { point, repere } from '../../toitCorps.js';
+import { point, repere } from '../toitCorps.js';
 import { murDuCorps, replacerSaillie, retirerSaillie } from './saillies.js';
-import type { CorpsToit, PtBrut } from '../../../model/types.js';
+import type { CorpsToit, PtBrut } from '../../model/types.js';
 
 export type GenreCorps = 'aile' | 'retour' | 'biaise';
 
