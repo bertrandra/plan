@@ -145,7 +145,10 @@ export function chargePlot(c: Construction, nbPlots: number, surfM2: number){
 }
 // What a cut-list actually costs, at the per-length prices in force.
 export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): number {
+  // Les longueurs dans l'ordre croissant : l'ordre des clefs d'un objet suit leur forme ("3" avant "2.5"), et une somme en
+  // virgule flottante depend de son ordre.
   return Object.entries(debit.achats)
+    .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
     .reduce((s,[L, n])=>s + n*prixBarre(c, cle, parseFloat(L)), 0);
 }
 export const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];

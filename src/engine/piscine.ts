@@ -29,6 +29,7 @@ import { constructionTerrasseNeuve } from './construction.js';
 import { hauteurStructureMm } from './hauteurs.js';
 import { maxEntraxeLameCm, maxPorteeVisM } from './portees.js';
 import { estPiscine, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
+import { chiffreFrGroupe } from '../util/format.js';
 import type {
   Construction,
   ChauffagePiscine, FondPiscine, ImplantationPiscine, LigneBom, LocalTechniquePiscine, ObjetPlan, Piscine, PlagePiscine,
@@ -826,7 +827,8 @@ export function chiffrerPiscine(calc: PiscineCalculee): ChiffragePiscine {
 export interface LigneNote { libelle: string; valeur: string; note?: string }
 export interface SectionNote { titre: string; lignes: LigneNote[]; remarque?: string }
 
-export const fr = (v: number, d = 2): string => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+// Les chiffres du dossier et du plan : sans les donnees de langue du moteur, le meme texte sur toute machine (util/format.ts).
+export const fr = (v: number, d = 2): string => chiffreFrGroupe(v, d);
 const m = (v: number) => fr(v) + ' m';
 const m2 = (v: number) => fr(v, 1) + ' m²';
 const m3 = (v: number) => fr(v, 1) + ' m³';

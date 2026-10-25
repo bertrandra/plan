@@ -21,11 +21,14 @@ import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/structure.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_EXPORT } from '../model/etiquettes.js';
 import { pdfEscape, horodatagePdfInfo, hexToRgb01, pdfDecoupeTrous } from './pdf/writer.js';
+import { dateFr } from '../util/format.js';
 /** Ce que la mise en page doit savoir en plus des objets : de quoi remplir le cartouche. */
 export interface MetaPdf {
   appVersion: string;
   buildAt: string;
   montrerNord: boolean;
+  /** L'heure de l'export (« genere le », /CreationDate) ; l'horloge par defaut. */
+  maintenant?: Date;
 }
 
 /** La mise en page du plan : ce que chaque morceau dessine doit savoir pour placer un point. */
@@ -207,7 +210,7 @@ function habillage(m: MisePage, cadre: { margin: number; drawW: number; drawH: n
   }
   c += '0.23 0.18 0.12 rg\n';
   c += 'BT /F1 14 Tf '+margin.toFixed(2)+' '+(pageH-margin-16).toFixed(2)+' Td (Plan interactif - Parcelle AE 101) Tj ET\n';
-  c += 'BT /F1 9 Tf '+margin.toFixed(2)+' '+(pageH-margin-34).toFixed(2)+' Td (Echelle 1/'+scaleDenom+' - genere le '+new Date().toLocaleDateString('fr-FR')+' - Plan interactif v'+meta.appVersion+') Tj ET\n';
+  c += 'BT /F1 9 Tf '+margin.toFixed(2)+' '+(pageH-margin-34).toFixed(2)+' Td (Echelle 1/'+scaleDenom+' - genere le '+dateFr(meta.maintenant ?? new Date())+' - Plan interactif v'+meta.appVersion+') Tj ET\n';
   // Une longueur ronde, de taille raisonnable sur le papier quelle que soit l'echelle.
   const barMeters = niceStep(120/m.ptsPerMeter);
   const barPts = barMeters*m.ptsPerMeter;
@@ -287,7 +290,7 @@ function assemblerPdf(pages: { content: string; w: number; h: number }[], opacit
   // declare rend le reste illisible.
   const numInfo = objs.length + 1;
   objs.push('<< /Producer (Plan interactif ' + meta.appVersion + ') /Creator (plan.html build ' + meta.buildAt
-    + ') /CreationDate (' + horodatagePdfInfo() + ') >>');
+    + ') /CreationDate (' + horodatagePdfInfo(meta.maintenant) + ') >>');
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
   objs.forEach((body,i)=>{

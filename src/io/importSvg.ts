@@ -10,7 +10,7 @@
 // noms, et toucher aux `data-*` d'un cote casse l'autre.
 
 import { NAME_SEP } from '../export/separateurs.js';
-import { cleObjet } from '../model/cles.js';
+import { cleObjet, idMesure } from '../model/cles.js';
 import { referencesDeCote } from '../model/mesures.js';
 import { detruireVue } from '../render/vues.js';
 import { parseSvgPathPoints } from '../geometry/path.js';
@@ -192,7 +192,7 @@ export function importSVGString(svgText: string, etat: EtatApp, ctx: ContexteImp
           if(!refs) return;
           const m = brut as Partial<Mesure>;
           etat.measures.push({
-            id:'m'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+            id:idMesure(),
             ...refs, show:!!m.show,
             displayMode: m.displayMode==='along' ? 'along' : 'perp'
           });

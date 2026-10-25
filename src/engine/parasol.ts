@@ -289,13 +289,18 @@ export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseS
   return terrasseOuPremiere(objets, terrasseSelectionnee);
 }
 
+/** L'annee des echantillons de soleil du placement des parasols (equation du temps et declinaison : quasi identiques d'une annee a l'autre). */
+const ANNEE_ECHANTILLONS_PARASOL = 2026;
+
 // Geometrie de l'ombre d'une toile circulaire horizontale, pour une position de soleil donnee :
 // le disque se projette en ellipse, decalee de h/tan(hauteur) a l'oppose du soleil et etiree de
 // 1/sin(hauteur) dans cette direction (la perpendiculaire, elle, garde le rayon de la toile).
 // Renvoie la geometrie PAR METRE de hauteur de mat, pour pouvoir la reutiliser telle quelle sur
 // n'importe quel parasol ou position candidate sans refaire le calcul solaire.
 export function echantillonsSoleilParasol(ctx: ContexteSoleil): EchantillonSoleil[] {
-  const annee = parseInt(ctx.dateStr.slice(0,4),10) || new Date().getFullYear();
+  // Une annee de reference, pas celle de la date affichee ni de l'horloge : le placement d'un parasol
+  // echantillonne toute la saison (PARASOL_MOIS), et doit etre le meme d'une annee a l'autre.
+  const annee = ANNEE_ECHANTILLONS_PARASOL;
   const lieu = ctx.lieu;
   const out: EchantillonSoleil[] = [];
   PARASOL_MOIS.forEach(m=>{

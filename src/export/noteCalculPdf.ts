@@ -9,8 +9,10 @@ import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, 
 import { ALU, BOIS, noteDeCalcul, TERRAINS, VB0, type NoteCalcul } from '../engine/noteCalcul.js';
 import { A4_H, A4_L, MARGE_PDF, assemblerPDF, pdfPolygone, pdfTexte, type PagePdf } from './pdf/writer.js';
 import type { ObjetPlan } from '../model/types.js';
+import { dateFr } from '../util/format.js';
 
-export interface MetaNote { appVersion: string; nomProjet?: string | null | undefined; date?: Date }
+/** `date` : l'heure de l'export (date ecrite, /CreationDate) ; `buildAt` : le build du programme (/Info). */
+export interface MetaNote { appVersion: string; nomProjet?: string | null | undefined; date?: Date; buildAt?: string }
 
 /** Ce que la police du PDF sait ecrire : les symboles deviennent leur equivalent ASCII. */
 export function enAscii(t: string): string {
@@ -78,7 +80,7 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
   const calc = calculerPergola(o);
   if (!n || !calc || !n.charges) return null;
   const r = calc.reglages, h = n.hypotheses, ch = n.charges;
-  const date = (meta.date ?? new Date()).toLocaleDateString('fr-FR');
+  const date = dateFr(meta.date ?? new Date());
   const f = new Flux('Note de calcul - ' + libelleAbri(o) + ' ' + o.name + ' - Plan interactif ' + meta.appVersion + ' - ' + date);
 
   f.texte('Note de calcul de pré-dimensionnement', 16);
@@ -138,7 +140,7 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
   f.titre('8. Limites de cette note');
   n.limites.forEach(t => f.puce(t));
   f.finirPage();
-  return { pdf: assemblerPDF(f.pages), pages: f.pages.length };
+  return { pdf: assemblerPDF(f.pages, { appVersion: meta.appVersion, ...(meta.buildAt ? { buildAt: meta.buildAt } : {}), ...(meta.date ? { maintenant: meta.date } : {}) }), pages: f.pages.length };
 }
 
 /** La note est-elle exportable ? Ses regions de neige et de vent sont choisies. */
