@@ -60,3 +60,52 @@ jobs:
           done
           echo "total : $total octets (limite 5242880)"
           test "$total" -le 5242880
+
+  # La fumee pilotee, en petit : le lot `ci` de scripts/fumee.mjs (douze points du coeur : plan,
+  # inspecteur, chiffrage, export, fichier, Vue 3D, reseau rejoue, audit, admin), au bureau en theme
+  # clair, Vue 3D en Econome. Job a part, en parallele de `verifier` : il ne le ralentit pas. Chaque
+  # point a son delai (FUMEE_DELAI_POINT) : un point qui pend echoue sous son nom, bien avant la
+  # coupure du job.
+  fumee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # La version deja employee en local (`npm root -g`) : la fumee ne suit pas une version flottante.
+      PLAYWRIGHT_VERSION: 1.56.1
+      FUMEE_CAPTURES: fumee-captures
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Playwright et Chromium
+        # Hors du paquet : le script resout `playwright` par NODE_PATH, comme sur un poste.
+        run: |
+          npm install -g "playwright@${PLAYWRIGHT_VERSION}"
+          playwright install --with-deps chromium
+      - name: Serveur de developpement
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$FUMEE_CAPTURES"
+          BACKPROD_API_URL=http://plateforme.test nohup npx vite --port 5199 --strictPort > "$FUMEE_CAPTURES/vite.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:5199/; then echo "Vite repond apres ${i} s"; exit 0; fi
+            sleep 1
+          done
+          echo "Vite ne repond pas sur le port 5199"; cat "$FUMEE_CAPTURES/vite.log"; exit 1
+      - name: Fumee, lot ci
+        shell: bash
+        run: |
+          set -o pipefail
+          NODE_PATH="$(npm root -g)" node scripts/fumee.mjs http://localhost:5199 ci 2>&1 | tee "$FUMEE_CAPTURES/journal.txt"
+      - name: Captures et journaux de la fumee
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fumee-captures
+          path: fumee-captures/
+          if-no-files-found: ignore
+          retention-days: 14

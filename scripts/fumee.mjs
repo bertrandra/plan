@@ -13,9 +13,13 @@
 //
 // FUMEE_CLASSES=large FUMEE_THEMES=light : une partie des classes d'ecran et des themes.
 // FUMEE_PARALLELE=3 : parties jouees a la fois. FUMEE_RESEAU : voir scripts/fumee-reseau.mjs.
+// FUMEE_QUALITE_3D=econome : le niveau de la Vue 3D pose dans le navigateur avant l'ouverture.
+// FUMEE_DELAI_POINT=150 : un point qui ne conclut pas en 150 s echoue, nomme, au lieu de pendre.
+// FUMEE_CAPTURES=dossier : la page de chaque point en echec, en PNG, pour la lire apres coup.
+// FUMEE_LOT=ci (ou l'argument `ci`) : le lot joue a chaque PR, avec ses reglages (LOTS, plus bas).
 
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync, existsSync, mkdtempSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdtempSync, mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { cpus, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,8 +31,48 @@ let chromium;
 try { ({ chromium } = require('playwright')); }
 catch { ({ chromium } = require('/opt/node22/lib/node_modules/playwright')); }
 
-const choisis = process.argv.slice(3).map(Number).filter(Boolean);
 const THEMES = ['light', 'dark'];
+
+/**
+ * Les lots nommes : une liste de points et les reglages qui vont avec. Un reglage deja pose dans
+ * l'environnement l'emporte (pour rejouer le lot dans une autre classe, par exemple).
+ *
+ * `ci` est le lot joue a chaque PR par le job `fumee` (.github/workflows/ci.yml) : le coeur de
+ * l'outil, un point par usage, au bureau en theme clair, Vue 3D en Econome (le rendu logiciel de la
+ * CI coute 1 a 3 s par image : en Normale le seul point 23 passe de 45 s a plus de trois minutes),
+ * reseau de l'IGN rejoue (aucune dependance a l'IGN), un delai par point pour qu'un point qui pend
+ * echoue sous son nom. Chaque point a ete retenu stable (trois passages verts de suite en local) et
+ * court (moins d'une minute joue seul) :
+ *   1   glisser un sommet de la terrasse : le geste de base du plan, mesure au pixel ;
+ *   49  l'inspecteur : longueur d'un cote, angle d'un coin, et deux Ctrl+Z exacts ;
+ *   17  la nomenclature chiffree se recalcule a un changement d'entraxe, et revient a l'annulation ;
+ *   18  le debit des lames (barres, chutes, abouts) ;
+ *   20  l'implantation : autant d'appuis numerotes que de plots au BOM ;
+ *   25  l'export du dossier PDF (trois pages) ;
+ *   99  le fichier du projet : exporte en JSON, rouvert par le menu Fichier, le plan revient a l'identique ;
+ *   22  la Vue 3D s'ouvre : three.js (servi localement) charge, canevas dessine ;
+ *   97  une interaction de la Vue 3D : mode Toit, un panneau solaire pose, valide, un Ctrl+Z le retire ;
+ *   14  le reseau rejoue : import d'une parcelle par adresse (point 12), orthophoto, et le projet
+ *       enregistre en JSON porte le reglage ;
+ *   60  l'audit de la parcelle, la liste de controle (rien n'entre dans le projet) ;
+ *   57  un ecran d'admin : Consommation de Claude (graphique, tri, export CSV, tarifs).
+ * Ecartes : 23 (points de vue 3D), qui rate un passage sur quatre en Econome, l'image du rappel
+ * changeant avec les tuiles qui arrivent ; 93 (Admin › Regles), qui echoue aujourd'hui sur `main` ;
+ * le GLB (24, deux minutes de rendu logiciel) ; les releves de facade (photos de synthese a generer,
+ * longues attentes) ; les points du telephone.
+ */
+const LOTS = {
+  ci: {
+    points: [1, 49, 17, 18, 20, 25, 99, 22, 97, 14, 60, 57],
+    reglages: { FUMEE_CLASSES: 'large', FUMEE_THEMES: 'light', FUMEE_RESEAU: 'temoin', FUMEE_QUALITE_3D: 'econome', FUMEE_DELAI_POINT: '150', FUMEE_PARALLELE: '1' }
+  }
+};
+const argsPoints = process.argv.slice(3);
+const nomLot = process.env.FUMEE_LOT || argsPoints.find((a) => LOTS[a]);
+if (nomLot && !LOTS[nomLot]) throw new Error(`lot inconnu : ${nomLot} (lots : ${Object.keys(LOTS).join(', ')})`);
+const lot = nomLot ? LOTS[nomLot] : null;
+if (lot) for (const [k, v] of Object.entries(lot.reglages)) if (!process.env[k]) process.env[k] = v;
+const choisis = lot ? lot.points : argsPoints.map(Number).filter(Boolean);
 
 // ---- Aides cote page -----------------------------------------------------------------------------
 
@@ -3283,6 +3327,33 @@ const POINTS = {
       && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
       && recues.length === 1 && d.usage === 'renfort' && d.requetes.length === 3 && images === 2 && /^Claude (propose|confirme)/.test(message) && !deborde;
     return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  99: async (page) => {
+    // Le fichier du projet : Fichier › « Exporter le projet (JSON) », un sommet de la terrasse tire,
+    // puis Fichier › « Importer un projet (JSON) » de ce meme fichier (« Remplacer le plan actuel »,
+    // coche par defaut). Le plan doit revenir a l'identique : memes objets, memes sommets, memes cotes.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const empreinte = (e) => JSON.stringify({ objets: e.objects.map((o) => [o.key, o.name, o.pts]), cotes: e.measures.length });
+    const depart = await lireEtat(page);
+    const octets = await etape('exporter', () => telechargerOctets(page, () => entreeFichier(page, 'fichier.exporterJson'), 20000));
+    const fichier = JSON.parse(octets.toString('utf8'));
+    await selectionner(page, TERRASSE);
+    const terr = objet(await lireEtat(page), (o) => o.name === 'Terrasse');
+    const i = terr.pts.findIndex((_, k) => !(terr.frozenVertices || [])[k]);
+    await glisser(page, await centreDe(page, `[data-role="point"][data-key="${terr.key}"][data-index="${i}"]`), 30, 20);
+    const modifie = await lireEtat(page);
+    const [choix] = await etape('importer', () => Promise.all([page.waitForEvent('filechooser', { timeout: 15000 }), entreeFichier(page, 'fichier.importerJson')]));
+    await choix.setFiles({ name: 'projet.json', mimeType: 'application/json', buffer: octets });
+    const attendu = empreinte(depart);
+    await page.waitForFunction((a) => {
+      const e = window.__plan.etat();
+      return JSON.stringify({ objets: e.objects.map((o) => [o.key, o.name, o.pts]), cotes: e.measures.length }) === a;
+    }, attendu, { timeout: 20000 }).catch(() => {});
+    const rouvert = await lireEtat(page);
+    const avantModif = empreinte(modifie) !== attendu;
+    const revenu = empreinte(rouvert) === attendu;
+    const ok = Array.isArray(fichier.objects) && fichier.objects.length === depart.objects.length && avantModif && revenu;
+    return { ok, mesure: `exporté : ${octets.length} octets, ${Array.isArray(fichier.objects) ? fichier.objects.length : '?'} objets (plan : ${depart.objects.length}) ; sommet ${i} tiré : plan ${avantModif ? 'modifié' : 'INCHANGÉ'} ; rouvert : ${revenu ? 'identique au fichier' : 'DIFFÉRENT (' + rouvert.objects.length + ' objets)'}` };
   }
 };
 
@@ -3316,7 +3387,8 @@ function pointsPour(nomClasse) {
   // 93 : Admin › Regles : les sujets de l'audit, le prompt et le schema recalcules en direct.
   // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit. 96 : Admin › Principes.
   // 97 et 98 : le mode Toit, son panneau, et le corps choisi (seule cible des gestes, silhouette tracee, poignee de deplacement).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98];
+  // 99 : le fichier du projet, exporte en JSON puis rouvert par le menu Fichier.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
@@ -3351,23 +3423,41 @@ async function jouer(navigateur, net, { f, theme, n }) {
   await net.brancher(contexte);
   const page = await contexte.newPage();
   await servirThreeLocal(page);
+  // Le niveau de la Vue 3D est une preference de l'appareil, lue dans le navigateur (app/ecouteurs/vue3d.ts).
+  const qualite = process.env.FUMEE_QUALITE_3D;
+  if (qualite) await page.addInitScript((q) => { try { localStorage.setItem('plan.qualite3d', q); } catch { /* stockage absent : niveau detecte */ } }, qualite);
   const erreurs = [];
   page.on('pageerror', (e) => erreurs.push(e.message));
   page.on('dialog', (d) => d.accept());
+  // Un point qui ne conclut pas dans le delai echoue sous son nom : sans cela, une attente sans fin
+  // ne se lisait qu'a la coupure du job, sans dire quel point pendait ni ou.
+  const delai = Number(process.env.FUMEE_DELAI_POINT) * 1000;
+  let minuteur;
+  const borne = delai > 0
+    ? new Promise((_, rejeter) => { minuteur = setTimeout(() => rejeter(new Error(`délai dépassé : le point n'a pas conclu en ${delai / 1000} s`)), delai); })
+    : null;
   let r;
   try {
-    await ouvrirDemo(page);
-    r = await POINTS[n](page, f);
+    const partie = (async () => { await ouvrirDemo(page); return POINTS[n](page, f); })();
+    // Apres le delai, la partie abandonnee echoue a la fermeture du contexte : rien ne l'attend plus.
+    partie.catch(() => {});
+    r = await (borne ? Promise.race([partie, borne]) : partie);
   } catch (e) {
-    r = { ok: false, mesure: 'erreur du script : ' + e.message.split('\n')[0].slice(0, 160) };
+    r = { ok: false, mesure: (/^délai dépassé/.test(e.message) ? '' : 'erreur du script : ') + e.message.split('\n')[0].slice(0, 160) };
+  } finally {
+    clearTimeout(minuteur);
   }
   const bruit = erreurs.filter((m) => !/bibliotheque 3D/.test(m));
   if (bruit.length && r.ok) r = { ok: false, mesure: r.mesure + ' ; erreur de page : ' + bruit[0].slice(0, 120) };
+  if (r.ok === false && process.env.FUMEE_CAPTURES) {
+    mkdirSync(process.env.FUMEE_CAPTURES, { recursive: true });
+    await page.screenshot({ path: join(process.env.FUMEE_CAPTURES, `${f.nom}-${theme}-${n}.png`), timeout: 15000 }).catch(() => {});
+  }
   await contexte.close().catch(() => {});
   return r;
 }
 
-const ligne = (r) => `${r.classe.padEnd(7)} ${r.theme.padEnd(5)} ${String(r.n).padStart(2)} ${r.ok === true ? 'OK  ' : r.ok === false ? 'ÉCHEC' : '—   '} ${r.mesure}`;
+const ligne = (r) => `${r.classe.padEnd(7)} ${r.theme.padEnd(5)} ${String(r.n).padStart(2)} ${r.ok === true ? 'OK  ' : r.ok === false ? 'ÉCHEC' : '—   '} ${String(r.secondes).padStart(3)} s  ${r.mesure}`;
 
 /**
  * `FUMEE_PARALLELE` parties a la fois (par defaut, une par tranche de quatre coeurs, entre 1 et 4) :
@@ -3388,8 +3478,9 @@ async function principal() {
     while (suivante < aJouer.length) {
       const i = suivante++;
       const p = aJouer[i];
+      const t0 = Date.now();
       const r = await jouer(navigateur, net, p);
-      resultats[i] = { classe: p.f.nom, theme: p.theme, n: p.n, ...r };
+      resultats[i] = { classe: p.f.nom, theme: p.theme, n: p.n, ...r, secondes: Math.round((Date.now() - t0) / 1000) };
       console.log(ligne(resultats[i]));
     }
   };

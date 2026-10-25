@@ -37,6 +37,21 @@ virgules) n'en jouent qu'une partie, pour le travail au quotidien ; `FUMEE_PARAL
 parties à la fois (par défaut une par tranche de quatre cœurs, quatre au plus). Le passage complet, toutes classes
 et tous thèmes, reste celui d'avant une fusion.
 
+**Le lot `ci`, joué à chaque PR** (25 octobre 2026). Douze points du cœur — **1** (glisser un sommet),
+**49** (inspecteur et deux Ctrl+Z), **17** (nomenclature chiffrée), **18** (débit), **20** (implantation),
+**25** (dossier PDF), **99** (fichier du projet exporté puis rouvert), **22** (ouverture de la Vue 3D),
+**97** (mode Toit : un panneau solaire posé, validé, retiré), **14** (import par adresse et orthophoto,
+réseau rejoué), **60** (audit de la parcelle) et **57** (Admin › Consommation) — joués par le job
+`fumee` de `.github/workflows/ci.yml`, au bureau en thème clair, Vue 3D en Économe, réseau témoin, un
+délai de 150 s par point (un point qui pend échoue sous son nom). En local, exactement comme la CI :
+`BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 --strictPort`, puis
+`NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 ci` (ou `FUMEE_LOT=ci`) :
+environ deux minutes. `FUMEE_CAPTURES=dossier` y range la page de chaque point en échec. Écartés :
+**23**, qui rate un passage sur quatre en Économe (l'image du rappel change avec les tuiles qui
+arrivent), **93**, qui échoue aujourd'hui sur `main`, **24** (deux minutes de rendu logiciel) et les
+relevés de façade. La justification point par point est en tête de `LOTS`, dans `scripts/fumee.mjs`.
+Un point retiré du lot parce qu'il devient instable est remplacé, jamais assoupli.
+
 ## Manipulation directe du plan
 
 | # | Geste | Attendu |
@@ -158,6 +173,7 @@ et tous thèmes, reste celui d'avant une fusion.
 | 82 | Masque d'occlusion hachuré (lot G20), route `admin/claude/messages` simulée, connecté par le jeton de la plateforme : relever une façade de la maison avec deux photos du même mur, de face puis de biais, une camionnette vitrée devant qui se déplace d'une vue à l'autre sans dégager le milieu du mur ; « Vues du mur entier », poser au doigt les quatre coins de chaque vue, Analyser ; « Demander de l’aide », « Envoyer la photo à Claude » | à « Vérifier », la part du mur cachée sur les deux vues est hachurée (traits à la couleur d'alerte du relevé sur un voile, lisibles dans les deux thèmes), sous les ouvertures ; sous l'élévation, la légende « Hachuré : caché sur toutes les photos par ce qui est devant le mur (voiture, haie…), N % du mur. » ; « Demander de l’aide » est proposé (il ne l'était jamais sur plusieurs photos) et la note dit « N % du mur caché sur toutes les photos » ; l'envoi porte trois passes `renfort` avec deux images (la vue de référence et sa grille, l'élévation fondue, masque hachuré) ; la réponse dit ce que Claude propose ou confirme ; rien ne déborde, dans les trois classes et les deux thèmes. Le découpage du masque en zones et la légende sont joués aussi sous jsdom (`tests/unit/zones/releveMasque.test.ts`) |
 | 76 | Admin › Conformité (lot G3), routes `admin/…` simulées : un audit de parcelle reçu (AE 101 vu « en croupes ») ; ouvrir `?admin&ecran=conformite` ; parcourir « Par forme », « Par région », « Par problème », « Cas », « Accord de Claude » | l'état dit « 2 cas du corpus · 1 audit reçu (1 bâtiment) » une fois l'audit rejoué ; « Conformité des toits » 33 % (« 1 conforme sur 3 cas jugés » : AE 101 tient son attendu ; le pavillon de la longère d'Hucqueliers est toujours découpé en morceaux ; AE 101 vu en croupes est lu en deux pans), « Cas observés » 3 / 50, « Formes hors calcul » 0 / 10 ; « Conformité des façades » (sans façade relevée dans cet audit) et « Accord de Claude » disent « À venir » ; la colonne Façades des tableaux par forme et par problème dit « — » (le taux des façades se lit par région) ; par forme Deux pans 100 %, Quatre pans (croupes) 0 %, Forme non notée 0 % ; par région Yvelines (78) et Pas-de-Calais (62) ; le cas de l'audit dit « lu deux-pans » ; cinq attributs de Claude ; rien ne déborde, dans les trois classes et les deux thèmes |
 | 77 | Admin › Conformité (lot G3) : un second audit reçu d'une version plus récente ; « Enregistrer la mesure » ; onglet « Historique » ; « Relire les audits » | l'audit illisible est nommé (« Illisible 20261014-110000-0000beef : Ce fichier d'audit vient d'une version plus récente de Plan… ») sans arrêter l'autre ; pendant le rejeu, « Enregistrer la mesure » est grisé et dit « Attendez la fin du rejeu des audits reçus. » ; la mesure part en un seul `POST admin/conformite` (`plan-conformite-mesure`, corpus 2, audits 1, 1 conforme sur 3, façades et Claude à `null`, l'état de chaque cas) et « Mesure enregistrée sur le serveur. » paraît ; l'historique la montre (33 %) ; « Relire les audits » relit la liste du serveur ; rien ne déborde |
+| 99 | Le fichier du projet : Fichier › « Exporter le projet (JSON) », tirer un sommet de la terrasse, puis Fichier › « Importer un projet (JSON) » du même fichier (« Remplacer le plan actuel ») | le fichier porte tous les objets du plan ; après l'import, le plan revient à l'identique (mêmes objets, mêmes sommets, mêmes cotes) |
 
 ## Journal des passages
 
@@ -247,3 +263,4 @@ et tous thèmes, reste celui d'avant une fusion.
 | 2026-10-25 | Non publié — l'état de la Vue 3D n'a plus qu'un propriétaire (lot L, AD-14) | **22, 24, 38 : 7 passés sur 7 (trois classes, clair)** | Écritures de `three/etat3d.ts` hors de `three/` par fonctions nommées : soleil, visionneuse (le .glb garde ses 3 974 vues tampon, témoin 16/16), heure au curseur et feuille des réglages au téléphone. |
 | 2026-10-25 | Non publié — `app/` et `zones/` dans un seul sens (lot M, AD-16) | **58, 65 : 2 passés sur 2 (large, clair)** | La recherche des coins tourne depuis `app/releve/` : quatre coins trouvés, deux vues calées. |
 | 2026-10-25 | Non publié — les trois plus gros modules découpés (lot N, AD-17) | **1, 9, 12, 22, 24, 53, 58, 62, 86, 88 : 10 passés sur 10 (large, clair)** | `three/scene.ts`, `app/boot.ts` et le contrôleur de l'audit de parcelle découpés : gestes, annulation, cadastre, Vue 3D, GLB (3 974 vues tampon), contrôleurs, relevé, propositions, avant/après, vue épurée. |
+| 2026-10-25 | Non publié — le lot `ci` de la fumée | **lot `ci` : 12 passés sur 12, trois passages de suite** | Joué comme la CI (`node scripts/fumee.mjs URL ci` : bureau, thème clair, Économe, réseau témoin), 107 à 120 s par passage. **99** nouveau : 147 objets exportés (439 609 octets), plan modifié puis rouvert à l'identique. **23** : 3 passés sur 4 en Économe, écarté du lot. **93** échoue aussi sans les changements de cette branche (contrôles du prompt). Le témoin du réseau rendait l'origine du passage enregistré (`http://localhost:5199`) dans l'autorisation CORS : sur un autre port, 12 à 15 échouaient en « Failed to fetch » ; il rend désormais l'origine de la requête, comme l'IGN. |

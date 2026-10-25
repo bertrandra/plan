@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **La fumée pilotée jouée à chaque PR** (job `fumee` de la CI, en parallèle de `verifier`). Un lot de douze points du cœur
+  (`node scripts/fumee.mjs URL ci`) : glisser un sommet, inspecteur, nomenclature chiffrée, débit, implantation, dossier PDF,
+  fichier du projet exporté puis rouvert (point 99, nouveau), ouverture de la Vue 3D et mode Toit, import par adresse et
+  orthophoto sur le réseau témoin, audit de la parcelle, Admin › Consommation. Au bureau, thème clair, Vue 3D en Économe
+  (`FUMEE_QUALITE_3D`), chaque point borné à 150 s (`FUMEE_DELAI_POINT`) : un point qui pend échoue sous son nom. En cas
+  d'échec, la page de chaque point raté et le journal sont téléversés (`FUMEE_CAPTURES`). Le témoin du réseau rend
+  l'origine de la requête dans l'autorisation CORS, comme l'IGN : les points 12 à 15 se jouent sur n'importe quel port.
+
 ### Modifié
 
 - **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la
