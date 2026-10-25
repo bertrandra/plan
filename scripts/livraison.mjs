@@ -8,7 +8,7 @@
 //
 //   index.html                 l'application, un seul fichier
 //   .htaccess                  en-tetes, politique de contenu, renvoi de `admin/…` vers admin.php
-//   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici)
+//   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici) et la sauvegarde de data/
 //   donnees.php                ou vivent les donnees (data/ a cote de public_html/), inclus par admin.php et analyse.php
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
 //   analyse.php                l'analyse par Claude (batch Anthropic, plafonds, journal), sous la session admin
@@ -173,6 +173,20 @@ Sur l'hebergement, trois choses voisines :
       (128M et 8M par defaut). Sans cela, un gros audit (dix facades de huit photos, environ 32 Mo)
       peut echouer en 500, et la page le dit sous « Envoyer l'audit au serveur ».
 
+   h. Sauvegarde : Plan ne jette rien, mais ne sauvegarde rien tout seul. Toutes les donnees sont
+      dans data/ (hors de public_html/) :
+      - Verifier que la sauvegarde automatique de l'hebergeur couvre bien ce dossier (chez
+        SiteGround : Site Tools > Security > Backups ; elle prend tout le compte, data/ compris,
+        et garde plusieurs jours). Y faire une sauvegarde manuelle avant une operation risquee.
+      - Menu Admin > « Telecharger une sauvegarde des donnees » (https://<hote>/admin/sauvegarde,
+        session admin) : une archive plan-data-AAAA-MM-JJ-HHMM.zip de tout data/ (demos, audits et
+        analyses de Claude, journal et reglages de Claude, palette, arbres, conformite), avec
+        sauvegarde.json (date, nombre de fichiers, taille). Ni la configuration ni la cle d'API n'y
+        sont. La telecharger AVANT chaque mise a jour de Plan, et la garder hors de l'hebergement.
+        Restaurer : extraire l'archive et remettre son dossier data/ a la place de celui du serveur.
+      - Sans l'extension PHP zip, la route repond 501 : l'activer dans Site Tools > Devs >
+        PHP Manager > PHP Extensions.
+
 3. Verifier :
    - https://<hote>/                 l'atelier (connexion plateforme) ; page blanche : la console
                                      du navigateur dit quel fichier manque
@@ -182,6 +196,7 @@ Sur l'hebergement, trois choses voisines :
    - https://<hote>/admin/claude/etat   401 sans session ; avec la session admin, "actif": true
                                        si la cle Anthropic est posee, et "donnees" (2.e)
    - https://<hote>/admin/consommation  401 sans session ; avec, le journal des 30 derniers jours
+   - https://<hote>/admin/sauvegarde    401 sans session ; avec, l'archive zip de data/ (2.h)
    - https://<hote>/?mode=demo&file=1   la vitrine publique sur la demo 1 (sans mot de passe)
    - https://<hote>/admin/vitrine/1     le JSON de la demo 1, sans mot de passe ; sinon la vitrine
                                        montre la demonstration integree, et la reponse dit pourquoi
