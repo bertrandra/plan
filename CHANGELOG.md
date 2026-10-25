@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
+  fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
+  enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour
+  le modèle » le propose. Les démos livrées passent au 5. **La plateforme doit accepter 5 avant le dépôt** : backprod le déclare
+  depuis bertrandra/backprod#236, mais la ligne `project_schema_versions` de la production et du monde d'essai se règle à la
+  console (preflight signale l'écart) ; sinon chaque enregistrement de ces projets répond 422.
+
 - **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la
   construction de la Vue 3D ; la terrasse, les objets du plan et ce que l'on fait d'une scène déjà bâtie (remplacer, comparer,
   surligner, épurer, viser) ont chacun leur module. `app/audit/parcelle/controleur.ts` garde la session de l'audit ; les capteurs,
