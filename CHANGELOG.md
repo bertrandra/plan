@@ -5,6 +5,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [3.0.0] — 2026-10-25
+
+Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des quantités changent pour certains projets.
+
+- **Projets avec relief** : les plots, poteaux, fouilles et remblais suivent le sol en pente (phase 2
+  du relief, ci-dessous). Un projet sans relief garde exactement ses nombres.
+- **Terrasses sur dalle béton à couler**, sans niveau fini imposé : un décaissement de pose de la
+  hauteur du plot entre au BOM et au chantier, et la hauteur finie baisse d'autant.
+- Le schéma des projets reste à 4 : la plateforme n'a rien à changer pour cette version.
+- Les exports du plan de démonstration ne bougent qu'à leur numéro de version et à la date de build
+  (preuve forte dans `tests/fixtures/golden/EMPREINTES.md`).
+
 ### Ajouté
 
 - **Intégrité des scripts chargés depuis le CDN.** three.js et ses exemples, EZ-tree, model-viewer et pdf-lib se chargent avec leur empreinte (SRI, sha384) : un CDN compromis ne peut plus servir autre chose (`util/integriteCdn.ts`, champ `integrity` de la table d’import, attribut de la balise de pdf-lib). Un navigateur qui ne connaît pas l’intégrité de la table d’import l’ignore. Un test recalcule les empreintes depuis `node_modules` et exige celle de chaque adresse chargée : monter une version demande de les recalculer.

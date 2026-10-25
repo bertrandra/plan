@@ -66,6 +66,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 | `2.0.2` | Le premier pas : à l'ouverture sans plan, Plan demande par quoi commencer au lieu de fabriquer la démonstration en silence | Six témoins recapturés, dette de la `2.0.1` refermée, preuve forte contre la capture du 23/09 faite derrière une vraie plateforme — ✅ 25/09/2026 |
 | `2.1.0` | Feature catalog and entitlements | Server-side enforcement tests green |
 | `2.2.0` | Tenant branding | Contrast and sanitisation tests green |
+| `3.0.0` | Le relief et la dalle béton à couler changent des quantités (MAJOR) ; relevé de façade, audit de parcelle, toits par le moteur de règles, three.js 0.186 | Témoins recapturés avec la preuve forte (ancien numéro remis → anciens octets au bit près, sauf la seconde de `/CreationDate` des deux PDF capturés au navigateur, neutralisée) ; schéma inchangé (4) — ✅ 25/10/2026 |
 
 ---
 
