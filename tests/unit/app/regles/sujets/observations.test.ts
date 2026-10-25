@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { observerSujets } from '../../../../src/app/regles/sujets/observations.js';
-import { SUJETS } from '../../../../src/app/regles/sujets/index.js';
-import { DESCRIPTIONS_SUJETS } from '../../../../src/regles/sujets/liste.js';
-import { insererAvantLaFin, nouveauSujet } from '../../../../src/regles/sujets/edition.js';
-import { champsSimples } from '../../../../src/regles/sujets/vote.js';
-import { voter } from '../../../../src/model/analyseClaude.js';
-import { reponse } from '../../../fixtures/audit/reponseClaude.js';
-import type { ObjetPlan } from '../../../../src/model/types.js';
-import type { ReponseAnalyse } from '../../../../src/model/analyseClaude.js';
+import { observerSujets } from '../../../../../src/app/regles/sujets/observations.js';
+import { SUJETS } from '../../../../../src/app/regles/sujets/index.js';
+import { DESCRIPTIONS_SUJETS } from '../../../../../src/regles/sujets/liste.js';
+import { insererAvantLaFin, nouveauSujet } from '../../../../../src/regles/sujets/edition.js';
+import { champsSimples } from '../../../../../src/regles/sujets/vote.js';
+import { voter } from '../../../../../src/model/analyseClaude.js';
+import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
+import type { ObjetPlan } from '../../../../../src/model/types.js';
+import type { ReponseAnalyse } from '../../../../../src/model/analyseClaude.js';
 
 // Les observations par le registre : chaque sujet dit comment il se montre (`Sujet.observer`), dans l'ordre
 // du prompt ; un sujet sans module, dont le champ est simple, se dit d'apres sa description.

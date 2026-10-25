@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { pdfEscape, assemblerPDF, pdfTexte, pdfPolygone, pdfCercle, echelleQuiTient, A4_L, A4_H } from '../../src/export/pdf/writer.js';
-import { dxfNum } from '../../src/export/dxf.js';
-import { niceStep } from '../../src/util/format.js';
+import { pdfEscape, assemblerPDF, pdfTexte, pdfPolygone, pdfCercle, echelleQuiTient, A4_L, A4_H } from '../../../src/export/pdf/writer.js';
+import { dxfNum } from '../../../src/export/dxf.js';
+import { niceStep } from '../../../src/util/format.js';
 
 describe('pdfEscape', () => {
   it('protege les parentheses et l antislash, qui delimitent les chaines PDF', () => {

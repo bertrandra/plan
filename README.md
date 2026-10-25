@@ -17,10 +17,11 @@ Version `2.2.0` : **le relevé de façade** — on photographie un mur d'un bât
 (`MD/spec-releve-facade.md`). Depuis la `2.1.0` (et sa révision `2.1.1`), **l'interface s'adapte au téléphone, à la tablette et au bureau**, en clair et en
 sombre (`MD/spec-ihm-mobile.md`) : sur téléphone, le plan occupe l'écran et chaque zone devient une
 feuille qui monte du bas ; sur tablette, les panneaux flottent sur le plan. Rien n'a été perdu en
-route — une carte d'exposition vérifiée par test place chacune des 59 commandes dans chaque classe
-d'écran — et aucun nombre n'a bougé. Elle s'appuie sur l'interface reconstruite par zones en `1.2.0`
+route — une carte d'exposition vérifiée par test (`src/app/exposition.ts`) place chaque commande dans
+chaque classe d'écran — et aucun nombre n'a bougé. Elle s'appuie sur l'interface reconstruite par zones en `1.2.0`
 (`MD/spec-ihm-zones.md`) et sur la connexion à la plateforme de la `2.0.0`. **La migration TypeScript est terminée** en `1.1.0` (21 septembre 2026). Le fichier
-HTML unique de 13 500 lignes est devenu un graphe de 115 modules typés sous la configuration stricte du
+HTML unique de 13 500 lignes est devenu un graphe de modules typés (115 à l'époque, plus de six cents
+aujourd'hui : la carte à jour est dans `MD/architecture.md` §5.2.6) sous la configuration stricte du
 compilateur (`MD/spec-migration-typescript.md`, journal dans `MD/MIGRATION-JOURNAL.md`). L'artefact
 livré est **produit par le build** et non plus édité à la main : `index.html`, et depuis le 10 octobre
 2026 son programme à côté, `assets/plan-<empreinte>.js`. Le fichier
@@ -36,7 +37,7 @@ Prérequis : Node 20 ou plus.
 npm ci
 npm run dev          # Vite sur index.html, rechargement à chaud
 npm run build        # produit dist/index.html, dist/assets/plan-<empreinte>.js et dist/.htaccess
-npm test             # 736 tests Vitest, dont la comparaison aux golden files
+npm test             # plusieurs milliers de tests Vitest, dont la comparaison aux golden files
 npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint sur src/ et tests/
 npm run cliquet      # le cliquet de rigueur, voir ci-dessous
@@ -51,12 +52,13 @@ node scripts/captures.mjs    # 36 captures : 390 / 820 / 1 440 px, clair et somb
 node scripts/fumee.mjs       # la liste de fumée (tests/CHECKLIST-FUMEE.md), pilotée et mesurée
 ```
 
-Pour ouvrir `plan.html` tel quel, sans Vite, il faut un serveur HTTP : en `file://` les navigateurs
-bloquent les appels aux API IGN, donc l'import cadastre, le PLU et l'orthophoto. Le script fourni
-suffit :
+Pour ouvrir le paquet construit sans le serveur de développement, il faut un serveur HTTP : en
+`file://` les navigateurs bloquent les appels aux API IGN, donc l'import cadastre, le PLU et
+l'orthophoto, et la page ne charge pas son programme `assets/plan-<empreinte>.js`. Vite en fournit un :
 
 ```bash
-pwsh -File servir.ps1     # puis http://localhost:8765/plan.html
+export BACKPROD_API_URL=http://plateforme.test   # lu aussi par vite preview
+npm run build && npx vite preview                # sert dist/
 ```
 
 ### Le cliquet de rigueur
@@ -73,35 +75,44 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 |---|---|
 | `src/engine/`, `src/geometry/` | Le cœur pur : données en entrée, données en sortie, ni DOM, ni réseau, ni horloge. C'est ce qui rend les quantités testables à l'égalité exacte. |
 | `src/model/` | Le document projet : `ObjetPlan` en union discriminée (polygone, chemin, cercle), cotes, construction, méta, et sa chaîne de migration de schéma. |
+| `src/regles/` | Le moteur de règles, partie contrat et données validées : réglages, profils, faits, décisions, descriptions des sujets de l'audit (`MD/architecture.md` §5.2.4). Les données elles-mêmes sont dans `regles/` à la racine. |
+| `src/plateforme/` | Le contrat de la plateforme backprod (`contrat.ts`, engendré) et la session. |
 | `src/geo/` | Projection locale, cadastre et PLU via la Géoplateforme IGN, géocodage BAN, course du soleil. |
+| `src/facade/` | Façades et toits : photos redressées, détection des ouvertures, toits LiDAR. `facade/regles/` porte les règles du moteur, `facade/releve/` la chaîne du relevé de façade. |
 | `src/render/`, `src/interaction/` | Rendu SVG du plan et gestes d'édition. |
-| `src/export/` | SVG, DXF, PDF (écrivain PDF fait main dans `pdf/`), dossier PDF, résumé. Aucune dépendance entrante. |
-| `src/three/` | Vue 3D avec three.js, chargé à la demande depuis un CDN. |
-| `src/ui/`, `src/shell/`, `src/styles/` | Panneaux, barre de projet, mise en page. |
-| `src/app/` | La racine de composition : `boot.ts` câble les écouteurs sur l'état. |
+| `src/export/` | SVG, DXF, PDF (écrivain PDF fait main dans `pdf/`, pdf-lib à la demande pour la déclaration préalable), dossier PDF, résumé. |
+| `src/three/` | Vue 3D. La bibliothèque three.js arrive à la demande depuis un CDN ; le code de `three/` est dans le programme. |
+| `src/ui/`, `src/shell/`, `src/styles/` | Descripteurs de champs, primitives d'affichage, feuille de style et jetons de couleur. |
+| `src/app/` | La racine de composition (`boot.ts`), le registre des commandes, l'audit, les écrans d'administration. |
+| `src/zones/` | Les zones de l'interface en React (Z1 à Z9), les écrans et le relevé. |
 | `src/core/`, `src/io/`, `src/util/` | État, historique d'annulation, lecture et écriture de projet, utilitaires. |
-| `tests/unit/` | Un dossier par module de `src/`. |
+| `tests/unit/` | Un dossier par couche de `src/`, en miroir. |
 | `tests/fixtures/golden/` | Les artefacts de référence et leurs empreintes (`EMPREINTES.md`). |
 | `contrat/` | La part du contrat de la plateforme que Plan utilise, épinglée à un commit. |
 | `deploy/htaccess.template` | La configuration Apache de la racine web, complétée au build (origine de la plateforme, cadres de la vitrine). |
 | `deploy/scripts-page.mjs` | Sort le programme de la page au build : `assets/plan-<empreinte>.js`, couvert par `script-src 'self'`. |
+| `deploy/*.php` | Le côté serveur livré avec la page : admin des démos, relais de l'analyse par Claude, données du serveur (`data/`, hors de la racine web). |
+| `livraison/` | La livraison construite depuis `main` (`npm run livraison`), versionnée ; `livraison.zip` ne l'est pas. |
+| `buildsg/` | Second déploiement : les mêmes sources servies par Node (`app.js`). |
 | `legacy/` | Le fichier HTML d'origine, figé, jamais modifié. |
 | `MD/` | Toute la documentation, voir ci-dessous. |
 
 ## Déploiement
 
-Copier deux choses sur un hébergement statique : `dist/index.html` (renommé `plan.html` si l'URL
-doit rester la même) et `dist/.htaccess`. Plus de PHP, plus de dossier `data/` : depuis la `2.0.0`
-les projets vivent chez la plateforme backprod, décrite par
-[`MD/spec-connexion-plateforme.md`](MD/spec-connexion-plateforme.md). Le build exige l'origine de
-la plateforme et refuse de produire un fichier sans elle.
+La livraison est un dossier, construit depuis `main` :
 
 ```bash
-BACKPROD_API_URL=https://votre-plateforme npm run build
+BACKPROD_API_URL=https://votre-plateforme npm run livraison   # livraison/ et livraison.zip
 ```
 
-Le `plan.html` et le `.htaccess` à la racine du dépôt sont ces mêmes sorties de build, copiées à
-chaque palier.
+Il porte `index.html`, son programme `assets/plan-<empreinte>.js` (les deux vont ensemble : sans le
+dossier `assets/` de la même livraison, la page reste blanche), le `.htaccess`, et les scripts PHP
+de `deploy/` (admin des démos, relais de l'analyse par Claude). Leurs données vivent dans un dossier
+`data/` placé **hors** de la racine web ; la marche à suivre est dans
+`livraison/LISEZMOI-DEPLOIEMENT.txt`. Les projets, eux, vivent chez la plateforme backprod depuis la
+`2.0.0`, décrite par [`MD/spec-connexion-plateforme.md`](MD/spec-connexion-plateforme.md). Le build
+exige l'origine de la plateforme et refuse de produire un fichier sans elle. L'ancienne adresse
+`/plan.html` est redirigée vers la racine par le `.htaccess`.
 
 **Le `.htaccess` n'est pas optionnel.** Il est produit par le build à partir de
 [`deploy/htaccess.template`](deploy/htaccess.template), et il porte trois choses qu'une copie de
@@ -111,14 +122,15 @@ fichiers seule ne donne pas :
   web : `GET /data/<id>.json` rendait le projet entier sans passer par l'API, constaté en ligne le
   22 septembre 2026. Les deux ont disparu à la `2.0.0`, la règle reste : un hébergement qui garde
   d'anciens fichiers ne les sert pas pour autant.
-- **Il coupe le cache sur `plan.html`.** Le fichier livré porte toujours le même nom : c'est
+- **Il coupe le cache sur la page (`index.html`).** Le fichier livré porte toujours le même nom : c'est
   exactement celui qu'il ne faut pas mettre en cache. Il était servi avec six mois de validité, donc
   une mise en ligne n'atteignait pas les gens qui reviennent.
-- **Il pose les en-têtes de sécurité**, dont une politique de contenu qui nomme le programme par son
-  empreinte SHA-256 plutôt que d'autoriser l'inline en bloc. L'empreinte change à chaque build,
-  d'où la génération : un `.htaccess` recopié d'un build précédent empêche la page de s'exécuter.
+- **Il pose les en-têtes de sécurité**, dont une politique de contenu qui n'autorise pas l'inline
+  en bloc : le programme est servi depuis `assets/` (`script-src 'self'`), et un script resté en
+  ligne n'est admis que par son empreinte SHA-256, calculée au build. Depuis le 10 octobre 2026, un
+  `.htaccess` d'une version précédente ne bloque plus la page, mais il reste celui du build à déposer.
 
-Après chaque mise en ligne, onze contrôles vérifient ce que le serveur rend vraiment — l'empreinte
+Après chaque mise en ligne, une série de contrôles vérifie ce que le serveur rend vraiment — l'empreinte
 du fichier servi, les en-têtes, le cache, et `data/` fermé :
 
 ```bash
@@ -155,7 +167,7 @@ ajoutée au code sans être ajoutée au modèle casse la fonction en production 
 ## Versionnement
 
 Trois numéros indépendants : l'application (`package.json`, SemVer), le schéma du projet
-(`src/model/schema.ts`, entier monotone) et l'API (préfixe d'URL). La règle qui porte tout :
+(`SCHEMA_VERSION` dans `src/model/version.ts`, entier monotone) et l'API (préfixe d'URL). La règle qui porte tout :
 **tout écart dans les golden files qui n'est pas expliqué par une fonctionnalité voulue est une
 version majeure.** Le vocabulaire du domaine reste en français (lambourde, entraxe, débit, plot,
 vis), traçable au NF DTU 51.4.

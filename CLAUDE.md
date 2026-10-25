@@ -20,9 +20,13 @@ Ce que lance la CI (`.github/workflows`, job `verifier`) — tout doit passer en
 npm run typecheck && npm run lint && npm run cliquet && npm run gate:client && npm test
 ```
 
-- `tests/unit/architecture.test.ts` impose les couches : `util/shell` → `geometry` → `model` →
-  `engine/geo/facade` → `core/io/render/export/three/interaction` → `ui` → `app/zones`. Une couche
-  n'importe jamais une couche plus haute.
+La CI construit ensuite le paquet (`BACKPROD_API_URL=http://plateforme.test npm run build`), lance
+`npm run verifier-paquet` (aucun secret dans les fichiers livrés) et vérifie le budget de 5 Mo
+(FF-5 : `dist/index.html` + `dist/assets/*.js`).
+
+- `tests/unit/architecture.test.ts` impose les couches : `util/shell` → `geometry` →
+  `model/plateforme/regles` → `engine/geo/facade` → `core/io/render/export/three/interaction` → `ui`
+  → `app/zones`. Une couche n'importe jamais une couche plus haute.
 - `tests/unit/plateforme/contrat.test.ts` ne dépend pas de `BACKPROD_API_URL` : la suite doit passer
   avec et sans la variable (elle reste exportée après un build).
 

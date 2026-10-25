@@ -13,7 +13,7 @@ The product ships one artefact but has three independent compatibility contracts
 | Stream | Identifier | Contract it protects | Lives in |
 |---|---|---|---|
 | **Application** | `APP_VERSION` — `MAJOR.MINOR.PATCH` | What the user sees and does | `package.json` |
-| **Project schema** | `SCHEMA_VERSION` — integer, monotonic | The persisted project JSON (`objects`, `measures`, `construction`, `meta`) | `src/model/schema.ts` |
+| **Project schema** | `SCHEMA_VERSION` — integer, monotonic | The persisted project JSON (`objects`, `measures`, `construction`, `meta`) | `src/model/version.ts` |
 | **API** | `API_VERSION` — `v1`, `v2` in the URL path | The HTTP contract between client and backend | route prefix |
 
 They move at different speeds. A typical year: ~30 app releases, 3–4 schema bumps, 0–1 API version.
@@ -216,7 +216,7 @@ feat(export)!: nouvelle structure des entités DXF
 
 The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture diff is MAJOR) cannot be derived from a commit message, so the release manager checks the fixture diff before accepting the bump.
 
-CI enforces: commit message format, and that a `feat` or breaking change carries a `CHANGELOG.md` diff.
+**What actually happens today (25 octobre 2026).** Nothing in CI checks the commit message format or that a change carries a `CHANGELOG.md` diff (§9 of `architecture.md`, FF-13, has no mechanism). Commits are written in French — a short title, then the why (`CLAUDE.md`, Conventions) — not in the conventional-commit form above, and no tool proposes the bump: the release manager reads the `## [Non publié]` section of `CHANGELOG.md` and the golden-fixture diff, and decides. The changelog entry is written in the PR by convention (`CLAUDE.md`, « Circuit d'une modification »), checked at review.
 
 ---
 
@@ -224,9 +224,9 @@ CI enforces: commit message format, and that a `feat` or breaking change carries
 
 ### 8.1 Branches
 
-- `main` — always releasable, protected, linear history.
+- `main` — always releasable, protected; nobody pushes to it directly.
 - `release/x.y` — cut only when a hotfix must ship without the `main` head. Deleted after the backport.
-- Feature branches merge by squash.
+- Feature branches (`claude/<sujet>`) merge by pull request with a **merge commit**, never squash: the branch's commits, with their why, stay readable in `main`'s history (`CLAUDE.md`, « Circuit d'une modification »).
 
 ### 8.2 Checklist
 
