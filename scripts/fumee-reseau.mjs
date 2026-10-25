@@ -127,15 +127,22 @@ export function reseau(mode, dossier = DOSSIER_FUMEE) {
       // en depend. `FUMEE_LATENCE=0` rejoue tout sans attendre, au prix de cette fidelite.
       if (e && LATENCE && e.duree > 0) await new Promise((r) => setTimeout(r, Math.min(e.duree, LATENCE_MAX_MS)));
       // Un echec enregistre (coupure, refus) se rejoue en echec.
-      if (e && e.echec) return route.abort('failed');
+      if (e && e.echec) return route.abort('failed').catch(() => {});
       if (e && existsSync(DOSSIER + e.fichier)) {
-        if (refuseeParCors(req, e.entetes)) return route.abort('failed');
-        return route.fulfill({ status: e.statut, contentType: e.type, headers: { ...(e.entetes || {}), 'content-type': e.type }, body: gunzipSync(readFileSync(DOSSIER + e.fichier)) });
+        if (refuseeParCors(req, e.entetes)) return route.abort('failed').catch(() => {});
+        // L'IGN renvoie l'origine qui l'appelle : le temoin porte celle du passage enregistre
+        // (http://localhost:5199), et un serveur Vite sur un autre port se voyait refuser chaque
+        // lecture `fetch` par le controle CORS. On rend l'origine de la requete, comme l'IGN.
+        const entetes = { ...(e.entetes || {}) };
+        // Une partie fermee pendant la latence ne se lit plus, ni ne se sert : personne n'attend.
+        const origine = (await req.allHeaders().catch(() => ({})))['origin'];
+        if (origine && entetes['access-control-allow-origin'] && entetes['access-control-allow-origin'] !== '*') entetes['access-control-allow-origin'] = origine;
+        return route.fulfill({ status: e.statut, contentType: e.type, headers: { ...entetes, 'content-type': e.type }, body: gunzipSync(readFileSync(DOSSIER + e.fichier)) }).catch(() => {});
       }
       // Sans temoin, la requete part sur le vrai reseau : hors ligne, elle echoue comme elle l'aurait
       // fait ; en ligne (temoin impose), elle y trouve sa reponse. Elle n'est jamais inventee.
       manquants.add(k);
-      return route.continue();
+      return route.continue().catch(() => {});
     });
   }
 
