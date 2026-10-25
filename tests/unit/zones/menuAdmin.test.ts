@@ -11,6 +11,7 @@ function registre() {
   r.declarer({ id: 'admin.conformite', libelle: 'Conformité', groupe: 'admin', executer: () => {} });
   r.declarer({ id: 'admin.regles', libelle: 'Règles', groupe: 'admin', executer: () => {} });
   r.declarer({ id: 'admin.auditsParcelle', libelle: 'Audits', groupe: 'admin', executer: () => {} });
+  r.declarer({ id: 'admin.sauvegarde', libelle: 'Télécharger une sauvegarde des données', groupe: 'admin', executer: () => {} });
   return r;
 }
 
@@ -46,11 +47,12 @@ describe('le menu Admin', () => {
     const hote = await monter(true);
     expect(hote.querySelector('#menuAdmin summary')?.textContent).toBe('Admin');
     expect([...hote.querySelectorAll('[data-controle], [data-commande]')].map(e => e.getAttribute('data-controle') ?? e.getAttribute('data-commande')))
-      .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.arbres', 'admin.calibration', 'admin.chaine', 'admin.principes', 'admin.consommation', 'admin.conformite', 'admin.regles', 'admin.auditsParcelle', 'projet.doublons']);
+      .toEqual(['admin.audit', 'admin.controleurs', 'admin.palette', 'admin.arbres', 'admin.calibration', 'admin.chaine', 'admin.principes', 'admin.consommation', 'admin.conformite', 'admin.regles', 'admin.auditsParcelle', 'admin.sauvegarde', 'projet.doublons']);
     expect(hote.querySelector('[data-commande="admin.consommation"]')?.textContent).toBe('Consommation de Claude');
     expect(hote.querySelector('[data-commande="admin.conformite"]')?.textContent).toBe('Conformité');
     expect(hote.querySelector('[data-commande="admin.regles"]')?.textContent).toBe('Règles');
     expect(hote.querySelector('[data-commande="admin.auditsParcelle"]')?.textContent).toBe('Audits');
+    expect(hote.querySelector('[data-commande="admin.sauvegarde"]')?.textContent).toBe('Télécharger une sauvegarde des données');
   });
 
   it('l administrateur de la plateforme n y trouve que le mode audit', async () => {
