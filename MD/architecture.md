@@ -480,7 +480,13 @@ src/regles/                  layer 2 — contract and validated data, pure
 src/facade/regles/           layer 3 — the rules themselves, pure and synchronous
   toits/{faits,appentis,pignons,profils,vraisemblance,silhouettes,silhouetteDesCorps,elementsVus,…}.ts
                                                               apply a fact, a profile, the guards; every audit roof
-                                                              proposal goes through faits.ts::corpsProposesSousFait
+                                                              proposal goes through faits.ts::corpsProposesSousFait.
+                                                              Two sources propose, on purpose: the subjects (Claude's
+                                                              lines) and the arbitration of sources. An effect the
+                                                              arbitration decides is dropped from Claude's lines
+                                                              (validation.ts::EFFETS_ARBITRES, Claude enters it as a
+                                                              constat); on the others a note taken on site wins (D21,
+                                                              regles/decisions.ts::avecReserveSurPlace).
 src/facade/modeToit/         layer 3 — the Mode Toit editor's pure code (session, handles, projections, new bodies), not rules
   facades/{detection,structure,profils,surcharges,texture,conformite}.ts   facade settings and profiles
   rejeu.ts   conformite.ts   reconciliation.ts                replay an audit case, score it, reconcile
@@ -938,13 +944,14 @@ Carried deliberately, with the trigger that would force payment.
 | AD-9 | ~~Façade chain orchestration in `zones/releve/`~~ — **paid 24 October 2026** (PR #410): moved to `facade/releve/chaine.ts`, layer 3 (§5.2.5) | — | — |
 | AD-10 | `three/**` is not code-split: 57 modules, ~12 000 lines, statically imported into `assets/plan-<hash>.js` and downloaded by everyone (QA-P5, FF-5 second half) | About a third of the program for a view some users never open | Capabilities wired (`plateforme/capacites.ts`), or the program nearing the 5 MB budget |
 | AD-11 | ~~The Mode Toit editor's code was filed under `facade/regles/toits/`~~ | — | **Paid 25 October 2026** (lot G): moved to `facade/modeToit/` |
-| AD-12 | No integrity (SRI) on CDN loads: the three.js import map, EZ-tree, pdf-lib, model-viewer (R9) | A compromised CDN file runs with the page's rights | Any advisory on jsDelivr, or bundling three.js |
+| AD-12 | ~~No integrity (SRI) on CDN loads~~ | — | **Paid 25 October 2026**: `util/integriteCdn.ts` (sha384 of three.js and its examples, EZ-tree, model-viewer, pdf-lib), the `integrity` field of the import map, the attribute on pdf-lib's tag; `tests/unit/util/integriteCdn.test.ts` recomputes them from `node_modules` and requires one for every loaded address |
 | AD-13 | Leftover references to `legacy.ts` (deleted in `1.1.0`): `tests/unit/architecture.test.ts` still carries the rule "nothing imports `legacy.ts`" (harmless, always green). The ESLint ignore and the coverage exclusion were removed on 25 October 2026 | Misleads a reader into thinking the file exists | Next edit of that test |
 | AD-14 | `three/etat3d.ts` exports mutable objects (`vue3d`, `hotes3d`, `affichage3d`…) written from `app/` (about 26 writes), `three/` and `zones/`, read by `io/projet.ts` | No single owner of the 3D view's state; a write from the wrong layer goes unseen | The next bug that comes from two writers, or a second 3D view on one page |
 | AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`), the theme inks (`render/theme.ts`, eight exported `let`) | The same inputs can give different results depending on the session; listed in §5.2.4 | A result that differs between two sessions of the same project |
 | AD-16 | `app/` and `zones/` (both layer 6) import each other freely (≈126 imports one way, 17 the other); `zones/` still drives pipelines (`Releve.tsx`), a worker (`zones/releve/rechercheCoins.ts`) and network calls (Panoramax, Polyhaven, JWKS) | No direction inside the top layer | A zones module that cannot be tested without the whole app |
 | AD-17 | Large modules: `three/scene.ts` (≈1 420 lines, 56 imports), `app/boot.ts` (95 imports), `app/audit/parcelle/controleur.ts` (≈990 lines, seven concerns); `model/types.ts` went from ≈1 470 to ≈900 lines (lot J) | Every change to them touches everything | Split by concern when next changed (lot J of the October 2026 audit started with facade/ and geometry/) |
 | AD-18 | Ten import cycles that go only through type imports (`tests/unit/architecture.test.ts`, ratchet `PLAFOND = 10`) | Harmless at build time; modules with no reading order | The ratchet: each cycle broken lowers the ceiling |
+| AD-19 | Two unversioned paths change an old file's numbers: the construction defaults that `engine/construction.ts::ensureConstruction` fills at compute time, and the 2 → 3 migration that gives a BD TOPO building today's roof | An old project can change quantities when a default or the roof algorithm changes | Guarded since 25 October 2026 by two golden witnesses (`defauts-construction.json`, `migration-2-3.json`): any change fails a test and is a version event; freezing them per schema is the payment |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.
 
