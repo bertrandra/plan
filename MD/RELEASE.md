@@ -241,6 +241,9 @@ The tool **proposes**; a human confirms. The rule in §2.1 (a golden-fixture dif
     enregistrement d'un document au nouveau schéma répond 422 (contrat/SOURCE-PRODUIT.md)
 [ ] CHANGELOG.md section written in French, dated
 [ ] package.json version bumped, committed, tagged vX.Y.Z (annotated, signed)
+[ ] npm run verifier:api-claude (ANTHROPIC_API_KEY posée), ou le workflow manuel « Vérifier l'API
+    Claude » : chaque requête que le serveur PHP envoie (analyse, renfort) acceptée par la VRAIE API,
+    sortie conforme au schéma — les tests ne voient qu'un faux Anthropic, qui accepte tout
 [ ] Release build (clean tree, tag == package.json), size within budget (≤ 5 MB since 21/09/2026 — was 1.2 MB until the UI rebuild brought React in; see spec-ihm-zones §7)
 [ ] `livraison/` déposé EN ENTIER à la racine web — `index.html`, le dossier `assets/` et
     `.htaccess` —, de préférence en extrayant `livraison.zip` sur le serveur. La page appelle son

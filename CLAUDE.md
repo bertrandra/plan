@@ -61,8 +61,10 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 2. Vérifications ci-dessus, puis fumée sur les points touchés.
 3. Entrée dans `CHANGELOG.md`, sous `## [Non publié]` (Ajouté / Modifié / Corrigé), en français.
 4. PR vers `main`, CI `verifier` verte, merge (commit de merge, pas de squash).
-5. Livraison construite **depuis `main`** :
+5. Livraison construite **depuis `main`**, après avoir vérifié les requêtes du serveur contre la vraie API
+   Claude (les tests ne voient qu'un faux Anthropic ; quelques centimes, plafonnés par le serveur) :
    ```bash
+   ANTHROPIC_API_KEY=… npm run verifier:api-claude              # ou le workflow manuel « Vérifier l'API Claude »
    BACKPROD_API_URL=https://www.raillard.org npm run livraison   # livraison/ et livraison.zip
    ```
    `livraison/` est versionné : le build réécrit au moins `LISEZMOI-DEPLOIEMENT.txt` (le commit
