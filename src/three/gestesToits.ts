@@ -22,8 +22,8 @@ import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToi
 import { angleDuPlusLongCote } from '../facade/toit.js';
 import { boiteOrientee, point, repere, type Repere } from '../facade/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
-import { corpsNeuf, type GenreCorps } from '../facade/regles/toits/corpsNeufs.js';
-import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/regles/toits/saillies.js';
+import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
+import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
 import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
 
 export type FamillePiece = 'corps' | 'toit' | 'sur' | 'facade';

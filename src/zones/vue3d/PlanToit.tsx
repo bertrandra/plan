@@ -7,8 +7,8 @@
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
-import { rangsDeCorps } from '../../facade/regles/toits/corpsNeufs.js';
-import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/regles/toits/planCorps.js';
+import { rangsDeCorps } from '../../facade/modeToit/corpsNeufs.js';
+import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/modeToit/planCorps.js';
 import { hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';

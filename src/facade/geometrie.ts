@@ -111,3 +111,9 @@ export function facadeFaceAuCap(facades: readonly Facade[], cap: number, toleran
   }
   return meilleure;
 }
+
+/** Combien un mur (de `a` a `b`, normale `n` vers dehors) se tourne vers un point de vue : 1 de face, 0 de profil, negatif de dos. */
+export function tourneVers(a: PtBrut, b: PtBrut, n: PtBrut, oeil: PtBrut): number {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = oeil.x - mx, dy = oeil.y - my;
+  return (n.x * dx + n.y * dy) / (Math.hypot(dx, dy) || 1);
+}

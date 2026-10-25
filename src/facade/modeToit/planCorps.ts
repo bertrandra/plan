@@ -3,9 +3,9 @@
 //
 // Pur : des points du plan en metres, pas de DOM ni de scene. Le calque (zones/vue3d/PlanToit.tsx) les projette a l'ecran.
 
-import { point, repere } from '../../toitCorps.js';
-import { formeDuCorpsToit } from '../../../model/formeToit.js';
-import type { CorpsToit, PtBrut } from '../../../model/types.js';
+import { point, repere } from '../toitCorps.js';
+import { formeDuCorpsToit } from '../../model/formeToit.js';
+import type { CorpsToit, PtBrut } from '../../model/types.js';
 
 /** Le trait du faitage : plein (le faitage), tirete (la noue d'un papillon), ou un point (un pavillon, dont le faitage se reduit a un sommet). */
 export interface LigneFaitage { a: PtBrut; b: PtBrut; genre: 'plein' | 'noue' | 'sommet' }

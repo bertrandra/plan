@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { corpsNeuf, deplacerCorps, etirerCorps, orienterFaitage, rangPrincipal, rangsDeCorps, supprimerCorps, tournerCorps } from '../../../src/facade/regles/toits/corpsNeufs.js';
-import { corpsDeSaillie } from '../../../src/facade/regles/toits/saillies.js';
-import { appliquerPiece, raisonIndisponible } from '../../../src/three/gestesToits.js';
-import { listerElements } from '../../../src/facade/regles/toits/elements.js';
-import { repere } from '../../../src/facade/toitCorps.js';
-import type { CorpsToit, ObjetPlan } from '../../../src/model/types.js';
+import { corpsNeuf, deplacerCorps, etirerCorps, orienterFaitage, rangPrincipal, rangsDeCorps, supprimerCorps, tournerCorps } from '../../../../src/facade/modeToit/corpsNeufs.js';
+import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
+import { appliquerPiece, raisonIndisponible } from '../../../../src/three/gestesToits.js';
+import { listerElements } from '../../../../src/facade/modeToit/elements.js';
+import { repere } from '../../../../src/facade/toitCorps.js';
+import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 const hote = (): CorpsToit => ({ pts: rect, posFaitage: 3, faitage: 7, egouts: [3.5, 3.5], pignons: [], ecart: 0 });

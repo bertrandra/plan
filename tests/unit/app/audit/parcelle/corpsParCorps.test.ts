@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { murDuCorps } from '../../../../../src/facade/regles/toits/murDuCorps.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
@@ -9,6 +9,7 @@ import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js'
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { formeDuCorps } from '../../../../../src/facade/regles/toits/faits.js';
+import { essayerFaitsToits, lireFaitsToits } from '../../../../../src/regles/toits/faits.js';
 import type { SilhouetteFacade } from '../../../../../src/model/silhouetteFacade.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
@@ -93,3 +94,26 @@ describe('la silhouette arbitrée corps par corps', () => {
     expect(p.filter((x) => x.effet.type === 'corpsToit' || x.effet.type === 'corpsDuToit')).toEqual([]);
   });
 });
+
+describe('le fait du bâtiment l’emporte sur l’audit (CLAUDE.md : une décision passe par le moteur)', () => {
+  const CLE = 'BATIMENT0000000000000101';
+  const mesures = new Map([[cleMesure('maison', 12), { cle: 'maison', cote: 12, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, silhouette: 'rampe' as SilhouetteFacade }]]);
+  const proposer = (fait: Record<string, unknown> | null) => {
+    essayerFaitsToits(fait ? lireFaitsToits({ format: 'plan-faits-toits', version: 1, faits: { [CLE]: fait } }) : null);
+    const o = { ...maison(), bdtopo: { cleabs: CLE } } as ObjetPlan, capture = captureVide('78650000AE0101');
+    return propositionsArbitrees({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures }, {});
+  };
+  afterEach(() => essayerFaitsToits(null));
+
+  it('sans fait, la rampe relit l’aile ; un fait en remplacement fixe le toit : rien n’est proposé', () => {
+    expect(proposer(null).find((x) => x.id === 'maison:toit:2')).toBeDefined();
+    const remplacement = { observation: { forme: 'deux-pans' }, application: 'remplacement', dimensions: { egoutM: 6, faitageM: 9 } };
+    expect(proposer(remplacement).find((x) => x.id.startsWith('maison:toit'))).toBeUndefined();
+  });
+
+  it('un fait en contrainte que la proposition ne tient pas la fait tomber', () => {
+    // Le fait demande un faitage du corps principal au-dessus de 100 m : aucun toit lu ne le tient.
+    expect(proposer({ observation: { faitageM: { min: 100, max: 120 } } }).find((x) => x.id.startsWith('maison:toit'))).toBeUndefined();
+  });
+});
+

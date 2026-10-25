@@ -13,23 +13,18 @@
 
 import { hauteurDuToitEn } from '../../toitCorps.js';
 import { murDuCorps } from './murDuCorps.js';
-import { tourneVers } from './facadesDesCorps.js';
-import { facadesDuContour } from '../../geometrie.js';
+import { facadesDuContour, tourneVers } from '../../geometrie.js';
 import type { Facade } from '../../geometrie.js';
 import type { P2 } from '../../homographie.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
+import { SILHOUETTES_TOITS, type SilhouettesToits } from '../../../regles/toits/silhouettes.js';
 import type { CorpsToit, PtBrut } from '../../../model/types.js';
 
 /** Le pas, le long du mur, auquel se lit le haut du mur sous les corps : 10 cm, la pointe d'un pignon a 5 cm pres. */
 const PAS_SILHOUETTE_M = 0.1;
 /** Le haut du mur se lit a 2 cm en dedans de la face : sur le mur (plus loin, un long pan lirait deja la pente au-dessus de l'egout). */
 const RETRAIT_SILHOUETTE_M = 0.02;
-/** Un haut de mur qui ne monte pas de plus que cela est une ligne droite ; deux sommets doivent se separer d'autant. */
-const RELIEF_MIN_M = 0.3;
-/** Une marche : le haut saute d'au moins cela d'un pas au suivant (un pan a 60 degres monte de 17 cm en 10 cm). */
-const SAUT_MARCHE_M = 0.5;
-/** Un sommet plus large que cette part du mur est un trapeze (le faitage d'une croupe), pas la pointe d'un triangle. */
-const PART_PLATEAU_TRAPEZE = 0.2;
+// Les seuils du mot d'un haut de mur (RELIEF_MIN_M, SAUT_MARCHE_M, PART_PLATEAU_TRAPEZE) sont des reglages : regles/toits/silhouettes.json.
 
 /** Le point du plan ou se lit le haut du mur en `x` (metres depuis la gauche) : sur le cote du corps qui le porte, ou sur sa face. */
 function lecteur(f: Facade, corps: readonly CorpsToit[]): (x: number) => PtBrut {
@@ -85,7 +80,8 @@ export function silhouetteDuMur(f: Facade, corps: readonly CorpsToit[], plafond:
  * Le mot d'un haut de mur (de gauche a droite) : ligne droite sous RELIEF_MIN_M de montee ; marches quand il saute d'un pas a
  * l'autre ; plusieurs sommets ; sinon un sommet, au bout (une rampe) ou dedans (un triangle, un trapeze s'il est large).
  */
-export function motDuHaut(haut: readonly P2[]): SilhouetteFacade {
+export function motDuHaut(haut: readonly P2[], regles: SilhouettesToits = SILHOUETTES_TOITS): SilhouetteFacade {
+  const { RELIEF_MIN_M, SAUT_MARCHE_M, PART_PLATEAU_TRAPEZE } = regles.seuils;
   if (haut.length < 2) return 'indetermine';
   const ys = haut.map((q) => q.y);
   const bas = Math.min(...ys), sommet = Math.max(...ys);

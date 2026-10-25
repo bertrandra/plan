@@ -10,8 +10,8 @@ const brut = () => JSON.parse(readFileSync('regles/toits/silhouettes.json', 'utf
 const refuse = (j: unknown) => { try { lireSilhouettesToits(j); return null; } catch (e) { expect(e).toBeInstanceOf(SilhouettesToitsIllisibles); return (e as Error).message; } };
 
 describe('les règles de lecture des silhouettes des façades', () => {
-  it('le fichier du dépôt est accepté, avec ses quatre seuils et sa table, et son empreinte est stable', () => {
-    expect(SILHOUETTES_TOITS.seuils).toEqual({ TOLERANCE_BOUT_DEG: 30, PART_SECOND_SENS: 0.4, MUR_CORPS_DISTANCE_M: 1, MUR_CORPS_RECOUVREMENT: 0.5 });
+  it('le fichier du dépôt est accepté, avec ses sept seuils et sa table, et son empreinte est stable', () => {
+    expect(SILHOUETTES_TOITS.seuils).toEqual({ TOLERANCE_BOUT_DEG: 30, PART_SECOND_SENS: 0.4, MUR_CORPS_DISTANCE_M: 1, MUR_CORPS_RECOUVREMENT: 0.5, RELIEF_MIN_M: 0.3, SAUT_MARCHE_M: 0.5, PART_PLATEAU_TRAPEZE: 0.2 });
     expect(SILHOUETTES_TOITS.lecture.length).toBeGreaterThanOrEqual(9);
     expect(EMPREINTE_SILHOUETTES_TOITS).toBe(empreinteSilhouettesToits(lireSilhouettesToits(brut())));
     // La raison d'une ligne ne change pas ce que la lecture fait.

@@ -21,8 +21,12 @@ import { deClaude, type EntreeObservation, type EntreeSujet, type LigneObservati
  */
 export const FORMES_LUES: Readonly<Record<string, FormeToitSimple>> = { plat: 'plat', appentis: 'appentis', 'deux-pans': 'deux-pans', croupes: 'croupes', pavillon: 'quatre-pans' };
 
-/** Au-dela, la mesure ne porte plus la forme que Claude voit : pas de proposition (la tolerance d'une forme simple, spec des toits §2). */
-export const ECART_FORME_MAX_M = 0.8;
+/**
+ * Au-dela, la mesure ne porte plus la forme simple que les sources voient : pas de proposition (la tolerance d'une forme simple,
+ * spec des toits §2). A ne pas confondre avec `ECART_FORME_MAX_M` de regles/toits/formes.json (0,4 m), plus strict, pour les formes
+ * du catalogue.
+ */
+export const ECART_FORME_SIMPLE_MAX_M = 0.8;
 export const metres = (v: number) => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',') + ' m';
 /** L'ecart a la mesure du corps principal, celui que la forme vue decrit. */
 export const ecartPrincipal = (corps: readonly CorpsToit[]): number => (corps[plusGrand(corps)] as CorpsToit).ecart;
@@ -61,7 +65,7 @@ export function corpsSousObservation(o: ObjetPlan & { pts: readonly PtBrut[] }, 
   const corps = corpsSousContrainte(fait, o.corpsToit ?? null, o.toitMesure, o.pts);
   if (!corps?.length || ecartsAuFait(fait, corps, o.pts).length) return null;
   if (JSON.stringify(corps) === JSON.stringify(o.corpsToit ?? null)) return null;
-  if (ecartPrincipal(corps) > ECART_FORME_MAX_M) return null;
+  if (ecartPrincipal(corps) > ECART_FORME_SIMPLE_MAX_M) return null;
   return corps;
 }
 

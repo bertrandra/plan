@@ -17,7 +17,7 @@ import { PoigneesToit } from './PoigneesToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
-import { groupesDe, libelleElement, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/regles/toits/elements.js';
+import { groupesDe, libelleElement, listerElements, memeCible, valeurDuGroupe, type CibleElement } from '../../facade/modeToit/elements.js';
 import type { CorpsToit } from '../../model/types.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';

@@ -1,6 +1,6 @@
 // Z4, les poignees du mode Toit (MD/spec-mode-toit-3d.md, etape 4) : ce qu'on attrape sur la scene pour deplacer, etirer ou monter l'element choisi.
 //
-// Un calque SVG par-dessus la scene : chaque poignee est un point 3D que la camera projette a l'ecran (facade/regles/toits/poignees.ts les
+// Un calque SVG par-dessus la scene : chaque poignee est un point 3D que la camera projette a l'ecran (facade/modeToit/poignees.ts les
 // nomme). Glisser une poignee demande a l'ecran ce que vaut un metre sur chacun de ses axes, a cet endroit, et convertit le deplacement du
 // doigt en metres ; la geometrie (aimantation comprise) est celle de `glisser`, toujours rejouee a partir du corps de depart. Un glisser
 // reconstruit la scene a un rythme borne, et la session n'empile qu'UNE etape a la fin. Echap l'annule.
@@ -10,11 +10,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/modeToit.js';
-import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/regles/toits/poignees.js';
+import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
-import { facadeDeLElement, type CibleElement } from '../../facade/regles/toits/elements.js';
+import { facadeDeLElement, type CibleElement } from '../../facade/modeToit/elements.js';
 import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */

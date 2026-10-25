@@ -11,9 +11,9 @@
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
 import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
-import { murLePlusProche, replacerSaillie } from '../../facade/regles/toits/saillies.js';
-import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/regles/toits/corpsNeufs.js';
-import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/regles/toits/elements.js';
+import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
+import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
+import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../facade/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { appliquerPiece } from '../../../src/three/gestesToits.js';
-import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, vitresBowWindow, replacerSaillie, retirerSaillie, murDuCorps, murLePlusProche } from '../../../src/facade/regles/toits/saillies.js';
-import { saillieValide } from '../../../src/model/corpsToitEtendu.js';
-import { repere } from '../../../src/facade/toitCorps.js';
-import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../src/model/types.js';
+import { appliquerPiece } from '../../../../src/three/gestesToits.js';
+import { corpsDeSaillie, empriseDeSaillie, facettesBowWindow, vitresBowWindow, replacerSaillie, retirerSaillie, murDuCorps, murLePlusProche } from '../../../../src/facade/modeToit/saillies.js';
+import { saillieValide } from '../../../../src/model/corpsToitEtendu.js';
+import { repere } from '../../../../src/facade/toitCorps.js';
+import type { CorpsToit, ObjetPlan, SaillieFacade } from '../../../../src/model/types.js';
 
 const maison = (): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 7, egouts: [3.5, 3.5], pignons: [], ecart: 0 });
 const bow = (plus: Partial<SaillieFacade> = {}): SaillieFacade => ({ genre: 'bow-window', hote: 0, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan', ...plus });

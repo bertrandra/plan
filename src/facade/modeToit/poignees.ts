@@ -7,13 +7,13 @@
 //
 // Pur : pas de DOM, pas de scene.
 
-import { point, repere } from '../../toitCorps.js';
+import { point, repere } from '../toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';
 import type { CibleElement } from './elements.js';
-import type { CorpsToit, PtBrut } from '../../../model/types.js';
-import { SAILLIE_PIGNON_MAX_M } from '../../../model/corpsToitEtendu.js';
+import type { CorpsToit, PtBrut } from '../../model/types.js';
+import { SAILLIE_PIGNON_MAX_M } from '../../model/corpsToitEtendu.js';
 
 export type Axe = 'long' | 'vert' | 'prof';
 

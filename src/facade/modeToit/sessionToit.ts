@@ -6,7 +6,7 @@
 //
 // Pur : pas de DOM, pas de scene. Les instantanes sont des copies profondes (JSON), jamais des references.
 
-import type { ObjetPlan } from '../../../model/types.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Les champs d'un batiment que le mode Toit peut changer : tout le reste du batiment est hors session. */
 const CHAMPS = ['corpsToit', 'toit', 'modeToit', 'toitFige', 'volumesToit'] as const;

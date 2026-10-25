@@ -1,5 +1,5 @@
 // Les regles de lecture des silhouettes de facades, sorties du code dans regles/toits/silhouettes.json
-// (MD/spec-regles-toits.md §14) : deux seuils et la table qui dit, pour une silhouette et le bout que Claude lui
+// (MD/spec-regles-toits.md §14) : ses seuils et la table qui dit, pour une silhouette et le bout que Claude lui
 // donne, le role de la facade (un bout du faitage, un long pan) et ce qu'elle dit. L'application est dans
 // facade/regles/toits/silhouettes.ts.
 //
@@ -32,7 +32,7 @@ export interface LigneLecture {
 }
 
 export interface SilhouettesToits {
-  seuils: { TOLERANCE_BOUT_DEG: number; PART_SECOND_SENS: number; MUR_CORPS_DISTANCE_M: number; MUR_CORPS_RECOUVREMENT: number };
+  seuils: { TOLERANCE_BOUT_DEG: number; PART_SECOND_SENS: number; MUR_CORPS_DISTANCE_M: number; MUR_CORPS_RECOUVREMENT: number; RELIEF_MIN_M: number; SAUT_MARCHE_M: number; PART_PLATEAU_TRAPEZE: number };
   lecture: readonly LigneLecture[];
 }
 
@@ -53,7 +53,8 @@ export function lireSilhouettesToits(donnees: unknown): SilhouettesToits {
     if (v < borne[0] || v > borne[1]) return refus(nom + ' hors de [' + borne[0] + ', ' + borne[1] + ']');
     return v;
   };
-  const seuils = { TOLERANCE_BOUT_DEG: seuil('TOLERANCE_BOUT_DEG', [1, 44]), PART_SECOND_SENS: seuil('PART_SECOND_SENS', [0, 1]), MUR_CORPS_DISTANCE_M: seuil('MUR_CORPS_DISTANCE_M', [0.1, 5]), MUR_CORPS_RECOUVREMENT: seuil('MUR_CORPS_RECOUVREMENT', [0.1, 1]) };
+  const seuils = { TOLERANCE_BOUT_DEG: seuil('TOLERANCE_BOUT_DEG', [1, 44]), PART_SECOND_SENS: seuil('PART_SECOND_SENS', [0, 1]), MUR_CORPS_DISTANCE_M: seuil('MUR_CORPS_DISTANCE_M', [0.1, 5]), MUR_CORPS_RECOUVREMENT: seuil('MUR_CORPS_RECOUVREMENT', [0.1, 1]),
+    RELIEF_MIN_M: seuil('RELIEF_MIN_M', [0.05, 2]), SAUT_MARCHE_M: seuil('SAUT_MARCHE_M', [0.1, 3]), PART_PLATEAU_TRAPEZE: seuil('PART_PLATEAU_TRAPEZE', [0.05, 0.9]) };
   const lecture = (f.lecture as Record<string, unknown>[]).map((l, i): LigneLecture => {
     const ou = 'lecture[' + i + '] : ';
     const si = (l.si ?? {}) as Record<string, unknown>;

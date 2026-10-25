@@ -15,7 +15,7 @@ import { estSpecial } from '../facade/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
 export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
-import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/regles/toits/saillies.js';
+import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/modeToit/saillies.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import type { VersLocal } from './primitives.js';
@@ -463,7 +463,7 @@ export function ajouterElementsToit3d(ctx: ContexteToitCorps, corps: readonly Co
 }
 
 /**
- * Les bow-windows d'un batiment : leurs murs du sol a l'egout et leur toit propre (facade/regles/toits/saillies.ts), a la
+ * Les bow-windows d'un batiment : leurs murs du sol a l'egout et leur toit propre (facade/modeToit/saillies.ts), a la
  * forme de leur plan (rectangle, arc, conge). Ils ne passent ni par le prisme du batiment ni par la liste des corps.
  */
 export function ajouterBowWindows3d(ctx: ContexteToitCorps, corps: readonly CorpsToit[], toitRef: Toit | null | undefined): { pans: number; murs: number } {

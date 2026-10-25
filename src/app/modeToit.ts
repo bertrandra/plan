@@ -1,6 +1,6 @@
 // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md, etape 1) : retoucher le toit d'un batiment du projet dans une session.
 //
-// Une session garde sa propre pile d'annulation (facade/regles/toits/sessionToit.ts) : les gestes ecrivent dans le batiment sur
+// Une session garde sa propre pile d'annulation (facade/modeToit/sessionToit.ts) : les gestes ecrivent dans le batiment sur
 // place — la scene 3D le montre tout de suite — sans toucher a l'historique du projet. `valider` remet d'abord le depart, empile
 // UNE etape d'historique du projet, puis ecrit l'etat final : un seul Ctrl+Z defait toute la session. `abandonner` remet le depart.
 //
@@ -9,8 +9,8 @@
 import { estBatiment } from '../model/fonctions.js';
 import { enPoints } from '../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart,
-  type HistoriqueToit } from '../facade/regles/toits/sessionToit.js';
-import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/regles/toits/facadesDesCorps.js';
+  type HistoriqueToit } from '../facade/modeToit/sessionToit.js';
+import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, type PointScene, type Reserve } from '../three/poseFacade.js';
 import { epurerVue3d, objetSousLePointeur, racinesDe3d } from '../three/scene.js';
 import { poserCameraFacade, retirerCameraFacade } from '../three/vueFacadeToit.js';
@@ -20,7 +20,7 @@ import { abonnerSceneBatie, hotes3d, vue3d } from '../three/etat3d.js';
 import { dialogues } from '../shell/dialogues.js';
 import { showToast } from '../shell/dialogs.js';
 import type * as THREE_NS from 'three';
-import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/regles/toits/elements.js';
+import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/modeToit/elements.js';
 import type { Atelier } from './atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../model/types.js';
 
