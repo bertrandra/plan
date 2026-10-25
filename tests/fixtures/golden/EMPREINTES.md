@@ -783,3 +783,18 @@ neutraliser. `REECRIRE_EMPREINTES=1` les recapture, ce qui se dit ici.
 Capturés après le changement du même jour : les chiffres du dossier piscine ne passent plus par `toLocaleString('fr-FR')`, qui
 séparait les milliers par U+202F, un caractère que la police du PDF (WinAnsi) n'a pas (`util/format.ts::chiffreFrGroupe`, une
 espace simple). Le témoin porte une taxe d'aménagement de « 8 000 EUR » pour vérifier ce cas. Aucune empreinte existante ne bouge.
+
+## Ce que devient un ancien fichier (25 octobre 2026)
+
+Deux chemins changent les nombres d'un ancien fichier sans numéro de schéma : les valeurs que le moteur pose quand un champ de
+construction manque (`engine/construction.ts::ensureConstruction`), et la migration 2 → 3, qui donne à un bâtiment BD TOPO le toit
+que l'algorithme d'aujourd'hui calcule (`model/migrations.ts`). Ils ne sont pas encore figés par schéma ; deux témoins font au moins
+qu'un changement ne passe pas en silence (`tests/unit/model/anciensFichiers.test.ts`) :
+
+| Fixture | Ce qu'elle fige |
+|---|---|
+| [`defauts-construction.json`](defauts-construction.json) | la construction posée sur un objet sans construction, et sur une construction vide |
+| [`migration-2-3.json`](migration-2-3.json) | le toit donné par la migration à trois bâtiments BD TOPO (rectangle mesuré, L sans mesure, construction légère) |
+
+S'ils bougent, c'est un événement de version (`MD/RELEASE.md`) : le dire ici, puis `REECRIRE_EMPREINTES=1`.
+
