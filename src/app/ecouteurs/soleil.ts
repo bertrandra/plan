@@ -25,7 +25,9 @@ export interface EtatSoleil {
 
 /** Une vue et son soleil : son etat, ce qu'elle declenche. */
 export interface VueSoleil {
-  etat: EtatSoleil;
+  /** Lu seulement : chaque ecriture passe par `regler` (three/etat3d.ts, AD-14). */
+  etat: Readonly<EtatSoleil>;
+  regler: (r: Partial<EtatSoleil>) => void;
   /** Recale le curseur « semaine » sur la date. */
   syncSemaine: () => void;
   /** Repose le soleil sur la scene et rend. */
@@ -36,7 +38,7 @@ export interface VueSoleil {
 
 /** Les cinq reglages d'un soleil, tels que le panneau de la vue (zones/vue3d/) les appelle. */
 export interface ReglagesSoleil {
-  etat: EtatSoleil;
+  etat: Readonly<EtatSoleil>;
   date(valeur: string): void;
   semaine(valeur: number): void;
   heure(minutes: number): void;
@@ -51,7 +53,7 @@ export function reglagesSoleil(v: VueSoleil): ReglagesSoleil {
     date(valeur) {
       // Un champ vidé ne veut pas dire « le 1er janvier de l'an zéro » : on ignore.
       if (!valeur) return;
-      v.etat.dateStr = valeur;
+      v.regler({ dateStr: valeur });
       v.syncSemaine();
       apres();
     },
@@ -63,14 +65,14 @@ export function reglagesSoleil(v: VueSoleil): ReglagesSoleil {
      */
     semaine(valeur) {
       const delta = valeur - v.etat.semaineAffichee;
-      v.etat.semaineAffichee = valeur;
+      v.regler({ semaineAffichee: valeur });
       if (delta === 0) { v.signaler(); return; }
-      v.etat.dateStr = dateDecaleeDeSemaines(v.etat.dateStr, delta);
+      v.regler({ dateStr: dateDecaleeDeSemaines(v.etat.dateStr, delta) });
       apres();
     },
-    heure(minutes) { v.etat.minutes = minutes; apres(); },
-    intensite(pourcent) { v.etat.intensiteSoleil = pourcent / 100; apres(); },
+    heure(minutes) { v.regler({ minutes }); apres(); },
+    intensite(pourcent) { v.regler({ intensiteSoleil: pourcent / 100 }); apres(); },
     // Bascule de visibilité sur des lumières déjà construites : rien à reconstruire.
-    appoint(actif) { v.etat.lumiereAppoint = actif; apres(); }
+    appoint(actif) { v.regler({ lumiereAppoint: actif }); apres(); }
   };
 }

@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'état de la Vue 3D n'a plus qu'un propriétaire** (audit d'architecture, lot L). Hors de `three/`, chaque écriture passe par
+  une fonction nommée de `three/etat3d.ts` (`reglerVue3d`, `reglerGlb`, `reglerSoleilVue3d`, `poserAffichage3d`, `poserHote3d`) ;
+  les réglages du soleil reçoivent la leur. Le fond de la visionneuse se remplace dans `three/glbViewer.ts`. Le test
+  d'architecture refuse toute affectation directe ailleurs. Rien ne change à l'écran.
+
+### Modifié
+
 - **Plus aucun cycle d'import, même par les types** (audit d'architecture, lot K). Les dix cycles qui ne passaient que par des
   imports de type sont cassés : chaque type partagé descend dans le module le plus bas, ou dans un module à lui
   (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`). Le test d'architecture les

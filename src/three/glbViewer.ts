@@ -182,6 +182,17 @@ export function fondGlbViewer(){
   return new THREE.Color(0xdfe7ea);
 }
 
+/**
+ * Le fond de la visionneuse ouverte, remplace a chaud par celui que `glb.fond` demande. L'ancien est **libere s'il s'agit d'une
+ * texture** — le damier en est une : `traverse()` ne visite pas l'arriere-plan, il ne fait pas partie du graphe d'objets, donc rien
+ * d'autre ne le libererait et il fuirait comme n'importe quelle texture.
+ */
+export function remplacerFondGlb(): void {
+  if (!glb.scene) return;
+  if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
+  glb.scene.scene.background = fondGlbViewer();
+}
+
 /** Recale la position du curseur « semaine » de la visionneuse sur sa date. */
 export function syncSemaineGlb(): void {
   glb.semaineAffichee = anneeEtSemaineDepuisDate(glb.dateStr).semaine;

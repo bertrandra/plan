@@ -205,3 +205,19 @@ describe('ce qui doit rester pur', () => {
     expect(coupables, 'horloge, hasard, langue ou reseau dans le calcul ou les exports').toEqual([]);
   });
 });
+
+describe('ce qui n a qu un proprietaire', () => {
+  it('l etat de la Vue 3D ne s ecrit, hors de three/, que par les fonctions de three/etat3d.ts (AD-14)', () => {
+    // vue3d, glb, soleilVue3d, affichage3d, hotes3d : `three/` y ecrit, c'est son etat ; ailleurs, reglerVue3d, reglerGlb,
+    // reglerSoleilVue3d, poserAffichage3d, poserHote3d. Une affectation directe depuis app/ ou zones/ passe inapercue.
+    const coupables: string[] = [];
+    const ecriture = /(^|[^\w.])(vue3d|glb|soleilVue3d|affichage3d|hotes3d)\.[\w.]+\s*(=(?![=>])|\+=|-=|\+\+|--)/;
+    for (const f of tous) {
+      if (relative(src, f).split(sep)[0] === 'three') continue;
+      readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+        if (!/^\s*(\/\/|\*)/.test(l) && ecriture.test(l)) coupables.push(`${relative(src, f)}:${i + 1}`);
+      });
+    }
+    expect(coupables, 'ecritures directes de l etat 3D hors de three/').toEqual([]);
+  });
+});

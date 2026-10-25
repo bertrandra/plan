@@ -12,7 +12,7 @@ import { libelleIsoler, objetAIsoler } from '../../app/isolement.js';
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
-import { abonner3d, affichage3d, hotes3d, version3d, vue3d } from '../../three/etat3d.js';
+import { abonner3d, affichage3d, version3d, vue3d, poserHote3d } from '../../three/etat3d.js';
 import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
@@ -206,7 +206,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
       </div>}
       <div id="terrasse3dLoading" className="hint" style={{ display: affichage3d.vue3d === 'chargement' ? undefined : 'none' }}>Chargement de la bibliotheque 3D…</div>
       <div id="terrasse3dWrap" style={{ display: affichage3d.vue3d === 'pret' ? 'block' : 'none', marginTop: 6 }}>
-        <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { hotes3d.vue3d = el; }}
+        <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { poserHote3d('vue3d', el); }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
           {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
           <ModeToit magasin={magasin} commandes={commandes} /><Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />

@@ -15,7 +15,7 @@
 // sous-onglet, et le rafraichissement des panneaux de la terrasse.
 
 import { el } from '../shell/dom.js';
-import { glb, chargement, affichage3d, signaler3d } from '../three/etat3d.js';
+import { glb, chargement, signaler3d, poserAffichage3d, reglerGlb } from '../three/etat3d.js';
 import { libererTexturesPartagees } from '../three/chargeurs.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
 
@@ -79,7 +79,7 @@ export function creerModes(ctx: ContexteModes) {
       // la Vue 3D vient d'etre demolie. Le faire dans `disposeThreeScene` aurait vide le cache a
       // chaque case cochee, puisque reconstruire une scene commence par demolir la precedente.
       libererTexturesPartagees();
-      affichage3d.vue3d = 'ferme';
+      poserAffichage3d({ vue3d: 'ferme' });
       signaler3d();
       ctx.render();
     } else {
@@ -95,15 +95,15 @@ export function creerModes(ctx: ContexteModes) {
    */
   function construireVue3d(): void {
     const obj = ctx.terrasseCourante() || null;
-    if (!chargement.three) { affichage3d.vue3d = 'chargement'; signaler3d(); }
+    if (!chargement.three) { poserAffichage3d({ vue3d: 'chargement' }); signaler3d(); }
     ctx.ensureThreeLoaded(() => {
-      ctx.rendreMaintenant(() => { affichage3d.vue3d = 'pret'; signaler3d(); });
+      ctx.rendreMaintenant(() => { poserAffichage3d({ vue3d: 'pret' }); signaler3d(); });
       ctx.buildThreeScene(obj);
     });
   }
 
   function ouvrirVisionneuse(): void {
-    glb.ouvert = true;
+    reglerGlb({ ouvert: true });
     appliquerVue('visionneuse');
     afficher(ZONES_PLAN, false);
     ctx.preparerVisionneuse();
@@ -111,7 +111,7 @@ export function creerModes(ctx: ContexteModes) {
 
   function fermerVisionneuse(): void {
     if (!glb.ouvert) return;
-    glb.ouvert = false;
+    reglerGlb({ ouvert: false });
     // Avant de cacher le panneau : sinon la reouverture repartirait directement en plein page.
     ctx.quitterPleinPageVisionneuse();
     ctx.disposeGlbViewerScene();

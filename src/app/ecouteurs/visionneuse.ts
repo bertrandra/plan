@@ -5,11 +5,10 @@
 // modèle en gardant la caméra**. Refaire la scène sans conserver le point de vue renverrait
 // l'utilisateur au cadrage d'origine à chaque case cochée, ce qui rend une comparaison impossible.
 
-import { glb, affichage3d, signaler3d } from '../../three/etat3d.js';
+import { glb, affichage3d, signaler3d, reglerGlb } from '../../three/etat3d.js';
 import { ouvrirAR } from '../../three/ar.js';
 import { showErrBanner } from '../../shell/dialogs.js';
-import { fondGlbViewer, type CameraConservee } from '../../three/glbViewer.js';
-import { estTexture } from '../../three/gardes.js';
+import { remplacerFondGlb, type CameraConservee } from '../../three/glbViewer.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetMesurable } from '../../engine/hauteurs.js';
@@ -100,27 +99,20 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
   return {
     // Filaire et ombres changent la géométrie ou l'état du renderer : il faut relire le modèle.
     basculerFilaire(actif) {
-      glb.filaire = actif;
+      reglerGlb({ filaire: actif });
       signaler3d();
       if (glb.ouvert) ctx.rafraichir(cameraCourante());
     },
     basculerOmbres(actif) {
-      glb.ombres = actif;
+      reglerGlb({ ombres: actif });
       signaler3d();
       if (glb.ouvert) ctx.rafraichir(cameraCourante());
     },
-    /**
-     * Le fond se remplace à chaud. L'ancien est **libéré s'il s'agit d'une texture** — le damier en
-     * est une : `traverse()` ne visite pas l'arrière-plan, il ne fait pas partie du graphe d'objets,
-     * donc rien d'autre ne le libérerait et il fuirait comme n'importe quelle texture.
-     */
+    /** Le fond se remplace à chaud (three/glbViewer.ts, `remplacerFondGlb`). */
     choisirFond(fond) {
-      glb.fond = fond;
+      reglerGlb({ fond: fond });
       signaler3d();
-      if (glb.scene) {
-        if (estTexture(glb.scene.scene.background)) glb.scene.scene.background.dispose();
-        glb.scene.scene.background = fondGlbViewer();
-      }
+      remplacerFondGlb();
     }
   };
 }

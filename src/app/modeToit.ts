@@ -16,7 +16,7 @@ import { epurerVue3d, objetSousLePointeur, racinesDe3d } from '../three/scene.js
 import { poserCameraFacade, retirerCameraFacade } from '../three/vueFacadeToit.js';
 import { centroid } from '../geometry/basic.js';
 import { majFantomes, viderFantomes } from '../three/fantomes.js';
-import { abonnerSceneBatie, hotes3d, vue3d } from '../three/etat3d.js';
+import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d } from '../three/etat3d.js';
 import { dialogues } from '../shell/dialogues.js';
 import { showToast } from '../shell/dialogs.js';
 import type * as THREE_NS from 'three';
@@ -282,7 +282,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
   const fermer = (): void => {
     if (!session) return;
     const cle = session.cle;
-    vue3d.corpsIsole = null;
+    reglerVue3d({ corpsIsole: null });
     viderFantomes();
     if (veille !== null) { clearInterval(veille); veille = null; }
     session = null;
@@ -535,7 +535,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       const s = session, f = s?.facade ?? s?.derniere;
       if (!s || !f || f.rang === null) return;
       s.corpsIsole = s.corpsIsole === null ? f.rang : null;
-      vue3d.corpsIsole = s.corpsIsole === null ? null : { cle: s.cle, rang: s.corpsIsole };
+      reglerVue3d({ corpsIsole: s.corpsIsole === null ? null : { cle: s.cle, rang: s.corpsIsole } });
       rebatir();
       ctx.rafraichir();
     },

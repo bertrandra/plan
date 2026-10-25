@@ -10,7 +10,7 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb, signaler3d, rendre3d, soleilVue3d } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d, rendre3d, soleilVue3d, reglerSoleilVue3d, reglerVue3d } from '../../three/etat3d.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/exportGlb.js';
@@ -104,7 +104,7 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
   cam('terrasse3dHeureDoree', '3d.heureDoree', 'Heure dorée', () => {
     const m = minutesHeureDoree(soleilVue3d.dateStr, ctx.lieuActuel());
     if (m === null) { showToast('Heure dorée : le soleil ne se couche pas ce jour-là, ou la date est illisible.'); return; }
-    soleilVue3d.minutes = m;
+    reglerSoleilVue3d({ minutes: m });
     ctx.appliquerLumiere();
     signaler3d();
   });
@@ -158,8 +158,8 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     cmd.declarer({ id, libelle, groupe: '3d', executer, ...(permission ? { permission } : {}) });
   const terrasseCourante = () => a.etat.objects.find(o => o.key === a.etat.terrasseSelectedKey && estTerrasse(o));
 
-  vue3d.qualite = qualiteDeLAppareil();
-  vue3d.ombres = parametresQualite(vue3d.qualite).ombresParDefaut;
+  reglerVue3d({ qualite: qualiteDeLAppareil() });
+  reglerVue3d({ ombres: parametresQualite(vue3d.qualite).ombresParDefaut });
 
   /** Reconstruit la scène si elle est ouverte. `null` est valide : un plan sans terrasse se voit. */
   const reconstruire = () => { if (vue3d.scene) ctx.buildThreeScene(terrasseCourante() || null); };
@@ -261,28 +261,28 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
       signaler3d();
       if (vue3d.scene) ctx.buildThreeScene(obj);
     },
-    basculerTousLesObjets: (actif) => preference(() => { vue3d.tousLesObjets = actif; }),
+    basculerTousLesObjets: (actif) => preference(() => { reglerVue3d({ tousLesObjets: actif }); }),
     /** Le sol perce sous la terrasse : herisson, dalle, massifs ou futs de vis, a leur profondeur. */
-    basculerSolEnCoupe: (actif) => preference(() => { vue3d.solEnCoupe = actif; }),
+    basculerSolEnCoupe: (actif) => preference(() => { reglerVue3d({ solEnCoupe: actif }); }),
     /** Les lames translucides, comme pour une terrasse isolee : les plots se voient sur leur assise. */
-    basculerPlatelageTranslucide: (actif) => preference(() => { vue3d.platelageTranslucide = actif; }),
-    basculerOpaques: (actif) => preference(() => { vue3d.objetsOpaques = actif; }),
+    basculerPlatelageTranslucide: (actif) => preference(() => { reglerVue3d({ platelageTranslucide: actif }); }),
+    basculerOpaques: (actif) => preference(() => { reglerVue3d({ objetsOpaques: actif }); }),
     /**
      * Cochée par défaut. La décocher revient à la couleur unie du plan sans avoir à retirer la
      * texture de chaque objet un par un — pratique pour comparer les deux rendus.
      */
-    basculerTextures: (actif) => preference(() => { vue3d.textures = actif; }),
-    basculerFacadesSansOmbres: (actif) => preference(() => { vue3d.facadesSansOmbres = actif; }),
+    basculerTextures: (actif) => preference(() => { reglerVue3d({ textures: actif }); }),
+    basculerFacadesSansOmbres: (actif) => preference(() => { reglerVue3d({ facadesSansOmbres: actif }); }),
     /**
      * Décochée par défaut : une vraie ombre portée coûte bien plus cher que l'éclairage à trois
      * lumières déjà en place, et qui vérifie une implantation n'a pas à payer ce coût à chaque image.
      */
-    basculerOmbres: (actif) => preference(() => { vue3d.ombres = actif; }),
-    basculerObjetsEchelle: (actif) => preference(() => { vue3d.objetsEchelle = actif; }),
-    basculerVent: (actif) => { vue3d.vent = actif; signaler3d(); },
+    basculerOmbres: (actif) => preference(() => { reglerVue3d({ ombres: actif }); }),
+    basculerObjetsEchelle: (actif) => preference(() => { reglerVue3d({ objetsEchelle: actif }); }),
+    basculerVent: (actif) => { reglerVue3d({ vent: actif }); signaler3d(); },
     choisirQualite: (q) => preference(() => {
-      vue3d.qualite = q;
-      vue3d.ombres = parametresQualite(q).ombresParDefaut;
+      reglerVue3d({ qualite: q });
+      reglerVue3d({ ombres: parametresQualite(q).ombresParDefaut });
       try { localStorage.setItem(CLE_QUALITE, q); } catch { /* stockage indisponible : le choix vaut pour la session */ }
     })
   };
