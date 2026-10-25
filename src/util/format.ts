@@ -16,6 +16,22 @@ export function nombreFr(v: unknown): number | null {
 /** Un nombre a `d` decimales, la virgule a la francaise (« 2,35 »). */
 export const chiffreFr = (v: number, d = 2): string => v.toFixed(d).replace('.', ',');
 
+/**
+ * Un nombre a `d` decimales, milliers separes par une espace simple : « 12 600,50 ». Sans les donnees de langue du moteur
+ * (toLocaleString rend U+202F ou U+00A0 selon la version, que les PDF en WinAnsi n'ont pas) : le meme texte partout.
+ */
+export function chiffreFrGroupe(v: number, d = 2): string {
+  const [ent = '', dec] = Math.abs(v).toFixed(d).split('.');
+  const groupe = ent.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return (v < 0 && Number(v.toFixed(d)) !== 0 ? '-' : '') + groupe + (dec ? ',' + dec : '');
+}
+
+/** Une date en JJ/MM/AAAA, au jour local : ce que toLocaleDateString('fr-FR') rend, sans dependre des donnees de langue. */
+export function dateFr(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
 /** Minutes depuis minuit -> "HH:MM". */
 export function formatHeureMin(min: number): string {
   return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');

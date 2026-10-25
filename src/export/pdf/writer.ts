@@ -39,14 +39,16 @@ export function pdfEscape(s: unknown): string {
 }
 
 // Date au format attendu par le dictionnaire /Info d'un PDF : D:AAAAMMJJHHMMSS, heure locale.
-export function horodatagePdfInfo(): string {
-  const d = new Date();
+export function horodatagePdfInfo(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2,'0');
   return 'D:' + d.getFullYear() + p(d.getMonth()+1) + p(d.getDate())
     + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
 }
 
-export function assemblerPDF(pages: PagePdf[]): string {
+/** Ce que porte le dictionnaire /Info : la version et le build du programme, l'heure de creation ; par defaut, ceux du programme en cours. */
+export interface InfoPdf { appVersion?: string; buildAt?: string; maintenant?: Date }
+
+export function assemblerPDF(pages: PagePdf[], info: InfoPdf = {}): string {
   // Numerotation : 1 Catalog, 2 Pages, 3 Font, puis (Page, Contenu) par page, puis les etats
   // graphiques d'opacite. Tout est calcule, rien n'est fige : le nombre de pages varie.
   const opacites = [1, 0.5, 0.35, 0.9, 0.75];
@@ -70,8 +72,8 @@ export function assemblerPDF(pages: PagePdf[]): string {
   // aucune des numerotations calculees plus haut. Chaines en ASCII pur : un PDF sans encodage
   // declare rend le reste illisible.
   const numInfo = objs.length + 1;
-  objs.push('<< /Producer (Plan interactif ' + APP_VERSION + ') /Creator (plan.html build ' + BUILD_AT
-    + ') /CreationDate (' + horodatagePdfInfo() + ') >>');
+  objs.push('<< /Producer (Plan interactif ' + (info.appVersion ?? APP_VERSION) + ') /Creator (plan.html build ' + (info.buildAt ?? BUILD_AT)
+    + ') /CreationDate (' + horodatagePdfInfo(info.maintenant) + ') >>');
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
   objs.forEach((corps,i)=>{ offsets.push(pdf.length); pdf += (i+1) + ' 0 obj\n' + corps + '\nendobj\n'; });

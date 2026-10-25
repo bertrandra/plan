@@ -25,6 +25,8 @@
 // Le SCHEMA du projet, lui, ne bouge pas : un fichier enregistre par l'ancienne version s'ouvre
 // dans la nouvelle, et l'inverse aussi. La rupture porte sur l'artefact livre, pas sur les donnees.
 
+import { dateFr } from '../util/format.js';
+
 export const APP_VERSION = '2.2.0';
 // 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
 // qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
@@ -33,6 +35,9 @@ export const APP_VERSION = '2.2.0';
 // la migration 2 -> 3 en donne un a chaque batiment BD TOPO qui n'en avait pas.
 // 4 : la parcelle peut porter `relief`, la grille d'altitudes lue a l'IGN (MD/spec-relief.md) ; un
 // lecteur 3 la perdrait au premier enregistrement. La migration 3 -> 4 est l'identite.
+// Les champs ajoutes depuis sans monter le schema (piscine, pergola, cloture, corps et volumes du toit, toit mesure, fenetres et
+// voisinage en 3D, rues) s'ecrivent au 4 (migrations.ts, CHAMPS_DEPUIS) : un lecteur 1 a 3 refuse le fichier au lieu de les perdre.
+// Un schema 5 qui les distinguerait demande d'abord que la plateforme l'accepte (contrat/SOURCE-PRODUIT.md).
 export const SCHEMA_VERSION = 4;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-09-28';
@@ -43,6 +48,6 @@ export function versionLongue(): string {
 }
 
 /** Ligne d'identification portee par les exports texte (SVG, DXF, resume, PDF). */
-export function signatureExport(): string {
-  return 'Plan interactif ' + APP_VERSION + ' — ' + new Date().toLocaleDateString('fr-FR');
+export function signatureExport(maintenant: Date = new Date()): string {
+  return 'Plan interactif ' + APP_VERSION + ' — ' + dateFr(maintenant);
 }

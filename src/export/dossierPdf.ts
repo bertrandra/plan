@@ -22,11 +22,16 @@ import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/structure.js';
+import { dateFr } from '../util/format.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */
 export interface MetaDossier {
   appVersion: string;
   nomProjet?: string | null | undefined;
+  /** Le build du programme (dictionnaire /Info) ; celui en cours par defaut. */
+  buildAt?: string;
+  /** L'heure de l'export (« Genere le », /CreationDate) ; l'horloge par defaut. */
+  maintenant?: Date;
 }
 
 /** Point du plan avec de quoi calculer une projection PDF : `P(p)` rend des points en pt PostScript. */
@@ -211,7 +216,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
   c += pdfTexte(MARGE_PDF, A4_H - MARGE_PDF - 74, 9,
     terrasses.length + ' terrasse(s) au dossier : ' + terrasses.map((t,i)=>'S' + (i+1) + ' ' + t.name).join(', '), [0.35,0.3,0.24]);
   c += pdfTexte(MARGE_PDF, MARGE_PDF - 8, 7,
-    'Genere le ' + new Date().toLocaleDateString('fr-FR') + ' - dimensions en metres, X+ = Est, Y+ = Nord - Plan interactif v' + meta.appVersion, [0.5,0.45,0.4]);
+    'Genere le ' + dateFr(meta.maintenant ?? new Date()) + ' - dimensions en metres, X+ = Est, Y+ = Nord - Plan interactif v' + meta.appVersion, [0.5,0.45,0.4]);
   return { l:A4_L, h:A4_H, contenu:c };
 }
 
@@ -316,7 +321,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   // Meme pied de page que le plan de masse : une section imprimee seule doit rester rattachable
   // a la version qui l'a produite (RELEASE.md 5.2).
   c += pdfTexte(MARGE_PDF, MARGE_PDF - 8, 7,
-    'Genere le ' + new Date().toLocaleDateString('fr-FR') + ' - dimensions en metres - Plan interactif v' + meta.appVersion, [0.5,0.45,0.4]);
+    'Genere le ' + dateFr(meta.maintenant ?? new Date()) + ' - dimensions en metres - Plan interactif v' + meta.appVersion, [0.5,0.45,0.4]);
   return { l:A4_L, h:A4_H, contenu:c };
 }
 
@@ -332,6 +337,6 @@ export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEq
   const pages = [ pagePlanDeMasse(objets, terrasses, equipements, avecEquipements, meta) ];
   // La surface d'une terrasse percee (bassin, trou) est nette de ses ouvertures.
   terrasses.forEach((t, i)=>pages.push(pageTerrasse(t, equipements.get(t.key) ?? [], i+1, terrasses.length, meta, surfaceNetteTerrasse(t.pts, objets), trousDeTerrasse(t, objets))));
-  return { pdf: assemblerPDF(pages), pages: pages.length, terrasses, equipements };
+  return { pdf: assemblerPDF(pages, { appVersion: meta.appVersion, ...(meta.buildAt ? { buildAt: meta.buildAt } : {}), ...(meta.maintenant ? { maintenant: meta.maintenant } : {}) }), pages: pages.length, terrasses, equipements };
 }
 

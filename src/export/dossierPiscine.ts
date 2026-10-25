@@ -35,12 +35,16 @@ import { estTerrain, parcelleDuProjet } from '../model/fonctions.js';
 import { sommetsDe } from '../model/formes.js';
 import { altitudeNGF, reliefDe, resumeRelief } from '../model/relief.js';
 import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
+import { dateFr } from '../util/format.js';
 
 export interface MetaDossierPiscine {
   appVersion: string;
   nomProjet?: string | null | undefined;
   /** La date du jour, en toutes lettres. Injectable pour qu'un test ne depende pas du calendrier. */
   dateDuJour?: () => string;
+  /** Le build du programme et l'heure de creation (dictionnaire /Info) ; ceux du programme en cours et l'horloge par defaut. */
+  buildAt?: string;
+  maintenant?: Date;
 }
 
 export interface DossierPiscine {
@@ -70,7 +74,7 @@ const nb = (v: number) => v.toFixed(2);
  */
 const TRANSLIT: Record<string, string> = {
   '²': '2', '³': '3', '×': 'x', '·': '.', 'ρ': 'rho', '≈': '~', '≤': '<=', '≥': '>=', 'Ø': 'diam. ', '—': '-', '–': '-',
-  '«': '"', '»': '"', '’': "'", '€': 'EUR', '½': '1/2', '…': '...', '→': '->'
+  '«': '"', '»': '"', '’': "'", '€': 'EUR', '½': '1/2', '…': '...', '→': '->', '\u202f': ' ', '\u00a0': ' '
 };
 const translit = (txt: unknown): string => String(txt).split('').map(ch => TRANSLIT[ch] ?? ch).join('');
 const pdfTexte = (x: number, y: number, taille: number, txt: unknown, couleur?: Rgb01, angleDeg?: number): string =>
@@ -167,7 +171,7 @@ class Ecrivain {
 }
 
 function pied(meta: MetaDossierPiscine): string {
-  const date = (meta.dateDuJour || (() => new Date().toLocaleDateString('fr-FR')))();
+  const date = (meta.dateDuJour || (() => dateFr(new Date())))();
   return pdfTexte(MARGE_PDF, MARGE_PDF - 8, 7, 'Genere le ' + date + ' - dimensions en metres - Plan interactif v' + meta.appVersion + ' - document d\'aide, a verifier par le demandeur', [0.5, 0.45, 0.4]);
 }
 
@@ -583,5 +587,5 @@ export function construireDossierPiscine(objets: ObjetPlan[], cle: string | null
     pagePieces(meta, prefixe, calc.secteurProtege),
     ...pagesNote(piscine, noteDeCalcul(calc), meta)
   ];
-  return { pdf: assemblerPDF(pages), pages: pages.length, piscine, regime: calc.regime };
+  return { pdf: assemblerPDF(pages, { appVersion: meta.appVersion, ...(meta.buildAt ? { buildAt: meta.buildAt } : {}), ...(meta.maintenant ? { maintenant: meta.maintenant } : {}) }), pages: pages.length, piscine, regime: calc.regime };
 }

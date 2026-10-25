@@ -160,6 +160,22 @@ describe('ce qui doit rester pur', () => {
     expect(coupables, 'couches pures qui touchent au DOM').toEqual([]);
   });
 
+  it('engine et export ne lisent ni le hasard, ni les donnees de langue, ni le reseau, et l horloge seulement par defaut', () => {
+    // Un nombre produit hier doit etre reproductible aujourd'hui (CLAUDE.md) : le calcul et les exports recoivent l'heure en
+    // parametre (`?? new Date()`, `= new Date()` en dernier recours), et formatent sans toLocaleString (util/format.ts).
+    const coupables: string[] = [];
+    for (const couche of ['engine', 'export']) {
+      for (const f of fichiersTs(join(src, couche))) {
+        readFileSync(f, 'utf8').split('\n').forEach((l, i) => {
+          if (/^\s*(\/\/|\*)/.test(l)) return;
+          const horloge = /new Date\(\)/.test(l.replace(/(\?\?|=>?)\s*(dateFr\()?new Date\(\)/g, ''));
+          if (horloge || /Date\.now|Math\.random|toLocale|\bfetch\(/.test(l)) coupables.push(`${relative(src, f)}:${i + 1}`);
+        });
+      }
+    }
+    expect(coupables, 'horloge, hasard, langue ou reseau dans le calcul ou les exports').toEqual([]);
+  });
+
   it('aucune couche n importe legacy.ts', () => {
     // La dependance va dans l'autre sens, et doit y rester : legacy.ts se vide, il ne se remplit pas.
     const coupables = tous.filter(f => dependances(f).some(d => d.cible === join(src, 'legacy')));

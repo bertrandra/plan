@@ -75,6 +75,12 @@ describe('le schema qu un document ecrit', () => {
     expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(3);
   });
 
+  it('est 4 des qu un objet porte un champ venu apres le schema 4 (piscine, pergola, cloture, corps du toit…) : un lecteur 3 le perdrait', () => {
+    for (const champ of ['piscine', 'pergola', 'cloture', 'corpsToit', 'volumesToit', 'toitMesure', 'fenetres3d', 'voisinage3d', 'ruesVoisinage']) {
+      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetBrut>)]), champ).toBe(4);
+    }
+  });
+
   it('est 3 des qu un toit est a croupes', () => {
     expect(schemaMinimal([batiment({ toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } })])).toBe(3);
   });

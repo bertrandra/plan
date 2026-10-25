@@ -551,16 +551,23 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 ## Les fichiers
 
+Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
+`tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2).
+
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `272fa9085871800393d3f84cc34116494ecb41c0d42345e204e5fe4e90695b32` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `66338527a82421908df0c1fa1ca861e71f933c7f45593806f7fd6f1c76cbca4e` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `5375cf2da7f69d02862fb2dca9502db894c1f20ea2957462f5476a9fd4ab16ba` |
-| [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `f560cbca53336b14fa036818eb903ea76e64c4e6786521750f6f295568649cfa` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `b13cec6f8f1a9e61cf7eb7967ef48192a68b7391f4c9da6b82cd09d4f36b4b81` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `a7aff57d80d8673ed3c9aca6c3b49f60fc3fc48d3d0525d82fda4f8538308c70` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `22f9bf93b2235a8eaad580ddf0bb25a12e936dbad3282bac9d9561c6ab9b70f6` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `42deb271e4a6d28e9981ccb4e98d5cdb198ed2939a4f652de0e609ad2491e2d8` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `2d64f95aea0782ef84f142119e7dcfcc0263cf659239c9124c760c3931a9f944` |
+| [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `9a183ea635b12ea7fe3a9dc00bbcac569316006de74957579088859b12bb123a` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `dc5db12b6e5ca21f32b31b85308c750d10f832cb909ee2870860c88a06075968` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
-| [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé | 2 130 | — |
+| [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `3680d403741a6417bf566e563832197b89d8a1702d2428d8e336e5206ba7d545` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `2b4e47ba753cb6cd5059ae1193e73bba5b2ad5f8f58feddda161e8c107a3981d` (brut) |
+| [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
 
@@ -764,3 +771,15 @@ développement du dépôt :
 4. Comparer : `perl -0777 -pe '<les trois substitutions>' fichier | sha256sum`.
 
 Toute divergence se compare d'abord à `quantites-demo.txt`, ensuite au diff de l'export lui-même.
+
+## Piscine, pergola et note de calcul (25 octobre 2026)
+
+L'audit d'architecture a relevé des exports et des calculs qu'aucune empreinte ne gardait : le dossier de mairie d'une piscine,
+la note de calcul d'un abri, les calculs de la piscine et de la pergola (le plan témoin n'a ni l'une ni l'autre).
+`tests/unit/export/empreintesPiscinePergola.test.ts` les régénère depuis le code et compare leur SHA-256 **brut** : la version, le
+build et l'heure se passent en paramètre (`MetaDossierPiscine`, `MetaNote` : `buildAt`, `maintenant`/`date`), rien n'est à
+neutraliser. `REECRIRE_EMPREINTES=1` les recapture, ce qui se dit ici.
+
+Capturés après le changement du même jour : les chiffres du dossier piscine ne passent plus par `toLocaleString('fr-FR')`, qui
+séparait les milliers par U+202F, un caractère que la police du PDF (WinAnsi) n'a pas (`util/format.ts::chiffreFrGroupe`, une
+espace simple). Le témoin porte une taxe d'aménagement de « 8 000 EUR » pour vérifier ce cas. Aucune empreinte existante ne bouge.

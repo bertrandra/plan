@@ -17,6 +17,7 @@ import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import { surfaceNetteTerrasse } from '../engine/structure.js';
 import { estTerrasse } from '../model/fonctions.js';
+import { dateFr } from '../util/format.js';
 
 /**
  * Ce que `surfaceDe` lit, et rien de plus : les tests l'appellent sur des objets partiels. Forme
@@ -55,7 +56,7 @@ export function surfaceDe(obj: ObjetASurface): number {
 }
 
 export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: ContexteResume): string {
-  const dateDuJour = ctx.dateDuJour || (() => new Date().toLocaleDateString('fr-FR'));
+  const dateDuJour = ctx.dateDuJour || (() => dateFr(new Date()));
   let out = 'Plan interactif ' + ctx.appVersion + ' - export (repere local, metres) - ' + dateDuJour() + '\n';
   out += 'Origine (0,0) = Apex, le sommet Coin Nord de la parcelle (le point le plus au nord).\n';
   out += 'Axe X+ = Est ; Axe Y+ = Nord (correspond au "haut" de l\'affichage a l\'ecran).\n';

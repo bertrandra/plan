@@ -69,6 +69,17 @@ export const MIGRATIONS: readonly Migration[] = [
 ];
 
 /**
+ * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
+ * premier enregistrement. Les champs venus apres le 4 sans schema a eux s'y rangent : un lecteur 1 a 3 refuse le fichier plutot
+ * que de les perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
+ */
+export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
+  facades: 2, toit: 2,
+  relief: 4,
+  piscine: 4, pergola: 4, cloture: 4, corpsToit: 4, volumesToit: 4, toitMesure: 4, fenetres3d: 4, voisinage3d: 4, ruesVoisinage: 4,
+};
+
+/**
  * Un batiment importe de la BD TOPO avant le schema 3 n'a pas de toit : il recoit celui que l'import
  * lui donnerait aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
  * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
@@ -89,15 +100,24 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : 4 des qu'une parcelle porte un relief (un lecteur 3
- * le perdrait), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur
- * l'enveloppe, faux sur un L), 2 des qu'un batiment porte un releve ou un toit.
+ * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 4 pour le relief et les champs venus
+ * depuis, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
+ * faux sur un L).
  */
 export function schemaMinimal(objets: readonly ObjetBrut[]): number {
-  if (objets.some((o) => !!o.relief)) return 4;
-  if (objets.some((o) => o.toit?.forme === 'croupes')) return 3;
-  const releve = objets.some((o) => (Array.isArray(o.facades) && o.facades.length > 0) || !!o.toit);
-  return releve ? 2 : 1;
+  let s = 1;
+  for (const o of objets) {
+    const brut = o as Record<string, unknown>;
+    for (const [champ, depuis] of Object.entries(CHAMPS_DEPUIS)) {
+      const v = brut[champ];
+      // Une liste vide de facades ne dit rien ; tout autre champ pose compte.
+      if (v === undefined || v === null || (champ === 'facades' && (!Array.isArray(v) || !v.length))) continue;
+      s = Math.max(s, depuis);
+    }
+    // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
+    if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
+  }
+  return s;
 }
 
 /** Le schema a ecrire : celui qui decrit le document, jamais sous celui ou le projet a ete monte. */

@@ -13,7 +13,6 @@ import { construireResume } from '../../../src/export/resume.js';
 import { creerMesures } from '../../../src/app/assemblage/mesures.js';
 import { clesDossier } from '../../../src/app/dossier.js';
 import { contraindreParasols } from '../../../src/engine/parasol.js';
-import { APP_VERSION, BUILD_AT } from '../../../src/model/version.js';
 import { schemaMinimal } from '../../../src/model/migrations.js';
 import type { ObjetBrut, ObjetPlan } from '../../../src/model/types.js';
 
@@ -63,6 +62,19 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
     const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel });
     expect(empreinte(ecrire('resume.txt', txt))).toBe(empreinte(lire('resume.txt')));
   });
+  it('quantites-demo.txt : chaque surface et chaque longueur se retrouvent, dans l ordre, dans le resume regenere', () => {
+    // Le fichier qu'EMPREINTES.md dit de regarder en premier : il nomme le nombre qui a change, la ou l'empreinte dit seulement
+    // que quelque chose a change. Il n'etait verifie par rien.
+    const e = etatTemoin();
+    const m = creerMesures(e);
+    const txt = construireResume(e.objects, e.measures, { appVersion: VERSION, computeMeasureGeom: m.computeMeasureGeom, refLabel: m.refLabel, targetLabel: m.targetLabel });
+    let depuis = 0;
+    for (const ligne of readFileSync(resolve(dorees, 'quantites-demo.txt'), 'utf8').split('\n').filter((l) => l.trim())) {
+      const k = txt.indexOf(ligne, depuis);
+      expect(k, 'absente du resume : ' + ligne).toBeGreaterThanOrEqual(0);
+      depuis = k + ligne.length;
+    }
+  });
   it('plan.pdf', () => {
     const e = etatTemoin();
     const pdf = construirePDF(e.objects, e.measures, 200, { appVersion: VERSION, buildAt: BUILD, montrerNord: e.showNorth });
@@ -70,14 +82,8 @@ describe('les exports, regeneres depuis le code, redonnent les temoins (FF-4)', 
   });
   it('dossier.pdf', () => {
     const e = etatTemoin();
-    const { pdf: brut } = construireDossierPDF(e.objects, clesDossier(e.objects), true, { appVersion: VERSION, nomProjet: 'Parcelle AE 101' });
-    // Le dictionnaire /Info du dossier lit la version et la date de build du programme, pas celles
-    // qu'on lui passe (export/pdf/writer.ts) : on les ramene a celles du temoin. Meme longueur, sinon
-    // la table xref ne correspondrait plus.
-    const producteur = '(Plan interactif ' + APP_VERSION + ') /Creator (plan.html build ' + BUILD_AT + ')';
-    const temoin = '(Plan interactif ' + VERSION + ') /Creator (plan.html build ' + BUILD + ')';
-    expect(producteur.length, 'version ou date de build de longueur differente du temoin').toBe(temoin.length);
-    const pdf = brut.replace(producteur, temoin);
+    // La version, le build et l'heure se passent en parametre (MetaDossier) : plus d'octets a reecrire.
+    const { pdf } = construireDossierPDF(e.objects, clesDossier(e.objects), true, { appVersion: VERSION, buildAt: BUILD, nomProjet: 'Parcelle AE 101', maintenant: new Date('2026-09-28T23:22:00') });
     expect(empreinte(ecrire('dossier.pdf', pdf))).toBe(empreinte(lire('dossier.pdf')));
   });
 });
