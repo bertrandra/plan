@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la
+  construction de la Vue 3D ; la terrasse, les objets du plan et ce que l'on fait d'une scène déjà bâtie (remplacer, comparer,
+  surligner, épurer, viser) ont chacun leur module. `app/audit/parcelle/controleur.ts` garde la session de l'audit ; les capteurs,
+  le brouillon, les étapes, la façade visée et la vue 3D sortent. `app/boot.ts` garde `boot()` ; ses étapes passent dans
+  `app/boot/`. Chaque ancien module réexporte ce qu'il exportait. Rien ne change à l'écran ni dans les exports.
+
 - **`app/` et `zones/` dans un seul sens** (audit d'architecture, lot M). Les zones lisent l'application ; l'application ne prend aux
   zones que des écrans à monter et leurs types. La recherche des coins du relevé et son worker passent dans `app/releve/`, la sonde
   de la plateforme (pastille de la porte) dans `io/sondePlateforme.ts`, testée. Le test d'architecture tient les deux règles, et
