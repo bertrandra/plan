@@ -2,9 +2,9 @@
 // remplacent les coins predits qu'elles recalent ; a la verification, ses avis et ses boites
 // manquees passent par le recalage (zones/releve/aide.ts) avant d'etre proposes.
 
-import { texteBilan } from '../../facade/renfortRecalage.js';
+import { texteBilan } from '../../facade/detection/renfortRecalage.js';
 import type { AideClaudeReleve } from '../../app/renfortReleve.js';
-import type { Image } from '../../facade/homographie.js';
+import type { Image } from '../../facade/vision/homographie.js';
 import type { GrilleFacade } from '../../model/types.js';
 import { AideClaude } from './AideClaude.js';
 import { coinsAvecAide, motifAide, ouverturesAvecAide, signauxDeVerification, signauxDesCoins } from './aide.js';

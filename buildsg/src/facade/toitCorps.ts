@@ -555,7 +555,7 @@ function unPanPlutotQuePlat(rect: readonly PtBrut[], ech: readonly EchantillonHa
 }
 
 /**
- * Le corps d'une tranche lu par l'ajustement des formes simples (facade/toitLidar.ts) : deux pans,
+ * Le corps d'une tranche lu par l'ajustement des formes simples (facade/toits/toitLidar.ts) : deux pans,
  * croupes et quatre pans (un faitage dans la longueur, des croupes a la pente des pans), appentis,
  * plat. Null quand aucune forme ne s'ajuste.
  */
@@ -582,7 +582,7 @@ export function corpsDepuisFormes(g: Grille, rect: readonly PtBrut[], contour: r
     return { ...base, posFaitage: cm(r.W / 2), faitage: z, egouts: [z, z] };
   }
   if (toit.forme === 'appentis') {
-    // L'appentis monte vers la normale gauche de son faitage (facade/toit.ts::plansDuToit).
+    // L'appentis monte vers la normale gauche de son faitage (facade/toits/toit.ts::plansDuToit).
     const haut = -u.y * r.v.x + u.x * r.v.y > 0;
     return haut ? { ...base, posFaitage: cm(r.W), faitage: F, egouts: [E, F] } : { ...base, posFaitage: 0, faitage: F, egouts: [F, E] };
   }

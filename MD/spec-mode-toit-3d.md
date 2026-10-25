@@ -200,7 +200,7 @@ Corps principal 9,9 × 7 m deux-pans (égout 4,6, hauteur 2,9), deux pignons de 
 
 ### 4.2 Modèle à étendre (étape 3 et 5)
 
-- **Éléments de toit** : ajouter `fenetre-toit` (velux, 1 m) et `solaire` (panneau, 2,55 m) à côté de `Lucarne`/`Cheminee` ; échelle `s` (0,5 à 2,2). Dessin 3D (`three/toitCorps3d.ts`, `facade/toitFormes.ts`).
+- **Éléments de toit** : ajouter `fenetre-toit` (velux, 1 m) et `solaire` (panneau, 2,55 m) à côté de `Lucarne`/`Cheminee` ; échelle `s` (0,5 à 2,2). Dessin 3D (`three/toitCorps3d.ts`, `facade/toits/toitFormes.ts`).
   Ils doivent se **relire à l'identique** d'un fichier ancien (champ facultatif, validé dans `model/corpsToitEtendu.ts`, compacté à l'écriture).
 - **Pignon enrichi** : `PignonToit` a `pan`, `debut`, `fin`, `faitage`, `profondeur` ; ajouter ce que la maquette règle : **largeur, position, hauteur du faîte (monte au faîtage / plus bas), saillie** (déjà `profondeur`).
   « Pas de pignon sur un appentis » (règle existante, skill `toits`) ; « pas de pignon sur une façade sans profil à pignon / sur un côté court ».

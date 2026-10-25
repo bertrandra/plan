@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { analyserReleve, coinsProposes, silhouetteEnPartsDuMur } from '../../../src/facade/analyse.js';
-import { homographie, appliquer } from '../../../src/facade/homographie.js';
-import { focale35mm, champDepuisFocale35 } from '../../../src/facade/exif.js';
-import { focalePx, distanceParCadrage } from '../../../src/facade/cadrage.js';
+import { homographie, appliquer } from '../../../src/facade/vision/homographie.js';
+import { focale35mm, champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
+import { focalePx, distanceParCadrage } from '../../../src/facade/vision/cadrage.js';
 
 const p = (x: number, y: number) => ({ x, y });
 

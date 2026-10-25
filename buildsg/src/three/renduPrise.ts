@@ -20,7 +20,7 @@ import { versLocalDepuis } from './primitives.js';
 
 /** Le telephone tenu a hauteur des yeux (render/couleurPhotoAudit.ts fait de meme). */
 export const HAUTEUR_PRISE_M = 1.5;
-/** Le champ horizontal d'un telephone en grand-angle normal, quand l'EXIF ne le donne pas (facade/cadrage.ts). */
+/** Le champ horizontal d'un telephone en grand-angle normal, quand l'EXIF ne le donne pas (facade/vision/cadrage.ts). */
 export const CHAMP_DEFAUT_DEG = 66;
 export const LARGEUR_RENDU_PX = 1024;
 export const HAUTEUR_RENDU_PX = 768;

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
-import { hauteurToitEn, plansDuToit } from '../../../src/facade/toit.js';
+import { hauteurToitEn, plansDuToit } from '../../../src/facade/toits/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
@@ -151,7 +151,7 @@ describe('toitsDepuisLidar', () => {
     expect(lire).toHaveBeenCalledTimes(0);
     const m = objets[1]!;
     expect(m.toitMesure).toMatchObject({ source: 'lidar', egout: 3.5, pas: 0.5 });
-    // Et ses corps reconstruits sur la mesure (facade/toitCorps.ts) : le corps haut et l'aile basse.
+    // Et ses corps reconstruits sur la mesure (facade/toits/toitCorps.ts) : le corps haut et l'aile basse.
     expect(m.corpsToit?.length).toBeGreaterThanOrEqual(2);
     expect(Math.max(...m.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
     expect(Math.min(...m.corpsToit!.map((c) => c.faitage))).toBeCloseTo(3.5, 0);

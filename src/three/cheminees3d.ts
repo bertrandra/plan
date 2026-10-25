@@ -11,7 +11,7 @@
 //   conduit, quand l'observation les a vus.
 
 import type * as THREE_NS from 'three';
-import { repere, point, hauteurCorpsEn, type Repere } from '../facade/toitCorps.js';
+import { repere, point, hauteurCorpsEn, type Repere } from '../facade/toits/toitCorps.js';
 import { maille, type S3, type ContexteToitCorps } from './toitCorps3d.js';
 import type { Cheminee, CorpsToit, PtBrut } from '../model/types.js';
 

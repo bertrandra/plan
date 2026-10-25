@@ -30,13 +30,13 @@ sûr de lui (§12 bis).
 
 | Temps | Aujourd'hui | Code |
 |---|---|---|
-| Focale | EXIF `FocalLengthIn35mmFilm` d'une photo importée ; sinon 67° sur le grand côté | `facade/exif.ts`, `facade/cadrage.ts::CHAMP_GRAND_COTE_DEFAUT` |
+| Focale | EXIF `FocalLengthIn35mmFilm` d'une photo importée ; sinon 67° sur le grand côté | `facade/vision/exif.ts`, `facade/vision/cadrage.ts::CHAMP_GRAND_COTE_DEFAUT` |
 | Coins | **proposés** comme si le mur était centré dans l'image, téléphone d'aplomb, œil à 1,5 m, à la distance mesurée ; sinon un cadre à 12 % des bords. **Posés au doigt**, avec une loupe. | `facade/analyse.ts::coinsProposes` |
 | Hauteur | rapport du rectangle d'après la perspective et la focale (Zhang et He), mis à l'échelle par la largeur du plan | `facade/analyse.ts::mesurerHauteur` |
-| Redressement | homographie des quatre coins, 100 px/m, grand côté de 1 024 px au plus, masque de ce qui a été vu | `facade/homographie.ts`, `analyserReleve` |
-| Plusieurs photos | mosaïque de gauche à droite, recalée par corrélation normalisée | `facade/mosaique.ts` |
-| Détection | écart à la **teinte médiane du mur** (une seule pour toute la façade), seuil `max(28, 3 × écart médian)`, morphologie, taches, filtres de taille, affinage des bords, alignement des linteaux et appuis à 7 cm | `facade/detection.ts::detecterOuvertures` |
-| Classement | par la taille et la hauteur d'appui seulement | `facade/detection.ts::classer` |
+| Redressement | homographie des quatre coins, 100 px/m, grand côté de 1 024 px au plus, masque de ce qui a été vu | `facade/vision/homographie.ts`, `analyserReleve` |
+| Plusieurs photos | mosaïque de gauche à droite, recalée par corrélation normalisée | `facade/vision/mosaique.ts` |
+| Détection | écart à la **teinte médiane du mur** (une seule pour toute la façade), seuil `max(28, 3 × écart médian)`, morphologie, taches, filtres de taille, affinage des bords, alignement des linteaux et appuis à 7 cm | `facade/detection/detection.ts::detecterOuvertures` |
+| Classement | par la taille et la hauteur d'appui seulement | `facade/detection/detection.ts::classer` |
 
 Sur les images de test, les cotes sont justes à 1 ou 2 cm. Cette précision vaut pour des images de
 synthèse et des coins bien placés.
@@ -219,7 +219,7 @@ ainsi par ses arêtes, même quand sa couleur ne se détache pas.
 d'arête verticale franche sur ses côtés, est une ombre. Il est écarté, ou rogné quand l'ombre colle au
 linteau.
 
-**C bis. Ébrasements** (18 octobre 2026, `facade/detectionEbrasements.ts`). Une baie en retrait d'un mur
+**C bis. Ébrasements** (18 octobre 2026, `facade/detection/detectionEbrasements.ts`). Une baie en retrait d'un mur
 épais, vue de biais, montre d'un côté la face de son ébrasement : même teinte que le mur, autre luminosité,
 comme une ombre, mais **unie** (sans le grain ni les joints du parement) et **collée à un seul côté** de la
 vitre. Le filtre d'ombre la retirait, et la baie se réduisait à la vitre. Une bande de cet aspect sur toute
@@ -377,8 +377,8 @@ passe, soit environ 0,0005 $ par façade et par passe en Batch avec Claude Haiku
 quelques dixièmes de centime par façade aidée.
 
 **Mise en œuvre (lot L18, 14 octobre 2026)** — ce que le code a tranché :
-- `facade/renfort.ts` (signaux, grille de repères de 0 à 10, schéma, vote) et
-  `facade/renfortRecalage.ts` (recalage, application) ; prompt et schéma versionnés à part de ceux de
+- `facade/detection/renfort.ts` (signaux, grille de repères de 0 à 10, schéma, vote) et
+  `facade/detection/renfortRecalage.ts` (recalage, application) ; prompt et schéma versionnés à part de ceux de
   l'analyse : `deploy/prompt-renfort.md`, `deploy/schema-renfort.json`.
 - **Ton sur ton** : la détection ne voit pas la teinte d'une baie qu'elle n'a pas trouvée ; le signal
   retient ce qui en reste visible, un mur de plus de 4 m sans ouverture ou une confiance médiane des

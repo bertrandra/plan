@@ -3,7 +3,7 @@
 //
 // Le fichier est importe, donc compile dans le fichier livre : pas de lecture reseau, un toit calcule
 // hier se recalcule a l'identique. Chaque module de la lecture (model/toitMesure.ts,
-// model/volumesToit.ts, model/aCheval.ts, facade/toitLidar.ts, facade/toitCorps.ts,
+// model/volumesToit.ts, model/aCheval.ts, facade/toits/toitLidar.ts, facade/toits/toitCorps.ts,
 // app/toitsLidar.ts) garde ses noms de seuils, mais en lit la valeur ici : le nombre, sa raison et
 // les cas qui le justifient vivent au meme endroit, et une PR qui en change un se voit dans le diff
 // du fichier. Le type des noms vient du fichier lui-meme : un seuil retire du fichier ne compile plus.

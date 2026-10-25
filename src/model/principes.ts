@@ -150,8 +150,8 @@ export const PRINCIPES: readonly Principe[] = [
     ],
     coulisses: [
       { quoi: 'La grille et le recalage', ou: 'src/geo/mnh.ts' },
-      { quoi: 'La reconstruction des corps', ou: 'src/facade/toitCorps.ts' },
-      { quoi: 'La lecture des formes du catalogue', ou: 'src/facade/lectureFormes.ts' },
+      { quoi: 'La reconstruction des corps', ou: 'src/facade/toits/toitCorps.ts' },
+      { quoi: 'La lecture des formes du catalogue', ou: 'src/facade/toits/lectureFormes.ts' },
       { quoi: 'La spécification du toit IGN', ou: 'MD/spec-toit-ign.md' },
       { quoi: 'AE 101, la maison de référence, ne bouge pas', ou: '.claude/skills/toits/scripts/identite.ts' },
     ],
@@ -171,8 +171,8 @@ export const PRINCIPES: readonly Principe[] = [
       { qui: 'admin', faire: 'Parcourir les vignettes', effet: 'Vingt-neuf vignettes isométriques calculées par le code de la 3D.', ecran: '?admin&ecran=chaine' },
     ],
     coulisses: [
-      { quoi: 'Les pans, bouts, croupes, lucarnes', ou: 'src/facade/toitFormes.ts' },
-      { quoi: 'Papillon, coyau, berceau, carène, toits de révolution', ou: 'src/facade/toitSpeciaux.ts' },
+      { quoi: 'Les pans, bouts, croupes, lucarnes', ou: 'src/facade/toits/toitFormes.ts' },
+      { quoi: 'Papillon, coyau, berceau, carène, toits de révolution', ou: 'src/facade/toits/toitSpeciaux.ts' },
       { quoi: 'Le catalogue de vignettes', ou: 'src/three/catalogueToits.ts' },
       { quoi: 'Le dessin 3D des corps', ou: 'src/three/toitCorps3d.ts' },
     ],
@@ -266,8 +266,8 @@ export const PRINCIPES: readonly Principe[] = [
       { qui: 'plan', faire: 'Poser le relevé quand les coins sont trouvés', effet: 'Marqué « depuis l’audit » : une photo plus récente le remplace, jamais un relevé fait à la main.' },
     ],
     coulisses: [
-      { quoi: 'Calage et détection', ou: 'src/facade/calage.ts' },
-      { quoi: 'Le renfort de Claude', ou: 'src/facade/renfortRecalage.ts' },
+      { quoi: 'Calage et détection', ou: 'src/facade/calage/calage.ts' },
+      { quoi: 'Le renfort de Claude', ou: 'src/facade/detection/renfortRecalage.ts' },
       { quoi: 'La spécification du relevé', ou: 'MD/spec-releve-facade.md' },
     ],
     voir: ['audit', 'reconciliation'],

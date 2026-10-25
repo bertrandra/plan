@@ -10,9 +10,9 @@
 // Le cadrage est pur et teste ; le dessin demande un canevas, et les tests de l'orchestration
 // l'injectent.
 
-import { DEBORD_GRILLE, DIVISIONS_GRILLE, graduations } from '../facade/renfort.js';
+import { DEBORD_GRILLE, DIVISIONS_GRILLE, graduations } from '../facade/detection/renfort.js';
 import { COTE_ANALYSE_PX, dimensionsAnalyse, type ImageAnalyse } from './imagesAnalyse.js';
-import type { Image as ImagePixels, P2 } from '../facade/homographie.js';
+import type { Image as ImagePixels, P2 } from '../facade/vision/homographie.js';
 
 /** La marge autour de la photo, en part de son grand cote : un coin jusqu'a un repere et demi hors cadre y tient. */
 export const MARGE_PHOTO = 0.15;
@@ -49,7 +49,7 @@ function canevas(l: number, h: number): { c: HTMLCanvasElement; ctx: CanvasRende
   return ctx ? { c, ctx } : null;
 }
 
-/** Une image de pixels (facade/homographie.ts) sur un canevas a sa taille : la source des dessins. */
+/** Une image de pixels (facade/vision/homographie.ts) sur un canevas a sa taille : la source des dessins. */
 export function canevasDe(img: ImagePixels): HTMLCanvasElement | null {
   const cv = canevas(img.largeur, img.hauteur);
   if (!cv) return null;

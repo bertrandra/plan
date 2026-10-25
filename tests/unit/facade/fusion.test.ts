@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { analyserVues, centreOptique, transfert, type VuePhoto } from '../../../src/facade/fusion.js';
 import { analyserReleve } from '../../../src/facade/analyse.js';
-import { homographie } from '../../../src/facade/homographie.js';
+import { homographie } from '../../../src/facade/vision/homographie.js';
 import { chargerCorpus } from '../../banc/facades/banc.js';
 import { photographier, coinsVrais, stenope, cacheDepuis, type PriseCamera, type SceneFacade } from '../../banc/facades/synthese.js';
 import { mesurerDetection } from '../../banc/facades/mesure.js';

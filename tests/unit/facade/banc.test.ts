@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { chargerCorpus, rejouerCorpus, rejouerScene, tableau, capteursSimules } from '../../banc/facades/banc.js';
 import { coinsVrais, peindreElevation, murSeul, stenope, projeter, type SceneFacade } from '../../banc/facades/synthese.js';
 import { apparier, recouvrement, mesurerDetection, erreurCoinsCm } from '../../banc/facades/mesure.js';
-import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage.js';
+import { coinsDuReleve, biaisDepuisCap } from '../../../src/facade/calage/calage.js';
 
 // Le banc de facades (spec-facades-calage-detection §14, lot L5) : il doit tourner, sa verite doit
 // suivre son generateur, et les images de synthese d'origine doivent rester justes a 1 ou 2 cm.
@@ -164,7 +164,7 @@ describe('banc', () => {
 
   it('une baie en retrait vue de biais : les points de fuite restent justes, et la baie va jusqu au nu du mur', () => {
     // Scene 21 : des ebrasements de 40 cm, a 35 degres. Leurs aretes fuient vers la normale du mur : le calage n'en est pas
-    // trouble. La face d'ebrasement visible appartient a la baie de maconnerie (facade/detectionEbrasements.ts) : sans elle,
+    // trouble. La face d'ebrasement visible appartient a la baie de maconnerie (facade/detection/detectionEbrasements.ts) : sans elle,
     // la detection rendait la vitre seule, 11,5 cm de cote mediane et 6 corrections.
     const r = rejouerScene(parNom('21-'));
     for (const f of [r.fin.releve, r.fin.audit]) for (const c of f?.coinsCm ?? [Infinity]) expect(c).toBeLessThanOrEqual(10);

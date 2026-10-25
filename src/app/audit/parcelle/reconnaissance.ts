@@ -1,11 +1,11 @@
 // La facade devant vous, pendant l'audit de la parcelle (MD/spec-audit.md §6.1, §12.2) : la
-// reconnaissance du lot L2 (facade/priseDeVue.ts), restreinte aux facades de la liste de controle,
+// reconnaissance du lot L2 (facade/calage/priseDeVue.ts), restreinte aux facades de la liste de controle,
 // avec « Ce n'est pas cette façade » qui propose la suivante.
 //
 // Pur : position, cap et batiments en entree, la facade retenue en sortie.
 
 import { obstacle, type Obstacle } from '../../../geometry/ligneDeVue.js';
-import { ecartAuCap, facadesDevant, TOLERANCE_CAP_DEG, type FacadeDevant, type FacadesDUnBatiment } from '../../../facade/priseDeVue.js';
+import { ecartAuCap, facadesDevant, TOLERANCE_CAP_DEG, type FacadeDevant, type FacadesDUnBatiment } from '../../../facade/calage/priseDeVue.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { estBatiment } from '../../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';

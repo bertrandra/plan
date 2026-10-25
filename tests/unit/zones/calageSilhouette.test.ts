@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { P2 } from '../../../src/facade/homographie.js';
+import type { P2 } from '../../../src/facade/vision/homographie.js';
 import { CalageSilhouette } from '../../../src/zones/CalageSilhouette.js';
 
 // Le calage de la silhouette sur la facade complete (calibration, etapes 9 et 10) : proportions du plan, puis hauteur de la photo.

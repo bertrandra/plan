@@ -45,7 +45,7 @@ export interface Prise {
   photosPrevues: number | null;
   /**
    * Le cap de la boussole et l'attitude du telephone au declenchement : ils placent les coins
-   * proposes la ou le mur se trouve (facade/calage.ts). Absents d'une photo importee.
+   * proposes la ou le mur se trouve (facade/calage/calage.ts). Absents d'une photo importee.
    */
   cap?: number | null;
   attitude?: Attitude | null;

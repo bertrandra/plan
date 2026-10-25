@@ -4,16 +4,16 @@
 // le fusionnent et le cotent de meme.
 
 import { analyserReleve, finaliserReleve, hauteurBande, mesurerHauteur, silhouetteEnPartsDuMur, type EntreeAnalyse, type ResultatAnalyse } from './analyse.js';
-import { mosaiqueDesVues, vuesDeFace } from './mosaiqueFuites.js';
-import { inverser, redresserParReperes } from './redressementFuites.js';
-import { appliquerSimilitude } from './ransac.js';
-import { appliquer, homographie, redresser, resolutionTexture } from './homographie.js';
+import { mosaiqueDesVues, vuesDeFace } from './vision/mosaiqueFuites.js';
+import { inverser, redresserParReperes } from './vision/redressementFuites.js';
+import { appliquerSimilitude } from './vision/ransac.js';
+import { appliquer, homographie, redresser, resolutionTexture } from './vision/homographie.js';
 import type { GabaritMur } from './gabaritMur.js';
-import { analyserMosaique, type ResultatMosaique } from './mosaique.js';
+import { analyserMosaique, type ResultatMosaique } from './vision/mosaique.js';
 import { analyserVues, type ResultatFusion } from './fusion.js';
-import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './cadrage.js';
+import { CHAMP_GRAND_COTE_DEFAUT, focalePx } from './vision/cadrage.js';
 import type { Decrochement } from './profil.js';
-import type { Image, P2 } from './homographie.js';
+import type { Image, P2 } from './vision/homographie.js';
 
 /** Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, ou des vues du mur entier a fondre. */
 export type AssemblageMur = 'morceaux' | 'vues';
@@ -96,7 +96,7 @@ export interface AssemblageDuMur {
 
 /**
  * L'assemblage d'un mur (decision de l'utilisateur, 21 octobre 2026 : c'est l'image prise pour la suite) : chaque photo redressee
- * entiere (ses reperes, sinon ses points de fuite), les vues assemblees en une seule (facade/mosaiqueFuites.ts), et le mur porte de
+ * entiere (ses reperes, sinon ses points de fuite), les vues assemblees en une seule (facade/vision/mosaiqueFuites.ts), et le mur porte de
  * la premiere photo assemblee qui en a les coins. Null quand aucune photo ne s'assemble avec ses coins.
  */
 export function assemblerLeMur(photos: readonly { photo: Image; coins: readonly P2[]; reperes?: readonly P2[] | null }[]): AssemblageDuMur | null {

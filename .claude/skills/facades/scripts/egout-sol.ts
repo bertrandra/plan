@@ -15,10 +15,10 @@ import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
 import { coinsVrais, formePignon, photographier, type PriseCamera } from '../../../../tests/banc/facades/synthese.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
-import { appliquer, homographie, type Image, type P2 } from '../../../../src/facade/homographie.ts';
-import { inverser } from '../../../../src/facade/redressementFuites.ts';
-import { mosaiqueDesVues } from '../../../../src/facade/mosaiqueFuites.ts';
-import { appliquerSimilitude } from '../../../../src/facade/ransac.ts';
+import { appliquer, homographie, type Image, type P2 } from '../../../../src/facade/vision/homographie.ts';
+import { inverser } from '../../../../src/facade/vision/redressementFuites.ts';
+import { mosaiqueDesVues } from '../../../../src/facade/vision/mosaiqueFuites.ts';
+import { appliquerSimilitude } from '../../../../src/facade/vision/ransac.ts';
 import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coinsAuto.ts';
 import { gabaritDuHaut } from '../../../../src/facade/gabaritMur.ts';
 

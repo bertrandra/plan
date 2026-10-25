@@ -6,7 +6,7 @@
 // une `terrasse` (un fichier abime) l'ignore : une terrasse est plate.
 
 import type * as THREE_NS from 'three';
-import { repere, point } from '../facade/toitCorps.js';
+import { repere, point } from '../facade/toits/toitCorps.js';
 import { couleurToitPlat } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { enFacade, maille, type S3, type ContexteToitCorps } from './toitCorps3d.js';

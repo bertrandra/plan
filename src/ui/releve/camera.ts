@@ -4,12 +4,12 @@
 // pleine definition, lire un fichier choisi, et passer d'un canevas a une `Image` brute que le
 // calcul (facade/) sait traiter - et retour, pour encoder la texture en JPEG.
 
-import type { Image } from '../../facade/homographie.js';
+import type { Image } from '../../facade/vision/homographie.js';
 import type { Photo } from '../../facade/releve/prise.js';
 
 export type { Photo };
-import { focale35mm, champDepuisFocale35 } from '../../facade/exif.js';
-import { grandAngleParmi, zoomGrandAngle } from '../../facade/objectifs.js';
+import { focale35mm, champDepuisFocale35 } from '../../facade/vision/exif.js';
+import { grandAngleParmi, zoomGrandAngle } from '../../facade/vision/objectifs.js';
 
 /** Plus grand cote d'une photo traitee : au-dela, le redressement ne gagne rien et coute. */
 export const PHOTO_MAX_PX = 2400;

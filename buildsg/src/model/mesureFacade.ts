@@ -19,9 +19,9 @@ import type { GrilleFacade, OuvertureFacade, PartieBasse, TypeOuverture } from '
  * geo/bdtopo.ts (couche au-dessus, que le modele ne lit pas ; un test les garde egales).
  */
 export const HAUTEUR_NIVEAU_DEFAUT_M = 2.7;
-/** Deux baies sont du meme niveau si leurs hauteurs se recouvrent sur cette part de la plus basse (comme facade/structure.ts). */
+/** Deux baies sont du meme niveau si leurs hauteurs se recouvrent sur cette part de la plus basse (comme facade/detection/structure.ts). */
 const RECOUVREMENT_NIVEAU = 0.5;
-/** Ecart des centres d'une meme travee, d'une rangee a l'autre (comme facade/structure.ts). */
+/** Ecart des centres d'une meme travee, d'une rangee a l'autre (comme facade/detection/structure.ts). */
 const TRAVEE_M = 0.1;
 /** Une porte est sous une baie d'etage quand leurs centres sont a moins de cela : la travee est montee a l'aplomb. */
 const ALIGNEE_M = 0.15;
@@ -130,7 +130,7 @@ function recouvrement(a0: number, a1: number, b0: number, b1: number): number {
 
 /**
  * La grille d'un releve qui n'en porte pas (releve d'avant le lot L15) : niveaux par recouvrement des
- * hauteurs, travees par centres a l'aplomb, avec les regles de facade/structure.ts, simplifiees (pas
+ * hauteurs, travees par centres a l'aplomb, avec les regles de facade/detection/structure.ts, simplifiees (pas
  * de regularisation) : elle ne sert qu'a compter et a mesurer.
  */
 export function grilleSimple(ouvertures: readonly OuvertureFacade[]): GrilleFacade {

@@ -146,7 +146,7 @@ et déplacés à 650 km de l'origine) : aucun échec ; 300 d'entre eux sont rejo
 **Repli** : `null` → le « quatre pans » actuel (`plansDuToit`, faîtage sur `angleDuPlusLongCote`),
 même `H`. Le toit est toujours posé, jamais une exception.
 
-`facade/toit.ts` expose le squelette sous la même interface que les autres formes :
+`facade/toits/toit.ts` expose le squelette sous la même interface que les autres formes :
 `facettesToit(pts, toit)` rend `{ pans, pignons }` ; pour `forme: 'croupes'`, `pignons` est vide
 (tous les murs sont des égouts). `three/releve3d.ts` et `hauteurPignon` ne changent pas.
 
@@ -359,7 +359,7 @@ maison.
 | zinc | joints debout tous les 50 cm dans la pente, léger moiré | rugosité 0,45, un peu métallique |
 | gravillons | semis serré de graviers | très mate |
 
-`three/couverture.ts` dessine les textures sur un canevas, sans réseau. `uvDuPan` (`facade/toit.ts`)
+`three/couverture.ts` dessine les textures sur un canevas, sans réseau. `uvDuPan` (`facade/toits/toit.ts`)
 les pose sur chaque pan, en mètres : `u` le long de l'égout, `v` dans la pente en vraie grandeur. Les
 rangs suivent ainsi l'égout de chaque pan.
 - Le toit-terrasse d'un toit plat simple (`releve3d.ts::poserToitPlat`) et les facettes plates d'un
@@ -642,7 +642,7 @@ dalle, rien n'est lu.
 
 ### 10.2 L'ajustement
 
-`facade/toitLidar.ts::ajusterToit(contour, mesures)` : chaque forme que Plan dessine, à hauteur
+`facade/toits/toitLidar.ts::ajusterToit(contour, mesures)` : chaque forme que Plan dessine, à hauteur
 unité, donne un profil `f(q)` sur le contour ; les mesures `z = e + H · f(q)` rendent par moindres
 carrés l'égout `e` et la hauteur de faîtage `H` (`H ≥ 0`). Candidats : plat, appentis (quatre
 sens), croupes (squelette), deux pans et quatre pans sur chaque **axe** : le plus long mur, sa
@@ -851,7 +851,7 @@ pignons qui partent du faîtage pour venir dresser leur triangle sur la façade 
 basse à 4,3 m ; une aile à 4,5 m. C'est ce que Plan reconstruit et dessine, **par défaut** dès que la
 surface mesurée existe (`modeToit: 'corps'`). « Tel que mesuré » reste proposé.
 
-### 13.2 La reconstruction (`facade/toitCorps.ts::reconstruireCorps`)
+### 13.2 La reconstruction (`facade/toits/toitCorps.ts::reconstruireCorps`)
 
 1. **Les corps.** Les rectangles du contour (`model/volumesToit.ts::rectanglesDuContour` — un seul
    pour une maison rectangulaire), coupés aux **marches** de la couverture (§11.2,
@@ -1053,7 +1053,7 @@ Le modèle des corps (§13.2) part des rectangles du contour. Un contour BD TOPO
 biais ne se découpe pas (`rectanglesDuContour` rend null), et la 3D montrait alors la surface brute.
 Exemple : 2 allée des Limites, parcelle AE 103.
 
-- **Recalage d'un bloc** (`facade/toitCorps.ts::decalageSurMesure`, appelé par
+- **Recalage d'un bloc** (`facade/toits/toitCorps.ts::decalageSurMesure`, appelé par
   `app/toitsLidar.ts::recalerSurLidar`). Pour la maison du projet et les maisons mitoyennes, si
   plus de 12 % des cellules sous le contour sont non bâties (moins de 2,5 m), la grille est relue
   3 m plus large. Le décalage retenu, au pas de 25 cm et à 3 m au plus, maximise ce qui est bâti
@@ -1067,7 +1067,7 @@ Exemple : 2 allée des Limites, parcelle AE 103.
 - **Tranches** (`model/volumesToit.ts::rectanglesEnTranches`). Le contour à l'équerre est coupé
   perpendiculairement à l'un de ses axes ; les rectangles maximaux y tiraient une bande d'un bout à
   l'autre de la maison.
-- **Formes simples** (`corpsDepuisFormes`). Chaque tranche est lue par `facade/toitLidar.ts::
+- **Formes simples** (`corpsDepuisFormes`). Chaque tranche est lue par `facade/toits/toitLidar.ts::
   ajusterToit` sur la grille brute : deux pans, croupes ou quatre pans (faîtage dans la longueur,
   croupes à la pente des pans : `CorpsToit.croupes`), appentis (plat en deçà de 10°), plat. À
   défaut, le modèle des corps. Le modèle des corps, lui, n'a pas changé : les contours qui se

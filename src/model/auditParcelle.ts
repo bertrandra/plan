@@ -230,7 +230,7 @@ export interface RenfortFacadeCapture {
   /** Les ouvertures proposees cochees, puis celles laissees en pointille (decochees). */
   ouvertures: OuvertureFacade[];
   decochees: OuvertureFacade[];
-  /** Les compteurs de facade/renfortRecalage.ts (graines, pleines, rejetees, retirees…). */
+  /** Les compteurs de facade/detection/renfortRecalage.ts (graines, pleines, rejetees, retirees…). */
   bilan: Record<string, number>;
   /** Le bilan en une phrase ; null si Claude n'a rien change. */
   resume: string | null;

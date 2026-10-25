@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { MASQUE_NOTABLE, coinsAvecAide, motifAide, propositionRenforcee, signauxDeVerification, signauxDesCoins } from '../../../src/zones/releve/aide.js';
-import { voterRenfort, type ReponseRenfort } from '../../../src/facade/renfort.js';
-import { bilanVide } from '../../../src/facade/renfortRecalage.js';
+import { voterRenfort, type ReponseRenfort } from '../../../src/facade/detection/renfort.js';
+import { bilanVide } from '../../../src/facade/detection/renfortRecalage.js';
 import type { Morceau } from '../../../src/facade/releve/serie.js';
-import type { Image } from '../../../src/facade/homographie.js';
+import type { Image } from '../../../src/facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../../src/model/types.js';
 
 // L'aide de Claude dans le releve (lot L18) : quand la proposer, ce qu'elle fait des coins (seuls les

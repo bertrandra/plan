@@ -87,7 +87,7 @@ export interface PrisePhoto {
   /**
    * La taille de la photo source, avant la reduction a 1 280 px : avec la focale et la distance au
    * mur, elle donne les pixels par metre au mur, la precision reelle des cotes
-   * (MD/spec-facades-calage-detection.md §4, `facade/calage.ts::pxParMetreSource`).
+   * (MD/spec-facades-calage-detection.md §4, `facade/calage/calage.ts::pxParMetreSource`).
    */
   largeurSourcePx?: number | null;
   hauteurSourcePx?: number | null;

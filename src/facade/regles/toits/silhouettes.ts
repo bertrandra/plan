@@ -19,7 +19,7 @@ import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, FormeToitSimple, PtBrut } from '../../../model/types.js';
 import { libelleSilhouette, type BoutVu, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { SILHOUETTES_TOITS, type SilhouettesToits, type ValeurSilhouette } from '../../../regles/toits/silhouettes.js';
-import type { ToitEstime } from '../../toit.js';
+import type { ToitEstime } from '../../toits/toit.js';
 
 /** Ce que l'on sait d'une facade : l'azimut de sa normale sortante (0 = nord, sens horaire), sa largeur, sa silhouette, ce qu'elle ferme, son nom. */
 export interface SilhouetteLue { azimut: number; largeurM: number; silhouette: SilhouetteFacade; bout?: BoutVu; nom: string }
@@ -120,7 +120,7 @@ export const direLesMurs = (lues: readonly SilhouetteLue[]): string =>
   lues.filter((l) => l.silhouette !== 'indetermine').map((l) => l.nom + ' : ' + libelleSilhouette(l.silhouette)).join(' ; ');
 
 /**
- * La silhouette que la photo donne a Plan (`classerProfil`, facade/toit.ts). Un triangle de photo se lit « triangle » :
+ * La silhouette que la photo donne a Plan (`classerProfil`, facade/toits/toit.ts). Un triangle de photo se lit « triangle » :
  * c'est Claude qui voit si le haut est du mur (pignon) ou du toit (croupe), par son `bout`. Un haut sans rien (toit plat,
  * ou toit hors cadre) ne dit rien.
  */

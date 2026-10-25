@@ -8,14 +8,14 @@ import { priseSansCapteurs, redresserEtFusionner } from './chaine.js';
 import { rechercher } from './serie.js';
 import { coinsAutoDeSerie, type CoinsDeSerie } from './coinsAuto.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
-import { inverser } from '../redressementFuites.js';
-import type { MurLu } from '../mosaiqueFuites.js';
+import { inverser } from '../vision/redressementFuites.js';
+import type { MurLu } from '../vision/mosaiqueFuites.js';
 import type { Facade } from '../geometrie.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
-import type { OuvertureDetectee } from '../detection.js';
-import { sansOmbres } from '../sansOmbres.js';
-import { appliquer, homographie, type Image, type P2 } from '../homographie.js';
-import { appliquerSimilitude, inverse } from '../ransac.js';
+import type { OuvertureDetectee } from '../detection/detection.js';
+import { sansOmbres } from '../vision/sansOmbres.js';
+import { appliquer, homographie, type Image, type P2 } from '../vision/homographie.js';
+import { appliquerSimilitude, inverse } from '../vision/ransac.js';
 import type { AssemblageDuMur } from '../analyseMur.js';
 
 /** Ce que l'editeur demande au navigateur : reduire une photo, la decoder, montrer une elevation. */

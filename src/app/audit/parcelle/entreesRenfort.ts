@@ -8,15 +8,15 @@
 // texture) et le resultat est garde dans la capture : les propositions se recalculent ensuite sans
 // image (propositionsClaude.ts, `propositionsRenfort`).
 
-import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterRenfort, RENFORT_A_CHAQUE_FACADE, type ReponseRenfort } from '../../../facade/renfort.js';
-import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/renfortRecalage.js';
+import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterRenfort, RENFORT_A_CHAQUE_FACADE, type ReponseRenfort } from '../../../facade/detection/renfort.js';
+import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/detection/renfortRecalage.js';
 import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../renfortReleve.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import { etiquetteFacade } from './liste.js';
 import type { RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
-import type { P2, Image } from '../../../facade/homographie.js';
+import type { P2, Image } from '../../../facade/vision/homographie.js';
 import type { ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
 

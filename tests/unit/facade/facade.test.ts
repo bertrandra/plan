@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/facade/geometrie.js';
-import { focalePx, distanceParCadrage, distancePourToutCadrer, etalonnerChamp, consigneAplomb, planDePrise, consignePrise } from '../../../src/facade/cadrage.js';
-import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/homographie.js';
-import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection.js';
+import { focalePx, distanceParCadrage, distancePourToutCadrer, etalonnerChamp, consigneAplomb, planDePrise, consignePrise } from '../../../src/facade/vision/cadrage.js';
+import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/vision/homographie.js';
+import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection/detection.js';
 
 const p = (x: number, y: number) => ({ x, y });
 // Une maison de 10 x 6 m, contour trigonometrique : le cote 0 va d'ouest en est au sud.

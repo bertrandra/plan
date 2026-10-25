@@ -22,9 +22,9 @@
 // est le plan Y = 0, la rue du cote Y < 0. Les coordonnees photo sont continues : le pixel (i, j)
 // couvre [i, i + 1] x [j, j + 1], comme dans `redresser`.
 
-import { homographie, appliquer, type Image, type P2 } from '../../../src/facade/homographie.js';
-import { focalePx } from '../../../src/facade/cadrage.js';
-import { champDepuisFocale35 } from '../../../src/facade/exif.js';
+import { homographie, appliquer, type Image, type P2 } from '../../../src/facade/vision/homographie.js';
+import { focalePx } from '../../../src/facade/vision/cadrage.js';
+import { champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
 import type { DetailsOuverture, TypeOuverture } from '../../../src/model/types.js';
 
 export type RGB = [number, number, number];

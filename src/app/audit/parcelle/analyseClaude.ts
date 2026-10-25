@@ -14,10 +14,10 @@
 
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
 import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type RenfortFacadeCapture, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
-import { estReponseRenfort, type ReponseRenfort } from '../../../facade/renfort.js';
+import { estReponseRenfort, type ReponseRenfort } from '../../../facade/detection/renfort.js';
 import { rangerRenfort } from './entreesRenfort.js';
 import { chargerSource, dessinerElevationRenfort, dessinerPhotoRenfort } from '../../../render/imagesRenfort.js';
-import type { Image, P2 } from '../../../facade/homographie.js';
+import type { Image, P2 } from '../../../facade/vision/homographie.js';
 import { chargerPixels } from '../../../render/couleurMurPhoto.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { ReleveFacade } from '../../../model/types.js';

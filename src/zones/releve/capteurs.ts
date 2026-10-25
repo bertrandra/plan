@@ -1,9 +1,9 @@
 // Le releve de facade (zones/Releve.tsx), etape 2 : les capteurs de la visee (objectif, camera, inclinaison, realite augmentee).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/vision/cadrage.js';
 import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, type ChoixCamera, type OffreGrandAngle } from '../../ui/releve/camera.js';
-import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../../facade/objectifs.js';
+import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../../facade/vision/objectifs.js';
 import { ecouterNatif, webxrDisponible, mesurerWebXR, demanderPermissionOrientation, suivreInclinaison, suivreCap, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { ecrireReglage, lireReglage } from './commun.js';
 import { pointDeFacade, type Facade } from '../../facade/geometrie.js';

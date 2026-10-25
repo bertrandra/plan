@@ -2,13 +2,13 @@
 // mosaique (coinsAutoDeSerie), ou reportes d'une photo ou ils sont connus (reporterCoins). La chaine de tous (chaine.ts) s'en sert
 // pour les photos qui doutent. Sans DOM, testable seul.
 
-import { intersection, ligneParPoints, type Ligne } from '../calageFin.js';
-import type { Image, P2 } from '../homographie.js';
-import { detecterSegments } from '../segments.js';
-import { redresserParFuites, type RedressementFuites } from '../redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../mosaiqueFuites.js';
+import { intersection, ligneParPoints, type Ligne } from '../calage/calageFin.js';
+import type { Image, P2 } from '../vision/homographie.js';
+import { detecterSegments } from '../vision/segments.js';
+import { redresserParFuites, type RedressementFuites } from '../vision/redressementFuites.js';
+import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu } from '../vision/mosaiqueFuites.js';
 import type { GabaritMur } from '../gabaritMur.js';
-import type { Similitude } from '../ransac.js';
+import type { Similitude } from '../vision/ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
 export function quadrilatereSain(c: readonly P2[], image: { largeur: number; hauteur: number }): boolean {
@@ -41,7 +41,7 @@ export interface CoinsDeSerie {
   assemblage: { image: Image; vu: Uint8Array; places: (Similitude | null)[]; mur: MurLu };
 }
 
-export { vuesDeFace } from '../mosaiqueFuites.js';
+export { vuesDeFace } from '../vision/mosaiqueFuites.js';
 
 /**
  * Le mur sur l'assemblage des vues redressees : l'egout, le sol et ses deux bouts. Le plan donne la largeur (cadastre) et la hauteur
@@ -58,7 +58,7 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
 
 /**
  * Les coins du mur sur toutes les photos d'une serie, sans geste : chaque photo est redressee par ses points de fuite
- * (facade/redressementFuites.ts), les vues sont assemblees en mosaique (facade/mosaiqueFuites.ts), le rectangle du mur y est lu,
+ * (facade/vision/redressementFuites.ts), les vues sont assemblees en mosaique (facade/vision/mosaiqueFuites.ts), le rectangle du mur y est lu,
  * puis reporte dans chaque photo. Les photos n'ont pas besoin de montrer le mur entier, ni ses coins. Null quand aucune photo
  * ne se redresse. `hauteurPlanM` : la hauteur du mur que donne le plan (LiDAR), qui en fixe les proportions avec la largeur.
  * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent.

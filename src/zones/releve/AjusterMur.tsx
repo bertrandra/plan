@@ -7,8 +7,8 @@
 // les quatre coins du mur, que la chaine traite comme poses a la main (facade/releve/chaine.ts) ; le gabarit s'y repose.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
-import { appliquer, type Image, type P2 } from '../../facade/homographie.js';
-import { inverser, redresserParReperes } from '../../facade/redressementFuites.js';
+import { appliquer, type Image, type P2 } from '../../facade/vision/homographie.js';
+import { inverser, redresserParReperes } from '../../facade/vision/redressementFuites.js';
 import { GABARIT_RECTANGLE, gabaritSurLaVue, type GabaritMur } from '../../facade/gabaritMur.js';
 import { versJpeg } from '../../ui/releve/camera.js';
 import { pointSvg, useEchelle } from './commun.js';

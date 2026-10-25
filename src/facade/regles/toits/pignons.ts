@@ -2,7 +2,7 @@
 // §5.1) : « deux pignons, a gauche et a droite de la facade sud, qui montent au point haut du
 // faitage » (le proprietaire d'AE 101, 14 octobre 2026).
 //
-// Pourquoi un fait : la detection seule (facade/toitCorps.ts::detecterPignons) depend de la mesure, et
+// Pourquoi un fait : la detection seule (facade/toits/toitCorps.ts::detecterPignons) depend de la mesure, et
 // la mesure change. Le MNH LiDAR que sert l'IGN pour AE 101 a change dans l'apres-midi du 14 octobre
 // (0,4 m d'ecart moyen par cellule, sans decalage) : le pignon est, qui depassait le pan de 0,8 a
 // 1,8 m, n'y depasse plus le seuil, et le toit perdait un pignon. Ce que le proprietaire a vu ne doit
@@ -16,7 +16,7 @@
 // monte au point haut du faitage du corps, jusqu'a lui. Un pignon que le fait pose ou elargit fait
 // reajuster le pan sans ses mesures, comme la detection.
 
-import { ajusterCorps, empreintePignon, hauteurCorps, point, repere } from '../../toitCorps.js';
+import { ajusterCorps, empreintePignon, hauteurCorps, point, repere } from '../../toits/toitCorps.js';
 import { facadeDesignee } from './appentis.js';
 import { hauteurToitMesure } from '../../../model/toitMesure.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';

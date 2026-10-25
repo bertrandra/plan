@@ -5,7 +5,7 @@ import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { appliquerPropositions, cocheeParDefaut } from '../../../../../src/regles/decisions.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
-import { facettesLucarnes } from '../../../../../src/facade/toitFormes.js';
+import { facettesLucarnes } from '../../../../../src/facade/toits/toitFormes.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { CeQueJeVois } from '../../../../../src/model/ceQueJeVois.js';
 import type { CorpsToit, Lucarne, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';

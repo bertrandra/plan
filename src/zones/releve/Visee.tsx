@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useRef, useState, type PointerEvent as PE } from 'react';
 import { Icone } from '../icones.js';
 import { type Facade } from '../../facade/geometrie.js';
-import { focalePx, distanceParCadrage, consigneAplomb, planDePrise, consignePrise, type ConsignePrise } from '../../facade/cadrage.js';
+import { focalePx, distanceParCadrage, consigneAplomb, planDePrise, consignePrise, type ConsignePrise } from '../../facade/vision/cadrage.js';
 import { cameraDisponible, saisir, lireFichier, lirePhotoNative, type Photo } from '../../ui/releve/camera.js';
-import { type Objectif } from '../../facade/objectifs.js';
+import { type Objectif } from '../../facade/vision/objectifs.js';
 import { natifDisponible, attendrePhotoNative, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { fr } from './commun.js';
 import { type Prise, type Reperes, useCadreVideo, useCamera, useInclinaison, useObjectif, useOrientationPrise, useWebxr } from './capteurs.js';

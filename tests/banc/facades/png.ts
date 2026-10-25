@@ -2,7 +2,7 @@
 // photos de synthese que la fumee importe dans le releve (point 68, lot G17).
 
 import { deflateSync } from 'node:zlib';
-import type { Image } from '../../../src/facade/homographie.js';
+import type { Image } from '../../../src/facade/vision/homographie.js';
 
 /** Un PNG RGBA minimal (filtre nul), sans dependance. */
 export function png(img: Image): Buffer {

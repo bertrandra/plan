@@ -1,4 +1,4 @@
-import { hauteurCorpsEn } from '../../src/facade/toitCorps.js';
+import { hauteurCorpsEn } from '../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../src/model/types.js';
 
 // Des surfaces LiDAR synthetiques : un toit dessine par le code de la 3D (hauteurCorpsEn), echantillonne tous les 50 cm avec un

@@ -24,7 +24,7 @@ import { separerBowWindows } from '../facade/modeToit/saillies.js';
 import { corpsVisibles } from '../facade/modeToit/facadesDesCorps.js';
 import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
-import { hauteursMursCorps } from '../facade/toitCorps.js';
+import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { ajouterArbre3d, synchroniserArbres, arbreDeLInstance } from './arbre3d.js';
 import { ajouterNomsDesRues3d } from './rues3d.js';
 import { vue3d, cleDeVue, hotes3d, signalerSceneBatie, rendre3d, cameraDeVue, type SceneVue3d, soleilVue3d } from './etat3d.js';
@@ -1161,7 +1161,7 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
   // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
   const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
-  // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
+  // Les corps et pignons reconstruits sur le LiDAR (facade/toits/toitCorps.ts) : un prisme par corps a son
   // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
   const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).

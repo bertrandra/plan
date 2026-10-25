@@ -21,7 +21,7 @@ export const FORMES_TOIT_SIMPLES: readonly FormeToitSimple[] = ['plat', 'appenti
  * formes axiales) se dessine en croupes ; ce qui garde ses pignons, en deux pans ; le shed, un appentis ;
  * le papillon, plat (un faitage dessine la ou il y a un creux serait pire qu'un dessus plat).
  * Ce repli ne sert plus qu'aux toits simples (`Toit.forme`, sans corps) : un corps, lui, est dessine pour de bon par
- * facade/toitFormes.ts et facade/toitSpeciaux.ts (papillon, coyau, berceau, tourelles...).
+ * facade/toits/toitFormes.ts et facade/toits/toitSpeciaux.ts (papillon, coyau, berceau, tourelles...).
  */
 export const FORME_DESSINEE: Readonly<Record<FormeToitCatalogue, FormeToitSimple>> = {
   'demi-croupes': 'croupes',

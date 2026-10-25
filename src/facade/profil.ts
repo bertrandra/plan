@@ -13,7 +13,7 @@
 // donnent sa position et la hauteur d'egout de la partie basse.
 
 import { au } from '../util/tableaux.js';
-import { homographie, appliquer, type P2 } from './homographie.js';
+import { homographie, appliquer, type P2 } from './vision/homographie.js';
 import { facadesDuContour, pointDeFacade } from './geometrie.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type { OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../model/types.js';

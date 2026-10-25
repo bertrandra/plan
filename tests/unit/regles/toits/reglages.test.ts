@@ -8,8 +8,8 @@ import { conflitsDeProfils, lireProfilsToits } from '../../../../src/regles/toit
 import { LECTURES_TOITS, VERSION_LECTURE_TOITS, versionDeLecture } from '../../../../src/app/toitsLidar.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE } from '../../../../src/regles/toits/faits.js';
 import { SEUIL_MARCHE_M, SOL_M } from '../../../../src/model/toitMesure.js';
-import { TOLERANCE_REFONTE, GAIN_COUPE, PART_VIDE_RECALAGE } from '../../../../src/facade/toitCorps.js';
-import { ECART_MAX_M } from '../../../../src/facade/toitLidar.js';
+import { TOLERANCE_REFONTE, GAIN_COUPE, PART_VIDE_RECALAGE } from '../../../../src/facade/toits/toitCorps.js';
+import { ECART_MAX_M } from '../../../../src/facade/toits/toitLidar.js';
 import { DEPASSEMENT_VEGETATION_M } from '../../../../src/app/toitsLidar.js';
 import { AIRE_A_CHEVAL_MIN_M2 } from '../../../../src/model/aCheval.js';
 

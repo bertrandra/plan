@@ -5,7 +5,7 @@
 //   (F§10).
 // Une graine que rien ne soutient dans l'image (aucun segment, aucune arete a moins de 30 cm) est
 // rejetee, ou laissee en pointille. Ce qui vient de Claude porte `source: 'claude'`, puis `corrigee`
-// si l'utilisateur le retouche (facade/verification.ts).
+// si l'utilisateur le retouche (facade/detection/verification.ts).
 //
 // Les avis sur les ouvertures detectees passent par le meme controle croise que les toits
 // (spec-regles-toits §14.2, point 4) : Claude ne retire pas une baie que la detection voit avec

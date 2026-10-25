@@ -3,7 +3,7 @@ import { corpsNeuf, deplacerCorps, etirerCorps, orienterFaitage, rangPrincipal, 
 import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
 import { appliquerPiece, raisonIndisponible } from '../../../../src/three/gestesToits.js';
 import { listerElements } from '../../../../src/facade/modeToit/elements.js';
-import { repere } from '../../../../src/facade/toitCorps.js';
+import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];

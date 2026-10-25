@@ -1,6 +1,6 @@
 // Les corps et pignons d'un batiment, dessines (MD/spec-toit-ign.md §13).
 //
-// Chaque corps (facade/toitCorps.ts) : ses pans, prolonges d'un debord a l'egout et d'une rive aux
+// Chaque corps (facade/toits/toitCorps.ts) : ses pans, prolonges d'un debord a l'egout et d'une rive aux
 // pignons ; au-dessus du prisme (pose a son egout le plus bas), les murs qui montent - le mur d'un
 // pan plus haut que l'autre, les pignons de bout jusqu'au faitage - en couleur de mur. Chaque
 // pignon qui part du faitage : ses deux pans, perpendiculaires, qui avancent du mur jusqu'a

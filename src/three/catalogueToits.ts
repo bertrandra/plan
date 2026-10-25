@@ -6,8 +6,8 @@
 // appentis et plat. Il vit dans three/ pour cela : la couche facade n'importe pas la 3D. Rien n'est dessine a la main : si le calcul
 // d'une forme change, sa vignette change avec lui.
 
-import { facettesEtendues, facettesLucarnes, type Sommet } from '../facade/toitFormes.js';
-import { couperDemiPlan } from '../facade/toit.js';
+import { facettesEtendues, facettesLucarnes, type Sommet } from '../facade/toits/toitFormes.js';
+import { couperDemiPlan } from '../facade/toits/toit.js';
 import { facettesCorps } from './toitCorps3d.js';
 import type { CorpsToit, Lucarne, PignonToit, PtBrut, TypeLucarne } from '../model/types.js';
 

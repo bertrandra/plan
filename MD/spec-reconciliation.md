@@ -58,7 +58,7 @@ justes, c'est régler ces nombres sur le corpus validé (`tests/fixtures/audit/`
 
 ## 4. Les règles LiDAR font surface
 
-Le LiDAR n'écrit plus dans le projet sans le dire : sa lecture (`app/toitsLidar.ts`, `facade/toitCorps.ts`) produit des
+Le LiDAR n'écrit plus dans le projet sans le dire : sa lecture (`app/toitsLidar.ts`, `facade/toits/toitCorps.ts`) produit des
 constats avec la règle qui les a produits, et Admin › Règles montre, par module, les seuils et les étapes de la lecture
 LiDAR (`regles/toits/reglages.json`) à côté des règles d'arbitrage.
 
@@ -79,5 +79,5 @@ LiDAR (`regles/toits/reglages.json`) à côté des règles d'arbitrage.
 
 - **Matériau des murs et couverture** : arbitrés comme la hauteur et la toiture (`app/audit/parcelle/arbitrages.ts`), `valeurs` dans `regles/reconciliation.json` pour forcer.
 - **Hauteur totale** : IGN (toit de repli de la BD TOPO) et LiDAR (faîtage de la surface) ; seulement pour un bâtiment sans corps. Effet `hauteurToit`.
-- **Formes du catalogue** : un constat LiDAR de `formeToit` peut être une forme lue par `facade/lectureFormes.ts` ; retenue, elle s'écrit comme corps (`propositionForme`). Une forme demandée par Claude ou la personne et que le LiDAR n'a pas vue s'ajuste au mieux (`ECART_FORME_DEMANDEE_M`), et la ligne le dit.
+- **Formes du catalogue** : un constat LiDAR de `formeToit` peut être une forme lue par `facade/toits/lectureFormes.ts` ; retenue, elle s'écrit comme corps (`propositionForme`). Une forme demandée par Claude ou la personne et que le LiDAR n'a pas vue s'ajuste au mieux (`ECART_FORME_DEMANDEE_M`), et la ligne le dit.
 - **Taux automatique** : `app/audit/parcelle/tauxAuto.ts`, `scripts/taux-automatique.ts`.

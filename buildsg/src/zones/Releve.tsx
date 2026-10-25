@@ -11,7 +11,7 @@
 // 3. **Coins** : les quatre coins du mur (ou du morceau de mur) sur chaque photo, proposes d'apres
 //    la distance, ajustes au doigt avec une loupe. Ils peuvent deborder de la photo. Plusieurs photos
 //    se prennent l'une apres l'autre, et s'assemblent a l'analyse : morceaux cote a cote
-//    (facade/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
+//    (facade/vision/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
 //    voiture ou une haie (facade/fusion.ts, lot L13).
 // 4. **Analyse** : hauteur du mur, redressement, ouvertures, silhouette du toit (facade/analyse.ts).
 //    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une

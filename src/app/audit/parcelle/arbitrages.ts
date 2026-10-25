@@ -13,14 +13,14 @@
 import { nomFacade } from '../../../facade/geometrie.js';
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
-import { lireForme } from '../../../facade/lectureFormes.js';
+import { lireForme } from '../../../facade/toits/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ECART_FORME_SIMPLE_MAX_M, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { corpsConforme, corpsProposesSousFait, formeDuCorps, meilleurCorpsSelonObservation, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeMurs, indiceDeCorps, traversantsDuGroupe } from './constats.js';
 import { pignonTraversant } from '../../../facade/regles/toits/pignons.js';
 import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
-import { repere } from '../../../facade/toitCorps.js';
+import { repere } from '../../../facade/toits/toitCorps.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
@@ -163,7 +163,7 @@ function propositionHauteurTotale(o: ObjetPlan, b: LigneBatiment, a: Arbitrage |
   };
 }
 
-/** Les formes du catalogue que la lecture des formes sait ajuster sur la surface mesuree (facade/lectureFormes.ts). */
+/** Les formes du catalogue que la lecture des formes sait ajuster sur la surface mesuree (facade/toits/lectureFormes.ts). */
 const FORMES_AJUSTABLES: ReadonlySet<string> = new Set(['mansart', 'gambrel', 'demi-croupes', 'coyau', 'berceau', 'carene', 'papillon', 'conique', 'polygonal', 'dome', 'imperiale', 'fleche']);
 
 /**

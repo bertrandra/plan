@@ -17,7 +17,7 @@ import { pointsDuMur, hauteurAuxLimites, surLeCiel, chargerPixels, HAUTEUR_CLOTU
 import { couleurMurDepuisPixels, type LectureMur } from '../model/couleurMur.js';
 import { versHex } from '../model/couleurToit.js';
 import { teinteMediane } from '../facade/analyse.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
 import type { Obstacle } from '../geometry/ligneDeVue.js';
 import type { PrisePhoto } from '../model/audit.js';
 import type { PtBrut } from '../model/types.js';

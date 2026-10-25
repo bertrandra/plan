@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { silhouetteDuMur, silhouetteDesCorps, silhouetteVersLOeil, motDuHaut } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
-import { hauteurDuToitEn } from '../../../src/facade/toitCorps.js';
+import { hauteurDuToitEn } from '../../../src/facade/toits/toitCorps.js';
 import { facadesDuContour } from '../../../src/facade/geometrie.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 

@@ -2,7 +2,7 @@
 // les reperes de la visee, le champ, le cap et l'attitude. Des types seuls : la camera (ui/releve/camera.ts), les capteurs de distance
 // (ui/releve/profondeur.ts) et la visee (zones/releve/capteurs.ts) les remplissent et les re-exportent.
 
-import type { Image } from '../homographie.js';
+import type { Image } from '../vision/homographie.js';
 import type { Attitude } from '../../shell/boussole.js';
 
 /** Une photo prete a traiter, et ce qu'on sait de l'objectif. */
@@ -15,7 +15,7 @@ export interface Photo {
   /** Focale en pixels quand le module natif la donne directement (intrinseques ARKit). */
   focalePx: number | null;
   /**
-   * La distorsion du grand-angle corrigee sur `image` (facade/distorsion.ts, lot L8) : son coefficient,
+   * La distorsion du grand-angle corrigee sur `image` (facade/vision/distorsion.ts, lot L8) : son coefficient,
    * et le facteur dont l'image corrigee a ete reduite pour garder ses coins, qui reduit la focale
    * d'autant. Absente d'une photo non corrigee.
    */
@@ -54,7 +54,7 @@ export interface Prise {
   photosPrevues: number | null;
   /**
    * Le cap de la boussole et l'attitude du telephone au declenchement : ils placent les coins
-   * proposes la ou le mur se trouve (facade/calage.ts). Absents d'une photo importee.
+   * proposes la ou le mur se trouve (facade/calage/calage.ts). Absents d'une photo importee.
    */
   cap?: number | null;
   attitude?: Attitude | null;

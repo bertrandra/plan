@@ -12,8 +12,8 @@ import type { FabriqueImages } from '../../../../../src/app/audit/parcelle/entre
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import type { ClientAnalyse, DemandeAnalyse, ResultatBatch } from '../../../../../src/io/analyseClaude.js';
-import type { ReponseRenfort } from '../../../../../src/facade/renfort.js';
-import type { Image } from '../../../../../src/facade/homographie.js';
+import type { ReponseRenfort } from '../../../../../src/facade/detection/renfort.js';
+import type { Image } from '../../../../../src/facade/vision/homographie.js';
 import type { ObjetBrut, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/types.js';
 
 // Le renfort de Claude dans l'audit de la parcelle (lot L18) : trois requetes par facade relevee,

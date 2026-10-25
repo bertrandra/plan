@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { facettesCheminee, ajouterCheminees3d, chemineeValide, couleurSouche, NOM_CHEMINEE_SOUCHE, NOM_CHEMINEE_COURONNEMENT, NOM_CHEMINEE_MITRONS, EPAISSEUR_DALLE_M, DEBORD_DALLE_M, ENFONCEMENT_SOUCHE_M, MITRON } from '../../../src/three/cheminees3d.js';
-import { hauteurCorpsEn } from '../../../src/facade/toitCorps.js';
+import { hauteurCorpsEn } from '../../../src/facade/toits/toitCorps.js';
 import type { Cheminee, CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 // Les souches de cheminee (MD/spec-regles-toits.md §2.6) : leur place selon leur position, leur pied

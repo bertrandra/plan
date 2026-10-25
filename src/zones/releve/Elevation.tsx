@@ -3,7 +3,7 @@
 import { au } from '../../util/tableaux.js';
 import { useEffect, useId, useRef, useState, type PointerEvent as PE } from 'react';
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
-import { estIncertaine, retouchee } from '../../facade/verification.js';
+import { estIncertaine, retouchee } from '../../facade/detection/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
 import type { ZoneMasque } from '../../facade/releve/masque.js';
 

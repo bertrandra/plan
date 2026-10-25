@@ -11,12 +11,12 @@
 import { analyserLAssemblage, analyserLeMur, fondreLesVues, type AssemblageDuMur } from './analyseMur.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
 import type { ResultatAnalyse } from './analyse.js';
-import { detecterFacade, type OuvertureDetectee } from './detection.js';
+import { detecterFacade, type OuvertureDetectee } from './detection/detection.js';
 import { type ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
 import { REGLAGES_STRUCTURE } from './regles/facades/structure.js';
-import { recouvrement } from './voteVues.js';
-import type { Image, P2 } from './homographie.js';
+import { recouvrement } from './detection/voteVues.js';
+import type { Image, P2 } from './vision/homographie.js';
 import type { TypeOuverture } from '../model/types.js';
 
 export const FORMAT_CAS_REEL = 'plan-facade-reelle';

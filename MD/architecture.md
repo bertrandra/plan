@@ -500,7 +500,7 @@ src/app/regles/              layer 6 — what the audit can see and propose
 src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/ecranRegles.ts
 ```
 
-The calculation itself (`facade/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
+The calculation itself (`facade/toits/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
 proposes and prices, the engine arbitrates. `app/toitsLidar.ts` and `app/toitsFond.ts` orchestrate
 (import, background re-reading, `VERSION_LECTURE_TOITS`); `app/ecouteurs/faitsLocaux.ts` is the
 `?regles=local` trial mode (facts from a file; the same address also sends the audit's analysis out with the
@@ -580,14 +580,14 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 
 | Step | Module | Layer |
 |---|---|---|
-| Straighten each whole photo (four landmarks, else vanishing points); nothing is cropped | `facade/redressementFuites.ts` | 3 |
-| Assemble the straightened views (ORB + similarity) | `facade/mosaiqueFuites.ts::mosaiqueDesVues` | 3 |
-| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/mosaiqueFuites.ts::affinerEgoutEtSol`, `facade/releve/coinsAuto.ts::murSurLAssemblage` | 3 |
+| Straighten each whole photo (four landmarks, else vanishing points); nothing is cropped | `facade/vision/redressementFuites.ts` | 3 |
+| Assemble the straightened views (ORB + similarity) | `facade/vision/mosaiqueFuites.ts::mosaiqueDesVues` | 3 |
+| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol`, `facade/releve/coinsAuto.ts::murSurLAssemblage` | 3 |
 | The template (gabarit): the façade's top line from plan + LiDAR, all roof bodies, a fixed shape | `facade/gabaritMur.ts` | 3 |
 | Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `facade/releve/chaine.ts::redresserEtFusionner` | 3 |
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
-| Calibration screen computations (no React) | `facade/releve/casCalibration.ts`, `facade/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
+| Calibration screen computations (no React) | `facade/releve/casCalibration.ts`, `facade/calage/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
 
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
 ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
@@ -646,6 +646,15 @@ below a month from now.
 the audit, the survey (relevé), the Admin screens and the calibration. The program left the page on
 10 October 2026: the build emits `index.html` (about 200 KB) and `assets/plan-<hash>.js` (about
 2.9 MB), which is what FF-5 now measures.
+
+**`facade/` split by concern (25 October 2026, lot J of the audit).** The 18 000 lines of layer 3's largest folder are now sub-folders:
+`facade/vision/` (homographies, segments, ORB, RANSAC, vanishing points, straightening, mosaics, distortion, EXIF, lenses),
+`facade/detection/` (openings, structure, verification, votes, Claude's reinforcement), `facade/toits/` (roof planes, bodies, LiDAR
+reading, catalogue forms), `facade/calage/` (coarse and fine registration, the silhouette's fit), `facade/releve/` (the chain),
+`facade/modeToit/` (the Mode Toit editor's pure code) and `facade/regles/` (the rules). What stays at the root is the wall survey
+itself (`analyse`, `analyseMur`, `fusion`, `gabaritMur`, `profil`, `ouvertures`, `geometrie`, `contexteFacade`, `corpusReel`). Linear
+algebra lives once in `geometry/lineaire.ts`, the median in `util/stats.ts`; `model/types.ts` keeps the plan's objects and
+re-exports `points.ts`, `typesReleve.ts`, `typesToit.ts` and `typesCalcul.ts`.
 
 ### 5.3 Data view
 
@@ -934,7 +943,7 @@ Carried deliberately, with the trigger that would force payment.
 | AD-14 | `three/etat3d.ts` exports mutable objects (`vue3d`, `hotes3d`, `affichage3d`…) written from `app/` (about 26 writes), `three/` and `zones/`, read by `io/projet.ts` | No single owner of the 3D view's state; a write from the wrong layer goes unseen | The next bug that comes from two writers, or a second 3D view on one page |
 | AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`), the theme inks (`render/theme.ts`, eight exported `let`) | The same inputs can give different results depending on the session; listed in §5.2.4 | A result that differs between two sessions of the same project |
 | AD-16 | `app/` and `zones/` (both layer 6) import each other freely (≈126 imports one way, 17 the other); `zones/` still drives pipelines (`Releve.tsx`), a worker (`zones/releve/rechercheCoins.ts`) and network calls (Panoramax, Polyhaven, JWKS) | No direction inside the top layer | A zones module that cannot be tested without the whole app |
-| AD-17 | Large modules: `three/scene.ts` (≈1 420 lines, 56 imports), `app/boot.ts` (95 imports), `app/audit/parcelle/controleur.ts` (≈990 lines, seven concerns), `model/types.ts` (≈1 470 lines, 315 importers) | Every change to them touches everything | Split by concern when next changed (lot J of the October 2026 audit started with facade/ and geometry/) |
+| AD-17 | Large modules: `three/scene.ts` (≈1 420 lines, 56 imports), `app/boot.ts` (95 imports), `app/audit/parcelle/controleur.ts` (≈990 lines, seven concerns); `model/types.ts` went from ≈1 470 to ≈900 lines (lot J) | Every change to them touches everything | Split by concern when next changed (lot J of the October 2026 audit started with facade/ and geometry/) |
 | AD-18 | Ten import cycles that go only through type imports (`tests/unit/architecture.test.ts`, ratchet `PLAFOND = 10`) | Harmless at build time; modules with no reading order | The ratchet: each cycle broken lowers the ceiling |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.

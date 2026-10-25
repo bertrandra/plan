@@ -4,7 +4,7 @@ import { rechercher } from '../../../../../src/facade/releve/serie.js';
 import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
-import type { P2 } from '../../../../../src/facade/homographie.js';
+import type { P2 } from '../../../../../src/facade/vision/homographie.js';
 
 // Les mesures d'une facade photographiee (MD/spec-audit.md §13.1), sans navigateur : une photo de
 // synthese d'un mur enduit beige, prise a 8 m face a la facade sud, boussole a l'appui.
@@ -111,7 +111,7 @@ describe('quatre reperes poses au doigt sur une photo', () => {
   it('redressent les photos entieres, sans coupe, puis le mur se cherche sur leur assemblage', async () => {
     const { chargerCorpus } = await import('../../../../banc/facades/banc.js');
     const { photographier, coinsVrais } = await import('../../../../banc/facades/synthese.js');
-    const { homographie, appliquer } = await import('../../../../../src/facade/homographie.js');
+    const { homographie, appliquer } = await import('../../../../../src/facade/vision/homographie.js');
     const s = chargerCorpus().find((c) => c.nom.startsWith('18-'));
     if (!s) throw new Error('scene absente');
     const prises = [s.synthese.prise, ...(s.synthese.vues ?? [])];

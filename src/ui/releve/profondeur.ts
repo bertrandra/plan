@@ -5,7 +5,7 @@
 // 1. **WebXR sur Android** (Chrome) : une seance de realite augmentee lance un rayon depuis le
 //    centre de l'ecran et rend la distance au premier plan touche - le mur.
 // 2. **Le cadrage** : partout ailleurs, la distance se deduit de la largeur connue du mur (lue sur
-//    le plan) et de la place qu'elle occupe dans l'image (facade/cadrage.ts). C'est le repli,
+//    le plan) et de la place qu'elle occupe dans l'image (facade/vision/cadrage.ts). C'est le repli,
 //    toujours disponible.
 //
 // **Le LiDAR est desactive** (`LIDAR_ACTIF`). Safari n'y donne pas acces, et le module natif iOS

@@ -174,7 +174,7 @@ son auteur et sa licence.
 - **Mise en image** (`ui/releve/panoramax.ts`) : la photo `hd` est téléchargée par `fetch` (CORS
   ouvert sur les serveurs Panoramax). Plate, elle est lue comme une photo importée, son champ du
   grand côté déduit du champ horizontal annoncé (`champGrandCote`). Panoramique, elle est
-  **recadrée vers le mur** (`facade/panorama.ts`, `recadrerEquirectangulaire`) : une photo plate de
+  **recadrée vers le mur** (`facade/vision/panorama.ts`, `recadrerEquirectangulaire`) : une photo plate de
   65° de champ, horizon au milieu, à la définition du panoramique (sans l'agrandir, 2 000 px au
   plus) ; seule la bande utile du panoramique est lue à pleine définition (`bandeEquirectangulaire`),
   un panoramique de 8 000 px coûterait 130 Mo en entier.
@@ -215,7 +215,7 @@ visée AR et la photo à focale exacte.
 WebXR n'a pas pu être essayé sur un appareil pendant le développement : le code est écrit contre
 son API documentée.
 
-### 5.2 Le cadrage (`facade/cadrage.ts`)
+### 5.2 Le cadrage (`facade/vision/cadrage.ts`)
 
 Modèle du sténopé : un objet de `T` mètres qui occupe `p` pixels est à `d = T · f / p`, avec la
 focale en pixels `f = (grand côté / 2) / tan(champ / 2)`. Deux repères glissent sur la vidéo :
@@ -228,7 +228,7 @@ dans la visée, et le réglage reste sur l'appareil (`localStorage`, jamais dans
 
 ### 5.3 La focale exacte, quand on la connaît
 
-- Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/exif.ts`).
+- Photo importée : la balise EXIF `FocalLengthIn35mmFilm` donne le champ (`facade/vision/exif.ts`).
 - Module natif (désactivé, §5.1) : les intrinsèques ARKit donnaient la focale en pixels, livrée
   avec la photo.
 
@@ -238,7 +238,7 @@ hauteur mesurée d'une photo prise de biais (de face, les proportions n'en dépe
 ### 5.4 La distance mesurée, et ce qu'elle permet
 
 Il n'y a **pas de distance cible** : on mesure où l'on est, et Plan calcule ce que cette distance
-permet (`planDePrise`, `consignePrise` dans `facade/cadrage.ts`). L'image couvre
+permet (`planDePrise`, `consignePrise` dans `facade/vision/cadrage.ts`). L'image couvre
 `d · largeurPx / f` × `d · hauteurPx / f` mètres de mur ; d'où trois cas :
 
 | À cette distance | Consigne |
@@ -251,7 +251,7 @@ La géométrie de l'image est celle de la vidéo dans la page ; dans le module n
 celle que le module envoie avec chaque mesure (taille de la photo livrée et focale).
 
 Le plan de prise vise la **hauteur à cadrer** : l'égout estimé (cadastre) et, si le mur est un
-pignon du toit déjà connu, son triangle (`hauteurPignon`, `facade/toit.ts`) — sans lui, ni la
+pignon du toit déjà connu, son triangle (`hauteurPignon`, `facade/toits/toit.ts`) — sans lui, ni la
 hauteur de la façade au faîtage ni le toit ne se lisent.
 
 **Sans mesure, une alerte.** Si aucun capteur ne répond — tout iPhone, puisque le LiDAR est
@@ -273,7 +273,7 @@ Sur iOS, la permission se demande par un geste (« Activer le niveau »).
 
 À 3 m, l'objectif principal (≈ 67° sur le grand côté) voit 4 m de mur ; le grand-angle d'un
 téléphone (13 mm équivalent, ≈ 108°) en voit 8. La page ne reçoit pourtant que « la caméra
-arrière » : elle va chercher le grand-angle elle-même (`facade/objectifs.ts`,
+arrière » : elle va chercher le grand-angle elle-même (`facade/vision/objectifs.ts`,
 `ui/releve/camera.ts`) :
 
 | Téléphone | Comment | Champ retenu |
@@ -299,7 +299,7 @@ celui dont ARKit aligne la carte de profondeur LiDAR.
 
 ---
 
-## 6. Le redressement (`facade/homographie.ts`, `facade/analyse.ts`)
+## 6. Le redressement (`facade/vision/homographie.ts`, `facade/analyse.ts`)
 
 ### 6.0 La hauteur du mur, mesurée
 
@@ -342,7 +342,7 @@ dans le plan du mur, il est donc redressé à la même échelle.
 ### 6.1 Plusieurs photos pour un mur
 
 Sans recul, on photographie le mur par morceaux qui se recouvrent, de gauche à droite
-(`facade/mosaique.ts`). Chaque morceau est un rectangle du mur — de l'égout au pied, entre deux
+(`facade/vision/mosaique.ts`). Chaque morceau est un rectangle du mur — de l'égout au pied, entre deux
 verticales : la première photo tient le coin gauche, la dernière le coin droit, celles du milieu
 deux verticales quelconques près des bords de l'image.
 
@@ -382,14 +382,14 @@ rectangle du mur** : une fenêtre, une porte, le mur entier. Deux sont en haut, 
 
 1. **Redresser, sans couper ni mettre à l'échelle.**
    - Le haut et le bas des repères se croisent au point de fuite horizontal ; la gauche et la droite au point de fuite vertical
-     (`facade/redressementFuites.ts::fuitesDesReperes`). Une paire parallèle donne un point à l'infini.
+     (`facade/vision/redressementFuites.ts::fuitesDesReperes`). Une paire parallèle donne un point à l'infini.
    - La photo **entière** est tournée de face par ces deux points (`redresserParReperes`, la rotation K R K⁻¹ de
      `redresserParFuites`). La focale se lit sur les repères quand elle le peut, sinon c'est celle de la photo, sinon celle d'un téléphone.
    - L'image garde la surface de la photo. Rien n'est coupé au mur : seule la part trop étirée près de la ligne de fuite part.
    - L'échelle n'est pas définie à cette étape. Elle vient de la largeur de la façade (la parcelle) et de la hauteur à l'égout
      (le LiDAR, ou le dessin à la main).
 2. **Assembler.** Les photos du mur, redressées de face (par leurs repères, sinon par leurs points de fuite), s'assemblent par
-   ORB et une similitude (`facade/mosaiqueFuites.ts`).
+   ORB et une similitude (`facade/vision/mosaiqueFuites.ts`).
 3. **Chercher le mur, automatiquement d'abord.** Sur l'assemblage, sans coupe, on cherche l'égout, le sol et les deux bouts du
    mur (`rectangleSurLesAretes` aux proportions largeur parcelle / hauteur LiDAR, sinon `rectangleDuMur`). On les reporte ensuite
    dans chaque photo (`facade/releve/coinsAuto.ts::coinsAutoDeSerie`, `facade/releve/chaine.ts::reporterLeMur`).
@@ -407,7 +407,7 @@ Les anciens audits gardent leurs `coins` (les coins du mur posés au doigt), rel
 **L'égout et le sol sur l'assemblage.** Les arêtes trouvent les bouts du mur, mais elles prenaient le haut d'une bande de tuiles
 pour l'égout (la limite du toit et du ciel est la plus franche des horizontales). Elles prenaient aussi un bandeau d'étage pour le sol
 quand une haie ou une voiture cache le pied. Les deux bords s'affinent donc par la matière du mur
-(`facade/mosaiqueFuites.ts::affinerEgoutEtSol`) :
+(`facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol`) :
 - La teinte du mur se lit le long de ses bouts, qui sont sûrs. Son milieu peut être pris par des fenêtres à volets.
 - L'écart de teinte admis suit le grain du parement (brique, meulière). Une ombre de même teinte reste du mur.
 - L'égout est la transition « pas du mur » → « mur » la plus haute près du bord des arêtes. Sans transition franche (un pignon), le
@@ -426,7 +426,7 @@ repères. Un bord est juste à 2 % de la largeur du mur près.
 | Bouts justes | 78/80 | 78/80 |
 
 **La silhouette du haut du mur.** L'égout n'est pas toujours une ligne : un pignon fait un triangle, l'appentis une rampe. Le haut du
-mur se lit donc colonne par colonne, sur l'assemblage (`facade/mosaiqueFuites.ts::silhouetteDuMur`). C'est la première rangée qui
+mur se lit donc colonne par colonne, sur l'assemblage (`facade/vision/mosaiqueFuites.ts::silhouetteDuMur`). C'est la première rangée qui
 a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du mur, laisse la silhouette à l'égout.
 - Une colonne dont le haut touche le bord du cadre ne dit rien. Une médiane sur cinq colonnes passe un arbre devant le pignon.
 - La ligne brisée est simplifiée (Douglas-Peucker), et deux sommets presque confondus se fondent.
@@ -556,7 +556,7 @@ poignées posées au doigt, 4,99 m pour 5,00 et 3,00 m pour 3,00.
 
 ---
 
-## 7. Les ouvertures (`facade/detection.ts`)
+## 7. Les ouvertures (`facade/detection/detection.ts`)
 
 > **Évolution prévue** (13 octobre 2026) : l'audit devient le moteur des façades. Le calage des photos
 > (§5, §6) et la détection des ouvertures ci-dessous sont repris et améliorés dans
@@ -587,7 +587,7 @@ posés au doigt.
 
 ---
 
-## 8. Le toit (`facade/toit.ts`)
+## 8. Le toit (`facade/toits/toit.ts`)
 
 ### 8.1 Le modèle
 

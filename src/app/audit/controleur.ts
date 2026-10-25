@@ -25,7 +25,7 @@ import { lireGrilleSous } from '../../geo/mnh.js';
 import { centroid } from '../../geometry/basic.js';
 import { obstacle } from '../../geometry/ligneDeVue.js';
 import { facadesDuContour } from '../../facade/geometrie.js';
-import { facadeDevant, texteFacadeDevant, DISTANCE_DEVANT_MAX_M, type FacadeDevant } from '../../facade/priseDeVue.js';
+import { facadeDevant, texteFacadeDevant, DISTANCE_DEVANT_MAX_M, type FacadeDevant } from '../../facade/calage/priseDeVue.js';
 import { elevationOf } from '../../engine/hauteurs.js';
 import { aDesSommets } from '../../model/formes.js';
 import { nomFichierPromenade, type PrisePhoto } from '../../model/audit.js';

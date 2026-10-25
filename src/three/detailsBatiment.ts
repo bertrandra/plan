@@ -20,11 +20,11 @@ import { toitDessine } from '../model/formeToit.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
-import { hauteursMursCorps } from '../facade/toitCorps.js';
+import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { segmentEnFacade } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import type { ValeursFacades } from '../regles/facades/reglages.js';
-import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toit.js';
+import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
 import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
@@ -83,7 +83,7 @@ export interface OptionsDetails {
   /** Des fenetres posees au-dessus de l'egout, dans les pignons (facade/ouvertures.ts::fenetresDesPignons). */
   ouverturesHautes?: readonly Fenetre3d[];
   /**
-   * Les corps reconstruits (facade/toitCorps.ts) : les fenetres se posent alors sur leurs murs, ceux
+   * Les corps reconstruits (facade/toits/toitCorps.ts) : les fenetres se posent alors sur leurs murs, ceux
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];

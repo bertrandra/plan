@@ -3,11 +3,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
-import { classer } from '../../facade/detection.js';
-import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/structure.js';
-import { retouchee } from '../../facade/verification.js';
+import { classer } from '../../facade/detection/detection.js';
+import { ajouterDansLaGrille, memeHauteurNiveau, memeTailleTravee } from '../../facade/detection/structure.js';
+import { retouchee } from '../../facade/detection/verification.js';
 import { texteDetails, texteOrigine } from './ouvertures.js';
-import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../../facade/toit.js';
+import { LIBELLES_FORME_TOIT, formesAuChoix, penteDeg, hauteurPignon } from '../../facade/toits/toit.js';
 import type { OuvertureFacade, TypeOuverture, Toit, FormeToit, PtBrut, PartieBasse } from '../../model/types.js';
 import { LIBELLES_OUVERTURE, fr } from './commun.js';
 import { ChampCm, Elevation, LegendeMasque } from './Elevation.js';

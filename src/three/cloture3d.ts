@@ -16,7 +16,7 @@ import {
   epaisseurDe, coteValide, COULEUR_CLOTURE_DEFAUT, DEFAUTS_PAR_TYPE,
 } from '../model/cloture.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
-import { trianguler } from '../facade/toit.js';
+import { trianguler } from '../facade/toits/toit.js';
 import { safeOffset } from '../engine/structure.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { au } from '../util/tableaux.js';

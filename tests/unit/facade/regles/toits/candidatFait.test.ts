@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { faitCandidat } from '../../../../../src/facade/regles/toits/candidatFait.js';
 import { lireFaitsToits } from '../../../../../src/regles/toits/faits.js';
-import { reconstruireCorps } from '../../../../../src/facade/toitCorps.js';
+import { reconstruireCorps } from '../../../../../src/facade/toits/toitCorps.js';
 import { brise, corps, rect, surface } from '../../../../fixtures/surfacesToits.js';
 import type { CasAudit } from '../../../../../src/model/audit.js';
 import type { CeQueJeVois } from '../../../../../src/model/ceQueJeVois.js';

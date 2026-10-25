@@ -10,7 +10,7 @@ import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { distancePointSegment } from '../geometry/segments.js';
 import { facadesDuContour, pointDeFacade } from './geometrie.js';
-import { facettesToit } from './toit.js';
+import { facettesToit } from './toits/toit.js';
 import { mesurerFacade, type ContexteFacade, type MesureFacade } from '../model/mesureFacade.js';
 import type { FichierAuditParcelle } from '../model/fichierAuditParcelle.js';
 import type { PtBrut, Toit } from '../model/types.js';

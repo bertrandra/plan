@@ -9,7 +9,7 @@
 //
 // Pur : pas de reseau, pas de DOM.
 
-import { repere, point } from '../toitCorps.js';
+import { repere, point } from '../toits/toitCorps.js';
 import type { CorpsToit, FormeSaillie, GenreSaillie, PignonToit, PtBrut, SaillieFacade } from '../../model/types.js';
 
 /** Un point du dessin, `z` etant la hauteur au-dessus du sol du batiment. */

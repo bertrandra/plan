@@ -14,7 +14,7 @@
 // L'arc et le rectangle a angles arrondis sont gardes dans `baie.forme` ; le corps pose l'enveloppe
 // rectangulaire de la saillie.
 
-import { hauteursMursCorps, type Grille } from '../../toitCorps.js';
+import { hauteursMursCorps, type Grille } from '../../toits/toitCorps.js';
 import { signedArea } from '../../../geometry/basic.js';
 import { azimutComplet } from './appentis.js';
 import { SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';

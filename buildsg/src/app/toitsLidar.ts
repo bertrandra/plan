@@ -1,7 +1,7 @@
 // Les toits ajustes sur le LiDAR HD, apres un import ou une actualisation (MD/spec-toit-ign.md §10).
 //
 // Pour chaque batiment dont le toit vient de la BD TOPO (ou d'une lecture LiDAR anterieure), on lit
-// le MNH sous son contour (geo/mnh.ts) et l'on y ajuste une forme (facade/toitLidar.ts). Un toit
+// le MNH sous son contour (geo/mnh.ts) et l'on y ajuste une forme (facade/toits/toitLidar.ts). Un toit
 // lu sur une photo ou saisi n'est pas touche. A l'import et a l'actualisation, seuls les plus
 // proches de la parcelle du projet, dans un delai borne : l'import ne doit pas attendre le service
 // pour un voisinage de dix mille batiments. Les autres sont lus ensuite, en tache de fond, par
@@ -41,7 +41,7 @@ export interface ObjetAToit {
   volumesToit?: VolumeToit[] | null;
   /** Le toit tel que le LiDAR le mesure (model/toitMesure.ts), pour un batiment de la parcelle du projet. */
   toitMesure?: ToitMesure | null;
-  /** Ses corps et pignons, reconstruits sur la mesure (facade/toitCorps.ts). */
+  /** Ses corps et pignons, reconstruits sur la mesure (facade/toits/toitCorps.ts). */
   corpsToit?: CorpsToit[] | null;
   /** A cheval sur deux parcelles : le doute sur sa toiture, et la reponse (model/aCheval.ts). */
   toitACheval?: ToitACheval | null;
@@ -68,7 +68,7 @@ function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
 
 /**
  * Le batiment recale sur le LiDAR quand son contour couvre trop de non bati
- * (facade/toitCorps.ts::decalageSurMesure) : la grille est relue plus large, et le batiment entier
+ * (facade/toits/toitCorps.ts::decalageSurMesure) : la grille est relue plus large, et le batiment entier
  * se deplace d'un bloc - son contour, donc sa forme et ses toits, ne changent pas. Rend la grille
  * sous le batiment deplace, ou null quand il reste ou il est (le cas d'un contour bien pose, sans
  * seconde lecture).

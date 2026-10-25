@@ -24,15 +24,15 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection.js';
+import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection/detection.js';
 import { coinsProposes, type ResultatAnalyse } from '../../../src/facade/analyse.js';
 import { analyserLeMur } from '../../../src/facade/analyseMur.js';
 import type { BilanVue } from '../../../src/facade/fusion.js';
-import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage.js';
-import { focalePx as focaleParDefaut } from '../../../src/facade/cadrage.js';
-import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calageFin.js';
-import type { Image, P2 } from '../../../src/facade/homographie.js';
-import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/distorsion.js';
+import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage/calage.js';
+import { focalePx as focaleParDefaut } from '../../../src/facade/vision/cadrage.js';
+import { calageFin, calageFinDuReleve, type CalageFin, type SourceCoin } from '../../../src/facade/calage/calageFin.js';
+import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
+import { corrigerDistorsion, corrigerPoint, distordrePoint, estimerDistorsion, focale35DePixels, grandAngleACorriger, type PhotoCorrigee } from '../../../src/facade/vision/distorsion.js';
 import { peindreElevation, murSeul, photographier, stenope, coinsStenope, coinsVrais, cacheDepuis, redresser, detailsVrais, type SceneFacade, type PriseCamera, type PriseCoins } from './synthese.js';
 import { mesurerDetection, mesurerDetails, cumulerDetails, mediane, erreurCoinsCm, ATTRIBUTS_DETAILS, type MesureDetection, type MesureDetails } from './mesure.js';
 

@@ -11,11 +11,11 @@
 // corps en retrait depasse au-dessus d'un autre ; ne pas les fondre (les verdicts du LiDAR changeraient).
 // Pur.
 
-import { hauteurDuToitEn } from '../../toitCorps.js';
+import { hauteurDuToitEn } from '../../toits/toitCorps.js';
 import { murDuCorps } from './murDuCorps.js';
 import { facadesDuContour, tourneVers } from '../../geometrie.js';
 import type { Facade } from '../../geometrie.js';
-import type { P2 } from '../../homographie.js';
+import type { P2 } from '../../vision/homographie.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { SILHOUETTES_TOITS, type SilhouettesToits } from '../../../regles/toits/silhouettes.js';
 import type { CorpsToit, PtBrut } from '../../../model/types.js';

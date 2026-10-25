@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { toitBdTopo, toitActualise, attributsToitBdTopo, type AttributsToit } from '../../../src/model/toitBdTopo.js';
 import { rectangleOriente } from '../../../src/geometry/faitage.js';
-import { facettesToit, penteDeg, plansDuToit, hauteurToitEn, uvDuPan, COULEUR_TOIT_DEFAUT } from '../../../src/facade/toit.js';
+import { facettesToit, penteDeg, plansDuToit, hauteurToitEn, uvDuPan, COULEUR_TOIT_DEFAUT } from '../../../src/facade/toits/toit.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
 
 const p = (x: number, y: number): PtBrut => ({ x, y });

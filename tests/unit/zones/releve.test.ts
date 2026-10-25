@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { coinsDePrise, consigneCoins, entreeRecherche, appliquerRecherche, arreterRecherche, capCorrige, appliquerDistorsion, appliquerResultat, focaleDePrise, focale35DePrise, estPartielle, type Morceau, type Resultat, type ResultatCoins } from '../../../src/facade/releve/serie.js';
-import { modeleDistorsion, corrigerPoint } from '../../../src/facade/distorsion.js';
+import { modeleDistorsion, corrigerPoint } from '../../../src/facade/vision/distorsion.js';
 import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePrecision, avisFusion } from '../../../src/facade/releve/analyseSerie.js';
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import { etirerOuvertures, texteDetails, texteOrigine } from '../../../src/zones/releve/ouvertures.js';

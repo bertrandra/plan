@@ -1,4 +1,4 @@
-// Les reglages nommes de la texture des facades en 3D sans ses ombres (facade/sansOmbres.ts).
+// Les reglages nommes de la texture des facades en 3D sans ses ombres (facade/vision/sansOmbres.ts).
 //
 // Ils ne touchent que l'affichage : ni la detection, ni les cotes, ni la photo enregistree, ni l'export. Une valeur changee ici
 // se justifie par le banc (`.claude/skills/facades`, section « Façades sans ombres »), avant et apres.

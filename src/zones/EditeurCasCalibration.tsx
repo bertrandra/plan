@@ -13,7 +13,7 @@ import { AjusterMur, type MurAjuste } from './releve/AjusterMur.js';
 import { coinsParDefaut, LIBELLES_OUVERTURE, NOMS_REPERES, pointSvg } from './releve/commun.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
-import type { Image, P2 } from '../facade/homographie.js';
+import type { Image, P2 } from '../facade/vision/homographie.js';
 import { avisDuCas, casCale, coinsDeSerie, etapesDe, originesDuCas, preparerSurLAssemblage, reperesDe, type Etapes, type OrigineCoins, type OutilsPhotos } from '../facade/releve/casCalibration.js';
 import { CalageSilhouette } from './CalageSilhouette.js';
 import { VueFacade3d } from './VueFacade3d.js';

@@ -1,7 +1,7 @@
 // La ligne de vue entre deux points du plan, et les contours qui la coupent.
 //
 // Deux usages : la lecture de la couleur des murs sur les photos de rue (render/couleurMurPhoto.ts)
-// et la facade devant laquelle on se tient pendant un audit (facade/priseDeVue.ts). Le calcul vit
+// et la facade devant laquelle on se tient pendant un audit (facade/calage/priseDeVue.ts). Le calcul vit
 // ici, sous les deux couches, pour qu'aucune n'ait a importer l'autre.
 
 import type { PtBrut } from '../model/types.js';

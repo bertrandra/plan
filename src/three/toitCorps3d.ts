@@ -1,6 +1,6 @@
 // Les corps et pignons d'un batiment, dessines (MD/spec-toit-ign.md §13).
 //
-// Chaque corps (facade/toitCorps.ts) : ses pans, prolonges d'un debord a l'egout et d'une rive aux
+// Chaque corps (facade/toits/toitCorps.ts) : ses pans, prolonges d'un debord a l'egout et d'une rive aux
 // pignons ; au-dessus du prisme (pose a son egout le plus bas), les murs qui montent - le mur d'un
 // pan plus haut que l'autre, les pignons de bout jusqu'au faitage - en couleur de mur. Chaque
 // pignon qui part du faitage : ses deux pans, perpendiculaires, qui avancent du mur jusqu'a
@@ -8,12 +8,12 @@
 // corps a croupes : ses pans en trapeze, et une croupe en triangle a chaque bout.
 
 import type * as THREE_NS from 'three';
-import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toit.js';
-import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toitCorps.js';
-import { facettesElementsToit, facettesEtendues, facettesLucarnes } from '../facade/toitFormes.js';
-import { estSpecial } from '../facade/toitSpeciaux.js';
+import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toits/toit.js';
+import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toits/toitCorps.js';
+import { facettesElementsToit, facettesEtendues, facettesLucarnes } from '../facade/toits/toitFormes.js';
+import { estSpecial } from '../facade/toits/toitSpeciaux.js';
 // Pures, elles vivent avec les corps ; reexportees pour qui les cherchait ici.
-export { penteDuCorps, penteDominante } from '../facade/toitCorps.js';
+export { penteDuCorps, penteDominante } from '../facade/toits/toitCorps.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { estBowWindow, facettesBowWindow, vitresBowWindow } from '../facade/modeToit/saillies.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
@@ -152,7 +152,7 @@ export function facettesCorps(c: CorpsToit, contour: readonly PtBrut[] | null = 
     contour.push({ s: h1 > 0 ? L - h1 : L + dRL, d: haut });
     pans.push(contour.map((q) => Q(q.s, q.d)));
   };
-  // Un profil brise, une demi-croupe ou un brisis : le toit est la plus basse de ses facettes (facade/toitFormes.ts).
+  // Un profil brise, une demi-croupe ou un brisis : le toit est la plus basse de ses facettes (facade/toits/toitFormes.ts).
   const etendue = plat ? null : facettesEtendues(c, L, W, { egout0: dE0, egout1: dE1, rive0: dR0, rive1: dRL }, bas);
   if (etendue) {
     pans.push(...etendue.pans.map((f) => f.map((q) => P(q.s, q.t, q.z))));

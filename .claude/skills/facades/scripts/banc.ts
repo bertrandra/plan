@@ -1,4 +1,4 @@
-// Banc de facades : rejoue le corpus tests/fixtures/facades/ sur facade/detection.ts et
+// Banc de facades : rejoue le corpus tests/fixtures/facades/ sur facade/detection/detection.ts et
 // facade/analyse.ts tels qu'ils sont, et ecrit le tableau (spec-facades-calage-detection.md §14).
 //
 //   npx tsx .claude/skills/facades/scripts/banc.ts                 tout le corpus, tableau Markdown
@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { chargerCorpus, rejouerCorpus, tableau, DOSSIER_CORPUS } from '../../../../tests/banc/facades/banc.ts';
 import { chargerReponses, rejouerRenfort, tableauRenfort, type RenfortScene } from '../../../../tests/banc/facades/renfort.ts';
 import { coinsVrais, peindreElevation, murSeul, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
-import type { Image } from '../../../../src/facade/homographie.ts';
+import type { Image } from '../../../../src/facade/vision/homographie.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
 
 const args = process.argv.slice(2);

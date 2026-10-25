@@ -4,7 +4,7 @@
 //
 // Un panoramique de Panoramax fait souvent 8 000 pixels de large : lire ses pixels en entier
 // couterait 130 Mo. On n'en decoupe que la bande utile (le champ vise, l'horizon, une marge), a
-// pleine definition, dans un canevas, et c'est elle que facade/panorama.ts recadre.
+// pleine definition, dans un canevas, et c'est elle que facade/vision/panorama.ts recadre.
 
 import { chargerUrl, imageDuCanevas, versJpeg, lireFichier, type Photo } from './camera.js';
 import { fenetreUtile, recadrerEquirectangulaire, type FenetreEquirect } from '../../facade/panorama.js';

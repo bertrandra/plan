@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
-import { reconstruireCorps } from '../../../../../src/facade/toitCorps.js';
+import { reconstruireCorps } from '../../../../../src/facade/toits/toitCorps.js';
 import { facettesCorps } from '../../../../../src/three/toitCorps3d.js';
 import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { formeDesCorps } from '../../../../../src/model/formeToit.js';

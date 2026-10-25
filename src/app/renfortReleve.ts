@@ -5,17 +5,17 @@
 // Ce module prepare les deux images (la photo et sa grille de reperes, l'elevation graduee et ses
 // ouvertures numerotees) et le texte, envoie les trois passes par la route immediate du serveur
 // (io/analyseClaude.ts), et rend le vote. Ce que Plan en fait (recalage des graines sur l'image) est
-// pur : facade/renfortRecalage.ts, applique par zones/releve/aide.ts.
+// pur : facade/detection/renfortRecalage.ts, applique par zones/releve/aide.ts.
 //
 // Les photos ne partent qu'avec l'accord de la personne (decision D2) : le meme accord par projet que
 // l'analyse de l'audit (io/accordAnalyse.ts), donne ici d'un geste, avec la case « partager » cochee
 // par defaut (decision D7).
 
 import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse } from '../io/analyseClaude.js';
-import { PASSES_RENFORT, estReponseRenfort, texteRenfort, voterRenfort, type SituationRenfort, type VoteRenfort } from '../facade/renfort.js';
+import { PASSES_RENFORT, estReponseRenfort, texteRenfort, voterRenfort, type SituationRenfort, type VoteRenfort } from '../facade/detection/renfort.js';
 import { canevasDe, dessinerElevationRenfort, dessinerPhotoRenfort } from '../render/imagesRenfort.js';
 import type { AnalyseDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
-import type { Image, P2 } from '../facade/homographie.js';
+import type { Image, P2 } from '../facade/vision/homographie.js';
 import type { AccordAnalyse } from '../model/auditParcelle.js';
 import type { GrilleFacade, OuvertureFacade } from '../model/types.js';
 

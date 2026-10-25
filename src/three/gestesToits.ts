@@ -19,8 +19,8 @@
 import { enPoints } from '../model/formes.js';
 import { estFormeToit } from '../model/formeToit.js';
 import { EXEMPLES_TOITS, LARGEUR_M, LONGUEUR_M, corpsDeLExemple, type ExempleToit } from './catalogueToits.js';
-import { angleDuPlusLongCote } from '../facade/toit.js';
-import { boiteOrientee, point, repere, type Repere } from '../facade/toitCorps.js';
+import { angleDuPlusLongCote } from '../facade/toits/toit.js';
+import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitCorps.js';
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';

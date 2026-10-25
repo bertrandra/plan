@@ -1,6 +1,6 @@
 ---
 name: facades
-description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés, calage grossier et zones de recherche, calage fin) et chiffres de départ. À charger avant de toucher à src/facade/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/calage.ts, facade/calageFin.ts, facade/segments.ts, facade/pointsFuite.ts, facade/homographie.ts ou facade/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
+description: Banc d'essai des façades (calage des photos et détection des ouvertures) : générateur de façades de synthèse difficiles, corpus tests/fixtures/facades/, script de mesure (précision, rappel, cotes, coins proposés, calage grossier et zones de recherche, calage fin) et chiffres de départ. À charger avant de toucher à src/facade/detection/detection.ts, facade/analyse.ts (coinsProposes, mesurerHauteur, analyserReleve), facade/calage/calage.ts, facade/calage/calageFin.ts, facade/vision/segments.ts, facade/vision/pointsFuite.ts, facade/vision/homographie.ts ou facade/vision/mosaique.ts, avant tout lot de calage ou de détection (L6 à L15 du plan), et pour lancer le banc et lire son tableau.
 ---
 
 # Banc de façades
@@ -22,7 +22,7 @@ peut montrer qu'il améliore quelque chose.
 3. **Des règles générales, jamais une scène réglée.** Une amélioration qui ne gagne que sur une
    scène, et en perd ailleurs, n'en est pas une. On ne retouche pas une scène pour faire passer un
    détecteur : le corpus est la vérité. Pour montrer un cas nouveau, on **ajoute** une scène.
-4. **Le banc mesure, il ne règle pas.** Il rejoue `facade/detection.ts` et `facade/analyse.ts` tels
+4. **Le banc mesure, il ne règle pas.** Il rejoue `facade/detection/detection.ts` et `facade/analyse.ts` tels
    qu'ils sont, sans réglage à lui.
 5. Le circuit du dépôt s'applique (CLAUDE.md). Le banc ne touche ni aux toits ni aux quantités :
    AE 101 et les empreintes golden ne bougent pas.
@@ -153,7 +153,7 @@ La ligne **Ensemble** cumule les ouvertures de toutes les scènes (précision et
 médiane sur toutes les cotes), et donne la moyenne des corrections par façade.
 
 **Calage** : pour les prises par caméra, l'erreur de chacun des quatre coins proposés par le
-relevé (haut gauche, haut droit, bas droit, bas gauche) : `facade/calage.ts::coinsDuReleve`, comme
+relevé (haut gauche, haut droit, bas droit, bas gauche) : `facade/calage/calage.ts::coinsDuReleve`, comme
 `facade/releve/serie.ts::coinsDePrise`, avec la distance, le cap et l'attitude au déclenchement ; le
 cadre à 12 % sans distance. Le coin proposé est ramené dans le plan du mur par l'homographie vraie,
 et l'écart au vrai coin est donné en cm sur le mur. « ∞ » : un coin proposé au-delà de l'horizon du
@@ -168,7 +168,7 @@ boussole à 5°, GPS à 2 m pour 5 m annoncés, attitude à 1°, signes tirés d
 « Dans la zone » : les coins vrais qui tombent dans leur zone de recherche. Les capteurs typiques
 servent aussi au relevé (cap et attitude) : c'est ce qu'un téléphone donne vraiment.
 
-**Calage fin** (lot L7) : `facade/calageFin.ts` sur la photo, depuis la prise du relevé
+**Calage fin** (lot L7) : `facade/calage/calageFin.ts` sur la photo, depuis la prise du relevé
 (`calageFinDuReleve` : distance mesurée, cap et attitude typiques) puis depuis celle de l'audit
 (`calageFin` : GPS, boussole et attitude typiques). Pour chaque coin rendu, son erreur en cm sur le
 mur et sa source : sans marque, **trouvé** sur les arêtes de la photo (plein dans l'éditeur) ; « p »,
@@ -181,7 +181,7 @@ pas. Depuis le lot L7, la ligne « Coins trouvés sans geste » des objectifs li
 ce sont ses coins que l'éditeur propose.
 
 **Distorsion du grand-angle** (lot L8) : pour chaque prise dont la focale équivalente connue est sous
-20 mm (ou dont l'objectif déforme), `facade/distorsion.ts` comme le relevé l'appelle. Le banc rejoue
+20 mm (ou dont l'objectif déforme), `facade/vision/distorsion.ts` comme le relevé l'appelle. Le banc rejoue
 la chaîne **avec** la correction (c'est ce que montrent les autres sections) et **sans** elle, et
 écrit les deux côte à côte (« avant → après ») : coefficient vrai et estimé, arêtes presque verticales
 retenues, leur écart à la droite (sur la photo, puis sur l'image corrigée, où elles sont détectées à
@@ -196,8 +196,8 @@ fusion ») : rappel, précision, corrections ; part du mur cachée sur la vue pr
 générateur, `cacheDepuis`) et, parmi ces pixels, ceux que l'élévation montre comme le mur (à moins de
 30 niveaux du mur peint sans obstacle) ; masque restant ; recalage trouvé pour chaque vue de plus.
 Depuis le recalage ORB + RANSAC (octobre 2026), `analyserVues` recale les vues par des points ORB
-(`facade/orb.ts`) et une similitude RANSAC (`facade/ransac.ts`), acceptée seulement si elle tient les
-`CRITERES_FUSION` de `facade/recalageOrb.ts` (points communs, part d'inliers, échelle, rotation,
+(`facade/vision/orb.ts`) et une similitude RANSAC (`facade/vision/ransac.ts`), acceptée seulement si elle tient les
+`CRITERES_FUSION` de `facade/vision/recalageOrb.ts` (points communs, part d'inliers, échelle, rotation,
 erreur, déplacement, corrélation). Le banc ne doit pas baisser : ensemble 80 % → 100 % de rappel,
 80 % → 96 % de précision, 2,8 → 0,3 correction par façade, 13 % → 59 % de rendu au mur (c'est le
 chiffre de l'ancien recalage en deux dimensions, retrouvé). Seuil RANSAC 4 px et erreur 3,5 px : à 2,5 px
@@ -205,7 +205,7 @@ la scène `18-` (deux vues seulement) n'était plus fusionnée. L'audit de la pa
 photos d'une façade (`app/audit/parcelle/mesures.ts`, verticales sous `SEUIL_VERTICALES_DEG`) et les fusionne dès deux
 photos sans échec ; « Rejouer redressement + fusion » (liste de contrôle) refait ces dérivés sans toucher
 aux photos ni aux corrections manuelles (`FacadeCapturee.corrections`).
-**Vote entre vues** (`facade/voteVues.ts`) : chaque vue du groupe fusionné est aussi lue seule ; une baie de la fusion
+**Vote entre vues** (`facade/detection/voteVues.ts`) : chaque vue du groupe fusionné est aussi lue seule ; une baie de la fusion
 que plusieurs vues voient mais que peu retrouvent (une haie, une voiture) perd de la confiance (`VOTE`), une baie
 retrouvée par toutes en gagne un peu, une baie que plusieurs vues voient et que la fusion a ratée est ajoutée. Le banc de
 synthèse n'a plus de faux positif à retirer sur les scènes à vues : le gain se juge sur le **corpus réel** (ci-dessous).
@@ -215,7 +215,7 @@ puis une descente par coordonnée sur les réglages nommés de `detection.ts` et
 `data/admin/calibration.json` (`admin/calibration`) et se superpose aux valeurs livrées (`regles/facades/surcharges.ts`), sans jamais
 les remplacer dans le dépôt. Un seuil qui se justifie sur plus de vingt cas validés peut ensuite être reporté dans le code.
 
-**Redressement par les points de fuite** (`facade/redressementFuites.ts`, `facade/mosaiqueFuites.ts`, `facade/releve/coinsAuto.ts::coinsAutoDeSerie`,
+**Redressement par les points de fuite** (`facade/vision/redressementFuites.ts`, `facade/vision/mosaiqueFuites.ts`, `facade/releve/coinsAuto.ts::coinsAutoDeSerie`,
 octobre 2026) : pour la calibration, où les photos réelles montrent rarement le mur entier. Chaque photo est tournée de face par
 ses points de fuite vertical et horizontal (rotation pure K R K⁻¹, focale d'un téléphone supposée, sans coins ni distance), les vues
 redressées s'assemblent par ORB + RANSAC de similitude à échelle libre (et, sous 15 points communs, une corrélation de la partie
@@ -227,7 +227,7 @@ gouttière nette (véranda), et un cas qui mélange plusieurs murs. `tests/unit/
 scènes `08` et `16`. Le banc des façades (`banc.ts`) joue `analyserLeMur` (la chaîne de production) avec les coins vrais ; la recherche du mur
 sur l'assemblage, elle, se mesure par `egout-sol.ts`, et le toit par `toit-facade.ts`.
 
-**L'égout et le sol sur l'assemblage** (`facade/releve/coinsAuto.ts::murSurLAssemblage`, `facade/mosaiqueFuites.ts::affinerEgoutEtSol`,
+**L'égout et le sol sur l'assemblage** (`facade/releve/coinsAuto.ts::murSurLAssemblage`, `facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol`,
 octobre 2026) : après le redressement par les repères ou les points de fuite (audit, calibration), le mur se cherche sur l'assemblage.
 `npx tsx .claude/skills/facades/scripts/egout-sol.ts [mots] [--images dossier]` le mesure sur les scènes à prise par caméra. Chaque
 scène est redressée par ses points de fuite, puis par quatre repères aux coins de sa première ouverture. Un bord est juste à 2 % de la
@@ -536,7 +536,7 @@ Chaîne du relevé, avant → après :
 Détection seule : précision 88 → 95 %, rappel 75 → 91 %. Les scènes d'origine (`00`, `01`, `02`) et
 les grands-angles (`13` à `15`) gardent toutes leurs ouvertures, sans fausse.
 
-- **Le code** : `facade/detection.ts` enchaîne ; `detectionCartes.ts` (réduction à 5 cm, morphologie,
+- **Le code** : `facade/detection/detection.ts` enchaîne ; `detectionCartes.ts` (réduction à 5 cm, morphologie,
   taches, médianes glissantes par histogrammes) ; `detectionFond.ts` (objets nets mis de côté, fond de
   rang, fond local, seuils zone par zone, écart de teinte seule) ; `detectionIndices.ts` (ombre,
   gradients et soutien des arêtes, volets battants, affinage) ; `reglagesDetection.ts` (les seuils
@@ -603,7 +603,7 @@ faces entre le nu du mur et elle, rendues au lancer de rayons (leurs arêtes fui
   d'une façade d'en face vise le même point de fuite. Rien à changer dans `pointsFuite.ts` tant que le banc
   ne montre pas d'erreur.
 - **Détection** : la face d'ébrasement visible était retirée par le filtre d'ombre (même teinte, autre
-  luminosité) et la baie se réduisait à la vitre. `facade/detectionEbrasements.ts` étend la baie sur une bande
+  luminosité) et la baie se réduisait à la vitre. `facade/detection/detectionEbrasements.ts` étend la baie sur une bande
   unie, de la teinte du mur, collée à **un seul** côté (deux côtés : des volets ou le mur). Seuls les côtés se
   lisent : une ligne le long du linteau ne traverse qu'une assise, et un grand bloc de pierre uni y prenait
   l'aspect d'une face (élévation de la scène 21). Scène 21, chaîne du relevé : cotes 11,5 → **4 cm**,
@@ -645,7 +645,7 @@ Claude que les copies réduites, est-il plus précis ?
 
 ### Façades sans ombres (Vue 3D)
 
-Mesuré le 19 octobre 2026 (`facade/sansOmbres.ts`, réglages `facades.texture.*` dans
+Mesuré le 19 octobre 2026 (`facade/vision/sansOmbres.ts`, réglages `facades.texture.*` dans
 `facade/regles/facades/texture.ts`). Chaque scène est rendue deux fois, avec et sans ses ombres (ombres
 portées, ombres des balcons, dégradé) ; on compare la texture du relevé corrigée à celle du mur sans
 ombre, sur le mur hors des baies.
@@ -696,8 +696,8 @@ ombre, sur le mur hors des baies.
 
 Le script ajoute une section **« Renfort de Claude »** au tableau (`--sans-renfort` la retire) :
 l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes **simulées** de
-`tests/fixtures/facades/claude/<scène>.json`, votées (`facade/renfort.ts`) puis appliquées
-(`facade/renfortRecalage.ts`) comme dans le relevé et l'audit.
+`tests/fixtures/facades/claude/<scène>.json`, votées (`facade/detection/renfort.ts`) puis appliquées
+(`facade/detection/renfortRecalage.ts`) comme dans le relevé et l'audit.
 
 - **Les réponses sont simulées, pas celles de Claude** : `tests/banc/facades/renfort.ts` imite ses
   erreurs typiques de façon déterministe (coins à quelques dixièmes de repère, boîtes à 10–20 cm

@@ -7,7 +7,7 @@
 // Une forme du catalogue (Mansart, papillon...) n'entre pas dans un fait : elle est dite dans `pistes`, avec ce que la surface LiDAR en lit.
 // La decision reste a la personne qui trie : le candidat dit ce qu'il suppose (`a_verifier`), jamais il n'ecrit dans le depot.
 
-import { lireFormes } from '../../lectureFormes.js';
+import { lireFormes } from '../../toits/lectureFormes.js';
 import { toitMesureDepuisGrille } from '../../../model/toitMesure.js';
 import type { CasAudit } from '../../../model/audit.js';
 import type { FormeVue } from '../../../model/ceQueJeVois.js';

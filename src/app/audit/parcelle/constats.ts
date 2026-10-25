@@ -7,7 +7,7 @@
 
 import { nomFacade } from '../../../facade/geometrie.js';
 import { formeDesCorps, formeDeLaVue } from '../../../model/formeToit.js';
-import { lireFormes } from '../../../facade/lectureFormes.js';
+import { lireFormes } from '../../../facade/toits/lectureFormes.js';
 import { lectureVraisemblable } from '../../../facade/regles/toits/catalogue.js';
 import { hauteurBdTopo } from '../../../facade/regles/toits/vraisemblance.js';
 import { textureDesMurs, materiauMurs } from '../../../model/couleurMur.js';
@@ -113,7 +113,7 @@ function constatsLidar({ o, b }: EntreesConstats): Constat[] {
   if (c && o.toit?.source !== 'saisie') {
     const confiance = confianceCorps(c.ecart);
     const forme = formeDesCorps(o.corpsToit);
-    // Une forme du catalogue que la surface dit mieux que les formes simples (facade/lectureFormes.ts) remplace la lecture des corps,
+    // Une forme du catalogue que la surface dit mieux que les formes simples (facade/toits/lectureFormes.ts) remplace la lecture des corps,
     // aux memes conditions qu'a la lecture des toits (facade/regles/toits/catalogue.ts) : ni coyau sans demande, ni arbre pris pour une tourelle.
     const mieux = o.toitMesure && 'pts' in o && o.pts ? lireFormes(o.toitMesure, o.corpsToit ?? [], o.pts).find((l) => lectureVraisemblable(l, hauteurBdTopo(o))) : undefined;
     if (mieux) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(mieux.forme), confiance: confianceCorps(mieux.ecart), regle: mieux.regle, indices: [{ texte: 'Lecture des formes : ' + mieux.dit }] });

@@ -10,6 +10,7 @@
 
 import { au } from '../util/tableaux.js';
 import type { CouvertureChoisie } from './types.js';
+import { mediane } from '../util/stats.js';
 
 /** Les trois couvertures de repli, quand la photo n'est pas concluante. */
 export const COULEURS_TOIT_REPLI = {
@@ -47,11 +48,6 @@ const distance = (a: Rgb, b: Rgb) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] -
 /** Un pixel de feuillage : le vert l'emporte nettement. */
 const estVegetation = ([r, g, b]: Rgb) => g > r + 8 && g > b + 8;
 
-function mediane(valeurs: number[]): number {
-  const t = [...valeurs].sort((a, b) => a - b);
-  const m = t.length >> 1;
-  return t.length % 2 ? au(t, m) : (au(t, m - 1) + au(t, m)) / 2;
-}
 
 function medianeRgb(px: Rgb[]): Rgb {
   return [mediane(px.map((p) => p[0])), mediane(px.map((p) => p[1])), mediane(px.map((p) => p[2]))];

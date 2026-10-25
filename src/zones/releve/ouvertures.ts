@@ -6,9 +6,9 @@
 //   tracer les corrections.
 
 import { useState } from 'react';
-import { tracerCorrections, versOuvertureFacade } from '../../facade/verification.js';
-import type { OuvertureDetectee } from '../../facade/detection.js';
-import type { ResultatRenfort } from '../../facade/renfortRecalage.js';
+import { tracerCorrections, versOuvertureFacade } from '../../facade/detection/verification.js';
+import type { OuvertureDetectee } from '../../facade/detection/detection.js';
+import type { ResultatRenfort } from '../../facade/detection/renfortRecalage.js';
 import { propositionRenforcee } from './aide.js';
 import type { CorrectionOuverture, DetailsOuverture, OuvertureFacade } from '../../model/types.js';
 
