@@ -307,6 +307,8 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Fumée : les points 53 et 86 passent de nouveau.** Le point 53 (Admin › Contrôleurs) n’admettait qu’une écriture sans annulation, d’avant l’import direct du cadastre : les deux créations de projet depuis le cadastre (qui remplacent le projet, rien à défaire) sont maintenant admises par leur nom, et toute autre est nommée dans le message. Le point 86 (Admin › Audits) ne confirmait pas le rejeu d’une analyse, qui se confirme depuis qu’il est un appel facturé : il clique « Confirmer le rejeu » et vérifie que rien ne part sans confirmation.
+
 - **Audit : une proposition de toit ne passe plus outre le fait enregistré pour le bâtiment.** Les propositions de forme, de corps et de pignon traversant de l’audit ne consultaient jamais `regles/toits/faits.json` : elles pouvaient récrire le toit d’un bâtiment dont le fait le fixe. Elles passent maintenant toutes par une même porte du moteur (`facade/regles/toits/faits.ts::corpsProposesSousFait`) : un fait en remplacement fixe le toit, rien ne se propose ; un fait en contrainte fait tomber la proposition qui ne le tient pas. Sans fait, rien ne change.
 
 - **Dossier de mairie d’une piscine : les montants de 1 000 € et plus s’impriment.** Ses chiffres passaient par `toLocaleString('fr-FR')`, qui sépare les milliers par une espace fine insécable (U+202F) que la police du PDF n’a pas, et dont le résultat variait selon la machine. Ils s’écrivent maintenant sans les données de langue du navigateur (`util/format.ts::chiffreFrGroupe`, une espace simple), et le dossier translittère ces espaces au besoin.
