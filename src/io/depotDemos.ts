@@ -129,6 +129,24 @@ export async function sessionAdmin(f: Fetch): Promise<boolean | null> {
 }
 
 /**
+ * L'archive zip de tout le dossier des donnees du serveur (`GET admin/sauvegarde`, deploy/admin.php).
+ * Le navigateur la telecharge lui-meme, par un lien : le cookie de la session part avec, et des Mo de
+ * photos ne passent pas par la memoire de la page.
+ */
+export const ROUTE_SAUVEGARDE = RACINE_ADMIN + '/sauvegarde';
+
+/**
+ * Avant de lancer le telechargement : la session est-elle encore ouverte ? Un lien suivi sans elle
+ * enregistrerait la reponse d'erreur sous le nom de l'archive. Rend le motif du refus, ou `null`.
+ */
+export async function verifierSauvegarde(f: Fetch): Promise<string | null> {
+  const etat = await sessionAdmin(f);
+  if (etat === true) return null;
+  if (etat === false) return 'Sauvegarde impossible : la session admin a expiré. Rechargez la page pour retaper le mot de passe.';
+  return 'Sauvegarde impossible : le serveur ne répond pas, ou n’a pas d’admin.';
+}
+
+/**
  * Ferme la session admin (`DELETE admin/session`) : le serveur l'oublie et efface le cookie. Rend
  * vrai si c'est fait ; faux si le serveur n'a pas repondu — la session reste alors ouverte de son
  * cote, et il ne faut pas laisser croire le contraire.

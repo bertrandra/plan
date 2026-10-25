@@ -199,6 +199,7 @@ export const EXPOSITION: Record<string, Ligne> = {
   'admin.conformite': menu('menuAdmin'),
   'admin.regles': menu('menuAdmin'),
   'admin.auditsParcelle': menu('menuAdmin'),
+  'admin.sauvegarde': menu('menuAdmin'),
   'admin.faitsLocaux': menu('menuAdmin'),
 
   // ---- Visionneuse ----------------------------------------------------------------------------

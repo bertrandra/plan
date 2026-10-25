@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Une sauvegarde des données en un clic** (Admin › « Télécharger une sauvegarde des données »). `GET admin/sauvegarde`
+  (`deploy/admin.php`, session admin) rend une archive `plan-data-AAAA-MM-JJ-HHMM.zip` de tout le dossier des données : démos,
+  audits et analyses par Claude, journal et réglages de Claude, palette, contrôleurs, arbres, conformité, avec un manifeste
+  `sauvegarde.json`. Rien hors du dossier : ni la configuration, ni la clé d'API, ni la cible d'un lien symbolique. L'archive se
+  construit dans un fichier temporaire et se sert par morceaux ; sans l'extension PHP `zip`, la route répond 501 et dit où
+  l'activer. La notice de déploiement gagne un paragraphe « Sauvegarde » : vérifier la sauvegarde automatique de l'hébergeur
+  (SiteGround : Site Tools › Security › Backups) et télécharger l'archive avant chaque mise à jour.
+
 ### Modifié
 
 - **Le second serveur, en Node, est retiré : `buildsg/` n'existe plus** (revue du dépôt). Il n'était plus déployé (sa copie
