@@ -1,14 +1,15 @@
 import fs from 'node:fs';
 import { expect } from 'vitest';
-import { MODELES, MODELE_PAR_USAGE } from '../../../buildsg/analyseAdmin.mjs';
 import { SORTIE_ANALYSE, SORTIE_RENFORT, SORTIE_VIDE, TROUVE_ANALYSE, TROUVE_RENFORT, TROUVE_VIDE, demande, type FauxAnthropic } from './fauxAnthropic.js';
 
 // Le modele de chaque usage (`admin/claude/modeles`) et les comptes de ce que les reponses
-// contiennent (champ `trouve` du journal) : les memes scenarios joues contre les deux serveurs,
-// deploy/analyse.php et buildsg/analyseAdmin.mjs. Ils ne different que par le dossier et l'heure.
+// contiennent (champ `trouve` du journal), joues contre deploy/analyse.php.
 
 export const RAPIDE = 'claude-haiku-5-5';
 export const FIN = 'claude-sonnet-5-5';
+/** Les modeles admis, et celui de chaque usage tant que l'administrateur n'a rien regle. */
+const MODELES = [RAPIDE, FIN];
+const MODELE_PAR_USAGE = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE };
 
 export interface Serveur {
   navigateur: (entree: string, init?: RequestInit) => Promise<Response>;

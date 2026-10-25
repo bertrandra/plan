@@ -2,7 +2,7 @@
 //
 // Meme contrat que le depot de la plateforme (io/depotPlateforme.ts) : lister, ouvrir, enregistrer,
 // supprimer. Ce qui change est l'endroit — `/admin/demos` sur le serveur qui sert la page
-// (buildsg/demosAdmin.mjs) — et la forme du document : celle de l'export JSON, `{meta, objects,
+// (deploy/admin.php) — et la forme du document : celle de l'export JSON, `{meta, objects,
 // measures}`, pour qu'un fichier de demo et un fichier exporte soient interchangeables.
 //
 // La session admin est un cookie que le serveur a pose ; ce module ne voit jamais le mot de passe.

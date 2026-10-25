@@ -1,8 +1,8 @@
 import { expect } from 'vitest';
 import { demande, type FauxAnthropic } from './fauxAnthropic.js';
 
-// Le scenario du brouillon des regles et de l'essai (admin/claude/regles, `essai: "brouillon"`), le meme pour
-// les deux serveurs : buildsg/analyseAdmin.mjs (Node) et deploy/analyse.php (PHP). Ce que le brouillon change
+// Le scenario du brouillon des regles et de l'essai (admin/claude/regles, `essai: "brouillon"`), joue contre
+// deploy/analyse.php. Ce que le brouillon change
 // ne vaut que pour une demande de l'administrateur qui le nomme ; le prompt livre n'est jamais remplace.
 
 export interface HoteRegles {

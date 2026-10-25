@@ -10,7 +10,6 @@ Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait p
   de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des données sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
-- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DATA_DIR`.
 
 ## Ce que c'est
 
@@ -59,7 +58,7 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 ## Où vivent les fichiers
 
 Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
-de `plan-admin-config.php`), jamais servi (`deploy/donnees.php`, `buildsg/donnees.mjs` ;
+de `plan-admin-config.php`), jamais servi (`deploy/donnees.php` ;
 `MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
 (`palette.json`, `controleurs.json`, `arbres.json`, `echecs.json`), `data/claude/`, `data/audits/`,
 `data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
@@ -75,7 +74,7 @@ dossier est déplacé dans `data/` au premier passage, sans rien écraser (`data
 (étape 2.e). Ce dossier n'est jamais servi directement : seules les routes `admin/…`, derrière la
 session (la vitrine et la palette exceptées, en lecture), le lisent.
 
-## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
+## Routes (deploy/admin.php)
 
 Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un sous-dossier.
 

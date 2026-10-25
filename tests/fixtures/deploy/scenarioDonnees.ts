@@ -1,6 +1,6 @@
-// Le dossier des donnees (`data/`, deploy/donnees.php et buildsg/donnees.mjs), le rangement des
-// audits et les traces des analyses et rejeux (MD/spec-audit.md 15.4 et 15.5), joues tels quels
-// contre les deux serveurs : un ancien `plan-demos/` deplace dans data/ au premier passage, un
+// Le dossier des donnees (`data/`, deploy/donnees.php), le rangement des
+// audits et les traces des analyses et rejeux (MD/spec-audit.md 15.4 et 15.5), joues contre
+// le serveur : un ancien `plan-demos/` deplace dans data/ au premier passage, un
 // ancien audit a plat range dans son dossier, une promenade deposee, un rejeu garde entree et sortie.
 // Le serveur n'ecrit rien hors de data/ (sauf la note laissee dans l'ancien dossier).
 
@@ -176,7 +176,6 @@ export async function jouerScenarioDonnees(s: ServeurDonnees): Promise<void> {
   // Rien n'a ete ecrit hors de data/, sauf la note laissee dans l'ancien dossier.
   const apres = inventaire(s.racine);
   const dehors = [...apres].filter(([f, t]) => !f.startsWith('data' + path.sep) && !s.ignorer(f) && avant.get(f) !== t).map(([f]) => f);
-  // (Node migre au demarrage, avant ce scenario : la note y est deja.)
   expect(dehors.filter((f) => f !== path.join('plan-demos', 'DEPLACE-VERS-DATA.txt'))).toEqual([]);
   expect(fs.existsSync(path.join(s.racine, 'plan-demos', 'DEPLACE-VERS-DATA.txt'))).toBe(true);
 }

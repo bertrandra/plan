@@ -6,8 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { creerDepotDemos, connecterAdmin, sessionAdmin, deconnecterAdmin, lireControleurs, enregistrerControleurs, lirePalette, enregistrerPalette, lireArbres, enregistrerArbres, lireCalibration, enregistrerCalibration, listerCasCalibration, lireCasCalibration, enregistrerCasCalibration, supprimerCasCalibration } from '../../../src/io/depotDemos.js';
 
-// admin.php, l'admin des demos sans Node (deploy/admin.php), contre le depot de la page : memes
-// scenarios que buildsg/demosAdmin.mjs. Lance par le serveur integre de PHP ; saute si PHP manque.
+// admin.php, l'admin des demos (deploy/admin.php), contre le depot de la page. Lance par le serveur
+// integre de PHP ; saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
@@ -102,6 +102,12 @@ describe.skipIf(!php)('admin.php', () => {
     expect((await navigateur('admin/session', { method: 'POST', body: JSON.stringify({ motDePasse: 'secret-admin' }) })).status).toBe(403);
     expect(await connecterAdmin(navigateur, 'faux')).toBe('Mot de passe refusé.');
     expect(await sessionAdmin(navigateur)).toBe(false);
+  });
+
+  it('refuse un identifiant qui sortirait du dossier, et la page dit non si le serveur ne repond pas', async () => {
+    expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null);
+    expect((await navigateur('admin/demos/..%2Fsecret')).status).toBe(400);
+    expect(await deconnecterAdmin((async () => { throw new Error('reseau'); }) as never)).toBe(false);
   });
 
   it('pose un cookie HttpOnly, SameSite=Strict, limite a admin/', async () => {

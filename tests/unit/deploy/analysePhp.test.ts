@@ -5,14 +5,14 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
-import { PLAFONDS_DEFAUT, choixConsommation, etatOrganisations, filtrerConsommation, sortieConforme, type Plafonds } from '../../../buildsg/analyseAdmin.mjs';
+import { constantePhp, php as appelPhp, phpObjets } from '../../fixtures/deploy/appelPhp.js';
 import { CLE, COUT_P1, COUT_P2, TEXTE_DESORDONNE, TROUVE_DEFAUT, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { JETON_LECTEUR, JETON_ORGA, ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { verifierBrouillonDesRegles } from '../../fixtures/deploy/scenarioRegles.js';
 
-// analyse.php, l'analyse par Claude sans Node (deploy/analyse.php), contre une API Message Batches
-// simulee : memes scenarios que buildsg/analyseAdmin.mjs, memes couts au centime pres. Lance par le
-// serveur integre de PHP derriere le role du .htaccess ; saute si PHP manque.
+// analyse.php, l'analyse par Claude (deploy/analyse.php), contre une API Message Batches simulee :
+// les routes, de bout en bout. Le calcul, fonction par fonction, est dans analyseFonctions.test.ts.
+// Lance par le serveur integre de PHP derriere le role du .htaccess ; saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
@@ -135,7 +135,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(faux.entetes).toHaveLength(0);
   });
 
-  it('cree le batch, lit ses resultats, journalise une fois aux memes couts que Node', async () => {
+  it('cree le batch, lit ses resultats, journalise une fois au cout du tarif en vigueur', async () => {
     await connecterAdmin(navigateur, 'secret-admin');
     const cree = await ecrire('admin/claude/batches', 'POST', demande());
     expect(cree.status).toBe(201);
@@ -145,7 +145,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect(params).toMatchObject({ model: 'claude-haiku-5-5', output_config: { effort: 'low' } });
     expect(params.output_config).not.toHaveProperty('format');
     expect((params.system as { text: string; cache_control: unknown }[])[0]).toMatchObject({ cache_control: { type: 'ephemeral' } });
-    // Le schema repart tel quel, au meme texte que Node.
+    // Le schema repart tel quel, au texte du fichier livre.
     const schema = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-analyse.json'), 'utf8')).schema;
     expect((params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(schema))).toBe(true);
     expect(params).not.toHaveProperty('temperature');
@@ -171,7 +171,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect((await navigateur('admin/claude/batches/msgbatch_9')).status).toBe(404);
   });
 
-  it('ramene une reponse ecrite sans sortie structuree a la forme du schema, comme Node', async () => {
+  it('ramene une reponse ecrite sans sortie structuree a la forme du schema', async () => {
     await connecterAdmin(navigateur, 'secret-admin');
     expect((await ecrire('admin/claude/batches', 'POST', demande(['p3']))).status).toBe(201);
     faux.terminer();
@@ -179,7 +179,7 @@ describe.skipIf(!php)('analyse.php', () => {
     const p3 = lu.resultats.find((r: { id: string }) => r.id === 'p3');
     expect(p3).toMatchObject({ statut: 'reussi', erreur: null });
     const schema = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-analyse.json'), 'utf8')).schema;
-    expect(p3.sortie).toEqual(sortieConforme(TEXTE_DESORDONNE, schema));
+    expect(p3.sortie).toEqual(phpObjets('sortieConforme', TEXTE_DESORDONNE, schema));
     expect(p3.sortie).toMatchObject({ forme: { valeur: 'deux-pans' }, elements: [{ indices: [], element: 'verriere' }], confiance: 'forte' });
   });
 
@@ -212,7 +212,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect((await ecrire('admin/claude/batches', 'POST', { ...demande(), requetes: [{ id: 'p1', contenu: [{ type: 'document' }] }] })).status).toBe(400);
   });
 
-  it('rend la consommation comme Node : periode, sept derniers jours, plafonds, filtres', async () => {
+  it('rend la consommation : periode, sept derniers jours, plafonds, filtres', async () => {
     // Le journal dans le dossier de PHP, date autour d'aujourd'hui (PHP lit l'heure du serveur).
     const jour = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
     const ligne = (n: number, plus: Record<string, unknown> = {}) => ({
@@ -231,15 +231,16 @@ describe.skipIf(!php)('analyse.php', () => {
     await connecterAdmin(navigateur, 'secret-admin');
     const d = await (await navigateur('admin/consommation')).json();
     const aujourdhui = jour(0);
-    const p = PLAFONDS_DEFAUT as Plafonds;
-    // Le meme calcul, fait par le serveur Node : les deux serveurs rendent la meme reponse.
+    const sansFiltre = { organisation: null, modele: null, usage: null, parcelle: null };
+    const p = constantePhp('PLAFONDS_DEFAUT');
+    // La route assemble ce que les fonctions calculent (eprouvees une a une dans analyseFonctions.test.ts).
     expect(d).toEqual({
       format: 'plan-claude-consommation', du: jour(29), au: aujourdhui, aujourdhui,
       filtres: { organisation: null, modele: null, usage: null, parcelle: null },
-      lignes: filtrerConsommation(lignes, { du: jour(29), au: aujourdhui }),
-      recents: filtrerConsommation(lignes, { du: jour(6), au: aujourdhui }),
-      organisations: etatOrganisations(lignes.filter((l) => l.t.startsWith(aujourdhui.slice(0, 7))), p, aujourdhui),
-      choix: choixConsommation(lignes.filter((l) => l.t.slice(0, 7) >= jour(29).slice(0, 7)), p)
+      lignes: appelPhp('filtrerConsommation', lignes, { ...sansFiltre, du: jour(29), au: aujourdhui }),
+      recents: appelPhp('filtrerConsommation', lignes, { ...sansFiltre, du: jour(6), au: aujourdhui }),
+      organisations: appelPhp('etatOrganisations', lignes.filter((l) => l.t.startsWith(aujourdhui.slice(0, 7))), p, aujourdhui),
+      choix: appelPhp('choixConsommation', lignes.filter((l) => l.t.slice(0, 7) >= jour(29).slice(0, 7)), p)
     });
     expect(d.lignes).toHaveLength(3);
     const f = await (await navigateur('admin/consommation?du=' + jour(29) + '&au=' + aujourdhui + '&parcelle=78650000AE0102')).json();
@@ -248,7 +249,7 @@ describe.skipIf(!php)('analyse.php', () => {
     expect((await ecrire('admin/consommation', 'PUT', {})).status).toBe(405);
   });
 
-  it('garde le brouillon des regles pour l administrateur seul, et ne le lit que sur une demande d essai (comme Node)', async () => {
+  it('garde le brouillon des regles pour l administrateur seul, et ne le lit que sur une demande d essai ', async () => {
     await verifierBrouillonDesRegles({
       navigateur, ecrire, faux, journal,
       utilisateur: (entree, init = {}) => navigateur(entree, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: 'Bearer ' + JETON_ORGA } }),

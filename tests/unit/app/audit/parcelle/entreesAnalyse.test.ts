@@ -9,7 +9,7 @@ import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import type { PhotoCas } from '../../../../../src/model/audit.js';
 import type { ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
-// Le plafond des images d'une requete (deploy/analyse.php, buildsg/analyseAdmin.mjs) : au-dela, le
+// Le plafond des images d'une requete (deploy/analyse-fonctions.php) : au-dela, le
 // serveur refuse tout le batch en 400. Le client reste dessous en gardant d'abord les meilleures
 // images, et un refus du serveur se lit en clair (et non plus « répondu de travers »).
 
@@ -35,11 +35,9 @@ function maison() {
 }
 
 describe('le plafond des images d une requete', () => {
-  it('vaut celui des deux serveurs', () => {
-    for (const f of ['deploy/analyse.php', 'buildsg/analyseAdmin.mjs']) {
-      const m = /const IMAGES_PAR_REQUETE = (\d+);/.exec(readFileSync(f, 'utf8'));
-      expect(Number(m?.[1]), f).toBe(IMAGES_PAR_REQUETE);
-    }
+  it('vaut celui du serveur', () => {
+    const m = /const IMAGES_PAR_REQUETE = (\d+);/.exec(readFileSync('deploy/analyse-fonctions.php', 'utf8'));
+    expect(Number(m?.[1])).toBe(IMAGES_PAR_REQUETE);
   });
 
   it('garde la vue du dessus, le relief, puis la meilleure photo de chaque facade et son rendu, dans l ordre de la capture', async () => {
@@ -227,8 +225,7 @@ describe('le rendu du modele absent est dit a Claude et a la personne', () => {
 });
 
 describe('le plafond de la reponse (rejeu d AE 101 : une passe coupee a 8 000 tokens)', () => {
-  it('vaut 16 000 sur les deux serveurs, et le meme des deux', () => {
-    const valeurs = ['deploy/analyse.php', 'buildsg/analyseAdmin.mjs'].map((f) => Number(/MAX_TOKENS = (\d+);/.exec(readFileSync(f, 'utf8'))?.[1]));
-    expect(valeurs).toEqual([16000, 16000]);
+  it('vaut 16 000 sur le serveur', () => {
+    expect(Number(/MAX_TOKENS = (\d+);/.exec(readFileSync('deploy/analyse-fonctions.php', 'utf8'))?.[1])).toBe(16000);
   });
 });

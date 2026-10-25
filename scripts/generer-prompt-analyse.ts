@@ -1,5 +1,5 @@
 // Ecrit le prompt et le schema d'analyse depuis les descriptions de sujets (src/regles/sujets/) :
-//   npx tsx scripts/generer-prompt-analyse.ts            ecrit deploy/ et sa copie buildsg/deploy/
+//   npx tsx scripts/generer-prompt-analyse.ts            ecrit deploy/
 //   npx tsx scripts/generer-prompt-analyse.ts --verifier  ne touche a rien ; sort en erreur si un fichier differe
 // `deploy/` n'est plus ecrit a la main : on change une description, on lance ceci, on monte la version
 // (src/regles/sujets/versions.ts) si le texte a change, et on valide les deux fichiers dans la meme PR.
@@ -14,15 +14,12 @@ const cibles: [string, string][] = [['deploy/prompt-analyse.md', g.prompt], ['de
 const verifier = process.argv.includes('--verifier');
 let ecarts = 0;
 for (const [chemin, texte] of cibles) {
-  for (const base of ['', 'buildsg/']) {
-    const f = resolve(racine, base + chemin);
-    if (base && !existsSync(f)) continue;
-    const actuel = existsSync(f) ? readFileSync(f, 'utf8') : null;
-    if (actuel === texte) continue;
-    ecarts++;
-    if (verifier) console.log('differe : ' + base + chemin);
-    else { writeFileSync(f, texte); console.log('ecrit : ' + base + chemin); }
-  }
+  const f = resolve(racine, chemin);
+  const actuel = existsSync(f) ? readFileSync(f, 'utf8') : null;
+  if (actuel === texte) continue;
+  ecarts++;
+  if (verifier) console.log('differe : ' + chemin);
+  else { writeFileSync(f, texte); console.log('ecrit : ' + chemin); }
 }
 if (verifier && ecarts) { console.log('Lancez `npm run regles:generer`.'); process.exit(1); }
 if (!ecarts) console.log('deploy/ est a jour (prompt v' + g.versionPrompt + ', schema v' + g.versionSchema + ').');

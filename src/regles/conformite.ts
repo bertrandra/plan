@@ -12,7 +12,7 @@
 // Ce module est pur : il juge une lecture deja faite (facade/regles/conformite.ts rejoue le cas), agrege
 // les verdicts par forme, par region et par probleme, et decrit les deux fichiers : le corpus du
 // depot rejoue par le script (regles/conformite.json, verifie par les tests) et les mesures rangees
-// sur le serveur de Plan (`admin/conformite`, deploy/analyse.php et buildsg/analyseAdmin.mjs).
+// sur le serveur de Plan (`admin/conformite`, deploy/analyse.php).
 //
 // Une colonne attend encore son lot, le taux d'accord de Claude par attribut (T§14.2) ; le taux de
 // conformite des facades (la disposition automatique comparee aux releves, F§15.3) est celui du lot G13. Leur place est

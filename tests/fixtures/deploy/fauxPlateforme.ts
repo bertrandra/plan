@@ -2,7 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 // La plateforme simulee, reduite a `GET /api/v1/me/context` (spec-connexion-plateforme 3.4) : ce
-// qu'analyse.php et buildsg/analyseAdmin.mjs lui demandent pour verifier le jeton d'un utilisateur
+// qu'analyse.php lui demande pour verifier le jeton d'un utilisateur
 // (plan D1, lot L17). Deux jetons connus : un qui ecrit les projets, un qui ne fait que les lire.
 
 export const JETON_ORGA = 'jeton-de-test-organisation-un';

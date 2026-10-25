@@ -1,5 +1,5 @@
-// Le scenario des audits partages (`admin/audits`, MD/spec-audit.md 15, lot L21), joue tel quel
-// contre deploy/analyse.php et buildsg/analyseAdmin.mjs : les deux serveurs tiennent le meme contrat.
+// Le scenario des audits partages (`admin/audits`, MD/spec-audit.md 15, lot L21), joue contre
+// deploy/analyse.php.
 
 import fs from 'node:fs';
 import path from 'node:path';

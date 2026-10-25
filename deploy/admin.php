@@ -1,8 +1,7 @@
 <?php
 // L'admin des demos pour un hebergement Apache + PHP, sans Node (MD/spec-demos-admin.md).
 //
-// Meme contrat que buildsg/demosAdmin.mjs, route pour route : la page ne sait pas lequel lui
-// repond. `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
+// `.htaccess` renvoie `admin/<chemin>` ici, avec `?chemin=<chemin>`.
 //
 //   GET    admin/session          200 si la session est ouverte, 401 sinon
 //   POST   admin/session          {motDePasse} -> ouvre la session (cookie)
