@@ -66,18 +66,25 @@ export const MIGRATIONS: readonly Migration[] = [
     // Le schema 4 n'ajoute qu'un champ facultatif a la parcelle : un document 3 est deja un
     // document 4 valide. La migration existe pour que la chaine soit complete.
     migrer: (d) => d
+  },
+  {
+    de: 4,
+    apporte: 'la piscine, la pergola, la clôture, les corps et volumes mesurés du toit, les fenêtres et le voisinage en 3D',
+    // Ces champs s'ecrivaient deja au 4 (CHAMPS_DEPUIS) : un document 4 est un document 5 valide. Le 5 les distingue, pour
+    // qu'un lecteur 4 refuse le fichier plutot que de les perdre.
+    migrer: (d) => d
   }
 ];
 
 /**
  * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
- * premier enregistrement. Les champs venus apres le 4 sans schema a eux s'y rangent : un lecteur 1 a 3 refuse le fichier plutot
- * que de les perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
+ * premier enregistrement. Les champs venus apres le relief s'ecrivent au 5 : un lecteur 4 refuse le fichier plutot que de les
+ * perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
  */
 export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   facades: 2, toit: 2,
   relief: 4,
-  piscine: 4, pergola: 4, cloture: 4, corpsToit: 4, volumesToit: 4, toitMesure: 4, fenetres3d: 4, voisinage3d: 4, ruesVoisinage: 4,
+  piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
 };
 
 /**
@@ -101,8 +108,8 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 4 pour le relief et les champs venus
- * depuis, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
+ * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 5 pour les champs venus apres le relief,
+ * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
  * faux sur un L).
  */
 export function schemaMinimal(objets: readonly ObjetBrut[]): number {
