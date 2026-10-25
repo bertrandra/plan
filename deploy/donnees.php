@@ -1,7 +1,7 @@
 <?php
 // Ou vivent les donnees du serveur (admin.php et analyse.php ; MD/spec-demos-admin.md, « Où vivent
 // les fichiers ») : un seul dossier `data/`, HORS de la racine web, a cote de public_html/ (comme
-// plan-admin-config.php), avec un sous-dossier par nature. buildsg/donnees.mjs fait de meme.
+// plan-admin-config.php), avec un sous-dossier par nature.
 //
 //   data/demo/         les demos de l'admin et de la vitrine ?mode=demo (<id>.json, .bak, .supprime-…)
 //   data/admin/        palette.json, controleurs.json, arbres.json, calibration.json, echecs.json (les reglages de l'admin)

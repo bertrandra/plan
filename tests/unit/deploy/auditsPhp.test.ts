@@ -9,8 +9,7 @@ import { demarrerContextePlateforme, fichierAudit, JETON, type ContextePlateform
 import { dossierRange, jouerScenarioAudits } from '../../fixtures/deploy/scenarioAudits.js';
 
 // Les audits de parcelle partages pour le corpus, cote PHP (deploy/analyse.php, `admin/audits` ;
-// MD/spec-audit.md 15, lot L21) : le meme scenario que buildsg/analyseAdmin.mjs, derriere le role du
-// .htaccess, contre une plateforme simulee. Saute si PHP manque.
+// MD/spec-audit.md 15, lot L21), derriere le role du .htaccess, contre une plateforme simulee. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');

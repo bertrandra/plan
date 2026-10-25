@@ -1,7 +1,7 @@
 // Les tarifs et les plafonds de l'analyse par Claude, tels que l'administrateur les regle depuis le
 // tableau de bord (MD/spec-audit.md 13.3, routes `admin/claude/tarifs` et `admin/claude/plafonds`).
 //
-// Le serveur verifie tout (buildsg/analyseAdmin.mjs, deploy/analyse.php) ; ce module ne fait que
+// Le serveur verifie tout (deploy/analyse.php) ; ce module ne fait que
 // preparer une modification qui a des chances d'etre acceptee, et dire pourquoi sinon, avant
 // l'aller-retour. La regle qui compte : **un tarif passe ne se reecrit pas**. Un changement de prix
 // ajoute une ligne datee d'aujourd'hui ou plus tard ; seule une ligne encore a venir se retire.

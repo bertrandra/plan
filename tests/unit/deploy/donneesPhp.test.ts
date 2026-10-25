@@ -10,8 +10,7 @@ import { CLE, demarrerFauxAnthropic, reussi, SORTIE_ANALYSE, USAGE_P2, type Faux
 import { jouerScenarioDonnees, poserAncienDossier } from '../../fixtures/deploy/scenarioDonnees.js';
 
 // Le dossier des donnees cote PHP (deploy/donnees.php) : la disposition, la migration d'un ancien
-// plan-demos/, le rangement des audits et les traces des rejeux, avec le meme scenario que Node
-// (tests/unit/buildsg/donnees.test.ts). Saute si PHP manque.
+// plan-demos/, le rangement des audits et les traces des rejeux. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racineDepot = path.resolve(__dirname, '../../..');
@@ -91,7 +90,7 @@ describe.skipIf(!php)('les donnees, cote PHP', () => {
     await jouerScenarioDonnees({ navigateur, sansSession, connecter: async () => { expect(await connecterAdmin(navigateur, 'secret-admin')).toBe(null); }, racine, faux, ignorer: () => false });
   });
 
-  it('choisit la disposition comme buildsg/donnees.mjs', () => {
+  it('choisit la disposition', () => {
     // L'ancien reglage seul garde l'ancienne disposition.
     expect(donneesPhp("dossiersDonnees(['dossierDemos' => '/h/plan-demos'], '/h/public_html', '/h/public_html', '/h/plan-admin-config.php')")).toEqual({
       disposition: 'ancienne', racine: '/h/plan-demos', demos: '/h/plan-demos', admin: '/h/plan-demos', palette: '/h/plan-demos/.palette.json',

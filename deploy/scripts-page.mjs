@@ -1,6 +1,6 @@
 // Le programme de la page, sorti en fichier, et les empreintes de ce qui resterait en ligne : ce que
 // vite.config.ts fait de dist/index.html apres le build. En JavaScript pur, pour que la configuration
-// de Vite l'importe sur l'hote Node (buildsg/) comme ici, et que les tests le lisent (scripts-page.d.mts).
+// de Vite l'importe telle quelle, et que les tests le lisent (scripts-page.d.mts).
 
 import { createHash } from 'node:crypto';
 

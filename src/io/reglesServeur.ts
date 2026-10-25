@@ -1,4 +1,4 @@
-// Le brouillon des regles sur le serveur (deploy/analyse.php, buildsg/analyseAdmin.mjs ; meme contrat) :
+// Le brouillon des regles sur le serveur (deploy/analyse.php) :
 // le prompt et le schema edites dans Admin › Regles, gardes pour essayer une analyse ou un rejeu AVANT
 // la PR. A l'administrateur seul (cookie de sa session) ; ce brouillon ne remplace jamais le prompt livre,
 // seule une demande qui le nomme (`essai: 'brouillon'`, io/analyseClaude.ts) le lit.

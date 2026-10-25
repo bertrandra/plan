@@ -1,7 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-// Une API Message Batches simulee, pour eprouver analyse.php et buildsg/analyseAdmin.mjs sans
+// Une API Message Batches simulee, pour eprouver analyse.php sans
 // appeler Anthropic : les memes routes, le meme JSON, des compteurs `usage` choisis.
 
 export const CLE = 'cle-de-test';

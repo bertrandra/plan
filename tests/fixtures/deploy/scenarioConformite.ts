@@ -1,6 +1,5 @@
 // Le scenario des mesures de conformite (`admin/conformite`, MD/spec-regles-toits.md 13.5, lot G3),
-// joue tel quel contre deploy/analyse.php et buildsg/analyseAdmin.mjs : les deux serveurs tiennent le
-// meme contrat, et la page (io/depotDemos.ts) ne sait pas lequel lui repond.
+// joue contre deploy/analyse.php par la page (io/depotDemos.ts).
 
 import fs from 'node:fs';
 import path from 'node:path';

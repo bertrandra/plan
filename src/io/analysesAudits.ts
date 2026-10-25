@@ -1,5 +1,5 @@
 // Les analyses et les rejeux d'un audit, gardes sur le serveur dans le dossier de l'audit
-// (MD/spec-audit.md 15.5 ; deploy/analyse.php et buildsg/analyseAdmin.mjs, meme contrat) : pour
+// (MD/spec-audit.md 15.5 ; deploy/analyse.php) : pour
 // chacun, ce qui est parti chez Claude (entrant), ce qu'il a rendu (sortant) et leur resume. A
 // l'administrateur seul, en lecture : la page les montre et les exporte, elle n'y ecrit rien.
 //

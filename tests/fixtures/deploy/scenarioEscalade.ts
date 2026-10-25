@@ -1,8 +1,8 @@
 import { expect } from 'vitest';
 import { demande, type FauxAnthropic } from './fauxAnthropic.js';
 
-// L'escalade (D20 de MD/plan-vague-3-generaliser.md) cote serveur, la meme pour buildsg/analyseAdmin.mjs (Node) et
-// deploy/analyse.php (PHP) : l'usage `escalade` part par l'appel immediat, avec le prompt et le schema de l'analyse
+// L'escalade (D20 de MD/plan-vague-3-generaliser.md) cote serveur
+// (deploy/analyse.php) : l'usage `escalade` part par l'appel immediat, avec le prompt et le schema de l'analyse
 // d'une maison (pas ceux du renfort), au modele demande, et se journalise sous son usage.
 
 export interface HoteEscalade {

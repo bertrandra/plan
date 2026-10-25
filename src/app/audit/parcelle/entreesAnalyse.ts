@@ -125,9 +125,9 @@ function image(img: ImagePreparee, texte: string, etiquettes: EtiquetteImage[], 
 
 /**
  * Les images d'une requete au plus : le serveur refuse toute la demande au-dela
- * (`IMAGES_PAR_REQUETE` de deploy/analyse.php et de buildsg/analyseAdmin.mjs, 40) ; une maison bien
+ * (`IMAGES_PAR_REQUETE` de deploy/analyse-fonctions.php, 40) ; une maison bien
  * photographiee y arrive vite, chaque photo prise a la boussole partant avec le rendu de son point de
- * vue. Un test tient cette valeur egale a celle des deux serveurs.
+ * vue. Un test tient cette valeur egale a celle du serveur.
  */
 export const IMAGES_PAR_REQUETE = 40;
 

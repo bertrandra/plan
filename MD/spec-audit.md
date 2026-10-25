@@ -551,7 +551,7 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 - **Le modèle de chaque usage** (*demande de l'utilisateur, 14 octobre 2026*) est un réglage du serveur, choisi par l'administrateur dans
   le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
   (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
-  modèles que le serveur admet (`MODELES` de `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`) et
+  modèles que le serveur admet (`MODELES` de `deploy/analyse-fonctions.php`) et
   refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits, escalade,
   renfort des façades, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
   l'utilisateur, 15 octobre 2026*). Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
@@ -593,7 +593,7 @@ pour le calage (lot L18). Points de fumée 69 et 70.
 - **« Prêtes » dit combien** : « N propositions et M observations », ou que Claude n'a rien vu à
   proposer ni à signaler.
 - **Les images d'une requête** sont plafonnées à 40, la limite du serveur (`IMAGES_PAR_REQUETE`,
-  `deploy/analyse.php` et `buildsg/analyseAdmin.mjs`), qui refuse toute la demande au-delà. Ordre de
+  `deploy/analyse-fonctions.php`), qui refuse toute la demande au-delà. Ordre de
   priorité : orthophoto et carte LiDAR, meilleure photo de chaque façade et du toit (prise à la
   boussole d'abord), leur rendu, puis les autres photos tour à tour et leurs rendus. Un refus du
   serveur s'affiche avec son message.
@@ -828,7 +828,7 @@ l'IGN le conserve aussi, sans case. Point de fumée 64.
   un choix fait à la main dans ce projet. Une capture déjà sur l'appareil n'est remplacée qu'après
   confirmation. Un audit importé arrive avec la case du partage décochée : son auteur l'a déjà.
 - Le partage va sur le serveur de Plan, dans les données de l'admin : `admin/audits`
-  (`deploy/analyse.php` et `buildsg/analyseAdmin.mjs`, même contrat), par la session admin ou le
+  (`deploy/analyse.php`), par la session admin ou le
   jeton de la plateforme vérifié auprès d'elle (`plateformeUrl`). Le fichier est rangé tel qu'il est
   arrivé dans `audits/`, avec une fiche (IDU, adresse, organisation, taille). L'envoi rend un secret
   de retrait, gardé avec la capture sur l'appareil ; le serveur n'en garde que l'empreinte. Chaque
@@ -892,7 +892,7 @@ tout ».
   - « Télécharger » le fichier tel qu'il est arrivé (`audit-parcelle-<jour>-<idu>.json`) ;
   - « Retirer », confirmé sur la carte même (« Retirer définitivement » ou « Garder ») : une question
     de Z8 s'ouvrirait sous le parcours.
-- Contrat (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, scénario commun
+- Contrat (`deploy/analyse.php`, scénario
   `tests/fixtures/deploy/scenarioAudits.ts`) : `PUT admin/audits/<id>` (secret ou admin, et comme le
   dépôt une session ou un jeton ; identifiant, secret et organisation du premier envoi gardés ;
   404 s'il n'existe plus), `X-Plan-Depot` (`corpus` ou `sauvegarde`, sinon 400), fiche augmentée de
@@ -912,8 +912,8 @@ outil pour travailler à mon bureau suite à des audits. Je veux pouvoir tout an
 sortant… » ; « je ne jette rien, tout est utile pour l'instant ».
 
 - **Un seul dossier `data/`**, frère de `public_html/` (à côté de `plan-admin-config.php`), jamais
-  servi : `deploy/donnees.php` et `buildsg/donnees.mjs`, même contrat. Réglage `dossierDonnees` de la
-  configuration (Node : `DATA_DIR`), par défaut `data/` à côté de la racine web, même quand Plan est
+  servi : `deploy/donnees.php`. Réglage `dossierDonnees` de la
+  configuration, par défaut `data/` à côté de la racine web, même quand Plan est
   dans un sous-dossier. Sous-dossiers : `demo/` (les démos de l'admin et de la vitrine
   `?mode=demo`), `admin/` (palette, registre des contrôleurs, échecs de connexion), `claude/`
   (journal, tarifs, plafonds, modèles, batches), `audits/`, `conformite/`, et `migration.json`.
@@ -1023,7 +1023,7 @@ visite, pour comparer les réponses d'une version du prompt à l'autre et d'un m
   bâtiment ; « Exporter (JSON) » donne le tout (`plan-audit-analyse-complete`) pour le travailler
   ailleurs. Les propositions et leur décision sont celles de l'audit (sa conclusion) : un rejeu ne
   modifie pas l'audit et ne recalcule pas de propositions.
-- Routes (`deploy/analyse.php`, `buildsg/analyseAdmin.mjs`, administrateur seul, en lecture) :
+- Routes (`deploy/analyse.php`, administrateur seul, en lecture) :
   `GET admin/audits/<id>/analyses`, `GET admin/audits/<id>/analyses/<trace>`,
   `GET admin/audits/<id>/images/<sha256>.<ext>` ; `POST admin/claude/batches` accepte `depot`
   (identifiant d'audit) et rend `trace`. Client : `io/analysesAudits.ts`. Scénario commun

@@ -12,6 +12,7 @@
 //   donnees.php                ou vivent les donnees (data/ a cote de public_html/), inclus par admin.php et analyse.php
 //   admin-config.exemple.php   a copier HORS du dossier publie, mot de passe a changer
 //   analyse.php                l'analyse par Claude (batch Anthropic, plafonds, journal), sous la session admin
+//   analyse-fonctions.php      ses constantes et ses fonctions, incluses par analyse.php
 //   prompt-analyse.md          le prompt versionne de l'analyse, lu par analyse.php
 //   schema-analyse.json        le schema de sortie versionne de l'analyse
 //   prompt-renfort.md          le prompt versionne du renfort du calage et de la detection (lot L18)
@@ -47,7 +48,7 @@ cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/donnees.php'), resolve(sortie, 'donnees.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 // L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
-for (const f of ['analyse.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-renfort.md', 'schema-renfort.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
+for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-renfort.md', 'schema-renfort.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 
@@ -107,7 +108,8 @@ Sur l'hebergement, trois choses voisines :
      Sans le dossier assets/ de la meme livraison, la page reste blanche. Les anciens
      assets/plan-*.js peuvent etre supprimes, ou laisses : ils ne servent plus.
    - .htaccess pose le cache, les en-tetes de securite et la route admin/.
-   - admin.php, analyse.php et donnees.php vont ensemble : les deux premiers incluent le troisieme.
+   - admin.php, analyse.php, analyse-fonctions.php et donnees.php vont ensemble : admin.php et
+     analyse.php incluent donnees.php, analyse.php inclut analyse-fonctions.php.
    - data/ de la livraison ne reste pas dans public_html/ (voir 2.c) ; .htaccess le refuse de
      toute facon (404). Ne pas y laisser non plus d'ancien api.php.
 

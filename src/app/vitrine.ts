@@ -41,7 +41,7 @@
 //
 // `file` montre une demo de l'admin au lieu de la demonstration integree : `file=2` lit le fichier
 // de demo 2 (MD/spec-demos-admin.md) par `admin/vitrine/2`, la route publique, en lecture seule, de
-// admin.php ou de buildsg/demosAdmin.mjs. Un fichier absent, illisible ou sans objet laisse la
+// admin.php. Un fichier absent, illisible ou sans objet laisse la
 // demonstration integree : la vitrine encadree sur une page d'accueil ne doit jamais etre vide.
 //
 // `date=AAAA-MM-JJ` pose le jour du soleil (par defaut, aujourd'hui). La camera tourne autour de la

@@ -27,6 +27,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le second serveur, en Node, est retiré : `buildsg/` n'existe plus** (revue du dépôt). Il n'était plus déployé (sa copie
+  datait de la 2.2.0) et chaque route devait s'écrire deux fois, en PHP et en Node ; les deux s'écartaient. Le seul serveur est
+  celui de `deploy/`, livré dans `livraison/`. Ses constantes et ses fonctions passent dans `deploy/analyse-fonctions.php`, inclus
+  par `analyse.php` et livré avec lui (à déposer avec les autres fichiers PHP). Les tests unitaires du calcul (coûts, plafonds,
+  forme de la réponse, comptes, consommation, audits), qui n'existaient que côté Node, sont portés sur les fonctions PHP
+  (`tests/unit/deploy/analyseFonctions.test.ts`, par `tests/fixtures/deploy/appel-analyse.php`) ; les cas candidats d'un village
+  se jouent contre `analyse.php`. La CI vérifie que PHP est présent : les tests du serveur ne sautent plus en silence.
+  `npm run buildsg` et `npm run build:siteground` disparaissent. Rien ne change pour la page ni pour les exports.
+
 - **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la
   construction de la Vue 3D ; la terrasse, les objets du plan et ce que l'on fait d'une scène déjà bâtie (remplacer, comparer,
   surligner, épurer, viser) ont chacun leur module. `app/audit/parcelle/controleur.ts` garde la session de l'audit ; les capteurs,

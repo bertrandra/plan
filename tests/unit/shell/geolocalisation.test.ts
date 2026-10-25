@@ -45,11 +45,9 @@ describe('lirePositionGps', () => {
 });
 
 describe('l en-tete Permissions-Policy du serveur', () => {
-  it('permet la position au site lui-meme, sur Apache comme sur le serveur Node', () => {
-    for (const f of ['deploy/htaccess.template', 'buildsg/app.js']) {
-      const texte = readFileSync(path.join(racine, f), 'utf8');
-      expect(texte, f).toContain('geolocation=(self)');
-      expect(texte, f).not.toContain('geolocation=()');
-    }
+  it('permet la position au site lui-meme', () => {
+    const texte = readFileSync(path.join(racine, 'deploy/htaccess.template'), 'utf8');
+    expect(texte).toContain('geolocation=(self)');
+    expect(texte).not.toContain('geolocation=()');
   });
 });

@@ -80,7 +80,7 @@ La lecture est **tolérante** : une essence sans identifiant valide ou sans rég
 l'interface (`lireDocumentArbres`). L'essence d'un objet (`especeDe`) est celle qu'il porte, sinon la
 première, sinon rien.
 
-Côté serveur : `deploy/admin.php` et `buildsg/demosAdmin.mjs`, même contrat (`GET admin/arbres` sans
+Côté serveur : `deploy/admin.php` (`GET admin/arbres` sans
 session, `PUT` avec session et `X-Plan-Admin`, `.bak` de la version précédente).
 
 ## 3. L'objet du plan
@@ -126,7 +126,7 @@ triangles, sommets, durée de génération et dimensions du modèle, et une case
 - `tests/unit/model/especesArbre.test.ts` : lecture tolérante, document, bibliothèque chargée, nature, saison.
 - `tests/unit/three/arbre3d.test.ts` : groupe sans maille, repli, lots d'instances (taille, partage, masque,
   teinte, retrouver l'arbre touché), saison. EZ-tree y est remplacé par un faux générateur.
-- `tests/unit/{deploy/adminPhp,buildsg/demosAdmin}.test.ts` : la route `admin/arbres`, côté PHP et côté Node.
+- `tests/unit/deploy/adminPhp.test.ts` : la route `admin/arbres`.
 - Fumée 91 (les arbres en instances, la saison) et 92 (l'écran admin).
 - `tests/unit/model/bibliothequeLivree.test.ts` : le fichier `data/admin/arbres.json` (dix essences par taille,
   identifiants valides et uniques, lecture sans perte, document sous 256 Ko, essence pour chaque nature BD TOPO, silhouettes).

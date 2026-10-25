@@ -1,0 +1,383 @@
+import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import { constantePhp, php, phpObjets, phpPresent } from '../../fixtures/deploy/appelPhp.js';
+import {
+  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TROUVE_ANALYSE, TROUVE_RENFORT, TROUVE_VIDE,
+  USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi
+} from '../../fixtures/deploy/fauxAnthropic.js';
+import { FIN, RAPIDE, requeteRenfort } from '../../fixtures/deploy/scenariosModeles.js';
+import { BROUILLON } from '../../fixtures/deploy/scenarioRegles.js';
+import { fichierAudit } from '../../fixtures/deploy/contextePlateforme.js';
+import { mesureEssai } from '../../fixtures/deploy/scenarioConformite.js';
+
+// Le calcul d'analyse.php, fonction par fonction (deploy/analyse-fonctions.php, appele par
+// tests/fixtures/deploy/appel-analyse.php) : le cout et le journal, la demande, la forme de la
+// reponse, les comptes, la consommation, les audits. Les routes, elles, sont eprouvees par HTTP
+// (analysePhp*.test.ts). Saute si PHP manque ; la CI l'installe.
+
+const racine = path.resolve(__dirname, '../../..');
+const deploy = path.join(racine, 'deploy');
+type Ligne = Record<string, unknown> & { depuis: string; sortie: number };
+const TARIFS = JSON.parse(fs.readFileSync(path.join(deploy, 'claude-tarifs.json'), 'utf8')) as { format: string; lignes: Ligne[] };
+const SCHEMA = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-analyse.json'), 'utf8')) as { version: number; schema: Record<string, unknown> };
+type Requete = { id: string; passe: number; images: number; facades: number; usage: string; modele: string };
+type Demande = { modele: string; essai: boolean; requetes: Requete[] };
+
+/** Une ligne de journal comme analyse.php l'ecrit, avec ce qui varie d'un test a l'autre. */
+const ligneJournal = (t: string, plus: Record<string, unknown> = {}) => ({
+  t, organisation: 'admin', projet: 'admin', idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet', audit: 'audit-1',
+  usage: 'analyse', modele: 'claude-haiku-5-5', batch: true, idBatch: 'msgbatch_1', requete: 'p1', passe: 1,
+  tokens: { entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 }, images: 1, cout: COUT_P1,
+  tarif: '2026-10-13', statut: 'reussi', arret: 'end_turn', prompt: 0, schema: 0, ...plus
+});
+/** Un filtre de la consommation, tel que lireFiltres le rend. */
+const filtre = (plus: Record<string, string> = {}) => ({ du: '2026-10-01', au: '2026-10-14', organisation: null, modele: null, usage: null, parcelle: null, ...plus });
+
+describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
+  const P = phpPresent ? constantePhp<Record<string, unknown>>('PLAFONDS_DEFAUT') : {};
+  const HAIKU = phpPresent ? php<Ligne>('tarifEnVigueur', TARIFS, 'claude-haiku-5-5', '2026-10-14') : null;
+  const tokens = (u: unknown) => php<Record<string, number>>('tokensDeUsage', u);
+
+  describe('le cout et le journal', () => {
+    it('lit les compteurs de usage tels que l API les renvoie', () => {
+      expect(tokens(USAGE_P1)).toEqual({ entree: 4000, ecritureCache: 25000, ecritureCache1h: 0, lectureCache: 0, sortie: 1500 });
+      expect(tokens({ input_tokens: 10, cache_creation_input_tokens: 300, cache_creation: { ephemeral_1h_input_tokens: 100 } }).ecritureCache1h).toBe(100);
+      expect(tokens(null)).toEqual({ entree: 0, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 0, sortie: 0 });
+    });
+
+    it('calcule le cout au tarif Batch du modele rapide, cache compris', () => {
+      expect(php('coutAppel', tokens(USAGE_P1), HAIKU, true)).toBe(COUT_P1);
+      expect(php('coutAppel', tokens(USAGE_P2), HAIKU, true)).toBe(COUT_P2);
+      // Au tarif normal, le double ; l'estimation de la spec (une passe ~0,0014 $, cache chaud).
+      expect(php('coutAppel', tokens(USAGE_P2), HAIKU, false)).toBe(0.0014);
+    });
+
+    it('passe au palier au-dela de 100 000 tokens de prompt, cache compris', () => {
+      const t = { entree: 80000, ecritureCache: 0, ecritureCache1h: 0, lectureCache: 30000, sortie: 1000 };
+      // 80 000 x 0,50 + 30 000 x 0,05 + 1 000 x 2,50 = 44 000 micro-dollars, moitie en Batch.
+      expect(php('coutAppel', t, HAIKU, true)).toBe(0.022);
+      expect(php('coutAppel', { ...t, lectureCache: 20000 }, HAIKU, true)).toBe(0.00435);
+    });
+
+    it('prend l ecriture du cache a une heure a son propre tarif', () => {
+      const t = { entree: 0, ecritureCache: 50000, ecritureCache1h: 20000, lectureCache: 0, sortie: 0 };
+      // 30 000 x 0,125 + 20 000 x 0,20 = 7 750 micro-dollars.
+      expect(php('coutAppel', t, HAIKU, false)).toBe(0.00775);
+    });
+
+    it('choisit la ligne de tarif en vigueur ce jour-la, sans reecrire le passe', () => {
+      const premiere = TARIFS.lignes[0];
+      if (!premiere) throw new Error('claude-tarifs.json sans ligne');
+      const t = { ...TARIFS, lignes: [...TARIFS.lignes, { ...premiere, depuis: '2027-01-01', sortie: 1 }] };
+      expect(php<Ligne>('tarifEnVigueur', t, 'claude-haiku-5-5', '2026-12-31').sortie).toBe(0.5);
+      expect(php<Ligne>('tarifEnVigueur', t, 'claude-haiku-5-5', '2027-01-01').sortie).toBe(1);
+      expect(php('tarifEnVigueur', t, 'claude-haiku-5-5', '2026-01-01')).toBe(null);
+      expect(php('coutAppel', tokens(USAGE_P1), null, true)).toBe(null);
+      expect(php('passeGarde', TARIFS, t, '2027-02-01')).toBe(true);
+      expect(php('passeGarde', t, TARIFS, '2027-02-01')).toBe(false);
+      expect(php('passeGarde', t, TARIFS, '2026-12-01')).toBe(true);
+    });
+
+    it('livre une table des tarifs valide, verifiee sur la page officielle', () => {
+      expect(php('verifierTarifs', TARIFS)).toEqual(TARIFS);
+      for (const l of TARIFS.lignes) expect(l.source).toMatch(/^https:\/\/platform\.claude\.com\//);
+      expect(() => php('verifierTarifs', { ...TARIFS, lignes: [{ ...TARIFS.lignes[0], entree: -1 }] })).toThrow(/tarifs/);
+    });
+
+    it('additionne les depenses d une organisation par jour et par mois', () => {
+      const lignes = [
+        { t: '2026-10-14T10:00:00Z', organisation: 'admin', cout: COUT_P1 },
+        { t: '2026-10-13T10:00:00Z', organisation: 'admin', cout: COUT_P2 },
+        { t: '2026-10-14T11:00:00Z', organisation: 'autre', cout: 1 },
+        { t: '2026-10-14T12:00:00Z', organisation: 'admin', cout: null }
+      ];
+      expect(php('depenses', lignes, 'admin', '2026-10-14')).toEqual({ jour: COUT_P1, mois: 0.0028375 });
+    });
+
+    it('lit une ligne de resultats : sortie, refus, coupure, erreur', () => {
+      expect(phpObjets('lireResultat', reussi('p1', USAGE_P1))).toMatchObject({ id: 'p1', statut: 'reussi', arret: 'end_turn', erreur: null, sortie: { forme: { valeur: 'deux-pans' } } });
+      const refus = reussi('p2', USAGE_P2) as { result: { message: { stop_reason: string } } };
+      refus.result.message.stop_reason = 'refusal';
+      expect(phpObjets('lireResultat', refus)).toMatchObject({ statut: 'reussi', arret: 'refusal', sortie: null, erreur: { type: 'refusal' } });
+      const coupe = reussi('p3', USAGE_P2) as { result: { message: { stop_reason: string } } };
+      coupe.result.message.stop_reason = 'max_tokens';
+      expect(phpObjets('lireResultat', coupe)).toMatchObject({ sortie: null, erreur: { type: 'max_tokens' } });
+      expect(phpObjets('lireResultat', reponseParDefaut('x'))).toMatchObject({ statut: 'echoue', erreur: { type: 'overloaded_error' } });
+      expect(phpObjets<{ statut: string }>('lireResultat', { custom_id: 'y', result: { type: 'expired' } }).statut).toBe('expire');
+    });
+  });
+
+  describe('le prompt et le schema de chaque usage', () => {
+    const lireSchema = (f: string) => JSON.parse(fs.readFileSync(path.join(deploy, f), 'utf8')) as { version: number; schema: Record<string, unknown> };
+    const texte = (f: string) => fs.readFileSync(path.join(deploy, f), 'utf8');
+    /** Les limites de la sortie structuree : objets fermes, tous les champs requis, ni bornes ni longueurs. */
+    const verifier = (n: unknown, ou: string): void => {
+      if (!n || typeof n !== 'object') return;
+      const o = n as Record<string, unknown>;
+      if (o.type === 'object') {
+        expect(o.additionalProperties, ou).toBe(false);
+        expect([...(o.required as string[])].sort(), ou).toEqual(Object.keys(o.properties as object).sort());
+      }
+      for (const cle of ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems']) expect(o[cle], ou + '.' + cle).toBeUndefined();
+      for (const [k, v] of Object.entries(o)) verifier(v, ou + '.' + k);
+    };
+    /** Chaque terme d'une liste fermee du schema, sauf les termes communs. */
+    const termes = (n: unknown, communs: string[]): string[] => {
+      const vus = new Set<string>();
+      const lire = (x: unknown): void => {
+        if (!x || typeof x !== 'object') return;
+        const o = x as Record<string, unknown>;
+        if (Array.isArray(o.enum)) for (const t of o.enum as string[]) vus.add(t);
+        for (const v of Object.values(o)) lire(v);
+      };
+      lire(n);
+      return [...vus].filter((t) => !communs.includes(t));
+    };
+
+    it('versionne le prompt et le schema de l analyse, et le schema tient les limites de la sortie structuree', () => {
+      const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-analyse.md'));
+      expect(p.version).toBe(9);
+      expect(p.texte).toMatch(/^# Rôle/);
+      expect(p.texte).not.toMatch(/^version:/m);
+      expect(SCHEMA.version).toBe(5);
+      verifier(SCHEMA.schema, 'schema');
+      // Les formes et les termes des facades sont definis dans le prompt : un mot hors liste n'a pas de sens pour Claude.
+      const proprietes = SCHEMA.schema.properties as { forme: unknown; facades: { items: { properties: { materiau: unknown; details: unknown } } } };
+      const facade = proprietes.facades.items.properties;
+      for (const t of termes([proprietes.forme, facade.materiau, facade.details], ['indetermine', 'oui', 'non'])) expect(texte('prompt-analyse.md'), t).toContain('`' + t + '`');
+    });
+
+    it('versionne le prompt et le schema du renfort, et definit chaque terme', () => {
+      const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-renfort.md'));
+      expect(p.version).toBe(2);
+      expect(p.texte).toMatch(/^# Rôle/);
+      const s = lireSchema('schema-renfort.json');
+      expect(s.version).toBe(1);
+      verifier(s.schema, 'schema');
+      for (const t of termes(s.schema, ['indetermine', 'oui', 'non', 'faible', 'moyenne', 'forte'])) expect(texte('prompt-renfort.md'), t).toContain('`' + t + '`');
+    });
+  });
+
+  describe('la demande et ses parametres', () => {
+    it('compte les facades de chaque requete, et refuse un compte hors bornes', () => {
+      expect(php<Demande>('verifierDemande', demande(), P).requetes.map((r) => r.facades)).toEqual([2, 2]);
+      const sans = demande(['p1']) as { requetes: { facades?: number }[] };
+      delete sans.requetes[0]?.facades;
+      expect(php<Demande>('verifierDemande', sans, P).requetes[0]?.facades).toBe(0);
+      const premiere = (demande(['p1']) as { requetes: object[] }).requetes[0];
+      expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...premiere, facades: 201 }] }, P)).toThrow(/façades/);
+    });
+
+    it('fixe le modele, le prompt en cache, l effort et la sortie, sans temperature', () => {
+      const p = phpObjets('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA.schema, [{ type: 'text', text: 'x' }]);
+      expect(p).toEqual({
+        model: 'claude-haiku-5-5', max_tokens: constantePhp('MAX_TOKENS'),
+        // Le schema suit le prompt dans le meme bloc en cache : la sortie structuree en faisait une
+        // grammaire que l'API refusait (« The compiled grammar is too large »).
+        system: [{ type: 'text', text: 'PROMPT\n\n# Forme de la réponse\n\n' + constantePhp<string>('CONSIGNE_JSON') + '\n\n' + JSON.stringify(SCHEMA.schema), cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: [{ type: 'text', text: 'x' }] }],
+        output_config: { effort: 'low' }
+      });
+    });
+
+    it('n admet que des blocs texte et image, et des modeles connus', () => {
+      const d = php<Demande>('verifierDemande', demande(), P);
+      // Le modele rapide par defaut, pour l'analyse comme pour l'escalade.
+      expect(d.modele).toBe(RAPIDE);
+      expect(d.requetes.map((r) => [r.id, r.passe, r.images])).toEqual([['p1', 1, 1], ['p2', 2, 1]]);
+      expect(php<Demande>('verifierDemande', { ...demande(), usage: 'escalade' }, P).modele).toBe(RAPIDE);
+      const avec = (r: object) => ({ ...demande(), requetes: [{ id: 'p1', passe: 1, contenu: [r] }] });
+      expect(() => php('verifierDemande', avec({ type: 'document', source: {} }), P)).toThrow(/non admis/);
+      expect(() => php('verifierDemande', avec({ type: 'image', source: { type: 'url', url: 'https://x' } }), P)).toThrow(/non admis/);
+      expect(() => php('verifierDemande', { ...demande(), modele: 'claude-fable-5-1' }, P)).toThrow(/non admis/);
+      expect(() => php('verifierDemande', { ...demande(), requetes: [{ id: '../x', contenu: [{ type: 'text', text: 'a' }] }] }, P)).toThrow(/Identifiant/);
+      expect(() => php('verifierDemande', { ...demande(), requetes: Array.from({ length: 61 }, (_, i) => ({ id: 'r' + i, contenu: [{ type: 'text', text: 'a' }] })) }, P)).toThrow(/Trop de requêtes/);
+      expect(() => php('verifierPlafonds', { ...P, defaut: { jour: -1, mois: 1 } })).toThrow(/plafonds/);
+    });
+
+    it('nomme l essai ou non, et rien d autre', () => {
+      expect(php<Demande>('verifierDemande', demande(), P).essai).toBe(false);
+      expect(php<Demande>('verifierDemande', { ...demande(), essai: 'brouillon' }, P).essai).toBe(true);
+      expect(php<Demande>('verifierDemande', { ...demande(), essai: null }, P).essai).toBe(false);
+      expect(() => php('verifierDemande', { ...demande(), essai: 'oui' }, P)).toThrow(/essai/);
+    });
+
+    it('donne a chaque requete son usage et son modele, regle ou demande', () => {
+      const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1')] };
+      expect(php<Demande>('verifierDemande', d, P).requetes.map((r) => [r.id, r.usage, r.modele])).toEqual([['p1', 'analyse', RAPIDE], ['r1', 'renfort', RAPIDE]]);
+      const regle = php('modelesParUsage', { usages: { analyse: FIN } });
+      expect(php<Demande>('verifierDemande', d, P, regle).requetes.map((r) => r.modele)).toEqual([FIN, RAPIDE]);
+      expect(php<Demande>('verifierDemande', { ...d, modele: FIN }, P).requetes.map((r) => r.modele)).toEqual([FIN, FIN]);
+      expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteRenfort('r1'), usage: 'autre' }] }, P)).toThrow(/Usage inconnu/);
+    });
+  });
+
+  describe('le modele de chaque usage', () => {
+    const defaut = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE };
+
+    it('prend le modele rapide par defaut pour tous les usages, parmi deux admis', () => {
+      expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
+      expect(constantePhp('MODELES')).toEqual([RAPIDE, FIN]);
+      expect(php('modelesParUsage', null)).toEqual(defaut);
+    });
+
+    it('suit le reglage, et retombe sur le defaut pour un modele qui n est plus admis', () => {
+      expect(php('modelesParUsage', { format: 'plan-claude-modeles', usages: { analyse: FIN, renfort: 'claude-ancien-1' } })).toEqual({ ...defaut, analyse: FIN });
+      expect(php('modelesParUsage', { usages: 'n importe quoi' })).toEqual(defaut);
+    });
+
+    it('refuse un modele hors de la liste ou un usage inconnu', () => {
+      expect(php('verifierModeles', { format: 'plan-claude-modeles', usages: { analyse: RAPIDE } })).toEqual({ format: 'plan-claude-modeles', usages: { analyse: RAPIDE } });
+      expect(() => php('verifierModeles', { format: 'plan-claude-modeles', usages: { analyse: 'claude-fable-5-1' } })).toThrow(/non admis/);
+      expect(() => php('verifierModeles', { format: 'plan-claude-modeles', usages: { autre: RAPIDE } })).toThrow(/Usage inconnu/);
+      expect(() => php('verifierModeles', { format: 'autre', usages: {} })).toThrow(/réglage des modèles/);
+    });
+  });
+
+  describe('la forme de la reponse', () => {
+    it('ramene une reponse ecrite sans sortie structuree a la forme du schema, sans rien inventer', () => {
+      type Sortie = Record<string, unknown> & { facades: unknown[] };
+      const s = phpObjets<Sortie>('sortieConforme', TEXTE_DESORDONNE, SCHEMA.schema);
+      // Le texte autour et le bloc de code sont laisses ; la graphie des termes est celle du vocabulaire.
+      expect(s.forme).toEqual({ indices: [{ image: 2, vu: 'pignon sur rue' }], valeur: 'deux-pans' });
+      expect(s.bouts).toEqual({ indices: [], gauche: 'pignon', droite: 'indetermine' });
+      expect(s.lucarnes).toEqual({ indices: [], nombre: 'indetermine', types: ['jacobine'], pan: 'indetermine' });
+      // Un element hors vocabulaire n'est pas remplace par un autre : il est ecarte.
+      expect(s.elements).toEqual([{ indices: [], element: 'verriere' }]);
+      expect(s.facades[0]).toMatchObject({ facade: 'sud', ouvertures: { niveaux: 2, parNiveau: [3, 4], manquees: 'indetermine', enTrop: 'indetermine' }, materiau: 'meuliere', ecart: '' });
+      expect(s.confiance).toBe('forte');
+      expect(s).not.toHaveProperty('enTrop');
+      expect(Object.keys(s)).toEqual(Object.keys((SCHEMA.schema as { properties: object }).properties));
+      // Sans objet JSON, rien n'est lu ; sans confiance, la plus prudente.
+      expect(phpObjets('sortieConforme', 'Je ne peux pas analyser ces images.', SCHEMA.schema)).toBeNull();
+      expect(phpObjets('sortieConforme', '[1, 2]', SCHEMA.schema)).toBeNull();
+      expect(phpObjets<Record<string, unknown>>('sortieConforme', '{}', SCHEMA.schema).confiance).toBe('faible');
+    });
+
+    it('compte les baies, les bouts, les lucarnes, les elements et les ecarts de l analyse', () => {
+      expect(php('comptesSortie', SORTIE_ANALYSE, 'analyse')).toEqual(TROUVE_ANALYSE);
+      expect(php('comptesSortie', SORTIE_ANALYSE, 'escalade')).toEqual(TROUVE_ANALYSE);
+      expect(php('comptesSortie', SORTIE_VIDE, 'analyse')).toEqual(TROUVE_VIDE);
+    });
+
+    it('compte les avis, les baies manquees, les coins et le mur du renfort', () => {
+      expect(php('comptesSortie', SORTIE_RENFORT, 'renfort')).toEqual(TROUVE_RENFORT);
+      const retiree = { ...SORTIE_RENFORT, ouvertures: [{ ...SORTIE_RENFORT.ouvertures[0], decision: 'retirer', raison: 'ombre' }], manquees: [], mur: { indices: [], vu: 'indetermine' }, coins: { indices: [] } };
+      expect(php('comptesSortie', retiree, 'renfort')).toMatchObject({ ouvertures: 0, enTrop: 1, manquees: 0, coins: 0, determines: 0, vide: false });
+    });
+
+    it('borne un nombre aberrant, ignore une forme inattendue, et ne compte que les reponses lues', () => {
+      expect(php('comptesSortie', { facades: [{ ouvertures: { parNiveau: [5000, -2, 1.5, '3'], manquees: 1e9 } }] }, 'analyse')).toMatchObject({ ouvertures: 999, manquees: 999 });
+      expect(php('comptesSortie', [], 'analyse')).toEqual(TROUVE_VIDE);
+      expect(php('comptesSortie', 'texte', 'renfort')).toEqual(TROUVE_VIDE);
+      expect(php('comptesSortie', null, 'analyse')).toBe(null);
+      expect(php('trouvailles', { statut: 'reussi', erreur: null, sortie: SORTIE_VIDE }, 'analyse')).toEqual(TROUVE_VIDE);
+      expect(php('trouvailles', { statut: 'reussi', erreur: { type: 'max_tokens', message: '' }, sortie: null }, 'analyse')).toBe(null);
+      expect(php('trouvailles', { statut: 'echoue', erreur: { type: 'overloaded_error', message: '' }, sortie: null }, 'analyse')).toBe(null);
+    });
+  });
+
+  describe('la consommation', () => {
+    it('lit les filtres, trente jours par defaut, et refuse ce qui est mal forme', () => {
+      expect(php('lireFiltres', {}, '2026-10-14')).toEqual({ du: '2026-09-15', au: '2026-10-14', organisation: null, modele: null, usage: null, parcelle: null });
+      expect(php('lireFiltres', { du: '2026-10-01', au: '2026-10-14', modele: 'claude-sonnet-5-5', parcelle: '78650000AE0101', usage: 'escalade', organisation: 'org-1' }, '2026-10-14'))
+        .toEqual({ du: '2026-10-01', au: '2026-10-14', organisation: 'org-1', modele: 'claude-sonnet-5-5', usage: 'escalade', parcelle: '78650000AE0101' });
+      expect(() => php('lireFiltres', { du: '2026-10-15', au: '2026-10-14' }, '2026-10-14')).toThrow(/Période/);
+      expect(() => php('lireFiltres', { du: '2026-02-30' }, '2026-10-14')).toThrow(/Période/);
+      expect(() => php('lireFiltres', { du: '2024-01-01', au: '2026-10-14' }, '2026-10-14')).toThrow(/trop longue/);
+      expect(() => php('lireFiltres', { modele: 'gpt' }, '2026-10-14')).toThrow(/modele/);
+      expect(() => php('lireFiltres', { parcelle: '../x' }, '2026-10-14')).toThrow(/parcelle/);
+      expect(php('moisEntre', '2025-11-20', '2026-02-03')).toEqual(['2025-11', '2025-12', '2026-01', '2026-02']);
+      expect(php('decalerJour', '2026-03-01', -1)).toBe('2026-02-28');
+    });
+
+    it('ne rend que les lignes de la periode et des filtres, reduites aux compteurs', () => {
+      const lignes = [
+        ligneJournal('2026-10-01T08:00:00Z'),
+        ligneJournal('2026-10-02T08:00:00Z', { modele: 'claude-sonnet-5-5', usage: 'escalade' }),
+        ligneJournal('2026-10-03T08:00:00Z', { idu: '78650000AE0102', organisation: 'org-1' }),
+        ligneJournal('2026-09-30T23:59:59Z')
+      ];
+      const lire = (f: Record<string, unknown>) => php<Record<string, unknown>[]>('filtrerConsommation', lignes, f);
+      const tout = lire(filtre());
+      expect(tout).toHaveLength(3);
+      expect(Object.keys(tout[0] ?? {})).toEqual(['t', 'organisation', 'projet', 'idu', 'adresse', 'audit', 'usage', 'modele', 'batch', 'idBatch', 'passe', 'tokens', 'images', 'facades', 'cout', 'statut', 'trouve']);
+      expect(lire(filtre({ modele: 'claude-sonnet-5-5' })).map((l) => l.usage)).toEqual(['escalade']);
+      expect(lire(filtre({ parcelle: '78650000AE0102' })).map((l) => l.organisation)).toEqual(['org-1']);
+      expect(lire(filtre({ organisation: 'org-1', usage: 'analyse' }))).toHaveLength(1);
+      // Une ligne d'avant les comptes : `trouve` et `idBatch` a null.
+      const ancienne = { t: '2026-10-02T08:00:00Z', organisation: 'admin', usage: 'analyse', modele: RAPIDE, batch: true, statut: 'reussi', cout: 0.001 };
+      expect(php<Record<string, unknown>[]>('filtrerConsommation', [ancienne], filtre())[0]).toMatchObject({ trouve: null, idBatch: null });
+    });
+
+    it('donne a chaque organisation ses depenses du jour et du mois face a ses plafonds', () => {
+      const p = { ...P, organisations: { 'org-1': { jour: 0.5, mois: 5 } } };
+      const lignes = [ligneJournal('2026-10-14T08:00:00Z'), ligneJournal('2026-10-02T08:00:00Z'), ligneJournal('2026-10-14T09:00:00Z', { organisation: 'org-2', cout: 0.01 })];
+      expect(php('etatOrganisations', lignes, p, '2026-10-14')).toEqual([
+        { id: 'admin', jour: COUT_P1, mois: 2 * COUT_P1, plafond: { jour: 1, mois: 10 } },
+        { id: 'org-1', jour: 0, mois: 0, plafond: { jour: 0.5, mois: 5 } },
+        { id: 'org-2', jour: 0.01, mois: 0.01, plafond: { jour: 1, mois: 10 } }
+      ]);
+      expect(php('choixConsommation', lignes, p)).toEqual({
+        organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
+        usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+      });
+    });
+  });
+
+  describe('le brouillon des regles', () => {
+    it('lit le prompt et le schema, garde leurs versions, refuse ce que le serveur ne saurait pas envoyer', () => {
+      const b = php<Record<string, unknown>>('verifierBrouillonRegles', BROUILLON);
+      expect(b).toMatchObject({ format: 'plan-regles-brouillon', versionPrompt: 10, versionSchema: 6, etat: BROUILLON.etat });
+      expect(php('vueBrouillonRegles', b)).toEqual({ enregistreLe: b.enregistreLe, prompt: 10, schema: 6 });
+      expect(() => php('verifierBrouillonRegles', null)).toThrow(/illisible/);
+      expect(() => php('verifierBrouillonRegles', { ...BROUILLON, prompt: 'sans en-tete' })).toThrow(/en-tete/);
+      expect(() => php('verifierBrouillonRegles', { ...BROUILLON, prompt: '---\nversion: 10\n---\n  \n' })).toThrow(/vide/);
+      expect(() => php('verifierBrouillonRegles', { ...BROUILLON, schema: '[]' })).toThrow(/Schéma/);
+      // `[]` et `{}` se lisent pareil en PHP (json_decode en tableaux) : seul un etat qui n'est pas un objet est refuse.
+      expect(() => php('verifierBrouillonRegles', { ...BROUILLON, etat: 'texte' })).toThrow(/état/);
+      expect(php('vueBrouillonRegles', null)).toBeNull();
+    });
+  });
+
+  describe('les audits et la conformite', () => {
+    it('verifie la forme d un audit', () => {
+      expect(php('verifierAudit', fichierAudit())).toEqual({ nature: 'parcelle', idu: '78650000AE0101', adresse: '2 allée des Limites' });
+      expect(php('verifierAudit', { format: 'plan-audit', version: 2, promenade: { commune: 'Le Vésinet' }, cas: [] })).toEqual({ nature: 'promenade', idu: '', adresse: 'Le Vésinet', commune: 'Le Vésinet' });
+      expect(() => php('verifierAudit', { format: 'plan-audit', version: 3, promenade: {}, cas: [] })).toThrow('Version du fichier de promenade inconnue.');
+      expect(php<{ idu: string }>('verifierAudit', fichierAudit('48.900000,2.130000')).idu).toBe('48.900000,2.130000');
+      expect(() => php('verifierAudit', { ...fichierAudit(), version: 2 })).toThrow('Version du fichier d’audit inconnue.');
+      expect(() => php('verifierAudit', { ...fichierAudit(), parcelle: { idu: '../x' } })).toThrow('Parcelle du fichier d’audit invalide.');
+    });
+
+    it('resume un audit pour le catalogue, et lit la marque du depot', () => {
+      const photo = { type: 'image/jpeg', base64: 'AAAA' };
+      const audit = { ...fichierAudit(), finCapture: null, batiments: [{ photos: [photo], facades: [{ photos: [photo, photo] }, null] }, null], cloture: { photos: [photo] }, portail: {} };
+      expect(php('resumeAudit', audit)).toEqual({ photos: 4, phase: 'capture', debut: '2026-10-13T08:00:00.000Z', propositions: { total: 0, claude: 0, mesures: 0, validees: 0, refusees: 0, enAttente: 0 } });
+      expect(php('resumeAudit', { ...audit, finCapture: '2026-10-13T08:30:00Z', debut: 'hier' })).toMatchObject({ phase: 'analyse', debut: null });
+      expect(php('marqueAudit', '')).toBe('corpus');
+      expect(php('marqueAudit', '', 'sauvegarde')).toBe('sauvegarde');
+      expect(php('marqueAudit', 'sauvegarde')).toBe('sauvegarde');
+      expect(() => php('marqueAudit', 'brouillon')).toThrow('Marque de dépôt inconnue (corpus ou sauvegarde).');
+    });
+
+    it('nomme les dossiers des audits', () => {
+      expect(php('nomSur', 'Le Vésinet', 'x', true)).toBe('le-vesinet');
+      expect(php('nomSur', '48.900000,2.130000', 'x')).toBe('48-900000-2-130000');
+      expect(php('nomSur', '  ', 'sans-commune', true)).toBe('sans-commune');
+      expect(php('nomSur', 'Saint-Germain-en-Laye (78)', 'x', true)).toBe('saint-germain-en-laye-78');
+      expect(php('dossierRelatifAudit', { id: '20261013-154200-0000abcd', nature: 'parcelle', idu: '78650000AE0101' })).toBe('parcelle/78650000AE0101/20261013-154200-0000abcd');
+      expect(php('dossierRelatifAudit', { id: '20261013-154200-0000abcd', nature: 'promenade', commune: 'Île-de-Bréhat' })).toBe('promenade/ile-de-brehat/20261013-154200-0000abcd');
+    });
+
+    it('verifie la forme d une mesure de conformite', () => {
+      const m = mesureEssai('2026-10-14T10:00:00Z');
+      expect(php('verifierMesureConformite', m)).toEqual(m);
+      expect(() => php('verifierMesureConformite', { ...m, format: 'autre' })).toThrow('Ce n’est pas une mesure de conformité.');
+      expect(() => php('verifierMesureConformite', { ...m, t: 'hier' })).toThrow('Date de la mesure invalide.');
+      expect(() => php('verifierMesureConformite', { ...m, toits: { ...m.toits, conformes: '1' } })).toThrow('Résumé de la mesure invalide.');
+      expect(() => php('verifierMesureConformite', { ...m, parRegion: null })).toThrow('Mesure de conformité incomplète.');
+    });
+  });
+});

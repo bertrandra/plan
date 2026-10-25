@@ -1,5 +1,5 @@
-// Une plateforme simulee, reduite a `GET /api/v1/me/context` : ce que deploy/analyse.php et
-// buildsg/analyseAdmin.mjs demandent pour reconnaitre un utilisateur par son jeton (audits partages,
+// Une plateforme simulee, reduite a `GET /api/v1/me/context` : ce que deploy/analyse.php
+// demande pour reconnaitre un utilisateur par son jeton (audits partages,
 // lot L21). Un seul jeton vaut ; les autres sont refuses (401).
 
 import http from 'node:http';

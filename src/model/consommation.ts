@@ -1,6 +1,6 @@
 // La consommation de Claude, vue par l'administrateur (MD/spec-audit.md 13.3, lot L16 bis).
 //
-// Le serveur (deploy/analyse.php, buildsg/analyseAdmin.mjs) ecrit une ligne de journal par appel a
+// Le serveur (deploy/analyse.php) ecrit une ligne de journal par appel a
 // l'API et rend, sur `GET admin/consommation`, les lignes de la periode deja filtrees, l'etat des
 // plafonds de chaque organisation et les sept derniers jours sans filtre (pour les alertes). Tout
 // le reste se calcule ici, sans DOM ni reseau : les series dans le temps, les tableaux par parcelle,

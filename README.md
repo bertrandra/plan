@@ -93,7 +93,6 @@ le sont, et aucun ne peut régresser sans que le script le remarque.
 | `deploy/scripts-page.mjs` | Sort le programme de la page au build : `assets/plan-<empreinte>.js`, couvert par `script-src 'self'`. |
 | `deploy/*.php` | Le côté serveur livré avec la page : admin des démos, relais de l'analyse par Claude, données du serveur (`data/`, hors de la racine web). |
 | `livraison/` | La livraison construite depuis `main` (`npm run livraison`), versionnée ; `livraison.zip` ne l'est pas. |
-| `buildsg/` | Second déploiement : les mêmes sources servies par Node (`app.js`). |
 | `legacy/` | Le fichier HTML d'origine, figé, jamais modifié. |
 | `MD/` | Toute la documentation, voir ci-dessous. |
 
