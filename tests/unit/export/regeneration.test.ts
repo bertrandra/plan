@@ -29,11 +29,11 @@ const enOctets = (s: string) => Buffer.from(s, 'utf8').toString('latin1');
 const ecrire = (nom: string, s: string) => { const o = enOctets(s); if (process.env.SORTIE) writeFileSync(process.env.SORTIE + '/' + nom, o, 'latin1'); return o; };
 const empreinte = (s: string) => createHash('sha256').update(Buffer.from(neutraliser(s), 'latin1')).digest('hex');
 
-// Les temoins ont ete recaptures a la 2.2.0, build du 28 septembre 2026 (EMPREINTES.md) : les
+// Les temoins ont ete recaptures a la 3.0.0, build du 25 octobre 2026 (EMPREINTES.md) : les
 // generateurs recoivent ces valeurs en parametre, et l'horloge est posee au jour de la capture. Le
 // schema est celui que l'application ecrit pour ce plan : le plus petit qui le decrit, 3 depuis que
 // sa maison porte un toit a croupes (model/migrations.ts, MD/spec-toit-ign.md).
-const VERSION = '2.2.0', BUILD = '2026-09-28', SCHEMA = schemaMinimal(DEMO_TEMOIN_OBJECTS);
+const VERSION = '3.0.0', BUILD = '2026-10-25', SCHEMA = schemaMinimal(DEMO_TEMOIN_OBJECTS);
 
 function etatTemoin() {
   const etat = creerEtat({ objects: DEMO_TEMOIN_OBJECTS, measures: DEMO_MEASURES } as Parameters<typeof creerEtat>[0],

@@ -27,7 +27,7 @@
 
 import { dateFr } from '../util/format.js';
 
-export const APP_VERSION = '2.2.0';
+export const APP_VERSION = '3.0.0';
 // 2 depuis la 2.2.0 : un batiment peut porter `facades` et `toit` (releve de facade). Un fichier
 // qui n'en porte pas s'ouvre toujours dans la 2.1.x ; celui qui en porte y perdrait ces champs au
 // premier enregistrement, d'ou le refus (RELEASE.md §3.1).
@@ -40,7 +40,7 @@ export const APP_VERSION = '2.2.0';
 // Un schema 5 qui les distinguerait demande d'abord que la plateforme l'accepte (contrat/SOURCE-PRODUIT.md).
 export const SCHEMA_VERSION = 4;
 export const API_VERSION = 'v1';
-export const BUILD_AT = '2026-09-28';
+export const BUILD_AT = '2026-10-25';
 export const BUILD_SHA: string | null = null;
 
 export function versionLongue(): string {

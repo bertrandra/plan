@@ -15,7 +15,7 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 // EMPREINTES.md (une quantite ou un export qui bouge est un evenement de version, CLAUDE.md).
 
 const dorees = resolve(__dirname, '../../fixtures/golden');
-const VERSION = '2.2.0', BUILD = '2026-09-28', JOUR = new Date('2026-09-28T23:22:00');
+const VERSION = '3.0.0', BUILD = '2026-10-25', JOUR = new Date('2026-09-28T23:22:00');
 const temoin = (nom: string, contenu: string) => {
   const chemin = resolve(dorees, nom);
   if (process.env.REECRIRE_EMPREINTES) writeFileSync(chemin, contenu, 'latin1');

@@ -553,16 +553,16 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2).
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `22f9bf93b2235a8eaad580ddf0bb25a12e936dbad3282bac9d9561c6ab9b70f6` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `42deb271e4a6d28e9981ccb4e98d5cdb198ed2939a4f652de0e609ad2491e2d8` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `2d64f95aea0782ef84f142119e7dcfcc0263cf659239c9124c760c3931a9f944` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `447b849b4c13a76edf7068ee977078d046df130506167896e38935cc372acc22` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `29a67cbd9850d61801e8ee34b2e75b0df333ecaa38439c864e8e72496bef839e` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `7b37c0be898faf496fc2158a8439d12f4d7b74ef60321f386c1a6dc4e2f96e15` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `9a183ea635b12ea7fe3a9dc00bbcac569316006de74957579088859b12bb123a` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `dc5db12b6e5ca21f32b31b85308c750d10f832cb909ee2870860c88a06075968` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `5be6fd1325c0b2aab8cabfc3c1f3a4f8bb6334cb7e562bfba235b1f932cc845c` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `5b2d62c8a494f9a80a8c9afa7778d7b29c9342d75d1c4a52b8629bf64c22304d` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
 | [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `3680d403741a6417bf566e563832197b89d8a1702d2428d8e336e5206ba7d545` (brut) |
@@ -798,3 +798,19 @@ qu'un changement ne passe pas en silence (`tests/unit/model/anciensFichiers.test
 
 S'ils bougent, c'est un événement de version (`MD/RELEASE.md`) : le dire ici, puis `REECRIRE_EMPREINTES=1`.
 
+
+## Version 3.0.0 (25 octobre 2026)
+
+Les témoins régénérés depuis le code (`regeneration.test.ts`, `empreintesPiscinePergola.test.ts`) passent de `2.2.0`, build du
+28 septembre, à `3.0.0`, build du 25 octobre (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1`). Deux substitutions de longueur constante ; l'heure de l'export reste le 28 septembre à 23 h 22.
+
+**La preuve forte, sept sur sept.** `3.0.0` → `2.2.0` et `2026-10-25` → `2026-09-28` remis dans les octets frais rendent les
+anciens fichiers **au bit près** pour `plan.svg`, `plan.dxf`, `resume.txt`, `dossier-piscine.pdf` et `note-calcul.pdf` ; tailles
+identiques à l'octet. Pour `plan.pdf` et `dossier.pdf`, capturés au navigateur, une seule ligne diffère : la seconde de
+`/CreationDate` (`232241`/`232242` au navigateur, `232200` pour l'horloge du test), que la neutralisation d'EMPREINTES.md
+efface déjà. Occurrences du numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`,
+neuf dans `dossier-piscine.pdf`. `projet.json` (entrée du témoin, pas un export régénéré) garde `2.2.0`.
+
+Les témoins du moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3 ne portent pas
+de version et ne bougent pas.
