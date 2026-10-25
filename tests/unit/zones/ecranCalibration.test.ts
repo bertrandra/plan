@@ -4,7 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranCalibration, type DepsCalibration } from '../../../src/zones/EcranCalibration.js';
 import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../../../src/facade/corpusReel.js';
-import type { Image } from '../../../src/facade/homographie.js';
+import type { Image } from '../../../src/facade/vision/homographie.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un nouveau cas avec ses photos,
 // la mesure et la calibration sur un cas fabrique d'une scene du banc, et l'application des reglages.

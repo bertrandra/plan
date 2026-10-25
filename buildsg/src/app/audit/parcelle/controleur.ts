@@ -2,7 +2,7 @@
 //
 // Une session par parcelle tant que la page vit : la liste de controle (Z8 plein ecran) et l'ecran
 // de prise, pose sur la Vue 3D. Pendant la prise, le GPS et la boussole reconnaissent la facade que
-// vous avez devant vous (facade/priseDeVue.ts, lot L2) parmi celles de la liste ; elle passe en rouge
+// vous avez devant vous (facade/calage/priseDeVue.ts, lot L2) parmi celles de la liste ; elle passe en rouge
 // en 3D (three/facadeDevant3d.ts) et elle est nommee, et la photo prise (app/audit/photo.ts, lot L1)
 // s'y range d'elle-meme. « Ce n'est pas cette façade » propose la suivante ; la facade se choisit aussi
 // en la touchant dans la 3D, ou dans la liste. La Vue 3D est alors a hauteur d'homme et suit votre

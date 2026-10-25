@@ -6,7 +6,7 @@
 //
 // Le banc mesure, il ne regle pas : rien ici ne touche a la detection.
 
-import { avecGrille, versOuvertureFacade } from '../../../src/facade/verification.js';
+import { avecGrille, versOuvertureFacade } from '../../../src/facade/detection/verification.js';
 import { mesurerFacadesAuditees } from '../../../src/facade/contexteFacade.js';
 import { mesurerFacade, resumeMesureFacade, type ContexteFacade, type MesureFacade } from '../../../src/model/mesureFacade.js';
 import type { FichierAuditParcelle } from '../../../src/model/fichierAuditParcelle.js';

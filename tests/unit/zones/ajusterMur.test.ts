@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { Image, P2 } from '../../../src/facade/homographie.js';
+import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 
 // La reprise a la main de l'egout, du sol et des bouts du mur sur la photo redressee entiere (zones/releve/AjusterMur.tsx).
 

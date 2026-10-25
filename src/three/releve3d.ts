@@ -18,13 +18,13 @@ import { facadesDuContour, type Facade } from '../facade/geometrie.js';
 import { contourDuMur, egoutEn, volumesDuBatiment } from '../facade/profil.js';
 import { silhouetteDuMur } from '../facade/regles/toits/silhouetteDesCorps.js';
 import { poserEnCouche, COUCHES_SOL } from './primitives.js';
-import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toit.js';
+import { facettesToit, trianguler, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
 import { safeOffset } from '../engine/structure.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 import { garderLeJpeg } from './chargeurs.js';
-import { sansOmbres } from '../facade/sansOmbres.js';
+import { sansOmbres } from '../facade/vision/sansOmbres.js';
 import type { ReleveFacade } from '../model/types.js';
 
 /** Ce que la scene prete a ce module : ou ajouter, et comment passer du plan au repere Three. */
@@ -36,7 +36,7 @@ export interface ContexteReleve3d {
   couleurMur: string | number;
   /** `false` quand la case « Texture » de la vue 3D est decochee : on garde les formes. */
   textures: boolean;
-  /** Vrai : les ombres de la photo s'estompent sur la facade (case « Facades sans ombres », facade/sansOmbres.ts). */
+  /** Vrai : les ombres de la photo s'estompent sur la facade (case « Facades sans ombres », facade/vision/sansOmbres.ts). */
   sansOmbres?: boolean;
   /** Le materiau de toiture des fichiers fonciers et la pente : ils choisissent la texture de la couverture. */
   couverture?: ContexteCouverture | undefined;

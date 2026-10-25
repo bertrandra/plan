@@ -44,7 +44,7 @@ import { solDeLaFacadeDevant } from '../../../three/facadeDevant3d.js';
 import { distancePointSegment, lineSegIntersect } from '../../../geometry/segments.js';
 import { sommetDe } from '../../../geometry/anneau.js';
 import { au } from '../../../util/tableaux.js';
-import { TOLERANCE_CAP_DEG } from '../../../facade/priseDeVue.js';
+import { TOLERANCE_CAP_DEG } from '../../../facade/calage/priseDeVue.js';
 import type { Facade } from '../../../facade/geometrie.js';
 import type { PtBrut } from '../../../model/types.js';
 

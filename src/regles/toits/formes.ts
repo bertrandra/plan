@@ -1,5 +1,5 @@
 // Les seuils de la lecture des formes du catalogue sur la surface LiDAR, sortis du code dans regles/toits/formes.json
-// (MD/spec-regles-toits.md §3.2). L'application est dans facade/lectureFormes.ts.
+// (MD/spec-regles-toits.md §3.2). L'application est dans facade/toits/lectureFormes.ts.
 //
 // Le fichier est importe, donc compile dans le fichier livre. Depuis que la lecture des toits applique les formes du
 // catalogue (facade/regles/toits/catalogue.ts), son empreinte entre dans la version de lecture (`formes` dans

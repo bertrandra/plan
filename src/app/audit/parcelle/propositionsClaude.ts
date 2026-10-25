@@ -17,8 +17,8 @@ import { contradictionsLidar, indicesLidar, reserveConfiance, type VoteAnalyse }
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
-import { bilanVide, texteBilan } from '../../../facade/renfortRecalage.js';
-import { avecGrille } from '../../../facade/verification.js';
+import { bilanVide, texteBilan } from '../../../facade/detection/renfortRecalage.js';
+import { avecGrille } from '../../../facade/detection/verification.js';
 import { SUJETS } from '../../regles/sujets/index.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
 import { indicesDe, majuscule, pluriel } from '../../regles/sujets/contrat.js';

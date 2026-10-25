@@ -6,7 +6,7 @@
 // une estimation des gestes de correction. Calage : l'erreur des coins proposes, ramenee en
 // centimetres sur le mur par l'homographie vraie, et l'erreur de la hauteur mesuree.
 
-import { homographie, appliquer, type P2 } from '../../../src/facade/homographie.js';
+import { homographie, appliquer, type P2 } from '../../../src/facade/vision/homographie.js';
 import type { TypeOuverture } from '../../../src/model/types.js';
 
 export interface Boite {

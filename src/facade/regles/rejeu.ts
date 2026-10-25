@@ -16,7 +16,7 @@
 // parcelles n'y sont pas), et le toit BD TOPO d'un batiment qu'aucune forme n'explique.
 
 import { corpsCalcules } from './toits/catalogue.js';
-import { ajusterToit } from '../toitLidar.js';
+import { ajusterToit } from '../toits/toitLidar.js';
 import { corpsVraisemblables, mesureVraisemblable, ajusteVraisemblable, elevationApresLecture, hauteurBdTopo } from './toits/vraisemblance.js';
 import { echantillonsDeGrille } from '../../geo/mnh.js';
 import { toitMesureDepuisGrille } from '../../model/toitMesure.js';

@@ -11,7 +11,7 @@
 // 3. **Coins** : les quatre coins du mur (ou du morceau de mur) sur chaque photo, proposes d'apres
 //    la distance, ajustes au doigt avec une loupe. Ils peuvent deborder de la photo. Plusieurs photos
 //    se prennent l'une apres l'autre, et s'assemblent a l'analyse : morceaux cote a cote
-//    (facade/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
+//    (facade/vision/mosaique.ts), ou vues du mur entier, de face et de biais, fondues pour voir derriere une
 //    voiture ou une haie (facade/fusion.ts, lot L13).
 // 4. **Analyse** : hauteur du mur, redressement, ouvertures, silhouette du toit (facade/analyse.ts).
 //    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une
@@ -28,8 +28,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
 import { facadesDuContour, type Facade } from '../facade/geometrie.js';
-import { hauteurPignon } from '../facade/toit.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/cadrage.js';
+import { hauteurPignon } from '../facade/toits/toit.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
 import type { MesureDistance } from '../ui/releve/profondeur.js';
 import type { ServiceReleve } from '../app/releve.js';
@@ -42,7 +42,7 @@ import { type Prise, useMurVise } from './releve/capteurs.js';
 import { Visee } from './releve/Visee.js';
 import { type Assemblage, type Etape, type Morceau, type Resultat, coinsDePrise, entreeRecherche, arreterRecherche, estPartielle } from '../facade/releve/serie.js';
 import { lancerRecherche } from './releve/rechercheCoins.js';
-import type { SourceCoin } from '../facade/calageFin.js';
+import type { SourceCoin } from '../facade/calage/calageFin.js';
 import { EtapeAnalyse, EtapeCoins } from './releve/EtapeCoins.js';
 import { EtapeResultat, type Verification } from './releve/EtapeResultat.js';
 import { analyserSerie, calageDeSerie, etirerEnHauteur, releveDuMur } from '../facade/releve/analyseSerie.js';
@@ -51,7 +51,7 @@ import { masqueDeFusion } from '../facade/releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
 import type { AideClaudeReleve } from '../app/renfortReleve.js';
-import type { Image } from '../facade/homographie.js';
+import type { Image } from '../facade/vision/homographie.js';
 
 /**
  * Le morceau d'une prise : ses coins predits s'affichent tout de suite ; le calage fin les cherche

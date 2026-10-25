@@ -14,18 +14,18 @@
 //   doit la rejeter : aucune arete ne la soutient), une autre dans une seule passe (le vote l'ecarte).
 // Les vraies reponses viendront du corpus des audits (lots L19 et L21) et prendront leur place.
 //
-// Le banc mesure, il ne regle pas : il appelle facade/renfort.ts et facade/renfortRecalage.ts tels
+// Le banc mesure, il ne regle pas : il appelle facade/detection/renfort.ts et facade/detection/renfortRecalage.ts tels
 // qu'ils sont.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { signauxRenfort, voterRenfort, versGrille, COINS_RENFORT, LIBELLES_SITUATION, type AvisOuverture, type BoiteManquee, type ReponseRenfort, type SituationRenfort } from '../../../src/facade/renfort.js';
-import { appliquerRenfort, bilanVide, cartesAretes, grainesDeCoins, recalerCoins, type BilanRenfort } from '../../../src/facade/renfortRecalage.js';
-import { detecterSegments } from '../../../src/facade/segments.js';
-import { versOuvertureFacade } from '../../../src/facade/verification.js';
-import type { OuvertureDetectee } from '../../../src/facade/detection.js';
-import type { P2 } from '../../../src/facade/homographie.js';
+import { signauxRenfort, voterRenfort, versGrille, COINS_RENFORT, LIBELLES_SITUATION, type AvisOuverture, type BoiteManquee, type ReponseRenfort, type SituationRenfort } from '../../../src/facade/detection/renfort.js';
+import { appliquerRenfort, bilanVide, cartesAretes, grainesDeCoins, recalerCoins, type BilanRenfort } from '../../../src/facade/detection/renfortRecalage.js';
+import { detecterSegments } from '../../../src/facade/vision/segments.js';
+import { versOuvertureFacade } from '../../../src/facade/detection/verification.js';
+import type { OuvertureDetectee } from '../../../src/facade/detection/detection.js';
+import type { P2 } from '../../../src/facade/vision/homographie.js';
 import { hache, type OuvertureVraie, type SceneFacade } from './synthese.js';
 import { apparier, erreurCoinsCm, mediane, mesurerDetection, recouvrement, type Boite, type MesureDetection } from './mesure.js';
 import type { ResultatScene } from './banc.js';

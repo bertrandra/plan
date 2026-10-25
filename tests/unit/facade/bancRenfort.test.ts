@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { chargerCorpus, rejouerScene } from '../../banc/facades/banc.js';
 import { chargerReponses, rejouerRenfort, simulerReponses, tableauRenfort } from '../../banc/facades/renfort.js';
-import { estReponseRenfort } from '../../../src/facade/renfort.js';
+import { estReponseRenfort } from '../../../src/facade/detection/renfort.js';
 
 // Le banc du renfort de Claude (lot L18) : chaque scene a ses reponses simulees enregistrees, au
 // format du schema ; rejouees, elles ne font entrer aucune fausse baie cochee, et la fenetre inventee

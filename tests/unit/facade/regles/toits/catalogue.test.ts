@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { avecFormesDuCatalogue, corpsCalcules, FORMES_SANS_DEMANDE } from '../../../../../src/facade/regles/toits/catalogue.js';
-import { reconstruireCorps } from '../../../../../src/facade/toitCorps.js';
+import { reconstruireCorps } from '../../../../../src/facade/toits/toitCorps.js';
 import { formeDesCorps } from '../../../../../src/model/formeToit.js';
 import { corpsLus } from '../../../../../src/app/toitsLidar.js';
 import { brise, corps, rect, surface } from '../../../../fixtures/surfacesToits.js';

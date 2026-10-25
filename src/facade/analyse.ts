@@ -11,9 +11,9 @@
 // est connue (`rapportRectangle`) : la largeur les met a l'echelle, la hauteur en decoule.
 
 import { au } from '../util/tableaux.js';
-import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './homographie.js';
-import { detecterFacade, type OuvertureDetectee } from './detection.js';
-import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toit.js';
+import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle, type Image, type P2 } from './vision/homographie.js';
+import { detecterFacade, type OuvertureDetectee } from './detection/detection.js';
+import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
@@ -69,7 +69,7 @@ export interface ResultatAnalyse {
    */
   devinees: OuvertureDetectee[];
   /**
-   * La silhouette mesuree au-dessus de l'egout (facade/toit.ts::profilSilhouette) : la hauteur du bati, en metres, colonne par
+   * La silhouette mesuree au-dessus de l'egout (facade/toits/toit.ts::profilSilhouette) : la hauteur du bati, en metres, colonne par
    * colonne, de `x0M` a `x1M` le long du mur ; null quand le toit est hors cadre. L'ecran des etapes de la calibration la montre.
    */
   profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;

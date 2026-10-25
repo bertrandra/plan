@@ -51,7 +51,7 @@ export interface ServiceReleve {
   origine(): { lat: number; lon: number } | null;
   /**
    * La position de l'appareil dans le plan, quand elle est suivie (« Ma position (3D) », ou le mode
-   * audit) : le mur propose est alors celui devant lequel on se tient (facade/priseDeVue.ts).
+   * audit) : le mur propose est alors celui devant lequel on se tient (facade/calage/priseDeVue.ts).
    */
   position(): PtBrut | null;
   /** Les contours des batiments du plan : ce qui peut cacher un mur a la position. */

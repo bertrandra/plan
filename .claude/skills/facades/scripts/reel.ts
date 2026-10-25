@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { brouillonsDeLAudit, lireCasReel, mesurerCas, tableauReel } from '../../../../tests/banc/facades/reel.ts';
-import type { Image } from '../../../../src/facade/homographie.ts';
+import type { Image } from '../../../../src/facade/vision/homographie.ts';
 
 const DOSSIER = 'tests/fixtures/facades-reel';
 const [commande, a1, a2] = process.argv.slice(2);

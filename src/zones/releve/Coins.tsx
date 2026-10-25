@@ -3,10 +3,10 @@
 import { au } from '../../util/tableaux.js';
 import { useRef, useState, type PointerEvent as PE } from 'react';
 import { type CoteBas, type Decrochement } from '../../facade/profil.js';
-import type { P2 } from '../../facade/homographie.js';
+import type { P2 } from '../../facade/vision/homographie.js';
 import { type Photo } from '../../ui/releve/camera.js';
 import { pointSvg, useEchelle } from './commun.js';
-import type { SourceCoin } from '../../facade/calageFin.js';
+import type { SourceCoin } from '../../facade/calage/calageFin.js';
 
 /** Ce que dit un coin de sa source, pour le lecteur d'ecran (la forme le dit a l'oeil). */
 const DIT_SOURCE: Record<SourceCoin, string> = { trouve: 'trouvé sur la photo', predit: 'prédit, à vérifier', claude: 'proposé par Claude, recalé sur la photo', doigt: 'placé au doigt' };

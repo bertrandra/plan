@@ -2,7 +2,7 @@
 // §12 bis, lot L18) : ce que Plan fait du vote de ses trois passes, sans React, testable seul.
 // - A l'etape des coins : les graines de coins rattachees aux croisements de segments de la photo ;
 //   seuls les coins predits sont remplaces, jamais un coin trouve sur la photo ni pose au doigt.
-// - A la verification : les ouvertures renforcees (facade/renfortRecalage.ts), et la proposition de
+// - A la verification : les ouvertures renforcees (facade/detection/renfortRecalage.ts), et la proposition de
 //   l'analyse mise a jour, pour que les corrections tracees a la validation comparent la personne a
 //   ce que Plan et Claude proposaient ensemble.
 

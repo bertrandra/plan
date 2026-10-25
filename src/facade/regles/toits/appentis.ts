@@ -14,7 +14,7 @@
 // Le corps produit est un appentis ordinaire (faitage sur le mur, `posFaitage` = 0, rive de tete
 // contre la facade) : la 3D le dessine comme les autres (three/toitCorps3d.ts).
 
-import { hauteursMursCorps, type Grille } from '../../toitCorps.js';
+import { hauteursMursCorps, type Grille } from '../../toits/toitCorps.js';
 import { segmentEnFacade } from '../../../geometry/facadeExterieure.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
 import type { AppentisFait } from '../../../regles/toits/faits.js';

@@ -6,7 +6,7 @@
 //
 // Lit $TOITS_DOSSIER/q/<cle>.json (ecrit par banc.ts). --leger : sans la coupe par le modele (voisin).
 import { readFileSync } from 'node:fs';
-import { reconstruireCorps, contourEquerre, corpsDepuisFormes } from '../../../../src/facade/toitCorps.ts';
+import { reconstruireCorps, contourEquerre, corpsDepuisFormes } from '../../../../src/facade/toits/toitCorps.ts';
 import { rectanglesDuContour, rectanglesEnTranches } from '../../../../src/model/volumesToit.ts';
 import { decouperParHauteurs, toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
 import type { PtBrut } from '../../../../src/model/types.ts';

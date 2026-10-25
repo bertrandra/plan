@@ -83,7 +83,7 @@ export interface OptionsDetails {
   /** Des fenetres posees au-dessus de l'egout, dans les pignons (facade/ouvertures.ts::fenetresDesPignons). */
   ouverturesHautes?: readonly Fenetre3d[];
   /**
-   * Les corps reconstruits (facade/toitCorps.ts) : les fenetres se posent alors sur leurs murs, ceux
+   * Les corps reconstruits (facade/toits/toitCorps.ts) : les fenetres se posent alors sur leurs murs, ceux
    * qui donnent dehors, a la hauteur de chacun, avec celles des pignons ; la porte sur le premier.
    */
   corps?: readonly CorpsToit[];

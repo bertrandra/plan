@@ -1,5 +1,5 @@
 // La facade devant vous, pendant l'audit de la parcelle (MD/spec-audit.md §6.1, §12.2) : la
-// reconnaissance du lot L2 (facade/priseDeVue.ts), restreinte aux facades de la liste de controle,
+// reconnaissance du lot L2 (facade/calage/priseDeVue.ts), restreinte aux facades de la liste de controle,
 // avec « Ce n'est pas cette façade » qui propose la suivante.
 //
 // Pur : position, cap et batiments en entree, la facade retenue en sortie.

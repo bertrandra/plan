@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { murSurLAssemblage, reporterCoins, vuesDeFace } from '../../../../src/facade/releve/coinsAuto.js';
-import { appliquer, homographie, type Image, type P2 } from '../../../../src/facade/homographie.js';
-import { inverser } from '../../../../src/facade/redressementFuites.js';
-import { mosaiqueDesVues } from '../../../../src/facade/mosaiqueFuites.js';
-import { appliquerSimilitude } from '../../../../src/facade/ransac.js';
+import { appliquer, homographie, type Image, type P2 } from '../../../../src/facade/vision/homographie.js';
+import { inverser } from '../../../../src/facade/vision/redressementFuites.js';
+import { mosaiqueDesVues } from '../../../../src/facade/vision/mosaiqueFuites.js';
+import { appliquerSimilitude } from '../../../../src/facade/vision/ransac.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { photographier, coinsVrais } from '../../../banc/facades/synthese.js';
 

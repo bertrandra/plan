@@ -1,6 +1,6 @@
 // Le repere d'un faitage et l'axe d'un contour (geometry/) : de la geometrie pure, sans toit.
 //
-// `angleDuPlusLongCote` et `repereFaitage` vivaient dans facade/toit.ts ; le modele en a besoin
+// `angleDuPlusLongCote` et `repereFaitage` vivaient dans facade/toits/toit.ts ; le modele en a besoin
 // (le toit deduit de la BD TOPO suit l'axe du batiment), et le modele n'importe pas facade/.
 
 import { au } from '../util/tableaux.js';

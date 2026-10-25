@@ -3,7 +3,7 @@
 //
 // Pur : des points du plan en metres, pas de DOM ni de scene. Le calque (zones/vue3d/PlanToit.tsx) les projette a l'ecran.
 
-import { point, repere } from '../toitCorps.js';
+import { point, repere } from '../toits/toitCorps.js';
 import { formeDuCorpsToit } from '../../model/formeToit.js';
 import type { CorpsToit, PtBrut } from '../../model/types.js';
 

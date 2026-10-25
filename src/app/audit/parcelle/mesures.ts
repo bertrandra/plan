@@ -12,23 +12,23 @@
 // Toutes les photos d'une facade sont redressees par la chaine de tous (facade/releve/chaine.ts, celle du releve et de la
 // calibration : verticales sous SEUIL_VERTICALES_DEG, sinon repli sur les coins calcules, sinon echec dit avec son motif) ; a
 // partir de deux photos redressees, elles sont fusionnees (facade/fusion.ts :
-// ORB + RANSAC, criteres nommes dans facade/recalageOrb.ts). Aucune photo n'est jamais supprimee : une photo qui ne se
+// ORB + RANSAC, criteres nommes dans facade/vision/recalageOrb.ts). Aucune photo n'est jamais supprimee : une photo qui ne se
 // fusionne pas reste seule, redressee. Les originaux sont immuables ; les corrections manuelles (coins, echelle) priment
 // sur le calcul et ne sont jamais ecrasees par un rejeu.
 
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/cadrage.js';
-import { versOuvertureFacade } from '../../../facade/verification.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
+import { versOuvertureFacade } from '../../../facade/detection/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../facade/releve/analyseSerie.js';
 import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../facade/releve/serie.js';
 import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../facade/releve/chaine.js';
-import { redresserParReperes } from '../../../facade/redressementFuites.js';
+import { redresserParReperes } from '../../../facade/vision/redressementFuites.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
 import type { Facade } from '../../../facade/geometrie.js';
-import type { Image } from '../../../facade/homographie.js';
+import type { Image } from '../../../facade/vision/homographie.js';
 import type { Prise } from '../../../zones/releve/capteurs.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
@@ -63,7 +63,7 @@ export interface MesureFacade {
   devinees?: OuvertureFacade[];
   /**
    * La ligne du haut du mur sur la photo (pignon, trapeze, rectangle, rampe...), lue par la silhouette au-dessus de l'egout
-   * (facade/toit.ts) : de quoi dire les bouts du toit (facade/regles/toits/silhouettes.ts). `indetermine` quand le toit est
+   * (facade/toits/toit.ts) : de quoi dire les bouts du toit (facade/regles/toits/silhouettes.ts). `indetermine` quand le toit est
    * hors cadre. Absente d'une mesure lue dans un fichier d'audit d'avant elle.
    */
   silhouette?: SilhouetteFacade;
@@ -175,7 +175,7 @@ const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
 
 /**
  * Chaque photo redressee seule, **entiere** : tournee de face par le rectangle du mur que la chaine a retenu (ses coins, lus ou poses),
- * sans etre coupee a ce mur ni mise a son echelle (facade/redressementFuites.ts::redresserParReperes). Sur l'image que la chaine a
+ * sans etre coupee a ce mur ni mise a son echelle (facade/vision/redressementFuites.ts::redresserParReperes). Sur l'image que la chaine a
  * lue (corrigee de la distorsion du grand-angle s'il y a lieu). Une photo sans essai n'en a pas.
  */
 function photosRedressees(c: ResultatChaine, d: DependancesMesures): PhotoRedresseeAuditee[] {

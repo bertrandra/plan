@@ -4,7 +4,7 @@ import { act, createElement, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EtapeResultat, type Verification } from '../../../src/zones/releve/EtapeResultat.js';
 import { useOuvertures, type OuverturesEnCours } from '../../../src/zones/releve/ouvertures.js';
-import type { OuvertureDetectee } from '../../../src/facade/detection.js';
+import type { OuvertureDetectee } from '../../../src/facade/detection/detection.js';
 import type { Resultat } from '../../../src/facade/releve/serie.js';
 
 // L'etape Verifier du releve (lot L15, spec facades §12) : une baie devinee peu sure se dessine en

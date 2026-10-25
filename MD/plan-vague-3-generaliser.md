@@ -29,7 +29,7 @@ avec le rangement du moteur sous `regles/` (`MD/architecture.md` §5.2.4).
 | G15, G17, G18 bis, masque de G20 | **fait** | `facade/regles/toits/profils.ts` (aucun profil encore), `three/detailsBatiment.ts`, clés des manques par façade, masque hachuré |
 | **G18** | **fait pour D20 et D21, reste la pré-acceptation** | D21 : `regles/decisions.ts` (`rivalesSurPlace`), la ligne de Claude arrive décochée et cocher l'une décoche l'autre. D20 : `app/audit/parcelle/escalade.ts`, un modèle plus fin départage les passes en désaccord (usage `escalade`, appel immédiat, plafonds). `ACCORDS_MESURES` reste vide : la pré-acceptation à plus de 95 % attend le corpus |
 | G19 | **en partie** | la forme du toit et les bouts sont déjà des propositions (`app/regles/sujets/formeToit.ts`), venues avant G4, G5 et G17 ; les lucarnes et les détails d'ouvertures restent des observations |
-| G4 à G10 | à faire (le dessin 3D est fait) | le **dessin** des lucarnes, du Mansart, du gambrel et de la demi-croupe est fait (`facade/toitFormes.ts`, spec §4) ; leur **lecture** sur le LiDAR attend le corpus (phase 1 de T§13.3 : 50 cas observés dont 10 sur des formes inconnues) ; il y en a 2 aujourd'hui |
+| G4 à G10 | à faire (le dessin 3D est fait) | le **dessin** des lucarnes, du Mansart, du gambrel et de la demi-croupe est fait (`facade/toits/toitFormes.ts`, spec §4) ; leur **lecture** sur le LiDAR attend le corpus (phase 1 de T§13.3 : 50 cas observés dont 10 sur des formes inconnues) ; il y en a 2 aujourd'hui |
 | G14, G16 | à faire | `profils` est vide dans `regles/toits/reglages.json` et `regles/facades/reglages.json` ; un profil naît d'un écart que G13 ou une contradiction de cas montre |
 | G20 (taux d'accord, fin du renfort) | à faire | corpus |
 
@@ -88,7 +88,7 @@ généralisation (T§13.3 phase 4, T§13.6) :
 | Ouvertures automatiques : fenêtres de 1,00 × 1,20 m à 0,90 m d'appui, entraxe 2,40 m, porte au rez-de-chaussée du plus long mur | `facade/ouvertures.ts`, `model/fenetres3d.ts` | G11 à G14 |
 | Relevé de façade : grille (niveaux, travées), détails des ouvertures (volets, allège, forme), corrections tracées | `model/types.ts` (`GrilleFacade`, `DetailsOuverture`, `CorrectionOuverture`), lot L15 | G11, G17 |
 | Fichier de l'audit de parcelle, partage pour le corpus (coché par défaut) | lot L21 | corpus des façades (G11) |
-| Analyse par Claude : trois passes et un vote, propositions décochées ; renfort du calage et de la détection | lots L17, L18 (`deploy/analyse.php`, `facade/renfort.ts`) | G18 à G20 |
+| Analyse par Claude : trois passes et un vote, propositions décochées ; renfort du calage et de la détection | lots L17, L18 (`deploy/analyse.php`, `facade/detection/renfort.ts`) | G18 à G20 |
 
 **Ce qui manque, et que personne d'autre que vous ne peut fournir : le corpus.** Il n'y a
 aujourd'hui que deux promenades de démonstration, et aucun audit de parcelle réel. Or la phase 4 de

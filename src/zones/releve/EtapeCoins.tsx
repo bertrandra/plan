@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { au } from '../../util/tableaux.js';
 import { Icone } from '../icones.js';
 import { type CoteBas, type Decrochement } from '../../facade/profil.js';
-import type { P2 } from '../../facade/homographie.js';
+import type { P2 } from '../../facade/vision/homographie.js';
 import { fr } from './commun.js';
 import { Coins, decrochementPropose, nomsEnL, ordreDuContour } from './Coins.js';
 import { type Assemblage, type Morceau, consigneCoins } from '../../facade/releve/serie.js';

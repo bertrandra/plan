@@ -222,7 +222,7 @@ export const vue3d: {
   platelageTranslucide: boolean;
   objetsOpaques: boolean;
   textures: boolean;
-  /** Les ombres de la photo estompees sur les facades relevees (facade/sansOmbres.ts) : une preference d'affichage, jamais exportee. */
+  /** Les ombres de la photo estompees sur les facades relevees (facade/vision/sansOmbres.ts) : une preference d'affichage, jamais exportee. */
   facadesSansOmbres: boolean;
   ombres: boolean;
   /** Le vent dans les arbres (three/vent.ts) : montre par defaut, une preference d'affichage. */

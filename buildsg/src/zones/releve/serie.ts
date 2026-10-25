@@ -37,7 +37,7 @@ export interface Resultat {
 
 /**
  * Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, de gauche a droite
- * (facade/mosaique.ts), ou des vues du mur entier, de face et de biais, fondues pour voir derriere
+ * (facade/vision/mosaique.ts), ou des vues du mur entier, de face et de biais, fondues pour voir derriere
  * une voiture ou une haie (facade/fusion.ts, lot L13).
  */
 export type Assemblage = 'morceaux' | 'vues';
@@ -251,7 +251,7 @@ export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: nu
  * le mur entier.
  *
  * A distance connue, la projection tient compte de l'inclinaison et du roulis du telephone au
- * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage.ts) : un tangage
+ * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage/calage.ts) : un tangage
  * de 6 degres a 12 m decalait les coins centres de 1,3 m.
  */
 export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null): P2[] {

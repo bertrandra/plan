@@ -7,8 +7,8 @@
 // comme une estimation.
 
 import type { PhotoCas, PrisePhoto } from '../../model/audit.js';
-import { lireExif, champDepuisFocale35, focale35DepuisChamp, type ExifPhoto } from '../../facade/exif.js';
-import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/cadrage.js';
+import { lireExif, champDepuisFocale35, focale35DepuisChamp, type ExifPhoto } from '../../facade/vision/exif.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../../facade/vision/cadrage.js';
 
 /** La largeur (ou hauteur) maxi de l'image reduite. */
 export const COTE_PHOTO_MAX_PX = 1280;

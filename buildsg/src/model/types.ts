@@ -227,7 +227,7 @@ interface ObjetCommun {
    */
   toitMesure?: ToitMesure | null;
   /**
-   * Les corps du batiment reconstruits sur la surface mesuree (facade/toitCorps.ts) : chacun son
+   * Les corps du batiment reconstruits sur la surface mesuree (facade/toits/toitCorps.ts) : chacun son
    * faitage, ses egouts, ses pignons. Batiments de la parcelle du projet.
    */
   corpsToit?: CorpsToit[] | null;
@@ -944,7 +944,7 @@ export interface PartieBasse {
   hauteur: number;
 }
 
-/** Forme d'un toit simple : voir `facade/toit.ts`, qui le construit. Ce sont les seules que le calcul produit et que la 3D dessine. */
+/** Forme d'un toit simple : voir `facade/toits/toit.ts`, qui le construit. Ce sont les seules que le calcul produit et que la 3D dessine. */
 export type FormeToitSimple = 'plat' | 'appentis' | 'deux-pans' | 'quatre-pans' | 'croupes';
 
 /**

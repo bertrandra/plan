@@ -4,9 +4,9 @@
 // vignettes du catalogue (three/catalogueToits.ts) : ce module est donc de la couche three, pas de facade.
 
 import { EXEMPLES_TOITS, corpsDeLExemple, vueIsometrique, type ExempleToit, type VueIso } from './catalogueToits.js';
-import { facettesElementsToit } from '../facade/toitFormes.js';
+import { facettesElementsToit } from '../facade/toits/toitFormes.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, facettesBowWindow, type Pt3 } from '../facade/modeToit/saillies.js';
-import { point, repere } from '../facade/toitCorps.js';
+import { point, repere } from '../facade/toits/toitCorps.js';
 import type { FormeSaillie, GenreSaillie } from '../model/types.js';
 
 const DEUX_PANS = EXEMPLES_TOITS.find((e) => e.id === 'deux-pans') as ExempleToit;

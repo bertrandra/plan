@@ -5,7 +5,7 @@ import { rechercher, type Morceau } from '../../../../src/facade/releve/serie.js
 import { coinsDeSerie } from '../../../../src/facade/releve/casCalibration.js';
 import { FORMAT_CAS_REEL, preparerCas, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Facade } from '../../../../src/facade/geometrie.js';
-import type { Image, P2 } from '../../../../src/facade/homographie.js';
+import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
 import type { ObjetPolygone } from '../../../../src/model/types.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';

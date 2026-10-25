@@ -1,11 +1,11 @@
 // Le gabarit du mur : la silhouette de toute la facade que donnent le plan et le LiDAR (la largeur du cadastre, les murs et les pignons de
 // tous les corps du toit), une forme fixe. Il ne se lit pas sur la photo et ne s'y deforme jamais : il se pose sur l'image redressee, et seuls ses bouts,
-// son egout et son sol s'y calent (facade/mosaiqueFuites.ts::affinerEgoutEtSol, zones/releve/AjusterMur.tsx). Les reperes ne disent
+// son egout et son sol s'y calent (facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol, zones/releve/AjusterMur.tsx). Les reperes ne disent
 // que les directions ; la dimension vient de ce calage (decision de l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
 // Ce n'est pas la silhouette qu'arbitre l'audit (facade/regles/toits/silhouetteDesCorps.ts), qui lit le seul mur du corps porteur.
 
-import { homographie, appliquer, type P2 } from './homographie.js';
-import { hauteurDuToitEn } from './toitCorps.js';
+import { homographie, appliquer, type P2 } from './vision/homographie.js';
+import { hauteurDuToitEn } from './toits/toitCorps.js';
 import type { Facade } from './geometrie.js';
 import type { CorpsToit } from '../model/types.js';
 import { simplifierLigne } from '../geometry/simplifierLigne.js';

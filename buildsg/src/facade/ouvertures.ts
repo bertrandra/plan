@@ -129,7 +129,7 @@ export function ouverturesAutomatiques(contour: readonly PtBrut[], volumes: read
 export const HAUTEUR_PIGNON_FENETRE_M = REGLAGES_FACADES.HAUTEUR_PIGNON_FENETRE_M;
 
 /**
- * Les fenetres hautes d'un corps (facade/toitCorps.ts) : une par pignon qui part du faitage, et une
+ * Les fenetres hautes d'un corps (facade/toits/toitCorps.ts) : une par pignon qui part du faitage, et une
  * dans chaque pignon de bout d'un corps a deux pans, centrees sous le faitage, au-dessus de l'egout,
  * dans le triangle. Elles sont posees sur les murs du corps lui-meme : `cote` est l'indice du mur du
  * rectangle (0 sous le pan 0, 1 au bout s = L, 2 sous le pan 1, 3 au bout s = 0).

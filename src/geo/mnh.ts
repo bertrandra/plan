@@ -15,7 +15,7 @@ import { distancePointContour } from '../geometry/proximite.js';
 import type { Emprise } from '../model/relief.js';
 import type { ProjecteurLocal } from './projection.js';
 import type { PtBrut } from '../model/types.js';
-import type { EchantillonHauteur } from '../facade/toitLidar.js';
+import type { EchantillonHauteur } from '../facade/toits/toitLidar.js';
 
 /** La couche WMS du MNH LiDAR HD (verifiee au GetCapabilities de data.geopf.fr). */
 export const COUCHE_MNH = 'IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.LAMB93';

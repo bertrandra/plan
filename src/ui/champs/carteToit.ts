@@ -7,7 +7,7 @@
 
 import { pointInPolygon } from '../../geometry/basic.js';
 import { angleDuPlusLongCote } from '../../geometry/faitage.js';
-import { repere, point, empreintePignon } from '../../facade/toitCorps.js';
+import { repere, point, empreintePignon } from '../../facade/toits/toitCorps.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 
 /** Un point de la carte, en metres, y vers le bas (repere SVG). */

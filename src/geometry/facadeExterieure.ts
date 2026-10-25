@@ -1,6 +1,6 @@
 // Un cote d'un volume est-il une facade du batiment ?
 //
-// Un batiment en plusieurs corps (model/volumesToit.ts, facade/toitCorps.ts) a des murs communs :
+// Un batiment en plusieurs corps (model/volumesToit.ts, facade/toits/toitCorps.ts) a des murs communs :
 // un corps contre un autre. Un debord de toit, une gouttiere n'ont de sens que sur une facade ; pose
 // sur un mur commun, le debord traverse le mur voisin et ressort de l'autre cote. Devant une facade,
 // a quelques decimetres, on est dehors : hors du contour du batiment, sur toute sa longueur.

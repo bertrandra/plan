@@ -235,7 +235,7 @@ reste ouverte : une forme vue en audit qui n'y figure pas s'y ajoute, avec sa si
 | 8 | **Asymétrique** (« saltbox ») | Spécifique | 2 inégaux | Deux pans, l'un nettement plus long, qui descend plus bas (parfois jusqu'au rez-de-chaussée). | Oui, nommée (`formeDuCorpsNommee` : grand pan ≥ 1,6 fois le petit, pignons) et dessinée comme un deux-pans à faîtage décentré |
 | 9 | **Deux pans décalés** | Spécifique | 2 | Deux pans dont les faîtages sont à des hauteurs différentes, séparés par une bande verticale (souvent vitrée). | Oui, nommés depuis les corps accolés (`formeDeLEnsemble`) ; dessinés par deux corps |
 | 10 | **Toit en M** (double pignon) | Spécifique | 4 | Deux toits à deux pans parallèles et accolés, réunis par une noue centrale. | Oui, nommé depuis les corps accolés (`formeDeLEnsemble`) ; dessiné par deux corps |
-| 11 | **Papillon** (en V) | Spécifique | 2 inversés | Deux pans inclinés vers l'intérieur, noue centrale ; contemporain, verrières hautes. | Dessiné (`facade/toitSpeciaux.ts` : faîtage plus bas que les égouts, noue au milieu) ; nommé ; lecture LiDAR à venir |
+| 11 | **Papillon** (en V) | Spécifique | 2 inversés | Deux pans inclinés vers l'intérieur, noue centrale ; contemporain, verrières hautes. | Dessiné (`facade/toits/toitSpeciaux.ts` : faîtage plus bas que les égouts, noue au milieu) ; nommé ; lecture LiDAR à venir |
 | 12 | **Gambrel** | Spécifique | 2 brisés | Double pente du Mansart, mais sur les deux longs côtés seulement, avec des murs pignons (grange américaine ; « Mansart à deux brisis »). | Dessiné (profil brisé, bouts en pignon) ; nommé depuis les corps ; lecture LiDAR à venir |
 | 13 | **Coyau** (toit retroussé) | Spécifique | 2 ou 4 | Le bas de chaque pan s'évase et s'adoucit vers l'extérieur ; éloigne l'eau des murs. Fermes et maisons anciennes. | Dessiné (profil `coyau` : bas du pan adouci) ; nommé ; lecture à venir |
 | 14 | **Shed** (dents de scie) | Spécifique | multiples | Appentis répétés : pan court vitré (souvent au nord), pan long aveugle ; bâtiments industriels, ateliers. | Oui, nommé depuis les corps accolés (`formeDeLEnsemble`) ; dessiné par des appentis accolés |
@@ -449,7 +449,7 @@ interface Terrasse {
   en M, deux pans décalés : G10), que la déduction nomme encore par leur corps principal ; les
   lucarnes et les bouts écrits depuis « Ce que je vois », dont le vocabulaire ne donne pas encore
   les dimensions (G4, G7).
-- **Fait (dessin des formes étendues, lots G4, G5, G6, G7 côté 3D)** : `facade/toitFormes.ts` dessine le **profil
+- **Fait (dessin des formes étendues, lots G4, G5, G6, G7 côté 3D)** : `facade/toits/toitFormes.ts` dessine le **profil
   brisé** (gambrel : bris des deux pans, bouts en pignon ; Mansart : bris des deux pans et `brisis` aux deux bouts),
   la **demi-croupe** (`bouts[i]` : un petit pignon de `hauteurPignonM` sous une croupe de `profondeurM`) et les
   **lucarnes** (`jacobine`, `capucine`, `chien-assis`, `rampante`, `meuniere`, `inconnue`). Un toit de ces formes est

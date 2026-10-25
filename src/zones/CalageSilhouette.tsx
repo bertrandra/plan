@@ -9,9 +9,9 @@
 // la photo non etiree. L'editeur les reporte sur chaque photo, comme un mur pose a la main.
 
 import { useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
-import type { P2 } from '../facade/homographie.js';
+import type { P2 } from '../facade/vision/homographie.js';
 import { gabaritSurLaVue, type GabaritMur } from '../facade/gabaritMur.js';
-import { bouger, calageDe, coinsDuCalage, egoutDuCalage, ECART_MIN, PAS_CLAVIER, type Calage, type Prise } from '../facade/calageSilhouette.js';
+import { bouger, calageDe, coinsDuCalage, egoutDuCalage, ECART_MIN, PAS_CLAVIER, type Calage, type Prise } from '../facade/calage/calageSilhouette.js';
 import { pointSvg, useEchelle } from './releve/commun.js';
 
 export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeurM, hauteurM, appliquer }: {

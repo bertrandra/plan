@@ -39,7 +39,7 @@ renvois `A§`, `F§` et `T§` désignent ces trois specs.
 | Photo avec position GPS et azimut (`PhotoCas.prise`) | `model/audit.ts`, `zones/parcours/AuditCas.tsx` |
 | Relevé de façade : coins au doigt, homographie, mosaïque, détection, toit lu, mur en L | `facade/`, `zones/releve/` |
 | Couleur des murs sur Panoramax : murs visibles, projection, lecture | `render/couleurMurPhoto.ts`, `model/couleurMur.ts` |
-| Focale EXIF d'une photo importée | `facade/exif.ts` |
+| Focale EXIF d'une photo importée | `facade/vision/exif.ts` |
 | Serveur web PHP sans base, configuration hors du dossier publié | `deploy/admin.php` |
 
 ## 3. Les décisions, et les défauts retenus

@@ -14,8 +14,8 @@
 // Ce qui ne s'impose pas (un nombre de corps minimum, une hauteur hors de la mesure) est dit par
 // `ecartsAuFait`, pour le skill regles-toits et les tests : un fait n'est jamais tordu en silence.
 
-import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from '../../toitCorps.js';
-import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../../toitLidar.js';
+import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecartAuCorps, rectangleTourne, repere, type Grille } from '../../toits/toitCorps.js';
+import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../../toits/toitLidar.js';
 import { appentisVers, avecAppentis } from './appentis.js';
 import { avecBaies, baiePosee } from './baies.js';
 import { avecPignons, pignonsManquants } from './pignons.js';

@@ -124,9 +124,9 @@ et le test d'AE 101 « au centimètre ».
     boussole, sinon sens de la marche).
   La fiche l'écrit sous la photo : « Prise à ± 5 m, vers 245° (OSO), boussole ».
 - **À ajouter** :
-  - **la focale**, lue dans l'EXIF *avant* la réduction, qui l'efface (`facade/exif.ts::focale35mm`,
+  - **la focale**, lue dans l'EXIF *avant* la réduction, qui l'efface (`facade/vision/exif.ts::focale35mm`,
     `champDepuisFocale35`). À défaut, le champ par défaut du relevé : 67° sur le grand côté
-    (`facade/cadrage.ts::CHAMP_GRAND_COTE_DEFAUT`) ;
+    (`facade/vision/cadrage.ts::CHAMP_GRAND_COTE_DEFAUT`) ;
   - **l'inclinaison** du téléphone au retour de l'appareil photo (`beta` de l'orientation) : la
     projection d'un mur dans une photo prise vers le haut n'est pas celle d'une photo d'aplomb.
 - **Limite à garder en tête** :
@@ -193,12 +193,12 @@ corrections tracées.
 
 - **Le mur en face** : la boussole propose le mur que l'on regarde (`facade/geometrie.ts::facadeFaceAuCap`).
 - **Se placer** : la distance au mur vient du GPS (à sa précision près), puis du cadrage. Le plan de
-  prise dit « une photo suffit » ou « 3 photos, de gauche à droite » (`facade/cadrage.ts::planDePrise`).
+  prise dit « une photo suffit » ou « 3 photos, de gauche à droite » (`facade/vision/cadrage.ts::planDePrise`).
 - **Coins proposés** d'après la prise de vue (`facade/analyse.ts::coinsProposes`, la distance venant du
   GPS). Ils s'ajustent au doigt, avec la loupe.
 - **Plusieurs photos du même mur** :
   - de gauche à droite, assemblées en mosaïque quand le recul manque
-    (`facade/mosaique.ts::analyserMosaique`, `spec-releve-facade.md` §6.1) ;
+    (`facade/vision/mosaique.ts::analyserMosaique`, `spec-releve-facade.md` §6.1) ;
   - de face et de biais, pour retrouver une ouverture cachée par un arbre ou une voiture sur l'une
     d'elles ;
   - un **gros plan du parement**, à un ou deux mètres, pour la texture du matériau.
@@ -209,11 +209,11 @@ corrections tracées.
 |---|---|---|
 | hauteur à l'égout, mesurée | les quatre coins et la focale | `facade/analyse.ts::mesurerHauteur` |
 | élévation redressée, texture du mur | homographie, mosaïque si plusieurs photos | `analyserReleve`, `analyserMosaique` |
-| ouvertures réelles (type, x, y, l, h) | détection, puis correction au doigt | `facade/detection.ts::detecterOuvertures` |
+| ouvertures réelles (type, x, y, l, h) | détection, puis correction au doigt | `facade/detection/detection.ts::detecterOuvertures` |
 | couleur du mur | médiane de ce qui n'est pas une ouverture | `teinteMediane`, `couleurMurDepuisPixels` |
 | matériau du parement | choisi par vous (pierre, meulière, brique, enduit, béton, bois) ; plus tard proposé par Claude analyste | `three/textureMur.ts` |
 | **texture du matériau** | le gros plan, découpé au centre en tuile sans couture ; l'échelle vient du matériau (`TAILLE_M` : une brique, une pierre) | nouveau |
-| toit vu de la façade | silhouette au-dessus de l'égout, triangle du pignon | `facade/toit.ts` |
+| toit vu de la façade | silhouette au-dessus de l'égout, triangle du pignon | `facade/toits/toit.ts` |
 | mur en L | les deux points du décrochement | `facade/profil.ts` |
 
 Le résultat est un `ReleveFacade` complet : la structure **déjà dans le projet**, que la 3D et le plan

@@ -1,7 +1,7 @@
 // Le releve de facade (zones/Releve.tsx) : reglages de l'appareil, reperes SVG et libelles partages.
 
 import { useEffect, useState } from 'react';
-import type { P2 } from '../../facade/homographie.js';
+import type { P2 } from '../../facade/vision/homographie.js';
 import type { TypeOuverture } from '../../model/types.js';
 
 

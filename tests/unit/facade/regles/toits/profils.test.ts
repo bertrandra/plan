@@ -7,7 +7,7 @@ import {
 import { lireProfilsToits } from '../../../../../src/regles/toits/profils.js';
 import { PROFILS_TOITS, REGLAGES_TOITS, SEUILS_TOITS } from '../../../../../src/regles/toits/reglages.js';
 import { toitMesureDepuisGrille } from '../../../../../src/model/toitMesure.js';
-import { reconstruireCorps } from '../../../../../src/facade/toitCorps.js';
+import { reconstruireCorps } from '../../../../../src/facade/toits/toitCorps.js';
 import { corpsVraisemblables } from '../../../../../src/facade/regles/toits/vraisemblance.js';
 import type { GrilleRelief } from '../../../../../src/model/relief.js';
 import type { CorpsToit, PtBrut, ToitMesure } from '../../../../../src/model/types.js';

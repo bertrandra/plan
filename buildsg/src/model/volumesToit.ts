@@ -226,7 +226,7 @@ const touchent = (a: Rect, b: Rect) => a.x0 <= b.x1 + EPSILON_M && b.x0 <= a.x1 
  * Le contour decoupe en tranches perpendiculaires a l'un de ses axes, celui qui donne le moins de
  * rectangles, le plus grand d'abord, dans le repere du plan ; null quand il n'est pas rectiligne ou
  * qu'une part trop etroite ne se fond dans aucune voisine. Pour un contour remis a l'equerre sur la
- * mesure (facade/toitCorps.ts) : les rectangles maximaux y tirent une bande d'un bout a l'autre de
+ * mesure (facade/toits/toitCorps.ts) : les rectangles maximaux y tirent une bande d'un bout a l'autre de
  * la maison, la ou les tranches separent une aile, une partie basse et le corps principal. Une
  * tranche trop etroite se fond dans la voisine qui ajoute le moins hors du contour (15 % au plus).
  */

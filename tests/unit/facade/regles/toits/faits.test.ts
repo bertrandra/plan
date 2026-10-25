@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { reconstruireCorps, repere } from '../../../../../src/facade/toitCorps.js';
+import { reconstruireCorps, repere } from '../../../../../src/facade/toits/toitCorps.js';
 import { toitMesureDepuisGrille } from '../../../../../src/model/toitMesure.js';
-import { ajusterToit } from '../../../../../src/facade/toitLidar.js';
+import { ajusterToit } from '../../../../../src/facade/toits/toitLidar.js';
 import { echantillonsDeGrille } from '../../../../../src/geo/mnh.js';
 import {
   corpsSousContrainte, corpsDeRemplacement, toitDeRemplacement, ajusteSousContrainte, ecartsAuFait, corpsConforme,

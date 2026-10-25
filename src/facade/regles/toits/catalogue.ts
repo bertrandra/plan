@@ -1,5 +1,5 @@
 // Les formes du catalogue a la lecture du LiDAR (MD/spec-regles-toits.md §3.2, §9.1) : apres le calcul des corps, qui ne lit que des
-// pentes droites (plat, appentis, deux pans, croupes, pavillon), la lecture des formes (facade/lectureFormes.ts) cherche si la mesure
+// pentes droites (plat, appentis, deux pans, croupes, pavillon), la lecture des formes (facade/toits/lectureFormes.ts) cherche si la mesure
 // porte nettement mieux un profil brise (Mansart, gambrel), un coyau, une courbe (berceau, carene), un papillon, une demi-croupe ou un
 // toit de revolution. Si oui, ce corps remplace le principal, comme le ferait un couvreur qui reconnait la forme.
 //
@@ -11,8 +11,8 @@
 // L'ordre est celui de la spec : le calcul (corps, puis formes du catalogue), puis le fait du batiment, puis les garde-fous. Un fait en
 // contrainte relit le corps principal parmi ses formes simples admises : il l'emporte sur une forme du catalogue qu'il n'admet pas.
 
-import { reconstruireCorps } from '../../toitCorps.js';
-import { lireFormes, type LectureForme } from '../../lectureFormes.js';
+import { reconstruireCorps } from '../../toits/toitCorps.js';
+import { lireFormes, type LectureForme } from '../../toits/lectureFormes.js';
 import { SEUILS_FORMES } from '../../../regles/toits/formes.js';
 import type { CorpsToit, FormeToit, PtBrut, ToitMesure } from '../../../model/types.js';
 
@@ -20,7 +20,7 @@ import type { CorpsToit, FormeToit, PtBrut, ToitMesure } from '../../../model/ty
  * Les formes que la lecture pose sans qu'on les demande. Le coyau n'en est pas : la surface mesuree est lissee (mediane 3 x 3,
  * model/toitMesure.ts), ce qui adoucit le bas de tout pan, exactement ce qui signe un coyau ; au banc du 17 octobre 2026, les trois
  * coyaux lus seuls (Versailles 28283509, Eguisheim 4358791, Hucqueliers 37248478) etaient des toits a plusieurs corps ou suspects.
- * Il reste lu quand Claude ou la personne le disent (l'audit, facade/lectureFormes.ts en mode souple).
+ * Il reste lu quand Claude ou la personne le disent (l'audit, facade/toits/lectureFormes.ts en mode souple).
  */
 export const FORMES_SANS_DEMANDE: ReadonlySet<FormeToit> = new Set<FormeToit>(['mansart', 'gambrel', 'berceau', 'carene', 'papillon', 'demi-croupes', 'conique', 'polygonal', 'fleche', 'dome', 'imperiale']);
 

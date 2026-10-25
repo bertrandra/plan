@@ -1,6 +1,6 @@
 // La silhouette du haut d'une facade et ce qu'elle dit du bout du faitage, dans le vocabulaire de la reponse de Claude
 // (deploy/schema-analyse.json : `facades[].silhouette` et `facades[].bout`, le meme `bout` que `bouts.gauche`/`droite`).
-// Une photo la donne aussi a Plan (facade/toit.ts, `classerProfil`) : les deux parlent ce vocabulaire, que le moteur des
+// Une photo la donne aussi a Plan (facade/toits/toit.ts, `classerProfil`) : les deux parlent ce vocabulaire, que le moteur des
 // toits relit (facade/regles/toits/silhouettes.ts).
 
 /** La ligne du haut du mur au-dessus de l'egout, dans les mots de « Lire les pignons d'abord » (regles/sujets/descriptions/formeToit.ts). */

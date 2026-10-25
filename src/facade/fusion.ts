@@ -1,6 +1,6 @@
 // Fusion de plusieurs vues d'une meme partie du mur (MD/spec-facades-calage-detection.md §8).
 //
-// La mosaique (facade/mosaique.ts) met des morceaux cote a cote. Ici, chaque photo montre le mur
+// La mosaique (facade/vision/mosaique.ts) met des morceaux cote a cote. Ici, chaque photo montre le mur
 // entier, de face ou de biais : une voiture, une haie ou un poteau cachent une baie sur l'une, pas
 // sur l'autre. Quatre temps en font une seule elevation :
 //
@@ -9,7 +9,7 @@
 //    une **qualite** (spec §7) : la resolution de la photo source au mur, dans le sens le moins bien
 //    vu (une vue de biais ecrase les largeurs), et une surexposition qui la fait tomber.
 // 2. **Le recalage par points d'interet.** ORB sur chaque elevation, appariement, RANSAC, verification de la
-//    partie commune (facade/recalageOrb.ts). Le plus grand groupe de photos qui se recalent est fusionne ; les
+//    partie commune (facade/vision/recalageOrb.ts). Le plus grand groupe de photos qui se recalent est fusionne ; les
 //    autres restent independantes, avec leur motif, et ne sont jamais supprimees.
 // 3. **Les occlusions par la parallaxe.** Ce qui est devant le mur n'est pas dans son plan : d'une
 //    elevation a l'autre, le mur reste en place, l'obstacle se deplace. Le centre optique de chaque
@@ -25,13 +25,13 @@
 // Pas de navigateur ici : tout opere sur des images brutes et se teste sous Node.
 
 import { au } from '../util/tableaux.js';
-import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './homographie.js';
+import { homographie, appliquer, redresser, resolutionTexture, type Homographie, type Image, type P2 } from './vision/homographie.js';
 import { finaliserReleve, hauteurBande, mesurerHauteur, type MurDuReleve, type ResultatAnalyse } from './analyse.js';
-import { detecterOuvertures, type OuvertureDetectee } from './detection.js';
-import { voter, type VueVotante, type VoteOuverture } from './voteVues.js';
-import { focalePx as focaleParDefaut } from './cadrage.js';
-import { recalerElevations, type BilanPaire, type StatutFusion } from './recalageOrb.js';
-import { appliquerSimilitude, inverse, type Similitude } from './ransac.js';
+import { detecterOuvertures, type OuvertureDetectee } from './detection/detection.js';
+import { voter, type VueVotante, type VoteOuverture } from './detection/voteVues.js';
+import { focalePx as focaleParDefaut } from './vision/cadrage.js';
+import { recalerElevations, type BilanPaire, type StatutFusion } from './vision/recalageOrb.js';
+import { appliquerSimilitude, inverse, type Similitude } from './vision/ransac.js';
 
 /** Une photo du mur entier, ses coins (haut gauche, haut droit, bas droit, bas gauche) et sa focale. */
 export interface VuePhoto {

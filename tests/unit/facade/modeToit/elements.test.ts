@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { appliquerChoix, cibleAjoutee, facadeDeLElement, dupliquerElement, elementProche, groupesDe, listerElements, lireElement, redimensionnerElement, supprimerElement, valeurDuGroupe,
   type CibleElement } from '../../../../src/facade/modeToit/elements.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
-import { facettesElementsToit } from '../../../../src/facade/toitFormes.js';
+import { facettesElementsToit } from '../../../../src/facade/toits/toitFormes.js';
 import { elementDeToitValide } from '../../../../src/model/corpsToitEtendu.js';
-import { repere } from '../../../../src/facade/toitCorps.js';
+import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);

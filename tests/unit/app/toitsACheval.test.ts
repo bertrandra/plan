@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { batimentsEnDoute, questionACheval, repondreACheval, poserQuestionsToitsACheval } from '../../../src/app/toitsACheval.js';
 import { toitAChevalApresCalcul } from '../../../src/app/toitsLidar.js';
-import { reconstruireCorps } from '../../../src/facade/toitCorps.js';
+import { reconstruireCorps } from '../../../src/facade/toits/toitCorps.js';
 import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import { pointInPolygon } from '../../../src/geometry/basic.js';
 import { dialogues } from '../../../src/shell/dialogues.js';

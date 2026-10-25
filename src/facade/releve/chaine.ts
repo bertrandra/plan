@@ -7,14 +7,14 @@
 // penchent font essayer les coins predits, puis les cotes ramenes sur le point de fuite des verticales. A partir de deux photos
 // redressees, elles sont fusionnees. Rien ne se perd : une photo qui doute reste, avec son motif, et sert faute de mieux.
 
-import { CHAMP_GRAND_COTE_DEFAUT } from '../cadrage.js';
-import { detecterSegments } from '../segments.js';
-import { focaleDeLaPhotoParFuites } from '../redressementFuites.js';
-import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../verticales.js';
+import { CHAMP_GRAND_COTE_DEFAUT } from '../vision/cadrage.js';
+import { detecterSegments } from '../vision/segments.js';
+import { focaleDeLaPhotoParFuites } from '../vision/redressementFuites.js';
+import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../vision/verticales.js';
 import type { ResultatFusion } from '../fusion.js';
-import type { SourceCoin } from '../calageFin.js';
+import type { SourceCoin } from '../calage/calageFin.js';
 import type { Facade } from '../geometrie.js';
-import { redresser, resolutionTexture, type Image, type P2 } from '../homographie.js';
+import { redresser, resolutionTexture, type Image, type P2 } from '../vision/homographie.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';
 import { analyserSerie } from './analyseSerie.js';
@@ -145,7 +145,7 @@ async function preparerPhoto(e: PhotoARedresser, f: Facade, o: OutilsChaine, cor
   return { rang, morceau: m, coins: m.sources?.includes('trouve') ? 'trouve' : 'predit' };
 }
 
-/** Les coins d'un morceau ramenes sur ses verticales (facade/verticales.ts) ; null s'il n'en offre pas assez. */
+/** Les coins d'un morceau ramenes sur ses verticales (facade/vision/verticales.ts) ; null s'il n'en offre pas assez. */
 function coinsSurLesVerticales(m: Morceau): P2[] | null {
   const img = m.prise.photo.image;
   const fuite = fuiteVerticaleDesSegments(detecterSegments(img), img.largeur, img.hauteur);

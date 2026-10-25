@@ -49,7 +49,7 @@ function canevas(l: number, h: number): { c: HTMLCanvasElement; ctx: CanvasRende
   return ctx ? { c, ctx } : null;
 }
 
-/** Une image de pixels (facade/homographie.ts) sur un canevas a sa taille : la source des dessins. */
+/** Une image de pixels (facade/vision/homographie.ts) sur un canevas a sa taille : la source des dessins. */
 export function canevasDe(img: ImagePixels): HTMLCanvasElement | null {
   const cv = canevas(img.largeur, img.hauteur);
   if (!cv) return null;

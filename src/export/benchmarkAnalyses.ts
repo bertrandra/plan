@@ -10,6 +10,7 @@
 import { csv } from './csvConsommation.js';
 import { CLES_TROUVAILLES, NOMS_TROUVAILLES, nomModele, type CleTrouvaille } from '../model/consommation.js';
 import type { ResumeAnalyse, ResultatResume } from '../io/analysesAudits.js';
+import { mediane } from '../util/stats.js';
 
 export interface LigneBenchmark {
   id: string;
@@ -40,11 +41,6 @@ export interface LigneBenchmark {
 /** Le batiment d'une requete : `b0-p2` -> `b0` ; une requete sans passe est son propre batiment. */
 export const batimentDe = (id: string): string => id.replace(/-p\d+$/, '');
 
-function mediane(v: number[]): number {
-  const t = [...v].sort((a, b) => a - b);
-  const m = Math.floor(t.length / 2);
-  return t.length % 2 ? t[m] ?? 0 : ((t[m - 1] ?? 0) + (t[m] ?? 0)) / 2;
-}
 
 /** Les comptes d'une analyse : mediane par batiment des passes lues, additionnee. */
 export function comptesAnalyse(resultats: readonly ResultatResume[]): Record<CleTrouvaille, number> | null {

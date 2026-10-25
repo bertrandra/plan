@@ -5,7 +5,7 @@
 // pour ce projet (decision D2), demande au premier appel.
 
 import { useState } from 'react';
-import { texteSignaux, type SituationRenfort } from '../../facade/renfort.js';
+import { texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
 import type { AideClaudeReleve } from '../../app/renfortReleve.js';
 
 type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { phase: 'fait'; message: string; erreur: boolean };

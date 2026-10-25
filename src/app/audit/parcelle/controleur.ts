@@ -2,7 +2,7 @@
 //
 // Une session par parcelle tant que la page vit : la liste de controle (Z8 plein ecran) et l'ecran
 // de prise, pose sur la Vue 3D. Pendant la prise, le GPS et la boussole reconnaissent la facade que
-// vous avez devant vous (facade/priseDeVue.ts, lot L2) parmi celles de la liste ; elle passe en rouge
+// vous avez devant vous (facade/calage/priseDeVue.ts, lot L2) parmi celles de la liste ; elle passe en rouge
 // en 3D (three/facadeDevant3d.ts) et elle est nommee, et la photo prise (app/audit/photo.ts, lot L1)
 // s'y range d'elle-meme. « Ce n'est pas cette façade » propose la suivante ; la facade se choisit aussi
 // en la touchant dans la 3D, ou dans la liste. La Vue 3D est alors a hauteur d'homme et suit votre
@@ -18,7 +18,7 @@ import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude }
 import { dialogues, type DialogueChoix } from '../../../shell/dialogues.js';
 import { creerBrouillonParcelle, stockageNavigateur, type RaisonEchec, type StockageBrouillon } from '../../../io/brouillonAudit.js';
 import { partageDe, photosDeLaCapture, type CaptureParcelle, type EnvoiCorpus } from '../../../model/auditParcelle.js';
-import { focalePx, planDePrise } from '../../../facade/cadrage.js';
+import { focalePx, planDePrise } from '../../../facade/vision/cadrage.js';
 import { poserFacadeDevant, poserFacadesFaites, ROUGE_FACADE, VERT_FACADE } from '../../../three/facadeDevant3d.js';
 import { epurerVue3d, objetSousLePointeur } from '../../../three/scene.js';
 import { affichage3d } from '../../../three/etat3d.js';
@@ -52,7 +52,7 @@ import { avertissementPrise } from './redressement.js';
 import type { ClientAudits } from '../../../io/auditsServeur.js';
 import type { GrilleRelief } from '../../../model/relief.js';
 import type { Facade } from '../../../facade/geometrie.js';
-import type { FacadeDevant } from '../../../facade/priseDeVue.js';
+import type { FacadeDevant } from '../../../facade/calage/priseDeVue.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { EtatApp } from '../../../core/state.js';
 import type { PtBrut } from '../../../model/types.js';

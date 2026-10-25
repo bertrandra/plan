@@ -7,7 +7,7 @@
 //
 // Pur : pas de DOM, pas de scene.
 
-import { point, repere } from '../toitCorps.js';
+import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';

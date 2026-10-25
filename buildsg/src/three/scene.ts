@@ -1020,7 +1020,7 @@ function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeL
   // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
   // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
   const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
-  // Les corps et pignons reconstruits sur le LiDAR (facade/toitCorps.ts) : un prisme par corps a son
+  // Les corps et pignons reconstruits sur le LiDAR (facade/toits/toitCorps.ts) : un prisme par corps a son
   // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
   const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).

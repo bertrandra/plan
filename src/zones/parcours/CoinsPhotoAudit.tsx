@@ -10,7 +10,7 @@ import { Coins } from '../releve/Coins.js';
 import { AjusterMur, type MurAjuste } from '../releve/AjusterMur.js';
 import { NOMS_REPERES } from '../releve/commun.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
-import type { P2 } from '../../facade/homographie.js';
+import type { P2 } from '../../facade/vision/homographie.js';
 import type { Photo } from '../../ui/releve/camera.js';
 import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PhotoCas } from '../../model/audit.js';

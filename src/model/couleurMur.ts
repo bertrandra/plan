@@ -13,6 +13,7 @@
 
 import { au } from '../util/tableaux.js';
 import { versHex, couvertureDesFichiersFonciers } from './couleurToit.js';
+import { mediane } from '../util/stats.js';
 
 /** La texture dessinee sur les murs en 3D (three/textureMur.ts). */
 export type MateriauTexture = 'pierre' | 'meuliere' | 'beton' | 'brique' | 'enduit' | 'bois';
@@ -215,11 +216,6 @@ const estCiel = ([r, g, b]: Rgb) => b > r + 18 && b > g + 4 && luminance([r, g, 
 const estOmbre = ([r, g, b]: Rgb) => luminance([r, g, b]) < OMBRE_LUMINANCE && Math.max(r, g, b) - Math.min(r, g, b) < OMBRE_ECART;
 const OMBRE_LUMINANCE = 125, OMBRE_ECART = 25;
 
-function mediane(v: number[]): number {
-  const t = [...v].sort((a, b) => a - b);
-  const m = t.length >> 1;
-  return t.length % 2 ? au(t, m) : (au(t, m - 1) + au(t, m)) / 2;
-}
 
 /** Ce que la photo dit d'un mur : la teinte, ou rien quand la lecture n'est pas concluante. */
 export interface LectureMur {

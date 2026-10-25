@@ -2,15 +2,15 @@
 // §12 bis, lot L18) : ce que Plan fait du vote de ses trois passes, sans React, testable seul.
 // - A l'etape des coins : les graines de coins rattachees aux croisements de segments de la photo ;
 //   seuls les coins predits sont remplaces, jamais un coin trouve sur la photo ni pose au doigt.
-// - A la verification : les ouvertures renforcees (facade/renfortRecalage.ts), et la proposition de
+// - A la verification : les ouvertures renforcees (facade/detection/renfortRecalage.ts), et la proposition de
 //   l'analyse mise a jour, pour que les corrections tracees a la validation comparent la personne a
 //   ce que Plan et Claude proposaient ensemble.
 
-import { appliquerRenfort, cartesAretes, grainesDeCoins, recalerCoins, type ResultatRenfort } from '../../facade/renfortRecalage.js';
-import { detecterSegments } from '../../facade/segments.js';
-import { signauxRenfort, texteSignaux, type SituationRenfort, type VoteRenfort } from '../../facade/renfort.js';
-import type { SourceCoin } from '../../facade/calageFin.js';
-import type { Image } from '../../facade/homographie.js';
+import { appliquerRenfort, cartesAretes, grainesDeCoins, recalerCoins, type ResultatRenfort } from '../../facade/detection/renfortRecalage.js';
+import { detecterSegments } from '../../facade/vision/segments.js';
+import { signauxRenfort, texteSignaux, type SituationRenfort, type VoteRenfort } from '../../facade/detection/renfort.js';
+import type { SourceCoin } from '../../facade/calage/calageFin.js';
+import type { Image } from '../../facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
 import type { Proposition } from './ouvertures.js';
 import type { Morceau } from '../../facade/releve/serie.js';

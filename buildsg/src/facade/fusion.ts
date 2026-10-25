@@ -1,6 +1,6 @@
 // Fusion de plusieurs vues d'une meme partie du mur (MD/spec-facades-calage-detection.md §8, lot L13).
 //
-// La mosaique (facade/mosaique.ts) met des morceaux cote a cote. Ici, chaque photo montre le mur
+// La mosaique (facade/vision/mosaique.ts) met des morceaux cote a cote. Ici, chaque photo montre le mur
 // entier, de face ou de biais : une voiture, une haie ou un poteau cachent une baie sur l'une, pas
 // sur l'autre. Quatre temps en font une seule elevation :
 //

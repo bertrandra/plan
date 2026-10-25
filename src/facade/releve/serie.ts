@@ -1,13 +1,13 @@
 // Le releve de facade (zones/Releve.tsx) : les etapes, la serie de photos et ses coins proposes.
 
 import { au } from '../../util/tableaux.js';
-import { focalePx } from '../cadrage.js';
+import { focalePx } from '../vision/cadrage.js';
 import { coinsProposes } from '../analyse.js';
-import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../calage.js';
-import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calageFin.js';
-import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../distorsion.js';
+import { coinsDuReleve, biaisDepuisCap, ecartSigne, type PriseReleve } from '../calage/calage.js';
+import { calageFinDuReleve, type CalageFin, type SourceCoin } from '../calage/calageFin.js';
+import { corrigerDistorsion, corrigerPoint, focale35DePixels, grandAngleACorriger, type ModeleDistorsion } from '../vision/distorsion.js';
 import { type Decrochement } from '../profil.js';
-import type { Image, P2 } from '../homographie.js';
+import type { Image, P2 } from '../vision/homographie.js';
 import type { Toit, PartieBasse, CalageReleve } from '../../model/types.js';
 import type { Prise } from './prise.js';
 import type { MasqueReleve } from './masque.js';
@@ -37,7 +37,7 @@ export interface Resultat {
 
 /**
  * Comment plusieurs photos d'un mur se combinent : des morceaux cote a cote, de gauche a droite
- * (facade/mosaique.ts), ou des vues du mur entier, de face et de biais, fondues pour voir derriere
+ * (facade/vision/mosaique.ts), ou des vues du mur entier, de face et de biais, fondues pour voir derriere
  * une voiture ou une haie (facade/fusion.ts, lot L13).
  */
 export type Assemblage = 'morceaux' | 'vues';
@@ -255,7 +255,7 @@ export function capCorrige(r: ResultatCoins | null | undefined, azimutFacade: nu
  * le mur entier.
  *
  * A distance connue, la projection tient compte de l'inclinaison et du roulis du telephone au
- * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage.ts) : un tangage
+ * declenchement, et du biais que donne le cap face a `azimutFacade` (facade/calage/calage.ts) : un tangage
  * de 6 degres a 12 m decalait les coins centres de 1,3 m.
  */
 export function coinsDePrise(p: Prise, largeurMur: number, hauteurEstimee: number, partiel: boolean, azimutFacade: number | null = null, borner = true): P2[] {

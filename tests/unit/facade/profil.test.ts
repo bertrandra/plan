@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { coinsEnglobants, mesurerPartieBasse, intersection, ouverturesDansLeMur, contourDuMur, egoutEn, volumesDuBatiment } from '../../../src/facade/profil.js';
 import { analyserReleve } from '../../../src/facade/analyse.js';
-import { homographie, appliquer } from '../../../src/facade/homographie.js';
-import { focalePx } from '../../../src/facade/cadrage.js';
+import { homographie, appliquer } from '../../../src/facade/vision/homographie.js';
+import { focalePx } from '../../../src/facade/vision/cadrage.js';
 
 const p = (x: number, y: number) => ({ x, y });
 

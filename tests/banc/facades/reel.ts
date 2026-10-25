@@ -3,7 +3,7 @@
 // et les brouillons tires d'un fichier d'audit.
 
 import { FORMAT_CAS_REEL, fiabilite, mesurerPrepare, preparerCas, type CasReel, type OuvertureVraie, type ResultatCas } from '../../../src/facade/corpusReel.js';
-import type { Image, P2 } from '../../../src/facade/homographie.js';
+import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 
 export { FORMAT_CAS_REEL, fiabilite, juger, lireCasReel, type CasReel, type Fiabilite, type Jugee, type ResultatCas, type OuvertureVraie } from '../../../src/facade/corpusReel.js';
 

@@ -1,6 +1,6 @@
 ---
 name: toits
-description: Toits et hauteurs de murs des bâtiments IGN (BD TOPO, LiDAR HD, corps et pignons, croupes, appentis, toits plats, recalage, végétation, contours de biais, dessin 3D, fenêtres). À charger avant de toucher à src/facade/toitCorps.ts, facade/toitLidar.ts, model/toitMesure.ts, model/volumesToit.ts, app/toitsLidar.ts, three/toitCorps3d.ts ou facade/ouvertures.ts, avant d'analyser un toit « bizarre », et avant de vérifier les toits sur un quartier ou un village.
+description: Toits et hauteurs de murs des bâtiments IGN (BD TOPO, LiDAR HD, corps et pignons, croupes, appentis, toits plats, recalage, végétation, contours de biais, dessin 3D, fenêtres). À charger avant de toucher à src/facade/toits/toitCorps.ts, facade/toits/toitLidar.ts, model/toitMesure.ts, model/volumesToit.ts, app/toitsLidar.ts, three/toitCorps3d.ts ou facade/ouvertures.ts, avant d'analyser un toit « bizarre », et avant de vérifier les toits sur un quartier ou un village.
 ---
 
 # Toits et hauteurs de murs
@@ -60,7 +60,7 @@ sur le terrain (scripts de `scripts/`).
 proches d'abord, au plus 30 bâtiments en 20 s, quatre lectures à la fois ; les autres en tâche de
 fond (`app/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLidarLu` (`MD/roadmap-toits-fond.md`).
 
-1. **Forme simple** (`facade/toitLidar.ts::ajusterToit`) : plat, appentis, deux pans, croupes, quatre
+1. **Forme simple** (`facade/toits/toitLidar.ts::ajusterToit`) : plat, appentis, deux pans, croupes, quatre
    pans, sur trois axes. On fait les moindres carrés sur `z = e + H·f(q)`. Au moins 20 mesures et un
    écart sous 0,8 m (sous 0,4 m pour un appentis), sinon on garde la BD TOPO. Si les hauteurs se
    séparent en deux paquets à plus d'un mètre (`deuxCorps`), on renonce.
@@ -76,9 +76,9 @@ fond (`app/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLi
 4. **Végétation** (`corpsVraisemblables`, `mesureVraisemblable`) : un corps dont l'égout dépasse la
    hauteur BD TOPO de plus de 3 m est un houppier (`DEPASSEMENT_VEGETATION_M`), il est écarté. Si
    toute la surface est dans ce cas, ni surface ni forme ajustée ne sont gardées.
-5. **Corps et pignons** (`facade/toitCorps.ts::reconstruireCorps`, §3).
+5. **Corps et pignons** (`facade/toits/toitCorps.ts::reconstruireCorps`, §3).
 5 bis. **Formes du catalogue** (`facade/regles/toits/catalogue.ts::corpsCalcules`, depuis le 17 octobre
-   2026, version de lecture 4) : la lecture des formes (`facade/lectureFormes.ts`, seuils de
+   2026, version de lecture 4) : la lecture des formes (`facade/toits/lectureFormes.ts`, seuils de
    `regles/toits/formes.json`) remplace le corps principal par un Mansart, un gambrel, un berceau, une
    carène, un papillon, une demi-croupe ou un toit de révolution quand la mesure le porte nettement
    mieux (écart sous 0,4 m et au plus 0,6 fois celui des formes simples). Pas le coyau (le lissage
