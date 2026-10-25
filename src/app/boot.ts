@@ -89,7 +89,7 @@ import { brancherFacade } from './ecouteurs/facade.js';
 import type { Atelier } from './atelier.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
-import { vue3d, rendre3d, affichage3d } from '../three/etat3d.js';
+import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../three/etat3d.js';
 import { epurerLeTemps, visibilite3d } from '../three/scene.js';
 import { poserEspeces, type EspeceArbre } from '../model/especesArbre.js';
 import { creerIsolement, objetAIsoler } from './isolement.js';
@@ -617,7 +617,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   if (options.vitrine) {
     // La vitrine ne montre que la Vue 3D, ombres cochees d'office (app/vitrine.ts). Rien a proposer :
     // le plan ne s'y enregistre pas.
-    vue3d.ombres = true;
+    reglerVue3d({ ombres: true });
     // La terrasse choisie, sinon la Vue 3D montrerait le terrain sans sa structure.
     const terrasse = etat.objects.find(estTerrasse);
     if (terrasse) explorateur.selectionner(terrasse.key);
@@ -687,7 +687,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
       if (cercle) appliquerSoleilVitrine(s, pos, cercle, scene);
     };
     // A chaque pose du soleil, avant le rendu (three/soleilVue3d.ts) : pas de clignotement.
-    vue3d.apresSoleil = poserSoleilVitrine;
+    reglerVue3d({ apresSoleil: poserSoleilVitrine });
     // Et quand rien ne bouge (heure fixe, scene reconstruite) : depuis l'etat du soleil.
     const appliquerSoleil = () => {
       const [a, mo, j] = vues.vues3d.soleil3d.etat.dateStr.split('-').map(Number);
@@ -751,7 +751,7 @@ function brancherIsolement(p: Plan): void {
     reconstruire3d(recadrer) {
       // Sans cle de vue, la scene reconstruite ne reprend pas la camera : elle se cadre sur ce
       // qu'elle montre (three/scene.ts).
-      if (recadrer) vue3d.dernierObjKey = null;
+      if (recadrer) reglerVue3d({ dernierObjKey: null });
       commandes.executer('vue.3d');
     },
     lireCamera() {

@@ -6,7 +6,7 @@
 
 import { useLayoutEffect } from 'react';
 import { useStore } from 'zustand';
-import { affichage3d, glb, hotes3d } from '../../three/etat3d.js';
+import { affichage3d, glb, poserHote3d } from '../../three/etat3d.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { Icone } from '../icones.js';
 import { useEtat3d } from './Vue3d.js';
@@ -81,7 +81,7 @@ export function Visionneuse({ magasin, commandes, vues }: Props) {
           </div>
         </div>
         <BarreHeure ids={IDS_SOLEIL} id="barreSoleilGlb" soleil={soleil} formatHeure={vues.formatHeure} />
-        <div id="glbViewerCanvasHost" className="hote3d hoteVisionneuse" ref={(el) => { hotes3d.glb = el; }}
+        <div id="glbViewerCanvasHost" className="hote3d hoteVisionneuse" ref={(el) => { poserHote3d('glb', el); }}
           style={pleinePage ? { height: 'calc(100vh - 210px)' } : undefined}>
           <div className="commandes3d">
             <Bouton3d commandes={commandes} id="visionneuse.zoomAvant" domId="glbViewerZoomIn" icone="plus" libelle="Zoom avant" titre="Zoom avant" />

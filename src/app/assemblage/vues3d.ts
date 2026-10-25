@@ -21,7 +21,7 @@ import { controleurAudit } from '../audit/branchement.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../../three/navigation.js';
 import { genererGlb as genererGlbModule } from '../../three/exportGlb.js';
 import { chargerTexturePolyhaven } from '../../three/chargeurs.js';
-import { glb, soleilVue3d, signaler3d, vue3d } from '../../three/etat3d.js';
+import { glb, soleilVue3d, signaler3d, vue3d, reglerGlb, reglerSoleilVue3d } from '../../three/etat3d.js';
 import {
   syncSemaineDepuisDate as syncSemaineSoleilVue3d, syncControles as syncControlesSoleil, appliquer as appliquerSoleilVue3d
 } from '../../three/soleilVue3d.js';
@@ -116,9 +116,9 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
   const vues3d: ServiceVues3d = {
     reglages: reglagesVue3d,
     visionneuse: reglagesVisionneuse,
-    soleilGlb: reglagesSoleil({ etat: glb, syncSemaine: syncSemaineGlb, signaler: signaler3d,
+    soleilGlb: reglagesSoleil({ etat: glb, regler: reglerGlb, syncSemaine: syncSemaineGlb, signaler: signaler3d,
       appliquer: () => appliquerLumiereGlb({ lieuActuel }) }),
-    soleil3d: reglagesSoleil({ etat: soleilVue3d, syncSemaine: syncSemaineSoleilVue3d, signaler: signaler3d,
+    soleil3d: reglagesSoleil({ etat: soleilVue3d, regler: reglerSoleilVue3d, syncSemaine: syncSemaineSoleilVue3d, signaler: signaler3d,
       appliquer: appliquerLumiereVue3d }),
     allerAuPointDeVue: (vp) => nav3d.allerAuPointDeVue(vp),
     allerAuPointDeVueGlb: (vp) => nav3d.allerAuPointDeVueGlb(vp),

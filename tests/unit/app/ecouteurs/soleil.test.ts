@@ -6,7 +6,7 @@ import { reglagesSoleil, type EtatSoleil } from '../../../../src/app/ecouteurs/s
 
 function monter() {
   const etat: EtatSoleil = { dateStr: '2026-06-21', minutes: 720, intensiteSoleil: 1, lumiereAppoint: false, semaineAffichee: 25 };
-  const v = { etat, syncSemaine: vi.fn(), appliquer: vi.fn(), signaler: vi.fn() };
+  const v = { etat, regler: (r: Partial<EtatSoleil>) => { Object.assign(etat, r); }, syncSemaine: vi.fn(), appliquer: vi.fn(), signaler: vi.fn() };
   return { v, r: reglagesSoleil(v) };
 }
 

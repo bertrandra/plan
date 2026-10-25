@@ -357,6 +357,31 @@ export const affichage3d = {
  */
 export const hotes3d: { vue3d: HTMLElement | null; glb: HTMLElement | null } = { vue3d: null, glb: null };
 
+// ---- Les ecritures de l'etat 3D hors de three/ --------------------------------------------------
+//
+// L'etat de la Vue 3D a un seul proprietaire : ce module. `three/` y ecrit directement, c'est son etat ; ailleurs (app/,
+// zones/), chaque ecriture passe par une des fonctions ci-dessous, qui disent ce qui se regle de dehors et le font chercher par
+// nom. `tests/unit/architecture.test.ts` refuse une affectation directe hors de three/ (AD-14).
+
+/** Ce que l'interface regle de la Vue 3D : ses preferences d'affichage, et ce qu'un autre tient le temps d'un geste. */
+export type ReglagesVue3d = Pick<typeof vue3d, 'tousLesObjets' | 'solEnCoupe' | 'platelageTranslucide' | 'objetsOpaques' | 'textures'
+  | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil'>;
+export function reglerVue3d(r: Partial<ReglagesVue3d>): void { Object.assign(vue3d, r); }
+
+/** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, son soleil. */
+export type ReglagesGlb = Pick<typeof glb, 'ouvert' | 'filaire' | 'ombres' | 'fond' | 'dateStr' | 'minutes' | 'lumiereAppoint'
+  | 'intensiteSoleil' | 'semaineAffichee'>;
+export function reglerGlb(r: Partial<ReglagesGlb>): void { Object.assign(glb, r); }
+
+/** Le soleil de la Vue 3D. */
+export function reglerSoleilVue3d(r: Partial<typeof soleilVue3d>): void { Object.assign(soleilVue3d, r); }
+
+/** Ce que les panneaux montrent (fermee, en chargement, prete…) ; a signaler ensuite (`signaler3d`). */
+export function poserAffichage3d(r: Partial<typeof affichage3d>): void { Object.assign(affichage3d, r); }
+
+/** L'element ou se dessine une vue : la zone l'enregistre en se montant, et le retire (null) en se demontant. */
+export function poserHote3d(vue: keyof typeof hotes3d, el: HTMLElement | null): void { hotes3d[vue] = el; }
+
 let version = 0;
 const abonnes = new Set<() => void>();
 /** Dit aux zones que `affichage3d` (ou un reglage de `vue3d`, `glb`, `soleilVue3d`) a change. */

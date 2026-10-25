@@ -38,7 +38,7 @@
 // Les calculs sont dans le repere du plan (y vers le nord) ; la pose dans la scene passe par son
 // repere local (three/primitives.ts::versLocalDepuis : x vers l'est, z vers le sud, y vers le haut).
 
-import { vue3d, affichage3d } from '../../../three/etat3d.js';
+import { vue3d, affichage3d, reglerVue3d } from '../../../three/etat3d.js';
 import { versLocalDepuis } from '../../../three/primitives.js';
 import { solDeLaFacadeDevant } from '../../../three/facadeDevant3d.js';
 import { distancePointSegment, lineSegIntersect } from '../../../geometry/segments.js';
@@ -361,7 +361,7 @@ export function vuePieton(): VuePieton {
     if (!sc || !m) return;
     if (champAvant === null) champAvant = sc.camera.fov;
     // La prise de vue tient la focale : la Vue 3D ne l'accorde plus a la hauteur (three/presentation.ts).
-    vue3d.focaleBloquee = true;
+    reglerVue3d({ focaleBloquee: true });
     sc.camera.fov = champComplet(m.h, m.bas, champ);
     // La camera voit (w + droite) x (h + bas) pixels, centres sur l'axe ; on en montre les w x h du
     // haut a droite : l'axe tombe au milieu de la partie que l'ecran de l'audit laisse voir.
@@ -431,7 +431,7 @@ export function vuePieton(): VuePieton {
     liberer() {
       but = null;
       this.verrouiller?.(false);
-      vue3d.focaleBloquee = false;
+      reglerVue3d({ focaleBloquee: false });
       const sc = vue3d.scene;
       if (!sc || champAvant === null) return;
       const el = sc.renderer.domElement;
