@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PileAnnulation, LIMITE_HISTORIQUE } from '../../src/core/history.js';
+import { PileAnnulation, LIMITE_HISTORIQUE } from '../../../src/core/history.js';
 
 const inst = (n: number) => ({ objects: [n], measures: [] as never[] });
 

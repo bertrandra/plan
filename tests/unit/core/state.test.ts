@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerEtat } from '../../src/core/state.js';
-import type { ObjetPlan, Mesure } from '../../src/model/types.js';
+import { creerEtat } from '../../../src/core/state.js';
+import type { ObjetPlan, Mesure } from '../../../src/model/types.js';
 
 // `normaliser` est injecte : c'est ce qui permet de construire un etat sans embarquer legacy.ts,
 // et c'est aussi ce qui rend ce test possible.

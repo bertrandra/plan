@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { projecteurLocal, TERRE_A, tuileX, tuileY, lonDeTuile, latDeTuile } from '../../src/geo/projection.js';
-import { positionSoleil, decalageFuseauFrance } from '../../src/geo/soleil.js';
+import { projecteurLocal, TERRE_A, tuileX, tuileY, lonDeTuile, latDeTuile } from '../../../src/geo/projection.js';
+import { positionSoleil, decalageFuseauFrance } from '../../../src/geo/soleil.js';
 
 // Parcelle de reference du projet : 2 allee des limites, Le Vesinet.
 const LAT = 48.9052;

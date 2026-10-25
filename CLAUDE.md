@@ -26,8 +26,7 @@ La CI construit ensuite le paquet (`BACKPROD_API_URL=http://plateforme.test npm 
 
 - `tests/unit/architecture.test.ts` impose les couches : `util/shell` → `geometry` →
   `model/plateforme/regles` → `engine/geo/facade` → `core/io/render/export/three/interaction` → `ui`
-  → `app/zones`. Une couche
-  n'importe jamais une couche plus haute.
+  → `app/zones`. Une couche n'importe jamais une couche plus haute.
 - `tests/unit/plateforme/contrat.test.ts` ne dépend pas de `BACKPROD_API_URL` : la suite doit passer
   avec et sans la variable (elle reste exportée après un build).
 
