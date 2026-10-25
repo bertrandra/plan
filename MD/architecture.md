@@ -526,8 +526,8 @@ and one line, then the vocabulary Claude reads:
 4. What Claude reads and answers: a `DescriptionSujet` in `src/regles/sujets/descriptions/<id>.ts`
    (its schema fields, its instruction, its vocabulary, its confusions — pure data, each text with a
    `rang` that places it in the prompt), one line in `src/regles/sujets/liste.ts`, then
-   `npm run regles:generer`: `deploy/prompt-analyse.md` and `deploy/schema-analyse.json` (and their copies
-   in `buildsg/deploy/`) are *generated*, never edited by hand. A text change raises the version
+   `npm run regles:generer`: `deploy/prompt-analyse.md` and `deploy/schema-analyse.json` are
+   *generated*, never edited by hand. A text change raises the version
    (`src/regles/sujets/versions.ts`, one more line in `VERSIONS_PROMPT` / `VERSIONS_SCHEMA`):
    `tests/unit/regles/sujets/generation.test.ts` refuses a delivered file that differs from the
    generation, and a text changed under the same version. The vote that reads the answer
@@ -541,7 +541,7 @@ and one line, then the vocabulary Claude reads:
    the subjects, their texts and schemas editable, a new subject as a draft, and the prompt and schema
    recomputed on every keystroke with the diff against the delivered ones and the controls; it
    downloads the subject's module and the two files. "Save on the server" keeps the draft
-   (`admin/claude/regles`, administrator only, `deploy/analyse.php` and `buildsg/analyseAdmin.mjs`)
+   (`admin/claude/regles`, administrator only, `deploy/analyse.php`)
    **without ever replacing the delivered prompt**: only an administrator request that names it
    (`essai: "brouillon"`) reads it. With `?regles=local` the audit's analysis goes out with the draft;
    Admin › Audits replays an audit with it ("Avec le brouillon des règles") and compares the answers of two
@@ -722,7 +722,7 @@ platform's own tests. Detail in `spec-connexion-plateforme.md`.
 
 Environments: `dev` (local, Docker Compose), `staging` (production-shaped, with a copy of production data structure and volume), `production`. The client artefact is identical across all three; only its API origin differs, injected at build time.
 
-**The single-file property did not survive** (ADR-4 superseded, §10). What ships is one folder, `livraison/`, built from `main` (`npm run livraison`): `index.html`, `assets/plan-<hash>.js`, `.htaccess`, and the PHP helpers of `deploy/*.php` (admin of demos, Claude analysis proxy, server data). A second deployment, `buildsg/`, serves the same sources from Node. The API, the database and the session belong to backprod, not to this repository. Installing remains a copy of one folder — ASR-3 in spirit.
+**The single-file property did not survive** (ADR-4 superseded, §10). What ships is one folder, `livraison/`, built from `main` (`npm run livraison`): `index.html`, `assets/plan-<hash>.js`, `.htaccess`, and the PHP helpers of `deploy/*.php` (admin of demos, Claude analysis proxy, server data). The API, the database and the session belong to backprod, not to this repository. Installing remains a copy of one folder — ASR-3 in spirit.
 
 ### 5.6 Runtime scenario — cold start
 
@@ -908,7 +908,7 @@ still stands, but it is taken and enforced in the platform's repository, not her
 |---|---|---|---|
 | ADR-1 | TypeScript migration in place, module by module | Rewrite; framework adoption | ASR-1 (golden-file adjudication is only possible in place) |
 | ADR-2 | ~~No UI framework; SVG + direct DOM~~ — *superseded by ADR-16* | React / Svelte | Regression attributability; QA-P3 is about draw strategy, not virtual DOM |
-| ADR-3 | Node + TypeScript API — *amended*: the platform API (identity, tenancy, projects) is backprod's. What runs server side **in this repository** is PHP, `deploy/*.php` (demo admin, Claude analysis proxy, server data), shipped in `livraison/`; a Node variant of the same helpers lives in `buildsg/` (`app.js`, `*.mjs`). No server reuses the engine yet | Keep PHP; Go; Python | P2 — server-side engine reuse at zero cost (QA-F4) |
+| ADR-3 | Node + TypeScript API — *amended*: the platform API (identity, tenancy, projects) is backprod's. What runs server side **in this repository** is PHP, `deploy/*.php` (demo admin, Claude analysis proxy, server data), shipped in `livraison/` (the Node variant, `buildsg/`, was removed on 2026-10-25: two servers for one contract drifted apart and only one was deployed). No server reuses the engine yet | Keep PHP; Go; Python | P2 — server-side engine reuse at zero cost (QA-F4) |
 | ADR-4 | ~~Single-file client artefact preserved~~ — *superseded* (10 October 2026): the delivery is `index.html` + `assets/plan-<hash>.js` + `.htaccess` + the PHP helpers, one folder (`livraison/`) | Conventional multi-asset SPA | ASR-3 |
 | ADR-5 | PostgreSQL, single instance — *owned by backprod* | Mongo; S3-as-database; sharding | 5 GB at target scale; RLS and jsonb both needed |
 | ADR-6 | Document storage for the plan | Full normalisation | Array order is semantic; access is whole-document |

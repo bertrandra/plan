@@ -10,7 +10,6 @@ Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait p
   de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des données sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
-- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DATA_DIR`.
 
 ## Ce que c'est
 
@@ -59,7 +58,7 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 ## Où vivent les fichiers
 
 Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
-de `plan-admin-config.php`), jamais servi (`deploy/donnees.php`, `buildsg/donnees.mjs` ;
+de `plan-admin-config.php`), jamais servi (`deploy/donnees.php` ;
 `MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
 (`palette.json`, `controleurs.json`, `arbres.json`, `echecs.json`), `data/claude/`, `data/audits/`,
 `data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
@@ -76,7 +75,7 @@ dossier est déplacé dans `data/` au premier passage, sans rien écraser (`data
 session (la vitrine et la palette exceptées, en lecture), le lisent.
 
 **Sauvegarde.** Admin › « Télécharger une sauvegarde des données » (commande `admin.sauvegarde`)
-télécharge `GET admin/sauvegarde` (Apache seulement, `deploy/admin.php`) : une archive
+télécharge `GET admin/sauvegarde` (`deploy/admin.php`) : une archive
 `plan-data-AAAA-MM-JJ-HHMM.zip` de tout le dossier des données, sous la session admin. Elle contient
 `data/…` (l'arborescence telle quelle, dossiers vides compris : déposée à la place de `data/`, elle
 le restaure) et `sauvegarde.json` (`format: plan-sauvegarde`, date, disposition, nombre de fichiers,
@@ -88,7 +87,7 @@ l'extension `zip`, la route répond 501 et dit où l'activer. La page vérifie l
 suivre le lien. Ce n'est pas une sauvegarde automatique : celle de l'hébergeur reste la première
 (`LISEZMOI-DEPLOIEMENT.txt`, « Sauvegarde »).
 
-## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
+## Routes (deploy/admin.php)
 
 Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un sous-dossier.
 

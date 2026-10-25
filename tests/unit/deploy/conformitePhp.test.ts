@@ -7,8 +7,8 @@ import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { jouerScenarioConformite } from '../../fixtures/deploy/scenarioConformite.js';
 
-// Les mesures de conformite, cote PHP (deploy/analyse.php, `admin/conformite` ; lot G3) : le meme
-// scenario que buildsg/analyseAdmin.mjs, derriere le role du .htaccess. Saute si PHP manque.
+// Les mesures de conformite, cote PHP (deploy/analyse.php, `admin/conformite` ; lot G3),
+// derriere le role du .htaccess. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');

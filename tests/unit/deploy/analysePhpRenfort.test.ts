@@ -5,17 +5,17 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
-import { coutAppel, tarifEnVigueur, tokensDeUsage, type Tarifs } from '../../../buildsg/analyseAdmin.mjs';
+import { php as appelPhp } from '../../fixtures/deploy/appelPhp.js';
 import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
-// Le renfort de Claude (lot L18) dans analyse.php : memes scenarios que le serveur Node
-// (tests/unit/buildsg/analyseAdminRenfort.test.ts), memes couts. Saute si PHP manque.
+// Le renfort de Claude (lot L18) dans analyse.php, par ses routes : la requete de
+// renfort dans le batch, l'appel immediat, l'escalade. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
-const TARIFS = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/claude-tarifs.json'), 'utf8')) as Tarifs;
+const TARIFS = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/claude-tarifs.json'), 'utf8')) as { lignes: unknown[] };
 const SCHEMA = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-renfort.json'), 'utf8')).schema as unknown;
 
 let base = '';
@@ -105,13 +105,13 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ usage: 'analyse' });
   });
 
-  it('fait l appel immediat aux memes couts que Node, et le borne a trois requetes', async () => {
+  it('fait l appel immediat au cout du tarif en vigueur, et le borne a trois requetes', async () => {
     const d = (n: number) => ({ ...demande([]), usage: 'renfort', requetes: Array.from({ length: n }, (_, i) => requeteRenfort('r' + (i + 1), (i % 3) + 1)) });
     const r = await ecrire('admin/claude/messages', d(3));
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
-    const cout = coutAppel(tokensDeUsage(USAGE_P2), tarifEnVigueur(TARIFS, 'claude-haiku-5-5', new Date().toISOString().slice(0, 10)), false);
+    const cout = appelPhp('coutAppel', appelPhp('tokensDeUsage', USAGE_P2), appelPhp('tarifEnVigueur', TARIFS, 'claude-haiku-5-5', new Date().toISOString().slice(0, 10)), false);
     expect(corps.resultats.map((x: { id: string; statut: string; cout: number }) => [x.id, x.statut, x.cout])).toEqual([['r1', 'reussi', cout], ['r2', 'reussi', cout], ['r3', 'reussi', cout]]);
     expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
     expect(journal()).toHaveLength(3);
@@ -119,7 +119,7 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
   });
 
-  it('fait l escalade (D20) comme Node : usage escalade, prompt et schema de l analyse, modele demande', async () => {
+  it('fait l escalade (D20) : usage escalade, prompt et schema de l analyse, modele demande', async () => {
     await verifierEscalade({ ecrire: (e, _m, c) => ecrire(e, c), faux, journal });
   });
 });

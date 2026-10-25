@@ -1130,8 +1130,8 @@ erreur), donc la stabilité vient de la structure, pas d'un réglage.
    `"indetermine"` partout. Le schéma ne part plus en sortie structurée (`output_config.format`) :
    l'API le compile en grammaire, et celle de l'analyse d'une maison dépasse sa limite (« The
    compiled grammar is too large », audit d'AE 101, 15 octobre 2026). Il suit le prompt, dans le même
-   bloc en cache, et le serveur ramène la réponse à sa forme (`deploy/analyse.php::conformer`,
-   `buildsg/analyseAdmin.mjs`, même règle) : le texte autour et un bloc de code sont laissés, un terme
+   bloc en cache, et le serveur ramène la réponse à sa forme (`deploy/analyse-fonctions.php::conformer`) :
+   le texte autour et un bloc de code sont laissés, un terme
    est lu sans accents ni majuscules, un terme hors vocabulaire devient `indetermine`, un champ absent
    prend `indetermine` ou le vide de son type. Rien n'est inventé : un élément de liste dont un nombre
    ou un terme sans `indetermine` manque est écarté, et une confiance absente est `faible`. Une

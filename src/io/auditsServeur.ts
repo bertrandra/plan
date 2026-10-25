@@ -1,6 +1,6 @@
 // Les audits de parcelle sur le serveur de Plan (MD/spec-audit.md §15) : le fichier
 // `plan-audit-parcelle` part dans les donnees de l'administrateur (`admin/audits`, servi par
-// deploy/analyse.php et buildsg/analyseAdmin.mjs, meme contrat), et l'administrateur les catalogue.
+// deploy/analyse.php), et l'administrateur les catalogue.
 //
 // Deux sortes de depots, que la fiche du serveur distingue par sa marque (en-tete `X-Plan-Depot`) :
 //   - `corpus` : le partage « pour améliorer Plan » (decision D7), apres une validation, revocable ;
@@ -24,7 +24,7 @@ export const ENTETE_RETRAIT = 'X-Plan-Retrait';
 /** L'en-tete qui dit pourquoi le fichier est depose ; absent, le serveur compte un depot `corpus`. */
 export const ENTETE_DEPOT = 'X-Plan-Depot';
 /**
- * Ce que le serveur accepte au plus (`TAILLE_MAX` des deux serveurs) : la page le dit avant d'envoyer
+ * Ce que le serveur accepte au plus (`TAILLE_MAX` d'analyse.php) : la page le dit avant d'envoyer
  * plutot que de faire partir 50 Mo pour un refus. Un hebergement PHP peut refuser avant (memoire,
  * `post_max_size` d'une configuration stricte) : son refus est alors montre tel quel.
  */

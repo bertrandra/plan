@@ -1,4 +1,4 @@
-// Le client des routes de l'analyse par Claude (deploy/analyse.php, buildsg/analyseAdmin.mjs ;
+// Le client des routes de l'analyse par Claude (deploy/analyse.php ;
 // MD/spec-audit.md §13.2, lot L17). Quatre gestes : l'etat du serveur, creer un batch, lire son
 // etat, lire ses resultats. La page n'envoie que la partie propre a la maison (images et textes) ;
 // le prompt, le schema et la cle sont au serveur.

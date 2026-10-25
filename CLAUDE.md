@@ -126,6 +126,10 @@ d'y toucher.
 
 ## Décisions déjà prises
 
+- **Un seul serveur, en PHP** (`deploy/*.php`, livré dans `livraison/`) : le second serveur Node (`buildsg/`) a été retiré le
+  25 octobre 2026, ses deux copies d'un même contrat s'écartaient. Le calcul d'`analyse.php` vit dans
+  `deploy/analyse-fonctions.php` (rien ne s'y exécute à l'inclusion) et se teste fonction par fonction
+  (`tests/unit/deploy/analyseFonctions.test.ts`) ; les routes, par `php -S` derrière `tests/fixtures/deploy/routeur-admin.php`.
 - **« Filaire » (Vue 3D)** est une préférence d'affichage : pas de Ctrl+Z, pas de « projet
   modifié », permise en lecture seule. Elle reste rangée dans `construction.lames3dFilaire` pour
   être retrouvée à la réouverture.

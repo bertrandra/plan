@@ -16,12 +16,10 @@ const g = genererFichiers();
 describe('deploy/ est ce que les descriptions de sujets donnent', () => {
   it('le prompt livre est celui que le code assemble : `npm run regles:generer` sinon', () => {
     expect(readFileSync('deploy/prompt-analyse.md', 'utf8') === g.prompt).toBe(true);
-    expect(readFileSync('buildsg/deploy/prompt-analyse.md', 'utf8') === g.prompt).toBe(true);
   });
 
   it('le schema livre est celui que le code assemble', () => {
     expect(readFileSync('deploy/schema-analyse.json', 'utf8') === g.schema).toBe(true);
-    expect(readFileSync('buildsg/deploy/schema-analyse.json', 'utf8') === g.schema).toBe(true);
   });
 
   it('un texte change monte la version : l’empreinte du corps est celle de la derniere version', () => {
