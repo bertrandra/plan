@@ -25,6 +25,12 @@ describe('la chaine des migrations', () => {
     expect(migrer(structuredClone(d), 1)).toEqual(d);
     expect(migrer(structuredClone(d), undefined)).toEqual(d);
   });
+
+  it('lit un document de schema 4 tel quel (4 -> 5 ne fait que distinguer les champs venus apres le relief)', () => {
+    const d = { objects: [batiment({ piscine: {}, corpsToit: [] } as Partial<ObjetBrut>)], measures: [] };
+    expect(migrer(structuredClone(d), 4)).toEqual(d);
+    expect(schemaAEcrire(d.objects, 4)).toBe(5);
+  });
 });
 
 describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
@@ -70,14 +76,14 @@ describe('le schema qu un document ecrit', () => {
     expect(schemaMinimal([batiment({ facades: [] })])).toBe(1);
   });
 
-  it('est 4 pour la demonstration, dont la parcelle porte un relief, et 3 pour son temoin (maison a croupes) : la plateforme doit accepter 4', () => {
-    expect(schemaMinimal(DEMO_OBJECTS)).toBe(4);
+  it('est 5 pour la demonstration, dont les batiments portent leurs corps de toit, et 3 pour son temoin (maison a croupes) : la plateforme doit accepter 5', () => {
+    expect(schemaMinimal(DEMO_OBJECTS)).toBe(5);
     expect(schemaMinimal(DEMO_TEMOIN_OBJECTS)).toBe(3);
   });
 
-  it('est 4 des qu un objet porte un champ venu apres le schema 4 (piscine, pergola, cloture, corps du toit…) : un lecteur 3 le perdrait', () => {
+  it('est 5 des qu un objet porte un champ venu apres le relief (piscine, pergola, cloture, corps du toit…) : un lecteur 4 le perdrait', () => {
     for (const champ of ['piscine', 'pergola', 'cloture', 'corpsToit', 'volumesToit', 'toitMesure', 'fenetres3d', 'voisinage3d', 'ruesVoisinage']) {
-      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetBrut>)]), champ).toBe(4);
+      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetBrut>)]), champ).toBe(5);
     }
   });
 
