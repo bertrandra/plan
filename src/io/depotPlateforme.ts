@@ -21,7 +21,8 @@
 
 import { schemaMinimal, migrer } from '../model/migrations.js';
 import { EchecPlateforme, type Session } from '../plateforme/session.js';
-import type { ProjetResume, ProjetServeur, MotifEchec } from './api.js';
+import type { MotifEchec, DepotProjets } from './api.js';
+export type { DepotProjets } from './api.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 import { phraseLimite } from '../plateforme/quotaProjets.js';
 import { magasinPhotos, sortirLesPhotos, rentrerLesPhotos, type MagasinPhotos } from './photosLocales.js';
@@ -129,17 +130,6 @@ function refusDeTaille(e: EchecPlateforme, quoi: string): Error & { reason: Moti
     + '. Ce qui pèse le plus : le voisinage étendu et le relief sur toutes les parcelles. Masquer ne suffit pas :'
     + ' supprimez une partie du voisinage, ou baissez « Points max » dans la section Relief de la parcelle, puis « Actualiser le relief ».'
     + ' Rien n’est perdu : le plan reste ouvert ici.' + ref, 'server');
-}
-
-export interface DepotProjets {
-  lister(): Promise<ProjetResume[]>;
-  ouvrir(id: string): Promise<ProjetServeur>;
-  /**
-   * `objetsJson` : les objets deja ecrits en JSON (app/projet.ts, par paquets) ; ils partent tels quels
-   * quand aucune photo de releve n'est a sortir, sans etre recrits d'un seul tenant.
-   */
-  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown; objetsJson?: Blob }): Promise<{ id: string; updatedAt?: string }>;
-  supprimer(id: string): Promise<unknown>;
 }
 
 /** Une marque que JSON.stringify ne produit jamais ailleurs : elle tient la place des objets deja ecrits. */

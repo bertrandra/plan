@@ -25,9 +25,8 @@ import type { ProposerPoids } from './regles/Poids.js';
 import { Sources, type PropsSources } from './regles/Sources.js';
 import { BarreVue, Tuiles } from './regles/Tuiles.js';
 import type { ClientRegles } from '../io/reglesServeur.js';
-import { useBrouillonServeur } from './regles/brouillonServeur.js';
-
-export interface BrouillonRegles { lire(): string | null; ecrire(texte: string): void; effacer(): void }
+import { useBrouillonServeur, type BrouillonRegles } from './regles/brouillonServeur.js';
+export type { BrouillonRegles } from './regles/brouillonServeur.js';
 
 export interface PropsEcranRegles {
   /** Les sujets tels que le depot les livre. */

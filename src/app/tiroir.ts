@@ -14,11 +14,11 @@
 
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
-import type { Magasin } from './magasin.js';
+import type { Magasin, HauteurTiroir } from './magasin.js';
 import { classePour, toucherSeul } from './classe.js';
 import { reliefDe } from '../model/relief.js';
 
-export type HauteurTiroir = 'replie' | 'mi' | 'plein';
+export type { HauteurTiroir } from './magasin.js';
 
 export interface Onglet {
   id: string;

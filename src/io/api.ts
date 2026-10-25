@@ -11,8 +11,19 @@
 // ecran dans les deux cas. Le depot traduit les codes de la plateforme dans ce vocabulaire-la.
 
 import { au } from '../util/tableaux.js';
-import type { DepotProjets } from './depotPlateforme.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
+
+/** Ce que Plan demande au depot des projets (io/depotPlateforme.ts l'ecrit pour la plateforme). */
+export interface DepotProjets {
+  lister(): Promise<ProjetResume[]>;
+  ouvrir(id: string): Promise<ProjetServeur>;
+  /**
+   * `objetsJson` : les objets deja ecrits en JSON (app/projet.ts, par paquets) ; ils partent tels quels
+   * quand aucune photo de releve n'est a sortir, sans etre recrits d'un seul tenant.
+   */
+  enregistrer(charge: { id?: string; name?: string; objects: ObjetBrut[]; measures?: Mesure[]; meta?: unknown; objetsJson?: Blob }): Promise<{ id: string; updatedAt?: string }>;
+  supprimer(id: string): Promise<unknown>;
+}
 
 /**
  * Le depot, pose par la racine de composition une fois la porte franchie.

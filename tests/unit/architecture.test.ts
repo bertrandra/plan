@@ -144,11 +144,11 @@ describe('aucun cycle d import (architecture.md §9, FF-1)', () => {
     expect(cycles, 'cycles').toEqual([]);
   });
 
-  it('les cycles qui ne passent que par des imports de type ne gagnent pas de terrain (cliquet)', () => {
+  it('aucun cycle non plus par les imports de type', () => {
     // Effaces au build, ils ne cassent rien ; mais deux modules qui se citent l'un l'autre n'ont plus de sens de lecture, et un
-    // import de type devient vite un import de valeur. Leur nombre (groupes fortement connexes, Tarjan) ne peut que baisser :
-    // baisser PLAFOND quand on en casse un, jamais le monter. Releve le 25 octobre 2026 (audit d'architecture, lot I).
-    const PLAFOND = 10;
+    // import de type devient vite un import de valeur. Dix au 25 octobre 2026 (lot I), tous casses le meme jour (lot K) : le type
+    // partage descend dans le module le plus bas, ou dans un module a lui. Groupes fortement connexes (Tarjan).
+    const PLAFOND = 0;
     const index = new Map(tous.map(f => [f.replace(/\.tsx?$/, ''), f]));
     const voisins = new Map(tous.map(f => [f, dependances(f).filter(d => !d.dynamique)
       .map(d => index.get(d.cible) ?? index.get(join(d.cible, 'index')))
@@ -203,11 +203,5 @@ describe('ce qui doit rester pur', () => {
       }
     }
     expect(coupables, 'horloge, hasard, langue ou reseau dans le calcul ou les exports').toEqual([]);
-  });
-
-  it('aucune couche n importe legacy.ts', () => {
-    // La dependance va dans l'autre sens, et doit y rester : legacy.ts se vide, il ne se remplit pas.
-    const coupables = tous.filter(f => dependances(f).some(d => d.cible === join(src, 'legacy')));
-    expect(coupables).toEqual([]);
   });
 });

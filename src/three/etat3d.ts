@@ -10,13 +10,33 @@
 // et elle evite d'ecrire cinquante-cinq `getScene()` pour rien.
 
 import type { Qualite3d } from './qualite.js';
-import type { EtatRendu } from './rendu.js';
 import type * as THREE_NS from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import type { ObjetPlan, ObjetAPoints, PtBrut } from '../model/types.js';
-import type { DeuxVues } from './comparaison3d.js';
 import { mesurerImage, perfActive } from './perf.js';
 import { reglerVent } from './vent.js';
+
+/** Ce que l'occlusion ajoute a la scene : un enchainement de passes a rendre a la place du rendu simple. */
+export interface Occlusion {
+  render(): void;
+  setSize(w: number, h: number): void;
+  setPixelRatio(r: number): void;
+  dispose(): void;
+}
+
+/** Ce que le rendu pose sur une scene de la Vue 3D, et qu'il faut liberer avec elle. */
+export interface EtatRendu {
+  environnement: boolean;
+  cible: THREE_NS.WebGLRenderTarget | null;
+  minuterie: ReturnType<typeof setTimeout> | null;
+  occlusion: Occlusion | null;
+  /** La scene a ete demontee : une occlusion arrivee apres coup ne s'y branche pas. */
+  libere: boolean;
+}
+
+/** Un rectangle en pixels CSS : relatif au canevas pour les vues, a la fenetre pour l'ecran pose dessus. */
+export interface Rect { x: number; y: number; l: number; h: number }
+export interface DeuxVues { avant: Rect; apres: Rect; sens: 'cote' | 'pile' }
 
 /**
  * Ce que la Vue 3D et la visionneuse gardent en main entre deux images.

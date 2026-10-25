@@ -13,6 +13,8 @@ import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
 import type { OuvertureFacade } from './types.js';
+import type { TypeCloture, PositionPortail } from './clotureVue.js';
+export type { TypeCloture, PositionPortail } from './clotureVue.js';
 
 /** La version de la capture ecrite : une capture d'une version inconnue n'est pas reprise. */
 export const VERSION_CAPTURE_PARCELLE = 1;
@@ -88,7 +90,6 @@ export interface BatimentCapture<P = PhotoCas> {
   photos: P[];
 }
 
-export type TypeCloture = 'mur' | 'grillage' | 'palissade' | 'haie';
 export const TYPES_CLOTURE: readonly { code: TypeCloture; libelle: string }[] = [
   { code: 'mur', libelle: 'Mur' },
   { code: 'grillage', libelle: 'Grillage' },
@@ -109,8 +110,6 @@ export const NATURES_PORTAIL: readonly { code: NaturePortail; libelle: string }[
   { code: 'portillon', libelle: 'Portillon' },
   { code: 'aucun', libelle: 'Aucun' },
 ];
-/** Ou est le portail le long de la limite, vu de la rue. */
-export type PositionPortail = 'gauche' | 'centre' | 'droite';
 export const POSITIONS_PORTAIL: readonly { code: PositionPortail; libelle: string }[] = [
   { code: 'gauche', libelle: 'À gauche' },
   { code: 'centre', libelle: 'Au milieu' },

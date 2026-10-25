@@ -17,7 +17,8 @@ import type * as THREE_NS from 'three';
 import { chargerExemple } from './bibliotheque.js';
 import { HORS_EXPORT } from './primitives.js';
 import type { ParametresQualite } from './qualite.js';
-import { rendre3d, type SceneVue3d } from './etat3d.js';
+import { rendre3d, type SceneVue3d, type EtatRendu, type Occlusion } from './etat3d.js';
+export type { EtatRendu, Occlusion } from './etat3d.js';
 
 /** L'exposition de la courbe de film : reglee a l'oeil sur le banc d'AE 101 (scripts/banc-visuel.mjs). */
 export const EXPOSITION = 1.15;
@@ -285,13 +286,6 @@ export function chargerOcclusion(): Promise<boolean> {
   return occlusionChargee;
 }
 
-/** Ce que l'occlusion ajoute a la scene : un enchainement de passes a rendre a la place du rendu simple. */
-export interface Occlusion {
-  render(): void;
-  setSize(w: number, h: number): void;
-  setPixelRatio(r: number): void;
-  dispose(): void;
-}
 
 type ExemplesOcclusion = {
   EffectComposer: new (r: THREE_NS.WebGLRenderer, cible?: THREE_NS.WebGLRenderTarget) => { addPass(p: unknown): void; render(): void; setSize(w: number, h: number): void; setPixelRatio(r: number): void; renderTarget1: THREE_NS.WebGLRenderTarget; renderTarget2: THREE_NS.WebGLRenderTarget };
@@ -374,15 +368,6 @@ export function brancherOcclusion(renderer: THREE_NS.WebGLRenderer, scene: THREE
 
 // ---- La scene entiere ---------------------------------------------------------------------------
 
-/** Ce que le rendu pose sur une scene de la Vue 3D, et qu'il faut liberer avec elle. */
-export interface EtatRendu {
-  environnement: boolean;
-  cible: THREE_NS.WebGLRenderTarget | null;
-  minuterie: ReturnType<typeof setTimeout> | null;
-  occlusion: Occlusion | null;
-  /** La scene a ete demontee : une occlusion arrivee apres coup ne s'y branche pas. */
-  libere: boolean;
-}
 
 /**
  * Pose le rendu photographique sur une scene qui vient d'etre montee : courbe de film, ciel (sauf

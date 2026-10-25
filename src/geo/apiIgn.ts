@@ -19,10 +19,8 @@ import type { PtBrut, ZoneUrba, PrescriptionPlu, InformationPlu, ServitudePlu, Z
 import type { ParcelleCadastrale, ObjetBdTopo, AdresseRecherchee } from './cadastreObjets.js';
 import type { ProjecteurLocal } from './projection.js';
 
-/** Une position GeoJSON : `[lon, lat]`, parfois suivie de l'altitude — jamais moins de deux nombres. */
-export type Position = [number, number, ...number[]];
-/** Un anneau de coordonnees GeoJSON, non ferme cote appli. */
-export type Anneau = Position[];
+import type { Anneau } from './geojson.js';
+export type { Position, Anneau } from './geojson.js';
 
 /** Une geometrie GeoJSON telle que la rendent API Carto et le WFS — Polygon ou MultiPolygon. */
 export interface GeometrieGeoJSON {

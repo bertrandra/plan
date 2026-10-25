@@ -20,7 +20,7 @@ import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
-import type { Anneau } from './apiIgn.js';
+import type { Anneau } from './geojson.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
 export interface ParcelleCadastrale {

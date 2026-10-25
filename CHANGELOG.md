@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Plus aucun cycle d'import, même par les types** (audit d'architecture, lot K). Les dix cycles qui ne passaient que par des
+  imports de type sont cassés : chaque type partagé descend dans le module le plus bas, ou dans un module à lui
+  (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`). Le test d'architecture les
+  interdit désormais tous. La règle « rien n'importe `legacy.ts` », sans objet depuis la 1.1.0, est retirée. Rien ne change à
+  l'écran ni dans les exports.
+
 ## [3.0.0] — 2026-10-25
 
 Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des quantités changent pour certains projets.

@@ -9,14 +9,10 @@ import { useState } from 'react';
 import { tracerCorrections, versOuvertureFacade } from '../../facade/detection/verification.js';
 import type { OuvertureDetectee } from '../../facade/detection/detection.js';
 import type { ResultatRenfort } from '../../facade/detection/renfortRecalage.js';
-import { propositionRenforcee } from './aide.js';
+import { propositionRenforcee, type Proposition } from './aide.js';
+export type { Proposition } from './aide.js';
 import type { CorrectionOuverture, DetailsOuverture, OuvertureFacade } from '../../model/types.js';
 
-/** Ce que l'analyse a propose : les ouvertures cochees et les devinees decochees. */
-export interface Proposition {
-  cochees: OuvertureFacade[];
-  decochees: OuvertureFacade[];
-}
 
 const cm = (v: number) => Math.round(v * 100) / 100;
 

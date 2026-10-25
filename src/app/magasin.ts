@@ -17,8 +17,10 @@ import type { EtatApp } from '../core/state.js';
 import type { PtBrut } from '../model/types.js';
 import type { ProjetResume } from '../io/api.js';
 import type { Vue } from './modes.js';
-import type { HauteurTiroir } from './tiroir.js';
 import type { Classe } from './exposition.js';
+
+/** La hauteur du tiroir des resultats (app/tiroir.ts) : rangee ici, avec l'etat qui la tient. */
+export type HauteurTiroir = 'replie' | 'mi' | 'plein';
 
 /**
  * Les feuilles du telephone (spec-ihm-mobile §5.5) : une seule ouverte a la fois. Chacune porte une

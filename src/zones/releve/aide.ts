@@ -12,8 +12,13 @@ import { signauxRenfort, texteSignaux, type SituationRenfort, type VoteRenfort }
 import type { SourceCoin } from '../../facade/calage/calageFin.js';
 import type { Image } from '../../facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
-import type { Proposition } from './ouvertures.js';
 import type { Morceau } from '../../facade/releve/serie.js';
+
+/** Ce que l'analyse a propose : les ouvertures cochees et les devinees decochees. */
+export interface Proposition {
+  cochees: OuvertureFacade[];
+  decochees: OuvertureFacade[];
+}
 
 /** Les signaux de l'etape des coins : ceux du calage fin de la photo courante. */
 export function signauxDesCoins(m: Morceau | undefined): SituationRenfort[] {

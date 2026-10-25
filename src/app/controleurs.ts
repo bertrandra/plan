@@ -12,47 +12,13 @@
 
 import type { Commande } from './commandes.js';
 import type { Classe, Emplacement } from './exposition.js';
-import type { Champ, ChampChoix, Effet, Section } from '../ui/champs/types.js';
-import type { ControleEcran, EcartZone } from './inventaireEcran.js';
+import type { Champ, Effet, Section } from '../ui/champs/types.js';
+import type { ControleEcran } from './inventaireEcran.js';
 import type { ObjetBrut } from '../model/types.js';
 import { CONTROLES, NATURES } from './controlesInterface.js';
 import { ECRIVENT, brancheEcritures, champAnnulable } from './ecritures.js';
-
-export type GenreNoeud = 'racine' | 'branche' | 'zone' | 'emplacement' | 'groupe' | 'commande' | 'famille' | 'section' | 'champ' | 'option' | 'controle' | 'manque';
-
-export interface Noeud {
-  /** La cle du controleur dans son parent : l'identifiant de la commande, la cle du champ… */
-  cle: string;
-  /** Son nom explicite, tel que l'ecran le montre. */
-  nom: string;
-  genre: GenreNoeud;
-  /** Quelques faits, en clair : raccourci, type, unite, classes d'ecran… */
-  details?: Record<string, string>;
-  enfants?: Noeud[];
-}
-
-/** Le document enregistre sur le serveur. */
-export interface RegistreControleurs {
-  format: 'plan-controleurs';
-  version: 1;
-  appVersion: string;
-  decouvertLe: string;
-  arbre: Noeud;
-}
-
-/** Ce que la decouverte lit dans Plan en marche. */
-export interface SourceControleurs {
-  appVersion: string;
-  commandes: Commande[];
-  exposition: Record<string, Record<Classe, Emplacement[]>>;
-  /**
-   * Une entree par sorte d'objet rencontree : ses sections d'inspecteur, et de quoi lister les
-   * valeurs permises d'une liste de choix (elles dependent de l'objet). `null` : illisible.
-   */
-  inspecteur: { cle: string; nom: string; sections: Section[]; echantillon?: boolean; optionsDe?: (ch: ChampChoix) => { valeur: string; libelle: string }[] | null }[];
-  /** L'inventaire de la page (app/inventaireEcran.ts) : les controles affiches hors registre. */
-  ecran?: { horsRegistre: ControleEcran[]; rattaches: number; classes?: string[]; ecarts?: EcartZone[] };
-}
+import type { Noeud, SourceControleurs } from './typesControleurs.js';
+export type { GenreNoeud, Noeud, RegistreControleurs, SourceControleurs } from './typesControleurs.js';
 
 /** Les zones de l'ecran (MD/spec-ihm-zones.md §3) et les emplacements qu'elles portent. */
 const ZONES: { cle: string; nom: string; emplacements: Emplacement[] }[] = [
