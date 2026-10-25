@@ -1426,14 +1426,19 @@ const POINTS = {
     const ecran = branche('horsRegistre', 'ecran')?.details ?? {};
     const ecarts = branche('horsRegistre', 'ecartsZone')?.details?.nombre;
     const sansDroits = branche('ecritures', 'sansDroits')?.details?.nombre;
-    const sansAnnulation = branche('ecritures', 'sansAnnulation')?.details?.nombre;
+    // Les seules ecritures sans annulation admises : creer le projet depuis le cadastre (le resume, ou l'import direct) le remplace,
+    // il n'y a rien a defaire. Toute autre se voit ici, par son nom.
+    const ADMISES_SANS_ANNULATION = new Set(['controle:cadastre.creerProjet', 'controle:cadastre.creerDirect']);
+    const sansAnnulationNoeuds = branche('ecritures', 'sansAnnulation')?.enfants ?? [];
+    const sansAnnulation = sansAnnulationNoeuds.length;
+    const nonAdmises = sansAnnulationNoeuds.map((n) => n.cle).filter((k) => !ADMISES_SANS_ANNULATION.has(k));
     let nommesParCle = 0, commandes = 0, sansDescription = 0;
     const voir = (n) => { if (n.genre === 'champ' && n.nom === n.cle) nommesParCle++; (n.enfants || []).forEach(voir); };
     voir(branche('inspecteur'));
     const compter = (n) => { if (n.genre === 'commande') { commandes++; if (!n.details?.description) sansDescription++; } (n.enfants || []).forEach(compter); };
     compter(branche('commandes'));
-    const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && Number(sansAnnulation) <= 1 && nommesParCle === 0 && sansDescription === 0;
-    return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation} ; champs nommés par leur clé ${nommesParCle} ; commandes sans description ${sansDescription}/${commandes}` };
+    const ok = ecran.horsRegistre === '0' && ecran.classes === 'bureau, tablette, téléphone' && ecarts === '0' && sansDroits === '0' && !nonAdmises.length && nommesParCle === 0 && sansDescription === 0;
+    return { ok, mesure: `classes : ${ecran.classes} ; hors registre ${ecran.horsRegistre} (${ecran.rattaches} rattachés) ; écarts de zone ${ecarts} ; écritures sans droits ${sansDroits}, sans annulation ${sansAnnulation}${nonAdmises.length ? ' (non admises : ' + nonAdmises.join(', ') + ')' : ' (admises)'} ; champs nommés par leur clé ${nommesParCle} ; commandes sans description ${sansDescription}/${commandes}` };
   },
   54: async (page) => {
     // Le releve de facade de bout en bout, sans camera : une facade synthetique (mur enduit, deux
@@ -2568,7 +2573,14 @@ const POINTS = {
     const rejouer = page.locator('[data-controle="auditsParcelle.rejouer"]');
     const rejouable = (await rejouer.count()) ? await rejouer.isEnabled() : false;
     const raison = ((await page.locator('.detailAuditRecu .raisonAuditRecu').textContent().catch(() => '')) || '').trim();
-    if (rejouable) await rejouer.click({ timeout: 30000 });
+    // Rejouer est un appel facture : il se confirme sur la carte avant de partir (DetailAudit.tsx), et rien ne part sans.
+    let confirmation = false;
+    if (rejouable) {
+      await rejouer.click({ timeout: 30000 });
+      await page.waitForTimeout(300);
+      confirmation = (await page.locator('.confirmationAuditRecu').count()) > 0 && !s.demande;
+      await page.locator('[data-controle="auditsParcelle.confirmerRejeu"]').click({ timeout: 30000 }).catch(() => {});
+    }
     for (let i = 0; i < 120 && !s.demande; i++) await page.waitForTimeout(500);
     await page.waitForFunction(() => document.querySelectorAll('.tableComparaison tbody tr').length >= 2 && !/En cours/.test(document.querySelector('.tableComparaison tbody tr:last-child')?.textContent || ''), null, { timeout: 30000 }).catch(() => {});
     const lignes = await page.locator('.tableComparaison tbody tr').allTextContents();
@@ -2594,12 +2606,12 @@ const POINTS = {
     await page.locator('[data-controle="auditsParcelle.retour"]').click({ timeout: 15000 }).catch(() => {});
     await page.locator('.dialogueAuditsParcelle').waitFor({ timeout: 15000 }).catch(() => {});
     const retourne = (await page.locator('.dialogueAuditsParcelle .carteAuditRecu').count()) === 1;
-    const ok = consultation === 'Avant et après : l’audit reçu' && /Validée/.test(decisionConsultee) && sansValider && deuxVues && projetIntact && retourne
+    const ok = confirmation && consultation === 'Avant et après : l’audit reçu' && /Validée/.test(decisionConsultee) && sansValider && deuxVues && projetIntact && retourne
       && titre === 'Audits' && sections.length === 2 && /1 proposition .* 1 validée/.test(conclusion) && vignettes >= 1 && /Validée/.test(decision) && rejouable
       && d?.usage === 'rejeu' && d?.depot === ID && d?.modele === 'claude-sonnet-5-5' && d?.requetes?.length === 3 && images >= 1
       && lignes.length === 2 && /Rejeu/.test(lignes[1] ?? '') && /Claude Sonnet 5\.5/.test(lignes[1] ?? '') && !/En cours/.test(lignes[1] ?? '')
       && /Vous regardez une maison/.test(trace) && /Deux pans/.test(trace) && imageTrace >= 1 && !debordeDetail && !debordeTrace;
-    return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; avant/après : « ${consultation} », ${decisionConsultee || 'SANS décision'}, ${sansValider ? 'lecture seule' : 'ÉDITABLE'}, ${deuxVues ? 'deux vues' : 'PAS de deux vues'}, projet ${projetIntact ? 'intact' : 'MODIFIÉ'}, ${retourne ? 'retour aux audits' : 'PAS de retour'} ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
+    return { ok, mesure: `« ${titre} », sections ${sections.join(' / ')} ; conclusion « ${conclusion.slice(0, 70)} » ; ${vignettes} vignette(s), décision « ${decision.slice(0, 50)} » ; rejeu ${rejouable ? 'actif' : 'GRISÉ (' + raison.slice(0, 80) + ')'}${confirmation ? ', confirmé' : ', SANS confirmation'} ; demande ${d ? d.usage + ', ' + d.modele + ', ' + d.requetes.length + ' requêtes, ' + images + ' image(s), depot ' + d.depot : 'AUCUNE'} ; comparaison ${lignes.length} ligne(s) « ${(lignes[1] ?? '').slice(0, 60)} » ; trace ${/Vous regardez/.test(trace) ? 'entrant' : 'SANS entrant'}, ${/Deux pans/.test(trace) ? 'sortant brut' : 'SANS sortant'}, ${imageTrace} image(s) ; avant/après : « ${consultation} », ${decisionConsultee || 'SANS décision'}, ${sansValider ? 'lecture seule' : 'ÉDITABLE'}, ${deuxVues ? 'deux vues' : 'PAS de deux vues'}, projet ${projetIntact ? 'intact' : 'MODIFIÉ'}, ${retourne ? 'retour aux audits' : 'PAS de retour'} ; débordement ${debordeDetail || debordeTrace ? 'OUI' : 'non'}` };
   },
   67: async (page) => {
     // La structure de la facade dans le releve (lot L15, spec facades §10 a §12) : une facade de trois
