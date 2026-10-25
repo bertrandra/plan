@@ -21,7 +21,8 @@
 // bouge, et sinon toutes les DELAI_REPOS_MS (une texture arrivee entre-temps se montre ainsi).
 
 import type * as THREE_NS from 'three';
-import { affichage3d, signaler3d, type SceneTroisBase } from './etat3d.js';
+import { affichage3d, signaler3d, type SceneTroisBase, type Rect, type DeuxVues } from './etat3d.js';
+export type { Rect, DeuxVues } from './etat3d.js';
 
 /** La couche des batiments tels qu'ils sont dans le projet, vue seulement dans « Avant ». */
 export const COUCHE_AVANT = 1;
@@ -40,11 +41,8 @@ const MARGE_COTE = 0.15;
 /** La forme visee pour chaque vue : celle d'une photo, ou une maison se lit bien. */
 const FORME_VISEE = 4 / 3;
 
-/** Un rectangle en pixels CSS : relatif au canevas pour les vues, a la fenetre pour l'ecran pose dessus. */
-export interface Rect { x: number; y: number; l: number; h: number }
 /** Un rectangle de la fenetre, comme le rend `getBoundingClientRect`. */
 export interface RectFenetre { left: number; top: number; right: number; bottom: number }
-export interface DeuxVues { avant: Rect; apres: Rect; sens: 'cote' | 'pile' }
 
 /**
  * La part du canevas que l'ecran des propositions ne cache pas : le plus grand des quatre bandeaux

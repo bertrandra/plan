@@ -14,7 +14,7 @@
 
 import type { Champ, ContexteChamps } from '../ui/champs/types.js';
 import type { Commande } from './commandes.js';
-import type { Noeud, SourceControleurs } from './controleurs.js';
+import type { Noeud, SourceControleurs } from './typesControleurs.js';
 import { CONTROLES } from './controlesInterface.js';
 
 /** Les types de champ qui ecrivent : les autres montrent, ou declenchent. */

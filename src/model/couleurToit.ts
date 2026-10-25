@@ -9,7 +9,7 @@
 // Ce module est pur : il recoit les pixels, `render/couleurToitOrtho.ts` va les chercher.
 
 import { au } from '../util/tableaux.js';
-import type { CouvertureChoisie } from './types.js';
+import type { CouvertureChoisie } from './typesToit.js';
 import { mediane } from '../util/stats.js';
 
 /** Les trois couvertures de repli, quand la photo n'est pas concluante. */

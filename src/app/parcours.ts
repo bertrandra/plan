@@ -7,7 +7,7 @@
 // `actualisationIgn.ts`, `io/polyhaven.ts`.
 
 import type { ImportCadastre } from './importCadastre.js';
-import type { InfosActualisation, OptionsActualisation } from './actualisationIgn.js';
+import type { InfosActualisation, OptionsActualisation } from './optionsActualisation.js';
 import type { TextureAppliquee } from '../model/types.js';
 import type { Promenade } from './audit/promenade.js';
 import type { CouleursPhotos } from './audit/couleurFacade.js';

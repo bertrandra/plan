@@ -13,7 +13,7 @@
 import { elevationParDefaut } from '../model/defaults.js';
 import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
-import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/auditParcelle.js';
+import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
 import type { Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
 

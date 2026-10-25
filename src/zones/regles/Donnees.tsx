@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FICHIERS_DONNEES, type FichierDonnees, type IdDonnees } from '../../regles/donnees/fichiers.js';
 import { bilanDonnees, changerSeuil, lireDonnees, seuilsDuTexte } from '../../regles/donnees/edition.js';
-import type { BrouillonRegles } from '../EcranRegles.js';
+import type { BrouillonRegles } from './brouillonServeur.js';
 import { Poids, type ProposerPoids } from './Poids.js';
 
 type Textes = Record<IdDonnees, string>;

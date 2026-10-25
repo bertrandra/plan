@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { BrouillonServeur } from '../../io/analyseClaude.js';
 import type { BrouillonReglesServeur, ClientRegles, EnvoiBrouillonRegles } from '../../io/reglesServeur.js';
 
+/** Le brouillon local du texte des regles (Admin › Regles), tel que l'ecran et ses donnees le lisent. */
+export interface BrouillonRegles { lire(): string | null; ecrire(texte: string): void; effacer(): void }
+
 export interface BrouillonServeurEcran {
   /** `undefined` tant qu'on ne l'a pas lu, `null` quand le serveur n'en a pas. */
   surServeur: BrouillonReglesServeur | null | undefined;
