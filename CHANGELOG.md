@@ -61,6 +61,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
+  fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
+  enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour
+  le modèle » le propose. Les démos livrées passent au 5. **La plateforme doit accepter 5 avant le dépôt** : backprod le déclare
+  depuis bertrandra/backprod#236, mais la ligne `project_schema_versions` de la production et du monde d'essai se règle à la
+  console (preflight signale l'écart) ; sinon chaque enregistrement de ces projets répond 422.
+
 - **Le rendu au téléphone, environ deux fois plus court** (feuille de route, étape 2.2, en partie). Trois coûts ôtés d'un rendu
   où rien n'a changé :
   - le bandeau de chiffrage sérialisait le plan entier, grilles du relief comprises, à chacun de ses cinq appels par rendu. La clé
