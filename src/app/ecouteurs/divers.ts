@@ -6,7 +6,8 @@
 
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE, enAdmin } from '../acces.js';
-import { showConfirm, showErrBanner } from '../../shell/dialogs.js';
+import { showConfirm, showErrBanner, showToast } from '../../shell/dialogs.js';
+import { ROUTE_SAUVEGARDE, verifierSauvegarde } from '../../io/depotDemos.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { Resultats } from '../resultats.js';
@@ -76,6 +77,29 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
     id: 'admin.regles', libelle: 'Règles', groupe: 'admin', actif: () => enAdmin(),
     description: 'Ouvre les règles : les sujets que l’audit sait lire et proposer, et le prompt et le schéma d’analyse de Claude qu’ils composent, recalculés en direct (administrateur seulement)',
     executer: () => { location.assign('?admin&ecran=regles'); }
+  });
+
+  /**
+   * La sauvegarde des donnees du serveur (deploy/admin.php, `GET admin/sauvegarde`) : une archive zip
+   * de tout data/, que le navigateur telecharge par un lien (le cookie de la session part avec). La
+   * session est verifiee d'abord : sans elle, le lien enregistrerait l'erreur sous le nom de l'archive.
+   */
+  cmd.declarer({
+    id: 'admin.sauvegarde', libelle: 'Télécharger une sauvegarde des données', groupe: 'admin', actif: () => enAdmin(),
+    description: 'Télécharge une archive zip de tout le dossier des données du serveur : démos, audits et analyses, journal et réglages de Claude, palette, arbres, conformité (administrateur seulement)',
+    executer: () => {
+      void verifierSauvegarde((entree, init) => fetch(entree, init)).then((refus) => {
+        if (refus) { showErrBanner(refus); return; }
+        const lien = document.createElement('a');
+        lien.href = ROUTE_SAUVEGARDE;
+        lien.download = '';
+        lien.rel = 'noopener';
+        document.body.appendChild(lien);
+        lien.click();
+        lien.remove();
+        showToast('La sauvegarde se prépare : le téléchargement commence dans un instant.');
+      });
+    }
   });
 
   /** « Cadrer » : sur l'objet sélectionné, sinon sur la parcelle. */
