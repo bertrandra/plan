@@ -152,7 +152,7 @@ Règles :
 À l'ouverture du dialogue, `importe.utiliserMaPosition(true)` lit la position de l'appareil
 (`shell/geolocalisation.ts`, haute précision, 15 s au plus, une position d'une minute admise). Le
 navigateur demande la permission ; le serveur la permet au site (`Permissions-Policy:
-geolocation=(self)`, dans `deploy/htaccess.template` et `buildsg/app.js`).
+geolocation=(self)`, dans `deploy/htaccess.template`).
 
 - **Précise** (≤ `PRECISION_POSITION_MAX_M` = 50 m) : l'adresse la plus proche (BAN inverse,
   `geocoderInverseBAN`) s'écrit dans le champ, et la parcelle se cherche **sous le point de

@@ -15,7 +15,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   d'échec, la page de chaque point raté et le journal sont téléversés (`FUMEE_CAPTURES`). Le témoin du réseau rend
   l'origine de la requête dans l'autorisation CORS, comme l'IGN : les points 12 à 15 se jouent sur n'importe quel port.
 
+- **Vérification des requêtes du serveur contre la vraie API Claude** (`npm run verifier:api-claude`, avant chaque livraison).
+  Tous les tests passent par un faux Anthropic qui accepte n’importe quel corps : le refus « compiled grammar is too large »
+  n’avait été vu qu’en production. Le script lance le vrai serveur PHP du dépôt (`deploy/analyse.php`, `deploy/admin.php`)
+  sous `php -S`, ouvre la session d’administrateur et envoie par l’appel immédiat une requête minimale (une photo de test)
+  par prompt, schéma et modèle servis : l’analyse (qui couvre l’escalade, les cas candidats et le rejeu, mêmes prompt, schéma
+  et corps) et le renfort. Il échoue au premier refus, avec le message d’Anthropic, ou à une sortie hors schéma, et dit le coût
+  journalisé. La clé se lit dans `ANTHROPIC_API_KEY` et ne s’écrit que dans une configuration temporaire supprimée à la fin ;
+  le serveur lui-même plafonne la dépense (0,05 $ par défaut, `--plafond`). `--modele` essaie un autre modèle admis. Un
+  workflow manuel (`verifier-api.yml`, secret `ANTHROPIC_API_KEY_TEST`) le lance depuis GitHub.
+
+- **Une sauvegarde des données en un clic** (Admin › « Télécharger une sauvegarde des données »). `GET admin/sauvegarde`
+  (`deploy/admin.php`, session admin) rend une archive `plan-data-AAAA-MM-JJ-HHMM.zip` de tout le dossier des données : démos,
+  audits et analyses par Claude, journal et réglages de Claude, palette, contrôleurs, arbres, conformité, avec un manifeste
+  `sauvegarde.json`. Rien hors du dossier : ni la configuration, ni la clé d'API, ni la cible d'un lien symbolique. L'archive se
+  construit dans un fichier temporaire et se sert par morceaux ; sans l'extension PHP `zip`, la route répond 501 et dit où
+  l'activer. La notice de déploiement gagne un paragraphe « Sauvegarde » : vérifier la sauvegarde automatique de l'hébergeur
+  (SiteGround : Site Tools › Security › Backups) et télécharger l'archive avant chaque mise à jour.
+
 ### Modifié
+
+- **Le second serveur, en Node, est retiré : `buildsg/` n'existe plus** (revue du dépôt). Il n'était plus déployé (sa copie
+  datait de la 2.2.0) et chaque route devait s'écrire deux fois, en PHP et en Node ; les deux s'écartaient. Le seul serveur est
+  celui de `deploy/`, livré dans `livraison/`. Ses constantes et ses fonctions passent dans `deploy/analyse-fonctions.php`, inclus
+  par `analyse.php` et livré avec lui (à déposer avec les autres fichiers PHP). Les tests unitaires du calcul (coûts, plafonds,
+  forme de la réponse, comptes, consommation, audits), qui n'existaient que côté Node, sont portés sur les fonctions PHP
+  (`tests/unit/deploy/analyseFonctions.test.ts`, par `tests/fixtures/deploy/appel-analyse.php`) ; les cas candidats d'un village
+  se jouent contre `analyse.php`. La CI vérifie que PHP est présent : les tests du serveur ne sautent plus en silence.
+  `npm run buildsg` et `npm run build:siteground` disparaissent. Rien ne change pour la page ni pour les exports.
 
 - **Les trois plus gros modules découpés par sujet** (audit d'architecture, lot N). `three/scene.ts` garde le montage et la
   construction de la Vue 3D ; la terrasse, les objets du plan et ce que l'on fait d'une scène déjà bâtie (remplacer, comparer,

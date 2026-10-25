@@ -252,6 +252,6 @@ PLAN_ADMIN_MOT_DE_PASSE=… npx tsx .claude/skills/regles-toits/scripts/candidat
 - Un ancien fichier de village n'a pas l'origine du repère : relancer `village.mjs`, ou donner
   `--origine lat,lon` (l'origine du cadastre de la parcelle du projet, pas l'adresse).
 - Tests sans réseau : `tests/unit/model/casCandidats.test.ts`, `tests/unit/app/candidatsPanoramax.test.ts`
-  (serveur Node et API Anthropic simulée, `tests/fixtures/deploy/fauxAnthropic.ts`, recherche
-  Panoramax figée, `tests/fixtures/candidats/village.ts`) et `tests/unit/deploy/analysePhpCandidats.test.ts`
-  (la même chose par `analyse.php`).
+  (le choix des photos) et `tests/unit/deploy/analysePhpCandidats.test.ts` (un village entier par
+  `analyse.php`, API Anthropic simulée, `tests/fixtures/deploy/fauxAnthropic.ts`, recherche Panoramax
+  figée, `tests/fixtures/candidats/village.ts`).

@@ -33,6 +33,9 @@ jobs:
         run: npm run cliquet
       - name: Client de la plateforme a jour
         run: npm run gate:client
+      - name: PHP present (les tests du serveur sautent sans lui)
+        # Le serveur n'existe qu'en PHP (deploy/) : ses tests ne doivent jamais sauter en silence ici.
+        run: php -v
       - name: Tests (couches, cycles, oracle du moteur, empreintes)
         run: npm test
       - name: Build

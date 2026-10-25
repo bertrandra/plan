@@ -256,7 +256,8 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
  * son bouton de retour. La consommation et la conformite passent par le registre (`admin.consommation`,
  * `admin.conformite`), comme le catalogue des audits de parcelle recus (`admin.auditsParcelle`), qui
  * s'ouvre en Z8 sur le projet en cours (il y rouvre un audit). Avec
- * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`).
+ * `?regles=local`, l'administrateur y essaie des faits de toits (`admin.faitsLocaux`). La sauvegarde
+ * (`admin.sauvegarde`) telecharge tout le dossier des donnees du serveur en une archive zip.
  */
 export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
   const demos = enAdmin();
@@ -306,6 +307,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         <Entree commandes={commandes} id="admin.conformite" libelle="Conformité" />
         <Entree commandes={commandes} id="admin.regles" libelle="Règles" />
         <Entree commandes={commandes} id="admin.auditsParcelle" libelle="Audits" />
+        <Entree commandes={commandes} id="admin.sauvegarde" libelle="Télécharger une sauvegarde des données" />
         <Entree commandes={commandes} id="projet.doublons" libelle="Fusionner les doublons du projet…" />
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}

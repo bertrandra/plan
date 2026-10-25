@@ -2,7 +2,7 @@
 //
 // Meme contrat que le depot de la plateforme (io/depotPlateforme.ts) : lister, ouvrir, enregistrer,
 // supprimer. Ce qui change est l'endroit — `/admin/demos` sur le serveur qui sert la page
-// (buildsg/demosAdmin.mjs) — et la forme du document : celle de l'export JSON, `{meta, objects,
+// (deploy/admin.php) — et la forme du document : celle de l'export JSON, `{meta, objects,
 // measures}`, pour qu'un fichier de demo et un fichier exporte soient interchangeables.
 //
 // La session admin est un cookie que le serveur a pose ; ce module ne voit jamais le mot de passe.
@@ -126,6 +126,24 @@ export async function sessionAdmin(f: Fetch): Promise<boolean | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * L'archive zip de tout le dossier des donnees du serveur (`GET admin/sauvegarde`, deploy/admin.php).
+ * Le navigateur la telecharge lui-meme, par un lien : le cookie de la session part avec, et des Mo de
+ * photos ne passent pas par la memoire de la page.
+ */
+export const ROUTE_SAUVEGARDE = RACINE_ADMIN + '/sauvegarde';
+
+/**
+ * Avant de lancer le telechargement : la session est-elle encore ouverte ? Un lien suivi sans elle
+ * enregistrerait la reponse d'erreur sous le nom de l'archive. Rend le motif du refus, ou `null`.
+ */
+export async function verifierSauvegarde(f: Fetch): Promise<string | null> {
+  const etat = await sessionAdmin(f);
+  if (etat === true) return null;
+  if (etat === false) return 'Sauvegarde impossible : la session admin a expiré. Rechargez la page pour retaper le mot de passe.';
+  return 'Sauvegarde impossible : le serveur ne répond pas, ou n’a pas d’admin.';
 }
 
 /**

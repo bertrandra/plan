@@ -10,7 +10,6 @@ Décidé le 2 octobre 2026. Deux déploiements, même contrat, la page ne sait p
   de Plan rangés dans `deploy/plan-demos/`, que la livraison copie tels quels.
   `.htaccess` confie `admin/…` à `admin.php`. Le mot de passe et le dossier des données sont dans
   `plan-admin-config.php`, posé à côté de `public_html/`, hors de la racine web.
-- **Node** : `buildsg/app.js` et `buildsg/demosAdmin.mjs`, avec `ADMIN_PASSWORD` et `DATA_DIR`.
 
 ## Ce que c'est
 
@@ -59,7 +58,7 @@ entier, un mot de passe comparé dans le navigateur ne protégerait rien.
 ## Où vivent les fichiers
 
 Toutes les données du serveur vivent dans un seul dossier `data/`, frère de `public_html/` (à côté
-de `plan-admin-config.php`), jamais servi (`deploy/donnees.php`, `buildsg/donnees.mjs` ;
+de `plan-admin-config.php`), jamais servi (`deploy/donnees.php` ;
 `MD/spec-audit.md` 15.4) : `data/demo/` (les démos, `.bak`, `.supprime-…`), `data/admin/`
 (`palette.json`, `controleurs.json`, `arbres.json`, `echecs.json`), `data/claude/`, `data/audits/`,
 `data/conformite/`, `data/migration.json`. Apache : réglage `dossierDonnees` de la configuration,
@@ -75,7 +74,20 @@ dossier est déplacé dans `data/` au premier passage, sans rien écraser (`data
 (étape 2.e). Ce dossier n'est jamais servi directement : seules les routes `admin/…`, derrière la
 session (la vitrine et la palette exceptées, en lecture), le lisent.
 
-## Routes (deploy/admin.php, buildsg/demosAdmin.mjs)
+**Sauvegarde.** Admin › « Télécharger une sauvegarde des données » (commande `admin.sauvegarde`)
+télécharge `GET admin/sauvegarde` (`deploy/admin.php`) : une archive
+`plan-data-AAAA-MM-JJ-HHMM.zip` de tout le dossier des données, sous la session admin. Elle contient
+`data/…` (l'arborescence telle quelle, dossiers vides compris : déposée à la place de `data/`, elle
+le restaure) et `sauvegarde.json` (`format: plan-sauvegarde`, date, disposition, nombre de fichiers,
+octets, liens ignorés) ; l'en-tête `X-Plan-Sauvegarde` redit le compte. Rien hors du dossier : les
+liens symboliques ne sont pas suivis, la configuration (mot de passe, clé de Claude) n'en fait
+jamais partie, même posée dedans par erreur. L'archive se construit dans un fichier temporaire
+(`ZipArchive`, images stockées sans recompression), se sert par morceaux puis s'efface ; sans
+l'extension `zip`, la route répond 501 et dit où l'activer. La page vérifie la session avant de
+suivre le lien. Ce n'est pas une sauvegarde automatique : celle de l'hébergeur reste la première
+(`LISEZMOI-DEPLOIEMENT.txt`, « Sauvegarde »).
+
+## Routes (deploy/admin.php)
 
 Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un sous-dossier.
 
@@ -92,6 +104,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 | `PUT /admin/palette` | remplace la palette (session ; `{format: 'plan-palette', couleurs: {clair, sombre}}`, chaque couleur `#RRGGBB` ; `.bak` gardé) |
 | `GET /admin/arbres` | **sans session** : la bibliothèque d'essences d'arbres (`data/admin/arbres.json`, `MD/spec-arbres-3d.md`), que la 3D de chaque page lit ; 404 sans bibliothèque (arbres simplifiés) |
 | `PUT /admin/arbres` | remplace la bibliothèque (session ; `{format: 'plan-arbres', especes: [{id, nom, caduc, reglages…}]}`, identifiants `[a-z0-9-]` sans doublon, 256 Ko au plus ; `.bak` gardé) |
+| `GET /admin/sauvegarde` | archive zip de tout le dossier des données (session ; Apache seulement ; voir « Où vivent les fichiers ») |
 | `GET /admin/vitrine/<id>` | **sans session** : la démo en lecture seule, pour la vitrine publique (`?mode=demo&file=<id>`). Aucun cookie posé, une minute de cache. |
 
 ## Côté page

@@ -10,8 +10,8 @@ import { JETON_ORGA, demarrerFauxePlateforme, type FauxPlateforme } from '../../
 import { compterCeQuiEstTrouve, reglerLesModeles, type Serveur } from '../../fixtures/deploy/scenariosModeles.js';
 
 // Le modele de chaque usage (`admin/claude/modeles`) et les comptes de ce que les reponses
-// contiennent, dans analyse.php : memes scenarios que le serveur Node
-// (tests/unit/buildsg/analyseAdminModeles.test.ts). Saute si PHP manque.
+// contiennent, dans analyse.php, par ses routes ; le calcul
+// est dans analyseFonctions.test.ts. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');

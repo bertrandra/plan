@@ -64,8 +64,10 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
 2. Vérifications ci-dessus, puis fumée sur les points touchés.
 3. Entrée dans `CHANGELOG.md`, sous `## [Non publié]` (Ajouté / Modifié / Corrigé), en français.
 4. PR vers `main`, CI `verifier` verte, merge (commit de merge, pas de squash).
-5. Livraison construite **depuis `main`** :
+5. Livraison construite **depuis `main`**, après avoir vérifié les requêtes du serveur contre la vraie API
+   Claude (les tests ne voient qu'un faux Anthropic ; quelques centimes, plafonnés par le serveur) :
    ```bash
+   ANTHROPIC_API_KEY=… npm run verifier:api-claude              # ou le workflow manuel « Vérifier l'API Claude »
    BACKPROD_API_URL=https://www.raillard.org npm run livraison   # livraison/ et livraison.zip
    ```
    `livraison/` est versionné : le build réécrit au moins `LISEZMOI-DEPLOIEMENT.txt` (le commit
@@ -129,6 +131,10 @@ d'y toucher.
 
 ## Décisions déjà prises
 
+- **Un seul serveur, en PHP** (`deploy/*.php`, livré dans `livraison/`) : le second serveur Node (`buildsg/`) a été retiré le
+  25 octobre 2026, ses deux copies d'un même contrat s'écartaient. Le calcul d'`analyse.php` vit dans
+  `deploy/analyse-fonctions.php` (rien ne s'y exécute à l'inclusion) et se teste fonction par fonction
+  (`tests/unit/deploy/analyseFonctions.test.ts`) ; les routes, par `php -S` derrière `tests/fixtures/deploy/routeur-admin.php`.
 - **« Filaire » (Vue 3D)** est une préférence d'affichage : pas de Ctrl+Z, pas de « projet
   modifié », permise en lecture seule. Elle reste rangée dans `construction.lames3dFilaire` pour
   être retrouvée à la réouverture.
