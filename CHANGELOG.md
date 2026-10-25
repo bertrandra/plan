@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **`app/` et `zones/` dans un seul sens** (audit d'architecture, lot M). Les zones lisent l'application ; l'application ne prend aux
+  zones que des écrans à monter et leurs types. La recherche des coins du relevé et son worker passent dans `app/releve/`, la sonde
+  de la plateforme (pastille de la porte) dans `io/sondePlateforme.ts`, testée. Le test d'architecture tient les deux règles, et
+  interdit à `zones/` tout appel direct au réseau et tout worker. Rien ne change à l'écran.
+
 - **L'état de la Vue 3D n'a plus qu'un propriétaire** (audit d'architecture, lot L). Hors de `three/`, chaque écriture passe par
   une fonction nommée de `three/etat3d.ts` (`reglerVue3d`, `reglerGlb`, `reglerSoleilVue3d`, `poserAffichage3d`, `poserHote3d`) ;
   les réglages du soleil reçoivent la leur. Le fond de la visionneuse se remplace dans `three/glbViewer.ts`. Le test
