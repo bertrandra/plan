@@ -5,12 +5,13 @@
     1,
     2,
     3,
-    4
+    4,
+    5
   ],
-  "current_schema_version": 4,
+  "current_schema_version": 5,
   "demo_project": {
     "name": "Parcelle AE 101",
-    "schema_version": 4,
+    "schema_version": 5,
     "document": {
       "objects": [
         {
