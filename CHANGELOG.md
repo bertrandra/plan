@@ -68,6 +68,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   de ces registres se pose ailleurs que depuis `app/` ou `io/`. L'étape 1.4 (garder avec un relevé la calibration qui l'a
   produit) attend un rejeu qui en ait besoin : c'est un champ de schéma.
 
+- **Le plan suit mieux le geste : les zones ne refont plus à chaque rendu ce qu'elles avaient déjà** (feuille de route, étape 2.1).
+  - **Inspecteur** : chaque champ de la construction (sa note, sa visibilité, son état) relisait toute la terrasse : grille des
+    vis, zones de spa, surface, et hauteur de chaque appui sur le relief. Cela faisait des dizaines de lectures par rendu ; il
+    n'en reste qu'une (`ui/champs/construction.ts`). Une empreinte (contour, construction, nombre d'objets) fait qu'une écriture
+    relit des valeurs à jour.
+  - **Menu, « Fusionner les doublons »** : l'entrée se grise sans doublon, et le calcul se refaisait à chaque rendu en sérialisant
+    tout le projet. La parcelle, jamais un doublon, n'y passe plus avec sa grille du relief. La signature complète ne se calcule
+    que pour les objets qui partagent leur forme au centimètre : 13,7 → 3,7 ms, même résultat (test sur la démonstration).
+  - Au banc, à 147 objets : 82 → 38 ms par rendu au bureau, 506 → 343 ms au téléphone.
+
 - **Les nombres d'un ancien projet ne suivent plus le code d'aujourd'hui** (feuille de route, étapes 1.1 et 1.2 ; AD-19). Deux
   chemins donnaient des nombres à un ancien fichier sans numéro de schéma, et un témoin cassait seulement s'ils bougeaient.
   - **Le remplissage** : ce qu'un projet reçoit quand un réglage de construction lui manque lit maintenant une table de valeurs

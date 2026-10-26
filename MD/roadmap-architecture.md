@@ -60,7 +60,7 @@ Le rendu incrémental du SVG passe donc après.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | à faire |
+| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | **fait en partie** : la lecture de la construction une fois par rendu, les doublons sans la parcelle et triés par forme (13,7 → 3,7 ms). Banc à 147 objets : 82 → 38 ms au bureau, 506 → 343 ms au téléphone ; le reste est le rendu des zones par React, mesuré en mode développement |
 | 2.2 | Ne redessiner que les objets qui ont changé (une clé de version par objet, le nœud SVG gardé sinon) | le banc à 600 objets passe sous 33 ms au téléphone | si le banc le demande après 2.1 |
 | 2.3 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 et 2.2 mesurés | plus aucun rendu sauté au banc | après 2.2 |
 

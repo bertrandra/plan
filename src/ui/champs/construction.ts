@@ -43,8 +43,25 @@ interface Lecture {
   pente: AppuisEnHauteur | null;
 }
 
+/**
+ * Ce que les champs de la construction relisent, une fois par rendu de l'inspecteur (MD/roadmap-architecture.md, etape 2.1) : chaque
+ * champ (sa note, sa visibilite, son etat) appelait `lire`, et chaque appel refaisait la grille des vis, les zones de spa et la
+ * hauteur des appuis sur le relief, des dizaines de fois par rendu. Le contexte est neuf a chaque rendu ; l'empreinte (contour,
+ * construction, nombre d'objets) fait qu'une ecriture faite dans le meme contexte relit des valeurs a jour.
+ */
+const lectures = new WeakMap<ContexteChamps, { empreinte: string; lecture: Lecture }>();
+
 function lire(cx: ContexteChamps): Lecture {
   const c = cx.construction();
+  const empreinte = JSON.stringify([aDesSommets(cx.obj) ? cx.obj.pts : null, c, cx.objets.length]);
+  const deja = lectures.get(cx);
+  if (deja && deja.empreinte === empreinte) return deja.lecture;
+  const lecture = calculerLecture(cx, c);
+  lectures.set(cx, { empreinte, lecture });
+  return lecture;
+}
+
+function calculerLecture(cx: ContexteChamps, c: Construction): Lecture {
   const obj = cx.obj;
   const plots = estPlots(c);
   const grille = (aDesSommets(obj) && obj.pts.length >= 3) ? buildVisGrid(obj, null, cx.objets) : [];
