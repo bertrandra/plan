@@ -530,15 +530,22 @@ const etatAudite = (page) => page.evaluate(() => {
  * (un seul ouvert par groupe, le premier par defaut, zones/parcours/PropositionsAudit.tsx), la ligne peut donc etre repliee ; on
  * ouvre d'abord, par leur titre, les niveaux qui la cachent.
  */
-const cocherLigne = async (page, texte) => {
-  const ligne = page.locator('.ligneProposition', { hasText: texte }).first();
-  await ligne.waitFor({ state: 'attached', timeout: 30000 });
-  const fermes = await ligne.evaluate((e) => {
+/**
+ * Ouvre les niveaux replies qui contiennent cet element de l'ecran des propositions : c'est un accordeon (un seul niveau ouvert
+ * par groupe, zones/parcours/PropositionsAudit.tsx), une ligne peut donc etre dans un niveau ferme.
+ */
+const ouvrirSesNiveaux = async (page, element) => {
+  const fermes = await element.evaluate((e) => {
     const n = [];
     for (let x = e.parentElement; x; x = x.parentElement) if (x.tagName === 'DETAILS' && !x.open) n.unshift(x.querySelector(':scope > summary')?.textContent ?? '');
     return n;
   });
   for (const titre of fermes) await page.locator('details.niveauPropositions > summary', { hasText: titre }).first().click({ timeout: 10000 });
+};
+const cocherLigne = async (page, texte) => {
+  const ligne = page.locator('.ligneProposition', { hasText: texte }).first();
+  await ligne.waitFor({ state: 'attached', timeout: 30000 });
+  await ouvrirSesNiveaux(page, ligne);
   await ligne.locator('input[type="checkbox"]').check({ timeout: 30000 });
 };
 const ligneProposition = async (page, texte) => {
@@ -2452,7 +2459,11 @@ const POINTS = {
     // Tout decocher : les deux vues montrent la meme chose ; recocher les murs : elles different.
     // Une case decochee quitte `:checked` : on decoche toujours la premiere qui reste.
     const cochees = page.locator('.ligneProposition input[type="checkbox"]:checked');
-    for (let i = 0; i < 10 && (await cochees.count()); i++) { await cochees.first().click({ timeout: 30000 }); await page.waitForTimeout(300); }
+    // Une case cochee peut etre dans un niveau replie (l'ecran est un accordeon) : on l'ouvre d'abord.
+    for (let i = 0; i < 10 && (await cochees.count()); i++) {
+      await ouvrirSesNiveaux(page, cochees.first());
+      await cochees.first().click({ timeout: 30000 }); await page.waitForTimeout(300);
+    }
     await page.waitForTimeout(2500);
     const d3 = await lireDeuxVues(page);
     await cocherLigne(page, 'Matériau des murs de Maison');
@@ -2468,8 +2479,10 @@ const POINTS = {
     const rouvertes = await page.locator('.etiquetteDeuxVues').count();
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     const e = (x) => (x ? x.ecart.toFixed(1) : '—');
+    // Les murs recoches se mesurent contre le bruit des vues identiques (tout decoche) : au telephone, chaque vue fait 390 x 215
+    // et la maison y couvre moins de pixels qu'en vues de 408 x 458 et plus, l'ecart moyen est donc plus petit (0,8 contre 1,7).
     const ok = presse === 'Les deux' && etiquettes.join(',') === 'Avant,Après' && !!d1 && d1.vues.sens === sensAttendu && !recouvre
-      && d1.ecart > 1.5 && !!d2 && d2.ecart > 1.5 && tourne > 2 && !!d3 && d3.ecart < 0.5 && !!d4 && d4.ecart > 1
+      && d1.ecart > 1.5 && !!d2 && d2.ecart > 1.5 && tourne > 2 && !!d3 && d3.ecart < 0.5 && !!d4 && d4.ecart > d3.ecart + 0.5
       && pendant === avant && seule === 0 && rouvertes === 2 && !deborde;
     return { ok, mesure: `« ${presse} » ; étiquettes ${etiquettes.join(', ') || 'AUCUNE'} ; vues ${d1 ? d1.vues.sens + ' ' + d1.vues.avant.l + '×' + d1.vues.avant.h : 'ABSENTES'} (attendu ${sensAttendu}) ; ${recouvre ? 'SOUS L’ÉCRAN' : 'à côté de l’écran'} ; écart avant/après ${e(d1)} ; après glisser « Après » bouge de ${tourne.toFixed(1)}, écart ${e(d2)} ; tout décoché ${e(d3)} ; murs recochés ${e(d4)} ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} ; « Avant » : ${seule} étiquette(s), « Les deux » : ${rouvertes} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },

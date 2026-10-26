@@ -135,6 +135,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le point 90 de la fumée (l'avant et l'après en deux vues) repasse partout.** Il échouait dans toutes les classes d'écran,
+  sur `main` aussi : l'écran des propositions est devenu un accordéon (un seul niveau ouvert par groupe), et le script
+  décochait « la première case cochée » sans ouvrir son niveau, la couverture de la maison restait dans « Toit », replié. Les
+  niveaux d'une case s'ouvrent maintenant avant de la décocher, comme le faisait déjà `cocherLigne` (aide commune
+  `ouvrirSesNiveaux`). Le seuil « murs recochés » se mesure contre le bruit des vues identiques (« tout décoché »), et non plus
+  dans l'absolu : au téléphone, chaque vue fait 390 × 215 et la maison y couvre moins de pixels, l'écart moyen y vaut 0,8 contre
+  1,7 et plus ailleurs, pour un bruit de 0,0 à 0,1.
+
 - **Mode Toit sur téléphone : le catalogue est de nouveau à portée du doigt.** Dans la feuille du panneau, bornée en hauteur, le
   catalogue des pièces se réduisait à rien sous les onglets (« Corps », « Toit », « Sur le toit », « Façade ») : on ne pouvait
   rien poser. Les blocs du panneau gardent leur hauteur et la feuille défile. Le point 98 de la fumée passe de nouveau en classe
