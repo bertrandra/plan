@@ -28,17 +28,21 @@ function normalise(v: unknown): unknown {
 /** Les groupes d'objets identiques, dans l'ordre du plan. */
 export function trouverDoublons(objets: readonly ObjetPlan[]): GroupeDoublons[] {
   // Calcule a chaque rendu du menu (l'entree se grise sans doublon) : la parcelle, qui n'en est jamais un et porte la grille du
-  // relief, n'est pas serialisee ; et la signature entiere ne se calcule que pour les objets qui partagent leur forme au
-  // centimetre, condition necessaire d'un doublon (MD/roadmap-architecture.md, etape 2.1).
+  // relief, est ecartee ; la forme au centimetre, condition necessaire d'un doublon, se lit sur l'objet tel quel (la
+  // serialisation en recopie les memes nombres) ; seuls les objets qui partagent leur forme sont serialises, pour la signature
+  // entiere (MD/roadmap-architecture.md, etape 2.1).
   const candidats = objets.filter((o) => o.key !== 'parcelle');
-  const brut = serializeObjects(candidats as ObjetPlan[]) as Record<string, unknown>[];
-  const formes = brut.map((b) => JSON.stringify(normalise([b.type, b.pts ?? null, b.center ?? null, b.r ?? null])));
+  const forme = (o: ObjetPlan) => JSON.stringify(normalise(o.type === 'circle'
+    ? [o.type, null, { x: o.center.x, y: o.center.y }, o.r]
+    : [o.type, o.pts.map((p) => ({ x: p.x, y: p.y })), null, null]));
+  const formes = candidats.map(forme);
   const parForme = new Map<string, number>();
   for (const f of formes) parForme.set(f, (parForme.get(f) ?? 0) + 1);
+  const partagent = candidats.filter((_, i) => (parForme.get(formes[i] as string) ?? 0) > 1);
+  const brut = serializeObjects(partagent) as Record<string, unknown>[];
   const parSignature = new Map<string, ObjetPlan[]>();
-  candidats.forEach((o, i) => {
+  partagent.forEach((o, i) => {
     const b = brut[i] as Record<string, unknown>;
-    if ((parForme.get(formes[i] as string) ?? 0) < 2) return;
     const signature = JSON.stringify(normalise(Object.fromEntries(Object.entries(b).filter(([k]) => !IGNORES.has(k)))));
     parSignature.set(signature, [...(parSignature.get(signature) ?? []), o]);
   });

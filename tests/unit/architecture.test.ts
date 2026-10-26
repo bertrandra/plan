@@ -342,12 +342,7 @@ describe('les modules carrefours de app/ (feuille de route, etape 3.3)', () => {
   // aujourd'hui sont listes avec leur compte : c'est un cliquet, ils ne grossissent plus, et le plafond descend avec eux.
   const LIMITE = 20;
   const PLAFONDS: Record<string, number> = {
-    'app/boot/plan.ts': 29,
-    'app/audit/controleur.ts': 32,
-    'app/cadastre/actualisationIgn.ts': 26,
-    'app/boot/branchements.ts': 25,
-    'app/audit/parcelle/constats.ts': 23,
-    'app/boot.ts': 22
+    'app/boot/plan.ts': 23
   };
   const comptes = new Map(tous.filter(f => relative(src, f).split(sep)[0] === 'app')
     .map(f => [relative(src, f).split(sep).join('/'), new Set(dependances(f).filter(d => !d.type).map(d => d.cible)).size] as const));

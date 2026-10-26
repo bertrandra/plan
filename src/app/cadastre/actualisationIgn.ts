@@ -11,79 +11,33 @@ import { nombreFr } from '../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../../geo/bdtopo.js';
 import { distancePointContour } from '../../geometry/proximite.js';
 import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../../model/toitBdTopo.js';
-import { volumesParDefaut } from '../../model/volumesToit.js';
 import { showToast } from '../../shell/dialogs.js';
-import { attente } from '../../shell/attente.js';
-import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
-import { toitsDepuisLidar, texteBilanToitsLidar } from '../toits/toitsLidar.js';
-import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../render/couleurMurPhoto.js';
-import { materiauMurs } from '../../model/couleurMur.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { projecteurLocal } from '../../geo/projection.js';
 import { SIMPLIF_M } from '../../geo/constantesCadastre.js';
-import {
-  interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, PLAFOND_LECTURE, construireCandidats, trierVoisines,
-  anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
-  fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
-  interrogerPlu,
-  COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
-} from '../../geo/apiIgn.js';
+import { interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, PLAFOND_LECTURE, construireCandidats, trierVoisines, anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn, fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL, interrogerPlu, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE } from '../../geo/apiIgn.js';
 import { sommetsDe } from '../../model/formes.js';
 import { parcours } from '../parcours.js';
 import { droitsCourants } from '../acces.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
-import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
-import { avecReglages, resumeRelief } from '../../model/relief.js';
-import { parcelleDuProjet } from '../../model/fonctions.js';
 import { idusCadastraux } from '../../model/cadastre.js';
 import { valeursParDefaut } from './valeursParDefaut.js';
-import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import { APPARENCES_IGN, batimentDeLaPropriete } from '../../geo/cadastreObjets.js';
-import type { ObjetSerialise } from '../../model/creation.js';
 import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
-import type { EtatApp } from '../../core/state.js';
-import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../../model/types.js';
+import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-export type { OptionsActualisation, InfosActualisation } from './optionsActualisation.js';
+import { volumesRecalcules, batimentsGardes, toitsEtMurs } from './actualisationIgn/toitsEtMurs.js';
+import { actualiserRelief } from './actualisationIgn/relief.js';
 
-/** Ce que l'actualisation demande au reste du programme. */
-export interface ContexteActualisation {
-  etat: EtatApp;
-  markDirty: () => void;
-  pushHistory: () => void;
-  rebuildSelector: () => void;
-  render: () => void;
-  restoreState: (instantane: { objects: ObjetBrut[]; measures: unknown[] }) => void;
-  serializeMeasures: (ms: EtatApp['measures']) => unknown[];
-  serializeObjects: (objs: ObjetPlan[]) => ObjetSerialise[];
-  syncLieuTitre: () => void;
-  trouverParcelleCloture: () => ObjetPlan | null | undefined;
-  /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
-  lireRelief?: typeof lireRelief;
-  /** Les toits ajustes sur le LiDAR HD (app/toits/toitsLidar.ts) ; remplacable de meme. */
-  toitsLidar?: typeof toitsDepuisLidar;
-  /** La couleur des murs sur les photos de rue (render/couleurMurPhoto.ts) ; remplacable de meme. */
-  couleursMurs?: typeof couleursMursDepuisPhotos;
-  /** Apres une actualisation reussie : les questions sur les toits a cheval sur deux parcelles (app/toits/toitsACheval.ts). */
-  apresActualisation?: () => void;
-}
+
+
+
+export type { OptionsActualisation, InfosActualisation } from './optionsActualisation.js';
+import { actualisation, commencer, finir, etape, type ContexteActualisation } from './actualisationIgn/progression.js';
+export { actualisation, type ContexteActualisation };
 
 type Cadastre = NonNullable<ObjetPlan['cadastre']>;
-
-let enCours = false;
-const abonnes = new Set<() => void>();
-/** Le debut et la fin d'une actualisation : la commande se grise, la roue d'attente parait au centre (shell/attente.ts). */
-function signaler(): void {
-  attente.poser('actualisation-ign', enCours ? 'Actualisation IGN : la parcelle et le cadastre…' : null);
-  abonnes.forEach(f => f());
-}
-/** L'etape en cours, au centre de l'ecran, tant que l'actualisation tourne. */
-function etape(texte: string): void { if (enCours) attente.poser('actualisation-ign', 'Actualisation IGN : ' + texte); }
-export const actualisation = {
-  enCours: (): boolean => enCours,
-  abonner(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
-};
 
 /** Le point de calage, c'est les DEUX coordonnees : une longitude absente projetterait tout en NaN. */
 function origineValide(cad: Cadastre): cad is Cadastre & { origineLat: number; origineLon: number } {
@@ -134,27 +88,6 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
   });
 }
 
-/**
- * Relit le relief sur le plan actualise et le range sur la parcelle du projet. Les preferences
- * d'affichage et le plafond de points restent ceux de la personne, comme pour « Actualiser le relief ». Un echec est dit
- * dans le bilan ; la grille d'avant reste alors en place.
- */
-async function actualiserRelief(ctx: ContexteActualisation, toutesParcelles: boolean, bilan: string[], parDefaut = false, horizonM?: number): Promise<void> {
-  etape('le relief du terrain…');
-  // Un voisinage etendu donne son horizon au paysage : le relief va jusqu'au rayon demande.
-  const demande = demandeReliefDuPlan(ctx.etat.objects, toutesParcelles, ctx.etat.terrasseSelectedKey, horizonM);
-  const cible = parcelleDuProjet(ctx.etat.objects);
-  if(!demande || !cible) return;
-  try {
-    const r = await (ctx.lireRelief ?? lireRelief)(demande);
-    // Remis aux valeurs par defaut, le relief garde son plafond de points mais pas son affichage.
-    const ancien = parDefaut && cible.relief ? { ...cible.relief, affichage: null } : cible.relief;
-    cible.relief = avecReglages(r, ancien);
-    bilan.push('relief lu : ' + resumeRelief(r));
-  } catch(e){
-    bilan.push('relief non lu (' + ((e as Error).message || e) + ')');
-  }
-}
 
 /** La couche BD TOPO d'un objet importe, ou `null` pour un objet dessine ou un arbre estime. */
 function coucheIgn(o: ObjetPlan): string | null {
@@ -207,78 +140,6 @@ function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batim
   if(!ajouts.objets.length) bilan.push('voisinage : rien de nouveau a ajouter');
 }
 
-/**
- * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
- * l'utilisateur n'est pas touchee ; un WMTS injoignable laisse les toits tels quels.
- */
-async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[]): Promise<void> {
-  etape('la couleur des toits sur l’orthophoto…');
-  const c = await couleursToitsDepuisOrtho(objets, proj).catch(() => null);
-  if(!c || !(c.lus + c.replis)) return;
-  bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
-    (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
-}
-
-/**
- * Un toit recalcule sur la parcelle du projet retrouve ses volumes par defaut, et perd son toit
- * mesure, qui suivait l'ancien contour (le LiDAR relit les deux ensuite) ; sinon rien a ecrire.
- */
-function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
-  if (!toit || toit === o.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
-  return volumesParDefaut(pts, toit);
-}
-
-/**
- * Les batiments verifies sur place que cette actualisation garde tels quels : tous, sauf si
- * l'utilisateur a demande de les recalculer. Avec eux, les identifiants BD TOPO qu'ils portent : un
- * batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
- */
-function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  const garde = (o: ObjetBrut) => o.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o));
-  const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
-  return { garde, ids };
-}
-
-/** Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. */
-function figer(o: ObjetBrut): () => void {
-  const toit = structuredClone(o.toit), couleurMurs = structuredClone(o.couleurMurs);
-  return () => {
-    if (toit === undefined) delete o.toit; else o.toit = toit;
-    if (couleurMurs === undefined) delete o.couleurMurs; else o.couleurMurs = couleurMurs;
-  };
-}
-
-/**
- * La couverture des toits, leur forme, puis la couleur des murs, qui lit la hauteur a l'egout corrigee
- * par le LiDAR. Un batiment garde (verifie sur place) ressort tel qu'il est entre.
- */
-async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, options: OptionsActualisation): Promise<void> {
-  const remises = objets.filter(batimentsGardes(objets, options).garde).map(figer);
-  await couleursDesToits(objets, proj, bilan);
-  await formesDesToits(objets, proj, bilan, ctx, options.verifies);
-  await couleursDesMurs(objets, proj, bilan, ctx);
-  remises.forEach(remettre => remettre());
-}
-
-/**
- * La couleur des murs (render/couleurMurPhoto.ts) : lue sur les photos de rue, sinon le materiau des
- * fichiers fonciers, lu avec le batiment ; un service muet laisse les couleurs en place.
- */
-async function couleursDesMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
-  etape('la couleur des murs sur les photos de rue…');
-  const b = await (ctx.couleursMurs ?? couleursMursDepuisPhotos)(objets, proj).catch(() => null);
-  const materiaux = objets.filter((o) => o.fonction === 'batiment' && materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)).length;
-  const texte = texteBilanCouleursMurs(b, materiaux);
-  if (texte) bilan.push(texte);
-}
-
-/** La forme des toits, ajustee sur le LiDAR HD (app/toits/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
-async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, verifies: OptionsActualisation['verifies']): Promise<void> {
-  etape('la forme des toits sur le LiDAR HD…');
-  const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj, { verifies: verifies ?? 'garder' }).catch(() => null);
-  const texte = b && texteBilanToitsLidar(b);
-  if(texte) bilan.push(texte);
-}
 
 /** La parcelle du projet sur son contour relu, avec sa fiche cadastrale a jour. */
 function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): ObjetBrut {
@@ -349,9 +210,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   options = options || { portee:'tout', voisinage:{actif:false} };
   const parcelle = ctx.trouverParcelleCloture();
   const cad = parcelle && parcelle.cadastre;
-  if(!parcelle || !cad || !origineValide(cad) || enCours) return;
-  enCours = true;
-  signaler();
+  if(!parcelle || !cad || !origineValide(cad) || actualisation.enCours()) return;
+  commencer();
   const bilan = [];
   try {
     const proj = projecteurLocal(cad.origineLat, cad.origineLon);
@@ -491,8 +351,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
   } catch(e){
     showToast('Actualisation impossible : ' + ((e as Error).message || e));
   } finally {
-    enCours = false;
-    signaler();
+    finir();
   }
 }
 
@@ -683,4 +542,3 @@ export async function construireVoisinage(
   }
   return resultat;
 }
-

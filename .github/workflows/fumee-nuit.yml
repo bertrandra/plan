@@ -30,7 +30,8 @@ jobs:
       FUMEE_CLASSES: ${{ matrix.classe }}
       FUMEE_THEMES: ${{ matrix.theme }}
       FUMEE_RESEAU: temoin
-      FUMEE_DELAI_POINT: '240'
+      # 400 s : au bureau, le canevas 3D rendu en logiciel est grand, et l'import d'un audit (point 75) y prend deux minutes.
+      FUMEE_DELAI_POINT: '400'
       FUMEE_PARALLELE: '1'
     steps:
       - uses: actions/checkout@v4

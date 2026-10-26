@@ -7,8 +7,15 @@
 //
 // BANC_PROFIL=1 : au bureau, a la premiere taille, le profil de dix rendus (fonctions de src/, temps inclusif) : ce qui coute.
 //
-// Mesure faite sur le serveur de developpement (React y tourne en mode developpement, plus lent que le paquet livre) : les chiffres
-// valent pour comparer, avant et apres un changement, pas comme temps absolus.
+// Deux cibles. Le serveur de developpement donne le profil (BANC_PROFIL=1, noms de src/), mais React y tourne en mode developpement,
+// plus lent que le paquet livre. Le paquet du banc donne les temps que les gens auront : un paquet de production qui garde les
+// poignees `window.__plan` (mode `banc`, app/boot.ts), servi par la previsualisation :
+//
+//   BACKPROD_API_URL=http://plateforme.test npx vite build --mode banc
+//   BACKPROD_API_URL=http://plateforme.test npx vite preview --port 5303 --strictPort   # en arriere-plan
+//   NODE_PATH=$(npm root -g) node scripts/banc-rendu.mjs http://localhost:5303
+//
+// Refaire ensuite un build ordinaire avant de livrer : le paquet du banc porte les poignees.
 //
 // Deux appareils : le bureau (1440 x 900, processeur tel quel) et le telephone (390 x 844, processeur ralenti x4 par Chromium, ce
 // qu'un telephone de milieu de gamme donne a peu pres). Le budget d'une image est de 16 ms au bureau, 33 ms au telephone (30 i/s).
