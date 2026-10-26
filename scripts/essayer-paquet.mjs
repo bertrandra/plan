@@ -8,7 +8,6 @@
 // page (exception non rattrapee, morceau introuvable) : c'est la que se voit un `import()` casse par le decoupage.
 import { createRequire } from 'node:module';
 import { simulerPlateforme } from './captures.mjs';
-import { servirThreeLocal } from './fumee-reseau.mjs';
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -18,6 +17,10 @@ try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(
 
 const base = process.argv[2] || 'http://localhost:5300';
 // La taille d'un morceau se lit sur le disque (le serveur de previsualisation n'annonce pas toujours sa longueur).
+//
+// jsDelivr est coupe (etape 5.2 de la feuille de route) : three.js, ses exemples, EZ-tree et pdf-lib viennent de
+// `assets/vendor/` de la livraison. Une requete vers le CDN est refusee et comptee ; une bibliotheque qui n'y serait que la
+// casse l'etape qui l'appelle.
 const dist = resolve(process.argv[3] || 'dist');
 const taille = (f) => { try { return statSync(resolve(dist, 'assets', f)).size; } catch { return 0; } };
 const navigateur = await chromium.launch();
@@ -25,18 +28,20 @@ const page = await navigateur.newPage({ viewport: { width: 1440, height: 900 } }
 const erreurs = [], recus = [];
 page.on('pageerror', (e) => erreurs.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|net::ERR|plateforme\.test/.test(m.text())) erreurs.push(m.text()); });
-page.on('response', (r) => { const m = /\/assets\/(plan-[0-9a-f]+\.(?:js|css))$/.exec(r.url()); if (m) recus.push({ f: m[1], o: taille(m[1]), statut: r.status() }); });
+page.on('response', (r) => { const m = /\/assets\/(plan-[0-9a-f]+\.(?:js|css)|vendor\/.+)$/.exec(r.url()); if (m) recus.push({ f: m[1], o: taille(m[1]), statut: r.status() }); });
+const coupees = [];
+await page.route(/cdn\.jsdelivr\.net/, (r) => { coupees.push(r.request().url()); return r.abort(); });
 let vus = 0;
 const etape = async (nom) => {
   const nouveaux = recus.slice(vus);
   vus = recus.length;
   const ko = nouveaux.filter((r) => r.statut >= 400);
   const ko8 = (nouveaux.reduce((t, r) => t + r.o, 0) / 1024).toFixed(0);
-  console.log(`${nom.padEnd(28)} ${String(nouveaux.length).padStart(3)} morceau(x), ${ko8.padStart(5)} Ko${ko.length ? ' — EN ERREUR : ' + ko.map((r) => r.f).join(', ') : ''}`);
+  const vendor = nouveaux.filter((r) => r.f.startsWith('vendor/')).length;
+  console.log(`${nom.padEnd(28)} ${String(nouveaux.length).padStart(3)} fichier(s)${vendor ? ' dont ' + vendor + ' de vendor/' : ''}, ${ko8.padStart(5)} Ko${ko.length ? ' — EN ERREUR : ' + ko.map((r) => r.f).join(', ') : ''}`);
   if (ko.length || erreurs.length) { console.error('erreurs : ' + erreurs.join(' | ')); await navigateur.close(); process.exit(1); }
 };
 
-await servirThreeLocal(page);
 await simulerPlateforme(page);
 await page.addInitScript(() => { window.__sansToitsFond = true; });
 await page.goto(base + '/');
@@ -75,5 +80,5 @@ await etape('audit de la parcelle');
 await page.keyboard.press('Escape');
 
 const total = recus.reduce((t, r) => t + r.o, 0);
-console.log(`essayer-paquet : ${recus.length} fichier(s) reçus, ${(total / 1024).toFixed(0)} Ko, aucune erreur de la page`);
+console.log(`essayer-paquet : ${recus.length} fichier(s) reçus, ${(total / 1024).toFixed(0)} Ko, aucune erreur de la page ; jsDelivr coupé (${coupees.length} requête(s) refusée(s))`);
 await navigateur.close();

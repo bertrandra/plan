@@ -61,6 +61,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **three.js, EZ-tree et pdf-lib viennent de la livraison, plus du CDN** (feuille de route, étape 5.2). Le build les copie de
+  `node_modules` dans `assets/vendor/<paquet>@<version>/` (`deploy/bibliotheques.mjs`), avec les modules qu'ils importent. Ce sont
+  les mêmes octets que jsDelivr, sous les mêmes empreintes SRI. La Vue 3D, les arbres et le PDF ne dépendent plus de jsDelivr :
+  - three.js se charge de la livraison seulement. La table d'import ne nomme qu'une adresse, et un secours chargerait une seconde
+    instance de la bibliothèque.
+  - EZ-tree et pdf-lib retombent sur jsDelivr si leur copie ne se charge pas.
+  - model-viewer, qui n'est pas une dépendance du paquet, reste au CDN.
+  La livraison grossit de 6,9 Mo, chargés à la demande seulement. Ces fichiers se gardent en cache sans limite, leur version
+  étant dans le chemin. En développement, Vite sert les mêmes chemins depuis `node_modules`.
 - **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
   n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
   bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout

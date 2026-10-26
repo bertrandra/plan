@@ -47,7 +47,8 @@ NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 [points…
   une classe et un thème. `FUMEE_PARALLELE=n` règle le nombre de parties jouées à la fois (par
   défaut une par tranche de quatre cœurs : une seule sur la machine du cloud, où deux parties
   simultanées rendent instables les points aux longues attentes).
-- three.js est servi depuis `node_modules/three` (`servirThreeLocal`) ; `FUMEE_CDN=1` revient aux CDN.
+- three.js, EZ-tree et pdf-lib sont servis par Vite depuis `node_modules`, aux chemins `assets/vendor/…` de la livraison
+  (`deploy/bibliotheques.mjs`) ; `servirThreeLocal` ne couvre plus que les adresses du CDN qui restent (secours, model-viewer).
 - **Lot `ci`** (job `fumee` de la CI, à chaque PR) : douze points du cœur, au bureau, thème clair,
   Vue 3D en Économe, réseau témoin (liste et raisons : `LOTS` dans `scripts/fumee.mjs`). En local comme
   la CI : `NODE_PATH=$(npm root -g) node scripts/fumee.mjs http://localhost:5199 ci`, environ deux minutes.
@@ -181,8 +182,11 @@ d'y toucher.
 - **Gazon de la parcelle du projet (Vue 3D)** : montré par défaut, au-dessus de la photo aérienne
   (`three/gazon.ts`, texture dessinée). La case « Gazon (3D) » (Apparence) suit la même règle que
   « Relief » ; une texture horizontale choisie l'emporte. Seul son retrait s'écrit (`gazon3d: false`).
-- **three.js 0.186.1, en modules ES depuis jsDelivr** (`src/three/bibliotheque.ts`, seul fournisseur du
-  global `THREE`) : pas empaqueté, table d'import inline dans `index.html` (même URL que `URL_THREE`, testé).
+- **three.js 0.186.1, en modules ES servis par la livraison** (`src/three/bibliotheque.ts`, seul fournisseur du
+  global `THREE`) : pas empaqueté, mais copié de `node_modules` dans `assets/vendor/three@0.186.1/` au build
+  (`deploy/bibliotheques.mjs`, mêmes octets et mêmes empreintes que jsDelivr) ; table d'import inline dans `index.html`
+  (même URL que `URL_THREE`, testé). Pas de secours au CDN pour three.js (une seule adresse dans la table d'import) ;
+  EZ-tree et pdf-lib, copiés aussi, retombent sur jsDelivr si leur copie ne se charge pas.
   Pour garder le rendu de la r128 : `ColorManagement.enabled = false`, sortie linéaire, **toute intensité de
   lumière se pose × `ECHELLE_LUMIERE` (π)**, la courbe de film reste la nôtre (`rendu.ts`). Un exemple de
   three (`chargerExemple`) se charge à la demande et se pose sur `THREE`. Monter de version = rejouer le banc
