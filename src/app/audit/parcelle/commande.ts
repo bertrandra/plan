@@ -18,13 +18,11 @@
 import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
-import { creerSessionAuditParcelle, type ContexteAuditParcelle, type SessionAuditParcelle } from './controleur.js';
-import { preparerImport } from './fichier.js';
+import type { ContexteAuditParcelle, SessionAuditParcelle } from './controleur.js';
 import type { FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
-import { brancherDoigtAudit } from '../controleur.js';
-import { creerCatalogue, type CatalogueAudits } from './catalogue.js';
-import { preparerRejeu } from './rejeu.js';
-import { fabriqueImagesNavigateur } from './analyseClaude.js';
+import { brancherDoigtAudit } from '../doigt.js';
+import type { CatalogueAudits } from './catalogue.js';
+import { autoriserBoussole } from '../../../shell/boussole.js';
 import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
 import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
@@ -70,6 +68,13 @@ function choisirFichierNavigateur(signaler: (m: string) => void): (surTexte: (te
   };
 }
 
+/**
+ * La session, la lecture d'un fichier, le catalogue et le rejeu : charges au premier geste qui en a besoin (moteur.ts, AD-10),
+ * une fois pour toutes. Les commandes, elles, sont declarees des le demarrage.
+ */
+let chargement: Promise<typeof import('./moteur.js')> | null = null;
+const moteur = (): Promise<typeof import('./moteur.js')> => (chargement ??= import('./moteur.js'));
+
 const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
 /** Les photos de facade d'un fichier d'audit : celles que les mesures reprennent. */
 const photosFacades = (f: FichierAuditParcelle): number => f.batiments.reduce((n, b) => n + b.facades.reduce((m, x) => m + x.photos.length, 0), 0);
@@ -90,7 +95,7 @@ function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, ac
     description: 'Les audits reçus sur le serveur, de parcelle et de promenade : leurs données, leur conclusion et ce qui en a été fait, leurs analyses par Claude et leurs rejeux par modèle ; les ouvrir dans ce projet, les télécharger, les retirer (administrateur seulement)',
     groupe: 'admin',
     actif: () => enAdmin(),
-    executer: () => {
+    executer: () => { void moteur().then(({ creerCatalogue, preparerRejeu, fabriqueImagesNavigateur }) => {
       const catalogue: CatalogueAudits = creerCatalogue({
         client: () => a.audits?.() ?? null,
         iduProjet: () => parcelleCadastrale(a.etat.objects),
@@ -110,8 +115,25 @@ function declarerAuditsAdmin(a: AtelierAuditParcelle, cmd: RegistreCommandes, ac
       });
       parcours.ouvrir({ type: 'auditsParcelle', catalogue });
       void catalogue.relire();
-    },
+    }); },
   });
+}
+
+/**
+ * Le doigt sur la Vue 3D pendant la prise (vuePrise.ts) : toucher une facade la choisit, faire tourner la vue suspend un moment le
+ * suivi. Pose une fois sur l'hote de la scene, qui survit aux reconstructions ; hors de l'ecran de prise, la session ne fait rien de
+ * ces gestes. Chaque scene batie est annoncee a la session et a la consultation.
+ */
+function brancherLeDoigt(session: () => SessionAuditParcelle | null, consultation: () => SessionAuditParcelle | null): void {
+  let hote: HTMLElement | null = null;
+  const brancherHote = () => {
+    if (hote || !hotes3d.vue3d) return;
+    hote = hotes3d.vue3d;
+    brancherDoigtAudit({
+      tapoter: (ndc) => session()?.toucher(ndc), appuiLong: (ndc) => session()?.toucher(ndc), lacherSuivi: () => session()?.lacherVue(),
+    }, hote);
+  };
+  abonnerSceneBatie(() => { brancherHote(); session()?.sceneBatie(); consultation()?.sceneBatie(); });
 }
 
 export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreCommandes): { session: () => SessionAuditParcelle | null } {
@@ -133,21 +155,11 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     window.addEventListener('pagehide', () => { void session?.ecrireBrouillon(); });
   }
 
-  // Le doigt sur la Vue 3D pendant la prise (vuePrise.ts) : toucher une facade la choisit, faire
-  // tourner la vue suspend un moment le suivi. Pose une fois sur l'hote de la scene, qui survit aux
-  // reconstructions ; hors de l'ecran de prise, la session ne fait rien de ces gestes.
-  let hote: HTMLElement | null = null;
-  const brancherHote = () => {
-    if (hote || !hotes3d.vue3d) return;
-    hote = hotes3d.vue3d;
-    brancherDoigtAudit({
-      tapoter: (ndc) => session?.toucher(ndc), appuiLong: (ndc) => session?.toucher(ndc), lacherSuivi: () => session?.lacherVue(),
-    }, hote);
-  };
-  abonnerSceneBatie(() => { brancherHote(); session?.sceneBatie(); consultation?.sceneBatie(); });
+  brancherLeDoigt(() => session, () => consultation);
 
   /** La session de cette parcelle ; une autre parcelle (un autre projet ouvert) en ouvre une autre. */
-  function sessionDe(idu: string): SessionAuditParcelle {
+  async function sessionDe(idu: string): Promise<SessionAuditParcelle> {
+    const { creerSessionAuditParcelle } = await moteur();
     if (!session || iduSession !== idu) { session?.suspendre(); session = creerSessionAuditParcelle({ ...a, idu }); iduSession = idu; }
     return session;
   }
@@ -166,14 +178,17 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     executer: () => {
       const idu = parcelleCadastrale(a.etat.objects);
       if (!idu) return;
-      const s = sessionDe(idu);
-      // Dans le geste meme : la reprise du brouillon attend, Safari refuserait ensuite la boussole.
-      s.autoriserBoussole();
-      void s.proposerReprise(() => {
-        s.reprendre();
-        // On revient toujours sur la liste : c'est elle qui dit ce qui reste.
-        s.montrer('liste');
-        parcours.ouvrir({ type: 'auditParcelle', session: s });
+      // Dans le geste meme, avant de charger la session : Safari refuserait ensuite la boussole. Une fois accordee, la page la garde,
+      // et la session la redemande sans rien montrer.
+      void (a.boussole?.autoriser ?? autoriserBoussole)().catch(() => false);
+      void sessionDe(idu).then((s) => {
+        s.autoriserBoussole();
+        return s.proposerReprise(() => {
+          s.reprendre();
+          // On revient toujours sur la liste : c'est elle qui dit ce qui reste.
+          s.montrer('liste');
+          parcours.ouvrir({ type: 'auditParcelle', session: s });
+        });
       });
     },
   });
@@ -183,12 +198,13 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
    * raison, ou repris la ou il en etait, a la phase 3 ou sur la liste de controle. Depuis le
    * catalogue, une sauvegarde rouverte reste la meme : les envois suivants la remplacent.
    */
-  function importer(texte: string, depot?: FicheAudit, remesurer = false): void {
+  async function importer(texte: string, depot?: FicheAudit, remesurer = false): Promise<void> {
     const idu = parcelleCadastrale(a.etat.objects);
+    const { preparerImport } = await moteur();
     const r = preparerImport(texte, a.etat.objects, idu);
     if ('refus' in r) { a.signaler('Import refusé : ' + r.refus); return; }
     if (!idu) return;
-    const s = sessionDe(idu);
+    const s = await sessionDe(idu);
     const enCapture = !r.fichier.finCapture;
     const absents = r.batimentsAbsents ? ' ; ' + pluriel(r.batimentsAbsents, 'bâtiment') + ' du fichier absent' + (r.batimentsAbsents > 1 ? 's' : '') + ' de ce projet' : '';
     // La question du remplacement (Z8) ne doit pas s'ouvrir sous le catalogue.
@@ -214,8 +230,9 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
    * une session a part, sans capteurs, brouillon ni partage, dont les propositions et les decisions
    * sont celles du fichier. L'audit en cours de l'administrateur n'est pas touche.
    */
-  function consulter(texte: string, catalogue: CatalogueAudits): void {
+  async function consulter(texte: string, catalogue: CatalogueAudits): Promise<void> {
     const idu = parcelleCadastrale(a.etat.objects);
+    const { preparerImport, creerSessionAuditParcelle } = await moteur();
     const r = preparerImport(texte, a.etat.objects, idu);
     if ('refus' in r) { a.signaler('Consultation refusée : ' + r.refus); return; }
     if (!idu) return;
@@ -237,7 +254,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     libelle: 'Importer un audit de parcelle…',
     description: 'Reprend le fichier d’un audit de cette parcelle (même IDU), fait sur un autre appareil, à l’étape des propositions',
     ...condition,
-    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))((texte) => importer(texte)),
+    executer: () => (a.choisirFichier ?? choisirFichierNavigateur(a.signaler))((texte) => { void importer(texte); }),
   });
 
   // « Envoyer l'audit au serveur » : la ligne de la liste de controle ; elle n'existe que si quelqu'un

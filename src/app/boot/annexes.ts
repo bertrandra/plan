@@ -8,13 +8,16 @@ import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../../three/etat3d.js
 import { epurerLeTemps, visibilite3d } from '../../three/scene.js';
 import { poserEspeces, type EspeceArbre } from '../../model/especesArbre.js';
 import { creerIsolement, objetAIsoler } from '../isolement.js';
-import { brancherAudit } from '../audit/branchement.js';
 import type { DemandeAudit } from '../audit/demande.js';
 import type { Plan } from './plan.js';
 
-/** Le mode audit (app/audit/) : la promenade pilote le plan, rien ne s'enregistre. */
-export function demarrerAudit(p: Plan, vues: Vues3d, demande: DemandeAudit): void {
+/**
+ * Le mode audit (app/audit/) : la promenade pilote le plan, rien ne s'enregistre. Charge a la demande (AD-10) : seul l'administrateur
+ * qui ouvre `?mode=audit` en a besoin. Rend la fin du branchement.
+ */
+export async function demarrerAudit(p: Plan, vues: Vues3d, demande: DemandeAudit): Promise<void> {
   const { etat, magasin, commandes } = p;
+  const { brancherAudit } = await import('../audit/branchement.js');
   brancherAudit({
     etat, commandes, notifier: () => magasin.notifier(), signaler: showToast,
     restaurer: (i) => p.historique.restaurer(i), rebuildSelector: p.rebuildSelector,

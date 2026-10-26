@@ -40,6 +40,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'audit ne se télécharge plus à l'ouverture** (AD-10, étape 2b, première coupure). Ses écrans (`zones/parcours/Audit*`), sa session
+  et ce qu'elle atteint (analyse des façades comprise) se chargent au premier geste : « Auditer la parcelle… », « Importer un audit
+  de parcelle… », Admin › Audits, ou l'adresse `?mode=audit`. Les commandes restent déclarées dès le démarrage (elles grisent et
+  disent leur raison comme avant) ; le doigt sur la Vue 3D et le contrôleur courant sortent dans deux petits modules
+  (`app/audit/doigt.ts`, `app/audit/courant.ts`). L'autorisation de la boussole se demande toujours dans le geste même, avant le
+  chargement : Safari la refuserait après. À l'ouverture, le programme passe de 2 729 Ko à 2 388 Ko ; l'audit en apporte 304 Ko,
+  en 18 morceaux, quand on l'ouvre.
+
 - **Le programme livré n'est plus un fichier unique** (audit d'architecture, AD-10, étapes 1 et 2a). `vite-plugin-singlefile` mettait
   tout dans un seul `assets/plan-<empreinte>.js` de 2,9 Mo, y compris ce qui est derrière un `import()` : l'admin, la vitrine, les
   écrans à la demande. Le programme est maintenant en morceaux `assets/plan-<empreinte>.js` (60 environ), avec sa feuille de style
