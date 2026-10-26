@@ -4,24 +4,16 @@ import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { parPriorite } from '../../render/empilement.js';
 import { referenceGeoPlan } from '../../render/ortho.js';
 import { brancherRelief } from '../ecouteurs/relief.js';
-import { brancherToitCatalogue } from '../ecouteurs/toitCatalogue.js';
-import { brancherToitsFond } from '../ecouteurs/toitsFond.js';
-import { brancherFaitsLocaux } from '../ecouteurs/faitsLocaux.js';
 import { brancherPointeur } from '../../interaction/pointeur.js';
 import { validerProjetJSON } from '../../io/validation.js';
 import { importSVGString as importerSVG } from '../../io/importSvg.js';
 import { brancherObjets } from '../ecouteurs/objets.js';
 import { brancherAffichage } from '../ecouteurs/affichage.js';
 import { brancherPositionGps } from '../ecouteurs/positionGps.js';
-import { brancherAuditParcelle } from '../audit/parcelle/commande.js';
 import { brancherVoisinage } from '../ecouteurs/voisinage.js';
 import { brancherDoublons } from '../ecouteurs/doublons.js';
 import { brancherFichiers } from '../ecouteurs/fichiers.js';
 import { brancherDivers } from '../ecouteurs/divers.js';
-import { enAdmin, sessionCourante } from '../acces.js';
-import { creerClientAudits } from '../../io/auditsServeur.js';
-import { analyseClaudeDuNavigateur } from '../audit/parcelle/analyseNavigateur.js';
-import { showToast } from '../../shell/dialogs.js';
 import { brancherClavier } from '../clavier.js';
 import { brancherLesExports, exporterLeProjet } from '../assemblage/exports.js';
 import type { Atelier } from '../atelier.js';
@@ -30,11 +22,8 @@ import type { Pointage } from '../../interaction/outilMesure.js';
 import type { GraineDemarrage } from './graines.js';
 import type { Plan, Tardifs } from './plan.js';
 import type { chargements } from './chargements.js';
-
-/** Le jeton de la plateforme, relu a chaque appel : il se renouvelle pendant que la page vit. */
-const jetonPlateforme = (): string | null => sessionCourante()?.jeton()?.valeur ?? null;
-/** Le partage des audits de parcelle pour le corpus (MD/spec-audit.md §15) : un client pour la page. */
-const clientAudits = creerClientAudits((entree, init) => fetch(entree, init), jetonPlateforme);
+import { brancherLAudit } from './branchementAudit.js';
+import { brancherLesToits } from './branchementToits.js';
 
 /** Les objets deja presents recoivent leur DOM, puis les gestes du pointeur et les commandes du plan. */
 export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof chargements>, seed: GraineDemarrage, tardifs: Tardifs) {
@@ -69,23 +58,7 @@ export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof 
   // La position GPS de l'appareil dans la Vue 3D (menu Affichage, decochee par defaut).
   brancherPositionGps(atelier, commandes);
   // L'audit de la parcelle du projet, phase 1 : la capture (MD/spec-audit.md §11, §12).
-  brancherAuditParcelle({
-    etat, ouvrir3d: () => { if (magasin.store.getState().vue !== 'vue3d') commandes.executer('vue.3d'); }, signaler: showToast,
-    // La validation des propositions (§14) : un instantane, l'ecriture, le plan et la Vue 3D redessines.
-    projet: {
-      pushHistory: p.pushHistory, render: p.render,
-      refaire3d: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
-      remplacer3d: (cles, objets) => tardifs.vues?.remplacerObjets3d(cles, objets) ?? false,
-      // L'avant et l'apres en deux vues (three/comparaison3d.ts), qui evitent l'ecran des propositions.
-      comparer3d: (apres) => tardifs.vues?.comparerObjets3d(apres) ?? false,
-      cadrer3d: (panneau) => { tardifs.vues?.cadrerDeuxVues(panneau); },
-      surligner3d: (s, aussi, viser) => tardifs.vues?.surlignerDans3d(s, aussi, viser) ?? false,
-    },
-    // Le partage pour le corpus (§15) : l'administrateur par sa session, un utilisateur par son jeton.
-    audits: () => (enAdmin() || jetonPlateforme() ? clientAudits : null),
-    admin: enAdmin,
-    analyse: analyseClaudeDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null),
-  }, commandes);
+  brancherLAudit(p, tardifs);
   // Le relief du terrain (MD/spec-relief.md) : lire, actualiser, supprimer. Le calage vient du fond
   // orthophoto, qui sait deja ou le plan est sur la Terre.
   brancherRelief(atelier, {
@@ -93,17 +66,8 @@ export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof 
     buildThreeScene: (o) => tardifs.vues?.buildThreeScene(o),
     rafraichir: () => magasin.notifier()
   }, commandes);
-  // Le mode Toit de la Vue 3D : session, Regles et catalogue du toit.
-  brancherToitCatalogue(atelier, {
-    // Le batiment retouche se repose seul dans la scene ; faute de mieux, la scene entiere se rebatit, sur la terrasse courante (jamais sur
-    // le batiment : passe a `buildThreeScene`, il serait pris pour une terrasse).
-    rebatirBatiment: (cle) => { if (vue3d.scene && !tardifs.vues?.remplacerObjets3d([cle])) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
-    rafraichir: () => magasin.notifier(),
-    magasin
-  }, commandes);
-  brancherToitsFond(ch.toitsFond, commandes);
-  // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.
-  brancherFaitsLocaux({ objets: () => atelier.etat.objects, relireToits: () => { ch.toitsFond.arreter(); ch.toitsFond.relancer(); } }, commandes);
+  // Le mode Toit de la Vue 3D, les toits relus en tache de fond et l'essai des faits.
+  brancherLesToits(p, atelier, ch, tardifs);
   // Branche AVANT les commandes 3D : deux ecouteurs de `resize` s'executent dans leur ordre
   // d'enregistrement, et le plan doit etre redimensionne avant la scene.
   brancherDivers(atelier, {

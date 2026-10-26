@@ -3,13 +3,8 @@
 
 import { creerEtat } from '../../core/state.js';
 import { creerHistorique } from '../../core/historique.js';
-import { synchroniserContexteTerrasse, terrasseCourante, terrasseSelectionnee } from '../../core/contexteTerrasse.js';
+import { terrasseCourante, terrasseSelectionnee } from '../../core/contexteTerrasse.js';
 import { detruireVue } from '../../render/vues.js';
-import { rendreScene, rendreObjets, type ContexteRendu } from '../../render/pipeline.js';
-import { dessinerCourbesRelief } from '../../render/relief.js';
-import { dessinerNomsDesRues } from '../../render/rues.js';
-import { creerApercuVue } from '../../render/apercuVue.js';
-import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { creerRegistre } from '../commandes.js';
 import { droitsCourants, enLectureSeule } from '../acces.js';
@@ -31,12 +26,11 @@ import { creerMesures } from '../assemblage/mesures.js';
 import { creerGestes } from '../assemblage/gestes.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import { resumeDuProjet } from '../assemblage/exports.js';
-import { dessinerReleves } from '../../render/releve.js';
-import { dessinerCloture } from '../../render/cloture.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { estPiscine } from '../../model/fonctions.js';
 import type { GraineDemarrage } from './graines.js';
+import { creerRendu } from './rendu.js';
 
 /**
  * La lecture des toits en tache de fond (app/toits/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
@@ -47,10 +41,6 @@ let permis = true;
 /** Pose une fois au demarrage (boot) ; les chargements le relisent. */
 export function permettreToitsFond(oui: boolean): void { permis = oui; }
 export const toitsFondPermis = (): boolean => permis;
-/** Le mode de diagnostic de l'adresse (app/diagnostic.ts), lu une fois. */
-export const diagnostic = modeDiagnostic();
-/** Au-dela, un rendu complet est trop lent pour suivre un geste : la vue passe par un apercu (render/apercuVue.ts). */
-const RENDU_LENT_MS = 30;
 export const lectureDeFondPermise = (vitrine: boolean) => !vitrine && !(import.meta.env.DEV
   && (new URLSearchParams(location.search).has('temoin') || !!(window as { __sansToitsFond?: boolean }).__sansToitsFond));
 
@@ -119,53 +109,11 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     }
   }, magasin);
 
-  // Le dessin du plan est orchestre dans render/pipeline.ts. La terrasse courante suit la selection
-  // (core/contexteTerrasse.ts), et le tiroir la suit a chaque rendu.
-  function render(): void {
-    const debut = performance.now();
-    apercu.annuler();
-    const contexteChange = synchroniserContexteTerrasse(etat);
-    // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
-    // pouvoir tenir en entier dans la scene au geste suivant.
-    cadrage.ajusterPlancher();
-    rendreScene(etat, contexteRendu());
-    tiroir.synchroniser(contexteChange);
-    magasin.notifier();
-    dureeDernierRendu = performance.now() - debut;
-  }
-  // Le zoom et le deplacement s'adaptent au plan (render/apercuVue.ts) : un rendu complet tant qu'il
-  // est rapide (un petit plan), un apercu par transformation pendant le geste quand il ne l'est plus.
-  const apercu = creerApercuVue({ element: surface.svg, rendre: () => render() });
-  let dureeDernierRendu = 0;
-  const vueChangee = (avant: typeof etat.scene) => {
-    if (dureeDernierRendu < RENDU_LENT_MS) render();
-    else apercu.changer(avant, etat.scene);
-  };
-  /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */
-  function redessinerObjets(cles: readonly string[]): void {
-    // Pendant un apercu, le dessin ne suit pas encore la scene : le rendu complet qui suit les reprendra.
-    if (apercu.enCours()) return;
-    const objets = etat.objects.filter((o) => cles.includes(o.key));
-    if (objets.length) rendreObjets(etat, contexteRendu(), objets);
-  }
-  function contexteRendu(): ContexteRendu {
-    return {
-      ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
-      // ?mode=devroof ou devwall : chaque batiment peint selon l'origine de son toit ou de ses murs.
-      ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
-      // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
-      // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
-      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene, etat.voisinageVisible),
-      // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
-      dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
-      // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
-      renderReleves: () => {
-        dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
-        const parcelle = affichage.trouverParcelleCloture();
-        if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
-      }
-    };
-  }
+  // Le dessin du plan, le rendu complet et l'apercu pendant un geste : app/boot/rendu.ts. `render` est hisse, parce que
+  // l'historique et le dessin le recoivent avant que le rendu n'existe ; il ne s'appelle qu'une fois le plan assemble.
+  function render(): void { rendu.render(); }
+  const rendu = creerRendu({ etat, magasin, surface, dessin, affichage, tiroir, markDirty, cadrage: () => cadrage });
+  const { vueChangee, redessinerObjets } = rendu;
   const gestes = creerGestes(etat, { ...dessin, pushHistory, render, rebuildSelector, mesures });
   const cadrage = creerCadrage(etat, magasin, surface, {
     render, toWorld: dessin.toWorld, objetMasque: affichage.objetMasque,
