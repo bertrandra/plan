@@ -13,6 +13,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   échouer l'exécution, ce dont GitHub prévient le propriétaire du dépôt. Le résumé liste les points rouges, et le journal et les
   captures restent téléchargeables quatorze jours. Le premier passage a trouvé sept points toujours rouges, déjà rouges avant ce
   jour (69, 70, 74, 76, 82, 93 et, en compact, 10) et deux instables (23, 75). Ils sont l'étape 0.4 de la feuille de route.
+- **Le banc du rendu du plan** (`scripts/banc-rendu.mjs`, feuille de route, étape 0.2). Il duplique la démonstration jusqu'à
+  147, 300 et 600 objets et mesure un rendu complet au bureau et au téléphone (processeur ralenti ×4) ; `BANC_PROFIL=1` montre ce
+  qui coûte. Premier résultat : le dessin SVG du plan tient (10,7 ms à 600 objets au bureau). Ce qui ne tient pas, ce sont les
+  calculs que les zones refont à chaque notification : la hauteur des appuis et le sol sous l'emprise dans l'inspecteur, la
+  recherche des doublons dans le menu. Un rendu complet coûte ainsi 82 ms au bureau et 506 ms au téléphone à 147 objets. La
+  phase 2 de la feuille de route est réécrite sur ces chiffres. `window.__plan` (développement seulement) gagne `rendre()` et
+  `dessinerObjet()`.
 
 - **Une feuille de route des points faibles de l'architecture** (`MD/roadmap-architecture.md`). Elle part d'une revue de `main`
   et classe sept points faibles, du plus risqué au moins risqué : des nombres d'anciens projets qui peuvent bouger, des
@@ -53,6 +60,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   elle ne change que le corps choisi, ou le bâtiment entier sans choix. Au doigt, les options sont des cibles de 44 px.
 
 ### Modifié
+
+- **Les nombres d'un ancien projet ne suivent plus le code d'aujourd'hui** (feuille de route, étapes 1.1 et 1.2 ; AD-19). Deux
+  chemins donnaient des nombres à un ancien fichier sans numéro de schéma, et un témoin cassait seulement s'ils bougeaient.
+  - **Le remplissage** : ce qu'un projet reçoit quand un réglage de construction lui manque lit maintenant une table de valeurs
+    figées (`engine/remplissageFige.ts`, raideur des essences comprise), qui n'importe aucune constante du moteur. Un réglage
+    par défaut d'aujourd'hui change désormais dans `constructionTerrasseNeuve` seulement.
+  - **La migration 2 → 3** : le toit qu'elle donne à un bâtiment BD TOPO vient d'une copie figée au schéma 3 des règles du toit,
+    du rectangle orienté et du squelette (`model/fige/toitSchema3.ts`). L'algorithme des toits peut donc évoluer sans changer un
+    ancien fichier.
+  Le test d'architecture interdit à ces modules d'importer une valeur, et à quiconque d'autre que la migration d'importer la copie
+  figée. Aucune empreinte ne bouge.
 
 - **Le jeu de démonstration ne se télécharge plus à l'ouverture** (AD-10, sixième coupure). Le plan de démonstration
   (`model/demo-projet.json` et `model/demo.ts`) pesait plus que tout le relevé de façade, chargé par tout le monde alors qu'il

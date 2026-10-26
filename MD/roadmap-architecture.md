@@ -34,27 +34,35 @@ déclencheur, écrit dans leur tableau.
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
 | 0.1 | **Fumée complète chaque nuit** (P6) : un workflow programmé joue tous les points, trois classes et deux thèmes, réseau témoin, et garde le journal et les captures des échecs | le workflow tourne sur `main`, un échec fait échouer l'exécution (GitHub prévient le propriétaire) et le journal est téléchargeable | **fait** : `.github/workflows/fumee-nuit.yml`, six tâches parallèles de 12 à 30 min |
-| 0.2 | **Banc du rendu du plan** (P3) : temps de `render()` et d'un glisser à 150, 300 et 600 objets, au bureau et au téléphone (processeur ralenti) | un script reproductible, ses chiffres dans `MD/architecture.md` (W3), et la décision de la phase 2 prise sur eux | à faire |
-| 0.4 | **Réparer les points rouges que la première nuit a trouvés** (P6). Premier passage complet, le 26 octobre 2026 :<br>– toujours rouges, dans toutes les classes : 69, 70, 74 (analyse par Claude et partage d'un audit), 76 (Admin › Conformité), 82 (masque d'occlusion du relevé), 93 (Admin › Règles) ;<br>– rouge en compact seulement : 10 (cible d'alignement) ;<br>– instables au bureau : 23 (rappel d'un point de vue), 75 (import d'un audit, délai dépassé).<br>Tous étaient déjà rouges avant le 26 octobre (rejoués sur `9d50a29`, la livraison précédente) : aucun passage complet ne les jouait. Pour chacun, savoir si c'est le script ou l'application, et corriger | la fumée de la nuit passe en entier | à faire |
+| 0.2 | **Banc du rendu du plan** (P3) : temps d'un rendu complet à 147, 300 et 600 objets, au bureau et au téléphone (processeur ralenti ×4), et le profil de ce qui coûte | `scripts/banc-rendu.mjs` ; ses chiffres dans `MD/architecture.md` (W3, AD-1) ; la phase 2 réécrite sur eux | **fait** |
 | 0.3 | **Vérification de l'API Claude** (P7) : poser le secret `ANTHROPIC_API_KEY_TEST`, puis lancer le workflow « Vérifier l'API Claude » avant chaque livraison | le workflow passe une fois | à faire, par le propriétaire du dépôt (secret) |
+| 0.4 | **Réparer les points rouges que la première nuit a trouvés** (P6). Premier passage complet, le 26 octobre 2026 :<br>– toujours rouges, dans toutes les classes : 69, 70, 74 (analyse par Claude et partage d'un audit), 76 (Admin › Conformité), 82 (masque d'occlusion du relevé), 93 (Admin › Règles) ;<br>– rouge en compact seulement : 10 (cible d'alignement) ;<br>– instables au bureau : 23 (rappel d'un point de vue), 75 (import d'un audit, délai dépassé).<br>Tous étaient déjà rouges avant le 26 octobre (rejoués sur `9d50a29`, la livraison précédente) : aucun passage complet ne les jouait. Pour chacun, savoir si c'est le script ou l'application, et corriger | la fumée de la nuit passe en entier | à faire |
 
 ### Phase 1 — Les nombres d'un ancien fichier ne bougent plus (reproductibilité)
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 1.1 | **Figer le remplissage des anciens projets** (P1, AD-19) : ce que `ensureConstruction` pose quand un champ manque devient une table de valeurs littérales, figée, séparée des constantes et des réglages d'une terrasse neuve | la table ne cite aucune constante ; changer un réglage par défaut d'aujourd'hui ne change plus le témoin `defauts-construction.json` ; un test l'interdit | à faire |
-| 1.2 | **Figer la migration 2 → 3** (P1, AD-19) : elle ne fait plus appel à l'algorithme de toit d'aujourd'hui, mais à sa copie figée au schéma 3 (`model/migrations/`), que rien d'autre n'importe | changer `toitBdTopo`, le squelette ou le faîtage ne change plus `migration-2-3.json` ; le test d'architecture interdit d'importer la copie figée ailleurs | à faire |
+| 1.1 | **Figer le remplissage des anciens projets** (P1, AD-19) : ce que `ensureConstruction` pose quand un champ manque devient une table de valeurs littérales, figée, séparée des constantes et des réglages d'une terrasse neuve | la table ne cite aucune constante ; changer un réglage par défaut d'aujourd'hui ne change plus le témoin `defauts-construction.json` ; un test l'interdit | **fait** : `engine/remplissageFige.ts` |
+| 1.2 | **Figer la migration 2 → 3** (P1, AD-19) : elle ne fait plus appel à l'algorithme de toit d'aujourd'hui, mais à sa copie figée au schéma 3 (`model/migrations/`), que rien d'autre n'importe | changer `toitBdTopo`, le squelette ou le faîtage ne change plus `migration-2-3.json` ; le test d'architecture interdit d'importer la copie figée ailleurs | **fait** : `model/fige/toitSchema3.ts` |
 | 1.3 | **Les entrées de session hors des couches pures** (P2, AD-15) : chaque calcul reçoit en argument ce qu'il lisait dans l'ambiance (calibration, faits essayés, essences, encres) | aucun module de `engine/`, `model/`, `facade/` ne lit un `let` posé par `app/` ou `io/` ; un test le vérifie | après 1.1 et 1.2 |
 | 1.4 | **Ce que l'ambiance a fixé s'enregistre avec le projet** (P2) : la calibration et les faits qui ont servi sont écrits avec les nombres, pour qu'un rejeu donne les mêmes | rouvrir un projet rend les mêmes nombres sur une autre session ; un test le vérifie sur la démonstration | après 1.3 ; événement de version (schéma) |
 
 ### Phase 2 — Le plan reste fluide (performance)
 
-Déclencheur : le banc 0.2 montre un rendu au-dessus de 16 ms au bureau ou de 33 ms au téléphone à 150 objets.
+Déclencheur **atteint** (banc 0.2, 26 octobre 2026). À 147 objets, un rendu complet coûte 82 ms au bureau et 506 ms au
+téléphone, pour un budget de 16 et 33 ms. Le dessin SVG du plan n'en prend que 4,7 et 26 ms (10,7 et 56 ms à 600 objets). Le
+reste vient des zones, qui refont des calculs dérivés à chaque notification du magasin :
+- les champs de construction de l'inspecteur recalculent la hauteur des appuis, donc le sol sous l'emprise, donc un passage
+  point par point sur la grille du relief (environ 35 ms par rendu) ;
+- l'entrée « doublons » du menu sérialise tout le projet (environ 12 ms).
+
+Le rendu incrémental du SVG passe donc après.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 2.1 | Ne redessiner que ce qui a changé : une clé de version par objet, et `render()` réutilise le nœud SVG des objets inchangés | le banc passe sous le seuil à 300 objets ; les fumées du plan (1 à 11) passent | selon 0.2 |
-| 2.2 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 mesuré | plus aucun rendu sauté au banc | après 2.1 |
+| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | à faire |
+| 2.2 | Ne redessiner que les objets qui ont changé (une clé de version par objet, le nœud SVG gardé sinon) | le banc à 600 objets passe sous 33 ms au téléphone | si le banc le demande après 2.1 |
+| 2.3 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 et 2.2 mesurés | plus aucun rendu sauté au banc | après 2.2 |
 
 ### Phase 3 — Des domaines dans `app/` (structure)
 
@@ -87,4 +95,4 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 ## Ordre retenu
 
 0.1, 0.2 et 1.1 + 1.2 sont engagés dès maintenant, dans cet ordre : les filets d'abord, puis la reproductibilité. 0.3 attend le
-secret. Le reste suit son déclencheur.
+secret. 2.1 vient ensuite : son déclencheur est atteint. Le reste suit son déclencheur.

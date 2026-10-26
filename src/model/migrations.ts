@@ -25,7 +25,8 @@
 // l'ecriture, qu'il est desormais de la forme courante.
 
 import { SCHEMA_VERSION } from './version.js';
-import { toitBdTopo, COUCHE_BATIMENT_BDTOPO } from './toitBdTopo.js';
+// La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
+import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
 import type { ObjetBrut, PtBrut } from './types.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
@@ -81,7 +82,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
 
 /**
  * Un batiment importe de la BD TOPO avant le schema 3 n'a pas de toit : il recoit celui que l'import
- * lui donnerait aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
+ * lui donnait le jour ou le schema 3 a ete fige (model/fige/toitSchema3.ts), et non celui d'aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
  * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
  */
 function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
@@ -91,7 +92,7 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
   const nombre = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   return {
     ...o,
-    toit: toitBdTopo(pts as PtBrut[], {
+    toit: toitBdTopoSchema3(pts as PtBrut[], {
       altitudeToitMinM: nombre(b.altitudeToitM),
       altitudeToitMaxM: nombre(b.altitudeToitMaxM),
       constructionLegere: b.constructionLegere === true

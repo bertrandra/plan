@@ -4,45 +4,26 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
-import { LONGUEURS_BOIS_DEFAUT, LONGUEURS_LAMES_DEFAUT } from './prix.js';
-import { LAME_RIVE_EPAISSEUR_M, PLOT_ASSISE_MIN_CM2, VIS_PRICE } from './constantes.js';
-import { CHARGE_NORMALE_DEFAUT, CHARGE_SPA_DEFAUT, ENTRAXE_LAME_K, raideurDe, PORTEE_VIS_K } from './portees.js';
+// Le remplissage d'un ancien projet lit des valeurs figees, jamais les constantes du moteur d'aujourd'hui (AD-19).
+import { REMPLISSAGE as F, constructionSansReglage, raideurFigee } from './remplissageFige.js';
 import type { Construction } from '../model/types.js';
 
 /** Ce qui porte des parametres de construction : une terrasse du plan, ou une candidate a l'etude. */
 export interface PorteurDeConstruction { construction?: Construction }
 
+/**
+ * Ce qu'un projet enregistre sans construction recoit a la relecture : figee (engine/remplissageFige.ts), pour qu'il redonne
+ * toujours les memes quantites. Une terrasse neuve part de `constructionTerrasseNeuve`, qui seul peut suivre les reglages d'aujourd'hui.
+ */
 export function defaultConstruction(): Construction {
-  return {
-    typePose:'vis-fondation',
-    hauteurVis:40, depassementVis:0,
-    visModeAuto:true,
-    chargeNormale:250, chargeSpa:500,
-    kPortee:25.8, kEntraxeLame:18.5, coefRaideurLame:1.00,
-    jeuLames:6, epaisseurLameRive:22,
-    longueursLames:'3, 2.5, 2, 1.7, 1.5', chuteMinReutilisable:50, jointsSurAppui:true,
-    prixLongueurs:{},
-    longueursBois:'5, 4, 3, 2.5, 2', prixLongueursBois:{}, jointsBoisSurAppui:true,
-    lambourdeSection:'45x70', longueursLambourde:'5, 4, 3, 2.5, 2', prixLongueursLambourde:{},
-    prixVisUnite:35, visParBoite:1,
-    hauteurPlot:10, plotModele:'auto', plotEntraxe:65, plotEntraxeAuto:true,
-    plotAvecSolives:false, plotSurfaceAssise:300, prixPlots:{},
-    supportType:'concasse', supportDecaissement:15,
-    cadences:{}, equipe:2, heuresJour:7, echelleImplant:200, lames3dFilaire:false,
-    visEntraxe:100, visEntraxeZoneSpa:60, visMargeZoneSpa:30,
-    soliveEntraxe:40, soliveSection:'45x70',
-    avecLambourde:false, lambourdeEntraxe:40,
-    sensPose:0, segmentReference:0,
-    essenceBois:'pin-classe4', largeurLame:140, epaisseurLame:25,
-    avecLameRive:false, hauteurLameRive:200,
-    avecLamePlat:false,
-    bom:[]
-  };
+  return constructionSansReglage();
 }
 /**
  * La construction d'une terrasse qu'on cree maintenant : posee sur plots, le cas le plus courant
  * d'une terrasse de jardin. `defaultConstruction` garde la vis de fondation : c'est ce qu'un projet
- * enregistre sans construction recoit a l'ouverture, et il doit redonner les memes quantites.
+ * enregistre sans construction recoit a l'ouverture, et il doit redonner les memes quantites. C'est
+ * ici, et seulement ici, qu'un reglage par defaut d'aujourd'hui change : on le pose par-dessus la
+ * construction figee, qui elle ne bouge pas (engine/remplissageFige.ts).
  */
 export function constructionTerrasseNeuve(): Construction {
   return { ...defaultConstruction(), typePose:'plots', plotsDansEmprise:true };
@@ -73,24 +54,24 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   // Calibration values that used to be baked into the code. Backfilled with the constants they
   // replace, so a project saved before they existed keeps behaving exactly as it did.
   const k = obj.construction;
-  if(k.chargeNormale===undefined) k.chargeNormale = CHARGE_NORMALE_DEFAUT;
-  if(k.chargeSpa===undefined) k.chargeSpa = CHARGE_SPA_DEFAUT;
-  if(k.kPortee===undefined) k.kPortee = PORTEE_VIS_K;
-  if(k.kEntraxeLame===undefined) k.kEntraxeLame = ENTRAXE_LAME_K;
-  if(k.coefRaideurLame===undefined) k.coefRaideurLame = raideurDe(k.essenceBois);
+  if(k.chargeNormale===undefined) k.chargeNormale = F.chargeNormale;
+  if(k.chargeSpa===undefined) k.chargeSpa = F.chargeSpa;
+  if(k.kPortee===undefined) k.kPortee = F.kPortee;
+  if(k.kEntraxeLame===undefined) k.kEntraxeLame = F.kEntraxeLame;
+  if(k.coefRaideurLame===undefined) k.coefRaideurLame = raideurFigee(k.essenceBois);
   if(k.jeuLames===undefined) k.jeuLames = 6;
-  if(k.epaisseurLameRive===undefined) k.epaisseurLameRive = Math.round(LAME_RIVE_EPAISSEUR_M*1000);
-  if(k.longueursLames===undefined) k.longueursLames = LONGUEURS_LAMES_DEFAUT.join(', ');
+  if(k.epaisseurLameRive===undefined) k.epaisseurLameRive = F.epaisseurLameRive;
+  if(k.longueursLames===undefined) k.longueursLames = F.longueursLames;
   if(k.chuteMinReutilisable===undefined) k.chuteMinReutilisable = 50;
   if(k.jointsSurAppui===undefined) k.jointsSurAppui = true;
   if(!k.prixLongueurs || typeof k.prixLongueurs !== 'object') k.prixLongueurs = {};
-  if(k.longueursBois===undefined) k.longueursBois = LONGUEURS_BOIS_DEFAUT.join(', ');
+  if(k.longueursBois===undefined) k.longueursBois = F.longueursBois;
   if(!k.prixLongueursBois || typeof k.prixLongueursBois !== 'object') k.prixLongueursBois = {};
   if(k.jointsBoisSurAppui===undefined) k.jointsBoisSurAppui = true;
   // A project saved before lambourdes had a section of their own keeps the solives' one, which
   // is what it was implicitly built with.
   if(k.lambourdeSection===undefined) k.lambourdeSection = k.soliveSection || '45x70';
-  if(k.longueursLambourde===undefined) k.longueursLambourde = k.longueursBois || LONGUEURS_BOIS_DEFAUT.join(', ');
+  if(k.longueursLambourde===undefined) k.longueursLambourde = k.longueursBois || F.longueursBois;
   if(!k.prixLongueursLambourde || typeof k.prixLongueursLambourde !== 'object') k.prixLongueursLambourde = {};
   // Mode plots. Un projet enregistre avant reste en vis de fondation et ne voit rien changer.
   if(k.typePose===undefined) k.typePose = 'vis-fondation';
@@ -99,7 +80,7 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(k.plotEntraxe===undefined) k.plotEntraxe = 65;
   if(k.plotEntraxeAuto===undefined) k.plotEntraxeAuto = true;
   if(k.plotAvecSolives===undefined) k.plotAvecSolives = false;
-  if(k.plotSurfaceAssise===undefined) k.plotSurfaceAssise = PLOT_ASSISE_MIN_CM2;
+  if(k.plotSurfaceAssise===undefined) k.plotSurfaceAssise = F.plotSurfaceAssise;
   if(!k.prixPlots || typeof k.prixPlots !== 'object') k.prixPlots = {};
   if(k.supportType===undefined) k.supportType = 'concasse';
   if(k.supportDecaissement===undefined) k.supportDecaissement = 15;
@@ -108,7 +89,7 @@ export function ensureConstruction(obj: PorteurDeConstruction): Construction {
   if(k.heuresJour===undefined) k.heuresJour = 7;
   if(k.echelleImplant===undefined) k.echelleImplant = 200;
   if(k.lames3dFilaire===undefined) k.lames3dFilaire = false;
-  if(k.prixVisUnite===undefined) k.prixVisUnite = (VIS_PRICE.bas+VIS_PRICE.haut)/2;
+  if(k.prixVisUnite===undefined) k.prixVisUnite = F.prixVisUnite;
   if(k.visParBoite===undefined) k.visParBoite = 1;
   // Les douze reglages que seule `defaultConstruction()` posait (MD/DEFAUTS.md, D-1). Un projet
   // enregistre avant leur existence recoit ici ce que le moteur lisait deja en leur absence : chaque
