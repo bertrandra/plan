@@ -184,7 +184,7 @@ Not politeness — these are load-bearing and easy to destroy in a rewrite.
 |---|---|---|---|
 | W1 | One 12 450-line closure; no module boundaries | `boot(seed)` | Blocks QA-V2, QA-V5, all of §3.2; makes P6 impossible |
 | W2 | Data and view are the same object | `obj.el`, `obj.pointEls`, `obj.edgeEls` alongside `obj.pts` | Blocks P2; forces defensive stripping before every serialise |
-| W3 | Full redraw on every change | `render()` called from 88 sites | QA-P3 holds at 12 objects, degrades at 100 |
+| W3 | Full redraw on every change | `render()` called from 97 sites | **Measured 26 October 2026** (`scripts/banc-rendu.mjs`): the SVG plan is cheap (4.7 ms at 147 objects, 10.7 ms at 600 on desktop; 26 and 56 ms on a phone, CPU ×4); a full render with the zones costs 82 ms on desktop and 506 ms on a phone at 147 objects, because the zones recompute derived values on every store notification |
 | W4 | Plan colours hard-coded in JS, evaluated once at boot | lines 1209–1216 | Blocks ASR-6 inside the plan; no reaction to a scheme change |
 | W5 | No authentication, guessable project ids | `?projet=` | Blocks ASR-4 entirely |
 | W6 | Flat-file storage | `api.php` | Cannot express tenants, entitlements, audit, or optimistic locking |
@@ -779,7 +779,7 @@ Losing an afternoon of drawing to a silent last-write-wins is the worst non-secu
 | Parallel fan-out with per-call timeouts | `geo/**` | QA-P7 |
 | Bundle budget enforced in CI | build | QA-P6 |
 
-Note W3 honestly: full redraw is fine at today's object counts and is the first thing to hit when neighbourhood imports push plans past ~100 objects. The tactic is identified, not yet implemented; it is scheduled with `render/**` in migration Phase 4 and gated by a benchmark, not a hunch.
+Note W3 honestly: the benchmark now exists (`scripts/banc-rendu.mjs`, `BANC_PROFIL=1` for a profile) and it moved the diagnosis. The demonstration has 147 objects, past the ~100 once feared, and the SVG redraw still holds (under 11 ms at 600 objects on desktop). What does not hold is what a store notification triggers in the zones: the inspector's construction fields recompute the supports' heights, hence the ground under the footprint, hence a point-in-polygon pass over the relief grid (`ui/champs/construction.ts` → `engine/hauteurs.ts::appuisEnHauteur` → `engine/sol.ts` → `model/relief.ts::cellulesDansPolygone`, about 35 ms per render), and the menu entry « doublons » serializes the whole project to look for duplicates (`io/doublons.ts::trouverDoublons`, about 12 ms). The first payment is to compute these once per state version (MD/roadmap-architecture.md, phase 2); incremental SVG comes after, if the benchmark still asks for it. Measured on the development server, where React runs in development mode: the numbers compare a before and an after, not absolute frame times.
 
 ### 6.2 Flexibility
 
@@ -935,7 +935,7 @@ Carried deliberately, with the trigger that would force payment.
 
 | # | Debt | Cost of carrying | Trigger to pay |
 |---|---|---|---|
-| AD-1 | Full redraw on every change (W3) | Fine today; degrades past ~100 objects | FF-14-style benchmark breaches 30 fps |
+| AD-1 | Full redraw on every change (W3) | Measured 26 October 2026: the SVG redraw holds (10.7 ms at 600 objects on desktop), the derived values recomputed by the zones on every notification do not (82 ms on desktop, 506 ms on a phone at 147 objects) | **Breached**: `scripts/banc-rendu.mjs` exceeds 16 ms on desktop and 33 ms on a phone at the demonstration's size. Paid in two steps, MD/roadmap-architecture.md phase 2 |
 | AD-2 | Mixed French/English identifiers | Mild cognitive cost | Never — deliberate (P9) |
 | AD-3 | ~~Hand-written PDF writer, no image support~~ — *outdated*: the plan and dossier PDFs still use the hand-written writer (`export/pdf/`), but the déclaration préalable dossier (`export/dossierMairie.ts`, which fills CERFA 13703) uses pdf-lib 1.17.1, loaded on demand from jsDelivr (`export/chargeurPdfLib.ts`) | A second CDN dependency, outside the golden fixtures | When a golden PDF needs what only pdf-lib does |
 | AD-4 | three.js pinned (0.186.1 since 16 Oct 2026, was r128) as ES modules from jsDelivr, behind an import map | A bump is a deliberate migration (colour, light intensities, GLB output) | A needed feature or a security advisory |

@@ -10,6 +10,7 @@ import { poserEspeces, type EspeceArbre } from '../../model/especesArbre.js';
 import { creerIsolement, objetAIsoler } from '../isolement.js';
 import type { DemandeAudit } from '../audit/demande.js';
 import type { Plan } from './plan.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /**
  * Le mode audit (app/audit/) : la promenade pilote le plan, rien ne s'enregistre. Charge a la demande (AD-10) : seul l'administrateur
@@ -77,6 +78,10 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
   const { etat, magasin, commandes, tiroir } = p;
   Object.assign(window, { __plan: {
     executer: (id: string) => commandes.executer(id),
+    // Un rendu complet du plan, chronometre (scripts/banc-rendu.mjs, MD/roadmap-architecture.md etape 0.2).
+    rendre: () => { const t = performance.now(); p.render(); return performance.now() - t; },
+    // Le dessin d'un objet ajoute hors des gestes (le banc du rendu) : sans lui, l'objet est dans l'etat mais pas sur le plan.
+    dessinerObjet: (o: ObjetPlan) => p.dessin.createObjectDOM(o),
     selectionnerPremiere: (fonction: string) => {
       const o = etat.objects.find(x => x.fonction === fonction);
       if (o) explorateur.selectionner(o.key);

@@ -7,6 +7,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Le banc du rendu du plan** (`scripts/banc-rendu.mjs`, feuille de route, étape 0.2). Il duplique la démonstration jusqu'à
+  147, 300 et 600 objets et mesure un rendu complet au bureau et au téléphone (processeur ralenti ×4) ; `BANC_PROFIL=1` montre ce
+  qui coûte. Premier résultat : le dessin SVG du plan tient (10,7 ms à 600 objets au bureau). Ce qui ne tient pas, ce sont les
+  calculs que les zones refont à chaque notification : la hauteur des appuis et le sol sous l'emprise dans l'inspecteur, la
+  recherche des doublons dans le menu. Un rendu complet coûte ainsi 82 ms au bureau et 506 ms au téléphone à 147 objets. La
+  phase 2 de la feuille de route est réécrite sur ces chiffres. `window.__plan` (développement seulement) gagne `rendre()` et
+  `dessinerObjet()`.
+
 - **Une feuille de route des points faibles de l'architecture** (`MD/roadmap-architecture.md`). Elle part d'une revue de `main`
   et classe sept points faibles, du plus risqué au moins risqué : des nombres d'anciens projets qui peuvent bouger, des
   entrées de session lues par des couches pures, le plan redessiné en entier, `app/` sans domaines, la complexité du métier
