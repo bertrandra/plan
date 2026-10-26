@@ -3,6 +3,8 @@ import { nouvelObjet } from '../../../src/model/creation.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { fusionnerDoublons, nombreDeDoublons, trouverDoublons } from '../../../src/io/doublons.js';
 import type { Mesure, ObjetPlan } from '../../../src/model/types.js';
+import { DEMO_OBJECTS } from '../../../src/model/demo.js';
+import { normaliserEnObjetsDuPlan } from '../../../src/app/assemblage/formes.js';
 
 const objet = (key: string, x = 0, y = 0): ObjetPlan => normalizeObjects([nouvelObjet({ x, y }, key, true).obj])[0] as ObjetPlan;
 const mesure = (ref: string, cible: string): Mesure => ({ id: ref + cible, refObjKey: ref, refSegIndex: 0, startEnd: 'start', targetObjKey: cible, targetPtIndex: 0 });
@@ -19,6 +21,18 @@ describe('doublons', () => {
   it('ne tient pas pour doublon une copie decalee, ni la parcelle', () => {
     expect(trouverDoublons([objet('a'), objet('b', 0.5, 0)])).toEqual([]);
     expect(trouverDoublons([objet('parcelle'), objet('autre')])).toEqual([]);
+  });
+
+  it('sur la demonstration : aucun doublon, puis les copies posees, dans l ordre du plan (le tri par forme ne perd rien)', () => {
+    const objets = normaliserEnObjetsDuPlan(JSON.parse(JSON.stringify(DEMO_OBJECTS)));
+    expect(trouverDoublons(objets)).toEqual([]);
+    // Deux copies exactes, une copie dont seul un reglage differe (pas un doublon), dans le desordre du plan.
+    const [p, q] = [objets[20] as ObjetPlan, objets[5] as ObjetPlan];
+    const copie = (o: ObjetPlan, cle: string) => ({ ...JSON.parse(JSON.stringify(o)), key: cle, name: 'Copie' }) as ObjetPlan;
+    const autre = { ...copie(q, 'q3'), elevation: (q.elevation ?? 0) + 1 } as ObjetPlan;
+    const avec = [...objets, copie(p, 'p2'), copie(q, 'q2'), autre];
+    const groupes = trouverDoublons(avec);
+    expect(groupes.map((g) => [g.garde.key, g.doublons.map((d) => d.key)])).toEqual([[q.key, ['q2']], [p.key, ['p2']]]);
   });
 
   it('garde l objet verrouille', () => {
