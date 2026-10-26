@@ -128,7 +128,7 @@ describe('Vue 3D', () => {
 describe('visionneuse', () => {
   function monterVis() {
     const a = fauxAtelier({ objects: [terrasse], terrasseSelectedKey: 't' } as never);
-    const ctx: ContexteVisionneuse = { genererGlb: vi.fn(), rafraichir: vi.fn(), appliquerLumiere: vi.fn(), hauteurFinieMm: () => 300, hauteurYeuxM: 1.6 };
+    const ctx: ContexteVisionneuse = { genererGlb: vi.fn(), rafraichir: vi.fn(), appliquerLumiere: vi.fn(), remplacerFond: vi.fn(), hauteurFinieMm: () => 300, hauteurYeuxM: 1.6 };
     const cmd = creerRegistre(droits(true));
     return { ctx, cmd, reglages: brancherVisionneuse(a, ctx, cmd) };
   }

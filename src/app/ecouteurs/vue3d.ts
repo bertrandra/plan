@@ -13,7 +13,7 @@
 import { vue3d, glb, signaler3d, rendre3d, soleilVue3d, reglerSoleilVue3d, reglerVue3d } from '../../three/etat3d.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
-import { nomFichierTerrasse } from '../../three/exportGlb.js';
+import { nomFichierTerrasse } from '../../three/nomFichier.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { nouveauPointDeVue } from '../../model/creation.js';
 import { cleObjet } from '../../model/cles.js';
@@ -24,7 +24,7 @@ import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { estTerrasse } from '../../model/fonctions.js';
 import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive, terrainDuTour, tourDeLaMaison, composerPromenade } from '../../three/presentation.js';
-import { cameraDepuisPointDeVue } from '../../three/navigation.js';
+import { moteur3d } from '../../three/demande3d.js';
 import type { PointDeVue } from '../../three/etat3d.js';
 import { estQualite3d, parametresQualite, qualiteParDefaut, type Qualite3d } from '../../three/qualite.js';
 
@@ -123,10 +123,11 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
    * lancement : la scene, le plan et ses points de vue ont pu changer.
    */
   const etapesPromenade = () => {
-    const sc = vue3d.scene;
-    if (!sc) return [];
+    // Une scene ouverte : le moteur est la (three/demande3d.ts).
+    const sc = vue3d.scene, m = moteur3d();
+    if (!sc || !m) return [];
     const vues = a.etat.objects.filter((o) => o.fonction === 'camera').map((o) => {
-      const c = cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
+      const c = m.cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
       return { position: c.position, cible: c.cible };
     });
     const terrain = terrainDuTour(a.etat.objects);

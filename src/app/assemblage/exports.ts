@@ -15,7 +15,7 @@ import { assemblerDossierMairie } from '../../export/dossierMairie.js';
 import { CERFA_13703 } from '../../export/cerfa13703.js';
 import { chargerPdfLib } from '../../export/chargeurPdfLib.js';
 import { carteSituation } from '../../geo/carteSituation.js';
-import { capturerVue3d } from '../../three/capture.js';
+import { moteur3d } from '../../three/demande3d.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { slugFichier } from '../../util/format.js';
 import { construireResume } from '../../export/resume.js';
@@ -96,7 +96,7 @@ async function construireDeclaration(objets: ObjetPlan[], nomProjet: string | nu
   const cad = (parcelle?.cadastre || {}) as Record<string, unknown>;
   const carte = parcelle?.latitude && parcelle.longitude ? await carteSituation(parcelle.latitude, parcelle.longitude) : null;
   const res = await assemblerDossierMairie(lib, cerfa, objets, {
-    date: new Date(), carte, vue3d: capturerVue3d(),
+    date: new Date(), carte, vue3d: moteur3d()?.capturerVue3d() ?? null,
     meta: { nomProjet, adresse: String(cad.adresse || parcelle?.nomLieu || ''), references: cad.section ? 'Parcelle ' + String(cad.section) + ' ' + String(cad.numero ?? '').replace(/^0+/, '') : '' }
   });
   return {

@@ -12,7 +12,7 @@ import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, 
   type HistoriqueToit } from '../facade/modeToit/sessionToit.js';
 import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, type PointScene, type Reserve } from '../three/poseFacade.js';
-import { epurerVue3d, objetSousLePointeur, racinesDe3d } from '../three/scene.js';
+import { moteur3d } from '../three/demande3d.js';
 import { poserCameraFacade, retirerCameraFacade } from '../three/vueFacadeToit.js';
 import { centroid } from '../geometry/basic.js';
 import { majFantomes, viderFantomes } from '../three/fantomes.js';
@@ -208,10 +208,10 @@ function creerReposeDeVue(batiment: () => ObjetPlan | undefined): () => void {
     if (!s || !sc || !o || (s.vue === 'libre' && !s.isole)) {
       if (sc) retirerCameraFacade(sc);
       // Seule l'epure que le mode a posee se retire : celle de l'audit ne lui appartient pas.
-      if (epureParLeMode) { epurerVue3d(null); epureParLeMode = false; }
+      if (epureParLeMode) { moteur3d()?.epurerVue3d(null); epureParLeMode = false; }
       return;
     }
-    epurerVue3d((cle) => cle === s.cle);
+    moteur3d()?.epurerVue3d((cle) => cle === s.cle);
     epureParLeMode = true;
     if (s.vue === 'libre') { retirerCameraFacade(sc); return; }
     if (s.vue === 'facade' && s.facade) poserCameraFacade(sc, s.facade, pointsDuBatiment(o), reserveDuPanneau());
@@ -221,11 +221,12 @@ function creerReposeDeVue(batiment: () => ObjetPlan | undefined): () => void {
 
 /** Les batiments qui cachent celui qu'on retouche, en 3D libre : leur volume part, leur contour reste en pointille. */
 function majFantomesDe(objets: readonly ObjetPlan[]): void {
-  const sc = vue3d.scene, s = session;
-  if (!sc || !s) return;
+  // Une scene ouverte : le moteur est la (three/demande3d.ts).
+  const sc = vue3d.scene, s = session, m = moteur3d();
+  if (!sc || !s || !m) return;
   const autres = new Map<string, readonly THREE_NS.Object3D[]>();
-  for (const o of objets) if (estBatiment(o) && o.key !== s.cle) { const r = racinesDe3d(o.key); if (r.length) autres.set(o.key, r); }
-  majFantomes(sc, racinesDe3d(s.cle), autres, s.vue === 'libre' && !s.isole);
+  for (const o of objets) if (estBatiment(o) && o.key !== s.cle) { const r = m.racinesDe3d(o.key); if (r.length) autres.set(o.key, r); }
+  majFantomes(sc, m.racinesDe3d(s.cle), autres, s.vue === 'libre' && !s.isole);
 }
 
 /** Le toit du projet est montre : la session reprend sa place (son dernier etat) avant tout geste. */
@@ -479,8 +480,8 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     toucher(ndc: { x: number; y: number }): boolean {
       const o = batiment();
       if (!session || !o) return false;
-      const touche = objetSousLePointeur(ndc, (cle) => cle === o.key);
-      if (touche.cle !== o.key || !touche.point) return false;
+      const touche = moteur3d()?.objetSousLePointeur(ndc, (cle) => cle === o.key);
+      if (!touche || touche.cle !== o.key || !touche.point) return false;
       // Un element tout pres du point touche se choisit ; sinon c'est un mur, donc une facade.
       const cible = o.corpsToit ? elementProche(o.corpsToit, touche.point) : null;
       if (cible) { session.selection = cible; ctx.rafraichir(); return true; }
