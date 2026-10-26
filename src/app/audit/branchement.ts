@@ -6,7 +6,9 @@
 // declarees au registre comme les autres (la barre de la Vue 3D les lit, zones/vue3d/Vue3d.tsx).
 
 import { abonnerSceneBatie, hotes3d, vue3d } from '../../three/etat3d.js';
-import { creerControleurAudit, brancherDoigtAudit, type ControleurAudit } from './controleur.js';
+import { creerControleurAudit, type ControleurAudit } from './controleur.js';
+import { brancherDoigtAudit } from './doigt.js';
+import { poserControleurAudit } from './courant.js';
 import type { DemandeAudit } from './demande.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetBrut } from '../../model/types.js';
@@ -24,9 +26,8 @@ export interface AtelierAudit {
   signaler: (message: string) => void;
 }
 
-/** Le controleur courant : la Vue 3D lui demande la couleur d'un batiment marque. */
-let courant: ControleurAudit | null = null;
-export const controleurAudit = (): ControleurAudit | null => courant;
+// Le controleur courant se lit dans courant.ts (la Vue 3D le demande sans charger l'audit).
+export { controleurAudit } from './courant.js';
 
 export function brancherAudit(a: AtelierAudit, demande: DemandeAudit): ControleurAudit {
   const { etat, commandes } = a;
@@ -44,7 +45,7 @@ export function brancherAudit(a: AtelierAudit, demande: DemandeAudit): Controleu
     notifier: a.notifier,
     signaler: a.signaler,
   }, demande);
-  courant = c;
+  poserControleurAudit(c);
 
   commandes.declarer({
     id: 'audit.suivre', libelle: 'Me suivre', groupe: 'audit',

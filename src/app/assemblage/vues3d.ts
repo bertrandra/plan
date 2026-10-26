@@ -17,7 +17,7 @@ import { ortho } from '../../render/ortho.js';
 import { buildThreeScene as construireScene3D, remplacerObjets3d, comparerObjets3d, surlignerDans3d, type Surbrillance3d } from '../../three/scene.js';
 import { cadrerDeuxVues, type RectFenetre } from '../../three/comparaison3d.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
-import { controleurAudit } from '../audit/branchement.js';
+import { controleurAudit } from '../audit/courant.js';
 import { creerNavigation3d, HAUTEUR_YEUX_M } from '../../three/navigation.js';
 import { genererGlb as genererGlbModule } from '../../three/exportGlb.js';
 import { chargerTexturePolyhaven } from '../../three/chargeurs.js';

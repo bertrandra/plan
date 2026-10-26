@@ -174,7 +174,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
       void basculerOrthophoto(true, ch.ctxOrtho()).then(() => { if (ortho.actif) commandes.executer('vue.3d'); });
     }
   }
-  else if (options.audit) demarrerAudit(p, vues, options.audit);
+  else if (options.audit) void demarrerAudit(p, vues, options.audit);
   else if (seed.ouvrirAdresse) commandes.executer('projet.depuisAdresse');
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.

@@ -54,6 +54,14 @@ await page.getByRole('button', { name: 'Plan', exact: true }).first().click();
 await page.waitForTimeout(800);
 await etape('retour au plan');
 
+// L'audit de la parcelle (menu Fichier) : ses ecrans et sa session se chargent a l'ouverture (AD-10).
+await page.locator('details.menu > summary', { hasText: 'Fichier' }).first().click();
+await page.locator('[data-commande="audit.parcelle"]').first().click({ timeout: 15000 });
+await page.locator('.dialogueVoile .titreParcours').first().waitFor({ timeout: 30000 });
+await page.waitForTimeout(800);
+await etape('audit de la parcelle');
+await page.keyboard.press('Escape');
+
 const total = recus.reduce((t, r) => t + r.o, 0);
 console.log(`essayer-paquet : ${recus.length} fichier(s) reçus, ${(total / 1024).toFixed(0)} Ko, aucune erreur de la page`);
 await navigateur.close();

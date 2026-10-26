@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { brancherAuditParcelle, parcelleCadastrale, RAISON_SANS_PARCELLE } from '../../../../../src/app/audit/parcelle/commande.js';
 import { creerRegistre, PHRASE_PERMISSION, type Droits } from '../../../../../src/app/commandes.js';
 import { parcours } from '../../../../../src/app/parcours.js';
@@ -22,6 +22,10 @@ function monter(objets: ObjetPlan[], d?: Droits) {
 }
 
 afterEach(() => parcours.fermer());
+
+// Les commandes chargent la session au premier usage (moteur.ts, AD-10). Sous Vitest, ce premier chargement transforme des dizaines
+// de modules et passe la seconde d'un `waitFor` : on le fait une fois ici, l'import des commandes retrouve le meme module.
+beforeAll(async () => { await import('../../../../../src/app/audit/parcelle/moteur.js'); }, 60000);
 
 describe('la commande audit.parcelle', () => {
   it('reconnait une parcelle cadastrale par son calage, et la nomme par son IDU', () => {
@@ -80,9 +84,11 @@ describe('la commande audit.importerParcelle', () => {
     expect(cmd.obtenir('audit.importerParcelle')).toMatchObject({ libelle: 'Importer un audit de parcelle…', groupe: 'audit', permission: 'projects.write' });
   });
 
-  it('refuse le fichier d une autre parcelle, sans rien ouvrir', () => {
+  it('refuse le fichier d une autre parcelle, sans rien ouvrir', async () => {
     const { cmd, messages } = monterImport([parcelle({ idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 })], fichier('78650000AE0103'));
     cmd.executer('audit.importerParcelle');
+    // La lecture du fichier se charge au premier usage (moteur.ts) : le refus arrive apres.
+    await vi.waitFor(() => expect(messages).toHaveLength(1));
     expect(messages).toEqual(['Import refusé : Ce fichier est l’audit de la parcelle 78650000AE0103, ce projet est sur la parcelle 78650000AE0101 : ouvrez le projet de cette parcelle.']);
     expect(parcours.courant()).toBeNull();
   });
@@ -150,6 +156,7 @@ describe('la commande admin.auditsParcelle', () => {
     expect(cmd.etat('admin.auditsParcelle')).toEqual({ utilisable: false, raison: 'contexte' });
     entrerEnAdmin();
     expect(cmd.executer('admin.auditsParcelle')).toBe(true);
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditsParcelle'));
     const p = parcours.courant();
     if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
     await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(2));
@@ -185,11 +192,13 @@ describe('la commande admin.auditsParcelle', () => {
     }, cmd);
     entrerEnAdmin();
     cmd.executer('admin.auditsParcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditsParcelle'));
     const p = parcours.courant();
     if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
     await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(1));
     const avant = JSON.stringify(etat.objects);
     await p.catalogue.consulter(p.catalogue.etat().audits?.[0] as FicheAudit);
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditParcelle'));
     const q = parcours.courant();
     if (q?.type !== 'auditParcelle') throw new Error('consultation absente');
     expect(q.session.lectureSeule()).toBe(true);
@@ -218,10 +227,12 @@ describe('la commande admin.auditsParcelle', () => {
     }, cmd);
     entrerEnAdmin();
     cmd.executer('admin.auditsParcelle');
+    await vi.waitFor(() => expect(parcours.courant()?.type).toBe('auditsParcelle'));
     const p = parcours.courant();
     if (p?.type !== 'auditsParcelle') throw new Error('catalogue absent');
     await vi.waitFor(() => expect(p.catalogue.etat().audits).toHaveLength(1));
     await p.catalogue.consulter(p.catalogue.etat().audits?.[0] as FicheAudit);
+    await vi.waitFor(() => expect(messages.at(-1)).toMatch(/^Consultation refusée/));
     expect(messages.at(-1)).toMatch(/^Consultation refusée : Ce fichier est l’audit de la parcelle 78650000AE0199/);
     expect(parcours.courant()?.type).toBe('auditsParcelle');
   });

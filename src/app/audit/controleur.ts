@@ -19,6 +19,8 @@ import { suivrePositionGps, type PositionGps, type SansPosition } from '../../sh
 import { partagerFichier } from '../../shell/partage.js';
 import { dialogues, type DialogueChoix } from '../../shell/dialogues.js';
 import { stockageNavigateur, type StockageBrouillon } from '../../io/brouillonAudit.js';
+// Le doigt sur la Vue 3D vit a part (doigt.ts) : leger, il se branche au demarrage, avant que l'audit ne soit charge.
+export { brancherDoigtAudit } from './doigt.js';
 import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../shell/boussole.js';
 import { geocoderBAN, geocoderInverseBAN } from '../../geo/apiIgn.js';
 import { lireGrilleSous } from '../../geo/mnh.js';
@@ -30,7 +32,7 @@ import { elevationOf } from '../../engine/hauteurs.js';
 import { aDesSommets } from '../../model/formes.js';
 import { nomFichierPromenade, type PrisePhoto } from '../../model/audit.js';
 import { APP_VERSION, BUILD_SHA } from '../../model/version.js';
-import { vue3d, hotes3d } from '../../three/etat3d.js';
+import { hotes3d } from '../../three/etat3d.js';
 import { poserPositionGps } from '../../three/positionGps3d.js';
 import { poserFacadeDevant } from '../../three/facadeDevant3d.js';
 import { objetSousLePointeur } from '../../three/scene.js';
@@ -55,10 +57,6 @@ import type { ObjetBrut, ObjetPlan, PtBrut } from '../../model/types.js';
 export const PRECISION_DEPART_MAX_M = 30;
 /** Le cap suivi ne fait tourner la vue que s'il a change d'au moins cela : la boussole tremble. */
 const PAS_ORIENTATION_DEG = 3;
-/** Un appui plus long que cela ouvre la fiche du batiment. */
-const APPUI_LONG_MS = 600;
-/** Un doigt qui bouge de plus que cela glisse : ce n'est plus un tapotement. */
-const GLISSER_PX = 8;
 /** La facade devant vous ne se recherche que si la boussole a tourne d'au moins cela : elle tremble. */
 const PAS_RECONNAISSANCE_DEG = 2;
 
@@ -497,64 +495,6 @@ function empriseDesObjets(objets: readonly ObjetPlan[]): { xMin: number; xMax: n
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
   for (const o of objets) if (aDesSommets(o)) for (const p of o.pts) { xMin = Math.min(xMin, p.x); xMax = Math.max(xMax, p.x); yMin = Math.min(yMin, p.y); yMax = Math.max(yMax, p.y); }
   return Number.isFinite(xMin) ? { xMin: Math.round(xMin), xMax: Math.round(xMax), yMin: Math.round(yMin), yMax: Math.round(yMax) } : null;
-}
-
-/**
- * Le doigt sur la Vue 3D : un tapotement (bref, sans glisser) ou un appui long. Un glisser passe la
- * camera en navigation libre. Pose une fois sur l'hote de la scene, qui survit aux reconstructions.
- */
-export function brancherDoigtAudit(c: Pick<ControleurAudit, 'tapoter' | 'appuiLong' | 'lacherSuivi'>, hote: HTMLElement, horloge: Pick<Window, 'setTimeout' | 'clearTimeout'> = window): () => void {
-  let debut: { x: number; y: number; t: number } | null = null;
-  let glisse = false, long = false;
-  let minuteur: number | null = null;
-  /** Les doigts poses : a deux, c'est un pincement (zoom), ni tapotement ni rotation. */
-  const doigts = new Set<number>();
-  const ndc = (x: number, y: number) => {
-    const toile = vue3d.scene?.renderer.domElement ?? hote;
-    const r = toile.getBoundingClientRect();
-    return { x: ((x - r.left) / r.width) * 2 - 1, y: -((y - r.top) / r.height) * 2 + 1 };
-  };
-  const annuler = () => { if (minuteur !== null) horloge.clearTimeout(minuteur); minuteur = null; };
-  const surCanevas = (e: Event) => (e.target as HTMLElement | null)?.tagName === 'CANVAS';
-  const bas = (e: PointerEvent) => {
-    if (!surCanevas(e)) return;
-    doigts.add(e.pointerId);
-    annuler();
-    if (doigts.size > 1) { debut = null; return; }
-    debut = { x: e.clientX, y: e.clientY, t: Date.now() };
-    glisse = false; long = false;
-    const x = e.clientX, y = e.clientY;
-    minuteur = horloge.setTimeout(() => { minuteur = null; if (!glisse) { long = true; c.appuiLong(ndc(x, y)); } }, APPUI_LONG_MS) as unknown as number;
-  };
-  const bouge = (e: PointerEvent) => {
-    if (!debut || glisse || doigts.size > 1) return;
-    if (Math.hypot(e.clientX - debut.x, e.clientY - debut.y) > GLISSER_PX) {
-      glisse = true;
-      annuler();
-      // Un doigt qui glisse tourne la vue : le cap n'est plus suivi, « Me suivre » le reprend.
-      c.lacherSuivi();
-    }
-  };
-  const haut = (e: PointerEvent) => {
-    doigts.delete(e.pointerId);
-    annuler();
-    // Le minuteur peut arriver en retard sur un fil occupe (une scene lourde a dessiner) : la duree
-    // de l'appui decide aussi.
-    if (debut && !glisse && !long) {
-      if (Date.now() - debut.t >= APPUI_LONG_MS) c.appuiLong(ndc(debut.x, debut.y));
-      else c.tapoter(ndc(e.clientX, e.clientY));
-    }
-    debut = null;
-  };
-  const perdu = (e: PointerEvent) => { doigts.delete(e.pointerId); annuler(); debut = null; };
-  hote.addEventListener('pointerdown', bas);
-  hote.addEventListener('pointermove', bouge);
-  hote.addEventListener('pointerup', haut);
-  hote.addEventListener('pointercancel', perdu);
-  return () => {
-    hote.removeEventListener('pointerdown', bas); hote.removeEventListener('pointermove', bouge);
-    hote.removeEventListener('pointerup', haut); hote.removeEventListener('pointercancel', perdu);
-  };
 }
 
 /** L'hote de la Vue 3D, ou null s'il n'est pas encore monte. */
