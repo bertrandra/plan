@@ -179,8 +179,8 @@ export interface ApparenceIgn { fill: string; fillOpacity: number; stroke: strin
 
 /**
  * Les apparences que l'import donne a ce qu'il pose (et que l'actualisation du voisinage reprend) :
- * « Actualiser le projet » (app/actualiserProjet.ts) y ramene les objets importes. Les constructeurs
- * ci-dessous et ceux du voisinage (app/actualisationIgn.ts) les lisent ici : une seule source.
+ * « Actualiser le projet » (app/cadastre/actualiserProjet.ts) y ramene les objets importes. Les constructeurs
+ * ci-dessous et ceux du voisinage (app/cadastre/actualisationIgn.ts) les lisent ici : une seule source.
  */
 export const APPARENCES_IGN = {
   parcelle: { fill: '#FBF3D9', fillOpacity: 1, stroke: '#3B2E1F' },

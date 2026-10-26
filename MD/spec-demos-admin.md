@@ -31,7 +31,7 @@ Dans l'atelier admin, les commandes de projet agissent sur les fichiers de démo
 - **Projets** liste les démos ; en choisir une ouvre `?demofile=<id>` ;
 - **Supprimer** renomme le fichier en `<id>.json.supprime-<date>` : rien ne s'efface pour de bon.
 - **Se déconnecter** (barre du haut, ou feuille Projet au doigt) ferme la session chez le serveur,
-  puis recharge la page sur la porte au mot de passe (`app/porteAdmin.ts`, `quitterAdmin`).
+  puis recharge la page sur la porte au mot de passe (`app/administration/porteAdmin.ts`, `quitterAdmin`).
 
 ## Format
 
@@ -109,7 +109,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 
 ## Côté page
 
-- `app/porteAdmin.ts`, `zones/PorteAdmin.tsx` : la porte au mot de passe, à la place de celle de
+- `app/administration/porteAdmin.ts`, `zones/PorteAdmin.tsx` : la porte au mot de passe, à la place de celle de
   la plateforme (pas de plateforme en mode admin).
 - `io/depotDemos.ts` : le dépôt des démos, même contrat que celui de la plateforme
   (`DepotProjets`). `io/api.ts` change seulement le paramètre d'adresse (`demofile`) et la clé du
@@ -121,7 +121,7 @@ Relatives à la page (`admin/…`, pas `/admin/…`) : Plan peut vivre dans un s
 > `PLATFORM_ADMIN`) est spécifié dans [`spec-palette-plateforme.md`](spec-palette-plateforme.md).
 
 Un écran de l'admin, derrière la même porte, ouvert depuis le menu « Admin » de la barre de Plan
-(`zones/EcranPalette.tsx`, `app/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
+(`zones/EcranPalette.tsx`, `app/administration/ecranPalette.ts`). Trois onglets : **Palette** (planche d'ambiance,
 couleurs, contrastes), **CSS** (variables à copier, couleurs en situation, rayons et ombres),
 **Typo** (polices et échelle). Un bouton « Retour au plan » ramène à l'atelier.
 
@@ -156,7 +156,7 @@ enregistre.
 - **À l'ouverture**, l'écran montre le registre enregistré, rien de plus : Plan ne démarre pas.
 - **Découverte, sur demande seulement** (bouton « Lancer la découverte ») : Plan démarre alors,
   caché, sur la démonstration intégrée, en mémoire et sans dépôt (rien ne peut s'y enregistrer) ;
-  les relances suivantes relisent ce qu'il a déjà monté. `app/controleurs.ts` lit ce qu'il a monté : le registre des
+  les relances suivantes relisent ce qu'il a déjà monté. `app/administration/controleurs.ts` lit ce qu'il a monté : le registre des
   commandes, la carte d'exposition (`app/exposition.ts`) et les sections de l'inspecteur, une par
   sorte d'objet du plan. Aucune commande n'est exécutée, aucun champ lu ni écrit.
 - **L'arbre** : Zones de l'écran (Z1 à Z8 et clavier) → emplacements → commandes ; Registre des
@@ -211,7 +211,7 @@ enregistre.
   ciblée dit sur quoi elle porte (« Porte sur »).
 - **Hors registre** (6ᵉ branche) : ce que le registre ne couvre pas, mesuré pour être suivi d'une
   découverte à l'autre.
-  - *Contrôles affichés sans commande ni champ* (`app/inventaireEcran.ts`) : les boutons, cases,
+  - *Contrôles affichés sans commande ni champ* (`app/administration/inventaireEcran.ts`) : les boutons, cases,
     curseurs, listes et saisies montés dans la page qui ne sont rattachés à rien, rangés par zone,
     avec le nombre de contrôles rattachés pour comparaison. Un contrôle est rattaché quand lui ou un
     parent porte `data-commande` (il déclenche une commande), `data-controle` (contrôle d'interface
@@ -219,7 +219,7 @@ enregistre.
     section de l'inspecteur). Les lignes répétées (`data-instance` : un objet de l'explorateur, une
     cote) comptent une fois ; `data-nom` donne un nom stable à un bouton dont le texte suit l'état ;
     `data-compte` marque un compteur à ne pas prendre pour un nom. **Trois dispositions**
-    (`app/decouverteClasses.ts`) : Plan ne rend pas les mêmes contrôles au bureau, sur tablette et
+    (`app/administration/decouverteClasses.ts`) : Plan ne rend pas les mêmes contrôles au bureau, sur tablette et
     sur téléphone (barre compacte, barre de sélection, navigation du bas, familles de sections de
     l'inspecteur). La découverte pose donc tour à tour chaque classe d'écran dans le magasin, avec un
     objet sélectionné (une terrasse de préférence) et, au téléphone, chaque feuille ouverte ; puis
@@ -235,7 +235,7 @@ enregistre.
     de toute zone (les champs fichier cachés d'`index.html`) n'est pas compté ;
   - *Fonctions d'objet absentes de la démonstration* : celles que la liste « fonction » propose et
     qu'aucun objet de la démo ne porte ; leurs champs propres ne sont pas découverts.
-- **Écritures à surveiller** (7ᵉ branche, `app/ecritures.ts`) : classement seul, rien n'est changé
+- **Écritures à surveiller** (7ᵉ branche, `app/administration/ecritures.ts`) : classement seul, rien n'est changé
   dans Plan. Ce qui modifie le projet hors des deux garde-fous du registre :
   - *sans annulation* : Ctrl+Z ne le défait pas. Un champ de l'inspecteur qui écrit le projet
     s'annule (`champAnnulable`), sauf `historique: false` : l'inspecteur prend l'instantané avant

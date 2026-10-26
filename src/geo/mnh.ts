@@ -67,7 +67,7 @@ export async function lireHauteursSous(pts: readonly PtBrut[], proj: ProjecteurL
 
 /**
  * Les memes hauteurs, mais un service qui ne repond pas fait echouer la lecture au lieu de la rendre
- * vide : la lecture des toits (app/toitsLidar.ts) doit distinguer « rien a lire ici », qui marque le
+ * vide : la lecture des toits (app/toits/toitsLidar.ts) doit distinguer « rien a lire ici », qui marque le
  * batiment lu, d'un echec, qui le laisse a relire. Sinon une coupure reseau les marquait tous.
  */
 export async function lireHauteursSousStrict(pts: readonly PtBrut[], proj: ProjecteurLocal, rechercher: typeof fetch = fetch): Promise<EchantillonHauteur[]> {

@@ -1,6 +1,6 @@
 // Z8, l'import cadastral depuis une adresse : les trois etapes, et l'apercu des parcelles.
 //
-// L'etat et les gestes sont dans app/importCadastre.ts ; ce composant les dessine et s'abonne a leurs
+// L'etat et les gestes sont dans app/cadastre/importCadastre.ts ; ce composant les dessine et s'abonne a leurs
 // changements. Le champ d'adresse garde le focus pendant la frappe : seules les suggestions se
 // redessinent sous lui.
 
@@ -11,7 +11,7 @@ import { ECART_AUTO_M, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M,
 import { avertissementRayon } from './avertissementRayon.js';
 import { MAX_VOISINES } from '../../geo/constantesCadastre.js';
 import type { Candidate } from '../../geo/apiIgn.js';
-import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/importCadastre.js';
+import type { CaseIgn, EtatPosition, ImportCadastre as Controleur } from '../../app/cadastre/importCadastre.js';
 import type { PtBrut } from '../../model/types.js';
 
 type Props = { importe: Controleur };

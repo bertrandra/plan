@@ -9,7 +9,7 @@
 // Code de sortie 1 : le fichier est illisible, ou une signature depasse FAITS_SEMBLABLES_MAX.
 import { readFileSync } from 'node:fs';
 import { lireFaitsToits, compterFaitsParForme, empreinteFaitsToits, EMPREINTE_FAITS_VIDE, FAITS_SEMBLABLES_MAX } from '../../../../src/regles/toits/faits.ts';
-import { LECTURES_TOITS, VERSION_LECTURE_TOITS } from '../../../../src/app/toitsLidar.ts';
+import { LECTURES_TOITS, VERSION_LECTURE_TOITS } from '../../../../src/app/toits/toitsLidar.ts';
 import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.ts';
 
 const chemin = process.argv[2] ?? 'regles/toits/faits.json';
@@ -23,6 +23,6 @@ for (const g of groupes) console.log(`${g.signal ? '!' : ' '} ${String(g.nombre)
 
 const derniere = LECTURES_TOITS.at(-1);
 if (empreinte !== (derniere?.faits ?? EMPREINTE_FAITS_VIDE)) {
-  console.log(`\nLes faits ont change : ajouter a LECTURES_TOITS (src/app/toitsLidar.ts)\n  { version: ${(derniere?.version ?? VERSION_LECTURE_TOITS) + 1}, reglages: '${EMPREINTE_REGLAGES_TOITS}', faits: '${empreinte}' },\npuis le dire dans le CHANGELOG (« les toits deja lus seront relus a l'ouverture »).`);
+  console.log(`\nLes faits ont change : ajouter a LECTURES_TOITS (src/app/toits/toitsLidar.ts)\n  { version: ${(derniere?.version ?? VERSION_LECTURE_TOITS) + 1}, reglages: '${EMPREINTE_REGLAGES_TOITS}', faits: '${empreinte}' },\npuis le dire dans le CHANGELOG (« les toits deja lus seront relus a l'ouverture »).`);
 }
 process.exitCode = groupes.some((g) => g.signal) ? 1 : 0;

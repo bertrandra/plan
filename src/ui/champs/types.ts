@@ -171,7 +171,7 @@ export interface ChampBouton extends ChampBase {
   texte?: (c: ContexteChamps) => string;
   explication?: string;
   /**
-   * Sur quoi le bouton agit — obligatoire, pour qu'aucun bouton n'echappe aux droits (app/ecritures.ts) :
+   * Sur quoi le bouton agit — obligatoire, pour qu'aucun bouton n'echappe aux droits (app/administration/ecritures.ts) :
    *   - `{ commande }` : il declenche cette commande du registre, qui porte droits et annulation ; le
    *     bouton se grise quand elle n'est pas utilisable ;
    *   - `projet` : il ecrit le projet lui-meme et empile son propre instantane ; grise et refuse en

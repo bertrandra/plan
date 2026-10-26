@@ -1,7 +1,7 @@
 // Les modes de diagnostic du plan : `?mode=devroof` et `?mode=devwall` dans l'adresse.
 //
 // Ils peignent chaque batiment d'une couleur qui dit d'ou vient son toit, ou ses murs, sur le plan
-// et dans la Vue 3D, pour voir d'un coup d'oeil ce que la lecture en tache de fond (app/toitsFond.ts)
+// et dans la Vue 3D, pour voir d'un coup d'oeil ce que la lecture en tache de fond (app/toits/toitsFond.ts)
 // a fait et ce qui reste. Rien n'est modifie dans le projet : c'est une couleur d'affichage, posee
 // par-dessus celle de l'objet, et l'export ne la voit pas.
 //
@@ -11,7 +11,7 @@
 // devwall : rouge, couleur par defaut ; orange, couleur et texture des fichiers fonciers ; vert,
 // couleur lue sur une photo de rue Panoramax.
 
-import { toitAAjuster, toitLu, type ObjetAToit } from './toitsLidar.js';
+import { toitAAjuster, toitLu, type ObjetAToit } from './toits/toitsLidar.js';
 import { couleurMursRetenue } from '../model/couleurMur.js';
 import { estBatiment } from '../model/fonctions.js';
 import type { ObjetPlan } from '../model/types.js';

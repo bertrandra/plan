@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { CONTROLES, NATURES } from '../../../src/app/controlesInterface.js';
-import { ZONES_DOM } from '../../../src/app/inventaireEcran.js';
+import { ZONES_DOM } from '../../../src/app/administration/inventaireEcran.js';
 import { EXPOSITION } from '../../../src/app/exposition.js';
 
 // Le catalogue des controles d'interface (app/controlesInterface.ts) et le code qui les affiche se

@@ -9,7 +9,7 @@
 //   GET    admin/demos            {demos: [{id, name, updatedAt}]}
 //   POST   admin/demos            cree la demo au premier numero libre
 //   GET|PUT|DELETE admin/demos/<id>
-//   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/controleurs.ts)
+//   GET|PUT admin/controleurs     l'arbre des controleurs de l'ecran (app/administration/controleurs.ts)
 //   GET    admin/palette          la palette de l'interface, SANS session : chaque page l'applique
 //   PUT    admin/palette          la remplace (session ; styles/paletteServeur.ts)
 //   GET    admin/arbres           la bibliotheque d'essences d'arbres, SANS session : la 3D la lit
@@ -406,7 +406,7 @@ if ($chemin === 'demos') {
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
 }
 
-// L'arbre des controleurs de l'ecran (app/controleurs.ts) : un seul document, a part des demos.
+// L'arbre des controleurs de l'ecran (app/administration/controleurs.ts) : un seul document, a part des demos.
 // Le point en tete le garde hors de la liste des demos.
 if ($chemin === 'controleurs') {
     $f = $donnees['controleurs'];

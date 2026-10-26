@@ -70,8 +70,8 @@ Déclencheur : la prochaine fonction transversale, ou une modification qui touch
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 3.1 | Ranger `app/` par domaine : `app/admin/` (les neuf `ecran*.ts`), `app/cadastre/` (import, actualisation IGN), `app/toits/` (fond, LiDAR, à cheval), le cœur restant à la racine | `app/` n'a plus que le cœur à sa racine ; rien ne change à l'écran | à faire |
-| 3.2 | Une règle par domaine (dependency-cruiser ou le test d'architecture) : un domaine n'importe pas un autre domaine, seulement le cœur | la règle est en CI et passe | après 3.1 |
+| 3.1 | Ranger `app/` par domaine : `app/administration/` (les neuf `ecran*.ts`), `app/cadastre/` (import, actualisation IGN), `app/toits/` (fond, LiDAR, à cheval), le cœur restant à la racine | `app/` n'a plus que le cœur à sa racine ; rien ne change à l'écran | fait : `administration/` (pas `admin/`, que les simulations de la fumée prennent pour une route du serveur), `cadastre/`, `toits/` et `releve/` ; 31 modules déplacés, 28 restent à la racine (le cœur) |
+| 3.2 | Une règle par domaine (dependency-cruiser ou le test d'architecture) : un domaine n'importe pas un autre domaine, seulement le cœur | la règle est en CI et passe | fait, dans le test d'architecture : une table des flèches admises entre domaines. `toits` et `releve` ne dépendent d'aucun autre ; `audit` et `regles` (les sujets de l'audit) se lisent l'un l'autre. Une flèche nouvelle s'écrit dans la table |
 | 3.3 | Alléger les modules carrefours (`boot/plan.ts`, `audit/controleur.ts`) en passant leurs dépendances par le registre des commandes ou des services | plus aucun module de `app/` n'importe plus de 20 modules | après 3.2 |
 
 ### Phase 4 — Le métier critique se lit par morceaux (modèle et gros modules)
@@ -81,7 +81,7 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
 | 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | à faire |
-| 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | à faire |
+| 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | fait : `engine/piscine/` (réglages 170 lignes, géométrie 150, calcul 370, chiffrage 145, note 135), `engine/piscine.ts` les réexporte ; empreintes et tests inchangés |
 | 4.3 | Ranger les champs propres à une fonction (piscine, pergola, clôture, toit) dans un sous-objet par fonction de `ObjetPlan` | `model/types.ts` sous 600 lignes ; aucune empreinte ne bouge | événement de version (schéma) : à préparer avec la plateforme |
 
 ### Phase 5 — L'exploitation tient sans geste manuel ni réseau parfait

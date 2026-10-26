@@ -42,8 +42,8 @@ Ce n'est **pas** un modèle métier : les règles de toit vivent déjà dans Pla
 
 ### 2.1 Modèle (`src/model/types.ts`)
 
-- `ObjetPlan.toitFige?: boolean` : « Règles coupées » pour ce bâtiment. Protégé de la relecture : `app/toitsLidar.ts::toitAAjuster` (`if (o.toitFige) return false`),
-  `app/actualisationIgn.ts` (`garde`). Sérialisé par `io/serialisation.ts` (`if (o.toitFige) out.toitFige = true`), normalisé par `model/normalisation.ts`.
+- `ObjetPlan.toitFige?: boolean` : « Règles coupées » pour ce bâtiment. Protégé de la relecture : `app/toits/toitsLidar.ts::toitAAjuster` (`if (o.toitFige) return false`),
+  `app/cadastre/actualisationIgn.ts` (`garde`). Sérialisé par `io/serialisation.ts` (`if (o.toitFige) out.toitFige = true`), normalisé par `model/normalisation.ts`.
 - `CorpsToit` (déjà : `pts` rectangle, `posFaitage`, `faitage`, `egouts`, `pignons`, `croupes`, `profil`, `bouts`, `lucarnes`, `cheminees`, `terrasse`, `speciale`,
   `ouvert`) a reçu :
   - `retraitM?: number` : recul des poteaux d'un appentis ouvert depuis le bord de l'égout (absent = 12 cm, le dessin d'avant) ;
@@ -223,7 +223,7 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 
 ### Étape 1 — Le mode Toit et le choix de façade  *(livrée : PR « mode Toit, étape 1 »)*
 
-> Écarts de mise en œuvre : la caméra de façade est l'**oblique orthographique** de la maquette (`three/poseFacade.ts::cadreOblique`, `three/vueFacadeToit.ts`, posée en `cameraRendu` sur la scène de la Vue 3D) — elle a d'abord été une perspective en élévation dans la scène de la terrasse, ce qui était faux (§4.1) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/modeToit.ts` (session), `src/facade/modeToit/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
+> Écarts de mise en œuvre : la caméra de façade est l'**oblique orthographique** de la maquette (`three/poseFacade.ts::cadreOblique`, `three/vueFacadeToit.ts`, posée en `cameraRendu` sur la scène de la Vue 3D) — elle a d'abord été une perspective en élévation dans la scène de la terrasse, ce qui était faux (§4.1) ; les **contours en pointillé** des bâtiments qui cachent passent à l'étape 2 (l'étape 1 ne fournit que « Isoler ») ; entrer dans le mode demande le droit d'écrire. Code : `src/app/toits/modeToit.ts` (session), `src/facade/modeToit/sessionToit.ts` (pile d'annulation pure), `facadesDesCorps.ts` (façades), `src/app/ecouteurs/toitCatalogue.ts` (commandes `toit.*`), `src/zones/vue3d/ModeToit.tsx` (panneau).
 **Livrable :** un bouton « Modifier la toiture » dans les commandes de la Vue 3D, actif sur un bâtiment **du projet** sélectionné (les voisins : cadenas, infobulle « Maison voisine, non modifiable »).
 - Écran A de la maquette : surlignage du bâtiment choisi, barre d'action (Modifier · Isoler), contours en pointillé pour ce qui cache le bâtiment choisi (`setGhost` : maille masquée + `LineSegments`/`EdgesGeometry` en `LineDashedMaterial`),
   œil « Isoler ce bâtiment » (réutiliser `terrasse.isoler`), indice « main ».

@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useStore } from 'zustand';
 import { Icone } from '../icones.js';
-import { facadesDeSession, sessionToit } from '../../app/modeToit.js';
+import { facadesDeSession, sessionToit } from '../../app/toits/modeToit.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';

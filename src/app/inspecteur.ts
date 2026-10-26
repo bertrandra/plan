@@ -11,7 +11,7 @@ import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
-import { champAnnulable, ecritLeProjet } from './ecritures.js';
+import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';
 import { sectionsConstruction, type ContexteOptimisation } from '../ui/champs/construction.js';

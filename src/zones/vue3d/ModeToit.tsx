@@ -1,11 +1,11 @@
 // Z4, le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : la barre de session et le catalogue du toit, sur le bas de la scene.
 //
-// Le panneau n'existe que pendant une session (app/modeToit.ts). Tout bouton est une commande du registre ; le panneau ne sait ni
+// Le panneau n'existe que pendant une session (app/toits/modeToit.ts). Tout bouton est une commande du registre ; le panneau ne sait ni
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
 
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
-import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';

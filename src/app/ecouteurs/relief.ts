@@ -7,7 +7,7 @@
 // laisse pas d'etape vide dans la pile, et rien n'est ecrit.
 //
 // Rien ne relit le service tout seul (regle 5) : l'ouverture jamais ; l'import et l'actualisation IGN
-// seulement si leur case « Relief du terrain » est cochee (app/importCadastre.ts, actualisationIgn.ts).
+// seulement si leur case « Relief du terrain » est cochee (app/cadastre/importCadastre.ts, actualisationIgn.ts).
 
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { PERMISSION_ECRITURE } from '../acces.js';

@@ -17,7 +17,7 @@
 //    **Seule la largeur est connue**, lue sur le plan : la hauteur du cadastre n'est qu'une
 //    estimation, c'est la photo qui mesure la hauteur a l'egout - et, sur un pignon, son triangle.
 // 5. **Resultat** : la facade a l'echelle, sa hauteur mesuree, les ouvertures corrigeables, le toit
-//    lu sur la facade ; Valider ecrit le tout dans le projet par le service (app/releve.ts), en un
+//    lu sur la facade ; Valider ecrit le tout dans le projet par le service (app/releve/releve.ts), en un
 //    seul pas d'historique. Le toit lu sur la facade remplace celui du batiment.
 //
 // Rien n'est ecrit dans le plan avant Valider : fermer le parcours ne laisse aucune trace.
@@ -32,7 +32,7 @@ import { hauteurPignon } from '../facade/toits/toit.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
 import type { MesureDistance } from '../ui/releve/profondeur.js';
-import type { ServiceReleve } from '../app/releve.js';
+import type { ServiceReleve } from '../app/releve/releve.js';
 import type { GrilleFacade, ObjetPolygone, Toit } from '../model/types.js';
 import { fr } from './releve/commun.js';
 import { ChoixMur } from './releve/ChoixMur.js';
@@ -50,7 +50,7 @@ import { analyserSansRien, champDesFuites } from '../facade/releve/chaine.js';
 import { masqueDeFusion } from '../facade/releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
-import type { AideClaudeReleve } from '../app/renfortReleve.js';
+import type { AideClaudeReleve } from '../app/releve/renfortReleve.js';
 import type { Image } from '../facade/vision/homographie.js';
 
 /**

@@ -117,7 +117,7 @@ export interface ReleveFacade {
   /**
    * Pose automatiquement depuis la photo de l'audit de la parcelle, sans que la personne l'ait valide ni retouche
    * (app/audit/parcelle/validation.ts) : une nouvelle mesure de la facade peut le remplacer. Tombe des qu'elle releve la
-   * facade a la main (app/releve.ts).
+   * facade a la main (app/releve/releve.ts).
    */
   depuisAudit?: true;
   /**

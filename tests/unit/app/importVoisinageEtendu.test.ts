@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/app/importCadastre.js';
+import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/app/cadastre/importCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { PtBrut, Relief } from '../../../src/model/types.js';
 import type { DemandeRelief } from '../../../src/geo/relief.js';

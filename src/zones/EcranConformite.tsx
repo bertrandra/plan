@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { lireMesuresConformite, mesureConformite, resumer, resumerFacades, tauxFacadesParRegion, tauxPar, type MesureConformite, type MesureLue, type VerdictCas, type VerdictFacade } from '../regles/conformite.js';
 import { TableAxe, TableCas, TableFacades, TuilesConformite, VueClaude, VueHistorique } from './conformite/vues.js';
 
-/** Les audits recus, juges : ce que app/ecranConformite.ts rend. */
+/** Les audits recus, juges : ce que app/administration/ecranConformite.ts rend. */
 export interface AuditsJuges { verdicts: VerdictCas[]; /** Les facades relevees, jugees (lot G13). */ facades?: VerdictFacade[]; lus: number; illisibles: string[] }
 
 export interface PropsEcranConformite {

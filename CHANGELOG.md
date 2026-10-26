@@ -70,6 +70,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - model-viewer, qui n'est pas une dépendance du paquet, reste au CDN.
   La livraison grossit de 6,9 Mo, chargés à la demande seulement. Ces fichiers se gardent en cache sans limite, leur version
   étant dans le chemin. En développement, Vite sert les mêmes chemins depuis `node_modules`.
+
+- **`app/` est rangé par domaine** (feuille de route, étapes 3.1 et 3.2). Trente et un modules quittent la racine de `app/`
+  pour un dossier par domaine : `administration/` (écrans d'admin, arbre des contrôleurs, inventaire), `cadastre/` (import,
+  actualisation IGN, valeurs par défaut), `toits/` (lectures de fond, LiDAR, toits à cheval, mode Toit, candidats Panoramax) et
+  `releve/`. La racine garde le cœur (magasin, commandes, modes, projet). Le dossier s'appelle `administration/` et non `admin/` :
+  la fumée simule les routes `admin/…` du serveur par leur adresse, et prenait les modules servis depuis `/src/app/admin/` pour des
+  requêtes. Le test d'architecture tient la table des flèches admises entre domaines : une flèche nouvelle est une décision écrite
+  dans la table. Seuls des chemins changent ; tests, fumée du lot `ci` et AE 101 inchangés.
+
+- **Le moteur de la piscine se lit par morceaux** (`engine/piscine/`, feuille de route, étape 4.2). Les 957 lignes de
+  `engine/piscine.ts` sont rangées en cinq fichiers, un par étape : réglages, géométrie, calcul, chiffrage, note de calcul.
+  `engine/piscine.ts` les réexporte, si bien que rien d'autre ne change d'import. Le code est déplacé tel quel ; les empreintes et
+  les tests ne bougent pas.
+
 - **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
   n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
   bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout

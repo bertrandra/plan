@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
-import type { AideClaudeReleve } from '../../app/renfortReleve.js';
+import type { AideClaudeReleve } from '../../app/releve/renfortReleve.js';
 
 type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { phase: 'fait'; message: string; erreur: boolean };
 

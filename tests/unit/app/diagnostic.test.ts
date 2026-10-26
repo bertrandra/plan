@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { modeDiagnostic, classeToit, classeMurs, couleurDiagnostic, compterDiagnostic, COULEURS_DIAGNOSTIC } from '../../../src/app/diagnostic.js';
-import { VERSION_LECTURE_TOITS } from '../../../src/app/toitsLidar.js';
+import { VERSION_LECTURE_TOITS } from '../../../src/app/toits/toitsLidar.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
 // Les modes de diagnostic (?mode=devroof, ?mode=devwall) : la couleur d'un batiment dit d'ou vient son

@@ -3,7 +3,7 @@
 // manquees passent par le recalage (zones/releve/aide.ts) avant d'etre proposes.
 
 import { texteBilan } from '../../facade/detection/renfortRecalage.js';
-import type { AideClaudeReleve } from '../../app/renfortReleve.js';
+import type { AideClaudeReleve } from '../../app/releve/renfortReleve.js';
 import type { Image } from '../../facade/vision/homographie.js';
 import type { GrilleFacade } from '../../model/types.js';
 import { AideClaude } from './AideClaude.js';

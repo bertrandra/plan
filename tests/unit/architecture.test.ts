@@ -51,7 +51,7 @@ interface Dependance { cible: string; type: boolean; dynamique: boolean }
 // Toutes les formes qu'un import prend dans ce depot, sur plusieurs lignes au besoin :
 //   import { a } from '…'   import type { A } from '…'   import '…'
 //   export { a } from '…'   export type { A } from '…'   import('…')
-// L'ancienne version ne lisait que `from '../x/'` sur une seule ligne : un module de `app/ecouteurs/`
+// L'ancienne version ne lisait que `from '../x'` sur une seule ligne : un module de `app/ecouteurs/`
 // ou de `ui/champs/` ecrit `../../x/`, et echappait a la regle sans que personne ne le voie.
 const STATIQUE = /\b(import|export)(\s+type)?\s+(?:[^'";]*?\s+from\s+)?['"](\.[^'"]+)['"]/g;
 const DYNAMIQUE = /\bimport\(\s*['"](\.[^'"]+)['"]\s*\)(\.(?!then\b)\w+)?/g;
@@ -298,6 +298,41 @@ describe('app/ et zones/, la meme couche, un seul sens (AD-16)', () => {
       });
     }
     expect(coupables).toEqual([]);
+  });
+});
+
+describe('les domaines de app/ (feuille de route, etapes 3.1 et 3.2)', () => {
+  // Un domaine est un dossier de app/ qui porte une fonction entiere ; le coeur (la racine de app/, boot/, ecouteurs/, assemblage/)
+  // les assemble. Un domaine n'importe que le coeur et les domaines declares ici : une fleche nouvelle entre deux domaines est une
+  // decision, qui s'ecrit dans cette table, pas un import de passage. Les types ne comptent pas (effaces au build).
+  const DOMAINES: Record<string, string[]> = {
+    // Les toits (fond, LiDAR, a cheval, murs, profils de facades, mode Toit) et le releve ne dependent d'aucun autre domaine.
+    toits: [],
+    releve: [],
+    // L'import du cadastre et l'actualisation IGN lisent les toits des batiments qu'ils posent.
+    cadastre: ['toits'],
+    // L'audit charge la parcelle comme l'import, lit les toits, cherche les coins comme le releve, et propose par ses sujets.
+    audit: ['cadastre', 'regles', 'releve', 'toits'],
+    // Les sujets de l'audit (app/regles/sujets/) decrivent les lignes de sa liste : ils sont l'autre moitie de l'audit.
+    regles: ['audit'],
+    // Les ecrans d'admin montrent ce que les autres domaines savent : versions des toits, cas de calibration (audit, releve), sujets.
+    administration: ['audit', 'regles', 'releve', 'toits']
+  };
+  it('un domaine n importe que le coeur et les domaines qu il declare', () => {
+    const domaine = (f: string): string | undefined => {
+      const m = relative(src, f).split(sep);
+      return m[0] === 'app' && m.length > 2 && m[1]! in DOMAINES ? m[1] : undefined;
+    };
+    const coupables = new Set<string>();
+    for (const f of tous) {
+      const d = domaine(f);
+      if (!d) continue;
+      for (const dep of dependances(f)) {
+        const e = domaine(dep.cible + '.ts') ?? domaine(dep.cible);
+        if (!dep.type && e && e !== d && !DOMAINES[d]!.includes(e)) coupables.add(`${d} -> ${e} (${relative(src, f)} -> ${relative(src, dep.cible)})`);
+      }
+    }
+    expect([...coupables]).toEqual([]);
   });
 });
 

@@ -58,7 +58,7 @@ export const PRINCIPES: readonly Principe[] = [
     coulisses: [
       { quoi: 'Les six empreintes de référence et leur journal', ou: 'tests/fixtures/golden/EMPREINTES.md' },
       { quoi: 'La politique de version', ou: 'MD/RELEASE.md' },
-      { quoi: 'Les lignes de version des toits (réglages, faits)', ou: 'src/app/toitsLidar.ts' },
+      { quoi: 'Les lignes de version des toits (réglages, faits)', ou: 'src/app/toits/toitsLidar.ts' },
     ],
     voir: ['donnees'],
   },
@@ -350,7 +350,7 @@ export const PRINCIPES: readonly Principe[] = [
       { qui: 'admin', faire: 'Enregistrer un brouillon de règles sur le serveur', effet: 'Une analyse d’essai part avec ce prompt, sans jamais remplacer le prompt livré.', ecran: '?admin&ecran=regles' },
     ],
     coulisses: [
-      { quoi: 'Les écrans d’admin', ou: 'src/app/ecranRegles.ts' },
+      { quoi: 'Les écrans d’admin', ou: 'src/app/administration/ecranRegles.ts' },
       { quoi: 'Les fichiers de données éditables', ou: 'src/regles/donnees/fichiers.ts' },
       { quoi: 'La porte de l’admin', ou: 'src/main.ts' },
     ],

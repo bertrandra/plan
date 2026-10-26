@@ -4,7 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ImportCadastre } from '../../../src/zones/parcours/ImportCadastre.js';
 import { Actualisation } from '../../../src/zones/parcours/Actualisation.js';
-import { creerImportCadastre } from '../../../src/app/importCadastre.js';
+import { creerImportCadastre } from '../../../src/app/cadastre/importCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { VoisinageRayon } from '../../../src/geo/apiIgn.js';
 import type { PtBrut } from '../../../src/model/types.js';

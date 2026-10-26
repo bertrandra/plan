@@ -13,7 +13,7 @@ import { reprendreFacadeDesignee } from '../../interaction/choixFacade.js';
 import { vue3d } from '../../three/etat3d.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ServiceReleve } from '../releve.js';
+import type { ServiceReleve } from '../releve/releve.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { estBatiment } from '../../model/fonctions.js';

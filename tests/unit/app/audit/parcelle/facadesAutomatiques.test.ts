@@ -136,7 +136,7 @@ describe('les photos de l audit alimentent les facades', () => {
     await t.v.lancer();
     expect(t.maison().facades?.[0]?.releveLe).not.toBe(ancien.releveLe);
     expect(t.maison().facades?.[0]?.depuisAudit).toBe(true);
-    // Refait a la main (app/releve.ts retire la marque) : l'audit ne le remplace plus tout seul.
+    // Refait a la main (app/releve/releve.ts retire la marque) : l'audit ne le remplace plus tout seul.
     const { depuisAudit: _marque, ...refait } = { ...(t.maison().facades?.[0] as ReleveFacade), releveLe: '2026-10-14T10:00:00Z' };
     void _marque;
     const t2 = monter({ facades: [refait] });

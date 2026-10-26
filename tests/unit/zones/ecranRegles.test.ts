@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranRegles, type PropsEcranRegles } from '../../../src/zones/EcranRegles.js';
-import { demandeEcranRegles } from '../../../src/app/ecranRegles.js';
+import { demandeEcranRegles } from '../../../src/app/administration/ecranRegles.js';
 import { DESCRIPTIONS_SUJETS } from '../../../src/regles/sujets/liste.js';
 import { genererFichiers } from '../../../src/regles/sujets/generation.js';
 import { SUJETS } from '../../../src/app/regles/sujets/index.js';

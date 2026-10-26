@@ -61,7 +61,7 @@ export interface ContexteProjet {
   definirRafraichisseurStatut: (f: () => void) => void;
   ouvrirImportCadastre: () => void;
   ouvrirDialogueActualisation: () => void;
-  /** « Actualiser le projet » : la question, puis l'actualisation complete aux valeurs par defaut (app/actualiserProjet.ts). */
+  /** « Actualiser le projet » : la question, puis l'actualisation complete aux valeurs par defaut (app/cadastre/actualiserProjet.ts). */
   ouvrirActualisationProjet: () => void;
   /** Une actualisation tourne : la commande se grise, une seule a la fois. */
   actualisationEnCours: () => boolean;

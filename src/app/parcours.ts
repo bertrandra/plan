@@ -6,8 +6,8 @@
 // dessine (zones/Parcours.tsx). La logique de chacun vit a cote : `importCadastre.ts`,
 // `actualisationIgn.ts`, `io/polyhaven.ts`.
 
-import type { ImportCadastre } from './importCadastre.js';
-import type { InfosActualisation, OptionsActualisation } from './optionsActualisation.js';
+import type { ImportCadastre } from './cadastre/importCadastre.js';
+import type { InfosActualisation, OptionsActualisation } from './cadastre/optionsActualisation.js';
 import type { TextureAppliquee } from '../model/types.js';
 import type { Promenade } from './audit/promenade.js';
 import type { CouleursPhotos } from './audit/couleurFacade.js';

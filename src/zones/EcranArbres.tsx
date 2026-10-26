@@ -8,7 +8,7 @@
 // (io/arbresServeur.ts). Rien ne change pour l'utilisateur final, sinon la liste des essences.
 //
 // L'ecran ne parle pas a three.js : l'apercu, les presets et les reglages par defaut lui viennent
-// de app/ecranArbres.ts, qui les branche sur three/apercuArbre.ts et three/ezTree.ts.
+// de app/administration/ecranArbres.ts, qui les branche sur three/apercuArbre.ts et three/ezTree.ts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { documentArbres, especesParTaille, idDepuisNom, lireDocumentArbres, MAX_ESPECES, tailleDe, type EspeceArbre, type ReglagesEz } from '../model/especesArbre.js';

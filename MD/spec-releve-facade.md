@@ -70,7 +70,7 @@ se décalant le long du mur quand on manque de recul, ou reculer ; une alerte qu
 | `ui/champs/facade.ts` | | la section « Façades et toit » de l'inspecteur |
 | `render/releve.ts` | | les ouvertures sur le plan à l'écran |
 | `three/releve3d.ts` | | façades texturées, encadrements, pans et pignons |
-| `app/releve.ts`, `app/ecouteurs/facade.ts` | | le service qui écrit dans le projet ; les deux commandes |
+| `app/releve/releve.ts`, `app/ecouteurs/facade.ts` | | le service qui écrit dans le projet ; les deux commandes |
 | `zones/Releve.tsx` | | le parcours plein écran (Z8) : l'enchaînement des cinq temps |
 | `zones/releve/` | | chaque temps et ses outils : `ChoixMur`, `capteurs` et `Visee`, `Coins`, `EtapeCoins`, `Elevation` et `EtapeResultat` ; sans React, `serie` (coins proposés, consignes) et `analyse` (analyser une série, écrire le relevé d'un mur), testés seuls |
 | `native/ios/` | | le module natif, hors de l'application web |
