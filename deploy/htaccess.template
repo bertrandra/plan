@@ -124,6 +124,14 @@ RedirectMatch 404 ^/data(/|$)
     Header unset Expires
   </FilesMatch>
 
+  # Les bibliotheques de la livraison, `assets/vendor/<paquet>@<version>/…` (three.js, EZ-tree,
+  # pdf-lib ; etape 5.2 de la feuille de route) : la version est dans le chemin, un fichier n'y
+  # change donc jamais. FilesMatch ne voit que le nom du fichier, d'ou le test sur l'adresse.
+  <If "%{REQUEST_URI} =~ m#/assets/vendor/[^/]+@[^/]+/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header unset Expires
+  </If>
+
   # Les images et polices qui apparaitraient un jour a cote ne portent pas d'empreinte dans leur nom
   # et ne peuvent donc pas etre gardees indefiniment — une semaine est le compromis raisonnable.
   <FilesMatch "\.(png|jpg|jpeg|webp|avif|svg|woff2?|ico)$">
@@ -147,9 +155,11 @@ RedirectMatch 404 ^/data(/|$)
   #
   #   script-src   'self' : le programme, `assets/plan-<empreinte>.js` (plus les empreintes d'un
   #                script qui resterait en ligne : aucun d'ordinaire).
-  #                jsdelivr : three.js 0.186 et ses exemples (OrbitControls, GLTFLoader, GLTFExporter,
-  #                occlusion, lignes), modules ES que `three/bibliotheque.ts` importe a l'execution.
-  #                La table d'import de la page (index.html) y entre par son empreinte.
+  #                three.js 0.186 et ses exemples, EZ-tree et pdf-lib, servis depuis `assets/vendor/`
+  #                (etape 5.2) : 'self' les couvre. La table d'import de la page (index.html) y entre
+  #                par son empreinte.
+  #                jsdelivr : le secours d'EZ-tree et de pdf-lib quand leur copie ne se charge pas, et
+  #                model-viewer (realite augmentee), qui n'est pas une dependance du paquet.
   #   style-src    'unsafe-inline' : la feuille est inlinee, et le programme pose des styles.
   #                Les scripts n'ont pas cette permission, donc l'injection qui compte reste refusee.
   #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles ;

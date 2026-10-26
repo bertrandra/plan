@@ -1,5 +1,13 @@
-// three.js et ses exemples, en modules ES, depuis jsDelivr (MD/spec-migration-typescript.md §8.3,
-// mise a jour vers la 0.186.1 le 16 octobre 2026).
+// three.js et ses exemples, en modules ES (MD/spec-migration-typescript.md §8.3, mise a jour vers la
+// 0.186.1 le 16 octobre 2026). Servis par la livraison elle-meme depuis l'etape 5.2 de la feuille de
+// route (MD/roadmap-architecture.md) : `assets/vendor/three@0.186.1/…`, copies au build depuis
+// node_modules (vite.config.ts), les memes octets que jsDelivr. La page ne depend plus du CDN pour
+// ouvrir la Vue 3D.
+//
+// three.js n'a pas de secours au CDN, et c'est voulu : les exemples importent `three` par son nom, et
+// la table d'import de la page ne nomme qu'une adresse. Un secours chargerait une seconde instance de
+// la bibliotheque, ou rien. Le fichier vient du meme serveur que la page : s'il manque, la livraison
+// est incomplete, ce que l'essai du paquet (scripts/essayer-paquet.mjs) voit avant la mise en ligne.
 //
 // Jusqu'a la r128, la bibliotheque arrivait par des balises <script> (`three.min.js`, puis
 // `examples/js/…`) qui se posaient sur `window.THREE`. Ces fichiers n'existent plus : depuis la
@@ -12,8 +20,8 @@
 // donc une table d'import statique (index.html, `<script type="importmap">`) qui dit ou le trouver.
 // Elle et `URL_THREE` ci-dessous nomment le MEME fichier — c'est ce qui garde une seule instance de
 // la bibliotheque — et un test le verifie (tests/unit/three/bibliotheque.test.ts). Sa politique de
-// contenu est celle des scripts : `script-src` nomme jsDelivr, et la table, restee en ligne, y entre
-// par son empreinte (deploy/scripts-page.mjs).
+// contenu est celle des scripts : `script-src 'self'` couvre la livraison, et la table, restee en
+// ligne, y entre par son empreinte (deploy/scripts-page.mjs).
 //
 // **Les couleurs.** Depuis la r152, three.js convertit les couleurs sRGB en lineaire a chaque
 // `new THREE.Color('#…')`, et applique l'encodage de sortie. Plan fait l'inverse depuis toujours :
@@ -22,14 +30,17 @@
 // le comportement de la r128, sans quoi chaque couleur du plan, de chaque texture et de chaque
 // sommet changerait.
 
+import { RACINE_CDN, versLocale } from '../util/integriteCdn.js';
+
 /** La version epinglee : celle de `package.json` (types et banc d'essai), celle que la page charge. */
 export const VERSION_THREE = '0.186.1';
-export const RACINE_THREE = 'https://cdn.jsdelivr.net/npm/three@' + VERSION_THREE + '/';
-/** Le module de la bibliotheque : le meme que celui de la table d'import de index.html. */
-export const URL_THREE = RACINE_THREE + 'build/three.module.js';
+/** La bibliotheque chez jsDelivr : l'adresse de reference des empreintes (util/integriteCdn.ts). */
+export const RACINE_THREE = RACINE_CDN + 'three@' + VERSION_THREE + '/';
+/** Le module de la bibliotheque, relatif a la page : le meme que celui de la table d'import de index.html. */
+export const URL_THREE = versLocale(RACINE_THREE + 'build/three.module.js');
 
-/** Le fichier d'un exemple (`controls/OrbitControls.js`), sous `examples/jsm/`. */
-export const urlExemple = (chemin: string): string => RACINE_THREE + 'examples/jsm/' + chemin;
+/** Le fichier d'un exemple (`controls/OrbitControls.js`), sous `examples/jsm/`, dans la livraison. */
+export const urlExemple = (chemin: string): string => versLocale(RACINE_THREE + 'examples/jsm/' + chemin);
 
 /**
  * Depuis la r165, les lumieres sont toujours « physiques » : a intensite egale, elles eclairent π
@@ -47,21 +58,30 @@ type Module = Record<string, unknown>;
  * bibliotheque d'essences du serveur n'est pas vide (three/ezTree.ts) et dans l'ecran admin des arbres.
  */
 export const VERSION_EZ_TREE = '1.1.0';
-export const URL_EZ_TREE = 'https://cdn.jsdelivr.net/npm/@dgreenheck/ez-tree@' + VERSION_EZ_TREE + '/build/ez-tree.es.js';
+/** EZ-tree chez jsDelivr : le secours, si la copie de la livraison ne se charge pas. */
+export const URL_EZ_TREE_CDN = RACINE_CDN + '@dgreenheck/ez-tree@' + VERSION_EZ_TREE + '/build/ez-tree.es.js';
+/** EZ-tree dans la livraison, relatif a la page. */
+export const URL_EZ_TREE = versLocale(URL_EZ_TREE_CDN);
 
 let ezTree: Promise<typeof import('@dgreenheck/ez-tree')> | null = null;
 
 /** Charge EZ-tree une seule fois, apres three (meme instance : la table d'import). */
 export function chargerEzTree(): Promise<typeof import('@dgreenheck/ez-tree')> {
-  ezTree ??= chargerThree().then(() => importer(URL_EZ_TREE) as unknown as Promise<typeof import('@dgreenheck/ez-tree')>).catch((e: unknown) => {
+  // La copie de la livraison d'abord, jsDelivr en secours : EZ-tree importe `three` par la table d'import, la meme instance
+  // dans les deux cas.
+  ezTree ??= chargerThree().then(() => importer(URL_EZ_TREE).catch(() => importer(URL_EZ_TREE_CDN)) as unknown as Promise<typeof import('@dgreenheck/ez-tree')>).catch((e: unknown) => {
     ezTree = null;
     throw e;
   });
   return ezTree;
 }
 
-/** Un import dynamique que ni Vite ni Rollup ne cherchent a resoudre au build : l'adresse est une donnee. */
-const importer = (url: string): Promise<Module> => import(/* @vite-ignore */ url) as Promise<Module>;
+/**
+ * Un import dynamique que ni Vite ni Rollup ne cherchent a resoudre au build : l'adresse est une donnee. Une adresse relative se
+ * resout contre la page, pas contre le morceau du programme qui l'importe (`assets/plan-….js`) : c'est contre la page que la table
+ * d'import resout `three`, et les deux doivent nommer le meme fichier.
+ */
+const importer = (url: string): Promise<Module> => import(/* @vite-ignore */ new URL(url, document.baseURI).href) as Promise<Module>;
 
 let coeur: Promise<void> | null = null;
 
