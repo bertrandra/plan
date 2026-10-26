@@ -9,7 +9,7 @@
 // three/ le vide lui-meme en demontant sa scene.
 
 import { libelleIsoler, objetAIsoler } from '../../app/isolement.js';
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { estTerrasse } from '../../model/fonctions.js';
 import { useStore } from 'zustand';
 import { abonner3d, affichage3d, version3d, vue3d, poserHote3d } from '../../three/etat3d.js';
@@ -17,7 +17,10 @@ import { QUALITES_3D, estQualite3d } from '../../three/qualite.js';
 import { promenadeActive } from '../../three/presentation.js';
 import { Icone } from '../icones.js';
 import { Horloge } from './Horloge.js';
-import { BoutonModifierToit, ModeToit } from './ModeToit.js';
+import { BoutonModifierToit } from './BoutonModifierToit.js';
+
+// Le panneau du mode Toit et le catalogue des toits (three/gestesToits.ts) se chargent a l'ouverture de la Vue 3D (AD-10).
+const ModeToit = lazy(() => import('./ModeToit.js').then((m) => ({ default: m.ModeToit })));
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { Magasin } from '../../app/magasin.js';
@@ -209,7 +212,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
         <div id="terrasse3dCanvasHost" className="hote3d" ref={(el) => { poserHote3d('vue3d', el); }}
           style={pleinePage ? { height: 'calc(100dvh - 60px)' } : undefined}>
           {affichage3d.comparaison && <EtiquettesDeuxVues vues={affichage3d.comparaison} />}
-          <ModeToit magasin={magasin} commandes={commandes} /><Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
+          {affichage3d.vue3d === 'pret' && <Suspense fallback={null}><ModeToit magasin={magasin} commandes={commandes} /></Suspense>}<Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>
             <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />

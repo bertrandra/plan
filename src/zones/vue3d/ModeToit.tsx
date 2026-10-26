@@ -219,14 +219,3 @@ export function ModeToit({ magasin, commandes }: Props) {
   );
 }
 
-/** Le bouton des commandes de la scene qui ouvre le mode : seulement quand un batiment du projet est selectionne. */
-export function BoutonModifierToit({ commandes }: { commandes: RegistreCommandes }) {
-  if (!commandes.etat('toit.modifier').utilisable) return null;
-  return (
-    <button id="terrasse3dModifierToit" data-commande="toit.modifier" type="button" className="bouton3d" aria-label="Modifier la toiture"
-      title="Modifier la toiture : choisir une façade, poser des éléments, tout annuler ; rien ne change avant la validation"
-      onClick={(e) => { commandes.executer('toit.modifier', e.currentTarget); }}>
-      <Icone nom="toit" taille={20} />
-    </button>
-  );
-}

@@ -10,7 +10,6 @@
 
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
-import { appliquerPiece, raisonIndisponible, reprendreLectureAuto } from '../../three/gestesToits.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
@@ -32,6 +31,17 @@ export interface ContexteToitCatalogue {
 }
 
 /** Les « Regles » sont allumees quand le batiment n'est pas fige. */
+// Le catalogue des toits (three/gestesToits.ts) se charge a l'ouverture d'une session (AD-10) : les gestes qui le lisent ne
+// s'offrent que pendant une session, il est donc la quand ils s'executent.
+type Gestes = typeof import('../../three/gestesToits.js');
+let gestes: Gestes | null = null;
+let chargementGestes: Promise<Gestes> | null = null;
+/** Charge le catalogue des toits une fois ; un echec laisse la porte ouverte a un nouvel essai. */
+export function chargerGestesToits(): Promise<Gestes> {
+  chargementGestes ??= import('../../three/gestesToits.js').then((m) => (gestes = m), (e: unknown) => { chargementGestes = null; throw e; });
+  return chargementGestes;
+}
+
 export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.toitFige;
 
 /** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
@@ -80,7 +90,13 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), actif, executer });
 
   commande('toit.modifier', 'Modifier la toiture',
-    () => !enSession() && estRetouchable(a.etat.objects.find((o) => o.key === a.etat.selectedKey)), () => { mode.ouvrir(); });
+    () => !enSession() && estRetouchable(a.etat.objects.find((o) => o.key === a.etat.selectedKey)), () => {
+      // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
+      if (gestes) { mode.ouvrir(); return; }
+      chargerGestesToits().then(() => { if (!enSession()) mode.ouvrir(); }, (e: unknown) => {
+        showToast('Le mode Toit n’a pas pu se charger (' + (e instanceof Error ? e.message : String(e)) + ').');
+      });
+    });
   commande('toit.valider', 'Valider le toit',
     enSession, () => { mode.valider(); });
   commande('toit.abandonner', 'Abandonner les changements',
@@ -138,20 +154,22 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
 
   commande('toit.regles', 'Règles',
     enSession, () => {
-      mode.ecrire((o) => { if (o.toitFige) reprendreLectureAuto(o); else o.toitFige = true; });
+      const g = gestes;
+      if (!g) return;
+      mode.ecrire((o) => { if (o.toitFige) g.reprendreLectureAuto(o); else o.toitFige = true; });
       showToast(batiment()?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu.');
     });
 
   commande('toit.poser', 'Poser sur le toit',
     enSession, (source) => {
-      const id = source?.dataset.piece, o = batiment(), s = sessionToit();
-      if (!id || !o) return;
+      const id = source?.dataset.piece, o = batiment(), s = sessionToit(), g = gestes;
+      if (!id || !o || !g) return;
       // Le geste n'agit que sur le corps choisi (celui de l'element choisi) ; sans choix, sur la facade regardee (ou la derniere choisie).
       const facade = s?.facade ?? s?.derniere ?? null, rangChoisi = etatToit().selection?.rang ?? null;
-      const raison = raisonIndisponible(o, id, facade, rangChoisi);
+      const raison = g.raisonIndisponible(o, id, facade, rangChoisi);
       if (raison) { showToast(raison); return; }
       const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
-      if (!mode.ecrire((x) => appliquerPiece(x, id, facade, rangChoisi))) return;
+      if (!mode.ecrire((x) => g.appliquerPiece(x, id, facade, rangChoisi))) return;
       // L'element pose se choisit (l'inspecteur le regle) ; un pignon, un element de mur se reglent de face (maquette v8) : la vue passe devant leur facade.
       const cible = cibleAjoutee(avant, batiment()?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.corpsToit ?? [], cible) : null;
       mode.selectionner(cible);
