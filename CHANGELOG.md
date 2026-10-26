@@ -61,6 +61,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le banc du rendu mesure le paquet de production** (feuille de route, étape 2.1, terminée). `vite build --mode banc` donne un
+  paquet de production qui garde les poignées de mesure (`window.__plan`) ; le paquet livré ne les porte toujours pas
+  (`scripts/banc-rendu.mjs` dit comment l'utiliser). La recherche des doublons ne sérialise plus que les objets qui partagent leur
+  forme : 3,0 → 1,2 ms sur la démonstration, même résultat. Rendu complet à 147 objets, paquet de production : 16,7 ms au bureau,
+  154 ms au téléphone (processeur ralenti ×4), dont 26 ms de dessin du plan.
 - **La lecture des toits se lit par morceaux** (feuille de route, étape 4.1). `facade/toits/toitCorps.ts` (1 057 lignes) garde la
   reconstruction des corps et réexporte trois morceaux de `facade/toits/toitCorps/` :
   - `ajustement.ts` : le toit d'un corps, ses pignons, sa coupe ;
