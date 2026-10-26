@@ -929,6 +929,8 @@ Only ADR-16 has its file today (`docs/adr/`); the others live in this table. Eac
 
 ## 11. Architectural debt register
 
+The plan to pay the open debts (AD-1, AD-6, AD-15, AD-19) and the weak points of the 26 October 2026 review, in phases: [`roadmap-architecture.md`](roadmap-architecture.md).
+
 Carried deliberately, with the trigger that would force payment.
 
 | # | Debt | Cost of carrying | Trigger to pay |
