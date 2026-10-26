@@ -51,6 +51,10 @@ export const PIECES: readonly PieceCatalogue[] = [
   { id: 'corps:retour', famille: 'corps', libelle: 'Retour', exemple: 'deux-pans' },
   { id: 'corps:biaise', famille: 'corps', libelle: 'Biaise', exemple: 'croupes' },
   ...formes.map((e) => ({ id: 'forme:' + e.id, famille: 'toit' as const, libelle: e.titre, exemple: e.id })),
+  // Les trois pans : le quatre-pans avec une seule croupe, l'autre bout en pignon. Pas des vignettes a eux : des options sous celle du
+  // quatre-pans (zones/vue3d/ModeToit.tsx, OPTIONS_PIECE).
+  { id: 'forme:croupes-debut', famille: 'toit', libelle: 'Trois pans, croupe au début du faîtage', exemple: 'croupes', cachee: true },
+  { id: 'forme:croupes-fin', famille: 'toit', libelle: 'Trois pans, croupe à la fin du faîtage', exemple: 'croupes', cachee: true },
   { id: 'sur:pignon', famille: 'sur', libelle: 'Pignon' },
   { id: 'sur:cheminee', famille: 'sur', libelle: 'Cheminée' },
   { id: 'sur:fenetre-toit', famille: 'sur', libelle: 'Fenêtre de toit' },
@@ -68,6 +72,28 @@ export const piece = (id: string): PieceCatalogue | undefined => PIECES.find((p)
 export const piecesDe = (famille: FamillePiece): PieceCatalogue[] => PIECES.filter((p) => p.famille === famille && !p.cachee);
 
 const dixieme = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Les options d'une piece du catalogue : d'autres pieces qui en sont des variantes, montrees sous sa vignette. Le quatre-pans se pose
+ * aussi en trois pans, la croupe a un seul bout du faitage (au debut, cote du premier mur de bout, ou a la fin), un pignon a l'autre.
+ */
+export const OPTIONS_PIECE: Readonly<Record<string, readonly { id: string; libelle: string }[]>> = {
+  'forme:croupes': [{ id: 'forme:croupes-debut', libelle: 'Croupe au début' }, { id: 'forme:croupes-fin', libelle: 'Croupe à la fin' }]
+};
+
+/** Une forme du catalogue a poser : son exemple, et le bout du faitage qui garde seul sa croupe (les trois pans). */
+function formeAPoser(nom: string): { e: ExempleToit; seuleCroupe: 0 | 1 | null } | null {
+  const variante = /^croupes-(debut|fin)$/.exec(nom);
+  const e = EXEMPLES_TOITS.find((x) => x.id === (variante ? 'croupes' : nom));
+  return e ? { e, seuleCroupe: variante ? (variante[1] === 'debut' ? 0 : 1) : null } : null;
+}
+
+/** Le corps d'un quatre-pans devenu trois pans : la croupe du bout `garde` reste, l'autre bout redevient un pignon. */
+function trancherUneCroupe(c: CorpsToit, garde: 0 | 1 | null): CorpsToit {
+  if (garde === null || !c.croupes) return c;
+  const h = c.croupes[garde];
+  return { ...c, croupes: garde === 0 ? [h, 0] : [0, h] };
+}
 const aire = (c: CorpsToit): number => { const r = repere(c.pts); return r.L * r.W; };
 
 /** Le corps qui porte ce que l'on pose : le plus grand, sans compter ce qui est pose sur une facade. */
@@ -280,23 +306,24 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
   if (prefixe === 'forme' && choisi && o.corpsToit) {
     // Une forme sur le corps choisi : lui seul change, a son emprise et a ses hauteurs. Il garde son rang (les saillies qui le
     // designent le suivent) ; les corps de plus que la forme demande s'ajoutent a la fin.
-    const e = EXEMPLES_TOITS.find((x) => x.id === nom);
-    if (!e) return false;
+    const forme = formeAPoser(nom);
+    if (!forme) return false;
     const egout = Math.min(...choisi.egouts), montee = Math.max(1, choisi.faitage - egout);
-    const [premier, ...autres] = corpsDepuisExemple(e, rectangleDuCorps(choisi), egout, montee);
-    if (!premier) return false;
+    const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
+    if (!tel) return false;
+    const premier = trancherUneCroupe(tel, forme.seuleCroupe);
     const rang = o.corpsToit.indexOf(choisi);
     o.corpsToit = [...o.corpsToit.slice(0, rang), premier, ...o.corpsToit.slice(rang + 1), ...autres];
     o.modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'forme') {
-    const rect = rectangleDuBatiment(o), e = EXEMPLES_TOITS.find((x) => x.id === nom);
-    if (!rect || !e) return false;
+    const rect = rectangleDuBatiment(o), forme = formeAPoser(nom);
+    if (!rect || !forme) return false;
     const { egout, montee } = hauteursDuBatiment(o);
-    o.corpsToit = corpsDepuisExemple(e, rect, egout, montee);
+    o.corpsToit = corpsDepuisExemple(forme.e, rect, egout, montee).map((c, i) => (i === 0 ? trancherUneCroupe(c, forme.seuleCroupe) : c));
     o.modeToit = 'corps';
     const toit = toitDe(o);
-    if (estFormeToit(nom)) toit.forme = nom;
+    if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
     toit.source = 'saisie';
     delete toit.pente;
   } else if (prefixe === 'corps') {

@@ -31,6 +31,14 @@ describe('les poignees', () => {
     expect(ids({ type: 'pignon', rang: 0, i: 9 })).toEqual([]);
   });
 
+  it('vue de dessus, les poignees qui etirent un corps sont sur ses bords a la hauteur de son egout, ou le plan trace sa silhouette', () => {
+    const corps = avecTout(), c = corps[0]!;
+    const p = Object.fromEntries(poigneesDe(corps, { type: 'corps', rang: 0, i: 0 }).map((q) => [q.id, q.point]));
+    expect(p.etirerL!.z).toBeCloseTo(Math.min(...c.egouts), 5);
+    expect(p.etirerW!.z).toBeCloseTo(Math.min(...c.egouts), 5);
+    expect(p.deplacer!.z).toBeCloseTo(c.faitage, 5);
+  });
+
   it('le repere du pan 0 sort vers l exterieur de son cote', () => {
     const c = avecTout();
     const f = cadreDe(c, { type: 'pignon', rang: 0, i: 0 })!;

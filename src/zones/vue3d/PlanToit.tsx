@@ -1,6 +1,9 @@
 // Z4, le mode Plan du mode Toit (MD/spec-mode-toit-3d.md, etape 5) : la vue de dessus, ou chaque corps du batiment se choisit d'un toucher.
 //
-// Un calque SVG par-dessus la scene vue de dessus : un polygone par corps, que la camera projette. Toucher un corps le choisit (les
+// Un calque SVG par-dessus la scene vue de dessus : un polygone par corps, que la camera projette. Chaque corps se projette a la hauteur
+// de son egout, le haut de ses facades : la camera est en perspective, et un contour pris au sol se dessinait en retrait des murs, plus
+// petit que le batiment vu de dessus (decision de l'utilisateur, 26 octobre 2026 : la silhouette colle au nu exterieur des facades). Le
+// faitage se projette a sa hauteur, les marqueurs a celle du toit sous eux. Toucher un corps le choisit (les
 // poignees de PoigneesToit.tsx le deplacent et l'etirent, l'inspecteur le tourne et le retire). Les bow-windows et galeries posees sur un
 // corps n'ont pas de polygone a eux : ils suivent leur corps.
 
@@ -9,7 +12,8 @@ import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
 import { rangsDeCorps } from '../../facade/modeToit/corpsNeufs.js';
 import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/modeToit/planCorps.js';
-import { hotes3d, vue3d } from '../../three/etat3d.js';
+import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
+import { hauteurDuToitEn } from '../../facade/toits/toitCorps.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
@@ -42,12 +46,14 @@ export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: 
   const corps = o?.corpsToit;
   if (!corps?.length) return null;
   const r = hote.getBoundingClientRect(), base = altitudeDuBatiment(o);
-  const px = (x: number, y: number) => {
-    const v = new THREE.Vector3(x - sc.cen.x, base, sc.cen.y - y).project(sc.camera);
+  // `h` : la hauteur au-dessus du pied du batiment, celle des corps et des poignees (facade/modeToit/poignees.ts).
+  const camera = cameraDeVue(sc);
+  const px = (x: number, y: number, h: number) => {
+    const v = new THREE.Vector3(x - sc.cen.x, base + h, sc.cen.y - y).project(camera);
     return ((v.x + 1) / 2) * r.width + ',' + ((1 - v.y) / 2) * r.height;
   };
   const actif = commandes.etat('toit.selection').utilisable;
-  const ecran = (x: number, y: number) => { const [a = 0, b = 0] = px(x, y).split(',').map(Number); return { x: a, y: b }; };
+  const ecran = (x: number, y: number, h: number) => { const [a = 0, b = 0] = px(x, y, h).split(',').map(Number); return { x: a, y: b }; };
   return (
     <svg className="planToit" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Corps du bâtiment">
       {rangsDeCorps(corps).map((rang) => {
@@ -56,19 +62,19 @@ export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: 
         const choisi = e.selection?.type === 'corps' && e.selection.rang === rang;
         return (
           <polygon key={rang} className={'corpsPlan' + (choisi ? ' choisi' : '')} data-plan-corps={rang} data-commande="toit.selection" data-type="corps" data-rang={rang} data-i={0}
-            points={c.pts.map((p) => px(p.x, p.y)).join(' ')} onClick={(ev) => { if (actif) commandes.executer('toit.selection', ev.currentTarget as unknown as HTMLElement); }} />
+            points={c.pts.map((p) => px(p.x, p.y, Math.min(...c.egouts))).join(' ')} onClick={(ev) => { if (actif) commandes.executer('toit.selection', ev.currentTarget as unknown as HTMLElement); }} />
         );
       })}
       {rangsDeCorps(corps).map((rang) => {
         const c = corps[rang];
         if (!c) return null;
-        const f = ligneDeFaitage(c), a = f && ecran(f.a.x, f.a.y), b = f && ecran(f.b.x, f.b.y);
+        const f = ligneDeFaitage(c), a = f && ecran(f.a.x, f.a.y, c.faitage), b = f && ecran(f.b.x, f.b.y, c.faitage);
         return (
           <g key={'d' + rang} className="detailsPlan" aria-hidden="true">
             {f && a && b && (f.genre === 'sommet'
               ? <circle className="faitagePlan" data-genre="sommet" cx={a.x} cy={a.y} r={3} />
               : <line className="faitagePlan" data-genre={f.genre} x1={a.x} y1={a.y} x2={b.x} y2={b.y} />)}
-            {marqueursDuCorps(c).map((m, i) => { const q = ecran(m.x, m.y); return <MarqueurPlan key={i} m={m} x={q.x} y={q.y} />; })}
+            {marqueursDuCorps(c).map((m, i) => { const q = ecran(m.x, m.y, hauteurDuToitEn([c], m) ?? Math.min(...c.egouts)); return <MarqueurPlan key={i} m={m} x={q.x} y={q.y} />; })}
           </g>
         );
       })}

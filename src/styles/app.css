@@ -120,6 +120,9 @@
   html[data-classe="compact"] .panneauToit.replie{ max-height:none; }
   html[data-classe="compact"] .panneauToit.replie > :not(.barreToit):not(.languetteToit){ display:none; }
   html[data-classe="compact"] .panneauToit .toitPiece{ width:68px; min-height:68px; }
+  html[data-classe="compact"] .panneauToit .toitPieceOptions{ width:68px; }
+  /* Au doigt, les options des trois pans sont des cibles de 44 px comme les autres. */
+  html[data-classe="compact"] .panneauToit .optionPiece, html[data-classe="moyen"] .panneauToit .optionPiece{ min-height:44px; }
   /* Tablette : la barre de la session est un rail vertical a gauche du panneau, les boutons restent sous le pouce. */
   html[data-classe="moyen"] .panneauToit{ right:64px; max-height:64%; display:grid; grid-template-columns:56px minmax(0,1fr); column-gap:8px; align-content:start; }
   html[data-classe="moyen"] .panneauToit > :not(.barreToit){ grid-column:2; }
@@ -168,11 +171,15 @@
   .panneauToit .toitOnglets{ display:flex; gap:4px; }
   .panneauToit .toitOnglet{ flex:1; min-height:36px; padding:2px 6px; font:inherit; font-size:.8rem; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:6px; cursor:pointer; }
   .panneauToit .toitOnglet[aria-selected="true"]{ background:var(--accent-light); border-color:var(--accent); }
-  .panneauToit .toitCatalogue{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+  .panneauToit .toitCatalogue{ display:flex; align-items:flex-start; gap:6px; overflow-x:auto; padding-bottom:2px; }
   .panneauToit .toitPiece{ flex:0 0 auto; width:76px; min-height:76px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .toitPiece:disabled{ opacity:.35; cursor:not-allowed; }
   .panneauToit .toitPiece .glyphe svg.chaineVignette{ width:100%; max-width:56px; height:auto; }
   .panneauToit .toitPiece .libelle{ font-size:.68rem; line-height:1.1; text-align:center; }
+  /* Une piece a variantes (le quatre-pans et ses trois pans) : la vignette, puis ses options en dessous, de la meme largeur. */
+  .panneauToit .toitPieceOptions{ flex:0 0 auto; display:flex; flex-direction:column; gap:3px; width:76px; }
+  .panneauToit .optionPiece{ min-height:28px; padding:2px 4px; font:inherit; font-size:.64rem; line-height:1.1; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:6px; cursor:pointer; }
+  .panneauToit .optionPiece:disabled{ opacity:.35; cursor:not-allowed; }
   #zonePalette .glyphe{ font-size:1.15rem; line-height:1; }
   #zonePalette .libelle{ font-family:var(--sans); font-size:0.58rem; line-height:1.1; text-align:center; color:var(--ink-soft); }
   /* Le menu Affichage de la barre d'application. */

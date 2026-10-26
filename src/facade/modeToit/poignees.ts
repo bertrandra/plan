@@ -81,12 +81,14 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   if (!c || !f) return [];
   const P = (s: number, prof: number, z: number) => sur(f, s, prof, z);
   if (t.type === 'corps') {
-    // Le mode Plan : se deplacer dans le plan, etirer la longueur (faitage) et la largeur.
-    const r = repere(c.pts), W = r.W;
+    // Le mode Plan : se deplacer dans le plan, etirer la longueur (faitage) et la largeur. Les poignees qui etirent sont sur les bords
+    // du corps a la hauteur de son egout, la ou le mode Plan dessine sa silhouette (le haut des facades) : au faitage, la perspective
+    // les sortait de son trait. Celle qui deplace reste au milieu du faitage.
+    const r = repere(c.pts), W = r.W, egout = Math.min(...c.egouts);
     return [
       { id: 'deplacer', point: P(f.L / 2, -W / 2, c.faitage), axes: ['long', 'prof'], libelle: 'Déplacer le corps' },
-      { id: 'etirerL', point: P(f.L, -W / 2, c.faitage), axes: ['long'], libelle: 'Longueur du corps' },
-      { id: 'etirerW', point: P(f.L / 2, -W, c.faitage), axes: ['prof'], libelle: 'Largeur du corps' }
+      { id: 'etirerL', point: P(f.L, -W / 2, egout), axes: ['long'], libelle: 'Longueur du corps' },
+      { id: 'etirerW', point: P(f.L / 2, -W, egout), axes: ['prof'], libelle: 'Largeur du corps' }
     ];
   }
   if (t.type === 'facade') {
