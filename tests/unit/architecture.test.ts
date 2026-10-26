@@ -229,6 +229,39 @@ describe('ce qui est fige pour les anciens projets (AD-19)', () => {
   });
 });
 
+describe('les entrees de session des couches pures (AD-15)', () => {
+  // Trois registres, et pas un de plus : la calibration de la detection (admin/calibration), les faits de toit essayes par
+  // l'administrateur (?regles=local), la bibliotheque d'essences d'arbres. Aucun ne change un nombre enregistre dans un projet :
+  // la calibration ne change que la prochaine detection, un toit lu pendant un essai est relu a l'ouverture suivante, les
+  // essences ne dessinent que la 3D (MD/roadmap-architecture.md, etape 1.3). Un etat de module nouveau dans ces couches, ou un
+  // poseur appele depuis une couche pure, passe ici avant de passer inapercu.
+  const PURES = ['util', 'geometry', 'model', 'regles', 'engine', 'geo', 'facade'];
+  const REGISTRES: Record<string, string> = {
+    'facade/regles/facades/surcharges.ts': 'poserSurchargesCalibrees',
+    'regles/toits/faits.ts': 'essayerFaitsToits',
+    'model/especesArbre.ts': 'poserEspeces',
+  };
+  const pures = tous.filter(f => PURES.includes(couche(f) ?? ''));
+
+  it('seuls ces trois modules gardent un etat de module (let) dans les couches pures', () => {
+    const avecEtat = pures.filter(f => /^(export )?let /m.test(readFileSync(f, 'utf8'))).map(f => relative(src, f).split(sep).join('/')).sort();
+    expect(avecEtat).toEqual(Object.keys(REGISTRES).sort());
+  });
+
+  it('chaque registre ne se pose que depuis app/ ou io/, jamais depuis une couche pure', () => {
+    const coupables: string[] = [];
+    for (const f of tous) {
+      if (['app', 'io'].includes(couche(f) ?? '')) continue;
+      const texte = readFileSync(f, 'utf8'), ici = relative(src, f).split(sep).join('/');
+      for (const [module, poseur] of Object.entries(REGISTRES)) {
+        if (ici === module) continue;
+        if (new RegExp('\\b' + poseur + '\\(').test(texte)) coupables.push(`${ici} appelle ${poseur}`);
+      }
+    }
+    expect(coupables).toEqual([]);
+  });
+});
+
 describe('ce qui n a qu un proprietaire', () => {
   it('l etat de la Vue 3D ne s ecrit, hors de three/, que par les fonctions de three/etat3d.ts (AD-14)', () => {
     // vue3d, glb, soleilVue3d, affichage3d, hotes3d : `three/` y ecrit, c'est son etat ; ailleurs, reglerVue3d, reglerGlb,
