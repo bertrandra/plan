@@ -61,6 +61,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les modules carrefours de `app/` ne grossissent plus** (feuille de route, étape 3.3). Le test d'architecture refuse qu'un
+  module de `app/` importe plus de 20 modules (imports de valeur). Six carrefours dépassent encore : ils sont listés avec leur
+  compte, ne peuvent plus grossir, et leur plafond descend avec eux. Dix imports qui ne portaient que des types sont écrits
+  `import type`, ce qui fait passer `boot/plan.ts` de 33 à 29 et `boot/panneaux.ts` sous la limite.
+
 - **three.js, EZ-tree et pdf-lib viennent de la livraison, plus du CDN** (feuille de route, étape 5.2). Le build les copie de
   `node_modules` dans `assets/vendor/<paquet>@<version>/` (`deploy/bibliotheques.mjs`), avec les modules qu'ils importent. Ce sont
   les mêmes octets que jsDelivr, sous les mêmes empreintes SRI. La Vue 3D, les arbres et le PDF ne dépendent plus de jsDelivr :

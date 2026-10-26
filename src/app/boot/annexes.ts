@@ -1,9 +1,9 @@
 // Ce que le demarrage branche selon le mode (app/boot.ts) : l'audit, l'isolement de la terrasse, l'exposition pour les captures.
 
-import { type Feuille } from '../magasin.js';
-import { type Explorateur } from '../explorateur.js';
+import type { Feuille } from '../magasin.js';
+import type { Explorateur } from '../explorateur.js';
 import { showToast } from '../../shell/dialogs.js';
-import { type Vues3d } from '../assemblage/vues3d.js';
+import type { Vues3d } from '../assemblage/vues3d.js';
 import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../../three/etat3d.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { poserEspeces, type EspeceArbre } from '../../model/especesArbre.js';
