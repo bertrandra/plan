@@ -116,9 +116,10 @@ RedirectMatch 404 ^/data(/|$)
     Header unset Expires
   </FilesMatch>
 
-  # Le programme, `assets/plan-<empreinte>.js` : son nom change des que son contenu change, il se
+  # Le programme, `assets/plan-<empreinte>.js` (en morceaux depuis le 26 octobre 2026, avec sa
+  # feuille de style `plan-<empreinte>.css`) : son nom change des que son contenu change, il se
   # garde donc en cache sans limite — la page, revalidee a chaque visite, appelle toujours le bon.
-  <FilesMatch "^plan-[0-9a-f]{16}\.js$">
+  <FilesMatch "^plan-[0-9a-f]{16}\.(js|css)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
     Header unset Expires
   </FilesMatch>

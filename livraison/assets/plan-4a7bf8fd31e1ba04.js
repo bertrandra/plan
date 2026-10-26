@@ -1,0 +1,1 @@
+function r(i,n){const t=i[n];if(t===void 0)throw new RangeError("Indice "+n+" hors du tableau ("+i.length+" element(s)).");return t}function o(i){let n=1/0;for(let t=0;t<i.length;t++){const e=i[t];(e<n||Number.isNaN(e))&&(n=e)}return n}function m(i){let n=-1/0;for(let t=0;t<i.length;t++){const e=i[t];(e>n||Number.isNaN(e))&&(n=e)}return n}export{r as a,o as b,m};
