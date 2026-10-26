@@ -3349,15 +3349,26 @@ const POINTS = {
     await page.locator('.releveNote', { hasText: /trouvés? sur la photo|pas été trouvés/ }).first().waitFor({ timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(1500);
     const poser = async (quad) => {
+      // Au telephone, un toast peut couvrir la photo : le doigt tomberait dessus. On le touche d'abord pour le fermer, comme au point 10.
+      for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
       const svg = page.locator('svg.releveCoins').first();
       await svg.scrollIntoViewIfNeeded();
       for (let k = 0; k < 4; k++) {
         const cible = await svg.evaluate((s, [x, y]) => { const p = s.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(s.getScreenCTM()); return { x: q.x, y: q.y }; }, [quad[2 * k], quad[2 * k + 1]]);
-        const b = await page.locator('circle.releveCoinCible').nth(k).boundingBox();
-        if (!b) continue;
-        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+        // Sur un petit ecran, les ronds se chevauchent : le doigt prend celui du dessus. On saisit donc le rond k la ou il est
+        // seul (un point de son disque que `elementFromPoint` lui rend), et on le deplace de l'ecart entre son centre et la cible :
+        // le coin suit le deplacement du doigt, pas sa position.
+        const saisie = await page.locator('circle.releveCoinCible').nth(k).evaluate((c) => {
+          const b = c.getBoundingClientRect(), cx = b.x + b.width / 2, cy = b.y + b.height / 2, r = b.width / 2;
+          for (const f of [0, 0.5, 0.8]) for (let a = 0; a < 16; a++) {
+            const x = cx + f * r * Math.cos(a * Math.PI / 8), y = cy + f * r * Math.sin(a * Math.PI / 8);
+            if (document.elementFromPoint(x, y) === c) return { x, y, cx, cy };
+          }
+          return { x: cx, y: cy, cx, cy };
+        });
+        await page.mouse.move(saisie.x, saisie.y);
         await page.mouse.down();
-        await page.mouse.move(cible.x, cible.y, { steps: 4 });
+        await page.mouse.move(saisie.x + cible.x - saisie.cx, saisie.y + cible.y - saisie.cy, { steps: 4 });
         await page.mouse.up();
       }
     };
@@ -3367,7 +3378,6 @@ const POINTS = {
     const auDoigt = await page.locator('circle.releveCoinCible.doigt').count();
     await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
     await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
-    await page.screenshot({ path: '/tmp/claude-0/-home-user/e7924cb1-25db-538e-91d6-dd82472c9dc3/scratchpad/r82.png' });
     const chemins = await page.locator('g.releveMasque path').evaluateAll((ps) => ps.map((p) => (p.getAttribute('d') || '').split('M').length - 1));
     // Le trait du hachure lit son jeton : une couleur resolue dans les deux themes, pas « none ».
     const trait = await page.locator('g.releveMasque .releveMasqueTrait').first().evaluate((l) => getComputedStyle(l).stroke).catch(() => 'absent');
