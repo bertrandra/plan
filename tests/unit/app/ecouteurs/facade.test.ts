@@ -4,7 +4,7 @@ import { brancherFacade } from '../../../../src/app/ecouteurs/facade.js';
 import { designerFacade } from '../../../../src/interaction/choixFacade.js';
 import { droits } from './faux.js';
 import type { EtatApp } from '../../../../src/core/state.js';
-import type { ServiceReleve } from '../../../../src/app/releve.js';
+import type { ServiceReleve } from '../../../../src/app/releve/releve.js';
 
 // Les commandes de facade (app/ecouteurs/facade.ts) : relever un mur d'un batiment, retirer un
 // releve en un pas annulable ; ni l'une ni l'autre sans le droit d'ecrire.

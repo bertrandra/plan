@@ -1,4 +1,4 @@
-// Le regulateur de charge des calculs de fond (lecture des toits, app/toitsFond.ts).
+// Le regulateur de charge des calculs de fond (lecture des toits, app/toits/toitsFond.ts).
 //
 // Tout tourne sur le poste de l'utilisateur, dans le meme fil que l'interface : chaque toit lu se
 // calcule (corps, pignons, couleur) puis se dessine. Le regulateur dose ce travail pour que le plan

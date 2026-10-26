@@ -41,7 +41,7 @@ export function rechercheAE101(mode: 'adresse' | 'position' | 'positionSansAdres
 }
 
 /**
- * Les objets du plan d'un import d'AE 101, comme app/importCadastre.ts les construit : la parcelle
+ * Les objets du plan d'un import d'AE 101, comme app/cadastre/importCadastre.ts les construit : la parcelle
  * sous le point de recherche, ses mitoyennes cochees (`retenir`) ou seulement connues (`connaitre`).
  */
 export function importerAE101(o: { recherche: AdresseRecherchee | null; retenir?: boolean; connaitre?: boolean }): ObjetPlan[] {

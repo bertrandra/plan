@@ -162,7 +162,7 @@ export function Donnees({ fichiers = FICHIERS_DONNEES, versions, brouillon, tele
         Une empreinte qui change demande une ligne de version, sinon les toits déjà lus ne seraient pas relus.
       </p>
       {(ligneToits || ligneFacades) && <div className="reglControles" role="status" aria-label="Lignes de version à ajouter">
-        {ligneToits && <p className="consNote">À ajouter à <code>LECTURES_TOITS</code> (<code>src/app/toitsLidar.ts</code>) : <code>{ligneToits}</code></p>}
+        {ligneToits && <p className="consNote">À ajouter à <code>LECTURES_TOITS</code> (<code>src/app/toits/toitsLidar.ts</code>) : <code>{ligneToits}</code></p>}
         {ligneFacades && <p className="consNote">À ajouter à <code>LECTURES_FACADES</code> (<code>src/regles/facades/reglages.ts</code>) : <code>{ligneFacades}</code></p>}
       </div>}
       <div className="reglListe">

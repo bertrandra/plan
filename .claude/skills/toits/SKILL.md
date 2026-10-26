@@ -1,6 +1,6 @@
 ---
 name: toits
-description: Toits et hauteurs de murs des bâtiments IGN (BD TOPO, LiDAR HD, corps et pignons, croupes, appentis, toits plats, recalage, végétation, contours de biais, dessin 3D, fenêtres). À charger avant de toucher à src/facade/toits/toitCorps.ts, facade/toits/toitLidar.ts, model/toitMesure.ts, model/volumesToit.ts, app/toitsLidar.ts, three/toitCorps3d.ts ou facade/ouvertures.ts, avant d'analyser un toit « bizarre », et avant de vérifier les toits sur un quartier ou un village.
+description: Toits et hauteurs de murs des bâtiments IGN (BD TOPO, LiDAR HD, corps et pignons, croupes, appentis, toits plats, recalage, végétation, contours de biais, dessin 3D, fenêtres). À charger avant de toucher à src/facade/toits/toitCorps.ts, facade/toits/toitLidar.ts, model/toitMesure.ts, model/volumesToit.ts, app/toits/toitsLidar.ts, three/toitCorps3d.ts ou facade/ouvertures.ts, avant d'analyser un toit « bizarre », et avant de vérifier les toits sur un quartier ou un village.
 ---
 
 # Toits et hauteurs de murs
@@ -56,9 +56,9 @@ sur le terrain (scripts de `scripts/`).
 
 ## 2. La chaîne, dans l'ordre
 
-`app/toitsLidar.ts::toitsDepuisLidar` (import depuis une adresse et actualisation IGN). Les plus
+`app/toits/toitsLidar.ts::toitsDepuisLidar` (import depuis une adresse et actualisation IGN). Les plus
 proches d'abord, au plus 30 bâtiments en 20 s, quatre lectures à la fois ; les autres en tâche de
-fond (`app/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLidarLu` (`MD/roadmap-toits-fond.md`).
+fond (`app/toits/toitsFond.ts`), en file continue, chaque bâtiment lu marqué `toitLidarLu` (`MD/roadmap-toits-fond.md`).
 
 1. **Forme simple** (`facade/toits/toitLidar.ts::ajusterToit`) : plat, appentis, deux pans, croupes, quatre
    pans, sur trois axes. On fait les moindres carrés sur `z = e + H·f(q)`. Au moins 20 mesures et un
@@ -165,9 +165,9 @@ plat. Ainsi un garage à 6° reste un pan, et la terrasse d'AE 103 (4,6°) reste
 Un contour BD TOPO qui franchit une limite de parcelle couvre souvent deux maisons mitoyennes. Si un
 corps passe par-dessus la limite (au moins 4 m² de chaque côté), la mesure ne tranche pas entre « un
 seul toit » et « deux toits de même hauteur ». **Plan ne devine pas : il pose la question**
-(`app/toitsACheval.ts`, dialogue de choix Z8, bâtiment sélectionné sur le plan).
+(`app/toits/toitsACheval.ts`, dialogue de choix Z8, bâtiment sélectionné sur le plan).
 - Les parts : `model/aCheval.ts::partsACheval` (8 m² et 15 % au moins par part).
-- Le doute : `douteACheval`, noté par `app/toitsLidar.ts::toitAChevalApresCalcul` pour le projet et
+- Le doute : `douteACheval`, noté par `app/toits/toitsLidar.ts::toitAChevalApresCalcul` pour le projet et
   les mitoyens, dans `toitACheval`.
 - La réponse : `toitACheval.reponse`, soit `'un'` (les corps restent), soit `'parParcelle'` (les
   corps sont relus sur chaque part par `corpsParParcelle`). Elle est réappliquée à chaque calcul ;
@@ -179,7 +179,7 @@ seul toit » et « deux toits de même hauteur ». **Plan ne devine pas : il pos
 
 | Hauteur | D'où | Règle |
 |---|---|---|
-| `elevation` (le prisme) | BD TOPO `hauteur` (sol → égout) | remplacée par l'égout LiDAR s'il s'en écarte d'au moins 0,3 m et reste entre 2 et 40 m (`app/toitsLidar.ts`, `ECART_EGOUT_MIN_M`) |
+| `elevation` (le prisme) | BD TOPO `hauteur` (sol → égout) | remplacée par l'égout LiDAR s'il s'en écarte d'au moins 0,3 m et reste entre 2 et 40 m (`app/toits/toitsLidar.ts`, `ECART_EGOUT_MIN_M`) |
 | égout d'un corps | `egoutDansRect` (10e centile, loin des murs) ou ajustement | jamais sous 1,5 m (corps), 1,8 m (surface) ; la végétation au-delà de BD TOPO + 3 m est écartée |
 | murs d'un volume (`VolumeToit.hauteursMurs[i]`, mur `pts[i]→pts[i+1]`) | `hauteurMurMesuree` : 10e centile le long du mur, à 50 cm en retrait | tenue entre égout et faîte ; l'inspecteur dit « murs de 3,9 à 7,2 m » si l'écart dépasse 30 cm |
 | murs d'un corps | `hauteursMursCorps(c)` = `[egouts[0], bas, egouts[1], bas]` | prisme à l'égout le plus bas ; au-dessus, en couleur de mur, le mur du pan haut et les murs de bout jusqu'au faîtage (pignon, mur haut d'un appentis) ; un bout sous une croupe s'arrête aux égouts |
@@ -228,7 +228,7 @@ ardoises.
   feuillage et l'ombre. Garde-fous : au plus 20 % des points sur le ciel (`PART_CIEL_MAX`, ciel de la
   photo compris : `lectureDuMur`), pas de teinte froide, façade lue sur ce qui en reste si 30 points
   et le quart sont lisibles. À l'import, les 150 plus proches ; la lecture de fond par zones
-  (`app/mursFond.ts`) existe mais est arrêtée (`LECTURE_MURS_EN_FOND`). Passer `VERSION_LECTURE_MURS`
+  (`app/toits/mursFond.ts`) existe mais est arrêtée (`LECTURE_MURS_EN_FOND`). Passer `VERSION_LECTURE_MURS`
   quand une règle conclut plus souvent : les murs restés sans lecture concluante sont relus.
 - **Rendement mesuré (octobre 2026)** : 10 murs lus sur 486 bâtiments au Vésinet (300 m), 1 sur 257
   à Rennes (200 m). Recalage du cap sur la ligne des toits essayé : inutile en banlieue arborée. Les photos tombent bien sur la façade, mais un enduit gris par temps couvert ou
@@ -389,9 +389,9 @@ npx tsx .claude/skills/toits/scripts/banc.ts beuvron --enregistrer formes-beuvro
 ## 6 bis. Relire tous les toits après un changement de règle
 
 Chaque bâtiment lu sur le LiDAR porte `toitLidarLu` : la version de la lecture qui l'a traité
-(`app/toitsLidar.ts::VERSION_LECTURE_TOITS`). La tâche de fond (`app/toitsFond.ts`) ne relit que les
+(`app/toits/toitsLidar.ts::VERSION_LECTURE_TOITS`). La tâche de fond (`app/toits/toitsFond.ts`) ne relit que les
 bâtiments sans marque ou marqués d'une version plus ancienne.
-- La version se lit dans `LECTURES_TOITS` (`app/toitsLidar.ts`) : chaque ligne porte une version,
+- La version se lit dans `LECTURES_TOITS` (`app/toits/toitsLidar.ts`) : chaque ligne porte une version,
   l'empreinte des réglages qu'elle lisait (§6 ter) et celle des faits (`faits`, absente : aucun fait ;
   §6 quinquies).
 - Une règle qui change visiblement les toits déjà lus (une forme, un recalage) : **ajouter une ligne
@@ -412,7 +412,7 @@ bâtiments sans marque ou marqués d'une version plus ancienne.
   `SEUIL_ACCORD_M` = 30 cm), seule la marque `toitLidarLu` s'écrit, et le bilan dit si « le nouveau
   calcul serait d'accord ». C'est la mesure d'une règle sur le 100 % du projet, sans y toucher.
   `toitsDepuisLidar` l'écarte de même (option `verifies: 'garder'`, défaut) ; « Fichier › Actualiser
-  le projet » le conserve sauf case cochée (`app/actualiserProjet.ts`).
+  le projet » le conserve sauf case cochée (`app/cadastre/actualiserProjet.ts`).
 
 ## 6 ter. Les réglages : `regles/toits/reglages.json`
 
@@ -497,7 +497,7 @@ vérifie le fichier (compilé dans le fichier livré), `facade/regles/toits/fait
 spec §9.1 : le calcul, puis le fait (`contrainte` : le corps principal relu parmi les formes et le
 sens admis, hauteurs de la mesure ; `remplacement` : un corps aux dimensions du fait, sans lecture ni
 garde-fou, même sans LiDAR), puis les garde-fous de vraisemblance. Il s'applique à l'import, en tâche
-de fond (`app/toitsLidar.ts::corpsLus`, `toitDuFait`) et au rejeu des cas (`facade/regles/rejeu.ts`).
+de fond (`app/toits/toitsLidar.ts::corpsLus`, `toitDuFait`) et au rejeu des cas (`facade/regles/rejeu.ts`).
 **Le skill `regles-toits` dit quand écrire un fait plutôt qu'un réglage ou une règle**, et traite un
 fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin (spec §9.2).
 
@@ -513,7 +513,7 @@ fichier de promenade jusqu'à la PR. Mode d'essai : `?regles=local`, menu Admin 
   `toitCorps.test.ts`, `toitLidar.test.ts`, `fenetresPignons.test.ts`, `ouvertures.test.ts`,
   `tests/unit/model/toitMesure.test.ts`, `volumesToit.test.ts`, `mitoyennete.test.ts`,
   `tests/unit/three/toitCorps3d.test.ts`, `tests/unit/model/aCheval.test.ts`,
-  `tests/unit/app/toitsACheval.test.ts` (question à cheval), `tests/unit/app/toitsLidar.test.ts` (recalage,
+  `tests/unit/app/toits/toitsACheval.test.ts` (question à cheval), `tests/unit/app/toits/toitsLidar.test.ts` (recalage,
   végétation, voisinage), `tests/unit/ui/champsToitMode.test.ts` (mode, carte, descriptions).
 - Documenter la règle dans `MD/spec-toit-ign.md` (§13.x) et dans `CHANGELOG.md`.
 

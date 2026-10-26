@@ -58,7 +58,7 @@ justes, c'est régler ces nombres sur le corpus validé (`tests/fixtures/audit/`
 
 ## 4. Les règles LiDAR font surface
 
-Le LiDAR n'écrit plus dans le projet sans le dire : sa lecture (`app/toitsLidar.ts`, `facade/toits/toitCorps.ts`) produit des
+Le LiDAR n'écrit plus dans le projet sans le dire : sa lecture (`app/toits/toitsLidar.ts`, `facade/toits/toitCorps.ts`) produit des
 constats avec la règle qui les a produits, et Admin › Règles montre, par module, les seuils et les étapes de la lecture
 LiDAR (`regles/toits/reglages.json`) à côté des règles d'arbitrage.
 

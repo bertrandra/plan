@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { creerImportCadastre, PRECISION_POSITION_MAX_M, type ContexteImportCadastre } from '../../../src/app/importCadastre.js';
+import { creerImportCadastre, PRECISION_POSITION_MAX_M, type ContexteImportCadastre } from '../../../src/app/cadastre/importCadastre.js';
 import { geocoderInverseBAN, BAN_INVERSE_URL } from '../../../src/geo/apiIgn.js';
 import { SansPosition, type PositionGps } from '../../../src/shell/geolocalisation.js';
 import { ImportCadastre } from '../../../src/zones/parcours/ImportCadastre.js';

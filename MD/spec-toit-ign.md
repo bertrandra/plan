@@ -186,7 +186,7 @@ Au cas 3, la hauteur enregistrée est celle qu'une pente de 35° donne au squele
 
 ### 5.1 Une seule fonction
 
-Import (`geo/cadastreObjets.ts`, `batiments`) et actualisation (`app/actualisationIgn.ts`) appellent
+Import (`geo/cadastreObjets.ts`, `batiments`) et actualisation (`app/cadastre/actualisationIgn.ts`) appellent
 la même fonction, pour qu'un bâtiment importé et un bâtiment actualisé soient identiques :
 
 ```ts
@@ -449,7 +449,7 @@ meulière), 63 % à Saint-Cloud, 40 % à Gordes (pierre), 32 % à Hucqueliers (b
 
 **La façade vue sur une photo de rue** (`render/couleurMurPhoto.ts`), à l'import et à chaque
 actualisation IGN. Les bâtiments les plus proches du projet passent d'abord, au plus 150, dans un
-délai de 20 s. Les autres peuvent être lus **en tâche de fond, après les toits** (`app/mursFond.ts`),
+délai de 20 s. Les autres peuvent être lus **en tâche de fond, après les toits** (`app/toits/mursFond.ts`),
 sans limite de distance — lecture **arrêtée** pour l'instant (`LECTURE_MURS_EN_FOND = false`, trop peu
 de lectures concluantes pour le volume de photos ; `MD/roadmap-toits-fond.md`, étape 5) : le voisinage est découpé en zones de 80 m (`COTE_ZONE_MURS_M`), lues de la plus
 proche à la plus loin, chacune avec sa recherche Panoramax autour d'elle et quatre photos
@@ -663,7 +663,7 @@ contour, une tourelle) et le toit BD TOPO reste ; `H` sous `HAUTEUR_TOIT_MIN_M` 
 
 ### 10.3 Quand, et ce qui est écrit
 
-`app/toitsLidar.ts::toitsDepuisLidar`, après la couleur des toits (§6.1), à l'import depuis une
+`app/toits/toitsLidar.ts::toitsDepuisLidar`, après la couleur des toits (§6.1), à l'import depuis une
 adresse (« Forme des toits sur le LiDAR HD… ») et à l'actualisation (ligne du bilan). Les deux
 lectures se font dans le **repère du plan construit** (`importCadastre::projecteurDuPlan` : origine
 au calage cadastral, le sommet nord de la parcelle) — jusqu'en octobre 2026, l'import les faisait
@@ -673,7 +673,7 @@ bâtiments dont le toit vient de la BD TOPO ou d'une lecture LiDAR antérieure (
 toit lu sur une photo ou saisi n'est pas touché, et `toitActualise` (§5.3) recalcule un toit LiDAR
 comme un toit BD TOPO avant la relecture. Les plus proches de la parcelle du projet d'abord, au plus
 `MAX_BATIMENTS_LIDAR` = 30, dans `DELAI_TOITS_LIDAR_MS` = 20 s, quatre lectures à la fois. Les autres
-sont lus ensuite **en tâche de fond** (`app/toitsFond.ts`), en file continue, six lectures à la fois
+sont lus ensuite **en tâche de fond** (`app/toits/toitsFond.ts`), en file continue, six lectures à la fois
 (chaque lecteur prend le bâtiment suivant dès qu'il a fini), du plus proche au plus loin, sans bloquer
 le plan ; chaque bâtiment lu porte `toitLidarLu` (la version de la lecture) et n'est pas relu. Le
 lecteur lit ensuite la couleur du toit s'il n'en a pas (§6.1). Un `429` de la Géoplateforme (quota
@@ -692,7 +692,7 @@ et l'égout de chaque corps (§11) ; le bilan compte ces toits « gardés tels q
 ### 10.4 Vérifié
 
 `tests/unit/facade/toitLidar.test.ts` (formes, bruit, arbre, renoncements), `tests/unit/geo/mnh.test.ts`
-(grille demandée, retrait, service muet), `tests/unit/app/toitsLidar.test.ts` (éligibilité, ordre,
+(grille demandée, retrait, service muet), `tests/unit/app/toits/toitsLidar.test.ts` (éligibilité, ordre,
 délai, bilan, toits gardés).
 
 ---
@@ -744,7 +744,7 @@ Chaque rectangle reçoit le toit de sa forme (`toitDuRectangle`) : **deux pans**
 est allongé d'au moins 1,25, **quatre pans** sinon, à la **pente du toit du bâtiment**
 (`penteDuToit` : celle de la BD TOPO, 35° à défaut), `estime: true`. À l'import (`cadastreObjets`)
 et à l'actualisation, ce sont ces volumes par défaut (`volumesParDefaut`). Après la lecture LiDAR
-(`app/toitsLidar.ts::volumesDepuisLidar`), chaque corps est **ajusté sur les mesures qui tombent
+(`app/toits/toitsLidar.ts::volumesDepuisLidar`), chaque corps est **ajusté sur les mesures qui tombent
 dedans** (§10.2) et prend son **égout** : lu dans la surface mesurée (§12, dixième centile des
 cellules du rectangle) quand on l'a, sinon celui de l'ajustement. Un corps que le LiDAR n'explique
 pas garde son toit par défaut.
@@ -764,7 +764,7 @@ toit ». L'inspecteur décrit chaque corps (`decrireVolumes` : « Corps 12,0 × 
 
 `tests/unit/model/toitMesure.test.ts` (murs, marches, blocs), `tests/unit/facade/ouvertures.test.ts`
 (hauteur d'un mur mesuré, fenêtres qui montent avec lui), `tests/unit/model/volumesToit.test.ts` (équerre, L, T, U, rotation, renoncements, toits et
-descriptions), `tests/unit/app/toitsLidar.test.ts` (égouts par corps), `tests/unit/three/scene.test.ts`
+descriptions), `tests/unit/app/toits/toitsLidar.test.ts` (égouts par corps), `tests/unit/three/scene.test.ts`
 et `detailsBatiment.test.ts` (prismes, toits et débords par corps).
 
 ---
@@ -834,7 +834,7 @@ unique**. L'inspecteur le règle (§7, « Toit en 3D »).
 
 `tests/unit/model/toitMesure.test.ts` (recadrage, arbre, trou, sol, deux corps et leurs égouts,
 renoncements, interpolation, mode), `tests/unit/three/toitMesure3d.test.ts` (maille, hauteurs,
-rehausses, égout par corps), `tests/unit/app/toitsLidar.test.ts` (grille lue pour la parcelle du
+rehausses, égout par corps), `tests/unit/app/toits/toitsLidar.test.ts` (grille lue pour la parcelle du
 projet seule, toit mesuré écrit, bilan), `tests/unit/ui/champsToitMode.test.ts` (le choix et ce qu'il
 cache). Vu à l'œil sur le 2 allée des Limites (Le Vésinet) et à Saint-Cloud.
 
@@ -882,7 +882,7 @@ surface mesurée existe (`modeToit: 'corps'`). « Tel que mesuré » reste propo
 
 Données : `ObjetPlan.corpsToit: CorpsToit[] | null` — `{ pts (pts[0] → pts[1] le long du faîtage),
 posFaitage, faitage, egouts: [côté pts[0]-pts[1], côté opposé], pignons: { pan, debut, fin,
-faitage, profondeur }[], ecart }`. Écrit par `app/toitsLidar.ts` avec le toit mesuré, sérialisé et
+faitage, profondeur }[], ecart }`. Écrit par `app/toits/toitsLidar.ts` avec le toit mesuré, sérialisé et
 copié tel quel, remis à `null` par l'actualisation quand le contour change. Champ facultatif : une
 version précédente l'ignore et montre la surface mesurée.
 
@@ -997,7 +997,7 @@ sont calculées.
 
 ### 13.5 Vérifié
 
-`tests/unit/app/toitsLidar.test.ts` (corps du voisin, option décochée), `tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
+`tests/unit/app/toits/toitsLidar.test.ts` (corps du voisin, option décochée), `tests/unit/facade/toitCorps.test.ts` (deux pans symétrique et décalé, appentis, plat, pignons d'un
 long pan, pas de pignon sur un mur intérieur, corps et annexe à la marche, coupe par le modèle,
 contour de biais), `tests/unit/three/toitCorps3d.test.ts` (pans, mur haut, entaille du pignon,
 débord sur façade seulement), `tests/unit/facade/fenetresPignons.test.ts`,
@@ -1009,7 +1009,7 @@ sur le 2 allée des Limites.
 
 Une case de la section « Voisinage (3D) » de la parcelle, **« Toits en corps et pignons », cochée par
 défaut** (`ReglagesVoisinage3d.toits.corps`), étend la reconstruction aux maisons voisines. À l'import
-et à l'actualisation, `app/toitsLidar.ts` lit alors la grille entière sous chaque maison voisine (la
+et à l'actualisation, `app/toits/toitsLidar.ts` lit alors la grille entière sous chaque maison voisine (la
 même requête que ses mesures), et pose ses `corpsToit`.
 
 - Sur une **parcelle mitoyenne** — une parcelle qui partage au moins 1 m de limite avec celle du
@@ -1034,7 +1034,7 @@ la prochaine actualisation IGN ». Une maison voisine en corps reçoit ses fenê
 corps, aux dimensions tirées par la section (§6.4). Le critère de voisinage est celui de la BD
 TOPO : un bâtiment importé hors de la parcelle du projet (`model/fonctions.ts::surParcelleDuProjet`).
 
-**La végétation** (`app/toitsLidar.ts::corpsVraisemblables`). Le LiDAR voit la cime d'un arbre qui
+**La végétation** (`app/toits/toitsLidar.ts::corpsVraisemblables`). Le LiDAR voit la cime d'un arbre qui
 couvre un bâtiment : un corps dont l'égout dépasse de plus de 3 m la hauteur BD TOPO du bâtiment
 (`hauteurRetenueM`, à défaut `hauteurM`) est écarté. Exemple : un abri de 2,70 m à côté d'AE 101
 devenait une tour de 15 m. Sans corps restant, le bâtiment garde sa forme simple, et une maison
@@ -1054,7 +1054,7 @@ biais ne se découpe pas (`rectanglesDuContour` rend null), et la 3D montrait al
 Exemple : 2 allée des Limites, parcelle AE 103.
 
 - **Recalage d'un bloc** (`facade/toits/toitCorps.ts::decalageSurMesure`, appelé par
-  `app/toitsLidar.ts::recalerSurLidar`). Pour la maison du projet et les maisons mitoyennes, si
+  `app/toits/toitsLidar.ts::recalerSurLidar`). Pour la maison du projet et les maisons mitoyennes, si
   plus de 12 % des cellules sous le contour sont non bâties (moins de 2,5 m), la grille est relue
   3 m plus large. Le décalage retenu, au pas de 25 cm et à 3 m au plus, maximise ce qui est bâti
   sous le contour et non bâti dans une bande de 0,5 à 1,5 m autour. Le bâtiment entier se déplace
@@ -1124,12 +1124,12 @@ toits voisins de même hauteur. Plan ne tranche pas seul : il pose la question.
 - **Le doute** (`douteACheval`, `corpsQuiFranchissent`). Un corps a au moins 4 m² de sa surface, dans
   le contour, de chaque côté de la limite. Quand les toits s'arrêtent déjà à la limite, aucune
   question n'est posée.
-- **Quand** (`app/toitsLidar.ts::toitAChevalApresCalcul`). Le doute est cherché après le calcul des
+- **Quand** (`app/toits/toitsLidar.ts::toitAChevalApresCalcul`). Le doute est cherché après le calcul des
   corps d'un bâtiment vu de près : celui du projet, ou celui d'une parcelle mitoyenne (le calcul
   entier, avec la grille gardée). Il est noté dans `toitACheval: { parcelles }`. Une réponse déjà
   donnée s'applique au calcul suivant sans nouvelle question. Un bâtiment qui n'est plus à cheval
   perd sa question.
-- **La question** (`app/toitsACheval.ts`, dialogue de choix Z8). Elle est posée à l'ouverture du
+- **La question** (`app/toits/toitsACheval.ts`, dialogue de choix Z8). Elle est posée à l'ouverture du
   projet, après un import et après une actualisation IGN, une par bâtiment, et seulement quand aucun
   autre dialogue n'attend. Le bâtiment est sélectionné sur le plan : son nom BD TOPO
   (« Indifférencié ») ne le désigne pas. Le titre est « Un toit ou deux ? ». Le texte donne la
@@ -1144,7 +1144,7 @@ toits voisins de même hauteur. Plan ne tranche pas seul : il pose la question.
   la prochaine ouverture. En lecture seule, rien n'est demandé.
 
 Vérifié : `tests/unit/model/aCheval.test.ts` (parts, débord, doute) et
-`tests/unit/app/toitsACheval.test.ts` (doute noté, réponse réappliquée, question perdue, texte,
+`tests/unit/app/toits/toitsACheval.test.ts` (doute noté, réponse réappliquée, question perdue, texte,
 réponse, enchaînement des dialogues, lecture seule). Dans le navigateur, à Hucqueliers, deux
 annexes à cheval sur la parcelle du projet donnent chacune leur question. Au 2 allée des Limites
 (AE 101), aucune question n'est posée.

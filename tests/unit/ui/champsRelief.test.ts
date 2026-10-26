@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sectionRelief, texteDenivele, parcelleCalee, EQUIDISTANCES, texteGrille, grilleSurParcelleSeule } from '../../../src/ui/champs/relief.js';
 import { champsVisibles, type Champ, type ChampBouton, type ChampCase, type ChampChoix, type ChampLecture, type ChampNombre, type ContexteChamps } from '../../../src/ui/champs/types.js';
-import { champActif, champAnnulable, ecritLeProjet } from '../../../src/app/ecritures.js';
+import { champActif, champAnnulable, ecritLeProjet } from '../../../src/app/administration/ecritures.js';
 import { lectureRelief } from '../../../src/core/lectureRelief.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
 

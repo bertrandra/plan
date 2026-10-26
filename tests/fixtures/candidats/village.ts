@@ -1,6 +1,6 @@
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import { reponse } from '../audit/reponseClaude.js';
-import type { ImageTelechargee, VillageJson } from '../../../src/app/candidatsPanoramax.js';
+import type { ImageTelechargee, VillageJson } from '../../../src/app/toits/candidatsPanoramax.js';
 
 // Un petit village fige pour les cas candidats Panoramax (lot G3 bis) : deux maisons cote a cote,
 // et une reponse figee de la recherche Panoramax (STAC) avec quatre photos. Pas de reseau : la

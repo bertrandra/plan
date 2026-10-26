@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { construireVoisinage } from '../../../src/app/actualisationIgn.js';
+import { construireVoisinage } from '../../../src/app/cadastre/actualisationIgn.js';
 import { dansLeRayon, distanceAuCentre, interrogerCadastreEtendu, MAX_OBJETS_RAYON } from '../../../src/geo/apiIgn.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import { empriseGeoJSON } from '../../../src/geo/apiIgn.js';

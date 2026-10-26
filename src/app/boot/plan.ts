@@ -39,7 +39,7 @@ import { estPiscine } from '../../model/fonctions.js';
 import type { GraineDemarrage } from './graines.js';
 
 /**
- * La lecture des toits en tache de fond (app/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
+ * La lecture des toits en tache de fond (app/toits/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
  * qui montre un plan fige, ni en developpement sur le plan temoin ou sous la fumee et les captures
  * (`window.__sansToitsFond`) : une lecture qui aboutirait changerait les toits qu'elles mesurent.
  */

@@ -167,7 +167,7 @@ async function imageSous(pts: readonly PtBrut[], proj: ProjecteurLocal): Promise
 export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS, enParallele = 1): Promise<BilanCouleursToits> {
   const bilan: BilanCouleursToits = { lus: 0, replis: 0 };
   const fin = Date.now() + delaiMs;
-  // Plusieurs toits a la fois pour la tache de fond (app/toitsFond.ts) : les tuiles se partagent par le
+  // Plusieurs toits a la fois pour la tache de fond (app/toits/toitsFond.ts) : les tuiles se partagent par le
   // cache de render/ortho.ts. A l'import, un seul a la fois, dans l'ordre des objets.
   let suivant = 0;
   const ouvrier = async (): Promise<void> => {

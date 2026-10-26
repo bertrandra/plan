@@ -1,7 +1,7 @@
 // Les parcelles mitoyennes de celle du projet, et leurs batiments (MD/spec-toit-ign.md §13.6).
 //
 // Ce sont les maisons qu'on voit de pres depuis le jardin : elles recoivent le calcul entier des
-// toits (app/toitsLidar.ts), et la Vue 3D les cadre par defaut (three/scene.ts) ; le reste du
+// toits (app/toits/toitsLidar.ts), et la Vue 3D les cadre par defaut (three/scene.ts) ; le reste du
 // voisinage importe se voit en reculant.
 
 import { centroid, pointInPolygon } from '../geometry/basic.js';

@@ -347,7 +347,7 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
 }
 
 /**
- * La lecture d'une zone du voisinage en tache de fond (app/mursFond.ts) : ou en est chaque batiment
+ * La lecture d'une zone du voisinage en tache de fond (app/toits/mursFond.ts) : ou en est chaque batiment
  * demande. `photo` : lue ; `rien` : aucune photo ne montre ses murs, ou toutes ont ete lues sans
  * conclure (il ne sera pas relu) ; `echec` : une photo n'a pas pu se telecharger (il le sera).
  */

@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
-import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { sectionVoisinage3d } from '../../../src/ui/champs/voisinage3d.js';
 import { sectionFenetres3d, reinitialiserChoixFenetre } from '../../../src/ui/champs/fenetres3d.js';
 import { champsVisibles, type Champ, type ChampBouton, type ChampChoix, type ChampCouleur, type ChampLigne, type ChampNombre, type ContexteChamps } from '../../../src/ui/champs/types.js';
-import { ecritLeProjet } from '../../../src/app/ecritures.js';
+import { ecritLeProjet } from '../../../src/app/administration/ecritures.js';
 import { voisinage3dDe } from '../../../src/model/voisinage3d.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 

@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useStore } from 'zustand';
-import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js';
+import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
 import { rangsDeCorps } from '../../facade/modeToit/corpsNeufs.js';
 import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/modeToit/planCorps.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';

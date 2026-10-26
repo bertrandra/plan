@@ -179,7 +179,7 @@ export async function connecterAdmin(f: Fetch, motDePasse: string): Promise<stri
   }
 }
 
-/** Le registre des controleurs enregistre (app/controleurs.ts), ou `null` s'il n'y en a pas encore. */
+/** Le registre des controleurs enregistre (app/administration/controleurs.ts), ou `null` s'il n'y en a pas encore. */
 export async function lireControleurs(f: Fetch): Promise<unknown> {
   let r: Response;
   try {

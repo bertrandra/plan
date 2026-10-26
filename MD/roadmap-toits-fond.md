@@ -6,7 +6,7 @@ l'import. Le but est une **couverture totale du voisinage**, lue en tâche de fo
 avec un affichage qui se complète au fil de la lecture.
 
 Références : `MD/spec-toit-ign.md` §10 (lecture LiDAR), skill `toits` (règles, AE 101),
-`app/toitsLidar.ts` (la lecture d'un bâtiment), `app/toitsFond.ts` (la file de fond).
+`app/toits/toitsLidar.ts` (la lecture d'un bâtiment), `app/toits/toitsFond.ts` (la file de fond).
 
 ## Décisions de l'utilisateur
 
@@ -19,13 +19,13 @@ Références : `MD/spec-toit-ign.md` §10 (lecture LiDAR), skill `toits` (règle
 
 | Élément | Où | Détail |
 |---|---|---|
-| 30 bâtiments à l'import et à l'actualisation | `app/toitsLidar.ts` `MAX_BATIMENTS_LIDAR` | au lieu de 150 ; toujours dans `DELAI_TOITS_LIDAR_MS` = 20 s |
+| 30 bâtiments à l'import et à l'actualisation | `app/toits/toitsLidar.ts` `MAX_BATIMENTS_LIDAR` | au lieu de 150 ; toujours dans `DELAI_TOITS_LIDAR_MS` = 20 s |
 | Marque par bâtiment | `toitLidarLu` (`model/types.ts`), `VERSION_LECTURE_TOITS`, `toitLu()` | posée même sans mesure dessous ; pas posée si le service n'a pas répondu ; enregistrée (`io/serialisation.ts`) |
-| Marque remise à zéro | `app/valeursParDefaut.ts`, `app/actualisationIgn.ts` | « Actualiser le projet », et tout contour de bâtiment relu par l'actualisation IGN |
-| File de fond par lots | `app/toitsFond.ts` | lots de 12 (`LOT_TOITS_FOND`), 6 lectures à la fois, du plus proche au plus loin ; une pause entre deux bâtiments rend la main au navigateur |
-| Lecture sur copies | `app/toitsFond.ts::reporter` | un résultat ne s'écrit que si le bâtiment est encore là, avec le même contour et le même toit. Un bâtiment déplacé, supprimé ou dont le toit a été saisi pendant la lecture n'est pas écrasé ; il est relu au lot suivant |
+| Marque remise à zéro | `app/cadastre/valeursParDefaut.ts`, `app/cadastre/actualisationIgn.ts` | « Actualiser le projet », et tout contour de bâtiment relu par l'actualisation IGN |
+| File de fond par lots | `app/toits/toitsFond.ts` | lots de 12 (`LOT_TOITS_FOND`), 6 lectures à la fois, du plus proche au plus loin ; une pause entre deux bâtiments rend la main au navigateur |
+| Lecture sur copies | `app/toits/toitsFond.ts::reporter` | un résultat ne s'écrit que si le bâtiment est encore là, avec le même contour et le même toit. Un bâtiment déplacé, supprimé ou dont le toit a été saisi pendant la lecture n'est pas écrasé ; il est relu au lot suivant |
 | Échec ou absence de mesure | `geo/mnh.ts::lireHauteursSousStrict` | un service qui ne répond pas fait échouer la lecture (le bâtiment reste à relire) ; « rien à lire ici » marque le bâtiment lu |
-| Service muet | `app/toitsFond.ts` | après un lot sans aucune lecture, attente de 30 s ; après 3 lots muets d'affilée, arrêt jusqu'à la prochaine ouverture ou « Reprendre ». Un bâtiment refusé deux fois est laissé pour la séance. Sans dalle LiDAR sur le secteur : arrêt immédiat |
+| Service muet | `app/toits/toitsFond.ts` | après un lot sans aucune lecture, attente de 30 s ; après 3 lots muets d'affilée, arrêt jusqu'à la prochaine ouverture ou « Reprendre ». Un bâtiment refusé deux fois est laissé pour la séance. Sans dalle LiDAR sur le secteur : arrêt immédiat |
 | Affichage progressif | `app/boot.ts` | chaque lot écrit redessine le plan ; la Vue 3D ouverte se rebâtit au plus toutes les 10 s |
 | Progression | `core/lectureToits.ts`, `zones/BarreEtat.tsx` | « Toits LiDAR : 120 / 2 400 » dans la barre d'état, avec « (en pause) » ou « (service LiDAR muet) » |
 | Suspendre / Reprendre | commande `projet.toitsFond` (`app/ecouteurs/toitsFond.ts`), menu Fichier | refusée en lecture seule, grisée quand il n'y a rien à lire |
@@ -60,14 +60,14 @@ plafond du voisinage), compter environ 70 minutes de lecture.
 | Point | Où | Ce qui change |
 |---|---|---|
 | 2. Mise à jour partielle | `three/scene.ts::remplacerObjets3d`, `render/pipeline.ts::rendreObjets`, `app/boot.ts::redessinerObjets` | Seuls les bâtiments écrits se redessinent, sur le plan et dans la Vue 3D, sans la rebâtir. La progression est lue directement par la barre d'état et le menu (`useSyncExternalStore`). |
-| 3. Enregistrer en cours de route | `app/toitsFond.ts`, `core/historique.ts::modifications`, `app/projet.ts::enregistrerSansBruit` | Enregistrement seul toutes les 5 minutes et à la fin, seulement si toutes les modifications en attente viennent de la lecture. Un refus (projet trop lourd) arrête les essais pour la séance. |
+| 3. Enregistrer en cours de route | `app/toits/toitsFond.ts`, `core/historique.ts::modifications`, `app/projet.ts::enregistrerSansBruit` | Enregistrement seul toutes les 5 minutes et à la fin, seulement si toutes les modifications en attente viennent de la lecture. Un refus (projet trop lourd) arrête les essais pour la séance. |
 | 5. Calcul hors du fil principal | — | **Pas fait, pas nécessaire aujourd'hui.** Une fois le dessin partiel en place, plus aucune longue tâche ne dépasse 300 ms. À reprendre si un poste plus lent saccade. |
-| 6. Couleur des toits en fond | `app/toitsFond.ts`, `render/couleurToitOrtho.ts` (lectures en parallèle) | Chaque lot lit la forme des toits qui n'en ont pas, puis la couleur de ceux qui n'en ont pas. Un toit sans couleur est « à lire » : aucune marque de plus. Sans dalle LiDAR, les couleurs se lisent quand même. |
+| 6. Couleur des toits en fond | `app/toits/toitsFond.ts`, `render/couleurToitOrtho.ts` (lectures en parallèle) | Chaque lot lit la forme des toits qui n'en ont pas, puis la couleur de ceux qui n'en ont pas. Un toit sans couleur est « à lire » : aucune marque de plus. Sans dalle LiDAR, les couleurs se lisent quand même. |
 | 7. Questions « à cheval » | `app/boot.ts` (`fin`) | Posées à la fin de la lecture. |
-| 8. Bilan de fin | `app/toitsFond.ts::texteFinToitsFond` | « Toits du voisinage lus sur le LiDAR HD : 2 400 (…). 2 350 couleurs de toit lues sur la photo aérienne. » |
+| 8. Bilan de fin | `app/toits/toitsFond.ts::texteFinToitsFond` | « Toits du voisinage lus sur le LiDAR HD : 2 400 (…). 2 350 couleurs de toit lues sur la photo aérienne. » |
 | 9. Relire après un changement de règle | skill `toits` §6 bis, test | Passer `VERSION_LECTURE_TOITS` : les bâtiments marqués d'une version plus ancienne sont relus. |
 | Modes de diagnostic | `app/diagnostic.ts`, `?mode=devroof`, `?mode=devwall` | Bâtiments peints selon l'origine du toit ou des murs, sur le plan et dans la Vue 3D, avec une légende et des comptes dans la barre d'état. |
-| Défaut corrigé | `app/toitsFond.ts::reporter` | Une couleur lue sans la forme s'écrit seule. Sinon le bâtiment repassait à chaque lot. |
+| Défaut corrigé | `app/toits/toitsFond.ts::reporter` | Une couleur lue sans la forme s'écrit seule. Sinon le bâtiment repassait à chaque lot. |
 
 ### Taille du projet (point 4)
 
@@ -97,7 +97,7 @@ donnerait la taille refusée (`app/projet.ts`).
 | Changement | Où | Effet |
 |---|---|---|
 | Un `429` rejoué | `geo/relief.ts::requeteAvecReprise`, `delaiRetryAfter` | attend `retry-after` (5 s si l'en-tête manque ou n'est pas exposé au navigateur, 30 s au plus) et rejoue, trois fois au plus, au lieu de compter un échec et de mettre la lecture en pause 30 s |
-| File continue | `app/toitsFond.ts::passe` | six lecteurs prennent chacun le bâtiment suivant dès qu'ils ont fini ; ce qui est lu se dessine par paquets de 12 (`LOT_TOITS_FOND`). Douze bâtiments muets d'affilée font attendre 30 s ; trois attentes d'affilée arrêtent la lecture |
+| File continue | `app/toits/toitsFond.ts::passe` | six lecteurs prennent chacun le bâtiment suivant dès qu'ils ont fini ; ce qui est lu se dessine par paquets de 12 (`LOT_TOITS_FOND`). Douze bâtiments muets d'affilée font attendre 30 s ; trois attentes d'affilée arrêtent la lecture |
 | Une fois par passe | `toitsLidar.ts::clesMitoyens`, option `mitoyens` ; dalles mémorisées | la question « y a-t-il des dalles LiDAR ici » (WFS) et le calcul des mitoyens se faisaient à chaque lot ; ils se font une fois pour tout ce qui reste à lire |
 
 Mesure sur le même voisinage d'un kilomètre du Vésinet (5 240 bâtiments), forme et couleur, script
@@ -122,7 +122,7 @@ Décision de l'utilisateur (12 octobre 2026) : **pas de limite de distance**.
 
 | Changement | Où |
 |---|---|
-| Après les toits, les murs : le voisinage en zones de 80 m, de la plus proche à la plus loin ; une recherche Panoramax par zone, autour d'elle ; quatre photos téléchargées à la fois | `app/mursFond.ts`, `render/couleurMurPhoto.ts::couleursMursDUneZone` |
+| Après les toits, les murs : le voisinage en zones de 80 m, de la plus proche à la plus loin ; une recherche Panoramax par zone, autour d'elle ; quatre photos téléchargées à la fois | `app/toits/mursFond.ts`, `render/couleurMurPhoto.ts::couleursMursDUneZone` |
 | Un bâtiment lu porte la lecture, ou `photo: null` et la version de la lecture (`VERSION_LECTURE_MURS`) : il n'est pas relu, sauf si une règle meilleure passe la version | `model/couleurMur.ts::CouleurMurs.lecture` |
 | Une photo qui ne se télécharge pas : à relire (deux fois au plus) ; cinq zones muettes d'affilée : arrêtée pour la séance, « Reprendre » relance | `ECHECS_MURS_PAR_BATIMENT`, `ZONES_MUETTES_AVANT_ARRET` |
 | Barre d'état « Murs (photos) : x / y » ; menu « Suspendre la lecture des toits et des murs » ; bilan de fin avec les couleurs de murs lues | `zones/BarreEtat.tsx`, `toitsFond.ts::texteFinToitsFond` |
@@ -184,7 +184,7 @@ l'utilisateur et le poste, pas selon une constante.
 | Changement | Où | Effet |
 |---|---|---|
 | Régulateur | `app/regulateur.ts` | une sonde de 100 ms mesure le retard du fil (lissé) ; consigne 16 ms si un geste date de moins de 1,5 s, 200 ms au repos ; au-dessus, moitié moins de lecteurs et pause doublée (≤ 1 s), en dessous, un lecteur de plus par seconde ; au premier geste, un seul lecteur tout de suite |
-| Lecture de fond | `app/toitsFond.ts` | chaque lecteur passe par `tour(rang)` avant un bâtiment ; l'enregistrement automatique saute un tour pendant un geste, celui de fin attend le calme (10 s au plus) |
+| Lecture de fond | `app/toits/toitsFond.ts` | chaque lecteur passe par `tour(rang)` avant un bâtiment ; l'enregistrement automatique saute un tour pendant un geste, celui de fin attend le calme (10 s au plus) |
 | Aperçu du geste | `render/apercuVue.ts`, `interaction/pointeur.ts` | molette, pincement, déplacement : le SVG déjà rendu suit par une transformation CSS ; rendu complet 150 ms après la fin du geste, seulement si le dernier rendu a pris 30 ms ou plus |
 | Rendu allégé | `render/objects.ts` | objets hors de la vue (marge 10 %) non positionnés ; poignées et étiquettes de sommets seulement si utiles |
 | Taille du plan | `app/assemblage/cadrage.ts`, `ecouteurs/divers.ts` | largeur mesurée en écran large, sans plafond ; `ResizeObserver` sur l'atelier ; marge de la parcelle proportionnelle |

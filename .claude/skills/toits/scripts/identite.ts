@@ -28,7 +28,7 @@ for (const f of readdirSync(F).filter((x) => x.endsWith('.json')).sort()) {
     }
     console.log(f, g ? 'grille' : 'mesure', etat, JSON.stringify(c?.map((k) => ({ F: k.faitage, e: k.egouts, p: k.posFaitage, cr: k.croupes, pg: k.pignons.length, ec: k.ecart }))));
   }
-  // Sous les faits livres : ce que l'application pose sur le batiment (app/toitsLidar.ts::corpsLus).
+  // Sous les faits livres : ce que l'application pose sur le batiment (app/toits/toitsLidar.ts::corpsLus).
   const fait = d.cleabs ? faitDuBatiment({ bdtopo: { cleabs: d.cleabs } }) : null;
   if (!fait) continue;
   const c = corpsSelonFait(fait, corpsCalcules(d.toitMesure, d.contour, { grille: d.grille }), d.toitMesure, d.contour, d.grille);
