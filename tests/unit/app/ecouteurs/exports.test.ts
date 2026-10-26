@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+/** Les PDF se construisent apres le chargement de leur module (AD-10) : on laisse la promesse se resoudre. */
+const attendre = () => new Promise((r) => { setTimeout(r, 0); });
+
 const journal = { toasts: [] as string[], bannieres: [] as string[], blobs: [] as string[], textes: [] as string[] };
 vi.mock('../../../../src/shell/dialogs.js', () => ({
   showToast: (m: string) => { journal.toasts.push(m); },
@@ -21,11 +24,11 @@ import type { Resultats } from '../../../../src/app/resultats.js';
 function monter(plus: Partial<ContexteExports> = {}, capacites = true) {
   const resultats = { afficherResume: vi.fn(), copierResume: vi.fn() } as unknown as Resultats;
   const ctx: ContexteExports = {
-    buildExportSVG: () => '<svg/>', buildExportDXF: () => '0\nEOF', buildExportPDF: vi.fn(() => '%PDF'), echellePdf: () => 200,
-    construireResume: () => 'résumé', construireDossier: () => ({ pdf: '%PDF', pages: 3, terrasses: [1], equipements: new Map([[1, [1, 2]]]) }),
-    construireDossierPiscine: () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
+    buildExportSVG: () => '<svg/>', buildExportDXF: () => '0\nEOF', buildExportPDF: vi.fn(async () => '%PDF'), echellePdf: () => 200,
+    construireResume: () => 'résumé', construireDossier: async () => ({ pdf: '%PDF', pages: 3, terrasses: [1], equipements: new Map([[1, [1, 2]]]) }),
+    construireDossierPiscine: async () => ({ pdf: '%PDF', pages: 7, piscine: { name: 'Piscine 1' }, regime: 'declaration' }),
     genererGlb: vi.fn(), clesDossier: () => ['t1'], nomProjet: () => 'Ma maison', resultats,
-    construireNoteCalcul: () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
+    construireNoteCalcul: async () => ({ pdf: '%PDF', nom: 'pergola-1-note-de-calcul.pdf' }), noteCalculPossible: () => true,
     construireDeclaration: async () => ({ pdf: new Uint8Array([37]), nom: 'maison-declaration-prealable.pdf', manques: ['la signature'], regime: 'declaration', pieces: ['DP1', 'DP2'] }),
     declarationPossible: () => true, ...plus
   };
@@ -54,33 +57,37 @@ describe('exports', () => {
     expect(journal.blobs).toEqual([]);
   });
 
-  it('PDF : a l echelle choisie dans le menu, 1/200 a defaut', () => {
+  it('PDF : a l echelle choisie dans le menu, 1/200 a defaut', async () => {
     const a = monter({ echellePdf: () => 100 });
     a.cmd.executer('export.pdf');
     expect(a.ctx.buildExportPDF).toHaveBeenCalledWith(100);
     const b = monter({ echellePdf: () => 0 });
     b.cmd.executer('export.pdf');
     expect(b.ctx.buildExportPDF).toHaveBeenCalledWith(200);
+    await attendre();
     expect(journal.blobs).toEqual(['plan_interactif_export.pdf', 'plan_interactif_export.pdf']);
   });
 
-  it('dossier : demande une terrasse cochee, nomme le fichier d apres le projet, compte pages et equipements', () => {
+  it('dossier : demande une terrasse cochee, nomme le fichier d apres le projet, compte pages et equipements', async () => {
     const vide = monter({ clesDossier: () => [] });
     vide.cmd.executer('export.dossier');
     expect(journal.textes).toEqual([]);
     expect(journal.toasts).toEqual(['Coche au moins une terrasse pour le dossier.']);
     journal.toasts.length = 0;
     monter().cmd.executer('export.dossier');
+    await attendre();
     expect(journal.textes).toEqual(['ma-maison-dossier-terrasses.pdf']);
     expect(journal.toasts[0]).toMatch(/^Dossier PDF : 3 page\(s\) — plan de masse \+ 1 terrasse\(s\), 2 equipement/);
   });
 
-  it('dossier mairie : nomme le fichier d apres le projet et la piscine, dit le regime ; sans piscine, dit quoi faire', () => {
+  it('dossier mairie : nomme le fichier d apres le projet et la piscine, dit le regime ; sans piscine, dit quoi faire', async () => {
     monter().cmd.executer('export.dossierPiscine');
+    await attendre();
     expect(journal.textes).toEqual(['ma-maison-piscine-1-dossier-mairie.pdf']);
     expect(journal.toasts[0]).toMatch(/^Dossier mairie : 7 page\(s\) — déclaration préalable pour « Piscine 1 »/);
     journal.toasts.length = 0;
-    monter({ construireDossierPiscine: () => { throw new Error('aucune piscine'); } }).cmd.executer('export.dossierPiscine');
+    monter({ construireDossierPiscine: () => Promise.reject(new Error('aucune piscine')) }).cmd.executer('export.dossierPiscine');
+    await attendre();
     expect(journal.toasts).toEqual(['Ajoutez d\'abord une piscine au plan (outil « Piscine » de la palette).']);
     expect(journal.textes).toHaveLength(1);
   });
@@ -99,9 +106,10 @@ describe('exports', () => {
     for (const id of ['export.svg', 'export.pdf', 'export.resume']) expect(cmd.effacee(id), id).toBe(false);
   });
 
-  it('note de calcul : telecharge le PDF de l\'abri, et se grise sans regions choisies', () => {
+  it('note de calcul : telecharge le PDF de l\'abri, et se grise sans regions choisies', async () => {
     const { cmd } = monter();
     cmd.executer('export.noteCalcul');
+    await attendre();
     expect(journal.textes).toContain('pergola-1-note-de-calcul.pdf');
     const sans = monter({ noteCalculPossible: () => false }).cmd;
     expect(sans.etat('export.noteCalcul').utilisable).toBe(false);

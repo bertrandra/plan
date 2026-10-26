@@ -6,12 +6,8 @@ import { telechargerTexte } from '../../shell/download.js';
 import { showToast } from '../../shell/dialogs.js';
 import { construireDXF } from '../../export/dxfPlan.js';
 import { construireSVG } from '../../export/svgPlan.js';
-import { construirePDF } from '../../export/pdfPlan.js';
-import { construireDossierPDF } from '../../export/dossierPdf.js';
-import { construireDossierPiscine } from '../../export/dossierPiscine.js';
-import { construireNoteCalculPDF, noteExportable } from '../../export/noteCalculPdf.js';
+import { noteExportable } from '../../engine/noteCalcul.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
-import { assemblerDossierMairie } from '../../export/dossierMairie.js';
 import { CERFA_13703 } from '../../export/cerfa13703.js';
 import { chargerPdfLib } from '../../export/chargeurPdfLib.js';
 import { carteSituation } from '../../geo/carteSituation.js';
@@ -30,6 +26,13 @@ import type { Mesures } from './mesures.js';
 import type { EtatApp } from '../../core/state.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { Resultats } from '../resultats.js';
+
+// Les PDF se construisent dans un module charge au premier export (export/moteurPdf.ts, AD-10).
+let chargementPdf: Promise<typeof import('../../export/moteurPdf.js')> | null = null;
+const moteurPdf = () => {
+  chargementPdf ??= import('../../export/moteurPdf.js').catch((e: unknown) => { chargementPdf = null; throw e; });
+  return chargementPdf;
+};
 
 /** Le nom et les metadonnees du projet ouvert, tels que le serveur les a rendus. */
 export interface MetaProjet { meta?: ProjetResume | null }
@@ -59,21 +62,21 @@ export function brancherLesExports(etat: EtatApp, seed: MetaProjet, commandes: R
     buildExportSVG: () => construireSVG(etat.objects, etat.measures, { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(etat.objects, etat.schemaProjet) }),
     buildExportDXF: () => construireDXF(etat.objects, etat.measures, signatureExport()),
     echellePdf: () => d.options().echellePdf,
-    buildExportPDF: (echelle) => construirePDF(etat.objects, etat.measures, echelle, {
+    buildExportPDF: async (echelle) => (await moteurPdf()).construirePDF(etat.objects, etat.measures, echelle, {
       appVersion: APP_VERSION, buildAt: BUILD_AT, montrerNord: etat.showNorth
     }),
     genererGlb: d.genererGlb,
     construireResume: () => resumeDuProjet(etat, d.mesures),
     resultats: d.resultats,
-    construireDossier: () => construireDossierPDF(etat.objects, clesDossier(etat.objects),
+    construireDossier: async () => (await moteurPdf()).construireDossierPDF(etat.objects, clesDossier(etat.objects),
       d.options().dossierEquipements,
       { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     // La piscine selectionnee, sinon la premiere du plan : le dossier de mairie porte sur un bassin.
-    construireDossierPiscine: () => construireDossierPiscine(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
+    construireDossierPiscine: async () => (await moteurPdf()).construireDossierPiscine(etat.objects, etat.selectedKey, { nomProjet: nomProjet(), appVersion: APP_VERSION }),
     clesDossier: () => clesDossier(etat.objects),
-    construireNoteCalcul: () => {
+    construireNoteCalcul: async () => {
       const o = abriSelectionne();
-      const res = o ? construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;
+      const res = o ? (await moteurPdf()).construireNoteCalculPDF(o, { appVersion: APP_VERSION, nomProjet: nomProjet() }) : null;
       return o && res ? { pdf: res.pdf, nom: slugFichier(o.name || 'abri') + '-note-de-calcul.pdf' } : null;
     },
     noteCalculPossible: () => noteExportable(abriSelectionne()),
@@ -95,7 +98,7 @@ async function construireDeclaration(objets: ObjetPlan[], nomProjet: string | nu
   const parcelle = parcelleDuProjet(objets);
   const cad = (parcelle?.cadastre || {}) as Record<string, unknown>;
   const carte = parcelle?.latitude && parcelle.longitude ? await carteSituation(parcelle.latitude, parcelle.longitude) : null;
-  const res = await assemblerDossierMairie(lib, cerfa, objets, {
+  const res = await (await moteurPdf()).assemblerDossierMairie(lib, cerfa, objets, {
     date: new Date(), carte, vue3d: moteur3d()?.capturerVue3d() ?? null,
     meta: { nomProjet, adresse: String(cad.adresse || parcelle?.nomLieu || ''), references: cad.section ? 'Parcelle ' + String(cad.section) + ' ' + String(cad.numero ?? '').replace(/^0+/, '') : '' }
   });

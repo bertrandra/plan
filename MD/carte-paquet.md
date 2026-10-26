@@ -2,97 +2,107 @@
 
 Produite par `scripts/carte-paquet.mjs` le 2026-10-26.
 
-## Morceaux livrés (90, 2917 Ko au total)
+## Morceaux livrés (100, 2922 Ko au total)
 
 Un morceau partagé est importé par plusieurs autres ; « à la demande » : derrière un `import()`.
 
 | Morceau | Ouvert par | Chargé | Taille |
 |---|---|---|---:|
-| `assets/plan-6b93cd5277870050.js` | — | à la demande | 1004 Ko |
+| `assets/plan-8565164356f543ba.js` | — | à la demande | 877 Ko |
 | `assets/plan-98511a0e0e2367aa.js` | — | partagé | 217 Ko |
-| `assets/plan-ae9bfbc2c30a213d.js` | — | à la demande | 176 Ko |
-| `assets/plan-d4ed4229139e2609.js` | `src/app/ecranRegles.ts` | à la demande | 103 Ko |
-| `assets/plan-4b81af64c195e467.js` | — | partagé | 99 Ko |
-| `assets/plan-1db9deaecf37d187.js` | — | partagé | 87 Ko |
-| `assets/plan-2dc2e28a71258a70.js` | — | partagé | 84 Ko |
-| `assets/plan-20b93975900677ed.js` | `src/app/audit/parcelle/moteur.ts` | à la demande | 78 Ko |
-| `assets/plan-01f1b6a9c3361735.js` | — | partagé | 70 Ko |
+| `assets/plan-5ca949206030adb2.js` | — | à la demande | 176 Ko |
+| `assets/plan-ed454070a3b0fa2e.js` | `src/app/ecranRegles.ts` | à la demande | 103 Ko |
+| `assets/plan-bbc68d1105ac2098.js` | — | partagé | 87 Ko |
+| `assets/plan-36a1b8066fc1c3cd.js` | — | partagé | 84 Ko |
+| `assets/plan-28c4e8cf415a756b.js` | `src/app/audit/parcelle/moteur.ts` | à la demande | 79 Ko |
+| `assets/plan-ded0593aa02bafb0.js` | — | partagé | 70 Ko |
 | `assets/plan-eadd5950524e0127.js` | `src/app/releve/calageFin.worker.ts?worker&inline` | à la demande | 66 Ko |
-| `assets/plan-313699b03eb189d4.js` | — | partagé | 59 Ko |
-| `assets/plan-d5944b201f216953.js` | — | partagé | 53 Ko |
-| `assets/plan-444bd8393b573444.js` | `src/app/ecranCalibration.ts` | à la demande | 52 Ko |
-| `assets/plan-fa47601602d197b3.js` | `src/app/ecranPalette.ts` | à la demande | 48 Ko |
+| `assets/plan-23b80ffbd87e0641.js` | `src/export/moteurPdf.ts` | à la demande | 61 Ko |
+| `assets/plan-6b24784143d746a3.js` | `src/zones/Releve.tsx` | à la demande | 60 Ko |
+| `assets/plan-ca007609c708a1ec.js` | — | partagé | 59 Ko |
+| `assets/plan-cf75420dd3be3891.js` | — | partagé | 56 Ko |
+| `assets/plan-48fe97727c361f61.js` | `src/app/ecranCalibration.ts` | à la demande | 52 Ko |
+| `assets/plan-77d1161ef00f3054.js` | `src/app/ecranPalette.ts` | à la demande | 48 Ko |
 | `assets/plan-e466e6e62f3f47ac.js` | — | partagé | 43 Ko |
-| `assets/plan-d3ee3a4d687c7275.js` | `src/zones/parcours/AuditParcelle.tsx` | à la demande | 42 Ko |
-| `assets/plan-d5bac877ea4aede1.js` | `src/three/moteur3d.ts` | à la demande | 39 Ko |
-| `assets/plan-781b54a79e3a20b3.js` | `src/app/ecranConsommation.ts` | à la demande | 37 Ko |
-| `assets/plan-2fbc012106cca05d.js` | `src/app/ecranConformite.ts` | à la demande | 34 Ko |
-| `assets/plan-8673fcd9e77d3141.js` | — | partagé | 32 Ko |
-| `assets/plan-2289ad8d942f2782.js` | `src/zones/vue3d/ModeToit.tsx` | à la demande | 32 Ko |
+| `assets/plan-398126e7be183e34.js` | — | partagé | 43 Ko |
+| `assets/plan-942fcc58d1ef3e80.js` | `src/zones/parcours/AuditParcelle.tsx` | à la demande | 42 Ko |
+| `assets/plan-63606e2892b49b62.js` | — | partagé | 40 Ko |
+| `assets/plan-82ce00f10e98d343.js` | `src/three/moteur3d.ts` | à la demande | 39 Ko |
+| `assets/plan-6d40d63142ff3854.js` | `src/app/ecranConsommation.ts` | à la demande | 37 Ko |
+| `assets/plan-d6bcce380e6490c9.js` | `src/app/ecranConformite.ts` | à la demande | 34 Ko |
+| `assets/plan-9fb070d0cbcbec3d.js` | — | partagé | 32 Ko |
+| `assets/plan-39727658d0a15748.js` | `src/zones/vue3d/ModeToit.tsx` | à la demande | 32 Ko |
 | `assets/plan-a6e8daa3f35b8579.js` | `src/app/ecranPrincipes.ts` | à la demande | 28 Ko |
 | `assets/plan-2ec714779ff495d6.js` | — | partagé | 26 Ko |
-| `assets/plan-f44f170dfb8c81c1.js` | `src/zones/parcours/AuditsParcelle.tsx` | à la demande | 25 Ko |
-| `assets/plan-5ddac6b580d025b9.js` | — | partagé | 24 Ko |
-| `assets/plan-31cc2ee80cb942c3.js` | `src/app/ecranArbres.ts` | à la demande | 18 Ko |
-| `assets/plan-dd1e2163cabaff59.js` | `index.html` | au démarrage | 17 Ko |
-| `assets/plan-8984c51d33e73df1.js` | — | à la demande | 17 Ko |
-| `assets/plan-d0435c7a3fd66b3a.js` | — | partagé | 16 Ko |
-| `assets/plan-29e571c342e5deaf.js` | `src/app/ecranControleurs.ts` | à la demande | 15 Ko |
-| `assets/plan-a01eb73b9a5e9c8e.js` | `src/app/audit/branchement.ts` | à la demande | 13 Ko |
-| `assets/plan-0c708b9b3f9e75b4.js` | — | partagé | 13 Ko |
+| `assets/plan-75856d2746b3e457.js` | `src/zones/parcours/AuditsParcelle.tsx` | à la demande | 25 Ko |
+| `assets/plan-942d79ad9b11a6ce.js` | — | partagé | 24 Ko |
+| `assets/plan-a2797d9c337b384f.js` | `src/app/ecranArbres.ts` | à la demande | 18 Ko |
+| `assets/plan-fa12d959b07df6f1.js` | `index.html` | au démarrage | 17 Ko |
+| `assets/plan-abc053dc11dfd536.js` | — | à la demande | 17 Ko |
+| `assets/plan-d6f3638489744c21.js` | — | partagé | 16 Ko |
+| `assets/plan-53c3e4063b55f828.js` | `src/app/ecranControleurs.ts` | à la demande | 15 Ko |
+| `assets/plan-fec7ba0b40fb7448.js` | `src/app/audit/branchement.ts` | à la demande | 13 Ko |
+| `assets/plan-3fe966b2314292dc.js` | — | partagé | 13 Ko |
 | `assets/plan-210abf75b5f8fdae.js` | — | partagé | 10 Ko |
-| `assets/plan-95e203d5a090d12d.js` | — | partagé | 10 Ko |
-| `assets/plan-5166fd53c9aa22b4.js` | `src/three/gestesToits.ts` | à la demande | 10 Ko |
-| `assets/plan-6d46a06ea6a2e675.js` | `src/zones/parcours/AuditCas.tsx` | à la demande | 9 Ko |
-| `assets/plan-9c4db9a7386edee3.js` | — | partagé | 9 Ko |
-| `assets/plan-ebaf82cf7ec7af6d.js` | — | partagé | 9 Ko |
-| `assets/plan-99aa9713b18ce138.js` | — | partagé | 9 Ko |
-| `assets/plan-22c5e532d72df747.js` | — | partagé | 9 Ko |
-| `assets/plan-0972cf53f9a3677f.js` | — | partagé | 8 Ko |
-| `assets/plan-af66d6fbeba91b4e.js` | `src/io/depotDemos.ts` | à la demande | 8 Ko |
-| `assets/plan-f0b175519c09053f.js` | — | partagé | 8 Ko |
-| `assets/plan-0d6dda30454e38d2.js` | — | partagé | 8 Ko |
-| `assets/plan-7a6e34a39255a9a4.js` | — | partagé | 7 Ko |
+| `assets/plan-a3e620a8e5d84fc2.js` | — | partagé | 10 Ko |
+| `assets/plan-41f28592cc626b62.js` | `src/three/gestesToits.ts` | à la demande | 10 Ko |
+| `assets/plan-d348e8f15edda7f6.js` | `src/zones/parcours/AuditCas.tsx` | à la demande | 9 Ko |
+| `assets/plan-f01129a3405d9ef8.js` | — | partagé | 9 Ko |
+| `assets/plan-e9e9d77cabfad5b2.js` | — | partagé | 9 Ko |
+| `assets/plan-0c3ff49fec19f287.js` | — | partagé | 9 Ko |
+| `assets/plan-08ab172a009e5c5c.js` | — | partagé | 9 Ko |
+| `assets/plan-2f52eeff9d237551.js` | — | partagé | 8 Ko |
+| `assets/plan-a547b966b5d902dd.js` | `src/io/depotDemos.ts` | à la demande | 8 Ko |
+| `assets/plan-dcde38889131923b.js` | — | partagé | 8 Ko |
+| `assets/plan-42de33c00e9f5133.js` | — | partagé | 8 Ko |
+| `assets/plan-c6f8d21bace92b66.js` | — | partagé | 7 Ko |
+| `assets/plan-c426043e65d2acd9.js` | — | partagé | 7 Ko |
 | `assets/plan-5c422e525b18b505.js` | — | partagé | 7 Ko |
 | `assets/plan-7a84d7551c76b6f5.js` | — | partagé | 7 Ko |
-| `assets/plan-1ccc21f0a41467d5.js` | — | partagé | 7 Ko |
-| `assets/plan-486ec9ef665bd38f.js` | — | partagé | 6 Ko |
-| `assets/plan-4f48c40cf708688a.js` | — | partagé | 6 Ko |
-| `assets/plan-c665bb3e09b2d65c.js` | — | à la demande | 6 Ko |
-| `assets/plan-94e27a44df10b3e7.js` | `src/app/vitrine.ts` | à la demande | 6 Ko |
-| `assets/plan-9973ab4edb300949.js` | `src/app/porte.ts` | à la demande | 6 Ko |
-| `assets/plan-eb2f6a12aeba2627.js` | `src/app/ecranChaine.ts` | à la demande | 5 Ko |
-| `assets/plan-759e317785e11b5b.js` | — | partagé | 5 Ko |
-| `assets/plan-37fa67ad90221ab5.js` | `src/io/depotPlateforme.ts` | à la demande | 5 Ko |
+| `assets/plan-be79d13976a510b0.js` | — | partagé | 6 Ko |
+| `assets/plan-8794a2a71a6abf16.js` | — | partagé | 6 Ko |
+| `assets/plan-2fcdf981b22ca45a.js` | — | partagé | 6 Ko |
+| `assets/plan-92dae8bc68ad43d7.js` | — | à la demande | 6 Ko |
+| `assets/plan-b84c8bff364f208b.js` | `src/app/vitrine.ts` | à la demande | 6 Ko |
+| `assets/plan-6f993eef711f3c55.js` | `src/app/porte.ts` | à la demande | 6 Ko |
+| `assets/plan-6bdb1961d9903542.js` | `src/app/ecranChaine.ts` | à la demande | 5 Ko |
+| `assets/plan-7447348f5038f408.js` | — | partagé | 5 Ko |
+| `assets/plan-0891f1ba2bd251f7.js` | `src/io/depotPlateforme.ts` | à la demande | 5 Ko |
 | `assets/plan-865b5720dadbc4b6.js` | — | partagé | 5 Ko |
 | `assets/plan-8c625d5b4265dfa0.js` | — | partagé | 5 Ko |
+| `assets/plan-8e44d5fb0e33f41b.js` | — | partagé | 4 Ko |
 | `assets/plan-5449611f39222501.js` | — | partagé | 4 Ko |
-| `assets/plan-4c5aa419fa67bf48.js` | — | partagé | 4 Ko |
-| `assets/plan-1f485f7459c1d408.js` | — | partagé | 4 Ko |
-| `assets/plan-b1492dab56da8af9.js` | — | partagé | 4 Ko |
-| `assets/plan-49badaf37c30ae5c.js` | — | partagé | 4 Ko |
-| `assets/plan-79a1f08afbfba6f6.js` | `src/zones/parcours/AuditFin.tsx` | à la demande | 3 Ko |
-| `assets/plan-03471614c30f990a.js` | — | partagé | 3 Ko |
+| `assets/plan-90984cfc4e23270f.js` | — | partagé | 4 Ko |
+| `assets/plan-176a4964a5461423.js` | — | partagé | 4 Ko |
+| `assets/plan-6e777d2796c40896.js` | — | partagé | 4 Ko |
+| `assets/plan-d4347f1e28986c99.js` | — | partagé | 4 Ko |
+| `assets/plan-bbf8e279aa27d0b4.js` | — | partagé | 4 Ko |
+| `assets/plan-80d90fea89723c06.js` | `src/zones/parcours/AuditFin.tsx` | à la demande | 3 Ko |
+| `assets/plan-fce1371e79701fbf.js` | — | partagé | 3 Ko |
+| `assets/plan-94ed645d4f5cce9b.js` | — | partagé | 3 Ko |
 | `assets/plan-667d74b93b5ff589.js` | — | partagé | 3 Ko |
-| `assets/plan-636bbb3b5aabc96b.js` | — | partagé | 3 Ko |
-| `assets/plan-ce073248184bd4e1.js` | — | partagé | 3 Ko |
+| `assets/plan-e5e80fcd36d34953.js` | — | partagé | 3 Ko |
+| `assets/plan-be96511f3694c32e.js` | — | partagé | 3 Ko |
 | `assets/plan-38d8b1401f8677be.js` | — | partagé | 3 Ko |
-| `assets/plan-9367c0d26b31aa0b.js` | `src/app/porteAdmin.ts` | à la demande | 2 Ko |
-| `assets/plan-6bb43cd56a3e10d7.js` | — | partagé | 2 Ko |
-| `assets/plan-5298f72662b78484.js` | — | partagé | 2 Ko |
-| `assets/plan-36abf14403395799.js` | — | partagé | 2 Ko |
-| `assets/plan-469468e6434b7c18.js` | — | partagé | 2 Ko |
-| `assets/plan-fc808920fd582e99.js` | — | à la demande | 2 Ko |
+| `assets/plan-d0ebf13f114294cd.js` | `src/app/porteAdmin.ts` | à la demande | 2 Ko |
+| `assets/plan-4e4a5d01cd4e64b5.js` | — | partagé | 2 Ko |
+| `assets/plan-76e8a8decbd056ce.js` | — | partagé | 2 Ko |
+| `assets/plan-b1216457165252fc.js` | — | partagé | 2 Ko |
+| `assets/plan-26837ac2945855d7.js` | — | partagé | 2 Ko |
+| `assets/plan-ffcd089ecd3a631f.js` | — | à la demande | 2 Ko |
 | `assets/plan-cdef81a2748aa009.js` | `src/io/api.ts` | à la demande | 2 Ko |
 | `assets/plan-840b8613c74cf6c5.js` | — | partagé | 2 Ko |
-| `assets/plan-1e85a362531a66c7.js` | — | partagé | 2 Ko |
-| `assets/plan-e1b19a1b2fda8c9a.js` | — | partagé | 2 Ko |
+| `assets/plan-02ded85889e92f01.js` | — | partagé | 2 Ko |
+| `assets/plan-726d13aa3b1d2e77.js` | — | partagé | 2 Ko |
 | `assets/plan-51ff6c48ae211027.js` | — | partagé | 2 Ko |
+| `assets/plan-2d7097ff8b614afe.js` | — | partagé | 2 Ko |
+| `assets/plan-220bf088d0eaaa7c.js` | — | partagé | 1 Ko |
+| `assets/plan-2bafaed54c3f21d2.js` | — | partagé | 1 Ko |
 | `assets/plan-06513a5beef76435.js` | — | partagé | 1 Ko |
 | `assets/plan-887ae5df3576c20a.js` | — | partagé | 1 Ko |
 | `assets/plan-9e9a5b3490d21eea.js` | — | partagé | 1 Ko |
-| `assets/plan-a361958f978acd5c.js` | `src/app/version.ts` | à la demande | 1 Ko |
-| `assets/plan-889aecca3848a3d9.js` | `src/io/arbresServeur.ts` | à la demande | 0 Ko |
+| `assets/plan-781ca358760d9e6f.js` | `src/app/version.ts` | à la demande | 1 Ko |
+| `assets/plan-cd85d4251f3f36db.js` | `src/io/arbresServeur.ts` | à la demande | 0 Ko |
 | `assets/plan-331169d16980f87b.js` | — | partagé | 0 Ko |
 | `assets/plan-4a7bf8fd31e1ba04.js` | — | partagé | 0 Ko |
 | `assets/plan-99d4e8051a32156e.js` | — | partagé | 0 Ko |
@@ -180,13 +190,13 @@ Imports de valeurs seulement (les `import type` disparaissent à la compilation)
 | app | geo | 35 | 0 |
 | app | geometry | 35 | 0 |
 | app | plateforme | 21 | 0 |
-| app | engine | 17 | 0 |
+| app | engine | 18 | 0 |
 | app | core | 14 | 0 |
 | app | zones | 13 | 0 |
 | app | interaction | 12 | 0 |
-| app | export | 12 | 0 |
 | app | util | 10 | 0 |
 | app | ui | 8 | 1 |
+| app | export | 7 | 2 |
 | app | styles | 2 | 0 |
 | core | util | 2 | 0 |
 | core | model | 1 | 0 |

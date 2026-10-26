@@ -54,6 +54,13 @@ await page.getByRole('button', { name: 'Plan', exact: true }).first().click();
 await page.waitForTimeout(800);
 await etape('retour au plan');
 
+// Le PDF du plan (menu Exporter) : le module des PDF se charge au premier export (AD-10), et le fichier part.
+await page.locator('details#menuExporter > summary').click();
+const [telechargement] = await Promise.all([page.waitForEvent('download', { timeout: 30000 }), page.locator('#exportPdfBtn').click()]);
+await page.waitForTimeout(500);
+await etape('export PDF (' + telechargement.suggestedFilename() + ')');
+await page.keyboard.press('Escape');
+
 // L'audit de la parcelle (menu Fichier) : ses ecrans et sa session se chargent a l'ouverture (AD-10).
 await page.locator('details.menu > summary', { hasText: 'Fichier' }).first().click();
 await page.locator('[data-commande="audit.parcelle"]').first().click({ timeout: 15000 });

@@ -6,7 +6,7 @@
 // encodage declare, donc le texte passe en ASCII (accents et symboles transcrits).
 
 import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleAbri, libelleSection } from '../engine/pergola.js';
-import { ALU, BOIS, noteDeCalcul, TERRAINS, VB0, type NoteCalcul } from '../engine/noteCalcul.js';
+import { ALU, BOIS, noteDeCalcul, noteExportable, TERRAINS, VB0, type NoteCalcul } from '../engine/noteCalcul.js';
 import { A4_H, A4_L, MARGE_PDF, assemblerPDF, pdfPolygone, pdfTexte, type PagePdf } from './pdf/writer.js';
 import type { ObjetPlan } from '../model/types.js';
 import { dateFr } from '../util/format.js';
@@ -144,5 +144,6 @@ export function construireNoteCalculPDF(o: ObjetPlan, meta: MetaNote): { pdf: st
 }
 
 /** La note est-elle exportable ? Ses regions de neige et de vent sont choisies. */
-export const noteExportable = (o: ObjetPlan | undefined): boolean => !!o && (noteDeCalcul(o)?.charges ?? null) !== null;
+// Decide sans le PDF (engine/noteCalcul.ts) : le menu le lit au demarrage, le PDF se charge au premier export (AD-10).
+export { noteExportable };
 export type { NoteCalcul };

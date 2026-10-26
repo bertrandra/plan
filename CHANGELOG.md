@@ -40,6 +40,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le relevé de façade et les PDF ne se téléchargent plus à l'ouverture** (AD-10, étape 2b, quatrième et cinquième
+  coupures). Le parcours du relevé (`zones/Releve.tsx`) et ce qu'il atteint (analyse des façades, calage, caméra) se
+  chargent quand un relevé s'ouvre : une coquille (`zones/ReleveALaDemande.tsx`) attend l'ouverture. Les PDF (plan à
+  l'échelle, dossier des terrasses, dossier de mairie de la piscine, note de calcul, déclaration préalable) se construisent
+  dans un module chargé au premier export (`export/moteurPdf.ts`) ; leurs commandes sont donc asynchrones, comme l'était
+  déjà la déclaration préalable, et une erreur se dit de la même façon. Savoir si une note de calcul s'exporte se décide
+  sans le PDF (`noteExportable` passe dans `engine/noteCalcul.ts`). À l'ouverture, le programme passe de 2 172 Ko à
+  1 998 Ko ; le premier PDF apporte 62 Ko. L'audit de la parcelle, qui partage l'analyse des façades avec le relevé, en
+  apporte maintenant 363 Ko à son ouverture. `essayer-paquet` exporte aussi le PDF du plan.
+
 - **Le mode Toit et le catalogue des toits ne se téléchargent plus à l'ouverture** (AD-10, étape 2b, troisième coupure). Le
   panneau du mode Toit (`zones/vue3d/ModeToit.tsx` et ses vues) et le catalogue des toits (`three/gestesToits.ts`, avec le
   dessin des corps et des couvertures) se chargent quand la Vue 3D s'ouvre. « Modifier la toiture » attend le catalogue
