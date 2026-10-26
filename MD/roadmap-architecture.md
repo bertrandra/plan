@@ -72,7 +72,7 @@ Déclencheur : la prochaine fonction transversale, ou une modification qui touch
 |---|---|---|---|
 | 3.1 | Ranger `app/` par domaine : `app/administration/` (les neuf `ecran*.ts`), `app/cadastre/` (import, actualisation IGN), `app/toits/` (fond, LiDAR, à cheval), le cœur restant à la racine | `app/` n'a plus que le cœur à sa racine ; rien ne change à l'écran | fait : `administration/` (pas `admin/`, que les simulations de la fumée prennent pour une route du serveur), `cadastre/`, `toits/` et `releve/` ; 31 modules déplacés, 28 restent à la racine (le cœur) |
 | 3.2 | Une règle par domaine (dependency-cruiser ou le test d'architecture) : un domaine n'importe pas un autre domaine, seulement le cœur | la règle est en CI et passe | fait, dans le test d'architecture : une table des flèches admises entre domaines. `toits` et `releve` ne dépendent d'aucun autre ; `audit` et `regles` (les sujets de l'audit) se lisent l'un l'autre. Une flèche nouvelle s'écrit dans la table |
-| 3.3 | Alléger les modules carrefours (`boot/plan.ts`, `audit/controleur.ts`) en passant leurs dépendances par le registre des commandes ou des services | plus aucun module de `app/` n'importe plus de 20 modules | après 3.2 |
+| 3.3 | Alléger les modules carrefours (`boot/plan.ts`, `audit/controleur.ts`) en passant leurs dépendances par le registre des commandes ou des services | plus aucun module de `app/` n'importe plus de 20 modules | **cliquet posé** : le test d'architecture refuse qu'un module de `app/` importe plus de 20 modules (imports de valeur), sauf six carrefours listés avec leur compte, qui ne peuvent plus grossir. Le plafond descend avec eux : `boot/plan.ts` 33 → 29, `boot.ts` 23 → 22 et `boot/panneaux.ts` 21 → 20 (retiré de la liste), parce que des imports de types étaient écrits comme des imports de valeur. Restent `boot/plan.ts` 29, `audit/controleur.ts` 32, `cadastre/actualisationIgn.ts` 26, `boot/branchements.ts` 25, `audit/parcelle/constats.ts` 23 et `boot.ts` 22, à alléger au fil des changements qui les touchent |
 
 ### Phase 4 — Le métier critique se lit par morceaux (modèle et gros modules)
 
@@ -80,7 +80,7 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | à faire |
+| 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | fait : `toitCorps.ts` garde la reconstruction (368 lignes) et réexporte `toitCorps/ajustement.ts` (374), `recalage.ts` (117) et `reprise.ts` (225) ; `toit.ts` (384) réexporte `toit/estimation.ts` (205). Mêmes noms publics, AE 101 identique ; le banc des villages n'a pas pu tourner (pas de JSON de village dans le conteneur), les fixtures réelles des tests le remplacent |
 | 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | fait : `engine/piscine/` (réglages 170 lignes, géométrie 150, calcul 370, chiffrage 145, note 135), `engine/piscine.ts` les réexporte ; empreintes et tests inchangés |
 | 4.3 | Ranger les champs propres à une fonction (piscine, pergola, clôture, toit) dans un sous-objet par fonction de `ObjetPlan` | `model/types.ts` sous 600 lignes ; aucune empreinte ne bouge | événement de version (schéma) : à préparer avec la plateforme |
 
@@ -89,7 +89,7 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
 | 5.1 | Un verrou autour des lectures-modifications-écritures de l'admin (`deploy/admin.php` : palette, arbres, contrôleurs, règles), comme `donnees.php` et le journal | deux écritures simultanées ne perdent rien (test `php -S`) | fait : la perte réelle était l'ajout de démo (numéro libre) ; chaque écriture passe sous le verrou de son fichier, un document entier reste au dernier qui écrit |
-| 5.2 | three.js, EZ-tree, pdf-lib servis depuis `assets/` de la livraison, le CDN en secours | la Vue 3D s'ouvre CDN coupé | à faire |
+| 5.2 | three.js, EZ-tree, pdf-lib servis depuis `assets/` de la livraison, le CDN en secours | la Vue 3D s'ouvre CDN coupé | fait : copies de `node_modules` dans `assets/vendor/` (mêmes empreintes) ; three.js de la livraison seule (une seule adresse dans la table d'import), EZ-tree et pdf-lib avec jsDelivr en secours ; model-viewer reste au CDN |
 | 5.3 | Mode hors ligne pour l'audit (service worker sur les morceaux déjà découpés) | un audit commencé se poursuit sans réseau et s'envoie au retour | déclencheur AD-6 : plaintes d'utilisateurs sur le terrain |
 
 ## Ordre retenu

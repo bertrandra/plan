@@ -13,7 +13,7 @@ import { creerProjet } from '../projet.js';
 import { actualisation } from '../cadastre/actualisationIgn.js';
 import { aPoints } from '../assemblage/formes.js';
 import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
-import { type Vues3d } from '../assemblage/vues3d.js';
+import type { Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
 import { creerServiceReleve } from '../releve/releve.js';
 import { aideReleveDuNavigateur } from '../releve/renfortReleve.js';

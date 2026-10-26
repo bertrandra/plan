@@ -20,7 +20,7 @@ import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
 import { versOuvertureFacade } from '../../../facade/detection/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import { analyserSerie, calageDeSerie, releveDuMur } from '../../../facade/releve/analyseSerie.js';
-import { type EntreeRecherche, type Morceau, type Resultat, type ResultatRecherche } from '../../../facade/releve/serie.js';
+import type { EntreeRecherche, Morceau, Resultat, ResultatRecherche } from '../../../facade/releve/serie.js';
 import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../facade/releve/chaine.js';
 import { redresserParReperes } from '../../../facade/vision/redressementFuites.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';

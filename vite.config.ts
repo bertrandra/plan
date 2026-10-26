@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { blocDescription } from './src/model/produit.js';
 import { sortirLesScripts, empreintesDesScriptsEnLigne } from './deploy/scripts-page.mjs';
+import { fichiersBibliotheques, servirBibliotheques } from './deploy/bibliotheques.mjs';
+import { INTEGRITE_CDN } from './src/util/integriteCdn.js';
 
 // Les deux seuls faits publics que le paquet porte sur la plateforme (spec-connexion-plateforme §2).
 const BACKPROD_API_URL = (process.env.BACKPROD_API_URL || '').replace(/\/+$/, '');
@@ -47,6 +49,27 @@ export default defineConfig({
     // Etape 0 de la reconstruction de l'interface (MD/spec-ihm-zones.md, section 6) : React est
     // branche, rien ne l'utilise encore ; il n'entre pas dans le build tant qu'aucun composant n'existe.
     react(),
+    {
+      // three.js, EZ-tree et pdf-lib dans la livraison (MD/roadmap-architecture.md, etape 5.2 ; deploy/bibliotheques.mjs) : au
+      // build, copies depuis node_modules sous dist/assets/vendor/ ; en developpement, servis aux memes chemins.
+      name: 'bibliotheques-locales',
+      configureServer(serveur) {
+        serveur.middlewares.use(servirBibliotheques(__dirname));
+      },
+      configurePreviewServer(serveur) {
+        serveur.middlewares.use(servirBibliotheques(__dirname));
+      },
+      closeBundle() {
+        if (!existsSync(resolve(__dirname, 'dist/index.html'))) return;
+        const fichiers = fichiersBibliotheques(__dirname, Object.keys(INTEGRITE_CDN));
+        if (!fichiers.some((f) => f.chemin.endsWith('/build/three.module.js'))) throw new Error('three.js manque a node_modules : la livraison ne le porterait pas');
+        for (const f of fichiers) {
+          const cible = resolve(__dirname, 'dist', f.chemin);
+          mkdirSync(dirname(cible), { recursive: true });
+          copyFileSync(f.source, cible);
+        }
+      }
+    },
     {
       // Ce que Plan dit de lui-meme a la plateforme (model/produit.ts) : ecrit dans la page, au
       // build, pour qu'un client HTTP le lise sans executer quoi que ce soit.
