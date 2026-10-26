@@ -61,6 +61,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La lecture des toits se lit par morceaux** (feuille de route, étape 4.1). `facade/toits/toitCorps.ts` (1 057 lignes) garde la
+  reconstruction des corps et réexporte trois morceaux de `facade/toits/toitCorps/` :
+  - `ajustement.ts` : le toit d'un corps, ses pignons, sa coupe ;
+  - `recalage.ts` : le contour mis à l'équerre et recalé ;
+  - `reprise.ts` : le contour de biais, le secours, la complétion.
+  `facade/toits/toit.ts` réexporte de même `toit/estimation.ts` (le toit estimé sur une photo). Aucun fichier de `facade/toits/`
+  ne dépasse plus 500 lignes. Le code est déplacé tel quel, les noms publics sont les mêmes, et AE 101 est identique au centimètre.
 - **three.js, EZ-tree et pdf-lib viennent de la livraison, plus du CDN** (feuille de route, étape 5.2). Le build les copie de
   `node_modules` dans `assets/vendor/<paquet>@<version>/` (`deploy/bibliotheques.mjs`), avec les modules qu'ils importent. Ce sont
   les mêmes octets que jsDelivr, sous les mêmes empreintes SRI. La Vue 3D, les arbres et le PDF ne dépendent plus de jsDelivr :

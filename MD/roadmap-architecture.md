@@ -80,7 +80,7 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | à faire |
+| 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | fait : `toitCorps.ts` garde la reconstruction (368 lignes) et réexporte `toitCorps/ajustement.ts` (374), `recalage.ts` (117) et `reprise.ts` (225) ; `toit.ts` (384) réexporte `toit/estimation.ts` (205). Mêmes noms publics, AE 101 identique ; le banc des villages n'a pas pu tourner (pas de JSON de village dans le conteneur), les fixtures réelles des tests le remplacent |
 | 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | fait : `engine/piscine/` (réglages 170 lignes, géométrie 150, calcul 370, chiffrage 145, note 135), `engine/piscine.ts` les réexporte ; empreintes et tests inchangés |
 | 4.3 | Ranger les champs propres à une fonction (piscine, pergola, clôture, toit) dans un sous-objet par fonction de `ObjetPlan` | `model/types.ts` sous 600 lignes ; aucune empreinte ne bouge | événement de version (schéma) : à préparer avec la plateforme |
 
