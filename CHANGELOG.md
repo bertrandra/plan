@@ -61,6 +61,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le moteur de la piscine se lit par morceaux** (`engine/piscine/`, feuille de route, étape 4.2). Les 957 lignes de
+  `engine/piscine.ts` sont rangées en cinq fichiers, un par étape : réglages, géométrie, calcul, chiffrage, note de calcul.
+  `engine/piscine.ts` les réexporte, si bien que rien d'autre ne change d'import. Le code est déplacé tel quel ; les empreintes et
+  les tests ne bougent pas.
+
 - **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
   n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
   bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout
