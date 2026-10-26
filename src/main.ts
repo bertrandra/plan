@@ -123,7 +123,7 @@ async function demarrer(): Promise<void> {
       // `file=<id>` : une demo de l'admin ; absente ou illisible, la demonstration integree.
       const demo = vitrine.fichier ? await chargerDemoVitrine(vitrine.fichier) : null;
       const { boot, graineVitrine } = await import('./app/boot.js');
-      boot(graineVitrine(demo), { vitrine });
+      boot(await graineVitrine(demo), { vitrine });
       finChargementApresRendu();
       return;
     }

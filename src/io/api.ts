@@ -140,6 +140,12 @@ export async function apiDelete(id: string): Promise<unknown> {
  * @param projetsEtrangers vrai quand l'organisation a des projets, mais qu'aucun n'est un plan :
  *                         la phrase a dire n'est pas la meme que sur une organisation neuve.
  */
+/**
+ * Le jeu de demonstration, lu a la demande (AD-10) : il pese plus que tout le releve de facade et ne sert qu'a la premiere visite.
+ * Un projet du serveur s'ouvre sans le telecharger.
+ */
+export interface JeuDemo { objets: unknown[]; mesures: unknown[] }
+
 export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 'adresse'>;
 
 /**
@@ -153,8 +159,7 @@ export type DemandePremierPas = (projetsEtrangers: boolean) => Promise<'demo' | 
  * perdu ou remplace alors que l'API avait seulement hoquete.
  */
 export async function chargerProjetInitial(
-  demoObjets: unknown[],
-  demoMesures: unknown[],
+  demo: () => Promise<JeuDemo>,
   demanderPremierPas?: DemandePremierPas
 ) {
   const projetConnu = getProjectIdFromUrl() || localStorage.getItem(cleDernierProjet());
@@ -163,6 +168,7 @@ export async function chargerProjetInitial(
     liste = await apiList();
   } catch (e) {
     if (!projetConnu) {
+      const { objets: demoObjets, mesures: demoMesures } = await demo();
       return {
         apiAvailable: false,
         list: [] as ProjetResume[],
@@ -184,7 +190,8 @@ export async function chargerProjetInitial(
 
   /** Le jeu de demonstration, enregistre comme un vrai projet : c'est ce qu'il devient. */
   const creerLaDemo = async (): Promise<string> => {
-    const cree = await apiSave({ name: 'Parcelle AE 101', objects: demoObjets, measures: demoMesures });
+    const { objets, mesures } = await demo();
+    const cree = await apiSave({ name: 'Parcelle AE 101', objects: objets, measures: mesures });
     liste = await apiList();
     return cree.id;
   };
