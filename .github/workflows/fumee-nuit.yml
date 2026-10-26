@@ -10,9 +10,6 @@ on:
     # 3 h 17 UTC : hors des heures de travail, et pas a l'heure pile (les executions programmees y sont retardees).
     - cron: '17 3 * * *'
   workflow_dispatch:
-  # ESSAI, a retirer avant la fusion : un premier passage complet sur la branche.
-  push:
-    branches: [claude/fumee-nocturne]
 
 permissions:
   contents: read

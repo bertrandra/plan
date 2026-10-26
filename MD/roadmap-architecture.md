@@ -33,8 +33,9 @@ déclencheur, écrit dans leur tableau.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 0.1 | **Fumée complète chaque nuit** (P6) : un workflow programmé joue tous les points, trois classes et deux thèmes, réseau témoin, et garde le journal et les captures des échecs | le workflow tourne sur `main`, un échec fait échouer l'exécution (GitHub prévient le propriétaire) et le journal est téléchargeable | à faire |
+| 0.1 | **Fumée complète chaque nuit** (P6) : un workflow programmé joue tous les points, trois classes et deux thèmes, réseau témoin, et garde le journal et les captures des échecs | le workflow tourne sur `main`, un échec fait échouer l'exécution (GitHub prévient le propriétaire) et le journal est téléchargeable | **fait** : `.github/workflows/fumee-nuit.yml`, six tâches parallèles de 12 à 30 min |
 | 0.2 | **Banc du rendu du plan** (P3) : temps de `render()` et d'un glisser à 150, 300 et 600 objets, au bureau et au téléphone (processeur ralenti) | un script reproductible, ses chiffres dans `MD/architecture.md` (W3), et la décision de la phase 2 prise sur eux | à faire |
+| 0.4 | **Réparer les points rouges que la première nuit a trouvés** (P6). Premier passage complet, le 26 octobre 2026 :<br>– toujours rouges, dans toutes les classes : 69, 70, 74 (analyse par Claude et partage d'un audit), 76 (Admin › Conformité), 82 (masque d'occlusion du relevé), 93 (Admin › Règles) ;<br>– rouge en compact seulement : 10 (cible d'alignement) ;<br>– instables au bureau : 23 (rappel d'un point de vue), 75 (import d'un audit, délai dépassé).<br>Tous étaient déjà rouges avant le 26 octobre (rejoués sur `9d50a29`, la livraison précédente) : aucun passage complet ne les jouait. Pour chacun, savoir si c'est le script ou l'application, et corriger | la fumée de la nuit passe en entier | à faire |
 | 0.3 | **Vérification de l'API Claude** (P7) : poser le secret `ANTHROPIC_API_KEY_TEST`, puis lancer le workflow « Vérifier l'API Claude » avant chaque livraison | le workflow passe une fois | à faire, par le propriétaire du dépôt (secret) |
 
 ### Phase 1 — Les nombres d'un ancien fichier ne bougent plus (reproductibilité)
