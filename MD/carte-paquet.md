@@ -2,51 +2,52 @@
 
 Produite par `scripts/carte-paquet.mjs` le 2026-10-26.
 
-## Morceaux livrés (100, 2922 Ko au total)
+## Morceaux livrés (101, 2923 Ko au total)
 
 Un morceau partagé est importé par plusieurs autres ; « à la demande » : derrière un `import()`.
 
 | Morceau | Ouvert par | Chargé | Taille |
 |---|---|---|---:|
-| `assets/plan-8565164356f543ba.js` | — | à la demande | 877 Ko |
+| `assets/plan-e4658bfb24792973.js` | — | à la demande | 602 Ko |
+| `assets/plan-791af87bdc28e2d8.js` | `src/model/demo.ts` | à la demande | 276 Ko |
 | `assets/plan-98511a0e0e2367aa.js` | — | partagé | 217 Ko |
 | `assets/plan-5ca949206030adb2.js` | — | à la demande | 176 Ko |
 | `assets/plan-ed454070a3b0fa2e.js` | `src/app/ecranRegles.ts` | à la demande | 103 Ko |
 | `assets/plan-bbc68d1105ac2098.js` | — | partagé | 87 Ko |
-| `assets/plan-36a1b8066fc1c3cd.js` | — | partagé | 84 Ko |
-| `assets/plan-28c4e8cf415a756b.js` | `src/app/audit/parcelle/moteur.ts` | à la demande | 79 Ko |
+| `assets/plan-9e62aad1a2a48da9.js` | — | partagé | 84 Ko |
+| `assets/plan-b01581a24e45de7a.js` | `src/app/audit/parcelle/moteur.ts` | à la demande | 79 Ko |
 | `assets/plan-ded0593aa02bafb0.js` | — | partagé | 70 Ko |
 | `assets/plan-eadd5950524e0127.js` | `src/app/releve/calageFin.worker.ts?worker&inline` | à la demande | 66 Ko |
-| `assets/plan-23b80ffbd87e0641.js` | `src/export/moteurPdf.ts` | à la demande | 61 Ko |
-| `assets/plan-6b24784143d746a3.js` | `src/zones/Releve.tsx` | à la demande | 60 Ko |
-| `assets/plan-ca007609c708a1ec.js` | — | partagé | 59 Ko |
+| `assets/plan-8279f2c68b38589e.js` | `src/export/moteurPdf.ts` | à la demande | 61 Ko |
+| `assets/plan-7c9f888d8622bc91.js` | `src/zones/Releve.tsx` | à la demande | 60 Ko |
+| `assets/plan-3d5ef41a26fe0aff.js` | — | partagé | 59 Ko |
 | `assets/plan-cf75420dd3be3891.js` | — | partagé | 56 Ko |
 | `assets/plan-48fe97727c361f61.js` | `src/app/ecranCalibration.ts` | à la demande | 52 Ko |
-| `assets/plan-77d1161ef00f3054.js` | `src/app/ecranPalette.ts` | à la demande | 48 Ko |
+| `assets/plan-8cd437261502ce1a.js` | `src/app/ecranPalette.ts` | à la demande | 48 Ko |
 | `assets/plan-e466e6e62f3f47ac.js` | — | partagé | 43 Ko |
 | `assets/plan-398126e7be183e34.js` | — | partagé | 43 Ko |
-| `assets/plan-942fcc58d1ef3e80.js` | `src/zones/parcours/AuditParcelle.tsx` | à la demande | 42 Ko |
+| `assets/plan-7c92832efc0b5fa0.js` | `src/zones/parcours/AuditParcelle.tsx` | à la demande | 42 Ko |
 | `assets/plan-63606e2892b49b62.js` | — | partagé | 40 Ko |
-| `assets/plan-82ce00f10e98d343.js` | `src/three/moteur3d.ts` | à la demande | 39 Ko |
+| `assets/plan-455956acb04a1fcf.js` | `src/three/moteur3d.ts` | à la demande | 39 Ko |
 | `assets/plan-6d40d63142ff3854.js` | `src/app/ecranConsommation.ts` | à la demande | 37 Ko |
 | `assets/plan-d6bcce380e6490c9.js` | `src/app/ecranConformite.ts` | à la demande | 34 Ko |
 | `assets/plan-9fb070d0cbcbec3d.js` | — | partagé | 32 Ko |
-| `assets/plan-39727658d0a15748.js` | `src/zones/vue3d/ModeToit.tsx` | à la demande | 32 Ko |
+| `assets/plan-cbbb38b7e82c7a75.js` | `src/zones/vue3d/ModeToit.tsx` | à la demande | 32 Ko |
 | `assets/plan-a6e8daa3f35b8579.js` | `src/app/ecranPrincipes.ts` | à la demande | 28 Ko |
 | `assets/plan-2ec714779ff495d6.js` | — | partagé | 26 Ko |
 | `assets/plan-75856d2746b3e457.js` | `src/zones/parcours/AuditsParcelle.tsx` | à la demande | 25 Ko |
 | `assets/plan-942d79ad9b11a6ce.js` | — | partagé | 24 Ko |
-| `assets/plan-a2797d9c337b384f.js` | `src/app/ecranArbres.ts` | à la demande | 18 Ko |
-| `assets/plan-fa12d959b07df6f1.js` | `index.html` | au démarrage | 17 Ko |
-| `assets/plan-abc053dc11dfd536.js` | — | à la demande | 17 Ko |
+| `assets/plan-c2b4d04861fa10d6.js` | `src/app/ecranArbres.ts` | à la demande | 18 Ko |
+| `assets/plan-eeb8ad1c734caa07.js` | `index.html` | au démarrage | 17 Ko |
+| `assets/plan-776d3ea913983b08.js` | — | à la demande | 17 Ko |
 | `assets/plan-d6f3638489744c21.js` | — | partagé | 16 Ko |
-| `assets/plan-53c3e4063b55f828.js` | `src/app/ecranControleurs.ts` | à la demande | 15 Ko |
-| `assets/plan-fec7ba0b40fb7448.js` | `src/app/audit/branchement.ts` | à la demande | 13 Ko |
+| `assets/plan-a28123e5e2ab5539.js` | `src/app/ecranControleurs.ts` | à la demande | 15 Ko |
+| `assets/plan-ec3dff9c7bdcfebc.js` | `src/app/audit/branchement.ts` | à la demande | 13 Ko |
 | `assets/plan-3fe966b2314292dc.js` | — | partagé | 13 Ko |
 | `assets/plan-210abf75b5f8fdae.js` | — | partagé | 10 Ko |
 | `assets/plan-a3e620a8e5d84fc2.js` | — | partagé | 10 Ko |
-| `assets/plan-41f28592cc626b62.js` | `src/three/gestesToits.ts` | à la demande | 10 Ko |
-| `assets/plan-d348e8f15edda7f6.js` | `src/zones/parcours/AuditCas.tsx` | à la demande | 9 Ko |
+| `assets/plan-3b390bdef7904781.js` | `src/three/gestesToits.ts` | à la demande | 10 Ko |
+| `assets/plan-f860e2d8481aea4f.js` | `src/zones/parcours/AuditCas.tsx` | à la demande | 9 Ko |
 | `assets/plan-f01129a3405d9ef8.js` | — | partagé | 9 Ko |
 | `assets/plan-e9e9d77cabfad5b2.js` | — | partagé | 9 Ko |
 | `assets/plan-0c3ff49fec19f287.js` | — | partagé | 9 Ko |
@@ -56,7 +57,7 @@ Un morceau partagé est importé par plusieurs autres ; « à la demande » : de
 | `assets/plan-dcde38889131923b.js` | — | partagé | 8 Ko |
 | `assets/plan-42de33c00e9f5133.js` | — | partagé | 8 Ko |
 | `assets/plan-c6f8d21bace92b66.js` | — | partagé | 7 Ko |
-| `assets/plan-c426043e65d2acd9.js` | — | partagé | 7 Ko |
+| `assets/plan-4d83444b370c6cc3.js` | — | partagé | 7 Ko |
 | `assets/plan-5c422e525b18b505.js` | — | partagé | 7 Ko |
 | `assets/plan-7a84d7551c76b6f5.js` | — | partagé | 7 Ko |
 | `assets/plan-be79d13976a510b0.js` | — | partagé | 6 Ko |
@@ -64,7 +65,7 @@ Un morceau partagé est importé par plusieurs autres ; « à la demande » : de
 | `assets/plan-2fcdf981b22ca45a.js` | — | partagé | 6 Ko |
 | `assets/plan-92dae8bc68ad43d7.js` | — | à la demande | 6 Ko |
 | `assets/plan-b84c8bff364f208b.js` | `src/app/vitrine.ts` | à la demande | 6 Ko |
-| `assets/plan-6f993eef711f3c55.js` | `src/app/porte.ts` | à la demande | 6 Ko |
+| `assets/plan-8a5819fe2647ba19.js` | `src/app/porte.ts` | à la demande | 6 Ko |
 | `assets/plan-6bdb1961d9903542.js` | `src/app/ecranChaine.ts` | à la demande | 5 Ko |
 | `assets/plan-7447348f5038f408.js` | — | partagé | 5 Ko |
 | `assets/plan-0891f1ba2bd251f7.js` | `src/io/depotPlateforme.ts` | à la demande | 5 Ko |
@@ -77,27 +78,27 @@ Un morceau partagé est importé par plusieurs autres ; « à la demande » : de
 | `assets/plan-6e777d2796c40896.js` | — | partagé | 4 Ko |
 | `assets/plan-d4347f1e28986c99.js` | — | partagé | 4 Ko |
 | `assets/plan-bbf8e279aa27d0b4.js` | — | partagé | 4 Ko |
-| `assets/plan-80d90fea89723c06.js` | `src/zones/parcours/AuditFin.tsx` | à la demande | 3 Ko |
+| `assets/plan-9d340fd8dbca06b6.js` | `src/zones/parcours/AuditFin.tsx` | à la demande | 3 Ko |
 | `assets/plan-fce1371e79701fbf.js` | — | partagé | 3 Ko |
 | `assets/plan-94ed645d4f5cce9b.js` | — | partagé | 3 Ko |
 | `assets/plan-667d74b93b5ff589.js` | — | partagé | 3 Ko |
 | `assets/plan-e5e80fcd36d34953.js` | — | partagé | 3 Ko |
-| `assets/plan-be96511f3694c32e.js` | — | partagé | 3 Ko |
+| `assets/plan-b2034f6cc7f7f449.js` | — | partagé | 3 Ko |
 | `assets/plan-38d8b1401f8677be.js` | — | partagé | 3 Ko |
 | `assets/plan-d0ebf13f114294cd.js` | `src/app/porteAdmin.ts` | à la demande | 2 Ko |
-| `assets/plan-4e4a5d01cd4e64b5.js` | — | partagé | 2 Ko |
-| `assets/plan-76e8a8decbd056ce.js` | — | partagé | 2 Ko |
+| `assets/plan-93c8a9f89e127963.js` | — | partagé | 2 Ko |
+| `assets/plan-2e5586aa9ceae28a.js` | — | partagé | 2 Ko |
 | `assets/plan-b1216457165252fc.js` | — | partagé | 2 Ko |
 | `assets/plan-26837ac2945855d7.js` | — | partagé | 2 Ko |
+| `assets/plan-4cdf6054c4c14c65.js` | `src/io/api.ts` | à la demande | 2 Ko |
 | `assets/plan-ffcd089ecd3a631f.js` | — | à la demande | 2 Ko |
-| `assets/plan-cdef81a2748aa009.js` | `src/io/api.ts` | à la demande | 2 Ko |
 | `assets/plan-840b8613c74cf6c5.js` | — | partagé | 2 Ko |
 | `assets/plan-02ded85889e92f01.js` | — | partagé | 2 Ko |
 | `assets/plan-726d13aa3b1d2e77.js` | — | partagé | 2 Ko |
 | `assets/plan-51ff6c48ae211027.js` | — | partagé | 2 Ko |
-| `assets/plan-2d7097ff8b614afe.js` | — | partagé | 2 Ko |
+| `assets/plan-cbee70b2651fd39a.js` | — | partagé | 2 Ko |
 | `assets/plan-220bf088d0eaaa7c.js` | — | partagé | 1 Ko |
-| `assets/plan-2bafaed54c3f21d2.js` | — | partagé | 1 Ko |
+| `assets/plan-6d240893445040b0.js` | — | partagé | 1 Ko |
 | `assets/plan-06513a5beef76435.js` | — | partagé | 1 Ko |
 | `assets/plan-887ae5df3576c20a.js` | — | partagé | 1 Ko |
 | `assets/plan-9e9a5b3490d21eea.js` | — | partagé | 1 Ko |
@@ -180,7 +181,7 @@ Imports de valeurs seulement (les `import type` disparaissent à la compilation)
 | (racine de src) | shell | 2 | 2 |
 | (racine de src) | app | 0 | 25 |
 | (racine de src) | io | 0 | 6 |
-| app | model | 153 | 0 |
+| app | model | 152 | 1 |
 | app | facade | 78 | 0 |
 | app | shell | 76 | 0 |
 | app | three | 57 | 2 |

@@ -27,12 +27,12 @@ function estRegistre(d: unknown): d is RegistreControleurs {
 let lecture: Promise<() => Promise<SourceControleurs>> | null = null;
 
 function demarrerPlan(): Promise<() => Promise<SourceControleurs>> {
-  lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(([{ boot, graineVitrine }, { FONCTIONS }]) => new Promise((resoudre) => {
+  lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(async ([{ boot, graineVitrine }, { FONCTIONS }]) => {
     // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
-    const graine = graineVitrine();
+    const graine = await graineVitrine();
     graine.objects.push(...echantillonsDecouverte(graine.objects, FONCTIONS));
-    boot(graine, { controleurs: resoudre });
-  }));
+    return new Promise<() => Promise<SourceControleurs>>((resoudre) => { boot(graine, { controleurs: resoudre }); });
+  });
   return lecture;
 }
 

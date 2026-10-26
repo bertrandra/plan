@@ -40,6 +40,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le jeu de démonstration ne se télécharge plus à l'ouverture** (AD-10, sixième coupure). Le plan de démonstration
+  (`model/demo-projet.json` et `model/demo.ts`) pesait plus que tout le relevé de façade, chargé par tout le monde alors qu'il
+  ne sert qu'à la première visite. Il se lit maintenant à la demande : en choisissant « Démonstration », quand l'API ne répond
+  pas sur un navigateur neuf, dans la vitrine et pour la découverte des contrôleurs. Un projet du serveur s'ouvre sans lui.
+  `chargerProjetInitial` reçoit une fonction qui lit la démonstration au lieu des données elles-mêmes, et `graineVitrine`
+  devient asynchrone. À l'ouverture, le programme passe de 1 998 Ko à 1 722 Ko ; la démonstration apporte 276 Ko quand on la
+  choisit. `essayer-paquet` sépare l'ouverture de la démonstration.
+
 - **Le relevé de façade et les PDF ne se téléchargent plus à l'ouverture** (AD-10, étape 2b, quatrième et cinquième
   coupures). Le parcours du relevé (`zones/Releve.tsx`) et ce qu'il atteint (analyse des façades, calage, caméra) se
   chargent quand un relevé s'ouvre : une coquille (`zones/ReleveALaDemande.tsx`) attend l'ouverture. Les PDF (plan à

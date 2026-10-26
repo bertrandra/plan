@@ -1,10 +1,13 @@
 // Ce que le demarrage recoit (app/boot.ts) : le projet initial, ou la graine de la vitrine et du mode audit.
 
-import { DEMO_OBJECTS, DEMO_TEMOIN_OBJECTS, DEMO_MEASURES } from '../../model/demo.js';
 import { chargerProjetInitial } from '../../io/api.js';
 import { demanderPremierPas } from '../premierPas.js';
 import type { ObjetBrut, Mesure } from '../../model/types.js';
 import type { ProjetResume } from '../../io/api.js';
+
+// Le jeu de demonstration (model/demo.ts, et son projet de 300 Ko) se lit a la demande (AD-10) : la premiere visite, la
+// vitrine, la decouverte des controleurs. Un projet du serveur s'ouvre sans lui.
+const demonstration = () => import('../../model/demo.js');
 
 // ================= Persistance : projets via api.php (fichiers JSON cote serveur) =================
 // Si api.php est absent ou injoignable (fichier ouvert en local, hebergement sans backend
@@ -17,7 +20,18 @@ export async function loadInitialProject(){
   // En developpement, `?temoin` ouvre le plan de demonstration d'origine, celui dont les golden
   // files sont captures (tests/fixtures/golden/EMPREINTES.md) ; le fichier livre ne le propose pas.
   const temoin = import.meta.env.DEV && new URLSearchParams(location.search).has('temoin');
-  return chargerProjetInitial(temoin ? DEMO_TEMOIN_OBJECTS : DEMO_OBJECTS, DEMO_MEASURES, demanderPremierPas);
+  return chargerProjetInitial(async () => {
+    const d = await demonstration();
+    return { objets: temoin ? d.DEMO_TEMOIN_OBJECTS : d.DEMO_OBJECTS, mesures: d.DEMO_MEASURES };
+  }, demanderPremierPas);
+}
+
+/**
+ * La graine du mode audit (app/audit/) : un plan vide, sans depot. La parcelle de depart arrive
+ * avec la premiere position (le GPS, ou l'adresse de `depart`).
+ */
+export function graineAudit(){
+  return graineDe({ objects: [], measures: [] });
 }
 
 /**
@@ -25,21 +39,20 @@ export async function loadInitialProject(){
  * personne — ni plateforme, ni stockage du navigateur. La forme est celle que rend
  * `chargerProjetInitial` quand aucune API ne repond.
  */
-/**
- * La graine du mode audit (app/audit/) : un plan vide, sans depot. La parcelle de depart arrive
- * avec la premiere position (le GPS, ou l'adresse de `depart`).
- */
-export function graineAudit(){
-  return { ...graineVitrine(), objects: [] as ObjetBrut[], measures: [] as Mesure[] } satisfies GraineDemarrage;
+export async function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | null){
+  // Une demo de l'admin (`?mode=demo&file=<id>`, app/vitrine.ts), sinon la demonstration integree.
+  if (demo) return graineDe(demo);
+  const m = await demonstration();
+  return graineDe({ objects: m.DEMO_OBJECTS, measures: m.DEMO_MEASURES });
 }
 
-export function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mesure[] } | null){
+/** Une graine sans depot, sur ces objets et ces mesures (copies). */
+function graineDe(d: { objects: unknown[]; measures: unknown[] }){
   return {
     apiAvailable: false,
     list: [] as ProjetResume[],
-    // Une demo de l'admin (`?mode=demo&file=<id>`, app/vitrine.ts), sinon la demonstration integree.
-    objects: JSON.parse(JSON.stringify(demo ? demo.objects : DEMO_OBJECTS)) as ObjetBrut[],
-    measures: JSON.parse(JSON.stringify(demo ? demo.measures : DEMO_MEASURES)) as Mesure[],
+    objects: JSON.parse(JSON.stringify(d.objects)) as ObjetBrut[],
+    measures: JSON.parse(JSON.stringify(d.measures)) as Mesure[],
     meta: null as ProjetResume | null,
     schemaVersion: null as number | null,
     ouvrirAdresse: false

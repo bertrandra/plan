@@ -40,10 +40,15 @@ await servirThreeLocal(page);
 await simulerPlateforme(page);
 await page.addInitScript(() => { window.__sansToitsFond = true; });
 await page.goto(base + '/');
-await page.getByRole('button', { name: /d[ée]monstration/i }).click();
+const boutonDemo = page.getByRole('button', { name: /d[ée]monstration/i });
+await boutonDemo.waitFor({ timeout: 30000 });
+await page.waitForTimeout(800);
+await etape('ouverture');
+// Le jeu de demonstration se lit au clic (AD-10).
+await boutonDemo.click();
 await page.waitForSelector('#stage svg');
 await page.waitForTimeout(800);
-await etape('ouverture et démonstration');
+await etape('démonstration');
 
 await page.getByRole('button', { name: 'Vue 3D', exact: true }).first().click();
 await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });

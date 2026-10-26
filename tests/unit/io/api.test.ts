@@ -10,6 +10,8 @@ import type { DepotProjets } from '../../../src/io/depotPlateforme.js';
 
 const DEMO = [{ key: 'demo' }];
 const MESURES = [{ id: 'm' }];
+/** Le jeu de demonstration, lu a la demande : `demo.mock.calls` dit s'il l'a ete. */
+let demo: ReturnType<typeof vi.fn>;
 
 /** Une defaillance telle que le depot la traduit : un message et un motif, jamais un statut brut. */
 function echec(motif: 'network' | 'notfound' | 'server' | 'badjson', message = 'injoignable') {
@@ -22,6 +24,7 @@ let enregistrer: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   localStorage.clear();
+  demo = vi.fn(async () => ({ objets: DEMO, mesures: MESURES }));
   history.replaceState(null, '', '/');
   lister = vi.fn();
   ouvrir = vi.fn();
@@ -36,7 +39,7 @@ afterEach(() => {
 describe('quand ce navigateur n a jamais ouvert de projet', () => {
   it('demarre sur la demonstration si l API est injoignable', async () => {
     lister.mockRejectedValue(echec('network'));
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.apiAvailable).toBe(false);
     expect(r.objects).toEqual(DEMO);
     expect(r.measures).toEqual(MESURES);
@@ -45,14 +48,14 @@ describe('quand ce navigateur n a jamais ouvert de projet', () => {
   it('copie le jeu de demonstration plutot que de le partager', async () => {
     // Sans copie, la premiere modification du plan abimerait le jeu de demonstration pour de bon.
     lister.mockRejectedValue(echec('network'));
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.objects).not.toBe(DEMO);
     expect(r.objects[0]).not.toBe(DEMO[0]);
   });
 
   it('demarre aussi sur la demonstration quand la plateforme repond du charabia', async () => {
     lister.mockRejectedValue(echec('badjson', 'reponse illisible'));
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.apiAvailable).toBe(false);
   });
 });
@@ -62,13 +65,13 @@ describe('quand un projet est connu', () => {
     // C'est le coeur de la regle : un vrai projet existe peut-etre cote serveur.
     localStorage.setItem(LS_LAST_PROJECT, 'p1');
     lister.mockRejectedValue(echec('network'));
-    await expect(chargerProjetInitial(DEMO, MESURES)).rejects.toThrow(/injoignable/);
+    await expect(chargerProjetInitial(demo)).rejects.toThrow(/injoignable/);
   });
 
   it('porte le motif reseau, pour que l appelant sache quoi montrer', async () => {
     localStorage.setItem(LS_LAST_PROJECT, 'p1');
     lister.mockRejectedValue(echec('network'));
-    const erreur = await chargerProjetInitial(DEMO, MESURES).catch((e) => e);
+    const erreur = await chargerProjetInitial(demo).catch((e) => e);
     expect(erreur.reason).toBe('network');
   });
 
@@ -105,9 +108,11 @@ describe('le projet demande par l adresse', () => {
     lister.mockResolvedValue([{ id: 'p1', name: 'un' }, { id: 'p2', name: 'deux' }]);
     ouvrir.mockResolvedValue({ objects: [], measures: [], meta: { id: 'p1', name: 'un' } });
 
-    await chargerProjetInitial(DEMO, MESURES);
+    await chargerProjetInitial(demo);
 
     expect(ouvrir).toHaveBeenCalledWith('p1');
+    // Un projet du serveur s'ouvre sans lire le jeu de demonstration (AD-10).
+    expect(demo).not.toHaveBeenCalled();
   });
 });
 
@@ -116,7 +121,7 @@ describe('choix du projet a ouvrir', () => {
     localStorage.setItem(LS_LAST_PROJECT, 'p2');
     lister.mockResolvedValue([{ id: 'p1', name: 'un' }, { id: 'p2', name: 'deux' }]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'x' }], measures: [], meta: { id: 'p2', name: 'deux' } });
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.apiAvailable).toBe(true);
     expect((r.meta as { name: string }).name).toBe('deux');
     expect(ouvrir).toHaveBeenCalledWith('p2');
@@ -126,14 +131,14 @@ describe('choix du projet a ouvrir', () => {
     localStorage.setItem(LS_LAST_PROJECT, 'efface');
     lister.mockResolvedValue([{ id: 'p1', name: 'un' }]);
     ouvrir.mockResolvedValue({ objects: [], measures: [] });
-    await chargerProjetInitial(DEMO, MESURES);
+    await chargerProjetInitial(demo);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p1');
   });
 
   it('cree un projet de demonstration quand la plateforme n en a aucun', async () => {
     lister.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'neuf', name: 'demo' }]);
     ouvrir.mockResolvedValue({ objects: [], measures: [] });
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.apiAvailable).toBe(true);
     expect(enregistrer).toHaveBeenCalled();
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('neuf');
@@ -142,14 +147,14 @@ describe('choix du projet a ouvrir', () => {
   it('retient le projet ouvert, pour le retrouver au retour', async () => {
     lister.mockResolvedValue([{ id: 'p9', name: 'neuf' }]);
     ouvrir.mockResolvedValue({ objects: [], measures: [] });
-    await chargerProjetInitial(DEMO, MESURES);
+    await chargerProjetInitial(demo);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p9');
   });
 
   it('rend une liste de mesures vide quand le projet n en a pas', async () => {
     lister.mockResolvedValue([{ id: 'p1', name: 'un' }]);
     ouvrir.mockResolvedValue({ objects: [] });
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(r.measures).toEqual([]);
   });
 });
@@ -163,7 +168,7 @@ describe('un document qui n est pas un plan', () => {
       .mockResolvedValueOnce([{ id: 'neuf', name: 'Parcelle AE 101' }]);
     ouvrir.mockRejectedValueOnce(echec('badjson', 'pas la forme d un plan'))
       .mockResolvedValueOnce({ objects: [{ key: 'demo' }], measures: [] });
-    const r = await chargerProjetInitial(DEMO, MESURES);
+    const r = await chargerProjetInitial(demo);
     expect(enregistrer).toHaveBeenCalled();
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('neuf');
     expect(r.apiAvailable).toBe(true);
@@ -175,7 +180,7 @@ describe('un document qui n est pas un plan', () => {
     localStorage.setItem(LS_LAST_PROJECT, 'etranger');
     lister.mockResolvedValue([{ id: 'etranger', name: 'Abri de jardin' }]);
     ouvrir.mockRejectedValue(echec('badjson', 'pas la forme d un plan'));
-    await expect(chargerProjetInitial(DEMO, MESURES)).rejects.toThrow(/plan/);
+    await expect(chargerProjetInitial(demo)).rejects.toThrow(/plan/);
     expect(enregistrer).not.toHaveBeenCalled();
   });
 });
@@ -217,14 +222,14 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     lister.mockResolvedValue([]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
     const demande = vi.fn().mockResolvedValue('demo');
-    await chargerProjetInitial(DEMO, MESURES, demande);
+    await chargerProjetInitial(demo, demande);
     expect(demande).toHaveBeenCalledOnce();
   });
 
   it('cree la demonstration quand c est ce qu on repond', async () => {
     lister.mockResolvedValue([]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
-    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn().mockResolvedValue('demo'));
+    const r = await chargerProjetInitial(demo, vi.fn().mockResolvedValue('demo'));
     expect(enregistrer).toHaveBeenCalledOnce();
     expect(enregistrer.mock.calls[0]![0]).toMatchObject({ name: 'Parcelle AE 101', objects: DEMO });
     expect(r.ouvrirAdresse).toBe(false);
@@ -232,7 +237,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
 
   it('rend un plan vierge et demande l import cadastre quand on repond « adresse »', async () => {
     lister.mockResolvedValue([]);
-    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn().mockResolvedValue('adresse'));
+    const r = await chargerProjetInitial(demo, vi.fn().mockResolvedValue('adresse'));
     expect(r.ouvrirAdresse).toBe(true);
     expect(r.objects).toEqual([]);
     expect(r.measures).toEqual([]);
@@ -249,7 +254,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     lister.mockResolvedValue([{ id: 'p1', name: 'North wall' }]);
     ouvrir.mockRejectedValue(echec('badjson', 'donnees corrompues'));
     const demande = vi.fn().mockResolvedValue('adresse');
-    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    const r = await chargerProjetInitial(demo, demande);
     expect(demande).toHaveBeenCalledWith(true);
     expect(r.ouvrirAdresse).toBe(true);
   });
@@ -257,7 +262,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
   it('dit que l organisation est neuve quand elle n a vraiment aucun projet', async () => {
     lister.mockResolvedValue([]);
     const demande = vi.fn().mockResolvedValue('adresse');
-    await chargerProjetInitial(DEMO, MESURES, demande);
+    await chargerProjetInitial(demo, demande);
     expect(demande).toHaveBeenCalledWith(false);
   });
 
@@ -265,7 +270,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     lister.mockResolvedValue([{ id: 'p1', name: 'un plan' }]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [], meta: { id: 'p1', name: 'un plan' } });
     const demande = vi.fn();
-    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    const r = await chargerProjetInitial(demo, demande);
     expect(demande).not.toHaveBeenCalled();
     expect(r.ouvrirAdresse).toBe(false);
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe('p1');
@@ -278,7 +283,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     lister.mockResolvedValue([{ id: 'p1', name: 'le sien' }]);
     ouvrir.mockRejectedValue(echec('badjson', 'donnees corrompues'));
     const demande = vi.fn();
-    await expect(chargerProjetInitial(DEMO, MESURES, demande)).rejects.toThrow(/corrompues/);
+    await expect(chargerProjetInitial(demo, demande)).rejects.toThrow(/corrompues/);
     expect(demande).not.toHaveBeenCalled();
   });
 
@@ -287,7 +292,7 @@ describe('le premier pas, quand il n y a aucun plan a ouvrir', () => {
     // demonstration se cree comme avant. C'est ce que decrivent les essais du haut de ce fichier.
     lister.mockResolvedValue([]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'a' }], measures: [] });
-    await chargerProjetInitial(DEMO, MESURES);
+    await chargerProjetInitial(demo);
     expect(enregistrer).toHaveBeenCalledOnce();
   });
 });
@@ -300,7 +305,7 @@ describe('un projet recu avec un document vide ({})', () => {
     lister.mockResolvedValue([{ id: 'p9', name: 'Maison Dupont' }]);
     ouvrir.mockResolvedValue(NEUF);
     const demande = vi.fn();
-    const r = await chargerProjetInitial(DEMO, MESURES, demande);
+    const r = await chargerProjetInitial(demo, demande);
     expect(r.ouvrirAdresse).toBe(true);
     expect(r.objects).toEqual([]);
     expect(r.meta).toEqual({ id: 'p9', name: 'Maison Dupont' });
@@ -313,7 +318,7 @@ describe('un projet recu avec un document vide ({})', () => {
   it('de meme quand c est Plan qui l a choisi, premier de la liste', async () => {
     lister.mockResolvedValue([{ id: 'p9', name: 'Maison Dupont' }]);
     ouvrir.mockResolvedValue(NEUF);
-    const r = await chargerProjetInitial(DEMO, MESURES, vi.fn());
+    const r = await chargerProjetInitial(demo, vi.fn());
     expect(r.ouvrirAdresse).toBe(true);
     expect(r.meta?.id).toBe('p9');
   });
@@ -330,7 +335,7 @@ describe('depot des demos de l admin', () => {
     expect(cleDernierProjet()).toBe(LS_LAST_DEMO);
     lister.mockResolvedValue([{ id: '2', name: 'Démo 2' }]);
     ouvrir.mockResolvedValue({ objects: [{ key: 'x' }], meta: { id: '2', name: 'Démo 2' } });
-    await chargerProjetInitial(DEMO, MESURES);
+    await chargerProjetInitial(demo);
     expect(ouvrir).toHaveBeenCalledWith('2');
     expect(localStorage.getItem(LS_LAST_DEMO)).toBe('2');
     expect(localStorage.getItem(LS_LAST_PROJECT)).toBe(null);
