@@ -9,7 +9,7 @@ import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/modeToit.js
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
-import { piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
+import { OPTIONS_PIECE, piecesDe, raisonIndisponible, rangDuCorpsChoisi, type FamillePiece, type PieceCatalogue } from '../../three/gestesToits.js';
 import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
@@ -187,14 +187,30 @@ export function ModeToit({ magasin, commandes }: Props) {
       </div>
       <div className="toitCatalogue">
         {piecesDe(onglet).map((p) => {
-          const refus = o ? raisonIndisponible(o, p.id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.';
-          return (
+          const refusDe = (id: string) => (o ? raisonIndisponible(o, id, s.facade ?? s.derniere, e.selection?.rang ?? null) : 'Aucun bâtiment.');
+          const refus = refusDe(p.id), options = OPTIONS_PIECE[p.id];
+          const bouton = (
             <button key={p.id} type="button" className="toitPiece" data-commande="toit.poser" data-piece={p.id}
               disabled={!!refus || !pose.utilisable} title={p.libelle + (refus ? ' — ' + refus : '')} aria-label={p.libelle}
               onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>
               <span className="glyphe"><ImagePiece p={p} /></span>
               <span className="libelle">{p.libelle}</span>
             </button>
+          );
+          if (!options) return bouton;
+          // Les variantes de la piece, sous sa vignette : le quatre-pans en trois pans, la croupe a un seul bout du faitage.
+          return (
+            <div key={p.id} className="toitPieceOptions" role="group" aria-label={p.libelle}>
+              {bouton}
+              {options.map((v) => {
+                const r = refusDe(v.id);
+                return (
+                  <button key={v.id} type="button" className="optionPiece" data-commande="toit.poser" data-piece={v.id}
+                    disabled={!!r || !pose.utilisable} title={'Trois pans : ' + v.libelle.toLowerCase() + ' du faîtage, un pignon à l’autre bout' + (r ? ' — ' + r : '')}
+                    onClick={(ev) => { commandes.executer('toit.poser', ev.currentTarget); }}>{v.libelle}</button>
+                );
+              })}
+            </div>
           );
         })}
       </div>

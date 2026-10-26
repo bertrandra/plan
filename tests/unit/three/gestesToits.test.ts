@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal, rangDuCorpsChoisi } from '../../../src/three/gestesToits.js';
+import { OPTIONS_PIECE, PIECES, piecesDe, appliquerPiece, raisonIndisponible, reprendreLectureAuto, corpsPrincipal, rangDuCorpsChoisi } from '../../../src/three/gestesToits.js';
 import { vueIsometrique, EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -36,6 +36,25 @@ describe('poser un geste', () => {
     expect(c.faitage).toBeCloseTo(5.5, 1);
     expect(o.toitFige).toBe(true);
     expect(o.modeToit).toBe('corps');
+  });
+  it('le quatre-pans se pose aussi en trois pans : une croupe au debut ou a la fin du faitage, un pignon a l autre bout', () => {
+    const debut = batiment(), fin = batiment(), quatre = batiment();
+    expect(appliquerPiece(debut, 'forme:croupes-debut')).toBe(true);
+    expect(appliquerPiece(fin, 'forme:croupes-fin')).toBe(true);
+    expect(appliquerPiece(quatre, 'forme:croupes')).toBe(true);
+    const [h0, h1] = corpsPrincipal(quatre)!.croupes!;
+    expect(h0).toBeGreaterThan(0);
+    expect(corpsPrincipal(debut)!.croupes).toEqual([h0, 0]);
+    expect(corpsPrincipal(fin)!.croupes).toEqual([0, h1]);
+    // Le reste du corps est celui du quatre-pans : meme emprise, memes hauteurs ; le toit simple se dit en croupes.
+    expect(corpsPrincipal(debut)!.faitage).toBe(corpsPrincipal(quatre)!.faitage);
+    expect(debut.toit?.forme).toBe('croupes');
+  });
+  it('les trois pans sont des options sous la vignette du quatre-pans, pas des vignettes a eux', () => {
+    const ids = OPTIONS_PIECE['forme:croupes']!.map((v) => v.id);
+    expect(ids).toEqual(['forme:croupes-debut', 'forme:croupes-fin']);
+    expect(piecesDe('toit').map((p) => p.id)).not.toContain('forme:croupes-debut');
+    for (const id of ids) expect(PIECES.find((p) => p.id === id)).toBeDefined();
   });
   it('une cheminee se pose sur un batiment sans corps, en creant le corps', () => {
     const o = batiment();
@@ -139,6 +158,14 @@ describe('un geste n agit que sur le corps choisi', () => {
     expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(3, 1);
     expect(Math.min(...c.egouts)).toBeCloseTo(2.5, 1);
     expect(c.croupes?.some((v) => v > 0)).toBe(true);
+  });
+  it('les trois pans ne changent que le corps choisi, la croupe au bout demande', () => {
+    const o = deuxCorps(), grand = JSON.stringify(o.corpsToit![0]);
+    expect(appliquerPiece(o, 'forme:croupes-fin', null, 1)).toBe(true);
+    expect(JSON.stringify(o.corpsToit![0])).toBe(grand);
+    const [h0, h1] = o.corpsToit![1]!.croupes!;
+    expect(h0).toBe(0);
+    expect(h1).toBeGreaterThan(0);
   });
   it('un element du toit va sur le corps choisi, pas sur le corps principal', () => {
     const o = deuxCorps();

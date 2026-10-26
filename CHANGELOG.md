@@ -33,7 +33,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'activer. La notice de déploiement gagne un paragraphe « Sauvegarde » : vérifier la sauvegarde automatique de l'hébergeur
   (SiteGround : Site Tools › Security › Backups) et télécharger l'archive avant chaque mise à jour.
 
+- **Le toit à trois pans dans le catalogue du mode Toit.** Sous la vignette « Quatre pans » (onglet « Toit »), deux options :
+  « Croupe au début » et « Croupe à la fin ». Le corps prend le quatre-pans du catalogue avec une seule croupe, au bout du
+  faîtage demandé, et un pignon à l'autre bout (`croupes` à `[h, 0]` ou `[0, h]`, que la 3D dessinait déjà). Comme toute forme,
+  elle ne change que le corps choisi, ou le bâtiment entier sans choix. Au doigt, les options sont des cibles de 44 px.
+
 ### Modifié
+
+- **Vue de dessus du mode Toit : les silhouettes des corps collent au nu extérieur des façades.** La caméra est en
+  perspective, et chaque corps se projetait au sol : son contour se dessinait en retrait, plus petit que le bâtiment vu de
+  dessus. Il se projette maintenant à la hauteur de son égout, le haut de ses façades ; le faîtage à sa hauteur, les marqueurs
+  (pignon, lucarne, cheminée) à celle du toit sous eux. Les poignées qui étirent un corps sont sur ses bords à la même hauteur ;
+  celle qui le déplace reste au milieu du faîtage.
 
 - **Le second serveur, en Node, est retiré : `buildsg/` n'existe plus** (revue du dépôt). Il n'était plus déployé (sa copie
   datait de la 2.2.0) et chaque route devait s'écrire deux fois, en PHP et en Node ; les deux s'écartaient. Le seul serveur est
