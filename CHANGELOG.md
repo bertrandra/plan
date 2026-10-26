@@ -61,6 +61,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le moteur de la piscine se lit par morceaux** (`engine/piscine/`, feuille de route, étape 4.2). Les 957 lignes de
+  `engine/piscine.ts` sont rangées en cinq fichiers, un par étape : réglages, géométrie, calcul, chiffrage, note de calcul.
+  `engine/piscine.ts` les réexporte, si bien que rien d'autre ne change d'import. Le code est déplacé tel quel ; les empreintes et
+  les tests ne bougent pas.
 - **Le plan suit mieux le geste : les zones ne refont plus à chaque rendu ce qu'elles avaient déjà** (feuille de route, étape 2.1).
   - **Inspecteur** : chaque champ de la construction (sa note, sa visibilité, son état) relisait toute la terrasse : grille des
     vis, zones de spa, surface, et hauteur de chaque appui sur le relief. Cela faisait des dizaines de lectures par rendu ; il
