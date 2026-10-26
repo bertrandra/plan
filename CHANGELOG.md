@@ -61,6 +61,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
+  n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
+  bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout
+  autre état de module (`let`) dans `util`, `geometry`, `model`, `regles`, `engine`, `geo` et `facade`. Il refuse aussi qu'un
+  de ces registres se pose ailleurs que depuis `app/` ou `io/`. L'étape 1.4 (garder avec un relevé la calibration qui l'a
+  produit) attend un rejeu qui en ait besoin : c'est un champ de schéma.
+
 - **Les nombres d'un ancien projet ne suivent plus le code d'aujourd'hui** (feuille de route, étapes 1.1 et 1.2 ; AD-19). Deux
   chemins donnaient des nombres à un ancien fichier sans numéro de schéma, et un témoin cassait seulement s'ils bougeaient.
   - **Le remplissage** : ce qu'un projet reçoit quand un réglage de construction lui manque lit maintenant une table de valeurs
