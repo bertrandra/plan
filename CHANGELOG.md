@@ -65,6 +65,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   `engine/piscine.ts` sont rangées en cinq fichiers, un par étape : réglages, géométrie, calcul, chiffrage, note de calcul.
   `engine/piscine.ts` les réexporte, si bien que rien d'autre ne change d'import. Le code est déplacé tel quel ; les empreintes et
   les tests ne bougent pas.
+
+- **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
+  n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
+  bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout
+  autre état de module (`let`) dans `util`, `geometry`, `model`, `regles`, `engine`, `geo` et `facade`. Il refuse aussi qu'un
+  de ces registres se pose ailleurs que depuis `app/` ou `io/`. L'étape 1.4 (garder avec un relevé la calibration qui l'a
+  produit) attend un rejeu qui en ait besoin : c'est un champ de schéma.
+
 - **Le plan suit mieux le geste : les zones ne refont plus à chaque rendu ce qu'elles avaient déjà** (feuille de route, étape 2.1).
   - **Inspecteur** : chaque champ de la construction (sa note, sa visibilité, son état) relisait toute la terrasse : grille des
     vis, zones de spa, surface, et hauteur de chaque appui sur le relief. Cela faisait des dizaines de lectures par rendu ; il
@@ -181,6 +189,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Deux écritures simultanées de l'admin ne perdent plus rien** (`deploy/admin.php`, feuille de route, étape 5.1). Deux démos
+  ajoutées au même instant cherchaient le même numéro libre : la seconde écrasait la première (11 démos sur 12 gardées, une fois
+  sur trois, dans le test). Le numéro se cherche et se prend désormais sous un verrou du dossier, et toute écriture d'un document
+  (démo, palette, arbres, contrôleurs, calibration, cas de calibration) passe sous le verrou de son fichier, si bien que la copie
+  `.bak` est bien la version d'avant. Les documents entiers restent au dernier qui écrit, comme avant. Test : douze ajouts
+  simultanés sur `php -S` à quatre processus.
 - **Le point 90 de la fumée (l'avant et l'après en deux vues) repasse partout.** Il échouait dans toutes les classes d'écran,
   sur `main` aussi : l'écran des propositions est devenu un accordéon (un seul niveau ouvert par groupe), et le script
   décochait « la première case cochée » sans ouvrir son niveau, la couverture de la maison restait dans « Toit », replié. Les
