@@ -61,6 +61,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les carrefours de `app/` allégés** (feuille de route, étape 3.3). Cinq des six modules qui importaient plus de vingt modules
+  passent sous la limite, chacun découpé par sujet : `audit/controleur.ts` 32 → 13, `cadastre/actualisationIgn.ts` 26 → 19,
+  `boot/branchements.ts` 25 → 19, `audit/parcelle/constats.ts` 23 → 13, `boot.ts` 22 → 17 ; `boot/plan.ts` passe de 29 à 23
+  (le rendu sort dans `boot/rendu.ts`). Le code est déplacé tel quel : chaque module réexporte les mêmes noms publics, et
+  l'ordre dans lequel les écouteurs s'enregistrent ne change pas. Le cliquet n'a plus qu'une ligne.
+
 - **Le banc du rendu mesure le paquet de production** (feuille de route, étape 2.1, terminée). `vite build --mode banc` donne un
   paquet de production qui garde les poignées de mesure (`window.__plan`) ; le paquet livré ne les porte toujours pas
   (`scripts/banc-rendu.mjs` dit comment l'utiliser). La recherche des doublons ne sérialise plus que les objets qui partagent leur
