@@ -124,6 +124,14 @@ RedirectMatch 404 ^/data(/|$)
     Header unset Expires
   </FilesMatch>
 
+  # Les bibliotheques de la livraison, `assets/vendor/<paquet>@<version>/…` (three.js, EZ-tree,
+  # pdf-lib ; etape 5.2 de la feuille de route) : la version est dans le chemin, un fichier n'y
+  # change donc jamais. FilesMatch ne voit que le nom du fichier, d'ou le test sur l'adresse.
+  <If "%{REQUEST_URI} =~ m#/assets/vendor/[^/]+@[^/]+/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header unset Expires
+  </If>
+
   # Les images et polices qui apparaitraient un jour a cote ne portent pas d'empreinte dans leur nom
   # et ne peuvent donc pas etre gardees indefiniment — une semaine est le compromis raisonnable.
   <FilesMatch "\.(png|jpg|jpeg|webp|avif|svg|woff2?|ico)$">
@@ -147,9 +155,11 @@ RedirectMatch 404 ^/data(/|$)
   #
   #   script-src   'self' : le programme, `assets/plan-<empreinte>.js` (plus les empreintes d'un
   #                script qui resterait en ligne : aucun d'ordinaire).
-  #                jsdelivr : three.js 0.186 et ses exemples (OrbitControls, GLTFLoader, GLTFExporter,
-  #                occlusion, lignes), modules ES que `three/bibliotheque.ts` importe a l'execution.
-  #                La table d'import de la page (index.html) y entre par son empreinte.
+  #                three.js 0.186 et ses exemples, EZ-tree et pdf-lib, servis depuis `assets/vendor/`
+  #                (etape 5.2) : 'self' les couvre. La table d'import de la page (index.html) y entre
+  #                par son empreinte.
+  #                jsdelivr : le secours d'EZ-tree et de pdf-lib quand leur copie ne se charge pas, et
+  #                model-viewer (realite augmentee), qui n'est pas une dependance du paquet.
   #   style-src    'unsafe-inline' : la feuille est inlinee, et le programme pose des styles.
   #                Les scripts n'ont pas cette permission, donc l'injection qui compte reste refusee.
   #   img-src      data: et blob: pour les exports et les textures ; data.geopf.fr pour les tuiles ;
@@ -162,7 +172,7 @@ RedirectMatch 404 ^/data(/|$)
   #                la recherche et le telechargement des photos de rue (geo/panoramax.ts).
   #                En 2.0.0, l'origine de la plateforme backprod s'ajoute ici (spec-connexion-plateforme §1).
   #   frame-ancestors 'none'  rien ici n'est fait pour etre encadre.
-  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-XfAe1sssmwlse4FtDg+1dBTumwfyLPSTM7ei/cTjfTM=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; font-src 'self'; connect-src 'self' blob: https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; worker-src 'self' blob:"
+  Header always set Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-siQlu5N5Sr17RjhfYN8/yjYFogdRD/ddKwU8o7rdsrs=' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://data.geopf.fr https://cdn.polyhaven.com https://dl.polyhaven.org https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; font-src 'self'; connect-src 'self' blob: https://www.raillard.org https://api-adresse.data.gouv.fr https://apicarto.ign.fr https://data.geopf.fr https://api.polyhaven.com https://cdn.polyhaven.com https://dl.polyhaven.org https://api.panoramax.xyz https://panoramax.openstreetmap.fr https://panoramax.ign.fr https://panoramax-storage-public-fast.s3.gra.perf.cloud.ovh.net; worker-src 'self' blob:"
   # 6. La vitrine publique (?mode=demo, app/vitrine.ts) se laisse encadrer par la plateforme, et
   #    par elle seule : la page d'accueil de son catalogue montre Plan en marche dans un <iframe>.
   #    Le reste du site reste `frame-ancestors 'none'` et `X-Frame-Options: DENY`. La condition
