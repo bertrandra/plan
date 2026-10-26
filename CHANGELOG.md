@@ -79,6 +79,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   interdit désormais tous. La règle « rien n'importe `legacy.ts` », sans objet depuis la 1.1.0, est retirée. Rien ne change à
   l'écran ni dans les exports.
 
+### Corrigé
+
+- **Mode Toit sur téléphone : le catalogue est de nouveau à portée du doigt.** Dans la feuille du panneau, bornée en hauteur, le
+  catalogue des pièces se réduisait à rien sous les onglets (« Corps », « Toit », « Sur le toit », « Façade ») : on ne pouvait
+  rien poser. Les blocs du panneau gardent leur hauteur et la feuille défile. Le point 98 de la fumée passe de nouveau en classe
+  compact.
+
 ## [3.0.0] — 2026-10-25
 
 Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des quantités changent pour certains projets.

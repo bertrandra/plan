@@ -81,6 +81,10 @@
   /* Le mode Toit de la Vue 3D : une barre de session, puis le catalogue du toit en images, sur le bas de la scene. */
   .panneauToit{ position:absolute; left:8px; right:64px; bottom:8px; z-index:5; max-height:46%; overflow:auto; background:var(--panel-bg); border:1px solid var(--rule); border-radius:10px; padding:6px 8px; display:flex; flex-direction:column; gap:6px; box-shadow:0 2px 10px rgba(0,0,0,.18); }
   /* Sur grand ecran, le panneau est une colonne a droite (comme dans la maquette) : la scene se cadre dans ce qui reste a gauche. */
+  /* Le panneau defile ; ses blocs gardent leur hauteur. Sans cela, dans la colonne flexible bornee en hauteur, le catalogue (qui
+     defile en largeur, donc en hauteur aussi) se reduisait a rien sur telephone : les pieces etaient sous les onglets, hors d'atteinte
+     (point 98 de la fumee, classe compact). */
+  .panneauToit > *{ flex-shrink:0; }
   html[data-classe="large"] .panneauToit{ top:8px; bottom:8px; left:auto; right:64px; width:340px; max-height:none; }
   html[data-classe="large"] .panneauToit .toitCatalogue{ flex-wrap:wrap; overflow-x:visible; }
   .panneauToit .barreToit{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
