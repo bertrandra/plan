@@ -382,8 +382,8 @@ async function captureJusquAuxPropositions(page) {
   await dessin.close();
   await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
   await page.locator('.rangementAudit').waitFor({ timeout: 10000 }).catch(() => {});
-  await etape('liste', () => page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 }));
-  await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
+  await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+  await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
   await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
   await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 60000 });
 }
@@ -539,6 +539,15 @@ const etatAudite = (page) => page.evaluate(() => {
  * ouvre d'abord, par leur titre, les niveaux qui la cachent.
  */
 /**
+ * Touche un element de l'ecran des propositions, une fois visible, par le DOM. Apres la Vue 3D (et l'avant/apres en deux vues),
+ * le rendu logiciel de la machine de la CI tient le fil : Playwright ne voit jamais l'element « stable » et son clic expire, au bureau
+ * surtout, ou le canevas est le plus grand (nuit du 26 octobre 2026 : 62, 63, 74, 75, 90, un theme ou l'autre). Comme entreeFichier.
+ */
+const toucher = async (element, timeout = 30000) => {
+  await element.waitFor({ state: 'visible', timeout });
+  await element.evaluate((e) => e.click());
+};
+/**
  * Ouvre les niveaux replies qui contiennent cet element de l'ecran des propositions : c'est un accordeon (un seul niveau ouvert
  * par groupe, zones/parcours/PropositionsAudit.tsx), une ligne peut donc etre dans un niveau ferme.
  */
@@ -548,13 +557,14 @@ const ouvrirSesNiveaux = async (page, element) => {
     for (let x = e.parentElement; x; x = x.parentElement) if (x.tagName === 'DETAILS' && !x.open) n.unshift(x.querySelector(':scope > summary')?.textContent ?? '');
     return n;
   });
-  for (const titre of fermes) await page.locator('details.niveauPropositions > summary', { hasText: titre }).first().click({ timeout: 10000 });
+  for (const titre of fermes) await toucher(page.locator('details.niveauPropositions > summary', { hasText: titre }).first(), 10000);
 };
 const cocherLigne = async (page, texte) => {
   const ligne = page.locator('.ligneProposition', { hasText: texte }).first();
   await ligne.waitFor({ state: 'attached', timeout: 30000 });
   await ouvrirSesNiveaux(page, ligne);
-  await ligne.locator('input[type="checkbox"]').check({ timeout: 30000 });
+  const caseLigne = ligne.locator('input[type="checkbox"]');
+  if (!(await caseLigne.isChecked())) await toucher(caseLigne);
 };
 const ligneProposition = async (page, texte) => {
   const l = page.locator('.ligneProposition', { hasText: texte }).first();
@@ -1892,8 +1902,8 @@ const POINTS = {
     await dessin.close();
     await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
     await page.locator('.rangementAudit').waitFor({ timeout: 30000 }).catch(() => {});
-    await etape('liste', () => page.locator('[data-controle="auditParcelle.liste"]').click({ timeout: 30000 }));
-    await etape('lancer', () => page.locator('[data-controle="auditParcelle.lancer"]').click({ timeout: 30000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
     await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
     await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
     // L'ecran s'ouvre sur « Les deux » (point 90) : ici, la vue unique, que la camera cadre au-dessus de la carte.
@@ -1961,12 +1971,12 @@ const POINTS = {
     const couverture = await ligneProposition(page, 'Couverture de Maison');
     const cloture = await ligneProposition(page, 'Clôture côté rue');
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
-    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }).click({ timeout: 30000 });
+    await toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }));
     await page.waitForTimeout(1500);
     const apresPresse = await page.locator('button[data-controle="auditParcelle.avantApres"][aria-pressed="true"]').textContent();
     const pendantApercu = await etatAudite(page);
-    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 });
-    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }).click({ timeout: 30000 });
+    await toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }));
+    await toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' }));
     // Le toast ne reste que quelques secondes, et la Vue 3D logicielle ralentit le clic d'autant :
     // on note chaque toast qui parait, plutot que de le chercher apres coup.
     await page.evaluate(() => {
@@ -1974,7 +1984,7 @@ const POINTS = {
       new MutationObserver(() => document.querySelectorAll('.toast').forEach((t) => { if (!window.__toastsVus.includes(t.textContent)) window.__toastsVus.push(t.textContent); }))
         .observe(document.body, { childList: true, subtree: true, characterData: true });
     });
-    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForTimeout(1500);
     const toast = (await page.evaluate(() => window.__toastsVus.find((t) => /Ctrl\+Z/.test(t)) ?? '')).trim();
     const ferme = (await page.locator('.auditPropositions').count()) === 0;
@@ -2003,7 +2013,7 @@ const POINTS = {
     const murs = await ligneProposition(page, 'Matériau des murs de Maison');
     const couverture = await ligneProposition(page, 'Couverture de Maison');
     await cocherLigne(page, 'Matériau des murs de Maison');
-    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForTimeout(1500);
     const e = JSON.parse(await etatAudite(page));
     await page.keyboard.press('Control+z');
@@ -2302,7 +2312,7 @@ const POINTS = {
     const avantValider = serveur.recus.length;
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
     await noterToasts(page);
-    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit partagé/.test(t)), null, { timeout: 30000 }).catch(() => {});
     const recu = serveur.recus[0];
     const fichier = recu ? JSON.parse(recu.texte) : null;
@@ -2312,7 +2322,7 @@ const POINTS = {
     // logicielle tient le fil : l'entree du menu se touche par le DOM, sans attendre qu'elle soit stable.
     await entreeFichier(page, 'audit.parcelle');
     await page.locator('.dialogueAuditParcelle').waitFor({ timeout: 30000 });
-    await page.locator('[data-controle="auditParcelle.propositions"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.propositions"]'));
     await page.locator('.partageAudit').waitFor({ timeout: 30000 });
     const noteApres = ((await page.locator('.partageAudit .notePartage').textContent()) || '').trim();
     await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').uncheck({ timeout: 30000 });
@@ -2337,7 +2347,7 @@ const POINTS = {
     await captureJusquAuxPropositions(page);
     await seulementLesMesures(page);
     await noterToasts(page);
-    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit partagé/.test(t)), null, { timeout: 30000 }).catch(() => {});
     const texte = serveur.recus[0]?.texte ?? '';
     await page.keyboard.press('Control+z');
@@ -2369,7 +2379,7 @@ const POINTS = {
     const caseCorpus = await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').isChecked().catch(() => null);
     const intact = (await etatAudite(page)) === avant;
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
-    await page.locator('[data-controle="auditParcelle.valider"]').click({ timeout: 30000 });
+    await toucher(page.locator('[data-controle="auditParcelle.valider"]'));
     await page.waitForTimeout(1500);
     const e = JSON.parse(await etatAudite(page));
     await page.keyboard.press('Control+z');
@@ -2505,7 +2515,7 @@ const POINTS = {
     // Une case cochee peut etre dans un niveau replie (l'ecran est un accordeon) : on l'ouvre d'abord.
     for (let i = 0; i < 10 && (await cochees.count()); i++) {
       await ouvrirSesNiveaux(page, cochees.first());
-      await cochees.first().click({ timeout: 30000 }); await page.waitForTimeout(300);
+      await toucher(cochees.first()); await page.waitForTimeout(300);
     }
     await page.waitForTimeout(2500);
     const d3 = await lireDeuxVues(page);
@@ -2514,10 +2524,10 @@ const POINTS = {
     const d4 = await lireDeuxVues(page);
     const pendant = await etatAudite(page);
     // « Avant » seul ferme les deux vues, « Les deux » les rouvre.
-    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }).click({ timeout: 30000 });
+    await toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Avant' }));
     await page.waitForTimeout(800);
     const seule = await page.locator('.etiquetteDeuxVues').count();
-    await page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Les deux' }).click({ timeout: 30000 });
+    await toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Les deux' }));
     await page.waitForTimeout(1500);
     const rouvertes = await page.locator('.etiquetteDeuxVues').count();
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
