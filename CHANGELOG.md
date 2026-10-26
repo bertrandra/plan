@@ -177,6 +177,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Deux écritures simultanées de l'admin ne perdent plus rien** (`deploy/admin.php`, feuille de route, étape 5.1). Deux démos
+  ajoutées au même instant cherchaient le même numéro libre : la seconde écrasait la première (11 démos sur 12 gardées, une fois
+  sur trois, dans le test). Le numéro se cherche et se prend désormais sous un verrou du dossier, et toute écriture d'un document
+  (démo, palette, arbres, contrôleurs, calibration, cas de calibration) passe sous le verrou de son fichier, si bien que la copie
+  `.bak` est bien la version d'avant. Les documents entiers restent au dernier qui écrit, comme avant. Test : douze ajouts
+  simultanés sur `php -S` à quatre processus.
 - **Le point 90 de la fumée (l'avant et l'après en deux vues) repasse partout.** Il échouait dans toutes les classes d'écran,
   sur `main` aussi : l'écran des propositions est devenu un accordéon (un seul niveau ouvert par groupe), et le script
   décochait « la première case cochée » sans ouvrir son niveau, la couverture de la maison restait dans « Toit », replié. Les
