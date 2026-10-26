@@ -257,6 +257,9 @@ const LIMITES = [
   'Note de pré-dimensionnement, établie avec les Eurocodes de première génération : elle ne remplace pas l\'étude d\'un bureau d\'études.'
 ];
 
+/** La note s'exporte quand ses charges sont calculees : regions de neige et de vent choisies. */
+export const noteExportable = (o: ObjetPlan | undefined): boolean => !!o && (noteDeCalcul(o)?.charges ?? null) !== null;
+
 /** La note de calcul d'une pergola ou d'un carport. */
 export function noteDeCalcul(o: ObjetPlan): NoteCalcul | null {
   const calc = calculerPergola(o);
