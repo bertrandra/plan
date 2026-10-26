@@ -345,8 +345,30 @@ function lireDocument(): array {
     return $d;
 }
 
+/**
+ * Un verrou exclusif le temps de $faire, sur un fichier voisin `<cible>.verrou` : deux requetes qui ecrivent le meme document (ou
+ * cherchent le meme numero libre) passent l'une apres l'autre, et la copie `.bak` est bien celle d'avant chaque ecriture. Le verrou
+ * tombe avec la requete, meme quand erreur() la termine. Un seul verrou par requete : flock ne se reprend pas sur un autre descripteur.
+ */
+function sousVerrou(string $cible, callable $faire) {
+    $dir = dirname($cible);
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
+    $h = @fopen($cible . '.verrou', 'c');
+    if (!$h || !flock($h, LOCK_EX)) erreur(500, 'SERVER_ERROR', 'Écriture impossible (verrou).');
+    try {
+        return $faire();
+    } finally {
+        flock($h, LOCK_UN); fclose($h);
+    }
+}
+
+/** Ecrit une demo : version precedente gardee en `.bak`, ecriture atomique. Sous le verrou du dossier (appelant). */
 function ecrire(string $dossier, string $id, array $document): void {
-    $f = fichier($dossier, $id);
+    ecrireFichier(fichier($dossier, $id), $document);
+}
+
+/** Ecrit un document JSON : version precedente gardee en `.bak`, ecriture atomique (fichier temporaire puis renommage). */
+function ecrireFichier(string $f, array $document): void {
     if (is_file($f)) copy($f, $f . '.bak');
     $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
     $texte = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -356,17 +378,9 @@ function ecrire(string $dossier, string $id, array $document): void {
     }
 }
 
-/** Ecrit un document JSON hors demos : dossier cree au besoin, version precedente gardee en `.bak`, ecriture atomique. */
+/** Ecrit un document JSON hors demos, sous son verrou : dossier cree au besoin, version precedente gardee en `.bak`, ecriture atomique. */
 function ecrireAtomique(string $f, array $document): void {
-    $dir = dirname($f);
-    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-    if (is_file($f)) copy($f, $f . '.bak');
-    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    $texte = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($texte === false || file_put_contents($tmp, $texte . "\n") === false || !rename($tmp, $f)) {
-        @unlink($tmp);
-        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-    }
+    sousVerrou($f, fn() => ecrireFichier($f, $document));
 }
 
 if ($chemin === 'demos') {
@@ -380,9 +394,13 @@ if ($chemin === 'demos') {
     }
     if ($methode === 'POST') {
         $document = lireDocument();
-        $n = 1;
-        while (file_exists(fichier($dossier, (string)$n)) || file_exists(fichier($dossier, (string)$n) . '.bak')) $n++;
-        ecrire($dossier, (string)$n, $document);
+        // Le numero libre se cherche et se prend sous le verrou du dossier : deux ajouts simultanes ne prennent pas le meme.
+        $n = sousVerrou($dossier . '/.demos', function () use ($dossier, $document) {
+            $n = 1;
+            while (file_exists(fichier($dossier, (string)$n)) || file_exists(fichier($dossier, (string)$n) . '.bak')) $n++;
+            ecrire($dossier, (string)$n, $document);
+            return $n;
+        });
         repondre(201, resume($dossier, (string)$n));
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -405,13 +423,7 @@ if ($chemin === 'controleurs') {
         if (!is_array($d) || ($d['format'] ?? null) !== 'plan-controleurs' || !isset($d['arbre']) || !is_array($d['arbre'])) {
             erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas un registre des contrôleurs.');
         }
-        if (is_file($f)) copy($f, $f . '.bak');
-        $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-        $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
-            @unlink($tmp);
-            erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-        }
+        ecrireAtomique($f, $d);
         repondre(200, ['decouvertLe' => $d['decouvertLe'] ?? null]);
     }
     erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
@@ -434,13 +446,7 @@ if ($chemin === 'palette') {
         }
     }
     if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une palette (couleurs #RRGGBB, thèmes clair et sombre).');
-    if (is_file($f)) copy($f, $f . '.bak');
-    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
-        @unlink($tmp);
-        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-    }
+    ecrireAtomique($f, $d);
     repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
 }
 
@@ -461,13 +467,7 @@ if ($chemin === 'arbres') {
         }
     }
     if (!$valide) erreur(400, 'BAD_DOCUMENT', 'Ce n’est pas une bibliothèque d’arbres (essences avec identifiant [a-z0-9-] et réglages).');
-    if (is_file($f)) copy($f, $f . '.bak');
-    $tmp = $f . '.' . bin2hex(random_bytes(6)) . '.tmp';
-    $sortie = json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($sortie === false || file_put_contents($tmp, $sortie . "\n") === false || !rename($tmp, $f)) {
-        @unlink($tmp);
-        erreur(500, 'SERVER_ERROR', 'Écriture impossible.');
-    }
+    ecrireAtomique($f, $d);
     repondre(200, ['modifieLe' => $d['modifieLe'] ?? null]);
 }
 
@@ -551,7 +551,8 @@ if (preg_match('#^demos/([^/]+)$#', $chemin, $m)) {
         exit;
     }
     if ($methode === 'PUT') {
-        ecrire($dossier, $id, lireDocument());
+        $document = lireDocument();
+        sousVerrou($dossier . '/.demos', fn() => ecrire($dossier, $id, $document));
         repondre(200, resume($dossier, $id));
     }
     if ($methode === 'DELETE') {
