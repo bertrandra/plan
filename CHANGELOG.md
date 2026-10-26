@@ -7,6 +7,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Une feuille de route des points faibles de l'architecture** (`MD/roadmap-architecture.md`). Elle part d'une revue de `main`
+  et classe sept points faibles, du plus risqué au moins risqué : des nombres d'anciens projets qui peuvent bouger, des
+  entrées de session lues par des couches pures, le plan redessiné en entier, `app/` sans domaines, la complexité du métier
+  des toits, une interface surtout vérifiée à la main, une exploitation qui dépend de gestes manuels. Elle les range en six
+  phases, chacune utile seule : filets, reproductibilité, performance, structure, modèle, exploitation. Les phases 0 et 1
+  sont engagées.
+
 - **La fumée pilotée jouée à chaque PR** (job `fumee` de la CI, en parallèle de `verifier`). Un lot de douze points du cœur
   (`node scripts/fumee.mjs URL ci`) : glisser un sommet, inspecteur, nomenclature chiffrée, débit, implantation, dossier PDF,
   fichier du projet exporté puis rouvert (point 99, nouveau), ouverture de la Vue 3D et mode Toit, import par adresse et
