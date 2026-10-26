@@ -61,6 +61,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les modules carrefours de `app/` ne grossissent plus** (feuille de route, étape 3.3). Le test d'architecture refuse qu'un
+  module de `app/` importe plus de 20 modules (imports de valeur). Six carrefours dépassent encore : ils sont listés avec leur
+  compte, ne peuvent plus grossir, et leur plafond descend avec eux. Dix imports qui ne portaient que des types sont écrits
+  `import type`, ce qui fait passer `boot/plan.ts` de 33 à 29 et `boot/panneaux.ts` sous la limite.
 - **`app/` est rangé par domaine** (feuille de route, étapes 3.1 et 3.2). Trente et un modules quittent la racine de `app/`
   pour un dossier par domaine : `administration/` (écrans d'admin, arbre des contrôleurs, inventaire), `cadastre/` (import,
   actualisation IGN, valeurs par défaut), `toits/` (lectures de fond, LiDAR, toits à cheval, mode Toit, candidats Panoramax) et
