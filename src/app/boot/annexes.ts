@@ -5,7 +5,7 @@ import { type Explorateur } from '../explorateur.js';
 import { showToast } from '../../shell/dialogs.js';
 import { type Vues3d } from '../assemblage/vues3d.js';
 import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../../three/etat3d.js';
-import { epurerLeTemps, visibilite3d } from '../../three/scene.js';
+import { moteur3d } from '../../three/demande3d.js';
 import { poserEspeces, type EspeceArbre } from '../../model/especesArbre.js';
 import { creerIsolement, objetAIsoler } from '../isolement.js';
 import type { DemandeAudit } from '../audit/demande.js';
@@ -92,9 +92,10 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
     // Les deux vues avant / apres d'un audit (three/comparaison3d.ts), en pixels du canevas.
     deuxVues: () => affichage3d.comparaison,
     // Ce que la Vue 3D montre des objets du plan (la vue epuree de l'audit de la parcelle).
-    visibilite3d: () => visibilite3d(),
+    visibilite3d: () => moteur3d()?.visibilite3d() ?? null,
     // Le rendu pour Claude, epure le temps d'un appel (le banc visuel : meme instance que l'application).
-    epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => epurerLeTemps(garder, f),
+    // Sans moteur, aucune scene a epurer (three/demande3d.ts).
+    epurerLeTemps: <T>(garder: (cle: string) => boolean, f: () => T): T => { const m = moteur3d(); return m ? m.epurerLeTemps(garder, f) : f(); },
     // La bibliotheque d'essences en usage, posee telle quelle (la fumee du point 24 la vide : le temoin GLB est en repli).
     poserEspeces: (especes: readonly EspeceArbre[]) => poserEspeces(especes)
   } });

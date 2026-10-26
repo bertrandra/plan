@@ -34,6 +34,9 @@ export interface EtatRendu {
   libere: boolean;
 }
 
+/** Hauteur des yeux au-dessus du platelage fini, en metres. */
+export const HAUTEUR_YEUX_M = 1.6;
+
 /** Un rectangle en pixels CSS : relatif au canevas pour les vues, a la fenetre pour l'ecran pose dessus. */
 export interface Rect { x: number; y: number; l: number; h: number }
 export interface DeuxVues { avant: Rect; apres: Rect; sens: 'cote' | 'pile' }

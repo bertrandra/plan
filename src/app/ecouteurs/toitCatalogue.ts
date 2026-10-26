@@ -16,7 +16,7 @@ import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
 import { armerSaillie, desarmerSaillie, reprendreSaillieVisee, saillieArmee } from '../../interaction/choixSaillie.js';
 import { hotes3d } from '../../three/etat3d.js';
-import { objetSousLePointeur } from '../../three/scene.js';
+import { moteur3d } from '../../three/demande3d.js';
 import { showToast } from '../../shell/dialogs.js';
 import type { Atelier } from '../atelier.js';
 import type { Magasin } from '../magasin.js';
@@ -173,8 +173,9 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     if (!cible || !o?.corpsToit) return false;
     const k = o.corpsToit[cible.rang], hote = k?.saillie ? o.corpsToit[k.saillie.hote] : undefined;
     if (!k?.saillie || !hote) { desarmerSaillie(); return false; }
-    const touche = objetSousLePointeur(ndc, (cle) => cle === cible.cle);
-    if (touche.cle !== cible.cle || !touche.point) return false;
+    // Un toucher sur la scene ouverte : le moteur est la (three/demande3d.ts).
+    const touche = moteur3d()?.objetSousLePointeur(ndc, (cle) => cle === cible.cle);
+    if (!touche || touche.cle !== cible.cle || !touche.point) return false;
     const mur = murLePlusProche(hote, touche.point);
     mode.ecrire((x) => { x.corpsToit = replacerSaillie(x.corpsToit ?? [], cible.rang, mur); x.toitFige = true; });
     desarmerSaillie();

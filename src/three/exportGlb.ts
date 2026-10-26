@@ -20,6 +20,7 @@ import { GABARIT_SOL, HORS_EXPORT, EXPORT_SEULEMENT } from './primitives.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
+import { nomFichierTerrasse } from './nomFichier.js';
 
 /** Delai maximal d'attente des textures, puis de reponse de l'exporteur, en millisecondes. */
 const ATTENTE_TEXTURES_MS = 15000;
@@ -80,11 +81,8 @@ export function detacherCartesSansImage(scene: THREE_NS.Object3D): { nombre: num
   };
 }
 
-/** Un nom de fichier sur : sans accents, sans espaces, sans rien qui gene un systeme de fichiers. */
-export function nomFichierTerrasse(nom: string | undefined): string {
-  return (nom || 'terrasse').normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'terrasse';
-}
+// Le nom du fichier vit a part (three/nomFichier.ts) : les captures PNG le lisent sans charger le moteur.
+export { nomFichierTerrasse };
 
 /**
  * Genere le .glb de la terrasse courante.

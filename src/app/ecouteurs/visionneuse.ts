@@ -8,7 +8,7 @@
 import { glb, affichage3d, signaler3d, reglerGlb } from '../../three/etat3d.js';
 import { ouvrirAR } from '../../three/ar.js';
 import { showErrBanner } from '../../shell/dialogs.js';
-import { remplacerFondGlb, type CameraConservee } from '../../three/glbViewer.js';
+import type { CameraConservee } from '../../three/glbViewer.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetMesurable } from '../../engine/hauteurs.js';
@@ -25,6 +25,8 @@ export interface ContexteVisionneuse {
   rafraichir: (cameraAConserver: CameraConservee) => void;
   /** Repose le soleil sur la scène de la visionneuse. */
   appliquerLumiere: () => void;
+  /** Remplace le fond de la scene de la visionneuse, a chaud (three/glbViewer.ts, `remplacerFondGlb`). */
+  remplacerFond: () => void;
   /** Hauteur finie d'une terrasse, en millimètres. */
   hauteurFinieMm: (obj: ObjetMesurable) => number;
   /** Hauteur des yeux au-dessus du platelage, en mètres. */
@@ -112,7 +114,7 @@ export function brancherVisionneuse(a: Atelier, ctx: ContexteVisionneuse, cmd: R
     choisirFond(fond) {
       reglerGlb({ fond: fond });
       signaler3d();
-      remplacerFondGlb();
+      ctx.remplacerFond();
     }
   };
 }

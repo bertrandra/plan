@@ -11,14 +11,14 @@
 
 import { au } from '../util/tableaux.js';
 import { sousLePointeur } from './comparaison3d.js';
-import { vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
+import { HAUTEUR_YEUX_M, vue3d, glb, cleDeVue, affichage3d, hotes3d, signaler3d, rendre3d, type Mode3D, type SceneVue3d, type SceneTroisBase, type PlanVuDeLa3d, type PointDeVue } from './etat3d.js';
 
 import type * as THREE_NS from 'three';
 import type { ObjetMesurable } from '../engine/hauteurs.js';
 import { terrasseOuPremiere } from '../model/fonctions.js';
 
-/** Hauteur des yeux au-dessus du platelage fini, en metres. */
-export const HAUTEUR_YEUX_M = 1.6;
+// La hauteur des yeux vit dans l'etat (three/etat3d.ts) : la visionneuse la lit sans charger le moteur.
+export { HAUTEUR_YEUX_M };
 
 export type { Mode3D } from './etat3d.js';
 

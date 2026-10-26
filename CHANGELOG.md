@@ -40,6 +40,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le moteur de la Vue 3D ne se télécharge plus à l'ouverture** (AD-10, étape 2b, deuxième coupure). La scène, la visionneuse,
+  la navigation, l'export `.glb` et la capture (`three/moteur3d.ts`) se chargent au premier besoin : ouvrir la Vue 3D ou la
+  visionneuse, exporter le modèle, aller à un point de vue. Un seul accès (`three/demande3d.ts`) : avant ce chargement, aucune
+  scène n'existe, donc ce qui agit sur la scène ouverte (la rebâtir après une modification, l'épurer, viser un objet) ne fait
+  rien. La façon dont l'application parle à la Vue 3D (`app/assemblage/vues3d.ts`) ne change pas pour ses appelants. Revenir au
+  plan pendant le chargement n'ouvre plus une scène derrière lui. Un échec du chargement s'affiche, et le geste suivant
+  réessaie. À l'ouverture, le programme passe de 2 388 Ko à 2 265 Ko ; la Vue 3D en apporte 129 Ko, en 4 morceaux. Les
+  panneaux de la Vue 3D et le mode Toit restent chargés au démarrage : ce sera la coupure suivante.
+
 - **L'audit ne se télécharge plus à l'ouverture** (AD-10, étape 2b, première coupure). Ses écrans (`zones/parcours/Audit*`), sa session
   et ce qu'elle atteint (analyse des façades comprise) se chargent au premier geste : « Auditer la parcelle… », « Importer un audit
   de parcelle… », Admin › Audits, ou l'adresse `?mode=audit`. Les commandes restent déclarées dès le démarrage (elles grisent et

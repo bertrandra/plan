@@ -16,7 +16,6 @@
 
 import { el } from '../shell/dom.js';
 import { glb, chargement, signaler3d, poserAffichage3d, reglerGlb } from '../three/etat3d.js';
-import { libererTexturesPartagees } from '../three/chargeurs.js';
 import type { ObjetPlan, Construction } from '../model/types.js';
 
 /** Ce que l'utilisateur regarde. Trois vues, un seul bouton allume. */
@@ -33,6 +32,8 @@ export interface ContexteModes {
   ensureThreeLoaded: (cb: () => void) => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   disposeThreeScene: () => void;
+  /** Rend a la carte graphique les textures partagees entre les scenes (three/chargeurs.ts). */
+  libererTexturesPartagees: () => void;
   render: () => void;
   /** Les panneaux du tiroir a remplir pour la terrasse courante. */
   rendrePanneauxTerrasse: (obj: ObjetPlan) => void;
@@ -78,7 +79,7 @@ export function creerModes(ctx: ContexteModes) {
       // ici, aucune scene 3D n'est vivante — la visionneuse a ete fermee en tete de fonction, et
       // la Vue 3D vient d'etre demolie. Le faire dans `disposeThreeScene` aurait vide le cache a
       // chaque case cochee, puisque reconstruire une scene commence par demolir la precedente.
-      libererTexturesPartagees();
+      ctx.libererTexturesPartagees();
       poserAffichage3d({ vue3d: 'ferme' });
       signaler3d();
       ctx.render();
@@ -97,6 +98,8 @@ export function creerModes(ctx: ContexteModes) {
     const obj = ctx.terrasseCourante() || null;
     if (!chargement.three) { poserAffichage3d({ vue3d: 'chargement' }); signaler3d(); }
     ctx.ensureThreeLoaded(() => {
+      // Le moteur et three.js se chargent (AD-10) : revenu au plan entre-temps, il n'y a plus de scene a construire.
+      if (vueCourante !== 'vue3d') return;
       ctx.rendreMaintenant(() => { poserAffichage3d({ vue3d: 'pret' }); signaler3d(); });
       ctx.buildThreeScene(obj);
     });

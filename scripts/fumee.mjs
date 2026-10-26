@@ -1310,7 +1310,9 @@ const POINTS = {
     return { ok: /Echelle 1\/100/.test(pdf) && ferme, mesure: `PDF « Echelle 1/100 » ${/Echelle 1\/100/.test(pdf) ? 'présent' : 'ABSENT'}, feuille Projet ${ferme ? 'refermée' : 'restée ouverte'}` };
   },
   38: async (page) => {
-    await page.evaluate(() => window.__plan.executer('vue.3d')); await page.waitForTimeout(300);
+    await page.evaluate(() => window.__plan.executer('vue.3d'));
+    // L'horloge vient avec la scene prete : le moteur de la 3D se charge a l'ouverture (AD-10), plus ou moins vite.
+    await page.locator('#horloge3d').waitFor({ state: 'visible', timeout: 40000 }); await page.waitForTimeout(300);
     // L'heure s'ouvre sous l'horloge du canevas ; un curseur ne se « remplit » pas : on le deplace
     // au clavier, comme au doigt on le glisse.
     await page.locator('#horloge3d').click({ force: true }); await page.waitForTimeout(150);
