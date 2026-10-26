@@ -7,6 +7,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **La fumée complète, chaque nuit** (`.github/workflows/fumee-nuit.yml`, feuille de route, étape 0.1). La CI ne joue que les douze
+  points du lot `ci`, au bureau et en thème clair. Ce workflow joue tous les points, dans les trois classes d'écran et les deux
+  thèmes, avec le réseau témoin : une tâche par couple, de 12 à 30 min, chaque nuit à 3 h 17 UTC, et à la demande. Un échec fait
+  échouer l'exécution, ce dont GitHub prévient le propriétaire du dépôt. Le résumé liste les points rouges, et le journal et les
+  captures restent téléchargeables quatorze jours. Le premier passage a trouvé sept points toujours rouges, déjà rouges avant ce
+  jour (69, 70, 74, 76, 82, 93 et, en compact, 10) et deux instables (23, 75). Ils sont l'étape 0.4 de la feuille de route.
 - **Le banc du rendu du plan** (`scripts/banc-rendu.mjs`, feuille de route, étape 0.2). Il duplique la démonstration jusqu'à
   147, 300 et 600 objets et mesure un rendu complet au bureau et au téléphone (processeur ralenti ×4) ; `BANC_PROFIL=1` montre ce
   qui coûte. Premier résultat : le dessin SVG du plan tient (10,7 ms à 600 objets au bureau). Ce qui ne tient pas, ce sont les

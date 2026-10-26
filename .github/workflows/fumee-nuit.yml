@@ -1,0 +1,80 @@
+# La fumee complete, chaque nuit (MD/roadmap-architecture.md, etape 0.1). La CI ne joue que le lot `ci` (douze points, au bureau,
+# theme clair) : un point peut donc rester rouge sur main sans que personne ne le voie, comme le point 90 en octobre 2026. Ici, tous
+# les points, dans les trois classes d'ecran et les deux themes, une tache par couple (une partie a la fois par tache : deux parties
+# simultanees rendent instables les points aux longues attentes), reseau temoin. Un echec fait echouer l'execution : GitHub le dit
+# au proprietaire du depot, et le journal et les captures restent telechargeables quatorze jours.
+name: Fumée de la nuit
+
+on:
+  schedule:
+    # 3 h 17 UTC : hors des heures de travail, et pas a l'heure pile (les executions programmees y sont retardees).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fumee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        classe: [compact, moyen, large]
+        theme: [light, dark]
+    env:
+      # La meme version que le job `fumee` de la CI.
+      PLAYWRIGHT_VERSION: 1.56.1
+      FUMEE_CAPTURES: fumee-captures
+      FUMEE_CLASSES: ${{ matrix.classe }}
+      FUMEE_THEMES: ${{ matrix.theme }}
+      FUMEE_RESEAU: temoin
+      FUMEE_DELAI_POINT: '240'
+      FUMEE_PARALLELE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Playwright et Chromium
+        run: |
+          npm install -g "playwright@${PLAYWRIGHT_VERSION}"
+          playwright install --with-deps chromium
+      - name: Serveur de developpement
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$FUMEE_CAPTURES"
+          BACKPROD_API_URL=http://plateforme.test nohup npx vite --port 5199 --strictPort > "$FUMEE_CAPTURES/vite.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:5199/; then echo "Vite repond apres ${i} s"; exit 0; fi
+            sleep 1
+          done
+          echo "Vite ne repond pas sur le port 5199"; cat "$FUMEE_CAPTURES/vite.log"; exit 1
+      - name: Fumee, tous les points
+        shell: bash
+        run: |
+          set -o pipefail
+          NODE_PATH="$(npm root -g)" node scripts/fumee.mjs http://localhost:5199 2>&1 | tee "$FUMEE_CAPTURES/journal.txt"
+      - name: Resume
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Fumée de la nuit — ${{ matrix.classe }}, ${{ matrix.theme }}"
+            echo
+            grep -E "passés, .* échecs" "$FUMEE_CAPTURES/journal.txt" || echo "(pas de bilan : le passage s'est arrêté avant la fin)"
+            echo
+            grep -E " ÉCHEC " "$FUMEE_CAPTURES/journal.txt" | cut -c1-240 | sed 's/^/- /' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Journal et captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fumee-nuit-${{ matrix.classe }}-${{ matrix.theme }}
+          path: fumee-captures/
+          if-no-files-found: ignore
+          retention-days: 14
