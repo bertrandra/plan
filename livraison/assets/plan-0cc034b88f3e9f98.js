@@ -1,0 +1,1 @@
+function n(t){const e=document.getElementById(t);if(!e)throw new Error("Element introuvable dans la page : #"+t);return e}function o(t){let e=document.getElementById(t);return e||(e=document.createElement("div"),e.id=t,document.body.appendChild(e)),e}export{n as e,o as h};
