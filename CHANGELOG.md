@@ -61,6 +61,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La lecture des toits se lit par morceaux** (feuille de route, étape 4.1). `facade/toits/toitCorps.ts` (1 057 lignes) garde la
+  reconstruction des corps et réexporte trois morceaux de `facade/toits/toitCorps/` :
+  - `ajustement.ts` : le toit d'un corps, ses pignons, sa coupe ;
+  - `recalage.ts` : le contour mis à l'équerre et recalé ;
+  - `reprise.ts` : le contour de biais, le secours, la complétion.
+  `facade/toits/toit.ts` réexporte de même `toit/estimation.ts` (le toit estimé sur une photo). Aucun fichier de `facade/toits/`
+  ne dépasse plus 500 lignes. Le code est déplacé tel quel, les noms publics sont les mêmes, et AE 101 est identique au centimètre.
+
 - **Les modules carrefours de `app/` ne grossissent plus** (feuille de route, étape 3.3). Le test d'architecture refuse qu'un
   module de `app/` importe plus de 20 modules (imports de valeur). Six carrefours dépassent encore : ils sont listés avec leur
   compte, ne peuvent plus grossir, et leur plafond descend avec eux. Dix imports qui ne portaient que des types sont écrits
