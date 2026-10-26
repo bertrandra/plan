@@ -25,7 +25,7 @@ export function BarreEtat({ magasin }: { magasin: Magasin }) {
   const selection = etat.selectedKey ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
 
   const statut = texteStatut(p);
-  // Les toits lus en tache de fond (app/toitsFond.ts), puis les murs : combien sur combien, tant qu'il en reste.
+  // Les toits lus en tache de fond (app/toits/toitsFond.ts), puis les murs : combien sur combien, tant qu'il en reste.
   const toits = useSyncExternalStore(lectureToits.abonner, lectureToits.progression);
   const murs = toits?.phase === 'murs';
   const suite = toits?.etat === 'pause' ? ' (en pause)' : toits?.etat === 'arretee' ? (murs ? ' (photos de rue muettes)' : ' (service LiDAR muet)') : '';

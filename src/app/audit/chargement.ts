@@ -2,7 +2,7 @@
 // qui est a moins de 70 m de la position, a chaque pas de 10 m.
 //
 // Les memes lectures que l'import et l'actualisation : le cadastre et la BD TOPO
-// (app/actualisationIgn.ts::construireVoisinage, centre sur la position), la couleur des toits sur
+// (app/cadastre/actualisationIgn.ts::construireVoisinage, centre sur la position), la couleur des toits sur
 // l'orthophoto, leur forme sur le LiDAR HD. Une seule difference voulue : le toit de chaque batiment
 // est lu en **calcul entier** (recalage, coupes par le modele, surface mesuree gardee), celui que
 // l'application reserve au projet et aux mitoyens. L'audit eprouve la chaine complete (spec §11,
@@ -11,9 +11,9 @@
 import { interrogerCadastre, empriseGeoJSON, construireCandidats, classerCandidats } from '../../geo/apiIgn.js';
 import { objetsDepuisCadastre } from '../../geo/cadastreObjets.js';
 import { projecteurLocal, type ProjecteurLocal } from '../../geo/projection.js';
-import { construireVoisinage } from '../actualisationIgn.js';
-import { projecteurDuPlan } from '../importCadastre.js';
-import { toitsDepuisLidar } from '../toitsLidar.js';
+import { construireVoisinage } from '../cadastre/actualisationIgn.js';
+import { projecteurDuPlan } from '../cadastre/importCadastre.js';
+import { toitsDepuisLidar } from '../toits/toitsLidar.js';
 import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan, ObjetBrut, PtBrut } from '../../model/types.js';

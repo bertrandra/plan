@@ -4,7 +4,7 @@
 // (le toit deduit de la BD TOPO suit l'axe du batiment), et le modele n'importe pas facade/.
 
 import { au } from '../util/tableaux.js';
-import { sommetDe } from '../geometry/anneau.js';
+import { sommetDe } from './anneau.js';
 import { signedArea } from './basic.js';
 import type { PtBrut } from '../model/types.js';
 

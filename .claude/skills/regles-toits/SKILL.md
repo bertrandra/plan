@@ -1,6 +1,6 @@
 ---
 name: regles-toits
-description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. Cherche aussi des cas candidats sur les photos de rue Panoramax d'un village (Claude analyste, statut propose, scripts/candidats.ts). À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, demande des cas candidats pour une forme, ou avant de toucher à regles/toits/faits.json, regles/toits/faits.ts, facade/regles/toits/faits.ts, model/casCandidats.ts ou app/candidatsPanoramax.ts. S'appuie sur le skill toits.
+description: Traiter un fichier de promenade (audit-….json) de bout en bout pour les toits — rejouer chaque cas, le classer (hors toit, fait, réglage, règle, question), écrire le fait ou le réglage, images avant et après, PR. Tient regles/toits/faits.json (faits par bâtiment, en contrainte ou en remplacement) et compte les faits par forme. Cherche aussi des cas candidats sur les photos de rue Panoramax d'un village (Claude analyste, statut propose, scripts/candidats.ts). À charger quand l'utilisateur fournit un fichier de promenade, demande d'ajouter un fait sur un bâtiment, demande des cas candidats pour une forme, ou avant de toucher à regles/toits/faits.json, regles/toits/faits.ts, facade/regles/toits/faits.ts, model/casCandidats.ts ou app/toits/candidatsPanoramax.ts. S'appuie sur le skill toits.
 ---
 
 # Règles des toits : d'une promenade à la PR
@@ -33,7 +33,7 @@ Plus deux sorties qui ne touchent pas au calcul des toits :
 - **hors toit** : contour faux, bâtiment démoli ou absent, couleur des murs, ouvertures. Signalement
   à l'IGN, ou autre chantier (skill `facades`, couleur des murs) ;
 - **question** : un doute que seule la personne peut lever (le modèle : la question « à cheval »,
-  `app/toitsACheval.ts`). On pose une question précise plutôt que d'ajouter un seuil.
+  `app/toits/toitsACheval.ts`). On pose une question précise plutôt que d'ajouter un seuil.
 
 ## 2. Le déroulé, pour un fichier de promenade
 
@@ -129,7 +129,7 @@ Le vocabulaire est fermé (`regles/toits/faits.ts::lireFaitsToits` refuse le res
   dépôt sont communs ; les corrections d'un utilisateur restent dans son projet).
 - **Version de lecture** : l'empreinte des faits entre dans `VERSION_LECTURE_TOITS`. Un fait ajouté
   ou changé demande une ligne `{ version: n + 1, reglages, faits }` dans `LECTURES_TOITS`
-  (`app/toitsLidar.ts`) ; `faits.ts` l'écrit, et `tests/unit/model/reglagesToits.test.ts` la
+  (`app/toits/toitsLidar.ts`) ; `faits.ts` l'écrit, et `tests/unit/model/reglagesToits.test.ts` la
   réclame. Tous les toits déjà lus seront relus : **grouper les faits d'une promenade dans une PR**.
   La preuve, l'adresse et l'historique n'entrent pas dans l'empreinte.
 
@@ -226,7 +226,7 @@ PLAN_ADMIN_MOT_DE_PASSE=… npx tsx .claude/skills/regles-toits/scripts/candidat
   bâtiment, les photos qui voient un de ses murs (`render/couleurMurPhoto.ts::mursVisibles` : de
   face, à moins de 40 m, sans autre bâtiment entre deux), avec au moins 8 m de recul et le faîte
   dans le cadre ; deux par bâtiment, les plus proches et de face d'abord
-  (`app/candidatsPanoramax.ts`). L'étiquette de chaque image dit où est le bâtiment visé
+  (`app/toits/candidatsPanoramax.ts`). L'étiquette de chaque image dit où est le bâtiment visé
   (« à 31 % de la largeur depuis la gauche ») : le reste de l'image est le voisinage.
 - **Claude** : les routes de l'analyse (`deploy/analyse.php`), sous l'usage **`candidats`** : le
   prompt et le schéma de l'analyse d'une maison, les plafonds par organisation, le journal (le coût
@@ -251,7 +251,7 @@ PLAN_ADMIN_MOT_DE_PASSE=… npx tsx .claude/skills/regles-toits/scripts/candidat
   la fin (celui que le serveur calcule avec sa table des tarifs).
 - Un ancien fichier de village n'a pas l'origine du repère : relancer `village.mjs`, ou donner
   `--origine lat,lon` (l'origine du cadastre de la parcelle du projet, pas l'adresse).
-- Tests sans réseau : `tests/unit/model/casCandidats.test.ts`, `tests/unit/app/candidatsPanoramax.test.ts`
+- Tests sans réseau : `tests/unit/model/casCandidats.test.ts`, `tests/unit/app/toits/candidatsPanoramax.test.ts`
   (le choix des photos) et `tests/unit/deploy/analysePhpCandidats.test.ts` (un village entier par
   `analyse.php`, API Anthropic simulée, `tests/fixtures/deploy/fauxAnthropic.ts`, recherche Panoramax
   figée, `tests/fixtures/candidats/village.ts`).

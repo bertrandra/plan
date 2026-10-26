@@ -3,7 +3,7 @@
 //
 // Le fichier est importe, donc compile dans le fichier livre. Depuis que la lecture des toits applique les formes du
 // catalogue (facade/regles/toits/catalogue.ts), son empreinte entre dans la version de lecture (`formes` dans
-// LECTURES_TOITS, app/toitsLidar.ts) : un seuil change, et les toits deja lus sont relus.
+// LECTURES_TOITS, app/toits/toitsLidar.ts) : un seuil change, et les toits deja lus sont relus.
 
 import fichier from '../../../regles/toits/formes.json';
 import { fnv1a } from './reglages.js';

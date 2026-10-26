@@ -8,7 +8,7 @@
 // personne, eux, sont absolus.
 
 import { useMemo, useState } from 'react';
-import type { GenreNoeud, Noeud, Statut } from '../app/controleurs.js';
+import type { GenreNoeud, Noeud, Statut } from '../app/administration/controleurs.js';
 
 export interface Ligne { chemin: string; noeud: Noeud; niveau: number; parent: string | null; ouvrable: boolean }
 

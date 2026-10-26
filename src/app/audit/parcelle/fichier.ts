@@ -19,8 +19,8 @@ import {
 } from '../../../model/fichierAuditParcelle.js';
 import { APP_VERSION, BUILD_SHA } from '../../../model/version.js';
 import { EMPREINTE_REGLAGES_TOITS } from '../../../regles/toits/reglages.js';
-import { VERSION_LECTURE_TOITS } from '../../toitsLidar.js';
-import { VERSION_LECTURE_MURS } from '../../mursFond.js';
+import { VERSION_LECTURE_TOITS } from '../../toits/toitsLidar.js';
+import { VERSION_LECTURE_MURS } from '../../toits/mursFond.js';
 import { entreesDe, identiteDe, sortiesDe } from '../cas.js';
 import type { CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { GrilleRelief } from '../../../model/relief.js';

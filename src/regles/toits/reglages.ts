@@ -4,11 +4,11 @@
 // Le fichier est importe, donc compile dans le fichier livre : pas de lecture reseau, un toit calcule
 // hier se recalcule a l'identique. Chaque module de la lecture (model/toitMesure.ts,
 // model/volumesToit.ts, model/aCheval.ts, facade/toits/toitLidar.ts, facade/toits/toitCorps.ts,
-// app/toitsLidar.ts) garde ses noms de seuils, mais en lit la valeur ici : le nombre, sa raison et
+// app/toits/toitsLidar.ts) garde ses noms de seuils, mais en lit la valeur ici : le nombre, sa raison et
 // les cas qui le justifient vivent au meme endroit, et une PR qui en change un se voit dans le diff
 // du fichier. Le type des noms vient du fichier lui-meme : un seuil retire du fichier ne compile plus.
 //
-// L'empreinte des valeurs entre dans la version de lecture des toits (app/toitsLidar.ts,
+// L'empreinte des valeurs entre dans la version de lecture des toits (app/toits/toitsLidar.ts,
 // VERSION_LECTURE_TOITS) : une valeur changee relit les toits deja lus.
 
 import fichier from '../../../regles/toits/reglages.json';
@@ -70,7 +70,7 @@ export class CalculAsynchroneRefuse extends Error {}
 /**
  * Fait `calcul` avec ces seuils a la place de ceux du fichier, puis remet les precedents, meme sur une
  * erreur. Le calcul doit etre synchrone : JavaScript n'execute alors rien d'autre pendant qu'il tourne,
- * et les lectures paralleles des autres batiments (app/toitsLidar.ts) ne voient jamais ces valeurs.
+ * et les lectures paralleles des autres batiments (app/toits/toitsLidar.ts) ne voient jamais ces valeurs.
  * Sans surcharge, `calcul` est appele tel quel : sans profil, rien ne change.
  */
 export function avecSeuilsToit<T>(surcharges: SurchargesSeuilsToits, calcul: () => T): T {

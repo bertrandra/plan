@@ -115,7 +115,7 @@ export function enLectureSeule(): boolean {
 let vitrine = false;
 export function entrerEnVitrine(): void { vitrine = true; }
 
-/** L'admin des demos (app/porteAdmin.ts) : la barre propose alors d'en sortir, pas la plateforme. */
+/** L'admin des demos (app/administration/porteAdmin.ts) : la barre propose alors d'en sortir, pas la plateforme. */
 let admin = false;
 export function entrerEnAdmin(): void { admin = true; }
 export function enAdmin(): boolean { return admin; }

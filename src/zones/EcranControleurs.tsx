@@ -3,7 +3,7 @@
 // Un ecran a part, sur toute la page : l'arbre de ce par quoi l'ecran de Plan agit — zones et
 // emplacements, registre des commandes, champs de l'inspecteur. A l'ouverture, il montre le registre
 // enregistre sur le serveur, rien de plus. La decouverte ne se fait que sur demande, au bouton :
-// Plan demarre alors, cache (app/controleurs.ts), et l'ecran compare ce qu'il trouve au registre.
+// Plan demarre alors, cache (app/administration/controleurs.ts), et l'ecran compare ce qu'il trouve au registre.
 // Il ne fait rien sur le plan : il montre, compare et enregistre.
 //
 // L'arbre suit le motif ARIA « tree » : une seule ligne dans l'ordre de tabulation, les fleches
@@ -13,7 +13,7 @@
 // seule, et, dans le detail, le fil d'Ariane et les enfants du noeud choisi.
 
 import { useMemo, useRef, useState } from 'react';
-import { aplatir, comparer, compterFeuilles, type Comparaison, type GenreNoeud, type Noeud, type RegistreControleurs, type Statut } from '../app/controleurs.js';
+import { aplatir, comparer, compterFeuilles, type Comparaison, type GenreNoeud, type Noeud, type RegistreControleurs, type Statut } from '../app/administration/controleurs.js';
 import { ancetres, profondeur, useNavigationArbre, type NavigationArbre } from './navigationArbre.js';
 
 /** Ce qu'une decouverte rapporte. */

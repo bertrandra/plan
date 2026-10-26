@@ -84,7 +84,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
   // Remplace par la barre de projet une fois construite. Avant cela, marquer le plan modifie ne
   // doit pas echouer : d'ou la fonction vide plutot qu'un `null` a tester partout.
   let rafraichirStatut: () => void = () => {};
-  // Combien de modifications depuis l'ouverture : la tache de fond des toits (app/toitsFond.ts)
+  // Combien de modifications depuis l'ouverture : la tache de fond des toits (app/toits/toitsFond.ts)
   // n'enregistre seule que si toutes celles en attente sont les siennes.
   let modifications = 0;
 

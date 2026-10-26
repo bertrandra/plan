@@ -24,8 +24,8 @@ function texteErreur(err: unknown): string {
 async function ouvrirEcranAdmin(): Promise<boolean> {
   // L'ecran des controleurs (`?admin&ecran=controleurs`) : il s'ouvre sur le registre enregistre.
   // Plan ne demarre — cache, sur la demonstration integree et sans depot — que lorsque l'admin
-  // lance la decouverte (app/ecranControleurs.ts).
-  const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/ecranControleurs.js');
+  // lance la decouverte (app/administration/ecranControleurs.ts).
+  const { demandeEcranControleurs, ouvrirEcranControleurs } = await import('./app/administration/ecranControleurs.js');
   if (demandeEcranControleurs(location.search)) {
     document.documentElement.dataset.ecran = 'controleurs';
     await ouvrirEcranControleurs();
@@ -33,7 +33,7 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
   }
   // L'ecran de la consommation de Claude (`?admin&ecran=consommation`, MD/spec-audit.md 13.3) :
   // le journal du serveur, ses tarifs et ses plafonds. Plan ne demarre pas dessous.
-  const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/ecranConsommation.js');
+  const { demandeEcranConsommation, ouvrirEcranConsommation } = await import('./app/administration/ecranConsommation.js');
   if (demandeEcranConsommation(location.search)) {
     document.documentElement.dataset.ecran = 'consommation';
     ouvrirEcranConsommation();
@@ -41,7 +41,7 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
   }
   // L'ecran des indicateurs de conformite (`?admin&ecran=conformite`, MD/spec-regles-toits.md
   // 13.5) : le corpus du depot et les audits recus, rejoues. Plan ne demarre pas dessous.
-  const { demandeEcranConformite, ouvrirEcranConformite } = await import('./app/ecranConformite.js');
+  const { demandeEcranConformite, ouvrirEcranConformite } = await import('./app/administration/ecranConformite.js');
   if (demandeEcranConformite(location.search)) {
     document.documentElement.dataset.ecran = 'conformite';
     ouvrirEcranConformite();
@@ -49,21 +49,21 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
   }
   // L'ecran des regles (`?admin&ecran=regles`, MD/architecture.md 5.2.4) : les sujets de l'audit et le
   // prompt de Claude qu'ils composent, en direct. Plan ne demarre pas dessous.
-  const { demandeEcranRegles, ouvrirEcranRegles } = await import('./app/ecranRegles.js');
+  const { demandeEcranRegles, ouvrirEcranRegles } = await import('./app/administration/ecranRegles.js');
   if (demandeEcranRegles(location.search)) {
     document.documentElement.dataset.ecran = 'regles';
     ouvrirEcranRegles();
     return true;
   }
   // L'ecran de la chaine (`?admin&ecran=chaine`) : de l'IGN a ma maison, de bout en bout. Plan ne demarre pas dessous.
-  const { demandeEcranChaine, ouvrirEcranChaine } = await import('./app/ecranChaine.js');
+  const { demandeEcranChaine, ouvrirEcranChaine } = await import('./app/administration/ecranChaine.js');
   if (demandeEcranChaine(location.search)) {
     document.documentElement.dataset.ecran = 'chaine';
     ouvrirEcranChaine();
     return true;
   }
   // L'ecran des principes (`?admin&ecran=principes`) : processus, actions et coulisses de chaque principe. Plan ne demarre pas dessous.
-  const { demandeEcranPrincipes, ouvrirEcranPrincipes } = await import('./app/ecranPrincipes.js');
+  const { demandeEcranPrincipes, ouvrirEcranPrincipes } = await import('./app/administration/ecranPrincipes.js');
   if (demandeEcranPrincipes(location.search)) {
     document.documentElement.dataset.ecran = 'principes';
     ouvrirEcranPrincipes();
@@ -71,14 +71,14 @@ async function ouvrirEcranAdmin(): Promise<boolean> {
   }
   // L'ecran des arbres (`?admin&ecran=arbres`, MD/spec-arbres-3d.md) : la bibliotheque d'essences
   // generees par EZ-tree. Plan ne demarre pas dessous.
-  const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/ecranArbres.js');
+  const { demandeEcranArbres, ouvrirEcranArbres } = await import('./app/administration/ecranArbres.js');
   if (demandeEcranArbres(location.search)) {
     document.documentElement.dataset.ecran = 'arbres';
     await ouvrirEcranArbres();
     return true;
   }
   // L'ecran de calibration de la detection (`?admin&ecran=calibration`) : photos annotees, mesure, reglages calibres.
-  const { demandeEcranCalibration, ouvrirEcranCalibration } = await import('./app/ecranCalibration.js');
+  const { demandeEcranCalibration, ouvrirEcranCalibration } = await import('./app/administration/ecranCalibration.js');
   if (demandeEcranCalibration(location.search)) {
     document.documentElement.dataset.ecran = 'calibration';
     ouvrirEcranCalibration();
@@ -133,8 +133,8 @@ async function demarrer(): Promise<void> {
     // Ouvrir, Enregistrer, Nouveau et Supprimer passent par le meme depot que d'habitude, pose
     // sur ces fichiers ; le reste de l'atelier ne sait pas la difference.
     // L'ecran de la palette (`?palette`) est un ecran de l'admin : meme porte, meme mot de passe.
-    const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/porteAdmin.js');
-    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/ecranPalette.js');
+    const { demandeAdmin, franchirLaPorteAdmin } = await import('./app/administration/porteAdmin.js');
+    const { demandeEcranPalette, ouvrirEcranPalette } = await import('./app/administration/ecranPalette.js');
     if (demandeAdmin(location.search) || demandeEcranPalette(location.search)) {
       await franchirLaPorteAdmin();
       if (demandeEcranPalette(location.search)) {

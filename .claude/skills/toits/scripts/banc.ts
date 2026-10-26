@@ -33,7 +33,7 @@ import { isAbsolute } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.ts';
-import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toitsLidar.ts';
+import { corpsVraisemblables, mesureVraisemblable } from '../../../../src/app/toits/toitsLidar.ts';
 import { hauteurBdTopo } from '../../../../src/facade/regles/toits/vraisemblance.ts';
 import { rectanglesDuContour } from '../../../../src/model/volumesToit.ts';
 import { PROFILS_TOITS, REGLAGES_TOITS, avecSeuilsToit } from '../../../../src/regles/toits/reglages.ts';
@@ -85,7 +85,7 @@ for (const b of D.batiments) {
   // Comme l'application : calcul entier pour le projet et les mitoyens (ceux qui gardent leur mesure).
   const fort = b.principal || b.mesure;
   // Ses profils (regles/toits/reglages.json) et ses faits (regles/toits/faits.json), comme
-  // app/toitsLidar.ts::corpsLus.
+  // app/toits/toitsLidar.ts::corpsLus.
   const { m, corps } = avecSeuilsToit(choix.surcharges, () => {
     const m = mesureVraisemblable(b, toitMesureDepuisGrille(b.grille, b.pts));
     return { m, corps: m ? corpsVraisemblables(b, corpsSelonFait(faitDuBatiment(b), corpsCalcules(m, b.pts, { coupes: fort, grille: b.grille, hauteurBdTopo: hauteurBdTopo(b) }), m, b.pts, b.grille)) ?? [] : [] };

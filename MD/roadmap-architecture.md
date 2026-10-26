@@ -44,8 +44,8 @@ déclencheur, écrit dans leur tableau.
 |---|---|---|---|
 | 1.1 | **Figer le remplissage des anciens projets** (P1, AD-19) : ce que `ensureConstruction` pose quand un champ manque devient une table de valeurs littérales, figée, séparée des constantes et des réglages d'une terrasse neuve | la table ne cite aucune constante ; changer un réglage par défaut d'aujourd'hui ne change plus le témoin `defauts-construction.json` ; un test l'interdit | **fait** : `engine/remplissageFige.ts` |
 | 1.2 | **Figer la migration 2 → 3** (P1, AD-19) : elle ne fait plus appel à l'algorithme de toit d'aujourd'hui, mais à sa copie figée au schéma 3 (`model/migrations/`), que rien d'autre n'importe | changer `toitBdTopo`, le squelette ou le faîtage ne change plus `migration-2-3.json` ; le test d'architecture interdit d'importer la copie figée ailleurs | **fait** : `model/fige/toitSchema3.ts` |
-| 1.3 | **Les entrées de session hors des couches pures** (P2, AD-15) : chaque calcul reçoit en argument ce qu'il lisait dans l'ambiance (calibration, faits essayés, essences, encres) | aucun module de `engine/`, `model/`, `facade/` ne lit un `let` posé par `app/` ou `io/` ; un test le vérifie | après 1.1 et 1.2 |
-| 1.4 | **Ce que l'ambiance a fixé s'enregistre avec le projet** (P2) : la calibration et les faits qui ont servi sont écrits avec les nombres, pour qu'un rejeu donne les mêmes | rouvrir un projet rend les mêmes nombres sur une autre session ; un test le vérifie sur la démonstration | après 1.3 ; événement de version (schéma) |
+| 1.3 | **Les entrées de session des couches pures, fermées et gardées** (P2, AD-15). La revue a trouvé trois registres de session dans les couches pures, et pas un de plus : la calibration de la détection, les faits de toit essayés par l'administrateur et la bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. La calibration ne change que la prochaine détection ; un toit lu pendant un essai est relu à l'ouverture suivante ; les essences ne dessinent que la 3D. Les encres du thème sont dans `render/`, hors des couches pures. Les faire passer en argument dans toute la chaîne des façades et des toits (AE 101) coûterait plus qu'elle ne protège : la liste est donc fermée par un test | aucun autre état de module (`let`) dans `util`, `geometry`, `model`, `regles`, `engine`, `geo`, `facade` ; chaque registre ne se pose que depuis `app/` ou `io/` (`tests/unit/architecture.test.ts`) | **fait** |
+| 1.4 | **Garder avec un relevé la calibration qui l'a produit** (P2) : pour qu'une détection rejouée plus tard parte des mêmes seuils | un relevé enregistré dit l'empreinte de la calibration ; un rejeu la reprend | **en attente** : rien d'enregistré ne dépend aujourd'hui de l'ambiance (1.3). Ce serait un champ de schéma, que la plateforme doit accepter d'abord. Déclencheur : le rejeu d'un relevé, ou un litige sur une détection |
 
 ### Phase 2 — Le plan reste fluide (performance)
 
@@ -60,7 +60,7 @@ Le rendu incrémental du SVG passe donc après.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | à faire |
+| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | **fait en partie** : la lecture de la construction une fois par rendu, les doublons sans la parcelle et triés par forme (13,7 → 3,7 ms). Banc à 147 objets : 82 → 38 ms au bureau, 506 → 343 ms au téléphone ; le reste est le rendu des zones par React, mesuré en mode développement |
 | 2.2 | Ne redessiner que les objets qui ont changé (une clé de version par objet, le nœud SVG gardé sinon) | le banc à 600 objets passe sous 33 ms au téléphone | si le banc le demande après 2.1 |
 | 2.3 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 et 2.2 mesurés | plus aucun rendu sauté au banc | après 2.2 |
 
@@ -70,8 +70,8 @@ Déclencheur : la prochaine fonction transversale, ou une modification qui touch
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 3.1 | Ranger `app/` par domaine : `app/admin/` (les neuf `ecran*.ts`), `app/cadastre/` (import, actualisation IGN), `app/toits/` (fond, LiDAR, à cheval), le cœur restant à la racine | `app/` n'a plus que le cœur à sa racine ; rien ne change à l'écran | à faire |
-| 3.2 | Une règle par domaine (dependency-cruiser ou le test d'architecture) : un domaine n'importe pas un autre domaine, seulement le cœur | la règle est en CI et passe | après 3.1 |
+| 3.1 | Ranger `app/` par domaine : `app/administration/` (les neuf `ecran*.ts`), `app/cadastre/` (import, actualisation IGN), `app/toits/` (fond, LiDAR, à cheval), le cœur restant à la racine | `app/` n'a plus que le cœur à sa racine ; rien ne change à l'écran | fait : `administration/` (pas `admin/`, que les simulations de la fumée prennent pour une route du serveur), `cadastre/`, `toits/` et `releve/` ; 31 modules déplacés, 28 restent à la racine (le cœur) |
+| 3.2 | Une règle par domaine (dependency-cruiser ou le test d'architecture) : un domaine n'importe pas un autre domaine, seulement le cœur | la règle est en CI et passe | fait, dans le test d'architecture : une table des flèches admises entre domaines. `toits` et `releve` ne dépendent d'aucun autre ; `audit` et `regles` (les sujets de l'audit) se lisent l'un l'autre. Une flèche nouvelle s'écrit dans la table |
 | 3.3 | Alléger les modules carrefours (`boot/plan.ts`, `audit/controleur.ts`) en passant leurs dépendances par le registre des commandes ou des services | plus aucun module de `app/` n'importe plus de 20 modules | après 3.2 |
 
 ### Phase 4 — Le métier critique se lit par morceaux (modèle et gros modules)
@@ -81,14 +81,14 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
 | 4.1 | Découper `facade/toits/toitCorps.ts` (1 057 lignes) par étape de la lecture : contour, corps, pignons, hauteurs | aucun fichier de `facade/toits/` ne dépasse 500 lignes ; AE 101 identique (`identite.ts`), banc des toits inchangé | à faire |
-| 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | à faire |
+| 4.2 | Découper `engine/piscine.ts` (957 lignes) : structure, terrassement, chiffrage | empreintes `moteur-piscine-pergola.json` inchangées | fait : `engine/piscine/` (réglages 170 lignes, géométrie 150, calcul 370, chiffrage 145, note 135), `engine/piscine.ts` les réexporte ; empreintes et tests inchangés |
 | 4.3 | Ranger les champs propres à une fonction (piscine, pergola, clôture, toit) dans un sous-objet par fonction de `ObjetPlan` | `model/types.ts` sous 600 lignes ; aucune empreinte ne bouge | événement de version (schéma) : à préparer avec la plateforme |
 
 ### Phase 5 — L'exploitation tient sans geste manuel ni réseau parfait
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 5.1 | Un verrou autour des lectures-modifications-écritures de l'admin (`deploy/admin.php` : palette, arbres, contrôleurs, règles), comme `donnees.php` et le journal | deux écritures simultanées ne perdent rien (test `php -S`) | à faire |
+| 5.1 | Un verrou autour des lectures-modifications-écritures de l'admin (`deploy/admin.php` : palette, arbres, contrôleurs, règles), comme `donnees.php` et le journal | deux écritures simultanées ne perdent rien (test `php -S`) | fait : la perte réelle était l'ajout de démo (numéro libre) ; chaque écriture passe sous le verrou de son fichier, un document entier reste au dernier qui écrit |
 | 5.2 | three.js, EZ-tree, pdf-lib servis depuis `assets/` de la livraison, le CDN en secours | la Vue 3D s'ouvre CDN coupé | à faire |
 | 5.3 | Mode hors ligne pour l'audit (service worker sur les morceaux déjà découpés) | un audit commencé se poursuit sans réseau et s'envoie au retour | déclencheur AD-6 : plaintes d'utilisateurs sur le terrain |
 

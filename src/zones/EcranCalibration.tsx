@@ -6,7 +6,7 @@
 // page les applique au demarrage (io/calibrationServeur.ts). Rien ne change pour l'utilisateur final, sinon ce que la
 // detection propose. Les valeurs livrees avec Plan restent la base : on peut toujours y revenir.
 //
-// L'ecran ne parle ni au serveur ni au navigateur : tout lui vient de app/ecranCalibration.ts, par `DepsCalibration`.
+// L'ecran ne parle ni au serveur ni au navigateur : tout lui vient de app/administration/ecranCalibration.ts, par `DepsCalibration`.
 
 import { useEffect, useState } from 'react';
 import { EditeurCasCalibration, type OutilsPhotos } from './EditeurCasCalibration.js';

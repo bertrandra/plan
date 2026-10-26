@@ -29,7 +29,7 @@ import { rejouerCas, ecartsSorties, facadesEcartees, propositionsAuRejeu, type E
 import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.ts';
 import { lireFaitsToits, faitDuBatiment, faitsEnVigueur, empreinteFaitsToits, signatureFait } from '../../../../src/regles/toits/faits.ts';
 import { ecartsAuFait } from '../../../../src/facade/regles/toits/faits.ts';
-import { VERSION_LECTURE_TOITS } from '../../../../src/app/toitsLidar.ts';
+import { VERSION_LECTURE_TOITS } from '../../../../src/app/toits/toitsLidar.ts';
 import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle } from '../../../../src/model/fichierAuditParcelle.ts';
 import { lignesAuditParcelle } from '../../../../tests/banc/facades/mesuresFacades.ts';
 

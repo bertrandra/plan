@@ -61,6 +61,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **`app/` est rangé par domaine** (feuille de route, étapes 3.1 et 3.2). Trente et un modules quittent la racine de `app/`
+  pour un dossier par domaine : `administration/` (écrans d'admin, arbre des contrôleurs, inventaire), `cadastre/` (import,
+  actualisation IGN, valeurs par défaut), `toits/` (lectures de fond, LiDAR, toits à cheval, mode Toit, candidats Panoramax) et
+  `releve/`. La racine garde le cœur (magasin, commandes, modes, projet). Le dossier s'appelle `administration/` et non `admin/` :
+  la fumée simule les routes `admin/…` du serveur par leur adresse, et prenait les modules servis depuis `/src/app/admin/` pour des
+  requêtes. Le test d'architecture tient la table des flèches admises entre domaines : une flèche nouvelle est une décision écrite
+  dans la table. Seuls des chemins changent ; tests, fumée du lot `ci` et AE 101 inchangés.
+
+- **Le moteur de la piscine se lit par morceaux** (`engine/piscine/`, feuille de route, étape 4.2). Les 957 lignes de
+  `engine/piscine.ts` sont rangées en cinq fichiers, un par étape : réglages, géométrie, calcul, chiffrage, note de calcul.
+  `engine/piscine.ts` les réexporte, si bien que rien d'autre ne change d'import. Le code est déplacé tel quel ; les empreintes et
+  les tests ne bougent pas.
+
+- **Les entrées de session des couches pures sont fermées et gardées** (feuille de route, étape 1.3 ; AD-15). Les couches pures
+  n'ont que trois registres de session : la calibration de la détection, les faits de toit essayés par l'administrateur et la
+  bibliothèque d'essences. Aucun ne change un nombre enregistré dans un projet. Le test d'architecture refuse désormais tout
+  autre état de module (`let`) dans `util`, `geometry`, `model`, `regles`, `engine`, `geo` et `facade`. Il refuse aussi qu'un
+  de ces registres se pose ailleurs que depuis `app/` ou `io/`. L'étape 1.4 (garder avec un relevé la calibration qui l'a
+  produit) attend un rejeu qui en ait besoin : c'est un champ de schéma.
+
+- **Le plan suit mieux le geste : les zones ne refont plus à chaque rendu ce qu'elles avaient déjà** (feuille de route, étape 2.1).
+  - **Inspecteur** : chaque champ de la construction (sa note, sa visibilité, son état) relisait toute la terrasse : grille des
+    vis, zones de spa, surface, et hauteur de chaque appui sur le relief. Cela faisait des dizaines de lectures par rendu ; il
+    n'en reste qu'une (`ui/champs/construction.ts`). Une empreinte (contour, construction, nombre d'objets) fait qu'une écriture
+    relit des valeurs à jour.
+  - **Menu, « Fusionner les doublons »** : l'entrée se grise sans doublon, et le calcul se refaisait à chaque rendu en sérialisant
+    tout le projet. La parcelle, jamais un doublon, n'y passe plus avec sa grille du relief. La signature complète ne se calcule
+    que pour les objets qui partagent leur forme au centimètre : 13,7 → 3,7 ms, même résultat (test sur la démonstration).
+  - Au banc, à 147 objets : 82 → 38 ms par rendu au bureau, 506 → 343 ms au téléphone.
+
 - **Les nombres d'un ancien projet ne suivent plus le code d'aujourd'hui** (feuille de route, étapes 1.1 et 1.2 ; AD-19). Deux
   chemins donnaient des nombres à un ancien fichier sans numéro de schéma, et un témoin cassait seulement s'ils bougeaient.
   - **Le remplissage** : ce qu'un projet reçoit quand un réglage de construction lui manque lit maintenant une table de valeurs
@@ -186,6 +216,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   - **75, au bureau** : il prend deux minutes, le canevas 3D y est grand. La fumée de la nuit borne maintenant un point à
     400 s au lieu de 240.
 
+- **Deux écritures simultanées de l'admin ne perdent plus rien** (`deploy/admin.php`, feuille de route, étape 5.1). Deux démos
+  ajoutées au même instant cherchaient le même numéro libre : la seconde écrasait la première (11 démos sur 12 gardées, une fois
+  sur trois, dans le test). Le numéro se cherche et se prend désormais sous un verrou du dossier, et toute écriture d'un document
+  (démo, palette, arbres, contrôleurs, calibration, cas de calibration) passe sous le verrou de son fichier, si bien que la copie
+  `.bak` est bien la version d'avant. Les documents entiers restent au dernier qui écrit, comme avant. Test : douze ajouts
+  simultanés sur `php -S` à quatre processus.
 - **Le point 90 de la fumée (l'avant et l'après en deux vues) repasse partout.** Il échouait dans toutes les classes d'écran,
   sur `main` aussi : l'écran des propositions est devenu un accordéon (un seul niveau ouvert par groupe), et le script
   décochait « la première case cochée » sans ouvrir son niveau, la couverture de la maison restait dans « Toit », replié. Les

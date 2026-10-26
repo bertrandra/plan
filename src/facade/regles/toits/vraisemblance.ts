@@ -2,9 +2,9 @@
 // MD/spec-regles-toits.md §9.1, point 4) : ce que le LiDAR voit au-dessus d'un batiment n'est pas
 // toujours son toit, et un egout mesure n'est pas toujours un egout.
 //
-// Ils vivaient dans app/toitsLidar.ts, qui les applique a l'import. Le rejeu d'un cas d'audit
+// Ils vivaient dans app/toits/toitsLidar.ts, qui les applique a l'import. Le rejeu d'un cas d'audit
 // (facade/regles/rejeu.ts) doit appliquer exactement les memes, sans reseau ni plan : ils sont donc ici, purs,
-// et app/toitsLidar.ts les reexporte sous les memes noms.
+// et app/toits/toitsLidar.ts les reexporte sous les memes noms.
 
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
 import type { CorpsToit, ToitMesure } from '../../../model/types.js';

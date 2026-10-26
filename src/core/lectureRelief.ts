@@ -4,7 +4,7 @@
 // grise, et le bouton de l'inspecteur dit « Lecture… ». L'ecouteur (app/ecouteurs/relief.ts) ecrit
 // cet etat ; le descripteur de champ (ui/champs/relief.ts) le lit. Il vit ici, sous les deux, parce
 // que `ui` n'importe pas `app`. Rien ici ne s'enregistre : c'est un etat d'interface, comme
-// l'actualisation IGN (app/actualisationIgn.ts) dont il reprend la forme.
+// l'actualisation IGN (app/cadastre/actualisationIgn.ts) dont il reprend la forme.
 
 let enCours = false;
 const abonnes = new Set<() => void>();

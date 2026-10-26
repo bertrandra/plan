@@ -35,7 +35,7 @@ export interface NoeudChaine {
 
 /**
  * Un `detail` peut porter des valeurs lues en direct, `{{poids.lidar}}`, `{{seuil.SEUIL_MARCHE_M}}`, `{{recon.SCORE_AUTO_MIN}}` :
- * app/chaineVivante.ts les remplace par ce que les fichiers de donnees disent aujourd'hui, et dit celles qu'elle ne connait pas.
+ * app/administration/chaineVivante.ts les remplace par ce que les fichiers de donnees disent aujourd'hui, et dit celles qu'elle ne connait pas.
  */
 
 const REGLES = '?admin&ecran=regles';
@@ -53,7 +53,7 @@ export const CHAINE: readonly NoeudChaine[] = [
 
   // 2. Le polygone devient un objet de Plan
   { id: 'objet', parent: null, genre: 'etape', titre: '2. Le polygone devient ma maison', detail: 'Un contour IGN devient un objet de Plan : prisme, hauteur, fonction.' },
-  { id: 'objet.polygone', parent: 'objet', genre: 'objet', titre: 'Le polygone', detail: 'Contour du bâtiment dans le repère du plan, recalé sur le LiDAR si le contour est décalé (le bâtiment entier, jamais un corps).', mode: 'auto', ou: 'app/toitsLidar.ts' },
+  { id: 'objet.polygone', parent: 'objet', genre: 'objet', titre: 'Le polygone', detail: 'Contour du bâtiment dans le repère du plan, recalé sur le LiDAR si le contour est décalé (le bâtiment entier, jamais un corps).', mode: 'auto', ou: 'app/toits/toitsLidar.ts' },
   { id: 'objet.prisme', parent: 'objet', genre: 'objet', titre: 'Le prisme et sa hauteur', detail: 'Du sol à l’égout. La hauteur BD TOPO est remplacée par l’égout LiDAR si l’écart passe {{seuil.ECART_EGOUT_MIN_M}}.', mode: 'mixte', voir: 'decision.hauteur' },
   { id: 'objet.fonction', parent: 'objet', genre: 'objet', titre: 'Fonction : bâtiment, terrasse, parasol…', detail: 'Ce que la fonction permet est décrit une fois (`model/fonctions.ts`).', mode: 'manuel', ou: 'model/fonctions.ts' },
 

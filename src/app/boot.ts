@@ -15,11 +15,11 @@ import { restaurerOrthoDuProjet, basculerOrthophoto, ortho } from '../render/ort
 import { lectureRelief } from '../core/lectureRelief.js';
 import { brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { prevenirAdminDesCapacitesForcees } from './acces.js';
-import { actualisation } from './actualisationIgn.js';
+import { actualisation } from './cadastre/actualisationIgn.js';
 import { creerVues3d } from './assemblage/vues3d.js';
 import { vue3d, reglerVue3d } from '../three/etat3d.js';
-import { type SourceControleurs } from './controleurs.js';
-import { inventorierLesClasses } from './decouverteClasses.js';
+import { type SourceControleurs } from './administration/controleurs.js';
+import { inventorierLesClasses } from './administration/decouverteClasses.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, adresseVitrine, resoudreCourse, cadrageSurParcelle, cercleParcelle, type SceneZoomable, type Vitrine } from './vitrine.js';
 import { leverEtCoucher, positionSoleil } from '../geo/soleil.js';
 import { appliquerSoleilVitrine } from '../three/soleilVitrine.js';

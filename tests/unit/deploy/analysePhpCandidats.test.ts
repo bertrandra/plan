@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { creerClientAnalyse } from '../../../src/io/analyseClaude.js';
-import { analyserVillage } from '../../../src/app/candidatsPanoramax.js';
+import { analyserVillage } from '../../../src/app/toits/candidatsPanoramax.js';
 import { CLE, USAGE_P2, demarrerFauxAnthropic, messageReussi, reussi, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { RECHERCHE_PANORAMAX, SORTIE_DEUX_PANS, SORTIE_MANSART, VILLAGE, telechargementFige } from '../../fixtures/candidats/village.js';
@@ -14,7 +14,7 @@ import { RECHERCHE_PANORAMAX, SORTIE_DEUX_PANS, SORTIE_MANSART, VILLAGE, telecha
 // Les cas candidats Panoramax (lot G3 bis) par analyse.php, la route de production : l'usage
 // `candidats`, le prompt et le schema de l'analyse, le journal, un village entier en batch et en appel
 // immediat (API Anthropic simulee, recherche Panoramax et photos figees). Le choix des photos est
-// eprouve sans serveur (tests/unit/app/candidatsPanoramax.test.ts). Saute si PHP manque.
+// eprouve sans serveur (tests/unit/app/toits/candidatsPanoramax.test.ts). Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');

@@ -33,7 +33,7 @@ const PISTES: Record<string, { niveau: string; seuils: string[] }> = {
   'toit.fusion': { niveau: 'reglage', seuils: ['SEUIL_MARCHE_M', 'GAIN_COUPE', 'ECART_COUPE_MIN_M', 'DIFFERENCE_COUPE_M'] },
   'toit.trou': { niveau: 'reglage', seuils: ['PART_COMPLETION_MIN', 'EGOUT_ETENDU_MIN_M', 'SOUS_EGOUT_ETENDU_M', 'COMPLETION_MAX_M'] },
   'toit.vegetation': { niveau: 'reglage', seuils: ['DEPASSEMENT_VEGETATION_M'] },
-  'toit.cheval': { niveau: 'question (app/toitsACheval.ts)', seuils: ['AIRE_A_CHEVAL_MIN_M2', 'PART_A_CHEVAL_MIN', 'AIRE_CORPS_DE_CHAQUE_COTE_M2'] },
+  'toit.cheval': { niveau: 'question (app/toits/toitsACheval.ts)', seuils: ['AIRE_A_CHEVAL_MIN_M2', 'PART_A_CHEVAL_MIN', 'AIRE_CORPS_DE_CHAQUE_COTE_M2'] },
   'toit.absent': { niveau: 'a voir (fait en remplacement si la mesure manque)', seuils: ['ECART_MAX_M', 'GAIN_APPENTIS_SECOURS'] },
   'toit.couverture': { niveau: 'hors toit (couverture : couleur ou materiau)', seuils: [] },
   'toit.autre': { niveau: 'a voir (lire la note)', seuils: [] },

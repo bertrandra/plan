@@ -4,7 +4,7 @@
 // facade/regles/toits/silhouettes.ts.
 //
 // Le fichier est importe, donc compile dans le fichier livre. Il ne change aucune toiture deja lue : il ne sert
-// qu'aux propositions de l'audit, son empreinte n'entre donc pas dans la version de lecture des toits (app/toitsLidar.ts).
+// qu'aux propositions de l'audit, son empreinte n'entre donc pas dans la version de lecture des toits (app/toits/toitsLidar.ts).
 
 import fichier from '../../../regles/toits/silhouettes.json';
 import { fnv1a } from './reglages.js';

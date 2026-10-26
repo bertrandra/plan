@@ -10,19 +10,19 @@ import { creerInspecteur, type Inspecteur } from '../inspecteur.js';
 import { creerExplorateur } from '../explorateur.js';
 import { brancherCommandesCiblees } from '../ecouteurs/cibles.js';
 import { creerProjet } from '../projet.js';
-import { actualisation } from '../actualisationIgn.js';
+import { actualisation } from '../cadastre/actualisationIgn.js';
 import { aPoints } from '../assemblage/formes.js';
 import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
 import { type Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
-import { creerServiceReleve } from '../releve.js';
-import { aideReleveDuNavigateur } from '../renfortReleve.js';
+import { creerServiceReleve } from '../releve/releve.js';
+import { aideReleveDuNavigateur } from '../releve/renfortReleve.js';
 import { brancherFacade } from '../ecouteurs/facade.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { EXPOSITION } from '../exposition.js';
 import { APP_VERSION } from '../../model/version.js';
-import { PREFIXE_ECHANTILLON, type SourceControleurs } from '../controleurs.js';
+import { PREFIXE_ECHANTILLON, type SourceControleurs } from '../administration/controleurs.js';
 import type { ChampChoix } from '../../ui/champs/types.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { GraineDemarrage } from './graines.js';
@@ -73,7 +73,7 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
 }
 
 /**
- * La decouverte des controleurs (app/controleurs.ts) : ce que Plan a monte, lu sans rien executer.
+ * La decouverte des controleurs (app/administration/controleurs.ts) : ce que Plan a monte, lu sans rien executer.
  * Les sections de l'inspecteur dependent de l'objet : on en demande une par sorte d'objet du plan.
  */
 export function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur, objets: ObjetPlan[], ecran: NonNullable<SourceControleurs['ecran']>): SourceControleurs {

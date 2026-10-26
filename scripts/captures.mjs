@@ -103,7 +103,7 @@ export async function simulerPlateforme(page) {
  */
 export async function ouvrirDemo(page, { temoin = false } = {}) {
   await simulerPlateforme(page);
-  // Pas de lecture des toits en tache de fond (app/toitsFond.ts) : elle changerait, la ou l'IGN
+  // Pas de lecture des toits en tache de fond (app/toits/toitsFond.ts) : elle changerait, la ou l'IGN
   // repond, les toits que les points de la fumee et les captures mesurent.
   await page.addInitScript(() => { window.__sansToitsFond = true; });
   await page.goto(BASE + (temoin ? '/?temoin' : '/'));

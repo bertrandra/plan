@@ -6,7 +6,7 @@
 
 import { sommetDe } from './anneau.js';
 import type { PtBrut } from '../model/types.js';
-import { versEcran, type EtatScene } from '../geometry/vue.js';
+import { versEcran, type EtatScene } from './vue.js';
 
 // Best-effort SVG path 'd' parser: reduces a path to an ordered list of {x,y} endpoint vertices,
 // matching how this app already represents imported curves (plain polyline points, not bezier

@@ -596,9 +596,9 @@ const ecartImages = (a, b) => { let s = 0; const n = Math.min(a.length, b.length
  * (src/regles/conformite.ts). Lu dans le source plutot qu'ecrit ici : un attribut ajoute (la forme du toit, en octobre 2026)
  * ne doit pas rendre le point rouge.
  */
-/** La version de lecture des toits qu'Admin › Regles propose d'ajouter : la derniere de `LECTURES_TOITS` (src/app/toitsLidar.ts), plus un. */
+/** La version de lecture des toits qu'Admin › Regles propose d'ajouter : la derniere de `LECTURES_TOITS` (src/app/toits/toitsLidar.ts), plus un. */
 function versionLectureSuivante() {
-  const texte = readFileSync('src/app/toitsLidar.ts', 'utf8');
+  const texte = readFileSync('src/app/toits/toitsLidar.ts', 'utf8');
   const bloc = /export const LECTURES_TOITS[^=]*=\s*\[([\s\S]*?)\n\];/.exec(texte);
   const versions = bloc ? [...bloc[1].matchAll(/\{\s*version:\s*(\d+)/g)].map((m) => Number(m[1])) : [];
   return versions.length ? Math.max(...versions) + 1 : -1;

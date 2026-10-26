@@ -1,7 +1,7 @@
 // Les commandes du mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : entrer, valider, abandonner, annuler dans la session, et ce que
 // le mode permet d'y faire — allumer ou couper les « Regles », poser un geste du catalogue, choisir le mur d'un element.
 //
-// Toute retouche passe par la session (app/modeToit.ts) : elle ecrit dans le batiment, la scene 3D la montre, et le projet ne recoit
+// Toute retouche passe par la session (app/toits/modeToit.ts) : elle ecrit dans le batiment, la scene 3D la montre, et le projet ne recoit
 // qu'une etape d'historique, a la validation.
 //
 // `toit.regles` : une bascule. Allumee, le toit se lit tout seul (LiDAR, faits, profils) ; coupee, le batiment est fige (`toitFige`) et
@@ -9,7 +9,7 @@
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../modeToit.js';
+import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';

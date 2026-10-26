@@ -27,11 +27,19 @@ function normalise(v: unknown): unknown {
 
 /** Les groupes d'objets identiques, dans l'ordre du plan. */
 export function trouverDoublons(objets: readonly ObjetPlan[]): GroupeDoublons[] {
+  // Calcule a chaque rendu du menu (l'entree se grise sans doublon) : la parcelle, qui n'en est jamais un et porte la grille du
+  // relief, n'est pas serialisee ; et la signature entiere ne se calcule que pour les objets qui partagent leur forme au
+  // centimetre, condition necessaire d'un doublon (MD/roadmap-architecture.md, etape 2.1).
+  const candidats = objets.filter((o) => o.key !== 'parcelle');
+  const brut = serializeObjects(candidats as ObjetPlan[]) as Record<string, unknown>[];
+  const formes = brut.map((b) => JSON.stringify(normalise([b.type, b.pts ?? null, b.center ?? null, b.r ?? null])));
+  const parForme = new Map<string, number>();
+  for (const f of formes) parForme.set(f, (parForme.get(f) ?? 0) + 1);
   const parSignature = new Map<string, ObjetPlan[]>();
-  const brut = serializeObjects(objets as ObjetPlan[]);
-  objets.forEach((o, i) => {
-    if (o.key === 'parcelle') return;
-    const signature = JSON.stringify(normalise(Object.fromEntries(Object.entries(brut[i] as Record<string, unknown>).filter(([k]) => !IGNORES.has(k)))));
+  candidats.forEach((o, i) => {
+    const b = brut[i] as Record<string, unknown>;
+    if ((parForme.get(formes[i] as string) ?? 0) < 2) return;
+    const signature = JSON.stringify(normalise(Object.fromEntries(Object.entries(b).filter(([k]) => !IGNORES.has(k)))));
     parSignature.set(signature, [...(parSignature.get(signature) ?? []), o]);
   });
   return [...parSignature.values()].filter((g) => g.length > 1).map((g) => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { toitsDepuisLidar, toitLu, marqueDeLecture, MARQUE_ESSAI_FAITS, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toitsLidar.js';
+import { toitsDepuisLidar, toitLu, marqueDeLecture, MARQUE_ESSAI_FAITS, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toits/toitsLidar.js';
 import { essayerFaitsToits, lireFaitsToits } from '../../../src/regles/toits/faits.js';
 import { hauteurToitEn, plansDuToit } from '../../../src/facade/toits/toit.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';

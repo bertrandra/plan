@@ -67,7 +67,7 @@ export interface PhotoMur {
 export interface CouleurMurs {
   photo?: PhotoMur | null;
   /**
-   * La version de la lecture qui a mis `photo` a null (app/mursFond.ts, VERSION_LECTURE_MURS) : une
+   * La version de la lecture qui a mis `photo` a null (app/toits/mursFond.ts, VERSION_LECTURE_MURS) : une
    * regle de lecture meilleure passe ce numero, et les murs sans lecture concluante sont relus.
    */
   lecture?: number;

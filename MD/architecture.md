@@ -416,6 +416,16 @@ tokens in `jetons.ts`) sit outside the layers.
   controllers `importCadastre` and `actualisationIgn` behind `parcours`. `ui/` keeps only the
   field descriptors and three pure helpers; `three/` no longer looks up a DOM id and takes its
   settings as parameters. `app/exposition.ts` has no `html:` placement left.
+- **`app/` is split by domain** (26 October, roadmap steps 3.1 and 3.2). Its root keeps the core: the store,
+  the command registry, the modes, the project, the inspector and results services, `boot/`, `assemblage/`
+  and `ecouteurs/`. Each domain gets a folder: `administration/` (the admin screens, the controller tree, the
+  inventory), `cadastre/` (import, IGN refresh, default values), `toits/` (background roof, wall and profile
+  readings, LiDAR, straddling roofs, the Roof mode, Panoramax candidates), `releve/`, `audit/` and `regles/`.
+  The admin folder is not `admin/`: the smoke scripts mock the server's `admin/…` routes by URL, and a module
+  served from `/src/app/admin/` would be caught by them. `tests/unit/architecture.test.ts` holds the table of
+  allowed arrows between domains: `toits` and `releve` depend on no other domain, `cadastre` on `toits`, `audit`
+  on `cadastre`, `regles`, `releve` and `toits`, `regles` (the audit's subjects) on `audit`, and the admin on
+  what it shows. A new arrow is a decision, written in that table.
 - **`boot()` is a composition, not a closure.** Its sixty wrappers moved to `app/assemblage/` by
   family (the SVG surface and its layers, drawing, display toggles, framing, measures, edits, the
   two 3D views, exports), and `boot.ts` composes them in five functions, none over 150 lines. The
@@ -459,7 +469,7 @@ what a building is allowed to be, from three kinds of input that never mix:
 
 `regles/` is the engine's **data directory**. Its files are imported, so compiled into the
 delivered file: no network read, a number produced yesterday is reproduced today (ASR-1). Their
-fingerprint enters the reading version (`LECTURES_TOITS` in `app/toitsLidar.ts`): a changed
+fingerprint enters the reading version (`LECTURES_TOITS` in `app/toits/toitsLidar.ts`): a changed
 setting or fact re-reads the roofs on the next opening, except buildings verified on site.
 
 **Order of application** (`spec-regles-toits.md` §9.1): calculation → rules, with the settings
@@ -503,11 +513,11 @@ src/app/regles/              layer 6 — what the audit can see and propose
     contrat.ts               the `Sujet` contract (id, attribut?, effet?, proposer?, observer?); index.ts is the registry (`SUJETS`)
     observations.ts          the observations, said by the registry in prompt order (a simple field with no module says itself)
     vote.ts                  the vote of the passes as the audit reads it (the subjects' simple fields included)
-src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/ecranRegles.ts
+src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/administration/ecranRegles.ts
 ```
 
 The calculation itself (`facade/toits/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
-proposes and prices, the engine arbitrates. `app/toitsLidar.ts` and `app/toitsFond.ts` orchestrate
+proposes and prices, the engine arbitrates. `app/toits/toitsLidar.ts` and `app/toits/toitsFond.ts` orchestrate
 (import, background re-reading, `VERSION_LECTURE_TOITS`); `app/ecouteurs/faitsLocaux.ts` is the
 `?regles=local` trial mode (facts from a file; the same address also sends the audit's analysis out with the
 draft prompt saved from Admin › Règles).
@@ -935,7 +945,7 @@ Carried deliberately, with the trigger that would force payment.
 
 | # | Debt | Cost of carrying | Trigger to pay |
 |---|---|---|---|
-| AD-1 | Full redraw on every change (W3) | Measured 26 October 2026: the SVG redraw holds (10.7 ms at 600 objects on desktop), the derived values recomputed by the zones on every notification do not (82 ms on desktop, 506 ms on a phone at 147 objects) | **Breached**: `scripts/banc-rendu.mjs` exceeds 16 ms on desktop and 33 ms on a phone at the demonstration's size. Paid in two steps, MD/roadmap-architecture.md phase 2 |
+| AD-1 | Full redraw on every change (W3) | Measured 26 October 2026: the SVG redraw holds (10.7 ms at 600 objects on desktop), the derived values recomputed by the zones on every notification do not (82 ms on desktop, 506 ms on a phone at 147 objects) | **Breached**: `scripts/banc-rendu.mjs` exceeds 16 ms on desktop and 33 ms on a phone at the demonstration's size. Paid in two steps, MD/roadmap-architecture.md phase 2. **Step 2.1, 26 October 2026**: the construction fields read once per inspector render, and duplicates no longer serialize the parcel: 82 → 38 ms on desktop, 506 → 343 ms on a phone at 147 objects (development server) |
 | AD-2 | Mixed French/English identifiers | Mild cognitive cost | Never — deliberate (P9) |
 | AD-3 | ~~Hand-written PDF writer, no image support~~ — *outdated*: the plan and dossier PDFs still use the hand-written writer (`export/pdf/`), but the déclaration préalable dossier (`export/dossierMairie.ts`, which fills CERFA 13703) uses pdf-lib 1.17.1, loaded on demand from jsDelivr (`export/chargeurPdfLib.ts`) | A second CDN dependency, outside the golden fixtures | When a golden PDF needs what only pdf-lib does |
 | AD-4 | three.js pinned (0.186.1 since 16 Oct 2026, was r128) as ES modules from jsDelivr, behind an import map | A bump is a deliberate migration (colour, light intensities, GLB output) | A needed feature or a security advisory |
@@ -949,10 +959,10 @@ Carried deliberately, with the trigger that would force payment.
 | AD-12 | ~~No integrity (SRI) on CDN loads~~ | — | **Paid 25 October 2026**: `util/integriteCdn.ts` (sha384 of three.js and its examples, EZ-tree, model-viewer, pdf-lib), the `integrity` field of the import map, the attribute on pdf-lib's tag; `tests/unit/util/integriteCdn.test.ts` recomputes them from `node_modules` and requires one for every loaded address |
 | AD-13 | ~~Leftover references to `legacy.ts`~~ | — | **Paid 25 October 2026** (lot K): the rule « nothing imports `legacy.ts` » left `tests/unit/architecture.test.ts` |
 | AD-14 | ~~`three/etat3d.ts` exports mutable objects written from `app/` and `zones/`~~ | — | **Paid 25 October 2026** (lot L): outside `three/`, every write goes through a named function of `etat3d.ts` (`reglerVue3d`, `reglerGlb`, `reglerSoleilVue3d`, `poserAffichage3d`, `poserHote3d`; the sun settings receive theirs as `regler`); the GLB viewer's background moved to `three/glbViewer.ts::remplacerFondGlb`. `tests/unit/architecture.test.ts` refuses a direct assignment outside `three/` |
-| AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`), the theme inks (`render/theme.ts`, eight exported `let`) | The same inputs can give different results depending on the session; listed in §5.2.4 | A result that differs between two sessions of the same project |
+| AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`); the theme inks (`render/theme.ts`) are outside the pure layers | None changes a number saved in a project: calibration only changes the next detection, a roof read during a trial is read again at the next opening, species only draw the 3D | **Closed 26 October 2026** (MD/roadmap-architecture.md, step 1.3): these three are the only module state of the pure layers, and each is set only from `app/` or `io/` (`tests/unit/architecture.test.ts`). Passing them as arguments through the façade and roof chains is not worth its risk. Recording a survey's calibration (step 1.4) waits for a replay that needs it |
 | AD-16 | ~~`app/` and `zones/` (both layer 6) import each other freely; `zones/` drives a worker and network calls~~ | — | **Paid 25 October 2026** (lot M): one direction. `zones/` reads the application (store, commands, services); `app/` takes from `zones/` only screens to mount (`.tsx`, `zones/monter.ts`) and the types they declare. The coin search and its worker moved to `app/releve/`, the platform probe of the gate to `io/sondePlateforme.ts`; `zones/` calls the network only through `io/`, `geo/` or `app/`, and starts no worker. Both rules are in `tests/unit/architecture.test.ts`. A screen may still call the pure functions of lower layers (`Releve.tsx` and `facade/releve/`) |
 | AD-17 | ~~Large modules: `three/scene.ts`, `app/boot.ts`, `app/audit/parcelle/controleur.ts`~~ | — | **Paid 25 October 2026** (lot N), split by concern, each former module re-exporting what it exported. `three/scene.ts` (1 422 → ≈370 lines: mounting and construction) gave `typesScene.ts`, `sceneTerrasse.ts` (structure and decking), `sceneObjets.ts` (the plan's objects in context) and `sceneVivante.ts` (what is done to a built scene: replace, compare, highlight, prune, pick — its state lives there only). `app/audit/parcelle/controleur.ts` (993 → ≈185: the session) gave `typesSession.ts`, `textesSession.ts`, `capteursPrise.ts`, `brouillonCapture.ts`, `etapesSession.ts`, `viseeFacade.ts`, `vueAudit.ts`. `app/boot.ts` (816 lines, 99 imports) keeps `boot()`; `app/boot/` holds the seeds, the plan and its workshop, the loaders, the wiring, the panels and the per-mode annexes. `model/types.ts` was split in lot J |
-| AD-18 | ~~Ten import cycles that go only through type imports~~ | — | **Paid 25 October 2026** (lot K): each shared type moved down to the lower module, or to a module of its own (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`); the test now forbids any cycle, type imports included |
+| AD-18 | ~~Ten import cycles that go only through type imports~~ | — | **Paid 25 October 2026** (lot K): each shared type moved down to the lower module, or to a module of its own (`geo/geojson.ts`, `model/clotureVue.ts`, `app/cadastre/optionsActualisation.ts`, `app/administration/typesControleurs.ts`); the test now forbids any cycle, type imports included |
 | AD-19 | ~~Two unversioned paths change an old file's numbers~~: the construction defaults that `engine/construction.ts::ensureConstruction` fills at compute time, and the 2 → 3 migration that gave a BD TOPO building today's roof | — | **Paid 26 October 2026** (MD/roadmap-architecture.md, steps 1.1 and 1.2): the fill reads a frozen table of literal values with no import (`engine/remplissageFige.ts`, its essence stiffness included), and only `constructionTerrasseNeuve` may follow today's defaults; the migration reads a frozen copy of the schema-3 roof rules, the oriented rectangle and the straight skeleton (`model/fige/toitSchema3.ts`), which imports only types and which only `model/migrations.ts` may import (`tests/unit/architecture.test.ts`). The two golden witnesses stay as the alarm |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.

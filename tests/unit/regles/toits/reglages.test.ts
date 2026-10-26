@@ -5,12 +5,12 @@ import { join, relative } from 'node:path';
 import { readdirSync, statSync } from 'node:fs';
 import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, PROFILS_TOITS, SEUILS_TOITS, avecSeuilsToit, empreinteReglagesToits, lireReglagesToits, CalculAsynchroneRefuse, ReglagesToitsIllisibles } from '../../../../src/regles/toits/reglages.js';
 import { conflitsDeProfils, lireProfilsToits } from '../../../../src/regles/toits/profils.js';
-import { LECTURES_TOITS, VERSION_LECTURE_TOITS, versionDeLecture } from '../../../../src/app/toitsLidar.js';
+import { LECTURES_TOITS, VERSION_LECTURE_TOITS, versionDeLecture } from '../../../../src/app/toits/toitsLidar.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE } from '../../../../src/regles/toits/faits.js';
 import { SEUIL_MARCHE_M, SOL_M } from '../../../../src/model/toitMesure.js';
 import { TOLERANCE_REFONTE, GAIN_COUPE, PART_VIDE_RECALAGE } from '../../../../src/facade/toits/toitCorps.js';
 import { ECART_MAX_M } from '../../../../src/facade/toits/toitLidar.js';
-import { DEPASSEMENT_VEGETATION_M } from '../../../../src/app/toitsLidar.js';
+import { DEPASSEMENT_VEGETATION_M } from '../../../../src/app/toits/toitsLidar.js';
 import { AIRE_A_CHEVAL_MIN_M2 } from '../../../../src/model/aCheval.js';
 
 // Les seuils des toits sortis du code dans regles/toits/reglages.json (MD/spec-regles-toits.md §6, §9.2).
@@ -48,9 +48,9 @@ describe('regles/toits/reglages.json', () => {
   });
 
   it('les reglages livres ont leur ligne dans LECTURES_TOITS (sinon : ajouter une version de lecture)', () => {
-    expect(LECTURES_TOITS.at(-1)?.reglages, 'une valeur de reglages.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_REGLAGES_TOITS);
-    expect(LECTURES_TOITS.at(-1)?.faits ?? EMPREINTE_FAITS_VIDE, 'un fait de regles/toits/faits.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FAITS_TOITS);
-    expect(LECTURES_TOITS.at(-1)?.formes, 'un seuil de regles/toits/formes.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\', formes: \'' + EMPREINTE_FORMES_TOITS + '\' } a LECTURES_TOITS (app/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FORMES_TOITS);
+    expect(LECTURES_TOITS.at(-1)?.reglages, 'une valeur de reglages.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\' } a LECTURES_TOITS (app/toits/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_REGLAGES_TOITS);
+    expect(LECTURES_TOITS.at(-1)?.faits ?? EMPREINTE_FAITS_VIDE, 'un fait de regles/toits/faits.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\' } a LECTURES_TOITS (app/toits/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FAITS_TOITS);
+    expect(LECTURES_TOITS.at(-1)?.formes, 'un seuil de regles/toits/formes.json a change : ajouter { version: n + 1, reglages: \'' + EMPREINTE_REGLAGES_TOITS + '\', faits: \'' + EMPREINTE_FAITS_TOITS + '\', formes: \'' + EMPREINTE_FORMES_TOITS + '\' } a LECTURES_TOITS (app/toits/toitsLidar.ts), les toits deja lus seront relus').toBe(EMPREINTE_FORMES_TOITS);
     expect(VERSION_LECTURE_TOITS).toBe(LECTURES_TOITS.at(-1)?.version);
   });
 

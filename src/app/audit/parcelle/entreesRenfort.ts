@@ -10,7 +10,7 @@
 
 import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterRenfort, RENFORT_A_CHAQUE_FACADE, type ReponseRenfort } from '../../../facade/detection/renfort.js';
 import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/detection/renfortRecalage.js';
-import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../renfortReleve.js';
+import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../releve/renfortReleve.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import { etiquetteFacade } from './liste.js';
 import type { RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';

@@ -52,7 +52,7 @@ export interface LieuDuCas { departement?: string | null; latitude?: number | nu
 /**
  * Rejoue un cas avec le code, les reglages, les profils et les faits courants (`faits` : un autre jeu,
  * celui qu'une PR propose, pour les images d'apres). Pur : ni reseau, ni plan. Un fait en remplacement
- * donne le toit sans la grille, comme a l'import (app/toitsLidar.ts).
+ * donne le toit sans la grille, comme a l'import (app/toits/toitsLidar.ts).
  */
 export function rejouerCas(c: CasAudit, faits: FaitsToits = faitsEnVigueur(), lieu: LieuDuCas = {}): RejeuCas {
   const ctx: ContexteProfils = { departement: lieu.departement ?? null, latitude: lieu.latitude ?? null, voisins: (c.entrees.voisins ?? []).map((v) => ({ cle: v.cle, pts: v.pts })) };
@@ -75,7 +75,7 @@ function rejouer(c: CasAudit, faits: FaitsToits): RejeuCas {
   const mesure = mesureVraisemblable(b, toitMesureDepuisGrille(grille, pts));
   const corps = mesure ? corpsVraisemblables(b, corpsSelonFait(fait, corpsCalcules(mesure, pts, { coupes: true, grille, hauteurBdTopo: hauteur }), mesure, pts, grille)) : null;
   const principal = estPrincipal(c.entrees.bdtopo);
-  // Comme app/toitsLidar.ts : le projet garde sa surface et en tire son egout ; un mitoyen ne garde la
+  // Comme app/toits/toitsLidar.ts : le projet garde sa surface et en tire son egout ; un mitoyen ne garde la
   // surface qu'avec des corps, et son egout vient de la forme ajustee.
   const toitMesure = principal || corps ? mesure : null;
   const egout = principal && mesure ? mesure.egout : ajuste ? ajuste.egout : null;
