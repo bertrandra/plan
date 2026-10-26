@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { quitterAdmin } from '../../../src/app/porteAdmin.js';
+import { quitterAdmin } from '../../../../src/app/administration/porteAdmin.js';
 
 // Sortir de l'admin : la session se ferme chez le serveur AVANT que la page se recharge ; si le
 // serveur ne repond pas, on ne recharge pas — la porte reviendrait sur une session encore ouverte.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { jugerAuditsRecus, versionsDuCalcul } from '../../../../src/app/admin/ecranConformite.js';
+import { jugerAuditsRecus, versionsDuCalcul } from '../../../../src/app/administration/ecranConformite.js';
 import { lireFichierPromenade } from '../../../../src/model/audit.js';
 import { FORMAT_AUDIT_PARCELLE, VERSION_FICHIER_AUDIT_PARCELLE } from '../../../../src/model/fichierAuditParcelle.js';
 import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.js';

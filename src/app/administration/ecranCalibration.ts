@@ -14,7 +14,7 @@ import { canevasPour, chargerUrl, imageDuCanevas, versJpeg } from '../../ui/rele
 import { creerClientAudits } from '../../io/auditsServeur.js';
 import { lireFichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
 import { casDepuisFacade, facadesACalibrer } from '../audit/parcelle/casDeCalibration.js';
-import { facadesRelevees } from '../casDeReleve.js';
+import { facadesRelevees } from '../releve/casDeReleve.js';
 import { creerDepotDemos } from '../../io/depotDemos.js';
 import { validerProjetJSON } from '../../io/validation.js';
 import { magasinPhotos, rentrerLesPhotos } from '../../io/photosLocales.js';

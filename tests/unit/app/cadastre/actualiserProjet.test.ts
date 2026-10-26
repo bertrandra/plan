@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { valeursParDefaut, estImporte } from '../../../../src/app/valeursParDefaut.js';
+import { valeursParDefaut, estImporte } from '../../../../src/app/cadastre/valeursParDefaut.js';
 import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../../src/app/cadastre/actualiserProjet.js';
 import { dialogues } from '../../../../src/shell/dialogues.js';
 import { actualisation, type ContexteActualisation } from '../../../../src/app/cadastre/actualisationIgn.js';

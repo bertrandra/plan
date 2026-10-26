@@ -21,7 +21,7 @@
 // Le fichier du village : $TOITS_DOSSIER/village-<nom>.json (par defaut /tmp/toits).
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { analyserVillage, preparerVillage, type ImageTelechargee, type VillageJson } from '../../../../src/app/candidatsPanoramax.ts';
+import { analyserVillage, preparerVillage, type ImageTelechargee, type VillageJson } from '../../../../src/app/toits/candidatsPanoramax.ts';
 import { creerClientAnalyse } from '../../../../src/io/analyseClaude.ts';
 import { connecterAdmin } from '../../../../src/io/depotDemos.ts';
 import { compterCandidats, estVisee, fusionnerCandidats, lireFichierCandidats, texteCandidat, VISEES_PAR_DEFAUT, type ViseeCandidat } from '../../../../src/model/casCandidats.ts';

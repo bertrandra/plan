@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { lirePhotosRue } from '../../../src/geo/panoramax.js';
-import { projecteurLocal } from '../../../src/geo/projection.js';
-import { emprise, etiquettePhoto, photosParBatiment, texteDuBatiment, idRequeteCandidat, type VillageJson } from '../../../src/app/candidatsPanoramax.js';
-import { ORIGINE, RECHERCHE_PANORAMAX, VILLAGE } from '../../fixtures/candidats/village.js';
+import { lirePhotosRue } from '../../../../src/geo/panoramax.js';
+import { projecteurLocal } from '../../../../src/geo/projection.js';
+import { emprise, etiquettePhoto, photosParBatiment, texteDuBatiment, idRequeteCandidat, type VillageJson } from '../../../../src/app/toits/candidatsPanoramax.js';
+import { ORIGINE, RECHERCHE_PANORAMAX, VILLAGE } from '../../../fixtures/candidats/village.js';
 
 // Les cas candidats Panoramax (lot G3 bis) : le choix des photos qui montrent un toit. Un village
 // entier, par les routes de l'analyse, est joue contre analyse.php (tests/unit/deploy/analysePhpCandidats.test.ts).

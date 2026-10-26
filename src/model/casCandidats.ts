@@ -10,7 +10,7 @@
 // calcul, et un candidat trie n'est plus jamais reecrit par le script.
 //
 // Pur et deterministe : la recherche des photos et l'appel a Claude sont dans
-// app/candidatsPanoramax.ts, le script dans .claude/skills/regles-toits/scripts/candidats.ts.
+// app/toits/candidatsPanoramax.ts, le script dans .claude/skills/regles-toits/scripts/candidats.ts.
 
 import { FORMES_TOIT_CATALOGUE, estFormeSimple, estFormeToit } from './formeToit.js';
 import type { Vote, VoteAnalyse } from './analyseClaude.js';

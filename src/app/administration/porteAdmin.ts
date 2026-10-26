@@ -6,8 +6,8 @@
 
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
-import { PorteAdmin } from '../zones/PorteAdmin.js';
-import { sessionAdmin, connecterAdmin, deconnecterAdmin } from '../io/depotDemos.js';
+import { PorteAdmin } from '../../zones/PorteAdmin.js';
+import { sessionAdmin, connecterAdmin, deconnecterAdmin } from '../../io/depotDemos.js';
 
 /** L'adresse demande-t-elle l'admin des demos ? */
 export function demandeAdmin(recherche: string): boolean {

@@ -50,7 +50,7 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
   /**
    * Le tableau de bord de la consommation de Claude (MD/spec-audit.md 13.3) : un ecran de l'admin des
    * demos, dont les routes exigent sa session. L'adresse est ecrite ici plutot qu'importee
-   * d'app/admin/ecranConsommation.ts : l'ecran et ses graphiques n'ont rien a faire dans le demarrage.
+   * d'app/administration/ecranConsommation.ts : l'ecran et ses graphiques n'ont rien a faire dans le demarrage.
    */
   cmd.declarer({
     id: 'admin.consommation', libelle: 'Consommation de Claude', groupe: 'admin', actif: () => enAdmin(),

@@ -6,16 +6,16 @@
 // attribut, une forme ou un sujet y ajoute sa ligne. Ce qui ne peut pas se lire (un fichier deplace, un seuil retire) est dit en
 // `problemes` a l'ecran, et par les tests, qui verifient aussi que chaque `ou` designe un fichier qui existe.
 
-import { CHAINE, verifierChaine, type NoeudChaine } from '../model/chaine.js';
-import { RECONCILIATION, EMPREINTE_RECONCILIATION, SOURCES, ATTRIBUTS, type ReglesReconciliation } from '../regles/reconciliation.js';
-import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, type DescriptionReglage } from '../regles/toits/reglages.js';
-import { SEUILS_FORMES, DESCRIPTION_SEUILS_FORMES } from '../regles/toits/formes.js';
-import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
-import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../regles/sujets/versions.js';
-import { SUJETS } from './regles/sujets/index.js';
-import { VERSION_LECTURE_TOITS } from './toits/toitsLidar.js';
-import * as FORME_TOIT from '../model/formeToit.js';
-import { EXEMPLES_TOITS } from '../three/catalogueToits.js';
+import { CHAINE, verifierChaine, type NoeudChaine } from '../../model/chaine.js';
+import { RECONCILIATION, EMPREINTE_RECONCILIATION, SOURCES, ATTRIBUTS, type ReglesReconciliation } from '../../regles/reconciliation.js';
+import { REGLAGES_TOITS, DESCRIPTION_REGLAGES_TOITS, EMPREINTE_REGLAGES_TOITS, type DescriptionReglage } from '../../regles/toits/reglages.js';
+import { SEUILS_FORMES, DESCRIPTION_SEUILS_FORMES } from '../../regles/toits/formes.js';
+import { DESCRIPTIONS_SUJETS } from '../../regles/sujets/liste.js';
+import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../../regles/sujets/versions.js';
+import { SUJETS } from '../regles/sujets/index.js';
+import { VERSION_LECTURE_TOITS } from '../toits/toitsLidar.js';
+import * as FORME_TOIT from '../../model/formeToit.js';
+import { EXEMPLES_TOITS } from '../../three/catalogueToits.js';
 
 /** Un seuil tel que l'ecran le montre : son nom, sa valeur avec son unite, et pourquoi il vaut cela. */
 export interface LigneSeuil { nom: string; valeur: string; pourquoi: string }

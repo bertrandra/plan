@@ -23,7 +23,7 @@ avec le rangement du moteur sous `regles/` (`MD/architecture.md` §5.2.4).
 
 | Lot | État | Où |
 |---|---|---|
-| G1, G2, G3, G3 bis | **fait** | `model/types.ts`, banc des formes, `regles/conformite.ts` + écran Admin › Conformité, `app/candidatsPanoramax.ts` |
+| G1, G2, G3, G3 bis | **fait** | `model/types.ts`, banc des formes, `regles/conformite.ts` + écran Admin › Conformité, `app/toits/candidatsPanoramax.ts` |
 | G11, G12 | **fait** | `model/mesureFacade.ts`, `regles/facades/reglages.json` + `facade/regles/facades/profils.ts` (le profil par défaut seul) |
 | **G13** | **fait** | `facade/regles/facades/conformite.ts` : la disposition automatique d'un mur (`ouverturesDUnMur`) comparée à son relevé ; tuile, colonne par région, onglet « Façades » et historique de l'écran Conformité |
 | G15, G17, G18 bis, masque de G20 | **fait** | `facade/regles/toits/profils.ts` (aucun profil encore), `three/detailsBatiment.ts`, clés des manques par façade, masque hachuré |
@@ -35,7 +35,7 @@ avec le rangement du moteur sous `regles/` (`MD/architecture.md` §5.2.4).
 
 **Noms qui ont changé depuis le §4.** `profilsToits.ts` est `facade/regles/toits/profils.ts`, `profilsFacades.ts` est
 `facade/regles/facades/profils.ts`, `model/conformite.ts` est `regles/conformite.ts` ; il n'y a pas de
-`scripts/candidats.ts` (le parcours de village est `app/candidatsPanoramax.ts`).
+`scripts/candidats.ts` (le parcours de village est `app/toits/candidatsPanoramax.ts`).
 
 **Ce que la vague a ajouté sans le plan.** Admin › Règles (le prompt et le schéma de Claude composés par les sujets,
 `MD/architecture.md` §5.2.4), l'essai du brouillon sur le serveur et le rejeu avec lui (`?regles=local`, Admin ›

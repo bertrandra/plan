@@ -2,12 +2,12 @@
 //
 // Un ecran de l'admin comme les autres : main.ts ne l'ouvre qu'une fois la porte franchie, et Plan ne demarre pas dessous.
 // Il ne lit rien du serveur : la chaine est la liste de model/chaine.ts, completee et mise a jour par ce que disent les
-// fichiers de donnees aujourd'hui (app/chaineVivante.ts).
+// fichiers de donnees aujourd'hui (app/administration/chaineVivante.ts).
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranChaine } from '../../zones/EcranChaine.js';
-import { chaineVivante } from '../chaineVivante.js';
+import { chaineVivante } from './chaineVivante.js';
 import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la chaine ? */

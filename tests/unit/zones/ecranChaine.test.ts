@@ -2,10 +2,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { chaineVivante } from "../../../src/app/chaineVivante.js";
+import { chaineVivante } from "../../../src/app/administration/chaineVivante.js";
 import { EcranChaine } from '../../../src/zones/EcranChaine.js';
 import { EXEMPLES_TOITS } from '../../../src/three/catalogueToits.js';
-import { demandeEcranChaine } from '../../../src/app/admin/ecranChaine.js';
+import { demandeEcranChaine } from '../../../src/app/administration/ecranChaine.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

@@ -11,13 +11,13 @@
 // l'analyse de l'audit (io/accordAnalyse.ts), donne ici d'un geste, avec la case « partager » cochee
 // par defaut (decision D7).
 
-import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse } from '../io/analyseClaude.js';
-import { PASSES_RENFORT, estReponseRenfort, texteRenfort, voterRenfort, type SituationRenfort, type VoteRenfort } from '../facade/detection/renfort.js';
-import { canevasDe, dessinerElevationRenfort, dessinerPhotoRenfort } from '../render/imagesRenfort.js';
-import type { AnalyseDuNavigateur } from './audit/parcelle/analyseNavigateur.js';
-import type { Image, P2 } from '../facade/vision/homographie.js';
-import type { AccordAnalyse } from '../model/auditParcelle.js';
-import type { GrilleFacade, OuvertureFacade } from '../model/types.js';
+import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse } from '../../io/analyseClaude.js';
+import { PASSES_RENFORT, estReponseRenfort, texteRenfort, voterRenfort, type SituationRenfort, type VoteRenfort } from '../../facade/detection/renfort.js';
+import { canevasDe, dessinerElevationRenfort, dessinerPhotoRenfort } from '../../render/imagesRenfort.js';
+import type { AnalyseDuNavigateur } from '../audit/parcelle/analyseNavigateur.js';
+import type { Image, P2 } from '../../facade/vision/homographie.js';
+import type { AccordAnalyse } from '../../model/auditParcelle.js';
+import type { GrilleFacade, OuvertureFacade } from '../../model/types.js';
 
 export interface ImageRenfort { base64: string; mediaType: 'image/jpeg' | 'image/png' }
 

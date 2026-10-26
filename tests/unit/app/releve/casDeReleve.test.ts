@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { casDepuisReleve, facadesRelevees } from '../../../src/app/casDeReleve.js';
-import { lireCasStocke } from '../../../src/facade/corpusReel.js';
-import type { ObjetBrut, ReleveFacade } from '../../../src/model/types.js';
+import { casDepuisReleve, facadesRelevees } from '../../../../src/app/releve/casDeReleve.js';
+import { lireCasStocke } from '../../../../src/facade/corpusReel.js';
+import type { ObjetBrut, ReleveFacade } from '../../../../src/model/types.js';
 
 // Un cas de calibration tire d'une facade relevee : une photo deja de face (la texture), ses coins aux angles du mur sous la bande
 // au-dessus de l'egout, et les ouvertures validees au releve comme depart de la verite.

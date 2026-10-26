@@ -2,8 +2,8 @@
 // (app/cadastre/actualiserProjet.ts) : a part, parce que l'actualisation IGN (app/cadastre/actualisationIgn.ts) les
 // applique et que la commande l'appelle.
 
-import { apparenceIgnParDefaut } from '../geo/cadastreObjets.js';
-import type { ObjetBrut, ObjetPlan, Toit } from '../model/types.js';
+import { apparenceIgnParDefaut } from '../../geo/cadastreObjets.js';
+import type { ObjetBrut, ObjetPlan, Toit } from '../../model/types.js';
 
 /** Un objet que l'import a pose (et que cette commande peut ramener a ses valeurs par defaut). */
 export function estImporte(o: { key?: string; fonction?: string; cadastre?: unknown; bdtopo?: unknown; voisinage?: boolean }): boolean {

@@ -1,7 +1,7 @@
 // L'inventaire des controles affiches que le registre ne connait pas (MD/spec-demos-admin.md,
 // « Hors registre »).
 //
-// Le registre des controleurs (app/controleurs.ts) ne voit que deux choses : les commandes et les
+// Le registre des controleurs (app/administration/controleurs.ts) ne voit que deux choses : les commandes et les
 // champs de l'inspecteur. Tout bouton, case, curseur ou saisie qui agit sans passer par l'un ou
 // l'autre lui echappe. Cet inventaire les trouve dans la page, en lecture seule : il parcourt les
 // controles montes et garde ceux qui ne sont rattaches a rien.
@@ -19,10 +19,10 @@
 // Limite assumee, et dite dans l'arbre : seul ce qui est monte au moment de la decouverte se voit.
 // Un dialogue ferme, un parcours non ouvert, l'ecran de releve n'existent pas encore dans la page.
 // La disposition, elle, n'est plus une limite : la decouverte releve la page dans chaque classe
-// d'ecran (app/decouverteClasses.ts) et `fusionnerInventaires` reunit les releves.
+// d'ecran (app/administration/decouverteClasses.ts) et `fusionnerInventaires` reunit les releves.
 
-import { CONTROLES as CATALOGUE } from './controlesInterface.js';
-import { EXPOSITION, type Emplacement } from './exposition.js';
+import { CONTROLES as CATALOGUE } from '../controlesInterface.js';
+import { EXPOSITION, type Emplacement } from '../exposition.js';
 
 /** Un controle de l'ecran, hors registre. */
 export interface ControleEcran {

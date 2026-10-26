@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { construireArbre, comparer, aplatir, compterFeuilles, echantillonsDecouverte, type SourceControleurs } from '../../../src/app/controleurs.js';
-import { EXPOSITION } from '../../../src/app/exposition.js';
-import type { Commande } from '../../../src/app/commandes.js';
-import type { Section } from '../../../src/ui/champs/types.js';
+import { construireArbre, comparer, aplatir, compterFeuilles, echantillonsDecouverte, type SourceControleurs } from '../../../../src/app/administration/controleurs.js';
+import { EXPOSITION } from '../../../../src/app/exposition.js';
+import type { Commande } from '../../../../src/app/commandes.js';
+import type { Section } from '../../../../src/ui/champs/types.js';
 
 // L'arbre des controleurs de l'ecran (MD/spec-demos-admin.md) : construit depuis ce que Plan a
 // monte, compare a l'enregistrement sans rien perdre de ce qui a disparu.

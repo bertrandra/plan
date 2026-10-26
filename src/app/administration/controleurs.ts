@@ -10,12 +10,12 @@
 // Ce module ne fait que des donnees : construire l'arbre, le comparer a celui qui est enregistre.
 // Aucune commande n'est executee, aucun champ n'est lu ni ecrit.
 
-import type { Commande } from './commandes.js';
-import type { Classe, Emplacement } from './exposition.js';
-import type { Champ, Effet, Section } from '../ui/champs/types.js';
+import type { Commande } from '../commandes.js';
+import type { Classe, Emplacement } from '../exposition.js';
+import type { Champ, Effet, Section } from '../../ui/champs/types.js';
 import type { ControleEcran } from './inventaireEcran.js';
-import type { ObjetBrut } from '../model/types.js';
-import { CONTROLES, NATURES } from './controlesInterface.js';
+import type { ObjetBrut } from '../../model/types.js';
+import { CONTROLES, NATURES } from '../controlesInterface.js';
 import { ECRIVENT, brancheEcritures, champAnnulable } from './ecritures.js';
 import type { Noeud, SourceControleurs } from './typesControleurs.js';
 export type { GenreNoeud, Noeud, RegistreControleurs, SourceControleurs } from './typesControleurs.js';
@@ -256,7 +256,7 @@ function controlesInterface(): Noeud {
 
 /**
  * Ce que le registre ne couvre pas, mesure pour etre suivi d'une decouverte a l'autre :
- *   - les controles affiches qui ne declenchent ni une commande ni un champ (app/inventaireEcran.ts) ;
+ *   - les controles affiches qui ne declenchent ni une commande ni un champ (app/administration/inventaireEcran.ts) ;
  *   - les fonctions d'objet que la demonstration ne contient pas : leurs champs propres ne sont
  *     jamais demandes a l'inspecteur, donc jamais decouverts.
  */

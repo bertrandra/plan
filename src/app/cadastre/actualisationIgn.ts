@@ -36,7 +36,7 @@ import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
 import { avecReglages, resumeRelief } from '../../model/relief.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { idusCadastraux } from '../../model/cadastre.js';
-import { valeursParDefaut } from '../valeursParDefaut.js';
+import { valeursParDefaut } from './valeursParDefaut.js';
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import { APPARENCES_IGN, batimentDeLaPropriete } from '../../geo/cadastreObjets.js';
 import type { ObjetSerialise } from '../../model/creation.js';

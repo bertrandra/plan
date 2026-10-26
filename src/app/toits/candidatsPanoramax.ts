@@ -12,17 +12,17 @@
 // `mursVisibles` : devant le mur, de face, sans autre batiment entre deux) ; s'y ajoute ce qu'il
 // faut pour un toit : assez de recul, et le faite dans le cadre.
 
-import { centroid } from '../geometry/basic.js';
-import { obstacle } from '../geometry/ligneDeVue.js';
-import { projecteurLocal, type ProjecteurLocal } from '../geo/projection.js';
-import { chercherPhotosRue, type PhotoRue } from '../geo/panoramax.js';
-import { mursVisibles, pointDansImage, type VueRue } from '../render/couleurMurPhoto.js';
-import { contradictionsLidar, contourCompact, estReponseAnalyse, indicesLidar, voter, PASSES_ANALYSE, type IndicesLidar, type ReponseAnalyse } from '../model/analyseClaude.js';
-import { candidatDepuisVote, VISEES_PAR_DEFAUT, type CasCandidat, type PhotoCandidat, type SourceCandidat, type ViseeCandidat } from '../model/casCandidats.js';
-import { toitMesureDepuisGrille } from '../model/toitMesure.js';
-import type { BlocAnalyse, ClientAnalyse, DemandeAnalyse, RequeteAnalyse, ResultatBatch } from '../io/analyseClaude.js';
-import type { GrilleRelief } from '../model/relief.js';
-import type { CorpsToit, PtBrut, Toit } from '../model/types.js';
+import { centroid } from '../../geometry/basic.js';
+import { obstacle } from '../../geometry/ligneDeVue.js';
+import { projecteurLocal, type ProjecteurLocal } from '../../geo/projection.js';
+import { chercherPhotosRue, type PhotoRue } from '../../geo/panoramax.js';
+import { mursVisibles, pointDansImage, type VueRue } from '../../render/couleurMurPhoto.js';
+import { contradictionsLidar, contourCompact, estReponseAnalyse, indicesLidar, voter, PASSES_ANALYSE, type IndicesLidar, type ReponseAnalyse } from '../../model/analyseClaude.js';
+import { candidatDepuisVote, VISEES_PAR_DEFAUT, type CasCandidat, type PhotoCandidat, type SourceCandidat, type ViseeCandidat } from '../../model/casCandidats.js';
+import { toitMesureDepuisGrille } from '../../model/toitMesure.js';
+import type { BlocAnalyse, ClientAnalyse, DemandeAnalyse, RequeteAnalyse, ResultatBatch } from '../../io/analyseClaude.js';
+import type { GrilleRelief } from '../../model/relief.js';
+import type { CorpsToit, PtBrut, Toit } from '../../model/types.js';
 
 /** Un batiment du JSON de village (skill toits, village.mjs) : ce que ce module en lit. */
 export interface BatimentVillage {

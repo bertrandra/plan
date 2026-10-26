@@ -4,11 +4,11 @@ import { resolve } from 'node:path';
 import { creerInspecteur, type ContexteInspecteur } from '../../../src/app/inspecteur.js';
 import { creerMagasin } from '../../../src/app/magasin.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
-import { champActif, champAnnulable } from '../../../src/app/ecritures.js';
+import { champActif, champAnnulable } from '../../../src/app/administration/ecritures.js';
 import type { EtatApp } from '../../../src/core/state.js';
 import type { Champ, ChampBouton, ContexteChamps } from '../../../src/ui/champs/types.js';
 
-// L'inspecteur applique deux garde-fous a tout champ qui ecrit le projet (app/ecritures.ts) :
+// L'inspecteur applique deux garde-fous a tout champ qui ecrit le projet (app/administration/ecritures.ts) :
 // un instantane d'annulation — pris avant, empile si l'ecriture reussit, regroupe pour un geste
 // continu — et le refus en lecture seule. Un bouton dit sur quoi il agit (`agit`).
 

@@ -422,13 +422,13 @@ function CompteurProjets({ quota }: { quota: { utilise: number; limite: number |
 
 /**
  * L'admin des demos n'a pas de plateforme : pas de compte a nommer, mais une session a fermer
- * (app/porteAdmin.ts). Meme place que « Se deconnecter » de la plateforme, et meme precaution :
+ * (app/administration/porteAdmin.ts). Meme place que « Se deconnecter » de la plateforme, et meme precaution :
  * un plan non enregistre se demande avant de partir.
  */
 function SortieAdmin({ magasin }: { magasin: Magasin }) {
   const sortir = () => {
     const partir = () => {
-      void import('../app/porteAdmin.js').then(({ quitterAdmin }) => quitterAdmin()).then((refus) => { if (refus) showErrBanner(refus); });
+      void import('../app/administration/porteAdmin.js').then(({ quitterAdmin }) => quitterAdmin()).then((refus) => { if (refus) showErrBanner(refus); });
     };
     if (magasin.store.getState().etat.dirty) {
       showConfirm('Cette démo porte des modifications non enregistrées. Se déconnecter maintenant les perd. Continuer ?', partir);

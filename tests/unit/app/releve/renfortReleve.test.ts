@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { creerAideReleve, contenuRenfort, requetesRenfort, type DemandeAide, type FabriqueImagesRenfort } from '../../../src/app/renfortReleve.js';
-import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse } from '../../../src/io/analyseClaude.js';
-import type { AccordAnalyse } from '../../../src/model/auditParcelle.js';
-import type { ReponseRenfort } from '../../../src/facade/detection/renfort.js';
+import { creerAideReleve, contenuRenfort, requetesRenfort, type DemandeAide, type FabriqueImagesRenfort } from '../../../../src/app/releve/renfortReleve.js';
+import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse } from '../../../../src/io/analyseClaude.js';
+import type { AccordAnalyse } from '../../../../src/model/auditParcelle.js';
+import type { ReponseRenfort } from '../../../../src/facade/detection/renfort.js';
 
 // « Demander de l'aide » au releve (lot L18) : l'accord par projet, les deux images et le texte, trois
 // passes par la route immediate, le vote ; une panne dite en clair.

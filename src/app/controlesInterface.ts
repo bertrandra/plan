@@ -20,7 +20,7 @@
 // nature « objet » qui les signalait a ete retiree avec le dernier d'entre eux.
 //
 // La zone declaree est celle ou le controle s'affiche ; la decouverte le verifie (ecarts de zone,
-// app/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
+// app/administration/inventaireEcran.ts). Un controle porte par chaque feuille du telephone (`dansChaqueZone`)
 // s'affiche dans la zone que la feuille porte.
 
 export type NatureControle = 'navigation' | 'affichage' | 'vue' | 'option' | 'sortie' | 'donnee' | 'parcours';

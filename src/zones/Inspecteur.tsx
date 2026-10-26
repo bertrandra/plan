@@ -14,7 +14,7 @@
 // Sur telephone, l'inspecteur est la feuille Proprietes ; sur tablette, un panneau flottant.
 
 import { createContext, useContext, useLayoutEffect, useRef, useState } from 'react';
-import { champActif } from '../app/ecritures.js';
+import { champActif } from '../app/administration/ecritures.js';
 import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps, Section } from '../ui/champs/types.js';

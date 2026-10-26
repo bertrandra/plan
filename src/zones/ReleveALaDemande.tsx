@@ -2,7 +2,7 @@
 // facades, le calage, la camera — ne se telechargent que quand un releve s'ouvre. Cette coquille ne fait que l'attendre.
 
 import { lazy, Suspense, useSyncExternalStore } from 'react';
-import type { ServiceReleve } from '../app/releve.js';
+import type { ServiceReleve } from '../app/releve/releve.js';
 
 const Releve = lazy(() => import('./Releve.js').then((m) => ({ default: m.Releve })));
 

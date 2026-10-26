@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranPrincipes } from '../../../src/zones/EcranPrincipes.js';
-import { demandeEcranPrincipes } from '../../../src/app/admin/ecranPrincipes.js';
+import { demandeEcranPrincipes } from '../../../src/app/administration/ecranPrincipes.js';
 import { PRINCIPES, FAMILLES } from '../../../src/model/principes.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

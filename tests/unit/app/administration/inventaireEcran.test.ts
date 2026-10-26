@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { inventorierEcran, fusionnerInventaires, ecartsDeZone } from '../../../src/app/inventaireEcran.js';
-import { construireArbre, aplatir } from '../../../src/app/controleurs.js';
-import { EXPOSITION } from '../../../src/app/exposition.js';
-import type { Section } from '../../../src/ui/champs/types.js';
+import { inventorierEcran, fusionnerInventaires, ecartsDeZone } from '../../../../src/app/administration/inventaireEcran.js';
+import { construireArbre, aplatir } from '../../../../src/app/administration/controleurs.js';
+import { EXPOSITION } from '../../../../src/app/exposition.js';
+import type { Section } from '../../../../src/ui/champs/types.js';
 
 // L'inventaire « hors registre » : les controles affiches qui ne declenchent ni une commande ni un
 // champ de l'inspecteur, et les fonctions d'objet que la demo ne contient pas.

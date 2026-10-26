@@ -24,7 +24,7 @@ import { Vue3d } from './vue3d/Vue3d.js';
 import { Visionneuse } from './vue3d/Visionneuse.js';
 import type { ServiceVues3d } from './vue3d/communs.js';
 import { ReleveALaDemande } from './ReleveALaDemande.js';
-import type { ServiceReleve } from '../app/releve.js';
+import type { ServiceReleve } from '../app/releve/releve.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';

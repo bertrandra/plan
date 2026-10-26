@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerServiceReleve } from '../../../src/app/releve.js';
-import { poserPositionGps, retirerPositionGps } from '../../../src/three/positionGps3d.js';
-import type { ObjetPlan, ReleveFacade, Toit } from '../../../src/model/types.js';
+import { creerServiceReleve } from '../../../../src/app/releve/releve.js';
+import { poserPositionGps, retirerPositionGps } from '../../../../src/three/positionGps3d.js';
+import type { ObjetPlan, ReleveFacade, Toit } from '../../../../src/model/types.js';
 
-// Le service du releve de facade (app/releve.ts) : ce qu'il ecrit a la validation, et surtout ce
+// Le service du releve de facade (app/releve/releve.ts) : ce qu'il ecrit a la validation, et surtout ce
 // qu'il n'ecrit pas — la hauteur du batiment, que la photo ne change plus.
 
-vi.mock('../../../src/shell/dialogs.js', () => ({ showToast: vi.fn() }));
-vi.mock('../../../src/three/etat3d.js', () => ({ vue3d: { scene: null } }));
+vi.mock('../../../../src/shell/dialogs.js', () => ({ showToast: vi.fn() }));
+vi.mock('../../../../src/three/etat3d.js', () => ({ vue3d: { scene: null } }));
 
 const maison = (): ObjetPlan => ({ key: 'maison', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }] } as unknown as ObjetPlan);
 const releve = (cote: number): ReleveFacade => ({ cote, largeur: 10, hauteur: 6, texture: null, hauteurTexture: 6, ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '' });

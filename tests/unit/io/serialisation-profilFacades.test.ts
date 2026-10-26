@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { serializeObjects } from '../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
-import { valeursParDefaut } from '../../../src/app/valeursParDefaut.js';
+import { valeursParDefaut } from '../../../src/app/cadastre/valeursParDefaut.js';
 import { VOISINAGE_3D_DEFAUT, apparenceVoisin, fenetresDuVoisin, dimensionsVoisinReglees, voisinage3dDe } from '../../../src/model/voisinage3d.js';
 import type { ObjetBrut, ObjetPlan } from '../../../src/model/types.js';
 

@@ -12,10 +12,10 @@
 // La branche ne fait que classer : rien n'est execute. `champAnnulable` et `champActif` sont les
 // regles que l'inspecteur applique, ecrites ici pour que le classement et Plan ne divergent pas.
 
-import type { Champ, ContexteChamps } from '../ui/champs/types.js';
-import type { Commande } from './commandes.js';
+import type { Champ, ContexteChamps } from '../../ui/champs/types.js';
+import type { Commande } from '../commandes.js';
 import type { Noeud, SourceControleurs } from './typesControleurs.js';
-import { CONTROLES } from './controlesInterface.js';
+import { CONTROLES } from '../controlesInterface.js';
 
 /** Les types de champ qui ecrivent : les autres montrent, ou declenchent. */
 export const ECRIVENT = new Set<Champ['type']>(['texte', 'nombre', 'case', 'choix', 'couleur', 'date', 'curseur', 'texture']);

@@ -8,7 +8,7 @@
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
 import { EcranControleurs, type Decouverte } from '../../zones/EcranControleurs.js';
-import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from '../controleurs.js';
+import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
 import { lireControleurs, enregistrerControleurs } from '../../io/depotDemos.js';
 import { showErrBanner } from '../../shell/dialogs.js';
 import { hoteDeZone } from '../../shell/dom.js';
@@ -28,7 +28,7 @@ let lecture: Promise<() => Promise<SourceControleurs>> | null = null;
 
 function demarrerPlan(): Promise<() => Promise<SourceControleurs>> {
   lecture ||= Promise.all([import('../boot.js'), import('../../ui/champs/objet.js')]).then(async ([{ boot, graineVitrine }, { FONCTIONS }]) => {
-    // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
+    // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/administration/controleurs.ts).
     const graine = await graineVitrine();
     graine.objects.push(...echantillonsDecouverte(graine.objects, FONCTIONS));
     return new Promise<() => Promise<SourceControleurs>>((resoudre) => { boot(graine, { controleurs: resoudre }); });

@@ -35,7 +35,7 @@ export interface NoeudChaine {
 
 /**
  * Un `detail` peut porter des valeurs lues en direct, `{{poids.lidar}}`, `{{seuil.SEUIL_MARCHE_M}}`, `{{recon.SCORE_AUTO_MIN}}` :
- * app/chaineVivante.ts les remplace par ce que les fichiers de donnees disent aujourd'hui, et dit celles qu'elle ne connait pas.
+ * app/administration/chaineVivante.ts les remplace par ce que les fichiers de donnees disent aujourd'hui, et dit celles qu'elle ne connait pas.
  */
 
 const REGLES = '?admin&ecran=regles';

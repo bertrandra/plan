@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
-import { chaineVivante, ENTREES_CHAINE, type EntreesChaine } from '../../../src/app/chaineVivante.js';
-import { CHAINE, type NoeudChaine } from '../../../src/model/chaine.js';
-import { SOURCES, ATTRIBUTS, lireReconciliation } from '../../../src/regles/reconciliation.js';
+import { chaineVivante, ENTREES_CHAINE, type EntreesChaine } from '../../../../src/app/administration/chaineVivante.js';
+import { CHAINE, type NoeudChaine } from '../../../../src/model/chaine.js';
+import { SOURCES, ATTRIBUTS, lireReconciliation } from '../../../../src/regles/reconciliation.js';
 import { readFileSync } from 'node:fs';
 
 // La chaine lue en direct : ce que disent les fichiers de donnees change l'ecran, ce qui ne se lit plus est dit, et la CI

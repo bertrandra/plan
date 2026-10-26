@@ -350,7 +350,7 @@ export const PRINCIPES: readonly Principe[] = [
       { qui: 'admin', faire: 'Enregistrer un brouillon de règles sur le serveur', effet: 'Une analyse d’essai part avec ce prompt, sans jamais remplacer le prompt livré.', ecran: '?admin&ecran=regles' },
     ],
     coulisses: [
-      { quoi: 'Les écrans d’admin', ou: 'src/app/admin/ecranRegles.ts' },
+      { quoi: 'Les écrans d’admin', ou: 'src/app/administration/ecranRegles.ts' },
       { quoi: 'Les fichiers de données éditables', ou: 'src/regles/donnees/fichiers.ts' },
       { quoi: 'La porte de l’admin', ou: 'src/main.ts' },
     ],

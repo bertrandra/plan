@@ -282,8 +282,8 @@ describe('les domaines de app/ (feuille de route, etapes 3.1 et 3.2)', () => {
     audit: ['cadastre', 'regles', 'releve', 'toits'],
     // Les sujets de l'audit (app/regles/sujets/) decrivent les lignes de sa liste : ils sont l'autre moitie de l'audit.
     regles: ['audit'],
-    // Les ecrans d'admin montrent ce que les autres domaines savent : versions des toits, cas de calibration, sujets.
-    admin: ['audit', 'regles', 'toits']
+    // Les ecrans d'admin montrent ce que les autres domaines savent : versions des toits, cas de calibration (audit, releve), sujets.
+    administration: ['audit', 'regles', 'releve', 'toits']
   };
   it('un domaine n importe que le coeur et les domaines qu il declare', () => {
     const domaine = (f: string): string | undefined => {

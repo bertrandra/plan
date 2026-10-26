@@ -8,9 +8,9 @@
 // chaque feuille ouverte. Puis elle remet tout comme avant. Rien n'est clique, le projet ne change pas.
 
 import { inventorierEcran, ecartsDeZone, fusionnerInventaires, type Releve } from './inventaireEcran.js';
-import type { Classe } from './exposition.js';
-import type { Feuille, Magasin } from './magasin.js';
-import type { EtatApp } from '../core/state.js';
+import type { Classe } from '../exposition.js';
+import type { Feuille, Magasin } from '../magasin.js';
+import type { EtatApp } from '../../core/state.js';
 
 const CLASSES: Classe[] = ['large', 'moyen', 'compact'];
 const FEUILLES: Feuille[] = ['objets', 'outils', 'proprietes', 'resultats', 'projet', 'reglages3d'];
