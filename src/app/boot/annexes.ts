@@ -72,7 +72,7 @@ export function brancherIsolement(p: Plan): void {
 
 /**
  * Les poignees des captures de reference (scripts/captures.mjs) et de la fumee automatisee
- * (scripts/fumee.mjs). En developpement seulement : le fichier livre ne les porte pas.
+ * (scripts/fumee.mjs). En developpement, et dans le paquet du banc (mode `banc`) : le fichier livre ne les porte pas.
  */
 export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void {
   const { etat, magasin, commandes, tiroir } = p;

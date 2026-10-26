@@ -36,6 +36,13 @@ import { demarrerAudit, brancherIsolement, exposerPourLesCaptures } from './boot
 
 brancherFiletsDErreur();
 
+/**
+ * Les poignees des captures et de la fumee (`window.__plan`) : en developpement, et dans le paquet du banc (`vite build --mode
+ * banc`, scripts/banc-rendu.mjs), un paquet de production qui les garde pour mesurer le rendu tel que les gens le recoivent. Le
+ * paquet livre ne les porte pas.
+ */
+const POIGNEES = import.meta.env.DEV || import.meta.env.MODE === 'banc';
+
 function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: DemandeAudit; controleurs?: (lire: () => Promise<SourceControleurs>) => void } = {}): void {
   const tardifs: Tardifs = {};
   const p = assemblerLePlan(seed, tardifs);
@@ -179,7 +186,7 @@ function boot(seed: GraineDemarrage, options: { vitrine?: Vitrine; audit?: Deman
   // Un projet d'un schema anterieur : proposer de le mettre a jour, une fois le plan a l'ecran ; puis
   // les toits a cheval sur deux parcelles qui attendent une reponse.
   else { projet.proposerMiseAJour(); ch.questionsACheval(); ch.toitsFond.relancer(); void ch.profilsFacades.relancer(); }
-  if (import.meta.env.DEV) exposerPourLesCaptures(p, explorateur);
+  if (POIGNEES) exposerPourLesCaptures(p, explorateur);
   // L'ecran des controleurs relit a chaque demande : on lui donne la lecture, pas son resultat.
   if (options.controleurs) {
     options.controleurs(async () => sourceControleurs(commandes, inspecteur, etat.objects,
