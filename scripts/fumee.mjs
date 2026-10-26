@@ -393,9 +393,17 @@ async function captureJusquAuxPropositions(page) {
  * ce qu'on lui retire, pour que le point le mesure.
  */
 async function simulerAudits(page) {
-  const recus = [], retires = [];
+  // `recus` : les partages pour le corpus seulement (sans marque, ou marque `corpus`). La sauvegarde de la capture (marque
+  // `sauvegarde`, MD/spec-audit.md §15) part d'elle-meme pendant la prise et se remplace par PUT : comptee a part, elle ne
+  // doit ni passer pour un partage, ni decaler les numeros des depots du corpus.
+  const recus = [], retires = [], sauvegardes = [];
   await page.route(/\/admin\/audits(\/|$)/, async (route) => {
     const req = route.request();
+    const marque = req.headers()['x-plan-depot'] || 'corpus';
+    if (marque === 'sauvegarde' && (req.method() === 'POST' || req.method() === 'PUT')) {
+      sauvegardes.push({ methode: req.method(), texte: req.postData() || '' });
+      return route.fulfill({ status: req.method() === 'POST' ? 201 : 200, contentType: 'application/json', body: JSON.stringify({ id: 'sauvegarde-1', retrait: 'secret-sauvegarde' }) });
+    }
     if (req.method() === 'POST') {
       recus.push({ texte: req.postData() || '', entetes: req.headers() });
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: '20261013-090000-0000000' + recus.length, retrait: 'secret' + recus.length }) });
@@ -403,7 +411,7 @@ async function simulerAudits(page) {
     if (req.method() === 'DELETE') { retires.push({ url: req.url(), secret: req.headers()['x-plan-retrait'] }); return route.fulfill({ status: 200, contentType: 'application/json', body: '{"retire":true}' }); }
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
-  return { recus, retires };
+  return { recus, retires, sauvegardes };
 }
 /**
  * Le serveur `admin/audits` complet, simule comme le vrai (deploy/analyse.php) : depot (POST, marque
@@ -583,6 +591,25 @@ const ecartImages = (a, b) => { let s = 0; const n = Math.min(a.length, b.length
  * L'adresse des points cadastraux, la meme depuis la `1.1.0` : c'est elle qui rend les valeurs que
  * le journal de la liste de fumee cite, et en changer rendrait les passages incomparables.
  */
+/**
+ * Le nombre d'attributs du tableau « Accord de Claude » (Admin › Conformite) : une ligne par entree de `ATTRIBUTS_CLAUDE`
+ * (src/regles/conformite.ts). Lu dans le source plutot qu'ecrit ici : un attribut ajoute (la forme du toit, en octobre 2026)
+ * ne doit pas rendre le point rouge.
+ */
+/** La version de lecture des toits qu'Admin › Regles propose d'ajouter : la derniere de `LECTURES_TOITS` (src/app/toitsLidar.ts), plus un. */
+function versionLectureSuivante() {
+  const texte = readFileSync('src/app/toitsLidar.ts', 'utf8');
+  const bloc = /export const LECTURES_TOITS[^=]*=\s*\[([\s\S]*?)\n\];/.exec(texte);
+  const versions = bloc ? [...bloc[1].matchAll(/\{\s*version:\s*(\d+)/g)].map((m) => Number(m[1])) : [];
+  return versions.length ? Math.max(...versions) + 1 : -1;
+}
+
+function nombreAttributsClaude() {
+  const texte = readFileSync('src/regles/conformite.ts', 'utf8');
+  const bloc = /export const ATTRIBUTS_CLAUDE[^=]*=\s*\[([\s\S]*?)\];/.exec(texte);
+  return bloc ? (bloc[1].match(/\{\s*code:/g) ?? []).length : -1;
+}
+
 const ADRESSE = 'Place de la Mairie 35000 Rennes';
 
 const TERRASSE = "o.fonction === 'terrasse' && o.type === 'polygon' && o.name === 'Terrasse'";
@@ -799,6 +826,9 @@ const POINTS = {
     await inspecteur(page);
     await ouvrirSection(page, 'alignement');
     const info = await page.evaluate(() => document.querySelector('#zoneInspecteur [data-cle="info"]')?.textContent || '');
+    // Au telephone, un toast (l'avertissement de l'administrateur, par exemple) peut se poser sur le bouton : on le touche
+    // d'abord pour le fermer, comme la personne le ferait ; sinon le toucher ferme le toast et l'alignement ne part pas.
+    for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
     await page.locator('#zoneInspecteur [data-cle="aligner"] button').first().click({ force: true });
     await page.waitForTimeout(200);
     const apres = objet(await lireEtat(page), (o) => o.key === avant.key);
@@ -1100,12 +1130,18 @@ const POINTS = {
       s.value = cle;
       s.dispatchEvent(new Event('change', { bubbles: true }));
     }, cle);
-    await choisir(vues[0].key); const a = await image3dStable(page, 2500);
+    // Le rappel se juge sur la camera (position et point vise, au millimetre) : l'image d'une meme camera peut encore changer
+    // pendant que la scene finit de se charger (tuiles, arbres), et rendait ce point rouge au bureau sans que la camera ait bouge.
+    const camera = () => page.evaluate(() => {
+      const s = window.__plan.scene3d();
+      return s ? [s.camera.position.x, s.camera.position.y, s.camera.position.z, s.controls.target.x, s.controls.target.y, s.controls.target.z].map((v) => v.toFixed(3)).join(',') : null;
+    });
+    await choisir(vues[0].key); const a = await image3dStable(page, 2500); const camA = await camera();
     await choisir(vues[1].key); const b = await image3dStable(page, 2500);
-    await choisir(vues[0].key); const c = await image3dStable(page, 2500);
+    await choisir(vues[0].key); await image3dStable(page, 2500); const camC = await camera();
     return {
-      ok: a !== b && a === c,
-      mesure: `${vues.length} points de vue ; deux vues ${a === b ? 'IDENTIQUES (la caméra n a pas bougé)' : 'différentes'}, rappel reproductible : ${a === c}`
+      ok: a !== b && !!camA && camA === camC,
+      mesure: `${vues.length} points de vue ; deux vues ${a === b ? 'IDENTIQUES (la caméra n a pas bougé)' : 'différentes'}, rappel reproductible : ${!!camA && camA === camC}`
     };
   },
   24: async (page) => {
@@ -2148,17 +2184,22 @@ const POINTS = {
     const sansAlerteRendu = !toasts.some((t) => /^Le rendu du modèle n’a pas pu être joint/.test(t));
     const claude = await page.locator('.ligneProposition.source-claude').count();
     const couverture = await ligneProposition(page, 'Couverture de Maison');
-    const zinc = await page.locator('.ligneProposition.source-claude', { hasText: 'Zinc' }).first();
-    const zincTexte = (await zinc.count()) ? ((await zinc.textContent()) || '').replace(/\s+/g, ' ').trim() : '';
-    const zincCoche = (await zinc.count()) ? await zinc.locator('input[type="checkbox"]').isChecked() : null;
+    // Depuis que le moteur arbitre les sources (lot G), la couverture que Claude voit n'est plus une ligne a part : c'est une source
+    // de la ligne « Couverture de Maison », ecartee ici, puisque la couverture vue sur place (ardoise) l'emporte.
+    const { sourceZinc, couvertureTexte } = await page.evaluate(() => {
+      const l = [...document.querySelectorAll('.ligneProposition')].find((e) => /Couverture de Maison/.test(e.textContent || ''));
+      const tr = l ? [...l.querySelectorAll('tr')].find((t) => /Claude/.test(t.textContent || '') && /Zinc/.test(t.textContent || '')) : null;
+      const propre = (x) => (x?.textContent || '').replace(/\s+/g, ' ').trim();
+      return { sourceZinc: propre(tr), couvertureTexte: propre(l) };
+    });
     const etat = ((await page.locator('.etatAnalyse').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
     const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.auditPropositions')].some((x) => x.scrollWidth > x.clientWidth + 1), f.width);
     const apres = await etatAudite(page);
     const ok = question === 1 && partage === true && !!d && passes === '1,2,3' && identiques && images >= 1 && facades === 1 && sansRenduDit && sansAlerteRendu && serveur.jetons.every((j) => j === 'Bearer jeton')
-      && parti && pret && claude >= 2 && claude + lignesAvant === (await page.locator('.ligneProposition').count()) && !!couverture
-      && /Claude/.test(zincTexte) && /passes d’accord 100 %/.test(zincTexte) && /Taux d’accord de Claude non encore mesuré/.test(zincTexte) && zincCoche === false
+      && parti && pret && claude >= 1 && claude + lignesAvant === (await page.locator('.ligneProposition').count()) && !!couverture
+      && /100 %/.test(sourceZinc) && /Écarté/.test(sourceZinc) && /devient Ardoise, vue sur place/.test(couvertureTexte)
       && /^Claude : Propositions de Claude prêtes/.test(etat) && apres === avant && !deborde;
-    return { ok, mesure: `question ${question ? 'posée' : 'ABSENTE'}, partage ${partage ? 'coché' : 'DÉCOCHÉ'} ; envoi ${d ? `passes ${passes}, ${identiques ? 'identiques' : 'DIFFÉRENTES'}, ${images} image(s), ${facades} façade(s), ${sansRenduDit ? 'sans rendu, dit à Claude' : 'SANS la mention « aucun rendu »'}${sansAlerteRendu ? '' : ', ALERTE inutile'}, jeton ${serveur.jetons[0] ?? '—'}` : 'AUCUN'} ; toasts ${parti ? 'parti' : 'NON parti'} / ${pret ? 'prêt' : 'NON prêt'} ; ${claude} ligne(s) de Claude (${lignesAvant} des mesures) ; « ${zincTexte.slice(0, 160)} » ${zincCoche ? 'COCHÉE' : 'décochée'} ; « ${etat.slice(0, 80)} » ; projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+    return { ok, mesure: `question ${question ? 'posée' : 'ABSENTE'}, partage ${partage ? 'coché' : 'DÉCOCHÉ'} ; envoi ${d ? `passes ${passes}, ${identiques ? 'identiques' : 'DIFFÉRENTES'}, ${images} image(s), ${facades} façade(s), ${sansRenduDit ? 'sans rendu, dit à Claude' : 'SANS la mention « aucun rendu »'}${sansAlerteRendu ? '' : ', ALERTE inutile'}, jeton ${serveur.jetons[0] ?? '—'}` : 'AUCUN'} ; toasts ${parti ? 'parti' : 'NON parti'} / ${pret ? 'prêt' : 'NON prêt'} ; ${claude} ligne(s) de Claude (${lignesAvant} des mesures) ; zinc de Claude dans la couverture : « ${sourceZinc.slice(0, 80) || 'ABSENT'} », couverture ${/devient Ardoise, vue sur place/.test(couvertureTexte) ? 'ardoise vue sur place' : 'AUTRE'} ; « ${etat.slice(0, 80)} » ; projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   70: async (page) => {
     // L'analyse par Claude (lot L17), sans accord ou sans reseau, puis le retrait : « Seulement les
@@ -2190,7 +2231,8 @@ const POINTS = {
     const garde = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('plan.accordAnalyse.')).length);
     const ok = /Analyse par Claude non demandée : seules les mesures sont proposées\./.test(refuse) && rienParti
       && /Le serveur de l’analyse ne répond pas : seules les mesures sont proposées\./.test(erreur) && sansClaude === 0
-      && avecClaude >= 2 && retire === 0 && toastRetrait && garde === 0;
+      // Une ligne de Claude, au moins : sa couverture n'est plus une ligne a part, le moteur l'arbitre dans « Couverture » (point 69).
+      && avecClaude >= 1 && retire === 0 && toastRetrait && garde === 0;
     return { ok, mesure: `« ${refuse.slice(0, 90)} » ; ${rienParti ? 'rien envoyé' : 'ENVOYÉ'} ; panne : « ${erreur.slice(0, 100)} », ${sansClaude} ligne(s) de Claude ; relancé : ${avecClaude} ligne(s) ; retrait : ${retire} ligne(s), toast ${toastRetrait ? 'oui' : 'NON'}, accord gardé ${garde}` };
   },
   65: async (page) => {
@@ -2275,7 +2317,8 @@ const POINTS = {
     const noteApres = ((await page.locator('.partageAudit .notePartage').textContent()) || '').trim();
     await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').uncheck({ timeout: 30000 });
     await page.waitForFunction(() => (window.__toastsVus || []).some((t) => /Audit retiré/.test(t)), null, { timeout: 30000 }).catch(() => {});
-    const retire = serveur.retires[0];
+    // Le retrait du partage, par l'adresse de son depot : la copie de la capture (sauvegarde) est retiree elle aussi, une fois validee.
+    const retire = serveur.retires.find((r) => /\/admin\/audits\/20261013-090000-00000001$/.test(r.url));
     const decocheeApres = !(await page.locator('input[data-controle="auditParcelle.partagerCorpus"]').isChecked());
     await page.keyboard.press('Escape'); await page.waitForTimeout(200);
     const ok = visible === 1 && cochee && /photos comprises/.test(note) && avantValider === 0 && serveur.recus.length === 1
@@ -2815,7 +2858,7 @@ const POINTS = {
     const ok = sujets === 9 && /9 \/ 9/.test(avant[0] || '') && /Identique/.test(avant[4] || '') && (promptLivre || '').includes('# Rôle') && (promptLivre || '').includes('Lire les pignons')
       && /1 ligne change/.test(apresEdition[4] || '') && /version 10/.test(apresEdition[4] || '') && (promptEdite || '').includes('vu sur le versant sud')
       && /Aucun brouillon sur le serveur/.test(avantServeur) && /prompt version 10.*\?regles=local/.test(apresEnregistrement) && gardeAuServeur && retire
-      && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && /LECTURES_TOITS.*version: 5.*formes: /.test(ligneVersion) && faitsListes && donneesRevenues
+      && /1 ligne change/.test(fichierToits) && /L’empreinte passe de/.test(fichierToits) && new RegExp('LECTURES_TOITS.*version: ' + versionLectureSuivante() + '.*formes: ').test(ligneVersion) && faitsListes && donneesRevenues
       && sansCheminees && avecNouveau === true && dansSchema === true && /^Bon /.test(controle.trim())
       && apresRechargement === 10 && /9 \/ 9/.test(revenu[0] || '') && /Identique/.test(revenu[4] || '') && stocke === null
       && dl1.suggestedFilename() === 'prompt-analyse.md' && dl2.suggestedFilename() === 'schema-analyse.json' && !debords.some(Boolean);
@@ -2846,7 +2889,7 @@ const POINTS = {
     const ok = !debords.some(Boolean) && /33 %/.test(tuiles[0] || '') && /3 \/ 50/.test(tuiles[1] || '') && /À venir/.test(tuiles[4] || '') && /À venir/.test(tuiles[5] || '')
       && formes.includes('Deux pans') && formes.includes('Quatre pans (croupes)') && facades === '—'
       && regions.includes('Yvelines (78)') && regions.includes('Pas-de-Calais (62)') && problemes.includes('Découpé en morceaux')
-      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === 5;
+      && cas.length === 3 && cas.some((t) => /lu deux-pans/.test(t)) && claude === nombreAttributsClaude();
     return { ok, mesure: `tuiles « ${tuiles.slice(0, 3).join(' | ')} » ; formes ${formes.join(', ')} (façades ${facades}) ; régions ${regions.join(', ')} ; problèmes ${problemes.join(', ')} ; ${cas.length} cas ; Claude ${claude} attributs ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   95: async (page, f) => {
@@ -3278,7 +3321,11 @@ const POINTS = {
         + `const m=${JSON.stringify(mur)};const v=${JSON.stringify(camion)};`
         + "const P=(u,w)=>{const h=[m[0]+(m[2]-m[0])*u,m[1]+(m[3]-m[1])*u],b=[m[6]+(m[4]-m[6])*u,m[7]+(m[5]-m[7])*u];return [h[0]+(b[0]-h[0])*w,h[1]+(b[1]-h[1])*w];};"
         + "const R=(u0,w0,u1,w1)=>[...P(u0,w0),...P(u1,w0),...P(u1,w1),...P(u0,w1)];"
-        + "q('#e4d6bc',m);q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
+        // Un crepi : des taches a des places fixes du mur, les memes sur les deux vues. Sans texture, l'assemblage n'a aucun point
+        // commun a apparier et ecarte la seconde vue (« trop peu de points communs »), comme il le ferait d'une vraie photo sans prise.
+        + "q('#e4d6bc',m);let g=7;const r=()=>{g=(g*16807)%2147483647;return g/2147483647;};"
+        + "for(let i=0;i<900;i++){const u=r(),w=r(),t=0.004+0.006*r();x.globalAlpha=0.35+0.4*r();q(r()<0.5?'#8a7a62':'#f6ecd8',R(u,w,Math.min(1,u+t),Math.min(1,w+t*1.4)));}x.globalAlpha=1;"
+        + "q('#2b3440',R(0.12,0.2,0.27,0.45));q('#2b3440',R(0.62,0.2,0.77,0.45));q('#5a3a2a',R(0.42,0.6,0.54,1));q('#2b3440',R(0.7,0.6,0.85,0.82));"
         // La camionnette et ses deux vitres : leurs bords trahissent le recul d'une vue a l'autre.
         + "x.fillStyle='#1e3c78';x.fillRect(v[0],v[1],700,420);x.fillStyle='#cfe3f2';x.fillRect(v[0]+80,v[1]+40,160,110);x.fillRect(v[0]+420,v[1]+40,160,110);"
         + '</script></body>');
@@ -3320,6 +3367,7 @@ const POINTS = {
     const auDoigt = await page.locator('circle.releveCoinCible.doigt').count();
     await page.locator('[data-controle="releve.analyser"]').first().click({ timeout: 30000 });
     await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
+    await page.screenshot({ path: '/tmp/claude-0/-home-user/e7924cb1-25db-538e-91d6-dd82472c9dc3/scratchpad/r82.png' });
     const chemins = await page.locator('g.releveMasque path').evaluateAll((ps) => ps.map((p) => (p.getAttribute('d') || '').split('M').length - 1));
     // Le trait du hachure lit son jeton : une couleur resolue dans les deux themes, pas « none ».
     const trait = await page.locator('g.releveMasque .releveMasqueTrait').first().evaluate((l) => getComputedStyle(l).stroke).catch(() => 'absent');
