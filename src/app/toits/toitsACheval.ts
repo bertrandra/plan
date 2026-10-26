@@ -1,20 +1,20 @@
 // La question posee quand un batiment a cheval sur deux parcelles laisse un doute sur sa toiture
 // (MD/spec-toit-ign.md §13.8).
 //
-// Le calcul (app/toitsLidar.ts::toitAChevalApresCalcul) note le doute : un corps lu sur le LiDAR
+// Le calcul (app/toits/toitsLidar.ts::toitAChevalApresCalcul) note le doute : un corps lu sur le LiDAR
 // franchit la limite, et rien dans la mesure ne dit s'il s'agit d'un seul toit ou de deux maisons
 // mitoyennes aux toits de meme hauteur. Ici, la question, une par batiment, posee quand aucun autre
 // dialogue n'attend : a l'ouverture du projet, apres un import et apres une actualisation IGN. Sa
 // reponse est une modification du projet (Ctrl+Z la defait) ; Echap n'en donne aucune, et la
 // question revient a la prochaine ouverture.
 
-import { dialogues } from '../shell/dialogues.js';
-import { libelleParcelle } from '../geo/bdtopo.js';
-import { partsACheval, corpsQuiFranchissent, type PartACheval } from '../model/aCheval.js';
-import { signedArea } from '../geometry/basic.js';
+import { dialogues } from '../../shell/dialogues.js';
+import { libelleParcelle } from '../../geo/bdtopo.js';
+import { partsACheval, corpsQuiFranchissent, type PartACheval } from '../../model/aCheval.js';
+import { signedArea } from '../../geometry/basic.js';
 import { corpsParParcelle } from './toitsLidar.js';
-import { avecProfilsDuBatiment, contexteProfils } from '../facade/regles/toits/profils.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { avecProfilsDuBatiment, contexteProfils } from '../../facade/regles/toits/profils.js';
+import type { ObjetPlan, PtBrut } from '../../model/types.js';
 
 export interface ContexteToitsACheval {
   objets: () => ObjetPlan[];
@@ -79,7 +79,7 @@ export function questionACheval(o: ObjetPlan, objets: readonly ObjetPlan[]): { t
 export function repondreACheval(o: ObjetPlan, objets: readonly ObjetPlan[], reponse: 'un' | 'parParcelle'): boolean {
   const parts = partsACheval(o, objets);
   if (!parts || !o.toitMesure) return false;
-  // Relus sous les seuils du profil du batiment, comme a la lecture (app/toitsLidar.ts).
+  // Relus sous les seuils du profil du batiment, comme a la lecture (app/toits/toitsLidar.ts).
   const mesure = o.toitMesure;
   if (reponse === 'parParcelle') o.corpsToit = avecProfilsDuBatiment(o, contexteProfils(objets), () => corpsParParcelle(o, parts, mesure, null)) ?? o.corpsToit ?? null;
   o.toitACheval = { parcelles: parts.map((p) => p.parcelle), reponse };

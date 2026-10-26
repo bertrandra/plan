@@ -1,7 +1,7 @@
 // La lecture des toits en tache de fond (MD/roadmap-toits-fond.md, MD/spec-toit-ign.md §10).
 //
 // A l'import et a l'actualisation, seuls les trente batiments les plus proches sont lus sur le LiDAR
-// avant que le plan s'ouvre (app/toitsLidar.ts, MAX_BATIMENTS_LIDAR). Les autres le sont ici, apres,
+// avant que le plan s'ouvre (app/toits/toitsLidar.ts, MAX_BATIMENTS_LIDAR). Les autres le sont ici, apres,
 // du plus proche au plus loin, sans bloquer l'interface : une pause avant chaque batiment rend la main
 // au navigateur. La file est continue : chaque lecteur prend le batiment suivant des qu'il a fini (un
 // lot attendait son batiment le plus lent), et ce qui est lu se dessine par paquets de LOT_TOITS_FOND.
@@ -22,17 +22,17 @@
 // la regle, sans toucher au projet (MD/spec-regles-toits.md §1).
 
 import { toitsDepuisLidar, toitAAjuster, toitLu, clesMitoyens, type ObjetAToit, type BilanToitsLidar } from './toitsLidar.js';
-import { dallesLidarSur } from '../geo/mnh.js';
+import { dallesLidarSur } from '../../geo/mnh.js';
 import { lireMursEnFond, mursALire, avancementMurs, ECHECS_MURS_PAR_BATIMENT, LECTURE_MURS_EN_FOND } from './mursFond.js';
-import type { Regulateur } from './regulateur.js';
-import { projecteurLocal, type ProjecteurLocal } from '../geo/projection.js';
-import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
-import { aDesSommets } from '../model/formes.js';
-import { centroid } from '../geometry/basic.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
-import type { ProgressionToits } from '../core/lectureToits.js';
-import { estVerifieSurPlace, lectureDAccord } from '../model/toitVerifie.js';
+import type { Regulateur } from '../regulateur.js';
+import { projecteurLocal, type ProjecteurLocal } from '../../geo/projection.js';
+import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { aDesSommets } from '../../model/formes.js';
+import { centroid } from '../../geometry/basic.js';
+import type { ObjetPlan, PtBrut } from '../../model/types.js';
+import type { ProgressionToits } from '../../core/lectureToits.js';
+import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
 
 /** Combien de batiments lus par dessin : assez pour que le plan ne se redessine pas a chaque toit. */
 export const LOT_TOITS_FOND = 12;
@@ -62,11 +62,11 @@ export interface ContexteToitsFond {
   apresLot: (cles: string[]) => void;
   /** La progression, pour la barre d'etat ; null quand il n'y a rien a lire. */
   progression: (p: ProgressionToits | null) => void;
-  /** La lecture d'un batiment (app/toitsLidar.ts) ; remplacable dans les tests, qui ne touchent pas le reseau. */
+  /** La lecture d'un batiment (app/toits/toitsLidar.ts) ; remplacable dans les tests, qui ne touchent pas le reseau. */
   lire?: typeof toitsDepuisLidar;
   /** Y a-t-il des dalles LiDAR sur le secteur (geo/mnh.ts) : demande une fois par passe, a la premiere lecture. */
   dalles?: typeof dallesLidarSur;
-  /** La lecture des murs sur les photos de rue, apres les toits (app/mursFond.ts) ; remplacable dans les tests. */
+  /** La lecture des murs sur les photos de rue, apres les toits (app/toits/mursFond.ts) ; remplacable dans les tests. */
   lireMurs?: typeof lireMursEnFond;
   /** Lire les murs apres les toits ; LECTURE_MURS_EN_FOND par defaut (arretee pour l'instant). */
   murs?: boolean;
@@ -92,7 +92,7 @@ export interface ContexteToitsFond {
   maintenant?: () => number;
 }
 
-/** Le projecteur du plan : son origine est le calage cadastral de la parcelle du projet (app/importCadastre.ts). */
+/** Le projecteur du plan : son origine est le calage cadastral de la parcelle du projet (app/cadastre/importCadastre.ts). */
 function projecteurDuProjet(objets: ObjetPlan[]): ProjecteurLocal | null {
   const cad = parcelleDuProjet(objets)?.cadastre;
   return typeof cad?.origineLat === 'number' && typeof cad.origineLon === 'number' ? projecteurLocal(cad.origineLat, cad.origineLon) : null;

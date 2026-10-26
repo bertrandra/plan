@@ -11,36 +11,36 @@
 // L'etat s'appelle `etatImport` et surtout PAS `etat`, le nom de l'etat de l'application : la
 // confusion entre les deux est exactement le genre de bug qu'aucun test ne rattrape.
 
-import { showToast } from '../shell/dialogs.js';
-import { attente } from '../shell/attente.js';
-import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../shell/geolocalisation.js';
-import { centroid, shoelace, pointInPolygon } from '../geometry/basic.js';
-import { fusionnerAnneaux, chainerSegments } from '../geometry/rings.js';
-import { distancePointContour } from '../geometry/proximite.js';
-import { projecteurLocal } from '../geo/projection.js';
-import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../geo/bdtopo.js';
-import { objetsDepuisCadastre } from '../geo/cadastreObjets.js';
-import { serializeObjects } from '../io/serialisation.js';
-import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
-import { toitsDepuisLidar } from './toitsLidar.js';
-import { couleursMursDepuisPhotos } from '../render/couleurMurPhoto.js';
-import { FUSION_TOL_M } from '../geo/constantesCadastre.js';
-import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
-import { CAPACITES } from '../plateforme/capacites.js';
-import { droitsCourants } from './acces.js';
+import { showToast } from '../../shell/dialogs.js';
+import { attente } from '../../shell/attente.js';
+import { lirePositionGps, geolocalisationDisponible, SansPosition, type PositionGps } from '../../shell/geolocalisation.js';
+import { centroid, shoelace, pointInPolygon } from '../../geometry/basic.js';
+import { fusionnerAnneaux, chainerSegments } from '../../geometry/rings.js';
+import { distancePointContour } from '../../geometry/proximite.js';
+import { projecteurLocal } from '../../geo/projection.js';
+import { hauteurBatiment, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from '../../geo/bdtopo.js';
+import { objetsDepuisCadastre } from '../../geo/cadastreObjets.js';
+import { serializeObjects } from '../../io/serialisation.js';
+import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
+import { toitsDepuisLidar } from '../toits/toitsLidar.js';
+import { couleursMursDepuisPhotos } from '../../render/couleurMurPhoto.js';
+import { FUSION_TOL_M } from '../../geo/constantesCadastre.js';
+import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { CAPACITES } from '../../plateforme/capacites.js';
+import { droitsCourants } from '../acces.js';
 import {
   geocoderBAN, geocoderInverseBAN, interrogerCadastre, construireCandidats, classerCandidats, trierVoisines,
   anneauVersPts, empriseGeoJSON, empriseAutourAnneau, bboxDegDesAnneaux,
   interrogerWfs, construireElementsIgn, rattacherElementsAuxParcelles, interrogerPlu, lireVoisinageRayon, filtrerVoisinageRayon, rayonEtenduValide,
   rayonDeLecture, RAYON_ETENDU_DEFAUT_M,
   RAYONS_RECHERCHE_M, COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
-} from '../geo/apiIgn.js';
-import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../geo/apiIgn.js';
-import type { ProjecteurLocal } from '../geo/projection.js';
-import type { AdresseRecherchee, ImportCadastral } from '../geo/cadastreObjets.js';
-import type { ObjetPlan, PtBrut, ZonagePlu } from '../model/types.js';
-import type { ProjetValide } from '../io/validation.js';
+} from '../../geo/apiIgn.js';
+import type { Candidate, ElementIgn, FeatureGeoJSON, VoisinageRayon } from '../../geo/apiIgn.js';
+import type { ProjecteurLocal } from '../../geo/projection.js';
+import type { AdresseRecherchee, ImportCadastral } from '../../geo/cadastreObjets.js';
+import type { ObjetPlan, PtBrut, ZonagePlu } from '../../model/types.js';
+import type { ProjetValide } from '../../io/validation.js';
 
 /** Ce que l'import demande au reste du programme : enregistrer, ou charger le plan en local. */
 export interface ContexteImportCadastre {
@@ -56,7 +56,7 @@ export interface ContexteImportCadastre {
   projetCible?: () => { id: string; name: string } | null;
   /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
   lireRelief?: typeof lireRelief;
-  /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
+  /** Les toits ajustes sur le LiDAR HD (app/toits/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
   /** La couleur des murs sur les photos de rue (render/couleurMurPhoto.ts) ; remplacable dans les tests. */
   couleursMurs?: typeof couleursMursDepuisPhotos;

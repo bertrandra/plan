@@ -5,7 +5,7 @@
 // paire de pavillons jumeaux. Quand ce contour franchit une limite de parcelle et qu'un corps lu sur
 // le LiDAR passe par-dessus, le calcul ne peut pas savoir s'il voit un seul toit ou deux toits
 // voisins de meme hauteur. Ici, les parts du contour dans chaque parcelle, et ce doute ; la question
-// et ce que fait sa reponse sont dans app/toitsACheval.ts.
+// et ce que fait sa reponse sont dans app/toits/toitsACheval.ts.
 
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { differencePolygones } from '../geometry/difference.js';

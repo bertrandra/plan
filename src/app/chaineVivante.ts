@@ -13,7 +13,7 @@ import { SEUILS_FORMES, DESCRIPTION_SEUILS_FORMES } from '../regles/toits/formes
 import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
 import { VERSIONS_PROMPT, VERSIONS_SCHEMA, versionCourante } from '../regles/sujets/versions.js';
 import { SUJETS } from './regles/sujets/index.js';
-import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
+import { VERSION_LECTURE_TOITS } from './toits/toitsLidar.js';
 import * as FORME_TOIT from '../model/formeToit.js';
 import { EXEMPLES_TOITS } from '../three/catalogueToits.js';
 

@@ -7,14 +7,14 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranConsommation } from '../zones/EcranConsommation.js';
+import { EcranConsommation } from '../../zones/EcranConsommation.js';
 import {
   enregistrerModelesClaude, enregistrerPlafondsClaude, enregistrerTarifsClaude, lireConsommation, lireModelesClaude, lirePlafondsClaude, lireTarifsClaude,
   type FiltresConsommation
-} from '../io/depotDemos.js';
-import { telechargerTexte } from '../shell/download.js';
-import type { Plafonds, ReglageModeles, Tarifs } from '../model/tarifsClaude.js';
-import { hoteDeZone } from '../shell/dom.js';
+} from '../../io/depotDemos.js';
+import { telechargerTexte } from '../../shell/download.js';
+import type { Plafonds, ReglageModeles, Tarifs } from '../../model/tarifsClaude.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la consommation ? */
 export function demandeEcranConsommation(recherche: string): boolean {

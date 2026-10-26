@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { projecteurDuPlan } from '../../../src/app/importCadastre.js';
+import { projecteurDuPlan } from '../../../src/app/cadastre/importCadastre.js';
 import { projecteurLocal } from '../../../src/geo/projection.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 

@@ -9,15 +9,15 @@ const couleursEspion = vi.hoisted(() => ({
     return { lus: objets.length, replis: 0 };
   })
 }));
-vi.mock('../../../src/render/couleurToitOrtho.js', () => ({ couleursToitsDepuisOrtho: couleursEspion.lire }));
-import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, PARALLELE_TOITS_FOND, ECHECS_PAR_BATIMENT, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../src/app/toitsFond.js';
-import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../src/app/toitsLidar.js';
-import type { lireMursEnFond } from '../../../src/app/mursFond.js';
-import type { Regulateur } from '../../../src/app/regulateur.js';
-import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+vi.mock('../../../../src/render/couleurToitOrtho.js', () => ({ couleursToitsDepuisOrtho: couleursEspion.lire }));
+import { creerToitsFond, batimentsALire, texteFinToitsFond, LOT_TOITS_FOND, PARALLELE_TOITS_FOND, ECHECS_PAR_BATIMENT, ECHECS_AVANT_ARRET, INTERVALLE_ENREGISTREMENT_MS, type ProgressionToits } from '../../../../src/app/toits/toitsFond.js';
+import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
+import type { lireMursEnFond } from '../../../../src/app/toits/mursFond.js';
+import type { Regulateur } from '../../../../src/app/regulateur.js';
+import { projecteurLocal } from '../../../../src/geo/projection.js';
+import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 
-// La lecture des toits en tache de fond (app/toitsFond.ts) : une file continue, du plus proche au plus
+// La lecture des toits en tache de fond (app/toits/toitsFond.ts) : une file continue, du plus proche au plus
 // loin, sur des copies, dessinee par paquets ; un batiment modifie pendant la lecture n'est pas ecrase ;
 // un service muet arrete.
 

@@ -459,7 +459,7 @@ what a building is allowed to be, from three kinds of input that never mix:
 
 `regles/` is the engine's **data directory**. Its files are imported, so compiled into the
 delivered file: no network read, a number produced yesterday is reproduced today (ASR-1). Their
-fingerprint enters the reading version (`LECTURES_TOITS` in `app/toitsLidar.ts`): a changed
+fingerprint enters the reading version (`LECTURES_TOITS` in `app/toits/toitsLidar.ts`): a changed
 setting or fact re-reads the roofs on the next opening, except buildings verified on site.
 
 **Order of application** (`spec-regles-toits.md` §9.1): calculation → rules, with the settings
@@ -503,11 +503,11 @@ src/app/regles/              layer 6 — what the audit can see and propose
     contrat.ts               the `Sujet` contract (id, attribut?, effet?, proposer?, observer?); index.ts is the registry (`SUJETS`)
     observations.ts          the observations, said by the registry in prompt order (a simple field with no module says itself)
     vote.ts                  the vote of the passes as the audit reads it (the subjects' simple fields included)
-src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/ecranRegles.ts
+src/zones/EcranRegles.tsx    Admin › Règles (with zones/regles/), mounted by app/admin/ecranRegles.ts
 ```
 
 The calculation itself (`facade/toits/toitCorps`, `toitLidar`, `model/toitMesure`…) is not the engine: it
-proposes and prices, the engine arbitrates. `app/toitsLidar.ts` and `app/toitsFond.ts` orchestrate
+proposes and prices, the engine arbitrates. `app/toits/toitsLidar.ts` and `app/toits/toitsFond.ts` orchestrate
 (import, background re-reading, `VERSION_LECTURE_TOITS`); `app/ecouteurs/faitsLocaux.ts` is the
 `?regles=local` trial mode (facts from a file; the same address also sends the audit's analysis out with the
 draft prompt saved from Admin › Règles).
@@ -952,7 +952,7 @@ Carried deliberately, with the trigger that would force payment.
 | AD-15 | Ambient inputs read by pure layers: the calibration overrides (`facade/regles/facades/surcharges.ts`, set by `io/calibrationServeur.ts`), the tried facts (`regles/toits/faits.ts::essai`), the current tree library (`model/especesArbre.ts`), the theme inks (`render/theme.ts`, eight exported `let`) | The same inputs can give different results depending on the session; listed in §5.2.4 | A result that differs between two sessions of the same project |
 | AD-16 | ~~`app/` and `zones/` (both layer 6) import each other freely; `zones/` drives a worker and network calls~~ | — | **Paid 25 October 2026** (lot M): one direction. `zones/` reads the application (store, commands, services); `app/` takes from `zones/` only screens to mount (`.tsx`, `zones/monter.ts`) and the types they declare. The coin search and its worker moved to `app/releve/`, the platform probe of the gate to `io/sondePlateforme.ts`; `zones/` calls the network only through `io/`, `geo/` or `app/`, and starts no worker. Both rules are in `tests/unit/architecture.test.ts`. A screen may still call the pure functions of lower layers (`Releve.tsx` and `facade/releve/`) |
 | AD-17 | ~~Large modules: `three/scene.ts`, `app/boot.ts`, `app/audit/parcelle/controleur.ts`~~ | — | **Paid 25 October 2026** (lot N), split by concern, each former module re-exporting what it exported. `three/scene.ts` (1 422 → ≈370 lines: mounting and construction) gave `typesScene.ts`, `sceneTerrasse.ts` (structure and decking), `sceneObjets.ts` (the plan's objects in context) and `sceneVivante.ts` (what is done to a built scene: replace, compare, highlight, prune, pick — its state lives there only). `app/audit/parcelle/controleur.ts` (993 → ≈185: the session) gave `typesSession.ts`, `textesSession.ts`, `capteursPrise.ts`, `brouillonCapture.ts`, `etapesSession.ts`, `viseeFacade.ts`, `vueAudit.ts`. `app/boot.ts` (816 lines, 99 imports) keeps `boot()`; `app/boot/` holds the seeds, the plan and its workshop, the loaders, the wiring, the panels and the per-mode annexes. `model/types.ts` was split in lot J |
-| AD-18 | ~~Ten import cycles that go only through type imports~~ | — | **Paid 25 October 2026** (lot K): each shared type moved down to the lower module, or to a module of its own (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`); the test now forbids any cycle, type imports included |
+| AD-18 | ~~Ten import cycles that go only through type imports~~ | — | **Paid 25 October 2026** (lot K): each shared type moved down to the lower module, or to a module of its own (`geo/geojson.ts`, `model/clotureVue.ts`, `app/cadastre/optionsActualisation.ts`, `app/typesControleurs.ts`); the test now forbids any cycle, type imports included |
 | AD-19 | ~~Two unversioned paths change an old file's numbers~~: the construction defaults that `engine/construction.ts::ensureConstruction` fills at compute time, and the 2 → 3 migration that gave a BD TOPO building today's roof | — | **Paid 26 October 2026** (MD/roadmap-architecture.md, steps 1.1 and 1.2): the fill reads a frozen table of literal values with no import (`engine/remplissageFige.ts`, its essence stiffness included), and only `constructionTerrasseNeuve` may follow today's defaults; the migration reads a frozen copy of the schema-3 roof rules, the oriented rectangle and the straight skeleton (`model/fige/toitSchema3.ts`), which imports only types and which only `model/migrations.ts` may import (`tests/unit/architecture.test.ts`). The two golden witnesses stay as the alarm |
 
 Reviewed quarterly. Debt that is written down and monitored is a decision; debt that is not is a surprise.

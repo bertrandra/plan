@@ -1,5 +1,5 @@
 // Les valeurs par defaut d'un objet importe, pour « Fichier › Actualiser le projet »
-// (app/actualiserProjet.ts) : a part, parce que l'actualisation IGN (app/actualisationIgn.ts) les
+// (app/cadastre/actualiserProjet.ts) : a part, parce que l'actualisation IGN (app/cadastre/actualisationIgn.ts) les
 // applique et que la commande l'appelle.
 
 import { apparenceIgnParDefaut } from '../geo/cadastreObjets.js';

@@ -1,21 +1,21 @@
 // Ce que le chargement d'un projet, l'import depuis une adresse et l'actualisation IGN doivent pouvoir declencher (app/boot.ts).
 
-import { poserQuestionsToitsACheval } from '../toitsACheval.js';
+import { poserQuestionsToitsACheval } from '../toits/toitsACheval.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { chargerOrthophoto, ortho } from '../../render/ortho.js';
 import { lectureToits } from '../../core/lectureToits.js';
-import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from '../toitsFond.js';
+import { creerToitsFond, texteFinToitsFond, PARALLELE_TOITS_FOND } from '../toits/toitsFond.js';
 import { creerRegulateur, brancherRegulateur } from '../regulateur.js';
-import { creerProfilsFacadesFond } from '../profilsFacadesFond.js';
+import { creerProfilsFacadesFond } from '../toits/profilsFacadesFond.js';
 import { validerProjetJSON } from '../../io/validation.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { cleDernierProjet, withProjectParam, apiSave } from '../../io/api.js';
 import { appliquerProjetImporte as chargerProjetImporte, restaurerAffichageDuProjet } from '../../io/projet.js';
 import { projetARemplir } from '../projet.js';
 import { showToast } from '../../shell/dialogs.js';
-import { ouvrirDialogueActualisation, type ContexteActualisation } from '../actualisationIgn.js';
-import { ouvrirActualisationProjet } from '../actualiserProjet.js';
-import { creerImportCadastre } from '../importCadastre.js';
+import { ouvrirDialogueActualisation, type ContexteActualisation } from '../cadastre/actualisationIgn.js';
+import { ouvrirActualisationProjet } from '../cadastre/actualiserProjet.js';
+import { creerImportCadastre } from '../cadastre/importCadastre.js';
 import { parcours } from '../parcours.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { vue3d } from '../../three/etat3d.js';
@@ -39,7 +39,7 @@ export function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
     restoreState: historique.restaurer, validerProjetJSON
   });
   // Un batiment a cheval sur deux parcelles dont la toiture laisse un doute : une question chacun
-  // (app/toitsACheval.ts), a l'ouverture, apres un import et apres une actualisation IGN.
+  // (app/toits/toitsACheval.ts), a l'ouverture, apres un import et apres une actualisation IGN.
   const questionsACheval = () => poserQuestionsToitsACheval({
     objets: () => etat.objects, lectureSeule: () => !!etat.lectureSeule, preparer: () => historique.preparer(),
     apresModification: () => { p.render(); if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
@@ -49,7 +49,7 @@ export function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
   // aerienne, relue sur l'etendue nouvelle (le voisinage, son relief). Il fallait sinon repasser
   // par le plan ou la 3D pour voir le resultat.
   // Les toits que l'import ou l'actualisation n'ont pas lus (les trente plus proches seulement), en
-  // tache de fond, par lots (app/toitsFond.ts) : chaque lot ecrit se dessine, la 3D ouverte suit au
+  // tache de fond, par lots (app/toits/toitsFond.ts) : chaque lot ecrit se dessine, la 3D ouverte suit au
   // plus toutes les dix secondes - une scene de milliers de batiments ne se rebatit pas a chaque toit.
   const toitsFond = creerToitsFond({
     objets: () => etat.objects,
@@ -73,7 +73,7 @@ export function chargements(p: Plan, seed: GraineDemarrage, tardifs: Tardifs) {
       if (vue3d.scene && !tardifs.vues?.remplacerObjets3d(cles)) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null);
     }
   });
-  // Les profils de facades rechoisis apres un changement de reglages (app/profilsFacadesFond.ts) : sans
+  // Les profils de facades rechoisis apres un changement de reglages (app/toits/profilsFacadesFond.ts) : sans
   // reseau, par lots ; seuls les batiments dont le profil change se redessinent dans la Vue 3D ouverte.
   const profilsFacades = creerProfilsFacadesFond({
     objets: () => etat.objects,

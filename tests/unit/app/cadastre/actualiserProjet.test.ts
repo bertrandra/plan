@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { valeursParDefaut, estImporte } from '../../../src/app/valeursParDefaut.js';
-import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../src/app/actualiserProjet.js';
-import { dialogues } from '../../../src/shell/dialogues.js';
-import { actualisation, type ContexteActualisation } from '../../../src/app/actualisationIgn.js';
-import { APPARENCES_IGN, apparenceIgnParDefaut } from '../../../src/geo/cadastreObjets.js';
-import { serializeObjects } from '../../../src/io/serialisation.js';
-import { normalizeObjects } from '../../../src/model/normalisation.js';
-import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { ObjetBrut, ObjetPlan, PtBrut, Relief } from '../../../src/model/types.js';
+import { valeursParDefaut, estImporte } from '../../../../src/app/valeursParDefaut.js';
+import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../../src/app/cadastre/actualiserProjet.js';
+import { dialogues } from '../../../../src/shell/dialogues.js';
+import { actualisation, type ContexteActualisation } from '../../../../src/app/cadastre/actualisationIgn.js';
+import { APPARENCES_IGN, apparenceIgnParDefaut } from '../../../../src/geo/cadastreObjets.js';
+import { serializeObjects } from '../../../../src/io/serialisation.js';
+import { normalizeObjects } from '../../../../src/model/normalisation.js';
+import { projecteurLocal } from '../../../../src/geo/projection.js';
+import type { ObjetBrut, ObjetPlan, PtBrut, Relief } from '../../../../src/model/types.js';
 
-// « Fichier › Actualiser le projet » (app/actualiserProjet.ts) : l'actualisation IGN entiere, chaque
+// « Fichier › Actualiser le projet » (app/cadastre/actualiserProjet.ts) : l'actualisation IGN entiere, chaque
 // objet importe ramene d'abord aux valeurs par defaut ; ce qui a ete dessine a la main, intact.
 
 const lat0 = 48.9, lon0 = 2.13, proj = projecteurLocal(lat0, lon0);

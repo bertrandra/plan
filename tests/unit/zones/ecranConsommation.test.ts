@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranConsommation, type PropsEcranConsommation } from '../../../src/zones/EcranConsommation.js';
-import { demandeEcranConsommation } from '../../../src/app/ecranConsommation.js';
+import { demandeEcranConsommation } from '../../../src/app/admin/ecranConsommation.js';
 import type { FiltresConsommation } from '../../../src/io/depotDemos.js';
 import type { ReglageModeles, Tarifs } from '../../../src/model/tarifsClaude.js';
 

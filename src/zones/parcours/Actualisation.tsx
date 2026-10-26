@@ -1,10 +1,10 @@
 // Z8, l'actualisation IGN : ce qu'on redemande a l'IGN, et si l'on ajoute le voisinage.
 //
-// Le travail est fait par app/actualisationIgn.ts ; ce dialogue ne fait que recueillir les options.
+// Le travail est fait par app/cadastre/actualisationIgn.ts ; ce dialogue ne fait que recueillir les options.
 // Les objets dessines a la main ne sont jamais touches, et le dialogue le dit d'emblee.
 
 import { useEffect, useState } from 'react';
-import type { InfosActualisation, OptionsActualisation } from '../../app/actualisationIgn.js';
+import type { InfosActualisation, OptionsActualisation } from '../../app/cadastre/actualisationIgn.js';
 import { filtrerVoisinageRayon, MAX_OBJETS_RAYON, RAYON_ETENDU_DEFAUT_M, RAYON_ETENDU_MAX_M, RAYON_ETENDU_MIN_M, RAYON_ETENDU_PAS_M, RAYON_LEGER_M, rayonDeLecture, type VoisinageRayon } from '../../geo/apiIgn.js';
 import { avertissementRayon } from './avertissementRayon.js';
 

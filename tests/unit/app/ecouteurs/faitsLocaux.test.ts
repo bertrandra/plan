@@ -11,7 +11,7 @@ import { brancherFaitsLocaux, essayerFaitsLocaux, reglesLocalesDemandees } from 
 import { essayerFaitsToits, essaiDeFaits, faitDuBatiment, FaitsToitsIllisibles } from '../../../../src/regles/toits/faits.js';
 import { droits } from './faux.js';
 import { entrerEnAdmin } from '../../../../src/app/acces.js';
-import type { ObjetAToit } from '../../../../src/app/toitsLidar.js';
+import type { ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
 
 // Le mode d'essai des faits des toits (`?regles=local`, MD/spec-regles-toits.md §9.2).
 

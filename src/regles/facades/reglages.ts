@@ -17,7 +17,7 @@
 //
 // Le profil retenu se range sur le batiment (`profilFacades`), avec la version de la lecture qui l'a
 // choisi ; l'empreinte des reglages entre dans cette version : une valeur ou un profil change fait
-// rechoisir les profils en tache de fond (app/profilsFacadesFond.ts), comme les toits se relisent.
+// rechoisir les profils en tache de fond (app/toits/profilsFacadesFond.ts), comme les toits se relisent.
 
 import fichier from '../../../regles/facades/reglages.json';
 import { fnv1a } from '../toits/reglages.js';

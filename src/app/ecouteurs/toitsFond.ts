@@ -1,4 +1,4 @@
-// La commande qui suspend ou reprend la lecture des toits, puis des murs, en tache de fond (app/toitsFond.ts).
+// La commande qui suspend ou reprend la lecture des toits, puis des murs, en tache de fond (app/toits/toitsFond.ts).
 //
 // Une seule commande, une bascule : le menu Fichier dit « Suspendre » pendant la lecture, et
 // « Reprendre » quand elle est en pause ou arretee faute de service. Elle se grise quand il n'y a
@@ -7,8 +7,8 @@
 import { PERMISSION_ECRITURE } from '../acces.js';
 import { lectureToits } from '../../core/lectureToits.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ToitsFond } from '../toitsFond.js';
-import { LECTURE_MURS_EN_FOND } from '../mursFond.js';
+import type { ToitsFond } from '../toits/toitsFond.js';
+import { LECTURE_MURS_EN_FOND } from '../toits/mursFond.js';
 
 export function brancherToitsFond(fond: ToitsFond, cmd: RegistreCommandes): void {
   cmd.declarer({

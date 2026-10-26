@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { batimentsEnDoute, questionACheval, repondreACheval, poserQuestionsToitsACheval } from '../../../src/app/toitsACheval.js';
-import { toitAChevalApresCalcul } from '../../../src/app/toitsLidar.js';
-import { reconstruireCorps } from '../../../src/facade/toits/toitCorps.js';
-import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
-import { pointInPolygon } from '../../../src/geometry/basic.js';
-import { dialogues } from '../../../src/shell/dialogues.js';
-import type { GrilleRelief } from '../../../src/model/relief.js';
-import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import { batimentsEnDoute, questionACheval, repondreACheval, poserQuestionsToitsACheval } from '../../../../src/app/toits/toitsACheval.js';
+import { toitAChevalApresCalcul } from '../../../../src/app/toits/toitsLidar.js';
+import { reconstruireCorps } from '../../../../src/facade/toits/toitCorps.js';
+import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.js';
+import { pointInPolygon } from '../../../../src/geometry/basic.js';
+import { dialogues } from '../../../../src/shell/dialogues.js';
+import type { GrilleRelief } from '../../../../src/model/relief.js';
+import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 
 // La question posee quand un batiment a cheval sur deux parcelles laisse un doute sur sa toiture
 // (MD/spec-toit-ign.md §13.8) : une longere de 16 m, un seul faitage mesure, la limite au milieu.

@@ -4,7 +4,7 @@
 // font une seule nappe la ou la maison a un corps et une aile, chacun son faitage, souvent son
 // egout. Ici, le contour est **decoupe en rectangles** - le corps principal et ses ailes - et
 // chaque rectangle recoit son toit : deux pans dans son axe (quatre pans s'il est carre), a la
-// pente du toit du batiment ; le LiDAR (app/toitsLidar.ts) le remplace ensuite volume par volume
+// pente du toit du batiment ; le LiDAR (app/toits/toitsLidar.ts) le remplace ensuite volume par volume
 // par ce qu'il mesure, egout compris.
 //
 // Le decoupage ne vaut que pour un contour **rectiligne** : chaque cote a moins de `TOLERANCE_DEG`

@@ -6,20 +6,20 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranCalibration, type DepsCalibration } from '../zones/EcranCalibration.js';
-import { enregistrerCalibration, enregistrerCasCalibration, lireCalibration, lireCasCalibration, listerCasCalibration, supprimerCasCalibration } from '../io/depotDemos.js';
-import { chargerCalibrationServeur } from '../io/calibrationServeur.js';
-import { lireDocumentCalibration } from '../facade/corpusReel.js';
-import { canevasPour, chargerUrl, imageDuCanevas, versJpeg } from '../ui/releve/camera.js';
-import { creerClientAudits } from '../io/auditsServeur.js';
-import { lireFichierAuditParcelle } from '../model/fichierAuditParcelle.js';
-import { casDepuisFacade, facadesACalibrer } from './audit/parcelle/casDeCalibration.js';
-import { facadesRelevees } from './casDeReleve.js';
-import { creerDepotDemos } from '../io/depotDemos.js';
-import { validerProjetJSON } from '../io/validation.js';
-import { magasinPhotos, rentrerLesPhotos } from '../io/photosLocales.js';
-import type { ObjetBrut } from '../model/types.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranCalibration, type DepsCalibration } from '../../zones/EcranCalibration.js';
+import { enregistrerCalibration, enregistrerCasCalibration, lireCalibration, lireCasCalibration, listerCasCalibration, supprimerCasCalibration } from '../../io/depotDemos.js';
+import { chargerCalibrationServeur } from '../../io/calibrationServeur.js';
+import { lireDocumentCalibration } from '../../facade/corpusReel.js';
+import { canevasPour, chargerUrl, imageDuCanevas, versJpeg } from '../../ui/releve/camera.js';
+import { creerClientAudits } from '../../io/auditsServeur.js';
+import { lireFichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
+import { casDepuisFacade, facadesACalibrer } from '../audit/parcelle/casDeCalibration.js';
+import { facadesRelevees } from '../casDeReleve.js';
+import { creerDepotDemos } from '../../io/depotDemos.js';
+import { validerProjetJSON } from '../../io/validation.js';
+import { magasinPhotos, rentrerLesPhotos } from '../../io/photosLocales.js';
+import type { ObjetBrut } from '../../model/types.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de calibration ? */
 export function demandeEcranCalibration(recherche: string): boolean {

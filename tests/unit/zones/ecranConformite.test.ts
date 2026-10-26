@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranConformite, type AuditsJuges, type PropsEcranConformite } from '../../../src/zones/EcranConformite.js';
-import { demandeEcranConformite } from '../../../src/app/ecranConformite.js';
+import { demandeEcranConformite } from '../../../src/app/admin/ecranConformite.js';
 import { mesureConformite, FORMAT_MESURES_CONFORMITE, type MesureConformite, type VerdictCas, type VerdictFacade } from '../../../src/regles/conformite.js';
 
 // L'ecran Admin › Conformité (`?admin&ecran=conformite`, spec-regles-toits §13.5, lot G3) : le

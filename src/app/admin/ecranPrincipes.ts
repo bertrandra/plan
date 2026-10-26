@@ -4,8 +4,8 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranPrincipes } from '../zones/EcranPrincipes.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranPrincipes } from '../../zones/EcranPrincipes.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des principes ? */
 export function demandeEcranPrincipes(recherche: string): boolean {

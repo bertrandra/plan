@@ -8,21 +8,21 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranRegles, type BrouillonRegles } from '../zones/EcranRegles.js';
-import { DESCRIPTIONS_SUJETS } from '../regles/sujets/liste.js';
-import { ACCORDS_MESURES } from '../model/analyseClaude.js';
-import { SUJETS } from './regles/sujets/index.js';
-import { telechargerTexte } from '../shell/download.js';
-import { LECTURES_TOITS } from './toitsLidar.js';
-import { LECTURES_FACADES } from '../regles/facades/reglages.js';
-import { creerClientRegles } from '../io/reglesServeur.js';
-import { RECONCILIATION } from '../regles/reconciliation.js';
-import { FICHIERS_DONNEES } from '../regles/donnees/fichiers.js';
-import { seuilsDuTexte } from '../regles/donnees/edition.js';
-import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle, type FichierAuditParcelle } from '../model/fichierAuditParcelle.js';
-import { justessesDesAudits, poidsProposes } from './audit/parcelle/poidsAuto.js';
-import type { ProposerPoids } from '../zones/regles/Poids.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranRegles, type BrouillonRegles } from '../../zones/EcranRegles.js';
+import { DESCRIPTIONS_SUJETS } from '../../regles/sujets/liste.js';
+import { ACCORDS_MESURES } from '../../model/analyseClaude.js';
+import { SUJETS } from '../regles/sujets/index.js';
+import { telechargerTexte } from '../../shell/download.js';
+import { LECTURES_TOITS } from '../toits/toitsLidar.js';
+import { LECTURES_FACADES } from '../../regles/facades/reglages.js';
+import { creerClientRegles } from '../../io/reglesServeur.js';
+import { RECONCILIATION } from '../../regles/reconciliation.js';
+import { FICHIERS_DONNEES } from '../../regles/donnees/fichiers.js';
+import { seuilsDuTexte } from '../../regles/donnees/edition.js';
+import { FORMAT_AUDIT_PARCELLE, lireFichierAuditParcelle, type FichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
+import { justessesDesAudits, poidsProposes } from '../audit/parcelle/poidsAuto.js';
+import type { ProposerPoids } from '../../zones/regles/Poids.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** Les poids que des audits recus proposent : les fichiers qui ne sont pas un audit de parcelle sont comptes a part, pas lus. */
 export const proposerPoids: ProposerPoids = (textes, regles) => {

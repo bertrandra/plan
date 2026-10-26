@@ -14,7 +14,7 @@ import { appliquerOmbres, ajouterUnObjet, ajouterCloture, rafraichirArbres, visi
 
 /**
  * Ce que chaque objet du plan a pose dans la scene, par cle : la Vue 3D remplace ceux d'un batiment
- * relu (la lecture des toits en tache de fond, app/toitsFond.ts) sans se rebatir - une scene de
+ * relu (la lecture des toits en tache de fond, app/toits/toitsFond.ts) sans se rebatir - une scene de
  * milliers de batiments figeait l'ecran plusieurs secondes a chaque lot. Une table a part, et non
  * `userData` : l'export GLB recopierait ce dernier dans le fichier.
  */

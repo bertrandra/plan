@@ -5,30 +5,30 @@
 // lu sur une photo ou saisi n'est pas touche. A l'import et a l'actualisation, seuls les plus
 // proches de la parcelle du projet, dans un delai borne : l'import ne doit pas attendre le service
 // pour un voisinage de dix mille batiments. Les autres sont lus ensuite, en tache de fond, par
-// lots (app/toitsFond.ts) ; chaque batiment lu est marque (`toitLidarLu`) pour ne pas etre relu.
+// lots (app/toits/toitsFond.ts) ; chaque batiment lu est marque (`toitLidarLu`) pour ne pas etre relu.
 
-import { ajusterToit, type EchantillonHauteur } from '../facade/toits/toitLidar.js';
-import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../geo/mnh.js';
-import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../model/volumesToit.js';
-import { PENTE_DEFAUT_DEG } from '../model/toitBdTopo.js';
-import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../model/toitMesure.js';
-import { decalageSurMesure, partVideSous } from '../facade/toits/toitCorps.js';
-import { centroid, pointInPolygon } from '../geometry/basic.js';
-import { surParcelleDuProjet } from '../model/fonctions.js';
-import { batimentsMitoyens } from '../model/mitoyennete.js';
-import { partsACheval, douteACheval, type PartACheval } from '../model/aCheval.js';
-import type { ProjecteurLocal } from '../geo/projection.js';
-import type { GrilleRelief } from '../model/relief.js';
-import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../model/types.js';
-import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../regles/toits/reglages.js';
-import { contexteProfils, surchargesDuBatiment } from '../facade/regles/toits/profils.js';
-import type { ProfilToit } from '../regles/toits/profils.js';
-import { EMPREINTE_FORMES_TOITS } from '../regles/toits/formes.js';
-import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../regles/toits/faits.js';
-import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../facade/regles/toits/faits.js';
-import { corpsCalcules } from '../facade/regles/toits/catalogue.js';
-import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../facade/regles/toits/vraisemblance.js';
-import { estVerifieSurPlace } from '../model/toitVerifie.js';
+import { ajusterToit, type EchantillonHauteur } from '../../facade/toits/toitLidar.js';
+import { lireHauteursSousStrict, lireGrilleSous, echantillonsDeGrille, dallesLidarSur, type LecteurMnh, type LecteurGrilleMnh } from '../../geo/mnh.js';
+import { decomposerEnRectangles, rectanglesDuContour, penteDuToit, toitDuRectangle } from '../../model/volumesToit.js';
+import { PENTE_DEFAUT_DEG } from '../../model/toitBdTopo.js';
+import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../../model/toitMesure.js';
+import { decalageSurMesure, partVideSous } from '../../facade/toits/toitCorps.js';
+import { centroid, pointInPolygon } from '../../geometry/basic.js';
+import { surParcelleDuProjet } from '../../model/fonctions.js';
+import { batimentsMitoyens } from '../../model/mitoyennete.js';
+import { partsACheval, douteACheval, type PartACheval } from '../../model/aCheval.js';
+import type { ProjecteurLocal } from '../../geo/projection.js';
+import type { GrilleRelief } from '../../model/relief.js';
+import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../../model/types.js';
+import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../../regles/toits/reglages.js';
+import { contexteProfils, surchargesDuBatiment } from '../../facade/regles/toits/profils.js';
+import type { ProfilToit } from '../../regles/toits/profils.js';
+import { EMPREINTE_FORMES_TOITS } from '../../regles/toits/formes.js';
+import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../../regles/toits/faits.js';
+import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../../facade/regles/toits/faits.js';
+import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
+import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
+import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -61,7 +61,7 @@ export const surParcellePrincipale = (o: ObjetAToit): boolean => surParcelleDuPr
 export { batimentsMitoyens };
 
 /** Les garde-fous de vraisemblance (vegetation, egout), purs, partages avec le rejeu des cas d'audit. */
-export { corpsVraisemblables, mesureVraisemblable, DEPASSEMENT_VEGETATION_M } from '../facade/regles/toits/vraisemblance.js';
+export { corpsVraisemblables, mesureVraisemblable, DEPASSEMENT_VEGETATION_M } from '../../facade/regles/toits/vraisemblance.js';
 
 /** Les maisons voisines recoivent-elles leurs corps et pignons ? Le reglage de la parcelle du projet, oui par defaut. */
 function corpsDuVoisinage(objets: readonly ObjetAToit[]): boolean {
@@ -103,7 +103,7 @@ export function corpsParParcelle(o: ObjetAToit, parts: readonly PartACheval[], m
  * Apres le calcul des corps d'un batiment vu de pres : s'il est a cheval sur deux parcelles, la
  * reponse deja donnee s'applique (un toit par parcelle : les corps relus sur chaque part) ; sans
  * reponse, le doute est note quand un corps franchit la limite - la question se pose ensuite
- * (app/toitsACheval.ts). Un batiment qui n'est plus a cheval perd sa question.
+ * (app/toits/toitsACheval.ts). Un batiment qui n'est plus a cheval perd sa question.
  */
 export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToit[], grille: GrilleRelief | null, coupes = true): void {
   const parts = o.corpsToit?.length && o.toitMesure ? partsACheval(o, objets) : null;
@@ -350,7 +350,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
   if (principal) {
     o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
-    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toits/toitsACheval.ts).
     toitAChevalApresCalcul(o, objets, grille);
   }
   // Une maison voisine : ses corps et pignons. Sur une parcelle mitoyenne, le calcul entier, toit
@@ -362,7 +362,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
     // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
     // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
     if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
-    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toitsACheval.ts).
+    // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toits/toitsACheval.ts).
     if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
     if (o.corpsToit) bilan.corpsVoisins++;
   }

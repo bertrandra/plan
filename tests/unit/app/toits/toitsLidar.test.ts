@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../src/app/toitsLidar.js';
-import { hauteurToitEn, plansDuToit } from '../../../src/facade/toits/toit.js';
-import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { GrilleRelief } from '../../../src/model/relief.js';
-import type { PtBrut, Toit } from '../../../src/model/types.js';
-import { lireProfilsToits } from '../../../src/regles/toits/profils.js';
-import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../src/regles/toits/reglages.js';
+import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
+import { hauteurToitEn, plansDuToit } from '../../../../src/facade/toits/toit.js';
+import { projecteurLocal } from '../../../../src/geo/projection.js';
+import type { GrilleRelief } from '../../../../src/model/relief.js';
+import type { PtBrut, Toit } from '../../../../src/model/types.js';
+import { lireProfilsToits } from '../../../../src/regles/toits/profils.js';
+import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../../src/regles/toits/reglages.js';
 
 // L'etape « toits sur le LiDAR » d'un import ou d'une actualisation (MD/spec-toit-ign.md §10) :
 // quels batiments, dans quel ordre, ce qui est garde, ce qui est ecrit.

@@ -4,7 +4,7 @@
 // regles/toits/faits.json) pour voir un fait sur un vrai projet avant d'ouvrir une PR. Rien n'est
 // enregistre : les faits essayes vivent le temps de la page (regles/toits/faits.ts), et les batiments
 // qu'ils touchent sont relus en tache de fond, marques lus pour la seance seulement
-// (app/toitsLidar.ts, MARQUE_ESSAI_FAITS) - a la prochaine ouverture, ils sont relus avec les faits
+// (app/toits/toitsLidar.ts, MARQUE_ESSAI_FAITS) - a la prochaine ouverture, ils sont relus avec les faits
 // du depot. L'entree du menu n'apparait qu'avec `?regles=local` : hors essai, elle n'encombre pas le menu.
 //
 // Seuls les faits s'essaient ainsi : les reglages sont lus une fois, au chargement des modules de la
@@ -13,7 +13,7 @@
 import { estAdministrateur } from '../acces.js';
 import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { lireFaitsToits, essayerFaitsToits, cleDuBatiment, cleToucheeParEssai, FaitsToitsIllisibles } from '../../regles/toits/faits.js';
-import { toitAAjuster, type ObjetAToit } from '../toitsLidar.js';
+import { toitAAjuster, type ObjetAToit } from '../toits/toitsLidar.js';
 import type { RegistreCommandes } from '../commandes.js';
 
 /** Un fichier de faits plus gros n'est pas un fichier de faits : on refuse avant de le lire. */

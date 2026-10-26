@@ -49,7 +49,7 @@ export interface ContexteRendu extends ContexteOrtho {
 
 /**
  * Repositionne ces objets seulement, comme le ferait le rendu entier : la lecture des toits en tache
- * de fond (app/toitsFond.ts) redessine les batiments qu'elle vient d'ecrire, pas les milliers d'autres
+ * de fond (app/toits/toitsFond.ts) redessine les batiments qu'elle vient d'ecrire, pas les milliers d'autres
  * - redessiner tout le plan a chaque lot figeait l'ecran plusieurs secondes.
  */
 export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly ObjetPlan[]): void {

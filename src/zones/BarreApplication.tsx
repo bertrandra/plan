@@ -27,7 +27,7 @@ import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
 import { lectureToits } from '../core/lectureToits.js';
-import { LECTURE_MURS_EN_FOND } from '../app/mursFond.js';
+import { LECTURE_MURS_EN_FOND } from '../app/toits/mursFond.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';

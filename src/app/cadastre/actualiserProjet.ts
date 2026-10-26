@@ -1,7 +1,7 @@
 // « Fichier › Actualiser le projet » : tout ce qui vient de l'IGN, relu et recalcule avec la version
 // en cours du programme, ramene aux valeurs par defaut ; ce qui a ete dessine a la main, intact.
 //
-// C'est l'actualisation IGN (app/actualisationIgn.ts) avec toutes ses etapes, et deux de plus :
+// C'est l'actualisation IGN (app/cadastre/actualisationIgn.ts) avec toutes ses etapes, et deux de plus :
 // - les batiments de la parcelle du projet, importes ou dessines, sont supprimes puis recrees depuis la
 //   BD TOPO, comme a un import d'aujourd'hui (nom, contour, hauteur, toit) ; si la BD TOPO ne repond
 //   pas, ils restent tels quels plutot que de laisser la parcelle vide ;
@@ -22,13 +22,13 @@
 // (model/toitVerifie.ts, MD/spec-audit.md §14.5) : c'est le 100 % du projet, qu'un import
 // d'aujourd'hui ne vaut pas. La case « Recalculer aussi… » du dialogue les remet dans le lot.
 
-import { dialogues } from '../shell/dialogues.js';
-import { showToast } from '../shell/dialogs.js';
-import { droitsCourants } from './acces.js';
-import { CAPACITES } from '../plateforme/capacites.js';
+import { dialogues } from '../../shell/dialogues.js';
+import { showToast } from '../../shell/dialogs.js';
+import { droitsCourants } from '../acces.js';
+import { CAPACITES } from '../../plateforme/capacites.js';
 import { actualiserDepuisIgn, type ContexteActualisation, type OptionsActualisation } from './actualisationIgn.js';
-import { estVerifieSurPlace } from '../model/toitVerifie.js';
-import type { ObjetPlan } from '../model/types.js';
+import { estVerifieSurPlace } from '../../model/toitVerifie.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Le plan a un voisinage cadastral : le relief se relit alors sur toutes ses parcelles. */
 const aDesVoisines = (objets: readonly ObjetPlan[]) => objets.some(o => o.key !== 'parcelle' && !!o.cadastre?.idu);

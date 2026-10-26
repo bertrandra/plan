@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { jugerAuditsRecus, versionsDuCalcul } from '../../../src/app/ecranConformite.js';
-import { lireFichierPromenade } from '../../../src/model/audit.js';
-import { FORMAT_AUDIT_PARCELLE, VERSION_FICHIER_AUDIT_PARCELLE } from '../../../src/model/fichierAuditParcelle.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../../../src/regles/toits/reglages.js';
-import { APP_VERSION } from '../../../src/model/version.js';
+import { jugerAuditsRecus, versionsDuCalcul } from '../../../../src/app/admin/ecranConformite.js';
+import { lireFichierPromenade } from '../../../../src/model/audit.js';
+import { FORMAT_AUDIT_PARCELLE, VERSION_FICHIER_AUDIT_PARCELLE } from '../../../../src/model/fichierAuditParcelle.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.js';
+import { APP_VERSION } from '../../../../src/model/version.js';
 
 // Les audits recus, lus sur le serveur puis rejoues dans la page (lot G3) : un audit illisible est
 // nomme et saute, les autres sont juges batiment par batiment.
 
-const promenade = lireFichierPromenade(JSON.parse(readFileSync(join(__dirname, '../../fixtures/audit/audit-2026-10-13-1200-le-vesinet.json'), 'utf8')));
+const promenade = lireFichierPromenade(JSON.parse(readFileSync(join(__dirname, '../../../fixtures/audit/audit-2026-10-13-1200-le-vesinet.json'), 'utf8')));
 const ae101 = promenade.cas[0]!;
 const audit = {
   format: FORMAT_AUDIT_PARCELLE, version: VERSION_FICHIER_AUDIT_PARCELLE,

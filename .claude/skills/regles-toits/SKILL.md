@@ -33,7 +33,7 @@ Plus deux sorties qui ne touchent pas au calcul des toits :
 - **hors toit** : contour faux, bâtiment démoli ou absent, couleur des murs, ouvertures. Signalement
   à l'IGN, ou autre chantier (skill `facades`, couleur des murs) ;
 - **question** : un doute que seule la personne peut lever (le modèle : la question « à cheval »,
-  `app/toitsACheval.ts`). On pose une question précise plutôt que d'ajouter un seuil.
+  `app/toits/toitsACheval.ts`). On pose une question précise plutôt que d'ajouter un seuil.
 
 ## 2. Le déroulé, pour un fichier de promenade
 
@@ -129,7 +129,7 @@ Le vocabulaire est fermé (`regles/toits/faits.ts::lireFaitsToits` refuse le res
   dépôt sont communs ; les corrections d'un utilisateur restent dans son projet).
 - **Version de lecture** : l'empreinte des faits entre dans `VERSION_LECTURE_TOITS`. Un fait ajouté
   ou changé demande une ligne `{ version: n + 1, reglages, faits }` dans `LECTURES_TOITS`
-  (`app/toitsLidar.ts`) ; `faits.ts` l'écrit, et `tests/unit/model/reglagesToits.test.ts` la
+  (`app/toits/toitsLidar.ts`) ; `faits.ts` l'écrit, et `tests/unit/model/reglagesToits.test.ts` la
   réclame. Tous les toits déjà lus seront relus : **grouper les faits d'une promenade dans une PR**.
   La preuve, l'adresse et l'historique n'entrent pas dans l'empreinte.
 

@@ -3,7 +3,7 @@
 //
 // A l'import, seuls les murs des 150 batiments les plus proches sont lus, en 20 s au plus
 // (render/couleurMurPhoto.ts::couleursMursDepuisPhotos). Les autres le sont ici, apres les toits
-// (app/toitsFond.ts : l'egout lu sur le LiDAR place mieux les points du mur sur la photo), sans
+// (app/toits/toitsFond.ts : l'egout lu sur le LiDAR place mieux les points du mur sur la photo), sans
 // limite de distance au projet : le voisinage est decoupe en zones de COTE_ZONE_MURS_M, lues de la
 // plus proche a la plus loin ; les photos d'une zone se cherchent d'un coup, autour d'elle.
 //
@@ -13,12 +13,12 @@
 // une photo n'a pas pu se telecharger reste a lire ; refuse deux fois, il est laisse pour la seance.
 // Seul `couleurMurs.photo` s'ecrit : la source choisie a la main reste.
 
-import { couleursMursDUneZone, COTE_ZONE_MURS_M, DISTANCE_MUR_MAX_M, type IssueMurs } from '../render/couleurMurPhoto.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
-import { aDesSommets } from '../model/formes.js';
-import { centroid } from '../geometry/basic.js';
-import type { ProjecteurLocal } from '../geo/projection.js';
-import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { couleursMursDUneZone, COTE_ZONE_MURS_M, DISTANCE_MUR_MAX_M, type IssueMurs } from '../../render/couleurMurPhoto.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { aDesSommets } from '../../model/formes.js';
+import { centroid } from '../../geometry/basic.js';
+import type { ProjecteurLocal } from '../../geo/projection.js';
+import type { ObjetPlan, PtBrut } from '../../model/types.js';
 
 /**
  * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les

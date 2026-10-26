@@ -10,7 +10,7 @@ import { creerInspecteur, type Inspecteur } from '../inspecteur.js';
 import { creerExplorateur } from '../explorateur.js';
 import { brancherCommandesCiblees } from '../ecouteurs/cibles.js';
 import { creerProjet } from '../projet.js';
-import { actualisation } from '../actualisationIgn.js';
+import { actualisation } from '../cadastre/actualisationIgn.js';
 import { aPoints } from '../assemblage/formes.js';
 import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
 import { type Vues3d } from '../assemblage/vues3d.js';

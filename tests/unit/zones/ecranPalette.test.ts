@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { EcranPalette, ongletDeLAdresse, texteCss } from '../../../src/zones/EcranPalette.js';
-import { demandeEcranPalette } from '../../../src/app/ecranPalette.js';
+import { demandeEcranPalette } from '../../../src/app/admin/ecranPalette.js';
 import { MODELES_PALETTE } from '../../../src/styles/modeles.js';
 import { JETONS, FAMILLES_JETONS, ROLES_JETONS, PAIRES_CONTRASTE, POLICES, RAYONS, ECHELLE_TEXTE } from '../../../src/styles/jetons.js';
 

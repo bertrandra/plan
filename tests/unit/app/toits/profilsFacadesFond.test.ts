@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { creerProfilsFacadesFond, rechoisirProfilsFacades, profilARechoisir } from '../../../src/app/profilsFacadesFond.js';
-import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../src/regles/facades/reglages.js';
-import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import { creerProfilsFacadesFond, rechoisirProfilsFacades, profilARechoisir } from '../../../../src/app/toits/profilsFacadesFond.js';
+import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../../src/regles/facades/reglages.js';
+import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 
 // Le choix des profils de facades en tache de fond (F§15.2, G12) : rien sans profil, la parcelle du
 // projet et les batiments verifies jamais rechoisis, une version nouvelle qui fait rechoisir.
 
-const racine = join(__dirname, '../../..');
+const racine = join(__dirname, '../../../..');
 const livre = JSON.parse(readFileSync(join(racine, 'regles/facades/reglages.json'), 'utf8')) as Record<string, unknown>;
 const essai = (JSON.parse(readFileSync(join(racine, 'tests/fixtures/regles-facades/profils-essai.json'), 'utf8')) as { profils: unknown[] }).profils;
 const PROFILS = lireReglagesFacades({ ...livre, profils: essai }).profils;

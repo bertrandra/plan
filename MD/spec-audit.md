@@ -105,11 +105,11 @@ et le test d'AE 101 « au centimètre ».
   - la parcelle du projet, une fois (partie B) ;
   - un disque qui suit la marche (promenade, §18.2).
 - **Pour chaque bâtiment chargé** :
-  - le toit LiDAR, par la chaîne de l'import (`app/toitsLidar.ts::toitsDepuisLidar`), en **calcul
+  - le toit LiDAR, par la chaîne de l'import (`app/toits/toitsLidar.ts::toitsDepuisLidar`), en **calcul
     entier**, celui du projet et des mitoyens (coupes, grille gardée), quatre lectures à la fois ;
   - la couleur des murs, par le matériau BD TOPO ;
   - la couleur du toit, sur l'orthophoto.
-- La lecture des toits en tâche de fond (`app/toitsFond.ts`) n'est pas utilisée : chaque processus
+- La lecture des toits en tâche de fond (`app/toits/toitsFond.ts`) n'est pas utilisée : chaque processus
   calcule ce dont il a besoin.
 - Le régulateur (`app/regulateur.ts`) dose les lectures pendant un geste.
 
@@ -1085,7 +1085,7 @@ voisinage (§1).
 
 **Étape 1** (`app/audit/chargement.ts::chargerAutour`) :
 - à chaque déplacement de plus de 10 m depuis la dernière lecture, le disque de 70 m centré sur la
-  position est relu (`app/actualisationIgn.ts::construireVoisinage`, option `centre`) ;
+  position est relu (`app/cadastre/actualisationIgn.ts::construireVoisinage`, option `centre`) ;
 - 40 m à la première version, porté à 70 m pour couvrir ce que la vue « drone » montre devant vous ;
 - ce qui est déjà chargé est écarté par l'IDU et l'identifiant BD TOPO : seul le nouveau est ajouté,
   et ce qui est chargé reste ;

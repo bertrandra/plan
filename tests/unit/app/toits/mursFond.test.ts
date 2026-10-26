@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { zonesDeMurs, lireMursEnFond, mursALire, avancementMurs, ZONES_MUETTES_AVANT_ARRET, ECHECS_MURS_PAR_BATIMENT, VERSION_LECTURE_MURS } from '../../../src/app/mursFond.js';
-import { COTE_ZONE_MURS_M, type IssueMurs } from '../../../src/render/couleurMurPhoto.js';
-import { projecteurLocal } from '../../../src/geo/projection.js';
-import type { ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import { zonesDeMurs, lireMursEnFond, mursALire, avancementMurs, ZONES_MUETTES_AVANT_ARRET, ECHECS_MURS_PAR_BATIMENT, VERSION_LECTURE_MURS } from '../../../../src/app/toits/mursFond.js';
+import { COTE_ZONE_MURS_M, type IssueMurs } from '../../../../src/render/couleurMurPhoto.js';
+import { projecteurLocal } from '../../../../src/geo/projection.js';
+import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
 
-// La couleur des murs du voisinage en tache de fond (app/mursFond.ts) : par zones, de la plus proche
+// La couleur des murs du voisinage en tache de fond (app/toits/mursFond.ts) : par zones, de la plus proche
 // a la plus loin, sans limite de distance ; chaque batiment lu porte sa lecture, ou null, et n'est
 // pas relu ; un echec le laisse a relire, deux le laissent pour la seance.
 

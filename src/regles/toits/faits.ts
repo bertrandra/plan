@@ -4,7 +4,7 @@
 // le terrain, dans le vocabulaire du §2 et du §7 de la spec. Il ne se code jamais dans une regle (un
 // `if cleabs ==` est un fait) : il vit ici, dans le depot, relu par la CI. Le fichier est importe,
 // donc compile dans le fichier livre : un toit calcule hier se recalcule a l'identique, sans reseau.
-// Son empreinte entre dans la version de lecture des toits (app/toitsLidar.ts) : un fait ajoute ou
+// Son empreinte entre dans la version de lecture des toits (app/toits/toitsLidar.ts) : un fait ajoute ou
 // change relit les toits deja lus.
 //
 // Ce module lit et verifie le fichier, et tient les faits en vigueur : ceux du depot, ou, le temps

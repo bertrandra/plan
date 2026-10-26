@@ -44,9 +44,9 @@ Ce qui en découle :
 - Un bâtiment validé à 100 % **n'est plus recalculé** par un changement de règle : la relecture des
   toits (§9.2, `VERSION_LECTURE_TOITS`) le saute. Elle dit seulement si le nouveau calcul serait
   d'accord, ce qui mesure la règle sans toucher au projet. *Fait, lot L12 : `model/toitVerifie.ts`
-  (`estVerifieSurPlace`, `lectureDAccord` au décimètre), `app/toitsFond.ts` (copie lue, comparée,
+  (`estVerifieSurPlace`, `lectureDAccord` au décimètre), `app/toits/toitsFond.ts` (copie lue, comparée,
   seule la marque écrite, bilan « le nouveau calcul serait d'accord / différent »),
-  `app/toitsLidar.ts` (option `verifies`), `app/actualiserProjet.ts` (conservé sauf la case
+  `app/toits/toitsLidar.ts` (option `verifies`), `app/cadastre/actualiserProjet.ts` (conservé sauf la case
   « Recalculer aussi… »).*
 - Les cas d'audit du voisinage alimentent les **règles** ; ceux de la parcelle principale et des
   mitoyens alimentent d'abord le **projet**, puis le corpus (une vérité terrain complète vaut

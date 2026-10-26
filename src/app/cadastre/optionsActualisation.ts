@@ -1,8 +1,8 @@
 // Ce que le dialogue d'actualisation IGN montre et ce qu'il rend : seuls, pour que le parcours (app/parcours.ts) les porte sans
-// dependre de l'actualisation elle-meme (app/actualisationIgn.ts), qui ouvre ce parcours.
+// dependre de l'actualisation elle-meme (app/cadastre/actualisationIgn.ts), qui ouvre ce parcours.
 
-import type { PtBrut } from '../model/types.js';
-import type { VoisinageRayon } from '../geo/apiIgn.js';
+import type { PtBrut } from '../../model/types.js';
+import type { VoisinageRayon } from '../../geo/apiIgn.js';
 
 /** Une option de portee et de voisinage, choisie dans la boite de dialogue d'actualisation. */
 export interface OptionsActualisation {
@@ -18,7 +18,7 @@ export interface OptionsActualisation {
    */
   relief?: { actif: boolean; toutesParcelles: boolean };
   /**
-   * « Actualiser le projet » (app/actualiserProjet.ts) : chaque objet importe est d'abord ramene aux
+   * « Actualiser le projet » (app/cadastre/actualiserProjet.ts) : chaque objet importe est d'abord ramene aux
    * valeurs par defaut, et le relief relu reprend l'affichage par defaut.
    */
   parDefaut?: boolean;

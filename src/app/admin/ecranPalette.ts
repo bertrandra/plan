@@ -6,12 +6,12 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranPalette } from '../zones/EcranPalette.js';
-import { lirePalette, enregistrerPalette } from '../io/depotDemos.js';
-import { lireDocumentPalette } from '../styles/paletteServeur.js';
-import { appliquerPalette } from './paletteServeur.js';
-import { showErrBanner } from '../shell/dialogs.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranPalette } from '../../zones/EcranPalette.js';
+import { lirePalette, enregistrerPalette } from '../../io/depotDemos.js';
+import { lireDocumentPalette } from '../../styles/paletteServeur.js';
+import { appliquerPalette } from '../paletteServeur.js';
+import { showErrBanner } from '../../shell/dialogs.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la palette ? */
 export function demandeEcranPalette(recherche: string): boolean {

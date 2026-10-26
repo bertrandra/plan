@@ -12,18 +12,18 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import corpusLivre from '../../regles/conformite.json';
-import { EcranConformite, type AuditsJuges } from '../zones/EcranConformite.js';
-import { enregistrerMesureConformite, lireAuditRecu, lireMesuresConformiteServeur, listerAuditsRecus } from '../io/depotDemos.js';
-import { casDeLAuditParcelle, jugerCas } from '../facade/regles/conformite.js';
-import { facadesDeLAuditParcelle, jugerFacade } from '../facade/regles/facades/conformite.js';
-import { lireCorpusConformite, type MesureConformite, type VerdictCas, type VerdictFacade } from '../regles/conformite.js';
-import { lireFichierAuditParcelle } from '../model/fichierAuditParcelle.js';
-import { EMPREINTE_REGLAGES_TOITS } from '../regles/toits/reglages.js';
-import { empreinteFaitsToits, faitsEnVigueur } from '../regles/toits/faits.js';
-import { APP_VERSION, BUILD_SHA } from '../model/version.js';
-import { VERSION_LECTURE_TOITS } from './toitsLidar.js';
-import { hoteDeZone } from '../shell/dom.js';
+import corpusLivre from '../../../regles/conformite.json';
+import { EcranConformite, type AuditsJuges } from '../../zones/EcranConformite.js';
+import { enregistrerMesureConformite, lireAuditRecu, lireMesuresConformiteServeur, listerAuditsRecus } from '../../io/depotDemos.js';
+import { casDeLAuditParcelle, jugerCas } from '../../facade/regles/conformite.js';
+import { facadesDeLAuditParcelle, jugerFacade } from '../../facade/regles/facades/conformite.js';
+import { lireCorpusConformite, type MesureConformite, type VerdictCas, type VerdictFacade } from '../../regles/conformite.js';
+import { lireFichierAuditParcelle } from '../../model/fichierAuditParcelle.js';
+import { EMPREINTE_REGLAGES_TOITS } from '../../regles/toits/reglages.js';
+import { empreinteFaitsToits, faitsEnVigueur } from '../../regles/toits/faits.js';
+import { APP_VERSION, BUILD_SHA } from '../../model/version.js';
+import { VERSION_LECTURE_TOITS } from '../toits/toitsLidar.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 type Fetch = (entree: string, init?: RequestInit) => Promise<Response>;
 

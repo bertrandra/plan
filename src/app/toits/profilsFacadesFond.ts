@@ -18,11 +18,11 @@
 // Les ecritures ne passent pas par l'historique (Ctrl+Z ne defait pas un choix de profil), mais
 // marquent le projet a enregistrer : la marque evite de rechoisir a la reouverture.
 
-import { contexteProfilsFacades, profilFacadesDuBatiment } from '../facade/regles/facades/profils.js';
-import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type ProfilFacades } from '../regles/facades/reglages.js';
-import { estVerifieSurPlace } from '../model/toitVerifie.js';
-import { surParcelleDuProjet } from '../model/fonctions.js';
-import type { ObjetPlan } from '../model/types.js';
+import { contexteProfilsFacades, profilFacadesDuBatiment } from '../../facade/regles/facades/profils.js';
+import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type ProfilFacades } from '../../regles/facades/reglages.js';
+import { estVerifieSurPlace } from '../../model/toitVerifie.js';
+import { surParcelleDuProjet } from '../../model/fonctions.js';
+import type { ObjetPlan } from '../../model/types.js';
 
 /** Combien de batiments par lot : le choix est rapide, la mitoyennete parcourt les voisins proches. */
 export const LOT_PROFILS_FACADES = 100;

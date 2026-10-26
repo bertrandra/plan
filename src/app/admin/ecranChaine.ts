@@ -6,9 +6,9 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranChaine } from '../zones/EcranChaine.js';
-import { chaineVivante } from './chaineVivante.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranChaine } from '../../zones/EcranChaine.js';
+import { chaineVivante } from '../chaineVivante.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran de la chaine ? */
 export function demandeEcranChaine(recherche: string): boolean {

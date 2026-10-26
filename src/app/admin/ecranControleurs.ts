@@ -7,11 +7,11 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranControleurs, type Decouverte } from '../zones/EcranControleurs.js';
-import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from './controleurs.js';
-import { lireControleurs, enregistrerControleurs } from '../io/depotDemos.js';
-import { showErrBanner } from '../shell/dialogs.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranControleurs, type Decouverte } from '../../zones/EcranControleurs.js';
+import { construireArbre, echantillonsDecouverte, type RegistreControleurs, type SourceControleurs } from '../controleurs.js';
+import { lireControleurs, enregistrerControleurs } from '../../io/depotDemos.js';
+import { showErrBanner } from '../../shell/dialogs.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des controleurs ? */
 export function demandeEcranControleurs(recherche: string): boolean {
@@ -27,7 +27,7 @@ function estRegistre(d: unknown): d is RegistreControleurs {
 let lecture: Promise<() => Promise<SourceControleurs>> | null = null;
 
 function demarrerPlan(): Promise<() => Promise<SourceControleurs>> {
-  lecture ||= Promise.all([import('./boot.js'), import('../ui/champs/objet.js')]).then(async ([{ boot, graineVitrine }, { FONCTIONS }]) => {
+  lecture ||= Promise.all([import('../boot.js'), import('../../ui/champs/objet.js')]).then(async ([{ boot, graineVitrine }, { FONCTIONS }]) => {
     // La demonstration, plus un echantillon par fonction qu'elle ne porte pas (app/controleurs.ts).
     const graine = await graineVitrine();
     graine.objects.push(...echantillonsDecouverte(graine.objects, FONCTIONS));

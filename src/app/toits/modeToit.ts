@@ -6,23 +6,23 @@
 //
 // Hors session, rien ne change. La session s'arrete d'elle-meme quand on quitte la Vue 3D ou qu'on selectionne autre chose.
 
-import { estBatiment } from '../model/fonctions.js';
-import { enPoints } from '../model/formes.js';
+import { estBatiment } from '../../model/fonctions.js';
+import { enPoints } from '../../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart,
-  type HistoriqueToit } from '../facade/modeToit/sessionToit.js';
-import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../facade/modeToit/facadesDesCorps.js';
-import { poseDeDessus, type PointScene, type Reserve } from '../three/poseFacade.js';
-import { moteur3d } from '../three/demande3d.js';
-import { poserCameraFacade, retirerCameraFacade } from '../three/vueFacadeToit.js';
-import { centroid } from '../geometry/basic.js';
-import { majFantomes, viderFantomes } from '../three/fantomes.js';
-import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d } from '../three/etat3d.js';
-import { dialogues } from '../shell/dialogues.js';
-import { showToast } from '../shell/dialogs.js';
+  type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
+import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
+import { poseDeDessus, type PointScene, type Reserve } from '../../three/poseFacade.js';
+import { moteur3d } from '../../three/demande3d.js';
+import { poserCameraFacade, retirerCameraFacade } from '../../three/vueFacadeToit.js';
+import { centroid } from '../../geometry/basic.js';
+import { majFantomes, viderFantomes } from '../../three/fantomes.js';
+import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d } from '../../three/etat3d.js';
+import { dialogues } from '../../shell/dialogues.js';
+import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
-import { elementProche, lireElement, memeCible, type CibleElement } from '../facade/modeToit/elements.js';
-import type { Atelier } from './atelier.js';
-import type { CorpsToit, ObjetPlan, PtBrut } from '../model/types.js';
+import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
+import type { Atelier } from '../atelier.js';
+import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
 

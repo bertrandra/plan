@@ -7,43 +7,43 @@
 //
 // Une seule actualisation a la fois : la commande se grise pendant qu'elle tourne (`enCours`).
 
-import { nombreFr } from '../util/format.js';
-import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../geo/bdtopo.js';
-import { distancePointContour } from '../geometry/proximite.js';
-import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../model/toitBdTopo.js';
-import { volumesParDefaut } from '../model/volumesToit.js';
-import { showToast } from '../shell/dialogs.js';
-import { attente } from '../shell/attente.js';
-import { couleursToitsDepuisOrtho } from '../render/couleurToitOrtho.js';
-import { toitsDepuisLidar, texteBilanToitsLidar } from './toitsLidar.js';
-import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../render/couleurMurPhoto.js';
-import { materiauMurs } from '../model/couleurMur.js';
-import { centroid, pointInPolygon } from '../geometry/basic.js';
-import { projecteurLocal } from '../geo/projection.js';
-import { SIMPLIF_M } from '../geo/constantesCadastre.js';
+import { nombreFr } from '../../util/format.js';
+import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../../geo/bdtopo.js';
+import { distancePointContour } from '../../geometry/proximite.js';
+import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../../model/toitBdTopo.js';
+import { volumesParDefaut } from '../../model/volumesToit.js';
+import { showToast } from '../../shell/dialogs.js';
+import { attente } from '../../shell/attente.js';
+import { couleursToitsDepuisOrtho } from '../../render/couleurToitOrtho.js';
+import { toitsDepuisLidar, texteBilanToitsLidar } from '../toits/toitsLidar.js';
+import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../render/couleurMurPhoto.js';
+import { materiauMurs } from '../../model/couleurMur.js';
+import { centroid, pointInPolygon } from '../../geometry/basic.js';
+import { projecteurLocal } from '../../geo/projection.js';
+import { SIMPLIF_M } from '../../geo/constantesCadastre.js';
 import {
   interrogerCadastre, interrogerCadastreEtendu, lireVoisinageRayon, rayonDeLecture, interrogerWfsEtendu, plafondLecture, dansLeRayon, lireAuPlusPres, empriseGeoJSON, MAX_OBJETS_RAYON, RAYON_ETENDU_MAX_M, PLAFOND_LECTURE, construireCandidats, trierVoisines,
   anneauVersPts, anneauExterieur, bboxDegDesAnneaux, interrogerWfs, construireElementsIgn,
   fetchJSONReseau, polygonesSeTouchent, CADASTRE_URL,
   interrogerPlu,
   COUCHE_BATIMENT, COUCHE_VEGETATION, COUCHE_HAIE
-} from '../geo/apiIgn.js';
-import { sommetsDe } from '../model/formes.js';
-import { parcours } from './parcours.js';
-import { droitsCourants } from './acces.js';
-import { CAPACITES } from '../plateforme/capacites.js';
-import { lireRelief, demandeReliefDuPlan } from '../geo/relief.js';
-import { avecReglages, resumeRelief } from '../model/relief.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
-import { idusCadastraux } from '../model/cadastre.js';
-import { valeursParDefaut } from './valeursParDefaut.js';
-import { estVerifieSurPlace } from '../model/toitVerifie.js';
-import { APPARENCES_IGN, batimentDeLaPropriete } from '../geo/cadastreObjets.js';
-import type { ObjetSerialise } from '../model/creation.js';
-import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../geo/apiIgn.js';
-import type { ProjecteurLocal } from '../geo/projection.js';
-import type { EtatApp } from '../core/state.js';
-import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../model/types.js';
+} from '../../geo/apiIgn.js';
+import { sommetsDe } from '../../model/formes.js';
+import { parcours } from '../parcours.js';
+import { droitsCourants } from '../acces.js';
+import { CAPACITES } from '../../plateforme/capacites.js';
+import { lireRelief, demandeReliefDuPlan } from '../../geo/relief.js';
+import { avecReglages, resumeRelief } from '../../model/relief.js';
+import { parcelleDuProjet } from '../../model/fonctions.js';
+import { idusCadastraux } from '../../model/cadastre.js';
+import { valeursParDefaut } from '../valeursParDefaut.js';
+import { estVerifieSurPlace } from '../../model/toitVerifie.js';
+import { APPARENCES_IGN, batimentDeLaPropriete } from '../../geo/cadastreObjets.js';
+import type { ObjetSerialise } from '../../model/creation.js';
+import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../../geo/apiIgn.js';
+import type { ProjecteurLocal } from '../../geo/projection.js';
+import type { EtatApp } from '../../core/state.js';
+import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
 export type { OptionsActualisation, InfosActualisation } from './optionsActualisation.js';
 
@@ -61,11 +61,11 @@ export interface ContexteActualisation {
   trouverParcelleCloture: () => ObjetPlan | null | undefined;
   /** La lecture du relief a l'IGN ; remplacable dans les tests, qui ne touchent pas le reseau. */
   lireRelief?: typeof lireRelief;
-  /** Les toits ajustes sur le LiDAR HD (app/toitsLidar.ts) ; remplacable de meme. */
+  /** Les toits ajustes sur le LiDAR HD (app/toits/toitsLidar.ts) ; remplacable de meme. */
   toitsLidar?: typeof toitsDepuisLidar;
   /** La couleur des murs sur les photos de rue (render/couleurMurPhoto.ts) ; remplacable de meme. */
   couleursMurs?: typeof couleursMursDepuisPhotos;
-  /** Apres une actualisation reussie : les questions sur les toits a cheval sur deux parcelles (app/toitsACheval.ts). */
+  /** Apres une actualisation reussie : les questions sur les toits a cheval sur deux parcelles (app/toits/toitsACheval.ts). */
   apresActualisation?: () => void;
 }
 
@@ -272,7 +272,7 @@ async function couleursDesMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan
   if (texte) bilan.push(texte);
 }
 
-/** La forme des toits, ajustee sur le LiDAR HD (app/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
+/** La forme des toits, ajustee sur le LiDAR HD (app/toits/toitsLidar.ts) : un service muet laisse les toits BD TOPO. */
 async function formesDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, verifies: OptionsActualisation['verifies']): Promise<void> {
   etape('la forme des toits sur le LiDAR HD…');
   const b = await (ctx.toitsLidar ?? toitsDepuisLidar)(objets, proj, { verifies: verifies ?? 'garder' }).catch(() => null);
@@ -427,7 +427,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           ...(toit ? { toit } : {}),
           ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
           // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
-          // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/profilsFacadesFond.ts).
+          // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
           ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.profilFacades ? { profilFacades: null } : {}) } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,

@@ -15,7 +15,7 @@ import { restaurerOrthoDuProjet, basculerOrthophoto, ortho } from '../render/ort
 import { lectureRelief } from '../core/lectureRelief.js';
 import { brancherFiletsDErreur } from './ecouteurs/divers.js';
 import { prevenirAdminDesCapacitesForcees } from './acces.js';
-import { actualisation } from './actualisationIgn.js';
+import { actualisation } from './cadastre/actualisationIgn.js';
 import { creerVues3d } from './assemblage/vues3d.js';
 import { vue3d, reglerVue3d } from '../three/etat3d.js';
 import { type SourceControleurs } from './controleurs.js';

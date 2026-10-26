@@ -51,7 +51,7 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     empreinte: (j) => {
       try { const v = lireReglagesToits(j); return empreinteReglagesToits(v, formeEmpreinteProfils(lireProfilsToits((j as { profils?: unknown }).profils ?? [], Object.keys(v)))); } catch { return null; }
     },
-    consequence: { ou: 'LECTURES_TOITS (src/app/toitsLidar.ts), clé « reglages »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture' },
+    consequence: { ou: 'LECTURES_TOITS (src/app/toits/toitsLidar.ts), clé « reglages »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture' },
   },
   {
     id: 'reglagesFacades', libelle: 'Réglages des façades', chemin: 'regles/facades/reglages.json', livre: reglagesFacadesBrut, seuils: true,
@@ -63,7 +63,7 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     id: 'faitsToits', libelle: 'Faits des toits', chemin: 'regles/toits/faits.json', livre: faitsToitsBrut, seuils: false,
     refus: (j) => essayer(() => lireFaitsToits(j)),
     empreinte: (j) => { try { return empreinteFaitsToits(lireFaitsToits(j)); } catch { return null; } },
-    consequence: { ou: 'LECTURES_TOITS (src/app/toitsLidar.ts), clé « faits »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture' },
+    consequence: { ou: 'LECTURES_TOITS (src/app/toits/toitsLidar.ts), clé « faits »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture' },
   },
   {
     id: 'silhouettesToits', libelle: 'Silhouettes des façades', chemin: 'regles/toits/silhouettes.json', livre: silhouettesToitsBrut, seuils: true,
@@ -75,7 +75,7 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     id: 'formesToits', libelle: 'Formes du catalogue (lecture LiDAR)', chemin: 'regles/toits/formes.json', livre: formesToitsBrut, seuils: true,
     refus: (j) => essayer(() => lireFormesToits(j)),
     empreinte: (j) => { try { return empreinteFormesToits(lireFormesToits(j).seuils); } catch { return null; } },
-    consequence: { ou: 'LECTURES_TOITS (src/app/toitsLidar.ts), clé « formes »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture : la lecture y reconnaît le papillon, le coyau, le berceau, le gambrel, le Mansart, la demi-croupe et les toits de révolution avec ces seuils' },
+    consequence: { ou: 'LECTURES_TOITS (src/app/toits/toitsLidar.ts), clé « formes »', effet: 'les toits déjà lus sur le LiDAR sont relus à la prochaine ouverture : la lecture y reconnaît le papillon, le coyau, le berceau, le gambrel, le Mansart, la demi-croupe et les toits de révolution avec ces seuils' },
   },
   {
     id: 'reconciliation', libelle: 'Réconciliation des sources', chemin: 'regles/reconciliation.json', livre: reconciliationBrut, seuils: true,

@@ -120,7 +120,7 @@ la détection et le calage, pas la disposition automatique.
   refuser le fichier (`tests/unit/model/reglagesFacades.test.ts`).
 - **Changer le fichier** : ajouter à `LECTURES_FACADES` (`regles/facades/reglages.ts`) la ligne
   `{ version: n + 1, reglages: '<empreinte>' }` que le test donne. Les projets ouverts rechoisissent
-  alors leurs profils en tâche de fond (`app/profilsFacadesFond.ts`), sauf la parcelle du projet et
+  alors leurs profils en tâche de fond (`app/toits/profilsFacadesFond.ts`), sauf la parcelle du projet et
   les bâtiments vérifiés sur place.
 - **Les empreintes golden** : seule `glb-structure.json` voit les fenêtres (point de fumée 24). Un
   profil qui la fait bouger est un changement de version majeure (`MD/RELEASE.md`, `EMPREINTES.md`).

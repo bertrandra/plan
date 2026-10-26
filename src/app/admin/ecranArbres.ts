@@ -6,13 +6,13 @@
 
 import { createRoot } from 'react-dom/client';
 import { createElement } from 'react';
-import { EcranArbres } from '../zones/EcranArbres.js';
-import { enregistrerArbres, lireArbres } from '../io/depotDemos.js';
-import { lireDocumentArbres, poserEspeces } from '../model/especesArbre.js';
-import { chargerEzTreeAdmin, libererModeles, presetsEz, reglagesParDefaut } from '../three/ezTree.js';
-import { monterApercuArbre } from '../three/apercuArbre.js';
-import { showErrBanner } from '../shell/dialogs.js';
-import { hoteDeZone } from '../shell/dom.js';
+import { EcranArbres } from '../../zones/EcranArbres.js';
+import { enregistrerArbres, lireArbres } from '../../io/depotDemos.js';
+import { lireDocumentArbres, poserEspeces } from '../../model/especesArbre.js';
+import { chargerEzTreeAdmin, libererModeles, presetsEz, reglagesParDefaut } from '../../three/ezTree.js';
+import { monterApercuArbre } from '../../three/apercuArbre.js';
+import { showErrBanner } from '../../shell/dialogs.js';
+import { hoteDeZone } from '../../shell/dom.js';
 
 /** L'adresse demande-t-elle l'ecran des arbres ? */
 export function demandeEcranArbres(recherche: string): boolean {

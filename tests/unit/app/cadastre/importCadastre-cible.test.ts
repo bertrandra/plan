@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerImportCadastre, type ContexteImportCadastre } from '../../../src/app/importCadastre.js';
+import { creerImportCadastre, type ContexteImportCadastre } from '../../../../src/app/cadastre/importCadastre.js';
 
 // Un projet neuf de la plateforme (document `{}`) se remplit depuis une adresse : l'import y ecrit
 // au lieu d'en creer un second, et garde le nom qu'on lui a donne.
