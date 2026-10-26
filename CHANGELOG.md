@@ -40,6 +40,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le mode Toit et le catalogue des toits ne se téléchargent plus à l'ouverture** (AD-10, étape 2b, troisième coupure). Le
+  panneau du mode Toit (`zones/vue3d/ModeToit.tsx` et ses vues) et le catalogue des toits (`three/gestesToits.ts`, avec le
+  dessin des corps et des couvertures) se chargent quand la Vue 3D s'ouvre. « Modifier la toiture » attend le catalogue
+  avant d'ouvrir la session (tout de suite s'il est déjà là) ; un échec s'affiche, et le geste suivant réessaie. Le bouton
+  qui ouvre le mode sort dans son propre fichier (`zones/vue3d/BoutonModifierToit.tsx`). À l'ouverture, le programme passe de
+  2 265 Ko à 2 172 Ko ; la Vue 3D en apporte 227 Ko, mode Toit compris.
+
 - **Le moteur de la Vue 3D ne se télécharge plus à l'ouverture** (AD-10, étape 2b, deuxième coupure). La scène, la visionneuse,
   la navigation, l'export `.glb` et la capture (`three/moteur3d.ts`) se chargent au premier besoin : ouvrir la Vue 3D ou la
   visionneuse, exporter le modèle, aller à un point de vue. Un seul accès (`three/demande3d.ts`) : avant ce chargement, aucune
