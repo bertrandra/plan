@@ -6,11 +6,12 @@ import { migrer } from '../../../src/model/migrations.js';
 import { COUCHE_BATIMENT_BDTOPO } from '../../../src/model/toitBdTopo.js';
 import type { ObjetBrut } from '../../../src/model/types.js';
 
-// Ce qu'un ancien fichier devient a la relecture (audit d'architecture, 25 octobre 2026). Deux chemins changent ses nombres sans
+// Ce qu'un ancien fichier devient a la relecture (audit d'architecture, 25 octobre 2026). Deux chemins lui donnent des nombres sans
 // numero de schema : les valeurs que le moteur pose quand un champ de construction manque (engine/construction.ts::ensureConstruction),
-// et la migration 2 -> 3, qui donne a un batiment BD TOPO le toit que l'algorithme d'aujourd'hui calcule (model/migrations.ts). On ne
-// peut pas encore les figer par schema : ces temoins font au moins qu'un changement ne passe pas en silence. S'ils bougent, c'est un
-// evenement de version (MD/RELEASE.md) : le dire dans EMPREINTES.md, puis recapturer (REECRIRE_EMPREINTES=1).
+// et la migration 2 -> 3, qui donne un toit a un batiment BD TOPO (model/migrations.ts). Depuis le 26 octobre 2026, les deux sont
+// figes (AD-19) : le remplissage lit engine/remplissageFige.ts, la migration sa copie model/fige/toitSchema3.ts, et ni l'un ni
+// l'autre ne suit le code d'aujourd'hui (tests/unit/architecture.test.ts). Ces temoins ne devraient donc plus jamais bouger ; s'ils
+// bougent, c'est un evenement de version (MD/RELEASE.md) : le dire dans EMPREINTES.md, puis recapturer (REECRIRE_EMPREINTES=1).
 
 const dorees = resolve(__dirname, '../../fixtures/golden');
 const temoin = (nom: string, contenu: string) => {

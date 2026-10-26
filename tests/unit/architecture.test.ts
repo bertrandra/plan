@@ -206,6 +206,29 @@ describe('ce qui doit rester pur', () => {
   });
 });
 
+describe('ce qui est fige pour les anciens projets (AD-19)', () => {
+  it('les copies figees de model/fige/ n importent que des types, et seul model/migrations.ts les importe', () => {
+    // Une copie figee qui importerait une valeur suivrait de nouveau le code d'aujourd'hui ; importee ailleurs, on la corrigerait
+    // pour un autre usage, et un ancien fichier changerait de toit.
+    const fige = join(src, 'model', 'fige') + sep;
+    const coupables: string[] = [];
+    for (const f of tous) {
+      for (const d of dependances(f)) {
+        if (f.startsWith(fige) && !d.type) coupables.push(`${relative(src, f)} importe ${relative(src, d.cible)}`);
+        if (!f.startsWith(fige) && d.cible.startsWith(fige) && relative(src, f) !== join('model', 'migrations.ts')) coupables.push(`${relative(src, f)} importe ${relative(src, d.cible)}`);
+      }
+    }
+    expect(coupables).toEqual([]);
+  });
+
+  it('le remplissage d un ancien projet ne lit aucune constante du moteur d aujourd hui', () => {
+    // engine/remplissageFige.ts n'importe que des types ; engine/construction.ts, qui le pose, ne lit pas portees, prix ni constantes.
+    const deps = (nom: string) => dependances(join(src, 'engine', nom)).filter(d => !d.type).map(d => relative(src, d.cible));
+    expect(deps('remplissageFige.ts')).toEqual([]);
+    expect(deps('construction.ts').filter(c => /engine[\\/](portees|prix|constantes)$/.test(c))).toEqual([]);
+  });
+});
+
 describe('ce qui n a qu un proprietaire', () => {
   it('l etat de la Vue 3D ne s ecrit, hors de three/, que par les fonctions de three/etat3d.ts (AD-14)', () => {
     // vue3d, glb, soleilVue3d, affichage3d, hotes3d : `three/` y ecrit, c'est son etat ; ailleurs, reglerVue3d, reglerGlb,
