@@ -47,6 +47,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les nombres d'un ancien projet ne suivent plus le code d'aujourd'hui** (feuille de route, étapes 1.1 et 1.2 ; AD-19). Deux
+  chemins donnaient des nombres à un ancien fichier sans numéro de schéma, et un témoin cassait seulement s'ils bougeaient.
+  - **Le remplissage** : ce qu'un projet reçoit quand un réglage de construction lui manque lit maintenant une table de valeurs
+    figées (`engine/remplissageFige.ts`, raideur des essences comprise), qui n'importe aucune constante du moteur. Un réglage
+    par défaut d'aujourd'hui change désormais dans `constructionTerrasseNeuve` seulement.
+  - **La migration 2 → 3** : le toit qu'elle donne à un bâtiment BD TOPO vient d'une copie figée au schéma 3 des règles du toit,
+    du rectangle orienté et du squelette (`model/fige/toitSchema3.ts`). L'algorithme des toits peut donc évoluer sans changer un
+    ancien fichier.
+  Le test d'architecture interdit à ces modules d'importer une valeur, et à quiconque d'autre que la migration d'importer la copie
+  figée. Aucune empreinte ne bouge.
+
 - **Le jeu de démonstration ne se télécharge plus à l'ouverture** (AD-10, sixième coupure). Le plan de démonstration
   (`model/demo-projet.json` et `model/demo.ts`) pesait plus que tout le relevé de façade, chargé par tout le monde alors qu'il
   ne sert qu'à la première visite. Il se lit maintenant à la demande : en choisissant « Démonstration », quand l'API ne répond
