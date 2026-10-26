@@ -7,7 +7,8 @@ import { creerRegistre, type Droits } from '../../../src/app/commandes.js';
 // Etape 5 de MD/spec-connexion-plateforme.md §16 : ce qu'une capacite empeche vraiment.
 //
 // Le fait qui porte toute l'etape : **une capacite ne reduit pas le fichier livre**. Le build
-// produit un fichier unique et inline tout, y compris ce qui est derriere un `import()` dynamique.
+// produisait un fichier unique qui inlinait tout, y compris ce qui est derriere un `import()` dynamique ;
+// depuis le 26 octobre 2026 il est en morceaux (AD-10), mais aucune capacite ne retient encore un morceau.
 // Ce qu'elle empeche, c'est l'appel au reseau. Ces tests figent les deux moities : que la table
 // nomme les bonnes origines, et qu'une commande refusee n'appelle rien du tout.
 

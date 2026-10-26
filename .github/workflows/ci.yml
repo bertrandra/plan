@@ -47,13 +47,14 @@ jobs:
       - name: Aucun secret dans le fichier livre
         run: npm run verifier-paquet
       - name: Budget du paquet livre (FF-5, 5 Mo)
-        # La page ne porte plus le programme : il sort dans dist/assets/plan-<empreinte>.js
-        # (vite.config.ts, sortirLesScripts). Le budget porte sur la page et tous ses scripts.
+        # La page ne porte plus le programme : il est en morceaux dans dist/assets/plan-<empreinte>.js,
+        # avec sa feuille de style (vite.config.ts, AD-10). Le budget porte sur la page, tous ses
+        # morceaux (ceux charges a la demande compris) et la feuille de style, qui etait dans la page.
         shell: bash
         run: |
           set -euo pipefail
           shopt -s nullglob
-          scripts=(dist/assets/*.js)
+          scripts=(dist/assets/*.js dist/assets/*.css)
           if [ ${#scripts[@]} -eq 0 ]; then echo "aucun script dans dist/assets/"; exit 1; fi
           total=0
           for f in dist/index.html "${scripts[@]}"; do

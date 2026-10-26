@@ -21,6 +21,8 @@
     "contrat": "node scripts/extraire-contrat.mjs",
     "verifier-paquet": "node scripts/verifier-paquet.mjs",
     "livraison": "node scripts/livraison.mjs",
+    "carte-paquet": "node scripts/carte-paquet.mjs MD/carte-paquet.md",
+    "essayer-paquet": "node scripts/essayer-paquet.mjs",
     "verifier:api-claude": "node scripts/verifier-api-claude.mjs",
     "regles:generer": "npx tsx scripts/generer-prompt-analyse.ts",
     "regles:verifier": "npx tsx scripts/generer-prompt-analyse.ts --verifier"
@@ -43,7 +45,6 @@
     "three": "0.186.1",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
-    "vite-plugin-singlefile": "^2.0.3",
     "vitest": "^2.1.8"
   },
   "dependencies": {

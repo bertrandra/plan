@@ -11,7 +11,7 @@
 // existera, la question ne sera plus « faut-il verifier » mais « pourquoi la verification est-elle
 // rouge » — ce qui est la seule forme de vigilance qui survit a six mois de silence.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,17 +22,20 @@ if (!existsSync(cible)) {
   console.error('verifier-paquet : ' + cible + ' est absent. `npm run build` d\'abord.');
   process.exit(2);
 }
-// La page et le programme qu'elle appelle (assets/plan-<empreinte>.js, deploy/scripts-page.mjs) :
-// un secret peut se trouver dans l'un comme dans l'autre, et l'origine de la plateforme est dans le
-// programme.
+// La page et son programme (assets/plan-<empreinte>.js, deploy/scripts-page.mjs) : un secret peut se
+// trouver dans l'un comme dans l'autre, et l'origine de la plateforme est dans le programme. Depuis
+// que le programme est en morceaux (26 octobre 2026), on lit TOUT `assets/` : un morceau charge a la
+// demande n'est pas appele par la page, et c'est la qu'un secret passerait inapercu.
 const pageHtml = readFileSync(cible, 'utf8');
-const programmes = [...pageHtml.matchAll(/<script[^>]*\ssrc="(assets\/plan-[0-9a-f]+\.js)"/g)].map((m) => m[1]);
+const programmes = [...pageHtml.matchAll(/<script[^>]*\ssrc="(?:\.\/)?(assets\/plan-[0-9a-f]+\.js)"/g)].map((m) => m[1]);
 const absents = programmes.filter((f) => !existsSync(join(dirname(cible), f)));
 if (absents.length) {
   console.error('verifier-paquet : la page appelle ' + absents.join(', ') + ', absent a cote d\'elle.');
   process.exit(2);
 }
-const paquet = [pageHtml, ...programmes.map((f) => readFileSync(join(dirname(cible), f), 'utf8'))].join('\n');
+const dossierAssets = join(dirname(cible), 'assets');
+const morceaux = existsSync(dossierAssets) ? readdirSync(dossierAssets).filter((f) => /\.(js|css)$/.test(f)).map((f) => join('assets', f)) : [];
+const paquet = [pageHtml, ...morceaux.map((f) => readFileSync(join(dirname(cible), f), 'utf8'))].join('\n');
 
 /**
  * Ce qu'on refuse, et comment le reconnaitre.

@@ -46,7 +46,8 @@ describe('sortirLesScripts', () => {
 describe('le .htaccess du programme sorti', () => {
   const modele = readFileSync(resolve(__dirname, '../../../deploy/htaccess.template'), 'utf8');
   it('garde le programme en cache sans limite, sous un type JavaScript, et la politique sur self', () => {
-    expect(modele).toMatch(/<FilesMatch "\^plan-\[0-9a-f\]\{16\}\\\.js\$">\s*Header set Cache-Control "public, max-age=31536000, immutable"/);
+    // Ses morceaux et sa feuille de style (26 octobre 2026, AD-10) : tous portent l'empreinte de leur contenu.
+    expect(modele).toMatch(/<FilesMatch "\^plan-\[0-9a-f\]\{16\}\\\.\(js\|css\)\$">\s*Header set Cache-Control "public, max-age=31536000, immutable"/);
     expect(modele).toMatch(/AddType text\/javascript \.js/);
     expect(modele).toMatch(/script-src 'self' @@HACHES_SCRIPT@@ https:\/\/cdn\.jsdelivr\.net;/);
     const politique = /Header always set Content-Security-Policy "([^"]+)"/.exec(modele)![1]!;

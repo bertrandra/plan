@@ -86,7 +86,7 @@ try {
     // Le programme : servi a cote de la page (assets/plan-<empreinte>.js, deploy/scripts-page.mjs),
     // sous un type JavaScript — avec `nosniff`, un autre type et le navigateur ne l'execute pas.
     const html = page.toString('utf8');
-    const appele = /<script[^>]*\ssrc="(assets\/plan-[0-9a-f]+\.js)"/.exec(html);
+    const appele = /<script[^>]*\ssrc="(?:\.\/)?(assets\/plan-[0-9a-f]+\.js)"/.exec(html);
     if (appele) {
       try {
         const p = await demander('/' + appele[1]);
