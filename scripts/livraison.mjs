@@ -6,7 +6,8 @@
 // Le dossier produit se depose tel quel dans le dossier publie de l'hote (public_html/ ou un
 // sous-dossier). `livraison.zip`, a cote, est le meme contenu en une archive a televerser.
 //
-//   index.html                 l'application, un seul fichier
+//   index.html                 la page de l'application
+//   assets/                    son programme en morceaux (plan-<empreinte>.js) et sa feuille de style (plan-<empreinte>.css)
 //   .htaccess                  en-tetes, politique de contenu, renvoi de `admin/…` vers admin.php
 //   admin.php                  l'admin des fichiers de demo (mot de passe verifie ici) et la sauvegarde de data/
 //   donnees.php                ou vivent les donnees (data/ a cote de public_html/), inclus par admin.php et analyse.php
@@ -104,9 +105,11 @@ Sur l'hebergement, trois choses voisines :
 1. Televerser le contenu de ce dossier dans le dossier publie, par exemple public_html/ : le plus
    sur est d'y envoyer livraison.zip et de l'extraire sur place (Gestionnaire de fichiers de Site
    Tools, clic droit > Extract), qui n'oublie ni le dossier assets/ ni le fichier cache .htaccess.
-   - index.html et assets/ vont ensemble : la page appelle son programme, assets/plan-<empreinte>.js.
-     Sans le dossier assets/ de la meme livraison, la page reste blanche. Les anciens
-     assets/plan-*.js peuvent etre supprimes, ou laisses : ils ne servent plus.
+   - index.html et assets/ vont ensemble : la page appelle son programme, en morceaux
+     (assets/plan-<empreinte>.js, certains charges seulement a l'usage) et sa feuille de style
+     (assets/plan-<empreinte>.css). Sans le dossier assets/ COMPLET de la meme livraison, la page
+     reste blanche ou un ecran ne s'ouvre pas. Les anciens assets/plan-* peuvent etre supprimes,
+     ou laisses : ils ne servent plus.
    - .htaccess pose le cache, les en-tetes de securite et la route admin/.
    - admin.php, analyse.php, analyse-fonctions.php et donnees.php vont ensemble : admin.php et
      analyse.php incluent donnees.php, analyse.php inclut analyse-fonctions.php.

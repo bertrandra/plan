@@ -40,6 +40,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le programme livré n'est plus un fichier unique** (audit d'architecture, AD-10, étapes 1 et 2a). `vite-plugin-singlefile` mettait
+  tout dans un seul `assets/plan-<empreinte>.js` de 2,9 Mo, y compris ce qui est derrière un `import()` : l'admin, la vitrine, les
+  écrans à la demande. Le programme est maintenant en morceaux `assets/plan-<empreinte>.js` (60 environ), avec sa feuille de style
+  `assets/plan-<empreinte>.css` ; la page ne pèse plus que 8 Ko. Les noms gardent seize chiffres hexadécimaux : le `.htaccess` les
+  garde en cache sans limite (la feuille de style aussi). `verifier-paquet` lit désormais tous les morceaux, ceux chargés à la
+  demande compris, et le budget de 5 Mo de la CI les compte avec la feuille de style. **À la mise en ligne, le dossier `assets/`
+  complet doit accompagner `index.html`** (le LISEZMOI le dit). Rien ne change à l'écran : la plupart des morceaux se chargent encore
+  à l'ouverture, parce que `app/boot.ts` atteint presque tout ; les coupures viennent ensuite (audit, 3D, analyse des façades, PDF).
+  Deux outils : `npm run carte-paquet` écrit `MD/carte-paquet.md` (poids par dossier et par morceau, imports entre dossiers) ;
+  `npm run essayer-paquet` ouvre le vrai `dist/` dans un navigateur (démonstration, Vue 3D, retour au plan), dit les morceaux reçus à
+  chaque étape et échoue à la première erreur de la page.
+
 - **Vue de dessus du mode Toit : les silhouettes des corps collent au nu extérieur des façades.** La caméra est en
   perspective, et chaque corps se projetait au sol : son contour se dessinait en retrait, plus petit que le bâtiment vu de
   dessus. Il se projette maintenant à la hauteur de son égout, le haut de ses façades ; le faîtage à sa hauteur, les marqueurs

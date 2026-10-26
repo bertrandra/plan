@@ -1,5 +1,4 @@
 import { defineConfig } from 'vite';
-import { viteSingleFile } from 'vite-plugin-singlefile';
 import react from '@vitejs/plugin-react';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -30,9 +29,16 @@ if (!BACKPROD_API_URL) {
 }
 
 // Le deploiement de cette application, c'est « copier un dossier sur le serveur » : la page, son
-// programme dans `assets/`, le `.htaccess` (spec 3.1). Le reste (feuille de style, images) reste
-// dans la page.
+// programme dans `assets/`, le `.htaccess` (spec 3.1).
+//
+// Plus de fichier unique (26 octobre 2026, AD-10) : `vite-plugin-singlefile` mettait tout dans un seul
+// programme, `import()` compris, si bien que la Vue 3D, l'audit ou l'admin se telechargeaient pour
+// tout le monde a l'ouverture. Le programme est maintenant en morceaux, `assets/plan-<empreinte>.js`
+// (16 chiffres hexadecimaux, comme avant : le `.htaccess` les garde en cache sans limite), et la
+// feuille de style a cote, `assets/plan-<empreinte>.css`. Les chemins sont relatifs (`base`) : la page
+// marche aussi dans un sous-dossier. Les images restent dans le programme (`assetsInlineLimit`).
 export default defineConfig({
+  base: './',
   define: {
     __BACKPROD_API_URL__: JSON.stringify(BACKPROD_API_URL),
     __BACKPROD_PRODUCT_CODE__: JSON.stringify(BACKPROD_PRODUCT_CODE)
@@ -41,7 +47,6 @@ export default defineConfig({
     // Etape 0 de la reconstruction de l'interface (MD/spec-ihm-zones.md, section 6) : React est
     // branche, rien ne l'utilise encore ; il n'entre pas dans le build tant qu'aucun composant n'existe.
     react(),
-    viteSingleFile(),
     {
       // Ce que Plan dit de lui-meme a la plateforme (model/produit.ts) : ecrit dans la page, au
       // build, pour qu'un client HTTP le lise sans executer quoi que ce soit.
@@ -60,8 +65,12 @@ export default defineConfig({
         const modele = resolve(__dirname, 'deploy/htaccess.template');
         const page = resolve(__dirname, 'dist/index.html');
         if (!existsSync(modele) || !existsSync(page)) return;
+        // Le programme est deja un fichier (Vite l'appelle par `src`) ; un script reste en ligne par
+        // accident en sortirait quand meme, plutot que de demander une empreinte a la politique.
         const sorti = sortirLesScripts(readFileSync(page, 'utf8'));
-        if (!sorti.fichiers.length) throw new Error('index.html : aucun programme trouve dans le build');
+        if (!sorti.fichiers.length && !/<script[^>]*\ssrc="(?:\.\/)?assets\/plan-[0-9a-f]{16}\.js"/.test(sorti.html)) {
+          throw new Error('index.html : aucun programme trouve dans le build');
+        }
         mkdirSync(resolve(__dirname, 'dist/assets'), { recursive: true });
         for (const f of sorti.fichiers) writeFileSync(resolve(__dirname, 'dist', f.nom), f.code);
         writeFileSync(page, sorti.html);
@@ -90,6 +99,14 @@ export default defineConfig({
     target: 'es2022',
     assetsInlineLimit: 100000000,
     chunkSizeWarningLimit: 4000,
-    cssCodeSplit: false
+    cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        hashCharacters: 'hex',
+        entryFileNames: 'assets/plan-[hash:16].js',
+        chunkFileNames: 'assets/plan-[hash:16].js',
+        assetFileNames: 'assets/plan-[hash:16][extname]'
+      }
+    }
   }
 });
