@@ -34,7 +34,7 @@ déclencheur, écrit dans leur tableau.
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
 | 0.1 | **Fumée complète chaque nuit** (P6) : un workflow programmé joue tous les points, trois classes et deux thèmes, réseau témoin, et garde le journal et les captures des échecs | le workflow tourne sur `main`, un échec fait échouer l'exécution (GitHub prévient le propriétaire) et le journal est téléchargeable | à faire |
-| 0.2 | **Banc du rendu du plan** (P3) : temps de `render()` et d'un glisser à 150, 300 et 600 objets, au bureau et au téléphone (processeur ralenti) | un script reproductible, ses chiffres dans `MD/architecture.md` (W3), et la décision de la phase 2 prise sur eux | à faire |
+| 0.2 | **Banc du rendu du plan** (P3) : temps d'un rendu complet à 147, 300 et 600 objets, au bureau et au téléphone (processeur ralenti ×4), et le profil de ce qui coûte | `scripts/banc-rendu.mjs` ; ses chiffres dans `MD/architecture.md` (W3, AD-1) ; la phase 2 réécrite sur eux | **fait** |
 | 0.3 | **Vérification de l'API Claude** (P7) : poser le secret `ANTHROPIC_API_KEY_TEST`, puis lancer le workflow « Vérifier l'API Claude » avant chaque livraison | le workflow passe une fois | à faire, par le propriétaire du dépôt (secret) |
 
 ### Phase 1 — Les nombres d'un ancien fichier ne bougent plus (reproductibilité)
@@ -48,12 +48,20 @@ déclencheur, écrit dans leur tableau.
 
 ### Phase 2 — Le plan reste fluide (performance)
 
-Déclencheur : le banc 0.2 montre un rendu au-dessus de 16 ms au bureau ou de 33 ms au téléphone à 150 objets.
+Déclencheur **atteint** (banc 0.2, 26 octobre 2026). À 147 objets, un rendu complet coûte 82 ms au bureau et 506 ms au
+téléphone, pour un budget de 16 et 33 ms. Le dessin SVG du plan n'en prend que 4,7 et 26 ms (10,7 et 56 ms à 600 objets). Le
+reste vient des zones, qui refont des calculs dérivés à chaque notification du magasin :
+- les champs de construction de l'inspecteur recalculent la hauteur des appuis, donc le sol sous l'emprise, donc un passage
+  point par point sur la grille du relief (environ 35 ms par rendu) ;
+- l'entrée « doublons » du menu sérialise tout le projet (environ 12 ms).
+
+Le rendu incrémental du SVG passe donc après.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 2.1 | Ne redessiner que ce qui a changé : une clé de version par objet, et `render()` réutilise le nœud SVG des objets inchangés | le banc passe sous le seuil à 300 objets ; les fumées du plan (1 à 11) passent | selon 0.2 |
-| 2.2 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 mesuré | plus aucun rendu sauté au banc | après 2.1 |
+| 2.1 | Calculer une fois par version de l'état ce que les zones relisent à chaque rendu : la hauteur des appuis et le sol sous l'emprise (relief), la recherche des doublons, l'état des champs de construction | le banc à 147 objets passe sous 33 ms au bureau ; le profil ne montre plus ces fonctions ; empreintes inchangées | à faire |
+| 2.2 | Ne redessiner que les objets qui ont changé (une clé de version par objet, le nœud SVG gardé sinon) | le banc à 600 objets passe sous 33 ms au téléphone | si le banc le demande après 2.1 |
+| 2.3 | Retirer le frein `RENDU_LENT_MS` une fois 2.1 et 2.2 mesurés | plus aucun rendu sauté au banc | après 2.2 |
 
 ### Phase 3 — Des domaines dans `app/` (structure)
 
@@ -86,4 +94,4 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 ## Ordre retenu
 
 0.1, 0.2 et 1.1 + 1.2 sont engagés dès maintenant, dans cet ordre : les filets d'abord, puis la reproductibilité. 0.3 attend le
-secret. Le reste suit son déclencheur.
+secret. 2.1 vient ensuite : son déclencheur est atteint. Le reste suit son déclencheur.
