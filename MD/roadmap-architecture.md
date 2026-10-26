@@ -88,7 +88,7 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 
 | Étape | Quoi | Fait quand | État |
 |---|---|---|---|
-| 5.1 | Un verrou autour des lectures-modifications-écritures de l'admin (`deploy/admin.php` : palette, arbres, contrôleurs, règles), comme `donnees.php` et le journal | deux écritures simultanées ne perdent rien (test `php -S`) | à faire |
+| 5.1 | Un verrou autour des lectures-modifications-écritures de l'admin (`deploy/admin.php` : palette, arbres, contrôleurs, règles), comme `donnees.php` et le journal | deux écritures simultanées ne perdent rien (test `php -S`) | fait : la perte réelle était l'ajout de démo (numéro libre) ; chaque écriture passe sous le verrou de son fichier, un document entier reste au dernier qui écrit |
 | 5.2 | three.js, EZ-tree, pdf-lib servis depuis `assets/` de la livraison, le CDN en secours | la Vue 3D s'ouvre CDN coupé | à faire |
 | 5.3 | Mode hors ligne pour l'audit (service worker sur les morceaux déjà découpés) | un audit commencé se poursuit sans réseau et s'envoie au retour | déclencheur AD-6 : plaintes d'utilisateurs sur le terrain |
 

@@ -53,7 +53,8 @@ describe.skipIf(!php)('admin.php', () => {
     const port = await portLibre();
     base = 'http://127.0.0.1:' + port;
     serveur = spawn('php', ['-d', 'session.save_path=' + path.join(tmp, 'sessions'), '-S', '127.0.0.1:' + port, path.join(racine, 'tests/fixtures/deploy/routeur-admin.php')], {
-      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), PLAN_ADMIN_CONFIG: config },
+      // Quatre processus : les requetes simultanees le sont vraiment (le verrou des ecritures se voit).
+      env: { ...process.env, ADMIN_PHP: path.join(racine, 'deploy/admin.php'), PLAN_ADMIN_CONFIG: config, PHP_CLI_SERVER_WORKERS: '4' },
       stdio: 'ignore'
     });
     for (let i = 0; i < 50; i++) {
@@ -140,6 +141,15 @@ describe.skipIf(!php)('admin.php', () => {
     expect(fs.readdirSync(demos).some((n) => n.startsWith('2.json.supprime-'))).toBe(true);
     await expect(depot.ouvrir('9')).rejects.toMatchObject({ reason: 'notfound' });
     expect((await navigateur('admin/demos/..%2Fconfig')).status).toBe(400);
+  });
+
+  it('deux ajouts simultanes ne prennent pas le meme numero : chacun garde sa demo', async () => {
+    await connecterAdmin(navigateur, 'secret-admin');
+    const depot = creerDepotDemos(navigateur);
+    const noms = Array.from({ length: 12 }, (_, i) => 'Simultanée ' + i);
+    const crees = await Promise.all(noms.map((name) => depot.enregistrer({ name, objects: PLAN.objects as never })));
+    expect(new Set(crees.map((c) => c.id)).size).toBe(noms.length);
+    expect((await depot.lister()).map((d) => d.name).sort()).toEqual([...noms].sort());
   });
 
   it('enregistre et relit le registre des controleurs, hors de la liste des demos', async () => {
