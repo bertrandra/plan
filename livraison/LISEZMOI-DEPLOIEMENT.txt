@@ -1,4 +1,4 @@
-Plan 3.0.0 (d056010) - deploiement Apache + PHP, sans Node.js
+Plan 3.0.0 (bed95b02) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 Sur l'hebergement, trois choses voisines :
@@ -28,6 +28,9 @@ Sur l'hebergement, trois choses voisines :
      (assets/plan-<empreinte>.css). Sans le dossier assets/ COMPLET de la meme livraison, la page
      reste blanche ou un ecran ne s'ouvre pas. Les anciens assets/plan-* peuvent etre supprimes,
      ou laisses : ils ne servent plus.
+   - assets/vendor/ porte les bibliotheques chargees a la demande (three.js pour la Vue 3D, EZ-tree
+     pour les arbres, pdf-lib pour le dossier de declaration), a leur version : sans lui, la Vue 3D
+     ne s'ouvre pas. Les anciennes versions de assets/vendor/ peuvent etre supprimees.
    - .htaccess pose le cache, les en-tetes de securite et la route admin/.
    - admin.php, analyse.php, analyse-fonctions.php et donnees.php vont ensemble : admin.php et
      analyse.php incluent donnees.php, analyse.php inclut analyse-fonctions.php.
