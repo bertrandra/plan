@@ -220,6 +220,25 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La fumée complète repasse : les neuf points rouges trouvés par la première nuit** (feuille de route, étape 0.4). Aucun n'était
+  un défaut de l'application ; tous venaient d'un script resté en retard sur elle.
+  - **69, 70** : depuis que le moteur arbitre les sources (lot G), la couverture que Claude voit n'est plus une ligne à part.
+    C'est une source de la ligne « Couverture », écartée quand la couverture vue sur place l'emporte. Le script la cherche là.
+  - **74** : la sauvegarde de la capture (§15, marque `sauvegarde`) passait pour un partage. Le serveur simulé la compte à part,
+    et le retrait du partage se lit par l'adresse de son dépôt.
+  - **76** : le nombre d'attributs de « Accord de Claude » se lit dans `ATTRIBUTS_CLAUDE` (6 depuis la forme du toit), au
+    lieu d'un 5 écrit en dur.
+  - **82** : les deux vues de synthèse étaient des aplats, sans un point commun à apparier. L'assemblage écartait donc la
+    seconde vue, et le masque d'occlusion ne se calculait pas. Le mur reçoit un crépi déterministe : le point passe, en 11 s
+    au lieu de 103 s.
+  - **93** : la version de lecture des toits attendue est la dernière de `LECTURES_TOITS` plus un (8), plus un 5 écrit en dur.
+  - **10, en compact** : un toast (l'avertissement de l'administrateur) couvrait le bouton « Aligner par rotation ». Le
+    toucher fermait le toast. Le script ferme les toasts d'abord, comme la personne le ferait.
+  - **23, au bureau** : le rappel d'un point de vue se juge sur la caméra (position et point visé), qui revient au millimètre.
+    L'image d'une même caméra pouvait encore changer pendant que la scène finissait de se charger.
+  - **75, au bureau** : il prend deux minutes, le canevas 3D y est grand. La fumée de la nuit borne maintenant un point à
+    400 s au lieu de 240.
+
 - **Deux écritures simultanées de l'admin ne perdent plus rien** (`deploy/admin.php`, feuille de route, étape 5.1). Deux démos
   ajoutées au même instant cherchaient le même numéro libre : la seconde écrasait la première (11 démos sur 12 gardées, une fois
   sur trois, dans le test). Le numéro se cherche et se prend désormais sous un verrou du dossier, et toute écriture d'un document
