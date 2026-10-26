@@ -18,7 +18,7 @@ import { prevenirAdminDesCapacitesForcees } from './acces.js';
 import { actualisation } from './cadastre/actualisationIgn.js';
 import { creerVues3d } from './assemblage/vues3d.js';
 import { vue3d, reglerVue3d } from '../three/etat3d.js';
-import { type SourceControleurs } from './administration/controleurs.js';
+import type { SourceControleurs } from './administration/controleurs.js';
 import { inventorierLesClasses } from './administration/decouverteClasses.js';
 import { quandScenePrete, appliquerZoom, trouverPointDeVue, animerHeure, dateDuJour, adresseVitrine, resoudreCourse, cadrageSurParcelle, cercleParcelle, type SceneZoomable, type Vitrine } from './vitrine.js';
 import { leverEtCoucher, positionSoleil } from '../geo/soleil.js';
