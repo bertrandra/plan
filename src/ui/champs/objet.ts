@@ -12,7 +12,7 @@ import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
-import { FONCTIONS_AU_MENU } from '../../model/ouvrages/index.js';
+import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
 import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
@@ -141,12 +141,12 @@ const sectionObjet: Section = {
     },
     {
       type: 'lecture', cle: 'longueur', libelle: 'Longueur totale', visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
-      valeur: (c) => { const pts = enPoints(c.obj).pts; let t = 0; for (let i = 0; i < pts.length - 1; i++) t += dist(au(pts, i), au(pts, i + 1)); return t.toFixed(2) + ' m'; }
+      valeur: (c) => longueurChemin(enPoints(c.obj)).toFixed(2) + ' m'
     },
     {
       type: 'nombre', cle: 'width', libelle: 'Largeur', unite: 'm', pas: 0.05, min: 0.05, decimales: 2, historique: true, effets: ['rendu'],
       visible: (c) => c.obj.type === 'path' && !estPointDeVue(c.obj),
-      lire: (c) => c.obj.width || 1, ecrire: (c, v) => { if (!(v > 0)) return false; c.obj.width = v; }
+      lire: (c) => largeurChemin(c.obj), ecrire: (c, v) => { if (!(v > 0)) return false; c.obj.width = v; }
     },
     {
       type: 'case', cle: 'curve', libelle: 'Courbe (passe par les points)', effets: ['rendu'],

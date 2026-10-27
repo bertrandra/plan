@@ -159,18 +159,20 @@ géométriquement) → **modèle** (ses champs, sa fabrique) → **règles** (mo
 - forme : une polyligne ouverte d'au moins deux points (`pts`), une **largeur** (`width`, en mètres), une **courbe** (`curve`)
 - modèle : fabrique `creation.ts::nouveauChemin` (deux points à 4 m, 1,20 m de large, droit) ; un tracé importé d'un SVG est un
   chemin (`io/importSvg.ts`) ; il occupe le sol parce qu'il a une largeur (`model/ouvrages/surfaces.ts`, `aUneLargeur`)
-- règles : aucune — pas de structure ; sa surface est longueur × largeur
+- règles : aucune — pas de structure ; sa surface est longueur du tracé dessiné × largeur, et sa largeur vaut 1 m quand le fichier
+  n'en dit rien (`model/ouvrages/surfaces.ts` : `LARGEUR_CHEMIN_DEFAUT`, `largeurChemin`, `longueurChemin`, `surfaceChemin`)
 - **la courbe** : avec `curve` et trois points au moins, le tracé passe par chaque point en Catmull-Rom uniforme, converti en
-  Bézier cubiques (points de contrôle `p1 + (p2 − p0)/6` et `p2 − (p3 − p1)/6`, extrémités répétées) ; sinon une ligne brisée
-- plan : un `<path>` sans remplissage, `d` par `geometry/path.ts::pathD(scène, pts, courbe)`, épaisseur de trait = largeur ×
+  Bézier cubiques (points de contrôle `p1 + (p2 − p0)/6` et `p2 − (p3 − p1)/6`, extrémités répétées) ; sinon une ligne brisée.
+  Une seule définition, `geometry/courbe.ts` (`tronconsBezier`, `echantillonnerTrace`, `longueurTrace`)
+- plan : un `<path>` sans remplissage, `d` par `geometry/path.ts::pathD(scène, pts, courbe)` (la courbe de `courbe.ts`), épaisseur de trait = largeur ×
   échelle : en 2D la largeur n'est qu'un trait, aucun contour décalé n'est calculé
-- 3D : la même courbe échantillonnée (`three/primitives.ts::courbePolyligne`, 12 points par segment), élargie en ruban
-  (`ribbonChemin` : chaque côté décalé d'une demi-largeur, angles en onglet par `geometry/segments.ts::lineLineIntersect`, en
+- 3D : la même courbe échantillonnée (`geometry/courbe.ts::echantillonnerTrace`, 12 points par segment), élargie en ruban
+  (`geometry/ruban.ts::ribbonChemin` : chaque côté décalé d'une demi-largeur, angles en onglet par `geometry/segments.ts::lineLineIntersect`, en
   biseau au-delà de 4 demi-largeurs), posé ou drapé sur le relief (`addRubanDrape`) ; le gazon s'arrête au même ruban
-- inspecteur : longueur totale, largeur (0,05 m au moins), « Courbe (passe par les points) », texture commune à tous les chemins
+- inspecteur : longueur totale (du tracé dessiné), largeur (0,05 m au moins), « Courbe (passe par les points) », texture commune à tous les chemins
 - exports : SVG et PDF du plan redessinent la courbe ; le DXF écrit la ligne brute (ni courbe, ni largeur) ; la surface (dossier,
-  résumé, PDF) se compte sur les segments droits
-- géométrie : `path.ts::pathD`, `segments.ts::lineLineIntersect`, `basic.ts::dist`, `centroid`, `anneau.ts::sommetDe`
+  résumé, PDF) se compte sur le tracé dessiné : la courbe d'un chemin courbe (`longueurTrace`, 32 cordes par segment)
+- géométrie : `courbe.ts`, `ruban.ts`, `path.ts::pathD`, `segments.ts::lineLineIntersect`, `basic.ts::dist`, `centroid`, `anneau.ts::sommetDe`
 - dépend de : **terrain** (relief, pour le draper) ; d'aucun autre ouvrage
 
 **Dalle, massif, mobilier** — surface, toute forme
@@ -221,15 +223,14 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 
 ### Ce que le relevé a trouvé à ranger
 
-- **La courbe est écrite quatre fois** : `geometry/path.ts::pathD`, `three/primitives.ts::courbePolyligne`,
-  `export/svgPlan.ts::exPathD`, `export/pdfPlan.ts::pdfPathD`. Une seule primitive dans `geometry/` (`courbe.ts` : les points de
-  contrôle, l'échantillonnage) ; les quatre la lisent. Même chose pour le ruban (`ribbonChemin`, dans `three/`) : c'est de la
-  géométrie, pas de la 3D. Étape 6.3, à résultat identique (les empreintes de l'export le vérifient).
-- **La largeur par défaut d'un chemin n'est pas la même partout** : 0,5 m dans le dossier PDF et le dossier piscine, 1 m dans
-  l'inspecteur, le résumé et le PDF du plan. Un chemin sans largeur (un ancien fichier, un import SVG) n'a donc pas la même
-  surface selon le document. L'unifier change un nombre exporté : **c'est une version majeure** (`MD/RELEASE.md`), à décider,
-  pas une correction discrète.
-- **La surface d'un chemin courbe** se compte sur ses segments droits, pas sur la courbe dessinée : même règle, même décision.
+- ~~**La courbe est écrite quatre fois**~~ — rangé le 27 octobre 2026 : `geometry/courbe.ts` tient la courbe (tronçons de Bézier,
+  échantillonnage, longueur du tracé), `geometry/ruban.ts` le ruban ; `pathD`, `exPathD`, `pdfPathD` et la 3D la lisent, à l'octet
+  près (`tests/unit/geometry/courbe.test.ts` garde les anciennes copies comme oracle ; `plan.svg` et `plan.pdf` le vérifient aussi).
+- ~~**La largeur par défaut d'un chemin n'est pas la même partout**~~ — décidé le 27 octobre 2026 : **1 m partout**
+  (`model/ouvrages/surfaces.ts::largeurChemin`). Le dossier PDF et le dossier piscine lisaient 0,5 m. Version majeure.
+- ~~**La surface d'un chemin courbe** se compte sur ses segments droits~~ — décidé le même jour : elle se compte sur la courbe
+  dessinée (`surfaceChemin`), comme la longueur totale de l'inspecteur et du résumé. Version majeure ; les nombres qui bougent sur
+  la démonstration sont dans `tests/fixtures/golden/EMPREINTES.md`.
 - **Le bâtiment et l'annexe** se comparent encore à la main dans les exports (`'batiment' || 'annexe'`) : c'est le bâti, une
   famille, que le registre dit déjà (étape 6.4).
 

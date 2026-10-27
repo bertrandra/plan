@@ -52,11 +52,11 @@ describe('phase 1 - echafaudage', () => {
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '447b849b4c13a76edf7068ee977078d046df130506167896e38935cc372acc22',
+      'resume.txt': '058fea61f0a8b6d1351b2db8d48406ca9e41599e2645401fb737dabf01087f62',
       'plan.svg': '29a67cbd9850d61801e8ee34b2e75b0df333ecaa38439c864e8e72496bef839e',
       'plan.dxf': '7b37c0be898faf496fc2158a8439d12f4d7b74ef60321f386c1a6dc4e2f96e15',
       'projet.json': 'da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2',
-      'plan.pdf': '5be6fd1325c0b2aab8cabfc3c1f3a4f8bb6334cb7e562bfba235b1f932cc845c',
+      'plan.pdf': 'db3bc8b625d7af0350291e5e820baaab2f29543e73cb4ec17a0a5f87ef5c7f2e',
       'dossier.pdf': '5b2d62c8a494f9a80a8c9afa7778d7b29c9342d75d1c4a52b8629bf64c22304d'
     };
     for (const [nom, sha] of Object.entries(attendu)) {

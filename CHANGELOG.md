@@ -61,6 +61,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Chemins : une largeur par défaut et une surface sur la courbe dessinée — changement de version majeure** (`MD/RELEASE.md`
+  §2.1, décision du 27 octobre 2026). Un chemin sans largeur écrite (un ancien fichier, un tracé importé d'un SVG) mesure
+  désormais **1 m partout** : le dossier PDF et le dossier piscine lisaient 0,5 m quand l'inspecteur, le résumé, le PDF du plan et
+  la Vue 3D lisaient 1 m (`model/ouvrages/surfaces.ts::largeurChemin`). La **surface d'un chemin** (longueur × largeur) se
+  compte sur le **tracé dessiné** — la courbe d'un chemin courbe — et non plus sur ses segments droits (`surfaceChemin`) ; la
+  longueur totale de l'inspecteur, de la feuille de sélection et du résumé suit. Pour un projet existant, un nombre peut donc
+  changer dans le **résumé** (surface et longueur totale d'un chemin courbe, emprise totale), le **PDF du plan** (page des
+  surfaces) et le **dossier PDF** (surface d'un chemin courbe ou sans largeur compté parmi les objets posés sur une terrasse, épaisseur
+  du trait d'un chemin sans largeur au plan de masse), ainsi que l'épaisseur
+  du trait d'un chemin sans largeur au **dossier piscine**. Sur la démonstration, le Chemin Arrière passe de 26,84 à 27,37 m²
+  et l'emprise totale de 408,4 à 409,1 m² ; `resume.txt`, `quantites-demo.txt` et `plan.pdf` sont recapturés, le détail est
+  dans `tests/fixtures/golden/EMPREINTES.md`.
+- **La courbe des chemins n'est plus écrite qu'une fois** (`geometry/courbe.ts`, et le ruban dans `geometry/ruban.ts`). Le plan à
+  l'écran, l'export SVG, le PDF du plan et la Vue 3D en avaient chacun leur copie ; ils lisent maintenant la même, et dessinent
+  exactement ce qu'ils dessinaient (`plan.svg` inchangé, anciennes copies gardées comme oracle dans
+  `tests/unit/geometry/courbe.test.ts`).
 - **Un rendu du plan ne sérialise plus tout le plan** (feuille de route, étape 2.2). La clé qui gardait le chiffrage, les cotes et
   la recherche des doublons d'un rendu à l'autre était le plan entier en JSON : à 600 objets, 800 Ko et 78 ms au téléphone, à
   chaque rendu, plus que les calculs qu'elle évitait. Elle n'est plus qu'un jeton de tâche (`ui/clePlan.ts`) : les appels d'un

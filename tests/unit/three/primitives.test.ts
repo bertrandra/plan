@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as THREE_NS from 'three';
-import { creerPrimitives, versLocalDepuis, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL } from '../../../src/three/primitives.js';
+import { creerPrimitives, versLocalDepuis, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, COUCHES_SOL } from '../../../src/three/primitives.js';
 import { reglerSoleil, libelleSoleil, SOLEIL_ELEV_PLANCHER } from '../../../src/three/lumiere.js';
 import { cameraDepuisPointDeVue } from '../../../src/three/navigation.js';
 
@@ -15,22 +15,6 @@ describe('reperes et traces', () => {
   it('pose le plan (Est, Nord) sur (X, -Z), centre sur le centroide', () => {
     const local = versLocalDepuis({ x: 2, y: 1 });
     expect(local({ x: 5, y: 4 })).toEqual({ x: 3, z: -3 });
-  });
-
-  it('lisse une polyligne seulement si on le demande et qu elle a trois points', () => {
-    expect(courbePolyligne(carre, false)).toEqual(carre);
-    expect(courbePolyligne(carre.slice(0, 2), true)).toHaveLength(2);
-    const c = courbePolyligne(carre, true, 4);
-    expect(c).toHaveLength(1 + 3 * 4);
-    expect(c[0]).toEqual(carre[0]);
-    expect(c.at(-1)).toEqual(carre.at(-1));
-  });
-
-  it('elargit un chemin en ruban de sa largeur, deux bords par point', () => {
-    expect(ribbonChemin([{ x: 0, y: 0 }], 1)).toBeNull();
-    expect(ribbonChemin([{ x: 0, y: 0 }, { x: 4, y: 0 }], 0)).toBeNull();
-    const r = ribbonChemin([{ x: 0, y: 0 }, { x: 4, y: 0 }], 2);
-    expect(r).toEqual([{ x: 0, y: 1 }, { x: 4, y: 1 }, { x: 4, y: -1 }, { x: 0, y: -1 }]);
   });
 
   it('approche un cercle par un polygone regulier', () => {

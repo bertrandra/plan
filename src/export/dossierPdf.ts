@@ -21,6 +21,7 @@ import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { largeurChemin, longueurChemin, surfaceChemin } from '../model/ouvrages/index.js';
 import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/structure.js';
 import { dateFr } from '../util/format.js';
 
@@ -51,10 +52,9 @@ function dimensionsObjet(o: ObjetPlan){
   const xs = (o.pts||[]).map(p=>p.x), ys = (o.pts||[]).map(p=>p.y);
   const l = Math.max(...xs)-Math.min(...xs), h = Math.max(...ys)-Math.min(...ys);
   if(o.type === 'path'){
-    let L = 0;
-    for(let i=0;i<(o.pts||[]).length-1;i++) L += dist(au(o.pts, i), au(o.pts, i+1));
-    return { libelle: 'longueur ' + L.toFixed(2).replace('.',',') + ' m x ' + (o.width||0.5).toFixed(2).replace('.',',') + ' m',
-             surface: L*(o.width||0.5), largeur:o.width||0.5, longueur:L };
+    const L = longueurChemin(o), larg = largeurChemin(o);
+    return { libelle: 'longueur ' + L.toFixed(2).replace('.',',') + ' m x ' + larg.toFixed(2).replace('.',',') + ' m',
+             surface: surfaceChemin(o), largeur: larg, longueur: L };
   }
   return { libelle: 'emprise ' + Math.max(l,h).toFixed(2).replace('.',',') + ' x ' + Math.min(l,h).toFixed(2).replace('.',',') + ' m',
            surface: shoelace(o.pts||[]), largeur: Math.min(l,h), longueur: Math.max(l,h) };
@@ -188,7 +188,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
       const q = P(o.center);
       c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.9);
     } else if(o.type === 'path'){
-      c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6, (o.width||0.5)*k), 1);
+      c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6, largeurChemin(o)*k), 1);
     } else {
       const estParcelle = (o === parcelle);
       c += pdfPolygone((o.pts||[]).map(P), estParcelle ? null : fond, trait, estParcelle ? 1.4 : 0.8, estParcelle ? 1 : 0.9, trousDeTerrasse(o, objets).map(t=>t.map(P)));
@@ -249,7 +249,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
   equipements.forEach(o=>{
     const fond = hexToRgb01(o.fill), trait = hexToRgb01(o.stroke);
     if(o.type === 'circle'){ const q = P(o.center); c += pdfCercle(q.x, q.y, o.r*k, fond, trait, 0.75); }
-    else if(o.type === 'path') c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6,(o.width||0.5)*k), 1);
+    else if(o.type === 'path') c += pdfPolygone((o.pts||[]).map(P), null, trait, Math.max(0.6, largeurChemin(o)*k), 1);
     else c += pdfPolygone((o.pts||[]).map(P), fond, trait, 0.8, 0.75);
   });
   // Cotation : la ligne de cote est REPORTEE a l'exterieur du contour, decalee d'une distance

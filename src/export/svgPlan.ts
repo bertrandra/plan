@@ -22,6 +22,8 @@ import { sommetsDe } from '../model/formes.js';
 import { trousDeTerrasse } from '../engine/structure.js';
 import { courbesExportees, reliefDe } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { estCourbe, tronconsBezier } from '../geometry/courbe.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 import { courbesDeNiveau, etiquetteNiveau, longueurPolyligne, milieuPolyligne } from '../render/relief.js';
 
 /** Ce que l'export SVG doit savoir en plus des objets : de quoi remplir les attributs data-*. */
@@ -76,19 +78,14 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
   const fsNameSmall = 10/exScale;
   function exToSvg(p: PtBrut){ return {x:(p.x-(minx-pad)), y:((maxy+pad)-p.y)}; }
 
+  // La courbe des chemins (geometry/courbe.ts), sur les points deja passes au repere du SVG.
   function exPathD(pts: PtBrut[], curve?: boolean){
     if(pts.length<2) return '';
     const s = pts.map(exToSvg);
-    if(!curve || s.length<3){
-      return 'M ' + s.map(p=>p.x.toFixed(2)+','+p.y.toFixed(2)).join(' L ');
-    }
-    let d = 'M ' + au(s, 0).x.toFixed(2) + ',' + au(s, 0).y.toFixed(2) + ' ';
-    for(let i=0;i<s.length-1;i++){
-      const p0 = au(s, Math.max(0,i-1)), p1 = au(s, i), p2 = au(s, i+1), p3 = au(s, Math.min(s.length-1,i+2));
-      const c1 = {x:p1.x+(p2.x-p0.x)/6, y:p1.y+(p2.y-p0.y)/6};
-      const c2 = {x:p2.x-(p3.x-p1.x)/6, y:p2.y-(p3.y-p1.y)/6};
-      d += 'C ' + c1.x.toFixed(2)+','+c1.y.toFixed(2)+' '+c2.x.toFixed(2)+','+c2.y.toFixed(2)+' '+p2.x.toFixed(2)+','+p2.y.toFixed(2)+' ';
-    }
+    const f = (p: PtBrut) => p.x.toFixed(2)+','+p.y.toFixed(2);
+    if(!estCourbe(s, curve)) return 'M ' + s.map(f).join(' L ');
+    let d = 'M ' + f(au(s, 0)) + ' ';
+    for(const b of tronconsBezier(s)) d += 'C ' + f(b.c1)+' '+f(b.c2)+' '+f(b.p2)+' ';
     return d;
   }
 
@@ -127,7 +124,7 @@ export function construireSVG(objets: ObjetPlan[], mesures: Mesure[], meta: Meta
       }
     } else if(obj.type==='path'){
       const ptsPath = obj.pts || [];
-      body += '<path d="'+exPathD(ptsPath, !!obj.curve)+'" fill="none" stroke="'+obj.stroke+'" stroke-width="'+(obj.width||1)+'" stroke-linecap="butt" stroke-linejoin="round" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-width="'+(obj.width||1)+'" data-curve="'+(!!obj.curve)+'" data-points="'+escapeXml(ptsPath.map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
+      body += '<path d="'+exPathD(ptsPath, !!obj.curve)+'" fill="none" stroke="'+obj.stroke+'" stroke-width="'+largeurChemin(obj)+'" stroke-linecap="butt" stroke-linejoin="round" data-objkey="'+escapeXml(obj.key)+'" data-locked="'+(!!obj.locked)+'" data-name="'+escapeXml(obj.name)+'" data-fonction="'+escapeXml(obj.fonction||'')+'" data-matiere="'+escapeXml(obj.matiere||'')+'" data-priority="'+(obj.priority||0)+'" data-width="'+largeurChemin(obj)+'" data-curve="'+(!!obj.curve)+'" data-points="'+escapeXml(ptsPath.map((p: PtBrut)=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(' '))+'" data-vertex-names="'+escapeXml((obj.vertexNames||[]).join(NAME_SEP))+'" data-segment-names="'+escapeXml((obj.segmentNames||[]).join(NAME_SEP))+'"/>\n';
       for(let i=0;i<ptsPath.length-1;i++){
         const a=au(ptsPath, i), b=au(ptsPath, i+1);
         const pa=exToSvg(a), pb=exToSvg(b);

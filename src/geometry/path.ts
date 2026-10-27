@@ -7,6 +7,7 @@
 import { sommetDe } from './anneau.js';
 import type { PtBrut } from '../model/types.js';
 import { versEcran, type EtatScene } from './vue.js';
+import { estCourbe, tronconsBezier } from './courbe.js';
 
 // Best-effort SVG path 'd' parser: reduces a path to an ordered list of {x,y} endpoint vertices,
 // matching how this app already represents imported curves (plain polyline points, not bezier
@@ -97,30 +98,17 @@ export function polyStr(scene: EtatScene, pts: PtBrut[]): string {
 /**
  * Attribut `d` d'un `<path>`, en pixels.
  *
- * Sans lissage, une simple polyligne. Avec lissage, une conversion Catmull-Rom vers des Bezier
- * cubiques : la courbe passe exactement par tous les points saisis, ce qu'une Bezier dont on
- * choisirait les controles a la main ne garantit pas.
+ * Sans lissage, une simple polyligne. Avec lissage, la courbe des chemins (geometry/courbe.ts),
+ * calculee sur les points deja passes a l'ecran.
  */
 export function pathD(scene: EtatScene, pts: PtBrut[], curve?: boolean): string {
   if (pts.length < 2) return '';
   const s = pts.map((p) => versEcran(scene, p));
-  if (!curve || s.length < 3) {
+  if (!estCourbe(s, curve)) {
     return 'M ' + s.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' L ');
   }
-  // Les extremites se repetent : le premier et le dernier arc n'ont qu'un voisin.
-  const borne = (i: number) => sommetDe(s, Math.max(0, Math.min(s.length - 1, i)));
-  let d = 'M ' + borne(0).x.toFixed(1) + ',' + borne(0).y.toFixed(1) + ' ';
-  for (let i = 0; i < s.length - 1; i++) {
-    const p0 = borne(i - 1),
-      p1 = borne(i),
-      p2 = borne(i + 1),
-      p3 = borne(i + 2);
-    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
-    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-    d +=
-      'C ' + c1.x.toFixed(1) + ',' + c1.y.toFixed(1) + ' ' +
-      c2.x.toFixed(1) + ',' + c2.y.toFixed(1) + ' ' +
-      p2.x.toFixed(1) + ',' + p2.y.toFixed(1) + ' ';
-  }
+  const f = (p: PtBrut) => p.x.toFixed(1) + ',' + p.y.toFixed(1);
+  let d = 'M ' + f(sommetDe(s, 0)) + ' ';
+  for (const b of tronconsBezier(s)) d += 'C ' + f(b.c1) + ' ' + f(b.c2) + ' ' + f(b.p2) + ' ';
   return d;
 }

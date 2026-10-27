@@ -557,11 +557,11 @@ ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `447b849b4c13a76edf7068ee977078d046df130506167896e38935cc372acc22` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `058fea61f0a8b6d1351b2db8d48406ca9e41599e2645401fb737dabf01087f62` |
 | [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `29a67cbd9850d61801e8ee34b2e75b0df333ecaa38439c864e8e72496bef839e` |
 | [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `7b37c0be898faf496fc2158a8439d12f4d7b74ef60321f386c1a6dc4e2f96e15` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `5be6fd1325c0b2aab8cabfc3c1f3a4f8bb6334cb7e562bfba235b1f932cc845c` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `db3bc8b625d7af0350291e5e820baaab2f29543e73cb4ec17a0a5f87ef5c7f2e` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `5b2d62c8a494f9a80a8c9afa7778d7b29c9342d75d1c4a52b8629bf64c22304d` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
@@ -722,7 +722,8 @@ stable dans le temps, ce sont les quatre objets, la parcelle AC 530 de 418 m² e
 objet. C'est le fichier à regarder en premier quand une empreinte bouge : il dit **quel nombre** a
 changé, là où le SHA-256 dit seulement que quelque chose a changé.
 
-Emprise totale hors parcelle de référence : **408,4 m² (56,5 % de la parcelle)**.
+Emprise totale hors parcelle de référence : **409,1 m² (56,6 % de la parcelle)** depuis le 27 octobre 2026 (408,4 m²,
+56,5 % auparavant : les chemins courbes, voir « Chemins » plus bas).
 
 ## Regénérées à chaque `npm test` (28 septembre 2026)
 
@@ -814,3 +815,42 @@ neuf dans `dossier-piscine.pdf`. `projet.json` (entrée du témoin, pas un expor
 
 Les témoins du moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3 ne portent pas
 de version et ne bougent pas.
+
+
+## Chemins : une largeur par défaut, une surface sur la courbe (27 octobre 2026) — version majeure
+
+Deux décisions du propriétaire, qui changent des nombres exportés (`MD/RELEASE.md` §2.1 : version majeure) :
+
+- **La largeur d'un chemin sans largeur écrite vaut 1 m partout** (`model/ouvrages/surfaces.ts::largeurChemin`). Le dossier PDF
+  (`dimensionsObjet`, l'épaisseur du trait du plan de masse) et le dossier piscine lisaient 0,5 m ; l'inspecteur, le résumé, le
+  PDF du plan, le SVG et la 3D lisaient 1 m.
+- **La surface d'un chemin se compte sur le tracé dessiné** (`surfaceChemin` = `longueurTrace` × largeur) : la courbe d'un chemin
+  courbe, échantillonnée à 32 cordes par segment, et non plus ses segments droits. La « longueur totale » du résumé, de
+  l'inspecteur et de la feuille de sélection suit.
+
+La courbe elle-même n'a pas bougé : mise en commun dans `geometry/courbe.ts`, elle redonne au bit près le `d` du SVG (`plan.svg`
+inchangé, quatre chemins courbes), les opérateurs du PDF et les points de la 3D (oracle des anciennes copies dans
+`tests/unit/geometry/courbe.test.ts`).
+
+**Ce qui bouge sur le témoin.** Ses chemins ont tous une largeur écrite : seule la seconde décision le touche.
+
+| Chemin | Surface avant | Surface après | Longueur totale avant | après |
+|---|---:|---:|---:|---:|
+| Chemin Arrière (courbe, 11 points) | 26,84 m² | 27,37 m² | 44,54 m | 45,43 m |
+| Chemin ZigZag (courbe, 7 points) | 10,78 m² | 10,96 m² | 21,47 m | 21,83 m |
+| Chemin Table (courbe, 4 points) | 3,40 m² | 3,40 m² | 6,76 m | 6,78 m |
+| Chemin Buandrie (courbe, 3 points) | 1,00 m² | 1,02 m² | 1,98 m | 2,03 m |
+| Abri de jardin Chemin (droit) | 0,94 m² | inchangé | — | — |
+
+Emprise totale hors parcelle : 408,4 m² (56,5 %) → 409,1 m² (56,6 %) ; au PDF du plan, 408,37 → 409,11 m², et la part du
+Chemin Arrière 3,7 % → 3,8 %.
+
+- `resume.txt` : huit lignes (trois surfaces, l'emprise totale, quatre longueurs totales), mêmes 15 323 octets ; empreinte
+  normalisée `058fea61…`. `quantites-demo.txt` suit, mêmes huit nombres.
+- `plan.pdf` : six textes de la page des surfaces, mêmes 16 162 octets (aucun décalage de la table `xref`) ; empreinte
+  normalisée `db3bc8b6…`. Régénéré par `SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, comme à la 3.0.0.
+- **Inchangés** : `plan.svg`, `plan.dxf`, `dossier.pdf` (aucun chemin du témoin n'est compté parmi les objets posés sur une terrasse, et tous ont une largeur),
+  `dossier-piscine.pdf`, `note-calcul.pdf`, et tous les témoins du moteur.
+
+Un ancien projet peut donc montrer un autre nombre dans le résumé, le PDF du plan et le dossier PDF (surface d'un chemin courbe ;
+surface et trait d'un chemin sans largeur, au dossier PDF et au dossier piscine).

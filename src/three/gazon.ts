@@ -26,7 +26,10 @@ import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { occupeLeSol, estPiscine } from '../model/fonctions.js';
 import { calculerPiscine } from '../engine/piscine.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
-import { cerclePoly, courbePolyligne, ribbonChemin, type VersLocal } from './primitives.js';
+import { cerclePoly, type VersLocal } from './primitives.js';
+import { echantillonnerTrace } from '../geometry/courbe.js';
+import { ribbonChemin } from '../geometry/ruban.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 
 /** Le cote de la texture en pixels, et ce qu'elle couvre en metres (1,5 mm par pixel : un brin fait 4 a 10 pixels de long). */
 export const COTE_TEXTURE_GAZON = 1024;
@@ -210,7 +213,7 @@ export function empreintesAuSol(objets: ObjetPlan[], masque: (o: ObjetPlan) => b
       return;
     }
     if (o.type === 'path') {
-      const ruban = o.pts.length >= 2 ? ribbonChemin(courbePolyligne(o.pts, !!o.curve), Math.max(0.02, (o.width || 1) - 2 * RETRAIT_EMPREINTE_M)) : null;
+      const ruban = o.pts.length >= 2 ? ribbonChemin(echantillonnerTrace(o.pts, o.curve), Math.max(0.02, largeurChemin(o) - 2 * RETRAIT_EMPREINTE_M)) : null;
       if (ruban) out.push(ruban);
       return;
     }

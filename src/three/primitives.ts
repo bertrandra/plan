@@ -2,12 +2,12 @@
 // sol, une piece de bois coupee a son contour, une bande mitree, une vis, un plot.
 //
 // Chacune pose ses meshes dans la scene qu'on lui donne, en passant par `versLocal` : le plan est en
-// metres, Y vers le nord ; la 3D en metres, Y vers le HAUT et Z vers le sud. Les courbes et rubans
-// des chemins sont calcules en coordonnees du plan, sans Three, et vivent ici a cote.
+// metres, Y vers le nord ; la 3D en metres, Y vers le HAUT et Z vers le sud. La courbe et le ruban
+// des chemins sont de la geometrie du plan : geometry/courbe.ts et geometry/ruban.ts.
 
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';
-import { lineLineIntersect } from '../geometry/segments.js';
+import { ribbonChemin } from '../geometry/ruban.js';
 import { empriseLame, empriseLameTrouee } from '../engine/lames.js';
 import { METRES_PAR_CARREAU } from './chargeurs.js';
 import type * as THREE_NS from 'three';
@@ -155,59 +155,6 @@ export type VersLocal = (p: PtBrut) => { x: number; z: number };
  */
 export function versLocalDepuis(cen: PtBrut): VersLocal {
   return (p) => ({ x: p.x - cen.x, z: cen.y - p.y });
-}
-
-// Meme algorithme que pathD (Catmull-Rom -> Bezier cubique, cf. rendu 2D du plan) mais evalue
-// directement en coordonnees plan : c'est la MEME courbe, echantillonnee en une polyligne dense.
-// Sans ca, un chemin en mode courbe se rendrait en 3D comme la ligne brisee de ses points.
-export function courbePolyligne(pts: PtBrut[], curve?: boolean, segsParTroncon = 12): PtBrut[] {
-  const premier = pts[0];
-  if (pts.length < 3 || !curve || !premier) return pts.slice();
-  const borne = (i: number) => sommetDe(pts, Math.max(0, Math.min(pts.length - 1, i)));
-  const out: PtBrut[] = [premier];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = borne(i - 1), p1 = borne(i), p2 = borne(i + 1), p3 = borne(i + 2);
-    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
-    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
-    for (let k = 1; k <= segsParTroncon; k++) {
-      const t = k / segsParTroncon, mt = 1 - t;
-      out.push({
-        x: mt * mt * mt * p1.x + 3 * mt * mt * t * c1.x + 3 * mt * t * t * c2.x + t * t * t * p2.x,
-        y: mt * mt * mt * p1.y + 3 * mt * mt * t * c1.y + 3 * mt * t * t * c2.y + t * t * t * p2.y
-      });
-    }
-  }
-  return out;
-}
-
-// Un chemin est une largeur reelle, pas un trait : chaque bord est decale perpendiculairement au
-// trace d'une demi-largeur. Aux sommets interieurs les deux bords adjacents sont mitres par
-// intersection ; aux extremites, un seul segment voisin, un simple decalage suffit.
-export function ribbonChemin(pts: PtBrut[], largeur: number): PtBrut[] | null {
-  const n = pts.length;
-  if (n < 2 || !(largeur > 0)) return null;
-  const demi = largeur / 2;
-  const segs = pts.slice(0, -1).map((a, i) => {
-    const b = sommetDe(pts, i + 1);
-    const ex = b.x - a.x, ey = b.y - a.y; const L = Math.hypot(ex, ey) || 1;
-    return { ux: ex / L, uy: ey / L, nx: -ey / L, ny: ex / L };
-  });
-  const seg = (i: number) => sommetDe(segs, i);
-  function bord(p: PtBrut, i: number, sens: number): PtBrut {
-    if (i === 0) return { x: p.x + seg(0).nx * demi * sens, y: p.y + seg(0).ny * demi * sens };
-    if (i === n - 1) return { x: p.x + seg(n - 2).nx * demi * sens, y: p.y + seg(n - 2).ny * demi * sens };
-    const s1 = seg(i - 1), s2 = seg(i);
-    const o1 = { x: p.x + s1.nx * demi * sens, y: p.y + s1.ny * demi * sens };
-    const o2 = { x: p.x + s2.nx * demi * sens, y: p.y + s2.ny * demi * sens };
-    const inter = lineLineIntersect(o1, { x: s1.ux, y: s1.uy }, o2, { x: s2.ux, y: s2.uy });
-    // Un virage tres serre pousse le mitre tres loin : au-dela d'une distance raisonnable on
-    // retombe sur un simple biseau (moyenne des deux bords), qui reste proche du trace.
-    if (!inter || dist(inter, p) > demi * 4) return { x: (o1.x + o2.x) / 2, y: (o1.y + o2.y) / 2 };
-    return inter;
-  }
-  const gauche = pts.map((p, i) => bord(p, i, 1));
-  const droite = pts.map((p, i) => bord(p, i, -1));
-  return gauche.concat(droite.reverse());
 }
 
 // Approxime un cercle du plan par un polygone regulier, au RAYON REEL (contrairement a

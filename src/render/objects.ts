@@ -18,6 +18,7 @@ import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 import type { EtatScene } from '../geometry/vue.js';
 
 /**
@@ -72,7 +73,7 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
   } else if(obj.type==='path'){
     v.el = creerSvg('path');
     v.el.setAttribute('fill','none');
-    v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width', String((obj.width||1)*scene.scale));
+    v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width', String(largeurChemin(obj)*scene.scale));
     v.el.setAttribute('stroke-linecap','butt'); v.el.setAttribute('stroke-linejoin','round');
     v.el.setAttribute('pointer-events','stroke');
     v.el.dataset.role='obj'; v.el.dataset.key=obj.key;
@@ -410,7 +411,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
       percerContour(v, el, obj.key, ctx.trous ?? [], ctx.scene);
     } else if(obj.type==='path'){
       poser(el, 'd', pathD(ctx.scene, obj.pts, !!obj.curve));
-      poser(el, 'stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
+      poser(el, 'stroke-width', String(Math.max(1, largeurChemin(obj)*ctx.scene.scale)));
       if(v.camMarkerEl){
         const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
         poser(v.camMarkerEl, 'cx', String(p0.x)); poser(v.camMarkerEl, 'cy', String(p0.y));
