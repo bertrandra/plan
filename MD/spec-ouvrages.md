@@ -384,6 +384,118 @@ Les règles :
 5. **Pas de vue tournée.** Tourner l'affichage seul (comme une carte sur la table) garderait tout juste ; proposé, écarté : le
    plan reste nord en haut.
 
+## Le soleil et l'ombre
+
+*Relevé dans le code le 27 octobre 2026.* Le soleil n'est pas un ouvrage, mais presque tout le plan en dépend : l'ombre des
+parasols, la lumière et les ombres de la Vue 3D, le feuillage des arbres, le placement d'un objet neuf. Il n'a pas aujourd'hui
+de composant à lui : il est réparti entre `geo/`, `engine/`, `three/`, `app/`, `ui/` et `util/`.
+
+### Les repères
+
+- Le plan : +x à l'est, +y au **nord réel** (un plan importé est projeté sur le plan tangent local, `geo/projection.ts`). Un plan
+  dessiné à la main suppose le haut au nord : rien ne permet aujourd'hui de dire où est son nord.
+- L'astronomie : l'azimut compte depuis le nord, dans le sens des aiguilles ; l'angle du mât d'un parasol (`matAngleDeg`) depuis
+  l'est, dans l'autre sens.
+- La 3D : +X à l'est, +Y en haut, le nord vers −Z (`three/primitives.ts::versLocalDepuis`).
+
+### Le soleil lui-même
+
+- **Une seule formule** (`geo/soleil.ts`) : `positionSoleil(année, mois, jour, heure, latitude, longitude)` rend la hauteur et
+  l'azimut (déclinaison de Cooper, équation du temps approchée, sans réfraction) ; `leverEtCoucher` cherche minute par minute
+  le premier et le dernier instant où le centre du disque est au-dessus de l'horizon (`null` au-delà des cercles polaires).
+  Quatre modules l'appellent : `engine/parasol.ts`, `three/lumiere.ts`, `three/presentation.ts`, `app/boot/vitrine.ts`.
+- **L'heure est l'heure légale française** (`decalageFuseauFrance`, heure d'été et d'hiver selon la règle européenne), quel que
+  soit le lieu.
+- **Le lieu** : la latitude et la longitude de la parcelle du projet (`model/lieu.ts::lieuDeParcelle`), posées à l'import du
+  cadastre au centre de la parcelle ; à défaut, Le Vésinet (`LIEU_DEFAUT`).
+- **La date et l'heure : trois soleils séparés**, aucun enregistré dans le projet :
+
+  | Soleil | Où il vit | Par défaut | Ce qu'il éclaire |
+  |---|---|---|---|
+  | du plan | `etat.parasol` (`core/state.ts`) | le 21 juin de l'année du navigateur, 15 h | l'ombre des parasols sur le plan |
+  | de la Vue 3D | `soleilVue3d` (`three/etat3d.ts`) | aujourd'hui (date UTC), midi | la lumière, les ombres, le ciel, le feuillage, l'horloge |
+  | de la visionneuse GLB | `glb` (`three/etat3d.ts`) | aujourd'hui (date UTC), midi | la lumière du fichier relu |
+
+  Les champs de date et d'heure sont des préférences d'affichage (`sale: false` : ni annulation, ni « projet modifié »).
+  Seuls le lieu (sur la parcelle) et les réglages du parasol (hauteur, mât, terrasse liée) sont des données du projet.
+
+### Ce qui s'en sert
+
+| Domaine | Où | Ce qu'il en fait |
+|---|---|---|
+| Plan 2D | `render/parasolOverlay.ts`, `engine/parasol.ts` | l'ombre du parasol à l'instant choisi ; la carte des heures d'ombre sur sa terrasse ; « Placer au mieux » |
+| Inspecteur | `ui/champs/objet.ts::sectionParasol` | date, heure, afficher l'ombre, carte, meilleure position |
+| Vue 3D, lumière | `three/lumiere.ts::reglerSoleil` | la lampe du soleil, son intensité (éteinte sous 10°), sa couleur (orange au couchant), la lumière d'appoint |
+| Vue 3D, ciel | `three/rendu.ts` | couleurs du ciel, brouillard, éclairage d'ambiance |
+| Vue 3D, ombres | `three/scene.ts`, `three/qualite.ts`, `three/sceneObjets.ts` | une carte d'ombres (1 024 à 4 096 px selon la qualité, coupée en « Économe ») dans un cadre d'environ 1,5 fois la parcelle |
+| Arbres | `model/especesArbre.ts::arbreNu`, `three/arbre3d.ts` | un arbre caduc est nu de novembre à mars, selon la date de la Vue 3D |
+| Heure dorée | `three/presentation.ts` | 50 minutes avant le coucher |
+| Démonstration | `app/boot/vitrine.ts`, `three/soleilVitrine.ts` | la course du soleil animée, le disque, le couchant |
+| Placement d'un objet neuf | `model/placement.ts::facadeAuSoleil` | la façade de la maison tournée vers le sud (un sud fixe), une piscine à 4 m « hors de son ombre » (une constante) |
+| Photos de façade, de toit | `facade/vision/sansOmbres.ts`, `model/couleurMur.ts`, `model/couleurToit.ts` | les ombres de la photo sont retirées ou écartées par la seule image, sans modèle du soleil |
+| Toits | `model/couleurToit.ts`, `facade/regles/toits/profils.ts` | la latitude (règles du sud de la France), pas le soleil |
+| Exports | SVG, PNG, PDF, résumé, DXF | **aucune ombre** ; le GLB emporte ce que la 3D montre |
+
+### L'ombre
+
+- **Sur le plan, seul le parasol fait de l'ombre.** Sa toile est un disque à sa hauteur, au-dessus d'un sol plat : l'ombre est
+  une ellipse (`geometrieOmbre` : décalée de h·cot(hauteur) à l'opposé du soleil, étirée de 1/sin(hauteur)), sous 8° il n'y en a
+  pas. Ni bâtiment, ni arbre, ni pergola, ni mur, ni clôture, ni voisin ne fait d'ombre sur le plan ; le relief et la hauteur de
+  la terrasse sont ignorés.
+- **La carte des heures d'ombre** couvre la seule terrasse du parasol, ombrée par ses seuls parasols, sur une fenêtre fixe : le
+  15 de mai à septembre, de 12 h à 18 h, en 2026 — et non la date et l'heure choisies, qui sont pourtant à côté. La recherche de
+  la meilleure position prend les mêmes échantillons.
+- **En 3D, tout fait de l'ombre et tout la reçoit** (bâtiments, toits, arbres, pergolas, parasols, terrasses, clôtures,
+  voisins ; le sol la reçoit seulement), sauf les rues, la piscine et la clôture grillagée du voisinage, quand les ombres sont
+  allumées et dans le cadre de la carte d'ombres.
+- Géométrie : `geometry/basic.ts::pointInPolygon`, `shoelace`, `centroid` ; l'appartenance à l'ellipse est écrite deux fois dans
+  `engine/parasol.ts`.
+
+### Les dépendances
+
+```
+parcelle (latitude, longitude ; nord réel, posée sur le terrain) ──▶ le lieu ──▶ tout calcul du soleil
+etat.parasol (date, heure) ──▶ ombre du parasol sur le plan
+fenêtre fixe (mai–septembre, 12–18 h, 2026) ──▶ carte des heures d'ombre, meilleure position du parasol
+soleilVue3d (date, heure, intensité, appoint) ──▶ lumière, ciel, ombres 3D, feuillage des arbres, horloge, heure dorée
+glb (date, heure) ──▶ lumière de la visionneuse
+parasol (rayon, hauteur, mât, terrasse liée) + terrasse ──▶ ombre 2D, carte, meilleure position
+maison + sud fixe ──▶ placement d'une terrasse, d'une pergola, d'un parasol, d'une piscine neuve
+latitude ──▶ couverture et profils des toits (pas le soleil)
+```
+
+### Ce qu'il faut ranger
+
+Par ordre d'effet sur ce que voit la personne :
+
+1. **Trois soleils, trois défauts** : le même parasol a une ombre différente sur le plan et en 3D, et un projet rouvert ne
+   retrouve pas son soleil ; la 3D change avec le jour où on l'ouvre (ombres et feuillage).
+2. **La carte des heures d'ombre ignore la date et l'heure choisies** juste à côté d'elle, sans le dire.
+3. **Trois façons de dire « aujourd'hui »** : la date UTC (entre minuit et 2 h, la 3D montre la veille), l'année locale, la date
+   locale.
+4. **Le fuseau est toujours celui de la France**, faux outre-mer et à l'étranger ; les jours de changement d'heure, l'écart est
+   choisi pour la journée entière.
+5. **Un plan dessiné à la main n'a pas de nord** : soleil, ombres et façade au soleil supposent le haut au nord, sans le dire.
+6. **Pas d'ombre des bâtiments, des arbres et des pergolas sur le plan** ; la carte n'existe que sur une terrasse qui a un
+   parasol.
+7. **Le 2D et la 3D divergent** : le parasol est un disque plat sur un sol plat en 2D, un cône posé sur le relief en 3D.
+8. **Le placement « au soleil » suit un sud fixe** (pas de latitude, pas d'obstacle) ; « hors de l'ombre » de la piscine est
+   une distance fixe.
+9. **Lire le lieu écrit dans la parcelle** (`lieuDeParcelle` complète les champs manquants à chaque rendu) : une écriture que
+   le contrôleur des objets ne voit pas.
+10. **La visionneuse GLB** éclaire à sa date mais garde le feuillage de la Vue 3D.
+11. **Des seuils de crépuscule épars** : 8° (ombre du parasol), 10° et 3° (lampe), 20, 6, −2 et −8° (ciel), 12, 0, −6 et −0,5°
+    (démonstration), 0° (lever, coucher) ; une astronomie simplifiée dont le commentaire dit « NOAA » à tort ; la démonstration
+    recalcule le soleil toutes les 250 ms à côté du calcul commun, et lit ses dates à la main.
+12. **Le cadre des ombres 3D** s'arrête à environ 1,5 fois la parcelle : l'ombre longue d'un voisin lointain, au soleil bas, est
+   coupée.
+13. Les aperçus (façade, arbre, catalogue des toits) ont une lumière fixe : voulu, à dire.
+
+**La cible** : un composant « le soleil du projet », un seul : le lieu, le nord, la date et l'heure, et les seuils, en un
+endroit ; le plan, la 3D et la visionneuse le lisent. Ce qu'il faut décider avec le propriétaire : la date et l'heure sont-elles
+une donnée du projet (enregistrée, retrouvée à la réouverture) ou une préférence d'affichage ; quel fuseau (celui du lieu) ; un
+nord pour un plan dessiné à la main ; l'ombre des bâtiments et des arbres sur le plan.
+
 ## Ce qui n'est pas un objet mais fait le plan
 
 | Structure | Où elle vit | De quoi elle dépend |
@@ -393,7 +505,8 @@ Les règles :
 | Isolement | `etat.isolement` | les associés : une piscine et sa plage |
 | Couches de la terrasse | `etat.calquesVisibles` | la terrasse sélectionnée |
 | Emprise du calque | `model/calque.ts` | l'union des terrains et la visibilité du voisinage ; elle borne le sol 3D et la photo aérienne |
-| Points de vue | les objets `camera` ; l'heure du soleil `etat.parasol` | — |
+| Points de vue | les objets `camera` (une position, une visée, une hauteur d'œil) | — |
+| Soleil | trois états non enregistrés : `etat.parasol` (plan), `soleilVue3d` (Vue 3D), `glb` (visionneuse) ; le lieu sur la parcelle | la parcelle (lieu, nord réel) ; section « Le soleil et l'ombre » |
 | Relief | `parcelle.relief` | le zéro lu à la terrasse courante, l'étendue de tous les objets (`geo/relief.ts::etendueDuPlan`) |
 | Photo aérienne | `ortho` | l'origine du cadastre, l'emprise du calque |
 | Rues | `ruesVoisinage`, `voisinage3d.rues` | elles devinent le côté sur rue |
@@ -512,6 +625,7 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; restent les comparaisons du dessin, de la 3D et des exports |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms |
 | 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | à faire |
+| 6.7 | Le soleil du projet, un seul : le lieu, le nord, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la carte des heures d'ombre dit sa fenêtre ou suit la date choisie | un parasol a la même ombre sur le plan et en 3D ; les décisions du propriétaire (date enregistrée ou non, fuseau, nord d'un plan dessiné) appliquées | à décider |
 
 ## Journal des décisions
 
@@ -522,4 +636,5 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 27 octobre 2026 | L'inspecteur ne garde que ce qui sert la conception, ouvrage par ouvrage (tableau « Décidé ») ; la déclaration préalable en dialogue du menu Exporter. |
 | 27 octobre 2026 | L'outil « Aligner » garde la distance au trait (le champ de son bandeau). |
 | 27 octobre 2026 | Le relief, la photo aérienne, les rues et le PLU sont sur le terrain : ils ne tournent pas. |
+| 27 octobre 2026 | Le soleil et l'ombre décrits comme un composant (section « Le soleil et l'ombre ») ; leur rangement est l'étape 6.7, à décider. |
 | 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
