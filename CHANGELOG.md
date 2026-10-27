@@ -61,6 +61,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le rendu au téléphone, environ deux fois plus court** (feuille de route, étape 2.2, en partie). Trois coûts ôtés d'un rendu
+  où rien n'a changé :
+  - le bandeau de chiffrage sérialisait le plan entier, grilles du relief comprises, à chacun de ses cinq appels par rendu. La clé
+    est désormais calculée une fois par tâche, et une grille du relief y entre par son identité : elle est remplacée, jamais
+    modifiée en place ;
+  - chaque ligne de l'explorateur se redessinait. Elle ne le fait plus que si son nom, son état ou ses cases changent ;
+  - les poignées, étiquettes et cotes déjà cachées étaient relues à chaque rendu, sommet par sommet.
+
+  Au banc de production, à 600 objets au téléphone (processeur ×4), deux passages chacun : 640 et 572 ms avant, 336 et 446 ms
+  après ; le bureau ne bouge pas, au bruit près. Le seuil de l'étape, 33 ms, reste loin : le reste est le rendu des zones
+  (inspecteur, cotes, barre d'application) et le travail du navigateur sur 6 000 nœuds SVG. Aucun nombre ni export ne change.
+  `BANC_PROFIL_APPAREIL=téléphone` profile le téléphone au lieu du bureau.
+
 - **Les carrefours de `app/` allégés** (feuille de route, étape 3.3). Cinq des six modules qui importaient plus de vingt modules
   passent sous la limite, chacun découpé par sujet : `audit/controleur.ts` 32 → 13, `cadastre/actualisationIgn.ts` 26 → 19,
   `boot/branchements.ts` 25 → 19, `audit/parcelle/constats.ts` 23 → 13, `boot.ts` 22 → 17 ; `boot/plan.ts` passe de 29 à 23

@@ -34,9 +34,32 @@ export interface ResumeChiffrage {
 
 let cache: { cle: string; resume: ResumeChiffrage } | null = null;
 
+// La cle, c'est tout le plan serialise : un rendu l'appelle jusqu'a cinq fois (feuille de selection, bandeau de l'inspecteur, tuiles
+// et resume des resultats), et la serialiser a chaque fois coutait plus que le reste du rendu au telephone (feuille de route,
+// etape 2.2). Elle se calcule donc une fois par tache : les appels d'un meme rendu la partagent, une micro-tache l'efface avant
+// que le plan ne puisse changer (un geste est une autre tache).
+let cleDuTour: { objets: readonly ObjetPlan[]; cle: string } | null = null;
+// Les grilles d'altitudes (`z` du relief, de son paysage, du toit mesure) entrent dans la cle par leur identite : des dizaines de
+// milliers de valeurs, jamais modifiees sur place, seulement remplacees (« Actualiser le relief », une relecture du toit).
+const grilles = new WeakMap<object, number>();
+let prochaineGrille = 0;
+const grilleParIdentite = (k: string, v: unknown): unknown => {
+  if (k !== 'z' || !Array.isArray(v)) return v;
+  let n = grilles.get(v);
+  if (n === undefined) { n = ++prochaineGrille; grilles.set(v, n); }
+  return 'grille#' + n;
+};
+function cleDuPlan(objets: readonly ObjetPlan[]): string {
+  if (cleDuTour && cleDuTour.objets === objets) return cleDuTour.cle;
+  const cle = JSON.stringify(objets, grilleParIdentite);
+  cleDuTour = { objets, cle };
+  queueMicrotask(() => { cleDuTour = null; });
+  return cle;
+}
+
 export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChiffrage | null {
   if (obj.fonction !== 'terrasse' || obj.type !== 'polygon') return null;
-  const cle = JSON.stringify(objets);
+  const cle = cleDuPlan(objets);
   if (cache && cache.cle === cle + obj.key) return cache.resume;
   const c = ensureConstruction(obj);
   const couches = computeTerrasseLayers(obj, objets);

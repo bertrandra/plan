@@ -21,6 +21,11 @@ export interface VueObjet {
   camMarkerEl: SVGElement | null;
   /** Le gabarit qui perce le contour d'une terrasse de ses trous (render/objects.ts). */
   clipEl?: SVGElement | null;
+  /**
+   * Les poignees, etiquettes et cotes sont deja toutes cachees : `cacherSommets` n'a rien a refaire. Seul
+   * render/objects.ts montre ces elements ; il remet ce drapeau a faux chaque fois qu'il peut en montrer un.
+   */
+  sommetsCaches?: boolean;
 }
 
 type ObjetAvecCle = { key: string };
