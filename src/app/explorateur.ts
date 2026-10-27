@@ -10,6 +10,7 @@
 // Les cases restent rangees dans l'objet pour etre retrouvees a la reouverture, rien de plus.
 
 import { terrasseLayerVisible } from '../render/terrasseCouches.js';
+import { toucher, toucherTout } from '../core/controleurObjets.js';
 import { dossierSelection } from './dossier.js';
 import type { EtatApp } from '../core/state.js';
 import type { Magasin } from './magasin.js';
@@ -47,10 +48,12 @@ export function creerExplorateur(etat: EtatApp, ctx: ContexteExplorateur, magasi
       const o = objet(cle);
       if (!o) return;
       o[champ] = valeur;
+      toucher(o);
       ctx.render();
     },
     definirVisibiliteTous(champ, valeur) {
       etat.objects.forEach(o => { o[champ] = valeur; });
+      toucherTout();
       ctx.render();
     },
     basculerCalques() {

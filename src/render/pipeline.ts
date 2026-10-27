@@ -11,8 +11,12 @@
 // sommets se poseraient par-dessus les vis et les solives et rendraient le canevas illisible. Le
 // choix fait en mode Plan est garde, simplement pas dessine.
 
-import { positionnerObjet, type ObjetRendu } from './objects.js';
+import { positionnerObjet, positionnerEnVerifiant, type ContextePositionnement, type ObjetRendu } from './objects.js';
 import { trousDeTerrasse } from '../engine/structure.js';
+import { estTerrasse } from '../model/fonctions.js';
+import { versionEnsemble, versionObjet } from '../core/controleurObjets.js';
+import { vue } from './vues.js';
+import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND } from './theme.js';
 import { ortho, placerOrthophoto, type ContexteOrtho } from './ortho.js';
 import { mesure } from '../interaction/outilMesure.js';
 import type { EtatApp } from '../core/state.js';
@@ -47,28 +51,65 @@ export interface ContexteRendu extends ContexteOrtho {
   couleurDiagnostic?: (obj: ObjetPlan) => string | null;
 }
 
+// Ce que chaque objet a dessine la derniere fois, par son contour : la cle de ce dessin, et sa premiere poignee (des poignees
+// reconstruites sont neuves, donc a placer). Un element recree n'a pas de cle : il se dessine.
+const dessins = new WeakMap<Element, { cle: string; poignee: Element | null }>();
+
 /**
- * Repositionne ces objets seulement, comme le ferait le rendu entier : la lecture des toits en tache
- * de fond (app/toits/toitsFond.ts) redessine les batiments qu'elle vient d'ecrire, pas les milliers d'autres
- * - redessiner tout le plan a chaque lot figeait l'ecran plusieurs secondes.
+ * Le plan redessine quand meme, en developpement, les objets que leur cle dit inchanges, et signale toute valeur qui bouge : un
+ * chemin d'ecriture qui n'aurait pas touche son objet (core/controleurObjets.ts) se voit dans la console, et la fumee echoue.
+ * Le banc du rendu l'eteint (`__sansVerifierCles`), pour mesurer ce que les gens auront.
+ */
+const verifierCles = (): boolean => import.meta.env.DEV && !(globalThis as { __sansVerifierCles?: boolean }).__sansVerifierCles;
+
+/**
+ * Repositionne ces objets, en sautant ceux dont rien n'a change depuis leur dernier dessin (MD/spec-ouvrages.md, etape 6.1) : leur
+ * version (core/controleurObjets.ts), ce qui en decide a l'affichage (selection, masque, isolement, diagnostic) et l'etat
+ * d'ensemble (cadrage, photo aerienne, pointage d'une cote, encres du theme). Une terrasse lit aussi les bassins et les tremies
+ * qui la percent : elle suit la version de l'ensemble. La lecture des toits en tache de fond (app/toits/toitsFond.ts) n'appelle
+ * que les batiments qu'elle vient d'ecrire.
  */
 export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly ObjetPlan[]): void {
   const activeSel = etat.selectedKey;
+  const s = etat.scene;
+  const pointageSommets = !!(mesure.pointage && mesure.pointage.mode === 'target');
+  const pointageCotes = !!(mesure.pointage && mesure.pointage.mode === 'ref');
+  const ensemble = [s.scale, s.origine.x, s.origine.y, s.W, s.H, ortho.actif, ortho.parcelleOpacite, pointageSommets, pointageCotes,
+    SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND].join('|');
+  const verifier = verifierCles();
   objets.forEach(obj=>{
-    positionnerObjet(obj as ObjetRendu, {
-      scene: etat.scene,
-      selectionnee: obj.key === activeSel,
-      masque: ctx.objetMasque(obj),
-      transparent: obj.key === etat.isolement,
+    const selectionnee = obj.key === activeSel;
+    const masque = ctx.objetMasque(obj);
+    const transparent = obj.key === etat.isolement;
+    const couleurDiagnostic = ctx.couleurDiagnostic?.(obj) ?? null;
+    const v = vue(obj);
+    const cle = ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
+      + selectionnee + '|' + masque + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length;
+    const poignee = v.pointEls[0] ?? v.radiusHandle;
+    const deja = v.el ? dessins.get(v.el) : undefined;
+    const inchange = !!deja && deja.cle === cle && deja.poignee === poignee;
+    if(inchange && !verifier) return;
+    const contexte: ContextePositionnement = {
+      scene: s,
+      selectionnee,
+      masque,
+      transparent,
       // Une terrasse percee (bassin, trou) se dessine avec son trou.
       trous: trousDeTerrasse(obj, etat.objects),
       ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
       estTerrain: ctx.estTerrain,
-      pointageSommets: !!(mesure.pointage && mesure.pointage.mode === 'target'),
-      pointageCotes: !!(mesure.pointage && mesure.pointage.mode === 'ref'),
+      pointageSommets,
+      pointageCotes,
       reconstruirePoignees: ctx.rebuildHandles,
-      couleurDiagnostic: ctx.couleurDiagnostic?.(obj) ?? null
+      couleurDiagnostic
+    };
+    if(inchange) positionnerEnVerifiant(obj as ObjetRendu, contexte, (attribut) => {
+      console.error(`[cle de version] « ${obj.name || obj.key} » (${obj.fonction || 'sans fonction'}) : ${attribut} a change sans que l'objet soit touche`);
     });
+    else positionnerObjet(obj as ObjetRendu, contexte);
+    // Apres le dessin : des poignees reconstruites pendant le positionnement sont celles qu'on garde.
+    if(v.el) dessins.set(v.el, { cle: ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
+      + selectionnee + '|' + masque + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length, poignee: v.pointEls[0] ?? v.radiusHandle });
   });
 }
 

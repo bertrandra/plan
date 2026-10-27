@@ -3518,6 +3518,9 @@ async function jouer(navigateur, net, { f, theme, n }) {
   if (qualite) await page.addInitScript((q) => { try { localStorage.setItem('plan.qualite3d', q); } catch { /* stockage absent : niveau detecte */ } }, qualite);
   const erreurs = [];
   page.on('pageerror', (e) => erreurs.push(e.message));
+  // Un objet que le plan n'a pas redessine alors qu'il avait change (render/pipeline.ts, cle de version) : un chemin d'ecriture
+  // qui ne touche pas son objet (core/controleurObjets.ts). Le serveur de developpement le dit dans la console.
+  page.on('console', (m) => { if (m.type() === 'error' && m.text().startsWith('[cle de version]')) erreurs.push(m.text()); });
   page.on('dialog', (d) => d.accept());
   // Un point qui ne conclut pas dans le delai echoue sous son nom : sans cela, une attente sans fin
   // ne se lisait qu'a la coupure du job, sans dire quel point pendait ni ou.

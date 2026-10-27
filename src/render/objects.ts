@@ -212,11 +212,24 @@ function poser(e: Element, nom: string, valeur: string): void {
   let m = ecrits.get(e);
   if (!m) { m = {}; ecrits.set(e, m); }
   if (m[nom] === valeur) return;
+  verification?.(nom);
   m[nom] = valeur;
   e.setAttribute(nom, valeur);
 }
 function texte(e: Element, valeur: string): void {
-  if (e.textContent !== valeur) e.textContent = valeur;
+  if (e.textContent === valeur) return;
+  verification?.('texte');
+  e.textContent = valeur;
+}
+
+// La verification des cles de version (render/pipeline.ts) : un objet dont la cle n'a pas bouge est repositionne quand meme, et
+// chaque valeur qui change le dit. Hors verification, rien.
+let verification: ((attribut: string) => void) | null = null;
+
+/** Repositionne un objet que sa cle disait inchange, en signalant chaque attribut qui change pourtant. */
+export function positionnerEnVerifiant(obj: ObjetRendu, ctx: ContextePositionnement, signaler: (attribut: string) => void): void {
+  verification = signaler;
+  try { positionnerObjet(obj, ctx); } finally { verification = null; }
 }
 
 /** Cache un element s'il ne l'est pas deja : lire le style coute moins que l'ecrire. */

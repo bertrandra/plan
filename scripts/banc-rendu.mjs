@@ -69,7 +69,9 @@ for (const a of APPAREILS) {
   const page = await contexte.newPage();
   await servirThreeLocal(page);
   await simulerPlateforme(page);
-  await page.addInitScript(() => { window.__sansToitsFond = true; });
+  // Sur le serveur de developpement, le plan verifie ses cles de version en redessinant tout (render/pipeline.ts) : le banc mesure
+  // ce que les gens auront.
+  await page.addInitScript(() => { window.__sansToitsFond = true; window.__sansVerifierCles = true; });
   await page.goto(base + '/');
   await page.getByRole('button', { name: /d[ée]monstration/i }).click();
   await page.waitForFunction(() => window.__plan?.etat?.().objects.length > 0, null, { timeout: 60000 });
