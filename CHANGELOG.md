@@ -61,6 +61,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le plan ne redessine que l'objet qui change** (`MD/spec-ouvrages.md`, étapes 6.1 et 6.5). Un contrôleur des objets
+  (`core/controleurObjets.ts`) tient une version par objet : le glisser touche l'objet glissé à chaque image, l'explorateur
+  l'objet qu'il masque, un parasol posé sur le bord de sa terrasse quand elle bouge ; toute écriture qui passe par l'historique
+  sans nommer son objet rend tout neuf, le repli sûr. Le dessin du plan saute un objet dont rien n'a changé ; le chiffrage, les
+  cotes et la recherche des doublons se gardent tant que rien n'est écrit. **Garde-fou** : en développement (le serveur que
+  joue la fumée), un objet sauté est redessiné quand même et une clé reprise est vérifiée contre le plan sérialisé ; tout écart
+  s'écrit `[cle de version]` dans la console, et la fumée échoue. Au banc de production, à 600 objets : au téléphone, rendu
+  complet 212 ms → 73 à 97 ms, dont le dessin du plan 77 → 20 à 26 ms ; au bureau, 38 à 47 ms → 30 ms. Aucun nombre ne change.
+- **Les ouvrages du plan, déclarés une fois** (`model/ouvrages/`, étape 6.2). Chaque fonction d'objet (terrasse, pergola,
+  chemin…) se déclare dans le module de sa famille : libellé, formes admises, sections, hauteur par défaut, place au menu
+  « Fonction », emprise au sol. Les tables d'avant en dérivent à l'identique (testé contre leurs valeurs). Le modèle, le moteur,
+  `geo/` et `facade/` ne comparent plus la fonction à la main ; un cliquet du test d'architecture compte ces comparaisons par
+  couche. La spécification (`MD/spec-ouvrages.md`) décrit chaque ouvrage jusqu'à la géométrie, leurs dépendances, et ce qui
+  reste à corriger (références par numéro de côté, suppression sans nettoyage, couplages entre ouvrages).
 - **Chemins : une largeur par défaut et une surface sur la courbe dessinée — changement de version majeure** (`MD/RELEASE.md`
   §2.1, décision du 27 octobre 2026). Un chemin sans largeur écrite (un ancien fichier, un tracé importé d'un SVG) mesure
   désormais **1 m partout** : le dossier PDF et le dossier piscine lisaient 0,5 m quand l'inspecteur, le résumé, le PDF du plan et
