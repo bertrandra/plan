@@ -3,8 +3,8 @@ import { resumerChiffrage } from '../../../src/ui/chiffrage.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
-// Le resume du chiffrage (feuille de selection, bandeau de l'inspecteur, tuiles des resultats) est mis en cache sur le plan entier.
-// Feuille de route, etape 2.2 : la cle se calcule une fois par tache, et les grilles d'altitudes y entrent par leur identite.
+// Le resume du chiffrage (feuille de selection, bandeau de l'inspecteur, tuiles des resultats) se partage entre les appels d'un meme
+// rendu, et se refait a la tache suivante (ui/clePlan.ts : la cle est un jeton de tache, plus le plan serialise).
 const tache = () => new Promise((ok) => setTimeout(ok, 0));
 const plan = (): ObjetPlan[] => {
   const objets = structuredClone(DEMO_OBJECTS) as ObjetPlan[];
@@ -15,13 +15,15 @@ const plan = (): ObjetPlan[] => {
 const terrasse = (objets: ObjetPlan[]) => objets.find((o) => o.key === 'terrasse') as ObjetPlan & { type: 'polygon' };
 
 describe('le resume du chiffrage et son cache', () => {
-  it('un meme rendu le partage, et le plan inchange le garde d une tache a l autre', async () => {
+  it('un meme rendu le partage ; la tache suivante le refait, au meme resultat', async () => {
     const objets = plan();
     const r1 = resumerChiffrage(terrasse(objets), objets);
     expect(r1?.haut).toBeGreaterThan(0);
     expect(resumerChiffrage(terrasse(objets), objets)).toBe(r1);
     await tache();
-    expect(resumerChiffrage(terrasse(objets), objets)).toBe(r1);
+    const r2 = resumerChiffrage(terrasse(objets), objets);
+    expect(r2).not.toBe(r1);
+    expect(r2).toEqual(r1);
   });
 
   it('un geste dans une autre tache le fait recalculer, meme sur le meme tableau d objets', async () => {
@@ -35,7 +37,7 @@ describe('le resume du chiffrage et son cache', () => {
     expect(r2?.surface).not.toBe(r1?.surface);
   });
 
-  it('une grille du relief remplacee le fait recalculer ; ses valeurs ne sont pas relues une a une', async () => {
+  it('une grille du relief remplacee : meme resultat, recalcule', async () => {
     const objets = plan();
     const parcelle = objets.find((o) => o.key === 'parcelle') as ObjetPlan & { relief: { z: (number | null)[] } };
     const r1 = resumerChiffrage(terrasse(objets), objets);

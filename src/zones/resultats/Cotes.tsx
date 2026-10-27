@@ -11,6 +11,9 @@ import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { LigneProfil, Resultats } from '../../app/resultats.js';
 import { cleDuPlan } from '../../ui/clePlan.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import type { Magasin } from '../../app/magasin.js';
+import { memo as memoReact } from 'react';
+import { useVersionVisible } from '../composants/versionVisible.js';
 
 /**
  * Le brouillon d'une cote : reference, origine, coins, puis l'ajout. Chaque geste est une commande
@@ -47,11 +50,15 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
 /** Ce qu'une ligne du tableau calcule : ses deux longueurs, son denivele et la ligne du profil. */
 interface LigneCalculee { g: ReturnType<Resultats['geometrieCote']>; d: ReturnType<typeof deniveleCote> | null; ligne: LigneProfil | null }
 
-// Les lignes se reprennent tant que le plan et la cote n'ont pas change (ui/clePlan.ts) : le denivele lit le relief sous la cote, et
-// le tableau se redessine a chaque rendu, tiroir ferme compris (feuille de route, etape 2.2).
+// Les lignes se reprennent entre les appels d'un meme rendu (ui/clePlan.ts) : le denivele lit le relief sous la cote.
 let memo: { cle: string; relief: boolean; lignes: Map<string, LigneCalculee> } = { cle: '', relief: false, lignes: new Map() };
 
-export function Cotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes }) {
+/**
+ * Le tableau des cotes posees : ce qui se calcule (longueurs, denivele sur le relief, ligne du profil). Il ne suit le plan que tiroir
+ * visible (`version`, zones/composants/versionVisible.ts) ; cache, il garde ce qu'il montrait et se refait a l'ouverture. Le brouillon,
+ * au-dessus, reste vivant : ses boutons servent feuille fermee.
+ */
+const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes; version: number }) {
   const cotes = resultats.etat.measures;
   const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
@@ -74,35 +81,42 @@ export function Cotes({ resultats, commandes }: { resultats: Resultats; commande
     return r;
   };
   return (
+    <table className="attrTable" id="measureResultsTable"><tbody>
+      <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th>{relief && <th>Dénivelé</th>}<th>Affichage</th><th>Afficher</th>{relief && <th>Profil</th>}<th></th></tr>
+      {cotes.map(m => {
+        const { g, d, ligne } = calculer(m);
+        const mode = m.displayMode || 'along';
+        return (
+          <tr key={m.id} data-instance={m.id}>
+            <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
+            <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
+            <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
+              onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
+            <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
+            <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
+            {relief && <td>{d === null ? '—' : texteDenivele(d)}</td>}
+            <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
+              onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
+              {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
+            <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"
+              onChange={() => commandes.executer('mesure.afficher', undefined, { cote: m.id })} /></td>
+            {relief && <td><button type="button" data-controle="cote.profil" className="secondary small" disabled={!ligne} title="Montrer le profil du sol le long de cette cote, dans l’onglet Profil"
+              onClick={() => { if (ligne) resultats.profiler(ligne); }}>Profil</button></td>}
+            <td><button type="button" data-commande="mesure.supprimer" disabled={!ecrire} className="secondary small" onClick={() => commandes.executer('mesure.supprimer', undefined, { cote: m.id })}>Supprimer</button></td>
+          </tr>
+        );
+      })}
+    </tbody></table>
+  );
+});
+
+export function Cotes({ magasin, resultats, commandes }: { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }) {
+  const version = useVersionVisible(magasin, 'resultats');
+  return (
     <>
       <div className="sectionTitle">Mesure</div>
       <Brouillon resultats={resultats} commandes={commandes} />
-      <table className="attrTable" id="measureResultsTable"><tbody>
-        <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th>{relief && <th>Dénivelé</th>}<th>Affichage</th><th>Afficher</th>{relief && <th>Profil</th>}<th></th></tr>
-        {cotes.map(m => {
-          const { g, d, ligne } = calculer(m);
-          const mode = m.displayMode || 'along';
-          return (
-            <tr key={m.id} data-instance={m.id}>
-              <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>
-              <td>{resultats.targetLabel({ objKey: m.targetObjKey, ptIndex: m.targetPtIndex })}</td>
-              <td><button type="button" data-commande="mesure.inverserOrigine" disabled={!ecrire} className="secondary small" data-nom="Inverser l’origine" title="Changer l'extremite d'origine de cette mesure (A <-> B)"
-                onClick={() => commandes.executer('mesure.inverserOrigine', undefined, { cote: m.id })}>{'Extrémité ' + m.startEnd + ' ⇄'}</button></td>
-              <td style={{ fontWeight: mode === 'perp' ? 700 : 400 }}>{g ? g.perp.toFixed(2) + ' m' : '—'}</td>
-              <td style={{ fontWeight: mode === 'along' ? 700 : 400 }}>{g ? g.along.toFixed(2) + ' m' : '—'}</td>
-              {relief && <td>{d === null ? '—' : texteDenivele(d)}</td>}
-              <td><button type="button" data-commande="mesure.valeurAffichee" disabled={!ecrire} className="secondary small" data-nom="Valeur affichée (le long ou perpendiculaire)" title="Choisir quelle valeur est affichee sur le plan pour cette mesure"
-                onClick={() => commandes.executer('mesure.valeurAffichee', undefined, { cote: m.id })}>
-                {(mode === 'along' ? 'Le long' : 'Perpendiculaire') + ' ⇄'}</button></td>
-              <td><input type="checkbox" data-commande="mesure.afficher" disabled={!ecrire} checked={!!m.show} aria-label="Afficher sur le plan"
-                onChange={() => commandes.executer('mesure.afficher', undefined, { cote: m.id })} /></td>
-              {relief && <td><button type="button" data-controle="cote.profil" className="secondary small" disabled={!ligne} title="Montrer le profil du sol le long de cette cote, dans l’onglet Profil"
-                onClick={() => { if (ligne) resultats.profiler(ligne); }}>Profil</button></td>}
-              <td><button type="button" data-commande="mesure.supprimer" disabled={!ecrire} className="secondary small" onClick={() => commandes.executer('mesure.supprimer', undefined, { cote: m.id })}>Supprimer</button></td>
-            </tr>
-          );
-        })}
-      </tbody></table>
+      <TableCotes resultats={resultats} commandes={commandes} version={version} />
       <div className="controls">
         <BoutonCommande commandes={commandes} id="mesure.recalculer" className="secondary small">Recalculer les mesures</BoutonCommande>
         <BoutonCommande commandes={commandes} id="mesure.effacer" className="secondary small">Effacer les mesures</BoutonCommande>

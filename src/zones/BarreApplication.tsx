@@ -14,7 +14,7 @@
 import { contexteCourant, sessionCourante, enAdmin, estAdministrateur } from '../app/acces.js';
 import { reglesLocalesDemandees } from '../app/ecouteurs/faitsLocaux.js';
 import { BACKPROD_API_URL } from '../plateforme/config.js';
-import { useEffect, useSyncExternalStore } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useStore } from 'zustand';
 import { ortho } from '../render/ortho.js';
 import { reliefDe, affichageRelief } from '../model/relief.js';
@@ -58,10 +58,32 @@ function fermer(e: React.SyntheticEvent<HTMLElement>): void {
 
 interface PropsMenu { magasin: Magasin; commandes: RegistreCommandes }
 
+// Un menu ferme ne se voit pas : ses entrees ne relisent pas l'etat de leur commande a chaque rendu du plan (celui des doublons
+// cherche dans tout le plan), elles gardent le dernier lu et le relisent a l'ouverture. Le clic, lui, reverifie toujours
+// (`commandes.executer`). Hors d'un menu, une entree relit a chaque rendu.
+const MenuOuvert = createContext(true);
+
+function Deroulant({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
+  const [ouvert, poserOuvert] = useState(false);
+  return (
+    <details className="menu" id={id} onToggle={(e) => poserOuvert(e.currentTarget.open)}>
+      <summary>{titre}</summary>
+      <MenuOuvert.Provider value={ouvert}>{children}</MenuOuvert.Provider>
+    </details>
+  );
+}
+
+function useEtatCommande(commandes: RegistreCommandes, id: string): ReturnType<RegistreCommandes['etat']> {
+  const ouvert = useContext(MenuOuvert);
+  const lu = useRef<ReturnType<RegistreCommandes['etat']> | null>(null);
+  if (ouvert || !lu.current) lu.current = commandes.etat(id);
+  return lu.current;
+}
+
 /** Une entree de menu qui execute une commande, grisee si la commande ne l'est pas. */
 function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes: RegistreCommandes; id: string; libelle: string; idDom?: string; apres?: () => void; raccourci?: string }) {
   const c = commandes.obtenir(id);
-  const etat = commandes.etat(id);
+  const etat = useEtatCommande(commandes, id);
   // Effacee plutot que grisee quand l'organisation n'a pas achete la fonction (spec §4.2).
   if (!etat.utilisable && etat.raison === 'capacite') return null;
   // Un quota atteint laisse l'entree cliquable : le clic dit la limite (app/limiteProjets.ts).
@@ -84,7 +106,7 @@ function Entree({ commandes, id, libelle, idDom, apres, raccourci }: { commandes
  * manquante, ou ce qu'il faut faire d'abord). Rien sur bureau, ou l'infobulle la porte.
  */
 function RefusAuDoigt({ commandes, id, tactile }: { commandes: RegistreCommandes; id: string; tactile: boolean }) {
-  const etat = commandes.etat(id);
+  const etat = useEtatCommande(commandes, id);
   if (!tactile || etat.utilisable || etat.raison === 'capacite' || !('message' in etat)) return null;
   return <li className="refusMenu" role="note">{etat.message}</li>;
 }
@@ -117,8 +139,7 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
   const p = useStore(magasin.store, (s) => s.projet);
   const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
   return (
-    <details className="menu" id="menuFichier">
-      <summary>Fichier</summary>
+    <Deroulant id="menuFichier" titre="Fichier">
       <ul role="menu">
         {p.apiDisponible && <Entree commandes={commandes} id="projet.nouveau" libelle="Nouveau projet" />}
         {p.apiDisponible && <Entree commandes={commandes} id="projet.enregistrer" libelle="Enregistrer" raccourci="Ctrl+S" />}
@@ -146,14 +167,13 @@ function MenuFichier({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="fichier.exporterJson" libelle="Exporter le projet (JSON)" idDom="exportJsonBtn" />
         <Case magasin={magasin} option="exportSansParcelle" idDom="chkExportSansParcelle" controle="fichier.option.exportSansParcelle" libelle="Exporter sans la parcelle" titre="Retire la parcelle, les parcelles voisines, les mesures qui s'y appuient et la clôture : pour transmettre un aménagement sans divulguer la localisation" />
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
 function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiroir }) {
   return (
-    <details className="menu" id="menuExporter">
-      <summary>Exporter</summary>
+    <Deroulant id="menuExporter" titre="Exporter">
       <ul role="menu">
         <Entree commandes={commandes} id="export.resume" libelle="Résumé à copier" apres={() => tiroir.activer('resume')} />
         <li className="separateur" role="separator" />
@@ -173,7 +193,7 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
         <li className="separateur" role="separator" />
         <Entree commandes={commandes} id="export.glb" libelle="GLB (scène 3D)" idDom="exportGlbBtn" />
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
@@ -208,8 +228,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     </li>
   );
   return (
-    <details className="menu" id="menuAffichage">
-      <summary>Affichage</summary>
+    <Deroulant id="menuAffichage" titre="Affichage">
       <ul role="menu">
         {bascules.filter(([, , , visible]) => visible).map(([id, libelle, coche]) => (
           <li key={id} role="menuitemcheckbox" aria-checked={coche}>
@@ -224,7 +243,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
         <Entree commandes={commandes} id="affichage.orthoRecharger" libelle="Recharger la photo aérienne" />
         <li className="menuAide">Le remplissage ne s'applique que fond affiché : le contour et les cotes restent, seul le fond de couleur s'efface. Les tuiles ne sont pas enregistrées, ces réglages le sont.</li>
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
@@ -232,8 +251,7 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
   useStore(magasin.store, (s) => s.version);
   const methode = tiroir.onglets().some(o => o.id === 'methode');
   return (
-    <details className="menu" id="menuAide">
-      <summary>Aide</summary>
+    <Deroulant id="menuAide" titre="Aide">
       <ul role="menu">
         <li role="menuitem">
           <button type="button" data-controle="aide.methode" disabled={!methode} title={methode ? undefined : 'Sélectionne une terrasse : la méthode décrit son calcul'} onClick={(e) => { tiroir.activer('methode'); fermer(e); }}>
@@ -244,7 +262,7 @@ function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
           <button type="button" data-controle="aide.version" onClick={(e) => { showToast(versionLongue()); fermer(e); }}><span className="coche" aria-hidden="true" />Version</button>
         </li>
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 
@@ -264,8 +282,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
   if (!demos && !estAdministrateur()) return null;
   const aller = (adresse: string) => (e: React.MouseEvent<HTMLElement>) => { fermer(e); location.assign(adresse); };
   return (
-    <details className="menu" id="menuAdmin">
-      <summary>Admin</summary>
+    <Deroulant id="menuAdmin" titre="Admin">
       <ul role="menu">
         <li role="menuitem">
           <button type="button" data-controle="admin.audit" onClick={aller(demos ? '?admin&mode=audit' : '?mode=audit')}>
@@ -312,7 +329,7 @@ export function MenuAdmin({ commandes }: { commandes: RegistreCommandes }) {
         </>}
         {reglesLocalesDemandees() && <Entree commandes={commandes} id="admin.faitsLocaux" libelle="Essayer des faits de toits…" />}
       </ul>
-    </details>
+    </Deroulant>
   );
 }
 

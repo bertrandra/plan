@@ -40,7 +40,7 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
     case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
     case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;
     case 'methode': contenu = pourTerrasse(t => <Methode obj={t} resultats={resultats} />); break;
-    case 'mesure': contenu = <Cotes resultats={resultats} commandes={commandes} />; break;
+    case 'mesure': contenu = <Cotes magasin={magasin} resultats={resultats} commandes={commandes} />; break;
     case 'plu': contenu = <Plu resultats={resultats} commandes={commandes} />; break;
     case 'resume': contenu = <Resume resultats={resultats} commandes={commandes} />; break;
     case 'noteCalcul': contenu = <NoteCalcul resultats={resultats} commandes={commandes} />; break;

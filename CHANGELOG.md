@@ -61,6 +61,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Un rendu du plan ne sérialise plus tout le plan** (feuille de route, étape 2.2). La clé qui gardait le chiffrage, les cotes et
+  la recherche des doublons d'un rendu à l'autre était le plan entier en JSON : à 600 objets, 800 Ko et 78 ms au téléphone, à
+  chaque rendu, plus que les calculs qu'elle évitait. Elle n'est plus qu'un jeton de tâche (`ui/clePlan.ts`) : les appels d'un
+  même rendu partagent leur résultat, le rendu suivant le refait. La recherche des doublons ne se fait plus qu'à l'ouverture du
+  menu qui la propose : une entrée d'un menu fermé garde l'état lu et le relit à l'ouverture, le clic revérifie toujours. Le
+  tableau des cotes posées ne se recalcule que tiroir visible ; les boutons du panneau restent vivants. Au banc de production, à
+  600 objets : au bureau 140 à 169 ms → 38 à 47 ms, au téléphone 364 à 391 ms → 212 à 217 ms. Aucun nombre ne change.
 - **Le plan ne réécrit plus ce qui n'a pas changé** (feuille de route, étape 2.2, fin). Les cotes du tiroir (et leur dénivelé sur le
   relief) et la recherche des doublons du menu se reprennent tant que le plan n'a pas changé (`ui/clePlan.ts`, la clé que le
   chiffrage calculait déjà) ; le panneau de la Vue 3D ne suit plus le plan quand il est caché ; le dessin du plan ne réécrit plus

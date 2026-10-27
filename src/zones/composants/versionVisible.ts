@@ -5,8 +5,9 @@
 // dont une zone se cache : au telephone, dans sa feuille fermee (hors de l'ecran, `html[data-feuille]`) ; sur tablette et au
 // bureau, repliee (l'inspecteur et l'explorateur reduits a leur bouton).
 //
-// Le tiroir des resultats n'en est pas : ses commandes servent feuille fermee (les cotes se prennent sur le plan avec les boutons
-// du panneau Cotes, point 11 de la fumee), et le chiffrage s'y relit pendant qu'on regle la terrasse dans l'inspecteur (point 17).
+// Le tiroir des resultats n'en est pas tout entier : ses commandes servent feuille fermee (les cotes se prennent sur le plan avec les
+// boutons du panneau Cotes, point 11 de la fumee), et le chiffrage s'y relit pendant qu'on regle la terrasse dans l'inspecteur
+// (point 17). Seul le tableau des cotes posees, qui calcule, s'y gele (zones/resultats/Cotes.tsx).
 //
 // Au telephone, ces zones cachees se redessinaient a chaque rendu du plan, et c'etait l'essentiel d'un rendu (banc de rendu,
 // octobre 2026 : l'inspecteur seul coutait plus que le plan).
@@ -19,6 +20,7 @@ const ZONES = {
   inspecteur: { feuille: 'proprietes', depliee: (s: EtatMagasin) => s.inspecteurOuvert },
   explorateur: { feuille: 'objets', depliee: (s: EtatMagasin) => s.explorateurOuvert },
   palette: { feuille: 'outils', depliee: () => true },
+  resultats: { feuille: 'resultats', depliee: (s: EtatMagasin) => s.tiroir !== 'replie' },
 } satisfies Record<string, { feuille: Feuille; depliee: (s: EtatMagasin) => boolean }>;
 
 export type ZoneMasquable = keyof typeof ZONES;
