@@ -1,21 +1,48 @@
-// La cle du plan pour un tour : un calcul qui ne depend que du plan (le chiffrage, les cotes, la recherche des doublons) se reprend tel
-// quel entre les appels d'un meme rendu (feuille de selection, bandeau de l'inspecteur, tuiles et resume des resultats, cotes, menu).
-// Elle vaut pour une tache : une micro-tache l'efface avant que le plan ne puisse changer (un geste est une autre tache).
+// La cle du plan : un calcul qui ne depend que du plan (le chiffrage, les cotes, la recherche des doublons) se reprend tel quel tant
+// qu'elle n'a pas change.
 //
-// Ce n'est plus le plan serialise : a 600 objets, la serialisation (800 Ko, 78 ms au telephone) coutait plus que les calculs
-// qu'elle evitait de refaire (le chiffrage d'une terrasse, une vingtaine de ms), et elle se payait a chaque rendu, change ou non.
-// La recherche des doublons, elle, ne se fait plus qu'a l'ouverture du menu qui la propose (zones/BarreApplication.tsx).
+// Elle a ete le plan serialise : a 600 objets, 800 Ko et 78 ms au telephone, a chaque rendu, plus que les calculs qu'elle evitait.
+// Puis un jeton par tache : exact, mais chaque rendu refaisait tout. C'est maintenant la version de l'ensemble que tient le
+// controleur des objets (core/controleurObjets.ts, MD/spec-ouvrages.md etape 6.5) : elle change a chaque ecriture, quel que soit
+// l'objet, et un tableau d'objets remplace (ouverture, import) en fait une autre.
+//
+// Le garde-fou : en developpement, une cle reprise est verifiee contre le plan serialise du calcul qu'elle reprend ; un ecart
+// (une ecriture qui n'aurait pas touche son objet) s'ecrit `[cle de version]` dans la console, et la fumee echoue.
 
 import type { ObjetPlan } from '../model/types.js';
+import { versionEnsemble } from '../core/controleurObjets.js';
 
-let jeton = 0;
-let cleDuTour: { objets: readonly ObjetPlan[]; cle: string } | null = null;
+const tableaux = new WeakMap<readonly ObjetPlan[], number>();
+let prochainTableau = 0;
 
-/** La cle du plan pour cette tache : la meme pour tous les appels d'un rendu, une autre a la tache suivante. */
+// Les grilles d'altitudes entrent dans la serialisation de verification par leur identite : jamais modifiees sur place, seulement
+// remplacees.
+const grilles = new WeakMap<object, number>();
+let prochaineGrille = 0;
+const grilleParIdentite = (k: string, v: unknown): unknown => {
+  if (k !== 'z' || !Array.isArray(v)) return v;
+  let n = grilles.get(v);
+  if (n === undefined) { n = ++prochaineGrille; grilles.set(v, n); }
+  return 'grille#' + n;
+};
+
+const verifier = (): boolean => import.meta.env.DEV && !(globalThis as { __sansVerifierCles?: boolean }).__sansVerifierCles;
+// Le plan serialise de chaque cle deja donnee : seulement en developpement.
+const vus = new Map<string, string>();
+
+/** La cle du plan : la meme tant que rien n'a ete ecrit. */
 export function cleDuPlan(objets: readonly ObjetPlan[]): string {
-  if (cleDuTour && cleDuTour.objets === objets) return cleDuTour.cle;
-  const cle = 'tour#' + ++jeton;
-  cleDuTour = { objets, cle };
-  queueMicrotask(() => { cleDuTour = null; });
+  let t = tableaux.get(objets);
+  if (t === undefined) { t = ++prochainTableau; tableaux.set(objets, t); }
+  const cle = t + ':' + versionEnsemble();
+  if (verifier()) {
+    const plan = JSON.stringify(objets, grilleParIdentite);
+    const avant = vus.get(cle);
+    if (avant === undefined) { if (vus.size > 50) vus.clear(); vus.set(cle, plan); }
+    else if (avant !== plan) {
+      console.error('[cle de version] le plan a change sans que rien ne soit touche : le chiffrage, les cotes ou les doublons seraient restes ceux d\'avant');
+      vus.set(cle, plan);
+    }
+  }
   return cle;
 }

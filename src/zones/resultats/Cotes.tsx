@@ -50,7 +50,7 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
 /** Ce qu'une ligne du tableau calcule : ses deux longueurs, son denivele et la ligne du profil. */
 interface LigneCalculee { g: ReturnType<Resultats['geometrieCote']>; d: ReturnType<typeof deniveleCote> | null; ligne: LigneProfil | null }
 
-// Les lignes se reprennent entre les appels d'un meme rendu (ui/clePlan.ts) : le denivele lit le relief sous la cote.
+// Les lignes se reprennent tant que le plan n'a pas change (ui/clePlan.ts) : le denivele lit le relief sous la cote.
 let memo: { cle: string; relief: boolean; lignes: Map<string, LigneCalculee> } = { cle: '', relief: false, lignes: new Map() };
 
 /**

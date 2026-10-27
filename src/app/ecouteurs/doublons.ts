@@ -14,8 +14,8 @@ import type { ObjetPlan } from '../../model/types.js';
 
 export function brancherDoublons(a: Atelier, ctx: { buildThreeScene: (obj: ObjetPlan | null) => void }, cmd: RegistreCommandes): void {
   const objet = (n: number) => n + (n > 1 ? ' objets' : ' objet');
-  // Le menu demande s'il y a des doublons a son ouverture (zones/BarreApplication.tsx) ; ses deux entrees (Fichier, Admin) partagent
-  // la recherche d'un meme rendu (ui/clePlan.ts).
+  // Le menu demande s'il y a des doublons a son ouverture (zones/BarreApplication.tsx) ; la recherche se reprend tant que le plan n'a
+  // pas change (ui/clePlan.ts).
   let vu = { cle: '', doublons: false };
   const aDesDoublons = () => {
     const cle = cleDuPlan(a.etat.objects);
