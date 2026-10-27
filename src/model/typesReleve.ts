@@ -132,6 +132,12 @@ export interface ReleveFacade {
    * corrige et la confiance du calage fin.
    */
   calage?: CalageReleve;
+  /**
+   * Les valeurs de la detection posees par la calibration de l'admin au moment du releve (facade/regles/facades/surcharges.ts) ;
+   * vide : les valeurs livrees. Une detection rejouee plus tard part des memes seuils (facade/regles/facades/rejeuReleve.ts).
+   * Absente sur un releve d'avant le schema 5 : on ne sait pas quels seuils l'ont produit.
+   */
+  calibration?: Readonly<Record<string, number>>;
   /** La structure de la facade, recalculee sur les ouvertures retenues (spec facades §10, lot L15). */
   grille?: GrilleFacade;
   /** Les corrections de l'utilisateur sur la proposition de l'analyse (spec facades §12, lot L15). */

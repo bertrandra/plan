@@ -67,6 +67,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   le modèle » le propose. Les démos livrées passent au 5. **La plateforme doit accepter 5 avant le dépôt** : backprod le déclare
   depuis bertrandra/backprod#236, mais la ligne `project_schema_versions` de la production et du monde d'essai se règle à la
   console (preflight signale l'écart) ; sinon chaque enregistrement de ces projets répond 422.
+- **Un relevé de façade garde la calibration qui l'a produit** (feuille de route, étape 1.4). Chaque relevé écrit désormais les
+  seuils de détection que la calibration de l'admin avait posés à ce moment (`calibration`, vide quand ce sont les valeurs
+  livrées) ; `reglagesDuReleve` (`facade/regles/facades/rejeuReleve.ts`) rend les seuils pour rejouer sa détection, ceux du relevé
+  et jamais la calibration du jour. Un relevé qui porte ce champ s'écrit au schéma 5 ; un relevé d'avant ne dit rien et se rejoue
+  avec les seuils du moment.
+- **Les champs propres à une fonction rangés dans un sous-objet** (feuille de route, étape 4.3). En mémoire, le toit et les façades
+  d'un bâtiment vivent dans `batiment`, le diamètre et l'essence d'un arbre dans `arbre`, le pied d'un parasol dans `parasol`
+  (`model/typesFonctions.ts`) ; la clôture, la pergola et la piscine ont chacune leur fichier de types, et `model/types.ts` passe
+  sous 600 lignes. **Le fichier de projet ne change pas** : la normalisation range les champs à la lecture, la sérialisation les
+  remet à plat (`model/champsFonction.ts`), et aucune empreinte ne bouge. Les interfaces qui décrivaient un bâtiment à plat (lecture
+  LiDAR des toits, comparaison d'un bâtiment vérifié, couleur des murs et des toits) lisent le sous-objet ; les propositions de
+  l'audit recopient le sous-objet avant d'y écrire, pour que l'aperçu ne touche pas au projet.
 
 - **Le rendu au téléphone, environ deux fois plus court** (feuille de route, étape 2.2, en partie). Trois coûts ôtés d'un rendu
   où rien n'a changé :

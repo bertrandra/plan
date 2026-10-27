@@ -70,7 +70,7 @@ export const MIGRATIONS: readonly Migration[] = [
   },
   {
     de: 4,
-    apporte: 'la piscine, la pergola, la clôture, les corps et volumes mesurés du toit, les fenêtres et le voisinage en 3D',
+    apporte: 'la piscine, la pergola, la clôture, les corps et volumes mesurés du toit, les fenêtres et le voisinage en 3D, et la calibration qui a produit un relevé de façade',
     // Ces champs s'ecrivaient deja au 4 (CHAMPS_DEPUIS) : un document 4 est un document 5 valide. Le 5 les distingue, pour
     // qu'un lecteur 4 refuse le fichier plutot que de les perdre.
     migrer: (d) => d
@@ -125,6 +125,8 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
       if (v === undefined || v === null || (champ === 'facades' && (!Array.isArray(v) || !v.length))) continue;
       s = Math.max(s, depuis);
     }
+    // Un releve qui garde la calibration de sa detection (etape 1.4) : un lecteur 4 l'effacerait.
+    if (Array.isArray(brut.facades) && brut.facades.some((f) => !!f && typeof f === 'object' && 'calibration' in f)) s = Math.max(s, 5);
     // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
     if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
   }
