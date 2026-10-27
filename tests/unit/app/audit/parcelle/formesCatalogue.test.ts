@@ -86,7 +86,7 @@ describe('un toit de revolution et un papillon', () => {
 
   it('un papillon lu comme deux appentis : un seul corps le remplace', () => {
     const t = monter({}, corps(L, W, { faitage: 3, egouts: [5.5, 5.5] }));
-    const corpsLus = (t.objets[1] as ObjetPlan).batiment?.corpsToit!;
+    const corpsLus = (t.objets[1] as ObjetPlan).batiment!.corpsToit!;
     expect(corpsLus.length).toBeGreaterThan(1);
     const c = (toit(t)?.effet as { corps: CorpsToit[] } | undefined)?.corps;
     expect(c).toHaveLength(1);

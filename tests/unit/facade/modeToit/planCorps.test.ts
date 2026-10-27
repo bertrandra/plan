@@ -27,7 +27,7 @@ describe('les marqueurs du mode Plan', () => {
   it('un par element pose, a sa place sur le toit', () => {
     const o = maison();
     for (const id of ['forme:deux-pans', 'sur:pignon', 'sur:cheminee', 'sur:fenetre-toit', 'sur:solaire', 'sur:jacobine']) appliquerPiece(o, id);
-    const m = marqueursDuCorps(o.batiment?.corpsToit![0]!);
+    const m = marqueursDuCorps(o.batiment!.corpsToit![0]!);
     expect(m.map((x) => x.type).sort()).toEqual(['cheminee', 'fenetre-toit', 'lucarne', 'pignon', 'solaire']);
     for (const x of m) { expect(x.x).toBeGreaterThanOrEqual(-0.01); expect(x.x).toBeLessThanOrEqual(10.01); expect(x.y).toBeGreaterThanOrEqual(-0.01); expect(x.y).toBeLessThanOrEqual(6.01); }
   });

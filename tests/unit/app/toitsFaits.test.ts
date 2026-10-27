@@ -40,7 +40,7 @@ describe('un fait en remplacement', () => {
     expect(a.batiment?.toit).toMatchObject({ forme: 'deux-pans', hauteur: 4, angleFaitage: 90, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
     expect(a.elevation).toBe(4);
     expect(a.batiment?.corpsToit).toHaveLength(1);
-    expect(a.batiment?.corpsToit![0]).toMatchObject({ faitage: 8, egouts: [4, 4], posFaitage: 6 });
+    expect(a.batiment!.corpsToit![0]).toMatchObject({ faitage: 8, egouts: [4, 4], posFaitage: 6 });
   });
 });
 
@@ -48,12 +48,12 @@ describe('un fait en contrainte', () => {
   it('restreint la forme simple lue : un deux-pans observe en croupes est relu en croupes', async () => {
     const objets = [batiment()];
     await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(objets[0]!.batiment?.toit!.forme).toBe('deux-pans');
+    expect(objets[0]!.batiment!.toit!.forme).toBe('deux-pans');
     essai({ observation: { forme: ['croupes', 'quatre-pans'] } });
     const avecFait = [batiment()];
     await toitsDepuisLidar(avecFait, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(['croupes', 'quatre-pans']).toContain(avecFait[0]!.batiment?.toit!.forme);
-    expect(avecFait[0]!.batiment?.toit!.couleur).toBe('#aa4433');
+    expect(['croupes', 'quatre-pans']).toContain(avecFait[0]!.batiment!.toit!.forme);
+    expect(avecFait[0]!.batiment!.toit!.couleur).toBe('#aa4433');
   });
 
   it('laisse le toit lu quand il dit deja ce que l on a vu', async () => {

@@ -62,9 +62,9 @@ describe('les corps dans le plan', () => {
   it('liste les corps quand il y en a plusieurs, le principal d abord', () => {
     const o = maison();
     appliquerPiece(o, 'corps:aile');
-    const l = listerElements(o.batiment?.corpsToit!).filter((e) => e.cible.type === 'corps');
+    const l = listerElements(o.batiment!.corpsToit!).filter((e) => e.cible.type === 'corps');
     expect(l.map((e) => e.libelle)).toEqual(['Corps principal', 'Corps 2']);
-    expect(rangPrincipal(o.batiment?.corpsToit!)).toBe(0);
+    expect(rangPrincipal(o.batiment!.corpsToit!)).toBe(0);
   });
 
   it('deplace, tourne et etire un corps sans toucher aux autres, et ce qui est pose dessus suit', () => {

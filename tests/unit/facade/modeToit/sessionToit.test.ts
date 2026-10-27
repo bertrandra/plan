@@ -27,16 +27,16 @@ describe('la session d edition du toit', () => {
     expect(empiler(h, o)).toBe(true);
     expect(aChange(h)).toBe(true);
     expect(annuler(h, o)).toBe(true);
-    expect(o.batiment?.corpsToit![0]!.faitage).toBe(7);
+    expect(o.batiment!.corpsToit![0]!.faitage).toBe(7);
     expect(peutRetablir(h)).toBe(true);
     expect(retablir(h, o)).toBe(true);
-    expect(o.batiment?.corpsToit![0]!.faitage).toBe(8);
+    expect(o.batiment!.corpsToit![0]!.faitage).toBe(8);
     expect(revenirAuDepart(h, o)).toBe(true);
     expect(o.batiment?.corpsToit).toBeUndefined();
     expect(o.batiment?.toitFige).toBeUndefined();
     // Revenir au depart est une etape : on peut l'annuler.
     expect(annuler(h, o)).toBe(true);
-    expect(o.batiment?.corpsToit![0]!.faitage).toBe(8);
+    expect(o.batiment!.corpsToit![0]!.faitage).toBe(8);
   });
 
   it('un geste sans effet n empile rien, un geste apres annulation coupe la suite', () => {

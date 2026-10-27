@@ -35,13 +35,13 @@ describe('les elements de facade dans l inspecteur', () => {
     delete c.obj.batiment?.toitFige;
     const l = lignes(c)[0] as ChampLigne;
     sous<ChampChoix>(l, 'forme').ecrire(c, 'conge');
-    expect(c.obj.batiment?.corpsToit![1]!.saillie!.forme).toBe('conge');
+    expect(c.obj.batiment!.corpsToit![1]!.saillie!.forme).toBe('conge');
     sous<ChampNombre>(l, 'largeur').ecrire(c, 3.2);
-    expect(c.obj.batiment?.corpsToit![1]!.saillie!.largeurM).toBeCloseTo(3.2, 2);
+    expect(c.obj.batiment!.corpsToit![1]!.saillie!.largeurM).toBeCloseTo(3.2, 2);
     expect(c.obj.batiment?.toitFige).toBe(true);
     // Une largeur plus grande que le mur est ramenee au mur.
     sous<ChampNombre>(l, 'largeur').ecrire(c, 40);
-    expect(c.obj.batiment?.corpsToit![1]!.saillie!.largeurM).toBeLessThanOrEqual(9.8);
+    expect(c.obj.batiment!.corpsToit![1]!.saillie!.largeurM).toBeLessThanOrEqual(9.8);
   });
 
   it('le retrait d une galerie se regle, et retirer l element le supprime', () => {
@@ -49,7 +49,7 @@ describe('les elements de facade dans l inspecteur', () => {
     appliquerPiece(c.obj, 'facade:galerie');
     const l = lignes(c)[0] as ChampLigne;
     sous<ChampNombre>(l, 'retrait').ecrire(c, 0.5);
-    expect(c.obj.batiment?.corpsToit![1]!.retraitM).toBe(0.5);
+    expect(c.obj.batiment!.corpsToit![1]!.retraitM).toBe(0.5);
     sous<ChampBouton>(l, 'retirer').executer(c);
     expect(c.obj.batiment?.corpsToit).toHaveLength(1);
     expect(lignes(c)).toHaveLength(0);

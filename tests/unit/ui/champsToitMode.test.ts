@@ -128,7 +128,7 @@ describe('Materiau de la couverture', () => {
     // Le materiau deduit ne change pas avec le choix : il reste lisible dans « Automatique ».
     expect(m.options(c)[0]!.libelle).toBe('Automatique (ardoise)');
     m.ecrire(c, '');
-    expect(c.obj.batiment?.toit && 'couverture' in c.obj.batiment?.toit).toBe(false);
+    expect(c.obj.batiment?.toit && 'couverture' in c.obj.batiment.toit).toBe(false);
   });
 
   it('ne se montre pas sur un toit plat simple', () => {

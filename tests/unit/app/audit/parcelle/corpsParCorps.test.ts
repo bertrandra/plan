@@ -52,7 +52,7 @@ describe('la silhouette arbitrée corps par corps', () => {
     const avant = JSON.stringify(o.batiment?.corpsToit?.slice(0, 2));
     appliquerPropositions([o], [aile!], [], '2026-10-18');
     expect(JSON.stringify(o.batiment?.corpsToit?.slice(0, 2))).toBe(avant);
-    expect(formeDuCorps(o.batiment?.corpsToit![2]!)).toBe('appentis');
+    expect(formeDuCorps(o.batiment!.corpsToit![2]!)).toBe('appentis');
   });
 
   it('des croupes ne se posent pas en travers d’un corps plus large que long : rien n’est proposé plutôt qu’un toit faux', () => {
@@ -72,12 +72,12 @@ describe('la silhouette arbitrée corps par corps', () => {
     expect(murs.find((a) => a.cible === 'facade:maison#13')?.groupes.map((g) => [g.valeur, g.retenu])).toEqual([['ligne droite', false], ['triangle', true]]);
     expect(murs.every((a) => a.options?.some((x) => x.libelle === 'ligne droite'))).toBe(true);
     appliquerPropositions([o], [aile!], [], '2026-10-19');
-    const c = o.batiment?.corpsToit![2]!;
+    const c = o.batiment!.corpsToit![2]!;
     // Le faitage reste celui que dit le mur nord ; le pignon prend le long pan est, jusqu'au faitage.
     expect(c.pignons.filter((g) => g.fin - g.debut > 4)).toHaveLength(1);
     expect(c.pignons[0]?.faitage).toBe(c.faitage);
     // Le haut du mur est montre maintenant un triangle : la photo s'y plaquera en triangle.
-    expect(silhouetteDesCorps(facade(13), o.batiment?.corpsToit!, 6)).toBe('triangle');
+    expect(silhouetteDesCorps(facade(13), o.batiment!.corpsToit!, 6)).toBe('triangle');
   });
 
   it('forcer « ligne droite » sur le mur nord retire le pignon traversant ; un faîtage tourné que la mesure ne porte pas n’est pas proposé', () => {

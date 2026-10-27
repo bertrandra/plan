@@ -73,24 +73,24 @@ describe('poser un geste', () => {
     expect(raisonIndisponible(o, 'facade:galerie')).toBeNull();
     expect(appliquerPiece(o, 'facade:galerie')).toBe(true);
     expect(o.batiment?.corpsToit).toHaveLength(2);
-    const g = o.batiment?.corpsToit![1]!;
+    const g = o.batiment!.corpsToit![1]!;
     expect(g.ouvert).toBe(true);
     expect(g.saillie?.genre).toBe('galerie');
     expect(g.posFaitage).toBe(0);
     expect(o.batiment?.toitFige).toBe(true);
     // Le corps principal reste le premier, et reste le principal.
-    expect(corpsPrincipal(o)).toBe(o.batiment?.corpsToit![0]);
+    expect(corpsPrincipal(o)).toBe(o.batiment!.corpsToit![0]);
   });
   it('un appentis ferme est ferme', () => {
     const o = batiment();
     appliquerPiece(o, 'facade:appentis-ferme');
-    expect(o.batiment?.corpsToit![1]!.ouvert).toBe(false);
+    expect(o.batiment!.corpsToit![1]!.ouvert).toBe(false);
   });
   it('deux elements se posent sur deux murs differents', () => {
     const o = batiment();
     appliquerPiece(o, 'facade:bow-rectangle');
     appliquerPiece(o, 'facade:bow-arc');
-    const [a, b] = [o.batiment?.corpsToit![1]!.saillie!, o.batiment?.corpsToit![2]!.saillie!];
+    const [a, b] = [o.batiment!.corpsToit![1]!.saillie!, o.batiment!.corpsToit![2]!.saillie!];
     expect(a.mur).not.toBe(b.mur);
   });
   it('refuse un geste inconnu', () => {
@@ -127,10 +127,10 @@ describe('le pignon sur la facade choisie', () => {
     expect(raisonIndisponible(o, 'sur:pignon', { rang: 0, mur: 0 })).toBeNull();
     // Un refus ne pose rien.
     expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 1 })).toBe(false);
-    expect(o.batiment?.corpsToit![0]!.pignons).toHaveLength(0);
+    expect(o.batiment!.corpsToit![0]!.pignons).toHaveLength(0);
     // Le long pan d'en face : le pignon est du pan 1.
     expect(appliquerPiece(o, 'sur:pignon', { rang: 0, mur: 2 })).toBe(true);
-    expect(o.batiment?.corpsToit![0]!.pignons[0]!.pan).toBe(1);
+    expect(o.batiment!.corpsToit![0]!.pignons[0]!.pan).toBe(1);
     const plat = batiment();
     appliquerPiece(plat, 'forme:plat');
     expect(raisonIndisponible(plat, 'sur:pignon', { rang: 0, mur: 0 })).toBe('Pas de pignon sur cette façade.');
@@ -144,15 +144,15 @@ describe('un geste n agit que sur le corps choisi', () => {
   const deuxCorps = (): ObjetPlan => {
     const o = batiment();
     appliquerPiece(o, 'forme:deux-pans');
-    const aile = { ...JSON.parse(JSON.stringify(o.batiment?.corpsToit![0])), pts: [{ x: 10, y: 1 }, { x: 14, y: 1 }, { x: 14, y: 4 }, { x: 10, y: 4 }], faitage: 4, egouts: [2.5, 2.5], posFaitage: 1.5, pignons: [] };
-    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit!, aile];
+    const aile = { ...JSON.parse(JSON.stringify(o.batiment!.corpsToit![0])), pts: [{ x: 10, y: 1 }, { x: 14, y: 1 }, { x: 14, y: 4 }, { x: 10, y: 4 }], faitage: 4, egouts: [2.5, 2.5], posFaitage: 1.5, pignons: [] };
+    champsBatiment(o).corpsToit = [...o.batiment!.corpsToit!, aile];
     return o;
   };
   it('une forme ne change que le corps choisi, a son emprise et ses hauteurs ; l autre reste tel quel', () => {
-    const o = deuxCorps(), grand = JSON.stringify(o.batiment?.corpsToit![0]);
+    const o = deuxCorps(), grand = JSON.stringify(o.batiment!.corpsToit![0]);
     expect(appliquerPiece(o, 'forme:croupes', null, 1)).toBe(true);
-    expect(JSON.stringify(o.batiment?.corpsToit![0])).toBe(grand);
-    const c = o.batiment?.corpsToit![1]!;
+    expect(JSON.stringify(o.batiment!.corpsToit![0])).toBe(grand);
+    const c = o.batiment!.corpsToit![1]!;
     const xs = c.pts.map((p) => p.x), ys = c.pts.map((p) => p.y);
     expect(Math.min(...xs)).toBeCloseTo(10, 1);
     expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(4, 1);
@@ -161,34 +161,34 @@ describe('un geste n agit que sur le corps choisi', () => {
     expect(c.croupes?.some((v) => v > 0)).toBe(true);
   });
   it('les trois pans ne changent que le corps choisi, la croupe au bout demande', () => {
-    const o = deuxCorps(), grand = JSON.stringify(o.batiment?.corpsToit![0]);
+    const o = deuxCorps(), grand = JSON.stringify(o.batiment!.corpsToit![0]);
     expect(appliquerPiece(o, 'forme:croupes-fin', null, 1)).toBe(true);
-    expect(JSON.stringify(o.batiment?.corpsToit![0])).toBe(grand);
-    const [h0, h1] = o.batiment?.corpsToit![1]!.croupes!;
+    expect(JSON.stringify(o.batiment!.corpsToit![0])).toBe(grand);
+    const [h0, h1] = o.batiment!.corpsToit![1]!.croupes!;
     expect(h0).toBe(0);
     expect(h1).toBeGreaterThan(0);
   });
   it('un element du toit va sur le corps choisi, pas sur le corps principal', () => {
     const o = deuxCorps();
     expect(appliquerPiece(o, 'sur:cheminee', null, 1)).toBe(true);
-    expect(o.batiment?.corpsToit![1]!.cheminees).toHaveLength(1);
-    expect(o.batiment?.corpsToit![0]!.cheminees ?? []).toHaveLength(0);
+    expect(o.batiment!.corpsToit![1]!.cheminees).toHaveLength(1);
+    expect(o.batiment!.corpsToit![0]!.cheminees ?? []).toHaveLength(0);
   });
   it('un element de facade s adosse au corps choisi, meme si l on regarde la facade d un autre', () => {
     const o = deuxCorps();
     expect(appliquerPiece(o, 'facade:galerie', { rang: 0, mur: 0 }, 1)).toBe(true);
-    expect(o.batiment?.corpsToit![2]!.saillie?.hote).toBe(1);
+    expect(o.batiment!.corpsToit![2]!.saillie?.hote).toBe(1);
   });
   it('un element choisi (une saillie) renvoie a son corps porteur', () => {
     const o = deuxCorps();
     appliquerPiece(o, 'facade:galerie', null, 1);
     expect(appliquerPiece(o, 'sur:cheminee', null, 2)).toBe(true);
-    expect(o.batiment?.corpsToit![1]!.cheminees).toHaveLength(1);
+    expect(o.batiment!.corpsToit![1]!.cheminees).toHaveLength(1);
   });
   it('sans choix, rien ne change : la facade regardee, sinon le corps principal', () => {
     const o = deuxCorps();
     expect(appliquerPiece(o, 'sur:cheminee')).toBe(true);
-    expect(o.batiment?.corpsToit![0]!.cheminees).toHaveLength(1);
+    expect(o.batiment!.corpsToit![0]!.cheminees).toHaveLength(1);
   });
 });
 

@@ -52,7 +52,7 @@ describe('le doute, note par le calcul', () => {
     champsBatiment(b).toitACheval = { parcelles: [], reponse: 'parParcelle' };
     toitAChevalApresCalcul(b, objets, mesure().g);
     expect(b.batiment?.toitACheval).toEqual({ parcelles: ['parcelle', 'p102'], reponse: 'parParcelle' });
-    expect(b.batiment?.corpsToit!.length).toBe(2);
+    expect(b.batiment!.corpsToit!.length).toBe(2);
     expect(batimentsEnDoute(objets)).toEqual([]);
   });
 
@@ -80,8 +80,8 @@ describe('la question et sa reponse', () => {
     const b = objets[2]!;
     expect(repondreACheval(b, objets, 'parParcelle')).toBe(true);
     expect(b.batiment?.toitACheval?.reponse).toBe('parParcelle');
-    expect(b.batiment?.corpsToit!.length).toBe(2);
-    for (const c of b.batiment?.corpsToit!) {
+    expect(b.batiment!.corpsToit!.length).toBe(2);
+    for (const c of b.batiment!.corpsToit!) {
       const xs = c.pts.map((q) => q.x);
       expect(Math.max(...xs) <= 8.01 || Math.min(...xs) >= 7.99).toBe(true);
       expect(c.faitage).toBeGreaterThan(7.5);

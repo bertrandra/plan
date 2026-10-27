@@ -56,7 +56,7 @@ describe('toitsDepuisLidar', () => {
     // L'egout mesure a 6 m : la hauteur BD TOPO (5 m) est corrigee ; a 20 cm pres (5,8 m), elle reste.
     expect(a.elevation).toBe(6);
     expect(c.elevation).toBe(5.8);
-    expect(b.batiment?.toit!.source).toBe('saisie');
+    expect(b.batiment!.toit!.source).toBe('saisie');
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD');
   });
 
@@ -66,7 +66,7 @@ describe('toitsDepuisLidar', () => {
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => false });
     expect(bilan.sansLidar).toBe(true);
     expect(lire).not.toHaveBeenCalled();
-    expect(objets[0]!.batiment?.toit!.source).toBe('bdtopo');
+    expect(objets[0]!.batiment!.toit!.source).toBe('bdtopo');
     expect(texteBilanToitsLidar(bilan)).toBe(null);
   });
 
@@ -84,7 +84,7 @@ describe('toitsDepuisLidar', () => {
     });
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true });
     expect(bilan).toEqual({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 1, sansLidar: false });
-    expect(objets.every((o) => o.batiment?.toit!.source === 'bdtopo')).toBe(true);
+    expect(objets.every((o) => o.batiment!.toit!.source === 'bdtopo')).toBe(true);
     expect(texteBilanToitsLidar(bilan)).toContain('1 garde(s)');
   });
 
@@ -118,7 +118,7 @@ describe('toitsDepuisLidar', () => {
     expect(lire).toHaveBeenCalledTimes(1);
     // « Relire » : comme les autres.
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!], verifies: 'relire' })).ajustes).toBe(1);
-    expect(objets[1]!.batiment?.toit!.source).toBe('lidar');
+    expect(objets[1]!.batiment!.toit!.source).toBe('lidar');
     expect(objets[1]!.elevation).toBe(6);
   });
 
@@ -155,7 +155,7 @@ describe('toitsDepuisLidar', () => {
     expect(m.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(2);
     expect(Math.max(...m.batiment!.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
     expect(Math.min(...m.batiment!.corpsToit!.map((c) => c.faitage))).toBeCloseTo(3.5, 0);
-    expect(m.batiment?.toitMesure!.faite).toBeGreaterThan(8.5);
+    expect(m.batiment!.toitMesure!.faite).toBeGreaterThan(8.5);
     // Chaque corps a son egout, lu dans la surface mesuree : 3,5 m pour l'aile, l'egout du deux-pans pour le corps.
     expect(m.batiment?.volumesToit).toHaveLength(2);
     const egouts = m.batiment!.volumesToit!.map((v) => v.egout!).sort((a, b) => a - b);
@@ -198,7 +198,7 @@ describe('toitsDepuisLidar', () => {
     await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
     const m = objets[1]!;
     expect(m.batiment?.volumesToit).toHaveLength(2);
-    const [haut, basV] = m.batiment?.volumesToit!;
+    const [haut, basV] = m.batiment!.volumesToit!;
     expect(haut!.egout).toBe(7);
     expect(basV!.egout).toBe(3.5);
     expect(haut!.hauteursMurs).toEqual([7, 7, 7, 7]);
@@ -303,8 +303,8 @@ describe('toitsDepuisLidar et les profils de toits (MD/spec-regles-toits.md §6)
     const o = objets();
     const bilan = await toitsDepuisLidar(o, proj, { lire: lecteurDeuxPans(), dalles: async () => true, profils });
     expect(bilan).toMatchObject({ ajustes: 1, gardes: 1 });
-    expect(o[1]!.batiment?.toit!.source).toBe('lidar');
-    expect(o[2]!.batiment?.toit!.source).toBe('bdtopo');
+    expect(o[1]!.batiment!.toit!.source).toBe('lidar');
+    expect(o[2]!.batiment!.toit!.source).toBe('bdtopo');
     expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
   });
 

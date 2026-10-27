@@ -313,8 +313,8 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
     if (!tel) return false;
     const premier = trancherUneCroupe(tel, forme.seuleCroupe);
-    const rang = o.batiment?.corpsToit.indexOf(choisi);
-    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit.slice(0, rang), premier, ...o.batiment?.corpsToit.slice(rang + 1), ...autres];
+    const rang = o.batiment.corpsToit.indexOf(choisi);
+    champsBatiment(o).corpsToit = [...o.batiment.corpsToit.slice(0, rang), premier, ...o.batiment.corpsToit.slice(rang + 1), ...autres];
     champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'forme') {
@@ -331,7 +331,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const hote = choisi ?? corpsPourPoser(o);
     const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;
     if (!hote || !neuf || !o.batiment?.corpsToit) return false;
-    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit, neuf];
+    champsBatiment(o).corpsToit = [...o.batiment.corpsToit, neuf];
     champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'sur') {
@@ -358,7 +358,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
     // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.
     const profondeurM = forme === 'arc' ? Math.min(largeurM / 2, 1.2) : d.profondeurM;
-    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
+    champsBatiment(o).corpsToit = [...o.batiment.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
     champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   }

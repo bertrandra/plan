@@ -288,12 +288,9 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           elevation: haut,
           // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
           // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
-          ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: {
-            ...o.batiment,
-            ...(toit ? { toit } : {}),
+          ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
             ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
-            ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}),
-          } } : {}),
+            ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
