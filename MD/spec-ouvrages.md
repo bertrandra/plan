@@ -438,25 +438,31 @@ Apparence (couleur, deux textures), Côtés, Coins, Alignement par rotation.
 6. **Rien ne se perd.** Retirer un champ de l'inspecteur ne retire aucune donnée : le fichier garde la valeur, l'export aussi ;
    aucun nombre ne bouge.
 
-### Proposition, ouvrage par ouvrage
+### Décidé, ouvrage par ouvrage (27 octobre 2026)
 
-| Ouvrage | Garder ouvert | Replier | Déplacer | Retirer |
-|---|---|---|---|---|
-| commun | nom, fonction, surface (lue), verrou ; couleur | textures ; côtés, coins | — | matière ; priorité (→ « Reculer ») ; alignement (→ palette) |
-| terrasse | les sept étapes, une ouverte à la fois | paramètres de calcul | optimisation → résultats | — |
-| pergola, carport | matériau, toit, hauteur, côté de référence, adossé, débord, poteaux, poutres | contrefiches, chevrons, couleurs, longueurs achetables ; note de calcul | métrage, prix → résultats | — |
-| piscine | 1 à 5 (implantation, profondeurs, abords, équipements, sécurité) | — | volume d'eau, distances, taxe, métrage, prix → résultats | — |
-| parasol | terrasse rattachée, hauteur, mât (périmètre, déporté, orientation), afficher l'ombre | date, heure, carte de chaleur | — | — |
-| bâtiment, annexe | façades et toit | fenêtres (3D) | — | côtés, coins s'il est importé et verrouillé |
-| chemin | longueur (lue), largeur, courbe | points et segments | — | — |
-| parcelle | lieu, cadastre ; clôture et portails | relief (source, actualiser) | déclaration préalable → menu Exporter ; voisinage 3D → réglages 3D ; relief et courbes (affichage) → menu Affichage | — |
-| dalle, massif, mobilier, équipement, autre | élévation, rayon ou rectangle | — | — | — |
-| trémie | terrasse percée | — | — | — |
-| arbre | essence, diamètre, teinte | — | — | — |
-| point de vue | altitude, direction, aller | — | — | — |
+Le propriétaire a tranché chaque proposition, une par une. Rien de ce qui est retiré ne se perd : le fichier garde la valeur.
 
-Effet attendu : la parcelle passe de 90 champs à une trentaine, la piscine de 75 à une quarantaine, l'abri d'une soixantaine à
-une trentaine ouverts ; l'objet simple garde sept à dix champs.
+- **Tous les objets** : retirer « Matière » (rien ne la lit), « Priorité d'affichage » (le geste « Reculer » la remplace) et
+  « Alignement par rotation » (l'outil « Aligner » de la palette la remplace) ; replier les textures, la liste des côtés et
+  celle des coins.
+- **Parcelle** : garder ouverts le lieu, le cadastre, la clôture et les portails. La déclaration préalable part en dialogue du
+  menu Exporter ; le voisinage 3D rejoint la feuille des réglages 3D ; « Relief » et « Courbes de niveau » ne restent que dans
+  le menu Affichage ; les réglages techniques du relief (grille, maillage, points, zéro) se replient, « Actualiser » reste à
+  portée ; la clôture côté par côté se replie, le réglage général reste ouvert.
+- **Terrasse** : garder les sept étapes (une ouverte à la fois) ; replier les paramètres de calcul ; l'optimisation du débit
+  part au tiroir des résultats ; la lame de rive côté par côté se replie.
+- **Piscine** : garder les cinq étapes ; le métrage, le chiffrage et les prix partent dans un onglet « Piscine » du tiroir
+  des résultats, avec le volume d'eau, les distances aux limites et la taxe d'aménagement (un rappel court reste sous l'étape).
+- **Pergola, carport** : garder ouverts matériau, toit, hauteur, côté de référence, adossé, débord, poteaux, poutres ; replier
+  contrefiches, chevrons, couleurs, longueurs achetables, et la note de calcul (son PDF reste à portée) ; le métrage et les
+  prix partent dans un onglet du tiroir des résultats.
+- **Bâtiment, annexe** : garder « Façades et toit » ; replier « Fenêtres (3D) » ; un bâtiment importé et verrouillé ne montre
+  plus ses côtés ni ses coins (dessiné à la main, il les garde, repliés).
+- **Parasol** : garder ouverts la terrasse rattachée, le mât, « Afficher l'ombre » et « Meilleure position » ; replier la date,
+  l'heure et la carte des heures d'ombre.
+- **Chemin** : garder ouverts longueur, largeur, courbe ; replier les points et segments.
+- **Objets simples** (dalle, massif, mobilier, équipement, trémie, arbre, point de vue, autre) : tels que les décisions
+  communes les laissent, sept à dix réglages.
 
 ## Les étapes
 
