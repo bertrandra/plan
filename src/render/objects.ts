@@ -115,6 +115,7 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
   racine.appendChild(v.nameEl);
   v.pointEls = []; v.ptLabelEls = []; v.edgeEls = []; v.segLabelEls = [];
   v.radiusHandle = null;
+  v.sommetsCaches = false;
 }
 
 export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): void {
@@ -123,6 +124,7 @@ export function reconstruirePoignees(obj: ObjetRendu, ctx: ContextePoignees): vo
   v.pointEls.forEach(e=>e.remove()); v.ptLabelEls.forEach(e=>e.remove());
   v.edgeEls.forEach(e=>e.remove()); v.segLabelEls.forEach(e=>e.remove());
   v.pointEls=[]; v.ptLabelEls=[]; v.edgeEls=[]; v.segLabelEls=[];
+  v.sommetsCaches = false;
   if(v.radiusHandle){ v.radiusHandle.remove(); v.radiusHandle=null; }
 
   if(obj.type==='polygon' || obj.type==='path'){
@@ -208,6 +210,10 @@ function cacher(e: SVGElement): void {
 
 /** Les poignees, etiquettes et cotes d'un objet, caches ; les cotes ne captent plus le pointeur. */
 function cacherSommets(v: ReturnType<typeof vue>): void {
+  // Un plan de voisinage a des milliers de sommets caches : les relire tous a chaque rendu coutait
+  // autant que de placer les objets visibles, au telephone (banc de rendu, octobre 2026).
+  if(v.sommetsCaches) return;
+  v.sommetsCaches = true;
   v.pointEls.forEach(cacher);
   v.ptLabelEls.forEach(cacher);
   v.segLabelEls.forEach(cacher);
@@ -243,6 +249,7 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
   const n = obj.pts.length;
   const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
   if(v.pointEls.length !== n) ctx.reconstruirePoignees(obj);
+  v.sommetsCaches = false;
   // (const objCenter = cen : variable morte dans le fichier d'origine, retiree - cen est
   // deja calcule au-dessus et utilise pour l'etiquette.)
   obj.pts.forEach((pt, i) => {

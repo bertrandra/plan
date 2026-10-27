@@ -50,8 +50,16 @@ function imprimerProfil(profil) {
       if (cle && !vus.has(cle)) { vus.add(cle); inclusif.set(cle, (inclusif.get(cle) ?? 0) + (profil.timeDeltas[i] ?? 0)); }
     }
   });
-  console.log('profil (bureau, dix rendus, temps inclusif) :');
-  for (const [k, v] of [...inclusif].sort((x, y) => y[1] - x[1]).slice(0, 20)) console.log(`  ${(v / 1000).toFixed(0).padStart(6)} ms  ${k}`);
+  console.log('profil (dix rendus, temps inclusif) :');
+  for (const [k, v] of [...inclusif].sort((x, y) => y[1] - x[1]).slice(0, 25)) console.log(`  ${(v / 1000).toFixed(0).padStart(6)} ms  ${k}`);
+  // Le temps propre, toutes origines : ce que React, le DOM et le ramasse-miettes prennent hors de src/.
+  const propre = new Map();
+  profil.samples.forEach((id, i) => {
+    const n = noeuds.get(id), f = n.callFrame, cle = (f.url.split('/').pop()?.split('?')[0] || '(natif)') + ' ' + (f.functionName || '(anonyme)');
+    propre.set(cle, (propre.get(cle) ?? 0) + (profil.timeDeltas[i] ?? 0));
+  });
+  console.log('temps propre, toutes origines :');
+  for (const [k, v] of [...propre].sort((x, y) => y[1] - x[1]).slice(0, 15)) console.log(`  ${(v / 1000).toFixed(0).padStart(6)} ms  ${k}`);
 }
 
 const navigateur = await chromium.launch();
@@ -70,7 +78,7 @@ for (const a of APPAREILS) {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: a.ralenti });
   const origine = await page.evaluate(() => window.__plan.etat().objects.length);
   for (const n of TAILLES) {
-    const profiler = process.env.BANC_PROFIL && a.nom === 'bureau' && n === TAILLES[0];
+    const profiler = process.env.BANC_PROFIL && a.nom === (process.env.BANC_PROFIL_APPAREIL || 'bureau') && n === TAILLES[0];
     if (profiler) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start'); }
     const r = await page.evaluate(async ({ n, essais }) => {
       const etat = window.__plan.etat();
