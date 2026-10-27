@@ -339,14 +339,7 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
   - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
     (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
-    translate, tournée elle part). Le relief, la photo aérienne, les rues et le PLU, eux, sont posés sur le terrain réel : ils
-    ne tournent pas. Ce qui vient du cadastre ou de l'IGN (parcelles, bâtiments, éléments : `model/fonctions.ts::estPoseSurLeTerrain`)
-    porte l'orientation et la place réelles du terrain : il ne se déplace ni ne tourne (décision du 27 octobre 2026,
-    `interaction/outilAlignement.ts`, `interaction/pointeur.ts`) ; le toit qui suit son bâtiment vaut pour un bâtiment dessiné. Tout ce qui est posé sur le terrain la lit à sa
-    place : l'actualisation IGN (qui la remettrait, ou garderait des bâtiments désalignés), la lecture des toits au LiDAR, la
-    photo aérienne, le relief, les rues, le PLU, le soleil (le nord réel), le voisinage, la mitoyenneté, le côté sur rue,
-    l'audit sur place (GPS, photos de rue géolocalisées). La seule rotation qui garde tout juste serait celle de la **vue** (un
-    réglage d'affichage) : proposée, écartée par le propriétaire le 27 octobre 2026.
+    translate, tournée elle part). Cela vaut pour un bâtiment dessiné : celui de l'IGN ne se déplace plus (section suivante).
 
   Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par
@@ -355,6 +348,41 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
   correction se note `Corrigé`, et aucun nombre d'un fichier enregistré ne change.
 - **Le bâtiment et l'annexe** se comparent encore à la main dans les exports (`'batiment' || 'annexe'`) : c'est le bâti, une
   famille, que le registre dit déjà (étape 6.4).
+
+## Les objets posés sur le terrain réel
+
+*Décidé avec le propriétaire le 27 octobre 2026.*
+
+Ce qui vient du cadastre ou de l'IGN — la parcelle du projet, les parcelles voisines, les bâtiments et les éléments de l'IGN
+(`model/fonctions.ts::estPoseSurLeTerrain` : l'objet porte `cadastre` ou `bdtopo`) — est à sa place réelle. Tout ce qui est
+posé sur le terrain le lit à cette place :
+
+| Ce qui lit la place réelle | Ce qui casserait si l'objet bougeait |
+|---|---|
+| l'actualisation IGN (parcelle par sa référence cadastrale, bâtiment par son identifiant IGN) | elle remettrait la géométrie réelle, ou garderait des données désalignées |
+| la lecture des toits au LiDAR | elle lit les hauteurs à l'emplacement réel |
+| la photo aérienne, le relief, les rues, le PLU | ils sont sur le terrain : **ils ne tournent pas** |
+| le soleil, l'ombre des parasols, la façade au soleil | le nord réel |
+| le voisinage, la mitoyenneté, le côté sur rue | les voisins ne s'aligneraient plus |
+| l'audit sur place (GPS, photos de rue géolocalisées) | les façades visées ne correspondraient plus |
+
+Les règles :
+
+1. **Il ne se déplace ni ne tourne.** Le glisser à la souris et l'outil « Aligner » le refusent, en le disant
+   (`MESSAGE_TERRAIN_REEL`, `interaction/pointeur.ts`, `interaction/outilAlignement.ts`). Un décalage se corrige par le
+   recalage (LiDAR), pas à la main. La « remise à sa place de départ » reste permise : elle le ramène là où il était.
+2. **Il se retouche, avec un avertissement**, parce que l'IGN peut se tromper. Le premier geste qui déforme son contour
+   (tirer un sommet ou un côté, en ajouter, en retirer, changer un angle ou une longueur) demande : « « Maison » vient de
+   l'IGN. La retoucher à la main la détache de l'IGN : à la prochaine actualisation, vous choisirez entre garder votre version
+   et reprendre celle de l'IGN. Continuer ? ». Oui : l'objet est marqué « retouché à la main », avec la date, dans le fichier.
+3. **À l'actualisation IGN, une question par objet retouché.** Par défaut, il est gardé tel quel : l'IGN ne le met plus à
+   jour. Le dialogue montre une case décochée par objet, « Reprendre la version de l'IGN pour « X », retouché à la main le … » ;
+   cochée, l'objet reprend la source IGN et perd sa marque — comme un bâtiment vérifié sur place, gardé sauf « Recalculer
+   aussi ».
+4. **Reprendre la source IGN ne crée pas un nouvel objet** : il garde sa clé, à laquelle tiennent les cotes, l'audit, les faits
+   du moteur de règles et les réglages de la personne.
+5. **Pas de vue tournée.** Tourner l'affichage seul (comme une carte sur la table) garderait tout juste ; proposé, écarté : le
+   plan reste nord en haut.
 
 ## Ce qui n'est pas un objet mais fait le plan
 
@@ -449,6 +477,8 @@ Apparence (couleur, deux textures), Côtés, Coins, Alignement par rotation.
 ### Décidé, ouvrage par ouvrage (27 octobre 2026)
 
 Le propriétaire a tranché chaque proposition, une par une. Rien de ce qui est retiré ne se perd : le fichier garde la valeur.
+Appliqué le même jour (`tests/unit/ui/inventaireInspecteur.test.ts` fige l'inventaire) ; l'outil « Aligner » de la palette a
+repris, dans son bandeau, la distance au trait que portait la section retirée.
 
 - **Tous les objets** : retirer « Matière » (rien ne la lit), « Priorité d'affichage » (le geste « Reculer » la remplace) et
   « Alignement par rotation » (l'outil « Aligner » de la palette la remplace) ; replier les textures, la liste des côtés et
@@ -474,11 +504,22 @@ Le propriétaire a tranché chaque proposition, une par une. Rien de ce qui est 
 
 ## Les étapes
 
-| # | Étape | Critère de fin |
-|---|---|---|
-| 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` |
-| 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) |
-| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position |
-| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète |
-| 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) |
-| 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro |
+| # | Étape | Critère de fin | État (27 octobre 2026) |
+|---|---|---|---|
+| 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` | **fait** : dessin du plan au téléphone, à 600 objets, 77 → 20 à 26 ms (au-dessus des 10 ms visés : photo aérienne, parasols, grille) |
+| 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) | **fait** ; restent à déclarer dans le registre : les associés, ce qui perce, ce qui s'isole |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position | **en partie** : la courbe et le ruban dans `geometry/` ; le toit suit son bâtiment (déplacement, rotation) ; restent les références par côté et par sommet, la suppression sans nettoyage, l'actualisation IGN |
+| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; restent les comparaisons du dessin, de la 3D et des exports |
+| 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms |
+| 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | à faire |
+
+## Journal des décisions
+
+| Date | Décision |
+|---|---|
+| 27 octobre 2026 | Un domaine par ouvrage, un contrôleur qui sait ce qui change (phase 6) : « une terrasse n'a pas les mêmes règles de construction qu'un chemin », « si je fais une pergola, je ne fais pas une terrasse ». |
+| 27 octobre 2026 | Chemins : une largeur par défaut de 1 m partout, une surface comptée sur la courbe dessinée (version majeure). |
+| 27 octobre 2026 | L'inspecteur ne garde que ce qui sert la conception, ouvrage par ouvrage (tableau « Décidé ») ; la déclaration préalable en dialogue du menu Exporter. |
+| 27 octobre 2026 | L'outil « Aligner » garde la distance au trait (le champ de son bandeau). |
+| 27 octobre 2026 | Le relief, la photo aérienne, les rues et le PLU sont sur le terrain : ils ne tournent pas. |
+| 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
