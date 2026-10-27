@@ -263,6 +263,68 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 - **Le bâtiment et l'annexe** se comparent encore à la main dans les exports (`'batiment' || 'annexe'`) : c'est le bâti, une
   famille, que le registre dit déjà (étape 6.4).
 
+## L'inspecteur de chaque ouvrage : ce qui sert la conception
+
+*Inventaire tiré du code le 27 octobre 2026 (les sections et les champs que l'inspecteur montre pour chaque ouvrage de la
+démonstration). Décision du propriétaire : l'inspecteur ne garde que ce qui sert à concevoir l'ouvrage sélectionné.*
+
+### Aujourd'hui
+
+| Ouvrage | Sections | Champs | Ce qui charge |
+|---|---|---|---|
+| Parcelle | 11 | 90 | déclaration préalable (21), clôture (17), relief (11), voisinage 3D (11) |
+| Terrasse | 13 | 79 | sept étapes de construction, côtés, coins, alignement |
+| Piscine | 12 | 75 | métrage et chiffrage (16 lignes calculées), prix (15) |
+| Bâtiment | 7 | 67 | façades et toit (19), côtés (14), coins (14), fenêtres (6) |
+| Carport, pergola | 9 | 63, 62 | métrage (7), prix (5), note de calcul (11) |
+| Annexe | 7 | 40 | comme le bâtiment |
+| Chemin | 4 | 37 | un champ par point et par segment (21) |
+| Dalle, massif, autre, trémie | 5 à 6 | 23 | côtés, coins, alignement |
+| Parasol | 3 | 21 | ombre (date, heure, carte), position du mât |
+| Arbre, équipement, terrain voisin, point de vue | 2 à 6 | 7 à 14 | — |
+
+Tous portent les mêmes sections communes : Objet (nom, fonction, priorité d'affichage, matière, élévation, surface, verrou),
+Apparence (couleur, deux textures), Côtés, Coins, Alignement par rotation.
+
+### Les règles du tri
+
+1. **L'inspecteur règle, il n'affiche pas de résultat** (règle de la zone Z5, `.claude/skills/design-ui`). Le métrage, le
+   chiffrage, les prix, le volume d'eau, les distances aux limites, la taxe d'aménagement vont au tiroir des résultats (Z6), dans
+   les onglets de l'ouvrage, comme ceux de la terrasse.
+2. **Un geste n'existe qu'à un endroit.** L'alignement par rotation est un outil de la palette (« Aligner ») ; le relief et les
+   courbes de niveau sont des bascules du menu Affichage ; la priorité d'affichage est le geste « Reculer ». Leur double sort de
+   l'inspecteur.
+3. **Ce qui concerne le projet, pas l'objet, sort de l'objet.** La déclaration préalable (21 champs d'identité et d'adresse) est
+   un dossier : elle s'ouvre en dialogue depuis le menu Exporter, là où le dossier se génère. Le voisinage 3D (murs, toits,
+   vitres, clôtures des voisins, noms des rues) est un réglage de la Vue 3D : il rejoint la feuille des réglages 3D.
+4. **Ce qui sert rarement se replie.** Les listes de côtés et de coins (une ligne par sommet : 14 + 14 pour la maison) restent,
+   repliées ; elles disparaissent d'un objet importé et verrouillé (bâtiment de l'IGN, parcelle voisine), qu'on ne redessine
+   pas. Les textures, la note de calcul d'un abri, les paramètres de calcul de la terrasse : repliés.
+5. **Un champ que rien ne lit disparaît.** « Matière » : un texte libre que seul l'attribut `data-matiere` de l'export SVG
+   recopie.
+6. **Rien ne se perd.** Retirer un champ de l'inspecteur ne retire aucune donnée : le fichier garde la valeur, l'export aussi ;
+   aucun nombre ne bouge.
+
+### Proposition, ouvrage par ouvrage
+
+| Ouvrage | Garder ouvert | Replier | Déplacer | Retirer |
+|---|---|---|---|---|
+| commun | nom, fonction, surface (lue), verrou ; couleur | textures ; côtés, coins | — | matière ; priorité (→ « Reculer ») ; alignement (→ palette) |
+| terrasse | les sept étapes, une ouverte à la fois | paramètres de calcul | optimisation → résultats | — |
+| pergola, carport | matériau, toit, hauteur, côté de référence, adossé, débord, poteaux, poutres | contrefiches, chevrons, couleurs, longueurs achetables ; note de calcul | métrage, prix → résultats | — |
+| piscine | 1 à 5 (implantation, profondeurs, abords, équipements, sécurité) | — | volume d'eau, distances, taxe, métrage, prix → résultats | — |
+| parasol | terrasse rattachée, hauteur, mât (périmètre, déporté, orientation), afficher l'ombre | date, heure, carte de chaleur | — | — |
+| bâtiment, annexe | façades et toit | fenêtres (3D) | — | côtés, coins s'il est importé et verrouillé |
+| chemin | longueur (lue), largeur, courbe | points et segments | — | — |
+| parcelle | lieu, cadastre ; clôture et portails | relief (source, actualiser) | déclaration préalable → menu Exporter ; voisinage 3D → réglages 3D ; relief et courbes (affichage) → menu Affichage | — |
+| dalle, massif, mobilier, équipement, autre | élévation, rayon ou rectangle | — | — | — |
+| trémie | terrasse percée | — | — | — |
+| arbre | essence, diamètre, teinte | — | — | — |
+| point de vue | altitude, direction, aller | — | — | — |
+
+Effet attendu : la parcelle passe de 90 champs à une trentaine, la piscine de 75 à une quarantaine, l'abri d'une soixantaine à
+une trentaine ouverts ; l'objet simple garde sept à dix champs.
+
 ## Les étapes
 
 | # | Étape | Critère de fin |
@@ -270,5 +332,5 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 | 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` |
 | 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) |
 | 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses données par côté, que la chirurgie des sommets renumérote | empreintes inchangées ; un sommet ajouté ou retiré garde chaque portail, réglage de clôture, côté sans rive, mur adossé et façade sur son côté |
-| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche | plus aucun `fonction === '…'` hors des registres (cliquet) ; fumée complète |
+| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) |
