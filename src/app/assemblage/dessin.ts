@@ -16,6 +16,7 @@ import { dessinerCalqueParasols } from '../../render/parasolOverlay.js';
 import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
 import { dessinerCalquePiscines } from '../../render/piscineOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
+import { toucher } from '../../core/controleurObjets.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { aDessiner } from './formes.js';
@@ -73,7 +74,8 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     drawMeasures: () => dessinerCotes(s.cotes, { scene: etat.scene, objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles }),
     // La contrainte de position modifie les objets : elle s'execute avant le dessin, comme avant.
     renderParasolOverlay() {
-      contraindreParasols(etat.objects, etat.terrasseSelectedKey);
+      // Un parasol dont le mat suit le bord de sa terrasse bouge avec elle : le plan le redessine (core/controleurObjets.ts).
+      contraindreParasols(etat.objects, etat.terrasseSelectedKey).forEach(toucher);
       dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat, ctxSoleil: d.contexteSoleil(), positionMat });
       // L'ombre passe DEVANT les objets : une ombre portee se lit sur ce qu'elle couvre — la
       // terrasse, un massif, la pelouse —, pas dessous. Le calque est inerte, les clics le
