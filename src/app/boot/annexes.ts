@@ -3,6 +3,7 @@
 import type { Feuille } from '../magasin.js';
 import type { Explorateur } from '../explorateur.js';
 import { showToast } from '../../shell/dialogs.js';
+import { toucher } from '../../core/controleurObjets.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import { vue3d, rendre3d, affichage3d, reglerVue3d } from '../../three/etat3d.js';
 import { moteur3d } from '../../three/demande3d.js';
@@ -78,6 +79,8 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
   const { etat, magasin, commandes, tiroir } = p;
   Object.assign(window, { __plan: {
     executer: (id: string) => commandes.executer(id),
+    // Une ecriture de script dans un objet (un scenario de la fumee) se dit comme toute ecriture (core/controleurObjets.ts).
+    toucher: (cle: string) => toucher(etat.objects.find(o => o.key === cle)),
     // Un rendu complet du plan, chronometre (scripts/banc-rendu.mjs, MD/roadmap-architecture.md etape 0.2).
     rendre: () => { const t = performance.now(); p.render(); return performance.now() - t; },
     // Le dessin d'un objet ajoute hors des gestes (le banc du rendu) : sans lui, l'objet est dans l'etat mais pas sur le plan.

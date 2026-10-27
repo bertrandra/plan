@@ -2013,6 +2013,8 @@ const POINTS = {
       const b = (m.batiment ??= {});
       b.couleurMurs = { source: 'plan' };
       b.toit = { ...b.toit, couverture: 'tuile' };
+      // Ecrire dans un objet se dit, comme dans l'application (core/controleurObjets.ts).
+      window.__plan.toucher('maison');
     });
     const avant = await etatAudite(page);
     await captureJusquAuxPropositions(page);
@@ -2034,7 +2036,7 @@ const POINTS = {
     // projet pose sa question avec un point de plus et une case decochee « Recalculer aussi… » ; la
     // case se coche ; Annuler ne touche a rien. Sans batiment verifie, ni point ni case. Rien ne part
     // vers l'IGN : la question seule se joue ici.
-    const marquer = (v) => page.evaluate((v) => { const m = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (v) (m.batiment ??= {}).verifieSurPlace = { date: '2026-10-13' }; else delete m.batiment?.verifieSurPlace; }, v);
+    const marquer = (v) => page.evaluate((v) => { const m = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (v) (m.batiment ??= {}).verifieSurPlace = { date: '2026-10-13' }; else delete m.batiment?.verifieSurPlace; window.__plan.toucher('maison'); }, v);
     const ouvrir = async () => {
       await page.evaluate(() => document.querySelector('[data-commande="projet.actualiser"]').click());
       const boite = page.locator('.dialogueVoile', { hasText: 'Actualiser le projet' });
@@ -2409,7 +2411,7 @@ const POINTS = {
     await page.reload();
     await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
     // Un des arbres du plan prend le pin : deux lots d'essences differentes.
-    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) (o.arbre ??= {}).espece = 'pin'; });
+    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) { (o.arbre ??= {}).espece = 'pin'; window.__plan.toucher(o.key); } });
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('arbres-lots'), null, { timeout: 60000 }).catch(() => {});
@@ -2948,6 +2950,7 @@ const POINTS = {
       // Les listes par sommet suivent le contour : quatre sommets, quatre entrees (sinon l'inspecteur lit au-dela).
       o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
       o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
     });
@@ -2984,6 +2987,7 @@ const POINTS = {
       delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure;
       o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
       o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      window.__plan.toucher('maison');
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
     });

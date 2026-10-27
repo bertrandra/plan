@@ -18,6 +18,7 @@ import type { ProjecteurLocal } from '../geo/projection.js';
 import type { CouleurMurs, PtBrut } from '../model/types.js';
 import { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
 import { champsBatiment } from '../model/champsFonction.js';
+import { toucher } from '../core/controleurObjets.js';
 
 // La ligne de vue a descendu dans geometry/ (la facade devant soi s'en sert aussi) : on la redonne
 // d'ici pour ses lecteurs d'avant.
@@ -337,10 +338,12 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
     const l = lectures.get(o.key);
     if (l) {
       champsBatiment(o).couleurMurs = { ...(o.batiment?.couleurMurs ?? {}), photo: photoMur(l) };
+      toucher(o);
       bilan.photos++;
     } else if ((tentes.get(o.key) ?? 0) > 0 && lus.get(o.key) === tentes.get(o.key)) {
       // Toutes ses photos lues, aucune concluante : la photo ne dit rien, le materiau reprend la main.
       champsBatiment(o).couleurMurs = { ...(o.batiment?.couleurMurs ?? {}), photo: null };
+      toucher(o);
       bilan.ambigus++;
     }
   }

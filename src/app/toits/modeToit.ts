@@ -8,7 +8,7 @@
 
 import { estBatiment } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
-import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer, retablir, revenirAuDepart,
+import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
   type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
 import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, type PointScene, type Reserve } from '../../three/poseFacade.js';
@@ -24,6 +24,7 @@ import { elementProche, lireElement, memeCible, type CibleElement } from '../../
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
 
@@ -58,6 +59,13 @@ let veille: ReturnType<typeof setInterval> | null = null;
 
 /** La session en cours, ou null : ce que les zones lisent pour se dessiner. */
 export const sessionToit = (): Readonly<SessionToit> | null => session;
+
+// La session ecrit le toit du batiment en place, a chaque geste : chaque ecriture se dit (core/controleurObjets.ts), sinon le plan
+// et ce qui le lit garderaient le toit d'avant.
+function restaurer(o: ObjetPlan, pas: Parameters<typeof restaurerSession>[1]): void {
+  restaurerSession(o, pas);
+  toucher(o);
+}
 
 /** Un batiment que le mode Toit sait retoucher : un batiment du projet, pas du voisinage. */
 export const estRetouchable = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && estBatiment(o) && !o.voisinage && o.type === 'polygon';
@@ -316,6 +324,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       if (!o || !s) return false;
       reprendre(o, s);
       if (f(o) === false) return false;
+      toucher(o);
       // Un geste peut creer le premier corps (le toit simple devient un corps) : la facade choisie sur le contour se rattache a son mur.
       rattacherLesFacades(s, o);
       empiler(s.hist, o);
@@ -324,9 +333,9 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
       return true;
     },
 
-    annuler: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (annuler(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
-    retablir: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (retablir(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
-    revenirAuDepart: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (revenirAuDepart(session.hist, o)) { rebatir(); ctx.rafraichir(); } } },
+    annuler: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (annuler(session.hist, o)) { toucher(o); rebatir(); ctx.rafraichir(); } } },
+    retablir: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (retablir(session.hist, o)) { toucher(o); rebatir(); ctx.rafraichir(); } } },
+    revenirAuDepart: () => { const o = batiment(); if (o && session) { reprendre(o, session); if (revenirAuDepart(session.hist, o)) { toucher(o); rebatir(); ctx.rafraichir(); } } },
 
     /** Montre le toit du projet avant la session, ou revient a la session (le moindre geste y revient aussi). */
     voirValide(): void {
@@ -454,6 +463,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       if (!o || !session) return;
       champsBatiment(o).corpsToit = corps;
       champsBatiment(o).toitFige = true;
+      toucher(o);
       const t = Date.now();
       if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
     },

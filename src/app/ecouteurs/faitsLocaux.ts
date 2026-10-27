@@ -16,6 +16,7 @@ import { lireFaitsToits, essayerFaitsToits, cleDuBatiment, cleToucheeParEssai, F
 import { toitAAjuster, type ObjetAToit } from '../toits/toitsLidar.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 /** Un fichier de faits plus gros n'est pas un fichier de faits : on refuse avant de le lire. */
 export const FAITS_LOCAUX_TAILLE_MAX = 2 * 1024 * 1024;
@@ -44,6 +45,7 @@ export function essayerFaitsLocaux(texte: string, objets: readonly ObjetAToit[])
   for (const o of objets) {
     if (!toitAAjuster(o) || !cleToucheeParEssai(cleDuBatiment(o))) continue;
     champsBatiment(o).toitLidarLu = null;
+    toucher(o);
     relus++;
   }
   const n = Object.keys(faits).length;
