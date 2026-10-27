@@ -167,6 +167,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
 
   // ---- Barre de sélection et navigation du bas (tablette, téléphone) ------------------------------
   'selection.deselectionner': { libelle: 'Désélectionner', zone: SELECTION, nature: 'navigation' },
+  'objet.aligner.distance': { libelle: 'Distance au trait de l’outil Aligner', zone: SELECTION, nature: 'option', description: 'Vide : l’objet tourne seulement ; un nombre : il se pose aussi à cette distance du côté désigné' },
   'selection.proprietes': { libelle: 'Propriétés de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre l’inspecteur' },
   'selection.resultats': { libelle: 'Chiffrage ou résultats de l’objet sélectionné', zone: SELECTION, nature: 'navigation', description: 'Ouvre le tiroir des résultats' },
   'navigation.objets': { libelle: 'Objets', zone: NAVIGATION, nature: 'navigation', description: 'Ouvre la feuille de l’explorateur' },

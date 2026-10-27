@@ -29,6 +29,19 @@ export function definirCibleAlignement(v: CoteDesigne | null): void {
   cible = v;
 }
 
+// La distance au trait que l'outil « Aligner » doit laisser, telle que saisie dans son bandeau (zones/Surimpression.tsx) : le
+// brouillon d'un geste, pas une donnee du plan. Vide : l'objet tourne sans se deplacer.
+let distanceSaisie = '';
+
+/** La distance saisie pour le prochain alignement, en metres, comme tapee. */
+export function distanceAlignement(): string {
+  return distanceSaisie;
+}
+
+export function definirDistanceAlignement(v: string): void {
+  distanceSaisie = v;
+}
+
 /** Ce dont l'alignement a besoin du reste du programme. */
 export interface ContexteAlignement {
   /** Coordonnees du cote de reference designe. */

@@ -848,7 +848,19 @@ const POINTS = {
     const cotes = apres.pts.map((p, i) => dir(p, apres.pts[(i + 1) % apres.pts.length]));
     const parallele = cotes.some((d) => Math.min(Math.abs(d - t), 180 - Math.abs(d - t)) < 0.1);
     const s1 = aire(avant.pts), s2 = aire(apres.pts);
-    return { ok: parallele && Math.abs(s1 - s2) < 1e-6, mesure: `${info.replace(/\s+/g, ' ').slice(0, 60)} ; cible ${t.toFixed(1)}°, côtés ${cotes.map((d) => d.toFixed(1)).join('/')}° ; surface ${s1.toFixed(2)} → ${s2.toFixed(2)} m²` };
+    // Puis avec une distance dans le bandeau de l'outil : la dalle se pose aussi a 0,50 m du trait.
+    await page.evaluate(() => window.__plan.executer('objet.aligner'));
+    await page.waitForTimeout(150);
+    await page.locator('[data-controle="objet.aligner.distance"]').fill('0.5');
+    const cible2 = await visible(page, `[data-role="edge"][data-key="${maison.key}"][data-index="${k}"]`, false);
+    await page.mouse.click(cible2.x, cible2.y);
+    await page.waitForTimeout(250);
+    const pose = objet(await lireEtat(page), (o) => o.key === avant.key);
+    const a = maison.pts[k], b = maison.pts[(k + 1) % maison.pts.length], L = Math.hypot(b.x - a.x, b.y - a.y);
+    const aLaLigne = (p) => Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / L;
+    const ecart = Math.min(...pose.pts.map(aLaLigne));
+    return { ok: parallele && Math.abs(s1 - s2) < 1e-6 && Math.abs(ecart - 0.5) < 0.01,
+      mesure: `${info.replace(/\s+/g, ' ').slice(0, 60)} ; cible ${t.toFixed(1)}°, côtés ${cotes.map((d) => d.toFixed(1)).join('/')}° ; surface ${s1.toFixed(2)} → ${s2.toFixed(2)} m² ; à 0,50 m demandé : ${ecart.toFixed(3)} m` };
   },
   11: async (page) => {
     await cadrerParcelle(page);

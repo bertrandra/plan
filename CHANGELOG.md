@@ -94,6 +94,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   exports et les empreintes de `tests/fixtures/golden/` sont inchangés. Un test fixe l'inventaire décidé, ouvrage par ouvrage
   (`tests/unit/ui/inventaireInspecteur.test.ts`).
 
+- **L'outil « Aligner » reprend la distance au trait.** Quand il est actif, son bandeau porte un champ « à … m du trait » : vide,
+  l'objet tourne pour devenir parallèle au côté désigné ; rempli, il se pose aussi à cette distance (une terrasse à 50 cm de la
+  façade). C'était l'option « Distance au segment » de la section retirée de l'inspecteur.
 - **Le plan ne redessine que l'objet qui change** (`MD/spec-ouvrages.md`, étapes 6.1 et 6.5). Un contrôleur des objets
   (`core/controleurObjets.ts`) tient une version par objet : le glisser touche l'objet glissé à chaque image, l'explorateur
   l'objet qu'il masque, un parasol posé sur le bord de sa terrasse quand elle bouge ; toute écriture qui passe par l'historique

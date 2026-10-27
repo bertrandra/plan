@@ -962,6 +962,9 @@
     font-family:var(--sans); font-size:13px; line-height:1.35; box-shadow:var(--ombre-forte);
   }
   .consigneMode{ flex:1; min-width:0; }
+  /* La distance au trait de l'outil Aligner : un nombre court, dans le bandeau du pointage. */
+  .distanceAlignement{ flex:none; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .distanceAlignement input{ width:5.5em; min-height:36px; font-variant-numeric:tabular-nums; }
   .bandeauMode button, .bandeauMode button.secondary{
     flex:none; min-height:40px; padding:0 14px; border:none; border-radius:10px;
     background:var(--on-toast); color:var(--toast-bg); font-family:var(--sans); font-weight:600;

@@ -10,7 +10,7 @@ import { pointInPolygon } from '../../geometry/basic.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../../geometry/segments.js';
 import { alignerSurCote } from '../../geometry/alignement.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from '../../interaction/editing.js';
-import { alignerObjetParRotation } from '../../interaction/outilAlignement.js';
+import { alignerObjetParRotation, distanceAlignement } from '../../interaction/outilAlignement.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
@@ -76,8 +76,9 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       d.render();
     },
     alignObjectByRotation(obj: ObjetPlan) {
-      // L'outil « Aligner » de la palette ne fait que tourner : sans distance, la forme ne se deplace pas.
-      alignerObjetParRotation(obj, etat, '', {
+      // L'outil « Aligner » de la palette tourne la forme ; avec une distance saisie dans son bandeau, il la pose aussi a cette
+      // distance du trait. Sans distance, la forme ne se deplace pas.
+      alignerObjetParRotation(obj, etat, distanceAlignement(), {
         measureSegCoords: d.mesures.measureSegCoords, alignerSurCote, pointInPolygon,
         nearestSegmentIndex: (o, cible) => nearestSegmentIndex(aPoints(o), cible),
         contourDeContrainte: contour,
