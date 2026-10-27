@@ -197,6 +197,28 @@ géométriquement) → **modèle** (ses champs, sa fabrique) → **règles** (mo
   `render/ortho.ts` ; 3D : gazon, relief `three/relief3d.ts`, clôture `three/cloture3d.ts`
 - inspecteur : parcelle, clôture, relief, voisinage, déclaration ; exports : DP, dossier mairie, cerfa, dossier piscine
 
+*La clôture et le portail* (portés par la parcelle du projet, `model/typesCloture.ts`, `MD/spec-cloture.md`)
+- forme : la clôture suit le **contour** de la parcelle, côté par côté ; un côté est repéré par son **numéro** (`cote`, l'indice
+  de son premier sommet) et lu comme une façade vue de dehors (`facade/geometrie.ts::facadesDuContour`, `pointDeFacade`)
+- modèle : `cloture` = `active`, un réglage par défaut (`ReglageCloture` : type palissade, grillage, haie, mur ; hauteur,
+  couleur, soubassement), les côtés réglés à part (`cotes`), les **accès** (`portails`), les hauteurs maximales du PLU
+- **le portail** (`Portail`) : `nature` portail ou portillon, `cote` (le numéro du côté), `x` (sa position en mètres depuis le
+  bord gauche du côté vu de dehors, le repère des ouvertures de façade), `largeur`, `hauteur`, `ouverture` (un battant, deux
+  battants, coulissant), `sens`, `refoulement`, `petitVantail`, `forme` (droit, chapeau de gendarme, chapeau inversé, bombé,
+  concave) et sa `fleche`, `remplissage`, `materiau`, `couleur`, `texture`, `piliers`, `retrait`, `motorise`, `ouvert`
+  (affichage seul) ; fabrique `model/cloture.ts::nouveauPortail`
+- règles (`model/cloture.ts`) : le côté d'accès deviné à l'import (`coteDAcces`, `clotureDImport`, le côté sur rue
+  `geo/coteRue.ts`), l'emprise de l'accès (`empriseAcces`) qui coupe la clôture en tronçons (`tronconsDuCote`), les vantaux
+  (`vantauxDe`) et le profil du haut d'un vantail selon sa forme (`profilDuVantail`), les alertes (largeur, hauteur du PLU :
+  `alertesAcces`, `alertesHauteur`), le portillon accolé au portail (`accolerPortillon`), la pose au clic (`poserAcces`,
+  `coteLePlusProche`)
+- plan : `render/cloture.ts::dessinerCloture` (tronçons et accès) ; geste : le portail se **glisse** le long de son côté ou
+  sur un autre (`interaction/glisserAcces.ts::glisserAcces`, `interaction/pointeur.ts`)
+- 3D : `three/cloture3d.ts::ajouterCloture3d` (tronçons, piliers, vantaux, ouverts ou fermés)
+- inspecteur : `ui/champs/cloture.ts::sectionCloture`, `sectionPortails` ; audit de la parcelle : le portail se relève sur place
+- géométrie : `facadesDuContour`, `pointDeFacade`, `geometry/segments.ts::projectOntoSegment`
+- dépend de : la **parcelle**, par le numéro de ses côtés
+
 **Limite** — contexte, `path` (les limites cadastrales, 0,12 m, verrouillées) : tirets sur le plan, rien en 3D, ligne au DXF
 **Arbre** — contexte, toute forme : `arbre` (diamètre, couleur, essence), bibliothèque `model/especesArbre.ts`, 3D EZ-tree
 `three/arbre3d.ts`, `three/ezTree.ts` ; ni règle ni dessin propre au plan
@@ -208,6 +230,7 @@ géométriquement) → **modèle** (ses champs, sa fabrique) → **règles** (mo
 ```
 terrain ──relief──▶ terrasse, pergola, carport, piscine, chemin (hauteurs, drapé)
 terrain ──limites─▶ piscine (distances, régime d'autorisation)
+terrain ──côtés (par numéro)──▶ clôture, portails, portillons
 piscine ──plage (terrasseKey)──▶ terrasse
 piscine, trémie ──percent──▶ terrasse
 équipement ──renforce──▶ terrasse
@@ -230,6 +253,13 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
   surface selon le document. L'unifier change un nombre exporté : **c'est une version majeure** (`MD/RELEASE.md`), à décider,
   pas une correction discrète.
 - **La surface d'un chemin courbe** se compte sur ses segments droits, pas sur la courbe dessinée : même règle, même décision.
+- **Les données rangées par numéro de côté ne suivent pas un sommet ajouté ou retiré.** `model/sommets.ts` tient en phase
+  quatre tableaux (points, noms des coins, noms des côtés, coins figés) et rien d'autre. Or quatre ouvrages rangent des données
+  par côté : le **terrain** (la clôture réglée côté par côté, les **portails**), la **terrasse** (`construction.cotesSansRive`),
+  l'**abri** (`pergola.coteMur`, le côté adossé), le **bâtiment** (`batiment.facades[].cote`, `fenetres3d[].cote`). Un sommet
+  ajouté sur le côté 1 d'une parcelle met le portail du côté 3 sur un autre côté. C'est le rôle même du contrôleur par
+  ouvrage : chaque ouvrage déclare ses données par côté, et la chirurgie des sommets les renumérote par lui (étape 6.3,
+  `Corrigé` : aucun nombre d'un fichier enregistré ne bouge, seul le geste d'édition est réparé).
 - **Le bâtiment et l'annexe** se comparent encore à la main dans les exports (`'batiment' || 'annexe'`) : c'est le bâti, une
   famille, que le registre dit déjà (étape 6.4).
 
@@ -239,6 +269,6 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 |---|---|---|
 | 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` |
 | 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) |
-| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports | empreintes inchangées |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses données par côté, que la chirurgie des sommets renumérote | empreintes inchangées ; un sommet ajouté ou retiré garde chaque portail, réglage de clôture, côté sans rive, mur adossé et façade sur son côté |
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche | plus aucun `fonction === '…'` hors des registres (cliquet) ; fumée complète |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) |
