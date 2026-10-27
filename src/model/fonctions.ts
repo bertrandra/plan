@@ -84,6 +84,13 @@ export function occupeLeSol(o: ObjetPlan): boolean {
   return o.type === 'polygon' || o.type === 'circle';
 }
 
+/**
+ * L'objet est-il pose sur le terrain reel ? Une parcelle du cadastre, un batiment ou un element de l'IGN : l'actualisation IGN, la
+ * lecture des toits au LiDAR, la photo aerienne, le relief, le soleil et le voisinage le lisent a sa place. Il ne se deplace ni ne
+ * tourne (decision du 27 octobre 2026) ; un decalage se corrige par le recalage, pas a la main.
+ */
+export const estPoseSurLeTerrain = (o: { cadastre?: unknown; bdtopo?: unknown }): boolean => !!o.cadastre || !!o.bdtopo;
+
 /** Un objet qu'on peut isoler (app/isolement.ts) : une terrasse, une piscine, une pergola, un carport. */
 export const estIsolable = (o: ObjetPlan): boolean => estTerrasse(o) || estPiscine(o) || estAbri(o);
 

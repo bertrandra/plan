@@ -35,4 +35,13 @@ describe('l outil Aligner', () => {
     expect((o as { pts: unknown }).pts).toEqual(carre());
     expect(String((ctx.showToast as ReturnType<typeof vi.fn>).mock.calls[0]?.[0])).toMatch(/cadastre/);
   });
+
+  it('ne tourne pas un batiment de l IGN', () => {
+    definirCibleAlignement({ objKey: 'm', segIndex: 0 });
+    const o = { key: 'b', type: 'polygon', fonction: 'batiment', pts: carre(), bdtopo: { id: 'BATIMENT1' } } as unknown as ObjetPlan;
+    const ctx = contexte();
+    alignerObjetParRotation(o, null, '', ctx);
+    expect(ctx.pushHistory).not.toHaveBeenCalled();
+    expect((o as { pts: unknown }).pts).toEqual(carre());
+  });
 });

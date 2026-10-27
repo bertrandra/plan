@@ -340,12 +340,13 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
     (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
     translate, tournée elle part). Le relief, la photo aérienne, les rues et le PLU, eux, sont posés sur le terrain réel : ils
-    ne tournent pas. Une parcelle issue du cadastre porte l'orientation réelle du terrain : l'outil « Aligner » refuse de la
-    tourner (décision du 27 octobre 2026, `interaction/outilAlignement.ts`). Tout ce qui est posé sur le terrain la lit à sa
+    ne tournent pas. Ce qui vient du cadastre ou de l'IGN (parcelles, bâtiments, éléments : `model/fonctions.ts::estPoseSurLeTerrain`)
+    porte l'orientation et la place réelles du terrain : il ne se déplace ni ne tourne (décision du 27 octobre 2026,
+    `interaction/outilAlignement.ts`, `interaction/pointeur.ts`) ; le toit qui suit son bâtiment vaut pour un bâtiment dessiné. Tout ce qui est posé sur le terrain la lit à sa
     place : l'actualisation IGN (qui la remettrait, ou garderait des bâtiments désalignés), la lecture des toits au LiDAR, la
     photo aérienne, le relief, les rues, le PLU, le soleil (le nord réel), le voisinage, la mitoyenneté, le côté sur rue,
-    l'audit sur place (GPS, photos de rue géolocalisées). La seule rotation qui garde tout juste est celle de la **vue** : un
-    réglage d'affichage qui tourne le plan à l'écran sans toucher un point (à décider).
+    l'audit sur place (GPS, photos de rue géolocalisées). La seule rotation qui garde tout juste serait celle de la **vue** (un
+    réglage d'affichage) : proposée, écartée par le propriétaire le 27 octobre 2026.
 
   Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par

@@ -11,6 +11,10 @@ import type { PtBrut, ObjetPlan } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
 import type { CoteCible } from '../geometry/alignement.js';
 import { suivreLeContour } from '../model/ouvrages/index.js';
+import { estPoseSurLeTerrain } from '../model/fonctions.js';
+
+/** Le refus de deplacer ou de tourner ce qui est pose sur le terrain reel, dit a la personne. */
+export const MESSAGE_TERRAIN_REEL = 'Cet objet vient du cadastre ou de l’IGN : il reste à sa place réelle (IGN, LiDAR, photo aérienne, relief, soleil). Il ne se déplace ni ne tourne.';
 
 /** Un cote designe sur le plan : la cle de l'objet et l'indice du cote. */
 export interface CoteDesigne {
@@ -64,7 +68,7 @@ export interface ContexteAlignement {
  * Trois garde-fous, dans cet ordre, et chacun pour une raison differente :
  *
  * 1. **Un objet verrouille ne bouge pas.** Le verrou existe pour ca.
- * 2. **Une parcelle issue du cadastre ne tourne pas.** Elle porte l'orientation reelle du terrain, et tout ce qui est pose sur
+ * 2. **Ce qui vient du cadastre ou de l'IGN ne tourne pas** (`estPoseSurLeTerrain`). Une parcelle porte l'orientation reelle du terrain, et tout ce qui est pose sur
  *    le terrain la lit a sa place : l'actualisation IGN (qui la remettrait), la lecture des toits au LiDAR, la photo aerienne,
  *    le relief, les rues, le PLU, le soleil (le nord reel), le voisinage, l'audit sur place. On refuse, en le disant
  *    (decision du 27 octobre 2026, MD/spec-ouvrages.md).
@@ -80,7 +84,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
   const ref = cibleAlignement();
   if (!ref) return;
   if (obj.locked) { ctx.showToast('Objet verrouille.'); return; }
-  if (obj.cadastre) { ctx.showToast('Cette parcelle vient du cadastre : elle garde l’orientation réelle du terrain (IGN, LiDAR, photo aérienne, relief, soleil). Elle ne tourne pas.'); return; }
+  if (estPoseSurLeTerrain(obj)) { ctx.showToast(MESSAGE_TERRAIN_REEL); return; }
   const target = ctx.measureSegCoords(ref);
   if (!target) return;
   const idx = ctx.nearestSegmentIndex(obj, target);

@@ -5,6 +5,7 @@ import { parPriorite } from '../../render/empilement.js';
 import { referenceGeoPlan } from '../../render/ortho.js';
 import { brancherRelief } from '../ecouteurs/relief.js';
 import { brancherPointeur } from '../../interaction/pointeur.js';
+import { showToast } from '../../shell/dialogs.js';
 import { validerProjetJSON } from '../../io/validation.js';
 import { importSVGString as importerSVG } from '../../io/importSvg.js';
 import { brancherObjets } from '../ecouteurs/objets.js';
@@ -46,7 +47,8 @@ export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof 
     toWorld: dessin.toWorld, markDirty: p.markDirty, vueChangee: p.vueChangee,
     apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
     // L'outil « Aligner » de la palette va jusqu'au bout : la cible designee, l'objet selectionne pivote.
-    aligner: () => { const o = etat.objects.find(x => x.key === etat.selectedKey); if (o) p.gestes.alignObjectByRotation(o); }
+    aligner: () => { const o = etat.objects.find(x => x.key === etat.selectedKey); if (o) p.gestes.alignObjectByRotation(o); },
+    signaler: showToast
   });
   brancherObjets(atelier, commandes);
   // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.
