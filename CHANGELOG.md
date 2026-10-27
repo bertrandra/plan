@@ -94,6 +94,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   exports et les empreintes de `tests/fixtures/golden/` sont inchangés. Un test fixe l'inventaire décidé, ouvrage par ouvrage
   (`tests/unit/ui/inventaireInspecteur.test.ts`).
 
+- **Une parcelle du cadastre ne tourne plus.** L'outil « Aligner » avertissait puis la tournait ; il refuse désormais, en
+  le disant : elle porte l'orientation réelle du terrain, et l'actualisation IGN, la lecture des toits au LiDAR, la photo
+  aérienne, le relief, les rues, le PLU, le soleil, le voisinage et l'audit sur place la lisent à sa place.
 - **L'outil « Aligner » reprend la distance au trait.** Quand il est actif, son bandeau porte un champ « à … m du trait » : vide,
   l'objet tourne pour devenir parallèle au côté désigné ; rempli, il se pose aussi à cette distance (une terrasse à 50 cm de la
   façade). C'était l'option « Distance au segment » de la section retirée de l'inspecteur.

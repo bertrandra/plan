@@ -64,9 +64,10 @@ export interface ContexteAlignement {
  * Trois garde-fous, dans cet ordre, et chacun pour une raison differente :
  *
  * 1. **Un objet verrouille ne bouge pas.** Le verrou existe pour ca.
- * 2. **Une parcelle issue du cadastre porte l'orientation reelle du terrain.** La faire tourner
- *    decale le nord du plan — donc l'ombre des parasols et la Vue 3D — sans que rien ne le signale.
- *    On previent, mais on laisse faire : c'est peut-etre exactement ce qu'on veut.
+ * 2. **Une parcelle issue du cadastre ne tourne pas.** Elle porte l'orientation reelle du terrain, et tout ce qui est pose sur
+ *    le terrain la lit a sa place : l'actualisation IGN (qui la remettrait), la lecture des toits au LiDAR, la photo aerienne,
+ *    le relief, les rues, le PLU, le soleil (le nord reel), le voisinage, l'audit sur place. On refuse, en le disant
+ *    (decision du 27 octobre 2026, MD/spec-ouvrages.md).
  * 3. **Le resultat doit rester dans le contour de contrainte.** On calcule d'abord, on verifie
  *    ensuite, et on n'enregistre dans l'historique **qu'apres** : un alignement refuse ne doit pas
  *    laisser un pas d'annulation vide derriere lui.
@@ -79,7 +80,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
   const ref = cibleAlignement();
   if (!ref) return;
   if (obj.locked) { ctx.showToast('Objet verrouille.'); return; }
-  if (obj.cadastre) ctx.showToast('Attention : cette parcelle vient du cadastre. La faire tourner desaligne le plan du nord reel (ombres, Vue 3D).');
+  if (obj.cadastre) { ctx.showToast('Cette parcelle vient du cadastre : elle garde l’orientation réelle du terrain (IGN, LiDAR, photo aérienne, relief, soleil). Elle ne tourne pas.'); return; }
   const target = ctx.measureSegCoords(ref);
   if (!target) return;
   const idx = ctx.nearestSegmentIndex(obj, target);
