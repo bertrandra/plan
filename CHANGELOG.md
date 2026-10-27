@@ -64,9 +64,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
   fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
   enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour
-  le modèle » le propose. Les démos livrées passent au 5. **La plateforme doit accepter 5 avant le dépôt** : backprod le déclare
-  depuis bertrandra/backprod#236, mais la ligne `project_schema_versions` de la production et du monde d'essai se règle à la
-  console (preflight signale l'écart) ; sinon chaque enregistrement de ces projets répond 422.
+  le modèle » le propose. Les démos livrées passent au 5. **La plateforme doit accepter 5 avant le dépôt** : backprod
+  l'accepte depuis bertrandra/backprod#242, par une migration de base que `setup.php` applique ; à appliquer en production avant de
+  déployer cette version, sinon chaque enregistrement de ces projets répond 422.
 - **Un relevé de façade garde la calibration qui l'a produit** (feuille de route, étape 1.4). Chaque relevé écrit désormais les
   seuils de détection que la calibration de l'admin avait posés à ce moment (`calibration`, vide quand ce sont les valeurs
   livrées) ; `reglagesDuReleve` (`facade/regles/facades/rejeuReleve.ts`) rend les seuils pour rejouer sa détection, ceux du relevé
@@ -79,6 +79,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   remet à plat (`model/champsFonction.ts`), et aucune empreinte ne bouge. Les interfaces qui décrivaient un bâtiment à plat (lecture
   LiDAR des toits, comparaison d'un bâtiment vérifié, couleur des murs et des toits) lisent le sous-objet ; les propositions de
   l'audit recopient le sous-objet avant d'y écrire, pour que l'aperçu ne touche pas au projet.
+- **Une zone que l'on ne voit pas ne se redessine plus** (feuille de route, étape 2.2). La règle est la même pour les trois classes
+  d'écran ; seule change la façon dont une zone se cache : au téléphone, dans sa feuille fermée ; sur tablette et au bureau, repliée.
+  L'inspecteur, l'explorateur et la palette gardent ce qu'ils montraient et se redessinent dès qu'ils redeviennent visibles, avec
+  l'état du moment (`zones/composants/versionVisible.ts`). Le tiroir des résultats n'en fait pas partie : ses boutons de cotes servent
+  feuille fermée, et son chiffrage se relit pendant qu'on règle la terrasse. Au banc de production, au téléphone, deux passages
+  chacun contre `main` : à 150 objets 513 et 370 ms → 177 et 196 ms ; à 300 objets 267 et 290 ms → 176 et 193 ms ; à 600 objets
+  440 et 451 ms → 379 et 310 ms. Le bureau ne bouge pas, au bruit près.
 
 - **Le rendu au téléphone, environ deux fois plus court** (feuille de route, étape 2.2, en partie). Trois coûts ôtés d'un rendu
   où rien n'a changé :
