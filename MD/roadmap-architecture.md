@@ -92,6 +92,19 @@ Déclencheur : la prochaine forme de toit, ou la prochaine fonction d'objet.
 | 5.2 | three.js, EZ-tree, pdf-lib servis depuis `assets/` de la livraison, le CDN en secours | la Vue 3D s'ouvre CDN coupé | fait : copies de `node_modules` dans `assets/vendor/` (mêmes empreintes) ; three.js de la livraison seule (une seule adresse dans la table d'import), EZ-tree et pdf-lib avec jsDelivr en secours ; model-viewer reste au CDN |
 | 5.3 | Mode hors ligne pour l'audit (service worker sur les morceaux déjà découpés) | un audit commencé se poursuit sans réseau et s'envoie au retour | déclencheur AD-6 : plaintes d'utilisateurs sur le terrain |
 
+### Phase 6 — Un domaine par ouvrage, un contrôleur qui sait ce qui change
+
+Décidée le 27 octobre 2026 avec le propriétaire : une terrasse n'a pas les mêmes règles de construction qu'un chemin, et en
+conception un seul objet bouge à la fois. Spécification : `MD/spec-ouvrages.md`. Elle porte la fin de l'étape 2.2 (6.1 et 6.5).
+
+| Étape | Quoi | Fait quand | État |
+|---|---|---|---|
+| 6.1 | Le contrôleur des objets (`core/controleurObjets.ts`) : une version par objet aux huit points de passage de l'inventaire, le dessin du plan qui saute un objet inchangé, le garde-fou en développement (`[cle de version]`) | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms sans changement ; fumée complète sans `[cle de version]` | à faire |
+| 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures | empreintes inchangées ; plus de `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet) | à faire |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples (dalle, chemin, massif, équipement) | empreintes inchangées | à faire |
+| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage | plus de `fonction === '…'` hors des registres (cliquet) ; fumée complète | à faire |
+| 6.5 | Les écritures nomment leur objet ; le chiffrage et les cotes se gardent sur la version de ce qu'ils lisent | un rendu sans changement sous 33 ms au téléphone à 600 objets | à faire |
+
 ## Ordre retenu
 
 0.1, 0.2 et 1.1 + 1.2 sont engagés dès maintenant, dans cet ordre : les filets d'abord, puis la reproductibilité. 0.3 attend le
