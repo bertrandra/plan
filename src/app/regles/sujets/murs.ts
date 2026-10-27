@@ -19,7 +19,7 @@ function propositionTeinte({ o, b, v, et }: EntreeSujet): Proposition | null {
   const retenue = couleurMursRetenue(o);
   // La couleur du projet est deja de cette famille : rien de neuf a proposer.
   if (retenue && teinteDe(retenue.couleur) === teinte.code) return null;
-  const source = o.couleurMurs?.source;
+  const source = o.batiment?.couleurMurs?.source;
   return deClaude({
     id: b.cle + ':claude:couleurMurs', cible: { type: 'batiment', cle: b.cle }, objet: 'Murs de ' + b.nom,
     avant: retenue ? retenue.couleur + (retenue.source === 'photo' ? ' (photo)' : ' (matériau)') : 'couleur du plan',

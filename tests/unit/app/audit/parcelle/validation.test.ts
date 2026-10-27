@@ -21,7 +21,7 @@ const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, 
 function monter(mesures?: DependancesMesures) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 }, cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
   ] as ObjetBrut[]) as ObjetPlan[];
   const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
   const historique = creerHistorique(etat as never, {
@@ -56,11 +56,11 @@ describe('la validation des propositions', () => {
     expect(cles).toEqual(['maison']);
     const copie = objets?.find((o) => o.key === 'maison');
     expect(copie).not.toBe(t.etat.objects[1]);
-    expect(copie?.toit?.couverture).toBe('ardoise');
-    expect(copie?.corpsToit?.[0]?.cheminees).toHaveLength(2);
+    expect(copie?.batiment?.toit?.couverture).toBe('ardoise');
+    expect(copie?.batiment?.corpsToit?.[0]?.cheminees).toHaveLength(2);
     // Decocher une ligne : l'apercu suit.
     t.v.basculer('maison:couverture');
-    expect(t.remplacer3d.mock.calls.at(-1)?.[1]?.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    expect(t.remplacer3d.mock.calls.at(-1)?.[1]?.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
     t.v.montrer('avant');
     expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
     expect(t.plan()).toBe(avant);
@@ -78,9 +78,9 @@ describe('la validation des propositions', () => {
     expect(t.historique.pile.taille).toBe(1);
     expect(t.etat.dirty).toBe(true);
     const maison = t.etat.objects.find((o) => o.key === 'maison');
-    expect(maison?.couleurMurs?.materiau).toBe('brique');
-    expect(maison?.toit?.couverture).toBeUndefined();
-    expect(maison?.corpsToit?.[0]?.cheminees?.map((c) => c.position)).toEqual(['faitage', 'pan']);
+    expect(maison?.batiment?.couleurMurs?.materiau).toBe('brique');
+    expect(maison?.batiment?.toit?.couverture).toBeUndefined();
+    expect(maison?.batiment?.corpsToit?.[0]?.cheminees?.map((c) => c.position)).toEqual(['faitage', 'pan']);
     expect(clotureDe(t.etat.objects[0] as ObjetPlan).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
     expect(t.projet.render).toHaveBeenCalledOnce();
     expect(t.projet.refaire3d).toHaveBeenCalledOnce();
@@ -108,9 +108,9 @@ describe('la validation des propositions', () => {
     expect(t.v.verifications()[0]?.verifie).toBe(true);
     expect(t.v.valider()?.verifies).toBe(1);
     const relu = normalizeObjects(serializeObjects(t.etat.objects) as ObjetBrut[]).find((o) => o.key === 'maison');
-    expect(relu?.verifieSurPlace).toEqual({ date: '2026-10-13' });
+    expect(relu?.batiment?.verifieSurPlace).toEqual({ date: '2026-10-13' });
     t.historique.annuler();
-    expect(t.etat.objects.find((o) => o.key === 'maison')?.verifieSurPlace).toBeUndefined();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.verifieSurPlace).toBeUndefined();
   });
 
   it('surligne la ligne choisie dans la 3D et la montre dans « Après » meme decochee ; fermer l oublie', async () => {
@@ -121,12 +121,12 @@ describe('la validation des propositions', () => {
     await t.v.lancer();
     t.v.synchroniser();
     t.v.basculer('maison:couverture');
-    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
     t.v.selectionner('maison:couverture');
     expect(t.v.selection()).toBe('maison:couverture');
     expect(t.v.cochee('maison:couverture')).toBe(false);
     // Decochee, elle se voit dans « Après » le temps d'etre choisie ; rien ne s'ecrit pour autant.
-    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('ardoise');
     const s = surligner3d.mock.calls.at(-1)?.[0];
     // Le toit seul : de l'egout (au-dessus du sol) au faitage.
     expect(s?.formes[0]).toMatchObject({ haut: 9, ferme: true });
@@ -134,7 +134,7 @@ describe('la validation des propositions', () => {
     expect(s?.formes[0]?.pts).toHaveLength(4);
     t.v.selectionner(null);
     expect(surligner3d.mock.calls.at(-1)?.[0]).toBeNull();
-    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
     t.v.selectionner('maison:cheminees');
     t.v.oublierApercu();
     expect(t.v.selection()).toBeNull();
@@ -155,7 +155,7 @@ describe('la validation des propositions', () => {
     // L'apres est fait de copies : la maison avec l'ardoise et ses cheminees, la parcelle avec le mur.
     const maison = apres?.objets.find((o) => o.key === 'maison');
     expect(maison).not.toBe(t.etat.objects[1]);
-    expect(maison?.toit?.couverture).toBe('ardoise');
+    expect(maison?.batiment?.toit?.couverture).toBe('ardoise');
     expect(apres?.parcelle).not.toBe(t.etat.objects[0]);
     expect(clotureDe(apres?.parcelle as ObjetPlan).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });
     expect(t.plan()).toBe(avant);
@@ -165,7 +165,7 @@ describe('la validation des propositions', () => {
     // Decocher : l'apres suit, sans la couverture.
     t.v.basculer('maison:couverture');
     expect(comparer3d).toHaveBeenCalledTimes(2);
-    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBeUndefined();
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBeUndefined();
     // La cloture decochee : la parcelle ne se compare plus.
     t.v.basculer('parcelle:cloture');
     expect(comparer3d.mock.calls.at(-1)?.[0]?.parcelle).toBeNull();
@@ -322,9 +322,9 @@ describe('la consultation d un audit recu (Admin › Audits)', () => {
     const [cles, objets] = t.remplacer3d.mock.calls.at(-1) ?? [];
     expect(cles).toEqual(['maison']);
     const copie = objets?.find((o) => o.key === 'maison');
-    expect(copie?.couleurMurs?.materiau).toBe('brique');
-    expect(copie?.toit?.couverture).toBeUndefined();
-    expect(t.etat.objects.find((o) => o.key === 'maison')?.couleurMurs?.materiau).toBeUndefined();
+    expect(copie?.batiment?.couleurMurs?.materiau).toBe('brique');
+    expect(copie?.batiment?.toit?.couverture).toBeUndefined();
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.couleurMurs?.materiau).toBeUndefined();
     t.v.montrer('avant');
     expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
   });

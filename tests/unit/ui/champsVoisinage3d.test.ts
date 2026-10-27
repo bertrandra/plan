@@ -5,6 +5,7 @@ import { champsVisibles, type Champ, type ChampBouton, type ChampChoix, type Cha
 import { ecritLeProjet } from '../../../src/app/administration/ecritures.js';
 import { voisinage3dDe } from '../../../src/model/voisinage3d.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Les sections « Voisinage (3D) » (parcelle du projet) et « Fenêtres (3D) » (batiment du projet) :
 // ou elles existent, ce qu'elles ecrivent, et ce qui ne touche pas au projet.
@@ -14,8 +15,8 @@ function contexte(obj: Record<string, unknown>, principale = true): ContexteCham
   const parcelle = principale && o.fonction === 'terrain' ? o : ({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [] } as unknown as ObjetPlan);
   return { etat: { objects: [o], highlight: {}, lectureSeule: false }, obj: o, objets: [o], parcelle, elevationOf: () => 6, render: () => {} } as unknown as ContexteChamps;
 }
-const parcelle = (plus: Record<string, unknown> = {}) => ({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }], ...plus });
-const maison = (plus: Record<string, unknown> = {}) => ({ key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], ...plus });
+const parcelle = (plus: Record<string, unknown> = {}) => versMemoire({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }], ...plus });
+const maison = (plus: Record<string, unknown> = {}) => versMemoire({ key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], ...plus });
 const champ = <T extends Champ>(s: { champs: Champ[] } | null, cle: string): T => { const ch = s?.champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
 const cles = (s: { champs: Champ[] } | null, c: ContexteChamps) => (s ? champsVisibles(s as never, c).map((x) => x.cle) : []);
 
@@ -126,36 +127,36 @@ describe('section Fenêtres (3D)', () => {
     expect(ecritLeProjet(largeur)).toBe(true);
     expect(largeur.lire(c)).toBe(1);
     largeur.ecrire(c, 1.4);
-    expect(c.obj.fenetres3d).toMatchObject({ mode: 'toutes', largeur: 1.4, hauteur: 1.2 });
+    expect(c.obj.batiment?.fenetres3d).toMatchObject({ mode: 'toutes', largeur: 1.4, hauteur: 1.2 });
     expect(largeur.ecrire(c, 9)).toBe(false);
   });
 
   it('une par une : la liste part de la disposition automatique, puis se deplace, se taille, s ajoute et se supprime', () => {
     const c = contexte(maison({ bdtopo: { nombreEtages: 2 } }));
     champ<ChampChoix>(sectionFenetres3d(c), 'mode').ecrire(c, 'uneParUne');
-    expect(c.obj.fenetres3d?.liste).toHaveLength(28);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(28);
     let s = sectionFenetres3d(c);
     expect(cles(s, c)).toContain('fenetre0');
     expect(cles(s, c)).toEqual(expect.arrayContaining(['ajouter', 'automatique', 'enCours', 'type', 'cote', 'x', 'y', 'l', 'h']));
     // La premiere fenetre : deplacee et taillee.
     champ<ChampNombre>(s, 'x').ecrire(c, 2.5);
     champ<ChampNombre>(s, 'l').ecrire(c, 1.8);
-    expect(c.obj.fenetres3d?.liste?.[0]).toMatchObject({ x: 2.5, l: 1.8 });
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]).toMatchObject({ x: 2.5, l: 1.8 });
     // Au-dela du mur, la position est ramenee au bord.
     champ<ChampNombre>(s, 'x').ecrire(c, 50);
-    expect(c.obj.fenetres3d?.liste?.[0]?.x).toBeCloseTo(12 - 1.8, 9);
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]?.x).toBeCloseTo(12 - 1.8, 9);
     // Une fenetre de plus, a droite de celle en cours, qui devient celle en cours.
     champ<ChampBouton>(s, 'ajouter').executer(c);
-    expect(c.obj.fenetres3d?.liste).toHaveLength(29);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(29);
     s = sectionFenetres3d(c);
     expect(champ<ChampChoix>(s, 'enCours').lire(c)).toBe('28');
     expect(champ<ChampNombre>(s, 'l').lire(c)).toBe(1);
     // Supprimee par sa ligne.
     const ligne = champ<ChampLigne>(s, 'fenetre28');
     (ligne.champs.find((x) => x.cle === 'supprimer') as ChampBouton).executer(c);
-    expect(c.obj.fenetres3d?.liste).toHaveLength(28);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(28);
     // Retour a l'automatique : la premiere fenetre retrouve sa place.
     champ<ChampBouton>(sectionFenetres3d(c), 'automatique').executer(c);
-    expect(c.obj.fenetres3d?.liste?.[0]?.l).toBe(1);
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]?.l).toBe(1);
   });
 });

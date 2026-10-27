@@ -11,7 +11,7 @@ import type { ServiceReleve } from '../../../../src/app/releve/releve.js';
 
 function monter(selection: string, ecrire = true) {
   const etat = { selectedKey: selection, objects: [
-    { key: 'maison', type: 'polygon', fonction: 'batiment', facades: [{ cote: 0 }, { cote: 2 }] },
+    { key: 'maison', type: 'polygon', fonction: 'batiment', batiment: { facades: [{ cote: 0 }, { cote: 2 }] } },
     { key: 'garage', type: 'polygon', fonction: 'annexe' },
     { key: 'terrasse', type: 'polygon', fonction: 'terrasse' }
   ] } as unknown as EtatApp;
@@ -19,7 +19,7 @@ function monter(selection: string, ecrire = true) {
   const ctx = { etat, releve, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn() };
   const cmd = creerRegistre(droits(ecrire));
   brancherFacade(ctx, cmd);
-  return { ctx, cmd, maison: etat.objects[0] as unknown as { facades?: { cote: number }[] } };
+  return { ctx, cmd, maison: (etat.objects[0] as unknown as { batiment: { facades?: { cote: number }[] } }).batiment };
 }
 
 describe('facades', () => {

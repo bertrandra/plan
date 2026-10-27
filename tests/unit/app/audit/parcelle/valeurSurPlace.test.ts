@@ -19,7 +19,7 @@ const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, 
 function monter(noteSurPlace: boolean, couvertureClaude = 'zinc') {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
   ] as ObjetBrut[]) as ObjetPlan[];
   const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
@@ -57,7 +57,7 @@ describe('la valeur notee sur place et celle de Claude, arbitrees', () => {
     expect(t.v.propositions().find((p) => p.id === couverture)).toMatchObject({ apres: expect.stringContaining('Zinc') });
     expect(t.v.cochee(couverture)).toBe(true);
     t.v.valider();
-    expect(t.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('zinc');
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('zinc');
   });
 
   it('reprendre le choix du moteur rend l ardoise ; sans rien changer, l ardoise s ecrit', async () => {
@@ -67,7 +67,7 @@ describe('la valeur notee sur place et celle de Claude, arbitrees', () => {
     t.v.decider('batiment:maison', 'couverture', null);
     expect(decision(t)?.decision).toBe('auto');
     t.v.valider();
-    expect(t.etat.objects.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise');
+    expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('ardoise');
   });
 
   it('sans note sur place, Claude seul ne decide pas : la ligne arrive decochee, avec sa raison', async () => {

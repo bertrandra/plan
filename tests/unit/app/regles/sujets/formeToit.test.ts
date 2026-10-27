@@ -7,14 +7,14 @@ import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js'
 import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { Proposition } from '../../../../../src/regles/decisions.js';
-import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../../src/model/types.js';
 
 // La forme du toit vue par Claude sur les pignons et les croupes (lot « décisions depuis les
 // écarts ») : relue sur la mesure LiDAR de AE 101, jamais fabriquée, décochée avec ses raisons.
 
 function batiment(): { o: ObjetPlan; objets: ObjetPlan[] } {
-  const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ObjetPlan['toitMesure']; corps: CorpsToit[] };
-  const o = { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, toitMesure: d.toitMesure, corpsToit: d.corps } as unknown as ObjetPlan;
+  const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
+  const o = { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, toitMesure: d.toitMesure, corpsToit: d.corps },   } as unknown as ObjetPlan;
   const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
   return { o, objets: [parcelle, o] };
 }
@@ -39,7 +39,7 @@ describe('la forme du toit proposée d’après Claude', () => {
     const corps = (p?.effet as { corps: CorpsToit[] }).corps;
     expect(corps[0]?.croupes?.every((h) => h > 0)).toBe(true);
     // Les deux autres corps (annexe, aile) ne bougent pas.
-    expect(corps.slice(1)).toEqual((o.corpsToit as CorpsToit[]).slice(1));
+    expect(corps.slice(1)).toEqual((o.batiment?.corpsToit as CorpsToit[]).slice(1));
     expect(p?.indices.map((i) => i.texte)).toEqual(expect.arrayContaining([
       'deux rampes jusqu’à un sommet (photo 1 de la façade)',
       expect.stringMatching(/^Écart à la mesure LiDAR avec cette forme : 0,\d\d m \(aujourd’hui 0,35 m\)$/),
@@ -51,12 +51,12 @@ describe('la forme du toit proposée d’après Claude', () => {
 
   it('cochée et validée, elle remplace les corps du bâtiment ; le plan d’origine n’est pas touché', () => {
     const { o, objets } = batiment();
-    const avant = JSON.stringify(o.corpsToit);
+    const avant = JSON.stringify(o.batiment?.corpsToit);
     const p = forme(o, objets, 'croupes', 'croupe', 'croupe') as Proposition;
     const copie = { ...o } as ObjetPlan;
     expect(appliquerPropositions([copie], [p], [], '2026-10-17')).toEqual(['maison']);
-    expect(copie.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
-    expect(JSON.stringify(o.corpsToit)).toBe(avant);
+    expect(copie.batiment?.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
+    expect(JSON.stringify(o.batiment?.corpsToit)).toBe(avant);
   });
 
   it('ne fabrique pas : une forme que Plan ne sait pas lire (Mansart) ou des bouts qui se contredisent restent des observations', () => {
@@ -70,7 +70,7 @@ describe('la forme du toit proposée d’après Claude', () => {
 
   it('sans mesure LiDAR, rien ne se relit : pas de proposition', () => {
     const { o, objets } = batiment();
-    delete o.toitMesure;
+    delete o.batiment?.toitMesure;
     expect(forme(o, objets, 'croupes', 'croupe', 'croupe')).toBeUndefined();
   });
 

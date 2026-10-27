@@ -46,8 +46,8 @@ describe('pixelsTextureMur', () => {
 describe('les murs et leur materiau', () => {
   it('la texture du materiau principal ; aucune avec la couleur du plan ou sans materiau connu', () => {
     expect(textureDesMurs({ bdtopo: { materiauxMurs: '24' } })).toBe('meuliere');
-    expect(textureDesMurs({ bdtopo: { materiauxMurs: '40' }, couleurMurs: { photo: { couleur: '#A0523B', id: 'p', date: null, auteur: null, licence: null } } })).toBe('brique');
-    expect(textureDesMurs({ bdtopo: { materiauxMurs: '40' }, couleurMurs: { source: 'plan' } })).toBeNull();
+    expect(textureDesMurs({ bdtopo: { materiauxMurs: '40' }, batiment: { couleurMurs: { photo: { couleur: '#A0523B', id: 'p', date: null, auteur: null, licence: null } } } })).toBe('brique');
+    expect(textureDesMurs({ bdtopo: { materiauxMurs: '40' }, batiment: { couleurMurs: { source: 'plan' } } })).toBeNull();
     expect(textureDesMurs({ bdtopo: { materiauxMurs: '90' } })).toBeNull();
     expect(textureDesMurs({})).toBeNull();
   });

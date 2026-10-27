@@ -8,6 +8,7 @@ import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/types.js';
 import type { Proposition } from '../../../../../src/regles/decisions.js';
 import { IDU_AE101, importerAE101, rechercheAE101, coteAllee } from '../../../../fixtures/cloture/ae101.js';
+import { champsBatiment } from '../../../../../src/model/champsFonction.js';
 
 // Les propositions de l'audit sans Claude (MD/spec-audit.md §13.1, §14) : ce que les mesures et les
 // observations proposent, l'avant et l'apres de chacune, ce qui arrive decoche, et quand un batiment
@@ -23,7 +24,7 @@ const PLAT: CorpsToit = { pts: rect(15, 12, 18, 18), posFaitage: 1.5, faitage: 3
 function quartier(): ObjetPlan[] {
   return [
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 }, cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, bdtopo: { materiauxMurs: '10' }, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS, PLAT] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, bdtopo: { materiauxMurs: '10' }, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS, PLAT] },  }),
   ];
 }
 
@@ -87,9 +88,9 @@ describe('les propositions des mesures et des observations', () => {
   it('decoche ce qui remplace un choix fait a la main, et le dit', () => {
     const objets = quartier();
     const m = objets[1] as ObjetPlan;
-    m.couleurMurs = { source: 'plan' };
-    m.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile' };
-    m.facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
+    champsBatiment(m).couleurMurs = { source: 'plan' };
+    champsBatiment(m).toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile' };
+    champsBatiment(m).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
     const p = [...propositionsDeLAudit(entrees(objets)), ...propositionsArbitrees(entrees(objets), {})];
     const parId = new Map(p.map((x) => [x.id, x]));
     expect(parId.get('maison:couleurMurs')?.remplaceChoix).toBe('couleur du plan');
@@ -112,8 +113,8 @@ describe('les propositions des mesures et des observations', () => {
     const objets = quartier();
     const m = objets[1] as ObjetPlan;
     m.elevation = 5.85;
-    m.couleurMurs = { materiau: 'brique', terrain: { couleur: '#c9b49a', date: '2026-10-01' } };
-    m.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' };
+    champsBatiment(m).couleurMurs = { materiau: 'brique', terrain: { couleur: '#c9b49a', date: '2026-10-01' } };
+    champsBatiment(m).toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' };
     const ids = propositionsDeLAudit(entrees(objets)).map((x) => x.id);
     for (const id of ['maison:hauteur', 'maison:couleurMurs', 'maison:materiauMurs', 'maison:couverture']) expect(ids).not.toContain(id);
   });
@@ -192,13 +193,13 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
   describe('le releve que l audit a pose tout seul (depuisAudit)', () => {
     it('est deja ecrit quand il vient de la meme mesure : la ligne n est plus proposee', () => {
       const objets = quartier();
-      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 6), depuisAudit: true }];
+      champsBatiment((objets[1] as ObjetPlan)).facades = [{ ...releve(0, 6), depuisAudit: true }];
       expect(propositionsArbitrees(entrees(objets), {}).some((x) => x.id === 'maison#0:releve')).toBe(false);
     });
 
     it('n est pas un choix de la personne : une mesure plus recente le remplace, et le dit', () => {
       const objets = quartier();
-      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z', depuisAudit: true }];
+      champsBatiment((objets[1] as ObjetPlan)).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z', depuisAudit: true }];
       const r = propositionsArbitrees(entrees(objets), {}).find((x) => x.id === 'maison#0:releve');
       expect(r).toMatchObject({ avant: 'relevé automatique du 01/10/2026 (4 ouvertures)', remplaceChoix: null });
       expect(cochesParDefaut([r as Proposition]).has('maison#0:releve')).toBe(true);
@@ -206,7 +207,7 @@ describe('la cloture et le portail vus sur place, sans portail dans le projet', 
 
     it('un releve fait a la main reste un choix : decoche, avec ce qu il remplacerait', () => {
       const objets = quartier();
-      (objets[1] as ObjetPlan).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
+      champsBatiment((objets[1] as ObjetPlan)).facades = [{ ...releve(0, 4), releveLe: '2026-10-01T10:00:00Z' }];
       const r = propositionsArbitrees(entrees(objets), {}).find((x) => x.id === 'maison#0:releve');
       expect(r?.remplaceChoix).toBe('relevé du 01/10/2026 (4 ouvertures)');
     });

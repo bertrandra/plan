@@ -1,3 +1,4 @@
+import { aPlat } from '../../../src/model/champsFonction.js';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -57,7 +58,8 @@ describe('objetsDepuisCadastre, sur un import complet fige', () => {
   it('reproduit le temoin a l identique', () => {
     const importe = importFige();
     const objets = objetsDepuisCadastre(importe);
-    const texte = JSON.stringify({ fusionEchouee: importe.fusionEchouee ?? null, objets }, null, 1);
+    // Le temoin est a plat : les champs d'une fonction y sont a la place de leur sous-objet (model/champsFonction.ts).
+    const texte = JSON.stringify({ fusionEchouee: importe.fusionEchouee ?? null, objets: objets.map(aPlat) }, null, 1);
     // Le temoin a ete ecrit depuis le code d'avant le decoupage de la fonction (28 septembre 2026).
     // Il ne se reecrit que sur demande explicite — un temoin absent est une erreur, pas une invitation.
     if (process.env.RECAPTURER_CADASTRE) writeFileSync(temoin, texte + '\n');
@@ -70,7 +72,7 @@ describe('objetsDepuisCadastre, sur un import complet fige', () => {
     try {
       const arbres = objetsDepuisCadastre(importFige()).filter(o => o.fonction === 'arbre');
       expect(arbres.length).toBeGreaterThan(0);
-      for (const a of arbres) expect(BIBLIOTHEQUE_LIVREE.some(e => e.id === a.especeArbre), String(a.especeArbre)).toBe(true);
+      for (const a of arbres) expect(BIBLIOTHEQUE_LIVREE.some(e => e.id === a.arbre?.espece), String(a.arbre?.espece)).toBe(true);
     } finally { poserEspeces([]); }
   });
 

@@ -26,7 +26,7 @@ function propositionMateriau({ o, b, v, et }: EntreeSujet): Proposition | null {
   if (!m) return null;
   const actuel = textureDesMurs(o);
   if (actuel === m.valeur) return null;
-  const choisi = o.couleurMurs?.materiau;
+  const choisi = o.batiment?.couleurMurs?.materiau;
   const libelle = (x: MateriauTexture) => libelleDe(MATERIAUX_MURS_VUS, x);
   return deClaude({
     id: b.cle + ':claude:materiauMurs', cible: { type: 'batiment', cle: b.cle }, objet: 'Matériau des murs de ' + b.nom,

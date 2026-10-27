@@ -5,12 +5,14 @@ import {
 import { couleurMursRetenue, textureDesMurs } from '../../../src/model/couleurMur.js';
 import { clotureDImport, clotureDe } from '../../../src/model/cloture.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../src/model/types.js';
+import { champsBatiment } from '../../../src/model/champsFonction.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Les propositions d'un audit de la parcelle (MD/spec-audit.md §14) : quelles cases arrivent cochees,
 // et ce que chaque effet ecrit sur le projet, sans rien toucher d'autre.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
+const obj = (key: string, plus: Partial<ObjetPlan> | Record<string, unknown>): ObjetPlan => versMemoire({ key, name: key, type: 'polygon', ...plus }) as ObjetPlan;
 
 const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
 const RELEVE: ReleveFacade = {
@@ -26,7 +28,7 @@ function proposition(id: string, effet: EffetProposition, plus: Partial<Proposit
 function projet(): ObjetPlan[] {
   return [
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
   ];
 }
 
@@ -64,15 +66,15 @@ describe('ce que les propositions ecrivent', () => {
     const m = objets[1] as ObjetPlan;
     expect(touches).toEqual(['maison']);
     expect(m.elevation).toBe(5);
-    expect(m.facades?.[0]).toMatchObject({ cote: 0, hauteur: 5, ouvertures: [{ y: 1, h: 1.5 }] });
+    expect(m.batiment?.facades?.[0]).toMatchObject({ cote: 0, hauteur: 5, ouvertures: [{ y: 1, h: 1.5 }] });
   });
 
   it('pose la couleur vue sur place, qui passe avant la photo de rue et le choix de source', () => {
     const objets = projet();
     const m = objets[1] as ObjetPlan;
-    m.couleurMurs = { photo: { couleur: '#AAAAAA', id: 'p', date: null, auteur: null, licence: null }, source: 'plan' };
+    champsBatiment(m).couleurMurs = { photo: { couleur: '#AAAAAA', id: 'p', date: null, auteur: null, licence: null }, source: 'plan' };
     appliquerPropositions(objets, [proposition('c', { type: 'couleurMurs', couleur: '#c9b49a' })], [], '2026-10-13');
-    expect(m.couleurMurs).toEqual({ photo: { couleur: '#AAAAAA', id: 'p', date: null, auteur: null, licence: null }, terrain: { couleur: '#c9b49a', date: '2026-10-13' } });
+    expect(m.batiment?.couleurMurs).toEqual({ photo: { couleur: '#AAAAAA', id: 'p', date: null, auteur: null, licence: null }, terrain: { couleur: '#c9b49a', date: '2026-10-13' } });
     expect(couleurMursRetenue(m)).toEqual({ couleur: '#c9b49a', source: 'photo' });
   });
 
@@ -82,7 +84,7 @@ describe('ce que les propositions ecrivent', () => {
     appliquerPropositions(objets, [proposition('m', { type: 'materiauMurs', materiau: 'brique' }), proposition('t', { type: 'couverture', couverture: 'ardoise' })], [], '2026-10-13');
     expect(textureDesMurs(m)).toBe('brique');
     expect(couleurMursRetenue(m)?.source).toBe('materiau');
-    expect(m.toit?.couverture).toBe('ardoise');
+    expect(m.batiment?.toit?.couverture).toBe('ardoise');
   });
 
   it('remplace les cheminees d une observation precedente, garde les autres', () => {
@@ -90,17 +92,17 @@ describe('ce que les propositions ecrivent', () => {
     const m = objets[1] as ObjetPlan;
     const vieille = { x: 6, y: 14, largeurM: 0.5, profondeurM: 0.5, sommetM: 9.4, position: 'pan' as const, source: 'observation' as const };
     const lidar = { ...vieille, x: 7, source: 'lidar' as const };
-    m.corpsToit = [{ ...CORPS, cheminees: [vieille, lidar] }];
+    champsBatiment(m).corpsToit = [{ ...CORPS, cheminees: [vieille, lidar] }];
     const neuve = { ...vieille, x: 10, position: 'faitage' as const };
     appliquerPropositions(objets, [proposition('ch', { type: 'cheminees', corps: 0, cheminees: [neuve] })], [], '2026-10-13');
-    expect(m.corpsToit?.[0]?.cheminees).toEqual([lidar, neuve]);
+    expect(m.batiment?.corpsToit?.[0]?.cheminees).toEqual([lidar, neuve]);
   });
 
   it('decrit la toiture-terrasse du corps', () => {
     const objets = projet();
     const m = objets[1] as ObjetPlan;
     appliquerPropositions(objets, [proposition('te', { type: 'terrasse', corps: 0, terrasse: { accessible: true, acrotereM: 1, source: 'observation' } })], [], '2026-10-13');
-    expect(m.corpsToit?.[0]?.terrasse).toEqual({ accessible: true, acrotereM: 1, source: 'observation' });
+    expect(m.batiment?.corpsToit?.[0]?.terrasse).toEqual({ accessible: true, acrotereM: 1, source: 'observation' });
   });
 
   it('regle la cloture du cote sur rue et son portail', () => {
@@ -125,7 +127,7 @@ describe('ce que les propositions ecrivent', () => {
   it('marque les batiments verifies sur place, avec la date', () => {
     const objets = projet();
     expect(appliquerPropositions(objets, [], ['maison'], '2026-10-13')).toEqual(['maison']);
-    expect((objets[1] as ObjetPlan).verifieSurPlace).toEqual({ date: '2026-10-13' });
+    expect((objets[1] as ObjetPlan).batiment?.verifieSurPlace).toEqual({ date: '2026-10-13' });
   });
 
   it('ne modifie rien en place sur un batiment : une copie de surface suffit a l apercu', () => {
@@ -171,7 +173,7 @@ describe('le projet apres les propositions, pour l apercu', () => {
     expect([...r.touches].sort()).toEqual(['maison', 'parcelle']);
     const [parcelle, maison] = r.objets as [ObjetPlan, ObjetPlan];
     expect(maison).not.toBe(objets[1]);
-    expect(maison.toit?.couverture).toBe('ardoise');
+    expect(maison.batiment?.toit?.couverture).toBe('ardoise');
     // La cloture, modifiee en place par model/cloture.ts, est une copie profonde.
     expect(parcelle.cloture).not.toBe(objets[0]?.cloture);
     expect(clotureDe(parcelle).cotes[0]).toMatchObject({ type: 'mur', hauteur: 1.6 });

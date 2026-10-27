@@ -8,7 +8,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 const hote = (): CorpsToit => ({ pts: rect, posFaitage: 3, faitage: 7, egouts: [3.5, 3.5], pignons: [], ecart: 0 });
-const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: rect, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: rect, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const aire = (c: CorpsToit) => { const r = repere(c.pts); return r.L * r.W; };
 
 describe('poser un corps', () => {
@@ -51,8 +51,8 @@ describe('poser un corps', () => {
   it('les gestes de la palette posent les corps, et un contour en L demande d abord la forme', () => {
     const o = maison();
     for (const id of ['corps:aile', 'corps:retour', 'corps:biaise']) { expect(raisonIndisponible(o, id)).toBeNull(); expect(appliquerPiece(o, id)).toBe(true); }
-    expect(o.corpsToit).toHaveLength(4);
-    expect(o.toitFige).toBe(true);
+    expect(o.batiment?.corpsToit).toHaveLength(4);
+    expect(o.batiment?.toitFige).toBe(true);
     const enL = { ...maison(), pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 3 }, { x: 4, y: 3 }, { x: 4, y: 8 }, { x: 0, y: 8 }] } as unknown as ObjetPlan;
     expect(raisonIndisponible(enL, 'corps:aile')).toMatch(/forme du toit/);
   });
@@ -62,9 +62,9 @@ describe('les corps dans le plan', () => {
   it('liste les corps quand il y en a plusieurs, le principal d abord', () => {
     const o = maison();
     appliquerPiece(o, 'corps:aile');
-    const l = listerElements(o.corpsToit!).filter((e) => e.cible.type === 'corps');
+    const l = listerElements(o.batiment!.corpsToit!).filter((e) => e.cible.type === 'corps');
     expect(l.map((e) => e.libelle)).toEqual(['Corps principal', 'Corps 2']);
-    expect(rangPrincipal(o.corpsToit!)).toBe(0);
+    expect(rangPrincipal(o.batiment!.corpsToit!)).toBe(0);
   });
 
   it('deplace, tourne et etire un corps sans toucher aux autres, et ce qui est pose dessus suit', () => {

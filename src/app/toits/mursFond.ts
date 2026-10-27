@@ -19,6 +19,7 @@ import { aDesSommets } from '../../model/formes.js';
 import { centroid } from '../../geometry/basic.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /**
  * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les
@@ -49,7 +50,7 @@ export const VERSION_LECTURE_MURS = 2;
 /** La couleur des murs de ce batiment reste a lire sur les photos de rue : jamais lue, ou sans conclusion a une version plus ancienne. */
 export const mursALire = (o: ObjetPlan): boolean => {
   if (!estBatiment(o)) return false;
-  const c = o.couleurMurs;
+  const c = o.batiment?.couleurMurs;
   return c?.photo === undefined || (c.photo === null && (c.lecture ?? 0) < VERSION_LECTURE_MURS);
 };
 
@@ -133,9 +134,9 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
       if ('echec' in r) { ctx.refus.set(r.cle, (ctx.refus.get(r.cle) ?? 0) + 1); continue; }
       const o = courants.get(r.cle);
       if (!o || !estBatiment(o) || JSON.stringify(o.pts) !== avant.get(r.cle) || !mursALire(o)) continue;
-      const reste = { ...(o.couleurMurs ?? {}) };
+      const reste = { ...(o.batiment?.couleurMurs ?? {}) };
       delete reste.lecture;
-      o.couleurMurs = r.photo ? { ...reste, photo: r.photo } : { ...reste, photo: null, lecture: VERSION_LECTURE_MURS };
+      champsBatiment(o).couleurMurs = r.photo ? { ...reste, photo: r.photo } : { ...reste, photo: null, lecture: VERSION_LECTURE_MURS };
       if (r.photo) photos++;
       ecrits.push(r.cle);
     }

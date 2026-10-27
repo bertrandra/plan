@@ -7,6 +7,7 @@ import { pointInPolygon } from '../../../../src/geometry/basic.js';
 import { dialogues } from '../../../../src/shell/dialogues.js';
 import type { GrilleRelief } from '../../../../src/model/relief.js';
 import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
+import { champsBatiment } from '../../../../src/model/champsFonction.js';
 
 // La question posee quand un batiment a cheval sur deux parcelles laisse un doute sur sa toiture
 // (MD/spec-toit-ign.md §13.8) : une longere de 16 m, un seul faitage mesure, la limite au milieu.
@@ -27,7 +28,7 @@ function mesure() {
 }
 function plan(): ObjetPlan[] {
   const { m } = mesure();
-  const b = { key: 'b1', name: 'Longère', fonction: 'batiment', type: 'polygon', pts, bdtopo: { surParcellePrincipale: true }, toitMesure: m, corpsToit: reconstruireCorps(m, pts) };
+  const b = { key: 'b1', name: 'Longère', fonction: 'batiment', type: 'polygon', pts, bdtopo: { surParcellePrincipale: true }, batiment: { toitMesure: m, corpsToit: reconstruireCorps(m, pts) },  };
   return [
     { key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: rect(-5, -5, 13, 20), cadastre: { section: 'AE', numero: '0101' } },
     { key: 'p102', fonction: 'terrain', type: 'polygon', pts: rect(8, -5, 13, 20), cadastre: { section: 'AE', numero: '0102' } },
@@ -39,28 +40,28 @@ describe('le doute, note par le calcul', () => {
   it('un corps continu sur la limite : le doute est note, sans reponse', () => {
     const objets = plan();
     const b = objets[2]!;
-    expect(b.corpsToit).toHaveLength(1);
+    expect(b.batiment?.corpsToit).toHaveLength(1);
     toitAChevalApresCalcul(b, objets, null);
-    expect(b.toitACheval).toEqual({ parcelles: ['parcelle', 'p102'] });
+    expect(b.batiment?.toitACheval).toEqual({ parcelles: ['parcelle', 'p102'] });
     expect(batimentsEnDoute(objets)).toEqual([b]);
   });
 
   it('une reponse donnee s applique au calcul suivant, sans nouvelle question', () => {
     const objets = plan();
     const b = objets[2]!;
-    b.toitACheval = { parcelles: [], reponse: 'parParcelle' };
+    champsBatiment(b).toitACheval = { parcelles: [], reponse: 'parParcelle' };
     toitAChevalApresCalcul(b, objets, mesure().g);
-    expect(b.toitACheval).toEqual({ parcelles: ['parcelle', 'p102'], reponse: 'parParcelle' });
-    expect(b.corpsToit!.length).toBe(2);
+    expect(b.batiment?.toitACheval).toEqual({ parcelles: ['parcelle', 'p102'], reponse: 'parParcelle' });
+    expect(b.batiment!.corpsToit!.length).toBe(2);
     expect(batimentsEnDoute(objets)).toEqual([]);
   });
 
   it('un batiment qui n est plus a cheval perd sa question', () => {
     const objets = plan().filter((o) => o.key !== 'p102');
     const b = objets[1]!;
-    b.toitACheval = { parcelles: ['parcelle', 'p102'] };
+    champsBatiment(b).toitACheval = { parcelles: ['parcelle', 'p102'] };
     toitAChevalApresCalcul(b, objets, null);
-    expect(b.toitACheval).toBeNull();
+    expect(b.batiment?.toitACheval).toBeNull();
   });
 });
 
@@ -78,19 +79,19 @@ describe('la question et sa reponse', () => {
     const objets = plan();
     const b = objets[2]!;
     expect(repondreACheval(b, objets, 'parParcelle')).toBe(true);
-    expect(b.toitACheval?.reponse).toBe('parParcelle');
-    expect(b.corpsToit!.length).toBe(2);
-    for (const c of b.corpsToit!) {
+    expect(b.batiment?.toitACheval?.reponse).toBe('parParcelle');
+    expect(b.batiment!.corpsToit!.length).toBe(2);
+    for (const c of b.batiment!.corpsToit!) {
       const xs = c.pts.map((q) => q.x);
       expect(Math.max(...xs) <= 8.01 || Math.min(...xs) >= 7.99).toBe(true);
       expect(c.faitage).toBeGreaterThan(7.5);
     }
     // Un seul toit : les corps lus restent.
     const autres = plan();
-    const avant = JSON.stringify(autres[2]!.corpsToit);
+    const avant = JSON.stringify(autres[2]!.batiment?.corpsToit);
     expect(repondreACheval(autres[2]!, autres, 'un')).toBe(true);
-    expect(JSON.stringify(autres[2]!.corpsToit)).toBe(avant);
-    expect(pointInPolygon(p(8, 4), autres[2]!.corpsToit![0]!.pts)).toBe(true);
+    expect(JSON.stringify(autres[2]!.batiment?.corpsToit)).toBe(avant);
+    expect(pointInPolygon(p(8, 4), autres[2]!.batiment!.corpsToit![0]!.pts)).toBe(true);
   });
 });
 
@@ -112,7 +113,7 @@ describe('poserQuestionsToitsACheval', () => {
     expect(d.principal.libelle).toBe('Un seul toit');
     expect(d.secondaire.libelle).toBe('Un toit par parcelle');
     dialogues.repondreSecondaire();
-    expect(objets[2]!.toitACheval?.reponse).toBe('parParcelle');
+    expect(objets[2]!.batiment?.toitACheval?.reponse).toBe('parParcelle');
     expect(journal).toEqual(['montre b1', 'instantane', 'empile', 'redessine']);
     expect(dialogues.courant()).toBeNull();
   });
@@ -126,7 +127,7 @@ describe('poserQuestionsToitsACheval', () => {
     await Promise.resolve();
     expect(dialogues.courant()?.type).toBe('choix');
     dialogues.fermer();
-    expect(objets[2]!.toitACheval?.reponse).toBeUndefined();
+    expect(objets[2]!.batiment?.toitACheval?.reponse).toBeUndefined();
   });
 
   it('en lecture seule, rien n est demande', () => {

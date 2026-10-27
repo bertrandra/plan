@@ -81,7 +81,7 @@ describe('fenetres3d', () => {
     expect(fenetres3dDe(o)).toEqual(FENETRES_3D_DEFAUT);
     expect(FENETRES_3D_DEFAUT).toEqual({ mode: 'toutes', largeur: 1, hauteur: 1.2, appui: 0.9, entraxe: 2.4 });
     reglerFenetres3d(o, (r) => { r.largeur = 1.4; });
-    expect(o.fenetres3d).toEqual({ ...FENETRES_3D_DEFAUT, largeur: 1.4 });
+    expect(o.batiment?.fenetres3d).toEqual({ ...FENETRES_3D_DEFAUT, largeur: 1.4 });
     expect(nouvelleFenetre(fenetres3dDe(o), 2, 3.5)).toEqual({ cote: 2, type: 'fenetre', x: 3.5, y: 0.9, l: 1.4, h: 1.2 });
   });
 });

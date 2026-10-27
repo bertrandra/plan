@@ -177,9 +177,9 @@ export function ModeToit({ magasin, commandes }: Props) {
         onClick={(ev) => { commandes.executer('toit.regles', ev.currentTarget); }}>
         {'Règles ' + (allumees ? 'allumées' : 'coupées')}
       </button>
-      <ElementsToit corps={o?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
+      <ElementsToit corps={o?.batiment?.corpsToit ?? []} selection={e.selection} commandes={commandes} />
       <h3 className="titrePlateau" id="titrePlateauToit">Ajouter un élément</h3>
-      <p className="indiceToit">{corpsCible(o?.corpsToit ?? [], e.selection)}</p>
+      <p className="indiceToit">{corpsCible(o?.batiment?.corpsToit ?? [], e.selection)}</p>
       <div className="toitOnglets" role="tablist" aria-labelledby="titrePlateauToit">
         {ONGLETS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={onglet === t.id} className="toitOnglet" onClick={() => setOnglet(t.id)}>{t.libelle}</button>

@@ -113,7 +113,7 @@ async function choisirMurProche(page, largeur) {
 async function releverScene(page, nom) {
   const { vues: [photo], coins, largeur, largeurPx } = photosScene(nom);
   await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-  const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+  const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
   await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
   const mur = await choisirMurProche(page, largeur);
   await page.locator('input[data-controle="releve.importerPhoto"]').first().setInputFiles({ name: 'vue-0.png', mimeType: 'image/png', buffer: photo });
@@ -530,7 +530,7 @@ const notesToasts = (page) => page.evaluate(() => {
 const etatAudite = (page) => page.evaluate(() => {
   const o = window.__plan.etat().objects;
   const m = o.find((x) => x.key === 'maison'), p = o.find((x) => x.key === 'parcelle');
-  return JSON.stringify({ murs: m?.couleurMurs ?? null, couverture: m?.toit?.couverture ?? null, facades: (m?.facades ?? []).length, cloture: p?.cloture?.cotes ?? null, verifie: m?.verifieSurPlace ?? null });
+  return JSON.stringify({ murs: m?.batiment?.couleurMurs ?? null, couverture: m?.batiment?.toit?.couverture ?? null, facades: (m?.batiment?.facades ?? []).length, cloture: p?.cloture?.cotes ?? null, verifie: m?.batiment?.verifieSurPlace ?? null });
 });
 /** Une ligne de proposition : cochee ou non, et son texte. */
 /**
@@ -1553,7 +1553,7 @@ const POINTS = {
     const photo = await dessin.locator('#c').screenshot({ type: 'png' });
     await dessin.close();
     await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
     const avant = await facades();
     await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
     await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
@@ -1564,7 +1564,7 @@ const POINTS = {
     const precision = await page.locator('.releveNote', { hasText: 'Cotes précises' }).first().textContent({ timeout: 2000 }).catch(() => null);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, ouvertures: o.facades.map((f) => f.ouvertures.length), pxParM: o.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, ouvertures: o.batiment.facades.map((f) => f.ouvertures.length), pxParM: o.batiment.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
     await annuler(page);
     const retour = (await facades()) === avant;
     const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
@@ -2005,8 +2005,9 @@ const POINTS = {
     // main, la ligne des murs s'ecrit ; la couverture choisie reste.
     await page.evaluate(() => {
       const m = window.__plan.etat().objects.find((x) => x.key === 'maison');
-      m.couleurMurs = { source: 'plan' };
-      m.toit = { ...m.toit, couverture: 'tuile' };
+      const b = (m.batiment ??= {});
+      b.couleurMurs = { source: 'plan' };
+      b.toit = { ...b.toit, couverture: 'tuile' };
     });
     const avant = await etatAudite(page);
     await captureJusquAuxPropositions(page);
@@ -2028,7 +2029,7 @@ const POINTS = {
     // projet pose sa question avec un point de plus et une case decochee « Recalculer aussi… » ; la
     // case se coche ; Annuler ne touche a rien. Sans batiment verifie, ni point ni case. Rien ne part
     // vers l'IGN : la question seule se joue ici.
-    const marquer = (v) => page.evaluate((v) => { const m = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (v) m.verifieSurPlace = { date: '2026-10-13' }; else delete m.verifieSurPlace; }, v);
+    const marquer = (v) => page.evaluate((v) => { const m = window.__plan.etat().objects.find((x) => x.key === 'maison'); if (v) (m.batiment ??= {}).verifieSurPlace = { date: '2026-10-13' }; else delete m.batiment?.verifieSurPlace; }, v);
     const ouvrir = async () => {
       await page.evaluate(() => document.querySelector('[data-commande="projet.actualiser"]').click());
       const boite = page.locator('.dialogueVoile', { hasText: 'Actualiser le projet' });
@@ -2271,7 +2272,7 @@ const POINTS = {
     const face = await dessiner([250, 260, 1350, 260, 1350, 1000, 250, 1000], [600, 820, 520, 230]);
     const biais = await dessiner([330, 200, 1250, 300, 1250, 960, 330, 1060], [820, 830, 470, 230]);
     await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
     const avant = await facades();
     await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
     await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
@@ -2288,7 +2289,7 @@ const POINTS = {
     await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => ({ nom: o.name, vues: o.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.facades.map((f) => f.ouvertures.length) })));
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, vues: o.batiment.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.batiment.facades.map((f) => f.ouvertures.length) })));
     await annuler(page);
     const retour = (await facades()) === avant;
     const deux = ecrit[0]?.vues?.[0] ?? 0;
@@ -2403,7 +2404,7 @@ const POINTS = {
     await page.reload();
     await page.waitForFunction(() => !!window.__plan, null, { timeout: 30000 });
     // Un des arbres du plan prend le pin : deux lots d'essences differentes.
-    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) o.especeArbre = 'pin'; });
+    await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'arbre'); if (o) (o.arbre ??= {}).espece = 'pin'; });
     await page.evaluate(() => window.__plan.executer('vue.3d'));
     await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 40000 });
     await page.waitForFunction(() => !!window.__plan.scene3d()?.scene.getObjectByName('arbres-lots'), null, { timeout: 60000 }).catch(() => {});
@@ -2743,7 +2744,7 @@ const POINTS = {
     const photo = await dessin.locator('#c').screenshot({ type: 'png' });
     await dessin.close();
     await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
     const avant = await facades();
     await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
     await page.locator('[data-controle="releve.choisirMur"]').first().click(); await page.waitForTimeout(600);
@@ -2770,8 +2771,8 @@ const POINTS = {
     const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => {
-      const f = o.facades[o.facades.length - 1];
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => {
+      const f = o.batiment.facades[o.batiment.facades.length - 1];
       return { nom: o.name, ouvertures: f.ouvertures.length, niveaux: f.grille?.niveaux?.length ?? 0, travees: f.grille?.travees?.length ?? 0, gestes: (f.corrections ?? []).map((c) => c.geste), sources: f.ouvertures.map((x) => x.source ?? '—') };
     }));
     await annuler(page);
@@ -2937,10 +2938,11 @@ const POINTS = {
     await page.evaluate(() => {
       const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
       o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
-      delete o.facades; delete o.corpsToit; delete o.volumesToit; delete o.toitMesure;
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure;
       // Les listes par sommet suivent le contour : quatre sommets, quatre entrees (sinon l'inspecteur lit au-dela).
       o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
-      o.elevation = 4; o.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
     });
@@ -2954,14 +2956,14 @@ const POINTS = {
     const onglets = await page.locator('.toitOnglet').count();
     await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
     await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
-    await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
+    await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
     const pastilles = await page.locator('.puceToit').count();
     const historiqueAvant = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
     await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
     const historiqueApres = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
     await page.evaluate(() => window.__plan.executer('objet.annuler'));
-    const retire = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.length);
+    const retire = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length);
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
     const ok = aucunAvant && vues === 4 && onglets === 4 && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
     return { ok, mesure: `panneau absent avant : ${aucunAvant}, ${vues} vues, ${onglets} onglets, ${pastilles} pastille(s) ; historique ${historiqueAvant} → ${historiqueApres} ; un Ctrl+Z ${retire ? 'retire tout' : 'LAISSE le toit'} ; débordement ${sans ? 'non' : 'OUI'}` };
@@ -2973,9 +2975,10 @@ const POINTS = {
     await page.evaluate(() => {
       const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
       o.pts = [{ x: -8, y: -20 }, { x: 2, y: -20 }, { x: 2, y: -14 }, { x: -8, y: -14 }];
-      delete o.facades; delete o.corpsToit; delete o.volumesToit; delete o.toitMesure;
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.corpsToit; delete b.volumesToit; delete b.toitMesure;
       o.vertexNames = ['A', 'B', 'C', 'D']; o.segmentNames = ['', '', '', '']; o.frozenVertices = [false, false, false, false];
-      o.elevation = 4; o.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
+      o.elevation = 4; b.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' };
       window.__plan.etat().measures.length = 0;
       window.__plan.selectionnerCle('maison');
     });
@@ -2984,10 +2987,10 @@ const POINTS = {
     await image3dStable(page, 3000);
     await page.locator('#terrasse3dModifierToit').click({ timeout: 30000 });
     await page.locator('.panneauToit').waitFor({ timeout: 20000 });
-    const corps = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit ?? []);
+    const corps = () => page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []);
     await page.locator('.toitOnglet', { hasText: 'Corps' }).click();
     await page.locator('[data-piece="corps:aile"]').click({ timeout: 30000 });
-    await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.length ?? 0) >= 2, null, { timeout: 60000 });
+    await page.waitForFunction(() => (window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length ?? 0) >= 2, null, { timeout: 60000 });
     const rang = (await corps()).length - 1;
     await page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]').click({ timeout: 30000 });
     await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
@@ -2996,7 +2999,7 @@ const POINTS = {
     const indice = (await page.locator('.panneauToit .indiceToit').allTextContents()).join(' ');
     await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
     await page.locator('[data-piece="sur:cheminee"]').click({ timeout: 30000 });
-    await page.waitForFunction((r) => !!window.__plan.etat().objects.find((x) => x.key === 'maison').corpsToit?.[r]?.cheminees?.length, rang, { timeout: 60000 });
+    await page.waitForFunction((r) => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[r]?.cheminees?.length, rang, { timeout: 60000 });
     const apres = await corps();
     const surLeChoisi = (apres[rang]?.cheminees?.length ?? 0) === 1 && apres.filter((c, k) => k !== rang && c.cheminees?.length).length === 0;
     await page.locator('.puceToit[data-type="corps"][data-rang="' + rang + '"]').click({ timeout: 30000 });
@@ -3089,7 +3092,7 @@ const POINTS = {
     // source `devinee` ; un Ctrl+Z retire tout.
     const { vues: [face, biais], coins, largeur, largeurPx } = photosScene('19-vues-haie-haute-baie-cachee');
     await selectionner(page, "o.fonction === 'batiment' || /maison/i.test(o.name)");
-    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)));
+    const facades = () => page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)));
     const avant = await facades();
     await page.evaluate(() => window.__plan.executer('facade.relever')); await page.waitForTimeout(600);
     await choisirMurProche(page, largeur);
@@ -3130,8 +3133,8 @@ const POINTS = {
     const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).map((o) => {
-      const f = o.facades[o.facades.length - 1];
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => {
+      const f = o.batiment.facades[o.batiment.facades.length - 1];
       return { ouvertures: f.ouvertures.length, sources: f.ouvertures.map((x) => x.source ?? '—'), detail: f.ouvertures.map((x) => `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${x.source ?? '—'} ${x.confiance ?? ''}`), vues: (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length };
     }));
     await annuler(page);
@@ -3165,10 +3168,10 @@ const POINTS = {
     const deborde = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrites = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.facades && o.facades.length).flatMap((o) => o.facades.at(-1).ouvertures.map((x) => ({ d: x.details, t: `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${JSON.stringify(x.details ?? {})}` }))));
+    const ecrites = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).flatMap((o) => o.batiment.facades.at(-1).ouvertures.map((x) => ({ d: x.details, t: `${x.type} ${x.x.toFixed(2)},${x.y.toFixed(2)} ${x.l.toFixed(2)}x${x.h.toFixed(2)} ${JSON.stringify(x.details ?? {})}` }))));
     const details = ecrites.map((x) => x.d).filter(Boolean);
     await annuler(page);
-    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)))) === avant;
+    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)))) === avant;
     const formes = details.map((d) => d.forme).filter((f) => f === 'cintre' || f === 'rond').length;
     const ok = lus.slice(0, 2).every(([, v]) => v) && formes >= 1 && details.some((d) => d.forme === 'cintre') && details.some((d) => d.volets === 'persiennes') && !deborde && retour;
     return { ok, mesure: `mur de ${mur ?? '?'} m, ${n} ouverture(s) ; fiches : ${lus.map(([t, v]) => `« ${t} » ${v ? 'lu' : 'ABSENT'}`).join(', ')} ; écrit : ${details.length} ouverture(s) détaillée(s), ${formes} forme(s) cintrée ou ronde${process.env.FUMEE_DETAIL ? ' [' + ecrites.map((x) => x.t).join(' | ') + ']' : ''} ; débordement ${deborde ? 'OUI' : 'non'} ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
@@ -3220,7 +3223,7 @@ const POINTS = {
     }
     await page.evaluate(() => window.__plan.executer('vue.plan')); await page.waitForTimeout(400);
     await annuler(page);
-    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.facades || null)))) === avant;
+    const retour = (await page.evaluate(() => JSON.stringify(window.__plan.etat().objects.map((o) => o.batiment?.facades || null)))) === avant;
     const ok = sans.details === 0 && sans.formes === 0 && avec.details >= 1 && avec.formes >= 1 && retour;
     return { ok, mesure: `avant le relevé : ${sans.details} maille(s) de détails, ${sans.formes} encadrement(s) de forme ; après : ${avec.details} maille(s) de détails (${avec.quads} quads), ${avec.formes} encadrement(s) cintré ou rond ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
@@ -3291,7 +3294,7 @@ const POINTS = {
     if (await garder.count()) { await garder.click(); await page.waitForTimeout(150); }
     const avecEssai = await page.locator('[data-commande="admin.faitsLocaux"]').count();
     const cle = 'BATIMENT0000000322509179';
-    const lu = () => page.evaluate((k) => window.__plan.etat().objects.find((o) => o.bdtopo?.cleabs === k)?.toitLidarLu ?? null, cle);
+    const lu = () => page.evaluate((k) => window.__plan.etat().objects.find((o) => o.bdtopo?.cleabs === k)?.batiment?.toitLidarLu ?? null, cle);
     const sale = () => page.evaluate(() => !!window.__plan.etat().dirty);
     const [luAvant, saleAvant] = [await lu(), await sale()];
     const charger = async (nom, contenu) => {

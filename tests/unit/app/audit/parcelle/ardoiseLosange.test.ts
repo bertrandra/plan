@@ -20,7 +20,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x:
 function monter(vu: CeQueJeVois | null, claude: string | null) {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   if (vu) capture.noterVu('maison', vu);
@@ -49,7 +49,7 @@ describe('la grande ardoise en losange', () => {
     const p = ligne(t);
     expect(p).toMatchObject({ source: 'arbitrage', apres: 'Grande ardoise en losange, vue sur place', effet: { type: 'couverture', couverture: 'ardoise-losange' } });
     appliquerPropositions(t.objets, [p!], [], '2026-10-13');
-    expect(t.objets.find((o) => o.key === 'maison')?.toit?.couverture).toBe('ardoise-losange');
+    expect(t.objets.find((o) => o.key === 'maison')?.batiment?.toit?.couverture).toBe('ardoise-losange');
   });
 
   it('Claude la voit seul : la ligne attend la personne, comme toute couverture vue par lui seul', () => {

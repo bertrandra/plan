@@ -6,6 +6,7 @@ import { captureVide, type EtiquetteImage } from '../../../../../src/model/audit
 import { voter } from '../../../../../src/model/analyseClaude.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import { champsBatiment } from '../../../../../src/model/champsFonction.js';
 
 // Les propositions de Claude (MD/spec-audit.md §13.2, §14) : couverture, cheminees, terrasse et
 // materiau des murs d'apres le vote de ses passes ; chacune dit son origine, ses indices et sa
@@ -24,7 +25,7 @@ const ETIQUETTES: EtiquetteImage[] = [
 function quartier(): ObjetPlan[] {
   return [
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, bdtopo: { materiauxMurs: '10' }, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS, PLAT] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, bdtopo: { materiauxMurs: '10' }, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS, PLAT] },  }),
   ];
 }
 
@@ -65,12 +66,12 @@ describe('les propositions de Claude', () => {
   it('ne propose pas ce que le projet a deja, et dit le choix qu elle remplacerait', () => {
     const objets = quartier();
     const m = objets[1] as ObjetPlan;
-    m.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' };
-    m.couleurMurs = { materiau: 'enduit' };
+    champsBatiment(m).toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' };
+    champsBatiment(m).couleurMurs = { materiau: 'enduit' };
     const p = propositions([reponse()], objets);
     expect(p.some((x) => x.id === 'maison:claude:couverture')).toBe(false);
     expect(p.find((x) => x.id === 'maison:claude:materiauMurs')?.remplaceChoix).toBe('Enduit');
-    m.toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile' };
+    champsBatiment(m).toit = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'tuile' };
     expect(propositions([reponse()], objets).find((x) => x.id === 'maison:claude:couverture')?.remplaceChoix).toBe('tuiles mécaniques');
   });
 
@@ -82,8 +83,8 @@ describe('les propositions de Claude', () => {
     // Avec une mesure LiDAR qui monte de 3 m sans corps plat, la meme reponse « plat » est contredite.
     const objets = quartier();
     const m = objets[1] as ObjetPlan;
-    m.corpsToit = [CORPS];
-    m.toitMesure = { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(8), egout: 6, faite: 9, source: 'lidar' };
+    champsBatiment(m).corpsToit = [CORPS];
+    champsBatiment(m).toitMesure = { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(8), egout: 6, faite: 9, source: 'lidar' };
     const plat = reponse({ forme: { indices: [], valeur: 'plat' } });
     const c = propositions([plat, plat, plat], objets).find((x) => x.id === 'maison:claude:couverture');
     expect(c?.reserve).toMatch(/^Contredit la mesure LiDAR : toit plat annoncé/);

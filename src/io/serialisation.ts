@@ -62,12 +62,12 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
       altitude:o.altitude, hidden:!!o.hidden,
       clotureActive: !!o.clotureActive, clotureHauteur: o.clotureHauteur,
       clotureCouleur: o.clotureCouleur, clotureTexture: o.clotureTexture || null,
-      diametreArbre: o.diametreArbre, couleurArbre: o.couleurArbre,
-      especeArbre: o.especeArbre,
-      textureArbre: o.textureArbre || null,
+      diametreArbre: o.arbre?.diametre, couleurArbre: o.arbre?.couleur,
+      especeArbre: o.arbre?.espece,
+      textureArbre: o.arbre?.texture || null,
       latitude: o.latitude, longitude: o.longitude, nomLieu: o.nomLieu,
-      hauteurParasol: o.hauteurParasol, terrasseLieeKey: o.terrasseLieeKey || null,
-      matSurPerimetre: !!o.matSurPerimetre, matDeporte: !!o.matDeporte, matAngleDeg: o.matAngleDeg,
+      hauteurParasol: o.parasol?.hauteur, terrasseLieeKey: o.parasol?.terrasseLieeKey || null,
+      matSurPerimetre: !!o.parasol?.matSurPerimetre, matDeporte: !!o.parasol?.matDeporte, matAngleDeg: o.parasol?.matAngleDeg,
       // Tracabilite cadastrale (import depuis une adresse), attributs BD TOPO (batiment, haie,
       // vegetation) et zonage PLU. Cette fonction est une LISTE BLANCHE : un champ absent d'ici
       // disparait silencieusement au premier enregistrement.
@@ -93,8 +93,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.construction) out.construction = JSON.parse(JSON.stringify(o.construction));
     // Releve de facade et toit : poses seulement quand ils existent, pour qu'un projet qui n'en a
     // pas garde au bit pres la forme d'avant (empreinte de projet.json).
-    if(o.facades && o.facades.length) out.facades = JSON.parse(JSON.stringify(o.facades));
-    if(o.toit) out.toit = JSON.parse(JSON.stringify(o.toit));
+    if(o.batiment?.facades && o.batiment?.facades.length) out.facades = JSON.parse(JSON.stringify(o.batiment?.facades));
+    if(o.batiment?.toit) out.toit = JSON.parse(JSON.stringify(o.batiment?.toit));
     // La cloture cote par cote et ses acces (MD/spec-cloture.md) : meme regle, les quatre anciens
     // champs ci-dessus restent ecrits pour les lecteurs qui ne connaissent qu'eux.
     if(o.cloture) out.cloture = JSON.parse(JSON.stringify(o.cloture));
@@ -108,38 +108,38 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Le gazon de la parcelle, montre par defaut : seul son retrait s'ecrit.
     if(o.gazon3d === false) out.gazon3d = false;
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
-    if(o.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.volumesToit));
-    if(o.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.toitMesure));
+    if(o.batiment?.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.batiment?.volumesToit));
+    if(o.batiment?.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.batiment?.toitMesure));
     // Sans ses pignons quand il n'en a pas (la relecture les remet, model/normalisation.ts). Les
     // cheminees et la terrasse observees (MD/spec-regles-toits.md §4) passent telles quelles ; une
     // liste vide de cheminees ne s'ecrit pas, un corps sans elles garde la forme d'avant. Les champs
     // etendus (profil, bouts, lucarnes, bords) ne s'ecrivent que s'ils disent autre chose que leur absence.
-    if(o.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.corpsToit)) as Record<string, unknown>[]).map((c) => {
+    if(o.batiment?.corpsToit) out.corpsToit = (JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as Record<string, unknown>[]).map((c) => {
       if(Array.isArray(c.pignons) && !c.pignons.length) delete c.pignons;
       if(Array.isArray(c.cheminees) && !c.cheminees.length) delete c.cheminees;
       compacterChampsEtendus(c);
       return c;
     });
     // Le batiment deja lu sur le LiDAR : sans ce marque, la tache de fond le relirait a chaque ouverture.
-    if(o.toitLidarLu) out.toitLidarLu = o.toitLidarLu;
-    if(o.modeToit) out.modeToit = o.modeToit;
-    if(o.toitACheval) out.toitACheval = JSON.parse(JSON.stringify(o.toitACheval));
-    if(o.couleurMurs) out.couleurMurs = JSON.parse(JSON.stringify(o.couleurMurs));
+    if(o.batiment?.toitLidarLu) out.toitLidarLu = o.batiment?.toitLidarLu;
+    if(o.batiment?.modeToit) out.modeToit = o.batiment?.modeToit;
+    if(o.batiment?.toitACheval) out.toitACheval = JSON.parse(JSON.stringify(o.batiment?.toitACheval));
+    if(o.batiment?.couleurMurs) out.couleurMurs = JSON.parse(JSON.stringify(o.batiment?.couleurMurs));
     // Verifie sur place par un audit de la parcelle (MD/spec-audit.md §14) : pose seulement s'il l'est.
-    if(o.verifieSurPlace) out.verifieSurPlace = { date: o.verifieSurPlace.date };
+    if(o.batiment?.verifieSurPlace) out.verifieSurPlace = { date: o.batiment?.verifieSurPlace.date };
     // Lecture automatique du toit coupee (palette › Toit › Règles) : posee seulement si elle l'est.
-    if(o.toitFige) out.toitFige = true;
-    if(o.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.fenetres3d));
+    if(o.batiment?.toitFige) out.toitFige = true;
+    if(o.batiment?.fenetres3d) out.fenetres3d = JSON.parse(JSON.stringify(o.batiment?.fenetres3d));
     // Le profil de facades retenu (facade/regles/facades/profils.ts) : sans lui, la tache de fond le rechoisirait a chaque ouverture.
-    if(o.profilFacades) out.profilFacades = { id: o.profilFacades.id, version: o.profilFacades.version };
+    if(o.batiment?.profilFacades) out.profilFacades = { id: o.batiment?.profilFacades.id, version: o.batiment?.profilFacades.version };
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.
     if(o.relief) out.relief = compacterRelief(o.relief);
     if(o.voisinage) allegerVoisinage(out);
     // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des
     // clefs est celui du fichier enregistre (empreinte projet.json). Ce qu'elle ecrit est un
-    // `ObjetBrut` : chaque champ vient de `o`, les absents valent `null`, que le modele admet.
-    return out as ObjetSerialise;
+    // `ObjetAPlat` : chaque champ vient de `o`, les absents valent `null`, que le modele admet.
+    return out as unknown as ObjetSerialise;
   });
 }
 /**

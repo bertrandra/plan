@@ -4,6 +4,7 @@ import { batimentsAudites, listeDeControle, situationFacade, statutFacade, texte
 import { captureVide, batimentVide } from '../../../../../src/model/auditParcelle.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import { versMemoire } from '../../../../../src/model/champsFonction.js';
 
 // La liste de controle de l'audit de la parcelle (MD/spec-audit.md §12.1) : les batiments de la
 // parcelle du projet (les maisons voisines n'en font pas partie), l'etat de chaque facade, le
@@ -11,7 +12,7 @@ import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 const PHOTO = { type: 'image/jpeg' as const, base64: 'AAAA' };
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
+const obj = (key: string, plus: Partial<ObjetPlan> | Record<string, unknown>): ObjetPlan => versMemoire({ key, name: key, type: 'polygon', ...plus }) as ObjetPlan;
 
 /**
  * Une parcelle de 20 x 30 m sur la rue (au sud, y < 0), une voisine a l'est ; la maison au milieu,
@@ -101,7 +102,7 @@ describe('la liste et son compteur', () => {
   it('donne au mur sa hauteur sous le toit, etage compris, sans toucher a la facade mesuree', () => {
     // Un prisme a 3 m, et un corps qui monte ses egouts a 6,2 m (sud) et 5,8 m (nord) : un etage.
     const corps = { pts: rect(5, 10, 15, 20), posFaitage: 5, faitage: 9, egouts: [6.2, 5.8] as [number, number], pignons: [], ecart: 0.1 };
-    const maison = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, corpsToit: [corps] });
+    const maison = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, batiment: { corpsToit: [corps] } });
     const sud = facadesDuContour(rect(5, 10, 15, 20), 3).find((f) => f.orientation === 'Sud')!;
     const ouest = facadesDuContour(rect(5, 10, 15, 20), 3).find((f) => f.orientation === 'Ouest')!;
     expect(hauteurMurSousToit(maison, sud)).toBe(6.2);
@@ -116,7 +117,7 @@ describe('la liste et son compteur', () => {
   it('suit le haut du mur par morceaux : une aile basse, puis l etage', () => {
     const aile = { pts: rect(5, 10, 10, 20), posFaitage: 2.5, faitage: 5, egouts: [3, 3] as [number, number], pignons: [], ecart: 0.1 };
     const etage = { pts: rect(10, 10, 15, 20), posFaitage: 2.5, faitage: 9, egouts: [6, 6] as [number, number], pignons: [], ecart: 0.1 };
-    const maison = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, corpsToit: [aile, etage] });
+    const maison = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, batiment: { corpsToit: [aile, etage] } });
     const sud = facadesDuContour(rect(5, 10, 15, 20), 3).find((f) => f.orientation === 'Sud')!;
     const profil = profilMurSousToit(maison, sud);
     expect(profil.map((m) => m.h)).toEqual([3, 6]);
@@ -125,7 +126,7 @@ describe('la liste et son compteur', () => {
     expect(profil[1]!.a).toBeCloseTo(10, 6);
     // L'angle d'un corps voisin qui ne touche le mur que sur 30 cm ne fait pas un morceau a part.
     const coin = { pts: rect(14.7, 4, 20, 10), posFaitage: 2.5, faitage: 12, egouts: [9, 9] as [number, number], pignons: [], ecart: 0.1 };
-    const avecCoin = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, corpsToit: [aile, etage, coin] });
+    const avecCoin = obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 20), elevation: 3, batiment: { corpsToit: [aile, etage, coin] } });
     expect(profilMurSousToit(avecCoin, sud).map((m) => m.h)).toEqual([3, 6]);
   });
 
@@ -167,9 +168,9 @@ describe('la liste et son compteur', () => {
   });
 
   it('ajoute la ligne de la toiture-terrasse pour un toit plat', () => {
-    const plat = obj('b', { fonction: 'batiment', pts: rect(0, 0, 5, 5), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } });
+    const plat = obj('b', { fonction: 'batiment', pts: rect(0, 0, 5, 5), batiment: { toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } } });
     expect(aUnToitPlat(plat, batimentVide())).toBe(true);
-    const pentu = obj('b', { fonction: 'batiment', pts: rect(0, 0, 5, 5), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } });
+    const pentu = obj('b', { fonction: 'batiment', pts: rect(0, 0, 5, 5), batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } });
     expect(aUnToitPlat(pentu, batimentVide())).toBe(false);
     expect(aUnToitPlat(pentu, { ...batimentVide(), vu: { forme: 'plat' } })).toBe(true);
     const l = listeDeControle([...quartier().slice(0, 2), plat], captureVide('x'));
@@ -192,7 +193,7 @@ describe('la liste et son compteur', () => {
 });
 
 describe('le haut du pignon ou du pan d une facade', () => {
-  const o = (corpsToit?: unknown) => ({ key: 'm', name: 'm', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: 6, ...(corpsToit ? { corpsToit } : {}) }) as unknown as ObjetPlan;
+  const o = (corpsToit?: unknown) => ({ key: 'm', name: 'm', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: 6, ...(corpsToit ? { batiment: { corpsToit } } : {}) }) as unknown as ObjetPlan;
   const sud = facadesDuContour(rect(0, 0, 10, 8), 6).find((f) => f.orientation === 'Sud')!;
   const corps = (pts: PtBrut[], faitage: number) => ({ pts, posFaitage: 4, faitage, egouts: [6, 6], pignons: [], ecart: 0 });
 

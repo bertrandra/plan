@@ -6,7 +6,7 @@ import type { Proposition } from '../../../regles/decisions.js';
 import { deClaude, pluriel, type EntreeSujet, type Sujet } from './contrat.js';
 
 function propositionCheminees({ o, b, v, et, contra }: EntreeSujet): Proposition | null {
-  const corps = o.corpsToit ?? [];
+  const corps = o.batiment?.corpsToit ?? [];
   const n = v.cheminees.valeur;
   if (typeof n !== 'number' || !corps.length) return null;
   const existantes = corps.flatMap((c) => c.cheminees ?? []);

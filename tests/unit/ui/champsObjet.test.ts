@@ -54,10 +54,10 @@ describe('sections de l inspecteur par fonction', () => {
       expect(champ.options(c).map(o => [o.valeur, o.libelle, o.groupe])).toEqual([['pin', 'Pin', 'Moyens (de 6 à 12 m)'], ['chene', 'Chêne', 'Grands (de 12 à 20 m)']]);
       expect(champ.lire(c)).toBe('chene');
       champ.ecrire(c, 'pin');
-      expect([c.obj.especeArbre, c.obj.elevation, c.obj.diametreArbre]).toEqual(['pin', 12, 6]);
+      expect([c.obj.arbre?.espece, c.obj.elevation, c.obj.arbre?.diametre]).toEqual(['pin', 12, 6]);
       // Une essence inconnue ne change rien.
       champ.ecrire(c, 'disparu');
-      expect(c.obj.especeArbre).toBe('pin');
+      expect(c.obj.arbre?.espece).toBe('pin');
     } finally {
       poserEspeces([]);
     }

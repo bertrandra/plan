@@ -190,8 +190,8 @@ describe('ombre des parasols', () => {
   });
 
   it('decale l ombre proportionnellement a la hauteur du mat', () => {
-    const bas = { ...(parasol as object), hauteurParasol: 2 } as never;
-    const haut = { ...(parasol as object), hauteurParasol: 4 } as never;
+    const bas = { ...(parasol as object), parasol: { ...(parasol as { parasol?: object }).parasol, hauteur: 2 } } as never;
+    const haut = { ...(parasol as object), parasol: { ...(parasol as { parasol?: object }).parasol, hauteur: 4 } } as never;
     expect(hauteurParasolDe(haut)).toBeGreaterThan(hauteurParasolDe(bas));
     const ech = { ux: 1, uy: 0, decalageParMetre: 1, etirement: 1 };
     expect(geometrieOmbre(haut, ech).cx).toBeGreaterThan(geometrieOmbre(bas, ech).cx);
@@ -218,7 +218,7 @@ describe('cartes d ombre et recherche de position', () => {
   };
   const parasol = {
     key: 'par', fonction: 'parasol', type: 'circle',
-    center: { x: 3, y: 2 }, r: 1.5, terrasseLieeKey: 'terr'
+    center: { x: 3, y: 2 }, r: 1.5, parasol: { terrasseLieeKey: 'terr' }
   };
   const ctx = { dateStr: '2026-06-21', minutes: 900, lieu: { latitude: 48.9052, longitude: 2.1328 } };
 
@@ -254,7 +254,7 @@ describe('cartes d ombre et recherche de position', () => {
   });
 
   it('ne propose rien pour un parasol qui n est sur aucune terrasse', () => {
-    const perdu = { ...parasol, center: { x: 100, y: 100 }, terrasseLieeKey: null as string | null };
+    const perdu = { ...parasol, center: { x: 100, y: 100 }, parasol: { ...(parasol).parasol, terrasseLieeKey: null as string | null } };
     expect(chercherMeilleurePositionParasol(perdu as never, ctx, [perdu] as never[])).toBeNull();
   });
 });

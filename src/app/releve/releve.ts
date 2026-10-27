@@ -22,6 +22,7 @@ import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 import type { EtatApp } from '../../core/state.js';
 import type { AideClaudeReleve } from './renfortReleve.js';
 import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 export interface ContexteReleve {
   etat: EtatApp;
@@ -114,8 +115,8 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       // Releve a la main : il n'est plus celui que l'audit a pose tout seul (une nouvelle photo ne le remplacera plus).
       const faite = { ...releve };
       delete faite.depuisAudit;
-      o.facades = [...(o.facades || []).filter((r) => r.cote !== releve.cote), faite].sort((a, b) => a.cote - b.cote);
-      if (toit) o.toit = toit;
+      champsBatiment(o).facades = [...(o.batiment?.facades || []).filter((r) => r.cote !== releve.cote), faite].sort((a, b) => a.cote - b.cote);
+      if (toit) champsBatiment(o).toit = toit;
       // La hauteur du batiment n'est pas touchee : la photo a ete ramenee a elle. La mesure est dite,
       // pour que l'ecart avec le cadastre se voie.
       const hBat = ctx.elevationOf(o);

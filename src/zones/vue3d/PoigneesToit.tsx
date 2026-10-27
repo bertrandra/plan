@@ -125,7 +125,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   if (!s || !e.actif || e.validee) return null;
   const plan = e.vue === 'dessus';
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
-  const corps = o?.corpsToit;
+  const corps = o?.batiment?.corpsToit;
   if (!corps?.length) return null;
   // Le corps choisi : sa silhouette, sur son mur le plus tourne vers la camera, tracee lisible (de dessus, le plan le montre deja).
   const silhouette = !plan && e.selection?.type === 'corps' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o)) : null;

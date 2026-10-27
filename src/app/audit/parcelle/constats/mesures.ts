@@ -23,8 +23,8 @@ export function constatsIgn({ o, b }: EntreesConstats): Constat[] {
   else if (typeof bd?.hauteurRetenueM === 'number') out.push({ cible, attribut: 'hauteurEgout', source: 'ign', valeur: cm(bd.hauteurRetenueM), confiance: 0.4, regle: REGLES_LIDAR.ign.estimee });
   const mursFonciers = materiauMurs(bd?.materiauxMurs);
   if (mursFonciers) out.push({ cible, attribut: 'materiauMurs', source: 'ign', valeur: mursFonciers.texture, confiance: 0.7, regle: REGLES_LIDAR.ign.materiau });
-  if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'hauteurTotale', source: 'ign', valeur: cm(hauteurDe(o) + o.toit.hauteur), confiance: 0.4, regle: REGLES_LIDAR.ign.toit });
-  if (o.toit?.source === 'bdtopo' && !o.corpsToit?.length) out.push({ cible, attribut: 'formeToit', source: 'ign', valeur: formeArbitree(o.toit.forme), confiance: 0.4, regle: REGLES_LIDAR.ign.forme });
+  if (o.batiment?.toit?.source === 'bdtopo' && !o.batiment?.corpsToit?.length) out.push({ cible, attribut: 'hauteurTotale', source: 'ign', valeur: cm(hauteurDe(o) + o.batiment?.toit.hauteur), confiance: 0.4, regle: REGLES_LIDAR.ign.toit });
+  if (o.batiment?.toit?.source === 'bdtopo' && !o.batiment?.corpsToit?.length) out.push({ cible, attribut: 'formeToit', source: 'ign', valeur: formeArbitree(o.batiment?.toit.forme), confiance: 0.4, regle: REGLES_LIDAR.ign.forme });
   return out;
 }
 
@@ -32,23 +32,23 @@ export function constatsIgn({ o, b }: EntreesConstats): Constat[] {
 export function constatsLidar({ o, b }: EntreesConstats): Constat[] {
   const out: Constat[] = [];
   const cible = cibleBatiment(b.cle);
-  if (o.toitMesure) {
-    out.push({ cible, attribut: 'hauteurEgout', source: 'lidar', valeur: cm(o.toitMesure.egout), confiance: 0.9, regle: REGLES_LIDAR.lidar.egout });
-    out.push({ cible, attribut: 'hauteurTotale', source: 'lidar', valeur: cm(o.toitMesure.faite), confiance: 0.85, regle: REGLES_LIDAR.lidar.faite });
+  if (o.batiment?.toitMesure) {
+    out.push({ cible, attribut: 'hauteurEgout', source: 'lidar', valeur: cm(o.batiment?.toitMesure.egout), confiance: 0.9, regle: REGLES_LIDAR.lidar.egout });
+    out.push({ cible, attribut: 'hauteurTotale', source: 'lidar', valeur: cm(o.batiment?.toitMesure.faite), confiance: 0.85, regle: REGLES_LIDAR.lidar.faite });
   }
-  const c = principal(o.corpsToit);
-  if (c && o.toit?.source !== 'saisie') {
+  const c = principal(o.batiment?.corpsToit);
+  if (c && o.batiment?.toit?.source !== 'saisie') {
     const confiance = confianceCorps(c.ecart);
-    const forme = formeDesCorps(o.corpsToit);
+    const forme = formeDesCorps(o.batiment?.corpsToit);
     // Une forme du catalogue que la surface dit mieux que les formes simples (facade/toits/lectureFormes.ts) remplace la lecture des corps,
     // aux memes conditions qu'a la lecture des toits (facade/regles/toits/catalogue.ts) : ni coyau sans demande, ni arbre pris pour une tourelle.
-    const mieux = o.toitMesure && 'pts' in o && o.pts ? lireFormes(o.toitMesure, o.corpsToit ?? [], o.pts).find((l) => lectureVraisemblable(l, hauteurBdTopo(o))) : undefined;
+    const mieux = o.batiment?.toitMesure && 'pts' in o && o.pts ? lireFormes(o.batiment?.toitMesure, o.batiment?.corpsToit ?? [], o.pts).find((l) => lectureVraisemblable(l, hauteurBdTopo(o))) : undefined;
     if (mieux) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(mieux.forme), confiance: confianceCorps(mieux.ecart), regle: mieux.regle, indices: [{ texte: 'Lecture des formes : ' + mieux.dit }] });
     else if (forme) out.push({ cible, attribut: 'formeToit', source: 'lidar', valeur: formeArbitree(forme), confiance, regle: REGLES_LIDAR.lidar.corps });
     out.push({ cible, attribut: 'boutsToit', source: 'lidar', valeur: boutsDuCorps(c), confiance, regle: REGLES_LIDAR.lidar.bouts });
     out.push({ cible, attribut: 'sensFaitage', source: 'lidar', valeur: cm(azimutFaitage(c)), confiance, regle: REGLES_LIDAR.lidar.sens });
     // Les autres corps, chacun le sien : les silhouettes de leurs murs s'arbitrent contre eux (corps par corps).
-    const corps = o.corpsToit ?? [], kp = plusGrand(corps);
+    const corps = o.batiment?.corpsToit ?? [], kp = plusGrand(corps);
     corps.forEach((k, i) => {
       if (i === kp) return;
       const ci = cibleCorps(b.cle, i), q = confianceCorps(k.ecart);

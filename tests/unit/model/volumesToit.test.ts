@@ -95,10 +95,10 @@ describe('les toits des volumes', () => {
   });
   it('volumesActifs : au moins deux volumes, sauf en mode « un seul toit »', () => {
     const v = volumesParDefaut(L, bdtopo)!;
-    expect(volumesActifs({ volumesToit: v })).toBe(v);
-    expect(volumesActifs({ volumesToit: v, modeToit: 'volumes' })).toBe(v);
-    expect(volumesActifs({ volumesToit: v, modeToit: 'simple' })).toBeNull();
-    expect(volumesActifs({ volumesToit: [v[0]!] })).toBeNull();
+    expect(volumesActifs({ batiment: { volumesToit: v } })).toBe(v);
+    expect(volumesActifs({ batiment: { volumesToit: v, modeToit: 'volumes' },  })).toBe(v);
+    expect(volumesActifs({ batiment: { volumesToit: v, modeToit: 'simple' },  })).toBeNull();
+    expect(volumesActifs({ batiment: { volumesToit: [v[0]!] } })).toBeNull();
     expect(volumesActifs({})).toBeNull();
   });
   it('decrireVolumes : une ligne par volume', () => {

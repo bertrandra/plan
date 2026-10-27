@@ -46,8 +46,8 @@ const bilan = await page.evaluate(() => {
   const o = window.__plan.etat().objects;
   const bat = o.filter((x) => x.fonction === 'batiment');
   const parc = o.find((x) => x.key === 'parcelle');
-  const sources = {}; bat.forEach((b) => { const k = (b.toit?.source || 'aucun') + '/' + (b.toit?.forme || '-'); sources[k] = (sources[k] || 0) + 1; });
-  return { objets: o.length, batiments: bat.length, corpsVoisins: bat.filter((b) => !b.bdtopo?.surParcellePrincipale && b.corpsToit?.length).length, mitoyensMesures: bat.filter((b) => !b.bdtopo?.surParcellePrincipale && b.toitMesure).length, pignonsVoisins: bat.reduce((n, b) => n + (b.bdtopo?.surParcellePrincipale ? 0 : (b.corpsToit || []).reduce((m, c) => m + c.pignons.length, 0)), 0), sources };
+  const sources = {}; bat.forEach((b) => { const k = (b.batiment?.toit?.source || 'aucun') + '/' + (b.batiment?.toit?.forme || '-'); sources[k] = (sources[k] || 0) + 1; });
+  return { objets: o.length, batiments: bat.length, corpsVoisins: bat.filter((b) => !b.bdtopo?.surParcellePrincipale && b.batiment?.corpsToit?.length).length, mitoyensMesures: bat.filter((b) => !b.bdtopo?.surParcellePrincipale && b.batiment?.toitMesure).length, pignonsVoisins: bat.reduce((n, b) => n + (b.bdtopo?.surParcellePrincipale ? 0 : (b.batiment?.corpsToit || []).reduce((m, c) => m + c.pignons.length, 0)), 0), sources };
 });
 const NOM = process.argv[4] || 'village';
 const r = await page.evaluate(async () => {
@@ -61,7 +61,7 @@ const r = await page.evaluate(async () => {
   for (const b of o.filter((x) => x.fonction === 'batiment')) {
     const c = b.pts.reduce((a, q) => ({ x: a.x + q.x / b.pts.length, y: a.y + q.y / b.pts.length }), { x: 0, y: 0 });
     const g = await mnh.lireGrilleSous(b.pts, pr).catch(() => null);
-    out.push({ key: b.key, d: Math.round(Math.hypot(c.x - c0.x, c.y - c0.y)), pts: b.pts, bdtopo: b.bdtopo, principal: !!b.bdtopo?.surParcellePrincipale, mesure: !!b.toitMesure, toit: b.toit, corps: b.corpsToit ?? null, grille: g && { ...g, z: g.z.map((v) => (v === null ? null : Math.round(v * 100) / 100)) } });
+    out.push({ key: b.key, d: Math.round(Math.hypot(c.x - c0.x, c.y - c0.y)), pts: b.pts, bdtopo: b.bdtopo, principal: !!b.bdtopo?.surParcellePrincipale, mesure: !!b.batiment?.toitMesure, toit: b.batiment?.toit, corps: b.batiment?.corpsToit ?? null, grille: g && { ...g, z: g.z.map((v) => (v === null ? null : Math.round(v * 100) / 100)) } });
   }
   // La latitude, pour les profils de toits (banc.ts) ; l'IDU en donne le departement. L'origine du
   // repere du plan : les cas candidats Panoramax (skill regles-toits, candidats.ts) y posent les photos de rue.
@@ -72,14 +72,14 @@ console.log('parcelle', r.parcelle, 'batiments', r.batiments.length, 'avec corps
 // La couleur des murs : lue sur une photo de rue, ou donnee par le materiau des fichiers fonciers.
 const murs = await page.evaluate(() => {
   const bat = window.__plan.etat().objects.filter((o) => o.fonction === 'batiment');
-  const lus = bat.filter((o) => o.couleurMurs?.photo);
-  return { batiments: bat.length, photos: lus.length, ambigus: bat.filter((o) => o.couleurMurs && o.couleurMurs.photo === null).length,
-    materiaux: bat.filter((o) => o.bdtopo?.materiauxMurs).length, exemples: lus.slice(0, 12).map((o) => ({ key: o.key, couleur: o.couleurMurs.photo.couleur, materiau: o.bdtopo?.materiauxMurs ?? null })) };
+  const lus = bat.filter((o) => o.batiment?.couleurMurs?.photo);
+  return { batiments: bat.length, photos: lus.length, ambigus: bat.filter((o) => o.batiment?.couleurMurs && o.batiment?.couleurMurs.photo === null).length,
+    materiaux: bat.filter((o) => o.bdtopo?.materiauxMurs).length, exemples: lus.slice(0, 12).map((o) => ({ key: o.key, couleur: o.batiment?.couleurMurs.photo.couleur, materiau: o.bdtopo?.materiauxMurs ?? null })) };
 });
 console.log('murs', JSON.stringify(murs));
 // CAPTURE_INSPECTEUR=1 : le premier batiment dont la couleur des murs est lue, selectionne, et l'inspecteur capture.
 if (process.env.CAPTURE_INSPECTEUR) {
-  const cle = await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'batiment' && (x.couleurMurs?.photo || x.bdtopo?.materiauxMurs)); return o?.key ?? null; });
+  const cle = await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.fonction === 'batiment' && (x.batiment?.couleurMurs?.photo || x.bdtopo?.materiauxMurs)); return o?.key ?? null; });
   if (cle) {
     for (const [l, h] of [[1440, 900], [820, 1100]]) {
       await page.setViewportSize({ width: l, height: h });
@@ -110,10 +110,10 @@ const couvertures = await page.evaluate(async () => {
   const T = await import('/src/three/toitCorps3d.ts');
   const compte = {};
   const exemples = {};
-  for (const o of window.__plan.etat().objects.filter((x) => x.fonction === 'batiment' && x.toit)) {
-    const pente = o.corpsToit?.length ? T.penteDominante(o.corpsToit) : V.penteDuToit(o.pts, o.toit);
+  for (const o of window.__plan.etat().objects.filter((x) => x.fonction === 'batiment' && x.batiment?.toit)) {
+    const pente = o.batiment?.corpsToit?.length ? T.penteDominante(o.batiment?.corpsToit) : V.penteDuToit(o.pts, o.batiment?.toit);
     const latitude = window.__plan.etat().objects.find((x) => x.key === 'parcelle')?.cadastre?.origineLat ?? null;
-    const m = C.materiauCouverture(o.toit, { materiauxToiture: o.bdtopo?.materiauxToiture, pente, latitude }, o.toit.forme === 'plat' && !o.corpsToit?.length);
+    const m = C.materiauCouverture(o.batiment?.toit, { materiauxToiture: o.bdtopo?.materiauxToiture, pente, latitude }, o.batiment?.toit.forme === 'plat' && !o.batiment?.corpsToit?.length);
     compte[m] = (compte[m] ?? 0) + 1;
     if (!exemples[m]) { const c = o.pts.reduce((a, q) => ({ x: a.x + q.x / o.pts.length, y: a.y + q.y / o.pts.length }), { x: 0, y: 0 }); exemples[m] = { key: o.key, x: Math.round(c.x), y: Math.round(c.y), pente: pente && Math.round(pente) }; }
   }
@@ -122,7 +122,7 @@ const couvertures = await page.evaluate(async () => {
 console.log('couvertures', JSON.stringify(couvertures));
 // Les batiments a cheval sur deux parcelles dont la toiture laisse un doute, et la question posee.
 const cheval = await page.evaluate(() => ({
-  batiments: window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, name: o.name, toitACheval: o.toitACheval, corps: o.corpsToit?.length })),
+  batiments: window.__plan.etat().objects.filter((o) => o.batiment?.toitACheval).map((o) => ({ key: o.key, name: o.name, toitACheval: o.batiment?.toitACheval, corps: o.batiment?.corpsToit?.length })),
   dialogue: document.querySelector('.dialogue, [role="dialog"]')?.textContent?.slice(0, 600) ?? null,
 }));
 console.log('a cheval', JSON.stringify(cheval));
@@ -134,7 +134,7 @@ while (cheval.dialogue) {
   await page.waitForTimeout(300);
   cheval.dialogue = r ? await page.evaluate(() => document.querySelector('.dialogue, [role="dialog"]')?.textContent?.slice(0, 600) ?? null) : null;
 }
-if (process.env.REPONSE_CHEVAL) console.log('apres reponse', JSON.stringify(await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.toitACheval).map((o) => ({ key: o.key, toitACheval: o.toitACheval, corps: o.corpsToit?.length })))));
+if (process.env.REPONSE_CHEVAL) console.log('apres reponse', JSON.stringify(await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.toitACheval).map((o) => ({ key: o.key, toitACheval: o.batiment?.toitACheval, corps: o.batiment?.corpsToit?.length })))));
 await page.evaluate(() => window.__plan.executer('vue.3d'));
 await page.locator('#terrasse3dCanvasHost canvas').waitFor({ timeout: 60000 });
 await page.waitForTimeout(8000);

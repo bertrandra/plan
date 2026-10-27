@@ -35,10 +35,11 @@ export const APP_VERSION = '3.0.0';
 // la migration 2 -> 3 en donne un a chaque batiment BD TOPO qui n'en avait pas.
 // 4 : la parcelle peut porter `relief`, la grille d'altitudes lue a l'IGN (MD/spec-relief.md) ; un
 // lecteur 3 la perdrait au premier enregistrement. La migration 3 -> 4 est l'identite.
-// Les champs ajoutes depuis sans monter le schema (piscine, pergola, cloture, corps et volumes du toit, toit mesure, fenetres et
-// voisinage en 3D, rues) s'ecrivent au 4 (migrations.ts, CHAMPS_DEPUIS) : un lecteur 1 a 3 refuse le fichier au lieu de les perdre.
-// Un schema 5 qui les distinguerait demande d'abord que la plateforme l'accepte (contrat/SOURCE-PRODUIT.md).
-export const SCHEMA_VERSION = 4;
+// 5 : les champs venus apres le relief (piscine, pergola, cloture, corps et volumes du toit, toit mesure, fenetres et voisinage
+// en 3D, rues) ; ils s'ecrivaient au 4, qu'un lecteur 4 aurait perdus (migrations.ts, CHAMPS_DEPUIS). La migration 4 -> 5 est
+// l'identite. Un releve y garde aussi la calibration de sa detection (`calibration`, etape 1.4). La plateforme doit accepter 5
+// avant le depot (contrat/SOURCE-PRODUIT.md).
+export const SCHEMA_VERSION = 5;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-25';
 export const BUILD_SHA: string | null = null;

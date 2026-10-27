@@ -25,13 +25,14 @@
 // l'ecriture, qu'il est desormais de la forme courante.
 
 import { SCHEMA_VERSION } from './version.js';
+import { aPlat } from './champsFonction.js';
 // La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
 import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
-import type { ObjetBrut, PtBrut } from './types.js';
+import type { ObjetAPlat, PtBrut } from './types.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
 export interface DocumentBrut {
-  objects: ObjetBrut[];
+  objects: ObjetAPlat[];
   measures?: unknown[];
 }
 
@@ -66,18 +67,25 @@ export const MIGRATIONS: readonly Migration[] = [
     // Le schema 4 n'ajoute qu'un champ facultatif a la parcelle : un document 3 est deja un
     // document 4 valide. La migration existe pour que la chaine soit complete.
     migrer: (d) => d
+  },
+  {
+    de: 4,
+    apporte: 'la piscine, la pergola, la clôture, les corps et volumes mesurés du toit, les fenêtres et le voisinage en 3D, et la calibration qui a produit un relevé de façade',
+    // Ces champs s'ecrivaient deja au 4 (CHAMPS_DEPUIS) : un document 4 est un document 5 valide. Le 5 les distingue, pour
+    // qu'un lecteur 4 refuse le fichier plutot que de les perdre.
+    migrer: (d) => d
   }
 ];
 
 /**
  * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
- * premier enregistrement. Les champs venus apres le 4 sans schema a eux s'y rangent : un lecteur 1 a 3 refuse le fichier plutot
- * que de les perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
+ * premier enregistrement. Les champs venus apres le relief s'ecrivent au 5 : un lecteur 4 refuse le fichier plutot que de les
+ * perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
  */
 export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   facades: 2, toit: 2,
   relief: 4,
-  piscine: 4, pergola: 4, cloture: 4, corpsToit: 4, volumesToit: 4, toitMesure: 4, fenetres3d: 4, voisinage3d: 4, ruesVoisinage: 4,
+  piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
 };
 
 /**
@@ -85,7 +93,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
  * lui donnait le jour ou le schema 3 a ete fige (model/fige/toitSchema3.ts), et non celui d'aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
  * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
  */
-function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
+function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
   const b = o.bdtopo as { couche?: unknown; altitudeToitM?: unknown; altitudeToitMaxM?: unknown; constructionLegere?: unknown } | null | undefined;
   const pts = (o as { pts?: unknown }).pts;
   if (o.toit || !b || b.couche !== COUCHE_BATIMENT_BDTOPO || o.type !== 'polygon' || !Array.isArray(pts) || pts.length < 3) return o;
@@ -101,13 +109,15 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 4 pour le relief et les champs venus
- * depuis, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
+ * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 5 pour les champs venus apres le relief,
+ * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
  * faux sur un L).
  */
-export function schemaMinimal(objets: readonly ObjetBrut[]): number {
+export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
   let s = 1;
-  for (const o of objets) {
+  for (const objet of objets) {
+    // Les objets de la memoire rangent ces champs dans leurs sous-objets : le schema se lit sur leur forme a plat.
+    const o = aPlat(objet) as ObjetAPlat;
     const brut = o as Record<string, unknown>;
     for (const [champ, depuis] of Object.entries(CHAMPS_DEPUIS)) {
       const v = brut[champ];
@@ -115,6 +125,8 @@ export function schemaMinimal(objets: readonly ObjetBrut[]): number {
       if (v === undefined || v === null || (champ === 'facades' && (!Array.isArray(v) || !v.length))) continue;
       s = Math.max(s, depuis);
     }
+    // Un releve qui garde la calibration de sa detection (etape 1.4) : un lecteur 4 l'effacerait.
+    if (Array.isArray(brut.facades) && brut.facades.some((f) => !!f && typeof f === 'object' && 'calibration' in f)) s = Math.max(s, 5);
     // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
     if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
   }
@@ -122,7 +134,7 @@ export function schemaMinimal(objets: readonly ObjetBrut[]): number {
 }
 
 /** Le schema a ecrire : celui qui decrit le document, jamais sous celui ou le projet a ete monte. */
-export function schemaAEcrire(objets: readonly ObjetBrut[], plancher: number | null | undefined): number {
+export function schemaAEcrire(objets: readonly ObjetAPlat[], plancher: number | null | undefined): number {
   return Math.min(SCHEMA_VERSION, Math.max(schemaMinimal(objets), plancher ?? 1));
 }
 

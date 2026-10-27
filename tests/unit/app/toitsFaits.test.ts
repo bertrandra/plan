@@ -13,7 +13,7 @@ const p = (x: number, y: number): PtBrut => ({ x, y });
 const rect = (x0: number, y0: number, l: number, h: number) => [p(x0, y0), p(x0 + l, y0), p(x0 + l, y0 + h), p(x0, y0 + h)];
 const bdtopoToit: Toit = { forme: 'croupes', hauteur: 2, angleFaitage: 0, source: 'bdtopo', couleur: '#aa4433', origineCouleur: 'orthophoto' };
 const CLE = 'BATIMENT0000000000000042';
-const batiment = (): ObjetAToit => ({ key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopoToit }, elevation: 5, bdtopo: { cleabs: CLE } });
+const batiment = (): ObjetAToit => ({ key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopoToit } }, elevation: 5, bdtopo: { cleabs: CLE } });
 const essai = (fait: Record<string, unknown>) => essayerFaitsToits(lireFaitsToits({ format: 'plan-faits-toits', faits: { [CLE]: fait } }));
 
 /** Un lecteur qui mesure un deux-pans de 3 m sur un egout de 6 m, faitage est-ouest. */
@@ -37,10 +37,10 @@ describe('un fait en remplacement', () => {
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => false });
     const a = objets[1]!;
     expect(lire).not.toHaveBeenCalled();
-    expect(a.toit).toMatchObject({ forme: 'deux-pans', hauteur: 4, angleFaitage: 90, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
+    expect(a.batiment?.toit).toMatchObject({ forme: 'deux-pans', hauteur: 4, angleFaitage: 90, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
     expect(a.elevation).toBe(4);
-    expect(a.corpsToit).toHaveLength(1);
-    expect(a.corpsToit![0]).toMatchObject({ faitage: 8, egouts: [4, 4], posFaitage: 6 });
+    expect(a.batiment?.corpsToit).toHaveLength(1);
+    expect(a.batiment!.corpsToit![0]).toMatchObject({ faitage: 8, egouts: [4, 4], posFaitage: 6 });
   });
 });
 
@@ -48,12 +48,12 @@ describe('un fait en contrainte', () => {
   it('restreint la forme simple lue : un deux-pans observe en croupes est relu en croupes', async () => {
     const objets = [batiment()];
     await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(objets[0]!.toit!.forme).toBe('deux-pans');
+    expect(objets[0]!.batiment!.toit!.forme).toBe('deux-pans');
     essai({ observation: { forme: ['croupes', 'quatre-pans'] } });
     const avecFait = [batiment()];
     await toitsDepuisLidar(avecFait, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(['croupes', 'quatre-pans']).toContain(avecFait[0]!.toit!.forme);
-    expect(avecFait[0]!.toit!.couleur).toBe('#aa4433');
+    expect(['croupes', 'quatre-pans']).toContain(avecFait[0]!.batiment!.toit!.forme);
+    expect(avecFait[0]!.batiment!.toit!.couleur).toBe('#aa4433');
   });
 
   it('laisse le toit lu quand il dit deja ce que l on a vu', async () => {
@@ -62,7 +62,7 @@ describe('un fait en contrainte', () => {
     essai({ observation: { forme: 'deux-pans', faitage: { par: 'long', sens: 'parallele' } } });
     const avec = [batiment()];
     await toitsDepuisLidar(avec, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(avec[0]!.toit).toEqual(sans[0]!.toit);
+    expect(avec[0]!.batiment?.toit).toEqual(sans[0]!.batiment?.toit);
     expect(avec[0]!.elevation).toBe(sans[0]!.elevation);
   });
 });
@@ -74,12 +74,12 @@ describe('le mode d essai', () => {
     essai({ observation: { forme: 'deux-pans' } });
     const objets = [batiment(), autre];
     await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
-    expect(objets[0]!.toitLidarLu).toBe(MARQUE_ESSAI_FAITS);
-    expect(objets[1]!.toitLidarLu).toBe(VERSION_LECTURE_TOITS);
-    expect(toitLu(objets[0]!)).toBe(true);
+    expect(objets[0]!.batiment?.toitLidarLu).toBe(MARQUE_ESSAI_FAITS);
+    expect(objets[1]!.batiment?.toitLidarLu).toBe(VERSION_LECTURE_TOITS);
+    expect(toitLu(objets[0]!.batiment)).toBe(true);
     // L'essai fini (la page rechargee), le batiment touche est a relire avec les faits du depot.
     essayerFaitsToits(null);
-    expect(toitLu(objets[0]!)).toBe(false);
-    expect(toitLu(objets[1]!)).toBe(true);
+    expect(toitLu(objets[0]!.batiment)).toBe(false);
+    expect(toitLu(objets[1]!.batiment)).toBe(true);
   });
 });

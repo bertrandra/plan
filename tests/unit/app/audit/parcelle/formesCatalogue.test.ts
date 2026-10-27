@@ -22,7 +22,7 @@ function monter(vu: CeQueJeVois = {}, vrai: CorpsToit = gambrel, l = L, w = W) {
   const lus = reconstruireCorps(m, rect(l, w)) ?? [];
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(30, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(l, w), elevation: 3, toit: { forme: 'deux-pans', hauteur: 4, angleFaitage: 0, source: 'lidar' }, toitMesure: m, corpsToit: lus },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(l, w), elevation: 3, batiment: { toit: { forme: 'deux-pans', hauteur: 4, angleFaitage: 0, source: 'lidar' }, toitMesure: m, corpsToit: lus },   },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   if (Object.keys(vu).length) capture.noterVu('maison', vu);
@@ -86,7 +86,7 @@ describe('un toit de revolution et un papillon', () => {
 
   it('un papillon lu comme deux appentis : un seul corps le remplace', () => {
     const t = monter({}, corps(L, W, { faitage: 3, egouts: [5.5, 5.5] }));
-    const corpsLus = (t.objets[1] as ObjetPlan).corpsToit!;
+    const corpsLus = (t.objets[1] as ObjetPlan).batiment!.corpsToit!;
     expect(corpsLus.length).toBeGreaterThan(1);
     const c = (toit(t)?.effet as { corps: CorpsToit[] } | undefined)?.corps;
     expect(c).toHaveLength(1);

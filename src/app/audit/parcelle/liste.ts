@@ -186,7 +186,7 @@ const PAS_PROFIL_M = 0.25;
 function hauteurAuPoint(o: ObjetPlan, f: Facade, p: PtBrut, prisme: number): number {
   let h = prisme;
   const ux = (f.droite.x - f.gauche.x) / (f.largeur || 1), uy = (f.droite.y - f.gauche.y) / (f.largeur || 1);
-  for (const c of o.corpsToit ?? []) {
+  for (const c of o.batiment?.corpsToit ?? []) {
     const murs = hauteursMursCorps(c);
     c.pts.forEach((a, i) => {
       const b = sommetDe(c.pts, i + 1), l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -240,7 +240,7 @@ const PART_TOIT_SANS_CORPS = 1.35;
  */
 export function hauteurHautDeFacade(o: ObjetPlan, f: Facade, hauteurMur: number): number {
   const longe = (c: { pts: PtBrut[] }) => c.pts.filter((q) => distancePointSegment(q, f.gauche, f.droite) < MUR_PROCHE_M).length >= 2;
-  const faitages = (o.corpsToit ?? []).filter(longe).map((c) => c.faitage);
+  const faitages = (o.batiment?.corpsToit ?? []).filter(longe).map((c) => c.faitage);
   return Math.max(hauteurMur + 0.5, ...faitages, faitages.length ? 0 : hauteurMur * PART_TOIT_SANS_CORPS);
 }
 
@@ -261,8 +261,8 @@ const metres = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', 
 
 /** Le batiment a-t-il une toiture-terrasse : un toit plat, un corps plat, ou une forme vue plate. */
 export function aUnToitPlat(o: ObjetPlan, b: BatimentCapture): boolean {
-  if (o.toit?.forme === 'plat' || b.vu.forme === 'plat' || b.vu.terrasse) return true;
-  return (o.corpsToit ?? []).some((c) => !!c.terrasse || c.faitage - Math.max(c.egouts[0], c.egouts[1]) < MONTEE_PLATE_M);
+  if (o.batiment?.toit?.forme === 'plat' || b.vu.forme === 'plat' || b.vu.terrasse) return true;
+  return (o.batiment?.corpsToit ?? []).some((c) => !!c.terrasse || c.faitage - Math.max(c.egouts[0], c.egouts[1]) < MONTEE_PLATE_M);
 }
 
 const STATUTS_PARTIE: Record<PartieVue, [string, string]> = {

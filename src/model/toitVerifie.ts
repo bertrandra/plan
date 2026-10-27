@@ -9,10 +9,8 @@ import type { CorpsToit, PtBrut, Toit } from './types.js';
 /** Ce que la comparaison lit d'un batiment : son contour, son toit, sa hauteur a l'egout, ses corps. */
 export interface BatimentCompare {
   pts?: PtBrut[];
-  toit?: Toit | null;
   elevation?: number;
-  corpsToit?: CorpsToit[] | null;
-  verifieSurPlace?: { date: string } | null;
+  batiment?: { toit?: Toit | null; corpsToit?: CorpsToit[] | null; verifieSurPlace?: { date: string } | null } | null;
 }
 
 /** Un batiment verifie sur place : protege de toute relecture et de toute actualisation. */
@@ -61,7 +59,7 @@ function memeToit(a: Toit | null | undefined, b: Toit | null | undefined): boole
 export function lectureDAccord(avant: BatimentCompare, apres: BatimentCompare): boolean {
   if (!memeContour(avant.pts, apres.pts)) return false;
   if (!proches(avant.elevation, apres.elevation, SEUIL_ACCORD_M)) return false;
-  if (!memeToit(avant.toit, apres.toit)) return false;
-  const ca = avant.corpsToit ?? [], cb = apres.corpsToit ?? [];
+  if (!memeToit(avant.batiment?.toit, apres.batiment?.toit)) return false;
+  const ca = avant.batiment?.corpsToit ?? [], cb = apres.batiment?.corpsToit ?? [];
   return ca.length === cb.length && ca.every((c, i) => { const d = cb[i]; return !!d && memeCorps(c, d); });
 }

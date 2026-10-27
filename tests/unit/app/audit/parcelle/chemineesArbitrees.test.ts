@@ -18,7 +18,7 @@ const souche = (n: number) => Array.from({ length: n }, () => ({ position: 'pign
 function monter(vu: CeQueJeVois | null, claude: number | null) {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   if (vu) capture.noterVu('maison', vu);
@@ -77,7 +77,7 @@ describe('les cheminees arbitrees', () => {
     const t = monter({ cheminees: { nombre: 1, souches: [{ position: 'faitage' }] } }, null);
     appliquerPropositions(t.objets, propositionsArbitrees(t.e, t.votes), [], '2026-10-13');
     const m = t.objets.find((o) => o.key === 'maison')!;
-    expect(m.corpsToit?.[0]?.cheminees).toHaveLength(1);
+    expect(m.batiment?.corpsToit?.[0]?.cheminees).toHaveLength(1);
     const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
     capture.noterVu('maison', { cheminees: { nombre: 0, souches: [] } });
     const c = capture.lire();

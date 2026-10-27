@@ -11,6 +11,7 @@ import { estVerifieSurPlace } from '../../../model/toitVerifie.js';
 import type { ProjecteurLocal } from '../../../geo/projection.js';
 import type { ObjetBrut, PtBrut, Toit, VolumeToit } from '../../../model/types.js';
 import type { OptionsActualisation } from '../optionsActualisation.js';
+import { champsBatiment } from '../../../model/champsFonction.js';
 
 /**
  * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
@@ -28,8 +29,8 @@ async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bila
  * Un toit recalcule sur la parcelle du projet retrouve ses volumes par defaut, et perd son toit
  * mesure, qui suivait l'ancien contour (le LiDAR relit les deux ensuite) ; sinon rien a ecrire.
  */
-export function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
-  if (!toit || toit === o.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
+export function volumesRecalcules(o: { batiment?: { toit?: Toit | null } | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
+  if (!toit || toit === o.batiment?.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
   return volumesParDefaut(pts, toit);
 }
 
@@ -39,17 +40,17 @@ export function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, p
  * batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
  */
 export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  const garde = (o: ObjetBrut) => o.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o));
+  const garde = (o: ObjetBrut) => o.batiment?.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o.batiment));
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }
 
 /** Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. */
 function figer(o: ObjetBrut): () => void {
-  const toit = structuredClone(o.toit), couleurMurs = structuredClone(o.couleurMurs);
+  const toit = structuredClone(o.batiment?.toit), couleurMurs = structuredClone(o.batiment?.couleurMurs);
   return () => {
-    if (toit === undefined) delete o.toit; else o.toit = toit;
-    if (couleurMurs === undefined) delete o.couleurMurs; else o.couleurMurs = couleurMurs;
+    if (toit === undefined) delete o.batiment?.toit; else champsBatiment(o).toit = toit;
+    if (couleurMurs === undefined) delete o.batiment?.couleurMurs; else champsBatiment(o).couleurMurs = couleurMurs;
   };
 }
 

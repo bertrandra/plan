@@ -37,7 +37,7 @@ export interface RejeuCas {
 function couleurRejouee(c: CasAudit): { couleur: string; source: 'photo' | 'materiau' } | null {
   const s = c.sorties as SortiesCas | null;
   const photo = s?.sourceMurs === 'photo' && s.couleurMurs ? { couleur: s.couleurMurs, id: '', date: null, auteur: null, licence: null } : null;
-  return couleurMursRetenue({ bdtopo: c.entrees.bdtopo, couleurMurs: photo ? { photo } : null });
+  return couleurMursRetenue({ bdtopo: c.entrees.bdtopo, batiment: { couleurMurs: photo ? { photo } : null } });
 }
 
 /** Le batiment est-il celui de la parcelle de depart (le projet) ? Son toit mesure se garde alors toujours. */

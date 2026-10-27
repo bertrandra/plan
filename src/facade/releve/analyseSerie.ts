@@ -11,6 +11,7 @@ import { avecGrille } from '../detection/verification.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture } from '../../model/types.js';
 import { chiffreFr as fr } from '../../util/format.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
+import { surchargesCalibrees } from '../regles/facades/surcharges.js';
 
 /** La focale d'une prise, en pixels : exacte quand la photo la donne, sinon d'apres le champ de l'objectif. */
 const focaleDe = (m: Morceau): number => focaleDePrise(m.prise);
@@ -149,6 +150,8 @@ export function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFaca
     releveLe: new Date().toISOString(),
     partieBasse: r.partieBasse,
     ...(r.calage ? { calage: r.calage } : {}),
+    // Les seuils de la detection qui ont produit ce releve : un rejeu repartira des memes (MD/roadmap-architecture.md, etape 1.4).
+    calibration: { ...surchargesCalibrees() },
     ...(grille ? { grille } : {}),
     ...(corrections.length ? { corrections } : {}),
   };

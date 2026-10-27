@@ -9,6 +9,8 @@ import { serializeObjects } from '../../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../../src/model/normalisation.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { ObjetBrut, ObjetPlan, PtBrut, Relief } from '../../../../src/model/types.js';
+import { champsBatiment } from '../../../../src/model/champsFonction.js';
+import { versMemoire } from '../../../../src/model/champsFonction.js';
 
 // « Fichier › Actualiser le projet » (app/cadastre/actualiserProjet.ts) : l'actualisation IGN entiere, chaque
 // objet importe ramene d'abord aux valeurs par defaut ; ce qui a ete dessine a la main, intact.
@@ -30,11 +32,11 @@ function plan(): ObjetPlan[] {
     },
     {
       key: 'bati-bat1', type: 'polygon', name: 'Ma maison', fonction: 'batiment', pts: carre(5, 5, 10), elevation: 6, hidden: false,
-      fill: '#ff0000', fillOpacity: 1, stroke: '#ff0000', textureVerticale: texture, couleurMurs: { source: 'plan' }, modeToit: 'simple', fenetres3d: { afficher: false },
-      toit: { forme: 'deux-pans', pente: 35, faitage: 'long', source: 'bdtopo', couleur: '#123456' },
-      corpsToit: [{ pts: carre(5, 5, 10), egouts: [5], faitage: 8, pignons: [] }],
+      fill: '#ff0000', fillOpacity: 1, stroke: '#ff0000', textureVerticale: texture, batiment: { couleurMurs: { source: 'plan' }, modeToit: 'simple', fenetres3d: { afficher: false }, toit: { forme: 'deux-pans', pente: 35, faitage: 'long', source: 'bdtopo', couleur: '#123456' }, corpsToit: [{ pts: carre(5, 5, 10), egouts: [5], faitage: 8, pignons: [] }], toitACheval: { parcelles: ['parcelle', 'p2'], reponse: 'un' } },  
+      
+      
       bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'BAT1', surParcellePrincipale: true },
-      toitACheval: { parcelles: ['parcelle', 'p2'], reponse: 'un' }
+      
     },
     // Un abri dessine a la main sur la parcelle, et un batiment voisin hors d'elle.
     { key: 'abri', type: 'polygon', name: 'Abri', fonction: 'batiment', pts: carre(22, 2, 3), elevation: 2.2, fill: '#00ffff' },
@@ -80,17 +82,18 @@ function contexte(objets: ObjetPlan[], relief: Relief): ContexteActualisation & 
 
 describe('les valeurs par defaut d un objet importe', () => {
   it('ramene couleurs, textures et reglages d apparence a l import, et laisse le toit a relire', () => {
-    const [parcelle, bati, , , terrasse] = serializeObjects(plan()) as ObjetBrut[];
+    // L'actualisation lit les copies serialisees dans la forme de la memoire (model/champsFonction.ts).
+    const [parcelle, bati, , , terrasse] = serializeObjects(plan()).map(versMemoire);
     const p = valeursParDefaut(parcelle!), b = valeursParDefaut(bati!);
     expect([p.fill, p.fillOpacity, p.stroke]).toEqual([APPARENCES_IGN.parcelle.fill, 1, APPARENCES_IGN.parcelle.stroke]);
     expect(p.textureHorizontale).toBeNull();
     expect('gazon3d' in p || 'voisinage3d' in p).toBe(false);
     expect([b.fill, b.fillOpacity]).toEqual([APPARENCES_IGN.batimentPropriete.fill, APPARENCES_IGN.batimentPropriete.fillOpacity]);
     expect(b.textureVerticale).toBeNull();
-    expect('couleurMurs' in b || 'modeToit' in b || 'fenetres3d' in b).toBe(false);
-    expect(b.toit).toMatchObject({ source: 'bdtopo', forme: 'deux-pans' });
-    expect(b.toit).not.toHaveProperty('couleur');
-    expect(b.corpsToit).toBeNull();
+    expect('couleurMurs' in (b.batiment ?? {}) || 'modeToit' in (b.batiment ?? {}) || 'fenetres3d' in (b.batiment ?? {})).toBe(false);
+    expect(b.batiment?.toit).toMatchObject({ source: 'bdtopo', forme: 'deux-pans' });
+    expect(b.batiment?.toit).not.toHaveProperty('couleur');
+    expect(b.batiment?.corpsToit).toBeNull();
     // Le nom et le masquage sont des choix d'organisation du plan : ils restent.
     expect(b.name).toBe('Ma maison');
     // Un objet dessine a la main rend tel quel.
@@ -131,15 +134,15 @@ describe('Actualiser le projet', () => {
     // nom, hauteur, apparence et toit d'aujourd'hui ; l'abri dessine dessus disparait avec eux.
     expect(bati.fill).toBe(APPARENCES_IGN.batimentPropriete.fill);
     expect(bati.elevation).toBe(7);
-    expect(bati.couleurMurs).toBeUndefined();
-    expect(bati.modeToit).toBeUndefined();
+    expect(bati.batiment?.couleurMurs).toBeUndefined();
+    expect(bati.batiment?.modeToit).toBeUndefined();
     expect(bati.textureVerticale ?? null).toBeNull();
-    expect(bati.toit?.source).toBe('bdtopo');
-    expect(bati.toit?.couleur).toBeUndefined();
+    expect(bati.batiment?.toit?.source).toBe('bdtopo');
+    expect(bati.batiment?.toit?.couleur).toBeUndefined();
     expect(bati.name).toBe('Résidentiel (2 niv.)');
     expect((bati.bdtopo as { surParcellePrincipale?: boolean }).surParcellePrincipale).toBe(true);
     // La reponse a la question du toit a cheval est un choix de la personne : elle suit le batiment.
-    expect(bati.toitACheval).toEqual({ parcelles: ['parcelle', 'p2'], reponse: 'un' });
+    expect(bati.batiment?.toitACheval).toEqual({ parcelles: ['parcelle', 'p2'], reponse: 'un' });
     expect(ctx.etat.objects.some(o => o.key === 'abri')).toBe(false);
     expect(ctx.etat.objects.filter(o => o.fonction === 'batiment').map(o => o.key).sort()).toEqual(['bati-bat1', 'bati-v9']);
     expect(ctx.toitsLidar).toHaveBeenCalledTimes(1);
@@ -170,7 +173,7 @@ describe('Actualiser le projet', () => {
 // verifie sur place n'est ni recree, ni relu, ni ramene aux valeurs par defaut - sauf si on le demande.
 describe('Actualiser le projet et les batiments verifies sur place', () => {
   const relief: Relief = { source: 'lidar-hd', couche: 'l', dateLecture: '2026-10-11', origine: 'LiDAR HD', precision: 'p', systemeAltimetrique: 'NGF-IGN69', pas: 0.5, x0: 0.25, y0: 29.75, nx: 2, ny: 2, z: [2, 2, 2, 2], zRef: 2 };
-  const planVerifie = () => { const objets = plan(); objets.find(o => o.key === 'bati-bat1')!.verifieSurPlace = { date: '2026-10-13' }; return objets; };
+  const planVerifie = () => { const objets = plan(); champsBatiment(objets.find(o => o.key === 'bati-bat1')!).verifieSurPlace = { date: '2026-10-13' }; return objets; };
   const empreinte = (o: ObjetPlan | undefined) => JSON.stringify(serializeObjects(o ? [o] : []));
 
   it('garde le batiment verifie tel quel, au bit pres, et ne le recree pas a cote', async () => {
@@ -183,7 +186,7 @@ describe('Actualiser le projet et les batiments verifies sur place', () => {
     // Ni valeurs par defaut, ni BD TOPO, ni LiDAR, ni couleurs : la maison verifiee est celle d'avant.
     expect(empreinte(bati)).toBe(avant);
     expect(bati?.elevation).toBe(6);
-    expect(bati?.couleurMurs).toEqual({ source: 'plan' });
+    expect(bati?.batiment?.couleurMurs).toEqual({ source: 'plan' });
     // Le batiment frais BAT1 de la BD TOPO n'est pas ajoute a cote d'elle ; l'abri, lui, part comme avant.
     expect(ctx.etat.objects.filter(o => o.fonction === 'batiment').map(o => o.key).sort()).toEqual(['bati-bat1', 'bati-v9']);
     // La lecture LiDAR est appelee sans les batiments verifies.
@@ -198,7 +201,7 @@ describe('Actualiser le projet et les batiments verifies sur place', () => {
     await lancerActualisationProjet(ctx, 'relire');
     const bati = ctx.etat.objects.find(o => o.key === 'bati-bat1');
     expect(bati?.elevation).toBe(7);
-    expect(bati?.verifieSurPlace).toBeUndefined();
+    expect(bati?.batiment?.verifieSurPlace).toBeUndefined();
     expect(bati?.fill).toBe(APPARENCES_IGN.batimentPropriete.fill);
     expect((ctx.toitsLidar as ReturnType<typeof vi.fn>).mock.calls[0]?.[2]).toEqual({ verifies: 'relire' });
   });
@@ -223,6 +226,6 @@ describe('Actualiser le projet et les batiments verifies sur place', () => {
     expect(d2?.type === 'choix' && d2.case).toBeUndefined();
     expect(d2?.type === 'choix' ? d2.points : []).toEqual(POINTS_ACTUALISATION);
     dialogues.fermer();
-    expect(libelleCaseVerifies([{ name: 'A', verifieSurPlace: { date: '2026-10-13' } }, { name: 'B' }] as ObjetPlan[])).toBe('Recalculer aussi les 2 bâtiments vérifiés sur place');
+    expect(libelleCaseVerifies([{ name: 'A', batiment: { verifieSurPlace: { date: '2026-10-13' } } }, { name: 'B' }] as ObjetPlan[])).toBe('Recalculer aussi les 2 bâtiments vérifiés sur place');
   });
 });

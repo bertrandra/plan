@@ -28,13 +28,13 @@ function lecteurDeuxPans(egout = 6, hauteur = 3) {
 
 describe('toitAAjuster', () => {
   it('ne retient que les batiments dont le toit vient de la BD TOPO ou du LiDAR, ou manque', () => {
-    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), toit: bdtopo })).toBe(true);
-    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), toit: { ...bdtopo, source: 'lidar' } })).toBe(true);
+    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), batiment: { toit: bdtopo } })).toBe(true);
+    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), batiment: { toit: { ...bdtopo, source: 'lidar' } } })).toBe(true);
     expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8) })).toBe(true);
-    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), toit: { ...bdtopo, source: 'photo' } })).toBe(false);
-    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), toit: { ...bdtopo, source: 'saisie' } })).toBe(false);
-    expect(toitAAjuster({ fonction: 'terrain', pts: rect(0, 0, 10, 8), toit: bdtopo })).toBe(false);
-    expect(toitAAjuster({ fonction: 'batiment', pts: [p(0, 0)], toit: bdtopo })).toBe(false);
+    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), batiment: { toit: { ...bdtopo, source: 'photo' } } })).toBe(false);
+    expect(toitAAjuster({ fonction: 'batiment', pts: rect(0, 0, 10, 8), batiment: { toit: { ...bdtopo, source: 'saisie' } } })).toBe(false);
+    expect(toitAAjuster({ fonction: 'terrain', pts: rect(0, 0, 10, 8), batiment: { toit: bdtopo } })).toBe(false);
+    expect(toitAAjuster({ fonction: 'batiment', pts: [p(0, 0)], batiment: { toit: bdtopo } })).toBe(false);
   });
 });
 
@@ -42,38 +42,38 @@ describe('toitsDepuisLidar', () => {
   it('ajuste les toits BD TOPO, garde la couleur, corrige l egout, et laisse les toits photo ou saisis', async () => {
     const objets: ObjetAToit[] = [
       { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
-      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 },
-      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo, source: 'saisie' }, elevation: 5 },
-      { key: 'c', fonction: 'batiment', pts: rect(0, 20, 12, 8), toit: { ...bdtopo }, elevation: 5.8 },
+      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 },
+      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo, source: 'saisie' } }, elevation: 5 },
+      { key: 'c', fonction: 'batiment', pts: rect(0, 20, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5.8 },
     ];
     const lire = lecteurDeuxPans();
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true });
     expect(bilan).toEqual({ ajustes: 2, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false });
     expect(lire).toHaveBeenCalledTimes(2);
     const a = objets[1]!, b = objets[2]!, c = objets[3]!;
-    expect(a.toit).toMatchObject({ forme: 'deux-pans', angleFaitage: 0, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
-    expect(Math.abs(a.toit!.hauteur - 3)).toBeLessThan(0.1);
+    expect(a.batiment?.toit).toMatchObject({ forme: 'deux-pans', angleFaitage: 0, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
+    expect(Math.abs(a.batiment!.toit!.hauteur - 3)).toBeLessThan(0.1);
     // L'egout mesure a 6 m : la hauteur BD TOPO (5 m) est corrigee ; a 20 cm pres (5,8 m), elle reste.
     expect(a.elevation).toBe(6);
     expect(c.elevation).toBe(5.8);
-    expect(b.toit!.source).toBe('saisie');
+    expect(b.batiment!.toit!.source).toBe('saisie');
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD');
   });
 
   it('ne lit rien sans dalle LiDAR, et le dit', async () => {
-    const objets: ObjetAToit[] = [{ fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo } }];
+    const objets: ObjetAToit[] = [{ fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } } }];
     const lire = lecteurDeuxPans();
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => false });
     expect(bilan.sansLidar).toBe(true);
     expect(lire).not.toHaveBeenCalled();
-    expect(objets[0]!.toit!.source).toBe('bdtopo');
+    expect(objets[0]!.batiment!.toit!.source).toBe('bdtopo');
     expect(texteBilanToitsLidar(bilan)).toBe(null);
   });
 
   it('garde le toit BD TOPO quand les mesures manquent ou ne s expliquent pas', async () => {
     const objets: ObjetAToit[] = [
-      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo } },
-      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo } },
+      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } } },
+      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo } } },
     ];
     const lire = vi.fn(async (pts: readonly PtBrut[]) => {
       if (pts[0]!.x === 0) return [];
@@ -84,13 +84,13 @@ describe('toitsDepuisLidar', () => {
     });
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true });
     expect(bilan).toEqual({ ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 1, sansLidar: false });
-    expect(objets.every((o) => o.toit!.source === 'bdtopo')).toBe(true);
+    expect(objets.every((o) => o.batiment!.toit!.source === 'bdtopo')).toBe(true);
     expect(texteBilanToitsLidar(bilan)).toContain('1 garde(s)');
   });
 
   it('lit les plus proches de la parcelle d abord, dans la limite du nombre et du delai', async () => {
     const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(0, 0, 20, 20) }];
-    for (let k = 0; k < 12; k++) objets.push({ key: 'b' + k, fonction: 'batiment', pts: rect(100 - k * 8, 0, 6, 5), toit: { ...bdtopo } });
+    for (let k = 0; k < 12; k++) objets.push({ key: 'b' + k, fonction: 'batiment', pts: rect(100 - k * 8, 0, 6, 5), batiment: { toit: { ...bdtopo } } });
     const lus: string[] = [];
     const lire = vi.fn(async (pts: readonly PtBrut[]) => { lus.push(String(pts[0]!.x)); return []; });
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, maxBatiments: 5 });
@@ -106,19 +106,19 @@ describe('toitsDepuisLidar', () => {
   });
 
   it('laisse un batiment verifie sur place tel quel, sauf si on demande de le relire', async () => {
-    const verifie = (): ObjetAToit => ({ key: 'v', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo }, elevation: 5, verifieSurPlace: { date: '2026-10-13' } });
-    const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) }, verifie(), { key: 'a', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 }];
+    const verifie = (): ObjetAToit => ({ key: 'v', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo }, verifieSurPlace: { date: '2026-10-13' } }, elevation: 5,  });
+    const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) }, verifie(), { key: 'a', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 }];
     const lire = lecteurDeuxPans();
     // Par defaut, et dans la liste des candidats : le batiment verifie n'est ni lu ni marque.
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true })).ajustes).toBe(1);
     expect(lire).toHaveBeenCalledTimes(1);
-    expect(objets[1]).toMatchObject({ toit: { source: 'bdtopo' }, elevation: 5 });
-    expect(objets[1]!.toitLidarLu).toBeUndefined();
+    expect(objets[1]).toMatchObject({ batiment: { toit: { source: 'bdtopo' } }, elevation: 5 });
+    expect(objets[1]!.batiment?.toitLidarLu).toBeUndefined();
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!] })).ajustes).toBe(0);
     expect(lire).toHaveBeenCalledTimes(1);
     // « Relire » : comme les autres.
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!], verifies: 'relire' })).ajustes).toBe(1);
-    expect(objets[1]!.toit!.source).toBe('lidar');
+    expect(objets[1]!.batiment!.toit!.source).toBe('lidar');
     expect(objets[1]!.elevation).toBe(6);
   });
 
@@ -141,8 +141,8 @@ describe('toitsDepuisLidar', () => {
     });
     const objets: ObjetAToit[] = [
       { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
-      { key: 'm', fonction: 'batiment', pts: L, toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } },
-      { key: 'v', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 },
+      { key: 'm', fonction: 'batiment', pts: L, batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true } },
+      { key: 'v', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 },
     ];
     const lire = lecteurDeuxPans();
     const bilan = await toitsDepuisLidar(objets, proj, { lire, lireGrille, dalles: async () => true });
@@ -150,34 +150,34 @@ describe('toitsDepuisLidar', () => {
     expect(lireGrille).toHaveBeenCalledTimes(2);
     expect(lire).toHaveBeenCalledTimes(0);
     const m = objets[1]!;
-    expect(m.toitMesure).toMatchObject({ source: 'lidar', egout: 3.5, pas: 0.5 });
+    expect(m.batiment?.toitMesure).toMatchObject({ source: 'lidar', egout: 3.5, pas: 0.5 });
     // Et ses corps reconstruits sur la mesure (facade/toits/toitCorps.ts) : le corps haut et l'aile basse.
-    expect(m.corpsToit?.length).toBeGreaterThanOrEqual(2);
-    expect(Math.max(...m.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
-    expect(Math.min(...m.corpsToit!.map((c) => c.faitage))).toBeCloseTo(3.5, 0);
-    expect(m.toitMesure!.faite).toBeGreaterThan(8.5);
+    expect(m.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...m.batiment!.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
+    expect(Math.min(...m.batiment!.corpsToit!.map((c) => c.faitage))).toBeCloseTo(3.5, 0);
+    expect(m.batiment!.toitMesure!.faite).toBeGreaterThan(8.5);
     // Chaque corps a son egout, lu dans la surface mesuree : 3,5 m pour l'aile, l'egout du deux-pans pour le corps.
-    expect(m.volumesToit).toHaveLength(2);
-    const egouts = m.volumesToit!.map((v) => v.egout!).sort((a, b) => a - b);
+    expect(m.batiment?.volumesToit).toHaveLength(2);
+    const egouts = m.batiment!.volumesToit!.map((v) => v.egout!).sort((a, b) => a - b);
     expect(egouts[0]).toBe(3.5);
     expect(egouts[1]).toBeGreaterThan(6);
     expect(egouts[1]).toBeLessThan(6.7);
     // L'egout du toit entier (le plus bas) devient la hauteur du prisme.
     expect(m.elevation).toBe(3.5);
     // Le voisin : ses corps et pignons, sans la grille gardee.
-    expect(objets[2]!.toitMesure).toBeUndefined();
-    expect(objets[2]!.corpsToit?.length).toBeGreaterThanOrEqual(1);
+    expect(objets[2]!.batiment?.toitMesure).toBeUndefined();
+    expect(objets[2]!.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(1);
     expect(bilan).toEqual({ ajustes: 2, mesures: 1, corpsVoisins: 1, recales: 0, gardes: 0, sansLidar: false });
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD, 1 toit(s) de la parcelle garde(s) tel(s) que mesure(s), 1 toit(s) du voisinage en corps et pignons');
     // Decochee dans « Voisinage (3D) » : le voisin n'est lu que pour sa forme simple.
     const sans: ObjetAToit[] = [
       { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30), voisinage3d: { toits: { corps: false } } } as ObjetAToit,
-      { key: 'v', fonction: 'batiment', pts: rect(20, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 },
+      { key: 'v', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 },
     ];
     const lireGrille2 = vi.fn(lireGrille);
     const b2 = await toitsDepuisLidar(sans, proj, { lire: lecteurDeuxPans(), lireGrille: lireGrille2, dalles: async () => true });
     expect(lireGrille2).not.toHaveBeenCalled();
-    expect(sans[1]!.corpsToit).toBeUndefined();
+    expect(sans[1]!.batiment?.corpsToit).toBeUndefined();
     expect(b2.corpsVoisins).toBe(0);
   });
 
@@ -193,12 +193,12 @@ describe('toitsDepuisLidar', () => {
     });
     const objets: ObjetAToit[] = [
       { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
-      { key: 'm', fonction: 'batiment', pts: maison, toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } },
+      { key: 'm', fonction: 'batiment', pts: maison, batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true } },
     ];
     await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
     const m = objets[1]!;
-    expect(m.volumesToit).toHaveLength(2);
-    const [haut, basV] = m.volumesToit!;
+    expect(m.batiment?.volumesToit).toHaveLength(2);
+    const [haut, basV] = m.batiment!.volumesToit!;
     expect(haut!.egout).toBe(7);
     expect(basV!.egout).toBe(3.5);
     expect(haut!.hauteursMurs).toEqual([7, 7, 7, 7]);
@@ -211,8 +211,8 @@ describe('toitsDepuisLidar', () => {
     const projet: ObjetAToit = { key: 'parcelle', fonction: 'terrain', pts: rect(0, 0, 20, 20) };
     const mitoyenne: ObjetAToit = { key: 'p-est', fonction: 'terrain', pts: rect(20, 0, 20, 20) };
     const loin: ObjetAToit = { key: 'p-loin', fonction: 'terrain', pts: rect(60, 0, 20, 20) };
-    const voisine: ObjetAToit = { key: 'm-est', fonction: 'batiment', pts: rect(24, 4, 12, 8), toit: { ...bdtopo }, elevation: 5 };
-    const lointaine: ObjetAToit = { key: 'm-loin', fonction: 'batiment', pts: rect(64, 4, 12, 8), toit: { ...bdtopo }, elevation: 5 };
+    const voisine: ObjetAToit = { key: 'm-est', fonction: 'batiment', pts: rect(24, 4, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 };
+    const lointaine: ObjetAToit = { key: 'm-loin', fonction: 'batiment', pts: rect(64, 4, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 };
     const objets = [projet, mitoyenne, loin, voisine, lointaine];
     expect([...batimentsMitoyens(objets)]).toEqual([voisine]);
     const lireGrille = vi.fn(async (pts: readonly PtBrut[]): Promise<GrilleRelief> => {
@@ -227,10 +227,10 @@ describe('toitsDepuisLidar', () => {
       return { pas, x0, y0, nx, ny, z: zs };
     });
     const bilan = await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
-    expect(voisine.toitMesure).toMatchObject({ source: 'lidar' });
-    expect(voisine.corpsToit?.length).toBeGreaterThanOrEqual(1);
-    expect(lointaine.toitMesure).toBeUndefined();
-    expect(lointaine.corpsToit?.length).toBeGreaterThanOrEqual(1);
+    expect(voisine.batiment?.toitMesure).toMatchObject({ source: 'lidar' });
+    expect(voisine.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(1);
+    expect(lointaine.batiment?.toitMesure).toBeUndefined();
+    expect(lointaine.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(1);
     expect(bilan.corpsVoisins).toBe(2);
   });
 
@@ -249,7 +249,7 @@ describe('toitsDepuisLidar', () => {
       }
       return { pas, x0, y0, nx, ny, z: zs };
     });
-    const maison: ObjetAToit = { key: 'm', fonction: 'batiment', pts: rect(0, 0, 10, 7), toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
+    const maison: ObjetAToit = { key: 'm', fonction: 'batiment', pts: rect(0, 0, 10, 7), batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
     const bilan = await toitsDepuisLidar([{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 20, 20) }, maison], proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
     // La grille sous le contour, puis une plus large pour le recalage.
     expect(lireGrille).toHaveBeenCalledTimes(2);
@@ -261,13 +261,13 @@ describe('toitsDepuisLidar', () => {
     // Sa forme ne change pas : 10 x 7.
     expect(maison.pts![1]!.x - maison.pts![0]!.x).toBeCloseTo(10, 9);
     expect(maison.pts![3]!.y - maison.pts![0]!.y).toBeCloseTo(7, 9);
-    const ys = maison.corpsToit!.flatMap((c) => c.pts.map((q) => q.y));
+    const ys = maison.batiment!.corpsToit!.flatMap((c) => c.pts.map((q) => q.y));
     expect(Math.abs(Math.min(...ys) + 2)).toBeLessThanOrEqual(0.3);
     expect(Math.abs(Math.max(...ys) - 5)).toBeLessThanOrEqual(0.3);
-    expect(Math.max(...maison.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
+    expect(Math.max(...maison.batiment!.corpsToit!.map((c) => c.faitage))).toBeGreaterThan(8.5);
     // Bien pose, le contour ne declenche pas de seconde lecture.
     lireGrille.mockClear();
-    const posee: ObjetAToit = { key: 'm2', fonction: 'batiment', pts: vrai.map((q) => ({ ...q })), toit: { ...bdtopo }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
+    const posee: ObjetAToit = { key: 'm2', fonction: 'batiment', pts: vrai.map((q) => ({ ...q })), batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
     await toitsDepuisLidar([{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 20, 20) }, posee], proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
     expect(lireGrille).toHaveBeenCalledTimes(1);
   });
@@ -295,16 +295,16 @@ describe('toitsDepuisLidar et les profils de toits (MD/spec-regles-toits.md §6)
   const profils = lireProfilsToits([{ id: 'essai-grands', quand: { departements: ['78'], surface: { min: 150 } }, surcharges: { ECHANTILLONS_MIN: 100000 }, pourquoi: 'Un profil des tests, jamais livre.', cas: ['essai/a', 'essai/b'] }], Object.keys(REGLAGES_TOITS));
   const objets = (insee = '78650'): ObjetAToit[] => [
     { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 60, 30), cadastre: { codeInsee: insee } } as ObjetAToit,
-    { key: 'petit', fonction: 'batiment', pts: rect(0, 0, 12, 8), toit: { ...bdtopo }, elevation: 5 },
-    { key: 'grand', fonction: 'batiment', pts: rect(20, 0, 20, 10), toit: { ...bdtopo }, elevation: 5 },
+    { key: 'petit', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 },
+    { key: 'grand', fonction: 'batiment', pts: rect(20, 0, 20, 10), batiment: { toit: { ...bdtopo } }, elevation: 5 },
   ];
 
   it('chaque batiment est lu sous les seuils de ses profils, et seulement les siens', async () => {
     const o = objets();
     const bilan = await toitsDepuisLidar(o, proj, { lire: lecteurDeuxPans(), dalles: async () => true, profils });
     expect(bilan).toMatchObject({ ajustes: 1, gardes: 1 });
-    expect(o[1]!.toit!.source).toBe('lidar');
-    expect(o[2]!.toit!.source).toBe('bdtopo');
+    expect(o[1]!.batiment!.toit!.source).toBe('lidar');
+    expect(o[2]!.batiment!.toit!.source).toBe('bdtopo');
     expect(SEUILS_TOITS).toEqual(REGLAGES_TOITS);
   });
 

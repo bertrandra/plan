@@ -15,6 +15,7 @@ import { signedArea } from '../../geometry/basic.js';
 import { corpsParParcelle } from './toitsLidar.js';
 import { avecProfilsDuBatiment, contexteProfils } from '../../facade/regles/toits/profils.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 export interface ContexteToitsACheval {
   objets: () => ObjetPlan[];
@@ -29,7 +30,7 @@ export interface ContexteToitsACheval {
 
 /** Les batiments dont la toiture attend une reponse. */
 export function batimentsEnDoute(objets: readonly ObjetPlan[]): ObjetPlan[] {
-  return objets.filter((o) => o.fonction === 'batiment' && !!o.toitACheval && !o.toitACheval.reponse && !!o.corpsToit?.length);
+  return objets.filter((o) => o.fonction === 'batiment' && !!o.batiment?.toitACheval && !o.batiment?.toitACheval.reponse && !!o.batiment?.corpsToit?.length);
 }
 
 const nombre = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
@@ -54,7 +55,7 @@ function designation(o: ObjetPlan): string {
 export function questionACheval(o: ObjetPlan, objets: readonly ObjetPlan[]): { titre: string; texte: string; points: string[] } | null {
   const parts = partsACheval(o, objets);
   if (!parts) return null;
-  const franchissent = corpsQuiFranchissent(o.corpsToit, parts);
+  const franchissent = corpsQuiFranchissent(o.batiment?.corpsToit, parts);
   const faitages = [...new Set(franchissent.map((c) => c.faitage))].sort((a, b) => b - a);
   const lu = faitages.length
     ? 'Le LiDAR y lit un toit continu (faîtage à ' + faitages.map((f) => nombre(f) + ' m').join(', ') + ') qui passe par-dessus la limite.'
@@ -78,11 +79,11 @@ export function questionACheval(o: ObjetPlan, objets: readonly ObjetPlan[]): { t
  */
 export function repondreACheval(o: ObjetPlan, objets: readonly ObjetPlan[], reponse: 'un' | 'parParcelle'): boolean {
   const parts = partsACheval(o, objets);
-  if (!parts || !o.toitMesure) return false;
+  if (!parts || !o.batiment?.toitMesure) return false;
   // Relus sous les seuils du profil du batiment, comme a la lecture (app/toits/toitsLidar.ts).
-  const mesure = o.toitMesure;
-  if (reponse === 'parParcelle') o.corpsToit = avecProfilsDuBatiment(o, contexteProfils(objets), () => corpsParParcelle(o, parts, mesure, null)) ?? o.corpsToit ?? null;
-  o.toitACheval = { parcelles: parts.map((p) => p.parcelle), reponse };
+  const mesure = o.batiment?.toitMesure;
+  if (reponse === 'parParcelle') champsBatiment(o).corpsToit = avecProfilsDuBatiment(o, contexteProfils(objets), () => corpsParParcelle(o, parts, mesure, null)) ?? o.batiment?.corpsToit ?? null;
+  champsBatiment(o).toitACheval = { parcelles: parts.map((p) => p.parcelle), reponse };
   return true;
 }
 

@@ -100,7 +100,7 @@ export function ajouterArbre3d(ctx: ContexteArbre, o: ObjetPlan, hauteurM: numbe
   const d: DonneesArbre = {
     lot: false, espece: espece?.id ?? '', caduc: espece?.caduc ?? true,
     diametre: diametreDe(o, espece), hauteur: Math.max(0.3, hauteurM > 0 ? hauteurM : espece?.hauteurM ?? HAUTEUR_DEFAUT_M),
-    variante: graine % NB_VARIANTES, teinte: o.couleurArbre || COULEUR_FEUILLAGE_DEFAUT
+    variante: graine % NB_VARIANTES, teinte: o.arbre?.couleur || COULEUR_FEUILLAGE_DEFAUT
   };
   // Un quart de tour au hasard (de la cle) : deux arbres du meme lot ne se tournent pas la meme face.
   groupe.rotation.y = ((graine >>> 3) % 360) * Math.PI / 180;

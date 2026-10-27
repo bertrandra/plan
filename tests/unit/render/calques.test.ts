@@ -40,7 +40,7 @@ describe('calque des parasols', () => {
   });
 
   it('relie le mat deporte au centre de la toile', () => {
-    calque([parasol({ matDeporte: true })]);
+    calque([parasol({ parasol: { matDeporte: true } })]);
     expect(mats.querySelectorAll('line')).toHaveLength(1);
   });
 
@@ -61,7 +61,7 @@ describe('releves de facade sur le plan', () => {
   const groupe = () => { const g = document.createElementNS(NS, 'g') as SVGGElement; svg.appendChild(g); return g; };
   const maison = (ouvertures: object[], plus: object = {}) => ({
     key: 'm', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }],
-    facades: [{ cote: 0, ouvertures }], ...plus
+    batiment: { facades: [{ cote: 0, ouvertures }] }, ...plus
   });
   const etat = (objets: object[]) => ({ objects: objets, scene } as unknown as EtatApp);
   const versEcran = (p: { x: number; y: number }) => ({ x: p.x * 10, y: -p.y * 10 });

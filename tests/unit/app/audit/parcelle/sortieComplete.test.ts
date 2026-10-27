@@ -134,7 +134,7 @@ describe('les détails des ouvertures', () => {
     const objets = structuredClone(e.objets) as ObjetPlan[];
     const releveCoche = { id: 'maison#0:releve', cible: { type: 'facade', cle: 'maison', cote: 0 }, effet: { type: 'releve', releve } } as unknown as Proposition;
     appliquerPropositions(objets, [p!, releveCoche], [], '2026-10-17');
-    const ecrites = (objets[1] as ObjetPlan).facades?.[0]?.ouvertures ?? [];
+    const ecrites = (objets[1] as ObjetPlan).batiment?.facades?.[0]?.ouvertures ?? [];
     expect(ecrites.map((o) => o.details)).toEqual([
       { volets: 'battants', couleurVolets: '#5B7A99', vitrage: 'petits-bois' },
       { volets: 'roulant', couleurVolets: '#5B7A99', vitrage: 'petits-bois' },

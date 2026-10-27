@@ -5,7 +5,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 // Un corps de 10 x 6 : faitage le long de x, a y = 3 ; egouts 3 m, faitage 5,5 m.
 const corps = (extra: Partial<CorpsToit> = {}): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 5.5, egouts: [3, 3], pignons: [], ecart: 0.1, ...extra });
-const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 
 describe('la ligne de faitage du mode Plan', () => {
   it('suit le faitage du bout a bout, raccourcie par les croupes', () => {
@@ -27,7 +27,7 @@ describe('les marqueurs du mode Plan', () => {
   it('un par element pose, a sa place sur le toit', () => {
     const o = maison();
     for (const id of ['forme:deux-pans', 'sur:pignon', 'sur:cheminee', 'sur:fenetre-toit', 'sur:solaire', 'sur:jacobine']) appliquerPiece(o, id);
-    const m = marqueursDuCorps(o.corpsToit![0]!);
+    const m = marqueursDuCorps(o.batiment!.corpsToit![0]!);
     expect(m.map((x) => x.type).sort()).toEqual(['cheminee', 'fenetre-toit', 'lucarne', 'pignon', 'solaire']);
     for (const x of m) { expect(x.x).toBeGreaterThanOrEqual(-0.01); expect(x.x).toBeLessThanOrEqual(10.01); expect(x.y).toBeGreaterThanOrEqual(-0.01); expect(x.y).toBeLessThanOrEqual(6.01); }
   });

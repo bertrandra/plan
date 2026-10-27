@@ -139,9 +139,9 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
   // Positions candidates du PIED : le pourtour seul si le mat doit y rester, sinon toute la
   // surface. Un deporte ajoute une seconde dimension de recherche (l'orientation du bras), d'ou
   // des quadrillages plus larges pour que le produit des deux reste calculable en ~1 s.
-  const deporte = !!par.matDeporte;
+  const deporte = !!par.parasol?.matDeporte;
   const angles = deporte ? Array.from({length:12}, (_,i)=>i*30) : [matAngleDe(par)];
-  const candidats = par.matSurPerimetre
+  const candidats = par.parasol?.matSurPerimetre
     ? pointsPerimetre(poly, Math.max(0.25, Math.sqrt(aire)/6))
     : grillePolygone(poly, Math.max(0.25, Math.sqrt(aire/(deporte ? 90 : 150))));
   if(!cibles.length || !candidats.length) return null;
@@ -174,7 +174,7 @@ export function chercherMeilleurePositionParasol(par: ObjetPlan, ctx: ContexteSo
 }
 
 export function hauteurParasolDe(par: ObjetPlan): number {
-  return (par.hauteurParasol !== undefined && par.hauteurParasol !== null) ? par.hauteurParasol : 2.2;
+  return (par.parasol?.hauteur !== undefined && par.parasol?.hauteur !== null) ? par.parasol?.hauteur : 2.2;
 }
 
 export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): GeometrieOmbre {
@@ -193,7 +193,7 @@ export function geometrieOmbre(par: ObjetPlan, ech: EchantillonSoleil): Geometri
 // centre de la toile - c'est lui qui porte l'ombre, la surface et le cercle dessine ; seul le pied
 // se deplace. Garder cette convention evite de recalculer l'ombre differemment selon le modele.
 export function matAngleDe(par: ObjetPlan): number {
-  return (par.matAngleDeg !== undefined && par.matAngleDeg !== null) ? par.matAngleDeg : 0;
+  return (par.parasol?.matAngleDeg !== undefined && par.parasol?.matAngleDeg !== null) ? par.parasol?.matAngleDeg : 0;
 }
 
 /**
@@ -202,7 +202,7 @@ export function matAngleDe(par: ObjetPlan): number {
  */
 export function positionMat(par: ObjetPlan): PtBrut {
   const toile = enCercle(par);
-  if(!par.matDeporte) return { x: toile.center.x, y: toile.center.y };
+  if(!par.parasol?.matDeporte) return { x: toile.center.x, y: toile.center.y };
   const a = matAngleDe(par) * Math.PI/180;
   return { x: toile.center.x + toile.r*Math.cos(a), y: toile.center.y + toile.r*Math.sin(a) };
 }
@@ -238,7 +238,7 @@ export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null 
  */
 export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): void {
   objets.forEach(par=>{
-    if(par.fonction!=='parasol' || !par.matSurPerimetre) return;
+    if(par.fonction!=='parasol' || !par.parasol?.matSurPerimetre) return;
     const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
     if(!terr || !aDesSommets(terr) || terr.pts.length<3) return;
     const mat = positionMat(par);
@@ -276,8 +276,8 @@ export function pointDansOmbre(px: number, py: number, g: GeometrieOmbre): boole
 // la recherche de position cherche. Sans ce lien, un jardin a plusieurs terrasses verrait tous ses
 // parasols optimises sur la meme (la premiere trouvee), ce qui n'a aucun sens.
 export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseSelectionnee?: string | null): ObjetPlan | undefined {
-  if(par && par.terrasseLieeKey){
-    const t = objets.find(o=>o.key===par.terrasseLieeKey && estTerrasse(o));
+  if(par && par.parasol?.terrasseLieeKey){
+    const t = objets.find(o=>o.key===par.parasol?.terrasseLieeKey && estTerrasse(o));
     if(t) return t;
   }
   // Lien absent (projet enregistre avant cette option) ou terrasse supprimee / passee a une autre

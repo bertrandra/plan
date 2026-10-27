@@ -14,7 +14,7 @@ import { elevationParDefaut } from '../model/defaults.js';
 import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
-import type { Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
+import type { ChampsBatiment, Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
 
 /**
@@ -242,6 +242,14 @@ function appliquerPortail(p: ObjetPlan, e: Extract<EffetProposition, { type: 'po
 }
 
 /**
+ * Le sous-objet `batiment` de l'objet, recopie avant d'y ecrire : un effet n'ecrit jamais dans le sous-objet d'un autre objet. Une
+ * copie de surface de l'objet suffit ainsi a l'apercu (`projetApres`), comme quand ces champs etaient a plat.
+ */
+function batimentACopier(o: ObjetPlan): ChampsBatiment {
+  return (o.batiment = { ...o.batiment });
+}
+
+/**
  * L'effet d'une proposition sur le batiment qu'elle vise (ou la parcelle). Sur un batiment, chaque
  * effet remplace le champ qu'il ecrit (une liste, un objet neufs) sans rien modifier en place : une
  * copie de surface du batiment suffit a l'apercu, le plan n'est pas touche. La cloture, elle, est
@@ -251,36 +259,36 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
   switch (e.type) {
     case 'releve': {
       const r = releveALaHauteur(e.releve, hauteurDe(o));
-      o.facades = [...(o.facades ?? []).filter((x) => x.cote !== r.cote), r].sort((a, b) => a.cote - b.cote);
+      batimentACopier(o).facades = [...(o.batiment?.facades ?? []).filter((x) => x.cote !== r.cote), r].sort((a, b) => a.cote - b.cote);
       return;
     }
     case 'detailsOuvertures': {
-      const r = (o.facades ?? []).find((x) => x.cote === e.cote);
+      const r = (o.batiment?.facades ?? []).find((x) => x.cote === e.cote);
       if (r) r.ouvertures = r.ouvertures.map((x) => { const d = completerDetails(x.type, x.details, e.details); return d ? { ...x, details: d } : x; });
       return;
     }
     case 'hauteur': o.elevation = cm(e.hauteurM); return;
-    case 'hauteurToit': if (o.toit) o.toit = { ...o.toit, hauteur: Math.max(0.1, cm(e.faitageM - hauteurDe(o))) }; return;
+    case 'hauteurToit': if (o.batiment?.toit) batimentACopier(o).toit = { ...o.batiment?.toit, hauteur: Math.max(0.1, cm(e.faitageM - hauteurDe(o))) }; return;
     case 'couleurMurs': {
       // Valider la couleur vue sur place, c'est la choisir : un choix de source anterieur tombe.
-      const suite = { ...(o.couleurMurs ?? {}), terrain: { couleur: e.couleur, date: '' } };
+      const suite = { ...(o.batiment?.couleurMurs ?? {}), terrain: { couleur: e.couleur, date: '' } };
       delete suite.source;
-      o.couleurMurs = suite;
+      batimentACopier(o).couleurMurs = suite;
       return;
     }
     case 'materiauMurs': {
-      const suite = { ...(o.couleurMurs ?? {}), materiau: e.materiau };
+      const suite = { ...(o.batiment?.couleurMurs ?? {}), materiau: e.materiau };
       if (suite.source === 'plan') delete suite.source;
-      o.couleurMurs = suite;
+      batimentACopier(o).couleurMurs = suite;
       return;
     }
-    case 'corpsToit': o.corpsToit = JSON.parse(JSON.stringify(e.corps)) as CorpsToit[]; return;
-    case 'corpsDuToit': if (o.corpsToit?.[e.corps]) o.corpsToit = o.corpsToit.map((c, i) => (i === e.corps ? (JSON.parse(JSON.stringify(e.toit)) as CorpsToit) : c)); return;
-    case 'couverture': if (o.toit) o.toit = { ...o.toit, couverture: e.couverture }; return;
+    case 'corpsToit': batimentACopier(o).corpsToit = JSON.parse(JSON.stringify(e.corps)) as CorpsToit[]; return;
+    case 'corpsDuToit': if (o.batiment?.corpsToit?.[e.corps]) batimentACopier(o).corpsToit = o.batiment?.corpsToit.map((c, i) => (i === e.corps ? (JSON.parse(JSON.stringify(e.toit)) as CorpsToit) : c)); return;
+    case 'couverture': if (o.batiment?.toit) batimentACopier(o).toit = { ...o.batiment?.toit, couverture: e.couverture }; return;
     case 'cheminees': {
-      const corps = o.corpsToit;
+      const corps = o.batiment?.corpsToit;
       if (!corps || !corps[e.corps]) return;
-      o.corpsToit = corps.map((c, i) => {
+      batimentACopier(o).corpsToit = corps.map((c, i) => {
         const gardees = (c.cheminees ?? []).filter((ch) => ch.source !== 'observation');
         const suite = i === e.corps ? [...gardees, ...e.cheminees.map((ch) => ({ ...ch }))] : gardees;
         const copie = { ...c };
@@ -290,15 +298,15 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'appentis': {
-      const corps = o.corpsToit;
+      const corps = o.batiment?.corpsToit;
       if (!corps) return;
-      o.corpsToit = corps.map((c, i) => (e.corps.includes(i) ? { ...c, ouvert: e.ouvert } : c));
+      batimentACopier(o).corpsToit = corps.map((c, i) => (e.corps.includes(i) ? { ...c, ouvert: e.ouvert } : c));
       return;
     }
     case 'lucarnes': {
-      const corps = o.corpsToit;
+      const corps = o.batiment?.corpsToit;
       if (!corps || !corps[e.corps]) return;
-      o.corpsToit = corps.map((c, i) => {
+      batimentACopier(o).corpsToit = corps.map((c, i) => {
         const gardees = (c.lucarnes ?? []).filter((l) => l.source !== 'observation');
         const suite = i === e.corps ? [...gardees, ...e.lucarnes.map((l) => ({ ...l }))] : gardees;
         const copie = { ...c };
@@ -308,9 +316,9 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'terrasse': {
-      const corps = o.corpsToit;
+      const corps = o.batiment?.corpsToit;
       if (!corps || !corps[e.corps]) return;
-      o.corpsToit = corps.map((c, i) => (i === e.corps ? { ...c, terrasse: JSON.parse(JSON.stringify(e.terrasse)) as TerrasseToit } : c));
+      batimentACopier(o).corpsToit = corps.map((c, i) => (i === e.corps ? { ...c, terrasse: JSON.parse(JSON.stringify(e.terrasse)) as TerrasseToit } : c));
       return;
     }
     case 'cloture': appliquerCloture(o, e); return;
@@ -335,13 +343,13 @@ export function appliquerPropositions(objets: ObjetPlan[], propositions: readonl
     const o = parCle.get(cle);
     if (!o) continue;
     appliquerEffet(o, p.effet);
-    if (p.effet.type === 'couleurMurs' && o.couleurMurs?.terrain) o.couleurMurs.terrain.date = jour;
+    if (p.effet.type === 'couleurMurs' && o.batiment?.couleurMurs?.terrain) o.batiment.couleurMurs.terrain.date = jour;
     touches.add(cle);
   }
   for (const cle of verifies) {
     const o = parCle.get(cle);
     if (!o) continue;
-    o.verifieSurPlace = { date: jour };
+    batimentACopier(o).verifieSurPlace = { date: jour };
     touches.add(cle);
   }
   return [...touches];
@@ -352,7 +360,7 @@ export function appliquerPropositions(objets: ObjetPlan[], propositions: readonl
  * vue « Après » des deux vues de la Vue 3D. Les objets vises sont copies, les autres sont ceux du
  * projet ; rend aussi les cles des copies touchees.
  *
- * Une copie de surface suffit sur un batiment (chaque effet remplace le champ qu'il ecrit) ; la
+ * Une copie de surface suffit sur un batiment, son sous-objet `batiment` compris (chaque effet remplace le champ qu'il ecrit) ; la
  * cloture, modifiee en place par model/cloture.ts, est copiee en profondeur, elle seule : la parcelle
  * porte aussi son relief et son cadastre, qu'aucune proposition ne touche.
  */
@@ -361,6 +369,8 @@ export function projetApres(objets: readonly ObjetPlan[], propositions: readonly
   const copies = new Map(objets.filter((o) => visees.has(o.key)).map((o) => {
     const copie = { ...o } as ObjetPlan;
     if (o.cloture) copie.cloture = JSON.parse(JSON.stringify(o.cloture)) as NonNullable<ObjetPlan['cloture']>;
+    // Le sous-objet du batiment est copie lui aussi : un effet y remplace un champ, jamais dans l'objet d'origine.
+    if (o.batiment) copie.batiment = { ...o.batiment };
     return [o.key, copie] as const;
   }));
   const touches = appliquerPropositions([...copies.values()], propositions, [], jour);

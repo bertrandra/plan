@@ -4,13 +4,14 @@ import { champsVisibles, type Champ, type ChampChoix, type ChampLecture, type Co
 import type { CorpsToit, ObjetPlan, ToitMesure, VolumeToit } from '../../../src/model/types.js';
 import { decrireCorps } from '../../../src/ui/champs/facade.js';
 import type { ChampCarte } from '../../../src/ui/champs/types.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Le choix « Toit en 3D » de la section « Facades et toit » (MD/spec-toit-ign.md §12.3) : quand il
 // se montre, ce qu'il propose, et ce qu'il cache.
 
 const pts = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
 function contexte(plus: Record<string, unknown>): ContexteChamps {
-  const o = { key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' }, ...plus } as unknown as ObjetPlan;
+  const o = versMemoire({ key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts, ...plus, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' }, ...(plus.batiment as object) } }) as unknown as ObjetPlan;
   return { etat: { objects: [o], highlight: {}, lectureSeule: false }, obj: o, objets: [o], elevationOf: () => 6, render: () => {} } as unknown as ContexteChamps;
 }
 const mesure: ToitMesure = { pas: 0.5, x0: -0.5, y0: 8.5, nx: 27, ny: 19, z: Array.from({ length: 27 * 19 }, () => 6.5), egout: 4.2, faite: 7.8, source: 'lidar' };
@@ -42,7 +43,7 @@ describe('Toit en 3D', () => {
     expect(cles(c)).not.toContain('toitCorps');
     // Un toit par corps : la liste des corps ; un seul toit : ses reglages reviennent.
     mode.ecrire(c, 'volumes');
-    expect(c.obj.modeToit).toBe('volumes');
+    expect(c.obj.batiment?.modeToit).toBe('volumes');
     expect(cles(c)).toContain('toitCorps');
     expect(champ<ChampLecture>(c, 'toitCorps').valeur(c)).toContain('Corps 8,0 × 8,0 m : deux pans · égout 6,0 m');
     expect(cles(c)).not.toContain('toitMesure');
@@ -107,7 +108,7 @@ describe('Corps et pignons', () => {
     expect(carte.corps.every((k) => k.aretiers.length === 0)).toBe(true);
     // Tel que mesure : la carte reste, la ligne des corps se cache.
     mode.ecrire(c, 'mesure');
-    expect(c.obj.modeToit).toBe('mesure');
+    expect(c.obj.batiment?.modeToit).toBe('mesure');
     expect(cles(c)).toContain('toitCarte');
     expect(cles(c)).not.toContain('toitCorpsLus');
   });
@@ -123,11 +124,11 @@ describe('Materiau de la couverture', () => {
     expect(m.options(c)[0]).toEqual({ valeur: '', libelle: 'Automatique (ardoise)' });
     expect(m.options(c).map((o) => o.valeur)).toEqual(['', 'tuile', 'tuile-plate', 'tuile-canal', 'ardoise', 'ardoise-losange', 'zinc']);
     m.ecrire(c, 'zinc');
-    expect(c.obj.toit?.couverture).toBe('zinc');
+    expect(c.obj.batiment?.toit?.couverture).toBe('zinc');
     // Le materiau deduit ne change pas avec le choix : il reste lisible dans « Automatique ».
     expect(m.options(c)[0]!.libelle).toBe('Automatique (ardoise)');
     m.ecrire(c, '');
-    expect(c.obj.toit && 'couverture' in c.obj.toit).toBe(false);
+    expect(c.obj.batiment?.toit && 'couverture' in c.obj.batiment.toit).toBe(false);
   });
 
   it('ne se montre pas sur un toit plat simple', () => {
@@ -146,14 +147,14 @@ describe('Appentis ouvert ou ferme', () => {
     const ch = champ<ChampChoix>(c, 'appentisOuvert');
     expect(ch.lire(c)).toBe('');
     ch.ecrire(c, 'ouvert');
-    expect(c.obj.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, true]);
+    expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, true]);
     expect(ch.lire(c)).toBe('ouvert');
     ch.ecrire(c, 'ferme');
-    expect(c.obj.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, false]);
+    expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, false]);
     expect(ch.lire(c)).toBe('ferme');
     // « Sans indication » retire la cle : le dessin redevient celui du toit seul.
     ch.ecrire(c, '');
-    expect(c.obj.corpsToit?.[1]).not.toHaveProperty('ouvert');
+    expect(c.obj.batiment?.corpsToit?.[1]).not.toHaveProperty('ouvert');
   });
 
   it('ne se montre pas sans appentis, ni hors du mode corps et pignons', () => {

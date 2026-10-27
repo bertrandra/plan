@@ -45,7 +45,7 @@ export const POINTS_ACTUALISATION = [
 export const POINT_VERIFIES = 'Conservés tels quels, sauf si vous cochez la case : les bâtiments vérifiés sur place lors d’un audit de la parcelle (toit, façades, cheminées).';
 
 /** Les batiments du plan verifies sur place : ils ne sont recalcules que si la case le demande. */
-export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o));
+export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o.batiment));
 
 /** Les points du dialogue pour ce plan : les points de toujours, et celui des batiments verifies s'il y en a. */
 export const pointsActualisation = (nVerifies: number): string[] => nVerifies ? [...POINTS_ACTUALISATION.slice(0, -1), POINT_VERIFIES, ...POINTS_ACTUALISATION.slice(-1)] : POINTS_ACTUALISATION;
@@ -53,7 +53,7 @@ export const pointsActualisation = (nVerifies: number): string[] => nVerifies ? 
 /** Le libelle de la case : un batiment nomme, ou leur nombre. */
 export function libelleCaseVerifies(verifies: readonly ObjetPlan[]): string {
   const un = verifies.length === 1 ? verifies[0] : undefined;
-  const date = (o: ObjetPlan) => { const [a, m, j] = (o.verifieSurPlace?.date ?? '').split('-'); return a && m && j ? ' le ' + j + '/' + m + '/' + a : ''; };
+  const date = (o: ObjetPlan) => { const [a, m, j] = (o.batiment?.verifieSurPlace?.date ?? '').split('-'); return a && m && j ? ' le ' + j + '/' + m + '/' + a : ''; };
   return un ? 'Recalculer aussi « ' + (un.name || 'Bâtiment') + ' », vérifié sur place' + date(un)
     : 'Recalculer aussi les ' + verifies.length + ' bâtiments vérifiés sur place';
 }

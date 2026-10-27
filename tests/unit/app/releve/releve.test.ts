@@ -26,8 +26,8 @@ describe('le service du releve', () => {
     const toit: Toit = { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'photo' };
     s.valider(releve(0), toit, 7.4);
     expect(ctx.pushHistory).toHaveBeenCalledTimes(1);
-    expect(o.facades).toHaveLength(1);
-    expect(o.toit).toEqual(toit);
+    expect(o.batiment?.facades).toHaveLength(1);
+    expect(o.batiment?.toit).toEqual(toit);
     // La photo mesurait 7,4 m : le batiment reste a 6 m.
     expect(o.elevation).toBe(6);
     expect(s.courant()).toBeNull();
@@ -36,8 +36,8 @@ describe('le service du releve', () => {
     s.valider(releve(2), null, 6);
     s.ouvrir('maison', 0);
     s.valider({ ...releve(0), ouvertures: [] }, null, 6);
-    expect(o.facades?.map((r) => [r.cote, r.ouvertures.length])).toEqual([[0, 0], [2, 1]]);
-    expect(o.toit).toEqual(toit);
+    expect(o.batiment?.facades?.map((r) => [r.cote, r.ouvertures.length])).toEqual([[0, 0], [2, 1]]);
+    expect(o.batiment?.toit).toEqual(toit);
   });
 
   it('donne la position suivie et les batiments qui peuvent cacher un mur, pour proposer celui devant soi', () => {

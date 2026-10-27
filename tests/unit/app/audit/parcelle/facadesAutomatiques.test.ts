@@ -51,7 +51,7 @@ const dependances = { pixels: async () => image(), chercherCoins: coinsTrouves, 
 function monter(avant: Partial<ObjetPlan> = {}) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { fonction: 'batiment', pts: PTS, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS], ...avant }),
+    obj('maison', { fonction: 'batiment', pts: PTS, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  ...avant }),
   ] as ObjetBrut[]) as ObjetPlan[];
   const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
   const historique = creerHistorique(etat as never, {
@@ -85,9 +85,9 @@ describe('les photos de l audit alimentent les facades', () => {
     expect(['triangle', 'trapeze', 'ligne-droite', 'rampe', 'indetermine']).toContain(m.silhouette);
     const attendu = m.coinsTrouves && (m.confiance ?? 1) >= CONFIANCE_MIN && !!m.releve;
     const t = monter();
-    expect(t.maison().facades ?? []).toHaveLength(0);
+    expect(t.maison().batiment?.facades ?? []).toHaveLength(0);
     await t.v.lancer();
-    const pose = t.maison().facades ?? [];
+    const pose = t.maison().batiment?.facades ?? [];
     expect(attendu).toBe(true);
     expect(pose).toHaveLength(1);
     expect(pose[0]).toMatchObject({ cote: 0, depuisAudit: true, texture: 'data:image/jpeg;base64,TEXTURE' });
@@ -117,9 +117,9 @@ describe('les photos de l audit alimentent les facades', () => {
     const m = await mesureDeReference();
     expect(m.releve).not.toBeNull();
     const main: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', ouvertures: [0, 1, 2, 3, 4].map((k) => ({ type: 'fenetre' as const, x: 1 + k, y: 1, l: 0.8, h: 1.4 })) };
-    const t = monter({ facades: [main] });
+    const t = monter({ batiment: { facades: [main] } });
     await t.v.lancer();
-    expect(t.maison().facades).toEqual([main]);
+    expect(t.maison().batiment?.facades).toEqual([main]);
     expect(t.projet.pushHistory).not.toHaveBeenCalled();
     const p = t.v.propositions().find((x) => x.id === 'maison#0:releve');
     expect(p?.remplaceChoix).toMatch(/^relevé du 01\/10\/2026/);
@@ -132,23 +132,23 @@ describe('les photos de l audit alimentent les facades', () => {
     const m = await mesureDeReference();
     expect(m.coinsTrouves && (m.confiance ?? 1) >= CONFIANCE_MIN && !!m.releve).toBe(true);
     const ancien: ReleveFacade = { ...(m.releve as ReleveFacade), releveLe: '2026-10-01T10:00:00Z', depuisAudit: true };
-    const t = monter({ facades: [ancien] });
+    const t = monter({ batiment: { facades: [ancien] } });
     await t.v.lancer();
-    expect(t.maison().facades?.[0]?.releveLe).not.toBe(ancien.releveLe);
-    expect(t.maison().facades?.[0]?.depuisAudit).toBe(true);
+    expect(t.maison().batiment?.facades?.[0]?.releveLe).not.toBe(ancien.releveLe);
+    expect(t.maison().batiment?.facades?.[0]?.depuisAudit).toBe(true);
     // Refait a la main (app/releve/releve.ts retire la marque) : l'audit ne le remplace plus tout seul.
-    const { depuisAudit: _marque, ...refait } = { ...(t.maison().facades?.[0] as ReleveFacade), releveLe: '2026-10-14T10:00:00Z' };
+    const { depuisAudit: _marque, ...refait } = { ...(t.maison().batiment?.facades?.[0] as ReleveFacade), releveLe: '2026-10-14T10:00:00Z' };
     void _marque;
-    const t2 = monter({ facades: [refait] });
+    const t2 = monter({ batiment: { facades: [refait] } });
     await t2.v.lancer();
-    expect(t2.maison().facades?.[0]?.releveLe).toBe('2026-10-14T10:00:00Z');
+    expect(t2.maison().batiment?.facades?.[0]?.releveLe).toBe('2026-10-14T10:00:00Z');
   }, 30000);
 
   it('ne pose rien dans la consultation d un audit recu (rien ne se mesure ni ne s ecrit)', async () => {
     const t = monter();
     t.v.figer([]);
     await t.v.lancer();
-    expect(t.maison().facades ?? []).toHaveLength(0);
+    expect(t.maison().batiment?.facades ?? []).toHaveLength(0);
     expect(t.projet.pushHistory).not.toHaveBeenCalled();
   });
 });

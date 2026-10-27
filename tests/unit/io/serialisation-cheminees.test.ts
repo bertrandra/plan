@@ -12,13 +12,13 @@ const cheminee: Cheminee = { x: 5, y: 4, largeurM: 0.6, profondeurM: 0.4, sommet
 const terrasse: TerrasseToit = { accessible: true, revetement: 'bois', acrotereM: 0.6, gardeCorps: true, edicules: [{ pts: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 3 }], sommetM: 5.5 }], source: 'observation' };
 const batiment = (corpsToit: CorpsToit[]) => ({
   key: 'b', type: 'polygon', name: 'Maison', pts, fonction: 'batiment', vertexNames: ['A', 'B', 'C', 'D'], segmentNames: ['1', '2', '3', '4'],
-  frozenVertices: [false, false, false, false], corpsToit,
+  frozenVertices: [false, false, false, false], batiment: { corpsToit },
 }) as unknown as ObjetPlan;
 
 function allerRetour(o: ObjetPlan): CorpsToit[] {
   const [s] = serializeObjects([o]);
-  const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as { corpsToit: CorpsToit[] }[];
-  return relu!.corpsToit;
+  const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as { batiment: { corpsToit: CorpsToit[] } }[];
+  return relu!.batiment.corpsToit;
 }
 
 describe('cheminees et terrasses a l enregistrement', () => {

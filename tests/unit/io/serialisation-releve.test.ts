@@ -40,23 +40,23 @@ describe('serialisation du releve de facade', () => {
   });
 
   it('garde releve et toit, a l identique, a travers enregistrement et relecture', () => {
-    const m = { ...maison(), facades: [releve], toit };
+    const m = { ...maison(), batiment: { facades: [releve], toit } };
     const lu = normalizeObjects(JSON.parse(JSON.stringify(serializeObjects([m]))) as ObjetPlan[]);
-    expect(lu[0]!.facades).toEqual([releve]);
-    expect(lu[0]!.toit).toEqual(toit);
+    expect(lu[0]!.batiment?.facades).toEqual([releve]);
+    expect(lu[0]!.batiment?.toit).toEqual(toit);
   });
 
   it('copie en profondeur : un instantane d historique ne partage rien avec le plan', () => {
     const m = { ...maison(), facades: [releve], toit: { ...toit } };
     const [copie] = normalizeObjects([m]);
-    copie!.facades![0]!.ouvertures[0]!.l = 2;
-    copie!.toit!.hauteur = 9;
+    copie!.batiment!.facades![0]!.ouvertures[0]!.l = 2;
+    copie!.batiment!.toit!.hauteur = 9;
     expect(m.facades[0]!.ouvertures[0]!.l).toBe(0.95);
     expect(m.toit.hauteur).toBe(3);
   });
 
   it("n'ecrit pas une liste de releves vide", () => {
-    const [o] = serializeObjects([{ ...maison(), facades: [] }]);
+    const [o] = serializeObjects([{ ...maison(), batiment: { ...(maison()).batiment, facades: [] } }]);
     expect(Object.keys(o!)).not.toContain('facades');
   });
 });

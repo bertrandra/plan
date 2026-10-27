@@ -18,7 +18,8 @@
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
 import { deplierRelief } from './relief.js';
-import type { CorpsToit, ObjetBrut, ObjetAPoints } from './types.js';
+import { rangerChampsAPlat } from './champsFonction.js';
+import type { ChampsBatiment, ObjetBrut, ObjetAPoints } from './types.js';
 import { lireChampsEtendus } from './corpsToitEtendu.js';
 
 /**
@@ -34,6 +35,8 @@ import { lireChampsEtendus } from './corpsToitEtendu.js';
 export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)[] {
   return raw.map(o => {
     const c: ObjetBrut = { ...o };
+    // Un objet lu porte ses champs a plat (fichier, historique) : ils vont dans leurs sous-objets (model/champsFonction.ts).
+    rangerChampsAPlat(c as Record<string, unknown>);
     if (c.type === 'circle') {
       // La validation (io/validation.ts) ecarte un cercle sans centre avant d'arriver ici.
       if (!c.center) throw new Error('Cercle sans centre : ' + String(c.key ?? c.name ?? '?'));
@@ -55,21 +58,22 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
     if (c.declaration) c.declaration = JSON.parse(JSON.stringify(c.declaration));
-    if (c.facades) c.facades = JSON.parse(JSON.stringify(c.facades));
-    if (c.toit) c.toit = JSON.parse(JSON.stringify(c.toit));
-    if (c.volumesToit) c.volumesToit = JSON.parse(JSON.stringify(c.volumesToit));
-    if (c.toitMesure) c.toitMesure = JSON.parse(JSON.stringify(c.toitMesure));
-    // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient. Ses
-    // champs etendus (profil, bouts, lucarnes, bords) sont verifies, et retires s'ils sont mal formes.
-    if (c.corpsToit) c.corpsToit = (JSON.parse(JSON.stringify(c.corpsToit)) as CorpsToit[]).map((k) => {
-      const copie = { ...k, pignons: k.pignons ?? [] };
-      lireChampsEtendus(copie as unknown as Record<string, unknown>);
-      return copie;
-    });
-    if (c.toitACheval) c.toitACheval = JSON.parse(JSON.stringify(c.toitACheval));
-    if (c.couleurMurs) c.couleurMurs = JSON.parse(JSON.stringify(c.couleurMurs));
-    if (c.verifieSurPlace) c.verifieSurPlace = { date: String(c.verifieSurPlace.date) };
-    if (c.toitFige) c.toitFige = true; else delete c.toitFige;
+    // Les sous-objets d'une fonction (model/typesFonctions.ts) sont copies en entier : le clone ne partage rien avec la source.
+    if (c.batiment) {
+      const b = JSON.parse(JSON.stringify(c.batiment)) as ChampsBatiment;
+      // Un corps enregistre sans pignons (io/serialisation.ts) n'en a pas : la liste vide revient. Ses
+      // champs etendus (profil, bouts, lucarnes, bords) sont verifies, et retires s'ils sont mal formes.
+      if (b.corpsToit) b.corpsToit = b.corpsToit.map((k) => {
+        const copie = { ...k, pignons: k.pignons ?? [] };
+        lireChampsEtendus(copie as unknown as Record<string, unknown>);
+        return copie;
+      });
+      if (b.verifieSurPlace) b.verifieSurPlace = { date: String(b.verifieSurPlace.date) };
+      if (b.toitFige) b.toitFige = true; else delete b.toitFige;
+      c.batiment = b;
+    }
+    if (c.arbre) c.arbre = JSON.parse(JSON.stringify(c.arbre));
+    if (c.parasol) c.parasol = { ...c.parasol };
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));
     if (c.cloture) c.cloture = JSON.parse(JSON.stringify(c.cloture));
     // Une grille enregistree compacte (`zCode`) retrouve ici ses altitudes en clair (model/relief.ts).

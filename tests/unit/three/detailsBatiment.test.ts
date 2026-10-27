@@ -95,7 +95,7 @@ describe('niveaux et fenetres', () => {
 describe('ajouterDetailsBatiment', () => {
   it('pose debord, gouttiere, aretes, soubassement, ouvertures et cheminee sur une maison a deux pans', () => {
     const { ajoutes, ctx } = scene();
-    ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, 6, { etages: 2 });
+    ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 6, { etages: 2 });
     expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-cheminee', 'batiment-debord', 'batiment-gouttiere', 'batiment-ouvertures', 'batiment-soubassement']);
     const debord = ajoutes.find((m) => m.name === 'batiment-debord')!;
     // Le dessus du debord descend sous l'egout (6 m) le long des longs murs : 0,4 m a la pente 3/4.
@@ -130,7 +130,7 @@ describe('ajouterDetailsBatiment', () => {
     const { ajoutes, ctx } = scene();
     // Un rectangle dont un long mur porte un sommet presque aligne (5 degres) : pas d'angle la.
     const pts = [p(0, 0), p(6, 0.5), p(12, 0), p(12, 8), p(0, 8)];
-    ajouterDetailsBatiment(ctx, { ...maison(), pts, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } }, 6);
+    ajouterDetailsBatiment(ctx, { ...maison(), pts, batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } } }, 6);
     const aretes = ajoutes.find((m) => m.name === 'batiment-aretes')!;
     const pos = aretes.geometry.attributes.position!.array;
     const n = pos.length / 6;
@@ -147,7 +147,7 @@ describe('ajouterDetailsBatiment', () => {
     const { ajoutes, ctx } = scene();
     // Le sol descend de 1 m vers le sud (y = 0) : au centre (y = 4) il vaut 0, le plus bas est a -0,5.
     const sol = (q: PtBrut) => (q.y - 4) / 8;
-    ajouterDetailsBatiment({ ...ctx, sol, base: -0.5 }, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } }, 6, { etages: 2 });
+    ajouterDetailsBatiment({ ...ctx, sol, base: -0.5 }, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 } } }, 6, { etages: 2 });
     const soub = ajoutes.find((m) => m.name === 'batiment-soubassement')!;
     const y = ys(soub);
     expect(Math.min(...y)).toBeCloseTo(-0.5, 9);
@@ -165,19 +165,19 @@ describe('ajouterDetailsBatiment', () => {
 
   it('de loin, ne pose que le debord et les aretes', () => {
     const { ajoutes, ctx } = scene(DETAIL_FIN_M + 1);
-    ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, 6);
+    ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } } }, 6);
     expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-debord']);
   });
 
   it('un toit plat : pas de debord ni de cheminee, mais les aretes, le soubassement et les fenetres', () => {
     const { ajoutes, ctx } = scene();
-    ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } }, 6);
+    ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0 } } }, 6);
     expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-ouvertures', 'batiment-soubassement']);
   });
 
   it('ne dessine pas de fenetres sur un mur photographie, ni sur un abri trop bas', () => {
     const { ajoutes, ctx } = scene();
-    ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 2, angleFaitage: 0 } }, 6, { cotesReleves: [0, 1, 2, 3] });
+    ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 2, angleFaitage: 0 } } }, 6, { cotesReleves: [0, 1, 2, 3] });
     expect(ajoutes.some((m) => m.name === 'batiment-ouvertures')).toBe(false);
     const abri = scene();
     ajouterDetailsBatiment(abri.ctx, { ...maison(), pts: [p(0, 0), p(3, 0), p(3, 2), p(0, 2)] }, 2);
@@ -191,7 +191,7 @@ describe('ajouterDetailsBatiment', () => {
     const corps: CorpsToit = { pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [] } as unknown as CorpsToit;
     const dessin = (options: Parameters<typeof ajouterDetailsBatiment>[3]) => {
       const { ajoutes, ctx } = scene();
-      ajouterDetailsBatiment(ctx, { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, 6, options);
+      ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 6, options);
       return JSON.stringify(ajoutes.map((m) => [m.name, m.geometry.attributes.position?.array, m.geometry.index]));
     };
     for (const extra of [{}, { corps: [corps] }]) {

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { creerProfilsFacadesFond, rechoisirProfilsFacades, profilARechoisir } from '../../../../src/app/toits/profilsFacadesFond.js';
 import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../../src/regles/facades/reglages.js';
 import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
+import { versMemoire } from '../../../../src/model/champsFonction.js';
 
 // Le choix des profils de facades en tache de fond (F§15.2, G12) : rien sans profil, la parcelle du
 // projet et les batiments verifies jamais rechoisis, une version nouvelle qui fait rechoisir.
@@ -18,7 +19,7 @@ const rect = (x0: number, y0: number, l: number, w: number) => [p(x0, y0), p(x0 
 
 function plan(): ObjetPlan[] {
   const parcelle = { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(-50, -50, 200, 200), cadastre: { idu: '78650000AE0101' } };
-  const bat = (key: string, x: number, extra: Record<string, unknown> = {}) => ({ key, type: 'polygon', fonction: 'batiment', pts: rect(x, 0, 10, 8), bdtopo: { usage1: 'Résidentiel', ...(extra.bdtopo as object ?? {}) }, ...extra });
+  const bat = (key: string, x: number, extra: Record<string, unknown> = {}) => versMemoire({ key, type: 'polygon', fonction: 'batiment', pts: rect(x, 0, 10, 8), bdtopo: { usage1: 'Résidentiel', ...(extra.bdtopo as object ?? {}) }, ...extra });
   return [
     parcelle,
     bat('maison', 0, { bdtopo: { usage1: 'Résidentiel', surParcellePrincipale: true } }),
@@ -43,10 +44,10 @@ describe('rechoisirProfilsFacades', () => {
     expect(profilARechoisir(parCle(objets, 'parcelle'), 1)).toBe(false);
     const b = rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 });
     expect(b).toEqual({ changes: ['voisin'], marques: 2 });
-    expect(parCle(objets, 'voisin').profilFacades).toEqual({ id: 'pavillon-essai', version: 1 });
-    expect(parCle(objets, 'annexe').profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 1 });
-    expect(parCle(objets, 'maison').profilFacades).toBeUndefined();
-    expect(parCle(objets, 'verifie').profilFacades).toBeUndefined();
+    expect(parCle(objets, 'voisin').batiment?.profilFacades).toEqual({ id: 'pavillon-essai', version: 1 });
+    expect(parCle(objets, 'annexe').batiment?.profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 1 });
+    expect(parCle(objets, 'maison').batiment?.profilFacades).toBeUndefined();
+    expect(parCle(objets, 'verifie').batiment?.profilFacades).toBeUndefined();
     // Marques : un second passage n'a plus rien a faire.
     expect(rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 }).marques).toBe(0);
   });
@@ -56,7 +57,7 @@ describe('rechoisirProfilsFacades', () => {
     rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 });
     const b = rechoisirProfilsFacades(objets, { profils: [], version: 2 });
     expect(b).toEqual({ changes: ['voisin'], marques: 2 });
-    expect(parCle(objets, 'voisin').profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 2 });
+    expect(parCle(objets, 'voisin').batiment?.profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 2 });
   });
 });
 
@@ -68,7 +69,7 @@ describe('creerProfilsFacadesFond', () => {
     const apresLot = vi.fn();
     await creerProfilsFacadesFond({ objets: () => objets, lectureSeule: () => false, apresLot, pause, profils: [], version: 1 }).relancer();
     expect(apresLot).not.toHaveBeenCalled();
-    expect(objets.some((o) => o.profilFacades)).toBe(false);
+    expect(objets.some((o) => o.batiment?.profilFacades)).toBe(false);
   });
 
   it('en lecture seule, ne lance rien', async () => {

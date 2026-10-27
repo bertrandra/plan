@@ -19,7 +19,7 @@ const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, 
 function monter(vu: CeQueJeVois | null, claude: { n: number; types: string[]; pan: string } | null) {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   if (vu) capture.noterVu('maison', vu);
@@ -53,7 +53,7 @@ describe('les lucarnes arbitrees', () => {
   it('une fois ecrites, les lucarnes se dessinent sur le pan', () => {
     const t = monter({ lucarnes: { nombre: 2, pan: 'rue' } }, null);
     appliquerPropositions(t.objets, propositionsArbitrees(t.e, {}), [], '2026-10-13');
-    const c = t.objets.find((o) => o.key === 'maison')?.corpsToit?.[0] as CorpsToit;
+    const c = t.objets.find((o) => o.key === 'maison')?.batiment?.corpsToit?.[0] as CorpsToit;
     expect(c.lucarnes).toHaveLength(2);
     expect(facettesLucarnes(c, 10, 8).pans.length).toBeGreaterThan(0);
   });

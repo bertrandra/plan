@@ -43,7 +43,7 @@ export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: 
   const s = sessionToit(), e = etatToit(), sc = vue3d.scene, hote = hotes3d.vue3d;
   if (!s || e.vue !== 'dessus' || !sc || !hote) return null;
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
-  const corps = o?.corpsToit;
+  const corps = o?.batiment?.corpsToit;
   if (!corps?.length) return null;
   const r = hote.getBoundingClientRect(), base = altitudeDuBatiment(o);
   // `h` : la hauteur au-dessus du pied du batiment, celle des corps et des poignees (facade/modeToit/poignees.ts).

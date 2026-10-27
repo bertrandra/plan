@@ -77,7 +77,7 @@ function distanceAuMur(f: { gauche: PtBrut; droite: PtBrut }, p: PrisePhoto | un
 
 /** Le modele actuel du batiment, compact : ce que Claude compare a son observation. */
 export function modeleCompact(o: ObjetPlan, b: LigneBatiment): Record<string, unknown> {
-  const corps = (o.corpsToit ?? []).map((c) => ({
+  const corps = (o.batiment?.corpsToit ?? []).map((c) => ({
     pts: contourCompact(c.pts), faitageM: c.faitage, egoutsM: c.egouts, posFaitageM: Math.round(c.posFaitage * 10) / 10,
     ...(c.croupes ? { croupesM: c.croupes } : {}), pignons: c.pignons.length,
     ...(c.cheminees?.length ? { cheminees: c.cheminees.map((ch) => ({ position: ch.position, ...(ch.materiau ? { materiau: ch.materiau } : {}) })) } : {}),
@@ -85,10 +85,10 @@ export function modeleCompact(o: ObjetPlan, b: LigneBatiment): Record<string, un
   }));
   return {
     nom: b.nom, contour: 'pts' in o && o.pts ? contourCompact(o.pts) : [], hauteurEgoutM: Math.round(hauteurDe(o) * 100) / 100,
-    toit: o.toit ? { forme: o.toit.forme, ...(o.toit.couverture ? { couverture: o.toit.couverture } : {}) } : null,
+    toit: o.batiment?.toit ? { forme: o.batiment?.toit.forme, ...(o.batiment?.toit.couverture ? { couverture: o.batiment?.toit.couverture } : {}) } : null,
     corps,
     murs: { materiau: textureDesMurs(o) ?? null, couleur: couleurMursRetenue(o)?.couleur ?? null },
-    facades: b.facades.map((f) => ({ etiquette: etiquetteFacade(b, f), largeurM: Math.round(f.facade.largeur * 10) / 10, ouverturesRelevees: (o.facades ?? []).find((r) => r.cote === f.cote)?.ouvertures.length ?? null })),
+    facades: b.facades.map((f) => ({ etiquette: etiquetteFacade(b, f), largeurM: Math.round(f.facade.largeur * 10) / 10, ouverturesRelevees: (o.batiment?.facades ?? []).find((r) => r.cote === f.cote)?.ouvertures.length ?? null })),
   };
 }
 
@@ -245,7 +245,7 @@ function texteDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions,
 export async function entreeDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, fab: FabriqueImages): Promise<EntreeBatiment | null> {
   const { etiquettes, contenu, facades, rendus, rendusPossibles } = await imagesDuBatiment(o, b, e, fab);
   if (!etiquettes.some((x) => x.photo)) return null;
-  const indices = indicesLidar(o.toitMesure, o.corpsToit);
+  const indices = indicesLidar(o.batiment?.toitMesure, o.batiment?.corpsToit);
   contenu.push({ type: 'text', text: texteDuBatiment(o, b, e, indices, rendus) });
   return { cle: b.cle, facades, rendus, rendusPossibles, etiquettes, contenu };
 }

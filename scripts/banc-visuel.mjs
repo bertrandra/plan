@@ -158,7 +158,7 @@ async function rendusClaude(page) {
     // parcelle et le sol ; ni cloture, ni arbres, ni voisins.
     const gardes = new Set([...maisons.map((o) => o.key), 'parcelle', ...e.objects.filter((o) => o.fonction === 'terrain').map((o) => o.key)]);
     const pts = maison.pts, n = pts.length;
-    const haut = Math.max(...(maison.corpsToit ?? []).map((c) => c.faitage), (maison.elevation ?? 6) * 1.35);
+    const haut = Math.max(...(maison.batiment?.corpsToit ?? []).map((c) => c.faitage), (maison.elevation ?? 6) * 1.35);
     const sorties = [];
     for (let i = 0; i < n; i++) {
       const a = pts[i], d = pts[(i + 1) % n], l = Math.hypot(d.x - a.x, d.y - a.y);

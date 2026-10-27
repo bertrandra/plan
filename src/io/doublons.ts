@@ -9,6 +9,7 @@
 
 import { serializeObjects } from './serialisation.js';
 import type { Mesure, ObjetPlan } from '../model/types.js';
+import { champsParasol } from '../model/champsFonction.js';
 
 /** Ce qui distingue deux objets sans les rendre differents : l'identite, le nom et l'etat d'affichage. */
 const IGNORES = new Set(['key', 'name', 'locked', 'hidden', 'showName', 'showSegNames', 'showVertNames', 'showDims', 'showAngles']);
@@ -39,7 +40,7 @@ export function trouverDoublons(objets: readonly ObjetPlan[]): GroupeDoublons[] 
   const parForme = new Map<string, number>();
   for (const f of formes) parForme.set(f, (parForme.get(f) ?? 0) + 1);
   const partagent = candidats.filter((_, i) => (parForme.get(formes[i] as string) ?? 0) > 1);
-  const brut = serializeObjects(partagent) as Record<string, unknown>[];
+  const brut = serializeObjects(partagent) as unknown as Record<string, unknown>[];
   const parSignature = new Map<string, ObjetPlan[]>();
   partagent.forEach((o, i) => {
     const b = brut[i] as Record<string, unknown>;
@@ -59,7 +60,7 @@ export function fusionnerDoublons(objets: readonly ObjetPlan[], mesures: readonl
   const verscle = new Map<string, string>();
   for (const g of groupes) for (const d of g.doublons) verscle.set(d.key, g.garde.key);
   const vers = (k: string) => verscle.get(k) ?? k;
-  for (const o of objets) if (o.terrasseLieeKey) o.terrasseLieeKey = vers(o.terrasseLieeKey);
+  for (const o of objets) if (o.parasol?.terrasseLieeKey) champsParasol(o).terrasseLieeKey = vers(o.parasol?.terrasseLieeKey);
   const vus = new Set<string>();
   const ramenees = mesures.map((m) => ({ ...m, refObjKey: vers(m.refObjKey), targetObjKey: vers(m.targetObjKey) })).filter((m) => {
     // Deux cotes devenues la meme apres le renvoi n'en font qu'une.

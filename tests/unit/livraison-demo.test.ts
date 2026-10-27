@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { DEMO_OBJECTS, DEMO_MEASURES } from '../../src/model/demo.js';
+import { DEMO_OBJETS_FICHIER as DEMO_OBJECTS, DEMO_MEASURES } from '../../src/model/demo.js';
 import { schemaMinimal } from '../../src/model/migrations.js';
 import { validerProjetJSON } from '../../src/io/validation.js';
 

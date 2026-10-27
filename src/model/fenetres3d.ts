@@ -4,6 +4,7 @@
 
 import type { Fenetre3d, Fenetres3d, ObjetPlan } from './types.js';
 import { REGLAGES_FACADES as R, valeursFacadesDe, type ValeursFacades } from '../regles/facades/reglages.js';
+import { champsBatiment } from './champsFonction.js';
 
 /**
  * Les ouvertures dessinees par defaut : une fenetre par entraxe, une porte au milieu du plus long mur.
@@ -25,14 +26,14 @@ export const FENETRES_3D_DEFAUT: Fenetres3d = fenetres3dDuProfil(R);
  * tant qu'aucun n'est retenu). Un reglage ecrit sur le batiment l'emporte sur le profil.
  */
 export function fenetres3dDe(o: ObjetPlan): Fenetres3d {
-  return { ...fenetres3dDuProfil(valeursFacadesDe(o)), ...(o.fenetres3d ?? {}) };
+  return { ...fenetres3dDuProfil(valeursFacadesDe(o.batiment)), ...(o.batiment?.fenetres3d ?? {}) };
 }
 
 /** Ecrit un reglage sur le batiment : la structure complete y est posee a la premiere ecriture. */
 export function reglerFenetres3d(o: ObjetPlan, f: (r: Fenetres3d) => void): void {
   const r = fenetres3dDe(o);
   f(r);
-  o.fenetres3d = r;
+  champsBatiment(o).fenetres3d = r;
 }
 
 /** Une fenetre neuve sur un cote, posee a `x`, des dimensions communes. */

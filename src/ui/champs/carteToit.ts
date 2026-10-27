@@ -39,7 +39,7 @@ export function couleurHauteur(z: number, zMin: number, zMax: number): string {
 
 /** La carte d'un batiment qui porte une surface mesuree ; null sinon. */
 export function carteDuToit(o: ObjetPlan): CarteToit | null {
-  const m = o.toitMesure, contour = 'pts' in o ? (o.pts as PtBrut[]) : undefined;
+  const m = o.batiment?.toitMesure, contour = 'pts' in o ? (o.pts as PtBrut[]) : undefined;
   if (!m || !contour || contour.length < 3) return null;
   // Le repere de la carte : le plus long cote a l'horizontale.
   const angle = (angleDuPlusLongCote(contour) * Math.PI) / 180;
@@ -65,7 +65,7 @@ export function carteDuToit(o: ObjetPlan): CarteToit | null {
     couleur: couleurHauteur(z, zMin, zMax),
     z,
   }));
-  const corps = (o.corpsToit ?? []).map((k) => {
+  const corps = (o.batiment?.corpsToit ?? []).map((k) => {
     const r = repere(k.pts);
     const plat = k.faitage - Math.min(...k.egouts) < 0.05;
     // Sous des croupes, le faitage s'arrete avant les bouts, et des aretiers le relient aux coins.
@@ -79,7 +79,7 @@ export function carteDuToit(o: ObjetPlan): CarteToit | null {
     const milieu = versCarte(point(r, r.L / 2, plat ? r.W / 2 : k.posFaitage));
     return { coins: k.pts.map(versCarte), faitage, aretiers, libelle: { a: milieu, texte: plat ? 'plat ' + fr(k.faitage) + ' m' : fr(k.faitage) + ' m' } };
   });
-  const pignons = (o.corpsToit ?? []).flatMap((k) => k.pignons.map((pg) => {
+  const pignons = (o.batiment?.corpsToit ?? []).flatMap((k) => k.pignons.map((pg) => {
     const r = repere(k.pts);
     const sc = (pg.debut + pg.fin) / 2;
     const tMur = pg.pan === 0 ? 0 : r.W, tFond = pg.pan === 0 ? pg.profondeur : r.W - pg.profondeur;

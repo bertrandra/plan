@@ -295,11 +295,11 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: nu
 
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
 export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
-  if (!o.facades?.length && !o.toit && !volumesToit) return;
-  const volumes = volumesDuBatiment(o.pts, h, o.facades);
+  if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
+  const volumes = volumesDuBatiment(o.pts, h, o.batiment?.facades);
   const facades = facadesDuContour(o.pts, h);
   const habillages: Habillage[] = [];
-  (o.facades || []).forEach((r) => {
+  (o.batiment?.facades || []).forEach((r) => {
     const f = facades.find((x) => x.cote === r.cote);
     if (!f) return;
     const partie = r.partieBasse ?? null;
@@ -328,7 +328,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
   // la partie haute, et la partie basse garde le toit plat de son prisme. `sansToit` : la surface
   // mesuree au LiDAR le remplace (three/toitMesure3d.ts), les murs et leurs ouvertures restent.
   if (sansToit) return;
-  if (volumesToit) volumesToit.forEach((v) => poserToit(ctx, v.pts, toitDuVolume(v, o.toit), v.egout ?? h, habillages));
-  else if (o.toit) poserToit(ctx, au(volumes, 0).pts, o.toit, h, habillages);
+  if (volumesToit) volumesToit.forEach((v) => poserToit(ctx, v.pts, toitDuVolume(v, o.batiment?.toit), v.egout ?? h, habillages));
+  else if (o.batiment?.toit) poserToit(ctx, au(volumes, 0).pts, o.batiment?.toit, h, habillages);
 }
 

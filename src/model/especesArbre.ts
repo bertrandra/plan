@@ -138,8 +138,8 @@ export function especeParId(id: string | undefined, especes: readonly EspeceArbr
 }
 
 /** L'essence d'un objet : celle qu'il porte, sinon la premiere de la bibliotheque, sinon rien. */
-export function especeDe(o: Pick<ObjetPlan, 'especeArbre'>, especes: readonly EspeceArbre[] = courante): EspeceArbre | null {
-  return especeParId(o.especeArbre, especes) ?? especes[0] ?? null;
+export function especeDe(o: Pick<ObjetPlan, 'arbre'>, especes: readonly EspeceArbre[] = courante): EspeceArbre | null {
+  return especeParId(o.arbre?.espece, especes) ?? especes[0] ?? null;
 }
 
 /** L'essence proposee pour une zone BD TOPO : la premiere dont un mot de `natures` figure dans la nature, sinon la premiere. */
@@ -155,8 +155,9 @@ export function arbreNu(caduc: boolean, dateStr: string | null | undefined): boo
   return Number.isFinite(mois) && (mois >= 11 || mois <= 3);
 }
 
-export function diametreDe(o: Pick<ObjetPlan, 'diametreArbre'>, e: EspeceArbre | null = null): number {
-  return nombreFini(o.diametreArbre) && o.diametreArbre > 0 ? o.diametreArbre : e?.diametreM ?? DIAMETRE_DEFAUT_M;
+export function diametreDe(o: Pick<ObjetPlan, 'arbre'>, e: EspeceArbre | null = null): number {
+  const d = o.arbre?.diametre;
+  return nombreFini(d) && d > 0 ? d : e?.diametreM ?? DIAMETRE_DEFAUT_M;
 }
 
 // ---- Les tailles : comment la bibliotheque se presente -----------------------------------------

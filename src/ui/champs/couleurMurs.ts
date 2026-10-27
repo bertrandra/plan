@@ -6,14 +6,15 @@ import { estBatiment } from '../../model/fonctions.js';
 import { materiauMurs, couleurMursRetenue, type CouleurMurs } from '../../model/couleurMur.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Champ, ContexteChamps } from './types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 type Source = NonNullable<CouleurMurs['source']>;
 
 const materiau = (o: ObjetPlan) => materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs);
-const photo = (o: ObjetPlan) => o.couleurMurs?.photo ?? null;
+const photo = (o: ObjetPlan) => o.batiment?.couleurMurs?.photo ?? null;
 /** La couleur et le materiau vus sur place, lors d'un audit de la parcelle (MD/spec-audit.md §14). */
-const terrain = (o: ObjetPlan) => o.couleurMurs?.terrain ?? null;
-const materiauVu = (o: ObjetPlan) => o.couleurMurs?.materiau ?? null;
+const terrain = (o: ObjetPlan) => o.batiment?.couleurMurs?.terrain ?? null;
+const materiauVu = (o: ObjetPlan) => o.batiment?.couleurMurs?.materiau ?? null;
 /** Un batiment dont on sait quelque chose de ses murs : la question de la source se pose. */
 const avecLecture = (c: ContexteChamps) => estBatiment(c.obj) && (!!photo(c.obj) || !!materiau(c.obj) || !!terrain(c.obj) || !!materiauVu(c.obj));
 
@@ -42,12 +43,12 @@ export const champsCouleurMurs: Champ[] = [
       ...(materiau(c.obj) || materiauVu(c.obj) ? [{ valeur: 'materiau', libelle: 'Matériau' }] : []),
       { valeur: 'plan', libelle: 'Couleur du plan' },
     ],
-    lire: (c) => c.obj.couleurMurs?.source ?? 'auto',
+    lire: (c) => c.obj.batiment?.couleurMurs?.source ?? 'auto',
     ecrire: (c, v) => {
-      const suite: CouleurMurs = { ...(c.obj.couleurMurs ?? {}) };
+      const suite: CouleurMurs = { ...(c.obj.batiment?.couleurMurs ?? {}) };
       if (v === 'auto') delete suite.source;
       else suite.source = v as Source;
-      c.obj.couleurMurs = Object.keys(suite).length ? suite : null;
+      champsBatiment(c.obj).couleurMurs = Object.keys(suite).length ? suite : null;
     }
   },
   { type: 'lecture', cle: 'couleurMursLue', libelle: 'Couleur lue', visible: avecLecture, valeur: (c) => decrireCouleurMurs(c.obj) },
