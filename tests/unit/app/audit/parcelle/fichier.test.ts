@@ -20,7 +20,7 @@ const PHOTO = { type: 'image/jpeg' as const, base64: 'AAAA' };
 function projet(cleMaison: string, idu = IDU): ObjetPlan[] {
   return normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu, origineLat: 48.9, origineLon: 2.13, adresse: '2 allée des Limites' }, cloture: clotureDImport(rect(0, 0, 20, 30), 0) }),
-    obj(cleMaison, { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, bdtopo: { cleabs: 'BATIMENT0001' } }),
+    obj(cleMaison, { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, bdtopo: { cleabs: 'BATIMENT0001' } }),
   ] as ObjetBrut[]) as ObjetPlan[];
 }
 
@@ -88,11 +88,11 @@ describe('le fichier de l audit de parcelle', () => {
     // Les cases suivent le fichier : murs cochés, clôture refusée décochée.
     expect(b.s.validation.propositions().map((p) => [p.id, b.s.validation.cochee(p.id)])).toEqual([['bat-1:materiauMurs', true], ['parcelle:cloture', false]]);
     expect(b.projetAudit.pushHistory).not.toHaveBeenCalled();
-    expect(b.etat.objects.find((o) => o.key === 'bat-1')?.couleurMurs).toBeUndefined();
+    expect(b.etat.objects.find((o) => o.key === 'bat-1')?.batiment?.couleurMurs).toBeUndefined();
     // « Valider » ecrit en un seul pas d'historique, que Ctrl+Z defera.
     expect(b.s.validation.valider()).toEqual({ ecrites: 1, verifies: 0 });
     expect(b.projetAudit.pushHistory).toHaveBeenCalledOnce();
-    expect(b.etat.objects.find((o) => o.key === 'bat-1')?.couleurMurs?.materiau).toBe('brique');
+    expect(b.etat.objects.find((o) => o.key === 'bat-1')?.batiment?.couleurMurs?.materiau).toBe('brique');
   });
 
   it('relance l analyse des photos : les mesures et les decisions du fichier ne sont pas reprises, les photos repassent par les mesures', async () => {

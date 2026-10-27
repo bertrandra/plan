@@ -23,6 +23,7 @@ import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type P
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import { surParcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Combien de batiments par lot : le choix est rapide, la mitoyennete parcourt les voisins proches. */
 export const LOT_PROFILS_FACADES = 100;
@@ -30,8 +31,8 @@ export const LOT_PROFILS_FACADES = 100;
 /** Ce batiment voit-il son profil de facades (re)choisi a cette version ? */
 export function profilARechoisir(o: ObjetPlan, version: number = VERSION_LECTURE_FACADES): boolean {
   if (o.fonction !== 'batiment' || o.type !== 'polygon' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
-  if (surParcelleDuProjet(o) || estVerifieSurPlace(o)) return false;
-  return o.profilFacades?.version !== version;
+  if (surParcelleDuProjet(o) || estVerifieSurPlace(o.batiment)) return false;
+  return o.batiment?.profilFacades?.version !== version;
 }
 
 /** Ce qu'un passage a fait : les batiments dont le profil a change (a redessiner), et combien sont marques. */
@@ -48,9 +49,9 @@ export function rechoisirProfilsFacades(objets: readonly ObjetPlan[], options: {
   if (!lot.length) return bilan;
   const ctx = contexteProfilsFacades(objets, profils);
   for (const o of lot) {
-    const avant = o.profilFacades?.id ?? PROFIL_FACADES_DEFAUT;
+    const avant = o.batiment?.profilFacades?.id ?? PROFIL_FACADES_DEFAUT;
     const { id } = profilFacadesDuBatiment(o, ctx, profils);
-    o.profilFacades = { id, version };
+    champsBatiment(o).profilFacades = { id, version };
     bilan.marques++;
     if (id !== avant) bilan.changes.push(o.key);
   }

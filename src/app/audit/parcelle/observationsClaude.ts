@@ -59,7 +59,7 @@ function observationsDuVote(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, repo
   const sil = observationSilhouettes(o, b, v, et);
   const out = [...lignes, ...(sil ? [sil] : [])];
   // Sans mesure LiDAR, la confirmation est gardee avec l'audit mais le toit ne se redessine pas : le dire avant, pas apres.
-  return o.toitMesure ? out : out.map((l) => (l.confirmer ? { ...l, raison: 'Ce toit n’a pas de mesure LiDAR : confirmer garde votre observation avec l’audit, mais le toit ne se redessine pas.' } : l));
+  return o.batiment?.toitMesure ? out : out.map((l) => (l.confirmer ? { ...l, raison: 'Ce toit n’a pas de mesure LiDAR : confirmer garde votre observation avec l’audit, mais le toit ne se redessine pas.' } : l));
 }
 
 const FORMES_CONFIRMABLES: ReadonlySet<string> = new Set<FormeVue>(['plat', 'appentis', 'deux-pans', 'croupes', 'pavillon', 'demi-croupe', 'mansart']);
@@ -79,7 +79,7 @@ function confirmationDuVote(sujet: string, v: VoteAnalyse): Partial<CeQueJeVois>
  */
 function observationSilhouettes(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, et: readonly EtiquetteImage[]): ObservationClaude | null {
   const parMur = new Map(v.facades.map((f) => [f.facade, f]));
-  const plat = !!o.corpsToit?.length && formeDesCorps(o.corpsToit) === 'plat';
+  const plat = !!o.batiment?.corpsToit?.length && formeDesCorps(o.batiment?.corpsToit) === 'plat';
   const lus = observationDesSilhouettes(murs(b, (f) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; }), plat);
   if (!lus?.vus.length) return null;
   const { bouts, faitage, forme } = lus.observation;

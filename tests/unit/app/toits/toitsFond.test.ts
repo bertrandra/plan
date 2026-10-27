@@ -15,7 +15,8 @@ import { toitsDepuisLidar, toitLu, VERSION_LECTURE_TOITS, type ObjetAToit } from
 import type { lireMursEnFond } from '../../../../src/app/toits/mursFond.js';
 import type { Regulateur } from '../../../../src/app/regulateur.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
-import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
+import type { ObjetPlan, PtBrut, Toit } from '../../../../src/model/types.js';
+import { champsBatiment } from '../../../../src/model/champsFonction.js';
 
 // La lecture des toits en tache de fond (app/toits/toitsFond.ts) : une file continue, du plus proche au plus
 // loin, sur des copies, dessinee par paquets ; un batiment modifie pendant la lecture n'est pas ecrase ;
@@ -54,8 +55,8 @@ describe('les toits en tache de fond', () => {
     expect(lus.flat().slice(0, 3)).toEqual(['b0', 'b1', 'b2']);
     expect(lus.flat().sort()).toEqual(Array.from({ length: 30 }, (_, k) => 'b' + k).sort());
     // Dessine par paquets de LOT_TOITS_FOND, et le reste a la fin.
-    expect(objets.filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
-    expect(objets.find((o) => o.key === 'b5')?.toit?.source).toBe('lidar');
+    expect(objets.filter((o) => o.fonction === 'batiment').every((o) => toitLu(o.batiment))).toBe(true);
+    expect(objets.find((o) => o.key === 'b5')?.batiment?.toit?.source).toBe('lidar');
     expect(apresLot).toHaveBeenCalledTimes(3);
     expect(progres.at(-1)).toEqual({ faits: 30, total: 30, etat: 'finie' });
     // Rien a relire ensuite : une relance ne lit rien.
@@ -84,7 +85,7 @@ describe('les toits en tache de fond', () => {
     await finir(fond);
     // b1 n'a pas recu le toit lu sur l'ancien contour ; il est relu a la passe suivante, sur le nouveau.
     expect(lus.flat()).toEqual(['b0', 'b1', 'b2', 'b1']);
-    expect(objets.every((o) => o.fonction !== 'batiment' || toitLu(o))).toBe(true);
+    expect(objets.every((o) => o.fonction !== 'batiment' || toitLu(o.batiment))).toBe(true);
   });
 
   it('laisse un batiment refuse deux fois, et ne tourne pas sans fin sur un service muet', async () => {
@@ -98,7 +99,7 @@ describe('les toits en tache de fond', () => {
     await finir(fond);
     // La couleur se lit (une passe), puis chaque forme est refusee deux fois et laissee pour la seance.
     expect(lus.length).toBe(5 * (1 + ECHECS_PAR_BATIMENT));
-    expect(objets.some(toitLu)).toBe(false);
+    expect(objets.some((o) => toitLu(o.batiment))).toBe(false);
     expect(progres.at(-1)?.etat).not.toBe('enCours');
     muet = false;
     expect(fond.enCours()).toBe(false);
@@ -106,7 +107,7 @@ describe('les toits en tache de fond', () => {
 
   it('attend apres une suite de batiments muets, puis s arrete, et reprend a la demande', async () => {
     const objets = plan(LOT_TOITS_FOND * ECHECS_AVANT_ARRET + 20);
-    objets.forEach((o) => { if (o.toit) o.toit.couleur = '#884422'; });
+    objets.forEach((o) => { if (o.batiment?.toit) o.batiment.toit.couleur = '#884422'; });
     const lus: string[][] = [];
     let muet = true;
     const progres: (ProgressionToits | null)[] = [];
@@ -123,7 +124,7 @@ describe('les toits en tache de fond', () => {
     muet = false;
     fond.relancer();
     await finir(fond);
-    expect(objets.filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
+    expect(objets.filter((o) => o.fonction === 'batiment').every((o) => toitLu(o.batiment))).toBe(true);
   });
 
   it('se met en pause, ne demarre pas en lecture seule, et s arrete sans dalle LiDAR', async () => {
@@ -177,9 +178,9 @@ describe('les toits en tache de fond', () => {
   it('range les batiments a lire du plus proche au plus loin, sans ceux deja lus ni les toits saisis', () => {
     const objets = plan(4);
     // Les couleurs deja lues : seule la forme compte ici.
-    objets.forEach((o) => { if (o.toit) o.toit.couleur = '#884422'; });
-    (objets[1] as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS;
-    (objets[2] as { toit?: unknown }).toit = { ...bdtopo, source: 'saisie' };
+    objets.forEach((o) => { if (o.batiment?.toit) o.batiment.toit.couleur = '#884422'; });
+    champsBatiment(objets[1]!).toitLidarLu = VERSION_LECTURE_TOITS;
+    champsBatiment(objets[2]!).toit = { ...bdtopo, source: 'saisie' } as Toit;
     const { eligibles, restants } = batimentsALire(objets);
     expect(eligibles).toBe(3);
     // b0 est deja lu, b1 a un toit saisi : restent b2 et b3, du plus proche au plus loin.
@@ -259,7 +260,7 @@ describe('la fin de la lecture et l enregistrement', () => {
     // b0 : verifie sur place, lu a une version d'avant, un deux-pans a 5 m d'egout ; sa couleur n'est pas a relire.
     const b0 = objets.find((o) => o.key === 'b0') as unknown as ObjetAToit & ObjetPlan;
     Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, verifieSurPlace: { date: '2026-10-13' }, corpsToit: [{ pts: rect(30, 0, 6, 5), posFaitage: 2.5, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.1 }] });
-    const avant = JSON.stringify({ pts: b0.pts, toit: b0.toit, elevation: b0.elevation, corpsToit: b0.corpsToit });
+    const avant = JSON.stringify({ pts: b0.pts, toit: b0.batiment?.toit, elevation: b0.elevation, corpsToit: b0.batiment?.corpsToit });
     const lus: string[][] = [];
     const fin = vi.fn();
     let relu = 0;
@@ -277,11 +278,11 @@ describe('la fin de la lecture et l enregistrement', () => {
     await finir(fond);
     expect(relu).toBe(1);
     // Dans le plan : le toit, la hauteur et les corps verifies au centimetre ; la couleur non relue ; seule la marque a bouge.
-    expect(JSON.stringify({ pts: b0.pts, toit: b0.toit, elevation: b0.elevation, corpsToit: b0.corpsToit })).toBe(avant);
-    expect(b0.toit?.couleur).toBeUndefined();
-    expect(toitLu(b0)).toBe(true);
+    expect(JSON.stringify({ pts: b0.pts, toit: b0.batiment?.toit, elevation: b0.elevation, corpsToit: b0.batiment?.corpsToit })).toBe(avant);
+    expect(b0.batiment?.toit?.couleur).toBeUndefined();
+    expect(toitLu(b0.batiment)).toBe(true);
     // b1, lui, a ete lu normalement.
-    expect(objets.find((o) => o.key === 'b1')?.toit?.source).toBe('lidar');
+    expect(objets.find((o) => o.key === 'b1')?.batiment?.toit?.source).toBe('lidar');
     const bilan = fin.mock.calls[0]![0];
     expect(bilan.lus).toBe(1);
     expect(bilan.verifies).toEqual({ accord: 0, desaccord: 1 });
@@ -329,7 +330,7 @@ describe('la couleur des toits', () => {
     await finir(fond);
     expect(lus).toEqual([['b2']]);
     expect(couleursEspion.appels).toEqual([['b1'], ['b2']]);
-    expect(objets.slice(1).every((o) => !!o.toit?.couleur && toitLu(o))).toBe(true);
+    expect(objets.slice(1).every((o) => !!o.batiment?.toit?.couleur && toitLu(o.batiment))).toBe(true);
     expect(fin.mock.calls[0]![0]).toMatchObject({ lus: 1, couleurs: 2 });
   });
 
@@ -351,11 +352,11 @@ describe('la couleur des toits', () => {
 describe('la version de la lecture', () => {
   it('relit un batiment marque par une version plus ancienne : une regle de toit a change depuis', () => {
     const objets = plan(3);
-    objets.forEach((o) => { if (o.toit) o.toit.couleur = '#884422'; });
-    (objets[1] as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS;
-    (objets[2] as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS - 1;
-    expect(toitLu(objets[1]!)).toBe(true);
-    expect(toitLu(objets[2]!)).toBe(false);
+    objets.forEach((o) => { if (o.batiment?.toit) o.batiment.toit.couleur = '#884422'; });
+    champsBatiment(objets[1]!).toitLidarLu = VERSION_LECTURE_TOITS;
+    champsBatiment(objets[2]!).toitLidarLu = VERSION_LECTURE_TOITS - 1;
+    expect(toitLu(objets[1]!.batiment)).toBe(true);
+    expect(toitLu(objets[2]!.batiment)).toBe(false);
     expect(batimentsALire(objets).restants.map((o) => o.key)).toEqual(['b1', 'b2']);
   });
 });
@@ -383,7 +384,7 @@ describe('le marque des batiments lus', () => {
 describe('les murs apres les toits', () => {
   it('lit les murs une fois les toits lus, le dit dans la barre d etat et dans le bilan', async () => {
     const objets = plan(3);
-    objets.forEach((o) => { if (o.fonction === 'batiment') delete (o as { couleurMurs?: unknown }).couleurMurs; });
+    objets.forEach((o) => { if (o.fonction === 'batiment') delete o.batiment?.couleurMurs; });
     const ordre: string[] = [];
     const progres: (ProgressionToits | null)[] = [];
     const fin = vi.fn();
@@ -392,8 +393,8 @@ describe('les murs apres les toits', () => {
     const lireMurs = vi.fn(async (c: Parameters<typeof lireMursEnFond>[0]) => {
       ordre.push('murs');
       // Les toits sont tous lus quand les murs commencent.
-      expect(c.objets().filter((o) => o.fonction === 'batiment').every(toitLu)).toBe(true);
-      for (const o of c.objets()) if (o.fonction === 'batiment') o.couleurMurs = { photo: { couleur: '#D9D2C4', id: 'ph', date: null, auteur: null, licence: null } };
+      expect(c.objets().filter((o) => o.fonction === 'batiment').every((o) => toitLu(o.batiment))).toBe(true);
+      for (const o of c.objets()) if (o.fonction === 'batiment') champsBatiment(o).couleurMurs = { photo: { couleur: '#D9D2C4', id: 'ph', date: null, auteur: null, licence: null } };
       await c.ecrire(['b0', 'b1', 'b2']);
       c.avance();
       return { photos: 3, ecrits: 3, arret: false };
@@ -415,7 +416,7 @@ describe('les murs apres les toits', () => {
 
   it('les photos de rue muettes : arretee, sans tourner, et Reprendre leur redonne leur chance', async () => {
     const objets = plan(2);
-    objets.forEach((o) => { if (o.fonction === 'batiment') { delete (o as { couleurMurs?: unknown }).couleurMurs; (o as { toitLidarLu?: number }).toitLidarLu = VERSION_LECTURE_TOITS; o.toit!.couleur = '#884422'; } });
+    objets.forEach((o) => { if (o.fonction === 'batiment') { delete o.batiment?.couleurMurs; champsBatiment(o).toitLidarLu = VERSION_LECTURE_TOITS; o.batiment!.toit!.couleur = '#884422'; } });
     const progres: (ProgressionToits | null)[] = [];
     const lireMurs = vi.fn(async () => ({ photos: 0, ecrits: 0, arret: true })) as unknown as typeof lireMursEnFond;
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs, murs: true });
@@ -432,7 +433,7 @@ describe('les murs apres les toits', () => {
 describe('la lecture des murs en fond, arretee pour l instant', () => {
   it('ne lit pas les murs apres les toits tant que LECTURE_MURS_EN_FOND est faux', async () => {
     const objets = plan(2);
-    objets.forEach((o) => { if (o.fonction === 'batiment') delete (o as { couleurMurs?: unknown }).couleurMurs; });
+    objets.forEach((o) => { if (o.fonction === 'batiment') delete o.batiment?.couleurMurs; });
     const lireMurs = vi.fn(async () => ({ photos: 0, ecrits: 0, arret: false })) as unknown as typeof lireMursEnFond;
     const progres: (ProgressionToits | null)[] = [];
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: (pr) => progres.push(pr), pause: async () => {}, attendre: async () => {}, lire: lecteur([]), lireMurs });

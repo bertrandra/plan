@@ -33,10 +33,10 @@ const zone = (formes: FormeSurlignee[], centre: PtBrut, hautM: number, normale: 
  */
 function murNomme(o: ObjetPlan, f: Facade): Surbrillance {
   const sousToit = hauteurMurSousToit(o, f);
-  const profil = o.corpsToit?.length ? silhouetteDuMur(f, o.corpsToit, Number.POSITIVE_INFINITY, sousToit)
+  const profil = o.batiment?.corpsToit?.length ? silhouetteDuMur(f, o.batiment?.corpsToit, Number.POSITIVE_INFINITY, sousToit)
     : [{ x: 0, y: 0 }, { x: f.largeur, y: 0 }, { x: f.largeur, y: sousToit }, { x: 0, y: sousToit }];
   const haut = Math.max(sousToit, ...profil.map((q) => q.y));
-  const releve = ((o as { facades?: { cote: number; ouvertures: { x: number; y: number; l: number; h: number }[] }[] | null }).facades ?? []).find((r) => r.cote === f.cote);
+  const releve = (o.batiment?.facades ?? []).find((r) => r.cote === f.cote);
   const ouvertures = (releve?.ouvertures ?? []).map(({ x, y, l, h }) => ({ x, y, l, h }));
   return zone([{ pts: [f.gauche, f.droite], bas: 0, haut, ferme: false, epais: true, profil, ouvertures }], centreDe([f.gauche, f.droite]), haut, f.normale);
 }
@@ -61,14 +61,14 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
   const pts = sommets(o);
   if (!o || !pts) return null;
   const mur = hauteurDe(o);
-  const faite = Math.max(mur, ...(o.corpsToit ?? []).map((c) => c.faitage));
+  const faite = Math.max(mur, ...(o.batiment?.corpsToit ?? []).map((c) => c.faitage));
   if (p.cible.type === 'facade') {
     const cote = p.cible.cote;
     const f = facadesDuContour(pts, mur).find((x) => x.cote === cote);
     if (!f) return null;
     return murNomme(o, f);
   }
-  const corps = (i: number) => o.corpsToit?.[i];
+  const corps = (i: number) => o.batiment?.corpsToit?.[i];
   const pan = (c: { pts: PtBrut[]; faitage: number }): Surbrillance => zone([{ pts: c.pts, bas: mur, haut: c.faitage, ferme: true }], centreDe(c.pts), (mur + c.faitage) / 2 + 0.01);
   switch (p.effet.type) {
     case 'corpsDuToit': case 'lucarnes': case 'terrasse': {
@@ -91,7 +91,7 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
     }
     case 'corpsToit': case 'hauteurToit': case 'couverture':
       // Le toit seul, de l'egout au faitage.
-      return zone(o.corpsToit?.length ? o.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }], centreDe(pts), (mur + faite) / 2);
+      return zone(o.batiment?.corpsToit?.length ? o.batiment?.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }], centreDe(pts), (mur + faite) / 2);
     case 'hauteur': case 'couleurMurs': case 'materiauMurs':
       // Les murs : le contour du sol a l'egout.
       return zone([{ pts, bas: 0, haut: mur, ferme: true }], centreDe(pts), mur);
@@ -109,7 +109,7 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
   const pts = sommets(o);
   if (!o || !pts) return null;
   const mur = hauteurDe(o);
-  const faite = Math.max(mur, ...(o.corpsToit ?? []).map((c) => c.faitage));
+  const faite = Math.max(mur, ...(o.batiment?.corpsToit ?? []).map((c) => c.faitage));
   const cote = /^renfort:(\d+)/.exec(sujet)?.[1];
   if (cote !== undefined) {
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
@@ -117,7 +117,7 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
   }
   const type = typeObservation(id);
   if (type === 'toit') {
-    const formes = o.corpsToit?.length ? o.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];
+    const formes = o.batiment?.corpsToit?.length ? o.batiment?.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];
     return zone(formes, centreDe(pts), (mur + faite) / 2);
   }
   if (type === 'murs' || type === 'facades') return zone([{ pts, bas: 0, haut: mur, ferme: true }], centreDe(pts), mur);
@@ -140,13 +140,13 @@ export function surbrillanceArbitrage(cible: string, attribut: string, objets: r
   const pts = sommets(o);
   if (!o || !pts) return null;
   const mur = hauteurDe(o);
-  const faite = Math.max(mur, ...(o.corpsToit ?? []).map((c) => c.faitage));
+  const faite = Math.max(mur, ...(o.batiment?.corpsToit ?? []).map((c) => c.faitage));
   if (genre === 'facade' && cote !== undefined) {
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
     if (f) return murNomme(o, f);
   }
   if (ATTRIBUTS_TOIT.test(attribut)) {
-    const formes = o.corpsToit?.length ? o.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];
+    const formes = o.batiment?.corpsToit?.length ? o.batiment?.corpsToit.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })) : [{ pts, bas: mur, haut: faite, ferme: true }];
     return zone(formes, centreDe(pts), (mur + faite) / 2);
   }
   if (ATTRIBUTS_MURS.test(attribut) || genre === 'facade') return zone([{ pts, bas: 0, haut: mur, ferme: true }], centreDe(pts), mur);

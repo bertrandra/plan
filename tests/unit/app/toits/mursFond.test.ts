@@ -57,8 +57,8 @@ describe('la lecture des murs en tache de fond', () => {
     expect(appels).toEqual([['b0', 'b1'], ['b2']]);
     expect(r).toEqual({ photos: 2, ecrits: 3, arret: false });
     // La source choisie a la main reste ; seule la lecture s'ecrit.
-    expect(objets[1]!.couleurMurs).toEqual({ source: 'plan', photo: photo('#AA0000') });
-    expect(objets[2]!.couleurMurs).toEqual({ photo: null, lecture: VERSION_LECTURE_MURS });
+    expect(objets[1]!.batiment?.couleurMurs).toEqual({ source: 'plan', photo: photo('#AA0000') });
+    expect(objets[2]!.batiment?.couleurMurs).toEqual({ photo: null, lecture: VERSION_LECTURE_MURS });
     expect(ecrire).toHaveBeenCalledTimes(2);
     expect(avance).toHaveBeenCalledTimes(2);
     expect(objets.filter(mursALire)).toEqual([]);

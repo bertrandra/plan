@@ -145,7 +145,7 @@ export function ajouterParasol(par: ObjetCercle, co: ContexteObjets): void {
   const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hMat, 10), matMat);
   mat.position.set(plMat.x, hMat / 2, plMat.z);
   scene.add(mat);
-  if (par.matDeporte) {
+  if (par.parasol?.matDeporte) {
     // Le bras horizontal qui rattrape le deport, sinon la toile flotte sans lien visible.
     const dx = pl.x - plMat.x, dz = pl.z - plMat.z;
     const L = Math.hypot(dx, dz);
@@ -247,8 +247,8 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // Un mode de diagnostic peint le batiment, murs et toit : une copie a sa couleur, sans texture ni
   // couleur de murs lue, que le reste de la pose prend comme un batiment ordinaire.
   const diag = estBatiment(objet) ? ctx.couleurDiagnostic?.(objet) ?? null : null;
-  const o: ObjetPlan = diag ? { ...objet, fill: diag, textureVerticale: null, couleurMurs: { ...(objet.couleurMurs ?? {}), source: 'plan' },
-    ...(objet.toit ? { toit: { ...objet.toit, couleur: diag } } : {}) } as ObjetPlan : objet;
+  const o: ObjetPlan = diag ? { ...objet, fill: diag, textureVerticale: null, batiment: { ...objet.batiment, couleurMurs: { ...(objet.batiment?.couleurMurs ?? {}), source: 'plan' },
+    ...(objet.batiment?.toit ? { toit: { ...objet.batiment.toit, couleur: diag } } : {}) } } as ObjetPlan : objet;
   // La parcelle du projet en gazon, par defaut : au-dessus de la photo aerienne, qu'elle remplace
   // sur la parcelle. Une texture choisie dans l'inspecteur, ou le gazon decoche, la laissent voir.
   if (o.key === 'parcelle' && o.gazon3d !== false && !o.textureHorizontale && aDesSommets(o) && o.pts.length >= 3) {
@@ -295,19 +295,19 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
   // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
   // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
-  const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.facades?.some((r) => r.partieBasse);
+  const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.batiment?.facades?.some((r) => r.partieBasse);
   // Les corps et pignons reconstruits sur le LiDAR (facade/toits/toitCorps.ts) : un prisme par corps a son
   // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
-  const modeToit = toitRecompose ? modeToitActif(o) : 'simple';
+  const modeToit = toitRecompose ? modeToitActif(o.batiment) : 'simple';
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
   const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
   // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.
-  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? corpsVisibles(o.corpsToit, vue3d.corpsIsole?.cle === o.key ? vue3d.corpsIsole.rang : null) : null);
+  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? corpsVisibles(o.batiment?.corpsToit, vue3d.corpsIsole?.cle === o.key ? vue3d.corpsIsole.rang : null) : null);
   const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
   // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
   // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
   // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
-  const toitMesure = modeToit === 'mesure' ? o.toitMesure ?? null : null;
+  const toitMesure = modeToit === 'mesure' ? o.batiment?.toitMesure ?? null : null;
   const egoutDe = (v: VolumeToit): number => v.egout ?? h;
   // Des corps lus sur un contour remis a l'equerre (un cote de biais : il ne se decoupe pas tel
   // quel) ne le suivent plus : le batiment garde alors la forme du plan, ses toits decoupes dessus.
@@ -321,7 +321,7 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
     ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
     : volumesToit
     ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
-    : o.type === 'polygon' && o.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.facades) : [{ pts: footprint, hauteur: h }];
+    : o.type === 'polygon' && o.batiment?.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.batiment?.facades) : [{ pts: footprint, hauteur: h }];
   // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
   // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
   // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
@@ -335,16 +335,16 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
   // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
   // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
-  const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.toit ? penteDuToit(o.pts, o.toit) : null, latitude: co.latitude, choix: o.toit?.couverture ?? null } : undefined;
-  if (o.type === 'polygon' && (o.facades?.length || o.toit || volumesToit)) {
+  const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.batiment?.toit ? penteDuToit(o.pts, o.batiment?.toit) : null, latitude: co.latitude, choix: o.batiment?.toit?.couverture ?? null } : undefined;
+  if (o.type === 'polygon' && (o.batiment?.facades?.length || o.batiment?.toit || volumesToit)) {
     ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
   }
   if (o.type === 'polygon' && corpsToit && surContour) {
-    ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
+    ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
   } else if (o.type === 'polygon' && corpsToit) {
-    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.toit, o.pts);
+    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
   }
-  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.toit);
+  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit);
   // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
   if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
     const sol = co.sol;
@@ -352,11 +352,11 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
       // Une souche adossee part du sol sous elle, compte depuis le sol au centre (origine du groupe).
       ...(sol ? { sol: (p: PtBrut) => sol.hauteur(p) - ySol } : {}) };
     ajouterCheminees3d(ctxObs, corpsToit);
-    ajouterTerrasses3d(ctxObs, corpsToit, o.toit, o.pts);
+    ajouterTerrasses3d(ctxObs, corpsToit, o.batiment?.toit, o.pts);
   }
   // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
   if (o.type === 'polygon' && toitMesure) {
-    ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.toit, [], toitMesure.egout);
+    ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.batiment?.toit, [], toitMesure.egout);
   }
   // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
   // soubassement, fenetres par niveau, cheminee — moins de loin.
@@ -376,12 +376,12 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
         // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
         ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
       // Le profil de facades retenu pour le batiment (facade/regles/facades/profils.ts) : ses dimensions et ses seuils.
-      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o),
+      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.batiment?.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o.batiment),
         ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
         // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
-        ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.toit) })) } : {}),
+        ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.batiment?.toit) })) } : {}),
         // Corps ou surface mesuree : chaque mur a sa hauteur, les fenetres montent avec lui.
-        ...((corpsToit || toitMesure) && o.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.toit as Toit })) } : {}),
+        ...((corpsToit || toitMesure) && o.batiment?.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.batiment?.toit as Toit })) } : {}),
         ...(toitMesure || corpsToit ? { sansToit: true } : {}),
         // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
         // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.

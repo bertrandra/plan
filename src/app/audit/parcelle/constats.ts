@@ -26,35 +26,35 @@ export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, f
 export { groupesDeMurs, type GroupeDeMurs } from './constats/vus.js';
 
 function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => EtatProjet {
-  const c = principal(o.corpsToit);
+  const c = principal(o.batiment?.corpsToit);
   const vide: EtatProjet = { valeur: null, choisi: false };
   return (cible, attribut) => {
     // Un corps autre que le principal : sa forme, ses bouts, son sens.
     const k = indiceDeCorps(cible);
     if (k !== null) {
-      const ck = o.corpsToit?.[k];
+      const ck = o.batiment?.corpsToit?.[k];
       if (!ck) return vide;
-      if (attribut === 'formeToit') return { valeur: formeArbitree(formeDuCorps(ck)), choisi: o.toit?.source === 'saisie' };
+      if (attribut === 'formeToit') return { valeur: formeArbitree(formeDuCorps(ck)), choisi: o.batiment?.toit?.source === 'saisie' };
       if (attribut === 'boutsToit') return { valeur: boutsDuCorps(ck), choisi: false };
       if (attribut === 'sensFaitage') return { valeur: cm(azimutFaitage(ck)), choisi: false };
       return vide;
     }
     switch (attribut) {
       case 'hauteurEgout': return { valeur: cm(hauteurDe(o)), choisi: !o.bdtopo && typeof o.elevation === 'number' };
-      case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.toit ? cm(hauteurDe(o) + o.toit.hauteur) : null, choisi: false };
-      case 'formeToit': { const f = formeDesCorps(o.corpsToit) ?? o.toit?.forme; return { valeur: f ? formeArbitree(f) : null, choisi: o.toit?.source === 'saisie' }; }
+      case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.batiment?.toit ? cm(hauteurDe(o) + o.batiment?.toit.hauteur) : null, choisi: false };
+      case 'formeToit': { const f = formeDesCorps(o.batiment?.corpsToit) ?? o.batiment?.toit?.forme; return { valeur: f ? formeArbitree(f) : null, choisi: o.batiment?.toit?.source === 'saisie' }; }
       case 'boutsToit': return { valeur: c ? boutsDuCorps(c) : null, choisi: false };
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
-      case 'cheminees': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
-      case 'ouverturesFacade': { const f = (o.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
+      case 'cheminees': return { valeur: (o.batiment?.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
+      case 'ouverturesFacade': { const f = (o.batiment?.facades ?? []).find((r) => cibleFacade(o.key, r.cote) === cible); return { valeur: f && !f.depuisAudit ? f.ouvertures.length : null, choisi: !!f && !f.depuisAudit }; }
       case 'appentis': {
-        const ap = (o.corpsToit ?? []).filter((k) => formeDuCorps(k) === 'appentis');
+        const ap = (o.batiment?.corpsToit ?? []).filter((k) => formeDuCorps(k) === 'appentis');
         const etats = new Set(ap.map((k) => k.ouvert));
         return { valeur: etats.size === 1 && ap[0]?.ouvert !== undefined ? (ap[0].ouvert ? 'ouvert' : 'ferme') : null, choisi: false };
       }
-      case 'lucarnes': return { valeur: (o.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: false };
-      case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.couleurMurs?.materiau };
-      case 'couverture': return { valeur: o.toit?.couverture ?? null, choisi: !!o.toit?.couverture };
+      case 'lucarnes': return { valeur: (o.batiment?.corpsToit ?? []).reduce((n, k) => n + (k.lucarnes?.length ?? 0), 0), choisi: false };
+      case 'materiauMurs': return { valeur: textureDesMurs(o), choisi: !!o.batiment?.couleurMurs?.materiau };
+      case 'couverture': return { valeur: o.batiment?.toit?.couverture ?? null, choisi: !!o.batiment?.toit?.couverture };
       default: return vide;
     }
   };

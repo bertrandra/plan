@@ -43,10 +43,10 @@ describe('rechoisirProfilsFacades', () => {
     expect(profilARechoisir(parCle(objets, 'parcelle'), 1)).toBe(false);
     const b = rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 });
     expect(b).toEqual({ changes: ['voisin'], marques: 2 });
-    expect(parCle(objets, 'voisin').profilFacades).toEqual({ id: 'pavillon-essai', version: 1 });
-    expect(parCle(objets, 'annexe').profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 1 });
-    expect(parCle(objets, 'maison').profilFacades).toBeUndefined();
-    expect(parCle(objets, 'verifie').profilFacades).toBeUndefined();
+    expect(parCle(objets, 'voisin').batiment?.profilFacades).toEqual({ id: 'pavillon-essai', version: 1 });
+    expect(parCle(objets, 'annexe').batiment?.profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 1 });
+    expect(parCle(objets, 'maison').batiment?.profilFacades).toBeUndefined();
+    expect(parCle(objets, 'verifie').batiment?.profilFacades).toBeUndefined();
     // Marques : un second passage n'a plus rien a faire.
     expect(rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 }).marques).toBe(0);
   });
@@ -56,7 +56,7 @@ describe('rechoisirProfilsFacades', () => {
     rechoisirProfilsFacades(objets, { profils: PROFILS, version: 1 });
     const b = rechoisirProfilsFacades(objets, { profils: [], version: 2 });
     expect(b).toEqual({ changes: ['voisin'], marques: 2 });
-    expect(parCle(objets, 'voisin').profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 2 });
+    expect(parCle(objets, 'voisin').batiment?.profilFacades).toEqual({ id: PROFIL_FACADES_DEFAUT, version: 2 });
   });
 });
 
@@ -68,7 +68,7 @@ describe('creerProfilsFacadesFond', () => {
     const apresLot = vi.fn();
     await creerProfilsFacadesFond({ objets: () => objets, lectureSeule: () => false, apresLot, pause, profils: [], version: 1 }).relancer();
     expect(apresLot).not.toHaveBeenCalled();
-    expect(objets.some((o) => o.profilFacades)).toBe(false);
+    expect(objets.some((o) => o.batiment?.profilFacades)).toBe(false);
   });
 
   it('en lecture seule, ne lance rien', async () => {

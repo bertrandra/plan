@@ -24,7 +24,8 @@ import { boiteOrientee, point, repere, type Repere } from '../facade/toits/toitC
 import { formeDuCorps } from '../facade/regles/toits/faits.js';
 import { corpsNeuf, type GenreCorps } from '../facade/modeToit/corpsNeufs.js';
 import { DEFAUTS_SAILLIE, corpsDeSaillie, murDuCorps, murLibre } from '../facade/modeToit/saillies.js';
-import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, TypeLucarne } from '../model/types.js';
+import type { BoutToit, Cheminee, CorpsToit, ElementDeToit, FormeSaillie, GenreSaillie, Lucarne, ObjetPlan, PignonToit, ProfilPan, PtBrut, Toit, TypeLucarne } from '../model/types.js';
+import { champsBatiment } from '../model/champsFonction.js';
 
 export type FamillePiece = 'corps' | 'toit' | 'sur' | 'facade';
 
@@ -98,7 +99,7 @@ const aire = (c: CorpsToit): number => { const r = repere(c.pts); return r.L * r
 
 /** Le corps qui porte ce que l'on pose : le plus grand, sans compter ce qui est pose sur une facade. */
 export const corpsPrincipal = (o: ObjetPlan): CorpsToit | null => {
-  const l = (o.corpsToit ?? []).filter((c) => !c.saillie);
+  const l = (o.batiment?.corpsToit ?? []).filter((c) => !c.saillie);
   return l.length ? l.reduce((a, b) => (aire(b) > aire(a) ? b : a)) : null;
 };
 
@@ -115,7 +116,7 @@ function rectangleDuBatiment(o: ObjetPlan): PtBrut[] | null {
 function hauteursDuBatiment(o: ObjetPlan): { egout: number; montee: number } {
   const c = corpsPrincipal(o);
   const egout = c ? Math.min(...c.egouts) : (o.elevation ?? 3);
-  const montee = c ? Math.max(1, c.faitage - egout) : (o.toit?.hauteur ?? 2.5);
+  const montee = c ? Math.max(1, c.faitage - egout) : (o.batiment?.toit?.hauteur ?? 2.5);
   return { egout, montee };
 }
 
@@ -166,8 +167,8 @@ export function corpsDepuisToitSimple(o: ObjetPlan): CorpsToit | null {
   if (!rect) return null;
   const r = repere(rect);
   const egout = o.elevation ?? 3;
-  const haut = o.toit?.hauteur ?? 2.5;
-  const forme = o.toit?.forme ?? 'deux-pans';
+  const haut = o.batiment?.toit?.hauteur ?? 2.5;
+  const forme = o.batiment?.toit?.forme ?? 'deux-pans';
   const plat = forme === 'plat';
   return { pts: rect, posFaitage: forme === 'appentis' ? 0 : r.W / 2, faitage: plat ? egout : dixieme(egout + haut), egouts: [egout, egout], pignons: [], ecart: 0 };
 }
@@ -188,7 +189,7 @@ function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
   if (!contourRectangulaire(o)) return null;
   const c = corpsDepuisToitSimple(o);
   if (!c) return null;
-  o.corpsToit = [c];
+  champsBatiment(o).corpsToit = [c];
   return c;
 }
 
@@ -197,8 +198,8 @@ function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
  * corps qui le porte. Null sans choix, ou quand le rang ne designe plus de corps.
  */
 export function corpsChoisi(o: ObjetPlan, rang: number | null | undefined): CorpsToit | null {
-  const r = rangDuCorpsChoisi(o.corpsToit ?? [], rang);
-  return r === null ? null : o.corpsToit?.[r] ?? null;
+  const r = rangDuCorpsChoisi(o.batiment?.corpsToit ?? [], rang);
+  return r === null ? null : o.batiment?.corpsToit?.[r] ?? null;
 }
 
 /** Le rang du corps sur lequel agit un geste quand `rang` est choisi : une saillie renvoie a son hote. Null sans corps a ce rang. */
@@ -227,7 +228,7 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   if (p.famille === 'corps') {
     const h = choisi ?? corpsPrincipal(o);
     if (!h && !contourRectangulaire(o)) return 'Choisissez d’abord la forme du toit : un corps se pose contre un autre.';
-    if (h && !corpsNeuf(h, id.split(':')[1] as GenreCorps, o.corpsToit ?? [])) return 'Pas de place contre ce corps.';
+    if (h && !corpsNeuf(h, id.split(':')[1] as GenreCorps, o.batiment?.corpsToit ?? [])) return 'Pas de place contre ce corps.';
     return null;
   }
   // Un contour en L ou en U n'est pas un seul corps : on ne le remplace pas en silence par son rectangle englobant.
@@ -244,9 +245,9 @@ export function raisonIndisponible(o: ObjetPlan, id: string, facade?: FacadeChoi
   return null;
 }
 
-const toitDe = (o: ObjetPlan) => {
-  if (!o.toit) o.toit = { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(enPoints(o).pts as PtBrut[]), source: 'saisie' };
-  return o.toit;
+const toitDe = (o: ObjetPlan): Toit => {
+  const b = champsBatiment(o);
+  return (b.toit ??= { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(enPoints(o).pts as PtBrut[]), source: 'saisie' });
 };
 
 function lucarneSur(c: CorpsToit, type: TypeLucarne): Lucarne {
@@ -284,7 +285,7 @@ const FORMES_SANS_PIGNON = new Set(['plat', 'papillon', 'pavillon']);
 
 /** Le corps de la facade choisie ; null sans facade ou sans corps a ce rang. */
 function corpsDeLaFacade(o: ObjetPlan, facade?: FacadeChoisie | null): CorpsToit | null {
-  return facade && facade.rang !== null ? o.corpsToit?.[facade.rang] ?? null : null;
+  return facade && facade.rang !== null ? o.batiment?.corpsToit?.[facade.rang] ?? null : null;
 }
 
 function pignonSur(c: CorpsToit, pan: 0 | 1 = 0): PignonToit {
@@ -303,7 +304,7 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
   if (raisonIndisponible(o, id, facade, rangChoisi)) return false;
   const [prefixe = '', nom = ''] = id.split(':');
   const choisi = corpsChoisi(o, rangChoisi);
-  if (prefixe === 'forme' && choisi && o.corpsToit) {
+  if (prefixe === 'forme' && choisi && o.batiment?.corpsToit) {
     // Une forme sur le corps choisi : lui seul change, a son emprise et a ses hauteurs. Il garde son rang (les saillies qui le
     // designent le suivent) ; les corps de plus que la forme demande s'ajoutent a la fin.
     const forme = formeAPoser(nom);
@@ -312,26 +313,26 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     const [tel, ...autres] = corpsDepuisExemple(forme.e, rectangleDuCorps(choisi), egout, montee);
     if (!tel) return false;
     const premier = trancherUneCroupe(tel, forme.seuleCroupe);
-    const rang = o.corpsToit.indexOf(choisi);
-    o.corpsToit = [...o.corpsToit.slice(0, rang), premier, ...o.corpsToit.slice(rang + 1), ...autres];
-    o.modeToit = 'corps';
+    const rang = o.batiment?.corpsToit.indexOf(choisi);
+    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit.slice(0, rang), premier, ...o.batiment?.corpsToit.slice(rang + 1), ...autres];
+    champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'forme') {
     const rect = rectangleDuBatiment(o), forme = formeAPoser(nom);
     if (!rect || !forme) return false;
     const { egout, montee } = hauteursDuBatiment(o);
-    o.corpsToit = corpsDepuisExemple(forme.e, rect, egout, montee).map((c, i) => (i === 0 ? trancherUneCroupe(c, forme.seuleCroupe) : c));
-    o.modeToit = 'corps';
+    champsBatiment(o).corpsToit = corpsDepuisExemple(forme.e, rect, egout, montee).map((c, i) => (i === 0 ? trancherUneCroupe(c, forme.seuleCroupe) : c));
+    champsBatiment(o).modeToit = 'corps';
     const toit = toitDe(o);
     if (estFormeToit(forme.e.id)) toit.forme = forme.e.id;
     toit.source = 'saisie';
     delete toit.pente;
   } else if (prefixe === 'corps') {
     const hote = choisi ?? corpsPourPoser(o);
-    const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.corpsToit ?? []) : null;
-    if (!hote || !neuf || !o.corpsToit) return false;
-    o.corpsToit = [...o.corpsToit, neuf];
-    o.modeToit = 'corps';
+    const neuf = hote ? corpsNeuf(hote, nom as GenreCorps, o.batiment?.corpsToit ?? []) : null;
+    if (!hote || !neuf || !o.batiment?.corpsToit) return false;
+    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit, neuf];
+    champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else if (prefixe === 'sur') {
     // Sur le corps choisi ; sans choix, un pignon va sur le corps de la facade regardee, du cote de son mur, le reste sur le corps principal.
@@ -341,27 +342,27 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
     else if (nom === 'fenetre-toit' || nom === 'solaire') c.elementsToit = [...(c.elementsToit ?? []), elementSur(c, nom)];
     else if (nom === 'pignon') c.pignons = [...c.pignons, pignonSur(c, facade?.mur === 2 && c === corpsDeLaFacade(o, facade) ? 1 : 0)];
     else c.lucarnes = [...(c.lucarnes ?? []), lucarneSur(c, nom as TypeLucarne)];
-    o.modeToit = 'corps';
+    champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   } else {
     // Un element de mur va sur le corps choisi ; sans choix, sur le corps de la facade regardee (pas sur un element deja pose), sinon le
     // corps principal. Sur le mur de cette facade quand elle est a ce corps, sinon sur un mur libre.
     const surFacade = corpsDeLaFacade(o, facade), hote = choisi ?? (surFacade && !surFacade.saillie ? surFacade : corpsPourPoser(o));
-    if (!hote || !o.corpsToit) return false;
-    const rang = o.corpsToit.indexOf(hote);
+    if (!hote || !o.batiment?.corpsToit) return false;
+    const rang = o.batiment?.corpsToit.indexOf(hote);
     const genre: GenreSaillie = nom.startsWith('bow-') ? 'bow-window' : nom === 'galerie' ? 'galerie' : 'appentis';
     const forme: FormeSaillie = nom === 'bow-arc' ? 'arc' : nom === 'bow-conge' ? 'conge' : nom === 'bow-rectangle' ? 'rectangle' : genre === 'bow-window' ? 'pans' : 'rectangle';
     const d = DEFAUTS_SAILLIE[genre];
-    const mur = hote === surFacade && facade ? facade.mur : murLibre(o.corpsToit, rang);
+    const mur = hote === surFacade && facade ? facade.mur : murLibre(o.batiment?.corpsToit, rang);
     const { L } = murDuCorps(hote, mur);
     const largeurM = Math.min(d.largeurM, Math.max(0.6, L - 0.4));
     // Un bow-window arrondi saille davantage : son demi-cercle a besoin de profondeur pour se lire.
     const profondeurM = forme === 'arc' ? Math.min(largeurM / 2, 1.2) : d.profondeurM;
-    o.corpsToit = [...o.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
-    o.modeToit = 'corps';
+    champsBatiment(o).corpsToit = [...o.batiment?.corpsToit, corpsDeSaillie(hote, { genre, hote: rang, mur, centreM: L / 2, largeurM, profondeurM, forme, niveau: d.niveau, toit: d.toit })];
+    champsBatiment(o).modeToit = 'corps';
     toitDe(o).source = 'saisie';
   }
-  o.toitFige = true;
+  champsBatiment(o).toitFige = true;
   return true;
 }
 
@@ -371,11 +372,11 @@ export function appliquerPiece(o: ObjetPlan, id: string, facade?: FacadeChoisie 
  * empile l'instantane avant.
  */
 export function reprendreLectureAuto(o: ObjetPlan): void {
-  delete o.toitFige;
-  delete o.toitLidarLu;
-  if (o.toit?.source === 'saisie') o.toit.source = 'bdtopo';
-  delete o.corpsToit;
-  delete o.volumesToit;
-  delete o.toitMesure;
-  delete o.modeToit;
+  delete o.batiment?.toitFige;
+  delete o.batiment?.toitLidarLu;
+  if (o.batiment?.toit?.source === 'saisie') o.batiment.toit.source = 'bdtopo';
+  delete o.batiment?.corpsToit;
+  delete o.batiment?.volumesToit;
+  delete o.batiment?.toitMesure;
+  delete o.batiment?.modeToit;
 }

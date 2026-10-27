@@ -95,7 +95,7 @@ export function dessinerCalqueParasols(opts: OptionsCalqueParasols): void {
     c.setAttribute('fill', '#3f2d18');
     c.setAttribute('stroke', '#fff'); c.setAttribute('stroke-width', '1.5');
     groupeMats.appendChild(c);
-    if(par.matDeporte){
+    if(par.parasol?.matDeporte){
       // Un trait relie le pied au centre de la toile : sans lui, sur un deporte, on ne voit pas
       // a quel parasol appartient ce pied quand plusieurs se chevauchent.
       const sc = versEcran(scene, enCercle(par).center);

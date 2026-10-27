@@ -75,7 +75,7 @@ describe('ajouterReleve3d', () => {
 
   it('pose un toit a deux pans et ses deux pignons', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } }, 3);
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 3);
     expect(ajoutes.map((m) => m.name).sort()).toEqual(['releve-pignon', 'releve-pignon', 'releve-toit', 'releve-toit']);
     // Le faitage est a 3 m au-dessus de l'egout (3 m) : aucun sommet de toit au-dela de 6 m.
     const ys = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 1));
@@ -85,7 +85,7 @@ describe('ajouterReleve3d', () => {
 
   it('pose la couverture d un toit-terrasse, de sa couleur, en retrait des murs', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#8a8580', origineCouleur: 'orthophoto' } }, 3);
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#8a8580', origineCouleur: 'orthophoto' } } }, 3);
     expect(ajoutes.map((m) => m.name)).toEqual(['releve-toit-plat']);
     const plat = ajoutes[0]!;
     expect((plat.material as { p: { color: string } }).p.color).toBe('#8a8580');
@@ -100,13 +100,13 @@ describe('ajouterReleve3d', () => {
     expect((plat.material as { polygonOffsetFactor: number }).polygonOffsetFactor).toBeLessThan(0);
     // Rabattu sur une tuile par une lecture d'avant : gris.
     const r = scene();
-    ajouterReleve3d(r.ctx, { ...maison(), toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' } }, 3);
+    ajouterReleve3d(r.ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, couleur: '#B0432F', origineCouleur: 'rouge' } } }, 3);
     expect((r.ajoutes[0]!.material as { p: { color: string } }).p.color).toBe('#6F7275');
   });
 
   it('pose un toit a croupes, sans pignon (spec-toit-ign)', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...maison(), toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, 3);
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } } }, 3);
     const toits = ajoutes.filter((m) => m.name === 'releve-toit');
     expect(toits.length).toBeGreaterThanOrEqual(4);
     expect(ajoutes.some((m) => m.name === 'releve-pignon')).toBe(false);
@@ -121,8 +121,8 @@ describe('ajouterReleve3d', () => {
       ctx,
       {
         ...maison(),
-        toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 },
-        facades: [{ cote: 1, largeur: 6, hauteur: 3, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 6, ouvertures: [], distance: 3, sourceDistance: 'cadrage', releveLe: '' }],
+        batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, facades: [{ cote: 1, largeur: 6, hauteur: 3, texture: 'data:image/jpeg;base64,AA', hauteurTexture: 6, ouvertures: [], distance: 3, sourceDistance: 'cadrage', releveLe: '' }] },
+        
       },
       3,
     );
@@ -143,7 +143,7 @@ describe('ajouterReleve3d', () => {
       ctx,
       {
         ...maison(),
-        facades: [
+        batiment: { ...(maison()).batiment, facades: [
           {
             cote: 0,
             largeur: 10,
@@ -158,7 +158,7 @@ describe('ajouterReleve3d', () => {
             sourceDistance: null,
             releveLe: '',
           },
-        ],
+        ] },
       },
       3,
     );
@@ -191,7 +191,7 @@ describe('ajouterReleve3d, mur en L', () => {
 
   it('pose la photo en L, et omet ce qui depasse de la partie basse', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...L, facades: [releveL] }, 6);
+    ajouterReleve3d(ctx, { ...L, batiment: { facades: [releveL] } }, 6);
     const mur = ajoutes.find((m) => m.name === 'releve-facade')!;
     expect(mur.geometry.attributes.position!.array).toHaveLength(6 * 3);
     // Fenetre haute : 4 pieces d'encadrement ; garage : 3 ; la fenetre dans le vide : aucune.
@@ -200,7 +200,7 @@ describe('ajouterReleve3d, mur en L', () => {
 
   it('coiffe la partie haute seulement', () => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d(ctx, { ...L, facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } }, 6);
+    ajouterReleve3d(ctx, { ...L, batiment: { facades: [releveL], toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 90 } },  }, 6);
     const xs = ajoutes.filter((m) => m.name === 'releve-toit').flatMap((m) => m.geometry.attributes.position!.array.filter((_, i) => i % 3 === 0));
     // Repere local de ce test : x du plan tel quel. Aucun pan au-dela de la maison (x > 6).
     expect(Math.max(...xs)).toBeLessThanOrEqual(6 + 1e-9);

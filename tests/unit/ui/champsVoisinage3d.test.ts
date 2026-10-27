@@ -126,36 +126,36 @@ describe('section Fenêtres (3D)', () => {
     expect(ecritLeProjet(largeur)).toBe(true);
     expect(largeur.lire(c)).toBe(1);
     largeur.ecrire(c, 1.4);
-    expect(c.obj.fenetres3d).toMatchObject({ mode: 'toutes', largeur: 1.4, hauteur: 1.2 });
+    expect(c.obj.batiment?.fenetres3d).toMatchObject({ mode: 'toutes', largeur: 1.4, hauteur: 1.2 });
     expect(largeur.ecrire(c, 9)).toBe(false);
   });
 
   it('une par une : la liste part de la disposition automatique, puis se deplace, se taille, s ajoute et se supprime', () => {
     const c = contexte(maison({ bdtopo: { nombreEtages: 2 } }));
     champ<ChampChoix>(sectionFenetres3d(c), 'mode').ecrire(c, 'uneParUne');
-    expect(c.obj.fenetres3d?.liste).toHaveLength(28);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(28);
     let s = sectionFenetres3d(c);
     expect(cles(s, c)).toContain('fenetre0');
     expect(cles(s, c)).toEqual(expect.arrayContaining(['ajouter', 'automatique', 'enCours', 'type', 'cote', 'x', 'y', 'l', 'h']));
     // La premiere fenetre : deplacee et taillee.
     champ<ChampNombre>(s, 'x').ecrire(c, 2.5);
     champ<ChampNombre>(s, 'l').ecrire(c, 1.8);
-    expect(c.obj.fenetres3d?.liste?.[0]).toMatchObject({ x: 2.5, l: 1.8 });
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]).toMatchObject({ x: 2.5, l: 1.8 });
     // Au-dela du mur, la position est ramenee au bord.
     champ<ChampNombre>(s, 'x').ecrire(c, 50);
-    expect(c.obj.fenetres3d?.liste?.[0]?.x).toBeCloseTo(12 - 1.8, 9);
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]?.x).toBeCloseTo(12 - 1.8, 9);
     // Une fenetre de plus, a droite de celle en cours, qui devient celle en cours.
     champ<ChampBouton>(s, 'ajouter').executer(c);
-    expect(c.obj.fenetres3d?.liste).toHaveLength(29);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(29);
     s = sectionFenetres3d(c);
     expect(champ<ChampChoix>(s, 'enCours').lire(c)).toBe('28');
     expect(champ<ChampNombre>(s, 'l').lire(c)).toBe(1);
     // Supprimee par sa ligne.
     const ligne = champ<ChampLigne>(s, 'fenetre28');
     (ligne.champs.find((x) => x.cle === 'supprimer') as ChampBouton).executer(c);
-    expect(c.obj.fenetres3d?.liste).toHaveLength(28);
+    expect(c.obj.batiment?.fenetres3d?.liste).toHaveLength(28);
     // Retour a l'automatique : la premiere fenetre retrouve sa place.
     champ<ChampBouton>(sectionFenetres3d(c), 'automatique').executer(c);
-    expect(c.obj.fenetres3d?.liste?.[0]?.l).toBe(1);
+    expect(c.obj.batiment?.fenetres3d?.liste?.[0]?.l).toBe(1);
   });
 });

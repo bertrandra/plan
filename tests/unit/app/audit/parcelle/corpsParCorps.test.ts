@@ -11,13 +11,13 @@ import { appliquerPropositions } from '../../../../../src/regles/decisions.js';
 import { formeDuCorps } from '../../../../../src/facade/regles/toits/faits.js';
 import { essayerFaitsToits, lireFaitsToits } from '../../../../../src/regles/toits/faits.js';
 import type { SilhouetteFacade } from '../../../../../src/model/silhouetteFacade.js';
-import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../../src/model/types.js';
 
 // La silhouette d'une facade parle du corps qui la porte, pas du batiment entier (decision de l'utilisateur, 18 octobre 2026).
 // AE 101 : trois corps lus (le principal, 0 ; l'aile nord, 1 ; l'aile nord-est, 2) ; le mur est du cote 13 est le long pan de
 // l'aile nord-est, l'ouest du cote 11 son autre long pan, le nord du cote 12 son bout.
 
-const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ObjetPlan['toitMesure']; corps: CorpsToit[] };
+const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
 const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: JSON.parse(JSON.stringify(d.corps)) }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const facade = (cote: number) => facadesDuContour(d.contour, 6).find((f) => f.cote === cote)!;
@@ -49,10 +49,10 @@ describe('la silhouette arbitrée corps par corps', () => {
     expect(aile?.objet).toMatch(/^Forme du toit de maison, corps 3 /);
     // La photo seule ne decide pas : la proposition attend la personne.
     expect(aile?.reserve).toMatch(/Photo de façade seul ne décide pas/);
-    const avant = JSON.stringify(o.corpsToit?.slice(0, 2));
+    const avant = JSON.stringify(o.batiment?.corpsToit?.slice(0, 2));
     appliquerPropositions([o], [aile!], [], '2026-10-18');
-    expect(JSON.stringify(o.corpsToit?.slice(0, 2))).toBe(avant);
-    expect(formeDuCorps(o.corpsToit![2]!)).toBe('appentis');
+    expect(JSON.stringify(o.batiment?.corpsToit?.slice(0, 2))).toBe(avant);
+    expect(formeDuCorps(o.batiment?.corpsToit![2]!)).toBe('appentis');
   });
 
   it('des croupes ne se posent pas en travers d’un corps plus large que long : rien n’est proposé plutôt qu’un toit faux', () => {
@@ -72,12 +72,12 @@ describe('la silhouette arbitrée corps par corps', () => {
     expect(murs.find((a) => a.cible === 'facade:maison#13')?.groupes.map((g) => [g.valeur, g.retenu])).toEqual([['ligne droite', false], ['triangle', true]]);
     expect(murs.every((a) => a.options?.some((x) => x.libelle === 'ligne droite'))).toBe(true);
     appliquerPropositions([o], [aile!], [], '2026-10-19');
-    const c = o.corpsToit![2]!;
+    const c = o.batiment?.corpsToit![2]!;
     // Le faitage reste celui que dit le mur nord ; le pignon prend le long pan est, jusqu'au faitage.
     expect(c.pignons.filter((g) => g.fin - g.debut > 4)).toHaveLength(1);
     expect(c.pignons[0]?.faitage).toBe(c.faitage);
     // Le haut du mur est montre maintenant un triangle : la photo s'y plaquera en triangle.
-    expect(silhouetteDesCorps(facade(13), o.corpsToit!, 6)).toBe('triangle');
+    expect(silhouetteDesCorps(facade(13), o.batiment?.corpsToit!, 6)).toBe('triangle');
   });
 
   it('forcer « ligne droite » sur le mur nord retire le pignon traversant ; un faîtage tourné que la mesure ne porte pas n’est pas proposé', () => {

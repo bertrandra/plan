@@ -89,7 +89,7 @@ export function sectionVoisinage3d(c: ContexteChamps): Section | null {
     {
       type: 'case', cle: 'toitsCorps', libelle: 'Toits en corps et pignons', sale: false, effets: ['inspecteur', ...effets],
       aide: 'Les toits des maisons voisines reconstruits sur le LiDAR HD de l’IGN : corps, faîtages, pignons, comme la maison du projet. Décochée : des formes simples',
-      note: (cc) => (r(cc).toits.corps && !cc.objets.some((o) => !surParcelleDuProjet(o) && o.corpsToit?.length) ? 'lus à la prochaine actualisation IGN' : ''),
+      note: (cc) => (r(cc).toits.corps && !cc.objets.some((o) => !surParcelleDuProjet(o) && o.batiment?.corpsToit?.length) ? 'lus à la prochaine actualisation IGN' : ''),
       lire: (cc) => r(cc).toits.corps,
       ecrire: (cc, v) => ecrire(cc, (x) => { x.toits.corps = v; }),
     },

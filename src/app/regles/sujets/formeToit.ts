@@ -60,11 +60,11 @@ function lectureDeClaude(v: VoteAnalyse): { forme?: FormeToitSimple; bouts?: [Bo
 
 /** Le toit relu sur la mesure LiDAR sous l'observation, ou null : rien de lu, un ecart au fait, rien de change, ou une forme que la mesure ne porte pas. */
 export function corpsSousObservation(o: ObjetPlan & { pts: readonly PtBrut[] }, observation: ObservationFait): CorpsToit[] | null {
-  if (!o.toitMesure) return null;
+  if (!o.batiment?.toitMesure) return null;
   const fait: FaitToit = { observation, application: 'contrainte' };
-  const corps = corpsSousContrainte(fait, o.corpsToit ?? null, o.toitMesure, o.pts);
+  const corps = corpsSousContrainte(fait, o.batiment?.corpsToit ?? null, o.batiment?.toitMesure, o.pts);
   if (!corps?.length || ecartsAuFait(fait, corps, o.pts).length) return null;
-  if (JSON.stringify(corps) === JSON.stringify(o.corpsToit ?? null)) return null;
+  if (JSON.stringify(corps) === JSON.stringify(o.batiment?.corpsToit ?? null)) return null;
   if (ecartPrincipal(corps) > ECART_FORME_SIMPLE_MAX_M) return null;
   return corps;
 }
@@ -77,7 +77,7 @@ export function murs(b: LigneBatiment, lu: (f: LigneFacade) => MurLu): Silhouett
   return b.facades.map((f) => ({ azimut: f.facade.azimut, largeurM: f.facade.largeur, nom: 'façade ' + nomFacade(f.facade.orientation, f.cote), ...lu(f) }));
 }
 
-const platOuNon = (o: ObjetPlan): boolean => !!o.corpsToit?.length && formeDesCorps(o.corpsToit) === 'plat';
+const platOuNon = (o: ObjetPlan): boolean => !!o.batiment?.corpsToit?.length && formeDesCorps(o.batiment?.corpsToit) === 'plat';
 
 export const direBouts = (bouts: readonly [BoutFait, BoutFait]): string => (bouts[0] === bouts[1] ? 'bouts en ' + bouts[0] : 'un bout en ' + bouts[0] + ', l’autre en ' + bouts[1]);
 const direMurs = (vus: BoutsLus['vus']): string => vus.map((x) => x.nom + ' ' + libelleSilhouette(x.silhouette) + ' → ' + x.dit).join(' ; ');
@@ -93,7 +93,7 @@ const direMurs = (vus: BoutsLus['vus']): string => vus.map((x) => x.nom + ' ' + 
  * rendu y sont joints.
  */
 function propositionForme({ o, b, v, et, contra }: EntreeSujet): Proposition | null {
-  if (!o.toitMesure || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
+  if (!o.batiment?.toitMesure || !('pts' in o) || !o.pts || o.pts.length < 3) return null;
   const claude = lectureDeClaude(v);
   const parMur = new Map(v.facades.map((f) => [f.facade, f]));
   const dits = observationDesSilhouettes(murs(b, (f) => { const m = parMur.get(etiquetteFacade(b, f)); return { silhouette: m?.silhouette.valeur ?? 'indetermine', bout: m?.bout.valeur ?? 'indetermine' }; }), platOuNon(o));
@@ -116,13 +116,13 @@ function propositionForme({ o, b, v, et, contra }: EntreeSujet): Proposition | n
   const vus = [forme ? libelleDeForme(forme).toLowerCase() : null, bouts ? direBouts(bouts) : null, observation.faitage?.par === 'azimut' ? 'faîtage à ' + Math.round(observation.faitage.azimutDeg) + '°' : null].filter(Boolean).join(', ');
   const p = deClaude({
     id: b.cle + ':claude:formeToit', cible: { type: 'batiment', cle: b.cle }, objet: 'Forme du toit de ' + b.nom,
-    avant: dire(o.corpsToit, o.toit?.forme), apres: dire(corps, undefined) + ', relue sur la mesure LiDAR d’après ce que Claude voit (' + vus + ')',
+    avant: dire(o.batiment?.corpsToit, o.batiment?.toit?.forme), apres: dire(corps, undefined) + ', relue sur la mesure LiDAR d’après ce que Claude voit (' + vus + ')',
     effet: { type: 'corpsToit', corps },
   }, 'formeToit', vote, et, reserves);
   // Les ecarts que Claude a releves entre le rendu et la photo sur la forme, les bouts et les corps : la raison de la ligne.
   const ecarts = v.ecarts.filter((e) => ['forme', 'bouts', 'corps'].includes(e.sujet)).map((e) => ({ texte: 'Écart avec le rendu : ' + e.observe + (e.modele ? ' (le modèle dit : ' + e.modele + ')' : '') }));
   // L'ajustement dit ce que coute la forme de Claude : la personne decide en connaissance de cause.
-  const ajuste = { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(ecartPrincipal(corps)) + (o.corpsToit?.length ? ' (aujourd’hui ' + metres(ecartPrincipal(o.corpsToit)) + ')' : '') };
+  const ajuste = { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(ecartPrincipal(corps)) + (o.batiment?.corpsToit?.length ? ' (aujourd’hui ' + metres(ecartPrincipal(o.batiment?.corpsToit)) + ')' : '') };
   const surMurs = dits ? [{ texte: 'Silhouette des façades : ' + direMurs(dits.vus) }] : [];
   return { ...p, indices: [...p.indices, ...surMurs, ajuste, ...ecarts] };
 }
@@ -143,7 +143,7 @@ function observationsForme({ o, v }: EntreeObservation): LigneObservation[] {
   if (v.forme.valeur !== 'indetermine') {
     const details = [v.profil.valeur === 'brise' ? 'profil brisé' : v.profil.valeur === 'courbe' ? 'profil courbe' : null,
       v.faitage.valeur === 'parallele-rue' ? 'faîtage parallèle à la rue' : v.faitage.valeur === 'perpendiculaire-rue' ? 'faîtage perpendiculaire à la rue' : null].filter(Boolean);
-    const modele = o.toit?.forme;
+    const modele = o.batiment?.toit?.forme;
     const compare = !modele ? '' : modele === v.forme.valeur ? ', comme le modèle de Plan' : ' ; le modèle de Plan dit : ' + libelleForme(modele).toLowerCase();
     out.push({ sujet: 'forme', texte: 'Forme du toit vue : ' + libelleForme(v.forme.valeur).toLowerCase() + (details.length ? ', ' + details.join(', ') : '') + compare, indices: v.forme.indices, accord: v.forme.accord });
   }

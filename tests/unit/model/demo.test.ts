@@ -62,7 +62,7 @@ describe('le plan de demonstration ouvert', () => {
     expect(parcelles.length).toBeGreaterThan(40);
     expect(batiments.length).toBeGreaterThan(40);
     expect(voisinage.every(o => o.locked)).toBe(true);
-    expect(batiments.filter(o => o.corpsToit?.length).length).toBeGreaterThan(batiments.length * 0.8);
+    expect(batiments.filter(o => o.batiment?.corpsToit?.length).length).toBeGreaterThan(batiments.length * 0.8);
     const contour = (parDemo.get('parcelle') as { pts: PtBrut[] }).pts;
     batiments.forEach(b => expect(pointInPolygon(centroid((b as { pts: PtBrut[] }).pts), contour), b.key).toBe(false));
     expect(DEMO_OBJECTS).toHaveLength(DEMO_DESSINES.length + 1 + voisinage.length);

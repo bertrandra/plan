@@ -26,9 +26,9 @@ export function sortiesDe(o: ObjetPlan): SortiesCas {
   return {
     mode: 'entier',
     elevation: typeof o.elevation === 'number' ? o.elevation : null,
-    toit: o.toit ? JSON.parse(JSON.stringify(o.toit)) : null,
-    corps: o.corpsToit ? JSON.parse(JSON.stringify(o.corpsToit)) : null,
-    toitMesure: o.toitMesure ? JSON.parse(JSON.stringify(o.toitMesure)) : null,
+    toit: o.batiment?.toit ? JSON.parse(JSON.stringify(o.batiment?.toit)) : null,
+    corps: o.batiment?.corpsToit ? JSON.parse(JSON.stringify(o.batiment?.corpsToit)) : null,
+    toitMesure: o.batiment?.toitMesure ? JSON.parse(JSON.stringify(o.batiment?.toitMesure)) : null,
     couleurMurs: murs?.couleur ?? null,
     sourceMurs: murs?.source ?? null,
   };

@@ -8,7 +8,7 @@ const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batimen
 const avecTout = (): CorpsToit[] => {
   const o = maison();
   for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire']) appliquerPiece(o, id);
-  return o.corpsToit!;
+  return o.batiment?.corpsToit!;
 };
 
 describe('l aimantation', () => {
@@ -78,7 +78,7 @@ describe('glisser', () => {
   it('une galerie a deux bords et un retrait de mur qui se tirent, un bow-window non', () => {
     const o = maison();
     appliquerPiece(o, 'facade:galerie');
-    const corps = o.corpsToit!, rang = corps.findIndex((c) => c.saillie?.genre === 'galerie'), cible = { type: 'saillie', rang, i: 0 } as const;
+    const corps = o.batiment?.corpsToit!, rang = corps.findIndex((c) => c.saillie?.genre === 'galerie'), cible = { type: 'saillie', rang, i: 0 } as const;
     expect(poigneesDe(corps, cible).map((p) => p.id)).toEqual(['pos', 'larg', 'prof', 'haut', 'gauche', 'retrait']);
     const g0 = corps[rang]!.saillie!, droite = g0.centreM + g0.largeurM / 2;
     // Le bord gauche recule d'un metre : le bord droit ne bouge pas.

@@ -139,7 +139,7 @@ describe('le fichier', () => {
   it('un bow pose par la palette fait l aller-retour', () => {
     const o = { key: 'b', type: 'polygon', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan;
     appliquerPiece(o, 'facade:bow-arc');
-    const copie = JSON.parse(JSON.stringify(o.corpsToit)) as CorpsToit[];
-    expect(copie[1]!.saillie).toEqual(o.corpsToit![1]!.saillie);
+    const copie = JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as CorpsToit[];
+    expect(copie[1]!.saillie).toEqual(o.batiment?.corpsToit![1]!.saillie);
   });
 });

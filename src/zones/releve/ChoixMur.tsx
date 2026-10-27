@@ -72,7 +72,7 @@ export function ChoixMur({ bat, facades, position, obstacles, onChoisir }: { bat
   const marge = Math.max(x1 - x0, y1 - y0) * 0.28 + 1;
   // Nord en haut : Y du plan vers le haut, donc -y dans le SVG.
   const vb = `${x0 - marge} ${-y1 - marge} ${x1 - x0 + 2 * marge} ${y1 - y0 + 2 * marge}`;
-  const releve = new Set((bat.facades || []).map((r) => r.cote));
+  const releve = new Set((bat.batiment?.facades || []).map((r) => r.cote));
   const taille = Math.max(x1 - x0, y1 - y0);
   const boussole = useBoussole();
   const [, relire] = useState(0);

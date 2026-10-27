@@ -321,7 +321,9 @@ export function decouperParHauteurs(t: ToitMesure, rects: readonly PtBrut[][]): 
 }
 
 /** Ce que la 3D montre du toit d'un batiment : les corps et pignons, la surface mesuree, un toit par corps, ou le toit unique. */
-export function modeToitActif(o: { toit?: unknown; toitMesure?: ToitMesure | null; volumesToit?: unknown[] | null; corpsToit?: unknown[] | null; modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps' }): 'corps' | 'mesure' | 'volumes' | 'simple' {
+export function modeToitActif(b: { toit?: unknown; toitMesure?: ToitMesure | null; volumesToit?: unknown[] | null; corpsToit?: unknown[] | null; modeToit?: 'simple' | 'volumes' | 'mesure' | 'corps' } | null | undefined): 'corps' | 'mesure' | 'volumes' | 'simple' {
+  // Le sous-objet `batiment` de l'objet (model/typesFonctions.ts) : absent, le toit unique.
+  const o = b ?? {};
   const volumes = !!o.volumesToit && o.volumesToit.length >= 2;
   const corps = !!o.corpsToit && o.corpsToit.length >= 1;
   if (o.modeToit === 'simple') return 'simple';

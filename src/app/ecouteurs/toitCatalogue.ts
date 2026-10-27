@@ -20,7 +20,8 @@ import { showToast } from '../../shell/dialogs.js';
 import type { Atelier } from '../atelier.js';
 import type { Magasin } from '../magasin.js';
 import type { RegistreCommandes } from '../commandes.js';
-import type { ObjetPlan } from '../../model/types.js';
+import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 export interface ContexteToitCatalogue {
   /** Redessine le batiment `cle` dans la Vue 3D ouverte (la scene entiere s'il le faut, autour de la terrasse courante). */
@@ -42,7 +43,7 @@ export function chargerGestesToits(): Promise<Gestes> {
   return chargementGestes;
 }
 
-export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.toitFige;
+export const reglesAllumees = (o: ObjetPlan | undefined): boolean => !!o && !o.batiment?.toitFige;
 
 /** Le toucher et l'appui se distinguent d'un glisser (qui fait tourner la vue) au-dela de cette distance, en pixels. */
 const GLISSER_PX = 5;
@@ -119,7 +120,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
 
   /** L'element choisi dans la session, avec son batiment : ce que les commandes d'edition lisent. */
-  const choisi = () => { const t = etatToit().selection, o = batiment(); return t && o?.corpsToit ? { t, o, corps: o.corpsToit } : null; };
+  const choisi = () => { const t = etatToit().selection, o = batiment(); return t && o?.batiment?.corpsToit ? { t, o, corps: o.batiment?.corpsToit } : null; };
 
   commande('toit.selection', 'Choisir un élément', enSession, (source) => {
     const d = source?.dataset;
@@ -127,14 +128,14 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   }, false);
   commande('toit.regler', 'Régler l’élément', () => !!choisi(), (source) => {
     const c = choisi(), d = source?.dataset;
-    if (c && d?.groupe && d.valeur !== undefined) mode.ecrire((x) => { x.corpsToit = appliquerChoix(c.corps, c.t, d.groupe as string, d.valeur as string); x.toitFige = true; });
+    if (c && d?.groupe && d.valeur !== undefined) mode.ecrire((x) => { champsBatiment(x).corpsToit = appliquerChoix(c.corps, c.t, d.groupe as string, d.valeur as string); champsBatiment(x).toitFige = true; });
   });
   commande('toit.dupliquer', 'Dupliquer l’élément', () => !!choisi(), () => {
     const c = choisi();
     if (!c) return;
     const r = dupliquerElement(c.corps, c.t);
     if (!r) { showToast('Pas de place à côté : déplacez ou réduisez d’abord.'); return; }
-    mode.ecrire((x) => { x.corpsToit = r.corps; x.toitFige = true; });
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = r.corps; champsBatiment(x).toitFige = true; });
     mode.selectionner(r.cible);
   });
   commande('toit.supprimer', 'Supprimer l’élément', () => !!choisi(), () => {
@@ -142,22 +143,22 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
     if (!c) return;
     // Le corps principal ne se supprime pas : rien a ecrire, rien a empiler.
     if (c.t.type === 'corps' && supprimerElement(c.corps, c.t).length === c.corps.length) return;
-    mode.ecrire((x) => { x.corpsToit = supprimerElement(c.corps, c.t); x.toitFige = true; });
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = supprimerElement(c.corps, c.t); champsBatiment(x).toitFige = true; });
     mode.selectionner(null);
   });
   commande('toit.tourner', 'Tourner le corps', () => choisi()?.t.type === 'corps', (source) => {
     const c = choisi(), sens = source?.dataset.sens === '-1' ? -1 : 1;
-    if (c && c.t.type === 'corps') mode.ecrire((x) => { x.corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); x.toitFige = true; });
+    if (c && c.t.type === 'corps') mode.ecrire((x) => { champsBatiment(x).corpsToit = tournerCorps(c.corps, c.t.rang, sens * PAS_ROTATION_DEG); champsBatiment(x).toitFige = true; });
   });
-  commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, 1); x.toitFige = true; }); });
-  commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { x.corpsToit = redimensionnerElement(c.corps, c.t, -1); x.toitFige = true; }); });
+  commande('toit.plus', 'Agrandir l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, 1); champsBatiment(x).toitFige = true; }); });
+  commande('toit.moins', 'Réduire l’élément', () => !!choisi(), () => { const c = choisi(); if (c) mode.ecrire((x) => { champsBatiment(x).corpsToit = redimensionnerElement(c.corps, c.t, -1); champsBatiment(x).toitFige = true; }); });
 
   commande('toit.regles', 'Règles',
     enSession, () => {
       const g = gestes;
       if (!g) return;
-      mode.ecrire((o) => { if (o.toitFige) g.reprendreLectureAuto(o); else o.toitFige = true; });
-      showToast(batiment()?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu.');
+      mode.ecrire((o) => { if (o.batiment?.toitFige) g.reprendreLectureAuto(o); else champsBatiment(o).toitFige = true; });
+      showToast(batiment()?.batiment?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu.');
     });
 
   commande('toit.poser', 'Poser sur le toit',
@@ -168,10 +169,10 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       const facade = s?.facade ?? s?.derniere ?? null, rangChoisi = etatToit().selection?.rang ?? null;
       const raison = g.raisonIndisponible(o, id, facade, rangChoisi);
       if (raison) { showToast(raison); return; }
-      const avant = JSON.parse(JSON.stringify(o.corpsToit ?? [])) as NonNullable<ObjetPlan['corpsToit']>;
+      const avant = JSON.parse(JSON.stringify(o.batiment?.corpsToit ?? [])) as NonNullable<ChampsBatiment['corpsToit']>;
       if (!mode.ecrire((x) => g.appliquerPiece(x, id, facade, rangChoisi))) return;
       // L'element pose se choisit (l'inspecteur le regle) ; un pignon, un element de mur se reglent de face (maquette v8) : la vue passe devant leur facade.
-      const cible = cibleAjoutee(avant, batiment()?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.corpsToit ?? [], cible) : null;
+      const cible = cibleAjoutee(avant, batiment()?.batiment?.corpsToit ?? []), mur = cible ? facadeDeLElement(batiment()?.batiment?.corpsToit ?? [], cible) : null;
       mode.selectionner(cible);
       if (mur) mode.choisirFacade(mur.rang, mur.mur);
     });
@@ -179,7 +180,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.murSur3d', 'Choisir le mur dans la 3D',
     enSession, () => {
       const rang = reprendreSaillieVisee(), o = batiment();
-      if (rang === null || !o?.corpsToit?.[rang]?.saillie) return;
+      if (rang === null || !o?.batiment?.corpsToit?.[rang]?.saillie) return;
       armerSaillie(o.key, rang);
       ctx.rafraichir();
       showToast('Touchez un mur du bâtiment pour y poser l’élément (Échap pour annuler).');
@@ -188,14 +189,14 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   /** Replace l'element arme sur le mur que la personne touche ; faux si le toucher ne dit rien (le ciel, un autre objet). */
   const placerSurLeMurTouche = (ndc: { x: number; y: number }): boolean => {
     const cible = saillieArmee(), o = batiment();
-    if (!cible || !o?.corpsToit) return false;
-    const k = o.corpsToit[cible.rang], hote = k?.saillie ? o.corpsToit[k.saillie.hote] : undefined;
+    if (!cible || !o?.batiment?.corpsToit) return false;
+    const k = o.batiment?.corpsToit[cible.rang], hote = k?.saillie ? o.batiment?.corpsToit[k.saillie.hote] : undefined;
     if (!k?.saillie || !hote) { desarmerSaillie(); return false; }
     // Un toucher sur la scene ouverte : le moteur est la (three/demande3d.ts).
     const touche = moteur3d()?.objetSousLePointeur(ndc, (cle) => cle === cible.cle);
     if (!touche || touche.cle !== cible.cle || !touche.point) return false;
     const mur = murLePlusProche(hote, touche.point);
-    mode.ecrire((x) => { x.corpsToit = replacerSaillie(x.corpsToit ?? [], cible.rang, mur); x.toitFige = true; });
+    mode.ecrire((x) => { champsBatiment(x).corpsToit = replacerSaillie(x.batiment?.corpsToit ?? [], cible.rang, mur); champsBatiment(x).toitFige = true; });
     desarmerSaillie();
     return true;
   };

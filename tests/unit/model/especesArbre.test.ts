@@ -89,9 +89,9 @@ describe('la bibliotheque chargee', () => {
     poserEspeces([]);
     expect(especeDe({})).toBeNull();
     poserEspeces([e('a'), e('b')]);
-    expect(especeDe({ especeArbre: 'b' })?.id).toBe('b');
+    expect(especeDe({ arbre: { espece: 'b' } })?.id).toBe('b');
     expect(especeDe({})?.id).toBe('a');
-    expect(especeDe({ especeArbre: 'disparu' })?.id).toBe('a');
+    expect(especeDe({ arbre: { espece: 'disparu' } })?.id).toBe('a');
     expect(especeParId('b')?.id).toBe('b');
     expect(especeParId(undefined)).toBeNull();
   });
@@ -105,7 +105,7 @@ describe('la bibliotheque chargee', () => {
   });
 
   it('prend le diametre de l\'objet, sinon celui de l\'essence, sinon le defaut', () => {
-    expect(diametreDe({ diametreArbre: 7 }, e('a'))).toBe(7);
+    expect(diametreDe({ arbre: { diametre: 7 } }, e('a'))).toBe(7);
     expect(diametreDe({}, e('a'))).toBe(6);
     expect(diametreDe({}, null)).toBe(DIAMETRE_DEFAUT_M);
   });

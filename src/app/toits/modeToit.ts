@@ -23,6 +23,7 @@ import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
 
@@ -89,7 +90,7 @@ function selectionValide(): CibleElement | null {
   const s = session;
   if (!s?.selection || !objetsCourants) return null;
   const o = objetsCourants().find((x) => x.key === s.cle);
-  return o?.corpsToit && lireElement(o.corpsToit, s.selection) ? s.selection : null;
+  return o?.batiment?.corpsToit && lireElement(o.batiment?.corpsToit, s.selection) ? s.selection : null;
 }
 
 export function etatToit(): EtatToit {
@@ -105,7 +106,7 @@ export function etatToit(): EtatToit {
 /** Les murs du batiment en session : de quoi dessiner le navigateur de facades (sans passer par le mode). */
 export function facadesDeSession(objets: readonly ObjetPlan[]): FacadeVisee[] {
   const o = session ? objets.find((x) => x.key === session?.cle) : undefined;
-  return o ? facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]) : [];
+  return o ? facadesDuBatiment(o.batiment?.corpsToit, enPoints(o).pts as PtBrut[]) : [];
 }
 
 export interface ContexteModeToit {
@@ -128,8 +129,8 @@ function reserveDuPanneau(): Reserve | undefined {
 
 /** Une facade choisie sur le contour (le batiment n'avait pas de corps) devient le mur du corps qui vient de naitre au meme endroit. */
 function rattacherLesFacades(s: SessionToit, o: ObjetPlan): void {
-  if (!o.corpsToit?.length) return;
-  const murs = facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]);
+  if (!o.batiment?.corpsToit?.length) return;
+  const murs = facadesDuBatiment(o.batiment?.corpsToit, enPoints(o).pts as PtBrut[]);
   const refaire = (f: FacadeVisee | null): FacadeVisee | null => (f && f.rang === null ? facadeProche(murs, { x: (f.a.x + f.b.x) / 2, y: (f.a.y + f.b.y) / 2 }) ?? f : f);
   s.facade = refaire(s.facade);
   s.derniere = refaire(s.derniere);
@@ -137,8 +138,8 @@ function rattacherLesFacades(s: SessionToit, o: ObjetPlan): void {
 
 /** La hauteur du faitage du batiment : de quoi cadrer la facade en entier. */
 function hauteurDe(o: ObjetPlan): number {
-  const corps = (o.corpsToit ?? []).map((c) => c.faitage);
-  return corps.length ? Math.max(...corps) : (o.elevation ?? 3) + (o.toit?.hauteur ?? 2.5);
+  const corps = (o.batiment?.corpsToit ?? []).map((c) => c.faitage);
+  return corps.length ? Math.max(...corps) : (o.elevation ?? 3) + (o.batiment?.toit?.hauteur ?? 2.5);
 }
 
 /**
@@ -155,7 +156,7 @@ function pointsDuBatiment(o: ObjetPlan): PointScene[] {
   const sc = vue3d.scene;
   if (!sc) return [];
   const base = altitudeDuBatiment(o), haut = base + hauteurDe(o) + 0.5;
-  const plan = [...(enPoints(o).pts as PtBrut[]), ...(o.corpsToit ?? []).flatMap((c) => c.pts)];
+  const plan = [...(enPoints(o).pts as PtBrut[]), ...(o.batiment?.corpsToit ?? []).flatMap((c) => c.pts)];
   return plan.flatMap((p) => [base, haut].map((y) => ({ x: p.x - sc.cen.x, y, z: sc.cen.y - p.y })));
 }
 
@@ -253,7 +254,7 @@ function validerLaSession(a: Atelier, o: ObjetPlan, s: SessionToit): boolean {
     restaurer(o, s.hist.pas[0] ?? {});
     a.pushHistory();
     restaurer(o, final);
-    o.toitFige = true;
+    champsBatiment(o).toitFige = true;
     a.markDirty();
   }
   return change;
@@ -441,7 +442,7 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
 
   const facades = (): FacadeVisee[] => {
     const o = batiment();
-    return o ? facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]) : [];
+    return o ? facadesDuBatiment(o.batiment?.corpsToit, enPoints(o).pts as PtBrut[]) : [];
   };
 
   return {
@@ -451,8 +452,8 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
     apercu(corps: CorpsToit[]): void {
       const o = batiment();
       if (!o || !session) return;
-      o.corpsToit = corps;
-      o.toitFige = true;
+      champsBatiment(o).corpsToit = corps;
+      champsBatiment(o).toitFige = true;
       const t = Date.now();
       if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
     },
@@ -483,9 +484,9 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       const touche = moteur3d()?.objetSousLePointeur(ndc, (cle) => cle === o.key);
       if (!touche || touche.cle !== o.key || !touche.point) return false;
       // Un element tout pres du point touche se choisit ; sinon c'est un mur, donc une facade.
-      const cible = o.corpsToit ? elementProche(o.corpsToit, touche.point) : null;
+      const cible = o.batiment?.corpsToit ? elementProche(o.batiment?.corpsToit, touche.point) : null;
       if (cible) { session.selection = cible; ctx.rafraichir(); return true; }
-      const f = facadeProche(facadesDuBatiment(o.corpsToit, enPoints(o).pts as PtBrut[]), touche.point);
+      const f = facadeProche(facadesDuBatiment(o.batiment?.corpsToit, enPoints(o).pts as PtBrut[]), touche.point);
       if (!f) return false;
       entrerDansLaFacade(f);
       return true;

@@ -73,8 +73,8 @@ function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesProposition
   if (!lue) return null;
   const retenue = couleurMursRetenue(o);
   if (retenue?.couleur.toLowerCase() === lue.couleur.toLowerCase()) return null;
-  const source = o.couleurMurs?.source;
-  const avant = retenue ? retenue.couleur + (retenue.source === 'photo' ? (o.couleurMurs?.terrain ? ' (vos photos)' : ' (photo de rue)') : ' (matériau)') : 'couleur du plan';
+  const source = o.batiment?.couleurMurs?.source;
+  const avant = retenue ? retenue.couleur + (retenue.source === 'photo' ? (o.batiment?.couleurMurs?.terrain ? ' (vos photos)' : ' (photo de rue)') : ' (matériau)') : 'couleur du plan';
   const mur = b.facades.find((f) => f.cote === lue?.cote);
   const orientation = mur ? nomFacade(mur.facade.orientation, mur.cote) : '';
   return mesure({
@@ -88,7 +88,7 @@ function propositionCouleur(o: Batiment, b: LigneBatiment, e: EntreesProposition
 
 /** La toiture-terrasse vue, sur le plus grand corps plat. */
 function propositionTerrasse(o: Batiment, b: LigneBatiment, vu: CeQueJeVois): Proposition | null {
-  const corps = o.corpsToit ?? [];
+  const corps = o.batiment?.corpsToit ?? [];
   if (!vu.terrasse || !terrasseVue(vu)) return null;
   const i = corpsDeLaTerrasse(corps);
   const c = corps[i];

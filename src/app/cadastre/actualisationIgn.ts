@@ -35,6 +35,7 @@ import { actualiserRelief } from './actualisationIgn/relief.js';
 
 export type { OptionsActualisation, InfosActualisation } from './optionsActualisation.js';
 import { actualisation, commencer, finir, etape, type ContexteActualisation } from './actualisationIgn/progression.js';
+import { versMemoire } from '../../model/champsFonction.js';
 export { actualisation, type ContexteActualisation };
 
 type Cadastre = NonNullable<ObjetPlan['cadastre']>;
@@ -200,10 +201,10 @@ function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: Obj
   bilan.push(anciens.length + ' batiment(s) de la parcelle supprime(s), ' + frais.length + ' recree(s) depuis la BD TOPO');
   const cles = new Set(dejaLa.map(o => o.key));
   const cleUnique = (base: string) => { let cle = base, n = 2; while(cles.has(cle)){ cle = base + '-' + n; n++; } cles.add(cle); return cle; };
-  const reponses = new Map(anciens.flatMap(o => { const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id && o.toitACheval ? [[id, o.toitACheval] as const] : []; }));
+  const reponses = new Map(anciens.flatMap(o => { const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id && o.batiment?.toitACheval ? [[id, o.batiment?.toitACheval] as const] : []; }));
   const recupereLe = new Date().toISOString();
-  const nouveaux = frais.map(b => { const o = batimentDeLaPropriete(b, cleUnique, recupereLe); const r = b.id ? reponses.get(b.id) : undefined; return r ? { ...o, toitACheval: r } : o; });
-  return ctx.serializeObjects(nouveaux);
+  const nouveaux = frais.map(b => { const o = batimentDeLaPropriete(b, cleUnique, recupereLe); const r = b.id ? reponses.get(b.id) : undefined; return r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o; });
+  return ctx.serializeObjects(nouveaux).map(versMemoire);
 }
 
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
@@ -241,7 +242,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     // ---- 2. Les objets issus de la BD TOPO, couche par couche (portee « tout » seulement)
     const fraiches = options.portee === 'tout' ? await couchesFraiches(ctx.etat.objects, proj, bilan) : {};
     // ---- 2 bis. « Actualiser le projet » : les batiments de la parcelle, relus pour etre recrees.
-    const gardes = batimentsGardes(ctx.serializeObjects(ctx.etat.objects), options);
+    // Les copies serialisees sont a plat : l'actualisation les lit dans la forme de la memoire (model/champsFonction.ts).
+    const gardes = batimentsGardes(ctx.serializeObjects(ctx.etat.objects).map(versMemoire), options);
     const { batiFrais, aRecreer } = options.recreerBatiments ? await recreation(ptsParcelle ?? sommetsDe(parcelle), proj, simplifier, bilan, gardes) : { batiFrais: null, aRecreer: () => false };
 
     // ---- 3. Application
@@ -249,7 +251,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
-    const avant = sansVoisinesDeLaPropriete(ctx.serializeObjects(ctx.etat.objects), parcelle, bilan);
+    const avant = sansVoisinesDeLaPropriete(ctx.serializeObjects(ctx.etat.objects).map(versMemoire), parcelle, bilan);
     const anciensBatiments = avant.filter(aRecreer);
     const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
       // Un batiment verifie sur place est le 100 % du projet : il ressort tel qu'il est entre.
@@ -275,8 +277,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         const haut = bdtopo.couche === COUCHE_BATIMENT
           ? hauteurBatiment(p)
           : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
-        const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.toit, pts, attributsToitBdTopo(p)) : undefined;
-        if(toit && toit !== o.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
+        const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
+        if(toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
         const volumesToit = volumesRecalcules(o, pts, toit);
         return Object.assign({}, o, {
           pts,
@@ -288,7 +290,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
           ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
           // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
           // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
-          ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.profilFacades ? { profilFacades: null } : {}) } : {}),
+          ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}),
           bdtopo: Object.assign({}, bdtopo, {
             nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
             hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
@@ -485,7 +487,7 @@ export async function construireVoisinage(
         showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'batiment', matiere:'', priority:2, locked:true, voisinage:true,
         elevation: haut,
-        toit: toitBdTopo(pts, attributsToitBdTopo(p)),
+        batiment: { toit: toitBdTopo(pts, attributsToitBdTopo(p)) },
         bdtopo: { couche:COUCHE_BATIMENT, id:b.id, cleabs:p.cleabs || null, nature:p.nature || null,
           usage1:p.usage_1 || null, usage2:p.usage_2 || null, hauteurM:nombreFr(p.hauteur), hauteurRetenueM:haut,
           nombreEtages:nombreFr(p.nombre_d_etages), nombreLogements:nombreFr(p.nombre_de_logements),
@@ -531,7 +533,7 @@ export async function construireVoisinage(
               center:{x:a.x, y:a.y}, r:2.5,
               showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
               constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false, voisinage:true,
-              elevation: haut, diametreArbre:5,
+              elevation: haut, arbre: { diametre: 5 },
               bdtopo: { couche:'estimation', origine:v.id, estime:true, hauteurRetenueM:haut, recupereLe }
             });
             resultat.arbres++;

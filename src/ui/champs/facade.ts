@@ -20,6 +20,7 @@ import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, SaillieFaca
 import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/modeToit/saillies.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Un batiment : le seul objet qui porte des facades et un toit. */
 export { estBatiment };
@@ -29,14 +30,13 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
 function toitDe(c: ContexteChamps): Toit {
   const o = enPoints(c.obj);
-  if (!c.obj.toit) c.obj.toit = { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(o.pts), source: 'saisie' };
-  return c.obj.toit;
+  return (champsBatiment(c.obj).toit ??= { forme: 'deux-pans', hauteur: 2.5, angleFaitage: angleDuPlusLongCote(o.pts), source: 'saisie' });
 }
 
 const effetsToit: ('scene3d' | 'rendu')[] = ['scene3d', 'rendu'];
 
 /** Les rangs des corps du batiment qui sont des appentis (le reglage « ouvert / ferme » ne vaut que pour eux). */
-const indicesAppentis = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (!c.saillie && formeDuCorps(c) === 'appentis' ? [i] : []));
+const indicesAppentis = (o: { corpsToit?: CorpsToit[] | null } | null | undefined): number[] => (o?.corpsToit ?? []).flatMap((c, i) => (!c.saillie && formeDuCorps(c) === 'appentis' ? [i] : []));
 
 /** D'ou vient la couleur d'une couverture que Plan a posee (MD/spec-toit-ign.md §6.1). */
 function origineCouleur(toit: Toit | null | undefined): string {
@@ -60,8 +60,8 @@ const COUVERTURES_CHOISIES: CouvertureChoisie[] = ['tuile', 'tuile-plate', 'tuil
  */
 export function couvertureDeduite(c: ContexteChamps): MateriauCouverture {
   const o = c.obj;
-  const toit = o.toit;
-  const corps = modeToitActif(o) === 'corps' && o.corpsToit?.length ? o.corpsToit : null;
+  const toit = o.batiment?.toit;
+  const corps = modeToitActif(o.batiment) === 'corps' && o.batiment?.corpsToit?.length ? o.batiment?.corpsToit : null;
   const pente = corps ? penteDominante(corps) : toit ? penteDuToit(enPoints(o).pts, toit) : null;
   const lat = (parcelleDuProjet(c.objets)?.cadastre as { origineLat?: unknown } | null | undefined)?.origineLat;
   const ff = (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture;
@@ -127,7 +127,7 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
     cle: 'toitMateriau',
     libelle: 'Matériau',
     // Un toit plat simple est un toit-terrasse : rien a choisir.
-    visible: (cc) => !!cc.obj.toit && !(unSeul(cc) && cc.obj.toit.forme === 'plat'),
+    visible: (cc) => !!cc.obj.batiment?.toit && !(unSeul(cc) && cc.obj.batiment?.toit.forme === 'plat'),
     historique: true,
     effets: ['scene3d', 'inspecteur'],
     aide: 'Automatique : le matériau déduit des fichiers fonciers, de la couleur et de la pente. Un autre choix l’emporte en 3D.',
@@ -135,7 +135,7 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
       { valeur: '', libelle: 'Automatique (' + LIBELLES_COUVERTURE[couvertureDeduite(cc)].toLowerCase() + ')' },
       ...COUVERTURES_CHOISIES.map((m) => ({ valeur: m, libelle: LIBELLES_COUVERTURE[m] })),
     ],
-    lire: (cc) => cc.obj.toit?.couverture ?? '',
+    lire: (cc) => cc.obj.batiment?.toit?.couverture ?? '',
     ecrire: (cc, v) => {
       const toit = toitDe(cc);
       if ((COUVERTURES_CHOISIES as string[]).includes(v)) toit.couverture = v as CouvertureChoisie;
@@ -149,12 +149,12 @@ function champMateriau(unSeul: (cc: ContexteChamps) => boolean): Champ {
  * Il s'ecrit sur tous les appentis du batiment ; « sans indication » retire la cle (le dessin du toit seul).
  */
 function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
-  const vus = (cc: ContexteChamps) => new Set(indicesAppentis(cc.obj).map((i) => (cc.obj.corpsToit?.[i] as CorpsToit).ouvert));
+  const vus = (cc: ContexteChamps) => new Set(indicesAppentis(cc.obj.batiment).map((i) => (cc.obj.batiment?.corpsToit?.[i] as CorpsToit).ouvert));
   return {
     type: 'choix',
     cle: 'appentisOuvert',
     libelle: 'Appentis',
-    visible: (cc) => mode(cc) === 'corps' && indicesAppentis(cc.obj).length > 0,
+    visible: (cc) => mode(cc) === 'corps' && indicesAppentis(cc.obj.batiment).length > 0,
     historique: true,
     effets: ['scene3d', 'inspecteur'],
     aide: 'Ouvert : une galerie ou un porche, des poteaux et pas de mur extérieur. Fermé : des murs du sol à l’égout et aux bouts. Sans indication : le dessin du toit seul.',
@@ -162,8 +162,8 @@ function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
     lire: (cc) => { const v = vus(cc); return v.size === 1 ? (v.has(true) ? 'ouvert' : v.has(false) ? 'ferme' : '') : ''; },
     note: (cc) => (vus(cc).size > 1 ? 'les appentis du bâtiment ne sont pas tous réglés pareil' : ''),
     ecrire: (cc, v) => {
-      const cibles = new Set(indicesAppentis(cc.obj));
-      cc.obj.corpsToit = (cc.obj.corpsToit ?? []).map((k, i) => {
+      const cibles = new Set(indicesAppentis(cc.obj.batiment));
+      champsBatiment(cc.obj).corpsToit = (cc.obj.batiment?.corpsToit ?? []).map((k, i) => {
         if (!cibles.has(i)) return k;
         const neuf = { ...k };
         delete neuf.ouvert;
@@ -174,18 +174,18 @@ function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
 }
 
 /** Les rangs des corps qui sont des elements de facade (bow-window, galerie, appentis poses sur un mur). */
-const rangsSaillies = (o: { corpsToit?: CorpsToit[] | null }): number[] => (o.corpsToit ?? []).flatMap((c, i) => (c.saillie ? [i] : []));
+const rangsSaillies = (o: { corpsToit?: CorpsToit[] | null } | null | undefined): number[] => (o?.corpsToit ?? []).flatMap((c, i) => (c.saillie ? [i] : []));
 
 /**
  * Une ligne par element de facade du batiment : ses reglages (forme, niveau, toit propre, mur, position, taille) et son retrait.
  * Chaque ecriture replace l'element sur son mur (facade/modeToit/saillies.ts), fige le toit et s'annule par Ctrl+Z.
  */
 function champsSaillies(c: ContexteChamps): Champ[] {
-  return rangsSaillies(c.obj).map((rang): Champ => {
-    const lire = (cc: ContexteChamps) => cc.obj.corpsToit?.[rang]?.saillie;
+  return rangsSaillies(c.obj.batiment).map((rang): Champ => {
+    const lire = (cc: ContexteChamps) => cc.obj.batiment?.corpsToit?.[rang]?.saillie;
     const regler = (cc: ContexteChamps, changement: Partial<SaillieFacade>) => {
-      cc.obj.corpsToit = replacerSaillie(cc.obj.corpsToit ?? [], rang, changement);
-      cc.obj.toitFige = true;
+      champsBatiment(cc.obj).corpsToit = replacerSaillie(cc.obj.batiment?.corpsToit ?? [], rang, changement);
+      champsBatiment(cc.obj).toitFige = true;
     };
     const genre = lire(c)?.genre ?? 'bow-window';
     const bow = genre === 'bow-window';
@@ -193,13 +193,13 @@ function champsSaillies(c: ContexteChamps): Champ[] {
       type: 'nombre', cle, libelle, unite: 'm', pas: 0.1, min, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
       lire: (cc) => lire(cc)?.[cle2] ?? 0, ecrire: (cc, v) => { regler(cc, { [cle2]: Math.min(v, max(cc)) }); }
     });
-    const murLong = (cc: ContexteChamps) => { const s = lire(cc); const h = s ? cc.obj.corpsToit?.[s.hote] : undefined; return h && s ? murDuCorps(h, s.mur).L : 10; };
+    const murLong = (cc: ContexteChamps) => { const s = lire(cc); const h = s ? cc.obj.batiment?.corpsToit?.[s.hote] : undefined; return h && s ? murDuCorps(h, s.mur).L : 10; };
     return {
       type: 'ligne', cle: 'saillie' + rang, libelle: NOM_SAILLIE[genre],
       champs: [
         { type: 'choix', cle: 'mur', libelle: 'Mur', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le mur du corps qui porte l’élément, dans l’ordre du contour',
-          options: (cc) => { const h = cc.obj.corpsToit?.[lire(cc)?.hote ?? 0]; return (h?.pts ?? []).map((_, i) => ({ valeur: String(i), libelle: 'Mur ' + (i + 1) })); },
-          lire: (cc) => String(lire(cc)?.mur ?? 0), ecrire: (cc, v) => { regler(cc, { mur: Number(v), centreM: murDuCorps(cc.obj.corpsToit?.[lire(cc)?.hote ?? 0] as CorpsToit, Number(v)).L / 2 }); } },
+          options: (cc) => { const h = cc.obj.batiment?.corpsToit?.[lire(cc)?.hote ?? 0]; return (h?.pts ?? []).map((_, i) => ({ valeur: String(i), libelle: 'Mur ' + (i + 1) })); },
+          lire: (cc) => String(lire(cc)?.mur ?? 0), ecrire: (cc, v) => { regler(cc, { mur: Number(v), centreM: murDuCorps(cc.obj.batiment?.corpsToit?.[lire(cc)?.hote ?? 0] as CorpsToit, Number(v)).L / 2 }); } },
         ...(bow ? [
           { type: 'choix', cle: 'forme', libelle: 'Forme', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Pans coupés, rectangle, demi-cercle (arc) ou rectangle aux angles arrondis (congé)',
             options: () => [{ valeur: 'pans', libelle: 'Pans coupés' }, { valeur: 'rectangle', libelle: 'Rectangle' }, { valeur: 'arc', libelle: 'Arc de cercle' }, { valeur: 'conge', libelle: 'Congé' }],
@@ -210,7 +210,7 @@ function champsSaillies(c: ContexteChamps): Champ[] {
           { type: 'nombre', cle: 'hauteur', libelle: 'Hauteur à l’égout', unite: 'm', pas: 0.1, min: 1, max: HAUTEUR_BOW_MAX_M, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
             aide: 'La hauteur des murs du bow-window, du sol à son égout ; un niveau choisi la remplace',
             note: (cc) => (lire(cc)?.hauteurM === undefined ? 'celle du niveau' : 'réglée'),
-            lire: (cc) => cc.obj.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ
+            lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.egouts[0] ?? 0, ecrire: (cc, v) => { regler(cc, { hauteurM: Math.min(Math.max(v, 1), HAUTEUR_BOW_MAX_M) }); } } satisfies Champ
         ] : []),
         { type: 'choix', cle: 'toit', libelle: 'Toit', historique: true, effets: ['scene3d', 'inspecteur'], aide: 'Le toit propre de l’élément : un pan contre le mur, quatre pans ou plat',
           options: () => [{ valeur: 'pan', libelle: 'Un pan' }, { valeur: 'pavillon', libelle: 'Quatre pans' }, { valeur: 'plat', libelle: 'Plat' }],
@@ -221,13 +221,13 @@ function champsSaillies(c: ContexteChamps): Champ[] {
         ...(genre === 'galerie' ? [{
           type: 'nombre', cle: 'retrait', libelle: 'Retrait des poteaux', unite: 'm', pas: 0.05, min: 0, max: 1, decimales: 2, historique: true, effets: ['scene3d', 'inspecteur'],
           aide: 'Le recul des poteaux depuis le bord de l’égout',
-          lire: (cc) => cc.obj.corpsToit?.[rang]?.retraitM ?? RETRAIT_GALERIE_M,
-          ecrire: (cc, v) => { const k = cc.obj.corpsToit?.[rang]; if (k) { k.retraitM = Math.min(Math.max(v, 0), 1); cc.obj.toitFige = true; } }
+          lire: (cc) => cc.obj.batiment?.corpsToit?.[rang]?.retraitM ?? RETRAIT_GALERIE_M,
+          ecrire: (cc, v) => { const k = cc.obj.batiment?.corpsToit?.[rang]; if (k) { k.retraitM = Math.min(Math.max(v, 0), 1); champsBatiment(cc.obj).toitFige = true; } }
         } satisfies Champ] : []),
         { type: 'bouton', cle: 'mur3d', libelle: 'Mur dans la 3D', texte: () => (saillieArmee() ? 'Touchez un mur…' : 'Choisir le mur dans la 3D'), aide: 'Touchez ensuite un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler)',
           agit: { commande: 'toit.murSur3d' }, executer: (cc) => { viserSaillie(rang); cc.executerCommande('toit.murSur3d'); } },
         { type: 'bouton', cle: 'retirer', libelle: 'Retirer', aide: 'Retirer cet élément (Ctrl+Z pour revenir)', agit: 'projet',
-          executer: (cc) => { cc.pushHistory(); cc.obj.corpsToit = retirerSaillie(cc.obj.corpsToit ?? [], rang); cc.obj.toitFige = true; cc.render(); } }
+          executer: (cc) => { cc.pushHistory(); champsBatiment(cc.obj).corpsToit = retirerSaillie(cc.obj.batiment?.corpsToit ?? [], rang); champsBatiment(cc.obj).toitFige = true; cc.render(); } }
       ]
     };
   });
@@ -237,35 +237,35 @@ function champsSaillies(c: ContexteChamps): Champ[] {
 function champsDuToit(): Champ[] {
   // Le toit unique ne se montre que si c'est lui que la 3D dessine : en surface mesuree ou en
   // plusieurs corps, ses reglages se cachent, la description du toit montre les remplace.
-  const mode = (cc: ContexteChamps) => modeToitActif(cc.obj);
+  const mode = (cc: ContexteChamps) => modeToitActif(cc.obj.batiment);
   const unSeul = (cc: ContexteChamps) => mode(cc) === 'simple';
-  const aToit = (cc: ContexteChamps) => !!cc.obj.toit && unSeul(cc);
-  const aPente = (cc: ContexteChamps) => !!cc.obj.toit && cc.obj.toit.forme !== 'plat' && unSeul(cc);
-  const corps = (cc: ContexteChamps) => (cc.obj.volumesToit?.length ?? 0) >= 2;
+  const aToit = (cc: ContexteChamps) => !!cc.obj.batiment?.toit && unSeul(cc);
+  const aPente = (cc: ContexteChamps) => !!cc.obj.batiment?.toit && cc.obj.batiment?.toit.forme !== 'plat' && unSeul(cc);
+  const corps = (cc: ContexteChamps) => (cc.obj.batiment?.volumesToit?.length ?? 0) >= 2;
   return [
     {
       type: 'choix',
       cle: 'toitMode',
       libelle: 'Toit en 3D',
-      visible: (cc) => !!cc.obj.toitMesure || corps(cc),
+      visible: (cc) => !!cc.obj.batiment?.toitMesure || corps(cc),
       historique: true,
       effets: ['scene3d', 'inspecteur'],
       aide: 'Corps et pignons : les corps du bâtiment lus sur le LiDAR HD de l’IGN, chacun son faîtage et ses égouts aux hauteurs de ses murs, avec les pignons qui partent du faîtage. Tel que mesuré : la surface relevée à 50 cm, nettoyée des arbres — fidèle, même à un toit compliqué. Un toit par corps : le contour découpé en rectangles, chacun son toit simple. Un seul toit : une forme simple sur tout le contour, que l’on règle ci-dessous',
       options: (cc) => [
-        ...(cc.obj.corpsToit?.length ? [{ valeur: 'corps', libelle: 'Corps et pignons (LiDAR)' }] : []),
-        ...(cc.obj.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
+        ...(cc.obj.batiment?.corpsToit?.length ? [{ valeur: 'corps', libelle: 'Corps et pignons (LiDAR)' }] : []),
+        ...(cc.obj.batiment?.toitMesure ? [{ valeur: 'mesure', libelle: 'Tel que mesuré (LiDAR)' }] : []),
         ...(corps(cc) ? [{ valeur: 'volumes', libelle: 'Un toit par corps' }] : []),
         { valeur: 'simple', libelle: 'Un seul toit' },
       ],
       lire: (cc) => mode(cc),
-      ecrire: (cc, v) => { cc.obj.modeToit = v === 'corps' || v === 'mesure' || v === 'volumes' ? v : 'simple'; },
+      ecrire: (cc, v) => { champsBatiment(cc.obj).modeToit = v === 'corps' || v === 'mesure' || v === 'volumes' ? v : 'simple'; },
     },
     {
       type: 'carte',
       cle: 'toitCarte',
       libelle: '',
       nom: 'Carte des hauteurs mesurées et découpage du toit',
-      visible: (cc) => !!cc.obj.toitMesure,
+      visible: (cc) => !!cc.obj.batiment?.toitMesure,
       carte: (cc) => carteDuToit(cc.obj),
     },
     {
@@ -273,7 +273,7 @@ function champsDuToit(): Champ[] {
       cle: 'toitCorpsLus',
       libelle: 'Corps',
       visible: (cc) => mode(cc) === 'corps',
-      valeur: (cc) => decrireCorps(cc.obj.corpsToit ?? []).join(' · '),
+      valeur: (cc) => decrireCorps(cc.obj.batiment?.corpsToit ?? []).join(' · '),
     },
     champAppentis(mode),
     {
@@ -282,7 +282,7 @@ function champsDuToit(): Champ[] {
       libelle: 'Mesure',
       visible: (cc) => mode(cc) === 'mesure',
       valeur: (cc) => {
-        const t = cc.obj.toitMesure;
+        const t = cc.obj.batiment?.toitMesure;
         return t ? `égout ${fr(t.egout, 1)} m · faîte ${fr(t.faite, 1)} m · ${t.nx} × ${t.ny} cellules à ${fr(t.pas, 2)} m · LiDAR HD de l’IGN` : '';
       },
     },
@@ -291,7 +291,7 @@ function champsDuToit(): Champ[] {
       cle: 'toitCorps',
       libelle: 'Toits',
       visible: (cc) => mode(cc) === 'volumes',
-      valeur: (cc) => decrireVolumes(volumesActifs(cc.obj) ?? [], LIBELLES_FORME_TOIT).join(' · ') + (cc.obj.toit ? ' · ' + origineForme(cc.obj.toit) : ''),
+      valeur: (cc) => decrireVolumes(volumesActifs(cc.obj) ?? [], LIBELLES_FORME_TOIT).join(' · ') + (cc.obj.batiment?.toit ? ' · ' + origineForme(cc.obj.batiment?.toit) : ''),
     },
     {
       type: 'choix',
@@ -300,15 +300,15 @@ function champsDuToit(): Champ[] {
       visible: unSeul,
       historique: true,
       effets: effetsToit,
-      note: (cc) => origineForme(cc.obj.toit),
+      note: (cc) => origineForme(cc.obj.batiment?.toit),
       // « Non modelise » ne se choisit plus : un toit plat saisi dit « pas de toit » d'une facon que
       // l'actualisation IGN respecte, la ou un toit absent serait remplace (MD/spec-toit-ign.md §5.4).
       options: (cc) => [
-        ...(cc.obj.toit ? [] : [{ valeur: '', libelle: 'Non modélisé' }]),
+        ...(cc.obj.batiment?.toit ? [] : [{ valeur: '', libelle: 'Non modélisé' }]),
         // Les formes simples seules, celles que la 3D dessine ; une forme du catalogue en place reste proposee.
-        ...formesAuChoix(cc.obj.toit?.forme).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
+        ...formesAuChoix(cc.obj.batiment?.toit?.forme).map((k) => ({ valeur: k, libelle: LIBELLES_FORME_TOIT[k] })),
       ],
-      lire: (cc) => cc.obj.toit?.forme || '',
+      lire: (cc) => cc.obj.batiment?.toit?.forme || '',
       ecrire: (cc, v) => {
         if (!v) return;
         const toit = toitDe(cc);
@@ -329,9 +329,9 @@ function champsDuToit(): Champ[] {
       visible: aPente,
       historique: true,
       effets: effetsToit,
-      note: (cc) => (cc.obj.toit ? `pente ${fr(penteDeg(enPoints(cc.obj).pts, cc.obj.toit), 0)}°${origineHauteur(cc.obj.toit)}` : ''),
+      note: (cc) => (cc.obj.batiment?.toit ? `pente ${fr(penteDeg(enPoints(cc.obj).pts, cc.obj.batiment?.toit), 0)}°${origineHauteur(cc.obj.batiment?.toit)}` : ''),
       aide: "Au-dessus de l'égout",
-      lire: (cc) => cc.obj.toit?.hauteur ?? 0,
+      lire: (cc) => cc.obj.batiment?.toit?.hauteur ?? 0,
       ecrire: (cc, v) => {
         if (!(v >= 0)) return false;
         const toit = toitDe(cc);
@@ -350,11 +350,11 @@ function champsDuToit(): Champ[] {
       max: 179,
       decimales: 0,
       // Un toit a croupes n'a pas un faitage mais un par aile : il suit le contour.
-      visible: (cc) => aPente(cc) && cc.obj.toit?.forme !== 'croupes',
+      visible: (cc) => aPente(cc) && cc.obj.batiment?.toit?.forme !== 'croupes',
       historique: true,
       effets: effetsToit,
       aide: "Angle du faîtage depuis l'est, dans le sens inverse des aiguilles d'une montre",
-      lire: (cc) => Math.round(cc.obj.toit?.angleFaitage ?? 0),
+      lire: (cc) => Math.round(cc.obj.batiment?.toit?.angleFaitage ?? 0),
       ecrire: (cc, v) => {
         toitDe(cc).angleFaitage = ((v % 180) + 180) % 180;
       },
@@ -366,8 +366,8 @@ function champsDuToit(): Champ[] {
       visible: aToit,
       historique: true,
       effets: effetsToit,
-      lire: (cc) => cc.obj.toit?.couleur || COULEUR_TOIT_DEFAUT,
-      note: (cc) => origineCouleur(cc.obj.toit),
+      lire: (cc) => cc.obj.batiment?.toit?.couleur || COULEUR_TOIT_DEFAUT,
+      note: (cc) => origineCouleur(cc.obj.batiment?.toit),
       ecrire: (cc, v) => {
         const toit = toitDe(cc);
         toit.couleur = v;
@@ -399,7 +399,7 @@ export function sectionReleve(c: ContexteChamps): Section {
   ];
   facades.forEach((f) => {
     const i = f.cote;
-    const releve = () => (c.obj.facades || []).find((r) => r.cote === i);
+    const releve = () => (c.obj.batiment?.facades || []).find((r) => r.cote === i);
     champs.push({
       type: 'ligne',
       cle: 'facade' + i,

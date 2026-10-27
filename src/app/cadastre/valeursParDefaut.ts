@@ -4,6 +4,7 @@
 
 import { apparenceIgnParDefaut } from '../../geo/cadastreObjets.js';
 import type { ObjetBrut, ObjetPlan, Toit } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Un objet que l'import a pose (et que cette commande peut ramener a ses valeurs par defaut). */
 export function estImporte(o: { key?: string; fonction?: string; cadastre?: unknown; bdtopo?: unknown; voisinage?: boolean }): boolean {
@@ -17,19 +18,26 @@ export function estImporte(o: { key?: string; fonction?: string; cadastre?: unkn
  */
 export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
   if (!estImporte(o)) return o;
-  const copie: ObjetBrut = { ...o, ...(apparenceIgnParDefaut(o) ?? {}), textureVerticale: null, textureHorizontale: null, textureArbre: null };
-  for (const cle of ['couleurMurs', 'fenetres3d', 'profilFacades', 'modeToit', 'gazon3d', 'voisinage3d'] as const) delete (copie as Partial<ObjetPlan>)[cle];
-  if (o.fonction === 'batiment' && o.toit) {
+  const copie: ObjetBrut = { ...o, ...(apparenceIgnParDefaut(o) ?? {}), textureVerticale: null, textureHorizontale: null };
+  // Les sous-objets sont copies avant d'etre touches : l'objet d'origine ne bouge pas.
+  if (o.arbre) copie.arbre = { ...o.arbre, texture: null };
+  for (const cle of ['gazon3d', 'voisinage3d'] as const) delete (copie as Partial<ObjetPlan>)[cle];
+  if (o.batiment) {
+    const b = { ...o.batiment };
+    for (const cle of ['couleurMurs', 'fenetres3d', 'profilFacades', 'modeToit'] as const) delete b[cle];
+    copie.batiment = b;
+  }
+  if (o.fonction === 'batiment' && o.batiment?.toit) {
     // Un toit « bdtopo » sans couleur : l'actualisation le recalcule sur le contour relu, le LiDAR
     // le reprend corps par corps, l'orthophoto lui redonne sa couleur.
-    const toit: Toit = { ...o.toit, source: 'bdtopo' };
+    const toit: Toit = { ...o.batiment?.toit, source: 'bdtopo' };
     delete toit.couleur;
     delete toit.origineCouleur;
     delete toit.couverture;
-    copie.toit = toit;
-    copie.toitMesure = null;
-    copie.corpsToit = null;
-    copie.toitLidarLu = null;
+    champsBatiment(copie).toit = toit;
+    champsBatiment(copie).toitMesure = null;
+    champsBatiment(copie).corpsToit = null;
+    champsBatiment(copie).toitLidarLu = null;
   }
   return copie;
 }

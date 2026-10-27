@@ -215,7 +215,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const [extras, setExtras] = useState<ExtrasAnalyse | null>(null);
   const facade = facades.find((f) => f.cote === cote) || null;
   // Ce que la photo doit cadrer en hauteur : l'egout et, sur un pignon du toit connu, son triangle.
-  const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.toit, facade.cote) : hauteurEstimee;
+  const hauteurACadrer = facade ? hauteurEstimee + hauteurPignon(enPoints(bat).pts, bat.batiment?.toit, facade.cote) : hauteurEstimee;
   const prevues = Math.max(1, ...morceaux.map((m) => m.prise.photosPrevues ?? 1));
   useEchapFerme(releve);
   const mur = useMurVise(facade, releve.origine());

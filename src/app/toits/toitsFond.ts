@@ -33,6 +33,7 @@ import { centroid } from '../../geometry/basic.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { ProgressionToits } from '../../core/lectureToits.js';
 import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Combien de batiments lus par dessin : assez pour que le plan ne se redessine pas a chaque toit. */
 export const LOT_TOITS_FOND = 12;
@@ -102,13 +103,13 @@ function projecteurDuProjet(objets: ObjetPlan[]): ProjecteurLocal | null {
  * La couleur de ce toit reste a lire sur l'orthophoto : Plan la pose avec son origine
  * (render/couleurToitOrtho.ts) ; un toit sans couleur ne l'a jamais ete - ou l'actualisation l'a effacee.
  */
-export const couleurALire = (o: { toit?: { couleur?: string } | null }): boolean => !!o.toit && !o.toit.couleur;
+export const couleurALire = (o: { toit?: { couleur?: string } | null } | null | undefined): boolean => !!o?.toit && !o.toit.couleur;
 
 /**
  * La forme (LiDAR) ou la couleur (orthophoto) de ce batiment reste a lire. Un batiment verifie sur
  * place ne se compare que sur la forme : sa couleur, validee, n'est pas relue.
  */
-const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o)) || (!estVerifieSurPlace(o) && couleurALire(o));
+const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o.batiment)) || (!estVerifieSurPlace(o.batiment) && couleurALire(o.batiment));
 
 /**
  * Les batiments dont Plan choisit le toit, et ceux qui restent a lire - forme ou couleur - du plus
@@ -125,12 +126,14 @@ export function batimentsALire(objets: ObjetPlan[], lidar = true): { eligibles: 
 }
 
 /** Ce que la lecture ecrit d'un batiment, et rien d'autre : son nom, ses couleurs choisies restent. */
-const CHAMPS_LUS = ['pts', 'toit', 'elevation', 'toitMesure', 'volumesToit', 'corpsToit', 'toitACheval', 'toitLidarLu'] as const;
+const CHAMPS_LUS = ['pts', 'elevation'] as const;
+/** Les memes, dans le sous-objet `batiment` (model/typesFonctions.ts). */
+const CHAMPS_LUS_BATIMENT = ['toit', 'toitMesure', 'volumesToit', 'corpsToit', 'toitACheval', 'toitLidarLu'] as const;
 /** D'un batiment verifie sur place, la lecture n'ecrit que sa marque : le toit valide reste, au centimetre. */
-const CHAMPS_LUS_VERIFIE = ['toitLidarLu'] as const;
+const CHAMPS_LUS_VERIFIE_BATIMENT = ['toitLidarLu'] as const;
 
 /** L'empreinte de ce qui, change par l'utilisateur, rend une lecture caduque. */
-const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.toit ?? null]);
+const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.batiment?.toit ?? null]);
 
 /**
  * Ecrit dans le plan ce que la copie a lu, si le batiment y est encore tel qu'il a ete copie : la
@@ -138,18 +141,23 @@ const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.toi
  * quoi ce batiment repassait a chaque passe. Rend vrai s'il a ete ecrit.
  */
 function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean {
-  const forme = toitLu(copie), couleur = !!copie.toit?.couleur;
+  const forme = toitLu(copie.batiment), couleur = !!copie.batiment?.toit?.couleur;
   if (!forme && !couleur) return false;
   const o = objets.find((x) => x.key === copie.key);
   if (!o || empreinte(o) !== avant || !toitAAjuster(o as ObjetAToit)) return false;
   if (forme) {
-    const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
-    for (const k of estVerifieSurPlace(o) ? CHAMPS_LUS_VERIFIE : CHAMPS_LUS) cible[k] = source[k] === undefined ? null : source[k];
+    const verifie = estVerifieSurPlace(o.batiment);
+    if (!verifie) {
+      const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
+      for (const k of CHAMPS_LUS) cible[k] = source[k] === undefined ? null : source[k];
+    }
+    const cible = champsBatiment(o) as Record<string, unknown>, source = (copie.batiment ?? {}) as Record<string, unknown>;
+    for (const k of verifie ? CHAMPS_LUS_VERIFIE_BATIMENT : CHAMPS_LUS_BATIMENT) cible[k] = source[k] === undefined ? null : source[k];
     return true;
   }
-  if (estVerifieSurPlace(o)) return false;
-  if (!o.toit || !couleurALire(o) || !copie.toit) return false;
-  o.toit = { ...o.toit, couleur: copie.toit.couleur as string, ...(copie.toit.origineCouleur ? { origineCouleur: copie.toit.origineCouleur } : {}) };
+  if (estVerifieSurPlace(o.batiment)) return false;
+  if (!o.batiment?.toit || !couleurALire(o.batiment) || !copie.batiment?.toit) return false;
+  champsBatiment(o).toit = { ...o.batiment?.toit, couleur: copie.batiment?.toit.couleur as string, ...(copie.batiment?.toit.origineCouleur ? { origineCouleur: copie.batiment?.toit.origineCouleur } : {}) };
   return true;
 }
 
@@ -247,7 +255,7 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
     while (i < cles.length) {
       const cle = cles[i++];
       const o = courants.find((x) => x.key === cle);
-      if (o && toitAAjuster(o as ObjetAToit) && admis(o)) return { copie: structuredClone(o), avant: empreinte(o), ...(estVerifieSurPlace(o) ? { reference: structuredClone(o) } : {}) };
+      if (o && toitAAjuster(o as ObjetAToit) && admis(o)) return { copie: structuredClone(o), avant: empreinte(o), ...(estVerifieSurPlace(o.batiment) ? { reference: structuredClone(o) } : {}) };
     }
     return null;
   };
@@ -258,11 +266,11 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
  * couleur prend en compte), puis la couleur s'il n'en a pas. Un service qui echoue rend un bilan vide.
  */
 async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: ObjetAToit) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }> {
-  const pourForme = lidar && !toitLu(copie);
+  const pourForme = lidar && !toitLu(copie.batiment);
   const bilan = pourForme ? await lireForme(copie as ObjetAToit).catch(() => null) : null;
-  const pourCouleur = !estVerifieSurPlace(copie) && couleurALire(copie);
+  const pourCouleur = !estVerifieSurPlace(copie.batiment) && couleurALire(copie.batiment);
   const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
-  return { bilan, forme: pourForme && toitLu(copie), couleur: pourCouleur && !couleurALire(copie), couleurs: lues ? lues.lus + lues.replis : 0 };
+  return { bilan, forme: pourForme && toitLu(copie.batiment), couleur: pourCouleur && !couleurALire(copie.batiment), couleurs: lues ? lues.lus + lues.replis : 0 };
 }
 
 /**

@@ -145,7 +145,7 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
       return gardes ? epurerLeTemps(gardes, dessiner) : dessiner();
     },
     ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
-    carte: (o, contour) => (o.toitMesure ? dessinerCarteHauteurs(o.toitMesure, contour) : null),
+    carte: (o, contour) => (o.batiment?.toitMesure ? dessinerCarteHauteurs(o.batiment?.toitMesure, contour) : null),
     renfort: { photo: photoRenfortNavigateur, elevation: elevationRenfortNavigateur },
   };
 }

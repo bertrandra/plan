@@ -18,7 +18,7 @@ describe('profil de facades a l enregistrement', () => {
   it('revient a l identique', () => {
     const [s] = serializeObjects([batiment({ profilFacades: { id: 'pavillon-idf', version: 3 } })]);
     const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as ObjetPlan[];
-    expect(relu!.profilFacades).toEqual({ id: 'pavillon-idf', version: 3 });
+    expect(relu!.batiment?.profilFacades).toEqual({ id: 'pavillon-idf', version: 3 });
   });
 
   it('ne s ecrit pas quand il n y en a pas', () => {

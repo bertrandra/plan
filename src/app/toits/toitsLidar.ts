@@ -259,7 +259,7 @@ export const VERSION_LECTURE_TOITS = versionDeLecture(LECTURES_TOITS, EMPREINTE_
  */
 export const MARQUE_ESSAI_FAITS = VERSION_LECTURE_TOITS - 0.5;
 /** Le toit de ce batiment a deja ete lu sur le LiDAR, a la version courante (ou avec l'essai en cours). */
-export const toitLu = (o: { toitLidarLu?: number | null }): boolean => (o.toitLidarLu ?? 0) >= VERSION_LECTURE_TOITS || (essaiDeFaits() && o.toitLidarLu === MARQUE_ESSAI_FAITS);
+export const toitLu = (o: { toitLidarLu?: number | null } | null | undefined): boolean => (o?.toitLidarLu ?? 0) >= VERSION_LECTURE_TOITS || (essaiDeFaits() && o?.toitLidarLu === MARQUE_ESSAI_FAITS);
 /** La marque a poser sur un batiment qu'on vient de lire. */
 export const marqueDeLecture = (o: ObjetAToit): number => (cleToucheeParEssai(cleDuBatiment(o)) ? MARQUE_ESSAI_FAITS : VERSION_LECTURE_TOITS);
 /** Combien de lectures en meme temps : de petites grilles, le service repond vite. */

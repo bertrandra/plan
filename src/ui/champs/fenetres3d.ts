@@ -29,7 +29,7 @@ export function reinitialiserChoixFenetre(): void {
 const pts = (o: ObjetPlan) => enPoints(o).pts;
 const r = (c: ContexteChamps) => fenetres3dDe(c.obj);
 const ecrire = (c: ContexteChamps, f: (x: Fenetres3d) => void) => reglerFenetres3d(c.obj, f);
-const cotesReleves = (o: ObjetPlan) => (o.facades ?? []).map((x) => x.cote);
+const cotesReleves = (o: ObjetPlan) => (o.batiment?.facades ?? []).map((x) => x.cote);
 const hauteur = (c: ContexteChamps) => c.elevationOf(c.obj);
 
 /** La disposition automatique du batiment, aux dimensions communes en cours. */
@@ -37,7 +37,7 @@ function automatiques(c: ContexteChamps): Fenetre3d[] {
   const h = hauteur(c), p = pts(c.obj);
   const x = r(c);
   const etages = (c.obj.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
-  return ouverturesAutomatiques(p, volumesDuBatiment(p, h, c.obj.facades), h, { largeur: x.largeur, hauteur: x.hauteur, appui: x.appui, entraxe: x.entraxe, cotesReleves: cotesReleves(c.obj), etages: typeof etages === 'number' ? etages : null, profil: valeursFacadesDe(c.obj) });
+  return ouverturesAutomatiques(p, volumesDuBatiment(p, h, c.obj.batiment?.facades), h, { largeur: x.largeur, hauteur: x.hauteur, appui: x.appui, entraxe: x.entraxe, cotesReleves: cotesReleves(c.obj), etages: typeof etages === 'number' ? etages : null, profil: valeursFacadesDe(c.obj.batiment) });
 }
 
 function libelleCote(c: ContexteChamps, i: number): string {
@@ -49,7 +49,7 @@ function libelleCote(c: ContexteChamps, i: number): string {
 export function sectionFenetres3d(c: ContexteChamps): Section | null {
   const o = c.obj;
   if (o.type !== 'polygon' || !estBatiment(o) || o.voisinage) return null;
-  if (!mursAOuvrir(pts(o), hauteur(c), cotesReleves(o), valeursFacadesDe(o)).length) return null;
+  if (!mursAOuvrir(pts(o), hauteur(c), cotesReleves(o), valeursFacadesDe(o.batiment)).length) return null;
   const toutes = (cc: ContexteChamps) => r(cc).mode === 'toutes';
   const uneParUne = (cc: ContexteChamps) => r(cc).mode === 'uneParUne';
   const liste = (cc: ContexteChamps): Fenetre3d[] => r(cc).liste ?? [];

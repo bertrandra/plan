@@ -48,7 +48,7 @@ describe('les primitives detournees', () => {
     expect(obj.type).toBe('circle');
     expect(obj.fonction).toBe('parasol');
     expect(enCercle(obj).r).toBe(1.5);
-    expect(obj.hauteurParasol).toBe(2.2);
+    expect(obj.parasol?.hauteur).toBe(2.2);
   });
 
   it('le point de vue est un chemin, reconnu a sa fonction', () => {
@@ -74,14 +74,14 @@ describe('les primitives detournees', () => {
 describe('rattachement du parasol', () => {
   it('retient la terrasse qu on lui donne', () => {
     const t: ObjetPlan = { key: 't1', name: 'Terrasse', fonction: 'terrasse', type: 'polygon', pts: [] };
-    expect(nouveauParasol(CENTRE, 'k', 1, t).obj.terrasseLieeKey).toBe('t1');
+    expect(nouveauParasol(CENTRE, 'k', 1, t).obj.parasol?.terrasseLieeKey).toBe('t1');
   });
 
   it('ne se rattache pas a la parcelle faute de terrasse', () => {
     // Sans terrasse, le repli est la parcelle : elle sert de position, pas de rattachement.
     const p: ObjetPlan = { key: 'parcelle', name: 'Parcelle', fonction: 'terrain', type: 'polygon', pts: [] };
-    expect(nouveauParasol(CENTRE, 'k', 1, p).obj.terrasseLieeKey).toBeNull();
-    expect(nouveauParasol(CENTRE, 'k', 1, undefined).obj.terrasseLieeKey).toBeNull();
+    expect(nouveauParasol(CENTRE, 'k', 1, p).obj.parasol?.terrasseLieeKey).toBeNull();
+    expect(nouveauParasol(CENTRE, 'k', 1, undefined).obj.parasol?.terrasseLieeKey).toBeNull();
   });
 });
 
@@ -223,7 +223,7 @@ describe('un parasol naît sur sa terrasse', () => {
     const { c, etat } = monter([parcelle, terrasse]);
     c.ajouterParasol();
     expect(enCercle(etat.objects[2]!).center).toEqual({ x: 12, y: 12 });
-    expect(etat.objects[2]!.terrasseLieeKey).toBe('t1');
+    expect(etat.objects[2]!.parasol?.terrasseLieeKey).toBe('t1');
   });
 
   it('prefere la terrasse selectionnee', () => {
@@ -231,14 +231,14 @@ describe('un parasol naît sur sa terrasse', () => {
     const { c, etat } = monter([parcelle, terrasse, autre]);
     etat.terrasseSelectedKey = 't2';
     c.ajouterParasol();
-    expect(etat.objects[3]!.terrasseLieeKey).toBe('t2');
+    expect(etat.objects[3]!.parasol?.terrasseLieeKey).toBe('t2');
   });
 
   it('retombe sur la parcelle quand il n y a aucune terrasse', () => {
     const { c, etat } = monter([parcelle]);
     c.ajouterParasol();
     expect(enCercle(etat.objects[1]!).center).toEqual({ x: 50, y: 50 });
-    expect(etat.objects[1]!.terrasseLieeKey).toBeNull();
+    expect(etat.objects[1]!.parasol?.terrasseLieeKey).toBeNull();
   });
 
   it('numerote a partir des parasols deja poses', () => {

@@ -48,7 +48,7 @@ export function propositionsClaudeDuBatiment(o: ObjetPlan, b: LigneBatiment, r: 
   const reponses = passesLues(r.reponses);
   if (!reponses.length) return [];
   const v = voterAnalyse(reponses, r.escalade);
-  const contra = [...contradictionsLidar(v, indicesLidar(o.toitMesure, o.corpsToit)), ...v.contradictions.map((c) => c.observation + ' (' + c.indiceLidar + ')')];
+  const contra = [...contradictionsLidar(v, indicesLidar(o.batiment?.toitMesure, o.batiment?.corpsToit)), ...v.contradictions.map((c) => c.observation + ' (' + c.indiceLidar + ')')];
   // Claude dit lui-meme douter : chacune de ses lignes le dit aussi.
   const doute = reserveConfiance(v.confiance);
   const out: Proposition[] = [];
@@ -174,7 +174,7 @@ export function propositionsDetails(e: EntreesPropositions, parBatiment: Record<
     const v = voterAnalyse(reponses, r.escalade);
     for (const f of b.facades) {
       const id = cleMesure(b.cle, f.cote);
-      const base = e.mesures.get(id)?.releve ?? parCle.get(b.cle)?.facades?.find((x) => x.cote === f.cote) ?? null;
+      const base = e.mesures.get(id)?.releve ?? parCle.get(b.cle)?.batiment?.facades?.find((x) => x.cote === f.cote) ?? null;
       const fv = v.facades.find((x) => x.facade === etiquetteFacade(b, f));
       if (!base?.ouvertures.length || !fv) continue;
       const { details, votes, textes } = detailsDeLaFacade(fv);

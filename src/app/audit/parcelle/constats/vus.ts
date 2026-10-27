@@ -32,7 +32,7 @@ export interface GroupeDeMurs { cible: string; principal: boolean; facades: Lign
  * mur qu'aucun corps ne longe ne dit rien.
  */
 export function groupesDeMurs(o: ObjetPlan, b: LigneBatiment): GroupeDeMurs[] {
-  const corps = o.corpsToit ?? [];
+  const corps = o.batiment?.corpsToit ?? [];
   if (!corps.length) return [{ cible: cibleBatiment(b.cle), principal: true, facades: b.facades, plat: false }];
   const kp = plusGrand(corps);
   const parCorps = new Map<number, LigneBatiment['facades']>();

@@ -28,7 +28,7 @@ const FAB: FabriqueImages = {
 function maison() {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toitMesure: { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(7), egout: 6, faite: 9, source: 'lidar' } },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toitMesure: { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(7), egout: 6, faite: 9, source: 'lidar' } } },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   return { objets, capture };

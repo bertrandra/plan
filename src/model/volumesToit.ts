@@ -295,9 +295,9 @@ export function volumesParDefaut(pts: readonly PtBrut[], toit: Toit): VolumeToit
 }
 
 /** Les volumes que la 3D montre : ceux du batiment quand il en a au moins deux et que le mode ne dit pas « un seul toit ». */
-export function volumesActifs(o: Pick<ObjetPlan, 'volumesToit' | 'modeToit'>): VolumeToit[] | null {
-  const v = o.volumesToit;
-  if (!v || v.length < 2 || o.modeToit === 'simple') return null;
+export function volumesActifs(o: Pick<ObjetPlan, 'batiment'>): VolumeToit[] | null {
+  const v = o.batiment?.volumesToit;
+  if (!v || v.length < 2 || o.batiment?.modeToit === 'simple') return null;
   return v;
 }
 

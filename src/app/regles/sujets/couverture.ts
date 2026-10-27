@@ -13,8 +13,8 @@ export function couvertureDuVocabulaire(v: string): CouvertureChoisie | null {
 
 function propositionCouverture({ o, b, v, et, contra }: EntreeSujet): Proposition | null {
   const couverture = couvertureDuVocabulaire(v.couverture.valeur);
-  if (!couverture || !o.toit || o.toit.couverture === couverture) return null;
-  const choisie = o.toit.couverture;
+  if (!couverture || !o.batiment?.toit || o.batiment?.toit.couverture === couverture) return null;
+  const choisie = o.batiment?.toit.couverture;
   return deClaude({
     id: b.cle + ':claude:couverture', cible: { type: 'batiment', cle: b.cle }, objet: 'Couverture de ' + b.nom,
     avant: choisie ? libelleDe(COUVERTURES_VUES, choisie) : 'déduite par Plan', apres: libelleDe(COUVERTURES_VUES, couverture) + ', vue par Claude',

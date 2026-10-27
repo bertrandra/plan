@@ -17,49 +17,49 @@ const avecTout = (): ObjetPlan => {
 describe('les elements du toit', () => {
   it('les gestes de la palette posent fenetre de toit et solaire sur le pan, et le bow-window a pans coupes par defaut', () => {
     const o = avecTout();
-    const types = listerElements(o.corpsToit!).map((e) => e.cible.type);
+    const types = listerElements(o.batiment?.corpsToit!).map((e) => e.cible.type);
     expect(types).toEqual(expect.arrayContaining(['saillie', 'pignon', 'lucarne', 'cheminee', 'fenetre-toit', 'solaire']));
-    expect(o.corpsToit!.find((c) => c.saillie?.genre === 'bow-window')!.saillie!.forme).toBe('pans');
-    expect(o.corpsToit![0]!.elementsToit).toHaveLength(2);
+    expect(o.batiment?.corpsToit!.find((c) => c.saillie?.genre === 'bow-window')!.saillie!.forme).toBe('pans');
+    expect(o.batiment?.corpsToit![0]!.elementsToit).toHaveLength(2);
   });
 
   it('lit un element par sa cible, et null quand il n existe plus', () => {
     const o = avecTout();
-    expect(lireElement(o.corpsToit!, { type: 'solaire', rang: 0, i: 1 })).toMatchObject({ type: 'solaire' });
-    expect(lireElement(o.corpsToit!, { type: 'solaire', rang: 0, i: 0 })).toBeNull();
-    expect(lireElement(o.corpsToit!, { type: 'pignon', rang: 9, i: 0 })).toBeNull();
+    expect(lireElement(o.batiment?.corpsToit!, { type: 'solaire', rang: 0, i: 1 })).toMatchObject({ type: 'solaire' });
+    expect(lireElement(o.batiment?.corpsToit!, { type: 'solaire', rang: 0, i: 0 })).toBeNull();
+    expect(lireElement(o.batiment?.corpsToit!, { type: 'pignon', rang: 9, i: 0 })).toBeNull();
   });
 
   it('supprime un element sans toucher aux autres ni a la liste d origine', () => {
-    const o = avecTout(), avant = JSON.stringify(o.corpsToit);
-    const sans = supprimerElement(o.corpsToit!, { type: 'fenetre-toit', rang: 0, i: 0 });
+    const o = avecTout(), avant = JSON.stringify(o.batiment?.corpsToit);
+    const sans = supprimerElement(o.batiment?.corpsToit!, { type: 'fenetre-toit', rang: 0, i: 0 });
     expect(sans[0]!.elementsToit).toHaveLength(1);
-    expect(JSON.stringify(o.corpsToit)).toBe(avant);
-    const sansBow = supprimerElement(o.corpsToit!, { type: 'saillie', rang: 1, i: 0 });
+    expect(JSON.stringify(o.batiment?.corpsToit)).toBe(avant);
+    const sansBow = supprimerElement(o.batiment?.corpsToit!, { type: 'saillie', rang: 1, i: 0 });
     expect(sansBow.some((c) => c.saillie?.genre === 'bow-window')).toBe(false);
     // Le dernier element d'un type : la cle disparait (rien d'ecrit pour une liste vide).
-    const sansCheminee = supprimerElement(o.corpsToit!, { type: 'cheminee', rang: 0, i: 0 });
+    const sansCheminee = supprimerElement(o.batiment?.corpsToit!, { type: 'cheminee', rang: 0, i: 0 });
     expect(sansCheminee[0]!.cheminees).toBeUndefined();
   });
 
   it('duplique a cote, ou refuse quand il n y a pas de place', () => {
     const o = avecTout();
-    const r = dupliquerElement(o.corpsToit!, { type: 'solaire', rang: 0, i: 1 })!;
+    const r = dupliquerElement(o.batiment?.corpsToit!, { type: 'solaire', rang: 0, i: 1 })!;
     expect(r.corps[0]!.elementsToit).toHaveLength(3);
     expect(r.cible).toEqual({ type: 'solaire', rang: 0, i: 2 });
     const [a, b] = [r.corps[0]!.elementsToit![1]!, r.corps[0]!.elementsToit![2]!];
     expect(Math.abs(a.sM - b.sM)).toBeGreaterThanOrEqual(2.55);
-    const bow = dupliquerElement(o.corpsToit!, { type: 'saillie', rang: 1, i: 0 })!;
+    const bow = dupliquerElement(o.batiment?.corpsToit!, { type: 'saillie', rang: 1, i: 0 })!;
     expect(bow.corps.filter((c) => c.saillie?.genre === 'bow-window')).toHaveLength(2);
     // Un pignon aussi large que le corps n'a pas de place pour un second.
-    const pleine = JSON.parse(JSON.stringify(o.corpsToit)) as CorpsToit[];
+    const pleine = JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as CorpsToit[];
     pleine[0]!.pignons = [{ pan: 0, debut: 0, fin: 9.9, faitage: 7, profondeur: 3 }];
     expect(dupliquerElement(pleine, { type: 'pignon', rang: 0, i: 0 })).toBeNull();
   });
 
   it('agrandit et reduit dans les bornes de la maquette', () => {
     const o = avecTout();
-    let corps = o.corpsToit!;
+    let corps = o.batiment?.corpsToit!;
     for (let k = 0; k < 20; k++) corps = redimensionnerElement(corps, { type: 'solaire', rang: 0, i: 1 }, 1);
     expect((lireElement(corps, { type: 'solaire', rang: 0, i: 1 }) as { echelle: number }).echelle).toBeCloseTo(2.2, 5);
     for (let k = 0; k < 40; k++) corps = redimensionnerElement(corps, { type: 'solaire', rang: 0, i: 1 }, -1);
@@ -75,8 +75,8 @@ describe('les elements du toit', () => {
   it('regle les groupes en images : forme, niveau, toit d un bow ; poteaux et retrait d une galerie ; hauteur d un pignon', () => {
     const o = avecTout();
     const bow: CibleElement = { type: 'saillie', rang: 1, i: 0 };
-    expect(groupesDe(o.corpsToit!, bow).map((g) => g.groupe)).toEqual(['forme', 'niveau', 'toit']);
-    let corps = appliquerChoix(o.corpsToit!, bow, 'forme', 'arc');
+    expect(groupesDe(o.batiment?.corpsToit!, bow).map((g) => g.groupe)).toEqual(['forme', 'niveau', 'toit']);
+    let corps = appliquerChoix(o.batiment?.corpsToit!, bow, 'forme', 'arc');
     expect(valeurDuGroupe(corps, bow, 'forme')).toBe('arc');
     corps = appliquerChoix(corps, bow, 'toit', 'plat');
     expect(valeurDuGroupe(corps, bow, 'toit')).toBe('plat');
@@ -108,7 +108,7 @@ describe('les elements du toit', () => {
   });
 
   it('trouve l element le plus proche d un toucher, sinon rien', () => {
-    const o = avecTout(), corps = o.corpsToit!;
+    const o = avecTout(), corps = o.batiment?.corpsToit!;
     const bow = corps[1]!;
     const milieu = { x: bow.pts.reduce((t, p) => t + p.x, 0) / 4, y: bow.pts.reduce((t, p) => t + p.y, 0) / 4 };
     expect(elementProche(corps, milieu)).toEqual({ type: 'saillie', rang: 1, i: 0 });
@@ -120,10 +120,10 @@ describe('les elements du toit', () => {
   it('dit quel element un geste vient d ajouter', () => {
     const o = maison();
     appliquerPiece(o, 'sur:cheminee');
-    const avant = JSON.parse(JSON.stringify(o.corpsToit)) as CorpsToit[];
+    const avant = JSON.parse(JSON.stringify(o.batiment?.corpsToit)) as CorpsToit[];
     appliquerPiece(o, 'sur:solaire');
-    expect(cibleAjoutee(avant, o.corpsToit!)).toEqual({ type: 'solaire', rang: 0, i: 0 });
-    expect(cibleAjoutee(o.corpsToit!, o.corpsToit!)).toBeNull();
+    expect(cibleAjoutee(avant, o.batiment?.corpsToit!)).toEqual({ type: 'solaire', rang: 0, i: 0 });
+    expect(cibleAjoutee(o.batiment?.corpsToit!, o.batiment?.corpsToit!)).toBeNull();
   });
 });
 

@@ -591,9 +591,9 @@ function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu:
 export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h: number, options: OptionsDetails = {}): void {
   if (!Array.isArray(o.pts) || o.pts.length < 3 || h <= 0) return;
   const multi = options.volumes;
-  const volumes = multi ?? volumesDuBatiment(o.pts, h, o.facades);
+  const volumes = multi ?? volumesDuBatiment(o.pts, h, o.batiment?.facades);
   const contourHaut = au(volumes, 0).pts;
-  const toit = options.sansToit ? null : o.toit;
+  const toit = options.sansToit ? null : o.batiment?.toit;
   const pres = ctx.distance <= (ctx.detailFin ?? DETAIL_FIN_M);
   // Chaque corps de batiment a son debord a son egout ; sinon le debord suit la partie haute.
   if (multi && !options.sansToit) multi.forEach((v) => poserDebord(ctx, v.pts, v.toit, v.hauteur, pres, o.pts));

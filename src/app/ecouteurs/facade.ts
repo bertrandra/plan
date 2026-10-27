@@ -17,6 +17,7 @@ import type { ServiceReleve } from '../releve/releve.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { estBatiment } from '../../model/fonctions.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 export interface ContexteCommandesFacade {
   etat: EtatApp;
@@ -50,14 +51,15 @@ export function brancherFacade(ctx: ContexteCommandesFacade, cmd: RegistreComman
     libelle: 'Retirer le relevé',
     groupe: 'facade',
     permission: PERMISSION_ECRITURE,
-    actif: () => !!batiment()?.facades?.length,
+    actif: () => !!batiment()?.batiment?.facades?.length,
     executer: () => {
       const o = batiment();
       const cote = reprendreFacadeDesignee();
       if (!o || cote === null) return;
       ctx.pushHistory();
-      o.facades = (o.facades || []).filter((r) => r.cote !== cote);
-      if (!o.facades.length) delete o.facades;
+      const b = champsBatiment(o);
+      b.facades = (b.facades || []).filter((r) => r.cote !== cote);
+      if (!b.facades.length) delete b.facades;
       ctx.render();
       if (vue3d.scene) ctx.buildThreeScene(terrasseCourante(ctx.etat) || null);
     },

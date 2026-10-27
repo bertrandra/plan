@@ -70,7 +70,7 @@ describe('objetsDepuisCadastre, sur un import complet fige', () => {
     try {
       const arbres = objetsDepuisCadastre(importFige()).filter(o => o.fonction === 'arbre');
       expect(arbres.length).toBeGreaterThan(0);
-      for (const a of arbres) expect(BIBLIOTHEQUE_LIVREE.some(e => e.id === a.especeArbre), String(a.especeArbre)).toBe(true);
+      for (const a of arbres) expect(BIBLIOTHEQUE_LIVREE.some(e => e.id === a.arbre?.espece), String(a.arbre?.espece)).toBe(true);
     } finally { poserEspeces([]); }
   });
 

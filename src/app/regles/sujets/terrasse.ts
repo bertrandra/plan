@@ -17,7 +17,7 @@ const LIBELLES_REVETEMENT: Readonly<Record<string, string>> = { gravillons: 'en 
 const vu = (v: VoteAnalyse, element: string): boolean => v.elements.some((e) => e.valeur === element);
 
 function propositionTerrasse({ o, b, v, et, contra }: EntreeSujet): Proposition | null {
-  const corps = o.corpsToit ?? [];
+  const corps = o.batiment?.corpsToit ?? [];
   const revetementVu = REVETEMENTS_PLATS[v.couverture.valeur];
   // Une couverture de toit plat vaut une terrasse vue, sauf si les passes disent le contraire.
   if (v.terrasse.valeur !== 'oui' && !(revetementVu && v.terrasse.valeur !== 'non')) return null;

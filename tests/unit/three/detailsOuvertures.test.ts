@@ -229,7 +229,7 @@ describe('ajouterDetailsBatiment, ouvertures detaillees', () => {
 describe('ajouterReleve3d, details du releve', () => {
   const releve = (ouvertures: OuvertureFacade[], texture: string | null = null) => {
     const { ajoutes, ctx } = scene();
-    ajouterReleve3d({ ...ctx, textures: true }, { ...maison(), facades: [{ cote: 0, largeur: 12, hauteur: 6, texture, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] }, 6);
+    ajouterReleve3d({ ...ctx, textures: true }, { ...maison(), batiment: { ...(maison()).batiment, facades: [{ cote: 0, largeur: 12, hauteur: 6, texture, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] } }, 6);
     return ajoutes;
   };
 

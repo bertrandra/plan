@@ -3,6 +3,7 @@ import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, 
 import { corpsVisibles, facadeProche, facadeVersLePoint, facadesDuBatiment, orientationDe } from '../../../../src/facade/modeToit/facadesDesCorps.js';
 import { OBLIQUE, cadreOblique, poseDeDessus } from '../../../../src/three/poseFacade.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
+import { champsBatiment } from '../../../../src/model/champsFonction.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 const batiment = (): ObjetPlan => ({ key: 'b', type: 'polygon', pts: rect, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
@@ -14,47 +15,47 @@ describe('la session d edition du toit', () => {
     const c = photographier(o);
     expect(Object.keys(c)).toEqual(['toit']);
     (c.toit as { hauteur: number }).hauteur = 9;
-    expect(o.toit?.hauteur).toBe(2.5);
+    expect(o.batiment?.toit?.hauteur).toBe(2.5);
   });
 
   it('annule, retablit et revient au depart, en retirant ce qui n existait pas', () => {
     const o = batiment(), h = creerHistorique(o);
     expect(peutAnnuler(h)).toBe(false);
-    o.corpsToit = [corps()]; o.toitFige = true;
+    champsBatiment(o).corpsToit = [corps()]; champsBatiment(o).toitFige = true;
     expect(empiler(h, o)).toBe(true);
-    o.corpsToit[0]!.faitage = 8;
+    o.batiment!.corpsToit![0]!.faitage = 8;
     expect(empiler(h, o)).toBe(true);
     expect(aChange(h)).toBe(true);
     expect(annuler(h, o)).toBe(true);
-    expect(o.corpsToit![0]!.faitage).toBe(7);
+    expect(o.batiment?.corpsToit![0]!.faitage).toBe(7);
     expect(peutRetablir(h)).toBe(true);
     expect(retablir(h, o)).toBe(true);
-    expect(o.corpsToit![0]!.faitage).toBe(8);
+    expect(o.batiment?.corpsToit![0]!.faitage).toBe(8);
     expect(revenirAuDepart(h, o)).toBe(true);
-    expect(o.corpsToit).toBeUndefined();
-    expect(o.toitFige).toBeUndefined();
+    expect(o.batiment?.corpsToit).toBeUndefined();
+    expect(o.batiment?.toitFige).toBeUndefined();
     // Revenir au depart est une etape : on peut l'annuler.
     expect(annuler(h, o)).toBe(true);
-    expect(o.corpsToit![0]!.faitage).toBe(8);
+    expect(o.batiment?.corpsToit![0]!.faitage).toBe(8);
   });
 
   it('un geste sans effet n empile rien, un geste apres annulation coupe la suite', () => {
     const o = batiment(), h = creerHistorique(o);
     expect(empiler(h, o)).toBe(false);
-    o.toitFige = true; empiler(h, o);
+    champsBatiment(o).toitFige = true; empiler(h, o);
     annuler(h, o);
-    o.modeToit = 'corps'; empiler(h, o);
+    champsBatiment(o).modeToit = 'corps'; empiler(h, o);
     expect(peutRetablir(h)).toBe(false);
     expect(h.pas).toHaveLength(2);
   });
 
   it('restaurer rend le depart sans rien garder de ce qui a ete pose', () => {
     const o = batiment(), depart = photographier(o);
-    o.corpsToit = [corps()]; o.toitFige = true;
+    champsBatiment(o).corpsToit = [corps()]; champsBatiment(o).toitFige = true;
     restaurer(o, depart);
-    expect(o.corpsToit).toBeUndefined();
-    expect(o.toitFige).toBeUndefined();
-    expect(o.toit?.hauteur).toBe(2.5);
+    expect(o.batiment?.corpsToit).toBeUndefined();
+    expect(o.batiment?.toitFige).toBeUndefined();
+    expect(o.batiment?.toit?.hauteur).toBe(2.5);
   });
 });
 

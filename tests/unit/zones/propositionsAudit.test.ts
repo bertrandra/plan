@@ -29,7 +29,7 @@ afterEach(() => { act(() => racine.unmount()); hote.remove(); });
 async function session(sortie: unknown) {
   const etat = creerEtat({ objects: [
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } }),
-    obj('maison', { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' } }),
+    obj('maison', { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, couverture: 'ardoise' } } }),
   ] } as never, (o) => o as never);
   const demandes: DemandeAnalyse[] = [];
   const client: ClientAnalyse = {

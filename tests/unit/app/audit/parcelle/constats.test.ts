@@ -10,12 +10,12 @@ import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { Constat } from '../../../../../src/facade/regles/reconciliation.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
 import type { FacadeAnalyse } from '../../../../../src/model/analyseClaude.js';
-import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../../src/model/types.js';
 
 // Les constats d'un batiment, source par source (lot R3) : sur AE 101 (faitage du corps principal a 74 degres, murs est et ouest
 // en bout, sud en long pan ; cotes du contour : est 1, ouest 9, sud 6 ; le nord 12 est le bout de l'aile nord-est, corps 2).
 
-const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ObjetPlan['toitMesure']; corps: CorpsToit[] };
+const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
 const maison = (plus: Record<string, unknown> = {}): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: d.corps, ...plus }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const COTES = { est: 1, ouest: 9, sud: 6, nord: 12 } as const;

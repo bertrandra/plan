@@ -24,7 +24,7 @@ const ETIQUETTES: EtiquetteImage[] = [
 function entrees(mesures = new Map<string, MesureFacade>()): EntreesPropositions {
   const objets = [
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
+    obj('maison', { name: 'Maison', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
   ];
   const capture = captureVide('78650000AE0101');
   return { objets, liste: listeDeControle(objets, capture), capture, mesures };

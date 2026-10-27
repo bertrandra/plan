@@ -32,12 +32,12 @@ describe('Murs en 3D', () => {
   it('le choix se range sur le batiment ; « Automatique » l efface, la lecture reste', () => {
     const c = contexte({ bdtopo: { materiauxMurs: '40' }, couleurMurs: { photo } });
     choix.ecrire(c, 'materiau');
-    expect(c.obj.couleurMurs).toEqual({ photo, source: 'materiau' });
+    expect(c.obj.batiment?.couleurMurs).toEqual({ photo, source: 'materiau' });
     expect(decrireCouleurMurs(c.obj)).toContain('retenue : matériau');
     choix.ecrire(c, 'plan');
     expect(decrireCouleurMurs(c.obj)).toContain('retenue : couleur du plan');
     choix.ecrire(c, 'auto');
-    expect(c.obj.couleurMurs).toEqual({ photo });
+    expect(c.obj.batiment?.couleurMurs).toEqual({ photo });
     // Le materiau seul : pas d'option « Photo de rue ».
     expect(choix.options(contexte({ bdtopo: { materiauxMurs: '10' } })).map((o) => o.valeur)).toEqual(['auto', 'materiau', 'plan']);
   });

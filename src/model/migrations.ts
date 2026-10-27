@@ -27,11 +27,11 @@
 import { SCHEMA_VERSION } from './version.js';
 // La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
 import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
-import type { ObjetBrut, PtBrut } from './types.js';
+import type { ObjetAPlat, PtBrut } from './types.js';
 
 /** Un document de projet, tel qu'il est lu ou ecrit : la forme de `projet.json`. */
 export interface DocumentBrut {
-  objects: ObjetBrut[];
+  objects: ObjetAPlat[];
   measures?: unknown[];
 }
 
@@ -92,7 +92,7 @@ export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
  * lui donnait le jour ou le schema 3 a ete fige (model/fige/toitSchema3.ts), et non celui d'aujourd'hui. L'altitude maximale du toit n'etait pas enregistree : la hauteur est
  * estimee (pente de tuile, regle 3) jusqu'a la prochaine actualisation, qui la lit.
  */
-function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
+function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
   const b = o.bdtopo as { couche?: unknown; altitudeToitM?: unknown; altitudeToitMaxM?: unknown; constructionLegere?: unknown } | null | undefined;
   const pts = (o as { pts?: unknown }).pts;
   if (o.toit || !b || b.couche !== COUCHE_BATIMENT_BDTOPO || o.type !== 'polygon' || !Array.isArray(pts) || pts.length < 3) return o;
@@ -112,7 +112,7 @@ function poserToitBdTopo(o: ObjetBrut): ObjetBrut {
  * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
  * faux sur un L).
  */
-export function schemaMinimal(objets: readonly ObjetBrut[]): number {
+export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
   let s = 1;
   for (const o of objets) {
     const brut = o as Record<string, unknown>;
@@ -129,7 +129,7 @@ export function schemaMinimal(objets: readonly ObjetBrut[]): number {
 }
 
 /** Le schema a ecrire : celui qui decrit le document, jamais sous celui ou le projet a ete monte. */
-export function schemaAEcrire(objets: readonly ObjetBrut[], plancher: number | null | undefined): number {
+export function schemaAEcrire(objets: readonly ObjetAPlat[], plancher: number | null | undefined): number {
   return Math.min(SCHEMA_VERSION, Math.max(schemaMinimal(objets), plancher ?? 1));
 }
 

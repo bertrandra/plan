@@ -27,7 +27,7 @@ export function niveauxSousEgout(v: VoteAnalyse): { niveaux: number; facade: str
 export function reserveNiveaux(o: ObjetPlan, v: VoteAnalyse, hauteurM: number): string | null {
   const vus = niveauxSousEgout(v);
   if (!vus) return null;
-  const min = vus.niveaux * valeursFacadesDe(o).HAUTEUR_NIVEAU_MIN_M;
+  const min = vus.niveaux * valeursFacadesDe(o.batiment).HAUTEUR_NIVEAU_MIN_M;
   if (hauteurM >= min) return null;
   return 'Claude voit ' + vus.niveaux + (vus.niveaux > 1 ? ' niveaux' : ' niveau') + ' d’ouvertures sur la façade ' + vus.facade + ' : il leur faut au moins ' + fr(min) + ' m à l’égout.';
 }

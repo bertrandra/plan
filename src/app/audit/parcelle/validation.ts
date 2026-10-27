@@ -188,7 +188,7 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
       const bat = ctx.etat.objects.find((o) => o.key === x.b.cle);
       if (bat && 'pts' in bat && bat.pts) {
         // Le mur a la hauteur que lit le LiDAR (sous le toit, corps compris), pas celle du prisme : rien ne se mesure sur place.
-        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'corpsToit' in bat ? bat.corpsToit ?? null : null }, x.photos, ctx.mesures, x.corrections);
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null }, x.photos, ctx.mesures, x.corrections);
         faites.set(x.cle, { signature: x.sig, mesure: m });
         version++;
       }
@@ -377,7 +377,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
   for (const p of prets) {
     if (p.cible.type !== 'facade') continue;
     const cote = p.cible.cote;
-    const r = ctx.etat.objects.find((o) => o.key === (p.cible as { cle: string }).cle)?.facades?.find((x) => x.cote === cote);
+    const r = ctx.etat.objects.find((o) => o.key === (p.cible as { cle: string }).cle)?.batiment?.facades?.find((x) => x.cote === cote);
     if (r) r.depuisAudit = true;
   }
   ctx.projet.render();

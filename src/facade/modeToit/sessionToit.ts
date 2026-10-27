@@ -6,22 +6,24 @@
 //
 // Pur : pas de DOM, pas de scene. Les instantanes sont des copies profondes (JSON), jamais des references.
 
-import type { ObjetPlan } from '../../model/types.js';
+import type { ChampsBatiment, ObjetPlan } from '../../model/types.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Les champs d'un batiment que le mode Toit peut changer : tout le reste du batiment est hors session. */
 const CHAMPS = ['corpsToit', 'toit', 'modeToit', 'toitFige', 'volumesToit'] as const;
-export type ChampsToit = Partial<Pick<ObjetPlan, typeof CHAMPS[number]>>;
+export type ChampsToit = Partial<Pick<ChampsBatiment, typeof CHAMPS[number]>>;
 
-/** Une copie profonde des champs du toit. Un champ absent reste absent. */
+/** Une copie profonde des champs du toit (sous-objet `batiment`). Un champ absent reste absent. */
 export function photographier(o: ObjetPlan): ChampsToit {
   const c: Record<string, unknown> = {};
-  for (const k of CHAMPS) if (o[k] !== undefined && o[k] !== null) c[k] = JSON.parse(JSON.stringify(o[k]));
+  const b = o.batiment ?? {};
+  for (const k of CHAMPS) if (b[k] !== undefined && b[k] !== null) c[k] = JSON.parse(JSON.stringify(b[k]));
   return c as ChampsToit;
 }
 
 /** Remet un instantane dans le batiment : les champs absents de l'instantane sont retires. */
 export function restaurer(o: ObjetPlan, c: ChampsToit): void {
-  const cible = o as unknown as Record<string, unknown>, source = c as Record<string, unknown>;
+  const cible = champsBatiment(o) as unknown as Record<string, unknown>, source = c as Record<string, unknown>;
   for (const k of CHAMPS) {
     if (source[k] === undefined) delete cible[k];
     else cible[k] = JSON.parse(JSON.stringify(source[k]));

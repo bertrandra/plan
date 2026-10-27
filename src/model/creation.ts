@@ -18,7 +18,7 @@
 import { au } from '../util/tableaux.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
-import type { PtBrut, ObjetPlan, ObjetBrut, Construction } from './types.js';
+import type { PtBrut, ObjetPlan, ObjetAPlat, Construction } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 import { centreSouhaite, type NatureOuvrage } from './placement.js';
@@ -122,8 +122,8 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
       center: { x: c.x, y: c.y }, r: 1.5, // 3 m de diametre, taille courante d'un parasol de terrasse
       showName: true, showSegNames: false, showVertNames: false, showDims: true, showAngles: false,
       constrained: true, fonction: 'parasol', matiere: '', priority: 4, locked: false,
-      hauteurParasol: 2.2,
-      terrasseLieeKey: (terrasse && estTerrasse(terrasse)) ? terrasse.key : null
+      parasol: { hauteur: 2.2, terrasseLieeKey: (terrasse && estTerrasse(terrasse)) ? terrasse.key : null },
+      
     },
     onglet: 'objet'
   };
@@ -274,7 +274,7 @@ export function nouveauPointDeVue(
  * Un objet passe par la serialisation : des donnees pures, sans element SVG. Non decrit plus
  * finement ici — la forme exacte appartient a `io/serialisation.ts` et a sa liste blanche.
  */
-export type ObjetSerialise = ObjetBrut & { key: string };
+export type ObjetSerialise = ObjetAPlat & { key: string };
 
 /** Ce que la creation doit pouvoir faire au plan et a l'interface. */
 export interface ContexteCreation {

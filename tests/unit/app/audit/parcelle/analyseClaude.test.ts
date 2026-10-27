@@ -10,6 +10,7 @@ import { signatureAnalyse } from '../../../../../src/model/auditParcelle.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { EtatApp } from '../../../../../src/core/state.js';
 import type { CorpsToit, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import { champsBatiment } from '../../../../../src/model/champsFonction.js';
 
 // L'analyse par Claude, cote client (MD/spec-audit.md §13.2) contre une API simulee : l'accord, les
 // entrees preparees (trois passes identiques, images etiquetees, facades comptees), le suivi du batch,
@@ -43,13 +44,13 @@ const IMAGES: FabriqueImages = {
   photo: async (p) => ({ base64: p.base64, mediaType: 'image/jpeg' }),
   rendu: () => ({ base64: 'UkVORFU=', mediaType: 'image/jpeg' }),
   ortho: async () => ({ base64: 'T1JUSE8=', mediaType: 'image/jpeg' }),
-  carte: (o) => (o.toitMesure ? { base64: 'Q0FSVEU=', mediaType: 'image/png' } : null),
+  carte: (o) => (o.batiment?.toitMesure ? { base64: 'Q0FSVEU=', mediaType: 'image/png' } : null),
 };
 
 function monter(reponses?: (id: string) => unknown, memoire?: ContexteAnalyse['memoire'], essai?: () => boolean) {
   const objets = normalizeObjects([
     obj('parcelle', { fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101', origineLat: 48.9, origineLon: 2.13 } }),
-    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] }),
+    obj('maison', { fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: [CORPS] },  }),
   ] as ObjetBrut[]) as ObjetPlan[];
   const etat = { objects: objets, measures: [], selectedKey: null, dirty: false } as unknown as EtatApp;
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
@@ -344,7 +345,7 @@ describe('l analyse par Claude', () => {
   it('prepare la carte LiDAR quand le batiment a une mesure, et rien sans photo', async () => {
     const t = monter();
     const m = t.etat.objects.find((o) => o.key === 'maison') as ObjetPlan;
-    m.toitMesure = { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(7), egout: 6, faite: 9, source: 'lidar' };
+    champsBatiment(m).toitMesure = { pas: 1, x0: 5, y0: 18, nx: 10, ny: 8, z: new Array(80).fill(7), egout: 6, faite: 9, source: 'lidar' };
     const prepare = await preparerDemande(t.validation.entrees(), IMAGES, { projet: null, idu: null, adresse: null, audit: 'a' });
     const textes = prepare!.demande.requetes[0]!.contenu.filter((b): b is { type: 'text'; text: string } => b.type === 'text').map((b) => b.text);
     expect(textes[3]).toMatch(/^Image 4 : carte des hauteurs LiDAR/);

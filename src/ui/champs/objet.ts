@@ -29,6 +29,7 @@ import { sectionsPiscine } from './piscine.js';
 import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
+import { champsArbre, champsParasol } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'tremie', 'limite', 'autre'];
@@ -220,8 +221,8 @@ const sectionApparence: Section = {
     ...champsCouleurMurs,
     // Le batiment vu et valide lors d'un audit de la parcelle (MD/spec-audit.md §14) : le dire, avec la date.
     {
-      type: 'lecture', cle: 'verifieSurPlace', libelle: 'Vérifié sur place', visible: (c) => !!c.obj.verifieSurPlace,
-      valeur: (c) => { const j = c.obj.verifieSurPlace?.date ?? ''; const [a, m, d] = j.split('-'); return a && m && d ? 'le ' + d + '/' + m + '/' + a + ', par un audit de la parcelle' : j; }
+      type: 'lecture', cle: 'verifieSurPlace', libelle: 'Vérifié sur place', visible: (c) => !!c.obj.batiment?.verifieSurPlace,
+      valeur: (c) => { const j = c.obj.batiment?.verifieSurPlace?.date ?? ''; const [a, m, d] = j.split('-'); return a && m && d ? 'le ' + d + '/' + m + '/' + a + ', par un audit de la parcelle' : j; }
     },
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
@@ -262,7 +263,7 @@ const sectionArbre: Section = {
     {
       type: 'nombre', cle: 'diametreArbre', libelle: 'Diamètre du feuillage', unite: 'm', pas: 0.1, min: 0.1, decimales: 1, effets: ['scene3d'],
       aide: 'Largeur du houppier : l’arbre 3D est mis à cette largeur (sa hauteur est celle de l’objet)',
-      lire: (c) => c.obj.diametreArbre ?? 3, ecrire: (c, v) => { c.obj.diametreArbre = Math.max(0.1, v) || 3; }
+      lire: (c) => c.obj.arbre?.diametre ?? 3, ecrire: (c, v) => { champsArbre(c.obj).diametre = Math.max(0.1, v) || 3; }
     },
     // L'essence vient de la bibliotheque que l'administrateur cree (ecran « Arbres ») : choisir une
     // essence propose aussi ses dimensions, que l'on regle ensuite a la main.
@@ -275,14 +276,14 @@ const sectionArbre: Section = {
       ecrire: (c, v) => {
         const e = especeParId(v);
         if (!e) return;
-        c.obj.especeArbre = e.id;
+        champsArbre(c.obj).espece = e.id;
         c.obj.elevation = e.hauteurM;
-        c.obj.diametreArbre = e.diametreM;
+        champsArbre(c.obj).diametre = e.diametreM;
       }
     },
     {
       type: 'couleur', cle: 'couleurArbre', libelle: 'Teinte du feuillage', effets: ['scene3d'],
-      lire: (c) => c.obj.couleurArbre || '#ffffff', ecrire: (c, v) => { c.obj.couleurArbre = v; }
+      lire: (c) => c.obj.arbre?.couleur || '#ffffff', ecrire: (c, v) => { champsArbre(c.obj).couleur = v; }
     }
   ]
 };
@@ -297,30 +298,30 @@ const sectionParasol: Section = {
       actif: (c) => c.objets.some(estTerrasse),
       options: (c) => { const t = c.objets.filter(estTerrasse); return t.length ? t.map(o => ({ valeur: o.key, libelle: o.name })) : [{ valeur: '', libelle: 'Aucune terrasse dans le plan' }]; },
       lire: (c) => terrasseDuParasol(c.obj, c.objets, c.etat.terrasseSelectedKey)?.key || '',
-      ecrire: (c, v) => { c.obj.terrasseLieeKey = v; }
+      ecrire: (c, v) => { champsParasol(c.obj).terrasseLieeKey = v; }
     },
     // Le diametre de la toile est le rayon du cercle : seule la hauteur du mat manque, et c'est
     // elle qui fixe la longueur de l'ombre.
     {
       type: 'nombre', cle: 'hauteurParasol', libelle: 'Hauteur du mât', unite: 'm', pas: 0.1, min: 0.5, decimales: 1, effets: ['rendu', 'scene3d'],
       aide: 'Hauteur de la toile au-dessus du sol : plus le mât est haut, plus l\'ombre se décale loin du pied',
-      lire: (c) => hauteurParasolDe(c.obj), ecrire: (c, v) => { c.obj.hauteurParasol = Math.max(0.5, v) || 2.2; }
+      lire: (c) => hauteurParasolDe(c.obj), ecrire: (c, v) => { champsParasol(c.obj).hauteur = Math.max(0.5, v) || 2.2; }
     },
     {
       type: 'case', cle: 'matSurPerimetre', libelle: 'Mât sur le périmètre de la terrasse', effets: ['rendu'],
       aide: 'Le pied reste collé au pourtour de la terrasse rattachée, y compris quand on glisse le parasol ; la recherche de position ne teste plus que le bord',
-      lire: (c) => !!c.obj.matSurPerimetre, ecrire: (c, v) => { c.obj.matSurPerimetre = v; }
+      lire: (c) => !!c.obj.parasol?.matSurPerimetre, ecrire: (c, v) => { champsParasol(c.obj).matSurPerimetre = v; }
     },
     {
       type: 'case', cle: 'matDeporte', libelle: 'Mât déporté (en bord de toile)', effets: ['rendu', 'scene3d'],
       aide: 'Le mât n\'est plus au centre de la toile mais sur son bord, ce qui dégage la surface sous la toile',
-      lire: (c) => !!c.obj.matDeporte, ecrire: (c, v) => { c.obj.matDeporte = v; }
+      lire: (c) => !!c.obj.parasol?.matDeporte, ecrire: (c, v) => { champsParasol(c.obj).matDeporte = v; }
     },
     {
       type: 'nombre', cle: 'matAngleDeg', libelle: 'Orientation du mât', unite: '°', pas: 5, decimales: 0, effets: ['rendu', 'scene3d'],
       aide: 'Direction du pied vu depuis le centre de la toile : 0 = Est, 90 = Nord',
-      visible: (c) => !!c.obj.matDeporte,
-      lire: (c) => Math.round(matAngleDe(c.obj)), ecrire: (c, v) => { c.obj.matAngleDeg = ((v || 0) % 360 + 360) % 360; }
+      visible: (c) => !!c.obj.parasol?.matDeporte,
+      lire: (c) => Math.round(matAngleDe(c.obj)), ecrire: (c, v) => { champsParasol(c.obj).matAngleDeg = ((v || 0) % 360 + 360) % 360; }
     },
     { type: 'date', cle: 'ombreDate', libelle: 'Ombre — date', sale: false, effets: ['rendu'], lire: (c) => c.etat.parasol.dateStr, ecrire: (c, v) => { if (v) c.etat.parasol.dateStr = v; } },
     {
@@ -347,7 +348,7 @@ const sectionParasol: Section = {
           if (!res) { c.toast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
           c.pushHistory();
           const toile = enCercle(obj); toile.center.x = res.x; toile.center.y = res.y;
-          if (obj.matDeporte && res.angleDeg !== undefined) obj.matAngleDeg = res.angleDeg;
+          if (obj.parasol?.matDeporte && res.angleDeg !== undefined) champsParasol(obj).matAngleDeg = res.angleDeg;
           c.render();
           c.toast('Parasol place sur "' + terr.name + '" : ' + (res.couverture * 100).toFixed(0) + ' % a l\'ombre en moyenne (mai-sept., 12h-18h).');
         }, 30);

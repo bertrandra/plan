@@ -41,7 +41,7 @@ afterEach(() => { poserEspeces([]); poserModuleEzTreePourTest(null); });
 describe('un arbre du plan', () => {
   it('est un groupe sans maille quand EZ-tree le dessine, pose au pied de l\'arbre', () => {
     const scene = new THREE_NS.Scene();
-    const g = ajouterArbre3d(ctx(scene), arbre('a', { especeArbre: 'pin', diametreArbre: 4 }), 9);
+    const g = ajouterArbre3d(ctx(scene), arbre('a', { arbre: { espece: 'pin', diametre: 4 },  }), 9);
     expect(g.name).toBe(NOM_ARBRE);
     expect(g.children).toHaveLength(0);
     expect([g.position.x, g.position.z]).toEqual([4, -2]);
@@ -49,22 +49,22 @@ describe('un arbre du plan', () => {
   });
 
   it('prend la hauteur et le diametre de l\'essence quand l\'objet n\'en dit pas', () => {
-    const g = ajouterArbre3d(ctx(new THREE_NS.Scene()), arbre('a', { especeArbre: 'chene' }), 0);
+    const g = ajouterArbre3d(ctx(new THREE_NS.Scene()), arbre('a', { arbre: { espece: 'chene' } }), 0);
     expect(donneesDe(g)).toMatchObject({ hauteur: 15, diametre: 10 });
   });
 
   it('suit la premiere essence quand l\'objet n\'en porte pas, ou une essence disparue', () => {
     expect(donneesDe(ajouterArbre3d(ctx(new THREE_NS.Scene()), arbre('a'), 5))?.espece).toBe('chene');
-    expect(donneesDe(ajouterArbre3d(ctx(new THREE_NS.Scene()), arbre('b', { especeArbre: 'disparu' }), 5))?.espece).toBe('chene');
+    expect(donneesDe(ajouterArbre3d(ctx(new THREE_NS.Scene()), arbre('b', { arbre: { espece: 'disparu' } }), 5))?.espece).toBe('chene');
   });
 
   it('se dessine en repli sans EZ-tree : un tronc et une boule, nu en hiver pour un caduc', () => {
     poserModuleEzTreePourTest(null);
-    const g = ajouterArbre3d(ctx(new THREE_NS.Scene(), '2026-01-15'), arbre('a', { especeArbre: 'chene' }), 8);
+    const g = ajouterArbre3d(ctx(new THREE_NS.Scene(), '2026-01-15'), arbre('a', { arbre: { espece: 'chene' } }), 8);
     expect(donneesDe(g)?.lot).toBe(false);
     expect(g.getObjectByName(NOM_TRONC)).toBeTruthy();
     expect(g.getObjectByName(NOM_FEUILLAGE)?.visible).toBe(false);
-    expect(ajouterArbre3d(ctx(new THREE_NS.Scene(), '2026-07-01'), arbre('b', { especeArbre: 'chene' }), 8).getObjectByName(NOM_FEUILLAGE)?.visible).toBe(true);
+    expect(ajouterArbre3d(ctx(new THREE_NS.Scene(), '2026-07-01'), arbre('b', { arbre: { espece: 'chene' } }), 8).getObjectByName(NOM_FEUILLAGE)?.visible).toBe(true);
   });
 
   it('se dessine en repli sans aucune essence', () => {
@@ -78,7 +78,7 @@ describe('un arbre du plan', () => {
 describe('les lots d\'instances', () => {
   function poser(n: number, plus: (i: number) => Partial<ObjetPlan> = () => ({})) {
     const scene = new THREE_NS.Scene();
-    const groupes = Array.from({ length: n }, (_, i) => ajouterArbre3d(ctx(scene), arbre('arbre-' + i, { especeArbre: 'pin', diametreArbre: 5, ...plus(i) }), 10));
+    const groupes = Array.from({ length: n }, (_, i) => ajouterArbre3d(ctx(scene), arbre('arbre-' + i, { arbre: { espece: 'pin', diametre: 5 },  ...plus(i) }), 10));
     return { scene, groupes };
   }
 
@@ -154,7 +154,7 @@ describe('les lots d\'instances', () => {
   });
 
   it('teintent les feuilles arbre par arbre, pas le bois', () => {
-    const { scene } = poser(1, () => ({ couleurArbre: '#ff0000' }));
+    const { scene } = poser(1, () => ({ arbre: { couleur: '#ff0000' } }));
     synchroniserArbres(scene, '2026-06-21');
     const feuilles = scene.getObjectByName(NOM_LOT_FEUILLES) as THREE_NS.InstancedMesh;
     const bois = scene.getObjectByName(NOM_LOT_BRANCHES) as THREE_NS.InstancedMesh;
@@ -168,8 +168,8 @@ describe('les lots d\'instances', () => {
 describe('la saison', () => {
   it('ote les feuilles d\'un caduc de novembre a mars, pas celles d\'un persistant', () => {
     const scene = new THREE_NS.Scene();
-    ajouterArbre3d(ctx(scene), arbre('c', { especeArbre: 'chene' }), 10);
-    ajouterArbre3d(ctx(scene), arbre('p', { especeArbre: 'pin' }), 10);
+    ajouterArbre3d(ctx(scene), arbre('c', { arbre: { espece: 'chene' } }), 10);
+    ajouterArbre3d(ctx(scene), arbre('p', { arbre: { espece: 'pin' } }), 10);
     synchroniserArbres(scene, '2026-01-15');
     const feuilles = (scene.getObjectByName(NOM_LOTS)!.children as THREE_NS.InstancedMesh[]).filter((c) => c.name === NOM_LOT_FEUILLES);
     const de = (caduc: boolean) => feuilles.find((f) => f.userData.caduc === caduc)!;
@@ -184,7 +184,7 @@ describe('la saison', () => {
   it('suit aussi le feuillage d\'un arbre en repli', () => {
     poserModuleEzTreePourTest(null);
     const scene = new THREE_NS.Scene();
-    ajouterArbre3d(ctx(scene, '2026-07-01'), arbre('c', { especeArbre: 'chene' }), 10);
+    ajouterArbre3d(ctx(scene, '2026-07-01'), arbre('c', { arbre: { espece: 'chene' } }), 10);
     expect(actualiserSaison(scene, '2026-01-01')).toBe(1);
     expect(scene.getObjectByName(NOM_FEUILLAGE)?.visible).toBe(false);
   });

@@ -17,7 +17,7 @@ const GALERIE: CorpsToit = { pts: [{ x: 5, y: 7 }, { x: 15, y: 7 }, { x: 15, y: 
 function monter(vu: CeQueJeVois | null, corps: CorpsToit[] = [MAISON, GALERIE]) {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: corps },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, corpsToit: corps },  },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z'));
   if (vu) capture.noterVu('maison', vu);
@@ -35,7 +35,7 @@ describe('l appentis ouvert ou ferme', () => {
     expect(p?.arbitrages?.[0]).toMatchObject({ attribut: 'appentis', decision: 'auto' });
     expect(cocheeParDefaut(p!)).toBe(true);
     appliquerPropositions(t.objets, [p!], [], '2026-10-13');
-    const corps = t.objets.find((o) => o.key === 'maison')?.corpsToit as CorpsToit[];
+    const corps = t.objets.find((o) => o.key === 'maison')?.batiment?.corpsToit as CorpsToit[];
     expect(corps.map((c) => c.ouvert)).toEqual([undefined, true]);
   });
 
@@ -43,7 +43,7 @@ describe('l appentis ouvert ou ferme', () => {
     const t = monter({ appentis: 'ferme' });
     appliquerPropositions(t.objets, [ligne(t)!], [], '2026-10-13');
     const relu = normalizeObjects(JSON.parse(JSON.stringify(serializeObjects(t.objets))) as ObjetBrut[]) as ObjetPlan[];
-    expect(relu.find((o) => o.key === 'maison')?.corpsToit?.[1]?.ouvert).toBe(false);
+    expect(relu.find((o) => o.key === 'maison')?.batiment?.corpsToit?.[1]?.ouvert).toBe(false);
   });
 
   it('sans rien de noté, personne ne propose rien ; forcee dans l avant/apres, elle se propose', () => {

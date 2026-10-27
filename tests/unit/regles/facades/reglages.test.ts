@@ -155,7 +155,7 @@ describe('le choix du profil', () => {
   it('les dimensions du profil livre initialisent les fenetres du batiment ; un reglage ecrit l emporte', () => {
     const o = { profilFacades: { id: PROFIL_FACADES_DEFAUT, version: 1 } } as unknown as ObjetPlan;
     expect(fenetres3dDe(o)).toEqual(FENETRES_3D_DEFAUT);
-    expect(fenetres3dDe({ ...o, fenetres3d: { ...FENETRES_3D_DEFAUT, largeur: 1.5 } } as ObjetPlan).largeur).toBe(1.5);
+    expect(fenetres3dDe({ ...o, batiment: { ...(o).batiment, fenetres3d: { ...FENETRES_3D_DEFAUT, largeur: 1.5 } } } as ObjetPlan).largeur).toBe(1.5);
   });
 
   it('dit la mitoyennete en trois niveaux', () => {

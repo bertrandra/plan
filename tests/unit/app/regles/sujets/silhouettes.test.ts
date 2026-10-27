@@ -14,13 +14,13 @@ import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures
 import type { SilhouetteFacade } from '../../../../../src/model/silhouetteFacade.js';
 import type { Proposition } from '../../../../../src/regles/decisions.js';
 import { azimutFaitage } from '../../../../../src/facade/regles/toits/faits.js';
-import type { CorpsToit, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../../src/model/types.js';
 
 // La forme du toit lue sur la silhouette des facades (lot « photos de l'audit -> toit ») : sur AE 101, le faitage
 // du corps principal est a 74 degres (est-nord-est) ; les murs « est » et « ouest » ferment ses bouts, « sud » et
 // « nord » sont ses longs pans. Cotes du contour : est 13 (5,9 m), ouest 9 (9,6 m), sud 6 (9 m), nord 12 (7,8 m).
 
-const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ObjetPlan['toitMesure']; corps: CorpsToit[] };
+const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
 const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, toitMesure: d.toitMesure, corpsToit: d.corps }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const COTES = { est: 13, ouest: 9, sud: 6, nord: 12 } as const;
@@ -73,17 +73,17 @@ describe('la forme du toit lue sur la silhouette des façades vues par Claude', 
 
   it('validée, elle remplace les corps du bâtiment ; le plan d’origine n’est pas touché', () => {
     const o = maison();
-    const avant = JSON.stringify(o.corpsToit);
+    const avant = JSON.stringify(o.batiment?.corpsToit);
     const p = depuisClaude(o, { sud: ['trapeze', 'sans-objet'] }) as Proposition;
     const copie = { ...o } as ObjetPlan;
     expect(appliquerPropositions([copie], [p], [], '2026-10-17')).toEqual(['maison']);
-    expect(copie.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
-    expect(JSON.stringify(o.corpsToit)).toBe(avant);
+    expect(copie.batiment?.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
+    expect(JSON.stringify(o.batiment?.corpsToit)).toBe(avant);
   });
 
   it('des façades est et ouest en long pan font tourner le faîtage de 90° : le moteur recalcule la toiture dans ce sens, sur la mesure', () => {
     const o = maison();
-    const avant = azimutFaitage((o.corpsToit as CorpsToit[])[0] as CorpsToit);
+    const avant = azimutFaitage((o.batiment?.corpsToit as CorpsToit[])[0] as CorpsToit);
     const p = depuisClaude(o, { est: ['ligne-droite', 'sans-objet'], ouest: ['ligne-droite', 'sans-objet'] });
     expect(p?.apres).toMatch(/faîtage à 16\d°\)$/);
     const corps = (p?.effet as { corps: CorpsToit[] }).corps;
@@ -99,7 +99,7 @@ describe('la forme du toit lue sur la silhouette des façades vues par Claude', 
 
   it('sans mesure LiDAR, rien ne se relit', () => {
     const o = maison();
-    delete o.toitMesure;
+    delete o.batiment?.toitMesure;
     expect(depuisClaude(o, { sud: ['trapeze', 'sans-objet'], nord: ['trapeze', 'sans-objet'] })).toBeUndefined();
   });
 });
@@ -155,11 +155,11 @@ describe('la forme du toit arbitrée entre le LiDAR et la silhouette mesurée su
     const p = propose(o, { sud: 'trapeze' }) as Proposition;
     const copie = { ...o } as ObjetPlan;
     expect(appliquerPropositions([copie], [p], [], '2026-10-17')).toEqual(['maison']);
-    expect(copie.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
+    expect(copie.batiment?.corpsToit?.[0]?.croupes?.every((h) => h > 0)).toBe(true);
   });
 
   it('un toit saisi à la main est un veto : la ligne arrive décochée, et le dit', () => {
-    const o = { ...maison(), toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' } } as ObjetPlan;
+    const o = { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' } } } as ObjetPlan;
     const p = propose(o, { sud: 'trapeze', nord: 'trapeze' });
     expect(p?.remplaceChoix).toBe('forme du toit saisie');
     expect(cochesParDefaut([p as Proposition]).size).toBe(0);

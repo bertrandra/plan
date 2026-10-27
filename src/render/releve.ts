@@ -30,9 +30,9 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
   };
   const echelle = etat.scene.scale;
   etat.objects.forEach((o) => {
-    if (o.type !== 'polygon' || !o.facades?.length || masque(o)) return;
+    if (o.type !== 'polygon' || !o.batiment?.facades?.length || masque(o)) return;
     const facades = facadesDuContour(o.pts, 0);
-    o.facades.forEach((r) => {
+    o.batiment?.facades.forEach((r) => {
       const f = facades.find((x) => x.cote === r.cote);
       if (!f) return;
       // Les tableaux : 20 cm de mur, vers l'interieur.

@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { MIGRATIONS, schemaMinimal, schemaAEcrire, migrationsDepuis, migrer } from '../../../src/model/migrations.js';
 import { SCHEMA_VERSION } from '../../../src/model/version.js';
 import { DEMO_OBJECTS, DEMO_TEMOIN_OBJECTS } from '../../../src/model/demo.js';
-import type { ObjetBrut } from '../../../src/model/types.js';
+import type { ObjetAPlat } from '../../../src/model/types.js';
 
-const batiment = (extra: Partial<ObjetBrut> = {}): ObjetBrut =>
-  ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetBrut);
-const releve = { cote: 0 } as unknown as NonNullable<ObjetBrut['facades']>[number];
+const batiment = (extra: Partial<ObjetAPlat> = {}): ObjetAPlat =>
+  ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetAPlat);
+const releve = { cote: 0 } as unknown as NonNullable<ObjetAPlat['facades']>[number];
 
 describe('la chaine des migrations', () => {
   it('mene sans trou de 1 au schema du programme', () => {
@@ -27,7 +27,7 @@ describe('la chaine des migrations', () => {
   });
 
   it('lit un document de schema 4 tel quel (4 -> 5 ne fait que distinguer les champs venus apres le relief)', () => {
-    const d = { objects: [batiment({ piscine: {}, corpsToit: [] } as Partial<ObjetBrut>)], measures: [] };
+    const d = { objects: [batiment({ piscine: {}, corpsToit: [] } as Partial<ObjetAPlat>)], measures: [] };
     expect(migrer(structuredClone(d), 4)).toEqual(d);
     expect(schemaAEcrire(d.objects, 4)).toBe(5);
   });
@@ -35,7 +35,7 @@ describe('la chaine des migrations', () => {
 
 describe('la migration 2 -> 3 : un toit pour chaque batiment BD TOPO', () => {
   const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
-  const ign = (extra: Partial<ObjetBrut> = {}, bdtopo: Record<string, unknown> = {}) =>
+  const ign = (extra: Partial<ObjetAPlat> = {}, bdtopo: Record<string, unknown> = {}) =>
     batiment({ pts: rect, bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'B1', altitudeToitM: 52.1, ...bdtopo }, ...extra });
 
   // Le rectangle de 10 x 6 m est allonge : deux pans a pignons dans son axe (spec-toit-ign §4, regle 7).
@@ -83,7 +83,7 @@ describe('le schema qu un document ecrit', () => {
 
   it('est 5 des qu un objet porte un champ venu apres le relief (piscine, pergola, cloture, corps du toit…) : un lecteur 4 le perdrait', () => {
     for (const champ of ['piscine', 'pergola', 'cloture', 'corpsToit', 'volumesToit', 'toitMesure', 'fenetres3d', 'voisinage3d', 'ruesVoisinage']) {
-      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetBrut>)]), champ).toBe(5);
+      expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetAPlat>)]), champ).toBe(5);
     }
   });
 
@@ -93,7 +93,7 @@ describe('le schema qu un document ecrit', () => {
 
   it('est 2 des qu un batiment porte un releve ou un toit', () => {
     expect(schemaMinimal([batiment({ facades: [releve] })])).toBe(2);
-    expect(schemaMinimal([batiment({ toit: { forme: 'plat' } as unknown as NonNullable<ObjetBrut['toit']> })])).toBe(2);
+    expect(schemaMinimal([batiment({ toit: { forme: 'plat' } as unknown as NonNullable<ObjetAPlat['toit']> })])).toBe(2);
   });
 
   it('ne redescend jamais sous le plancher d un projet mis a jour', () => {

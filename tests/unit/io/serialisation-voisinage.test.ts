@@ -45,7 +45,7 @@ describe('l enregistrement du voisinage', () => {
     expect(s!.toitLidarLu).toBe(1);
     const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as Record<string, unknown>[];
     expect(relu!.toitLidarLu).toBe(1);
-    expect(serializeObjects([{ ...batiment, toitLidarLu: null } as ObjetPlan])[0]).not.toHaveProperty('toitLidarLu');
+    expect(serializeObjects([{ ...batiment, batiment: { ...(batiment).batiment, toitLidarLu: null } } as ObjetPlan])[0]).not.toHaveProperty('toitLidarLu');
   });
 
   it('n ecrit pas les reglages d un autre genre d objet ni les faux de la BD TOPO, et garde ceux d un arbre', () => {
