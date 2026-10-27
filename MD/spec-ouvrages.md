@@ -339,8 +339,9 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
   - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
     (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
-    translate, tournée elle part) ; reste : tourner la parcelle ne tourne ni la grille du relief, ni le calage de la photo
-    aérienne, ni les rues, ni le point du PLU.
+    translate, tournée elle part). Le relief, la photo aérienne, les rues et le PLU, eux, sont posés sur le terrain réel : ils
+    ne tournent pas. Une parcelle issue du cadastre porte l'orientation réelle du terrain ; la faire tourner est l'erreur
+    (l'alignement l'en avertit, `interaction/outilAlignement.ts`), pas le relief qui resterait en place.
 
   Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par
