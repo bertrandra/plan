@@ -12,6 +12,7 @@ import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
+import { FONCTIONS_AU_MENU } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
 import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
@@ -32,7 +33,7 @@ import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
 import { champsArbre, champsParasol } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
-export const FONCTIONS = ['terrain', 'batiment', 'annexe', 'arbre', 'terrasse', 'massif', 'mobilier', 'dalle', 'equipement', 'chemin', 'parasol', 'pergola', 'carport', 'piscine', 'tremie', 'limite', 'autre'];
+export const FONCTIONS: string[] = [...FONCTIONS_AU_MENU];
 
 // La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
 // pas une donnee du plan, seulement le brouillon d'un geste.

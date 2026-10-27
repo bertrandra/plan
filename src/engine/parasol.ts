@@ -11,6 +11,7 @@ import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { estParasol, estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
+import { estOuvrage, PARASOL } from '../model/ouvrages/index.js';
 
 /**
  * Contexte solaire : ce que les fonctions d'ombre lisaient dans la fermeture de boot() - la date
@@ -238,7 +239,7 @@ export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null 
  */
 export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): void {
   objets.forEach(par=>{
-    if(par.fonction!=='parasol' || !par.parasol?.matSurPerimetre) return;
+    if(!estOuvrage(par, PARASOL) || !par.parasol?.matSurPerimetre) return;
     const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
     if(!terr || !aDesSommets(terr) || terr.pts.length<3) return;
     const mat = positionMat(par);

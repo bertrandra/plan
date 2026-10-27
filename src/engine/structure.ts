@@ -16,6 +16,7 @@ import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLamb
 import { calculerPiscine, terrasseDeLaPiscine } from './piscine.js';
 import { estPiscine, estTerrasse, estTrou } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
+import { estOuvrage, EQUIPEMENT } from '../model/ouvrages/index.js';
 
 /**
  * Ce qu'une etude de structure a besoin de connaitre d'une terrasse : son contour et ses parametres.
@@ -163,7 +164,7 @@ export function findSpaZones(margeCm: number | undefined, objets: ObjetPlan[]): 
   const marge = (margeCm||0)/100;
   const zones: ZoneEquipement[] = [];
   objets.forEach(o=>{
-    if(o.fonction !== 'equipement') return;
+    if(!estOuvrage(o, EQUIPEMENT)) return;
     const fp = empriseEquipement(o);
     if(!fp) return;
     const poly = offsetZone(fp, marge);

@@ -11,6 +11,7 @@ import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { differencePolygones } from '../geometry/difference.js';
 import type { CorpsToit, PtBrut } from './types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
+import { estOuvrage, TERRAIN } from './ouvrages/index.js';
 
 /** Une part plus petite que cela, ou que cette part du batiment, est un trace du cadastre qui deborde, pas une moitie de maison. */
 export const AIRE_A_CHEVAL_MIN_M2 = R.AIRE_A_CHEVAL_MIN_M2;
@@ -48,7 +49,7 @@ export function partsACheval(batiment: ObjetACheval, objets: readonly ObjetAChev
   if (!pts) return null;
   const total = aire(pts);
   const parcelles = objets
-    .filter((o) => o.key === 'parcelle' || o.fonction === 'terrain')
+    .filter((o) => o.key === 'parcelle' || estOuvrage(o, TERRAIN))
     .map((o) => ({ key: o.key ?? '', pts: contourDe(o) }))
     .filter((p): p is { key: string; pts: PtBrut[] } => !!p.pts && !!p.key && (pts.some((q) => pointInPolygon(q, p.pts as PtBrut[])) || p.pts.some((q) => pointInPolygon(q, pts))));
   if (parcelles.length < 2) return null;

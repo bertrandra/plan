@@ -22,6 +22,7 @@ import type { PtBrut, ObjetPlan, ObjetAPlat, Construction } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 import { centreSouhaite, type NatureOuvrage } from './placement.js';
+import { estOuvrage, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE } from './ouvrages/index.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -325,7 +326,7 @@ export function rectangleLibre(objets: ObjetPlan[], centre: PtBrut, largeur: num
   const contour = parcelle ? enPoints(parcelle).pts : null;
   // Les obstacles : tout ce qui occupe le sol, sauf le terrain lui-meme, les traces (chemins,
   // limites, points de vue) et le voisinage. Un cercle compte pour son carre.
-  const obstacles = objets.filter(o => !o.voisinage && o.key !== 'parcelle' && o.fonction !== 'terrain' && o.type !== 'path')
+  const obstacles = objets.filter(o => !o.voisinage && o.key !== 'parcelle' && !estOuvrage(o, TERRAIN) && o.type !== 'path')
     .map(o => o.type === 'circle'
       ? [{ x: o.center.x - o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y - o.r }, { x: o.center.x + o.r, y: o.center.y + o.r }, { x: o.center.x - o.r, y: o.center.y + o.r }]
       : o.pts)
@@ -403,7 +404,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       const terr = terrasseOuPremiere(etat.objects, etat.terrasseSelectedKey)
                 || etat.objects.find(o => o.key === 'parcelle');
       const c = place('parasol', 3, 3);
-      const n = etat.objects.filter(o => o.fonction === 'parasol').length + 1;
+      const n = etat.objects.filter(o => estOuvrage(o, PARASOL)).length + 1;
       inserer(nouveauParasol(c, cle('circle'), n, terr));
     },
 
@@ -420,7 +421,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
 
     ajouterPiscine(forme: FormePiscine) {
       ctx.pushHistory();
-      const n = etat.objects.filter(o => o.fonction === 'piscine').length + 1;
+      const n = etat.objects.filter(o => estOuvrage(o, PISCINE)).length + 1;
       const c = centroid(rectangleLibre(etat.objects, place('piscine', 8, 4), 8, 4));
       inserer(nouvellePiscine(forme, c, cle(forme === 'ronde' ? 'circle' : 'obj'), n));
     },
@@ -440,7 +441,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
     /** Un trou au centre de la terrasse donnee, selectionne. */
     ajouterTrou(terrasse: ObjetPlan) {
       ctx.pushHistory();
-      const n = etat.objects.filter(o => o.fonction === 'tremie').length + 1;
+      const n = etat.objects.filter(o => estOuvrage(o, TREMIE)).length + 1;
       inserer(nouveauTrou(centroid(enPoints(terrasse).pts), cle('obj'), n));
     },
 
@@ -453,7 +454,7 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
 
     ajouterPointDeVue() {
       ctx.pushHistory();
-      const n = etat.objects.filter(o => o.fonction === 'camera').length + 1;
+      const n = etat.objects.filter(o => estOuvrage(o, POINT_DE_VUE)).length + 1;
       inserer(nouveauPointDeVue(centreParcelle(), cle('path'), n));
     },
 

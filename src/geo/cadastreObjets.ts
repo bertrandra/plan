@@ -21,6 +21,7 @@ import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
 import type { ChampsBatiment, PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
 import type { Anneau } from './geojson.js';
+import { estOuvrage, TERRAIN, LIMITE } from '../model/ouvrages/index.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
 export interface ParcelleCadastrale {
@@ -198,8 +199,8 @@ export function apparenceIgnParDefaut(o: { key?: string; fonction?: string; cada
   const b = o.bdtopo as { couche?: unknown; surParcellePrincipale?: unknown } | null | undefined;
   const couche = typeof b?.couche === 'string' ? b.couche : null;
   if (o.key === 'parcelle' && o.cadastre) return APPARENCES_IGN.parcelle;
-  if (o.cadastre && o.fonction === 'terrain') return APPARENCES_IGN.parcelleVoisine;
-  if (o.fonction === 'limite' && typeof o.key === 'string' && o.key.startsWith('limite-')) return APPARENCES_IGN.limite;
+  if (o.cadastre && estOuvrage(o, TERRAIN)) return APPARENCES_IGN.parcelleVoisine;
+  if (estOuvrage(o, LIMITE) && typeof o.key === 'string' && o.key.startsWith('limite-')) return APPARENCES_IGN.limite;
   if (couche === 'BDTOPO_V3:batiment') return b?.surParcellePrincipale === true ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin;
   if (couche === 'BDTOPO_V3:haie') return APPARENCES_IGN.haie;
   if (couche === 'BDTOPO_V3:zone_de_vegetation') return APPARENCES_IGN.vegetation;

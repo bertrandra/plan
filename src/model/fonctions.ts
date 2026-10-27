@@ -5,51 +5,24 @@
 // trois fichiers (ui/champs/objet.ts, ui/champs/facade.ts, app/inspecteur.ts) : pour ajouter une
 // fonction, il fallait les retrouver tous. Elles sont ici, une fois, avec la forme qu'exige chaque
 // fonction : le menu « Fonction » de l'inspecteur ne propose plus que celles qui ont un effet sur
-// la forme de l'objet.
+// la forme de l'objet. Ce que chaque fonction declare vit dans son ouvrage (model/ouvrages/,
+// MD/spec-ouvrages.md) ; ce module en tire les predicats que le reste du code lit.
 
 import type { ObjetPlan } from './types.js';
+import { ouvrage, ouvrageDeclare, estOuvrage, TERRAIN, POINT_DE_VUE, type Forme, type Particularite } from './ouvrages/index.js';
 
-export type Forme = ObjetPlan['type'];
-
-/** Les sections propres a une fonction, au-dela de celles que tout objet porte. */
-export type Particularite = 'parasol' | 'pointDeVue' | 'arbre' | 'construction' | 'releve' | 'abri' | 'bassin' | 'ouverture';
+export type { Forme, Particularite };
 
 interface ProfilFonction {
-  /** Les formes ou la fonction a un sens. Absent : toutes. */
   formes?: readonly Forme[];
-  /** Ce que la fonction ajoute a l'inspecteur, sur une forme admise. */
   particularites?: readonly Particularite[];
 }
 
 /**
- * Le profil de chaque fonction. Une fonction absente (ou inconnue, venue d'un ancien fichier) se
+ * Le profil de chaque fonction : celui de son ouvrage (model/ouvrages/). Une fonction absente ou inconnue (un ancien fichier) se
  * comporte comme `autre` : toutes les formes, aucune section propre.
- *
- * Les formes exigees le sont par le moteur : une terrasse se calcule sur un polygone, le releve
- * de facade suit les cotes d'un polygone, l'ombre d'un parasol est celle d'une toile ronde, la
- * cloture suit le contour d'une parcelle, un point de vue est deux points (position, direction).
  */
-const PROFILS: Record<string, ProfilFonction> = {
-  // La section Parcelle suit `estTerrain` (la cle `parcelle` compte aussi), pas ce profil.
-  terrain: { formes: ['polygon'] },
-  batiment: { formes: ['polygon'], particularites: ['releve'] },
-  annexe: { formes: ['polygon'], particularites: ['releve'] },
-  terrasse: { formes: ['polygon'], particularites: ['construction'] },
-  parasol: { formes: ['circle'], particularites: ['parasol'] },
-  // Pergola et carport sont le meme ouvrage (engine/pergola.ts) : le cadre suit le contour, poteaux
-  // aux sommets, poutres sur les cotes. Seules leurs valeurs par defaut different.
-  pergola: { formes: ['polygon'], particularites: ['abri'] },
-  carport: { formes: ['polygon'], particularites: ['abri'] },
-  // Un bassin se calcule sur un polygone ou un cercle : son volume, ses abords, sa filtration.
-  piscine: { formes: ['polygon', 'circle'], particularites: ['bassin'] },
-  // Un trou de terrasse (un arbre conserve, une trappe) : la terrasse s'arrete a son bord.
-  tremie: { formes: ['polygon', 'circle'], particularites: ['ouverture'] },
-  camera: { formes: ['path'], particularites: ['pointDeVue'] },
-  // Le feuillage est une sphere posee sur le tronc : toute forme de tronc convient.
-  arbre: { particularites: ['arbre'] }
-};
-
-const profil = (fonction: string | undefined): ProfilFonction => PROFILS[fonction || ''] ?? {};
+const profil = (fonction: string | undefined): ProfilFonction => ouvrageDeclare(fonction) ?? {};
 
 /** La fonction a-t-elle un sens sur cette forme ? */
 export function fonctionAdmise(fonction: string, forme: Forme): boolean {
@@ -67,8 +40,8 @@ export function aParticularite(o: ObjetPlan, p: Particularite): boolean {
 }
 
 /** Un terrain : la parcelle, ou une parcelle voisine importee du cadastre. */
-export const estTerrain = (o: ObjetPlan): boolean => o.key === 'parcelle' || o.fonction === 'terrain';
-export const estPointDeVue = (o: ObjetPlan): boolean => o.fonction === 'camera';
+export const estTerrain = (o: ObjetPlan): boolean => o.key === 'parcelle' || estOuvrage(o, TERRAIN);
+export const estPointDeVue = (o: ObjetPlan): boolean => estOuvrage(o, POINT_DE_VUE);
 
 /**
  * Une terrasse calculable : la fonction ET un polygone. Le contexte terrasse, l'explorateur, les
@@ -105,8 +78,9 @@ export const estVueUtilisable = (o: ObjetPlan): boolean => aParticularite(o, 'po
  * pas de largeur : il ne couvre rien.
  */
 export function occupeLeSol(o: ObjetPlan): boolean {
-  if (estTerrain(o) || estPointDeVue(o) || o.fonction === 'arbre' || o.fonction === 'parasol' || o.fonction === 'tremie') return false;
-  if (o.type === 'path') return o.fonction === 'chemin';
+  const ouv = ouvrage(o.fonction);
+  if (estTerrain(o) || ouv.sansEmprise) return false;
+  if (o.type === 'path') return !!ouv.aUneLargeur;
   return o.type === 'polygon' || o.type === 'circle';
 }
 
@@ -137,11 +111,11 @@ export function visibleEnIsolement(o: ObjetPlan, objets: ObjetPlan[], cle: strin
  * La parcelle du projet — celle qui porte la cloture, le lieu, l'orthophoto et le PLU.
  *
  * **Deux passes plutot qu'un `find()` a deux criteres**, et c'est le piege : depuis l'import
- * cadastre, les parcelles *voisines* sont elles aussi `fonction === 'terrain'`. Un `find()` unique
+ * cadastre, les parcelles *voisines* sont elles aussi des terrains. Un `find()` unique
  * rendrait la premiere du tableau, donc potentiellement une voisine.
  */
 export function parcelleDuProjet(objets: ObjetPlan[]): ObjetPlan | undefined {
-  return objets.find(o => o.key === 'parcelle') || objets.find(o => o.fonction === 'terrain');
+  return objets.find(o => o.key === 'parcelle') || objets.find(o => estOuvrage(o, TERRAIN));
 }
 
 /** La terrasse courante si elle existe encore, sinon la premiere du plan. */

@@ -32,6 +32,7 @@ import { parseLongueurs } from './prix.js';
 import { solSousEmprise, type Sol, type SolSousEmprise } from './sol.js';
 import type { MateriauPergola, ObjetPlan, Pergola, PtBrut, ToitPergola } from '../model/types.js';
 import type { NatureAbri } from '../model/creation.js';
+import { estOuvrage, CARPORT } from '../model/ouvrages/index.js';
 
 /** Ce qui change avec la matiere : sections proposees, valeurs par defaut, longueurs vendues. */
 interface ProfilMateriau {
@@ -85,7 +86,7 @@ const NATURES: Record<NatureAbri, { libelle: string; toit: ToitPergola; hauteur:
 /** Passage libre conseille sous les poutres d'un carport, en metres. */
 export const PASSAGE_CARPORT_M = 2.2;
 
-export const natureAbri = (o: ObjetPlan): NatureAbri => o.fonction === 'carport' ? 'carport' : 'pergola';
+export const natureAbri = (o: ObjetPlan): NatureAbri => estOuvrage(o, CARPORT) ? 'carport' : 'pergola';
 export const libelleAbri = (o: ObjetPlan): string => NATURES[natureAbri(o)].libelle;
 
 /** Une chute plus courte ne repart pas au pot (comme les 50 cm de la terrasse, en plus court : charpente). */

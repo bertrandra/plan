@@ -10,6 +10,7 @@ import { dimsSection, sectionLambourde } from './portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
 import { solSousEmprise, type Sol } from './sol.js';
 import type { Construction, PtBrut } from '../model/types.js';
+import { estOuvrage, TERRASSE } from '../model/ouvrages/index.js';
 
 /**
  * Ce dont la hauteur d'un objet depend : sa fonction, sa forme, ce qu'il porte.
@@ -94,7 +95,7 @@ export function decaissementPoseMm(obj: ObjetMesurable): number {
  * affiche quand meme quelque chose de plausible au premier essai (une maison n'est pas un massif).
  */
 export function elevationOf(o: ObjetMesurable): number {
-  if (o.fonction === 'terrasse' && o.type === 'polygon' && o.pts && o.pts.length >= 3) {
+  if (estOuvrage(o, TERRASSE) && o.type === 'polygon' && o.pts && o.pts.length >= 3) {
     return hauteurFinieMm(o) / 1000;
   }
   return (o.elevation !== undefined && o.elevation !== null) ? o.elevation : elevationParDefaut(o.fonction ?? '');
