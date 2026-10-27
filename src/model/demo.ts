@@ -18,7 +18,7 @@
 // Les deux tableaux sont annotes : sans type attendu, un champ valant `null` dans un litteral de
 // cette taille n'a aucune forme deductible, et le compilateur ne verifie plus rien de ce fichier.
 
-import type { ObjetPlan, Mesure } from './types.js';
+import type { ObjetAPlat, ObjetPlan, Mesure } from './types.js';
 import demoProjet from './demo-projet.json';
 import { versMemoire } from './champsFonction.js';
 
@@ -90,8 +90,10 @@ const recolorer = (o: ObjetPlan): ObjetPlan => ({
  * voisinage a 2 m : « Points max » 50 000) et son gazon ; le voisinage (55 parcelles, 57 batiments)
  * a ses toits en corps et pignons, ses couleurs de toit et ses materiaux de murs.
  */
-// Le fichier est un export, champs a plat : ses objets passent dans la forme de la memoire (model/champsFonction.ts).
-export const DEMO_OBJECTS: ObjetPlan[] = (demoProjet as { objects: object[] }).objects.map((o) => versMemoire(o) as ObjetPlan);
+// Le fichier est un export, champs a plat : ce que l'on enregistre ou publie (la graine, le contrat produit, la livraison).
+export const DEMO_OBJETS_FICHIER: readonly ObjetAPlat[] = (demoProjet as { objects: ObjetAPlat[] }).objects;
+// Les memes, dans la forme de la memoire (model/champsFonction.ts).
+export const DEMO_OBJECTS: ObjetPlan[] = DEMO_OBJETS_FICHIER.map((o) => versMemoire(o) as ObjetPlan);
 
 /** Les objets dessines du plan de demonstration, tels que le temoin recolore les donne. */
 export const DEMO_DESSINES: ObjetPlan[] = DEMO_TEMOIN_OBJECTS.filter((o) => o.key !== 'parcelle').map(recolorer);

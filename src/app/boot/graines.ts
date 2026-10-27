@@ -4,6 +4,7 @@ import { chargerProjetInitial } from '../../io/api.js';
 import { demanderPremierPas } from '../premierPas.js';
 import type { ObjetBrut, Mesure } from '../../model/types.js';
 import type { ProjetResume } from '../../io/api.js';
+import { aPlat } from '../../model/champsFonction.js';
 
 // Le jeu de demonstration (model/demo.ts, et son projet de 300 Ko) se lit a la demande (AD-10) : la premiere visite, la
 // vitrine, la decouverte des controleurs. Un projet du serveur s'ouvre sans lui.
@@ -22,7 +23,8 @@ export async function loadInitialProject(){
   const temoin = import.meta.env.DEV && new URLSearchParams(location.search).has('temoin');
   return chargerProjetInitial(async () => {
     const d = await demonstration();
-    return { objets: temoin ? d.DEMO_TEMOIN_OBJECTS : d.DEMO_OBJECTS, mesures: d.DEMO_MEASURES };
+    // La graine est un document, champs a plat (model/champsFonction.ts) : la demonstration s'enregistre telle quelle.
+    return { objets: temoin ? d.DEMO_TEMOIN_OBJECTS.map(aPlat) : [...d.DEMO_OBJETS_FICHIER], mesures: d.DEMO_MEASURES };
   }, demanderPremierPas);
 }
 
@@ -43,7 +45,7 @@ export async function graineVitrine(demo?: { objects: ObjetBrut[]; measures: Mes
   // Une demo de l'admin (`?mode=demo&file=<id>`, app/vitrine.ts), sinon la demonstration integree.
   if (demo) return graineDe(demo);
   const m = await demonstration();
-  return graineDe({ objects: m.DEMO_OBJECTS, measures: m.DEMO_MEASURES });
+  return graineDe({ objects: [...m.DEMO_OBJETS_FICHIER], measures: m.DEMO_MEASURES });
 }
 
 /** Une graine sans depot, sur ces objets et ces mesures (copies). */
