@@ -96,7 +96,8 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 
 export function Vue3d({ magasin, commandes, vues }: Props) {
   useEtat3d();
-  useStore(magasin.store, (s) => s.version);
+  // Sur le plan, les reglages caches ne suivent plus chaque rendu (comme zones/composants/versionVisible.ts).
+  useStore(magasin.store, (s) => (s.vue === 'vue3d' ? s.version : -1));
   const visible = useStore(magasin.store, (s) => s.vue) === 'vue3d';
   const pleinePage = affichage3d.pleinePage3d;
   const r = vues.reglages;

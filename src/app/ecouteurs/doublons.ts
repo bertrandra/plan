@@ -7,16 +7,24 @@ import { showConfirm, showToast } from '../../shell/dialogs.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { fusionnerDoublons, nombreDeDoublons, trouverDoublons } from '../../io/doublons.js';
 import { vue3d } from '../../three/etat3d.js';
+import { cleDuPlan } from '../../ui/clePlan.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { ObjetPlan } from '../../model/types.js';
 
 export function brancherDoublons(a: Atelier, ctx: { buildThreeScene: (obj: ObjetPlan | null) => void }, cmd: RegistreCommandes): void {
   const objet = (n: number) => n + (n > 1 ? ' objets' : ' objet');
+  // Le menu demande a chaque rendu s'il y a des doublons : la recherche se reprend tant que le plan n'a pas change (ui/clePlan.ts).
+  let vu = { cle: '', doublons: false };
+  const aDesDoublons = () => {
+    const cle = cleDuPlan(a.etat.objects);
+    if (vu.cle !== cle) vu = { cle, doublons: trouverDoublons(a.etat.objects).length > 0 };
+    return vu.doublons;
+  };
 
   cmd.declarer({
     id: 'projet.doublons', libelle: 'Fusionner les doublons', groupe: 'projet', permission: PERMISSION_ECRITURE,
-    actif: () => trouverDoublons(a.etat.objects).length > 0,
+    actif: aDesDoublons,
     raisonInactive: () => 'Aucun objet en double dans ce projet.',
     executer: () => {
       const groupes = trouverDoublons(a.etat.objects);

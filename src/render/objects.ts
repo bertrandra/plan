@@ -203,6 +203,22 @@ function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, t
   el.setAttribute('clip-path', 'url(#' + id + ')');
 }
 
+// Un rendu repose chaque attribut de chaque objet, le plus souvent a l'identique : chaque element garde ce qui lui a ete ecrit, et une
+// valeur egale ne repasse pas par le DOM (feuille de route, etape 2.2 ; au telephone, ces ecritures pesaient autant que les calculs).
+// Seul ce module ecrit ces attributs sur les elements d'un objet ; un element recree (creerDomObjet, reconstruirePoignees) repart
+// sans memoire, et sa premiere valeur s'ecrit.
+const ecrits = new WeakMap<Element, Record<string, string>>();
+function poser(e: Element, nom: string, valeur: string): void {
+  let m = ecrits.get(e);
+  if (!m) { m = {}; ecrits.set(e, m); }
+  if (m[nom] === valeur) return;
+  m[nom] = valeur;
+  e.setAttribute(nom, valeur);
+}
+function texte(e: Element, valeur: string): void {
+  if (e.textContent !== valeur) e.textContent = valeur;
+}
+
 /** Cache un element s'il ne l'est pas deja : lire le style coute moins que l'ecrire. */
 function cacher(e: SVGElement): void {
   if(e.style.display !== 'none') e.style.display = 'none';
@@ -257,12 +273,12 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
     const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i];
     if(!poignee || !etiquette) return;
     const p = versEcran(ctx.scene, pt);
-    poignee.setAttribute('cx', String(p.x)); poignee.setAttribute('cy', String(p.y));
+    poser(poignee, 'cx', String(p.x)); poser(poignee, 'cy', String(p.y));
     const showPtForPick = ctx.pointageSommets;
     poignee.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
     const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-    poignee.setAttribute('fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
-    poignee.setAttribute('r', String(isFrozen ? 7.5 : 6.5));
+    poser(poignee, 'fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
+    poser(poignee, 'r', String(isFrozen ? 7.5 : 6.5));
 
     // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
     let ext;
@@ -273,9 +289,9 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
       const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
       ext = {x:-dy/L, y:dx/L};
     }
-    etiquette.setAttribute('x', String(p.x + ext.x*13));
-    etiquette.setAttribute('y', String(p.y - ext.y*13 + 3));
-    etiquette.setAttribute('text-anchor','middle');
+    poser(etiquette, 'x', String(p.x + ext.x*13));
+    poser(etiquette, 'y', String(p.y - ext.y*13 + 3));
+    poser(etiquette, 'text-anchor','middle');
     const vName = obj.vertexNames?.[i] || ('P'+(i+1));
     // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
     const showAngleHere = obj.showAngles && obj.type==='polygon';
@@ -290,14 +306,14 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
     if(i < edgeCount && cote && etiquetteCote){
       const a=pt, b=sommetDe(obj.pts, i+1);
       const pa=versEcran(ctx.scene, a), pb=versEcran(ctx.scene, b);
-      cote.setAttribute('x1', String(pa.x)); cote.setAttribute('y1', String(pa.y));
-      cote.setAttribute('x2', String(pb.x)); cote.setAttribute('y2', String(pb.y));
+      poser(cote, 'x1', String(pa.x)); poser(cote, 'y1', String(pa.y));
+      poser(cote, 'x2', String(pb.x)); poser(cote, 'y2', String(pb.y));
       const showEdgeForPick = ctx.pointageCotes;
       cote.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
       cote.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
 
       const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
-      etiquetteCote.setAttribute('x', String(mid.x)); etiquetteCote.setAttribute('y', String(mid.y));
+      poser(etiquetteCote, 'x', String(mid.x)); poser(etiquetteCote, 'y', String(mid.y));
       const segTxt = etiquetteComposee(
         obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)),
         obj.showSegNames, obj.showDims, SEP_ECRAN
@@ -348,7 +364,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
   const { el, nameEl } = v;
   if(!el || !nameEl) return;
   // Le halo suit les encres du plan, qui peuvent changer apres la creation (render/theme.ts).
-  nameEl.setAttribute('stroke', SVG_LABEL_HALO);
+  poser(nameEl, 'stroke', SVG_LABEL_HALO);
 
     // Masque : rien de cet objet ne se dessine, y compris ses poignees s'il se trouve etre
     // l'objet selectionne - un contour invisible avec des coins bien visibles serait plus
@@ -377,46 +393,46 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     if(v.camMarkerEl) v.camMarkerEl.style.display = '';
 
     if(obj.type==='polygon'){
-      el.setAttribute('points', polyStr(ctx.scene, obj.pts));
+      poser(el, 'points', polyStr(ctx.scene, obj.pts));
       percerContour(v, el, obj.key, ctx.trous ?? [], ctx.scene);
     } else if(obj.type==='path'){
-      el.setAttribute('d', pathD(ctx.scene, obj.pts, !!obj.curve));
-      el.setAttribute('stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
+      poser(el, 'd', pathD(ctx.scene, obj.pts, !!obj.curve));
+      poser(el, 'stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
       if(v.camMarkerEl){
         const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
-        v.camMarkerEl.setAttribute('cx', String(p0.x)); v.camMarkerEl.setAttribute('cy', String(p0.y));
+        poser(v.camMarkerEl, 'cx', String(p0.x)); poser(v.camMarkerEl, 'cy', String(p0.y));
       }
     } else {
       const c = versEcran(ctx.scene, obj.center);
-      el.setAttribute('cx', String(c.x)); el.setAttribute('cy', String(c.y)); el.setAttribute('r', String(obj.r*ctx.scene.scale));
+      poser(el, 'cx', String(c.x)); poser(el, 'cy', String(c.y)); poser(el, 'r', String(obj.r*ctx.scene.scale));
     }
-    if(obj.type!=='path') el.setAttribute('stroke-width', String(ctx.selectionnee ? '3' : (obj.type==='circle'?'0.08':'1.8')));
-    else el.setAttribute('stroke-opacity', ctx.selectionnee ? '1' : '0.85');
+    if(obj.type!=='path') poser(el, 'stroke-width', String(ctx.selectionnee ? '3' : (obj.type==='circle'?'0.08':'1.8')));
+    else poser(el, 'stroke-opacity', ctx.selectionnee ? '1' : '0.85');
 
     // Avec le fond orthophoto, un terrain rempli a 100 % masque exactement ce qu'on est venu
     // voir. La transparence est appliquee A L'AFFICHAGE, sans toucher au fillOpacity de l'objet :
     // le projet n'est pas modifie, rien a re-enregistrer, et decocher le fond rend au terrain son
     // remplissage d'origine. Le contour, lui, ne bouge pas : c'est lui qui porte l'information.
     if(obj.type==='polygon' && ctx.estTerrain(obj)){
-      el.setAttribute('fill-opacity', String(ctx.ortho.actif ? ctx.ortho.parcelleOpacite : obj.fillOpacity));
+      poser(el, 'fill-opacity', String(ctx.ortho.actif ? ctx.ortho.parcelleOpacite : obj.fillOpacity));
     } else if(obj.type==='polygon'){
       // Meme regle pour la terrasse isolee : transparente A L'AFFICHAGE, son fillOpacity intact.
-      el.setAttribute('fill-opacity', String(ctx.transparent ? OPACITE_ISOLEMENT : obj.fillOpacity));
+      poser(el, 'fill-opacity', String(ctx.transparent ? OPACITE_ISOLEMENT : obj.fillOpacity));
     }
     // Le diagnostic peint par-dessus la couleur de l'objet, a l'affichage seulement ; hors diagnostic,
     // la sienne revient (elle n'est posee qu'a la creation de l'element).
     if(obj.type==='polygon' && ctx.couleurDiagnostic){
-      el.setAttribute('fill', ctx.couleurDiagnostic);
-      el.setAttribute('fill-opacity', '0.85');
+      poser(el, 'fill', ctx.couleurDiagnostic);
+      poser(el, 'fill-opacity', '0.85');
     } else if(obj.type==='polygon' && el.getAttribute('fill') !== obj.fill){
-      el.setAttribute('fill', obj.fill);
+      poser(el, 'fill', obj.fill);
     }
 
     const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);
     const cs = versEcran(ctx.scene, cen);
-    nameEl.setAttribute('x', String(cs.x)); nameEl.setAttribute('y', String(cs.y));
-    nameEl.setAttribute('font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
-    nameEl.textContent = obj.showName ? obj.name : '';
+    poser(nameEl, 'x', String(cs.x)); poser(nameEl, 'y', String(cs.y));
+    poser(nameEl, 'font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
+    texte(nameEl, obj.showName ? obj.name : '');
 
     // Rien des sommets ne se voit (ni selection, ni pointage, ni noms, angles ou cotes) : on les cache
     // une fois et on ne les place pas. C'etait l'essentiel d'un rendu de voisinage : dix attributs par
@@ -431,7 +447,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     } else {
       const rp = versEcran(ctx.scene, {x:obj.center.x+obj.r, y:obj.center.y});
       if(v.radiusHandle){
-        v.radiusHandle.setAttribute('cx', String(rp.x)); v.radiusHandle.setAttribute('cy', String(rp.y));
+        poser(v.radiusHandle, 'cx', String(rp.x)); poser(v.radiusHandle, 'cy', String(rp.y));
         v.radiusHandle.style.display = ctx.selectionnee ? '' : 'none';
       }
       el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
