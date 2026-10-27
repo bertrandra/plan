@@ -14,7 +14,7 @@ const mesure = (egout: number, faite: number): ToitMesure => ({ pas: 0.5, x0: 5,
 function monter(plus: Partial<ObjetPlan>) {
   const objets = normalizeObjects([
     { key: 'parcelle', name: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(0, 0, 20, 30), cadastre: { idu: '78650000AE0101' } },
-    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, ...plus },
+    { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(5, 10, 15, 18), elevation: 6, ...plus, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' }, ...plus.batiment } },
   ] as ObjetBrut[]) as ObjetPlan[];
   const capture = creerCapture('78650000AE0101', () => new Date('2026-10-13T09:00:00Z')).lire();
   return { objets, e: { objets, liste: listeDeControle(objets, capture), capture, mesures: new Map() } };

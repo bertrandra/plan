@@ -112,7 +112,7 @@ describe('toitsDepuisLidar', () => {
     // Par defaut, et dans la liste des candidats : le batiment verifie n'est ni lu ni marque.
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true })).ajustes).toBe(1);
     expect(lire).toHaveBeenCalledTimes(1);
-    expect(objets[1]).toMatchObject({ toit: { source: 'bdtopo' }, elevation: 5 });
+    expect(objets[1]).toMatchObject({ batiment: { toit: { source: 'bdtopo' } }, elevation: 5 });
     expect(objets[1]!.batiment?.toitLidarLu).toBeUndefined();
     expect((await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[1]!] })).ajustes).toBe(0);
     expect(lire).toHaveBeenCalledTimes(1);

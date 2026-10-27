@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { modeDiagnostic, classeToit, classeMurs, couleurDiagnostic, compterDiagnostic, COULEURS_DIAGNOSTIC } from '../../../src/app/diagnostic.js';
 import { VERSION_LECTURE_TOITS } from '../../../src/app/toits/toitsLidar.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Les modes de diagnostic (?mode=devroof, ?mode=devwall) : la couleur d'un batiment dit d'ou vient son
 // toit, ou la couleur de ses murs.
 
 const pts = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }];
-const bat = (plus: Record<string, unknown> = {}) => ({ key: 'b', type: 'polygon', fonction: 'batiment', pts, ...plus }) as unknown as ObjetPlan;
+const bat = (plus: Record<string, unknown> = {}) => versMemoire({ key: 'b', type: 'polygon', fonction: 'batiment', pts, ...plus }) as unknown as ObjetPlan;
 const bdtopo = { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' };
 
 describe('les modes de diagnostic', () => {

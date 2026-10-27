@@ -14,13 +14,13 @@ const bouts: [BoutToit, BoutToit] = [{ type: 'brisis', largeurM: 1 }, { type: 'd
 const lucarnes: Lucarne[] = [{ type: 'capucine', pan: 1, debutM: 2, finM: 3.2, faitageM: 8, profondeurM: 1.2, source: 'observation' }];
 const batiment = (corpsToit: CorpsToit[]) => ({
   key: 'b', type: 'polygon', name: 'Maison', pts, fonction: 'batiment', vertexNames: ['A', 'B', 'C', 'D'], segmentNames: ['1', '2', '3', '4'],
-  frozenVertices: [false, false, false, false], corpsToit,
+  frozenVertices: [false, false, false, false], batiment: { corpsToit },
 }) as unknown as ObjetPlan;
 
 function allerRetour(o: ObjetPlan): CorpsToit[] {
   const [s] = serializeObjects([o]);
-  const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as { corpsToit: CorpsToit[] }[];
-  return relu!.corpsToit;
+  const [relu] = normalizeObjects([JSON.parse(JSON.stringify(s))]) as unknown as { batiment: { corpsToit: CorpsToit[] } }[];
+  return relu!.batiment.corpsToit;
 }
 
 describe('modele de toit etendu a l enregistrement', () => {
@@ -44,11 +44,11 @@ describe('modele de toit etendu a l enregistrement', () => {
   it('le projet de demonstration (des corps d avant le lot) se relit et se reecrit a l identique', () => {
     const objets = (demo as { objects: Record<string, unknown>[] }).objects.filter((o) => Array.isArray(o.corpsToit));
     expect(objets.length).toBeGreaterThan(20);
-    const relus = normalizeObjects(JSON.parse(JSON.stringify(objets))) as unknown as { corpsToit: CorpsToit[] }[];
+    const relus = normalizeObjects(JSON.parse(JSON.stringify(objets))) as unknown as { batiment: { corpsToit: CorpsToit[] } }[];
     relus.forEach((o, i) => {
       const brut = objets[i]!.corpsToit as Record<string, unknown>[];
       // La relecture d'avant le lot : une copie, les pignons absents redevenus une liste vide.
-      expect(o.corpsToit).toEqual(brut.map((k) => ({ ...k, pignons: k.pignons ?? [] })));
+      expect(o.batiment.corpsToit).toEqual(brut.map((k) => ({ ...k, pignons: k.pignons ?? [] })));
     });
     const ecrits = serializeObjects(relus as unknown as ObjetPlan[]) as unknown as { corpsToit: Record<string, unknown>[] }[];
     ecrits.forEach((o, i) => {

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { creerProfilsFacadesFond, rechoisirProfilsFacades, profilARechoisir } from '../../../../src/app/toits/profilsFacadesFond.js';
 import { lireReglagesFacades, PROFIL_FACADES_DEFAUT } from '../../../../src/regles/facades/reglages.js';
 import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
+import { versMemoire } from '../../../../src/model/champsFonction.js';
 
 // Le choix des profils de facades en tache de fond (F§15.2, G12) : rien sans profil, la parcelle du
 // projet et les batiments verifies jamais rechoisis, une version nouvelle qui fait rechoisir.
@@ -18,7 +19,7 @@ const rect = (x0: number, y0: number, l: number, w: number) => [p(x0, y0), p(x0 
 
 function plan(): ObjetPlan[] {
   const parcelle = { key: 'parcelle', type: 'polygon', fonction: 'terrain', pts: rect(-50, -50, 200, 200), cadastre: { idu: '78650000AE0101' } };
-  const bat = (key: string, x: number, extra: Record<string, unknown> = {}) => ({ key, type: 'polygon', fonction: 'batiment', pts: rect(x, 0, 10, 8), bdtopo: { usage1: 'Résidentiel', ...(extra.bdtopo as object ?? {}) }, ...extra });
+  const bat = (key: string, x: number, extra: Record<string, unknown> = {}) => versMemoire({ key, type: 'polygon', fonction: 'batiment', pts: rect(x, 0, 10, 8), bdtopo: { usage1: 'Résidentiel', ...(extra.bdtopo as object ?? {}) }, ...extra });
   return [
     parcelle,
     bat('maison', 0, { bdtopo: { usage1: 'Résidentiel', surParcellePrincipale: true } }),

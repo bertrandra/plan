@@ -19,7 +19,7 @@ function monter(selection: string, ecrire = true) {
   const ctx = { etat, releve, pushHistory: vi.fn(), render: vi.fn(), buildThreeScene: vi.fn() };
   const cmd = creerRegistre(droits(ecrire));
   brancherFacade(ctx, cmd);
-  return { ctx, cmd, maison: etat.objects[0] as unknown as { facades?: { cote: number }[] } };
+  return { ctx, cmd, maison: (etat.objects[0] as unknown as { batiment: { facades?: { cote: number }[] } }).batiment };
 }
 
 describe('facades', () => {

@@ -19,7 +19,7 @@ import { coteDuNouvelAcces } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
 import { FUSION_TOL_M, SIMPLIF_M } from './constantesCadastre.js';
-import type { PtBrut, ObjetPlan, ZonagePlu, Toit } from '../model/types.js';
+import type { ChampsBatiment, PtBrut, ObjetPlan, ZonagePlu } from '../model/types.js';
 import type { Anneau } from './geojson.js';
 
 /** Une parcelle cadastrale, telle que l'API Carto la rend. */
@@ -285,7 +285,7 @@ interface OptionsFormeIgn {
   cle: string;
   hauteur: number;
   opacite?: number;
-  extra?: { locked?: boolean; bdtopo?: unknown; toit?: Toit };
+  extra?: { locked?: boolean; bdtopo?: unknown; batiment?: ChampsBatiment };
 }
 
 function formeIgn(x: ContexteForme, pts: PtBrut[], fonction: string, nom: string, fill: string, stroke: string, opts: OptionsFormeIgn): ObjetPlan {
@@ -334,8 +334,7 @@ function objetBatiment(x: ContexteForme, b: ObjetBdTopo, surPrincipale: boolean)
       opacite: (surPrincipale ? APPARENCES_IGN.batimentPropriete : APPARENCES_IGN.batimentVoisin).fillOpacity,
       extra: {
         locked: !surPrincipale,
-        toit,
-        ...(volumes ? { volumesToit: volumes } : {}),
+        batiment: { toit, ...(volumes ? { volumesToit: volumes } : {}) },
         bdtopo: {
           couche:'BDTOPO_V3:batiment', id:b.id, cleabs:p.cleabs || null,
           nature:p.nature || null, usage1:p.usage_1 || null, usage2:p.usage_2 || null,
@@ -448,7 +447,7 @@ function arbres(x: ContexteImport, retenu: (e: ObjetBdTopo) => boolean): ObjetPl
         center:{x:c2.x, y:c2.y}, r: 2.5,
         showName:false, showSegNames:false, showVertNames:false, showDims:false, showAngles:false,
         constrained:false, fonction:'arbre', matiere:'', priority:3, locked:false,
-        elevation: haut, diametreArbre: 5, ...(espece ? { especeArbre: espece.id } : {}),
+        elevation: haut, arbre: { diametre: 5, ...(espece ? { espece: espece.id } : {}) },
         bdtopo: { couche:'estimation', origine: v.id, estime:true, hauteurRetenueM: haut, recupereLe: x.recupereLe }
       };
     });

@@ -9,7 +9,7 @@ const p = (x: number, y: number): PtBrut => ({ x, y });
 const rect = (x0: number, y0: number, l: number, h: number) => [p(x0, y0), p(x0 + l, y0), p(x0 + l, y0 + h), p(x0, y0 + h)];
 const corps = (plus: Partial<CorpsToit> = {}): CorpsToit => ({ pts: rect(0, 0, 10, 8), posFaitage: 4, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.2, ...plus });
 const maison = (plus: Partial<BatimentCompare> = {}): BatimentCompare => ({
-  pts: rect(0, 0, 10, 8), elevation: 5, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps()] },  ...plus,
+  pts: rect(0, 0, 10, 8), elevation: 5, ...plus, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps()], ...plus.batiment },
 });
 
 describe('estVerifieSurPlace', () => {

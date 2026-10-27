@@ -4,6 +4,7 @@ import { batimentsAudites, listeDeControle, situationFacade, statutFacade, texte
 import { captureVide, batimentVide } from '../../../../../src/model/auditParcelle.js';
 import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
+import { versMemoire } from '../../../../../src/model/champsFonction.js';
 
 // La liste de controle de l'audit de la parcelle (MD/spec-audit.md §12.1) : les batiments de la
 // parcelle du projet (les maisons voisines n'en font pas partie), l'etat de chaque facade, le
@@ -11,7 +12,7 @@ import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 const PHOTO = { type: 'image/jpeg' as const, base64: 'AAAA' };
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
+const obj = (key: string, plus: Partial<ObjetPlan> | Record<string, unknown>): ObjetPlan => versMemoire({ key, name: key, type: 'polygon', ...plus }) as ObjetPlan;
 
 /**
  * Une parcelle de 20 x 30 m sur la rue (au sud, y < 0), une voisine a l'est ; la maison au milieu,
@@ -192,7 +193,7 @@ describe('la liste et son compteur', () => {
 });
 
 describe('le haut du pignon ou du pan d une facade', () => {
-  const o = (corpsToit?: unknown) => ({ key: 'm', name: 'm', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: 6, ...(corpsToit ? { corpsToit } : {}) }) as unknown as ObjetPlan;
+  const o = (corpsToit?: unknown) => ({ key: 'm', name: 'm', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: 6, ...(corpsToit ? { batiment: { corpsToit } } : {}) }) as unknown as ObjetPlan;
   const sud = facadesDuContour(rect(0, 0, 10, 8), 6).find((f) => f.orientation === 'Sud')!;
   const corps = (pts: PtBrut[], faitage: number) => ({ pts, posFaitage: 4, faitage, egouts: [6, 6], pignons: [], ecart: 0 });
 

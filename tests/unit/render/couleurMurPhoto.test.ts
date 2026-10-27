@@ -60,9 +60,9 @@ describe('couleursMursDepuisPhotos', () => {
   /** Un panoramique pose a 15 m au sud de la maison, entierement de la couleur donnee. */
   const quartier = (rgb: [number, number, number], source?: 'plan', parcelle = rect(-20, -20, 50, 50), egout = 6) => {
     const g = proj.versDegres(5, -15);
-    const objets: { key: string; fonction: string; pts: PtBrut[]; elevation?: number; couleurMurs?: CouleurMurs | null }[] = [
+    const objets: { key: string; fonction: string; pts: PtBrut[]; elevation?: number; batiment?: { couleurMurs?: CouleurMurs | null } }[] = [
       { key: 'parcelle', fonction: 'terrain', pts: parcelle },
-      { key: 'm', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: egout, ...(source ? { couleurMurs: { source } } : {}) },
+      { key: 'm', fonction: 'batiment', pts: rect(0, 0, 10, 8), elevation: egout, ...(source ? { batiment: { couleurMurs: { source } } } : {}) },
     ];
     const image: Pixels = { largeur: 400, hauteur: 200, data: Array.from({ length: 400 * 200 }, () => [...rgb, 255]).flat() };
     const charges: string[] = [];
@@ -78,14 +78,14 @@ describe('couleursMursDepuisPhotos', () => {
     const b = await couleursMursDepuisPhotos(objets, proj, options);
     expect(b).toEqual({ photos: 1, ambigus: 0 });
     expect(charges).toEqual(['https://panoramax.ign.fr/sd.jpg']);
-    expect(objets[1]!.couleurMurs).toEqual({ photo: { couleur: '#D9D2C4', id: 'ph1', date: '2018-03-21T12:00:00Z', auteur: 'IGN', licence: 'etalab-2.0' } });
+    expect(objets[1]!.batiment?.couleurMurs).toEqual({ photo: { couleur: '#D9D2C4', id: 'ph1', date: '2018-03-21T12:00:00Z', auteur: 'IGN', licence: 'etalab-2.0' } });
   });
 
   it('une photo ou le mur n est pas lisible (une haie devant) : la lecture est effacee, la source choisie reste', async () => {
     const { objets, options } = quartier([60, 110, 50], 'plan');
     const b = await couleursMursDepuisPhotos(objets, proj, options);
     expect(b).toEqual({ photos: 0, ambigus: 1 });
-    expect(objets[1]!.couleurMurs).toEqual({ source: 'plan', photo: null });
+    expect(objets[1]!.batiment?.couleurMurs).toEqual({ source: 'plan', photo: null });
   });
 
   it('une facade basse en retrait derriere la limite de parcelle : la photo ne voit que la cloture', async () => {
@@ -99,7 +99,7 @@ describe('couleursMursDepuisPhotos', () => {
   it('des points sur un ciel clair et lisse (un nuage, un ciel couvert) : la photo ne montre pas ce mur', async () => {
     const { objets, options } = quartier([200, 202, 206]);
     expect(await couleursMursDepuisPhotos(objets, proj, options)).toEqual({ photos: 0, ambigus: 1 });
-    expect(objets[1]!.couleurMurs).toEqual({ photo: null });
+    expect(objets[1]!.batiment?.couleurMurs).toEqual({ photo: null });
   });
 
   it('sans photo ou sans service : rien ne change', async () => {

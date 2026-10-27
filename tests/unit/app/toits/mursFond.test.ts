@@ -3,6 +3,7 @@ import { zonesDeMurs, lireMursEnFond, mursALire, avancementMurs, ZONES_MUETTES_A
 import { COTE_ZONE_MURS_M, type IssueMurs } from '../../../../src/render/couleurMurPhoto.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../../../src/model/types.js';
+import { champsBatiment } from '../../../../src/model/champsFonction.js';
 
 // La couleur des murs du voisinage en tache de fond (app/toits/mursFond.ts) : par zones, de la plus proche
 // a la plus loin, sans limite de distance ; chaque batiment lu porte sa lecture, ou null, et n'est
@@ -25,14 +26,14 @@ describe('les zones de murs', () => {
     const objets = plan([2, 5, 3 * COTE_ZONE_MURS_M + 1, 40 * COTE_ZONE_MURS_M, COTE_ZONE_MURS_M + 1]);
     expect(zonesDeMurs(objets)).toEqual([['b0', 'b1'], ['b4'], ['b2'], ['b3']]);
     // Deja lu (une lecture, ou rien de concluant) : pas relu ; refuse : laisse de cote.
-    Object.assign(objets[2]!, { couleurMurs: { photo: null, lecture: VERSION_LECTURE_MURS } });
-    Object.assign(objets[5]!, { couleurMurs: { photo: photo('#D9D2C4'), source: 'materiau' } });
+    Object.assign(champsBatiment(objets[2]!), { couleurMurs: { photo: null, lecture: VERSION_LECTURE_MURS } });
+    Object.assign(champsBatiment(objets[5]!), { couleurMurs: { photo: photo('#D9D2C4'), source: 'materiau' } });
     expect(zonesDeMurs(objets, (o) => o.key !== 'b3')).toEqual([['b0'], ['b2']]);
     expect(mursALire(objets[1]!)).toBe(true);
     expect(mursALire(objets[2]!)).toBe(false);
     expect(avancementMurs(objets)).toEqual({ faits: 2, total: 5 });
     // Sans conclusion a une version plus ancienne (ou a l'import, sans version) : relu.
-    Object.assign(objets[2]!, { couleurMurs: { photo: null } });
+    Object.assign(champsBatiment(objets[2]!), { couleurMurs: { photo: null } });
     expect(mursALire(objets[2]!)).toBe(true);
   });
 });
@@ -46,7 +47,7 @@ describe('la lecture des murs en tache de fond', () => {
 
   it('ecrit chaque lecture, ou null, zone apres zone, et dessine ce qui est ecrit', async () => {
     const objets = plan([2, 5, 2 * COTE_ZONE_MURS_M + 1]);
-    Object.assign(objets[1]!, { couleurMurs: { source: 'plan' } });
+    Object.assign(champsBatiment(objets[1]!), { couleurMurs: { source: 'plan' } });
     const appels: string[][] = [];
     const ecrire = vi.fn(async () => {});
     const avance = vi.fn();

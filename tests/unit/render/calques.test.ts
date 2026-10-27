@@ -40,7 +40,7 @@ describe('calque des parasols', () => {
   });
 
   it('relie le mat deporte au centre de la toile', () => {
-    calque([parasol({ matDeporte: true })]);
+    calque([parasol({ parasol: { matDeporte: true } })]);
     expect(mats.querySelectorAll('line')).toHaveLength(1);
   });
 

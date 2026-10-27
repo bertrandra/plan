@@ -40,7 +40,7 @@ describe('serialisation du releve de facade', () => {
   });
 
   it('garde releve et toit, a l identique, a travers enregistrement et relecture', () => {
-    const m = { ...maison(), facades: [releve], toit };
+    const m = { ...maison(), batiment: { facades: [releve], toit } };
     const lu = normalizeObjects(JSON.parse(JSON.stringify(serializeObjects([m]))) as ObjetPlan[]);
     expect(lu[0]!.batiment?.facades).toEqual([releve]);
     expect(lu[0]!.batiment?.toit).toEqual(toit);

@@ -5,6 +5,7 @@ import { champsVisibles, type Champ, type ChampBouton, type ChampChoix, type Cha
 import { ecritLeProjet } from '../../../src/app/administration/ecritures.js';
 import { voisinage3dDe } from '../../../src/model/voisinage3d.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Les sections « Voisinage (3D) » (parcelle du projet) et « Fenêtres (3D) » (batiment du projet) :
 // ou elles existent, ce qu'elles ecrivent, et ce qui ne touche pas au projet.
@@ -14,8 +15,8 @@ function contexte(obj: Record<string, unknown>, principale = true): ContexteCham
   const parcelle = principale && o.fonction === 'terrain' ? o : ({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [] } as unknown as ObjetPlan);
   return { etat: { objects: [o], highlight: {}, lectureSeule: false }, obj: o, objets: [o], parcelle, elevationOf: () => 6, render: () => {} } as unknown as ContexteChamps;
 }
-const parcelle = (plus: Record<string, unknown> = {}) => ({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }], ...plus });
-const maison = (plus: Record<string, unknown> = {}) => ({ key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], ...plus });
+const parcelle = (plus: Record<string, unknown> = {}) => versMemoire({ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 20 }], ...plus });
+const maison = (plus: Record<string, unknown> = {}) => versMemoire({ key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], ...plus });
 const champ = <T extends Champ>(s: { champs: Champ[] } | null, cle: string): T => { const ch = s?.champs.find((x) => x.cle === cle); if (!ch) throw new Error(cle); return ch as T; };
 const cles = (s: { champs: Champ[] } | null, c: ContexteChamps) => (s ? champsVisibles(s as never, c).map((x) => x.cle) : []);
 

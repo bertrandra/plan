@@ -190,8 +190,8 @@ describe('ombre des parasols', () => {
   });
 
   it('decale l ombre proportionnellement a la hauteur du mat', () => {
-    const bas = { ...(parasol as object), hauteurParasol: 2 } as never;
-    const haut = { ...(parasol as object), hauteurParasol: 4 } as never;
+    const bas = { ...(parasol as object), parasol: { ...(parasol as { parasol?: object }).parasol, hauteur: 2 } } as never;
+    const haut = { ...(parasol as object), parasol: { ...(parasol as { parasol?: object }).parasol, hauteur: 4 } } as never;
     expect(hauteurParasolDe(haut)).toBeGreaterThan(hauteurParasolDe(bas));
     const ech = { ux: 1, uy: 0, decalageParMetre: 1, etirement: 1 };
     expect(geometrieOmbre(haut, ech).cx).toBeGreaterThan(geometrieOmbre(bas, ech).cx);

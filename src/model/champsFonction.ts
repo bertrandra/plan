@@ -43,16 +43,19 @@ export const CHAMPS_A_PLAT: Readonly<Record<string, readonly [SousObjet, string]
 
 /**
  * Range dans leurs sous-objets les champs a plat d'un objet lu (fichier, instantane d'historique, copie) ; ecrit sur l'objet, qui
- * doit etre une copie. Un champ absent (`undefined`) ne cree rien ; `null` et `false` passent tels quels, pour que la
- * serialisation reecrive le meme fichier.
+ * doit etre une copie. Un champ pose a `undefined` retire le champ du sous-objet, sans en creer un ; `null` et `false` passent tels
+ * quels, pour que la serialisation reecrive le meme fichier.
  */
 export function rangerChampsAPlat(o: Record<string, unknown>): void {
   for (const [plat, [sous, nom]] of Object.entries(CHAMPS_A_PLAT)) {
     if (!(plat in o)) continue;
     const v = o[plat];
     delete o[plat];
-    if (v === undefined) continue;
     const s = o[sous];
+    if (v === undefined) {
+      if (s && typeof s === 'object' && nom in s) { const sans = { ...(s as Record<string, unknown>) }; delete sans[nom]; o[sous] = sans; }
+      continue;
+    }
     const cible = (s && typeof s === 'object' ? { ...(s as Record<string, unknown>) } : {}) as Record<string, unknown>;
     cible[nom] = v;
     o[sous] = cible;
@@ -66,17 +69,23 @@ export function versMemoire(o: object): ObjetBrut {
   return c as ObjetBrut;
 }
 
-/** La forme a plat d'un objet, sans le copier en profondeur : ses champs propres, et ceux de ses sous-objets sous leur nom du fichier. */
+/**
+ * La forme a plat d'un objet, sans le copier en profondeur : ses champs, et ceux de ses sous-objets sous leur nom du fichier, a la
+ * place du sous-objet (l'ordre des clefs suit celui de l'objet).
+ */
 export function aPlat(o: object): Record<string, unknown> {
   const src = o as Record<string, unknown>;
   if (!SOUS_OBJETS.some((s) => src[s] && typeof src[s] === 'object')) return src;
-  const out: Record<string, unknown> = { ...src };
-  for (const s of SOUS_OBJETS) delete out[s];
-  for (const [plat, [sous, nom]] of Object.entries(CHAMPS_A_PLAT)) {
-    const s = src[sous] as Record<string, unknown> | null | undefined;
-    if (s && typeof s === 'object' && nom in s) out[plat] = s[nom];
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(src)) {
+    if (!(SOUS_OBJETS as readonly string[]).includes(k)) { out[k] = v; continue; }
+    if (!v || typeof v !== 'object') continue;
+    for (const [nom, val] of Object.entries(v as Record<string, unknown>)) out[NOM_A_PLAT[k + '.' + nom] ?? nom] = val;
   }
   return out;
 }
+
+/** `batiment.toit` -> `toit`, `arbre.diametre` -> `diametreArbre`… */
+const NOM_A_PLAT: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(CHAMPS_A_PLAT).map(([plat, [sous, nom]]) => [sous + '.' + nom, plat]));
 
 const SOUS_OBJETS: readonly SousObjet[] = ['batiment', 'arbre', 'parasol'];

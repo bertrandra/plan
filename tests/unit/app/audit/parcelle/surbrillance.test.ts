@@ -62,7 +62,7 @@ describe('la surbrillance d une ligne de propositions', () => {
   });
 
   it('une facade nommee garde sa vraie silhouette (pas un rectangle) et ses ouvertures', () => {
-    const avecReleve = { ...maison, facades: [{ cote: 0, largeur: 14, hauteur: 6, texture: null, ouvertures: [{ type: 'fenetre', x: 2, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '2026-10-19' }] } as unknown as ObjetPlan;
+    const avecReleve = { ...maison, batiment: { ...(maison as ObjetPlan).batiment, facades: [{ cote: 0, largeur: 14, hauteur: 6, texture: null, ouvertures: [{ type: 'fenetre', x: 2, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '2026-10-19' }] } } as unknown as ObjetPlan;
     for (const z of [
       surbrillanceDe(ligne({ type: 'facade', cle: 'maison', cote: 0 }, { type: 'couleurMurs', couleur: '#fff' }), [avecReleve]),
       surbrillanceObservation('maison:obs:renfort:0', [avecReleve]),

@@ -6,12 +6,13 @@ import { couleurMursRetenue, textureDesMurs } from '../../../src/model/couleurMu
 import { clotureDImport, clotureDe } from '../../../src/model/cloture.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../src/model/types.js';
 import { champsBatiment } from '../../../src/model/champsFonction.js';
+import { versMemoire } from '../../../src/model/champsFonction.js';
 
 // Les propositions d'un audit de la parcelle (MD/spec-audit.md §14) : quelles cases arrivent cochees,
 // et ce que chaque effet ecrit sur le projet, sans rien toucher d'autre.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
+const obj = (key: string, plus: Partial<ObjetPlan> | Record<string, unknown>): ObjetPlan => versMemoire({ key, name: key, type: 'polygon', ...plus }) as ObjetPlan;
 
 const CORPS: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
 const RELEVE: ReleveFacade = {

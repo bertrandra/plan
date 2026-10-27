@@ -10,6 +10,7 @@ import { normalizeObjects } from '../../../../src/model/normalisation.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { ObjetBrut, ObjetPlan, PtBrut, Relief } from '../../../../src/model/types.js';
 import { champsBatiment } from '../../../../src/model/champsFonction.js';
+import { versMemoire } from '../../../../src/model/champsFonction.js';
 
 // « Fichier › Actualiser le projet » (app/cadastre/actualiserProjet.ts) : l'actualisation IGN entiere, chaque
 // objet importe ramene d'abord aux valeurs par defaut ; ce qui a ete dessine a la main, intact.
@@ -81,14 +82,15 @@ function contexte(objets: ObjetPlan[], relief: Relief): ContexteActualisation & 
 
 describe('les valeurs par defaut d un objet importe', () => {
   it('ramene couleurs, textures et reglages d apparence a l import, et laisse le toit a relire', () => {
-    const [parcelle, bati, , , terrasse] = serializeObjects(plan()) as ObjetBrut[];
+    // L'actualisation lit les copies serialisees dans la forme de la memoire (model/champsFonction.ts).
+    const [parcelle, bati, , , terrasse] = serializeObjects(plan()).map(versMemoire);
     const p = valeursParDefaut(parcelle!), b = valeursParDefaut(bati!);
     expect([p.fill, p.fillOpacity, p.stroke]).toEqual([APPARENCES_IGN.parcelle.fill, 1, APPARENCES_IGN.parcelle.stroke]);
     expect(p.textureHorizontale).toBeNull();
     expect('gazon3d' in p || 'voisinage3d' in p).toBe(false);
     expect([b.fill, b.fillOpacity]).toEqual([APPARENCES_IGN.batimentPropriete.fill, APPARENCES_IGN.batimentPropriete.fillOpacity]);
     expect(b.textureVerticale).toBeNull();
-    expect('couleurMurs' in b || 'modeToit' in b || 'fenetres3d' in b).toBe(false);
+    expect('couleurMurs' in (b.batiment ?? {}) || 'modeToit' in (b.batiment ?? {}) || 'fenetres3d' in (b.batiment ?? {})).toBe(false);
     expect(b.batiment?.toit).toMatchObject({ source: 'bdtopo', forme: 'deux-pans' });
     expect(b.batiment?.toit).not.toHaveProperty('couleur');
     expect(b.batiment?.corpsToit).toBeNull();

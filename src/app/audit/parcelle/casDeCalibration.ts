@@ -38,7 +38,7 @@ function hauteurLidar(pts: readonly PtBrut[] | undefined, corps: readonly CorpsT
   if (!pts?.length || !corps?.length) return null;
   const f = facadesDuContour(pts, elevation).find((x) => x.cote === cote);
   if (!f) return null;
-  return hauteurMurSousToit({ pts, corpsToit: corps } as unknown as ObjetPlan, f);
+  return hauteurMurSousToit({ pts, batiment: { corpsToit: corps } } as unknown as ObjetPlan, f);
 }
 
 /** Le gabarit du mur, relu sur le cas fige du batiment (contour et corps du LiDAR) ; un rectangle sans corps. */

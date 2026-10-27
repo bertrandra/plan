@@ -3,9 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 // La couleur des toits se lit sur l'orthophoto : ici, une lecture simulee qui pose une teinte a chaque toit.
 const couleursEspion = vi.hoisted(() => ({
   appels: [] as string[][],
-  lire: vi.fn(async (objets: readonly { key?: string; toit?: { couleur?: string; origineCouleur?: string } | null }[]) => {
+  lire: vi.fn(async (objets: readonly { key?: string; batiment?: { toit?: { couleur?: string; origineCouleur?: string } | null } | null }[]) => {
     couleursEspion.appels.push(objets.map((o) => o.key as string));
-    for (const o of objets) if (o.toit) { o.toit.couleur = '#884422'; o.toit.origineCouleur = 'orthophoto'; }
+    for (const o of objets) { const t = o.batiment?.toit; if (t) { t.couleur = '#884422'; t.origineCouleur = 'orthophoto'; } }
     return { lus: objets.length, replis: 0 };
   })
 }));
@@ -259,7 +259,8 @@ describe('la fin de la lecture et l enregistrement', () => {
     const objets = plan(2);
     // b0 : verifie sur place, lu a une version d'avant, un deux-pans a 5 m d'egout ; sa couleur n'est pas a relire.
     const b0 = objets.find((o) => o.key === 'b0') as unknown as ObjetAToit & ObjetPlan;
-    Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, verifieSurPlace: { date: '2026-10-13' }, corpsToit: [{ pts: rect(30, 0, 6, 5), posFaitage: 2.5, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.1 }] });
+    b0.elevation = 5;
+    Object.assign(champsBatiment(b0), { toitLidarLu: VERSION_LECTURE_TOITS - 1, verifieSurPlace: { date: '2026-10-13' }, corpsToit: [{ pts: rect(30, 0, 6, 5), posFaitage: 2.5, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.1 }] });
     const avant = JSON.stringify({ pts: b0.pts, batiment: { toit: b0.batiment?.toit, corpsToit: b0.batiment?.corpsToit }, elevation: b0.elevation,  });
     const lus: string[][] = [];
     const fin = vi.fn();
@@ -297,7 +298,8 @@ describe('la fin de la lecture et l enregistrement', () => {
   it('compte d accord un batiment verifie que le nouveau calcul retrouve tel quel', async () => {
     const objets = plan(1);
     const b0 = objets[1] as unknown as ObjetAToit & ObjetPlan;
-    Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar', couleur: '#884422' }, verifieSurPlace: { date: '2026-10-13' } });
+    b0.elevation = 5;
+    Object.assign(champsBatiment(b0), { toitLidarLu: VERSION_LECTURE_TOITS - 1, toit: { forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar', couleur: '#884422' }, verifieSurPlace: { date: '2026-10-13' } });
     const fin = vi.fn();
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {}, fin, lire: lecteur([]) });
     fond.relancer();
@@ -321,8 +323,8 @@ describe('la couleur des toits', () => {
     couleursEspion.appels.length = 0;
     const objets = plan(3);
     // b0 : forme et couleur deja lues ; b1 : forme lue, couleur a lire ; b2 : tout a lire.
-    Object.assign(objets[1]!, { toitLidarLu: VERSION_LECTURE_TOITS, toit: { ...bdtopo, couleur: '#aa0000', origineCouleur: 'orthophoto' } });
-    Object.assign(objets[2]!, { toitLidarLu: VERSION_LECTURE_TOITS });
+    Object.assign(champsBatiment(objets[1]!), { toitLidarLu: VERSION_LECTURE_TOITS, toit: { ...bdtopo, couleur: '#aa0000', origineCouleur: 'orthophoto' } });
+    Object.assign(champsBatiment(objets[2]!), { toitLidarLu: VERSION_LECTURE_TOITS });
     const lus: string[][] = [];
     const fin = vi.fn();
     const fond = creerToitsFond({ objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, lire: lecteur(lus), pause: async () => {}, attendre: async () => {}, fin });
