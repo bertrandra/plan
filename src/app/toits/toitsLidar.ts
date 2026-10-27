@@ -19,7 +19,7 @@ import { batimentsMitoyens } from '../../model/mitoyennete.js';
 import { partsACheval, douteACheval, type PartACheval } from '../../model/aCheval.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { GrilleRelief } from '../../model/relief.js';
-import type { CorpsToit, PtBrut, Toit, ToitACheval, ToitMesure, VolumeToit } from '../../model/types.js';
+import type { ChampsBatiment, CorpsToit, PtBrut, Toit, ToitMesure, VolumeToit } from '../../model/types.js';
 import { EMPREINTE_REGLAGES_TOITS, SEUILS_TOITS as S, avecSeuilsToit, type SurchargesSeuilsToits } from '../../regles/toits/reglages.js';
 import { contexteProfils, surchargesDuBatiment } from '../../facade/regles/toits/profils.js';
 import type { ProfilToit } from '../../regles/toits/profils.js';
@@ -29,29 +29,22 @@ import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacemen
 import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
+import { champsBatiment } from '../../model/champsFonction.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
   key?: string;
   fonction?: string;
   pts?: PtBrut[];
-  toit?: Toit | null;
   elevation?: number;
   /** Les attributs BD TOPO : `surParcellePrincipale` dit si le batiment est celui du projet. */
   bdtopo?: unknown;
-  /** Le toit en plusieurs volumes (model/volumesToit.ts), pour un batiment de la parcelle du projet. */
-  volumesToit?: VolumeToit[] | null;
-  /** Le toit tel que le LiDAR le mesure (model/toitMesure.ts), pour un batiment de la parcelle du projet. */
-  toitMesure?: ToitMesure | null;
-  /** Ses corps et pignons, reconstruits sur la mesure (facade/toits/toitCorps.ts). */
-  corpsToit?: CorpsToit[] | null;
-  /** A cheval sur deux parcelles : le doute sur sa toiture, et la reponse (model/aCheval.ts). */
-  toitACheval?: ToitACheval | null;
-  /** La version de la lecture LiDAR qui a traite ce batiment ; absente : pas encore lu. */
-  toitLidarLu?: number | null;
-  /** Verifie sur place par un audit de la parcelle (model/toitVerifie.ts) : la lecture ne le touche plus. */
-  verifieSurPlace?: { date: string } | null;
-  toitFige?: boolean;
+  /**
+   * Son toit (model/typesFonctions.ts) : la forme simple, les volumes et la mesure du LiDAR (batiment de la parcelle du projet),
+   * les corps et pignons, le doute d'un batiment a cheval, la version de lecture qui l'a traite, la marque « verifie sur place »
+   * (la lecture ne le touche plus) et « Regles » coupees.
+   */
+  batiment?: Pick<ChampsBatiment, 'toit' | 'volumesToit' | 'toitMesure' | 'corpsToit' | 'toitACheval' | 'toitLidarLu' | 'verifieSurPlace' | 'toitFige'> | null;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -106,13 +99,13 @@ export function corpsParParcelle(o: ObjetAToit, parts: readonly PartACheval[], m
  * (app/toits/toitsACheval.ts). Un batiment qui n'est plus a cheval perd sa question.
  */
 export function toitAChevalApresCalcul(o: ObjetAToit, objets: readonly ObjetAToit[], grille: GrilleRelief | null, coupes = true): void {
-  const parts = o.corpsToit?.length && o.toitMesure ? partsACheval(o, objets) : null;
-  if (!parts || !o.toitMesure) { if (o.toitACheval) o.toitACheval = null; return; }
+  const parts = o.batiment?.corpsToit?.length && o.batiment?.toitMesure ? partsACheval(o, objets) : null;
+  if (!parts || !o.batiment?.toitMesure) { if (o.batiment?.toitACheval) champsBatiment(o).toitACheval = null; return; }
   const parcelles = parts.map((p) => p.parcelle);
-  const reponse = o.toitACheval?.reponse;
-  if (reponse === 'parParcelle') o.corpsToit = corpsParParcelle(o, parts, o.toitMesure, grille, coupes) ?? o.corpsToit ?? null;
-  if (reponse) o.toitACheval = { parcelles, reponse };
-  else o.toitACheval = douteACheval(o.corpsToit, parts) ? { parcelles } : null;
+  const reponse = o.batiment?.toitACheval?.reponse;
+  if (reponse === 'parParcelle') champsBatiment(o).corpsToit = corpsParParcelle(o, parts, o.batiment?.toitMesure, grille, coupes) ?? o.batiment?.corpsToit ?? null;
+  if (reponse) champsBatiment(o).toitACheval = { parcelles, reponse };
+  else champsBatiment(o).toitACheval = douteACheval(o.batiment?.corpsToit, parts) ? { parcelles } : null;
 }
 
 /**
@@ -138,10 +131,10 @@ function avecCouleurDe(ancien: Toit | null | undefined, toit: Toit): Toit {
 export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): boolean {
   const corps = corpsDeRemplacement(f, o.pts), forme = toitDeRemplacement(f, o.pts);
   if (!corps || !forme) return false;
-  o.toit = avecCouleurDe(o.toit, forme.toit);
-  o.corpsToit = corps; o.toitMesure = null; o.volumesToit = null; o.toitACheval = null;
+  champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, forme.toit);
+  champsBatiment(o).corpsToit = corps; champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
   o.elevation = forme.egout;
-  o.toitLidarLu = marqueDeLecture(o);
+  champsBatiment(o).toitLidarLu = marqueDeLecture(o);
   return true;
 }
 
@@ -269,9 +262,9 @@ const EN_PARALLELE = 4;
 export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } {
   if (o.fonction !== 'batiment' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
   // « Règles » coupées pour ce batiment (palette › Toit) : la lecture automatique ne le touche pas.
-  if (o.toitFige) return false;
-  const s = o.toit?.source;
-  return !o.toit || s === 'bdtopo' || s === 'lidar';
+  if (o.batiment?.toitFige) return false;
+  const s = o.batiment?.toit?.source;
+  return !o.batiment?.toit || s === 'bdtopo' || s === 'lidar';
 }
 
 /**
@@ -346,10 +339,10 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
   const ajuste = ajusteVraisemblable(o, ajusteSelonFait(faitDuBatiment(o), o.pts, ech, ajusterToit(o.pts, ech)));
   const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
-  const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.toit, mesure) : null;
+  const volumes = principal ? volumesDepuisLidar(o.pts, ech, ajuste?.toit ?? o.batiment?.toit, mesure) : null;
   // Et ses corps et pignons, lus sur cette surface (MD/spec-toit-ign.md §13).
   if (principal) {
-    o.toitMesure = mesure; o.volumesToit = volumes?.volumes ?? null; o.corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
+    champsBatiment(o).toitMesure = mesure; champsBatiment(o).volumesToit = volumes?.volumes ?? null; champsBatiment(o).corpsToit = mesure ? corpsLus(o, mesure, o.pts, grille) : null;
     // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toits/toitsACheval.ts).
     toitAChevalApresCalcul(o, objets, grille);
   }
@@ -358,17 +351,17 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // lourde, §13.6) et sans garder la grille, qui alourdirait le projet de quelques Kio par maison.
   else if (voisins && grille) {
     const mesureVoisine = mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts));
-    o.corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
+    champsBatiment(o).corpsToit = mesureVoisine ? corpsLus(o, mesureVoisine, o.pts, grille, mitoyen) : null;
     // Sans corps lisibles (un toit sous les arbres), la surface brute serait dessinee telle quelle :
     // chez le voisin, la forme simple vaut mieux qu'un relief de feuillage.
-    if (mitoyen) o.toitMesure = o.corpsToit ? mesureVoisine : null;
+    if (mitoyen) champsBatiment(o).toitMesure = o.batiment?.corpsToit ? mesureVoisine : null;
     // A cheval sur deux parcelles : la reponse donnee, ou le doute a lever (app/toits/toitsACheval.ts).
     if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
-    if (o.corpsToit) bilan.corpsVoisins++;
+    if (o.batiment?.corpsToit) bilan.corpsVoisins++;
   }
   if (mesure) bilan.mesures++;
   else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; return; }
-  if (ajuste) o.toit = avecCouleurDe(o.toit, ajuste.toit);
+  if (ajuste) champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, ajuste.toit);
   // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
   const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
   const elevation = elevationApresLecture(o.elevation, egout);
@@ -387,7 +380,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
   // Un batiment verifie sur place est le 100 % du projet (spec des regles §1) : on ne le relit pas sans qu'on le demande.
-  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && (options.verifies === 'relire' || !estVerifieSurPlace(o));
+  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && (options.verifies === 'relire' || !estVerifieSurPlace(o.batiment));
   const candidats = options.candidats
     ? options.candidats.filter(admis)
     : objets
@@ -421,7 +414,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const lu = await lireSous(o, proj, lire, lireGrille, voisins);
       let { ech, grille } = lu;
       // Lu, meme sans rien dessous : seul un service muet laisse le batiment a relire.
-      if (!lu.echec) o.toitLidarLu = marqueDeLecture(o);
+      if (!lu.echec) champsBatiment(o).toitLidarLu = marqueDeLecture(o);
       if (!ech.length) continue;
       // Sur la parcelle du projet, le toit est aussi garde tel que mesure (§12) et decoupe corps par corps (§11).
       const principal = surParcellePrincipale(o);

@@ -17,6 +17,7 @@ import { couleurMurDepuisPixels, type LectureMur, type PhotoMur } from '../model
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { CouleurMurs, PtBrut } from '../model/types.js';
 import { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
+import { champsBatiment } from '../model/champsFonction.js';
 
 // La ligne de vue a descendu dans geometry/ (la facade devant soi s'en sert aussi) : on la redonne
 // d'ici pour ses lecteurs d'avant.
@@ -251,7 +252,7 @@ interface ObjetAMurs {
   fonction?: string;
   pts?: PtBrut[];
   elevation?: number;
-  couleurMurs?: CouleurMurs | null;
+  batiment?: { couleurMurs?: CouleurMurs | null } | null;
 }
 
 export interface OptionsCouleursMurs {
@@ -335,11 +336,11 @@ export async function couleursMursDepuisPhotos(objets: readonly ObjetAMurs[], pr
   for (const o of batiments) {
     const l = lectures.get(o.key);
     if (l) {
-      o.couleurMurs = { ...(o.couleurMurs ?? {}), photo: photoMur(l) };
+      champsBatiment(o).couleurMurs = { ...(o.batiment?.couleurMurs ?? {}), photo: photoMur(l) };
       bilan.photos++;
     } else if ((tentes.get(o.key) ?? 0) > 0 && lus.get(o.key) === tentes.get(o.key)) {
       // Toutes ses photos lues, aucune concluante : la photo ne dit rien, le materiau reprend la main.
-      o.couleurMurs = { ...(o.couleurMurs ?? {}), photo: null };
+      champsBatiment(o).couleurMurs = { ...(o.batiment?.couleurMurs ?? {}), photo: null };
       bilan.ambigus++;
     }
   }

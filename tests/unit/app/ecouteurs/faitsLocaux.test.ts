@@ -19,9 +19,9 @@ const CLE = 'BATIMENT0000000000000042';
 const texte = JSON.stringify({ format: 'plan-faits-toits', version: 1, faits: { [CLE]: { observation: { forme: 'croupes' } } } });
 const pts = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }];
 const objets = (): ObjetAToit[] => [
-  { key: 'a', fonction: 'batiment', pts, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, bdtopo: { cleabs: CLE }, toitLidarLu: 1 },
-  { key: 'b', fonction: 'batiment', pts, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, bdtopo: { cleabs: 'BATIMENT0000000000000043' }, toitLidarLu: 1 },
-  { key: 'c', fonction: 'batiment', pts, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' }, bdtopo: { cleabs: CLE }, toitLidarLu: 1 },
+  { key: 'a', fonction: 'batiment', pts, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitLidarLu: 1 }, bdtopo: { cleabs: CLE },  },
+  { key: 'b', fonction: 'batiment', pts, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitLidarLu: 1 }, bdtopo: { cleabs: 'BATIMENT0000000000000043' },  },
+  { key: 'c', fonction: 'batiment', pts, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' }, toitLidarLu: 1 }, bdtopo: { cleabs: CLE },  },
 ];
 
 afterEach(() => { essayerFaitsToits(null); toasts.length = 0; bandeaux.length = 0; });
@@ -40,7 +40,7 @@ describe('?regles=local', () => {
     expect(essaiDeFaits()).toBe(true);
     expect(faitDuBatiment(o[0]!)?.observation.forme).toEqual(['croupes']);
     expect(r).toMatchObject({ faits: 1, relus: 1 });
-    expect(o.map((x) => x.toitLidarLu)).toEqual([null, 1, 1]);
+    expect(o.map((x) => x.batiment?.toitLidarLu)).toEqual([null, 1, 1]);
     expect(r.message).toMatch(/enregistrés nulle part/);
   });
 
@@ -66,7 +66,7 @@ describe('?regles=local', () => {
     expect(cmd.executer('admin.faitsLocaux')).toBe(true);
     await vi.waitFor(() => expect(toasts).toHaveLength(1));
     expect(relireToits).toHaveBeenCalledTimes(1);
-    expect(o[0]!.toitLidarLu).toBe(null);
+    expect(o[0]!.batiment?.toitLidarLu).toBe(null);
     expect(bandeaux).toEqual([]);
     clic.mockRestore();
   });

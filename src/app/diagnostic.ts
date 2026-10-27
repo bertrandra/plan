@@ -33,9 +33,9 @@ export type ClasseDiagnostic = 'rouge' | 'vert' | 'orange' | 'bleu';
 export function classeToit(o: ObjetPlan): ClasseDiagnostic | null {
   if (!estBatiment(o)) return null;
   const a = o as ObjetAToit;
-  if (a.toit?.source === 'lidar' || a.corpsToit?.length || a.toitMesure) return 'vert';
+  if (a.batiment?.toit?.source === 'lidar' || a.batiment?.corpsToit?.length || a.batiment?.toitMesure) return 'vert';
   if (!toitAAjuster(a)) return 'bleu';
-  return toitLu(a) ? 'orange' : 'rouge';
+  return toitLu(a.batiment) ? 'orange' : 'rouge';
 }
 
 /** D'ou vient la couleur des murs de ce batiment ; null pour ce qui n'est pas un batiment. */

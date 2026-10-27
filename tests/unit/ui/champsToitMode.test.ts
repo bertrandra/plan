@@ -10,7 +10,7 @@ import type { ChampCarte } from '../../../src/ui/champs/types.js';
 
 const pts = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
 function contexte(plus: Record<string, unknown>): ContexteChamps {
-  const o = { key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' }, ...plus } as unknown as ObjetPlan;
+  const o = { key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 6, pts, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } }, ...plus } as unknown as ObjetPlan;
   return { etat: { objects: [o], highlight: {}, lectureSeule: false }, obj: o, objets: [o], elevationOf: () => 6, render: () => {} } as unknown as ContexteChamps;
 }
 const mesure: ToitMesure = { pas: 0.5, x0: -0.5, y0: 8.5, nx: 27, ny: 19, z: Array.from({ length: 27 * 19 }, () => 6.5), egout: 4.2, faite: 7.8, source: 'lidar' };

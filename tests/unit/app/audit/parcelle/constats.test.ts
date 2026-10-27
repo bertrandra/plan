@@ -16,7 +16,7 @@ import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../.
 // en bout, sud en long pan ; cotes du contour : est 1, ouest 9, sud 6 ; le nord 12 est le bout de l'aile nord-est, corps 2).
 
 const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
-const maison = (plus: Record<string, unknown> = {}): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: d.corps, ...plus }) as unknown as ObjetPlan;
+const maison = (plus: Record<string, unknown> = {}): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: d.corps },   ...plus }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const COTES = { est: 1, ouest: 9, sud: 6, nord: 12 } as const;
 const ETIQ = { est: 'est (côté 2)', ouest: 'ouest (côté 10)', sud: 'sud (côté 7)', nord: 'nord (côté 13)' } as const;
@@ -70,7 +70,7 @@ describe('les constats de l’IGN, du LiDAR et du projet', () => {
   });
 
   it('le projet dit ce qu’il a, et ce qu’une personne a choisi (un veto)', () => {
-    const p = constatsDuBatiment(entrees(maison({ bdtopo: { hauteurM: 5 }, couleurMurs: { materiau: 'pierre' } })));
+    const p = constatsDuBatiment(entrees(maison({ bdtopo: { hauteurM: 5 }, batiment: { couleurMurs: { materiau: 'pierre' } } })));
     expect(p.projet('batiment:maison', 'hauteurEgout')).toEqual({ valeur: 6, choisi: false });
     expect(p.projet('batiment:maison', 'formeToit')).toEqual({ valeur: 'deux-pans', choisi: false });
     expect(p.projet('batiment:maison', 'boutsToit').valeur).toEqual(['pignon', 'pignon']);

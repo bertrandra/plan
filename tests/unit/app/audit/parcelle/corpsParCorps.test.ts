@@ -18,7 +18,7 @@ import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../.
 // l'aile nord-est, l'ouest du cote 11 son autre long pan, le nord du cote 12 son bout.
 
 const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
-const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: JSON.parse(JSON.stringify(d.corps)) }) as unknown as ObjetPlan;
+const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, toitMesure: d.toitMesure, corpsToit: JSON.parse(JSON.stringify(d.corps)) },   }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const facade = (cote: number) => facadesDuContour(d.contour, 6).find((f) => f.cote === cote)!;
 

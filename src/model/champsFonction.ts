@@ -65,3 +65,18 @@ export function versMemoire(o: object): ObjetBrut {
   rangerChampsAPlat(c);
   return c as ObjetBrut;
 }
+
+/** La forme a plat d'un objet, sans le copier en profondeur : ses champs propres, et ceux de ses sous-objets sous leur nom du fichier. */
+export function aPlat(o: object): Record<string, unknown> {
+  const src = o as Record<string, unknown>;
+  if (!SOUS_OBJETS.some((s) => src[s] && typeof src[s] === 'object')) return src;
+  const out: Record<string, unknown> = { ...src };
+  for (const s of SOUS_OBJETS) delete out[s];
+  for (const [plat, [sous, nom]] of Object.entries(CHAMPS_A_PLAT)) {
+    const s = src[sous] as Record<string, unknown> | null | undefined;
+    if (s && typeof s === 'object' && nom in s) out[plat] = s[nom];
+  }
+  return out;
+}
+
+const SOUS_OBJETS: readonly SousObjet[] = ['batiment', 'arbre', 'parasol'];

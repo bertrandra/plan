@@ -4,7 +4,7 @@ import { appliquerPiece } from '../../../../src/three/gestesToits.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
-const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const avecTout = (): CorpsToit[] => {
   const o = maison();
   for (const id of ['facade:bow-window', 'sur:pignon', 'sur:cheminee', 'sur:jacobine', 'sur:fenetre-toit', 'sur:solaire']) appliquerPiece(o, id);

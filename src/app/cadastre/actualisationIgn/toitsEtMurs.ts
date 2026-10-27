@@ -29,8 +29,8 @@ async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bila
  * Un toit recalcule sur la parcelle du projet retrouve ses volumes par defaut, et perd son toit
  * mesure, qui suivait l'ancien contour (le LiDAR relit les deux ensuite) ; sinon rien a ecrire.
  */
-export function volumesRecalcules(o: { toit?: Toit | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
-  if (!toit || toit === o.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
+export function volumesRecalcules(o: { batiment?: { toit?: Toit | null } | null; bdtopo?: unknown }, pts: PtBrut[], toit: Toit | undefined): VolumeToit[] | null | undefined {
+  if (!toit || toit === o.batiment?.toit || (o.bdtopo as { surParcellePrincipale?: unknown } | undefined)?.surParcellePrincipale !== true) return undefined;
   return volumesParDefaut(pts, toit);
 }
 

@@ -8,7 +8,7 @@ import { champsBatiment } from '../../../src/model/champsFonction.js';
 const batiment = (extra: Partial<ObjetPlan> = {}): ObjetPlan => ({
   key: 'b', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 3,
   pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }],
-  toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' },
+  batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } },
   ...extra
 } as unknown as ObjetPlan);
 

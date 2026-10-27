@@ -21,7 +21,7 @@ import type { CorpsToit, ObjetPlan, PtBrut, ChampsBatiment } from '../../../../.
 // « nord » sont ses longs pans. Cotes du contour : est 13 (5,9 m), ouest 9 (9,6 m), sud 6 (9 m), nord 12 (7,8 m).
 
 const d = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101.json', 'utf8')) as { contour: PtBrut[]; toitMesure: ChampsBatiment['toitMesure']; corps: CorpsToit[] };
-const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, toitMesure: d.toitMesure, corpsToit: d.corps }) as unknown as ObjetPlan;
+const maison = (): ObjetPlan => ({ key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: d.contour, elevation: 6, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 }, toitMesure: d.toitMesure, corpsToit: d.corps },   }) as unknown as ObjetPlan;
 const parcelle = { key: 'parcelle', name: 'p', type: 'polygon', fonction: 'terrain', pts: [{ x: -50, y: -50 }, { x: 50, y: -50 }, { x: 50, y: 50 }, { x: -50, y: 50 }] } as unknown as ObjetPlan;
 const COTES = { est: 13, ouest: 9, sud: 6, nord: 12 } as const;
 const ETIQ = { est: 'est (côté 14)', ouest: 'ouest (côté 10)', sud: 'sud (côté 7)', nord: 'nord (côté 13)' } as const;

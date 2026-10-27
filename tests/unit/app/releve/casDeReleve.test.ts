@@ -29,7 +29,7 @@ describe('les cas tires d une facade relevee', () => {
 
   it('parcourt les batiments d un projet, sans s arreter a une image illisible', async () => {
     const objets = [
-      { key: 'a', name: 'Maison', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }], facades: [releve(), releve({ cote: 1, texture: 'data:image/jpeg;base64,BBBB' })] },
+      { key: 'a', name: 'Maison', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }], batiment: { facades: [releve(), releve({ cote: 1, texture: 'data:image/jpeg;base64,BBBB' })] } },
       { key: 'b', name: 'Abri', type: 'polygon', pts: [] },
     ] as unknown as ObjetBrut[];
     const dims = async (u: string) => { if (u.endsWith('BBBB')) throw new Error('illisible'); return { l: 1000, h: 750 }; };

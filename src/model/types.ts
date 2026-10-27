@@ -1,6 +1,6 @@
 // Les types du modele : un objet du plan, sa construction, sa nomenclature, ses cotes, et ce qu'il porte (voisinage, PLU). Les
 // points, le releve d'une facade, le toit, les hypotheses de calcul, les champs propres a une fonction (typesFonctions.ts) et les
-// ouvrages (cloture, pergola, piscine : typesOuvrages.ts) vivent dans leurs propres fichiers, re-exportes ici : un import de
+// ouvrages (typesCloture.ts, typesPergola.ts, typesPiscine.ts) vivent dans leurs propres fichiers, re-exportes ici : un import de
 // `model/types.js` reste valable (audit d'architecture, 25 octobre 2026).
 
 export type { CouleurMurs, PhotoMur } from './couleurMur.js';
@@ -12,8 +12,12 @@ import type { DeclarationPrealable } from './typesCalcul.js';
 import type { ChampsBatiment, ChampsArbre, ChampsParasol, TextureAppliquee } from './typesFonctions.js';
 export type { ChampsBatiment, ChampsArbre, ChampsParasol, TextureAppliquee, Fenetre3d, ProfilFacadesRetenu, Fenetres3d, VerifieSurPlace } from './typesFonctions.js';
 export type { ZoneNeige, CategorieTerrain, HypothesesCalcul, DeclarationPrealable } from './typesCalcul.js';
-import type { Cloture, Pergola, Piscine, TypeCloture } from './typesOuvrages.js';
-export type { TypeCloture, ParementMur, EssenceHaie, LimiteCloture, SoubassementCloture, ReglageCloture, CoteCloture, OuverturePortail, FormePortail, RemplissagePortail, MateriauPortail, PiliersPortail, Portail, Cloture, ToitPergola, MateriauPergola, Pergola, ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPiscine, PlagePiscine, SecuritePiscine, TraitementPiscine, ChauffagePiscine, LocalTechniquePiscine, Piscine } from './typesOuvrages.js';
+import type { Cloture, TypeCloture } from './typesCloture.js';
+export type { TypeCloture, ParementMur, EssenceHaie, LimiteCloture, SoubassementCloture, ReglageCloture, CoteCloture, OuverturePortail, FormePortail, RemplissagePortail, MateriauPortail, PiliersPortail, Portail, Cloture } from './typesCloture.js';
+import type { Pergola } from './typesPergola.js';
+export type { ToitPergola, MateriauPergola, Pergola } from './typesPergola.js';
+import type { Piscine } from './typesPiscine.js';
+export type { ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPiscine, PlagePiscine, SecuritePiscine, TraitementPiscine, ChauffagePiscine, LocalTechniquePiscine, Piscine } from './typesPiscine.js';
 
 /**
  * Une forme du plan, telle que la manipulent le rendu, les exports et la 3D.

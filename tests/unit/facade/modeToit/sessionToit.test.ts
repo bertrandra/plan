@@ -6,7 +6,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 import { champsBatiment } from '../../../../src/model/champsFonction.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
-const batiment = (): ObjetPlan => ({ key: 'b', type: 'polygon', pts: rect, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const batiment = (): ObjetPlan => ({ key: 'b', type: 'polygon', pts: rect, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const corps = (): CorpsToit => ({ pts: rect, posFaitage: 3, faitage: 7, egouts: [3, 3], pignons: [], ecart: 0 });
 
 describe('la session d edition du toit', () => {

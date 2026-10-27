@@ -31,11 +31,11 @@ function plan(): ObjetPlan[] {
     },
     {
       key: 'bati-bat1', type: 'polygon', name: 'Ma maison', fonction: 'batiment', pts: carre(5, 5, 10), elevation: 6, hidden: false,
-      fill: '#ff0000', fillOpacity: 1, stroke: '#ff0000', textureVerticale: texture, couleurMurs: { source: 'plan' }, modeToit: 'simple', fenetres3d: { afficher: false },
-      toit: { forme: 'deux-pans', pente: 35, faitage: 'long', source: 'bdtopo', couleur: '#123456' },
-      corpsToit: [{ pts: carre(5, 5, 10), egouts: [5], faitage: 8, pignons: [] }],
+      fill: '#ff0000', fillOpacity: 1, stroke: '#ff0000', textureVerticale: texture, batiment: { couleurMurs: { source: 'plan' }, modeToit: 'simple', fenetres3d: { afficher: false }, toit: { forme: 'deux-pans', pente: 35, faitage: 'long', source: 'bdtopo', couleur: '#123456' }, corpsToit: [{ pts: carre(5, 5, 10), egouts: [5], faitage: 8, pignons: [] }], toitACheval: { parcelles: ['parcelle', 'p2'], reponse: 'un' } },  
+      
+      
       bdtopo: { couche: 'BDTOPO_V3:batiment', id: 'BAT1', surParcellePrincipale: true },
-      toitACheval: { parcelles: ['parcelle', 'p2'], reponse: 'un' }
+      
     },
     // Un abri dessine a la main sur la parcelle, et un batiment voisin hors d'elle.
     { key: 'abri', type: 'polygon', name: 'Abri', fonction: 'batiment', pts: carre(22, 2, 3), elevation: 2.2, fill: '#00ffff' },

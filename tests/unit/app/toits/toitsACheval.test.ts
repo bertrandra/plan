@@ -28,7 +28,7 @@ function mesure() {
 }
 function plan(): ObjetPlan[] {
   const { m } = mesure();
-  const b = { key: 'b1', name: 'Longère', fonction: 'batiment', type: 'polygon', pts, bdtopo: { surParcellePrincipale: true }, toitMesure: m, corpsToit: reconstruireCorps(m, pts) };
+  const b = { key: 'b1', name: 'Longère', fonction: 'batiment', type: 'polygon', pts, bdtopo: { surParcellePrincipale: true }, batiment: { toitMesure: m, corpsToit: reconstruireCorps(m, pts) },  };
   return [
     { key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: rect(-5, -5, 13, 20), cadastre: { section: 'AE', numero: '0101' } },
     { key: 'p102', fonction: 'terrain', type: 'polygon', pts: rect(8, -5, 13, 20), cadastre: { section: 'AE', numero: '0102' } },

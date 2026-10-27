@@ -96,12 +96,12 @@ function couleurDuMateriauVu(m: MateriauTexture): string | null {
 }
 
 /** La couleur des murs retenue pour la 3D, et sa source ; null : la couleur du plan. */
-export function couleurMursRetenue(o: { couleurMurs?: CouleurMurs | null; bdtopo?: unknown }): { couleur: string; source: 'photo' | 'materiau' } | null {
-  const choix = o.couleurMurs?.source;
+export function couleurMursRetenue(o: { batiment?: { couleurMurs?: CouleurMurs | null } | null; bdtopo?: unknown }): { couleur: string; source: 'photo' | 'materiau' } | null {
+  const choix = o.batiment?.couleurMurs?.source;
   if (choix === 'plan') return null;
   // La couleur vue sur place passe avant la photo de rue : elle a ete validee par quelqu'un devant le mur.
-  const photo = o.couleurMurs?.terrain?.couleur ?? o.couleurMurs?.photo?.couleur;
-  const vu = o.couleurMurs?.materiau;
+  const photo = o.batiment?.couleurMurs?.terrain?.couleur ?? o.batiment?.couleurMurs?.photo?.couleur;
+  const vu = o.batiment?.couleurMurs?.materiau;
   const materiau = (vu ? couleurDuMateriauVu(vu) : null) ?? materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.couleur;
   if (choix !== 'materiau' && photo) return { couleur: photo, source: 'photo' };
   if (materiau) return { couleur: materiau, source: 'materiau' };
@@ -113,9 +113,10 @@ export function couleurMursRetenue(o: { couleurMurs?: CouleurMurs | null; bdtopo
  * retenue teinte (la photo, ou le materiau lui-meme). Aucune quand la couleur du plan est choisie,
  * ou que le materiau n'est pas connu.
  */
-export function textureDesMurs(o: { couleurMurs?: CouleurMurs | null; bdtopo?: unknown }): MateriauTexture | null {
-  if (o.couleurMurs?.source === 'plan') return null;
-  if (o.couleurMurs?.materiau) return o.couleurMurs.materiau;
+export function textureDesMurs(o: { batiment?: { couleurMurs?: CouleurMurs | null } | null; bdtopo?: unknown }): MateriauTexture | null {
+  if (o.batiment?.couleurMurs?.source === 'plan') return null;
+  const vu = o.batiment?.couleurMurs?.materiau;
+  if (vu) return vu;
   return materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)?.texture ?? null;
 }
 

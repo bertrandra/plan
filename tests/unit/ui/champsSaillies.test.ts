@@ -8,7 +8,7 @@ import type { ObjetPlan } from '../../../src/model/types.js';
 
 const pts = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 function contexte(): ContexteChamps {
-  const o = { key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 3, pts, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan;
+  const o = { key: 'maison', fonction: 'batiment', type: 'polygon', elevation: 3, pts, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan;
   return { etat: { objects: [o], highlight: {}, lectureSeule: false }, obj: o, objets: [o], elevationOf: () => 3, render: () => {}, pushHistory: () => {} } as unknown as ContexteChamps;
 }
 const lignes = (c: ContexteChamps) => sectionReleve(c).champs.filter((x): x is ChampLigne => x.type === 'ligne' && x.cle.startsWith('saillie'));

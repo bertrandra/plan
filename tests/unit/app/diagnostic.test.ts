@@ -31,7 +31,7 @@ describe('les modes de diagnostic', () => {
   it('devwall : par defaut en rouge, fichiers fonciers en orange, photo Panoramax en vert', () => {
     expect(classeMurs(bat())).toBe('rouge');
     expect(classeMurs(bat({ bdtopo: { materiauxMurs: '40' } }))).toBe('orange');
-    expect(classeMurs(bat({ bdtopo: { materiauxMurs: '40' }, couleurMurs: { photo: { couleur: '#c8b89a' } } }))).toBe('vert');
+    expect(classeMurs(bat({ bdtopo: { materiauxMurs: '40' }, batiment: { couleurMurs: { photo: { couleur: '#c8b89a' } } } }))).toBe('vert');
     expect(classeMurs(bat({ couleurMurs: { photo: { couleur: '#c8b89a' }, source: 'plan' } }))).toBe('rouge');
   });
 

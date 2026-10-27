@@ -8,7 +8,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const rect = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }];
 const hote = (): CorpsToit => ({ pts: rect, posFaitage: 3, faitage: 7, egouts: [3.5, 3.5], pignons: [], ecart: 0 });
-const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: rect, toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: rect, batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 const aire = (c: CorpsToit) => { const r = repere(c.pts); return r.L * r.W; };
 
 describe('poser un corps', () => {

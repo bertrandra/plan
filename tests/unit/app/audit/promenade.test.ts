@@ -22,7 +22,7 @@ describe('la demande du mode audit', () => {
 
 describe('figer un cas', () => {
   it('garde le contour, la BD TOPO, la grille au centimetre et les batiments proches ; les sorties telles quelles', () => {
-    const o = bati('b1', 0, { bdtopo: { cleabs: 'BATIMENT0001', materiauxMurs: '01' }, elevation: 6.2, toit: { forme: 'deuxPans' }, corpsToit: [{ faitage: 8 }] });
+    const o = bati('b1', 0, { bdtopo: { cleabs: 'BATIMENT0001', materiauxMurs: '01' }, elevation: 6.2, batiment: { toit: { forme: 'deuxPans' }, corpsToit: [{ faitage: 8 }] },  });
     const proche = bati('b2', 8 + DISTANCE_VOISINS_M - 1), loin = bati('b3', 40);
     const e = entreesDe(o, [o, proche, loin, parcelle], { pas: 0.5, x0: 0, y0: 0, nx: 1, ny: 1, z: [6.789] });
     expect(e.voisins.map((v) => v.cle)).toEqual(['b2']);

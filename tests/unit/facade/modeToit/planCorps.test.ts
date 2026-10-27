@@ -5,7 +5,7 @@ import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 // Un corps de 10 x 6 : faitage le long de x, a y = 3 ; egouts 3 m, faitage 5,5 m.
 const corps = (extra: Partial<CorpsToit> = {}): CorpsToit => ({ pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 5.5, egouts: [3, 3], pignons: [], ecart: 0.1, ...extra });
-const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } as unknown as ObjetPlan);
+const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
 
 describe('la ligne de faitage du mode Plan', () => {
   it('suit le faitage du bout a bout, raccourcie par les croupes', () => {

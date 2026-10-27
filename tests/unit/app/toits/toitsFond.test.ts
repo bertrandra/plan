@@ -29,14 +29,14 @@ const bdtopo = { forme: 'deux-pans' as const, hauteur: 3, angleFaitage: 0, sourc
 function plan(n: number): ObjetPlan[] {
   const objets = [{ key: 'parcelle', fonction: 'terrain', type: 'polygon', pts: rect(0, 0, 20, 20), cadastre: { origineLat: 48.9, origineLon: 2.13 } }] as unknown as ObjetPlan[];
   // Les murs deja lus (rien de concluant) : seuls les toits se lisent, sauf dans les tests des murs.
-  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo }, couleurMurs: { photo: null, lecture: 1 } } as unknown as ObjetPlan);
+  for (let k = 0; k < n; k++) objets.push({ key: 'b' + k, fonction: 'batiment', type: 'polygon', pts: rect(30 + k * 10, 0, 6, 5), batiment: { toit: { ...bdtopo }, couleurMurs: { photo: null, lecture: 1 } },  } as unknown as ObjetPlan);
   return objets;
 }
 
 /** Une lecture qui marque chaque copie lue et lui pose un toit plat ; `muet` : le service ne repond pas. */
 const lecteur = (lus: string[][], muet = () => false) => vi.fn(async (_o: readonly ObjetAToit[], _p: unknown, opt?: { candidats?: readonly ObjetAToit[] }) => {
   lus.push((opt?.candidats ?? []).map((c) => c.key as string));
-  if (!muet()) for (const c of opt?.candidats ?? []) { c.toitLidarLu = VERSION_LECTURE_TOITS; c.toit = { ...(c.toit?.couleur ? { couleur: c.toit.couleur } : {}), forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar' }; }
+  if (!muet()) for (const c of opt?.candidats ?? []) { champsBatiment(c).toitLidarLu = VERSION_LECTURE_TOITS; champsBatiment(c).toit = { ...(c.batiment?.toit?.couleur ? { couleur: c.batiment?.toit.couleur } : {}), forme: 'plat', hauteur: 0, angleFaitage: 0, source: 'lidar' }; }
   return { ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false };
 }) as unknown as typeof toitsDepuisLidar;
 
@@ -162,7 +162,7 @@ describe('les toits en tache de fond', () => {
         options.push(opt ?? {});
         // La vraie lecture demande les dalles a chaque appel : ici aussi.
         await opt?.dalles?.([], projecteurLocal(48.9, 2.13));
-        for (const c of opt?.candidats ?? []) c.toitLidarLu = VERSION_LECTURE_TOITS;
+        for (const c of opt?.candidats ?? []) champsBatiment(c).toitLidarLu = VERSION_LECTURE_TOITS;
         return { ajustes: 0, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false };
       }) as typeof toitsDepuisLidar
     });
@@ -260,7 +260,7 @@ describe('la fin de la lecture et l enregistrement', () => {
     // b0 : verifie sur place, lu a une version d'avant, un deux-pans a 5 m d'egout ; sa couleur n'est pas a relire.
     const b0 = objets.find((o) => o.key === 'b0') as unknown as ObjetAToit & ObjetPlan;
     Object.assign(b0, { toitLidarLu: VERSION_LECTURE_TOITS - 1, elevation: 5, verifieSurPlace: { date: '2026-10-13' }, corpsToit: [{ pts: rect(30, 0, 6, 5), posFaitage: 2.5, faitage: 7.5, egouts: [5, 5], pignons: [], ecart: 0.1 }] });
-    const avant = JSON.stringify({ pts: b0.pts, toit: b0.batiment?.toit, elevation: b0.elevation, corpsToit: b0.batiment?.corpsToit });
+    const avant = JSON.stringify({ pts: b0.pts, batiment: { toit: b0.batiment?.toit, corpsToit: b0.batiment?.corpsToit }, elevation: b0.elevation,  });
     const lus: string[][] = [];
     const fin = vi.fn();
     let relu = 0;
@@ -270,7 +270,7 @@ describe('la fin de la lecture et l enregistrement', () => {
       lire: (async (o, pr, opt) => {
         // La copie du batiment verifie est bien lue (« relire »), et le lecteur la change : un toit plat, la hauteur corrigee.
         const c = opt?.candidats?.[0];
-        if (c?.key === 'b0') { relu++; expect(opt?.verifies).toBe('relire'); c.elevation = 6; c.corpsToit = null; }
+        if (c?.key === 'b0') { relu++; expect(opt?.verifies).toBe('relire'); c.elevation = 6; champsBatiment(c).corpsToit = null; }
         return lire(o, pr, opt);
       }) as typeof toitsDepuisLidar
     });
@@ -278,7 +278,7 @@ describe('la fin de la lecture et l enregistrement', () => {
     await finir(fond);
     expect(relu).toBe(1);
     // Dans le plan : le toit, la hauteur et les corps verifies au centimetre ; la couleur non relue ; seule la marque a bouge.
-    expect(JSON.stringify({ pts: b0.pts, toit: b0.batiment?.toit, elevation: b0.elevation, corpsToit: b0.batiment?.corpsToit })).toBe(avant);
+    expect(JSON.stringify({ pts: b0.pts, batiment: { toit: b0.batiment?.toit, corpsToit: b0.batiment?.corpsToit }, elevation: b0.elevation,  })).toBe(avant);
     expect(b0.batiment?.toit?.couleur).toBeUndefined();
     expect(toitLu(b0.batiment)).toBe(true);
     // b1, lui, a ete lu normalement.
@@ -364,16 +364,16 @@ describe('la version de la lecture', () => {
 describe('le marque des batiments lus', () => {
   const proj = projecteurLocal(48.9, 2.13);
   it('marque un batiment lu, meme sans mesure dessous, mais pas quand le service ne repond pas', async () => {
-    const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(0, 0, 20, 20) }, { key: 'a', fonction: 'batiment', pts: rect(30, 0, 6, 5), toit: { ...bdtopo } }, { key: 'b', fonction: 'batiment', pts: rect(50, 0, 6, 5), toit: { ...bdtopo } }];
+    const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(0, 0, 20, 20) }, { key: 'a', fonction: 'batiment', pts: rect(30, 0, 6, 5), batiment: { toit: { ...bdtopo } } }, { key: 'b', fonction: 'batiment', pts: rect(50, 0, 6, 5), batiment: { toit: { ...bdtopo } } }];
     const lire = vi.fn(async (pts: readonly PtBrut[]) => { if (pts[0]!.x === 50) throw new Error('muet'); return []; });
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true });
-    expect(objets[1]!.toitLidarLu).toBe(VERSION_LECTURE_TOITS);
-    expect(objets[2]!.toitLidarLu).toBeUndefined();
+    expect(objets[1]!.batiment?.toitLidarLu).toBe(VERSION_LECTURE_TOITS);
+    expect(objets[2]!.batiment?.toitLidarLu).toBeUndefined();
   });
 
   it('lit les candidats donnes, dans leur ordre, au lieu des plus proches', async () => {
     const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(0, 0, 20, 20) }];
-    for (let k = 0; k < 5; k++) objets.push({ key: 'b' + k, fonction: 'batiment', pts: rect(30 + k * 10, 0, 6, 5), toit: { ...bdtopo } });
+    for (let k = 0; k < 5; k++) objets.push({ key: 'b' + k, fonction: 'batiment', pts: rect(30 + k * 10, 0, 6, 5), batiment: { toit: { ...bdtopo } } });
     const lus: number[] = [];
     const lire = vi.fn(async (pts: readonly PtBrut[]) => { lus.push(pts[0]!.x); return []; });
     await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true, candidats: [objets[5]!, objets[4]!], enParallele: 1 });

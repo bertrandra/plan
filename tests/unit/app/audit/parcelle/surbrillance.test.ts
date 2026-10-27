@@ -10,7 +10,7 @@ const CORPS: CorpsToit[] = [
   { pts: rect(0, 0, 10, 8), posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 },
   { pts: rect(10, 0, 14, 5), posFaitage: 2, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0.1 },
 ];
-const maison = { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 14, 8), elevation: 6, corpsToit: CORPS } as unknown as ObjetPlan;
+const maison = { key: 'maison', name: 'maison', type: 'polygon', fonction: 'batiment', pts: rect(0, 0, 14, 8), elevation: 6, batiment: { corpsToit: CORPS } } as unknown as ObjetPlan;
 const ligne = (cible: Proposition['cible'], effet: Proposition['effet']): Proposition => ({ id: 'x', cible, objet: 'x', source: 'arbitrage', avant: '', apres: '', confiance: null, indices: [], remplaceChoix: null, reserve: null, effet });
 
 describe('la surbrillance d une ligne de propositions', () => {

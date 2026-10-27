@@ -30,16 +30,16 @@ describe('couleurMursRetenue', () => {
   const photo = { couleur: '#D9D2C4', id: 'p', date: null, auteur: null, licence: null };
   const meuliere = { bdtopo: { materiauxMurs: '20' } };
   it('automatique : la photo, sinon le materiau, sinon la couleur du plan', () => {
-    expect(couleurMursRetenue({ ...meuliere, couleurMurs: { photo } })).toEqual({ couleur: '#D9D2C4', source: 'photo' });
-    expect(couleurMursRetenue({ ...meuliere, couleurMurs: { photo: null } })).toEqual({ couleur: MATERIAUX_MURS['2']!.couleur, source: 'materiau' });
+    expect(couleurMursRetenue({ ...meuliere, batiment: { couleurMurs: { photo } } })).toEqual({ couleur: '#D9D2C4', source: 'photo' });
+    expect(couleurMursRetenue({ ...meuliere, batiment: { couleurMurs: { photo: null } } })).toEqual({ couleur: MATERIAUX_MURS['2']!.couleur, source: 'materiau' });
     expect(couleurMursRetenue({ bdtopo: { materiauxMurs: '90' } })).toBeNull();
     expect(couleurMursRetenue({})).toBeNull();
   });
   it('choisie a la main : le materiau malgre la photo, ou la couleur du plan', () => {
-    expect(couleurMursRetenue({ ...meuliere, couleurMurs: { photo, source: 'materiau' } })?.source).toBe('materiau');
-    expect(couleurMursRetenue({ ...meuliere, couleurMurs: { photo, source: 'plan' } })).toBeNull();
+    expect(couleurMursRetenue({ ...meuliere, batiment: { couleurMurs: { photo, source: 'materiau' } } })?.source).toBe('materiau');
+    expect(couleurMursRetenue({ ...meuliere, batiment: { couleurMurs: { photo, source: 'plan' } } })).toBeNull();
     // La photo choisie mais absente : le materiau la remplace.
-    expect(couleurMursRetenue({ ...meuliere, couleurMurs: { source: 'photo' } })?.source).toBe('materiau');
+    expect(couleurMursRetenue({ ...meuliere, batiment: { couleurMurs: { source: 'photo' } } })?.source).toBe('materiau');
   });
 });
 

@@ -25,6 +25,7 @@
 // l'ecriture, qu'il est desormais de la forme courante.
 
 import { SCHEMA_VERSION } from './version.js';
+import { aPlat } from './champsFonction.js';
 // La migration 2 -> 3 lit sa copie figee (model/fige/toitSchema3.ts) : l'algorithme d'aujourd'hui peut changer sans elle.
 import { toitBdTopoSchema3, COUCHE_BATIMENT_BDTOPO } from './fige/toitSchema3.js';
 import type { ObjetAPlat, PtBrut } from './types.js';
@@ -114,7 +115,9 @@ function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
  */
 export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
   let s = 1;
-  for (const o of objets) {
+  for (const objet of objets) {
+    // Les objets de la memoire rangent ces champs dans leurs sous-objets : le schema se lit sur leur forme a plat.
+    const o = aPlat(objet) as ObjetAPlat;
     const brut = o as Record<string, unknown>;
     for (const [champ, depuis] of Object.entries(CHAMPS_DEPUIS)) {
       const v = brut[champ];

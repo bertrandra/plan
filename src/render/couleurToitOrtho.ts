@@ -38,7 +38,7 @@ export interface BilanCouleursToits {
 
 interface ObjetAvecToit {
   pts?: PtBrut[];
-  toit?: Toit | null;
+  batiment?: { toit?: Toit | null } | null;
   /** Les attributs BD TOPO : `materiauxToiture` (fichiers fonciers) departage un repli. */
   bdtopo?: unknown;
 }
@@ -177,7 +177,7 @@ export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[],
     }
   };
   const lireUnToit = async (o: ObjetAvecToit): Promise<void> => {
-    const toit = o.toit;
+    const toit = o.batiment?.toit;
     if (!couleurAResoudre(toit) || !Array.isArray(o.pts) || o.pts.length < 3) return;
     let img: ImageMonde | null = null;
     try {
