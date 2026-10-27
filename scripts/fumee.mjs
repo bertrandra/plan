@@ -1041,6 +1041,10 @@ const POINTS = {
       const c = document.querySelector('#stage > svg').cloneNode(true);
       c.querySelectorAll('image').forEach((e) => e.remove());
       c.querySelectorAll('[fill-opacity]').forEach((e) => e.removeAttribute('fill-opacity'));
+      // Le calque lui-meme ne se monte qu'a l'arrivee des tuiles : son enveloppe est videe aussi.
+      c.querySelectorAll('#coupeCalqueOrtho').forEach((coupe) => {
+        const g = coupe.parentElement; g.innerHTML = ''; g.removeAttribute('data-version'); g.removeAttribute('opacity');
+      });
       return c.innerHTML;
     });
     await date.fill('2026-06-21'); await page.waitForTimeout(150);
