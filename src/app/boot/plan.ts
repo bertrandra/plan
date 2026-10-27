@@ -3,14 +3,11 @@
 
 import { creerEtat } from '../../core/state.js';
 import { creerHistorique } from '../../core/historique.js';
-import { terrasseCourante, terrasseSelectionnee } from '../../core/contexteTerrasse.js';
 import { detruireVue } from '../../render/vues.js';
 import { serializeObjects, serializeMeasures } from '../../io/serialisation.js';
 import { creerRegistre } from '../commandes.js';
 import { droitsCourants, enLectureSeule } from '../acces.js';
 import { creerMagasin } from '../magasin.js';
-import { creerTiroir } from '../tiroir.js';
-import { creerResultats } from '../resultats.js';
 import type { Inspecteur } from '../inspecteur.js';
 import type { Explorateur } from '../explorateur.js';
 import type { Projet } from '../projet.js';
@@ -25,12 +22,11 @@ import { creerCadrage, mesurerScene } from '../assemblage/cadrage.js';
 import { creerMesures } from '../assemblage/mesures.js';
 import { creerGestes } from '../assemblage/gestes.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
-import { resumeDuProjet } from '../assemblage/exports.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
-import { estPiscine } from '../../model/fonctions.js';
 import type { GraineDemarrage } from './graines.js';
 import { creerRendu } from './rendu.js';
+import { assemblerLesResultats } from './resultatsDuPlan.js';
 
 /**
  * La lecture des toits en tache de fond (app/toits/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
@@ -89,25 +85,10 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   });
   const pushHistory = () => historique.empiler();
   const markDirty = () => historique.marquerModifie();
-  // Le tiroir des resultats (zones/Resultats.tsx) tient ses onglets ; ses panneaux ecrivent par
-  // `resultats`, ou chaque saisie s'annule et marque le projet modifie.
-  const piscineSelectionnee = () => { const o = etat.objects.find(x => x.key === etat.selectedKey); return o && estPiscine(o) ? o : undefined; };
-  const tiroir = creerTiroir(etat, { refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat), piscineSelectionnee }, magasin);
-  const resultats = creerResultats(etat, {
-    pushHistory, markDirty, render, renderTerrasseLayerView: dessin.renderTerrasseLayerView,
-    terrasseCourante: () => terrasseCourante(etat),
-    trouverParcelle: affichage.trouverParcelleCloture, lieuActuel: affichage.lieuActuel,
-    construireResume: () => resumeDuProjet(etat, mesures),
-    refLabel: mesures.refLabel, targetLabel: mesures.targetLabel, computeMeasureGeom: mesures.computeMeasureGeom,
-    montrerResume: () => {
-      tiroir.activer('resume');
-      if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
-    },
-    montrerProfil: () => {
-      tiroir.activer('profil');
-      if (magasin.store.getState().classe === 'compact') magasin.definirFeuille('resultats');
-    }
-  }, magasin);
+  // Le tiroir des resultats et ses panneaux (app/boot/resultatsDuPlan.ts).
+  const { tiroir, resultats } = assemblerLesResultats(etat, magasin, {
+    pushHistory, markDirty, render, refreshTerrasseView, renderTerrasseLayerView: dessin.renderTerrasseLayerView, affichage, mesures
+  });
 
   // Le dessin du plan, le rendu complet et l'apercu pendant un geste : app/boot/rendu.ts. `render` est hisse, parce que
   // l'historique et le dessin le recoivent avant que le rendu n'existe ; il ne s'appelle qu'une fois le plan assemble.

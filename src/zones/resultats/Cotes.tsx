@@ -8,7 +8,8 @@
 import { mesure } from '../../interaction/outilMesure.js';
 import { deniveleCote, geometrieMesure, reliefDesCotes, texteDenivele } from '../../render/measures.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
-import type { Resultats } from '../../app/resultats.js';
+import type { LigneProfil, Resultats } from '../../app/resultats.js';
+import { cleDuPlan } from '../../ui/clePlan.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
 /**
@@ -43,13 +44,35 @@ function Brouillon({ resultats, commandes }: { resultats: Resultats; commandes: 
   );
 }
 
+/** Ce qu'une ligne du tableau calcule : ses deux longueurs, son denivele et la ligne du profil. */
+interface LigneCalculee { g: ReturnType<Resultats['geometrieCote']>; d: ReturnType<typeof deniveleCote> | null; ligne: LigneProfil | null }
+
+// Les lignes se reprennent tant que le plan et la cote n'ont pas change (ui/clePlan.ts) : le denivele lit le relief sous la cote, et
+// le tableau se redessine a chaque rendu, tiroir ferme compris (feuille de route, etape 2.2).
+let memo: { cle: string; relief: boolean; lignes: Map<string, LigneCalculee> } = { cle: '', relief: false, lignes: new Map() };
+
 export function Cotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes }) {
   const cotes = resultats.etat.measures;
   const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
   const ecrire = commandes.etat('mesure.supprimer').utilisable;
+  const cle = cleDuPlan(objets);
   // Avec un relief, chaque cote dit son denivele et peut donner sa ligne au profil du sol (§5.2, §5.4).
-  const relief = !!reliefDesCotes(objets);
+  if (memo.cle !== cle) memo = { cle, relief: !!reliefDesCotes(objets), lignes: new Map() };
+  const relief = memo.relief;
+  const calculer = (m: (typeof cotes)[number]): LigneCalculee => {
+    const k = JSON.stringify(m);
+    let r = memo.lignes.get(k);
+    if (!r) {
+      const mode = m.displayMode || 'along';
+      // La geometrie complete, pour le denivele et la ligne du profil : les deux bouts de la cote.
+      const geo = relief ? geometrieMesure(objets, m) : null;
+      r = { g: resultats.geometrieCote(m), d: geo ? deniveleCote(objets, geo, mode) : null,
+        ligne: geo ? (mode === 'along' ? { a: geo.A, b: geo.foot } : { a: geo.foot, b: geo.p }) : null };
+      memo.lignes.set(k, r);
+    }
+    return r;
+  };
   return (
     <>
       <div className="sectionTitle">Mesure</div>
@@ -57,12 +80,8 @@ export function Cotes({ resultats, commandes }: { resultats: Resultats; commande
       <table className="attrTable" id="measureResultsTable"><tbody>
         <tr><th>Référence</th><th>Point</th><th>Origine</th><th>Perpendiculaire</th><th>Le long (depuis origine)</th>{relief && <th>Dénivelé</th>}<th>Affichage</th><th>Afficher</th>{relief && <th>Profil</th>}<th></th></tr>
         {cotes.map(m => {
-          const g = resultats.geometrieCote(m);
+          const { g, d, ligne } = calculer(m);
           const mode = m.displayMode || 'along';
-          // La geometrie complete, pour le denivele et la ligne du profil : les deux bouts de la cote.
-          const geo = relief ? geometrieMesure(objets, m) : null;
-          const d = geo ? deniveleCote(objets, geo, mode) : null;
-          const ligne = geo ? (mode === 'along' ? { a: geo.A, b: geo.foot } : { a: geo.foot, b: geo.p }) : null;
           return (
             <tr key={m.id} data-instance={m.id}>
               <td>{resultats.refLabel({ objKey: m.refObjKey, segIndex: m.refSegIndex })}</td>

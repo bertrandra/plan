@@ -61,6 +61,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le plan ne réécrit plus ce qui n'a pas changé** (feuille de route, étape 2.2, fin). Les cotes du tiroir (et leur dénivelé sur le
+  relief) et la recherche des doublons du menu se reprennent tant que le plan n'a pas changé (`ui/clePlan.ts`, la clé que le
+  chiffrage calculait déjà) ; le panneau de la Vue 3D ne suit plus le plan quand il est caché ; le dessin du plan ne réécrit plus
+  un attribut SVG égal à celui déjà posé. Au banc de production, à 600 objets : dessin du plan au téléphone 127 et 134 ms → 73 et
+  62 ms, rendu complet 389 et 431 ms → 252 et 228 ms ; au bureau, dessin 26 et 22 ms → 13 et 15 ms. Le seuil de 33 ms au téléphone
+  n'est pas atteint : le reste est le rendu des zones par React. Le frein `RENDU_LENT_MS` reste (étape 2.3, gardée par décision).
+- **Plus aucun carrefour dans `app/`** (feuille de route, étape 3.3). `boot/plan.ts` (23 imports) passe le tiroir des résultats à
+  `boot/resultatsDuPlan.ts` (19) ; le test d'architecture n'admet plus aucun module de `app/` au-delà de vingt imports.
+
 - **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
   fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
   enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour

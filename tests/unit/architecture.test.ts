@@ -339,18 +339,17 @@ describe('les domaines de app/ (feuille de route, etapes 3.1 et 3.2)', () => {
 describe('les modules carrefours de app/ (feuille de route, etape 3.3)', () => {
   // Un module qui importe beaucoup de modules est un carrefour : tout changement de l'un d'eux le touche. Le but est qu'aucun module
   // de app/ n'en importe plus de vingt (imports de valeur ; les types, effaces au build, ne comptent pas). Ceux qui depassent
-  // aujourd'hui sont listes avec leur compte : c'est un cliquet, ils ne grossissent plus, et le plafond descend avec eux.
+  // aujourd'hui seraient listes avec leur compte (un cliquet : ils ne grossiraient plus) ; il n'en reste aucun depuis le 27 octobre
+  // 2026, ou le dernier (`boot/plan.ts`, 23) a passe le tiroir des resultats a boot/resultatsDuPlan.ts.
   const LIMITE = 20;
-  const PLAFONDS: Record<string, number> = {
-    'app/boot/plan.ts': 23
-  };
+  const PLAFONDS: Record<string, number> = {};
   const comptes = new Map(tous.filter(f => relative(src, f).split(sep)[0] === 'app')
     .map(f => [relative(src, f).split(sep).join('/'), new Set(dependances(f).filter(d => !d.type).map(d => d.cible)).size] as const));
   it('aucun module de app/ n importe plus de vingt modules, hors des carrefours listes, qui ne grossissent plus', () => {
     const coupables = [...comptes].filter(([f, n]) => n > (PLAFONDS[f] ?? LIMITE)).map(([f, n]) => `${f} : ${n} (plafond ${PLAFONDS[f] ?? LIMITE})`);
     expect(coupables).toEqual([]);
   });
-  it('un plafond suit son module quand il maigrit', () => {
+  it('un plafond suit son module quand il maigrit (s il en reste)', () => {
     const aBaisser = Object.entries(PLAFONDS).filter(([f, p]) => (comptes.get(f) ?? 0) < p).map(([f, p]) => `${f} : ${comptes.get(f) ?? 'absent'} < ${p}`);
     expect(aBaisser).toEqual([]);
   });
