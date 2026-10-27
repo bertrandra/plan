@@ -30,6 +30,7 @@ import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -135,6 +136,7 @@ export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): bool
   champsBatiment(o).corpsToit = corps; champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
   o.elevation = forme.egout;
   champsBatiment(o).toitLidarLu = marqueDeLecture(o);
+  toucher(o);
   return true;
 }
 
@@ -367,6 +369,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   const elevation = elevationApresLecture(o.elevation, egout);
   if (elevation !== undefined) o.elevation = elevation;
   if (ajuste || volumes?.ajustes) bilan.ajustes++;
+  toucher(o);
 }
 
 /**

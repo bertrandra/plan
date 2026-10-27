@@ -24,6 +24,7 @@ import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import { surParcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 /** Combien de batiments par lot : le choix est rapide, la mitoyennete parcourt les voisins proches. */
 export const LOT_PROFILS_FACADES = 100;
@@ -52,6 +53,7 @@ export function rechoisirProfilsFacades(objets: readonly ObjetPlan[], options: {
     const avant = o.batiment?.profilFacades?.id ?? PROFIL_FACADES_DEFAUT;
     const { id } = profilFacadesDuBatiment(o, ctx, profils);
     champsBatiment(o).profilFacades = { id, version };
+    toucher(o);
     bilan.marques++;
     if (id !== avant) bilan.changes.push(o.key);
   }

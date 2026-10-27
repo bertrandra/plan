@@ -20,6 +20,7 @@ import { centroid } from '../../geometry/basic.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 /**
  * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les
@@ -137,6 +138,7 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
       const reste = { ...(o.batiment?.couleurMurs ?? {}) };
       delete reste.lecture;
       champsBatiment(o).couleurMurs = r.photo ? { ...reste, photo: r.photo } : { ...reste, photo: null, lecture: VERSION_LECTURE_MURS };
+      toucher(o);
       if (r.photo) photos++;
       ecrits.push(r.cle);
     }

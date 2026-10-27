@@ -2012,6 +2012,8 @@ const POINTS = {
       const b = (m.batiment ??= {});
       b.couleurMurs = { source: 'plan' };
       b.toit = { ...b.toit, couverture: 'tuile' };
+      // Ecrire dans un objet se dit, comme dans l'application (core/controleurObjets.ts).
+      window.__plan.toucher('maison');
     });
     const avant = await etatAudite(page);
     await captureJusquAuxPropositions(page);
