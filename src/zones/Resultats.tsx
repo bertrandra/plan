@@ -21,6 +21,7 @@ import { terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { Icone } from './icones.js';
 import type { Magasin } from '../app/magasin.js';
+import { useVersionVisible } from './composants/versionVisible.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -106,7 +107,7 @@ const LIBELLE_HAUTEUR: Record<HauteurTiroir, [string, string]> = {
 };
 
 export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResultats) {
-  useStore(magasin.store, (s) => s.version);
+  useVersionVisible(magasin, 'resultats');
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const etat = magasin.store.getState().etat;

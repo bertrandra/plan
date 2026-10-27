@@ -24,6 +24,7 @@ import { TERRASSE_LAYER_DEFS, terrasseLayerVisible } from '../render/terrasseCou
 import { clesDossier, dossierSelection } from '../app/dossier.js';
 import { estTerrasse, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import type { Magasin } from '../app/magasin.js';
+import { useVersionVisible } from './composants/versionVisible.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -227,7 +228,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
 }
 
 export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateur) {
-  useStore(magasin.store, (s) => s.version);
+  useVersionVisible(magasin, 'objets');
   const ouvertStore = useStore(magasin.store, (s) => s.explorateurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

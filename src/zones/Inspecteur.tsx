@@ -19,6 +19,7 @@ import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps, Section } from '../ui/champs/types.js';
 import type { Magasin } from '../app/magasin.js';
+import { useVersionVisible } from './composants/versionVisible.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
@@ -389,7 +390,7 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
 }
 
 export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInspecteur) {
-  useStore(magasin.store, (s) => s.version);
+  useVersionVisible(magasin, 'proprietes');
   const ouvertStore = useStore(magasin.store, (s) => s.inspecteurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

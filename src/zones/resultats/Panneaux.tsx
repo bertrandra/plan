@@ -5,7 +5,6 @@
 // (`panelBom`, `terrasseBomTable`…) : la feuille de style, la liste de fumee et
 // `tests/unit/zones/identifiants.test.ts` les retrouvent par eux.
 
-import { useStore } from 'zustand';
 import { ONGLETS } from '../../app/tiroir.js';
 import { Nomenclature } from './Nomenclature.js';
 import { Coupe } from './Coupe.js';
@@ -18,13 +17,14 @@ import { Resume } from './Resume.js';
 import { NoteCalcul } from './NoteCalcul.js';
 import { Profil } from './Profil.js';
 import type { Magasin } from '../../app/magasin.js';
+import { useVersionVisible } from '../composants/versionVisible.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
 export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }
 
 export function PanneauxResultats({ magasin, resultats, commandes }: PropsPanneaux) {
-  useStore(magasin.store, (s) => s.version);
+  useVersionVisible(magasin, 'resultats');
   const actif = magasin.store.getState().etat.panelTab;
   const onglet = ONGLETS.find(o => o.id === actif);
   if (!onglet) return null;
