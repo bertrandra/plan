@@ -2289,7 +2289,7 @@ const POINTS = {
     await page.locator('[data-controle="releve.valider"]').first().waitFor({ timeout: 60000 });
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, vues: o.batiment.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.facades.map((f) => f.ouvertures.length) })));
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, vues: o.batiment.facades.map((f) => (f.calage?.photos ?? []).filter((p) => p.pxParMSource > 0).length), ouvertures: o.batiment.facades.map((f) => f.ouvertures.length) })));
     await annuler(page);
     const retour = (await facades()) === avant;
     const deux = ecrit[0]?.vues?.[0] ?? 0;
