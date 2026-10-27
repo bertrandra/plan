@@ -61,6 +61,39 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'inspecteur ne montre que ce qui sert à concevoir chaque ouvrage** (`MD/spec-ouvrages.md`, « Décidé, ouvrage par
+  ouvrage », étape 6.4). Le propriétaire a tranché chaque proposition ; l'inspecteur règle, il n'affiche plus de résultat.
+  - **Tous les objets** : « Matière » (que seul l'export SVG recopiait), « Priorité d'affichage » (le geste « Reculer » la
+    remplace) et la section « Alignement par rotation » sont retirées. L'outil « Aligner » de la palette va désormais jusqu'au
+    bout : le côté cible désigné, l'objet sélectionné pivote. Les textures se replient sous « Textures », les côtés et les coins
+    restent repliés.
+  - **Parcelle** : le lieu, le cadastre, la clôture et les portails restent ouverts. La déclaration préalable devient un dialogue
+    du menu Exporter (« Déclaration préalable… »), avec les mêmes champs et le bouton du dossier. Le voisinage 3D rejoint les
+    réglages de la Vue 3D (groupe « Voisinage »). « Relief » et « Courbes de niveau » ne sont plus que dans le menu Affichage ;
+    la grille, le maillage secondaire, les points max et le zéro du plan se replient sous « Réglages techniques », « Actualiser »
+    reste à portée. La clôture côté par côté se replie, le réglage général reste ouvert.
+  - **Terrasse** : les étapes restent, une ouverte à la fois, les paramètres de calcul repliés ; l'optimisation de la structure
+    part dans un onglet « Optimisation » du tiroir, à côté de la nomenclature ; la lame de rive côté par côté se replie.
+  - **Piscine** : les cinq étapes restent ; le métrage, le chiffrage et les prix partent dans un onglet « Piscine » du tiroir,
+    avec le volume d'eau, les distances aux limites et la taxe d'aménagement. Un rappel court reste sous l'étape (le volume ;
+    la limite la plus proche et la taxe de base).
+  - **Pergola, carport** : matériau, toit, hauteur, côté de référence, adossé, débord, poteaux et poutres restent ouverts ;
+    contrefiches et chevrons, couleurs et longueurs achetables se replient, comme les hypothèses et les vérifications de la note
+    de calcul, dont le bouton du PDF reste en vue. Le métrage et les prix partent dans un onglet du tiroir, qui porte le nom de
+    l'ouvrage (« Pergola » ou « Carport »).
+  - **Bâtiment, annexe** : « Façades et toit » reste, « Fenêtres (3D) » est repliée ; un bâtiment importé de l'IGN et verrouillé
+    ne montre plus ses côtés ni ses coins (dessiné à la main, il les garde, repliés).
+  - **Parasol** : la terrasse rattachée, le mât, « Afficher l'ombre » et « Meilleure position » restent ouverts ; la date,
+    l'heure et la carte des heures d'ombre se replient.
+  - **Chemin** : longueur, largeur et courbe restent ouvertes, les points et segments repliés.
+
+  Un pli de champs est un mécanisme générique des descripteurs (`repli` dans `ui/champs/types.ts`), et les champs se rendent
+  par un seul composant (`zones/composants/Champs.tsx`), que l'inspecteur, le tiroir, le dialogue de la déclaration et les
+  réglages 3D partagent. **Aucune donnée ne se perd et aucun nombre ne bouge** : retirer un champ de l'inspecteur ne retire
+  rien de l'objet ni du fichier (la matière, la priorité, la déclaration, le voisinage restent rangés où ils étaient), les
+  exports et les empreintes de `tests/fixtures/golden/` sont inchangés. Un test fixe l'inventaire décidé, ouvrage par ouvrage
+  (`tests/unit/ui/inventaireInspecteur.test.ts`).
+
 - **Le plan ne redessine que l'objet qui change** (`MD/spec-ouvrages.md`, étapes 6.1 et 6.5). Un contrôleur des objets
   (`core/controleurObjets.ts`) tient une version par objet : le glisser touche l'objet glissé à chaque image, l'explorateur
   l'objet qu'il masque, un parasol posé sur le bord de sa terrasse quand elle bouge ; toute écriture qui passe par l'historique

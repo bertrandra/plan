@@ -20,6 +20,7 @@ import { showToast, showErrBanner } from '../../shell/dialogs.js';
 import { telechargerTexte, telechargerBlob } from '../../shell/download.js';
 import { slugFichier } from '../../util/format.js';
 import type { RegistreCommandes } from '../commandes.js';
+import { parcours, type ServiceChampsParcours } from '../parcours.js';
 import type { Resultats } from '../resultats.js';
 
 /** Ce que la livraison d'un fichier demande au reste du programme. */
@@ -71,8 +72,8 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   const surClic = (_idDom: string, id: string, libelle: string, action: (bouton: HTMLButtonElement) => void, capacite?: string) =>
     cmd.declarer({ id, libelle, groupe: 'export', ...(capacite ? { capacite } : {}), executer: (source) => action(source as HTMLButtonElement) });
 
-  // La declaration prealable : le cerfa officiel rempli et ses pieces. Le menu Exporter et la
-  // section de la parcelle la declenchent.
+  // La declaration prealable : le cerfa officiel rempli et ses pieces. Le bouton du dialogue de la
+  // declaration (menu Exporter, `export.ouvrirDeclaration`) la declenche, une fois les champs remplis.
   cmd.declarer({
     id: 'export.declaration', libelle: 'Déclaration préalable (cerfa 13703)', groupe: 'export', actif: ctx.declarationPossible,
     executer: () => {
@@ -203,4 +204,16 @@ export function brancherExports(ctx: ContexteExports, cmd: RegistreCommandes): v
   // Onglet Export : c'est bien un fichier que l'utilisateur veut, contrairement aux boutons de la
   // visionneuse qui ne produisent le modèle qu'en mémoire.
   surClic('exportGlbBtn', 'export.glb', 'Exporter en GLB', () => ctx.genererGlb(true), CAPACITES.vue3d.code);
+}
+
+/**
+ * Le dialogue de la declaration prealable (zones/parcours/Declaration.tsx), entree du menu Exporter :
+ * qui declare et ou, puis le dossier. Il ecrit sur la parcelle du projet ; sans parcelle, rien a declarer.
+ * Ouvrir ne modifie rien : chaque champ porte ses droits (refuse en lecture seule) et le dossier, les siens.
+ */
+export function brancherDialogueDeclaration(cmd: RegistreCommandes, service: ServiceChampsParcours): void {
+  cmd.declarer({
+    id: 'export.ouvrirDeclaration', libelle: 'Déclaration préalable…', groupe: 'export', actif: () => !!service.parcelle(),
+    executer: () => parcours.ouvrir({ type: 'declaration', service })
+  });
 }

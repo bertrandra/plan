@@ -44,7 +44,9 @@ export function brancherLePlan(p: Plan, atelier: Atelier, ch: ReturnType<typeof 
     insertPointOnSegment: p.gestes.insertPointOnSegment, pushHistory: p.pushHistory,
     rebuildSelector: p.rebuildSelector, render: p.render, sendObjectBackward: p.gestes.sendObjectBackward,
     toWorld: dessin.toWorld, markDirty: p.markDirty, vueChangee: p.vueChangee,
-    apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); }
+    apresAcces: () => { if (vue3d.scene) tardifs.vues?.buildThreeScene(terrasseCourante(etat) || null); },
+    // L'outil « Aligner » de la palette va jusqu'au bout : la cible designee, l'objet selectionne pivote.
+    aligner: () => { const o = etat.objects.find(x => x.key === etat.selectedKey); if (o) p.gestes.alignObjectByRotation(o); }
   });
   brancherObjets(atelier, commandes);
   // Ctrl+Z et Ctrl+S passent par le registre. Pas de Ctrl+Y : il n'y a pas de retablissement.

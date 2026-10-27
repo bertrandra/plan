@@ -17,6 +17,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { Magasin, HauteurTiroir } from './magasin.js';
 import { classePour, toucherSeul } from './classe.js';
 import { reliefDe } from '../model/relief.js';
+import { libelleAbri } from '../engine/pergola.js';
 
 export type { HauteurTiroir } from './magasin.js';
 
@@ -25,19 +26,28 @@ export interface Onglet {
   libelle: string;
   /** L'identifiant du panneau (zones/resultats/Panneaux.tsx). */
   panneau: string;
-  /** `terrasse` : n'existe qu'avec une terrasse selectionnee ; `piscine`, qu'avec une piscine selectionnee. */
-  groupe: 'terrasse' | 'piscine' | 'plan';
+  /**
+   * `terrasse` : n'existe qu'avec une terrasse selectionnee ; `piscine`, qu'avec une piscine
+   * selectionnee ; `abri`, qu'avec une pergola ou un carport selectionne.
+   */
+  groupe: 'terrasse' | 'piscine' | 'abri' | 'plan';
   /** Un onglet du plan qui n'a de sens qu'avec une donnee du projet : `relief`, quand la parcelle en porte un. */
   requiert?: 'relief';
 }
 
 export const ONGLETS: Onglet[] = [
   { id: 'bom', libelle: 'Nomenclature', panneau: 'panelBom', groupe: 'terrasse' },
+  // L'optimisation de la structure compare des reglages par leur cout : un resultat, a cote du debit.
+  { id: 'optimisation', libelle: 'Optimisation', panneau: 'panelOptimisation', groupe: 'terrasse' },
   { id: 'coupe', libelle: 'Coupe', panneau: 'panelCoupe', groupe: 'terrasse' },
   { id: 'implantation', libelle: 'Implantation', panneau: 'panelImplantation', groupe: 'terrasse' },
   { id: 'chantier', libelle: 'Chantier', panneau: 'panelChantier', groupe: 'terrasse' },
   { id: 'methode', libelle: 'Méthode', panneau: 'panelMethode', groupe: 'terrasse' },
+  // Le metrage, le chiffrage et les prix d'un ouvrage : ce que l'inspecteur ne montre pas (il regle).
+  { id: 'piscine', libelle: 'Piscine', panneau: 'panelPiscine', groupe: 'piscine' },
   { id: 'noteCalcul', libelle: 'Note de calcul', panneau: 'panelNoteCalcul', groupe: 'piscine' },
+  // Le libelle suit l'ouvrage selectionne : « Pergola » ou « Carport » (voir `onglets()`).
+  { id: 'abri', libelle: 'Abri', panneau: 'panelAbri', groupe: 'abri' },
   { id: 'mesure', libelle: 'Cotes', panneau: 'panelMesure', groupe: 'plan' },
   // Le profil du sol suit les cotes : c'est d'une cote qu'on prend sa ligne (MD/spec-relief.md §5.4).
   { id: 'profil', libelle: 'Profil', panneau: 'panelProfil', groupe: 'plan', requiert: 'relief' },
@@ -46,14 +56,12 @@ export const ONGLETS: Onglet[] = [
 ];
 
 /**
- * Les onglets qui se montrent : ceux d'une terrasse ou d'une piscine seulement quand l'une est
- * selectionnee ; ceux qui demandent un relief seulement quand la parcelle en porte un.
+ * Les onglets qui se montrent : ceux d'une terrasse, d'une piscine ou d'un abri seulement quand l'un
+ * est selectionne ; ceux qui demandent un relief seulement quand la parcelle en porte un.
  */
-export function ongletsVisibles(terrasseSelectionnee: boolean, piscineSelectionnee = false, relief = false): Onglet[] {
-  return ONGLETS.filter(o => {
-    if (o.requiert === 'relief' && !relief) return false;
-    return o.groupe === 'plan' || (o.groupe === 'terrasse' ? terrasseSelectionnee : piscineSelectionnee);
-  });
+export function ongletsVisibles(terrasseSelectionnee: boolean, piscineSelectionnee = false, relief = false, abriSelectionne = false): Onglet[] {
+  const selectionne: Record<Onglet['groupe'], boolean> = { plan: true, terrasse: terrasseSelectionnee, piscine: piscineSelectionnee, abri: abriSelectionne };
+  return ONGLETS.filter(o => (o.requiert !== 'relief' || relief) && selectionne[o.groupe]);
 }
 
 export const HAUTEURS: HauteurTiroir[] = ['replie', 'mi', 'plein'];
@@ -65,8 +73,10 @@ export interface ContexteTiroir {
   refreshTerrasseView: () => void;
   /** La selection quand c'est une terrasse ; ce qui decide des onglets. */
   terrasseSelectionnee: () => ObjetPlan | undefined;
-  /** La selection quand c'est une piscine : l'onglet Note de calcul la suit. */
+  /** La selection quand c'est une piscine : les onglets Piscine et Note de calcul la suivent. */
   piscineSelectionnee: () => ObjetPlan | undefined;
+  /** La selection quand c'est une pergola ou un carport : son onglet la suit, et porte son nom. */
+  abriSelectionne: () => ObjetPlan | undefined;
 }
 
 export interface Tiroir {
@@ -97,8 +107,10 @@ function hauteurMemorisee(): HauteurTiroir {
 export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin): Tiroir {
   const terrasseSelectionnee = () => !!ctx.terrasseSelectionnee();
   const piscineSelectionnee = () => !!ctx.piscineSelectionnee();
+  const abriSelectionne = () => !!ctx.abriSelectionne();
   const estOngletTerrasse = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'terrasse');
   const estOngletPiscine = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'piscine');
+  const estOngletAbri = (id: string) => ONGLETS.some(o => o.id === id && o.groupe === 'abri');
   const estOngletRelief = (id: string) => ONGLETS.some(o => o.id === id && o.requiert === 'relief');
   const reliefPresent = () => !!reliefDe(etat.objects);
 
@@ -112,7 +124,8 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
 
   function activer(id: string, ouvrir = true): void {
     // Un onglet de terrasse sans terrasse selectionnee : les cotes, l'onglet du plan le plus proche.
-    if ((estOngletTerrasse(id) && !terrasseSelectionnee()) || (estOngletPiscine(id) && !piscineSelectionnee()) || (estOngletRelief(id) && !reliefPresent())) id = 'mesure';
+    if ((estOngletTerrasse(id) && !terrasseSelectionnee()) || (estOngletPiscine(id) && !piscineSelectionnee()) || (estOngletAbri(id) && !abriSelectionne())
+      || (estOngletRelief(id) && !reliefPresent())) id = 'mesure';
     etat.panelTab = id;
     // Le chiffrage part dans le projet enregistre : il se refait a l'ouverture, pas au rendu.
     if (estOngletTerrasse(id)) ctx.refreshTerrasseView();
@@ -123,13 +136,18 @@ export function creerTiroir(etat: EtatApp, ctx: ContexteTiroir, magasin: Magasin
   definirHauteur(hauteurMemorisee());
 
   return {
-    onglets: () => ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee(), reliefPresent()),
+    onglets: () => {
+      const abri = ctx.abriSelectionne();
+      return ongletsVisibles(terrasseSelectionnee(), piscineSelectionnee(), reliefPresent(), !!abri)
+        .map(o => o.groupe === 'abri' && abri ? { ...o, libelle: libelleAbri(abri) } : o);
+    },
     activer,
     definirHauteur,
     synchroniser(contexteChange) {
       // L'onglet d'une piscine se replie sur les cotes des que la piscine n'est plus selectionnee ;
       // celui du profil, des que le relief est supprime (ou defait par Ctrl+Z).
       if (estOngletPiscine(etat.panelTab)) { if (!piscineSelectionnee()) activer('mesure', false); return; }
+      if (estOngletAbri(etat.panelTab)) { if (!abriSelectionne()) activer('mesure', false); return; }
       if (estOngletRelief(etat.panelTab)) { if (!reliefPresent()) activer('mesure', false); return; }
       if (!estOngletTerrasse(etat.panelTab)) return;
       if (!terrasseSelectionnee()) activer('mesure', false);

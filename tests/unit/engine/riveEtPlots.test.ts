@@ -57,7 +57,7 @@ describe('lame de rive cote par cote', () => {
   it('se coche cote par cote dans l inspecteur, nomme et mis en evidence', () => {
     const t = terrasse({ avecLameRive: true });
     const c = { obj: t, objets: [t], construction: () => t.construction!, etat: { highlight: { type: 'segment', index: 1 } }, elevationOf: () => 0, executerCommande: vi.fn() } as unknown as ContexteChamps;
-    const finitions = sectionsConstruction({ visible: () => false }, c).find(s => s.id === 'finitions')!;
+    const finitions = sectionsConstruction(c).find(s => s.id === 'finitions')!;
     const est = finitions.champs.find(ch => ch.cle === 'rive1')!;
     if (est.type !== 'case') throw new Error('case attendue');
     expect(est.libelle).toBe('Rive · Est');
@@ -71,7 +71,7 @@ describe('lame de rive cote par cote', () => {
     est.ecrire(c, true);
     expect('cotesSansRive' in t.construction!).toBe(false);
     // Sans contexte (inventaire), pas de case par cote.
-    expect(sectionsConstruction({ visible: () => false }).find(s => s.id === 'finitions')!.champs.some(ch => ch.cle === 'rive0')).toBe(false);
+    expect(sectionsConstruction().find(s => s.id === 'finitions')!.champs.some(ch => ch.cle === 'rive0')).toBe(false);
   });
 });
 

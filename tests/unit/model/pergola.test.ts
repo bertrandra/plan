@@ -4,6 +4,7 @@ import { nouvelAbri, creerCreation } from '../../../src/model/creation.js';
 import { serializeObjects } from '../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { sectionsObjet } from '../../../src/ui/champs/objet.js';
+import { sectionMetragePergola, sectionPrixPergola } from '../../../src/ui/champs/pergola.js';
 import type { ContexteCreation, EtatCreation } from '../../../src/model/creation.js';
 import type { ContexteChamps } from '../../../src/ui/champs/types.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
@@ -62,14 +63,17 @@ describe('enregistrement', () => {
 });
 
 describe('inspecteur', () => {
-  it('ajoute les sections Pergola et Metrage par section, sans l\'elevation', () => {
+  it('ajoute la section Pergola, sans l\'elevation ; le metrage par section est au tiroir', () => {
     const { obj } = nouvelAbri('pergola', { x: 0, y: 0 }, 'p', 1);
     const c = { obj, objets: [obj], elevationOf: () => 2.4 } as unknown as ContexteChamps;
     const sections = sectionsObjet(c);
-    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'metragePergola', 'prixPergola']));
+    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'noteCalcul']));
+    expect(sections.map(s => s.id)).not.toEqual(expect.arrayContaining(['metragePergola']));
+    expect(sections.map(s => s.id)).not.toEqual(expect.arrayContaining(['prixPergola']));
     const elevation = sections[0]!.champs.find(ch => ch.cle === 'elevation')!;
     expect(elevation.visible!(c)).toBe(false);
-    const metrage = sections.find(s => s.id === 'metragePergola')!;
+    expect(sectionPrixPergola(c).champs.length).toBeGreaterThan(0);
+    const metrage = sectionMetragePergola(c);
     expect(metrage.champs.map(ch => ch.libelle)).toEqual(['120 × 120 mm', '75 × 200 mm', '90 × 90 mm', '45 × 145 mm', 'Toile', 'Total fourniture']);
   });
 
@@ -109,7 +113,7 @@ describe('carport : le meme ouvrage que la pergola', () => {
     const c = { obj, objets: [obj], elevationOf: () => 2.3 } as unknown as ContexteChamps;
     const sections = sectionsObjet(c);
     expect(sections.find(s => s.id === 'pergola')!.titre).toBe('Carport');
-    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['metragePergola', 'prixPergola']));
+    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['pergola', 'noteCalcul']));
   });
 
   it('naît au centre de la parcelle, pas sur la terrasse', () => {

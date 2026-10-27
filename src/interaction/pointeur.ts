@@ -58,6 +58,11 @@ export interface ContextePointeur {
   /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
   apresAcces: () => void;
   /**
+   * Le cote cible de l'outil « Aligner » est designe : l'objet selectionne pivote aussitot pour lui
+   * devenir parallele. Absent : la cible est seulement retenue.
+   */
+  aligner?: () => void;
+  /**
    * La vue a change (zoom, deplacement) depuis `avant` : sur un grand plan, un apercu tout de suite et
    * un rendu au repos (render/apercuVue.ts). Absent : un rendu complet.
    */
@@ -112,6 +117,7 @@ function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePoint
       definirCibleAlignement(picked);
       mesure.pointage = null;
       ctx.render();
+      if(ctx.aligner) ctx.aligner();
     } else {
       mesure.ref = picked;
       mesure.pointage = null;

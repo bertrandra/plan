@@ -95,6 +95,12 @@ interface ChampBase {
    */
   enregistre?: boolean;
   effets?: Effet[];
+  /**
+   * Le titre du pli ou le champ se range, ferme a l'ouverture : ce qui sert rarement a la conception
+   * (les textures, la cloture cote par cote, les reglages techniques du relief). Des champs voisins
+   * du meme `repli` vont dans le meme pli ; le champ reste monte et se lit d'un clic.
+   */
+  repli?: string;
 }
 
 export interface ChampTexte extends ChampBase {
@@ -187,11 +193,6 @@ export interface ChampAlerte extends ChampBase {
   texte: (c: ContexteChamps) => string;
 }
 
-/** Le tableau d'optimisation de la structure (zones/resultats/Optimisation.tsx), sous son bouton. */
-export interface ChampOptimisation extends ChampBase {
-  type: 'optimisation';
-}
-
 /** Une carte des hauteurs mesurees et du decoupage d'un toit (ui/champs/carteToit.ts), sur toute la largeur. */
 export interface ChampCarte extends ChampBase {
   type: 'carte';
@@ -206,7 +207,7 @@ export interface ChampLigne extends ChampBase {
 
 export type Champ =
   | ChampTexte | ChampNombre | ChampCase | ChampChoix | ChampCouleur | ChampDate | ChampCurseur
-  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampOptimisation | ChampCarte | ChampLigne;
+  | ChampLecture | ChampTexture | ChampBouton | ChampAlerte | ChampCarte | ChampLigne;
 
 export interface Section {
   id: string;
@@ -220,4 +221,19 @@ export interface Section {
 /** Les champs de la section, ceux qui se montrent. */
 export function champsVisibles(section: Section, c: ContexteChamps): Champ[] {
   return section.champs.filter(ch => !ch.visible || ch.visible(c));
+}
+
+/** Une suite de champs a montrer : ouverte (`repli` absent), ou rangee dans un pli ferme. */
+export interface GroupeChamps { repli: string | null; champs: Champ[] }
+
+/** Les champs ranges dans l'ordre, les voisins d'un meme pli ensemble. */
+export function groupesDeChamps(champs: readonly Champ[]): GroupeChamps[] {
+  const out: GroupeChamps[] = [];
+  for (const ch of champs) {
+    const repli = ch.repli ?? null;
+    const dernier = out[out.length - 1];
+    if (dernier && dernier.repli === repli) dernier.champs.push(ch);
+    else out.push({ repli, champs: [ch] });
+  }
+  return out;
 }

@@ -18,7 +18,7 @@ function contexte(construction: Record<string, unknown>, relief: Relief | null):
   const objets = [obj, parcelle];
   return { etat: { objects: objets, highlight: {} }, obj, objets, parcelle, construction: () => obj.construction } as unknown as ContexteChamps;
 }
-const alertes = (c: ContexteChamps) => sectionsConstruction({ visible: () => false }, c).flatMap(s => champsVisibles(s, c)).filter((ch): ch is ChampAlerte => ch.type === 'alerte');
+const alertes = (c: ContexteChamps) => sectionsConstruction(c).flatMap(s => champsVisibles(s, c)).filter((ch): ch is ChampAlerte => ch.type === 'alerte');
 
 describe('les alertes de fondation sur un sol en pente', () => {
   it('signale le plot d aval au-dela de 30 cm alors que la hauteur reglee est de 10 cm', () => {

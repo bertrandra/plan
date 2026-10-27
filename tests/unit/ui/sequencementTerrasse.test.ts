@@ -20,20 +20,19 @@ const contexte = (obj: ObjetPlan): ContexteChamps => ({
   obj, objets: [obj], construction: () => obj.construction!, elevationOf: () => 0,
   etat: { objects: [obj], highlight: {} }, executerCommande: () => {}, commandeUtilisable: () => true
 } as unknown as ContexteChamps);
-const optim = { visible: () => false };
-const visibles = (c: ContexteChamps, id: string) => sectionsConstruction(optim, c).find(s => s.id === id)!.champs
+const visibles = (c: ContexteChamps, id: string) => sectionsConstruction(c).find(s => s.id === id)!.champs
   .filter(ch => !ch.visible || ch.visible(c)).map(ch => ch.cle);
 
 describe('les etapes d\'une terrasse', () => {
   it('se suivent numerotees, les parametres de calcul replies a la fin', () => {
-    const sections = sectionsConstruction(optim);
-    expect(sections.map(s => s.id)).toEqual(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'optimisation', 'parametres']);
+    const sections = sectionsConstruction();
+    expect(sections.map(s => s.id)).toEqual(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres']);
     expect(sections.map(s => s.titre)).toEqual([
       'Terrasse · 1. Implantation et niveau', '2. Fondation et assise', '3. Lames et sens de pose', '4. Structure porteuse',
-      '5. Appuis et charges', '6. Finitions du tour', '7. Optimisation', 'Paramètres de calcul'
+      '5. Appuis et charges', '6. Finitions du tour', 'Paramètres de calcul'
     ]);
     expect(sections.filter(s => s.repliee).map(s => s.id)).toEqual(['parametres']);
-    expect(sections.map(s => familleDe(s.id))).toEqual(Array(8).fill('construction'));
+    expect(sections.map(s => familleDe(s.id))).toEqual(Array(7).fill('construction'));
   });
 
   it('chaque etape ne montre que ce qui decoule des choix precedents', () => {
@@ -57,10 +56,10 @@ describe('les etapes d\'une terrasse', () => {
   it('viennent avant la geometrie dans l\'inspecteur, comme celles d\'une piscine', () => {
     const obj = terrasse(constructionTerrasseNeuve());
     const etat = { objects: [obj], selectedKey: 't', lectureSeule: false } as unknown as EtatApp;
-    const inspecteur = creerInspecteur(etat, { optimisation: optim } as unknown as ContexteInspecteur, creerMagasin(etat), creerRegistre());
+    const inspecteur = creerInspecteur(etat, {} as unknown as ContexteInspecteur, creerMagasin(etat), creerRegistre());
     const ids = inspecteur.sections(contexte(obj)).map(s => s.id);
     expect(ids.indexOf('implantation')).toBeGreaterThan(ids.indexOf('apparence'));
     expect(ids.indexOf('parametres')).toBeLessThan(ids.indexOf('cotes'));
-    expect(ids.slice(-3)).toEqual(['cotes', 'coins', 'alignement']);
+    expect(ids.slice(-2)).toEqual(['cotes', 'coins']);
   });
 });

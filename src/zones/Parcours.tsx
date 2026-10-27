@@ -1,5 +1,6 @@
 // Z8, les parcours en plusieurs etapes (spec-ihm-zones §4.8) : import cadastral, actualisation IGN,
-// choix d'une texture, fiches du mode audit, audit de la parcelle et catalogue des audits recus (admin).
+// choix d'une texture, fiches du mode audit, audit de la parcelle, catalogue des audits recus (admin)
+// et declaration prealable.
 // Un seul a la fois, modal, fermable par Echap ou par un clic sur le voile.
 //
 // Le parcours ouvert vient d'app/parcours.ts ; chacun porte sa logique a part, cette zone ne fait que
@@ -10,6 +11,7 @@ import { parcours } from '../app/parcours.js';
 import { ImportCadastre } from './parcours/ImportCadastre.js';
 import { Actualisation } from './parcours/Actualisation.js';
 import { ChoixTexture } from './parcours/ChoixTexture.js';
+import { Declaration } from './parcours/Declaration.js';
 
 // Les ecrans de l'audit ne se chargent qu'a leur ouverture (26 octobre 2026, AD-10) : seul l'audit les montre, et ils tirent avec
 // eux l'analyse des facades. Le temps de les recevoir, le voile est deja pose ; rien d'autre ne s'affiche.
@@ -18,9 +20,13 @@ const AuditFin = lazy(() => import('./parcours/AuditFin.js').then((m) => ({ defa
 const AuditParcelle = lazy(() => import('./parcours/AuditParcelle.js').then((m) => ({ default: m.AuditParcelle })));
 const AuditsParcelle = lazy(() => import('./parcours/AuditsParcelle.js').then((m) => ({ default: m.AuditsParcelle })));
 import type { RegistreCommandes } from '../app/commandes.js';
+import type { Magasin } from '../app/magasin.js';
 
-/** `commandes` : le registre, pour les boutons d'un parcours qui sont des commandes (« Envoyer l'audit au serveur »). */
-export function Parcours({ commandes }: { commandes: RegistreCommandes }) {
+/**
+ * `commandes` : le registre, pour les boutons d'un parcours qui sont des commandes (« Envoyer l'audit au serveur ») ;
+ * `magasin` : la classe d'ecran, pour la forme tactile des champs d'un parcours (la declaration prealable).
+ */
+export function Parcours({ commandes, magasin }: { commandes: RegistreCommandes; magasin: Magasin }) {
   const p = useSyncExternalStore(parcours.abonner, parcours.courant, parcours.courant);
   const fermer = () => parcours.fermer();
   useEffect(() => {
@@ -35,6 +41,7 @@ export function Parcours({ commandes }: { commandes: RegistreCommandes }) {
       {p.type === 'cadastre' && <ImportCadastre importe={p.importe} />}
       {p.type === 'actualisation' && <Actualisation infos={p.infos} lancer={p.lancer} fermer={fermer} />}
       {p.type === 'texture' && <ChoixTexture titre={p.titre} caseLibelle={p.caseLibelle} choisir={p.choisir} fermer={fermer} />}
+      {p.type === 'declaration' && <Declaration inspecteur={p.service} magasin={magasin} fermer={fermer} />}
       <Suspense fallback={null}>
       {p.type === 'auditCas' && <AuditCas promenade={p.promenade} cle={p.cle} retirer={p.retirer} prise={p.prise} {...(p.couleurs ? { couleurs: p.couleurs } : {})} fermer={p.retour ?? fermer} />}
       {p.type === 'auditFin' && <AuditFin promenade={p.promenade} modifier={p.modifier} retirer={p.retirer} partager={p.partager} fermer={fermer} />}

@@ -1,10 +1,11 @@
 // Les sections de l'inspecteur pour une pergola (ui/champs/).
 //
 // Trois sections : « Pergola », les reglages (matiere, toit, hauteur, mur, debord, sections,
-// entraxes, couleurs) ; « Metrage et chiffrage », ce que le moteur en tire (engine/pergola.ts) : pour
-// chaque section, les pieces qu'on y taille, les metres lineaires, les barres a acheter et leur
-// cout, debitees dans les longueurs achetables comme les lames d'une terrasse ; et « Prix », les
-// prix unitaires, replies. Les reglages ne sont ecrits dans l'objet que lorsqu'on les touche :
+// entraxes, couleurs), dans l'inspecteur ; « Metrage et chiffrage », ce que le moteur en tire
+// (engine/pergola.ts) : pour chaque section, les pieces qu'on y taille, les metres lineaires, les
+// barres a acheter et leur cout, debitees dans les longueurs achetables comme les lames d'une
+// terrasse ; et « Prix », les prix unitaires. Ces deux dernieres sont des resultats : elles se
+// montrent dans l'onglet de l'abri du tiroir. Les reglages ne sont ecrits dans l'objet que lorsqu'on les touche :
 // `pergolaDe` comble le reste a la lecture.
 
 import {
@@ -41,11 +42,23 @@ function choixSection(cle: CleSection, libelle: string, liste: (c: ContexteChamp
   };
 }
 
+/**
+ * Ce qui se replie dans la section de l'abri : ce qui sert rarement a le concevoir. Materiau, toit,
+ * hauteur, cote de reference, mur, debord, poteaux et poutres restent ouverts.
+ */
+const PLIS: Record<string, string> = {
+  avecContrefiches: 'Contrefiches et chevrons', longueurContrefiche: 'Contrefiches et chevrons', sectionContrefiche: 'Contrefiches et chevrons',
+  sectionChevron: 'Contrefiches et chevrons', entraxeChevrons: 'Contrefiches et chevrons',
+  couleurBois: 'Couleurs et longueurs achetables', couleurToile: 'Couleurs et longueurs achetables', couleurCouverture: 'Couleurs et longueurs achetables',
+  longueursBois: 'Couleurs et longueurs achetables'
+};
+const replier = (champs: Champ[]): Champ[] => champs.map(ch => { const repli = PLIS[ch.cle]; return repli ? { ...ch, repli } : ch; });
+
 const sectionPergola: Section = {
   // Le titre suit l'ouvrage (sectionsPergola) : « Pergola » ou « Carport », mêmes réglages.
   id: 'pergola', titre: 'Pergola',
   explication: 'Le contour est le nu extérieur des poteaux : un poteau à chaque coin, des poteaux intermédiaires selon l\'entraxe, une poutre sur chaque côté.',
-  champs: [
+  champs: replier([
     {
       type: 'choix', cle: 'materiau', libelle: 'Matériau', effets: EFFETS,
       aide: 'Bois : poteaux, poutres et contrefiches. Aluminium : profilés thermolaqués, sans contrefiches',
@@ -128,7 +141,7 @@ const sectionPergola: Section = {
       aide: 'Les longueurs vendues (bois ou profilés), en mètres : le métrage débite chaque section dedans',
       lire: (c) => longueursPergola(reglages(c)).join(', '), ecrire: (c, v) => poser(c, 'longueursBois', v)
     }
-  ]
+  ])
 };
 
 /** `'4 poteaux, 8 contrefiches'`. */
@@ -204,7 +217,11 @@ export function sectionPrixPergola(c: ContexteChamps): Section {
   };
 }
 
-/** Les sections propres a une pergola ou a un carport, dans l'ordre. */
+/**
+ * Les sections propres a une pergola ou a un carport dans l'inspecteur, dans l'ordre : ses reglages,
+ * puis sa note de calcul. Le metrage et les prix sont des resultats : ils se lisent et se reglent dans
+ * l'onglet de l'abri du tiroir (zones/resultats/Abri.tsx), qui rend les deux sections ci-dessus.
+ */
 export function sectionsPergola(c: ContexteChamps): Section[] {
-  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionMetragePergola(c), sectionPrixPergola(c), sectionNoteCalcul(c)];
+  return [{ ...sectionPergola, titre: libelleAbri(c.obj) }, sectionNoteCalcul(c)];
 }

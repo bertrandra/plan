@@ -274,7 +274,14 @@ async function ouvrirSection(page, id) {
     if (onglet && onglet.getAttribute('aria-selected') !== 'true') onglet.click();
   }, id);
   await page.waitForTimeout(80);
-  await page.evaluate((id) => { const d = document.querySelector('#zoneInspecteur details[data-section="' + id + '"]'); if (d) { d.open = true; d.scrollIntoView(); } }, id);
+  // Les plis de champs de la section (ce qui sert rarement : textures, ombre d'un parasol...) s'ouvrent aussi.
+  await page.evaluate((id) => {
+    const d = document.querySelector('#zoneInspecteur details[data-section="' + id + '"]');
+    if (!d) return;
+    d.open = true;
+    d.querySelectorAll('details.plichamps').forEach((p) => { p.open = true; });
+    d.scrollIntoView();
+  }, id);
   await page.waitForTimeout(80);
 }
 /** Ecrit un nombre de l'inspecteur par sa saisie directe, comme au clavier. */
@@ -831,16 +838,10 @@ const POINTS = {
     let k = 0, cible = null;
     for (; k < maison.pts.length && !cible; k++) cible = await visible(page, `[data-role="edge"][data-key="${maison.key}"][data-index="${k}"]`, false);
     k--;
+    // L'outil « Aligner » de la palette va jusqu'au bout : le cote cible designe, la dalle pivote, sans passer par l'inspecteur.
     await page.mouse.click(cible.x, cible.y);
-    await page.waitForTimeout(150);
-    await inspecteur(page);
-    await ouvrirSection(page, 'alignement');
-    const info = await page.evaluate(() => document.querySelector('#zoneInspecteur [data-cle="info"]')?.textContent || '');
-    // Au telephone, un toast (l'avertissement de l'administrateur, par exemple) peut se poser sur le bouton : on le touche
-    // d'abord pour le fermer, comme la personne le ferait ; sinon le toucher ferme le toast et l'alignement ne part pas.
-    for (const t of await page.locator('.toast').all()) await t.click({ timeout: 1000 }).catch(() => {});
-    await page.locator('#zoneInspecteur [data-cle="aligner"] button').first().click({ force: true });
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
+    const info = `cible : côté ${k + 1} de « Maison »`;
     const apres = objet(await lireEtat(page), (o) => o.key === avant.key);
     const dir = (a, b) => ((Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI) % 180 + 180) % 180;
     const t = dir(maison.pts[k], maison.pts[(k + 1) % maison.pts.length]);

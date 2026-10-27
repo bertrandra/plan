@@ -62,11 +62,11 @@ export function monterZones({ magasin, commandes, projet, explorateur, inspecteu
   createRoot(conteneur('zoneSurimpression')).render(<Surimpression magasin={magasin} commandes={commandes} pointage={pointage} />);
   createRoot(conteneur('zoneInspecteur')).render(<Inspecteur magasin={magasin} commandes={commandes} inspecteur={inspecteur} tiroir={tiroir} />);
   createRoot(conteneur('zoneResultatsBarre')).render(<Resultats magasin={magasin} tiroir={tiroir} explorateur={explorateur} commandes={commandes} />);
-  createRoot(conteneur('tiroirPanneaux')).render(<PanneauxResultats magasin={magasin} resultats={resultats} commandes={commandes} />);
+  createRoot(conteneur('tiroirPanneaux')).render(<PanneauxResultats magasin={magasin} resultats={resultats} commandes={commandes} inspecteur={inspecteur} />);
   // Les deux vues 3D : leurs panneaux, et l'hote ou three/ pose chaque canvas.
-  createRoot(conteneur('zoneVues3d')).render(<><Vue3d magasin={magasin} commandes={commandes} vues={vues3d} /><Visionneuse magasin={magasin} commandes={commandes} vues={vues3d} /></>);
+  createRoot(conteneur('zoneVues3d')).render(<><Vue3d magasin={magasin} commandes={commandes} vues={vues3d} inspecteur={inspecteur} /><Visionneuse magasin={magasin} commandes={commandes} vues={vues3d} /></>);
   createRoot(conteneur('zoneEtat')).render(<BarreEtat magasin={magasin} />);
-  createRoot(conteneur('zoneDialogues')).render(<><Dialogues /><Parcours commandes={commandes} /></>);
+  createRoot(conteneur('zoneDialogues')).render(<><Dialogues /><Parcours commandes={commandes} magasin={magasin} /></>);
   createRoot(conteneur('zoneNotifications')).render(<><Notifications /><Attente /></>);
   // Le telephone et la tablette (spec-ihm-mobile §6) : la barre de navigation, la feuille de
   // selection, et le voile des feuilles. Rien a l'ecran sur bureau.

@@ -126,7 +126,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'mesure.effacer': partout('tiroir'),
   'mesure.nouvelle': { compact: ['navigation', 'feuilleOutils'], moyen: ['rail'], large: ['palette'] },
   'plu.interroger': partout('tiroir'),
-  'terrasse.optimisation': partout('inspecteur'),
+  // L'optimisation de la structure : un resultat, l'onglet Optimisation du tiroir d'une terrasse.
+  'terrasse.optimisation': partout('tiroir'),
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
@@ -156,8 +157,8 @@ export const EXPOSITION: Record<string, Ligne> = {
   'toit.murSur3d': partout('inspecteur'),
   // Le relief du terrain : la section « Relief » de la parcelle du projet (ui/champs/relief.ts).
   'relief.lire': partout('inspecteur'),
-  // Le nom des rues : la case et le bouton de la section « Voisinage » (ui/champs/voisinage3d.ts).
-  'projet.lireRues': partout('inspecteur'),
+  // Le nom des rues : la case et le bouton du groupe « Voisinage » des reglages de la Vue 3D (ui/champs/voisinage3d.ts).
+  'projet.lireRues': partout('vue3d'),
   'relief.actualiser': partout('inspecteur'),
   'relief.supprimer': partout('inspecteur'),
 
@@ -174,7 +175,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   'export.dossier': menu('menuExporter'),
   'export.dossierPiscine': menu('menuExporter', 'inspecteur'),
   'export.noteCalcul': partout('inspecteur'),
-  'export.declaration': menu('menuExporter', 'inspecteur'),
+  // La declaration prealable : une entree du menu Exporter ouvre son dialogue, dont le bouton produit le dossier.
+  'export.ouvrirDeclaration': menu('menuExporter'),
+  'export.declaration': partout('parcours'),
   'export.glb': menu('menuExporter'),
 
   // ---- Vue 3D ---------------------------------------------------------------------------------

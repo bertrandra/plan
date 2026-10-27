@@ -4,6 +4,7 @@ import { nouvellePiscine, nouveauTrou, creerCreation } from '../../../src/model/
 import { serializeObjects } from '../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../src/model/normalisation.js';
 import { sectionsObjet } from '../../../src/ui/champs/objet.js';
+import { sectionsResultatsPiscine } from '../../../src/ui/champs/piscine.js';
 import { LIBELLE_FONCTION, elevationParDefaut } from '../../../src/model/defaults.js';
 import type { ContexteCreation, EtatCreation } from '../../../src/model/creation.js';
 import type { ContexteChamps } from '../../../src/ui/champs/types.js';
@@ -72,15 +73,16 @@ describe('enregistrement', () => {
 describe('inspecteur', () => {
   const contexte = (obj: ObjetPlan, objets: ObjetPlan[] = [obj]) => ({ obj, objets, elevationOf: () => 0, executerCommande: vi.fn() }) as unknown as ContexteChamps;
 
-  it('ajoute les six etapes et les prix, sans l\'elevation', () => {
+  it('ajoute les cinq etapes, sans l\'elevation ; le chiffrage et les prix sont au tiroir', () => {
     const { obj } = nouvellePiscine('rectangle', { x: 0, y: 0 }, 'p', 1);
     const c = contexte(obj);
     const sections = sectionsObjet(c);
-    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine', 'chiffragePiscine', 'prixPiscine']));
+    expect(sections.map(s => s.id)).toEqual(expect.arrayContaining(['piscine', 'profondeursPiscine', 'abordsPiscine', 'equipementsPiscine', 'securitePiscine']));
+    expect(sections.map(s => s.id).filter(id => id === 'chiffragePiscine' || id === 'prixPiscine')).toEqual([]);
     expect(sections.find(s => s.id === 'piscine')!.titre).toMatch(/1\. Implantation/);
     const elevation = sections[0]!.champs.find(ch => ch.cle === 'elevation')!;
     expect(elevation.visible!(c)).toBe(false);
-    const chiffrage = sections.find(s => s.id === 'chiffragePiscine')!;
+    const chiffrage = sectionsResultatsPiscine(c).find(s => s.id === 'chiffragePiscine')!;
     expect(chiffrage.champs.map(ch => ch.cle)).toEqual(expect.arrayContaining(['chiffrage-terrassement', 'chiffrage-coque', 'chiffrage-margelles', 'chiffrage-filtration', 'chiffrage-total']));
   });
 
@@ -111,7 +113,7 @@ describe('inspecteur', () => {
     if (structure.type !== 'choix') throw new Error('choix attendu');
     structure.ecrire(c, 'kit');
     expect(obj.piscine).toEqual({ structure: 'kit', prix: { margelles: 90 } });
-    const prix = sectionsObjet(c).find(s => s.id === 'prixPiscine')!.champs.find(ch => ch.cle === 'prix-margelles')!;
+    const prix = sectionsResultatsPiscine(c).find(s => s.id === 'prixPiscine')!.champs.find(ch => ch.cle === 'prix-margelles')!;
     if (prix.type !== 'nombre') throw new Error('nombre attendu');
     expect(prix.lire(c)).toBe(90);
     expect(prix.note!(c)).toBe('saisi');

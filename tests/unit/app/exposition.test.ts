@@ -53,11 +53,13 @@ const SOURCES: Record<Exclude<Emplacement, 'sansObjet'>, string[]> = {
   inspecteur: ['src/zones/Inspecteur.tsx', ...fichiers('src/ui/champs')],
   explorateur: ['src/zones/Explorateur.tsx'],
   tiroir: ['src/zones/Resultats.tsx', ...fichiers('src/zones/resultats')],
-  vue3d: [...fichiers('src/zones/vue3d').filter((f) => f.endsWith('.tsx')).filter((f) => !/Visionneuse/.test(f))],
+  // Les reglages de la Vue 3D rendent aussi les champs du voisinage (ui/champs/voisinage3d.ts).
+  vue3d: [...fichiers('src/zones/vue3d').filter((f) => f.endsWith('.tsx')).filter((f) => !/Visionneuse/.test(f)), 'src/ui/champs/voisinage3d.ts'],
   visionneuse: ['src/zones/vue3d/Visionneuse.tsx'],
   clavier: ['src/app/clavier.ts'],
   premierPas: ['src/app/boot.ts'],
-  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours')]
+  // Le dialogue de la declaration prealable rend les champs de ui/champs/declaration.ts, son bouton compris.
+  parcours: ['src/zones/Parcours.tsx', ...fichiers('src/zones/parcours'), 'src/ui/champs/declaration.ts']
 };
 
 describe('la carte d exposition des commandes', () => {

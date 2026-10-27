@@ -9,9 +9,10 @@
 // Comme pour une piscine (ui/champs/piscine.ts), la terrasse se regle par etapes numerotees, dans
 // l'ordre ou l'on decide : 1. l'implantation et le niveau fini (decaissement, trous), 2. la
 // fondation et son assise, 3. les lames, 4. la structure qui les porte, 5. les appuis et leurs
-// charges, 6. les finitions du tour, 7. l'optimisation ; les parametres de calcul, replies, a la
-// fin. Chaque etape ne montre que ce qui a un sens apres les choix precedents : pas d'assise sous
-// des vis, pas de solives sous des lambourdes posees sur plots. Les notes qui accompagnent chaque
+// charges, 6. les finitions du tour ; les parametres de calcul, replies, a la fin. L'optimisation
+// est un resultat : elle est au tiroir, a cote de la nomenclature (zones/resultats/). Chaque etape
+// ne montre que ce qui a un sens apres les choix precedents : pas d'assise sous des vis, pas de
+// solives sous des lambourdes posees sur plots. Les notes qui accompagnent chaque
 // champ sont celles du metier : ce que vaut la portee calculee, quand un plot sort du domaine du
 // DTU, combien de vis la grille compte.
 
@@ -387,10 +388,6 @@ const alertes: Champ[] = [
   }
 ];
 
-/** Ce que l'optimisation demande au module des panneaux, sans DOM ici. */
-/** L'ouverture du bloc d'optimisation : un pli de l'interface (app/resultats.ts), pas une donnee du projet. */
-export interface ContexteOptimisation { visible: () => boolean }
-
 /**
  * Une case par cote du contour : lame de rive ou non. Le cote se met en evidence sur le plan au
  * survol, comme dans la section Cotes. Sans contexte (un test, un inventaire), pas de cote.
@@ -398,8 +395,9 @@ export interface ContexteOptimisation { visible: () => boolean }
 function champsRiveParCote(c?: ContexteChamps): Champ[] {
   if (!c || c.obj.type !== 'polygon') return [];
   const noms = c.obj.segmentNames ?? [];
+  // Cote par cote, la rive se replie : le reglage general (avec ou sans, sa hauteur) reste ouvert.
   return c.obj.pts.map((_, i): Champ => ({
-    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + (noms[i] || 'Côté ' + (i + 1)), historique: true, effets: ['terrasse', 'scene3d'],
+    type: 'case', cle: 'rive' + i, libelle: 'Rive · ' + (noms[i] || 'Côté ' + (i + 1)), historique: true, effets: ['terrasse', 'scene3d'], repli: 'Rive côté par côté',
     aide: 'Décocher pour ne pas poser de lame de rive sur ce côté (contre un mur, une marche, une jardinière)',
     visible: (cx) => !!cx.construction().avecLameRive,
     surbrillance: (cx) => cx.etat.highlight.type === 'segment' && cx.etat.highlight.index === i,
@@ -414,7 +412,7 @@ function champsRiveParCote(c?: ContexteChamps): Champ[] {
 }
 
 /** Les etapes de la terrasse, dans l'ordre ou l'on decide (voir l'en-tete). */
-export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: ContexteChamps): Section[] {
+export function sectionsConstruction(c?: ContexteChamps): Section[] {
   // Le niveau fini d'abord : il fixe le decaissement, donc ce qui reste de hauteur aux appuis. Puis
   // ce qui interrompt le platelage : un bassin, un trou (arbre conserve, trappe). Chacun est un
   // objet du plan, qu'on deplace et qu'on retaille comme les autres ; la terrasse s'arrete a son bord.
@@ -486,14 +484,6 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
     id: 'finitions', titre: '6. Finitions du tour',
     champs: [champ('avecLameRive'), champ('hauteurLameRive'), ...champsRiveParCote(c), champ('cotesSansRive'), champ('riveOuvertures'), champ('avecLamePlat')]
   };
-  // Le bloc d'optimisation reste ouvert une fois demande, et se reclasse a chaque changement.
-  const optimisation: Section = {
-    id: 'optimisation', titre: '7. Optimisation',
-    champs: [
-      { type: 'bouton', cle: 'optimiser', libelle: '', nom: 'Optimisation des paramètres (afficher ou masquer)', texte: () => ctxOptim.visible() ? 'Masquer l\'optimisation' : 'Optimisation des paramètres', agit: { commande: 'terrasse.optimisation' }, executer: (cx) => cx.executerCommande('terrasse.optimisation') },
-      { type: 'optimisation', cle: 'resultat', libelle: '', nom: 'Tableau d’optimisation' }
-    ]
-  };
   const parametres: Section = {
     id: 'parametres', titre: 'Paramètres de calcul', repliee: true,
     explication: 'Les constantes du moteur, modifiables. Elles pilotent toutes les quantités du BOM — les valeurs par défaut sont celles calées sur le NF DTU 51.4 et l\'usage du métier (voir l\'onglet Méthode).',
@@ -517,5 +507,5 @@ export function sectionsConstruction(ctxOptim: ContexteOptimisation, c?: Context
       { type: 'lecture', cle: 'prixVis', libelle: 'Prix indicatifs', visible: (cx) => !lire(cx).plots, valeur: () => 'vis ' + VIS_PRICE.bas + '-' + VIS_PRICE.haut + ' €/u · bois ' + SOLIVE_PRICE.bas + '-' + SOLIVE_PRICE.haut + ' €/ml · visserie ' + VISSERIE_PRICE.bas + '-' + VISSERIE_PRICE.haut + ' €/m² · rive ' + LAME_RIVE_PRICE.bas + '-' + LAME_RIVE_PRICE.haut + ' €/ml — utilisés tant qu\'aucun prix réel n\'est saisi' }
     ]
   };
-  return [implantation, fondation, lames, structure, appuis, finitions, optimisation, parametres];
+  return [implantation, fondation, lames, structure, appuis, finitions, parametres];
 }

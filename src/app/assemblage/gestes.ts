@@ -19,7 +19,6 @@ import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';
 import { serializeObjects } from '../../io/serialisation.js';
-import { distanceAlignementSaisie } from '../../ui/champs/objet.js';
 import { showConfirm, showToast } from '../../shell/dialogs.js';
 import { aPoints, normaliserEnObjetsDuPlan } from './formes.js';
 import type { Mesures } from './mesures.js';
@@ -77,7 +76,8 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       d.render();
     },
     alignObjectByRotation(obj: ObjetPlan) {
-      alignerObjetParRotation(obj, etat, distanceAlignementSaisie(), {
+      // L'outil « Aligner » de la palette ne fait que tourner : sans distance, la forme ne se deplace pas.
+      alignerObjetParRotation(obj, etat, '', {
         measureSegCoords: d.mesures.measureSegCoords, alignerSurCote, pointInPolygon,
         nearestSegmentIndex: (o, cible) => nearestSegmentIndex(aPoints(o), cible),
         contourDeContrainte: contour,

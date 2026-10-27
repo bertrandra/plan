@@ -100,8 +100,9 @@ export function sectionCloture(c: ContexteChamps): Section {
   ];
 
   for (let i = 0; i < n; i++) {
+    // Cote par cote, la cloture se replie : le reglage general, au-dessous, reste ouvert.
     champs.push({
-      type: 'ligne', cle: 'cote' + i, libelle: `Côté ${i + 1}`, visible: actif,
+      type: 'ligne', cle: 'cote' + i, libelle: `Côté ${i + 1}`, visible: actif, repli: 'Clôture côté par côté',
       surbrillance: (cc) => cc.etat.highlight.type === 'segment' && cc.etat.highlight.index === i,
       champs: [
         {
@@ -281,7 +282,8 @@ export function sectionPortails(c: ContexteChamps): Section {
     },
     { type: 'alerte', cle: 'alertes', libelle: '', nom: 'Alertes de l’accès', visible: (cc) => { const a = acces(cc); return unAcces(cc) && !!a && alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).length > 0; }, texte: (cc) => { const a = acces(cc); return a ? alertesAcces(clotureDe(cc.obj), a, longueurDuCote(pts(cc.obj), a.cote)).join(' ') : ''; } },
   );
-  return { id: 'portails', titre: 'Portails et portillons', repliee: !clotureDe(o).portails.length, champs };
+  // Ouverte, comme la cloture : poser un portail sert a concevoir la parcelle (MD/spec-ouvrages.md).
+  return { id: 'portails', titre: 'Portails et portillons', champs };
 }
 
 /** Les deux sections, sur la parcelle du projet seulement. */

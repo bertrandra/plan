@@ -65,7 +65,7 @@ Un point retiré du lot parce qu'il devient instable est remplacé, jamais assou
 | 7 | Déplacer à 3 doigts | la vue se déplace, l'échelle ne change pas |
 | 8 | Activer la contrainte rectangle sur un objet | les angles se redressent, l'objet reste rectangulaire pendant les tirages |
 | 9 | Annuler cinq fois de suite (Ctrl+Z ×5) | les cinq derniers gestes se défont dans l'ordre, le bouton se désactive quand la pile est vide |
-| 10 | Alignement par rotation | l'objet pivote sur l'axe demandé sans changer de surface |
+| 10 | Alignement par rotation (outil « Aligner » de la palette, sans l'inspecteur) | l'objet pivote sur l'axe demandé dès le côté cible désigné, sans changer de surface |
 
 ## Mesures, cadastre, calques
 

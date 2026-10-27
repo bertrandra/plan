@@ -23,6 +23,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'export.png': 'Télécharge une image PNG du plan tel qu’il est affiché',
   'export.pdf': 'Télécharge le plan en PDF, à l’échelle choisie dans le menu',
   'export.dxf': 'Télécharge le plan en DXF, pour un logiciel de dessin technique',
+  'export.ouvrirDeclaration': 'Ouvre la déclaration préalable : qui déclare, son adresse et celle du terrain, puis le dossier (cerfa 13703 et pièces)',
   'export.declaration': 'Remplit le cerfa 13703 de déclaration préalable avec le terrain et les ouvrages, et y joint les pièces DP1, DP2, DP4 et DP6',
   'export.noteCalcul': 'Produit la note de calcul PDF de la pergola ou du carport sélectionné : charges, combinaisons, vérifications, appuis, limites',
   'export.dossier': 'Produit un dossier PDF des terrasses cochées dans l’explorateur : plans, coupes et quantités',

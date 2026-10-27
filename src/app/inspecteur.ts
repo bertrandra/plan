@@ -11,18 +11,16 @@ import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
 import { showToast } from '../shell/dialogs.js';
+import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
-import { sectionsObjet, titreObjet } from '../ui/champs/objet.js';
-import { sectionsConstruction, type ContexteOptimisation } from '../ui/champs/construction.js';
-import { sectionReleve, estBatiment } from '../ui/champs/facade.js';
+import { titreObjet } from '../ui/champs/objet.js';
+import { sectionsInspecteur } from '../ui/champs/sections.js';
 import type { Champ, ContexteChamps, Effet, Section } from '../ui/champs/types.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
 import type { Magasin } from './magasin.js';
 import type { RegistreCommandes } from './commandes.js';
-import type { Resultats } from './resultats.js';
-import { aParticularite } from '../model/fonctions.js';
 
 /** Ce que l'inspecteur doit pouvoir declencher ailleurs. */
 export interface ContexteInspecteur extends Pick<ContexteChamps,
@@ -36,8 +34,6 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
   reapplyStackingOrder: () => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   trouverParcelle: () => ObjetPlan | undefined;
-  optimisation: ContexteOptimisation;
-  resultats: Resultats;
   /** Le plan reprend ou rend la largeur de l'inspecteur. */
   redimensionner: () => void;
 }
@@ -45,6 +41,11 @@ export interface ContexteInspecteur extends Pick<ContexteChamps,
 export interface Inspecteur {
   /** L'objet selectionne, ou rien. */
   objet(): ObjetPlan | undefined;
+  /**
+   * La parcelle du projet : la declaration prealable (dialogue du menu Exporter) et le voisinage 3D
+   * (reglages de la Vue 3D) ecrivent sur elle, selectionnee ou non.
+   */
+  parcelle(): ObjetPlan | undefined;
   contexte(obj: ObjetPlan): ContexteChamps;
   titre(c: ContexteChamps): string;
   sections(c: ContexteChamps): Section[];
@@ -53,8 +54,6 @@ export interface Inspecteur {
   executer(champ: Champ, c: ContexteChamps): void;
   /** Replie ou deplie la zone : le conteneur (index.html) porte la classe, le plan reprend la largeur. */
   basculerOuverture(): void;
-  /** Le service du tiroir, pour le tableau d'optimisation et ses « Appliquer ». */
-  resultats?: Resultats;
 }
 
 /** Le temps pendant lequel des ecritures d'un meme champ forment un seul geste a annuler. */
@@ -103,22 +102,12 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     }
   }
 
-  return {
+  const service: Inspecteur = {
     objet,
+    parcelle: ctx.trouverParcelle,
     contexte,
-    resultats: ctx.resultats,
     titre: titreObjet,
-    sections(c) {
-      const sections = sectionsObjet(c);
-      // Comme celles d'une piscine, les etapes d'une terrasse viennent avant sa geometrie (cotes,
-      // coins, alignement) : c'est l'ouvrage qu'on regle, sa forme se reprend sur le plan.
-      if (aParticularite(c.obj, 'construction')) {
-        const geometrie = sections.findIndex(s => s.id === 'cotes');
-        sections.splice(geometrie < 0 ? sections.length : geometrie, 0, ...sectionsConstruction(ctx.optimisation, c));
-      }
-      if (estBatiment(c.obj)) sections.push(sectionReleve(c));
-      return sections;
-    },
+    sections: sectionsInspecteur,
     appliquer(champ, c, ecrire) {
       // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.
       if (etat.lectureSeule && ecritLeProjet(champ)) { magasin.notifier(); return false; }
@@ -146,4 +135,8 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       ctx.redimensionner();
     }
   };
+  // La declaration prealable : un dialogue du menu Exporter qui rend des champs de la parcelle. Le
+  // service qui les ecrit le declare, comme il les ecrit dans l'inspecteur.
+  brancherDialogueDeclaration(commandes, service);
+  return service;
 }

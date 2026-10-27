@@ -17,13 +17,16 @@ import { Plu } from './Plu.js';
 import { Resume } from './Resume.js';
 import { NoteCalcul } from './NoteCalcul.js';
 import { Profil } from './Profil.js';
+import { OngletAbri, OngletOptimisation, OngletPiscine } from './Ouvrages.js';
+import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 
-export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }
+/** `inspecteur` : le service qui ecrit les champs des onglets d'un ouvrage (prix d'une piscine, d'un abri). */
+export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes; inspecteur: ServiceInspecteur }
 
-export function PanneauxResultats({ magasin, resultats, commandes }: PropsPanneaux) {
+export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }: PropsPanneaux) {
   useStore(magasin.store, (s) => s.version);
   const actif = magasin.store.getState().etat.panelTab;
   const onglet = ONGLETS.find(o => o.id === actif);
@@ -36,6 +39,9 @@ export function PanneauxResultats({ magasin, resultats, commandes }: PropsPannea
   let contenu: React.ReactNode;
   switch (onglet.id) {
     case 'bom': contenu = pourTerrasse(t => <Nomenclature obj={t} resultats={resultats} />); break;
+    case 'optimisation': contenu = pourTerrasse(t => <OngletOptimisation terrasse={t} resultats={resultats} commandes={commandes} />); break;
+    case 'piscine': contenu = <OngletPiscine magasin={magasin} inspecteur={inspecteur} />; break;
+    case 'abri': contenu = <OngletAbri magasin={magasin} inspecteur={inspecteur} />; break;
     case 'coupe': contenu = pourTerrasse(t => <Coupe obj={t} objets={resultats.etat.objects} />); break;
     case 'implantation': contenu = pourTerrasse(t => <Implantation obj={t} resultats={resultats} />); break;
     case 'chantier': contenu = pourTerrasse(t => <Chantier obj={t} resultats={resultats} />); break;

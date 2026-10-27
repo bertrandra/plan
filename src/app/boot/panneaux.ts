@@ -57,8 +57,6 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
     pushHistory: p.pushHistory, preparerHistorique: () => p.historique.preparer(), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
     buildThreeScene: vues.buildThreeScene, reapplyStackingOrder: p.dessin.reapplyStackingOrder, rebuildHandles: p.dessin.rebuildHandles,
     trouverParcelle: p.affichage.trouverParcelleCloture,
-    optimisation: { visible: () => resultats.optimisationVisible() },
-    resultats,
     redimensionner: p.cadrage.redimensionner
   }, magasin, commandes);
   // Le pointage en cours (Cote, Aligner) et le moyen d'en sortir : le bandeau du canevas et Echap.
