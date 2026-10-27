@@ -228,7 +228,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
 }
 
 export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateur) {
-  useVersionVisible(magasin, 'objets');
+  useVersionVisible(magasin, 'explorateur');
   const ouvertStore = useStore(magasin.store, (s) => s.explorateurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

@@ -390,7 +390,7 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
 }
 
 export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInspecteur) {
-  useVersionVisible(magasin, 'proprietes');
+  useVersionVisible(magasin, 'inspecteur');
   const ouvertStore = useStore(magasin.store, (s) => s.inspecteurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

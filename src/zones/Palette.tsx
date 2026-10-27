@@ -54,7 +54,7 @@ const GROUPES: Groupe[] = [
 export function Palette({ magasin, commandes }: PropsPalette) {
   // La version du plan et l'etat de la pile d'annulation : ce sont les deux choses qui changent ce
   // qu'un outil peut faire. Les lire ici suffit a redessiner la palette quand elles bougent.
-  useVersionVisible(magasin, 'outils');
+  useVersionVisible(magasin, 'palette');
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';
