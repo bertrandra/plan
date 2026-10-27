@@ -61,6 +61,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une zone que l'on ne voit pas ne se redessine plus** (feuille de route, étape 2.2). La règle est la même pour les trois classes
+  d'écran ; seule change la façon dont une zone se cache : au téléphone, dans sa feuille fermée ; sur tablette et au bureau, repliée.
+  L'inspecteur, l'explorateur et la palette gardent ce qu'ils montraient et se redessinent dès qu'ils redeviennent visibles, avec
+  l'état du moment (`zones/composants/versionVisible.ts`). Le tiroir des résultats n'en fait pas partie : ses boutons de cotes servent
+  feuille fermée, et son chiffrage se relit pendant qu'on règle la terrasse. Au banc de production, au téléphone, deux passages
+  chacun contre `main` : à 150 objets 513 et 370 ms → 177 et 196 ms ; à 300 objets 267 et 290 ms → 176 et 193 ms ; à 600 objets
+  440 et 451 ms → 379 et 310 ms. Le bureau ne bouge pas, au bruit près.
+
 - **Le rendu au téléphone, environ deux fois plus court** (feuille de route, étape 2.2, en partie). Trois coûts ôtés d'un rendu
   où rien n'a changé :
   - le bandeau de chiffrage sérialisait le plan entier, grilles du relief comprises, à chacun de ses cinq appels par rendu. La clé
