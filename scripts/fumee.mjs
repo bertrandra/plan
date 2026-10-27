@@ -1564,7 +1564,7 @@ const POINTS = {
     const precision = await page.locator('.releveNote', { hasText: 'Cotes précises' }).first().textContent({ timeout: 2000 }).catch(() => null);
     await page.locator('[data-controle="releve.valider"]').first().click({ timeout: 30000 });
     await page.waitForTimeout(500);
-    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, ouvertures: o.batiment.facades.map((f) => f.ouvertures.length), pxParM: o.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
+    const ecrit = await page.evaluate(() => window.__plan.etat().objects.filter((o) => o.batiment?.facades && o.batiment.facades.length).map((o) => ({ nom: o.name, ouvertures: o.batiment.facades.map((f) => f.ouvertures.length), pxParM: o.batiment.facades.map((f) => f.calage?.photos?.[0]?.pxParMSource ?? null) })));
     await annuler(page);
     const retour = (await facades()) === avant;
     const ouvertures = ecrit[0]?.ouvertures?.[0] ?? 0;
