@@ -17,6 +17,7 @@ import {
   type DescriptionFacades, type ProfilFacades, type ValeursFacades,
 } from '../../../regles/facades/reglages.js';
 import type { PtBrut } from '../../../model/types.js';
+import { estOuvrage, BATIMENT } from '../../../model/ouvrages/index.js';
 
 /** Ce que le choix lit d'un objet du plan : un batiment, ou la parcelle du projet (son lieu). */
 export interface ObjetProfilFacades {
@@ -56,7 +57,7 @@ const contour = (o: ObjetProfilFacades): readonly PtBrut[] | null => (Array.isAr
 export function contexteProfilsFacades(objets: readonly ObjetProfilFacades[], profils: readonly ProfilFacades[] = PROFILS_FACADES): ContexteProfilsFacades {
   if (!profils.length) return CONTEXTE_PROFILS_FACADES_VIDE;
   const cad = (objets.find((o) => o.key === 'parcelle')?.cadastre ?? null) as { idu?: unknown; codeInsee?: unknown } | null;
-  const voisins = objets.flatMap((o) => { const pts = o.fonction === 'batiment' ? contour(o) : null; return pts ? [{ cle: o.key, pts }] : []; });
+  const voisins = objets.flatMap((o) => { const pts = estOuvrage(o, BATIMENT) ? contour(o) : null; return pts ? [{ cle: o.key, pts }] : []; });
   return { departement: departementDuCode(cad?.idu) ?? departementDuCode(cad?.codeInsee), voisins };
 }
 

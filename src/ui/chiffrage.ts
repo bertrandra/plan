@@ -35,7 +35,7 @@ export interface ResumeChiffrage {
 
 let cache: { cle: string; resume: ResumeChiffrage } | null = null;
 
-// La cle, c'est tout le plan serialise, calculee une fois par tache (ui/clePlan.ts).
+// La cle : la version du plan que tient le controleur des objets (ui/clePlan.ts).
 
 export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChiffrage | null {
   if (obj.fonction !== 'terrasse' || obj.type !== 'polygon') return null;

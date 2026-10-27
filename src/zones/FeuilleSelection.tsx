@@ -24,6 +24,7 @@ import type { Explorateur } from '../app/explorateur.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
 import { estTerrasse } from '../model/fonctions.js';
+import { largeurChemin, longueurChemin } from '../model/ouvrages/index.js';
 import { surfaceNetteTerrasse } from '../engine/structure.js';
 
 /** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
@@ -40,10 +41,8 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
     liste.push(['Rayon', nombre(o.r) + ' m']);
     liste.push(['Surface', nombre(Math.PI * o.r * o.r) + ' m²']);
   } else if (o.type === 'path') {
-    let L = 0;
-    o.pts.forEach((p, i) => { const q = o.pts[i - 1]; if (q) L += Math.hypot(p.x - q.x, p.y - q.y); });
-    liste.push(['Longueur', nombre(L) + ' m']);
-    if (o.width) liste.push(['Largeur', nombre(o.width) + ' m']);
+    liste.push(['Longueur', nombre(longueurChemin(o)) + ' m']);
+    liste.push(['Largeur', nombre(largeurChemin(o)) + ' m']);
   } else {
     liste.push(['Surface', nombre(estTerrasse(o) ? surfaceNetteTerrasse(o.pts, objets) : shoelace(o.pts)) + ' m²']);
   }

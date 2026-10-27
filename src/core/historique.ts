@@ -40,6 +40,7 @@
 
 import { au } from '../util/tableaux.js';
 import { PileAnnulation, type Instantane } from './history.js';
+import { toucherTout } from './controleurObjets.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
 /**
@@ -103,6 +104,8 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    */
   function marquerModifie(): void {
     modifications++;
+    // L'historique ne sait pas quel objet change : tous sont neufs pour ce qui les lit (core/controleurObjets.ts).
+    toucherTout();
     etat.dirty = true;
     rafraichirStatut();
   }
@@ -130,6 +133,7 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
 
   function restaurer(snap: Instantane): void {
     modifications++;
+    toucherTout();
     etat.objects.forEach(ctx.detruireVue);
     const restaures = ctx.normalizeObjects(snap.objects as ObjetBrut[]);
     etat.objects.length = 0;

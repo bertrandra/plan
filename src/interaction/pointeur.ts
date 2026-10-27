@@ -17,6 +17,7 @@
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { toucher } from '../core/controleurObjets.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
 import { facadesDuContour } from '../facade/geometrie.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
@@ -433,6 +434,8 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
     // Tout le calcul du glisser vit dans interaction/drag.ts ; ici, la position du pointeur en
     // metres et le contour dans lequel l'objet doit rester.
     appliquerGlisser(geste, worldFromEvent(e), contourDeContrainte(etat.objects, geste.obj));
+    // A chaque image, seul l'objet glisse a change : le plan ne redessine que lui (core/controleurObjets.ts).
+    toucher(geste.obj);
     ctx.render();
   });
   window.addEventListener('pointerup', ()=>{

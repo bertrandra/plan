@@ -11,6 +11,7 @@ import { pointInPolygon, shoelace } from '../geometry/basic.js';
 import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { estParasol, estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
+import { estOuvrage, PARASOL } from '../model/ouvrages/index.js';
 
 /**
  * Contexte solaire : ce que les fonctions d'ombre lisaient dans la fermeture de boot() - la date
@@ -236,18 +237,23 @@ export function projeterSurPerimetre(pt: PtBrut, poly: PtBrut[]): PtBrut | null 
  * Appelee a chaque rendu, donc la contrainte tient aussi **pendant** un glisser : l'objet suit le
  * curseur en restant colle au bord, au lieu de sauter a la fin du geste.
  */
-export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): void {
+export function contraindreParasols(objets: ObjetPlan[], terrasseSelectionnee?: string | null): ObjetPlan[] {
+  // Les parasols vraiment deplaces : qui les dessine doit le savoir (core/controleurObjets.ts).
+  const deplaces: ObjetPlan[] = [];
   objets.forEach(par=>{
-    if(par.fonction!=='parasol' || !par.parasol?.matSurPerimetre) return;
+    if(!estOuvrage(par, PARASOL) || !par.parasol?.matSurPerimetre) return;
     const terr = terrasseDuParasol(par, objets, terrasseSelectionnee);
     if(!terr || !aDesSommets(terr) || terr.pts.length<3) return;
     const mat = positionMat(par);
     const cible = projeterSurPerimetre(mat, terr.pts);
     if(!cible) return;
+    if(cible.x === mat.x && cible.y === mat.y) return;
     const toile = enCercle(par);
     toile.center.x += cible.x - mat.x;
     toile.center.y += cible.y - mat.y;
+    deplaces.push(par);
   });
+  return deplaces;
 }
 
 // Points regulierement repartis le long du pourtour d'un polygone (positions candidates du pied

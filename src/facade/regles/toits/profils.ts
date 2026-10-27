@@ -20,6 +20,7 @@ import { avecSeuilsToit, PROFILS_TOITS, type SurchargesSeuilsToits } from '../..
 import { choisirProfils, niveauMitoyennete, MATERIAUX_MURS_PROFIL, TOLERANCE_MITOYENNETE_M, type ChoixProfils, type DescriptionBatiment, type FormeContour, type MateriauMursProfil, type ProfilToit } from '../../../regles/toits/profils.js';
 import { hauteurBdTopo } from './vraisemblance.js';
 import type { PtBrut } from '../../../model/types.js';
+import { estOuvrage, BATIMENT } from '../../../model/ouvrages/index.js';
 
 /** Ce que le choix lit d'un objet du plan : un batiment, ou la parcelle du projet (son lieu). */
 export interface ObjetProfils {
@@ -68,7 +69,7 @@ export function contexteProfils(objets: readonly ObjetProfils[], profils: readon
   const parcelle = objets.find((o) => o.key === 'parcelle');
   const cad = (parcelle?.cadastre ?? null) as { codeInsee?: unknown; idu?: unknown; origineLat?: unknown } | null;
   const lat = typeof parcelle?.latitude === 'number' ? parcelle.latitude : typeof cad?.origineLat === 'number' ? cad.origineLat : null;
-  const voisins = objets.flatMap((o) => { const pts = o.fonction === 'batiment' ? contour(o) : null; return pts ? [{ cle: o.key, pts }] : []; });
+  const voisins = objets.flatMap((o) => { const pts = estOuvrage(o, BATIMENT) ? contour(o) : null; return pts ? [{ cle: o.key, pts }] : []; });
   return { departement: departementDuCode(cad?.codeInsee) ?? departementDuCode(cad?.idu), latitude: lat, voisins };
 }
 

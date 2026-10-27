@@ -61,6 +61,36 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le plan ne redessine que l'objet qui change** (`MD/spec-ouvrages.md`, étapes 6.1 et 6.5). Un contrôleur des objets
+  (`core/controleurObjets.ts`) tient une version par objet : le glisser touche l'objet glissé à chaque image, l'explorateur
+  l'objet qu'il masque, un parasol posé sur le bord de sa terrasse quand elle bouge ; toute écriture qui passe par l'historique
+  sans nommer son objet rend tout neuf, le repli sûr. Le dessin du plan saute un objet dont rien n'a changé ; le chiffrage, les
+  cotes et la recherche des doublons se gardent tant que rien n'est écrit. **Garde-fou** : en développement (le serveur que
+  joue la fumée), un objet sauté est redessiné quand même et une clé reprise est vérifiée contre le plan sérialisé ; tout écart
+  s'écrit `[cle de version]` dans la console, et la fumée échoue. Au banc de production, à 600 objets : au téléphone, rendu
+  complet 212 ms → 73 à 97 ms, dont le dessin du plan 77 → 20 à 26 ms ; au bureau, 38 à 47 ms → 30 ms. Aucun nombre ne change.
+- **Les ouvrages du plan, déclarés une fois** (`model/ouvrages/`, étape 6.2). Chaque fonction d'objet (terrasse, pergola,
+  chemin…) se déclare dans le module de sa famille : libellé, formes admises, sections, hauteur par défaut, place au menu
+  « Fonction », emprise au sol. Les tables d'avant en dérivent à l'identique (testé contre leurs valeurs). Le modèle, le moteur,
+  `geo/` et `facade/` ne comparent plus la fonction à la main ; un cliquet du test d'architecture compte ces comparaisons par
+  couche. La spécification (`MD/spec-ouvrages.md`) décrit chaque ouvrage jusqu'à la géométrie, leurs dépendances, et ce qui
+  reste à corriger (références par numéro de côté, suppression sans nettoyage, couplages entre ouvrages).
+- **Chemins : une largeur par défaut et une surface sur la courbe dessinée — changement de version majeure** (`MD/RELEASE.md`
+  §2.1, décision du 27 octobre 2026). Un chemin sans largeur écrite (un ancien fichier, un tracé importé d'un SVG) mesure
+  désormais **1 m partout** : le dossier PDF et le dossier piscine lisaient 0,5 m quand l'inspecteur, le résumé, le PDF du plan et
+  la Vue 3D lisaient 1 m (`model/ouvrages/surfaces.ts::largeurChemin`). La **surface d'un chemin** (longueur × largeur) se
+  compte sur le **tracé dessiné** — la courbe d'un chemin courbe — et non plus sur ses segments droits (`surfaceChemin`) ; la
+  longueur totale de l'inspecteur, de la feuille de sélection et du résumé suit. Pour un projet existant, un nombre peut donc
+  changer dans le **résumé** (surface et longueur totale d'un chemin courbe, emprise totale), le **PDF du plan** (page des
+  surfaces) et le **dossier PDF** (surface d'un chemin courbe ou sans largeur compté parmi les objets posés sur une terrasse, épaisseur
+  du trait d'un chemin sans largeur au plan de masse), ainsi que l'épaisseur
+  du trait d'un chemin sans largeur au **dossier piscine**. Sur la démonstration, le Chemin Arrière passe de 26,84 à 27,37 m²
+  et l'emprise totale de 408,4 à 409,1 m² ; `resume.txt`, `quantites-demo.txt` et `plan.pdf` sont recapturés, le détail est
+  dans `tests/fixtures/golden/EMPREINTES.md`.
+- **La courbe des chemins n'est plus écrite qu'une fois** (`geometry/courbe.ts`, et le ruban dans `geometry/ruban.ts`). Le plan à
+  l'écran, l'export SVG, le PDF du plan et la Vue 3D en avaient chacun leur copie ; ils lisent maintenant la même, et dessinent
+  exactement ce qu'ils dessinaient (`plan.svg` inchangé, anciennes copies gardées comme oracle dans
+  `tests/unit/geometry/courbe.test.ts`).
 - **Un rendu du plan ne sérialise plus tout le plan** (feuille de route, étape 2.2). La clé qui gardait le chiffrage, les cotes et
   la recherche des doublons d'un rendu à l'autre était le plan entier en JSON : à 600 objets, 800 Ko et 78 ms au téléphone, à
   chaque rendu, plus que les calculs qu'elle évitait. Elle n'est plus qu'un jeton de tâche (`ui/clePlan.ts`) : les appels d'un

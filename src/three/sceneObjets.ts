@@ -30,10 +30,13 @@ import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
 import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, courbePolyligne, ribbonChemin, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
+  creerPrimitives, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
+import { echantillonnerTrace } from '../geometry/courbe.js';
+import { ribbonChemin } from '../geometry/ruban.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 import type { ObjetPlan, ObjetCercle, PtBrut, VolumeToit, Toit } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
@@ -105,8 +108,8 @@ export const DECALAGE_CHEMIN_M = 0.02;
  */
 export function ajouterChemin(o: ObjetPlan, { prim, ctx, sol, scene, versLocal }: ContexteObjets): void {
   if (!aDesSommets(o) || o.pts.length < 2) return;
-  const trace = courbePolyligne(o.pts, !!o.curve);
-  const poly = ribbonChemin(trace, o.width || 1);
+  const trace = echantillonnerTrace(o.pts, o.curve);
+  const poly = ribbonChemin(trace, largeurChemin(o));
   const h = ctx.elevationOf(o);
   const couleur = o.fill || o.stroke || '#888888';
   if (poly && h > 0) {
@@ -118,7 +121,7 @@ export function ajouterChemin(o: ObjetPlan, { prim, ctx, sol, scene, versLocal }
     // bosse, la pelouse passait par-dessus. A l'ecran, un ruban drape sur le sol par mailles d'un
     // demi-metre, un peu au-dessus de l'herbe ; le .glb garde le ruban d'avant (EXPORT_SEULEMENT).
     const tex = vue3d.textures ? o.textureHorizontale : null;
-    const drape = prim.addRubanDrape(trace, o.width || 1, couleur, DECALAGE_CHEMIN_M, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
+    const drape = prim.addRubanDrape(trace, largeurChemin(o), couleur, DECALAGE_CHEMIN_M, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
     if (drape) drape.userData[HORS_EXPORT] = true;
     const modele = prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), tex, COUCHES_SOL.chemin, sol.hauteur);
     if (modele && drape) { modele.userData[EXPORT_SEULEMENT] = true; modele.visible = false; }

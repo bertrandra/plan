@@ -18,6 +18,7 @@ import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 import type { EtatScene } from '../geometry/vue.js';
 
 /**
@@ -72,7 +73,7 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
   } else if(obj.type==='path'){
     v.el = creerSvg('path');
     v.el.setAttribute('fill','none');
-    v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width', String((obj.width||1)*scene.scale));
+    v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width', String(largeurChemin(obj)*scene.scale));
     v.el.setAttribute('stroke-linecap','butt'); v.el.setAttribute('stroke-linejoin','round');
     v.el.setAttribute('pointer-events','stroke');
     v.el.dataset.role='obj'; v.el.dataset.key=obj.key;
@@ -212,11 +213,24 @@ function poser(e: Element, nom: string, valeur: string): void {
   let m = ecrits.get(e);
   if (!m) { m = {}; ecrits.set(e, m); }
   if (m[nom] === valeur) return;
+  verification?.(nom);
   m[nom] = valeur;
   e.setAttribute(nom, valeur);
 }
 function texte(e: Element, valeur: string): void {
-  if (e.textContent !== valeur) e.textContent = valeur;
+  if (e.textContent === valeur) return;
+  verification?.('texte');
+  e.textContent = valeur;
+}
+
+// La verification des cles de version (render/pipeline.ts) : un objet dont la cle n'a pas bouge est repositionne quand meme, et
+// chaque valeur qui change le dit. Hors verification, rien.
+let verification: ((attribut: string) => void) | null = null;
+
+/** Repositionne un objet que sa cle disait inchange, en signalant chaque attribut qui change pourtant. */
+export function positionnerEnVerifiant(obj: ObjetRendu, ctx: ContextePositionnement, signaler: (attribut: string) => void): void {
+  verification = signaler;
+  try { positionnerObjet(obj, ctx); } finally { verification = null; }
 }
 
 /** Cache un element s'il ne l'est pas deja : lire le style coute moins que l'ecrire. */
@@ -397,7 +411,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
       percerContour(v, el, obj.key, ctx.trous ?? [], ctx.scene);
     } else if(obj.type==='path'){
       poser(el, 'd', pathD(ctx.scene, obj.pts, !!obj.curve));
-      poser(el, 'stroke-width', String(Math.max(1, (obj.width||1)*ctx.scene.scale)));
+      poser(el, 'stroke-width', String(Math.max(1, largeurChemin(obj)*ctx.scene.scale)));
       if(v.camMarkerEl){
         const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
         poser(v.camMarkerEl, 'cx', String(p0.x)); poser(v.camMarkerEl, 'cy', String(p0.y));

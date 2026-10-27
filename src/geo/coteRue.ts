@@ -25,6 +25,7 @@ import { aDesSommets } from '../model/formes.js';
 import { FRONTIERE_MITOYENNE_M } from '../model/mitoyennete.js';
 import { clotureDe, coteDAcces } from '../model/cloture.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
+import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
 
 /** Au-dela, le point d'adresse ne dit plus rien de la parcelle (adresse resolue a la rue, a la commune). */
 export const DISTANCE_ADRESSE_MAX_M = 30;
@@ -58,7 +59,7 @@ const longueur = (a: PtBrut, b: PtBrut) => Math.hypot(b.x - a.x, b.y - a.y);
 
 /** Les contours des parcelles voisines du plan, plus ceux que l'appelant connait sans les avoir poses (l'import). */
 function contoursVoisins(parcelle: ObjetPlan & { pts: PtBrut[] }, objets: readonly ObjetPlan[], autres: readonly (readonly PtBrut[])[]): (readonly PtBrut[])[] {
-  const duPlan = objets.filter((o) => o !== parcelle && o.fonction === 'terrain' && !!o.cadastre?.idu && aDesSommets(o) && o.pts.length >= 3).map((o) => (o as ObjetPlan & { pts: PtBrut[] }).pts);
+  const duPlan = objets.filter((o) => o !== parcelle && estOuvrage(o, TERRAIN) && !!o.cadastre?.idu && aDesSommets(o) && o.pts.length >= 3).map((o) => (o as ObjetPlan & { pts: PtBrut[] }).pts);
   // Un voisinage etendu compte des centaines de parcelles : seules celles dont l'emprise touche la
   // parcelle sont mesurees, l'inspecteur refait ce calcul a chaque rendu.
   const b = emprise(parcelle.pts), m = TOLERANCE_FRONTIERE_M;

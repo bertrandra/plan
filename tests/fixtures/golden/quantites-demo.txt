@@ -1,15 +1,15 @@
 Parcelle AE 101 (parcelle): 722.99 m2
 Terrasse (terrasse): 35.01 m2
-Chemin Arrière (path1787319011372_6): 26.84 m2 (longueur x largeur)
+Chemin Arrière (path1787319011372_6): 27.37 m2 (longueur x largeur)
 Maison (maison): 151.78 m2
 Dalle beton (dalle): 11.81 m2
 Abri de jardin (abri): 11.00 m2
-Chemin ZigZag (path1787318807161_2): 10.78 m2 (longueur x largeur)
+Chemin ZigZag (path1787318807161_2): 10.96 m2 (longueur x largeur)
 Spa (spa): 3.83 m2
 Table (table): 12.10 m2
 Parking (obj1787318713220_1): 19.61 m2
 Chemin Table (path1787318953347_3): 3.40 m2 (longueur x largeur)
-Chemin Buandrie (path1787319000006_5): 1.00 m2 (longueur x largeur)
+Chemin Buandrie (path1787319000006_5): 1.02 m2 (longueur x largeur)
 Chêne (circle1787323958811_1): 0.96 m2
 Erable (circle1787324026450_2): 0.51 m2
 Abri de jardin Chemin (path1787324582190_1): 0.94 m2 (longueur x largeur)
@@ -33,11 +33,11 @@ Platebande Grand Salon Entree (dup1787735407953_11): 3.05 m2
 Platebande grand Salon Arriere (dup1787735490653_12): 3.02 m2
 Platebande Angle Grand Salon (dup1787735519516_13): 1.49 m2
 Platebande Grand Salon Clim (dup1787735589549_14): 2.87 m2
-Emprise totale (hors parcelle): 408.4 m2 (56.5 %)
-  Longueur totale: 44.54 m
-  Longueur totale: 21.47 m
-  Longueur totale: 6.76 m
-  Longueur totale: 1.98 m
+Emprise totale (hors parcelle): 409.1 m2 (56.6 %)
+  Longueur totale: 45.43 m
+  Longueur totale: 21.83 m
+  Longueur totale: 6.78 m
+  Longueur totale: 2.03 m
   Longueur totale: 1.87 m
   Longueur totale: 3.20 m
   Longueur totale: 2.10 m

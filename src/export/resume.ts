@@ -17,6 +17,7 @@ import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import { surfaceNetteTerrasse } from '../engine/structure.js';
 import { estTerrasse } from '../model/fonctions.js';
+import { largeurChemin, longueurChemin, surfaceChemin } from '../model/ouvrages/index.js';
 import { dateFr } from '../util/format.js';
 
 /**
@@ -24,7 +25,7 @@ import { dateFr } from '../util/format.js';
  * structurelle plutot qu'un `Pick` sur l'union : chaque membre d'`ObjetPlan` y reste assignable
  * alors qu'un `Pick` exige que chaque cle existe sur chacun d'eux.
  */
-export type ObjetASurface = { type?: string; pts?: readonly PtBrut[]; r?: number; width?: number };
+export type ObjetASurface = { type?: string; pts?: readonly PtBrut[]; r?: number; width?: number; curve?: boolean };
 
 /** Ce que le resume doit pouvoir demander au reste du programme. */
 export interface ContexteResume {
@@ -49,10 +50,7 @@ export interface ContexteResume {
 export function surfaceDe(obj: ObjetASurface): number {
   if (obj.type === 'polygon') return shoelace(obj.pts ?? []);
   if (obj.type === 'circle') { const r = obj.r ?? 0; return Math.PI * r * r; }
-  let L = 0;
-  const pts = obj.pts || [];
-  for (let i = 0; i < pts.length - 1; i++) L += dist(au(pts, i), au(pts, i + 1));
-  return L * (obj.width || 1);
+  return surfaceChemin(obj);
 }
 
 export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: ContexteResume): string {
@@ -81,17 +79,17 @@ export function construireResume(objets: ObjetPlan[], mesures: Mesure[], ctx: Co
       out += '  Centre: X=' + obj.center.x.toFixed(3) + ' Y=' + obj.center.y.toFixed(3) + '  Rayon=' + obj.r.toFixed(2) + ' m\n\n';
     } else if (obj.type === 'path') {
       const ptsC = obj.pts || [], vnC = obj.vertexNames || [], snC = obj.segmentNames || [];
-      out += '  Largeur: ' + (obj.width || 1).toFixed(2) + ' m' + (obj.curve ? ' (courbe)' : ' (droit)') + '\n';
+      out += '  Largeur: ' + largeurChemin(obj).toFixed(2) + ' m' + (obj.curve ? ' (courbe)' : ' (droit)') + '\n';
       ptsC.forEach((p, i) => {
         out += '  ' + vnC[i] + ': X=' + p.x.toFixed(3) + ' Y=' + p.y.toFixed(3) + '\n';
       });
       // Un chemin est ouvert : ses segments s'arretent au dernier point, sans refermer.
-      let totalLen = 0;
       for (let i = 0; i < ptsC.length - 1; i++) {
-        const L = dist(au(ptsC, i), au(ptsC, i + 1)); totalLen += L;
+        const L = dist(au(ptsC, i), au(ptsC, i + 1));
         out += '  ' + (snC[i] || ('Cote ' + (i + 1))) + ' (' + vnC[i] + ' -> ' + vnC[i + 1] + '): ' + L.toFixed(2) + ' m\n';
       }
-      out += '  Longueur totale: ' + totalLen.toFixed(2) + ' m\n\n';
+      // La longueur totale est celle du trace dessine (la courbe d'un chemin courbe), celle de la surface.
+      out += '  Longueur totale: ' + longueurChemin(obj).toFixed(2) + ' m\n\n';
     } else {
       // Un polygone est ferme : le dernier segment revient au premier point, d'ou le modulo.
       const ptsP = obj.pts || [], vnP = obj.vertexNames || [], snP = obj.segmentNames || [];

@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { resumerChiffrage } from '../../../src/ui/chiffrage.js';
 import { DEMO_OBJECTS } from '../../../src/model/demo.js';
+import { toucher } from '../../../src/core/controleurObjets.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
-// Le resume du chiffrage (feuille de selection, bandeau de l'inspecteur, tuiles des resultats) se partage entre les appels d'un meme
-// rendu, et se refait a la tache suivante (ui/clePlan.ts : la cle est un jeton de tache, plus le plan serialise).
+// Le resume du chiffrage (feuille de selection, bandeau de l'inspecteur, tuiles des resultats) se garde tant que rien n'a ete ecrit :
+// sa cle est la version de l'ensemble que tient le controleur des objets (ui/clePlan.ts, MD/spec-ouvrages.md etape 6.5).
 const tache = () => new Promise((ok) => setTimeout(ok, 0));
 const plan = (): ObjetPlan[] => {
   const objets = structuredClone(DEMO_OBJECTS) as ObjetPlan[];
@@ -15,36 +16,46 @@ const plan = (): ObjetPlan[] => {
 const terrasse = (objets: ObjetPlan[]) => objets.find((o) => o.key === 'terrasse') as ObjetPlan & { type: 'polygon' };
 
 describe('le resume du chiffrage et son cache', () => {
-  it('un meme rendu le partage ; la tache suivante le refait, au meme resultat', async () => {
+  it('se garde d un rendu a l autre tant que rien n est ecrit', async () => {
     const objets = plan();
     const r1 = resumerChiffrage(terrasse(objets), objets);
     expect(r1?.haut).toBeGreaterThan(0);
     expect(resumerChiffrage(terrasse(objets), objets)).toBe(r1);
     await tache();
-    const r2 = resumerChiffrage(terrasse(objets), objets);
-    expect(r2).not.toBe(r1);
-    expect(r2).toEqual(r1);
+    expect(resumerChiffrage(terrasse(objets), objets)).toBe(r1);
   });
 
-  it('un geste dans une autre tache le fait recalculer, meme sur le meme tableau d objets', async () => {
+  it('un geste qui touche son objet le fait recalculer', async () => {
     const objets = plan();
     const r1 = resumerChiffrage(terrasse(objets), objets);
     await tache();
     const t = terrasse(objets);
     t.pts = t.pts.map((p, i) => (i === 0 ? { ...p, x: p.x - 1 } : p));
+    toucher(t);
     const r2 = resumerChiffrage(t, objets);
     expect(r2).not.toBe(r1);
     expect(r2?.surface).not.toBe(r1?.surface);
   });
 
-  it('une grille du relief remplacee : meme resultat, recalcule', async () => {
+  it('une grille du relief remplacee et touchee : recalcule, au meme resultat', async () => {
     const objets = plan();
     const parcelle = objets.find((o) => o.key === 'parcelle') as ObjetPlan & { relief: { z: (number | null)[] } };
     const r1 = resumerChiffrage(terrasse(objets), objets);
-    await tache();
     parcelle.relief.z = [...parcelle.relief.z];
+    toucher(parcelle);
     const r2 = resumerChiffrage(terrasse(objets), objets);
     expect(r2).not.toBe(r1);
     expect(r2).toEqual(r1);
+  });
+
+  it('en developpement, une ecriture qui ne touche pas son objet se signale', () => {
+    const objets = plan();
+    const erreur = vi.spyOn(console, 'error').mockImplementation(() => {});
+    resumerChiffrage(terrasse(objets), objets);
+    const t = terrasse(objets);
+    t.pts = t.pts.map((p, i) => (i === 0 ? { ...p, x: p.x - 1 } : p));
+    resumerChiffrage(t, objets);
+    expect(erreur.mock.calls.some((c) => String(c[0]).startsWith('[cle de version]'))).toBe(true);
+    erreur.mockRestore();
   });
 });

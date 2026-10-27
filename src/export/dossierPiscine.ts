@@ -32,6 +32,7 @@ import {
 } from '../engine/piscine.js';
 import { lieuDeParcelle } from '../model/lieu.js';
 import { estTerrain, parcelleDuProjet } from '../model/fonctions.js';
+import { largeurChemin } from '../model/ouvrages/index.js';
 import { sommetsDe } from '../model/formes.js';
 import { altitudeNGF, reliefDe, resumeRelief } from '../model/relief.js';
 import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
@@ -298,7 +299,7 @@ const pointsDe = (o: ObjetPlan): PtBrut[] => o.type === 'circle'
 function dessinerObjet(o: ObjetPlan, P: Projeteur, k: number, opacite = 0.9, contour = false): string {
   const fond = contour ? null : hexToRgb01(o.fill), trait = hexToRgb01(o.stroke);
   if (o.type === 'circle') { const q = P(o.center); return pdfCercle(q.x, q.y, o.r * k, fond, trait, opacite); }
-  if (o.type === 'path') return pdfPolygone(o.pts.map(P), null, trait, Math.max(0.6, (o.width || 0.5) * k), 1);
+  if (o.type === 'path') return pdfPolygone(o.pts.map(P), null, trait, Math.max(0.6, largeurChemin(o) * k), 1);
   return pdfPolygone(o.pts.map(P), fond, trait, contour ? 1.4 : 0.8, contour ? 1 : opacite);
 }
 

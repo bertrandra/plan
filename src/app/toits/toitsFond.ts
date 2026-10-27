@@ -34,6 +34,7 @@ import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { ProgressionToits } from '../../core/lectureToits.js';
 import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { toucher } from '../../core/controleurObjets.js';
 
 /** Combien de batiments lus par dessin : assez pour que le plan ne se redessine pas a chaque toit. */
 export const LOT_TOITS_FOND = 12;
@@ -153,11 +154,14 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
     }
     const cible = champsBatiment(o) as Record<string, unknown>, source = (copie.batiment ?? {}) as Record<string, unknown>;
     for (const k of verifie ? CHAMPS_LUS_VERIFIE_BATIMENT : CHAMPS_LUS_BATIMENT) cible[k] = source[k] === undefined ? null : source[k];
+    // Ecrit en tache de fond : le plan et ce qui le lit le refont (core/controleurObjets.ts).
+    toucher(o);
     return true;
   }
   if (estVerifieSurPlace(o.batiment)) return false;
   if (!o.batiment?.toit || !couleurALire(o.batiment) || !copie.batiment?.toit) return false;
   champsBatiment(o).toit = { ...o.batiment?.toit, couleur: copie.batiment?.toit.couleur as string, ...(copie.batiment?.toit.origineCouleur ? { origineCouleur: copie.batiment?.toit.origineCouleur } : {}) };
+  toucher(o);
   return true;
 }
 

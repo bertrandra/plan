@@ -355,6 +355,29 @@ describe('les modules carrefours de app/ (feuille de route, etape 3.3)', () => {
   });
 });
 
+describe('les ouvrages (MD/spec-ouvrages.md, phase 6)', () => {
+  // Ce que la fonction d'un objet lui donne vit dans son ouvrage : chaque couche a son registre (model/ouvrages/ pour le modele), et
+  // une comparaison `fonction === '…'` ailleurs est une regle d'ouvrage ecrite hors de lui. Un cliquet par couche : le modele, le
+  // moteur, geo/ et facade/ n'en ont plus (etape 6.2) ; les autres en gardent leur compte, qui ne peut que baisser (etape 6.4).
+  const COMPARAISON = /fonction\s*[!=]==?\s*'[a-z]+'/g;
+  const PLAFONDS: Record<string, number> = { app: 33, export: 12, io: 3, render: 5, three: 7, ui: 2, zones: 1 };
+  const comptes = new Map<string, number>();
+  for (const f of tous) {
+    const r = relative(src, f).split(sep);
+    if (r[0] === 'model' && r[1] === 'ouvrages') continue;
+    const n = (readFileSync(f, 'utf8').match(COMPARAISON) ?? []).length;
+    if (n) comptes.set(r[0]!, (comptes.get(r[0]!) ?? 0) + n);
+  }
+  it('aucune couche ne compare la fonction au-dela de son plafond', () => {
+    const coupables = [...comptes].filter(([c, n]) => n > (PLAFONDS[c] ?? 0)).map(([c, n]) => `${c} : ${n} (plafond ${PLAFONDS[c] ?? 0})`);
+    expect(coupables).toEqual([]);
+  });
+  it('un plafond suit sa couche quand elle en perd', () => {
+    const aBaisser = Object.entries(PLAFONDS).filter(([c, p]) => (comptes.get(c) ?? 0) < p).map(([c, p]) => `${c} : ${comptes.get(c) ?? 0} < ${p}`);
+    expect(aBaisser).toEqual([]);
+  });
+});
+
 function existsTsx(cible: string): boolean {
   return existsSync(cible + '.tsx');
 }
