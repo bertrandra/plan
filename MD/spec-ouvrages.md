@@ -90,12 +90,155 @@ serveur que joue la fumée), le plan **redessine quand même** les objets dont l
 aurait changé (`[cle de version]` dans la console). La fumée fait échouer un point qui en produit. Un chemin d'écriture oublié
 par l'inventaire se trouve donc par la fumée, pas par un client.
 
+## La structure des ouvrages, de l'ouvrage à la géométrie
+
+*Relevé dans le code le 27 octobre 2026.* Chaque ouvrage descend les couches dans le même ordre : **forme** (ce que l'objet est
+géométriquement) → **modèle** (ses champs, sa fabrique) → **règles** (moteur) → **dessin** (plan, 3D) → **inspecteur** →
+**exports**, et touche en bas des **primitives de géométrie** (`geometry/`). Ce qui suit est l'état d'aujourd'hui ; les étapes
+6.3 et 6.4 rangent chaque ligne sous le nom de son ouvrage.
+
+### Ce que tous partagent
+
+| Couche | Commun à tout objet |
+|---|---|
+| forme | `polygon` (`pts`), `circle` (`center`, `r`), `path` (`pts`, `width`, `curve`) — `model/types.ts` |
+| modèle | sous-objets par fonction en mémoire (`batiment`, `arbre`, `parasol`, `piscine`, `pergola`, `construction`, `cloture`), à plat dans le fichier (`model/champsFonction.ts`) |
+| plan | le contour : `render/objects.ts::positionnerObjet` → `geometry/path.ts::polyStr` (polygone), `pathD` (chemin), `cx/cy/r` (cercle) ; le nom au `geometry/basic.ts::centroid` ; tout passe par `geometry/vue.ts::versEcran` |
+| 3D | un prisme : `three/sceneObjets.ts::ajouterUnObjet`, hauteur `engine/hauteurs.ts::elevationOf` (défaut : `model/ouvrages/`), posé sur le sol ; le gazon s'arrête à l'emprise de ce qui `occupeLeSol` (`three/gazon.ts`) |
+| inspecteur | Objet, Apparence ; Côtés, Coins, Alignement pour une forme à sommets (`ui/champs/objet.ts`) |
+| exports | DXF (`export/dxfPlan.ts`), SVG et PDF du plan, résumé, dimensions du dossier PDF (`shoelace`, longueur × largeur) |
+
+### Arbre par ouvrage
+
+**Terrasse** — construit, `polygon`
+- modèle : `pts`, `construction` ; fabrique `creation.ts::nouvelleTerrasse` ; défauts `engine/construction.ts::ensureConstruction`
+- règles : `engine/structure.ts::computeStructure` (cadre, solives, appuis `buildVisGrid`) → `layers.ts::computeTerrasseLayers`
+  (lames `lames.ts::generateParallelLines`, rive) → `bom.ts::computeBOM`, `prix.ts`, `debit.ts`, `portees.ts` ; note
+  `noteCalcul.ts`, implantation, chantier ; hauteurs `hauteurs.ts` sur le sol `sol.ts::solSousEmprise` → `model/relief.ts`
+- plan : couches `render/terrasseCouches.ts` ; trous par gabarit `render/objects.ts::percerContour`
+- 3D : `three/sceneTerrasse.ts::construireStructureTerrasse`, `assise3d.ts`
+- inspecteur : `ui/champs/construction.ts`, `noteCalcul.ts` ; exports : dossier PDF, note de calcul, cerfa, DP, DXF
+- géométrie : `polygon.ts::polygonOffset`, `basic.ts::signedArea`, `shoelace`, `centroid`, `pointInPolygon`, `clipLineToPolygon`,
+  `clipPolygonByConvex`, `difference.ts::differencePolygones`, `ringSegments`, `offsetZone`
+- dépend de : **piscine** et **trémie** qui la percent (`objetsQuiPercent` → `contourOuverture`), **équipement** qui la renforce
+  (`findSpaZones` → `offsetZone`), **terrain** (relief : hauteur des appuis), **parasol** qui lui est lié
+
+**Pergola, carport** — construit, `polygon` ; mêmes règles, défauts différents (`ABRIS` : 4 × 3 m, 3 × 5 m)
+- modèle : `pts`, `pergola` (toit, matériau, adossée, débord, hauteur, sections, entraxe) ; fabrique `creation.ts::nouvelAbri`
+- règles : `engine/pergola.ts::calculerPergola` (poteaux par `polygonOffset`, poutres par `clipLineToPolygon`, angles par
+  `lineLineIntersect`), `chiffrerPergola` ; passage du carport `PASSAGE_CARPORT_M` ; neige et vent `noteCalcul.ts::hypothesesDe`
+- plan : `render/pergolaOverlay.ts` ; 3D : `three/pergola3d.ts` ; inspecteur : `ui/champs/pergola.ts` ; exports : cerfa
+- dépend de : **terrain** (relief) seulement ; adossée, elle désigne un de ses propres côtés, pas un bâtiment
+
+**Piscine** — construit, `polygon` ou `circle`
+- modèle : `piscine` (implantation, structure, revêtement, plage, `terrasseKey`) ; fabrique `creation.ts::nouvellePiscine`
+- règles : `engine/piscine/geometrie.ts` (`contourPiscine` : un cercle devient 48 côtés ; `elargir` = `polygonOffset` ; profil du
+  fond, volume d'eau) → `calcul.ts::calculerPiscine` (margelles, plage, terrassement, filtration, distances aux limites, régime
+  d'autorisation) → `chiffrage.ts`, `note.ts`
+- plan : `render/piscineOverlay.ts` ; 3D : `three/piscine3d.ts` ; inspecteur : `ui/champs/piscine.ts` ; exports : `dossierPiscine.ts`
+- géométrie : `polygonOffset`, `signedArea`, `shoelace`, `distancePointSegment`, `projectOntoSegment`
+- dépend de : **terrasse** de plage (`piscine.terrasseKey`) ; elle **perce** toute terrasse qu'elle chevauche ; **terrain**
+  (distances aux limites, relief)
+
+**Parasol** — construit, `circle` (la toile)
+- modèle : `parasol` (hauteur, mât déporté, angle, sur le périmètre, `terrasseLieeKey`) ; fabrique `creation.ts::nouveauParasol`
+- règles : `engine/parasol.ts` — ombre `geometrieOmbre`, `ombreInstantanee` (soleil `geo/soleil.ts::positionSoleil`), cartes
+  d'ombre et meilleure position, mât `positionMat`, `projeterSurPerimetre`
+- plan : `render/parasolOverlay.ts` ; 3D : mât et toile `three/sceneObjets.ts::ajouterParasol` ; inspecteur : `sectionParasol`
+- dépend de : **terrasse** (`terrasseLieeKey`, sinon celle qui le contient)
+
+**Bâtiment, annexe** — bâti, `polygon` ; l'annexe est le bâtiment sous un autre nom
+- modèle : `batiment` (toit, volumes, toit mesuré, corps, façades, fenêtres, couleur des murs), `bdtopo` ; import
+  `geo/cadastreObjets.ts` ; toits `model/volumesToit.ts`, `model/toitMesure.ts`
+- règles : `facade/toits/toitCorps.ts::reconstruireCorps`, `toitLidar.ts` ; façades `facade/ouvertures.ts`, `facade/profil.ts`
+- 3D : `three/toitCorps3d.ts`, `toitMesure3d.ts`, `detailsBatiment.ts`, `releve3d.ts`, `cheminees3d.ts`
+- inspecteur : relevé `ui/champs/facade.ts`, fenêtres, couleur des murs
+- géométrie : `squelette.ts::squeletteDroit`, `faitage.ts::repereFaitage`, `facadeExterieure.ts`, `lineaire.ts`
+
+**Chemin** — surface, `path` ; l'exemple d'un ouvrage « proche de la géométrie simple »
+- forme : une polyligne ouverte d'au moins deux points (`pts`), une **largeur** (`width`, en mètres), une **courbe** (`curve`)
+- modèle : fabrique `creation.ts::nouveauChemin` (deux points à 4 m, 1,20 m de large, droit) ; un tracé importé d'un SVG est un
+  chemin (`io/importSvg.ts`) ; il occupe le sol parce qu'il a une largeur (`model/ouvrages/surfaces.ts`, `aUneLargeur`)
+- règles : aucune — pas de structure ; sa surface est longueur × largeur
+- **la courbe** : avec `curve` et trois points au moins, le tracé passe par chaque point en Catmull-Rom uniforme, converti en
+  Bézier cubiques (points de contrôle `p1 + (p2 − p0)/6` et `p2 − (p3 − p1)/6`, extrémités répétées) ; sinon une ligne brisée
+- plan : un `<path>` sans remplissage, `d` par `geometry/path.ts::pathD(scène, pts, courbe)`, épaisseur de trait = largeur ×
+  échelle : en 2D la largeur n'est qu'un trait, aucun contour décalé n'est calculé
+- 3D : la même courbe échantillonnée (`three/primitives.ts::courbePolyligne`, 12 points par segment), élargie en ruban
+  (`ribbonChemin` : chaque côté décalé d'une demi-largeur, angles en onglet par `geometry/segments.ts::lineLineIntersect`, en
+  biseau au-delà de 4 demi-largeurs), posé ou drapé sur le relief (`addRubanDrape`) ; le gazon s'arrête au même ruban
+- inspecteur : longueur totale, largeur (0,05 m au moins), « Courbe (passe par les points) », texture commune à tous les chemins
+- exports : SVG et PDF du plan redessinent la courbe ; le DXF écrit la ligne brute (ni courbe, ni largeur) ; la surface (dossier,
+  résumé, PDF) se compte sur les segments droits
+- géométrie : `path.ts::pathD`, `segments.ts::lineLineIntersect`, `basic.ts::dist`, `centroid`, `anneau.ts::sommetDe`
+- dépend de : **terrain** (relief, pour le draper) ; d'aucun autre ouvrage
+
+**Dalle, massif, mobilier** — surface, toute forme
+- modèle : un objet générique ; les haies et la végétation de l'IGN arrivent en massif (`geo/cadastreObjets.ts`)
+- règles : aucune ; 3D : le prisme commun ; exports : le dossier PDF les compte comme équipement posé sur la terrasse
+- note : le type d'appui « dalle » et `empriseDalle` du moteur appartiennent à la **terrasse** posée sur dalle, pas à cet ouvrage
+
+**Équipement (jacuzzi)** — surface, le plus souvent un `circle` (fabrique `creation.ts::nouveauCercle`)
+- règles : il n'a pas de structure propre ; il **renforce la terrasse** qui le porte : `engine/structure.ts::findSpaZones` →
+  `empriseEquipement` (32 côtés) + `offsetZone(marge)`, appuis de rôle `spa`, `portees.ts::porteeVisSpaM`
+- géométrie : `offsetZone`, `centroid`, `pointInPolygon`
+
+**Trémie (trou de terrasse)** — ouverture, `polygon` ou `circle`
+- règles : `engine/structure.ts::contourOuverture` (un cercle devient 32 côtés), `objetsQuiPercent`, `trousDeTerrasse` ; une
+  trémie entièrement dans la terrasse peut recevoir une rive (`layers.ts`, `safeOffset`)
+- plan : le gabarit qui perce la terrasse ; 3D : le trou dans le prisme de la terrasse ; inspecteur : `sectionTrou`
+- dépend de : la **terrasse** qu'elle chevauche
+
+**Terrain (parcelle, voisines)** — contexte, `polygon`
+- modèle : `key: 'parcelle'` ou fonction terrain ; porte `cloture` (`model/cloture.ts`), `relief` (`model/relief.ts`), `plu`,
+  `cadastre`, `ortho`, `declaration`, `ruesVoisinage` ; voisines `voisinage: true` ; mitoyenneté `model/mitoyennete.ts`
+- règles : le sol de tout le projet `engine/sol.ts::solDuRelief`, `solDuProjet`
+- plan : clôture `render/cloture.ts`, courbes de niveau `render/relief.ts` → `geometry/isolignes.ts`, photo aérienne
+  `render/ortho.ts` ; 3D : gazon, relief `three/relief3d.ts`, clôture `three/cloture3d.ts`
+- inspecteur : parcelle, clôture, relief, voisinage, déclaration ; exports : DP, dossier mairie, cerfa, dossier piscine
+
+**Limite** — contexte, `path` (les limites cadastrales, 0,12 m, verrouillées) : tirets sur le plan, rien en 3D, ligne au DXF
+**Arbre** — contexte, toute forme : `arbre` (diamètre, couleur, essence), bibliothèque `model/especesArbre.ts`, 3D EZ-tree
+`three/arbre3d.ts`, `three/ezTree.ts` ; ni règle ni dessin propre au plan
+**Point de vue** — contexte, `path` de deux points (position, visée) : flèche sur le plan, il règle la caméra de la Vue 3D
+**Autre** — le repli de toute fonction inconnue : le prisme et les sections communes
+
+### Les dépendances entre ouvrages
+
+```
+terrain ──relief──▶ terrasse, pergola, carport, piscine, chemin (hauteurs, drapé)
+terrain ──limites─▶ piscine (distances, régime d'autorisation)
+piscine ──plage (terrasseKey)──▶ terrasse
+piscine, trémie ──percent──▶ terrasse
+équipement ──renforce──▶ terrasse
+parasol ──terrasseLieeKey──▶ terrasse
+bâtiment ◀── BD TOPO, LiDAR (toit, corps) ; pergola et carport ne dépendent d'aucun autre ouvrage
+```
+
+Le contrôleur (étape 6.1) suit ces flèches : toucher une piscine, une trémie ou un équipement doit faire refaire la terrasse
+qu'ils percent ou renforcent ; toucher le terrain (relief), tout ce qui pose sur le sol. Aujourd'hui une terrasse suit la version
+de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces flèches.
+
+### Ce que le relevé a trouvé à ranger
+
+- **La courbe est écrite quatre fois** : `geometry/path.ts::pathD`, `three/primitives.ts::courbePolyligne`,
+  `export/svgPlan.ts::exPathD`, `export/pdfPlan.ts::pdfPathD`. Une seule primitive dans `geometry/` (`courbe.ts` : les points de
+  contrôle, l'échantillonnage) ; les quatre la lisent. Même chose pour le ruban (`ribbonChemin`, dans `three/`) : c'est de la
+  géométrie, pas de la 3D. Étape 6.3, à résultat identique (les empreintes de l'export le vérifient).
+- **La largeur par défaut d'un chemin n'est pas la même partout** : 0,5 m dans le dossier PDF et le dossier piscine, 1 m dans
+  l'inspecteur, le résumé et le PDF du plan. Un chemin sans largeur (un ancien fichier, un import SVG) n'a donc pas la même
+  surface selon le document. L'unifier change un nombre exporté : **c'est une version majeure** (`MD/RELEASE.md`), à décider,
+  pas une correction discrète.
+- **La surface d'un chemin courbe** se compte sur ses segments droits, pas sur la courbe dessinée : même règle, même décision.
+- **Le bâtiment et l'annexe** se comparent encore à la main dans les exports (`'batiment' || 'annexe'`) : c'est le bâti, une
+  famille, que le registre dit déjà (étape 6.4).
+
 ## Les étapes
 
 | # | Étape | Critère de fin |
 |---|---|---|
 | 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` |
 | 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) |
-| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage | empreintes inchangées |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports | empreintes inchangées |
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche | plus aucun `fonction === '…'` hors des registres (cliquet) ; fumée complète |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) |
