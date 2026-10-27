@@ -349,6 +349,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le toit suit son bâtiment quand on le déplace ou le tourne** (`MD/spec-ouvrages.md`, étape 6.3). Glisser un bâtiment, l'aligner
+  par rotation ou le remettre à sa place de départ laissait son toit à l'ancienne place dans la Vue 3D : les corps du toit, les
+  cheminées, les édicules d'une toiture-terrasse et les volumes sont en coordonnées absolues, et aucun geste ne les faisait suivre.
+  Quand le contour bouge d'un bloc (`geometry/deplacement.ts`), l'ouvrage fait suivre ce qu'il porte (`model/ouvrages/bati.ts`) ;
+  la direction du faîtage tourne avec lui. La grille du toit mesuré se translate ; tournée, elle partirait de travers et
+  disparaît (les corps tournés restent). Un contour déformé (un sommet tiré) ne fait rien suivre.
 - **La fumée complète repasse : les neuf points rouges trouvés par la première nuit** (feuille de route, étape 0.4). Aucun n'était
   un défaut de l'application ; tous venaient d'un script resté en retard sur elle.
   - **69, 70** : depuis que le moteur arbitre les sources (lot G), la couverture que Claude voit n'est plus une ligne à part.

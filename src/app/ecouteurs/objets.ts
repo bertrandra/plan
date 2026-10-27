@@ -16,6 +16,7 @@ import { decalageDeCentrage } from '../../engine/structure.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
+import { suivreLeContour } from '../../model/ouvrages/index.js';
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selection = () => !!a.etat.selectedKey;
@@ -126,7 +127,9 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
       const initC = centroid(enPoints(init).pts);
       const curC = centroid(obj.pts);
       const d = { x: initC.x - curC.x, y: initC.y - curC.y };
+      const avant = obj.pts.map(p => ({ ...p }));
       obj.pts.forEach(p => { p.x += d.x; p.y += d.y; });
+      suivreLeContour(obj, avant, obj.pts);
     }
     a.render();
   }, { actif: selection });

@@ -10,6 +10,7 @@
 import type { PtBrut, ObjetPlan } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
 import type { CoteCible } from '../geometry/alignement.js';
+import { suivreLeContour } from '../model/ouvrages/index.js';
 
 /** Un cote designe sur le plan : la cle de l'objet et l'indice du cote. */
 export interface CoteDesigne {
@@ -80,6 +81,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
     return;
   }
   ctx.pushHistory();
+  suivreLeContour(obj, forme.pts, newPts);
   forme.pts = newPts;
   ctx.rebuildHandles(obj);
   ctx.render();

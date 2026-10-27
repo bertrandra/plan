@@ -336,9 +336,11 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     numéro la clôture, les façades relevées, les fenêtres, la couleur des murs ; elle remet les noms des coins et des côtés
     par défaut ; un bâtiment refait prend une autre clé (cotes et audit perdus) ;
   - **raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse` ;
-  - **déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues : `corpsToit[].pts`,
-    `cheminees`, `edicules.pts`, `volumesToit[].pts`, `toitMesure` (la 3D dessine le toit où il était) ; tourner la
-    parcelle ne tourne ni la grille du relief, ni le calage de la photo aérienne, ni les rues, ni le point du PLU.
+  - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
+    2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
+    (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
+    translate, tournée elle part) ; reste : tourner la parcelle ne tourne ni la grille du relief, ni le calage de la photo
+    aérienne, ni les rues, ni le point du PLU.
 
   Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par
