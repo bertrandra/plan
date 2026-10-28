@@ -378,6 +378,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Deux réglages du toit dans l'inspecteur ne se perdent plus à la relecture** (`ui/champs/facade.ts`). La direction du faîtage
+  s'écrivait sans passer le toit en « saisi », là où la forme et la hauteur le font : la relecture LiDAR et l'actualisation la
+  recalculaient. « Appentis : ouvert / fermé » écrivait les corps sans figer le toit, là où les éléments de façade le figent :
+  la relecture suivante refaisait les corps sans le réglage. Les deux posent maintenant la même marque que leurs voisins.
+
 - **L'actualisation IGN garde le matériau de couverture choisi** (`model/toitBdTopo.ts::toitActualise`). Un toit BD TOPO ou
   LiDAR recalculé à l'actualisation ne gardait que sa couleur : l'ardoise ou le zinc choisis dans l'inspecteur, ou retenus par
   l'audit, disparaissaient et la Vue 3D revenait au matériau déduit. Le matériau choisi suit maintenant le toit recalculé, comme
