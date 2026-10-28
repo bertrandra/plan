@@ -47,6 +47,11 @@ export interface Ouvrage {
    */
   dossierPiscine?: { situation?: true; masse?: true };
   /**
+   * Ses reglages au format de projet qui gardent une valeur sur un objet de toute fonction (la creation les pose par defaut) :
+   * un objet du voisinage d'un autre ouvrage s'enregistre sans eux (io/serialisation.ts).
+   */
+  reglagesAuFichier?: readonly string[];
+  /**
    * Il n'a pas d'emprise pleine : l'herbe de la Vue 3D pousse dessous (un terrain, un point de vue, un arbre dont l'herbe pousse
    * sous le houppier, un parasol dont seul le mat touche le sol, un trou de terrasse qui garde un arbre).
    */

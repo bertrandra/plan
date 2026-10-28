@@ -90,4 +90,11 @@ describe('les comparaisons d avant l etape 6.4, a l identique', () => {
     expect(ceux((f) => !!ouvrage(f).dossierPiscine?.situation).sort()).toEqual(['annexe', 'batiment', 'chemin']);
     expect(ceux((f) => !!ouvrage(f).dossierPiscine?.masse).sort()).toEqual(['annexe', 'batiment', 'carport', 'dalle', 'pergola', 'terrasse']);
   });
+
+  it('l enregistrement du voisinage : les reglages du parasol et de l arbre, aux autres ouvrages', () => {
+    const CHAMPS = ['hauteurParasol', 'diametreArbre', 'couleurArbre', 'especeArbre', 'textureArbre'];
+    const avant = (f: string | undefined) => CHAMPS.filter((k) => (f !== 'parasol' && k === 'hauteurParasol') || (f !== 'arbre' && ['diametreArbre', 'couleurArbre', 'especeArbre'].includes(k)));
+    const apres = (f: string | undefined) => CHAMPS.filter((k) => OUVRAGES.some((o) => o !== ouvrage(f) && o.reglagesAuFichier?.includes(k)));
+    for (const f of FONCTIONS_ET_INCONNUES) expect(apres(f), String(f)).toEqual(avant(f));
+  });
 });

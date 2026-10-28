@@ -40,7 +40,7 @@ export function aParticularite(o: ObjetPlan, p: Particularite): boolean {
 }
 
 /** Un terrain : la parcelle, ou une parcelle voisine importee du cadastre. */
-export const estTerrain = (o: ObjetPlan): boolean => o.key === 'parcelle' || estOuvrage(o, TERRAIN);
+export const estTerrain = (o: { key?: string; fonction?: string | null }): boolean => o.key === 'parcelle' || estOuvrage(o, TERRAIN);
 export const estPointDeVue = (o: ObjetPlan): boolean => estOuvrage(o, POINT_DE_VUE);
 
 /**

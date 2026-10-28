@@ -6,7 +6,8 @@ import type { Ouvrage } from './ouvrage.js';
 export const TERRAIN: Ouvrage = { fonction: 'terrain', libelle: 'Terrain', famille: 'contexte', formes: ['polygon'], elevation: 0, auMenu: true, horsEquipement: true, sansEmprise: true };
 
 /** Le feuillage est une sphere posee sur le tronc : toute forme de tronc convient. */
-export const ARBRE: Ouvrage = { fonction: 'arbre', libelle: 'Arbre', famille: 'contexte', particularites: ['arbre'], elevation: 3, auMenu: true, sansEmprise: true };
+export const ARBRE: Ouvrage = { fonction: 'arbre', libelle: 'Arbre', famille: 'contexte', particularites: ['arbre'], elevation: 3, auMenu: true, sansEmprise: true,
+  reglagesAuFichier: ['diametreArbre', 'couleurArbre', 'especeArbre'] };
 
 export const LIMITE: Ouvrage = { fonction: 'limite', libelle: 'Limite', famille: 'contexte', elevation: 0, auMenu: true, horsEquipement: true };
 
