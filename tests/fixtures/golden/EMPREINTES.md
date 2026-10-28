@@ -553,20 +553,20 @@ toute la migration, et la seule fois où ces octets ont bougé, c'est parce qu'o
 
 Les empreintes normalisées sont celles que vérifient `tests/unit/echafaudage.test.ts` (témoins) et
 `tests/unit/export/regeneration.test.ts` / `empreintesPiscinePergola.test.ts` (régénérés depuis le code) ; la table est relevée sur
-ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour.
+ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2.0.2), recapturée à la 3.0.0 le même jour, puis à la 4.0.0 le 28 octobre 2026.
 
 | Fixture | Producteur | Octets | SHA-256 (normalisé) |
 |---|---|---:|---|
-| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `058fea61f0a8b6d1351b2db8d48406ca9e41599e2645401fb737dabf01087f62` |
-| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `29a67cbd9850d61801e8ee34b2e75b0df333ecaa38439c864e8e72496bef839e` |
-| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `7b37c0be898faf496fc2158a8439d12f4d7b74ef60321f386c1a6dc4e2f96e15` |
+| [`resume.txt`](resume.txt) | bouton « Générer le résumé » | 15 323 | `5189d35daa35bbf6f14e56cd958862379b9a68b39fb23a9b130a13b48b51e4f9` |
+| [`plan.svg`](plan.svg) | `buildExportSVG` | 25 109 | `f819555090095eb634595b81b3202b408a992d349a24f303b3066577f3445703` |
+| [`plan.dxf`](plan.dxf) | `buildExportDXF` | 5 364 | `359afeded46400d6b914ae1407de1d6d57598a798ffcc6719f8fbc696288d18c` |
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
-| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `db3bc8b625d7af0350291e5e820baaab2f29543e73cb4ec17a0a5f87ef5c7f2e` |
-| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `5b2d62c8a494f9a80a8c9afa7778d7b29c9342d75d1c4a52b8629bf64c22304d` |
+| [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `92470176f7b23bc67f83ea32ba260d7733d9075a4f557061fb9e3151bcbf502d` |
+| [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `d112446e266239502aff089ddc5a05b1dac7933adaf00f037ad3b30aa666427d` |
 | [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
-| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `3680d403741a6417bf566e563832197b89d8a1702d2428d8e336e5206ba7d545` (brut) |
-| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `2b4e47ba753cb6cd5059ae1193e73bba5b2ad5f8f58feddda161e8c107a3981d` (brut) |
+| [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `97b491ea847743bf61d7a8500ea6eb614520ae420f372cfc75581430632fc7b1` (brut) |
+| [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `51d6916358c5175ce3c118a817163b3edfa8a66b8a569ce47137fa46b1b4a46b` (brut) |
 | [`moteur-piscine-pergola.json`](moteur-piscine-pergola.json) | `calculerPiscine`, `calculerPergola`, `chiffrerPergola` | 13 648 | `7a84dbc2f97f288d0a5330b1ed601f5008402b6e3ce2da35bc9e5143d3eea219` (brut) |
 
 ## La rupture du 29 août 2026
@@ -854,3 +854,39 @@ Chemin Arrière 3,7 % → 3,8 %.
 
 Un ancien projet peut donc montrer un autre nombre dans le résumé, le PDF du plan et le dossier PDF (surface d'un chemin courbe ;
 surface et trait d'un chemin sans largeur, au dossier PDF et au dossier piscine).
+
+
+## Version 4.0.0 (28 octobre 2026)
+
+Version majeure (`MD/RELEASE.md` §2.1) : les chemins (plus haut), la DP2 au point le plus haut et les annexes lues au LiDAR changent
+des nombres exportés de projets enregistrés. **Aucun de ces trois changements ne bouge un témoin** : les nombres des chemins du
+témoin ont été recapturés le 27 octobre (section précédente), aucun témoin ne porte de DP2, et le témoin n'est pas géolocalisé (rien
+n'y est lu au LiDAR, ses annexes comprises). Le schéma de ses documents reste celui qui le décrit : 3 pour `plan.svg`.
+
+Les sept témoins régénérés depuis le code (`regeneration.test.ts`, `empreintesPiscinePergola.test.ts`) passent de `3.0.0`, build du
+25 octobre, à `4.0.0`, build du 28 octobre (`SORTIE=… npx vitest run tests/unit/export/regeneration.test.ts`, puis
+`REECRIRE_EMPREINTES=1 npx vitest run tests/unit/export/empreintesPiscinePergola.test.ts`). L'heure de l'export reste le
+28 septembre à 23 h 22.
+
+**La preuve forte, sept sur sept.** `4.0.0` → `3.0.0` et `2026-10-28` → `2026-10-25` remis dans les octets frais rendent les
+anciens fichiers **au bit près**, tailles identiques à l'octet, pour `resume.txt`, `plan.svg`, `plan.dxf`, `plan.pdf`,
+`dossier.pdf`, `dossier-piscine.pdf` et `note-calcul.pdf` — sans exception cette fois : `dossier.pdf`, capturé au navigateur à la
+3.0.0, avait été régénéré depuis le code depuis, et sa seconde de `/CreationDate` est celle de l'horloge du test. Occurrences du
+numéro : une par fichier texte, deux dans `plan.pdf`, quatre dans `dossier.pdf` et `note-calcul.pdf`, neuf dans
+`dossier-piscine.pdf` ; la date de build, une fois dans chacun des quatre PDF, nulle part dans les fichiers texte.
+
+| Fixture | Empreinte 3.0.0 | Empreinte 4.0.0 |
+|---|---|---|
+| `resume.txt` (normalisée) | `058fea61…` | `5189d35d…` |
+| `plan.svg` (normalisée) | `29a67cbd…` | `f8195550…` |
+| `plan.dxf` (normalisée) | `7b37c0be…` | `359afede…` |
+| `plan.pdf` (normalisée) | `db3bc8b6…` | `92470176…` |
+| `dossier.pdf` (normalisée) | `5b2d62c8…` | `d112446e…` |
+| `dossier-piscine.pdf` (brute) | `3680d403…` | `97b491ea…` |
+| `note-calcul.pdf` (brute) | `2b4e47ba…` | `51d69163…` |
+
+Ne bougent pas : `projet.json` (entrée du témoin, garde `2.2.0`), `glb-structure.json`, `quantites-demo.txt`, et les témoins du
+moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3, qui ne portent pas de version.
+Le schéma 6 a son propre témoin, hors de ce dossier : `tests/fixtures/migrations/schema-5.json` (un document 5 se lit tel quel et
+s'écrit au 6).
+
