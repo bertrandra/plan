@@ -10,6 +10,7 @@ import { ortho, restaurerOrthoDuProjet, type ContexteOrtho } from '../render/ort
 import { serializeObjects, serializeMeasures, type MesureSerialisee } from './serialisation.js';
 import { showToast } from '../shell/dialogs.js';
 import { vue3d } from '../three/etat3d.js';
+import { soleilDuProjet } from '../core/soleil.js';
 import { idMesure } from '../model/cles.js';
 import { referencesDeCote, type ObjetCotable } from '../model/mesures.js';
 import type { EtatApp } from '../core/state.js';
@@ -135,6 +136,9 @@ export function restaurerAffichageDuProjet(etat: EtatApp, ctx: ContexteImportPro
   etat.voisinageVisible = !(a && a.voisinage === false);
   // La grille ne se montre que si le projet l'a demandee : masquee par defaut.
   etat.grilleVisible = !!(a && a.grille === true);
+  // Le soleil du projet (core/soleil.ts) : celui que le fichier a enregistre, sinon celui du jour. Le plan, la Vue 3D et la
+  // visionneuse le relisent au rendu et a la reconstruction qui suivent.
+  soleilDuProjet.restaurer(etat.objects);
   // Restituer l'etat ne suffit pas : le plan a deja ete dessine avec les valeurs precedentes
   // (l'import rend avant de restaurer les reglages). Sans ce rendu, un projet enregistre grille
   // masquee se rouvrait avec le bouton eteint... et la grille bien visible.

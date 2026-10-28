@@ -11,8 +11,9 @@ vi.mock('../../../../src/shell/download.js', () => ({ telechargerBlob: (nom: str
 import { creerRegistre } from '../../../../src/app/commandes.js';
 import { brancherVue3d, type ContexteVue3d } from '../../../../src/app/ecouteurs/vue3d.js';
 import { brancherVisionneuse, type ContexteVisionneuse } from '../../../../src/app/ecouteurs/visionneuse.js';
-import { soleilVue3d, vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
+import { vue3d, glb, affichage3d } from '../../../../src/three/etat3d.js';
 import { fauxAtelier, droits } from './faux.js';
+import { soleilDuProjet } from '../../../../src/core/soleil.js';
 import type { ObjetPlan } from '../../../../src/model/types.js';
 
 // La Vue 3D et la visionneuse (app/ecouteurs/vue3d.ts, visionneuse.ts) : la camera, les captures, le
@@ -38,7 +39,7 @@ function monter(ecrire = true) {
     zoom3D: vi.fn(), setMode3D: vi.fn(), hauteurDesYeux: vi.fn(), buildThreeScene: vi.fn(), createObjectDOM: vi.fn(),
     setVue3dPleinePage: vi.fn((v: boolean) => { plein = v; }), setGlbViewerPleinePage: vi.fn(),
     vue3dPleinePage: () => plein, glbViewerPleinePage: () => false, resizeThreeScene: vi.fn(), resizeGlbViewerScene: vi.fn(),
-    appliquerLumiere: vi.fn(), lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })
+    lieuActuel: () => ({ latitude: 48.9, longitude: 2.13 })
   };
   const cmd = creerRegistre(droits(ecrire));
   const reglages = brancherVue3d(a, ctx, cmd);
@@ -166,16 +167,21 @@ describe('visionneuse', () => {
 });
 
 describe('la presentation (R6)', () => {
-  it('l heure doree place le soleil avant son coucher, sans toucher au projet', () => {
-    const { a, ctx, cmd } = monter();
-    soleilVue3d.dateStr = '2026-06-21';
-    soleilVue3d.minutes = 12 * 60;
+  it('l heure doree place le soleil du projet avant son coucher, sans pas d annulation', () => {
+    const { a, cmd } = monter();
+    soleilDuProjet.regler({ dateStr: '2026-06-21', minutes: 12 * 60 });
+    const vu: number[] = [];
+    const fin = soleilDuProjet.abonner(() => vu.push(soleilDuProjet.lire().minutes));
     cmd.executer('3d.heureDoree');
+    fin();
     // Au Vesinet le 21 juin, le soleil se couche vers 21 h 58 : l'heure doree commence vers 21 h.
-    expect(soleilVue3d.minutes).toBeGreaterThan(20 * 60 + 40);
-    expect(soleilVue3d.minutes).toBeLessThan(21 * 60 + 30);
-    expect(ctx.appliquerLumiere).toHaveBeenCalled();
-    expect(a.etat.dirty).toBeFalsy();
+    const m = soleilDuProjet.lire().minutes;
+    expect(m).toBeGreaterThan(20 * 60 + 40);
+    expect(m).toBeLessThan(21 * 60 + 30);
+    // L'ecouteur du soleil (app/ecouteurs/soleil.ts) est prevenu : c'est lui qui eclaire la 3D et marque a enregistrer.
+    expect(vu).toEqual([m]);
+    expect(a.pushHistory).not.toHaveBeenCalled();
+    expect(a.markDirty).not.toHaveBeenCalled();
   });
 
   it('la promenade demande deux points de vue', () => {

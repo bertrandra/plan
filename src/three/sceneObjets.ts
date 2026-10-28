@@ -13,7 +13,8 @@ import { ajouterCheminees3d } from './cheminees3d.js';
 import { ajouterTerrasses3d } from './terrasse3d.js';
 import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { ajouterArbre3d, synchroniserArbres } from './arbre3d.js';
-import { vue3d, soleilVue3d } from './etat3d.js';
+import { vue3d } from './etat3d.js';
+import { soleilDuProjet } from '../core/soleil.js';
 import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
 import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
@@ -180,7 +181,7 @@ function ajouterArbreDuPlan(o: ObjetPlan, co: ContexteObjets): void {
   const h = co.ctx.elevationOf(o);
   const centre = centreDe(o);
   const cible = groupeAuSol(co.scene, co.sol, centre);
-  ajouterArbre3d({ scene: cible, toLocal: co.versLocal, dateStr: soleilVue3d.dateStr, opacite: opaciteDe(o) }, o, h > 0 ? h : 0);
+  ajouterArbre3d({ scene: cible, toLocal: co.versLocal, dateStr: soleilDuProjet.lire().dateStr, opacite: opaciteDe(o) }, o, h > 0 ? h : 0);
 }
 
 /** Vrai si l'objet et tous ses parents sont visibles : un groupe masque cache ses mailles. */
@@ -194,7 +195,7 @@ export function visibleDansLaScene(o: THREE_NS.Object3D): boolean {
  * rappeler des qu'un arbre est pose, retire ou masque. Les lots neufs recoivent leurs ombres.
  */
 export function rafraichirArbres(scene: THREE_NS.Scene, ground: THREE_NS.Mesh): void {
-  synchroniserArbres(scene, soleilVue3d.dateStr, visibleDansLaScene);
+  synchroniserArbres(scene, soleilDuProjet.lire().dateStr, visibleDansLaScene);
   appliquerOmbres(scene, ground);
 }
 

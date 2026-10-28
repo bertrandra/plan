@@ -18,6 +18,7 @@ import { reglerSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
 import { ensureGLTFLoaderLoaded, estTexturePartagee } from './chargeurs.js';
 import { estMesh, estLumiere, estTexture } from './gardes.js';
+import { soleilDuProjet } from '../core/soleil.js';
 
 /**
  * Le point de vue a rendre a la scene rechargee : ou est la camera, et ce qu'elle regarde.
@@ -195,7 +196,7 @@ export function remplacerFondGlb(): void {
 
 /** Recale la position du curseur « semaine » de la visionneuse sur sa date. */
 export function syncSemaineGlb(): void {
-  glb.semaineAffichee = anneeEtSemaineDepuisDate(glb.dateStr).semaine;
+  glb.semaineAffichee = anneeEtSemaineDepuisDate(soleilDuProjet.lire().dateStr).semaine;
 }
 
 /**
@@ -235,11 +236,12 @@ export function rafraichirVisionneuseGlb(camaraAConserver: CameraConservee, ctx:
   });
 }
 
-// Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : les deux vues se reglent
-// separement, mais elles eclairent avec le meme soleil.
+// Les regles du soleil sont dans lumiere.ts, partagees avec la Vue 3D : la date et l'heure sont le
+// soleil du projet (core/soleil.ts), le meme que le plan et la Vue 3D ; l'intensite et l'appoint
+// restent a la visionneuse.
 export function appliquerLumiereGlb(ctx: ContexteVisionneuseGlb): void {
   if(!glb.scene) return;
-  reglerSoleil(glb.scene, glb, ctx.lieuActuel());
+  reglerSoleil(glb.scene, { ...soleilDuProjet.lire(), intensiteSoleil: glb.intensiteSoleil, lumiereAppoint: glb.lumiereAppoint }, ctx.lieuActuel());
   glb.scene.renderer.render(glb.scene.scene, glb.scene.camera);
 }
 

@@ -28,7 +28,7 @@ const parcelle = objets.find(o => o.key === 'parcelle');
 const neutre = new Proxy({}, { get: (_t, k) => (k === 'then' ? undefined : () => null) }) as Record<string | symbol, unknown>;
 function contexte(obj: ObjetPlan): ContexteChamps {
   const base: Record<string, unknown> = {
-    etat: { objects: objets, highlight: {}, lectureSeule: false, scene: { scale: 10 }, selectedKey: obj.key, parasol: { dateStr: '2026-06-21', minutes: 720, ombreAffichee: false, carteAffichee: false } },
+    etat: { objects: objets, highlight: {}, lectureSeule: false, scene: { scale: 10 }, selectedKey: obj.key, parasol: { ombreAffichee: false, carteAffichee: false } },
     obj, objets, parcelle, construction: () => ensureConstruction(obj), elevationOf: () => 0, interiorAngleDeg: () => 90, libelleType: () => 'objet', refLabel: () => '',
     commandeUtilisable: () => true, pointage: () => null, cibleAlignement: () => null, dejaRectangle: () => false,
     contexteSoleil: () => ({ latitude: 48.9, longitude: 2.1, date: new Date('2026-06-21T12:00:00Z') })

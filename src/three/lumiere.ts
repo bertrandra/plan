@@ -12,6 +12,7 @@ import { ECHELLE_LUMIERE } from './bibliotheque.js';
 import { lireDate } from '../util/date.js';
 import type * as THREE_NS from 'three';
 import { positionSoleil } from '../geo/soleil.js';
+import { SEUILS_SOLEIL_DEG } from '../model/soleilProjet.js';
 
 /**
  * Ce dont le reglage du soleil a besoin, et rien de plus : trois lumieres, une distance, et un
@@ -42,12 +43,12 @@ export interface EclairageSoleil {
  * La lumiere ne descend jamais pile a l'horizon : un rasant parfait produit des artefacts d'ombre.
  * L'intensite, elle, peut tomber a zero independamment — c'est ainsi qu'on obtient la nuit.
  */
-export const SOLEIL_ELEV_PLANCHER = 3 * Math.PI / 180;
+export const SOLEIL_ELEV_PLANCHER = SEUILS_SOLEIL_DEG.plancherLampe * Math.PI / 180;
 
 /** Distance de la lumiere a la scene, en rayons de la scene. */
 export const SOLEIL_DIST_FACTOR = Math.hypot(2, 3, 1.2);
 
-/** Date, heure et reglages du curseur, identiques dans les deux vues. */
+/** Le soleil du projet (date, heure) et la facon dont la vue le montre (intensite, appoint). */
 export interface ReglagesSoleil {
   dateStr: string;
   minutes: number;
@@ -86,7 +87,7 @@ export function reglerSoleil(lum: EclairageSoleil, r: ReglagesSoleil, lieu: { la
   const date = lireDate(r.dateStr);
   if (!date) return null;
   const { elevRad, azRad } = positionSoleil(date.annee, date.mois, date.jour, r.minutes / 60, lieu.latitude, lieu.longitude);
-  const facteurJour = Math.max(0, Math.min(1, (elevRad * 180 / Math.PI) / 10));
+  const facteurJour = Math.max(0, Math.min(1, (elevRad * 180 / Math.PI) / SEUILS_SOLEIL_DEG.extinctionLampe));
   const elevAffichee = Math.max(SOLEIL_ELEV_PLANCHER, elevRad);
   const dist = SOLEIL_DIST_FACTOR * lum.rayon;
   const horiz = Math.cos(elevAffichee) * dist;
