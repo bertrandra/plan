@@ -747,6 +747,14 @@ l'inspecteur, le relevé de façade, l'audit de la parcelle et l'actualisation I
 composant : ce sont quatre marques posées sur l'objet (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`) et une
 version (`toitLidarLu`), lues chacune par une partie des écrivains seulement.
 
+**Depuis le relevé** (PR #468 et #469, fusionnées le 28 octobre 2026) : une décision de toit validée par l'audit pose `toitFige` ;
+l'audit propose décoché ce qui remplacerait un toit fait à la main ; valider une forme reporte cheminées, lucarnes, terrasse et
+appentis sur les nouveaux corps ; un contour retouché n'est plus recalé par le LiDAR ; les façades de l'audit retrouvent leur mur
+par la géométrie ; la DP2 donne le point le plus haut ; le relevé ne coupe plus la lecture LiDAR sans le dire ; les fenêtres
+automatiques quittent les murs relevés ; la couverture survit à l'actualisation ; le faîtage et l'appentis ouvert sont protégés ;
+un mur en L garde les corps. Les tableaux ci-dessous le disent, point par point, dans « Ce qu'il faut ranger ». **La règle qui
+arbitre est décidée** (« Qui l'emporte », 28 octobre 2026) ; son module unique est en cours (étape 6.3).
+
 ### Les repères
 
 - **Un bâtiment** est un polygone de fonction `batiment` (ou `annexe`) : `model/ouvrages/bati.ts::BATIMENT`, particularité
@@ -1095,6 +1103,32 @@ chacune par une partie des écrivains, sans règle unique.
 
 ### Qui l'emporte
 
+**La règle, décidée avec le propriétaire le 28 octobre 2026 : une seule hiérarchie**, du plus fort au plus faible. Un écrivain
+automatique d'un niveau n'écrit un champ que si sa valeur en place vient de son niveau ou d'un niveau plus faible ; entre deux
+gestes de la personne, le dernier gagne ; une proposition (audit, relevé) ne remplace un choix de la personne que si elle coche.
+
+```mermaid
+flowchart TB
+  classDef h fill:#fde8e8,stroke:#b83232,color:#4a0f0f
+  classDef v fill:#fff4e0,stroke:#b7791f,color:#3d2a06
+  classDef a fill:#e8f0fe,stroke:#4a6fa5,color:#1b2a41
+  N1["1. LA PERSONNE, geste explicite<br/>Mode Toit, inspecteur, retouche du contour, case cochée<br/><i>le dernier geste gagne</i>"]:::h
+  N2["2. CE QUI A ÉTÉ VU SUR PLACE<br/>audit validé, relevé de façade validé<br/><i>une proposition ne remplace un choix de la personne que si elle coche</i>"]:::v
+  N3["3. LE FAIT DU MOTEUR DE RÈGLES<br/>faits.json par cleabs : remplacement, puis contrainte"]:::a
+  N4["4. LA MESURE<br/>LiDAR HD, sous les garde-fous et les réglages"]:::a
+  N5["5. LA SOURCE OFFICIELLE<br/>BD TOPO, cadastre : contour, hauteur, matériaux"]:::a
+  N6["6. LE DÉFAUT<br/>2,5 m, profils régionaux, pente 35°"]:::a
+  N1 -->|"bat"| N2 -->|"bat"| N3 -->|"bat"| N4 -->|"bat"| N5 -->|"bat"| N6
+```
+
+**Le LiDAR bat l'IGN** (même décision) : l'actualisation IGN garde la hauteur à l'égout et le recalage mesurés au LiDAR ; elle ne
+met à jour que ce que le LiDAR n'a pas lu (attributs, nouveaux bâtiments, contour changé à l'IGN même, que le LiDAR relit ensuite).
+
+Ce que le code fait **aujourd'hui** (relevé du 28 octobre 2026, avant le module unique) : quatre marques, lues chacune par une
+partie des écrivains. Le module unique (`model/protections.ts`, en cours) remplacera ce tableau par la matrice
+écrivain × champ × niveau, figée par un test.
+
+
 | Marque | Posée par | Arrête | N'arrête pas | Lignes de garde |
 |---|---|---|---|---|
 | `toitFige` | Mode Toit, éléments de façade de l'inspecteur, « Règles » coupées | LiDAR à l'import, en fond et à l'actualisation ; l'actualisation entière (le bâtiment est gardé, `pts` compris) | l'audit ; l'orthophoto ; Panoramax | `toitsLidar.ts:267` ; `toitsFond.ts:148`, :262 ; `toitsEtMurs.ts:47` |
@@ -1333,13 +1367,13 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 
 ## Les étapes
 
-| # | Étape | Critère de fin | État (27 octobre 2026) |
+| # | Étape | Critère de fin | État (28 octobre 2026) |
 |---|---|---|---|
 | 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` | **fait** : dessin du plan au téléphone, à 600 objets, 77 → 20 à 26 ms (au-dessus des 10 ms visés : photo aérienne, parasols, grille) |
 | 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) | **fait** ; restent à déclarer dans le registre : les associés, ce qui perce, ce qui s'isole |
-| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position | **en partie** : la courbe et le ruban dans `geometry/` ; le toit suit son bâtiment (déplacement, rotation) ; l'actualisation IGN garde la clé d'un bâtiment reconstruit (même identifiant IGN) et la retouche d'un objet IGN ; restent les références par côté et par sommet, la suppression sans nettoyage |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position | **en partie** : la courbe et le ruban dans `geometry/` ; le toit suit son bâtiment (déplacement, rotation) ; l'actualisation IGN garde la clé d'un bâtiment reconstruit (même identifiant IGN) et la retouche d'un objet IGN ; les façades de l'audit retrouvent leur mur par la géométrie (`model/cotesAudit.ts`) ; valider un toit reporte ce que portaient ses corps (`reporterElements`) ; la hiérarchie des décisions arrêtée. En cours : le module unique des protections, la hauteur à l'égout protégée, la relecture LiDAR qui garde les éléments posés, le toit et les relevés qui suivent un contour déformé ; restent les références par côté et par sommet des autres ouvrages, la suppression sans nettoyage |
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; restent les comparaisons du dessin, de la 3D et des exports |
-| 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms |
+| 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms. En cours (28 octobre 2026) : les zones abonnées à ce qu'elles montrent, pour passer sous 33 ms |
 | 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | à faire |
 | 6.7 | Le soleil du projet, un seul : le lieu, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la date et l'heure s'enregistrent avec le projet ; la carte des heures d'ombre dit sa fenêtre | un parasol a la même ombre sur le plan et en 3D ; un projet rouvert retrouve son soleil ; aucune empreinte ne bouge | décidé le 28 octobre 2026, à faire |
 
@@ -1356,3 +1390,5 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
 | 28 octobre 2026 | Un seul soleil pour le plan, la 3D et la visionneuse, enregistré avec le projet (sans « projet modifié ») ; pas d'ombre des bâtiments, des arbres ni des pergolas sur le plan ; pas de nord réglable pour un plan dessiné. Étape 6.7. |
 | 28 octobre 2026 | Le flux de construction d'un bâtiment décrit (section du même nom) : qui écrit quoi, qui l'emporte, la définition du corps et sa règle de découpe. |
+| 28 octobre 2026 | Une seule hiérarchie des décisions sur un bâtiment : la personne > ce qui a été vu sur place > le fait du moteur > le LiDAR > la BD TOPO > le défaut ; un écrivain automatique n'écrit que sur une valeur de son niveau ou plus faible (« Qui l'emporte »). |
+| 28 octobre 2026 | Le LiDAR bat l'IGN : l'actualisation garde la hauteur à l'égout et le recalage mesurés. |
