@@ -85,6 +85,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   des marques (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`) ; le tableau complet est dans `MD/spec-ouvrages.md`
   (« Qui l'emporte ») et un test l'épingle case par case.
 
+- **La DP2 donne au bâti existant sa hauteur au point le plus haut** (`export/piecesDP.ts`). « Existant H » portait la hauteur
+  à l'égout (`elevation`), alors que la légende de la pièce dit « H : hauteur au point le plus haut » : sur une maison à deux
+  pans, il manquait toute la hauteur du toit, dans une pièce qui part en mairie. La hauteur est maintenant celle du toit que la
+  Vue 3D montre (`model/volumesToit.ts::hauteurAuPointLePlusHaut`) : le faîtage le plus haut des corps (acrotère et édicules
+  d'une toiture-terrasse compris), le faîte de la surface mesurée, le plus haut des volumes, sinon l'égout plus la hauteur du
+  toit unique ; les cheminées n'y sont pas. **Le nombre change dans la DP2 de tout projet dont un bâtiment porte un toit en
+  pente** : c'est une correction d'un nombre exporté, à compter dans la prochaine version majeure (`MD/RELEASE.md`). Aucune
+  empreinte de `tests/fixtures/golden/` ne bouge (aucun témoin ne porte de DP2 avec un toit).
+
 - **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
   l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent
   une autre quand la clé n'était pas celle d'un import (`bati-…`). Un bâtiment sans correspondant prend une clé libre, comme avant.
@@ -399,6 +408,35 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   qu'un fait du moteur s'applique, les corps lus remplaçaient les anciens en bloc : cheminées, lucarnes, fenêtres de toit et
   panneaux, toiture-terrasse, appentis ouvert, bow-windows et galeries d'un bâtiment non figé disparaissaient. Ils sont reportés
   sur les corps neufs, là où ils tiennent encore (même pan, même emprise, un mur à moins de 80 cm pour un bow-window).
+
+- **Un mur relevé « en L » n'efface plus les corps du toit dans la Vue 3D** (`three/sceneObjets.ts`). Un seul relevé de façade
+  avec une partie basse forçait le bâtiment en toit simple : les corps lus au LiDAR, les cheminées et les lucarnes posées dessus
+  ne se dessinaient plus, alors que l'inspecteur disait toujours « Corps et pignons ». Les corps restent ; la photo du mur et ses
+  ouvertures se posent dessus comme sur tout mur relevé. En toit simple, le mur en L coupe toujours le bâtiment en deux volumes.
+
+- **Deux réglages du toit dans l'inspecteur ne se perdent plus à la relecture** (`ui/champs/facade.ts`). La direction du faîtage
+  s'écrivait sans passer le toit en « saisi », là où la forme et la hauteur le font : la relecture LiDAR et l'actualisation la
+  recalculaient. « Appentis : ouvert / fermé » écrivait les corps sans figer le toit, là où les éléments de façade le figent :
+  la relecture suivante refaisait les corps sans le réglage. Les deux posent maintenant la même marque que leurs voisins.
+
+- **L'actualisation IGN garde le matériau de couverture choisi** (`model/toitBdTopo.ts::toitActualise`). Un toit BD TOPO ou
+  LiDAR recalculé à l'actualisation ne gardait que sa couleur : l'ardoise ou le zinc choisis dans l'inspecteur, ou retenus par
+  l'audit, disparaissaient et la Vue 3D revenait au matériau déduit. Le matériau choisi suit maintenant le toit recalculé, comme
+  la couleur ; sans choix, rien n'est posé.
+
+- **En corps et pignons, un mur relevé ne reçoit plus les fenêtres automatiques** (`three/detailsBatiment.ts`). Les ouvertures
+  d'un bâtiment en corps se posent corps par corps, et la liste des murs relevés (désignés par leur côté du contour) était
+  remplacée par celle des murs communs entre corps : sur la photo du mur et ses ouvertures se posait en plus la grille des
+  fenêtres automatiques, sur tout bâtiment lu au LiDAR. Chaque corps écarte maintenant ses murs qui doublent un côté relevé du
+  contour, à 60 cm et 10° près (`geometry/facadeExterieure.ts::cotesSurLesCotes`), fenêtres de pignon comprises.
+
+- **Un relevé de façade n'arrête plus en silence la lecture LiDAR de son bâtiment** (`zones/Releve.tsx`, `app/releve/releve.ts`).
+  La case « Remplacer le toit du bâtiment par celui-ci » était cochée d'office : le toit lu sur la photo (`source: 'photo'`)
+  remplaçait celui du bâtiment, et le LiDAR ne relisait plus jamais ce bâtiment, alors que la Vue 3D, qui montre les corps lus
+  au LiDAR, ne changeait pas. Sur un toit en corps et pignons (ou en volumes), la case n'est plus cochée d'office ; elle dit ce
+  qu'elle remplace (« le toit lu au LiDAR », « le toit lu à l'IGN ») et, dessous, que cochée le LiDAR ne relit plus le toit.
+  Cochée sur un toit en corps, le toit de la photo se montre (mode « un seul toit ») ; les corps restent dans l'objet et le menu
+  du mode de toit les rend. Un bâtiment au toit simple garde la case cochée d'office : le remplacement s'y voit.
 
 - **Un toit validé par l'audit de la parcelle reste celui qu'on a validé** (`MD/spec-ouvrages.md`, « Les toits dans l'audit de la
   parcelle », point 1). La validation écrivait les corps du toit sans les protéger : la relecture du LiDAR suivante (une nouvelle

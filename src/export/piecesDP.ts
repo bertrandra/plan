@@ -18,7 +18,7 @@ import { calculerPergola, dimsPergola, libelleAbri, type PergolaCalculee, type P
 import { solDuProjet, type Sol } from '../engine/sol.js';
 import { dessusTerrasseM } from '../engine/hauteurs.js';
 import { estAbri, estBatiment, estTerrain, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
-import { elevationParDefaut } from '../model/defaults.js';
+import { hauteurAuPointLePlusHaut } from '../model/volumesToit.js';
 import { empriseRelief, libelleSource, ligneDePlusGrandePente, pointDeReference, profilRelief, reliefDe, resumeRelief, type Emprise } from '../model/relief.js';
 import { courbesDeNiveau, etiquetteNiveau, longueurPolyligne, milieuPolyligne } from '../render/relief.js';
 import { A4_H, A4_L, MARGE_PDF, PT_PAR_METRE, echelleQuiTient, pdfEchelleGraphique, pdfFlecheNord, pdfPolygone, pdfTexte, type PagePdf, type Rgb01 } from './pdf/writer.js';
@@ -202,12 +202,12 @@ export function pagePlanDeMasse(objets: ObjetPlan[], meta: MetaPieces): PagePdf 
     const q = au(parcelle.pts, (i + 1) % parcelle.pts.length), m = P({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 });
     if (dist(p, q) * k > 40) s += pdfTexte(m.x - 10, m.y + 3, 6.5, fr(dist(p, q)) + ' m', GRIS);
   });
-  // L'existant : le bati, avec sa hauteur.
+  // L'existant : le bati, avec sa hauteur au point le plus haut (la legende le dit), toit compris.
   objets.filter(estBatiment).forEach(o => {
     const pts = contour(o);
     s += pdfPolygone(pts.map(P), BATI, GRIS, 0.6);
     const c = P(centroid(pts));
-    s += pdfTexte(c.x - 25, c.y - 3, 7, enAscii('Existant H ' + fr(o.elevation ?? elevationParDefaut(o.fonction || '')) + ' m'), GRIS);
+    s += pdfTexte(c.x - 25, c.y - 3, 7, enAscii('Existant H ' + fr(hauteurAuPointLePlusHaut(o)) + ' m'), GRIS);
   });
   // Le projet : chaque ouvrage, ses cotes, sa hauteur et sa distance a la limite la plus proche.
   const projet = objets.filter(o => estAbri(o) || estTerrasse(o));

@@ -21,7 +21,7 @@ import { volumesDuBatiment, type Volume } from '../facade/profil.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
 import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
-import { segmentEnFacade } from '../geometry/facadeExterieure.js';
+import { segmentEnFacade, cotesSurLesCotes } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import type { ValeursFacades } from '../regles/facades/reglages.js';
 import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
@@ -365,12 +365,16 @@ function poserOuverturesDesCorps(ctx: ContexteDetails, batiment: readonly PtBrut
   corps.forEach((c, k) => {
     const dedans = centroid(c.pts);
     const interieurs = c.pts.map((_: PtBrut, i: number) => i).filter((i: number) => !segmentEnFacade(au(c.pts, i), sommetDe(c.pts, i + 1), dedans, batiment));
+    // Les murs releves du batiment se designent par leurs cotes du contour : le corps ecarte les siens
+    // qui les doublent. Sans cela, le mur photographie recevait aussi la grille des fenetres automatiques.
+    const releves = options.cotesReleves?.length ? cotesSurLesCotes(c.pts, batiment, options.cotesReleves) : [];
+    const sansAutomatiques = [...new Set([...interieurs, ...releves])];
     const bas = Math.min(...c.egouts);
     const largeur = options.fenetres?.largeur, hauteur = options.fenetres?.hauteur;
     // Un mur commun se traite comme un mur releve : la disposition automatique ne le touche pas.
     poserOuvertures(ctx, c.pts, [{ pts: c.pts, hauteur: bas, hauteursMurs: hauteursMursCorps(c) }], bas, {
-      ...options, cotesReleves: interieurs, porte: k === 0,
-      ouverturesHautes: fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M).filter((f) => !interieurs.includes(f.cote)),
+      ...options, cotesReleves: sansAutomatiques, porte: k === 0,
+      ouverturesHautes: fenetresDesPignons(c, largeur ?? options.profil?.FENETRE_LARGEUR_M, hauteur ?? options.profil?.FENETRE_HAUTEUR_M, options.profil?.HAUTEUR_PIGNON_FENETRE_M).filter((f) => !sansAutomatiques.includes(f.cote)),
     });
   });
 }

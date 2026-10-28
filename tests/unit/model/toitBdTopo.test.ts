@@ -118,6 +118,15 @@ describe('l actualisation (spec-toit-ign §5.3)', () => {
     expect(toitActualise(ancien, maison, attr(100, 103))).toEqual({ forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo', couleur: '#445566' });
     expect(toitActualise(undefined, maison, attr(100, 103)).hauteur).toBe(3);
   });
+
+  it('garde le materiau de couverture choisi, avec ou sans couleur', () => {
+    const ardoise: Toit = { forme: 'deux-pans', hauteur: 5, angleFaitage: 90, source: 'lidar', couverture: 'ardoise' };
+    expect(toitActualise(ardoise, maison, attr(100, 103))).toEqual({ forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'bdtopo', couverture: 'ardoise' });
+    expect(toitActualise({ ...ardoise, couleur: '#445566' }, maison, attr(100, 103))).toMatchObject({ couleur: '#445566', couverture: 'ardoise' });
+    expect(toitActualise({ ...ardoise, couleur: '#6F7275', origineCouleur: 'gris' }, maison, attr(100, 103))).toMatchObject({ origineCouleur: 'gris', couverture: 'ardoise' });
+    // Sans choix, rien n'est pose : le materiau reste deduit en 3D.
+    expect(toitActualise({ forme: 'deux-pans', hauteur: 5, angleFaitage: 90, source: 'lidar' }, maison, attr(100, 103))).not.toHaveProperty('couverture');
+  });
 });
 
 describe('l actualisation et la couleur lue sur l orthophoto (spec-toit-ign §6.1)', () => {

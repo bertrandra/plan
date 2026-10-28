@@ -137,6 +137,16 @@ describe('Materiau de la couverture', () => {
   });
 });
 
+describe('Direction du faitage', () => {
+  it('se saisit comme la forme et la hauteur : le toit passe en source saisie', () => {
+    const c = contexte({});
+    const ch = champ<Champ & { ecrire: (c: ContexteChamps, v: number) => void }>(c, 'toitFaitage');
+    expect(c.obj.batiment?.toit?.source).toBe('bdtopo');
+    ch.ecrire(c, 200);
+    expect(c.obj.batiment?.toit).toMatchObject({ angleFaitage: 20, source: 'saisie' });
+  });
+});
+
 describe('Appentis ouvert ou ferme', () => {
   const MAISON: CorpsToit = { pts: [{ x: 0, y: 3 }, { x: 12, y: 3 }, { x: 12, y: 8 }, { x: 0, y: 8 }], posFaitage: 2.5, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
   const GALERIE: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 3 }, { x: 0, y: 3 }], posFaitage: 3, faitage: 3.4, egouts: [2.4, 3.4], pignons: [], ecart: 0.1 };
@@ -146,8 +156,11 @@ describe('Appentis ouvert ou ferme', () => {
     expect(cles(c)).toContain('appentisOuvert');
     const ch = champ<ChampChoix>(c, 'appentisOuvert');
     expect(ch.lire(c)).toBe('');
+    expect(c.obj.batiment?.toitFige).toBeFalsy();
     ch.ecrire(c, 'ouvert');
     expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, true]);
+    // Fige, comme un element de facade : la relecture LiDAR suivante ne refait pas les corps sans lui.
+    expect(c.obj.batiment?.toitFige).toBe(true);
     expect(ch.lire(c)).toBe('ouvert');
     ch.ecrire(c, 'ferme');
     expect(c.obj.batiment?.corpsToit?.map((k) => k.ouvert)).toEqual([undefined, false]);

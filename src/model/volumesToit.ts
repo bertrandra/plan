@@ -21,6 +21,8 @@ import { PENTE_DEFAUT_DEG } from './toitBdTopo.js';
 import type { ObjetPlan, PtBrut, Toit, VolumeToit } from './types.js';
 import { REGLAGES_TOITS as R, SEUILS_TOITS as S } from '../regles/toits/reglages.js';
 import { toitDessine } from './formeToit.js';
+import { modeToitActif } from './toitMesure.js';
+import { elevationParDefaut } from './defaults.js';
 
 /** Un cote a plus de cela d'un axe du batiment : le contour n'est pas rectiligne, pas de decoupage. */
 export const TOLERANCE_DEG = R.TOLERANCE_DEG;
@@ -299,6 +301,30 @@ export function volumesActifs(o: Pick<ObjetPlan, 'batiment'>): VolumeToit[] | nu
   const v = o.batiment?.volumesToit;
   if (!v || v.length < 2 || o.batiment?.modeToit === 'simple') return null;
   return v;
+}
+
+/**
+ * La hauteur d'un batiment a son point le plus haut, au-dessus du sol, d'apres le toit que la 3D montre
+ * (`modeToitActif`) : le faitage le plus haut des corps (acrotere et edicules d'une terrasse compris),
+ * le faite de la surface mesuree, le plus haut des volumes, sinon l'egout plus la hauteur du toit
+ * unique. La DP2 la donne pour « H » : l'egout seul y manquait toute la hauteur du toit. Les
+ * cheminees n'y sont pas, comme dans une hauteur de construction au sens de l'urbanisme.
+ */
+export function hauteurAuPointLePlusHaut(o: Pick<ObjetPlan, 'batiment' | 'elevation' | 'fonction'>): number {
+  const egout = o.elevation ?? elevationParDefaut(o.fonction || '');
+  const b = o.batiment;
+  const mode = modeToitActif(b);
+  if (mode === 'corps' && b?.corpsToit?.length) {
+    return Math.max(...b.corpsToit.map((c) => Math.max(
+      c.faitage, ...c.egouts,
+      c.terrasse ? c.faitage + (c.terrasse.acrotereM ?? 0) : 0,
+      ...(c.terrasse?.edicules ?? []).map((e) => e.sommetM),
+    )));
+  }
+  if (mode === 'mesure' && b?.toitMesure) return b.toitMesure.faite;
+  const volumes = mode === 'volumes' ? volumesActifs(o) : null;
+  if (volumes) return Math.max(...volumes.map((v) => (v.egout ?? egout) + Math.max(0, v.toit.hauteur)));
+  return egout + Math.max(0, b?.toit?.hauteur ?? 0);
 }
 
 /** Le toit d'un volume tel que la 3D le dessine : la couverture (couleur) est celle du toit du batiment, reglee une fois. */

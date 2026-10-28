@@ -23,6 +23,7 @@ import type { EtatApp } from '../../core/state.js';
 import type { AideClaudeReleve } from './renfortReleve.js';
 import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { modeToitActif } from '../../model/toitMesure.js';
 
 export interface ContexteReleve {
   etat: EtatApp;
@@ -68,6 +69,21 @@ export interface ServiceReleve {
    * de l'analyse n'est pas la ; le releve ne la propose de toute facon que sur signal.
    */
   aide(): AideClaudeReleve | null;
+}
+
+/**
+ * Le toit automatique que le toit lu sur la photo remplacerait : `compose` quand la 3D montre un toit
+ * fait de plusieurs pieces (corps lus au LiDAR, volumes, surface mesuree), `ign` quand le toit unique
+ * vient de la BD TOPO ou du LiDAR, null quand il a ete saisi ou releve. Un toit remplace porte
+ * `source: 'photo'` : le LiDAR ne relit plus ce batiment (toitAAjuster), a aucune version. Le releve le
+ * dit sur sa case, et ne la coche pas d'office sur un toit compose, ou rien ne se voyait du
+ * remplacement alors que la lecture s'arretait.
+ */
+export function toitAutomatique(o: Pick<ObjetPlan, 'batiment'> | null): 'compose' | 'ign' | null {
+  if (!o) return null;
+  if (modeToitActif(o.batiment) !== 'simple') return 'compose';
+  const source = o.batiment?.toit?.source;
+  return source === 'bdtopo' || source === 'lidar' ? 'ign' : null;
 }
 
 export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
@@ -116,7 +132,13 @@ export function creerServiceReleve(ctx: ContexteReleve): ServiceReleve {
       const faite = { ...releve };
       delete faite.depuisAudit;
       champsBatiment(o).facades = [...(o.batiment?.facades || []).filter((r) => r.cote !== releve.cote), faite].sort((a, b) => a.cote - b.cote);
-      if (toit) champsBatiment(o).toit = toit;
+      if (toit) {
+        // Remplacer un toit compose par le toit de la photo, c'est le montrer : la 3D dessinait les
+        // corps (ou les volumes) et ignorait `toit`. Les corps restent dans l'objet, le menu du mode
+        // de toit de l'inspecteur les rend.
+        if (toitAutomatique(o) === 'compose') champsBatiment(o).modeToit = 'simple';
+        champsBatiment(o).toit = toit;
+      }
       // La hauteur du batiment n'est pas touchee : la photo a ete ramenee a elle. La mesure est dite,
       // pour que l'ecart avec le cadastre se voie.
       const hBat = ctx.elevationOf(o);

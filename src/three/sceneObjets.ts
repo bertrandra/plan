@@ -295,13 +295,11 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
   const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
   const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
-  // Un batiment de la parcelle du projet en plusieurs corps (model/volumesToit.ts) : un prisme par
-  // corps, a son egout ; un batiment dont un mur a ete releve en L se coupe en deux volumes, chacun
-  // a sa hauteur (facade/profil.ts) ; tout autre objet reste un seul prisme.
-  const toitRecompose = o.type === 'polygon' && estBatiment(o) && !o.batiment?.facades?.some((r) => r.partieBasse);
-  // Les corps et pignons reconstruits sur le LiDAR (facade/toits/toitCorps.ts) : un prisme par corps a son
-  // egout le plus bas, ses murs hauts et son toit poses par three/toitCorps3d.ts.
-  const modeToit = toitRecompose ? modeToitActif(o.batiment) : 'simple';
+  // Un batiment en plusieurs corps : un prisme par corps a son egout le plus bas, ses murs hauts et son
+  // toit (three/toitCorps3d.ts). Un mur releve en L ne coupe le batiment (facade/profil.ts) qu'en toit
+  // simple : sur des corps, il effacait corps, cheminees et lucarnes ; sa photo se pose sur les corps.
+  // Tout autre objet reste un seul prisme.
+  const modeToit = o.type === 'polygon' && estBatiment(o) ? modeToitActif(o.batiment) : 'simple';
   // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
   const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
   // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.

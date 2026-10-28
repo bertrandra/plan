@@ -80,14 +80,17 @@ export function toitBdTopo(pts: readonly PtBrut[], a: AttributsToit): Toit {
 
 /**
  * Ce que l'actualisation fait du toit d'un batiment (MD/spec-toit-ign.md §5.3) : un toit lu sur une
- * photo ou saisi est garde ; un toit BD TOPO ou LiDAR est recalcule, en gardant la couleur choisie
- * (le LiDAR est relu ensuite, §10) ; un batiment sans toit en recoit un.
+ * photo ou saisi est garde ; un toit BD TOPO ou LiDAR est recalcule, en gardant la couleur et le
+ * materiau de couverture choisis (le LiDAR est relu ensuite, §10) ; un batiment sans toit en recoit un.
  */
 export function toitActualise(ancien: Toit | null | undefined, pts: readonly PtBrut[], a: AttributsToit): Toit {
   if (ancien && ancien.source !== 'bdtopo' && ancien.source !== 'lidar') return ancien;
   const neuf = toitBdTopo(pts, a);
-  if (!ancien?.couleur) return neuf;
+  // Le materiau de couverture n'est jamais deduit dans l'objet : present, quelqu'un l'a choisi
+  // (inspecteur, audit), et une valeur choisie ne se perd pas a l'actualisation.
+  const couverture = ancien?.couverture ? { couverture: ancien.couverture } : {};
+  if (!ancien?.couleur) return { ...neuf, ...couverture };
   // Une couleur posee par Plan (orthophoto ou repli) suit le toit avec son origine : la lecture de
   // l'orthophoto qui suit l'actualisation la revoit. Une couleur choisie n'a pas d'origine et reste.
-  return ancien.origineCouleur ? { ...neuf, couleur: ancien.couleur, origineCouleur: ancien.origineCouleur } : { ...neuf, couleur: ancien.couleur };
+  return ancien.origineCouleur ? { ...neuf, couleur: ancien.couleur, origineCouleur: ancien.origineCouleur, ...couverture } : { ...neuf, couleur: ancien.couleur, ...couverture };
 }
