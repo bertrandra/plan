@@ -67,6 +67,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 | `2.1.0` | Feature catalog and entitlements | Server-side enforcement tests green |
 | `2.2.0` | Tenant branding | Contrast and sanitisation tests green |
 | `3.0.0` | Le relief et la dalle béton à couler changent des quantités (MAJOR) ; relevé de façade, audit de parcelle, toits par le moteur de règles, three.js 0.186 | Témoins recapturés avec la preuve forte (ancien numéro remis → anciens octets au bit près, sauf la seconde de `/CreationDate` des deux PDF capturés au navigateur, neutralisée) ; schéma inchangé (4) — ✅ 25/10/2026 |
+| `4.0.0` | Des nombres exportés changent (MAJOR) : chemins (largeur par défaut, surface sur la courbe), DP2 (hauteur au point le plus haut), annexes lues au LiDAR (toit, hauteur, contour, projets enregistrés compris) ; hiérarchie des décisions sur un bâtiment, soleil du projet, schéma 6 | Sept témoins recapturés avec la preuve forte (ancien numéro et ancienne date de build remis → anciens octets au bit près, sept sur sept, sans exception ; les nombres des chemins avaient été recapturés au 27/10) ; schéma 6 (migration 5 → 6 identité, témoin), accepté par la plateforme (bertrandra/backprod#242) à appliquer en production avant le dépôt — ✅ 28/10/2026 |
 
 ---
 
@@ -77,7 +78,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 `SCHEMA_VERSION` is an integer stamped into every saved project as `meta.schemaVersion`. It increments by exactly 1 whenever the persisted shape changes in any way — additive or not.
 
 ```ts
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface ProjectMeta {
   schemaVersion: number;

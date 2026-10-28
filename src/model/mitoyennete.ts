@@ -6,9 +6,9 @@
 
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { longueurFrontiere } from '../geometry/proximite.js';
-import { surParcelleDuProjet } from './fonctions.js';
+import { surParcelleDuProjet, toitLuAuLidar } from './fonctions.js';
 import type { PtBrut } from './types.js';
-import { estOuvrage, TERRAIN, BATIMENT } from './ouvrages/index.js';
+import { estOuvrage, TERRAIN } from './ouvrages/index.js';
 
 /** Une parcelle est mitoyenne quand elle partage au moins cela de limite avec celle du projet… */
 export const FRONTIERE_MITOYENNE_M = 1;
@@ -41,7 +41,7 @@ export function parcellesMitoyennes<T extends ObjetMitoyen>(objets: readonly T[]
 export function batimentsMitoyens<T extends ObjetMitoyen>(objets: readonly T[], mitoyennes: readonly T[] = parcellesMitoyennes(objets)): Set<T> {
   const out = new Set<T>();
   for (const b of objets) {
-    const pts = estOuvrage(b, BATIMENT) && !surParcelleDuProjet(b) ? contour(b) : null;
+    const pts = toitLuAuLidar(b) && !surParcelleDuProjet(b) ? contour(b) : null;
     if (!pts) continue;
     const c = centroid(pts as PtBrut[]);
     if (mitoyennes.some((m) => pointInPolygon(c, m.pts as PtBrut[]))) out.add(b);

@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { MIGRATIONS, schemaMinimal, schemaAEcrire, migrationsDepuis, migrer } from '../../../src/model/migrations.js';
 import { SCHEMA_VERSION } from '../../../src/model/version.js';
 import { DEMO_OBJECTS, DEMO_TEMOIN_OBJECTS } from '../../../src/model/demo.js';
-import type { ObjetAPlat } from '../../../src/model/types.js';
+import { normalizeObjects } from '../../../src/model/normalisation.js';
+import { serializeObjects } from '../../../src/io/serialisation.js';
+import type { ObjetAPlat, ObjetPlan } from '../../../src/model/types.js';
+import { readFileSync } from 'node:fs';
+
+const temoin5 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-5.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
 
 const batiment = (extra: Partial<ObjetAPlat> = {}): ObjetAPlat =>
   ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetAPlat);
@@ -30,6 +37,23 @@ describe('la chaine des migrations', () => {
     const d = { objects: [batiment({ piscine: {}, corpsToit: [] } as Partial<ObjetAPlat>)], measures: [] };
     expect(migrer(structuredClone(d), 4)).toEqual(d);
     expect(schemaAEcrire(d.objects, 4)).toBe(5);
+  });
+
+  it('lit un document de schema 5 tel quel (5 -> 6 ne fait que distinguer la retouche, l egout choisi et le soleil)', () => {
+    // Le temoin (tests/fixtures/migrations/schema-5.json) : un fichier ecrit au 5 avec les trois champs venus apres sa livraison.
+    const d = { objects: temoin5.objects as unknown as ObjetAPlat[], measures: temoin5.measures };
+    const lu = migrer(structuredClone(d), temoin5.meta.schemaVersion);
+    expect(lu).toEqual(d);
+    expect(schemaMinimal(lu.objects)).toBe(6);
+    // Lu puis reecrit : les trois champs restent, et le document s'ecrit au 6.
+    const memoire = normalizeObjects(structuredClone(lu.objects)) as unknown as ObjetPlan[];
+    expect(memoire[1]!.batiment?.egoutChoisi).toBe('saisie');
+    const reecrit = serializeObjects(memoire) as unknown as Record<string, unknown>[];
+    expect(reecrit[0]).toMatchObject({ soleil: { dateStr: '2026-06-21', minutes: 900 }, retoucheMain: { date: '2026-10-27' } });
+    expect(reecrit[1]).toMatchObject({ egoutChoisi: 'saisie', retoucheMain: { date: '2026-10-27' } });
+    expect(reecrit[2]).toMatchObject({ egoutChoisi: 'audit' });
+    expect(schemaMinimal(memoire)).toBe(6);
+    expect(schemaAEcrire(reecrit as unknown as ObjetAPlat[], 5)).toBe(6);
   });
 });
 
@@ -85,6 +109,14 @@ describe('le schema qu un document ecrit', () => {
     for (const champ of ['piscine', 'pergola', 'cloture', 'corpsToit', 'volumesToit', 'toitMesure', 'fenetres3d', 'voisinage3d', 'ruesVoisinage']) {
       expect(schemaMinimal([batiment({ [champ]: {} } as Partial<ObjetAPlat>)]), champ).toBe(5);
     }
+  });
+
+  it('est 6 des qu un objet porte un champ venu apres la premiere livraison du 5 (retouche, egout choisi, soleil) : un lecteur 5 le perdrait', () => {
+    expect(schemaMinimal([batiment({ retoucheMain: { date: '2026-10-27' } } as Partial<ObjetAPlat>)])).toBe(6);
+    expect(schemaMinimal([batiment({ egoutChoisi: 'saisie' } as Partial<ObjetAPlat>)])).toBe(6);
+    expect(schemaMinimal([batiment({ soleil: { dateStr: '2026-06-21', minutes: 900 } } as Partial<ObjetAPlat>)])).toBe(6);
+    // En memoire, l'egout choisi vit dans le sous-objet `batiment` : il compte tout autant.
+    expect(schemaMinimal([{ ...batiment(), batiment: { egoutChoisi: 'audit' } } as unknown as ObjetAPlat])).toBe(6);
   });
 
   it('est 3 des qu un toit est a croupes', () => {

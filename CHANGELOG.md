@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [4.0.0] — 2026-10-28
+
+Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des nombres exportés changent pour certains projets déjà enregistrés.
+
+### Changements de nombres et d'exports (version majeure)
+
+- **Chemins** : un chemin sans largeur écrite mesure 1 m partout (le dossier PDF et le dossier piscine lisaient 0,5 m), et la
+  surface d'un chemin se compte sur le tracé dessiné, la courbe d'un chemin courbe. Bougent la surface et la longueur totale au
+  résumé, la page des surfaces du PDF du plan, la surface et le trait au dossier PDF, le trait au dossier piscine.
+- **DP2** : « Existant H » donne la hauteur au point le plus haut (toit compris) et non plus la hauteur à l'égout, pour tout
+  bâtiment qui porte un toit en pente.
+- **Annexes lues au LiDAR** : toit, hauteur à l'égout et recalage du contour, y compris dans les projets enregistrés (lus une
+  fois à la prochaine ouverture). Bougent la Vue 3D et le `.glb`, la DP2 (« Existant H »), la DP6 et le dossier PDF de tout
+  projet géolocalisé qui porte une annexe.
+- **Note de calcul d'une piscine** : elle dit qu'une terrasse est percée avec la définition de la terrasse (le bord des
+  margelles, dans les deux sens), et non plus seulement quand un sommet du plan d'eau tombe dans la terrasse : le texte change
+  pour une piscine dont la margelle seule chevauche une terrasse.
+- **Vue 3D et `.glb` d'un bâtiment relevé lu en corps et pignons** : un mur relevé « en L » garde les corps du toit (ils
+  disparaissaient), et un mur relevé ne reçoit plus, par-dessus sa photo, la grille des fenêtres automatiques.
+- Le soleil d'un projet sans soleil choisi devient le jour même à 15 h (le plan le prenait au 21 juin, la Vue 3D à midi UTC) :
+  l'ombre des parasols à l'écran et l'éclairage de la Vue 3D changent ; aucun export chiffré ne le lit.
+- **Schéma des projets 6** (ci-dessous) : la plateforme doit accepter 6 avant le dépôt (bertrandra/backprod#242, migration de
+  base appliquée par `setup.php` en production).
+- Les exports du plan de démonstration ne bougent qu'à leur numéro de version et à la date de build, en plus des nombres des
+  chemins déjà recapturés (preuve forte dans `tests/fixtures/golden/EMPREINTES.md`).
+
 ### Ajouté
 
 - **« Rendre au calcul » la hauteur à l'égout d'un bâtiment.** Saisie dans « Élévation » ou validée par l'audit, la hauteur à
@@ -75,6 +101,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les annexes sont lues au LiDAR, comme les bâtiments — changement de version majeure** (`MD/RELEASE.md` §2.1, décision du
+  28 octobre 2026). Le toit d'un abri de jardin est réel : la mesure bat le défaut et la BD TOPO. Une annexe reçoit désormais le
+  toit lu au LiDAR HD (forme, corps et pignons), sa hauteur à l'égout mesurée et, posée sur la parcelle du projet ou une
+  mitoyenne, le recalage de son contour, au niveau 4 de la hiérarchie (`model/protections.ts`) et sous les mêmes marques qu'un
+  bâtiment : « Règles » coupées, toit saisi ou lu sur une photo, hauteur choisie, contour retouché à la main ou dessiné, vérifié
+  sur place. L'ouvrage le déclare (`Ouvrage.toitLuAuLidar`, `model/fonctions.ts::toitLuAuLidar`) ; la lecture, les mitoyens et
+  la question du toit à cheval le demandent. **Les projets enregistrés aussi** : une annexe sans marque de lecture est lue une
+  fois, en tâche de fond, à la prochaine ouverture du projet. Le toit lu se dessine comme celui d'un bâtiment : Vue 3D et
+  `.glb`, DP2 (« Existant H », la hauteur au point le plus haut), DP6, dossier PDF. **Le nombre change dans la DP2 de tout projet
+  géolocalisé qui porte une annexe, là où le LiDAR HD couvre**, et la 3D et le `.glb` la montrent avec son toit. Aucune empreinte de
+  `tests/fixtures/golden/` ne bouge (le témoin n'est pas géolocalisé). Au passage, une hauteur posée sur une annexe ou un
+  bâtiment dessiné n'est plus réécrite à l'actualisation IGN : la lecture demandait le droit d'écrire la hauteur après avoir
+  marqué le bâtiment lu, ce qui la faisait passer pour une mesure (la tâche de fond, elle, la gardait déjà).
 - **Le dessin, la 3D, les exports et le fichier lisent la fonction d'un objet dans le registre des ouvrages** (feuille de route,
   étape 6.4 ; interne). Les comparaisons écrites à la main (`fonction === '…'`) passent de 63 à 13 : un objet se reconnaît par son
   ouvrage (`estOuvrage`, `estTerrain`, `estTerrasse`, `estPointDeVue`), le bâti des exports par sa famille (`estBati`), et ce qui
@@ -236,6 +275,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Plus aucun carrefour dans `app/`** (feuille de route, étape 3.3). `boot/plan.ts` (23 imports) passe le tiroir des résultats à
   `boot/resultatsDuPlan.ts` (19) ; le test d'architecture n'admet plus aucun module de `app/` au-delà de vingt imports.
 
+- **Schéma 6 des projets.** Trois champs venus après la première livraison du schéma 5 s'écrivaient au 5, qu'un lecteur 5
+  d'avant aurait effacés au premier enregistrement : la retouche à la main d'un objet de l'IGN (`retoucheMain`), la hauteur à
+  l'égout choisie d'un bâtiment (`egoutChoisi`) et le soleil du projet, sur la parcelle (`soleil`). Ils s'écrivent au 6
+  (`model/migrations.ts`, `CHAMPS_DEPUIS`) ; un document 5 se lit tel quel (migration 5 → 6 sans transformation, témoin
+  `tests/fixtures/migrations/schema-5.json`), et « Mettre à jour le modèle » le propose. Un projet qui ne porte aucun des trois
+  s'écrit toujours au plus petit schéma qui le décrit : la démonstration et les démos livrées restent au 5.
+  `contrat/plan-produit.json` passe à `schema_versions` 1 à 6. **La plateforme doit accepter 6 avant le dépôt** : backprod
+  l'accepte depuis bertrandra/backprod#242, par une migration de base que `setup.php` applique ; **à appliquer en production
+  avant de déployer cette version**, sinon chaque enregistrement d'un projet qui porte l'un de ces champs répond 422.
 - **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
   fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
   enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour
