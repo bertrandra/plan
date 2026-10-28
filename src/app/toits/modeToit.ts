@@ -18,6 +18,7 @@ import { centroid } from '../../geometry/basic.js';
 import { majFantomes, viderFantomes } from '../../three/fantomes.js';
 import { abonnerSceneBatie, hotes3d, vue3d, reglerVue3d } from '../../three/etat3d.js';
 import { dialogues } from '../../shell/dialogues.js';
+import { lectureToits } from '../../core/lectureToits.js';
 import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
@@ -254,16 +255,21 @@ function voirLeToitDuProjet(o: ObjetPlan, s: SessionToit): boolean {
   return true;
 }
 
-/** Ecrit la session dans le projet en une seule etape d'historique (le depart d'abord, puis l'etat final) ; vrai si elle a change quelque chose. */
-function validerLaSession(a: Atelier, o: ObjetPlan, s: SessionToit): boolean {
+/**
+ * Ecrit la session dans le projet en une seule etape d'historique (le depart d'abord, puis l'etat final) ; vrai si elle a change
+ * quelque chose. Chaque geste du mode fige le toit lui-meme (la personne l'a regle) ; un toit sans la marque a la fin, c'est que
+ * la personne a rallume les « Règles » : il est rendu a la lecture automatique, ne se refige pas, et la tache de fond le relit
+ * tout de suite plutot qu'a la prochaine ouverture du projet.
+ */
+export function validerLaSession(a: Pick<Atelier, 'pushHistory' | 'markDirty'>, o: ObjetPlan, s: SessionToit): boolean {
   reprendre(o, s);
   const final = photographier(o), change = aChange(s.hist);
   if (change) {
     restaurer(o, s.hist.pas[0] ?? {});
     a.pushHistory();
     restaurer(o, final);
-    champsBatiment(o).toitFige = true;
     a.markDirty();
+    if (!final.toitFige) lectureToits.demanderRelecture();
   }
   return change;
 }

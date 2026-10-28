@@ -158,7 +158,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
       const g = gestes;
       if (!g) return;
       mode.ecrire((o) => { if (o.batiment?.toitFige) g.reprendreLectureAuto(o); else champsBatiment(o).toitFige = true; });
-      showToast(batiment()?.batiment?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu.');
+      showToast(batiment()?.batiment?.toitFige ? 'Règles coupées : le toit reste tel que vous le réglez.' : 'Règles allumées : le toit sera relu quand vous validerez.');
     });
 
   commande('toit.poser', 'Poser sur le toit',

@@ -443,6 +443,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **« Règles allumées » en Mode Toit relit vraiment le toit.** Valider la session refigeait le toit (« Règles » coupées) quoi
+  qu'ait fait la personne : rallumer les règles effaçait les corps, puis le toit restait simple et figé. La validation ne fige plus
+  rien d'elle-même (chaque geste le fait) et, les règles rallumées, relance tout de suite la lecture en tâche de fond ; le message
+  dit « le toit sera relu quand vous validerez ».
+- **L'actualisation dit les bâtiments au toit réglé à la main.** Elle les garde tels quels mais les comptait « vérifiés sur
+  place » ; le bilan les nomme maintenant à part, et le dialogue d'« Actualiser le projet » a un point pour eux.
+
 - **Valider la forme du toit proposée par l'audit garde les bow-windows, galeries et appentis posés sur un mur.** Une forme du
   catalogue (Mansart, demi-croupe…) rangeait le corps relu en dernier : l'élément posé sur son mur désignait alors un autre corps.
   La validation repose maintenant ces éléments sur le mur qui reste, comme la relecture LiDAR (`corpsAvecCeQuIlsPortaient`).

@@ -1283,21 +1283,31 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
    (`toitsLidar.ts:264-270`) : dans un projet géolocalisé, une extension dessinée sans toit est lue en tâche de fond (toit
    `lidar`, `elevation` corrigée), et recalée d'un bloc si son centre tombe sur une parcelle mitoyenne (`clesMitoyens`,
    `model/mitoyennete.ts:44`). La fonction `annexe`, sœur de `batiment` (`model/ouvrages/bati.ts:41`), n'est jamais lue. Non
-   vérifié en exécution. — *En partie corrigé le 28 octobre 2026* (hiérarchie, « Qui l'emporte ») : le contour d'un bâtiment dessiné est un geste de la personne (niveau 1), il n'est plus recalé, et une hauteur posée dessus n'est plus réécrite par la lecture ; son toit, lui, se lit encore. Reste : l'`annexe` n'est jamais lue.
-10. **« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
+   vérifié en exécution. — *En partie corrigé le 28 octobre 2026* (hiérarchie, « Qui l'emporte ») : le contour d'un bâtiment dessiné est un geste de la personne (niveau 1), il n'est plus recalé, et une hauteur posée dessus n'est plus réécrite par la lecture ; son toit, lui, se lit encore. Reste : l'`annexe` n'est jamais lue. *Examiné le même jour, non fait* : la hiérarchie dirait de la lire (le toit d'un abri de jardin est réel, la mesure bat le défaut et la BD TOPO), mais lire les annexes d'un projet déjà enregistré y écrirait un toit, une hauteur à l'égout et parfois un recalage du contour à la prochaine tâche de fond : la Vue 3D, le `.glb`, la DP6, la DP2 et le dossier (qui dessinent les annexes) changeraient sans geste de la personne. C'est un événement de version majeure (`MD/RELEASE.md`), à décider avec le propriétaire, pas une correction.
+10. ~~**« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
     volumes et mesure à l'instant (`three/gestesToits.ts:374-382`) ; la relecture n'attend que `toitsFond.relancer()`, appelé à
     l'ouverture, après une actualisation ou par « Reprendre » (`app/boot.ts:85`, `app/boot/chargements.ts:88`). Entre les deux, le
-    bâtiment montre son toit simple, qui peut porter une forme du catalogue avec `source: 'bdtopo'`.
-11. **L'actualisation garde les bâtiments figés sans le dire.** `batimentsGardes` garde `toitFige` (`toitsEtMurs.ts:47`), mais le
+    bâtiment montre son toit simple, qui peut porter une forme du catalogue avec `source: 'bdtopo'`.~~ — corrigé le 28 octobre 2026 :
+    c'était pire, « Valider » refigeait le toit (`validerLaSession` posait `toitFige` sans condition), si bien que les règles
+    rallumées ne relisaient jamais. Chaque geste du mode fige le toit lui-même ; la validation ne pose plus rien et, quand le toit
+    sort sans la marque, relance la lecture en fond tout de suite (`lectureToits.demanderRelecture`). Le message dit « le toit sera
+    relu quand vous validerez » : une session abandonnée rend le toit d'avant (`tests/unit/app/toits/validerSession.test.ts`).
+11. ~~**L'actualisation garde les bâtiments figés sans le dire.** `batimentsGardes` garde `toitFige` (`toitsEtMurs.ts:47`), mais le
     bilan les compte comme « vérifié(s) sur place » (`actualisationIgn.ts:272`, :364) ; le dialogue d'« Actualiser le projet »
     annonce la recréation de « tous les bâtiments de la parcelle du projet, même ceux que vous avez dessinés »
     (`actualiserProjet.ts`, `POINTS_ACTUALISATION`) et ne nomme que les vérifiés et les retouchés ; le commentaire de tête de
-    `toitsEtMurs.ts:1-2` aussi.
+    `toitsEtMurs.ts:1-2` aussi.~~ — corrigé le 28 octobre 2026 : le bilan les compte à part (« bâtiment(s) au toit réglé à la main
+    (« Règles » coupées) conservé(s) tel(s) quel(s) », `raisonDeGarder`), et le dialogue d'« Actualiser le projet » a un point pour
+    eux (`POINT_FIGES`, `batimentsFiges`).
 12. **La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
     (`three/detailsBatiment.ts:569-608`) en dessine une au tiers du faîtage ; en mode corps, seules les cheminées des données se
     dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.
 13. **Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
     le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.
+    — *Laissé le 28 octobre 2026* : `locked` ne veut pas dire « toit à ne pas retoucher ». La maison du projet est verrouillée à
+    l'import (la démonstration : « Maison » et « Abri de jardin », `locked: true`), pour ne pas la déplacer d'un geste ; lire
+    `locked` fermerait le Mode Toit sur elle. Le bon critère est à décider : la maison d'une parcelle mitoyenne
+    (`bdtopo.surParcellePrincipale === false`) ou une marque à elle.
 14. **Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
     (`modeToit.ts:322-333`, :461-468) sans marquer le projet ; l'enregistrement seul de la tâche de fond enregistre quand tout ce
     qui attend vient d'elle (`toitsFond.ts:302-304`) et sérialise alors le bâtiment tel que la session le laisse. Une session

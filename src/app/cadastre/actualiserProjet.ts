@@ -30,7 +30,7 @@ import { showToast } from '../../shell/dialogs.js';
 import { droitsCourants } from '../acces.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { actualiserDepuisIgn, type ContexteActualisation, type OptionsActualisation } from './actualisationIgn.js';
-import { objetsRetouches } from './actualisationIgn/toitsEtMurs.js';
+import { batimentsFiges, objetsRetouches } from './actualisationIgn/toitsEtMurs.js';
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import type { ObjetPlan } from '../../model/types.js';
 
@@ -50,12 +50,18 @@ export const POINT_VERIFIES = 'Conservés tels quels, sauf si vous cochez la cas
 /** Le point de plus quand le plan a des objets retouches a la main : ils sont conserves, sauf ceux dont la case est cochee. */
 export const POINT_RETOUCHES = 'Conservés tels que vous les avez laissés, sauf si vous cochez leur case : les objets de l’IGN que vous avez retouchés à la main.';
 
+/** Le point de plus quand le plan a des batiments au toit regle a la main : ils sont conserves, comme les verifies. */
+export const POINT_FIGES = 'Conservés tels quels : les bâtiments dont vous avez réglé le toit à la main (Mode Toit, « Règles » coupées).';
+
 /** Les batiments du plan verifies sur place : ils ne sont recalcules que si la case le demande. */
 export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o.batiment));
 
-/** Les points du dialogue pour ce plan : les points de toujours, et ceux des batiments verifies et des objets retouches s'il y en a. */
-export const pointsActualisation = (nVerifies: number, nRetouches = 0): string[] => (nVerifies || nRetouches)
-  ? [...POINTS_ACTUALISATION.slice(0, -1), ...(nVerifies ? [POINT_VERIFIES] : []), ...(nRetouches ? [POINT_RETOUCHES] : []), ...POINTS_ACTUALISATION.slice(-1)]
+/**
+ * Les points du dialogue pour ce plan : les points de toujours, et ceux des batiments verifies, des objets retouches et des batiments
+ * au toit regle a la main s'il y en a.
+ */
+export const pointsActualisation = (nVerifies: number, nRetouches = 0, nFiges = 0): string[] => (nVerifies || nRetouches || nFiges)
+  ? [...POINTS_ACTUALISATION.slice(0, -1), ...(nVerifies ? [POINT_VERIFIES] : []), ...(nFiges ? [POINT_FIGES] : []), ...(nRetouches ? [POINT_RETOUCHES] : []), ...POINTS_ACTUALISATION.slice(-1)]
   : POINTS_ACTUALISATION;
 
 /** Le libelle de la case : un batiment nomme, ou leur nombre. */
@@ -86,7 +92,7 @@ export function ouvrirActualisationProjet(ctx: ContexteActualisation): void {
   dialogues.ouvrir({
     type: 'choix', titre: 'Actualiser le projet',
     texte: 'Tout ce qui vient de l’IGN est relu et recalculé avec la version actuelle de Plan, comme à un import d’aujourd’hui.',
-    points: pointsActualisation(verifies.length, retouches.length),
+    points: pointsActualisation(verifies.length, retouches.length, batimentsFiges(ctx.etat.objects).length),
     ...(verifies.length ? { case: { libelle: libelleCaseVerifies(verifies), cochee: false, changer: (c: boolean) => { relire = c; } } } : {}),
     ...(retouches.length ? { cases: retouches.map(r => ({ libelle: r.libelle, cochee: false, changer: (c: boolean) => { if (c) reprendre.add(r.cle); else reprendre.delete(r.cle); } })) } : {}),
     principal: { libelle: 'Actualiser le projet', executer: () => { void lancerActualisationProjet(ctx, relire ? 'relire' : 'garder', [...reprendre]); } },

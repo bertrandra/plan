@@ -1,6 +1,6 @@
 // L actualisation IGN : un objet de la BD TOPO sur son contour du jour (ce que model/protections.ts lui permet d'ecrire, ce qui
 // suit le contour), la couverture, les volumes, les toits lus au LiDAR et la couleur des murs des batiments relus ; et ce qu'elle
-// garde tel quel (batiments verifies sur place, objets retouches a la main).
+// garde tel quel (batiments verifies sur place, batiments au toit regle a la main, objets retouches a la main).
 // Un morceau de app/cadastre/actualisationIgn.ts, qui le reexporte : le reste du programme importe depuis lui.
 
 import { etape, type ContexteActualisation } from './progression.js';
@@ -9,7 +9,8 @@ import { couleursToitsDepuisOrtho } from '../../../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from '../../toits/toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../render/couleurMurPhoto.js';
 import { materiauMurs } from '../../../model/couleurMur.js';
-import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture } from '../../../model/protections.js';
+import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture, type Origine } from '../../../model/protections.js';
+import { estBatiment } from '../../../model/fonctions.js';
 import { nombreFr } from '../../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation } from '../../../geo/bdtopo.js';
 import { toitActualise, attributsToitBdTopo } from '../../../model/toitBdTopo.js';
@@ -55,6 +56,15 @@ export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsAc
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }
+
+/**
+ * Pourquoi un objet garde l'est (model/protections.ts, origine du contour) : `retouche` (a la main), `fige` (son toit regle a la
+ * main, « Règles » coupees) ou `verifie` (sur place). Le bilan les dit chacun par son nom.
+ */
+export const raisonDeGarder = (o: ObjetBrut, options: OptionsActualisation): Origine => origineActuelle(o, 'contour', contexteActualisation(o, options));
+
+/** Les batiments au toit regle a la main (« Règles » coupees), ni retouches ni verifies : l'actualisation les garde tels quels. */
+export const batimentsFiges = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => estBatiment(o) && origineActuelle(o, 'contour') === 'fige');
 
 /** Ce que la personne a demande a cette actualisation pour cet objet : « Recalculer aussi » les verifies, reprendre la version de l'IGN. */
 export function contexteActualisation(o: ObjetBrut, options: OptionsActualisation): ContexteEcriture {

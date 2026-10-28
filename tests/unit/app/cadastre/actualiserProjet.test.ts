@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { valeursParDefaut, estImporte } from '../../../../src/app/cadastre/valeursParDefaut.js';
-import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../../src/app/cadastre/actualiserProjet.js';
+import { lancerActualisationProjet, ouvrirActualisationProjet, POINTS_ACTUALISATION, POINT_FIGES, POINT_VERIFIES, pointsActualisation, libelleCaseVerifies } from '../../../../src/app/cadastre/actualiserProjet.js';
+import { batimentsFiges, raisonDeGarder } from '../../../../src/app/cadastre/actualisationIgn/toitsEtMurs.js';
 import { dialogues } from '../../../../src/shell/dialogues.js';
 import { actualisation, type ContexteActualisation } from '../../../../src/app/cadastre/actualisationIgn.js';
 import { APPARENCES_IGN, apparenceIgnParDefaut } from '../../../../src/geo/cadastreObjets.js';
 import { serializeObjects } from '../../../../src/io/serialisation.js';
 import { normalizeObjects } from '../../../../src/model/normalisation.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
+import type { OptionsActualisation } from '../../../../src/app/cadastre/optionsActualisation.js';
 import type { ObjetBrut, ObjetPlan, PtBrut, Relief } from '../../../../src/model/types.js';
 import { champsBatiment } from '../../../../src/model/champsFonction.js';
 import { versMemoire } from '../../../../src/model/champsFonction.js';
@@ -166,6 +168,16 @@ describe('Actualiser le projet', () => {
     expect(pointsActualisation(0)).toBe(POINTS_ACTUALISATION);
     expect(pointsActualisation(2).at(-2)).toBe(POINT_VERIFIES);
     expect(pointsActualisation(2).at(-1)).toBe('Ctrl+Z rend le projet d’avant.');
+  });
+
+  it('dit a part les batiments au toit regle a la main, que l actualisation garde aussi (et ne les compte pas comme verifies)', () => {
+    expect(pointsActualisation(0, 0, 1).at(-2)).toBe(POINT_FIGES);
+    expect(pointsActualisation(1, 0, 1).slice(-3, -1)).toEqual([POINT_VERIFIES, POINT_FIGES]);
+    const bati = (key: string, batiment: Record<string, unknown>, plus: Record<string, unknown> = {}) =>
+      ({ key, name: key, type: 'polygon', fonction: 'batiment', bdtopo: { id: key }, pts: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }], batiment, ...plus }) as unknown as ObjetPlan;
+    const fige = bati('f', { toitFige: true }), verifie = bati('v', { verifieSurPlace: { date: '2026-10-28' } }), retouche = bati('r', { toitFige: true }, { retoucheMain: { date: '2026-10-28' } });
+    expect([fige, verifie, retouche].map((o) => raisonDeGarder(o as unknown as ObjetBrut, { verifies: 'garder' } as OptionsActualisation))).toEqual(['fige', 'verifie', 'retouche']);
+    expect(batimentsFiges([fige, verifie, retouche]).map((o) => o.key)).toEqual(['f']);
   });
 });
 
