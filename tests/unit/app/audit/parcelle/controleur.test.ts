@@ -7,7 +7,7 @@ import { creerEtat } from '../../../../../src/core/state.js';
 import { projecteurLocal } from '../../../../../src/geo/projection.js';
 import { SansPosition, type PositionGps } from '../../../../../src/shell/geolocalisation.js';
 import type { DialogueChoix } from '../../../../../src/shell/dialogues.js';
-import type { Facade } from '../../../../../src/facade/geometrie.js';
+import type { Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import { ROUGE_FACADE, VERT_FACADE } from '../../../../../src/three/facadeDevant3d.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 

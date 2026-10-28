@@ -1,7 +1,7 @@
 // Les constats de ce qui a ete vu : photos, renfort, Claude, et ce que la personne a vu sur place.
 // Un morceau de app/audit/parcelle/constats.ts, qui le reexporte : le reste du programme importe depuis lui.
 
-import { nomFacade } from '../../../../facade/geometrie.js';
+import { nomFacade } from '../../../../geometry/cotesVusDeDehors.js';
 import { formeDeLaVue } from '../../../../model/formeToit.js';
 import { formeDuCorps, plusGrand } from '../../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes } from '../../../../facade/regles/toits/silhouettes.js';

@@ -3,7 +3,7 @@
 
 import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../../shell/boussole.js';
 import { obstacle } from '../../../geometry/ligneDeVue.js';
-import { facadesDuContour } from '../../../facade/geometrie.js';
+import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { facadeDevant, texteFacadeDevant, DISTANCE_DEVANT_MAX_M, type FacadeDevant } from '../../../facade/calage/priseDeVue.js';
 import { elevationOf } from '../../../engine/hauteurs.js';
 import { aDesSommets } from '../../../model/formes.js';

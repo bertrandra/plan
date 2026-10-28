@@ -10,7 +10,7 @@ import { coinsAutoDeSerie, type CoinsDeSerie } from './coinsAuto.js';
 import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
 import { inverser } from '../vision/redressementFuites.js';
 import type { MurLu } from '../vision/mosaiqueFuites.js';
-import type { Facade } from '../geometrie.js';
+import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { OuvertureDetectee } from '../detection/detection.js';
 import { sansOmbres } from '../vision/sansOmbres.js';

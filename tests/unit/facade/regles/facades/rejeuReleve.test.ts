@@ -5,7 +5,7 @@ import { REGLAGES_STRUCTURE } from '../../../../../src/facade/regles/facades/str
 import { poserSurchargesCalibrees } from '../../../../../src/facade/regles/facades/surcharges.js';
 import { releveDuMur } from '../../../../../src/facade/releve/analyseSerie.js';
 import { schemaMinimal } from '../../../../../src/model/migrations.js';
-import type { Facade } from '../../../../../src/facade/geometrie.js';
+import type { Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { Resultat } from '../../../../../src/facade/releve/serie.js';
 import type { ObjetAPlat } from '../../../../../src/model/types.js';
 

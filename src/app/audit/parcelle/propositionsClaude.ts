@@ -12,7 +12,7 @@
 // Une proposition de Claude arrive decochee tant que son taux d'accord n'est pas mesure a 95 %
 // (spec-regles-toits §14.2, point 5), ou quand elle contredit un indice LiDAR (point 4).
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { contradictionsLidar, indicesLidar, reserveConfiance, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';

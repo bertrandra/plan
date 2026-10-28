@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hautDeLaFacade, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
-import { facadesDuContour } from '../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 // Le gabarit du mur : la silhouette que donnent le plan et le LiDAR, une forme fixe posee sur l'image.

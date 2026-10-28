@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { bandeEquirectangulaire, champGrandCote, tailleRecadrage, CHAMP_RECADRAGE } from '../../../../src/ui/releve/panoramax.js';
 import { capDeLOrientation } from '../../../../src/ui/releve/profondeur.js';
-import { facadeFaceAuCap, facadesDuContour } from '../../../../src/facade/geometrie.js';
+import { facadeFaceAuCap, facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 
 describe('bandeEquirectangulaire', () => {
   const img = { naturalWidth: 3600, naturalHeight: 1800 };

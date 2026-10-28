@@ -11,7 +11,7 @@
 import { lireFacadeSurPhoto, teinteAuToucher, pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import type { Pixels } from '../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../geometry/ligneDeVue.js';
-import type { Facade } from '../../facade/geometrie.js';
+import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { LectureFacade, PhotoCas } from '../../model/audit.js';
 import type { PtBrut } from '../../model/types.js';
 import type { Promenade } from './promenade.js';

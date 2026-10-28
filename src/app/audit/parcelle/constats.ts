@@ -5,7 +5,7 @@
 //
 // `projet` n'est pas une source : c'est la valeur que le projet a aujourd'hui, et si une personne l'a choisie a la main (un veto).
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { formeDesCorps } from '../../../model/formeToit.js';
 import { textureDesMurs } from '../../../model/couleurMur.js';
 import { hauteurDe } from '../../../regles/decisions.js';

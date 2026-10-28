@@ -5,7 +5,7 @@ import { etirerEnHauteur, releveDuMur, calageDeSerie, pxParMDuCalage, textePreci
 import { coinsProposes } from '../../../src/facade/analyse.js';
 import { etirerOuvertures, texteDetails, texteOrigine } from '../../../src/zones/releve/ouvertures.js';
 import type { Prise } from '../../../src/zones/releve/capteurs.js';
-import type { Facade } from '../../../src/facade/geometrie.js';
+import type { Facade } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { OuvertureFacade, Toit } from '../../../src/model/types.js';
 
 // Le releve de facade, decoupe en etapes (zones/releve/) : ses calculs se testent sans React ni camera.

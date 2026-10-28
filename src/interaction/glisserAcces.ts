@@ -6,7 +6,7 @@
 // sous le doigt au premier mouvement.
 
 import { coteLePlusProche, poserAcces } from '../model/cloture.js';
-import { facadesDuContour, type Facade } from '../facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
 import type { Portail, PtBrut } from '../model/types.js';
 
 /** L'abscisse d'un point le long d'un cote, depuis son bord gauche vu de dehors, en metres. */

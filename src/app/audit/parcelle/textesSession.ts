@@ -7,7 +7,7 @@ import type { RaisonEchec } from '../../../io/brouillonAudit.js';
 import { photosDeLaCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
 import { focalePx, planDePrise } from '../../../facade/vision/cadrage.js';
 import { jourDe } from '../reprise.js';
-import type { Facade } from '../../../facade/geometrie.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 
 /** Une photo de 4:3 en paysage, pour le plan de prise : le nombre de photos ne depend que des proportions. */
 const PHOTO_TYPE = { l: 4000, h: 3000 };

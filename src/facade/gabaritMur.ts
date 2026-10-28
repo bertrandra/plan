@@ -6,7 +6,7 @@
 
 import { homographie, appliquer, type P2 } from './vision/homographie.js';
 import { hauteurDuToitEn } from './toits/toitCorps.js';
-import type { Facade } from './geometrie.js';
+import type { Facade } from '../geometry/cotesVusDeDehors.js';
 import type { CorpsToit } from '../model/types.js';
 import { simplifierLigne } from '../geometry/simplifierLigne.js';
 

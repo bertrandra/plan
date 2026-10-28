@@ -15,7 +15,7 @@
 // La forme du toit vue (forme, faitage, bouts, lucarnes) n'est pas proposee : la changer demande les
 // regles des toits et Claude (lots L17 a L19) ; elle reste une observation de l'audit.
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { couleurMursRetenue } from '../../../model/couleurMur.js';
 import {
   resumePartie, terrasseVue, toitVu,

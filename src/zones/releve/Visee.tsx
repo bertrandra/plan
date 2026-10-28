@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, type PointerEvent as PE } from 'react';
 import { Icone } from '../icones.js';
-import { type Facade } from '../../facade/geometrie.js';
+import { type Facade } from '../../geometry/cotesVusDeDehors.js';
 import { focalePx, distanceParCadrage, consigneAplomb, planDePrise, consignePrise, type ConsignePrise } from '../../facade/vision/cadrage.js';
 import { cameraDisponible, saisir, lireFichier, lirePhotoNative, type Photo } from '../../ui/releve/camera.js';
 import { type Objectif } from '../../facade/vision/objectifs.js';

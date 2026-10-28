@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { reconstruireCorps, decalageSurMesure } from '../../../src/facade/toits/toitCorps.js';
 import { toitMesureDepuisGrille } from '../../../src/model/toitMesure.js';
 import { pointInPolygon, signedArea } from '../../../src/geometry/basic.js';
-import { trianguler } from '../../../src/facade/toits/toit.js';
+import { trianguler } from '../../../src/geometry/triangulation.js';
 import { distancePointContour } from '../../../src/geometry/proximite.js';
 import type { GrilleRelief } from '../../../src/model/relief.js';
 import { facettesSurContour, facettesCorps, hauteurDesCorps, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, penteDuCorps, penteDominante, NOM_TOIT_CORPS, NOM_TOIT_CORPS_PLAT, NOM_MUR_CORPS, DEBORD_EGOUT_M, DEBORD_RIVE_M, estAppentisOuvert, appentisAdosse } from '../../../src/three/toitCorps3d.js';

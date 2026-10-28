@@ -11,7 +11,7 @@
 // projet seulement consulte garde sa forme d'avant.
 
 import { enPoints } from '../../model/formes.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import {
   clotureDe, synchroniserAnciensChamps, reglageDuCote, coteRegle, reglerCote, retirerCote, changerType,
   longueurDuCote, coteValide, nouveauPortail, accolerPortillon, alertesAcces, alertesHauteur,

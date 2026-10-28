@@ -6,7 +6,7 @@
 // qui restent ecrits et tenus a jour pour les lecteurs qui ne connaissent qu'eux.
 //
 // Rien ici ne connait le contour autrement que par la longueur de ses cotes : la geometrie d'un
-// cote (son repere gauche-droite vu de dehors) vit dans `facade/geometrie.ts`, au-dessus.
+// cote (son repere gauche-droite vu de dehors) vit dans `geometry/cotesVusDeDehors.ts`.
 
 import { dist } from '../geometry/basic.js';
 import { sommetDe } from '../geometry/anneau.js';

@@ -5,7 +5,7 @@
 // ou sa course (un coulissant). Seul le plan a l'ecran le montre : les exports gardent leur forme,
 // figee par leurs empreintes — la meme regle que les ouvertures relevees (render/releve.ts).
 
-import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
+import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import {
   clotureDe, reglageDuCote, tronconsDuCote, empriseAcces, vantauxDe, coteValide, epaisseurDe,
   COULEUR_CLOTURE_DEFAUT, DEFAUTS_PAR_TYPE,

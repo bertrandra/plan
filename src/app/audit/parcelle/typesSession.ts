@@ -19,7 +19,7 @@ import type { AnalyseClaude, ContexteAnalyse } from './analyseClaude.js';
 import type { IdentiteAnalyse } from './entreesAnalyse.js';
 import type { DependancesMesures } from './mesures.js';
 import type { ClientAudits } from '../../../io/auditsServeur.js';
-import type { Facade } from '../../../facade/geometrie.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { EtatApp } from '../../../core/state.js';
 import type { PtBrut } from '../../../model/types.js';

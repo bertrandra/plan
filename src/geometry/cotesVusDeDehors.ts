@@ -1,4 +1,8 @@
-// Les facades d'un batiment, lues sur son contour (MD/spec-releve-facade.md §3).
+// Les cotes d'un contour vus de dehors : les facades d'un batiment, les cotes d'une parcelle et de sa cloture
+// (MD/spec-releve-facade.md §3).
+//
+// De la geometrie, partagee par deux ouvrages : le bati (releve, facades, toits) et la cloture (ses cotes, ses portails, le
+// plan et la 3D). Elle vivait dans facade/geometrie.ts, et la cloture la lisait chez le bati (MD/spec-ouvrages.md, etape 6.6).
 //
 // Un batiment du plan est un polygone extrude a sa hauteur : chaque cote est un mur, donc une
 // facade. Ce module dit, pour chacune, ou est sa gauche vue de dehors, vers ou elle regarde et
@@ -10,9 +14,9 @@
 // signee qui tranche, comme pour les cotes du PDF (geometry/basic.ts).
 
 import { au } from '../util/tableaux.js';
-import { sommetDe } from '../geometry/anneau.js';
+import { sommetDe } from './anneau.js';
 import type { PtBrut } from '../model/types.js';
-import { signedArea } from '../geometry/basic.js';
+import { signedArea } from './basic.js';
 
 /** Une facade : un cote du contour, vu depuis l'exterieur. */
 export interface Facade {

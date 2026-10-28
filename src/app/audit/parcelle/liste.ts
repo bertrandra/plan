@@ -16,7 +16,7 @@
 
 import { centroid, pointInPolygon } from '../../../geometry/basic.js';
 import { distancePointContour } from '../../../geometry/proximite.js';
-import { facadesDuContour, pointDeFacade, type Facade } from '../../../facade/geometrie.js';
+import { facadesDuContour, pointDeFacade, type Facade } from '../../../geometry/cotesVusDeDehors.js';
 import { hauteursMursCorps } from '../../../facade/toits/toitCorps.js';
 import { distancePointSegment } from '../../../geometry/segments.js';
 import { sommetDe } from '../../../geometry/anneau.js';

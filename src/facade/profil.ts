@@ -14,7 +14,7 @@
 
 import { au } from '../util/tableaux.js';
 import { homographie, appliquer, type P2 } from './vision/homographie.js';
-import { facadesDuContour, pointDeFacade } from './geometrie.js';
+import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
 import { sommetDe } from '../geometry/anneau.js';
 import type { OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../model/types.js';
 

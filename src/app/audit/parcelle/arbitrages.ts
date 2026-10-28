@@ -10,7 +10,7 @@
 // Le materiau des murs et la couverture (fichiers fonciers, Claude, ce que la personne a vu) s'arbitrent de la meme facon : la valeur
 // notee sur place l'emporte (poids 30, D21), et une valeur que la personne a choisie dans le projet n'est jamais remplacee en silence.
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { arbitrer, arbitrerTout, direValeur, type Arbitrage, type ChoixArbitrage, type Constat, type Groupe } from '../../../facade/regles/reconciliation.js';
 import { RECONCILIATION, type IdAttribut, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import { lireForme } from '../../../facade/toits/lectureFormes.js';

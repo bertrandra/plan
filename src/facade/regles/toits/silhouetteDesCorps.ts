@@ -13,8 +13,8 @@
 
 import { hauteurDuToitEn } from '../../toits/toitCorps.js';
 import { murDuCorps } from './murDuCorps.js';
-import { facadesDuContour, tourneVers } from '../../geometrie.js';
-import type { Facade } from '../../geometrie.js';
+import { facadesDuContour, tourneVers } from '../../../geometry/cotesVusDeDehors.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { P2 } from '../../vision/homographie.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
 import { SILHOUETTES_TOITS, type SilhouettesToits } from '../../../regles/toits/silhouettes.js';

@@ -45,7 +45,7 @@ import { distancePointSegment, lineSegIntersect } from '../../../geometry/segmen
 import { sommetDe } from '../../../geometry/anneau.js';
 import { au } from '../../../util/tableaux.js';
 import { TOLERANCE_CAP_DEG } from '../../../facade/calage/priseDeVue.js';
-import type { Facade } from '../../../facade/geometrie.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { PtBrut } from '../../../model/types.js';
 
 /** La hauteur des yeux au-dessus du sol. */

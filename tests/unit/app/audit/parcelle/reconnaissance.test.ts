@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { cleFacade, facadeRetenue, facadesProposees, entreesReconnaissance } from '../../../../../src/app/audit/parcelle/reconnaissance.js';
-import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import { obstacle } from '../../../../../src/geometry/ligneDeVue.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide } from '../../../../../src/model/auditParcelle.js';

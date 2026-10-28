@@ -8,7 +8,8 @@
 // corps a croupes : ses pans en trapeze, et une croupe en triangle a chaque bout.
 
 import type * as THREE_NS from 'three';
-import { COULEUR_TOIT_DEFAUT, uvDuPan, trianguler, couperDemiPlan } from '../facade/toits/toit.js';
+import { COULEUR_TOIT_DEFAUT, uvDuPan, couperDemiPlan } from '../facade/toits/toit.js';
+import { trianguler } from '../geometry/triangulation.js';
 import { repere, point, planCroupe, hauteurCorpsEn, penteDominante } from '../facade/toits/toitCorps.js';
 import { facettesElementsToit, facettesEtendues, facettesLucarnes } from '../facade/toits/toitFormes.js';
 import { estSpecial } from '../facade/toits/toitSpeciaux.js';

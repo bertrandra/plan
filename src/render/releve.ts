@@ -5,7 +5,7 @@
 // tableaux, et une porte recoit son arc de debattement vers l'interieur. Seul le plan a l'ecran
 // les montre : l'export SVG garde sa forme, figee par son empreinte.
 
-import { facadesDuContour, pointDeFacade } from '../facade/geometrie.js';
+import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
 import type { EtatApp } from '../core/state.js';
 import type { PtBrut, PtEcran } from '../model/types.js';

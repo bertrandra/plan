@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { murDuCorps } from '../../../../../src/facade/regles/toits/murDuCorps.js';
-import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import { cleChoix, propositionsArbitrees } from '../../../../../src/app/audit/parcelle/arbitrages.js';
 import { silhouetteDesCorps } from '../../../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { cleMesure, type MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';

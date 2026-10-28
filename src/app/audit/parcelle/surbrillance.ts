@@ -3,7 +3,7 @@
 // relit seul, ou le contour du batiment (de la parcelle). Les formes se lisent sur le plan d'avant : elles sont les memes dans
 // les deux vues. Pur.
 
-import { facadesDuContour, type Facade } from '../../../facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../../../geometry/cotesVusDeDehors.js';
 import { silhouetteDuMur } from '../../../facade/regles/toits/silhouetteDesCorps.js';
 import { hauteurDe, type Proposition } from '../../../regles/decisions.js';
 import { hauteurMurSousToit } from './liste.js';

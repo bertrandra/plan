@@ -17,7 +17,7 @@ import { obstacle, type Obstacle } from '../../geometry/ligneDeVue.js';
 import { aDesSommets } from '../../model/formes.js';
 import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import { showToast } from '../../shell/dialogs.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 import type { EtatApp } from '../../core/state.js';
 import type { AideClaudeReleve } from './renfortReleve.js';

@@ -9,7 +9,7 @@
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { distancePointSegment } from '../geometry/segments.js';
-import { facadesDuContour, pointDeFacade } from './geometrie.js';
+import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
 import { facettesToit } from './toits/toit.js';
 import { mesurerFacade, type ContexteFacade, type MesureFacade } from '../model/mesureFacade.js';
 import type { FichierAuditParcelle } from '../model/fichierAuditParcelle.js';
