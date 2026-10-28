@@ -16,6 +16,7 @@ import type { Champ, ChampBouton, ChampNombre, ChampTexture, ContexteChamps } fr
 import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import { CarteToit } from './CarteToit.js';
 import { Icone } from '../icones.js';
+import { estOuvrage, CHEMIN } from '../../model/ouvrages/index.js';
 
 /** Les commandes prennent leur forme tactile sur telephone et tablette. */
 export const Tactile = createContext(false);
@@ -117,7 +118,7 @@ function Texture({ champ, c, inspecteur }: PropsChamp<ChampTexture>) {
   const actif = champActif(champ, c);
   const choisir = () => c.choisirTexture(champ.libelle, (choix, tous) => {
     inspecteur.appliquer(champ, c, () => { if (tous && champ.appliquerATous) champ.appliquerATous.ecrire(c, choix); else champ.ecrire(c, choix); });
-  }, champ.appliquerATous && c.obj.fonction === 'chemin' ? { checkboxLabel: champ.appliquerATous.libelle } : undefined);
+  }, champ.appliquerATous && estOuvrage(c.obj, CHEMIN) ? { checkboxLabel: champ.appliquerATous.libelle } : undefined);
   return (
     <span className="champTexture">
       {tex && <img src={tex.vignette || ''} alt="" className="vignette" />}
