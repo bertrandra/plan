@@ -5,6 +5,9 @@
 //   BACKPROD_API_URL=http://plateforme.test npx vite --port 5199 --strictPort   # en arriere-plan
 //   NODE_PATH=$(npm root -g) node scripts/banc-rendu.mjs http://localhost:5199 [150 300 600]
 //
+// BANC_ESSAIS=n : le nombre de rendus mesures par taille (9 par defaut ; davantage sur une machine partagee, ou les temps varient).
+// BANC_ZONES=1 (serveur de developpement) : pour chaque taille, les zones React qui se sont redessinees pendant les rendus mesures,
+// combien de fois et pour combien de temps (Profiler de React, zones/monter.tsx).
 // BANC_PROFIL=1 : au bureau, a la premiere taille, le profil de dix rendus (fonctions de src/, temps inclusif) : ce qui coute.
 //
 // Deux cibles. Le serveur de developpement donne le profil (BANC_PROFIL=1, noms de src/), mais React y tourne en mode developpement,
@@ -30,7 +33,7 @@ try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(
 const base = process.argv[2] || 'http://localhost:5199';
 const tailles = process.argv.slice(3).map(Number).filter(Boolean);
 const TAILLES = tailles.length ? tailles : [150, 300, 600];
-const ESSAIS = process.env.BANC_PROFIL ? 10 : 9;
+const ESSAIS = Number(process.env.BANC_ESSAIS) || (process.env.BANC_PROFIL ? 10 : 9);
 const APPAREILS = [
   { nom: 'bureau', viewport: { width: 1440, height: 900 }, ralenti: 1, budget: 16 },
   { nom: 'téléphone', viewport: { width: 390, height: 844 }, ralenti: 4, budget: 33, mobile: true }
@@ -107,6 +110,7 @@ for (const a of APPAREILS) {
       // derriere elle. Le temps compte donc le plan et les zones, sans l'attente de l'image suivante.
       const apresReact = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
       window.__plan.rendre(); await apresReact(); // le premier rendu pose les noeuds ; on mesure les suivants
+      window.__dureesZones = {};
       const t = [], plan = [];
       for (let i = 0; i < essais; i++) {
         const debut = performance.now();
@@ -116,8 +120,13 @@ for (const a of APPAREILS) {
       }
       t.sort((x, y) => x - y); plan.sort((x, y) => x - y);
       const noeuds = document.querySelectorAll('#stage svg *').length;
-      return { objets: etat.objects.length, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)], noeuds };
+      return { zones: window.__dureesZones, objets: etat.objects.length, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)], noeuds };
     }, { n, essais: ESSAIS });
+    if (process.env.BANC_ZONES) {
+      const z = Object.entries(r.zones ?? {}).sort((x, y) => y[1].ms - x[1].ms);
+      console.log(`zones redessinées (${ESSAIS} rendus) : ` + (z.map(([k, v]) => `${k} ${v.rendus}× ${v.ms.toFixed(0)} ms`).join(', ') || 'aucune'));
+    }
+    delete r.zones;
     if (profiler) imprimerProfil((await cdp.send('Profiler.stop')).profile);
     const ligne = { appareil: a.nom, ...r, budget: a.budget };
     lignes.push(ligne);

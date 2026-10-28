@@ -9,6 +9,7 @@ import { useStore } from 'zustand';
 import { APP_VERSION, SCHEMA_VERSION, API_VERSION, versionLongue } from '../model/version.js';
 import type { Magasin } from '../app/magasin.js';
 import { texteStatut } from './statut.js';
+import { useCle, cleEtat } from './composants/abonnement.js';
 import { lectureToits } from '../core/lectureToits.js';
 import { modeDiagnostic, compterDiagnostic, LEGENDES, COULEURS_DIAGNOSTIC } from '../app/diagnostic.js';
 
@@ -20,7 +21,8 @@ const metres = (v: number) => (Math.round(v * 100) / 100).toLocaleString('fr-FR'
 export function BarreEtat({ magasin }: { magasin: Magasin }) {
   const p = useStore(magasin.store, (s) => s.projet);
   const pointeur = useStore(magasin.store, (s) => s.pointeur);
-  useStore(magasin.store, (s) => s.version);
+  // Le plan (selection, lecture seule, legende du diagnostic) et l'echelle de la vue.
+  useCle(magasin, 'barre d\'état', (s) => cleEtat(s) + '|' + Math.round(s.etat.scene.scale));
   const etat = magasin.store.getState().etat;
   const selection = etat.selectedKey ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
 

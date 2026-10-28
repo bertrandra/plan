@@ -4,8 +4,8 @@
 // poser ni valider, il demande. La facade choisie se dit dans l'indice ; tant qu'aucune ne l'est, l'indice invite a toucher un mur.
 
 import { useEffect, useState } from 'react';
-import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { enPoints } from '../../model/formes.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import { reglesAllumees } from '../../app/ecouteurs/toitCatalogue.js';
@@ -138,7 +138,8 @@ function corpsCible(corps: readonly CorpsToit[], sel: CibleElement | null): stri
 }
 
 export function ModeToit({ magasin, commandes }: Props) {
-  useStore(magasin.store, (s) => s.version);
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'mode Toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
   const [onglet, setOnglet] = useState<FamillePiece>('toit');
   // Sur telephone le panneau est une feuille : repliee, elle ne laisse que sa barre et la scene respire.
   const [replie, setReplie] = useState(false);

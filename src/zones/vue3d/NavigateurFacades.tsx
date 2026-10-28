@@ -5,9 +5,9 @@
 // celui du batiment, nord en haut (l'axe y du plan va vers le bas de l'ecran).
 
 import { useState } from 'react';
-import { useStore } from 'zustand';
 import { Icone } from '../icones.js';
 import { facadesDeSession, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
@@ -23,7 +23,8 @@ function polygones(facades: readonly FacadeVisee[]): Map<number | null, FacadeVi
 }
 
 export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
-  useStore(magasin.store, (s) => s.version);
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'façades du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
   // Sur telephone le plan se replie en un bouton : il ne couvre la scene que si on l'ouvre.
   const [ouvert, setOuvert] = useState(() => typeof document === 'undefined' || document.documentElement.dataset.classe !== 'compact');
   const s = sessionToit();

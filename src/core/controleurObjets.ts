@@ -40,3 +40,14 @@ export function versionObjet(o: object): string {
 export function versionEnsemble(): string {
   return generale + '.' + compteur;
 }
+
+// Un tableau d'objets remplace (ouverture, import, annulation) est un autre plan, meme si aucun objet n'a ete touche.
+const tableaux = new WeakMap<readonly object[], number>();
+let prochainTableau = 0;
+
+/** La cle des objets : le tableau qui les tient et la version de l'ensemble ; la meme tant que rien n'a ete ecrit. */
+export function cleDesObjets(objets: readonly object[]): string {
+  let t = tableaux.get(objets);
+  if (t === undefined) { t = ++prochainTableau; tableaux.set(objets, t); }
+  return t + ':' + versionEnsemble();
+}

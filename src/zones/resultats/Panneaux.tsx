@@ -5,7 +5,6 @@
 // (`panelBom`, `terrasseBomTable`…) : la feuille de style, la liste de fumee et
 // `tests/unit/zones/identifiants.test.ts` les retrouvent par eux.
 
-import { useStore } from 'zustand';
 import { ONGLETS } from '../../app/tiroir.js';
 import { Nomenclature } from './Nomenclature.js';
 import { Coupe } from './Coupe.js';
@@ -22,12 +21,18 @@ import type { Inspecteur as ServiceInspecteur } from '../../app/inspecteur.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import { mesure } from '../../interaction/outilMesure.js';
+import { useCle, cleEtat } from '../composants/abonnement.js';
 
 /** `inspecteur` : le service qui ecrit les champs des onglets d'un ouvrage (prix d'une piscine, d'un abri). */
 export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes; inspecteur: ServiceInspecteur }
 
 export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }: PropsPanneaux) {
-  useStore(magasin.store, (s) => s.version);
+  // Le plan, l'etat d'interface que tient le service des resultats (PLU en cours, resume, optimisation, ligne du profil), et le
+  // brouillon de la cote. Les boutons de commande suivent chacun la leur.
+  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + JSON.stringify([resultats.pluEnCours(), resultats.resume().affichage,
+    resultats.optimisationVisible(), resultats.ligneProfil(), resultats.lieu(), mesure.pointage?.mode, mesure.ref, mesure.startEnd, mesure.cibles,
+    ['mesure.choisirReference', 'mesure.origine', 'mesure.selectionnerCoins', 'mesure.ajouter', 'mesure.afficher', 'mesure.supprimer'].map((id) => commandes.etat(id).utilisable)]));
   const actif = magasin.store.getState().etat.panelTab;
   const onglet = ONGLETS.find(o => o.id === actif);
   if (!onglet) return null;

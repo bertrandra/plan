@@ -10,6 +10,7 @@
 // Il tient aussi trois etats d'interface qui ne s'enregistrent pas : le texte de la zone Resume,
 // l'interrogation du PLU en cours, et l'ouverture du bloc d'optimisation de l'inspecteur.
 
+import { toucher } from '../core/controleurObjets.js';
 import { computeBOM } from '../engine/bom.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
@@ -108,6 +109,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     if (obj) {
       const c = ensureConstruction(obj);
       c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
+      toucher(obj); // la nomenclature est ecrite dans l'objet : l'ecriture le nomme (core/controleurObjets.ts)
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();

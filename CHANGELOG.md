@@ -70,6 +70,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Un rendu du plan sans changement ne redessine plus ni les zones ni les calques du dessus** (feuille de route, étapes 2.2 et
+  6.5). Chaque zone de l'interface s'abonne à ce qu'elle montre — une clé faite de la version des objets, de l'état d'interface du
+  plan, de l'état de ses commandes et des outils (`zones/composants/abonnement.ts`, `useCle`) — au lieu de se redessiner à chaque
+  rendu du plan ; une entrée de menu ou un bouton de commande suit sa seule commande. Les calques du dessus du plan (ombres des
+  parasols, piscines, pergolas, relevés et clôture, cotes, échelle, nord, couches) gardent la clé de leur dernier dessin
+  (`render/calquesGardes.ts`), l'empilement ne déplace plus rien s'il est déjà dans l'ordre (`poserEnQueue`), et la photo aérienne
+  n'écrit que les attributs qui changent. En développement, une zone ou un calque sauté est quand même redessiné et comparé : un
+  écart s'écrit `[cle de version]`, que la fumée fait échouer. Une écriture d'un champ de l'inspecteur et la nomenclature écrite dans
+  la terrasse touchent désormais leur objet. Au banc de production, à 600 objets, un rendu sans changement passe au téléphone de
+  73–78 ms à 7,5–27,6 ms (seuil 33 ms), au bureau de 30 ms à 1,2–1,5 ms. Rien ne change à l'écran ni dans les fichiers.
+  `scripts/banc-rendu.mjs` gagne `BANC_ZONES=1` (les zones redessinées, en développement) et `BANC_ESSAIS=n`.
+
 - **Une seule hiérarchie décide qui l'emporte sur un bâtiment** (décision du 28 octobre 2026) : la personne, puis ce qui a été vu
   sur place, le fait du moteur de règles, la mesure LiDAR, la BD TOPO, le défaut. Un écrivain automatique n'écrit plus qu'une
   valeur de son niveau ou d'un niveau plus faible (`model/protections.ts`). Ce qui change : **le LiDAR bat l'IGN** — l'actualisation

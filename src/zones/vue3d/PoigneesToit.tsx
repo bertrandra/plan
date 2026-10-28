@@ -8,8 +8,8 @@
 // Une bulle donne les cotes de l'element, des guides en pointille disent contre quel bord il s'est colle.
 
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
@@ -100,7 +100,8 @@ function enMetres(dx: number, dy: number, axes: readonly Axe[], v: Partial<Recor
 interface Glisse { id: string; depart: CorpsToit[]; x0: number; y0: number; cible: CibleGlisser; poignee: Poignee; vecteurs: Partial<Record<Axe, Ecran>> }
 
 export function PoigneesToit({ magasin }: { magasin: Magasin }) {
-  useStore(magasin.store, (s) => s.version);
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'poignées du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
   const [, redessiner] = useState(0);
   const [guides, setGuides] = useState<number[]>([]);
   const glisse = useRef<Glisse | null>(null);

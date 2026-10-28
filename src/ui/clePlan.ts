@@ -10,10 +10,7 @@
 // (une ecriture qui n'aurait pas touche son objet) s'ecrit `[cle de version]` dans la console, et la fumee echoue.
 
 import type { ObjetPlan } from '../model/types.js';
-import { versionEnsemble } from '../core/controleurObjets.js';
-
-const tableaux = new WeakMap<readonly ObjetPlan[], number>();
-let prochainTableau = 0;
+import { cleDesObjets } from '../core/controleurObjets.js';
 
 // Les grilles d'altitudes entrent dans la serialisation de verification par leur identite : jamais modifiees sur place, seulement
 // remplacees.
@@ -43,11 +40,15 @@ function champQuiDiffere(a: string, b: string): string {
   } catch { return '?'; }
 }
 
+/**
+ * La cle des objets seule, sans le garde-fou (core/controleurObjets.ts) : celle que les zones et les calques du plan mettent dans
+ * leur cle, qui ont le leur (ils comparent ce qu'ils montrent).
+ */
+export { cleDesObjets };
+
 /** La cle du plan : la meme tant que rien n'a ete ecrit. */
 export function cleDuPlan(objets: readonly ObjetPlan[]): string {
-  let t = tableaux.get(objets);
-  if (t === undefined) { t = ++prochainTableau; tableaux.set(objets, t); }
-  const cle = t + ':' + versionEnsemble();
+  const cle = cleDesObjets(objets);
   if (verifier()) {
     const plan = new Map(objets.map((o) => [o.key, JSON.stringify(o, grilleParIdentite)]));
     const avant = vus.get(cle);

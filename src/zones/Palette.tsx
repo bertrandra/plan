@@ -10,7 +10,7 @@
 
 import { useStore } from 'zustand';
 import type { Magasin } from '../app/magasin.js';
-import { useVersionVisible } from './composants/versionVisible.js';
+import { useCle } from './composants/abonnement.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import { Icone, type NomIcone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
@@ -52,9 +52,12 @@ const GROUPES: Groupe[] = [
 ];
 
 export function Palette({ magasin, commandes }: PropsPalette) {
-  // La version du plan et l'etat de la pile d'annulation : ce sont les deux choses qui changent ce
-  // qu'un outil peut faire. Les lire ici suffit a redessiner la palette quand elles bougent.
-  useVersionVisible(magasin, 'palette');
+  // L'etat de chaque outil, et le nom de la selection (titre de la feuille) ; la pile d'annulation se lit dans le magasin. La
+  // palette ne se redessine que si l'un d'eux change, et pas cachee.
+  useCle(magasin, 'palette', (s) => {
+    const e = s.etat;
+    return JSON.stringify([GROUPES.map((g) => g.outils.map((o) => commandes.etat(o.id))), e.objects.find((o) => o.key === e.selectedKey)?.name]);
+  }, 'palette');
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

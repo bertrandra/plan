@@ -20,6 +20,7 @@ import { suivreTableaux } from '../ui/tableau.js';
 import { terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { Icone } from './icones.js';
+import { useCle, cleEtat } from './composants/abonnement.js';
 import type { Magasin } from '../app/magasin.js';
 import type { Explorateur } from '../app/explorateur.js';
 import type { RegistreCommandes } from '../app/commandes.js';
@@ -106,7 +107,9 @@ const LIBELLE_HAUTEUR: Record<HauteurTiroir, [string, string]> = {
 };
 
 export function Resultats({ magasin, tiroir, explorateur, commandes }: PropsResultats) {
-  useStore(magasin.store, (s) => s.version);
+  // Le plan (terrasse courante, chiffrage, onglet actif), les onglets offerts, et la commande du dossier.
+  useCle(magasin, 'barre des résultats', (s) => cleEtat(s) + JSON.stringify([tiroir.onglets().map((o) => o.id + o.libelle),
+    commandes ? [commandes.effacee('export.dossier'), commandes.etat('export.dossier')] : null]));
   const hauteur = useStore(magasin.store, (s) => s.tiroir);
   const classe = useStore(magasin.store, (s) => s.classe);
   const etat = magasin.store.getState().etat;

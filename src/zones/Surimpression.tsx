@@ -18,6 +18,7 @@ import type { Pointage } from '../interaction/outilMesure.js';
 import { Icone } from './icones.js';
 import { libelleIsoler, objetAIsoler } from '../app/isolement.js';
 import { niceStep } from '../util/format.js';
+import { useCle, cleEtat } from './composants/abonnement.js';
 
 /** Le pointage en cours de l'outil de cotation ou d'alignement, et le moyen d'en sortir. */
 export interface ServicePointage {
@@ -52,7 +53,12 @@ function consigne(p: Pointage): string {
 }
 
 export function Surimpression({ magasin, commandes, pointage }: PropsSurimpression) {
-  useStore(magasin.store, (s) => s.version);
+  // Le plan (grille, Nord, selection, isolement), l'echelle de la vue, le pointage en cours et la commande d'isolement.
+  useCle(magasin, 'surimpression', (s) => {
+    const echelle = s.etat.scene.scale, p = pointage.courant();
+    return cleEtat(s) + JSON.stringify([Math.round(echelle), Math.round(niceStep(48 / echelle) * echelle), niceStep(48 / echelle), p && [p.mode, p.purpose],
+      commandes.etat('terrasse.isoler').utilisable]);
+  });
   const classe = useStore(magasin.store, (s) => s.classe);
   const pointeur = useStore(magasin.store, (s) => s.pointeur);
   const etat = magasin.store.getState().etat;

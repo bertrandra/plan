@@ -17,6 +17,7 @@ import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { dialogues } from '../shell/dialogues.js';
 import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
+import { cleDesObjets } from '../core/controleurObjets.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
@@ -197,8 +198,22 @@ function ouvrirDialogueMiseAJour(id: string, de: number, mettreAJour: () => Prom
 
 const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+/**
+ * Le schema a ecrire est-il anterieur a celui du programme ? Repris tant que le plan n'a pas change (core/controleurObjets.ts) :
+ * le schema minimal parcourt tous les objets, et l'etat de « Mettre a jour le modele » se lit a chaque rendu du plan.
+ */
+function retardMemorise(): (etat: EtatApp) => boolean {
+  let retard: { cle: string; valeur: boolean } | null = null;
+  return (etat) => {
+    const cle = cleDesObjets(etat.objects) + '|' + etat.schemaProjet;
+    if (retard?.cle !== cle) retard = { cle, valeur: schemaAEcrire(etat.objects, etat.schemaProjet) < SCHEMA_VERSION };
+    return retard.valeur;
+  };
+}
+
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
+  const schemaEnRetard = retardMemorise();
   let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
   let echec = '';
 
@@ -220,7 +235,7 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
 
   /** Le projet ouvert est d'un schema anterieur au programme, et ce qu'il porte ne l'a pas deja monte. */
   function enRetard(): boolean {
-    return seed.apiAvailable && !!courant && schemaAEcrire(ctx.etat.objects, ctx.etat.schemaProjet) < SCHEMA_VERSION;
+    return seed.apiAvailable && !!courant && schemaEnRetard(ctx.etat);
   }
 
   const charge = () => chargeDuProjet(ctx);

@@ -5,6 +5,7 @@
 // les identifiants de chaque vue (`IdsSoleil`), que la feuille de style et la liste de fumee retrouvent.
 
 import { useStore } from 'zustand';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { Icone } from '../icones.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -106,7 +107,9 @@ export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSol
  * point de vue selectionne ferait croire qu'on y est reste, alors que la camera a pu bouger.
  */
 export function ListePointsDeVue({ vue, id, magasin, aller }: { vue: 'vue3d' | 'visionneuse'; id: string; magasin: Magasin; aller: (vp: ObjetPlan) => void }) {
-  useStore(magasin.store, (s) => s.version);
+  // La liste ne suit le plan que sa vue a l'ecran ; elle se refait en y revenant.
+  const visible = useStore(magasin.store, (s) => s.vue) === vue;
+  useCle(magasin, 'points de vue', (s) => visible ? JSON.stringify(s.etat.objects.filter(estVueUtilisable).map((v) => [v.key, v.name])) : CLE_GELEE);
   const vues = magasin.store.getState().etat.objects.filter(estVueUtilisable);
   return (
     <select id={id} data-controle={vue + '.pointDeVue'} aria-label="Aller à un point de vue enregistré" value="" disabled={vues.length === 0}
