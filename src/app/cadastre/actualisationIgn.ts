@@ -27,7 +27,8 @@ import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeo
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { volumesRecalcules, batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche } from './actualisationIgn/toitsEtMurs.js';
+import { volumesRecalcules, batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation } from './actualisationIgn/toitsEtMurs.js';
+import { peutEcrire, type ContexteEcriture } from '../../model/protections.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -221,6 +222,46 @@ function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: Obj
   return ctx.serializeObjects(nouveaux).map(versMemoire);
 }
 
+/** Les attributs BD TOPO d'un objet importe, tels que l'actualisation les lit et les reecrit. */
+type BdTopoObjet = { couche?: string; id?: string; hauteurRetenueM?: number; nature?: string; usage1?: string };
+
+/**
+ * Un objet IGN sur son contour et ses attributs du jour. Nom, couleurs, verrouillage et textures sont des choix de l'utilisateur :
+ * l'actualisation ne touche qu'a la geometrie et aux attributs IGN, et d'un batiment, qu'a ce que model/protections.ts lui permet
+ * (un toit saisi ou lu sur une photo reste). `toitDeduit` : un toit en pente deduit de la BD TOPO, pour le bilan.
+ */
+function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p: Record<string, unknown>, permis: ContexteEcriture): { objet: ObjetBrut; toitDeduit: boolean } {
+  const haut = bdtopo.couche === COUCHE_BATIMENT
+    ? hauteurBatiment(p)
+    : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
+  const toit = bdtopo.couche === COUCHE_BATIMENT && peutEcrire(o, 'ign', 'toit', permis) ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
+  const toitDeduit = !!toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat';
+  const volumesToit = volumesRecalcules(o, pts, toit);
+  const objet = Object.assign({}, sansRetouche(o), {
+    pts,
+    vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
+    segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
+    frozenVertices: pts.map(()=>false),
+    elevation: peutEcrire(o, 'ign', 'hauteur', permis) ? haut : o.elevation,
+    // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
+    // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
+    ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
+      ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
+      ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
+    bdtopo: Object.assign({}, bdtopo, {
+      nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
+      hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
+      nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
+      altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
+      altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True', ...materiauxBdTopo(p),
+      etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
+      identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
+      recupereLe: new Date().toISOString()
+    })
+  });
+  return { objet, toitDeduit };
+}
+
 export async function actualiserDepuisIgn(options: OptionsActualisation | null | undefined, ctx: ContexteActualisation): Promise<void> {
   options = options || { portee:'tout', voisinage:{actif:false} };
   const parcelle = ctx.trouverParcelleCloture();
@@ -276,7 +317,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, contour)); });
         return parcelleRelue(o, contour, relue);
       }
-      const bdtopo = o.bdtopo as { couche?: string; id?: string; hauteurRetenueM?: number; nature?: string; usage1?: string } | undefined;
+      const bdtopo = o.bdtopo as BdTopoObjet | undefined;
       if(bdtopo && bdtopo.couche && bdtopo.couche !== 'estimation'){
         const f = fraiches[bdtopo.id as string];
         if(!f){ nAbsents++; return o; }
@@ -284,38 +325,10 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         if(!anneau){ nAbsents++; return o; }
         const pts = anneauVersPts(anneau, proj, simplifier);
         if(pts.length < 3){ nAbsents++; return o; }
-        const p: Record<string, unknown> = f.properties || {};
         nMaj++;
-        // Nom, couleurs, verrouillage et textures sont des choix de l'utilisateur : l'actualisation
-        // ne touche qu'a la geometrie et aux attributs IGN.
-        const haut = bdtopo.couche === COUCHE_BATIMENT
-          ? hauteurBatiment(p)
-          : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
-        const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
-        if(toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
-        const volumesToit = volumesRecalcules(o, pts, toit);
-        return Object.assign({}, sansRetouche(o), {
-          pts,
-          vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
-          segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
-          frozenVertices: pts.map(()=>false),
-          elevation: haut,
-          // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
-          // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
-          ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
-            ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
-            ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
-          bdtopo: Object.assign({}, bdtopo, {
-            nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
-            hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
-            nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
-            altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True', ...materiauxBdTopo(p),
-            etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
-            identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
-            recupereLe: new Date().toISOString()
-          })
-        });
+        const relu = objetIgnRelu(o, bdtopo, pts, f.properties || {}, contexteActualisation(o, options));
+        if(relu.toitDeduit) nToits++;
+        return relu.objet;
       }
       return o;
     });

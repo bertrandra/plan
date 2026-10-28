@@ -28,7 +28,7 @@ import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeP
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../../facade/regles/toits/faits.js';
 import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
-import { estVerifieSurPlace } from '../../model/toitVerifie.js';
+import { peutEcrire } from '../../model/protections.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
@@ -265,10 +265,9 @@ const EN_PARALLELE = 4;
 /** Un batiment dont Plan choisit le toit : pas de toit, ou un toit BD TOPO ou LiDAR. */
 export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } {
   if (o.fonction !== 'batiment' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
-  // « Règles » coupées pour ce batiment (palette › Toit) : la lecture automatique ne le touche pas.
-  if (o.batiment?.toitFige) return false;
-  const s = o.batiment?.toit?.source;
-  return !o.batiment?.toit || s === 'bdtopo' || s === 'lidar';
+  // « Règles » coupées, toit saisi ou lu sur une photo (model/protections.ts) : la lecture automatique ne le touche pas. Un
+  // batiment verifie sur place reste eligible : la tache de fond lit sa copie pour la comparer (`admis` l'ecarte du plan).
+  return peutEcrire(o, 'lidar', 'toit', { relireVerifies: true });
 }
 
 /**
@@ -385,7 +384,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
   // Un batiment verifie sur place est le 100 % du projet (spec des regles §1) : on ne le relit pas sans qu'on le demande.
-  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && (options.verifies === 'relire' || !estVerifieSurPlace(o.batiment));
+  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && peutEcrire(o, 'lidar', 'toit', { relireVerifies: options.verifies === 'relire' });
   const candidats = options.candidats
     ? options.candidats.filter(admis)
     : objets
@@ -429,7 +428,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
       // recale, d'un bloc, sur le LiDAR (MD/spec-toit-ign.md §13.7).
       // Un contour retouche a la main (`retoucheMain`, model/retouche.ts) est celui de la personne : le toit se lit dessus, il ne se recale pas.
-      if (grille && lireGrille && (principal || estMitoyen(o)) && !o.retoucheMain) {
+      if (grille && lireGrille && (principal || estMitoyen(o)) && peutEcrire(o, 'recalage', 'contour', { relireVerifies: options.verifies === 'relire' })) {
         const large = await recalerSurLidar(o, grille, proj, lireGrille, seuils);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }

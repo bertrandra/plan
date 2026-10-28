@@ -8,12 +8,11 @@ import { couleursToitsDepuisOrtho } from '../../../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from '../../toits/toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../render/couleurMurPhoto.js';
 import { materiauMurs } from '../../../model/couleurMur.js';
-import { estVerifieSurPlace } from '../../../model/toitVerifie.js';
+import { peutEcrire, type ContexteEcriture } from '../../../model/protections.js';
 import { estRetoucheMain, libelleReprendre } from '../../../model/retouche.js';
 import type { ProjecteurLocal } from '../../../geo/projection.js';
 import type { ObjetBrut, ObjetPlan, PtBrut, Toit, VolumeToit } from '../../../model/types.js';
 import type { OptionsActualisation } from '../optionsActualisation.js';
-import { champsBatiment } from '../../../model/champsFonction.js';
 
 /**
  * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
@@ -43,11 +42,15 @@ export function volumesRecalcules(o: { batiment?: { toit?: Toit | null } | null;
  * qu'ils portent : un batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
  */
 export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  const reprendre = new Set(options.reprendre ?? []);
-  const garde = (o: ObjetBrut) => o.batiment?.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o.batiment))
-    || (estRetoucheMain(o) && !reprendre.has(o.key as string));
+  // Garde entier : l'actualisation n'a pas le droit d'en ecrire le contour (model/protections.ts).
+  const garde = (o: ObjetBrut) => !peutEcrire(o, 'ign', 'contour', contexteActualisation(o, options));
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
+}
+
+/** Ce que la personne a demande a cette actualisation pour cet objet : « Recalculer aussi » les verifies, reprendre la version de l'IGN. */
+export function contexteActualisation(o: ObjetBrut, options: OptionsActualisation): ContexteEcriture {
+  return { relireVerifies: options.verifies === 'relire', reprendreIgn: (options.reprendre ?? []).includes(o.key as string) };
 }
 
 /**
@@ -68,20 +71,13 @@ export function sansRetouche<T extends ObjetBrut>(o: T): T {
 }
 
 /**
- * Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. Un
- * batiment retouche a la main ressort tel que la personne l'a laisse : tout ce qu'il porte de son toit est remis (la lecture du
- * LiDAR, qui ne connait que les batiments verifies, l'aurait relu sur son contour).
+ * Ce que les lectures qui suivent poseraient sur un batiment garde (couleur du toit, forme lue au LiDAR, couleur des murs), remis
+ * apres elles : rend la remise. L'actualisation n'a le droit de rien ecrire sur lui (model/protections.ts) : il ressort tel que la
+ * personne l'a laisse, son toit et sa hauteur compris.
  */
 function figer(o: ObjetBrut): () => void {
-  if (estRetoucheMain(o)) {
-    const batiment = structuredClone(o.batiment), elevation = o.elevation;
-    return () => { if (batiment === undefined) delete o.batiment; else o.batiment = batiment; if (elevation === undefined) delete o.elevation; else o.elevation = elevation; };
-  }
-  const toit = structuredClone(o.batiment?.toit), couleurMurs = structuredClone(o.batiment?.couleurMurs);
-  return () => {
-    if (toit === undefined) delete o.batiment?.toit; else champsBatiment(o).toit = toit;
-    if (couleurMurs === undefined) delete o.batiment?.couleurMurs; else champsBatiment(o).couleurMurs = couleurMurs;
-  };
+  const batiment = structuredClone(o.batiment), elevation = o.elevation;
+  return () => { if (batiment === undefined) delete o.batiment; else o.batiment = batiment; if (elevation === undefined) delete o.elevation; else o.elevation = elevation; };
 }
 
 /**

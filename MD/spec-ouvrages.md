@@ -1033,20 +1033,33 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 
 ### Qui l'emporte
 
-| Marque | Posée par | Arrête | N'arrête pas | Lignes de garde |
-|---|---|---|---|---|
-| `toitFige` | Mode Toit, éléments de façade de l'inspecteur, « Règles » coupées | LiDAR à l'import, en fond et à l'actualisation ; l'actualisation entière (le bâtiment est gardé, `pts` compris) | l'audit ; l'orthophoto ; Panoramax | `toitsLidar.ts:267` ; `toitsFond.ts:148`, :262 ; `toitsEtMurs.ts:47` |
-| `verifieSurPlace` | « Valider » de l'audit, bâtiment tout vu | LiDAR (lu en copie, comparé : `lectureDAccord`) ; couleur du toit en fond ; profil de façades ; l'actualisation sauf « Recalculer aussi » | l'audit ; l'inspecteur ; le Mode Toit | `toitsLidar.ts:386` ; `toitsFond.ts:113`, :150-156, :161 ; `profilsFacadesFond.ts:35` ; `toitsEtMurs.ts:47` |
-| `retoucheMain` | retouche du contour acceptée | l'actualisation (gardé, puis `batiment` et `elevation` remis) | le LiDAR (relit le toit, peut recaler `pts`) | `toitsEtMurs.ts:48`, :76-79 |
-| `toit.source` = `saisie` ou `photo` | inspecteur (forme, hauteur), forme du catalogue, relevé avec toit | **tout** le LiDAR du bâtiment : forme, corps, `elevation`, recalage ; le recalcul BD TOPO du toit à l'actualisation | l'actualisation de `pts` et `elevation` ; l'audit (il le dit : « choix remplacé ») | `toitsLidar.ts:268-269` ; `model/toitBdTopo.ts:87` ; `app/audit/parcelle/constats.ts:37`, :45 |
-| absence d'`origineCouleur` | couleur choisie | orthophoto, actualisation | — | `couleurToitOrtho.ts:60-62` ; `toitBdTopo.ts:88-92` |
-| `toitLidarLu` à jour | la lecture | une nouvelle lecture en fond | l'import, l'actualisation (qui l'effacent ou ne le lisent pas) | `toitsFond.ts:113` |
-| `depuisAudit` absent sur un relevé | relevé à la main | le remplacement automatique par l'audit | « Valider » d'une ligne décochée | `arbitrages.ts:358-359`, `validation.ts:364-370` |
-| `elevation` | — | **rien** : aucune marque | — | — |
+*Depuis le 28 octobre 2026, une seule règle : `model/protections.ts`.* Chaque écrivain automatique demande à `peutEcrire(o,
+écrivain, groupe)` s'il peut écrire un groupe de champs du bâtiment ; plus aucun ne lit les marques à la main. Le tableau est
+`REGLES` ; `tests/unit/model/protections.test.ts` l'épingle case par case (chaque marque posée seule, chaque écrivain, chaque
+groupe), et le voici. « — » : l'écrivain n'écrit jamais ce groupe ; sinon, les marques qui l'arrêtent (« libre » : aucune).
 
-Quand deux sources écrivent le même champ, la dernière gagne, sauf ces marques. En pratique : l'actualisation IGN réécrit
-`elevation` et `pts` de tout bâtiment non gardé ; la relecture LiDAR réécrit `toit`, `corpsToit`, `elevation` de tout bâtiment
-dont le toit est `bdtopo` ou `lidar` et sans `toitFige` ni `verifieSurPlace`, dès que sa version change.
+| Écrivain | Contour (`pts`) | Hauteur à l'égout (`elevation`) | Toit et corps | Éléments posés sur les corps | Couleur et couverture du toit | Murs (`couleurMurs`) | Façades (relevés, fenêtres, profil) |
+|---|---|---|---|---|---|---|---|
+| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (gardées) | — | — |
+| Recalage LiDAR (projet et mitoyens) | figé, vérifié, retouché, toit saisi, toit photo | — | — | — | — | — | — |
+| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — | — | vérifié |
+| Actualisation IGN (`actualisationIgn.ts`, `toitsEtMurs.ts`) | figé, vérifié, retouché | figé, vérifié, retouché | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché | figé, vérifié, retouché |
+| Audit : proposition cochée d'office (`constats.ts`) | — | hauteur d'un bâtiment dessiné | figé, toit saisi | libre | couverture choisie | matériau choisi | relevé à la main sur ce mur |
+
+Les marques : **figé** `toitFige` (« Règles » coupées : Mode Toit, éléments de façade de l'inspecteur, toit validé par l'audit) ;
+**vérifié** `verifieSurPlace` (audit validé, bâtiment tout vu ; « Recalculer aussi » de l'actualisation la lève, et la tâche de
+fond lit sa copie pour comparer sans rien écrire que `toitLidarLu`) ; **retouché** `retoucheMain` (contour retouché ; « Reprendre
+la version de l'IGN » la lève) ; **toit saisi**, **toit photo** : `toit.source`. Pour l'audit, être arrêté veut dire que la
+proposition arrive décochée, « choix remplacé » ; « Valider » écrit quand même ce que la personne coche.
+
+Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
+(`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`) ; `toitLidarLu` à jour arrête une
+nouvelle lecture en fond ; un relevé sans `depuisAudit` n'est jamais remplacé d'office par l'audit (`arbitrages.ts:358-359`).
+
+*Avant le 28 octobre 2026* (relevé du même jour, commit `e4d89f97`) : quatre marques, lues chacune par une partie des écrivains,
+à la main — `toitFige` par le LiDAR et l'actualisation, `verifieSurPlace` par le LiDAR, la couleur et le profil de façades,
+`retoucheMain` par l'actualisation et le recalage, `toit.source` par le LiDAR et l'actualisation du toit — et `elevation` sans
+aucune : la dernière source gagnait.
 
 ### Les dépendances
 

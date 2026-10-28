@@ -33,7 +33,7 @@ import { centroid } from '../../geometry/basic.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { ProgressionToits } from '../../core/lectureToits.js';
 import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
-import { estRetoucheMain } from '../../model/retouche.js';
+import { peutEcrire } from '../../model/protections.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
@@ -152,14 +152,16 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
   const o = objets.find((x) => x.key === copie.key);
   if (!o || empreinte(o) !== avant || !toitAAjuster(o as ObjetAToit)) return false;
   if (forme) {
-    const verifie = estVerifieSurPlace(o.batiment);
-    if (!verifie) {
+    // Ce que la lecture peut ecrire sur le batiment du plan (model/protections.ts) : d'un batiment verifie sur place, rien que sa
+    // marque ; d'un contour retouche a la main, pas le contour (toitsLidar.ts ne le recale pas non plus).
+    const toit = peutEcrire(o, 'lidar', 'toit');
+    if (toit) {
       const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
-      // Un contour retouche a la main ne bouge pas : la lecture n'en ecrit que la hauteur (toitsLidar.ts ne le recale pas non plus).
-      for (const k of CHAMPS_LUS) if (k !== 'pts' || !estRetoucheMain(o)) cible[k] = source[k] === undefined ? null : source[k];
+      const permis = { pts: peutEcrire(o, 'recalage', 'contour'), elevation: peutEcrire(o, 'lidar', 'hauteur') };
+      for (const k of CHAMPS_LUS) if (permis[k]) cible[k] = source[k] === undefined ? null : source[k];
     }
     const cible = champsBatiment(o) as Record<string, unknown>, source = (copie.batiment ?? {}) as Record<string, unknown>;
-    for (const k of verifie ? CHAMPS_LUS_VERIFIE_BATIMENT : CHAMPS_LUS_BATIMENT) cible[k] = source[k] === undefined ? null : source[k];
+    for (const k of toit ? CHAMPS_LUS_BATIMENT : CHAMPS_LUS_VERIFIE_BATIMENT) cible[k] = source[k] === undefined ? null : source[k];
     // Ecrit en tache de fond : le plan et ce qui le lit le refont (core/controleurObjets.ts).
     toucher(o);
     return true;

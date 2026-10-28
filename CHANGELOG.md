@@ -70,6 +70,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une seule règle dit qui peut écrire quoi sur un bâtiment** (`model/protections.ts`). La lecture LiDAR, son recalage, le moteur
+  de règles, l'actualisation IGN et l'audit de la parcelle demandent tous au même module s'ils peuvent écrire le contour, la
+  hauteur à l'égout, le toit, ce qui est posé dessus, sa couverture, les murs ou les façades, au lieu de lire chacun une partie
+  des marques (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`). Le comportement ne change pas ; le tableau complet
+  est dans `MD/spec-ouvrages.md` (« Qui l'emporte ») et un test l'épingle case par case.
+
 - **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
   l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent
   une autre quand la clé n'était pas celle d'un import (`bati-…`). Un bâtiment sans correspondant prend une clé libre, comme avant.
