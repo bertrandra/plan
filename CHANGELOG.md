@@ -378,6 +378,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **L'actualisation IGN garde le matériau de couverture choisi** (`model/toitBdTopo.ts::toitActualise`). Un toit BD TOPO ou
+  LiDAR recalculé à l'actualisation ne gardait que sa couleur : l'ardoise ou le zinc choisis dans l'inspecteur, ou retenus par
+  l'audit, disparaissaient et la Vue 3D revenait au matériau déduit. Le matériau choisi suit maintenant le toit recalculé, comme
+  la couleur ; sans choix, rien n'est posé.
+
 - **En corps et pignons, un mur relevé ne reçoit plus les fenêtres automatiques** (`three/detailsBatiment.ts`). Les ouvertures
   d'un bâtiment en corps se posent corps par corps, et la liste des murs relevés (désignés par leur côté du contour) était
   remplacée par celle des murs communs entre corps : sur la photo du mur et ses ouvertures se posait en plus la grille des
