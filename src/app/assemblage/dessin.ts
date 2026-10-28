@@ -19,16 +19,28 @@ import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
 import { dessinerCalquePiscines } from '../../render/piscineOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
 import { toucher } from '../../core/controleurObjets.js';
+import { creerRepere } from '../../render/repere.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { aDessiner } from './formes.js';
 import type { Surface } from './surface.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../../model/types.js';
+import type { EtatScene } from '../../geometry/vue.js';
 
 export interface Dessin {
   toScreen(p: PtBrut): PtEcran;
   toWorld(p: PtEcran): PtBrut;
+  /**
+   * Suit la vue au debut d'un rendu (render/repere.ts) : le repere du dessin, garde tant que l'echelle et la taille ne changent
+   * pas, et le decalage de la vue pose sur la surface. Un deplacement de la vue ne change que ce decalage.
+   */
+  suivreLaVue(): EtatScene;
+  /** La scene dans laquelle le plan se dessine (le repere), et un point du plan dans ce repere. */
+  sceneDessin(): EtatScene;
+  versDessin(p: PtBrut): PtEcran;
+  /** L'etat du plan vu dans le repere du dessin : ce que lisent les calques poses sur le plan. */
+  etatDessin(): EtatApp;
   createObjectDOM(obj: ObjetPlan): void;
   rebuildHandles(obj: ObjetPlan): void;
   amenerPoigneesDevant(obj: ObjetPlan): void;
@@ -51,12 +63,23 @@ export interface DependancesDessin {
 export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): Dessin {
   const toScreen = (p: PtBrut) => versEcran(etat.scene, p);
   const toWorld = (p: PtEcran) => versMonde(etat.scene, p);
+  // Le repere du dessin (render/repere.ts) : les objets et les calques poses sur le plan s'y dessinent.
+  const repere = creerRepere();
+  const sceneDessin = (): EtatScene => repere.scene(etat.scene);
+  const versDessin = (p: PtBrut) => versEcran(sceneDessin(), p);
+  // Une copie de surface de l'etat, la scene remplacee par le repere : les calques la lisent sans rien y ecrire.
+  const etatDessin = (): EtatApp => ({ ...etat, scene: sceneDessin() });
   // La vue d'un objet empile a son `el` des que `creerDomObjet` l'a pose ; avant, il n'y a rien a empiler.
   const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) s.svg.appendChild(el); } }, vue });
   // Un empilement qui ne deplace rien encore : il dit l'ordre voulu, que `poserEnQueue` pose ensuite d'un coup.
   const enQueue = (q: Element[]): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) q.push(el); } }, vue });
   return {
-    toScreen, toWorld,
+    toScreen, toWorld, sceneDessin, versDessin, etatDessin,
+    suivreLaVue() {
+      const r = repere.suivre(etat.scene);
+      s.poserDecalage(r.dx, r.dy);
+      return r.scene;
+    },
     createObjectDOM: (obj) => creerDomObjet(s.svg, aDessiner(obj), etat.scene),
     rebuildHandles(obj) {
       reconstruirePoignees(aDessiner(obj), {
@@ -74,19 +97,21 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     reapplyStackingOrder: () => reappliquerEmpilement(etat.objects, ctxEmpilement()),
     drawGrid: () => dessinerGrille(s.grille, etat),
     // Les calques du dessus ne se refont que si ce qu'ils lisent a change (render/calquesGardes.ts).
-    drawNorthArrow: () => redessinerSiChange(s.nord, 'fleche du nord', cleDesCalques(etat), () => dessinerFlecheNord(s.nord, etat)),
-    drawScaleBar: () => redessinerSiChange(s.echelle, 'echelle', cleDesCalques(etat), () => dessinerEchelle(s.echelle, etat)),
+    // La fleche et l'echelle suivent l'ecran, pas le plan : dessinees dans la vue, a un coin, leur groupe compense le decalage.
+    drawNorthArrow: () => redessinerSiChange(s.nord, 'fleche du nord', cleDesCalques(etatDessin()), () => dessinerFlecheNord(s.nord, etat)),
+    drawScaleBar: () => redessinerSiChange(s.echelle, 'echelle', cleDesCalques(etatDessin()), () => dessinerEchelle(s.echelle, etat)),
     // Les cotes posees, et le brouillon de l'outil de cotation en cours de saisie.
-    drawMeasures: () => redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etat), () =>
-      dessinerCotes(s.cotes, { scene: etat.scene, objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles })),
+    drawMeasures: () => redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin()), () =>
+      dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles })),
     // La contrainte de position modifie les objets : elle s'execute avant le dessin, comme avant.
     renderParasolOverlay() {
       // Un parasol dont le mat suit le bord de sa terrasse bouge avec elle : le plan le redessine (core/controleurObjets.ts).
       contraindreParasols(etat.objects, etat.terrasseSelectedKey).forEach(toucher);
       const ctxSoleil = d.contexteSoleil();
-      const cle = cleDesCalques(etat, ctxSoleil);
+      const enDessin = etatDessin();
+      const cle = cleDesCalques(enDessin, ctxSoleil);
       redessinerSiChange([s.parasols, s.mats], 'ombres des parasols', cle, () =>
-        dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat, ctxSoleil, positionMat }));
+        dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat: enDessin, ctxSoleil, positionMat }));
       // L'ombre passe DEVANT les objets : une ombre portee se lit sur ce qu'elle couvre — la
       // terrasse, un massif, la pelouse —, pas dessous. Le calque est inerte, les clics le
       // traversent. Seuls restent au-dessus : la toile des parasols (une ombre ne couvre pas ce qui
@@ -94,10 +119,10 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // poignees de la selection sont remontees ensuite par le rendu.
       // Les abords d'une piscine (margelles, plage) se posent sur les objets, sous les ombres : une
       // ombre portee se lit aussi sur une plage.
-      redessinerSiChange(s.piscines, 'piscines', cle, () => dessinerCalquePiscines(s.piscines, etat));
+      redessinerSiChange(s.piscines, 'piscines', cle, () => dessinerCalquePiscines(s.piscines, enDessin));
       // La charpente des pergolas se voit d'en haut : devant les objets et les ombres, sous les
       // parasols (une toile passe au-dessus de ce qu'elle couvre).
-      redessinerSiChange(s.pergolas, 'pergolas', cle, () => dessinerCalquePergolas(s.pergolas, etat));
+      redessinerSiChange(s.pergolas, 'pergolas', cle, () => dessinerCalquePergolas(s.pergolas, enDessin));
       // L'ordre se pose d'un coup, et rien ne bouge s'il est deja le bon : les poignees de la selection, que le rendu remonte
       // ensuite, sont comptees au bout, sans quoi tout serait deplace a chaque rendu pour leur rendre la derniere place.
       const q: Element[] = [s.piscines, s.parasols, s.pergolas];
@@ -111,7 +136,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     },
     // Les couches ne se dessinent que si l'explorateur les a demandees : un appel sans objet vide le calque.
     // Une terrasse isolee les montre toujours : c'est ce que sa transparence laisse voir (app/isolement.ts).
-    renderTerrasseLayerView: (obj) => redessinerSiChange(s.couches, 'couches de la terrasse', cleDesCalques(etat, obj?.key ?? null), () =>
-      dessinerCouches(s.couches, etat.calquesVisibles || (obj && obj.key === etat.isolement) ? obj : null, etat, toScreen))
+    renderTerrasseLayerView: (obj) => redessinerSiChange(s.couches, 'couches de la terrasse', cleDesCalques(etatDessin(), obj?.key ?? null), () =>
+      dessinerCouches(s.couches, etat.calquesVisibles || (obj && obj.key === etat.isolement) ? obj : null, etatDessin(), versDessin))
   };
 }

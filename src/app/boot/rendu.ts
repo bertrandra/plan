@@ -48,18 +48,27 @@ export function creerRendu(d: DependancesRendu) {
     // Le plancher du zoom suit les parcelles affichees : un voisinage ajoute ou demasque doit
     // pouvoir tenir en entier dans la scene au geste suivant.
     d.cadrage().ajusterPlancher();
+    // Le repere du dessin suit la vue : un deplacement n'est qu'un decalage du viewBox (render/repere.ts).
+    dessin.suivreLaVue();
     rendreScene(etat, contexteRendu());
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
-    dureeDernierRendu = performance.now() - debut;
+    if (!deplacement) dureeDernierRendu = performance.now() - debut;
   }
-  // Le zoom et le deplacement s'adaptent au plan (render/apercuVue.ts) : un rendu complet tant qu'il
-  // est rapide (un petit plan), un apercu par transformation pendant le geste quand il ne l'est plus.
+  // Le zoom s'adapte au plan (render/apercuVue.ts) : un rendu complet tant qu'il est rapide (un petit plan), un apercu par
+  // transformation pendant le geste quand il ne l'est plus. Le deplacement de la vue ne change que le decalage du repere
+  // (render/repere.ts) : ni objet ni calque pose sur le plan ne se redessine, il suit donc toujours par un rendu. Sa duree ne dit
+  // rien de celle d'un zoom : elle ne compte pas pour le frein.
   const apercu = creerApercuVue({ element: surface.svg, rendre: () => render() });
   let dureeDernierRendu = 0;
+  let deplacement = false;
   const vueChangee = (avant: typeof etat.scene) => {
-    if (dureeDernierRendu < RENDU_LENT_MS) render();
-    else apercu.changer(avant, etat.scene);
+    const s = etat.scene;
+    if (!apercu.enCours() && s.scale === avant.scale && s.W === avant.W && s.H === avant.H) {
+      deplacement = true;
+      try { render(); } finally { deplacement = false; }
+    } else if (dureeDernierRendu < RENDU_LENT_MS) render();
+    else apercu.changer(avant, s);
   };
   /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */
   function redessinerObjets(cles: readonly string[]): void {
@@ -70,21 +79,24 @@ export function creerRendu(d: DependancesRendu) {
   }
   function contexteRendu(): ContexteRendu {
     return {
-      ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho,
+      ...dessin, ...affichage, markDirty, render, etat, orthoGroup: () => surface.ortho, repere: dessin.sceneDessin(),
       // ?mode=devroof ou devwall : chaque batiment peint selon l'origine de son toit ou de ses murs.
       ...(diagnostic ? { couleurDiagnostic: (o: ObjetPlan) => couleurDiagnostic(o, diagnostic) } : {}),
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
       // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
-      dessinerRelief: () => dessinerCourbesRelief(surface.relief, etat.objects, etat.scene, etat.voisinageVisible),
+      // Posees sur le plan, dans le repere du dessin : refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
+      dessinerRelief: () => redessinerSiChange(surface.relief, 'courbes de niveau', cleDesCalques(dessin.etatDessin(), 'relief'), () =>
+        dessinerCourbesRelief(surface.relief, etat.objects, dessin.sceneDessin(), etat.voisinageVisible)),
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
       dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
       // Refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
       renderReleves: () => {
-        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalques(etat), () => {
-          dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
+        const enDessin = dessin.etatDessin();
+        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalques(enDessin), () => {
+          dessinerReleves(surface.releves, enDessin, dessin.versDessin, affichage.objetMasque);
           const parcelle = affichage.trouverParcelleCloture();
-          if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
+          if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, enDessin, dessin.versDessin, parcelle);
         });
         // Toujours au-dessus des objets (un objet cree depuis se pose au bout) : sans le deplacer s'il y est deja.
         poserEnQueue(surface.svg, [surface.releves]);

@@ -11,7 +11,7 @@
 // sommets se poseraient par-dessus les vis et les solives et rendraient le canevas illisible. Le
 // choix fait en mode Plan est garde, simplement pas dessine.
 
-import { positionnerObjet, positionnerEnVerifiant, type ContextePositionnement, type ObjetRendu } from './objects.js';
+import { positionnerObjet, positionnerEnVerifiant, horsDeLaVue, type ContextePositionnement, type ObjetRendu } from './objects.js';
 import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { versionEnsemble, versionObjet } from '../core/controleurObjets.js';
@@ -20,6 +20,7 @@ import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND } from './theme.js';
 import { ortho, placerOrthophoto, type ContexteOrtho } from './ortho.js';
 import { mesure } from '../interaction/outilMesure.js';
 import type { EtatApp } from '../core/state.js';
+import type { EtatScene } from '../geometry/vue.js';
 import type { ObjetPlan } from '../model/types.js';
 
 /**
@@ -49,6 +50,11 @@ export interface ContexteRendu extends ContexteOrtho {
   dessinerRues?: () => void;
   /** Un mode de diagnostic (app/diagnostic.ts) : la couleur d'affichage d'un objet, ou null pour la sienne. */
   couleurDiagnostic?: (obj: ObjetPlan) => string | null;
+  /**
+   * Le repere du dessin (render/repere.ts) : la scene ou les objets se dessinent, la vue a une translation pres. Sans lui, la vue
+   * elle-meme.
+   */
+  repere?: EtatScene;
 }
 
 // Ce que chaque objet a dessine la derniere fois, par son contour : la cle de ce dessin, et sa premiere poignee (des poignees
@@ -71,7 +77,9 @@ const verifierCles = (): boolean => import.meta.env.DEV && !(globalThis as { __s
  */
 export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly ObjetPlan[]): void {
   const activeSel = etat.selectedKey;
-  const s = etat.scene;
+  // Les objets se dessinent dans le repere (render/repere.ts) : un deplacement de la vue ne change pas leur cle. Ce qui sort de la
+  // vue, ou y entre, se lit sur la vue elle-meme.
+  const s = ctx.repere ?? etat.scene;
   const pointageSommets = !!(mesure.pointage && mesure.pointage.mode === 'target');
   const pointageCotes = !!(mesure.pointage && mesure.pointage.mode === 'ref');
   const ensemble = [s.scale, s.origine.x, s.origine.y, s.W, s.H, ortho.actif, ortho.parcelleOpacite, pointageSommets, pointageCotes,
@@ -80,17 +88,20 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
   objets.forEach(obj=>{
     const selectionnee = obj.key === activeSel;
     const masque = ctx.objetMasque(obj);
+    const horsVue = !masque && !selectionnee && horsDeLaVue(obj as ObjetRendu, etat.scene);
     const transparent = obj.key === etat.isolement;
     const couleurDiagnostic = ctx.couleurDiagnostic?.(obj) ?? null;
     const v = vue(obj);
-    const cle = ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
-      + selectionnee + '|' + masque + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length;
+    const cleDe = () => ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
+      + selectionnee + '|' + masque + '|' + horsVue + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length;
+    const cle = cleDe();
     const poignee = v.pointEls[0] ?? v.radiusHandle;
     const deja = v.el ? dessins.get(v.el) : undefined;
     const inchange = !!deja && deja.cle === cle && deja.poignee === poignee;
     if(inchange && !verifier) return;
     const contexte: ContextePositionnement = {
       scene: s,
+      horsVue,
       selectionnee,
       masque,
       transparent,
@@ -108,8 +119,7 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
     });
     else positionnerObjet(obj as ObjetRendu, contexte);
     // Apres le dessin : des poignees reconstruites pendant le positionnement sont celles qu'on garde.
-    if(v.el) dessins.set(v.el, { cle: ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
-      + selectionnee + '|' + masque + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length, poignee: v.pointEls[0] ?? v.radiusHandle });
+    if(v.el) dessins.set(v.el, { cle: cleDe(), poignee: v.pointEls[0] ?? v.radiusHandle });
   });
 }
 

@@ -35,6 +35,11 @@ export interface Surface {
   releves: SVGGElement;
   /** Pose la taille de la scene sur le plan, sa racine, et la publie a la feuille de style. */
   appliquerTaille(): void;
+  /**
+   * Pose l'ecart entre la vue et le repere du dessin (render/repere.ts) : le `viewBox` de la racine le decale, et les calques qui
+   * suivent l'ecran (photo, grille, rues, nord, echelle) le compensent.
+   */
+  poserDecalage(dx: number, dy: number): void;
   poserCalquesDuDessus(): void;
 }
 
@@ -68,6 +73,16 @@ export function creerSurface(etat: EtatApp): Surface {
       // L'explorateur et l'inspecteur, de part et d'autre du plan, ne depassent jamais sa hauteur.
       document.getElementById('zoneAtelier')?.style.setProperty('--hauteur-plan', etat.scene.H + 'px');
       svg.setAttribute('width', String(etat.scene.W)); svg.setAttribute('height', String(etat.scene.H));
+      s.poserDecalage(0, 0);
+    },
+    poserDecalage(dx, dy) {
+      const boite = -dx + ' ' + -dy + ' ' + etat.scene.W + ' ' + etat.scene.H;
+      if (svg.getAttribute('viewBox') !== boite) svg.setAttribute('viewBox', boite);
+      const t = dx || dy ? 'translate(' + -dx + ',' + -dy + ')' : null;
+      for (const g of [s.ortho, s.grille, s.rues, s.nord, s.echelle]) {
+        if (g.getAttribute('transform') === t) continue;
+        if (t) g.setAttribute('transform', t); else g.removeAttribute('transform');
+      }
     },
     poserCalquesDuDessus() { svg.append(s.nord, s.echelle, s.cotes, s.couches); }
   };
