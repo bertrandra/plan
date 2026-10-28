@@ -7,6 +7,7 @@
 // registre range sous le meme nom.
 
 import type { ObjetPlan } from '../types.js';
+import type { DeplacementRigide } from '../../geometry/deplacement.js';
 
 export type Forme = ObjetPlan['type'];
 
@@ -46,4 +47,9 @@ export interface Ouvrage {
   sansEmprise?: boolean;
   /** Trace en chemin, il a une largeur, donc une emprise ; un autre trace n'en a pas. */
   aUneLargeur?: boolean;
+  /**
+   * Fait suivre a l'objet ce qu'il porte en coordonnees absolues quand son contour bouge d'un bloc (glisse, aligne, remis a sa
+   * place). Absent : l'ouvrage n'a rien de tel ; son contour suffit. Un contour deforme n'appelle rien.
+   */
+  suivreContour?: (o: ObjetPlan, d: DeplacementRigide) => void;
 }

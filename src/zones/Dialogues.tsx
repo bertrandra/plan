@@ -70,6 +70,7 @@ export function Dialogues() {
               <ul className="dialoguePoints">{d.points.map((p) => <li key={p}>{p}</li>)}</ul>
             )}
             {d.case && <CaseChoix key={d.titre + d.case.libelle} c={d.case} />}
+            {d.cases?.map(c => <CaseChoix key={d.titre + c.libelle} c={c} />)}
             <div className="dialogueBoutons">
               <button type="button" data-controle="dialogue.secondaire" className="secondary" onClick={() => dialogues.repondreSecondaire()}>{d.secondaire.libelle}</button>
               <button type="button" data-controle="dialogue.principal" onClick={() => dialogues.repondre()}>{d.principal.libelle}</button>

@@ -48,6 +48,8 @@ export interface DialogueChoix {
    * de depart. La zone la dessine et n'en sait pas plus.
    */
   case?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void };
+  /** D'autres cases sous la premiere, une par objet par exemple (« Reprendre la version de l'IGN pour… ») : meme contrat. */
+  cases?: { libelle: string; cochee: boolean; changer: (cochee: boolean) => void }[];
   principal: { libelle: string; executer: () => void };
   secondaire: { libelle: string; executer: () => void };
   /**

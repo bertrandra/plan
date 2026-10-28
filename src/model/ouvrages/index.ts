@@ -1,6 +1,8 @@
 // Le registre des ouvrages du modele (MD/spec-ouvrages.md, etape 6.2) : chaque ouvrage, une fois, et les tables qui en derivent.
 
 import type { Ouvrage } from './ouvrage.js';
+import type { ObjetPlan, PtBrut } from '../types.js';
+import { deplacementRigide } from '../../geometry/deplacement.js';
 import { TERRAIN, ARBRE, LIMITE, POINT_DE_VUE, AUTRE } from './contexte.js';
 import { BATIMENT, ANNEXE } from './bati.js';
 import { TERRASSE } from './terrasse.js';
@@ -31,6 +33,18 @@ export const ouvrageDeclare = (fonction: string | undefined | null): Ouvrage | u
 
 /** L'objet est-il de cet ouvrage ? Sa fonction, telle qu'ecrite, sans regarder sa forme. */
 export const estOuvrage = (o: { fonction?: string | null }, ouv: Ouvrage): boolean => o.fonction === ouv.fonction;
+
+/**
+ * Le contour de l'objet passe de `avant` a `apres` : s'il a bouge d'un bloc, son ouvrage fait suivre ce qu'il porte en coordonnees
+ * absolues (MD/spec-ouvrages.md, etape 6.3). A appeler par tout geste qui deplace ou tourne un objet, avant ou apres avoir pose
+ * le nouveau contour : seuls les deux contours comptent.
+ */
+export function suivreLeContour(o: ObjetPlan, avant: readonly PtBrut[], apres: readonly PtBrut[]): void {
+  const suivre = ouvrage(o.fonction).suivreContour;
+  if (!suivre) return;
+  const d = deplacementRigide(avant, apres);
+  if (d) suivre(o, d);
+}
 
 /** Les fonctions proposees par le menu « Fonction », dans son ordre. */
 export const FONCTIONS_AU_MENU: readonly string[] = OUVRAGES.filter((o) => o.auMenu).map((o) => o.fonction);

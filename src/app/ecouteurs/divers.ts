@@ -156,7 +156,8 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on
    * peut ainsi voir monter ou descendre la configuration qu'on est en train d'éditer. C'est
-   * l'inspecteur (zones/) qui montre le bouton et le tableau ; ici, seulement la bascule.
+   * l'onglet Optimisation du tiroir (zones/resultats/) qui montre le bouton et le tableau ; ici,
+   * seulement la bascule.
    */
   cmd.declarer({ id: 'terrasse.optimisation', libelle: 'Optimisation des paramètres', groupe: 'terrasse', capacite: CAPACITES.terrasse.code, executer: () => {
     ctx.resultats.basculerOptimisation();

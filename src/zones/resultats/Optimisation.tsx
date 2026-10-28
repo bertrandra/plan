@@ -1,5 +1,5 @@
-// Le tableau d'optimisation de la structure, montre dans l'inspecteur (Z5) sous le bouton qui le
-// demande. Une ligne par strategie de construction, chacune a son meilleur entraxe ; la configuration
+// Le tableau d'optimisation de la structure, montre dans l'onglet Optimisation du tiroir (Z6) sous le
+// bouton qui le demande. Une ligne par strategie de construction, chacune a son meilleur entraxe ; la configuration
 // actuelle est toujours montree, meme quand elle n'est pas la meilleure de sa famille.
 //
 // Le calcul vit dans `engine/optimisation.ts`. « Appliquer » passe par le service des resultats :

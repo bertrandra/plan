@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sectionRelief, texteDenivele, parcelleCalee, EQUIDISTANCES, texteGrille, grilleSurParcelleSeule } from '../../../src/ui/champs/relief.js';
-import { champsVisibles, type Champ, type ChampBouton, type ChampCase, type ChampChoix, type ChampLecture, type ChampNombre, type ContexteChamps } from '../../../src/ui/champs/types.js';
+import { champsVisibles, type Champ, type ChampBouton, type ChampChoix, type ChampLecture, type ChampNombre, type ContexteChamps } from '../../../src/ui/champs/types.js';
 import { champActif, champAnnulable, ecritLeProjet } from '../../../src/app/administration/ecritures.js';
 import { lectureRelief } from '../../../src/core/lectureRelief.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
@@ -70,13 +70,16 @@ describe('section Relief', () => {
     try { expect(b.texte?.(c)).toBe('Lecture…'); } finally { lectureRelief.definir(false); }
   });
 
-  it('avec relief : la source, le zero, la pente, le denivele, les preferences et les deux commandes', () => {
+  it('avec relief : la source, la pente, le denivele, les reglages techniques replies et les deux commandes', () => {
     const c = contexte({ relief: grille() });
-    expect(cles(c)).toEqual(['source', 'grille', 'paysage', 'pointsMax', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'actualiser', 'supprimer']);
-    // L'equidistance ne se montre qu'avec les courbes.
-    champ<ChampCase>(c, 'courbes').ecrire(c, true);
-    expect(cles(c)).toEqual(['source', 'grille', 'paysage', 'pointsMax', 'zRef', 'pente', 'denivele', 'sol3d', 'courbes', 'equidistance', 'actualiser', 'supprimer']);
-    expect(champ<ChampCase>(c, 'sol3d').libelle).toBe('Relief');
+    // « Relief » et « Courbes de niveau » ne sont qu'au menu Affichage : un geste n'existe qu'a un endroit.
+    expect(cles(c)).toEqual(['source', 'pente', 'denivele', 'grille', 'paysage', 'pointsMax', 'zRef', 'actualiser', 'supprimer']);
+    const s = sectionRelief(c)!;
+    expect(s.champs.filter(ch => ch.repli).map(ch => ch.cle)).toEqual(['grille', 'paysage', 'pointsMax', 'zRef']);
+    expect(new Set(s.champs.filter(ch => ch.repli).map(ch => ch.repli))).toEqual(new Set(['Réglages techniques']));
+    // L'equidistance ne se montre qu'avec les courbes, que le menu Affichage montre.
+    c.obj.relief!.affichage = { courbes: true };
+    expect(cles(c)).toEqual(['source', 'pente', 'denivele', 'grille', 'paysage', 'pointsMax', 'zRef', 'equidistance', 'actualiser', 'supprimer']);
     expect(champ<ChampLecture>(c, 'source').valeur(c)).toBe('LiDAR HD, 1 m · acquis en 2021 · de l’ordre de 10 cm (IGN)');
     expect(champ<ChampLecture>(c, 'zRef').valeur(c)).toBe('100,25 m NGF-IGN69');
     expect(champ<ChampLecture>(c, 'pente').valeur(c)).toBe('5,0 % vers le O');
@@ -84,40 +87,34 @@ describe('section Relief', () => {
     expect(champ<ChampLecture>(c, 'denivele').valeur(c)).toBe('0,40 m (de 100,1 à 100,5)');
     expect(texteDenivele(grille(), c.obj)).toBe('0,40 m (de 100,1 à 100,5)');
     expect(champ<ChampBouton>(c, 'actualiser').agit).toEqual({ commande: 'relief.actualiser' });
+    expect(champ<ChampBouton>(c, 'actualiser').repli).toBeUndefined();
     expect(champ<ChampBouton>(c, 'supprimer').agit).toEqual({ commande: 'relief.supprimer' });
   });
 
-  it('les preferences d affichage s ecrivent dans relief.affichage sans modifier le projet', () => {
+  it('l equidistance s ecrit dans relief.affichage sans modifier le projet', () => {
     const c = contexte({ relief: grille() });
-    const courbes = champ<ChampCase>(c, 'courbes'), sol = champ<ChampCase>(c, 'sol3d'), equi = champ<ChampChoix>(c, 'equidistance');
-    for (const ch of [courbes, sol, equi]) {
-      expect(ch.sale).toBe(false);
-      expect(ecritLeProjet(ch)).toBe(false);
-      expect(champAnnulable(ch)).toBe(false);
-    }
-    // Le relief montre, les courbes cachees, par defaut.
-    expect(courbes.lire(c)).toBe(false);
-    expect(sol.lire(c)).toBe(true);
+    c.obj.relief!.affichage = { courbes: true };
+    const equi = champ<ChampChoix>(c, 'equidistance');
+    expect(equi.sale).toBe(false);
+    expect(ecritLeProjet(equi)).toBe(false);
+    expect(champAnnulable(equi)).toBe(false);
     expect(equi.lire(c)).toBe('0');
     expect(equi.options(c)).toEqual(EQUIDISTANCES);
     // L'equidistance automatique se lit en note : 0,40 m de denivele → 10 cm.
     expect(equi.note?.(c)).toBe('10 cm');
-    courbes.ecrire(c, false);
-    sol.ecrire(c, false);
     equi.ecrire(c, '0.25');
-    expect(c.obj.relief?.affichage).toEqual({ courbes: false, sol3d: false, equidistance: 0.25 });
+    expect(c.obj.relief?.affichage).toEqual({ courbes: true, equidistance: 0.25 });
     expect(equi.lire(c)).toBe('0.25');
     expect(equi.note?.(c)).toBe('');
     equi.ecrire(c, '0');
-    expect(c.obj.relief?.affichage).toEqual({ courbes: false, sol3d: false });
-    expect(courbes.effets).toEqual(['rendu', 'inspecteur']);
-    expect(sol.effets).toEqual(['scene3d']);
+    expect(c.obj.relief?.affichage).toEqual({ courbes: true });
   });
 
-  it('reste en lecture seule : les preferences restent libres, les boutons suivent la commande', () => {
+  it('reste en lecture seule : l equidistance reste libre, les boutons suivent la commande', () => {
     const c = contexte({ relief: grille() }, true, { 'relief.supprimer': false });
+    c.obj.relief!.affichage = { courbes: true };
     c.etat.lectureSeule = true;
-    expect(champActif(champ<ChampCase>(c, 'courbes'), c)).toBe(true);
+    expect(champActif(champ<ChampChoix>(c, 'equidistance'), c)).toBe(true);
     expect(champActif(champ<ChampBouton>(c, 'supprimer'), c)).toBe(false);
   });
 });

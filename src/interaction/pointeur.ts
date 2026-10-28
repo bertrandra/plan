@@ -16,7 +16,7 @@
 //   double-tap objet ne se declenchait jamais au doigt. On l'accepte donc quel que soit l'element
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
-import { parcelleDuProjet } from '../model/fonctions.js';
+import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
 import { toucher } from '../core/controleurObjets.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
 import { facadesDuContour } from '../facade/geometrie.js';
@@ -27,7 +27,9 @@ import { contourDeContrainte } from './editing.js';
 import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navigation.js';
 import { estRectangle } from '../geometry/rect.js';
 import { mesure } from './outilMesure.js';
-import { definirCibleAlignement } from './outilAlignement.js';
+import { definirCibleAlignement, MESSAGE_TERRAIN_REEL } from './outilAlignement.js';
+import { avecAccordDeRetouche, MESSAGE_RETOUCHE_PERMISE } from './retoucheTerrain.js';
+import { retoucheADemander } from '../model/retouche.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
@@ -57,6 +59,15 @@ export interface ContextePointeur {
   markDirty: () => void;
   /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
   apresAcces: () => void;
+  /**
+   * Le cote cible de l'outil « Aligner » est designe : l'objet selectionne pivote aussitot pour lui
+   * devenir parallele. Absent : la cible est seulement retenue.
+   */
+  aligner?: () => void;
+  /** Dit a la personne pourquoi un geste n'a pas lieu. */
+  signaler?: (message: string) => void;
+  /** La question avant de retoucher un objet venu du cadastre ou de l'IGN (interaction/retoucheTerrain.ts) ; par defaut le dialogue Z8. */
+  confirmer?: (message: string, oui: () => void) => void;
   /**
    * La vue a change (zoom, deplacement) depuis `avant` : sur un grand plan, un apercu tout de suite et
    * un rendu au repos (render/apercuVue.ts). Absent : un rendu complet.
@@ -112,6 +123,7 @@ function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePoint
       definirCibleAlignement(picked);
       mesure.pointage = null;
       ctx.render();
+      if(ctx.aligner) ctx.aligner();
     } else {
       mesure.ref = picked;
       mesure.pointage = null;
@@ -194,6 +206,8 @@ function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut)
   }
   const obj = objetDe(etat, key);
   if(!obj || obj.locked) return 'rien'; // verrouille : se selectionne et se lit, mais ne bouge pas
+  // Pose sur le terrain reel (cadastre, IGN) : il se selectionne, il ne se deplace pas (interaction/outilAlignement.ts).
+  if(estPoseSurLeTerrain(obj)){ ctx.signaler?.(MESSAGE_TERRAIN_REEL); return 'rien'; }
   // Lecture seule : on selectionne, on regarde, on exporte — on ne deplace rien. Le refus est ici,
   // avant l'historique, pour qu'aucun pas d'annulation ne soit empile pour un geste qui n'aura pas lieu.
   if(etat.lectureSeule) return 'rien';
@@ -220,6 +234,23 @@ function surAcces(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   return 'suite';
 }
 
+/**
+ * Un glisser qui deformerait un objet venu du cadastre ou de l'IGN, pas encore retouche : la question se pose a l'appui, avant le
+ * geste (une confirmation asynchrone ne peut pas interrompre un glisser en route). Rend `true` quand le glisser peut commencer ;
+ * sinon l'appui est avale, et apres « Confirmer » la personne tire de nouveau.
+ */
+function glisserPermis(p: EtatPointeur, obj: ObjetPlan): boolean {
+  const { ctx } = p;
+  if(!retoucheADemander(obj)) return true;
+  // L'appui qui pose la question n'est pas le premier clic d'un double-clic : le suivant, apres la reponse, commence un glisser.
+  p.clicSommet = CLIC_VIDE; p.clicCote = CLIC_VIDE;
+  avecAccordDeRetouche(obj, { markDirty: ctx.markDirty, confirmer: ctx.confirmer }, () => {
+    ctx.signaler?.(MESSAGE_RETOUCHE_PERMISE);
+    ctx.render();
+  });
+  return false;
+}
+
 /** Un sommet : le geler au double-clic, ou commencer a le tirer. */
 function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const { etat, ctx } = p;
@@ -238,6 +269,7 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   p.clicSommet = {key:ds.key, index:idx, time:nowTp};
   // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
   if(obj.frozenVertices?.[idx] && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'vertex', index:idx};
   ctx.pushHistory();
   p.geste = {type:'point', obj, idx, startWorld:w, startPt:{...sommetDe(obj.pts, idx)}};
@@ -261,6 +293,7 @@ function surCote(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   p.clicCote = {key:ds.key, index:i, time:nowT};
   // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
   if((obj.frozenVertices?.[i] || obj.frozenVertices?.[j]) && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'segment', index:i};
   ctx.pushHistory();
   p.geste = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
@@ -274,6 +307,7 @@ function surRayon(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const obj = objetDe(etat, ds.key);
   if(!obj || obj.type !== 'circle' || obj.locked) return 'rien';
   if(etat.lectureSeule) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:null, index:null};
   ctx.pushHistory();
   p.geste = {type:'radius', obj, startWorld:w};

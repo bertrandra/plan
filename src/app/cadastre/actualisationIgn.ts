@@ -27,7 +27,7 @@ import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeo
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { volumesRecalcules, batimentsGardes, toitsEtMurs } from './actualisationIgn/toitsEtMurs.js';
+import { volumesRecalcules, batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche } from './actualisationIgn/toitsEtMurs.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -68,6 +68,7 @@ export function ouvrirDialogueActualisation(ctx: ContexteActualisation): void {
       nbVoisines: ctx.etat.objects.filter(o => o.cadastre && o.cadastre.idu && o.cadastre.idu !== cad.idu).length,
       reliefPermis: droitsCourants().aCapacite(CAPACITES.relief.code),
       aUnRelief: !!parcelle.relief,
+      retouches: objetsRetouches(ctx.etat.objects),
       voisinage: (() => {
         // Le plan est dans le repere de la projection du calage : ses coordonnees se lisent telles quelles.
         const proj = projecteurLocal(cad.origineLat, cad.origineLon);
@@ -144,7 +145,7 @@ function bilanVoisinage(ajouts: { objets: ObjetBrut[]; parcelles?: number; batim
 
 /** La parcelle du projet sur son contour relu, avec sa fiche cadastrale a jour. */
 function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): ObjetBrut {
-  const copie: ObjetBrut = Object.assign({}, o, {
+  const copie: ObjetBrut = Object.assign({}, sansRetouche(o), {
     pts: contour,
     vertexNames: contour.map((_,i)=>(o.vertexNames && o.vertexNames[i]) || ('Point ' + (i+1))),
     segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
@@ -194,16 +195,29 @@ async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier:
 }
 
 /**
- * Les batiments recrees, avec des cles libres dans le plan. Une reponse a la question du toit a
- * cheval (model/aCheval.ts) est un choix de la personne : elle suit le batiment par son identifiant.
+ * Les batiments recrees. Un batiment frais qui porte l'identifiant BD TOPO d'un ancien garde la cle de cet ancien : c'est
+ * l'identite du batiment dans le plan (cotes, audit, faits du moteur de regles, reglages de la personne s'y rapportent), et
+ * reprendre la version de l'IGN d'un batiment retouche ne doit pas en faire un autre. Les autres prennent des cles libres. Une
+ * reponse a la question du toit a cheval (model/aCheval.ts) est un choix de la personne : elle suit le batiment par son identifiant.
  */
 function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: ObjetBrut[], ctx: ContexteActualisation, bilan: string[]): ObjetBrut[] {
   bilan.push(anciens.length + ' batiment(s) de la parcelle supprime(s), ' + frais.length + ' recree(s) depuis la BD TOPO');
-  const cles = new Set(dejaLa.map(o => o.key));
+  const idDe = (o: ObjetBrut) => (o.bdtopo as { id?: string } | null | undefined)?.id;
+  // La cle d'un ancien, par son identifiant BD TOPO (le premier s'il y en avait deux) ; reservee d'emblee, pour qu'un frais sans
+  // ancien ne la prenne pas.
+  const clesAnciennes = new Map<string, string>();
+  anciens.forEach(o => { const id = idDe(o); if (id && o.key && !clesAnciennes.has(id)) clesAnciennes.set(id, o.key); });
+  const cles = new Set([...dejaLa.map(o => o.key), ...clesAnciennes.values()]);
   const cleUnique = (base: string) => { let cle = base, n = 2; while(cles.has(cle)){ cle = base + '-' + n; n++; } cles.add(cle); return cle; };
-  const reponses = new Map(anciens.flatMap(o => { const id = (o.bdtopo as { id?: string } | null | undefined)?.id; return id && o.batiment?.toitACheval ? [[id, o.batiment?.toitACheval] as const] : []; }));
+  const reponses = new Map(anciens.flatMap(o => { const id = idDe(o); return id && o.batiment?.toitACheval ? [[id, o.batiment?.toitACheval] as const] : []; }));
   const recupereLe = new Date().toISOString();
-  const nouveaux = frais.map(b => { const o = batimentDeLaPropriete(b, cleUnique, recupereLe); const r = b.id ? reponses.get(b.id) : undefined; return r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o; });
+  const nouveaux = frais.map(b => {
+    const ancienne = b.id ? clesAnciennes.get(b.id) : undefined;
+    if (ancienne) clesAnciennes.delete(b.id as string); // une cle ne sert qu'une fois
+    const o = batimentDeLaPropriete(b, ancienne ? () => ancienne : cleUnique, recupereLe);
+    const r = b.id ? reponses.get(b.id) : undefined;
+    return r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o;
+  });
   return ctx.serializeObjects(nouveaux).map(versMemoire);
 }
 
@@ -248,14 +262,14 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 
     // ---- 3. Application
     ctx.pushHistory();
-    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0;
+    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0, nRetouches = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
     const avant = sansVoisinesDeLaPropriete(ctx.serializeObjects(ctx.etat.objects).map(versMemoire), parcelle, bilan);
     const anciensBatiments = avant.filter(aRecreer);
     const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
-      // Un batiment verifie sur place est le 100 % du projet : il ressort tel qu'il est entre.
-      if(gardes.garde(brut)){ nGardes++; return brut; }
+      // Un batiment verifie sur place est le 100 % du projet, un objet retouche a la main celui de la personne : tels quels.
+      if(gardes.garde(brut)){ if(brut.retoucheMain) nRetouches++; else nGardes++; return brut; }
       const o = options.parDefaut ? valeursParDefaut(brut) : brut;
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
@@ -280,7 +294,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
         if(toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
         const volumesToit = volumesRecalcules(o, pts, toit);
-        return Object.assign({}, o, {
+        return Object.assign({}, sansRetouche(o), {
           pts,
           vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
           segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
@@ -348,6 +362,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     if(nMaj) bilan.unshift(nMaj + ' objet(s) IGN remplace(s)');
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
     if(nGardes) bilan.push(nGardes + ' batiment(s) verifie(s) sur place conserve(s) tel(s) quel(s)');
+    if(nRetouches) bilan.push(nRetouches + ' objet(s) retouché(s) à la main conservé(s) tel(s) quel(s)');
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){

@@ -357,6 +357,10 @@
   }
   .dialogueCadastre{ width:min(700px,96vw); max-height:92vh; overflow:auto; }
   .dialogueActualisation{ width:min(520px,96vw); max-height:92vh; overflow:auto; }
+  .dialogueDeclaration{ width:min(620px,96vw); max-height:92vh; overflow:auto; }
+  /* Les sections d'un ouvrage au tiroir (zones/resultats/Ouvrages.tsx) : un titre, ses lignes ; les prix se deplient. */
+  .sectionOuvrage{ margin:0 0 12px; }
+  .sectionOuvrage > summary{ cursor:pointer; }
   .dialogueTextures{ width:min(760px,94vw); height:min(600px,88vh); display:flex; flex-direction:column; }
   .titreParcours{ font-weight:600; font-size:1.05rem; margin-bottom:10px; }
   .sousTitreParcours{ font-size:0.8rem; opacity:0.8; margin:-6px 0 12px; line-height:1.4; }
@@ -580,6 +584,17 @@
   .champsEnLigne input[type=text]{ width:90px; flex:1; }
   .champsEnLigne .champNombre input{ width:78px; }
   .champ-ligne .commande{ overflow:hidden; }
+  /* Un pli de champs dans une section (ui/champs, `repli`) : ce qui sert rarement, ferme a l'ouverture. */
+  .plichamps > summary{
+    cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; min-height:28px; padding:2px 4px;
+    font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft);
+  }
+  .plichamps > summary::-webkit-details-marker{ display:none; }
+  .plichamps > summary::before{ content:'›'; display:inline-block; transition:transform .12s; }
+  .plichamps[open] > summary::before{ transform:rotate(90deg); }
+  .plichamps > .champs{ display:flex; flex-direction:column; gap:3px; padding:0 0 4px 10px; border-left:1px solid var(--hairline); margin-left:6px; }
+  /* Des champs hors de l'inspecteur (tiroir, dialogue, reglages 3D) : la meme grille. */
+  .hoteChamps .champs{ display:flex; flex-direction:column; gap:3px; }
   .inspecteurPied{ padding:8px 10px 10px; display:flex; gap:6px; flex-wrap:wrap; }
   .inspecteurPied .hint{ width:100%; margin-top:6px; }
   .objbtn{
@@ -947,6 +962,9 @@
     font-family:var(--sans); font-size:13px; line-height:1.35; box-shadow:var(--ombre-forte);
   }
   .consigneMode{ flex:1; min-width:0; }
+  /* La distance au trait de l'outil Aligner : un nombre court, dans le bandeau du pointage. */
+  .distanceAlignement{ flex:none; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  .distanceAlignement input{ width:5.5em; min-height:36px; font-variant-numeric:tabular-nums; }
   .bandeauMode button, .bandeauMode button.secondary{
     flex:none; min-height:40px; padding:0 14px; border:none; border-radius:10px;
     background:var(--on-toast); color:var(--toast-bg); font-family:var(--sans); font-weight:600;
@@ -1174,43 +1192,44 @@
   }
   .segmente button.actif{ background:var(--ink); color:var(--on-ink); font-weight:600; }
   .segmente button:hover{ opacity:1; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ{
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ{
     grid-template-columns:minmax(9em, 1fr) minmax(0, auto); min-height:52px; padding:6px 0; gap:6px 12px; border-bottom:1px solid var(--hairline); border-radius:0;
   }
-  html:not([data-classe="large"]) #zoneInspecteur .champ .libelle{ font-size:14px; color:var(--ink); }
-  html:not([data-classe="large"]) #zoneInspecteur .champ .commande{ justify-self:end; text-align:right; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .libelle{ font-size:14px; color:var(--ink); }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .commande{ justify-self:end; text-align:right; }
   /* La note passe sous la ligne entiere : a droite, elle ecrasait le libelle sur trois lignes. */
-  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur) > .commande{ display:contents; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur) > .commande > :first-child{ justify-self:end; text-align:right; min-width:0; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ .note{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur) > .commande{ display:contents; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur) > .commande > :first-child{ justify-self:end; text-align:right; min-width:0; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note{ grid-column:1 / -1; font-size:12px; text-align:left; margin-top:-2px; }
   /* Les commandes larges passent sous leur libelle, pleine largeur. */
-  html:not([data-classe="large"]) #zoneInspecteur :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne){ grid-template-columns:1fr; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur):is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne) > .commande > :first-child{ justify-self:stretch; text-align:left; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) :is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur):is(.champ-texte, .champ-texture, .champ-curseur, .champ-ligne) > .commande > :first-child{ justify-self:stretch; text-align:left; }
   /* Libelle a gauche, commande a droite (maquette) : une lecture et une liste deroulante restent
      sur la ligne de leur libelle ; seule une commande segmentee trop large passe dessous. */
-  html:not([data-classe="large"]) #zoneInspecteur .champ-lecture .lecture{ font-weight:600; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente){ grid-template-columns:1fr; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ:not(.pleineLargeur).champ-choix:has(.segmente) > .commande > :first-child{ justify-self:start; text-align:left; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(.segmente) .note{ text-align:left; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-choix:has(select) .commande > select{ max-width:62vw; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ .note:empty{ display:none; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=text]:not(.pas input),
-  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ select{
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-lecture .lecture{ font-weight:600; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(.segmente){ grid-template-columns:1fr; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ:not(.pleineLargeur).champ-choix:has(.segmente) > .commande > :first-child{ justify-self:start; text-align:left; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(.segmente) .note{ text-align:left; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-choix:has(select) .commande > select{ max-width:62vw; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ .note:empty{ display:none; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=text]:not(.pas input),
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=date]{ min-height:44px; font-size:15px; border-radius:var(--r-champ); width:100%; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ select{
     min-height:44px; max-width:100%; width:auto; padding:0 10px; font-size:14px; font-weight:500; border-radius:var(--r-bouton);
     border:1px solid var(--border); text-overflow:ellipsis;
   }
-  html:not([data-classe="large"]) #zoneInspecteur .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
-  html:not([data-classe="large"]) #zoneInspecteur .champCurseur input[type=range]{ height:32px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ input[type=color]{ width:44px; height:44px; border-radius:var(--r-champ); }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champCurseur input[type=range]{ height:32px; }
   html:not([data-classe="large"]) .curseurRayon input[type=range]{ min-height:32px; }
-  html:not([data-classe="large"]) #zoneInspecteur .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
-  html:not([data-classe="large"]) #zoneInspecteur .champTexture button, html:not([data-classe="large"]) #zoneInspecteur .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }
-  html:not([data-classe="large"]) #zoneInspecteur .champ.pleineLargeur .champBouton button{ width:100%; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture .vignette{ width:44px; height:44px; border-radius:var(--r-champ); }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champTexture button, html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champBouton button{ min-height:44px; font-size:14px; font-family:var(--sans); border-radius:var(--r-bouton); }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ.pleineLargeur .champBouton button{ width:100%; }
   /* Une ligne (un cote, un coin) devient une carte : nom, puis longueur ou angle, puis fige et supprimer. */
-  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champsEnLigne{ gap:8px; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champsEnLigne > input[type=text]{ flex:1 1 100%; }
-  html:not([data-classe="large"]) #zoneInspecteur .champ-ligne .champBouton button{ min-height:44px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-ligne .champsEnLigne{ gap:8px; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-ligne .champsEnLigne > input[type=text]{ flex:1 1 100%; }
+  html:not([data-classe="large"]) :is(#zoneInspecteur, .hoteChamps) .champ-ligne .champBouton button{ min-height:44px; }
   html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection > summary{ min-height:44px; font-size:12px; padding:0 4px; }
+  html:not([data-classe="large"]) .plichamps > summary{ min-height:44px; font-size:13px; }
   html:not([data-classe="large"]) #zoneInspecteur .inspecteurSection .champs{ padding:0 4px 10px; }
   html:not([data-classe="large"]) #zoneInspecteur .inspecteurPied button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] #zoneInspecteur .inspecteurPanneau{ display:flex; flex-direction:column; flex:1; min-height:0; }
@@ -1348,7 +1367,7 @@
     border-radius:0 !important; padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) !important;
     font-size:15px !important; box-shadow:none !important;
   }
-  html[data-classe="compact"] .dialogueActualisation{ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
+  html[data-classe="compact"] :is(.dialogueActualisation, .dialogueDeclaration){ height:auto !important; max-height:92dvh !important; border-radius:var(--r-feuille) var(--r-feuille) 0 0 !important; overflow:auto !important; }
   html[data-classe="compact"] .dialogueImperatif button{ min-height:44px; font-family:var(--sans); font-size:14px; border-radius:var(--r-bouton); }
   html[data-classe="compact"] .dialogueImperatif input[type=text], html[data-classe="compact"] .dialogueImperatif input[type=search],
   html[data-classe="compact"] .dialogueImperatif .promptInput{ min-height:48px; font-size:16px; }
@@ -1395,6 +1414,10 @@
   .groupe3d .etiquetteReglage, .groupe3d .valeurReglage{ font-size:0.82rem; }
   .groupe3d .petitLibelle{ margin-left:0; }
   .groupe3d select{ max-width:220px; }
+  /* Un groupe de champs (le voisinage) : la grille des champs de l'inspecteur, sur toute la largeur. */
+  .groupe3d.groupeChamps3d{ display:block; flex-basis:100%; }
+  /* Au bureau, le tiroir des reglages est large et bas : les champs se rangent en colonnes. */
+  html[data-classe="large"] .groupeChamps3d .champs{ display:grid; grid-template-columns:repeat(auto-fill, minmax(330px, 1fr)); gap:0 16px; }
   .boutonVue3d{ display:inline-flex; align-items:center; gap:4px; }
   .hint3d{ margin:4px 0 0; font-size:0.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* Sur bureau, les reglages sont un tiroir replie sur une ligne de titre ; au doigt, une feuille. */

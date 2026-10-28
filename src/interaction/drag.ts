@@ -13,6 +13,8 @@ import { au } from '../util/tableaux.js';
 import { pointInPolygon, dist } from '../geometry/basic.js';
 import { estRectangle, rectangleDepuisCoin, rectangleDepuisCote } from '../geometry/rect.js';
 import type { PtBrut } from '../model/types.js';
+import type { ObjetPlan } from '../model/types.js';
+import { suivreLeContour } from '../model/ouvrages/index.js';
 
 /** Une forme a sommets qu'on deplace, dont on tire un coin ou un cote. */
 export interface FormeGlissable {
@@ -140,7 +142,10 @@ export function appliquerGlisser(drag: GlisserEnCours, monde: PtBrut, contour: P
     case 'shapeMove': {
       drag.moved = true;
       const cand = drag.startPts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
-      if (cand.every(dansContour)) drag.obj.pts = cand;
+      if (!cand.every(dansContour)) return;
+      // Ce que l'objet porte en coordonnees absolues (le toit d'un batiment) le suit (model/ouvrages/).
+      suivreLeContour(drag.obj as ObjetPlan, drag.obj.pts, cand);
+      drag.obj.pts = cand;
       return;
     }
     case 'radius': {

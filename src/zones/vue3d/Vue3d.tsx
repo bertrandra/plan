@@ -25,10 +25,14 @@ import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoin
 import type { DeuxVues } from '../../three/comparaison3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
+import type { Inspecteur } from '../../app/inspecteur.js';
+import { sectionVoisinage3d } from '../../ui/champs/voisinage3d.js';
+import { ListeChamps, Tactile, useServiceLocal } from '../composants/Champs.js';
 
 export function useEtat3d(): number { return useSyncExternalStore(abonner3d, version3d); }
 
-interface Props { magasin: Magasin; commandes: RegistreCommandes; vues: ServiceVues3d }
+/** `inspecteur` : le service qui ecrit les champs du voisinage (sur la parcelle du projet), comme dans l'inspecteur. */
+interface Props { magasin: Magasin; commandes: RegistreCommandes; vues: ServiceVues3d; inspecteur: Inspecteur }
 
 const IDS_SOLEIL: IdsSoleil = {
   vue: 'vue3d', date: 'vue3dDate', semaine: 'vue3dSemaine', heure: 'vue3dHeure', heureTexte: 'vue3dHeureTexte',
@@ -65,6 +69,29 @@ function GroupePresentation({ commandes }: { commandes: RegistreCommandes }) {
   );
 }
 
+/**
+ * Le groupe « Voisinage » : l'apparence des maisons, des fenetres, des clotures et des rues voisines en
+ * 3D. Un reglage de la vue, pas une propriete d'un objet : ses champs (ui/champs/voisinage3d.ts) sont
+ * ranges sur la parcelle du projet et ecrits par le service de l'inspecteur, sans Ctrl+Z ni « projet
+ * modifie ». Sans parcelle du projet, pas de groupe.
+ */
+function GroupeVoisinage({ inspecteur, magasin }: { inspecteur: Inspecteur; magasin: Magasin }) {
+  const tactile = useStore(magasin.store, (s) => s.classe) !== 'large';
+  const service = useServiceLocal(inspecteur);
+  const parcelle = inspecteur.parcelle();
+  const c = parcelle ? inspecteur.contexte(parcelle) : null;
+  const section = c ? sectionVoisinage3d(c) : null;
+  if (!c || !section) return null;
+  return (
+    <Tactile.Provider value={tactile}>
+      <fieldset className="groupe3d groupeChamps3d hoteChamps" data-section={section.id}>
+        <legend>Voisinage</legend>
+        <div className="champs"><ListeChamps champs={section.champs} c={c} inspecteur={service} /></div>
+      </fieldset>
+    </Tactile.Provider>
+  );
+}
+
 /** Un bouton de camera sur le canevas : une commande, une icone, son etat actif le cas echeant. */
 function Bouton3d({ commandes, id, domId, icone, libelle, titre, actif }: { commandes: RegistreCommandes; id: string; domId: string; icone: Parameters<typeof Icone>[0]['nom']; libelle: string; titre: string; actif?: boolean }) {
   return (
@@ -94,7 +121,7 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
   );
 }
 
-export function Vue3d({ magasin, commandes, vues }: Props) {
+export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
   useEtat3d();
   useStore(magasin.store, (s) => (s.vue === 'vue3d' ? s.version : -1)); // cache sur le plan : ne suit plus chaque rendu
   const visible = useStore(magasin.store, (s) => s.vue) === 'vue3d';
@@ -170,7 +197,7 @@ export function Vue3d({ magasin, commandes, vues }: Props) {
               <legend>Soleil</legend>
               <LigneIntensite ids={IDS_SOLEIL} soleil={vues.soleil3d}><CaseAppoint ids={IDS_SOLEIL} soleil={vues.soleil3d} /></LigneIntensite>
             </fieldset>
-            <GroupePresentation commandes={commandes} />
+            <GroupeVoisinage inspecteur={inspecteur} magasin={magasin} /><GroupePresentation commandes={commandes} />
             <fieldset className="groupe3d">
               <legend>Points de vue</legend>
               <button data-commande="3d.enregistrerPointDeVue" id="terrasse3dSaveViewBtn" type="button" className="objbtn small boutonVue3d"

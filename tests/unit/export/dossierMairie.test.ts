@@ -85,14 +85,16 @@ describe('dossier de declaration prealable', () => {
 });
 
 describe('section Déclaration préalable de la parcelle', () => {
-  it('apparait sur la parcelle du projet, ecrit le declarant, previent du permis', async () => {
+  // Elle s'ouvre en dialogue du menu Exporter (zones/parcours/Declaration.tsx), plus dans l'inspecteur.
+  it('ecrit le declarant sur la parcelle, previent du permis, et n est plus dans l inspecteur', async () => {
     const { sectionsObjet } = await import('../../../src/ui/champs/objet.js');
+    const { sectionDeclaration } = await import('../../../src/ui/champs/declaration.js');
     const objets = projet();
     const parcelle = objets[0]!;
     parcelle.declaration = {};
     const c = { obj: parcelle, objets, parcelle, elevationOf: () => 0 } as unknown as import('../../../src/ui/champs/types.js').ContexteChamps;
-    const s = sectionsObjet(c).find(x => x.id === 'declaration')!;
-    expect(s).toBeDefined();
+    expect(sectionsObjet(c).find(x => x.id === 'declaration')).toBeUndefined();
+    const s = sectionDeclaration(c);
     const nom = s.champs.find(x => x.cle === 'dp-nom')!;
     if (nom.type !== 'texte') throw new Error('texte attendu');
     nom.ecrire(c, ' Martin ');
@@ -100,7 +102,5 @@ describe('section Déclaration préalable de la parcelle', () => {
     nom.ecrire(c, '');
     expect(parcelle.declaration).toEqual({});
     expect(s.champs.find(x => x.cle === 'dp-permis')).toBeDefined();
-    const autre = { ...c, obj: objets[2]! } as typeof c;
-    expect(sectionsObjet(autre).find(x => x.id === 'declaration')).toBeUndefined();
   });
 });

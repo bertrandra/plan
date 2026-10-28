@@ -31,6 +31,9 @@ export type { ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPisc
  * Les champs `show*` sont ce que l'utilisateur a choisi d'afficher ; ils ne changent jamais la
  * geometrie, seulement ce qui s'ecrit dessus.
  */
+/** Le jour ou un objet venu du cadastre ou de l'IGN a ete retouche a la main (`AAAA-MM-JJ`). */
+export interface RetoucheMain { date: string }
+
 interface ObjetCommun {
   key: string;
   name: string;
@@ -168,6 +171,12 @@ interface ObjetCommun {
    * union taguee est un chantier du durcissement (spec §12), pas de cette migration.
    */
   bdtopo?: unknown;
+  /**
+   * Retouche a la main alors qu'il vient du cadastre ou de l'IGN (model/retouche.ts) : la personne a accepte, ce jour-la, de le
+   * detacher de sa source. L'actualisation IGN le garde alors tel quel, sauf si elle demande de reprendre la version de l'IGN.
+   * Absent sur tout objet non retouche : le fichier garde sa forme d'avant.
+   */
+  retoucheMain?: RetoucheMain | null;
   /**
    * Zonage PLU, rattache a la parcelle qu'il qualifie — contrairement a \`bdtopo\`, la forme de la
    * fiche IGN (\`ZonagePlu\`) est stable d'une commune a l'autre, elle a donc pu etre typee (voir

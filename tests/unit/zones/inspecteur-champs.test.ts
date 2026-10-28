@@ -37,7 +37,6 @@ function champs(): Champ[] {
     { type: 'bouton', cle: 'bouton', libelle: 'Bouton', agit: 'interface', executer: rien },
     { type: 'bouton', cle: 'boutonLarge', libelle: '', texte: () => 'Bouton pleine largeur', agit: 'interface', executer: rien },
     { type: 'alerte', cle: 'alerte', libelle: '', texte: () => 'Attention' },
-    { type: 'optimisation', cle: 'optimisation', libelle: '' },
     { type: 'carte', cle: 'carte', libelle: '', nom: 'Carte', carte: () => ({ largeur: 4, hauteur: 3, cellules: [{ coins: [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }], couleur: 'hsl(0, 80%, 48%)', z: 7 }], contour: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }], corps: [{ coins: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }, { x: 1, y: 2 }], faitage: { de: { x: 1, y: 1.5 }, a: { x: 3, y: 1.5 } }, aretiers: [], libelle: { a: { x: 2, y: 1.5 }, texte: '7,0 m' } }], pignons: [], nord: 20, zMin: 3, zMax: 7 }) },
     { type: 'ligne', cle: 'ligne', libelle: 'Côté 1', champs: [
       { type: 'texte', cle: 'nom', libelle: 'Nom', lire: () => 'AB', ecrire: rien },
@@ -53,7 +52,7 @@ const SECTIONS: Section[] = [
   { id: 'repliee', titre: 'Repliée', repliee: true, champs: [{ type: 'lecture', cle: 'dansRepliee', libelle: 'Dans une section repliée', valeur: () => 'x' }] }
 ];
 
-const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'optimisation', 'carte', 'ligne', 'dansRepliee'];
+const CLES_ATTENDUES = ['texte', 'nombre', 'case', 'choixCourt', 'choixLong', 'couleur', 'date', 'curseur', 'lecture', 'texture', 'bouton', 'boutonLarge', 'alerte', 'carte', 'ligne', 'dansRepliee'];
 
 function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () => true): { racine: Root; hote: HTMLElement } {
   const obj = { key: 'o1', name: 'Terrasse', type: 'polygon', fonction: 'terrasse', pts: [] } as unknown as ObjetPlan;
@@ -65,6 +64,7 @@ function monter(classe: string, appliquer: ServiceInspecteur['appliquer'] = () =
   const c = { etat, obj } as unknown as ContexteChamps;
   const service: ServiceInspecteur = {
     objet: () => obj,
+    parcelle: () => undefined,
     contexte: () => c,
     titre: () => 'Polygone — Terrasse',
     sections: () => SECTIONS,
@@ -126,7 +126,7 @@ describe('les familles de sections', () => {
   it('rangent chaque section dans Objet, Geometrie ou Construction', async () => {
     const { familleDe } = await import('../../../src/zones/Inspecteur.js');
     expect(['objet', 'apparence', 'arbre', 'parasol', 'pointDeVue', 'parcelle'].map(familleDe)).toEqual(Array(6).fill('objet'));
-    expect(['cotes', 'coins', 'alignement'].map(familleDe)).toEqual(Array(3).fill('geometrie'));
-    expect(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'optimisation', 'parametres', 'releve'].map(familleDe)).toEqual(Array(9).fill('construction'));
+    expect(['cotes', 'coins'].map(familleDe)).toEqual(Array(2).fill('geometrie'));
+    expect(['implantation', 'fondation', 'lames', 'structure', 'appuis', 'finitions', 'parametres', 'releve'].map(familleDe)).toEqual(Array(8).fill('construction'));
   });
 });

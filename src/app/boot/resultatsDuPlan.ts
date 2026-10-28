@@ -5,7 +5,7 @@
 
 import { terrasseCourante, terrasseSelectionnee } from '../../core/contexteTerrasse.js';
 import type { EtatApp } from '../../core/state.js';
-import { estPiscine } from '../../model/fonctions.js';
+import { estAbri, estPiscine } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { creerTiroir } from '../tiroir.js';
 import { creerResultats } from '../resultats.js';
@@ -26,8 +26,11 @@ export interface DependancesResultats {
 }
 
 export function assemblerLesResultats(etat: EtatApp, magasin: Magasin, d: DependancesResultats) {
-  const piscineSelectionnee = () => { const o = etat.objects.find(x => x.key === etat.selectedKey); return o && estPiscine(o) ? o : undefined; };
-  const tiroir = creerTiroir(etat, { refreshTerrasseView: d.refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat), piscineSelectionnee }, magasin);
+  const selection = (garder: (o: ObjetPlan) => boolean) => { const o = etat.objects.find(x => x.key === etat.selectedKey); return o && garder(o) ? o : undefined; };
+  const tiroir = creerTiroir(etat, {
+    refreshTerrasseView: d.refreshTerrasseView, terrasseSelectionnee: () => terrasseSelectionnee(etat),
+    piscineSelectionnee: () => selection(estPiscine), abriSelectionne: () => selection(estAbri)
+  }, magasin);
   // Sur telephone, l'onglet montre s'ouvre dans la feuille des resultats.
   const montrer = (onglet: string) => {
     tiroir.activer(onglet);

@@ -89,7 +89,7 @@ function noeudCommande(c: Commande, classes?: Classe[], ligne?: Ligne): Noeud {
 const NOMS_TYPES: Record<Champ['type'], string> = {
   texte: 'texte', nombre: 'nombre', case: 'case à cocher', choix: 'liste de choix', couleur: 'couleur', date: 'date',
   curseur: 'curseur', lecture: 'lecture seule', texture: 'texture', bouton: 'bouton', alerte: 'alerte',
-  optimisation: 'tableau d’optimisation', carte: 'carte des hauteurs', ligne: 'ligne composée'
+  carte: 'carte des hauteurs', ligne: 'ligne composée'
 };
 
 const NOMS_EFFETS: Record<Effet, string> = {
@@ -113,6 +113,7 @@ function detailsChamp(ch: Champ): Record<string, string> {
   if (ch.effets && ch.effets.length) d.effets = ch.effets.map((e) => NOMS_EFFETS[e]).join(', ');
   if (ch.visible) d.conditionnel = 'n’apparaît que dans certains cas';
   if (ch.actif) d.activable = 'grisé selon le contexte';
+  if (ch.repli) d.pli = 'replié sous « ' + ch.repli + ' »';
   if (ch.type === 'bouton') {
     d.agit = typeof ch.agit === 'object' ? 'la commande ' + ch.agit.commande + ' (ses droits, son annulation)'
       : ch.agit === 'projet' ? 'le projet, avec sa propre annulation ; refusé en lecture seule' : 'l’interface seulement';

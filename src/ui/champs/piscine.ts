@@ -2,8 +2,9 @@
 //
 // Le projet se construit par etapes, dans l'ordre ou l'on decide : 1. l'implantation et la
 // structure du bassin, 2. ses profondeurs, 3. ses abords (margelles, plage), 4. ses equipements
-// (filtration, lumiere, traitement, chauffage), 5. la securite et l'urbanisme ; puis ce que le
-// moteur en tire (engine/piscine.ts) : 6. le metrage et le chiffrage, et les prix, replies. Chaque
+// (filtration, lumiere, traitement, chauffage), 5. la securite et l'urbanisme. Ce que le moteur en
+// tire (engine/piscine.ts) — le metrage et le chiffrage, les prix, le volume, les distances aux
+// limites, la taxe — est au tiroir des resultats, dans l'onglet Piscine. Chaque
 // etape ne montre que ce qui a un sens apres les choix precedents : pas de pente sur un bassin
 // rond, pas d'essence sans plage en bois, pas de hauteur hors-sol sur un bassin enterre.
 //
@@ -105,9 +106,10 @@ const sectionProfondeurs: Section = {
       aide: 'La part de la longueur du bassin, côté grand bain, prise par la descente et la fosse',
       lire: (c) => Math.round(reglages(c).partFosse * 100), ecrire: (c, v) => { if (!(v >= 20 && v <= 70)) return false; poser(c, 'partFosse', v / 100); }
     },
+    // Un rappel court : le detail (plan d'eau, parois) est dans l'onglet Piscine du tiroir.
     {
       type: 'lecture', cle: 'volume', libelle: 'Volume d\'eau',
-      valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.volume, 1) + ' m³ · plan d\'eau ' + fr(calc.surface, 1) + ' m² · parois ' + fr(calc.hauteurParoi) + ' m' : '—'; }
+      valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.volume, 1) + ' m³' : '—'; }
     }
   ]
 };
@@ -199,11 +201,16 @@ const sectionSecurite: Section = {
   champs: [
     choix('securite', 'Dispositif de sécurité', LIBELLE_SECURITE),
     { type: 'lecture', cle: 'regime', libelle: 'Autorisation', valeur: (c) => { const calc = calculerPiscine(c.obj, c.objets); return calc ? LIBELLE_REGIME[calc.regime] + (calc.secteurProtege ? ' · secteur protégé' : '') : '—'; } },
+    // Un rappel court : les distances a chaque limite et le calcul de la taxe sont dans l'onglet Piscine du tiroir.
     {
-      type: 'lecture', cle: 'distances', libelle: 'Distances aux limites',
-      valeur: (c) => { const d = calculerPiscine(c.obj, c.objets)?.distances ?? []; return d.length ? d.map(x => x.nom + ' ' + fr(x.distance) + ' m').join(' · ') : 'pas de parcelle dans le plan'; }
+      type: 'lecture', cle: 'rappelUrbanisme', libelle: 'Limites et taxe',
+      valeur: (c) => {
+        const calc = calculerPiscine(c.obj, c.objets);
+        if (!calc) return '—';
+        const proche = calc.distances.length ? Math.min(...calc.distances.map(x => x.distance)) : null;
+        return (proche === null ? 'pas de parcelle' : 'limite la plus proche à ' + fr(proche) + ' m') + ' · taxe ' + fr(calc.taxeAmenagementBase, 0) + ' € de base';
+      }
     },
-    { type: 'lecture', cle: 'taxe', libelle: 'Taxe d\'aménagement', valeur: (c) => { const calc = calculerPiscine(c.obj); return calc ? fr(calc.taxeAmenagementBase, 0) + ' € de base (' + TAXE_AMENAGEMENT_M2 + ' €/m²) × taux communal et départemental' : '—'; } },
     {
       type: 'bouton', cle: 'dossierMairie', libelle: '', nom: 'Dossier mairie (PDF)', texte: () => 'Dossier mairie (PDF)',
       explication: 'Plan de situation, plan de masse coté, coupe, aide au remplissage du cerfa, note de calcul.',
@@ -211,6 +218,27 @@ const sectionSecurite: Section = {
     }
   ]
 };
+
+/**
+ * Ce que le moteur tire du bassin, hors chiffrage : le volume et ses dimensions, les distances a
+ * chaque limite, la taxe d'amenagement. Des resultats : l'onglet Piscine du tiroir les montre.
+ */
+export function sectionResultatsPiscine(): Section {
+  return {
+    id: 'resultatsPiscine', titre: 'Bassin et urbanisme',
+    champs: [
+      {
+        type: 'lecture', cle: 'volume', libelle: 'Volume d\'eau',
+        valeur: (cx) => { const calc = calculerPiscine(cx.obj); return calc ? fr(calc.volume, 1) + ' m³ · plan d\'eau ' + fr(calc.surface, 1) + ' m² · parois ' + fr(calc.hauteurParoi) + ' m' : '—'; }
+      },
+      {
+        type: 'lecture', cle: 'distances', libelle: 'Distances aux limites',
+        valeur: (cx) => { const d = calculerPiscine(cx.obj, cx.objets)?.distances ?? []; return d.length ? d.map(x => x.nom + ' ' + fr(x.distance) + ' m').join(' · ') : 'pas de parcelle dans le plan'; }
+      },
+      { type: 'lecture', cle: 'taxe', libelle: 'Taxe d\'aménagement', valeur: (cx) => { const calc = calculerPiscine(cx.obj); return calc ? fr(calc.taxeAmenagementBase, 0) + ' € de base (' + TAXE_AMENAGEMENT_M2 + ' €/m²) × taux communal et départemental' : '—'; } }
+    ]
+  };
+}
 
 /** `'12,5 m³'`, `'3 u'`, `'1 forfait'`. */
 const quantite = (qte: number, unite: string): string => (unite === 'u' || unite === 'forfait' ? String(Math.round(qte)) : fr(qte, 1)) + ' ' + unite;
@@ -234,8 +262,8 @@ export function sectionChiffragePiscine(c: ContexteChamps): Section {
     champs.push({ type: 'alerte', cle: 'chiffrage-vide', libelle: '', nom: 'Alerte : contour inutilisable', texte: () => 'Le bassin doit avoir au moins trois coins et plus d\'un demi-mètre carré pour être calculé.' });
   }
   return {
-    id: 'chiffragePiscine', titre: '6. Métrage et chiffrage',
-    explication: 'Ordres de grandeur TTC fourniture et pose, par poste et dans l\'ordre du chantier. Les prix se règlent dans la section Prix ; la note de calcul est dans le tiroir des résultats.',
+    id: 'chiffragePiscine', titre: 'Métrage et chiffrage',
+    explication: 'Ordres de grandeur TTC fourniture et pose, par poste et dans l\'ordre du chantier. Les prix se règlent dans la section Prix ; la note de calcul a son onglet.',
     champs
   };
 }
@@ -259,7 +287,16 @@ export function sectionPrixPiscine(c: ContexteChamps): Section {
   };
 }
 
-/** Les sections propres a une piscine, dans l'ordre des etapes. */
-export function sectionsPiscine(c: ContexteChamps): Section[] {
-  return [sectionImplantation, sectionProfondeurs, sectionAbords, sectionEquipements, sectionSecurite, sectionChiffragePiscine(c), sectionPrixPiscine(c)];
+/**
+ * Les sections propres a une piscine dans l'inspecteur, dans l'ordre des etapes. Le metrage, le
+ * chiffrage, les prix, le volume, les distances et la taxe sont des resultats : l'onglet Piscine du
+ * tiroir les rend (`sectionsResultatsPiscine`).
+ */
+export function sectionsPiscine(): Section[] {
+  return [sectionImplantation, sectionProfondeurs, sectionAbords, sectionEquipements, sectionSecurite];
+}
+
+/** Ce que l'onglet Piscine du tiroir montre, dans l'ordre : le bassin et l'urbanisme, le chiffrage, les prix. */
+export function sectionsResultatsPiscine(c: ContexteChamps): Section[] {
+  return [sectionResultatsPiscine(), sectionChiffragePiscine(c), sectionPrixPiscine(c)];
 }

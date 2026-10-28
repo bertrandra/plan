@@ -1,4 +1,5 @@
-// L actualisation IGN : la couverture, les volumes, les toits lus au LiDAR et la couleur des murs des batiments relus.
+// L actualisation IGN : la couverture, les volumes, les toits lus au LiDAR et la couleur des murs des batiments relus ; et ce
+// qu'elle garde tel quel (batiments verifies sur place, objets retouches a la main).
 // Un morceau de app/cadastre/actualisationIgn.ts, qui le reexporte : le reste du programme importe depuis lui.
 
 import { etape, type ContexteActualisation } from './progression.js';
@@ -8,8 +9,9 @@ import { toitsDepuisLidar, texteBilanToitsLidar } from '../../toits/toitsLidar.j
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../render/couleurMurPhoto.js';
 import { materiauMurs } from '../../../model/couleurMur.js';
 import { estVerifieSurPlace } from '../../../model/toitVerifie.js';
+import { estRetoucheMain, libelleReprendre } from '../../../model/retouche.js';
 import type { ProjecteurLocal } from '../../../geo/projection.js';
-import type { ObjetBrut, PtBrut, Toit, VolumeToit } from '../../../model/types.js';
+import type { ObjetBrut, ObjetPlan, PtBrut, Toit, VolumeToit } from '../../../model/types.js';
 import type { OptionsActualisation } from '../optionsActualisation.js';
 import { champsBatiment } from '../../../model/champsFonction.js';
 
@@ -35,18 +37,46 @@ export function volumesRecalcules(o: { batiment?: { toit?: Toit | null } | null;
 }
 
 /**
- * Les batiments verifies sur place que cette actualisation garde tels quels : tous, sauf si
- * l'utilisateur a demande de les recalculer. Avec eux, les identifiants BD TOPO qu'ils portent : un
- * batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
+ * Les objets que cette actualisation garde tels quels : les batiments verifies sur place, sauf si
+ * l'utilisateur a demande de les recalculer, et les objets retouches a la main (parcelle comprise,
+ * model/retouche.ts), sauf ceux dont il reprend la version de l'IGN. Avec eux, les identifiants BD TOPO
+ * qu'ils portent : un batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
  */
 export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  const garde = (o: ObjetBrut) => o.batiment?.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o.batiment));
+  const reprendre = new Set(options.reprendre ?? []);
+  const garde = (o: ObjetBrut) => o.batiment?.toitFige === true || (options.verifies !== 'relire' && estVerifieSurPlace(o.batiment))
+    || (estRetoucheMain(o) && !reprendre.has(o.key as string));
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }
 
-/** Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. */
+/**
+ * Les objets venus du cadastre ou de l'IGN que la personne a retouches a la main (model/retouche.ts) : l'actualisation les garde
+ * tels quels, sauf ceux dont elle coche « Reprendre la version de l'IGN ». La parcelle du projet d'abord, puis l'ordre du plan.
+ */
+export function objetsRetouches(objets: readonly ObjetPlan[]): { cle: string; libelle: string }[] {
+  return objets.filter(estRetoucheMain).sort((a, b) => Number(b.key === 'parcelle') - Number(a.key === 'parcelle'))
+    .map(o => ({ cle: o.key, libelle: libelleReprendre(o) }));
+}
+
+/** Un objet repris a sa source perd le marque de sa retouche (un objet frais n'en a pas). */
+export function sansRetouche<T extends ObjetBrut>(o: T): T {
+  if (!estRetoucheMain(o)) return o;
+  const copie = { ...o };
+  delete copie.retoucheMain;
+  return copie;
+}
+
+/**
+ * Ce qu'une lecture poserait sur un batiment garde (couleur du toit, couleur des murs), remis apres elle : rend la remise. Un
+ * batiment retouche a la main ressort tel que la personne l'a laisse : tout ce qu'il porte de son toit est remis (la lecture du
+ * LiDAR, qui ne connait que les batiments verifies, l'aurait relu sur son contour).
+ */
 function figer(o: ObjetBrut): () => void {
+  if (estRetoucheMain(o)) {
+    const batiment = structuredClone(o.batiment), elevation = o.elevation;
+    return () => { if (batiment === undefined) delete o.batiment; else o.batiment = batiment; if (elevation === undefined) delete o.elevation; else o.elevation = elevation; };
+  }
   const toit = structuredClone(o.batiment?.toit), couleurMurs = structuredClone(o.batiment?.couleurMurs);
   return () => {
     if (toit === undefined) delete o.batiment?.toit; else champsBatiment(o).toit = toit;

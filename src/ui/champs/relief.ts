@@ -3,9 +3,9 @@
 // Le relief est une mesure avouee : la section dit d'ou vient la grille, de quand elle date et a
 // combien pres, puis ce qu'on en tire — le zero du plan en altitude vraie, la pente moyenne, le
 // denivele. Les trois boutons sont des liaisons vers les commandes du registre, qui portent la
-// capacite, la permission et l'annulation. Les cases et le choix sont des preferences d'affichage
-// (`sale: false`) : sans Ctrl+Z, permises en lecture seule, rangees dans `relief.affichage` pour
-// etre retrouvees a la reouverture. « Points max » est un reglage du projet (annulable, refuse en
+// capacite, la permission et l'annulation. Le relief et les courbes de niveau se basculent au menu
+// Affichage ; l'equidistance, ici, est une preference d'affichage (`sale: false`) : sans Ctrl+Z,
+// permise en lecture seule, rangee dans `relief.affichage` pour etre retrouvee a la reouverture. « Points max » est un reglage du projet (annulable, refuse en
 // lecture seule) : le plafond de points de la prochaine lecture. La section dit aussi les deux
 // grilles : celle de la parcelle, fine, que les quantites lisent, et le maillage secondaire du
 // voisinage, pour le seul sol 3D.
@@ -18,6 +18,9 @@ import {
 } from '../../model/relief.js';
 import type { AffichageRelief, ObjetPlan, Relief } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
+
+/** Le pli des reglages techniques de la grille : sa finesse, le maillage du voisinage, le plafond, le zero. */
+const TECHNIQUE = 'Réglages techniques';
 
 /** La parcelle du projet, celle qui porte le relief — pas une parcelle voisine (cloture.ts). */
 const estParcellePrincipale = (c: ContexteChamps) => !!c.parcelle && c.parcelle.key === c.obj.key;
@@ -105,11 +108,16 @@ export function sectionRelief(c: ContexteChamps): Section | null {
 
     // ---- Avec relief : ce qu'on sait du sol -------------------------------------------------------
     { type: 'lecture', cle: 'source', libelle: 'Source', visible: avec, valeur: (cc) => { const x = r(cc); return x ? resumeRelief(x) : ''; } },
-    { type: 'lecture', cle: 'grille', libelle: 'Grille', visible: avec,
+    { type: 'lecture', cle: 'pente', libelle: 'Pente', visible: avec, aide: 'La pente moyenne du sol à l’intérieur de la parcelle, et le point cardinal vers lequel il descend',
+      valeur: (cc) => { const x = r(cc); const p = x ? penteParcelle(x, enPoints(cc.obj).pts) : null; return p ? textePente(p) : 'inconnue'; } },
+    { type: 'lecture', cle: 'denivele', libelle: 'Dénivelé', visible: avec, valeur: (cc) => { const x = r(cc); return x ? texteDenivele(x, cc.obj) : ''; } },
+
+    // Les reglages techniques de la grille se replient : ils servent a la lire, pas a concevoir.
+    { type: 'lecture', cle: 'grille', libelle: 'Grille', visible: avec, repli: TECHNIQUE,
       aide: 'La grille de la parcelle et de ses abords : la pente, le dénivelé et les quantités la lisent',
       valeur: (cc) => { const x = r(cc); return x ? texteGrille(x) : ''; },
       note: (cc) => { const x = r(cc); return x ? regleGrille(plafondRelief(x)) : ''; } },
-    { type: 'lecture', cle: 'paysage', libelle: 'Maillage secondaire', visible: avec,
+    { type: 'lecture', cle: 'paysage', libelle: 'Maillage secondaire', visible: avec, repli: TECHNIQUE,
       aide: 'La grille du voisinage, plus large et moins fine (« Relief sur toutes les parcelles ») : elle ne porte que le sol de la Vue 3D et les courbes au-delà de la parcelle',
       valeur: (cc) => { const q = r(cc)?.paysage; return q ? 'Actif · ' + texteGrille(q) : 'Inactif'; },
       note: (cc) => {
@@ -117,26 +125,16 @@ export function sectionRelief(c: ContexteChamps): Section | null {
         if (x?.paysage) return 'Sol 3D du voisinage ; les quantités lisent la grille de la parcelle.';
         return x && grilleSurParcelleSeule(x, cc.obj, cc.etat.objects) ? 'Le sol 3D est plat au-delà de la parcelle.' : '';
       } },
-    { type: 'nombre', cle: 'pointsMax', libelle: 'Points max', visible: avec, min: POINTS_MAX_MIN, max: POINTS_MAX_MAX, pas: 10000, decimales: 0, unite: 'points',
+    { type: 'nombre', cle: 'pointsMax', libelle: 'Points max', visible: avec, repli: TECHNIQUE, min: POINTS_MAX_MIN, max: POINTS_MAX_MAX, pas: 10000, decimales: 0, unite: 'points',
       aide: 'Le plafond de points de chaque grille, appliqué à la prochaine lecture (« Actualiser », actualisation IGN) : plus haut, le pas est plus fin et le projet plus lourd',
       note: () => 'Appliqué à « Actualiser ».',
       lire: (cc) => plafondRelief(r(cc)),
       ecrire: (cc, v) => { const x = r(cc); if (!x || !Number.isFinite(v)) return false; x.maxCellules = plafondRelief({ maxCellules: v }); } },
-    { type: 'lecture', cle: 'zRef', libelle: 'Zéro du plan', visible: avec, aide: 'L’altitude du sol au point de référence de la terrasse, fixée à la lecture : toutes les hauteurs du plan se comptent depuis elle',
+    { type: 'lecture', cle: 'zRef', libelle: 'Zéro du plan', visible: avec, repli: TECHNIQUE, aide: 'L’altitude du sol au point de référence de la terrasse, fixée à la lecture : toutes les hauteurs du plan se comptent depuis elle',
       valeur: (cc) => { const x = r(cc); return x ? fr(x.zRef) + ' m ' + x.systemeAltimetrique : ''; } },
-    { type: 'lecture', cle: 'pente', libelle: 'Pente', visible: avec, aide: 'La pente moyenne du sol à l’intérieur de la parcelle, et le point cardinal vers lequel il descend',
-      valeur: (cc) => { const x = r(cc); const p = x ? penteParcelle(x, enPoints(cc.obj).pts) : null; return p ? textePente(p) : 'inconnue'; } },
-    { type: 'lecture', cle: 'denivele', libelle: 'Dénivelé', visible: avec, valeur: (cc) => { const x = r(cc); return x ? texteDenivele(x, cc.obj) : ''; } },
-
     // ---- Preferences d'affichage : ni annulation, ni projet modifie ------------------------------
-    // Deux reglages distincts : le relief (le sol en 3D, montre par defaut) et les courbes de niveau du
-    // plan (cachees par defaut), avec leur equidistance quand elles sont montrees.
-    { type: 'case', cle: 'sol3d', libelle: 'Relief', visible: avec, sale: false, enregistre: true, effets: ['scene3d'],
-      aide: 'Le sol en relief dans la Vue 3D : le terrain suit la grille d’altitudes, les objets se posent dessus',
-      lire: (cc) => affichageRelief(r(cc)).sol3d, ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { a.sol3d = v; }) },
-    { type: 'case', cle: 'courbes', libelle: 'Courbes de niveau', visible: avec, sale: false, enregistre: true, effets: ['rendu', 'inspecteur'],
-      aide: 'Les courbes de niveau sur le plan',
-      lire: (cc) => affichageRelief(r(cc)).courbes, ecrire: (cc, v) => reglerAffichage(cc.obj, (a) => { a.courbes = v; }) },
+    // Le relief (le sol en 3D) et les courbes de niveau (le plan) se basculent au menu Affichage, et
+    // la seulement : un geste n'existe qu'a un endroit. L'equidistance des courbes, montrees, reste ici.
     { type: 'choix', cle: 'equidistance', libelle: 'Équidistance', visible: (cc) => avec(cc) && affichageRelief(r(cc)).courbes, sale: false, enregistre: true, effets: ['rendu'],
       options: () => EQUIDISTANCES,
       note: (cc) => { const x = r(cc); return x && !(x.affichage?.equidistance) ? texteEquidistance(equidistanceRelief(x, enPoints(cc.obj).pts)) : ''; },

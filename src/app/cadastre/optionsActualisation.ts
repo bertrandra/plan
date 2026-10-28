@@ -34,7 +34,15 @@ export interface OptionsActualisation {
    * par defaut ; `relire` les traite comme les autres, quand l'utilisateur le demande expressement.
    */
   verifies?: 'garder' | 'relire';
+  /**
+   * Les objets retouches a la main (model/retouche.ts) dont la personne reprend la version de l'IGN, par cle : remplaces par leur
+   * source, leur marque retire, leur cle gardee. Un objet retouche absent d'ici est garde tel quel (decision du 27 octobre 2026).
+   */
+  reprendre?: readonly string[];
 }
+
+/** Un objet retouche a la main, tel que le dialogue le propose : sa cle, et le libelle de sa case. */
+export interface ObjetRetouche { cle: string; libelle: string }
 
 /** Ce que le dialogue affiche du plan avant d'actualiser. */
 export interface InfosActualisation {
@@ -53,5 +61,7 @@ export interface InfosActualisation {
    * la lecture du disque au palier qui couvre le rayon demande (geo/apiIgn `rayonDeLecture`), et
    * ce qui est deja dans le plan (ni compte, ni duplique).
    */
+  /** Les objets retouches a la main : une case chacun, decochee, pour reprendre la version de l'IGN. Vide : le dialogue n'en dit rien. */
+  retouches?: ObjetRetouche[];
   voisinage?: { centre: PtBrut; lire: (rayonM: number) => Promise<VoisinageRayon>; idus: ReadonlySet<string>; ids: ReadonlySet<string> };
 }

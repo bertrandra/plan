@@ -95,7 +95,7 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
   function render(): void { rendu.render(); }
   const rendu = creerRendu({ etat, magasin, surface, dessin, affichage, tiroir, markDirty, cadrage: () => cadrage });
   const { vueChangee, redessinerObjets } = rendu;
-  const gestes = creerGestes(etat, { ...dessin, pushHistory, render, rebuildSelector, mesures });
+  const gestes = creerGestes(etat, { ...dessin, pushHistory, markDirty, render, rebuildSelector, mesures });
   const cadrage = creerCadrage(etat, magasin, surface, {
     render, toWorld: dessin.toWorld, objetMasque: affichage.objetMasque,
     basculerExplorateur: () => tardifs.explorateur?.basculerOuverture(),

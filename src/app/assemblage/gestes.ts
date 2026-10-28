@@ -10,7 +10,7 @@ import { pointInPolygon } from '../../geometry/basic.js';
 import { projectOntoSegment, nearestSegmentIndex } from '../../geometry/segments.js';
 import { alignerSurCote } from '../../geometry/alignement.js';
 import { editerAngle, editerLongueur, contourDeContrainte } from '../../interaction/editing.js';
-import { alignerObjetParRotation } from '../../interaction/outilAlignement.js';
+import { alignerObjetParRotation, distanceAlignement } from '../../interaction/outilAlignement.js';
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
@@ -19,8 +19,8 @@ import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';
 import { serializeObjects } from '../../io/serialisation.js';
-import { distanceAlignementSaisie } from '../../ui/champs/objet.js';
 import { showConfirm, showToast } from '../../shell/dialogs.js';
+import { avecAccordDeRetouche } from '../../interaction/retoucheTerrain.js';
 import { aPoints, normaliserEnObjetsDuPlan } from './formes.js';
 import type { Mesures } from './mesures.js';
 import type { EtatApp } from '../../core/state.js';
@@ -33,11 +33,16 @@ export interface DependancesGestes {
   rebuildHandles: (obj: ObjetPlan) => void;
   createObjectDOM: (obj: ObjetPlan) => void;
   reapplyStackingOrder: () => void;
+  /** Le projet a change sans pas d'annulation (le marque d'une retouche a la main, interaction/retoucheTerrain.ts). */
+  markDirty: () => void;
+  /** La question avant de retoucher un objet venu du cadastre ou de l'IGN ; par defaut le dialogue Z8. */
+  confirmer?: (message: string, oui: () => void) => void;
   mesures: Mesures;
 }
 
 export function creerGestes(etat: EtatApp, d: DependancesGestes) {
   const contour = (obj: ObjetPlan) => contourDeContrainte(etat.objects, aPoints(obj));
+  const accord = { markDirty: d.markDirty, confirmer: d.confirmer };
   // La naissance et la mort d'un objet vivent dans model/creation.ts.
   const creation = () => creerCreation(etat, {
     pushHistory: d.pushHistory, createObjectDOM: d.createObjectDOM, rebuildHandles: d.rebuildHandles,
@@ -56,18 +61,23 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       const nouveau = projectOntoSegment(clic, sommetDe(pts, segIndex), sommetDe(pts, segIndex + 1));
       const borne = contour(obj);
       if (borne && !pointInPolygon(nouveau, borne)) return;
-      d.pushHistory();
-      insererSommet(aPoints(obj), segIndex, clic);
-      d.rebuildHandles(obj);
-      d.render();
+      // Venu du cadastre ou de l'IGN : la retouche demande d'abord l'accord (interaction/retoucheTerrain.ts).
+      avecAccordDeRetouche(obj, accord, () => {
+        d.pushHistory();
+        insererSommet(aPoints(obj), segIndex, clic);
+        d.rebuildHandles(obj);
+        d.render();
+      });
     },
     deleteVertex(obj: ObjetPlan, idx: number) {
       // Une forme garde toujours assez de sommets pour rester valide.
       if (obj.locked || enPoints(obj).pts.length <= minimumSommets(obj.type)) return;
-      d.pushHistory();
-      supprimerSommet(aPoints(obj), idx);
-      d.rebuildHandles(obj);
-      d.render();
+      avecAccordDeRetouche(obj, accord, () => {
+        d.pushHistory();
+        supprimerSommet(aPoints(obj), idx);
+        d.rebuildHandles(obj);
+        d.render();
+      });
     },
     // La selection est conservee : le recul reste visible et le geste se repete sans re-selectionner.
     sendObjectBackward(obj: ObjetPlan) {
@@ -77,7 +87,9 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       d.render();
     },
     alignObjectByRotation(obj: ObjetPlan) {
-      alignerObjetParRotation(obj, etat, distanceAlignementSaisie(), {
+      // L'outil « Aligner » de la palette tourne la forme ; avec une distance saisie dans son bandeau, il la pose aussi a cette
+      // distance du trait. Sans distance, la forme ne se deplace pas.
+      alignerObjetParRotation(obj, etat, distanceAlignement(), {
         measureSegCoords: d.mesures.measureSegCoords, alignerSurCote, pointInPolygon,
         nearestSegmentIndex: (o, cible) => nearestSegmentIndex(aPoints(o), cible),
         contourDeContrainte: contour,

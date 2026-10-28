@@ -135,6 +135,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     // Le relief du sol (MD/spec-relief.md §7) : la grille entiere, posee seulement si elle a ete lue,
     // ses altitudes compactees (`zCode`) — en clair, elles faisaient deborder la plateforme.
     if(o.relief) out.relief = compacterRelief(o.relief);
+    // Retouche a la main alors qu'il vient du cadastre ou de l'IGN (model/retouche.ts) : pose seulement s'il l'est.
+    if(o.retoucheMain) out.retoucheMain = { date: o.retoucheMain.date };
     if(o.voisinage) allegerVoisinage(out);
     // La liste blanche s'ecrit champ par champ sur un enregistrement ouvert, parce que l'ordre des
     // clefs est celui du fichier enregistre (empreinte projet.json). Ce qu'elle ecrit est un

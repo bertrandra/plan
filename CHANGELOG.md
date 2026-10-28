@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Retoucher la forme d'un objet de l'IGN, après un avertissement** (décision du 27 octobre 2026). Une parcelle du cadastre, un
+  bâtiment ou un élément de l'IGN ne se déplace ni ne tourne, mais sa forme peut être fausse à l'IGN : tirer un sommet, un côté
+  ou le rayon, ajouter ou retirer un sommet, saisir un angle ou une longueur, le mode rectangle demandent d'abord « « Maison »
+  vient de l'IGN. La retoucher à la main la détache de l'IGN… Continuer ? ». Confirmé, l'objet garde un marque enregistré dans
+  le fichier (`retoucheMain`) et la question ne revient plus ; annulé, rien ne se passe. À l'actualisation IGN (« Actualiser
+  depuis l'IGN » comme « Actualiser le projet »), un objet retouché est gardé tel quel ; une case décochée par objet,
+  « Reprendre la version de l'IGN pour « X », retouché à la main le JJ/MM/AAAA », le remplace par sa source et retire le marque.
+  Sans objet retouché, les dialogues ne changent pas.
+
 - **La fumée complète, chaque nuit** (`.github/workflows/fumee-nuit.yml`, feuille de route, étape 0.1). La CI ne joue que les douze
   points du lot `ci`, au bureau et en thème clair. Ce workflow joue tous les points, dans les trois classes d'écran et les deux
   thèmes, avec le réseau témoin : une tâche par couple, de 12 à 30 min, chaque nuit à 3 h 17 UTC, et à la demande. Un échec fait
@@ -61,6 +70,50 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
+  l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent
+  une autre quand la clé n'était pas celle d'un import (`bati-…`). Un bâtiment sans correspondant prend une clé libre, comme avant.
+
+- **L'inspecteur ne montre que ce qui sert à concevoir chaque ouvrage** (`MD/spec-ouvrages.md`, « Décidé, ouvrage par
+  ouvrage », étape 6.4). Le propriétaire a tranché chaque proposition ; l'inspecteur règle, il n'affiche plus de résultat.
+  - **Tous les objets** : « Matière » (que seul l'export SVG recopiait), « Priorité d'affichage » (le geste « Reculer » la
+    remplace) et la section « Alignement par rotation » sont retirées. L'outil « Aligner » de la palette va désormais jusqu'au
+    bout : le côté cible désigné, l'objet sélectionné pivote. Les textures se replient sous « Textures », les côtés et les coins
+    restent repliés.
+  - **Parcelle** : le lieu, le cadastre, la clôture et les portails restent ouverts. La déclaration préalable devient un dialogue
+    du menu Exporter (« Déclaration préalable… »), avec les mêmes champs et le bouton du dossier. Le voisinage 3D rejoint les
+    réglages de la Vue 3D (groupe « Voisinage »). « Relief » et « Courbes de niveau » ne sont plus que dans le menu Affichage ;
+    la grille, le maillage secondaire, les points max et le zéro du plan se replient sous « Réglages techniques », « Actualiser »
+    reste à portée. La clôture côté par côté se replie, le réglage général reste ouvert.
+  - **Terrasse** : les étapes restent, une ouverte à la fois, les paramètres de calcul repliés ; l'optimisation de la structure
+    part dans un onglet « Optimisation » du tiroir, à côté de la nomenclature ; la lame de rive côté par côté se replie.
+  - **Piscine** : les cinq étapes restent ; le métrage, le chiffrage et les prix partent dans un onglet « Piscine » du tiroir,
+    avec le volume d'eau, les distances aux limites et la taxe d'aménagement. Un rappel court reste sous l'étape (le volume ;
+    la limite la plus proche et la taxe de base).
+  - **Pergola, carport** : matériau, toit, hauteur, côté de référence, adossé, débord, poteaux et poutres restent ouverts ;
+    contrefiches et chevrons, couleurs et longueurs achetables se replient, comme les hypothèses et les vérifications de la note
+    de calcul, dont le bouton du PDF reste en vue. Le métrage et les prix partent dans un onglet du tiroir, qui porte le nom de
+    l'ouvrage (« Pergola » ou « Carport »).
+  - **Bâtiment, annexe** : « Façades et toit » reste, « Fenêtres (3D) » est repliée ; un bâtiment importé de l'IGN et verrouillé
+    ne montre plus ses côtés ni ses coins (dessiné à la main, il les garde, repliés).
+  - **Parasol** : la terrasse rattachée, le mât, « Afficher l'ombre » et « Meilleure position » restent ouverts ; la date,
+    l'heure et la carte des heures d'ombre se replient.
+  - **Chemin** : longueur, largeur et courbe restent ouvertes, les points et segments repliés.
+
+  Un pli de champs est un mécanisme générique des descripteurs (`repli` dans `ui/champs/types.ts`), et les champs se rendent
+  par un seul composant (`zones/composants/Champs.tsx`), que l'inspecteur, le tiroir, le dialogue de la déclaration et les
+  réglages 3D partagent. **Aucune donnée ne se perd et aucun nombre ne bouge** : retirer un champ de l'inspecteur ne retire
+  rien de l'objet ni du fichier (la matière, la priorité, la déclaration, le voisinage restent rangés où ils étaient), les
+  exports et les empreintes de `tests/fixtures/golden/` sont inchangés. Un test fixe l'inventaire décidé, ouvrage par ouvrage
+  (`tests/unit/ui/inventaireInspecteur.test.ts`).
+
+- **Ce qui vient du cadastre ou de l'IGN reste à sa place réelle.** Une parcelle du cadastre, un bâtiment ou un élément de
+  l'IGN (`estPoseSurLeTerrain`) ne se déplace plus à la souris ni ne tourne avec l'outil « Aligner » ; l'outil avertissait puis
+  tournait la parcelle. Le refus se dit. L'actualisation IGN, la lecture des toits au LiDAR, la photo aérienne, le relief, les
+  rues, le PLU, le soleil, le voisinage et l'audit sur place les lisent à leur place ; un décalage se corrige par le recalage.
+- **L'outil « Aligner » reprend la distance au trait.** Quand il est actif, son bandeau porte un champ « à … m du trait » : vide,
+  l'objet tourne pour devenir parallèle au côté désigné ; rempli, il se pose aussi à cette distance (une terrasse à 50 cm de la
+  façade). C'était l'option « Distance au segment » de la section retirée de l'inspecteur.
 - **Le plan ne redessine que l'objet qui change** (`MD/spec-ouvrages.md`, étapes 6.1 et 6.5). Un contrôleur des objets
   (`core/controleurObjets.ts`) tient une version par objet : le glisser touche l'objet glissé à chaque image, l'explorateur
   l'objet qu'il masque, un parasol posé sur le bord de sa terrasse quand elle bouge ; toute écriture qui passe par l'historique
@@ -316,6 +369,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le toit suit son bâtiment quand on le déplace ou le tourne** (`MD/spec-ouvrages.md`, étape 6.3). Glisser un bâtiment, l'aligner
+  par rotation ou le remettre à sa place de départ laissait son toit à l'ancienne place dans la Vue 3D : les corps du toit, les
+  cheminées, les édicules d'une toiture-terrasse et les volumes sont en coordonnées absolues, et aucun geste ne les faisait suivre.
+  Quand le contour bouge d'un bloc (`geometry/deplacement.ts`), l'ouvrage fait suivre ce qu'il porte (`model/ouvrages/bati.ts`) ;
+  la direction du faîtage tourne avec lui. La grille du toit mesuré se translate ; tournée, elle partirait de travers et
+  disparaît (les corps tournés restent). Un contour déformé (un sommet tiré) ne fait rien suivre.
 - **La fumée complète repasse : les neuf points rouges trouvés par la première nuit** (feuille de route, étape 0.4). Aucun n'était
   un défaut de l'application ; tous venaient d'un script resté en retard sur elle.
   - **69, 70** : depuis que le moteur arbitre les sources (lot G), la couverture que Claude voit n'est plus une ligne à part.

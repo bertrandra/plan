@@ -134,7 +134,7 @@ modifie depuis l'inspecteur de la parcelle.
 | Formes | Chemin · Polygone · Rectangle · Cercle — les formes purement géométriques, à qualifier ensuite, après les ouvrages | `add*Btn` | `atelier.addNewObject/…` |
 | Éditer | Dupliquer · Supprimer · Reculer d'un plan | `dupObjBtn`, `delObjBtn`, `backObjBtn` | `duplicateSelectedObject`, `deleteSelectedObject`, `sendObjectBackward` |
 | Mesurer | Cote (référence puis coins) | onglet Mesure, `startPick` | `interaction/outilMesure.ts` |
-| Aligner | Aligner par rotation sur un côté cible | onglet Objet, « Choisir un segment cible » | `interaction/outilAlignement.ts` |
+| Aligner | Aligner par rotation sur un côté cible : le côté désigné, l'objet pivote (27 octobre 2026 : plus de section dans l'inspecteur) | outil « Aligner » de la palette | `interaction/outilAlignement.ts` |
 | Navigation | Ajuster à la sélection · Grille | `fitBtn`, `gridBtn` (surimpression du canevas) | `fitToObject`, `grilleVisible` |
 
 Mesurer et Aligner sont des **outils modaux** : l'état `mesure.pointage` existe déjà et dit ce
@@ -174,7 +174,7 @@ la terrasse, choisis dans Z3.
 | Parasol | fonction parasol | hauteur, mât déporté, angle, terrasse liée, date et heure de l'ombre, « Placer au mieux » | `engine/parasol.ts` |
 | Parcelle | clé `parcelle` | lieu (lat, lon, nom), cadastre (fiche), orthophoto | `model/lieu.ts`, `ui/cloture.ts` |
 | Clôture, Portails et portillons | clé `parcelle`, parcelle du projet seule | réglage par défaut et par côté, hauteurs maximales du PLU ; accès (côté, position, dimensions, ouverture, forme, piliers, retrait) — `MD/spec-cloture.md` | `ui/champs/cloture.ts`, `model/cloture.ts` |
-| Terrasse — construction | fonction terrasse | le configurateur (53 réglages), l'optimisation | `renderTerrasseConfigurator`, `optimiserParametres` |
+| Terrasse — construction | fonction terrasse | le configurateur (53 réglages) ; l'optimisation est un onglet de Z6 depuis le 27 octobre 2026 | `renderTerrasseConfigurator`, `optimiserParametres` |
 | Terrasse — vue 3D | fonction terrasse, vue 3D active | filaire, tous les objets, opaques, textures, ombres | `vue3d.*` |
 
 L'inspecteur est **la** zone que le découpage du configurateur en descripteurs de champs
@@ -189,6 +189,9 @@ compilation.
 |---|---|---|---|
 | Nomenclature (BOM) | sous-onglet BOM, `terrasseBomTable`, totaux | `computeBOM` | prix réels par ligne |
 | Débit | `terrasseDebitBox`, `terrasseDebitBoisBox` | `optimiserDebitLames`, débit bois | longueurs disponibles, prix |
+| Optimisation (terrasse) | `terrasseOptimWrap` (27 octobre 2026, venu de l'inspecteur) | `optimiserParametres` | « Appliquer » une structure |
+| Piscine | `piscineResultatsWrap` (27 octobre 2026) : volume, distances aux limites, taxe, métrage et chiffrage | `calculerPiscine`, `chiffrerPiscine` | prix par poste |
+| Pergola / Carport | `abriResultatsWrap` (27 octobre 2026) : métrage et chiffrage | `calculerPergola`, `chiffrerPergola` | prix par section |
 | Coupe | `terrasseCoupeWrap` | `renderTerrasseCoupe` | non |
 | Implantation | `terrasseImplantWrap` (échelle 1/50 à 1/200) | `computeImplantation` | échelle |
 | Chantier | `terrasseChantierWrap` | `computeChantier` | équipe, heures/jour, cadences |

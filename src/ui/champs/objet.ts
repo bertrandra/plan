@@ -1,6 +1,6 @@
 // Les sections de l'inspecteur pour l'objet selectionne (spec-ihm-zones §4.5, ui/champs/).
 //
-// Objet, Apparence, Parasol, Point de vue, Cotes, Coins, Alignement, Parcelle : ce que le panneau
+// Objet, Apparence, Parasol, Point de vue, Cotes, Coins, Parcelle : ce que le panneau
 // d'attributs (`ui/attrPanel.ts`, jusqu'a l'etape 3) construisait en DOM, decrit champ par champ.
 // Chaque section dit pour quel objet elle apparait ; chaque champ dit ce qu'il lit, ce qu'il ecrit
 // et ce qui doit suivre. Les regles d'autrefois sont restees des regles — le mode rectangle refuse
@@ -10,12 +10,11 @@
 import { especeDe, especesChargees, especeParId, especesParTaille } from '../../model/especesArbre.js';
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
-import { nearestSegmentIndex } from '../../geometry/segments.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
 import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
-import { aParticularite, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
+import { aParticularite, estBatiment, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
@@ -23,22 +22,15 @@ import { constructionTerrasseNeuve } from '../../engine/construction.js';
 import { sectionsPergola } from './pergola.js';
 import { sectionsCloture } from './cloture.js';
 import { sectionRelief } from './relief.js';
-import { sectionVoisinage3d } from './voisinage3d.js';
 import { sectionFenetres3d } from './fenetres3d.js';
 import { champsCouleurMurs } from './couleurMurs.js';
 import { sectionsPiscine } from './piscine.js';
-import { sectionDeclaration } from './declaration.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
 import { champsArbre, champsParasol } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS: string[] = [...FONCTIONS_AU_MENU];
-
-// La distance saisie pour l'alignement survit aux rendus et se lit au moment d'aligner : ce n'est
-// pas une donnee du plan, seulement le brouillon d'un geste.
-let distanceAlignement = '';
-export const distanceAlignementSaisie = (): string => distanceAlignement;
 
 // Ce que la fonction donne a l'objet (sections, formes admises) est decrit une fois, dans
 // model/fonctions.ts.
@@ -103,14 +95,8 @@ const sectionObjet: Section = {
         if (v === 'terrasse' && !c.obj.construction) c.obj.construction = constructionTerrasseNeuve();
       }
     },
-    {
-      type: 'nombre', cle: 'priority', libelle: 'Priorité d\'affichage', pas: 1, effets: ['empilement', 'rendu'],
-      aide: 'Plus élevé = dessiné au-dessus des autres (hors objet sélectionné, toujours au premier plan)',
-      // Un point de vue n'est pas une surface : il n'a ni ordre d'empilement utile ni matiere.
-      visible: (c) => !estPointDeVue(c.obj),
-      lire: (c) => c.obj.priority || 0, ecrire: (c, v) => { c.obj.priority = Math.round(v) || 0; }
-    },
-    { type: 'texte', cle: 'matiere', libelle: 'Matière', placeholder: 'ex : béton, bois, gazon…', visible: (c) => !estPointDeVue(c.obj), lire: (c) => c.obj.matiere || '', ecrire: (c, v) => { c.obj.matiere = v; } },
+    // Ni « Priorité d'affichage » ni « Matière » : le geste « Reculer » de la palette regle l'empilement,
+    // et la matiere, un texte libre, n'etait lue que par l'export SVG. Le fichier garde les deux valeurs.
     // La hauteur sert la Vue 3D : chaque objet y devient un bloc extrude. Une terrasse fait
     // exception — sa hauteur vient de sa construction — et un terrain n'en a pas.
     {
@@ -154,7 +140,7 @@ const sectionObjet: Section = {
       lire: (c) => !!c.obj.curve, ecrire: (c, v) => { c.obj.curve = v; }
     },
     {
-      type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, effets: ['rendu'],
+      type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, retouche: true, effets: ['rendu'],
       visible: (c) => c.obj.type === 'circle',
       lire: (c) => enCercle(c.obj).r,
       ecrire: (c, v) => {
@@ -176,7 +162,7 @@ const sectionObjet: Section = {
       lire: (c) => !!c.obj.locked, ecrire: (c, v) => { c.obj.locked = v; }
     },
     {
-      type: 'case', cle: 'rectangle', libelle: 'Mode rectangle (angles à 90°)', effets: ['rendu'],
+      type: 'case', cle: 'rectangle', libelle: 'Mode rectangle (angles à 90°)', retouche: true, effets: ['rendu'],
       aide: 'Verrouille les 4 angles à 90 degrés (fige les 4 coins)',
       visible: (c) => c.obj.type === 'polygon' && c.obj.pts.length === 4,
       // Derive de l'etat des coins figes plutot que d'un drapeau a part : figer les quatre coins est
@@ -227,8 +213,8 @@ const sectionApparence: Section = {
     },
     // Verticale = les faces du bloc extrude en Vue 3D (murs) ; horizontale = le dessus (toit). Un
     // mur et un toit ne partagent presque jamais le meme materiau.
-    { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj) },
-    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj) },
+    { ...texture('textureVerticale', 'Texture verticale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
+    { ...texture('textureHorizontale', 'Texture horizontale'), visible: (c) => !estPointDeVue(c.obj), repli: 'Textures' },
     // Le gazon de la parcelle du projet en 3D, montre par defaut : une preference d'affichage, gardee
     // a la reouverture comme le relief. Une texture horizontale choisie l'emporte sur lui.
     {
@@ -289,6 +275,9 @@ const sectionArbre: Section = {
   ]
 };
 
+/** Le pli de l'ombre d'un parasol : sa date, son heure, la carte des heures d'ombre. */
+const OMBRE = 'Date, heure et carte des ombres';
+
 const sectionParasol: Section = {
   id: 'parasol', titre: 'Parasol',
   champs: [
@@ -324,17 +313,7 @@ const sectionParasol: Section = {
       visible: (c) => !!c.obj.parasol?.matDeporte,
       lire: (c) => Math.round(matAngleDe(c.obj)), ecrire: (c, v) => { champsParasol(c.obj).matAngleDeg = ((v || 0) % 360 + 360) % 360; }
     },
-    { type: 'date', cle: 'ombreDate', libelle: 'Ombre — date', sale: false, effets: ['rendu'], lire: (c) => c.etat.parasol.dateStr, ecrire: (c, v) => { if (v) c.etat.parasol.dateStr = v; } },
-    {
-      type: 'curseur', cle: 'ombreHeure', libelle: 'Ombre — heure', min: 0, max: 1439, pas: 5, format: formatHeureMin, sale: false, effets: ['rendu'],
-      lire: (c) => c.etat.parasol.minutes, ecrire: (c, v) => { c.etat.parasol.minutes = v; }
-    },
     { type: 'case', cle: 'ombreAffichee', libelle: 'Afficher l\'ombre', sale: false, effets: ['rendu'], lire: (c) => c.etat.parasol.ombreAffichee, ecrire: (c, v) => { c.etat.parasol.ombreAffichee = v; } },
-    {
-      type: 'case', cle: 'carteAffichee', libelle: 'Carte de chaleur (heures d\'ombre)', sale: false, effets: ['rendu'],
-      aide: 'Colore la terrasse selon la part des après-midis d\'été (mai à septembre, 12h-18h) passée à l\'ombre',
-      lire: (c) => c.etat.parasol.carteAffichee, ecrire: (c, v) => { c.etat.parasol.carteAffichee = v; }
-    },
     {
       type: 'bouton', cle: 'placerAuMieux', libelle: 'Meilleure position', texte: () => 'Placer au mieux',
       explication: 'Cherche sur la terrasse la position qui ombrage le plus, mai→sept. 12h–18h.',
@@ -354,6 +333,17 @@ const sectionParasol: Section = {
           c.toast('Parasol place sur "' + terr.name + '" : ' + (res.couverture * 100).toFixed(0) + ' % a l\'ombre en moyenne (mai-sept., 12h-18h).');
         }, 30);
       }
+    },
+    // La date, l'heure et la carte des heures d'ombre servent rarement : repliees, apres le geste.
+    { type: 'date', cle: 'ombreDate', libelle: 'Ombre — date', sale: false, repli: OMBRE, effets: ['rendu'], lire: (c) => c.etat.parasol.dateStr, ecrire: (c, v) => { if (v) c.etat.parasol.dateStr = v; } },
+    {
+      type: 'curseur', cle: 'ombreHeure', libelle: 'Ombre — heure', min: 0, max: 1439, pas: 5, format: formatHeureMin, sale: false, repli: OMBRE, effets: ['rendu'],
+      lire: (c) => c.etat.parasol.minutes, ecrire: (c, v) => { c.etat.parasol.minutes = v; }
+    },
+    {
+      type: 'case', cle: 'carteAffichee', libelle: 'Carte de chaleur (heures d\'ombre)', sale: false, repli: OMBRE, effets: ['rendu'],
+      aide: 'Colore la terrasse selon la part des après-midis d\'été (mai à septembre, 12h-18h) passée à l\'ombre',
+      lire: (c) => c.etat.parasol.carteAffichee, ecrire: (c, v) => { c.etat.parasol.carteAffichee = v; }
     }
   ]
 };
@@ -409,7 +399,7 @@ function sectionCotes(c: ContexteChamps): Section {
     const j = (i + 1) % n;
     const aFige = !!gelsDe(obj)[i], bFige = !!gelsDe(obj)[j];
     const longueur: ChampNombre = {
-      type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2,
+      type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2, retouche: true,
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
       lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
@@ -441,7 +431,7 @@ function sectionCoins(c: ContexteChamps): Section {
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
         {
-          type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, actif: () => !fige,
+          type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, retouche: true, actif: () => !fige,
           aide: fige ? 'Angle figé : décoche « figé » pour le modifier' : 'Angle intérieur',
           lire: (cc) => cc.interiorAngleDeg(cc.obj, i),
           ecrire: (cc, v) => cc.applyAngleEdit(cc.obj, i, v),
@@ -459,47 +449,6 @@ function sectionCoins(c: ContexteChamps): Section {
   return { id: 'coins', titre: 'Coins', repliee: true, champs };
 }
 
-const sectionAlignement: Section = {
-  id: 'alignement', titre: 'Alignement par rotation', repliee: true,
-  explication: 'Choisis un segment cible sur le plan (n\'importe quel objet) : l\'objet sélectionné pivote autour du milieu de son côté le plus proche de ce segment cible, pour devenir parallèle à celui-ci.',
-  champs: [
-    {
-      type: 'bouton', cle: 'choisir', libelle: 'Segment cible',
-      texte: (c) => c.pointage()?.purpose === 'align' ? 'Clique un segment sur le plan…' : 'Choisir un segment cible',
-      actif: (c) => c.pointage()?.purpose !== 'align',
-      agit: 'interface',
-      executer: (c) => c.startPick('ref', false, 'align')
-    },
-    {
-      type: 'lecture', cle: 'info', libelle: 'Cible',
-      valeur: (c) => {
-        const cible = c.cibleAlignement();
-        let proche = '(choisis d\'abord un segment cible)';
-        if (cible) {
-          const tgt = c.measureSegCoords(cible);
-          if (tgt) {
-            const obj = enPoints(c.obj);
-            const idx = nearestSegmentIndex({ type: obj.type, pts: obj.pts }, tgt);
-            if (idx >= 0) proche = obj.segmentNames?.[idx] || ('Cote ' + (idx + 1));
-          }
-        }
-        return c.refLabel(cible) + '  |  côté le plus proche de « ' + c.obj.name + ' » : ' + proche;
-      }
-    },
-    {
-      type: 'texte', cle: 'distance', libelle: 'Distance au segment (m)', placeholder: 'vide = pas de changement', sale: false,
-      lire: () => distanceAlignement, ecrire: (_c, v) => { distanceAlignement = v; }
-    },
-    {
-      type: 'bouton', cle: 'aligner', libelle: '', nom: 'Aligner par rotation', texte: () => 'Aligner par rotation',
-      actif: (c) => !!c.cibleAlignement() && !c.obj.locked,
-      aide: 'Nécessite un segment cible et un objet non verrouillé',
-      agit: 'projet',
-      executer: (c) => c.alignObjectByRotation(c.obj)
-    }
-  ]
-};
-
 // La parcelle voisine (import cadastre, `fonction: terrain` elle aussi) n'en montre que le cadastre :
 // le lieu est celui de la parcelle du projet. La cloture et ses acces ont leurs sections a part
 // (ui/champs/cloture.ts), sur la parcelle du projet seulement.
@@ -511,7 +460,18 @@ const sectionParcelle: Section = {
   ]
 };
 
-/** Les sections a montrer pour l'objet selectionne, dans l'ordre. */
+/**
+ * Un batiment importe de l'IGN et verrouille : on ne redessine pas son contour, ses listes de cotes
+ * et de coins n'ont rien a regler. Dessine a la main, il les garde, repliees comme ailleurs.
+ */
+const batimentImporteVerrouille = (o: ObjetPlan): boolean => estBatiment(o) && !!o.locked && !!o.bdtopo;
+
+/**
+ * Les sections a montrer pour l'objet selectionne, dans l'ordre : ce qui sert a le concevoir
+ * (MD/spec-ouvrages.md, « L'inspecteur de chaque ouvrage »). Ce qui concerne le projet en sort : la
+ * declaration prealable s'ouvre en dialogue du menu Exporter, le voisinage 3D est un reglage de la
+ * Vue 3D ; l'alignement par rotation est l'outil « Aligner » de la palette.
+ */
 export function sectionsObjet(c: ContexteChamps): Section[] {
   const o = c.obj;
   const sections: Section[] = [sectionObjet];
@@ -519,10 +479,6 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   // Le relief suit la cloture : lui aussi n'appartient qu'a la parcelle du projet.
   const relief = sectionRelief(c);
   if (relief) sections.push(relief);
-  // L'apparence du voisinage en 3D : sur la parcelle du projet, apres la cloture et le relief.
-  const voisinage3d = sectionVoisinage3d(c);
-  if (voisinage3d) sections.push(voisinage3d);
-  if (estParcellePrincipale(c)) sections.push(sectionDeclaration(c));
   // Les fenetres d'un batiment du projet en 3D.
   const fenetres3d = sectionFenetres3d(c);
   if (fenetres3d) sections.push(fenetres3d);
@@ -532,11 +488,10 @@ export function sectionsObjet(c: ContexteChamps): Section[] {
   if (aParticularite(o, 'parasol')) sections.push(sectionParasol);
   if (aParticularite(o, 'pointDeVue')) sections.push(sectionPointDeVue);
   if (aParticularite(o, 'abri')) sections.push(...sectionsPergola(c));
-  if (aParticularite(o, 'bassin')) sections.push(...sectionsPiscine(c));
-  if (aDesPoints(o) && !estPointDeVue(o)) {
+  if (aParticularite(o, 'bassin')) sections.push(...sectionsPiscine());
+  if (aDesPoints(o) && !estPointDeVue(o) && !batimentImporteVerrouille(o)) {
     sections.push(sectionCotes(c));
     if (o.type === 'polygon') sections.push(sectionCoins(c));
-    sections.push(sectionAlignement);
   }
   return sections;
 }
