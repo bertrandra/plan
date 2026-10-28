@@ -97,13 +97,17 @@ export type EffetProposition =
   | { type: 'corpsToit'; corps: CorpsToit[] }
   /** Un seul corps du toit, au rang `corps`, relu sous les silhouettes de ses murs (corps par corps) : les autres ne bougent pas. */
   | { type: 'corpsDuToit'; corps: number; toit: CorpsToit }
-  /** Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. */
-  | { type: 'cheminees'; corps: number; cheminees: Cheminee[] }
+  /**
+   * Les souches vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees. `apresForme` : leur place
+   * sur les corps de la forme du toit proposee dans le meme audit, quand celle-ci est validee avec elles (null : elles n'y tiennent
+   * pas) ; de meme pour les lucarnes, la terrasse et les appentis.
+   */
+  | { type: 'cheminees'; corps: number; cheminees: Cheminee[]; apresForme?: { corps: number; cheminees: Cheminee[] } | null }
   /** Les appentis des corps `corps`, ouverts (poteaux, sans mur exterieur) ou fermes (murs jusqu'au sol). */
-  | { type: 'appentis'; corps: number[]; ouvert: boolean }
+  | { type: 'appentis'; corps: number[]; ouvert: boolean; apresForme?: { corps: number[] } | null }
   /** Les lucarnes vues, posees sur le corps `corps` ; celles d'une observation precedente sont retirees (celles du LiDAR restent). */
-  | { type: 'lucarnes'; corps: number; lucarnes: Lucarne[] }
-  | { type: 'terrasse'; corps: number; terrasse: TerrasseToit }
+  | { type: 'lucarnes'; corps: number; lucarnes: Lucarne[]; apresForme?: { corps: number; lucarnes: Lucarne[] } | null }
+  | { type: 'terrasse'; corps: number; terrasse: TerrasseToit; apresForme?: { corps: number; terrasse: TerrasseToit } | null }
   | { type: 'cloture'; cote: number; typeCloture: TypeClotureVue; hauteurM?: number; soubassement?: boolean }
   | { type: 'portail'; cote: number; nature: 'portail' | 'portillon' | 'aucun'; position?: PositionPortail; largeurM?: number };
 
@@ -263,8 +267,11 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       return;
     }
     case 'detailsOuvertures': {
-      const r = (o.batiment?.facades ?? []).find((x) => x.cote === e.cote);
-      if (r) r.ouvertures = r.ouvertures.map((x) => { const d = completerDetails(x.type, x.details, e.details); return d ? { ...x, details: d } : x; });
+      // Un releve neuf a la place de l'ancien, jamais modifie en place : l'apercu (`projetApres`) partage la liste des releves
+      // avec le plan, et un releve touche ici changeait le projet sans Ctrl+Z ni « projet modifie ».
+      const facades = o.batiment?.facades ?? [];
+      if (!facades.some((x) => x.cote === e.cote)) return;
+      batimentACopier(o).facades = facades.map((r) => (r.cote !== e.cote ? r : { ...r, ouvertures: r.ouvertures.map((x) => { const d = completerDetails(x.type, x.details, e.details); return d ? { ...x, details: d } : x; }) }));
       return;
     }
     case 'hauteur': o.elevation = cm(e.hauteurM); return;
@@ -326,24 +333,58 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
   }
 }
 
+/**
+ * L'effet d'un element du toit une fois la forme ecrite dans la meme validation : sa place sur les corps neufs, ou rien quand il
+ * n'y tient pas (`apresForme: null`). Un effet sans `apresForme` (une ancienne proposition, un autre effet) reste tel quel.
+ */
+function effetApresForme(e: EffetProposition): EffetProposition | null {
+  if (e.type !== 'cheminees' && e.type !== 'lucarnes' && e.type !== 'terrasse' && e.type !== 'appentis') return e;
+  if (e.apresForme === undefined) return e;
+  if (e.apresForme === null) return null;
+  const { apresForme, ...reste } = e;
+  return { ...reste, ...apresForme } as EffetProposition;
+}
+
 /** L'ordre d'ecriture : la hauteur d'abord, pour que les releves y soient ramenes. */
 const RANG_EFFET: Record<TypeEffet, number> = { hauteur: 0, hauteurToit: 1, releve: 1, detailsOuvertures: 2, couleurMurs: 2, materiauMurs: 2, couverture: 2, corpsToit: 2, corpsDuToit: 2.5, cheminees: 3, lucarnes: 3, appentis: 3, terrasse: 3, cloture: 4, portail: 4 };
+
+/**
+ * Les effets qui ecrivent le toit d'un batiment (sa forme, ses corps et ce qu'ils portent) : valides, ils sont une decision de la
+ * personne, que la relecture du LiDAR ne doit plus remplacer. La couverture n'en est pas : la relecture la garde
+ * (app/toits/toitsLidar.ts::avecCouleurDe).
+ */
+export const EFFETS_DU_TOIT: readonly TypeEffet[] = ['corpsToit', 'corpsDuToit', 'hauteurToit', 'cheminees', 'lucarnes', 'appentis', 'terrasse'];
 
 /**
  * Ecrit les propositions sur ces objets (les memes, modifies en place), et marque « vérifié sur
  * place » les batiments de `verifies`, a la date `jour` (AAAA-MM-JJ). Rend les cles des objets
  * touches : l'apercu 3D ne repose qu'eux.
+ *
+ * Un batiment dont le toit est ecrit est fige (`toitFige`, les « Règles » coupees du mode Toit) : la relecture du LiDAR
+ * (app/toits/toitsLidar.ts::toitAAjuster, toitsFond.ts) et l'actualisation IGN ne le remplacent plus en silence ; la personne
+ * rallume les « Règles » pour le rendre a la lecture automatique.
+ *
+ * Quand la forme du toit est ecrite (`corpsToit`), un element pose dans la meme validation (cheminees, lucarnes, terrasse,
+ * appentis) prend sa place calculee sur les corps neufs (`apresForme`) : celle des corps d'avant ne vaut plus.
  */
 export function appliquerPropositions(objets: ObjetPlan[], propositions: readonly Proposition[], verifies: readonly string[], jour: string): string[] {
   const parCle = new Map(objets.map((o) => [o.key, o]));
   const touches = new Set<string>();
+  const formeEcrite = new Set<string>();
   const ordre = [...propositions].sort((a, b) => RANG_EFFET[a.effet.type] - RANG_EFFET[b.effet.type]);
   for (const p of ordre) {
     const cle = cleDeLaCible(p.cible) ?? 'parcelle';
     const o = parCle.get(cle);
     if (!o) continue;
-    appliquerEffet(o, p.effet);
-    if (p.effet.type === 'couleurMurs' && o.batiment?.couleurMurs?.terrain) o.batiment.couleurMurs.terrain.date = jour;
+    const effet = formeEcrite.has(cle) ? effetApresForme(p.effet) : p.effet;
+    if (!effet) continue;
+    const corpsAvant = o.batiment?.corpsToit, toitAvant = o.batiment?.toit;
+    appliquerEffet(o, effet);
+    if (effet.type === 'corpsToit') formeEcrite.add(cle);
+    if (effet.type === 'couleurMurs' && o.batiment?.couleurMurs?.terrain) o.batiment.couleurMurs.terrain.date = jour;
+    // Seul un toit vraiment ecrit se fige : un effet qui n'a rien trouve ou poser (un corps disparu) ne coupe pas les « Règles ».
+    const toitEcrit = o.batiment?.corpsToit !== corpsAvant || o.batiment?.toit !== toitAvant;
+    if (EFFETS_DU_TOIT.includes(effet.type) && toitEcrit && !o.batiment?.toitFige) batimentACopier(o).toitFige = true;
     touches.add(cle);
   }
   for (const cle of verifies) {

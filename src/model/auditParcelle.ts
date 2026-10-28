@@ -12,7 +12,7 @@
 import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
-import type { OuvertureFacade } from './types.js';
+import type { OuvertureFacade, PtBrut } from './types.js';
 import type { TypeCloture, PositionPortail } from './clotureVue.js';
 export type { TypeCloture, PositionPortail } from './clotureVue.js';
 
@@ -88,6 +88,11 @@ export interface BatimentCapture<P = PhotoCas> {
   vu: CeQueJeVois;
   /** Les photos du toit prises depuis la rue : rangees sur le batiment, pas sur une facade (§12.2). */
   photos: P[];
+  /**
+   * Le contour du batiment sur lequel les rangs de `facades` sont comptes : quand celui du plan change (un sommet ajoute ou
+   * retire), les facades suivent leur mur (model/cotesAudit.ts). Absent : pas encore releve, le contour du moment fait foi.
+   */
+  contour?: PtBrut[];
 }
 
 export const TYPES_CLOTURE: readonly { code: TypeCloture; libelle: string }[] = [
@@ -327,7 +332,7 @@ export function transformerPhotos<A, B>(c: CaptureParcelle<A>, f: (photos: A[]) 
   for (const [cle, b] of Object.entries(c.batiments)) {
     const facades: Record<string, FacadeCapturee<B>> = {};
     for (const [cote, fa] of Object.entries(b.facades)) facades[cote] = { ...fa, photos: f(fa.photos) };
-    batiments[cle] = { facades, vu: JSON.parse(JSON.stringify(b.vu)) as CeQueJeVois, photos: f(b.photos) };
+    batiments[cle] = { facades, vu: JSON.parse(JSON.stringify(b.vu)) as CeQueJeVois, photos: f(b.photos), ...(b.contour ? { contour: b.contour.map((p) => ({ x: p.x, y: p.y })) } : {}) };
   }
   return { ...c, batiments, cloture: { ...c.cloture, photos: f(c.cloture.photos) }, portail: { ...c.portail, photos: f(c.portail.photos) } };
 }

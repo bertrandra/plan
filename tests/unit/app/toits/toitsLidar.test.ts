@@ -272,6 +272,31 @@ describe('toitsDepuisLidar', () => {
     expect(lireGrille).toHaveBeenCalledTimes(1);
   });
 
+  it('ne recale pas un contour retouche a la main : le toit se lit dessus, le contour ne bouge pas', async () => {
+    // Le meme decalage de deux metres que ci-dessus, mais la personne a retouche ce contour (model/retouche.ts) : c'est le sien.
+    const vrai = rect(0, -2, 10, 7);
+    const plans = plansDuToit(vrai, { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 });
+    const lireGrille = vi.fn(async (pts: readonly PtBrut[]): Promise<GrilleRelief> => {
+      const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y);
+      const pas = 0.5, x0 = Math.min(...xs) - 1, y0 = Math.max(...ys) + 1;
+      const nx = Math.round((Math.max(...xs) + 1 - x0) / pas) + 1, ny = Math.round((y0 - Math.min(...ys) + 1) / pas) + 1;
+      const zs: number[] = [];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const x = x0 + i * pas, y = y0 - j * pas;
+        zs.push(x > 0 && x < 10 && y > -2 && y < 5 ? 6 + hauteurToitEn(plans, { x, y }) : 0);
+      }
+      return { pas, x0, y0, nx, ny, z: zs };
+    });
+    const contour = rect(0, 0, 10, 7);
+    const maison: ObjetAToit = { key: 'm', fonction: 'batiment', pts: contour.map((q) => ({ ...q })), batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true }, retoucheMain: { date: '2026-10-27' } };
+    const bilan = await toitsDepuisLidar([{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 20, 20) }, maison], proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
+    expect(bilan.recales).toBe(0);
+    expect(lireGrille).toHaveBeenCalledTimes(1);
+    expect(maison.pts).toEqual(contour);
+    // Le toit, lui, est lu : sur le contour de la personne.
+    expect(maison.batiment?.corpsToit?.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('n habille pas de corps l arbre qui couvre un abri de jardin : la cime n est pas un toit', () => {
     const corps = (egout: number, faitage: number) => ({ pts: rect(0, 0, 4, 3), posFaitage: 1.5, faitage, egouts: [egout, egout] as [number, number], pignons: [], ecart: 0.3 });
     const abri: ObjetAToit = { fonction: 'batiment', pts: rect(0, 0, 4, 3), bdtopo: { hauteurRetenueM: 2.7 } };

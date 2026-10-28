@@ -17,7 +17,6 @@
 
 import { PERMISSION_ECRITURE, enAdmin } from '../../acces.js';
 import { parcours } from '../../parcours.js';
-import { parcelleDuProjet } from '../../../model/fonctions.js';
 import type { ContexteAuditParcelle, SessionAuditParcelle } from './controleur.js';
 import type { FichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { brancherDoigtAudit } from '../doigt.js';
@@ -27,22 +26,14 @@ import { creerClientAnalysesAudits } from '../../../io/analysesAudits.js';
 import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
-import type { ObjetPlan } from '../../../model/types.js';
 import type { FicheAudit } from '../../../io/auditsServeur.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
 /** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
 export const IMPORT_AUDIT_TAILLE_MAX = 64 * 1024 * 1024;
 
-/**
- * L'identifiant de la parcelle cadastrale du projet : son IDU, sinon son point de calage. Null pour
- * un plan dessine a la main, que rien ne situe : ni le GPS ni le brouillon n'auraient de repere.
- */
-export function parcelleCadastrale(objets: readonly ObjetPlan[]): string | null {
-  const cad = parcelleDuProjet(objets as ObjetPlan[])?.cadastre as { idu?: unknown; origineLat?: unknown; origineLon?: unknown } | null | undefined;
-  if (typeof cad?.origineLat !== 'number' || typeof cad.origineLon !== 'number') return null;
-  return typeof cad.idu === 'string' && cad.idu ? cad.idu : cad.origineLat.toFixed(6) + ',' + cad.origineLon.toFixed(6);
-}
+export { parcelleCadastrale } from './parcelleCadastrale.js';
+import { parcelleCadastrale } from './parcelleCadastrale.js';
 
 export type AtelierAuditParcelle = Omit<ContexteAuditParcelle, 'idu'> & {
   /** Demande un fichier au poste et rend son texte ; par defaut, le selecteur du navigateur. */

@@ -17,11 +17,11 @@ import { arbitrerTout, type Arbitrage, type ChoixArbitrage, type Constat, type E
 import { RECONCILIATION, type ReglesReconciliation } from '../../../regles/reconciliation.js';
 import type { IdAttribut } from '../../../regles/reconciliation.js';
 import type { ObjetPlan } from '../../../model/types.js';
-import { cibleFacade, indiceDeCorps, formeArbitree, cm, principal, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
+import { cibleFacade, indiceDeCorps, formeArbitree, cm, principal, toitChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 import { constatsIgn, constatsLidar } from './constats/mesures.js';
 import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsRenfort, constatsClaude, constatsTerrain } from './constats/vus.js';
 
-export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
+export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, toitChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 
 export { groupesDeMurs, type GroupeDeMurs } from './constats/vus.js';
 
@@ -34,7 +34,7 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
     if (k !== null) {
       const ck = o.batiment?.corpsToit?.[k];
       if (!ck) return vide;
-      if (attribut === 'formeToit') return { valeur: formeArbitree(formeDuCorps(ck)), choisi: o.batiment?.toit?.source === 'saisie' };
+      if (attribut === 'formeToit') return { valeur: formeArbitree(formeDuCorps(ck)), choisi: toitChoisiALaMain(o) };
       if (attribut === 'boutsToit') return { valeur: boutsDuCorps(ck), choisi: false };
       if (attribut === 'sensFaitage') return { valeur: cm(azimutFaitage(ck)), choisi: false };
       return vide;
@@ -42,7 +42,7 @@ function etatDuProjet(o: ObjetPlan): (cible: string, attribut: IdAttribut) => Et
     switch (attribut) {
       case 'hauteurEgout': return { valeur: cm(hauteurDe(o)), choisi: !o.bdtopo && typeof o.elevation === 'number' };
       case 'hauteurTotale': return { valeur: c ? cm(c.faitage) : o.batiment?.toit ? cm(hauteurDe(o) + o.batiment?.toit.hauteur) : null, choisi: false };
-      case 'formeToit': { const f = formeDesCorps(o.batiment?.corpsToit) ?? o.batiment?.toit?.forme; return { valeur: f ? formeArbitree(f) : null, choisi: o.batiment?.toit?.source === 'saisie' }; }
+      case 'formeToit': { const f = formeDesCorps(o.batiment?.corpsToit) ?? o.batiment?.toit?.forme; return { valeur: f ? formeArbitree(f) : null, choisi: toitChoisiALaMain(o) }; }
       case 'boutsToit': return { valeur: c ? boutsDuCorps(c) : null, choisi: false };
       case 'sensFaitage': return { valeur: c ? cm(azimutFaitage(c)) : null, choisi: false };
       case 'cheminees': return { valeur: (o.batiment?.corpsToit ?? []).reduce((n, k) => n + (k.cheminees?.length ?? 0), 0), choisi: false };
