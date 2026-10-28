@@ -4,6 +4,7 @@
 // Le calcul vit dans interaction/, model/ et geometry/ ; ces gestes y ajoutent ce que ces modules ne
 // connaissent pas : l'historique, les poignees a refaire, le rendu.
 
+import { ouvrageDeclare, estOuvrage, POINT_DE_VUE } from '../../model/ouvrages/index.js';
 import { coteRueDevine } from '../../geo/coteRue.js';
 import { sommetDe } from '../../geometry/anneau.js';
 import { pointInPolygon } from '../../geometry/basic.js';
@@ -65,7 +66,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     applyLengthEdit: (obj: ObjetPlan, i: number, longueur: number) => deforme(obj, () => editerLongueur(aPoints(obj), i, longueur, contour(obj))),
     insertPointOnSegment(obj: ObjetPlan, segIndex: number, clic: PtBrut) {
       // Un point de vue a exactement 2 points (position, direction) : un 3e casserait sa lecture.
-      if (obj.locked || obj.fonction === 'camera') return;
+      if (obj.locked || estOuvrage(obj, POINT_DE_VUE)) return;
       const pts = enPoints(obj).pts;
       const nouveau = projectOntoSegment(clic, sommetDe(pts, segIndex), sommetDe(pts, segIndex + 1));
       const borne = contour(obj);
@@ -133,8 +134,8 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
  * personne ne le pense comme « un chemin ». La fonction prime sur le type quand elle parle mieux.
  */
 export function libelleTypeObjet(obj: ObjetPlan): string {
-  if (obj.fonction === 'camera') return 'Point de vue';
-  if (obj.fonction === 'parasol') return 'Parasol';
+  const ouv = ouvrageDeclare(obj.fonction);
+  if (ouv?.nommeParSaFonction) return ouv.libelle;
   return obj.type === 'polygon' ? 'Polygone' : (obj.type === 'path' ? 'Chemin' : 'Cercle');
 }
 

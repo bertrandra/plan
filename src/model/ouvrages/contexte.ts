@@ -12,7 +12,8 @@ export const ARBRE: Ouvrage = { fonction: 'arbre', libelle: 'Arbre', famille: 'c
 export const LIMITE: Ouvrage = { fonction: 'limite', libelle: 'Limite', famille: 'contexte', elevation: 0, auMenu: true, horsEquipement: true };
 
 /** Un point de vue est deux points (position, direction) ; il se cree, il ne se choisit pas dans le menu. */
-export const POINT_DE_VUE: Ouvrage = { fonction: 'camera', libelle: 'Point de vue', famille: 'contexte', formes: ['path'], particularites: ['pointDeVue'], auMenu: false, horsEquipement: true, sansEmprise: true };
+export const POINT_DE_VUE: Ouvrage = { fonction: 'camera', libelle: 'Point de vue', famille: 'contexte', formes: ['path'], particularites: ['pointDeVue'], auMenu: false, horsEquipement: true, sansEmprise: true,
+  nommeParSaFonction: true };
 
 /** Un objet sans fonction particuliere. Une fonction absente ou inconnue (un ancien fichier) se comporte comme lui. */
 export const AUTRE: Ouvrage = { fonction: 'autre', libelle: 'Autre', famille: 'contexte', elevation: 0.5, auMenu: true };

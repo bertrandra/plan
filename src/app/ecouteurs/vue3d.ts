@@ -23,7 +23,7 @@ import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Mode3D } from '../../three/navigation.js';
 import type { RegistreCommandes } from '../commandes.js';
-import { estTerrasse } from '../../model/fonctions.js';
+import { estTerrasse, estPointDeVue } from '../../model/fonctions.js';
 import { minutesHeureDoree, capturerHd, lancerPromenade, arreterPromenade, promenadeActive, terrainDuTour, tourDeLaMaison, composerPromenade } from '../../three/presentation.js';
 import { moteur3d } from '../../three/demande3d.js';
 import type { PointDeVue } from '../../three/etat3d.js';
@@ -125,7 +125,7 @@ function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     // Une scene ouverte : le moteur est la (three/demande3d.ts).
     const sc = vue3d.scene, m = moteur3d();
     if (!sc || !m) return [];
-    const vues = a.etat.objects.filter((o) => o.fonction === 'camera').map((o) => {
+    const vues = a.etat.objects.filter(estPointDeVue).map((o) => {
       const c = m.cameraDepuisPointDeVue(o as PointDeVue, sc.cen);
       return { position: c.position, cible: c.cible };
     });
@@ -211,7 +211,7 @@ export function brancherVue3d(a: Atelier, ctx: ContexteVue3d, cmd: RegistreComma
     const dx = controls.target.x - camera.position.x, dz = controls.target.z - camera.position.z;
     const dl = Math.hypot(dx, dz) || 1;
     a.pushHistory();
-    const n = a.etat.objects.filter(o => o.fonction === 'camera').length + 1;
+    const n = a.etat.objects.filter(estPointDeVue).length + 1;
     const { obj: newObj } = nouveauPointDeVue(
       { x: planX, y: planY }, cleObjet('path', a.etat), n,
       { x: dx / dl, y: -dz / dl }, camera.position.y

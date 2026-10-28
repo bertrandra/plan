@@ -7,6 +7,7 @@
 // un objet selectionne — de preference une terrasse, qui a le plus de controles — et, au telephone,
 // chaque feuille ouverte. Puis elle remet tout comme avant. Rien n'est clique, le projet ne change pas.
 
+import { estOuvrage, TERRASSE } from '../../model/ouvrages/index.js';
 import { inventorierEcran, ecartsDeZone, fusionnerInventaires, type Releve } from './inventaireEcran.js';
 import type { Classe } from '../exposition.js';
 import type { Feuille, Magasin } from '../magasin.js';
@@ -20,7 +21,7 @@ const rendu = () => new Promise<void>((r) => { setTimeout(r, 50); });
 export async function inventorierLesClasses(magasin: Magasin, etat: EtatApp, selectionner: (cle: string | null) => void, doc: Document = document) {
   const s = magasin.store.getState();
   const avant = { classe: s.classe, feuille: s.feuille, selection: etat.selectedKey };
-  const cible = etat.objects.find((o) => o.fonction === 'terrasse' && !o.hidden) ?? etat.objects.find((o) => !o.hidden);
+  const cible = etat.objects.find((o) => estOuvrage(o, TERRASSE) && !o.hidden) ?? etat.objects.find((o) => !o.hidden);
   const releves: Releve[] = [];
   const relever = (classe: Classe) => { releves.push({ classe, ...inventorierEcran(doc), ecarts: ecartsDeZone(doc) }); };
   try {

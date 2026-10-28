@@ -38,6 +38,11 @@ export interface Ouvrage {
   elevation?: number;
   /** Propose dans le menu « Fonction » de l'inspecteur : un point de vue ne se choisit pas, il se cree. */
   auMenu: boolean;
+  /**
+   * L'inspecteur le nomme par son libelle plutot que par sa forme : un point de vue est techniquement un chemin a deux points, mais
+   * personne ne le pense comme « un chemin ».
+   */
+  nommeParSaFonction?: true;
   /** Ne compte pas comme equipement pose sur une terrasse (le dossier PDF les liste). */
   horsEquipement?: boolean;
   /**

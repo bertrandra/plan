@@ -97,4 +97,9 @@ describe('les comparaisons d avant l etape 6.4, a l identique', () => {
     const apres = (f: string | undefined) => CHAMPS.filter((k) => OUVRAGES.some((o) => o !== ouvrage(f) && o.reglagesAuFichier?.includes(k)));
     for (const f of FONCTIONS_ET_INCONNUES) expect(apres(f), String(f)).toEqual(avant(f));
   });
+
+  it('le nom de l inspecteur : le point de vue et le parasol se nomment par leur fonction', () => {
+    expect(ceux((f) => !!ouvrage(f).nommeParSaFonction).map((f) => [f, ouvrage(f).libelle]).sort())
+      .toEqual([['camera', 'Point de vue'], ['parasol', 'Parasol']]);
+  });
 });
