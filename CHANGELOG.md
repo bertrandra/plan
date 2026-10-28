@@ -5,6 +5,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [4.0.0] — 2026-10-28
+
+Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des nombres exportés changent pour certains projets déjà enregistrés.
+
+### Changements de nombres et d'exports (version majeure)
+
+- **Chemins** : un chemin sans largeur écrite mesure 1 m partout (le dossier PDF et le dossier piscine lisaient 0,5 m), et la
+  surface d'un chemin se compte sur le tracé dessiné, la courbe d'un chemin courbe. Bougent la surface et la longueur totale au
+  résumé, la page des surfaces du PDF du plan, la surface et le trait au dossier PDF, le trait au dossier piscine.
+- **DP2** : « Existant H » donne la hauteur au point le plus haut (toit compris) et non plus la hauteur à l'égout, pour tout
+  bâtiment qui porte un toit en pente.
+- **Annexes lues au LiDAR** : toit, hauteur à l'égout et recalage du contour, y compris dans les projets enregistrés (lus une
+  fois à la prochaine ouverture). Bougent la Vue 3D et le `.glb`, la DP2 (« Existant H »), la DP6 et le dossier PDF de tout
+  projet géolocalisé qui porte une annexe.
+- **Note de calcul d'une piscine** : elle dit qu'une terrasse est percée avec la définition de la terrasse (le bord des
+  margelles, dans les deux sens), et non plus seulement quand un sommet du plan d'eau tombe dans la terrasse : le texte change
+  pour une piscine dont la margelle seule chevauche une terrasse.
+- **Vue 3D et `.glb` d'un bâtiment relevé lu en corps et pignons** : un mur relevé « en L » garde les corps du toit (ils
+  disparaissaient), et un mur relevé ne reçoit plus, par-dessus sa photo, la grille des fenêtres automatiques.
+- Le soleil d'un projet sans soleil choisi devient le jour même à 15 h (le plan le prenait au 21 juin, la Vue 3D à midi UTC) :
+  l'ombre des parasols à l'écran et l'éclairage de la Vue 3D changent ; aucun export chiffré ne le lit.
+- **Schéma des projets 6** (ci-dessous) : la plateforme doit accepter 6 avant le dépôt (bertrandra/backprod#242, migration de
+  base appliquée par `setup.php` en production).
+- Les exports du plan de démonstration ne bougent qu'à leur numéro de version et à la date de build, en plus des nombres des
+  chemins déjà recapturés (preuve forte dans `tests/fixtures/golden/EMPREINTES.md`).
+
 ### Ajouté
 
 - **« Rendre au calcul » la hauteur à l'égout d'un bâtiment.** Saisie dans « Élévation » ou validée par l'audit, la hauteur à
