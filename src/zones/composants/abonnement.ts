@@ -19,7 +19,8 @@ import { flushSync } from 'react-dom';
 import type { EtatMagasin, Magasin } from '../../app/magasin.js';
 import type { EtatApp } from '../../core/state.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
-import { cleDesObjets } from '../../ui/clePlan.js';
+import { cleDesAttributs, cleDesObjets, cleDesLus } from '../../ui/clePlan.js';
+import { estTerrain } from '../../model/fonctions.js';
 import { enLectureSeule } from '../../app/acces.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { cibleAlignement } from '../../interaction/outilAlignement.js';
@@ -50,8 +51,9 @@ const GELEE = CLE_GELEE;
 
 const verifier = (): boolean => import.meta.env.DEV && !(globalThis as { __sansVerifierCles?: boolean }).__sansVerifierCles;
 
-// La part commune des cles : les objets (version de l'ensemble, tableau remplace), les mesures, et l'etat d'interface que le plan
-// tient hors des objets. Calculee une fois par rendu du plan, quelle que soit la zone qui la demande.
+// La part commune des cles : les attributs des objets (pas leur forme : un glisser ne la change pas, core/controleurObjets.ts), les
+// mesures, et l'etat d'interface que le plan tient hors des objets. Calculee une fois par rendu du plan, quelle que soit la zone qui
+// la demande.
 let communeVersion = -1;
 let communeEtat: EtatApp | null = null;
 let commune = '';
@@ -66,16 +68,18 @@ function identite(o: object): number {
 }
 
 /**
- * Ce que toute zone qui lit le plan met dans sa cle : les objets et les cotes, l'etat d'interface du plan, et les etats des outils
- * que les panneaux montrent (pointage d'une cote, cible d'un alignement, saillie visee, lecture du relief, essences chargees), et
- * le soleil du projet (core/soleil.ts), que l'inspecteur montre et que la 3D regle aussi.
+ * Ce que toute zone qui lit le plan met dans sa cle : les attributs des objets (leur nom, leur fonction, leur affichage, pas leur
+ * forme) et les cotes, l'etat d'interface du plan, et les etats des outils que les panneaux montrent (pointage d'une cote, cible
+ * d'un alignement, saillie visee, lecture du relief, essences chargees), et le soleil du projet (core/soleil.ts), que l'inspecteur
+ * montre et que la 3D regle aussi. Une zone qui montre la forme d'objets (une surface, une longueur, un chiffrage) y ajoute la
+ * version de ceux qu'elle lit : `cleDesLus` d'un lecteur (core/lectures.ts), ou `cleDesObjets` pour tous (`cleEtatEtObjets`).
  */
 export function cleEtat(s: EtatMagasin): string {
   if (s.version === communeVersion && s.etat === communeEtat) return commune;
   const e = s.etat;
   const p = e.parasol, h = e.highlight, soleil = soleilDuProjet.lire();
   commune = [
-    e.objects ? cleDesObjets(e.objects) : '', e.measures ? JSON.stringify(e.measures) : '',
+    e.objects ? cleDesAttributs(e.objects) : '', e.measures ? JSON.stringify(e.measures) : '',
     e.selectedKey, h?.type, h?.index, e.panelTab, e.terrasseSelectedKey, e.calquesVisibles, e.isolement, e.lectureSeule, enLectureSeule(),
     e.showNorth, e.positionGps, e.audit ? JSON.stringify(e.audit) : '', e.grilleVisible, e.voisinageVisible, e.schemaProjet, e.dirty,
     p?.ombreAffichee, p?.carteAffichee, soleil.dateStr, soleil.minutes,
@@ -84,6 +88,23 @@ export function cleEtat(s: EtatMagasin): string {
   ].join('|');
   communeVersion = s.version; communeEtat = e;
   return commune;
+}
+
+/** La cle commune et la version de tous les objets, leur forme comprise : pour une zone qui montre l'objet selectionne. */
+export function cleEtatEtObjets(s: EtatMagasin): string {
+  return cleEtat(s) + '|' + (s.etat.objects ? cleDesObjets(s.etat.objects) : '');
+}
+
+// Les objets que visent les cotes, une fois par rendu du plan : la liste et son lecteur (les cotes changent rarement).
+// Une cote peut changer de cible sur place : la liste se relit, et le lecteur ne change que si elle change.
+let visees: { cle: string; lit: (o: { key?: string; fonction?: string | null }) => boolean } | null = null;
+
+/** La version des objets que les cotes visent, et des terrains (le relief de leur denivele) : ce que montre le tableau des cotes. */
+export function cleDesCotes(s: EtatMagasin): string {
+  const cles = new Set((s.etat.measures ?? []).flatMap((m) => [m.refObjKey, m.targetObjKey]));
+  const cle = [...cles].join(',');
+  if (visees?.cle !== cle) visees = { cle, lit: (o) => cles.has(o.key ?? '') || estTerrain(o) };
+  return s.etat.objects ? visees.cle + '|' + cleDesLus(s.etat.objects, visees.lit) : '';
 }
 
 // L'etat de toutes les commandes du registre, une fois par rendu du plan : pour une zone qui en lie beaucoup sans les nommer (les

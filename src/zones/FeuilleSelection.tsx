@@ -18,7 +18,7 @@ import { resumerChiffrage, euros } from '../ui/chiffrage.js';
 import { ESSENCE_PRICES } from '../engine/constantes.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { Icone } from './icones.js';
-import { useCle, cleEtat } from './composants/abonnement.js';
+import { useCle, cleEtatEtObjets } from './composants/abonnement.js';
 import type { Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Explorateur } from '../app/explorateur.js';
@@ -57,7 +57,7 @@ function chiffres(o: ObjetPlan, objets: ObjetPlan[]): [string, string][] {
 
 export function FeuilleSelection({ magasin, commandes, explorateur, tiroir }: PropsFeuilleSelection) {
   // L'objet choisi et ses chiffres (ils lisent aussi les objets qui le percent : la version de l'ensemble), et ses deux commandes.
-  useCle(magasin, 'feuille de sélection', (s) => cleEtat(s) + JSON.stringify(['objet.dupliquer', 'objet.supprimer'].map((id) => [commandes.effacee(id), commandes.etat(id)])));
+  useCle(magasin, 'feuille de sélection', (s) => cleEtatEtObjets(s) + JSON.stringify(['objet.dupliquer', 'objet.supprimer'].map((id) => [commandes.effacee(id), commandes.etat(id)])));
   const classe = useStore(magasin.store, (s) => s.classe);
   const vue = useStore(magasin.store, (s) => s.vue);
   const feuille = useStore(magasin.store, (s) => s.feuille);

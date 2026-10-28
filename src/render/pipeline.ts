@@ -14,7 +14,8 @@
 import { positionnerObjet, positionnerEnVerifiant, horsDeLaVue, type ContextePositionnement, type ObjetRendu } from './objects.js';
 import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
-import { versionEnsemble, versionObjet } from '../core/controleurObjets.js';
+import { cleDesLus, versionObjet } from '../core/controleurObjets.js';
+import { percentUneTerrasse } from '../core/lectures.js';
 import { vue } from './vues.js';
 import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND } from './theme.js';
 import { ortho, placerOrthophoto, type ContexteOrtho } from './ortho.js';
@@ -72,7 +73,7 @@ const verifierCles = (): boolean => import.meta.env.DEV && !(globalThis as { __s
  * Repositionne ces objets, en sautant ceux dont rien n'a change depuis leur dernier dessin (MD/spec-ouvrages.md, etape 6.1) : leur
  * version (core/controleurObjets.ts), ce qui en decide a l'affichage (selection, masque, isolement, diagnostic) et l'etat
  * d'ensemble (cadrage, photo aerienne, pointage d'une cote, encres du theme). Une terrasse lit aussi les bassins et les tremies
- * qui la percent : elle suit la version de l'ensemble. La lecture des toits en tache de fond (app/toits/toitsFond.ts) n'appelle
+ * qui la percent : elle suit leur version (core/lectures.ts). La lecture des toits en tache de fond (app/toits/toitsFond.ts) n'appelle
  * que les batiments qu'elle vient d'ecrire.
  */
 export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly ObjetPlan[]): void {
@@ -92,7 +93,9 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
     const transparent = obj.key === etat.isolement;
     const couleurDiagnostic = ctx.couleurDiagnostic?.(obj) ?? null;
     const v = vue(obj);
-    const cleDe = () => ensemble + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? versionEnsemble() : '') + '|'
+    // Hors de la vue, rien ne se dessine que le halo du nom : ni le repere ni l'echelle n'y comptent (un zoom ne touche pas a ce qui
+    // reste dehors).
+    const cleDe = () => (horsVue ? 'hors|' + SVG_LABEL_HALO : ensemble) + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? cleDesLus(etat.objects, percentUneTerrasse) : '') + '|'
       + selectionnee + '|' + masque + '|' + horsVue + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length;
     const cle = cleDe();
     const poignee = v.pointEls[0] ?? v.radiusHandle;

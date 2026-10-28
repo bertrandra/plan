@@ -29,9 +29,10 @@ import type { RegistreCommandes } from './commandes.js';
 export interface ContexteInspecteur extends Pick<ContexteChamps,
   'libelleType' | 'elevationOf' | 'interiorAngleDeg' | 'refLabel' | 'measureSegCoords' | 'contexteSoleil' | 'dejaRectangle'
   | 'applyAngleEdit' | 'applyLengthEdit' | 'deleteVertex' | 'alignObjectByRotation' | 'allerAuPointDeVue' | 'startPick' | 'pushHistory' | 'render'> {
-  markDirty: () => void;
+  /** Le projet a change ; `objets` : ceux que l'ecriture a modifies sur place (core/controleurObjets.ts), sinon tout est neuf. */
+  markDirty: (...objets: object[]) => void;
   /** L'instantane d'avant l'ecriture, empile seulement si elle reussit (core/historique.ts `preparer`). */
-  preparerHistorique: () => () => void;
+  preparerHistorique: (...objets: object[]) => () => void;
   refreshTerrasseView: () => void;
   buildThreeScene: (obj: ObjetPlan | null) => void;
   reapplyStackingOrder: () => void;
@@ -122,14 +123,17 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
         return false;
       }
       // L'instantane est pris avant d'ecrire, et empile seulement si l'ecriture n'est pas refusee.
-      const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique() : null;
+      // L'ecriture nomme son objet (core/controleurObjets.ts) : un champ n'ecrit que l'objet inspecte, sauf « appliquer a tous »
+      // (les textures des chemins), qui en ecrit d'autres et laisse tout neuf.
+      const nommes = champ.type === 'texture' && champ.appliquerATous ? [] : [c.obj];
+      const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique(...nommes) : null;
       if (ecrire() === false) { magasin.notifier(); return false; }
       // L'ecriture nomme son objet (core/controleurObjets.ts) : un reglage d'affichage (`sale: false`) ne passe pas par
       // l'historique, et sans cela ni le plan ni l'inspecteur (zones/composants/abonnement.ts) ne le verraient changer.
       toucher(c.obj);
       if (empiler) empiler();
       if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
-      if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty();
+      if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty(...nommes);
       (champ.effets || []).forEach(e => effet(e, c));
       // Une ecriture sans effet declare doit quand meme se voir : l'inspecteur relit l'etat.
       if (!champ.effets || !champ.effets.length) magasin.notifier();

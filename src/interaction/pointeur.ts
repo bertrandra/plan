@@ -17,7 +17,7 @@
 //   touche, a condition que le tap precedent ait vise le meme objet, au meme endroit.
 
 import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
-import { toucher } from '../core/controleurObjets.js';
+import { toucherForme } from '../core/controleurObjets.js';
 import { apresDeformation } from '../core/deformation.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
 import { facadesDuContour } from '../geometry/cotesVusDeDehors.js';
@@ -53,11 +53,12 @@ export interface ContextePointeur {
   toWorld: (p: PtEcran) => PtBrut;
   render: () => void;
   rebuildSelector: () => void;
-  pushHistory: () => void;
+  /** Prend le pas d'annulation ; `objets` : ceux que l'ecriture qui suit modifie sur place (core/controleurObjets.ts). */
+  pushHistory: (...objets: object[]) => void;
   sendObjectBackward: (obj: ObjetPlan) => void;
   insertPointOnSegment: (obj: ObjetPlan, segIndex: number, clickWorld: PtBrut) => void;
   /** Le projet a change (pose d'un acces de la cloture par clic). */
-  markDirty: () => void;
+  markDirty: (...objets: object[]) => void;
   /** Apres la pose d'un acces : la Vue 3D se reconstruit si elle est ouverte. */
   apresAcces: () => void;
   /**
@@ -109,11 +110,11 @@ function pointerPourLaMesure(ds: DOMStringMap, etat: EtatApp, ctx: ContextePoint
     const a = clotureDe(parcelle).portails[pointage.indice ?? -1];
     const f = facadesDuContour(parcelle.pts, 0).find(x=>x.cote===proche.cote);
     if(!a || !f) return;
-    ctx.pushHistory();
+    ctx.pushHistory(parcelle);
     poserAcces(a, f, w);
     synchroniserAnciensChamps(parcelle);
     mesure.pointage = null;
-    ctx.markDirty();
+    ctx.markDirty(parcelle);
     ctx.render();
     ctx.apresAcces();
     return;
@@ -215,7 +216,7 @@ function surObjet(p: EtatPointeur, e: PointerEvent, ds: DOMStringMap, w: PtBrut)
   // avant l'historique, pour qu'aucun pas d'annulation ne soit empile pour un geste qui n'aura pas lieu.
   if(etat.lectureSeule) return 'rien';
   etat.highlight = {type:null, index:null};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = obj.type==='circle'
     ? {type:'circleMove', obj, startWorld:w, startCenter:{...obj.center}, moved:false}
     : {type:'shapeMove', obj, startWorld:w, startPts: obj.pts.map(q=>({...q})), moved:false};
@@ -266,7 +267,7 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   if(p.clicSommet.key===ds.key && p.clicSommet.index===idx && (nowTp-p.clicSommet.time)<400){
     p.clicSommet = CLIC_VIDE;
     const gel = obj.frozenVertices;
-    if(gel){ ctx.pushHistory(); gel[idx] = !gel[idx]; ctx.render(); }
+    if(gel){ ctx.pushHistory(obj); gel[idx] = !gel[idx]; ctx.render(); }
     return 'avale';
   }
   p.clicSommet = {key:ds.key, index:idx, time:nowTp};
@@ -274,7 +275,7 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   if(obj.frozenVertices?.[idx] && !estRectangle(obj)) return 'rien';
   if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'vertex', index:idx};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'point', obj, idx, startWorld:w, startPt:{...sommetDe(obj.pts, idx)}};
   p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
@@ -299,7 +300,7 @@ function surCote(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   if((obj.frozenVertices?.[i] || obj.frozenVertices?.[j]) && !estRectangle(obj)) return 'rien';
   if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'segment', index:i};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
   p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
@@ -314,7 +315,7 @@ function surRayon(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   if(etat.lectureSeule) return 'rien';
   if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:null, index:null};
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   p.geste = {type:'radius', obj, startWorld:w};
   return 'suite';
 }
@@ -465,16 +466,17 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       const avant = { cote: a.cote, x: a.x };
       const essai = { ...a };
       if(!glisserAcces(essai, parcelle.pts, worldFromEvent(e), geste.decalage)) return;
-      if(!geste.moved){ ctx.pushHistory(); geste.moved = true; }
+      if(!geste.moved){ ctx.pushHistory(parcelle); geste.moved = true; }
       a.cote = essai.cote; a.x = essai.x;
-      if(a.cote !== avant.cote || a.x !== avant.x){ ctx.markDirty(); ctx.render(); }
+      if(a.cote !== avant.cote || a.x !== avant.x){ ctx.markDirty(parcelle); ctx.render(); }
       return;
     }
     // Tout le calcul du glisser vit dans interaction/drag.ts ; ici, la position du pointeur en
     // metres et le contour dans lequel l'objet doit rester.
     appliquerGlisser(geste, worldFromEvent(e), contourDeContrainte(etat.objects, geste.obj));
-    // A chaque image, seul l'objet glisse a change : le plan ne redessine que lui (core/controleurObjets.ts).
-    toucher(geste.obj);
+    // A chaque image, seule la forme de l'objet glisse a change : le plan ne redessine que lui, et ce qui ne lit pas sa forme (les
+    // attributs des objets : l'explorateur, les barres) garde sa cle (core/controleurObjets.ts).
+    toucherForme(geste.obj);
     ctx.render();
   });
   window.addEventListener('pointerup', ()=>{

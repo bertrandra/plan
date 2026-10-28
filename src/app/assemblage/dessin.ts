@@ -19,6 +19,8 @@ import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
 import { dessinerCalquePiscines } from '../../render/piscineOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
 import { toucher } from '../../core/controleurObjets.js';
+import { litLesAbris, litLesParasols, litLesPiscines, litUneTerrasse, rien } from '../../core/lectures.js';
+import { estTerrain } from '../../model/fonctions.js';
 import { creerRepere } from '../../render/repere.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
@@ -98,19 +100,26 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     drawGrid: () => dessinerGrille(s.grille, etat),
     // Les calques du dessus ne se refont que si ce qu'ils lisent a change (render/calquesGardes.ts).
     // La fleche et l'echelle suivent l'ecran, pas le plan : dessinees dans la vue, a un coin, leur groupe compense le decalage.
-    drawNorthArrow: () => redessinerSiChange(s.nord, 'fleche du nord', cleDesCalques(etatDessin()), () => dessinerFlecheNord(s.nord, etat)),
-    drawScaleBar: () => redessinerSiChange(s.echelle, 'echelle', cleDesCalques(etatDessin()), () => dessinerEchelle(s.echelle, etat)),
-    // Les cotes posees, et le brouillon de l'outil de cotation en cours de saisie.
-    drawMeasures: () => redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin()), () =>
-      dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles })),
+    drawNorthArrow: () => redessinerSiChange(s.nord, 'fleche du nord', cleDesCalques(etatDessin(), rien), () => dessinerFlecheNord(s.nord, etat)),
+    drawScaleBar: () => redessinerSiChange(s.echelle, 'echelle', cleDesCalques(etatDessin(), rien), () => dessinerEchelle(s.echelle, etat)),
+    // Les cotes posees, et le brouillon de l'outil de cotation en cours de saisie : les objets qu'elles visent, et les terrains (le
+    // relief du denivele, la parcelle).
+    drawMeasures: () => {
+      const visees = new Set<string>();
+      for (const m of etat.measures) { visees.add(m.refObjKey); visees.add(m.targetObjKey); }
+      if (mesure.ref) visees.add(mesure.ref.objKey);
+      for (const c of mesure.cibles) visees.add(c.objKey);
+      const lit = (o: ObjetPlan) => visees.has(o.key) || estTerrain(o);
+      redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin(), lit), () =>
+        dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles }));
+    },
     // La contrainte de position modifie les objets : elle s'execute avant le dessin, comme avant.
     renderParasolOverlay() {
       // Un parasol dont le mat suit le bord de sa terrasse bouge avec elle : le plan le redessine (core/controleurObjets.ts).
       contraindreParasols(etat.objects, etat.terrasseSelectedKey).forEach(toucher);
       const ctxSoleil = d.contexteSoleil();
       const enDessin = etatDessin();
-      const cle = cleDesCalques(enDessin, ctxSoleil);
-      redessinerSiChange([s.parasols, s.mats], 'ombres des parasols', cle, () =>
+      redessinerSiChange([s.parasols, s.mats], 'ombres des parasols', cleDesCalques(enDessin, litLesParasols, ctxSoleil), () =>
         dessinerCalqueParasols({ groupeOmbres: s.parasols, groupeMats: s.mats, racine: s.svg, etat: enDessin, ctxSoleil, positionMat }));
       // L'ombre passe DEVANT les objets : une ombre portee se lit sur ce qu'elle couvre — la
       // terrasse, un massif, la pelouse —, pas dessous. Le calque est inerte, les clics le
@@ -119,10 +128,10 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // poignees de la selection sont remontees ensuite par le rendu.
       // Les abords d'une piscine (margelles, plage) se posent sur les objets, sous les ombres : une
       // ombre portee se lit aussi sur une plage.
-      redessinerSiChange(s.piscines, 'piscines', cle, () => dessinerCalquePiscines(s.piscines, enDessin));
+      redessinerSiChange(s.piscines, 'piscines', cleDesCalques(enDessin, litLesPiscines), () => dessinerCalquePiscines(s.piscines, enDessin));
       // La charpente des pergolas se voit d'en haut : devant les objets et les ombres, sous les
       // parasols (une toile passe au-dessus de ce qu'elle couvre).
-      redessinerSiChange(s.pergolas, 'pergolas', cle, () => dessinerCalquePergolas(s.pergolas, enDessin));
+      redessinerSiChange(s.pergolas, 'pergolas', cleDesCalques(enDessin, litLesAbris), () => dessinerCalquePergolas(s.pergolas, enDessin));
       // L'ordre se pose d'un coup, et rien ne bouge s'il est deja le bon : les poignees de la selection, que le rendu remonte
       // ensuite, sont comptees au bout, sans quoi tout serait deplace a chaque rendu pour leur rendre la derniere place.
       const q: Element[] = [s.piscines, s.parasols, s.pergolas];
@@ -136,7 +145,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     },
     // Les couches ne se dessinent que si l'explorateur les a demandees : un appel sans objet vide le calque.
     // Une terrasse isolee les montre toujours : c'est ce que sa transparence laisse voir (app/isolement.ts).
-    renderTerrasseLayerView: (obj) => redessinerSiChange(s.couches, 'couches de la terrasse', cleDesCalques(etatDessin(), obj?.key ?? null), () =>
+    renderTerrasseLayerView: (obj) => redessinerSiChange(s.couches, 'couches de la terrasse', cleDesCalques(etatDessin(), litUneTerrasse, obj?.key ?? null), () =>
       dessinerCouches(s.couches, etat.calquesVisibles || (obj && obj.key === etat.isolement) ? obj : null, etatDessin(), versDessin))
   };
 }

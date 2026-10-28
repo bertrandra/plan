@@ -40,7 +40,7 @@
 
 import { au } from '../util/tableaux.js';
 import { PileAnnulation, type Instantane } from './history.js';
-import { toucherTout } from './controleurObjets.js';
+import { toucher, toucherTout } from './controleurObjets.js';
 import type { ObjetPlan, ObjetBrut, Mesure } from '../model/types.js';
 
 /**
@@ -102,19 +102,23 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * « modifications non enregistrees » ne puisse pas rater un changement, comme le faisaient les
    * affectations `dirty = true` dispersees a chaque appelant.
    */
-  function marquerModifie(): void {
+  function marquerModifie(...objets: object[]): void {
     modifications++;
-    // L'historique ne sait pas quel objet change : tous sont neufs pour ce qui les lit (core/controleurObjets.ts).
-    toucherTout();
+    // Une ecriture qui nomme ses objets ne refait que ce qui les lit ; sans objet nomme, l'historique ne sait pas lequel change :
+    // tous sont neufs (core/controleurObjets.ts). Ajouter ou retirer un objet ne se nomme pas.
+    if (objets.length) objets.forEach(toucher); else toucherTout();
     etat.dirty = true;
     rafraichirStatut();
   }
 
-  /** Prend un instantane de l'etat **avant** la modification qui va suivre. */
-  function empiler(): void {
+  /**
+   * Prend un instantane de l'etat **avant** la modification qui va suivre. `objets` : ceux qu'elle modifie sur place, s'ils sont
+   * connus (aucun objet ajoute ni retire) ; rien, et tout est neuf.
+   */
+  function empiler(...objets: object[]): void {
     pile.empiler(instantane());
     majBoutonAnnuler();
-    marquerModifie();
+    marquerModifie(...objets);
   }
 
   /**
@@ -122,12 +126,12 @@ export function creerHistorique<O extends { key: string }, M>(etat: EtatAnnulabl
    * qui peut etre refusee (une longueur impossible, un rectangle qui sortirait de la parcelle)
    * n'empile alors rien : pas d'etape d'annulation vide, ou Ctrl+Z semblerait ne rien faire.
    */
-  function preparer(): () => void {
+  function preparer(...objets: object[]): () => void {
     const snap = instantane();
     return () => {
       pile.empiler(snap);
       majBoutonAnnuler();
-      marquerModifie();
+      marquerModifie(...objets);
     };
   }
 

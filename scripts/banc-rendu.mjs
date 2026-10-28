@@ -130,7 +130,8 @@ for (const a of APPAREILS) {
         const d = (i % 2 ? -1 : 1) * 0.05;
         if (o.pts) o.pts = o.pts.map((p) => ({ ...p, x: p.x + d })); // le glisser remplace les sommets (interaction/drag.ts)
         if (o.center) o.center = { ...o.center, x: o.center.x + d };
-        window.__plan.toucher(o.key);
+        // Comme au doigt : seule la forme change (un paquet d'avant l'etape 6.5 n'a que `toucher`).
+        (window.__plan.toucherForme ?? window.__plan.toucher)(o.key);
       };
       const cx = () => etat.scene.W / 2, cy = () => etat.scene.H / 2;
       const gestes = {

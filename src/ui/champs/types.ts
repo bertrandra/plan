@@ -62,7 +62,7 @@ export interface ContexteChamps {
   executerCommande: (id: string) => void;
   /** La commande est-elle utilisable (droits, quota, contexte) ? Un bouton qui la declenche se grise sinon. */
   commandeUtilisable: (id: string) => boolean;
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   render: () => void;
   toast: (message: string) => void;
 }

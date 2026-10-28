@@ -266,9 +266,9 @@ export function validerLaSession(a: Pick<Atelier, 'pushHistory' | 'markDirty'>, 
   const final = photographier(o), change = aChange(s.hist);
   if (change) {
     restaurer(o, s.hist.pas[0] ?? {});
-    a.pushHistory();
+    a.pushHistory(o);
     restaurer(o, final);
-    a.markDirty();
+    a.markDirty(o);
     if (!final.toitFige) lectureToits.demanderRelecture();
   }
   return change;

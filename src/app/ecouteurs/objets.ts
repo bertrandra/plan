@@ -73,7 +73,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   commande('objet.rendreEgout', 'Rendre au calcul', () => {
     const o = egoutARendre();
     if (!o?.batiment) return;
-    a.pushHistory();
+    a.pushHistory(o);
     delete o.batiment.egoutChoisi;
     o.batiment.toitLidarLu = null;
     a.render();
@@ -96,12 +96,12 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   commande('objet.centrerSurTerrasse', 'Centrer sur la terrasse', () => {
     const x = aCentrer();
     if (!x) return;
-    a.pushHistory();
     const { o, d } = x;
+    a.pushHistory(o);
     if (o.type === 'circle') o.center = { x: o.center.x + d.x, y: o.center.y + d.y };
     else o.pts = o.pts.map(p => ({ x: p.x + d.x, y: p.y + d.y }));
     a.rebuildHandles(o);
-    a.markDirty();
+    a.markDirty(o);
     a.render();
   }, { actif: () => !!aCentrer() });
 
@@ -134,7 +134,7 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     if (!obj) { showToast('Selectionne d\'abord un objet.'); return; }
     const init = a.initialState().find(o => o.key === a.etat.selectedKey);
     if (!init) { showToast('Aucune position initiale enregistree pour cet objet (il a ete cree apres le chargement).'); return; }
-    a.pushHistory();
+    a.pushHistory(obj);
     if (obj.type === 'circle') {
       obj.center = { ...enCercle(init).center };
     } else {

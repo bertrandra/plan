@@ -10,6 +10,7 @@ import { dessinerReleves } from '../../render/releve.js';
 import { dessinerCloture } from '../../render/cloture.js';
 import { cleDesCalques, redessinerSiChange } from '../../render/calquesGardes.js';
 import { poserEnQueue } from '../../render/empilement.js';
+import { lesTerrains, litLesReleves } from '../../core/lectures.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -85,7 +86,7 @@ export function creerRendu(d: DependancesRendu) {
       // Les courbes de niveau du relief, dans leur calque au-dessus de la grille (render/relief.ts).
       // Le voisinage masque emporte le paysage (courbes au-dela de la parcelle) et le nom des rues.
       // Posees sur le plan, dans le repere du dessin : refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
-      dessinerRelief: () => redessinerSiChange(surface.relief, 'courbes de niveau', cleDesCalques(dessin.etatDessin(), 'relief'), () =>
+      dessinerRelief: () => redessinerSiChange(surface.relief, 'courbes de niveau', cleDesCalques(dessin.etatDessin(), lesTerrains), () =>
         dessinerCourbesRelief(surface.relief, etat.objects, dessin.sceneDessin(), etat.voisinageVisible)),
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
       dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
@@ -93,7 +94,7 @@ export function creerRendu(d: DependancesRendu) {
       // Refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
       renderReleves: () => {
         const enDessin = dessin.etatDessin();
-        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalques(enDessin), () => {
+        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalques(enDessin, litLesReleves), () => {
           dessinerReleves(surface.releves, enDessin, dessin.versDessin, affichage.objetMasque);
           const parcelle = affichage.trouverParcelleCloture();
           if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, enDessin, dessin.versDessin, parcelle);
