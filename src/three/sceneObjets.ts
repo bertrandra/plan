@@ -1,53 +1,35 @@
 // Les objets du plan dans la scene 3D (three/scene.ts), en contexte : chacun pose sur le sol a sa hauteur, selon ce qu'il est —
 // batiment, chemin, parasol, arbre, parcelle et gazon, piscine, cloture —, et les ombres de l'ensemble.
+//
+// Ce module aiguille ; le parasol, la terrasse (quand elle n'est pas la courante) et le bati ont chacun leur module sous
+// three/ouvrages/ (MD/spec-ouvrages.md, etape 6.6), qui partagent la pose sur le sol (three/ouvrages/pose.ts).
 
-import { couleurMursRetenue, textureDesMurs } from '../model/couleurMur.js';
-import { textureMur } from './textureMur.js';
-import { volumesActifs, toitDuVolume, rectanglesDuContour, penteDuToit } from '../model/volumesToit.js';
-import { modeToitActif, hauteurMurMesuree } from '../model/toitMesure.js';
-import { ajouterToitMesure3d } from './toitMesure3d.js';
-import { ajouterBowWindows3d, ajouterToitCorps3d, ajouterToitCorpsSurContour3d, estAppentisOuvert, facettesSurContour } from './toitCorps3d.js';
-import { separerBowWindows } from '../facade/modeToit/saillies.js';
-import { corpsVisibles } from '../facade/modeToit/facadesDesCorps.js';
-import { ajouterCheminees3d } from './cheminees3d.js';
-import { ajouterTerrasses3d } from './terrasse3d.js';
-import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { ajouterArbre3d, synchroniserArbres } from './arbre3d.js';
 import { vue3d, soleilVue3d } from './etat3d.js';
-import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
-import { parametresQualite } from './qualite.js';
-import { centroid, dist } from '../geometry/basic.js';
-import { dessusTerrasseM } from '../engine/hauteurs.js';
-import { formeDeTerrasse, trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
-import { hauteurParasolDe } from '../engine/parasol.js';
+import { centroid } from '../geometry/basic.js';
 import { estMesh } from './gardes.js';
-import { ajouterReleve3d } from './releve3d.js';
-import { ajouterDetailsBatiment } from './detailsBatiment.js';
 import { geometrieGazon, materiauGazon, empreintesAuSol } from './gazon.js';
-import { apparenceVoisin, fenetresDuVoisin } from '../model/voisinage3d.js';
-import { valeursFacadesDe } from '../regles/facades/reglages.js';
-import { fenetres3dDe } from '../model/fenetres3d.js';
 import { ajouterCloture3d } from './cloture3d.js';
-import { volumesDuBatiment } from '../facade/profil.js';
 import {
-  creerPrimitives, cerclePoly, urlTexture, appliquerOpacite, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
+  cerclePoly, poserEnCouche, percerSol, COUCHES_SOL, SANS_OMBRE, HORS_EXPORT, EXPORT_SEULEMENT,
   type Primitives, type VersLocal
 } from './primitives.js';
 import type * as THREE_NS from 'three';
 import { echantillonnerTrace } from '../geometry/courbe.js';
 import { ribbonChemin } from '../geometry/ruban.js';
 import { largeurChemin } from '../model/ouvrages/index.js';
-import type { ObjetPlan, ObjetCercle, PtBrut, VolumeToit, Toit } from '../model/types.js';
+import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, estTerrasse, estBatiment, surParcelleDuProjet } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estBatiment } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { traitSurSol, type SolRelief } from './relief3d.js';
 import type { ContexteScene3d, ContexteObjets } from './typesScene.js';
-
-/** La couleur d'un `MeshStandardMaterial` a qui l'on n'en donne pas. */
-const BLANC_PAR_DEFAUT = 0xffffff;
+import { centreDe, groupeAuSol, opaciteDe, primitivesDans, texturesDe } from './ouvrages/pose.js';
+import { ajouterParasol } from './ouvrages/parasol.js';
+import { dessusDeTerrasse, piecesDeTerrasse } from './ouvrages/terrasse.js';
+import { habillerLeBati, volumesEnBati } from './ouvrages/bati.js';
 
 /**
  * Ou poser un objet sur le sol : sa base au point le plus bas du sol sous son contour, son haut a la
@@ -59,42 +41,6 @@ function poseSurSol(sol: SolRelief | null, contour: readonly PtBrut[], centre: P
   const yBase = sol.basSous(contour);
   return { yBase, hauteur: sol.hauteur(centre) + h - yBase };
 }
-
-/**
- * Un groupe pose sur le sol en `p` : ce qu'on y met compte ses hauteurs depuis le sol local, sans
- * que chaque module (pergola, piscine, parasol, releve de facade) ait a connaitre le relief. Sur
- * sol plat, c'est la scene elle-meme.
- */
-function groupeAuSol(scene: THREE_NS.Object3D, sol: SolRelief | null, p: PtBrut): THREE_NS.Object3D {
-  if (!sol) return scene;
-  const groupe = new THREE.Group();
-  groupe.position.y = sol.hauteur(p);
-  scene.add(groupe);
-  return groupe;
-}
-
-/** Des primitives qui posent dans `cible` : la scene, ou un groupe pose sur le sol. */
-export function primitivesDans(cible: THREE_NS.Object3D, co: ContexteObjets): Primitives {
-  return cible === co.scene ? co.prim : creerPrimitives({ scene: cible, versLocal: co.versLocal, chargerTexture: co.ctx.chargerTexturePolyhaven });
-}
-
-/** Le centre d'un objet du plan, pour lire le sol sous lui. */
-export function centreDe(o: ObjetPlan): PtBrut {
-  return o.type === 'circle' ? o.center : aDesSommets(o) && o.pts.length ? centroid(o.pts) : { x: 0, y: 0 };
-}
-
-// « Objets opaques » ignore l'opacite du plan 2D, souvent < 1 pour voir a travers en mode Plan.
-const opaciteDe = (o: ObjetPlan) => vue3d.objetsOpaques ? undefined : o.fillOpacity;
-// « Texture » decoche revient a la couleur unie sans retirer la texture de chaque objet.
-/**
- * Les textures d'un objet en 3D : celles choisies dans l'inspecteur ; sur les murs d'un batiment qui
- * n'en a pas, celle de son materiau (model/couleurMur.ts, three/textureMur.ts), que sa couleur teinte.
- */
-const texturesDe = (o: ObjetPlan) => {
-  if (!vue3d.textures) return null;
-  const materiau = !o.textureVerticale && o.type === 'polygon' && estBatiment(o) ? textureDesMurs(o) : null;
-  return { horizontale: o.textureHorizontale, vertical: o.textureVerticale ?? (materiau ? textureMur(materiau) : undefined) };
-};
 
 /**
  * La hauteur d'un chemin drape au-dessus du sol en relief : au-dessus du gazon (4 mm), assez pour
@@ -129,46 +75,6 @@ export function ajouterChemin(o: ObjetPlan, { prim, ctx, sol, scene, versLocal }
   else if (poly) prim.addRibbonFlat(poly, couleur, 0.006, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.chemin);
   else if (sol) scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(traitSurSol(trace, sol, versLocal, 0.008, false)), new THREE.LineBasicMaterial({ color: o.stroke || couleur })));
   else prim.addGroundOutline(trace, o.stroke || couleur, false);
-}
-
-/**
- * Un parasol n'est pas un volume plein : un mat fin porte une toile a sa hauteur. L'extruder en
- * ferait un cylindre opaque de 3 m au milieu de la terrasse — exactement ce qu'on ne veut pas voir
- * quand on juge son implantation. Le mat se dresse a SA position (le bord de toile pour un
- * deporte) ; la toile reste centree.
- */
-export function ajouterParasol(par: ObjetCercle, co: ContexteObjets): void {
-  const { versLocal, ctx } = co;
-  // Le mat et la toile comptent leurs hauteurs depuis le sol au pied du mat.
-  const scene = groupeAuSol(co.scene, co.sol, ctx.positionMat(par));
-  const hMat = hauteurParasolDe(par);
-  const pl = versLocal(par.center);
-  const plMat = versLocal(ctx.positionMat(par));
-  const matMat = new THREE.MeshStandardMaterial({ color: 0x6b5a44 });
-  const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, hMat, 10), matMat);
-  mat.position.set(plMat.x, hMat / 2, plMat.z);
-  scene.add(mat);
-  if (par.parasol?.matDeporte) {
-    // Le bras horizontal qui rattrape le deport, sinon la toile flotte sans lien visible.
-    const dx = pl.x - plMat.x, dz = pl.z - plMat.z;
-    const L = Math.hypot(dx, dz);
-    if (L > 0.01) {
-      const bras = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, L, 8), matMat);
-      bras.position.set((pl.x + plMat.x) / 2, hMat, (pl.z + plMat.z) / 2);
-      bras.rotation.z = Math.PI / 2;
-      bras.rotation.y = -Math.atan2(dz, dx);
-      scene.add(bras);
-    }
-  }
-  const matToile = new THREE.MeshStandardMaterial({ color: par.fill || '#7a9e6b', side: THREE.DoubleSide });
-  appliquerOpacite(matToile, opaciteDe(par));
-  const urlToile = urlTexture(vue3d.textures ? (par.textureHorizontale || par.textureVerticale) : null);
-  if (urlToile) matToile.map = ctx.chargerTexturePolyhaven(urlToile);
-  // Cone tres plat : la silhouette d'un parasol ouvert, et la meme emprise au sol que l'ombre en 2D.
-  const hToile = Math.max(0.15, par.r * 0.28);
-  const toile = new THREE.Mesh(new THREE.ConeGeometry(par.r, hToile, 24), matToile);
-  toile.position.set(pl.x, hMat + hToile / 2, pl.z);
-  scene.add(toile);
 }
 
 /**
@@ -288,108 +194,11 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   const centre = centreDe(o);
   const ySol = co.sol ? co.sol.hauteur(centre) : 0;
   const yBase = co.sol ? co.sol.basSous(footprint) : 0;
-  // `fill` est facultatif : sans couleur, l'objet prend le blanc que Three lui laisserait (D-8).
-  // Une maison du voisinage prend la couleur que la section « Voisinage (3D) » lui tire.
-  const apparence = !diag && o.voisinage && o.type === 'polygon' && estBatiment(o) ? apparenceVoisin(co.voisinage3d, o.key) : null;
-  // Un batiment prend la couleur de ses murs lue sur une photo de rue, ou celle de son materiau
-  // (model/couleurMur.ts), sauf choix de la couleur du plan ; un reglage du voisinage l'emporte.
-  const reelle = o.type === 'polygon' && estBatiment(o) ? couleurMursRetenue(o)?.couleur : undefined;
-  const couleurMur = apparence?.couleurMur ?? reelle ?? o.fill ?? BLANC_PAR_DEFAUT;
-  // Un batiment en plusieurs corps : un prisme par corps a son egout le plus bas, ses murs hauts et son
-  // toit (three/toitCorps3d.ts). Un mur releve en L ne coupe le batiment (facade/profil.ts) qu'en toit
-  // simple : sur des corps, il effacait corps, cheminees et lucarnes ; sa photo se pose sur les corps.
-  // Tout autre objet reste un seul prisme.
-  const modeToit = o.type === 'polygon' && estBatiment(o) ? modeToitActif(o.batiment) : 'simple';
-  // Une maison voisine ne montre ses corps et pignons que si la section « Voisinage (3D) » le veut (oui par defaut).
-  const corpsPermis = surParcelleDuProjet(o) || co.voisinage3d.toits.corps;
-  // Un bow-window n'a ni prisme ni fenetres comme un corps : il se dessine a part (ajouterBowWindows3d), a la forme de son plan.
-  const { hotes: corpsToit, bows: bowWindows } = separerBowWindows(modeToit === 'corps' && corpsPermis ? corpsVisibles(o.batiment?.corpsToit, vue3d.corpsIsole?.cle === o.key ? vue3d.corpsIsole.rang : null) : null);
-  const volumesToit = modeToit === 'volumes' ? volumesActifs(o) : null;
-  // Le toit mesure au LiDAR (model/toitMesure.ts) : un seul prisme, le contour lui-meme, a l'egout
-  // le plus bas ; les rehausses montent ses murs jusqu'a la surface. Des prismes par rectangle
-  // laissaient la surface pendre dans le vide la ou un rectangle ne couvrait pas le contour.
-  const toitMesure = modeToit === 'mesure' ? o.batiment?.toitMesure ?? null : null;
-  const egoutDe = (v: VolumeToit): number => v.egout ?? h;
-  // Des corps lus sur un contour remis a l'equerre (un cote de biais : il ne se decoupe pas tel
-  // quel) ne le suivent plus : le batiment garde alors la forme du plan, ses toits decoupes dessus.
-  const surContour = corpsToit && o.type === 'polygon' && !rectanglesDuContour(o.pts) ? facettesSurContour(corpsToit, o.pts) : null;
-  const volumes = surContour
-    ? [{ pts: footprint, hauteur: surContour.bas, hauteursMurs: surContour.hauteursMurs }]
-    : corpsToit
-    // Un appentis ouvert n'a pas de prisme : des poteaux le portent, et le mur est celui du corps qui le porte.
-    ? corpsToit.filter((c) => !estAppentisOuvert(c)).map((c) => ({ pts: c.pts, hauteur: Math.min(...c.egouts), hauteursMurs: hauteursMursCorps(c) }))
-    : toitMesure
-    ? [{ pts: footprint, hauteur: toitMesure.egout, hauteursMurs: footprint.map((_, i) => Math.max(toitMesure.egout, hauteurMurMesuree(toitMesure, footprint, i) ?? toitMesure.egout)) }]
-    : volumesToit
-    ? volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v) }))
-    : o.type === 'polygon' && o.batiment?.facades?.some((r) => r.partieBasse) ? volumesDuBatiment(o.pts, h, o.batiment?.facades) : [{ pts: footprint, hauteur: h }];
-  // Une terrasse percee (le bassin de sa piscine, un trou) garde son trou : pleine, elle recouvrait
-  // le bassin des qu'elle n'etait pas la terrasse courante (vitrine, « tous les objets »). Un
-  // bassin a cheval sur son bord l'encoche : elle s'extrude alors morceau par morceau.
-  const forme = formeDeTerrasse(o, etat.objects);
-  const pieces = forme ? forme.map((m) => ({ pts: m.contour, hauteur: h, trous: m.trous })) : volumes.map((v) => ({ ...v, trous: trousDeTerrasse(o, etat.objects) }));
-  // Une autre terrasse est de niveau a sa hauteur finie au-dessus du point HAUT du sol sous elle
-  // (engine/hauteurs.ts), comme la terrasse courante : son prisme monte jusque-la.
-  const dessusTerrasse = co.solMoteur && estTerrasse(o) ? dessusTerrasseM(o, co.solMoteur) : null;
-  pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
-  // Un batiment releve (photo de facade, ouvertures, toit) s'habille par-dessus son prisme, depuis
-  // le sol en son centre : la photo couvre le mur de la jusqu'au toit, le prisme nu descend dessous.
-  // Ce que l'on sait de la couverture en plus de sa couleur : le materiau des fichiers fonciers et la
-  // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
-  const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.batiment?.toit ? penteDuToit(o.pts, o.batiment?.toit) : null, latitude: co.latitude, choix: o.batiment?.toit?.couverture ?? null } : undefined;
-  if (o.type === 'polygon' && (o.batiment?.facades?.length || o.batiment?.toit || volumesToit)) {
-    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
-  }
-  if (o.type === 'polygon' && corpsToit && surContour) {
-    ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
-  } else if (o.type === 'polygon' && corpsToit) {
-    ajouterToitCorps3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
-  }
-  if (o.type === 'polygon' && bowWindows.length) ajouterBowWindows3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, bowWindows, o.batiment?.toit);
-  // Les cheminees et toits-terrasses observes (MD/spec-regles-toits.md §2.6, §2.7) : un corps qui n'en porte pas ne pose rien de plus.
-  if (o.type === 'polygon' && corpsToit?.some((c) => c.cheminees?.length || c.terrasse)) {
-    const sol = co.sol;
-    const ctxObs = { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture,
-      // Une souche adossee part du sol sous elle, compte depuis le sol au centre (origine du groupe).
-      ...(sol ? { sol: (p: PtBrut) => sol.hauteur(p) - ySol } : {}) };
-    ajouterCheminees3d(ctxObs, corpsToit);
-    ajouterTerrasses3d(ctxObs, corpsToit, o.batiment?.toit, o.pts);
-  }
-  // La surface mesuree au LiDAR remplace les formes simples (three/toitMesure3d.ts), posee a l'egout de chaque corps.
-  if (o.type === 'polygon' && toitMesure) {
-    ajouterToitMesure3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture }, o.pts, toitMesure, o.batiment?.toit, [], toitMesure.egout);
-  }
-  // Un batiment recoit ses details (three/detailsBatiment.ts) : debord et gouttiere, aretes,
-  // soubassement, fenetres par niveau, cheminee — moins de loin.
-  if (o.type === 'polygon' && estBatiment(o)) {
-    const etages = (o.bdtopo as { nombreEtages?: unknown } | null | undefined)?.nombreEtages;
-    // Les fenetres : celles que le voisinage tire pour une maison voisine ; pour un batiment du
-    // projet, la dimension commune ou la liste reglee une par une (model/fenetres3d.ts).
-    const f3d = fenetres3dDe(o);
-    const fenetres = apparence ? fenetresDuVoisin(apparence, co.voisinage3d) : { largeur: f3d.largeur, hauteur: f3d.hauteur, appui: f3d.appui, entraxe: f3d.entraxe, ...(f3d.couleur ? { couleur: f3d.couleur } : {}) };
-    ajouterDetailsBatiment(
-      { scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, couverture, distance: dist(centre, co.centre),
-        // Les facades de pres (R2) : baies en creux et maconnerie sur la parcelle et ses abords, hors
-        // qualite Econome ; l'epoque (BD TOPO) choisit petits bois et maconnerie.
-        relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M,
-        annee: anneeDe((o.bdtopo as { dateApparition?: unknown } | null | undefined)?.dateApparition),
-        detailFin: parametresQualite(vue3d.qualite).detailFinM,
-        // Le groupe est pose sur le sol au centre : le soubassement et les angles descendent jusqu'au sol sous chaque mur.
-        ...(co.sol ? { sol: (p: PtBrut) => (co.sol as SolRelief).hauteur(p) - ySol, base: yBase - ySol } : {}) },
-      // Le profil de facades retenu pour le batiment (facade/regles/facades/profils.ts) : ses dimensions et ses seuils.
-      o, h, { etages: typeof etages === 'number' ? etages : null, cotesReleves: (o.batiment?.facades ?? []).map((r) => r.cote), fenetres, profil: valeursFacadesDe(o.batiment),
-        ...(!apparence && f3d.mode === 'uneParUne' && f3d.liste ? { ouvertures: f3d.liste } : {}),
-        // En surface mesuree, chaque mur a sa hauteur (la ou la couverture le rejoint) : les fenetres montent avec lui.
-        ...(volumesToit ? { volumes: volumesToit.map((v) => ({ pts: v.pts, hauteur: egoutDe(v), toit: toitDuVolume(v, o.batiment?.toit) })) } : {}),
-        // Corps ou surface mesuree : chaque mur a sa hauteur, les fenetres montent avec lui.
-        ...((corpsToit || toitMesure) && o.batiment?.toit ? { volumes: volumes.map((v) => ({ ...v, toit: o.batiment?.toit as Toit })) } : {}),
-        ...(toitMesure || corpsToit ? { sansToit: true } : {}),
-        // Les fenetres sur les murs des corps, a leur hauteur, et dans leurs pignons (facade/ouvertures.ts).
-        // Sur le contour, les fenetres suivent ses murs, comme en surface mesuree.
-        // Un appentis ouvert n'a pas de mur : pas de fenetre non plus.
-        ...(corpsToit && !surContour && (apparence || f3d.mode !== 'uneParUne') ? { corps: corpsToit.filter((c) => !estAppentisOuvert(c)) } : {}) }
-    );
-  }
+  const bati = volumesEnBati(o, !!diag, h, footprint, co);
+  const pieces = piecesDeTerrasse(o, bati.volumes, h, etat.objects);
+  const dessusTerrasse = dessusDeTerrasse(o, co.solMoteur);
+  pieces.forEach((v) => prim.addPrism(v.pts, yBase, (dessusTerrasse ?? ySol + v.hauteur) - yBase, bati.couleurMur, false, opaciteDe(o), texturesDe(o), v.trous));
+  habillerLeBati(o, bati, h, centre, ySol, yBase, co);
 }
 
 /**

@@ -130,9 +130,9 @@ describe('qui a le droit de detruire une texture', () => {
 });
 
 describe('ce que la source doit continuer de dire', () => {
-  // La scene, ses parties (sceneTerrasse, sceneObjets, sceneVivante) et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde ;
+  // La scene, ses parties (sceneTerrasse, sceneObjets, sceneVivante, ouvrages/) et ses briques (three/primitives.ts) : le prisme et le ruban vivent dans la seconde ;
   // un arbre n'en demande plus (three/arbre3d.ts : EZ-tree porte ses images).
-  const scene = ['scene.ts', 'sceneTerrasse.ts', 'sceneObjets.ts', 'sceneVivante.ts', 'primitives.ts', 'arbre3d.ts']
+  const scene = ['scene.ts', 'sceneTerrasse.ts', 'sceneObjets.ts', 'sceneVivante.ts', 'primitives.ts', 'arbre3d.ts', 'ouvrages/pose.ts', 'ouvrages/parasol.ts', 'ouvrages/terrasse.ts', 'ouvrages/bati.ts']
     .map((f) => readFileSync(resolve(__dirname, '../../../src/three/' + f), 'utf8')).join('\n');
   const sansCommentaires = scene.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
