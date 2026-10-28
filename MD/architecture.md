@@ -889,6 +889,7 @@ function listed here and enforced by nothing is a wish, and is marked as one.
 | FF-12 | p95 latency budgets (§3.1) hold under a 50-user load test | QA-P1/P2/P8 | Nightly load test on staging | **Delegated to backprod** (the API is theirs) |
 | FF-13 | Commit message format; behavioural change carries a changelog diff | QA-V6 | CI check | **No mechanism.** Commits are in French, title + why (`CLAUDE.md`), not conventional; the changelog entry is checked at review |
 | FF-14 | Engine benchmark: full terrace recompute < 150 ms | QA-P4 | Vitest bench, threshold | **No mechanism.** No bench file, no threshold in CI |
+| FF-15 | A module of one ouvrage (terrasse, piscine, abri, parasol, clôture, bâti) imports nothing internal to another; what they share has its own name (`engine/ouvrages/liens.ts`, `engine/bois/`, `geometry/`) and each ouvrage publishes what others read (`engine/ouvrages/terrasse.ts`, `piscine.ts`) | independence of ouvrages (`MD/spec-ouvrages.md`, step 6.6) | `tests/unit/architecture.test.ts`, ratchet `RESTANTS` (19 → 0 on 28 Oct 2026) | **Runs** (`npm test`, CI) |
 
 **What runs today.** FF-1, FF-2 and FF-4 run with `npm test`, FF-9 and FF-10 with `npm run lint`,
 FF-5 as a size check after `npm run build`, FF-11 in part. All of them run in CI

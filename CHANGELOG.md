@@ -70,6 +70,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Chaque ouvrage indépendant des autres** (feuille de route, étape 6.6 ; interne). Un ouvrage ne lit plus d'un autre que ce que
+  leur lien déclare : les liens « plage » et « percer » entre la terrasse et la piscine sont nommés une fois
+  (`engine/ouvrages/liens.ts`), et chaque ouvrage publie ce que les autres lisent (`engine/ouvrages/terrasse.ts` : sa forme trouée,
+  sa surface nette ; `engine/ouvrages/piscine.ts` : le bord du bassin, son emprise, la création de sa plage). Le bois partagé a
+  son nom (`engine/bois/` : débit, essences, portées, règles du platelage) ; la géométrie qui vivait chez un ouvrage passe dans
+  `geometry/` (`cotesVusDeDehors.ts`, ex-`facade/geometrie.ts` ; `triangulation.ts` ; `safeOffset` et `aireCommune` dans
+  `polygon.ts`) ; la note de calcul et le calcul de l'abri sous `engine/abri/` ; la 3D a un module par ouvrage
+  (`three/ouvrages/`) ; la section Parasol de l'inspecteur est au parasol (`ui/champs/parasol.ts`) ; les décisions de l'audit et
+  l'import du cadastre écrivent la clôture par ses gestes (`model/cloture.ts`). `tests/unit/architecture.test.ts` interdit à un
+  module d'ouvrage d'importer les internes d'un autre : dix-neuf couplages au départ, zéro à l'arrivée. Aucune empreinte ne
+  bouge. Un seul effet visible : la note de calcul d'une piscine dit qu'une terrasse est percée avec la définition de la terrasse
+  (le bord des margelles, dans les deux sens), et non plus seulement quand un sommet du plan d'eau tombe dans la terrasse.
+
 - **Un seul soleil pour le plan, la Vue 3D et la visionneuse, enregistré avec le projet** (feuille de route, étape 6.7 ;
   décision du 28 octobre 2026). Il y en avait trois, avec trois défauts : l'ombre des parasols sur le plan (le 21 juin, 15 h), la
   Vue 3D et la visionneuse (la date UTC du jour, midi) ; le même parasol n'avait pas la même ombre sur le plan et en 3D, et un
