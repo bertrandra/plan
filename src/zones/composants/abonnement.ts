@@ -171,8 +171,13 @@ export function useCle(magasin: Magasin | null, nom: string, lire: (s: EtatMagas
         if (!monte.current || instantane() !== c) return;
         const html = conteneur.innerHTML;
         flushSync(forcer);
-        if (conteneur.innerHTML !== html) {
-          console.error(`[cle de version] zone « ${nom} » : son affichage a change sans que sa cle change ; elle serait restee telle quelle dans le paquet livre`);
+        const apres = conteneur.innerHTML;
+        if (apres !== html) {
+          // Le premier ecart, pour dire ce que la cle oublie.
+          let i = 0;
+          while (i < html.length && html[i] === apres[i]) i++;
+          const extrait = (t: string) => t.slice(Math.max(0, i - 60), i + 60);
+          console.error(`[cle de version] zone « ${nom} » : son affichage a change sans que sa cle change ; elle serait restee telle quelle dans le paquet livre (avant « ${extrait(html)} », apres « ${extrait(apres)} »)`);
         }
       });
     });

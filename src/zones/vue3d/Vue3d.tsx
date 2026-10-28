@@ -23,7 +23,8 @@ import { BoutonModifierToit } from './BoutonModifierToit.js';
 const ModeToit = lazy(() => import('./ModeToit.js').then((m) => ({ default: m.ModeToit })));
 import { EnteteReglages, ListePointsDeVue, LigneDate, LigneIntensite, CaseAppoint, BarreHeure, type IdsSoleil, type ServiceVues3d } from './communs.js';
 import type { DeuxVues } from '../../three/comparaison3d.js';
-import type { Magasin } from '../../app/magasin.js';
+import type { EtatMagasin, Magasin } from '../../app/magasin.js';
+import { sessionToit } from '../../app/toits/modeToit.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Inspecteur } from '../../app/inspecteur.js';
 import { sectionVoisinage3d } from '../../ui/champs/voisinage3d.js';
@@ -126,14 +127,20 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier'];
 
 /**
- * Montree, la vue suit ce qu'elle lit du plan (zones/composants/abonnement.ts) : les attributs des objets (la selection, l'isolement,
- * les reglages de la terrasse), l'audit, l'etat de ses commandes et le lieu ; pas la forme des objets ni chaque rendu du plan (la
- * scene 3D, elle, se refait par ses propres chemins). Cachee sur le plan, sa cle est gelee.
+ * La cle de la Vue 3D (zones/composants/abonnement.ts). Montree, elle suit ce qu'elle lit du plan : les attributs des objets (la
+ * selection, l'isolement, les reglages de la terrasse), l'audit, l'etat de ses commandes et le lieu ; pas la forme des objets ni
+ * chaque rendu du plan (la scene 3D, elle, se refait par ses propres chemins). En session du toit, elle les suit tous, comme le
+ * panneau du mode qu'elle porte (zones/vue3d/ModeToit.tsx) : l'indice, les poignees et le plan du toit se posent d'apres la
+ * session et la camera, qu'aucune cle ne decrit. Cachee sur le plan, sa cle est gelee.
  */
+export function cleVue3d(s: EtatMagasin, commandes: Pick<RegistreCommandes, 'etat'>, vues: Pick<ServiceVues3d, 'libelleLieu'>,
+  enSession = !!sessionToit()): string {
+  if (s.vue !== 'vue3d') return CLE_GELEE;
+  return cleEtat(s) + JSON.stringify([COMMANDES_VUE3D.map((id) => commandes.etat(id)), promenadeActive(), vues.libelleLieu(), enSession ? s.version : null]);
+}
+
 function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: ServiceVues3d): void {
-  useCle(magasin, 'vue 3D', (s) => (s.vue === 'vue3d'
-    ? cleEtat(s) + JSON.stringify([COMMANDES_VUE3D.map((id) => commandes.etat(id)), promenadeActive(), vues.libelleLieu()])
-    : CLE_GELEE));
+  useCle(magasin, 'vue 3D', (s) => cleVue3d(s, commandes, vues));
 }
 
 export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
