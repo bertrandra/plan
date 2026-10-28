@@ -32,7 +32,7 @@ import { hauteurPignon } from '../facade/toits/toit.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';
 import type { MesureDistance } from '../ui/releve/profondeur.js';
-import type { ServiceReleve } from '../app/releve/releve.js';
+import { toitAutomatique, type ServiceReleve } from '../app/releve/releve.js';
 import type { GrilleFacade, ObjetPolygone, Toit } from '../model/types.js';
 import { fr } from './releve/commun.js';
 import { ChoixMur } from './releve/ChoixMur.js';
@@ -249,9 +249,9 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       ouv.poser(r);
       setExtras(extrasDe(a));
       setToit(r.toitPropose);
-      // Chaque facade relevee redefinit le toit du batiment : celui qu'elle montre remplace le toit
-      // par defaut (cadastre, saisie, releve precedent). Decocher la case garde l'ancien.
-      setAppliquerToit(!!r.toitPropose);
+      // La facade propose son toit a la place de celui du batiment ; pas d'office sur un toit compose (corps
+      // lus au LiDAR, volumes) : plus fin que ce qu'une facade en voit, le remplacer arrete sa lecture LiDAR.
+      setAppliquerToit(!!r.toitPropose && toitAutomatique(bat) !== 'compose');
       setEtape('resultat');
     }, 40);
   };
@@ -293,7 +293,7 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
   const titre = facade ? `Façade ${facade.orientation.toLowerCase()} · ${fr(facade.largeur)}${resultat ? ` × ${fr(hauteurMur)}` : ''} m` : 'Relever une façade';
   const verification: Verification | null =
     resultat && facade
-      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, toit, setToit, appliquerToit, setAppliquerToit, contour: bat.pts, cote: facade.cote,
+      ? { resultat, largeur: facade.largeur, hauteurMur, ouvertures, setOuvertures, choisie, setChoisie, devinees: ouv.devinees, garder: ouv.garder, ecarter: ouv.ecarter, toit, setToit, appliquerToit, setAppliquerToit, toitAutomatique: toitAutomatique(bat), contour: bat.pts, cote: facade.cote,
           partieBasse: resultat.partieBasse, setPartieBasse: (pb) => setResultat({ ...resultat, partieBasse: pb }), hauteurEstimee, hauteurMesuree: resultat.hauteurMesuree, corrigerHauteur }
       : null;
 

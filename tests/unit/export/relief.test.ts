@@ -98,6 +98,14 @@ describe('DP2 : le plan de masse', () => {
     expect(avec.contenu.length).toBeGreaterThan(sans.contenu.length);
   });
 
+  it('donne au bati existant sa hauteur au point le plus haut, toit compris, comme la legende le dit', () => {
+    const objets = projet(null).map((o) => o.key === 'maison' ? { ...o, batiment: { toit: { forme: 'deux-pans', hauteur: 3.4, angleFaitage: 0, source: 'bdtopo' } } } as ObjetPlan : o);
+    const page = pagePlanDeMasse(objets, {});
+    if (!page) throw new Error('page attendue');
+    expect(texteDe(page.contenu)).toContain('Existant H 9,40 m');
+    expect(texteDe(page.contenu)).toContain('H : hauteur au point le plus haut');
+  });
+
   it('coupe une polyligne au cadre', () => {
     const e = { xMin: 0, xMax: 10, yMin: 0, yMax: 10 };
     expect(decouperPolyligne([{ x: -5, y: 5 }, { x: 15, y: 5 }], e)).toEqual([[{ x: 0, y: 5 }, { x: 10, y: 5 }]]);

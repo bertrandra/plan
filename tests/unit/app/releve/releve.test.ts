@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerServiceReleve } from '../../../../src/app/releve/releve.js';
+import { creerServiceReleve, toitAutomatique } from '../../../../src/app/releve/releve.js';
 import { poserPositionGps, retirerPositionGps } from '../../../../src/three/positionGps3d.js';
 import type { ObjetPlan, ReleveFacade, Toit } from '../../../../src/model/types.js';
 
@@ -51,5 +51,33 @@ describe('le service du releve', () => {
     expect(s.position()).toEqual({ x: 5, y: -6 });
     expect(s.obstacles().map((b) => b.pts)).toEqual([(o as { pts: unknown }).pts]);
     retirerPositionGps();
+  });
+
+  it('nomme le toit automatique que le releve remplacerait : compose (corps, volumes), IGN, ou aucun', () => {
+    const corps = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6] as [number, number], ecart: 0.1 };
+    expect(toitAutomatique(null)).toBeNull();
+    expect(toitAutomatique(maison())).toBeNull();
+    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' } } })).toBe('ign');
+    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'saisie' } } })).toBeNull();
+    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps] } } as never)).toBe('compose');
+    // Le mode « un seul toit » choisi : le toit unique est ce que la 3D montre.
+    expect(toitAutomatique({ batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps], modeToit: 'simple' } } as never)).toBe('ign');
+  });
+
+  it('un toit de photo qui remplace des corps se montre : le mode passe a « un seul toit », les corps restent', () => {
+    const corps = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6] as [number, number], ecart: 0.1 };
+    const o = { ...maison(), batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps] } } as unknown as ObjetPlan;
+    const { s } = service(o);
+    s.ouvrir('maison', 0);
+    // Sans toit (case decochee) : le releve s'ecrit, le toit et ses corps ne bougent pas.
+    s.valider(releve(0), null, 6);
+    expect(o.batiment?.modeToit).toBeUndefined();
+    expect(o.batiment?.toit?.source).toBe('lidar');
+    const toit: Toit = { forme: 'croupes', hauteur: 2.5, angleFaitage: 0, source: 'photo' };
+    s.ouvrir('maison', 0);
+    s.valider(releve(0), toit, 6);
+    expect(o.batiment?.toit).toEqual(toit);
+    expect(o.batiment?.modeToit).toBe('simple');
+    expect(o.batiment?.corpsToit).toHaveLength(1);
   });
 });

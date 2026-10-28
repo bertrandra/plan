@@ -169,6 +169,8 @@ function champAppentis(mode: (cc: ContexteChamps) => string): Champ {
         delete neuf.ouvert;
         return v === 'ouvert' ? { ...neuf, ouvert: true } : v === 'ferme' ? { ...neuf, ouvert: false } : neuf;
       });
+      // Fige comme les elements de facade : la relecture suivante referait les corps sans ce reglage.
+      champsBatiment(cc.obj).toitFige = true;
     },
   };
 }
@@ -356,7 +358,10 @@ function champsDuToit(): Champ[] {
       aide: "Angle du faîtage depuis l'est, dans le sens inverse des aiguilles d'une montre",
       lire: (cc) => Math.round(cc.obj.batiment?.toit?.angleFaitage ?? 0),
       ecrire: (cc, v) => {
-        toitDe(cc).angleFaitage = ((v % 180) + 180) % 180;
+        // Saisie comme la forme et la hauteur : la relecture LiDAR et l'actualisation la recalculeraient.
+        const toit = toitDe(cc);
+        toit.angleFaitage = ((v % 180) + 180) % 180;
+        toit.source = 'saisie';
       },
     },
     {

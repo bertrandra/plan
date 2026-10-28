@@ -116,6 +116,30 @@ describe('buildThreeScene', () => {
     expect(remplacerObjets3d([b.key], etat())).toBe(false);
   });
 
+  it('garde les corps du toit d un batiment dont un mur est releve en L', () => {
+    const b = objets.find((o) => o.key === 'maison') as ObjetPlan & { pts: { x: number; y: number }[] };
+    // Un corps sur la boite du contour, et un releve en L du premier mur.
+    const xs = b.pts.map((q) => q.x), ys = b.pts.map((q) => q.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const corps = { pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], posFaitage: (y1 - y0) / 2, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0.1 };
+    const releve = { cote: 0, largeur: 8, hauteur: 6, texture: null, hauteurTexture: 6, ouvertures: [], distance: null, sourceDistance: null, releveLe: '', partieBasse: { debut: 0, fin: 3, hauteur: 3 } };
+    // Le voisinage de la demonstration a ses propres corps : on compte ceux de la scene.
+    const corpsDessines = () => { let n = 0; vue3d.scene?.scene.traverse((o) => { if (o.name === 'toit-corps') n++; }); return n; };
+    buildThreeScene(terrasse(), etat(), contexte());
+    const sans = corpsDessines();
+    (b as { batiment: object }).batiment = { ...b.batiment, corpsToit: [corps] };
+    buildThreeScene(terrasse(), etat(), contexte());
+    const avec = corpsDessines();
+    expect(avec).toBeGreaterThan(sans);
+    (b as { batiment: object }).batiment = { ...b.batiment, facades: [releve] };
+    buildThreeScene(terrasse(), etat(), contexte());
+    expect(corpsDessines()).toBe(avec);
+    // En toit simple choisi, le mur en L coupe toujours le batiment : plus de corps.
+    (b as { batiment: object }).batiment = { ...b.batiment, modeToit: 'simple' };
+    buildThreeScene(terrasse(), etat(), contexte());
+    expect(corpsDessines()).toBe(sans);
+  });
+
   it('peint un batiment de la couleur de diagnostic, murs et toit', () => {
     const couleurs = new Set<string>();
     buildThreeScene(terrasse(), etat(), contexte({ couleurDiagnostic: (o) => (o.fonction === 'batiment' ? '#d7263d' : null) }));
