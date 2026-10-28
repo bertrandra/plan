@@ -86,6 +86,11 @@ interface ChampBase {
   surbrillance?: (c: ContexteChamps) => boolean;
   /** Empiler un instantane avant d'ecrire. */
   historique?: boolean;
+  /**
+   * Le champ deforme le contour de l'objet (angle, longueur, rayon, mode rectangle) : sur un objet venu du cadastre ou de l'IGN
+   * pas encore retouche, l'ecriture attend l'accord de la personne (interaction/retoucheTerrain.ts, app/inspecteur.ts).
+   */
+  retouche?: boolean;
   /** `false` pour un reglage d'affichage qui ne modifie pas le projet. */
   sale?: boolean;
   /**

@@ -2081,6 +2081,70 @@ const POINTS = {
       && fermee && apres === avant && sansCase && sansPoint && !deborde;
     return { ok, mesure: `case ${nCases} « ${libelle} », ${decochee ? 'décochée' : 'COCHÉE'} à l'ouverture, ${cochee ? 'cochée' : 'NON COCHÉE'} au clic ; point « ${point.slice(0, 60)}… » ; Annuler : ${fermee ? 'fermé' : 'OUVERT'}, projet ${apres === avant ? 'inchangé' : 'MODIFIÉ'} ; sans bâtiment vérifié : case ${sansCase ? 'absente' : 'PRÉSENTE'}, point ${sansPoint ? 'absent' : 'PRÉSENT'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  66: async (page, f) => {
+    // Retoucher la forme d'un objet de l'IGN, apres un avertissement (decision du 27 octobre 2026) : la parcelle de la
+    // demonstration vient du cadastre. Tirer un de ses sommets pose la question, sans rien bouger ; « Annuler » ne laisse rien ;
+    // « Confirmer » pose le marque `retoucheMain`, et le glisser suivant se fait sans question. Fichier › Actualiser le projet
+    // propose alors une case decochee « Reprendre la version de l'IGN pour… ». Rien ne part vers l'IGN. La parcelle de la
+    // demonstration est verrouillee (rien ne s'y retouche) : on la deverrouille d'abord, comme le ferait sa case de l'inspecteur.
+    await page.evaluate(() => { const p = window.__plan.etat().objects.find((x) => x.key === 'parcelle'); p.locked = false; window.__plan.toucher('parcelle'); });
+    await selectionner(page, "o.key === 'parcelle'");
+    const avant = objet(await lireEtat(page), (o) => o.key === 'parcelle');
+    let poignee = null, i = 0;
+    for (; i < avant.pts.length && !poignee; i++) if (!(avant.frozenVertices || [])[i]) poignee = await visible(page, `[data-role="point"][data-key="parcelle"][data-index="${i}"]`, false);
+    i--;
+    if (!poignee) return { ok: false, mesure: 'aucune poignée de la parcelle à l’écran' };
+    const question = page.locator('.dialogueVoile', { hasText: 'vient du cadastre' });
+    const sommet = async () => objet(await lireEtat(page), (o) => o.key === 'parcelle').pts[i];
+    // 1. La question, a l'appui : rien ne bouge.
+    await glisser(page, poignee, 30, 20);
+    const posee = await question.waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+    const texte = posee ? ((await question.locator('.dialogueTexte').textContent()) || '').trim() : '';
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueBoite')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const immobile = proches((await sommet()).x, avant.pts[i].x) && proches((await sommet()).y, avant.pts[i].y);
+    // 2. « Annuler » : ni marque, ni mouvement.
+    if (posee) await question.locator('[data-controle="dialogue.annuler"]').click({ timeout: 5000 });
+    await page.waitForTimeout(200);
+    const sansMarque = !objet(await lireEtat(page), (o) => o.key === 'parcelle').retoucheMain;
+    // 3. « Confirmer » : le marque ; le glisser suivant se fait, sans autre question.
+    await glisser(page, poignee, 30, 20);
+    const reposee = await question.waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+    if (reposee) await question.locator('[data-controle="dialogue.confirmer"]').click({ timeout: 5000 });
+    await page.waitForTimeout(200);
+    const marque = objet(await lireEtat(page), (o) => o.key === 'parcelle').retoucheMain ?? null;
+    // Le message « Retouche permise » s'affiche (Z9) : au telephone, il couvre la poignee le temps de se lire. La personne
+    // attend qu'il parte, le point aussi.
+    const sel = `[data-role="point"][data-key="parcelle"][data-index="${i}"]`;
+    await page.waitForFunction((sel) => { const e = document.querySelector(sel); if (!e) return false; const b = e.getBoundingClientRect(); return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2) === e; }, sel, { timeout: 10000 }).catch(() => {});
+    await glisser(page, (await visible(page, sel, false)) ?? poignee, 30, 20);
+    const sansQuestion = (await page.locator('.dialogueVoile').count()) === 0;
+    const bouge = !proches((await sommet()).x, avant.pts[i].x);
+    // 4. Actualiser le projet : une case decochee pour reprendre la version de l'IGN.
+    await page.evaluate(() => document.querySelector('[data-commande="projet.actualiser"]').click());
+    const boite = page.locator('.dialogueVoile', { hasText: 'Actualiser le projet' });
+    await boite.waitFor({ timeout: 10000 }).catch(() => {});
+    const cases = boite.locator('.dialogueCase', { hasText: 'Reprendre la version de l’IGN' });
+    const nCases = await cases.count();
+    const libelle = nCases ? ((await cases.first().textContent()) || '').trim() : '';
+    const decochee = nCases ? !(await cases.first().locator('input').isChecked()) : false;
+    const point = (await boite.locator('.dialoguePoints li').allTextContents()).some((t) => /retouchés à la main/.test(t));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    // 5. Le dialogue « Actualiser depuis l'IGN » : la meme case, decochee.
+    await page.evaluate(() => document.querySelector('[data-commande="projet.actualiserIgn"]').click());
+    const boiteIgn = page.locator('.dialogueActualisation');
+    await boiteIgn.waitFor({ timeout: 10000 }).catch(() => {});
+    const caseIgn = boiteIgn.locator('[data-controle="actualisation.reprendre"]');
+    const nIgn = await caseIgn.count();
+    const libelleIgn = nIgn ? ((await caseIgn.first().locator('xpath=..').textContent()) || '').trim() : '';
+    const decocheeIgn = nIgn ? !(await caseIgn.first().isChecked()) : false;
+    const debordeIgn = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    if (await boiteIgn.count()) await boiteIgn.locator('[data-controle="actualisation.annuler"]').click({ timeout: 5000 }).catch(() => {});
+    const [a, m, j] = (marque?.date ?? '').split('-');
+    const ok = posee && /^« .+ » vient du cadastre\. La retoucher à la main la détache de l’IGN .*Continuer \?$/.test(texte) && immobile && sansMarque
+      && reposee && !!marque && sansQuestion && bouge && nCases === 1 && libelle.endsWith('retouché à la main le ' + j + '/' + m + '/' + a) && decochee && point && !deborde
+      && nIgn === 1 && libelleIgn === libelle && decocheeIgn && !debordeIgn;
+    return { ok, mesure: `question ${posee ? '« ' + texte.slice(0, 50) + '… »' : 'ABSENTE'}, sommet ${immobile ? 'immobile' : 'DÉPLACÉ'} ; Annuler : ${sansMarque ? 'sans marque' : 'MARQUÉ'} ; Confirmer : marque ${JSON.stringify(marque)}, glisser suivant ${bouge ? 'fait' : 'NON FAIT'} ${sansQuestion ? 'sans question' : 'AVEC QUESTION'} ; Actualiser le projet : ${nCases} case « ${libelle} » ${decochee ? 'décochée' : 'COCHÉE'}, point ${point ? 'présent' : 'ABSENT'} ; Actualiser depuis l’IGN : ${nIgn} case${libelleIgn === libelle ? ', même libellé' : ' « ' + libelleIgn + ' »'}, ${decocheeIgn ? 'décochée' : 'COCHÉE'} ; débordement ${deborde || debordeIgn ? 'OUI' : 'non'}` };
+  },
   57: async (page, f) => {
     // Admin › Consommation de Claude (MD/spec-audit.md 13.3). Les routes `admin/…` sont simulees :
     // session ouverte, un journal de trente jours (Haiku, Sonnet en escalade, trois parcelles), les
@@ -3495,7 +3559,8 @@ function pointsPour(nomClasse) {
   // 95 : Admin › « De l'IGN a ma maison » : le schema de bout en bout et les vignettes 3D des formes de toit. 96 : Admin › Principes.
   // 97 et 98 : le mode Toit, son panneau, et le corps choisi (seule cible des gestes, silhouette tracee, poignee de deplacement).
   // 99 : le fichier du projet, exporte en JSON puis rouvert par le menu Fichier.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99];
+  // 66 : retoucher la forme d'un objet de l'IGN, apres l'avertissement ; la case « Reprendre la version de l'IGN » ensuite.
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

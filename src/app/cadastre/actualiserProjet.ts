@@ -21,12 +21,16 @@
 // Restent aussi, sauf demande expresse, les batiments verifies sur place par un audit de la parcelle
 // (model/toitVerifie.ts, MD/spec-audit.md §14.5) : c'est le 100 % du projet, qu'un import
 // d'aujourd'hui ne vaut pas. La case « Recalculer aussi… » du dialogue les remet dans le lot.
+//
+// Restent de meme les objets retouches a la main (model/retouche.ts : la parcelle, un batiment de l'IGN) : une case decochee
+// chacun, « Reprendre la version de l'IGN pour… », les remet dans le lot ; un batiment repris garde sa cle.
 
 import { dialogues } from '../../shell/dialogues.js';
 import { showToast } from '../../shell/dialogs.js';
 import { droitsCourants } from '../acces.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { actualiserDepuisIgn, type ContexteActualisation, type OptionsActualisation } from './actualisationIgn.js';
+import { objetsRetouches } from './actualisationIgn/toitsEtMurs.js';
 import { estVerifieSurPlace } from '../../model/toitVerifie.js';
 import type { ObjetPlan } from '../../model/types.js';
 
@@ -43,12 +47,16 @@ export const POINTS_ACTUALISATION = [
 ];
 /** Le point de plus quand le plan a des batiments verifies sur place : ils sont conserves, sauf si la case le demande. */
 export const POINT_VERIFIES = 'Conservés tels quels, sauf si vous cochez la case : les bâtiments vérifiés sur place lors d’un audit de la parcelle (toit, façades, cheminées).';
+/** Le point de plus quand le plan a des objets retouches a la main : ils sont conserves, sauf ceux dont la case est cochee. */
+export const POINT_RETOUCHES = 'Conservés tels que vous les avez laissés, sauf si vous cochez leur case : les objets de l’IGN que vous avez retouchés à la main.';
 
 /** Les batiments du plan verifies sur place : ils ne sont recalcules que si la case le demande. */
 export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o.batiment));
 
-/** Les points du dialogue pour ce plan : les points de toujours, et celui des batiments verifies s'il y en a. */
-export const pointsActualisation = (nVerifies: number): string[] => nVerifies ? [...POINTS_ACTUALISATION.slice(0, -1), POINT_VERIFIES, ...POINTS_ACTUALISATION.slice(-1)] : POINTS_ACTUALISATION;
+/** Les points du dialogue pour ce plan : les points de toujours, et ceux des batiments verifies et des objets retouches s'il y en a. */
+export const pointsActualisation = (nVerifies: number, nRetouches = 0): string[] => (nVerifies || nRetouches)
+  ? [...POINTS_ACTUALISATION.slice(0, -1), ...(nVerifies ? [POINT_VERIFIES] : []), ...(nRetouches ? [POINT_RETOUCHES] : []), ...POINTS_ACTUALISATION.slice(-1)]
+  : POINTS_ACTUALISATION;
 
 /** Le libelle de la case : un batiment nomme, ou leur nombre. */
 export function libelleCaseVerifies(verifies: readonly ObjetPlan[]): string {
@@ -72,22 +80,27 @@ export function ouvrirActualisationProjet(ctx: ContexteActualisation): void {
   // Les batiments verifies sur place restent, sauf si la case est cochee : decochee a chaque ouverture.
   const verifies = batimentsVerifies(ctx.etat.objects);
   let relire = false;
+  // Les objets retouches a la main restent aussi, sauf ceux dont la case est cochee : toutes decochees a chaque ouverture.
+  const retouches = objetsRetouches(ctx.etat.objects);
+  const reprendre = new Set<string>();
   dialogues.ouvrir({
     type: 'choix', titre: 'Actualiser le projet',
     texte: 'Tout ce qui vient de l’IGN est relu et recalculé avec la version actuelle de Plan, comme à un import d’aujourd’hui.',
-    points: pointsActualisation(verifies.length),
+    points: pointsActualisation(verifies.length, retouches.length),
     ...(verifies.length ? { case: { libelle: libelleCaseVerifies(verifies), cochee: false, changer: (c: boolean) => { relire = c; } } } : {}),
-    principal: { libelle: 'Actualiser le projet', executer: () => { void lancerActualisationProjet(ctx, relire ? 'relire' : 'garder'); } },
+    ...(retouches.length ? { cases: retouches.map(r => ({ libelle: r.libelle, cochee: false, changer: (c: boolean) => { if (c) reprendre.add(r.cle); else reprendre.delete(r.cle); } })) } : {}),
+    principal: { libelle: 'Actualiser le projet', executer: () => { void lancerActualisationProjet(ctx, relire ? 'relire' : 'garder', [...reprendre]); } },
     secondaire: { libelle: 'Annuler', executer: () => {} }
   });
 }
 
 /**
  * L'actualisation elle-meme : toutes les etapes de l'actualisation IGN, objets importes ramenes aux
- * valeurs par defaut. `verifies` : ce qu'on fait des batiments verifies sur place (gardes par defaut).
+ * valeurs par defaut. `verifies` : ce qu'on fait des batiments verifies sur place (gardes par defaut) ; `reprendre` : les cles des
+ * objets retouches a la main dont la personne reprend la version de l'IGN (les autres sont gardes).
  */
-export function lancerActualisationProjet(ctx: ContexteActualisation, verifies: OptionsActualisation['verifies'] = 'garder'): Promise<void> {
+export function lancerActualisationProjet(ctx: ContexteActualisation, verifies: OptionsActualisation['verifies'] = 'garder', reprendre: readonly string[] = []): Promise<void> {
   const relief = droitsCourants().aCapacite(CAPACITES.relief.code);
   const toutes = aDesVoisines(ctx.etat.objects) || !!ctx.trouverParcelleCloture()?.relief?.paysage;
-  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true, recreerBatiments: true, verifies }, ctx);
+  return actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, relief: { actif: relief, toutesParcelles: toutes }, parDefaut: true, recreerBatiments: true, verifies, ...(reprendre.length ? { reprendre } : {}) }, ctx);
 }

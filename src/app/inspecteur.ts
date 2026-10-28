@@ -15,6 +15,8 @@ import { brancherDialogueDeclaration } from './ecouteurs/exports.js';
 import { champAnnulable, ecritLeProjet } from './administration/ecritures.js';
 import { terrasseCourante } from '../core/contexteTerrasse.js';
 import { titreObjet } from '../ui/champs/objet.js';
+import { retoucheADemander } from '../model/retouche.js';
+import { avecAccordDeRetouche } from '../interaction/retoucheTerrain.js';
 import { sectionsInspecteur } from '../ui/champs/sections.js';
 import type { Champ, ContexteChamps, Effet, Section } from '../ui/champs/types.js';
 import type { EtatApp } from '../core/state.js';
@@ -111,6 +113,13 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
     appliquer(champ, c, ecrire) {
       // La lecture seule refuse ce qui ecrit le projet, comme le registre grise ses commandes.
       if (etat.lectureSeule && ecritLeProjet(champ)) { magasin.notifier(); return false; }
+      // Un champ qui deforme un objet venu du cadastre ou de l'IGN attend l'accord : le champ revient a ce qu'il lit, et
+      // l'ecriture se fait au « Confirmer » (interaction/retoucheTerrain.ts), sans pas d'annulation si la personne renonce.
+      if (champ.retouche && retoucheADemander(c.obj)) {
+        avecAccordDeRetouche(c.obj, { markDirty: ctx.markDirty }, () => { service.appliquer(champ, c, ecrire); });
+        magasin.notifier();
+        return false;
+      }
       // L'instantane est pris avant d'ecrire, et empile seulement si l'ecriture n'est pas refusee.
       const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique() : null;
       if (ecrire() === false) { magasin.notifier(); return false; }

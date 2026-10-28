@@ -184,7 +184,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'dialogue.confirmer': etape(Z8, DIALOGUE, 'Confirmer (action irréversible)'),
   'dialogue.secondaire': etape(Z8, DIALOGUE, 'Réponse secondaire d’un choix'),
   'dialogue.principal': etape(Z8, DIALOGUE, 'Réponse principale d’un choix'),
-  'dialogue.case': etape(Z8, DIALOGUE, 'Option d’un choix (case à cocher)'),
+  'dialogue.case': etape(Z8, DIALOGUE, 'Option d’un choix (case à cocher)', { repete: true }),
   'dialogue.action': etape(Z8, DIALOGUE, 'Action d’un message'),
   // Premier pas (zones/PremierPas.tsx) : par quoi commencer, quand il n'y a aucun plan.
   'premierPas.adresse': etape(Z8, 'démarrage sans projet', 'Partir d’une adresse'),
@@ -388,6 +388,7 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'actualisation.couche': etape(Z8, ACTUALISER, 'Couche du voisinage (bâti, végétation, arbres)', { repete: true }),
   'actualisation.relief': etape(Z8, ACTUALISER, 'Relire le relief du terrain'),
   'actualisation.reliefToutes': etape(Z8, ACTUALISER, 'Relief sur toutes les parcelles du plan'),
+  'actualisation.reprendre': etape(Z8, ACTUALISER, 'Reprendre la version de l’IGN d’un objet retouché à la main', { repete: true }),
   'actualisation.annuler': etape(Z8, ACTUALISER, 'Annuler l’actualisation'),
   // La declaration prealable (zones/parcours/Declaration.tsx) : ses champs sont ceux de ui/champs/declaration.ts.
   'declaration.fermer': etape(Z8, 'export.ouvrirDeclaration', 'Fermer la déclaration préalable'),

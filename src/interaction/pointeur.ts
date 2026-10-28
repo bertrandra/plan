@@ -28,6 +28,8 @@ import { zoomMolette, debutPincement, pincer, deplacer, milieuDe } from './navig
 import { estRectangle } from '../geometry/rect.js';
 import { mesure } from './outilMesure.js';
 import { definirCibleAlignement, MESSAGE_TERRAIN_REEL } from './outilAlignement.js';
+import { avecAccordDeRetouche, MESSAGE_RETOUCHE_PERMISE } from './retoucheTerrain.js';
+import { retoucheADemander } from '../model/retouche.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan, PtBrut, PtEcran } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
@@ -64,6 +66,8 @@ export interface ContextePointeur {
   aligner?: () => void;
   /** Dit a la personne pourquoi un geste n'a pas lieu. */
   signaler?: (message: string) => void;
+  /** La question avant de retoucher un objet venu du cadastre ou de l'IGN (interaction/retoucheTerrain.ts) ; par defaut le dialogue Z8. */
+  confirmer?: (message: string, oui: () => void) => void;
   /**
    * La vue a change (zoom, deplacement) depuis `avant` : sur un grand plan, un apercu tout de suite et
    * un rendu au repos (render/apercuVue.ts). Absent : un rendu complet.
@@ -230,6 +234,23 @@ function surAcces(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   return 'suite';
 }
 
+/**
+ * Un glisser qui deformerait un objet venu du cadastre ou de l'IGN, pas encore retouche : la question se pose a l'appui, avant le
+ * geste (une confirmation asynchrone ne peut pas interrompre un glisser en route). Rend `true` quand le glisser peut commencer ;
+ * sinon l'appui est avale, et apres « Confirmer » la personne tire de nouveau.
+ */
+function glisserPermis(p: EtatPointeur, obj: ObjetPlan): boolean {
+  const { ctx } = p;
+  if(!retoucheADemander(obj)) return true;
+  // L'appui qui pose la question n'est pas le premier clic d'un double-clic : le suivant, apres la reponse, commence un glisser.
+  p.clicSommet = CLIC_VIDE; p.clicCote = CLIC_VIDE;
+  avecAccordDeRetouche(obj, { markDirty: ctx.markDirty, confirmer: ctx.confirmer }, () => {
+    ctx.signaler?.(MESSAGE_RETOUCHE_PERMISE);
+    ctx.render();
+  });
+  return false;
+}
+
 /** Un sommet : le geler au double-clic, ou commencer a le tirer. */
 function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const { etat, ctx } = p;
@@ -248,6 +269,7 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   p.clicSommet = {key:ds.key, index:idx, time:nowTp};
   // Un coin gele ne bouge pas, SAUF en mode rectangle ou il redimensionne la forme entiere.
   if(obj.frozenVertices?.[idx] && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'vertex', index:idx};
   ctx.pushHistory();
   p.geste = {type:'point', obj, idx, startWorld:w, startPt:{...sommetDe(obj.pts, idx)}};
@@ -271,6 +293,7 @@ function surCote(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   p.clicCote = {key:ds.key, index:i, time:nowT};
   // Idem pour un cote : gele = fixe, sauf en mode rectangle ou il se translate.
   if((obj.frozenVertices?.[i] || obj.frozenVertices?.[j]) && !estRectangle(obj)) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:'segment', index:i};
   ctx.pushHistory();
   p.geste = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
@@ -284,6 +307,7 @@ function surRayon(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   const obj = objetDe(etat, ds.key);
   if(!obj || obj.type !== 'circle' || obj.locked) return 'rien';
   if(etat.lectureSeule) return 'rien';
+  if(!glisserPermis(p, obj)) return 'avale';
   etat.highlight = {type:null, index:null};
   ctx.pushHistory();
   p.geste = {type:'radius', obj, startWorld:w};

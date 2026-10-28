@@ -72,6 +72,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
       if (b.toitFige) b.toitFige = true; else delete b.toitFige;
       c.batiment = b;
     }
+    // Le marque d'une retouche a la main (model/retouche.ts) : sa date seule ; nul ou absent, il n'y en a pas.
+    if (c.retoucheMain) c.retoucheMain = { date: String(c.retoucheMain.date) }; else delete c.retoucheMain;
     if (c.arbre) c.arbre = JSON.parse(JSON.stringify(c.arbre));
     if (c.parasol) c.parasol = { ...c.parasol };
     if (c.pergola) c.pergola = JSON.parse(JSON.stringify(c.pergola));

@@ -334,7 +334,9 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
   Trois autres gestes cassent ces références ou des positions :
   - **l'actualisation IGN** remplace les points d'une parcelle ou d'un bâtiment (un autre nombre de sommets) et garde par
     numéro la clôture, les façades relevées, les fenêtres, la couleur des murs ; elle remet les noms des coins et des côtés
-    par défaut ; un bâtiment refait prend une autre clé (cotes et audit perdus) ;
+    par défaut ; depuis le 27 octobre 2026, un bâtiment refait par « Actualiser le projet » garde la clé de l'ancien qui portait le
+    même identifiant BD TOPO (`batimentsRecrees`) ; seul un bâtiment sans correspondant (dessiné, ou nouveau à la BD TOPO) prend
+    une autre clé ;
   - **raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse` ;
   - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
@@ -347,6 +349,18 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     photo aérienne, le relief, les rues, le PLU, le soleil (le nord réel), le voisinage, la mitoyenneté, le côté sur rue,
     l'audit sur place (GPS, photos de rue géolocalisées). La seule rotation qui garde tout juste serait celle de la **vue** (un
     réglage d'affichage) : proposée, écartée par le propriétaire le 27 octobre 2026.
+
+    **Sa forme, elle, peut être retouchée, après un avertissement** (décision du propriétaire du 27 octobre 2026 : « Oui avec
+    avertissement. Si IGN n'est pas bon. »). Tout geste qui déforme son contour (tirer un sommet, un côté ou le rayon, ajouter
+    ou retirer un sommet, saisir un angle ou une longueur, le mode rectangle) demande d'abord, par le dialogue de confirmation :
+    « « Maison » vient de l'IGN. La retoucher à la main la détache de l'IGN : à la prochaine actualisation, vous choisirez entre
+    garder votre version et reprendre celle de l'IGN. Continuer ? » (`interaction/retoucheTerrain.ts`). « Annuler » : rien, aucun
+    pas d'annulation. « Confirmer » : l'objet reçoit le marque `retoucheMain: { date }` (`model/retouche.ts`, enregistré dans le
+    fichier), puis le geste a lieu ; pour un glisser, la question se pose à l'appui et la personne tire de nouveau. Marqué, il ne
+    demande plus rien. À l'actualisation IGN (le dialogue « Actualiser depuis l'IGN » comme « Actualiser le projet »), un objet
+    retouché est **gardé tel que la personne l'a laissé** (« ne plus autoriser la mise à jour IGN ») ; une case décochée par objet,
+    « Reprendre la version de l'IGN pour « X », retouché à la main le JJ/MM/AAAA », le remplace par sa source, retire le marque
+    et garde sa clé (« remplacer le bâtiment avec la source IGN »).
 
   Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par

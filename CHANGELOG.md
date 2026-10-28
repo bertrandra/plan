@@ -7,6 +7,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Retoucher la forme d'un objet de l'IGN, après un avertissement** (décision du 27 octobre 2026). Une parcelle du cadastre, un
+  bâtiment ou un élément de l'IGN ne se déplace ni ne tourne, mais sa forme peut être fausse à l'IGN : tirer un sommet, un côté
+  ou le rayon, ajouter ou retirer un sommet, saisir un angle ou une longueur, le mode rectangle demandent d'abord « « Maison »
+  vient de l'IGN. La retoucher à la main la détache de l'IGN… Continuer ? ». Confirmé, l'objet garde un marque enregistré dans
+  le fichier (`retoucheMain`) et la question ne revient plus ; annulé, rien ne se passe. À l'actualisation IGN (« Actualiser
+  depuis l'IGN » comme « Actualiser le projet »), un objet retouché est gardé tel quel ; une case décochée par objet,
+  « Reprendre la version de l'IGN pour « X », retouché à la main le JJ/MM/AAAA », le remplace par sa source et retire le marque.
+  Sans objet retouché, les dialogues ne changent pas.
+
 - **La fumée complète, chaque nuit** (`.github/workflows/fumee-nuit.yml`, feuille de route, étape 0.1). La CI ne joue que les douze
   points du lot `ci`, au bureau et en thème clair. Ce workflow joue tous les points, dans les trois classes d'écran et les deux
   thèmes, avec le réseau témoin : une tâche par couple, de 12 à 30 min, chaque nuit à 3 h 17 UTC, et à la demande. Un échec fait
@@ -60,6 +69,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   elle ne change que le corps choisi, ou le bâtiment entier sans choix. Au doigt, les options sont des cibles de 44 px.
 
 ### Modifié
+
+- **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
+  l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent
+  une autre quand la clé n'était pas celle d'un import (`bati-…`). Un bâtiment sans correspondant prend une clé libre, comme avant.
 
 - **L'inspecteur ne montre que ce qui sert à concevoir chaque ouvrage** (`MD/spec-ouvrages.md`, « Décidé, ouvrage par
   ouvrage », étape 6.4). Le propriétaire a tranché chaque proposition ; l'inspecteur règle, il n'affiche plus de résultat.

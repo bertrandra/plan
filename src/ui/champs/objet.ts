@@ -140,7 +140,7 @@ const sectionObjet: Section = {
       lire: (c) => !!c.obj.curve, ecrire: (c, v) => { c.obj.curve = v; }
     },
     {
-      type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, effets: ['rendu'],
+      type: 'nombre', cle: 'r', libelle: 'Rayon', unite: 'm', pas: 0.01, min: 0.1, decimales: 2, historique: true, retouche: true, effets: ['rendu'],
       visible: (c) => c.obj.type === 'circle',
       lire: (c) => enCercle(c.obj).r,
       ecrire: (c, v) => {
@@ -162,7 +162,7 @@ const sectionObjet: Section = {
       lire: (c) => !!c.obj.locked, ecrire: (c, v) => { c.obj.locked = v; }
     },
     {
-      type: 'case', cle: 'rectangle', libelle: 'Mode rectangle (angles à 90°)', effets: ['rendu'],
+      type: 'case', cle: 'rectangle', libelle: 'Mode rectangle (angles à 90°)', retouche: true, effets: ['rendu'],
       aide: 'Verrouille les 4 angles à 90 degrés (fige les 4 coins)',
       visible: (c) => c.obj.type === 'polygon' && c.obj.pts.length === 4,
       // Derive de l'etat des coins figes plutot que d'un drapeau a part : figer les quatre coins est
@@ -399,7 +399,7 @@ function sectionCotes(c: ContexteChamps): Section {
     const j = (i + 1) % n;
     const aFige = !!gelsDe(obj)[i], bFige = !!gelsDe(obj)[j];
     const longueur: ChampNombre = {
-      type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2,
+      type: 'nombre', cle: 'longueur', libelle: 'Longueur', unite: 'm', pas: 0.01, min: 0.05, decimales: 2, retouche: true,
       actif: () => !(aFige && bFige),
       aide: aFige && bFige ? 'Les deux coins de ce côté sont figés' : (aFige || bFige ? 'Un coin est figé : l\'autre extrémité du côté sera déplacée pour atteindre cette longueur' : 'Longueur du côté'),
       lire: (cc) => { const p = enPoints(cc.obj).pts; return dist(au(p, i), au(p, j % p.length)); },
@@ -431,7 +431,7 @@ function sectionCoins(c: ContexteChamps): Section {
       champs: [
         nomDe('nom', 'Nom', (cc) => nomsSommetsDe(enPoints(cc.obj))[i] || '', (cc, v) => { nomsSommetsDe(enPoints(cc.obj))[i] = v; }),
         {
-          type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, actif: () => !fige,
+          type: 'nombre', cle: 'angle', libelle: 'Angle', unite: '°', pas: 0.1, decimales: 1, retouche: true, actif: () => !fige,
           aide: fige ? 'Angle figé : décoche « figé » pour le modifier' : 'Angle intérieur',
           lire: (cc) => cc.interiorAngleDeg(cc.obj, i),
           ecrire: (cc, v) => cc.applyAngleEdit(cc.obj, i, v),

@@ -31,6 +31,10 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
   // Le relief, coche d'emblee, sur toutes les parcelles du plan.
   const [relief, setRelief] = useState(true);
   const [reliefToutes, setReliefToutes] = useState(true);
+  // Les objets retouches a la main sont gardes tels quels : une case decochee chacun pour reprendre la version de l'IGN.
+  const retouches = infos.retouches ?? [];
+  const [reprendre, setReprendre] = useState<ReadonlySet<string>>(() => new Set());
+  const basculerReprise = (cle: string, coche: boolean) => setReprendre(avant => { const s = new Set(avant); if (coche) s.add(cle); else s.delete(cle); return s; });
   const source = infos.voisinage;
   const palier = rayonDeLecture(rayon);
   useEffect(() => {
@@ -97,10 +101,20 @@ export function Actualisation({ infos, lancer, fermer }: Props) {
           </label>
         </div>
       </>}
+      {retouches.length > 0 && <>
+        <div className="separateurParcours" />
+        <div className="detailIgn" role="note">{retouches.length === 1 ? 'Un objet a été retouché à la main : il est gardé tel quel, sauf si vous cochez sa case.'
+          : retouches.length + ' objets ont été retouchés à la main : ils sont gardés tels quels, sauf ceux dont vous cochez la case.'}</div>
+        {retouches.map(r => (
+          <label key={r.cle} className="caseParcours">
+            <input type="checkbox" data-controle="actualisation.reprendre" checked={reprendre.has(r.cle)} onChange={(e) => basculerReprise(r.cle, e.target.checked)} /> {r.libelle}
+          </label>
+        ))}
+      </>}
       <div className="piedDialogue">
         <button type="button" data-controle="actualisation.annuler" className="secondary" onClick={fermer}>Annuler</button>
         <button type="button" data-controle="actualisation.lancer" onClick={() => lancer({ portee, voisinage: voisinage ? { actif: true, batiments, vegetation, arbres, ...(enRayon ? { rayonM: rayon } : {}) } : { actif: false },
-          relief: { actif: infos.reliefPermis && relief, toutesParcelles: reliefToutes } })}>Actualiser</button>
+          relief: { actif: infos.reliefPermis && relief, toutesParcelles: reliefToutes }, ...(reprendre.size ? { reprendre: [...reprendre] } : {}) })}>Actualiser</button>
       </div>
     </div>
   );
