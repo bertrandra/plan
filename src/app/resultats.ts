@@ -109,9 +109,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     if (obj) {
       const c = ensureConstruction(obj);
       c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
-      // La nomenclature est ecrite dans l'objet : l'ecriture le nomme (core/controleurObjets.ts), sans quoi ce qui le lit entre-temps
-      // (les zones, la recherche des doublons) garderait la nomenclature d'avant sous la meme cle.
-      toucher(obj);
+      toucher(obj); // la nomenclature est ecrite dans l'objet : l'ecriture le nomme (core/controleurObjets.ts)
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();
