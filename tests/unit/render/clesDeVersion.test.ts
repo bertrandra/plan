@@ -8,7 +8,7 @@ vi.mock('../../../src/render/objects.js', () => ({
   positionnerObjet: dessin.positionner, positionnerEnVerifiant: dessin.verifier, horsDeLaVue: (o: { key: string }) => dessin.horsVue.has(o.key)
 }));
 
-import { rendreObjets, type ContexteRendu } from '../../../src/render/pipeline.js';
+import { rendreObjets, elementsRecreesDuPlan, type ContexteRendu } from '../../../src/render/pipeline.js';
 import { vue } from '../../../src/render/vues.js';
 import { toucher, toucherTout } from '../../../src/core/controleurObjets.js';
 import type { EtatApp } from '../../../src/core/state.js';
@@ -84,13 +84,26 @@ describe('les cles de version du dessin du plan', () => {
 
   it('un objet qui entre dans la vue, ou en sort, se redessine, et lui seul', () => {
     const { objets, etat } = plan();
+    const avecRepere = { ...ctx, repere: { ...etat.scene, origine: { ...etat.scene.origine } } } as ContexteRendu;
     dessin.horsVue.add(objets[1]!.key);
-    rendreObjets(etat, ctx, objets);
+    rendreObjets(etat, avecRepere, objets);
     expect(dessin.positionner.mock.calls.find((c) => (c[0] as ObjetPlan).key === objets[1]!.key)?.[1].horsVue).toBe(true);
     dessin.positionner.mockClear();
+    // La vue se deplace, et l'objet y entre.
     dessin.horsVue.clear();
-    rendreObjets(etat, ctx, objets);
+    etat.scene = { ...etat.scene, origine: { x: 30, y: 0 } };
+    rendreObjets(etat, avecRepere, objets);
     expect(dessines()).toEqual([objets[1]!.key]);
+  });
+
+  it('des poignees recreees font repasser le rendu sur les objets : celui dont les elements ont change se redessine', () => {
+    const { objets, etat } = plan();
+    rendreObjets(etat, ctx, objets);
+    dessin.positionner.mockClear();
+    vue(objets[0]!).pointEls = [document.createElementNS('http://www.w3.org/2000/svg', 'circle')];
+    elementsRecreesDuPlan();
+    rendreObjets(etat, ctx, objets);
+    expect(dessines()).toEqual([objets[0]!.key]);
   });
 
   it('en developpement, un objet inchange est verifie plutot que saute', () => {

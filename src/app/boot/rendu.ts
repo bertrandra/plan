@@ -54,21 +54,24 @@ export function creerRendu(d: DependancesRendu) {
     rendreScene(etat, contexteRendu());
     tiroir.synchroniser(contexteChange);
     magasin.notifier();
-    if (!deplacement) dureeDernierRendu = performance.now() - debut;
+    const duree = performance.now() - debut;
+    // Un rendu d'autre chose (la fin d'un apercu, une ecriture) remet le deplacement a l'essai : il se rejauge au geste suivant.
+    if (deplacement) dureeDernierDeplacement = duree; else { dureeDernierRendu = duree; dureeDernierDeplacement = 0; }
   }
-  // Le zoom s'adapte au plan (render/apercuVue.ts) : un rendu complet tant qu'il est rapide (un petit plan), un apercu par
-  // transformation pendant le geste quand il ne l'est plus. Le deplacement de la vue ne change que le decalage du repere
-  // (render/repere.ts) : ni objet ni calque pose sur le plan ne se redessine, il suit donc toujours par un rendu. Sa duree ne dit
-  // rien de celle d'un zoom : elle ne compte pas pour le frein.
+  // Le zoom et le deplacement s'adaptent au plan (render/apercuVue.ts) : un rendu complet tant qu'il est rapide (un petit plan), un
+  // apercu par transformation pendant le geste quand il ne l'est plus. Le deplacement de la vue ne change que le decalage du repere
+  // (render/repere.ts) : ni objet ni calque pose sur le plan ne se redessine, son rendu est court et passe sous le frein. Chacun
+  // est jauge sur sa propre duree : un deplacement rapide ne dit rien d'un zoom, qui redessine tout ce qui depend de l'echelle.
   const apercu = creerApercuVue({ element: surface.svg, rendre: () => render() });
-  let dureeDernierRendu = 0;
+  let dureeDernierRendu = 0, dureeDernierDeplacement = 0;
   let deplacement = false;
   const vueChangee = (avant: typeof etat.scene) => {
     const s = etat.scene;
-    if (!apercu.enCours() && s.scale === avant.scale && s.W === avant.W && s.H === avant.H) {
+    const pur = !apercu.enCours() && s.scale === avant.scale && s.W === avant.W && s.H === avant.H;
+    if (pur && dureeDernierDeplacement < RENDU_LENT_MS) {
       deplacement = true;
       try { render(); } finally { deplacement = false; }
-    } else if (dureeDernierRendu < RENDU_LENT_MS) render();
+    } else if (!pur && dureeDernierRendu < RENDU_LENT_MS) render();
     else apercu.changer(avant, s);
   };
   /** Ces objets seulement, sans le reste du plan ni les zones : la lecture des toits en tache de fond. */

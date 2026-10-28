@@ -14,7 +14,7 @@
 import { positionnerObjet, positionnerEnVerifiant, horsDeLaVue, type ContextePositionnement, type ObjetRendu } from './objects.js';
 import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
-import { cleDesLus, versionObjet } from '../core/controleurObjets.js';
+import { cleDesLus, cleDesObjets, versionObjet } from '../core/controleurObjets.js';
 import { percentUneTerrasse } from '../core/lectures.js';
 import { vue } from './vues.js';
 import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND } from './theme.js';
@@ -67,6 +67,15 @@ const dessins = new WeakMap<Element, { cle: string; poignee: Element | null }>()
  * chemin d'ecriture qui n'aurait pas touche son objet (core/controleurObjets.ts) se voit dans la console, et la fumee echoue.
  * Le banc du rendu l'eteint (`__sansVerifierCles`), pour mesurer ce que les gens auront.
  */
+// Les elements d'un objet recrees (creerDomObjet, reconstruirePoignees) sont a placer, sans que l'objet ait change : le compte de
+// ces recreations entre dans la cle d'ensemble du plan.
+let elementsRecrees = 0;
+/** Des elements d'un objet viennent d'etre recrees (app/assemblage/dessin.ts) : le prochain rendu repasse sur les objets. */
+export function elementsRecreesDuPlan(): void { elementsRecrees++; }
+// La cle du dernier rendu de tous les objets : la meme, et aucun objet n'a rien a refaire (un rendu sans changement, un deplacement
+// de la vue qui ne fait entrer ni sortir personne ne parcourt plus 600 objets).
+let dernierRendu = '';
+
 const verifierCles = (): boolean => import.meta.env.DEV && !(globalThis as { __sansVerifierCles?: boolean }).__sansVerifierCles;
 
 /**
@@ -86,6 +95,11 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
   const ensemble = [s.scale, s.origine.x, s.origine.y, s.W, s.H, ortho.actif, ortho.parcelleOpacite, pointageSommets, pointageCotes,
     SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND].join('|');
   const verifier = verifierCles();
+  const tous = objets === etat.objects;
+  const v0 = etat.scene;
+  const global = () => [ensemble, cleDesObjets(etat.objects), v0.scale, v0.origine.x, v0.origine.y, v0.W, v0.H, activeSel, etat.isolement,
+    etat.voisinageVisible, elementsRecrees].join('|');
+  if(tous && !verifier && global() === dernierRendu) return;
   objets.forEach(obj=>{
     const selectionnee = obj.key === activeSel;
     const masque = ctx.objetMasque(obj);
@@ -124,6 +138,7 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
     // Apres le dessin : des poignees reconstruites pendant le positionnement sont celles qu'on garde.
     if(v.el) dessins.set(v.el, { cle: cleDe(), poignee: v.pointEls[0] ?? v.radiusHandle });
   });
+  dernierRendu = tous ? global() : '';
 }
 
 export function rendreScene(etat: EtatApp, ctx: ContexteRendu): void {

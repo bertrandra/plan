@@ -22,6 +22,7 @@ import { toucher } from '../../core/controleurObjets.js';
 import { litLesAbris, litLesParasols, litLesPiscines, litUneTerrasse, rien } from '../../core/lectures.js';
 import { estTerrain } from '../../model/fonctions.js';
 import { creerRepere } from '../../render/repere.js';
+import { elementsRecreesDuPlan } from '../../render/pipeline.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { aDessiner } from './formes.js';
@@ -82,8 +83,9 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       s.poserDecalage(r.dx, r.dy);
       return r.scene;
     },
-    createObjectDOM: (obj) => creerDomObjet(s.svg, aDessiner(obj), etat.scene),
+    createObjectDOM: (obj) => { creerDomObjet(s.svg, aDessiner(obj), etat.scene); elementsRecreesDuPlan(); },
     rebuildHandles(obj) {
+      elementsRecreesDuPlan();
       reconstruirePoignees(aDessiner(obj), {
         racine: s.svg,
         surDoubleClicCote(o, index, ev) {
