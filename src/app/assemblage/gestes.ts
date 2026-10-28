@@ -21,6 +21,7 @@ import { detruireVue } from '../../render/vues.js';
 import { serializeObjects } from '../../io/serialisation.js';
 import { showConfirm, showToast } from '../../shell/dialogs.js';
 import { avecAccordDeRetouche } from '../../interaction/retoucheTerrain.js';
+import { apresDeformation } from '../../core/deformation.js';
 import { aPoints, normaliserEnObjetsDuPlan } from './formes.js';
 import type { Mesures } from './mesures.js';
 import type { EtatApp } from '../../core/state.js';
@@ -51,9 +52,17 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
     // Le cote sur rue devine (point d'adresse, voisines) : un carport neuf s'en approche.
     coteRue: () => { const p = etat.objects.find(o => o.key === 'parcelle'); return p ? coteRueDevine(p, etat.objects) : null; }
   });
+  /** Apres une deformation du contour : rangs recomptes, toit a relire (core/deformation.ts) ; un toit protege qui reste se dit. */
+  const deforme = <R>(obj: ObjetPlan, geste: () => R): R => {
+    const avant = enPoints(obj).pts.map((p) => ({ ...p }));
+    const r = geste();
+    const dire = apresDeformation(etat, obj, avant);
+    if (dire) showToast(dire);
+    return r;
+  };
   return {
-    applyAngleEdit: (obj: ObjetPlan, i: number, angle: number) => editerAngle(aPoints(obj), i, angle, contour(obj)),
-    applyLengthEdit: (obj: ObjetPlan, i: number, longueur: number) => editerLongueur(aPoints(obj), i, longueur, contour(obj)),
+    applyAngleEdit: (obj: ObjetPlan, i: number, angle: number) => deforme(obj, () => editerAngle(aPoints(obj), i, angle, contour(obj))),
+    applyLengthEdit: (obj: ObjetPlan, i: number, longueur: number) => deforme(obj, () => editerLongueur(aPoints(obj), i, longueur, contour(obj))),
     insertPointOnSegment(obj: ObjetPlan, segIndex: number, clic: PtBrut) {
       // Un point de vue a exactement 2 points (position, direction) : un 3e casserait sa lecture.
       if (obj.locked || obj.fonction === 'camera') return;
@@ -64,7 +73,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       // Venu du cadastre ou de l'IGN : la retouche demande d'abord l'accord (interaction/retoucheTerrain.ts).
       avecAccordDeRetouche(obj, accord, () => {
         d.pushHistory();
-        insererSommet(aPoints(obj), segIndex, clic);
+        deforme(obj, () => insererSommet(aPoints(obj), segIndex, clic));
         d.rebuildHandles(obj);
         d.render();
       });
@@ -74,7 +83,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       if (obj.locked || enPoints(obj).pts.length <= minimumSommets(obj.type)) return;
       avecAccordDeRetouche(obj, accord, () => {
         d.pushHistory();
-        supprimerSommet(aPoints(obj), idx);
+        deforme(obj, () => supprimerSommet(aPoints(obj), idx));
         d.rebuildHandles(obj);
         d.render();
       });

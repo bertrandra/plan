@@ -163,3 +163,94 @@ describe('Actualiser le projet et un objet retouche a la main', () => {
     dialogues.fermer();
   });
 });
+
+describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-ouvrages.md, flux du batiment, point 4)', () => {
+  const avecHauteur = (marque: 'saisie' | 'audit' | null) => {
+    const objets = plan();
+    const maison = objets.find(o => o.key === 'maison')!;
+    maison.elevation = 5.4;
+    if (marque) maison.batiment = { ...maison.batiment, egoutChoisi: marque };
+    return objets;
+  };
+
+  it('la BD TOPO du jour remplace une hauteur lue, pas une hauteur saisie ou validee', async () => {
+    for (const [marque, attendue] of [[null, 7], ['saisie', 5.4], ['audit', 5.4]] as const) {
+      service();
+      const ctx = contexte(avecHauteur(marque));
+      await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+      const maison = ctx.etat.objects.find(o => o.key === 'maison');
+      expect(maison?.elevation, String(marque)).toBe(attendue);
+      expect(maison?.batiment?.egoutChoisi ?? null).toBe(marque);
+    }
+  });
+
+  it('« Actualiser le projet » recree le batiment avec la hauteur choisie', async () => {
+    service();
+    const ctx = contexte(avecHauteur('saisie'));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, recreerBatiments: true, parDefaut: true }, ctx);
+    const [maison] = batiments(ctx);
+    expect(maison?.key).toBe('maison');
+    expect(maison?.elevation).toBe(5.4);
+    expect(maison?.batiment?.egoutChoisi).toBe('saisie');
+  });
+});
+
+describe('l actualisation IGN et les releves rangés par mur (MD/spec-ouvrages.md, flux du batiment, point 8)', () => {
+  it('un contour du jour qui commence a un autre sommet : le releve et les cotes restent sur leur mur', async () => {
+    service();
+    const objets = plan();
+    const maison = objets.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    // Le releve sur le mur sud (y = 5), quel que soit son rang dans le contour du jour.
+    const sud = (pts: PtBrut[]) => pts.findIndex((p, i) => { const q = pts[(i + 1) % pts.length]!; return Math.abs(p.y - 5) < 0.05 && Math.abs(q.y - 5) < 0.05; });
+    maison.pts = [maison.pts[1]!, maison.pts[2]!, maison.pts[3]!, maison.pts[0]!];
+    const rang = sud(maison.pts);
+    maison.batiment = { ...maison.batiment, facades: [{ cote: rang, ouvertures: [] } as never] };
+    const ctx = contexte(objets);
+    let cotes: unknown[] = [];
+    ctx.serializeMeasures = () => [{ id: 'c1', refObjKey: 'maison', refSegIndex: rang, startEnd: 'B', targetObjKey: 'terrasse', targetPtIndex: 0, show: true, displayMode: 'along' }];
+    const restaurer = ctx.restoreState;
+    ctx.restoreState = (i) => { cotes = i.measures; restaurer(i); };
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const relue = ctx.etat.objects.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    const rangDuJour = sud(relue.pts);
+    expect(rangDuJour).not.toBe(rang);
+    expect(relue.batiment?.facades?.map(f => f.cote)).toEqual([rangDuJour]);
+    expect((cotes[0] as { refSegIndex: number }).refSegIndex).toBe(rangDuJour);
+  });
+});
+
+describe('le LiDAR bat l IGN (decision du 28 octobre 2026)', () => {
+  const lue = (pts: PtBrut[]) => {
+    const objets = plan();
+    const m = objets.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    m.pts = pts;
+    m.elevation = 6.3;
+    m.batiment = { ...m.batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar', couverture: 'ardoise' }, toitLidarLu: 7 };
+    return objets;
+  };
+
+  it('un contour recale au LiDAR, de meme forme a la BD TOPO : contour, hauteur et toit lus restent ; les attributs sont relus', async () => {
+    service();
+    const recale = carre(5, 5, 10).map(p => ({ x: p.x + 1, y: p.y - 0.75 }));
+    const ctx = contexte(lue(recale));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const m = ctx.etat.objects.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    expect(m.pts).toEqual(recale);
+    expect(m.elevation).toBe(6.3);
+    expect(m.batiment?.toit?.source).toBe('lidar');
+    expect(m.batiment?.toitLidarLu).toBe(7);
+    expect((m.bdtopo as { nombreEtages?: number }).nombreEtages).toBe(2);
+  });
+
+  it('un contour change a l IGN meme : le contour du jour est pris et se relira, la hauteur mesuree et la couverture restent', async () => {
+    service();
+    const ctx = contexte(lue([{ x: 5, y: 5 }, { x: 15, y: 5 }, { x: 15, y: 12 }, { x: 5, y: 12 }]));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const m = ctx.etat.objects.find(o => o.key === 'maison');
+    expect(sommets(m)).toEqual(sommets({ type: 'polygon', pts: carre(5, 5, 10) } as unknown as ObjetPlan));
+    expect(m?.elevation).toBe(6.3);
+    expect(m?.batiment?.toitLidarLu ?? null).toBeNull();
+    expect(m?.batiment?.toit?.source).toBe('bdtopo');
+    expect(m?.batiment?.toit?.couverture).toBe('ardoise');
+  });
+});

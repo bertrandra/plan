@@ -75,7 +75,11 @@ describe('les constats de l’IGN, du LiDAR et du projet', () => {
     expect(p.projet('batiment:maison', 'hauteurEgout')).toEqual({ valeur: 6, choisi: false });
     expect(p.projet('batiment:maison', 'formeToit')).toEqual({ valeur: 'deux-pans', choisi: false });
     expect(p.projet('batiment:maison', 'boutsToit').valeur).toEqual(['pignon', 'pignon']);
-    expect(p.projet('batiment:maison', 'materiauMurs')).toEqual({ valeur: 'pierre', choisi: true });
+    // Un materiau des murs deja valide par un audit est vu sur place (niveau 2, model/protections.ts) : une nouvelle proposition, du
+    // meme niveau, le remplace cochee ; une source des murs choisie dans Apparence est un geste de la personne (niveau 1), un veto.
+    expect(p.projet('batiment:maison', 'materiauMurs')).toEqual({ valeur: 'pierre', choisi: false });
+    const choisie = constatsDuBatiment(entrees(maison({ bdtopo: { hauteurM: 5 }, batiment: { couleurMurs: { materiau: 'pierre', source: 'materiau' } } })));
+    expect(choisie.projet('batiment:maison', 'materiauMurs').choisi).toBe(true);
     expect(p.projet('batiment:maison', 'couverture')).toEqual({ valeur: null, choisi: false });
     // Sans attributs IGN, la hauteur a ete saisie.
     expect(constatsDuBatiment(entrees(maison())).projet('batiment:maison', 'hauteurEgout').choisi).toBe(true);

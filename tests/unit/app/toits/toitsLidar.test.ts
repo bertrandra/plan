@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { toitsDepuisLidar, toitAAjuster, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
+import { toitsDepuisLidar, toitAAjuster, toitLu, texteBilanToitsLidar, batimentsMitoyens, corpsVraisemblables, mesureVraisemblable, MAX_BATIMENTS_LIDAR, type ObjetAToit } from '../../../../src/app/toits/toitsLidar.js';
+import { corpsAvecCeQuIlsPortaient } from '../../../../src/facade/regles/toits/elementsVus.js';
+import { corpsDeSaillie } from '../../../../src/facade/modeToit/saillies.js';
 import { hauteurToitEn, plansDuToit } from '../../../../src/facade/toits/toit.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { GrilleRelief } from '../../../../src/model/relief.js';
-import type { PtBrut, Toit } from '../../../../src/model/types.js';
+import type { CorpsToit, PtBrut, Toit } from '../../../../src/model/types.js';
 import { lireProfilsToits } from '../../../../src/regles/toits/profils.js';
 import { REGLAGES_TOITS, SEUILS_TOITS } from '../../../../src/regles/toits/reglages.js';
 
@@ -58,6 +60,18 @@ describe('toitsDepuisLidar', () => {
     expect(c.elevation).toBe(5.8);
     expect(b.batiment!.toit!.source).toBe('saisie');
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD');
+  });
+
+  it('garde une hauteur a l egout saisie ou validee : le toit se lit, l egout reste', async () => {
+    const objets: ObjetAToit[] = [
+      { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
+      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo }, egoutChoisi: 'saisie' }, elevation: 5 },
+      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo }, egoutChoisi: 'audit' }, elevation: 5 },
+    ];
+    await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
+    expect(objets[1]!.batiment?.toit?.source).toBe('lidar');
+    expect(objets[1]!.elevation).toBe(5);
+    expect(objets[2]!.elevation).toBe(5);
   });
 
   it('ne lit rien sans dalle LiDAR, et le dit', async () => {
@@ -336,5 +350,65 @@ describe('toitsDepuisLidar et les profils de toits (MD/spec-regles-toits.md §6)
   it('sans profil (le fichier livre), ou hors du departement du profil, les deux sont lus', async () => {
     expect(await toitsDepuisLidar(objets(), proj, { lire: lecteurDeuxPans(), dalles: async () => true })).toMatchObject({ ajustes: 2, gardes: 0 });
     expect(await toitsDepuisLidar(objets('13004'), proj, { lire: lecteurDeuxPans(), dalles: async () => true, profils })).toMatchObject({ ajustes: 2, gardes: 0 });
+  });
+});
+
+describe('la relecture garde ce qui est pose sur le toit (MD/spec-ouvrages.md, flux du batiment, point 16)', () => {
+  // Une maison de 12 x 8 a deux pans (faitage le long de x), 6 m d'egout et 3 m de montee, sous la grille du service.
+  const maison = rect(0, 0, 12, 8);
+  const plans = plansDuToit(maison, { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 });
+  const lireGrille = vi.fn(async (pts: readonly PtBrut[]): Promise<GrilleRelief> => {
+    const xs = pts.map((q) => q.x), ys = pts.map((q) => q.y);
+    const pas = 0.5, x0 = Math.min(...xs) - 1, y0 = Math.max(...ys) + 1;
+    const nx = Math.round((Math.max(...xs) + 1 - x0) / pas) + 1, ny = Math.round((y0 - Math.min(...ys) + 1) / pas) + 1;
+    const zs: number[] = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = x0 + i * pas, y = y0 - j * pas;
+      zs.push(x > 0 && x < 12 && y > 0 && y < 8 ? 6 + hauteurToitEn(plans, { x, y }) : 0);
+    }
+    return { pas, x0, y0, nx, ny, z: zs };
+  });
+  const lire = (objets: ObjetAToit[]) => toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), lireGrille, dalles: async () => true });
+
+  it('une cheminee, une lucarne, une fenetre de toit et un bow-window restent sur les corps relus', async () => {
+    const m: ObjetAToit = { key: 'm', fonction: 'batiment', pts: maison.map((q) => ({ ...q })), batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: { surParcellePrincipale: true } };
+    const objets = [{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) }, m];
+    await lire(objets);
+    const corps = m.batiment!.corpsToit!;
+    expect(corps).toHaveLength(1);
+    const c = corps[0]!;
+    // La personne (ou l'audit) pose une souche au faitage, une lucarne et un velux sur le pan 0, un bow-window sur le premier mur.
+    const L = Math.hypot(c.pts[1]!.x - c.pts[0]!.x, c.pts[1]!.y - c.pts[0]!.y);
+    const milieu = { x: (c.pts[0]!.x + c.pts[1]!.x + c.pts[2]!.x + c.pts[3]!.x) / 4, y: (c.pts[0]!.y + c.pts[1]!.y + c.pts[2]!.y + c.pts[3]!.y) / 4 };
+    const pose = { ...c,
+      cheminees: [{ x: milieu.x + 2, y: milieu.y, largeurM: 0.6, profondeurM: 0.5, sommetM: Math.round((c.faitage + 0.4) * 100) / 100, position: 'faitage' as const, source: 'observation' as const }],
+      lucarnes: [{ type: 'jacobine' as const, pan: 0 as const, debutM: L / 2 - 0.6, finM: L / 2 + 0.6, faitageM: c.egouts[0] + 1.5, profondeurM: 1.2, source: 'observation' as const }],
+      elementsToit: [{ type: 'fenetre-toit' as const, pan: 0 as const, sM: L / 4, dM: 1.5 }],
+    };
+    const bow = corpsDeSaillie(pose, { genre: 'bow-window', hote: 0, mur: 0, centreM: L / 2, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan' });
+    m.batiment!.corpsToit = [pose, bow];
+    // Un reglage de la lecture change : la version monte, le batiment se relit.
+    m.batiment!.toitLidarLu = 1;
+    expect(toitLu(m.batiment)).toBe(false);
+    await lire(objets);
+    const relus = m.batiment!.corpsToit!;
+    expect(relus).toHaveLength(2);
+    const [k, b] = relus as [CorpsToit, CorpsToit];
+    expect(k.cheminees).toEqual(pose.cheminees);
+    expect(k.lucarnes).toHaveLength(1);
+    expect(k.lucarnes![0]).toMatchObject({ type: 'jacobine', pan: 0 });
+    expect(k.lucarnes![0]!.debutM).toBeCloseTo(L / 2 - 0.6, 1);
+    expect(k.elementsToit).toEqual([{ type: 'fenetre-toit', pan: 0, sM: L / 4, dM: 1.5 }]);
+    expect(b.saillie).toMatchObject({ genre: 'bow-window', hote: 0, mur: 0 });
+    expect(b.saillie!.centreM).toBeCloseTo(L / 2, 1);
+  });
+
+  it('un fait en remplacement les garde aussi, et une lecture sans corps neufs les laisse partir avec les corps', async () => {
+    const c = { pts: rect(0, 0, 12, 8), posFaitage: 4, faitage: 9, egouts: [6, 6] as [number, number], pignons: [], ecart: 0.1 };
+    const avant = [{ ...c, cheminees: [{ x: 3, y: 4, largeurM: 0.6, profondeurM: 0.5, sommetM: 9.4, position: 'faitage' as const, source: 'observation' as const }] }];
+    const neufs = [{ ...c, faitage: 9.5 }];
+    expect(corpsAvecCeQuIlsPortaient(avant, neufs)![0]!.cheminees).toEqual([{ ...avant[0]!.cheminees[0]!, sommetM: 9.9 }]);
+    expect(corpsAvecCeQuIlsPortaient(avant, null)).toBeNull();
+    expect(corpsAvecCeQuIlsPortaient(avant, avant)).toBe(avant);
   });
 });

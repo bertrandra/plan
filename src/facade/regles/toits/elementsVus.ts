@@ -4,7 +4,8 @@
 // exacte ni leur section : ce sont des valeurs par type, nommees ici. Pur.
 
 import type { CeQueJeVois, SoucheVue } from '../../../model/ceQueJeVois.js';
-import type { Cheminee, CorpsToit, EdiculeTerrasse, Lucarne, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
+import type { Cheminee, CorpsToit, EdiculeTerrasse, ElementDeToit, Lucarne, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
+import { corpsDeSaillie, murDuCorps } from '../../modeToit/saillies.js';
 import { formeDuCorps } from './faits.js';
 
 /** Un corps plat : moins de cela entre le faitage et l'egout le plus haut (spec-regles-toits §2.7). */
@@ -170,8 +171,7 @@ function chemineesReportees(a: CorpsToit, n: CorpsToit, rn: Cadre): Cheminee[] {
  * assez large, et toute leur largeur entre les bouts. Leur faitage garde sa place entre l'egout et le faitage du pan.
  */
 function lucarnesReportees(a: CorpsToit, ra: Cadre, n: CorpsToit, rn: Cadre): Lucarne[] {
-  const angle = (Math.abs(Math.atan2(ra.u.x * rn.u.y - ra.u.y * rn.u.x, ra.u.x * rn.u.x + ra.u.y * rn.u.y)) * 180) / Math.PI;
-  if (estPlat(n) || Math.min(angle, 180 - angle) > PARALLELE_DEG) return [];
+  if (estPlat(n) || angleFaitages(ra, rn) > PARALLELE_DEG) return [];
   const out: Lucarne[] = [];
   for (const l of a.lucarnes ?? []) {
     const t = l.pan === 0 ? a.posFaitage / 2 : (a.posFaitage + ra.W) / 2;
@@ -182,6 +182,29 @@ function lucarnesReportees(a: CorpsToit, ra: Cadre, n: CorpsToit, rn: Cadre): Lu
     if (largeurPan < 0.5 || n.faitage - e < MONTEE_PLATE_M || q.s - w / 2 < 0 || q.s + w / 2 > rn.L) continue;
     const part = a.faitage - ea > 0 ? Math.min(1, Math.max(0, (l.faitageM - ea) / (a.faitage - ea))) : MONTEE_LUCARNE;
     out.push({ ...l, pan, debutM: cm(q.s - w / 2), finM: cm(q.s + w / 2), faitageM: cm(e + part * (n.faitage - e)) });
+  }
+  return out;
+}
+
+/** L'angle entre les faitages de deux corps, en degres, de 0 a 90. */
+function angleFaitages(ra: Cadre, rn: Cadre): number {
+  const a = (Math.abs(Math.atan2(ra.u.x * rn.u.y - ra.u.y * rn.u.x, ra.u.x * rn.u.x + ra.u.y * rn.u.y)) * 180) / Math.PI;
+  return Math.min(a, 180 - a);
+}
+
+/**
+ * Les fenetres de toit et les panneaux d'un corps qui tiennent sur le corps neuf : un faitage dans le meme sens (ils suivent leur
+ * pan), un pan en pente, et leur milieu sur le rectangle. Leur place au sol ne bouge pas ; le pan et la distance a l'egout se relisent.
+ */
+function elementsToitReportes(a: CorpsToit, ra: Cadre, n: CorpsToit, rn: Cadre): ElementDeToit[] {
+  if (estPlat(n) || angleFaitages(ra, rn) > PARALLELE_DEG) return [];
+  const out: ElementDeToit[] = [];
+  for (const e of a.elementsToit ?? []) {
+    const q = versCadre(rn, depuisCadre(ra, e.sM, e.pan === 0 ? e.dM : ra.W - e.dM));
+    if (q.s < 0 || q.s > rn.L || q.t < 0 || q.t > rn.W) continue;
+    const pan: 0 | 1 = q.t < n.posFaitage ? 0 : 1;
+    if (n.faitage - n.egouts[pan] < MONTEE_PLATE_M) continue;
+    out.push({ ...e, pan, sM: cm(q.s), dM: cm(pan === 0 ? q.t : rn.W - q.t) });
   }
   return out;
 }
@@ -197,21 +220,22 @@ function terrasseReportee(a: CorpsToit, n: CorpsToit, rn: Cadre): TerrasseToit |
 }
 
 /**
- * Ce que portaient les corps d'un toit (cheminees, lucarnes, toiture-terrasse, appentis ouvert ou ferme), reporte sur les corps
+ * Ce que portaient les corps d'un toit (cheminees, lucarnes, fenetres de toit et panneaux, toiture-terrasse, appentis ouvert ou
+ * ferme), reporte sur les corps
  * d'une forme relue sur la mesure : le moteur (corpsSousContrainte, lireForme) rend un corps neuf, sans rien dessus, et valider la
  * forme effacait ce que la personne avait pose ou vu. Chaque ancien corps donne ce qu'il porte au corps neuf qui contient son
- * centre (un corps neuf d'abord, le plus grand a egalite), la ou cela tient encore (cheminees dans son emprise, lucarnes sur un pan
- * dans le meme sens, terrasse sur un toit plat, ouvert sur un appentis) ; ce qui ne tient pas est laisse. Un corps neuf qui porte
+ * centre (un corps neuf d'abord, le plus grand a egalite), la ou cela tient encore (cheminees dans son emprise, lucarnes, fenetres
+ * de toit et panneaux sur un pan dans le meme sens, terrasse sur un toit plat, ouvert sur un appentis) ; ce qui ne tient pas est laisse. Un corps neuf qui porte
  * deja un element (une copie de l'ancien) le garde tel quel. Ni la forme ni les hauteurs du corps ne changent : c'est celles du
  * moteur.
  */
 export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readonly CorpsToit[]): CorpsToit[] {
   const anciensSet = new Set(anciens);
   const cadres = nouveaux.map(cadreCorps);
-  const ajouts = nouveaux.map(() => ({ cheminees: [] as Cheminee[], lucarnes: [] as Lucarne[], terrasse: null as TerrasseToit | null, ouvert: undefined as boolean | undefined, retraitM: undefined as number | undefined }));
+  const ajouts = nouveaux.map(() => ({ cheminees: [] as Cheminee[], lucarnes: [] as Lucarne[], elementsToit: [] as ElementDeToit[], terrasse: null as TerrasseToit | null, ouvert: undefined as boolean | undefined, retraitM: undefined as number | undefined }));
   for (const a of anciens) {
     if (nouveaux.includes(a)) continue;
-    if (!a.cheminees?.length && !a.lucarnes?.length && !a.terrasse && a.ouvert === undefined) continue;
+    if (!a.cheminees?.length && !a.lucarnes?.length && !a.elementsToit?.length && !a.terrasse && a.ouvert === undefined) continue;
     const ra = cadreCorps(a);
     if (!ra) continue;
     const centre = depuisCadre(ra, ra.L / 2, ra.W / 2);
@@ -227,6 +251,7 @@ export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readon
     if (!n || !rn || !ajout) continue;
     ajout.cheminees.push(...chemineesReportees(a, n, rn));
     ajout.lucarnes.push(...lucarnesReportees(a, ra, n, rn));
+    ajout.elementsToit.push(...elementsToitReportes(a, ra, n, rn));
     ajout.terrasse ??= terrasseReportee(a, n, rn);
     if (a.ouvert !== undefined && formeDuCorps(n) === 'appentis' && ajout.ouvert === undefined) { ajout.ouvert = a.ouvert; ajout.retraitM = a.retraitM; }
   }
@@ -237,10 +262,65 @@ export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readon
     let change = false;
     if (n.cheminees === undefined && ajout.cheminees.length) { suite.cheminees = ajout.cheminees; change = true; }
     if (n.lucarnes === undefined && ajout.lucarnes.length) { suite.lucarnes = ajout.lucarnes; change = true; }
+    if (n.elementsToit === undefined && ajout.elementsToit.length) { suite.elementsToit = ajout.elementsToit; change = true; }
     if (n.terrasse === undefined && ajout.terrasse) { suite.terrasse = ajout.terrasse; change = true; }
     if (n.ouvert === undefined && ajout.ouvert !== undefined) { suite.ouvert = ajout.ouvert; if (ajout.retraitM !== undefined) suite.retraitM = ajout.retraitM; change = true; }
     return change ? suite : n;
   });
+}
+
+/** Une saillie reste sur un mur du corps neuf dont le sien est a moins de cela : au-dela, son mur n'est plus la. */
+const ECART_MUR_SAILLIE_M = 0.8;
+
+/**
+ * Les saillies (bow-window, galerie, appentis poses sur un mur, facade/modeToit/saillies.ts) des anciens corps, reposees sur les
+ * corps neufs : chacune va au mur d'un corps neuf (pas une saillie) qui passe a moins de ECART_MUR_SAILLIE_M de son point d'attache,
+ * dans le meme sens que son ancien mur, et s'y refait (rectangle, hauteurs) en gardant ses reglages et ce qu'elle porte. Celle dont
+ * le mur n'est plus la est laissee. Rend les saillies reposees, rangees apres les corps neufs (leur `hote` est un rang de `nouveaux`).
+ */
+export function reporterSaillies(anciens: readonly CorpsToit[], nouveaux: readonly CorpsToit[]): CorpsToit[] {
+  const out: CorpsToit[] = [];
+  for (const a of anciens) {
+    const s = a.saillie, hote = s ? anciens[s.hote] : undefined;
+    if (!s || !hote || nouveaux.includes(a)) continue;
+    const m = murDuCorps(hote, s.mur);
+    const attache = { x: m.a.x + m.u.x * s.centreM, y: m.a.y + m.u.y * s.centreM };
+    let meilleur: { k: number; mur: number; centreM: number; d: number } | null = null;
+    nouveaux.forEach((n, k) => {
+      if (n.saillie) return;
+      n.pts.forEach((_, i) => {
+        const w = murDuCorps(n, i);
+        if (Math.abs(w.u.x * m.u.y - w.u.y * m.u.x) > Math.sin((PARALLELE_DEG * Math.PI) / 180)) return;
+        const t = Math.min(Math.max((attache.x - w.a.x) * w.u.x + (attache.y - w.a.y) * w.u.y, 0), w.L);
+        const d = Math.hypot(w.a.x + w.u.x * t - attache.x, w.a.y + w.u.y * t - attache.y);
+        if (d <= ECART_MUR_SAILLIE_M && (!meilleur || d < meilleur.d)) meilleur = { k, mur: i, centreM: t, d };
+      });
+    });
+    const choix = meilleur as { k: number; mur: number; centreM: number } | null;
+    const n = choix ? nouveaux[choix.k] : undefined;
+    if (!choix || !n) continue;
+    const neuf = corpsDeSaillie(n, { ...s, hote: choix.k, mur: choix.mur, centreM: cm(choix.centreM) });
+    // Ce que la personne a regle sur la saillie et que le placement ne dit pas reste (facade/modeToit/saillies.ts::replacerSaillie).
+    if (a.lucarnes) neuf.lucarnes = a.lucarnes;
+    if (a.cheminees) neuf.cheminees = a.cheminees;
+    if (a.elementsToit) neuf.elementsToit = a.elementsToit;
+    if (a.retraitM !== undefined) neuf.retraitM = a.retraitM;
+    if (a.ouvert !== undefined) neuf.ouvert = a.ouvert;
+    out.push(neuf);
+  }
+  return out;
+}
+
+/**
+ * Les corps neufs d'une relecture du toit (LiDAR, fait du moteur), avec ce que portaient les anciens : leurs elements reportes la
+ * ou ils tiennent (reporterElements), puis leurs saillies reposees sur les murs qui restent (reporterSaillies). Une relecture rend
+ * des corps nus ; sans cela, les cheminees, lucarnes, fenetres de toit, terrasse, appentis ouvert et saillies d'un batiment que
+ * personne n'avait fige disparaissaient au premier changement de reglage.
+ */
+export function corpsAvecCeQuIlsPortaient(anciens: readonly CorpsToit[] | null | undefined, nouveaux: CorpsToit[] | null): CorpsToit[] | null {
+  if (!nouveaux || !anciens?.length || nouveaux === anciens) return nouveaux;
+  const portes = reporterElements(anciens.filter((c) => !c.saillie), nouveaux);
+  return [...portes, ...reporterSaillies(anciens, portes)];
 }
 
 /* ------------------------------------------------------------------------------------------------

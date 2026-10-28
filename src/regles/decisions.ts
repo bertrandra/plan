@@ -274,7 +274,8 @@ function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
       batimentACopier(o).facades = facades.map((r) => (r.cote !== e.cote ? r : { ...r, ouvertures: r.ouvertures.map((x) => { const d = completerDetails(x.type, x.details, e.details); return d ? { ...x, details: d } : x; }) }));
       return;
     }
-    case 'hauteur': o.elevation = cm(e.hauteurM); return;
+    // Validee, la hauteur a l'egout est choisie : ni le LiDAR ni l'actualisation ne la reecrivent (model/protections.ts).
+    case 'hauteur': o.elevation = cm(e.hauteurM); batimentACopier(o).egoutChoisi = 'audit'; return;
     case 'hauteurToit': if (o.batiment?.toit) batimentACopier(o).toit = { ...o.batiment?.toit, hauteur: Math.max(0.1, cm(e.faitageM - hauteurDe(o))) }; return;
     case 'couleurMurs': {
       // Valider la couleur vue sur place, c'est la choisir : un choix de source anterieur tombe.
