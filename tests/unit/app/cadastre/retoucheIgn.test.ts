@@ -164,7 +164,7 @@ describe('Actualiser le projet et un objet retouche a la main', () => {
   });
 });
 
-describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-ouvrages.md, flux du batiment, point 4)', () => {
+describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-flux-batiment.md, flux du batiment, point 4)', () => {
   const avecHauteur = (marque: 'saisie' | 'audit' | null) => {
     const objets = plan();
     const maison = objets.find(o => o.key === 'maison')!;
@@ -195,7 +195,7 @@ describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-ouvrages
   });
 });
 
-describe('l actualisation IGN et les releves rangés par mur (MD/spec-ouvrages.md, flux du batiment, point 8)', () => {
+describe('l actualisation IGN et les releves rangés par mur (MD/spec-flux-batiment.md, flux du batiment, point 8)', () => {
   it('un contour du jour qui commence a un autre sommet : le releve et les cotes restent sur leur mur', async () => {
     service();
     const objets = plan();

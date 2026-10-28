@@ -1,4 +1,4 @@
-// Qui l'emporte sur un champ d'un batiment (MD/spec-ouvrages.md, « Le flux de construction d'un batiment », « Qui l'emporte » ;
+// Qui l'emporte sur un champ d'un batiment (MD/spec-flux-batiment.md, « Le flux de construction d'un batiment », « Qui l'emporte » ;
 // decision du 28 octobre 2026).
 //
 // Un batiment n'a pas d'auteur unique : la personne, l'audit de la parcelle, le moteur de regles, la lecture LiDAR, l'actualisation

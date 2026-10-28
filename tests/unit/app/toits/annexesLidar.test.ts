@@ -9,7 +9,7 @@ import { hauteurAuPointLePlusHaut } from '../../../../src/model/volumesToit.js';
 import type { GrilleRelief } from '../../../../src/model/relief.js';
 import type { ObjetPlan, PtBrut, Toit } from '../../../../src/model/types.js';
 
-// Les annexes lues au LiDAR comme les batiments (decision du 28 octobre 2026, version 4.0.0 ; MD/spec-ouvrages.md, « Le flux de
+// Les annexes lues au LiDAR comme les batiments (decision du 28 octobre 2026, version 4.0.0 ; MD/spec-flux-batiment.md, « Le flux de
 // construction d'un batiment », point 9) : le toit, la hauteur a l'egout et le recalage du contour au niveau 4, sous les memes
 // marques (model/protections.ts).
 

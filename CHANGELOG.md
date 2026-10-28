@@ -5,6 +5,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Modifié
+
+- **Le flux de construction d'un bâtiment a son propre document** (`MD/spec-flux-batiment.md`), sorti de `MD/spec-ouvrages.md`
+  avec tout son texte et son historique, et un schéma du flux (naissance, lecture LiDAR, gestes de la personne, relevé, audit,
+  actualisation IGN, sorties, avec les questions posées à `model/protections.ts`). Les deux documents sont mis à jour à la 4.0.0 :
+  annexes lues au LiDAR, schéma 6, « Rendre au calcul », références qui suivent un contour déformé, couleur du toit sous le
+  module des protections, étapes 6.3, 6.4, 6.6 et 6.7. Documentation seulement : rien ne change à l'écran ni dans les fichiers.
+
 ## [4.0.0] — 2026-10-28
 
 Version **majeure** au sens de `MD/RELEASE.md` §2.1 : des nombres exportés changent pour certains projets déjà enregistrés.

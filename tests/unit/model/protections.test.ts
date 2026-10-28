@@ -4,7 +4,7 @@ import { normalizeObjects } from '../../../src/model/normalisation.js';
 import type { ObjetBrut, ObjetPlan } from '../../../src/model/types.js';
 import { NIVEAU_ECRIVAIN, NIVEAU_ORIGINE, ecrivainPeut, niveauActuel, origineActuelle, peutEcrire, type BatimentProtege, type ContexteEcriture, type Ecrivain, type Groupe, type Niveau, type Origine } from '../../../src/model/protections.js';
 
-// Qui l'emporte sur un champ d'un batiment (MD/spec-ouvrages.md, « Qui l'emporte », decision du 28 octobre 2026) : une seule
+// Qui l'emporte sur un champ d'un batiment (MD/spec-flux-batiment.md, « Qui l'emporte », decision du 28 octobre 2026) : une seule
 // hierarchie, la personne (1), ce qui a ete vu sur place (2), le fait (3), la mesure (4), la source officielle (5), le defaut (6).
 // Deux tables : d'ou vient la valeur de chaque groupe de champs selon les marques du batiment, et qui peut l'ecrire.
 

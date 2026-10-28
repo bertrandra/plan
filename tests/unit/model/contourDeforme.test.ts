@@ -5,7 +5,7 @@ import { lectureToits } from '../../../src/core/lectureToits.js';
 import { insererSommet, supprimerSommet } from '../../../src/model/sommets.js';
 import type { Mesure, ObjetPlan, PtBrut, ReleveFacade } from '../../../src/model/types.js';
 
-// Ce qui suit un contour deforme (MD/spec-ouvrages.md, flux du batiment, point 8) : les rangs des releves, des fenetres et des
+// Ce qui suit un contour deforme (MD/spec-flux-batiment.md, flux du batiment, point 8) : les rangs des releves, des fenetres et des
 // cotes, et le toit lu au LiDAR, relu sur le nouveau contour sauf s'il est protege.
 
 const rect = (): PtBrut[] => [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }];
