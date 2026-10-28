@@ -185,6 +185,25 @@ describe('ajouterDetailsBatiment', () => {
     expect(PORTE.h).toBe(2.1);
   });
 
+  it('en corps, un mur releve ne recoit pas non plus les fenetres automatiques', () => {
+    // Un L en deux corps : le releve se designe par le cote du contour, chaque corps ecarte les murs qui le doublent.
+    const pts = [p(0, 0), p(12, 0), p(12, 8), p(5, 8), p(5, 14), p(0, 14)];
+    const corps = [
+      { pts: [p(0, 0), p(12, 0), p(12, 8), p(0, 8)], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [] },
+      { pts: [p(0, 8), p(5, 8), p(5, 14), p(0, 14)], posFaitage: 2.5, faitage: 9, egouts: [6, 6], pignons: [] },
+    ] as unknown as CorpsToit[];
+    const ouvertures = (cotesReleves: number[]) => {
+      const { ajoutes, ctx } = scene();
+      ajouterDetailsBatiment(ctx, { ...maison(), pts, batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 6, { etages: 2, cotesReleves, corps, sansToit: true });
+      return ajoutes.find((m) => m.name === 'batiment-ouvertures')?.geometry.attributes.position?.array.length ?? 0;
+    };
+    const toutes = ouvertures([]);
+    expect(toutes).toBeGreaterThan(0);
+    // Le mur sud (cote 0) releve : moins d'ouvertures automatiques ; tous les murs releves : aucune.
+    expect(ouvertures([0])).toBeLessThan(toutes);
+    expect(ouvertures([0, 1, 2, 3, 4, 5])).toBe(0);
+  });
+
   it('profil de facades : le defaut dessine exactement ce que dessinaient les dimensions d avant (G12)', () => {
     // La maison voisine d'avant recevait ses dimensions de l'apparence du voisinage ; elle les recoit
     // maintenant de son profil. Avec le profil par defaut, les mailles sont identiques au bit pres.

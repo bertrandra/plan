@@ -378,6 +378,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **En corps et pignons, un mur relevé ne reçoit plus les fenêtres automatiques** (`three/detailsBatiment.ts`). Les ouvertures
+  d'un bâtiment en corps se posent corps par corps, et la liste des murs relevés (désignés par leur côté du contour) était
+  remplacée par celle des murs communs entre corps : sur la photo du mur et ses ouvertures se posait en plus la grille des
+  fenêtres automatiques, sur tout bâtiment lu au LiDAR. Chaque corps écarte maintenant ses murs qui doublent un côté relevé du
+  contour, à 60 cm et 10° près (`geometry/facadeExterieure.ts::cotesSurLesCotes`), fenêtres de pignon comprises.
+
 - **Un relevé de façade n'arrête plus en silence la lecture LiDAR de son bâtiment** (`zones/Releve.tsx`, `app/releve/releve.ts`).
   La case « Remplacer le toit du bâtiment par celui-ci » était cochée d'office : le toit lu sur la photo (`source: 'photo'`)
   remplaçait celui du bâtiment, et le LiDAR ne relisait plus jamais ce bâtiment, alors que la Vue 3D, qui montre les corps lus
