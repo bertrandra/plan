@@ -187,6 +187,16 @@ describe('les toits en tache de fond', () => {
     // b0 est deja lu, b1 a un toit saisi : restent b2 et b3, du plus proche au plus loin.
     expect(restants.map((o) => o.key)).toEqual(['b2', 'b3']);
   });
+
+  it('lit une fois l annexe d un projet enregistre avant la 4.0.0, puis plus (decision du 28 octobre 2026)', () => {
+    // Un projet d'avant : ses batiments lus a la version courante, une annexe jamais lue (elle n'etait pas eligible).
+    const objets = plan(2);
+    objets.forEach((o) => { if (o.batiment?.toit) { o.batiment.toit.couleur = '#884422'; o.batiment.toitLidarLu = VERSION_LECTURE_TOITS; } });
+    objets.push({ key: 'abri', fonction: 'annexe', type: 'polygon', pts: rect(5, 5, 3, 2), elevation: 2.2, batiment: { toit: { ...bdtopo, couleur: '#884422' } } } as unknown as ObjetPlan);
+    expect(batimentsALire(objets)).toEqual({ eligibles: 3, restants: [objets[3]] });
+    champsBatiment(objets[3]!).toitLidarLu = VERSION_LECTURE_TOITS;
+    expect(batimentsALire(objets).restants).toEqual([]);
+  });
 });
 
 describe('la fin de la lecture et l enregistrement', () => {

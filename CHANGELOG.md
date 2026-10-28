@@ -75,6 +75,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Les annexes sont lues au LiDAR, comme les bâtiments — changement de version majeure** (`MD/RELEASE.md` §2.1, décision du
+  28 octobre 2026). Le toit d'un abri de jardin est réel : la mesure bat le défaut et la BD TOPO. Une annexe reçoit désormais le
+  toit lu au LiDAR HD (forme, corps et pignons), sa hauteur à l'égout mesurée et, posée sur la parcelle du projet ou une
+  mitoyenne, le recalage de son contour, au niveau 4 de la hiérarchie (`model/protections.ts`) et sous les mêmes marques qu'un
+  bâtiment : « Règles » coupées, toit saisi ou lu sur une photo, hauteur choisie, contour retouché à la main ou dessiné, vérifié
+  sur place. L'ouvrage le déclare (`Ouvrage.toitLuAuLidar`, `model/fonctions.ts::toitLuAuLidar`) ; la lecture, les mitoyens et
+  la question du toit à cheval le demandent. **Les projets enregistrés aussi** : une annexe sans marque de lecture est lue une
+  fois, en tâche de fond, à la prochaine ouverture du projet. Le toit lu se dessine comme celui d'un bâtiment : Vue 3D et
+  `.glb`, DP2 (« Existant H », la hauteur au point le plus haut), DP6, dossier PDF. **Le nombre change dans la DP2 de tout projet
+  géolocalisé qui porte une annexe, là où le LiDAR HD couvre**, et la 3D et le `.glb` la montrent avec son toit. Aucune empreinte de
+  `tests/fixtures/golden/` ne bouge (le témoin n'est pas géolocalisé). Au passage, une hauteur posée sur une annexe ou un
+  bâtiment dessiné n'est plus réécrite à l'actualisation IGN : la lecture demandait le droit d'écrire la hauteur après avoir
+  marqué le bâtiment lu, ce qui la faisait passer pour une mesure (la tâche de fond, elle, la gardait déjà).
 - **Le dessin, la 3D, les exports et le fichier lisent la fonction d'un objet dans le registre des ouvrages** (feuille de route,
   étape 6.4 ; interne). Les comparaisons écrites à la main (`fonction === '…'`) passent de 63 à 13 : un objet se reconnaît par son
   ouvrage (`estOuvrage`, `estTerrain`, `estTerrasse`, `estPointDeVue`), le bâti des exports par sa famille (`estBati`), et ce qui

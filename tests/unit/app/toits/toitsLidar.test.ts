@@ -44,14 +44,16 @@ describe('toitsDepuisLidar', () => {
   it('ajuste les toits BD TOPO, garde la couleur, corrige l egout, et laisse les toits photo ou saisis', async () => {
     const objets: ObjetAToit[] = [
       { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
-      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 },
-      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo, source: 'saisie' } }, elevation: 5 },
-      { key: 'c', fonction: 'batiment', pts: rect(0, 20, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5.8 },
+      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5, bdtopo: {} },
+      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo, source: 'saisie' } }, elevation: 5, bdtopo: {} },
+      { key: 'c', fonction: 'batiment', pts: rect(0, 20, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5.8, bdtopo: {} },
+      // Dessine (pas de `bdtopo`) : sa hauteur posee est celle de la personne (model/protections.ts), le toit se lit dessus.
+      { key: 'd', fonction: 'batiment', pts: rect(20, 20, 12, 8), elevation: 5 },
     ];
     const lire = lecteurDeuxPans();
     const bilan = await toitsDepuisLidar(objets, proj, { lire, dalles: async () => true });
-    expect(bilan).toEqual({ ajustes: 2, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false });
-    expect(lire).toHaveBeenCalledTimes(2);
+    expect(bilan).toEqual({ ajustes: 3, mesures: 0, corpsVoisins: 0, recales: 0, gardes: 0, sansLidar: false });
+    expect(lire).toHaveBeenCalledTimes(3);
     const a = objets[1]!, b = objets[2]!, c = objets[3]!;
     expect(a.batiment?.toit).toMatchObject({ forme: 'deux-pans', angleFaitage: 0, source: 'lidar', couleur: '#aa4433', origineCouleur: 'orthophoto' });
     expect(Math.abs(a.batiment!.toit!.hauteur - 3)).toBeLessThan(0.1);
@@ -59,7 +61,9 @@ describe('toitsDepuisLidar', () => {
     expect(a.elevation).toBe(6);
     expect(c.elevation).toBe(5.8);
     expect(b.batiment!.toit!.source).toBe('saisie');
-    expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD');
+    expect(objets[4]!.batiment?.toit?.source).toBe('lidar');
+    expect(objets[4]!.elevation).toBe(5);
+    expect(texteBilanToitsLidar(bilan)).toBe('3 toit(s) ajuste(s) sur le LiDAR HD');
   });
 
   it('garde une hauteur a l egout saisie ou validee : le toit se lit, l egout reste', async () => {
@@ -120,7 +124,7 @@ describe('toitsDepuisLidar', () => {
   });
 
   it('laisse un batiment verifie sur place tel quel, sauf si on demande de le relire', async () => {
-    const verifie = (): ObjetAToit => ({ key: 'v', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo }, verifieSurPlace: { date: '2026-10-13' } }, elevation: 5,  });
+    const verifie = (): ObjetAToit => ({ key: 'v', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo }, verifieSurPlace: { date: '2026-10-13' } }, elevation: 5, bdtopo: {} });
     const objets: ObjetAToit[] = [{ key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) }, verifie(), { key: 'a', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo } }, elevation: 5 }];
     const lire = lecteurDeuxPans();
     // Par defaut, et dans la liste des candidats : le batiment verifie n'est ni lu ni marque.

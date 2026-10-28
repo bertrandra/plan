@@ -44,6 +44,12 @@ export interface Ouvrage {
    * personne ne le pense comme « un chemin ».
    */
   nommeParSaFonction?: true;
+  /**
+   * Son toit, sa hauteur a l'egout et le recalage de son contour se lisent au LiDAR HD (app/toits/toitsLidar.ts), sous la
+   * hierarchie des decisions (model/protections.ts, niveau 4). Batiment et annexe depuis la 4.0.0 (decision du 28 octobre 2026 :
+   * le toit d'un abri de jardin est reel, la mesure bat le defaut et la BD TOPO).
+   */
+  toitLuAuLidar?: true;
   /** Ne compte pas comme equipement pose sur une terrasse (le dossier PDF les liste). */
   horsEquipement?: boolean;
   /**
