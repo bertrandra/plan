@@ -375,6 +375,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La hauteur à l'égout choisie reste.** Saisie dans « Élévation » sur un bâtiment, ou validée par l'audit de la parcelle, elle
+  était réécrite sans prévenir par la relecture LiDAR suivante et, toujours, par l'actualisation IGN. Elle est désormais marquée
+  comme choisie (`egoutChoisi`, enregistré avec le projet) : ni le LiDAR, ni un fait du moteur, ni l'actualisation ne la
+  remplacent, « Actualiser le projet » la garde sur le bâtiment recréé, et l'audit propose une autre hauteur décochée.
+
 - **Une relecture des toits garde ce qui est posé dessus.** Quand un réglage des toits change (les toits déjà lus se relisent), ou
   qu'un fait du moteur s'applique, les corps lus remplaçaient les anciens en bloc : cheminées, lucarnes, fenêtres de toit et
   panneaux, toiture-terrasse, appentis ouvert, bow-windows et galeries d'un bâtiment non figé disparaissaient. Ils sont reportés

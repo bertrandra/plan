@@ -62,6 +62,18 @@ describe('toitsDepuisLidar', () => {
     expect(texteBilanToitsLidar(bilan)).toBe('2 toit(s) ajuste(s) sur le LiDAR HD');
   });
 
+  it('garde une hauteur a l egout saisie ou validee : le toit se lit, l egout reste', async () => {
+    const objets: ObjetAToit[] = [
+      { key: 'parcelle', fonction: 'terrain', pts: rect(-5, -5, 30, 30) },
+      { key: 'a', fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo }, egoutChoisi: 'saisie' }, elevation: 5 },
+      { key: 'b', fonction: 'batiment', pts: rect(20, 0, 12, 8), batiment: { toit: { ...bdtopo }, egoutChoisi: 'audit' }, elevation: 5 },
+    ];
+    await toitsDepuisLidar(objets, proj, { lire: lecteurDeuxPans(), dalles: async () => true });
+    expect(objets[1]!.batiment?.toit?.source).toBe('lidar');
+    expect(objets[1]!.elevation).toBe(5);
+    expect(objets[2]!.elevation).toBe(5);
+  });
+
   it('ne lit rien sans dalle LiDAR, et le dit', async () => {
     const objets: ObjetAToit[] = [{ fonction: 'batiment', pts: rect(0, 0, 12, 8), batiment: { toit: { ...bdtopo } } }];
     const lire = lecteurDeuxPans();

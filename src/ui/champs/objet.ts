@@ -27,7 +27,7 @@ import { champsCouleurMurs } from './couleurMurs.js';
 import { sectionsPiscine } from './piscine.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
 import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
-import { champsArbre, champsParasol } from '../../model/champsFonction.js';
+import { champsArbre, champsBatiment, champsParasol } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */
 export const FONCTIONS: string[] = [...FONCTIONS_AU_MENU];
@@ -112,7 +112,8 @@ const sectionObjet: Section = {
       // Une pergola ou un carport a sa propre hauteur de poteaux, une piscine sa hauteur hors du sol :
       // l'elevation ne leur dit rien.
       visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin') && !aParticularite(c.obj, 'ouverture'),
-      lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; }
+      // D'un batiment, c'est la hauteur a l'egout : saisie, elle est choisie, et aucune lecture ne la reecrit (model/protections.ts).
+      lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; if (estBatiment(c.obj)) champsBatiment(c.obj).egoutChoisi = 'saisie'; }
     },
     {
       type: 'lecture', cle: 'surface', libelle: 'Surface',

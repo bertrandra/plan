@@ -49,6 +49,8 @@ export type Marque =
   | 'verifie'
   /** Le contour retouche a la main (model/retouche.ts) ; « Reprendre la version de l'IGN » le leve. */
   | 'retouche'
+  /** La hauteur a l'egout choisie : saisie dans l'inspecteur, validee par l'audit (`egoutChoisi`). */
+  | 'egoutChoisi'
   /** Un toit saisi (inspecteur, forme du catalogue). */
   | 'toitSaisi'
   /** Un toit lu sur une photo de facade (releve avec toit). */
@@ -70,6 +72,7 @@ export interface BatimentProtege {
   batiment?: {
     toit?: Pick<Toit, 'source' | 'couverture'> | null;
     toitFige?: boolean;
+    egoutChoisi?: 'saisie' | 'audit';
     verifieSurPlace?: { date: string } | null;
     couleurMurs?: { materiau?: unknown } | null;
     facades?: readonly { cote: number; depuisAudit?: true }[] | null;
@@ -91,6 +94,7 @@ const MARQUES: Readonly<Record<Marque, (o: BatimentProtege, ctx: ContexteEcritur
   fige: (o) => o.batiment?.toitFige === true,
   verifie: (o, ctx) => !!o.batiment?.verifieSurPlace && !ctx.relireVerifies,
   retouche: (o, ctx) => !!o.retoucheMain && !ctx.reprendreIgn,
+  egoutChoisi: (o) => !!o.batiment?.egoutChoisi,
   toitSaisi: (o) => o.batiment?.toit?.source === 'saisie',
   toitPhoto: (o) => o.batiment?.toit?.source === 'photo',
   hauteurDessinee: (o) => !o.bdtopo && typeof o.elevation === 'number',
@@ -104,6 +108,8 @@ export type Regle = 'jamais' | readonly Marque[];
 
 /** Un toit que Plan ne choisit plus : « Règles » coupees, verifie sur place, saisi ou lu sur une photo. */
 const TOIT_DE_LA_PERSONNE: readonly Marque[] = ['fige', 'verifie', 'toitSaisi', 'toitPhoto'];
+/** La hauteur a l'egout que Plan ne choisit plus : celle d'un toit de la personne, ou choisie elle-meme. */
+const HAUTEUR_DE_LA_PERSONNE: readonly Marque[] = [...TOIT_DE_LA_PERSONNE, 'egoutChoisi'];
 /** Un batiment que l'actualisation garde entier. */
 const GARDE_ENTIER: readonly Marque[] = ['fige', 'verifie', 'retouche'];
 
@@ -112,11 +118,11 @@ const GARDE_ENTIER: readonly Marque[] = ['fige', 'verifie', 'retouche'];
  * c'est changer ce que voit la personne : le test l'epingle en entier.
  */
 export const REGLES: Readonly<Record<Ecrivain, Readonly<Record<Groupe, Regle>>>> = {
-  lidar: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
+  lidar: { contour: 'jamais', hauteur: HAUTEUR_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
   recalage: { contour: [...TOIT_DE_LA_PERSONNE, 'retouche'], hauteur: 'jamais', toit: 'jamais', elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
-  faits: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: ['verifie'] },
-  ign: { contour: GARDE_ENTIER, hauteur: GARDE_ENTIER, toit: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], elements: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], couverture: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], murs: GARDE_ENTIER, facades: GARDE_ENTIER },
-  audit: { contour: 'jamais', hauteur: ['hauteurDessinee'], toit: ['fige', 'toitSaisi'], elements: [], couverture: ['couvertureChoisie'], murs: ['materiauChoisi'], facades: ['releveMain'] },
+  faits: { contour: 'jamais', hauteur: HAUTEUR_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: ['verifie'] },
+  ign: { contour: GARDE_ENTIER, hauteur: [...GARDE_ENTIER, 'egoutChoisi'], toit: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], elements: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], couverture: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], murs: GARDE_ENTIER, facades: GARDE_ENTIER },
+  audit: { contour: 'jamais', hauteur: ['egoutChoisi', 'hauteurDessinee'], toit: ['fige', 'toitSaisi'], elements: [], couverture: ['couvertureChoisie'], murs: ['materiauChoisi'], facades: ['releveMain'] },
 };
 
 /** La marque qui arrete cet ecrivain sur ce groupe, `jamais` s'il n'y ecrit pas, ou null : il peut ecrire. */

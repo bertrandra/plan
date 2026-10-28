@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { serializeObjects } from '../../../src/io/serialisation.js';
+import { normalizeObjects } from '../../../src/model/normalisation.js';
+import type { ObjetBrut, ObjetPlan } from '../../../src/model/types.js';
 import { peutEcrire, protection, REGLES, type BatimentProtege, type Ecrivain, type Groupe, type Marque } from '../../../src/model/protections.js';
 
 // Qui peut ecrire quoi sur un batiment (MD/spec-ouvrages.md, « Qui l'emporte ») : le tableau entier, case par case. Chaque marque
@@ -12,6 +15,7 @@ const AVEC: Record<Marque, () => BatimentProtege> = {
   fige: () => ({ ...nu(), batiment: { toit: { source: 'lidar' }, toitFige: true } }),
   verifie: () => ({ ...nu(), batiment: { toit: { source: 'lidar' }, verifieSurPlace: { date: '2026-10-28' } } }),
   retouche: () => ({ ...nu(), retoucheMain: { date: '2026-10-28' } }),
+  egoutChoisi: () => ({ ...nu(), batiment: { toit: { source: 'lidar' }, egoutChoisi: 'saisie' } }),
   toitSaisi: () => ({ ...nu(), batiment: { toit: { source: 'saisie' } } }),
   toitPhoto: () => ({ ...nu(), batiment: { toit: { source: 'photo' } } }),
   hauteurDessinee: () => ({ elevation: 6, batiment: { toit: { source: 'lidar' } } }),
@@ -28,14 +32,14 @@ const ECRIVAINS: Ecrivain[] = ['lidar', 'recalage', 'faits', 'ign', 'audit'];
  * ecrire). Recopie dans MD/spec-ouvrages.md, « Qui l'emporte ».
  */
 const ATTENDU: Record<Ecrivain, Record<Groupe, '—' | Marque[]>> = {
-  lidar: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: '—' },
+  lidar: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto', 'egoutChoisi'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: '—' },
   recalage: { contour: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], hauteur: '—', toit: '—', elements: '—', couverture: '—', murs: '—', facades: '—' },
-  faits: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: ['verifie'] },
+  faits: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto', 'egoutChoisi'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: ['verifie'] },
   ign: {
-    contour: ['fige', 'verifie', 'retouche'], hauteur: ['fige', 'verifie', 'retouche'], toit: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'],
+    contour: ['fige', 'verifie', 'retouche'], hauteur: ['fige', 'verifie', 'retouche', 'egoutChoisi'], toit: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'],
     elements: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], couverture: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], murs: ['fige', 'verifie', 'retouche'], facades: ['fige', 'verifie', 'retouche'],
   },
-  audit: { contour: '—', hauteur: ['hauteurDessinee'], toit: ['fige', 'toitSaisi'], elements: [], couverture: ['couvertureChoisie'], murs: ['materiauChoisi'], facades: ['releveMain'] },
+  audit: { contour: '—', hauteur: ['egoutChoisi', 'hauteurDessinee'], toit: ['fige', 'toitSaisi'], elements: [], couverture: ['couvertureChoisie'], murs: ['materiauChoisi'], facades: ['releveMain'] },
 };
 
 describe('protections : qui peut ecrire quoi sur un batiment', () => {
@@ -77,5 +81,26 @@ describe('protections : qui peut ecrire quoi sur un batiment', () => {
     expect(peutEcrire(AVEC.releveMain(), 'audit', 'facades', { cote: 2 })).toBe(false);
     expect(peutEcrire(AVEC.releveMain(), 'audit', 'facades', { cote: 1 })).toBe(true);
     expect(peutEcrire({ ...nu(), batiment: { facades: [{ cote: 2, depuisAudit: true }] } }, 'audit', 'facades', { cote: 2 })).toBe(true);
+  });
+});
+
+describe('la hauteur a l egout choisie (egoutChoisi)', () => {
+  const maison = (plus: Record<string, unknown> = {}): ObjetPlan => normalizeObjects([{
+    key: 'maison', type: 'polygon', name: 'Maison', fonction: 'batiment', pts: [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }], elevation: 5.4, ...plus,
+  }] as unknown as ObjetBrut[])[0] as ObjetPlan;
+
+  it('s enregistre a plat dans le fichier et se relit dans le batiment', () => {
+    const o = maison({ egoutChoisi: 'saisie' });
+    expect(o.batiment?.egoutChoisi).toBe('saisie');
+    const [plat] = serializeObjects([o]);
+    expect((plat as unknown as Record<string, unknown>).egoutChoisi).toBe('saisie');
+    const relu = normalizeObjects(JSON.parse(JSON.stringify([plat])) as ObjetBrut[])[0] as ObjetPlan;
+    expect(relu.batiment?.egoutChoisi).toBe('saisie');
+    expect(JSON.stringify(serializeObjects([relu]))).toBe(JSON.stringify(serializeObjects([o])));
+  });
+
+  it('absente, ou d une source inconnue, elle ne s ecrit pas : le fichier garde sa forme d avant', () => {
+    expect('egoutChoisi' in (serializeObjects([maison()])[0] as object)).toBe(false);
+    expect(maison({ egoutChoisi: 'devine' }).batiment?.egoutChoisi).toBeUndefined();
   });
 });

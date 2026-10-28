@@ -163,3 +163,34 @@ describe('Actualiser le projet et un objet retouche a la main', () => {
     dialogues.fermer();
   });
 });
+
+describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-ouvrages.md, flux du batiment, point 4)', () => {
+  const avecHauteur = (marque: 'saisie' | 'audit' | null) => {
+    const objets = plan();
+    const maison = objets.find(o => o.key === 'maison')!;
+    maison.elevation = 5.4;
+    if (marque) maison.batiment = { ...maison.batiment, egoutChoisi: marque };
+    return objets;
+  };
+
+  it('la BD TOPO du jour remplace une hauteur lue, pas une hauteur saisie ou validee', async () => {
+    for (const [marque, attendue] of [[null, 7], ['saisie', 5.4], ['audit', 5.4]] as const) {
+      service();
+      const ctx = contexte(avecHauteur(marque));
+      await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+      const maison = ctx.etat.objects.find(o => o.key === 'maison');
+      expect(maison?.elevation, String(marque)).toBe(attendue);
+      expect(maison?.batiment?.egoutChoisi ?? null).toBe(marque);
+    }
+  });
+
+  it('« Actualiser le projet » recree le batiment avec la hauteur choisie', async () => {
+    service();
+    const ctx = contexte(avecHauteur('saisie'));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false }, recreerBatiments: true, parDefaut: true }, ctx);
+    const [maison] = batiments(ctx);
+    expect(maison?.key).toBe('maison');
+    expect(maison?.elevation).toBe(5.4);
+    expect(maison?.batiment?.egoutChoisi).toBe('saisie');
+  });
+});

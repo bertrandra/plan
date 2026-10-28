@@ -211,13 +211,16 @@ function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: Obj
   const cles = new Set([...dejaLa.map(o => o.key), ...clesAnciennes.values()]);
   const cleUnique = (base: string) => { let cle = base, n = 2; while(cles.has(cle)){ cle = base + '-' + n; n++; } cles.add(cle); return cle; };
   const reponses = new Map(anciens.flatMap(o => { const id = idDe(o); return id && o.batiment?.toitACheval ? [[id, o.batiment?.toitACheval] as const] : []; }));
+  // Une hauteur a l'egout choisie (inspecteur, audit) suit le batiment aussi : l'actualisation ne la reecrit pas (model/protections.ts).
+  const hauteurs = new Map(anciens.flatMap(o => { const id = idDe(o); return id && o.batiment?.egoutChoisi && typeof o.elevation === 'number' ? [[id, { elevation: o.elevation, egoutChoisi: o.batiment.egoutChoisi }] as const] : []; }));
   const recupereLe = new Date().toISOString();
   const nouveaux = frais.map(b => {
     const ancienne = b.id ? clesAnciennes.get(b.id) : undefined;
     if (ancienne) clesAnciennes.delete(b.id as string); // une cle ne sert qu'une fois
     const o = batimentDeLaPropriete(b, ancienne ? () => ancienne : cleUnique, recupereLe);
-    const r = b.id ? reponses.get(b.id) : undefined;
-    return r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o;
+    const r = b.id ? reponses.get(b.id) : undefined, h = b.id ? hauteurs.get(b.id) : undefined;
+    const avecReponse = r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o;
+    return h ? { ...avecReponse, elevation: h.elevation, batiment: { ...avecReponse.batiment, egoutChoisi: h.egoutChoisi } } : avecReponse;
   });
   return ctx.serializeObjects(nouveaux).map(versMemoire);
 }

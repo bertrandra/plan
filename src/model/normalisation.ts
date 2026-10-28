@@ -70,6 +70,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
       });
       if (b.verifieSurPlace) b.verifieSurPlace = { date: String(b.verifieSurPlace.date) };
       if (b.toitFige) b.toitFige = true; else delete b.toitFige;
+      // La hauteur a l'egout choisie : l'une des deux sources connues, sinon rien.
+      if (b.egoutChoisi !== 'saisie' && b.egoutChoisi !== 'audit') delete b.egoutChoisi;
       c.batiment = b;
     }
     // Le marque d'une retouche a la main (model/retouche.ts) : sa date seule ; nul ou absent, il n'y en a pas.

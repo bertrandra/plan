@@ -50,6 +50,12 @@ export interface ChampsBatiment {
    */
   toitFige?: boolean;
   /**
+   * La hauteur a l'egout (`elevation`) choisie : saisie dans l'inspecteur, ou validee par l'audit de la parcelle. Ni la relecture
+   * du LiDAR, ni un fait du moteur, ni l'actualisation IGN ne la reecrivent plus (model/protections.ts). Absente : la hauteur reste
+   * celle des lectures, comme avant.
+   */
+  egoutChoisi?: 'saisie' | 'audit';
+  /**
    * Un batiment a cheval sur deux parcelles dont un corps franchit la limite (model/aCheval.ts) :
    * les parcelles en jeu et, une fois la question posee, la reponse - un seul toit, ou un toit par
    * parcelle (les corps relus sur chaque part). Sans reponse, la question revient a l'ouverture.

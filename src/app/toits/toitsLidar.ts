@@ -48,7 +48,7 @@ export interface ObjetAToit {
    * les corps et pignons, le doute d'un batiment a cheval, la version de lecture qui l'a traite, la marque « verifie sur place »
    * (la lecture ne le touche plus) et « Regles » coupees.
    */
-  batiment?: Pick<ChampsBatiment, 'toit' | 'volumesToit' | 'toitMesure' | 'corpsToit' | 'toitACheval' | 'toitLidarLu' | 'verifieSurPlace' | 'toitFige'> | null;
+  batiment?: Pick<ChampsBatiment, 'toit' | 'volumesToit' | 'toitMesure' | 'corpsToit' | 'toitACheval' | 'toitLidarLu' | 'verifieSurPlace' | 'toitFige' | 'egoutChoisi'> | null;
 }
 
 /** Un batiment de la parcelle du projet : celui dont le toit se garde tel que mesure (model/fonctions.ts). */
@@ -146,7 +146,7 @@ export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): bool
   if (!corps || !forme) return false;
   champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, forme.toit);
   champsBatiment(o).corpsToit = corpsRelus(o, o.batiment?.corpsToit, corps, 'faits'); champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
-  o.elevation = forme.egout;
+  if (peutEcrire(o, 'faits', 'hauteur', { relireVerifies: true })) o.elevation = forme.egout;
   champsBatiment(o).toitLidarLu = marqueDeLecture(o);
   toucher(o);
   return true;
@@ -381,7 +381,8 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
   const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
   const elevation = elevationApresLecture(o.elevation, egout);
-  if (elevation !== undefined) o.elevation = elevation;
+  // Une hauteur a l'egout choisie (inspecteur, audit) reste (model/protections.ts).
+  if (elevation !== undefined && peutEcrire(o, 'lidar', 'hauteur', { relireVerifies: true })) o.elevation = elevation;
   if (ajuste || volumes?.ajustes) bilan.ajustes++;
   toucher(o);
 }

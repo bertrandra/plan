@@ -1014,7 +1014,7 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 | Champ | Création | Import IGN | LiDAR (import, fond) | Moteur de règles | Inspecteur, Mode Toit | Retouche du contour | Relevé de façade | Audit | Actualisation IGN |
 |---|---|---|---|---|---|---|---|---|---|
 | `pts` | É | É | É recalage (`toitFige`, `verifieSurPlace` ; pas `retoucheMain`) | L | É dessiné : déplacement | É, pose `retoucheMain` | L | L | É (gardés : marques ; `pts` d'un retouché non remis) |
-| `elevation` | — (2,5 m implicite) | É BD TOPO | É si écart ≥ 0,3 m (`toitFige`, `verifieSurPlace`, toit `saisie`/`photo`) | É fait en remplacement | É « Élévation » | — | L, jamais écrit | É « Hauteur à l'égout » | É BD TOPO (gardés) |
+| `elevation` | — (2,5 m implicite) | É BD TOPO | É si écart ≥ 0,3 m (`toitFige`, `verifieSurPlace`, toit `saisie`/`photo`, `egoutChoisi`) | É fait en remplacement (`egoutChoisi`) | É « Élévation », pose `egoutChoisi` | — | L, jamais écrit | É « Hauteur à l'égout », pose `egoutChoisi` | É BD TOPO (gardés, `egoutChoisi`) |
 | `toit` (forme, hauteur, angle) | É via inspecteur (`saisie`) | É `bdtopo` | É `lidar` (`toitFige`, `verifieSurPlace`, `source` ≠ `bdtopo`/`lidar`) | É fait (remplacement, contrainte) | É forme, hauteur → `saisie` ; angle sans marque ; Mode Toit forme → `saisie` | — | É `photo`, case cochée | É `hauteur` | É si `bdtopo`/`lidar` (gardés) |
 | `toit.couleur` | — | É orthophoto | gardée | — | É, retire `origineCouleur` | — | — | — | gardée ; relue si `origineCouleur` |
 | `toit.couverture` | — | — | gardée | — | É matériau | — | — | É | **perdue** si `bdtopo`/`lidar` |
@@ -1040,16 +1040,18 @@ groupe), et le voici. « — » : l'écrivain n'écrit jamais ce groupe ; sinon,
 
 | Écrivain | Contour (`pts`) | Hauteur à l'égout (`elevation`) | Toit et corps | Éléments posés sur les corps | Couleur et couverture du toit | Murs (`couleurMurs`) | Façades (relevés, fenêtres, profil) |
 |---|---|---|---|---|---|---|---|
-| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — (gardées) | — | — |
+| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo, **égout choisi** | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — (gardées) | — | — |
 | Recalage LiDAR (projet et mitoyens) | figé, vérifié, retouché, toit saisi, toit photo | — | — | — | — | — | — |
-| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — | — | vérifié |
-| Actualisation IGN (`actualisationIgn.ts`, `toitsEtMurs.ts`) | figé, vérifié, retouché | figé, vérifié, retouché | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché | figé, vérifié, retouché |
-| Audit : proposition cochée d'office (`constats.ts`) | — | hauteur d'un bâtiment dessiné | figé, toit saisi | libre | couverture choisie | matériau choisi | relevé à la main sur ce mur |
+| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo, **égout choisi** | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — | — | vérifié |
+| Actualisation IGN (`actualisationIgn.ts`, `toitsEtMurs.ts`) | figé, vérifié, retouché | figé, vérifié, retouché, **égout choisi** | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché | figé, vérifié, retouché |
+| Audit : proposition cochée d'office (`constats.ts`) | — | **égout choisi**, hauteur d'un bâtiment dessiné | figé, toit saisi | libre | couverture choisie | matériau choisi | relevé à la main sur ce mur |
 
 Les marques : **figé** `toitFige` (« Règles » coupées : Mode Toit, éléments de façade de l'inspecteur, toit validé par l'audit) ;
 **vérifié** `verifieSurPlace` (audit validé, bâtiment tout vu ; « Recalculer aussi » de l'actualisation la lève, et la tâche de
 fond lit sa copie pour comparer sans rien écrire que `toitLidarLu`) ; **retouché** `retoucheMain` (contour retouché ; « Reprendre
-la version de l'IGN » la lève) ; **toit saisi**, **toit photo** : `toit.source`. Pour l'audit, être arrêté veut dire que la
+la version de l'IGN » la lève) ; **toit saisi**, **toit photo** : `toit.source` ; **égout choisi** `egoutChoisi` (`'saisie'` :
+« Élévation » de l'inspecteur sur un bâtiment ; `'audit'` : « Hauteur à l'égout » validée ; enregistré à plat dans le fichier,
+absent sinon ; « Actualiser le projet » le reporte sur le bâtiment recréé). Pour l'audit, être arrêté veut dire que la
 proposition arrive décochée, « choix remplacé » ; « Valider » écrit quand même ce que la personne coche.
 
 Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
@@ -1108,11 +1110,11 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
    `cotesReleves: interieurs` (`three/detailsBatiment.ts:372`) et écrase la liste des côtés relevés que la scène avait donnée
    (`three/sceneObjets.ts:382`) ; or le mode corps est celui de tout bâtiment lu sur la propriété. La photo et ses ouvertures,
    plus une grille de fenêtres par-dessus. Non vérifié à l'écran.
-4. **La hauteur à l'égout n'a pas de propriétaire.** Saisie dans l'inspecteur (`ui/champs/objet.ts:115`) ou validée par l'audit
+4. ~~**La hauteur à l'égout n'a pas de propriétaire.** Saisie dans l'inspecteur (`ui/champs/objet.ts:115`) ou validée par l'audit
    (`regles/decisions.ts:270`), elle est réécrite sans marque par la prochaine relecture LiDAR (`toitsLidar.ts:369-370`,
    `toitsFond.ts:130`, :153 ; l'empreinte de :137 ne la compte pas) et, toujours, par l'actualisation IGN
    (`actualisationIgn.ts:302`). L'audit ne la tient pour « saisie » que sur un bâtiment sans `bdtopo` (`constats.ts:43`). En mode
-   corps, le champ « Élévation » ne change rien à la 3D (`sceneObjets.ts:316-320`).
+   corps, le champ « Élévation » ne change rien à la 3D (`sceneObjets.ts:316-320`).~~ — corrigé le 28 octobre 2026 : une hauteur saisie dans l'inspecteur ou validée par l'audit porte `egoutChoisi` (`'saisie'`, `'audit'` ; `model/typesFonctions.ts`, enregistré par `io/serialisation.ts`, relu par `model/normalisation.ts`) ; la relecture LiDAR, un fait en remplacement et l'actualisation IGN ne la réécrivent plus, « Actualiser le projet » la reporte sur le bâtiment recréé, et l'audit la tient pour un choix (`model/protections.ts` ; tests : `protections.test.ts`, `toitsLidar.test.ts`, `retoucheIgn.test.ts`, `champsElevation.test.ts`, `decisions.test.ts`). Reste vrai : en mode corps, le champ ne change rien à la 3D.
 5. **L'actualisation IGN perd le matériau de couverture choisi.** `toitActualise` rend le toit neuf avec la seule couleur
    (`model/toitBdTopo.ts:92`) : `couverture`, posée par l'inspecteur (`ui/champs/facade.ts:139-142`) ou par l'audit
    (`decisions.ts:287`), disparaît de tout toit `bdtopo` ou `lidar`. La règle du skill (« une valeur choisie à la main n'est
