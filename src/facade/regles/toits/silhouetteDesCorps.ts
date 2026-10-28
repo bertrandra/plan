@@ -122,11 +122,14 @@ export function silhouetteDesCorps(f: Facade, corps: readonly CorpsToit[] | null
 
 /**
  * La silhouette d'un corps vue d'un point (`oeil`, dans le plan) : son mur le plus tourne vers lui, du pied au haut sous son toit
- * (pignon compris), en points du plan et hauteurs (`z`, metres). Ce que le mode Toit trace autour du corps choisi.
+ * (pignon compris), en points du plan et hauteurs (`z`, metres). Ce que le mode Toit trace autour du corps choisi. `mur` : ce mur-la
+ * plutot que le plus tourne vers l'oeil (celui que tirent les poignees).
  */
-export function silhouetteVersLOeil(c: CorpsToit, oeil: PtBrut): { x: number; y: number; z: number }[] | null {
-  const egout = Math.min(...c.egouts);
-  const f = facadesDuContour(c.pts, egout).reduce<Facade | null>((m, x) => (!m || tourneVers(x.gauche, x.droite, x.normale, oeil) > tourneVers(m.gauche, m.droite, m.normale, oeil) ? x : m), null);
+export function silhouetteVersLOeil(c: CorpsToit, oeil: PtBrut, mur?: number): { x: number; y: number; z: number }[] | null {
+  const egout = Math.min(...c.egouts), murs = facadesDuContour(c.pts, egout);
+  // Le mur donne (celui des poignees du mode Toit) l'emporte : la silhouette et les poignees sont sur le meme mur.
+  const f = (mur === undefined ? undefined : murs.find((x) => x.cote === mur))
+    ?? murs.reduce<Facade | null>((m, x) => (!m || tourneVers(x.gauche, x.droite, x.normale, oeil) > tourneVers(m.gauche, m.droite, m.normale, oeil) ? x : m), null);
   if (!f) return null;
   return silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout).map((q) => ({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }));
 }
