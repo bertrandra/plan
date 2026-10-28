@@ -20,7 +20,7 @@
 
 import { contexteProfilsFacades, profilFacadesDuBatiment } from '../../facade/regles/facades/profils.js';
 import { PROFILS_FACADES, PROFIL_FACADES_DEFAUT, VERSION_LECTURE_FACADES, type ProfilFacades } from '../../regles/facades/reglages.js';
-import { peutEcrire } from '../../model/protections.js';
+import { ecrivainPeut } from '../../model/protections.js';
 import { surParcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
@@ -33,7 +33,7 @@ export const LOT_PROFILS_FACADES = 100;
 export function profilARechoisir(o: ObjetPlan, version: number = VERSION_LECTURE_FACADES): boolean {
   if (o.fonction !== 'batiment' || o.type !== 'polygon' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
   // Le projet garde le profil par defaut ; un batiment verifie sur place, le sien (model/protections.ts).
-  if (surParcelleDuProjet(o) || !peutEcrire(o, 'faits', 'facades')) return false;
+  if (surParcelleDuProjet(o) || !ecrivainPeut(o, 'faits', 'facades')) return false;
   return o.batiment?.profilFacades?.version !== version;
 }
 

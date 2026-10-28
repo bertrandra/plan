@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mesuresSuivent, rangsDesCotes, suivreDeformation } from '../../../src/model/contourDeforme.js';
+import { memeFormeDeplacee, mesuresSuivent, rangsDesCotes, suivreDeformation } from '../../../src/model/contourDeforme.js';
 import { apresDeformation } from '../../../src/core/deformation.js';
 import { lectureToits } from '../../../src/core/lectureToits.js';
 import { insererSommet, supprimerSommet } from '../../../src/model/sommets.js';
@@ -95,5 +95,16 @@ describe('une actualisation IGN, par la geometrie', () => {
     // Un geste ne change pas le premier sommet : les rangs restent.
     expect(rangsDesCotes(avant, avant, 'geste')).toEqual([0, 1, 2, 3]);
     expect(mesuresSuivent([mesure(0, 0)], 'm', avant, apres, 'geometrie').map((m) => [m.refSegIndex, m.targetPtIndex])).toEqual([[2, 2]]);
+  });
+});
+
+describe('la meme forme, deplacee (l actualisation IGN et un contour recale au LiDAR)', () => {
+  it('reconnait le contour deplace d un bloc, dans un sens ou dans l autre, a un autre premier sommet ; pas une forme changee', () => {
+    const r = rect(), d = r.map((p) => ({ x: p.x + 1.5, y: p.y - 2 }));
+    expect(memeFormeDeplacee(r, d)).toBe(true);
+    expect(memeFormeDeplacee(r, [...d].reverse())).toBe(true);
+    expect(memeFormeDeplacee(r, [d[2]!, d[3]!, d[0]!, d[1]!])).toBe(true);
+    expect(memeFormeDeplacee(r, r.map((p) => ({ x: p.x + 5, y: p.y })))).toBe(false);
+    expect(memeFormeDeplacee(r, [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 9 }, { x: 0, y: 9 }])).toBe(false);
   });
 });

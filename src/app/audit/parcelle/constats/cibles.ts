@@ -8,7 +8,7 @@ import type { IdAttribut } from '../../../../regles/reconciliation.js';
 import type { VoteAnalyse } from '../../../../model/analyseClaude.js';
 import { type CeQueJeVois } from '../../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../../model/types.js';
-import { peutEcrire } from '../../../../model/protections.js';
+import { ecrivainPeut } from '../../../../model/protections.js';
 import { type MesureFacade } from '../mesures.js';
 import type { RenfortFacadeCapture } from '../../../../model/auditParcelle.js';
 
@@ -48,7 +48,7 @@ export const cm = (v: number): number => Math.round(v * 100) / 100;
  * (`toitFige`, les « Règles » coupees ; aussi pose par une validation d'audit precedente). Une forme proposee par l'audit le
  * remplacerait : elle arrive decochee, et le dit.
  */
-export const toitChoisiALaMain = (o: ObjetPlan): boolean => !peutEcrire(o, 'audit', 'toit');
+export const toitChoisiALaMain = (o: ObjetPlan): boolean => !ecrivainPeut(o, 'audit', 'toit');
 const borne = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
 /** La confiance d'une lecture LiDAR d'un corps : son ecart a la mesure (m) ; 0 m, 0,95 ; 1,2 m et plus, 0,4. */
 export const confianceCorps = (ecartM: number): number => cm(borne(0.95 - (0.55 * ecartM) / 1.2, 0.4, 0.95));

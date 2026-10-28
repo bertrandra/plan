@@ -28,7 +28,7 @@ import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeP
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../../facade/regles/toits/faits.js';
 import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
-import { corpsRelus, peutEcrire, toitAAjuster } from './ecritureToits.js';
+import { corpsRelus, ecrivainPeut, toitAAjuster } from './ecritureToits.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
@@ -138,7 +138,7 @@ export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): bool
   if (!corps || !forme) return false;
   champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, forme.toit);
   champsBatiment(o).corpsToit = corpsRelus(o, o.batiment?.corpsToit, corps, 'faits'); champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
-  if (peutEcrire(o, 'faits', 'hauteur', { relireVerifies: true })) o.elevation = forme.egout;
+  if (ecrivainPeut(o, 'faits', 'hauteur', { relireVerifies: true })) o.elevation = forme.egout;
   champsBatiment(o).toitLidarLu = marqueDeLecture(o);
   toucher(o);
   return true;
@@ -366,7 +366,7 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
   const elevation = elevationApresLecture(o.elevation, egout);
   // Une hauteur a l'egout choisie (inspecteur, audit) reste (model/protections.ts).
-  if (elevation !== undefined && peutEcrire(o, 'lidar', 'hauteur', { relireVerifies: true })) o.elevation = elevation;
+  if (elevation !== undefined && ecrivainPeut(o, 'lidar', 'hauteur', { relireVerifies: true })) o.elevation = elevation;
   if (ajuste || volumes?.ajustes) bilan.ajustes++;
   toucher(o);
 }
@@ -382,7 +382,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
   const fin = maintenant() + (options.delaiMs ?? DELAI_TOITS_LIDAR_MS);
   const centre = centreDuProjet(objets);
   // Un batiment verifie sur place est le 100 % du projet (spec des regles §1) : on ne le relit pas sans qu'on le demande.
-  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && peutEcrire(o, 'lidar', 'toit', { relireVerifies: options.verifies === 'relire' });
+  const admis = (o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } => toitAAjuster(o) && ecrivainPeut(o, 'lidar', 'toit', { relireVerifies: options.verifies === 'relire' });
   const candidats = options.candidats
     ? options.candidats.filter(admis)
     : objets
@@ -426,7 +426,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
       // recale, d'un bloc, sur le LiDAR (MD/spec-toit-ign.md §13.7).
       // Un contour retouche a la main (`retoucheMain`, model/retouche.ts) est celui de la personne : le toit se lit dessus, il ne se recale pas.
-      if (grille && lireGrille && (principal || estMitoyen(o)) && peutEcrire(o, 'recalage', 'contour', { relireVerifies: options.verifies === 'relire' })) {
+      if (grille && lireGrille && (principal || estMitoyen(o)) && ecrivainPeut(o, 'recalage', 'contour', { relireVerifies: options.verifies === 'relire' })) {
         const large = await recalerSurLidar(o, grille, proj, lireGrille, seuils);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }

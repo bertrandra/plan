@@ -9,12 +9,12 @@ import { couleursToitsDepuisOrtho } from '../../../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from '../../toits/toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../render/couleurMurPhoto.js';
 import { materiauMurs } from '../../../model/couleurMur.js';
-import { peutEcrire, type ContexteEcriture } from '../../../model/protections.js';
+import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture } from '../../../model/protections.js';
 import { nombreFr } from '../../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation } from '../../../geo/bdtopo.js';
 import { toitActualise, attributsToitBdTopo } from '../../../model/toitBdTopo.js';
 import { COUCHE_BATIMENT } from '../../../geo/apiIgn.js';
-import { mesuresSuivent, suivreDeformation } from '../../../model/contourDeforme.js';
+import { memeFormeDeplacee, mesuresSuivent, suivreDeformation } from '../../../model/contourDeforme.js';
 import { estRetoucheMain, libelleReprendre } from '../../../model/retouche.js';
 import type { ProjecteurLocal } from '../../../geo/projection.js';
 import type { Mesure, ObjetBrut, ObjetPlan, ObjetPolygone, PtBrut, Toit, VolumeToit } from '../../../model/types.js';
@@ -48,8 +48,9 @@ export function volumesRecalcules(o: { batiment?: { toit?: Toit | null } | null;
  * qu'ils portent : un batiment frais de la parcelle qui les porte n'est pas recree a cote d'eux.
  */
 export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsActualisation): { garde: (o: ObjetBrut) => boolean; ids: ReadonlySet<string> } {
-  // Garde entier : l'actualisation n'a pas le droit d'en ecrire le contour (model/protections.ts).
-  const garde = (o: ObjetBrut) => !peutEcrire(o, 'ign', 'contour', contexteActualisation(o, options));
+  // Garde entier : un contour de la personne ou vu sur place (model/protections.ts, niveaux 1 et 2). Un batiment dessine ne l'est
+  // pas : « Actualiser le projet » le recree parce que la personne l'a demande, c'est son dernier geste.
+  const garde = (o: ObjetBrut) => { const n = origineActuelle(o, 'contour', contexteActualisation(o, options)); return n !== 'dessine' && NIVEAU_ORIGINE[n] <= NIVEAU.surPlace; };
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }
@@ -123,29 +124,40 @@ export type BdTopoObjet = { couche?: string; id?: string; hauteurRetenueM?: numb
 
 /**
  * Un objet IGN sur son contour et ses attributs du jour. Nom, couleurs, verrouillage et textures sont des choix de l'utilisateur :
- * l'actualisation ne touche qu'a la geometrie et aux attributs IGN, et d'un batiment, qu'a ce que model/protections.ts lui permet
- * (un toit saisi ou lu sur une photo reste). `toitDeduit` : un toit en pente deduit de la BD TOPO, pour le bilan.
+ * l'actualisation ne touche qu'a la geometrie et aux attributs IGN, et d'un batiment, qu'a ce que model/protections.ts permet a la
+ * source officielle (niveau 5) : ni un choix de la personne, ni ce qui a ete vu sur place, ni la mesure du LiDAR (decision du
+ * 28 octobre 2026, « le LiDAR bat l'IGN »). Un contour que le LiDAR a lu (et peut-etre recale) reste donc, tant que la BD TOPO du
+ * jour a la meme forme ; une forme changee a l'IGN rend la mesure perimee : le contour du jour est pris, le toit recalcule et relu
+ * au LiDAR, mais la hauteur a l'egout mesuree reste. `toitDeduit` : un toit en pente deduit de la BD TOPO, pour le bilan ;
+ * `contourEcrit` : le contour du jour a ete pris.
  */
-export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p: Record<string, unknown>, permis: ContexteEcriture): { objet: ObjetBrut; toitDeduit: boolean; corpsCaducs: boolean } {
-  const haut = bdtopo.couche === COUCHE_BATIMENT
-    ? hauteurBatiment(p)
-    : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
-  const toit = bdtopo.couche === COUCHE_BATIMENT && peutEcrire(o, 'ign', 'toit', permis) ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
+export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p: Record<string, unknown>, permis: ContexteEcriture): { objet: ObjetBrut; toitDeduit: boolean; corpsCaducs: boolean; contourEcrit: boolean } {
+  const batiment = bdtopo.couche === COUCHE_BATIMENT;
+  const haut = batiment ? hauteurBatiment(p) : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
+  const avant = o.type !== 'circle' ? (o as Partial<ObjetPolygone>).pts : undefined;
+  const ctx: ContexteEcriture = { ...permis, mesurePerimee: batiment && !!avant && !memeFormeDeplacee(avant, pts) };
+  const contourEcrit = !batiment || !avant || ecrivainPeut(o, 'ign', 'contour', ctx);
+  const contour = contourEcrit || !avant ? pts : avant;
+  const recalcule = batiment && ecrivainPeut(o, 'ign', 'toit', ctx) ? toitActualise(o.batiment?.toit, contour, attributsToitBdTopo(p)) : undefined;
+  // Une couverture choisie reste sur le toit recalcule (niveau 1, model/protections.ts).
+  const couverture = o.batiment?.toit?.couverture;
+  const toit = recalcule && recalcule !== o.batiment?.toit && couverture && !ecrivainPeut(o, 'ign', 'couverture', ctx) ? { ...recalcule, couverture } : recalcule;
   const toitDeduit = !!toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat';
-  const volumesToit = volumesRecalcules(o, pts, toit);
-  const objet = Object.assign({}, sansRetouche(o), {
+  const volumesToit = volumesRecalcules(o, contour, toit);
+  const objet = Object.assign({}, sansRetouche(o), contourEcrit ? {
     pts,
     vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
     segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
     frozenVertices: pts.map(()=>false),
-    elevation: peutEcrire(o, 'ign', 'hauteur', permis) ? haut : o.elevation,
-    // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
+  } : {}, {
+    elevation: ecrivainPeut(o, 'ign', 'hauteur', ctx) ? haut : o.elevation,
+    // Un contour pris a l'IGN se relit sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
     // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
-    ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
+    ...(toit || volumesToit !== undefined || batiment ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
       // Les corps restent le temps de la lecture LiDAR qui suit : elle y prend ce qui est pose dessus pour le reporter sur les
       // corps neufs (corpsCaducs les retire ensuite si elle n'a pas pu lire).
       ...(volumesToit !== undefined ? { volumesToit, toitMesure: null } : {}),
-      ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
+      ...(batiment ? { ...(contourEcrit ? { toitLidarLu: null } : {}), ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
     bdtopo: Object.assign({}, bdtopo, {
       nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
       hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
@@ -158,8 +170,8 @@ export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p
     })
   });
   // Les releves et les fenetres reglees suivent leur mur sur le contour du jour, par la geometrie (model/contourDeforme.ts).
-  if (bdtopo.couche === COUCHE_BATIMENT && o.type !== 'circle' && Array.isArray((o as Partial<ObjetPolygone>).pts)) suivreDeformation(objet as ObjetPlan, (o as ObjetPolygone).pts, 'geometrie');
-  return { objet, toitDeduit, corpsCaducs: volumesToit !== undefined && !!o.batiment?.corpsToit?.length };
+  if (batiment && contourEcrit && avant) suivreDeformation(objet as ObjetPlan, avant, 'geometrie');
+  return { objet, toitDeduit, corpsCaducs: volumesToit !== undefined && !!o.batiment?.corpsToit?.length, contourEcrit };
 }
 
 /** Les cotes du plan apres l'actualisation : chacune suit les cotes et les sommets relus des objets qu'elle vise. */

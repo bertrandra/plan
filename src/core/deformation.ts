@@ -3,18 +3,18 @@
 // nouveau contour (model/contourDeforme.ts). Le geste a deja pris son pas d'historique : Ctrl+Z defait tout ensemble.
 
 import { mesuresSuivent, suivreDeformation } from '../model/contourDeforme.js';
-import type { Marque } from '../model/protections.js';
+import type { Origine } from '../model/protections.js';
 import type { Mesure, ObjetPlan, PtBrut } from '../model/types.js';
 import { toucher } from './controleurObjets.js';
 import { lectureToits } from './lectureToits.js';
 
 /** Ce qui protege un toit, dit a la personne. */
-const RAISON: Partial<Record<Marque, string>> = {
+const RAISON: Partial<Record<Origine, string>> = {
   fige: 'réglé à la main', verifie: 'vérifié sur place', toitSaisi: 'saisi', toitPhoto: 'lu sur une photo de façade',
 };
 
 /** La phrase qui dit qu'un toit protege ne suit pas le contour, ou null. */
-export function messageToitGarde(o: { name?: string }, marque: Marque | null): string | null {
+export function messageToitGarde(o: { name?: string }, marque: Origine | null): string | null {
   if (!marque) return null;
   return 'Le toit de « ' + (o.name || 'ce bâtiment') + ' » est ' + (RAISON[marque] ?? 'protégé') + ' : il n’est pas relu sur le nouveau contour. '
     + 'Ajustez ses corps en Mode Toit.';

@@ -294,7 +294,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         const relu = objetIgnRelu(o, bdtopo, pts, f.properties || {}, contexteActualisation(o, options));
         if(relu.toitDeduit) nToits++;
         if(relu.corpsCaducs) caducs.add(o.key as string);
-        if(o.type !== 'circle' && (o as Partial<ObjetPolygone>).pts) contours.push({ cle: o.key as string, avant: (o as ObjetPolygone).pts, apres: pts });
+        if(relu.contourEcrit && o.type !== 'circle' && (o as Partial<ObjetPolygone>).pts) contours.push({ cle: o.key as string, avant: (o as ObjetPolygone).pts, apres: pts });
         return relu.objet;
       }
       return o;

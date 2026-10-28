@@ -218,3 +218,39 @@ describe('l actualisation IGN et les releves rangés par mur (MD/spec-ouvrages.m
     expect((cotes[0] as { refSegIndex: number }).refSegIndex).toBe(rangDuJour);
   });
 });
+
+describe('le LiDAR bat l IGN (decision du 28 octobre 2026)', () => {
+  const lue = (pts: PtBrut[]) => {
+    const objets = plan();
+    const m = objets.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    m.pts = pts;
+    m.elevation = 6.3;
+    m.batiment = { ...m.batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar', couverture: 'ardoise' }, toitLidarLu: 7 };
+    return objets;
+  };
+
+  it('un contour recale au LiDAR, de meme forme a la BD TOPO : contour, hauteur et toit lus restent ; les attributs sont relus', async () => {
+    service();
+    const recale = carre(5, 5, 10).map(p => ({ x: p.x + 1, y: p.y - 0.75 }));
+    const ctx = contexte(lue(recale));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const m = ctx.etat.objects.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    expect(m.pts).toEqual(recale);
+    expect(m.elevation).toBe(6.3);
+    expect(m.batiment?.toit?.source).toBe('lidar');
+    expect(m.batiment?.toitLidarLu).toBe(7);
+    expect((m.bdtopo as { nombreEtages?: number }).nombreEtages).toBe(2);
+  });
+
+  it('un contour change a l IGN meme : le contour du jour est pris et se relira, la hauteur mesuree et la couverture restent', async () => {
+    service();
+    const ctx = contexte(lue([{ x: 5, y: 5 }, { x: 15, y: 5 }, { x: 15, y: 12 }, { x: 5, y: 12 }]));
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const m = ctx.etat.objects.find(o => o.key === 'maison');
+    expect(sommets(m)).toEqual(sommets({ type: 'polygon', pts: carre(5, 5, 10) } as unknown as ObjetPlan));
+    expect(m?.elevation).toBe(6.3);
+    expect(m?.batiment?.toitLidarLu ?? null).toBeNull();
+    expect(m?.batiment?.toit?.source).toBe('bdtopo');
+    expect(m?.batiment?.toit?.couverture).toBe('ardoise');
+  });
+});

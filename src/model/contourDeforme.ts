@@ -18,12 +18,36 @@
 
 import { correspondanceDesCotes, memeContour } from './cotesAudit.js';
 import { deplacementRigide } from '../geometry/deplacement.js';
-import { protection, type Marque } from './protections.js';
+import { NIVEAU, niveauActuel, origineActuelle, type Origine } from './protections.js';
 import type { Mesure, ObjetPlan, PtBrut } from './types.js';
 
 /** Un sommet d'aujourd'hui a moins de cela d'un ancien est le meme : au centimetre apres un geste, a un demi-metre apres une
  * actualisation, qui deplace un peu les sommets. */
 const MEME_SOMMET_M: Record<Recompte, number> = { geste: 0.01, geometrie: 0.5 };
+
+/** Un recalage du LiDAR deplace un contour de tant au plus (DECALAGE_MAX_M, 3 m) : au-dela, ce n'est plus le meme contour deplace. */
+const DEPLACEMENT_MAX_M = 3.5;
+/** Deux sommets a moins de cela, une fois le deplacement retire, sont le meme : la precision d'un contour de la BD TOPO. */
+const MEME_FORME_M = 0.15;
+
+/**
+ * Le contour d'aujourd'hui est-il l'ancien, deplace d'un bloc (au plus de DEPLACEMENT_MAX_M), quel que soit son premier sommet ?
+ * Dans un sens comme dans l'autre. C'est ce que l'actualisation IGN demande : un contour que le LiDAR a recale garde sa forme a la BD TOPO du jour ; une forme qui a
+ * change, c'est l'IGN qui l'a changee.
+ */
+export function memeFormeDeplacee(avant: readonly PtBrut[], apres: readonly PtBrut[]): boolean {
+  const n = avant.length;
+  if (n < 3 || apres.length !== n) return false;
+  // Dans un sens ou dans l'autre : la BD TOPO rend un contour tourne dans le sens horaire, un contour dessine peut ne pas l'etre.
+  const sens = [apres, [...apres].reverse()];
+  for (let k = 0; k < 2 * n; k++) {
+    const tour = sens[k < n ? 0 : 1] as readonly PtBrut[];
+    const q = (i: number) => tour[(i + k) % n] as PtBrut;
+    const dx = avant.reduce((s, p, i) => s + q(i).x - p.x, 0) / n, dy = avant.reduce((s, p, i) => s + q(i).y - p.y, 0) / n;
+    if (Math.hypot(dx, dy) <= DEPLACEMENT_MAX_M && avant.every((p, i) => Math.hypot(q(i).x - p.x - dx, q(i).y - p.y - dy) <= MEME_FORME_M)) return true;
+  }
+  return false;
+}
 
 /** Comment recompter les rangs : `geste`, un sommet ajoute ou retire seul les change ; `geometrie`, chaque cote suit son mur. */
 export type Recompte = 'geste' | 'geometrie';
@@ -56,7 +80,7 @@ export interface SuiteDeformation {
   /** Le batiment redevient a lire au LiDAR : la tache de fond est a relancer. */
   relire: boolean;
   /** Le toit en corps ou en volumes reste sur l'ancien contour : la marque qui le protege. */
-  toitGarde: Marque | null;
+  toitGarde: Origine | null;
 }
 
 const RIEN: SuiteDeformation = { deforme: false, relire: false, toitGarde: null };
@@ -76,8 +100,8 @@ export function suivreDeformation(o: ObjetPlan, avant: readonly PtBrut[], recomp
   if (b.fenetres3d?.liste?.length) b.fenetres3d = { ...b.fenetres3d, liste: surLesCotes(b.fenetres3d.liste, vers) };
   const toitLu = !!b.toitLidarLu || !!b.corpsToit?.length || !!b.volumesToit?.length;
   if (!toitLu) return { ...RIEN, deforme: true };
-  const garde = protection(o, 'lidar', 'toit');
-  if (garde !== null && garde !== 'jamais') return { deforme: true, relire: false, toitGarde: b.corpsToit?.length || b.volumesToit?.length ? garde : null };
+  // Un toit d'un niveau plus fort que la mesure (model/protections.ts) n'est pas relu : c'est celui de la personne, ou celui vu.
+  if (niveauActuel(o, 'toit') < NIVEAU.mesure) return { deforme: true, relire: false, toitGarde: b.corpsToit?.length || b.volumesToit?.length ? origineActuelle(o, 'toit') : null };
   b.toitLidarLu = null;
   return { deforme: true, relire: true, toitGarde: null };
 }

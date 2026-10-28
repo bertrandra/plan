@@ -992,7 +992,7 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 |---|---|---|
 | **Gardé entier** | `toitFige`, `verifieSurPlace` (sauf « Recalculer aussi »), `retoucheMain` (sauf « Reprendre la version de l'IGN ») ; leurs `bdtopo.id` ne sont pas recréés à côté | `actualisationIgn/toitsEtMurs.ts:45-50`, `actualisationIgn.ts:189-195`, :272 |
 | | les lectures qui suivent repassent dessus puis sont défaites : `toit` et `couleurMurs` remis ; pour un retouché, tout `batiment` et `elevation` remis — pas `pts` | `toitsEtMurs.ts:75-89` |
-| **Relu** (bâtiment IGN gardé dans le plan) | `pts`, `elevation` (hauteur BD TOPO), attributs `bdtopo` ; `toitActualise` : un toit `bdtopo` ou `lidar` est recalculé (couleur gardée), un toit `saisie` ou `photo` gardé ; sur la propriété, si le toit change, `volumesToit` neufs et `toitMesure`, `corpsToit` effacés ; `toitLidarLu`, `profilFacades` effacés ; le reste de `batiment` (relevés, fenêtres, couleur des murs, mode) gardé tel quel ; `retoucheMain` retiré | `actualisationIgn.ts:280-317`, `model/toitBdTopo.ts:86-93` |
+| **Relu** (bâtiment IGN gardé dans le plan) | depuis le 28 octobre 2026, ce que `model/protections.ts` permet au niveau 5 (« Qui l'emporte ») : attributs `bdtopo` toujours ; `pts` seulement si le contour n'a pas été lu au LiDAR, ou si l'IGN en a changé la forme (`memeFormeDeplacee`) — alors `toitLidarLu` effacé, relevés, fenêtres et cotes rangés par la géométrie ; `elevation` (hauteur BD TOPO) seulement si elle n'est ni choisie ni mesurée ; `toitActualise` seulement pour un toit `bdtopo` (ou `lidar` sur un contour changé), couleur et couverture choisie gardées ; sur la propriété, si le toit change, `volumesToit` neufs, `toitMesure` effacé, `corpsToit` gardés le temps de la lecture LiDAR qui les remplace en reportant ce qu'ils portent ; `profilFacades` effacé ; le reste de `batiment` (relevés, fenêtres, couleur des murs, mode) gardé tel quel ; `retoucheMain` retiré | `actualisationIgn.ts:280-317`, `model/toitBdTopo.ts:86-93` |
 | **Recréé** (« Actualiser le projet ») | comme un import du jour (`batimentDeLaPropriete`) ; la clé de l'ancien **gardée** par `bdtopo.id` ; la réponse « à cheval » suit | `actualisationIgn.ts:203-229` |
 | **Remis par défaut** (« Actualiser le projet », objets non recréés) | `couleurMurs` (photo, terrain, matériau compris), `fenetres3d`, `profilFacades`, `modeToit` ; toit repassé en `bdtopo`, sans couleur ni couverture | `app/cadastre/valeursParDefaut.ts:25-36` |
 | **Puis** | orthophoto, LiDAR (30 plus proches, `verifies` selon la case), Panoramax ; le reste en tâche de fond | `toitsEtMurs.ts:91-97`, `chargements.ts:86-89` |
@@ -1015,9 +1015,9 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 
 | Champ | Création | Import IGN | LiDAR (import, fond) | Moteur de règles | Inspecteur, Mode Toit | Retouche du contour | Relevé de façade | Audit | Actualisation IGN |
 |---|---|---|---|---|---|---|---|---|---|
-| `pts` | É | É | É recalage (`toitFige`, `verifieSurPlace` ; pas `retoucheMain`) | L | É dessiné : déplacement | É, pose `retoucheMain` | L | L | É (gardés : marques ; `pts` d'un retouché non remis) |
-| `elevation` | — (2,5 m implicite) | É BD TOPO | É si écart ≥ 0,3 m (`toitFige`, `verifieSurPlace`, toit `saisie`/`photo`, `egoutChoisi`) | É fait en remplacement (`egoutChoisi`) | É « Élévation », pose `egoutChoisi` | — | L, jamais écrit | É « Hauteur à l'égout », pose `egoutChoisi` | É BD TOPO (gardés, `egoutChoisi`) |
-| `toit` (forme, hauteur, angle) | É via inspecteur (`saisie`) | É `bdtopo` | É `lidar` (`toitFige`, `verifieSurPlace`, `source` ≠ `bdtopo`/`lidar`) | É fait (remplacement, contrainte) | É forme, hauteur → `saisie` ; angle sans marque ; Mode Toit forme → `saisie` | — | É `photo`, case cochée | É `hauteur` | É si `bdtopo`/`lidar` (gardés) |
+| `pts` | É | É | É recalage (`toitFige`, `verifieSurPlace` ; pas `retoucheMain`) | L | É dessiné : déplacement | É, pose `retoucheMain` | L | L | É (gardés : niveaux 1 et 2 ; pas un contour lu au LiDAR de même forme) |
+| `elevation` | — (2,5 m implicite) | É BD TOPO | É si écart ≥ 0,3 m (`toitFige`, `verifieSurPlace`, toit `saisie`/`photo`, `egoutChoisi`) | É fait en remplacement (`egoutChoisi`) | É « Élévation », pose `egoutChoisi` | — | L, jamais écrit | É « Hauteur à l'égout », pose `egoutChoisi` | É BD TOPO, sauf hauteur choisie ou mesurée au LiDAR (gardés) |
+| `toit` (forme, hauteur, angle) | É via inspecteur (`saisie`) | É `bdtopo` | É `lidar` (`toitFige`, `verifieSurPlace`, `source` ≠ `bdtopo`/`lidar`) | É fait (remplacement, contrainte) | É forme, hauteur → `saisie` ; angle sans marque ; Mode Toit forme → `saisie` | — | É `photo`, case cochée | É `hauteur` | É si `bdtopo` (ou `lidar` sur un contour changé à l'IGN ; gardés) |
 | `toit.couleur` | — | É orthophoto | gardée | — | É, retire `origineCouleur` | — | — | — | gardée ; relue si `origineCouleur` |
 | `toit.couverture` | — | — | gardée | — | É matériau | — | — | É | **perdue** si `bdtopo`/`lidar` |
 | `corpsToit` | — | — | É (`toitFige`, `verifieSurPlace`, `source`) | É sous fait | É Mode Toit (`toitFige`) ; appentis ouvert (aucune) ; saillies (`toitFige`) | ne suit pas | L (gabarit) | É corps, cheminées, lucarnes, appentis, terrasse | effacé sur la propriété si le toit change (gardés) |
@@ -1035,32 +1035,64 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 
 ### Qui l'emporte
 
-*Depuis le 28 octobre 2026, une seule règle : `model/protections.ts`.* Chaque écrivain automatique demande à `peutEcrire(o,
-écrivain, groupe)` s'il peut écrire un groupe de champs du bâtiment ; plus aucun ne lit les marques à la main. Le tableau est
-`REGLES` ; `tests/unit/model/protections.test.ts` l'épingle case par case (chaque marque posée seule, chaque écrivain, chaque
-groupe), et le voici. « — » : l'écrivain n'écrit jamais ce groupe ; sinon, les marques qui l'arrêtent (« libre » : aucune).
+*Décidé le 28 octobre 2026 (journal des décisions) ; écrit dans `model/protections.ts`, seul juge.* Une seule hiérarchie, la plus
+forte d'abord :
 
-| Écrivain | Contour (`pts`) | Hauteur à l'égout (`elevation`) | Toit et corps | Éléments posés sur les corps | Couleur et couverture du toit | Murs (`couleurMurs`) | Façades (relevés, fenêtres, profil) |
-|---|---|---|---|---|---|---|---|
-| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo, **égout choisi** | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — (gardées) | — | — |
-| Recalage LiDAR (projet et mitoyens) | figé, vérifié, retouché, toit saisi, toit photo | — | — | — | — | — | — |
-| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo, **égout choisi** | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — | — | vérifié |
-| Actualisation IGN (`actualisationIgn.ts`, `toitsEtMurs.ts`) | figé, vérifié, retouché | figé, vérifié, retouché, **égout choisi** | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché | figé, vérifié, retouché |
-| Audit : proposition cochée d'office (`constats.ts`) | — | **égout choisi**, hauteur d'un bâtiment dessiné | figé, toit saisi | libre | couverture choisie | matériau choisi | relevé à la main sur ce mur |
+```mermaid
+flowchart TB
+  classDef h fill:#fde8e8,stroke:#b83232,color:#4a0f0f
+  classDef v fill:#fff4e0,stroke:#b7791f,color:#3d2a06
+  classDef a fill:#e8f0fe,stroke:#4a6fa5,color:#1b2a41
+  N1["1. LA PERSONNE, geste explicite<br/>Mode Toit, inspecteur, retouche du contour, case cochée<br/><i>le dernier geste gagne</i>"]:::h
+  N2["2. CE QUI A ÉTÉ VU SUR PLACE<br/>audit validé, relevé de façade validé<br/><i>une proposition ne remplace un choix de la personne que si elle coche</i>"]:::v
+  N3["3. LE FAIT DU MOTEUR DE RÈGLES<br/>faits.json par cleabs : remplacement, puis contrainte"]:::a
+  N4["4. LA MESURE<br/>LiDAR HD, sous les garde-fous et les réglages"]:::a
+  N5["5. LA SOURCE OFFICIELLE<br/>BD TOPO, cadastre : contour, hauteur, matériaux"]:::a
+  N6["6. LE DÉFAUT<br/>2,5 m, profils régionaux, pente 35°"]:::a
+  N1 -->|"bat"| N2 -->|"bat"| N3 -->|"bat"| N4 -->|"bat"| N5 -->|"bat"| N6
+```
 
-Les marques : **figé** `toitFige` (« Règles » coupées : Mode Toit, éléments de façade de l'inspecteur, toit validé par l'audit) ;
-**vérifié** `verifieSurPlace` (audit validé, bâtiment tout vu ; « Recalculer aussi » de l'actualisation la lève, et la tâche de
-fond lit sa copie pour comparer sans rien écrire que `toitLidarLu`) ; **retouché** `retoucheMain` (contour retouché ; « Reprendre
-la version de l'IGN » la lève) ; **toit saisi**, **toit photo** : `toit.source` ; **égout choisi** `egoutChoisi` (`'saisie'` :
-« Élévation » de l'inspecteur sur un bâtiment ; `'audit'` : « Hauteur à l'égout » validée ; enregistré à plat dans le fichier,
-absent sinon ; « Actualiser le projet » le reporte sur le bâtiment recréé). Pour l'audit, être arrêté veut dire que la
-proposition arrive décochée, « choix remplacé » ; « Valider » écrit quand même ce que la personne coche.
+**La règle.** Un écrivain automatique de niveau N n'écrit un groupe de champs que si la valeur d'aujourd'hui vient d'un niveau N
+ou plus faible (`peutEcrire(o, groupe, niveau)` ; `ecrivainPeut(o, écrivain, groupe)` le demande pour un écrivain nommé). Entre deux
+valeurs du même niveau, la dernière gagne. Les écrivains : l'audit (2 : sa proposition arrive cochée d'office, sinon décochée,
+« choix remplacé » ; « Valider » écrit ce que la personne coche), le moteur de règles (3 : faits, profils de façades), la lecture
+LiDAR et son recalage (4), l'actualisation IGN (5). Plus aucun ne lit les marques à la main.
+
+**Le niveau de la valeur d'aujourd'hui** se lit sur les marques que l'objet porte déjà, groupe par groupe, la première qui
+s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test.ts`) :
+
+| Groupe | 1. la personne | 2. vu sur place | 3. le fait | 4. la mesure | 5. la source | 6. le défaut |
+|---|---|---|---|---|---|---|
+| Contour (`pts`) | `retoucheMain` ; `toitFige` ; dessiné (pas de `bdtopo`) | `verifieSurPlace` | — | lu au LiDAR (`toitLidarLu`, recalage compris) | BD TOPO | — |
+| Hauteur à l'égout (`elevation`) | `egoutChoisi: 'saisie'` ; `toitFige` ; toit `saisie` ; posée sur un bâtiment dessiné | `egoutChoisi: 'audit'` ; `verifieSurPlace` ; toit `photo` | — | `toitLidarLu` | BD TOPO | absente (2,5 m) |
+| Toit et corps | `toitFige` ; toit `saisie` | `verifieSurPlace` ; toit `photo` | — | toit `lidar` ou `toitLidarLu` | toit `bdtopo` | aucun |
+| Éléments posés sur les corps | `toitFige` | cheminées, lucarnes, fenêtres de toit, terrasse, appentis ouvert ou saillies présents | — | — | — | aucun |
+| Couverture | `toit.couverture` | — | — | — | — | aucune |
+| Murs (`couleurMurs`) | `source` choisie | `materiau`, `terrain` ; `verifieSurPlace` | — | `photo` (Panoramax) | — | rien |
+| Façades | relevé à la main sur ce mur | relevé de l'audit sur ce mur ; `verifieSurPlace` | `profilFacades` | — | — | rien |
+
+Ce que la personne demande lève une marque pour une écriture : « Recalculer aussi » (actualisation) lève `verifieSurPlace`, et la
+tâche de fond lit la copie d'un bâtiment vérifié pour la comparer sans rien écrire que `toitLidarLu` ; « Reprendre la version de
+l'IGN » lève `retoucheMain`. Un contour changé à l'IGN même (`mesurePerimee` : la BD TOPO du jour n'a plus la même forme, au
+déplacement près) rend périmée la mesure lue sur l'ancien contour, pour le contour et le toit — pas pour la hauteur.
+
+**Ce que chacun peut donc écrire :**
+
+| Écrivain (niveau) | Écrit une valeur de niveau | Ce qui l'arrête, en pratique |
+|---|---|---|
+| Audit, proposition cochée d'office (2) | 2 à 6 | `toitFige`, toit `saisie`, `egoutChoisi: 'saisie'`, hauteur d'un dessiné, couverture choisie, source des murs choisie, relevé à la main sur le mur ; pas `verifieSurPlace` |
+| Moteur de règles (3) | 3 à 6 | les niveaux 1 et 2 ; un profil de façades ne se rechoisit pas sur un bâtiment vérifié |
+| Relecture LiDAR (4) | 4 à 6 | les niveaux 1 à 3 ; ce qui est posé sur les corps (2) n'est jamais écrit : il est reporté sur les corps neufs |
+| Recalage LiDAR (4) | 4 à 6 | un contour retouché, figé, vérifié ou dessiné |
+| Actualisation IGN (5) | 5 et 6 | les niveaux 1 à 4 : **le LiDAR bat l'IGN** ; elle ne met à jour que ce que le LiDAR n'a pas lu (attributs, bâtiments nouveaux, un contour changé à l'IGN même, que le LiDAR relit ensuite ; la hauteur mesurée reste) ; elle garde entier un bâtiment dont le contour est de niveau 1 ou 2 (sauf un bâtiment dessiné, que « Actualiser le projet » recrée parce que la personne l'a demandé) |
 
 Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
 (`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`) ; `toitLidarLu` à jour arrête une
-nouvelle lecture en fond ; un relevé sans `depuisAudit` n'est jamais remplacé d'office par l'audit (`arbitrages.ts:358-359`).
+nouvelle lecture en fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non
+gardés (une case cochée : le geste de la personne).
 
-*Avant le 28 octobre 2026* (relevé du même jour, commit `e4d89f97`) : quatre marques, lues chacune par une partie des écrivains,
+*Avant le 28 octobre 2026* (relevé du même jour, commit `e4d89f97`, puis un premier tableau écrivain par écrivain, remplacé le même
+jour par la hiérarchie) : quatre marques, lues chacune par une partie des écrivains,
 à la main — `toitFige` par le LiDAR et l'actualisation, `verifieSurPlace` par le LiDAR, la couleur et le profil de façades,
 `retoucheMain` par l'actualisation et le recalage, `toit.source` par le LiDAR et l'actualisation du toit — et `elevation` sans
 aucune : la dernière source gagnait.
@@ -1139,7 +1171,7 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
    (`toitsLidar.ts:264-270`) : dans un projet géolocalisé, une extension dessinée sans toit est lue en tâche de fond (toit
    `lidar`, `elevation` corrigée), et recalée d'un bloc si son centre tombe sur une parcelle mitoyenne (`clesMitoyens`,
    `model/mitoyennete.ts:44`). La fonction `annexe`, sœur de `batiment` (`model/ouvrages/bati.ts:41`), n'est jamais lue. Non
-   vérifié en exécution.
+   vérifié en exécution. — *En partie corrigé le 28 octobre 2026* (hiérarchie, « Qui l'emporte ») : le contour d'un bâtiment dessiné est un geste de la personne (niveau 1), il n'est plus recalé, et une hauteur posée dessus n'est plus réécrite par la lecture ; son toit, lui, se lit encore. Reste : l'`annexe` n'est jamais lue.
 10. **« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
     volumes et mesure à l'instant (`three/gestesToits.ts:374-382`) ; la relecture n'attend que `toitsFond.relancer()`, appelé à
     l'ouverture, après une actualisation ou par « Reprendre » (`app/boot.ts:85`, `app/boot/chargements.ts:88`). Entre les deux, le
@@ -1311,3 +1343,5 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
 | 28 octobre 2026 | Un seul soleil pour le plan, la 3D et la visionneuse, enregistré avec le projet (sans « projet modifié ») ; pas d'ombre des bâtiments, des arbres ni des pergolas sur le plan ; pas de nord réglable pour un plan dessiné. Étape 6.7. |
 | 28 octobre 2026 | Le flux de construction d'un bâtiment décrit (section du même nom) : qui écrit quoi, qui l'emporte, la définition du corps et sa règle de découpe. |
+| 28 octobre 2026 | Une seule hiérarchie décide qui l'emporte sur un champ d'un bâtiment : 1. la personne (geste explicite ; entre deux de ses gestes, le dernier gagne) > 2. ce qui a été vu sur place (une proposition ne remplace un choix de la personne que si elle la coche) > 3. le fait du moteur de règles > 4. la mesure (LiDAR HD) > 5. la source officielle (BD TOPO, cadastre) > 6. le défaut. Un écrivain automatique de niveau N n'écrit qu'une valeur de niveau N ou plus faible (`model/protections.ts`, « Qui l'emporte »). |
+| 28 octobre 2026 | Le LiDAR bat l'IGN : l'actualisation IGN garde la hauteur à l'égout et le contour (recalage compris) mesurés au LiDAR ; elle ne met à jour que ce que le LiDAR n'a pas lu — les attributs, les bâtiments nouveaux, et un contour changé à l'IGN même, que le LiDAR relit ensuite. |

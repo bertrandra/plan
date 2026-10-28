@@ -70,11 +70,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une seule hiérarchie décide qui l'emporte sur un bâtiment** (décision du 28 octobre 2026) : la personne, puis ce qui a été vu
+  sur place, le fait du moteur de règles, la mesure LiDAR, la BD TOPO, le défaut. Un écrivain automatique n'écrit plus qu'une
+  valeur de son niveau ou d'un niveau plus faible (`model/protections.ts`). Ce qui change : **le LiDAR bat l'IGN** — l'actualisation
+  IGN garde la hauteur à l'égout, le toit et le contour (recalage compris) lus au LiDAR, et ne prend le contour du jour que si
+  l'IGN en a changé la forme (le LiDAR le relit alors, la hauteur mesurée reste) ; elle garde aussi la couverture choisie d'un toit
+  qu'elle recalcule. Un bâtiment dessiné n'est plus recalé sur le LiDAR, et sa hauteur posée n'est plus réécrite. Dans l'audit,
+  les cheminées, lucarnes et appentis d'un toit aux « Règles » coupées, et la couleur des murs dont la source est choisie, arrivent
+  décochés ; un matériau des murs déjà validé par un audit se repropose coché (même niveau : le dernier gagne).
+
 - **Une seule règle dit qui peut écrire quoi sur un bâtiment** (`model/protections.ts`). La lecture LiDAR, son recalage, le moteur
   de règles, l'actualisation IGN et l'audit de la parcelle demandent tous au même module s'ils peuvent écrire le contour, la
   hauteur à l'égout, le toit, ce qui est posé dessus, sa couverture, les murs ou les façades, au lieu de lire chacun une partie
-  des marques (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`). Le comportement ne change pas ; le tableau complet
-  est dans `MD/spec-ouvrages.md` (« Qui l'emporte ») et un test l'épingle case par case.
+  des marques (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`) ; le tableau complet est dans `MD/spec-ouvrages.md`
+  (« Qui l'emporte ») et un test l'épingle case par case.
 
 - **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
   l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent

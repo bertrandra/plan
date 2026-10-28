@@ -33,7 +33,7 @@ import { centroid } from '../../geometry/basic.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { ProgressionToits } from '../../core/lectureToits.js';
 import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
-import { peutEcrire } from '../../model/protections.js';
+import { ecrivainPeut } from '../../model/protections.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
@@ -154,10 +154,10 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
   if (forme) {
     // Ce que la lecture peut ecrire sur le batiment du plan (model/protections.ts) : d'un batiment verifie sur place, rien que sa
     // marque ; d'un contour retouche a la main, pas le contour (toitsLidar.ts ne le recale pas non plus).
-    const toit = peutEcrire(o, 'lidar', 'toit');
+    const toit = ecrivainPeut(o, 'lidar', 'toit');
     if (toit) {
       const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
-      const permis = { pts: peutEcrire(o, 'recalage', 'contour'), elevation: peutEcrire(o, 'lidar', 'hauteur') };
+      const permis = { pts: ecrivainPeut(o, 'recalage', 'contour'), elevation: ecrivainPeut(o, 'lidar', 'hauteur') };
       for (const k of CHAMPS_LUS) if (permis[k]) cible[k] = source[k] === undefined ? null : source[k];
     }
     const cible = champsBatiment(o) as Record<string, unknown>, source = (copie.batiment ?? {}) as Record<string, unknown>;
