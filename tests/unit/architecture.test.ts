@@ -401,7 +401,7 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
         'ui/champs/noteCalcul', 'export/noteCalculPdf'],
       publie: []
     },
-    parasol: { modules: ['engine/parasol', 'render/parasolOverlay', 'three/ouvrages/parasol'], publie: [] },
+    parasol: { modules: ['engine/parasol', 'render/parasolOverlay', 'three/ouvrages/parasol', 'ui/champs/parasol'], publie: [] },
     cloture: {
       modules: ['model/cloture', 'model/typesCloture', 'model/clotureVue', 'render/cloture', 'three/cloture3d', 'three/clotureVoisinage',
         'ui/champs/cloture'],
