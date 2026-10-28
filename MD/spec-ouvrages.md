@@ -738,6 +738,418 @@ Par ordre d'effet sur ce que voit la personne :
 17. **L'écriture ne nomme pas ses objets** (`toucherTout` par l'historique, `validation.ts:529`, `:375`) : juste, mais tout le plan se
     redessine ; à ranger avec l'étape 6.1 du contrôleur des objets.
 
+## Le flux de construction d'un bâtiment
+
+*Relevé dans le code le 28 octobre 2026 (worktree `w68`, commit `445e5899`), en lecture seule : rien n'a été exécuté.* Un
+bâtiment n'a pas d'auteur unique. Neuf sources écrivent dans le même objet, chacune quelques champs, à des moments différents :
+la création, l'import IGN, la lecture LiDAR (à l'import, puis en tâche de fond), le moteur de règles, le Mode Toit,
+l'inspecteur, le relevé de façade, l'audit de la parcelle et l'actualisation IGN. Ce qui arbitre entre elles n'est pas un
+composant : ce sont quatre marques posées sur l'objet (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`) et une
+version (`toitLidarLu`), lues chacune par une partie des écrivains seulement.
+
+### Les repères
+
+- **Un bâtiment** est un polygone de fonction `batiment` (ou `annexe`) : `model/ouvrages/bati.ts::BATIMENT`, particularité
+  `releve`, élévation par défaut 2,5 m. `estBatiment` (`model/fonctions.ts:55`) vaut pour les deux ; la lecture LiDAR, elle, ne
+  prend que `batiment` (`app/toits/toitsLidar.ts:265`).
+- **Ce qu'il porte** : à plat sur l'objet, `pts`, `elevation` (la hauteur à l'égout, celle du prisme), `bdtopo`, `retoucheMain`,
+  `fill` ; dans le sous-objet `batiment` (`model/typesFonctions.ts:13-79`), `toit` (la forme simple), `volumesToit`, `toitMesure`,
+  `corpsToit` (cheminées, lucarnes, terrasse, appentis, bow-windows sont **dans** les corps), `toitLidarLu`, `toitACheval`,
+  `modeToit`, `toitFige`, `verifieSurPlace`, `facades` (relevés), `fenetres3d`, `couleurMurs`, `profilFacades`.
+- **Trois identités** : la clé du plan (`bati-<id>`, `geo/cadastreObjets.ts:335`), `bdtopo.id` (la clé gardée à l'actualisation)
+  et `bdtopo.cleabs` (les faits du moteur, `regles/toits/faits.ts:339`).
+- **Un mur** se désigne par le rang de son côté dans `pts` (`cote`) : relevés, fenêtres réglées une par une, façades de l'audit,
+  cotes. Un corps a ses propres murs, numérotés dans `corps.pts`.
+- **Les hauteurs** : `elevation` est l'égout (sol → égout, la `hauteur` de la BD TOPO) ; `toit.hauteur` est la montée du faîtage
+  au-dessus de l'égout ; un corps porte ses hauteurs en absolu (`egouts`, `faitage`, depuis le sol).
+
+### Le corps : définition et règle de découpe
+
+**Définition.** Un corps est **un rectangle du bâtiment qui porte un toit à lui** : une maison, une aile, une annexe, un
+appentis, une tourelle. Un bâtiment en L, en T ou en U n'a pas un toit mais plusieurs ; chacun a son faîtage, ses égouts, parfois
+sa hauteur. Le corps est la brique du toit : tout ce qui se pose sur un toit appartient à un corps.
+
+| Ce qu'un corps porte (`CorpsToit`, `model/typesToit.ts:71`) | Sens |
+|---|---|
+| `pts` | le rectangle, quatre sommets : `pts[0]→pts[1]` suit le faîtage (la longueur), `pts[0]→pts[3]` la largeur |
+| `posFaitage` | la place du faîtage dans la largeur, depuis le côté `pts[0]-pts[1]` ; 0 ou la largeur : un appentis |
+| `faitage`, `egouts: [e0, e1]` | hauteurs **absolues**, depuis le sol : le faîtage, l'égout de chaque pan ; faîtage = égouts : plat |
+| `croupes`, `bouts` | ce qui ferme chaque bout : pignon (deux pans) ou croupe (quatre pans) |
+| `pignons` | les pignons qui partent du faîtage, le long d'un mur |
+| `cheminees`, `lucarnes`, `elementsToit`, `terrasse` | ce qui est posé sur lui : souches, lucarnes, fenêtres de toit et panneaux, toiture-terrasse |
+| `profil`, `bords`, `speciale`, `ouvert`, `saillie`, `baie` | profil des pans, débords, toit de révolution, appentis ouvert, élément posé sur un mur d'un autre corps, bay window |
+| `ecart` | l'écart quadratique moyen à la mesure LiDAR : ce que la lecture a su expliquer |
+
+Les corps **se chevauchent** par construction : une aile qui pénètre la maison a son toit entier, le plus haut l'emporte en 3D, et
+les noues naissent de leur rencontre. Le **corps principal** est le plus grand : il porte la porte d'entrée, donne la forme du
+bâtiment (`model/formeToit.ts`) et c'est lui que remplace une forme du catalogue (Mansart, gambrel, berceau…).
+
+Un corps n'est **pas** un volume (`volumesToit`, l'ancienne lecture : un rectangle et un toit simple, `estime`), ni la forme simple
+`toit` du bâtiment (un seul toit sur tout le contour). Ce que la 3D montre se décide une fois (`model/toitMesure.ts::modeToitActif`) :
+le mode choisi, sinon les corps, sinon les volumes, sinon le toit simple.
+
+**Qui découpe.** Seule la lecture LiDAR découpe un bâtiment en corps, et seulement sur la parcelle du projet et ses mitoyens (le
+voisinage garde un toit par bâtiment, sauf « Toits en corps et pignons », coché par défaut) :
+`app/toits/toitsLidar.ts::corpsLus` → `facade/toits/toitCorps.ts::reconstruireCorps`. À la main, le Mode Toit ajoute, retire,
+tourne ou duplique un corps ; un fait du moteur de règles impose le corps principal (`corpsSousContrainte`). Un bâtiment dessiné
+sans LiDAR n'a pas de corps.
+
+**La règle de découpe**, dans l'ordre (seuils de `regles/toits/reglages.json`, lus par le code, entrés dans
+`VERSION_LECTURE_TOITS` : en changer un relit les toits déjà lus) :
+
+1. **Mise à l'équerre** (`model/volumesToit.ts::decomposerEnRectangles`) : le contour est tourné dans l'axe de son plus long côté ;
+   chaque côté à moins de **15°** (`TOLERANCE_DEG`) de l'équerre y est ramené. Les **décrochés de moins de 1,2 m**
+   (`SEUIL_DECROCHE_M`) sont lissés : un ressaut, un conduit, un perron ne font pas un corps.
+2. **Rectangles maximaux** (`couvertureRectangles`) : sur la grille des abscisses et ordonnées du contour, chaque rectangle tout
+   entier dedans qu'aucun autre ne contient, du plus grand au plus petit, autant qu'il en faut pour tout couvrir. On renonce si le
+   contour n'est pas rectiligne, si l'équerre change l'aire de plus de 15 %, ou si un rectangle fait moins de **1,5 m** de large
+   (`LARGEUR_MIN_M`). Une maison rectangulaire donne un rectangle (`rectanglesDuContour`).
+3. **Coupe aux marches** (`model/toitMesure.ts::decouperParHauteurs`) : un rectangle est recoupé là où la couverture mesurée
+   saute d'au moins **0,8 m** (`SEUIL_MARCHE_M`) **d'un coup** — 1,6 fois plus que sur le mètre voisin : un pan raide monte
+   partout, une marche d'un seul coup. Deux coupes au plus par rectangle ; un bloc fait au moins **1,5 m** (`LARGEUR_BLOC_MIN_M`).
+   Une aile dont plus de **la moitié** est sous un rectangle plus grand (`PART_SOUS_PLUS_GRAND`) n'est pas coupée si son toit
+   entier tient la mesure : ses « marches » sont les pentes du toit qui la couvre.
+4. **Refonte** (`refondre`) : deux morceaux redeviennent un seul corps si le toit lu sur le rectangle entier fait presque aussi
+   bien — un écart au plus **1,15 fois** celui des morceaux (`TOLERANCE_REFONTE`), **1,6 fois** si un morceau fait moins de 3 m
+   (`TOLERANCE_BANDE`, `LARGEUR_BANDE_M`) — et toujours s'il n'y a **aucune marche** à la coupe (saut médian sous **0,6 m**,
+   `CONTINUITE_M`). Un corps ne se coupe pas sans raison.
+5. **Coupe par le modèle** (`meilleureCoupe`, deux fois au plus) : à l'inverse, un rectangle sans marche devient deux corps si
+   deux toits simples expliquent la mesure nettement mieux qu'un — l'écart tombe aux **deux tiers** (`GAIN_COUPE`), il valait au
+   moins 25 cm, et les deux toits diffèrent d'au moins 60 cm. Un pignon n'est pas un corps : ses mesures n'y comptent pas.
+6. **Le toit de chaque corps** (`ajusterCorps`) : chaque sens et chaque place du faîtage, tous les 25 cm, murs compris (un
+   appentis) ; ce qui dépasse le pan de plus de **40 cm** est écarté (pignon, arbre, lucarne). Pente au plus 60°, égouts au moins
+   1,5 m ; moins de **30 cm** de montée ou moins de **3°** : plat (`HAUTEUR_PLAT_M`, `PENTE_PLAT_DEG`) ; un faîtage à moins de
+   **1 m** d'un mur (`PAN_MIN_M`) : un appentis. Puis les **pignons** (la mesure dépasse le pan de 80 cm le long d'une façade, sur
+   1,5 à 6 m) et les **croupes** (gardées si l'écart tombe à 0,8 fois celui des pignons de bout).
+7. **Bandes recouvertes** (`sansBandesRecouvertes`) : un corps de moins de **3 m** de large dont plus de **90 %** est sous les
+   autres est retiré — c'était un morceau du toit voisin. Un corps plus large reste, même recouvert.
+8. **Contour de biais** (`corpsDeReprise`) : quand l'équerre échoue, le contour est ramené en marches dans l'axe qui aligne le plus
+   de côtés, découpé en tranches, puis chaque corps avance ses côtés libres pour couvrir le contour (complétion, avec trois
+   garde-fous : au moins 10 % du contour sans toit devant lui, pas d'égout sous 2 m, la mesure à sa hauteur). En dernier recours,
+   un seul corps sur la boîte orientée.
+9. **Après la découpe** : la forme du catalogue remplace le corps principal si elle explique mieux la mesure
+   (`facade/regles/toits/catalogue.ts::corpsCalcules`), le fait du bâtiment s'impose (`corpsSelonFait`), et un corps dont l'égout
+   dépasse la BD TOPO de plus de 3 m est écarté comme végétation (`corpsVraisemblables`).
+
+La découpe de référence est **AE 101** (2 allée des Limites, Le Vésinet) : quatre corps sous ses faits ;
+`npx tsx .claude/skills/toits/scripts/identite.ts` vérifie qu'elle ne bouge pas. Le détail des seuils, avec leurs cas, est dans
+`MD/spec-toit-ign.md` §11 et §13 et dans le skill `toits` (§3).
+
+**Ce que la découpe ne dit pas** (à relier au « Qui l'emporte ») : un corps n'a pas d'identité propre — il est rendu par sa place
+dans `corpsToit`, et une lecture rend une liste neuve. Ce qui était posé sur un ancien corps (cheminées, lucarnes, terrasse) n'a
+donc pas d'adresse stable : c'est le point 3 des « toits dans l'audit de la parcelle » (corrigé à part) ; pour la relecture LiDAR,
+la même question reste à vérifier.
+
+### 1. La naissance
+
+| | Dessiné à la main | Importé (BD TOPO) |
+|---|---|---|
+| Geste | un polygone (`model/creation.ts::nouvelObjet`, fonction `autre`, rectangle si les quatre sommets sont gelés), puis « Fonction › Bâtiment » | « Nouveau plan depuis une adresse » → `geo/cadastreObjets.ts::objetBatiment` (:321) |
+| `pts` | ceux du dessin, contraints à la parcelle (`constrained: true`) | l'anneau BD TOPO projeté, en sens horaire, simplifié si demandé (`geo/apiIgn.ts::anneauVersPts`, :141) ; jamais contraint |
+| `elevation` | absente : 2,5 m par défaut (`engine/hauteurs.ts:101`) | `hauteurBatiment` (`geo/bdtopo.ts:30`) : la hauteur BD TOPO, sinon étages × 2,7 m, sinon 2,5 m |
+| `toit` | absent (un bloc plat) ; créé `source: 'saisie'` au premier réglage de l'inspecteur ou du Mode Toit (`ui/champs/facade.ts:33`, `three/gestesToits.ts:250`) | `toitBdTopo` (`model/toitBdTopo.ts:50`) : deux pans dans l'axe d'un rectangle allongé, croupes sinon ; hauteur = altitude max − min du toit ; plat sous 0,5 m ou 10° ; `source: 'bdtopo'`, `estime` sans altitudes |
+| `volumesToit` | — | sur la propriété : `volumesParDefaut` (`model/volumesToit.ts:290`) |
+| `bdtopo` | — | `id`, `cleabs`, hauteurs, altitudes, étages, matériaux des murs et du toit, `surParcellePrincipale`, `recupereLe` (:339-354) |
+| Verrou | non | `locked` hors de la propriété (:337) |
+
+À l'import, dans l'ordre (`app/cadastre/importCadastre.ts:735-746`) : couleur des toits sur l'orthophoto, forme des toits au
+LiDAR (les 30 plus proches), couleur des murs sur Panoramax, relief. Le reste des toits se lit à l'ouverture, en tâche de fond.
+
+### 2. Le contour
+
+| Geste | Bâtiment de l'IGN | Bâtiment dessiné | Ce que le toit fait |
+|---|---|---|---|
+| Glisser, aligner (tourner) | refusé, `MESSAGE_TERRAIN_REEL` (`interaction/pointeur.ts:210`, `interaction/outilAlignement.ts`) | permis | suit : `suivreLeContour` → `Ouvrage.suivreContour` (`model/ouvrages/index.ts:42`, `model/ouvrages/bati.ts:11-32`) translate et tourne corps, cheminées, édicules, volumes, `angleFaitage` ; `toitMesure` translaté, **effacé** s'il tourne |
+| « Réinitialiser la position » | permis (`app/ecouteurs/objets.ts:117-133`) | permis | suit |
+| Tirer un sommet ou un côté, en ajouter, saisir un angle ou une longueur | après la question de retouche (`interaction/retoucheTerrain.ts:26-28`, `app/inspecteur.ts:118`) : pose `retoucheMain` (`model/retouche.ts:27`) | permis sans question | **ne suit pas** : rien n'appelle `suivreLeContour`, corps et volumes restent sur l'ancien contour |
+| Rectangle (quatre sommets gelés) | — | coin ou côté tiré redimensionne (`interaction/drag.ts:117-131`) | ne suit pas |
+| Recalage LiDAR | translation d'un bloc si plus de 12 % de vide sous le contour (projet et mitoyens, `toitsLidar.ts:73-88`) ; écrit `pts` (`toitsFond.ts:130`, `CHAMPS_LUS`) | id., s'il est lu (voir 4) | les corps sont relus ensuite sur le contour recalé |
+| Actualisation IGN | `pts` remplacés par la BD TOPO du jour (`app/cadastre/actualisationIgn.ts:298`) | supprimé et recréé par « Actualiser le projet » s'il est sur la parcelle (`:164-169`, `:194`) | voir 9 |
+
+Les relevés et les fenêtres, rangés par rang de côté, suivent un déplacement d'eux-mêmes ; ils glissent d'un mur quand le
+nombre ou l'ordre des sommets change. Le relevé posé sur un mur qui a changé de longueur s'étire, ses ouvertures gardent leur
+cote depuis la gauche et celles qui sortent sont omises (`three/releve3d.ts:306-322`).
+
+### 3. Les hauteurs
+
+| Hauteur | Écrite par | Où |
+|---|---|---|
+| `elevation` (égout du prisme) | import : hauteur BD TOPO | `geo/cadastreObjets.ts:334` |
+| | LiDAR : l'égout mesuré (10e centile) ou celui de la forme ajustée, s'il s'écarte d'au moins 0,3 m et reste entre 2 et 40 m | `facade/regles/toits/vraisemblance.ts:66-69`, `toitsLidar.ts:367-370` |
+| | fait en remplacement : son égout | `toitsLidar.ts:137` |
+| | inspecteur « Élévation » | `ui/champs/objet.ts:115` |
+| | audit : « Hauteur à l'égout » (photos, Claude, LiDAR arbitrés) | `regles/decisions.ts:270`, `app/audit/parcelle/arbitrages.ts:92` |
+| | actualisation IGN : hauteur BD TOPO, à chaque fois | `actualisationIgn.ts:302` |
+| `toit.hauteur` (faîtage au-dessus de l'égout) | BD TOPO, LiDAR (forme ajustée), inspecteur (`source: 'saisie'`, `ui/champs/facade.ts:335-340`), audit « Hauteur totale » (`decisions.ts:271`) | |
+| égouts et faîtage d'un corps | LiDAR (`reconstruireCorps`), fait, Mode Toit (poignées), audit (corps relus) | `corpsToit` |
+| murs d'un volume, d'un corps | dérivés : `hauteurMurMesuree`, `hauteursMursCorps` | lus, jamais saisis |
+| hauteur mesurée sur une photo de façade | **dite, pas appliquée** : « le bâtiment garde x m » | `app/releve/releve.ts:121-128` |
+
+En mode corps, la 3D monte chaque prisme à l'égout de son corps (`three/sceneObjets.ts:316-320`) : `elevation` ne s'y voit plus,
+mais reste celle que lisent l'inspecteur, les relevés, la DP2 et l'audit.
+
+### 4. Le toit automatique
+
+**La chaîne** (`app/toits/toitsLidar.ts::toitsDepuisLidar`, :380 ; le détail des règles est dans le skill `toits` §2-§3) :
+
+1. **Qui est lu** : `toitAAjuster` (:264-270) — fonction `batiment`, pas `toitFige`, et un toit absent, `bdtopo` ou `lidar` ;
+   puis `admis` (:386) écarte `verifieSurPlace` (sauf `verifies: 'relire'`). Rien ne demande `bdtopo` : **un bâtiment dessiné
+   dans un projet géolocalisé est lu aussi**, en tâche de fond, comme un voisin. Une `annexe` ne l'est jamais.
+2. **Un fait en remplacement** pose le toit sans rien lire, LiDAR ou pas (`toitDuFait`, :132-142) : corps et forme du fait,
+   `toitMesure`, `volumesToit`, `toitACheval` effacés, `elevation` = son égout.
+3. **Lecture** de la grille MNH sous le contour (`lireSous`, :306) ; `toitLidarLu` posé dès que le service a répondu, même sans
+   mesure (:420).
+4. **Recalage** d'un bloc, pour le projet et les mitoyens (:428-432).
+5. **Sous les seuils du profil** du bâtiment (`avecSeuilsToit`, `facade/regles/toits/profils.ts`), `poserLeToit` (:339-372) :
+   la forme simple ajustée (`facade/toits/toitLidar.ts::ajusterToit`, sous le fait en contrainte : `ajusteSelonFait`), écartée
+   si c'est un houppier ; sur la propriété, `toitMesure` (`model/toitMesure.ts::toitMesureDepuisGrille`), `volumesToit`
+   (`volumesDepuisLidar`) et `corpsToit` (`corpsLus`, :118-121) ; chez un voisin, les corps seuls (calcul allégé hors
+   mitoyens), `toitMesure` gardé chez le mitoyen ; la question « à cheval » (`toitAChevalApresCalcul`, :102).
+6. **`corpsLus`** = `corpsCalcules` (pentes droites `facade/toits/toitCorps.ts::reconstruireCorps`, puis formes du catalogue
+   `facade/regles/toits/catalogue.ts:46`) → `corpsSelonFait` (fait en contrainte : `corpsSousContrainte`, pignons, appentis,
+   bay windows ; `facade/regles/toits/faits.ts:170`, :309) → `corpsVraisemblables` (végétation).
+7. **Écriture** : `toit` remplacé par la forme ajustée en gardant `couleur`, `origineCouleur` et `couverture` (`avecCouleurDe`,
+   :124-127) ; `elevation` (point 3) ; `toucher(o)`.
+
+**Le moteur de règles** ne s'appelle pas à part : il est dans cette chaîne. Réglages (`regles/toits/reglages.json`, lus à chaque
+appel par `S.NOM`), formes (`regles/toits/formes.json`), profils (aucun livré), faits par `cleabs` (`regles/toits/faits.json` : un
+seul, AE 101, en contrainte). Rien de l'application n'écrit ces fichiers.
+
+**Ce qui déclenche une relecture** :
+
+| Déclencheur | Effet | Où |
+|---|---|---|
+| Une ligne de `LECTURES_TOITS`, ou des empreintes de réglages, faits ou formes qu'aucune ligne ne connaît | `VERSION_LECTURE_TOITS` monte : tout bâtiment marqué plus bas redevient à lire | `toitsLidar.ts:209-249` |
+| L'ouverture du plan, un import, une actualisation, « Reprendre » | `toitsFond.relancer()` : les bâtiments éligibles non lus, du plus proche au plus loin | `app/boot.ts:85`, `app/boot/chargements.ts:88`, `:108`, `app/ecouteurs/toitsFond.ts:18` |
+| Une actualisation IGN qui relit un bâtiment | `toitLidarLu: null` | `actualisationIgn.ts:307` |
+| « Règles » rallumées (Mode Toit) | `toitLidarLu`, corps, volumes, mesure, mode effacés ; `saisie` redevient `bdtopo` | `three/gestesToits.ts:374-382` |
+| Faits d'essai (`?regles=local`) | relecture, marque `MARQUE_ESSAI_FAITS` | `toitsLidar.ts:255-259`, `app/boot/branchementToits.ts:25` |
+
+La tâche de fond lit une **copie** et ne la reporte que si `pts` et `toit` n'ont pas bougé (`toitsFond.ts:137`, :148) ; elle écrit
+`pts`, `elevation` et `toit`, `toitMesure`, `volumesToit`, `corpsToit`, `toitACheval`, `toitLidarLu` (:130-132), ou la seule marque
+pour un bâtiment vérifié (:133, :150-156). Hors historique : Ctrl+Z ne la défait pas.
+
+### 5. Le toit à la main
+
+| Chemin | Ce qu'il écrit | Marque posée |
+|---|---|---|
+| Inspecteur, mode « Un seul toit » : forme, hauteur du faîtage | `toit.forme`, `toit.hauteur` | `toit.source = 'saisie'` (`ui/champs/facade.ts:316`, :339) |
+| Inspecteur : direction du faîtage | `toit.angleFaitage` | **aucune** (:358-360) |
+| Inspecteur : couverture (couleur), matériau | `toit.couleur` (retire `origineCouleur`), `toit.couverture` | l'absence d'`origineCouleur` (:371-376) ; rien pour le matériau (:139-142) |
+| Inspecteur : « Toit en 3D » | `modeToit` | — (:261) |
+| Inspecteur : appentis ouvert ou fermé | `corps.ouvert` | **aucune** (:164-171) |
+| Inspecteur : éléments de façade (bow-window, galerie) | `corpsToit` (saillie) | `toitFige` (:186-189, :225, :230) |
+| Mode Toit (Vue 3D, `app/toits/modeToit.ts`) : poignées, catalogue (`three/gestesToits.ts::appliquerPiece`), cheminées, lucarnes, édicules, corps neufs, tourner, dupliquer | `corpsToit`, `toit`, `modeToit`, `volumesToit` dans une session à part ; « Valider » : une étape d'historique | `toitFige` à la validation (`modeToit.ts:265`), à chaque geste du catalogue (`app/ecouteurs/toitCatalogue.ts`) ; une forme du catalogue pose aussi `toit.source = 'saisie'` (`gestesToits.ts:319`, :328) |
+| Mode Toit : « Règles » | coupées : `toitFige` ; rallumées : `reprendreLectureAuto` | `toitCatalogue.ts:156-162` |
+
+Le Mode Toit s'ouvre sur tout bâtiment polygone hors voisinage étendu (`modeToit.ts:71`, `estRetouchable`) ; `locked` n'y est
+pas lu. Les cheminées, lucarnes et édicules n'ont que deux auteurs : le Mode Toit et l'audit ; le LiDAR n'en pose aucun.
+
+### 6. Les ouvertures
+
+| Source | Ce qu'elle écrit | Où |
+|---|---|---|
+| Disposition automatique | **rien** : la 3D la recalcule à chaque dessin. Niveaux de 2,7 m, fenêtres par entraxe, porte au rez-de-chaussée du plus long mur, fenêtres de pignon, aux dimensions du profil de façades | `facade/ouvertures.ts::ouverturesAutomatiques` (:128), `fenetresDesPignons` (:145), `three/detailsBatiment.ts::poserOuvertures` (:383) |
+| Profil de façades | `profilFacades` (voisinage seulement, jamais la parcelle du projet ni un bâtiment vérifié) | `app/toits/profilsFacadesFond.ts:35`, :55 |
+| Inspecteur « Fenêtres (3D) » | `fenetres3d` : dimensions communes, ou `uneParUne` (liste par `cote`) | `model/fenetres3d.ts`, `ui/champs/fenetres3d.ts` |
+| Relevé de façade à la main | `facades[cote]` (photo redressée, ouvertures, calage) ; retire `depuisAudit` ; optionnellement `toit` (case **cochée par défaut**, `zones/Releve.tsx:212`) | `app/releve/releve.ts:112-120` |
+| Audit, dès qu'une mesure est prête | `facades[cote]` avec `depuisAudit`, sans attendre « Valider », jamais sur un relevé fait à la main | `app/audit/parcelle/validation.ts::alimenterLesFacades` (:372) |
+| Audit, « Valider » | relevé, détails des ouvertures | `regles/decisions.ts:260-268` |
+
+Le relevé passe par l'assemblage des photos redressées (`facade/analyseMur.ts::analyserLeMur`, :50 ; `fondreLesVues`, :158). Le
+**gabarit** (`facade/gabaritMur.ts::gabaritDesCorps`, :64) n'écrit rien : il se tire de `pts`, `corpsToit` et de la hauteur du
+mur, à la demande. Un mur relevé n'a pas de fenêtres automatiques (`detailsBatiment.ts:387-388`) — sauf en mode corps (« Ce qu'il
+faut ranger », 3).
+
+### 7. Matériaux et couleurs
+
+| Quoi | Automatique | À la main | Ce que l'automatique respecte |
+|---|---|---|---|
+| Couleur du toit | orthophoto, sinon repli rouge, brun ou gris selon le matériau (`render/couleurToitOrtho.ts:179-197`) ; pose `origineCouleur` | inspecteur, audit | une couleur sans `origineCouleur` (`couleurAResoudre`, :60-62) |
+| Matériau de couverture | déduit en 3D : terrasse, matériau des fichiers fonciers, couleur, pente, latitude (`model/couleurToit.ts::materiauCouverture`) | `toit.couverture` : inspecteur, audit (`decisions.ts:287`) | gardé par le LiDAR (`avecCouleurDe`) ; **perdu** à l'actualisation (« Ce qu'il faut ranger », 5) |
+| Couleur des murs | photo Panoramax (`couleurMurs.photo`, `render/couleurMurPhoto.ts:340-345`), sinon matériau BD TOPO | `couleurMurs.source` (Apparence), audit : `couleurMurs.terrain`, `couleurMurs.materiau` (`decisions.ts:272-284`) | la lecture n'écrit que `photo` ; `terrain` passe avant elle (`model/couleurMur.ts:99-110`) |
+| Couleur du plan | — | `fill` | utilisée seulement si rien d'autre (`sceneObjets.ts:296-297`) |
+
+### 8. L'audit de la parcelle
+
+Détaillé dans « Les toits dans l'audit de la parcelle » ; en bref :
+
+- il ne dessine pas de toit : il arbitre des constats (LiDAR, BD TOPO, photos, Claude, « Ce que je vois ») et fait relire le
+  toit sur la mesure par le moteur, sous le fait du bâtiment ;
+- « Valider » écrit en place : `corpsToit` ou un corps, cheminées, lucarnes, appentis, terrasse, couverture, `elevation`,
+  `toit.hauteur`, couleur et matériau des murs, relevés ; un pas d'historique ;
+- il pose `verifieSurPlace` quand tout le bâtiment a été vu, et rien d'autre ; ni `toitFige`, ni `toit.source` ;
+- ses relevés de façade s'écrivent avant « Valider », marqués `depuisAudit`.
+
+### 9. L'actualisation IGN
+
+Deux portes : « Actualisation IGN » (objets IGN relus un par un) et « Fichier › Actualiser le projet » (`parDefaut`, et les
+bâtiments de la parcelle supprimés puis recréés, dessinés compris).
+
+| | Ce qui arrive | Où |
+|---|---|---|
+| **Gardé entier** | `toitFige`, `verifieSurPlace` (sauf « Recalculer aussi »), `retoucheMain` (sauf « Reprendre la version de l'IGN ») ; leurs `bdtopo.id` ne sont pas recréés à côté | `actualisationIgn/toitsEtMurs.ts:45-50`, `actualisationIgn.ts:189-195`, :272 |
+| | les lectures qui suivent repassent dessus puis sont défaites : `toit` et `couleurMurs` remis ; pour un retouché, tout `batiment` et `elevation` remis — pas `pts` | `toitsEtMurs.ts:75-89` |
+| **Relu** (bâtiment IGN gardé dans le plan) | `pts`, `elevation` (hauteur BD TOPO), attributs `bdtopo` ; `toitActualise` : un toit `bdtopo` ou `lidar` est recalculé (couleur gardée), un toit `saisie` ou `photo` gardé ; sur la propriété, si le toit change, `volumesToit` neufs et `toitMesure`, `corpsToit` effacés ; `toitLidarLu`, `profilFacades` effacés ; le reste de `batiment` (relevés, fenêtres, couleur des murs, mode) gardé tel quel ; `retoucheMain` retiré | `actualisationIgn.ts:280-317`, `model/toitBdTopo.ts:86-93` |
+| **Recréé** (« Actualiser le projet ») | comme un import du jour (`batimentDeLaPropriete`) ; la clé de l'ancien **gardée** par `bdtopo.id` ; la réponse « à cheval » suit | `actualisationIgn.ts:203-229` |
+| **Remis par défaut** (« Actualiser le projet », objets non recréés) | `couleurMurs` (photo, terrain, matériau compris), `fenetres3d`, `profilFacades`, `modeToit` ; toit repassé en `bdtopo`, sans couleur ni couverture | `app/cadastre/valeursParDefaut.ts:25-36` |
+| **Puis** | orthophoto, LiDAR (30 plus proches, `verifies` selon la case), Panoramax ; le reste en tâche de fond | `toitsEtMurs.ts:91-97`, `chargements.ts:86-89` |
+
+### 10. Ce qui en sort
+
+| Sortie | Ce qu'elle lit du bâtiment |
+|---|---|
+| Plan 2D | `pts`, nom, cotes ; les ouvertures **relevées** en coupures du trait (`render/releve.ts`) ; aucun toit, aucune fenêtre automatique |
+| Vue 3D (`three/sceneObjets.ts:284-389`) | le mode (`modeToitActif`, `model/toitMesure.ts:324` : `modeToit` choisi, sinon corps, sinon volumes, sinon simple ; forcé à simple si un relevé a une partie basse, :301) ; prismes à `elevation` ou aux égouts des corps ; `three/toitCorps3d.ts` (corps, pignons, croupes, profils, lucarnes, saillies, sur le contour s'il est de biais), `three/cheminees3d.ts`, `three/terrasse3d.ts`, `three/toitMesure3d.ts` ; relevés (`three/releve3d.ts`) ; détails (`three/detailsBatiment.ts`) : débord, fenêtres automatiques ou `uneParUne`, une cheminée **posée d'office** sur un toit simple ou en volumes (:569-608) ; couleur des murs, texture du matériau, couverture |
+| GLB, capture DP6 | ce que montre la 3D |
+| DP2 (`export/piecesDP.ts:205-211`) | `pts` et « Existant H » = `elevation` |
+| DP3 (coupe) | ni bâtiment, ni annexe : terrasses et abris seulement (:287-298) |
+| Dossier PDF, SVG, DXF, résumé | `pts`, nom ; aucune hauteur, aucun toit |
+| Fichier d'audit, corpus | clé, `bdtopo`, `elevation`, corps, façades par `cote` |
+
+### Qui écrit quoi
+
+É : écrit. L : lit. — : n'y touche pas. Entre parenthèses, ce qui l'arrête.
+
+| Champ | Création | Import IGN | LiDAR (import, fond) | Moteur de règles | Inspecteur, Mode Toit | Retouche du contour | Relevé de façade | Audit | Actualisation IGN |
+|---|---|---|---|---|---|---|---|---|---|
+| `pts` | É | É | É recalage (`toitFige`, `verifieSurPlace` ; pas `retoucheMain`) | L | É dessiné : déplacement | É, pose `retoucheMain` | L | L | É (gardés : marques ; `pts` d'un retouché non remis) |
+| `elevation` | — (2,5 m implicite) | É BD TOPO | É si écart ≥ 0,3 m (`toitFige`, `verifieSurPlace`, toit `saisie`/`photo`) | É fait en remplacement | É « Élévation » | — | L, jamais écrit | É « Hauteur à l'égout » | É BD TOPO (gardés) |
+| `toit` (forme, hauteur, angle) | É via inspecteur (`saisie`) | É `bdtopo` | É `lidar` (`toitFige`, `verifieSurPlace`, `source` ≠ `bdtopo`/`lidar`) | É fait (remplacement, contrainte) | É forme, hauteur → `saisie` ; angle sans marque ; Mode Toit forme → `saisie` | — | É `photo`, case cochée | É `hauteur` | É si `bdtopo`/`lidar` (gardés) |
+| `toit.couleur` | — | É orthophoto | gardée | — | É, retire `origineCouleur` | — | — | — | gardée ; relue si `origineCouleur` |
+| `toit.couverture` | — | — | gardée | — | É matériau | — | — | É | **perdue** si `bdtopo`/`lidar` |
+| `corpsToit` | — | — | É (`toitFige`, `verifieSurPlace`, `source`) | É sous fait | É Mode Toit (`toitFige`) ; appentis ouvert (aucune) ; saillies (`toitFige`) | ne suit pas | L (gabarit) | É corps, cheminées, lucarnes, appentis, terrasse | effacé sur la propriété si le toit change (gardés) |
+| `toitMesure`, `volumesToit` | — | É volumes (propriété) | É (mêmes gardes) | — | effacés par « Règles » rallumées | ne suivent pas ; `toitMesure` effacé si tourné | — | — | volumes refaits, mesure effacée |
+| `toitLidarLu` | — | — | É version | L (empreintes) | effacé par « Règles » rallumées | — | — | — | effacé |
+| `modeToit` | — | — | — | — | É | — | — | — | gardé ; effacé par « Actualiser le projet » |
+| `toitFige` | — | — | L | L | É | — | — | — | L (garde) |
+| `verifieSurPlace` | — | — | L | — | — | — | — | É | L (garde) |
+| `retoucheMain` | — | — | — | — | — | É | — | — | L (garde), retiré si repris |
+| `facades` (relevés) | — | — | — | — | É retirer | glissent si les sommets changent | É (retire `depuisAudit`) | É avant « Valider » (`depuisAudit`), jamais sur un relevé à la main | gardés, sans réappariement |
+| `fenetres3d` | — | — | — | — | É | `uneParUne` glisse | — | — | gardé ; effacé par « Actualiser le projet » |
+| `couleurMurs` | — | É photo | — | — | É `source` | — | — | É `terrain`, `materiau` | É photo (gardés) ; tout effacé par « Actualiser le projet » |
+| `profilFacades` | — | — | — | É (voisinage, hors vérifiés) | — | — | — | — | effacé |
+| `bdtopo` | — | É | L | L (`cleabs`) | — | — | — | L | É |
+
+### Qui l'emporte
+
+| Marque | Posée par | Arrête | N'arrête pas | Lignes de garde |
+|---|---|---|---|---|
+| `toitFige` | Mode Toit, éléments de façade de l'inspecteur, « Règles » coupées | LiDAR à l'import, en fond et à l'actualisation ; l'actualisation entière (le bâtiment est gardé, `pts` compris) | l'audit ; l'orthophoto ; Panoramax | `toitsLidar.ts:267` ; `toitsFond.ts:148`, :262 ; `toitsEtMurs.ts:47` |
+| `verifieSurPlace` | « Valider » de l'audit, bâtiment tout vu | LiDAR (lu en copie, comparé : `lectureDAccord`) ; couleur du toit en fond ; profil de façades ; l'actualisation sauf « Recalculer aussi » | l'audit ; l'inspecteur ; le Mode Toit | `toitsLidar.ts:386` ; `toitsFond.ts:113`, :150-156, :161 ; `profilsFacadesFond.ts:35` ; `toitsEtMurs.ts:47` |
+| `retoucheMain` | retouche du contour acceptée | l'actualisation (gardé, puis `batiment` et `elevation` remis) | le LiDAR (relit le toit, peut recaler `pts`) | `toitsEtMurs.ts:48`, :76-79 |
+| `toit.source` = `saisie` ou `photo` | inspecteur (forme, hauteur), forme du catalogue, relevé avec toit | **tout** le LiDAR du bâtiment : forme, corps, `elevation`, recalage ; le recalcul BD TOPO du toit à l'actualisation | l'actualisation de `pts` et `elevation` ; l'audit (il le dit : « choix remplacé ») | `toitsLidar.ts:268-269` ; `model/toitBdTopo.ts:87` ; `app/audit/parcelle/constats.ts:37`, :45 |
+| absence d'`origineCouleur` | couleur choisie | orthophoto, actualisation | — | `couleurToitOrtho.ts:60-62` ; `toitBdTopo.ts:88-92` |
+| `toitLidarLu` à jour | la lecture | une nouvelle lecture en fond | l'import, l'actualisation (qui l'effacent ou ne le lisent pas) | `toitsFond.ts:113` |
+| `depuisAudit` absent sur un relevé | relevé à la main | le remplacement automatique par l'audit | « Valider » d'une ligne décochée | `arbitrages.ts:358-359`, `validation.ts:364-370` |
+| `elevation` | — | **rien** : aucune marque | — | — |
+
+Quand deux sources écrivent le même champ, la dernière gagne, sauf ces marques. En pratique : l'actualisation IGN réécrit
+`elevation` et `pts` de tout bâtiment non gardé ; la relecture LiDAR réécrit `toit`, `corpsToit`, `elevation` de tout bâtiment
+dont le toit est `bdtopo` ou `lidar` et sans `toitFige` ni `verifieSurPlace`, dès que sa version change.
+
+### Les dépendances
+
+```
+BD TOPO (contour, hauteur, altitudes, matériaux, cleabs) ──▶ pts, elevation, toit bdtopo, volumes, bdtopo
+dessin à la main ─────────────────────────────────────────▶ pts ; toit saisie au premier réglage
+                                   │
+LiDAR HD (grille MNH) ─▶ recalage (pts) ─▶ toitMesure ─▶ corps (pentes droites, catalogue) ─▶ fait (cleabs) ─▶ garde-fous
+regles/toits/reglages.json, formes.json, profils, faits.json ─▶ seuils et faits de la lecture ─▶ VERSION_LECTURE_TOITS
+                                   │                                                              │
+                                   ▼                                                              ▼
+                 toit lidar, elevation (égout), volumesToit, corpsToit                  toitLidarLu (relecture si plus bas)
+                                   │
+Mode Toit, inspecteur ─────────────┼──▶ corpsToit, toit, modeToit  ── toitFige ──✗ LiDAR, actualisation
+audit « Valider » ─────────────────┼──▶ corpsToit, cheminées, lucarnes, elevation, couleurs ── verifieSurPlace si tout vu
+relevé de façade ──────────────────┼──▶ facades[cote], toit photo ── source photo ──✗ LiDAR
+retouche du contour ───────────────┼──▶ pts ── retoucheMain ──✗ actualisation (pas le LiDAR)
+orthophoto ────────────────────────┼──▶ toit.couleur (si origineCouleur ou vide)
+Panoramax, matériau BD TOPO ───────┼──▶ couleurMurs.photo
+                                   ▼
+pts + corpsToit + elevation ──▶ gabarit du mur (relevé, audit, calibration)
+pts + corpsToit/volumes/mesure/toit + facades + fenetres3d + profilFacades + couleurs ──▶ Vue 3D ──▶ GLB, DP6
+pts + elevation ──▶ DP2 ; pts ──▶ plan 2D, dossier PDF, SVG, DXF, résumé
+déplacement d'un bloc ──▶ suivreContour : corps, cheminées, volumes, angle suivent ; toitMesure effacé si tourné
+déformation (sommet, côté, rectangle, actualisation) ──▶ rien ne suit ; relevés et fenêtres par rang de côté
+```
+
+### Ce qu'il faut ranger
+
+Par ordre d'effet sur ce que voit la personne. Les cinq premiers points de « Les toits dans l'audit de la parcelle » (décision
+validée écrasée par le LiDAR, audit aveugle à `toitFige`, cheminées du corps principal perdues, contour retouché recalé, aperçu
+qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici.
+
+1. **La DP2 donne l'égout pour le point le plus haut.** La pièce dit « Existant H » avec `o.elevation` (`export/piecesDP.ts:210`),
+   la hauteur à l'égout, et sa légende « H : hauteur au point le plus haut » (:245). Sur une maison à deux pans, l'écart est la
+   hauteur du toit (plusieurs mètres), dans une pièce qui part en mairie. Après un réglage en Mode Toit, la DP2 ne voit même
+   plus l'égout dessiné (les corps portent les leurs, `elevation` reste celle de la lecture).
+2. **Une façade relevée fige le bâtiment au LiDAR sans que rien ne se voie.** La case « toit » du relevé est cochée par défaut
+   (`zones/Releve.tsx:212`, :267) ; le toit lu sur la photo est `source: 'photo'` (`facade/toits/toit/estimation.ts:114`) et
+   remplace `toit` (`app/releve/releve.ts:119`). Dès lors `toitAAjuster` refuse le bâtiment (`toitsLidar.ts:269`) : plus de
+   corps relus, plus d'égout corrigé, plus de recalage, à aucune version. Or un bâtiment en corps montre ses corps et pas `toit`
+   (`model/toitMesure.ts:332`) : le message dit « toit remplacé » et la 3D ne change pas. À l'actualisation, ce toit est gardé
+   (`model/toitBdTopo.ts:87`), donc `corpsToit` n'est pas effacé (`volumesRecalcules`, `toitsEtMurs.ts:34-37`) alors que `pts`
+   est remplacé : des corps sur l'ancien contour, que plus rien ne relira.
+3. **En mode corps, un mur relevé reçoit aussi les fenêtres automatiques.** `poserOuverturesDesCorps` passe
+   `cotesReleves: interieurs` (`three/detailsBatiment.ts:372`) et écrase la liste des côtés relevés que la scène avait donnée
+   (`three/sceneObjets.ts:382`) ; or le mode corps est celui de tout bâtiment lu sur la propriété. La photo et ses ouvertures,
+   plus une grille de fenêtres par-dessus. Non vérifié à l'écran.
+4. **La hauteur à l'égout n'a pas de propriétaire.** Saisie dans l'inspecteur (`ui/champs/objet.ts:115`) ou validée par l'audit
+   (`regles/decisions.ts:270`), elle est réécrite sans marque par la prochaine relecture LiDAR (`toitsLidar.ts:369-370`,
+   `toitsFond.ts:130`, :153 ; l'empreinte de :137 ne la compte pas) et, toujours, par l'actualisation IGN
+   (`actualisationIgn.ts:302`). L'audit ne la tient pour « saisie » que sur un bâtiment sans `bdtopo` (`constats.ts:43`). En mode
+   corps, le champ « Élévation » ne change rien à la 3D (`sceneObjets.ts:316-320`).
+5. **L'actualisation IGN perd le matériau de couverture choisi.** `toitActualise` rend le toit neuf avec la seule couleur
+   (`model/toitBdTopo.ts:92`) : `couverture`, posée par l'inspecteur (`ui/champs/facade.ts:139-142`) ou par l'audit
+   (`decisions.ts:287`), disparaît de tout toit `bdtopo` ou `lidar`. La règle du skill (« une valeur choisie à la main n'est
+   jamais touchée par une actualisation », §4 bis) n'est pas tenue ; aucun test (`tests/unit/model/toitBdTopo.test.ts`).
+6. **Deux réglages de l'inspecteur ne se protègent pas.** La direction du faîtage s'écrit sans `source: 'saisie'`
+   (`ui/champs/facade.ts:358-360`), là où la forme et la hauteur la posent (:316, :339) : la relecture et l'actualisation la
+   recalculent. « Appentis ouvert ou fermé » écrit les corps sans `toitFige` (:164-171), là où les éléments de façade le posent
+   (:188) : perdu à la relecture suivante.
+7. **Un mur relevé « en L » efface les corps de la 3D.** Un seul relevé avec `partieBasse` force le mode simple
+   (`sceneObjets.ts:301-304`) : les corps lus au LiDAR, les cheminées et lucarnes posées dessus ne se dessinent plus, sans que
+   l'inspecteur le dise (son mode reste « Corps et pignons »).
+8. **Seul un déplacement d'un bloc fait suivre le toit.** Tirer un sommet, un côté, un coin de rectangle, saisir une longueur ou
+   un angle : `suivreLeContour` n'est appelé que par le glisser d'objet, l'alignement et la remise en place
+   (`interaction/drag.ts:147`, `interaction/outilAlignement.ts:102`, `app/ecouteurs/objets.ts:132`). Corps, volumes, mesure et
+   cheminées restent sur l'ancien contour, pour un bâtiment dessiné comme pour un bâtiment de l'IGN, et `toitLidarLu` ne retombe
+   pas. L'actualisation IGN fait de même en grand : elle remplace `pts` (`actualisationIgn.ts:298`) et garde `facades` et
+   `fenetres3d` (:305) sans les réapparier, alors que la BD TOPO du jour peut avoir un sommet de plus ou un autre premier
+   sommet.
+9. **Un bâtiment dessiné est lu au LiDAR, une annexe jamais.** `toitAAjuster` ne demande que la fonction `batiment`
+   (`toitsLidar.ts:264-270`) : dans un projet géolocalisé, une extension dessinée sans toit est lue en tâche de fond (toit
+   `lidar`, `elevation` corrigée), et recalée d'un bloc si son centre tombe sur une parcelle mitoyenne (`clesMitoyens`,
+   `model/mitoyennete.ts:44`). La fonction `annexe`, sœur de `batiment` (`model/ouvrages/bati.ts:41`), n'est jamais lue. Non
+   vérifié en exécution.
+10. **« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
+    volumes et mesure à l'instant (`three/gestesToits.ts:374-382`) ; la relecture n'attend que `toitsFond.relancer()`, appelé à
+    l'ouverture, après une actualisation ou par « Reprendre » (`app/boot.ts:85`, `app/boot/chargements.ts:88`). Entre les deux, le
+    bâtiment montre son toit simple, qui peut porter une forme du catalogue avec `source: 'bdtopo'`.
+11. **L'actualisation garde les bâtiments figés sans le dire.** `batimentsGardes` garde `toitFige` (`toitsEtMurs.ts:47`), mais le
+    bilan les compte comme « vérifié(s) sur place » (`actualisationIgn.ts:272`, :364) ; le dialogue d'« Actualiser le projet »
+    annonce la recréation de « tous les bâtiments de la parcelle du projet, même ceux que vous avez dessinés »
+    (`actualiserProjet.ts`, `POINTS_ACTUALISATION`) et ne nomme que les vérifiés et les retouchés ; le commentaire de tête de
+    `toitsEtMurs.ts:1-2` aussi.
+12. **La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
+    (`three/detailsBatiment.ts:569-608`) en dessine une au tiers du faîtage ; en mode corps, seules les cheminées des données se
+    dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.
+13. **Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
+    le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.
+14. **Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
+    (`modeToit.ts:322-333`, :461-468) sans marquer le projet ; l'enregistrement seul de la tâche de fond enregistre quand tout ce
+    qui attend vient d'elle (`toitsFond.ts:302-304`) et sérialise alors le bâtiment tel que la session le laisse. Une session
+    abandonnée peut donc avoir été enregistrée. Non vérifié en exécution.
+15. **Tests manquants** : la couverture choisie à travers `toitActualise` ; les fenêtres d'un mur relevé en mode corps ; un
+    relevé avec toit suivi d'une relecture ; `suivreLeContour` absent d'une déformation ; la DP2 d'un bâtiment à toit en pente.
+16. **La relecture LiDAR perd ce qui est posé sur le toit.** Elle remplace `corpsToit` en bloc par des corps neufs
+    (`app/toits/toitsLidar.ts:347`, `poserLeToit` ; reporté tel quel par `toitsFond.ts:132`, `CHAMPS_LUS_BATIMENT`) : cheminées,
+    lucarnes, terrasse, fenêtres de toit et panneaux, appentis ouvert, saillies d'un bâtiment non protégé disparaissent ; les faits
+    (`regles/toits/faits.json`) n'en portent aucune. Elle se déclenche à chaque changement de `reglages.json`
+    (`VERSION_LECTURE_TOITS`). Vérifié à la lecture du code le 28 octobre 2026. À reporter sur les corps neufs par
+    `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.
+
 ## Ce qui n'est pas un objet mais fait le plan
 
 | Structure | Où elle vit | De quoi elle dépend |
@@ -881,3 +1293,4 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 27 octobre 2026 | Le soleil et l'ombre décrits comme un composant (section « Le soleil et l'ombre »). |
 | 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
 | 28 octobre 2026 | Un seul soleil pour le plan, la 3D et la visionneuse, enregistré avec le projet (sans « projet modifié ») ; pas d'ombre des bâtiments, des arbres ni des pergolas sur le plan ; pas de nord réglable pour un plan dessiné. Étape 6.7. |
+| 28 octobre 2026 | Le flux de construction d'un bâtiment décrit (section du même nom) : qui écrit quoi, qui l'emporte, la définition du corps et sa règle de découpe. |
