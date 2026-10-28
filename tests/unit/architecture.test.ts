@@ -360,7 +360,7 @@ describe('les ouvrages (MD/spec-ouvrages.md, phase 6)', () => {
   // une comparaison `fonction === '…'` ailleurs est une regle d'ouvrage ecrite hors de lui. Un cliquet par couche : le modele, le
   // moteur, geo/ et facade/ n'en ont plus (etape 6.2) ; les autres en gardent leur compte, qui ne peut que baisser (etape 6.4).
   const COMPARAISON = /fonction\s*[!=]==?\s*'[a-z]+'/g;
-  const PLAFONDS: Record<string, number> = { app: 33, render: 2, ui: 2, zones: 1 };
+  const PLAFONDS: Record<string, number> = { app: 33, render: 2, ui: 1, zones: 1 };
   const comptes = new Map<string, number>();
   for (const f of tous) {
     const r = relative(src, f).split(sep);
