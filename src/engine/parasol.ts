@@ -12,6 +12,7 @@ import { aDesSommets, enCercle, enPoints, estCercle } from '../model/formes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { estParasol, estTerrasse, terrasseOuPremiere } from '../model/fonctions.js';
 import { estOuvrage, PARASOL } from '../model/ouvrages/index.js';
+import { FENETRE_CARTE_OMBRE, SEUILS_SOLEIL_DEG } from '../model/soleilProjet.js';
 
 /**
  * Contexte solaire : ce que les fonctions d'ombre lisaient dans la fermeture de boot() - la date
@@ -25,7 +26,7 @@ export interface ContexteSoleil {
 }
 
 /** En dessous de cette hauteur de soleil, l'ombre s'etire a l'infini : on ne la dessine plus. */
-export const PARASOL_ELEV_MIN_DEG = 8;
+export const PARASOL_ELEV_MIN_DEG = SEUILS_SOLEIL_DEG.ombreParasol;
 
 /** Un echantillon de soleil, ramene a **un metre** de hauteur de mat : reutilisable tel quel. */
 export interface EchantillonSoleil {
@@ -296,7 +297,7 @@ export function terrasseDuParasol(par: ObjetPlan, objets: ObjetPlan[], terrasseS
 }
 
 /** L'annee des echantillons de soleil du placement des parasols (equation du temps et declinaison : quasi identiques d'une annee a l'autre). */
-const ANNEE_ECHANTILLONS_PARASOL = 2026;
+const ANNEE_ECHANTILLONS_PARASOL = FENETRE_CARTE_OMBRE.annee;
 
 // Geometrie de l'ombre d'une toile circulaire horizontale, pour une position de soleil donnee :
 // le disque se projette en ellipse, decalee de h/tan(hauteur) a l'oppose du soleil et etiree de
@@ -304,14 +305,15 @@ const ANNEE_ECHANTILLONS_PARASOL = 2026;
 // Renvoie la geometrie PAR METRE de hauteur de mat, pour pouvoir la reutiliser telle quelle sur
 // n'importe quel parasol ou position candidate sans refaire le calcul solaire.
 export function echantillonsSoleilParasol(ctx: ContexteSoleil): EchantillonSoleil[] {
-  // Une annee de reference, pas celle de la date affichee ni de l'horloge : le placement d'un parasol
-  // echantillonne toute la saison (PARASOL_MOIS), et doit etre le meme d'une annee a l'autre.
+  // Une annee de reference, pas celle du soleil du projet ni de l'horloge : le placement d'un parasol
+  // echantillonne toute la saison (PARASOL_MOIS), et doit etre le meme d'une annee a l'autre. La carte
+  // et le bouton le disent a l'ecran (FENETRE_CARTE_OMBRE.libelle).
   const annee = ANNEE_ECHANTILLONS_PARASOL;
   const lieu = ctx.lieu;
   const out: EchantillonSoleil[] = [];
   PARASOL_MOIS.forEach(m=>{
     PARASOL_HEURES.forEach(hh=>{
-      const { elevRad, azRad } = positionSoleil(annee, m, 15, hh, lieu.latitude, lieu.longitude);
+      const { elevRad, azRad } = positionSoleil(annee, m, FENETRE_CARTE_OMBRE.jour, hh, lieu.latitude, lieu.longitude);
       if(elevRad*180/Math.PI < PARASOL_ELEV_MIN_DEG) return;
       const ux = -Math.sin(azRad), uy = -Math.cos(azRad); // du parasol vers son ombre
       out.push({ ux, uy, decalageParMetre: 1/Math.tan(elevRad), etirement: 1/Math.sin(elevRad) });
@@ -321,5 +323,6 @@ export function echantillonsSoleilParasol(ctx: ContexteSoleil): EchantillonSolei
 }
 
 
-export const PARASOL_MOIS = [5,6,7,8,9];
-export const PARASOL_HEURES = [12,13,14,15,16,17,18];
+// La fenetre de la carte et du placement : toute la saison, pas la date choisie (model/soleilProjet.ts, qui la dit a l'ecran).
+export const PARASOL_MOIS: readonly number[] = FENETRE_CARTE_OMBRE.mois;
+export const PARASOL_HEURES: readonly number[] = FENETRE_CARTE_OMBRE.heures;

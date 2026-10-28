@@ -23,12 +23,13 @@ export interface Surbrillance {
   index: number | null;
 }
 
-/** Reglages du calque d'ombre des parasols - date et heure choisies aux curseurs. */
+/**
+ * Reglages du calque d'ombre des parasols : l'ombre, la carte. La date et l'heure sont celles du
+ * soleil du projet (core/soleil.ts), le meme que la Vue 3D et la visionneuse.
+ */
 export interface EtatParasol {
   ombreAffichee: boolean;
   carteAffichee: boolean;
-  dateStr: string;
-  minutes: number;
 }
 
 export interface EtatApp {
@@ -138,10 +139,7 @@ export function creerEtat(
     undoStack: new PileAnnulation(),
     parasol: {
       ombreAffichee: true,
-      carteAffichee: false,
-      // Solstice d'ete a 15h : le cas ou l'ombre portee est la plus parlante.
-      dateStr: new Date().getFullYear() + '-06-21',
-      minutes: 900
+      carteAffichee: false
     }
   };
 }

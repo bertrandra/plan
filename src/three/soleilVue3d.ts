@@ -1,13 +1,15 @@
 // Le soleil de la Vue 3D : ses commandes, et leur effet sur la scene (spec §3.2, three/).
 //
 // Le calcul lui-meme vit dans `lumiere.ts`, partage avec la visionneuse GLB. Ce module-ci ne fait
-// que le relier a l'etat propre de la Vue 3D (`soleilVue3d` dans `etat3d.ts`), que son panneau lit.
+// que le relier au soleil du projet (core/soleil.ts : la date et l'heure, les memes que le plan) et a
+// la facon dont la Vue 3D le montre (`soleilVue3d` dans `etat3d.ts`), que son panneau lit.
 
 import { actualiserSaison } from './arbre3d.js';
 import { vue3d, soleilVue3d, affichage3d, signaler3d, rendre3d } from './etat3d.js';
 import { accorderAuSoleil } from './rendu.js';
 import { reglerSoleil, libelleSoleil } from './lumiere.js';
 import { anneeEtSemaineDepuisDate } from '../util/semaine.js';
+import { soleilDuProjet } from '../core/soleil.js';
 
 /** Ce dont le soleil de la Vue 3D a besoin du reste du programme : le lieu, pour la course. */
 export interface ContexteSoleilVue3d {
@@ -16,7 +18,7 @@ export interface ContexteSoleilVue3d {
 
 /** Recale la position du curseur « semaine » sur la date courante. */
 export function syncSemaineDepuisDate(): void {
-  soleilVue3d.semaineAffichee = anneeEtSemaineDepuisDate(soleilVue3d.dateStr).semaine;
+  soleilVue3d.semaineAffichee = anneeEtSemaineDepuisDate(soleilDuProjet.lire().dateStr).semaine;
 }
 
 /**
@@ -39,15 +41,16 @@ export function syncControles(): void {
 export function appliquer(ctx: ContexteSoleilVue3d): void {
   if (!vue3d.scene || !vue3d.scene.dirLight) return;
   const { dirLight, dirFill, hemiLight, extent } = vue3d.scene;
+  const soleil = soleilDuProjet.lire();
   const position = reglerSoleil(
     { dirLight, dirFill, hemiLight, rayon: extent },
-    soleilVue3d,
+    { ...soleil, intensiteSoleil: soleilVue3d.intensiteSoleil, lumiereAppoint: soleilVue3d.lumiereAppoint },
     ctx.lieuActuel()
   );
   // Une date illisible laisse le soleil ou il etait, et son libelle avec.
   if (!position) return;
   // Les caducs se denudent de novembre a mars : la date change aussi le feuillage, donc l'ombre.
-  actualiserSaison(vue3d.scene.scene, soleilVue3d.dateStr);
+  actualiserSaison(vue3d.scene.scene, soleil.dateStr);
   // Le ciel, la brume et l'eclairage par le ciel suivent le soleil (three/rendu.ts).
   accorderAuSoleil(vue3d.scene, position);
   vue3d.apresSoleil?.(position);

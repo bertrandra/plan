@@ -150,10 +150,6 @@ export const glb: {
    */
   dernierExporte: { buffer: ArrayBuffer; nomTerrasse: string; date: Date; centre: { x: number; y: number } } | null;
 
-  /** Date et heure de la course du soleil dans la visionneuse, independantes de celles du plan. */
-  dateStr: string;
-  /** Minutes depuis minuit ; 720 = midi. */
-  minutes: number;
   /** Seconde lumiere, du cote a l'ombre du soleil : decochable. */
   lumiereAppoint: boolean;
   /** Multiplicateur du soleil ; 1 = l'eclairage physique de l'heure. */
@@ -167,30 +163,25 @@ export const glb: {
   ombres: false,
   fond: 'clair',
   dernierExporte: null,
-  dateStr: new Date().toISOString().slice(0, 10),
-  minutes: 720,
   lumiereAppoint: true,
   intensiteSoleil: 1,
   semaineAffichee: 0
 };
 
 /**
- * Le soleil de la Vue 3D, dans les memes champs que celui de la visionneuse — et volontairement
- * **separe** : les deux vues peuvent etre reglees a des moments differents sans se marcher dessus.
+ * La facon dont la Vue 3D montre le soleil : son intensite et la lumiere d'appoint, dans les memes
+ * champs que la visionneuse. La date et l'heure, elles, sont le soleil du projet (core/soleil.ts),
+ * le meme pour le plan, la Vue 3D et la visionneuse (MD/spec-ouvrages.md, etape 6.7).
  *
  * `semaineAffichee` n'est pas une donnee mais une memoire d'interface : la derniere position du
  * curseur, gardee pour calculer de combien de crans il vient de bouger (le decalage est relatif —
  * voir `util/semaine.ts`).
  */
 export const soleilVue3d: {
-  dateStr: string;
-  minutes: number;
   intensiteSoleil: number;
   lumiereAppoint: boolean;
   semaineAffichee: number;
 } = {
-  dateStr: new Date().toISOString().slice(0, 10),
-  minutes: 720,
   intensiteSoleil: 1,
   lumiereAppoint: true,
   semaineAffichee: 0
@@ -371,12 +362,12 @@ export type ReglagesVue3d = Pick<typeof vue3d, 'tousLesObjets' | 'solEnCoupe' | 
   | 'facadesSansOmbres' | 'ombres' | 'vent' | 'qualite' | 'objetsEchelle' | 'focaleBloquee' | 'corpsIsole' | 'dernierObjKey' | 'apresSoleil'>;
 export function reglerVue3d(r: Partial<ReglagesVue3d>): void { Object.assign(vue3d, r); }
 
-/** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, son soleil. */
-export type ReglagesGlb = Pick<typeof glb, 'ouvert' | 'filaire' | 'ombres' | 'fond' | 'dateStr' | 'minutes' | 'lumiereAppoint'
+/** Ce que l'interface regle de la visionneuse : ouverte ou non, ses preferences, sa facon de montrer le soleil. */
+export type ReglagesGlb = Pick<typeof glb, 'ouvert' | 'filaire' | 'ombres' | 'fond' | 'lumiereAppoint'
   | 'intensiteSoleil' | 'semaineAffichee'>;
 export function reglerGlb(r: Partial<ReglagesGlb>): void { Object.assign(glb, r); }
 
-/** Le soleil de la Vue 3D. */
+/** La facon dont la Vue 3D montre le soleil. */
 export function reglerSoleilVue3d(r: Partial<typeof soleilVue3d>): void { Object.assign(soleilVue3d, r); }
 
 /** Ce que les panneaux montrent (fermee, en chargement, prete…) ; a signaler ensuite (`signaler3d`). */

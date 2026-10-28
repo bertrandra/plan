@@ -433,6 +433,10 @@ de composant à lui : il est réparti entre `geo/`, `engine/`, `three/`, `app/`,
   Les champs de date et d'heure sont des préférences d'affichage (`sale: false` : ni annulation, ni « projet modifié »).
   Seuls le lieu (sur la parcelle) et les réglages du parasol (hauteur, mât, terrasse liée) sont des données du projet.
 
+  *Depuis le 28 octobre 2026 (étape 6.7)* : un seul soleil, `core/soleil.ts` (décrit dans `model/soleilProjet.ts`), pour les
+  trois ; enregistré sur la parcelle (`soleil : { dateStr, minutes }`) une fois choisi ; par défaut aujourd'hui, date locale,
+  15 h. L'intensité et la lumière d'appoint restent à chaque vue.
+
 ### Ce qui s'en sert
 
 | Domaine | Où | Ce qu'il en fait |
@@ -482,11 +486,15 @@ latitude ──▶ couverture et profils des toits (pas le soleil)
 
 Par ordre d'effet sur ce que voit la personne :
 
-1. **Trois soleils, trois défauts** : le même parasol a une ombre différente sur le plan et en 3D, et un projet rouvert ne
-   retrouve pas son soleil ; la 3D change avec le jour où on l'ouvre (ombres et feuillage).
-2. **La carte des heures d'ombre ignore la date et l'heure choisies** juste à côté d'elle, sans le dire.
-3. **Trois façons de dire « aujourd'hui »** : la date UTC (entre minuit et 2 h, la 3D montre la veille), l'année locale, la date
-   locale.
+1. ~~**Trois soleils, trois défauts** : le même parasol a une ombre différente sur le plan et en 3D, et un projet rouvert ne
+   retrouve pas son soleil ; la 3D change avec le jour où on l'ouvre (ombres et feuillage).~~ — corrigé le 28 octobre 2026 : un seul soleil
+   (`core/soleil.ts`, décrit dans `model/soleilProjet.ts`), lu par le plan, la Vue 3D et la visionneuse, enregistré sur la
+   parcelle (`soleil`) une fois choisi et relu à l'ouverture ; un projet sans soleil prend aujourd'hui, 15 h (étape 6.7).
+2. ~~**La carte des heures d'ombre ignore la date et l'heure choisies** juste à côté d'elle, sans le dire.~~ — corrigé le 28 octobre 2026 : elle
+   garde sa fenêtre (toute la saison, comme « Placer au mieux ») et le dit sous sa case : « Toute la saison, mai à septembre,
+   12 h – 18 h, pas la date choisie » (`FENETRE_CARTE_OMBRE`).
+3. ~~**Trois façons de dire « aujourd'hui »** : la date UTC (entre minuit et 2 h, la 3D montre la veille), l'année locale, la date
+   locale.~~ — corrigé le 28 octobre 2026 : une seule, la date locale (`model/soleilProjet.ts::aujourdhui`), que la vitrine reprend.
 4. **Le fuseau est toujours celui de la France**, faux outre-mer et à l'étranger ; les jours de changement d'heure, l'écart est
    choisi pour la journée entière.
 5. **Un plan dessiné à la main n'a pas de nord** : soleil, ombres et façade au soleil supposent le haut au nord, sans le dire.
@@ -497,10 +505,15 @@ Par ordre d'effet sur ce que voit la personne :
    une distance fixe.
 9. **Lire le lieu écrit dans la parcelle** (`lieuDeParcelle` complète les champs manquants à chaque rendu) : une écriture que
    le contrôleur des objets ne voit pas.
-10. **La visionneuse GLB** éclaire à sa date mais garde le feuillage de la Vue 3D.
+10. ~~**La visionneuse GLB** éclaire à sa date mais garde le feuillage de la Vue 3D.~~ — corrigé le 28 octobre 2026 : elle n'a plus de date à elle ;
+    lumière et feuillage suivent le soleil du projet.
 11. **Des seuils de crépuscule épars** : 8° (ombre du parasol), 10° et 3° (lampe), 20, 6, −2 et −8° (ciel), 12, 0, −6 et −0,5°
-    (démonstration), 0° (lever, coucher) ; une astronomie simplifiée dont le commentaire dit « NOAA » à tort ; la démonstration
-    recalcule le soleil toutes les 250 ms à côté du calcul commun, et lit ses dates à la main.
+    (démonstration), 0° (lever, coucher) ; ~~une astronomie simplifiée dont le commentaire dit « NOAA » à tort~~ ; la démonstration
+    recalcule le soleil toutes les 250 ms à côté du calcul commun, et lit ses dates à la main. — corrigé le 28 octobre 2026, en partie : les seuils qui
+    décident (ombre du parasol, extinction et plancher de la lampe, horizon) sont rangés dans `SEUILS_SOLEIL_DEG`
+    (`model/soleilProjet.ts`) ; ceux du ciel et du couchant de la vitrine, de simples dégradés à l'œil, restent où ils sont ; le
+    commentaire de `geo/soleil.ts` décrit la formule (Cooper, équation du temps approchée) au lieu de la NOAA. La démonstration
+    reste à revoir.
 12. **Le cadre des ombres 3D** s'arrête à environ 1,5 fois la parcelle : l'ombre longue d'un voisin lointain, au soleil bas, est
    coupée.
 13. Les aperçus (façade, arbre, catalogue des toits) ont une lumière fixe : voulu, à dire.
@@ -515,8 +528,8 @@ Par ordre d'effet sur ce que voit la personne :
   parasols.
 - **Pas de nord réglable** pour un plan dessiné à la main : le haut du plan reste le nord.
 
-Restent à décider, sans urgence : le fuseau (celui du lieu plutôt que la France), et ce que la carte des heures d'ombre doit
-couvrir (sa fenêtre fixe, à dire à l'écran, ou la date choisie).
+Reste à décider, sans urgence : le fuseau (celui du lieu plutôt que la France). La carte des heures d'ombre garde sa fenêtre fixe,
+dite à l'écran (étape 6.7, 28 octobre 2026) : un parasol se place pour la saison, pas pour un jour.
 
 ## Les toits dans l'audit de la parcelle
 
@@ -1402,7 +1415,7 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; restent les comparaisons du dessin, de la 3D et des exports |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms. En cours (28 octobre 2026) : les zones abonnées à ce qu'elles montrent, pour passer sous 33 ms |
 | 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | à faire |
-| 6.7 | Le soleil du projet, un seul : le lieu, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la date et l'heure s'enregistrent avec le projet ; la carte des heures d'ombre dit sa fenêtre | un parasol a la même ombre sur le plan et en 3D ; un projet rouvert retrouve son soleil ; aucune empreinte ne bouge | décidé le 28 octobre 2026, à faire |
+| 6.7 | Le soleil du projet, un seul : le lieu, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la date et l'heure s'enregistrent avec le projet ; la carte des heures d'ombre dit sa fenêtre | un parasol a la même ombre sur le plan et en 3D ; un projet rouvert retrouve son soleil ; aucune empreinte ne bouge | **fait** (28 octobre 2026) : `core/soleil.ts` et `model/soleilProjet.ts` ; enregistré sur la parcelle (`soleil`) une fois choisi, défaut aujourd'hui 15 h ; carte « mai à septembre, 12 h – 18 h » dite sous sa case ; empreintes inchangées |
 
 ## Journal des décisions
 

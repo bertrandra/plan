@@ -21,6 +21,7 @@ import { deplierRelief } from './relief.js';
 import { rangerChampsAPlat } from './champsFonction.js';
 import type { ChampsBatiment, ObjetBrut, ObjetAPoints } from './types.js';
 import { lireChampsEtendus } from './corpsToitEtendu.js';
+import { soleilEnregistre } from './soleilProjet.js';
 
 /**
  * Le type dit les deux moities du travail : **`T`** parce que rien n'est enleve ni exige — un
@@ -58,6 +59,8 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
     if (c.ortho) c.ortho = JSON.parse(JSON.stringify(c.ortho));
     if (c.affichage) c.affichage = JSON.parse(JSON.stringify(c.affichage));
     if (c.declaration) c.declaration = JSON.parse(JSON.stringify(c.declaration));
+    // Le soleil du projet : relu s'il se lit, retire sinon (un fichier abime retombe sur le defaut).
+    if (c.soleil !== undefined) { const s = soleilEnregistre(c.soleil); if (s) c.soleil = s; else delete c.soleil; }
     // Les sous-objets d'une fonction (model/typesFonctions.ts) sont copies en entier : le clone ne partage rien avec la source.
     if (c.batiment) {
       const b = JSON.parse(JSON.stringify(c.batiment)) as ChampsBatiment;

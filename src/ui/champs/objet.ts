@@ -17,6 +17,8 @@ import { lieuDeParcelle } from '../../model/lieu.js';
 import { aParticularite, estBatiment, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import { terrasseDuParasol, hauteurParasolDe, matAngleDe, chercherMeilleurePositionParasol } from '../../engine/parasol.js';
 import { formatHeureMin } from '../../util/format.js';
+import { soleilDuProjet } from '../../core/soleil.js';
+import { FENETRE_CARTE_OMBRE } from '../../model/soleilProjet.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
 import { sectionsPergola } from './pergola.js';
@@ -317,7 +319,7 @@ const sectionParasol: Section = {
     { type: 'case', cle: 'ombreAffichee', libelle: 'Afficher l\'ombre', sale: false, effets: ['rendu'], lire: (c) => c.etat.parasol.ombreAffichee, ecrire: (c, v) => { c.etat.parasol.ombreAffichee = v; } },
     {
       type: 'bouton', cle: 'placerAuMieux', libelle: 'Meilleure position', texte: () => 'Placer au mieux',
-      explication: 'Cherche sur la terrasse la position qui ombrage le plus, mai→sept. 12h–18h.',
+      explication: 'Cherche sur la terrasse la position qui ombrage le plus, de ' + FENETRE_CARTE_OMBRE.libelle + '.',
       agit: 'projet',
       executer: (c) => {
         const obj = c.obj;
@@ -331,19 +333,30 @@ const sectionParasol: Section = {
           const toile = enCercle(obj); toile.center.x = res.x; toile.center.y = res.y;
           if (obj.parasol?.matDeporte && res.angleDeg !== undefined) champsParasol(obj).matAngleDeg = res.angleDeg;
           c.render();
-          c.toast('Parasol place sur "' + terr.name + '" : ' + (res.couverture * 100).toFixed(0) + ' % a l\'ombre en moyenne (mai-sept., 12h-18h).');
+          c.toast('Parasol placé sur « ' + terr.name + ' » : ' + (res.couverture * 100).toFixed(0) + ' % à l’ombre en moyenne (' + FENETRE_CARTE_OMBRE.libelle + ').');
         }, 30);
       }
     },
     // La date, l'heure et la carte des heures d'ombre servent rarement : repliees, apres le geste.
-    { type: 'date', cle: 'ombreDate', libelle: 'Ombre — date', sale: false, repli: OMBRE, effets: ['rendu'], lire: (c) => c.etat.parasol.dateStr, ecrire: (c, v) => { if (v) c.etat.parasol.dateStr = v; } },
+    // La date et l'heure sont le soleil du projet (core/soleil.ts), le meme que la Vue 3D et la visionneuse : un reglage
+    // d'affichage (ni annulation, ni « projet modifie », permis en lecture seule) que le projet garde (`enregistre`). Son
+    // ecouteur (app/soleil.ts) redessine le plan, eclaire la 3D et le range sur la parcelle : aucun effet a declarer ici.
     {
-      type: 'curseur', cle: 'ombreHeure', libelle: 'Ombre — heure', min: 0, max: 1439, pas: 5, format: formatHeureMin, sale: false, repli: OMBRE, effets: ['rendu'],
-      lire: (c) => c.etat.parasol.minutes, ecrire: (c, v) => { c.etat.parasol.minutes = v; }
+      type: 'date', cle: 'ombreDate', libelle: 'Soleil — date', sale: false, enregistre: true, repli: OMBRE,
+      aide: 'Le même soleil que la Vue 3D et la visionneuse ; il s’enregistre avec le projet',
+      lire: () => soleilDuProjet.lire().dateStr, ecrire: (_c, v) => { if (v) soleilDuProjet.regler({ dateStr: v }); }
     },
     {
-      type: 'case', cle: 'carteAffichee', libelle: 'Carte de chaleur (heures d\'ombre)', sale: false, repli: OMBRE, effets: ['rendu'],
-      aide: 'Colore la terrasse selon la part des après-midis d\'été (mai à septembre, 12h-18h) passée à l\'ombre',
+      type: 'curseur', cle: 'ombreHeure', libelle: 'Soleil — heure', min: 0, max: 1439, pas: 5, format: formatHeureMin, sale: false, enregistre: true, repli: OMBRE,
+      aide: 'Heure légale française, la même que la Vue 3D et la visionneuse',
+      lire: () => soleilDuProjet.lire().minutes, ecrire: (_c, v) => { soleilDuProjet.regler({ minutes: v }); }
+    },
+    {
+      // La carte couvre toute la saison et non la date choisie juste au-dessus : elle le dit sous la case, pas seulement en infobulle
+      // (au doigt, l'infobulle n'existe pas).
+      type: 'case', cle: 'carteAffichee', libelle: 'Carte des heures d\'ombre', sale: false, repli: OMBRE, effets: ['rendu'],
+      note: () => 'Toute la saison, ' + FENETRE_CARTE_OMBRE.libelle + ', pas la date choisie',
+      aide: 'Colore la terrasse selon la part des après-midis d\'été (' + FENETRE_CARTE_OMBRE.libelle + ') passée à l\'ombre de ses parasols',
       lire: (c) => c.etat.parasol.carteAffichee, ecrire: (c, v) => { c.etat.parasol.carteAffichee = v; }
     }
   ]

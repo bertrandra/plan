@@ -1,7 +1,10 @@
 // Position du soleil (spec §3.2, geo/soleil.ts).
 //
-// Formules NOAA simplifiees, deplacees depuis legacy.ts sans retouche : declinaison depuis le jour
-// de l'annee, equation du temps, puis hauteur et azimut depuis la latitude et l'angle horaire.
+// Une astronomie simplifiee, deplacee depuis legacy.ts sans retouche : declinaison de Cooper (23,45°
+// x sin), equation du temps approchee (trois termes), puis hauteur et azimut depuis la latitude et
+// l'angle horaire, sans refraction. Ce ne sont PAS les formules de la NOAA (serie de Spencer, ou
+// algorithme de Meeus), que l'ancien commentaire citait a tort : l'ecart est de l'ordre de la minute
+// d'heure et du demi-degre, sans effet sur une ombre de parasol.
 //
 // `lieuActuel()` reste dans la racine de composition (app/boot.ts) : elle lit la parcelle courante,
 // donc l'etat du plan. Ce n'est pas une feuille pure au sens de la phase 2.
@@ -26,7 +29,7 @@ export function decalageFuseauFrance(anneeRef: number, tsUTC: number): number {
   return (tsUTC >= debutEte && tsUTC < finEte) ? 2 : 1;
 }
 
-// Formules solaires standard (NOAA, simplifiees) : declinaison depuis le jour de l'annee, equation
+// Formules solaires simplifiees (voir l'en-tete) : declinaison depuis le jour de l'annee, equation
 // du temps (correction de quelques minutes due a l'orbite elliptique/l'inclinaison terrestre),
 // puis hauteur/azimut depuis latitude + angle horaire. Azimut en convention 0=Nord/90=Est/180=
 // Sud/270=Ouest (sens horaire), converti ensuite vers le repere de la scene (+X=Est, +Z=Sud, meme
