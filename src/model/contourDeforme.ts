@@ -1,4 +1,4 @@
-// Ce qui suit un contour deforme (MD/spec-ouvrages.md, « Le flux de construction d'un batiment », point 8 de « Ce qu'il faut
+// Ce qui suit un contour deforme (MD/spec-flux-batiment.md, « Le flux de construction d'un batiment », point 8 de « Ce qu'il faut
 // ranger »).
 //
 // Un deplacement d'un bloc fait suivre ce qu'un objet porte en coordonnees absolues (model/ouvrages/, suivreLeContour). Une
