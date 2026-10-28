@@ -10,7 +10,7 @@
 import { nombreFr } from '../../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES, libelleParcelle } from '../../geo/bdtopo.js';
 import { distancePointContour } from '../../geometry/proximite.js';
-import { toitBdTopo, toitActualise, attributsToitBdTopo } from '../../model/toitBdTopo.js';
+import { toitBdTopo, attributsToitBdTopo } from '../../model/toitBdTopo.js';
 import { showToast } from '../../shell/dialogs.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { projecteurLocal } from '../../geo/projection.js';
@@ -25,9 +25,9 @@ import { valeursParDefaut } from './valeursParDefaut.js';
 import { APPARENCES_IGN, batimentDeLaPropriete } from '../../geo/cadastreObjets.js';
 import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeoJSON, Anneau, Candidate, VoisinageRayon } from '../../geo/apiIgn.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
-import type { ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
+import type { Mesure, ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { volumesRecalcules, batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche } from './actualisationIgn/toitsEtMurs.js';
+import { batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -210,13 +210,16 @@ function batimentsRecrees(frais: ElementIgn[], anciens: ObjetBrut[], dejaLa: Obj
   const cles = new Set([...dejaLa.map(o => o.key), ...clesAnciennes.values()]);
   const cleUnique = (base: string) => { let cle = base, n = 2; while(cles.has(cle)){ cle = base + '-' + n; n++; } cles.add(cle); return cle; };
   const reponses = new Map(anciens.flatMap(o => { const id = idDe(o); return id && o.batiment?.toitACheval ? [[id, o.batiment?.toitACheval] as const] : []; }));
+  // Une hauteur a l'egout choisie (inspecteur, audit) suit le batiment aussi : l'actualisation ne la reecrit pas (model/protections.ts).
+  const hauteurs = new Map(anciens.flatMap(o => { const id = idDe(o); return id && o.batiment?.egoutChoisi && typeof o.elevation === 'number' ? [[id, { elevation: o.elevation, egoutChoisi: o.batiment.egoutChoisi }] as const] : []; }));
   const recupereLe = new Date().toISOString();
   const nouveaux = frais.map(b => {
     const ancienne = b.id ? clesAnciennes.get(b.id) : undefined;
     if (ancienne) clesAnciennes.delete(b.id as string); // une cle ne sert qu'une fois
     const o = batimentDeLaPropriete(b, ancienne ? () => ancienne : cleUnique, recupereLe);
-    const r = b.id ? reponses.get(b.id) : undefined;
-    return r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o;
+    const r = b.id ? reponses.get(b.id) : undefined, h = b.id ? hauteurs.get(b.id) : undefined;
+    const avecReponse = r ? { ...o, batiment: { ...(o).batiment, toitACheval: r } } : o;
+    return h ? { ...avecReponse, elevation: h.elevation, batiment: { ...avecReponse.batiment, egoutChoisi: h.egoutChoisi } } : avecReponse;
   });
   return ctx.serializeObjects(nouveaux).map(versMemoire);
 }
@@ -262,6 +265,8 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
 
     // ---- 3. Application
     ctx.pushHistory();
+    // Les batiments dont les corps suivaient l'ancien contour, et les contours relus (pour les cotes du plan).
+    const caducs = new Set<string>(), contours: { cle: string; avant: PtBrut[]; apres: PtBrut[] }[] = [];
     let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0, nRetouches = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
@@ -274,9 +279,10 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
         ((o as Partial<ObjetPolygone>).pts||[]).forEach(p=>{ ecartMax = Math.max(ecartMax, distancePointContour(p, contour)); });
+        contours.push({ cle: o.key as string, avant: (o as Partial<ObjetPolygone>).pts || [], apres: contour });
         return parcelleRelue(o, contour, relue);
       }
-      const bdtopo = o.bdtopo as { couche?: string; id?: string; hauteurRetenueM?: number; nature?: string; usage1?: string } | undefined;
+      const bdtopo = o.bdtopo as BdTopoObjet | undefined;
       if(bdtopo && bdtopo.couche && bdtopo.couche !== 'estimation'){
         const f = fraiches[bdtopo.id as string];
         if(!f){ nAbsents++; return o; }
@@ -284,38 +290,12 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
         if(!anneau){ nAbsents++; return o; }
         const pts = anneauVersPts(anneau, proj, simplifier);
         if(pts.length < 3){ nAbsents++; return o; }
-        const p: Record<string, unknown> = f.properties || {};
         nMaj++;
-        // Nom, couleurs, verrouillage et textures sont des choix de l'utilisateur : l'actualisation
-        // ne touche qu'a la geometrie et aux attributs IGN.
-        const haut = bdtopo.couche === COUCHE_BATIMENT
-          ? hauteurBatiment(p)
-          : (nombreFr(p.hauteur) || bdtopo.hauteurRetenueM || hauteurVegetation(p.nature as string | undefined));
-        const toit = bdtopo.couche === COUCHE_BATIMENT ? toitActualise(o.batiment?.toit, pts, attributsToitBdTopo(p)) : undefined;
-        if(toit && toit !== o.batiment?.toit && toit.source === 'bdtopo' && toit.forme !== 'plat') nToits++;
-        const volumesToit = volumesRecalcules(o, pts, toit);
-        return Object.assign({}, sansRetouche(o), {
-          pts,
-          vertexNames: pts.map((_,i)=>'Point ' + (i+1)),
-          segmentNames: pts.map((_,i)=>'Cote ' + (i+1)),
-          frozenVertices: pts.map(()=>false),
-          elevation: haut,
-          // Un contour relu se relit aussi sur le LiDAR : la tache de fond le reprend s'il n'est pas des plus proches ;
-          // ses attributs relus (usage, etages), son profil de facades se rechoisit (app/toits/profilsFacadesFond.ts).
-          ...(toit || volumesToit !== undefined || bdtopo.couche === COUCHE_BATIMENT ? { batiment: { ...o.batiment, ...(toit ? { toit } : {}),
-            ...(volumesToit !== undefined ? { volumesToit, toitMesure: null, corpsToit: null } : {}),
-            ...(bdtopo.couche === COUCHE_BATIMENT ? { toitLidarLu: null, ...(o.batiment?.profilFacades ? { profilFacades: null } : {}) } : {}) } } : {}),
-          bdtopo: Object.assign({}, bdtopo, {
-            nature: p.nature || bdtopo.nature, usage1: p.usage_1 || bdtopo.usage1,
-            hauteurM: nombreFr(p.hauteur), hauteurRetenueM: haut,
-            nombreEtages: nombreFr(p.nombre_d_etages), nombreLogements: nombreFr(p.nombre_de_logements),
-            altitudeSolM: nombreFr(p.altitude_minimale_sol), altitudeToitM: nombreFr(p.altitude_minimale_toit),
-            altitudeToitMaxM: nombreFr(p.altitude_maximale_toit), constructionLegere: String(p.construction_legere) === 'True', ...materiauxBdTopo(p),
-            etat: p.etat_de_l_objet || (bdtopo as { etat?: string }).etat,
-            identifiantRnb: p.identifiants_rnb || (bdtopo as { identifiantRnb?: string }).identifiantRnb,
-            recupereLe: new Date().toISOString()
-          })
-        });
+        const relu = objetIgnRelu(o, bdtopo, pts, f.properties || {}, contexteActualisation(o, options));
+        if(relu.toitDeduit) nToits++;
+        if(relu.corpsCaducs) caducs.add(o.key as string);
+        if(relu.contourEcrit && o.type !== 'circle' && (o as Partial<ObjetPolygone>).pts) contours.push({ cle: o.key as string, avant: (o as ObjetPolygone).pts, apres: pts });
+        return relu.objet;
       }
       return o;
     });
@@ -335,7 +315,11 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     }
     // ---- 3 ter. La couverture des toits (orthophoto), leur forme (MNH LiDAR HD, spec §10), la couleur des murs (§6.5)
     await toitsEtMurs(serialises, proj, bilan, ctx, options);
-    ctx.restoreState({ objects: serialises, measures: ctx.serializeMeasures(ctx.etat.measures) });
+    // Des corps sur l'ancien contour que la lecture n'a pas refaits : ils ne tiennent plus, ils partent.
+    serialises.forEach(o => { if(caducs.has(o.key as string) && !o.batiment?.toitLidarLu && o.batiment) o.batiment = { ...o.batiment, corpsToit: null }; });
+    // Les cotes du plan suivent les sommets relus (model/contourDeforme.ts).
+    const cotes = cotesSurLesContours(ctx.serializeMeasures(ctx.etat.measures) as Mesure[], contours);
+    ctx.restoreState({ objects: serialises, measures: cotes });
 
     // ---- 4. Le zonage PLU, au centre de la parcelle
     const cible = ctx.trouverParcelleCloture();

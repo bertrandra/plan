@@ -18,6 +18,7 @@
 
 import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
 import { toucher } from '../core/controleurObjets.js';
+import { apresDeformation } from '../core/deformation.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
 import { facadesDuContour } from '../facade/geometrie.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
@@ -162,6 +163,8 @@ interface EtatPointeur {
   clicCote: DernierClic;
   clicSommet: DernierClic;
   clicObjet: DernierClicObjet;
+  /** Le contour au debut d'un glisser de sommet ou de cote : a la fin, ce qui en depend suit (core/deformation.ts). */
+  contourAvant: PtBrut[] | null;
 }
 
 const CLIC_VIDE: DernierClic = {key:null, index:null, time:0};
@@ -273,6 +276,7 @@ function surSommet(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   etat.highlight = {type:'vertex', index:idx};
   ctx.pushHistory();
   p.geste = {type:'point', obj, idx, startWorld:w, startPt:{...sommetDe(obj.pts, idx)}};
+  p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
 }
 
@@ -297,6 +301,7 @@ function surCote(p: EtatPointeur, ds: DOMStringMap, w: PtBrut): Issue {
   etat.highlight = {type:'segment', index:i};
   ctx.pushHistory();
   p.geste = {type:'edge', obj, i, j, startWorld:w, startA:{...sommetDe(obj.pts, i)}, startB:{...sommetDe(obj.pts, j)}};
+  p.contourAvant = obj.pts.map(q=>({...q}));
   return 'suite';
 }
 
@@ -405,7 +410,7 @@ function brancherGestesDeVue(svg: SVGElement, stage: HTMLElement, etat: EtatApp,
  * la meme distinction que dans le DOM, et elle evite qu'un pincement soit pris pour un glisser.
  */
 export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: EtatApp, ctx: ContextePointeur): void {
-  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE };
+  const p: EtatPointeur = { etat, ctx, geste: null, clicCote: CLIC_VIDE, clicSommet: CLIC_VIDE, clicObjet: CLIC_OBJET_VIDE, contourAvant: null };
   const worldFromEvent = (e: PointerEvent): PtBrut => {
     const rect = stage.getBoundingClientRect();
     return ctx.toWorld({x:e.clientX-rect.left, y:e.clientY-rect.top});
@@ -484,6 +489,12 @@ export function brancherPointeur(svg: SVGElement, stage: HTMLElement, etat: Etat
       p.geste = null;
       return;
     }
+    if(geste && (geste.type==='point' || geste.type==='edge') && p.contourAvant){
+      // Un sommet ou un cote tire (un rectangle redimensionne) : les releves, les cotes et le toit lu suivent le contour deforme.
+      const dire = apresDeformation(etat, geste.obj as ObjetPlan, p.contourAvant);
+      if(dire) ctx.signaler?.(dire);
+    }
+    p.contourAvant = null;
     if(geste && (geste.type==='shapeMove' || geste.type==='circleMove') && !geste.moved){
       // Un simple clic (sans glisser) sur l'objet deja selectionne : il se deselectionne.
       etat.selectedKey = null;

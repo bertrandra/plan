@@ -6,6 +6,7 @@ import { brancherToitCatalogue } from '../ecouteurs/toitCatalogue.js';
 import { brancherToitsFond } from '../ecouteurs/toitsFond.js';
 import { brancherFaitsLocaux } from '../ecouteurs/faitsLocaux.js';
 import { vue3d } from '../../three/etat3d.js';
+import { lectureToits } from '../../core/lectureToits.js';
 import type { Atelier } from '../atelier.js';
 import type { Plan, Tardifs } from './plan.js';
 import type { chargements } from './chargements.js';
@@ -21,6 +22,8 @@ export function brancherLesToits(p: Plan, atelier: Atelier, ch: ReturnType<typeo
     magasin
   }, commandes);
   brancherToitsFond(ch.toitsFond, commandes);
+  // Un contour deforme remet son toit a lire (core/deformation.ts) : la lecture en fond le reprend tout de suite.
+  lectureToits.surRelecture(() => ch.toitsFond.relancer());
   // L'essai des faits des toits (`?regles=local`, admin) : les toits touches se relisent en tache de fond.
   brancherFaitsLocaux({ objets: () => atelier.etat.objects, relireToits: () => { ch.toitsFond.arreter(); ch.toitsFond.relancer(); } }, commandes);
 }

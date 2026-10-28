@@ -67,6 +67,8 @@ describe('ce que les propositions ecrivent', () => {
     expect(touches).toEqual(['maison']);
     expect(m.elevation).toBe(5);
     expect(m.batiment?.facades?.[0]).toMatchObject({ cote: 0, hauteur: 5, ouvertures: [{ y: 1, h: 1.5 }] });
+    // Validee, la hauteur a l'egout est choisie : ni le LiDAR ni l'actualisation ne la reecrivent (model/protections.ts).
+    expect(m.batiment?.egoutChoisi).toBe('audit');
   });
 
   it('pose la couleur vue sur place, qui passe avant la photo de rue et le choix de source', () => {

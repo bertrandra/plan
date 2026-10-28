@@ -70,6 +70,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une seule hiérarchie décide qui l'emporte sur un bâtiment** (décision du 28 octobre 2026) : la personne, puis ce qui a été vu
+  sur place, le fait du moteur de règles, la mesure LiDAR, la BD TOPO, le défaut. Un écrivain automatique n'écrit plus qu'une
+  valeur de son niveau ou d'un niveau plus faible (`model/protections.ts`). Ce qui change : **le LiDAR bat l'IGN** — l'actualisation
+  IGN garde la hauteur à l'égout, le toit et le contour (recalage compris) lus au LiDAR, et ne prend le contour du jour que si
+  l'IGN en a changé la forme (le LiDAR le relit alors, la hauteur mesurée reste) ; elle garde aussi la couverture choisie d'un toit
+  qu'elle recalcule. Un bâtiment dessiné n'est plus recalé sur le LiDAR, et sa hauteur posée n'est plus réécrite. Dans l'audit,
+  les cheminées, lucarnes et appentis d'un toit aux « Règles » coupées, et la couleur des murs dont la source est choisie, arrivent
+  décochés ; un matériau des murs déjà validé par un audit se repropose coché (même niveau : le dernier gagne).
+
+- **Une seule règle dit qui peut écrire quoi sur un bâtiment** (`model/protections.ts`). La lecture LiDAR, son recalage, le moteur
+  de règles, l'actualisation IGN et l'audit de la parcelle demandent tous au même module s'ils peuvent écrire le contour, la
+  hauteur à l'égout, le toit, ce qui est posé dessus, sa couverture, les murs ou les façades, au lieu de lire chacun une partie
+  des marques (`toitFige`, `verifieSurPlace`, `retoucheMain`, `toit.source`) ; le tableau complet est dans `MD/spec-ouvrages.md`
+  (« Qui l'emporte ») et un test l'épingle case par case.
+
 - **La DP2 donne au bâti existant sa hauteur au point le plus haut** (`export/piecesDP.ts`). « Existant H » portait la hauteur
   à l'égout (`elevation`), alors que la légende de la pièce dit « H : hauteur au point le plus haut » : sur une maison à deux
   pans, il manquait toute la hauteur du toit, dans une pièce qui part en mairie. La hauteur est maintenant celle du toit que la
@@ -377,6 +392,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'écran ni dans les exports.
 
 ### Corrigé
+
+- **Le toit et les relevés suivent un contour retouché.** Tirer un sommet, un côté ou un coin de rectangle, ajouter ou retirer un
+  sommet, saisir une longueur ou un angle laissaient les corps du toit sur l'ancien contour, et les relevés de façade, les
+  fenêtres réglées une par une et les cotes glissaient au mur voisin quand un sommet s'ajoutait. Le toit lu au LiDAR se relit
+  sur le nouveau contour (en gardant ce qui est posé dessus) ; un toit réglé à la main reste, et un message le dit. Les relevés,
+  fenêtres et cotes gardent leur mur, à la retouche comme à l'actualisation IGN.
+
+- **La hauteur à l'égout choisie reste.** Saisie dans « Élévation » sur un bâtiment, ou validée par l'audit de la parcelle, elle
+  était réécrite sans prévenir par la relecture LiDAR suivante et, toujours, par l'actualisation IGN. Elle est désormais marquée
+  comme choisie (`egoutChoisi`, enregistré avec le projet) : ni le LiDAR, ni un fait du moteur, ni l'actualisation ne la
+  remplacent, « Actualiser le projet » la garde sur le bâtiment recréé, et l'audit propose une autre hauteur décochée.
+
+- **Une relecture des toits garde ce qui est posé dessus.** Quand un réglage des toits change (les toits déjà lus se relisent), ou
+  qu'un fait du moteur s'applique, les corps lus remplaçaient les anciens en bloc : cheminées, lucarnes, fenêtres de toit et
+  panneaux, toiture-terrasse, appentis ouvert, bow-windows et galeries d'un bâtiment non figé disparaissaient. Ils sont reportés
+  sur les corps neufs, là où ils tiennent encore (même pan, même emprise, un mur à moins de 80 cm pour un bow-window).
 
 - **Un mur relevé « en L » n'efface plus les corps du toit dans la Vue 3D** (`three/sceneObjets.ts`). Un seul relevé de façade
   avec une partie basse forçait le bâtiment en toit simple : les corps lus au LiDAR, les cheminées et les lucarnes posées dessus

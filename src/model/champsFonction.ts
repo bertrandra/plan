@@ -34,7 +34,7 @@ type SousObjet = 'batiment' | 'arbre' | 'parasol';
 export const CHAMPS_A_PLAT: Readonly<Record<string, readonly [SousObjet, string]>> = {
   volumesToit: ['batiment', 'volumesToit'], toitMesure: ['batiment', 'toitMesure'], corpsToit: ['batiment', 'corpsToit'],
   toitLidarLu: ['batiment', 'toitLidarLu'], couleurMurs: ['batiment', 'couleurMurs'], verifieSurPlace: ['batiment', 'verifieSurPlace'],
-  toitFige: ['batiment', 'toitFige'], toitACheval: ['batiment', 'toitACheval'], modeToit: ['batiment', 'modeToit'],
+  toitFige: ['batiment', 'toitFige'], egoutChoisi: ['batiment', 'egoutChoisi'], toitACheval: ['batiment', 'toitACheval'], modeToit: ['batiment', 'modeToit'],
   facades: ['batiment', 'facades'], toit: ['batiment', 'toit'], fenetres3d: ['batiment', 'fenetres3d'], profilFacades: ['batiment', 'profilFacades'],
   diametreArbre: ['arbre', 'diametre'], couleurArbre: ['arbre', 'couleur'], especeArbre: ['arbre', 'espece'], textureArbre: ['arbre', 'texture'],
   hauteurParasol: ['parasol', 'hauteur'], matDeporte: ['parasol', 'matDeporte'], matAngleDeg: ['parasol', 'matAngleDeg'],
