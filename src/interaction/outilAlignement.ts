@@ -55,7 +55,7 @@ export interface ContexteAlignement {
   nearestSegmentIndex: (obj: ObjetPlan, cible: CoteCible) => number;
   alignerSurCote: (pts: PtBrut[], idx: number, cible: CoteCible, distance: number | null) => PtBrut[];
   pointInPolygon: (p: PtBrut, poly: PtBrut[]) => boolean;
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   render: () => void;
   showToast: (message: string) => void;
@@ -98,7 +98,7 @@ export function alignerObjetParRotation(obj: ObjetPlan, _etat: unknown, distance
     ctx.showToast('Le resultat sortirait de la parcelle - alignement annule.');
     return;
   }
-  ctx.pushHistory();
+  ctx.pushHistory(obj);
   suivreLeContour(obj, forme.pts, newPts);
   forme.pts = newPts;
   ctx.rebuildHandles(obj);

@@ -17,6 +17,7 @@ import { reliefDe, affichageRelief, avecReglages, plafondRelief, resumeRelief } 
 import { parcelleDuProjet } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
+import { toucher } from '../../core/controleurObjets.js';
 import { vue3d } from '../../three/etat3d.js';
 import type { referenceGeoPlan } from '../../render/ortho.js';
 import type { Atelier } from '../atelier.js';
@@ -68,9 +69,9 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
       if (!cible) return;
       // « Actualiser » remplace la grille entiere, zRef compris ; les preferences d'affichage et le
       // plafond de points, eux, ne sont pas des donnees de la grille et restent ce que la personne a regle.
-      a.pushHistory();
+      a.pushHistory(cible);
       cible.relief = avecReglages(r, cible.relief);
-      a.markDirty();
+      a.markDirty(cible);
       a.render();
       reconstruire3d();
       showToast('Relief ' + verbe + ' : ' + resumeRelief(r));
@@ -106,7 +107,10 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
     if (!r) return;
     r.affichage = { ...(r.affichage ?? {}), [cle]: !affichageRelief(r)[cle] };
     // Sans annulation, mais le projet est a enregistrer : sinon le reglage se perdait a la reouverture.
-    if (!a.etat.lectureSeule) a.markDirty();
+    // L'ecriture nomme la parcelle qui porte le relief (core/controleurObjets.ts), en lecture seule aussi : le plan la redessine.
+    const p = parcelle();
+    toucher(p);
+    if (!a.etat.lectureSeule) { if (p) a.markDirty(p); else a.markDirty(); }
     a.render();
     if (cle === 'sol3d') reconstruire3d();
     ctx.rafraichir();
@@ -129,9 +133,9 @@ export function brancherRelief(a: Atelier, ctx: ContexteRelief, cmd: RegistreCom
     executer: () => {
       const p = parcelle();
       if (!p || !p.relief) return;
-      a.pushHistory();
+      a.pushHistory(p);
       delete p.relief;
-      a.markDirty();
+      a.markDirty(p);
       a.render();
       reconstruire3d();
     }

@@ -37,8 +37,8 @@ export interface Atelier {
   initialMeasures: () => Mesure[];
 
   // ---- Historique -----------------------------------------------------------------------------
-  pushHistory: () => void;
-  markDirty: () => void;
+  pushHistory: (...objets: object[]) => void;
+  markDirty: (...objets: object[]) => void;
   undo: () => void;
   /**
    * Remplace le plan par un instantane, **avant normalisation** : `core/history.ts` fait passer

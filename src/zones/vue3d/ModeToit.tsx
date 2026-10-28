@@ -121,7 +121,7 @@ function IndiceMain({ magasin }: { magasin: Magasin }) {
   if (v.z > 1) return null;
   const r = hote.getBoundingClientRect();
   return (
-    <svg className="indiceMain" style={{ left: ((v.x + 1) / 2) * r.width, top: ((1 - v.y) / 2) * r.height }} width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg className="indiceMain" data-suit-la-camera="" style={{ left: ((v.x + 1) / 2) * r.width, top: ((1 - v.y) / 2) * r.height }} width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M9 12V5.5a1.5 1.5 0 013 0V11M12 10.5V9a1.5 1.5 0 013 0v2M15 11a1.5 1.5 0 013 0v4c0 3.5-2.5 6-5.5 6S8 18.5 6.5 15.5L5 12.5a1.5 1.5 0 012.5-1L9 13" />
     </svg>

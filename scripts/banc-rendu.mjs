@@ -9,6 +9,14 @@
 // BANC_ZONES=1 (serveur de developpement) : pour chaque taille, les zones React qui se sont redessinees pendant les rendus mesures,
 // combien de fois et pour combien de temps (Profiler de React, zones/monter.tsx).
 // BANC_PROFIL=1 : au bureau, a la premiere taille, le profil de dix rendus (fonctions de src/, temps inclusif) : ce qui coute.
+// BANC_SCENARIOS=rendu,glisser,terrasse,zoom,pan (tous par defaut) : ce qui est mesure a chaque taille (etapes 2.3 et 6.5).
+//   rendu     un rendu sans changement (une zone qui notifie, un zoom repousse) ;
+//   glisser   chaque image d'un objet glisse (un arbre de la demonstration, selectionne) : il bouge, il est touche, le plan est rendu ;
+//   terrasse  la meme chose pour la terrasse (le chiffrage et ses couches suivent) ;
+//   zoom      chaque cran d'un zoom (x 1,1 puis / 1,1 autour du centre) : la scene change, le plan est rendu ;
+//   pan       chaque image d'un deplacement de la vue (8 px) : la scene change, le plan est rendu.
+// Les gestes de vue sont mesures sans le frein (`RENDU_LENT_MS`, app/boot/rendu.ts) : un rendu complet a chaque image, ce que le
+// geste couterait si l'apercu par transformation n'etait pas la.
 //
 // Deux cibles. Le serveur de developpement donne le profil (BANC_PROFIL=1, noms de src/), mais React y tourne en mode developpement,
 // plus lent que le paquet livre. Le paquet du banc donne les temps que les gens auront : un paquet de production qui garde les
@@ -34,6 +42,7 @@ const base = process.argv[2] || 'http://localhost:5199';
 const tailles = process.argv.slice(3).map(Number).filter(Boolean);
 const TAILLES = tailles.length ? tailles : [150, 300, 600];
 const ESSAIS = Number(process.env.BANC_ESSAIS) || (process.env.BANC_PROFIL ? 10 : 9);
+const SCENARIOS = (process.env.BANC_SCENARIOS || 'rendu,glisser,terrasse,zoom,pan').split(',').map((x) => x.trim()).filter(Boolean);
 const APPAREILS = [
   { nom: 'bureau', viewport: { width: 1440, height: 900 }, ralenti: 1, budget: 16 },
   { nom: 'téléphone', viewport: { width: 390, height: 844 }, ralenti: 4, budget: 33, mobile: true }
@@ -85,7 +94,7 @@ for (const a of APPAREILS) {
   for (const n of TAILLES) {
     const profiler = process.env.BANC_PROFIL && a.nom === (process.env.BANC_PROFIL_APPAREIL || 'bureau') && n === TAILLES[0];
     if (profiler) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start'); }
-    const r = await page.evaluate(async ({ n, essais }) => {
+    const r = await page.evaluate(async ({ n, essais, scenarios }) => {
       const etat = window.__plan.etat();
       // Repartir des objets d'origine, puis copier la demonstration sur elle-meme, un peu decalee, jusqu'a n.
       const origine = etat.objects.filter((o) => !String(o.key).includes('~banc'));
@@ -109,28 +118,72 @@ for (const a of APPAREILS) {
       // React rend les zones apres coup, dans une tache a lui (scheduler, MessageChannel) : un message poste apres le rendu passe
       // derriere elle. Le temps compte donc le plan et les zones, sans l'attente de l'image suivante.
       const apresReact = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
-      window.__plan.rendre(); await apresReact(); // le premier rendu pose les noeuds ; on mesure les suivants
-      window.__dureesZones = {};
-      const t = [], plan = [];
-      for (let i = 0; i < essais; i++) {
-        const debut = performance.now();
-        plan.push(window.__plan.rendre());
-        await apresReact();
-        t.push(performance.now() - debut);
+      window.__bancSelection ??= etat.selectedKey;
+      const selectionner = async (cle) => { if (etat.selectedKey !== cle) { window.__plan.selectionnerCle(cle); window.__plan.rendre(); await apresReact(); } };
+      await selectionner(window.__bancSelection);
+      // Les premiers rendus posent les noeuds et mettent le navigateur en route (les copies neuves, les taches qu'elles lancent) : on
+      // les laisse passer, puis on mesure les suivants.
+      for (let i = 0; i < 5; i++) { window.__plan.rendre(); await apresReact(); }
+      await new Promise((r) => setTimeout(r, 1000));
+      window.__plan.rendre(); await apresReact();
+      const glisser = (o) => (i) => {
+        const d = (i % 2 ? -1 : 1) * 0.05;
+        if (o.pts) o.pts = o.pts.map((p) => ({ ...p, x: p.x + d })); // le glisser remplace les sommets (interaction/drag.ts)
+        if (o.center) o.center = { ...o.center, x: o.center.x + d };
+        // Comme au doigt : seule la forme change (un paquet d'avant l'etape 6.5 n'a que `toucher`).
+        (window.__plan.toucherForme ?? window.__plan.toucher)(o.key);
+      };
+      const cx = () => etat.scene.W / 2, cy = () => etat.scene.H / 2;
+      const gestes = {
+        rendu: { avant: () => {}, image: () => {} },
+        glisser: { cible: () => origine.find((o) => o.fonction === 'arbre') ?? origine.find((o) => o.fonction !== 'terrain') },
+        terrasse: { cible: () => origine.find((o) => o.fonction === 'terrasse') },
+        zoom: { image: (i) => {
+          const s = etat.scene, k = i % 2 ? 1 / 1.1 : 1.1;
+          etat.scene = { ...s, scale: s.scale * k, origine: { x: cx() + (s.origine.x - cx()) * k, y: cy() + (s.origine.y - cy()) * k } };
+        } },
+        pan: { image: (i) => { const s = etat.scene, d = i % 2 ? -8 : 8; etat.scene = { ...s, origine: { x: s.origine.x + d, y: s.origine.y + d / 2 } }; } }
+      };
+      const resultats = {};
+      for (const nom of scenarios) {
+        const g = gestes[nom];
+        if (!g) continue;
+        let image = g.image;
+        if (g.cible) {
+          const o = g.cible();
+          if (!o) continue;
+          await selectionner(o.key);
+          image = glisser(o);
+          // La premiere image d'un geste prend son pas d'annulation (tout est neuf) : on mesure les suivantes.
+          image(1); window.__plan.rendre(); await apresReact();
+        }
+        window.__dureesZones = {};
+        const t = [], plan = [];
+        for (let i = 0; i < essais; i++) {
+          const debut = performance.now();
+          image(i);
+          plan.push(window.__plan.rendre());
+          await apresReact();
+          t.push(performance.now() - debut);
+        }
+        // Un nombre impair d'images laisse l'objet ou la vue un cran a cote : on revient au depart.
+        if (essais % 2) { image(essais); window.__plan.rendre(); await apresReact(); }
+        if (g.cible) await selectionner(window.__bancSelection);
+        t.sort((x, y) => x - y); plan.sort((x, y) => x - y);
+        resultats[nom] = { zones: window.__dureesZones, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)] };
       }
-      t.sort((x, y) => x - y); plan.sort((x, y) => x - y);
       const noeuds = document.querySelectorAll('#stage svg *').length;
-      return { zones: window.__dureesZones, objets: etat.objects.length, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)], noeuds };
-    }, { n, essais: ESSAIS });
-    if (process.env.BANC_ZONES) {
-      const z = Object.entries(r.zones ?? {}).sort((x, y) => y[1].ms - x[1].ms);
-      console.log(`zones redessinées (${ESSAIS} rendus) : ` + (z.map(([k, v]) => `${k} ${v.rendus}× ${v.ms.toFixed(0)} ms`).join(', ') || 'aucune'));
-    }
-    delete r.zones;
+      return { resultats, objets: etat.objects.length, noeuds };
+    }, { n, essais: ESSAIS, scenarios: SCENARIOS });
     if (profiler) imprimerProfil((await cdp.send('Profiler.stop')).profile);
-    const ligne = { appareil: a.nom, ...r, budget: a.budget };
-    lignes.push(ligne);
-    console.log(`${a.nom.padEnd(10)} ${String(r.objets).padStart(4)} objets, ${String(r.noeuds).padStart(6)} nœuds SVG : médiane ${r.mediane.toFixed(1).padStart(6)} ms (dont plan ${r.plan.toFixed(1)}), pire ${r.pire.toFixed(1).padStart(6)} ms  (budget ${a.budget} ms) ${r.mediane > a.budget ? 'AU-DELÀ' : 'ok'}`);
+    for (const [nom, x] of Object.entries(r.resultats)) {
+      if (process.env.BANC_ZONES) {
+        const z = Object.entries(x.zones ?? {}).sort((u, v) => v[1].ms - u[1].ms);
+        console.log(`zones redessinées (${nom}, ${ESSAIS} images) : ` + (z.map(([k, v]) => `${k} ${v.rendus}× ${v.ms.toFixed(0)} ms`).join(', ') || 'aucune'));
+      }
+      lignes.push({ appareil: a.nom, scenario: nom, objets: r.objets, mediane: x.mediane, pire: x.pire, plan: x.plan, budget: a.budget });
+      console.log(`${a.nom.padEnd(10)} ${nom.padEnd(8)} ${String(r.objets).padStart(4)} objets, ${String(r.noeuds).padStart(6)} nœuds SVG : médiane ${x.mediane.toFixed(1).padStart(6)} ms (dont plan ${x.plan.toFixed(1)}), pire ${x.pire.toFixed(1).padStart(6)} ms  (budget ${a.budget} ms) ${x.mediane > a.budget ? 'AU-DELÀ' : 'ok'}`);
+    }
   }
   console.log(`(${a.nom} : démonstration de ${origine} objets au départ, ${ESSAIS} rendus par taille)`);
   await contexte.close();

@@ -84,8 +84,9 @@ export function assemblerLePlan(seed: GraineDemarrage, tardifs: Tardifs) {
     signalerPile: (vide) => magasin.definirPeutAnnuler(!vide),
     rafraichirResultats: refreshTerrasseView
   });
-  const pushHistory = () => historique.empiler();
-  const markDirty = () => historique.marquerModifie();
+  // Une ecriture nomme les objets qu'elle modifie sur place, quand elle les connait (core/controleurObjets.ts) ; sans objet, tout est neuf.
+  const pushHistory = (...objets: object[]) => historique.empiler(...objets);
+  const markDirty = (...objets: object[]) => historique.marquerModifie(...objets);
   // Le tiroir des resultats et ses panneaux (app/boot/resultatsDuPlan.ts).
   const { tiroir, resultats } = assemblerLesResultats(etat, magasin, {
     pushHistory, markDirty, render, refreshTerrasseView, renderTerrasseLayerView: dessin.renderTerrasseLayerView, affichage, mesures

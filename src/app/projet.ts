@@ -17,7 +17,7 @@ import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { dialogues } from '../shell/dialogues.js';
 import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
-import { cleDesObjets } from '../core/controleurObjets.js';
+import { cleDesAttributs } from '../core/controleurObjets.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
@@ -199,13 +199,14 @@ function ouvrirDialogueMiseAJour(id: string, de: number, mettreAJour: () => Prom
 const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 /**
- * Le schema a ecrire est-il anterieur a celui du programme ? Repris tant que le plan n'a pas change (core/controleurObjets.ts) :
- * le schema minimal parcourt tous les objets, et l'etat de « Mettre a jour le modele » se lit a chaque rendu du plan.
+ * Le schema a ecrire est-il anterieur a celui du programme ? Repris tant que les attributs des objets n'ont pas change
+ * (core/controleurObjets.ts, `cleDesAttributs`) : le schema minimal parcourt tous les objets et ne lit que leurs champs poses, jamais
+ * leur forme (un glisser ne le change pas), et l'etat de « Mettre a jour le modele » se lit a chaque rendu du plan.
  */
 function retardMemorise(): (etat: EtatApp) => boolean {
   let retard: { cle: string; valeur: boolean } | null = null;
   return (etat) => {
-    const cle = cleDesObjets(etat.objects) + '|' + etat.schemaProjet;
+    const cle = cleDesAttributs(etat.objects) + '|' + etat.schemaProjet;
     if (retard?.cle !== cle) retard = { cle, valeur: schemaAEcrire(etat.objects, etat.schemaProjet) < SCHEMA_VERSION };
     return retard.valeur;
   };
