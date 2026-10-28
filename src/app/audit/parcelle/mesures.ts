@@ -27,7 +27,7 @@ import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js'
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
-import type { Facade } from '../../../facade/geometrie.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import type { Prise } from '../../../facade/releve/prise.js';
 import type { PhotoCas } from '../../../model/audit.js';

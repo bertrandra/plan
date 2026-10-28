@@ -5,7 +5,7 @@ import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
 import { computeImplantation } from '../../../src/engine/implantation.js';
 import { appuisEnHauteur } from '../../../src/engine/hauteurs.js';
-import { calculerPergola, chiffrerPergola } from '../../../src/engine/pergola.js';
+import { calculerPergola, chiffrerPergola } from '../../../src/engine/abri/pergola.js';
 import { calculerPiscine, chiffrerPiscine } from '../../../src/engine/piscine.js';
 import { solDuProjet } from '../../../src/engine/sol.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';

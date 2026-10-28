@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { trianguler } from '../../../../src/geometry/triangulation.js';
 import {
   plansDuToit,
   hauteurToitEn,
   facettesToit,
-  trianguler,
   classerProfil,
   corrigerFuite,
   toitDepuisEstimation,

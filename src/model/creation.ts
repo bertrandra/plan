@@ -22,7 +22,7 @@ import type { PtBrut, ObjetPlan, ObjetAPlat, Construction } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 import { centreSouhaite, type NatureOuvrage } from './placement.js';
-import { estOuvrage, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE } from './ouvrages/index.js';
+import { estOuvrage, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE, type NatureAbri } from './ouvrages/index.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -131,19 +131,17 @@ export function nouveauParasol(c: PtBrut, key: string, numero: number, terrasse:
 }
 
 /** Ce qu'une pergola et un carport ont de propre a la creation : le nom, la taille, la couleur. */
-const ABRIS = {
+const ABRIS: Record<NatureAbri, { nom: string; demiL: number; demiH: number; fill: string; stroke: string }> = {
   pergola: { nom: 'Pergola', demiL: 2, demiH: 1.5, fill: '#d9c3a0', stroke: '#6b4a2a' },
   // Une place de voiture : 3 m de large sur 5 m de profondeur.
   carport: { nom: 'Carport', demiL: 1.5, demiH: 2.5, fill: '#c9ccce', stroke: '#4a4f54' }
-} as const;
-
-export type NatureAbri = keyof typeof ABRIS;
+};
 
 /**
  * Pergola ou carport : un rectangle, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
  * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit), le metrage et le
  * chiffrage, et que la Vue 3D la construit piece par piece — le meme code pour les deux ouvrages
- * (engine/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
+ * (engine/abri/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
  * le plan dessine les poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
  */
 export function nouvelAbri(nature: NatureAbri, c: PtBrut, key: string, numero: number): ObjetNeuf {

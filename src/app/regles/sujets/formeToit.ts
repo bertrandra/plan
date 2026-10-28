@@ -1,7 +1,7 @@
 // Sujet « formeToit » : la forme du toit vue par Claude sur les pignons et les croupes, relue sur la
 // mesure LiDAR par le moteur (facade/regles/toits/faits.ts) : le sujet ne dessine jamais un toit.
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { AUTRES_FORMES, FORMES_COURANTES, libelleDe } from '../../../model/ceQueJeVois.js';
 import { corpsSousContrainte, ecartsAuFait, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { observationDesSilhouettes, type BoutsLus, type SilhouetteLue } from '../../../facade/regles/toits/silhouettes.js';

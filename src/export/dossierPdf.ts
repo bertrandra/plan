@@ -22,7 +22,7 @@ import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { largeurChemin, longueurChemin, surfaceChemin } from '../model/ouvrages/index.js';
-import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { dateFr } from '../util/format.js';
 
 /** Ce que le dossier PDF doit savoir en plus des objets : de quoi remplir titres et cartouches. */

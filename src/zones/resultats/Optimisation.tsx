@@ -8,10 +8,11 @@
 import { enLectureSeule } from '../../app/acces.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { ESSENCE_PRICES, estPlots, SOLIVE_PRICE, VIS_PRICE } from '../../engine/constantes.js';
-import { maxEntraxeLameCm, sectionLambourde } from '../../engine/portees.js';
+import { maxEntraxeLameCm, sectionLambourde } from '../../engine/bois/portees.js';
 import { evaluerStructure, optimiserParametres } from '../../engine/optimisation.js';
 import { prixPlotUnite } from '../../engine/prix.js';
-import { lamesAngleOf, prixUnitaire, surfaceNetteTerrasse } from '../../engine/structure.js';
+import { lamesAngleOf, prixUnitaire } from '../../engine/structure.js';
+import { surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
 import { aDesSommets } from '../../model/formes.js';
 import type { CandidatStructure } from '../../engine/structure.js';
 import type { Resultats } from '../../app/resultats.js';

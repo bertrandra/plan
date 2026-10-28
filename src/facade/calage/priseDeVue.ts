@@ -8,7 +8,7 @@
 
 import { vueCachee, type Obstacle } from '../../geometry/ligneDeVue.js';
 import type { PtBrut } from '../../model/types.js';
-import { facadeFaceAuCap, type Facade } from '../geometrie.js';
+import { facadeFaceAuCap, type Facade } from '../../geometry/cotesVusDeDehors.js';
 
 /** Plus pres, le mur deborde de la photo ; plus loin, il n'en occupe plus assez (comme Panoramax). */
 export const DISTANCE_DEVANT_MIN_M = 3;

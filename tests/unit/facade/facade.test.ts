@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/facade/geometrie.js';
+import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/geometry/cotesVusDeDehors.js';
 import { focalePx, distanceParCadrage, distancePourToutCadrer, etalonnerChamp, consigneAplomb, planDePrise, consignePrise } from '../../../src/facade/vision/cadrage.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/vision/homographie.js';
 import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection/detection.js';

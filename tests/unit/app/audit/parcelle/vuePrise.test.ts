@@ -4,7 +4,7 @@ import {
   TRAIT_NUL_M, TRAIT_PLEIN_M,
   CHAMP_ENSEMBLE_DEG, CHAMP_PIETON_MAX_DEG, ELEVATION_ORBITE_DEG, PRECISION_ORBITE_MAX_M, ZONE_MORTE_ORBITE_DEG, CHAMP_VISIBLE_DEG, ELEVATION_ENSEMBLE_DEG, MARGE_MUR_M, OEIL_M, PAUSE_GESTE_MS, RECUL_PIETON_M, REGARD_HAUT_DEG,
 } from '../../../../../src/app/audit/parcelle/vuePrise.js';
-import type { Facade } from '../../../../../src/facade/geometrie.js';
+import type { Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
 
 // La Vue 3D de « Photographier en marchant » (app/audit/parcelle/vuePrise.ts) : a hauteur d'homme,
 // un peu vers le haut, derriere vous, et qui suit votre position et votre cap.

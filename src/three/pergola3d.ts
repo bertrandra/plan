@@ -1,12 +1,12 @@
 // La pergola ou le carport en 3D, piece par piece (three/).
 //
-// Le moteur (engine/pergola.ts) rend des axes et des sections ; chaque piece devient une boite
+// Le moteur (engine/abri/pergola.ts) rend des axes et des sections ; chaque piece devient une boite
 // orientee sur son axe. La hauteur de la section est tenue dans le plan vertical de la piece : une
 // poutre et un chevron sont poses sur chant, un aretier suit la pente. La couverture (toile ou pans)
 // est un maillage triangule sur sa projection au sol, qui n'est jamais degeneree : aucun pan n'est
 // vertical.
 
-import { calculerPergola, dimsPergola, type Pt3 } from '../engine/pergola.js';
+import { calculerPergola, dimsPergola, type Pt3 } from '../engine/abri/pergola.js';
 import type { Sol } from '../engine/sol.js';
 import type * as THREE_NS from 'three';
 import type { ObjetPlan } from '../model/types.js';

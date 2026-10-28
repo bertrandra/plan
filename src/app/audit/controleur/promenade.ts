@@ -6,7 +6,7 @@ import { stockageNavigateur } from '../../../io/brouillonAudit.js';
 import { geocoderBAN, geocoderInverseBAN } from '../../../geo/apiIgn.js';
 import { lireGrilleSous } from '../../../geo/mnh.js';
 import { centroid } from '../../../geometry/basic.js';
-import { facadesDuContour } from '../../../facade/geometrie.js';
+import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { elevationOf } from '../../../engine/hauteurs.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { creerPromenade, type Promenade } from '../promenade.js';

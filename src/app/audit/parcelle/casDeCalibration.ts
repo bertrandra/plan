@@ -3,7 +3,7 @@
 // du mur sous le toit que lit le LiDAR (les corps du cas fige, `hauteurMurSousToit`) ; un ancien fichier, qui ne gardait que la
 // hauteur du prisme, est relu sur son cas fige.
 
-import { facadesDuContour } from '../../../facade/geometrie.js';
+import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { GABARIT_RECTANGLE, gabaritDesCorps, relief, type GabaritMur } from '../../../facade/gabaritMur.js';
 import { FORMAT_CAS_REEL, type CasStocke, type PhotoReelle } from '../../../facade/corpusReel.js';
 import type { BilanPhotoRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';

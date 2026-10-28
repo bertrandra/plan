@@ -17,7 +17,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { Magasin, HauteurTiroir } from './magasin.js';
 import { classePour, toucherSeul } from './classe.js';
 import { reliefDe } from '../model/relief.js';
-import { libelleAbri } from '../engine/pergola.js';
+import { libelleAbri } from '../engine/abri/pergola.js';
 
 export type { HauteurTiroir } from './magasin.js';
 

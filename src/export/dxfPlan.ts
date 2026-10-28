@@ -10,7 +10,7 @@ import { dxfNum } from './dxf.js';
 import { escapeXml } from '../util/escape.js';
 import { geometrieMesure, type Mesure } from '../render/measures.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
-import { formeDeTerrasse, trousDeTerrasse } from '../engine/structure.js';
+import { formeDeTerrasse, trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 
 /** Nom de calque DXF : un nom d'objet ne peut pas y garder ses espaces ni ses accents. */
 function calque(nom: string): string {

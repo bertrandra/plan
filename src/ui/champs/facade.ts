@@ -5,7 +5,7 @@
 // se corrige ici, comme n'importe quelle propriete.
 
 import { enPoints } from '../../model/formes.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { designerFacade } from '../../interaction/choixFacade.js';
 import { saillieArmee, viserSaillie } from '../../interaction/choixSaillie.js';
 import { angleDuPlusLongCote, penteDeg, formesAuChoix, LIBELLES_FORME_TOIT, COULEUR_TOIT_DEFAUT } from '../../facade/toits/toit.js';

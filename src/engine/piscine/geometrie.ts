@@ -6,7 +6,7 @@ import { centroid, dist, shoelace, signedArea } from '../../geometry/basic.js';
 import { clipLineToPolygon, polygonOffset } from '../../geometry/polygon.js';
 import { estPiscine } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
-import { type ReglagesPiscine } from './reglages.js';
+import { PROFILS_STRUCTURE, piscineDe, type ReglagesPiscine } from './reglages.js';
 
 // ---- Geometrie -------------------------------------------------------------------------------
 
@@ -31,6 +31,23 @@ export function elargir(contour: PtBrut[], d: number): PtBrut[] {
   if (d <= 1e-9) return contour.map(p => ({ ...p }));
   const off = polygonOffset(contour, -d);
   return off.length >= 3 && off.every(p => Number.isFinite(p.x) && Number.isFinite(p.y)) && Math.sign(signedArea(off)) === Math.sign(signedArea(contour)) ? off : contour.map(p => ({ ...p }));
+}
+
+/** L'exterieur des margelles autour des parois (les parois elles-memes sans margelle) : le bord du bassin vu du dehors. */
+export function bordDesMargelles(parois: PtBrut[], r: ReglagesPiscine): PtBrut[] {
+  return r.margelle ? elargir(parois, r.largeurMargelle) : parois;
+}
+
+/**
+ * Le bord du bassin que la piscine publie (engine/ouvrages/liens.ts) : l'exterieur des margelles, la ou une terrasse qui
+ * l'entoure s'arrete. Le meme que celui du calcul (`calculerPiscine(o).margelleExt`), sans le reste du calcul. `null` si le
+ * bassin n'est pas calculable.
+ */
+export function bordDuBassin(o: ObjetPlan): PtBrut[] | null {
+  const contour = contourPiscine(o);
+  if (!contour.length) return null;
+  const r = piscineDe(o);
+  return bordDesMargelles(elargir(contour, PROFILS_STRUCTURE[r.structure].paroi), r);
 }
 
 export const perimetre = (pts: PtBrut[]): number => pts.reduce((s, p, i) => s + dist(p, au(pts, (i + 1) % pts.length)), 0);

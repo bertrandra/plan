@@ -7,7 +7,7 @@
 // dans le magasin des photos de ce navigateur, quand c'est le meme.
 
 import { FORMAT_CAS_REEL, type CasStocke, type OuvertureVraie } from '../../facade/corpusReel.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import type { ObjetBrut, PtBrut, ReleveFacade } from '../../model/types.js';
 
 /** Une facade relevee, prete a devenir un cas : ce qu'on en montre, et le cas. */

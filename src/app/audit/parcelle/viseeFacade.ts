@@ -6,7 +6,7 @@ import { poserFacadeDevant, ROUGE_FACADE, VERT_FACADE } from '../../../three/fac
 import type { CaptureEnCours } from './capture.js';
 import type { LigneFacade, ListeDeControle } from './liste.js';
 import { cleFacade, entreesReconnaissance, facadeRetenue, facadesProposees } from './reconnaissance.js';
-import type { Facade } from '../../../facade/geometrie.js';
+import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { FacadeDevant } from '../../../facade/calage/priseDeVue.js';
 import type { PtBrut } from '../../../model/types.js';
 import type { ContexteAuditParcelle, CibleFacade } from './typesSession.js';

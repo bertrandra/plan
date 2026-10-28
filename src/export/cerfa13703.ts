@@ -11,11 +11,11 @@
 // vient de la section « Déclaration préalable » de la parcelle, ou reste a completer a la main.
 
 import { shoelace } from '../geometry/basic.js';
-import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/pergola.js';
+import { calculerPergola, LIBELLE_MATERIAU, LIBELLE_TOIT_PERGOLA, libelleAbri, natureAbri } from '../engine/abri/pergola.js';
 import { solDuProjet } from '../engine/sol.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';
 import type { DeclarationPrealable, ObjetPlan } from '../model/types.js';
-import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
 export const CERFA_13703 = { fichier: 'cerfa/cerfa_13703-12.pdf', version: '13703*12' } as const;
 

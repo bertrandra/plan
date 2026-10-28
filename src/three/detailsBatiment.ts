@@ -18,7 +18,7 @@ import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
 import { toitDessine } from '../model/formeToit.js';
 import { volumesDuBatiment, type Volume } from '../facade/profil.js';
-import { facadesDuContour, pointDeFacade, type Facade } from '../facade/geometrie.js';
+import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { ouverturesAutomatiques, hauteurDuMur, fenetresDesPignons } from '../facade/ouvertures.js';
 import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { segmentEnFacade, cotesSurLesCotes } from '../geometry/facadeExterieure.js';

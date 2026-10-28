@@ -19,7 +19,7 @@ import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_EXPORT, DEGRE_E
 import { NAME_SEP } from './separateurs.js';
 import type { ObjetPlan, PtBrut, Mesure } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
-import { trousDeTerrasse } from '../engine/structure.js';
+import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { courbesExportees, reliefDe } from '../model/relief.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
 import { estCourbe, tronconsBezier } from '../geometry/courbe.js';

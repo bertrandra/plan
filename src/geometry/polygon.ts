@@ -163,3 +163,46 @@ export function offsetZone(poly: PtBrut[], marge: number): PtBrut[] {
   const sain = out.length >= 3 && out.every(p=>isFinite(p.x)&&isFinite(p.y)) && a1 >= a0;
   return sain ? out : poly.map(p=>({...p}));
 }
+
+// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
+// apart from one that has folded through itself.
+// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
+// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
+// around and return a polygon LARGER than the original, which looks perfectly plausible and
+// silently poisons everything clipped against it. Both are caught here by comparing signed
+// areas, and the raw outline is used instead.
+// Lue par la terrasse, la cloture 3D et le releve 3D : elle vivait dans engine/structure.ts (etape 6.6).
+export function safeOffset(poly: PtBrut[], distM: number): PtBrut[] {
+  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
+  const off = polygonOffset(poly, distM);
+  const a0 = signedArea(poly), a1 = signedArea(off);
+  const grew = Math.abs(a1) > Math.abs(a0);
+  const ok = off.length>=3
+          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
+          && Math.sign(a1)===Math.sign(a0)
+          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
+                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
+  return ok ? off : poly.map(p=>({...p}));
+}
+
+/**
+ * L'aire commune a deux polygones (simples, convexes ou non), par bandes horizontales de 1 cm au
+ * plus : de quoi retirer d'une terrasse la part d'un bassin ou d'un trou qui la chevauche. Elle vivait
+ * dans engine/structure.ts (etape 6.6).
+ */
+export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
+  const ya = a.map(p => p.y), yb = b.map(p => p.y);
+  const y0 = Math.max(Math.min(...ya), Math.min(...yb)), y1 = Math.min(Math.max(...ya), Math.max(...yb));
+  if(!(y1 > y0)) return 0;
+  const x0 = Math.min(...a.map(p => p.x), ...b.map(p => p.x)) - 1;
+  const n = Math.max(50, Math.ceil((y1 - y0) / 0.01)), h = (y1 - y0) / n;
+  const dir = { x:1, y:0 };
+  let aire = 0;
+  for(let i = 0; i < n; i++){
+    const o = { x:x0, y:y0 + (i + 0.5) * h };
+    const ia = clipLineToPolygon(o, dir, a).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
+    const ib = clipLineToPolygon(o, dir, b).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
+    ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
+  }
+  return aire;
+}

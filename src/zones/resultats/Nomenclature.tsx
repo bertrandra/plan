@@ -12,7 +12,7 @@ import { computeDebitLames, computeDebitsBois, type Debit } from '../../engine/d
 import { computeBOM } from '../../engine/bom.js';
 import { ESSENCE_PRICES, PLOT_MODELES, SOLIVE_PRICE, VIS_PRICE, estPlots, plotModele } from '../../engine/constantes.js';
 import { ensureConstruction } from '../../engine/construction.js';
-import { porteeVisM } from '../../engine/portees.js';
+import { porteeVisM } from '../../engine/bois/portees.js';
 import { valeurEnregistree } from '../../model/dictionnaire.js';
 import { SaisieNombre, SaisieTexte } from '../composants/Saisie.js';
 import type { Resultats } from '../../app/resultats.js';

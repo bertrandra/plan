@@ -26,7 +26,7 @@ import type { Tiroir } from '../app/tiroir.js';
 import type { ObjetPlan } from '../model/types.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { largeurChemin, longueurChemin } from '../model/ouvrages/index.js';
-import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
 /** L'essence des lames d'une terrasse, comme la nomenclature la nomme. */
 const essenceDe = (o: ObjetPlan) => (ESSENCE_PRICES[ensureConstruction(o).essenceBois ?? ''] ?? ESSENCE_PRICES.autre)?.label.toLowerCase() ?? '';

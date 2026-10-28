@@ -6,7 +6,7 @@ import { telechargerTexte } from '../../shell/download.js';
 import { showToast } from '../../shell/dialogs.js';
 import { construireDXF } from '../../export/dxfPlan.js';
 import { construireSVG } from '../../export/svgPlan.js';
-import { noteExportable } from '../../engine/noteCalcul.js';
+import { noteExportable } from '../../engine/abri/noteCalcul.js';
 import { estAbri, estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
 import { CERFA_13703 } from '../../export/cerfa13703.js';
 import { chargerPdfLib } from '../../export/chargeurPdfLib.js';

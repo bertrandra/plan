@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fenetresDesPignons, hauteurDuMur, HAUTEUR_PIGNON_FENETRE_M } from '../../../src/facade/ouvertures.js';
-import { facadesDuContour } from '../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 // Les fenetres hautes d'un corps (MD/spec-toit-ign.md §13.3) : une par pignon qui part du faitage,

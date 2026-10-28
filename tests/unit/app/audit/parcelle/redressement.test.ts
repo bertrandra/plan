@@ -4,7 +4,7 @@ import { LIBELLE_REJOUER, avertissementPrise, texteFusion, textePhoto, texteReje
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { rechercher } from '../../../../../src/facade/releve/serie.js';
 import { VERSION_CHAINE_FACADES } from '../../../../../src/facade/releve/chaine.js';
-import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
 

@@ -6,7 +6,7 @@ import { cameraDisponible, ouvrirCamera, fermerCamera, decouvrirGrandAngle, type
 import { champAvecZoom, CHAMP_GRAND_ANGLE_DEFAUT, type Objectif } from '../../facade/vision/objectifs.js';
 import { ecouterNatif, webxrDisponible, mesurerWebXR, demanderPermissionOrientation, suivreInclinaison, suivreCap, type MesureDistance } from '../../ui/releve/profondeur.js';
 import { ecrireReglage, lireReglage } from './commun.js';
-import { pointDeFacade, type Facade } from '../../facade/geometrie.js';
+import { pointDeFacade, type Facade } from '../../geometry/cotesVusDeDehors.js';
 import { projecteurLocal } from '../../geo/projection.js';
 import type { MurVise } from '../../geo/panoramax.js';
 import { suivreBoussole, type Attitude } from '../../shell/boussole.js';

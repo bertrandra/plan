@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeChantier } from '../../../src/engine/chantier.js';
-import { surfaceNetteTerrasse } from '../../../src/engine/structure.js';
+import { surfaceNetteTerrasse } from '../../../src/engine/ouvrages/terrasse.js';
 import { constructionTerrasseNeuve } from '../../../src/engine/construction.js';
 import { PLOT_ASSISE_MIN_CM2 } from '../../../src/engine/constantes.js';
 import { distancePointSegment } from '../../../src/geometry/segments.js';

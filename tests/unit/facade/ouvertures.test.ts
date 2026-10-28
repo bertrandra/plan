@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ouverturesAutomatiques, mursAOuvrir, niveaux, abscissesFenetres, hauteurDuMur } from '../../../src/facade/ouvertures.js';
-import { facadesDuContour } from '../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { PtBrut } from '../../../src/model/types.js';
 
 // La disposition automatique des ouvertures (MD/spec-toit-ign.md §6.3) : la meme qu'avant par

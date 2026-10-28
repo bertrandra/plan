@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { silhouetteDuMur, silhouetteDesCorps, silhouetteVersLOeil, motDuHaut } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { hauteurDuToitEn } from '../../../src/facade/toits/toitCorps.js';
-import { facadesDuContour } from '../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
 const p = (x: number, y: number): PtBrut => ({ x, y });

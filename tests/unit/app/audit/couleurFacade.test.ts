@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerCouleursPhotos, type DependancesCouleur } from '../../../../src/app/audit/couleurFacade.js';
 import { creerPromenade } from '../../../../src/app/audit/promenade.js';
-import { facadesDuContour } from '../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { fichierPromenade, lireFichierPromenade, type PhotoCas, type PrisePhoto } from '../../../../src/model/audit.js';
 import { pointDansPhoto } from '../../../../src/render/couleurPhotoAudit.js';
 import type { Pixels } from '../../../../src/render/couleurMurPhoto.js';

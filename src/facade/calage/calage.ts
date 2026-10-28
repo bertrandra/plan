@@ -24,7 +24,7 @@
 import type { P2 } from '../vision/homographie.js';
 import { focalePx as focaleDuChamp, CHAMP_GRAND_COTE_DEFAUT } from '../vision/cadrage.js';
 import { coinsProposes } from '../analyse.js';
-import type { Facade } from '../geometrie.js';
+import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { PrisePhoto, SourceFocale } from '../../model/audit.js';
 
 /** La hauteur de l'objectif d'un telephone tenu a la main, en metres. */

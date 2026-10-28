@@ -20,7 +20,7 @@ import { parcelleDuProjet, estPoseSurLeTerrain } from '../model/fonctions.js';
 import { toucher } from '../core/controleurObjets.js';
 import { apresDeformation } from '../core/deformation.js';
 import { clotureDe, poserAcces, synchroniserAnciensChamps, coteLePlusProche } from '../model/cloture.js';
-import { facadesDuContour } from '../facade/geometrie.js';
+import { facadesDuContour } from '../geometry/cotesVusDeDehors.js';
 import { appliquerGlisser, type GlisserEnCours } from './drag.js';
 import { decalageDeSaisie, glisserAcces } from './glisserAcces.js';
 import type { DebutPincement } from './navigation.js';

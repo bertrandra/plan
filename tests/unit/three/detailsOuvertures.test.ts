@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { aDesDetails, contourBaie, flecheCintre, poserDetailsOuvertures, DETAILS_OUVERTURE } from '../../../src/three/detailsOuvertures.js';
 import { ajouterDetailsBatiment } from '../../../src/three/detailsBatiment.js';
 import { ajouterReleve3d } from '../../../src/three/releve3d.js';
-import { facadesDuContour } from '../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { DetailsOuverture, Fenetre3d, ObjetPolygone, OuvertureFacade, PtBrut } from '../../../src/model/types.js';
 
 // Les details des ouvertures en 3D (lot G17), verifies en structure avec un THREE minimal : quelles

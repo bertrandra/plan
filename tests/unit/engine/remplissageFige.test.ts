@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ensureConstruction, constructionTerrasseNeuve, defaultConstruction } from '../../../src/engine/construction.js';
 import { REMPLISSAGE, RAIDEUR_LAME_FIGEE } from '../../../src/engine/remplissageFige.js';
-import { LAME_RAIDEUR, CHARGE_NORMALE_DEFAUT } from '../../../src/engine/portees.js';
+import { LAME_RAIDEUR, CHARGE_NORMALE_DEFAUT } from '../../../src/engine/bois/portees.js';
 import type { Construction } from '../../../src/model/types.js';
 
 // Le remplissage d'un ancien projet est fige (MD/roadmap-architecture.md, etape 1.1 ; AD-19) : ce qu'il recoit quand un reglage lui

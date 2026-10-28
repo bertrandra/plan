@@ -22,7 +22,7 @@ import {
 } from '../../../../src/facade/calage/calage.js';
 import { coinsProposes } from '../../../../src/facade/analyse.js';
 import { focalePx } from '../../../../src/facade/vision/cadrage.js';
-import { facadesDuContour } from '../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import type { PrisePhoto } from '../../../../src/model/audit.js';
 
 // Le calage grossier (spec-facades-calage-detection §5) : la prise de vue projette le mur dans la

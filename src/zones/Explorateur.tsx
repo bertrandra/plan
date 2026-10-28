@@ -31,7 +31,7 @@ import type { ObjetPlan } from '../model/types.js';
 import type { EtatApp } from '../core/state.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
-import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 
 export interface PropsExplorateur { magasin: Magasin; commandes: RegistreCommandes; explorateur: ServiceExplorateur }
 

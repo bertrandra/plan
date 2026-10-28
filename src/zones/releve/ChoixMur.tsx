@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Icone } from '../icones.js';
-import { nomOrientation, type Facade } from '../../facade/geometrie.js';
+import { nomOrientation, type Facade } from '../../geometry/cotesVusDeDehors.js';
 import { murPropose, texteFacadeDevant } from '../../facade/calage/priseDeVue.js';
 import type { Obstacle } from '../../geometry/ligneDeVue.js';
 import type { ObjetPolygone, PtBrut } from '../../model/types.js';

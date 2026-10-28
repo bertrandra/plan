@@ -8,7 +8,7 @@
 // (essai d'AE 101 sur telephone : « il ne trouve rien »). Les lignes se lisent batiment par batiment,
 // chacune avec ou Claude l'a vu (l'image citee) et la part des passes d'accord quand un vote la donne.
 
-import { nomFacade } from '../../../facade/geometrie.js';
+import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import type { IndiceAnalyse, ReponseAnalyse, VoteAnalyse } from '../../../model/analyseClaude.js';
 import { ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './propositionsClaude.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';

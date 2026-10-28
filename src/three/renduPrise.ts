@@ -43,7 +43,7 @@ export interface PriseRendu {
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
-/** La facade a montrer entiere : ses deux bouts (vue de dehors, comme facade/geometrie.ts) et le haut du pignon ou du pan. */
+/** La facade a montrer entiere : ses deux bouts (vue de dehors, comme geometry/cotesVusDeDehors.ts) et le haut du pignon ou du pan. */
 export interface CibleFacadeRendu {
   gauche: { x: number; y: number };
   droite: { x: number; y: number };
@@ -84,7 +84,7 @@ const RECUL_MIN_M = 2;
 export function poseFacadeEntiere(cible: CibleFacadeRendu, champDeg: number = CHAMP_DEFAUT_DEG, largeur = LARGEUR_RENDU_PX, hauteur = HAUTEUR_RENDU_PX): PoseFacadeEntiere {
   const ux = cible.droite.x - cible.gauche.x, uy = cible.droite.y - cible.gauche.y;
   const l = Math.hypot(ux, uy) || 1;
-  // La normale sortante : de dehors, la facade se lit de gauche a droite (facade/geometrie.ts).
+  // La normale sortante : de dehors, la facade se lit de gauche a droite (geometry/cotesVusDeDehors.ts).
   const n = { x: uy / l, y: -ux / l };
   const milieu = { x: (cible.gauche.x + cible.droite.x) / 2, y: (cible.gauche.y + cible.droite.y) / 2 };
   const tanH = Math.tan(rad(champDeg) / 2) * PART_IMAGE_FACADE;

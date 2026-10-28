@@ -10,7 +10,7 @@ import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
-import { trianguler } from '../facade/toits/toit.js';
+import { trianguler } from '../geometry/triangulation.js';
 import { COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { materiauCouverture, type ContexteCouverture } from '../model/couleurToit.js';
 import { hauteurToitMesure } from '../model/toitMesure.js';

@@ -15,7 +15,7 @@ import { dist, shoelace } from '../geometry/basic.js';
 import { interiorAngleDeg } from '../geometry/angles.js';
 import type { ObjetPlan, Mesure, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
-import { surfaceNetteTerrasse } from '../engine/structure.js';
+import { surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { largeurChemin, longueurChemin, surfaceChemin } from '../model/ouvrages/index.js';
 import { dateFr } from '../util/format.js';

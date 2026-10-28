@@ -8,7 +8,7 @@ import { buildThreeScene, type ContexteScene3d } from '../../../src/three/scene.
 import { vue3d, hotes3d } from '../../../src/three/etat3d.js';
 import { hauteurAppuiMm, hauteurFinieMm, dessusTerrasseM, elevationOf } from '../../../src/engine/hauteurs.js';
 import { solDuRelief, zReferenceOuvrage } from '../../../src/engine/sol.js';
-import { calculerPergola } from '../../../src/engine/pergola.js';
+import { calculerPergola } from '../../../src/engine/abri/pergola.js';
 import { calculerPiscine } from '../../../src/engine/piscine.js';
 import type { ObjetPlan, Relief } from '../../../src/model/types.js';
 

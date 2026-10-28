@@ -7,7 +7,7 @@
 
 import { enPoints } from '../../model/formes.js';
 import { volumesDuBatiment } from '../../facade/profil.js';
-import { facadesDuContour } from '../../facade/geometrie.js';
+import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { ouverturesAutomatiques, mursAOuvrir } from '../../facade/ouvertures.js';
 import { fenetres3dDe, reglerFenetres3d, nouvelleFenetre } from '../../model/fenetres3d.js';
 import { valeursFacadesDe } from '../../regles/facades/reglages.js';

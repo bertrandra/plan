@@ -27,7 +27,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Icone } from './icones.js';
 import { enPoints } from '../model/formes.js';
-import { facadesDuContour, type Facade } from '../facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { hauteurPignon } from '../facade/toits/toit.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../facade/vision/cadrage.js';
 import { versJpeg, type Photo } from '../ui/releve/camera.js';

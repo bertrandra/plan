@@ -13,7 +13,7 @@ import { focaleDeLaPhotoParFuites } from '../vision/redressementFuites.js';
 import { coinsSurLaVerticale, fuiteVerticaleDesSegments } from '../vision/verticales.js';
 import type { ResultatFusion } from '../fusion.js';
 import type { SourceCoin } from '../calage/calageFin.js';
-import type { Facade } from '../geometrie.js';
+import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import { redresser, resolutionTexture, type Image, type P2 } from '../vision/homographie.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { ObjetPolygone } from '../../model/types.js';

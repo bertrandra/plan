@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { DEMO_OBJECTS } from '../../../../../src/model/demo.js';
 import { batimentsAudites, listeDeControle, situationFacade, statutFacade, texteStatutFacade, aUnToitPlat, MUR_COURT_M, hauteurMurSousToit, profilMurSousToit, hauteurHautDeFacade } from '../../../../../src/app/audit/parcelle/liste.js';
 import { captureVide, batimentVide } from '../../../../../src/model/auditParcelle.js';
-import { facadesDuContour } from '../../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 import { versMemoire } from '../../../../../src/model/champsFonction.js';
 

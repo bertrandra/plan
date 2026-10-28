@@ -4,7 +4,7 @@
 import { chiffreFrGroupe } from '../../util/format.js';
 import { au } from '../../util/tableaux.js';
 import { dist } from '../../geometry/basic.js';
-import { ESSENCE_PRICES } from '../constantes.js';
+import { ESSENCE_PRICES } from '../bois/essences.js';
 import type { ChauffagePiscine, FondPiscine, ImplantationPiscine, LocalTechniquePiscine, ObjetPlan, Piscine, PlagePiscine, PtBrut, RevetementPiscine, SecuritePiscine, StructurePiscine, TraitementPiscine } from '../../model/types.js';
 
 // Les chiffres du dossier et du plan : sans les donnees de langue du moteur, le meme texte sur toute machine (util/format.ts).

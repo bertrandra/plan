@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { facadeDevant, facadesDevant, ecartAuCap, texteFacadeDevant, murPropose, type FacadesDUnBatiment } from '../../../../src/facade/calage/priseDeVue.js';
-import { facadesDuContour } from '../../../../src/facade/geometrie.js';
+import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
 import { obstacle, vueCachee } from '../../../../src/geometry/ligneDeVue.js';
 import type { PtBrut } from '../../../../src/model/types.js';
 

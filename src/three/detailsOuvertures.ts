@@ -16,7 +16,7 @@
 
 import type * as THREE_NS from 'three';
 import type { DetailsOuverture, OuvertureFacade, PtBrut } from '../model/types.js';
-import type { Facade } from '../facade/geometrie.js';
+import type { Facade } from '../geometry/cotesVusDeDehors.js';
 import { au } from '../util/tableaux.js';
 import { Batisseur, type S3 } from './batisseur.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';

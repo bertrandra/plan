@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { distanceAuMur, mesurerFacade, priseDeLaPhoto } from '../../../../../src/app/audit/parcelle/mesures.js';
 import { rechercher } from '../../../../../src/facade/releve/serie.js';
-import { facadesDuContour, type Facade } from '../../../../../src/facade/geometrie.js';
+import { facadesDuContour, type Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
 import type { P2 } from '../../../../../src/facade/vision/homographie.js';

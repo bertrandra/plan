@@ -4,11 +4,12 @@
 // la ou il produit des artefacts de flottants. Ce sont eux qui prouvent que l arithmetique n a pas
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
-import { ringSegments } from '../geometry/polygon.js';
+import { ringSegments, safeOffset } from '../geometry/polygon.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { generateParallelLines } from './lames.js';
-import { buildVisGrid, computeStructure, objetsQuiPercent, retirerOuvertures, safeOffset } from './structure.js';
+import { buildVisGrid, computeStructure, retirerOuvertures } from './structure.js';
+import { objetsQuiPercent } from './ouvrages/liens.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { estTrou } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';

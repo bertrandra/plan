@@ -378,6 +378,63 @@ describe('les ouvrages (MD/spec-ouvrages.md, phase 6)', () => {
   });
 });
 
+describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
+  // Un ouvrage ne lit d'un autre que ce que leur lien declare, jamais ses modules internes. Chaque ouvrage nomme ici ses modules,
+  // couche par couche, et ce qu'il publie (ce que les autres ont le droit de lire). Ce qui sert a plusieurs ouvrages a un nom a soi
+  // et n'est a aucun : les liens entre ouvrages (engine/ouvrages/liens.ts), le bois (engine/bois/), le sol (engine/sol.ts), la
+  // geometrie (geometry/). Les types comptent aussi : un type interne lu par un autre ouvrage est un couplage comme un autre.
+  const OUVRAGES: Record<string, { modules: string[]; publie: string[] }> = {
+    terrasse: {
+      modules: ['engine/structure', 'engine/layers', 'engine/bom', 'engine/construction', 'engine/lames', 'engine/optimisation',
+        'engine/implantation', 'engine/chantier', 'engine/remplissageFige', 'engine/debit', 'engine/prix',
+        'engine/constantes', 'engine/hauteurs', 'render/terrasseCouches', 'three/sceneTerrasse', 'three/ouvrages/terrasse',
+        'ui/champs/construction', 'engine/ouvrages/terrasse'],
+      publie: ['engine/ouvrages/terrasse']
+    },
+    piscine: {
+      modules: ['engine/piscine', 'engine/piscine/', 'render/piscineOverlay', 'three/piscine3d', 'ui/champs/piscine', 'export/dossierPiscine',
+        'engine/ouvrages/piscine'],
+      publie: ['engine/ouvrages/piscine']
+    },
+    abri: {
+      modules: ['engine/abri/', 'render/pergolaOverlay', 'three/pergola3d', 'ui/champs/pergola',
+        'ui/champs/noteCalcul', 'export/noteCalculPdf'],
+      publie: []
+    },
+    parasol: { modules: ['engine/parasol', 'render/parasolOverlay', 'three/ouvrages/parasol', 'ui/champs/parasol'], publie: [] },
+    cloture: {
+      modules: ['model/cloture', 'model/typesCloture', 'model/clotureVue', 'render/cloture', 'three/cloture3d', 'three/clotureVoisinage',
+        'ui/champs/cloture'],
+      publie: ['model/cloture', 'model/typesCloture', 'model/clotureVue']
+    },
+    bati: {
+      modules: ['facade/', 'three/toitCorps3d', 'three/toitMesure3d', 'three/cheminees3d', 'three/detailsBatiment', 'three/detailsOuvertures',
+        'three/terrasse3d', 'three/releve3d', 'three/ouvrages/bati', 'ui/champs/facade', 'ui/champs/carteToit', 'ui/champs/fenetres3d'],
+      publie: []
+    }
+  };
+  // Les couplages d'aujourd'hui : un cliquet, qui ne peut que se vider.
+  const RESTANTS: string[] = [
+  ];
+  const nom = (f: string) => relative(src, f).split(sep).join('/').replace(/\.tsx?$/, '');
+  const dans = (n: string, prefixes: readonly string[]) => prefixes.some(p => p.endsWith('/') ? n.startsWith(p) : n === p);
+  const ouvrageDe = (n: string): string | undefined => Object.keys(OUVRAGES).find(o => dans(n, OUVRAGES[o]!.modules));
+  const couplages = [...new Set(tous.flatMap(f => {
+    const de = nom(f), a = ouvrageDe(de);
+    if (!a) return [];
+    return dependances(f).flatMap(d => {
+      const vers = nom(d.cible), b = ouvrageDe(vers) ?? ouvrageDe(vers + '/index');
+      return b && b !== a && !dans(vers, OUVRAGES[b]!.publie) ? [`${de} -> ${vers}`] : [];
+    });
+  }))].sort();
+  it('un module d un ouvrage n importe pas les modules internes d un autre ouvrage, hors des couplages listes', () => {
+    expect(couplages.filter(c => !RESTANTS.includes(c))).toEqual([]);
+  });
+  it('un couplage leve sort de la liste', () => {
+    expect(RESTANTS.filter(c => !couplages.includes(c))).toEqual([]);
+  });
+});
+
 function existsTsx(cible: string): boolean {
   return existsSync(cible + '.tsx');
 }

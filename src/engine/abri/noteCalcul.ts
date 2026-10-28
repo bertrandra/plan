@@ -24,10 +24,10 @@
 //   - contrefiches : elles reprennent le moment du portique sous l'effort horizontal ;
 //   - ancrages : efforts en pied de poteau et dimension d'un plot beton qui les tient.
 
-import { au } from '../util/tableaux.js';
-import { dist, pointInPolygon, shoelace } from '../geometry/basic.js';
+import { au } from '../../util/tableaux.js';
+import { dist, pointInPolygon, shoelace } from '../../geometry/basic.js';
 import { calculerPergola, dimsPergola, libelleSection, MATERIAUX, natureAbri, SECTIONS_CONTREFICHE, type PergolaCalculee, type PiecePergola, type Pt3, type ReglagesPergola, type RolePiece } from './pergola.js';
-import type { CategorieTerrain, HypothesesCalcul, ObjetPlan, PtBrut, ZoneNeige } from '../model/types.js';
+import type { CategorieTerrain, HypothesesCalcul, ObjetPlan, PtBrut, ZoneNeige } from '../../model/types.js';
 
 // ---- Neige : NF EN 1991-1-3 et son annexe nationale ------------------------------------------
 

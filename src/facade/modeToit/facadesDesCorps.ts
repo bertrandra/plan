@@ -6,7 +6,7 @@
 //
 // Pur : pas de DOM, pas de scene.
 
-import { nomOrientation, tourneVers } from '../geometrie.js';
+import { nomOrientation, tourneVers } from '../../geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../model/types.js';
 
 export interface FacadeVisee {

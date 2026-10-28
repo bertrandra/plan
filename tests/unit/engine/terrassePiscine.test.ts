@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calculerPiscine, chiffrerPiscine, constructionDeLaPlage, contourTerrasseAutour, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee, terrasseDeLaPiscine
+  calculerPiscine, chiffrerPiscine, interieurBassin, noteDeCalcul, noteEnTexte, plageCalculee
 } from '../../../src/engine/piscine.js';
-import { aireCommune, computeStructure, decalageDeCentrage, terrasseHote, contourOuverture, couperAuContour, empriseDalle, objetsQuiPercent, surfaceDalle } from '../../../src/engine/structure.js';
+import { constructionDeLaPlage, contourTerrasseAutour } from '../../../src/engine/ouvrages/piscine.js';
+import { contourOuverture, decalageDeCentrage, objetsQuiPercent, terrasseDeLaPiscine, terrasseHote } from '../../../src/engine/ouvrages/liens.js';
+import { computeStructure, couperAuContour, empriseDalle, surfaceDalle } from '../../../src/engine/structure.js';
+import { aireCommune } from '../../../src/geometry/polygon.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
 import { computeChantier } from '../../../src/engine/chantier.js';

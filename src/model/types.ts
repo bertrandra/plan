@@ -197,7 +197,7 @@ interface ObjetCommun {
   arbre?: ChampsArbre | null;
   /** Le pied d'un parasol et la terrasse qu'il ombrage (model/typesFonctions.ts). */
   parasol?: ChampsParasol | null;
-  /** Les reglages d'une pergola (`engine/pergola.ts`), sur un polygone de fonction `pergola`. */
+  /** Les reglages d'une pergola (`engine/abri/pergola.ts`), sur un polygone de fonction `pergola`. */
   pergola?: Pergola | null;
   /** Les reglages d'une piscine (`engine/piscine.ts`), sur un polygone ou un cercle de fonction `piscine`. */
   piscine?: Piscine | null;

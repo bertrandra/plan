@@ -13,7 +13,7 @@ import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointSegment } from '../geometry/segments.js';
 import { repere, point } from './toits/toitCorps.js';
 import { sommetDe } from '../geometry/anneau.js';
-import { facadesDuContour, pointDeFacade, type Facade } from './geometrie.js';
+import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import type { Volume } from './profil.js';
 import type { CorpsToit, Fenetre3d, OuvertureFacade, PtBrut } from '../model/types.js';
 import { FENETRE, PORTE, ENTRAXE_FENETRES_M } from '../model/fenetres3d.js';

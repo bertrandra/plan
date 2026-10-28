@@ -5,16 +5,14 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
-import { centreDeSurface, centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
-import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
+import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
+import { aireCommune, clipLineToPolygon, offsetZone, ringSegments, safeOffset } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
-import { calculerPiscine, terrasseDeLaPiscine } from './piscine.js';
-import { estPiscine, estTerrasse, estTrou } from '../model/fonctions.js';
+import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './bois/portees.js';
+import { objetsQuiPercent } from './ouvrages/liens.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 import { estOuvrage, EQUIPEMENT } from '../model/ouvrages/index.js';
 
@@ -95,26 +93,6 @@ export function subdivideSegment(a: PtBrut, b: PtBrut, maxGap: number, includeEn
   }
   if(includeEnd) out.push({x:b.x, y:b.y});
   return out;
-}
-// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
-// apart from one that has folded through itself. (Defined once, near renderAttrTable() above -
-// removed the duplicate that used to live here, same implementation under a different param name.)
-// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
-// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
-// around and return a polygon LARGER than the original, which looks perfectly plausible and
-// silently poisons everything clipped against it. Both are caught here by comparing signed
-// areas, and the raw outline is used instead.
-export function safeOffset(poly: PtBrut[], distM: number): PtBrut[] {
-  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
-  const off = polygonOffset(poly, distM);
-  const a0 = signedArea(poly), a1 = signedArea(off);
-  const grew = Math.abs(a1) > Math.abs(a0);
-  const ok = off.length>=3
-          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
-          && Math.sign(a1)===Math.sign(a0)
-          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
-                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
-  return ok ? off : poly.map(p=>({...p}));
 }
 export const VIS_ROLE_RANK: Record<string, number> = { spa:3, rive:2, courant:1 };
 // Two screws a handspan apart are one screw once you are on site: keep whichever carries the
@@ -325,103 +303,6 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
  */
 export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
   return objetsQuiPercent(poly, objets).map(x => x.contour);
-}
-
-/** Les objets (bassins, trous) qui percent la terrasse de contour `poly`, avec le bord ou elle s'arrete. */
-export function objetsQuiPercent(poly: PtBrut[], objets: ObjetPlan[]): { objet: ObjetPlan; contour: PtBrut[] }[] {
-  const res: { objet: ObjetPlan; contour: PtBrut[] }[] = [];
-  objets.forEach(o => {
-    const t = contourOuverture(o);
-    if(t && (t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t)))) res.push({ objet:o, contour:t });
-  });
-  return res;
-}
-
-/**
- * Le bord ou une terrasse s'arrete autour d'un objet : l'exterieur des margelles d'un bassin, le
- * contour d'un trou de terrasse. `null` pour tout autre objet.
- */
-export function contourOuverture(o: ObjetPlan): PtBrut[] | null {
-  if(estPiscine(o)) return calculerPiscine(o)?.margelleExt ?? null;
-  if(!estTrou(o)) return null;
-  if(o.type === 'circle') return o.r > 0.05 ? Array.from({ length:32 }, (_, i) => ({ x:o.center.x + o.r*Math.cos(2*Math.PI*i/32), y:o.center.y + o.r*Math.sin(2*Math.PI*i/32) })) : null;
-  return o.type === 'polygon' && o.pts.length >= 3 && Math.abs(shoelace(o.pts)) > 0.01 ? o.pts : null;
-}
-
-/**
- * L'aire commune a deux polygones (simples, convexes ou non), par bandes horizontales de 1 cm au
- * plus : de quoi retirer d'une terrasse la part d'un bassin ou d'un trou qui la chevauche.
- */
-export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
-  const ya = a.map(p => p.y), yb = b.map(p => p.y);
-  const y0 = Math.max(Math.min(...ya), Math.min(...yb)), y1 = Math.min(Math.max(...ya), Math.max(...yb));
-  if(!(y1 > y0)) return 0;
-  const x0 = Math.min(...a.map(p => p.x), ...b.map(p => p.x)) - 1;
-  const n = Math.max(50, Math.ceil((y1 - y0) / 0.01)), h = (y1 - y0) / n;
-  const dir = { x:1, y:0 };
-  let aire = 0;
-  for(let i = 0; i < n; i++){
-    const o = { x:x0, y:y0 + (i + 0.5) * h };
-    const ia = clipLineToPolygon(o, dir, a).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
-    const ib = clipLineToPolygon(o, dir, b).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
-    ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
-  }
-  return aire;
-}
-
-/**
- * La surface d'une terrasse, ses ouvertures (bassins, trous) retirees : celle qu'on platelage, qu'on
- * visse et qu'on declare. Sans ouverture, la surface du contour, au bit pres.
- */
-export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): number {
-  return shoelace(poly) - objetsQuiPercent(poly, objets).reduce((s, x) => s + aireCommune(x.contour, poly), 0);
-}
-
-/**
- * La terrasse d'un bassin ou d'un trou : celle qui lui sert de plage (piscine), sinon la premiere
- * qu'il perce. `undefined` pour un autre objet, ou un bassin hors de toute terrasse.
- */
-export function terrasseHote(o: ObjetPlan, objets: ObjetPlan[]): (ObjetPlan & { type: 'polygon' }) | undefined {
-  if(!estPiscine(o) && !estTrou(o)) return undefined;
-  const liee = estPiscine(o) ? terrasseDeLaPiscine(o, objets) : undefined;
-  if(liee) return liee;
-  const t = objets.find(x => x !== o && estTerrasse(x) && x.type === 'polygon' && objetsQuiPercent(x.pts, [o]).length > 0);
-  return t && t.type === 'polygon' ? t : undefined;
-}
-
-/**
- * Le deplacement qui centre un bassin ou un trou sur sa terrasse : de son centre de surface a celui
- * de la terrasse. `null` sans terrasse hote.
- */
-export function decalageDeCentrage(o: ObjetPlan, objets: ObjetPlan[]): PtBrut | null {
-  const t = terrasseHote(o, objets);
-  if(!t) return null;
-  const cible = centreDeSurface(t.pts);
-  const centre = o.type === 'circle' ? o.center : centreDeSurface(o.pts);
-  return { x: cible.x - centre.x, y: cible.y - centre.y };
-}
-
-/**
- * Les trous d'une terrasse : le bord exterieur des margelles d'un bassin, le contour d'un trou de
- * terrasse — tout entiers dedans ou a cheval sur son bord. Le plan, le SVG et le PDF les decoupent
- * de la terrasse par un gabarit ; la 3D et le DXF, qui ont besoin de la forme, la tirent de
- * `formeDeTerrasse`. Vide pour tout autre objet.
- */
-export function trousDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PtBrut[][] {
-  if(!estTerrasse(o) || o.type !== 'polygon') return [];
-  return objetsQuiPercent(o.pts, objets).map(x => x.contour);
-}
-
-/**
- * La forme vraie d'une terrasse percee : ses morceaux, chacun avec les trous qui le percent sans
- * toucher son bord. Un bassin a cheval sur le bord y fait une encoche. `null` quand aucun trou ne
- * chevauche le bord : le contour d'origine et ses trous interieurs suffisent alors, tels quels.
- */
-export function formeDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PolygoneTroue[] | null {
-  if(o.type !== 'polygon') return null;
-  const trous = trousDeTerrasse(o, objets);
-  if(trous.every(t => t.every(p => pointInPolygon(p, o.pts)))) return null;
-  return differencePolygones(o.pts, trous);
 }
 
 /** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */

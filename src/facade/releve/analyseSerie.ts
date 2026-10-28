@@ -1,7 +1,7 @@
 // Le releve de facade (zones/Releve.tsx) : analyser une serie et ecrire le releve d'un mur. Sans React : testable seul.
 
 import { au } from '../../util/tableaux.js';
-import { type Facade } from '../geometrie.js';
+import { type Facade } from '../../geometry/cotesVusDeDehors.js';
 import { type ResultatAnalyse } from '../analyse.js';
 import { type ResultatFusion } from '../fusion.js';
 import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
