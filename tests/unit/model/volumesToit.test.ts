@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decomposerEnRectangles, rectanglesDuContour, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M, rectanglesEnTranches } from '../../../src/model/volumesToit.js';
+import { decomposerEnRectangles, rectanglesDuContour, equerrer, volumesParDefaut, volumesActifs, penteDuToit, toitDuRectangle, decrireVolumes, LARGEUR_MIN_M, rectanglesEnTranches, hauteurAuPointLePlusHaut } from '../../../src/model/volumesToit.js';
 import { signedArea, pointInPolygon } from '../../../src/geometry/basic.js';
 import type { PtBrut, Toit } from '../../../src/model/types.js';
 
@@ -127,5 +127,25 @@ describe('rectanglesEnTranches', () => {
     const largeurs = r.map((t) => Math.max(...t.map((p) => p.x)) - Math.min(...t.map((p) => p.x))).sort((a, b) => a - b);
     expect(largeurs).toEqual([5.5, 6.5]);
     expect(rectanglesEnTranches([q(0, 0), q(10, 0), q(4, 9)])).toBeNull();
+  });
+});
+
+describe('hauteurAuPointLePlusHaut', () => {
+  const toit = (hauteur: number): Toit => ({ forme: 'deux-pans', hauteur, angleFaitage: 0, source: 'bdtopo' });
+  it('le toit unique : l egout plus la hauteur du toit ; sans toit, l egout', () => {
+    expect(hauteurAuPointLePlusHaut({ fonction: 'batiment', elevation: 6, batiment: { toit: toit(3.5) } })).toBeCloseTo(9.5, 6);
+    expect(hauteurAuPointLePlusHaut({ fonction: 'batiment', elevation: 6 })).toBe(6);
+  });
+  it('les corps : le faitage le plus haut, meme si l egout de l objet est reste celui de la lecture', () => {
+    const corps = (faitage: number, e: number) => ({ pts: rect, posFaitage: 4, faitage, egouts: [e, e] as [number, number], ecart: 0.1 });
+    const b = { toit: toit(1), corpsToit: [corps(9.2, 6), corps(11.4, 7)] };
+    expect(hauteurAuPointLePlusHaut({ fonction: 'batiment', elevation: 6, batiment: b } as never)).toBeCloseTo(11.4, 6);
+    // Un toit-terrasse avec acrotere : le haut de l acrotere.
+    const plat = { ...corps(6, 6), terrasse: { acrotereM: 0.6, source: 'observation' as const } };
+    expect(hauteurAuPointLePlusHaut({ fonction: 'batiment', elevation: 6, batiment: { corpsToit: [plat] } } as never)).toBeCloseTo(6.6, 6);
+  });
+  it('les volumes : le plus haut, chacun a son egout', () => {
+    const volumes = [{ pts: rect, toit: toit(3), egout: 5 }, { pts: rect, toit: toit(2), egout: 7 }];
+    expect(hauteurAuPointLePlusHaut({ fonction: 'batiment', elevation: 6, batiment: { toit: toit(3), volumesToit: volumes } })).toBeCloseTo(9, 6);
   });
 });

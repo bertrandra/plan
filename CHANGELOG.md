@@ -70,6 +70,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La DP2 donne au bâti existant sa hauteur au point le plus haut** (`export/piecesDP.ts`). « Existant H » portait la hauteur
+  à l'égout (`elevation`), alors que la légende de la pièce dit « H : hauteur au point le plus haut » : sur une maison à deux
+  pans, il manquait toute la hauteur du toit, dans une pièce qui part en mairie. La hauteur est maintenant celle du toit que la
+  Vue 3D montre (`model/volumesToit.ts::hauteurAuPointLePlusHaut`) : le faîtage le plus haut des corps (acrotère et édicules
+  d'une toiture-terrasse compris), le faîte de la surface mesurée, le plus haut des volumes, sinon l'égout plus la hauteur du
+  toit unique ; les cheminées n'y sont pas. **Le nombre change dans la DP2 de tout projet dont un bâtiment porte un toit en
+  pente** : c'est une correction d'un nombre exporté, à compter dans la prochaine version majeure (`MD/RELEASE.md`). Aucune
+  empreinte de `tests/fixtures/golden/` ne bouge (aucun témoin ne porte de DP2 avec un toit).
+
 - **« Actualiser le projet » garde la clé d'un bâtiment refait** : le bâtiment recréé depuis la BD TOPO reprend la clé de
   l'ancien qui portait le même identifiant (cotes, audit et réglages qui s'y rapportent restent attachés). Il en prenait souvent
   une autre quand la clé n'était pas celle d'un import (`bati-…`). Un bâtiment sans correspondant prend une clé libre, comme avant.
