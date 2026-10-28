@@ -23,14 +23,14 @@
 //
 // C'est un outil d'avant-projet : il ne verifie ni les portees ni les assemblages.
 
-import { au } from '../util/tableaux.js';
-import { dist, shoelace, signedArea } from '../geometry/basic.js';
-import { clipLineToPolygon, polygonOffset } from '../geometry/polygon.js';
-import { lineLineIntersect } from '../geometry/segments.js';
-import { optimiserDebitLames, parseLongueurs, type Debit } from './bois/debit.js';
-import { solSousEmprise, type Sol, type SolSousEmprise } from './sol.js';
-import type { MateriauPergola, ObjetPlan, Pergola, PtBrut, ToitPergola } from '../model/types.js';
-import { estOuvrage, CARPORT, type NatureAbri } from '../model/ouvrages/index.js';
+import { au } from '../../util/tableaux.js';
+import { dist, shoelace, signedArea } from '../../geometry/basic.js';
+import { clipLineToPolygon, polygonOffset } from '../../geometry/polygon.js';
+import { lineLineIntersect } from '../../geometry/segments.js';
+import { optimiserDebitLames, parseLongueurs, type Debit } from '../bois/debit.js';
+import { solSousEmprise, type Sol, type SolSousEmprise } from '../sol.js';
+import type { MateriauPergola, ObjetPlan, Pergola, PtBrut, ToitPergola } from '../../model/types.js';
+import { estOuvrage, CARPORT, type NatureAbri } from '../../model/ouvrages/index.js';
 
 /** Ce qui change avec la matiere : sections proposees, valeurs par defaut, longueurs vendues. */
 interface ProfilMateriau {

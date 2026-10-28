@@ -397,7 +397,7 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
       publie: ['engine/ouvrages/piscine']
     },
     abri: {
-      modules: ['engine/pergola', 'engine/noteCalcul', 'engine/abri/', 'render/pergolaOverlay', 'three/pergola3d', 'ui/champs/pergola',
+      modules: ['engine/abri/', 'render/pergolaOverlay', 'three/pergola3d', 'ui/champs/pergola',
         'ui/champs/noteCalcul', 'export/noteCalculPdf'],
       publie: []
     },

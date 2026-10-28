@@ -1,4 +1,4 @@
-// Les reglages d'une pergola (engine/pergola.ts). Re-exporte par model/types.ts.
+// Les reglages d'une pergola (engine/abri/pergola.ts). Re-exporte par model/types.ts.
 
 import type { HypothesesCalcul } from './typesCalcul.js';
 
@@ -7,7 +7,7 @@ export type ToitPergola = 'toile' | 'quatre-pans' | 'appentis';
 
 /**
  * Les reglages d'une pergola. **Tout est facultatif**, comme `Construction` : `pergolaDe`
- * (engine/pergola.ts) comble les manques a la lecture, sans les ecrire dans l'objet. Un projet
+ * (engine/abri/pergola.ts) comble les manques a la lecture, sans les ecrire dans l'objet. Un projet
  * enregistre avant qu'un reglage existe garde ainsi sa forme.
  *
  * Les sections s'ecrivent `'largeur x hauteur'` en millimetres, comme celles des solives (`'45x145'`).
@@ -28,7 +28,7 @@ export interface Pergola {
   debord?: number;
   /** Prix au metre lineaire saisis, par `materiau:section` (`'bois:120x120'`). */
   prixMl?: Record<string, number>;
-  /** Les hypotheses de la note de calcul (engine/noteCalcul.ts). */
+  /** Les hypotheses de la note de calcul (engine/abri/noteCalcul.ts). */
   calcul?: HypothesesCalcul;
   /** Prix au m² de la toile, et de la couverture (appentis, quatre pans). */
   prixToile?: number;

@@ -14,7 +14,7 @@
 import { au } from '../util/tableaux.js';
 import { dist, centroid, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon } from '../geometry/polygon.js';
-import { calculerPergola, dimsPergola, libelleAbri, type PergolaCalculee, type Pt3 } from '../engine/pergola.js';
+import { calculerPergola, dimsPergola, libelleAbri, type PergolaCalculee, type Pt3 } from '../engine/abri/pergola.js';
 import { solDuProjet, type Sol } from '../engine/sol.js';
 import { dessusTerrasseM } from '../engine/hauteurs.js';
 import { estAbri, estBatiment, estTerrain, estTerrasse, parcelleDuProjet } from '../model/fonctions.js';

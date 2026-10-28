@@ -1,6 +1,6 @@
 // Le debit du bois : couper des travees dans des longueurs de stock (MD/spec-ouvrages.md, etape 6.6).
 //
-// Partage par les ouvrages en bois : la terrasse (lames, solives, lambourdes : engine/debit.ts) et l'abri (engine/pergola.ts). Il
+// Partage par les ouvrages en bois : la terrasse (lames, solives, lambourdes : engine/debit.ts) et l'abri (engine/abri/pergola.ts). Il
 // ne connait d'aucun d'eux que des longueurs : les travees a couper, les longueurs achetables, la chute qui resservira. Il vivait
 // dans le debit de la terrasse, et la pergola le lisait chez elle.
 //

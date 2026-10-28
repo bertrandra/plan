@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { coefficientsToiture, formaliteUrbanisme, mu1, neigeAuSol, noteDeCalcul, pressionDePointe } from '../../../src/engine/noteCalcul.js';
-import type { ObjetPlan, Pergola } from '../../../src/model/types.js';
+import { coefficientsToiture, formaliteUrbanisme, mu1, neigeAuSol, noteDeCalcul, pressionDePointe } from '../../../../src/engine/abri/noteCalcul.js';
+import type { ObjetPlan, Pergola } from '../../../../src/model/types.js';
 
 const abri = (fonction: string, L: number, l: number, p: Pergola): ObjetPlan => ({
   key: 'a', name: 'Abri', type: 'polygon', fonction,

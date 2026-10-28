@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { construireDossierPiscine } from '../../../src/export/dossierPiscine.js';
 import { construireNoteCalculPDF } from '../../../src/export/noteCalculPdf.js';
 import { calculerPiscine } from '../../../src/engine/piscine.js';
-import { calculerPergola, chiffrerPergola } from '../../../src/engine/pergola.js';
+import { calculerPergola, chiffrerPergola } from '../../../src/engine/abri/pergola.js';
 import { nouvellePiscine } from '../../../src/model/creation.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 

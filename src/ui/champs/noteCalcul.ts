@@ -1,12 +1,12 @@
 // La section « Note de calcul » d'une pergola ou d'un carport (ui/champs/).
 //
 // Les hypotheses (regions de neige et de vent, altitude, terrain, materiau) se reglent ici ; les
-// resultats sont ceux d'engine/noteCalcul.ts, piece par piece, avec la section qui suffit quand
+// resultats sont ceux d'engine/abri/noteCalcul.ts, piece par piece, avec la section qui suffit quand
 // celle en place ne passe pas. La note complete, avec ses combinaisons et ses limites, sort en PDF
 // par la commande `export.noteCalcul`.
 
-import { hypothesesDe, noteDeCalcul, SK200, TERRAINS, VB0, ZONES_NEIGE, type NoteCalcul, type VerifPiece } from '../../engine/noteCalcul.js';
-import { libelleSection, LIBELLE_ROLE, pergolaDe } from '../../engine/pergola.js';
+import { hypothesesDe, noteDeCalcul, SK200, TERRAINS, VB0, ZONES_NEIGE, type NoteCalcul, type VerifPiece } from '../../engine/abri/noteCalcul.js';
+import { libelleSection, LIBELLE_ROLE, pergolaDe } from '../../engine/abri/pergola.js';
 import type { CategorieTerrain, HypothesesCalcul, ZoneNeige } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';
 

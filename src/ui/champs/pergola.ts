@@ -2,7 +2,7 @@
 //
 // Trois sections : « Pergola », les reglages (matiere, toit, hauteur, mur, debord, sections,
 // entraxes, couleurs), dans l'inspecteur ; « Metrage et chiffrage », ce que le moteur en tire
-// (engine/pergola.ts) : pour chaque section, les pieces qu'on y taille, les metres lineaires, les
+// (engine/abri/pergola.ts) : pour chaque section, les pieces qu'on y taille, les metres lineaires, les
 // barres a acheter et leur cout, debitees dans les longueurs achetables comme les lames d'une
 // terrasse ; et « Prix », les prix unitaires. Ces deux dernieres sont des resultats : elles se
 // montrent dans l'onglet de l'abri du tiroir. Les reglages ne sont ecrits dans l'objet que lorsqu'on les touche :
@@ -12,7 +12,7 @@ import {
   calculerPergola, chiffrerPergola, libelleAbri, clePrixPergola, LIBELLE_MATERIAU, LIBELLE_ROLE, LIBELLE_TOIT_PERGOLA, libelleSection,
   longueursPergola, MATERIAUX, metrageParSection, pergolaDe, prixMlDe, prixMlSaisi, SECTIONS_CONTREFICHE,
   type MetrageSection, type ReglagesPergola, type RolePiece
-} from '../../engine/pergola.js';
+} from '../../engine/abri/pergola.js';
 import { solDuProjet } from '../../engine/sol.js';
 import { euros } from '../chiffrage.js';
 import { sectionNoteCalcul } from './noteCalcul.js';

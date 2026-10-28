@@ -8,7 +8,7 @@
 
 import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
-import { calculerPergola, dimsPergola } from '../engine/pergola.js';
+import { calculerPergola, dimsPergola } from '../engine/abri/pergola.js';
 import { solDuProjet } from '../engine/sol.js';
 import { estAbri } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';

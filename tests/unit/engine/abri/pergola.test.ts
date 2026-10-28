@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculerPergola, chiffrerPergola, dimsPergola, metrageParSection, pergolaDe, prixMlDe } from '../../../src/engine/pergola.js';
-import type { ObjetPlan, Pergola } from '../../../src/model/types.js';
+import { calculerPergola, chiffrerPergola, dimsPergola, metrageParSection, pergolaDe, prixMlDe } from '../../../../src/engine/abri/pergola.js';
+import type { ObjetPlan, Pergola } from '../../../../src/model/types.js';
 
 /** Une pergola rectangulaire de L x l metres, coin bas gauche a l'origine. */
 function pergola(L: number, l: number, reglages: Pergola = {}): ObjetPlan {

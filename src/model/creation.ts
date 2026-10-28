@@ -141,7 +141,7 @@ const ABRIS: Record<NatureAbri, { nom: string; demiL: number; demiH: number; fil
  * Pergola ou carport : un rectangle, en mode rectangle comme « + Rectangle ». Sa `fonction` fait que
  * l'inspecteur y ajoute la structure (poteaux, cadre, contrefiches, toit), le metrage et le
  * chiffrage, et que la Vue 3D la construit piece par piece — le meme code pour les deux ouvrages
- * (engine/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
+ * (engine/abri/pergola.ts), qui ne different que par leurs valeurs par defaut. Le remplissage est leger :
  * le plan dessine les poteaux et les chevrons par-dessus, et ce qui est dessous doit rester lisible.
  */
 export function nouvelAbri(nature: NatureAbri, c: PtBrut, key: string, numero: number): ObjetNeuf {
