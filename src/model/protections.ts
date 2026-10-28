@@ -238,3 +238,15 @@ export const peutEcrire = (o: BatimentProtege, groupe: Groupe, niveau: Niveau, c
 
 /** La meme question, posee par un ecrivain nomme. */
 export const ecrivainPeut = (o: BatimentProtege, ecrivain: Ecrivain, groupe: Groupe, ctx: ContexteEcriture = {}): boolean => peutEcrire(o, groupe, NIVEAU_ECRIVAIN[ecrivain], ctx);
+
+/**
+ * La hauteur a l'egout choisie (`egoutChoisi`, saisie ou validee par l'audit) peut-elle etre rendue au calcul ? Oui si, sans elle, la
+ * lecture du LiDAR pourrait l'ecrire : pas d'un batiment dessine, ni d'un toit fige, saisi, vu sur place ou lu sur une photo, ou ce
+ * geste ne changerait rien.
+ */
+export function egoutRendable(o: BatimentProtege): boolean {
+  if (!o.batiment?.egoutChoisi) return false;
+  const sans = { ...o.batiment };
+  delete sans.egoutChoisi;
+  return ecrivainPeut({ ...o, batiment: sans }, 'lidar', 'hauteur');
+}

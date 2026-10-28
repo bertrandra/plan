@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Rendre au calcul » la hauteur à l'égout d'un bâtiment.** Saisie dans « Élévation » ou validée par l'audit, la hauteur à
+  l'égout n'est plus réécrite par aucune lecture. Un bouton sous le champ la rend à la lecture du LiDAR : la marque tombe, le
+  toit se relit en tâche de fond et reprend la hauteur mesurée ; Ctrl+Z défait le geste. Il ne se montre que si une lecture peut
+  la reprendre (ni bâtiment dessiné, ni toit réglé à la main, vérifié sur place ou lu sur une photo).
+
 - **Retoucher la forme d'un objet de l'IGN, après un avertissement** (décision du 27 octobre 2026). Une parcelle du cadastre, un
   bâtiment ou un élément de l'IGN ne se déplace ni ne tourne, mais sa forme peut être fausse à l'IGN : tirer un sommet, un côté
   ou le rayon, ajouter ou retirer un sommet, saisir un angle ou une longueur, le mode rectangle demandent d'abord « « Maison »

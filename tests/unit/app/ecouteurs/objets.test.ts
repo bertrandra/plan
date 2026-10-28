@@ -178,3 +178,34 @@ describe('centrer une piscine ou un trou sur sa terrasse', () => {
     expect(monterAvec('trou', { ...trou, locked: true } as ObjetPlan).cmd.etat('objet.centrerSurTerrasse').utilisable).toBe(false);
   });
 });
+
+describe('rendre au calcul la hauteur a l egout choisie (objet.rendreEgout)', () => {
+  const maison = (batiment: Record<string, unknown>, plus: Partial<ObjetPlan> = {}) =>
+    poly('m', [[0, 0], [8, 0], [8, 6], [0, 6]], { fonction: 'batiment', bdtopo: { id: 'B1' }, elevation: 5.4, batiment, ...plus } as Partial<ObjetPlan>);
+  function avec(o: ObjetPlan) {
+    const a = fauxAtelier({ objects: [o], selectedKey: 'm' });
+    const cmd = creerRegistre(droits(true));
+    brancherObjets(a, cmd);
+    return { a, cmd };
+  }
+
+  it('leve la marque et remet le toit a lire, en une etape d annulation ; la hauteur reste jusqu a la lecture', () => {
+    const o = maison({ egoutChoisi: 'saisie', toitLidarLu: 7, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' } });
+    const { a, cmd } = avec(o);
+    expect(cmd.etat('objet.rendreEgout').utilisable).toBe(true);
+    expect(cmd.executer('objet.rendreEgout')).toBe(true);
+    expect(o.batiment?.egoutChoisi).toBeUndefined();
+    expect(o.batiment?.toitLidarLu).toBeNull();
+    expect(o.elevation).toBe(5.4);
+    expect(a.pushHistory).toHaveBeenCalledTimes(1);
+    expect(toasts.at(-1)).toContain('redevient automatique');
+  });
+
+  it('se grise quand aucune lecture ne pourrait la reprendre : pas de marque, toit fige, batiment dessine', () => {
+    expect(avec(maison({ toitLidarLu: 7 })).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    expect(avec(maison({ egoutChoisi: 'saisie', toitFige: true })).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    expect(avec(maison({ egoutChoisi: 'saisie' }, { bdtopo: undefined } as Partial<ObjetPlan>)).cmd.etat('objet.rendreEgout').utilisable).toBe(false);
+    // Validee par l'audit, elle se rend aussi.
+    expect(avec(maison({ egoutChoisi: 'audit' })).cmd.etat('objet.rendreEgout').utilisable).toBe(true);
+  });
+});

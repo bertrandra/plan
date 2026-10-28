@@ -16,6 +16,8 @@ import { terrasseCourante } from '../../core/contexteTerrasse.js';
 import type { Atelier } from '../atelier.js';
 import type { RegistreCommandes } from '../commandes.js';
 import { suivreLeContour } from '../../model/ouvrages/index.js';
+import { egoutRendable } from '../../model/protections.js';
+import { lectureToits } from '../../core/lectureToits.js';
 
 export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
   const selection = () => !!a.etat.selectedKey;
@@ -65,6 +67,19 @@ export function brancherObjets(a: Atelier, cmd: RegistreCommandes): void {
     const t = terrasseDuTrou();
     if (t) a.addTrouTerrasse(t);
   }, { actif: () => !!terrasseDuTrou() });
+  // La hauteur a l'egout saisie (ou validee par l'audit) rendue a la lecture : la marque tombe, et le toit se relit pour la reprendre
+  // (model/protections.ts). Un geste annulable ; seulement quand une lecture pourra l'ecrire, sinon il ne changerait rien.
+  const egoutARendre = () => { const o = a.objByKey(a.etat.selectedKey); return o && egoutRendable(o) ? o : undefined; };
+  commande('objet.rendreEgout', 'Rendre au calcul', () => {
+    const o = egoutARendre();
+    if (!o?.batiment) return;
+    a.pushHistory();
+    delete o.batiment.egoutChoisi;
+    o.batiment.toitLidarLu = null;
+    a.render();
+    lectureToits.demanderRelecture();
+    showToast('La hauteur à l’égout de « ' + (o.name || 'ce bâtiment') + ' » redevient automatique : la lecture du toit la reprend.');
+  }, { actif: () => !!egoutARendre() });
   // Les conditions que le panneau Objet posait sur ses anciens boutons : la parcelle ne se duplique
   // ni ne se supprime, un objet verrouille ne se supprime pas.
   const selectionne = () => a.objByKey(a.etat.selectedKey);
