@@ -249,6 +249,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 - **Plus aucun carrefour dans `app/`** (feuille de route, étape 3.3). `boot/plan.ts` (23 imports) passe le tiroir des résultats à
   `boot/resultatsDuPlan.ts` (19) ; le test d'architecture n'admet plus aucun module de `app/` au-delà de vingt imports.
 
+- **Schéma 6 des projets.** Trois champs venus après la première livraison du schéma 5 s'écrivaient au 5, qu'un lecteur 5
+  d'avant aurait effacés au premier enregistrement : la retouche à la main d'un objet de l'IGN (`retoucheMain`), la hauteur à
+  l'égout choisie d'un bâtiment (`egoutChoisi`) et le soleil du projet, sur la parcelle (`soleil`). Ils s'écrivent au 6
+  (`model/migrations.ts`, `CHAMPS_DEPUIS`) ; un document 5 se lit tel quel (migration 5 → 6 sans transformation, témoin
+  `tests/fixtures/migrations/schema-5.json`), et « Mettre à jour le modèle » le propose. Un projet qui ne porte aucun des trois
+  s'écrit toujours au plus petit schéma qui le décrit : la démonstration et les démos livrées restent au 5.
+  `contrat/plan-produit.json` passe à `schema_versions` 1 à 6. **La plateforme doit accepter 6 avant le dépôt** : backprod
+  l'accepte depuis bertrandra/backprod#242, par une migration de base que `setup.php` applique ; **à appliquer en production
+  avant de déployer cette version**, sinon chaque enregistrement d'un projet qui porte l'un de ces champs répond 422.
 - **Schéma 5 des projets.** La piscine, la pergola, la clôture, les corps et volumes mesurés du toit, le toit mesuré, les
   fenêtres et le voisinage en 3D, et les rues s'écrivaient au schéma 4, qu'un lecteur 4 aurait effacés au premier
   enregistrement. Ils s'écrivent au 5 ; un document 4 se lit tel quel (migration 4 → 5 sans transformation), et « Mettre à jour

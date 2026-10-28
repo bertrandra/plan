@@ -39,7 +39,10 @@ export const APP_VERSION = '3.0.0';
 // en 3D, rues) ; ils s'ecrivaient au 4, qu'un lecteur 4 aurait perdus (migrations.ts, CHAMPS_DEPUIS). La migration 4 -> 5 est
 // l'identite. Un releve y garde aussi la calibration de sa detection (`calibration`, etape 1.4). La plateforme doit accepter 5
 // avant le depot (contrat/SOURCE-PRODUIT.md).
-export const SCHEMA_VERSION = 5;
+// 6 : les champs venus apres le premier schema 5 livre (4.0.0) : la retouche a la main d'un objet de l'IGN (`retoucheMain`), la
+// hauteur a l'egout choisie (`egoutChoisi`) et le soleil du projet (`soleil`, sur la parcelle). Ils s'ecrivaient au 5, qu'un
+// lecteur 5 d'avant aurait perdus. La migration 5 -> 6 est l'identite ; la plateforme accepte 6 depuis bertrandra/backprod#242.
+export const SCHEMA_VERSION = 6;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-25';
 export const BUILD_SHA: string | null = null;

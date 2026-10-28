@@ -77,7 +77,7 @@ Order: `1.1.0-alpha.3 < 1.1.0-beta.1 < 1.1.0-rc.1 < 1.1.0`.
 `SCHEMA_VERSION` is an integer stamped into every saved project as `meta.schemaVersion`. It increments by exactly 1 whenever the persisted shape changes in any way — additive or not.
 
 ```ts
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export interface ProjectMeta {
   schemaVersion: number;
