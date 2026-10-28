@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { reporterElements } from '../../../../../src/facade/regles/toits/elementsVus.js';
+import { corpsAvecCeQuIlsPortaient, reporterElements } from '../../../../../src/facade/regles/toits/elementsVus.js';
+import { corpsDeSaillie } from '../../../../../src/facade/modeToit/saillies.js';
 import type { CorpsToit, PtBrut } from '../../../../../src/model/types.js';
 
 // Ce que portait un corps du toit, reporte sur les corps d'une forme relue (facade/regles/toits/elementsVus.ts::reporterElements) :
@@ -42,5 +43,31 @@ describe('reporterElements', () => {
     expect(reporterElements([galerie], [plat])[0]?.ouvert).toBeUndefined();
     // Le corps d'avant, reste tel quel dans la liste neuve : rien ne se double.
     expect(reporterElements([DEUX_PANS], [DEUX_PANS])[0]).toBe(DEUX_PANS);
+  });
+});
+
+describe('corpsAvecCeQuIlsPortaient', () => {
+  // Une annexe a cote de la maison, un bow-window sur le mur pts[0]-pts[1] de la maison (rang 1).
+  const ANNEXE: CorpsToit = { pts: rect(10, 0, 14, 4), posFaitage: 2, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0.2 };
+  const bow = corpsDeSaillie(DEUX_PANS, { genre: 'bow-window', hote: 1, mur: 0, centreM: 5, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan' });
+  const anciens = [ANNEXE, DEUX_PANS, bow];
+
+  it('une forme relue qui range le corps relu ailleurs (lectureFormes) : la saillie recopiee suit son mur, pas son ancien rang', () => {
+    const relu: CorpsToit = { pts: DEUX_PANS.pts, posFaitage: 4, faitage: 10, egouts: [6, 6], pignons: [], ecart: 0.1 };
+    // Ce que rend lireFormes : les corps hors du groupe, la saillie comprise, puis le corps relu a la fin.
+    const r = corpsAvecCeQuIlsPortaient(anciens, [ANNEXE, bow, relu])!;
+    const saillies = r.filter((c) => c.saillie);
+    expect(saillies).toHaveLength(1);
+    const s = saillies[0]!.saillie!;
+    expect(r[s.hote]).toBe(r.find((c) => c.faitage === 10));
+    expect(s).toMatchObject({ mur: 0, centreM: 5, genre: 'bow-window' });
+    // Ce que portait la maison passe sur le corps relu.
+    expect(r.find((c) => c.faitage === 10)?.cheminees).toHaveLength(1);
+  });
+
+  it('une relecture qui garde les corps en place : la saillie reste sur le meme mur, une seule fois', () => {
+    const r = corpsAvecCeQuIlsPortaient(anciens, [ANNEXE, { ...DEUX_PANS, faitage: 9.5 }, bow])!;
+    expect(r.filter((c) => c.saillie)).toHaveLength(1);
+    expect(r.find((c) => c.saillie)?.saillie).toMatchObject({ hote: 1, mur: 0, centreM: 5 });
   });
 });

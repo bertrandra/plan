@@ -24,7 +24,7 @@ import { repere } from '../../../facade/toits/toitCorps.js';
 import { DESCRIPTION_REGLAGES_TOITS, type NomReglageToit } from '../../../regles/toits/reglages.js';
 import { DESCRIPTION_SEUILS_FORMES, type NomSeuilForme } from '../../../regles/toits/formes.js';
 import { hauteurDe, type ArbitrageProposition, type GroupeArbitrage, type Proposition } from '../../../regles/decisions.js';
-import { cleMesure, corpsDesCheminees, dateFr, ECART_HAUTEUR_MIN_M, lucarnesSurLeCorps, reporterElements, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
+import { cleMesure, corpsAvecCeQuIlsPortaient, corpsDesCheminees, dateFr, ECART_HAUTEUR_MIN_M, lucarnesSurLeCorps, reporterElements, souchesSurLeCorps, type EntreesPropositions } from './propositions.js';
 import type { BoutFait, ObservationFait } from '../../../regles/toits/faits.js';
 import type { VoteAnalyse } from '../../../model/analyseClaude.js';
 import { libelleSilhouette, type SilhouetteFacade } from '../../../model/silhouetteFacade.js';
@@ -187,8 +187,9 @@ function propositionForme(o: ObjetPlan, b: LigneBatiment, arbs: Arbitrage[], for
     indices: [...indicesDuRetenu(a), { texte: 'Écart à la mesure LiDAR avec cette forme : ' + metres(lecture.ecart) + (vueParLidar ? '' : ' (forme demandée, ajustée au mieux)') }],
     remplaceChoix: a.projet.choisi || toitChoisiALaMain(o) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((x) => regles.attributs[x.attribut].libelle + ' : ' + x.raison).join(' ') : null,
-    // Ce que portait le toit (cheminees, lucarnes, terrasse, appentis ouvert) passe sur les corps relus, la ou cela tient.
-    effet: { type: 'corpsToit', corps: reporterElements(o.batiment?.corpsToit ?? [], lecture.corps) }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles, b)),
+    // Ce que portait le toit (cheminees, lucarnes, terrasse, appentis ouvert) passe sur les corps relus, la ou cela tient, et ses
+    // saillies (bow-window, galerie, appentis pose sur un mur) se reposent sur les murs qui restent, comme a la relecture LiDAR.
+    effet: { type: 'corpsToit', corps: corpsAvecCeQuIlsPortaient(o.batiment?.corpsToit, lecture.corps) ?? lecture.corps }, arbitrages: arbs.filter((x) => x.decision !== 'rien').map((x) => resumeArbitrage(x, regles, b)),
   };
 }
 
@@ -293,8 +294,9 @@ function propositionToit(o: ObjetPlan, b: LigneBatiment, parAttribut: (a: IdAttr
     indices: [...involves.flatMap(indicesDuRetenu), ...t.indices, { texte: ecart }],
     remplaceChoix: involves.some((a) => a.projet.choisi) || toitChoisiALaMain(o) ? 'forme du toit saisie' : null,
     reserve: manuelles.length ? manuelles.map((a) => regles.attributs[a.attribut].libelle + ' : ' + a.raison).join(' ') : null,
-    // Ce que portait le toit (cheminees, lucarnes, terrasse, appentis ouvert) passe sur les corps relus, la ou cela tient.
-    effet: { type: 'corpsToit', corps: reporterElements(o.batiment?.corpsToit ?? [], corps) }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles, b)),
+    // Ce que portait le toit (cheminees, lucarnes, terrasse, appentis ouvert) passe sur les corps relus, la ou cela tient, et ses
+    // saillies se reposent sur les murs qui restent (corpsAvecCeQuIlsPortaient, comme a la relecture LiDAR).
+    effet: { type: 'corpsToit', corps: corpsAvecCeQuIlsPortaient(o.batiment?.corpsToit, corps) ?? corps }, arbitrages: [...involves, ...murs].map((a) => resumeArbitrage(a, regles, b)),
   };
 }
 

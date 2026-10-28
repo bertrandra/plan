@@ -438,6 +438,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Valider la forme du toit proposée par l'audit garde les bow-windows, galeries et appentis posés sur un mur.** Une forme du
+  catalogue (Mansart, demi-croupe…) rangeait le corps relu en dernier : l'élément posé sur son mur désignait alors un autre corps.
+  La validation repose maintenant ces éléments sur le mur qui reste, comme la relecture LiDAR (`corpsAvecCeQuIlsPortaient`).
+
 - **Ce qui est rangé par côté suit un contour retouché, pour tous les ouvrages** (étape 6.3). Un sommet ajouté ou retiré, un
   côté tiré ou raccourci, l'actualisation IGN faisaient glisser au côté voisin, ou laissaient hors du côté : le portail et le
   portillon (qui restent maintenant à leur place sur la limite, bornés au côté, sur la part où ils tombent d'un côté coupé), les
