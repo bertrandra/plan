@@ -93,7 +93,7 @@ describe('useCle', () => {
 
   it('la part commune des cles suit l etat d interface du plan', () => {
     const etat = { objects: [], measures: [], selectedKey: null, highlight: { type: null, index: null }, showNorth: true, grilleVisible: false,
-      parasol: { ombreAffichee: true, carteAffichee: false, dateStr: '2026-06-21', minutes: 900 } } as unknown as EtatApp;
+      parasol: { ombreAffichee: true, carteAffichee: false } } as unknown as EtatApp;
     const magasin = creerMagasin(etat);
     const a = cleEtat(magasin.store.getState());
     etat.grilleVisible = true;

@@ -70,6 +70,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Un seul soleil pour le plan, la Vue 3D et la visionneuse, enregistré avec le projet** (feuille de route, étape 6.7 ;
+  décision du 28 octobre 2026). Il y en avait trois, avec trois défauts : l'ombre des parasols sur le plan (le 21 juin, 15 h), la
+  Vue 3D et la visionneuse (la date UTC du jour, midi) ; le même parasol n'avait pas la même ombre sur le plan et en 3D, et un
+  projet rouvert ne retrouvait pas son soleil. La date et l'heure sont maintenant celles du projet (`core/soleil.ts`,
+  `model/soleilProjet.ts`) : les régler dans l'inspecteur du parasol (« Soleil — date », « Soleil — heure »), dans les réglages de
+  la Vue 3D ou de la visionneuse, ou par « Heure dorée », change les trois vues à la fois. L'intensité et la lumière d'appoint
+  restent propres à chaque vue. Le soleil s'enregistre sur la parcelle (`soleil`, seulement une fois choisi) et revient à la
+  réouverture ; le changer reste un réglage d'affichage — ni Ctrl+Z, permis en lecture seule — qui marque pourtant le projet à
+  enregistrer, comme « Relief ». Un projet qui n'en a pas (tous les fichiers d'avant) prend aujourd'hui, en date locale, à
+  15 h. La carte des heures d'ombre garde sa fenêtre — toute la saison, et non la date choisie — et le dit maintenant sous sa
+  case : « Toute la saison, mai à septembre, 12 h – 18 h, pas la date choisie ». Les seuils de hauteur du soleil (ombre du
+  parasol, extinction et plancher de la lampe) sont rangés au même endroit ; le commentaire qui attribuait la formule du soleil
+  à la NOAA est corrigé. Aucune empreinte ne bouge : un fichier sans soleil choisi garde sa forme au bit près.
 - **Un rendu du plan sans changement ne redessine plus ni les zones ni les calques du dessus** (feuille de route, étapes 2.2 et
   6.5). Chaque zone de l'interface s'abonne à ce qu'elle montre — une clé faite de la version des objets, de l'état d'interface du
   plan, de l'état de ses commandes et des outils (`zones/composants/abonnement.ts`, `useCle`) — au lieu de se redessiner à chaque

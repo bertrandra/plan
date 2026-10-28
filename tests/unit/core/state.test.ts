@@ -52,8 +52,8 @@ describe('etat de l application', () => {
     expect(etat.showNorth).toBe(true);
     expect(etat.dirty).toBe(false);
     expect(etat.undoStack.vide).toBe(true);
-    expect(etat.parasol.minutes).toBe(900);
-    expect(etat.parasol.dateStr).toMatch(/^\d{4}-06-21$/);
+    // La date et l'heure de l'ombre sont le soleil du projet (core/soleil.ts), plus un reglage du plan.
+    expect(etat.parasol).toEqual({ ombreAffichee: true, carteAffichee: false });
   });
 
   it('donne a chaque etat sa propre pile et sa propre scene', () => {

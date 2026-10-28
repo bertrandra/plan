@@ -17,6 +17,7 @@ export type { TypeCloture, ParementMur, EssenceHaie, LimiteCloture, Soubassement
 import type { Pergola } from './typesPergola.js';
 export type { ToitPergola, MateriauPergola, Pergola } from './typesPergola.js';
 import type { Piscine } from './typesPiscine.js';
+import type { SoleilProjet } from './soleilProjet.js';
 export type { ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPiscine, PlagePiscine, SecuritePiscine, TraitementPiscine, ChauffagePiscine, LocalTechniquePiscine, Piscine } from './typesPiscine.js';
 
 /**
@@ -141,6 +142,11 @@ interface ObjetCommun {
    * et laisse voir la photo aerienne. Preference d'affichage, gardee a la reouverture.
    */
   gazon3d?: boolean | null;
+  /**
+   * Le soleil du projet (model/soleilProjet.ts) : la date et l'heure que le plan, la Vue 3D et la
+   * visionneuse eclairent. Range sur la parcelle comme le lieu, et seulement une fois choisi.
+   */
+  soleil?: SoleilProjet | null;
 
   /** La cloture, rangee sur la parcelle comme le fond orthophoto et le lieu. */
   clotureActive?: boolean;

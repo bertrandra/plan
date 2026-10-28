@@ -1,7 +1,8 @@
 // Les deux vues 3D et le passage de l'une a l'autre (app/assemblage/) : la Vue 3D « vivante », que
 // l'on construit depuis le plan, et la visionneuse, qui relit le dernier .glb exporte.
 //
-// Les deux scenes sont separees : fermer l'une ne perturbe pas l'autre, et chacune regle son soleil.
+// Les deux scenes sont separees : fermer l'une ne perturbe pas l'autre. Elles eclairent avec le soleil
+// du projet (core/soleil.ts), le meme que le plan ; chacune regle la facon de le montrer.
 // La scene elle-meme vit dans three/, le pilotage des vues dans app/modes.ts ; ce module les relie
 // a l'atelier et aux commandes.
 
@@ -22,7 +23,7 @@ import { avecMoteur3d, moteur3d, type Moteur3d } from '../../three/demande3d.js'
 import { brancherVue3d } from '../ecouteurs/vue3d.js';
 import { brancherBoutonsDeVue } from '../ecouteurs/modes.js';
 import { brancherVisionneuse } from '../ecouteurs/visionneuse.js';
-import { reglagesSoleil } from '../ecouteurs/soleil.js';
+import { reglagesSoleil, brancherSoleilDuProjet } from '../ecouteurs/soleil.js';
 import { creerModes } from '../modes.js';
 import type { Affichage } from './affichage.js';
 import type { Atelier } from '../atelier.js';
@@ -51,6 +52,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
   // Le moteur de la 3D se charge a la premiere ouverture (three/demande3d.ts, AD-10). Avant, aucune scene n'existe : ce qui agit
   // sur la scene ouverte ne fait rien (`moteur3d()` est null), ce qui doit la faire exister la charge d'abord (`avecMoteur3d`).
   const appliquerLumiereVue3d = () => { moteur3d()?.appliquerSoleilVue3d({ lieuActuel }); };
+  const appliquerLumiereGlb = () => { moteur3d()?.appliquerLumiereGlb({ lieuActuel }); };
   const rafraichirVisionneuse = (camera: CameraConservee = null) => avecMoteur3d((m) => m.rafraichirVisionneuseGlb(camera, { lieuActuel }));
 
   const construire = (m: Moteur3d, obj: ObjetPlan | null) => m.buildThreeScene(obj, etat, {
@@ -82,7 +84,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     vue3dPleinePage: () => affichage3d.pleinePage3d,
     glbViewerPleinePage: () => affichage3d.pleinePageGlb,
     resizeThreeScene: () => siOuverte((n) => n.resizeThreeScene()), resizeGlbViewerScene: () => siOuverte((n) => n.resizeGlbViewerScene()),
-    appliquerLumiere: appliquerLumiereVue3d, lieuActuel
+    lieuActuel
   }, commandes);
 
   const modes = creerModes({
@@ -114,20 +116,25 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
   const reglagesVisionneuse = brancherVisionneuse(atelier, {
     genererGlb,
     rafraichir: (cam) => rafraichirVisionneuse(cam),
-    appliquerLumiere: () => { moteur3d()?.appliquerLumiereGlb({ lieuActuel }); },
+    appliquerLumiere: appliquerLumiereGlb,
     remplacerFond: () => { moteur3d()?.remplacerFondGlb(); },
     hauteurFinieMm, hauteurYeuxM: HAUTEUR_YEUX_M
   }, commandes);
 
-  // Les deux panneaux 3D (zones/vue3d/) : les memes cinq reglages de soleil, deux fois — les deux vues
-  // reglent leur soleil separement —, les cases de chaque vue, et les points de vue.
+  // Le soleil du projet (core/soleil.ts) : un changement, d'ou qu'il vienne, se range sur la parcelle, marque le projet a
+  // enregistrer, et se montre sur le plan et dans les deux vues.
+  brancherSoleilDuProjet({
+    etat, markDirty: atelier.markDirty, render: atelier.render, signaler3d,
+    syncSemaines: () => { const m = moteur3d(); m?.syncSemaineDepuisDate(); m?.syncSemaineGlb(); },
+    appliquer3d: appliquerLumiereVue3d, appliquerGlb: appliquerLumiereGlb
+  });
+  // Les deux panneaux 3D (zones/vue3d/) : les memes cinq reglages de soleil, deux fois — un seul soleil, mais chaque vue regle
+  // son intensite et son appoint —, les cases de chaque vue, et les points de vue.
   const vues3d: ServiceVues3d = {
     reglages: reglagesVue3d,
     visionneuse: reglagesVisionneuse,
-    soleilGlb: reglagesSoleil({ etat: glb, regler: reglerGlb, syncSemaine: () => { moteur3d()?.syncSemaineGlb(); }, signaler: signaler3d,
-      appliquer: () => { moteur3d()?.appliquerLumiereGlb({ lieuActuel }); } }),
-    soleil3d: reglagesSoleil({ etat: soleilVue3d, regler: reglerSoleilVue3d, syncSemaine: () => { moteur3d()?.syncSemaineDepuisDate(); }, signaler: signaler3d,
-      appliquer: appliquerLumiereVue3d }),
+    soleilGlb: reglagesSoleil({ etat: glb, regler: reglerGlb, signaler: signaler3d, appliquer: appliquerLumiereGlb }),
+    soleil3d: reglagesSoleil({ etat: soleilVue3d, regler: reglerSoleilVue3d, signaler: signaler3d, appliquer: appliquerLumiereVue3d }),
     // Aller a un point de vue ouvre la Vue 3D au besoin (three/navigation.ts) : le moteur se charge d'abord.
     allerAuPointDeVue: (vp) => avecMoteur3d((m) => navigation(m).allerAuPointDeVue(vp)),
     allerAuPointDeVueGlb: (vp) => siOuverte((n) => n.allerAuPointDeVueGlb(vp)),

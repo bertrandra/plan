@@ -14,6 +14,7 @@
 // `[cle de version]` dans la console, ce que la fumee fait echouer. Le banc du rendu l'eteint (`__sansVerifierCles`).
 
 import { cleDesObjets } from '../core/controleurObjets.js';
+import { soleilDuProjet } from '../core/soleil.js';
 import { mesure } from '../interaction/outilMesure.js';
 import { ortho } from './ortho.js';
 import { terrasseLayerVisible } from './terrasseCouches.js';
@@ -27,9 +28,9 @@ const verifier = (): boolean => import.meta.env.DEV && !(globalThis as { __sansV
 
 /** Ce que lisent les calques du dessus : la meme cle tant que rien n'a change dans le plan ni dans sa vue. */
 export function cleDesCalques(etat: EtatApp, ...autres: unknown[]): string {
-  const s = etat.scene, p = etat.parasol;
+  const s = etat.scene, p = etat.parasol, soleil = soleilDuProjet.lire();
   return JSON.stringify([cleDesObjets(etat.objects), s.scale, s.origine.x, s.origine.y, s.W, s.H, etat.selectedKey, etat.terrasseSelectedKey,
-    etat.isolement, etat.voisinageVisible, etat.calquesVisibles, etat.showNorth, p.ombreAffichee, p.carteAffichee, p.dateStr, p.minutes,
+    etat.isolement, etat.voisinageVisible, etat.calquesVisibles, etat.showNorth, p.ombreAffichee, p.carteAffichee, soleil.dateStr, soleil.minutes,
     etat.measures, mesure.pointage, mesure.ref, mesure.startEnd, mesure.cibles, terrasseLayerVisible, ortho.actif, ortho.parcelleOpacite,
     SVG_INK, SVG_GRID_MAJOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE,
     SVG_PASTILLE_TEXTE, SVG_RELIEF, ...autres]);

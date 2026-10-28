@@ -25,6 +25,7 @@ import { mesure } from '../../interaction/outilMesure.js';
 import { cibleAlignement } from '../../interaction/outilAlignement.js';
 import { saillieArmee } from '../../interaction/choixSaillie.js';
 import { lectureRelief } from '../../core/lectureRelief.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 import { especesChargees } from '../../model/especesArbre.js';
 import { zoneVisible, type ZoneMasquable } from './versionVisible.js';
 
@@ -66,17 +67,18 @@ function identite(o: object): number {
 
 /**
  * Ce que toute zone qui lit le plan met dans sa cle : les objets et les cotes, l'etat d'interface du plan, et les etats des outils
- * que les panneaux montrent (pointage d'une cote, cible d'un alignement, saillie visee, lecture du relief, essences chargees).
+ * que les panneaux montrent (pointage d'une cote, cible d'un alignement, saillie visee, lecture du relief, essences chargees), et
+ * le soleil du projet (core/soleil.ts), que l'inspecteur montre et que la 3D regle aussi.
  */
 export function cleEtat(s: EtatMagasin): string {
   if (s.version === communeVersion && s.etat === communeEtat) return commune;
   const e = s.etat;
-  const p = e.parasol, h = e.highlight;
+  const p = e.parasol, h = e.highlight, soleil = soleilDuProjet.lire();
   commune = [
     e.objects ? cleDesObjets(e.objects) : '', e.measures ? JSON.stringify(e.measures) : '',
     e.selectedKey, h?.type, h?.index, e.panelTab, e.terrasseSelectedKey, e.calquesVisibles, e.isolement, e.lectureSeule, enLectureSeule(),
     e.showNorth, e.positionGps, e.audit ? JSON.stringify(e.audit) : '', e.grilleVisible, e.voisinageVisible, e.schemaProjet, e.dirty,
-    p?.ombreAffichee, p?.carteAffichee, p?.dateStr, p?.minutes,
+    p?.ombreAffichee, p?.carteAffichee, soleil.dateStr, soleil.minutes,
     JSON.stringify([mesure.pointage, mesure.ref, mesure.startEnd, mesure.cibles, cibleAlignement(), saillieArmee()]), lectureRelief.enCours(),
     identite(especesChargees())
   ].join('|');

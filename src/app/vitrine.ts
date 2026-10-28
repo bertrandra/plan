@@ -58,6 +58,7 @@
 import { migrer } from '../model/migrations.js';
 import { centroid } from '../geometry/basic.js';
 import { SCHEMA_VERSION } from '../model/version.js';
+import { aujourdhui } from '../model/soleilProjet.js';
 import type { ObjetBrut, Mesure } from '../model/types.js';
 
 /** Les bornes d'une dimension : assez pour voir quelque chose, pas plus qu'un ecran 4K. */
@@ -279,9 +280,9 @@ export function heureALInstant(course: { debut: number; fin: number }, ecouleMs:
   return Math.round(course.debut + t * (course.fin - course.debut));
 }
 
-/** La date du jour, en local, au format des champs de date (AAAA-MM-JJ). */
+/** La date du jour, en local, au format des champs de date (AAAA-MM-JJ) : celle du soleil du projet (model/soleilProjet.ts). */
 export function dateDuJour(d: Date = new Date()): string {
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return aujourdhui(d);
 }
 
 /**

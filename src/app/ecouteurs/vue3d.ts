@@ -10,7 +10,8 @@
 // Une case cochée coûte donc une reconstruction complète, ce qui est assumé — la scène est petite, et
 // une reconstruction évite toute une classe de bugs d'état résiduel.
 
-import { vue3d, glb, signaler3d, rendre3d, soleilVue3d, reglerSoleilVue3d, reglerVue3d } from '../../three/etat3d.js';
+import { vue3d, glb, signaler3d, rendre3d, reglerVue3d } from '../../three/etat3d.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 import { showErrBanner, showToast } from '../../shell/dialogs.js';
 import { telechargerBlob } from '../../shell/download.js';
 import { nomFichierTerrasse } from '../../three/nomFichier.js';
@@ -42,8 +43,6 @@ export interface ContexteVue3d {
   glbViewerPleinePage: () => boolean;
   resizeThreeScene: () => void;
   resizeGlbViewerScene: () => void;
-  /** Pose le soleil de la Vue 3D d'apres ses reglages (l'heure doree le deplace). */
-  appliquerLumiere: () => void;
   lieuActuel: () => { latitude: number; longitude: number };
 }
 
@@ -97,16 +96,16 @@ function qualiteDeLAppareil(): Qualite3d {
 
 /**
  * La presentation (R6, three/presentation.ts) : heure doree, capture HD, promenade. Trois gestes pour
- * montrer le projet : ni annulation, ni « projet modifie », permis en lecture seule.
+ * montrer le projet : ni annulation, ni « projet modifie », permis en lecture seule. L'heure doree
+ * regle le soleil du projet : comme son curseur, elle marque le projet a enregistrer (core/soleil.ts).
  */
 function brancherPresentation(a: Atelier, ctx: ContexteVue3d, cmd: RegistreCommandes, terrasseCourante: () => ObjetPlan | undefined): void {
   const cam = (_idDom: string, id: string, libelle: string, executer: () => void) => cmd.declarer({ id, libelle, groupe: '3d', executer });
   cam('terrasse3dHeureDoree', '3d.heureDoree', 'Heure dorée', () => {
-    const m = minutesHeureDoree(soleilVue3d.dateStr, ctx.lieuActuel());
+    const m = minutesHeureDoree(soleilDuProjet.lire().dateStr, ctx.lieuActuel());
     if (m === null) { showToast('Heure dorée : le soleil ne se couche pas ce jour-là, ou la date est illisible.'); return; }
-    reglerSoleilVue3d({ minutes: m });
-    ctx.appliquerLumiere();
-    signaler3d();
+    // Le soleil du projet : la lumiere, le plan et l'enregistrement suivent par son ecouteur (app/ecouteurs/soleil.ts).
+    soleilDuProjet.regler({ minutes: m });
   });
   cam('terrasse3dCaptureHd', '3d.captureHd', 'Capture HD', () => {
     const sc = vue3d.scene;

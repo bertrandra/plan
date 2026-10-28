@@ -27,6 +27,7 @@ import type { ObjetPlan } from '../../model/types.js';
 import type { GraineDemarrage } from './graines.js';
 import { creerRendu } from './rendu.js';
 import { assemblerLesResultats } from './resultatsDuPlan.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 
 /**
  * La lecture des toits en tache de fond (app/toits/toitsFond.ts) est-elle permise ? Pas dans la vitrine,
@@ -119,7 +120,10 @@ export function atelierDu(p: Plan): Atelier {
     etat, objByKey: (key) => etat.objects.find(o => o.key === key),
     initialState: () => initialState, initialMeasures: () => initialMeasures,
     pushHistory: p.pushHistory, markDirty: p.markDirty,
-    undo: () => historique.annuler(), restoreState: (i) => historique.restaurer(i),
+    // Le soleil du projet n'est pas un pas d'annulation : l'instantane restaure porte celui d'avant, et il est range de nouveau
+    // sur la parcelle tel qu'il est a l'ecran (core/soleil.ts). L'ouverture d'un projet, elle, le relit (io/projet.ts).
+    undo: () => { historique.annuler(); soleilDuProjet.ranger(etat.objects); },
+    restoreState: (i) => { historique.restaurer(i); soleilDuProjet.ranger(etat.objects); },
     render: p.render, rebuildSelector: p.rebuildSelector,
     rebuildHandles: dessin.rebuildHandles, reapplyStackingOrder: dessin.reapplyStackingOrder,
     fitToObject: p.cadrage.cadrer, ...p.gestes

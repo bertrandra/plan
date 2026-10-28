@@ -1,4 +1,4 @@
-Plan 3.0.0 (c066a4be) - deploiement Apache + PHP, sans Node.js
+Plan 3.0.0 (eb03552d) - deploiement Apache + PHP, sans Node.js
 Plateforme : https://www.raillard.org
 
 Sur l'hebergement, trois choses voisines :

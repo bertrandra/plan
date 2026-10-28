@@ -1,8 +1,9 @@
 // Ce que la Vue 3D et la visionneuse partagent dans leurs panneaux : l'entete des reglages, les
 // lignes du soleil, la barre de l'heure et la liste des points de vue.
 //
-// Les deux vues ont chacune leur soleil (spec §6.4) : les memes lignes, sur deux etats separes, avec
-// les identifiants de chaque vue (`IdsSoleil`), que la feuille de style et la liste de fumee retrouvent.
+// Les deux vues eclairent avec le soleil du projet (core/soleil.ts), le meme que le plan : les memes
+// lignes, la date et l'heure communes, l'intensite et l'appoint propres a chaque vue, avec les
+// identifiants de chaque vue (`IdsSoleil`), que la feuille de style et la liste de fumee retrouvent.
 
 import { useStore } from 'zustand';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';

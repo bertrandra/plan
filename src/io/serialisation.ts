@@ -107,6 +107,8 @@ export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {
     if(o.voisinage3d) out.voisinage3d = JSON.parse(JSON.stringify(o.voisinage3d));
     // Le gazon de la parcelle, montre par defaut : seul son retrait s'ecrit.
     if(o.gazon3d === false) out.gazon3d = false;
+    // Le soleil du projet (date et heure), sur la parcelle : pose seulement une fois choisi.
+    if(o.soleil) out.soleil = { dateStr: o.soleil.dateStr, minutes: o.soleil.minutes };
     if(o.ruesVoisinage) out.ruesVoisinage = JSON.parse(JSON.stringify(o.ruesVoisinage));
     if(o.batiment?.volumesToit) out.volumesToit = JSON.parse(JSON.stringify(o.batiment?.volumesToit));
     if(o.batiment?.toitMesure) out.toitMesure = JSON.parse(JSON.stringify(o.batiment?.toitMesure));

@@ -12,6 +12,7 @@ import type { Lieu } from '../../model/lieu.js';
 import type { ObjetPlan } from '../../model/types.js';
 import type { Magasin } from '../magasin.js';
 import { estTerrain, visibleEnIsolement } from '../../model/fonctions.js';
+import { soleilDuProjet } from '../../core/soleil.js';
 
 export interface Affichage {
   /** La parcelle qui porte la cloture, le lieu et les reglages : `parcelle`, sinon le premier terrain. */
@@ -20,7 +21,7 @@ export interface Affichage {
   libelleLieu(): string;
   /** Le lieu dans la barre d'application : il suit la parcelle (import, actualisation). */
   syncLieuTitre(): void;
-  /** Date, heure et lieu, pour les ombres des parasols. */
+  /** Le soleil du projet (date, heure) et le lieu, pour les ombres des parasols : le meme que la 3D. */
   contexteSoleilParasol(): ContexteSoleil;
   /** Terrain au sens large : la parcelle principale et les parcelles voisines importees. */
   estTerrain(o: ObjetPlan): boolean;
@@ -37,7 +38,7 @@ export function creerAffichage(etat: EtatApp, magasin: Magasin, markDirty: () =>
     syncLieuTitre() { magasin.definirLieu(trouverParcelleCloture() ? libelleLieu() : ''); },
     contexteSoleilParasol() {
       const lieu = lieuActuel();
-      return { dateStr: etat.parasol.dateStr, minutes: etat.parasol.minutes, lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
+      return { ...soleilDuProjet.lire(), lieu: { latitude: lieu.latitude, longitude: lieu.longitude } };
     },
     estTerrain,
     // Masquer le voisinage ne touche pas au `hidden` de chaque objet : sinon decocher puis recocher
