@@ -13,6 +13,7 @@ import { MASSIF, MOBILIER, DALLE, EQUIPEMENT, CHEMIN } from './surfaces.js';
 import { TREMIE } from './ouverture.js';
 
 export type { Ouvrage, Famille, Forme, Particularite } from './ouvrage.js';
+export type { NatureAbri } from './abri.js';
 export { LARGEUR_CHEMIN_DEFAUT, largeurChemin, longueurChemin, surfaceChemin, type TraceChemin } from './surfaces.js';
 export { TERRAIN, ARBRE, LIMITE, POINT_DE_VUE, AUTRE, BATIMENT, ANNEXE, TERRASSE, PERGOLA, CARPORT, PISCINE, PARASOL, MASSIF, MOBILIER, DALLE,
   EQUIPEMENT, CHEMIN, TREMIE };

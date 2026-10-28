@@ -386,7 +386,7 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
   const OUVRAGES: Record<string, { modules: string[]; publie: string[] }> = {
     terrasse: {
       modules: ['engine/structure', 'engine/layers', 'engine/bom', 'engine/construction', 'engine/lames', 'engine/optimisation',
-        'engine/implantation', 'engine/chantier', 'engine/remplissageFige', 'engine/debit', 'engine/typesDebit', 'engine/prix',
+        'engine/implantation', 'engine/chantier', 'engine/remplissageFige', 'engine/debit', 'engine/prix',
         'engine/constantes', 'engine/hauteurs', 'engine/portees', 'render/terrasseCouches', 'three/sceneTerrasse', 'three/ouvrages/terrasse',
         'ui/champs/construction', 'engine/ouvrages/terrasse'],
       publie: ['engine/ouvrages/terrasse']
@@ -415,8 +415,6 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
   };
   // Les couplages d'aujourd'hui : un cliquet, qui ne peut que se vider.
   const RESTANTS: string[] = [
-    'engine/pergola -> engine/debit',
-    'engine/pergola -> engine/prix',
     'engine/piscine/calcul -> engine/constantes',
     'engine/piscine/calcul -> engine/construction',
     'engine/piscine/calcul -> engine/hauteurs',

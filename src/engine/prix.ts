@@ -7,7 +7,7 @@
 import { DALLE_BETON_EP_M, essenceDe, MASSIF_COTE_M, PLOT_ASSISE_MIN_CM2, SOLIVE_PRICE, SUPPORT_TYPES, supportDe, VIS_PRICE, estPlots, plotModele, type TypeSupport } from './constantes.js';
 import { CHARGE_NORMALE_DEFAUT, dimsSection, sectionLambourde } from './portees.js';
 import { valeurEnregistree } from '../model/dictionnaire.js';
-import type { Debit } from './typesDebit.js';
+import { parseLongueurs, type Debit } from './bois/debit.js';
 import type { Construction } from '../model/types.js';
 
 /** Les trois produits achetes a la barre, chacun avec son propre carnet de prix. */
@@ -152,15 +152,6 @@ export function coutDebit(c: Construction, debit: Debit, cle: ProduitBarre): num
     .reduce((s,[L, n])=>s + n*prixBarre(c, cle, parseFloat(L)), 0);
 }
 export const LONGUEURS_BOIS_DEFAUT = [5, 4, 3, 2.5, 2];
-// "3, 2.5, 2" -> [3, 2.5, 2], longest first. Tolerates commas, semicolons, spaces and the
-// French decimal comma, because that is how the figure gets pasted off a merchant's page.
-export function parseLongueurs(raw: unknown, defauts: number[]): number[] {
-  const list: number[] = (raw || "").toString().split(/[;\s]+|,(?![0-9])/)
-    .map(s=>parseFloat(s.replace(',','.')))
-    .filter(v=>isFinite(v) && v>0.2);
-  const uniq = [...new Set(list)].sort((a,b)=>b-a);
-  return uniq.length ? uniq : defauts.slice();
-}
 export function longueursDispo(c: Construction): number[] { return parseLongueurs(c.longueursLames, LONGUEURS_LAMES_DEFAUT); }
 export function longueursBois(c: Construction): number[] { return parseLongueurs(c.longueursBois, LONGUEURS_BOIS_DEFAUT); }
 export function longueursLambourde(c: Construction): number[] { return parseLongueurs(c.longueursLambourde, LONGUEURS_BOIS_DEFAUT); }
