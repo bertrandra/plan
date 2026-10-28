@@ -23,10 +23,11 @@ import { shoelace } from '../../geometry/basic.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import { chargePlot, longueursBois, longueursDispo, longueursLambourde, prixPlotUnite } from '../../engine/prix.js';
 import { MASSIF_COTE_M, CONCASSE_PRICE, DALLE_STAB_PRICE, ESSENCE_PRICES, estPlots, GEOTEXTILE_PRICE, LAME_RIVE_PRICE, PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, PLOT_MODELES, plotModele, SOLIVE_PRICE, SOLIVE_SECTIONS, SUPPORT_TYPES, VIS_DEPASSEMENT_MAX_CM, VIS_DEPASSEMENT_USUEL_CM, VIS_PRICE, VISSERIE_PRICE } from '../../engine/constantes.js';
-import { buildVisGrid, findSpaZones, objetsQuiPercent, ouverturesDe, surfaceNetteTerrasse, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
+import { objetsQuiPercent } from '../../engine/ouvrages/liens.js';
+import { buildVisGrid, findSpaZones, ouverturesDe, surfaceNetteTerrasse, volumeDecaissementPose, zoneToucheTerrasse } from '../../engine/structure.js';
 import { dalleEnFouille, decaissementPoseMm, hauteurFinieMm, hauteurStructureMm } from '../../engine/hauteurs.js';
 import { estTrou } from '../../model/fonctions.js';
-import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
+import { CHARGE_REF, coefRaideurLame, dimsSection, ENTRAXE_LAME_K, LAMBOURDE_SECTIONS, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeAppuiM, porteeVisSpaM, sectionLambourde, SOLIVE_SECTION_DIMS } from '../../engine/bois/portees.js';
 import type { Construction } from '../../model/types.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 

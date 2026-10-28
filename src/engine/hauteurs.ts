@@ -6,7 +6,7 @@
 
 import { estPlots, supportDe } from './constantes.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, sectionLambourde } from './portees.js';
+import { dimsSection, sectionLambourde } from './bois/portees.js';
 import { elevationParDefaut } from '../model/defaults.js';
 import { solSousEmprise, type Sol } from './sol.js';
 import type { Construction, PtBrut } from '../model/types.js';

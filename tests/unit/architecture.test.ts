@@ -387,7 +387,7 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
     terrasse: {
       modules: ['engine/structure', 'engine/layers', 'engine/bom', 'engine/construction', 'engine/lames', 'engine/optimisation',
         'engine/implantation', 'engine/chantier', 'engine/remplissageFige', 'engine/debit', 'engine/prix',
-        'engine/constantes', 'engine/hauteurs', 'engine/portees', 'render/terrasseCouches', 'three/sceneTerrasse', 'three/ouvrages/terrasse',
+        'engine/constantes', 'engine/hauteurs', 'render/terrasseCouches', 'three/sceneTerrasse', 'three/ouvrages/terrasse',
         'ui/champs/construction', 'engine/ouvrages/terrasse'],
       publie: ['engine/ouvrages/terrasse']
     },
@@ -415,14 +415,6 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
   };
   // Les couplages d'aujourd'hui : un cliquet, qui ne peut que se vider.
   const RESTANTS: string[] = [
-    'engine/piscine/calcul -> engine/constantes',
-    'engine/piscine/calcul -> engine/construction',
-    'engine/piscine/calcul -> engine/hauteurs',
-    'engine/piscine/calcul -> engine/portees',
-    'engine/piscine/chiffrage -> engine/constantes',
-    'engine/piscine/note -> engine/constantes',
-    'engine/piscine/reglages -> engine/constantes',
-    'engine/structure -> engine/piscine',
     'render/cloture -> facade/geometrie',
     'render/piscineOverlay -> engine/structure',
     'three/cloture3d -> engine/structure',
@@ -430,8 +422,6 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
     'three/cloture3d -> facade/toits/toit',
     'three/releve3d -> engine/structure',
     'ui/champs/cloture -> facade/geometrie',
-    'ui/champs/piscine -> engine/constantes',
-    'ui/champs/piscine -> engine/structure',
   ];
   const nom = (f: string) => relative(src, f).split(sep).join('/').replace(/\.tsx?$/, '');
   const dans = (n: string, prefixes: readonly string[]) => prefixes.some(p => p.endsWith('/') ? n.startsWith(p) : n === p);

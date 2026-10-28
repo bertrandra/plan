@@ -26,7 +26,8 @@ import { sectionFenetres3d } from './fenetres3d.js';
 import { champsCouleurMurs } from './couleurMurs.js';
 import { sectionsPiscine } from './piscine.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
-import { surfaceNetteTerrasse, terrasseHote } from '../../engine/structure.js';
+import { surfaceNetteTerrasse } from '../../engine/structure.js';
+import { terrasseHote } from '../../engine/ouvrages/liens.js';
 import { champsArbre, champsBatiment, champsParasol } from '../../model/champsFonction.js';
 
 /** Les fonctions qu'un objet peut porter : la liste « Fonction » de l'inspecteur, dans l'ordre du menu d'autrefois. */

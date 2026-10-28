@@ -6,23 +6,12 @@
 
 import { au } from '../util/tableaux.js';
 
+// Le bois partage avec les autres ouvrages (essences, regles du platelage) vit dans engine/bois/ ; il reste lisible ici, ou la
+// terrasse le lit depuis toujours.
+export { ESSENCE_PRICES, essenceDe, type Essence } from './bois/essences.js';
+export { PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM, estPlots } from './bois/platelage.js';
 
-/** Une essence au catalogue : son libelle et sa fourchette de prix au m². */
-export interface Essence { label: string; bas: number; haut: number }
 
-// Indexe par une chaine venue d'un projet enregistre : elle n'est pas garantie d'etre au catalogue,
-// et chaque lecture porte donc son repli. Record<string, …> dit cela ; figer les cinq clefs
-// obligerait a valider la saisie en amont, ce qui n'est pas le contrat d'aujourd'hui.
-const ESSENCE_AUTRE: Essence = { label:'Autre (prix libre)', bas:0, haut:0 };
-export const ESSENCE_PRICES: Record<string, Essence> = {
-  'pin-classe4': { label:'Pin classe 4 (autoclave)', bas:25, haut:40 },
-  'douglas':     { label:'Douglas',                   bas:35, haut:55 },
-  'composite':   { label:'Composite',                 bas:50, haut:90 },
-  'exotique':    { label:'Exotique (cumaru, ipe...)',  bas:60, haut:120 },
-  'autre':       ESSENCE_AUTRE
-};
-/** L'essence d'une construction ; « autre » (prix libre) si la clef n'est pas au catalogue. */
-export function essenceDe(cle: string | undefined): Essence { return ESSENCE_PRICES[cle ?? ''] || ESSENCE_AUTRE; }
 export const SOLIVE_SECTIONS = ['45x70','45x95','63x175'];
 export const VIS_PRICE = { bas:25, haut:45 };
 // Une vis de fondation se termine par une tete reglable (platine ou U) qui sort du sol pour
@@ -42,9 +31,6 @@ export const PLOT_MODELES = [
   { cle:'r100-170', label:'Reglable 100-170 mm', min:10.0,max:17.0, prix:7.5 },
   { cle:'r170-300', label:'Reglable 170-300 mm', min:17.0,max:30.0, prix:11.0 }
 ];
-export const PLOT_ENTRAXE_MAX_M = 0.70;   // NF DTU 51.4, appuis sous lambourdes, pose sur 3 appuis ou +
-export const PLOT_HAUTEUR_DTU_CM = 30;    // au-dela, le plot reglable sort du domaine du DTU
-export const PLOT_HAUTEUR_MAX_CM = 100;   // au-dela, le platelage entier sort du domaine
 export const PLOT_ASSISE_MIN_CM2 = 300;   // surface d'assise minimale, NF DTU 51.4 / 43.1
 /**
  * Un type de support et ce qu'il implique en preparation de sol. `dalleBeton` : une dalle armee a
@@ -76,7 +62,6 @@ export function supportDe(cle: string | undefined): TypeSupport { return SUPPORT
 export const GEOTEXTILE_PRICE = { bas:1,  haut:3  };   // €/m²
 export const CONCASSE_PRICE   = { bas:35, haut:60 };   // €/m³
 export const DALLE_STAB_PRICE = { bas:3,  haut:7  };   // €/u
-export function estPlots(c: { typePose?: string }): boolean { return c.typePose === 'plots'; }
 export function plotModele(c: { hauteurPlot?: number; plotModele?: string }): { cle: string; label: string; min: number; max: number; prix: number } {
   const h = c.hauteurPlot || 10;
   if(c.plotModele && c.plotModele !== 'auto'){

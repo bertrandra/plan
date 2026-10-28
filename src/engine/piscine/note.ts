@@ -3,7 +3,7 @@
 
 import { au } from '../../util/tableaux.js';
 import { shoelace } from '../../geometry/basic.js';
-import { essenceDe } from '../constantes.js';
+import { essenceDe } from '../bois/essences.js';
 import { LIBELLE_IMPLANTATION, LIBELLE_STRUCTURE, LIBELLE_REVETEMENT, LIBELLE_FOND, LIBELLE_PLAGE, LIBELLE_SECURITE, LIBELLE_TRAITEMENT, LIBELLE_CHAUFFAGE, LIBELLE_LOCAL, REVANCHE_M, VITESSE_FILTRATION_M_H, M2_PAR_SKIMMER, M2_PAR_REFOULEMENT, M2_PAR_PROJECTEUR, M3_PAR_KW_PAC, TAXE_AMENAGEMENT_M2, PROFILS_STRUCTURE, FOISONNEMENT, EPAISSEUR_MARGELLE_M, LONGUEUR_MARGELLE_M, fr } from './reglages.js';
 import { LIBELLE_REGIME, type PiscineCalculee } from './calcul.js';
 

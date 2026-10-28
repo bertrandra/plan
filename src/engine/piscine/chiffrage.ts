@@ -2,7 +2,7 @@
 // Un morceau de engine/piscine.ts, qui les reexporte tous : le reste du programme importe depuis lui.
 
 import { shoelace } from '../../geometry/basic.js';
-import { essenceDe } from '../constantes.js';
+import { essenceDe } from '../bois/essences.js';
 import type { LigneBom, LocalTechniquePiscine } from '../../model/types.js';
 import { LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_LOCAL, PROFILS_STRUCTURE, LONGUEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, fr } from './reglages.js';
 import { perimetre } from './geometrie.js';

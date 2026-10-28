@@ -14,7 +14,7 @@ import { alignerObjetParRotation, distanceAlignement } from '../../interaction/o
 import { insererSommet, supprimerSommet, minimumSommets } from '../../model/sommets.js';
 import { creerCreation, type FormePiscine } from '../../model/creation.js';
 import { constructionTerrasseNeuve } from '../../engine/construction.js';
-import { constructionDeLaPlage, contourTerrasseAutour } from '../../engine/piscine.js';
+import { constructionDeLaPlage, contourTerrasseAutour } from '../../engine/ouvrages/piscine.js';
 import { enPoints } from '../../model/formes.js';
 import { reculerObjet } from '../../render/empilement.js';
 import { detruireVue } from '../../render/vues.js';

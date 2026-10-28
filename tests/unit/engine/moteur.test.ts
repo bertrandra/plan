@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defaultConstruction, ensureConstruction } from '../../../src/engine/construction.js';
-import { porteeVisM, porteeAppuiM, maxEntraxeLameCm } from '../../../src/engine/portees.js';
+import { porteeVisM, porteeAppuiM, maxEntraxeLameCm } from '../../../src/engine/bois/portees.js';
 import { optimiserParametres } from '../../../src/engine/optimisation.js';
 import { achatVis, achatPlots, computeAssise } from '../../../src/engine/prix.js';
 import { optimiserDebitLames, parseLongueurs } from '../../../src/engine/bois/debit.js';

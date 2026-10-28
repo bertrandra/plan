@@ -4,16 +4,15 @@
 import { au } from '../../util/tableaux.js';
 import { dist, pointInPolygon, shoelace } from '../../geometry/basic.js';
 import { distancePointSegment, projectOntoSegment } from '../../geometry/segments.js';
-import { PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, PLOT_HAUTEUR_MAX_CM } from '../constantes.js';
+import { PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM } from '../bois/platelage.js';
 import { solDuProjet, solSousEmprise, type Sol, type SolSousEmprise } from '../sol.js';
 import { cellulesDansPolygone } from '../../model/relief.js';
-import { constructionTerrasseNeuve } from '../construction.js';
-import { hauteurStructureMm } from '../hauteurs.js';
-import { maxEntraxeLameCm, maxPorteeVisM } from '../portees.js';
+import { maxEntraxeLameCm, maxPorteeVisM } from '../bois/portees.js';
+import { perce, terrasseDeLaPiscine } from '../ouvrages/liens.js';
 import { estTerrasse, parcelleDuProjet } from '../../model/fonctions.js';
-import type { Construction, ObjetPlan, PtBrut, SecuritePiscine } from '../../model/types.js';
+import type { ObjetPlan, PtBrut, SecuritePiscine } from '../../model/types.js';
 import { LIBELLE_STRUCTURE, plageCalculee, REVANCHE_M, VITESSE_FILTRATION_M_H, DIAMETRES_FILTRE_MM, M2_PAR_SKIMMER, M2_PAR_REFOULEMENT, M2_PAR_PROJECTEUR, M3_PAR_KW_PAC, TAXE_AMENAGEMENT_M2, SEUIL_SANS_FORMALITE_M2, SEUIL_PERMIS_M2, CHARGE_PLAGE_KG_M2, POIDS_PROPRE_PLAGE_KG_M2, PROFILS_STRUCTURE, FOISONNEMENT, EPAISSEUR_MARGELLE_M, PLAGE, type ReglagesPiscine, piscineDe, fr } from './reglages.js';
-import { contourPiscine, elargir, perimetre, type AxeProfondeur, axeProfondeur, type PointProfil, profilFond, volumeEau } from './geometrie.js';
+import { bordDesMargelles, contourPiscine, elargir, perimetre, type AxeProfondeur, axeProfondeur, type PointProfil, profilFond, volumeEau } from './geometrie.js';
 
 // ---- Calcul ----------------------------------------------------------------------------------
 
@@ -169,7 +168,7 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   const remblai = Math.max(0, volumeFouille - volumeBassinEnterre - shoelace(parois) * ps.fond);
   const evacuation = volumeFouille * FOISONNEMENT - (r.structure === 'coque' ? 0 : remblai);
 
-  const margelleExt = r.margelle ? elargir(parois, r.largeurMargelle) : parois;
+  const margelleExt = bordDesMargelles(parois, r);
   const margellesMl = r.margelle ? perimetre(elargir(parois, r.largeurMargelle / 2)) : 0;
   // Une plage « terrasse du plan » est l'objet terrasse lui-meme : son contour est l'emprise
   // exterieure (barriere, plan de masse), sa surface celle du platelage autour des margelles.
@@ -200,7 +199,8 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
   const secteurProtege = !!plu && (plu.spr.length > 0 || plu.servitudes.some(s => /^AC[124]/.test(s.type)));
   const regime = regimeAutorisation(surface, r.securite, secteurProtege);
   const distances = distancesAuxLimites(contour, parcelle);
-  const terrassesPercees = objets.filter(t => estTerrasse(t) && t.type === 'polygon' && contour.some(p => pointInPolygon(p, t.pts))).map(t => t.name);
+  // Percer a une definition, celle du lien (engine/ouvrages/liens.ts) : le bord des margelles, la ou la terrasse s'arrete.
+  const terrassesPercees = objets.filter(t => estTerrasse(t) && t.type === 'polygon' && perce(margelleExt, t.pts)).map(t => t.name);
 
   if (profondeurMax > 2.5) avertissements.push('Profondeur de ' + fr(profondeurMax) + ' m : au-delà de 2,50 m, le bassin sort des gammes courantes (coques, kits) et demande une étude.');
   if (hauteurHorsSol > ps.horsSolMax + 1e-9) avertissements.push('Hauteur hors-sol de ' + fr(hauteurHorsSol) + ' m : ' + LIBELLE_STRUCTURE[r.structure].toLowerCase() + ' admet ' + fr(ps.horsSolMax) + ' m au plus sans étude de la poussée de l\'eau.');
@@ -224,50 +224,6 @@ export function calculerPiscine(o: ObjetPlan, objets: ObjetPlan[] = []): Piscine
     equipements: { projecteurs, puissancePacKw, electrolyseur: r.traitement === 'sel' },
     securite, regime, secteurProtege, taxeAmenagementBase: surface * TAXE_AMENAGEMENT_M2, distances, terrassesPercees, avertissements
   };
-}
-
-/**
- * Le contour d'une terrasse a poser autour du bassin : l'exterieur des margelles elargi de la
- * largeur de plage. Un bassin polygonal donne le meme nombre de coins ; un bassin rond, le carre qui
- * l'entoure — quatre coins faciles a tirer plutot que quarante-huit. `null` si le bassin n'est pas
- * calculable.
- */
-/**
- * La construction de la terrasse posee autour d'un bassin (plage « terrasse du plan ») : une
- * terrasse neuve sur plots, le dessus des lames au ras des margelles (ou du haut des parois sans
- * margelle). Plus bas que la structure, la terrasse se pose dans un decaissement ; plus haut (bassin
- * semi-enterre ou hors-sol), les plots montent de l'ecart, dans leur domaine (`PLOT_HAUTEUR_MAX_CM`).
- * Une ancienne plage en bois calculee garde son essence.
- */
-export function constructionDeLaPlage(piscine: ObjetPlan): Construction {
-  const construction = constructionTerrasseNeuve();
-  const essence = piscine.piscine?.essencePlage;
-  if (essence) construction.essenceBois = essence;
-  const calc = calculerPiscine(piscine);
-  if (!calc) return construction;
-  construction.niveauFini = Math.round((calc.hauteurHorsSol + (calc.reglages.margelle ? EPAISSEUR_MARGELLE_M : 0)) * 1000) / 10;
-  // Au centimetre superieur : le peu qui depasse se reprend dans le decaissement.
-  const manque = construction.niveauFini * 10 - hauteurStructureMm({ construction });
-  if (manque > 0) construction.hauteurPlot = Math.min(PLOT_HAUTEUR_MAX_CM, Math.ceil((construction.hauteurPlot || 10) + manque / 10));
-  return construction;
-}
-
-export function contourTerrasseAutour(o: ObjetPlan): PtBrut[] | null {
-  const calc = calculerPiscine(o);
-  if (!calc) return null;
-  const ext = elargir(calc.margelleExt, calc.reglages.largeurPlage);
-  if (o.type !== 'circle') return ext;
-  const xs = ext.map(p => p.x), ys = ext.map(p => p.y);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  return [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
-}
-
-/** La terrasse du plan liee a la piscine (`terrasseKey`), si elle existe encore et reste une terrasse. */
-export function terrasseDeLaPiscine(o: ObjetPlan, objets: ObjetPlan[]): (ObjetPlan & { type: 'polygon' }) | undefined {
-  const cle = o.piscine?.terrasseKey;
-  if (!cle) return undefined;
-  const t = objets.find(x => x.key === cle);
-  return t && estTerrasse(t) && t.type === 'polygon' ? t : undefined;
 }
 
 /** Ce que le dispositif de securite represente en quantite : des metres de barriere, des m² de couverture ou d'abri, un forfait d'alarme. */

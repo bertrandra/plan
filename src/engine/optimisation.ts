@@ -8,7 +8,7 @@ import { SOLIVE_PRICE, SOLIVE_SECTIONS, estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { computeDebitsBois } from './debit.js';
 import { computeTerrasseLayers } from './layers.js';
-import { LAMBOURDE_SECTIONS, dimsSection, maxEntraxeLameCm, maxPorteeVisM, porteeAppuiM, sectionLambourde } from './portees.js';
+import { LAMBOURDE_SECTIONS, dimsSection, maxEntraxeLameCm, maxPorteeVisM, porteeAppuiM, sectionLambourde } from './bois/portees.js';
 import { coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
 import { buildVisGrid, computeStructure, lamesAngleOf, surfaceNetteTerrasse, type CandidatStructure, type TerrasseEtudiee } from './structure.js';
 import { enPoints } from '../model/formes.js';

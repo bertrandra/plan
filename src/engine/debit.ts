@@ -8,7 +8,7 @@ import { dist } from '../geometry/basic.js';
 import { longueursBois, longueursDispo, longueursLambourde } from './prix.js';
 import { ensureConstruction } from './construction.js';
 import { longueurLameReelle } from './lames.js';
-import { dimsSection, porteeVisM, sectionLambourde } from './portees.js';
+import { dimsSection, porteeVisM, sectionLambourde } from './bois/portees.js';
 import { enPoints } from '../model/formes.js';
 import type { CouchesTerrasse } from './layers.js';
 import type { ProduitBarre } from './prix.js';

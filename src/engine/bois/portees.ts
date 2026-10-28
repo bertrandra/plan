@@ -2,10 +2,11 @@
 //
 // Extrait de structure.ts sans retouche (architecture.md §9, FF-1) : construction, bom, debit et
 // structure en avaient tous besoin, et le lire chez structure les faisait tourner en rond. Ce module
-// ne depend que des constantes ; tout le moteur peut s'y adresser sans creer de cycle.
+// ne depend que des regles du platelage ; tout le moteur peut s'y adresser sans creer de cycle.
+// Range sous engine/bois/ (etape 6.6) : la plage en bois d'une piscine le lit comme la terrasse.
 
-import { PLOT_ENTRAXE_MAX_M, estPlots } from './constantes.js';
-import type { Construction } from '../model/types.js';
+import { PLOT_ENTRAXE_MAX_M, estPlots } from './platelage.js';
+import type { Construction } from '../../model/types.js';
 
 // Nominal section of a solive in mm, laid on edge: b = width, h = height.
 /** Les dimensions d'une section de bois, en millimetres : base et hauteur. */

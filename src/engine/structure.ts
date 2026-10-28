@@ -5,16 +5,16 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
-import { centreDeSurface, centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
+import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
 import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
 import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
-import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './portees.js';
-import { calculerPiscine, terrasseDeLaPiscine } from './piscine.js';
-import { estPiscine, estTerrasse, estTrou } from '../model/fonctions.js';
+import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './bois/portees.js';
+import { objetsQuiPercent } from './ouvrages/liens.js';
+import { estTerrasse } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 import { estOuvrage, EQUIPEMENT } from '../model/ouvrages/index.js';
 
@@ -327,27 +327,6 @@ export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
   return objetsQuiPercent(poly, objets).map(x => x.contour);
 }
 
-/** Les objets (bassins, trous) qui percent la terrasse de contour `poly`, avec le bord ou elle s'arrete. */
-export function objetsQuiPercent(poly: PtBrut[], objets: ObjetPlan[]): { objet: ObjetPlan; contour: PtBrut[] }[] {
-  const res: { objet: ObjetPlan; contour: PtBrut[] }[] = [];
-  objets.forEach(o => {
-    const t = contourOuverture(o);
-    if(t && (t.some(p => pointInPolygon(p, poly)) || poly.some(p => pointInPolygon(p, t)))) res.push({ objet:o, contour:t });
-  });
-  return res;
-}
-
-/**
- * Le bord ou une terrasse s'arrete autour d'un objet : l'exterieur des margelles d'un bassin, le
- * contour d'un trou de terrasse. `null` pour tout autre objet.
- */
-export function contourOuverture(o: ObjetPlan): PtBrut[] | null {
-  if(estPiscine(o)) return calculerPiscine(o)?.margelleExt ?? null;
-  if(!estTrou(o)) return null;
-  if(o.type === 'circle') return o.r > 0.05 ? Array.from({ length:32 }, (_, i) => ({ x:o.center.x + o.r*Math.cos(2*Math.PI*i/32), y:o.center.y + o.r*Math.sin(2*Math.PI*i/32) })) : null;
-  return o.type === 'polygon' && o.pts.length >= 3 && Math.abs(shoelace(o.pts)) > 0.01 ? o.pts : null;
-}
-
 /**
  * L'aire commune a deux polygones (simples, convexes ou non), par bandes horizontales de 1 cm au
  * plus : de quoi retirer d'une terrasse la part d'un bassin ou d'un trou qui la chevauche.
@@ -375,30 +354,6 @@ export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
  */
 export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): number {
   return shoelace(poly) - objetsQuiPercent(poly, objets).reduce((s, x) => s + aireCommune(x.contour, poly), 0);
-}
-
-/**
- * La terrasse d'un bassin ou d'un trou : celle qui lui sert de plage (piscine), sinon la premiere
- * qu'il perce. `undefined` pour un autre objet, ou un bassin hors de toute terrasse.
- */
-export function terrasseHote(o: ObjetPlan, objets: ObjetPlan[]): (ObjetPlan & { type: 'polygon' }) | undefined {
-  if(!estPiscine(o) && !estTrou(o)) return undefined;
-  const liee = estPiscine(o) ? terrasseDeLaPiscine(o, objets) : undefined;
-  if(liee) return liee;
-  const t = objets.find(x => x !== o && estTerrasse(x) && x.type === 'polygon' && objetsQuiPercent(x.pts, [o]).length > 0);
-  return t && t.type === 'polygon' ? t : undefined;
-}
-
-/**
- * Le deplacement qui centre un bassin ou un trou sur sa terrasse : de son centre de surface a celui
- * de la terrasse. `null` sans terrasse hote.
- */
-export function decalageDeCentrage(o: ObjetPlan, objets: ObjetPlan[]): PtBrut | null {
-  const t = terrasseHote(o, objets);
-  if(!t) return null;
-  const cible = centreDeSurface(t.pts);
-  const centre = o.type === 'circle' ? o.center : centreDeSurface(o.pts);
-  return { x: cible.x - centre.x, y: cible.y - centre.y };
 }
 
 /**

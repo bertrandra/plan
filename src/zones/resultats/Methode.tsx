@@ -6,7 +6,7 @@
 import { dist } from '../../geometry/basic.js';
 import { ensureConstruction } from '../../engine/construction.js';
 import { PLOT_ASSISE_MIN_CM2, PLOT_ENTRAXE_MAX_M, PLOT_HAUTEUR_DTU_CM, SOLIVE_SECTIONS, VIS_PRICE } from '../../engine/constantes.js';
-import { coefRaideurLame, ENTRAXE_LAME_K, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeVisM, porteeVisSpaM, SOLIVE_SECTION_DIMS } from '../../engine/portees.js';
+import { coefRaideurLame, ENTRAXE_LAME_K, LAME_RAIDEUR, maxEntraxeLameCm, maxPorteeVisM, PORTEE_VIS_K, porteeVisM, porteeVisSpaM, SOLIVE_SECTION_DIMS } from '../../engine/bois/portees.js';
 import { buildVisGrid, computeStructure, structureVide, surfaceNetteTerrasse } from '../../engine/structure.js';
 import { aDesSommets, sommetsDe } from '../../model/formes.js';
 import type { Resultats } from '../../app/resultats.js';

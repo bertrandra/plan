@@ -5,7 +5,7 @@ import { vue3d } from './etat3d.js';
 import { estPlots, PLOT_ASSISE_MIN_CM2 } from '../engine/constantes.js';
 import { appuisEnHauteur, decaissementPoseMm } from '../engine/hauteurs.js';
 import { zReferenceOuvrage, type Sol } from '../engine/sol.js';
-import { dimsSection, sectionLambourde } from '../engine/portees.js';
+import { dimsSection, sectionLambourde } from '../engine/bois/portees.js';
 import {
   creerPrimitives, poserEnCouche, percerSol, COUCHES_SOL, 
   type Primitives, type VersLocal

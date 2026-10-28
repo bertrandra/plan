@@ -14,10 +14,10 @@
 import {
   calculerPiscine, chiffrerPiscine, fr, LIBELLE_CHAUFFAGE, LIBELLE_FOND, LIBELLE_IMPLANTATION, LIBELLE_LOCAL, LIBELLE_PLAGE,
   LIBELLE_REGIME, LIBELLE_REVETEMENT, LIBELLE_SECURITE, LIBELLE_STRUCTURE, LIBELLE_TRAITEMENT, piscineDe, prixSaisi,
-  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, terrasseDeLaPiscine, type ReglagesPiscine
+  REVETEMENTS_PAR_STRUCTURE, TAXE_AMENAGEMENT_M2, plageCalculee, type ReglagesPiscine
 } from '../../engine/piscine.js';
-import { ESSENCE_PRICES } from '../../engine/constantes.js';
-import { terrasseHote } from '../../engine/structure.js';
+import { ESSENCE_PRICES } from '../../engine/bois/essences.js';
+import { terrasseDeLaPiscine, terrasseHote } from '../../engine/ouvrages/liens.js';
 import { euros } from '../chiffrage.js';
 import type { Piscine, PlagePiscine, StructurePiscine } from '../../model/types.js';
 import type { Champ, ContexteChamps, Effet, Section } from './types.js';

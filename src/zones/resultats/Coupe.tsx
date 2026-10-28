@@ -6,7 +6,7 @@
 
 import { ensureConstruction } from '../../engine/construction.js';
 import { DALLE_BETON_EP_M, estPlots, MASSIF_COTE_M, plotModele, SUPPORT_TYPES } from '../../engine/constantes.js';
-import { dimsSection, sectionLambourde } from '../../engine/portees.js';
+import { dimsSection, sectionLambourde } from '../../engine/bois/portees.js';
 import { appuisEnHauteur, decaissementPoseMm, hauteurAppuiMm, hauteurFinieMm } from '../../engine/hauteurs.js';
 import { computeTerrasseLayers } from '../../engine/layers.js';
 import { solDuProjet } from '../../engine/sol.js';
