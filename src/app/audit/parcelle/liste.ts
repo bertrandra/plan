@@ -27,6 +27,7 @@ import { estBatiment, parcelleDuProjet, surParcelleDuProjet } from '../../../mod
 import { partieVue, resumePartie, etatCheminees, type PartieVue } from '../../../model/ceQueJeVois.js';
 import { batimentVide, type BatimentCapture, type CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
+import { estOuvrage, TERRAIN } from '../../../model/ouvrages/index.js';
 
 /** Deux murs a moins de cela l'un de l'autre sont colles : un mur mitoyen. */
 const COLLE_M = 0.3;
@@ -151,7 +152,7 @@ export function situationFacade(f: Facade, cle: string, objets: readonly ObjetPl
   if (colles / (n + 1) >= PART_COLLEE) return 'mitoyenne';
   const milieu = pointDeFacade(f, f.largeur / 2);
   const parcelle = parcelleDuProjet(objets as ObjetPlan[]);
-  const terrains = objets.filter((o): o is ObjetPlan & { pts: PtBrut[] } => (o === parcelle || o.fonction === 'terrain') && aDesSommets(o));
+  const terrains = objets.filter((o): o is ObjetPlan & { pts: PtBrut[] } => (o === parcelle || estOuvrage(o, TERRAIN)) && aDesSommets(o));
   const sous = (p: PtBrut) => terrains.find((t) => pointInPolygon(p, t.pts));
   const batiment = objets.find((o) => o.key === cle);
   const chezLui = batiment && aDesSommets(batiment) ? sous(centroid(batiment.pts)) : undefined;

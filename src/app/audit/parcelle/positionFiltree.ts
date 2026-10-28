@@ -20,6 +20,7 @@ import { au } from '../../../util/tableaux.js';
 import { aDesSommets } from '../../../model/formes.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
+import { estOuvrage, TERRAIN } from '../../../model/ouvrages/index.js';
 
 /**
  * La vitesse qu'on prete au marcheur, departs et arrets compris : plus basse, le lissage efface mieux
@@ -76,7 +77,7 @@ function auPlusPres(p: PtBrut, pts: readonly PtBrut[]): { q: PtBrut; d: number }
 export function surLaParcelle(objets: readonly ObjetPlan[], p: PtBrut, precisionM: number): PtBrut {
   const parcelle = parcelleDuProjet(objets as ObjetPlan[]);
   if (!parcelle || !aDesSommets(parcelle) || pointInPolygon(p, parcelle.pts)) return p;
-  const chezUnVoisin = objets.some((o) => o !== parcelle && o.fonction === 'terrain' && aDesSommets(o) && pointInPolygon(p, o.pts));
+  const chezUnVoisin = objets.some((o) => o !== parcelle && estOuvrage(o, TERRAIN) && aDesSommets(o) && pointInPolygon(p, o.pts));
   if (!chezUnVoisin) return p;
   const { q, d } = auPlusPres(p, parcelle.pts);
   if (d > Math.max(precisionM, PORTEE_RECALAGE_MIN_M)) return p;

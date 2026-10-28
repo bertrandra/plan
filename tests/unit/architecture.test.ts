@@ -358,10 +358,9 @@ describe('les modules carrefours de app/ (feuille de route, etape 3.3)', () => {
 describe('les ouvrages (MD/spec-ouvrages.md, phase 6)', () => {
   // Ce que la fonction d'un objet lui donne vit dans son ouvrage : chaque couche a son registre (model/ouvrages/ pour le modele), et
   // une comparaison `fonction === '…'` ailleurs est une regle d'ouvrage ecrite hors de lui. Un cliquet par couche : le modele, le
-  // moteur, geo/ et facade/ n'en ont plus (etape 6.2), les exports, le fichier, la 3D et les zones non plus (etape 6.4) ; les
-  // autres en gardent leur compte, qui ne peut que baisser : ce qui reste est dans des fichiers que l'etape 6.3 retouche.
+  // moteur, geo/ et facade/ n'en ont plus (etape 6.2), ni aucune autre couche (etapes 6.3 et 6.4) : le plafond est zero partout.
   const COMPARAISON = /fonction\s*[!=]==?\s*'[a-z]+'/g;
-  const PLAFONDS: Record<string, number> = { app: 10, render: 2, ui: 1 };
+  const PLAFONDS: Record<string, number> = {};
   const comptes = new Map<string, number>();
   for (const f of tous) {
     const r = relative(src, f).split(sep);

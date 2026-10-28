@@ -4,6 +4,7 @@
 import { corpsAvecCeQuIlsPortaient } from '../../facade/regles/toits/elementsVus.js';
 import { ecrivainPeut, type BatimentProtege } from '../../model/protections.js';
 import type { CorpsToit, PtBrut } from '../../model/types.js';
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 
 /** Ce que ce module lit d'un batiment : sa fonction, son contour, ce que lisent les protections. */
 type ObjetAToit = BatimentProtege & { fonction?: string; pts?: PtBrut[] };
@@ -12,7 +13,7 @@ export { ecrivainPeut };
 
 /** Un batiment dont Plan choisit le toit : pas de toit, ou un toit BD TOPO ou LiDAR. */
 export function toitAAjuster<T extends ObjetAToit>(o: T): o is T & { pts: PtBrut[] } {
-  if (o.fonction !== 'batiment' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
+  if (!estOuvrage(o, BATIMENT) || !Array.isArray(o.pts) || o.pts.length < 3) return false;
   // « Règles » coupées, toit saisi ou lu sur une photo (model/protections.ts) : la lecture automatique ne le touche pas. Un
   // batiment verifie sur place reste eligible : la tache de fond lit sa copie pour la comparer (`admis` l'ecarte du plan).
   return ecrivainPeut(o, 'lidar', 'toit', { relireVerifies: true });

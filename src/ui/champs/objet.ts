@@ -11,7 +11,7 @@ import { especeDe, especesChargees, especeParId, especesParTaille } from '../../
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
-import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin } from '../../model/ouvrages/index.js';
+import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin, estOuvrage, CHEMIN } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
 import { egoutRendable } from '../../model/protections.js';
@@ -66,7 +66,7 @@ function texture(cle: 'textureVerticale' | 'textureHorizontale', libelle: string
     // MEME texture sur les deux faces de chacun, pour qu'aucun ne se retrouve depareille.
     appliquerATous: {
       libelle: 'Appliquer à tous les chemins (vertical + horizontale)',
-      ecrire: (c, v) => { c.objets.filter(o => o.fonction === 'chemin').forEach(o => { o.textureVerticale = v; o.textureHorizontale = v; }); }
+      ecrire: (c, v) => { c.objets.filter(o => estOuvrage(o, CHEMIN)).forEach(o => { o.textureVerticale = v; o.textureHorizontale = v; }); }
     }
   };
 }

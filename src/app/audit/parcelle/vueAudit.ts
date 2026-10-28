@@ -14,6 +14,7 @@ import type { PtBrut } from '../../../model/types.js';
 import type { ContexteAuditParcelle } from './typesSession.js';
 import type { capteurs } from './capteursPrise.js';
 import { facadeMontree, type viseeDe } from './viseeFacade.js';
+import { estOuvrage, TERRAIN } from '../../../model/ouvrages/index.js';
 
 /** Le toit depasse le haut des murs : la vue d'ensemble compte cela de plus pour le cadrer. */
 const PART_TOIT = 1.4;
@@ -66,7 +67,7 @@ function vueEpuree(ctx: ContexteAuditParcelle, batimentsGardes: () => Set<string
       return;
     }
     // Le sol reste : la parcelle du projet (son gazon) et les parcelles voisines, a plat.
-    const sols = ctx.etat.objects.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key);
+    const sols = ctx.etat.objects.filter((o) => o.key === 'parcelle' || estOuvrage(o, TERRAIN)).map((o) => o.key);
     const cles = new Set([...batimentsGardes(), ...sols]);
     const signature = [...cles].sort().join(',');
     if (signature === gardesPoses) return;

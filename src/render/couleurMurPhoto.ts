@@ -19,6 +19,7 @@ import type { CouleurMurs, PtBrut } from '../model/types.js';
 import { obstacle, vueCachee, type Obstacle } from '../geometry/ligneDeVue.js';
 import { champsBatiment } from '../model/champsFonction.js';
 import { toucher } from '../core/controleurObjets.js';
+import { estOuvrage, BATIMENT, TERRAIN } from '../model/ouvrages/index.js';
 
 // La ligne de vue a descendu dans geometry/ (la facade devant soi s'en sert aussi) : on la redonne
 // d'ici pour ses lecteurs d'avant.
@@ -305,10 +306,10 @@ const photoMur = (l: { couleur: string; photo: PhotoRue }): PhotoMur => ({ coule
 
 /** Les batiments du plan dont on peut lire les murs : un contour, une cle. */
 const batimentsAMurs = (objets: readonly ObjetAMurs[]) =>
-  objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => o.fonction === 'batiment' && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
+  objets.filter((o): o is ObjetAMurs & { key: string; pts: PtBrut[] } => estOuvrage(o, BATIMENT) && !!o.key && Array.isArray(o.pts) && o.pts.length >= 3);
 /** Les limites de parcelle, ou se tiennent les clotures et les haies. */
 export const limitesDesParcelles = (objets: readonly ObjetAMurs[]): Obstacle[] =>
-  objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
+  objets.filter((o) => (o.key === 'parcelle' || estOuvrage(o, TERRAIN)) && Array.isArray(o.pts) && o.pts.length >= 3).map((o) => obstacle(o.pts as PtBrut[]));
 const egoutDe = (o: ObjetAMurs) => (o.elevation && o.elevation > 1 ? o.elevation : 3);
 
 /**
