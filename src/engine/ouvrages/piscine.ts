@@ -15,6 +15,14 @@ import { constructionTerrasseNeuve, hauteurStructureMm } from './terrasse.js';
 export { bordDuBassin } from '../piscine/geometrie.js';
 
 /**
+ * L'emprise au sol d'une piscine : son bassin, ses margelles et sa plage (calculee, ou la terrasse du plan qui la porte). La 3D
+ * y efface l'herbe. `null` si le bassin n'est pas calculable.
+ */
+export function empriseDuBassin(o: ObjetPlan, objets: ObjetPlan[]): PtBrut[] | null {
+  return calculerPiscine(o, objets)?.plageExt ?? null;
+}
+
+/**
  * La construction de la terrasse posee autour d'un bassin (plage « terrasse du plan ») : une
  * terrasse neuve sur plots, le dessus des lames au ras des margelles (ou du haut des parois sans
  * margelle). Plus bas que la structure, la terrasse se pose dans un decaissement ; plus haut (bassin

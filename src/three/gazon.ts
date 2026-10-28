@@ -24,7 +24,7 @@ import { clipPolygonByConvex, polygonOffset } from '../geometry/polygon.js';
 import { differencePolygones } from '../geometry/difference.js';
 import { pointInPolygon, signedArea } from '../geometry/basic.js';
 import { occupeLeSol, estPiscine } from '../model/fonctions.js';
-import { calculerPiscine } from '../engine/piscine.js';
+import { empriseDuBassin } from '../engine/ouvrages/piscine.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { cerclePoly, type VersLocal } from './primitives.js';
 import { echantillonnerTrace } from '../geometry/courbe.js';
@@ -208,8 +208,8 @@ export function empreintesAuSol(objets: ObjetPlan[], masque: (o: ObjetPlan) => b
   objets.forEach((o) => {
     if (!occupeLeSol(o) || masque(o)) return;
     if (estPiscine(o)) {
-      const calc = calculerPiscine(o, objets);
-      if (calc) out.push(rentrer(calc.plageExt, RETRAIT_EMPREINTE_M));
+      const emprise = empriseDuBassin(o, objets);
+      if (emprise) out.push(rentrer(emprise, RETRAIT_EMPREINTE_M));
       return;
     }
     if (o.type === 'path') {
