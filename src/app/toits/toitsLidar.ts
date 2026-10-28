@@ -27,11 +27,12 @@ import { EMPREINTE_FORMES_TOITS } from '../../regles/toits/formes.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../../regles/toits/faits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../../facade/regles/toits/faits.js';
 import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
-import { corpsAvecCeQuIlsPortaient } from '../../facade/regles/toits/elementsVus.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
-import { peutEcrire } from '../../model/protections.js';
+import { corpsRelus, peutEcrire, toitAAjuster } from './ecritureToits.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
+
+export { toitAAjuster };
 
 /** Ce que l'etape lit et ecrit d'un objet du plan : un batiment a contour, son toit, sa hauteur a l'egout. */
 export interface ObjetAToit {
@@ -122,15 +123,6 @@ export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut
   return corpsVraisemblables(o, corpsSelonFait(faitDuBatiment(o), corpsCalcules(mesure, pts, { coupes, grille, hauteurBdTopo: hauteurBdTopo(o) }), mesure, pts, grille));
 }
 
-
-/**
- * Les corps neufs d'une lecture (LiDAR, fait du moteur) a la place des anciens. Ce qui est pose sur les corps (cheminees, lucarnes,
- * fenetres de toit, terrasse, appentis ouvert, saillies), la lecture ne l'ecrit jamais (model/protections.ts) : elle le reporte sur
- * les corps neufs, la ou il tient encore (facade/regles/toits/elementsVus.ts).
- */
-function corpsRelus(o: ObjetAToit, anciens: readonly CorpsToit[] | null | undefined, nouveaux: CorpsToit[] | null, ecrivain: 'lidar' | 'faits'): CorpsToit[] | null {
-  return peutEcrire(o, ecrivain, 'elements') ? nouveaux : corpsAvecCeQuIlsPortaient(anciens, nouveaux);
-}
 
 /** Le toit lu remplace l'ancien, qui garde sa couleur, son origine et sa couverture choisie. */
 function avecCouleurDe(ancien: Toit | null | undefined, toit: Toit): Toit {
@@ -271,14 +263,6 @@ export const toitLu = (o: { toitLidarLu?: number | null } | null | undefined): b
 export const marqueDeLecture = (o: ObjetAToit): number => (cleToucheeParEssai(cleDuBatiment(o)) ? MARQUE_ESSAI_FAITS : VERSION_LECTURE_TOITS);
 /** Combien de lectures en meme temps : de petites grilles, le service repond vite. */
 const EN_PARALLELE = 4;
-
-/** Un batiment dont Plan choisit le toit : pas de toit, ou un toit BD TOPO ou LiDAR. */
-export function toitAAjuster(o: ObjetAToit): o is ObjetAToit & { pts: PtBrut[] } {
-  if (o.fonction !== 'batiment' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
-  // « Règles » coupées, toit saisi ou lu sur une photo (model/protections.ts) : la lecture automatique ne le touche pas. Un
-  // batiment verifie sur place reste eligible : la tache de fond lit sa copie pour la comparer (`admis` l'ecarte du plan).
-  return peutEcrire(o, 'lidar', 'toit', { relireVerifies: true });
-}
 
 /**
  * Le toit d'un batiment de la parcelle du projet, corps par corps : le contour decoupe en

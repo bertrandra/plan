@@ -861,13 +861,15 @@ LiDAR (les 30 plus proches), couleur des murs sur Panoramax, relief. Le reste de
 |---|---|---|---|
 | Glisser, aligner (tourner) | refusé, `MESSAGE_TERRAIN_REEL` (`interaction/pointeur.ts:210`, `interaction/outilAlignement.ts`) | permis | suit : `suivreLeContour` → `Ouvrage.suivreContour` (`model/ouvrages/index.ts:42`, `model/ouvrages/bati.ts:11-32`) translate et tourne corps, cheminées, édicules, volumes, `angleFaitage` ; `toitMesure` translaté, **effacé** s'il tourne |
 | « Réinitialiser la position » | permis (`app/ecouteurs/objets.ts:117-133`) | permis | suit |
-| Tirer un sommet ou un côté, en ajouter, saisir un angle ou une longueur | après la question de retouche (`interaction/retoucheTerrain.ts:26-28`, `app/inspecteur.ts:118`) : pose `retoucheMain` (`model/retouche.ts:27`) | permis sans question | **ne suit pas** : rien n'appelle `suivreLeContour`, corps et volumes restent sur l'ancien contour |
-| Rectangle (quatre sommets gelés) | — | coin ou côté tiré redimensionne (`interaction/drag.ts:117-131`) | ne suit pas |
+| Tirer un sommet ou un côté, en ajouter, saisir un angle ou une longueur | après la question de retouche (`interaction/retoucheTerrain.ts:26-28`, `app/inspecteur.ts:118`) : pose `retoucheMain` (`model/retouche.ts:27`) | permis sans question | se relit : à la fin du geste, un toit lu au LiDAR redevient à lire (`toitLidarLu` effacé) et la tâche de fond le refait sur le nouveau contour en reportant ce qui était posé dessus ; un toit protégé reste, et un message le dit (`core/deformation.ts`, `model/contourDeforme.ts`) |
+| Rectangle (quatre sommets gelés) | — | coin ou côté tiré redimensionne (`interaction/drag.ts:117-131`) | se relit, comme ci-dessus |
 | Recalage LiDAR | translation d'un bloc si plus de 12 % de vide sous le contour (projet et mitoyens, `toitsLidar.ts:73-88`) ; écrit `pts` (`toitsFond.ts:130`, `CHAMPS_LUS`) | id., s'il est lu (voir 4) | les corps sont relus ensuite sur le contour recalé |
 | Actualisation IGN | `pts` remplacés par la BD TOPO du jour (`app/cadastre/actualisationIgn.ts:298`) | supprimé et recréé par « Actualiser le projet » s'il est sur la parcelle (`:164-169`, `:194`) | voir 9 |
 
-Les relevés et les fenêtres, rangés par rang de côté, suivent un déplacement d'eux-mêmes ; ils glissent d'un mur quand le
-nombre ou l'ordre des sommets change. Le relevé posé sur un mur qui a changé de longueur s'étire, ses ouvertures gardent leur
+Les relevés et les fenêtres, rangés par rang de côté, suivent un déplacement d'eux-mêmes ; depuis le 28 octobre 2026, un sommet
+ajouté ou retiré recompte leurs rangs, et ceux des cotes du plan (une cote dont le point visé est retiré part avec lui) ;
+l'actualisation IGN les range par la géométrie sur le contour du jour (`model/contourDeforme.ts`, qui reprend
+`model/cotesAudit.ts::correspondanceDesCotes`). Le relevé posé sur un mur qui a changé de longueur s'étire, ses ouvertures gardent leur
 cote depuis la gauche et celles qui sortent sont omises (`three/releve3d.ts:306-322`).
 
 ### 3. Les hauteurs
@@ -1086,7 +1088,7 @@ pts + corpsToit + elevation ──▶ gabarit du mur (relevé, audit, calibratio
 pts + corpsToit/volumes/mesure/toit + facades + fenetres3d + profilFacades + couleurs ──▶ Vue 3D ──▶ GLB, DP6
 pts + elevation ──▶ DP2 ; pts ──▶ plan 2D, dossier PDF, SVG, DXF, résumé
 déplacement d'un bloc ──▶ suivreContour : corps, cheminées, volumes, angle suivent ; toitMesure effacé si tourné
-déformation (sommet, côté, rectangle, actualisation) ──▶ rien ne suit ; relevés et fenêtres par rang de côté
+déformation (sommet, côté, rectangle, actualisation) ──▶ toitLidarLu effacé (sauf toit protégé) ; relevés, fenêtres, cotes recomptés
 ```
 
 ### Ce qu'il faut ranger
@@ -1126,13 +1128,13 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
 7. **Un mur relevé « en L » efface les corps de la 3D.** Un seul relevé avec `partieBasse` force le mode simple
    (`sceneObjets.ts:301-304`) : les corps lus au LiDAR, les cheminées et lucarnes posées dessus ne se dessinent plus, sans que
    l'inspecteur le dise (son mode reste « Corps et pignons »).
-8. **Seul un déplacement d'un bloc fait suivre le toit.** Tirer un sommet, un côté, un coin de rectangle, saisir une longueur ou
+8. ~~**Seul un déplacement d'un bloc fait suivre le toit.** Tirer un sommet, un côté, un coin de rectangle, saisir une longueur ou
    un angle : `suivreLeContour` n'est appelé que par le glisser d'objet, l'alignement et la remise en place
    (`interaction/drag.ts:147`, `interaction/outilAlignement.ts:102`, `app/ecouteurs/objets.ts:132`). Corps, volumes, mesure et
    cheminées restent sur l'ancien contour, pour un bâtiment dessiné comme pour un bâtiment de l'IGN, et `toitLidarLu` ne retombe
    pas. L'actualisation IGN fait de même en grand : elle remplace `pts` (`actualisationIgn.ts:298`) et garde `facades` et
    `fenetres3d` (:305) sans les réapparier, alors que la BD TOPO du jour peut avoir un sommet de plus ou un autre premier
-   sommet.
+   sommet.~~ — corrigé le 28 octobre 2026 : après un geste qui déforme le contour (sommet ou côté tiré, rectangle redimensionné, sommet ajouté ou retiré, longueur ou angle saisis ; `core/deformation.ts::apresDeformation`, appelé par `interaction/pointeur.ts` et `app/assemblage/gestes.ts`), un toit lu au LiDAR redevient à lire (`toitLidarLu` effacé) et la tâche de fond est relancée (`lectureToits.demanderRelecture`) : ses corps restent jusqu'à la relecture, qui y prend ce qui est posé dessus. Un toit protégé (figé, vérifié, saisi, photo) reste tel quel, et un message dit d'ajuster ses corps en Mode Toit. Les relevés, les fenêtres réglées une par une et les cotes du plan sont recomptés quand un sommet s'ajoute ou s'en va ; l'actualisation les range par la géométrie sur le contour du jour, et garde les corps d'un toit recalculé le temps de la lecture LiDAR qui suit, pour qu'elle reporte ce qu'ils portaient (`model/contourDeforme.ts` ; tests : `contourDeforme.test.ts`, `retoucheIgn.test.ts`).
 9. **Un bâtiment dessiné est lu au LiDAR, une annexe jamais.** `toitAAjuster` ne demande que la fonction `batiment`
    (`toitsLidar.ts:264-270`) : dans un projet géolocalisé, une extension dessinée sans toit est lue en tâche de fond (toit
    `lidar`, `elevation` corrigée), et recalée d'un bloc si son centre tombe sur une parcelle mitoyenne (`clesMitoyens`,

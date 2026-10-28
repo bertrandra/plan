@@ -16,6 +16,8 @@ export interface ProgressionToits {
 
 let courante: ProgressionToits | null = null;
 const abonnes = new Set<() => void>();
+/** Qui relance la lecture quand un batiment redevient a lire (app/boot/branchementToits.ts) ; rien tant que personne ne l'a branche. */
+let relancer: (() => void) | null = null;
 
 export const lectureToits = {
   progression: (): ProgressionToits | null => courante,
@@ -24,5 +26,9 @@ export const lectureToits = {
     courante = p;
     abonnes.forEach(f => f());
   },
-  abonner(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; }
+  abonner(f: () => void): () => void { abonnes.add(f); return () => { abonnes.delete(f); }; },
+  /** Un batiment redevient a lire (son contour a change de forme, core/deformation.ts) : la lecture en fond le reprendra. */
+  demanderRelecture(): void { relancer?.(); },
+  /** Branche ce qui relance la lecture ; rend le debranchement. */
+  surRelecture(f: () => void): () => void { relancer = f; return () => { if (relancer === f) relancer = null; }; }
 };

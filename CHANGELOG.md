@@ -375,6 +375,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le toit et les relevés suivent un contour retouché.** Tirer un sommet, un côté ou un coin de rectangle, ajouter ou retirer un
+  sommet, saisir une longueur ou un angle laissaient les corps du toit sur l'ancien contour, et les relevés de façade, les
+  fenêtres réglées une par une et les cotes glissaient au mur voisin quand un sommet s'ajoutait. Le toit lu au LiDAR se relit
+  sur le nouveau contour (en gardant ce qui est posé dessus) ; un toit réglé à la main reste, et un message le dit. Les relevés,
+  fenêtres et cotes gardent leur mur, à la retouche comme à l'actualisation IGN.
+
 - **La hauteur à l'égout choisie reste.** Saisie dans « Élévation » sur un bâtiment, ou validée par l'audit de la parcelle, elle
   était réécrite sans prévenir par la relecture LiDAR suivante et, toujours, par l'actualisation IGN. Elle est désormais marquée
   comme choisie (`egoutChoisi`, enregistré avec le projet) : ni le LiDAR, ni un fait du moteur, ni l'actualisation ne la

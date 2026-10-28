@@ -194,3 +194,27 @@ describe('l actualisation IGN et une hauteur a l egout choisie (MD/spec-ouvrages
     expect(maison?.batiment?.egoutChoisi).toBe('saisie');
   });
 });
+
+describe('l actualisation IGN et les releves rangés par mur (MD/spec-ouvrages.md, flux du batiment, point 8)', () => {
+  it('un contour du jour qui commence a un autre sommet : le releve et les cotes restent sur leur mur', async () => {
+    service();
+    const objets = plan();
+    const maison = objets.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    // Le releve sur le mur sud (y = 5), quel que soit son rang dans le contour du jour.
+    const sud = (pts: PtBrut[]) => pts.findIndex((p, i) => { const q = pts[(i + 1) % pts.length]!; return Math.abs(p.y - 5) < 0.05 && Math.abs(q.y - 5) < 0.05; });
+    maison.pts = [maison.pts[1]!, maison.pts[2]!, maison.pts[3]!, maison.pts[0]!];
+    const rang = sud(maison.pts);
+    maison.batiment = { ...maison.batiment, facades: [{ cote: rang, ouvertures: [] } as never] };
+    const ctx = contexte(objets);
+    let cotes: unknown[] = [];
+    ctx.serializeMeasures = () => [{ id: 'c1', refObjKey: 'maison', refSegIndex: rang, startEnd: 'B', targetObjKey: 'terrasse', targetPtIndex: 0, show: true, displayMode: 'along' }];
+    const restaurer = ctx.restoreState;
+    ctx.restoreState = (i) => { cotes = i.measures; restaurer(i); };
+    await actualiserDepuisIgn({ portee: 'tout', voisinage: { actif: false } }, ctx);
+    const relue = ctx.etat.objects.find(o => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    const rangDuJour = sud(relue.pts);
+    expect(rangDuJour).not.toBe(rang);
+    expect(relue.batiment?.facades?.map(f => f.cote)).toEqual([rangDuJour]);
+    expect((cotes[0] as { refSegIndex: number }).refSegIndex).toBe(rangDuJour);
+  });
+});
