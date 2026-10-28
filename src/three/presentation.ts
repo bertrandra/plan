@@ -12,7 +12,7 @@ import { lireDate } from '../util/date.js';
 import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
 import { estBatiment, estPiscine, parcelleDuProjet } from '../model/fonctions.js';
-import { calculerPiscine } from '../engine/piscine.js';
+import { bordDuBassin } from '../engine/ouvrages/piscine.js';
 import { offsetZone } from '../geometry/polygon.js';
 import { projectOntoSegment } from '../geometry/segments.js';
 import { distancePointContour } from '../geometry/proximite.js';
@@ -429,6 +429,6 @@ export function terrainDuTour(objets: ObjetPlan[]): TerrainDuTour | null {
   const maison = candidats.reduce<(ObjetPlan & { type: 'polygon' }) | null>((m, o) => (!m || shoelace(o.pts) > shoelace(m.pts) ? o : m), null);
   if (!maison) return null;
   const obstacles: PtBrut[][] = batiments.filter((o) => o !== maison).map((o) => o.pts);
-  visibles.filter(estPiscine).forEach((o) => { const c = calculerPiscine(o, objets); if (c) obstacles.push(c.margelleExt); });
+  visibles.filter(estPiscine).forEach((o) => { const bord = bordDuBassin(o); if (bord) obstacles.push(bord); });
   return { maison: maison.pts, parcelle: parcelle.pts, obstacles };
 }
