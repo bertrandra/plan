@@ -652,44 +652,44 @@ regles/toits/faits.json (par cleabs) ──────────────�
         ┌────────────────────────────────────────────────────────────────────────────────────────┤
         ▼                                                                                        ▼
 relecture LiDAR (toitsDepuisLidar, toitsFond) :                                actualisation IGN (toitsEtMurs.ts) :
-  saute toitFige et verifieSurPlace ; pas retoucheMain                          garde toitFige, verifieSurPlace, retoucheMain ;
+  saute toitFige et verifieSurPlace ; retoucheMain lu, pas recalé               garde toitFige, verifieSurPlace, retoucheMain ;
   écrit pts, elevation, corpsToit…                                              clé gardée par bdtopo.id (batimentsRecrees)
-Mode Toit (toitFige) ──✗── l'audit ne le lit pas
+Mode Toit (toitFige) ─────▶ l'audit le lit comme un choix (forme proposée décochée) ; une validation de toit le pose aussi
 déplacement d'un bloc (Ouvrage.suivreContour, model/ouvrages/bati.ts) : corps, cheminées, volumes et grille suivent ;
   tournée, la grille part (toitMesure = null) et l'audit ne propose plus de toit sur ce bâtiment
-retouche d'un sommet (retoucheMain) : le toit reste sur l'ancien contour ; les façades restent rangées par rang de côté
+retouche d'un sommet (retoucheMain) : le toit reste sur l'ancien contour ; les façades de l'audit suivent leur mur (cotesAudit.ts)
 ```
 
 ### Ce qu'il faut ranger
 
 Par ordre d'effet sur ce que voit la personne :
 
-1. **Un toit décidé par l'audit n'est pas protégé.** La validation écrit `corpsToit` sans toucher `toit.source`, sans `toitFige`,
+1. ~~**Un toit décidé par l'audit n'est pas protégé.** La validation écrit `corpsToit` sans toucher `toit.source`, sans `toitFige`,
    et ne marque `verifieSurPlace` que si tout le bâtiment est vu (`propositions.ts:202-214`). Or la relecture ne saute que
    `toitFige` et `verifieSurPlace` (`toitsLidar.ts:264-270`, `:386` ; `toitsFond.ts:144-160`) : à la prochaine ligne de
    `LECTURES_TOITS`, ou à une actualisation qui relit, les corps validés sont remplacés en silence, et avec eux les cheminées,
    lucarnes et appentis ouverts écrits sur ces corps. Une relecture déjà en vol l'écrase aussi : `toitsFond.ts:137`, l'empreinte qui
-   protège une écriture concurrente, ne compte que `pts` et `toit`, pas `corpsToit`.
-2. **L'audit ne voit pas un toit retouché en Mode Toit.** Le Mode Toit pose `toitFige` (`app/toits/modeToit.ts:265`, `:465`) ; rien
+   protège une écriture concurrente, ne compte que `pts` et `toit`, pas `corpsToit`.~~ — corrigé le 28 octobre 2026 : la validation coupe les « Règles » (`toitFige`) de tout bâtiment dont elle écrit le toit (`regles/decisions.ts::EFFETS_DU_TOIT`, `appliquerPropositions`), et l'empreinte de `toitsFond.ts` compte les corps, la hauteur et les marques (`tests/unit/app/toits/toitsFond.test.ts`, « ce que la relecture laisse tel quel »).
+2. ~~**L'audit ne voit pas un toit retouché en Mode Toit.** Le Mode Toit pose `toitFige` (`app/toits/modeToit.ts:265`, `:465`) ; rien
    dans `app/audit/`, `app/regles/` ni `facade/regles/` ne le lit, et le « choix remplacé » d'un toit n'est que
    `toit.source === 'saisie'` (`constats.ts:37`, `:45`). Une décision automatique remplace donc le toit fait à la main, **cochée par
-   défaut** et sans le dire.
-3. **Valider la forme du toit efface ce que portait le corps principal.** Le corps relu sort neuf de `corpsImpose`
+   défaut** et sans le dire.~~ — corrigé le 28 octobre 2026 : `toitChoisiALaMain` (`constats/cibles.ts`) : saisi ou figé, le toit est un choix ; sa forme proposée arrive décochée, « forme du toit saisie » (`tests/unit/app/audit/parcelle/toitDecide.test.ts`).
+3. ~~**Valider la forme du toit efface ce que portait le corps principal.** Le corps relu sort neuf de `corpsImpose`
    (`facade/toits/toitCorps/ajustement.ts:239-250`, via `meilleurCorpsSelonObservation`) : ses `cheminees`, `lucarnes`, `terrasse`,
    `ouvert` disparaissent (`decisions.ts:285`). Dans la même validation, les cheminées sont placées sur l'ancien corps
    (`souchesSurLeCorps(c, …)`, `arbitrages.ts:204-208`) puis écrites après la forme (`RANG_EFFET`, `decisions.ts:330`) : leurs
-   positions absolues ne suivent pas un faîtage qui a tourné. Pas de test (non vérifié à l'écran).
-4. **Un bâtiment de l'IGN retouché à la main n'est protégé que de l'IGN.** L'actualisation le garde entier
+   positions absolues ne suivent pas un faîtage qui a tourné. Pas de test (non vérifié à l'écran).~~ — corrigé le 28 octobre 2026 : `facade/regles/toits/elementsVus.ts::reporterElements` reporte cheminées, lucarnes, terrasse et appentis ouvert sur les corps relus, là où ils tiennent ; chaque élément proposé porte sa place sur la forme proposée (`apresForme`, `app/audit/parcelle/apresForme.ts`), prise quand la forme est écrite avec lui (`tests/unit/facade/regles/toits/elementsVus.test.ts`, `toitDecide.test.ts`).
+4. ~~**Un bâtiment de l'IGN retouché à la main n'est protégé que de l'IGN.** L'actualisation le garde entier
    (`actualisationIgn/toitsEtMurs.ts:47`, `:72-80`), mais la relecture LiDAR ne connaît pas `retoucheMain` : elle relit son toit sur le
    nouveau contour et, sur la parcelle du projet ou un mitoyen, peut **recaler** (translater) le contour retouché
    (`toitsLidar.ts:428-431`, écrit par `toitsFond.ts:130`, `CHAMPS_LUS = ['pts', 'elevation']`). Entre la retouche et cette
    relecture, le toit reste sur l'ancien contour (rien ne remet `toitLidarLu`). Et les façades de l'audit, rangées par rang de côté,
    glissent d'un mur quand un sommet est ajouté ou retiré : photos, mesures et relevés vont au mur voisin
-   (`model/fichierAuditParcelle.ts:156-160` le reconnaît sans réapparier). Non vérifié en exécution.
-5. **L'aperçu écrit dans le projet** (hors toit, même chemin d'écriture) : l'effet `detailsOuvertures` modifie en place le relevé
+   (`model/fichierAuditParcelle.ts:156-160` le reconnaît sans réapparier). Non vérifié en exécution.~~ — corrigé le 28 octobre 2026 : la relecture ne recale plus un contour retouché et n'en écrit plus `pts` ; la capture garde le contour de ses façades (`BatimentCapture.contour`) et les recale par la géométrie à la réouverture (`model/cotesAudit.ts`, `controleur.ts::facadesSurLesMurs`), ce qui suit aussi Ctrl+Z. Restent rangés par rang : les relevés du projet (`batiment.facades`), les cotes et les réponses de Claude (l'analyse se dit « à relancer ») ; et rien ne remet `toitLidarLu` après une retouche.
+5. ~~**L'aperçu écrit dans le projet** (hors toit, même chemin d'écriture) : l'effet `detailsOuvertures` modifie en place le relevé
    qu'il trouve (`decisions.ts:265-268`), et la copie de surface de `projetApres` partage ce relevé avec le plan. Cocher une ligne de
    détails sans son relevé change donc le projet, sans Ctrl+Z ni « projet modifié » — y compris dans la consultation en lecture
-   seule de l'admin. Pas de test de pureté de `projetApres` sur cet effet (`tests/unit/regles/decisions.test.ts:168-185`).
+   seule de l'admin. Pas de test de pureté de `projetApres` sur cet effet (`tests/unit/regles/decisions.test.ts:168-185`).~~ — corrigé le 28 octobre 2026 : l'effet `detailsOuvertures` remplace le relevé au lieu de le modifier, `projetApres` ne touche plus le plan ; la validation nomme ses objets (`toucher`) après son pas d'historique (`tests/unit/regles/decisions.test.ts`, `validation.test.ts`, consultation comprise).
 6. **La consultation de l'admin n'a ni « Sources » ni observations** : `figer` pose `arbitrages: []` et `observations: []`
    (`validation.ts:565`) ; les arbitrages ne se lisent que sous chaque ligne. L'avant / après n'est donc pas tout à fait « l'écran des
    propositions ».
@@ -733,8 +733,8 @@ Par ordre d'effet sur ce que voit la personne :
       `vueAudit.ts:34-36`.
     - `app/regles/sujets/lucarnes.ts:1-2` : « le projet ne sait pas les écrire » — l'arbitrage les écrit (`arbitrages.ts:384`).
     - `propositionsClaude.ts:6-8` range « la forme du toit » parmi ce que les sujets proposent.
-16. **Tests manquants** : l'audit face à `toitFige` ; la survie d'une décision de toit à une relecture ; une retouche suivie d'une
-    relecture LiDAR ; les cheminées et lucarnes du corps principal après une décision de forme ; la pureté de `projetApres`.
+16. ~~**Tests manquants** : l'audit face à `toitFige` ; la survie d'une décision de toit à une relecture ; une retouche suivie d'une
+    relecture LiDAR ; les cheminées et lucarnes du corps principal après une décision de forme ; la pureté de `projetApres`.~~ — corrigé le 28 octobre 2026 : les cinq tests sont écrits avec les corrections 1 à 5.
 17. **L'écriture ne nomme pas ses objets** (`toucherTout` par l'historique, `validation.ts:529`, `:375`) : juste, mais tout le plan se
     redessine ; à ranger avec l'étape 6.1 du contrôleur des objets.
 

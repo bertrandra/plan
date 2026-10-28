@@ -223,3 +223,47 @@ describe('les rivales sur place', () => {
     expect(toutes[1]?.reserve).toBeNull();
   });
 });
+
+// Le toit decide par l'audit (MD/spec-ouvrages.md, « Les toits dans l'audit de la parcelle », points 1, 3 et 5).
+describe('le toit decide par l audit', () => {
+  const NEUF: CorpsToit = { pts: rect(5, 10, 15, 18), posFaitage: 4, faitage: 10, egouts: [6.5, 6.5], pignons: [], ecart: 0.05 };
+  const SOUCHE = { x: 10, y: 14, largeurM: 0.6, profondeurM: 0.5, sommetM: 9.4, position: 'faitage' as const, source: 'observation' as const };
+
+  it('fige le toit ecrit : la relecture du LiDAR ne le remplacera plus ; la couverture seule ne le fige pas', () => {
+    const objets = projet();
+    appliquerPropositions(objets, [proposition('toit', { type: 'corpsToit', corps: [NEUF] })], [], '2026-10-28');
+    expect(objets[1]?.batiment?.toitFige).toBe(true);
+    const autres = projet();
+    appliquerPropositions(autres, [proposition('couverture', { type: 'couverture', couverture: 'zinc' })], [], '2026-10-28');
+    expect(autres[1]?.batiment?.toitFige).toBeUndefined();
+    // Une cheminee qui n'a pas de corps ou se poser n'ecrit rien : rien ne se fige.
+    appliquerPropositions(autres, [proposition('ch', { type: 'cheminees', corps: 3, cheminees: [SOUCHE] })], [], '2026-10-28');
+    expect(autres[1]?.batiment?.toitFige).toBeUndefined();
+  });
+
+  it('pose un element sur la forme ecrite dans la meme validation (apresForme), et a sa place d avant sinon', () => {
+    const surNeuf = { ...SOUCHE, sommetM: 10.4 };
+    const ch = proposition('ch', { type: 'cheminees', corps: 0, cheminees: [SOUCHE], apresForme: { corps: 0, cheminees: [surNeuf] } });
+    const avec = projet();
+    appliquerPropositions(avec, [ch, proposition('toit', { type: 'corpsToit', corps: [NEUF] })], [], '2026-10-28');
+    expect(avec[1]?.batiment?.corpsToit?.[0]?.cheminees).toEqual([surNeuf]);
+    const sans = projet();
+    appliquerPropositions(sans, [ch], [], '2026-10-28');
+    expect(sans[1]?.batiment?.corpsToit?.[0]?.cheminees).toEqual([SOUCHE]);
+    // Un element qui ne tient pas sur la forme neuve (apresForme: null) n'est pas ecrit avec elle.
+    const terrasse = proposition('t', { type: 'terrasse', corps: 0, terrasse: { accessible: true, source: 'observation' }, apresForme: null });
+    const plat = projet();
+    appliquerPropositions(plat, [terrasse, proposition('toit', { type: 'corpsToit', corps: [NEUF] })], [], '2026-10-28');
+    expect(plat[1]?.batiment?.corpsToit?.[0]?.terrasse).toBeUndefined();
+  });
+
+  it('l apercu des details d ouvertures ne touche pas le releve du projet', () => {
+    const objets = projet();
+    champsBatiment(objets[1] as ObjetPlan).facades = [{ ...RELEVE, ouvertures: RELEVE.ouvertures.map((o) => ({ ...o })) }];
+    const avant = JSON.stringify(objets);
+    const r = projetApres(objets, [proposition('details', { type: 'detailsOuvertures', cote: 0, details: { volets: 'roulant' } })], '2026-10-28');
+    expect(JSON.stringify(objets)).toBe(avant);
+    expect(r.objets[1]?.batiment?.facades?.[0]?.ouvertures[0]?.details).toMatchObject({ volets: 'roulant' });
+    expect(r.objets[1]?.batiment?.facades?.[0]).not.toBe(objets[1]?.batiment?.facades?.[0]);
+  });
+});

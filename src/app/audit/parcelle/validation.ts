@@ -12,11 +12,13 @@
 // - « Valider » ecrit tout ce qui est coche en un seul instantane d'historique : Ctrl+Z le defait, et
 //   le projet est marque modifie. Les batiments vus et valides sont marques « vérifié sur place ».
 
+import { toucher } from '../../../core/controleurObjets.js';
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
 import { propositionsDeClaude, propositionsDetails, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
 import { avecReserveDesNiveaux } from './niveauxClaude.js';
+import { avecPlacesApresForme } from './apresForme.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
@@ -362,6 +364,15 @@ function selectionDe(ctx: ContexteValidation, propositions: () => readonly Propo
 }
 
 /**
+ * Ecrit ces propositions dans le projet (apres le pas d'historique de l'appelant) et nomme les objets ecrits au controleur des
+ * objets (core/controleurObjets.ts) : ce qui les lit les refait. Le seul chemin par lequel l'audit touche le projet.
+ */
+function ecrireDansLeProjet(ctx: ContexteValidation, propositions: readonly Proposition[], verifies: readonly string[], jour: string): void {
+  const touches = new Set(appliquerPropositions(ctx.etat.objects, propositions, verifies, jour));
+  for (const o of ctx.etat.objects) if (touches.has(o.key)) toucher(o);
+}
+
+/**
  * Les photos de l'audit alimentent les facades : un releve mesure sur la photo, aux coins trouves et a la confiance
  * suffisante (ce que les cases cochent par defaut), est pose sur sa facade des que la mesure est prete, sans
  * attendre « Valider ». En un pas d'historique (Ctrl+Z le retire). Jamais sur une facade que la personne a relevee
@@ -373,7 +384,7 @@ function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): n
   const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p));
   if (!prets.length) return 0;
   ctx.projet.pushHistory();
-  appliquerPropositions(ctx.etat.objects, prets, [], jourIso(ctx.maintenant()));
+  ecrireDansLeProjet(ctx, prets, [], jourIso(ctx.maintenant()));
   for (const p of prets) {
     if (p.cible.type !== 'facade') continue;
     const cote = p.cible.cote;
@@ -414,7 +425,8 @@ function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable
   const votes = reponses ? votesDesBatiments(reponses) : {};
   const arbitrages = arbitragesParBatiment(e, votes, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
   const arbitrees = avecReserveDesNiveaux(propositionsDesArbitrages(e, arbitrages), e.objets, votes);
-  const propositions = dansLOrdre(e, avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])]));
+  // Un element du toit (cheminees, lucarnes, terrasse, appentis) dit aussi sa place sur la forme proposee du meme batiment (apresForme.ts).
+  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])])));
   const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
   return { propositions, observations, arbitrages };
 }
@@ -527,7 +539,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       apercu.oublier(); choix3d.oublier();
       const maintenant = ctx.maintenant();
       ctx.projet.pushHistory();
-      appliquerPropositions(ctx.etat.objects, choisies, verifies, jourIso(maintenant));
+      ecrireDansLeProjet(ctx, choisies, verifies, jourIso(maintenant));
       ctx.projet.render();
       ctx.projet.refaire3d();
       ctx.capture.noterDecision({

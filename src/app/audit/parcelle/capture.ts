@@ -11,6 +11,8 @@ import {
 } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
+import type { PtBrut } from '../../../model/types.js';
+import { facadesSurLeContour } from '../../../model/cotesAudit.js';
 
 /** Ce qu'un geste note sur la cloture ou le portail : une cle sans valeur est retiree (on n'affirme que ce que l'on a vu). */
 export type Note<T> = { [K in keyof Omit<T, 'photos'>]?: Omit<T, 'photos'>[K] | undefined };
@@ -41,6 +43,11 @@ export interface CaptureEnCours {
   rouvrir(): void;
   /** Remplace la capture (un brouillon repris). */
   remplacer(c: CaptureParcelle): void;
+  /**
+   * Les facades de chaque batiment suivent leur mur sur son contour d'aujourd'hui (par cle ; model/cotesAudit.ts) : un sommet
+   * ajoute ou retire depuis ne les envoie pas au mur voisin. Rend vrai si la capture a change.
+   */
+  suivreLesContours(contours: ReadonlyMap<string, readonly PtBrut[]>): boolean;
   /** Une validation des propositions (§14) : gardee avec la capture, pour le fichier de l'audit (§15). */
   noterDecision(d: DecisionAudit): void;
   /** La case « Partager cet audit pour améliorer Plan », et ce qui est parti sur le serveur (§15). */
@@ -139,6 +146,19 @@ export function creerCapture(idu: string, maintenant: () => Date = () => new Dat
     terminer() { capture = { ...capture, phase: 'analyse', finCapture: maintenant().toISOString() }; changer(); },
     rouvrir() { capture = { ...capture, phase: 'capture', finCapture: null }; changer(); },
     remplacer(c) { capture = c; changer(); },
+    suivreLesContours(contours) {
+      let change = false;
+      const batiments = { ...capture.batiments };
+      for (const [cle, b] of Object.entries(capture.batiments)) {
+        const pts = contours.get(cle);
+        // Seul un batiment qui a des facades notees a des rangs a garder.
+        if (!pts || pts.length < 3 || !Object.keys(b.facades).length) continue;
+        const suite = facadesSurLeContour(b, pts);
+        if (suite !== b) { batiments[cle] = suite; change = true; }
+      }
+      if (change) { capture = { ...capture, batiments }; changer(); }
+      return change;
+    },
     noterDecision(d) { capture = { ...capture, decisions: [...(capture.decisions ?? []), d] }; changer(); },
     noterPartage(p) { capture = { ...capture, partage: { accord: p.accord, envoi: p.envoi ? { ...p.envoi } : null } }; changer(); },
     noterSauvegarde(e) { capture = { ...capture, sauvegarde: e ? { ...e } : null }; changer(); },

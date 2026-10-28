@@ -29,9 +29,9 @@ import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle 
 import type { CaptureParcelle, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
-import { corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, souchesSurLeCorps, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
+import { corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, reporterElements, souchesSurLeCorps, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
 
-export { corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, souchesSurLeCorps, terrasseVueSurLeCorps };
+export { corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, reporterElements, souchesSurLeCorps, terrasseVueSurLeCorps };
 
 /** Un ecart de hauteur en deca ne vaut pas une proposition : c'est la precision de la mesure. */
 export const ECART_HAUTEUR_MIN_M = 0.1;

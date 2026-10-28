@@ -369,6 +369,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un toit validé par l'audit de la parcelle reste celui qu'on a validé** (`MD/spec-ouvrages.md`, « Les toits dans l'audit de la
+  parcelle », point 1). La validation écrivait les corps du toit sans les protéger : la relecture du LiDAR suivante (une nouvelle
+  version des règles, une actualisation) les remplaçait en silence, avec les cheminées, lucarnes et appentis posés dessus. Un
+  bâtiment dont la validation écrit le toit (forme, corps, hauteur, cheminées, lucarnes, appentis, toiture-terrasse) a désormais
+  ses « Règles » coupées, comme après le mode Toit : ni la relecture ni l'actualisation IGN ne le touchent, et rallumer les
+  « Règles » le rend à la lecture automatique. La couverture seule ne coupe rien (la relecture la garde déjà). Une relecture
+  partie avant la validation ne se pose plus par-dessus : ce qui la rend caduque compte maintenant les corps, la hauteur et les
+  marques du bâtiment, plus seulement son contour et son toit simple.
+- **L'audit respecte un toit réglé à la main en mode Toit** (point 2). Seul un toit saisi dans l'inspecteur comptait comme un
+  choix : une forme proposée pour un bâtiment aux « Règles » coupées arrivait cochée et remplaçait le travail du mode Toit. Elle
+  arrive maintenant décochée, avec « Remplace votre choix : forme du toit saisie ».
+- **Valider la forme du toit garde ce que portait le toit** (point 3). Le corps relu par le moteur sortait neuf : ses cheminées,
+  lucarnes, toiture-terrasse et l'appentis ouvert disparaissaient. Ils passent sur le corps relu là où ils tiennent encore
+  (cheminée dans son emprise, lucarne sur un pan dans le même sens, terrasse sur un toit plat, ouvert sur un appentis), à la
+  hauteur du corps neuf ; ce qui ne tient plus n'est pas écrit. Les cheminées, lucarnes, terrasse et appentis validés en même
+  temps que la forme se posent sur les corps neufs, plus sur ceux d'avant. La forme reste celle du moteur.
+- **Un contour retouché à la main ne bouge plus à la relecture du LiDAR, et les façades de l'audit suivent leur mur** (point 4).
+  La relecture recalait (déplaçait) le contour d'un bâtiment retouché de la parcelle ou d'un mitoyen : elle lit maintenant son
+  toit sur le contour de la personne, sans le déplacer. Les façades notées dans l'audit (photos, corrections, « inaccessible »)
+  sont rangées par rang de côté : un sommet ajouté ou retiré les envoyait au mur voisin. La capture garde le contour sur lequel
+  ses rangs sont comptés et, à la réouverture de l'audit, chaque façade retrouve son mur par la géométrie ; un Ctrl+Z les ramène
+  de même. Une analyse par Claude faite avant le changement se dit alors « à relancer ».
+- **L'aperçu de l'audit ne modifie plus le projet** (point 5). Cocher une ligne de détails d'ouvertures (volets, vitrage) écrivait
+  dans le relevé du plan dès l'aperçu « Après », sans Ctrl+Z ni « projet modifié », y compris dans la consultation en lecture
+  seule d'Admin › Audits. L'aperçu travaille sur sa copie ; seul « Valider » écrit, en un pas d'annulation, et nomme les
+  objets écrits au contrôleur des objets.
 - **Le toit suit son bâtiment quand on le déplace ou le tourne** (`MD/spec-ouvrages.md`, étape 6.3). Glisser un bâtiment, l'aligner
   par rotation ou le remettre à sa place de départ laissait son toit à l'ancienne place dans la Vue 3D : les corps du toit, les
   cheminées, les édicules d'une toiture-terrasse et les volumes sont en coordonnées absolues, et aucun geste ne les faisait suivre.
