@@ -21,7 +21,7 @@ import { poserEnCouche, COUCHES_SOL } from './primitives.js';
 import { facettesToit, uvDuPan, COULEUR_TOIT_DEFAUT } from '../facade/toits/toit.js';
 import { trianguler } from '../geometry/triangulation.js';
 import { materiauCouverture, couleurToitPlat, type ContexteCouverture } from '../model/couleurToit.js';
-import { safeOffset } from '../engine/structure.js';
+import { safeOffset } from '../geometry/polygon.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { aUneForme, encadrementForme, poserDetailsOuvertures } from './detailsOuvertures.js';
 import { garderLeJpeg } from './chargeurs.js';

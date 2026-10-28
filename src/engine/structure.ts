@@ -5,8 +5,8 @@
 // bouge (spec-migration-typescript.md §10.2) - les "nettoyer" serait un changement de comportement.
 
 import { au } from '../util/tableaux.js';
-import { centroid, dist, pointInPolygon, shoelace, signedArea } from '../geometry/basic.js';
-import { clipLineToPolygon, offsetZone, polygonOffset, ringSegments } from '../geometry/polygon.js';
+import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
+import { clipLineToPolygon, offsetZone, ringSegments, safeOffset } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
 import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
@@ -95,26 +95,6 @@ export function subdivideSegment(a: PtBrut, b: PtBrut, maxGap: number, includeEn
   }
   if(includeEnd) out.push({x:b.x, y:b.y});
   return out;
-}
-// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
-// apart from one that has folded through itself. (Defined once, near renderAttrTable() above -
-// removed the duplicate that used to live here, same implementation under a different param name.)
-// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
-// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
-// around and return a polygon LARGER than the original, which looks perfectly plausible and
-// silently poisons everything clipped against it. Both are caught here by comparing signed
-// areas, and the raw outline is used instead.
-export function safeOffset(poly: PtBrut[], distM: number): PtBrut[] {
-  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
-  const off = polygonOffset(poly, distM);
-  const a0 = signedArea(poly), a1 = signedArea(off);
-  const grew = Math.abs(a1) > Math.abs(a0);
-  const ok = off.length>=3
-          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
-          && Math.sign(a1)===Math.sign(a0)
-          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
-                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
-  return ok ? off : poly.map(p=>({...p}));
 }
 export const VIS_ROLE_RANK: Record<string, number> = { spa:3, rive:2, courant:1 };
 // Two screws a handspan apart are one screw once you are on site: keep whichever carries the

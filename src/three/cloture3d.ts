@@ -17,7 +17,7 @@ import {
 } from '../model/cloture.js';
 import { facadesDuContour, pointDeFacade, type Facade } from '../geometry/cotesVusDeDehors.js';
 import { trianguler } from '../geometry/triangulation.js';
-import { safeOffset } from '../engine/structure.js';
+import { safeOffset } from '../geometry/polygon.js';
 import { sommetDe } from '../geometry/anneau.js';
 import { au } from '../util/tableaux.js';
 import type { Primitives } from './primitives.js';

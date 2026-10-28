@@ -163,3 +163,24 @@ export function offsetZone(poly: PtBrut[], marge: number): PtBrut[] {
   const sain = out.length >= 3 && out.every(p=>isFinite(p.x)&&isFinite(p.y)) && a1 >= a0;
   return sain ? out : poly.map(p=>({...p}));
 }
+
+// Signed area: the sign carries the winding direction, which is what tells a shrunk outline
+// apart from one that has folded through itself.
+// Insetting by more than a shape can take folds it inside out. Sometimes it comes back with
+// the winding reversed, which is easy to spot - but on a very narrow shape it can wrap right
+// around and return a polygon LARGER than the original, which looks perfectly plausible and
+// silently poisons everything clipped against it. Both are caught here by comparing signed
+// areas, and the raw outline is used instead.
+// Lue par la terrasse, la cloture 3D et le releve 3D : elle vivait dans engine/structure.ts (etape 6.6).
+export function safeOffset(poly: PtBrut[], distM: number): PtBrut[] {
+  if(Math.abs(distM) < 1e-9) return poly.map(p=>({...p}));
+  const off = polygonOffset(poly, distM);
+  const a0 = signedArea(poly), a1 = signedArea(off);
+  const grew = Math.abs(a1) > Math.abs(a0);
+  const ok = off.length>=3
+          && off.every(p=>isFinite(p.x)&&isFinite(p.y))
+          && Math.sign(a1)===Math.sign(a0)
+          && (distM>0 ? (!grew && Math.abs(a1) > 0.02*Math.abs(a0))
+                      : ( grew && Math.abs(a1) < 25*Math.abs(a0)));
+  return ok ? off : poly.map(p=>({...p}));
+}
