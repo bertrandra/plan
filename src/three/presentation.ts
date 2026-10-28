@@ -12,6 +12,7 @@ import { lireDate } from '../util/date.js';
 import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
 import { estBatiment, estPiscine, parcelleDuProjet } from '../model/fonctions.js';
+import { estOuvrage, BATIMENT } from '../model/ouvrages/index.js';
 import { bordDuBassin } from '../engine/ouvrages/piscine.js';
 import { offsetZone } from '../geometry/polygon.js';
 import { projectOntoSegment } from '../geometry/segments.js';
@@ -424,7 +425,7 @@ export function terrainDuTour(objets: ObjetPlan[]): TerrainDuTour | null {
   const visibles = objets.filter((o) => !o.hidden);
   const batiments = visibles.filter((o): o is ObjetPlan & { type: 'polygon' } => estBatiment(o) && o.type === 'polygon' && o.pts.length >= 3);
   const surParcelle = batiments.filter((o) => !o.voisinage && pointInPolygon(centroid(o.pts), parcelle.pts));
-  const principaux = surParcelle.filter((o) => o.fonction === 'batiment');
+  const principaux = surParcelle.filter((o) => estOuvrage(o, BATIMENT));
   const candidats = principaux.length ? principaux : surParcelle;
   const maison = candidats.reduce<(ObjetPlan & { type: 'polygon' }) | null>((m, o) => (!m || shoelace(o.pts) > shoelace(m.pts) ? o : m), null);
   if (!maison) return null;

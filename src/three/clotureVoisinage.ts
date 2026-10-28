@@ -14,6 +14,7 @@ import type * as THREE_NS from 'three';
 import type { ObjetPlan, PtBrut, TypeCloture } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import { parcelleDuProjet } from '../model/fonctions.js';
+import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
 import { clotureDe, DEFAUTS_PAR_TYPE } from '../model/cloture.js';
 import { COULEUR_GRILLAGE_VOISINAGE } from '../model/voisinage3d.js';
 import { distancePointContour } from '../geometry/proximite.js';
@@ -53,7 +54,7 @@ export function limitesDuVoisinage(objets: readonly ObjetPlan[], masque: (o: Obj
   const cle = (p: PtBrut) => Math.round(p.x / ARRONDI_M) + ':' + Math.round(p.y / ARRONDI_M);
   const out: Limite[] = [];
   for (const o of objets) {
-    if (o === projet || o.fonction !== 'terrain' || masque(o) || !aDesSommets(o) || o.pts.length < 3) continue;
+    if (o === projet || !estOuvrage(o, TERRAIN) || masque(o) || !aDesSommets(o) || o.pts.length < 3) continue;
     o.pts.forEach((p, i) => {
       const q = sommetDe(o.pts, i + 1);
       if (Math.hypot(q.x - p.x, q.y - p.y) < 0.05) return;
