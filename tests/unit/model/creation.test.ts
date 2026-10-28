@@ -317,6 +317,16 @@ describe('supprimer', () => {
     expect(appels).toContain('vue detruite');
   });
 
+  it('nettoie ce qui tenait l objet par sa cle : ses cotes, la plage d une piscine', () => {
+    const { c, etat } = monter([carre, { key: 'p', name: 'Piscine', fonction: 'piscine', type: 'polygon', pts: [], piscine: { plage: 'terrasse', terrasseKey: 'a' } } as ObjetTest]);
+    const e = etat as EtatCreation;
+    e.measures = [{ id: 'm1', refObjKey: 'a', refSegIndex: 0, startEnd: 'B', targetObjKey: 'p', targetPtIndex: 0 }, { id: 'm2', refObjKey: 'p', refSegIndex: 0, startEnd: 'B', targetObjKey: 'p', targetPtIndex: 1 }];
+    etat.selectedKey = 'a';
+    c.supprimer();
+    expect(e.measures.map((m) => m.id)).toEqual(['m2']);
+    expect(etat.objects[0]?.piscine?.terrasseKey).toBeUndefined();
+  });
+
   it('ne touche a rien tant que la confirmation n a pas repondu', () => {
     const { etat, ctx, appels } = monter([carre]);
     etat.selectedKey = 'a';

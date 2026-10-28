@@ -431,6 +431,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Ce qui est rangé par côté suit un contour retouché, pour tous les ouvrages** (étape 6.3). Un sommet ajouté ou retiré, un
+  côté tiré ou raccourci, l'actualisation IGN faisaient glisser au côté voisin, ou laissaient hors du côté : le portail et le
+  portillon (qui restent maintenant à leur place sur la limite, bornés au côté, sur la part où ils tombent d'un côté coupé), les
+  côtés de clôture réglés à part (les deux parts d'un côté coupé gardent son réglage), le côté qui donne le sens des lames d'une
+  terrasse et ses côtés sans rive (les lames tournaient, la nomenclature et le prix changeaient sans rien dire), le côté de
+  référence et le côté adossé d'une pergola ou d'un carport, le côté du petit bain d'une piscine (volume d'eau et prix). Sur un
+  mur raccourci ou allongé, un relevé de façade suit en proportion (ouvertures, partie basse, grille : la photo est étirée sur
+  le mur) et une fenêtre réglée une par une garde sa place. Chaque ouvrage déclare ces références (`Ouvrage.suivreDeformation`,
+  `model/referencesContour.ts`). Supprimer un objet emporte les cotes qui s'y appuient, et ce qui le tenait par sa clé l'oublie
+  (la plage d'une piscine, la terrasse rattachée d'un parasol, la parcelle sous un toit à cheval) ; de même pour « Supprimer le
+  voisinage ». Aucun nombre d'un fichier enregistré ne change : seuls les gestes à venir en tiennent compte.
+
 - **Le toit et les relevés suivent un contour retouché.** Tirer un sommet, un côté ou un coin de rectangle, ajouter ou retirer un
   sommet, saisir une longueur ou un angle laissaient les corps du toit sur l'ancien contour, et les relevés de façade, les
   fenêtres réglées une par une et les cotes glissaient au mur voisin quand un sommet s'ajoutait. Le toit lu au LiDAR se relit

@@ -298,9 +298,14 @@ arbre ──essence──▶ bibliothèque d'essences ; tout objet ──texture
 pergola, carport : aucun autre ouvrage
 ```
 
-**Supprimer un objet ne nettoie rien** (`model/creation.ts::supprimer`) : la plage d'une piscine, le parasol lié, les cotes,
+~~**Supprimer un objet ne nettoie rien** (`model/creation.ts::supprimer`) : la plage d'une piscine, le parasol lié, les cotes,
 l'isolement, le toit à cheval et l'audit gardent une clé qui ne mène plus nulle part. Chaque flèche par clé doit dire ce que
-devient la source quand la cible disparaît (étape 6.3).
+devient la source quand la cible disparaît (étape 6.3).~~ — corrigé le 28 octobre 2026 : `model/ouvrages/index.ts::oublierLObjet`,
+appelé par la suppression et par « Supprimer le voisinage ». Les cotes qui s'appuient sur l'objet partent avec lui ; chaque
+ouvrage oublie ce qu'il en tenait (`Ouvrage.oublier`) : la piscine perd `terrasseKey` (comme une piscine dupliquée), le parasol
+retombe sur la terrasse qui le contient (`terrasseLieeKey: null`), un toit à cheval perd la parcelle (à moins de deux, il n'est plus
+à cheval). L'isolement est un état d'affichage, qui finit avec la sélection. L'audit garde ses clés : c'est le compte rendu d'une
+visite (tests : `referencesContour.test.ts`, `creation.test.ts`).
 
 Le contrôleur (étape 6.1) suit ces flèches : toucher une piscine, une trémie ou un équipement doit faire refaire la terrasse
 qu'ils percent ou renforcent ; toucher le terrain (relief), tout ce qui pose sur le sol. Aujourd'hui une terrasse suit la version
@@ -316,20 +321,25 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 - ~~**La surface d'un chemin courbe** se compte sur ses segments droits~~ — décidé le même jour : elle se compte sur la courbe
   dessinée (`surfaceChemin`), comme la longueur totale de l'inspecteur et du résumé. Version majeure ; les nombres qui bougent sur
   la démonstration sont dans `tests/fixtures/golden/EMPREINTES.md`.
-- **Les références par numéro de côté ou de sommet ne suivent pas un sommet ajouté ou retiré.** `model/sommets.ts` tient en
+- ~~**Les références par numéro de côté ou de sommet ne suivent pas un sommet ajouté ou retiré.**~~ — corrigé le 28 octobre 2026 :
+  chaque ouvrage déclare ce qu'il range par côté, par sommet ou par abscisse le long d'un côté (`Ouvrage.suivreDeformation`,
+  `model/ouvrages/*.ts`), et `model/contourDeforme.ts::suivreDeformation` le lui fait suivre, au geste (`core/deformation.ts`)
+  comme à l'actualisation IGN (bâtiment, et parcelle : `parcelleRelue`). La correspondance des rangs et la règle des abscisses
+  sont une fois pour tous dans `model/referencesContour.ts` (un test par référence : `tests/unit/model/referencesContour.test.ts`).
+  Le tableau d'avant, barré ligne par ligne : `model/sommets.ts` tient en
   phase quatre tableaux (points, noms des coins, noms des côtés, coins figés) et rien d'autre. Aucune de ces références n'est
   renumérotée :
 
   | Référence | Ouvrage | Ce qui se passe, par exemple |
   |---|---|---|
-  | `cloture.cotes[].cote`, `portails[].cote` | terrain | un sommet ajouté sur le côté 1 met le portail du côté 3 sur l'ancien côté 2 ; un sommet retiré peut le faire tomber (`coteValide`) |
-  | `construction.segmentReference` | terrasse | les lames tournent : **la nomenclature et le prix changent** sans que rien ne le dise |
-  | `construction.cotesSansRive` | terrasse | la rive change de côtés |
-  | `pergola.coteReference`, `pergola.coteMur` | abri | les chevrons, le bas d'un appentis, le mur adossé sautent ; la DP titre l'élévation par ce côté |
-  | `piscine.cotePetitBain` | piscine | le petit bain change de bout : **volume d'eau, terrassement et prix changent** |
-  | `batiment.facades[].cote`, `fenetres3d.liste[].cote` | bâtiment | un relevé passe sur un autre mur |
-  | cote : `refSegIndex`, `targetPtIndex` | cotes | une cote mesure le sommet voisin ; au-delà du dernier, plus rien |
-  | audit : façades par côté, `cle#cote`, photos ; moteur de règles `facade:<cle>#<cote>` | bâtiment | même chose |
+  | ~~`cloture.cotes[].cote`, `portails[].cote`~~ | terrain | ~~un sommet ajouté sur le côté 1 met le portail du côté 3 sur l'ancien côté 2 ; un sommet retiré peut le faire tomber (`coteValide`)~~ — corrigé le 28 octobre 2026 : un côté réglé à part reste sur son mur (les deux parts d'un côté coupé le gardent) ; un portail reste à sa place, sur la part où il tombe (`model/ouvrages/contexte.ts`) |
+  | ~~`construction.segmentReference`~~ | terrasse | ~~les lames tournent : **la nomenclature et le prix changent** sans que rien ne le dise~~ — corrigé le 28 octobre 2026 (`model/ouvrages/terrasse.ts`) |
+  | ~~`construction.cotesSansRive`~~ | terrasse | ~~la rive change de côtés~~ — corrigé le 28 octobre 2026 : les deux parts d'un côté coupé restent sans rive |
+  | ~~`pergola.coteReference`, `pergola.coteMur`~~ | abri | ~~les chevrons, le bas d'un appentis, le mur adossé sautent ; la DP titre l'élévation par ce côté~~ — corrigé le 28 octobre 2026 (`model/ouvrages/abri.ts`) |
+  | ~~`piscine.cotePetitBain`~~ | piscine | ~~le petit bain change de bout : **volume d'eau, terrassement et prix changent**~~ — corrigé le 28 octobre 2026 (`model/ouvrages/piscine.ts`) |
+  | ~~`batiment.facades[].cote`, `fenetres3d.liste[].cote`~~ | bâtiment | ~~un relevé passe sur un autre mur~~ — corrigé le 28 octobre 2026 (`model/ouvrages/bati.ts`, avant dans `contourDeforme.ts`) |
+  | ~~cote : `refSegIndex`, `targetPtIndex`~~ | cotes | ~~une cote mesure le sommet voisin ; au-delà du dernier, plus rien~~ — corrigé le 28 octobre 2026 (`mesuresSuivent`) |
+  | ~~audit : façades par côté, `cle#cote`, photos ; moteur de règles `facade:<cle>#<cote>`~~ | bâtiment | ~~même chose~~ — corrigé : l'audit retrouve son mur par la géométrie (`model/cotesAudit.ts`) |
 
   Trois autres gestes cassent ces références ou des positions :
   - **l'actualisation IGN** remplace les points d'une parcelle ou d'un bâtiment (un autre nombre de sommets) et garde par
@@ -337,7 +347,10 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     par défaut ; depuis le 27 octobre 2026, un bâtiment refait par « Actualiser le projet » garde la clé de l'ancien qui portait le
     même identifiant BD TOPO (`batimentsRecrees`) ; seul un bâtiment sans correspondant (dessiné, ou nouveau à la BD TOPO) prend
     une autre clé ;
-  - **raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse` ;
+  - ~~**raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse`~~ — corrigé le 28 octobre 2026 : ce
+    qui est posé à sa place sur le terrain (un portail, une fenêtre réglée une par une) y reste, borné au côté ; ce qui est lu sur
+    l'image du mur (un relevé : ouvertures, partie basse, grille, largeur) suit en proportion, parce que la Vue 3D étire la photo sur
+    le mur entier (`three/releve3d.ts`) et que l'échelle du relevé venait de la longueur du mur ;
   - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
     (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
@@ -355,7 +368,8 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     « Reprendre la version de l'IGN pour « X », retouché à la main le JJ/MM/AAAA », le remplace par sa source, retire la marque
     et garde sa clé (« remplacer le bâtiment avec la source IGN »).
 
-  Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
+  Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts` ; rangé sur
+  les corps et non sur le contour, une déformation ne le touche pas, et la relecture le repose par `reporterSaillies`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par
   ouvrage : **chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues, et chaque geste les fait
   suivre par lui** (étape 6.3). Pour la terrasse, l'abri et la piscine, c'est un nombre qui bougeait sans raison : la

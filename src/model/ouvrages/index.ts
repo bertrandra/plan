@@ -1,7 +1,7 @@
 // Le registre des ouvrages du modele (MD/spec-ouvrages.md, etape 6.2) : chaque ouvrage, une fois, et les tables qui en derivent.
 
 import type { Ouvrage } from './ouvrage.js';
-import type { ObjetPlan, PtBrut } from '../types.js';
+import type { Mesure, ObjetPlan, PtBrut } from '../types.js';
 import { deplacementRigide } from '../../geometry/deplacement.js';
 import { TERRAIN, ARBRE, LIMITE, POINT_DE_VUE, AUTRE } from './contexte.js';
 import { BATIMENT, ANNEXE } from './bati.js';
@@ -45,6 +45,17 @@ export function suivreLeContour(o: ObjetPlan, avant: readonly PtBrut[], apres: r
   if (!suivre) return;
   const d = deplacementRigide(avant, apres);
   if (d) suivre(o, d);
+}
+
+/**
+ * L'objet de cle `cle` vient d'etre retire du plan : les cotes qui s'y appuient partent avec lui, et chaque ouvrage oublie ce qu'il
+ * en tenait par sa cle (`Ouvrage.oublier` : la plage d'une piscine, la terrasse d'un parasol, la parcelle sous un toit a cheval).
+ * Rend les objets changes, que l'appelant touche (son pas d'historique est deja pris). L'audit de la parcelle garde ses cles : c'est
+ * le compte rendu d'une visite, il dit ce qui a ete vu ce jour-la.
+ */
+export function oublierLObjet(etat: { objects: readonly ObjetPlan[]; measures?: Mesure[] }, cle: string): ObjetPlan[] {
+  if (etat.measures?.some((m) => m.refObjKey === cle || m.targetObjKey === cle)) etat.measures = etat.measures.filter((m) => m.refObjKey !== cle && m.targetObjKey !== cle);
+  return etat.objects.filter((o) => o.key !== cle && ouvrage(o.fonction).oublier?.(o, cle) === true);
 }
 
 /** Les fonctions proposees par le menu « Fonction », dans son ordre. */

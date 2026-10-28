@@ -18,11 +18,11 @@
 import { au } from '../util/tableaux.js';
 import { centroid, pointInPolygon } from '../geometry/basic.js';
 import { cleObjet } from './cles.js';
-import type { PtBrut, ObjetPlan, ObjetAPlat, Construction } from './types.js';
+import type { PtBrut, ObjetPlan, ObjetAPlat, Construction, Mesure } from './types.js';
 import { enPoints } from './formes.js';
 import { estTerrasse, terrasseOuPremiere } from './fonctions.js';
 import { centreSouhaite, type NatureOuvrage } from './placement.js';
-import { estOuvrage, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE, type NatureAbri } from './ouvrages/index.js';
+import { estOuvrage, oublierLObjet, TERRAIN, PARASOL, PISCINE, TREMIE, POINT_DE_VUE, type NatureAbri } from './ouvrages/index.js';
 
 /**
  * Ce que la creation lit et ecrit dans l'etat — cinq champs, pas l'etat entier.
@@ -38,6 +38,8 @@ export interface EtatCreation {
   terrasseSelectedKey: string | null;
   /** Consomme par `cleObjet` a chaque objet neuf. */
   newObjCounter: number;
+  /** Les cotes du plan : celles qui s'appuient sur un objet supprime partent avec lui. */
+  measures?: Mesure[];
 }
 
 /** La section de l'inspecteur que la creation designe : les cotes d'une forme libre, l'objet d'un rectangle. */
@@ -495,10 +497,10 @@ export function creerCreation(etat: EtatCreation, ctx: ContexteCreation) {
       if (obj.locked) { ctx.showToast('Cet objet est verrouille. Decoche "Verrouiller objet" avant de le supprimer.'); return; }
       ctx.showConfirm('Supprimer definitivement "' + obj.name + '" ?', () => {
         ctx.pushHistory();
-        // Le demontage oublie aussi l'entree de la carte des vues, que la suppression laissait
-        // derriere elle.
+        // La carte des vues oublie l'objet, et tout ce qui le tenait par sa cle (cotes, plage, parasol, toit a cheval : l'historique a touche tout).
         ctx.detruireVue(obj);
         etat.objects.splice(idx, 1);
+        oublierLObjet(etat, obj.key);
         etat.selectedKey = null;
         ctx.rebuildSelector();
         ctx.render();

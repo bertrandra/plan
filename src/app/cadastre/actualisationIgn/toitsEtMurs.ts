@@ -174,6 +174,11 @@ export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p
   return { objet, toitDeduit, corpsCaducs: volumesToit !== undefined && !!o.batiment?.corpsToit?.length, contourEcrit };
 }
 
+/** Un objet relu sur son contour du jour : ce que son ouvrage range par cote (la cloture d'une parcelle) suit son mur, par la geometrie. */
+export function contourSuivi(objet: ObjetBrut, avant: PtBrut[]): void {
+  suivreDeformation(objet as ObjetPlan, avant, 'geometrie');
+}
+
 /** Les cotes du plan apres l'actualisation : chacune suit les cotes et les sommets relus des objets qu'elle vise. */
 export function cotesSurLesContours(mesures: Mesure[], contours: readonly { cle: string; avant: PtBrut[]; apres: PtBrut[] }[]): Mesure[] {
   return contours.reduce((m, c) => mesuresSuivent(m, c.cle, c.avant, c.apres, 'geometrie'), mesures);

@@ -27,7 +27,7 @@ import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeo
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { Mesure, ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
+import { batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, contourSuivi, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -151,6 +151,9 @@ function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): 
     segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
     frozenVertices: contour.map(()=>false)
   });
+  // La cloture (cotes regles, portails) suit son mur sur le contour du jour, par la geometrie (model/contourDeforme.ts).
+  const avant = (o as Partial<ObjetPolygone>).pts;
+  if(avant) contourSuivi(copie, avant);
   const pp: Record<string, unknown> = relue.properties || {};
   copie.cadastre = Object.assign({}, o.cadastre, {
     contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),

@@ -8,6 +8,7 @@
 // et confirmee d'abord.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
+import { oublierLObjet } from '../../model/ouvrages/index.js';
 import { CAPACITES } from '../../plateforme/capacites.js';
 import { lireRues } from '../../geo/rues.js';
 import { parcelleDuProjet } from '../../model/fonctions.js';
@@ -45,7 +46,10 @@ export function brancherVoisinage(a: Atelier, ctx: ContexteVoisinage, cmd: Regis
     if (!partants.size) return 0;
     a.pushHistory();
     const restants = a.etat.objects.filter(o => !partants.has(o.key));
-    const mesures = a.etat.measures.filter(m => !partants.has(m.refObjKey) && !partants.has(m.targetObjKey));
+    // Ce qui tenait un objet du voisinage par sa cle l'oublie : les cotes, une parcelle voisine sous un toit a cheval.
+    const reste = { objects: restants, measures: a.etat.measures };
+    partants.forEach(cle => oublierLObjet(reste, cle));
+    const mesures = reste.measures;
     const selection = a.etat.selectedKey;
     a.restoreState({ objects: serializeObjects(restants), measures: serializeMeasures(mesures) });
     if (selection && partants.has(selection)) a.etat.selectedKey = a.etat.objects.find(o => o.key === 'parcelle')?.key ?? null;
