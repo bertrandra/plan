@@ -5,6 +5,7 @@
 // chaque module de render/ ce qu'il ne peut pas aller chercher seul — la racine SVG, la scene, le
 // calque qui lui revient — et gardent les noms qu'utilisent l'historique, les gestes et les ecouteurs.
 
+import { estOuvrage, PARASOL } from '../../model/ouvrages/index.js';
 import { versEcran, versMonde } from '../../geometry/vue.js';
 import { creerDomObjet, reconstruirePoignees } from '../../render/objects.js';
 import { amenerPoigneesDevant as remonterPoignees, amenerDevant, reappliquerEmpilement, poserEnQueue, type ContexteEmpilement } from '../../render/empilement.js';
@@ -101,7 +102,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // ensuite, sont comptees au bout, sans quoi tout serait deplace a chaque rendu pour leur rendre la derniere place.
       const q: Element[] = [s.piscines, s.parasols, s.pergolas];
       const ctx = enQueue(q);
-      etat.objects.forEach((o) => { if (o.fonction === 'parasol') amenerDevant(o, ctx); });
+      etat.objects.forEach((o) => { if (estOuvrage(o, PARASOL)) amenerDevant(o, ctx); });
       q.push(s.mats, s.nord, s.echelle, s.cotes, s.couches);
       const sel = etat.selectedKey && etat.selectedKey !== 'parcelle' ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
       if (sel) remonterPoignees(sel, ctx);

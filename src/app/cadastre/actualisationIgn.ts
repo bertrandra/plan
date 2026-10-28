@@ -27,7 +27,7 @@ import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeo
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { Mesure, ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { batimentsGardes, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
+import { batimentsGardes, batimentSurLaParcelle, batimentRattache, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -160,14 +160,6 @@ function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): 
   return copie;
 }
 
-/** Un batiment pose sur la parcelle du projet : importe pour elle, ou dont le centre tombe dessus (dessine compris). */
-function batimentSurLaParcelle(o: ObjetBrut, parcelle: PtBrut[]): boolean {
-  if(o.fonction !== 'batiment') return false;
-  if((o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true) return true;
-  const pts = o.type === 'polygon' ? (o as Partial<ObjetPolygone>).pts : undefined;
-  return !!pts && pts.length >= 3 && pointInPolygon(centroid(pts), parcelle);
-}
-
 /**
  * Les batiments de la parcelle, lus a la BD TOPO comme a l'import : tout ce qui la touche. `null`
  * si la lecture echoue — les batiments en place restent alors, plutot qu'un plan sans maison.
@@ -191,7 +183,7 @@ async function recreation(parcelle: PtBrut[], proj: ProjecteurLocal, simplifier:
   if(!lus){ bilan.push('batiments de la parcelle non relus (BD TOPO indisponible) : conserves'); return { batiFrais: lus, aRecreer: () => false }; }
   const batiFrais = lus.filter(b => !b.id || !gardes.ids.has(b.id));
   const ids = new Set(batiFrais.map(b => b.id));
-  return { batiFrais, aRecreer: (o) => !gardes.garde(o) && (batimentSurLaParcelle(o, parcelle) || (o.fonction === 'batiment' && ids.has((o.bdtopo as { id?: string } | null | undefined)?.id))) };
+  return { batiFrais, aRecreer: (o) => !gardes.garde(o) && (batimentSurLaParcelle(o, parcelle) || batimentRattache(o, ids)) };
 }
 
 /**

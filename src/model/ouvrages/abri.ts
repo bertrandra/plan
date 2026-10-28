@@ -6,6 +6,6 @@ import type { Ouvrage } from './ouvrage.js';
 /** Les deux natures d'abri : elles ne different que par leurs valeurs par defaut (a la creation, model/creation.ts ; dans le calcul, engine/abri/pergola.ts). */
 export type NatureAbri = 'pergola' | 'carport';
 
-export const PERGOLA: Ouvrage = { fonction: 'pergola', libelle: 'Pergola', famille: 'construit', formes: ['polygon'], particularites: ['abri'], elevation: 2.4, auMenu: true };
+export const PERGOLA: Ouvrage = { fonction: 'pergola', libelle: 'Pergola', famille: 'construit', formes: ['polygon'], particularites: ['abri'], elevation: 2.4, auMenu: true, dossierPiscine: { masse: true } };
 
-export const CARPORT: Ouvrage = { fonction: 'carport', libelle: 'Carport', famille: 'construit', formes: ['polygon'], particularites: ['abri'], elevation: 2.3, auMenu: true };
+export const CARPORT: Ouvrage = { fonction: 'carport', libelle: 'Carport', famille: 'construit', formes: ['polygon'], particularites: ['abri'], elevation: 2.3, auMenu: true, dossierPiscine: { masse: true } };

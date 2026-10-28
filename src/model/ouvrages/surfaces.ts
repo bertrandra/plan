@@ -10,12 +10,13 @@ export const MASSIF: Ouvrage = { fonction: 'massif', libelle: 'Massif', famille:
 
 export const MOBILIER: Ouvrage = { fonction: 'mobilier', libelle: 'Mobilier', famille: 'surface', elevation: 0.9, auMenu: true };
 
-export const DALLE: Ouvrage = { fonction: 'dalle', libelle: 'Dalle', famille: 'surface', elevation: 0.02, auMenu: true };
+export const DALLE: Ouvrage = { fonction: 'dalle', libelle: 'Dalle', famille: 'surface', elevation: 0.02, auMenu: true, dossierPiscine: { masse: true } };
 
 export const EQUIPEMENT: Ouvrage = { fonction: 'equipement', libelle: 'Équipement', famille: 'surface', elevation: 0.9, auMenu: true };
 
 /** Un chemin a une largeur ; un trace qui n'est pas un chemin n'en a pas. */
-export const CHEMIN: Ouvrage = { fonction: 'chemin', libelle: 'Chemin', famille: 'surface', elevation: 0, auMenu: true, horsEquipement: true, aUneLargeur: true };
+export const CHEMIN: Ouvrage = { fonction: 'chemin', libelle: 'Chemin', famille: 'surface', elevation: 0, auMenu: true, horsEquipement: true, aUneLargeur: true,
+  dossierPiscine: { situation: true } };
 
 /**
  * La largeur d'un chemin sans largeur ecrite, en metres. Une seule valeur : le dossier PDF lisait

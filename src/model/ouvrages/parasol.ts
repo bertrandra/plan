@@ -2,4 +2,5 @@
 
 import type { Ouvrage } from './ouvrage.js';
 
-export const PARASOL: Ouvrage = { fonction: 'parasol', libelle: 'Parasol', famille: 'construit', formes: ['circle'], particularites: ['parasol'], elevation: 2.2, auMenu: true, horsEquipement: true, sansEmprise: true };
+export const PARASOL: Ouvrage = { fonction: 'parasol', libelle: 'Parasol', famille: 'construit', formes: ['circle'], particularites: ['parasol'], elevation: 2.2, auMenu: true, horsEquipement: true, sansEmprise: true, nommeParSaFonction: true,
+  reglagesAuFichier: ['hauteurParasol'] };

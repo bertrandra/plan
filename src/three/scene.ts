@@ -37,6 +37,7 @@ import type { ObjetPlan, ObjetCercle, PtBrut, Relief } from '../model/types.js';
 import { aDesSommets, enPoints } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
 import { visibleEnIsolement } from '../model/fonctions.js';
+import { estOuvrage, TERRAIN } from '../model/ouvrages/index.js';
 import { solDeLaScene, geometrieSol, bornesCarre, type SolRelief } from './relief3d.js';
 import { empriseGrille, type Emprise } from '../model/relief.js';
 import { empriseDuCalque, MARGE_CALQUE_M } from '../model/calque.js';
@@ -304,7 +305,7 @@ export function buildThreeScene(terrasse: ObjetPlan | null, etat: PlanVuDeLa3d, 
   if (!etat.isolement) retenirCloture(scene, () => ajouterCloture(prim, scene, versLocal, ctx, sol));
   // Les objets d'echelle (R5), a la demande : une voiture cote rue, une silhouette dans la parcelle.
   if (vue3d.objetsEchelle && !etat.isolement && pcl && aDesSommets(pcl) && pcl.pts.length >= 3) {
-    const voisines = etat.objects.filter((o) => o.voisinage && o.fonction === 'terrain' && aDesSommets(o)).map((o) => enPoints(o).pts);
+    const voisines = etat.objects.filter((o) => o.voisinage && estOuvrage(o, TERRAIN) && aDesSommets(o)).map((o) => enPoints(o).pts);
     const place = placeEchelle(pcl.pts, voisines);
     if (place) retenirHorsObjets(scene, () => poserObjetsEchelle(scene, versLocal, place, sol ? (p: PtBrut) => sol.hauteur(p) : undefined));
   }

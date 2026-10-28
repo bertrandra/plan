@@ -32,7 +32,7 @@ import {
 } from '../engine/piscine.js';
 import { lieuDeParcelle } from '../model/lieu.js';
 import { estTerrain, parcelleDuProjet } from '../model/fonctions.js';
-import { largeurChemin } from '../model/ouvrages/index.js';
+import { largeurChemin, ouvrage } from '../model/ouvrages/index.js';
 import { sommetsDe } from '../model/formes.js';
 import { altitudeNGF, reliefDe, resumeRelief } from '../model/relief.js';
 import type { ObjetPlan, PtBrut, Relief } from '../model/types.js';
@@ -314,7 +314,7 @@ function pagePlanDeSituation(objets: ObjetPlan[], piscine: ObjetPlan, meta: Meta
   const parcelle = parcelleDuProjet(objets);
   const lieu = lieuDeParcelle(parcelle);
   // La parcelle, ses voisines, et le bati de tout le voisinage : ce qui situe le terrain.
-  const voisinage = objets.filter(o => !o.hidden && (estTerrain(o) || o.fonction === 'batiment' || o.fonction === 'annexe' || o.fonction === 'chemin'));
+  const voisinage = objets.filter(o => !o.hidden && (estTerrain(o) || !!ouvrage(o.fonction).dossierPiscine?.situation));
   const aDessiner = voisinage.length ? voisinage : [piscine];
   const { denom, k, P } = miseEnPage(aDessiner.flatMap(pointsDe), 96, 54, 10);
   let c = enTete(prefixe + '1 - Plan de situation', meta.nomProjet || parcelle?.name || 'Plan',
@@ -337,7 +337,7 @@ function pagePlanDeSituation(objets: ObjetPlan[], piscine: ObjetPlan, meta: Meta
 function pagePlanDeMasse(objets: ObjetPlan[], piscine: ObjetPlan, calc: PiscineCalculee, meta: MetaDossierPiscine, prefixe: string): PagePdf {
   const parcelle = parcelleDuProjet(objets);
   const surPropriete = (o: ObjetPlan) => !o.voisinage && (!parcelle || pointInPolygon(o.type === 'circle' ? o.center : centroid(o.pts), sommetsDe(parcelle)));
-  const batiments = objets.filter(o => (o.fonction === 'batiment' || o.fonction === 'annexe' || o.fonction === 'terrasse' || o.fonction === 'pergola' || o.fonction === 'carport' || o.fonction === 'dalle') && !o.hidden && surPropriete(o));
+  const batiments = objets.filter(o => !!ouvrage(o.fonction).dossierPiscine?.masse && !o.hidden && surPropriete(o));
   const emprise: PtBrut[] = [...calc.plageExt];
   if (parcelle) emprise.push(...sommetsDe(parcelle));
   batiments.forEach(b => emprise.push(...pointsDe(b)));

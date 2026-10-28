@@ -8,6 +8,7 @@
 // l'application reserve au projet et aux mitoyens. L'audit eprouve la chaine complete (spec §11,
 // point 4). La couleur des murs vient du materiau BD TOPO, lu avec le batiment : pas de photos de rue.
 
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 import { interrogerCadastre, empriseGeoJSON, construireCandidats, classerCandidats } from '../../geo/apiIgn.js';
 import { objetsDepuisCadastre } from '../../geo/cadastreObjets.js';
 import { projecteurLocal, type ProjecteurLocal } from '../../geo/projection.js';
@@ -65,7 +66,7 @@ export async function chargerAutour(objets: readonly ObjetPlan[], centre: PtBrut
   const lu = await (d.construireVoisinage ?? construireVoisinage)(parcelle, cad, proj, false,
     { batiments: true, rayonM: RAYON_AUDIT_M, centre, batiPrincipal: true }, objets as ObjetBrut[]).catch(() => null);
   if (!lu || !lu.objets.length) return [];
-  const batis = lu.objets.filter((o) => o.fonction === 'batiment');
+  const batis = lu.objets.filter((o) => estOuvrage(o, BATIMENT));
   if (batis.length) {
     await (d.couleursToits ?? couleursToitsDepuisOrtho)(batis as never, proj).catch(() => null);
     // Calcul entier pour tous : chaque batiment lu est traite comme un mitoyen (recalage, coupes, surface gardee).

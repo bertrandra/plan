@@ -3,4 +3,5 @@
 
 import type { Ouvrage } from './ouvrage.js';
 
-export const TERRASSE: Ouvrage = { fonction: 'terrasse', libelle: 'Terrasse', famille: 'construit', formes: ['polygon'], particularites: ['construction'], elevation: 0, auMenu: true, horsEquipement: true };
+export const TERRASSE: Ouvrage = { fonction: 'terrasse', libelle: 'Terrasse', famille: 'construit', formes: ['polygon'], particularites: ['construction'], elevation: 0, auMenu: true, horsEquipement: true,
+  dossierPiscine: { masse: true } };

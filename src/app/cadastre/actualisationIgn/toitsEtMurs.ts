@@ -3,6 +3,7 @@
 // garde tel quel (batiments verifies sur place, objets retouches a la main).
 // Un morceau de app/cadastre/actualisationIgn.ts, qui le reexporte : le reste du programme importe depuis lui.
 
+import { estOuvrage, BATIMENT } from '../../../model/ouvrages/index.js';
 import { etape, type ContexteActualisation } from './progression.js';
 import { volumesParDefaut } from '../../../model/volumesToit.js';
 import { couleursToitsDepuisOrtho } from '../../../render/couleurToitOrtho.js';
@@ -11,6 +12,7 @@ import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../rende
 import { materiauMurs } from '../../../model/couleurMur.js';
 import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture } from '../../../model/protections.js';
 import { nombreFr } from '../../../util/format.js';
+import { centroid, pointInPolygon } from '../../../geometry/basic.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation } from '../../../geo/bdtopo.js';
 import { toitActualise, attributsToitBdTopo } from '../../../model/toitBdTopo.js';
 import { COUCHE_BATIMENT } from '../../../geo/apiIgn.js';
@@ -53,6 +55,19 @@ export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsAc
   const garde = (o: ObjetBrut) => { const n = origineActuelle(o, 'contour', contexteActualisation(o, options)); return n !== 'dessine' && NIVEAU_ORIGINE[n] <= NIVEAU.surPlace; };
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
+}
+
+/** Un batiment pose sur la parcelle du projet : importe pour elle, ou dont le centre tombe dessus (dessine compris). */
+export function batimentSurLaParcelle(o: ObjetBrut, parcelle: PtBrut[]): boolean {
+  if(!estOuvrage(o, BATIMENT)) return false;
+  if((o.bdtopo as { surParcellePrincipale?: unknown } | null | undefined)?.surParcellePrincipale === true) return true;
+  const pts = o.type === 'polygon' ? (o as Partial<ObjetPolygone>).pts : undefined;
+  return !!pts && pts.length >= 3 && pointInPolygon(centroid(pts), parcelle);
+}
+
+/** Un batiment que la BD TOPO rattache desormais a la parcelle : il porte l'identifiant d'un batiment frais de la parcelle. */
+export function batimentRattache(o: ObjetBrut, ids: ReadonlySet<string | undefined>): boolean {
+  return estOuvrage(o, BATIMENT) && ids.has((o.bdtopo as { id?: string } | null | undefined)?.id);
 }
 
 /** Ce que la personne a demande a cette actualisation pour cet objet : « Recalculer aussi » les verifies, reprendre la version de l'IGN. */
@@ -106,7 +121,7 @@ export async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bi
 async function couleursDesMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation): Promise<void> {
   etape('la couleur des murs sur les photos de rue…');
   const b = await (ctx.couleursMurs ?? couleursMursDepuisPhotos)(objets, proj).catch(() => null);
-  const materiaux = objets.filter((o) => o.fonction === 'batiment' && materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)).length;
+  const materiaux = objets.filter((o) => estOuvrage(o, BATIMENT) && materiauMurs((o.bdtopo as { materiauxMurs?: unknown } | null | undefined)?.materiauxMurs)).length;
   const texte = texteBilanCouleursMurs(b, materiaux);
   if (texte) bilan.push(texte);
 }

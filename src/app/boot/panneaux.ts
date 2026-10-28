@@ -22,7 +22,7 @@ import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { EXPOSITION } from '../exposition.js';
 import { APP_VERSION } from '../../model/version.js';
-import { PREFIXE_ECHANTILLON, type SourceControleurs } from '../administration/controleurs.js';
+import { PREFIXE_ECHANTILLON, FAMILLE_SANS_FONCTION, type SourceControleurs } from '../administration/controleurs.js';
 import type { ChampChoix } from '../../ui/champs/types.js';
 import type { RegistreCommandes } from '../commandes.js';
 import type { GraineDemarrage } from './graines.js';
@@ -77,7 +77,7 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
 export function sourceControleurs(commandes: RegistreCommandes, inspecteur: Inspecteur, objets: ObjetPlan[], ecran: NonNullable<SourceControleurs['ecran']>): SourceControleurs {
   const sortes = new Map<string, ObjetPlan>();
   for (const o of objets) {
-    const cle = o.type + '.' + (o.fonction || 'aucune');
+    const cle = o.type + '.' + (o.fonction || FAMILLE_SANS_FONCTION);
     if (!sortes.has(cle)) sortes.set(cle, o);
   }
   return {

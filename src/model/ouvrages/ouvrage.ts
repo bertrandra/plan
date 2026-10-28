@@ -38,8 +38,24 @@ export interface Ouvrage {
   elevation?: number;
   /** Propose dans le menu « Fonction » de l'inspecteur : un point de vue ne se choisit pas, il se cree. */
   auMenu: boolean;
+  /**
+   * L'inspecteur le nomme par son libelle plutot que par sa forme : un point de vue est techniquement un chemin a deux points, mais
+   * personne ne le pense comme « un chemin ».
+   */
+  nommeParSaFonction?: true;
   /** Ne compte pas comme equipement pose sur une terrasse (le dossier PDF les liste). */
   horsEquipement?: boolean;
+  /**
+   * Ce que le dossier de declaration d'une piscine (export/dossierPiscine.ts) dessine de lui autour du bassin : `situation`, il
+   * situe le terrain au plan de situation (les terrains y sont toujours) ; `masse`, c'est une construction de la propriete, au plan
+   * de masse.
+   */
+  dossierPiscine?: { situation?: true; masse?: true };
+  /**
+   * Ses reglages au format de projet qui gardent une valeur sur un objet de toute fonction (la creation les pose par defaut) :
+   * un objet du voisinage d'un autre ouvrage s'enregistre sans eux (io/serialisation.ts).
+   */
+  reglagesAuFichier?: readonly string[];
   /**
    * Il n'a pas d'emprise pleine : l'herbe de la Vue 3D pousse dessous (un terrain, un point de vue, un arbre dont l'herbe pousse
    * sous le houppier, un parasol dont seul le mat touche le sol, un trou de terrasse qui garde un arbre).
