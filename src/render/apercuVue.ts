@@ -5,7 +5,8 @@
 // d'octobre 2026). Pendant le geste, on deplace et on agrandit donc d'un coup ce qui est deja dessine,
 // par une seule transformation de la racine SVG ; le plan se redessine net une fois le geste pose
 // (DELAI_APERCU_MS sans mouvement). Les traits et les textes grossissent un instant, puis reprennent
-// leur taille : c'est ce que font les cartes en ligne.
+// leur taille : c'est ce que font les cartes en ligne. Depuis l'etape 6.5, un deplacement seul n'est plus qu'un decalage du repere
+// du dessin (render/repere.ts) : il ne passe ici que si son propre rendu est lent ; le zoom, lui, redessine ce qui depend de l'echelle.
 
 import type { EtatScene } from '../geometry/vue.js';
 
