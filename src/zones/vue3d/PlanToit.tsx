@@ -8,8 +8,8 @@
 // corps n'ont pas de polygone a eux : ils suivent leur corps.
 
 import { useEffect, useState } from 'react';
-import { useStore } from 'zustand';
 import { altitudeDuBatiment, etatToit, sessionToit } from '../../app/toits/modeToit.js';
+import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import { rangsDeCorps } from '../../facade/modeToit/corpsNeufs.js';
 import { ligneDeFaitage, marqueursDuCorps, type Marqueur } from '../../facade/modeToit/planCorps.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
@@ -27,7 +27,8 @@ function MarqueurPlan({ m, x, y }: { m: Marqueur; x: number; y: number }) {
 }
 
 export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: RegistreCommandes }) {
-  useStore(magasin.store, (s) => s.version);
+  // Hors d'une session du toit, rien a montrer : la zone ne suit pas les rendus du plan ; en session, elle les suit tous.
+  useCle(magasin, 'plan du toit', (s) => (sessionToit() ? String(s.version) : CLE_GELEE));
   const [, redessiner] = useState(0);
   useEffect(() => {
     let derniere = '';

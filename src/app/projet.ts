@@ -17,6 +17,7 @@ import { CAPACITES } from '../plateforme/capacites.js';
 import { showConfirm, showPrompt, showToast, showErrBanner } from '../shell/dialogs.js';
 import { dialogues } from '../shell/dialogues.js';
 import { schemaAEcrire, migrationsDepuis } from '../model/migrations.js';
+import { cleDesObjets } from '../ui/clePlan.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../model/version.js';
 import type { ObjetSerialise } from '../model/creation.js';
 import type { EtatApp } from '../core/state.js';
@@ -199,6 +200,8 @@ const heure = (iso: string | number) => new Date(iso).toLocaleTimeString('fr-FR'
 
 export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Magasin, cmd: RegistreCommandes): Projet {
   const courant = seed.meta ?? null;
+  // La reponse de `enRetard`, reprise tant que le plan n'a pas change (voir plus bas) ; declaree avant le premier `publier()`.
+  let retard: { cle: string; valeur: boolean } | null = null;
   let enregistreA = courant && courant.updatedAt ? 'Enregistré à ' + heure(courant.updatedAt) : '';
   let echec = '';
 
@@ -218,9 +221,15 @@ export function creerProjet(seed: SeedProjet, ctx: ContexteProjet, magasin: Maga
     location.href = ctx.withProjectParam(id);
   }
 
-  /** Le projet ouvert est d'un schema anterieur au programme, et ce qu'il porte ne l'a pas deja monte. */
+  /**
+   * Le projet ouvert est d'un schema anterieur au programme, et ce qu'il porte ne l'a pas deja monte. Repris tant que le plan n'a
+   * pas change (ui/clePlan.ts) : le schema minimal parcourt tous les objets, et l'etat de la commande se lit a chaque rendu du plan.
+   */
   function enRetard(): boolean {
-    return seed.apiAvailable && !!courant && schemaAEcrire(ctx.etat.objects, ctx.etat.schemaProjet) < SCHEMA_VERSION;
+    if (!seed.apiAvailable || !courant) return false;
+    const cle = cleDesObjets(ctx.etat.objects) + '|' + ctx.etat.schemaProjet;
+    if (retard?.cle !== cle) retard = { cle, valeur: schemaAEcrire(ctx.etat.objects, ctx.etat.schemaProjet) < SCHEMA_VERSION };
+    return retard.valeur;
   }
 
   const charge = () => chargeDuProjet(ctx);

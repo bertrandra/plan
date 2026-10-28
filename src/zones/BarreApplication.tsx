@@ -26,11 +26,13 @@ import type { RegistreCommandes } from '../app/commandes.js';
 import type { Projet } from '../app/projet.js';
 import type { Tiroir } from '../app/tiroir.js';
 import type { Vue } from '../app/modes.js';
+import type { EtatApp } from '../core/state.js';
 import { lectureToits } from '../core/lectureToits.js';
 import { LECTURE_MURS_EN_FOND } from '../app/toits/mursFond.js';
 import { Icone } from './icones.js';
 import { EnteteFeuille } from './composants/Feuille.js';
 import { texteStatutCourt } from './statut.js';
+import { useCle, useMagasinZone } from './composants/abonnement.js';
 import { APP_VERSION, versionLongue } from '../model/version.js';
 
 export interface PropsBarreApplication {
@@ -76,6 +78,8 @@ function Deroulant({ id, titre, children }: { id: string; titre: string; childre
 function useEtatCommande(commandes: RegistreCommandes, id: string): ReturnType<RegistreCommandes['etat']> {
   const ouvert = useContext(MenuOuvert);
   const lu = useRef<ReturnType<RegistreCommandes['etat']> | null>(null);
+  // L'entree ne se redessine que si l'etat de sa commande change ; menu ferme, elle ne le relit pas.
+  useCle(useMagasinZone(), 'commande ' + id, () => (ouvert || !lu.current ? JSON.stringify(commandes.etat(id)) : 'ferme'));
   if (ouvert || !lu.current) lu.current = commandes.etat(id);
   return lu.current;
 }
@@ -198,16 +202,14 @@ function MenuExporter({ magasin, commandes, tiroir }: PropsMenu & { tiroir: Tiro
   );
 }
 
-/** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
-function MenuAffichage({ magasin, commandes }: PropsMenu) {
-  useStore(magasin.store, (s) => s.version);
-  const etat = magasin.store.getState().etat;
+/** Les bascules du menu Affichage : identifiant, libelle, cochee, visible. */
+function basculesAffichage(etat: EtatApp, commandes: RegistreCommandes): [string, string, boolean, boolean][] {
   const aDuVoisinage = etat.objects.some((o) => o.voisinage);
   const relief = reliefDe(etat.objects);
   const parcelle = parcelleDuProjet(etat.objects);
   // Une bascule dont l'organisation n'a pas la capacite s'efface, comme toute entree de menu : le
   // fond orthophoto restait visible sans l'abonnement (spec-ihm-mobile, D8).
-  const bascules: [string, string, boolean, boolean][] = ([
+  return ([
     ['affichage.nord', 'Flèche Nord', etat.showNorth, true],
     ['affichage.grille', 'Grille', etat.grilleVisible, true],
     ['affichage.voisinage', 'Voisinage', etat.voisinageVisible, aDuVoisinage],
@@ -219,6 +221,12 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
     // La position GPS de l'appareil, suivie dans la Vue 3D : decochee par defaut, jamais enregistree.
     ['affichage.positionGps', 'Ma position (3D)', etat.positionGps, true]
   ] as [string, string, boolean, boolean][]).map(([id, l, c, v]) => [id, l, c, v && !commandes.effacee(id)]);
+}
+
+/** Le menu Affichage : les bascules, chacune une commande cochee d'apres l'etat, et le fond orthophoto. */
+function MenuAffichage({ magasin, commandes }: PropsMenu) {
+  useCle(magasin, 'menu Affichage', (s) => JSON.stringify([basculesAffichage(s.etat, commandes), ortho.opacite, ortho.parcelleOpacite]));
+  const bascules = basculesAffichage(magasin.store.getState().etat, commandes);
   const curseur = (id: string, idDom: string, idTexte: string, libelle: string, valeur: number, min: number, titre: string) => (
     <li className="menuReglage" title={titre}>
       <label>{libelle}
@@ -249,7 +257,7 @@ function MenuAffichage({ magasin, commandes }: PropsMenu) {
 }
 
 function MenuAide({ magasin, tiroir }: { magasin: Magasin; tiroir: Tiroir }) {
-  useStore(magasin.store, (s) => s.version);
+  useCle(magasin, 'menu Aide', () => String(tiroir.onglets().some(o => o.id === 'methode')));
   const methode = tiroir.onglets().some(o => o.id === 'methode');
   return (
     <Deroulant id="menuAide" titre="Aide">
@@ -473,7 +481,13 @@ export function BarreApplication({ magasin, commandes, projet, tiroir }: PropsBa
   const classe = useStore(magasin.store, (s) => s.classe);
   const feuille = useStore(magasin.store, (s) => s.feuille);
   const peutAnnuler = useStore(magasin.store, (s) => s.peutAnnuler);
-  useStore(magasin.store, (s) => s.version);
+  // Ce que la barre lit du plan : l'etat de « Enregistrer », la lecture seule, les vues et Annuler offerts ou non, et qui est
+  // connecte (le compte et le menu Admin). Les entrees des menus suivent chacune leur commande.
+  useCle(magasin, 'barre d\'application', (s) => {
+    const c = contexteCourant()?.courant();
+    return JSON.stringify([commandes.etat('projet.enregistrer'), s.etat.lectureSeule, Object.values(COMMANDE_DE_VUE).map((id) => commandes.effacee(id)),
+      commandes.effacee('objet.annuler'), enAdmin(), estAdministrateur(), c ? [c.user.display_name, c.user.email, c.tenant.name, c.tenant.slug] : null]);
+  });
   const executer = (id: string) => (e: React.MouseEvent<HTMLButtonElement>) => { commandes.executer(id, e.currentTarget); };
   const enregistrement = p.statut === 'enregistrement';
   // Comme toute commande : grise en lecture seule (le droit d'ecrire manque) ou sans projet ouvert,

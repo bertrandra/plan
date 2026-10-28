@@ -2,7 +2,8 @@
 import { describe, it, expect } from 'vitest';
 import { createElement, act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useVersionVisible, type ZoneMasquable } from '../../../src/zones/composants/versionVisible.js';
+import type { ZoneMasquable } from '../../../src/zones/composants/versionVisible.js';
+import { useCle } from '../../../src/zones/composants/abonnement.js';
 import { creerMagasin, type Magasin } from '../../../src/app/magasin.js';
 import type { EtatApp } from '../../../src/core/state.js';
 
@@ -14,12 +15,12 @@ import type { EtatApp } from '../../../src/core/state.js';
 function monter(magasin: Magasin, zone: ZoneMasquable): { rendus: () => number; vue: () => string } {
   let n = 0;
   const hote = document.createElement('div');
-  function Zone() { n++; useVersionVisible(magasin, zone); return createElement('span', null, String(magasin.version())); }
+  function Zone() { n++; useCle(magasin, 'essai', (s) => String(s.version), zone); return createElement('span', null, String(magasin.version())); }
   act(() => { createRoot(hote).render(createElement(Zone)); });
   return { rendus: () => n, vue: () => hote.textContent ?? '' };
 }
 
-describe('useVersionVisible', () => {
+describe('une zone qui peut se cacher (useCle)', () => {
   it('au telephone, feuille fermee : aucun rendu ; a l ouverture : l etat du moment', () => {
     const magasin = creerMagasin({} as EtatApp);
     act(() => { magasin.definirClasse('compact'); });

@@ -43,11 +43,19 @@ function champQuiDiffere(a: string, b: string): string {
   } catch { return '?'; }
 }
 
-/** La cle du plan : la meme tant que rien n'a ete ecrit. */
-export function cleDuPlan(objets: readonly ObjetPlan[]): string {
+/**
+ * La cle des objets seule, sans le garde-fou : celle que les zones mettent dans leur cle (zones/composants/abonnement.ts), qui ont
+ * le leur (elles comparent leur affichage).
+ */
+export function cleDesObjets(objets: readonly ObjetPlan[]): string {
   let t = tableaux.get(objets);
   if (t === undefined) { t = ++prochainTableau; tableaux.set(objets, t); }
-  const cle = t + ':' + versionEnsemble();
+  return t + ':' + versionEnsemble();
+}
+
+/** La cle du plan : la meme tant que rien n'a ete ecrit. */
+export function cleDuPlan(objets: readonly ObjetPlan[]): string {
+  const cle = cleDesObjets(objets);
   if (verifier()) {
     const plan = new Map(objets.map((o) => [o.key, JSON.stringify(o, grilleParIdentite)]));
     const avant = vus.get(cle);

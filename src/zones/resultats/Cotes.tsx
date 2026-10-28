@@ -13,7 +13,7 @@ import { cleDuPlan } from '../../ui/clePlan.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
 import { memo as memoReact } from 'react';
-import { useVersionVisible } from '../composants/versionVisible.js';
+import { useCle, cleEtat } from '../composants/abonnement.js';
 
 /**
  * Le brouillon d'une cote : reference, origine, coins, puis l'ajout. Chaque geste est une commande
@@ -55,10 +55,10 @@ let memo: { cle: string; relief: boolean; lignes: Map<string, LigneCalculee> } =
 
 /**
  * Le tableau des cotes posees : ce qui se calcule (longueurs, denivele sur le relief, ligne du profil). Il ne suit le plan que tiroir
- * visible (`version`, zones/composants/versionVisible.ts) ; cache, il garde ce qu'il montrait et se refait a l'ouverture. Le brouillon,
+ * visible (`version`, sa cle : zones/composants/abonnement.ts) ; cache, il garde ce qu'il montrait et se refait a l'ouverture. Le brouillon,
  * au-dessus, reste vivant : ses boutons servent feuille fermee.
  */
-const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes; version: number }) {
+const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { resultats: Resultats; commandes: RegistreCommandes; version: string }) {
   const cotes = resultats.etat.measures;
   const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
@@ -111,7 +111,8 @@ const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { res
 });
 
 export function Cotes({ magasin, resultats, commandes }: { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }) {
-  const version = useVersionVisible(magasin, 'resultats');
+  // Le tableau ne se refait que si le plan, les cotes ou le droit d'ecrire changent, tiroir visible.
+  const version = useCle(magasin, 'tableau des cotes', (s) => cleEtat(s) + commandes.etat('mesure.supprimer').utilisable, 'resultats');
   return (
     <>
       <div className="sectionTitle">Mesure</div>

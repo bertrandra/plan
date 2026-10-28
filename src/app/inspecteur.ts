@@ -7,6 +7,7 @@
 
 import { mesure } from '../interaction/outilMesure.js';
 import { cibleAlignement } from '../interaction/outilAlignement.js';
+import { toucher } from '../core/controleurObjets.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { vue3d } from '../three/etat3d.js';
 import { ouvrirSelecteurTexture } from './parcours.js';
@@ -123,6 +124,9 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       // L'instantane est pris avant d'ecrire, et empile seulement si l'ecriture n'est pas refusee.
       const empiler = doitEmpiler(champ, c) ? ctx.preparerHistorique() : null;
       if (ecrire() === false) { magasin.notifier(); return false; }
+      // L'ecriture nomme son objet (core/controleurObjets.ts) : un reglage d'affichage (`sale: false`) ne passe pas par
+      // l'historique, et sans cela ni le plan ni l'inspecteur (zones/composants/abonnement.ts) ne le verraient changer.
+      toucher(c.obj);
       if (empiler) empiler();
       if (champAnnulable(champ)) dernier = { cle: cleDe(champ, c), t: Date.now() };
       if (champ.sale !== false || (champ.enregistre && !etat.lectureSeule)) ctx.markDirty();
@@ -135,6 +139,7 @@ export function creerInspecteur(etat: EtatApp, ctx: ContexteInspecteur, magasin:
       // Un bouton qui ecrit le projet est grise en lecture seule ; il est refuse ici aussi.
       if (champ.type !== 'bouton' || (etat.lectureSeule && ecritLeProjet(champ))) return;
       champ.executer(c);
+      toucher(c.obj);
       magasin.notifier();
     },
     basculerOuverture() {

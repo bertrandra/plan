@@ -7,6 +7,7 @@
 
 import { useStore } from 'zustand';
 import { Icone, type NomIcone } from './icones.js';
+import { useCle } from './composants/abonnement.js';
 import type { Feuille, Magasin } from '../app/magasin.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 
@@ -27,7 +28,7 @@ export function BarreNavigation({ magasin, commandes }: PropsBarreNavigation) {
   const classe = useStore(magasin.store, (s) => s.classe);
   const vue = useStore(magasin.store, (s) => s.vue);
   const feuille = useStore(magasin.store, (s) => s.feuille);
-  useStore(magasin.store, (s) => s.version);
+  useCle(magasin, 'barre de navigation', () => JSON.stringify([commandes.effacee('mesure.nouvelle'), commandes.etat('mesure.nouvelle')]));
   if (classe !== 'compact' || vue !== 'plan') return null;
   const coter = commandes.etat('mesure.nouvelle');
   const refusCoter = !coter.utilisable && 'message' in coter ? coter.message : undefined;

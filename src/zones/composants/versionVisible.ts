@@ -12,8 +12,7 @@
 // Au telephone, ces zones cachees se redessinaient a chaque rendu du plan, et c'etait l'essentiel d'un rendu (banc de rendu,
 // octobre 2026 : l'inspecteur seul coutait plus que le plan).
 
-import { useStore } from 'zustand';
-import type { EtatMagasin, Feuille, Magasin } from '../../app/magasin.js';
+import type { EtatMagasin, Feuille } from '../../app/magasin.js';
 
 /** Les zones qui peuvent se cacher : la feuille qui les porte au telephone, et ce qui les replie ailleurs. */
 const ZONES = {
@@ -31,10 +30,4 @@ export function zoneVisible(s: EtatMagasin, zone: ZoneMasquable): boolean {
   return s.classe === 'compact' ? s.feuille === z.feuille : z.depliee(s);
 }
 
-/** La version que lit une zone cachee : constante, donc sans rendu tant qu'elle le reste. */
-const GELEE = -1;
-
-/** A appeler a la place de `useStore(magasin.store, (s) => s.version)` dans une zone qui peut se cacher. */
-export function useVersionVisible(magasin: Magasin, zone: ZoneMasquable): number {
-  return useStore(magasin.store, (s) => (zoneVisible(s, zone) ? s.version : GELEE));
-}
+// Une zone cachee gele sa cle : `useCle(magasin, nom, lire, zone)` (zones/composants/abonnement.ts).
