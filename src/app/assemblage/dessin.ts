@@ -19,8 +19,7 @@ import { dessinerCalquePergolas } from '../../render/pergolaOverlay.js';
 import { dessinerCalquePiscines } from '../../render/piscineOverlay.js';
 import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrasseCouches.js';
 import { toucher } from '../../core/controleurObjets.js';
-import { litLesAbris, litLesParasols, litLesPiscines, litUneTerrasse, rien } from '../../core/lectures.js';
-import { estTerrain } from '../../model/fonctions.js';
+import { lesTerrains, litLesAbris, litLesParasols, litLesPiscines, litUneTerrasse, rien } from '../../core/lectures.js';
 import { creerRepere } from '../../render/repere.js';
 import { elementsRecreesDuPlan } from '../../render/pipeline.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
@@ -111,7 +110,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       for (const m of etat.measures) { visees.add(m.refObjKey); visees.add(m.targetObjKey); }
       if (mesure.ref) visees.add(mesure.ref.objKey);
       for (const c of mesure.cibles) visees.add(c.objKey);
-      const lit = (o: ObjetPlan) => visees.has(o.key) || estTerrain(o);
+      const lit = (o: ObjetPlan) => visees.has(o.key) || lesTerrains(o);
       redessinerSiChange(s.cotes, 'cotes', cleDesCalques(etatDessin(), lit), () =>
         dessinerCotes(s.cotes, { scene: sceneDessin(), objets: etat.objects, mesures: etat.measures, brouillonRef: mesure.ref, brouillonCibles: mesure.cibles }));
     },
