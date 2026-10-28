@@ -54,7 +54,7 @@ export function monterLesPanneaux(p: Plan, atelier: Atelier, ch: ReturnType<type
     applyAngleEdit: gestes.applyAngleEdit, applyLengthEdit: gestes.applyLengthEdit, deleteVertex: gestes.deleteVertex,
     alignObjectByRotation: gestes.alignObjectByRotation, allerAuPointDeVue: vues.allerAuPointDeVue,
     startPick: (mode, multi, but, indice) => resultats.pointer(mode, multi, but, indice),
-    pushHistory: p.pushHistory, preparerHistorique: () => p.historique.preparer(), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
+    pushHistory: p.pushHistory, preparerHistorique: (...objets: object[]) => p.historique.preparer(...objets), render: p.render, markDirty: p.markDirty, refreshTerrasseView: p.refreshTerrasseView,
     buildThreeScene: vues.buildThreeScene, reapplyStackingOrder: p.dessin.reapplyStackingOrder, rebuildHandles: p.dessin.rebuildHandles,
     trouverParcelle: p.affichage.trouverParcelleCloture,
     redimensionner: p.cadrage.redimensionner

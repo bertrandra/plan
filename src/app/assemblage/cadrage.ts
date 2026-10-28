@@ -1,7 +1,8 @@
 // La taille du plan et ce qu'il montre (app/assemblage/) : mesurer la place qu'il a, suivre la
 // fenetre, cadrer un objet dans la partie que les panneaux ne recouvrent pas.
 
-import { cleDesObjets } from '../../core/controleurObjets.js';
+import { cleDesLus } from '../../core/controleurObjets.js';
+import { lesTerrains } from '../../core/lectures.js';
 import { appliquerClasse } from '../classe.js';
 import { cadrerSur, empriseDe, plancherPourEmprise, ZOOM_MIN, ZOOM_MAX } from '../../interaction/navigation.js';
 import { empriseDuCalque } from '../../model/calque.js';
@@ -123,11 +124,11 @@ export function creerCadrage(etat: EtatApp, magasin: Magasin, s: Surface, d: Dep
    * Le calque du plan (model/calque.ts) : les parcelles affichees plus 10 m, la meme emprise que le
    * sol 3D et l'orthophoto. C'est lui que l'ouverture cadre et que le zoom arriere doit contenir.
    */
-  // Reprise tant que le plan et ce qui en masque une part n'ont pas change (core/controleurObjets.ts) : le plancher du zoom la lit a
-  // chaque rendu, et elle parcourt tous les objets.
+  // Reprise tant que les terrains et ce qui en masque une part n'ont pas change (core/controleurObjets.ts, `cleDesLus`) : le plancher
+  // du zoom la lit a chaque rendu, et elle parcourt tous les objets.
   let derniere: { cle: string; emprise: { minX: number; maxX: number; minY: number; maxY: number } | null } | null = null;
   const empriseTerrains = () => {
-    const cle = cleDesObjets(etat.objects) + '|' + etat.voisinageVisible + '|' + etat.isolement;
+    const cle = cleDesLus(etat.objects, lesTerrains) + '|' + etat.voisinageVisible + '|' + etat.isolement;
     if (derniere?.cle === cle) return derniere.emprise;
     const c = empriseDuCalque(etat.objects, d.objetMasque);
     derniere = { cle, emprise: c ? { minX: c.xMin, maxX: c.xMax, minY: c.yMin, maxY: c.yMax } : null };

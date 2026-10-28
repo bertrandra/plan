@@ -56,7 +56,7 @@ export function PlanToit({ magasin, commandes }: { magasin: Magasin; commandes: 
   const actif = commandes.etat('toit.selection').utilisable;
   const ecran = (x: number, y: number, h: number) => { const [a = 0, b = 0] = px(x, y, h).split(',').map(Number); return { x: a, y: b }; };
   return (
-    <svg className="planToit" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Corps du bâtiment">
+    <svg className="planToit" data-suit-la-camera="" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Corps du bâtiment">
       {rangsDeCorps(corps).map((rang) => {
         const c = corps[rang];
         if (!c) return null;

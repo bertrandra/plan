@@ -10,6 +10,7 @@
 import { serializeObjects } from './serialisation.js';
 import type { Mesure, ObjetPlan } from '../model/types.js';
 import { champsParasol } from '../model/champsFonction.js';
+import { versionObjet } from '../core/controleurObjets.js';
 
 /** Ce qui distingue deux objets sans les rendre differents : l'identite, le nom et l'etat d'affichage. */
 const IGNORES = new Set(['key', 'name', 'locked', 'hidden', 'showName', 'showSegNames', 'showVertNames', 'showDims', 'showAngles']);
@@ -26,6 +27,20 @@ function normalise(v: unknown): unknown {
   return v;
 }
 
+// La forme au centimetre de chaque objet, reprise tant que sa version n'a pas change (core/controleurObjets.ts) : un glisser ne
+// refait que celle de l'objet glisse, pas celles des 600 autres (etape 6.5).
+const formes = new WeakMap<object, { version: string; forme: string }>();
+function formeDe(o: ObjetPlan): string {
+  const version = versionObjet(o);
+  const m = formes.get(o);
+  if (m && m.version === version) return m.forme;
+  const forme = JSON.stringify(normalise(o.type === 'circle'
+    ? [o.type, null, { x: o.center.x, y: o.center.y }, o.r]
+    : [o.type, o.pts.map((p) => ({ x: p.x, y: p.y })), null, null]));
+  formes.set(o, { version, forme });
+  return forme;
+}
+
 /** Les groupes d'objets identiques, dans l'ordre du plan. */
 export function trouverDoublons(objets: readonly ObjetPlan[]): GroupeDoublons[] {
   // Calcule a chaque rendu du menu (l'entree se grise sans doublon) : la parcelle, qui n'en est jamais un et porte la grille du
@@ -33,13 +48,10 @@ export function trouverDoublons(objets: readonly ObjetPlan[]): GroupeDoublons[] 
   // serialisation en recopie les memes nombres) ; seuls les objets qui partagent leur forme sont serialises, pour la signature
   // entiere (MD/roadmap-architecture.md, etape 2.1).
   const candidats = objets.filter((o) => o.key !== 'parcelle');
-  const forme = (o: ObjetPlan) => JSON.stringify(normalise(o.type === 'circle'
-    ? [o.type, null, { x: o.center.x, y: o.center.y }, o.r]
-    : [o.type, o.pts.map((p) => ({ x: p.x, y: p.y })), null, null]));
-  const formes = candidats.map(forme);
+  const lues = candidats.map(formeDe);
   const parForme = new Map<string, number>();
-  for (const f of formes) parForme.set(f, (parForme.get(f) ?? 0) + 1);
-  const partagent = candidats.filter((_, i) => (parForme.get(formes[i] as string) ?? 0) > 1);
+  for (const f of lues) parForme.set(f, (parForme.get(f) ?? 0) + 1);
+  const partagent = candidats.filter((_, i) => (parForme.get(lues[i] as string) ?? 0) > 1);
   const brut = serializeObjects(partagent) as unknown as Record<string, unknown>[];
   const parSignature = new Map<string, ObjetPlan[]>();
   partagent.forEach((o, i) => {

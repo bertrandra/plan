@@ -17,7 +17,7 @@ import { useStore } from 'zustand';
 import { champsVisibles } from '../ui/champs/types.js';
 import type { ContexteChamps, Section } from '../ui/champs/types.js';
 import type { Magasin } from '../app/magasin.js';
-import { useCle, cleEtat, cleCommandes } from './composants/abonnement.js';
+import { useCle, cleEtatEtObjets, cleCommandes } from './composants/abonnement.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Inspecteur as ServiceInspecteur } from '../app/inspecteur.js';
 import type { Tiroir } from '../app/tiroir.js';
@@ -169,7 +169,7 @@ function Familles({ presentes, active, choisir }: { presentes: Famille[]; active
 export function Inspecteur({ magasin, commandes, inspecteur, tiroir }: PropsInspecteur) {
   // Le plan (les champs lisent l'objet choisi et ceux qui l'entourent), l'etat des outils, et les commandes que ses boutons lient ;
   // gele tant que l'inspecteur est cache. Ses ecritures touchent leur objet (app/inspecteur.ts).
-  useCle(magasin, 'inspecteur', (s) => cleEtat(s) + cleCommandes(s, commandes), 'inspecteur');
+  useCle(magasin, 'inspecteur', (s) => cleEtatEtObjets(s) + cleCommandes(s, commandes), 'inspecteur');
   const ouvertStore = useStore(magasin.store, (s) => s.inspecteurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

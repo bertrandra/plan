@@ -10,7 +10,7 @@
 // Il tient aussi trois etats d'interface qui ne s'enregistrent pas : le texte de la zone Resume,
 // l'interrogation du PLU en cours, et l'ouverture du bloc d'optimisation de l'inspecteur.
 
-import { toucher } from '../core/controleurObjets.js';
+import { LES_COTES, toucherForme } from '../core/controleurObjets.js';
 import { computeBOM } from '../engine/bom.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { computeTerrasseLayers } from '../engine/layers.js';
@@ -26,8 +26,8 @@ import type { Magasin } from './magasin.js';
 
 /** Ce que le service doit pouvoir declencher ailleurs. */
 export interface ContexteResultats {
-  pushHistory: () => void;
-  markDirty: () => void;
+  pushHistory: (...objets: object[]) => void;
+  markDirty: (...objets: object[]) => void;
   render: () => void;
   /** La terrasse dont le tiroir montre les resultats, ou aucune. */
   terrasseCourante: () => ObjetPlan | undefined;
@@ -109,7 +109,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     if (obj) {
       const c = ensureConstruction(obj);
       c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
-      toucher(obj); // la nomenclature est ecrite dans l'objet : l'ecriture le nomme (core/controleurObjets.ts)
+      toucherForme(obj); // la nomenclature, ecrite dans l'objet, se calcule de sa forme : ses attributs ne changent pas
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();
@@ -117,9 +117,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
 
   /** Une ecriture sur les cotes : annulable, projet modifie, plan redessine (il les dessine). */
   function ecrireCotes(ecrire: () => void): void {
-    ctx.pushHistory();
+    ctx.pushHistory(LES_COTES); // seules les cotes changent : aucun objet n'est touche (core/controleurObjets.ts)
     ecrire();
-    ctx.markDirty();
+    ctx.markDirty(LES_COTES);
     ctx.render();
   }
 
@@ -134,9 +134,10 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     saisir(ecrire) {
       // La lecture seule refuse les saisies du tiroir, comme l'inspecteur ses champs.
       if (etat.lectureSeule) { magasin.notifier(); return; }
-      ctx.pushHistory();
+      const terrasse = ctx.terrasseCourante(), nommes = terrasse ? [terrasse] : []; // le tiroir n'ecrit que la terrasse courante
+      ctx.pushHistory(...nommes);
       ecrire();
-      ctx.markDirty();
+      ctx.markDirty(...nommes);
       actualiserTerrasse();
       ctx.render();
     },
@@ -199,9 +200,9 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
       magasin.notifier();
       try {
         const plu = await interrogerPlu(lieu.longitude, lieu.latitude);
-        ctx.pushHistory();
+        ctx.pushHistory(parcelle);
         parcelle.plu = plu;
-        ctx.markDirty();
+        ctx.markDirty(parcelle);
         const n = plu.zones.length, zone = plu.zones[0];
         showToast(zone ? ('PLU : zone ' + zone.libelle + (n > 1 ? ' (+' + (n - 1) + ' autre(s))' : '') + '.')
                     : 'PLU : aucun zonage renvoye pour ce point.');

@@ -62,7 +62,7 @@ export const sectionParasol: Section = {
         setTimeout(() => {
           const res = chercherMeilleurePositionParasol(obj, c.contexteSoleil(), c.objets);
           if (!res) { c.toast('Pas de position calculable (soleil trop bas ou terrasse trop petite).'); return; }
-          c.pushHistory();
+          c.pushHistory(obj);
           const toile = enCercle(obj); toile.center.x = res.x; toile.center.y = res.y;
           if (obj.parasol?.matDeporte && res.angleDeg !== undefined) champsParasol(obj).matAngleDeg = res.angleDeg;
           c.render();

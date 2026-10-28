@@ -22,7 +22,21 @@ import type { Magasin } from '../../app/magasin.js';
 import type { Resultats } from '../../app/resultats.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import { mesure } from '../../interaction/outilMesure.js';
-import { useCle, cleEtat } from '../composants/abonnement.js';
+import { useCle, cleEtat, cleDesCotes } from '../composants/abonnement.js';
+import { cleDesLus, cleDesObjets } from '../../core/controleurObjets.js';
+import { litUneTerrasse } from '../../core/lectures.js';
+import type { EtatMagasin } from '../../app/magasin.js';
+
+/**
+ * Ce que l'onglet actif lit du plan : une terrasse (son calcul, core/lectures.ts), les objets que visent les cotes, ou tout le plan
+ * (le resume, le PLU, le profil, les ouvrages).
+ */
+function cleDesObjetsLus(s: EtatMagasin): string {
+  const onglet = ONGLETS.find(o => o.id === s.etat.panelTab);
+  if (onglet?.groupe === 'terrasse') return cleDesLus(s.etat.objects, litUneTerrasse);
+  if (onglet?.id === 'mesure') return cleDesCotes(s);
+  return cleDesObjets(s.etat.objects);
+}
 
 /** `inspecteur` : le service qui ecrit les champs des onglets d'un ouvrage (prix d'une piscine, d'un abri). */
 export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes; inspecteur: ServiceInspecteur }
@@ -30,7 +44,7 @@ export interface PropsPanneaux { magasin: Magasin; resultats: Resultats; command
 export function PanneauxResultats({ magasin, resultats, commandes, inspecteur }: PropsPanneaux) {
   // Le plan, l'etat d'interface que tient le service des resultats (PLU en cours, resume, optimisation, ligne du profil), et le
   // brouillon de la cote. Les boutons de commande suivent chacun la leur.
-  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + JSON.stringify([resultats.pluEnCours(), resultats.resume().affichage,
+  useCle(magasin, 'panneaux des résultats', (s) => cleEtat(s) + cleDesObjetsLus(s) + JSON.stringify([resultats.pluEnCours(), resultats.resume().affichage,
     resultats.optimisationVisible(), resultats.ligneProfil(), resultats.lieu(), mesure.pointage?.mode, mesure.ref, mesure.startEnd, mesure.cibles,
     ['mesure.choisirReference', 'mesure.origine', 'mesure.selectionnerCoins', 'mesure.ajouter', 'mesure.afficher', 'mesure.supprimer'].map((id) => commandes.etat(id).utilisable)]));
   const actif = magasin.store.getState().etat.panelTab;

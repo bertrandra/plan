@@ -29,14 +29,14 @@ import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 
 export interface DependancesGestes {
-  pushHistory: () => void;
+  pushHistory: (...objets: object[]) => void;
   render: () => void;
   rebuildSelector: () => void;
   rebuildHandles: (obj: ObjetPlan) => void;
   createObjectDOM: (obj: ObjetPlan) => void;
   reapplyStackingOrder: () => void;
   /** Le projet a change sans pas d'annulation (le marque d'une retouche a la main, interaction/retoucheTerrain.ts). */
-  markDirty: () => void;
+  markDirty: (...objets: object[]) => void;
   /** La question avant de retoucher un objet venu du cadastre ou de l'IGN ; par defaut le dialogue Z8. */
   confirmer?: (message: string, oui: () => void) => void;
   mesures: Mesures;
@@ -73,7 +73,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       if (borne && !pointInPolygon(nouveau, borne)) return;
       // Venu du cadastre ou de l'IGN : la retouche demande d'abord l'accord (interaction/retoucheTerrain.ts).
       avecAccordDeRetouche(obj, accord, () => {
-        d.pushHistory();
+        d.pushHistory(obj);
         deforme(obj, () => insererSommet(aPoints(obj), segIndex, clic));
         d.rebuildHandles(obj);
         d.render();
@@ -83,7 +83,7 @@ export function creerGestes(etat: EtatApp, d: DependancesGestes) {
       // Une forme garde toujours assez de sommets pour rester valide.
       if (obj.locked || enPoints(obj).pts.length <= minimumSommets(obj.type)) return;
       avecAccordDeRetouche(obj, accord, () => {
-        d.pushHistory();
+        d.pushHistory(obj);
         deforme(obj, () => supprimerSommet(aPoints(obj), idx));
         d.rebuildHandles(obj);
         d.render();

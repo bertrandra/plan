@@ -141,7 +141,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const cible: CibleGlisser | null = oeil ? cibleDesPoignees(corps, e.selection, { dessus: plan, facade: f, oeil }) : null;
   // Le corps choisi : sa silhouette, sur le mur de ses poignees, tracee lisible (de dessus, le plan le montre deja).
   const silhouette = !plan && oeil && e.selection?.type === 'corps' && cible?.type === 'facade' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o), oeil, cible.mur) : null;
-  const seule = () => (silhouette ? <svg className="poigneesToit" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
+  const seule = () => (silhouette ? <svg className="poigneesToit" data-suit-la-camera="" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
   if (!cible) return seule();
   const cadre = cadreDe(corps, cible);
   const poignees = poigneesDe(corps, cible);
@@ -176,7 +176,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   };
 
   return (
-    <svg className="poigneesToit" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
+    <svg className="poigneesToit" data-suit-la-camera="" width={r.width} height={r.height} viewBox={'0 0 ' + r.width + ' ' + r.height} aria-label="Poignées de l’élément choisi">
       {silhouette && <TraitCorps pts={silhouette} />}
       {guides.map((g) => {
         const a = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: 0 }, base), b = projeter({ x: cadre.o.x + cadre.u.x * g, y: cadre.o.y + cadre.u.y * g, z: (corps[0]?.faitage ?? 5) + 0.5 }, base);

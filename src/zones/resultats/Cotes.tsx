@@ -9,11 +9,12 @@ import { mesure } from '../../interaction/outilMesure.js';
 import { deniveleCote, geometrieMesure, reliefDesCotes, texteDenivele } from '../../render/measures.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import type { LigneProfil, Resultats } from '../../app/resultats.js';
-import { cleDuPlan } from '../../ui/clePlan.js';
+import { cleDuPlanLu } from '../../ui/clePlan.js';
+import { estTerrain } from '../../model/fonctions.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { Magasin } from '../../app/magasin.js';
 import { memo as memoReact } from 'react';
-import { useCle, cleEtat } from '../composants/abonnement.js';
+import { useCle, cleEtat, cleDesCotes } from '../composants/abonnement.js';
 
 /**
  * Le brouillon d'une cote : reference, origine, coins, puis l'ajout. Chaque geste est une commande
@@ -63,7 +64,9 @@ const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { res
   const objets = resultats.etat.objects;
   // Les gestes sur une cote existante modifient le projet : grises sans le droit d'ecrire.
   const ecrire = commandes.etat('mesure.supprimer').utilisable;
-  const cle = cleDuPlan(objets);
+  // Les objets que les cotes visent, et les terrains (le relief du denivele) : ce que le tableau lit du plan.
+  const visees = new Set(cotes.flatMap((m) => [m.refObjKey, m.targetObjKey]));
+  const cle = cleDuPlanLu(objets, (o) => visees.has(o.key) || estTerrain(o)) + '|' + [...visees].join(',');
   // Avec un relief, chaque cote dit son denivele et peut donner sa ligne au profil du sol (§5.2, §5.4).
   if (memo.cle !== cle) memo = { cle, relief: !!reliefDesCotes(objets), lignes: new Map() };
   const relief = memo.relief;
@@ -111,8 +114,8 @@ const TableCotes = memoReact(function TableCotes({ resultats, commandes }: { res
 });
 
 export function Cotes({ magasin, resultats, commandes }: { magasin: Magasin; resultats: Resultats; commandes: RegistreCommandes }) {
-  // Le tableau ne se refait que si le plan, les cotes ou le droit d'ecrire changent, tiroir visible.
-  const version = useCle(magasin, 'tableau des cotes', (s) => cleEtat(s) + commandes.etat('mesure.supprimer').utilisable, 'resultats');
+  // Le tableau ne se refait que si les objets que les cotes visent, les cotes ou le droit d'ecrire changent, tiroir visible.
+  const version = useCle(magasin, 'tableau des cotes', (s) => cleEtat(s) + cleDesCotes(s) + commandes.etat('mesure.supprimer').utilisable, 'resultats');
   return (
     <>
       <div className="sectionTitle">Mesure</div>

@@ -10,7 +10,8 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
-import { cleDesObjets } from '../core/controleurObjets.js';
+import { cleDesLus } from '../core/controleurObjets.js';
+import { lesTerrains } from '../core/lectures.js';
 import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
@@ -321,11 +322,11 @@ function poser(e: Element, nom: string, valeur: string): void {
   if (e.getAttribute(nom) !== valeur) e.setAttribute(nom, valeur);
 }
 
-// L'emprise du calque, reprise tant que le plan n'a pas change (core/controleurObjets.ts) : elle parcourt tous les objets, deux
-// fois par rendu.
+// L'emprise du calque, reprise tant que les terrains n'ont pas change (core/controleurObjets.ts, `cleDesLus`) : elle parcourt tous
+// les objets, deux fois par rendu.
 const emprises = new Map<boolean, { cle: string; valeur: ReturnType<typeof empriseDuCalque> }>();
 function emprise(ctx: ContexteOrtho, masque: boolean): ReturnType<typeof empriseDuCalque> {
-  const cle = cleDesObjets(ctx.etat.objects) + '|' + (masque ? ctx.etat.voisinageVisible : '');
+  const cle = cleDesLus(ctx.etat.objects, lesTerrains) + '|' + (masque ? ctx.etat.voisinageVisible : '');
   const m = emprises.get(masque);
   if (m?.cle === cle) return m.valeur;
   const valeur = masque ? empriseDuCalque(ctx.etat.objects, masqueEn2d(ctx)) : empriseDuCalque(ctx.etat.objects);

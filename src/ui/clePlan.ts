@@ -10,7 +10,7 @@
 // (une ecriture qui n'aurait pas touche son objet) s'ecrit `[cle de version]` dans la console, et la fumee echoue.
 
 import type { ObjetPlan } from '../model/types.js';
-import { cleDesObjets } from '../core/controleurObjets.js';
+import { cleDesObjets, cleDesAttributs, cleDesLus } from '../core/controleurObjets.js';
 
 // Les grilles d'altitudes entrent dans la serialisation de verification par leur identite : jamais modifiees sur place, seulement
 // remplacees.
@@ -44,11 +44,23 @@ function champQuiDiffere(a: string, b: string): string {
  * La cle des objets seule, sans le garde-fou (core/controleurObjets.ts) : celle que les zones et les calques du plan mettent dans
  * leur cle, qui ont le leur (ils comparent ce qu'ils montrent).
  */
-export { cleDesObjets };
+export { cleDesObjets, cleDesAttributs, cleDesLus };
 
 /** La cle du plan : la meme tant que rien n'a ete ecrit. */
 export function cleDuPlan(objets: readonly ObjetPlan[]): string {
-  const cle = cleDesObjets(objets);
+  return verifiee(cleDesObjets(objets), objets);
+}
+
+/**
+ * La cle de ce qu'un calcul lit du plan (core/lectures.ts) : la meme tant qu'aucun des objets que `lit` retient n'a change (un arbre
+ * glisse ne refait pas le chiffrage d'une terrasse). Le garde-fou ne compare que ces objets.
+ */
+export function cleDuPlanLu(objets: readonly ObjetPlan[], lit: (o: ObjetPlan) => boolean): string {
+  const cle = cleDesLus(objets, lit);
+  return verifier() ? verifiee(cle, objets.filter(lit)) : cle;
+}
+
+function verifiee(cle: string, objets: readonly ObjetPlan[]): string {
   if (verifier()) {
     const plan = new Map(objets.map((o) => [o.key, JSON.stringify(o, grilleParIdentite)]));
     const avant = vus.get(cle);

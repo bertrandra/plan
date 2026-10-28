@@ -24,6 +24,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Une écriture ne refait que ce qui lit l'objet écrit, et un déplacement de la vue ne redessine plus le plan** (feuille de
+  route, étapes 6.5 et 2.3 ; aucun changement visible, empreintes inchangées). Le plan se dessine dans un repère gardé tant que
+  l'échelle et la taille ne changent pas (`render/repere.ts`) : un déplacement de la vue ne change plus que le `viewBox`, et
+  seuls les objets qui entrent dans la vue ou en sortent se redessinent. Le contrôleur des objets distingue une écriture de forme
+  seule (`toucherForme` : le glisser, la nomenclature calculée), qui laisse en place ce qui ne lit que les attributs des objets
+  (explorateur, barres, surimpression), et garde chaque calcul sur la version des seuls objets qu'il lit (`cleDesLus`, lecteurs de
+  `core/lectures.ts`) : calques du dessus, trous des terrasses, chiffrage, cotes, panneaux du tiroir par onglet, doublons, schéma à
+  écrire, emprise des terrains. L'historique reçoit les objets écrits (`pushHistory(obj)`, `markDirty(obj)`), et les gestes, les
+  champs de l'inspecteur, le tiroir, les sommets, l'alignement, le relief, le mode Toit et les commandes d'objet les nomment ; une
+  écriture qui ajoute ou retire un objet garde le repli « tout est neuf ». La Vue 3D affichée ne suit plus chaque rendu du plan.
+  Au banc de production, à 600 objets (médiane de 21 images, deux passages) : glisser un objet au bureau 31 → 10–11 ms, au
+  téléphone 73–90 → 37–54 ms ; déplacer la vue au bureau 51–79 → 12–13 ms, au téléphone 194–206 → 55 ms (dessin du plan 111–126
+  → 12 ms) ; un rendu sans changement au téléphone 7–16 → 5–7 ms. Le zoom redessine toujours tout ce qui dépend de l'échelle
+  (190–220 ms au téléphone) : le frein `RENDU_LENT_MS` reste, jaugé à part pour le zoom et pour le déplacement. Le banc mesure
+  ces gestes (`BANC_SCENARIOS=rendu,glisser,terrasse,zoom,pan`).
+
 - **Le flux de construction d'un bâtiment a son propre document** (`MD/spec-flux-batiment.md`), sorti de `MD/spec-ouvrages.md`
   avec tout son texte et son historique, et un schéma du flux (naissance, lecture LiDAR, gestes de la personne, relevé, audit,
   actualisation IGN, sorties, avec les questions posées à `model/protections.ts`). Les deux documents sont mis à jour à la 4.0.0 :

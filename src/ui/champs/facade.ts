@@ -229,7 +229,7 @@ function champsSaillies(c: ContexteChamps): Champ[] {
         { type: 'bouton', cle: 'mur3d', libelle: 'Mur dans la 3D', texte: () => (saillieArmee() ? 'Touchez un mur…' : 'Choisir le mur dans la 3D'), aide: 'Touchez ensuite un mur du bâtiment dans la vue 3D pour y poser l’élément (Échap pour annuler)',
           agit: { commande: 'toit.murSur3d' }, executer: (cc) => { viserSaillie(rang); cc.executerCommande('toit.murSur3d'); } },
         { type: 'bouton', cle: 'retirer', libelle: 'Retirer', aide: 'Retirer cet élément (Ctrl+Z pour revenir)', agit: 'projet',
-          executer: (cc) => { cc.pushHistory(); champsBatiment(cc.obj).corpsToit = retirerSaillie(cc.obj.batiment?.corpsToit ?? [], rang); champsBatiment(cc.obj).toitFige = true; cc.render(); } }
+          executer: (cc) => { cc.pushHistory(cc.obj); champsBatiment(cc.obj).corpsToit = retirerSaillie(cc.obj.batiment?.corpsToit ?? [], rang); champsBatiment(cc.obj).toitFige = true; cc.render(); } }
       ]
     };
   });

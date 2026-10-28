@@ -25,6 +25,8 @@ import { clesDossier, dossierSelection } from '../app/dossier.js';
 import { estTerrasse, terrasseSelectionnee } from '../core/contexteTerrasse.js';
 import type { Magasin } from '../app/magasin.js';
 import { useCle, cleEtat } from './composants/abonnement.js';
+import { cleDesLus } from '../core/controleurObjets.js';
+import { lesTerrassesPercees } from '../core/lectures.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { ChampVisibilite, Explorateur as ServiceExplorateur } from '../app/explorateur.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -230,7 +232,7 @@ function Terrasses({ etat, explorateur, apresSelection }: { etat: EtatApp; explo
 export function Explorateur({ magasin, commandes, explorateur }: PropsExplorateur) {
   // Le plan, les couches de la terrasse et les terrasses du dossier (tenues hors du plan), et le droit de masquer ; gele tant que
   // l'explorateur est cache.
-  useCle(magasin, 'explorateur', (s) => cleEtat(s) + JSON.stringify([terrasseLayerVisible, [...dossierSelection], commandes.etat('objet.visibilite').utilisable]), 'explorateur');
+  useCle(magasin, 'explorateur', (s) => cleEtat(s) + cleDesLus(s.etat.objects, lesTerrassesPercees) + JSON.stringify([terrasseLayerVisible, [...dossierSelection], commandes.etat('objet.visibilite').utilisable]), 'explorateur');
   const ouvertStore = useStore(magasin.store, (s) => s.explorateurOuvert);
   const classe = useStore(magasin.store, (s) => s.classe);
   const compact = classe === 'compact';

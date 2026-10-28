@@ -21,6 +21,7 @@ import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { largeurChemin } from '../model/ouvrages/index.js';
 import { traceAuPlan } from './ouvrages/index.js';
 import type { EtatScene } from '../geometry/vue.js';
+import { versionObjet } from '../core/controleurObjets.js';
 
 /**
  * Un objet du plan, tel que le rendu le suppose : posé, donc pourvu de sa forme et de ses couleurs.
@@ -250,6 +251,27 @@ function cacherSommets(v: ReturnType<typeof vue>): void {
 /** La marge autour de la vue, en part de sa taille : un objet qui y entre est deja place. */
 const MARGE_VUE = 0.1;
 
+// L'emprise de chaque objet, reprise tant que sa version et sa forme n'ont pas change : chaque rendu se demande, pour chaque objet,
+// s'il entre dans la vue ou en sort (un deplacement de la vue ne redessine que ceux-la, render/repere.ts).
+const emprises = new WeakMap<object, { version: string; pts: unknown; center: unknown; r: unknown; e: [number, number, number, number] | null }>();
+function emprise(obj: ObjetRendu): [number, number, number, number] | null {
+  const version = versionObjet(obj);
+  const pts = (obj as { pts?: unknown }).pts, center = (obj as { center?: unknown }).center, r = (obj as { r?: unknown }).r;
+  const m = emprises.get(obj);
+  if(m && m.version === version && m.pts === pts && m.center === center && m.r === r) return m.e;
+  let e: [number, number, number, number] | null;
+  if(obj.type === 'circle'){
+    e = [obj.center.x - obj.r, obj.center.x + obj.r, obj.center.y - obj.r, obj.center.y + obj.r];
+  } else if(!obj.pts.length) e = null;
+  else {
+    let ox0 = Infinity, ox1 = -Infinity, oy0 = Infinity, oy1 = -Infinity;
+    for(const p of obj.pts){ ox0 = Math.min(ox0, p.x); ox1 = Math.max(ox1, p.x); oy0 = Math.min(oy0, p.y); oy1 = Math.max(oy1, p.y); }
+    e = [ox0, ox1, oy0, oy1];
+  }
+  emprises.set(obj, { version, pts, center, r, e });
+  return e;
+}
+
 /** L'objet est-il entierement hors de la vue (marge comprise) ? Calcule sur son emprise, dans le repere du plan. */
 export function horsDeLaVue(obj: ObjetRendu, scene: EtatScene): boolean {
   const s = scene.scale;
@@ -257,14 +279,9 @@ export function horsDeLaVue(obj: ObjetRendu, scene: EtatScene): boolean {
   const mx = scene.W * MARGE_VUE / s, my = scene.H * MARGE_VUE / s;
   const x0 = -scene.origine.x / s - mx, x1 = (scene.W - scene.origine.x) / s + mx;
   const y0 = (scene.origine.y - scene.H) / s - my, y1 = scene.origine.y / s + my;
-  let ox0: number, ox1: number, oy0: number, oy1: number;
-  if(obj.type === 'circle'){
-    ox0 = obj.center.x - obj.r; ox1 = obj.center.x + obj.r; oy0 = obj.center.y - obj.r; oy1 = obj.center.y + obj.r;
-  } else {
-    if(!obj.pts.length) return false;
-    ox0 = Infinity; ox1 = -Infinity; oy0 = Infinity; oy1 = -Infinity;
-    for(const p of obj.pts){ ox0 = Math.min(ox0, p.x); ox1 = Math.max(ox1, p.x); oy0 = Math.min(oy0, p.y); oy1 = Math.max(oy1, p.y); }
-  }
+  const e = emprise(obj);
+  if(!e) return false;
+  const [ox0, ox1, oy0, oy1] = e;
   return ox1 < x0 || ox0 > x1 || oy1 < y0 || oy0 > y1;
 }
 
@@ -341,7 +358,10 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
 
 /** Ce que positionner un objet demande de savoir, en plus de l'objet lui-meme. */
 export interface ContextePositionnement {
+  /** La scene du dessin : le repere (render/repere.ts), ou la vue. */
   scene: EtatScene;
+  /** L'objet est hors de la vue courante (et ni masque ni selectionne) : rien ne se dessine. Sans lui, lu sur `scene`. */
+  horsVue?: boolean;
   /** L'objet est-il celui qu'on edite ? Change l'epaisseur du trait et l'affichage des poignees. */
   selectionnee: boolean;
   /** Objet masque : rien ne se dessine, poignees comprises. */
@@ -383,7 +403,7 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     // Hors de la vue (et pas selectionne) : rien ne se dessine non plus, sans rien recalculer ; il
     // reprend sa place des qu'il revient dans la vue. Un voisinage d'un kilometre zoome sur la
     // parcelle n'a que quelques dizaines d'objets a placer, au lieu de 9 000.
-    if(!ctx.masque && !ctx.selectionnee && horsDeLaVue(obj, ctx.scene)){
+    if(!ctx.masque && !ctx.selectionnee && (ctx.horsVue ?? horsDeLaVue(obj, ctx.scene))){
       cacher(el); cacher(nameEl); if(v.camMarkerEl) cacher(v.camMarkerEl); if(v.radiusHandle) cacher(v.radiusHandle);
       cacherSommets(v);
       return;
