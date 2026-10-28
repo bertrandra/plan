@@ -18,7 +18,7 @@ import { RELIEF_FENETRES_M, anneeDe } from './fenetresRelief.js';
 import { parametresQualite } from './qualite.js';
 import { centroid, dist } from '../geometry/basic.js';
 import { dessusTerrasseM } from '../engine/hauteurs.js';
-import { formeDeTerrasse, trousDeTerrasse } from '../engine/structure.js';
+import { formeDeTerrasse, trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { hauteurParasolDe } from '../engine/parasol.js';
 import { estMesh } from './gardes.js';
 import { ajouterReleve3d } from './releve3d.js';

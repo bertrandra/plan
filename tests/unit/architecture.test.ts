@@ -415,7 +415,6 @@ describe('l independance des ouvrages (MD/spec-ouvrages.md, etape 6.6)', () => {
   };
   // Les couplages d'aujourd'hui : un cliquet, qui ne peut que se vider.
   const RESTANTS: string[] = [
-    'render/piscineOverlay -> engine/structure',
   ];
   const nom = (f: string) => relative(src, f).split(sep).join('/').replace(/\.tsx?$/, '');
   const dans = (n: string, prefixes: readonly string[]) => prefixes.some(p => p.endsWith('/') ? n.startsWith(p) : n === p);

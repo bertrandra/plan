@@ -6,15 +6,13 @@
 
 import { au } from '../util/tableaux.js';
 import { centroid, dist, pointInPolygon, shoelace } from '../geometry/basic.js';
-import { clipLineToPolygon, offsetZone, ringSegments, safeOffset } from '../geometry/polygon.js';
+import { aireCommune, clipLineToPolygon, offsetZone, ringSegments, safeOffset } from '../geometry/polygon.js';
 import { angleOfSegment } from '../geometry/segments.js';
-import { differencePolygones, type PolygoneTroue } from '../geometry/difference.js';
 import { DALLE_DEBORD_M, estPlots, PLOT_ASSISE_MIN_CM2, supportDe } from './constantes.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { ensureConstruction } from './construction.js';
 import { dimsSection, maxEntraxeLameCm, porteeAppuiM, porteeVisSpaM, sectionLambourde } from './bois/portees.js';
 import { objetsQuiPercent } from './ouvrages/liens.js';
-import { estTerrasse } from '../model/fonctions.js';
 import type { PtBrut, Segment, ObjetPlan, Construction } from '../model/types.js';
 import { estOuvrage, EQUIPEMENT } from '../model/ouvrages/index.js';
 
@@ -305,58 +303,6 @@ export function computeStructure(obj: TerrasseEtudiee, objets: ObjetPlan[]) {
  */
 export function ouverturesDe(poly: PtBrut[], objets: ObjetPlan[]): PtBrut[][] {
   return objetsQuiPercent(poly, objets).map(x => x.contour);
-}
-
-/**
- * L'aire commune a deux polygones (simples, convexes ou non), par bandes horizontales de 1 cm au
- * plus : de quoi retirer d'une terrasse la part d'un bassin ou d'un trou qui la chevauche.
- */
-export function aireCommune(a: PtBrut[], b: PtBrut[]): number {
-  const ya = a.map(p => p.y), yb = b.map(p => p.y);
-  const y0 = Math.max(Math.min(...ya), Math.min(...yb)), y1 = Math.min(Math.max(...ya), Math.max(...yb));
-  if(!(y1 > y0)) return 0;
-  const x0 = Math.min(...a.map(p => p.x), ...b.map(p => p.x)) - 1;
-  const n = Math.max(50, Math.ceil((y1 - y0) / 0.01)), h = (y1 - y0) / n;
-  const dir = { x:1, y:0 };
-  let aire = 0;
-  for(let i = 0; i < n; i++){
-    const o = { x:x0, y:y0 + (i + 0.5) * h };
-    const ia = clipLineToPolygon(o, dir, a).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
-    const ib = clipLineToPolygon(o, dir, b).map(s => [Math.min(s.a.x, s.b.x), Math.max(s.a.x, s.b.x)] as const);
-    ia.forEach(([p0, p1]) => ib.forEach(([q0, q1]) => { aire += Math.max(0, Math.min(p1, q1) - Math.max(p0, q0)) * h; }));
-  }
-  return aire;
-}
-
-/**
- * La surface d'une terrasse, ses ouvertures (bassins, trous) retirees : celle qu'on platelage, qu'on
- * visse et qu'on declare. Sans ouverture, la surface du contour, au bit pres.
- */
-export function surfaceNetteTerrasse(poly: PtBrut[], objets: ObjetPlan[]): number {
-  return shoelace(poly) - objetsQuiPercent(poly, objets).reduce((s, x) => s + aireCommune(x.contour, poly), 0);
-}
-
-/**
- * Les trous d'une terrasse : le bord exterieur des margelles d'un bassin, le contour d'un trou de
- * terrasse — tout entiers dedans ou a cheval sur son bord. Le plan, le SVG et le PDF les decoupent
- * de la terrasse par un gabarit ; la 3D et le DXF, qui ont besoin de la forme, la tirent de
- * `formeDeTerrasse`. Vide pour tout autre objet.
- */
-export function trousDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PtBrut[][] {
-  if(!estTerrasse(o) || o.type !== 'polygon') return [];
-  return objetsQuiPercent(o.pts, objets).map(x => x.contour);
-}
-
-/**
- * La forme vraie d'une terrasse percee : ses morceaux, chacun avec les trous qui le percent sans
- * toucher son bord. Un bassin a cheval sur le bord y fait une encoche. `null` quand aucun trou ne
- * chevauche le bord : le contour d'origine et ses trous interieurs suffisent alors, tels quels.
- */
-export function formeDeTerrasse(o: ObjetPlan, objets: ObjetPlan[]): PolygoneTroue[] | null {
-  if(o.type !== 'polygon') return null;
-  const trous = trousDeTerrasse(o, objets);
-  if(trous.every(t => t.every(p => pointInPolygon(p, o.pts)))) return null;
-  return differencePolygones(o.pts, trous);
 }
 
 /** L'emprise d'une dalle sous la terrasse : son contour, deborde de `DALLE_DEBORD_M` tout autour. */

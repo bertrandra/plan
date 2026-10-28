@@ -4,7 +4,8 @@ import {
 } from '../../../src/engine/piscine.js';
 import { constructionDeLaPlage, contourTerrasseAutour } from '../../../src/engine/ouvrages/piscine.js';
 import { contourOuverture, decalageDeCentrage, objetsQuiPercent, terrasseDeLaPiscine, terrasseHote } from '../../../src/engine/ouvrages/liens.js';
-import { aireCommune, computeStructure, couperAuContour, empriseDalle, surfaceDalle } from '../../../src/engine/structure.js';
+import { computeStructure, couperAuContour, empriseDalle, surfaceDalle } from '../../../src/engine/structure.js';
+import { aireCommune } from '../../../src/geometry/polygon.js';
 import { computeTerrasseLayers } from '../../../src/engine/layers.js';
 import { computeBOM } from '../../../src/engine/bom.js';
 import { computeChantier } from '../../../src/engine/chantier.js';

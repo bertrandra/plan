@@ -10,7 +10,7 @@ import { creerSvg } from './svg.js';
 import { versEcran, type EtatScene } from '../geometry/vue.js';
 import { clipLineToPolygon } from '../geometry/polygon.js';
 import { calculerPiscine, centrePiscine, fr, type PiscineCalculee, plageCalculee } from '../engine/piscine.js';
-import { retirerOuvertures } from '../engine/structure.js';
+import { retirerOuvertures } from '../engine/ouvrages/terrasse.js';
 import { estPiscine, visibleEnIsolement } from '../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 

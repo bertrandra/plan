@@ -26,7 +26,7 @@ import { sectionFenetres3d } from './fenetres3d.js';
 import { champsCouleurMurs } from './couleurMurs.js';
 import { sectionsPiscine } from './piscine.js';
 import type { Champ, ChampNombre, ChampTexte, ContexteChamps, Section } from './types.js';
-import { surfaceNetteTerrasse } from '../../engine/structure.js';
+import { surfaceNetteTerrasse } from '../../engine/ouvrages/terrasse.js';
 import { terrasseHote } from '../../engine/ouvrages/liens.js';
 import { champsArbre, champsBatiment, champsParasol } from '../../model/champsFonction.js';
 

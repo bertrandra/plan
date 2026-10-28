@@ -12,7 +12,7 @@
 // choix fait en mode Plan est garde, simplement pas dessine.
 
 import { positionnerObjet, positionnerEnVerifiant, type ContextePositionnement, type ObjetRendu } from './objects.js';
-import { trousDeTerrasse } from '../engine/structure.js';
+import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { versionEnsemble, versionObjet } from '../core/controleurObjets.js';
 import { vue } from './vues.js';

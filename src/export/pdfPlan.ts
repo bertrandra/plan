@@ -17,7 +17,7 @@ import { dist, centroid, angleInterieurDeg, shoelace } from '../geometry/basic.j
 import { geometrieMesure, ancrageHorsContour, type Mesure } from '../render/measures.js';
 import type { ObjetPlan, ObjetPolygone, ObjetChemin, ObjetCercle, PtBrut } from '../model/types.js';
 import { enPoints } from '../model/formes.js';
-import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/structure.js';
+import { trousDeTerrasse, surfaceNetteTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { estCourbe, tronconsBezier } from '../geometry/courbe.js';
 import { largeurChemin, surfaceChemin } from '../model/ouvrages/index.js';

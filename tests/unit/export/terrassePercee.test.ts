@@ -7,7 +7,7 @@ import { construireDossierPDF } from '../../../src/export/dossierPdf.js';
 import { importSVGString } from '../../../src/io/importSvg.js';
 import type { EtatApp } from '../../../src/core/state.js';
 import { pdfPolygone } from '../../../src/export/pdf/writer.js';
-import { formeDeTerrasse, trousDeTerrasse, surfaceNetteTerrasse } from '../../../src/engine/structure.js';
+import { formeDeTerrasse, trousDeTerrasse, surfaceNetteTerrasse } from '../../../src/engine/ouvrages/terrasse.js';
 import { shoelace } from '../../../src/geometry/basic.js';
 import { calculerPiscine } from '../../../src/engine/piscine.js';
 import { constructionTerrasseNeuve } from '../../../src/engine/construction.js';

@@ -9,7 +9,8 @@ import { BETON_PRICE, COFFRAGE_PRICE, DECAISSEMENT_PRICE, DALLE_BETON_EP_M, MASS
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
 import { computeDebitLames, computeDebitsBois } from './debit.js';
-import { aireCommune, surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { aireCommune } from '../geometry/polygon.js';
 import { decaissementPoseMm } from './hauteurs.js';
 import { achatPlots, achatPlotsParHauteur, achatVis, computeAssise, coutDebit, prixPlotUnite, prixVisUnite } from './prix.js';
 import { appuisEnHauteur } from './hauteurs.js';

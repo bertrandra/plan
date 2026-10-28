@@ -6,7 +6,8 @@
 
 import { dist, shoelace } from '../geometry/basic.js';
 import { computeAssise } from './prix.js';
-import { aireCommune, surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { surfaceDalle, volumeDecaissementPose } from './structure.js';
+import { aireCommune } from '../geometry/polygon.js';
 import { estPlots } from './constantes.js';
 import { ensureConstruction } from './construction.js';
 import { enPoints } from '../model/formes.js';
