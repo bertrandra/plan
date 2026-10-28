@@ -130,6 +130,18 @@ function planifier(f: () => void): void {
 }
 
 /**
+ * Ce qui se compare d'une zone : son DOM, sans ce qui suit la camera de la Vue 3D (`data-suit-la-camera` : le plan, l'indice et les
+ * poignees du mode Toit, que leur propre minuterie redessine quand la camera bouge). Le rendu force de la verification emporte leurs
+ * mises a jour en attente ; ce ne sont pas des donnees que la cle oublie.
+ */
+export function horsCamera(conteneur: HTMLElement): string {
+  if (!conteneur.querySelector('[data-suit-la-camera]')) return conteneur.innerHTML;
+  const copie = conteneur.cloneNode(true) as HTMLElement;
+  copie.querySelectorAll('[data-suit-la-camera]').forEach((e) => e.remove());
+  return copie.innerHTML;
+}
+
+/**
  * La zone se redessine quand sa cle change, et a chaque changement des champs du magasin qu'elle lit par ailleurs. `lire` ne lit
  * que l'etat du plan et ce qui suit ses rendus (pas le magasin) ; elle est rappelee a chaque rendu du plan, et doit rester legere.
  * `zone` : une zone qui peut se cacher, gelee tant qu'elle l'est. `nom` : ce que le garde-fou dit d'elle.
@@ -169,12 +181,9 @@ export function useCle(magasin: Magasin | null, nom: string, lire: (s: EtatMagas
       planifier(() => {
         // Un rendu du plan venu entre-temps a pu changer la cle : la zone se redessine d'elle-meme, rien a verifier.
         if (!monte.current || instantane() !== c) return;
-        // Les mises a jour deja en attente dans la meme racine (une voisine qui suit la scene 3D, la session du toit) passent
-        // d'abord : seul ce que ce rendu force change est compare, pas ce qu'une autre zone allait de toute facon redessiner.
-        flushSync(() => {});
-        const html = conteneur.innerHTML;
+        const html = horsCamera(conteneur);
         flushSync(forcer);
-        const apres = conteneur.innerHTML;
+        const apres = horsCamera(conteneur);
         if (apres !== html) {
           // Le premier ecart, pour dire ce que la cle oublie.
           let i = 0;

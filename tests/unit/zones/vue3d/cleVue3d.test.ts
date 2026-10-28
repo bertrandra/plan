@@ -25,3 +25,16 @@ describe('la cle de la Vue 3D', () => {
     expect(cleVue3d(magasin(1), commandes, vues, true)).not.toBe(cleVue3d(magasin(2), commandes, vues, true));
   });
 });
+
+describe('ce que le garde-fou des zones compare', () => {
+  it('laisse de cote ce qui suit la camera de la Vue 3D', async () => {
+    const { horsCamera } = await import('../../../../src/zones/composants/abonnement.js');
+    const c = document.createElement('div');
+    c.innerHTML = '<p>liste</p><svg class="poigneesToit" data-suit-la-camera=""><g transform="translate(1,2)"></g></svg>';
+    const avant = horsCamera(c);
+    c.querySelector('g')!.setAttribute('transform', 'translate(3,4)');
+    expect(horsCamera(c)).toBe(avant);
+    c.querySelector('p')!.textContent = 'autre';
+    expect(horsCamera(c)).not.toBe(avant);
+  });
+});
