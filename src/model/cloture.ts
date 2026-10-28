@@ -15,6 +15,7 @@ import type {
   Cloture, CoteCloture, ReglageCloture, TypeCloture, ParementMur, EssenceHaie, Portail,
   FormePortail, OuverturePortail, RemplissagePortail, MateriauPortail, ObjetPlan, PtBrut,
 } from './types.js';
+import type { PositionPortail, TypeCloture as TypeClotureVue } from './clotureVue.js';
 
 export const COULEUR_CLOTURE_DEFAUT = '#6b4a2a';
 export const HAUTEUR_CLOTURE_DEFAUT = 1.8;
@@ -401,4 +402,69 @@ export function resumeReglage(r: ReglageCloture): string {
 export function resumeAcces(a: Portail): string {
   const m = (v: number) => v.toFixed(2).replace('.', ',') + ' m';
   return `${a.nature === 'portail' ? 'Portail' : 'Portillon'} ${m(a.largeur)} · ${LIBELLES_OUVERTURE_PORTAIL[a.ouverture].toLowerCase()} · à ${m(a.x)}`;
+}
+
+// ---- Les decisions qui touchent la cloture (l'audit, l'import du cadastre) : elles passent par ici (etape 6.6). ----
+
+/** La position d'un portail le long de son cote, vu de la rue (la convention de `Portail.x`). */
+export function abscisseDuPortail(position: PositionPortail | undefined, longueur: number, largeur: number, x: number): number {
+  const cm = (v: number) => Math.round(v * 100) / 100;
+  const marge = Math.min(0.5, Math.max(0, (longueur - largeur) / 2));
+  if (position === 'gauche') return cm(marge);
+  if (position === 'droite') return cm(Math.max(0, longueur - largeur - marge));
+  if (position === 'centre') return cm(Math.max(0, (longueur - largeur) / 2));
+  return x;
+}
+
+/** Le muret pose sous une cloture quand on en a vu un : 50 cm d'enduit, comme on en voit le plus. */
+const SOUBASSEMENT_VU = { hauteur: 0.5, parement: 'enduit' as const };
+
+/**
+ * Ce que l'audit a vu d'une cloture sur rue, pose sur le cote `cote` de la parcelle : sa nature, sa hauteur, son muret. Le cote
+ * devient la limite sur rue et la cloture est active. Une decision de l'audit (regles/decisions.ts) passe par ici.
+ */
+export function reglerCoteVuDeLaRue(p: ObjetPlan & { pts: PtBrut[] }, cote: number, type: TypeClotureVue, hauteurM?: number, soubassement?: boolean): void {
+  const cl = clotureDe(p, true);
+  const r = reglerCote(cl, cote);
+  if (r.type !== type) changerType(r, type);
+  if (hauteurM !== undefined && hauteurM > 0) r.hauteur = hauteurM;
+  if (soubassement === false) r.soubassement = null;
+  else if (soubassement === true && r.type !== 'mur') r.soubassement = r.soubassement ?? { ...SOUBASSEMENT_VU };
+  r.limite = 'rue';
+  cl.active = true;
+  synchroniserAnciensChamps(p);
+}
+
+/**
+ * Ce que l'audit a vu d'un acces sur le cote `cote` : un portail, un portillon, ou aucun (les acces du cote partent). Un acces
+ * deja la change de nature plutot que d'en ajouter un ; sa position et sa largeur suivent ce qui a ete vu.
+ */
+export function poserAccesVuDeLaRue(p: ObjetPlan & { pts: PtBrut[] }, cote: number, nature: Portail['nature'] | 'aucun', position?: PositionPortail, largeurM?: number): void {
+  const cl = clotureDe(p, true);
+  if (nature === 'aucun') {
+    cl.portails = cl.portails.filter((a) => a.cote !== cote);
+  } else {
+    const longueur = longueurDuCote(p.pts, cote);
+    const surLeCote = accesDuCote(cl, cote);
+    let a = surLeCote.find((x) => x.nature === nature) ?? surLeCote[0];
+    if (!a) { a = nouveauPortail(nature, cote, longueur); cl.portails.push(a); }
+    if (a.nature !== nature) {
+      // Un portail devenu portillon (ou l'inverse) prend l'ouverture de sa nature ; le reste est garde.
+      const neuf = nouveauPortail(nature, cote, longueur);
+      a.nature = nature; a.ouverture = neuf.ouverture; a.largeur = neuf.largeur; a.motorise = neuf.motorise;
+    }
+    if (largeurM !== undefined && largeurM > 0) a.largeur = largeurM;
+    a.x = abscisseDuPortail(position, longueur, a.largeur, a.x);
+  }
+  cl.active = true;
+  synchroniserAnciensChamps(p);
+}
+
+/**
+ * La cloture d'une parcelle qu'on vient d'importer du cadastre, posee sur elle : l'acces sur le cote `devine` (celui de la rue,
+ * geo/coteRue.ts), les anciens champs tenus a jour.
+ */
+export function poserClotureDImport(p: ObjetPlan & { pts: PtBrut[] }, devine: number | null): void {
+  p.cloture = clotureDImport(p.pts, devine);
+  synchroniserAnciensChamps(p);
 }

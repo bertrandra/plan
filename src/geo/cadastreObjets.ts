@@ -14,7 +14,7 @@ import { centroid } from '../geometry/basic.js';
 import { nombreFr } from '../util/format.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation, arbresEstimes, libelleParcelle, ESPACEMENT_ARBRES_M, MAX_ARBRES_ESTIMES } from './bdtopo.js';
 import { especeParNature } from '../model/especesArbre.js';
-import { clotureDImport, synchroniserAnciensChamps } from '../model/cloture.js';
+import { poserClotureDImport } from '../model/cloture.js';
 import { coteDuNouvelAcces } from './coteRue.js';
 import { toitBdTopo, attributsToitBdTopo } from '../model/toitBdTopo.js';
 import { volumesParDefaut } from '../model/volumesToit.js';
@@ -518,8 +518,7 @@ export function objetsDepuisCadastre(importe: ImportCadastral): ObjetPlan[] {
   if(parcelle && parcelle.type === 'polygon'){
     const fusionnees = new Set([principale.idu, ...parcellesFusionnees.map(p=>p.idu)]);
     const connues = (importe.voisinesConnues ? importe.voisinesConnues() : []).filter(c=>!fusionnees.has(c.idu)).map(c=>c.pts.map(x.dec));
-    parcelle.cloture = clotureDImport(parcelle.pts, coteDuNouvelAcces(parcelle, objets, connues));
-    synchroniserAnciensChamps(parcelle);
+    poserClotureDImport(parcelle, coteDuNouvelAcces(parcelle, objets, connues));
   }
   return objets;
 }

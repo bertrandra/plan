@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  abscisseDuPortail, appliquerPropositions, avecReserveSurPlace, RESERVE_NOTE_SUR_PLACE, rivalesSurPlace, cocheeParDefaut, jourIso, projetApres, releveALaHauteur, type Proposition, type EffetProposition,
+  appliquerPropositions, avecReserveSurPlace, RESERVE_NOTE_SUR_PLACE, rivalesSurPlace, cocheeParDefaut, jourIso, projetApres, releveALaHauteur, type Proposition, type EffetProposition,
 } from '../../../src/regles/decisions.js';
 import { couleurMursRetenue, textureDesMurs } from '../../../src/model/couleurMur.js';
-import { clotureDImport, clotureDe } from '../../../src/model/cloture.js';
+import { abscisseDuPortail, clotureDImport, clotureDe } from '../../../src/model/cloture.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../src/model/types.js';
 import { champsBatiment } from '../../../src/model/champsFonction.js';
 import { versMemoire } from '../../../src/model/champsFonction.js';

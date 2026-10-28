@@ -11,7 +11,7 @@
 // projet a la validation (apres un seul instantane d'historique), ou des copies pour l'apercu 3D.
 
 import { elevationParDefaut } from '../model/defaults.js';
-import { accesDuCote, changerType, clotureDe, longueurDuCote, nouveauPortail, reglerCote, synchroniserAnciensChamps } from '../model/cloture.js';
+import { poserAccesVuDeLaRue, reglerCoteVuDeLaRue } from '../model/cloture.js';
 import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
 import type { ChampsBatiment, Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
@@ -198,51 +198,14 @@ export function releveALaHauteur(r: ReleveFacade, hauteur: number): ReleveFacade
   };
 }
 
-/** La position d'un portail le long de son cote, vu de la rue (la convention de `Portail.x`). */
-export function abscisseDuPortail(position: PositionPortail | undefined, longueur: number, largeur: number, x: number): number {
-  const marge = Math.min(0.5, Math.max(0, (longueur - largeur) / 2));
-  if (position === 'gauche') return cm(marge);
-  if (position === 'droite') return cm(Math.max(0, longueur - largeur - marge));
-  if (position === 'centre') return cm(Math.max(0, (longueur - largeur) / 2));
-  return x;
-}
-
-/** Le muret pose sous une cloture quand on en a vu un : 50 cm d'enduit, comme on en voit le plus. */
-const SOUBASSEMENT_VU = { hauteur: 0.5, parement: 'enduit' as const };
-
 function appliquerCloture(p: ObjetPlan, e: Extract<EffetProposition, { type: 'cloture' }>): void {
   if (!('pts' in p) || !p.pts) return;
-  const cl = clotureDe(p, true);
-  const r = reglerCote(cl, e.cote);
-  if (r.type !== e.typeCloture) changerType(r, e.typeCloture);
-  if (e.hauteurM !== undefined && e.hauteurM > 0) r.hauteur = e.hauteurM;
-  if (e.soubassement === false) r.soubassement = null;
-  else if (e.soubassement === true && r.type !== 'mur') r.soubassement = r.soubassement ?? { ...SOUBASSEMENT_VU };
-  r.limite = 'rue';
-  cl.active = true;
-  synchroniserAnciensChamps(p);
+  reglerCoteVuDeLaRue(p, e.cote, e.typeCloture, e.hauteurM, e.soubassement);
 }
 
 function appliquerPortail(p: ObjetPlan, e: Extract<EffetProposition, { type: 'portail' }>): void {
   if (!('pts' in p) || !p.pts) return;
-  const cl = clotureDe(p, true);
-  if (e.nature === 'aucun') {
-    cl.portails = cl.portails.filter((a) => a.cote !== e.cote);
-  } else {
-    const longueur = longueurDuCote(p.pts, e.cote);
-    const surLeCote = accesDuCote(cl, e.cote);
-    let a = surLeCote.find((x) => x.nature === e.nature) ?? surLeCote[0];
-    if (!a) { a = nouveauPortail(e.nature, e.cote, longueur); cl.portails.push(a); }
-    if (a.nature !== e.nature) {
-      // Un portail devenu portillon (ou l'inverse) prend l'ouverture de sa nature ; le reste est garde.
-      const neuf = nouveauPortail(e.nature, e.cote, longueur);
-      a.nature = e.nature; a.ouverture = neuf.ouverture; a.largeur = neuf.largeur; a.motorise = neuf.motorise;
-    }
-    if (e.largeurM !== undefined && e.largeurM > 0) a.largeur = e.largeurM;
-    a.x = abscisseDuPortail(e.position, longueur, a.largeur, a.x);
-  }
-  cl.active = true;
-  synchroniserAnciensChamps(p);
+  poserAccesVuDeLaRue(p, e.cote, e.nature, e.position, e.largeurM);
 }
 
 /**
