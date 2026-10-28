@@ -491,10 +491,18 @@ Par ordre d'effet sur ce que voit la personne :
    coupée.
 13. Les aperçus (façade, arbre, catalogue des toits) ont une lumière fixe : voulu, à dire.
 
-**La cible** : un composant « le soleil du projet », un seul : le lieu, le nord, la date et l'heure, et les seuils, en un
-endroit ; le plan, la 3D et la visionneuse le lisent. Ce qu'il faut décider avec le propriétaire : la date et l'heure sont-elles
-une donnée du projet (enregistrée, retrouvée à la réouverture) ou une préférence d'affichage ; quel fuseau (celui du lieu) ; un
-nord pour un plan dessiné à la main ; l'ombre des bâtiments et des arbres sur le plan.
+**Décidé avec le propriétaire le 28 octobre 2026 :**
+
+- **Un seul soleil, enregistré avec le projet.** Le plan, la Vue 3D et la visionneuse lisent le même lieu, la même date et la
+  même heure ; elles s'enregistrent dans le fichier et reviennent à la réouverture. Les changer reste un réglage d'affichage :
+  ni annulation, ni « projet modifié », permis en lecture seule — comme « Relief » et « Courbes de niveau », qui marquent
+  pourtant le projet à enregistrer, pour qu'on les retrouve. Un même parasol a la même ombre sur le plan et en 3D.
+- **Pas d'ombre des bâtiments, des arbres ni des pergolas sur le plan** : la Vue 3D les montre ; le plan garde l'ombre des
+  parasols.
+- **Pas de nord réglable** pour un plan dessiné à la main : le haut du plan reste le nord.
+
+Restent à décider, sans urgence : le fuseau (celui du lieu plutôt que la France), et ce que la carte des heures d'ombre doit
+couvrir (sa fenêtre fixe, à dire à l'écran, ou la date choisie).
 
 ## Ce qui n'est pas un objet mais fait le plan
 
@@ -625,7 +633,7 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; restent les comparaisons du dessin, de la 3D et des exports |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms |
 | 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | à faire |
-| 6.7 | Le soleil du projet, un seul : le lieu, le nord, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la carte des heures d'ombre dit sa fenêtre ou suit la date choisie | un parasol a la même ombre sur le plan et en 3D ; les décisions du propriétaire (date enregistrée ou non, fuseau, nord d'un plan dessiné) appliquées | à décider |
+| 6.7 | Le soleil du projet, un seul : le lieu, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la date et l'heure s'enregistrent avec le projet ; la carte des heures d'ombre dit sa fenêtre | un parasol a la même ombre sur le plan et en 3D ; un projet rouvert retrouve son soleil ; aucune empreinte ne bouge | décidé le 28 octobre 2026, à faire |
 
 ## Journal des décisions
 
@@ -636,5 +644,6 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 | 27 octobre 2026 | L'inspecteur ne garde que ce qui sert la conception, ouvrage par ouvrage (tableau « Décidé ») ; la déclaration préalable en dialogue du menu Exporter. |
 | 27 octobre 2026 | L'outil « Aligner » garde la distance au trait (le champ de son bandeau). |
 | 27 octobre 2026 | Le relief, la photo aérienne, les rues et le PLU sont sur le terrain : ils ne tournent pas. |
-| 27 octobre 2026 | Le soleil et l'ombre décrits comme un composant (section « Le soleil et l'ombre ») ; leur rangement est l'étape 6.7, à décider. |
+| 27 octobre 2026 | Le soleil et l'ombre décrits comme un composant (section « Le soleil et l'ombre »). |
 | 27 octobre 2026 | Ce qui vient du cadastre ou de l'IGN ne se déplace ni ne tourne ; il se retouche avec un avertissement, et l'actualisation IGN demande, pour chaque objet retouché, de garder la version de la personne ou de reprendre celle de l'IGN, sans créer un nouvel objet. Pas de vue tournée. |
+| 28 octobre 2026 | Un seul soleil pour le plan, la 3D et la visionneuse, enregistré avec le projet (sans « projet modifié ») ; pas d'ombre des bâtiments, des arbres ni des pergolas sur le plan ; pas de nord réglable pour un plan dessiné. Étape 6.7. |
