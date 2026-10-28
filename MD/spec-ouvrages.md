@@ -1040,9 +1040,9 @@ groupe), et le voici. « — » : l'écrivain n'écrit jamais ce groupe ; sinon,
 
 | Écrivain | Contour (`pts`) | Hauteur à l'égout (`elevation`) | Toit et corps | Éléments posés sur les corps | Couleur et couverture du toit | Murs (`couleurMurs`) | Façades (relevés, fenêtres, profil) |
 |---|---|---|---|---|---|---|---|
-| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (gardées) | — | — |
+| Relecture LiDAR (import, fond, actualisation ; `toitsLidar.ts`, `toitsFond.ts`) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — (gardées) | — | — |
 | Recalage LiDAR (projet et mitoyens) | figé, vérifié, retouché, toit saisi, toit photo | — | — | — | — | — | — |
-| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — | — | vérifié |
+| Moteur de règles (faits, profils de façades) | — | figé, vérifié, toit saisi, toit photo | figé, vérifié, toit saisi, toit photo | — (reportés sur les corps neufs) | — | — | vérifié |
 | Actualisation IGN (`actualisationIgn.ts`, `toitsEtMurs.ts`) | figé, vérifié, retouché | figé, vérifié, retouché | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché, toit saisi, toit photo | figé, vérifié, retouché | figé, vérifié, retouché |
 | Audit : proposition cochée d'office (`constats.ts`) | — | hauteur d'un bâtiment dessiné | figé, toit saisi | libre | couverture choisie | matériau choisi | relevé à la main sur ce mur |
 
@@ -1156,12 +1156,12 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
     abandonnée peut donc avoir été enregistrée. Non vérifié en exécution.
 15. **Tests manquants** : la couverture choisie à travers `toitActualise` ; les fenêtres d'un mur relevé en mode corps ; un
     relevé avec toit suivi d'une relecture ; `suivreLeContour` absent d'une déformation ; la DP2 d'un bâtiment à toit en pente.
-16. **La relecture LiDAR perd ce qui est posé sur le toit.** Elle remplace `corpsToit` en bloc par des corps neufs
+16. ~~**La relecture LiDAR perd ce qui est posé sur le toit.** Elle remplace `corpsToit` en bloc par des corps neufs
     (`app/toits/toitsLidar.ts:347`, `poserLeToit` ; reporté tel quel par `toitsFond.ts:132`, `CHAMPS_LUS_BATIMENT`) : cheminées,
     lucarnes, terrasse, fenêtres de toit et panneaux, appentis ouvert, saillies d'un bâtiment non protégé disparaissent ; les faits
     (`regles/toits/faits.json`) n'en portent aucune. Elle se déclenche à chaque changement de `reglages.json`
     (`VERSION_LECTURE_TOITS`). Vérifié à la lecture du code le 28 octobre 2026. À reporter sur les corps neufs par
-    `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.
+    `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.~~ — corrigé le 28 octobre 2026 : la relecture (LiDAR et fait en remplacement) reporte sur les corps neufs ce que portaient les anciens, là où il tient encore (`facade/regles/toits/elementsVus.ts::corpsAvecCeQuIlsPortaient` : `reporterElements`, étendu aux fenêtres de toit et panneaux, puis `reporterSaillies`, qui repose bow-windows, galeries et appentis sur le mur d'un corps neuf à moins de 0,8 m de leur attache) ; ce qui ne tient plus est laissé (`tests/unit/app/toits/toitsLidar.test.ts`, « la relecture garde ce qui est posé sur le toit »).
 
 ## Ce qui n'est pas un objet mais fait le plan
 

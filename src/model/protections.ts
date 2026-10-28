@@ -99,7 +99,7 @@ const MARQUES: Readonly<Record<Marque, (o: BatimentProtege, ctx: ContexteEcritur
   releveMain: (o, ctx) => ctx.cote !== undefined && (o.batiment?.facades ?? []).some((r) => r.cote === ctx.cote && !r.depuisAudit),
 };
 
-/** `jamais` : l'ecrivain n'ecrit pas ce groupe (ou le reporte tel quel) ; sinon les marques qui l'arretent (vide : rien ne l'arrete). */
+/** `jamais` : l'ecrivain n'ecrit pas ce groupe (une relecture le reporte sur ses corps neufs) ; sinon les marques qui l'arretent (vide : rien ne l'arrete). */
 export type Regle = 'jamais' | readonly Marque[];
 
 /** Un toit que Plan ne choisit plus : « Règles » coupees, verifie sur place, saisi ou lu sur une photo. */
@@ -112,9 +112,9 @@ const GARDE_ENTIER: readonly Marque[] = ['fige', 'verifie', 'retouche'];
  * c'est changer ce que voit la personne : le test l'epingle en entier.
  */
 export const REGLES: Readonly<Record<Ecrivain, Readonly<Record<Groupe, Regle>>>> = {
-  lidar: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: TOIT_DE_LA_PERSONNE, couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
+  lidar: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
   recalage: { contour: [...TOIT_DE_LA_PERSONNE, 'retouche'], hauteur: 'jamais', toit: 'jamais', elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: 'jamais' },
-  faits: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: TOIT_DE_LA_PERSONNE, couverture: 'jamais', murs: 'jamais', facades: ['verifie'] },
+  faits: { contour: 'jamais', hauteur: TOIT_DE_LA_PERSONNE, toit: TOIT_DE_LA_PERSONNE, elements: 'jamais', couverture: 'jamais', murs: 'jamais', facades: ['verifie'] },
   ign: { contour: GARDE_ENTIER, hauteur: GARDE_ENTIER, toit: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], elements: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], couverture: [...GARDE_ENTIER, 'toitSaisi', 'toitPhoto'], murs: GARDE_ENTIER, facades: GARDE_ENTIER },
   audit: { contour: 'jamais', hauteur: ['hauteurDessinee'], toit: ['fige', 'toitSaisi'], elements: [], couverture: ['couvertureChoisie'], murs: ['materiauChoisi'], facades: ['releveMain'] },
 };

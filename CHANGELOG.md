@@ -375,6 +375,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Une relecture des toits garde ce qui est posé dessus.** Quand un réglage des toits change (les toits déjà lus se relisent), ou
+  qu'un fait du moteur s'applique, les corps lus remplaçaient les anciens en bloc : cheminées, lucarnes, fenêtres de toit et
+  panneaux, toiture-terrasse, appentis ouvert, bow-windows et galeries d'un bâtiment non figé disparaissaient. Ils sont reportés
+  sur les corps neufs, là où ils tiennent encore (même pan, même emprise, un mur à moins de 80 cm pour un bow-window).
+
 - **Un toit validé par l'audit de la parcelle reste celui qu'on a validé** (`MD/spec-ouvrages.md`, « Les toits dans l'audit de la
   parcelle », point 1). La validation écrivait les corps du toit sans les protéger : la relecture du LiDAR suivante (une nouvelle
   version des règles, une actualisation) les remplaçait en silence, avec les cheminées, lucarnes et appentis posés dessus. Un

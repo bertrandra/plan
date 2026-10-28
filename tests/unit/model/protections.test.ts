@@ -28,9 +28,9 @@ const ECRIVAINS: Ecrivain[] = ['lidar', 'recalage', 'faits', 'ign', 'audit'];
  * ecrire). Recopie dans MD/spec-ouvrages.md, « Qui l'emporte ».
  */
 const ATTENDU: Record<Ecrivain, Record<Groupe, '—' | Marque[]>> = {
-  lidar: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], couverture: '—', murs: '—', facades: '—' },
+  lidar: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: '—' },
   recalage: { contour: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], hauteur: '—', toit: '—', elements: '—', couverture: '—', murs: '—', facades: '—' },
-  faits: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], couverture: '—', murs: '—', facades: ['verifie'] },
+  faits: { contour: '—', hauteur: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], toit: ['fige', 'verifie', 'toitSaisi', 'toitPhoto'], elements: '—', couverture: '—', murs: '—', facades: ['verifie'] },
   ign: {
     contour: ['fige', 'verifie', 'retouche'], hauteur: ['fige', 'verifie', 'retouche'], toit: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'],
     elements: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], couverture: ['fige', 'verifie', 'retouche', 'toitSaisi', 'toitPhoto'], murs: ['fige', 'verifie', 'retouche'], facades: ['fige', 'verifie', 'retouche'],

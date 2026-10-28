@@ -27,6 +27,7 @@ import { EMPREINTE_FORMES_TOITS } from '../../regles/toits/formes.js';
 import { EMPREINTE_FAITS_TOITS, EMPREINTE_FAITS_VIDE, cleDuBatiment, cleToucheeParEssai, essaiDeFaits, faitDuBatiment, type FaitToit } from '../../regles/toits/faits.js';
 import { ajusteSelonFait, corpsDeRemplacement, corpsSelonFait, toitDeRemplacement } from '../../facade/regles/toits/faits.js';
 import { corpsCalcules } from '../../facade/regles/toits/catalogue.js';
+import { corpsAvecCeQuIlsPortaient } from '../../facade/regles/toits/elementsVus.js';
 import { corpsVraisemblables, hauteurBdTopo, mesureVraisemblable, ajusteVraisemblable, egoutValide, elevationApresLecture } from '../../facade/regles/toits/vraisemblance.js';
 import { peutEcrire } from '../../model/protections.js';
 import { champsBatiment } from '../../model/champsFonction.js';
@@ -122,6 +123,15 @@ export function corpsLus(o: ObjetAToit, mesure: ToitMesure, pts: readonly PtBrut
 }
 
 
+/**
+ * Les corps neufs d'une lecture (LiDAR, fait du moteur) a la place des anciens. Ce qui est pose sur les corps (cheminees, lucarnes,
+ * fenetres de toit, terrasse, appentis ouvert, saillies), la lecture ne l'ecrit jamais (model/protections.ts) : elle le reporte sur
+ * les corps neufs, la ou il tient encore (facade/regles/toits/elementsVus.ts).
+ */
+function corpsRelus(o: ObjetAToit, anciens: readonly CorpsToit[] | null | undefined, nouveaux: CorpsToit[] | null, ecrivain: 'lidar' | 'faits'): CorpsToit[] | null {
+  return peutEcrire(o, ecrivain, 'elements') ? nouveaux : corpsAvecCeQuIlsPortaient(anciens, nouveaux);
+}
+
 /** Le toit lu remplace l'ancien, qui garde sa couleur, son origine et sa couverture choisie. */
 function avecCouleurDe(ancien: Toit | null | undefined, toit: Toit): Toit {
   return { ...toit, ...(ancien?.couleur ? { couleur: ancien.couleur } : {}), ...(ancien?.origineCouleur ? { origineCouleur: ancien.origineCouleur } : {}), ...(ancien?.couverture ? { couverture: ancien.couverture } : {}) };
@@ -135,7 +145,7 @@ export function toitDuFait(o: ObjetAToit & { pts: PtBrut[] }, f: FaitToit): bool
   const corps = corpsDeRemplacement(f, o.pts), forme = toitDeRemplacement(f, o.pts);
   if (!corps || !forme) return false;
   champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, forme.toit);
-  champsBatiment(o).corpsToit = corps; champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
+  champsBatiment(o).corpsToit = corpsRelus(o, o.batiment?.corpsToit, corps, 'faits'); champsBatiment(o).toitMesure = null; champsBatiment(o).volumesToit = null; champsBatiment(o).toitACheval = null;
   o.elevation = forme.egout;
   champsBatiment(o).toitLidarLu = marqueDeLecture(o);
   toucher(o);
@@ -339,6 +349,7 @@ interface PlaceDuBatiment { principal: boolean; mitoyen: boolean; voisins: boole
  */
 function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAToit[], ech: EchantillonHauteur[], grille: GrilleRelief | null, place: PlaceDuBatiment, bilan: BilanToitsLidar): void {
   const { principal, mitoyen, voisins } = place;
+  const anciens = o.batiment?.corpsToit ?? null;
   // Une forme ajustee sur la cime d'un arbre n'est pas le toit du batiment qu'il couvre.
   const ajuste = ajusteVraisemblable(o, ajusteSelonFait(faitDuBatiment(o), o.pts, ech, ajusterToit(o.pts, ech)));
   const mesure = principal && grille ? mesureVraisemblable(o, toitMesureDepuisGrille(grille, o.pts)) : null;
@@ -362,6 +373,8 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
     if (mitoyen) toitAChevalApresCalcul(o, objets, grille);
     if (o.batiment?.corpsToit) bilan.corpsVoisins++;
   }
+  // Les corps neufs (a cheval compris) reprennent ce que portaient les anciens.
+  if (anciens && o.batiment?.corpsToit && o.batiment.corpsToit !== anciens) champsBatiment(o).corpsToit = corpsRelus(o, anciens, o.batiment.corpsToit, 'lidar');
   if (mesure) bilan.mesures++;
   else if (!ajuste && !volumes?.ajustes) { bilan.gardes++; return; }
   if (ajuste) champsBatiment(o).toit = avecCouleurDe(o.batiment?.toit, ajuste.toit);
