@@ -378,6 +378,14 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un relevé de façade n'arrête plus en silence la lecture LiDAR de son bâtiment** (`zones/Releve.tsx`, `app/releve/releve.ts`).
+  La case « Remplacer le toit du bâtiment par celui-ci » était cochée d'office : le toit lu sur la photo (`source: 'photo'`)
+  remplaçait celui du bâtiment, et le LiDAR ne relisait plus jamais ce bâtiment, alors que la Vue 3D, qui montre les corps lus
+  au LiDAR, ne changeait pas. Sur un toit en corps et pignons (ou en volumes), la case n'est plus cochée d'office ; elle dit ce
+  qu'elle remplace (« le toit lu au LiDAR », « le toit lu à l'IGN ») et, dessous, que cochée le LiDAR ne relit plus le toit.
+  Cochée sur un toit en corps, le toit de la photo se montre (mode « un seul toit ») ; les corps restent dans l'objet et le menu
+  du mode de toit les rend. Un bâtiment au toit simple garde la case cochée d'office : le remplacement s'y voit.
+
 - **Le toit suit son bâtiment quand on le déplace ou le tourne** (`MD/spec-ouvrages.md`, étape 6.3). Glisser un bâtiment, l'aligner
   par rotation ou le remettre à sa place de départ laissait son toit à l'ancienne place dans la Vue 3D : les corps du toit, les
   cheminées, les édicules d'une toiture-terrasse et les volumes sont en coordonnées absolues, et aucun geste ne les faisait suivre.

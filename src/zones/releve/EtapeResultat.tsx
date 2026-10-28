@@ -139,11 +139,13 @@ function CarteToit({
   contour,
   cote,
   hauteurMur,
+  automatique,
 }: {
   toit: Toit | null;
   setToit: (t: Toit) => void;
   appliquer: boolean;
   setAppliquer: (v: boolean) => void;
+  automatique: 'compose' | 'ign' | null;
   contour: PtBrut[];
   cote: number;
   hauteurMur: number;
@@ -167,8 +169,18 @@ function CarteToit({
       </p>
       <label className="releveCase">
         <input data-controle="releve.appliquerToit" type="checkbox" checked={appliquer} onChange={(e) => setAppliquer(e.target.checked)} />
-        Remplacer le toit du bâtiment par celui-ci
+        {automatique === 'compose'
+          ? 'Remplacer le toit lu au LiDAR (corps et pignons) par celui-ci'
+          : automatique === 'ign'
+          ? 'Remplacer le toit lu à l’IGN par celui-ci'
+          : 'Remplacer le toit du bâtiment par celui-ci'}
       </label>
+      {automatique && (
+        <p className="releveNote">
+          {automatique === 'compose' ? 'Cochée, la Vue 3D montre ce toit à la place des corps, et ' : 'Cochée, '}
+          le LiDAR ne relit plus le toit de ce bâtiment. Laissée vide, le relevé garde la photo et les ouvertures du mur.
+        </p>
+      )}
       {appliquer && (
         <div className="releveChamps">
           <label className="releveCm">
@@ -223,6 +235,8 @@ export interface Verification {
   setToit: (t: Toit) => void;
   appliquerToit: boolean;
   setAppliquerToit: (v: boolean) => void;
+  /** Le toit automatique que la case remplacerait (app/releve/releve.ts::toitAutomatique) : la case le dit. */
+  toitAutomatique: 'compose' | 'ign' | null;
   contour: PtBrut[];
   cote: number;
   partieBasse: PartieBasse | null;
@@ -352,7 +366,7 @@ export function EtapeResultat({ v, onRevoir, onValider, aide = null }: { v: Veri
         )}
         <CarteHauteur v={v} />
         {v.partieBasse && <CartePartieBasse p={v.partieBasse} largeur={largeur} hauteurMur={hauteurMur} maj={v.setPartieBasse} />}
-        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} contour={v.contour} cote={v.cote} hauteurMur={hauteurMur} />
+        <CarteToit toit={v.toit} setToit={v.setToit} appliquer={v.appliquerToit} setAppliquer={v.setAppliquerToit} automatique={v.toitAutomatique} contour={v.contour} cote={v.cote} hauteurMur={hauteurMur} />
       </div>
       <div className="relevePied">
         <button data-controle="releve.revoir" type="button" className="secondary" onClick={onRevoir}>

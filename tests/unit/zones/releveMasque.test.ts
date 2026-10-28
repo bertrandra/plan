@@ -76,7 +76,7 @@ describe('le masque dans la verification', () => {
       useEffect(() => o.poser({ ouvertures: [{ type: 'fenetre', x: 1, y: 0.9, l: 1.2, h: 1.35, confiance: 0.95, source: 'detectee' }], devinees: [] }), []);
       const v: Verification = {
         resultat: r, largeur: 10, hauteurMur: 6, ouvertures: o.ouvertures, setOuvertures: o.setOuvertures, choisie: o.choisie, setChoisie: o.setChoisie,
-        devinees: o.devinees, garder: o.garder, ecarter: o.ecarter, toit: null, setToit: () => {}, appliquerToit: false, setAppliquerToit: () => {},
+        devinees: o.devinees, garder: o.garder, ecarter: o.ecarter, toit: null, setToit: () => {}, appliquerToit: false, setAppliquerToit: () => {}, toitAutomatique: null,
         contour: [], cote: 0, partieBasse: null, setPartieBasse: () => {}, hauteurEstimee: 6, hauteurMesuree: true, corrigerHauteur: () => {},
       };
       return createElement(EtapeResultat, { v, onRevoir: () => {}, onValider: () => {} });
