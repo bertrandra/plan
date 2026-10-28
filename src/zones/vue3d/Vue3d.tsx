@@ -125,14 +125,20 @@ function EtiquettesDeuxVues({ vues }: { vues: DeuxVues }) {
 // Les commandes dont la vue montre l'etat elle-meme (les boutons de camera suivent chacun la leur, s'ils le font).
 const COMMANDES_VUE3D = ['3d.enregistrerPointDeVue', 'audit.suivre', '3d.heureDoree', '3d.promenade', '3d.captureHd', 'terrasse.isoler', 'toit.modifier'];
 
-export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
-  useEtat3d();
-  // Montree, elle suit ce qu'elle lit du plan (zones/composants/abonnement.ts) : les attributs des objets (la selection, l'isolement,
-  // les reglages de la terrasse), l'audit, l'etat de ses commandes et le lieu ; pas la forme des objets ni chaque rendu du plan (la
-  // scene 3D, elle, se refait par ses propres chemins). Cachee sur le plan, sa cle est gelee.
+/**
+ * Montree, la vue suit ce qu'elle lit du plan (zones/composants/abonnement.ts) : les attributs des objets (la selection, l'isolement,
+ * les reglages de la terrasse), l'audit, l'etat de ses commandes et le lieu ; pas la forme des objets ni chaque rendu du plan (la
+ * scene 3D, elle, se refait par ses propres chemins). Cachee sur le plan, sa cle est gelee.
+ */
+function useCleVue3d(magasin: Magasin, commandes: RegistreCommandes, vues: ServiceVues3d): void {
   useCle(magasin, 'vue 3D', (s) => (s.vue === 'vue3d'
     ? cleEtat(s) + JSON.stringify([COMMANDES_VUE3D.map((id) => commandes.etat(id)), promenadeActive(), vues.libelleLieu()])
     : CLE_GELEE));
+}
+
+export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
+  useEtat3d();
+  useCleVue3d(magasin, commandes, vues);
   const visible = useStore(magasin.store, (s) => s.vue) === 'vue3d';
   const pleinePage = affichage3d.pleinePage3d;
   const r = vues.reglages;

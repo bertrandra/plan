@@ -109,9 +109,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     if (obj) {
       const c = ensureConstruction(obj);
       c.bom = computeBOM(obj, computeTerrasseLayers(obj, etat.objects), solDuProjet(etat.objects));
-      // La nomenclature est ecrite dans l'objet : l'ecriture le nomme (core/controleurObjets.ts). Elle se calcule de sa forme et de
-      // ce qu'il lit, et ne se lit que par ce qui lit sa forme : les attributs des objets n'ont pas change.
-      toucherForme(obj);
+      toucherForme(obj); // la nomenclature, ecrite dans l'objet, se calcule de sa forme : ses attributs ne changent pas
       ctx.renderTerrasseLayerView(obj);
     }
     magasin.notifier();
@@ -119,8 +117,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
 
   /** Une ecriture sur les cotes : annulable, projet modifie, plan redessine (il les dessine). */
   function ecrireCotes(ecrire: () => void): void {
-    // Seules les cotes changent : aucun objet n'est touche (core/controleurObjets.ts).
-    ctx.pushHistory(LES_COTES);
+    ctx.pushHistory(LES_COTES); // seules les cotes changent : aucun objet n'est touche (core/controleurObjets.ts)
     ecrire();
     ctx.markDirty(LES_COTES);
     ctx.render();
@@ -137,9 +134,7 @@ export function creerResultats(etat: EtatApp, ctx: ContexteResultats, magasin: M
     saisir(ecrire) {
       // La lecture seule refuse les saisies du tiroir, comme l'inspecteur ses champs.
       if (etat.lectureSeule) { magasin.notifier(); return; }
-      // Le tiroir ecrit la terrasse courante (ses prix, ses reglages) : l'ecriture la nomme ; sans terrasse, tout est neuf.
-      const terrasse = ctx.terrasseCourante();
-      const nommes = terrasse ? [terrasse] : [];
+      const terrasse = ctx.terrasseCourante(), nommes = terrasse ? [terrasse] : []; // le tiroir n'ecrit que la terrasse courante
       ctx.pushHistory(...nommes);
       ecrire();
       ctx.markDirty(...nommes);
