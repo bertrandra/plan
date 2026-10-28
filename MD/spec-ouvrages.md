@@ -1007,6 +1007,68 @@ bâtiments de la parcelle supprimés puis recréés, dessinés compris).
 | Dossier PDF, SVG, DXF, résumé | `pts`, nom ; aucune hauteur, aucun toit |
 | Fichier d'audit, corpus | clé, `bdtopo`, `elevation`, corps, façades par `cote` |
 
+### Le schéma, couche par couche
+
+*État du 28 octobre 2026, après les PR #468 et #469.* Quatre couches, de gauche à droite : **qui** apporte une donnée
+(source), **quel geste** l'écrit (action), **ce qui décide** si elle passe (marque ou moteur), **ce qu'elle change** (champ du
+bâtiment, puis ce que la personne voit). Une ligne par flux : chacun se lit seul, de la source à l'impact.
+
+```mermaid
+flowchart LR
+  classDef src fill:#e8f0fe,stroke:#4a6fa5,color:#1b2a41
+  classDef act fill:#fff4e0,stroke:#b7791f,color:#3d2a06
+  classDef dec fill:#fde8e8,stroke:#b83232,color:#4a0f0f
+  classDef imp fill:#e6f4ea,stroke:#2f855a,color:#0f3d22
+  classDef col fill:none,stroke:none,color:#555,font-weight:bold
+
+  H1["SOURCE"]:::col --- H2["ACTION"]:::col --- H3["DÉCISION"]:::col --- H4["IMPACT"]:::col
+
+  s1["BD TOPO, cadastre"]:::src --> a1["Import"]:::act --> d1{{"aucune"}}:::dec --> i1["pts, elevation, toit bdtopo,<br/>volumes, cleabs"]:::imp
+  s2["LiDAR HD"]:::src --> a2["Recalage du contour<br/>(d'un bloc)"]:::act --> d2{{"arrêté par toitFige, verifieSurPlace,<br/>retoucheMain, toit saisie/photo"}}:::dec --> i2["pts translaté"]:::imp
+  s3["LiDAR HD + règles<br/>(reglages, formes, faits)"]:::src --> a3["Lecture du toit en corps<br/>import, puis en fond à chaque version"]:::act --> d3{{"moteur : fait, garde-fous, végétation<br/>arrêté par toitFige, verifieSurPlace,<br/>toit saisie/photo"}}:::dec --> i3["corpsToit, toitMesure,<br/>volumes, elevation"]:::imp
+  s4["Personne"]:::src --> a4["Inspecteur, Mode Toit,<br/>catalogue"]:::act --> d4{{"pose toit saisie<br/>ou toitFige"}}:::dec --> i4["toit, corpsToit<br/>(le LiDAR ne relit plus)"]:::imp
+  s5["Personne"]:::src --> a5["Retouche du contour<br/>d'un objet IGN"]:::act --> d5{{"avertissement,<br/>pose retoucheMain"}}:::dec --> i5["pts gardés au recalage<br/>et à l'actualisation"]:::imp
+  s6["Photo de façade"]:::src --> a6["Relevé « Valider »"]:::act --> d6{{"case du toit décochée sur un toit LiDAR ;<br/>cochée : toit photo"}}:::dec --> i6["façade, ouvertures relevées<br/>(plus de fenêtres inventées)"]:::imp
+  s7["Audit sur place,<br/>Claude"]:::src --> a7["Audit « Valider »"]:::act --> d7{{"moteur décide la forme ;<br/>pose toitFige, verifieSurPlace si tout vu ;<br/>toit fait à la main proposé décoché"}}:::dec --> i7["corpsToit (cheminées reportées),<br/>elevation, façades, couleurs"]:::imp
+  s8["BD TOPO"]:::src --> a8["Actualisation IGN"]:::act --> d8{{"garde toitFige, verifieSurPlace,<br/>retoucheMain (case : reprendre l'IGN) ;<br/>clé gardée"}}:::dec --> i8["pts, elevation, toit bdtopo<br/>(couleur, couverture gardées)"]:::imp
+  s9["Orthophoto, Panoramax"]:::src --> a9["Lecture des couleurs"]:::act --> d9{{"arrêtée par une couleur choisie"}}:::dec --> i9["toit.couleur, couleurMurs"]:::imp
+```
+
+Ce que chaque champ change à l'écran et dans les dossiers :
+
+```mermaid
+flowchart LR
+  classDef imp fill:#e6f4ea,stroke:#2f855a,color:#0f3d22
+  classDef out fill:#f1ecfb,stroke:#6b46c1,color:#2a1650
+  p["pts"]:::imp --> o1(["Plan 2D, dossier PDF,<br/>SVG, DXF, résumé"]):::out
+  p --> o2(["Vue 3D, GLB, DP6"]):::out
+  p --> o3(["DP2 : hauteur au point<br/>le plus haut"]):::out
+  e["elevation (égout)"]:::imp --> o2
+  e --> o3
+  t["toit, corpsToit, toitMesure, volumes<br/>+ cheminées, lucarnes, terrasse"]:::imp --> o2
+  t --> o3
+  t --> g(["gabarit du mur : relevé,<br/>audit, calibration"]):::out
+  f["façades, fenêtres"]:::imp --> o2
+  c["couleurs, couverture"]:::imp --> o2
+```
+
+| Source | Action | Décision | Impact |
+|---|---|---|---|
+| BD TOPO, cadastre | import (`geo/cadastreObjets.ts::objetBatiment`) | — | `pts`, `elevation`, toit `bdtopo`, volumes, `bdtopo.cleabs` ; plan, 3D, DP2 |
+| LiDAR HD | recalage du contour, d'un bloc (`toitsLidar.ts`) | arrêté par `toitFige`, `verifieSurPlace`, `retoucheMain`, toit `saisie`/`photo` | `pts` translaté ; tout le plan suit |
+| LiDAR HD + règles | lecture du toit en corps, à l'import puis en fond à chaque nouvelle version des réglages | le moteur (fait du `cleabs`, garde-fous, végétation) ; arrêtée par `toitFige`, `verifieSurPlace` (lu en copie), toit `saisie`/`photo` | `corpsToit`, `toitMesure`, `volumesToit`, `elevation` ; 3D, DP2 |
+| Personne | dessin, inspecteur, Mode Toit, catalogue | pose `toit.source = saisie` (forme, hauteur, faîtage) ou `toitFige` (Mode Toit, éléments, appentis) | `toit`, `corpsToit` ; le LiDAR ne le relit plus |
+| Personne | retouche du contour d'un objet IGN, après avertissement | pose `retoucheMain` | `pts` ; ni le recalage ni l'actualisation ne le remettent |
+| Photo de façade | relevé « Valider » | case du toit décochée sur un toit lu au LiDAR ; cochée, pose `source = photo` | façades, ouvertures relevées (plus de fenêtres inventées sur ce mur) ; 3D |
+| Audit sur place, Claude | « Valider » des propositions | le moteur décide la forme ; pose `toitFige` si le toit est écrit, `verifieSurPlace` si tout est vu ; un toit fait à la main est proposé décoché | `corpsToit` (cheminées, lucarnes reportées), `elevation`, façades, couleurs, couverture ; 3D |
+| BD TOPO | actualisation IGN | garde `toitFige`, `verifieSurPlace`, `retoucheMain` (case pour reprendre l'IGN) ; clé du bâtiment gardée | `pts`, `elevation`, toit `bdtopo` (couleur et couverture gardées) |
+| Orthophoto, Panoramax | lecture des couleurs | arrêtée par une couleur choisie (sans `origineCouleur`) | `toit.couleur`, `couleurMurs` ; 3D |
+
+**Ce que le schéma montre encore de travers** (le lot suivant, en cours) : `elevation` n'a aucune décision devant elle — la
+relecture LiDAR et l'actualisation IGN réécrivent une hauteur saisie ou validée ; la relecture LiDAR remplace `corpsToit` en bloc
+et perd ce qui est posé dessus ; une déformation du contour ne fait suivre ni le toit ni les façades ; les marques sont lues
+chacune par une partie des écrivains, sans règle unique.
+
 ### Qui écrit quoi
 
 É : écrit. L : lit. — : n'y touche pas. Entre parenthèses, ce qui l'arrête.
