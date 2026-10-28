@@ -53,6 +53,11 @@ export const estTerrasse = (o: ObjetPlan): boolean => aParticularite(o, 'constru
 export const estParasol = (o: ObjetPlan): boolean => aParticularite(o, 'parasol');
 /** Un bâtiment ou une annexe dont on sait relever les facades. */
 export const estBatiment = (o: ObjetPlan): boolean => aParticularite(o, 'releve');
+/**
+ * Un ouvrage dont le toit se lit au LiDAR HD (`Ouvrage.toitLuAuLidar`) : un batiment ou une annexe, depuis la 4.0.0. La lecture,
+ * le recalage, les mitoyens et la question du toit a cheval le demandent ici ; ce qu'elle peut ecrire, model/protections.ts le dit.
+ */
+export const toitLuAuLidar = (o: { fonction?: string | null | undefined }): boolean => ouvrageDeclare(o.fonction)?.toitLuAuLidar === true;
 /** Du bati (un batiment, une annexe), quelle que soit sa forme : la famille de son ouvrage. */
 export const estBati = (o: { fonction?: string | null | undefined }): boolean => ouvrage(o.fonction).famille === 'bati';
 

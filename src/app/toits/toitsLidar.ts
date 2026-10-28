@@ -323,8 +323,12 @@ function centreDuProjet(objets: readonly ObjetAToit[]): PtBrut {
   return pts.length ? centroid(pts) : { x: 0, y: 0 };
 }
 
-/** Ou se trouve le batiment lu : le projet, une maison mitoyenne, et si le voisinage se lit en corps et pignons. */
-interface PlaceDuBatiment { principal: boolean; mitoyen: boolean; voisins: boolean }
+/**
+ * Ou se trouve le batiment lu : le projet, une maison mitoyenne, et si le voisinage se lit en corps et pignons ; et si la lecture
+ * peut ecrire sa hauteur a l'egout, demande avant de le marquer lu (sans quoi la marque ferait passer la hauteur posee sur un
+ * batiment dessine pour une mesure).
+ */
+interface PlaceDuBatiment { principal: boolean; mitoyen: boolean; voisins: boolean; hauteur: boolean }
 
 /**
  * Le toit d'un batiment, une fois sa grille lue (et le batiment recale) : la forme ajustee, la surface
@@ -365,8 +369,8 @@ function poserLeToit(o: ObjetAToit & { pts: PtBrut[] }, objets: readonly ObjetAT
   // La hauteur a l'egout : celle de la surface mesuree, sinon celle de l'ajustement, quand elle s'ecarte franchement.
   const egout = mesure ? mesure.egout : ajuste ? ajuste.egout : null;
   const elevation = elevationApresLecture(o.elevation, egout);
-  // Une hauteur a l'egout choisie (inspecteur, audit) reste (model/protections.ts).
-  if (elevation !== undefined && ecrivainPeut(o, 'lidar', 'hauteur', { relireVerifies: true })) o.elevation = elevation;
+  // Une hauteur a l'egout choisie (inspecteur, audit) ou posee sur un batiment dessine reste (model/protections.ts).
+  if (elevation !== undefined && place.hauteur) o.elevation = elevation;
   if (ajuste || volumes?.ajustes) bilan.ajustes++;
   toucher(o);
 }
@@ -415,6 +419,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       if (options.pause) await options.pause();
       const lu = await lireSous(o, proj, lire, lireGrille, voisins);
       let { ech, grille } = lu;
+      // La hauteur se demande sur le batiment tel qu'il etait, avant la marque de lecture.
+      const hauteur = ecrivainPeut(o, 'lidar', 'hauteur', { relireVerifies: true });
       // Lu, meme sans rien dessous : seul un service muet laisse le batiment a relire.
       if (!lu.echec) champsBatiment(o).toitLidarLu = marqueDeLecture(o);
       if (!ech.length) continue;
@@ -431,7 +437,7 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }
       // Le toit, sous les seuils du profil du batiment (facade/regles/toits/profils.ts) : un calcul synchrone.
-      avecSeuilsToit(seuils, () => poserLeToit(o, objets, ech, grille, { principal, mitoyen: estMitoyen(o), voisins }, bilan));
+      avecSeuilsToit(seuils, () => poserLeToit(o, objets, ech, grille, { principal, mitoyen: estMitoyen(o), voisins, hauteur }, bilan));
     }
   };
   await Promise.all(Array.from({ length: options.enParallele ?? EN_PARALLELE }, ouvrier));

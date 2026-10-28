@@ -41,8 +41,8 @@ describe('phase 1 - echafaudage', () => {
     expect(existsSync(resolve(racine, 'legacy/plan_interactif.html'))).toBe(true);
   });
 
-  // Recapturees le 25 octobre 2026 a la version 3.0.0 (numero et date de build seuls, preuve forte
-  // dans EMPREINTES.md). Avant : le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
+  // Recapturees le 28 octobre 2026 a la version 4.0.0 (numero et date de build seuls, preuve forte
+  // dans EMPREINTES.md). Avant : le 25 octobre a la 3.0.0, le 28 septembre 2026, a la version 2.2.0 ; le numero de schema est revenu a 1 le 29,
   // parce qu'un document s'ecrit au plus petit schema qui le decrit et que le temoin n'avait pas de
   // releve. Le 30, la maison du temoin a recu son toit a croupes (MD/spec-toit-ign.md) : `projet.json`
   // gagne ce toit et le schema 3, `plan.svg` le schema 3 ; les quatre autres ne bougent pas. Le seul ecart avec les empreintes de la 1.0.0 est le numero de version — et, depuis la
@@ -52,12 +52,12 @@ describe('phase 1 - echafaudage', () => {
   // differente une fois le numero neutralise (voir EMPREINTES.md, « La rupture »).
   it('garde les golden files et leurs empreintes normalisees', () => {
     const attendu: Record<string, string> = {
-      'resume.txt': '058fea61f0a8b6d1351b2db8d48406ca9e41599e2645401fb737dabf01087f62',
-      'plan.svg': '29a67cbd9850d61801e8ee34b2e75b0df333ecaa38439c864e8e72496bef839e',
-      'plan.dxf': '7b37c0be898faf496fc2158a8439d12f4d7b74ef60321f386c1a6dc4e2f96e15',
+      'resume.txt': '5189d35daa35bbf6f14e56cd958862379b9a68b39fb23a9b130a13b48b51e4f9',
+      'plan.svg': 'f819555090095eb634595b81b3202b408a992d349a24f303b3066577f3445703',
+      'plan.dxf': '359afeded46400d6b914ae1407de1d6d57598a798ffcc6719f8fbc696288d18c',
       'projet.json': 'da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2',
-      'plan.pdf': 'db3bc8b625d7af0350291e5e820baaab2f29543e73cb4ec17a0a5f87ef5c7f2e',
-      'dossier.pdf': '5b2d62c8a494f9a80a8c9afa7778d7b29c9342d75d1c4a52b8629bf64c22304d'
+      'plan.pdf': '92470176f7b23bc67f83ea32ba260d7733d9075a4f557061fb9e3151bcbf502d',
+      'dossier.pdf': 'd112446e266239502aff089ddc5a05b1dac7933adaf00f037ad3b30aa666427d'
     };
     for (const [nom, sha] of Object.entries(attendu)) {
       // Meme normalisation que tests/fixtures/golden/EMPREINTES.md : chaque motif remplace par un

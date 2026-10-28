@@ -74,18 +74,26 @@ export const MIGRATIONS: readonly Migration[] = [
     // Ces champs s'ecrivaient deja au 4 (CHAMPS_DEPUIS) : un document 4 est un document 5 valide. Le 5 les distingue, pour
     // qu'un lecteur 4 refuse le fichier plutot que de les perdre.
     migrer: (d) => d
+  },
+  {
+    de: 5,
+    apporte: 'la forme retouchée à la main d’un objet de l’IGN, la hauteur à l’égout choisie d’un bâtiment et le soleil du projet (date et heure)',
+    // Ces champs s'ecrivaient au 5 apres sa premiere livraison (CHAMPS_DEPUIS) : un document 5 est un document 6 valide. Le 6 les
+    // distingue, pour qu'un lecteur 5 d'avant refuse le fichier plutot que de les perdre.
+    migrer: (d) => d
   }
 ];
 
 /**
  * Le schema a partir duquel chaque champ facultatif d'un objet s'ecrit : un lecteur plus ancien ne le connait pas et l'efface au
  * premier enregistrement. Les champs venus apres le relief s'ecrivent au 5 : un lecteur 4 refuse le fichier plutot que de les
- * perdre. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
+ * perdre ; ceux venus apres la premiere livraison du 5 (retouche, egout choisi, soleil) s'ecrivent au 6. Un champ nouveau s'ajoute ici ; un schema a lui demande d'abord que la plateforme l'accepte.
  */
 export const CHAMPS_DEPUIS: Readonly<Record<string, number>> = {
   facades: 2, toit: 2,
   relief: 4,
   piscine: 5, pergola: 5, cloture: 5, corpsToit: 5, volumesToit: 5, toitMesure: 5, fenetres3d: 5, voisinage3d: 5, ruesVoisinage: 5,
+  retoucheMain: 6, egoutChoisi: 6, soleil: 6,
 };
 
 /**
@@ -109,7 +117,8 @@ function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
 }
 
 /**
- * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 5 pour les champs venus apres le relief,
+ * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 6 pour la retouche, l'egout choisi et
+ * le soleil, 5 pour les champs venus apres le relief,
  * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
  * faux sur un L).
  */
