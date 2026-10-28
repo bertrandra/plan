@@ -10,6 +10,7 @@
 // enregistre sans nouvelle cle a faire transiter. Les tuiles, elles, ne sont jamais enregistrees -
 // elles se retelechargent.
 
+import { cleDesObjets } from '../core/controleurObjets.js';
 import { showToast } from '../shell/dialogs.js';
 import { svgNS } from './svg.js';
 import { centroid } from '../geometry/basic.js';
@@ -299,7 +300,7 @@ let extensionTentee = '';
  * relue pour lui, sans bruit. En cas d'echec, les tuiles d'avant restent.
  */
 function etendreSiBesoin(ctx: ContexteOrtho): void {
-  const voulu = empriseDuCalque(ctx.etat.objects);
+  const voulu = emprise(ctx, false);
   if(!voulu || !ortho.couverture || ortho.chargement) return;
   // Le paysage du relief (lu apres la photo, ou etendu) compte aussi : sans couche large qui le
   // couvre, le sol 3D restait nu au-dela des parcelles.
@@ -312,6 +313,24 @@ function etendreSiBesoin(ctx: ContexteOrtho): void {
   extensionTentee = cle;
   ortho.chargement = true;
   void chargerOrthophoto(ctx).catch(() => null).finally(() => { ortho.chargement = false; ctx.render(); });
+}
+
+// Un attribut reecrit a la meme valeur fait quand meme travailler le navigateur (style de l'image suivante) : a chaque rendu du
+// plan, les tuiles l'etaient toutes. On n'ecrit que ce qui change.
+function poser(e: Element, nom: string, valeur: string): void {
+  if (e.getAttribute(nom) !== valeur) e.setAttribute(nom, valeur);
+}
+
+// L'emprise du calque, reprise tant que le plan n'a pas change (core/controleurObjets.ts) : elle parcourt tous les objets, deux
+// fois par rendu.
+const emprises = new Map<boolean, { cle: string; valeur: ReturnType<typeof empriseDuCalque> }>();
+function emprise(ctx: ContexteOrtho, masque: boolean): ReturnType<typeof empriseDuCalque> {
+  const cle = cleDesObjets(ctx.etat.objects) + '|' + (masque ? ctx.etat.voisinageVisible : '');
+  const m = emprises.get(masque);
+  if (m?.cle === cle) return m.valeur;
+  const valeur = masque ? empriseDuCalque(ctx.etat.objects, masqueEn2d(ctx)) : empriseDuCalque(ctx.etat.objects);
+  emprises.set(masque, { cle, valeur });
+  return valeur;
 }
 
 /** Un objet masque a l'affichage du plan : masque lui-meme, ou voisinage cache. */
@@ -356,25 +375,25 @@ export function placerOrthophoto(ctx: ContexteOrtho): void {
   // Le paysage suit le voisinage : masque, la photo revient au calque des parcelles affichees.
   const larges = groupe.querySelector<SVGGElement>('g.tuilesOrthoLarges');
   if(larges) larges.style.display = ctx.etat.voisinageVisible ? '' : 'none';
-  groupe.setAttribute('opacity', String(ortho.opacite));
+  poser(groupe, 'opacity', String(ortho.opacite));
   // La photo couvre le calque des parcelles affichees, pas au-dela : la meme emprise que le sol 3D.
-  const calque = empriseDuCalque(ctx.etat.objects, masqueEn2d(ctx));
+  const calque = emprise(ctx, true);
   const rect = groupe.querySelector('clipPath rect');
   if(calque && rect){
     const hg = ctx.toScreen({ x: calque.xMin, y: calque.yMax });
-    rect.setAttribute('x', String(hg.x));
-    rect.setAttribute('y', String(hg.y));
-    rect.setAttribute('width', String((calque.xMax - calque.xMin) * ctx.etat.scene.scale));
-    rect.setAttribute('height', String((calque.yMax - calque.yMin) * ctx.etat.scene.scale));
-    tuilesG.setAttribute('clip-path', 'url(#coupeCalqueOrtho)');
+    poser(rect, 'x', String(hg.x));
+    poser(rect, 'y', String(hg.y));
+    poser(rect, 'width', String((calque.xMax - calque.xMin) * ctx.etat.scene.scale));
+    poser(rect, 'height', String((calque.yMax - calque.yMin) * ctx.etat.scene.scale));
+    poser(tuilesG, 'clip-path', 'url(#coupeCalqueOrtho)');
   } else tuilesG.removeAttribute('clip-path');
   [...ortho.tuilesLarges, ...ortho.tuiles].forEach(t=>{
     if(!t.el) return;
     const coin = ctx.toScreen({ x:t.xMin, y:t.yMin + t.hauteur });   // coin haut-gauche a l'ecran
-    t.el.setAttribute('x', String(coin.x));
-    t.el.setAttribute('y', String(coin.y));
-    t.el.setAttribute('width', String(Math.max(1, t.largeur*ctx.etat.scene.scale)));
-    t.el.setAttribute('height', String(Math.max(1, t.hauteur*ctx.etat.scene.scale)));
+    poser(t.el, 'x', String(coin.x));
+    poser(t.el, 'y', String(coin.y));
+    poser(t.el, 'width', String(Math.max(1, t.largeur*ctx.etat.scene.scale)));
+    poser(t.el, 'height', String(Math.max(1, t.hauteur*ctx.etat.scene.scale)));
   });
 }
 /**

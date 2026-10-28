@@ -8,6 +8,8 @@ import { dessinerNomsDesRues } from '../../render/rues.js';
 import { creerApercuVue } from '../../render/apercuVue.js';
 import { dessinerReleves } from '../../render/releve.js';
 import { dessinerCloture } from '../../render/cloture.js';
+import { cleDesCalques, redessinerSiChange } from '../../render/calquesGardes.js';
+import { poserEnQueue } from '../../render/empilement.js';
 import { modeDiagnostic, couleurDiagnostic } from '../diagnostic.js';
 import type { EtatApp } from '../../core/state.js';
 import type { ObjetPlan } from '../../model/types.js';
@@ -77,10 +79,15 @@ export function creerRendu(d: DependancesRendu) {
       // Le nom des rues, si la case de la section « Voisinage » est cochee (render/rues.ts).
       dessinerRues: () => { if (etat.voisinageVisible) dessinerNomsDesRues(surface.rues, etat.objects, etat.scene, affichage.objetMasque); else surface.rues.innerHTML = ''; },
       // Les ouvertures relevees puis la cloture, dans le meme groupe : le premier le vide.
+      // Refaites seulement si ce qu'elles lisent a change (render/calquesGardes.ts).
       renderReleves: () => {
-        dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
-        const parcelle = affichage.trouverParcelleCloture();
-        if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
+        redessinerSiChange(surface.releves, 'releves et cloture', cleDesCalques(etat), () => {
+          dessinerReleves(surface.releves, etat, dessin.toScreen, affichage.objetMasque);
+          const parcelle = affichage.trouverParcelleCloture();
+          if (parcelle && !affichage.objetMasque(parcelle)) dessinerCloture(surface.releves, etat, dessin.toScreen, parcelle);
+        });
+        // Toujours au-dessus des objets (un objet cree depuis se pose au bout) : sans le deplacer s'il y est deja.
+        poserEnQueue(surface.svg, [surface.releves]);
       }
     };
   }

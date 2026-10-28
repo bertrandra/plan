@@ -98,3 +98,33 @@ export function reculerObjet(obj: ObjetPlan | null, objets: ObjetPlan[]): boolea
   [objets[swapIdx], objets[idx]] = [au(objets, idx), au(objets, swapIdx)];
   return true;
 }
+
+/** Un noeud tel que `poserEnQueue` le lit : son voisin d'avant. */
+export interface NoeudEmpile { previousSibling: unknown }
+
+/**
+ * Pose ces elements en queue de `parent`, dans cet ordre, comme autant d'`appendChild` successifs — sans rien deplacer s'ils y
+ * sont deja. Reajouter un element, meme a sa place, le retire et le remet : le navigateur refait alors le style de tout son
+ * sous-arbre a l'image suivante, et le plan remontait ainsi a chaque rendu ses calques du dessus et les poignees de la selection.
+ * Un element nomme deux fois ne compte qu'a sa derniere place, comme avec `appendChild`. `suivants` : ce qu'un geste suivant du
+ * meme rendu remet apres eux (le calque des releves) ; deja derriere eux, ils ne comptent pas comme un desordre, et ils sont
+ * remis apres eux si l'ordre est refait.
+ */
+export function poserEnQueue<E extends NoeudEmpile>(parent: { lastChild: unknown; appendChild: (el: E) => unknown }, els: readonly (E | null | undefined)[],
+  suivants: readonly E[] = []): void {
+  const vus = new Set<E>();
+  const ordre: E[] = [];
+  for (let i = els.length - 1; i >= 0; i--) {
+    const e = els[i];
+    if (e && !vus.has(e)) { vus.add(e); ordre.push(e); }
+  }
+  ordre.reverse();
+  const queue = [...ordre, ...suivants.filter((e) => !vus.has(e))];
+  let n: unknown = parent.lastChild;
+  let enPlace = true;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (n !== queue[i]) { enPlace = false; break; }
+    n = (n as NoeudEmpile).previousSibling;
+  }
+  if (!enPlace) queue.forEach((e) => parent.appendChild(e));
+}
