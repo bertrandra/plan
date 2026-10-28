@@ -284,6 +284,8 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - **Sa silhouette se trace, lisible.** Un corps choisi montre sa silhouette en vue libre ou de façade : son mur le plus tourné vers la
   caméra, du pied au haut sous son toit, pignon compris. C'est un trait épais sur un halo clair, avec un voile léger
   (`PoigneesToit.tsx::silhouetteAEcran`, `TraitCorps`). De dessus, le plan le montre déjà.
+  - La même silhouette (`silhouetteDesCorps.ts::silhouetteDuCorps`) fait le gabarit des façades de l'audit, du relevé et de la
+    calibration : projetée sur le plan du mur, vue de face, tous corps compris (`silhouetteDeFace` ; 28 octobre 2026).
 - **La poignée de déplacement se distingue.** `deplacer` (le corps) et `pos` (un élément le long de son mur) sont des carrés pleins à
   quatre flèches ; les poignées qui étirent ou montent restent rondes.
 - **Les poignées sont sur le corps choisi** (28 octobre 2026, signalé par la personne : « suite à la sélection d'un corps, les

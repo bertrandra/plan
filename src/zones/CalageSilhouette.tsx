@@ -10,7 +10,7 @@
 
 import { useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import type { P2 } from '../facade/vision/homographie.js';
-import { gabaritSurLaVue, type GabaritMur } from '../facade/gabaritMur.js';
+import { contourDuGabarit, gabaritSurLaVue, type GabaritMur } from '../facade/gabaritMur.js';
 import { bouger, calageDe, coinsDuCalage, egoutDuCalage, ECART_MIN, PAS_CLAVIER, type Calage, type Prise } from '../facade/calage/calageSilhouette.js';
 import { pointSvg, useEchelle } from './releve/commun.js';
 
@@ -28,7 +28,8 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
   const [c, setC] = useState<Calage>(() => calageDe(coins, rapport));
   const egout = egoutDuCalage(c, rapport);
   const haut = gabaritSurLaVue(gabarit, { x0: c.x0, x1: c.x1, y0: egout, y1: c.sol });
-  const contour = [{ x: c.x0, y: c.sol }, ...haut, { x: c.x1, y: c.sol }].map((p) => p.x + ',' + p.y).join(' ');
+  // Le pied sous les bouts du gabarit : au-dela des angles quand le mur d'un corps continue la facade.
+  const contour = gabaritSurLaVue(contourDuGabarit(gabarit), { x0: c.x0, x1: c.x1, y0: egout, y1: c.sol }).map((p) => p.x + ',' + p.y).join(' ');
   // Le haut de l'image etiree autour du sol, et l'image elle-meme : y' = sol + k (y - sol).
   const hautImage = c.sol - c.k * c.sol;
   const image = <image href={url} x={0} y={0} width={largeur} height={hauteur} preserveAspectRatio="none" transform={`translate(0 ${c.sol * (1 - c.k)}) scale(1 ${c.k})`} />;

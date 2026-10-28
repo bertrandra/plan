@@ -7,7 +7,7 @@ import { avisFusion } from './analyseSerie.js';
 import { priseSansCapteurs, redresserEtFusionner } from './chaine.js';
 import { rechercher } from './serie.js';
 import { coinsAutoDeSerie, type CoinsDeSerie } from './coinsAuto.js';
-import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
+import { GABARIT_RECTANGLE, contourDuGabarit, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
 import { inverser } from '../vision/redressementFuites.js';
 import type { MurLu } from '../vision/mosaiqueFuites.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
@@ -124,7 +124,7 @@ export function facadeSurLAssemblage(a: AssemblageDuMur, gabarit: GabaritMur, L:
   const quad = (o: OuvertureDetectee): P2[] => (versA ? [{ x: o.x, y: o.y + o.h }, { x: o.x + o.l, y: o.y + o.h }, { x: o.x + o.l, y: o.y }, { x: o.x, y: o.y }].map((q) => appliquer(versA, q)) : []);
   return {
     url, largeur: a.image.largeur, hauteur: a.image.hauteur,
-    contour: [bg, ...(gabaritSurLaPhoto(gabarit, a.coins) ?? []), bd],
+    contour: gabaritSurLaPhoto(contourDuGabarit(gabarit), a.coins) ?? [bg, bd],
     propositions: p.ouvertures.map(quad), devinees: p.devinees.map(quad),
   };
 }
@@ -161,7 +161,7 @@ export function etapesDe(p: CasPrepare, images: readonly Image[], depart: CasSto
   const urlFacade = a ? (urlAssemblage && sr?.assemblage.image === a.image ? urlAssemblage : outils.elevationEnUrl(a.image)) : null;
   return {
     // Le contour du mur sur la texture (metres depuis son coin haut gauche) : le sol, puis le gabarit d'un angle a l'autre.
-    silhouetteTexture: [{ x: 0, y: p.hauteurTexture }, ...gabarit.map((q) => ({ x: q.u * L, y: p.hauteurTexture - q.v * H })), { x: L, y: p.hauteurTexture }],
+    silhouetteTexture: contourDuGabarit(gabarit).map((q) => ({ x: q.u * L, y: p.hauteurTexture - q.v * H })),
     textureM: { l: p.texture.largeur / p.pxParM, h: p.hauteurTexture },
     entieres: images.map((_, k) => {
       const v = sr?.vues[k], u = v ? enUrl(v.image) : null;

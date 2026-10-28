@@ -6,9 +6,13 @@
 // Le haut se lit sur le cote du corps qui porte le mur (murDuCorps.ts), pas sur la face du mur du cadastre : un bow-window ou un
 // avant-corps sort du corps de quelques dizaines de centimetres, et le pignon qui est derriere est bien ce que montre la photo
 // (AE 101, cote 3 : une saillie de 2,3 m devant le pignon est du corps principal, lue « ligne droite a 3,4 m » sur sa face).
-// Ce n'est pas le gabarit (facade/gabaritMur.ts::hautDeLaFacade) : lui montre toute la facade vue de dehors, tous corps compris, le
-// plus haut l'emportant ; ici, le mur d'un seul corps, celui qui le porte, pour dire sa forme. Les deux lectures different des qu'un
-// corps en retrait depasse au-dessus d'un autre ; ne pas les fondre (les verdicts du LiDAR changeraient).
+// Le mot (silhouetteDesCorps, motDuHaut) lit le mur d'un seul corps, celui qui le porte, pour dire sa forme ; ne pas le fondre avec
+// la silhouette de face (les verdicts du LiDAR changeraient).
+//
+// La silhouette d'un corps (silhouetteDuCorps) est celle que trace le mode Toit en 3D (silhouetteVersLOeil). La silhouette de toute
+// une facade vue de face (silhouetteDeFace) en est faite : chaque corps y pose la sienne, projetee sur le plan du mur, et le plus
+// haut l'emporte. C'est le gabarit du mur de l'audit, du releve et de la calibration (facade/gabaritMur.ts ; demande du
+// proprietaire, 28 octobre 2026 : « utilise la meme methode que le mode Toit pour la calibration et le dessin de la facade »).
 // Pur.
 
 import { hauteurDuToitEn } from '../../toits/toitCorps.js';
@@ -121,15 +125,109 @@ export function silhouetteDesCorps(f: Facade, corps: readonly CorpsToit[] | null
 }
 
 /**
- * La silhouette d'un corps vue d'un point (`oeil`, dans le plan) : son mur le plus tourne vers lui, du pied au haut sous son toit
- * (pignon compris), en points du plan et hauteurs (`z`, metres). Ce que le mode Toit trace autour du corps choisi. `mur` : ce mur-la
- * plutot que le plus tourne vers l'oeil (celui que tirent les poignees).
+ * La silhouette du mur `mur` d'un corps (le cote `pts[mur] -> pts[mur + 1]`), du pied au haut sous son toit, pignon compris : le pied
+ * de gauche a droite vu de dehors, puis le haut de droite a gauche, en points du plan et hauteurs (`z`, metres). Le dessin du mode
+ * Toit, et la piece de chaque corps dans la silhouette d'une facade (silhouetteDeFace). Null pour un cote de moins de 10 cm.
+ */
+export function silhouetteDuCorps(c: CorpsToit, mur: number): { x: number; y: number; z: number }[] | null {
+  const egout = Math.min(...c.egouts), f = facadesDuContour(c.pts, egout).find((x) => x.cote === mur);
+  return f ? surLePlan(f, silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout)) : null;
+}
+
+const surLePlan = (f: Facade, l: readonly P2[]) => l.map((q) => ({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }));
+
+/**
+ * La silhouette d'un corps vue d'un point (`oeil`, dans le plan) : son mur le plus tourne vers lui (silhouetteDuCorps). Ce que le
+ * mode Toit trace autour du corps choisi. `mur` : ce mur-la plutot que le plus tourne vers l'oeil (celui que tirent les poignees).
  */
 export function silhouetteVersLOeil(c: CorpsToit, oeil: PtBrut, mur?: number): { x: number; y: number; z: number }[] | null {
   const egout = Math.min(...c.egouts), murs = facadesDuContour(c.pts, egout);
   // Le mur donne (celui des poignees du mode Toit) l'emporte : la silhouette et les poignees sont sur le meme mur.
   const f = (mur === undefined ? undefined : murs.find((x) => x.cote === mur))
     ?? murs.reduce<Facade | null>((m, x) => (!m || tourneVers(x.gauche, x.droite, x.normale, oeil) > tourneVers(m.gauche, m.droite, m.normale, oeil) ? x : m), null);
-  if (!f) return null;
-  return silhouetteDuMur(f, [c], Number.POSITIVE_INFINITY, egout).map((q) => ({ x: f.gauche.x + ((f.droite.x - f.gauche.x) * q.x) / f.largeur, y: f.gauche.y + ((f.droite.y - f.gauche.y) * q.x) / f.largeur, z: q.y }));
+  return f ? silhouetteDuCorps(c, f.cote) : null;
+}
+
+/** Un mur de corps entre dans la silhouette d'une facade s'il lui fait face a 60 degres pres (sinon il se voit de chant). */
+const FACE_MIN = 0.5;
+/** Un mur de corps plus en avant que cela devant la facade n'en est pas (une aile qui avance) : on la photographie depuis devant elle. */
+const DEVANT_FACE_M = 1;
+/** Le pas de lecture le long de la facade, et l'ecart qui fait d'un bout de corps une marche verticale. */
+const PAS_FACE_M = 0.1, BORD_M = 1e-3;
+/** Deux corps a moins de cela l'un de l'autre, le long de la facade, se touchent. */
+const JOINT_M = 0.05;
+
+/** Le haut d'une silhouette de face : `x` en metres depuis la gauche de la facade (hors de 0..largeur quand ses murs la depassent). */
+export interface SilhouetteDeFace {
+  /** Les bouts de ce qui se voit : 0 et la largeur, ou plus loin quand le mur d'un corps continue la facade au-dela de son cote. */
+  x0: number;
+  x1: number;
+  /** Le haut, de gauche a droite ; `y` null la ou aucun corps n'est derriere. */
+  haut: { x: number; y: number | null }[];
+}
+
+/**
+ * La silhouette de toute une facade (un cote du contour du batiment) vue de face, sous les corps du toit : le mur de chaque corps
+ * qui lui fait face, tel que le dessine le mode Toit (silhouetteDuCorps : pignon, croupe, rampe d'un appentis, marches), projete sur
+ * le plan du mur ; le plus haut l'emporte, et ce qui est derriere un plus haut ne se voit pas. Un corps plus haut en retrait se voit
+ * au-dessus d'un plus bas devant ; une aile qui avance de plus d'un metre n'en est pas.
+ *
+ * Elle ne s'arrete pas au cote du contour : le mur d'un corps dans le plan de la facade (a MUR_CORPS_DISTANCE_M pres) qui la depasse
+ * se voit entier, comme le mode Toit le trace (le pignon d'une maison en L continue au-dessus du toit de l'aile qui lui fait angle).
+ * En metres : `x` le long du mur depuis sa gauche vue de dehors, `y` au-dessus du sol.
+ */
+export function silhouetteDeFace(f: Facade, corps: readonly CorpsToit[], regles: SilhouettesToits = SILHOUETTES_TOITS): SilhouetteDeFace {
+  const L = f.largeur, n = f.normale;
+  const ux = (f.droite.x - f.gauche.x) / L, uy = (f.droite.y - f.gauche.y) / L;
+  const le = (p: PtBrut) => (p.x - f.gauche.x) * ux + (p.y - f.gauche.y) * uy;
+  const derriere = (p: PtBrut) => -((p.x - f.gauche.x) * n.x + (p.y - f.gauche.y) * n.y);
+  let x0 = 0, x1 = L;
+  const profils: P2[][] = [];
+  for (const c of corps) {
+    const egout = Math.min(...c.egouts);
+    for (const w of facadesDuContour(c.pts, egout)) {
+      if (w.normale.x * n.x + w.normale.y * n.y < FACE_MIN) continue;
+      const milieu = { x: (w.gauche.x + w.droite.x) / 2, y: (w.gauche.y + w.droite.y) / 2 }, d = derriere(milieu);
+      if (d < -DEVANT_FACE_M) continue;
+      const s = silhouetteDuCorps(c, w.cote);
+      if (!s) continue;
+      const haut = s.slice(2).reverse().map((q) => ({ x: le(q), y: q.z })).sort((a, b) => a.x - b.x);
+      const a = haut[0] as P2, b = haut[haut.length - 1] as P2;
+      profils.push(haut);
+      // Dans le plan de la facade et sur elle : ce mur se voit entier.
+      if (Math.abs(d) <= regles.seuils.MUR_CORPS_DISTANCE_M && Math.min(b.x, L) - Math.max(a.x, 0) > PAS_FACE_M) { x0 = Math.min(x0, a.x); x1 = Math.max(x1, b.x); }
+    }
+  }
+  const surProfil = (h: readonly P2[], x: number): number | null => {
+    const a = h[0] as P2, b = h[h.length - 1] as P2;
+    if (x < a.x - 1e-9 || x > b.x + 1e-9) return null;
+    for (let i = 1; i < h.length; i++) {
+      const p = h[i - 1] as P2, q = h[i] as P2;
+      if (x <= q.x + 1e-9) return q.x - p.x < 1e-9 ? Math.max(p.y, q.y) : p.y + ((q.y - p.y) * (x - p.x)) / (q.x - p.x);
+    }
+    return b.y;
+  };
+  // Les abscisses lues : un pas regulier, les sommets de chaque profil, et ses bouts de part et d'autre (une marche reste verticale).
+  const k = Math.max(1, Math.ceil((x1 - x0) / PAS_FACE_M));
+  const xs = Array.from({ length: k + 1 }, (_, i) => x0 + ((x1 - x0) * i) / k);
+  for (const h of profils) {
+    for (const p of h) xs.push(p.x);
+    xs.push((h[0] as P2).x - BORD_M, (h[h.length - 1] as P2).x + BORD_M);
+  }
+  const lus = [...new Set(xs.filter((x) => x >= x0 - 1e-9 && x <= x1 + 1e-9).map((x) => Math.min(x1, Math.max(x0, x))))].sort((a, b) => a - b);
+  const haut = lus.map((x) => {
+    let y: number | null = null;
+    for (const h of profils) { const z = surProfil(h, x); if (z !== null && (y === null || z > y)) y = z; }
+    // Entre deux corps qui se touchent a quelques centimetres pres (le LiDAR ne les pose pas bord a bord), pas de creux : le plus proche.
+    if (y === null) {
+      for (const h of profils) {
+        const a = h[0] as P2, b = h[h.length - 1] as P2;
+        if (x < a.x - JOINT_M || x > b.x + JOINT_M) continue;
+        const z = surProfil(h, Math.min(b.x, Math.max(a.x, x)));
+        if (z !== null && (y === null || z > y)) y = z;
+      }
+    }
+    return { x, y };
+  });
+  return { x0, x1, haut };
 }

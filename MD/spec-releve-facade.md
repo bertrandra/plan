@@ -437,15 +437,25 @@ a la teinte du mur en descendant du ciel ; une bande de tuiles, n'étant pas du 
 
 **Le gabarit : la silhouette par contrainte** (décision de l'utilisateur, 21 octobre 2026). La silhouette du mur ne se lit pas sur la
 photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur.ts`).
-- **Sa forme.** Le haut de **toute** la façade, vue de dehors, de gauche à droite (`gabaritMur.ts::hautDeLaFacade`).
-  - Pour chaque point du mur, on suit la profondeur depuis 1 m devant la face. Chaque corps du toit donne le haut de son mur là où
-    la vue y entre, en avancée, au nu ou en retrait ; on garde le plus haut.
-  - Un corps plus haut en retrait se voit donc au-dessus d'un plus bas devant : pignons, rampes, marches de plusieurs corps.
-  - La largeur vient du cadastre. Les hauteurs sont en mètres, ramenées à la hauteur du mur que pose la chaîne (`v` = 1 à son égout,
-    0 au sol) : un corps plus bas descend sous 1.
-  - La ligne garde ses sommets à 2 cm près. Sans corps, un rectangle.
-  - Une première version lisait le long d'un seul corps et se ramenait à l'angle le plus bas du mur : sur AE 101, le gabarit de la
-    façade ouest montait à 2,4 fois la hauteur, et celui de la façade nord ignorait le grand corps derrière l'annexe.
+- **Sa forme : la silhouette du Mode Toit, vue de face** (demande du propriétaire, 28 octobre 2026 : « dans le Mode Toit, en 3D,
+  la silhouette des façades est parfaite ; utilise la même méthode pour la calibration et le dessin de la façade »).
+  `silhouetteDesCorps.ts::silhouetteDeFace` la calcule, `gabaritMur.ts::gabaritDesCorps` la ramène à la hauteur du mur.
+  - Chaque corps du toit donne le mur qui fait face à la façade (à 60° près), tel que le Mode Toit le trace
+    (`silhouetteDuCorps`, la même que `silhouetteVersLOeil` : pied, haut sous son toit, pignon, croupe, rampe d'un appentis).
+  - Ces murs sont projetés sur le plan de la façade ; le plus haut l'emporte, ce qui est derrière un plus haut ne se voit pas.
+    Un corps plus haut en retrait se voit donc au-dessus d'un plus bas devant ; une aile qui avance de plus d'un mètre n'en est pas.
+  - Le mur d'un corps dans le plan de la façade (à `MUR_CORPS_DISTANCE_M` près) se voit **entier**, même au-delà du côté du
+    contour : `u` sort alors de 0..1. Sur une maison en L, le côté du contour au nu du pignon s'arrête au coin de l'aile ; le
+    pignon, lui, continue au-dessus de son toit, et c'est ce que montre la photo.
+  - Les hauteurs sont en mètres, ramenées à la hauteur du mur que pose la chaîne (`v` = 1 à son égout, 0 au sol) : un corps plus
+    bas descend sous 1. La ligne garde ses sommets à 2 cm près. Sans corps, un rectangle.
+  - Avant : une marche en profondeur le long du seul côté du contour (`hautDeLaFacade`, retirée). Le pignon d'une maison en L s'y
+    coupait au coin de l'aile, en demi-triangle étiré sur toute la façade ; un mur de quelques dizaines de centimètres prenait des
+    pointes. Une première version, encore avant, lisait le long d'un seul corps et se ramenait à l'angle le plus bas du mur : sur
+    AE 101, le gabarit de la façade ouest montait à 2,4 fois la hauteur, et celui de la façade nord ignorait le grand corps
+    derrière l'annexe.
+  - Le contour se ferme sous les bouts du gabarit (`contourDuGabarit`) : ajuster l'égout et le sol, caler la silhouette, la façade
+    complète, l'image posée et la vue 3D de la calibration.
 - **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés (`affinerEgoutEtSol`, paramètre
   `gabarit`). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
 - **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur

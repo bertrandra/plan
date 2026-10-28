@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { GABARIT_RECTANGLE, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, hautDeLaFacade, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, contourDuGabarit, gabaritDesCorps, gabaritDuHaut, gabaritSurLaPhoto, gabaritSurLaVue, lireGabarit, relief } from '../../../src/facade/gabaritMur.js';
+import { silhouetteDeFace } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { facadesDuContour } from '../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, PtBrut } from '../../../src/model/types.js';
 
@@ -39,11 +40,11 @@ describe('le gabarit tire des corps du LiDAR', () => {
     // Le deux-pans (egout 5 m) et, devant sa moitie gauche, une annexe plate a 3 m, 2 m en avant : la facade sud les longe tous deux.
     const annexe: CorpsToit = { pts: [p(0, -2), p(5, -2), p(5, 0), p(0, 0)], posFaitage: 0, faitage: 3, egouts: [3, 3], pignons: [], ecart: 0 };
     const sud = facadesDuContour([p(0, -2), p(5, -2), p(5, 0), p(10, 0), p(10, 6), p(0, 6)], 5).find((f) => f.orientation === 'Sud' && f.largeur > 4.9 && f.gauche.y === -2)!;
-    const haut = hautDeLaFacade(sud, [corps, annexe]);
+    const haut = silhouetteDeFace(sud, [corps, annexe]).haut;
     // Le long pan a 5 m se voit au-dessus de l'annexe a 3 m.
     expect(Math.min(...haut.map((q) => q.y ?? 0))).toBeCloseTo(5, 1);
     // Sans le grand corps, l'annexe seule.
-    expect(Math.max(...hautDeLaFacade(sud, [annexe]).map((q) => q.y ?? 0))).toBeCloseTo(3, 1);
+    expect(Math.max(...silhouetteDeFace(sud, [annexe]).haut.map((q) => q.y ?? 0))).toBeCloseTo(3, 1);
   });
   it('se ramene a la hauteur du mur que pose la chaine, pas a son angle le plus bas', () => {
     const g = gabaritDuHaut([{ x: 0, y: 3 }, { x: 0.5, y: 3 }, { x: 0.5, y: 6 }, { x: 1, y: 6 }], 6);
@@ -60,6 +61,9 @@ describe('le gabarit pose', () => {
   it('sur une vue de face, entre les bouts, l egout et le sol : seule l echelle suit', () => {
     expect(gabaritSurLaVue(g, { x0: 100, x1: 300, y0: 100, y1: 300 })).toEqual([{ x: 100, y: 100 }, { x: 180, y: 0 }, { x: 300, y: 100 }]);
   });
+  it('ferme son contour sous ses propres bouts', () => {
+    expect(contourDuGabarit([{ u: -0.2, v: 1 }, { u: 1.5, v: 1.2 }])).toEqual([{ u: -0.2, v: 0 }, { u: -0.2, v: 1 }, { u: 1.5, v: 1.2 }, { u: 1.5, v: 0 }]);
+  });
   it('sur une photo, par les coins du mur', () => {
     const s = gabaritSurLaPhoto(g, [{ x: 100, y: 100 }, { x: 300, y: 100 }, { x: 300, y: 300 }, { x: 100, y: 300 }])!;
     expect(s[1]).toEqual({ x: 180, y: 0 });
@@ -67,7 +71,10 @@ describe('le gabarit pose', () => {
   it('se relit d un cas enregistre, et refuse ce qui n en est pas un', () => {
     expect(lireGabarit(g)).toEqual(g);
     expect(lireGabarit([{ u: 0, v: 1 }])).toBeNull();
-    expect(lireGabarit([{ u: 0, v: 1 }, { u: 2, v: 1 }])).toBeNull();
+    // Au-dela des angles (le mur d'un corps continue la facade), dans une mesure raisonnable.
+    expect(lireGabarit([{ u: 0, v: 1 }, { u: 2, v: 1 }])).toEqual([{ u: 0, v: 1 }, { u: 2, v: 1 }]);
+    expect(lireGabarit([{ u: 0, v: 1 }, { u: 9, v: 1 }])).toBeNull();
+    expect(lireGabarit([{ u: 0, v: 1 }, { u: 1, v: 0 }])).toBeNull();
     expect(lireGabarit('triangle')).toBeNull();
   });
 });
