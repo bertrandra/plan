@@ -14,7 +14,7 @@ import { PENTE_DEFAUT_DEG } from '../../model/toitBdTopo.js';
 import { toitMesureDepuisGrille, egoutDansRect, decouperParHauteurs, hauteurMurMesuree } from '../../model/toitMesure.js';
 import { decalageSurMesure, partVideSous } from '../../facade/toits/toitCorps.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
-import { surParcelleDuProjet } from '../../model/fonctions.js';
+import { parcelleDuProjet, surParcelleDuProjet } from '../../model/fonctions.js';
 import { batimentsMitoyens } from '../../model/mitoyennete.js';
 import { partsACheval, douteACheval, type PartACheval } from '../../model/aCheval.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
@@ -318,7 +318,7 @@ export function clesMitoyens(objets: readonly ObjetAToit[]): Set<string> {
 
 /** Le centre de la parcelle du projet, ou de tout ce qui a des sommets. */
 function centreDuProjet(objets: readonly ObjetAToit[]): PtBrut {
-  const parcelle = objets.find((o) => o.key === 'parcelle') ?? objets.find((o) => o.fonction === 'terrain');
+  const parcelle = parcelleDuProjet(objets);
   const pts = parcelle?.pts?.length ? parcelle.pts : objets.flatMap((o) => o.pts ?? []);
   return pts.length ? centroid(pts) : { x: 0, y: 0 };
 }

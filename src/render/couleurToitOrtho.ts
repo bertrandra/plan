@@ -15,6 +15,7 @@ import { au } from '../util/tableaux.js';
 import { pointInPolygon } from '../geometry/basic.js';
 import { distancePointContour } from '../geometry/proximite.js';
 import { couleurToitDepuisPixels, couvertureDesFichiersFonciers, COULEURS_TOIT_REPLI, type CouleurToitLue } from '../model/couleurToit.js';
+import { NIVEAU, ecrivainPeut, peutEcrire, type ContexteEcriture } from '../model/protections.js';
 import type { ProjecteurLocal } from '../geo/projection.js';
 import type { PtBrut, Toit } from '../model/types.js';
 
@@ -38,7 +39,7 @@ export interface BilanCouleursToits {
 
 interface ObjetAvecToit {
   pts?: PtBrut[];
-  batiment?: { toit?: Toit | null } | null;
+  batiment?: { toit?: Toit | null; verifieSurPlace?: { date: string } | null } | null;
   /** Les attributs BD TOPO : `materiauxToiture` (fichiers fonciers) departage un repli. */
   bdtopo?: unknown;
 }
@@ -56,9 +57,12 @@ export function repliSelonMateriau(lue: CouleurToitLue, bdtopo: unknown, plat = 
   return lue;
 }
 
-/** Un toit dont Plan choisit la couleur : sans couleur, ou avec une couleur qu'il avait posee. */
+/**
+ * Un toit dont Plan choisit la couleur : sans couleur, ou avec une couleur qu'il avait posee (model/protections.ts, groupe
+ * `couleurToit` : une couleur posee sans origine est celle de la personne). Le toit seul, sans les marques du batiment.
+ */
 export function couleurAResoudre(toit: Toit | null | undefined): toit is Toit {
-  return !!toit && (!toit.couleur || !!toit.origineCouleur);
+  return !!toit && peutEcrire({ batiment: { toit } }, 'couleurToit', NIVEAU.mesure);
 }
 
 const echelle = (z: number) => TAILLE_TUILE * Math.pow(2, z);
@@ -162,9 +166,11 @@ async function imageSous(pts: readonly PtBrut[], proj: ProjecteurLocal): Promise
 
 /**
  * Pose sur chaque toit dont Plan choisit la couleur celle que l'orthophoto montre, ou la couverture
- * de repli. Modifie les toits en place. Un toit dont l'orthophoto ne repond pas reste tel quel.
+ * de repli. Modifie les toits en place. Un toit dont l'orthophoto ne repond pas reste tel quel. Ce que
+ * la lecture peut ecrire, c'est model/protections.ts qui le dit (ecrivain `ortho`) : ni une couleur
+ * choisie, ni celle d'un batiment verifie sur place, sauf « Recalculer aussi » (`permis`).
  */
-export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS, enParallele = 1): Promise<BilanCouleursToits> {
+export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[], proj: ProjecteurLocal, delaiMs = DELAI_MS, enParallele = 1, permis: ContexteEcriture = {}): Promise<BilanCouleursToits> {
   const bilan: BilanCouleursToits = { lus: 0, replis: 0 };
   const fin = Date.now() + delaiMs;
   // Plusieurs toits a la fois pour la tache de fond (app/toits/toitsFond.ts) : les tuiles se partagent par le
@@ -178,7 +184,7 @@ export async function couleursToitsDepuisOrtho(objets: readonly ObjetAvecToit[],
   };
   const lireUnToit = async (o: ObjetAvecToit): Promise<void> => {
     const toit = o.batiment?.toit;
-    if (!couleurAResoudre(toit) || !Array.isArray(o.pts) || o.pts.length < 3) return;
+    if (!toit || !ecrivainPeut(o, 'ortho', 'couleurToit', permis) || !Array.isArray(o.pts) || o.pts.length < 3) return;
     let img: ImageMonde | null = null;
     try {
       // Une tuile qui ne repond jamais ne doit pas tenir l'import : au-dela du delai, on s'arrete. Sans

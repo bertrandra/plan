@@ -25,13 +25,14 @@ import { surParcelleDuProjet } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 
 /** Combien de batiments par lot : le choix est rapide, la mitoyennete parcourt les voisins proches. */
 export const LOT_PROFILS_FACADES = 100;
 
 /** Ce batiment voit-il son profil de facades (re)choisi a cette version ? */
 export function profilARechoisir(o: ObjetPlan, version: number = VERSION_LECTURE_FACADES): boolean {
-  if (o.fonction !== 'batiment' || o.type !== 'polygon' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
+  if (!estOuvrage(o, BATIMENT) || o.type !== 'polygon' || !Array.isArray(o.pts) || o.pts.length < 3) return false;
   // Le projet garde le profil par defaut ; un batiment verifie sur place, le sien (model/protections.ts).
   if (surParcelleDuProjet(o) || !ecrivainPeut(o, 'faits', 'facades')) return false;
   return o.batiment?.profilFacades?.version !== version;

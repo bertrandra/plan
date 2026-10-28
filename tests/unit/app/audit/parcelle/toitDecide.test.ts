@@ -9,6 +9,7 @@ import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { appliquerPropositions, type Proposition } from '../../../../../src/regles/decisions.js';
 import { corpsDesCheminees, souchesSurLeCorps } from '../../../../../src/facade/regles/toits/elementsVus.js';
 import { plusGrand } from '../../../../../src/facade/regles/toits/faits.js';
+import { corpsDeSaillie } from '../../../../../src/facade/modeToit/saillies.js';
 import type { CeQueJeVois } from '../../../../../src/model/ceQueJeVois.js';
 import type { SilhouetteFacade } from '../../../../../src/model/silhouetteFacade.js';
 import type { ChampsBatiment, Cheminee, CorpsToit, Lucarne, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
@@ -102,5 +103,30 @@ describe('valider la forme du toit garde ce que portait le corps principal', () 
     const seul = maison();
     appliquerPropositions([seul], [ch as Proposition], [], '2026-10-28');
     expect(seul.batiment?.corpsToit?.[corpsDesCheminees(d.corps)]?.cheminees).toEqual(souchesSurLeCorps(d.corps[corpsDesCheminees(d.corps)] as CorpsToit, vu.cheminees!.souches!));
+  });
+});
+
+describe('valider la forme du toit garde les saillies, comme la relecture LiDAR', () => {
+  const L = Math.hypot(principal.pts[1]!.x - principal.pts[0]!.x, principal.pts[1]!.y - principal.pts[0]!.y);
+  const bow = corpsDeSaillie(principal, { genre: 'bow-window', hote: k, mur: 0, centreM: L / 2, largeurM: 2.4, profondeurM: 0.8, forme: 'rectangle', niveau: 'rdc', toit: 'pan' });
+  const avecBow = [...d.corps, bow];
+
+  it('le bow-window se repose sur le mur du corps relu, a sa place', () => {
+    const p = forme(propositions(maison({}, avecBow)));
+    const corps = (p?.effet as { corps: CorpsToit[] }).corps;
+    const saillies = corps.filter((c) => c.saillie);
+    expect(saillies).toHaveLength(1);
+    const s = saillies[0]!.saillie!;
+    expect(s).toMatchObject({ genre: 'bow-window', largeurM: 2.4, profondeurM: 0.8 });
+    // Son hote est un corps relu (pas une saillie), et le point d'attache n'a pas bouge.
+    const hote = corps[s.hote] as CorpsToit;
+    expect(hote.saillie).toBeUndefined();
+    const attache = (c: CorpsToit, mur: number, t: number) => { const a = c.pts[mur]!, b = c.pts[(mur + 1) % c.pts.length]!, l = Math.hypot(b.x - a.x, b.y - a.y); return { x: a.x + (b.x - a.x) / l * t, y: a.y + (b.y - a.y) / l * t }; };
+    const avant = attache(principal, 0, L / 2), apres = attache(hote, s.mur, s.centreM);
+    expect(Math.hypot(apres.x - avant.x, apres.y - avant.y)).toBeLessThan(0.8);
+    // Ecrit dans le projet, il est la.
+    const o = maison({}, avecBow);
+    appliquerPropositions([o], [p as Proposition], [], '2026-10-28');
+    expect(o.batiment?.corpsToit?.filter((c) => c.saillie)).toHaveLength(1);
   });
 });

@@ -7,6 +7,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **« Rendre au calcul » la hauteur à l'égout d'un bâtiment.** Saisie dans « Élévation » ou validée par l'audit, la hauteur à
+  l'égout n'est plus réécrite par aucune lecture. Un bouton sous le champ la rend à la lecture du LiDAR : la marque tombe, le
+  toit se relit en tâche de fond et reprend la hauteur mesurée ; Ctrl+Z défait le geste. Il ne se montre que si une lecture peut
+  la reprendre (ni bâtiment dessiné, ni toit réglé à la main, vérifié sur place ou lu sur une photo).
+
 - **Retoucher la forme d'un objet de l'IGN, après un avertissement** (décision du 27 octobre 2026). Une parcelle du cadastre, un
   bâtiment ou un élément de l'IGN ne se déplace ni ne tourne, mais sa forme peut être fausse à l'IGN : tirer un sommet, un côté
   ou le rayon, ajouter ou retirer un sommet, saisir un angle ou une longueur, le mode rectangle demandent d'abord « « Maison »
@@ -432,6 +437,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La couleur du toit lue sur l'orthophoto et le relevé posé par l'audit demandent la hiérarchie des décisions**
+  (`model/protections.ts`, étape 6.3). La couleur du toit devient un groupe (`couleurToit`) et l'orthophoto un écrivain (`ortho`,
+  la mesure) : une couleur choisie ou celle d'un bâtiment vérifié sur place ne se relit pas, sauf « Recalculer aussi ». Le
+  relevé posé d'office par l'audit demande si le mur porte un relevé fait à la main au lieu de lire la marque `depuisAudit`.
+  Même comportement ; seul le bilan de l'actualisation ne compte plus les toits des bâtiments vérifiés gardés, qui n'étaient lus
+  que pour être remis. La couleur des murs lue sur Panoramax reste hors du module : elle n'écrit que sa lecture, rangée à part.
+
 - **Plus aucun cycle d'import, même par les types** (audit d'architecture, lot K). Les dix cycles qui ne passaient que par des
   imports de type sont cassés : chaque type partagé descend dans le module le plus bas, ou dans un module à lui
   (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`). Le test d'architecture les
@@ -439,6 +451,29 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'écran ni dans les exports.
 
 ### Corrigé
+
+- **« Règles allumées » en Mode Toit relit vraiment le toit.** Valider la session refigeait le toit (« Règles » coupées) quoi
+  qu'ait fait la personne : rallumer les règles effaçait les corps, puis le toit restait simple et figé. La validation ne fige plus
+  rien d'elle-même (chaque geste le fait) et, les règles rallumées, relance tout de suite la lecture en tâche de fond ; le message
+  dit « le toit sera relu quand vous validerez ».
+- **L'actualisation dit les bâtiments au toit réglé à la main.** Elle les garde tels quels mais les comptait « vérifiés sur
+  place » ; le bilan les nomme maintenant à part, et le dialogue d'« Actualiser le projet » a un point pour eux.
+
+- **Valider la forme du toit proposée par l'audit garde les bow-windows, galeries et appentis posés sur un mur.** Une forme du
+  catalogue (Mansart, demi-croupe…) rangeait le corps relu en dernier : l'élément posé sur son mur désignait alors un autre corps.
+  La validation repose maintenant ces éléments sur le mur qui reste, comme la relecture LiDAR (`corpsAvecCeQuIlsPortaient`).
+
+- **Ce qui est rangé par côté suit un contour retouché, pour tous les ouvrages** (étape 6.3). Un sommet ajouté ou retiré, un
+  côté tiré ou raccourci, l'actualisation IGN faisaient glisser au côté voisin, ou laissaient hors du côté : le portail et le
+  portillon (qui restent maintenant à leur place sur la limite, bornés au côté, sur la part où ils tombent d'un côté coupé), les
+  côtés de clôture réglés à part (les deux parts d'un côté coupé gardent son réglage), le côté qui donne le sens des lames d'une
+  terrasse et ses côtés sans rive (les lames tournaient, la nomenclature et le prix changeaient sans rien dire), le côté de
+  référence et le côté adossé d'une pergola ou d'un carport, le côté du petit bain d'une piscine (volume d'eau et prix). Sur un
+  mur raccourci ou allongé, un relevé de façade suit en proportion (ouvertures, partie basse, grille : la photo est étirée sur
+  le mur) et une fenêtre réglée une par une garde sa place. Chaque ouvrage déclare ces références (`Ouvrage.suivreDeformation`,
+  `model/referencesContour.ts`). Supprimer un objet emporte les cotes qui s'y appuient, et ce qui le tenait par sa clé l'oublie
+  (la plage d'une piscine, la terrasse rattachée d'un parasol, la parcelle sous un toit à cheval) ; de même pour « Supprimer le
+  voisinage ». Aucun nombre d'un fichier enregistré ne change : seuls les gestes à venir en tiennent compte.
 
 - **Le toit et les relevés suivent un contour retouché.** Tirer un sommet, un côté ou un coin de rectangle, ajouter ou retirer un
   sommet, saisir une longueur ou un angle laissaient les corps du toit sur l'ancien contour, et les relevés de façade, les

@@ -8,7 +8,7 @@ import { NIVEAU_ECRIVAIN, NIVEAU_ORIGINE, ecrivainPeut, niveauActuel, origineAct
 // hierarchie, la personne (1), ce qui a ete vu sur place (2), le fait (3), la mesure (4), la source officielle (5), le defaut (6).
 // Deux tables : d'ou vient la valeur de chaque groupe de champs selon les marques du batiment, et qui peut l'ecrire.
 
-const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades'];
+const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades', 'couleurToit'];
 const lu = { toit: { source: 'lidar' as const }, toitLidarLu: 7 };
 const corps = { pts: [], posFaitage: 4, faitage: 9, egouts: [6, 6] as [number, number], pignons: [], ecart: 0.1 };
 
@@ -36,43 +36,53 @@ const BATIMENTS: Record<string, { o: BatimentProtege; ctx?: ContexteEcriture }> 
   releveMain: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 2 } },
   releveAudit: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, depuisAudit: true }] } }, ctx: { cote: 2 } },
   autreMur: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 1 } },
+  couleurChoisie: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#8a3b2a' } } } },
+  couleurLue: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#8a3b2a', origineCouleur: 'orthophoto' } } } },
+  couleurRepli: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#777777', origineCouleur: 'gris' } } } },
+  couleurLueFigee: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { ...lu, toit: { source: 'lidar', couleur: '#8a3b2a', origineCouleur: 'orthophoto' }, toitFige: true } } },
+  couleurLueVerifiee: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { ...lu, toit: { source: 'lidar', couleur: '#8a3b2a', origineCouleur: 'orthophoto' }, verifieSurPlace: { date: '2026-10-28' } } } },
 };
 
-/** D'ou vient chaque groupe, batiment par batiment : contour, hauteur, toit, elements, couverture, murs, facades. */
-const ORIGINES: Record<string, [Origine, Origine, Origine, Origine, Origine, Origine, Origine]> = {
-  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut'],
-  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut'],
-  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie'],
-  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut'],
-  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut'],
-  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut'],
-  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut'],
-  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut'],
-  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut'],
-  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain'],
-  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit'],
-  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil'],
+/** D'ou vient chaque groupe, batiment par batiment : contour, hauteur, toit, elements, couverture, murs, facades, couleur du toit. */
+const ORIGINES: Record<string, [Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine]> = {
+  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie'],
+  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut', 'defaut'],
+  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut'],
+  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut'],
+  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut'],
+  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut'],
+  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut'],
+  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil', 'defaut'],
+  couleurChoisie: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'couleurToitChoisie'],
+  couleurLue: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho'],
+  couleurRepli: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho'],
+  couleurLueFigee: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'ortho'],
+  couleurLueVerifiee: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie'],
 };
 
 /** Le niveau de chaque origine : 1 la personne … 6 le defaut. */
 const NIVEAUX: Record<Origine, Niveau> = {
-  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, mursChoisis: 1, releveMain: 1,
+  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1,
   verifie: 2, egoutVu: 2, toitPhoto: 2, elementsPoses: 2, mursVus: 2, releveAudit: 2,
-  profil: 3, lidar: 4, photoRue: 4, bdtopo: 5, defaut: 6,
+  profil: 3, lidar: 4, ortho: 4, photoRue: 4, bdtopo: 5, defaut: 6,
 };
 
 /** Les niveaux de valeur que chaque ecrivain peut remplacer : le sien et les plus faibles, dans tous les groupes. */
-const ECRIT: Record<Ecrivain, Niveau[]> = { audit: [2, 3, 4, 5, 6], faits: [3, 4, 5, 6], lidar: [4, 5, 6], recalage: [4, 5, 6], ign: [5, 6] };
+const ECRIT: Record<Ecrivain, Niveau[]> = { audit: [2, 3, 4, 5, 6], faits: [3, 4, 5, 6], lidar: [4, 5, 6], recalage: [4, 5, 6], ortho: [4, 5, 6], ign: [5, 6] };
 
 describe('qui l emporte sur un batiment : une seule hierarchie', () => {
   it('d ou vient chaque groupe de champs, selon les marques du batiment', () => {
@@ -83,7 +93,7 @@ describe('qui l emporte sur un batiment : une seule hierarchie', () => {
   });
 
   it('chaque ecrivain, chaque groupe, chaque niveau de la valeur d aujourd hui', () => {
-    expect(NIVEAU_ECRIVAIN).toEqual({ audit: 2, faits: 3, lidar: 4, recalage: 4, ign: 5 });
+    expect(NIVEAU_ECRIVAIN).toEqual({ audit: 2, faits: 3, lidar: 4, recalage: 4, ortho: 4, ign: 5 });
     for (const e of Object.keys(ECRIT) as Ecrivain[]) {
       for (const [nom, { o, ctx }] of Object.entries(BATIMENTS)) {
         GROUPES.forEach((g, k) => {

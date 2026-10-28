@@ -1,6 +1,6 @@
 // L actualisation IGN : un objet de la BD TOPO sur son contour du jour (ce que model/protections.ts lui permet d'ecrire, ce qui
 // suit le contour), la couverture, les volumes, les toits lus au LiDAR et la couleur des murs des batiments relus ; et ce qu'elle
-// garde tel quel (batiments verifies sur place, objets retouches a la main).
+// garde tel quel (batiments verifies sur place, batiments au toit regle a la main, objets retouches a la main).
 // Un morceau de app/cadastre/actualisationIgn.ts, qui le reexporte : le reste du programme importe depuis lui.
 
 import { estOuvrage, BATIMENT } from '../../../model/ouvrages/index.js';
@@ -10,7 +10,8 @@ import { couleursToitsDepuisOrtho } from '../../../render/couleurToitOrtho.js';
 import { toitsDepuisLidar, texteBilanToitsLidar } from '../../toits/toitsLidar.js';
 import { couleursMursDepuisPhotos, texteBilanCouleursMurs } from '../../../render/couleurMurPhoto.js';
 import { materiauMurs } from '../../../model/couleurMur.js';
-import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture } from '../../../model/protections.js';
+import { NIVEAU, NIVEAU_ORIGINE, ecrivainPeut, origineActuelle, type ContexteEcriture, type Origine } from '../../../model/protections.js';
+import { estBatiment } from '../../../model/fonctions.js';
 import { nombreFr } from '../../../util/format.js';
 import { centroid, pointInPolygon } from '../../../geometry/basic.js';
 import { materiauxBdTopo, hauteurBatiment, hauteurVegetation } from '../../../geo/bdtopo.js';
@@ -24,11 +25,12 @@ import type { OptionsActualisation } from '../optionsActualisation.js';
 
 /**
  * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
- * l'utilisateur n'est pas touchee ; un WMTS injoignable laisse les toits tels quels.
+ * l'utilisateur n'est pas touchee, ni celle d'un batiment verifie sur place sans « Recalculer aussi »
+ * (model/protections.ts) ; un WMTS injoignable laisse les toits tels quels.
  */
-async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[]): Promise<void> {
+async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], options: OptionsActualisation): Promise<void> {
   etape('la couleur des toits sur l’orthophoto…');
-  const c = await couleursToitsDepuisOrtho(objets, proj).catch(() => null);
+  const c = await couleursToitsDepuisOrtho(objets, proj, undefined, 1, { relireVerifies: options.verifies === 'relire' }).catch(() => null);
   if(!c || !(c.lus + c.replis)) return;
   bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
     (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
@@ -56,6 +58,15 @@ export function batimentsGardes(objets: readonly ObjetBrut[], options: OptionsAc
   const ids = new Set(objets.filter(garde).map(o => (o.bdtopo as { id?: string } | null | undefined)?.id).filter((id): id is string => !!id));
   return { garde, ids };
 }
+
+/**
+ * Pourquoi un objet garde l'est (model/protections.ts, origine du contour) : `retouche` (a la main), `fige` (son toit regle a la
+ * main, « Règles » coupees) ou `verifie` (sur place). Le bilan les dit chacun par son nom.
+ */
+export const raisonDeGarder = (o: ObjetBrut, options: OptionsActualisation): Origine => origineActuelle(o, 'contour', contexteActualisation(o, options));
+
+/** Les batiments au toit regle a la main (« Règles » coupees), ni retouches ni verifies : l'actualisation les garde tels quels. */
+export const batimentsFiges = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => estBatiment(o) && origineActuelle(o, 'contour') === 'fige');
 
 /** Un batiment pose sur la parcelle du projet : importe pour elle, ou dont le centre tombe dessus (dessine compris). */
 export function batimentSurLaParcelle(o: ObjetBrut, parcelle: PtBrut[]): boolean {
@@ -108,7 +119,7 @@ function figer(o: ObjetBrut): () => void {
  */
 export async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, options: OptionsActualisation): Promise<void> {
   const remises = objets.filter(batimentsGardes(objets, options).garde).map(figer);
-  await couleursDesToits(objets, proj, bilan);
+  await couleursDesToits(objets, proj, bilan, options);
   await formesDesToits(objets, proj, bilan, ctx, options.verifies);
   await couleursDesMurs(objets, proj, bilan, ctx);
   remises.forEach(remettre => remettre());
@@ -187,6 +198,11 @@ export function objetIgnRelu(o: ObjetBrut, bdtopo: BdTopoObjet, pts: PtBrut[], p
   // Les releves et les fenetres reglees suivent leur mur sur le contour du jour, par la geometrie (model/contourDeforme.ts).
   if (batiment && contourEcrit && avant) suivreDeformation(objet as ObjetPlan, avant, 'geometrie');
   return { objet, toitDeduit, corpsCaducs: volumesToit !== undefined && !!o.batiment?.corpsToit?.length, contourEcrit };
+}
+
+/** Un objet relu sur son contour du jour : ce que son ouvrage range par cote (la cloture d'une parcelle) suit son mur, par la geometrie. */
+export function contourSuivi(objet: ObjetBrut, avant: PtBrut[]): void {
+  suivreDeformation(objet as ObjetPlan, avant, 'geometrie');
 }
 
 /** Les cotes du plan apres l'actualisation : chacune suit les cotes et les sommets relus des objets qu'elle vise. */

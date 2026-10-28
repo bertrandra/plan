@@ -3,10 +3,55 @@
 // Ce qu'il porte en coordonnees absolues suit son contour quand il bouge d'un bloc : les corps du toit, leurs cheminees et les
 // edicules d'une toiture-terrasse, les volumes, la direction du faitage, la grille du toit mesure. Les facades relevees et les
 // fenetres, reperees par leur cote, suivent d'elles-memes.
+//
+// Quand le contour se deforme, ce qui est range par cote suit son mur (model/referencesContour.ts) : un releve de facade en
+// proportion de la longueur du mur (ouvertures, partie basse, grille : la photo est etiree sur le mur), une fenetre reglee une par
+// une a sa place, bornee au mur. Les saillies (`saillie.hote`, `mur`) sont rangees sur les corps, pas sur le contour : une
+// deformation ne les touche pas, la relecture du toit les repose sur les corps neufs (facade/regles/toits/elementsVus.ts).
 
 import type { Ouvrage } from './ouvrage.js';
-import type { ObjetPlan } from '../types.js';
+import type { ObjetPlan, ReleveFacade } from '../types.js';
 import { deplacerPoint, type DeplacementRigide } from '../../geometry/deplacement.js';
+import { borne, coteOuTombe, coteSuivi, memeCote, milieuReporte, rapportDeLongueur, type Deformation } from '../referencesContour.js';
+
+/** Un releve pose sur un mur dont la longueur a change : ce qui est lu sur sa photo suit en proportion (`k`). */
+function releveEnProportion(r: ReleveFacade, k: number): ReleveFacade {
+  if (Math.abs(k - 1) < 1e-6) return r;
+  return {
+    ...r,
+    largeur: r.largeur * k,
+    ouvertures: r.ouvertures.map((ov) => ({ ...ov, x: ov.x * k, l: ov.l * k })),
+    ...(r.partieBasse ? { partieBasse: { ...r.partieBasse, debut: r.partieBasse.debut * k, fin: r.partieBasse.fin * k } } : {}),
+    ...(r.grille ? { grille: { ...r.grille, travees: r.grille.travees.map((t) => ({ xM: t.xM * k, largeurM: t.largeurM * k })) } } : {}),
+  };
+}
+
+function suivreDeformationBati(o: ObjetPlan, d: Deformation): void {
+  const b = o.batiment;
+  if (!b) return;
+  if (b.facades?.length) b.facades = b.facades.map((r) => {
+    const vers = coteSuivi(d, r.cote);
+    const suivi = vers === r.cote ? r : { ...r, cote: vers };
+    return releveEnProportion(suivi, rapportDeLongueur(d, r.cote, vers));
+  });
+  const liste = b.fenetres3d?.liste;
+  if (b.fenetres3d && liste?.length) b.fenetres3d = { ...b.fenetres3d, liste: liste.map((f) => {
+    const milieu = f.x + f.l / 2;
+    const vers = d.nombreChange ? coteOuTombe(d, f.cote, milieu) : coteSuivi(d, f.cote);
+    const r = memeCote(d, f.cote, vers) ? null : milieuReporte(d, f.cote, vers, milieu);
+    if (!r) return vers === f.cote ? f : { ...f, cote: vers };
+    return { ...f, cote: vers, x: borne(r.milieu - f.l / 2, 0, r.longueur - f.l) };
+  }) };
+}
+
+/** Une parcelle sous un toit a cheval est supprimee : elle sort de la liste ; a moins de deux, le toit n'est plus a cheval. */
+function oublierBati(o: ObjetPlan, cle: string): boolean {
+  const ac = o.batiment?.toitACheval;
+  if (!o.batiment || !ac?.parcelles.includes(cle)) return false;
+  const parcelles = ac.parcelles.filter((p) => p !== cle);
+  o.batiment.toitACheval = parcelles.length >= 2 ? { ...ac, parcelles } : null;
+  return true;
+}
 
 function suivreContourBati(o: ObjetPlan, d: DeplacementRigide): void {
   const b = o.batiment;
@@ -37,7 +82,7 @@ function tourneDegres(angle: number, d: DeplacementRigide): number {
 }
 
 export const BATIMENT: Ouvrage = { fonction: 'batiment', libelle: 'Bâtiment', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true,
-  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati };
+  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati, suivreDeformation: suivreDeformationBati, oublier: oublierBati };
 
 export const ANNEXE: Ouvrage = { fonction: 'annexe', libelle: 'Annexe', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true,
-  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati };
+  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati, suivreDeformation: suivreDeformationBati, oublier: oublierBati };

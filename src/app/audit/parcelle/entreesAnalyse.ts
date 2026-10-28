@@ -24,6 +24,7 @@ import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import type { LigneBatiment } from './liste.js';
 import type { CibleFacadeRendu } from '../../../three/renduPrise.js';
+import { estOuvrage, TERRAIN } from '../../../model/ouvrages/index.js';
 
 export interface ImagePreparee { base64: string; mediaType: 'image/jpeg' | 'image/png' }
 
@@ -140,7 +141,7 @@ const valeurPhoto = (p: PhotoCas): number => (p.prise ? 2 : 0) + (p.prise?.sourc
  * avec `seulement` ni les autres batiments de la parcelle : une annexe devant le mur le cacherait.
  */
 export function gardesDuRendu(e: EntreesPropositions, seulement?: string): (cle: string) => boolean {
-  const cles = new Set([...(seulement ? [seulement] : e.liste.batiments.map((b) => b.cle)), ...e.objets.filter((o) => o.key === 'parcelle' || o.fonction === 'terrain').map((o) => o.key)]);
+  const cles = new Set([...(seulement ? [seulement] : e.liste.batiments.map((b) => b.cle)), ...e.objets.filter((o) => o.key === 'parcelle' || estOuvrage(o, TERRAIN)).map((o) => o.key)]);
   return (cle) => cles.has(cle);
 }
 

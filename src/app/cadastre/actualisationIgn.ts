@@ -27,7 +27,7 @@ import type { BboxDeg, CollectionGeoJSON, EmpriseGeoJSON, ElementIgn, FeatureGeo
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { Mesure, ObjetPlan, ObjetBrut, ObjetPolygone, PtBrut } from '../../model/types.js';
 import type { OptionsActualisation } from './optionsActualisation.js';
-import { batimentsGardes, batimentSurLaParcelle, batimentRattache, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
+import { batimentsGardes, batimentSurLaParcelle, batimentRattache, toitsEtMurs, objetsRetouches, sansRetouche, contexteActualisation, objetIgnRelu, cotesSurLesContours, contourSuivi, raisonDeGarder, type BdTopoObjet } from './actualisationIgn/toitsEtMurs.js';
 import { actualiserRelief } from './actualisationIgn/relief.js';
 
 
@@ -151,6 +151,9 @@ function parcelleRelue(o: ObjetBrut, contour: PtBrut[], relue: FeatureGeoJSON): 
     segmentNames: contour.map((_,i)=>(o.segmentNames && o.segmentNames[i]) || ('Cote ' + (i+1))),
     frozenVertices: contour.map(()=>false)
   });
+  // La cloture (cotes regles, portails) suit son mur sur le contour du jour, par la geometrie (model/contourDeforme.ts).
+  const avant = (o as Partial<ObjetPolygone>).pts;
+  if(avant) contourSuivi(copie, avant);
   const pp: Record<string, unknown> = relue.properties || {};
   copie.cadastre = Object.assign({}, o.cadastre, {
     contenanceM2: pp.contenance, commune: pp.nom_com || (o.cadastre && o.cadastre.commune),
@@ -259,14 +262,15 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     ctx.pushHistory();
     // Les batiments dont les corps suivaient l'ancien contour, et les contours relus (pour les cotes du plan).
     const caducs = new Set<string>(), contours: { cle: string; avant: PtBrut[]; apres: PtBrut[] }[] = [];
-    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0, nRetouches = 0;
+    let nMaj = 0, nAbsents = 0, ecartMax = 0, nToits = 0, nGardes = 0, nRetouches = 0, nFiges = 0;
     // Un nouveau contour n'existe que si la parcelle a ete relue : les deux vont ensemble.
     const contour = ptsParcelle, relue = featParcelle;
     const avant = sansVoisinesDeLaPropriete(ctx.serializeObjects(ctx.etat.objects).map(versMemoire), parcelle, bilan);
     const anciensBatiments = avant.filter(aRecreer);
     const serialises: ObjetBrut[] = avant.filter(o => !aRecreer(o)).map((brut: ObjetBrut)=>{
-      // Un batiment verifie sur place est le 100 % du projet, un objet retouche a la main celui de la personne : tels quels.
-      if(gardes.garde(brut)){ if(brut.retoucheMain) nRetouches++; else nGardes++; return brut; }
+      // Un batiment verifie sur place est le 100 % du projet, un objet retouche a la main ou un toit regle a la main celui de la
+      // personne : tels quels, et le bilan dit lequel.
+      if(gardes.garde(brut)){ const r = raisonDeGarder(brut, options); if(r === 'retouche') nRetouches++; else if(r === 'fige') nFiges++; else nGardes++; return brut; }
       const o = options.parDefaut ? valeursParDefaut(brut) : brut;
       if(o.key === parcelle.key && contour && relue){
         // ecart max entre l'ancien et le nouveau contour : c'est la mesure du changement
@@ -339,6 +343,7 @@ export async function actualiserDepuisIgn(options: OptionsActualisation | null |
     if(nAbsents) bilan.push(nAbsents + ' objet(s) absent(s) de la base actuelle, conserve(s) tels quels');
     if(nGardes) bilan.push(nGardes + ' batiment(s) verifie(s) sur place conserve(s) tel(s) quel(s)');
     if(nRetouches) bilan.push(nRetouches + ' objet(s) retouché(s) à la main conservé(s) tel(s) quel(s)');
+    if(nFiges) bilan.push(nFiges + ' bâtiment(s) au toit réglé à la main (« Règles » coupées) conservé(s) tel(s) quel(s)');
     showToast((options.parDefaut ? 'Projet actualisé — ' : 'Actualisation IGN — ') + (bilan.length ? bilan.join(' ; ') + '.' : 'aucun changement.'));
     ctx.apresActualisation?.();
   } catch(e){

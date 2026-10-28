@@ -11,9 +11,10 @@ import { especeDe, especesChargees, especeParId, especesParTaille } from '../../
 import { au } from '../../util/tableaux.js';
 import { shoelace, dist, signedArea, pointInPolygon } from '../../geometry/basic.js';
 import { LIBELLE_FONCTION } from '../../model/defaults.js';
-import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin } from '../../model/ouvrages/index.js';
+import { FONCTIONS_AU_MENU, largeurChemin, longueurChemin, estOuvrage, CHEMIN } from '../../model/ouvrages/index.js';
 import { enPoints, enCercle, gelsDe, nomsSommetsDe, nomsCotesDe } from '../../model/formes.js';
 import { lieuDeParcelle } from '../../model/lieu.js';
+import { egoutRendable } from '../../model/protections.js';
 import { aParticularite, estBatiment, estPointDeVue, estTerrain, estTerrasse as terrasseCalculable, fonctionAdmise } from '../../model/fonctions.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { sectionsPergola } from './pergola.js';
@@ -65,7 +66,7 @@ function texture(cle: 'textureVerticale' | 'textureHorizontale', libelle: string
     // MEME texture sur les deux faces de chacun, pour qu'aucun ne se retrouve depareille.
     appliquerATous: {
       libelle: 'Appliquer à tous les chemins (vertical + horizontale)',
-      ecrire: (c, v) => { c.objets.filter(o => o.fonction === 'chemin').forEach(o => { o.textureVerticale = v; o.textureHorizontale = v; }); }
+      ecrire: (c, v) => { c.objets.filter(o => estOuvrage(o, CHEMIN)).forEach(o => { o.textureVerticale = v; o.textureHorizontale = v; }); }
     }
   };
 }
@@ -113,6 +114,13 @@ const sectionObjet: Section = {
       visible: (c) => !estPointDeVue(c.obj) && !estTerrain(c.obj) && !estTerrasse(c.obj) && !aParticularite(c.obj, 'abri') && !aParticularite(c.obj, 'bassin') && !aParticularite(c.obj, 'ouverture'),
       // D'un batiment, c'est la hauteur a l'egout : saisie, elle est choisie, et aucune lecture ne la reecrit (model/protections.ts).
       lire: (c) => c.elevationOf(c.obj), ecrire: (c, v) => { c.obj.elevation = Math.max(0, v) || 0; if (estBatiment(c.obj)) champsBatiment(c.obj).egoutChoisi = 'saisie'; }
+    },
+    {
+      // Le chemin du retour : une hauteur choisie n'est plus reecrite par aucune lecture ; la personne peut la rendre au calcul.
+      type: 'bouton', cle: 'rendreEgout', libelle: '', nom: 'Rendre la hauteur à l’égout au calcul', texte: () => 'Rendre au calcul',
+      explication: 'Saisie ici ou validée par un audit, cette hauteur n’est plus réécrite par aucune lecture. Rendue au calcul, elle est relue sur le LiDAR.',
+      visible: (c) => estBatiment(c.obj) && egoutRendable(c.obj),
+      agit: { commande: 'objet.rendreEgout' }, executer: (c) => c.executerCommande('objet.rendreEgout')
     },
     {
       type: 'lecture', cle: 'surface', libelle: 'Surface',

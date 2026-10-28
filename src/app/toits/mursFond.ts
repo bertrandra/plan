@@ -21,6 +21,7 @@ import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
+import { estOuvrage, BATIMENT, TERRAIN } from '../../model/ouvrages/index.js';
 
 /**
  * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les
@@ -39,7 +40,7 @@ export const ZONES_MUETTES_AVANT_ARRET = 5;
 export const ECHECS_MURS_PAR_BATIMENT = 2;
 
 type Batiment = ObjetPlan & { pts: PtBrut[] };
-const estBatiment = (o: ObjetPlan): o is Batiment => o.fonction === 'batiment' && aDesSommets(o) && (o as Batiment).pts.length >= 3;
+const estBatiment = (o: ObjetPlan): o is Batiment => estOuvrage(o, BATIMENT) && aDesSommets(o) && (o as Batiment).pts.length >= 3;
 
 /**
  * La version de la lecture des murs. Une regle de lecture qui conclut plus souvent (model/couleurMur.ts,
@@ -126,7 +127,7 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
     // Des copies de ce que la lecture regarde : rien du plan n'est touche avant le retour.
     const copie = (o: ObjetPlan) => ({ key: o.key, fonction: 'batiment', pts: (o as Batiment).pts.map((p) => ({ x: p.x, y: p.y })), ...(typeof o.elevation === 'number' ? { elevation: o.elevation } : {}) });
     const issues: IssueMurs[] = await lireZone(cibles.map(copie), objets.filter((o) => estBatiment(o) && proche(o)).map(copie),
-      objets.filter((o) => (o.key === 'parcelle' || o.fonction === 'terrain') && proche(o)), ctx.proj, { enParallele: PARALLELE_MURS_FOND }).catch(() => cibles.map((o) => ({ cle: o.key, echec: true as const })));
+      objets.filter((o) => (o.key === 'parcelle' || estOuvrage(o, TERRAIN)) && proche(o)), ctx.proj, { enParallele: PARALLELE_MURS_FOND }).catch(() => cibles.map((o) => ({ cle: o.key, echec: true as const })));
     if (!ctx.vivant()) return { photos, ecrits: total, arret: false };
     // Le plan a pu changer pendant la lecture : on ecrit dans celui d'aujourd'hui, sur un contour inchange.
     const courants = new Map(ctx.objets().map((o) => [o.key, o]));

@@ -5,10 +5,12 @@
 // deformation (tirer un sommet ou un cote, en ajouter, en retirer, redimensionner un rectangle, saisir une longueur ou un angle,
 // l'actualisation IGN) n'a pas de deplacement a appliquer : rien ne suivait. Deux choses en dependent, et chacune a sa regle :
 //
-// - ce qui est range par le rang d'un cote ou d'un sommet (les releves de facade, les fenetres reglees une par une, les cotes du
-//   plan) glissait au mur voisin quand un sommet s'ajoutait ou s'en allait : les rangs sont recomptes. Pour un geste, seul un
-//   sommet ajoute ou retire change les rangs ; pour une actualisation, ou le premier sommet peut changer, chaque ancien cote va au
-//   cote d'aujourd'hui qui le porte, par la geometrie (model/cotesAudit.ts::correspondanceDesCotes, comme les facades de l'audit) ;
+// - ce qui est range par le rang d'un cote ou d'un sommet, ou par une abscisse le long d'un cote (les releves de facade, les
+//   fenetres reglees une par une, la cloture et ses portails, le sens des lames, les cotes sans rive, le cote de reference d'un
+//   abri, le petit bain, les cotes du plan) glissait au mur voisin quand un sommet s'ajoutait ou s'en allait, ou restait a sa
+//   place sur un cote raccourci : chaque ouvrage le fait suivre (`Ouvrage.suivreDeformation`, model/referencesContour.ts). Pour
+//   un geste, seul un sommet ajoute ou retire change les rangs ; pour une actualisation, ou le premier sommet peut changer, chaque
+//   ancien cote va au cote d'aujourd'hui qui le porte, par la geometrie (model/cotesAudit.ts::correspondanceDesCotes) ;
 // - les corps et les volumes du toit, lus au LiDAR sur l'ancien contour, ne sont plus justes : le batiment redevient a lire
 //   (`toitLidarLu` efface), et la relecture en tache de fond les refait sur le nouveau contour en reportant ce qui etait pose
 //   dessus. Un toit que la lecture n'a pas le droit d'ecrire (model/protections.ts : « Règles » coupees, verifie sur place, saisi)
@@ -16,14 +18,14 @@
 //
 // Pur : l'appelant dit au controleur des objets que l'objet a change, et relance la lecture.
 
-import { correspondanceDesCotes, memeContour } from './cotesAudit.js';
+import { memeContour } from '../geometry/correspondanceCotes.js';
 import { deplacementRigide } from '../geometry/deplacement.js';
 import { NIVEAU, niveauActuel, origineActuelle, type Origine } from './protections.js';
+import { ouvrage } from './ouvrages/index.js';
+import { deformation, rangsDesCotes, rangsDesSommets, type Recompte } from './referencesContour.js';
 import type { Mesure, ObjetPlan, PtBrut } from './types.js';
 
-/** Un sommet d'aujourd'hui a moins de cela d'un ancien est le meme : au centimetre apres un geste, a un demi-metre apres une
- * actualisation, qui deplace un peu les sommets. */
-const MEME_SOMMET_M: Record<Recompte, number> = { geste: 0.01, geometrie: 0.5 };
+export { rangsDesCotes, rangsDesSommets, type Recompte };
 
 /** Un recalage du LiDAR deplace un contour de tant au plus (DECALAGE_MAX_M, 3 m) : au-dela, ce n'est plus le meme contour deplace. */
 const DEPLACEMENT_MAX_M = 3.5;
@@ -49,30 +51,6 @@ export function memeFormeDeplacee(avant: readonly PtBrut[], apres: readonly PtBr
   return false;
 }
 
-/** Comment recompter les rangs : `geste`, un sommet ajoute ou retire seul les change ; `geometrie`, chaque cote suit son mur. */
-export type Recompte = 'geste' | 'geometrie';
-
-/** Le rang d'aujourd'hui de chaque ancien cote (-1 : aucun ne le porte). */
-export function rangsDesCotes(avant: readonly PtBrut[], apres: readonly PtBrut[], recompte: Recompte): number[] {
-  if (recompte === 'geste' && avant.length === apres.length) return avant.map((_, i) => i);
-  return correspondanceDesCotes(avant, apres);
-}
-
-/** Le rang d'aujourd'hui de chaque ancien sommet (-1 : il n'est plus la). */
-export function rangsDesSommets(avant: readonly PtBrut[], apres: readonly PtBrut[], recompte: Recompte): number[] {
-  if (recompte === 'geste' && avant.length === apres.length) return avant.map((_, i) => i);
-  return avant.map((p) => {
-    let meilleur = -1, d = MEME_SOMMET_M[recompte];
-    apres.forEach((q, j) => { const dj = Math.hypot(q.x - p.x, q.y - p.y); if (dj <= d) { d = dj; meilleur = j; } });
-    return meilleur;
-  });
-}
-
-/** Une liste rangee par cote, sur les rangs d'aujourd'hui ; un element dont le mur n'est plus la garde son rang. */
-function surLesCotes<T extends { cote: number }>(liste: readonly T[], vers: readonly number[]): T[] {
-  return liste.map((x) => { const j = vers[x.cote]; return j === undefined || j < 0 || j === x.cote ? x : { ...x, cote: j }; });
-}
-
 /** Ce qu'une deformation a fait du toit : relu en tache de fond, garde parce que protege (la marque qui le protege), ou rien. */
 export interface SuiteDeformation {
   /** Le contour a change de forme (pas un deplacement d'un bloc, pas le meme contour). */
@@ -86,18 +64,16 @@ export interface SuiteDeformation {
 const RIEN: SuiteDeformation = { deforme: false, relire: false, toitGarde: null };
 
 /**
- * Le contour de `o` est passe de `avant` a `o.pts` : ses releves et ses fenetres reglees suivent leur mur, et son toit lu au LiDAR
- * redevient a lire, sauf s'il est protege. Ecrit sur l'objet (l'appelant le touche).
+ * Le contour de `o` est passe de `avant` a `o.pts` : ce que son ouvrage range par cote, par sommet ou le long d'un cote suit son
+ * mur, et son toit lu au LiDAR redevient a lire, sauf s'il est protege. Ecrit sur l'objet (l'appelant le touche).
  */
 export function suivreDeformation(o: ObjetPlan, avant: readonly PtBrut[], recompte: Recompte): SuiteDeformation {
   if (o.type === 'circle' || !Array.isArray(o.pts)) return RIEN;
   const apres = o.pts;
   if (memeContour(avant, apres) || deplacementRigide(avant, apres)) return RIEN;
+  ouvrage(o.fonction).suivreDeformation?.(o, deformation(avant, apres, recompte));
   const b = o.batiment;
   if (!b) return { ...RIEN, deforme: true };
-  const vers = rangsDesCotes(avant, apres, recompte);
-  if (b.facades?.length) b.facades = surLesCotes(b.facades, vers);
-  if (b.fenetres3d?.liste?.length) b.fenetres3d = { ...b.fenetres3d, liste: surLesCotes(b.fenetres3d.liste, vers) };
   const toitLu = !!b.toitLidarLu || !!b.corpsToit?.length || !!b.volumesToit?.length;
   if (!toitLu) return { ...RIEN, deforme: true };
   // Un toit d'un niveau plus fort que la mesure (model/protections.ts) n'est pas relu : c'est celui de la personne, ou celui vu.

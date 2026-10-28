@@ -22,7 +22,7 @@ import { cibleFacade, indiceDeCorps, formeArbitree, cm, principal, toitChoisiALa
 import { constatsIgn, constatsLidar } from './constats/mesures.js';
 import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsRenfort, constatsClaude, constatsTerrain } from './constats/vus.js';
 
-export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, toitChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
+export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, toitChoisiALaMain, releveChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 
 export { groupesDeMurs, type GroupeDeMurs } from './constats/vus.js';
 

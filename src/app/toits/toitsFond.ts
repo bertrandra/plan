@@ -111,7 +111,7 @@ export const couleurALire = (o: { toit?: { couleur?: string } | null } | null | 
  * La forme (LiDAR) ou la couleur (orthophoto) de ce batiment reste a lire. Un batiment verifie sur
  * place ne se compare que sur la forme : sa couleur, validee, n'est pas relue.
  */
-const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o.batiment)) || (!estVerifieSurPlace(o.batiment) && couleurALire(o.batiment));
+const resteALire = (o: ObjetPlan, lidar: boolean): boolean => (lidar && !toitLu(o.batiment)) || (couleurALire(o.batiment) && ecrivainPeut(o, 'ortho', 'couleurToit'));
 
 /**
  * Les batiments dont Plan choisit le toit, et ceux qui restent a lire - forme ou couleur - du plus
@@ -166,8 +166,8 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
     toucher(o);
     return true;
   }
-  if (estVerifieSurPlace(o.batiment)) return false;
-  if (!o.batiment?.toit || !couleurALire(o.batiment) || !copie.batiment?.toit) return false;
+  // La couleur : seulement si la lecture a le droit de l'ecrire (model/protections.ts : ni choisie, ni verifiee sur place).
+  if (!o.batiment?.toit || !couleurALire(o.batiment) || !ecrivainPeut(o, 'ortho', 'couleurToit') || !copie.batiment?.toit) return false;
   champsBatiment(o).toit = { ...o.batiment?.toit, couleur: copie.batiment?.toit.couleur as string, ...(copie.batiment?.toit.origineCouleur ? { origineCouleur: copie.batiment?.toit.origineCouleur } : {}) };
   toucher(o);
   return true;
@@ -280,7 +280,7 @@ function fileDeLecture(cles: readonly string[], objets: () => ObjetPlan[], admis
 async function lireUnBatiment(copie: ObjetPlan, lidar: boolean, lireForme: (c: ObjetAToit) => Promise<BilanToitsLidar>, lireCouleur: (c: ObjetPlan) => Promise<{ lus: number; replis: number }>): Promise<{ bilan: BilanToitsLidar | null; forme: boolean; couleur: boolean; couleurs: number }> {
   const pourForme = lidar && !toitLu(copie.batiment);
   const bilan = pourForme ? await lireForme(copie as ObjetAToit).catch(() => null) : null;
-  const pourCouleur = !estVerifieSurPlace(copie.batiment) && couleurALire(copie.batiment);
+  const pourCouleur = couleurALire(copie.batiment) && ecrivainPeut(copie, 'ortho', 'couleurToit');
   const lues = pourCouleur ? await lireCouleur(copie).catch(() => null) : null;
   return { bilan, forme: pourForme && toitLu(copie.batiment), couleur: pourCouleur && !couleurALire(copie.batiment), couleurs: lues ? lues.lus + lues.replis : 0 };
 }

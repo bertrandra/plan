@@ -8,6 +8,7 @@
 
 import type { ObjetPlan } from '../types.js';
 import type { DeplacementRigide } from '../../geometry/deplacement.js';
+import type { Deformation } from '../referencesContour.js';
 
 export type Forme = ObjetPlan['type'];
 
@@ -68,4 +69,14 @@ export interface Ouvrage {
    * place). Absent : l'ouvrage n'a rien de tel ; son contour suffit. Un contour deforme n'appelle rien.
    */
   suivreContour?: (o: ObjetPlan, d: DeplacementRigide) => void;
+  /**
+   * Fait suivre a l'objet ce qu'il range par rang de cote, par rang de sommet ou par abscisse le long d'un cote quand son contour se
+   * deforme (sommet ajoute ou retire, cote tire ou raccourci, actualisation IGN ; model/contourDeforme.ts). Absent : il n'a rien de tel.
+   */
+  suivreDeformation?: (o: ObjetPlan, d: Deformation) => void;
+  /**
+   * L'objet de cle `cle` vient d'etre supprime : l'objet oublie ce qu'il en tenait par sa cle (une plage, une terrasse rattachee, une
+   * parcelle sous un toit a cheval). Rend vrai s'il a change. Absent : il ne tient aucun autre objet par sa cle.
+   */
+  oublier?: (o: ObjetPlan, cle: string) => boolean;
 }

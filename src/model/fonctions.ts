@@ -123,7 +123,7 @@ export function visibleEnIsolement(o: ObjetPlan, objets: ObjetPlan[], cle: strin
  * cadastre, les parcelles *voisines* sont elles aussi des terrains. Un `find()` unique
  * rendrait la premiere du tableau, donc potentiellement une voisine.
  */
-export function parcelleDuProjet(objets: ObjetPlan[]): ObjetPlan | undefined {
+export function parcelleDuProjet<T extends { key?: string; fonction?: string | null } = ObjetPlan>(objets: readonly T[]): T | undefined {
   return objets.find(o => o.key === 'parcelle') || objets.find(o => estOuvrage(o, TERRAIN));
 }
 

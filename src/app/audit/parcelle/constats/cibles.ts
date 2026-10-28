@@ -49,6 +49,11 @@ export const cm = (v: number): number => Math.round(v * 100) / 100;
  * remplacerait : elle arrive decochee, et le dit.
  */
 export const toitChoisiALaMain = (o: ObjetPlan): boolean => !ecrivainPeut(o, 'audit', 'toit');
+/**
+ * Le releve de ce mur est un choix de la personne (fait a la main, model/protections.ts, groupe `facades`) : la mesure de l'audit le
+ * remplacerait, elle arrive decochee. Un releve pose par l'audit d'apres une photo, ou aucun, n'en est pas un.
+ */
+export const releveChoisiALaMain = (o: ObjetPlan, cote: number): boolean => !ecrivainPeut(o, 'audit', 'facades', { cote });
 const borne = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
 /** La confiance d'une lecture LiDAR d'un corps : son ecart a la mesure (m) ; 0 m, 0,95 ; 1,2 m et plus, 0,4. */
 export const confianceCorps = (ecartM: number): number => cm(borne(0.95 - (0.55 * ecartM) / 1.2, 0.4, 0.95));

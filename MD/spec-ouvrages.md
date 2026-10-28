@@ -298,9 +298,14 @@ arbre ──essence──▶ bibliothèque d'essences ; tout objet ──texture
 pergola, carport : aucun autre ouvrage
 ```
 
-**Supprimer un objet ne nettoie rien** (`model/creation.ts::supprimer`) : la plage d'une piscine, le parasol lié, les cotes,
+~~**Supprimer un objet ne nettoie rien** (`model/creation.ts::supprimer`) : la plage d'une piscine, le parasol lié, les cotes,
 l'isolement, le toit à cheval et l'audit gardent une clé qui ne mène plus nulle part. Chaque flèche par clé doit dire ce que
-devient la source quand la cible disparaît (étape 6.3).
+devient la source quand la cible disparaît (étape 6.3).~~ — corrigé le 28 octobre 2026 : `model/ouvrages/index.ts::oublierLObjet`,
+appelé par la suppression et par « Supprimer le voisinage ». Les cotes qui s'appuient sur l'objet partent avec lui ; chaque
+ouvrage oublie ce qu'il en tenait (`Ouvrage.oublier`) : la piscine perd `terrasseKey` (comme une piscine dupliquée), le parasol
+retombe sur la terrasse qui le contient (`terrasseLieeKey: null`), un toit à cheval perd la parcelle (à moins de deux, il n'est plus
+à cheval). L'isolement est un état d'affichage, qui finit avec la sélection. L'audit garde ses clés : c'est le compte rendu d'une
+visite (tests : `referencesContour.test.ts`, `creation.test.ts`).
 
 Le contrôleur (étape 6.1) suit ces flèches : toucher une piscine, une trémie ou un équipement doit faire refaire la terrasse
 qu'ils percent ou renforcent ; toucher le terrain (relief), tout ce qui pose sur le sol. Aujourd'hui une terrasse suit la version
@@ -316,20 +321,25 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
 - ~~**La surface d'un chemin courbe** se compte sur ses segments droits~~ — décidé le même jour : elle se compte sur la courbe
   dessinée (`surfaceChemin`), comme la longueur totale de l'inspecteur et du résumé. Version majeure ; les nombres qui bougent sur
   la démonstration sont dans `tests/fixtures/golden/EMPREINTES.md`.
-- **Les références par numéro de côté ou de sommet ne suivent pas un sommet ajouté ou retiré.** `model/sommets.ts` tient en
+- ~~**Les références par numéro de côté ou de sommet ne suivent pas un sommet ajouté ou retiré.**~~ — corrigé le 28 octobre 2026 :
+  chaque ouvrage déclare ce qu'il range par côté, par sommet ou par abscisse le long d'un côté (`Ouvrage.suivreDeformation`,
+  `model/ouvrages/*.ts`), et `model/contourDeforme.ts::suivreDeformation` le lui fait suivre, au geste (`core/deformation.ts`)
+  comme à l'actualisation IGN (bâtiment, et parcelle : `parcelleRelue`). La correspondance des rangs et la règle des abscisses
+  sont une fois pour tous dans `model/referencesContour.ts` (un test par référence : `tests/unit/model/referencesContour.test.ts`).
+  Le tableau d'avant, barré ligne par ligne : `model/sommets.ts` tient en
   phase quatre tableaux (points, noms des coins, noms des côtés, coins figés) et rien d'autre. Aucune de ces références n'est
   renumérotée :
 
   | Référence | Ouvrage | Ce qui se passe, par exemple |
   |---|---|---|
-  | `cloture.cotes[].cote`, `portails[].cote` | terrain | un sommet ajouté sur le côté 1 met le portail du côté 3 sur l'ancien côté 2 ; un sommet retiré peut le faire tomber (`coteValide`) |
-  | `construction.segmentReference` | terrasse | les lames tournent : **la nomenclature et le prix changent** sans que rien ne le dise |
-  | `construction.cotesSansRive` | terrasse | la rive change de côtés |
-  | `pergola.coteReference`, `pergola.coteMur` | abri | les chevrons, le bas d'un appentis, le mur adossé sautent ; la DP titre l'élévation par ce côté |
-  | `piscine.cotePetitBain` | piscine | le petit bain change de bout : **volume d'eau, terrassement et prix changent** |
-  | `batiment.facades[].cote`, `fenetres3d.liste[].cote` | bâtiment | un relevé passe sur un autre mur |
-  | cote : `refSegIndex`, `targetPtIndex` | cotes | une cote mesure le sommet voisin ; au-delà du dernier, plus rien |
-  | audit : façades par côté, `cle#cote`, photos ; moteur de règles `facade:<cle>#<cote>` | bâtiment | même chose |
+  | ~~`cloture.cotes[].cote`, `portails[].cote`~~ | terrain | ~~un sommet ajouté sur le côté 1 met le portail du côté 3 sur l'ancien côté 2 ; un sommet retiré peut le faire tomber (`coteValide`)~~ — corrigé le 28 octobre 2026 : un côté réglé à part reste sur son mur (les deux parts d'un côté coupé le gardent) ; un portail reste à sa place, sur la part où il tombe (`model/ouvrages/contexte.ts`) |
+  | ~~`construction.segmentReference`~~ | terrasse | ~~les lames tournent : **la nomenclature et le prix changent** sans que rien ne le dise~~ — corrigé le 28 octobre 2026 (`model/ouvrages/terrasse.ts`) |
+  | ~~`construction.cotesSansRive`~~ | terrasse | ~~la rive change de côtés~~ — corrigé le 28 octobre 2026 : les deux parts d'un côté coupé restent sans rive |
+  | ~~`pergola.coteReference`, `pergola.coteMur`~~ | abri | ~~les chevrons, le bas d'un appentis, le mur adossé sautent ; la DP titre l'élévation par ce côté~~ — corrigé le 28 octobre 2026 (`model/ouvrages/abri.ts`) |
+  | ~~`piscine.cotePetitBain`~~ | piscine | ~~le petit bain change de bout : **volume d'eau, terrassement et prix changent**~~ — corrigé le 28 octobre 2026 (`model/ouvrages/piscine.ts`) |
+  | ~~`batiment.facades[].cote`, `fenetres3d.liste[].cote`~~ | bâtiment | ~~un relevé passe sur un autre mur~~ — corrigé le 28 octobre 2026 (`model/ouvrages/bati.ts`, avant dans `contourDeforme.ts`) |
+  | ~~cote : `refSegIndex`, `targetPtIndex`~~ | cotes | ~~une cote mesure le sommet voisin ; au-delà du dernier, plus rien~~ — corrigé le 28 octobre 2026 (`mesuresSuivent`) |
+  | ~~audit : façades par côté, `cle#cote`, photos ; moteur de règles `facade:<cle>#<cote>`~~ | bâtiment | ~~même chose~~ — corrigé : l'audit retrouve son mur par la géométrie (`model/cotesAudit.ts`) |
 
   Trois autres gestes cassent ces références ou des positions :
   - **l'actualisation IGN** remplace les points d'une parcelle ou d'un bâtiment (un autre nombre de sommets) et garde par
@@ -337,7 +347,10 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     par défaut ; depuis le 27 octobre 2026, un bâtiment refait par « Actualiser le projet » garde la clé de l'ancien qui portait le
     même identifiant BD TOPO (`batimentsRecrees`) ; seul un bâtiment sans correspondant (dessiné, ou nouveau à la BD TOPO) prend
     une autre clé ;
-  - **raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse` ;
+  - ~~**raccourcir un côté** ne recale ni `Portail.x`, ni `OuvertureFacade.x`, ni `partieBasse`~~ — corrigé le 28 octobre 2026 : ce
+    qui est posé à sa place sur le terrain (un portail, une fenêtre réglée une par une) y reste, borné au côté ; ce qui est lu sur
+    l'image du mur (un relevé : ouvertures, partie basse, grille, largeur) suit en proportion, parce que la Vue 3D étire la photo sur
+    le mur entier (`three/releve3d.ts`) et que l'échelle du relevé venait de la longueur du mur ;
   - ~~**déplacer ou tourner un bâtiment** laisse à l'ancienne place ce qui est en coordonnées absolues~~ — corrigé le 27 octobre
     2026 : un contour qui bouge d'un bloc (`geometry/deplacement.ts`) fait suivre à l'ouvrage ce qu'il porte
     (`Ouvrage.suivreContour`, `model/ouvrages/bati.ts` : corps, cheminées, édicules, volumes, faîtage ; la grille mesurée se
@@ -355,7 +368,8 @@ de l'ensemble, le repli le plus simple ; l'étape 6.5 remplace ce repli par ces 
     « Reprendre la version de l'IGN pour « X », retouché à la main le JJ/MM/AAAA », le remplace par sa source, retire la marque
     et garde sa clé (« remplacer le bâtiment avec la source IGN »).
 
-  Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts`), les
+  Tiennent : le mode rectangle (même nombre, même ordre), `saillie.hote` (renuméroté par `facade/modeToit/saillies.ts` ; rangé sur
+  les corps et non sur le contour, une déformation ne le touche pas, et la relecture le repose par `reporterSaillies`), les
   faits du moteur de règles (cleabs et azimut), le point de vue (deux points protégés). C'est le rôle même du contrôleur par
   ouvrage : **chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues, et chaque geste les fait
   suivre par lui** (étape 6.3). Pour la terrasse, l'abri et la piscine, c'est un nombre qui bougeait sans raison : la
@@ -1144,7 +1158,8 @@ met à jour que ce que le LiDAR n'a pas lu (attributs, nouveaux bâtiments, cont
 la main) et figée case par case par `tests/unit/model/protections.test.ts`. Un écrivain de niveau N demande
 `peutEcrire(o, groupe, N)` (ou `ecrivainPeut(o, écrivain, groupe)`) : l'audit (2 : sa proposition arrive cochée d'office, sinon
 décochée, « choix remplacé » ; « Valider » écrit ce que la personne coche), le moteur de règles (3 : faits, profils de façades),
-la lecture LiDAR et son recalage (4), l'actualisation IGN (5).
+la lecture LiDAR et son recalage (4), la couleur du toit lue sur l'orthophoto (4, `ortho`, depuis le 28 octobre 2026), l'actualisation
+IGN (5).
 
 **Le niveau de la valeur d'aujourd'hui** se lit sur les marques que l'objet porte déjà, groupe par groupe, la première qui
 s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test.ts`) :
@@ -1156,6 +1171,7 @@ s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test
 | Toit et corps | `toitFige` ; toit `saisie` | `verifieSurPlace` ; toit `photo` | — | toit `lidar` ou `toitLidarLu` | toit `bdtopo` | aucun |
 | Éléments posés sur les corps | `toitFige` | cheminées, lucarnes, fenêtres de toit, terrasse, appentis ouvert ou saillies présents | — | — | — | aucun |
 | Couverture | `toit.couverture` | — | — | — | — | aucune |
+| Couleur du toit (`toit.couleur`) | couleur posée sans `origineCouleur` | `verifieSurPlace` | — | lue sur l'orthophoto, ou son repli (`origineCouleur`) | — | aucune |
 | Murs (`couleurMurs`) | `source` choisie | `materiau`, `terrain` ; `verifieSurPlace` | — | `photo` (Panoramax) | — | rien |
 | Façades | relevé à la main sur ce mur | relevé de l'audit sur ce mur ; `verifieSurPlace` | `profilFacades` | — | — | rien |
 
@@ -1172,12 +1188,21 @@ déplacement près) rend périmée la mesure lue sur l'ancien contour, pour le c
 | Moteur de règles (3) | 3 à 6 | les niveaux 1 et 2 ; un profil de façades ne se rechoisit pas sur un bâtiment vérifié |
 | Relecture LiDAR (4) | 4 à 6 | les niveaux 1 à 3 ; ce qui est posé sur les corps (2) n'est jamais écrit : il est reporté sur les corps neufs |
 | Recalage LiDAR (4) | 4 à 6 | un contour retouché, figé, vérifié ou dessiné |
+| Orthophoto, couleur du toit (4) | 4 à 6 | une couleur posée sans origine (choisie) ; un bâtiment vérifié sur place, sauf « Recalculer aussi » ; pas `toitFige`, qui arrête la forme et non la couleur |
 | Actualisation IGN (5) | 5 et 6 | les niveaux 1 à 4 : **le LiDAR bat l'IGN** ; elle ne met à jour que ce que le LiDAR n'a pas lu (attributs, bâtiments nouveaux, un contour changé à l'IGN même, que le LiDAR relit ensuite ; la hauteur mesurée reste) ; elle garde entier un bâtiment dont le contour est de niveau 1 ou 2 (sauf un bâtiment dessiné, que « Actualiser le projet » recrée parce que la personne l'a demandé) |
 
-Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
-(`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`) ; `toitLidarLu` à jour arrête une
-nouvelle lecture en fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non
-gardés (une case cochée : le geste de la personne).
+~~Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
+(`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`)~~ — rangé sous le module le
+28 octobre 2026 : groupe `couleurToit`, écrivain `ortho` ; `couleurToitOrtho.ts`, `toitsFond.ts` et l'actualisation le demandent,
+même comportement, sauf qu'à l'actualisation un bâtiment vérifié et gardé n'est plus lu puis remis (son toit n'est plus compté au
+bilan des couleurs lues). De même, le relevé posé d'office par l'audit (`alimenterLesFacades`, `propositionReleve`) demande
+`releveChoisiALaMain` (groupe `facades`) au lieu de lire `depuisAudit`. Reste hors du module, et dit ici : la couleur des murs lue
+sur Panoramax (`couleurMurPhoto.ts`, `mursFond.ts`) n'écrit que sa lecture, `couleurMurs.photo`, rangée à part, jamais la couleur
+retenue ; la hiérarchie s'applique quand la couleur se choisit pour la 3D (`model/couleurMur.ts::couleurMursRetenue`). La
+soumettre au groupe `murs` changerait ce que voit la personne : une source « photo » choisie ne recevrait plus de photo, et un
+bâtiment vérifié sans couleur vue garderait une photo périmée. Restent aussi : `toitLidarLu` à jour arrête une nouvelle lecture en
+fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non gardés (une case
+cochée : le geste de la personne).
 
 *Avant le 28 octobre 2026* (relevé du même jour, commit `e4d89f97`, puis un premier tableau écrivain par écrivain, remplacé le même
 jour par la hiérarchie) : quatre marques, lues chacune par une partie des écrivains,
@@ -1236,7 +1261,7 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
    (`regles/decisions.ts:270`), elle est réécrite sans marque par la prochaine relecture LiDAR (`toitsLidar.ts:369-370`,
    `toitsFond.ts:130`, :153 ; l'empreinte de :137 ne la compte pas) et, toujours, par l'actualisation IGN
    (`actualisationIgn.ts:302`). L'audit ne la tient pour « saisie » que sur un bâtiment sans `bdtopo` (`constats.ts:43`). En mode
-   corps, le champ « Élévation » ne change rien à la 3D (`sceneObjets.ts:316-320`).~~ — corrigé le 28 octobre 2026 : une hauteur saisie dans l'inspecteur ou validée par l'audit porte `egoutChoisi` (`'saisie'`, `'audit'` ; `model/typesFonctions.ts`, enregistré par `io/serialisation.ts`, relu par `model/normalisation.ts`) ; la relecture LiDAR, un fait en remplacement et l'actualisation IGN ne la réécrivent plus, « Actualiser le projet » la reporte sur le bâtiment recréé, et l'audit la tient pour un choix (`model/protections.ts` ; tests : `protections.test.ts`, `toitsLidar.test.ts`, `retoucheIgn.test.ts`, `champsElevation.test.ts`, `decisions.test.ts`). Reste vrai : en mode corps, le champ ne change rien à la 3D.
+   corps, le champ « Élévation » ne change rien à la 3D (`sceneObjets.ts:316-320`).~~ — corrigé le 28 octobre 2026 : une hauteur saisie dans l'inspecteur ou validée par l'audit porte `egoutChoisi` (`'saisie'`, `'audit'` ; `model/typesFonctions.ts`, enregistré par `io/serialisation.ts`, relu par `model/normalisation.ts`) ; la relecture LiDAR, un fait en remplacement et l'actualisation IGN ne la réécrivent plus, « Actualiser le projet » la reporte sur le bâtiment recréé, et l'audit la tient pour un choix (`model/protections.ts` ; tests : `protections.test.ts`, `toitsLidar.test.ts`, `retoucheIgn.test.ts`, `champsElevation.test.ts`, `decisions.test.ts`). Le chemin du retour, depuis le 28 octobre 2026 : « Rendre au calcul », sous le champ « Élévation » d'un bâtiment dont la hauteur est choisie et qu'une lecture pourrait relire (`model/protections.ts::egoutRendable`, commande `objet.rendreEgout`), lève `egoutChoisi` et remet le toit à lire ; la lecture LiDAR reprend la hauteur. « Règles allumées » ne la lève pas : le toit et la hauteur sont deux groupes, et rallumer la lecture du toit ne dit rien d'une hauteur saisie. Reste vrai : en mode corps, le champ ne change rien à la 3D.
 5. ~~**L'actualisation IGN perd le matériau de couverture choisi.**~~ — corrigé le 28 octobre 2026 : la couverture est gardée avec la couleur. `toitActualise` rend le toit neuf avec la seule couleur
    (`model/toitBdTopo.ts:92`) : `couverture`, posée par l'inspecteur (`ui/champs/facade.ts:139-142`) ou par l'audit
    (`decisions.ts:287`), disparaît de tout toit `bdtopo` ou `lidar`. La règle du skill (« une valeur choisie à la main n'est
@@ -1259,21 +1284,31 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
    (`toitsLidar.ts:264-270`) : dans un projet géolocalisé, une extension dessinée sans toit est lue en tâche de fond (toit
    `lidar`, `elevation` corrigée), et recalée d'un bloc si son centre tombe sur une parcelle mitoyenne (`clesMitoyens`,
    `model/mitoyennete.ts:44`). La fonction `annexe`, sœur de `batiment` (`model/ouvrages/bati.ts:41`), n'est jamais lue. Non
-   vérifié en exécution. — *En partie corrigé le 28 octobre 2026* (hiérarchie, « Qui l'emporte ») : le contour d'un bâtiment dessiné est un geste de la personne (niveau 1), il n'est plus recalé, et une hauteur posée dessus n'est plus réécrite par la lecture ; son toit, lui, se lit encore. Reste : l'`annexe` n'est jamais lue.
-10. **« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
+   vérifié en exécution. — *En partie corrigé le 28 octobre 2026* (hiérarchie, « Qui l'emporte ») : le contour d'un bâtiment dessiné est un geste de la personne (niveau 1), il n'est plus recalé, et une hauteur posée dessus n'est plus réécrite par la lecture ; son toit, lui, se lit encore. Reste : l'`annexe` n'est jamais lue. *Examiné le même jour, non fait* : la hiérarchie dirait de la lire (le toit d'un abri de jardin est réel, la mesure bat le défaut et la BD TOPO), mais lire les annexes d'un projet déjà enregistré y écrirait un toit, une hauteur à l'égout et parfois un recalage du contour à la prochaine tâche de fond : la Vue 3D, le `.glb`, la DP6, la DP2 et le dossier (qui dessinent les annexes) changeraient sans geste de la personne. C'est un événement de version majeure (`MD/RELEASE.md`), à décider avec le propriétaire, pas une correction.
+10. ~~**« Règles allumées : le toit sera relu » efface tout de suite et relit plus tard.** `reprendreLectureAuto` retire corps,
     volumes et mesure à l'instant (`three/gestesToits.ts:374-382`) ; la relecture n'attend que `toitsFond.relancer()`, appelé à
     l'ouverture, après une actualisation ou par « Reprendre » (`app/boot.ts:85`, `app/boot/chargements.ts:88`). Entre les deux, le
-    bâtiment montre son toit simple, qui peut porter une forme du catalogue avec `source: 'bdtopo'`.
-11. **L'actualisation garde les bâtiments figés sans le dire.** `batimentsGardes` garde `toitFige` (`toitsEtMurs.ts:47`), mais le
+    bâtiment montre son toit simple, qui peut porter une forme du catalogue avec `source: 'bdtopo'`.~~ — corrigé le 28 octobre 2026 :
+    c'était pire, « Valider » refigeait le toit (`validerLaSession` posait `toitFige` sans condition), si bien que les règles
+    rallumées ne relisaient jamais. Chaque geste du mode fige le toit lui-même ; la validation ne pose plus rien et, quand le toit
+    sort sans la marque, relance la lecture en fond tout de suite (`lectureToits.demanderRelecture`). Le message dit « le toit sera
+    relu quand vous validerez » : une session abandonnée rend le toit d'avant (`tests/unit/app/toits/validerSession.test.ts`).
+11. ~~**L'actualisation garde les bâtiments figés sans le dire.** `batimentsGardes` garde `toitFige` (`toitsEtMurs.ts:47`), mais le
     bilan les compte comme « vérifié(s) sur place » (`actualisationIgn.ts:272`, :364) ; le dialogue d'« Actualiser le projet »
     annonce la recréation de « tous les bâtiments de la parcelle du projet, même ceux que vous avez dessinés »
     (`actualiserProjet.ts`, `POINTS_ACTUALISATION`) et ne nomme que les vérifiés et les retouchés ; le commentaire de tête de
-    `toitsEtMurs.ts:1-2` aussi.
+    `toitsEtMurs.ts:1-2` aussi.~~ — corrigé le 28 octobre 2026 : le bilan les compte à part (« bâtiment(s) au toit réglé à la main
+    (« Règles » coupées) conservé(s) tel(s) quel(s) », `raisonDeGarder`), et le dialogue d'« Actualiser le projet » a un point pour
+    eux (`POINT_FIGES`, `batimentsFiges`).
 12. **La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
     (`three/detailsBatiment.ts:569-608`) en dessine une au tiers du faîtage ; en mode corps, seules les cheminées des données se
     dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.
 13. **Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
     le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.
+    — *Laissé le 28 octobre 2026* : `locked` ne veut pas dire « toit à ne pas retoucher ». La maison du projet est verrouillée à
+    l'import (la démonstration : « Maison » et « Abri de jardin », `locked: true`), pour ne pas la déplacer d'un geste ; lire
+    `locked` fermerait le Mode Toit sur elle. Le bon critère est à décider : la maison d'une parcelle mitoyenne
+    (`bdtopo.surParcellePrincipale === false`) ou une marque à elle.
 14. **Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
     (`modeToit.ts:322-333`, :461-468) sans marquer le projet ; l'enregistrement seul de la tâche de fond enregistre quand tout ce
     qui attend vient d'elle (`toitsFond.ts:302-304`) et sérialise alors le bâtiment tel que la session le laisse. Une session
@@ -1285,7 +1320,7 @@ qui écrit dans le projet) sont en cours de correction et ne sont pas repris ici
     lucarnes, terrasse, fenêtres de toit et panneaux, appentis ouvert, saillies d'un bâtiment non protégé disparaissent ; les faits
     (`regles/toits/faits.json`) n'en portent aucune. Elle se déclenche à chaque changement de `reglages.json`
     (`VERSION_LECTURE_TOITS`). Vérifié à la lecture du code le 28 octobre 2026. À reporter sur les corps neufs par
-    `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.~~ — corrigé le 28 octobre 2026 : la relecture (LiDAR et fait en remplacement) reporte sur les corps neufs ce que portaient les anciens, là où il tient encore (`facade/regles/toits/elementsVus.ts::corpsAvecCeQuIlsPortaient` : `reporterElements`, étendu aux fenêtres de toit et panneaux, puis `reporterSaillies`, qui repose bow-windows, galeries et appentis sur le mur d'un corps neuf à moins de 0,8 m de leur attache) ; ce qui ne tient plus est laissé (`tests/unit/app/toits/toitsLidar.test.ts`, « la relecture garde ce qui est posé sur le toit »).
+    `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.~~ — corrigé le 28 octobre 2026 : la relecture (LiDAR et fait en remplacement) reporte sur les corps neufs ce que portaient les anciens, là où il tient encore (`facade/regles/toits/elementsVus.ts::corpsAvecCeQuIlsPortaient` : `reporterElements`, étendu aux fenêtres de toit et panneaux, puis `reporterSaillies`, qui repose bow-windows, galeries et appentis sur le mur d'un corps neuf à moins de 0,8 m de leur attache) ; ce qui ne tient plus est laissé (`tests/unit/app/toits/toitsLidar.test.ts`, « la relecture garde ce qui est posé sur le toit »). La forme du toit validée par l'audit passe par le même chemin depuis le 28 octobre 2026 (`app/audit/parcelle/arbitrages.ts`, `corpsAvecCeQuIlsPortaient` à la place de `reporterElements` seul) : une forme du catalogue rangeait le corps relu en dernier et laissait au bow-window un `hote` compté sur les anciens rangs, et un toit relu sur un seul corps perdait ses saillies ; elles se reposent maintenant sur le mur qui reste (`elementsVus.test.ts`, `toitDecide.test.ts`).
 
 ## Ce qui n'est pas un objet mais fait le plan
 
@@ -1416,8 +1451,8 @@ repris, dans son bandeau, la distance au trait que portait la section retirée.
 |---|---|---|---|
 | 6.1 | Le contrôleur des objets, la version par objet aux huit points de passage, le dessin du plan qui saute un objet inchangé, le garde-fou en développement | au banc, à 600 objets au téléphone, le dessin du plan sous 10 ms quand rien ne change ; fumée complète sans `[cle de version]` | **fait** : dessin du plan au téléphone, à 600 objets, 77 → 20 à 26 ms (au-dessus des 10 ms visés : photo aérienne, parasols, grille) |
 | 6.2 | Le registre des ouvrages du modèle (`model/ouvrages/`) : profils, défauts de création, associés, ouvertures ; les comparaisons de `model/` et d'`engine/` passent par lui | empreintes inchangées ; plus aucun `fonction === '…'` dans `model/` et `engine/` hors du registre (cliquet du test d'architecture) | **fait** ; restent à déclarer dans le registre : les associés, ce qui perce, ce qui s'isole |
-| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position | **en partie** : la courbe et le ruban dans `geometry/` ; le toit suit son bâtiment (déplacement, rotation) ; l'actualisation IGN garde la clé d'un bâtiment reconstruit (même identifiant IGN) et la retouche d'un objet IGN ; les façades de l'audit retrouvent leur mur par la géométrie (`model/cotesAudit.ts`) ; valider un toit reporte ce que portaient ses corps (`reporterElements`) ; la hiérarchie des décisions arrêtée et écrite dans un module unique (`model/protections.ts`, la matrice écrivain × champ × niveau figée par un test) ; la hauteur à l'égout protégée (`egoutChoisi`) ; la relecture LiDAR qui garde les éléments posés ; le toit relu et les relevés, fenêtres et cotes recomptés quand le contour se déforme (`core/deformation.ts`, `model/contourDeforme.ts`), y compris à l'actualisation IGN ; restent les références par côté et par sommet des autres ouvrages, la suppression sans nettoyage |
-| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; les comparaisons de 63 à 13 (28 octobre 2026) : exports, fichier, 3D et zones à zéro, le plan a son registre (`render/ouvrages/`), le modèle déclare `dossierPiscine`, `reglagesAuFichier`, `nommeParSaFonction`, le bâti des exports est une famille (`estBati`) ; restent 13 comparaisons dans des fichiers que l'étape 6.3 retouche (`app/toits/`, `app/audit/parcelle/`, `render/couleurMurPhoto.ts`, `ui/champs/objet.ts`) |
+| 6.3 | Les règles de construction par ouvrage (`engine/ouvrages/`) : terrasse, abri, piscine, parasol, surfaces simples ; le chiffrage et les dossiers lisent l'ouvrage. La courbe et le ruban du chemin deviennent des primitives de `geometry/`, lues par le plan, la 3D et les exports. Chaque ouvrage déclare ses références par côté, par sommet et en coordonnées absolues ; les gestes (sommet ajouté ou retiré, déplacement, rotation, actualisation IGN, côté raccourci) et la suppression d'un objet les font suivre par lui | empreintes inchangées ; un test par référence du tableau « Les références par numéro… » : elle reste sur son côté, son sommet ou sa position | **fait** (28 octobre 2026) : la courbe et le ruban dans `geometry/` ; le toit suit son bâtiment (déplacement, rotation) ; l'actualisation IGN garde la clé d'un bâtiment reconstruit (même identifiant IGN) et la retouche d'un objet IGN ; les façades de l'audit retrouvent leur mur par la géométrie (`model/cotesAudit.ts`) ; valider un toit reporte ce que portaient ses corps (`reporterElements`) ; la hiérarchie des décisions arrêtée et écrite dans un module unique (`model/protections.ts`, la matrice écrivain × champ × niveau figée par un test) ; la hauteur à l'égout protégée (`egoutChoisi`) ; la relecture LiDAR qui garde les éléments posés ; le toit relu et les relevés, fenêtres et cotes recomptés quand le contour se déforme (`core/deformation.ts`, `model/contourDeforme.ts`), y compris à l'actualisation IGN ; chaque ouvrage déclare et fait suivre ses références par côté, par sommet et le long d'un côté (`Ouvrage.suivreDeformation`, `model/referencesContour.ts` : clôture et portails, sens des lames et côtés sans rive, côtés d'un abri, petit bain, relevés et fenêtres d'un mur raccourci), au geste comme à l'actualisation IGN, un test par référence (`referencesContour.test.ts`) ; la suppression nettoie ce qui tenait l'objet par sa clé (`Ouvrage.oublier`) ; la couleur du toit et le relevé posé par l'audit sous le module des protections ; les saillies reposées à la validation de l'audit ; « Rendre au calcul » la hauteur à l'égout. Laissés, avec leur raison (« Le flux de construction d'un bâtiment », points 9 et 13) : la lecture des annexes au LiDAR (elle changerait les exports des projets enregistrés), le Mode Toit sur un bâtiment verrouillé |
+| 6.4 | Le dessin, la 3D, les exports et l'inspecteur par ouvrage : leurs comparaisons passent par le registre de leur couche. L'inspecteur de chaque ouvrage ne garde que ce qui sert sa conception (section « L'inspecteur de chaque ouvrage ») | plus aucun `fonction === '…'` hors des registres (cliquet) ; inventaire de l'inspecteur au tableau décidé (test) ; fumée complète | **en partie** : l'inspecteur allégé, ouvrage par ouvrage (décisions ci-dessus) ; les comparaisons de 63 à 13 (28 octobre 2026) : exports, fichier, 3D et zones à zéro, le plan a son registre (`render/ouvrages/`), le modèle déclare `dossierPiscine`, `reglagesAuFichier`, `nommeParSaFonction`, le bâti des exports est une famille (`estBati`) ; les 13 dernières (`app/toits/`, `app/audit/parcelle/`, `render/couleurMurPhoto.ts`, `ui/champs/objet.ts`) levées avec l'étape 6.3 le même jour (`estOuvrage`) : cliquet à zéro dans toutes les couches |
 | 6.5 | Les écritures des commandes et des gestes nomment leur objet (`controleur.modifier(obj, …)`) ; le chiffrage et les cotes se gardent d'un rendu à l'autre sur la version de ce qu'ils lisent | au banc, à 600 objets au téléphone, un rendu sans changement sous 33 ms (l'étape 2.2) | **en partie** : le chiffrage, les cotes et les doublons se gardent sur la version ; rendu complet au téléphone 73 à 97 ms. En cours (28 octobre 2026) : les zones abonnées à ce qu'elles montrent, pour passer sous 33 ms |
 | 6.6 | L'indépendance des ouvrages : les couplages du tableau « L'indépendance de chaque composant » levés ; un test d'architecture interdit à un module d'ouvrage d'importer les internes d'un autre | le cliquet des couplages à zéro | **fait** (28 octobre 2026) : les onze couplages levés, cliquet de 19 à 0 |
 | 6.7 | Le soleil du projet, un seul : le lieu, la date et l'heure, les seuils, en un composant ; le plan, la 3D et la visionneuse le lisent ; la date et l'heure s'enregistrent avec le projet ; la carte des heures d'ombre dit sa fenêtre | un parasol a la même ombre sur le plan et en 3D ; un projet rouvert retrouve son soleil ; aucune empreinte ne bouge | **fait** (28 octobre 2026) : `core/soleil.ts` et `model/soleilProjet.ts` ; enregistré sur la parcelle (`soleil`) une fois choisi, défaut aujourd'hui 15 h ; carte « mai à septembre, 12 h – 18 h » dite sous sa case ; empreintes inchangées |

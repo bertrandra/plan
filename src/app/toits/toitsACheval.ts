@@ -16,6 +16,7 @@ import { corpsParParcelle } from './toitsLidar.js';
 import { avecProfilsDuBatiment, contexteProfils } from '../../facade/regles/toits/profils.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 
 export interface ContexteToitsACheval {
   objets: () => ObjetPlan[];
@@ -30,7 +31,7 @@ export interface ContexteToitsACheval {
 
 /** Les batiments dont la toiture attend une reponse. */
 export function batimentsEnDoute(objets: readonly ObjetPlan[]): ObjetPlan[] {
-  return objets.filter((o) => o.fonction === 'batiment' && !!o.batiment?.toitACheval && !o.batiment?.toitACheval.reponse && !!o.batiment?.corpsToit?.length);
+  return objets.filter((o) => estOuvrage(o, BATIMENT) && !!o.batiment?.toitACheval && !o.batiment?.toitACheval.reponse && !!o.batiment?.corpsToit?.length);
 }
 
 const nombre = (v: number) => v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });

@@ -312,14 +312,16 @@ export function reporterSaillies(anciens: readonly CorpsToit[], nouveaux: readon
 }
 
 /**
- * Les corps neufs d'une relecture du toit (LiDAR, fait du moteur), avec ce que portaient les anciens : leurs elements reportes la
+ * Les corps neufs d'une relecture du toit (LiDAR, fait du moteur, forme validee par l'audit), avec ce que portaient les anciens : leurs elements reportes la
  * ou ils tiennent (reporterElements), puis leurs saillies reposees sur les murs qui restent (reporterSaillies). Une relecture rend
  * des corps nus ; sans cela, les cheminees, lucarnes, fenetres de toit, terrasse, appentis ouvert et saillies d'un batiment que
  * personne n'avait fige disparaissaient au premier changement de reglage.
  */
 export function corpsAvecCeQuIlsPortaient(anciens: readonly CorpsToit[] | null | undefined, nouveaux: CorpsToit[] | null): CorpsToit[] | null {
   if (!nouveaux || !anciens?.length || nouveaux === anciens) return nouveaux;
-  const portes = reporterElements(anciens.filter((c) => !c.saillie), nouveaux);
+  // Une lecture qui garde les corps qu'elle ne relit pas (la forme proposee par l'audit, lectureFormes.ts) recopie aussi les saillies,
+  // avec un `hote` compte sur les anciens rangs alors qu'elle range le corps relu ailleurs : elles se reposent comme les autres.
+  const portes = reporterElements(anciens.filter((c) => !c.saillie), nouveaux.filter((c) => !c.saillie));
   return [...portes, ...reporterSaillies(anciens, portes)];
 }
 
