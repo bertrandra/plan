@@ -3098,6 +3098,10 @@ const POINTS = {
     await page.evaluate(() => window.__plan.executer('toit.vueLibre'));
     await page.waitForTimeout(800);
     const silhouette = await page.locator('.silhouetteCorpsToit .trait').count();
+    // Les poignees et la bulle suivent la silhouette : le faitage dit est celui de l'aile choisie, pas celui de la maison.
+    const faitageAile = ((await corps())[rang]?.faitage ?? 0).toFixed(2).replace('.', ',') + ' m';
+    const faitageDit = ((await page.locator('.cotesToit [data-cote="h"]').first().textContent({ timeout: 5000 }).catch(() => '')) || '').trim();
+    const surLAile = faitageDit === faitageAile && (await page.locator('[data-poignee="egout"]').count()) === 1;
     const indice = (await page.locator('.panneauToit .indiceToit').allTextContents()).join(' ');
     await page.locator('.toitOnglet', { hasText: 'Sur le toit' }).click();
     await page.locator('[data-piece="sur:cheminee"]').click({ timeout: 30000 });
@@ -3110,8 +3114,8 @@ const POINTS = {
     const deplacer = await page.locator('.poigneeToit.deplacer rect.pointPoignee').count();
     const rondes = await page.locator('.poigneeToit:not(.deplacer) circle.pointPoignee').count();
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
-    const ok = silhouette === 1 && /seulement/.test(indice) && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
-    return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
+    const ok = silhouette === 1 && surLAile && /seulement/.test(indice) && surLeChoisi && deplacer === 1 && rondes >= 1 && sans;
+    return { ok, mesure: `silhouette du corps choisi : ${silhouette} trait(s) ; poignées ${surLAile ? 'sur lui' : 'AILLEURS'} (faîtage dit ${faitageDit || '—'}, le sien ${faitageAile}) ; indice « ${indice.slice(0, 70)} » ; cheminée ${surLeChoisi ? 'sur le corps choisi seul' : 'AILLEURS'} ; poignées de dessus : ${deplacer} de déplacement (carré), ${rondes} ronde(s) ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   96: async (page, f) => {
     // Admin › Principes (`?admin&ecran=principes`) : un sommaire par famille qui mene a chaque principe, trois angles par principe

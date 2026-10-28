@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { aimanter, cadreDe, cotesDe, EGOUT_MIN_M, glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
+import { aimanter, cadreDe, cibleDesPoignees, cotesDe, EGOUT_MIN_M, glisser, murVersLOeil, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
+import { silhouetteVersLOeil } from '../../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
@@ -217,5 +218,43 @@ describe('glisser', () => {
     const egoutMaison = Math.min(...r.corps[0]!.egouts), g = r.corps[rang]!;
     expect(g.saillie!.hauteurM!).toBeLessThanOrEqual(egoutMaison + 1e-9);
     expect(Math.min(...g.egouts)).toBeLessThanOrEqual(egoutMaison + 1e-9);
+  });
+});
+
+describe('la cible des poignees suit le corps choisi (28 octobre 2026, « les poignées ne sont pas sur le bon corps »)', () => {
+  // La maison 10 x 6 m, et une aile 5 x 4 m contre son bout est ; on regarde la facade nord de la maison (mur 2, y = 6).
+  const maisonC: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0 };
+  const aile: CorpsToit = { pts: [{ x: 10, y: 1 }, { x: 15, y: 1 }, { x: 15, y: 5 }, { x: 10, y: 5 }], posFaitage: 2, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0 };
+  const corps = [maisonC, aile];
+  const oeil = { x: 5, y: 60 };
+  const nord = { rang: 0, mur: 2 };
+
+  it('un corps choisi de face : son mur tourne vers l oeil, pas la facade courante de l autre corps', () => {
+    const t = cibleDesPoignees(corps, { type: 'corps', rang: 1, i: 0 }, { dessus: false, facade: nord, oeil });
+    expect(t).toEqual({ type: 'facade', rang: 1, i: 0, mur: 2 });
+    // Les poignees sont sur l'aile : sur son mur nord (y = 5), a ses hauteurs.
+    const p = poigneesDe(corps, t!);
+    expect(p.find((q) => q.id === 'haut')!.point.z).toBe(5);
+    for (const q of p) { expect(q.point.y).toBeCloseTo(5, 5); expect(q.point.x).toBeGreaterThanOrEqual(10 - 1e-9); }
+    expect(cotesDe(corps, t!).find((c) => c.cle === 'w')!.texte).toBe('5,00 m');
+  });
+
+  it('le mur des poignees est celui de la silhouette', () => {
+    for (const o of [oeil, { x: 40, y: 3 }, { x: 12, y: -30 }, { x: -20, y: 20 }]) {
+      const m = murVersLOeil(aile, o), s = silhouetteVersLOeil(aile, o)!, a = aile.pts[m]!, b = aile.pts[(m + 1) % 4]!;
+      // Tous les points de la silhouette sont dans le plan du mur choisi.
+      for (const q of s) expect(Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x))).toBeLessThan(1e-6);
+      expect(silhouetteVersLOeil(aile, o, m)).toEqual(s);
+    }
+  });
+
+  it('de dessus, seul un corps choisi ; sans choix, la facade courante ; un pignon devant sa facade seulement', () => {
+    expect(cibleDesPoignees(corps, { type: 'corps', rang: 1, i: 0 }, { dessus: true, facade: nord, oeil })).toEqual({ type: 'corps', rang: 1, i: 0 });
+    expect(cibleDesPoignees(corps, { type: 'cheminee', rang: 0, i: 0 }, { dessus: true, facade: nord, oeil })).toBeNull();
+    expect(cibleDesPoignees(corps, null, { dessus: false, facade: nord, oeil })).toEqual({ type: 'facade', rang: 0, i: 0, mur: 2 });
+    expect(cibleDesPoignees(corps, null, { dessus: false, facade: null, oeil })).toBeNull();
+    const avecPignon = [{ ...maisonC, pignons: [{ pan: 1 as const, debut: 3, fin: 6, faitage: 8, profondeur: 3 }] }, aile];
+    expect(cibleDesPoignees(avecPignon, { type: 'pignon', rang: 0, i: 0 }, { dessus: false, facade: nord, oeil })).toEqual({ type: 'pignon', rang: 0, i: 0 });
+    expect(cibleDesPoignees(avecPignon, { type: 'pignon', rang: 0, i: 0 }, { dessus: false, facade: { rang: 0, mur: 0 }, oeil })).toEqual({ type: 'facade', rang: 0, i: 0, mur: 0 });
   });
 });

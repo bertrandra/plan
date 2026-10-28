@@ -286,6 +286,12 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   (`PoigneesToit.tsx::silhouetteAEcran`, `TraitCorps`). De dessus, le plan le montre déjà.
 - **La poignée de déplacement se distingue.** `deplacer` (le corps) et `pos` (un élément le long de son mur) sont des carrés pleins à
   quatre flèches ; les poignées qui étirent ou montent restent rondes.
+- **Les poignées sont sur le corps choisi** (28 octobre 2026, signalé par la personne : « suite à la sélection d'un corps, les
+  poignées ne sont pas sur le bon corps »). De face, un corps choisi se réglait par la façade courante, celle d'un autre corps
+  peut-être, pendant que sa silhouette se traçait sur lui. La cible se décide une fois (`poignees.ts::cibleDesPoignees`) : le mur du
+  corps choisi le plus tourné vers la caméra, celui de sa silhouette (`silhouetteVersLOeil(c, oeil, mur)`), qui garde son dessin et
+  sa couleur ; poignées, cotes et bulle le suivent. De dessus, le corps choisi, comme avant. La zone se redessine bien à chaque choix
+  (le choix passe par `magasin.notifier()`, sa clé est la version) : c'était la cible, pas une clé périmée.
 - Fumée : point 98.
 
 ### La hauteur à l'égout d'un corps  *(28 octobre 2026, besoin du propriétaire)*

@@ -15,6 +15,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'actualisation IGN n'y reviennent pas, et « Valider » en fait une seule étape d'historique. La 3D, la DP2 (« Existant H ») et
   l'inspecteur lisent les nouvelles hauteurs. Fumée : point 97.
 
+### Corrigé
+
+- **Mode Toit : les poignées sont sur le corps choisi.** De face, choisir un autre corps que celui de la façade regardée traçait sa
+  silhouette sur lui mais laissait poignées et cotes sur la façade de l'autre corps : elles tiraient la maison quand on croyait
+  régler l'aile. Les poignées et la bulle suivent maintenant la silhouette (même mur, celui du corps choisi le plus tourné vers la
+  caméra ; `poignees.ts::cibleDesPoignees`), qui garde son dessin et sa couleur. De dessus, rien ne change.
+
 ### Modifié
 
 - **Le flux de construction d'un bâtiment a son propre document** (`MD/spec-flux-batiment.md`), sorti de `MD/spec-ouvrages.md`

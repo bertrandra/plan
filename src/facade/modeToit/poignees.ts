@@ -11,7 +11,8 @@ import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps, rangPrincipal } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';
-import type { CibleElement } from './elements.js';
+import { facadeDeLElement, type CibleElement } from './elements.js';
+import { tourneVers } from '../../geometry/cotesVusDeDehors.js';
 import type { CorpsToit, ProfilPan, PtBrut } from '../../model/types.js';
 import { SAILLIE_PIGNON_MAX_M } from '../../model/corpsToitEtendu.js';
 
@@ -174,6 +175,41 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
     { id: 'pos', point: P(e.sM, e.dM, z), axes: ['long', 'vert'], libelle: 'Position' },
     { id: 'taille', point: P(e.sM + w / 2, e.dM, z), axes: ['long'], libelle: 'Taille' }
   ];
+}
+
+/** Le mur d'un corps le plus tourne vers l'oeil (un point du plan) : celui que la silhouette du corps choisi trace, et ses poignees. */
+export function murVersLOeil(c: CorpsToit, oeil: PtBrut): number {
+  let meilleur = 0, v = -Infinity;
+  for (let m = 0; m < c.pts.length; m++) {
+    const w = murDuCorps(c, m), score = tourneVers(w.a, w.b, w.n, oeil);
+    if (score > v + 1e-9) { v = score; meilleur = m; }
+  }
+  return meilleur;
+}
+
+/** Ce que regarde la Vue 3D du mode : de dessus ou non, la facade courante (ou la derniere) et l'oeil (la camera), un point du plan. */
+export interface VuePoignees { dessus: boolean; facade: { rang: number | null; mur: number } | null; oeil: PtBrut }
+
+/**
+ * Ce que les poignees tirent, selon ce qui est choisi. De dessus, seul un corps choisi en a. De face ou en vue libre, un pignon ou un
+ * element de mur se tire devant sa facade ; un corps choisi, par son mur le plus tourne vers l'oeil, celui ou se trace sa silhouette
+ * (`silhouetteVersLOeil`), jamais la facade courante d'un autre corps : la silhouette reste ou elle est, les poignees et la bulle la
+ * suivent (28 octobre 2026, « les poignées ne sont pas sur le bon corps »). Sans choix, la facade courante.
+ */
+export function cibleDesPoignees(corps: readonly CorpsToit[], selection: CibleElement | null, v: VuePoignees): CibleGlisser | null {
+  if (v.dessus) return selection?.type === 'corps' ? selection : null;
+  const f = v.facade;
+  if (selection?.type === 'corps') {
+    const c = corps[selection.rang];
+    if (!c) return null;
+    return { type: 'facade', rang: selection.rang, i: 0, mur: murVersLOeil(c, v.oeil) };
+  }
+  // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
+  if (selection) {
+    const m = facadeDeLElement(corps, selection);
+    if (!m || !f || (m.rang === f.rang && m.mur === f.mur)) return selection;
+  }
+  return f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null;
 }
 
 /** Les cotes de la cible : ce que la bulle montre pres d'elle. */
