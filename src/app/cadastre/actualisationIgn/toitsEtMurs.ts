@@ -22,11 +22,12 @@ import type { OptionsActualisation } from '../optionsActualisation.js';
 
 /**
  * La couverture des toits, lue sur l'orthophoto (MD/spec-toit-ign.md §6.1) : une couleur choisie par
- * l'utilisateur n'est pas touchee ; un WMTS injoignable laisse les toits tels quels.
+ * l'utilisateur n'est pas touchee, ni celle d'un batiment verifie sur place sans « Recalculer aussi »
+ * (model/protections.ts) ; un WMTS injoignable laisse les toits tels quels.
  */
-async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[]): Promise<void> {
+async function couleursDesToits(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], options: OptionsActualisation): Promise<void> {
   etape('la couleur des toits sur l’orthophoto…');
-  const c = await couleursToitsDepuisOrtho(objets, proj).catch(() => null);
+  const c = await couleursToitsDepuisOrtho(objets, proj, undefined, 1, { relireVerifies: options.verifies === 'relire' }).catch(() => null);
   if(!c || !(c.lus + c.replis)) return;
   bilan.push(c.lus + ' couleur(s) de toit lue(s) sur l\'orthophoto' +
     (c.replis ? ', ' + c.replis + ' couverture(s) rouge, brune ou grise faute de photo lisible' : ''));
@@ -93,7 +94,7 @@ function figer(o: ObjetBrut): () => void {
  */
 export async function toitsEtMurs(objets: ObjetBrut[], proj: ProjecteurLocal, bilan: string[], ctx: ContexteActualisation, options: OptionsActualisation): Promise<void> {
   const remises = objets.filter(batimentsGardes(objets, options).garde).map(figer);
-  await couleursDesToits(objets, proj, bilan);
+  await couleursDesToits(objets, proj, bilan, options);
   await formesDesToits(objets, proj, bilan, ctx, options.verifies);
   await couleursDesMurs(objets, proj, bilan, ctx);
   remises.forEach(remettre => remettre());

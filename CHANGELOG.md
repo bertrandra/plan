@@ -423,6 +423,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **La couleur du toit lue sur l'orthophoto et le relevé posé par l'audit demandent la hiérarchie des décisions**
+  (`model/protections.ts`, étape 6.3). La couleur du toit devient un groupe (`couleurToit`) et l'orthophoto un écrivain (`ortho`,
+  la mesure) : une couleur choisie ou celle d'un bâtiment vérifié sur place ne se relit pas, sauf « Recalculer aussi ». Le
+  relevé posé d'office par l'audit demande si le mur porte un relevé fait à la main au lieu de lire la marque `depuisAudit`.
+  Même comportement ; seul le bilan de l'actualisation ne compte plus les toits des bâtiments vérifiés gardés, qui n'étaient lus
+  que pour être remis. La couleur des murs lue sur Panoramax reste hors du module : elle n'écrit que sa lecture, rangée à part.
+
 - **Plus aucun cycle d'import, même par les types** (audit d'architecture, lot K). Les dix cycles qui ne passaient que par des
   imports de type sont cassés : chaque type partagé descend dans le module le plus bas, ou dans un module à lui
   (`geo/geojson.ts`, `model/clotureVue.ts`, `app/optionsActualisation.ts`, `app/typesControleurs.ts`). Le test d'architecture les

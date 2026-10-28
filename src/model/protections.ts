@@ -27,7 +27,7 @@ export type Niveau = 1 | 2 | 3 | 4 | 5 | 6;
 export const NIVEAU = { personne: 1, surPlace: 2, fait: 3, mesure: 4, officiel: 5, defaut: 6 } as const satisfies Record<string, Niveau>;
 
 /** Les ecrivains automatiques d'un batiment, et leur niveau. */
-export type Ecrivain = 'audit' | 'faits' | 'lidar' | 'recalage' | 'ign';
+export type Ecrivain = 'audit' | 'faits' | 'lidar' | 'recalage' | 'ortho' | 'ign';
 export const NIVEAU_ECRIVAIN: Readonly<Record<Ecrivain, Niveau>> = {
   /** La proposition de l'audit cochee d'office (app/audit/parcelle/constats.ts) : arretee, elle arrive decochee. */
   audit: NIVEAU.surPlace,
@@ -37,6 +37,8 @@ export const NIVEAU_ECRIVAIN: Readonly<Record<Ecrivain, Niveau>> = {
   lidar: NIVEAU.mesure,
   /** Le recalage d'un bloc du contour sur le LiDAR (toitsLidar.ts::recalerSurLidar). */
   recalage: NIVEAU.mesure,
+  /** La couleur du toit lue sur l'orthophoto, ou son repli (render/couleurToitOrtho.ts, a l'import et en tache de fond). */
+  ortho: NIVEAU.mesure,
   /** L'actualisation IGN, et « Actualiser le projet » (app/cadastre/actualisationIgn.ts). */
   ign: NIVEAU.officiel,
 };
@@ -53,6 +55,8 @@ export type Groupe =
   | 'elements'
   /** Le materiau de couverture du toit. */
   | 'couverture'
+  /** La couleur du toit (`toit.couleur`, `origineCouleur`). */
+  | 'couleurToit'
   /** La couleur et le materiau des murs (`couleurMurs`). */
   | 'murs'
   /** Les releves de facade (par mur, `cote`), le profil de facades. */
@@ -72,6 +76,8 @@ export type Origine =
   | 'egoutSaisi'
   /** Une couverture choisie (inspecteur, audit). */
   | 'couvertureChoisie'
+  /** Une couleur du toit posee sans `origineCouleur` : choisie (inspecteur, audit, Mode Toit), pas lue par Plan. */
+  | 'couleurToitChoisie'
   /** La source de la couleur des murs choisie (Apparence). */
   | 'mursChoisis'
   /** Un releve fait a la main sur le mur vise. */
@@ -92,6 +98,8 @@ export type Origine =
   | 'profil'
   /** Lu sur le LiDAR (`toitLidarLu`, toit `lidar`). */
   | 'lidar'
+  /** La couleur du toit lue sur l'orthophoto, ou son repli selon le materiau (`origineCouleur`). */
+  | 'ortho'
   /** La couleur des murs lue sur une photo de rue. */
   | 'photoRue'
   /** La BD TOPO. */
@@ -105,7 +113,7 @@ export interface BatimentProtege {
   elevation?: number;
   retoucheMain?: { date: string } | null;
   batiment?: {
-    toit?: Pick<Toit, 'source' | 'couverture'> | null;
+    toit?: Pick<Toit, 'source' | 'couverture' | 'couleur' | 'origineCouleur'> | null;
     toitFige?: boolean;
     egoutChoisi?: 'saisie' | 'audit';
     verifieSurPlace?: { date: string } | null;
@@ -131,10 +139,10 @@ export interface ContexteEcriture {
 
 /** Le niveau de chaque origine. */
 export const NIVEAU_ORIGINE: Readonly<Record<Origine, Niveau>> = {
-  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, mursChoisis: 1, releveMain: 1,
+  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1,
   verifie: 2, egoutVu: 2, toitPhoto: 2, elementsPoses: 2, mursVus: 2, releveAudit: 2,
   profil: 3,
-  lidar: 4, photoRue: 4,
+  lidar: 4, ortho: 4, photoRue: 4,
   bdtopo: 5,
   defaut: 6,
 };
@@ -176,6 +184,17 @@ function origineDuToit(o: BatimentProtege, ctx: ContexteEcriture, fige: boolean,
   return source === 'bdtopo' ? 'bdtopo' : 'defaut';
 }
 
+/**
+ * La couleur du toit : choisie (posee sans origine), verifiee sur place, lue par Plan (orthophoto ou repli, avec son origine), ou
+ * rien. Le toit fige ne la protege pas : figer arrete la forme, et la couleur lue par Plan ne vient pas de la personne.
+ */
+function origineDeLaCouleurDuToit(o: BatimentProtege, verifie: boolean): Origine {
+  const t = o.batiment?.toit;
+  if (t?.couleur && !t.origineCouleur) return 'couleurToitChoisie';
+  if (verifie) return 'verifie';
+  return t?.couleur ? 'ortho' : 'defaut';
+}
+
 /** La couleur et le materiau des murs : source choisie, vus sur place, verifie, photo de rue, ou rien. */
 function origineDesMurs(o: BatimentProtege, verifie: boolean): Origine {
   const m = o.batiment?.couleurMurs;
@@ -205,6 +224,7 @@ export function origineActuelle(o: BatimentProtege, groupe: Groupe, ctx: Context
     case 'toit': return origineDuToit(o, ctx, fige, verifie);
     case 'elements': return fige ? 'fige' : aElements(o) ? 'elementsPoses' : 'defaut';
     case 'couverture': return o.batiment?.toit?.couverture ? 'couvertureChoisie' : 'defaut';
+    case 'couleurToit': return origineDeLaCouleurDuToit(o, verifie);
     case 'murs': return origineDesMurs(o, verifie);
     case 'facades': return origineDesFacades(o, ctx, verifie);
   }

@@ -1157,7 +1157,8 @@ met à jour que ce que le LiDAR n'a pas lu (attributs, nouveaux bâtiments, cont
 la main) et figée case par case par `tests/unit/model/protections.test.ts`. Un écrivain de niveau N demande
 `peutEcrire(o, groupe, N)` (ou `ecrivainPeut(o, écrivain, groupe)`) : l'audit (2 : sa proposition arrive cochée d'office, sinon
 décochée, « choix remplacé » ; « Valider » écrit ce que la personne coche), le moteur de règles (3 : faits, profils de façades),
-la lecture LiDAR et son recalage (4), l'actualisation IGN (5).
+la lecture LiDAR et son recalage (4), la couleur du toit lue sur l'orthophoto (4, `ortho`, depuis le 28 octobre 2026), l'actualisation
+IGN (5).
 
 **Le niveau de la valeur d'aujourd'hui** se lit sur les marques que l'objet porte déjà, groupe par groupe, la première qui
 s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test.ts`) :
@@ -1169,6 +1170,7 @@ s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test
 | Toit et corps | `toitFige` ; toit `saisie` | `verifieSurPlace` ; toit `photo` | — | toit `lidar` ou `toitLidarLu` | toit `bdtopo` | aucun |
 | Éléments posés sur les corps | `toitFige` | cheminées, lucarnes, fenêtres de toit, terrasse, appentis ouvert ou saillies présents | — | — | — | aucun |
 | Couverture | `toit.couverture` | — | — | — | — | aucune |
+| Couleur du toit (`toit.couleur`) | couleur posée sans `origineCouleur` | `verifieSurPlace` | — | lue sur l'orthophoto, ou son repli (`origineCouleur`) | — | aucune |
 | Murs (`couleurMurs`) | `source` choisie | `materiau`, `terrain` ; `verifieSurPlace` | — | `photo` (Panoramax) | — | rien |
 | Façades | relevé à la main sur ce mur | relevé de l'audit sur ce mur ; `verifieSurPlace` | `profilFacades` | — | — | rien |
 
@@ -1185,12 +1187,21 @@ déplacement près) rend périmée la mesure lue sur l'ancien contour, pour le c
 | Moteur de règles (3) | 3 à 6 | les niveaux 1 et 2 ; un profil de façades ne se rechoisit pas sur un bâtiment vérifié |
 | Relecture LiDAR (4) | 4 à 6 | les niveaux 1 à 3 ; ce qui est posé sur les corps (2) n'est jamais écrit : il est reporté sur les corps neufs |
 | Recalage LiDAR (4) | 4 à 6 | un contour retouché, figé, vérifié ou dessiné |
+| Orthophoto, couleur du toit (4) | 4 à 6 | une couleur posée sans origine (choisie) ; un bâtiment vérifié sur place, sauf « Recalculer aussi » ; pas `toitFige`, qui arrête la forme et non la couleur |
 | Actualisation IGN (5) | 5 et 6 | les niveaux 1 à 4 : **le LiDAR bat l'IGN** ; elle ne met à jour que ce que le LiDAR n'a pas lu (attributs, bâtiments nouveaux, un contour changé à l'IGN même, que le LiDAR relit ensuite ; la hauteur mesurée reste) ; elle garde entier un bâtiment dont le contour est de niveau 1 ou 2 (sauf un bâtiment dessiné, que « Actualiser le projet » recrée parce que la personne l'a demandé) |
 
-Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
-(`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`) ; `toitLidarLu` à jour arrête une
-nouvelle lecture en fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non
-gardés (une case cochée : le geste de la personne).
+~~Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
+(`couleurToitOrtho.ts:60-62`) et saute un bâtiment vérifié en tâche de fond (`toitsFond.ts`)~~ — rangé sous le module le
+28 octobre 2026 : groupe `couleurToit`, écrivain `ortho` ; `couleurToitOrtho.ts`, `toitsFond.ts` et l'actualisation le demandent,
+même comportement, sauf qu'à l'actualisation un bâtiment vérifié et gardé n'est plus lu puis remis (son toit n'est plus compté au
+bilan des couleurs lues). De même, le relevé posé d'office par l'audit (`alimenterLesFacades`, `propositionReleve`) demande
+`releveChoisiALaMain` (groupe `facades`) au lieu de lire `depuisAudit`. Reste hors du module, et dit ici : la couleur des murs lue
+sur Panoramax (`couleurMurPhoto.ts`, `mursFond.ts`) n'écrit que sa lecture, `couleurMurs.photo`, rangée à part, jamais la couleur
+retenue ; la hiérarchie s'applique quand la couleur se choisit pour la 3D (`model/couleurMur.ts::couleurMursRetenue`). La
+soumettre au groupe `murs` changerait ce que voit la personne : une source « photo » choisie ne recevrait plus de photo, et un
+bâtiment vérifié sans couleur vue garderait une photo périmée. Restent aussi : `toitLidarLu` à jour arrête une nouvelle lecture en
+fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non gardés (une case
+cochée : le geste de la personne).
 
 *Avant le 28 octobre 2026* (relevé du même jour, commit `e4d89f97`, puis un premier tableau écrivain par écrivain, remplacé le même
 jour par la hiérarchie) : quatre marques, lues chacune par une partie des écrivains,

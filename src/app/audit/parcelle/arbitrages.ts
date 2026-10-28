@@ -17,7 +17,7 @@ import { lireForme } from '../../../facade/toits/lectureFormes.js';
 import { coherents, corpsSousObservation, dire, direBouts, ECART_FORME_SIMPLE_MAX_M, ecartPrincipal, FORMES_LUES, libelleForme, metres } from '../../regles/sujets/formeToit.js';
 import { corpsConforme, corpsProposesSousFait, formeDuCorps, meilleurCorpsSelonObservation, plusGrand } from '../../../facade/regles/toits/faits.js';
 import { faitDuBatiment } from '../../../regles/toits/faits.js';
-import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeMurs, indiceDeCorps, toitChoisiALaMain, traversantsDuGroupe } from './constats.js';
+import { cibleBatiment, cibleCorps, cibleFacade, constatsReconcilies, groupesDeMurs, indiceDeCorps, releveChoisiALaMain, toitChoisiALaMain, traversantsDuGroupe } from './constats.js';
 import { pignonTraversant } from '../../../facade/regles/toits/pignons.js';
 import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
 import { repere } from '../../../facade/toits/toitCorps.js';
@@ -358,7 +358,8 @@ function propositionReleve(o: ObjetPlan, b: LigneBatiment, f: LigneBatiment['fac
   if (!m?.releve) return null;
   const existant = (o.batiment?.facades ?? []).find((r) => r.cote === f.cote);
   if (existant?.depuisAudit && existant.releveLe === m.releve.releveLe) return null;
-  const deja = existant?.depuisAudit ? undefined : existant;
+  // Un releve fait a la main sur ce mur est un choix de la personne : l'audit ne le remplace que si elle coche.
+  const deja = existant && releveChoisiALaMain(o, f.cote) ? existant : undefined;
   const avantTexte = existant ? (existant.depuisAudit ? 'relevé automatique du ' : 'relevé du ') + dateFr(existant.releveLe) + ' (' + pluriel(existant.ouvertures.length, 'ouverture') + ')' : 'aucun relevé';
   const charge = (a.retenu.lignes[0]?.constat.charge ?? null) as { releve: ReleveFacade; coinsTrouves?: boolean; rang?: number | null } | null;
   // Une valeur forcee n'a pas de releve : la mesure de la photo, ou le nombre n'est qu'un reglage a refaire a la main.

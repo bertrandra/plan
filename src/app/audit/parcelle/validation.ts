@@ -22,6 +22,7 @@ import { avecPlacesApresForme } from './apresForme.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
+import { releveChoisiALaMain } from './constats.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
@@ -381,7 +382,13 @@ function ecrireDansLeProjet(ctx: ContexteValidation, propositions: readonly Prop
  * Rend le nombre de facades relevees.
  */
 function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): number {
-  const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p));
+  // Cochee d'office, et sur un mur que l'audit a le droit d'ecrire (model/protections.ts) : jamais un releve fait a la main.
+  const permis = (p: Proposition): boolean => {
+    if (p.cible.type !== 'facade') return true;
+    const o = ctx.etat.objects.find((x) => x.key === (p.cible as { cle: string }).cle);
+    return !o || !releveChoisiALaMain(o, p.cible.cote);
+  };
+  const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p) && permis(p));
   if (!prets.length) return 0;
   ctx.projet.pushHistory();
   ecrireDansLeProjet(ctx, prets, [], jourIso(ctx.maintenant()));
