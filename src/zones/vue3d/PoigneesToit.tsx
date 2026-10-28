@@ -10,11 +10,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
-import { cadreDe, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
+import { cadreDe, cibleDesPoignees, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
-import { facadeDeLElement, type CibleElement } from '../../facade/modeToit/elements.js';
+import type { PtBrut } from '../../model/types.js';
 import { silhouetteVersLOeil } from '../../facade/regles/toits/silhouetteDesCorps.js';
 
 /** Le rayon visible d'une poignee, et celui de sa zone de saisie (44 px de diametre au moins, pour le doigt). */
@@ -28,15 +28,21 @@ const RAYON_DEPLACER_PX = 12;
 /** Les quatre fleches du deplacement, centrees sur la poignee. */
 const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-3 4.5 H-1 V1 H-4.5 V3 L-8 0 L-4.5 -3 V-1 H-1 V-4.5 H-3 Z';
 
-/**
- * La silhouette d'un corps a l'ecran : son mur le plus tourne vers la camera, du pied au haut sous son toit (pignon compris), projete
- * dans le calque. Null sans scene, ou quand un point tombe derriere la camera.
- */
-function silhouetteAEcran(c: CorpsToit | undefined, base: number): Ecran[] | null {
+/** L'oeil, un point du plan : la camera qui fait l'image. C'est vers lui que se tourne le mur du corps choisi, sa silhouette et ses poignees. */
+function oeilDeLaVue(): PtBrut | null {
   const sc = vue3d.scene;
-  if (!c || !sc) return null;
+  if (!sc) return null;
   const cam = cameraDeVue(sc).position;
-  const pts = silhouetteVersLOeil(c, { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z })?.map((q) => projeter(q, base));
+  return { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z };
+}
+
+/**
+ * La silhouette d'un corps a l'ecran : son mur `mur`, du pied au haut sous son toit (pignon compris), projete dans le calque. Null sans
+ * scene, ou quand un point tombe derriere la camera.
+ */
+function silhouetteAEcran(c: CorpsToit | undefined, base: number, oeil: PtBrut, mur: number): Ecran[] | null {
+  if (!c || !vue3d.scene) return null;
+  const pts = silhouetteVersLOeil(c, oeil, mur)?.map((q) => projeter(q, base));
   return pts?.every((q): q is Ecran => q !== null) ? pts : null;
 }
 
@@ -128,16 +134,14 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const o = magasin.store.getState().etat.objects.find((x) => x.key === s.cle);
   const corps = o?.batiment?.corpsToit;
   if (!corps?.length) return null;
-  // Le corps choisi : sa silhouette, sur son mur le plus tourne vers la camera, tracee lisible (de dessus, le plan le montre deja).
-  const silhouette = !plan && e.selection?.type === 'corps' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o)) : null;
-  const seule = () => (silhouette ? <svg className="poigneesToit" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
-  // De dessus, seul un corps choisi a des poignees ; de face, un corps choisi se regle par la facade courante.
-  if (plan && e.selection?.type !== 'corps') return null;
   const f = s.facade ?? s.derniere;
-  // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
-  const surCetteFacade = (t: CibleElement): boolean => { const m = facadeDeLElement(corps, t); return !m || !f || (m.rang === f.rang && m.mur === f.mur); };
-  const choixFace = e.selection && e.selection.type !== 'corps' && surCetteFacade(e.selection) ? e.selection : null;
-  const cible: CibleGlisser | null = plan ? e.selection : choixFace ?? (f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null);
+  const oeil = oeilDeLaVue();
+  // Ce que tirent les poignees : de dessus, le corps choisi ; de face, l'element choisi devant sa facade, ou le corps choisi par le mur
+  // ou se trace sa silhouette (jamais la facade d'un autre corps) ; sans choix, la facade courante (facade/modeToit/poignees.ts).
+  const cible: CibleGlisser | null = oeil ? cibleDesPoignees(corps, e.selection, { dessus: plan, facade: f, oeil }) : null;
+  // Le corps choisi : sa silhouette, sur le mur de ses poignees, tracee lisible (de dessus, le plan le montre deja).
+  const silhouette = !plan && oeil && e.selection?.type === 'corps' && cible?.type === 'facade' ? silhouetteAEcran(corps[e.selection.rang], altitudeDuBatiment(o), oeil, cible.mur) : null;
+  const seule = () => (silhouette ? <svg className="poigneesToit" width="100%" height="100%" aria-hidden="true"><TraitCorps pts={silhouette} /></svg> : null);
   if (!cible) return seule();
   const cadre = cadreDe(corps, cible);
   const poignees = poigneesDe(corps, cible);
@@ -159,7 +163,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     if (!g) return;
     const d = enMetres(ev.clientX - g.x0, ev.clientY - g.y0, g.poignee.axes, g.vecteurs);
     const res = glisser(g.depart, g.cible, g.id, d);
-    modeToitCourant()?.apercu(res.corps);
+    modeToitCourant()?.apercu(res.corps, res.elevation);
     setGuides(res.guides);
     redessiner((n) => n + 1);
   };

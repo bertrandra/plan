@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { aimanter, cadreDe, cotesDe, glisser, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
+import { aimanter, cadreDe, cibleDesPoignees, cotesDe, EGOUT_MIN_M, glisser, murVersLOeil, poigneesDe } from '../../../../src/facade/modeToit/poignees.js';
 import { appliquerPiece } from '../../../../src/three/gestesToits.js';
 import { repere } from '../../../../src/facade/toits/toitCorps.js';
+import { silhouetteVersLOeil } from '../../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import type { CorpsToit, ObjetPlan } from '../../../../src/model/types.js';
 
 const maison = (): ObjetPlan => ({ key: 'b', type: 'polygon', fonction: 'batiment', elevation: 3, pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan);
@@ -27,7 +28,7 @@ describe('les poignees', () => {
     expect(ids({ type: 'lucarne', rang: 0, i: 0 })).toEqual(['pos', 'larg', 'haut']);
     expect(ids({ type: 'cheminee', rang: 0, i: 0 })).toEqual(['pos']);
     expect(ids({ type: 'solaire', rang: 0, i: 1 })).toEqual(['pos', 'taille']);
-    expect(ids({ type: 'facade', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long']);
+    expect(ids({ type: 'facade', rang: 0, i: 0, mur: 0 })).toEqual(['haut', 'long', 'egout']);
     expect(ids({ type: 'pignon', rang: 0, i: 9 })).toEqual([]);
   });
 
@@ -160,5 +161,100 @@ describe('glisser', () => {
     expect(e.dM).toBeGreaterThan(e0.dM);
     const t = glisser(corps, { type: 'solaire', rang: 0, i: 1 }, 'taille', { long: 1 }).corps[0]!.elementsToit![1]!;
     expect(t.echelle).toBeGreaterThan(1);
+  });
+
+  it('la poignee de l egout est au quart du mur, sur la ligne d egout de la facade, et la bulle dit l egout', () => {
+    const corps = avecTout(), c = corps[0]!;
+    const p = poigneesDe(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }).find((q) => q.id === 'egout')!;
+    expect(p.libelle).toBe('Hauteur à l’égout');
+    expect(p.axes).toEqual(['vert']);
+    expect(p.point.z).toBeCloseTo(c.egouts[0], 5);
+    const f = cadreDe(corps, { type: 'facade', rang: 0, i: 0, mur: 0 })!;
+    expect(p.point.x).toBeCloseTo(f.o.x + f.u.x * f.L / 4, 5);
+    expect(cotesDe(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }).find((q) => q.cle === 'egout')!.texte).toBe('égout ' + c.egouts[0].toFixed(2).replace('.', ',') + ' m');
+    // Un bow-window a sa propre hauteur a l'egout (son element) : sa facade n'a pas celle du corps.
+    expect(poigneesDe(corps, { type: 'facade', rang: 1, i: 0, mur: 0 }).some((q) => q.id === 'egout')).toBe(false);
+  });
+
+  it('tirer l egout monte ou descend le corps entier, pente gardee, et donne l elevation du corps principal', () => {
+    const corps = avecTout(), c = corps[0]!;
+    const r = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'egout', { vert: 1.52 });
+    const n = r.corps[0]!;
+    // Arrondi a 5 cm : 1,52 m devient 1,50 m.
+    expect(n.egouts[0]).toBeCloseTo(c.egouts[0] + 1.5, 5);
+    expect(n.egouts[1]).toBeCloseTo(c.egouts[1] + 1.5, 5);
+    expect(n.faitage - Math.min(...n.egouts)).toBeCloseTo(c.faitage - Math.min(...c.egouts), 5);
+    expect(n.pignons[0]!.faitage).toBeCloseTo(c.pignons[0]!.faitage + 1.5, 5);
+    expect(n.cheminees![0]!.sommetM).toBeCloseTo(c.cheminees![0]!.sommetM + 1.5, 5);
+    expect(n.lucarnes![0]!.faitageM).toBeCloseTo(c.lucarnes![0]!.faitageM + 1.5, 5);
+    expect(n.pts).toEqual(c.pts);
+    expect(r.elevation).toBeCloseTo(Math.min(...n.egouts), 5);
+    // Le bow-window reste pose sur le corps, sur le meme mur.
+    expect(r.corps[1]!.saillie!.hote).toBe(0);
+    // Le depart n'a pas bouge : le glisser se rejoue toujours a partir de lui.
+    expect(corps[0]!.egouts).toEqual(c.egouts);
+  });
+
+  it('l egout ne descend pas sous 1,5 m, et un autre corps que le principal ne change pas l elevation', () => {
+    const corps = avecTout();
+    const bas = glisser(corps, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'egout', { vert: -50 });
+    expect(Math.min(...bas.corps[0]!.egouts)).toBeCloseTo(EGOUT_MIN_M, 5);
+    expect(bas.corps[0]!.faitage).toBeGreaterThan(Math.min(...bas.corps[0]!.egouts));
+    const grand: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 8 }, { x: 0, y: 8 }], posFaitage: 4, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0 };
+    const aile: CorpsToit = { pts: [{ x: 12, y: 0 }, { x: 16, y: 0 }, { x: 16, y: 3 }, { x: 12, y: 3 }], posFaitage: 1.5, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0 };
+    const r = glisser([grand, aile], { type: 'facade', rang: 1, i: 0, mur: 0 }, 'egout', { vert: 1 });
+    expect(r.corps[1]!.egouts).toEqual([4, 4]);
+    expect(r.corps[0]).toEqual(grand);
+    expect(r.elevation).toBeUndefined();
+  });
+
+  it('une galerie plus haute que l egout de la maison qui descend reste dessous', () => {
+    const o = maison();
+    appliquerPiece(o, 'facade:galerie');
+    const corps = o.batiment!.corpsToit!;
+    const rang = corps.findIndex((k) => k.saillie?.genre === 'galerie');
+    const haute = glisser(corps, { type: 'saillie', rang, i: 0 }, 'haut', { vert: 0.5 }).corps;
+    const r = glisser(haute, { type: 'facade', rang: 0, i: 0, mur: 0 }, 'egout', { vert: -1 });
+    const egoutMaison = Math.min(...r.corps[0]!.egouts), g = r.corps[rang]!;
+    expect(g.saillie!.hauteurM!).toBeLessThanOrEqual(egoutMaison + 1e-9);
+    expect(Math.min(...g.egouts)).toBeLessThanOrEqual(egoutMaison + 1e-9);
+  });
+});
+
+describe('la cible des poignees suit le corps choisi (28 octobre 2026, « les poignées ne sont pas sur le bon corps »)', () => {
+  // La maison 10 x 6 m, et une aile 5 x 4 m contre son bout est ; on regarde la facade nord de la maison (mur 2, y = 6).
+  const maisonC: CorpsToit = { pts: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }], posFaitage: 3, faitage: 9, egouts: [6, 6], pignons: [], ecart: 0 };
+  const aile: CorpsToit = { pts: [{ x: 10, y: 1 }, { x: 15, y: 1 }, { x: 15, y: 5 }, { x: 10, y: 5 }], posFaitage: 2, faitage: 5, egouts: [3, 3], pignons: [], ecart: 0 };
+  const corps = [maisonC, aile];
+  const oeil = { x: 5, y: 60 };
+  const nord = { rang: 0, mur: 2 };
+
+  it('un corps choisi de face : son mur tourne vers l oeil, pas la facade courante de l autre corps', () => {
+    const t = cibleDesPoignees(corps, { type: 'corps', rang: 1, i: 0 }, { dessus: false, facade: nord, oeil });
+    expect(t).toEqual({ type: 'facade', rang: 1, i: 0, mur: 2 });
+    // Les poignees sont sur l'aile : sur son mur nord (y = 5), a ses hauteurs.
+    const p = poigneesDe(corps, t!);
+    expect(p.find((q) => q.id === 'haut')!.point.z).toBe(5);
+    for (const q of p) { expect(q.point.y).toBeCloseTo(5, 5); expect(q.point.x).toBeGreaterThanOrEqual(10 - 1e-9); }
+    expect(cotesDe(corps, t!).find((c) => c.cle === 'w')!.texte).toBe('5,00 m');
+  });
+
+  it('le mur des poignees est celui de la silhouette', () => {
+    for (const o of [oeil, { x: 40, y: 3 }, { x: 12, y: -30 }, { x: -20, y: 20 }]) {
+      const m = murVersLOeil(aile, o), s = silhouetteVersLOeil(aile, o)!, a = aile.pts[m]!, b = aile.pts[(m + 1) % 4]!;
+      // Tous les points de la silhouette sont dans le plan du mur choisi.
+      for (const q of s) expect(Math.abs((b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x))).toBeLessThan(1e-6);
+      expect(silhouetteVersLOeil(aile, o, m)).toEqual(s);
+    }
+  });
+
+  it('de dessus, seul un corps choisi ; sans choix, la facade courante ; un pignon devant sa facade seulement', () => {
+    expect(cibleDesPoignees(corps, { type: 'corps', rang: 1, i: 0 }, { dessus: true, facade: nord, oeil })).toEqual({ type: 'corps', rang: 1, i: 0 });
+    expect(cibleDesPoignees(corps, { type: 'cheminee', rang: 0, i: 0 }, { dessus: true, facade: nord, oeil })).toBeNull();
+    expect(cibleDesPoignees(corps, null, { dessus: false, facade: nord, oeil })).toEqual({ type: 'facade', rang: 0, i: 0, mur: 2 });
+    expect(cibleDesPoignees(corps, null, { dessus: false, facade: null, oeil })).toBeNull();
+    const avecPignon = [{ ...maisonC, pignons: [{ pan: 1 as const, debut: 3, fin: 6, faitage: 8, profondeur: 3 }] }, aile];
+    expect(cibleDesPoignees(avecPignon, { type: 'pignon', rang: 0, i: 0 }, { dessus: false, facade: nord, oeil })).toEqual({ type: 'pignon', rang: 0, i: 0 });
+    expect(cibleDesPoignees(avecPignon, { type: 'pignon', rang: 0, i: 0 }, { dessus: false, facade: { rang: 0, mur: 0 }, oeil })).toEqual({ type: 'facade', rang: 0, i: 0, mur: 0 });
   });
 });

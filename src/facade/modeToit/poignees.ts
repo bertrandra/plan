@@ -9,10 +9,11 @@
 
 import { point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
-import { deplacerCorps, etirerCorps } from './corpsNeufs.js';
+import { deplacerCorps, etirerCorps, rangPrincipal } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';
-import type { CibleElement } from './elements.js';
-import type { CorpsToit, PtBrut } from '../../model/types.js';
+import { facadeDeLElement, type CibleElement } from './elements.js';
+import { tourneVers } from '../../geometry/cotesVusDeDehors.js';
+import type { CorpsToit, ProfilPan, PtBrut } from '../../model/types.js';
 import { SAILLIE_PIGNON_MAX_M } from '../../model/corpsToitEtendu.js';
 
 export type Axe = 'long' | 'vert' | 'prof';
@@ -42,6 +43,31 @@ const centi = (v: number) => Math.round(v * 100) / 100;
 const vingt = (v: number) => Math.round(v * 20) / 20;
 const borne = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b);
 const fr = (v: number, d = 2) => v.toFixed(d).replace('.', ',') + ' m';
+
+/** L'egout le plus bas d'un corps, en metres : celui que donne `ajusterCorps` (facade/toits/toitCorps.ts) ; plus bas, ce n'est plus un mur. */
+export const EGOUT_MIN_M = 1.5;
+/** L'egout le plus haut, en metres : la borne que la lecture LiDAR tient pour l'elevation (app/toits/toitsLidar.ts). */
+export const EGOUT_MAX_M = 40;
+
+/** L'egout d'un corps vu de la facade `mur` : celui de son pan sur un long cote (0 : `pts[0]-pts[1]`, 2 : l'oppose), le plus bas sur un bout. */
+export function egoutDeLaFacade(c: CorpsToit, mur: number): number {
+  const m = ((mur % 4) + 4) % 4;
+  return m === 0 ? c.egouts[0] : m === 2 ? c.egouts[1] : Math.min(...c.egouts);
+}
+
+/**
+ * Le corps entier monte (ou descend) de `d` metres : egouts, faitage et tout ce qui se compte depuis le sol (pignons, lucarnes,
+ * souches, ligne de bris, edicules). La pente et la forme ne changent pas : c'est une hauteur mal lue que l'on corrige, pas un toit.
+ */
+export function monterCorps(c: CorpsToit, d: number): CorpsToit {
+  const m = (v: number) => centi(v + d);
+  const neuf: CorpsToit = { ...c, faitage: m(c.faitage), egouts: [m(c.egouts[0]), m(c.egouts[1])], pignons: c.pignons.map((g) => ({ ...g, faitage: m(g.faitage) })) };
+  if (c.lucarnes) neuf.lucarnes = c.lucarnes.map((l) => ({ ...l, faitageM: m(l.faitageM) }));
+  if (c.cheminees) neuf.cheminees = c.cheminees.map((h) => ({ ...h, sommetM: m(h.sommetM) }));
+  if (c.profil) neuf.profil = c.profil.map((p) => (p.type === 'brise' ? { ...p, hauteurBrisM: m(p.hauteurBrisM) } : p)) as [ProfilPan, ProfilPan];
+  if (c.terrasse?.edicules) neuf.terrasse = { ...c.terrasse, edicules: c.terrasse.edicules.map((e) => ({ ...e, sommetM: m(e.sommetM) })) };
+  return neuf;
+}
 
 /** Le seuil d'aimantation : un bord a moins de 25 cm d'un autre s'y colle. */
 export const SEUIL_AIMANT_M = 0.25;
@@ -92,9 +118,12 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
     ];
   }
   if (t.type === 'facade') {
+    // L'egout se tire au quart du mur, sur la ligne d'egout de cette facade : au milieu, il couvrirait la poignee du faitage d'un toit plat.
+    // Une saillie posee sur un mur a sa propre hauteur a l'egout (son element), pas celle-ci.
     return [
       { id: 'haut', point: P(f.L / 2, 0, c.faitage), axes: ['vert'], libelle: 'Hauteur du faîtage' },
-      { id: 'long', point: P(f.L, 0, Math.min(...c.egouts)), axes: ['long'], libelle: 'Longueur de la façade' }
+      { id: 'long', point: P(f.L, 0, Math.min(...c.egouts)), axes: ['long'], libelle: 'Longueur de la façade' },
+      ...(c.saillie ? [] : [{ id: 'egout', point: P(f.L / 4, 0, egoutDeLaFacade(c, t.mur)), axes: ['vert'] as Axe[], libelle: 'Hauteur à l’égout' }])
     ];
   }
   if (t.type === 'saillie' && c.saillie) {
@@ -148,11 +177,49 @@ export function poigneesDe(corps: readonly CorpsToit[], t: CibleGlisser): Poigne
   ];
 }
 
+/** Le mur d'un corps le plus tourne vers l'oeil (un point du plan) : celui que la silhouette du corps choisi trace, et ses poignees. */
+export function murVersLOeil(c: CorpsToit, oeil: PtBrut): number {
+  let meilleur = 0, v = -Infinity;
+  for (let m = 0; m < c.pts.length; m++) {
+    const w = murDuCorps(c, m), score = tourneVers(w.a, w.b, w.n, oeil);
+    if (score > v + 1e-9) { v = score; meilleur = m; }
+  }
+  return meilleur;
+}
+
+/** Ce que regarde la Vue 3D du mode : de dessus ou non, la facade courante (ou la derniere) et l'oeil (la camera), un point du plan. */
+export interface VuePoignees { dessus: boolean; facade: { rang: number | null; mur: number } | null; oeil: PtBrut }
+
+/**
+ * Ce que les poignees tirent, selon ce qui est choisi. De dessus, seul un corps choisi en a. De face ou en vue libre, un pignon ou un
+ * element de mur se tire devant sa facade ; un corps choisi, par son mur le plus tourne vers l'oeil, celui ou se trace sa silhouette
+ * (`silhouetteVersLOeil`), jamais la facade courante d'un autre corps : la silhouette reste ou elle est, les poignees et la bulle la
+ * suivent (28 octobre 2026, « les poignées ne sont pas sur le bon corps »). Sans choix, la facade courante.
+ */
+export function cibleDesPoignees(corps: readonly CorpsToit[], selection: CibleElement | null, v: VuePoignees): CibleGlisser | null {
+  if (v.dessus) return selection?.type === 'corps' ? selection : null;
+  const f = v.facade;
+  if (selection?.type === 'corps') {
+    const c = corps[selection.rang];
+    if (!c) return null;
+    return { type: 'facade', rang: selection.rang, i: 0, mur: murVersLOeil(c, v.oeil) };
+  }
+  // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
+  if (selection) {
+    const m = facadeDeLElement(corps, selection);
+    if (!m || !f || (m.rang === f.rang && m.mur === f.mur)) return selection;
+  }
+  return f && f.rang !== null ? { type: 'facade', rang: f.rang, i: 0, mur: f.mur } : null;
+}
+
 /** Les cotes de la cible : ce que la bulle montre pres d'elle. */
 export function cotesDe(corps: readonly CorpsToit[], t: CibleGlisser): Cote[] {
   const c = corps[t.rang];
   if (!c) return [];
-  if (t.type === 'facade') { const m = murDuCorps(c, t.mur); return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }]; }
+  if (t.type === 'facade') {
+    const m = murDuCorps(c, t.mur);
+    return [{ cle: 'w', texte: fr(m.L) }, { cle: 'h', texte: fr(c.faitage) }, ...(c.saillie ? [] : [{ cle: 'egout', texte: 'égout ' + fr(egoutDeLaFacade(c, t.mur)) }])];
+  }
   if (t.type === 'corps') { const r = repere(c.pts); return [{ cle: 'w', texte: fr(r.L) }, { cle: 'prof', texte: fr(r.W) }, { cle: 'h', texte: fr(c.faitage) }, { cle: 'rot', texte: Math.round(orientationDuCorps(c)) + '°' }]; }
   if (t.type === 'saillie' && c.saillie) return [{ cle: 'w', texte: fr(c.saillie.largeurM) }, { cle: 'prof', texte: fr(c.saillie.profondeurM) }, { cle: 'h', texte: fr(Math.min(...c.egouts)) }, ...(c.saillie.genre !== 'bow-window' && (c.retraitM ?? 0) > 0.02 ? [{ cle: 'retrait', texte: fr(c.retraitM ?? 0) }] : [])];
   if (t.type === 'pignon') {
@@ -189,8 +256,32 @@ function etirer(c: CorpsToit, mur: number, delta: number): CorpsToit {
   return { ...c, pts };
 }
 
+/**
+ * Ce que rend un glisser : les nouveaux corps, les positions collees (pour les guides) et, quand l'egout du corps principal a change,
+ * sa nouvelle hauteur a l'egout : l'elevation du batiment, que lisent l'inspecteur, les releves et le prisme hors du mode corps.
+ */
+export interface ResultatGlisser { corps: CorpsToit[]; guides: number[]; elevation?: number }
+
+/**
+ * La hauteur a l'egout d'un corps : le corps entier monte ou descend (`monterCorps`), pente gardee, et ce qui est pose sur ses murs
+ * se repose sur lui. L'egout de la facade tiree s'arrondit a 5 cm ; le plus bas reste entre EGOUT_MIN_M et EGOUT_MAX_M.
+ */
+function glisserEgout(depart: readonly CorpsToit[], rang: number, mur: number, dv: number): ResultatGlisser {
+  const c = depart[rang] as CorpsToit, e = egoutDeLaFacade(c, mur), bas = Math.min(...c.egouts);
+  const delta = centi(borne(vingt(e + dv), EGOUT_MIN_M + (e - bas), EGOUT_MAX_M) - e);
+  const hotes = avec(depart, rang, monterCorps(c, delta));
+  const egoutHote = Math.min(...(hotes[rang] as CorpsToit).egouts);
+  // Une galerie ou un appentis a sa hauteur propre : il ne passe pas au-dessus de l'egout de la maison qui descend.
+  const corps = hotes.map((k, i) => {
+    if (!k.saillie || k.saillie.hote !== rang) return k;
+    const h = k.saillie.hauteurM;
+    return replacerSaillie(hotes, i, h !== undefined && h > egoutHote ? { hauteurM: egoutHote } : {})[i] as CorpsToit;
+  });
+  return rang === rangPrincipal(depart) ? { corps, guides: [], elevation: egoutHote } : { corps, guides: [] };
+}
+
 /** Le deplacement `d` applique a la cible, a partir des corps de depart. Rend les nouveaux corps et les positions collees (pour les guides). */
-export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: string, d: Deplacement): { corps: CorpsToit[]; guides: number[] } {
+export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: string, d: Deplacement): ResultatGlisser {
   const c = depart[t.rang], f = cadreDe(depart, t);
   const rien = { corps: depart.slice(), guides: [] as number[] };
   if (!c || !f) return rien;
@@ -216,6 +307,7 @@ export function glisser(depart: readonly CorpsToit[], t: CibleGlisser, id: strin
   }
   if (t.type === 'facade') {
     if (id === 'haut') return { corps: avec(depart, t.rang, { ...c, faitage: centi(Math.max(c.faitage + dv, Math.max(...c.egouts) + 0.4)) }), guides };
+    if (id === 'egout' && !c.saillie) return glisserEgout(depart, t.rang, t.mur, dv);
     if (id === 'long') {
       const m = murDuCorps(c, t.mur), nouvelle = borne(vingt(m.L + dl), 2.5, 30);
       let neuf = etirer(c, t.mur, nouvelle - m.L);

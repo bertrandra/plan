@@ -8,7 +8,7 @@
 
 import { estBatiment } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
-import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
+import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, ecrireLeGeste, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
   type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
 import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, type PointScene, type Reserve } from '../../three/poseFacade.js';
@@ -24,7 +24,6 @@ import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
-import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
 interface PoseVue { position: { x: number; y: number; z: number }; cible: { x: number; y: number; z: number } }
@@ -463,12 +462,11 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
   return {
     quitterLaFacade,
     methodes: {
-    /** Un glisser en cours : les corps remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
-    apercu(corps: CorpsToit[]): void {
+    /** Un glisser en cours : les corps (et la hauteur a l'egout, si le corps principal l'a changee) remplacent ceux du batiment, la scene suit au plus tous les `GLISSER_MS` ; rien n'entre dans la pile avant `finGlisser`. */
+    apercu(corps: CorpsToit[], elevation?: number): void {
       const o = batiment();
       if (!o || !session) return;
-      champsBatiment(o).corpsToit = corps;
-      champsBatiment(o).toitFige = true;
+      ecrireLeGeste(o, corps, elevation);
       toucher(o);
       const t = Date.now();
       if (t - dernierRebatir >= GLISSER_MS) { dernierRebatir = t; rebatir(); }
