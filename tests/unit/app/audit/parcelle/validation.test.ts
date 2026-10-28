@@ -9,6 +9,8 @@ import { serializeObjects, serializeMeasures } from '../../../../../src/io/seria
 import { normalizeObjects } from '../../../../../src/model/normalisation.js';
 import { clotureDImport, clotureDe } from '../../../../../src/model/cloture.js';
 import type { EtatApp } from '../../../../../src/core/state.js';
+import type { PropositionAuditee } from '../../../../../src/model/fichierAuditParcelle.js';
+import { champsBatiment } from '../../../../../src/model/champsFonction.js';
 import type { CorpsToit, ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/types.js';
 
 // La validation des propositions (MD/spec-audit.md §14) avec le vrai historique : l'apercu ne touche
@@ -327,6 +329,35 @@ describe('la consultation d un audit recu (Admin › Audits)', () => {
     expect(t.etat.objects.find((o) => o.key === 'maison')?.batiment?.couleurMurs?.materiau).toBeUndefined();
     t.v.montrer('avant');
     expect(t.remplacer3d).toHaveBeenLastCalledWith(['maison']);
+  });
+});
+
+describe('l apercu ne touche pas le projet, consultation comprise (details des ouvertures)', () => {
+  const RELEVE = {
+    cote: 0, largeur: 10, hauteur: 6, texture: null, hauteurTexture: 6, distance: 8, sourceDistance: 'gps' as const, releveLe: '2026-10-13T09:00:00Z',
+    ouvertures: [{ type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.5 }], partieBasse: null,
+  };
+  const details: PropositionAuditee = {
+    id: 'maison#0:details', cible: { type: 'facade', cle: 'maison', cote: 0 }, objet: 'Façade sud', avant: '', apres: 'volets roulants', source: 'claude', indices: [],
+    confiance: 1, remplaceChoix: null, reserve: null, effet: { type: 'detailsOuvertures', cote: 0, details: { volets: 'roulant' } }, decision: 'validee',
+  };
+
+  it('en consultation (Admin › Audits), ni l apres ni les deux vues ne changent le releve du plan', () => {
+    const t = monter();
+    champsBatiment(t.etat.objects[1] as ObjetPlan).facades = [JSON.parse(JSON.stringify(RELEVE))];
+    const comparer3d = vi.fn<NonNullable<ProjetAudit['comparer3d']>>(() => true);
+    Object.assign(t.projet, { comparer3d });
+    t.v.figer([details]);
+    const avant = t.plan();
+    t.v.montrer('apres');
+    expect(t.remplacer3d.mock.calls.at(-1)?.[1]?.find((o) => o.key === 'maison')?.batiment?.facades?.[0]?.ouvertures[0]?.details).toMatchObject({ volets: 'roulant' });
+    t.v.montrer('deux');
+    expect(comparer3d.mock.calls.at(-1)?.[0]?.objets.find((o) => o.key === 'maison')?.batiment?.facades?.[0]?.ouvertures[0]?.details).toMatchObject({ volets: 'roulant' });
+    t.v.montrer('avant');
+    expect(t.plan()).toBe(avant);
+    expect(t.etat.objects[1]?.batiment?.facades?.[0]?.ouvertures[0]?.details).toBeUndefined();
+    expect(t.etat.dirty).toBe(false);
+    expect(t.historique.pile.taille).toBe(0);
   });
 });
 

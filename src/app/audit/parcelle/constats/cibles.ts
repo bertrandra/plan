@@ -41,6 +41,13 @@ export const BOUTS_VUS: Record<string, readonly string[]> = { pignons: ['pignon'
 export const PAN_CLAUDE: Record<string, 'rue' | 'jardin' | 'les-deux'> = { rue: 'rue', arriere: 'jardin', cote: 'rue', plusieurs: 'les-deux' };
 
 export const cm = (v: number): number => Math.round(v * 100) / 100;
+
+/**
+ * Le toit de ce batiment est un choix de la personne : saisi dans l'inspecteur (`toit.source === 'saisie'`), ou fige en mode Toit
+ * (`toitFige`, les « Règles » coupees ; aussi pose par une validation d'audit precedente). Une forme proposee par l'audit le
+ * remplacerait : elle arrive decochee, et le dit.
+ */
+export const toitChoisiALaMain = (o: ObjetPlan): boolean => o.batiment?.toit?.source === 'saisie' || o.batiment?.toitFige === true;
 const borne = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
 /** La confiance d'une lecture LiDAR d'un corps : son ecart a la mesure (m) ; 0 m, 0,95 ; 1,2 m et plus, 0,4. */
 export const confianceCorps = (ecartM: number): number => cm(borne(0.95 - (0.55 * ecartM) / 1.2, 0.4, 0.95));

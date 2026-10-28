@@ -14,7 +14,7 @@
 // projet a cette phase. « Lancer l'analyse » termine la capture ; l'analyse (§13) la reprendra.
 
 import { partageDe } from '../../../model/auditParcelle.js';
-import { creerCapture } from './capture.js';
+import { creerCapture, type CaptureEnCours } from './capture.js';
 import { listeDeControle, type ListeDeControle } from './liste.js';
 import type { Validation } from './validation.js';
 import { creerCorpus, type Corpus } from './corpus.js';
@@ -31,7 +31,23 @@ export type { ContexteAuditParcelle, EcranAudit, EtatPosition, CibleFacade, Sess
 export { questionRemplacement } from './brouillonCapture.js';
 export { MESSAGES_GPS_PARCELLE, textePlanDePrise, questionRepriseParcelle } from './textesSession.js';
 import { pluriel } from './textesSession.js';
+import type { PtBrut } from '../../../model/types.js';
+import { parcelleCadastrale } from './parcelleCadastrale.js';
+import { estBatiment } from '../../../model/fonctions.js';
 export { DELAI_ENSEMBLE_MS, type EcranVue } from './vueAudit.js';
+
+/**
+ * Les facades notees suivent leur mur : le plan a pu changer pendant que l'ecran etait ferme (un sommet ajoute ou retire, une
+ * annulation). Releve aussi le contour des facades notees pendant la visite, a la fermeture de l'ecran (model/cotesAudit.ts).
+ * Rend vrai si la capture a change.
+ */
+function facadesSurLesMurs(ctx: ContexteAuditParcelle, capture: CaptureEnCours): boolean {
+  // Un autre projet ouvert (une autre parcelle) n'a pas les murs de cette capture.
+  if (parcelleCadastrale(ctx.etat.objects) !== ctx.idu) return false;
+  const contours = new Map<string, PtBrut[]>();
+  for (const o of ctx.etat.objects) if (estBatiment(o) && 'pts' in o && Array.isArray(o.pts)) contours.set(o.key, o.pts);
+  return capture.suivreLesContours(contours);
+}
 
 export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAuditParcelle {
   const maintenant = ctx.maintenant ?? (() => new Date());
@@ -50,6 +66,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     memo = { version: capture.version(), objets: ctx.etat.objects, liste: listeDeControle(ctx.etat.objects, capture.lire()) };
     return memo.liste;
   };
+  const suivreLesContours = (): void => { if (facadesSurLesMurs(ctx, capture)) memo = null; };
   const visee = viseeDe(ctx, liste, publier);
   const sens = capteurs(ctx, (quoi) => { visee.capteurs(sens, quoi); vue.faites(); vue.suivre(); });
   const vue = vueDe(ctx, sens, visee, liste);
@@ -173,9 +190,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       void analyse.lancer();
     },
     // L'ecran ferme rend la Vue 3D telle qu'elle etait : tous les objets, et la camera libre.
-    suspendre() { sens.arreter(); visee.oublier(); vue.activer(null); vue.epurer(false); validation.oublierApercu(); },
-    // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : la liste se recalcule.
-    reprendre() { memo = null; sens.demarrer(); visee.reconnaitre(sens); vue.epurer(true); if (ecran !== 'liste') vue.activer(ecran); if (ecran === 'propositions') validation.synchroniser(); },
+    suspendre() { sens.arreter(); visee.oublier(); vue.activer(null); vue.epurer(false); validation.oublierApercu(); if (!validation.lectureSeule()) suivreLesContours(); },
+    // Le plan a pu changer pendant que l'ecran etait ferme (un batiment modifie) : les facades suivent leur mur, la liste se recalcule.
+    reprendre() { memo = null; suivreLesContours(); sens.demarrer(); visee.reconnaitre(sens); vue.epurer(true); if (ecran !== 'liste') vue.activer(ecran); if (ecran === 'propositions') validation.synchroniser(); },
     autoriserBoussole: () => sens.autoriser(),
     ecrireBrouillon: () => brouillon.vider(),
     proposerReprise: (pret) => brouillon.proposer(pret),

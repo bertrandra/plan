@@ -40,6 +40,8 @@ export interface ObjetAToit {
   elevation?: number;
   /** Les attributs BD TOPO : `surParcellePrincipale` dit si le batiment est celui du projet. */
   bdtopo?: unknown;
+  /** Le contour retouche a la main (model/retouche.ts) : la lecture ne le recale pas. */
+  retoucheMain?: { date: string } | null;
   /**
    * Son toit (model/typesFonctions.ts) : la forme simple, les volumes et la mesure du LiDAR (batiment de la parcelle du projet),
    * les corps et pignons, le doute d'un batiment a cheval, la version de lecture qui l'a traite, la marque « verifie sur place »
@@ -426,7 +428,8 @@ export async function toitsDepuisLidar(objets: readonly ObjetAToit[], proj: Proj
       const seuils = surchargesDuBatiment(o, lieu, options.profils);
       // Un batiment vu de pres (le projet, une maison mitoyenne) trace a cote de son toit est d'abord
       // recale, d'un bloc, sur le LiDAR (MD/spec-toit-ign.md §13.7).
-      if (grille && lireGrille && (principal || estMitoyen(o))) {
+      // Un contour retouche a la main (`retoucheMain`, model/retouche.ts) est celui de la personne : le toit se lit dessus, il ne se recale pas.
+      if (grille && lireGrille && (principal || estMitoyen(o)) && !o.retoucheMain) {
         const large = await recalerSurLidar(o, grille, proj, lireGrille, seuils);
         if (large) { grille = large; ech = echantillonsDeGrille(large, o.pts); bilan.recales++; }
       }

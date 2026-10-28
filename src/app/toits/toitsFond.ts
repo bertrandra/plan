@@ -33,6 +33,7 @@ import { centroid } from '../../geometry/basic.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import type { ProgressionToits } from '../../core/lectureToits.js';
 import { estVerifieSurPlace, lectureDAccord } from '../../model/toitVerifie.js';
+import { estRetoucheMain } from '../../model/retouche.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
 
@@ -133,8 +134,12 @@ const CHAMPS_LUS_BATIMENT = ['toit', 'toitMesure', 'volumesToit', 'corpsToit', '
 /** D'un batiment verifie sur place, la lecture n'ecrit que sa marque : le toit valide reste, au centimetre. */
 const CHAMPS_LUS_VERIFIE_BATIMENT = ['toitLidarLu'] as const;
 
-/** L'empreinte de ce qui, change par l'utilisateur, rend une lecture caduque. */
-const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.batiment?.toit ?? null]);
+/**
+ * L'empreinte de ce qui, change par l'utilisateur, rend une lecture caduque : le contour, le toit, et ce qu'une decision ecrit
+ * du toit (la validation d'un audit de la parcelle ecrit les corps, la hauteur, le marque fige ou verifie). Une lecture partie
+ * avant cette validation ne se pose donc pas par-dessus.
+ */
+const empreinte = (o: ObjetPlan) => JSON.stringify([(o as ObjetAToit).pts, o.batiment?.toit ?? null, o.batiment?.corpsToit ?? null, o.elevation ?? null, !!o.batiment?.toitFige, o.batiment?.verifieSurPlace ?? null]);
 
 /**
  * Ecrit dans le plan ce que la copie a lu, si le batiment y est encore tel qu'il a ete copie : la
@@ -150,7 +155,8 @@ function reporter(objets: ObjetPlan[], copie: ObjetPlan, avant: string): boolean
     const verifie = estVerifieSurPlace(o.batiment);
     if (!verifie) {
       const cible = o as unknown as Record<string, unknown>, source = copie as unknown as Record<string, unknown>;
-      for (const k of CHAMPS_LUS) cible[k] = source[k] === undefined ? null : source[k];
+      // Un contour retouche a la main ne bouge pas : la lecture n'en ecrit que la hauteur (toitsLidar.ts ne le recale pas non plus).
+      for (const k of CHAMPS_LUS) if (k !== 'pts' || !estRetoucheMain(o)) cible[k] = source[k] === undefined ? null : source[k];
     }
     const cible = champsBatiment(o) as Record<string, unknown>, source = (copie.batiment ?? {}) as Record<string, unknown>;
     for (const k of verifie ? CHAMPS_LUS_VERIFIE_BATIMENT : CHAMPS_LUS_BATIMENT) cible[k] = source[k] === undefined ? null : source[k];

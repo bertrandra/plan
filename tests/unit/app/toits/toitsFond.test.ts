@@ -17,6 +17,7 @@ import type { Regulateur } from '../../../../src/app/regulateur.js';
 import { projecteurLocal } from '../../../../src/geo/projection.js';
 import type { ObjetPlan, PtBrut, Toit } from '../../../../src/model/types.js';
 import { champsBatiment } from '../../../../src/model/champsFonction.js';
+import { appliquerPropositions, type Proposition } from '../../../../src/regles/decisions.js';
 
 // La lecture des toits en tache de fond (app/toits/toitsFond.ts) : une file continue, du plus proche au plus
 // loin, sur des copies, dessinee par paquets ; un batiment modifie pendant la lecture n'est pas ecrase ;
@@ -486,5 +487,78 @@ describe('avec le regulateur de charge', () => {
     // Deux paquets pendant le geste : rien ; le troisieme apres : enregistre ; la fin attend le calme.
     expect(enregistrer).toHaveBeenCalledTimes(1);
     expect(reg.r.calme).toHaveBeenCalled();
+  });
+});
+
+// Une decision de l'audit de la parcelle (regles/decisions.ts) et un contour retouche a la main (model/retouche.ts) face a la
+// relecture en tache de fond (MD/spec-ouvrages.md, « Les toits dans l'audit de la parcelle », points 1 et 4).
+describe('ce que la relecture laisse tel quel', () => {
+  const corpsDecide = { pts: rect(40, 0, 6, 5), posFaitage: 2.5, faitage: 8, egouts: [5, 5] as [number, number], pignons: [], ecart: 0.1 };
+  const decision: Proposition = {
+    id: 'b1:toit', cible: { type: 'batiment', cle: 'b1' }, objet: 'Forme du toit de b1', avant: '', apres: '', source: 'arbitrage', indices: [], confiance: null,
+    remplaceChoix: null, reserve: null, effet: { type: 'corpsToit', corps: [corpsDecide] },
+  };
+
+  it('une decision de toit validee pendant une lecture en vol ne se fait pas ecraser, ni relire ensuite', async () => {
+    const objets = plan(3);
+    const lus: string[][] = [];
+    const lire = lecteur(lus);
+    let premier = true;
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {},
+      lire: (async (o, pr, opt) => {
+        const r = await lire(o, pr, opt);
+        // Pendant la lecture de b0, b1 (deja copie, en cours de lecture) recoit la decision de l'audit.
+        if (premier) { premier = false; appliquerPropositions(objets, [decision], [], '2026-10-28'); }
+        return r;
+      }) as typeof toitsDepuisLidar,
+    });
+    fond.relancer();
+    await finir(fond);
+    const b1 = objets.find((o) => o.key === 'b1');
+    expect(b1?.batiment?.corpsToit).toEqual([corpsDecide]);
+    expect(b1?.batiment?.toitFige).toBe(true);
+    expect(b1?.batiment?.toit?.source).toBe('bdtopo');
+    // Fige, il n'est plus a lire : ni a cette passe, ni a la suivante.
+    expect(lus.flat().filter((k) => k === 'b1')).toHaveLength(1);
+    expect(batimentsALire(objets).restants.map((o) => o.key)).not.toContain('b1');
+  });
+
+  it('des corps ecrits pendant la lecture rendent la lecture caduque, meme sans le marque fige', async () => {
+    const objets = plan(3);
+    const lus: string[][] = [];
+    const lire = lecteur(lus);
+    let premier = true;
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {},
+      lire: (async (o, pr, opt) => {
+        const r = await lire(o, pr, opt);
+        if (premier) { premier = false; champsBatiment(objets.find((x) => x.key === 'b1') as ObjetPlan).corpsToit = [corpsDecide]; }
+        return r;
+      }) as typeof toitsDepuisLidar,
+    });
+    fond.relancer();
+    await finir(fond);
+    // La lecture en vol de b1 ne s'est pas posee : b1 a ete relu sur ce qu'il porte maintenant.
+    expect(lus.flat()).toEqual(['b0', 'b1', 'b2', 'b1']);
+  });
+
+  it('un contour retouche a la main : le toit lu s ecrit, le contour reste celui de la personne', async () => {
+    const objets = plan(1);
+    const b0 = objets.find((o) => o.key === 'b0') as ObjetPlan & { pts: PtBrut[] };
+    b0.retoucheMain = { date: '2026-10-27' };
+    const avant = b0.pts.map((q) => ({ ...q }));
+    const lus: string[][] = [];
+    const lire = lecteur(lus);
+    const fond = creerToitsFond({
+      objets: () => objets, lectureSeule: () => false, apresLot: () => {}, progression: () => {}, pause: async () => {}, attendre: async () => {},
+      // Une lecture qui recalerait la copie de deux metres (le recalage d'un batiment trace a cote).
+      lire: (async (o, pr, opt) => { const r = await lire(o, pr, opt); for (const c of opt?.candidats ?? []) c.pts = (c.pts ?? []).map((q) => ({ x: q.x, y: q.y - 2 })); return r; }) as typeof toitsDepuisLidar,
+    });
+    fond.relancer();
+    await finir(fond);
+    expect(b0.pts).toEqual(avant);
+    expect(b0.batiment?.toit?.source).toBe('lidar');
+    expect(toitLu(b0.batiment)).toBe(true);
   });
 });

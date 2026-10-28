@@ -578,3 +578,25 @@ describe('la vue fixee sur une facade choisie (16 octobre)', () => {
     expect(derniere(v).oeil.x).toBeLessThan(CENTRE.x);
   });
 });
+
+describe('les facades notees quand le contour change', () => {
+  it('un sommet ajoute entre deux visites : les photos restent sur leur mur ; un autre projet ouvert n y touche pas', () => {
+    const t = session();
+    t.s.reprendre();
+    t.s.capture.ajouterPhotoFacade('maison', 2, { ...PHOTO });
+    // L'ecran se ferme : le contour sur lequel le rang 2 a ete compte est garde.
+    t.s.suspendre();
+    expect(t.s.capture.lire().batiments.maison?.contour).toEqual(rect(5, 10, 15, 20));
+    // Dans le plan, un sommet sur le cote sud (rang 0) : le mur nord passe au rang 3.
+    const maison = t.ctx.etat.objects.find((o) => o.key === 'maison') as ObjetPlan & { pts: PtBrut[] };
+    maison.pts.splice(1, 0, { x: 8, y: 10 });
+    t.s.reprendre();
+    expect(Object.keys(t.s.capture.lire().batiments.maison?.facades ?? {})).toEqual(['3']);
+    expect(t.s.liste().batiments.find((b) => b.cle === 'maison')?.facades.find((f) => f.cote === 3)?.statut).toBe('photographiee');
+    // Un autre projet (une autre parcelle) : la capture ne suit pas ses contours.
+    t.s.suspendre();
+    t.ctx.etat.objects = t.ctx.etat.objects.map((o) => (o.key === 'parcelle' ? { ...o, cadastre: { idu: 'AUTRE', origineLat: 1, origineLon: 1 } } : o.key === 'maison' ? { ...o, pts: rect(5, 10, 15, 20) } : o)) as ObjetPlan[];
+    t.s.reprendre();
+    expect(Object.keys(t.s.capture.lire().batiments.maison?.facades ?? {})).toEqual(['3']);
+  });
+});

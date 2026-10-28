@@ -5,6 +5,7 @@
 
 import type { CeQueJeVois, SoucheVue } from '../../../model/ceQueJeVois.js';
 import type { Cheminee, CorpsToit, EdiculeTerrasse, Lucarne, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
+import { formeDuCorps } from './faits.js';
 
 /** Un corps plat : moins de cela entre le faitage et l'egout le plus haut (spec-regles-toits §2.7). */
 const MONTEE_PLATE_M = 0.3;
@@ -135,3 +136,134 @@ export function lucarnesSurLeCorps(c: CorpsToit, n: number, types: readonly Type
 
 /** Le corps qui porte la toiture-terrasse : le plus grand corps plat ; -1 s'il n'y en a pas. */
 export const corpsDeLaTerrasse = (corps: readonly CorpsToit[]): number => plusGrand(corps, estPlat);
+
+/* ------------------------------------------------------------------------------------------------
+ * Ce que portait un corps, reporte sur les corps d'une forme relue
+ * --------------------------------------------------------------------------------------------- */
+
+/** Deux faitages a moins de cet angle l'un de l'autre vont dans le meme sens : une lucarne garde son pan. */
+const PARALLELE_DEG = 15;
+
+/** Le repere complet d'un corps : son origine, ses deux directions, sa longueur et sa largeur. */
+function cadreCorps(c: CorpsToit): { p0: PtBrut; u: PtBrut; v: PtBrut; L: number; W: number } | null {
+  const [p0, p1, , p3] = c.pts;
+  if (!p0 || !p1 || !p3) return null;
+  const L = Math.hypot(p1.x - p0.x, p1.y - p0.y), W = Math.hypot(p3.x - p0.x, p3.y - p0.y);
+  if (!(L > 0) || !(W > 0)) return null;
+  return { p0, u: { x: (p1.x - p0.x) / L, y: (p1.y - p0.y) / L }, v: { x: (p3.x - p0.x) / W, y: (p3.y - p0.y) / W }, L, W };
+}
+
+type Cadre = NonNullable<ReturnType<typeof cadreCorps>>;
+const versCadre = (r: Cadre, p: PtBrut) => ({ s: (p.x - r.p0.x) * r.u.x + (p.y - r.p0.y) * r.u.y, t: (p.x - r.p0.x) * r.v.x + (p.y - r.p0.y) * r.v.y });
+const depuisCadre = (r: Cadre, s: number, t: number): PtBrut => ({ x: r.p0.x + r.u.x * s + r.v.x * t, y: r.p0.y + r.u.y * s + r.v.y * t });
+const dansCadre = (r: Cadre, p: PtBrut, marge = 0) => { const q = versCadre(r, p); return q.s >= -marge && q.s <= r.L + marge && q.t >= -marge && q.t <= r.W + marge; };
+const cm = (v: number) => Math.round(v * 100) / 100;
+
+/** Les cheminees d'un corps qui tiennent sur le corps neuf (une souche adossee deborde du mur de sa section) ; leur debouche suit le faitage. */
+function chemineesReportees(a: CorpsToit, n: CorpsToit, rn: Cadre): Cheminee[] {
+  return (a.cheminees ?? []).filter((ch) => dansCadre(rn, ch, Math.max(ch.largeurM, ch.profondeurM)))
+    .map((ch) => ({ ...ch, sommetM: cm(ch.sommetM - a.faitage + n.faitage) }));
+}
+
+/**
+ * Les lucarnes d'un corps qui tiennent sur le corps neuf : un faitage dans le meme sens (une lucarne suit son pan), un pan en pente
+ * assez large, et toute leur largeur entre les bouts. Leur faitage garde sa place entre l'egout et le faitage du pan.
+ */
+function lucarnesReportees(a: CorpsToit, ra: Cadre, n: CorpsToit, rn: Cadre): Lucarne[] {
+  const angle = (Math.abs(Math.atan2(ra.u.x * rn.u.y - ra.u.y * rn.u.x, ra.u.x * rn.u.x + ra.u.y * rn.u.y)) * 180) / Math.PI;
+  if (estPlat(n) || Math.min(angle, 180 - angle) > PARALLELE_DEG) return [];
+  const out: Lucarne[] = [];
+  for (const l of a.lucarnes ?? []) {
+    const t = l.pan === 0 ? a.posFaitage / 2 : (a.posFaitage + ra.W) / 2;
+    const q = versCadre(rn, depuisCadre(ra, (l.debutM + l.finM) / 2, t));
+    const pan: 0 | 1 = q.t < n.posFaitage ? 0 : 1;
+    const largeurPan = pan === 0 ? n.posFaitage : rn.W - n.posFaitage;
+    const w = l.finM - l.debutM, e = n.egouts[pan], ea = a.egouts[l.pan];
+    if (largeurPan < 0.5 || n.faitage - e < MONTEE_PLATE_M || q.s - w / 2 < 0 || q.s + w / 2 > rn.L) continue;
+    const part = a.faitage - ea > 0 ? Math.min(1, Math.max(0, (l.faitageM - ea) / (a.faitage - ea))) : MONTEE_LUCARNE;
+    out.push({ ...l, pan, debutM: cm(q.s - w / 2), finM: cm(q.s + w / 2), faitageM: cm(e + part * (n.faitage - e)) });
+  }
+  return out;
+}
+
+/** La terrasse d'un corps, sur un corps neuf plat : ses edicules qui y tiennent, a la hauteur de son egout. */
+function terrasseReportee(a: CorpsToit, n: CorpsToit, rn: Cadre): TerrasseToit | null {
+  if (!a.terrasse || !estPlat(n)) return null;
+  const dz = Math.max(n.egouts[0], n.egouts[1]) - Math.max(a.egouts[0], a.egouts[1]);
+  const edicules = (a.terrasse.edicules ?? []).filter((e) => e.pts.every((p) => dansCadre(rn, p, 0.01))).map((e) => ({ ...e, sommetM: cm(e.sommetM + dz) }));
+  const suite: TerrasseToit = { ...a.terrasse };
+  if (edicules.length) suite.edicules = edicules; else delete suite.edicules;
+  return suite;
+}
+
+/**
+ * Ce que portaient les corps d'un toit (cheminees, lucarnes, toiture-terrasse, appentis ouvert ou ferme), reporte sur les corps
+ * d'une forme relue sur la mesure : le moteur (corpsSousContrainte, lireForme) rend un corps neuf, sans rien dessus, et valider la
+ * forme effacait ce que la personne avait pose ou vu. Chaque ancien corps donne ce qu'il porte au corps neuf qui contient son
+ * centre (un corps neuf d'abord, le plus grand a egalite), la ou cela tient encore (cheminees dans son emprise, lucarnes sur un pan
+ * dans le meme sens, terrasse sur un toit plat, ouvert sur un appentis) ; ce qui ne tient pas est laisse. Un corps neuf qui porte
+ * deja un element (une copie de l'ancien) le garde tel quel. Ni la forme ni les hauteurs du corps ne changent : c'est celles du
+ * moteur.
+ */
+export function reporterElements(anciens: readonly CorpsToit[], nouveaux: readonly CorpsToit[]): CorpsToit[] {
+  const anciensSet = new Set(anciens);
+  const cadres = nouveaux.map(cadreCorps);
+  const ajouts = nouveaux.map(() => ({ cheminees: [] as Cheminee[], lucarnes: [] as Lucarne[], terrasse: null as TerrasseToit | null, ouvert: undefined as boolean | undefined, retraitM: undefined as number | undefined }));
+  for (const a of anciens) {
+    if (nouveaux.includes(a)) continue;
+    if (!a.cheminees?.length && !a.lucarnes?.length && !a.terrasse && a.ouvert === undefined) continue;
+    const ra = cadreCorps(a);
+    if (!ra) continue;
+    const centre = depuisCadre(ra, ra.L / 2, ra.W / 2);
+    let k = -1;
+    nouveaux.forEach((n, i) => {
+      const r = cadres[i];
+      if (!r || !dansCadre(r, centre)) return;
+      const best = k >= 0 ? nouveaux[k] as CorpsToit : null, rb = k >= 0 ? cadres[k] : null;
+      const neuf = !anciensSet.has(n), bestNeuf = best ? !anciensSet.has(best) : false;
+      if (k < 0 || (neuf && !bestNeuf) || (neuf === bestNeuf && r.L * r.W > (rb ? rb.L * rb.W : 0))) k = i;
+    });
+    const n = nouveaux[k], rn = cadres[k], ajout = ajouts[k];
+    if (!n || !rn || !ajout) continue;
+    ajout.cheminees.push(...chemineesReportees(a, n, rn));
+    ajout.lucarnes.push(...lucarnesReportees(a, ra, n, rn));
+    ajout.terrasse ??= terrasseReportee(a, n, rn);
+    if (a.ouvert !== undefined && formeDuCorps(n) === 'appentis' && ajout.ouvert === undefined) { ajout.ouvert = a.ouvert; ajout.retraitM = a.retraitM; }
+  }
+  return nouveaux.map((n, i) => {
+    const ajout = ajouts[i];
+    if (!ajout) return n;
+    const suite: CorpsToit = { ...n };
+    let change = false;
+    if (n.cheminees === undefined && ajout.cheminees.length) { suite.cheminees = ajout.cheminees; change = true; }
+    if (n.lucarnes === undefined && ajout.lucarnes.length) { suite.lucarnes = ajout.lucarnes; change = true; }
+    if (n.terrasse === undefined && ajout.terrasse) { suite.terrasse = ajout.terrasse; change = true; }
+    if (n.ouvert === undefined && ajout.ouvert !== undefined) { suite.ouvert = ajout.ouvert; if (ajout.retraitM !== undefined) suite.retraitM = ajout.retraitM; change = true; }
+    return change ? suite : n;
+  });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Un element vu, replace sur les corps d'une forme proposee
+ * --------------------------------------------------------------------------------------------- */
+
+/** Les souches de ces cheminees, telles qu'on les a vues : de quoi les reposer sur un autre corps. */
+export const souchesDe = (cheminees: readonly Cheminee[]): SoucheVue[] => cheminees.map((ch) => ({
+  ...(ch.position ? { position: ch.position } : {}), ...(ch.materiau ? { materiau: ch.materiau } : {}), ...(ch.couronnement ? { couronnement: ch.couronnement } : {}),
+}));
+
+/** Le pan que disent ces lucarnes : rue (pan 0), jardin (pan 1), ou les deux. */
+export function panDesLucarnes(lucarnes: readonly Lucarne[]): 'rue' | 'jardin' | 'les-deux' {
+  const pans = new Set(lucarnes.map((l) => l.pan));
+  return pans.size > 1 ? 'les-deux' : pans.has(1) ? 'jardin' : 'rue';
+}
+
+/** La terrasse vue, telle qu'on l'a decrite (pour la reposer sur un autre corps plat, ses edicules compris). */
+export const terrasseVueDe = (t: TerrasseToit): NonNullable<CeQueJeVois['terrasse']> => ({
+  ...(t.accessible !== undefined ? { accessible: t.accessible } : {}), ...(t.revetement ? { revetement: t.revetement } : {}),
+  ...(t.acrotereM !== undefined ? { acrotereM: t.acrotereM } : {}), ...(t.gardeCorps !== undefined ? { gardeCorps: t.gardeCorps } : {}),
+  ...(t.edicules?.length ? { edicules: t.edicules.length } : {}),
+}) as NonNullable<CeQueJeVois['terrasse']>;
+
+/** Les appentis d'une liste de corps (leur rang) : ce que l'appentis vu ouvert ou ferme designe. */
+export const appentisDesCorps = (corps: readonly CorpsToit[]): number[] => corps.flatMap((c, i) => (formeDuCorps(c) === 'appentis' ? [i] : []));
