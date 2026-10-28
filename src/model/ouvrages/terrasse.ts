@@ -17,4 +17,4 @@ function suivreDeformationTerrasse(o: ObjetPlan, d: Deformation): void {
 }
 
 export const TERRASSE: Ouvrage = { fonction: 'terrasse', libelle: 'Terrasse', famille: 'construit', formes: ['polygon'], particularites: ['construction'], elevation: 0, auMenu: true, horsEquipement: true,
-  suivreDeformation: suivreDeformationTerrasse };
+  dossierPiscine: { masse: true }, suivreDeformation: suivreDeformationTerrasse };

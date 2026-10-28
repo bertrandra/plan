@@ -18,11 +18,11 @@ import {
 import type * as THREE_NS from 'three';
 import { echantillonnerTrace } from '../geometry/courbe.js';
 import { ribbonChemin } from '../geometry/ruban.js';
-import { largeurChemin } from '../model/ouvrages/index.js';
+import { largeurChemin, estOuvrage, ARBRE, LIMITE, POINT_DE_VUE, type Ouvrage } from '../model/ouvrages/index.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { aDesSommets } from '../model/formes.js';
 import type { PlanVuDeLa3d } from './etat3d.js';
-import { estParasol, estAbri, estPiscine, estBatiment } from '../model/fonctions.js';
+import { estParasol, estAbri, estPiscine, estBatiment, estTerrain } from '../model/fonctions.js';
 import { ajouterPergola3d } from './pergola3d.js';
 import { ajouterPiscine3d } from './piscine3d.js';
 import { traitSurSol, type SolRelief } from './relief3d.js';
@@ -149,6 +149,12 @@ function ajouterGazon(pts: PtBrut[], { scene, versLocal, sol, objets, ctx }: Con
  * ouvertures, de quoi juger l'implantation. Une AUTRE terrasse recoit sa hauteur, pas sa structure.
  * La parcelle n'a pas de volume : un ruban au sol suffit a la situer.
  */
+/**
+ * Les ouvrages sans volume dans la Vue 3D : un point de vue pilote la camera, une limite cadastrale interne est une information de
+ * plan ; ni l'un ni l'autre n'est un ouvrage a construire.
+ */
+const SANS_VOLUME: readonly Ouvrage[] = [POINT_DE_VUE, LIMITE];
+
 /** Un objet du plan dans la scene, selon ce qu'il est : rien s'il est masque, la terrasse courante, un point de vue. */
 export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: PlanVuDeLa3d, co: ContexteObjets): void {
   const { prim, ctx } = co;
@@ -166,7 +172,7 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
     if (co.sol) ajouterContourParcelle(o, co);
     return;
   }
-  if (o.key === 'parcelle' || o.fonction === 'terrain') {
+  if (estTerrain(o)) {
     // Sous la photo aerienne, le terrain ne se verrait pas : il ne ferait que la disputer au
     // tampon de profondeur, et imposer a la photo un decalage qui la fait passer devant le reste.
     if (ctx.orthoActif() && ctx.orthoTuiles().length) return;
@@ -174,9 +180,7 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
     else if (aDesSommets(o)) prim.addRibbonFlat(o.pts, o.fill || '#FBF3D9', 0.003, opaciteDe(o), vue3d.textures ? o.textureHorizontale : null, COUCHES_SOL.terrain);
     return;
   }
-  // Un point de vue pilote la camera, une limite cadastrale interne est une information de plan :
-  // ni l'un ni l'autre n'est un ouvrage a construire.
-  if (o.fonction === 'camera' || o.fonction === 'limite') return;
+  if (SANS_VOLUME.some((ouv) => estOuvrage(o, ouv))) return;
   if (o.type === 'path') { ajouterChemin(o, co); return; }
   // Un parasol est un cercle (DEFAUTS D-14) : un polygone dit « parasol » s'extrude comme les autres.
   if (o.type === 'circle' && estParasol(o)) { ajouterParasol(o, co); return; }
@@ -187,7 +191,7 @@ export function ajouterUnObjet(objet: ObjetPlan, obj: ObjetPlan | null, etat: Pl
   // Une piscine n'est pas un prisme : son eau, ses parois quand elles depassent, ses margelles, sa plage.
   if (estPiscine(o)) { ajouterPiscineAuSol(o, co); return; }
   // Un arbre n'est pas un prisme : un tronc et un houppier (three/arbre3d.ts).
-  if (o.fonction === 'arbre') { ajouterArbreDuPlan(o, co); return; }
+  if (estOuvrage(o, ARBRE)) { ajouterArbreDuPlan(o, co); return; }
   const h = ctx.elevationOf(o);
   if (h <= 0) return;
   const footprint = o.type === 'circle' ? cerclePoly(o.center, o.r) : o.pts;

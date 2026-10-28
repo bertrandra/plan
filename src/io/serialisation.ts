@@ -11,6 +11,7 @@
 import { compacterRelief } from '../model/relief.js';
 import { compacterChampsEtendus } from '../model/corpsToitEtendu.js';
 import type { ObjetPlan, Mesure } from '../model/types.js';
+import { OUVRAGES, ouvrage } from '../model/ouvrages/index.js';
 import type { ObjetSerialise } from '../model/creation.js';
 
 /**
@@ -44,8 +45,9 @@ function allegerVoisinage(out: Record<string, unknown>): void {
   // cloture n'a ni hauteur ni couleur de cloture, un batiment ni parasol ni arbre. Mesure sur un
   // voisinage d'un kilometre : un megaoctet sur dix (MD/roadmap-toits-fond.md).
   if(!out.clotureActive){ delete out.clotureHauteur; delete out.clotureCouleur; }
-  if(out.fonction !== 'parasol') delete out.hauteurParasol;
-  if(out.fonction !== 'arbre'){ for(const k of ['diametreArbre', 'couleurArbre', 'especeArbre']) delete out[k]; }
+  // Ce qu'un ouvrage garde au fichier est declare par lui (model/ouvrages/) : les reglages des autres partent.
+  const sien = ouvrage(out.fonction as string | undefined);
+  for(const autre of OUVRAGES) if(autre !== sien) for(const k of autre.reglagesAuFichier ?? []) delete out[k];
 }
 
 export function serializeObjects(objs: ObjetPlan[]): ObjetSerialise[] {

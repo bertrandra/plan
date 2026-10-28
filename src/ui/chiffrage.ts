@@ -14,6 +14,7 @@ import { computeTerrasseLayers } from '../engine/layers.js';
 import { ensureConstruction } from '../engine/construction.js';
 import { estPlots } from '../engine/constantes.js';
 import type { ObjetPlan, LigneBom } from '../model/types.js';
+import { estTerrasse } from '../model/fonctions.js';
 import { cleDuPlan } from './clePlan.js';
 
 export interface ResumeChiffrage {
@@ -38,7 +39,7 @@ let cache: { cle: string; resume: ResumeChiffrage } | null = null;
 // La cle : la version du plan que tient le controleur des objets (ui/clePlan.ts).
 
 export function resumerChiffrage(obj: ObjetPlan, objets: ObjetPlan[]): ResumeChiffrage | null {
-  if (obj.fonction !== 'terrasse' || obj.type !== 'polygon') return null;
+  if (!estTerrasse(obj)) return null;
   const cle = cleDuPlan(objets);
   if (cache && cache.cle === cle + obj.key) return cache.resume;
   const c = ensureConstruction(obj);

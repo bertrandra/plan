@@ -3,6 +3,7 @@
 // meme si l'IGN publie plus tard d'autres donnees : la grille LiDAR est relue a cet instant, comme le
 // fait `village.mjs` pour le banc des toits.
 
+import { estOuvrage, BATIMENT, TERRAIN } from '../../model/ouvrages/index.js';
 import { centroid, pointInPolygon } from '../../geometry/basic.js';
 import { aDesSommets } from '../../model/formes.js';
 import { couleurMursRetenue } from '../../model/couleurMur.js';
@@ -38,7 +39,7 @@ export function sortiesDe(o: ObjetPlan): SortiesCas {
 export function entreesDe(o: ObjetPlan, objets: readonly ObjetPlan[], grille: GrilleRelief | null): EntreesCas {
   const pts = aDesSommets(o) ? o.pts.map((p) => ({ x: p.x, y: p.y })) : [];
   const voisins = objets
-    .filter((v) => v.key !== o.key && v.fonction === 'batiment' && aDesSommets(v) && distanceContours(pts, v.pts) <= DISTANCE_VOISINS_M)
+    .filter((v) => v.key !== o.key && estOuvrage(v, BATIMENT) && aDesSommets(v) && distanceContours(pts, v.pts) <= DISTANCE_VOISINS_M)
     .map((v) => ({ cle: v.key, pts: (v as ObjetPlan & { pts: PtBrut[] }).pts.map((p) => ({ x: p.x, y: p.y })) }));
   return { pts, bdtopo: o.bdtopo ? JSON.parse(JSON.stringify(o.bdtopo)) : null, grille: grilleAuCentimetre(grille), voisins };
 }
@@ -47,6 +48,6 @@ export function entreesDe(o: ObjetPlan, objets: readonly ObjetPlan[], grille: Gr
 export function identiteDe(o: ObjetPlan, objets: readonly ObjetPlan[]): { cleBdtopo: string | null; idu: string | null } {
   const b = o.bdtopo as { cleabs?: string | null; id?: string | null } | null | undefined;
   const c = aDesSommets(o) ? centroid(o.pts) : null;
-  const parcelle = c ? objets.find((p) => p.fonction === 'terrain' && aDesSommets(p) && pointInPolygon(c, p.pts) && (p.cadastre as { idu?: string } | undefined)?.idu) : undefined;
+  const parcelle = c ? objets.find((p) => estOuvrage(p, TERRAIN) && aDesSommets(p) && pointInPolygon(c, p.pts) && (p.cadastre as { idu?: string } | undefined)?.idu) : undefined;
   return { cleBdtopo: b?.cleabs ?? b?.id ?? null, idu: (parcelle?.cadastre as { idu?: string } | undefined)?.idu ?? null };
 }

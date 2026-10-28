@@ -2,6 +2,7 @@
 // (app/cadastre/actualiserProjet.ts) : a part, parce que l'actualisation IGN (app/cadastre/actualisationIgn.ts) les
 // applique et que la commande l'appelle.
 
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 import { apparenceIgnParDefaut } from '../../geo/cadastreObjets.js';
 import type { ObjetBrut, ObjetPlan, Toit } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
@@ -27,7 +28,7 @@ export function valeursParDefaut(o: ObjetBrut): ObjetBrut {
     for (const cle of ['couleurMurs', 'fenetres3d', 'profilFacades', 'modeToit'] as const) delete b[cle];
     copie.batiment = b;
   }
-  if (o.fonction === 'batiment' && o.batiment?.toit) {
+  if (estOuvrage(o, BATIMENT) && o.batiment?.toit) {
     // Un toit « bdtopo » sans couleur : l'actualisation le recalcule sur le contour relu, le LiDAR
     // le reprend corps par corps, l'orthophoto lui redonne sa couleur.
     const toit: Toit = { ...o.batiment?.toit, source: 'bdtopo' };

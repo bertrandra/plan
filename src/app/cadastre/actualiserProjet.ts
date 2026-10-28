@@ -25,6 +25,7 @@
 // Restent de meme les objets retouches a la main (model/retouche.ts : la parcelle, un batiment de l'IGN) : une case decochee
 // chacun, « Reprendre la version de l'IGN pour… », les remet dans le lot ; un batiment repris garde sa cle.
 
+import { estOuvrage, BATIMENT } from '../../model/ouvrages/index.js';
 import { dialogues } from '../../shell/dialogues.js';
 import { showToast } from '../../shell/dialogs.js';
 import { droitsCourants } from '../acces.js';
@@ -54,7 +55,7 @@ export const POINT_RETOUCHES = 'Conservés tels que vous les avez laissés, sauf
 export const POINT_FIGES = 'Conservés tels quels : les bâtiments dont vous avez réglé le toit à la main (Mode Toit, « Règles » coupées).';
 
 /** Les batiments du plan verifies sur place : ils ne sont recalcules que si la case le demande. */
-export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => o.fonction === 'batiment' && estVerifieSurPlace(o.batiment));
+export const batimentsVerifies = (objets: readonly ObjetPlan[]): ObjetPlan[] => objets.filter((o) => estOuvrage(o, BATIMENT) && estVerifieSurPlace(o.batiment));
 
 /**
  * Les points du dialogue pour ce plan : les points de toujours, et ceux des batiments verifies, des objets retouches et des batiments

@@ -10,4 +10,5 @@ function oublierParasol(o: ObjetPlan, cle: string): boolean {
   return true;
 }
 
-export const PARASOL: Ouvrage = { fonction: 'parasol', libelle: 'Parasol', famille: 'construit', formes: ['circle'], particularites: ['parasol'], elevation: 2.2, auMenu: true, horsEquipement: true, sansEmprise: true, oublier: oublierParasol };
+export const PARASOL: Ouvrage = { fonction: 'parasol', libelle: 'Parasol', famille: 'construit', formes: ['circle'], particularites: ['parasol'], elevation: 2.2, auMenu: true, horsEquipement: true, sansEmprise: true, nommeParSaFonction: true,
+  reglagesAuFichier: ['hauteurParasol'], oublier: oublierParasol };

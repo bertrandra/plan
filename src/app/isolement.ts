@@ -16,6 +16,7 @@
 // Rien de tout cela n'entre dans le projet : `etat.isolement` est un etat d'affichage, comme la
 // camera ou le zoom, et un plan enregistre pendant l'isolement s'enregistre tel qu'il est.
 
+import { ouvrage, PERGOLA, CARPORT, type Ouvrage } from '../model/ouvrages/index.js';
 import { estIsolable, estPiscine, visibleEnIsolement } from '../model/fonctions.js';
 import type { EtatApp } from '../core/state.js';
 import type { ObjetPlan } from '../model/types.js';
@@ -55,13 +56,14 @@ export function objetAIsoler(etat: Pick<EtatApp, 'objects' | 'selectedKey'>): Ob
   return o && estIsolable(o) ? o : undefined;
 }
 
+/** Le bouton qui isole un abri dit lequel, avec son article. */
+const ISOLER_UN_ABRI: ReadonlyMap<Ouvrage, string> = new Map([[PERGOLA, 'Isoler la pergola'], [CARPORT, 'Isoler le carport']]);
+
 /** Le libelle du bouton, selon ce qu'il isole. */
 export function libelleIsoler(o: ObjetPlan | undefined): string {
   if (!o) return 'Isoler l\'objet';
   if (estPiscine(o)) return 'Isoler la piscine';
-  if (o.fonction === 'pergola') return 'Isoler la pergola';
-  if (o.fonction === 'carport') return 'Isoler le carport';
-  return 'Isoler la terrasse';
+  return ISOLER_UN_ABRI.get(ouvrage(o.fonction)) ?? 'Isoler la terrasse';
 }
 
 export function creerIsolement(d: DependancesIsolement): Isolement {

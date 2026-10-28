@@ -40,7 +40,7 @@ export function aParticularite(o: ObjetPlan, p: Particularite): boolean {
 }
 
 /** Un terrain : la parcelle, ou une parcelle voisine importee du cadastre. */
-export const estTerrain = (o: ObjetPlan): boolean => o.key === 'parcelle' || estOuvrage(o, TERRAIN);
+export const estTerrain = (o: { key?: string; fonction?: string | null }): boolean => o.key === 'parcelle' || estOuvrage(o, TERRAIN);
 export const estPointDeVue = (o: ObjetPlan): boolean => estOuvrage(o, POINT_DE_VUE);
 
 /**
@@ -53,6 +53,8 @@ export const estTerrasse = (o: ObjetPlan): boolean => aParticularite(o, 'constru
 export const estParasol = (o: ObjetPlan): boolean => aParticularite(o, 'parasol');
 /** Un bâtiment ou une annexe dont on sait relever les facades. */
 export const estBatiment = (o: ObjetPlan): boolean => aParticularite(o, 'releve');
+/** Du bati (un batiment, une annexe), quelle que soit sa forme : la famille de son ouvrage. */
+export const estBati = (o: { fonction?: string | null | undefined }): boolean => ouvrage(o.fonction).famille === 'bati';
 
 /**
  * Un batiment importe sur la parcelle du projet (BD TOPO, `surParcellePrincipale`) : celui que Plan

@@ -10,6 +10,7 @@
 // Ce module ne fait que des donnees : construire l'arbre, le comparer a celui qui est enregistre.
 // Aucune commande n'est executee, aucun champ n'est lu ni ecrit.
 
+import { estOuvrage, AUTRE, TERRASSE, TERRAIN } from '../../model/ouvrages/index.js';
 import type { Commande } from '../commandes.js';
 import type { Classe, Emplacement } from '../exposition.js';
 import type { Champ, Effet, Section } from '../../ui/champs/types.js';
@@ -140,6 +141,9 @@ function noeudChamp(ch: Champ, optionsDe: OptionsDe): Noeud {
   return n;
 }
 
+/** La famille de l'inspecteur d'un objet sans fonction (app/boot/panneaux.ts) : elle ne se nomme pas d'une fonction. */
+export const FAMILLE_SANS_FONCTION = 'aucune';
+
 /**
  * Le nom explicite d'une sorte d'objet : sa forme et sa fonction, « Cercle — Arbre ». Le libelle de
  * la fonction est celui que l'inspecteur propose dans sa liste « fonction » : pas de seconde liste.
@@ -151,7 +155,7 @@ function nommerFamille(n: Noeud): Noeud {
     const o = (x.enfants ?? []).find((e) => e.genre === 'option' && e.cle === fonction);
     if (o) return { ...n, nom: n.nom + ' — ' + o.nom };
   }
-  return fonction && fonction !== 'aucune' ? { ...n, nom: n.nom + ' — ' + fonction } : n;
+  return fonction && fonction !== FAMILLE_SANS_FONCTION ? { ...n, nom: n.nom + ' — ' + fonction } : n;
 }
 
 function detailsSection(sec: Section): Record<string, string> | undefined {
@@ -404,7 +408,7 @@ export function echantillonsDecouverte(objets: ObjetBrut[], fonctions: readonly 
     const forme = FORME_PAR_FONCTION[f] ?? 'polygon';
     const deForme = objets.filter((o) => o.type === forme);
     // Un modele neutre de preference : ni la terrasse (elle porte une construction), ni le terrain.
-    const modele = deForme.find((o) => o.fonction === 'autre') ?? deForme.find((o) => o.fonction !== 'terrasse' && o.fonction !== 'terrain') ?? deForme[0];
+    const modele = deForme.find((o) => estOuvrage(o, AUTRE)) ?? deForme.find((o) => !estOuvrage(o, TERRASSE) && !estOuvrage(o, TERRAIN)) ?? deForme[0];
     if (!modele) return [];
     const copie = JSON.parse(JSON.stringify(modele)) as ObjetBrut;
     return [{ ...copie, key: PREFIXE_ECHANTILLON + f, name: 'Échantillon de découverte — ' + f, fonction: f }];

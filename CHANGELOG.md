@@ -75,6 +75,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Le dessin, la 3D, les exports et le fichier lisent la fonction d'un objet dans le registre des ouvrages** (feuille de route,
+  étape 6.4 ; interne). Les comparaisons écrites à la main (`fonction === '…'`) passent de 63 à 13 : un objet se reconnaît par son
+  ouvrage (`estOuvrage`, `estTerrain`, `estTerrasse`, `estPointDeVue`), le bâti des exports par sa famille (`estBati`), et ce qui
+  est propre à un ouvrage se déclare une fois. Dans le modèle (`model/ouvrages/`) : ce que le dossier piscine dessine autour du
+  bassin (`dossierPiscine`), les réglages qu'un objet du voisinage ne garde au fichier que pour son ouvrage (`reglagesAuFichier`),
+  le nom de l'inspecteur qui suit la fonction (`nommeParSaFonction`). Dans le plan, un registre à lui (`render/ouvrages/`) :
+  la flèche du point de vue, le pointillé de la limite. Exports, fichier, 3D et zones n'en ont plus aucune ; il en reste dix dans
+  `app/toits/` et `app/audit/parcelle/`, deux dans `render/couleurMurPhoto.ts` et une dans `ui/champs/objet.ts`, que le cliquet
+  du test d'architecture garde. Aucun nombre, aucun export ne change (empreintes inchangées).
 - **Chaque ouvrage indépendant des autres** (feuille de route, étape 6.6 ; interne). Un ouvrage ne lit plus d'un autre que ce que
   leur lien déclare : les liens « plage » et « percer » entre la terrasse et la piscine sont nommés une fois
   (`engine/ouvrages/liens.ts`), et chaque ouvrage publie ce que les autres lisent (`engine/ouvrages/terrasse.ts` : sa forme trouée,

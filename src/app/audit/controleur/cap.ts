@@ -1,6 +1,7 @@
 // Le controleur de l audit : la prise de vue d une photo, le suivi du cap, la facade reconnue devant vous.
 // Un morceau de app/audit/controleur.ts, qui le reexporte : le reste du programme importe depuis lui.
 
+import { estOuvrage, BATIMENT } from '../../../model/ouvrages/index.js';
 import { autoriserBoussole, suivreBoussole, lisserCap, ecartCap, type Attitude } from '../../../shell/boussole.js';
 import { obstacle } from '../../../geometry/ligneDeVue.js';
 import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
@@ -132,11 +133,11 @@ export function facadeReconnue(objets: () => readonly ObjetPlan[], position: () 
 
 /** La ligne d'etat entre deux lectures : ce qui est charge, et la precision du GPS. */
 export function resume(objets: readonly ObjetPlan[], precision: number | null): string {
-  const batis = objets.filter((o) => o.fonction === 'batiment').length;
+  const batis = objets.filter((o) => estOuvrage(o, BATIMENT)).length;
   return batis + ' bâtiment' + (batis > 1 ? 's' : '') + ' chargé' + (batis > 1 ? 's' : '') + (precision !== null ? ' · GPS ± ' + Math.round(precision) + ' m' : '');
 }
 
-export const estBatiment = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && o.fonction === 'batiment' && aDesSommets(o);
+export const estBatiment = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && estOuvrage(o, BATIMENT) && aDesSommets(o);
 
 /** Au-dela, un batiment ne peut ni etre devant vous, ni cacher un mur qui l'est : il n'est pas lu. */
 const RAYON_RECONNAISSANCE_M = DISTANCE_DEVANT_MAX_M + 30;

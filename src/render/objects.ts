@@ -19,6 +19,7 @@ import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
 import type { ObjetPlan, PtBrut } from '../model/types.js';
 import { largeurChemin } from '../model/ouvrages/index.js';
+import { traceAuPlan } from './ouvrages/index.js';
 import type { EtatScene } from '../geometry/vue.js';
 
 /**
@@ -79,16 +80,12 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
     v.el.dataset.role='obj'; v.el.dataset.key=obj.key;
     v.el.style.cursor='pointer';
     titreInerte(v.el, 'Double-clic : reculer cet objet dans la superposition');
-    // Point de vue : point (position) + vecteur (direction), pas un chemin qu'on arpente - le
-    // premier point porte un marqueur rond permanent (visible meme non selectionne), le second
-    // une pointe de fleche nativement orientee sur le trait (marker-end + orient="auto").
-    if(obj.fonction === 'camera'){ v.el.setAttribute('marker-end', 'url(#flecheVue)'); }
-    // Limite cadastrale interne a une propriete fusionnee : elle n'est plus une limite de
-    // terrain, seulement un reperage. Le pointille dit exactement cela, et la distingue au
-    // premier coup d'oeil du contour plein de la parcelle.
-    if(obj.fonction === 'limite'){ v.el.setAttribute('stroke-dasharray', '10 7'); }
+    // L'habit du trace vient du registre du plan : la fleche et le marqueur d'un point de vue, le pointille d'une limite interne.
+    const habit = traceAuPlan(obj.fonction);
+    if(habit.pointDeVue){ v.el.setAttribute('marker-end', 'url(#flecheVue)'); }
+    if(habit.pointille){ v.el.setAttribute('stroke-dasharray', habit.pointille); }
     racine.appendChild(v.el);
-    if(obj.fonction === 'camera'){
+    if(habit.pointDeVue){
       v.camMarkerEl = creerSvg('circle');
       v.camMarkerEl.setAttribute('r','7'); v.camMarkerEl.setAttribute('fill',obj.fill);
       v.camMarkerEl.setAttribute('stroke',obj.stroke); v.camMarkerEl.setAttribute('stroke-width','2');
