@@ -41,6 +41,12 @@ export interface Ouvrage {
   /** Ne compte pas comme equipement pose sur une terrasse (le dossier PDF les liste). */
   horsEquipement?: boolean;
   /**
+   * Ce que le dossier de declaration d'une piscine (export/dossierPiscine.ts) dessine de lui autour du bassin : `situation`, il
+   * situe le terrain au plan de situation (les terrains y sont toujours) ; `masse`, c'est une construction de la propriete, au plan
+   * de masse.
+   */
+  dossierPiscine?: { situation?: true; masse?: true };
+  /**
    * Il n'a pas d'emprise pleine : l'herbe de la Vue 3D pousse dessous (un terrain, un point de vue, un arbre dont l'herbe pousse
    * sous le houppier, un parasol dont seul le mat touche le sol, un trou de terrasse qui garde un arbre).
    */

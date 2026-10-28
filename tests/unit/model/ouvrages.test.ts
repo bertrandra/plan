@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { OUVRAGES, ouvrage, FONCTIONS_AU_MENU } from '../../../src/model/ouvrages/index.js';
 import { LIBELLE_FONCTION, ELEVATION_DEFAUT, FONCTIONS_HORS_EQUIPEMENT, elevationParDefaut } from '../../../src/model/defaults.js';
-import { fonctionAdmise, aParticularite, occupeLeSol } from '../../../src/model/fonctions.js';
+import { fonctionAdmise, aParticularite, occupeLeSol, estBati } from '../../../src/model/fonctions.js';
 import { FONCTIONS } from '../../../src/ui/champs/objet.js';
 import type { ObjetPlan } from '../../../src/model/types.js';
 
@@ -73,5 +73,21 @@ describe('le registre des ouvrages', () => {
     expect(ouvrage(undefined).fonction).toBe('autre');
     expect(ouvrage('terrasse').famille).toBe('construit');
     expect(ouvrage('chemin').famille).toBe('surface');
+  });
+});
+
+// Les couches lisaient la fonction d'un objet par des comparaisons ecrites a la main (`fonction === '…'`) ; elles lisent le registre
+// depuis l'etape 6.4. Les listes ci-dessous sont celles de ces comparaisons, recopiees telles quelles : le registre les rend.
+describe('les comparaisons d avant l etape 6.4, a l identique', () => {
+  const FONCTIONS_ET_INCONNUES = [...OUVRAGES.map((o) => o.fonction), 'inconnue', undefined];
+  const ceux = (garde: (f: string | undefined) => boolean) => FONCTIONS_ET_INCONNUES.filter(garde);
+
+  it('le bati des exports : un batiment ou une annexe', () => {
+    expect(ceux((f) => estBati({ fonction: f }))).toEqual(['batiment', 'annexe']);
+  });
+
+  it('le dossier piscine : le voisinage du plan de situation, les constructions du plan de masse', () => {
+    expect(ceux((f) => !!ouvrage(f).dossierPiscine?.situation).sort()).toEqual(['annexe', 'batiment', 'chemin']);
+    expect(ceux((f) => !!ouvrage(f).dossierPiscine?.masse).sort()).toEqual(['annexe', 'batiment', 'carport', 'dalle', 'pergola', 'terrasse']);
   });
 });

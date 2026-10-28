@@ -20,7 +20,7 @@ import {
 import type { ObjetPlan, ObjetPolygone, PtBrut } from '../model/types.js';
 import { sommetsDe } from '../model/formes.js';
 import type { PagePdf } from './pdf/writer.js';
-import { parcelleDuProjet } from '../model/fonctions.js';
+import { parcelleDuProjet, estBati, estTerrasse } from '../model/fonctions.js';
 import { largeurChemin, longueurChemin, surfaceChemin } from '../model/ouvrages/index.js';
 import { surfaceNetteTerrasse, trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { dateFr } from '../util/format.js';
@@ -155,7 +155,7 @@ function pagePlanDeMasse(objets: ObjetPlan[], terrasses: ObjetPolygone[], equipe
     if(!parcelle) return true;
     return pointInPolygon(o.type === 'circle' ? o.center : centroid(o.pts||[]), sommetsDe(parcelle));
   };
-  const batiments = objets.filter(o=>(o.fonction === 'batiment' || o.fonction === 'annexe') && !o.hidden && surPropriete(o));
+  const batiments = objets.filter(o=>estBati(o) && !o.hidden && surPropriete(o));
   const aDessiner: ObjetPlan[] = [];
   if(parcelle) aDessiner.push(parcelle);
   batiments.forEach(b=>aDessiner.push(b));
@@ -330,7 +330,7 @@ function pageTerrasse(terrasse: ObjetPolygone, equipements: ObjetPlan[], indice:
 // cochees.
 
 export function construireDossierPDF(objets: ObjetPlan[], cles: string[], avecEquipements: boolean, meta: MetaDossier) {
-  const terrasses = objets.filter((o): o is ObjetPolygone => o.fonction === 'terrasse' && o.type === 'polygon' && cles.indexOf(o.key) >= 0);
+  const terrasses = objets.filter((o): o is ObjetPolygone => estTerrasse(o) && cles.indexOf(o.key) >= 0);
   if(!terrasses.length) throw new Error('aucune terrasse selectionnee');
   const equipements = new Map<string, ObjetPlan[]>();
   terrasses.forEach(t=>equipements.set(t.key, avecEquipements ? equipementsSurTerrasse(objets, t) : []));

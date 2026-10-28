@@ -53,6 +53,8 @@ export const estTerrasse = (o: ObjetPlan): boolean => aParticularite(o, 'constru
 export const estParasol = (o: ObjetPlan): boolean => aParticularite(o, 'parasol');
 /** Un bâtiment ou une annexe dont on sait relever les facades. */
 export const estBatiment = (o: ObjetPlan): boolean => aParticularite(o, 'releve');
+/** Du bati (un batiment, une annexe), quelle que soit sa forme : la famille de son ouvrage. */
+export const estBati = (o: { fonction?: string | null | undefined }): boolean => ouvrage(o.fonction).famille === 'bati';
 
 /**
  * Un batiment importe sur la parcelle du projet (BD TOPO, `surParcellePrincipale`) : celui que Plan

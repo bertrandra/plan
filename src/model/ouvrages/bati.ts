@@ -36,6 +36,8 @@ function tourneDegres(angle: number, d: DeplacementRigide): number {
   return a < 0 ? a + 180 : a;
 }
 
-export const BATIMENT: Ouvrage = { fonction: 'batiment', libelle: 'Bâtiment', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true, suivreContour: suivreContourBati };
+export const BATIMENT: Ouvrage = { fonction: 'batiment', libelle: 'Bâtiment', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true,
+  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati };
 
-export const ANNEXE: Ouvrage = { fonction: 'annexe', libelle: 'Annexe', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true, suivreContour: suivreContourBati };
+export const ANNEXE: Ouvrage = { fonction: 'annexe', libelle: 'Annexe', famille: 'bati', formes: ['polygon'], particularites: ['releve'], elevation: 2.5, auMenu: true,
+  dossierPiscine: { situation: true, masse: true }, suivreContour: suivreContourBati };
