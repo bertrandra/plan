@@ -169,6 +169,9 @@ export function useCle(magasin: Magasin | null, nom: string, lire: (s: EtatMagas
       planifier(() => {
         // Un rendu du plan venu entre-temps a pu changer la cle : la zone se redessine d'elle-meme, rien a verifier.
         if (!monte.current || instantane() !== c) return;
+        // Les mises a jour deja en attente dans la meme racine (une voisine qui suit la scene 3D, la session du toit) passent
+        // d'abord : seul ce que ce rendu force change est compare, pas ce qu'une autre zone allait de toute facon redessiner.
+        flushSync(() => {});
         const html = conteneur.innerHTML;
         flushSync(forcer);
         const apres = conteneur.innerHTML;
