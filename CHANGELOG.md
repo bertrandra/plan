@@ -378,6 +378,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Un mur relevé « en L » n'efface plus les corps du toit dans la Vue 3D** (`three/sceneObjets.ts`). Un seul relevé de façade
+  avec une partie basse forçait le bâtiment en toit simple : les corps lus au LiDAR, les cheminées et les lucarnes posées dessus
+  ne se dessinaient plus, alors que l'inspecteur disait toujours « Corps et pignons ». Les corps restent ; la photo du mur et ses
+  ouvertures se posent dessus comme sur tout mur relevé. En toit simple, le mur en L coupe toujours le bâtiment en deux volumes.
+
 - **Deux réglages du toit dans l'inspecteur ne se perdent plus à la relecture** (`ui/champs/facade.ts`). La direction du faîtage
   s'écrivait sans passer le toit en « saisi », là où la forme et la hauteur le font : la relecture LiDAR et l'actualisation la
   recalculaient. « Appentis : ouvert / fermé » écrivait les corps sans figer le toit, là où les éléments de façade le figent :
