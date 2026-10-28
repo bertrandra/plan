@@ -357,7 +357,7 @@ describe('toitsDepuisLidar et les profils de toits (MD/spec-regles-toits.md §6)
   });
 });
 
-describe('la relecture garde ce qui est pose sur le toit (MD/spec-ouvrages.md, flux du batiment, point 16)', () => {
+describe('la relecture garde ce qui est pose sur le toit (MD/spec-flux-batiment.md, flux du batiment, point 16)', () => {
   // Une maison de 12 x 8 a deux pans (faitage le long de x), 6 m d'egout et 3 m de montee, sous la grille du service.
   const maison = rect(0, 0, 12, 8);
   const plans = plansDuToit(maison, { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 });
