@@ -5,6 +5,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Mode Toit : la poignée « Hauteur à l'égout » de chaque corps.** De face, à côté de « Hauteur du faîtage », elle corrige une
+  hauteur mal lue (l'IGN dit 3,5 m, le LiDAR lit 8 m sur un arbre ou un toit voisin) : le corps entier monte ou descend, égouts,
+  faîtage, pignons, lucarnes et souches ensemble, la pente gardée ; l'égout reste entre 1,5 et 40 m, au pas de 5 cm, et ce qui est
+  posé sur ses murs suit. Sur le corps principal, l'élévation du bâtiment suit et se dit choisie (`egoutChoisi: 'saisie'`, comme le
+  champ « Élévation »). Comme tout geste du mode, le toit est figé (niveau 1 de `model/protections.ts`) : la relecture LiDAR et
+  l'actualisation IGN n'y reviennent pas, et « Valider » en fait une seule étape d'historique. La 3D, la DP2 (« Existant H ») et
+  l'inspecteur lisent les nouvelles hauteurs. Fumée : point 97.
+
 ### Modifié
 
 - **Le flux de construction d'un bâtiment a son propre document** (`MD/spec-flux-batiment.md`), sorti de `MD/spec-ouvrages.md`

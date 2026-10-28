@@ -152,7 +152,7 @@ La maquette est autonome (three.js r128 UMD, aucun réseau requis hors CDN). **T
   | Élément de toit | **taille − / +** (échelle 0,5 à 2,2, pas 0,15) |
   | Tous (sauf appentis/galerie pour « dupliquer ») | **Dupliquer**, **Supprimer** (danger) |
   | Aucun élément (le corps) | **Tourner ⟲ ⟳** (± 15°), **Supprimer ce corps** (sauf le principal) |
-- **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), longueur de la façade (horizontale, on garde le bout gauche en place) ; **pignon** → position
+- **Poignées** (SVG, glisser) : élément de toit → taille ; **corps** → hauteur du faîtage (verticale), longueur de la façade (horizontale, on garde le bout gauche en place), hauteur à l'égout (verticale, au quart du mur sur la ligne d'égout de la façade : le corps entier monte ou descend, pente gardée ; 28 octobre 2026, voir « La hauteur à l'égout d'un corps ») ; **pignon** → position
   (aimantée aux bords et aux autres pignons, ±0,25 m), largeur (1,4 à 8 m, colle au bout du mur à ±0,25 m), hauteur du faîte (au moins 0,8 m au-dessus de l'égout, se « réduit » au faîtage à moins de 0,25 m),
   saillie (0 à 2,5 m) ; **bow-window** → position (aimantée aux bords et au centre), largeur (1,2 à 6 m), saillie (0,2 à 1,5 m, 1,2 m max si « sous le premier étage ») ; **appentis/galerie** → bords gauche/droit (1,2 m
   minimum entre les deux, colle au bout à 0,25 m), hauteur d'égout (1,6 m à égout de la maison − 0,9 m), déplacement entier, retrait. Pendant un glisser : chip de cotes + guides en pointillé.
@@ -287,6 +287,24 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - **La poignée de déplacement se distingue.** `deplacer` (le corps) et `pos` (un élément le long de son mur) sont des carrés pleins à
   quatre flèches ; les poignées qui étirent ou montent restent rondes.
 - Fumée : point 98.
+
+### La hauteur à l'égout d'un corps  *(28 octobre 2026, besoin du propriétaire)*
+« Hauteur bâtiment 3,5 m dans l'IGN, le LiDAR lit 8 m, la 3D affiche 8. Si c'est une erreur, je dois pouvoir rectifier la valeur à la main. »
+- **Une poignée par corps, de face** : « Hauteur à l'égout » (`id: 'egout'`, axe vertical), au quart du mur, sur l'égout de la façade
+  regardée (celui de son pan sur un long côté, le plus bas sur un bout) ; au milieu, elle couvrirait celle du faîtage d'un toit plat.
+  Pas sur une saillie (bow-window, galerie, appentis), qui a déjà la sienne. La bulle dit « égout x m ».
+- **Le corps entier se déplace en hauteur, pente gardée** (décision du propriétaire, « garder la pente ») : égouts, faîtage, pignons,
+  lucarnes, souches, ligne de bris d'un Mansart, édicules montent ou descendent ensemble (`poignees.ts::monterCorps`). C'est une
+  hauteur mal lue que l'on corrige, pas une forme : la poignée du faîtage règle la pente à part. L'égout tiré s'arrondit à 5 cm ; le
+  plus bas reste entre 1,5 m (`EGOUT_MIN_M`, celui d'`ajusterCorps`) et 40 m (`EGOUT_MAX_M`, la borne de la lecture LiDAR). Ce qui
+  est posé sur ses murs se repose sur lui ; une galerie ou un appentis à hauteur propre ne passe pas au-dessus de son égout.
+- **Le corps principal porte l'élévation** : son égout le plus bas devient `elevation` et pose `egoutChoisi: 'saisie'`, comme le champ
+  « Élévation » de l'inspecteur. La session du mode garde `elevation` et `egoutChoisi` dans ses instantanés (`sessionToit.ts`) :
+  annuler, abandonner et Échap les rendent. Comme tout geste du mode, la poignée pose `toitFige` (`sessionToit.ts::ecrireLeGeste`) ;
+  « Valider » en fait une étape d'historique.
+- Clavier : comme les autres poignées du mode, elle ne se prend qu'au pointeur (souris, doigt) ; le champ « Élévation » de
+  l'inspecteur reste le chemin au clavier pour le corps principal.
+- Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.

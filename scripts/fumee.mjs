@@ -3042,15 +3042,32 @@ const POINTS = {
     await page.locator('[data-piece="sur:solaire"]').click({ timeout: 30000 });
     await page.waitForFunction(() => !!window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.[0]?.elementsToit?.length, null, { timeout: 60000 });
     const pastilles = await page.locator('.puceToit').count();
+    // De face, la poignee « Hauteur à l'égout » du corps (le panneau pose l'a cree) : tiree vers le haut, le corps monte, l'elevation
+    // suit et se dit choisie. Le panneau pose est d'abord lache (choisi, il montrerait ses propres poignees), la facade se choisit sur
+    // le plan des facades, replie ou non (au telephone, il est un bouton).
+    await page.evaluate(() => window.__plan.executer('toit.selection'));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.querySelector('polygon.corpsNav[data-corps="0"]')?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.__plan.executer('toit.vueFacade'));
+    await page.waitForTimeout(1200);
+    const maisonToit = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); const c = o.batiment?.corpsToit?.[0]; return { e: c ? Math.min(...c.egouts) : null, elevation: o.elevation, choisi: o.batiment?.egoutChoisi ?? null }; });
+    const poigneeEgout = page.locator('[data-poignee="egout"] .pointPoignee');
+    const nEgout = await poigneeEgout.count();
+    const avantEgout = await maisonToit();
+    const boite = nEgout ? await poigneeEgout.first().boundingBox() : null;
+    if (boite) await glisser(page, { x: boite.x + boite.width / 2, y: boite.y + boite.height / 2 }, 0, -40);
+    const apresEgout = await maisonToit();
+    const egoutTire = nEgout === 1 && avantEgout.e !== null && apresEgout.e > avantEgout.e + 0.1 && Math.abs(apresEgout.elevation - apresEgout.e) < 1e-6 && apresEgout.choisi === 'saisie';
     const historiqueAvant = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
     await page.locator('[data-commande="toit.valider"]').click({ timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('.panneauToit').length === 0, null, { timeout: 30000 });
     const historiqueApres = await page.evaluate(() => window.__plan.magasin().peutAnnuler);
     await page.evaluate(() => window.__plan.executer('objet.annuler'));
-    const retire = await page.evaluate(() => !window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit?.length);
+    const retire = await page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return !o.batiment?.corpsToit?.length && o.elevation === 4 && !o.batiment?.egoutChoisi; });
     const sans = !(await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width));
-    const ok = aucunAvant && vues === 4 && onglets === 4 && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
-    return { ok, mesure: `panneau absent avant : ${aucunAvant}, ${vues} vues, ${onglets} onglets, ${pastilles} pastille(s) ; historique ${historiqueAvant} → ${historiqueApres} ; un Ctrl+Z ${retire ? 'retire tout' : 'LAISSE le toit'} ; débordement ${sans ? 'non' : 'OUI'}` };
+    const ok = aucunAvant && vues === 4 && onglets === 4 && egoutTire && pastilles >= 1 && !historiqueAvant && historiqueApres && retire && sans;
+    return { ok, mesure: `panneau absent avant : ${aucunAvant}, ${vues} vues, ${onglets} onglets ; poignée de l’égout : ${nEgout}, égout ${avantEgout.e} → ${apresEgout.e} m, élévation ${apresEgout.elevation} (${apresEgout.choisi ?? 'non choisie'}) ; ${pastilles} pastille(s) ; historique ${historiqueAvant} → ${historiqueApres} ; un Ctrl+Z ${retire ? 'retire tout' : 'LAISSE le toit ou la hauteur'} ; débordement ${sans ? 'non' : 'OUI'}` };
   },
   98: async (page, f) => {
     // Mode Toit : le geste n'agit que sur le corps choisi. Une aile posee contre la maison, puis choisie (pastille) : sa silhouette se

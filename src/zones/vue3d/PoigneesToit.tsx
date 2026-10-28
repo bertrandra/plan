@@ -159,7 +159,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
     if (!g) return;
     const d = enMetres(ev.clientX - g.x0, ev.clientY - g.y0, g.poignee.axes, g.vecteurs);
     const res = glisser(g.depart, g.cible, g.id, d);
-    modeToitCourant()?.apercu(res.corps);
+    modeToitCourant()?.apercu(res.corps, res.elevation);
     setGuides(res.guides);
     redessiner((n) => n + 1);
   };
