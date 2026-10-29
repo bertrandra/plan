@@ -681,6 +681,11 @@
   #tiroirPanneaux .cleTableau{ white-space:nowrap; color:var(--ink-soft); }
   /* Le reglement de la zone du PLU (lot L4) : une case par regle lue, sa citation mot pour mot, puis les avertissements de la
      conformite. La couleur ne porte rien seule : chaque verdict commence par son mot (Ecart, A verifier, Conforme). */
+  /* L'onglet PLU au telephone : le nom d'un reglement PDF ou une commune en capitales ne se coupaient pas, et la table du zonage
+     debordait de la feuille (fumee, point 120, classe compacte). Les cellules se coupent ou il faut. */
+  #panelPlu table.attrTable{ width:100%; table-layout:fixed; }
+  #panelPlu table.attrTable td{ overflow-wrap:anywhere; }
+  #panelPlu table.attrTable td.cleTableau{ width:7.5rem; white-space:normal; }
   .pluFaits td:first-child{ width:7.5rem; vertical-align:top; }
   .pluCase{ display:flex; align-items:center; gap:6px; min-height:32px; font-family:var(--sans); font-size:0.74rem; color:var(--ink-soft); cursor:pointer; }
   .pluCase input{ width:18px; height:18px; flex:0 0 auto; }

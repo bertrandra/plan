@@ -126,8 +126,8 @@ function LigneFait({ f, r, commandes }: { f: FaitPlu; r: ReglementPlu; commandes
       <td>
         <b>{titre}</b>{' : ' + valeurLisible(f)}
         {f.condition ? discret('Si : ' + f.condition) : null}
-        <blockquote className="pluCitation">« {f.citation} »</blockquote>
-        <span className="discret">{f.article}{f.page ? <> — {lienExterne(lienPage(r, f.page), 'page ' + f.page + ' ↗')}</> : null}{' — confiance ' + f.confiance}</span>
+        <blockquote className="pluCitation texteVerbatim">« {f.citation} »</blockquote>
+        <span className="discret"><span className="texteVerbatim">{f.article}</span>{f.page ? <> — {lienExterne(lienPage(r, f.page), 'page ' + f.page + ' ↗')}</> : null}{' — confiance ' + f.confiance}</span>
       </td>
     </tr>
   );

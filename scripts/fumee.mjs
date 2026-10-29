@@ -3980,6 +3980,14 @@ const POINTS = {
     // On coche les deux, on lit la conformite, on annule une validation, et le projet exporte porte le reglement au schema 8.
     const imp = await POINTS[15](page, f);
     if (!imp.ok) return { ok: imp.ok, mesure: 'zonage préalable : ' + imp.mesure };
+    // Le projet cree par l'import est au schema 5 : Plan pose a l'ouverture la question « Mettre à jour le modèle ? », qui arrive
+    // quand elle veut et, ouverte, retient Ctrl+Z. On la laisse « tel quel » (le schema s'ecrira de lui-meme au 8 avec le reglement).
+    const garderTelQuel = async () => {
+      const b = page.getByRole('button', { name: 'Garder tel quel' });
+      if (await b.isVisible().catch(() => false)) { await b.click(); await page.waitForTimeout(200); }
+    };
+    await page.getByRole('button', { name: 'Garder tel quel' }).waitFor({ timeout: 5000 }).catch(() => {});
+    await garderTelQuel();
     const pdf = readFileSync(new URL('../tests/fixtures/plu/chatou-ul-extrait.pdf', import.meta.url));
     await page.route(/^https:\/\/data\.geopf\.fr\/annexes\/gpu\/documents\//, (route) => route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'access-control-allow-origin': '*' }, body: pdf }));
     const recues = [];
@@ -4013,20 +4021,43 @@ const POINTS = {
     const verdicts = await page.locator('#pluConformite .pluVerdict').evaluateAll((l) => l.map((e) => e.getAttribute('data-etat') + ' : ' + e.textContent.slice(0, 90)));
     const bilan = await page.locator('#pluBilan').innerText().catch(() => '');
     const source = await page.locator('#pluSourceLecture').innerText().catch(() => '');
+    // L'article et la citation restent mot pour mot (le tiroir ecrit les decimales a la francaise partout ailleurs).
+    const article = await page.locator('[data-fait="f1"] .texteVerbatim').last().innerText().catch(() => '');
+    // `FUMEE_CAPTURE_L4=<prefixe>` : l'onglet, regles cochees et conformite en vue, une image par classe et theme.
+    if (process.env.FUMEE_CAPTURE_L4) {
+      await page.locator('#pluFaits, .pluFaits').first().evaluate((e) => e.scrollIntoView({ block: 'start' })).catch(() => {});
+      await page.screenshot({ path: process.env.FUMEE_CAPTURE_L4 + '-' + f.nom + '.png' }).catch(() => {});
+    }
     // Ctrl+Z defait la derniere validation.
-    await page.evaluate(() => window.__plan.executer('objet.annuler'));
     await page.waitForTimeout(300);
+    await garderTelQuel();
+    // La relecture des toits en tache de fond (apres l'import) peut ecrire entre-temps dans l'historique : on annule jusqu'a trois
+    // fois, et la mesure dit combien il en a fallu ; la premiere regle doit rester validee.
+    const statuts = () => page.evaluate(() => window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.reglementPlu?.faits.map((x) => x.statut).join(','));
+    let annulations = 0;
+    while (annulations < 3 && (await statuts()) === 'valide,valide') {
+      annulations++;
+      await page.evaluate(() => window.__plan.executer('objet.annuler'));
+      await page.waitForTimeout(300);
+    }
     const apresAnnuler = objet(await lireEtat(page), (o) => o.key === 'parcelle')?.reglementPlu?.faits.map((x) => x.statut).join(',');
     // Rien ne deborde de l'onglet.
-    const deborde = await page.evaluate(() => { const p = document.getElementById('panelPlu'); return !!p && p.scrollWidth > p.clientWidth + 1; });
+    const deborde = await page.evaluate(() => {
+      const p = document.getElementById('panelPlu');
+      if (!p || p.scrollWidth <= p.clientWidth + 1) return '';
+      // Ce qui depasse : l'element le plus profond dont le bord droit sort de l'onglet.
+      const droite = p.getBoundingClientRect().right + 1;
+      const hors = [...p.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > droite && ![...e.children].some((c) => c.getBoundingClientRect().right > droite));
+      return hors.slice(0, 3).map((e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className ? '.' + String(e.className).split(' ')[0] : '') + ' « ' + (e.textContent || '').slice(0, 40) + ' »').join(', ') || 'onglet';
+    });
     const fichier = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
     const porteur = fichier.objects.find((o) => o.reglementPlu);
     const ok = !!document && demande.usage === 'plu' && document.source.media_type === 'application/pdf' && proposes === 2 && /Aucune règle retenue/.test(avantValidation)
       && verdicts.some((v) => v.startsWith('a-verifier')) && verdicts.some((v) => /^(ecart|conforme) : .*Emprise au sol/.test(v)) && /synthétique/.test(source)
-      && apresAnnuler === 'valide,propose' && !deborde && !!porteur && fichier.meta?.schemaVersion === 8;
+      && apresAnnuler === 'valide,propose' && article === 'UL 9.2' && !deborde && !!porteur && fichier.meta?.schemaVersion === 8;
     return { ok, mesure: `${recues.length} demande(s) usage ${demande?.usage}, PDF ${document ? Math.round(document.source.data.length * 3 / 4 / 1024) + ' Ko' : 'ABSENT'} ; `
-      + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
-      + `Ctrl+Z → ${apresAnnuler} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
+      + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; article « ${article} » ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
+      + `Ctrl+Z ×${annulations} → ${apresAnnuler} ; ${deborde ? 'DÉBORDE (' + deborde + ')' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
   }
 };
 

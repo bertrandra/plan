@@ -13,12 +13,13 @@
 // Un fait qui porte une condition (« en limite séparative », « annexes de moins de 20 m² ») s'applique sans que la regle sache la lire :
 // son verdict le dit, et la personne juge.
 
-import { dist, pointInPolygon, centroid, shoelace } from '../../../geometry/basic.js';
+import { dist, pointInPolygon, shoelace } from '../../../geometry/basic.js';
 import { au } from '../../../util/tableaux.js';
+import { aireCommune } from '../../../geometry/polygon.js';
 import { calculerPergola } from '../../abri/pergola.js';
 import { solDuProjet } from '../../sol.js';
 import { coteRegle, hauteurTotale, reglageDuCote } from '../../../model/cloture.js';
-import { estAbri, estBati, estPoseSurLeTerrain, estTerrain, occupeLeSol, parcelleDuProjet, surParcelleDuProjet } from '../../../model/fonctions.js';
+import { estAbri, estBati, estPoseSurLeTerrain, estTerrain, occupeLeSol, parcelleDuProjet } from '../../../model/fonctions.js';
 import { ANNEXE, MASSIF, ouvrage } from '../../../model/ouvrages/index.js';
 import { hauteurAuPointLePlusHaut, penteDuToit } from '../../../model/volumesToit.js';
 import { elevationParDefaut } from '../../../model/defaults.js';
@@ -151,12 +152,16 @@ export function conformitePlu(objets: readonly ObjetPlan[], reglement: Reglement
         if (!contour) { aVerifier(f, 'La parcelle n’a pas de contour : la part ne se mesure pas.'); break; }
         const aire = shoelace(contour);
         if (!(aire > 0)) break;
-        const surLaParcelle = (o: ObjetPlan) => o !== parcelle && !o.voisinage && (o.type === 'polygon' || o.type === 'circle')
-          && (surParcelleDuProjet(o) || (!o.bdtopo && o.type === 'polygon' && pointInPolygon(centroid(o.pts), contour)));
-        const surface = (o: ObjetPlan) => (o.type === 'circle' ? Math.PI * o.r * o.r : shoelace(o.pts));
+        // La part de chaque objet DANS la parcelle : un batiment de l'IGN deborde souvent sur la voisine (un ilot de centre ancien en
+        // couvre plusieurs), et le compter entier donnait des emprises de 290 % (fumee, point 120, Rennes). Un cercle compte en polygone.
+        const contourDe = (o: ObjetPlan): PtBrut[] => (o.type === 'circle'
+          ? Array.from({ length: 32 }, (_, k) => ({ x: o.center.x + o.r * Math.cos((k * Math.PI) / 16), y: o.center.y + o.r * Math.sin((k * Math.PI) / 16) }))
+          : o.pts);
+        const surLaParcelle = (o: ObjetPlan) => o !== parcelle && !estTerrain(o) && (o.type === 'polygon' || o.type === 'circle');
+        const surface = (o: ObjetPlan) => aireCommune(contourDe(o), contour);
         if (f.grandeur === 'emprise-max') {
           const emprise = objets.filter((o) => surLaParcelle(o) && (estBati(o) || estAbri(o))).reduce((s, o) => s + surface(o), 0);
-          comparer(f, null, (100 * emprise) / aire, 'max', 100 * tolP, 'Emprise au sol du bâti et des abris (existant compris)', ' %');
+          comparer(f, null, (100 * emprise) / aire, 'max', 100 * tolP, 'Emprise au sol du bâti et des abris dans la parcelle (existant compris)', ' %');
         } else {
           const occupee = objets.filter((o) => surLaParcelle(o) && occupeLeSol(o) && ouvrage(o.fonction) !== MASSIF).reduce((s, o) => s + surface(o), 0);
           comparer(f, null, Math.max(0, (100 * (aire - occupee)) / aire), 'min', 100 * tolP, 'Part de la parcelle qu’aucun objet du plan n’occupe (estimation des espaces verts)', ' %');

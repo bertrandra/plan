@@ -69,6 +69,13 @@ describe('conformitePlu', () => {
     expect(c.verdicts[1]!.mesure).toBeCloseTo(80.67, 2);
   });
 
+  it('ne compte d’un batiment que sa part dans la parcelle (un ilot de l’IGN deborde sur les voisines)', () => {
+    // 40 x 10 m, dont 10 x 10 dans la parcelle (20 x 30) : 100 / 600 = 16,67 %.
+    const ilot = { key: 'ilot', type: 'polygon', fonction: 'batiment', pts: rect(10, 0, 40, 10), bdtopo: { surParcellePrincipale: true } };
+    const c = conformitePlu(objets(parcelle(), ilot), reglement([fait('f1', { grandeur: 'emprise-max', valeur: 30, article: 'UL 9' })]));
+    expect(c.verdicts[0]!.mesure).toBeCloseTo(16.67, 1);
+  });
+
   it('compare la couverture et la pente, et laisse a verifier ce qui ne se mesure pas', () => {
     const c = conformitePlu(objets(parcelle(), maison()), reglement([
       fait('f1', { grandeur: 'materiaux-toit', valeur: null, termes: ['tuile-plate', 'ardoise'], article: 'UL 11.3' }),
