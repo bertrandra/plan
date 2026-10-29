@@ -2881,6 +2881,63 @@ const POINTS = {
       && pendant === avant && pignons.length === 1 && pignons[0].faitage === av[0].faitage && hauteurs && aile && fermee && annule === avant && !deborde;
     return { ok, mesure: `sous la barre : « ${forme.slice(0, 90)} » ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 50) + ' »').join(', ') || 'aucune'} ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 140) + ' »' : 'ABSENTE'} ; aperçu ${pendant === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validé : ${pignons.length} pignon(s) sur le pan sud du corps 1 (${pignons.map((x) => x.debut + '–' + x.fin + ' m').join(', ')}), hauteurs ${hauteurs ? 'inchangées' : 'MODIFIÉES'}, aile ${aile ? 'inchangée' : 'MODIFIÉE'}, propositions ${fermee ? 'fermées' : 'ENCORE OUVERTES'} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  105: async (page, f) => {
+    // La validation d'une facade (V4, lot F5, MD/spec-facade-calage-audit.md §4 E9, §3.2, §3.3) : l'audit, « Photographier » la facade
+    // de la maison (la scene 02 du banc), le calcul par l'orchestrateur ; la facade depliee de la liste dit son bilan (E9, a confirmer)
+    // et porte « Valider la façade ». Le toucher ecrit la Facade dans le projet, en un pas d'historique : ses dimensions, sa forme, la
+    // pose de sa texture, ses ouvertures numerotees et verifiees ; l'E9 est faite, le bouton part. La 3D pose chaque ouverture dans un
+    // groupe nomme par son identifiant ; l'inspecteur dit la Facade et les ouvertures verifiees. Ctrl+Z defait la validation.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const releve = () => page.evaluate(() => { const o = window.__plan.etat().objects.find((x) => x.key === 'maison'); return JSON.parse(JSON.stringify(o?.batiment?.facades ?? [])); });
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F5) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F5 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    const barre = '.dialogueAuditParcelle .facadeAudit';
+    await etape('bouton V4', () => page.locator(barre + ' button[data-commande="facade.valider"]').waitFor({ timeout: 30000 }));
+    const e9 = async () => page.locator(barre + ' .barreFacade ol > li').last().evaluate((l) => l.className.replace('barreFacadeSegment', '').replace('courant', '').trim());
+    const avantE9 = await e9();
+    // Le segment « Façade » (V4) : son bilan sous la barre (la seconde ligne dit le resultat de l'etape ouverte).
+    await etape('segment Facade', () => page.locator(barre + ' button[data-etape="validation"]').click({ timeout: 10000 }));
+    const bilan = ((await page.locator(barre + ' .barreFacade').first().textContent()) || '').replace(/^[\s\S]*?(Façade : )/, '$1').trim();
+    const avant = await releve();
+    await capture('bilan');
+    const debords = [await deborde()];
+    await etape('valider', () => toucher(page.locator(barre + ' button[data-commande="facade.valider"]')));
+    await page.waitForTimeout(1500);
+    const apres = await releve();
+    const r = apres.find((x) => x.cote === (avant[0]?.cote ?? x.cote)) ?? apres[0] ?? {};
+    const ids = (r.ouvertures ?? []).map((o) => o.id);
+    const verifiees = (r.ouvertures ?? []).every((o) => typeof o.verifieeLe === 'string');
+    const apresE9 = await e9();
+    const boutonParti = (await page.locator(barre + ' button[data-commande="facade.valider"]').count()) === 0;
+    debords.push(await deborde());
+    await capture('validee');
+    // La 3D lit la facade objet : chaque ouverture est un groupe nomme par son identifiant (la scene se rebatit apres l'ecriture).
+    await page.waitForTimeout(1500);
+    const groupes = await page.evaluate(() => { const n = []; window.__plan.scene3d()?.scene?.traverse((o) => { if (/^ouverture:/.test(o.name)) n.push(o.name); }); return n; });
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+    // L'inspecteur lit la Facade : la ligne du mur dit ses dimensions, sa texture calee, et ses ouvertures verifiees.
+    await selectionner(page, "o.key === 'maison'");
+    await inspecteur(page);
+    await ouvrirSection(page, 'releve');
+    const section = ((await page.locator('#zoneInspecteur details[data-section="releve"]').first().textContent().catch(() => '')) || '');
+    const inspecte = /texture à \d+ px\/m/.test(section) && /toutes vérifiées/.test(section);
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(800);
+    const annule = await releve();
+    const ok = avantE9 === 'a-confirmer' && /Façade.*Mur de .*\(V4\)/.test(bilan) && !avant.some((x) => x.dimensions) && !!r.dimensions && !!r.forme && !!r.textureCalee
+      && ids.length > 0 && ids.every((id, i) => id === 'o' + (i + 1)) && verifiees && apresE9 === 'ok' && boutonParti && groupes.length === ids.length
+      && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
+    return { ok, mesure: `E9 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -3891,7 +3948,8 @@ function pointsPour(nomClasse) {
   // 102 : l'audit de la parcelle, une facade calculee par l'orchestrateur en mode discret, avec la meme barre (lot F3).
   // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104];
+  // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

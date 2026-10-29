@@ -892,7 +892,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** *(livré le 29 octobre 2026, §9 bis)* | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** *(livré le 29 octobre 2026, §9 bis)* | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
-| **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
+| **F5 — La Façade et la façade objet** *(livré le 29 octobre 2026, §9 bis)* | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
 | **F7 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
 | **F8 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
@@ -1452,6 +1452,120 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
 
 Cliquet des orphelins : 217 entrées, inchangé (les exports nouveaux ont tous un importeur dans `src/` ; ceux que seuls les tests
 lisaient ont été rendus locaux). Grep des noms supprimés : sans objet (aucun nom public n'est parti ; la désignation interne a changé).
+
+### 9 bis. F5, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **La Façade** (`model/typesReleve.ts::ReleveFacade`, §3.2), tous champs facultatifs : `dimensions` (largeur, égout, faîtage, source,
+  l'écart que la photo constate en part, une alerte au-delà de 0,10, jamais une correction), `forme` (le gabarit du toit calculé, la
+  silhouette lue, les pointes lues avec leur source, les corps que la façade porte par leur mur, la source), `surface` (le parement
+  lu par Claude, lot F2), `textureCalee` (la précision de l'image et le mur sur elle). **La façade objet** (§3.3) : chaque ouverture a
+  un `id` stable (`o1`, `o2`…), une date de vérification (`verifieeLe`) et ses carreaux rangés dans `details.carreaux` (vantaux,
+  grille, petits bois, imposte en mètres, vitrage, source), dans le vocabulaire fermé de la spec.
+- **Le bilan de l'É9** (`facade/releve/bilanFacade.ts::bilanDeLaFacade`) : l'orchestrateur ne la saute plus. Dans l'audit, l'É9 dit le
+  bilan (« Mur de 8 × 6 m ; haut … ; texture calée à 98 px/m ; 6 ouvertures. Validez la façade … (V4). »), **à confirmer** jusqu'à
+  la validation ; la calibration le montre sans rien écrire (sautée : la façade se valide dans l'audit). La pose de la texture de
+  l'audit est celle de son élévation (`analyseSerie.ts::poseDeLaTexture`) ; celle de la calibration, le mur retenu sur l'assemblage.
+- **La validation V4** (`app/audit/parcelle/facadeValidee.ts::facadeAEcrire`, `validation.ts::validerFacade`, commande `facade.valider`,
+  exposée sous la barre dans les trois classes, décrite au glossaire) : « Valider la façade » écrit la Façade d'un geste, **en un pas
+  d'historique**, par l'effet `releve` (le même chemin que les propositions) ; les dimensions prennent la source de la hauteur du
+  bâtiment (`model/protections.ts` : LiDAR, IGN, saisie, cadastre) ; les ouvertures (celles du relevé posé d'office, sinon de la
+  mesure) reçoivent leur identifiant, les carreaux que l'accord du run y a lus, et `verifieeLe` ; `depuisAudit` tombe. Validée, l'É9
+  de la barre est faite et le bouton part (`etapesApresValidation`). Ctrl+Z la défait d'un coup.
+- **Un rejeu ne déplace pas une ouverture vérifiée** (`model/facadeObjet.ts`) : une Façade validée arrête l'écriture d'office de
+  l'audit (groupe `facadeTexture`) ; un relevé neuf écrit quand même (la ligne cochée) garde, telles quelles et à leur place, les
+  ouvertures vérifiées, corrigées ou ajoutées, et n'ajoute pas la détection qui en recouvre une de plus de moitié
+  (`fusionnerOuvertures`) ; les identifiants suivent par recouvrement (`numeroterOuvertures`) ; les dimensions et la forme validées
+  restent, la pose de la texture et le parement partent avec l'ancienne texture (`releveReecrit`).
+- **Les groupes de `model/protections.ts`** : `facadeDimensions`, `facadeForme`, `facadeTexture`, `facadeOuvertures`, par mur ; une
+  origine nouvelle, `facadeValidee` (niveau 1) ; `ouvertureGardee`, la règle d'une ouverture. Matrice épinglée par
+  `protections.test.ts` (trois bâtiments de plus, quatre colonnes de plus).
+- **La lecture et l'écriture du fichier** : validateurs (`facadeLue`, à la normalisation) ; rien à compacter (un champ absent reste
+  absent) ; **schéma 7** (ci-dessous).
+- **Les lecteurs** : la 3D (chaque ouverture de la façade objet dans un groupe `ouverture:<id>`, `three/releve3d.ts`), l'inspecteur
+  (la ligne d'un mur : « Façade » et « Ouvertures » par niveau, `ui/champs/facade.ts`), le plan (sur une Façade validée, une ouverture
+  pas encore vérifiée a ses tableaux en tirets ; chaque coupure porte `data-ouverture`), le Mode Toit (`facadeValideeDuMur` : le mur
+  d'un corps qui porte une Façade validée est en tirets dans le navigateur des façades, et la barre du mode dit « vue sur la photo
+  (triangle, 2 pointes) »).
+- **Les carreaux rangés** : la règle `ouvertureDeLIa` (`facade/regles/facades/ia.ts`) range les carreaux que lit Claude dans les
+  détails de la boîte ; l'accord les porte sur l'ouverture retrouvée (un « détail ajouté »). Sans effet sur la 3D avant F8.
+- Fumée : point 105 (le bilan à confirmer, « Valider la façade », la Façade écrite, l'É9 faite, les groupes de la 3D, l'inspecteur,
+  Ctrl+Z).
+
+**Acceptation.**
+
+- *Un fichier ancien se relit à l'identique ; aller-retour testé* (`tests/unit/model/migrations.test.ts`, « la migration 6 -> 7 ») :
+  le témoin `tests/fixtures/golden/projet.json`, lu puis réécrit, revient **octet pour octet** ; la démonstration et les témoins des
+  schémas 5 et 6 (`tests/fixtures/migrations/schema-6.json` : un relevé posé par l'audit, ses ouvertures, son calage avec
+  `contourDecaleM`) sont des points fixes, au schéma qui les décrit (5, 6, 6), le relevé du témoin 6 revient tel quel ; un relevé
+  d'avant est rendu par `facadeLue` comme le même objet. Comparé à la base F4 : les quatre allers-retours donnent les mêmes octets
+  (empreinte SHA-256 du JSON réécrit, identique avant et après).
+- *Un rejeu ne déplace pas une ouverture vérifiée* : `tests/unit/app/audit/parcelle/facadeValidee.test.ts` (une ouverture placée par
+  la personne, une ajoutée : le rejeu ne s'écrit pas d'office, et écrit, il les garde à leur place, sans doublon, avec les dimensions
+  et la forme validées) et `tests/unit/model/facadeObjet.test.ts`.
+- *Empreinte `glb-structure.json`* : **inchangée**. La démonstration ne porte aucun relevé : aucune ouverture n'a d'identifiant, la
+  3D pose les mêmes mailles au même endroit (un groupe n'apparaît que pour une ouverture de Façade validée). Point 24 rejoué. Les
+  autres empreintes golden : inchangées ; les exports de la démonstration aussi (elle reste au schéma 5).
+- *Le moteur d'image ne bouge pas* : banc des façades identique hors colonnes des temps (202 lignes, 50 différentes, toutes par le
+  temps) ; `egout-sol.ts` identique (égout **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 % **39/44**, 44/44 expliquées).
+  AE 101 : « corps identiques ». L'IA n'alimente toujours que le moteur de règles (les carreaux et le parement passent par les règles
+  `ouvertureDeLIa` et `surfaceDeLIa`).
+
+**Le schéma : 7.** Un lecteur 6 (Plan 5.0.0) garderait ces champs à la lecture (un relevé est recopié en JSON), mais les perdrait dès
+que la façade se réécrit : le relevé refait à la main reconstruit le relevé, la mesure de l'audit posée d'office le remplace, et une
+ouverture vérifiée redeviendrait déplaçable, sans un mot (`RELEASE.md` §3.1 : la règle « un lecteur plus ancien perdrait le champ à
+l'enregistrement » ; même raisonnement que la calibration d'un relevé au schéma 5). D'où `SCHEMA_VERSION = 7`, la migration 6 → 7
+**identité** (`model/migrations.ts`, avec ce qu'elle apporte), `schemaMinimal` à 7 dès qu'un relevé porte sa Façade ou qu'une
+ouverture porte `id`, `verifieeLe` ou `details.carreaux` (`porteLaFacade`) — un projet qui n'en porte pas reste au plus petit schéma
+qui le décrit (la démonstration au 5) — et `contrat/plan-produit.json` annonce `[1 … 7]`. **La plateforme (`bertrandra/backprod`)
+doit accepter 7 (`project_schema_versions` du produit Plan) avant le dépôt** : sans elle, l'enregistrement d'un projet dont une
+façade a été validée répond `422 UNSUPPORTED_SCHEMA_VERSION`.
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **`textureCalee` ne porte pas `coinsPhotos`** : les coins du mur sur chaque photo, avec leur source par point, sont déjà dans
+   `calage.photos[].coins` (`sourceCoins`) ; les recopier ferait deux sources pour un fait. `textureCalee` garde la précision et le
+   cadre ; `sansOmbres` est lu par le validateur mais rien ne l'écrit encore (l'audit ne fait pas de texture sans ombres).
+2. **La pose de l'audit est sur son élévation**, pas sur un assemblage : l'audit ne garde pas l'assemblage de ses vues (F3,
+   interprétation 3) ; le cadre dit où est le mur sur la texture (du sol à l'égout, la bande du pignon au-dessus). Celle de la
+   calibration est le mur retenu sur l'assemblage, en pixels.
+3. **Les pointes lues** sont celles du gabarit que le haut lu confirme (le plus haut du haut lu à 5 % de la largeur d'une pointe,
+   au-dessus de l'égout ; source `deterministe`) et, dans la calibration en mode IA, celles de Claude qui ne sont pas déjà là
+   (`ia`). Une pointe lue n'est jamais une hauteur : le LiDAR garde les hauteurs (décision 12). L'audit ne donne pas les pointes de
+   Claude (son run lit l'élévation sans la bande au-dessus de l'égout, F4, interprétation 5) ; ni `bout`, que seul le run dit.
+4. **Une ouverture « vérifiée » l'est par la validation V4** : la personne valide le bilan, ouvertures comprises, d'un geste ;
+   chaque ouverture écrite reçoit `verifieeLe` (une ouverture déjà vérifiée garde sa date). Le geste par ouverture (retirer,
+   déplacer, verrouiller) reste celui de l'éditeur du relevé (F6).
+5. **Le niveau d'une Façade validée est 1** (la personne), comme un relevé fait à la main : valider retire `depuisAudit`. L'origine
+   `facadeValidee` distingue, part par part, ce que la validation a écrit ; elle a le même niveau que `releveMain`.
+6. **La granularité de la façade objet (§11, question 5)** : une ouverture est un objet par son identifiant et ses marques, dans la
+   liste `ouvertures` de son relevé ; pas d'objet du plan à part. Le fichier garde sa forme ; un rejeu et l'inspecteur la lisent
+   ouverture par ouverture.
+7. **La source des dimensions** est celle de la hauteur du bâtiment (`origineActuelle(o, 'hauteur')`) : LiDAR (`lidar`), BD TOPO
+   (`ign`), le défaut (`cadastre`), tout choix de la personne ou validation sur place (`saisie`). La largeur est toujours celle du
+   contour.
+8. **Ce qui ne s'écrit qu'à V4** : un relevé posé d'office par l'audit (`depuisAudit`) ou coché dans l'avant/après ne porte pas la
+   Façade ; elle n'existe qu'une fois validée (« jamais plus que ce qui est validé », §4 ter.1).
+9. **Le Mode Toit lit la Façade, il ne l'écrit pas** : il dit qu'un mur a été vu sur la photo, et ce qu'elle en lit ; corriger le
+   toit reste son geste (et le diagnostic de F4, par le moteur). Le profil de façade à l'échelle (§11, question 7) n'est pas repris
+   ici.
+10. **Les carreaux comptent comme un détail** de l'accord : une boîte retrouvée qui apporte ses carreaux fait « 1 détail ajouté »
+    et la ligne « avec l'aide de Claude » se propose, décochée comme avant (deux tests de `runsFacades.test.ts` le disent).
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| L'écart du contour dans le calage du relevé | `model/typesReleve.ts`, `facade/releve/analyseSerie.ts` (`calageDeSerie`), `tests/unit/zones/releve.test.ts` | `CalageReleve.contourDecaleM`, son écrivain | 4 | `dimensions.ecartPhoto.largeur` (en part), écrit à V4 ; `ReleveDeLaSerie.ecartLargeur` (`ecartDeLargeur`) ; un fichier d'avant garde la clé, lue par la seule migration |
+| Le lot des étapes à venir | `model/etapeFacade.ts`, `zones/FriseEtapesCalibration.tsx` | `EtapeFacade.lot` (onze `lot: null`, un `lot: 'F5'`), `disabled={… \|\| !!def.lot}` | 14 | — (plus aucune étape n'attend son lot) |
+| L'É9 sautée | `facade/releve/enchainement.ts` | « La validation de la façade vient avec le lot F5 … » | 1 | `validation` (le bilan, `bilanDeLaFacade`) |
+| La marque lue à la main par l'écriture d'office | `app/audit/parcelle/validation.ts` | `!releveChoisiALaMain(o, cote)` dans `alimenterLesFacades` | 1 | `ecrivainPeut(o, 'audit', 'facadeTexture', { cote })` |
+
+En tout : `src/` +949 −59 lignes, `tests/` +548 −45. Cliquet des orphelins : 217 entrées, inchangé (les exports nouveaux ont tous un
+importeur dans `src/` ; ceux que seuls les tests liraient ont été rendus locaux : `EntreesBilan`, `ecartDeLargeur`, `carreauxDeLIa`).
+Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son témoin et leurs tests ; « vient avec le lot F5 » et
+`def.lot` : vides.
 
 ---
 

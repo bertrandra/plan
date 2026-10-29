@@ -669,12 +669,19 @@ Le bâtiment reste le prisme de `scene.ts` ; le relevé l'habille :
 exactement ses mailles, donc la structure du GLB (fumée, point 24). Un bâtiment relevé s'exporte en
 GLB avec sa texture, puisque l'export prend la scène vivante.
 
+**Une ouverture de la façade objet est un objet de la scène** (lot F5, 29 octobre 2026) : son encadrement et sa vitre vont dans
+un groupe nommé par son identifiant (`ouverture:o3`, `userData` : l'identifiant et `verifiee`). Une ouverture sans identifiant (un
+relevé d'avant la validation V4) reste posée dans la scène comme avant : la 3D d'un projet sans Façade validée ne change pas, et la
+démonstration n'en a pas (`glb-structure.json` inchangé). Les carreaux (`details.carreaux`) ne se dessinent pas encore (lot F8).
+
 ### 9.2 Le plan (`render/releve.ts`)
 
 Convention d'architecte, **coupe à 1,10 m** : les baies qui la traversent coupent le trait du mur,
 bornées par leurs tableaux ; une fenêtre a son trait de vitre, une porte son vantail et son arc de
 débattement. Les baies de l'étage n'y sont pas. **Seul le plan à l'écran** les montre : l'export
-SVG garde sa forme, figée par son empreinte.
+SVG garde sa forme, figée par son empreinte. Sur une **Façade validée** (lot F5), une ouverture que la personne
+n'a pas encore vérifiée (venue d'un rejeu coché après la validation) a ses tableaux en tirets ; chaque coupure porte
+l'identifiant de son ouverture (`data-ouverture`).
 
 ---
 
@@ -706,6 +713,41 @@ interface ReleveFacade {
 - La hauteur d'égout **mesurée** sur la photo (§6.0), ou corrigée à la main, remplace l'élévation
   du bâtiment (celle du cadastre). `sourceDistance` peut encore valoir `lidar` dans un projet relevé
   en `2.2.0` ; plus aucun relevé ne l'écrit.
+
+### 10.0 La Façade et la façade objet (lot F5, 29 octobre 2026, schéma 7)
+
+`MD/spec-facade-calage-audit.md` §3.2 à §3.4 : la façade **validée** (le point V4 de l'audit, « Valider la façade », commande
+`facade.valider`) garde ce que la photo a servi à vérifier, sans rien prendre à la photo de ce qui revient au plan et au LiDAR.
+
+```ts
+interface ReleveFacade {
+  // … inchangé, plus, tous facultatifs :
+  dimensions?: { largeurM; egoutM; faitageM?; source: 'cadastre' | 'lidar' | 'ign' | 'saisie'; ecartPhoto?: { largeur?; egout? } };
+  forme?: { gabarit: { u; v }[]; silhouetteLue?; bout?; pointes?: { u; v; source }[]; corps?: { mur; u0; u1 }[]; source };
+  surface?: { principale; zones?; source };          // le parement lu par Claude
+  textureCalee?: { pxParM; cadre: { x0; y0; x1; y1 }; sansOmbres? };   // le mur sur l'image calée
+}
+interface OuvertureFacade {
+  // … inchangé, plus : id? (stable : `o1`, `o2`…), verifieeLe? (AAAA-MM-JJ), details.carreaux? (vantaux, grille, petits bois,
+  // imposte, vitrage ; lus par Claude, dessinés en 3D au lot F8)
+}
+```
+
+- **Écrits à la validation V4** seulement, en un pas d'historique : le relevé (posé d'office par l'audit, sinon celui de la mesure),
+  le bilan de l'É9 (`facade/releve/bilanFacade.ts`), la source des dimensions lue sur la hauteur du bâtiment
+  (`model/protections.ts`), les carreaux que l'accord du run a lus, le parement du run ; chaque ouverture numérotée et vérifiée ;
+  `depuisAudit` tombe.
+- **Lus à la lecture d'un fichier** par `model/facadeObjet.ts::facadeLue` : un champ mal formé ou un mot inconnu est retiré, un
+  relevé d'avant revient tel quel (le même objet).
+- **Un rejeu ne déplace pas une ouverture vérifiée** : écrit sur un mur, un relevé neuf garde les ouvertures que la personne a
+  posées, corrigées ou vérifiées, et n'ajoute pas la détection qui en recouvre une de plus de moitié (`releveReecrit`).
+- **Lus par** la 3D (§9.1), le plan (§9.2), l'inspecteur (la ligne du mur : « Façade », ses dimensions et leur source, sa forme
+  lue, sa texture, son parement, l'écart de la photo en alerte au-delà de 10 % ; « Ouvertures », par niveau, et celles qui sont
+  vérifiées) et le Mode Toit (le mur d'un corps qui porte une Façade validée est en tirets dans le navigateur, et la barre dit
+  « vue sur la photo (triangle, 2 pointes) »).
+- **Schéma 7** : un lecteur 6 garderait ces champs à la lecture, mais les perdrait à la première réécriture du mur ; un projet qui
+  n'en porte pas reste au plus petit schéma qui le décrit. `calage.contourDecaleM` n'est plus écrit : l'écart de la largeur vue est
+  `dimensions.ecartPhoto.largeur`, en part ; un fichier d'avant le garde tel quel.
 
 ---
 

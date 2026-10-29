@@ -7,6 +7,22 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
+  **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la
+  photo constate, dit en alerte au-delà de 10 %, jamais une correction), sa **forme** (le gabarit du toit calculé, le haut lu, les
+  pointes lues, les corps qu'elle porte), son **parement** (lu par Claude), la **pose de sa texture** (sa précision, le mur sur
+  l'image) et ses **ouvertures en objets** : un identifiant stable, une date de vérification, et leurs **carreaux** (vantaux, grille,
+  petits bois, imposte, vitrage) lus par Claude, rangés maintenant, dessinés en 3D plus tard (lot F8). L'É9 de l'enchaînement n'est
+  plus sautée : elle fait le **bilan** de la façade ; dans l'audit, « **Valider la façade** » (sous la barre, commande
+  `facade.valider`, dans les trois classes d'écran) l'écrit dans le projet en une étape d'historique (Ctrl+Z la défait), et l'É9 est
+  faite. **Un rejeu ne déplace plus une ouverture vérifiée** : la mesure suivante ne s'écrit plus d'office sur une façade validée,
+  et écrite (la ligne cochée), elle garde à leur place les ouvertures vérifiées, corrigées ou ajoutées, sans les doubler. La
+  **3D** pose chaque ouverture validée comme un objet nommé (`ouverture:o3`), l'**inspecteur** dit la Façade et les ouvertures par
+  niveau sur la ligne du mur, le **plan** met en tirets une ouverture pas encore vérifiée, le **Mode Toit** marque le mur vu sur la
+  photo et dit ce qu'elle en lit. Qui l'emporte : quatre groupes nouveaux dans `model/protections.ts` (`facadeDimensions`,
+  `facadeForme`, `facadeTexture`, `facadeOuvertures`).
+- Fumée : point 105 (le bilan à confirmer, « Valider la façade », la Façade écrite et lue par la 3D et l'inspecteur, Ctrl+Z).
+
 - **Façades, lot F4 : le diagnostic de forme et le toit par corps** (`MD/spec-facade-calage-audit.md` §4 É5 bis et É8, §5 bis,
   §5 ter, §9). La silhouette d'une façade dérive du toit : son écart avec la photo est un diagnostic **du toit calculé**, corps par
   corps. La façade se **découpe en tronçons de corps** (`silhouetteDesCorps.ts::tronconsDeFace` : la silhouette de face dit
@@ -101,6 +117,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Schéma du projet : 7** (lot F5). Un projet dont une façade est validée s'écrit au schéma 7 (un lecteur 6 perdrait sa Façade à la
+  première réécriture du mur) ; les autres restent au plus petit schéma qui les décrit (la démonstration au 5). La migration 6 → 7
+  est l'identité ; un fichier ancien se relit à l'identique. **La plateforme doit accepter le schéma 7 avant le dépôt**
+  (`contrat/plan-produit.json`, `project_schema_versions` de backprod).
+- **Les carreaux que Claude lit sur une ouverture** se rangent dans ses détails (lot F5) : une boîte retrouvée par la détection qui
+  les apporte compte « 1 détail ajouté », et la ligne « avec l'aide de Claude » se propose, décochée comme avant.
+
 - **L'escalade d'une façade (et d'une maison) part par défaut sur Sonnet** (`claude-sonnet-5-5`, décision du propriétaire du
   29 octobre 2026) ; tous les autres usages restent sur `claude-haiku-5-5`. Depuis le lot F3, une façade est lue trois fois par
   Haiku et votée : avec Haiku pour défaut, l'escalade (`facade.escalader`, une par lecture) n'était qu'une quatrième lecture du même
@@ -167,6 +190,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   deux modes.
 
 ### Supprimé
+
+- **L'écart du contour dans le calage d'un relevé** (lot F5) : `calage.contourDecaleM`, que rien ne lisait ; l'écart de la largeur
+  vue va dans les dimensions de la façade validée (`dimensions.ecartPhoto`, en part). Un fichier d'avant le garde tel quel. Et le
+  `lot` des étapes de l'enchaînement : plus aucune n'attend son lot.
 
 - **L'unique corps principal codé en dur des pignons d'un fait** (`facade/regles/toits/pignons.ts::avecPignons`, `pignonsManquants`) :
   les pignons se posent sur le corps qui porte la façade (son mur désigné, sinon le côté en façade du contour qui regarde vers

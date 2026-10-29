@@ -2802,7 +2802,7 @@
   .auditPrise .barreFacadeEtiquette{ display:none; }
   .auditPrise .barreFacadeSegment > button, .auditPrise .barreFacadeFixe{ align-content:center; }
   .auditPrise .barreFacadeRuban{ display:block; }
-  .facadeAudit > [data-controle="auditParcelle.rejouerFacade"]{ justify-self:start; }
+  .facadeAudit > [data-controle="auditParcelle.rejouerFacade"], .facadeAudit > [data-commande="facade.valider"]{ justify-self:start; }
   .etapesAudit{ display:grid; gap:4px; margin:0; padding:0; list-style:none; }
   .ligneEtapeAudit{ padding:4px 8px; border-left:3px solid var(--rule); border-radius:0 var(--r-champ) var(--r-champ) 0; background:var(--panel-2); font-family:var(--sans); font-size:0.74rem; color:var(--ink); }
   .ligneEtapeAudit.ok{ border-left-color:var(--accent); }
