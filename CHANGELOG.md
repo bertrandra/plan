@@ -60,6 +60,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les poignées de la sélection restent à leur place quand l'empilement les remonte.** Depuis que les objets se dessinent en mètres dans leur
+  calque, une poignée y porte la transformation inverse du repère (`render/objects.ts`). Recréée dans le calque pendant un
+  rendu, puis remontée devant tout au rendu suivant, elle gardait cette transformation sans que son objet se replace. Elle se
+  dessinait alors décalée, et le garde-fou `[cle de version]` faisait échouer les points 97 et 98 de la fumée en classe
+  compacte. L'empilement replace maintenant l'objet dont il sort un élément du calque ou l'y ramène
+  (`app/assemblage/dessin.ts`).
 - **La Vue 3D ne pose plus de cheminée que personne n'a vue — changement d'export (version majeure).** Sur un toit simple ou en
   volumes en pente de plus de 40 m², la 3D dessinait d'office une cheminée au tiers du faîtage, qu'aucune source n'avait vue : elle
   disparaissait quand le LiDAR arrivait, et l'audit comptait zéro cheminée là où la 3D en montrait une. Une souche ne se dessine
