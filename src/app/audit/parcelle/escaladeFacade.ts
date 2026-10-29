@@ -16,7 +16,7 @@ interface DepsEscaladeFacade {
   client: ClientAnalyse;
   entrees: () => EntreesPropositions;
   fab: FabriqueImageRunFacade;
-  identite: () => { projet: string | null; idu: string | null; adresse: string | null };
+  identite: () => { projet: string | null; idu: string | null; adresse: string | null; depot?: string | null };
   maintenant: () => Date;
 }
 

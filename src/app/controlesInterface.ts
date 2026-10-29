@@ -295,6 +295,15 @@ export const CONTROLES: Record<string, ControleInterface> = {
   'auditsParcelle.voirAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Voir une analyse en entier : ce qui est parti chez Claude et ce qu’il a rendu', { repete: true }),
   'auditsParcelle.exporterAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Exporter une analyse en JSON (entrant, sortant, résumé)', { repete: true }),
   'auditsParcelle.fermerAnalyse': etape(Z8, CATALOGUE_AUDITS, 'Refermer le détail d’une analyse', { repete: true }),
+  // Les donnees d'analyse (lot L0, MD/spec-lecture-ia-elargie.md 4.8) : l'export a travers les audits, et le rejeu d'une facade
+  // depuis son image gardee. Rien n'ecrit dans le projet ; le rejeu part chez Claude sous les plafonds de l'analyse.
+  'auditsParcelle.exportDu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le premier jour de l’export des données d’analyse'),
+  'auditsParcelle.exportAu': etape(Z8, CATALOGUE_AUDITS, 'Choisir le dernier jour de l’export des données d’analyse'),
+  'auditsParcelle.exportUsage': etape(Z8, CATALOGUE_AUDITS, 'Limiter l’export des données d’analyse à un usage (analyse, façade, escalade, rejeu…)'),
+  'auditsParcelle.exportModele': etape(Z8, CATALOGUE_AUDITS, 'Limiter l’export des données d’analyse à un modèle'),
+  'auditsParcelle.exporterDonneesJson': etape(Z8, CATALOGUE_AUDITS, 'Exporter en JSON les données d’analyse de la période : chaque requête à Claude de tous les audits et hors audit, sa sortie et sa réponse brute, et chaque proposition avec sa décision'),
+  'auditsParcelle.exporterDonneesCsv': etape(Z8, CATALOGUE_AUDITS, 'Exporter en CSV (tableur français) les données d’analyse de la période : une ligne par requête et par proposition'),
+  'auditsParcelle.rejouerFacade': etape(Z8, CATALOGUE_AUDITS, 'Rejouer le run d’une façade depuis son image gardée : les mêmes octets et le même texte, avec le prompt et le modèle d’aujourd’hui (appel facturé)', { repete: true }),
   // L'analyse par Claude (lot L17, decision D2) : l'accord d'envoyer les photos, une fois par projet,
   // revocable ; la case « partager » (D7) est lue par le fichier de l'audit. Rien n'ecrit dans le projet.
   // Admin › Calibrer la detection (zones/EcranCalibration.tsx, EditeurCasCalibration.tsx) : des photos de facades annotees, la mesure de la

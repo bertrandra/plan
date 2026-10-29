@@ -964,19 +964,51 @@ function decisionsAudit(array $d): array {
                       'statut' => $c['statut'] ?? null, 'categorie' => $k['categorie'] ?? null, 'problemes' => is_array($k['problemes'] ?? null) ? $k['problemes'] : [],
                       'note' => is_string($k['note'] ?? null) ? $k['note'] : '', 'photos' => is_array($k['photos'] ?? null) ? count($k['photos']) : (is_array($k['photo'] ?? null) ? 1 : 0)];
         }
-        return ['format' => 'plan-audit-decisions', 'version' => 1, 'nature' => 'promenade', 'cas' => $cas];
+        return ['format' => 'plan-audit-decisions', 'version' => VERSION_DECISIONS_AUDIT, 'nature' => 'promenade', 'cas' => $cas];
     }
     $propositions = [];
     foreach ($d['propositions'] as $x) {
         if (!is_array($x)) continue;
         $propositions[] = ['id' => $x['id'] ?? null, 'objet' => $x['objet'] ?? null, 'source' => $x['source'] ?? null, 'avant' => $x['avant'] ?? null,
-                           'apres' => $x['apres'] ?? null, 'confiance' => $x['confiance'] ?? null, 'decision' => $x['decision'] ?? null];
+                           'apres' => $x['apres'] ?? null, 'confiance' => $x['confiance'] ?? null, 'decision' => $x['decision'] ?? null,
+                           // Version 2 (lot L0) : de quoi exporter les donnees d'analyse sans relire le fichier entier.
+                           'cible' => is_array($x['cible'] ?? null) ? $x['cible'] : null, 'effet' => is_string($x['effet']['type'] ?? null) ? $x['effet']['type'] : null,
+                           'reserve' => is_string($x['reserve'] ?? null) ? $x['reserve'] : null] + moteurDeProposition($x);
     }
     $decisions = [];
     foreach (is_array($d['decisions'] ?? null) ? $d['decisions'] : [] as $x) {
         if (is_array($x)) $decisions[] = ['t' => $x['t'] ?? null, 'acceptees' => $x['acceptees'] ?? [], 'refusees' => $x['refusees'] ?? []];
     }
-    return ['format' => 'plan-audit-decisions', 'version' => 1, 'nature' => 'parcelle', 'propositions' => $propositions, 'decisions' => $decisions];
+    return ['format' => 'plan-audit-decisions', 'version' => VERSION_DECISIONS_AUDIT, 'nature' => 'parcelle', 'propositions' => $propositions, 'decisions' => $decisions];
+}
+
+// La conclusion d'un audit de parcelle dit, depuis le lot L0, la cible, l'effet, la reserve, la decision du moteur et l'accord de
+// Claude de chaque proposition (l'export des donnees d'analyse). Une conclusion plus ancienne se refait depuis le fichier de l'audit.
+const VERSION_DECISIONS_AUDIT = 2;
+
+/**
+ * Ce que le moteur a fait d'une proposition, et Claude avec lui : `moteur`, les decisions des arbitrages (`auto`, `manuelle`…), null
+ * sans arbitrage ; `accordClaude`, `accord` quand la ligne de Claude est dans le groupe retenu de chaque arbitrage ou elle figure,
+ * `desaccord` quand l'un l'a ecartee, `claude-seul` pour une proposition de Claude sans arbitrage, `sans-claude` sinon.
+ */
+function moteurDeProposition(array $p): array {
+    $arbitrages = array_values(array_filter(listeDe($p['arbitrages'] ?? null), 'is_array'));
+    if (!$arbitrages) return ['moteur' => null, 'accordClaude' => ($p['source'] ?? null) === 'claude' ? 'claude-seul' : 'sans-claude'];
+    $decisions = [];
+    $accord = false;
+    $desaccord = false;
+    foreach ($arbitrages as $a) {
+        if (is_string($a['decision'] ?? null)) $decisions[] = $a['decision'];
+        foreach (listeDe($a['groupes'] ?? null) as $g) {
+            if (!is_array($g)) continue;
+            foreach (listeDe($g['lignes'] ?? null) as $l) {
+                if (!is_array($l) || ($l['source'] ?? null) !== 'claude') continue;
+                if (($g['retenu'] ?? false) === true) $accord = true; else $desaccord = true;
+            }
+        }
+    }
+    return ['moteur' => $decisions ? implode(',', array_values(array_unique($decisions))) : null,
+            'accordClaude' => $desaccord ? 'desaccord' : ($accord ? 'accord' : 'sans-claude')];
 }
 
 /**
@@ -1152,17 +1184,21 @@ function listeAudits(string $dA): array {
     return $liste;
 }
 
-// --- Les traces des analyses et des rejeux (MD/spec-audit.md 15.5) -----------------------------
-// Un batch qui nomme son audit (`depot`, l'identifiant du serveur : l'analyse de la session apres sa
-// sauvegarde, ou un rejeu) garde, dans le dossier de l'audit, tout ce qui est parti et tout ce qui
-// est revenu : rien n'est jete. Le journal de claude/, lui, ne garde toujours ni photo ni reponse.
+// --- Les traces des analyses et des rejeux (MD/spec-audit.md 15.5, MD/spec-lecture-ia-elargie.md 4.8) --
+// Toute requete a Claude garde tout ce qui est parti et tout ce qui est revenu : rien n'est jete (lot L0,
+// decision 7 du proprietaire). Un batch ou un appel immediat qui nomme son audit (`depot`, l'identifiant du
+// serveur : l'analyse de la session apres sa sauvegarde, un rejeu, une escalade) se range dans le dossier de
+// l'audit ; les autres (une analyse sans depot, « Rappeler Claude » de la calibration, l'aide du releve) dans
+// claude/analyses/sans-depot/<organisation>/<AAAA-MM>/, gardes 24 mois comme le journal. Le journal de
+// claude/, lui, ne garde toujours ni photo ni reponse : leurs empreintes seulement (`empreintes`, `reponse`).
 //
 //   analyses/<AAAAMMJJ-HHMMSS>-<modele>-<xxxx>/entrant.json   prompt et schema envoyes (texte complet),
 //                                                             modele, effort, chaque requete et ses
 //                                                             blocs, les images par reference
 //   .../sortant.json   chaque reponse : texte brut, sortie ramenee au schema, erreur, tokens, cout
 //   .../resume.json    nature (analyse ou rejeu), etat, versions, comptes : ce que la liste montre
-//   images/<sha256>.jpg   les images envoyees, une fois par audit (deux rejeux partagent les memes)
+//   images/<sha256>.jpg   les images envoyees, une fois par audit (deux rejeux partagent les memes) ou par
+//                         mois d'une organisation sans depot (trois passes et une escalade : une image)
 
 const ID_TRACE = '/^\d{8}-\d{6}-[a-z0-9-]{1,48}-[0-9a-f]{4}$/';
 const EXTENSIONS_IMAGE = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
@@ -1262,7 +1298,8 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         $usageR = (string)($req['usage'] ?? $fiche['usage']);
         $sortie[] = $x + ['passe' => $req['passe'], 'usage' => $usageR, 'modele' => $modeleR, 'cout' => coutAppel($x['tokens'], $ligneTarif, true), 'trouve' => trouvailles($x, $usageR),
                           'tarif' => $ligneTarif['depuis'] ?? null, 'images' => $req['images'], 'facades' => (int)($req['facades'] ?? 0),
-                          'prompt' => (int)($req['prompt'] ?? $fiche['promptVersion']), 'schema' => (int)($req['schema'] ?? $fiche['schemaVersion'])];
+                          'prompt' => (int)($req['prompt'] ?? $fiche['promptVersion']), 'schema' => (int)($req['schema'] ?? $fiche['schemaVersion']),
+                          'empreintes' => is_array($req['empreintes'] ?? null) ? $req['empreintes'] : []];
     }
     $verrou = fopen(fBatch($dossierBatches, $fiche['id']) . '.verrou', 'c');
     if ($verrou) flock($verrou, LOCK_EX);
@@ -1274,7 +1311,9 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
                          'adresse' => $fiche['adresse'], 'audit' => $fiche['audit'], 'usage' => $x['usage'], 'modele' => $x['modele'],
                          'batch' => true, 'idBatch' => $fiche['id'], 'requete' => $x['id'], 'passe' => $x['passe'], 'tokens' => $x['tokens'],
                          'images' => $x['images'], 'facades' => $x['facades'], 'cout' => $x['cout'], 'tarif' => $x['tarif'], 'statut' => $x['statut'],
-                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve']]
+                         'arret' => $x['arret'], 'prompt' => $x['prompt'], 'schema' => $x['schema'], 'trouve' => $x['trouve'],
+                         'empreintes' => array_column($x['empreintes'], 'sha256'), 'reponse' => empreinteReponse($bruts[$x['id']] ?? null),
+                         'trace' => is_array($fiche['trace'] ?? null) ? ($fiche['trace']['id'] ?? null) : null]
                          + (($fiche['essai'] ?? false) === true ? ['essai' => true] : []);
         }
         journaliser($dossierClaude, $lignes);
@@ -1293,31 +1332,155 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
 }
 
 /**
- * La trace d'un batch qui nomme son audit, completee a la lecture de ses resultats (15.5) : chaque
- * reponse brute et remise en forme dans `sortant.json`, les comptes dans `resume.json`. Un audit
- * retire entre-temps n'a plus de dossier : rien ne s'ecrit.
+ * La trace d'un batch, completee a la lecture de ses resultats (15.5) : chaque reponse brute et remise en forme dans `sortant.json`,
+ * les comptes dans `resume.json`. Un audit retire entre-temps n'a plus de dossier : rien ne s'ecrit.
  */
 function completerTrace(array $fiche, array $sortie, array $bruts, string $t): void {
-    global $dossierAudits;
-    $dt = dossierTrace($dossierAudits, (string)($fiche['trace']['audit'] ?? ''), (string)($fiche['trace']['id'] ?? ''));
-    if ($dt === null) return;
-    $ordre = array_flip(array_map('strval', array_keys((array)$fiche['requetes'])));
-    usort($sortie, fn($a, $b) => ($ordre[$a['id']] ?? PHP_INT_MAX) <=> ($ordre[$b['id']] ?? PHP_INT_MAX));
+    global $dossierAudits, $dossierClaude;
+    $dt = dossierDeReference($dossierAudits, $dossierClaude, is_array($fiche['trace'] ?? null) ? $fiche['trace'] : null);
+    if ($dt !== null) finirTrace($dt, array_map('strval', array_keys((array)$fiche['requetes'])), $sortie, $bruts, $t, (string)$fiche['id']);
+}
+
+/**
+ * La fin d'une trace : `sortant.json` (chaque reponse, son texte brut et son empreinte, sa sortie ramenee au schema) et le resume
+ * termine (comptes, cout, tokens), les requetes dans l'ordre `$ordre`.
+ */
+function finirTrace(string $dt, array $ordre, array $sortie, array $bruts, string $t, ?string $idBatch): void {
+    $rang = array_flip($ordre);
+    usort($sortie, fn($a, $b) => ($rang[$a['id']] ?? PHP_INT_MAX) <=> ($rang[$b['id']] ?? PHP_INT_MAX));
     $complets = [];
     $resume = [];
     $cout = null;
     $tokens = tokensDeUsage(null);
     foreach ($sortie as $x) {
+        $texte = $bruts[$x['id']] ?? null;
         $commun = ['id' => $x['id'], 'passe' => $x['passe'], 'usage' => $x['usage'], 'modele' => $x['modele'], 'statut' => $x['statut'], 'arret' => $x['arret'],
-                   'erreur' => $x['erreur'], 'tokens' => $x['tokens'], 'cout' => $x['cout'], 'trouve' => $x['trouve']];
-        $complets[] = $commun + ['texte' => $bruts[$x['id']] ?? null, 'sortie' => $x['sortie'], 'tarif' => $x['tarif']];
+                   'erreur' => $x['erreur'], 'tokens' => $x['tokens'], 'cout' => $x['cout'], 'trouve' => $x['trouve'],
+                   'prompt' => $x['prompt'] ?? null, 'schema' => $x['schema'] ?? null, 'refusFormat' => $x['refusFormat'] ?? null,
+                   'empreintes' => array_column($x['empreintes'] ?? [], 'sha256'), 'reponse' => empreinteReponse($texte)];
+        $complets[] = $commun + ['texte' => $texte, 'sortie' => $x['sortie'], 'tarif' => $x['tarif'] ?? null];
         $resume[] = $commun;
         if ($x['cout'] !== null) $cout = ($cout ?? 0) + $x['cout'];
         foreach ($tokens as $k => $v) $tokens[$k] = $v + (int)($x['tokens'][$k] ?? 0);
     }
-    ecrireJson($dt . '/sortant.json', ['format' => 'plan-audit-sortant', 'version' => 1, 'idBatch' => $fiche['id'], 'finLe' => $t, 'resultats' => $complets]);
+    ecrireJson($dt . '/sortant.json', ['format' => 'plan-audit-sortant', 'version' => 1, 'idBatch' => $idBatch, 'finLe' => $t, 'resultats' => $complets]);
     $r = lireJson($dt . '/resume.json') ?? [];
     ecrireJson($dt . '/resume.json', array_merge($r, ['etat' => 'termine', 'finLe' => $t, 'resultats' => $resume, 'cout' => $cout, 'tokens' => $tokens]));
+}
+
+// --- La trace de toute requete (lot L0) ----------------------------------------------------------
+
+const DOSSIER_SANS_DEPOT = 'analyses/sans-depot';
+// Les traces sans depot se gardent comme le journal : 24 mois, puis leur mois s'efface en entier (images comprises).
+const MOIS_GARDES_TRACES = 24;
+
+/** Les images d'une requete verifiee : l'empreinte de leurs octets, leur taille et leur type, dans l'ordre. */
+function empreintesRequete(array $r): array {
+    $e = [];
+    foreach ($r['contenu'] as $b) {
+        if (($b['type'] ?? null) !== 'image') continue;
+        $octets = (string)base64_decode($b['source']['data'], true);
+        $e[] = ['sha256' => hash('sha256', $octets), 'octets' => strlen($octets), 'type' => $b['source']['media_type']];
+    }
+    return $e;
+}
+
+/** L'empreinte du texte brut d'une reponse (le journal la garde a la place du texte), null sans texte. */
+function empreinteReponse(?string $texte): ?string { return $texte === null ? null : hash('sha256', $texte); }
+
+/** L'identifiant d'une trace : le jour et l'heure de l'envoi (UTC), le modele, quatre chiffres hexadecimaux. */
+function idNouvelleTrace(string $modele, string $t): string {
+    $s = strtotime($t);
+    return gmdate('Ymd-His', $s === false ? time() : $s) . '-' . nomSur($modele, 'modele', true) . '-' . bin2hex(random_bytes(2));
+}
+
+/** Le dossier du mois des traces sans depot d'une organisation : ses traces, et ses images une fois chacune (`images/`). */
+function dossierSansDepot(string $dC, string $organisation, string $idTrace): string {
+    return $dC . '/' . DOSSIER_SANS_DEPOT . '/' . nomSur($organisation, 'inconnue') . '/' . substr($idTrace, 0, 4) . '-' . substr($idTrace, 4, 2);
+}
+
+/**
+ * Ou une trace s'ecrit : `[base des images, dossier de la trace, reference]`. Le dossier de l'audit nomme quand il est permis, sinon
+ * celui de l'organisation, sans depot. La reference se garde dans la fiche d'un batch (`dossierDeReference`).
+ */
+function lieuTrace(string $dC, ?string $dirAudit, ?string $audit, string $organisation, string $idTrace): array {
+    if ($dirAudit !== null) return [$dirAudit, $dirAudit . '/analyses/' . $idTrace, ['audit' => $audit, 'organisation' => $organisation, 'id' => $idTrace]];
+    $base = dossierSansDepot($dC, $organisation, $idTrace);
+    return [$base, $base . '/' . $idTrace, ['audit' => null, 'organisation' => $organisation, 'id' => $idTrace]];
+}
+
+/** Le dossier d'une trace d'apres sa reference ; null quand elle n'existe plus (audit retire, mois efface). */
+function dossierDeReference(string $dA, string $dC, ?array $ref): ?string {
+    if (!is_array($ref) || !is_string($ref['id'] ?? null) || !preg_match(ID_TRACE, $ref['id'])) return null;
+    if (is_string($ref['audit'] ?? null)) return dossierTrace($dA, $ref['audit'], $ref['id']);
+    $dt = dossierSansDepot($dC, (string)($ref['organisation'] ?? ''), $ref['id']) . '/' . $ref['id'];
+    return is_file($dt . '/resume.json') ? $dt : null;
+}
+
+/** Une trace sans depot, cherchee par son identifiant parmi les organisations ; null sinon. */
+function traceSansDepot(string $dC, string $id): ?string {
+    if (!preg_match(ID_TRACE, $id)) return null;
+    foreach (glob($dC . '/' . DOSSIER_SANS_DEPOT . '/*/' . substr($id, 0, 4) . '-' . substr($id, 4, 2) . '/' . $id . '/resume.json') ?: [] as $f) return dirname($f);
+    return null;
+}
+
+/** Les versions du prompt et du schema de chaque usage des requetes. */
+function versionsDesPrompts(array $prompts): array {
+    $v = [];
+    foreach ($prompts as $u => [$pU, $sU]) $v[$u] = ['prompt' => $pU['version'], 'schema' => $sU['version']];
+    return $v;
+}
+
+/**
+ * Le resume d'une trace a son envoi. `nature` : `analyse` ou `rejeu` (un batch), `immediat` (un appel immediat : le run d'une facade,
+ * une escalade), `rejeu-facade` (un run rejoue depuis son image gardee). L'identite de la parcelle est celle du journal.
+ */
+function resumeTrace(string $id, array $demande, array $prompts, array $identite, string $nature, string $t, ?string $idBatch): array {
+    [$p, $s] = $prompts[$demande['requetes'][0]['usage']] ?? array_values($prompts)[0];
+    return ['format' => 'plan-audit-analyse', 'version' => 1, 'id' => $id, 'audit' => $demande['depot'] ?? null, 'nature' => $nature, 'etat' => 'en_cours',
+            'creeLe' => $t, 'finLe' => null, 'idBatch' => $idBatch, 'organisation' => $identite['organisation'] ?? null, 'projet' => $identite['projet'] ?? null,
+            'idu' => $identite['idu'] ?? null, 'adresse' => $identite['adresse'] ?? null, 'usage' => $demande['usage'], 'modele' => $demande['modele'], 'effort' => EFFORT,
+            'prompt' => $p['version'], 'schema' => $s['version'], 'essai' => $demande['essai'] ?? false, 'versions' => (object)versionsDesPrompts($prompts),
+            'requetes' => count($demande['requetes']), 'images' => array_sum(array_column($demande['requetes'], 'images')),
+            'facades' => array_sum(array_map(fn($r) => ($r['passe'] ?? 1) === 1 ? $r['facades'] : 0, $demande['requetes'])),
+            'resultats' => null, 'cout' => null, 'tokens' => null];
+}
+
+/** Le debut d'une trace : ce qui part (`entrant.json`, les images rangees une fois sous `$base/images`) et le resume en cours. */
+function commencerTrace(string $base, string $dt, array $demande, array $prompts, array $resume): void {
+    if (!is_dir($dt)) @mkdir($dt, 0750, true);
+    ecrireJson($dt . '/entrant.json', entrantTrace($demande, $prompts, $base));
+    ecrireJson($dt . '/resume.json', $resume);
+}
+
+/** Les mois (`AAAA-MM`) passes la garde de 24 mois, a la date `$aujourdhui` : le mois courant et les 24 d'avant restent. */
+function moisPerimes(array $mois, string $aujourdhui): array {
+    $limite = (int)substr($aujourdhui, 0, 4) * 12 + (int)substr($aujourdhui, 5, 2) - 1 - MOIS_GARDES_TRACES;
+    return array_values(array_filter($mois, fn($m) => is_string($m) && preg_match('/^\d{4}-\d{2}$/', $m) && (int)substr($m, 0, 4) * 12 + (int)substr($m, 5, 2) - 1 < $limite));
+}
+
+/** Efface les mois perimes des traces sans depot, toutes organisations : la garde du journal, appliquee aux traces. */
+function purgerSansDepot(string $dC, string $aujourdhui): void {
+    foreach (glob($dC . '/' . DOSSIER_SANS_DEPOT . '/*', GLOB_ONLYDIR) ?: [] as $org) {
+        $mois = array_map('basename', glob($org . '/*', GLOB_ONLYDIR) ?: []);
+        foreach (moisPerimes($mois, $aujourdhui) as $m) effacerDossier($org . '/' . $m);
+    }
+}
+
+/**
+ * Le contenu d'une requete gardee, pret a repartir (le rejeu d'un run depuis son image, lot L0) : ses textes tels quels, ses images
+ * relues octet pour octet dans `$base/images`. Une image qui manque refuse le rejeu : on ne renvoie jamais une image refaite.
+ */
+function contenuRejoue(array $requete, string $base): array {
+    $contenu = [];
+    foreach (listeDe($requete['contenu'] ?? null) as $b) {
+        if (is_array($b) && ($b['type'] ?? null) === 'text' && is_string($b['text'] ?? null)) { $contenu[] = ['type' => 'text', 'text' => $b['text']]; continue; }
+        $nom = is_array($b) ? (string)($b['image'] ?? '') : '';
+        if (!preg_match(IMAGE_TRACE, $nom) || !is_file($base . '/images/' . $nom)) throw new Refus('L’image gardée de cette requête est introuvable.');
+        $contenu[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => (string)$b['media_type'], 'data' => base64_encode((string)file_get_contents($base . '/images/' . $nom))]];
+    }
+    if (!$contenu) throw new Refus('Cette requête n’a rien gardé à rejouer.');
+    return $contenu;
 }
 
 /** Les requetes des batches encore ouverts d'une organisation ; ceux finis sont journalises en passant. */
@@ -1389,9 +1552,10 @@ function appelsImmediats(array $corpsParId): array {
 /**
  * L'appel immediat (le bouton « Demander de l'aide » du releve, spec facades 12 bis) : les memes
  * plafonds qu'un batch, l'API Messages au tarif normal (sans la remise Batch), une ligne de journal
- * par requete, et la reponse au format des resultats d'un batch.
+ * par requete, et la reponse au format des resultats d'un batch. Depuis le lot L0, une trace aussi :
+ * dans le dossier de l'audit `$dirAudit` quand la demande en nomme un qui est permis, sinon sans depot.
  */
-function appelImmediat(string $dossierClaude, string $dossierBatches, array $demande, string $organisation, bool $admin, bool $avecCle, array $p): array {
+function appelImmediat(string $dossierClaude, string $dossierBatches, array $demande, string $organisation, bool $admin, bool $avecCle, array $p, ?string $dirAudit = null, string $nature = 'immediat'): array {
     $t = maintenant();
     $identite = ['organisation' => $organisation, 'projet' => $demande['projet'] ?? ($admin ? 'admin' : null), 'idu' => $demande['idu'], 'adresse' => $demande['adresse'], 'audit' => $demande['audit']];
     $prompts = promptsDesRequetes($demande['requetes']);
@@ -1407,6 +1571,13 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
             'statut' => 'plafond', 'arret' => null, 'prompt' => $p0['version'], 'schema' => $s0['version']]]);
         erreur(429, 'BUDGET_EXCEEDED', 'Plafond de l’analyse atteint pour aujourd’hui ou ce mois-ci.', ['depense' => $fait, 'engage' => $engage, 'plafond' => $plafond]);
     }
+    // La trace (lot L0) : ce qui part, avant l'envoi ; ce qui revient la completera.
+    $idTrace = idNouvelleTrace($premier['modele'], $t);
+    [$base, $dt] = lieuTrace($dossierClaude, $dirAudit, $demande['depot'] ?? null, $organisation, $idTrace);
+    if ($dirAudit === null) purgerSansDepot($dossierClaude, substr($t, 0, 10));
+    commencerTrace($base, $dt, $demande, $prompts, resumeTrace($idTrace, $demande, $prompts, $identite, $nature, $t, null));
+    $empreintes = [];
+    foreach ($demande['requetes'] as $r) $empreintes[$r['id']] = empreintesRequete($r);
     $corps = fn(array $r, bool $structuree) => (string)json_encode(parametresRequete($r['modele'], $prompts[$r['usage']][0]['texte'], $prompts[$r['usage']][1]['schema'], $r['contenu'],
                                                                                      $structuree, $prompts[$r['usage']][1]['exemple'] ?? null), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $structurees = [];
@@ -1427,21 +1598,157 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
     $table = tarifs($dossierClaude);
     $journal = [];
     $resultats = [];
+    $sortie = [];
+    $bruts = [];
     foreach ($demande['requetes'] as $r) {
         [$pR, $sR] = $prompts[$r['usage']];
         $x = lireResultat($lignesApi[$r['id']] ?? null, $sR['schema']);
+        $bruts[$r['id']] = texteBrut($lignesApi[$r['id']] ?? null);
         $ligneTarif = tarifEnVigueur($table, $r['modele'], substr($t, 0, 10));
         $cout = coutAppel($x['tokens'], $ligneTarif, false);
+        $trouve = trouvailles($x, $r['usage']);
         $journal[] = ['t' => $t] + $identite + ['usage' => $r['compte'] ?? $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
-            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage']),
-            'structuree' => $structurees[$r['id']], 'refusFormat' => $refus[$r['id']] ?? null];
+            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => $trouve,
+            'structuree' => $structurees[$r['id']], 'refusFormat' => $refus[$r['id']] ?? null,
+            'empreintes' => array_column($empreintes[$r['id']], 'sha256'), 'reponse' => empreinteReponse($bruts[$r['id']]), 'trace' => $idTrace];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
                         'passe' => $r['passe'], 'usage' => $r['compte'] ?? $r['usage'], 'cout' => $cout, 'structuree' => $structurees[$r['id']],
-                        'refusFormat' => $refus[$r['id']] ?? null];
+                        'refusFormat' => $refus[$r['id']] ?? null, 'empreintes' => $empreintes[$r['id']]];
+        $sortie[] = $x + ['passe' => $r['passe'], 'usage' => $r['compte'] ?? $r['usage'], 'modele' => $r['modele'], 'cout' => $cout, 'trouve' => $trouve, 'tarif' => $ligneTarif['depuis'] ?? null,
+                          'prompt' => $pR['version'], 'schema' => $sR['version'], 'refusFormat' => $refus[$r['id']] ?? null, 'empreintes' => $empreintes[$r['id']]];
     }
     journaliser($dossierClaude, $journal);
-    return ['modele' => $premier['modele'], 'prompt' => $p0['version'], 'schema' => $s0['version'], 'resultats' => $resultats];
+    finirTrace($dt, array_column($demande['requetes'], 'id'), $sortie, $bruts, $t, null);
+    return ['modele' => $premier['modele'], 'prompt' => $p0['version'], 'schema' => $s0['version'], 'trace' => $idTrace, 'resultats' => $resultats];
+}
+
+// --- Les donnees d'analyse (lot L0, MD/spec-lecture-ia-elargie.md 4.8) --------------------------
+// L'export « données d'analyse » de l'administrateur (`GET admin/claude/donnees-analyse`) : a travers tous les audits et les traces
+// sans depot d'une periode, une ligne par requete (une passe, le run d'une facade, une escalade, un rejeu), et une ligne par
+// proposition des audits recus dans la periode, avec ce qui en a ete fait. Les images n'y sont que par leur empreinte : elles se
+// demandent une a une (`GET admin/claude/images/<sha256>.<ext>`). Rien n'est recalcule : les traces et les conclusions sont relues.
+
+const FORMAT_DONNEES_ANALYSE = 'plan-donnees-analyse';
+
+/** Le batiment et la facade d'une requete d'apres son identifiant : `b0-f2-p1` -> `b0`, 2 ; `b1-p3` -> `b1`, null. */
+function batimentEtFacade(string $id): array {
+    $sans = (string)preg_replace('/-p\d+$/', '', $id);
+    return preg_match('/^(.*)-f(\d+)$/', $sans, $m) ? ['batiment' => $m[1], 'facade' => (int)$m[2]] : ['batiment' => $sans, 'facade' => null];
+}
+
+/** L'empreinte d'une image gardee d'apres son nom (`<sha256>.jpg`). */
+function empreinteDuNom(string $nom): string { return (string)preg_replace('/\.[a-z]+$/', '', $nom); }
+
+/**
+ * Les lignes d'une trace : une par reponse revenue (une trace en cours n'en a pas encore), l'identite de la parcelle prise a la fiche de
+ * l'audit quand la trace en a une, les empreintes des images lues dans l'entrant, celle de la reponse recalculee sur son texte brut.
+ */
+function lignesDeTrace(array $resume, ?array $entrant, ?array $sortant, ?array $fiche): array {
+    $images = [];
+    $octets = [];
+    foreach (listeDe($entrant['requetes'] ?? null) as $q) {
+        if (!is_array($q)) continue;
+        $blocs = array_filter(listeDe($q['contenu'] ?? null), fn($b) => is_array($b) && ($b['type'] ?? null) === 'image' && is_string($b['image'] ?? null));
+        $images[(string)($q['id'] ?? '')] = array_values(array_map(fn($b) => empreinteDuNom((string)$b['image']), $blocs));
+        // Le volume garde (risque 12 de la spec) : les octets des images de la requete, tels qu'ils sont partis.
+        $octets[(string)($q['id'] ?? '')] = array_sum(array_map(fn($b) => (int)($b['octets'] ?? 0), $blocs));
+    }
+    $versions = is_array($resume['versions'] ?? null) ? $resume['versions'] : [];
+    $lignes = [];
+    foreach (listeDe($sortant['resultats'] ?? null) as $x) {
+        if (!is_array($x)) continue;
+        $id = (string)($x['id'] ?? '');
+        $usageRequete = null;
+        foreach (listeDe($entrant['requetes'] ?? null) as $q) if (is_array($q) && ($q['id'] ?? null) === $id) $usageRequete = $q['usage'] ?? null;
+        $v = $versions[$usageRequete ?? ($x['usage'] ?? '')] ?? null;
+        $texte = is_string($x['texte'] ?? null) ? $x['texte'] : null;
+        $lignes[] = ['nature' => 'requete', 'trace' => $resume['id'] ?? null, 'lot' => $resume['nature'] ?? null, 'audit' => $resume['audit'] ?? null,
+                     'organisation' => $resume['organisation'] ?? null, 'idu' => $fiche['idu'] ?? ($resume['idu'] ?? null), 'adresse' => $fiche['adresse'] ?? ($resume['adresse'] ?? null),
+                     't' => $resume['creeLe'] ?? null, 'finLe' => $sortant['finLe'] ?? null, 'idBatch' => $resume['idBatch'] ?? null, 'requete' => $id] + batimentEtFacade($id)
+                   + ['passe' => $x['passe'] ?? null, 'usage' => $x['usage'] ?? null, 'usageRequete' => $usageRequete ?? ($x['usage'] ?? null), 'modele' => $x['modele'] ?? null,
+                      'prompt' => $x['prompt'] ?? ($v['prompt'] ?? null), 'schema' => $x['schema'] ?? ($v['schema'] ?? null), 'essai' => ($resume['essai'] ?? false) === true,
+                      'statut' => $x['statut'] ?? null, 'arret' => $x['arret'] ?? null, 'erreur' => $x['erreur'] ?? null, 'tokens' => $x['tokens'] ?? null, 'cout' => $x['cout'] ?? null,
+                      'refusFormat' => $x['refusFormat'] ?? null, 'empreintes' => $images[$id] ?? [], 'octets' => $octets[$id] ?? 0, 'reponse' => empreinteReponse($texte),
+                      'trouve' => $x['trouve'] ?? null, 'sortie' => $x['sortie'] ?? null, 'texte' => $texte];
+    }
+    return $lignes;
+}
+
+/** Les lignes de la periode (le jour de l'envoi) au modele et a l'usage demandes. */
+function filtrerDonneesAnalyse(array $lignes, array $f): array {
+    return array_values(array_filter($lignes, function ($l) use ($f) {
+        $j = substr((string)($l['t'] ?? ''), 0, 10);
+        return $j >= $f['du'] && $j <= $f['au'] && ($f['modele'] === null || ($l['modele'] ?? null) === $f['modele']) && ($f['usage'] === null || ($l['usage'] ?? null) === $f['usage']);
+    }));
+}
+
+/** Les lignes des propositions d'un audit, d'apres sa conclusion (`decisions.json`, version 2) : ce qui a ete propose et ce qui en a ete fait. */
+function lignesPropositions(array $decisions, array $fiche): array {
+    $lignes = [];
+    foreach (listeDe($decisions['propositions'] ?? null) as $p) {
+        if (!is_array($p)) continue;
+        $cible = is_array($p['cible'] ?? null) ? $p['cible'] : [];
+        $lignes[] = ['nature' => 'proposition', 'audit' => $fiche['id'] ?? null, 'organisation' => $fiche['organisation'] ?? null, 'idu' => $fiche['idu'] ?? null,
+                     'adresse' => $fiche['adresse'] ?? null, 't' => $fiche['recuLe'] ?? null, 'proposition' => $p['id'] ?? null, 'objet' => $p['objet'] ?? null,
+                     'batiment' => $cible['cle'] ?? null, 'facade' => isset($cible['cote']) && is_int($cible['cote']) ? $cible['cote'] : null, 'effet' => $p['effet'] ?? null,
+                     'source' => $p['source'] ?? null, 'avant' => $p['avant'] ?? null, 'apres' => $p['apres'] ?? null, 'confiance' => $p['confiance'] ?? null,
+                     'reserve' => $p['reserve'] ?? null, 'decision' => $p['decision'] ?? null, 'moteur' => $p['moteur'] ?? null, 'accordClaude' => $p['accordClaude'] ?? null];
+    }
+    return $lignes;
+}
+
+/** La conclusion d'un audit pour l'export : `decisions.json`, refaite depuis le fichier quand elle est d'avant la version 2. */
+function decisionsPourExport(string $dir): ?array {
+    $d = lireJson($dir . '/decisions.json');
+    if (is_array($d) && ($d['version'] ?? 0) >= VERSION_DECISIONS_AUDIT) return $d;
+    $audit = lireJson($dir . '/audit.json');
+    if ($audit === null) return $d;
+    try { verifierAudit($audit); } catch (Refus $e) { return $d; }
+    $refaite = decisionsAudit($audit);
+    ecrireJson($dir . '/decisions.json', $refaite);
+    return $refaite;
+}
+
+/** L'export de la periode : les traces de tous les audits et celles sans depot, puis les propositions des audits recus. */
+function donneesAnalyse(string $dA, string $dC, array $f, string $t): array {
+    $requetes = [];
+    $propositions = [];
+    foreach (indexAudits($dA) as $id => $fiche) {
+        $dir = is_array($fiche) && is_string($fiche['dossier'] ?? null) ? $dA . '/' . $fiche['dossier'] : null;
+        if ($dir === null || !is_dir($dir)) continue;
+        foreach (glob($dir . '/analyses/*/resume.json') ?: [] as $fr) {
+            $r = lireJson($fr);
+            if ($r !== null) array_push($requetes, ...lignesDeTrace($r, lireJson(dirname($fr) . '/entrant.json'), lireJson(dirname($fr) . '/sortant.json'), $fiche));
+        }
+        $jour = substr((string)($fiche['recuLe'] ?? ''), 0, 10);
+        if (($fiche['nature'] ?? 'parcelle') === 'parcelle' && $jour >= $f['du'] && $jour <= $f['au']) {
+            $d = decisionsPourExport($dir);
+            if ($d !== null) array_push($propositions, ...lignesPropositions($d, $fiche + ['id' => (string)$id]));
+        }
+    }
+    foreach (moisEntre($f['du'], $f['au']) as $m) {
+        foreach (glob($dC . '/' . DOSSIER_SANS_DEPOT . '/*/' . $m . '/*/resume.json') ?: [] as $fr) {
+            $r = lireJson($fr);
+            if ($r !== null) array_push($requetes, ...lignesDeTrace($r, lireJson(dirname($fr) . '/entrant.json'), lireJson(dirname($fr) . '/sortant.json'), null));
+        }
+    }
+    $requetes = filtrerDonneesAnalyse($requetes, $f);
+    usort($requetes, fn($a, $b) => [(string)$a['t'], (string)$a['trace'], (string)$a['requete']] <=> [(string)$b['t'], (string)$b['trace'], (string)$b['requete']]);
+    usort($propositions, fn($a, $b) => [(string)$a['t'], (string)$a['audit']] <=> [(string)$b['t'], (string)$b['audit']]);
+    return ['format' => FORMAT_DONNEES_ANALYSE, 'version' => 1, 'genereLe' => $t, 'du' => $f['du'], 'au' => $f['au'],
+            'filtres' => ['modele' => $f['modele'], 'usage' => $f['usage']], 'requetes' => $requetes, 'propositions' => $propositions];
+}
+
+/** Une image gardee, par son nom : dans le dossier de l'audit nomme, sinon parmi les traces sans depot ; null sinon. */
+function imageGardee(string $dA, string $dC, ?string $audit, string $nom): ?string {
+    if (!preg_match(IMAGE_TRACE, $nom)) return null;
+    if ($audit !== null) {
+        $dir = preg_match(ID_AUDIT, $audit) ? dossierAudit($dA, $audit) : null;
+        return $dir !== null && is_file($dir . '/images/' . $nom) ? $dir . '/images/' . $nom : null;
+    }
+    foreach (glob($dC . '/' . DOSSIER_SANS_DEPOT . '/*/*/images/' . $nom) ?: [] as $f) return $f;
+    return null;
 }
 
 function lireCorps(int $max) {

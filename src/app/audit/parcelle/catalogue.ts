@@ -18,6 +18,7 @@ import { csvBenchmark, lignesBenchmark } from '../../../export/benchmarkAnalyses
 import type { ClientAudits, FicheAudit } from '../../../io/auditsServeur.js';
 import type { AnalyseComplete, ClientAnalysesAudits, ResumeAnalyse } from '../../../io/analysesAudits.js';
 import type { BrouillonServeur, ClientAnalyse, DemandeAnalyse } from '../../../io/analyseClaude.js';
+import { choixExportParDefaut, donneesDuCatalogue, type DependancesDonnees, type EtatDonnees, type MethodesDonnees } from './donneesCatalogue.js';
 
 /** Ce que le rejeu demande de plus au catalogue : les analyses gardees, le client de l'analyse, la preparation. */
 export interface DependancesAnalyses {
@@ -29,7 +30,7 @@ export interface DependancesAnalyses {
   planifier?: (f: () => void, ms: number) => () => void;
 }
 
-export interface DependancesCatalogue {
+export interface DependancesCatalogue extends DependancesDonnees {
   /** Le client des routes `admin/audits` ; null sans session admin. */
   client: () => ClientAudits | null;
   /** La parcelle du projet ouvert (IDU, ou point de calage), null sans parcelle cadastrale. */
@@ -60,7 +61,7 @@ export interface DetailAudit {
   erreur: string | null;
 }
 
-export interface EtatCatalogue {
+export interface EtatCatalogue extends EtatDonnees {
   chargement: boolean;
   audits: FicheAudit[] | null;
   erreur: string | null;
@@ -83,7 +84,7 @@ export interface EtatCatalogue {
   comparaison: { audit: string; avec: string; complete: AnalyseComplete | null; erreur: string | null } | null;
 }
 
-export interface CatalogueAudits {
+export interface CatalogueAudits extends MethodesDonnees {
   etat(): EtatCatalogue;
   relire(): Promise<void>;
   /** Pourquoi cet audit ne s'ouvre pas dans ce projet ; null s'il s'y ouvre. */
@@ -162,14 +163,16 @@ function analysesDuCatalogue(d: DependancesCatalogue, n: Noyau): MethodesAnalyse
       let liste: ResumeAnalyse[];
       try { liste = await analyses.lister(id); } catch (e) { majDetail(id, { erreur: message(e) }); return; }
       let fini = false;
-      for (const x of analyse ? liste.filter((y) => y.etat === 'en_cours') : []) {
+      // Seul un batch se suit : un appel immediat (lot L0) a sa trace finie des sa reponse.
+      for (const x of analyse ? liste.filter((y) => y.etat === 'en_cours' && y.idBatch) : []) {
+        const idBatch = x.idBatch as string;
         try {
-          if ((await analyse?.etatBatch(x.idBatch))?.etat === 'ended') { await analyse?.resultats(x.idBatch); fini = true; }
+          if ((await analyse?.etatBatch(idBatch))?.etat === 'ended') { await analyse?.resultats(idBatch); fini = true; }
         } catch { /* passager : le prochain tour reessaie */ }
       }
       if (fini) { try { liste = await analyses.lister(id); } catch { /* la liste d'avant reste */ } }
       majDetail(id, { analyses: liste });
-      if (liste.some((x) => x.etat === 'en_cours') && n.etat().detail?.id === id) {
+      if (liste.some((x) => x.etat === 'en_cours' && x.idBatch) && n.etat().detail?.id === id) {
         annulerSuivi = (r.planifier ?? planifierNavigateur)(() => { annulerSuivi = null; void m.suivre(id); }, DELAI_SUIVI_REJEU_MS);
       }
     },
@@ -277,7 +280,8 @@ function deposerFichier(d: DependancesCatalogue, relire: () => Promise<void>): v
 
 export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
   const abonnes = new Set<() => void>();
-  let etat: EtatCatalogue = { chargement: false, audits: null, erreur: null, enCours: null, aConfirmer: null, detail: null, trace: null, modeles: [], modele: null, brouillon: null, essai: false, comparaison: null };
+  let etat: EtatCatalogue = { chargement: false, audits: null, erreur: null, enCours: null, aConfirmer: null, detail: null, trace: null, modeles: [], modele: null, brouillon: null, essai: false, comparaison: null,
+    exportDonnees: choixExportParDefaut(new Date()), donneesEnCours: null };
   const poser = (x: Partial<EtatCatalogue>) => { etat = { ...etat, ...x }; abonnes.forEach((f) => f()); };
 
   async function lire(a: FicheAudit): Promise<string | null> {
@@ -289,6 +293,8 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
   }
   const analyses = analysesDuCatalogue(d, { etat: () => etat, poser, lire });
   const majDetail = (id: string, x: Partial<DetailAudit>) => { if (etat.detail?.id === id) poser({ detail: { ...etat.detail, ...x } }); };
+  // Le rejeu d'une facade ajoute une analyse a l'audit : la carte ouverte relit les siennes.
+  const donnees = donneesDuCatalogue(d, () => etat, poser, async (audit) => { if (etat.detail?.id === audit) await analyses.suivre(audit); });
 
   const catalogue: CatalogueAudits = {
     etat: () => etat,
@@ -374,6 +380,7 @@ export function creerCatalogue(d: DependancesCatalogue): CatalogueAudits {
     relireAnalyses: analyses.relireAnalyses, rejeuDisponible: analyses.rejeuDisponible, raisonRejouer: analyses.raisonRejouer, choisirModele: analyses.choisirModele,
     choisirEssai: analyses.choisirEssai, rejouer: analyses.rejouer, comparer: analyses.comparer, fermerComparaison: analyses.fermerComparaison, exporterAnalyses: analyses.exporterAnalyses, voirTrace: analyses.voirTrace, fermerTrace: analyses.fermerTrace,
     exporterTrace: analyses.exporterTrace, urlImage: analyses.urlImage,
+    ...donnees,
     deposerDisponible: () => !!d.choisirFichier,
     deposer() { deposerFichier(d, () => catalogue.relire()); },
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); if (!abonnes.size) analyses.arreter(); }; },
