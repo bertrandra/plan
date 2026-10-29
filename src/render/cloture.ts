@@ -20,6 +20,14 @@ const RETRAIT_TRAIT = 0.15;
 /** Les piliers d'un acces, en metres, quand il n'en a pas de declares. */
 const TABLEAU = 0.2;
 
+/**
+ * La marge de la poignee d'un acces de part et d'autre de la limite, en metres : 14 px au moins a l'ecran, pour le doigt, et 40 cm.
+ * Elle seule, dans la cloture, depend de l'echelle (le plan en tient compte pour redessiner le calque : app/boot/rendu.ts).
+ */
+export function margeAcces(echelle: number): number {
+  return Math.max(0.4, 14 / echelle);
+}
+
 /** Le motif d'un type : epaisseur et tirets, en pixels d'ecran. */
 function motif(r: ReglageCloture): { epaisseur: number; tirets: string | null; arrondi: boolean } {
   switch (r.type) {
@@ -31,7 +39,13 @@ function motif(r: ReglageCloture): { epaisseur: number; tirets: string | null; a
   }
 }
 
-export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: number } }, versEcran: (p: PtBrut) => PtEcran, parcelle: ObjetPlan | null | undefined): void {
+/**
+ * Dessine la cloture de la parcelle. `versEcran` et l'echelle de `etat` disent le repere du dessin (le plan le dessine en metres,
+ * sous la transformation de son calque : render/repere.ts, `versMetres`) ; `echelleEcran`, celle de l'ecran, ne sert qu'a la
+ * poignee des acces (`margeAcces`).
+ */
+export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: number } }, versEcran: (p: PtBrut) => PtEcran, parcelle: ObjetPlan | null | undefined,
+  echelleEcran = etat.scene.scale): void {
   if (!parcelle || !aDesSommets(parcelle) || parcelle.pts.length < 3) return;
   const cl = clotureDe(parcelle);
   if (!cl.active) return;
@@ -104,7 +118,7 @@ export function dessinerCloture(groupe: SVGGElement, etat: { scene: { scale: num
    */
   function poignee(f: Facade, a: Portail, indice: number): void {
     const e = empriseAcces(a);
-    const marge = Math.max(0.4, 14 / echelle);
+    const marge = margeAcces(echelleEcran);
     const debut = Math.max(0, e.debut - 0.1), fin = Math.min(f.largeur, e.fin + 0.1);
     const fond = Math.max(marge, Math.max(0, a.retrait) + (a.piliers ? a.piliers.largeur : TABLEAU) + 0.2);
     const coins = [

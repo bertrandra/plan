@@ -9,14 +9,18 @@
 // BANC_ZONES=1 (serveur de developpement) : pour chaque taille, les zones React qui se sont redessinees pendant les rendus mesures,
 // combien de fois et pour combien de temps (Profiler de React, zones/monter.tsx).
 // BANC_PROFIL=1 : au bureau, a la premiere taille, le profil de dix rendus (fonctions de src/, temps inclusif) : ce qui coute.
-// BANC_SCENARIOS=rendu,glisser,terrasse,zoom,pan (tous par defaut) : ce qui est mesure a chaque taille (etapes 2.3 et 6.5).
+// BANC_SCENARIOS=rendu,glisser,terrasse,zoom,pan,geste (tous par defaut) : ce qui est mesure a chaque taille (etapes 2.3 et 6.5).
 //   rendu     un rendu sans changement (une zone qui notifie, un zoom repousse) ;
 //   glisser   chaque image d'un objet glisse (un arbre de la demonstration, selectionne) : il bouge, il est touche, le plan est rendu ;
 //   terrasse  la meme chose pour la terrasse (le chiffrage et ses couches suivent) ;
 //   zoom      chaque cran d'un zoom (x 1,1 puis / 1,1 autour du centre) : la scene change, le plan est rendu ;
 //   pan       chaque image d'un deplacement de la vue (8 px) : la scene change, le plan est rendu.
-// Les gestes de vue sont mesures sans le frein (`RENDU_LENT_MS`, app/boot/rendu.ts) : un rendu complet a chaque image, ce que le
-// geste couterait si l'apercu par transformation n'etait pas la.
+//   geste     chaque cran du meme zoom, comme sous le doigt : le frein decide (`RENDU_LENT_MS`, app/boot/rendu.ts), un rendu complet ou
+//             l'apercu par transformation (render/apercuVue.ts), que le rendu complet suit au repos.
+// Les gestes `zoom` et `pan` sont mesures sans le frein : un rendu complet a chaque image, ce que le geste couterait si l'apercu
+// n'etait pas la. `geste` mesure ce que le geste coute avec lui.
+// Chaque mesure donne aussi l'image : le temps jusqu'apres la peinture de l'image suivante (style, mise en page, peinture du
+// navigateur compris), compte depuis la fin de l'image precedente.
 //
 // Deux cibles. Le serveur de developpement donne le profil (BANC_PROFIL=1, noms de src/), mais React y tourne en mode developpement,
 // plus lent que le paquet livre. Le paquet du banc donne les temps que les gens auront : un paquet de production qui garde les
@@ -42,7 +46,7 @@ const base = process.argv[2] || 'http://localhost:5199';
 const tailles = process.argv.slice(3).map(Number).filter(Boolean);
 const TAILLES = tailles.length ? tailles : [150, 300, 600];
 const ESSAIS = Number(process.env.BANC_ESSAIS) || (process.env.BANC_PROFIL ? 10 : 9);
-const SCENARIOS = (process.env.BANC_SCENARIOS || 'rendu,glisser,terrasse,zoom,pan').split(',').map((x) => x.trim()).filter(Boolean);
+const SCENARIOS = (process.env.BANC_SCENARIOS || 'rendu,glisser,terrasse,zoom,pan,geste').split(',').map((x) => x.trim()).filter(Boolean);
 const APPAREILS = [
   { nom: 'bureau', viewport: { width: 1440, height: 900 }, ralenti: 1, budget: 16 },
   { nom: 'téléphone', viewport: { width: 390, height: 844 }, ralenti: 4, budget: 33, mobile: true }
@@ -118,6 +122,10 @@ for (const a of APPAREILS) {
       // React rend les zones apres coup, dans une tache a lui (scheduler, MessageChannel) : un message poste apres le rendu passe
       // derriere elle. Le temps compte donc le plan et les zones, sans l'attente de l'image suivante.
       const apresReact = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
+      // L'image suivante : un message poste depuis `requestAnimationFrame` passe apres le style, la mise en page et la peinture de
+      // cette image. Le temps de l'image compte donc aussi ce que le navigateur refait de ce que le rendu a change (ce qu'un message
+      // seul ne voit pas toujours : le navigateur peut peindre avant ou apres lui).
+      const apresImage = () => new Promise((r) => requestAnimationFrame(() => { apresReact().then(r); }));
       window.__bancSelection ??= etat.selectedKey;
       const selectionner = async (cle) => { if (etat.selectedKey !== cle) { window.__plan.selectionnerCle(cle); window.__plan.rendre(); await apresReact(); } };
       await selectionner(window.__bancSelection);
@@ -142,7 +150,9 @@ for (const a of APPAREILS) {
           const s = etat.scene, k = i % 2 ? 1 / 1.1 : 1.1;
           etat.scene = { ...s, scale: s.scale * k, origine: { x: cx() + (s.origine.x - cx()) * k, y: cy() + (s.origine.y - cy()) * k } };
         } },
-        pan: { image: (i) => { const s = etat.scene, d = i % 2 ? -8 : 8; etat.scene = { ...s, origine: { x: s.origine.x + d, y: s.origine.y + d / 2 } }; } }
+        pan: { image: (i) => { const s = etat.scene, d = i % 2 ? -8 : 8; etat.scene = { ...s, origine: { x: s.origine.x + d, y: s.origine.y + d / 2 } }; } },
+        // Le meme zoom, passe par le geste (un paquet d'avant cette poignee ne le mesure pas).
+        geste: window.__plan.changerVue && { vue: (i) => { const avant = etat.scene; gestes.zoom.image(i); window.__plan.changerVue(avant); } }
       };
       const resultats = {};
       for (const nom of scenarios) {
@@ -158,19 +168,25 @@ for (const a of APPAREILS) {
           image(1); window.__plan.rendre(); await apresReact();
         }
         window.__dureesZones = {};
-        const t = [], plan = [];
+        const t = [], plan = [], img = [];
         for (let i = 0; i < essais; i++) {
+          await apresImage();
           const debut = performance.now();
-          image(i);
-          plan.push(window.__plan.rendre());
+          if (g.vue) { const t0 = performance.now(); g.vue(i); plan.push(performance.now() - t0); }
+          else { image(i); plan.push(window.__plan.rendre()); }
           await apresReact();
           t.push(performance.now() - debut);
+          await apresImage();
+          img.push(performance.now() - debut);
         }
         // Un nombre impair d'images laisse l'objet ou la vue un cran a cote : on revient au depart.
-        if (essais % 2) { image(essais); window.__plan.rendre(); await apresReact(); }
+        if (essais % 2) { if (g.vue) g.vue(essais); else { image(essais); window.__plan.rendre(); } await apresReact(); }
+        // L'apercu d'un geste se redessine au repos (render/apercuVue.ts, `DELAI_APERCU_MS`) : on l'attend.
+        if (g.vue) { await new Promise((r) => setTimeout(r, 400)); await apresReact(); }
         if (g.cible) await selectionner(window.__bancSelection);
-        t.sort((x, y) => x - y); plan.sort((x, y) => x - y);
-        resultats[nom] = { zones: window.__dureesZones, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)] };
+        t.sort((x, y) => x - y); plan.sort((x, y) => x - y); img.sort((x, y) => x - y);
+        resultats[nom] = { zones: window.__dureesZones, mediane: t[Math.floor(t.length / 2)], pire: t[t.length - 1], plan: plan[Math.floor(plan.length / 2)],
+          image: img[Math.floor(img.length / 2)] };
       }
       const noeuds = document.querySelectorAll('#stage svg *').length;
       return { resultats, objets: etat.objects.length, noeuds };
@@ -181,8 +197,8 @@ for (const a of APPAREILS) {
         const z = Object.entries(x.zones ?? {}).sort((u, v) => v[1].ms - u[1].ms);
         console.log(`zones redessinées (${nom}, ${ESSAIS} images) : ` + (z.map(([k, v]) => `${k} ${v.rendus}× ${v.ms.toFixed(0)} ms`).join(', ') || 'aucune'));
       }
-      lignes.push({ appareil: a.nom, scenario: nom, objets: r.objets, mediane: x.mediane, pire: x.pire, plan: x.plan, budget: a.budget });
-      console.log(`${a.nom.padEnd(10)} ${nom.padEnd(8)} ${String(r.objets).padStart(4)} objets, ${String(r.noeuds).padStart(6)} nœuds SVG : médiane ${x.mediane.toFixed(1).padStart(6)} ms (dont plan ${x.plan.toFixed(1)}), pire ${x.pire.toFixed(1).padStart(6)} ms  (budget ${a.budget} ms) ${x.mediane > a.budget ? 'AU-DELÀ' : 'ok'}`);
+      lignes.push({ appareil: a.nom, scenario: nom, objets: r.objets, mediane: x.mediane, pire: x.pire, plan: x.plan, image: x.image, budget: a.budget });
+      console.log(`${a.nom.padEnd(10)} ${nom.padEnd(8)} ${String(r.objets).padStart(4)} objets, ${String(r.noeuds).padStart(6)} nœuds SVG : médiane ${x.mediane.toFixed(1).padStart(6)} ms (dont plan ${x.plan.toFixed(1)}), pire ${x.pire.toFixed(1).padStart(6)} ms, image ${x.image.toFixed(1).padStart(6)} ms  (budget ${a.budget} ms) ${x.mediane > a.budget ? 'AU-DELÀ' : 'ok'}`);
     }
   }
   console.log(`(${a.nom} : démonstration de ${origine} objets au départ, ${ESSAIS} rendus par taille)`);

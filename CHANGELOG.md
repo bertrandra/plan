@@ -36,7 +36,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   réel préparent leurs cas par l'orchestrateur (`preparerPourLaMesure`), aux mêmes nombres. Le moteur de redressement, d'assemblage et
   de fusion ne bouge pas (banc « chaîne du relevé » et « fusion » identiques, `egout-sol.ts` identique, AE 101 identique, empreintes
   inchangées).
-
+- **Le zoom du plan ne redessine plus les objets.** Les objets se dessinent en mètres dans un calque qui porte la transformation du
+  repère du dessin (`render/objects.ts`, `app/assemblage/surface.ts`) : un cran de zoom ne change qu'elle. Ce qui se mesure en
+  pixels garde ses coordonnées et porte la transformation inverse : le nom d'un objet, le tracé d'un chemin, les poignées et les
+  cotes de l'objet sélectionné. Les traits gardent leur épaisseur et leurs tirets à l'écran (`non-scaling-stroke`). La clôture et
+  les ouvertures relevées se dessinent aussi en mètres (`render/repere.ts`) ; seule la poignée d'un accès lit l'échelle. Le frein
+  du zoom se juge maintenant sur l'image entière, ce que le navigateur repeint compris (`app/boot/rendu.ts`). Au bureau, le zoom
+  se dessine donc en direct pendant le geste. Au téléphone, l'aperçu suit le geste et le rendu au repos coûte moitié moins de
+  script. Banc de production à 600 objets, avant → après : téléphone 87–150 ms (dont plan 73–94) → 87–108 ms (dont plan 34–38) ;
+  bureau 28–47 ms (dont plan 17–23) → 7–18 ms (dont plan 6–7). Le banc mesure aussi l'image (`image`) et le geste réel
+  (`geste`). Au repos, le plan est le même à l'anticrénelage près ; aucune empreinte ne bouge.
 - **L'heure du soleil est l'heure légale du lieu du projet.** La date et l'heure tapées (inspecteur du parasol, Vue 3D,
   visionneuse) se lisaient toujours à l'heure française, quel que soit le lieu : à La Réunion, « midi » tombait à 14 h sur place.
   Le fuseau se déduit maintenant de la latitude et de la longitude de la parcelle, sans réseau (`geo/fuseau.ts`) : la France
