@@ -346,6 +346,12 @@ Scored on value, effort and risk to the product's core promise. Rendering is the
 | **Assistant over the project** — *"why is the joist spacing 40 cm here?"* | Medium | Medium | Low — it explains the engine, it does not replace it | H4 |
 | **Site photo → existing conditions** | Medium | High | High | Not before H4 |
 
+*29 October 2026.* The owner launched the AI reading of the whole site and dossier at once: façade and roof details read in the
+façade run, the garden from the aerial and garden photos, the PLU rules read from the zone's PDF, DP texts drafted and reviewed, and
+the natural-language assistant (the first row above). Scope, classification against the existing model, lots L0 to L6, costs and
+risks: [`spec-lecture-ia-elargie.md`](spec-lecture-ia-elargie.md). Same discipline as the façades: the AI proposes, the rules
+decide, the person confirms.
+
 ---
 
 ## 6. Sequencing
