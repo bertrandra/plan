@@ -65,7 +65,12 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 16. **Le moteur de redressement et de fusion reste tel quel.** Le redressement (`vuesDeFace`, `redresserParFuites`, `redresserParReperes`),
     l'assemblage (`mosaiqueDesVues`), la fusion des vues (`fondreLesVues`, vote des baies) et la version sans ombres ne sont **ni modifiés
     ni réglés** par cette spec : elle s'appuie dessus et agit **autour** (calage du mur, forme, diagnostic, ouvertures, rejeu). Voir §4 bis.
-17. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
+17. **Chaque étape est un contrat : entrant, action automatique avec son objectif, sortant, option manuelle quand l'objectif n'est pas
+    atteint.** L'automatique est le chemin normal ; le manuel est une option de repli, jamais un passage obligé. Voir §4 ter.
+18. **Certaines étapes sont des points de validation** (le mur, le toit, la façade), les autres tournent **en arrière-plan**. **L'audit
+    est plus discret** : quand seul le résultat compte, l'étape reste cachée et ne se montre que si elle échoue ; **la calibration montre
+    tout**. Voir §4 ter.
+19. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
 
 ---
 
@@ -353,6 +358,95 @@ Conséquences :
 
 ---
 
+## 4 ter. L'enchaînement global
+
+Une façade traverse les étapes É0 à É9. Chacune est un **contrat** : ce qui entre, ce que l'automatique en fait **et l'objectif qu'il doit
+atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'objectif n'est pas atteint.
+
+### 4 ter.1 Le contrat d'une étape
+
+- **Entrant** : les données dont l'étape a besoin, et d'où elles viennent (étape précédente, plan, LiDAR, photos).
+- **Action automatique** : ce que la chaîne fait seule (déterministe, IA, ou les deux).
+- **Objectif** : un critère **mesurable** qui dit que l'automatique a réussi (un score, un seuil, un taux). Il est écrit dans les réglages
+  (`regles/facades/reglages.json`, un seuil par PR, §5.6), pas dans l'écran.
+- **Sortant** : ce que l'étape rend, et que la suivante lit ; jamais plus que ce qui est validé.
+- **Option manuelle** : le geste minimal de repli, **proposé seulement quand l'objectif n'est pas atteint** (ou à la demande de la personne).
+  C'est un outil existant chaque fois que c'est possible (voir le tableau), jamais un formulaire.
+- **État** : `ok` (objectif atteint), `a-confirmer` (atteint de justesse, ou deux chemins qui divergent), `echec` (non atteint),
+  `saute` (inutile ici). L'état est **dérivé** (comme `BilanRedressement`) : jamais source de vérité, recalculé à chaque rejeu.
+- **Mode d'audit** : `cache` (tourne en arrière-plan, ne se montre pas), `resume` (une ligne et une vignette, validée par exception) ou
+  `valider` (un point d'arrêt : la personne confirme). Voir §4 ter.3.
+
+### 4 ter.2 Le tableau de l'enchaînement
+
+| Étape | Entrant | Action automatique | Objectif (réussi quand…) | Sortant | Option manuelle | Audit |
+|---|---|---|---|---|---|---|
+| **É0** Préparation | contour, corps du toit, LiDAR, cadastre | dimensions, gabarit, rapport, pointes attendues | un gabarit existe par côté (rectangle sinon) | `dimensions`, `forme.gabarit` | — (corriger le plan ailleurs) | `cache` |
+| **É1** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
+| **É2** Redressement | photos, repères | points de fuite, sinon repères posés | chaque photo redressée, ou son motif dit | vues de face | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
+| **É3** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
+| **É4** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur` / `CalageSilhouette`) | `resume` ; **`valider`** si divergence ou score faible |
+| **É5** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | silhouette lue sur ≥ la moitié des colonnes, corps attribués | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
+| **É5 bis** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
+| **É6** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
+| **É7** Ouvertures | assemblage calé, grille, **run IA** (boîtes, carreaux) | détection, accord avec l'IA, grille | rappel ≥ 85 %, précision ≥ 90 %, cotes ≤ 5 cm, < 3 corrections par façade | ouvertures de la **façade objet**, `carreaux` | ajouter, retirer, déplacer, redimensionner (éditeur du relevé) | `resume` : seules les boîtes **décochées** demandent un geste |
+| **É8** Toit | propositions **confirmées**, faits, marques | observations du moteur, sur le corps concerné | observation acceptée par le moteur ; **hauteurs du LiDAR inchangées** | toit ajusté (par le moteur) | Mode Toit pour tout régler à la main | `valider` (avant/après) |
+| **É9** Validation | tout ce qui précède | assemble le bilan de la façade | personne a validé ; une étape d'historique | `dimensions`, `forme`, `texture`, façade objet écrits | corriger n'importe quel sortant | **`valider`** (une validation, un Ctrl+Z) |
+
+### 4 ter.3 Les points de validation, et l'audit discret
+
+L'audit ne déroule pas dix écrans. Il se tient à **quatre points d'arrêt**, et ne montre le reste que s'il échoue.
+
+| Point | Après l'étape | Ce que la personne voit | Ce qu'elle fait |
+|---|---|---|---|
+| **V1 · Le mur** | É4 | l'assemblage, le mur posé, les angles | confirme, ou tire un angle / l'égout / le sol ; **n'apparaît que si** les deux chemins divergent ou si le score est faible (sinon une ligne « Mur posé ✓ ») |
+| **V2 · Le toit** | É5 bis | l'avant/après de chaque proposition, par corps | coche les propositions qu'elle accepte (toujours demandé) |
+| **V3 · Les ouvertures** | É7 | la façade avec les boîtes **décochées** en évidence | accepte, retire ou corrige ; les cochées passent sans geste |
+| **V4 · La façade** | É9 | le bilan : dimensions, forme, texture, ouvertures | valide d'un geste |
+
+- **Étapes en arrière-plan** (`cache`) : É0, É2, É3, É5, É6. Seul leur **résultat** compte : elles rendent leur sortant sans se montrer. Une
+  étape cachée **passe en `resume` dès qu'elle échoue** (une photo restée à part, un redressement impossible, une texture avec liserés)
+  et propose son option manuelle.
+- **Un échec arrête la suite** (pas de calage fondé sur un assemblage manquant) ; ou, quand la suite peut continuer sur une valeur
+  **supposée** (le sol à la hauteur du plan), elle continue en le disant (`a-confirmer`, drapeau « supposé » visible).
+- **La calibration montre tout** : toutes les étapes, quel que soit leur mode d'audit, avec leurs calques (§7.3). Le mode d'audit est un
+  **réglage d'affichage**, pas une propriété de l'étape.
+- **Le Mode Toit** est l'option manuelle de V2 : « tout régler à la main » ouvre la session du toit sur le corps concerné.
+
+```mermaid
+flowchart TD
+  P["É0 Préparation (plan + LiDAR)"] --> C["É1 Prises"]
+  C --> R["É2 Redressement"]
+  R --> A["É3 Assemblage"]
+  A --> M["É4 Calage du mur"]
+  M -->|"ok, accord"| S["É5 Silhouette lue (par corps)"]
+  M -->|"divergence ou score faible"| V1(["V1 Le mur : la personne tire les angles"])
+  V1 --> S
+  S --> D["É5 bis Diagnostic de forme"]
+  D --> V2(["V2 Le toit : confirmer les propositions"])
+  V2 --> T["É8 Toit par le moteur, sur le corps concerné"]
+  M --> X["É6 Texture"]
+  M --> O["É7 Ouvertures + carreaux"]
+  O -->|"boites decochees"| V3(["V3 Les ouvertures"])
+  T --> F(["V4 La façade : valider"])
+  X --> F
+  V3 --> F
+  O -->|"toutes cochees"| F
+```
+
+### 4 ter.4 Ce que ça demande au code
+
+- **Un orchestrateur** (`facade/releve/enchainement.ts`, pur) qui déroule les étapes dans l'ordre du tableau, calcule l'état de chacune
+  (objectif atteint ou non), dit laquelle bloque, et ce que la suivante peut faire sur une valeur supposée. Il **appelle** la chaîne
+  existante (`analyserLeMur`, `murSurLAssemblage`…) sans la modifier (décision 16).
+- **Un contrat par étape** : un type (`EtapeFacade` : entrant, sortant, objectif, option manuelle, mode d'audit) dans `model/`, les objectifs
+  dans `regles/facades/reglages.json`, le mode d'audit dans un réglage d'interface (`affichage`), jamais dans la chaîne.
+- **L'audit** lit les états et ne montre que V1 à V4 et les étapes en échec ; **la calibration** lit les mêmes états et montre tout. Un
+  seul calcul, deux affichages.
+- **Le rejeu** (§7.2) exécute le même orchestrateur sur un cas : mêmes entrants, mêmes réponses enregistrées, mêmes objectifs, mêmes états.
+
+---
+
 ## 5. Arbitrer le déterministe et l'IA
 
 Principe : **l'IA propose le sens, le déterministe prouve la géométrie, la personne tranche en dernier recours.**
@@ -465,6 +559,8 @@ qui va dans le toit ; **les éléments posés à la main** (Mode Toit, `toitFige
   photo est une donnée personnelle : on ne copie dans le dépôt (corpus de calibration) que celles que l'on peut y conserver.
 - **Migration** : `FacadeCapturee` (photos, corrections, `inaccessible`) ne change pas ; `ReleveFacade.depuisAudit` garde son sens. Un
   projet qui a des façades relevées sans audit les garde telles quelles ; elles se rejouent depuis leur photo locale quand elle est là.
+- **Mode discret** (décision 18) : l'audit ne montre que les points de validation V1 à V4 (§4 ter.3) et les étapes qui échouent ; le redressement,
+  l'assemblage, la silhouette lue et la texture tournent en arrière-plan. La personne ne voit que le résultat.
 - **Parcours** : l'audit propose les côtés du contour, la personne choisit un côté (la vue de prise existante, élévation devant la
   façade), prend une à huit photos du mur entier, l'assemblage et la pose s'affichent, la personne valide (§4 É9).
 - **Aucun écran n'est supprimé d'un coup** : le relevé garde son entrée tant que l'audit ne l'a pas remplacé (lot F6).
@@ -564,6 +660,7 @@ Chaque lot est livrable seul : CI verte, CHANGELOG (`## [Non publié]`), fumée 
 
 | Lot | Contenu | Critère d'acceptation |
 |---|---|---|
+| **F0 — Enchaînement et états d'étape** | L'orchestrateur pur (§4 ter.4), le type `EtapeFacade`, les objectifs en réglages, les états (`ok`, `a-confirmer`, `echec`, `saute`), les modes d'audit (`cache`, `resume`, `valider`) ; il appelle la chaîne existante sans la modifier | Rejouer un cas du banc de synthèse donne les mêmes sorties qu'aujourd'hui ; l'état de chaque étape est calculé ; une étape en échec arrête la suite ou continue sur une valeur dite supposée ; le banc ne bouge pas |
 | **F1 — Modèle et stockage** | `dimensions`, `forme`, `textureCalee`, `id` et `verifieeLe` des ouvertures ; validation, compactage, migration, groupes de `protections.ts` | Un fichier ancien se relit à l'identique ; aller-retour testé ; aucun champ nouveau écrit tant que rien ne le pose |
 | **F2 — Cas AE 101 et rejeu** | Le cas d'étalon dans le corpus réel ; le bouton « Rejouer » (déterministe) et la frise d'étapes de la calibration avec ses calques | Le rejeu d'AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape ; reproductible |
 | **F3 — Un run IA par façade** | Un schéma unique : `calage`, forme, `elements`, ouvertures, détails, `carreaux` ; une requête par façade ; réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | Les points de l'IA s'affichent sur l'É4, les boîtes et leurs carreaux sur l'É7 ; coût et version affichés ; le renfort à trois passes reste atteignable, hors défaut |
@@ -574,7 +671,7 @@ Chaque lot est livrable seul : CI verte, CHANGELOG (`## [Non publié]`), fumée 
 | **F8 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation (puis, plus tard, le reste du catalogue) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
 | **F9 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) : grille, petits bois, imposte | Un fichier sans carreaux se dessine comme avant ; l'empreinte `glb-structure.json` est dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
-Ordre conseillé : F1, F2, F3, F4 (le calage d'abord, parce que tout en dépend), **F5 ensuite** (la boucle toit est le cœur : la forme de la
+Ordre conseillé : F0 (le squelette, sans changer aucun résultat), F1, F2, F3, F4 (le calage d'abord, parce que tout en dépend), **F5 ensuite** (la boucle toit est le cœur : la forme de la
 façade n'a de valeur que si elle ajuste le toit), puis F6, F7, F8, et F9 (le rendu des carreaux) quand les cas réels les ont confirmés. F2 peut précéder F1 si le cas d'étalon est posé avant le modèle.
 
 ---
@@ -643,6 +740,9 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 - **Gabarit** : le haut de toute la façade, du plan et du LiDAR (`u` part de la largeur, `v` part de l'égout).
 - **Silhouette lue** : le haut du mur lu sur l'image (`triangle`, `trapeze`, `rampe`, `ligne-droite`, `marches`, `plusieurs-sommets`).
 - **Façade objet** : les ouvertures hors automatique d'une façade (§3.3).
+- **État d'étape** : `ok`, `a-confirmer`, `echec`, `saute` ; dérivé de l'objectif de l'étape, jamais enregistré comme vérité (§4 ter.1).
+- **Mode d'audit** : `cache`, `resume` ou `valider` ; un réglage d'affichage de l'audit, la calibration montre tout (§4 ter.3).
+- **Point de validation** : V1 le mur, V2 le toit, V3 les ouvertures, V4 la façade (§4 ter.3).
 - **Run IA** : l'unique requête par façade qui rend le calage, la forme, les éléments de toit, les ouvertures et leurs carreaux (§8).
 - **Carreaux** : la division du vitrage d'une ouverture (vantaux, grille, petits bois, imposte), lue par l'IA et rangée dans `details.carreaux`.
 - **Calage du mur** : bouts, égout et sol du mur sur l'assemblage.
