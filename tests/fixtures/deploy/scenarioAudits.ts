@@ -51,7 +51,7 @@ export async function jouerScenarioAudits(n: NavigationAudits, plateforme: Conte
   expect(fs.readFileSync(path.join(range, 'audit.json'), 'utf8')).toBe(texte);
   const fiche = JSON.parse(fs.readFileSync(path.join(range, 'fiche.json'), 'utf8')) as Record<string, unknown>;
   expect(fiche).toMatchObject({ id, organisation: ORGANISATION, nature: 'parcelle', idu: '78650000AE0101', adresse: '2 allée des Limites', taille: Buffer.byteLength(texte) });
-  expect(JSON.parse(fs.readFileSync(path.join(range, 'decisions.json'), 'utf8'))).toEqual({ format: 'plan-audit-decisions', version: 1, nature: 'parcelle', propositions: [], decisions: [] });
+  expect(JSON.parse(fs.readFileSync(path.join(range, 'decisions.json'), 'utf8'))).toEqual({ format: 'plan-audit-decisions', version: 2, nature: 'parcelle', propositions: [], decisions: [] });
   // Le serveur n'en garde que l'empreinte du secret.
   expect(JSON.stringify(fiche)).not.toContain(retrait);
 

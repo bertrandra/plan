@@ -101,6 +101,8 @@ export interface LecturePlu {
   demandeeLe: string;
   /** Une lecture de demonstration ou de test, pas de Claude (fumee, tests) : l'ecran le dit. */
   synthetique?: boolean;
+  /** La trace de l'appel sur le serveur (lot L0) : ce qui est parti, le PDF par son empreinte, et ce qui est revenu. */
+  trace?: string;
 }
 
 /** Le reglement d'une zone, lu pour le projet : la zone, la source, la lecture et ses faits. */
@@ -168,6 +170,7 @@ export function reglementPluEnregistre(v: unknown): ReglementPlu | null {
       sortie: l.sortie === undefined ? null : JSON.parse(JSON.stringify(l.sortie)) as unknown,
       demandeeLe: texte(l.demandeeLe, 40),
       ...(l.synthetique === true ? { synthetique: true } : {}),
+      ...(typeof l.trace === 'string' && l.trace ? { trace: l.trace.slice(0, 80) } : {}),
     },
     faits, remarques: texte(o.remarques),
   };

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -116,6 +117,25 @@ describe.skipIf(!php)('analyse.php, la lecture du PLU', () => {
     expect(typeof l.cout).toBe('number');
     expect(JSON.stringify(journal())).not.toContain('UL 9.2');
     expect(JSON.stringify(journal())).not.toContain(PDF.slice(0, 40));
+  });
+
+  it('garde le PDF dans la trace par son empreinte (lot L0), sans ses octets dans l’entrant ni dans le journal, et le rejoue tel quel', async () => {
+    const corps = await (await ecrire('admin/claude/messages', demandePlu())).json();
+    const octets = Buffer.from(PDF, 'base64');
+    const sha = createHash('sha256').update(octets).digest('hex');
+    expect(corps.trace).toMatch(/^\d{8}-\d{6}-/);
+    expect(corps.resultats[0].empreintes).toEqual([{ sha256: sha, octets: octets.length, type: 'application/pdf' }]);
+    const trouver = (d: string, nom: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? trouver(path.join(d, e.name), nom) : e.name === nom ? [path.join(d, e.name)] : []);
+    const pdfs = trouver(path.join(demos, 'claude'), sha + '.pdf');
+    expect(pdfs).toHaveLength(1);
+    expect(fs.readFileSync(pdfs[0]!).equals(octets)).toBe(true);
+    const entrant = fs.readFileSync(trouver(path.join(demos, 'claude'), 'entrant.json')[0]!, 'utf8');
+    expect(entrant).not.toContain(PDF.slice(0, 60));
+    expect(JSON.parse(entrant).requetes[0].contenu[0]).toEqual({ type: 'document', media_type: 'application/pdf', document: sha + '.pdf', octets: octets.length });
+    expect(journal().at(-1)).toMatchObject({ empreintes: [sha], trace: corps.trace });
+    // Rejoue depuis la trace : le meme PDF, octet pour octet.
+    const rejoue = appelPhp<{ type: string; source: { data: string } }[]>('contenuRejoue', JSON.parse(entrant).requetes[0], path.dirname(path.dirname(pdfs[0]!)));
+    expect(rejoue[0]).toEqual(blocPdf);
   });
 
   it('repart sans sortie structuree si l’API la refuse, avec l’exemple et la consigne de la lecture du PLU', async () => {

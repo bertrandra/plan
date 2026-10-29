@@ -1738,7 +1738,7 @@
      page ne deborde pas. */
   html[data-classe="large"] .dialogueAuditsParcelle{ width:min(1180px,96vw); }
   .sectionAuditsRecus{ margin-top:12px; }
-  .titreSectionAudits{ margin:0; font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
+  .titreSectionAudits, .titreExportDonnees{ margin:0; font-family:var(--sans); font-size:0.64rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); }
   .carteAuditRecu.ouverte{ border-color:var(--rule); }
   .conclusionAuditRecu{ font-variant-numeric:tabular-nums; }
   .detailAuditRecu{ margin-top:8px; padding-top:6px; border-top:1px solid var(--hairline); }

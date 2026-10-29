@@ -21,7 +21,7 @@ function client(reponse: Partial<ResultatsImmediats['resultats'][number]> = {}) 
   const demandes: DemandeAnalyse[] = [];
   const c = { immediat: async (d: DemandeAnalyse) => {
     demandes.push(d);
-    return { modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: [{ id: 'plu', statut: 'reussi', passe: 1, sortie: SORTIE, erreur: null, cout: 0.0042, brut: JSON.stringify(SORTIE), synthetique: true, ...reponse }] } as ResultatsImmediats;
+    return { modele: 'claude-haiku-5-5', prompt: 1, schema: 1, trace: '20261029-100000-claude-haiku-5-5-ab12', resultats: [{ id: 'plu', statut: 'reussi', passe: 1, sortie: SORTIE, erreur: null, cout: 0.0042, brut: JSON.stringify(SORTIE), synthetique: true, ...reponse }] } as ResultatsImmediats;
   } } as unknown as ClientAnalyse;
   return { c, demandes };
 }
@@ -62,7 +62,7 @@ describe('lireReglementPlu', () => {
     expect(g.faits.map((f) => [f.grandeur, f.valeur, f.statut])).toEqual([['emprise-max', 30, 'propose'], ['hauteur-absolue-max', 10, 'propose']]);
     expect(g.source).toMatchObject({ url: ADRESSE.url, page: 2, pages: [2, 3], pagesDocument: 3, empreinteDocument: 'be804d69f68cf5e76471109af367f496a89cc11ddc84caa14d7df2a4fa3b8fec' });
     expect(g.source.empreinte).toMatch(/^[0-9a-f]{64}$/);
-    expect(g.lecture).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0042, brut: JSON.stringify(SORTIE), synthetique: true, demandeeLe: '2026-10-29T10:00:00.000Z' });
+    expect(g.lecture).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, cout: 0.0042, brut: JSON.stringify(SORTIE), synthetique: true, demandeeLe: '2026-10-29T10:00:00.000Z', trace: '20261029-100000-claude-haiku-5-5-ab12' });
   });
 
   it('dit ce qui manque : la zone, le client, le reglement, une reponse', async () => {

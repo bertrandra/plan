@@ -108,7 +108,15 @@ export interface ResultatBatch {
   brut?: string | null;
   /** Une reponse de simulation (la fumee, les tests), pas de Claude : le serveur reel ne la pose jamais, l'ecran la dit synthetique. */
   synthetique?: boolean;
+  /**
+   * Les images de la requete telles que le serveur les a recues et gardees (lot L0) : l'empreinte de leurs octets, leur taille, leur
+   * type, dans l'ordre ; absentes d'un serveur d'avant le lot. Le PDF de la lecture du PLU y est aussi (`application/pdf`).
+   */
+  empreintes?: ImageGardee[];
 }
+
+/** Une image envoyee a Claude, gardee par le serveur sous son empreinte (`images/<sha256>.<ext>`). */
+export interface ImageGardee { sha256: string; octets: number; type: string }
 
 export interface ResultatsBatch {
   batch: VueBatch;
@@ -145,6 +153,8 @@ export interface ResultatsImmediats {
   modele: string;
   prompt: number;
   schema: number;
+  /** La trace de l'appel sur le serveur (lot L0 : toute requete en laisse une) ; absente d'un serveur d'avant. */
+  trace?: string;
   resultats: ResultatBatch[];
 }
 
