@@ -27,7 +27,7 @@ export type Niveau = 1 | 2 | 3 | 4 | 5 | 6;
 export const NIVEAU = { personne: 1, surPlace: 2, fait: 3, mesure: 4, officiel: 5, defaut: 6 } as const satisfies Record<string, Niveau>;
 
 /** Les ecrivains automatiques d'un batiment, et leur niveau. */
-export type Ecrivain = 'audit' | 'faits' | 'lidar' | 'recalage' | 'ortho' | 'ign';
+export type Ecrivain = 'audit' | 'faits' | 'lidar' | 'recalage' | 'ortho' | 'panoramax' | 'ign';
 export const NIVEAU_ECRIVAIN: Readonly<Record<Ecrivain, Niveau>> = {
   /** La proposition de l'audit cochee d'office (app/audit/parcelle/constats.ts) : arretee, elle arrive decochee. */
   audit: NIVEAU.surPlace,
@@ -39,6 +39,12 @@ export const NIVEAU_ECRIVAIN: Readonly<Record<Ecrivain, Niveau>> = {
   recalage: NIVEAU.mesure,
   /** La couleur du toit lue sur l'orthophoto, ou son repli (render/couleurToitOrtho.ts, a l'import et en tache de fond). */
   ortho: NIVEAU.mesure,
+  /**
+   * La couleur des murs lue sur les photos de rue Panoramax (render/couleurMurPhoto.ts a l'import, app/toits/mursFond.ts en tache
+   * de fond) : une mesure faite sur une photo, comme la couleur du toit sur l'orthophoto, par personne sur place. Elle n'ecrit que
+   * sa case, le groupe `photoMurs`.
+   */
+  panoramax: NIVEAU.mesure,
   /** L'actualisation IGN, et « Actualiser le projet » (app/cadastre/actualisationIgn.ts). */
   ign: NIVEAU.officiel,
 };
@@ -57,8 +63,14 @@ export type Groupe =
   | 'couverture'
   /** La couleur du toit (`toit.couleur`, `origineCouleur`). */
   | 'couleurToit'
-  /** La couleur et le materiau des murs (`couleurMurs`). */
+  /** La couleur et le materiau des murs retenus (`couleurMurs` : la source choisie, la couleur et le materiau vus sur place). */
   | 'murs'
+  /**
+   * La case de la photo de rue (`couleurMurs.photo`, et `lecture`) : une lecture rangee a part, que la couleur retenue
+   * (model/couleurMur.ts::couleurMursRetenue) prend ou non selon la source choisie. Groupe a part de `murs` : choisir la source
+   * « photo » choisit d'ou vient la couleur, pas sa valeur, et la lecture doit continuer de la tenir a jour.
+   */
+  | 'photoMurs'
   /** Les releves de facade (par mur, `cote`), le profil de facades. */
   | 'facades';
 
@@ -119,7 +131,7 @@ export interface BatimentProtege {
     verifieSurPlace?: { date: string } | null;
     toitLidarLu?: number | null;
     corpsToit?: readonly { cheminees?: readonly unknown[]; lucarnes?: readonly unknown[]; elementsToit?: readonly unknown[]; terrasse?: unknown; ouvert?: boolean; saillie?: unknown }[] | null;
-    couleurMurs?: { source?: unknown; materiau?: unknown; terrain?: unknown; photo?: unknown } | null;
+    couleurMurs?: { source?: unknown; materiau?: unknown; terrain?: unknown; photo?: unknown; lecture?: unknown } | null;
     facades?: readonly { cote: number; depuisAudit?: true }[] | null;
     profilFacades?: unknown;
   } | null;
@@ -204,6 +216,19 @@ function origineDesMurs(o: BatimentProtege, verifie: boolean): Origine {
   return m?.photo ? 'photoRue' : 'defaut';
 }
 
+/**
+ * La case de la photo de rue : occupee par une valeur plus forte quand une couleur vue sur place (`terrain`, audit valide) tient la
+ * meme place, la teinte des murs ; sinon la lecture elle-meme, ou rien. Ni la source choisie (elle dit d'ou prendre la couleur, et
+ * « photo » demande justement la lecture a jour), ni le materiau vu (une matiere, pas la teinte que la photo donne), ni
+ * `verifieSurPlace` seul (l'audit n'a pas valide de couleur : la photo reste la seule teinte connue) ne l'arretent. Aucun geste de la
+ * personne n'ecrit cette case.
+ */
+function origineDeLaPhotoDesMurs(o: BatimentProtege): Origine {
+  const m = o.batiment?.couleurMurs;
+  if (m?.terrain) return 'mursVus';
+  return m?.photo ? 'photoRue' : 'defaut';
+}
+
 /** Les facades : le releve du mur vise (a la main, par l'audit), verifie, le profil du moteur, ou rien. */
 function origineDesFacades(o: BatimentProtege, ctx: ContexteEcriture, verifie: boolean): Origine {
   const r = ctx.cote === undefined ? undefined : (o.batiment?.facades ?? []).find((x) => x.cote === ctx.cote);
@@ -226,6 +251,7 @@ export function origineActuelle(o: BatimentProtege, groupe: Groupe, ctx: Context
     case 'couverture': return o.batiment?.toit?.couverture ? 'couvertureChoisie' : 'defaut';
     case 'couleurToit': return origineDeLaCouleurDuToit(o, verifie);
     case 'murs': return origineDesMurs(o, verifie);
+    case 'photoMurs': return origineDeLaPhotoDesMurs(o);
     case 'facades': return origineDesFacades(o, ctx, verifie);
   }
 }

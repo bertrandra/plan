@@ -24,7 +24,7 @@ La forme lue sur l'image sert aussi à **ajuster le toit** : un triangle est un 
 qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles tranche.
 
 **Le fait qui structure toute la spec** : la silhouette d'une façade **n'est pas une donnée indépendante, elle est la projection du toit**
-(`gabarit = hautDeLaFacade(corps)`). Un écart entre le gabarit calculé et ce que montre la photo est donc d'abord une information sur le
+(`gabarit = gabaritDesCorps(silhouetteDeFace(corps))`, le même calcul que la silhouette du Mode Toit depuis le 29 octobre 2026). Un écart entre le gabarit calculé et ce que montre la photo est donc d'abord une information sur le
 **toit** (un pignon manquant, un pan pris pour un pignon…), pas seulement une erreur de calage. L'IA apporte la forme de la façade, donc un
 **ajustement du toit** ; elle découvre aussi d'autres éléments à placer (cheminées, lucarnes…).
 
@@ -86,7 +86,7 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 | Audit de la parcelle | `model/auditParcelle.ts` (`FacadeCapturee`, `BatimentCapture`), `app/audit/parcelle/` | Les photos par côté du contour (`facades[rang].photos`), les corrections de redressement, le bilan du redressement et de la fusion |
 | Chaîne unique | `facade/releve/chaine.ts`, `facade/analyseMur.ts::analyserLeMur`, `fondreLesVues` | Une photo ou plusieurs : redressement, assemblage, mur, détection, texture. Le même code pour l'audit, le relevé et la calibration |
 | Calage du mur | `facade/releve/coinsAuto.ts::murSurLAssemblage`, `vision/mosaiqueFuites.ts` (`rectangleSurLesAretes`, `rectangleDuMur`, `affinerEgoutEtSol`, `silhouetteDuMur`) | Les bouts, l'égout et le sol sur l'assemblage, par les arêtes puis par la teinte du mur |
-| Gabarit | `facade/gabaritMur.ts` (`hautDeLaFacade`, `gabaritDesCorps`, `gabaritSurLaVue`) | Le haut de toute la façade vue de dehors, tous corps compris, en parts de la largeur (`u`) et de l'égout (`v`) |
+| Gabarit | `facade/gabaritMur.ts` (`gabaritDesCorps`, `contourDuGabarit`, `gabaritSurLaVue`), tiré de `facade/regles/toits/silhouetteDesCorps.ts::silhouetteDeFace` | Le haut de toute la façade vue de dehors, tous corps compris, en parts de la largeur (`u`) et de l'égout (`v`) ; `u` peut sortir de 0..1 quand le mur d'un corps continue la façade au-delà de son côté (la détection ne lit que 0..1) |
 | Silhouette → toit | `model/silhouetteFacade.ts`, `facade/regles/toits/silhouettes.ts`, `silhouetteDesCorps.ts` | `triangle`, `trapeze`, `rampe`, `ligne-droite`, `marches`, `plusieurs-sommets` ; lue sur la photo (par Claude ou par `classerProfil`), relue en observation par le moteur |
 | Façade relevée | `model/typesReleve.ts::ReleveFacade`, `OuvertureFacade` | `largeur`, `hauteur`, `texture` (JPEG redressé), `photoLocale`, `hauteurTexture`, `ouvertures`, `calage`, `grille`, `depuisAudit` |
 | Fenêtres automatiques | `facade/ouvertures.ts::ouverturesAutomatiques`, `three/detailsBatiment.ts::poserOuvertures` | Recalculées à chaque dessin ; un mur relevé n'en reçoit pas |
@@ -561,9 +561,23 @@ Règles :
 
 ## 5 ter. Une façade, plusieurs corps
 
+**Deux silhouettes, deux mots** (décision de la personne, 29 octobre 2026). On ne les confond plus :
+
+| | **Silhouette du corps** | **Silhouette de la façade complète** |
+|---|---|---|
+| Ce que c'est | le haut d'**un** mur d'**un** corps : son pignon, sa croupe, la rampe d'un appentis | ce que montre **la photo** : toutes les silhouettes de corps visibles depuis la façade, projetées sur son plan, la plus haute l'emportant |
+| Calcul | `silhouetteDuCorps(corps, mur)` | `silhouetteDeFace(façade, corps)`, faite des silhouettes de corps |
+| Où elle se voit | le Mode Toit 3D, sur le corps choisi | le gabarit de l'audit, du relevé et de la calibration, calé sur l'assemblage |
+| À quoi elle sert | au diagnostic **par corps** et aux corrections, dans le repère du corps (`murDuCorps`) | au **calage** du mur (bouts, égout, sol) et à la comparaison avec la **silhouette lue** |
+| Bornes | les bouts du mur de ce corps | les bouts de ce qui se voit : le côté du contour, ou plus loin quand le mur d'un corps continue la façade |
+
+La silhouette lue sur la photo se compare à la **silhouette de la façade complète** ; l'écart se découpe en tronçons (`forme.corps`), et chaque
+tronçon renvoie à la **silhouette du corps** qui le porte : c'est là que s'écrit la proposition de toit. Une correction ne s'écrit jamais sur
+la silhouette de la façade complète : elle n'est qu'une projection, recalculée à partir des corps.
+
 Une façade du contour (un côté de `pts`) n'est pas un corps : elle peut longer le mur du **corps principal**, celui d'une **aile**, d'un
 **appentis**, d'un **bow-window** ou d'une **galerie**, à des profondeurs différentes. Le gabarit, lui, est le haut de **tous** les corps,
-le plus haut l'emportant (`hautDeLaFacade`). Pour corriger un toit, il faut savoir **à quel corps appartient chaque partie de la
+le plus haut l'emportant (`silhouetteDeFace`). Pour corriger un toit, il faut savoir **à quel corps appartient chaque partie de la
 silhouette**.
 
 - **Découpage de la façade en tronçons de corps.** Pour chaque abscisse `u` du mur, on garde le corps qui porte le haut visible : celui dont
@@ -575,8 +589,15 @@ silhouette**.
   depuis `pts[0]`, pan 0 ou 1 (le côté du mur regardé). C'est le repère de `PignonToit` (`pan`, `debut`, `fin`, `faitage`), de `Lucarne`
   et de `Cheminee`, que le Mode Toit sait déjà poser.
 - **Silhouette d'un seul corps** : `facade/regles/toits/silhouetteDesCorps.ts` lit déjà le haut du mur **d'un seul corps**, celui qui le
-  porte ; il sert au diagnostic par corps. `gabaritMur.ts::hautDeLaFacade`, qui montre toute la façade, sert à caler et à illustrer.
-  Les deux ne se fondent pas (leurs verdicts changeraient : `silhouetteDesCorps.ts` le dit).
+  porte ; il sert au diagnostic par corps (`silhouetteDesCorps`, `motDuHaut` : le verdict de forme lu sur le LiDAR). Le gabarit de
+  toute la façade, qui sert à caler et à illustrer, est depuis le 29 octobre 2026 (bertrandra/plan#483) **la même projection que la
+  silhouette du Mode Toit** : `silhouetteDuCorps(c, mur)` pour chaque mur de corps qui fait face à la façade (à 60° près), projeté sur
+  son plan, le plus haut l'emportant ; un corps plus haut en retrait se voit au-dessus d'un plus bas devant ; un mur à plus d'un mètre
+  devant la façade n'en est pas (`DEVANT_FACE_M`) ; un mur dans le plan de la façade qui la dépasse se voit entier
+  (`MUR_CORPS_DISTANCE_M`). Le verdict de forme et le gabarit restent deux lectures (fondre le verdict changerait ses réponses :
+  `silhouetteDesCorps.ts` le dit), mais ils partent des mêmes corps. **Le découpage `forme.corps` part de là** : `silhouetteDeFace`
+  sait, à chaque abscisse, quel mur de corps porte le haut visible ; il reste à le rendre (aujourd'hui elle ne rend que `x0`, `x1` et
+  `haut`).
 - **Ce qui est à étendre** : les pignons que posent les faits ne vont aujourd'hui que sur le corps principal
   (`facade/regles/toits/pignons.ts`, `pignonsAuxBouts`) ; il faut les adresser à n'importe quel corps, par son mur. Même chose pour les
   lucarnes et les cheminées lues.
@@ -884,8 +905,11 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 
 - **Mur** : un côté du contour, de `pts[cote]` à `pts[cote+1]`. **Façade** : l'enregistrement qui le décrit (§3.2).
 - **Assemblage** : l'image redressée et fusionnée des photos d'un mur ; l'image prise pour la suite.
-- **Gabarit** : le haut de toute la façade, du plan et du LiDAR (`u` part de la largeur, `v` part de l'égout).
-- **Silhouette lue** : le haut du mur lu sur l'image (`triangle`, `trapeze`, `rampe`, `ligne-droite`, `marches`, `plusieurs-sommets`).
+- **Silhouette du corps** : le haut d'un mur d'un seul corps (`silhouetteDuCorps`), celle du Mode Toit ; le repère des corrections (§5 ter).
+- **Silhouette de la façade complète** : ce que la photo montre, toutes les silhouettes de corps visibles projetées, la plus haute l'emportant
+  (`silhouetteDeFace`) ; le gabarit en est la forme normalisée (§5 ter).
+- **Gabarit** : la silhouette de la façade complète en parts de la largeur (`u`) et de l'égout (`v`), du plan et du LiDAR (`gabaritDesCorps`).
+- **Silhouette lue** : le haut du mur lu sur l'image, comparé à la silhouette de la façade complète (`triangle`, `trapeze`, `rampe`, `ligne-droite`, `marches`, `plusieurs-sommets`).
 - **Façade objet** : les ouvertures hors automatique d'une façade (§3.3).
 - **État d'étape** : `ok`, `a-confirmer`, `echec`, `saute` ; dérivé de l'objectif de l'étape, jamais enregistré comme vérité (§4 ter.1).
 - **Mode d'audit** : `cache`, `resume` ou `valider` ; un réglage d'affichage de l'audit, la calibration montre tout (§4 ter.3).

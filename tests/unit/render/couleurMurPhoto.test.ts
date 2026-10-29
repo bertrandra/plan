@@ -102,6 +102,32 @@ describe('couleursMursDepuisPhotos', () => {
     expect(objets[1]!.batiment?.couleurMurs).toEqual({ photo: null });
   });
 
+  it('une annexe se lit comme un batiment (le bati entier, model/fonctions.ts::estBati)', async () => {
+    const { objets, options } = quartier([217, 210, 196]);
+    objets[1]!.fonction = 'annexe';
+    expect(await couleursMursDepuisPhotos(objets, proj, options)).toEqual({ photos: 1, ambigus: 0 });
+    expect(objets[1]!.batiment?.couleurMurs?.photo?.couleur).toBe('#D9D2C4');
+    const issues = await couleursMursDUneZone([objets[1]!], [objets[1]!], [objets[0]!], proj, options);
+    expect(issues).toEqual([{ cle: 'm', photo: expect.objectContaining({ couleur: '#D9D2C4' }) }]);
+  });
+
+  it('la source « photo » choisie par la personne recoit la lecture a jour ; sa source reste', async () => {
+    const { objets, options } = quartier([217, 210, 196]);
+    objets[1]!.batiment = { couleurMurs: { source: 'photo', photo: { couleur: '#111111', id: 'vieille', date: null, auteur: null, licence: null } } };
+    expect(await couleursMursDepuisPhotos(objets, proj, options)).toEqual({ photos: 1, ambigus: 0 });
+    expect(objets[1]!.batiment.couleurMurs).toEqual({ source: 'photo', photo: { couleur: '#D9D2C4', id: 'ph1', date: '2018-03-21T12:00:00Z', auteur: 'IGN', licence: 'etalab-2.0' } });
+  });
+
+  it('une couleur vue sur place (audit valide) arrete la lecture : ni photo telechargee, ni case ecrite (model/protections.ts)', async () => {
+    const { objets, options, charges } = quartier([217, 210, 196]);
+    const vue = { terrain: { couleur: '#D9C7A5', date: '2026-10-20' }, source: 'photo' as const };
+    objets[1]!.batiment = { couleurMurs: { ...vue } };
+    expect(await couleursMursDepuisPhotos(objets, proj, options)).toEqual({ photos: 0, ambigus: 0 });
+    expect(objets[1]!.batiment.couleurMurs).toEqual(vue);
+    expect(await couleursMursDUneZone([objets[1]!], [objets[1]!], [objets[0]!], proj, options)).toEqual([]);
+    expect(charges).toEqual([]);
+  });
+
   it('sans photo ou sans service : rien ne change', async () => {
     const { objets } = quartier([217, 210, 196]);
     expect(await couleursMursDepuisPhotos(objets, proj, { chercher: async () => [] })).toEqual({ photos: 0, ambigus: 0 });
