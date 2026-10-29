@@ -512,9 +512,10 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
   - 1. les repères sur chaque photo, ou les points de fuite ;
   - 2. chaque photo redressée entière, sans coupe ni échelle ;
   - 3. l'assemblage, l'égout et le sol cherchés, la silhouette posée ;
-  - 4. **la façade complète** : l'assemblage de l'étape 3, entier et tel quel. L'écran le fait une fois et le passe à l'analyse
-    (`preparerCas(…, assemblage)`). La silhouette y est remise à l'échelle de la façade, entre les coins du mur ramenés de la photo
-    (`EditeurCasCalibration.tsx::assemblageDeLaSerie`) ;
+  - 4. **la façade complète** : l'assemblage de l'étape 3, entier et tel quel, pris pour l'analyse. La silhouette y est remise à
+    l'échelle de la façade, entre les coins du mur ramenés de la photo. *(Depuis le lot F0 du 29 octobre 2026, ces étapes sont celles
+    de l'orchestrateur, `facade/releve/enchainement.ts` : la calibration les montre dans sa barre de progression et sa frise,
+    `MD/spec-facade-calage-audit.md` §4 ter et §7.3.)* ;
   - 5. **caler la silhouette** (`zones/CalageSilhouette.tsx`) : sur la façade fusionnée entière, sans rognage. La silhouette se
     déplace et se redimensionne par ses bouts et son sol, **proportions verrouillées** (sa hauteur suit sa largeur) ;
   - 6. **ajuster la hauteur de la photo** : une poignée en haut l'étire en hauteur autour du sol, en direct (de 50 à 200 %), rien

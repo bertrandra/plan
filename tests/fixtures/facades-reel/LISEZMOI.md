@@ -11,6 +11,10 @@ npx tsx .claude/skills/facades/scripts/reel.ts extraire ~/audit-….json
 NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer
 ```
 
+- **Les étalons** (`etalons/`, lot F0 de `MD/spec-facade-calage-audit.md`) : la vérité d'un cas sans ses photos (dimensions et
+  gabarit du plan, mur vrai sur l'assemblage, vraie forme du toit corps par corps, ce qui a été constaté). Le premier est la façade sud
+  d'AE 101. Tirez le cas de l'audit (Admin › Calibrer la détection), enregistrez-le, puis
+  `NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts etalon <cas.json>` le rejoue étape par étape avec sa vérité.
 - Un `brouillon` n'est **pas** une vérité : c'est ce que Plan avait proposé. Seuls les cas `valide` comptent.
 - Visez des cas variés : brique, enduit, pierre, volets, haie ou voiture devant, ton sur ton, vitrages qui reflètent, plusieurs
   photos d'un même mur (pour juger la fusion et le vote). Notez les `difficultes` pour lire les résultats par cause.

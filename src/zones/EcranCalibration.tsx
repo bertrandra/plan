@@ -11,9 +11,10 @@
 import { useEffect, useState } from 'react';
 import { EditeurCasCalibration, type OutilsPhotos } from './EditeurCasCalibration.js';
 import {
-  CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, FORMAT_CAS_REEL, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke, preparerCas,
+  CAS_MIN_CALIBRATION, FORMAT_CALIBRATION, FORMAT_CAS_REEL, PARAMETRES, bilan, calibrer, evaluerPrepare, fiabilite, lireCasStocke,
   type Bilan, type CasPrepare, type CasStocke, type DocumentCalibration, type ResultatCalibration,
 } from '../facade/corpusReel.js';
+import { preparerPourLaMesure } from '../facade/releve/enchainement.js';
 import type { ResumeCasCalibration } from '../io/depotDemos.js';
 
 export interface DepsCalibration extends OutilsPhotos {
@@ -153,8 +154,8 @@ function PanneauCalibration({ deps, resumes, doc, appliquer }: PropsPanneau) {
     for (const r of valides) {
       try {
         const cas = lireCasStocke(await deps.lireCas(r.id));
-        const p = preparerCas(cas, await Promise.all(cas.images.map((u) => deps.decoder(u))));
-        if (p) ok.push(p); else ko.push(r.nom + ' (ne se redresse pas)');
+        const { prepare } = await preparerPourLaMesure(cas, await Promise.all(cas.images.map((u) => deps.decoder(u))));
+        if (prepare) ok.push(prepare); else ko.push(r.nom + ' (ne se redresse pas)');
       } catch (e) { ko.push(r.nom + ' (' + ((e as Error).message || 'illisible') + ')'); }
     }
     setPrepares(ok); setIgnores(ko); setOccupe(null);

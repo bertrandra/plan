@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { PARAMETRES, bilan, calibrer, evaluerPrepare, mesurerPrepare, preparerCas, score, surchargesValides, FORMAT_CAS_REEL, type CasReel } from '../../../src/facade/corpusReel.js';
+import { PARAMETRES, bilan, calibrer, evaluerPrepare, mesurerPrepare, score, surchargesValides, FORMAT_CAS_REEL, type CasReel } from '../../../src/facade/corpusReel.js';
+import { preparerPourLaMesure } from '../../../src/facade/releve/enchainement.js';
 import { reglagesDetection } from '../../../src/facade/regles/facades/detection.js';
 import { reglagesStructure } from '../../../src/facade/regles/facades/structure.js';
 import { poserSurchargesCalibrees, surchargesCalibrees } from '../../../src/facade/regles/facades/surcharges.js';
@@ -11,14 +12,14 @@ import { photographier, coinsVrais, type PriseCamera } from '../../banc/facades/
 
 afterEach(() => poserSurchargesCalibrees({}));
 
-function cas(debut: string) {
+async function cas(debut: string) {
   const s = chargerCorpus().find((c) => c.nom.startsWith(debut));
   if (!s) throw new Error('scene absente');
   const p = s.synthese.prise as PriseCamera;
   const ph = photographier(s, 100, p), coins = coinsVrais(s, p);
   if (!ph || !coins) throw new Error('scene impossible');
   const c: CasReel = { format: FORMAT_CAS_REEL, version: 1, nom: s.nom, statut: 'valide', largeurM: s.verite.largeur, hauteurM: s.verite.hauteur, photos: [{ fichier: 'synthese', coins, focalePx: ph.focalePx }], ouvertures: s.verite.ouvertures as never };
-  return preparerCas(c, [ph.image]);
+  return (await preparerPourLaMesure(c, [ph.image])).prepare;
 }
 
 describe('les surcharges posees', () => {
@@ -47,8 +48,8 @@ describe('les surcharges posees', () => {
 });
 
 describe('la calibration sur des cas fabriques', () => {
-  it('mesure un cas, et la detection seule rend la meme chose que la chaine sans vote', () => {
-    const p = cas('02-');
+  it('mesure un cas, et la detection seule rend la meme chose que la chaine sans vote', async () => {
+    const p = await cas('02-');
     expect(p).not.toBeNull();
     const m = mesurerPrepare(p!);
     expect(m.vp).toBe(6);
@@ -56,7 +57,7 @@ describe('la calibration sur des cas fabriques', () => {
     expect(d.vp).toBe(6);
   });
   it('ne degrade jamais le score, borne ses changements et est deterministe', async () => {
-    const prepares = ['06-', '12-', '02-'].map((d) => cas(d)!);
+    const prepares = await Promise.all(['06-', '12-', '02-'].map(async (d) => (await cas(d))!));
     const noms = ['facades.detection.areteNette', 'facades.detection.remplissageMin', 'facades.detection.petiteSurfaceM2'];
     const un = await calibrer(prepares, noms, {});
     const deux = await calibrer(prepares, noms, {});
@@ -72,7 +73,7 @@ describe('la calibration sur des cas fabriques', () => {
     expect(bilan(prepares.map((p) => evaluerPrepare(p, un.reglages))).f1).toBeCloseTo(un.apres.f1 ?? 0, 9);
   }, 120_000);
   it('rapporte son avancement et rend la main', async () => {
-    const prepares = [cas('02-')!];
+    const prepares = [(await cas('02-'))!];
     const vus: string[] = [];
     let mains = 0;
     await calibrer(prepares, ['facades.detection.areteNette', 'facades.detection.seuilMin'], {}, { facteurs: [1.1], progression: (_, t, n) => vus.push(n + '/' + t), rendreLaMain: async () => { mains++; } });

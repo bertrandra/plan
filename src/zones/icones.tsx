@@ -14,7 +14,7 @@ export type NomIcone =
   | 'grille' | 'ajuster' | 'nord' | 'oeil' | 'oeilBarre' | 'menu' | 'exporter' | 'fermer'
   | 'chevronBas' | 'chevronHaut' | 'chevronGauche' | 'chevronDroite' | 'objets' | 'reglages' | 'resultats'
   | 'plus' | 'moins' | 'cadenas' | 'info' | 'cube' | 'orbite' | 'deplacer' | 'loupe' | 'image'
-  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit';
+  | 'personne' | 'pleinEcran' | 'soleil' | 'engrenage' | 'camera' | 'coche' | 'etiquette' | 'isoler' | 'toit' | 'alerte';
 
 /** Les traces, chacun dans un repere de 24 × 24. */
 const TRACES: Record<NomIcone, React.ReactNode> = {
@@ -73,7 +73,9 @@ const TRACES: Record<NomIcone, React.ReactNode> = {
   engrenage: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" /></>,
   camera: <><path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z" /><circle cx="12" cy="13" r="3.5" /></>,
   coche: <path d="M5 12.5l4.5 4.5L19 7.5" />,
-  etiquette: <><path d="M3.5 12.5V4.5a1 1 0 011-1h8l8 8-9 9z" /><circle cx="8" cy="8" r="1.4" /></>
+  etiquette: <><path d="M3.5 12.5V4.5a1 1 0 011-1h8l8 8-9 9z" /><circle cx="8" cy="8" r="1.4" /></>,
+  // Le point d'exclamation : une etape a confirmer (la barre de progression des facades), une forme et pas seulement une couleur.
+  alerte: <><path d="M12 4l9 16H3z" /><path d="M12 10v4.5M12 17.5h.01" /></>
 };
 
 export function Icone({ nom, taille = 22 }: { nom: NomIcone; taille?: number }) {

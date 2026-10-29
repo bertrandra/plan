@@ -2,14 +2,17 @@
 // admin « Calibrer la detection » s'en sert aussi). Ici : la mesure d'un cas contre ses photos decodees, les tableaux Markdown,
 // et les brouillons tires d'un fichier d'audit.
 
-import { FORMAT_CAS_REEL, fiabilite, mesurerPrepare, preparerCas, type CasReel, type OuvertureVraie, type ResultatCas } from '../../../src/facade/corpusReel.js';
+import { FORMAT_CAS_REEL, fiabilite, lireCasReel, mesurerPrepare, type CasReel, type OuvertureVraie, type ResultatCas } from '../../../src/facade/corpusReel.js';
+import { derouler, entreesDuCas, preparerPourLaMesure, veriteDuCas } from '../../../src/facade/releve/enchainement.js';
+import { rechercher } from '../../../src/facade/releve/serie.js';
+import { etapeFacade, LIBELLES_ETAT } from '../../../src/model/etapeFacade.js';
 import type { Image, P2 } from '../../../src/facade/vision/homographie.js';
 
 export { FORMAT_CAS_REEL, fiabilite, juger, lireCasReel, type CasReel, type Fiabilite, type Jugee, type ResultatCas, type OuvertureVraie } from '../../../src/facade/corpusReel.js';
 
 /** Mesure un cas : `images` sont les photos decodees, dans l'ordre de `cas.photos`. `multiVues: false` ne lit que la premiere photo. */
-export function mesurerCas(cas: CasReel, images: readonly Image[], multiVues = true): ResultatCas {
-  const p = preparerCas(cas, images, multiVues);
+export async function mesurerCas(cas: CasReel, images: readonly Image[], multiVues = true): Promise<ResultatCas> {
+  const { prepare: p } = await preparerPourLaMesure(cas, images, !multiVues);
   return p ? mesurerPrepare(p) : { nom: cas.nom, vraies: cas.ouvertures.length, trouvees: 0, vp: 0, fp: 0, fn: cas.ouvertures.length, coteMedianeCm: null, jugees: [] };
 }
 
@@ -58,4 +61,44 @@ export function brouillonsDeLAudit(audit: unknown, base: string): Brouillon[] {
     });
   }
   return out;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Les cas d'etalon : la verite d'un cas, sans ses photos (tests/fixtures/facades-reel/etalons/)
+// ------------------------------------------------------------------------------------------------
+
+/** La verite d'un cas d'etalon : ses dimensions et son gabarit du plan, le mur vrai, la vraie forme du toit, et ce qu'on a constate. */
+export interface EtalonFacade {
+  format: 'plan-etalon-facade';
+  version: 1;
+  nom: string;
+  source: { idu: string; cleabs: string; cote: number; orientation: string; fixture: string };
+  largeurM: number;
+  hauteurM: number;
+  gabarit: { u: number; v: number }[];
+  calageVrai: NonNullable<CasReel['calageVrai']>;
+  constat: { le: string; versionChaine: number; murCherche: { x0: number; x1: number }; texte: string };
+  toitVrai: NonNullable<CasReel['toitVrai']>;
+}
+
+/** Relit un etalon : sa verite passe par la lecture d'un cas (lireCasReel), qui la refuse mal formee. */
+export function lireEtalon(donnees: unknown): EtalonFacade {
+  const e = donnees as Partial<EtalonFacade> | null;
+  if (!e || e.format !== 'plan-etalon-facade' || e.version !== 1 || !e.constat || !e.source) throw new Error('Ce n’est pas un etalon de facade.');
+  const cas = lireCasReel({ format: FORMAT_CAS_REEL, version: 1, nom: e.nom, statut: 'brouillon', largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, calageVrai: e.calageVrai, toitVrai: e.toitVrai, photos: [{ fichier: '-', coins: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }], ouvertures: [] });
+  return { ...(e as EtalonFacade), gabarit: cas.gabarit as EtalonFacade['gabarit'], calageVrai: cas.calageVrai as EtalonFacade['calageVrai'], toitVrai: cas.toitVrai as EtalonFacade['toitVrai'] };
+}
+
+/** Le cas tire de l'audit, avec la verite de son etalon : les dimensions et le gabarit du plan, le mur vrai, la vraie forme du toit. */
+export function poserEtalon<C extends CasReel>(cas: C, e: EtalonFacade): C {
+  return { ...cas, largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, calageVrai: e.calageVrai, toitVrai: e.toitVrai };
+}
+
+/** Le rejeu d'un cas etape par etape, comme « Rejouer » de la calibration (coins cherches, assemblage) : une ligne par etape. */
+export async function rejouerEtapes(cas: CasReel, images: readonly Image[]): Promise<string[]> {
+  const r = await derouler(entreesDuCas(cas, images), { coins: 'chercher', image: 'assemblage', chercherCoins: async (q) => rechercher(q), verite: veriteDuCas(cas) });
+  return [
+    `Rejeu de « ${cas.nom} » : chaîne des façades version ${r.versions.chaine}, objectifs ${r.versions.objectifs}.`, '',
+    ...r.etapes.map((x) => `- ${etapeFacade(x.id).numero} ${etapeFacade(x.id).nom} : **${LIBELLES_ETAT[x.etat]}**. ${x.resume}${x.verite ? ' ' + x.verite.texte : ''}`),
+  ];
 }

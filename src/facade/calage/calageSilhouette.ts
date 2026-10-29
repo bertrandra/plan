@@ -1,4 +1,4 @@
-// Le calage de la silhouette du mur sur la facade complete (Admin › Calibrer la detection, etapes 5 et 6 ; zones/CalageSilhouette.tsx
+// Le calage de la silhouette du mur sur la facade complete (Admin › Calibrer la detection, option manuelle du calage du mur, E4 ; zones/CalageSilhouette.tsx
 // le montre) : ses bouts et son sol en pixels de l'assemblage, sa hauteur tenue par le rapport du plan, et l'etirement vertical de la
 // photo autour du sol. Pur.
 
