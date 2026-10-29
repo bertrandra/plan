@@ -143,6 +143,9 @@ describe('l ecran de calibration', () => {
       await act(async () => { champ.dispatchEvent(new Event('change', { bubbles: true })); await Promise.resolve(); await Promise.resolve(); });
       await attendre(1500);
     }
+    // Le rejeu de la seconde photo peut finir apres l'attente fixe sur une machine chargee : on attend
+    // ce qu'il ecrit plutot qu'une duree.
+    await attendreQue(() => /coins devinés, à vérifier/.test(hote.textContent ?? '') && !!hote.querySelector('.barreFacadeSegment.echec'));
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
     expect(hote.textContent).toMatch(/coins devinés, à vérifier/);
     // La barre le dit sur son segment « Image », et l'etape du redressement, ouverte, dit pourquoi et quel geste faire.
