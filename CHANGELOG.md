@@ -41,6 +41,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La Vue 3D ne pose plus de cheminée que personne n'a vue — changement d'export (version majeure).** Sur un toit simple ou en
+  volumes en pente de plus de 40 m², la 3D dessinait d'office une cheminée au tiers du faîtage, qu'aucune source n'avait vue : elle
+  disparaissait quand le LiDAR arrivait, et l'audit comptait zéro cheminée là où la 3D en montrait une. Une souche ne se dessine
+  plus que depuis les données du bâtiment (LiDAR, règles, audit, Mode Toit ; le geste « Cheminée » du Mode Toit sur un toit simple
+  crée le corps qui la porte). Le `.glb` exporté perd une maille par bâtiment concerné : sur la démonstration, la Maison, d'où le
+  témoin `glb-structure.json` à 1 143 nœuds, 955 mailles, 1 454 matériaux, 3 954 accesseurs et 3 970 vues tampon (calculé, à
+  refermer par le point 24 sous `RECAPTURER_GLB=1` ; `tests/fixtures/golden/EMPREINTES.md`, « Version suivante »). Les autres
+  exports et les quantités ne bougent pas. `MD/spec-flux-batiment.md`, point 12.
+
 - **Mode Toit : un corps choisi montre son mur le plus visible.** Sa silhouette et ses poignées se posaient sur son mur le plus tourné
   vers la caméra, qui peut être caché derrière l'autre corps d'une maison à deux corps (le pignon de « Corps 2 », contre le corps
   principal). C'est maintenant le mur que l'on voit le mieux : tourné vers la caméra et le moins caché par les autres corps (des

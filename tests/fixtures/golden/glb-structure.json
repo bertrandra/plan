@@ -5,13 +5,13 @@
   "generator": "THREE.GLTFExporter r186",
   "versionGltf": "2.0",
   "compteurs": {
-    "noeuds": 1144,
-    "mailles": 956,
-    "materiaux": 1455,
+    "noeuds": 1143,
+    "mailles": 955,
+    "materiaux": 1454,
     "textures": 16,
     "images": 16,
-    "accesseurs": 3958,
-    "vuesTampon": 3974,
+    "accesseurs": 3954,
+    "vuesTampon": 3970,
     "scenes": 1
   },
   "nomsMailles": [

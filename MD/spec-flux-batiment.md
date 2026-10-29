@@ -701,9 +701,13 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
     `toitsEtMurs.ts:1-2` aussi.~~ — corrigé le 28 octobre 2026 : le bilan les compte à part (« bâtiment(s) au toit réglé à la main
     (« Règles » coupées) conservé(s) tel(s) quel(s) », `raisonDeGarder`), et le dialogue d'« Actualiser le projet » a un point pour
     eux (`POINT_FIGES`, `batimentsFiges`).
-12. **La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
+12. ~~**La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
     (`three/detailsBatiment.ts:569-608`) en dessine une au tiers du faîtage ; en mode corps, seules les cheminées des données se
-    dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.
+    dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.~~
+    — corrigé le 29 octobre 2026 : `poserCheminee` est retirée ; une souche ne se dessine que depuis `corps.cheminees` (LiDAR,
+    règles, audit, Mode Toit ; `three/cheminees3d.ts`). Un toit simple n'a pas de champ de cheminée : le geste « Cheminée » du Mode
+    Toit crée le corps qui la porte (`corpsDepuisToitSimple`). Le `.glb` perd une maille par bâtiment concerné (version majeure,
+    `tests/fixtures/golden/EMPREINTES.md`).
 13. ~~**Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
     le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.~~
     — *Laissé le 28 octobre 2026* : `locked` ne veut pas dire « toit à ne pas retoucher ». La maison du projet est verrouillée à

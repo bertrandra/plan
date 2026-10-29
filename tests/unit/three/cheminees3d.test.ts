@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { facettesCheminee, ajouterCheminees3d, chemineeValide, couleurSouche, NOM_CHEMINEE_SOUCHE, NOM_CHEMINEE_COURONNEMENT, NOM_CHEMINEE_MITRONS, EPAISSEUR_DALLE_M, DEBORD_DALLE_M, ENFONCEMENT_SOUCHE_M, MITRON } from '../../../src/three/cheminees3d.js';
 import { hauteurCorpsEn } from '../../../src/facade/toits/toitCorps.js';
-import type { Cheminee, CorpsToit, PtBrut } from '../../../src/model/types.js';
+import type { Cheminee, CorpsToit, ObjetPlan, PtBrut } from '../../../src/model/types.js';
+import { appliquerPiece } from '../../../src/three/gestesToits.js';
+import { modeToitActif } from '../../../src/model/toitMesure.js';
 
 // Les souches de cheminee (MD/spec-regles-toits.md §2.6) : leur place selon leur position, leur pied
 // qui suit le toit, leur couronnement, et rien de plus pour un corps sans cheminee.
@@ -133,5 +135,24 @@ describe('ajouterCheminees3d', () => {
     // Quatre faces de deux triangles pour la souche.
     expect(enfants[0]!.geometry.index).toHaveLength(4 * 2 * 3);
     expect(enfants[3]!.material.p.color).toBe(0x8a5a44);
+  });
+
+  it('une cheminee des donnees se dessine : celle de l audit ou des regles, sur son corps', () => {
+    const { enfants, ctx } = scene();
+    expect(ajouterCheminees3d(ctx, [corps(), corps([souche({})])]).souches).toBe(1);
+    expect(enfants.some((m) => m.name === NOM_CHEMINEE_SOUCHE)).toBe(true);
+  });
+
+  it('une cheminee posee au Mode Toit sur un toit simple se dessine : le geste cree le corps qui la porte', () => {
+    // La 3D ne devine plus de cheminee sur un toit simple (MD/spec-flux-batiment.md, point 12) : la seule
+    // voie est la donnee, et le geste « Cheminee » l'ecrit sur un corps tire du toit simple.
+    const o = { key: 'b', name: 'Maison', type: 'polygon', fonction: 'batiment', elevation: 3,
+      pts: [p(0, 0), p(10, 0), p(10, 6), p(0, 6)],
+      batiment: { toit: { forme: 'deux-pans', hauteur: 2.5, angleFaitage: 0, source: 'bdtopo' } } } as unknown as ObjetPlan;
+    expect(appliquerPiece(o, 'sur:cheminee')).toBe(true);
+    expect(modeToitActif(o.batiment)).toBe('corps');
+    const { enfants, ctx } = scene();
+    expect(ajouterCheminees3d(ctx, o.batiment!.corpsToit!).souches).toBe(1);
+    expect(enfants.some((m) => m.name === NOM_CHEMINEE_SOUCHE)).toBe(true);
   });
 });

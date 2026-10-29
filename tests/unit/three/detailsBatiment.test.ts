@@ -93,10 +93,10 @@ describe('niveaux et fenetres', () => {
 });
 
 describe('ajouterDetailsBatiment', () => {
-  it('pose debord, gouttiere, aretes, soubassement, ouvertures et cheminee sur une maison a deux pans', () => {
+  it('pose debord, gouttiere, aretes, soubassement et ouvertures sur une maison a deux pans', () => {
     const { ajoutes, ctx } = scene();
     ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0 } } }, 6, { etages: 2 });
-    expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-cheminee', 'batiment-debord', 'batiment-gouttiere', 'batiment-ouvertures', 'batiment-soubassement']);
+    expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-debord', 'batiment-gouttiere', 'batiment-ouvertures', 'batiment-soubassement']);
     const debord = ajoutes.find((m) => m.name === 'batiment-debord')!;
     // Le dessus du debord descend sous l'egout (6 m) le long des longs murs : 0,4 m a la pente 3/4.
     const y = ys(debord);
@@ -116,11 +116,6 @@ describe('ajouterDetailsBatiment', () => {
     const nQuads = ouv.geometry.index.length / 6;
     expect(nQuads).toBe(28 + 27 + 1);
     expect(Math.max(...ys(ouv))).toBeLessThan(6);
-    const cheminee = ajoutes.find((m) => m.name === 'batiment-cheminee')!;
-    // Sur le faitage (y = 4 dans le plan, z = -4 en Three), un peu decalee le long de lui.
-    expect(cheminee.position.z).toBeCloseTo(-4, 6);
-    expect(cheminee.position.x).toBeGreaterThan(6);
-    expect(cheminee.position.y).toBeGreaterThan(9);
     expect(ajoutes.find((m) => m.name === 'batiment-soubassement')!.material).toBeDefined();
     // Les angles s'arretent a l'egout : aucun trait sur le toit (faitage a 9 m).
     expect(Math.max(...ys(ajoutes.find((m) => m.name === 'batiment-aretes')!))).toBeCloseTo(6.01, 6);
@@ -167,6 +162,25 @@ describe('ajouterDetailsBatiment', () => {
     const { ajoutes, ctx } = scene(DETAIL_FIN_M + 1);
     ajouterDetailsBatiment(ctx, { ...maison(), batiment: { ...(maison()).batiment, toit: { forme: 'croupes', hauteur: 3, angleFaitage: 0, source: 'bdtopo' } } }, 6);
     expect(noms(ajoutes)).toEqual(['batiment-aretes', 'batiment-debord']);
+  });
+
+  it('aucune cheminee devinee : un toit simple ou en volumes, si grand soit-il, n en porte pas sans donnee', () => {
+    // MD/spec-flux-batiment.md, point 12 : une souche ne vient que de `corps.cheminees` (three/cheminees3d.ts).
+    const grand = [p(0, 0), p(20, 0), p(20, 12), p(0, 12)];
+    for (const forme of ['deux-pans', 'croupes', 'appentis'] as const) {
+      const { ajoutes, ctx } = scene();
+      ajouterDetailsBatiment(ctx, { ...maison(), pts: grand, batiment: { toit: { forme, hauteur: 4, angleFaitage: 0 } } }, 6, { etages: 2 });
+      expect(ajoutes.some((m) => /chemin/.test(m.name))).toBe(false);
+    }
+    // En volumes : deux corps de toit, chacun en pente, et toujours rien.
+    const { ajoutes, ctx } = scene();
+    const volumes = [
+      { pts: [p(0, 0), p(12, 0), p(12, 12), p(0, 12)], hauteur: 6, toit: { forme: 'deux-pans' as const, hauteur: 4, angleFaitage: 0 } },
+      { pts: [p(12, 0), p(20, 0), p(20, 12), p(12, 12)], hauteur: 4, toit: { forme: 'croupes' as const, hauteur: 3, angleFaitage: 90 } },
+    ];
+    ajouterDetailsBatiment(ctx, { ...maison(), pts: grand, batiment: { toit: { forme: 'deux-pans', hauteur: 4, angleFaitage: 0 } } }, 6, { volumes });
+    expect(ajoutes.length).toBeGreaterThan(0);
+    expect(ajoutes.some((m) => /chemin/.test(m.name))).toBe(false);
   });
 
   it('un toit plat : pas de debord ni de cheminee, mais les aretes, le soubassement et les fenetres', () => {

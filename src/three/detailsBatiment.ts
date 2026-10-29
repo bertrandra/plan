@@ -4,7 +4,8 @@
 // peu de choses, toutes deductibles de ce que le plan sait deja : le toit deborde des murs et porte
 // une ombre sous l'egout, une gouttiere court le long des egouts, les aretes des murs se
 // lisent en trait fin, le pied du mur est plus sombre, des fenetres regulieres se repetent a chaque
-// niveau (le nombre d'etages de la BD TOPO, sinon la hauteur), une cheminee sort d'un toit en pente.
+// niveau (le nombre d'etages de la BD TOPO, sinon la hauteur). Pas de cheminee : une souche ne se
+// devine pas, elle vient des donnees (three/cheminees3d.ts).
 //
 // Le batiment reste le prisme que pose `scene.ts`, et son releve (releve3d.ts) ses photos et son
 // toit : ce module ajoute par-dessus. Un mur photographie garde sa photo : pas de fenetres dessinees
@@ -13,7 +14,7 @@
 
 import { au } from '../util/tableaux.js';
 import { sommetDe } from '../geometry/anneau.js';
-import { signedArea, centroid, pointInPolygon } from '../geometry/basic.js';
+import { signedArea, centroid } from '../geometry/basic.js';
 import type * as THREE_NS from 'three';
 import type { CorpsToit, ObjetPolygone, PtBrut, Toit } from '../model/types.js';
 import { toitDessine } from '../model/formeToit.js';
@@ -24,8 +25,8 @@ import { hauteursMursCorps } from '../facade/toits/toitCorps.js';
 import { segmentEnFacade, cotesSurLesCotes } from '../geometry/facadeExterieure.js';
 import type { Fenetre3d } from '../model/types.js';
 import type { ValeursFacades } from '../regles/facades/reglages.js';
-import { facettesToit, plansDuToit, profondeurToit, hauteurSurPans, angleDuPlusLongCote, uvDuPan, repereFaitage, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
-import { materiauCouverture, couvertureGrise, type ContexteCouverture } from '../model/couleurToit.js';
+import { plansDuToit, profondeurToit, uvDuPan, COULEUR_TOIT_DEFAUT, type P3, type PlanToit } from '../facade/toits/toit.js';
+import { materiauCouverture, type ContexteCouverture } from '../model/couleurToit.js';
 import { textureCouverture, matiereCouverture } from './couverture.js';
 import { poserEnCouche, COUCHES_SOL, type VersLocal } from './primitives.js';
 import { Batisseur, type S3 } from './batisseur.js';
@@ -76,7 +77,7 @@ export interface OptionsDetails {
   ouvertures?: readonly Fenetre3d[];
   /** Un toit par corps de batiment : chaque volume son emprise, son egout, son toit (model/volumesToit.ts). */
   volumes?: readonly (Volume & { toit: Toit })[];
-  /** Le toit est la surface mesuree au LiDAR (three/toitMesure3d.ts) : ni debord, ni cheminee, qui suivent une forme simple. */
+  /** Le toit est la surface mesuree au LiDAR (three/toitMesure3d.ts) : ni debord, qui suit une forme simple. */
   sansToit?: boolean;
   /** `false` : pas de porte dans la disposition automatique. */
   porte?: boolean;
@@ -102,10 +103,6 @@ export const EPAISSEUR_TOIT_M = 0.15;
 export const HAUTEUR_SOUBASSEMENT_M = 0.45;
 /** Au-dela de cette distance au centre de la scene, seuls le debord et les aretes sont poses. */
 export const DETAIL_FIN_M = 120;
-/** La cheminee : un carre, ce qu'elle depasse du toit, ce qu'elle y entre. */
-export const CHEMINEE = { cote: 0.5, dessus: 0.8, dessous: 0.3 } as const;
-/** Pas de cheminee sur un petit toit : un abri, un garage. */
-export const AIRE_CHEMINEE_MIN_M2 = 40;
 const GOUTTIERE = { hauteur: 0.1, profondeur: 0.12 } as const;
 const SAILLIE_SOUBASSEMENT_M = 0.03;
 const DECOLLEMENT = 0.01;
@@ -125,8 +122,6 @@ const COULEUR_SOUS_FACE = 0xd9d4c8;
 const ASSOMBRI_ARETE = 0.82;
 /** En dessous de ce changement de direction, un sommet n'est pas un angle : un contour BD TOPO en a beaucoup de presque alignes. */
 const ANGLE_ARETE_MIN_DEG = 25;
-const COULEUR_CHEMINEE_TUILE = 0x8a5a44;
-const COULEUR_CHEMINEE_ARDOISE = 0x6b6b6b;
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
@@ -569,28 +564,6 @@ function poserMaconnerieDesFacades(ctx: ContexteDetails, contour: readonly PtBru
   ctx.scene.add(maillage);
 }
 
-/** Une cheminee sur un toit en pente assez grand : un carre de brique (ou de pierre grise sous l'ardoise), a cote du faitage. */
-function poserCheminee(ctx: ContexteDetails, contour: readonly PtBrut[], toitLu: Toit, h: number): void {
-  const toit = toitDessine(toitLu);
-  if (toit.forme === 'plat' || toit.hauteur <= 0 || Math.abs(signedArea(contour)) < AIRE_CHEMINEE_MIN_M2) return;
-  const angle = toit.forme === 'croupes' ? angleDuPlusLongCote(contour) : toit.angleFaitage;
-  const r = repereFaitage(contour, angle);
-  // A un tiers du faitage, depuis le centre : pas au milieu, ou elle serait au sommet d'un pavillon.
-  const u = r.u0 + 0.3 * r.hl,
-    v = r.v0;
-  let q: PtBrut = { x: u * r.ux + v * r.vx, y: u * r.uy + v * r.vy };
-  if (!pointInPolygon(q, contour)) q = centroid(contour);
-  if (!pointInPolygon(q, contour)) return;
-  const z = hauteurSurPans(facettesToit(contour, toit).pans, q) ?? 0;
-  const couleur = couvertureGrise(materiauCouverture(toit, ctx.couverture)) ? COULEUR_CHEMINEE_ARDOISE : COULEUR_CHEMINEE_TUILE;
-  const m = new THREE.Mesh(new THREE.BoxGeometry(CHEMINEE.cote, CHEMINEE.dessus + CHEMINEE.dessous, CHEMINEE.cote), new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.9 }));
-  const l = ctx.toLocal(q);
-  m.position.set(l.x, h + z + (CHEMINEE.dessus - CHEMINEE.dessous) / 2, l.z);
-  m.rotation.y = rad(angle);
-  m.name = 'batiment-cheminee';
-  ctx.scene.add(m);
-}
-
 /** Habille un batiment de ses details. Le prisme et le releve sont deja poses. */
 export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h: number, options: OptionsDetails = {}): void {
   if (!Array.isArray(o.pts) || o.pts.length < 3 || h <= 0) return;
@@ -607,7 +580,7 @@ export function ajouterDetailsBatiment(ctx: ContexteDetails, o: ObjetPolygone, h
   poserSoubassement(ctx, o.pts, h);
   if (options.corps?.length) poserOuverturesDesCorps(ctx, o.pts, options.corps, options);
   else poserOuvertures(ctx, o.pts, volumes, h, options);
-  const principal = multi && !options.sansToit ? au(multi, 0) : null;
-  if (principal) poserCheminee(ctx, principal.pts, principal.toit, principal.hauteur);
-  else if (toit) poserCheminee(ctx, contourHaut, toit, h);
+  // Pas de cheminee ici : une souche ne vient que des donnees (`corps.cheminees` : LiDAR, regles, audit,
+  // Mode Toit), dessinee par three/cheminees3d.ts. Celle qu'on posait d'office au tiers du faitage d'un
+  // toit simple ou en volumes, personne ne l'avait vue (MD/spec-flux-batiment.md, point 12).
 }
