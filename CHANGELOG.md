@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.0.0] — 2026-10-29
+
+Version **majeure** au sens de `MD/RELEASE.md` §2.1 : le `.glb` exporté change pour des projets déjà enregistrés.
+
+### Changements de nombres et d'exports (version majeure)
+
+- **Vue 3D et `.glb` : plus de cheminée d'office.** Un toit simple ou en volumes en pente de plus de 40 m² recevait une souche
+  qu'aucune source n'avait vue ; elle est retirée (détail plus bas, « Corrigé »). Le `.glb` d'un tel projet perd une maille par
+  bâtiment : sur la démonstration, la Maison (`glb-structure.json` mesuré par le point 24 : 1 143 nœuds, 955 mailles, 1 454
+  matériaux, 3 954 accesseurs, 3 970 vues tampon, 11 709 376 octets).
+- **Couleur des murs des annexes** : une annexe dont la photo de rue (Panoramax) donne une lecture concluante prend cette teinte en
+  3D, dans le `.glb` et la DP6, comme un bâtiment (projets géolocalisés seulement).
+- Les exports du plan de démonstration ne bougent qu'à leur numéro de version et à la date de build (preuve forte, sept sur sept,
+  `tests/fixtures/golden/EMPREINTES.md`). Le schéma des projets reste 6 : rien à faire côté plateforme.
+
 ### Ajouté
 
 - **Mode Toit : la poignée « Hauteur à l'égout » de chaque corps.** De face, à côté de « Hauteur du faîtage », elle corrige une
