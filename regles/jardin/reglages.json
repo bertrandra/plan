@@ -1,0 +1,17 @@
+{
+  "format": "plan-reglages-jardin",
+  "version": 1,
+  "pourquoi": "Les seuils des regles qui decident des observations de la lecture du jardin par Claude (lot L3 de la lecture IA elargie), lus par facade/regles/jardin.ts : Claude propose, ces regles decident (ce qui est assez sur pour etre propose, ce qui est deja dans le plan, ce qui va sur la cloture de la parcelle, la taille de ce que la photo ne mesure pas). Rien n'entre dans le projet sans la personne : chaque proposition arrive decochee dans l'avant/apres de l'audit. Poses au lot L3 sans cas reel valide (aucune cle de l'API au moment du lot) : a revoir sur les premiers audits.",
+  "seuils": {
+    "jardin.ia.passes": {"valeur": 1, "unite": "passes", "ou": "app/audit/parcelle/jardinClaude.ts", "pourquoi": "Lectures du jardin par audit : une seule, au modele rapide (Haiku), dans le batch de l'audit. Chaque objet se confirme a la main : un vote de trois passes couterait trois fois plus pour une liste que la personne relit de toute facon.", "cas": []},
+    "jardin.ia.certitudeMin": {"valeur": 0.5, "unite": "part", "ou": "facade/regles/jardin.ts", "pourquoi": "Certitude minimale d'un objet pour etre propose (faible 0,5, moyenne 0,75, forte 0,9) : a 0,5, tout ce que Claude ose dire est propose, decoche ; montez-la si les audits montrent trop d'objets inventes.", "cas": []},
+    "jardin.ia.doublonM": {"valeur": 1.5, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "Un objet du plan de meme sorte a moins de cette distance est le meme : rien n'est propose (un arbre deja pose, un regard deja dessine). La precision d'une orthophoto a 20 cm et d'un clic de Claude au centieme de l'image (30 cm sur 30 m).", "cas": []},
+    "jardin.ia.limiteM": {"valeur": 1.5, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "Une cloture, une haie, un muret ou un portail a moins de cette distance d'un cote de la parcelle est sur la limite : il s'ecrit sur la cloture de ce cote (MD/spec-cloture.md), pas comme un objet.", "cas": []},
+    "jardin.ia.horsParcelleM": {"valeur": 1, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "Un objet dont le centre est hors de la parcelle de plus de cette distance est chez le voisin : il n'est pas propose.", "cas": []},
+    "jardin.ia.surfaceMinM2": {"valeur": 0.5, "unite": "m2", "ou": "facade/regles/jardin.ts", "pourquoi": "Une terrasse, une piscine, un potager ou une plate-bande plus petits ne sont pas proposes : un contour de quelques pixels n'est pas une lecture.", "cas": []},
+    "jardin.ia.largeurHaieM": {"valeur": 0.8, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "La largeur d'une haie interieure quand la photo ne la donne pas (etendue nulle) : une haie taillee courante.", "cas": []},
+    "jardin.ia.hauteurHaieM": {"valeur": 1.6, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "La hauteur d'une haie, que la photo du dessus ne dit pas : celle d'une haie de jardin courante, a regler ensuite dans l'inspecteur.", "cas": []},
+    "jardin.ia.largeurCheminM": {"valeur": 1, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "La largeur d'un chemin quand la photo ne la donne pas : celle d'un chemin sans largeur ecrite (LARGEUR_CHEMIN_DEFAUT, model/ouvrages/surfaces.ts).", "cas": []},
+    "jardin.ia.hauteurMuretM": {"valeur": 0.6, "unite": "m", "ou": "facade/regles/jardin.ts", "pourquoi": "La hauteur d'un muret de limite, que la photo du dessus ne dit pas.", "cas": []}
+  }
+}

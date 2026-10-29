@@ -18,6 +18,8 @@
 //   schema-analyse.json        le schema de sortie versionne de l'analyse
 //   prompt-facade.md           le prompt versionne du run d'une facade (lots F2 et F3, genere par npm run regles:generer)
 //   schema-facade.json         son schema de sortie versionne
+//   prompt-jardin.md           le prompt versionne de la lecture du jardin (lot L3, genere par npm run regles:generer)
+//   schema-jardin.json         son schema de sortie versionne
 //   claude-tarifs.json         la premiere table des tarifs, posee dans data/claude/ au premier usage
 //   data/demo/1.json           la demonstration integree, premiere demo de l'admin (data/ se pose hors racine)
 //   data/demo/2.json…          les autres demos livrees, copiees de deploy/plan-demos/ (Peyrusse-le-Roc, voisinage 1 km et 5 km)
@@ -49,7 +51,7 @@ cpSync(resolve(racine, 'deploy/admin.php'), resolve(sortie, 'admin.php'));
 cpSync(resolve(racine, 'deploy/donnees.php'), resolve(sortie, 'donnees.php'));
 cpSync(resolve(racine, 'deploy/admin-config.exemple.php'), resolve(sortie, 'admin-config.exemple.php'));
 // L'analyse par Claude (MD/spec-audit.md 13.2) : le proxy, son prompt, son schema et ses tarifs.
-for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
+for (const f of ['analyse.php', 'analyse-fonctions.php', 'prompt-analyse.md', 'schema-analyse.json', 'prompt-facade.md', 'schema-facade.json', 'prompt-jardin.md', 'schema-jardin.json', 'claude-tarifs.json']) cpSync(resolve(racine, 'deploy', f), resolve(sortie, f));
 // Le formulaire officiel de la declaration prealable, que la page demande a cote d'elle.
 cpSync(resolve(racine, 'dist/cerfa'), resolve(sortie, 'cerfa'), { recursive: true });
 

@@ -19,16 +19,18 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // le calage, la forme, les elements du toit, les ouvertures et leurs carreaux. La calibration et le releve l'appellent (appel
 // immediat), l'audit dans le batch de l'analyse (une requete par facade). Il a remplace le renfort a trois passes (`renfort`, lot
 // L18), retire au lot F3 : une ligne `renfort` ne vit plus que dans le journal, et s'y lit encore.
-const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade'];
+// `jardin` (lot L3 de la lecture IA elargie) : la lecture du jardin d'une parcelle, sur son orthophoto recadree (et les photos de la
+// cloture et du portail) ; une requete dans le batch de l'audit, ou un appel immediat. Le modele rapide par defaut.
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade', 'jardin'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
 // Sauf l'escalade, au modele plus fin depuis le 29 octobre 2026 (decision de l'utilisateur) : elle ne part qu'a la demande, apres
 // trois lectures votees du modele rapide, et un quatrieme passage du meme modele n'apporterait presque rien.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5'];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-sonnet-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5', 'jardin' => 'claude-haiku-5-5'];
 // Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
 // usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json']];
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json'], 'jardin' => ['prompt-jardin.md', 'schema-jardin.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -41,7 +43,8 @@ const REQUETES_IMMEDIATES = 3;
 // d'une facade. Sans elle, sa reponse reelle n'etait pas lue (« Sortie non JSON », verification de l'API du
 // 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
 // refusait un jour, la requete repart sans (formatRefuse).
-const SORTIE_STRUCTUREE = ['facade'];
+// La lecture du jardin aussi (lot L3) : son schema n'a ni recursion ni contrainte numerique.
+const SORTIE_STRUCTUREE = ['facade', 'jardin'];
 // Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
 // rejeu d'AE 101 (15 octobre 2026) a coupe a 8 000 la passe d'une maison de huit murs
 // (reponse perdue, un vote sur deux passes). On ne paie que ce que le modele ecrit.
@@ -227,7 +230,7 @@ function promptAvecSchema(string $prompt, $schema): string {
 }
 
 const CONSIGNE_STRUCTUREE = 'Répondez par l’objet JSON que la requête impose (sortie structurée), rien d’autre.';
-const CONSIGNE_EXEMPLE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour une façade inventée : ses valeurs ne sont pas à recopier, la réponse dit ce que votre image montre, et ses listes ont autant d’éléments que vous en voyez (aucun s’il n’y en a pas). Tous les nombres sont des parts, comme expliqué plus haut : jamais des pixels.';
+const CONSIGNE_EXEMPLE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour un cas inventé : ses valeurs ne sont pas à recopier, la réponse dit ce que votre image montre, et ses listes ont autant d’éléments que vous en voyez (aucun s’il n’y en a pas). Tous les nombres sont des parts, comme expliqué plus haut : jamais des pixels.';
 
 /**
  * Le prompt en system, selon la forme demandee : avec la sortie structuree, la partie fixe et une ligne (le schema part a cote) ; sans
@@ -538,6 +541,11 @@ function comptesSortie($sortie, string $usage): ?array {
     $c = array_fill_keys(COMPTES, 0);
     if ($usage === 'facade') {
         foreach (comptesFacade($s) as $k => $n) $c[$k] = $n;
+    } elseif ($usage === 'jardin') {
+        // La lecture du jardin (lot L3) : ses objets, et ceux dont la certitude est forte.
+        $objets = listeDe($s['objets'] ?? null);
+        $c['elements'] = count($objets);
+        $c['determines'] = count(array_filter($objets, fn($o) => (objetDe($o)['certitude'] ?? null) === 'forte'));
     } else {
         foreach (listeDe($s['facades'] ?? null) as $f) {
             $o = objetDe(objetDe($f)['ouvertures'] ?? null);

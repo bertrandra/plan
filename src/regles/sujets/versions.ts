@@ -55,3 +55,19 @@ export const VERSIONS_SCHEMA_FACADE: readonly VersionTexte[] = [
   { version: 1, empreinte: '276ece16' },
   { version: 2, empreinte: 'c5c67d80' },
 ];
+
+/**
+ * La lecture du jardin (lot L3 de la lecture IA elargie, usage `jardin` du serveur) : sa note, et les versions de son prompt et de son
+ * schema, tenues comme celles du run d'une facade. La version suit chaque lecture enregistree (l'audit la garde avec l'image envoyee).
+ */
+export const NOTE_PROMPT_JARDIN = `Partie fixe du prompt de la lecture du jardin (lot L3 de la lecture IA élargie), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque lecture enregistrée. Version 1 (lot L3, 29 octobre 2026) : une requête par parcelle, sur l'orthophoto recadrée sur elle (et les photos de la clôture et du portail s'il y en a) ; elle rend les objets du jardin (arbres et leur genre dans une liste fermée, haies, clôtures, portails, murets, bordures, chemins, terrasse et piscine déjà là, potager, plates-bandes, regards, éclairage, robinets), chacun à sa place sur l'image en parts.`;
+
+export const NOTE_SCHEMA_JARDIN = `Sortie de la lecture du jardin par Claude (lot L3). Positions en part de l'image (x, y depuis le haut gauche), etendue en part de son cote : Claude ne voit ni les pixels ni les metres, Plan les convertit par le geo-referencement de l'image. Vocabulaire ferme ; le genre d'un arbre est une liste fermee que le moteur rapproche de la bibliotheque d'essences de l'administrateur. Le fichier porte un \`exemple\` de reponse (un jardin invente), que le serveur montre a la place du schema quand la sortie structuree ne sert pas. Version 1 (29 octobre 2026).`;
+
+export const VERSIONS_PROMPT_JARDIN: readonly VersionTexte[] = [
+  { version: 1, empreinte: '251639d8' },
+];
+
+export const VERSIONS_SCHEMA_JARDIN: readonly VersionTexte[] = [
+  { version: 1, empreinte: '4640a29b' },
+];

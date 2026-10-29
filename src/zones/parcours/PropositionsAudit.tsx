@@ -246,6 +246,8 @@ const NIVEAUX: readonly { id: string; libelle: string; de: (p: Proposition) => b
   { id: 'toit', libelle: 'Toit', de: (p) => ['corpsToit', 'corpsDuToit', 'hauteurToit', 'couverture', 'cheminees', 'lucarnes', 'appentis', 'terrasse'].includes(p.effet.type) },
   { id: 'murs', libelle: 'Murs', de: (p) => ['hauteur', 'couleurMurs', 'materiauMurs'].includes(p.effet.type) },
   { id: 'cloture', libelle: 'Clôture et portail', de: (p) => p.effet.type === 'cloture' || p.effet.type === 'portail' },
+  // La lecture du jardin (lot L3) : les objets neufs lus sur la photo aerienne.
+  { id: 'jardin', libelle: 'Jardin', de: (p) => p.effet.type === 'ajoutObjet' },
 ];
 const NIVEAU_AUTRE = { id: 'autres', libelle: 'Autres' };
 

@@ -58,7 +58,8 @@ export interface DemandeAnalyse {
  * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (lots F2 et F3 : appel immediat pour la
  * calibration et le releve, une requete par facade dans le batch de l'audit).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade';
+/** `jardin` : la lecture du jardin d'une parcelle sur son orthophoto (lot L3), une requete dans le batch de l'audit. */
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade' | 'jardin';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
