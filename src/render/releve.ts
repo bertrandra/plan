@@ -4,6 +4,9 @@
 // relevee devient une interruption du trait (un segment de la couleur du fond) bornee par deux
 // tableaux, et une porte recoit son arc de debattement vers l'interieur. Seul le plan a l'ecran
 // les montre : l'export SVG garde sa forme, figee par son empreinte.
+//
+// Sur une Facade validee (lot F5), une ouverture que la personne n'a pas encore verifiee (venue d'un rejeu apres la validation) a
+// ses tableaux en tirets : elle est a verifier. Chaque coupure porte l'identifiant de son ouverture (`data-ouverture`).
 
 import { facadesDuContour, pointDeFacade } from '../geometry/cotesVusDeDehors.js';
 import { SVG_INK, SVG_LABEL_HALO } from './theme.js';
@@ -19,8 +22,10 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
   // Toujours au-dessus des objets, crees apres le groupe : remis au bout s'il n'y est pas (le deplacer quand il y est deja ferait
   // refaire son style au navigateur pour rien).
   if (groupe.parentNode && groupe.parentNode.lastChild !== groupe) groupe.parentNode.appendChild(groupe);
-  const ligne = (a: PtEcran, b: PtEcran, couleur: string, epaisseur: number) => {
+  const ligne = (a: PtEcran, b: PtEcran, couleur: string, epaisseur: number, tirets = false, id?: string) => {
     const l = document.createElementNS(NS, 'line');
+    if (tirets) l.setAttribute('stroke-dasharray', '2 2');
+    if (id) l.setAttribute('data-ouverture', id);
     l.setAttribute('x1', String(a.x));
     l.setAttribute('y1', String(a.y));
     l.setAttribute('x2', String(b.x));
@@ -44,10 +49,11 @@ export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (
         if (ov.y > COUPE || ov.y + ov.h < COUPE) return;
         const a = pointDeFacade(f, ov.x),
           b = pointDeFacade(f, ov.x + ov.l);
-        ligne(versEcran(a), versEcran(b), SVG_LABEL_HALO, 3.4);
-        // Les deux tableaux, perpendiculaires au mur.
-        ligne(versEcran(a), versEcran({ x: a.x + dedans.x, y: a.y + dedans.y }), SVG_INK, 1.2);
-        ligne(versEcran(b), versEcran({ x: b.x + dedans.x, y: b.y + dedans.y }), SVG_INK, 1.2);
+        ligne(versEcran(a), versEcran(b), SVG_LABEL_HALO, 3.4, false, ov.id);
+        // Les deux tableaux, perpendiculaires au mur ; en tirets sur une Facade validee, pour une ouverture pas encore verifiee.
+        const aVerifier = !!r.dimensions && !ov.verifieeLe;
+        ligne(versEcran(a), versEcran({ x: a.x + dedans.x, y: a.y + dedans.y }), SVG_INK, 1.2, aVerifier);
+        ligne(versEcran(b), versEcran({ x: b.x + dedans.x, y: b.y + dedans.y }), SVG_INK, 1.2, aVerifier);
         if (ov.type === 'fenetre' || ov.type === 'porte-fenetre') {
           // La vitre : un trait fin au milieu du tableau.
           const m = { x: dedans.x / 2, y: dedans.y / 2 };

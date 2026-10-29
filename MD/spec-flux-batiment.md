@@ -355,7 +355,8 @@ pas lu (point 13 de « Ce qu'il faut ranger », laissé ouvert). Les cheminées,
 | Profil de façades | `profilFacades` (voisinage seulement, jamais la parcelle du projet ni un bâtiment vérifié) | `app/toits/profilsFacadesFond.ts:35`, :55 |
 | Inspecteur « Fenêtres (3D) » | `fenetres3d` : dimensions communes, ou `uneParUne` (liste par `cote`) | `model/fenetres3d.ts`, `ui/champs/fenetres3d.ts` |
 | Relevé de façade à la main | `facades[cote]` (photo redressée, ouvertures, calage) ; retire `depuisAudit` ; optionnellement `toit` (case ~~**cochée par défaut**, `zones/Releve.tsx:212`~~ — depuis le 28 octobre 2026, cochée d'office seulement sur un toit simple ; sur un toit en corps ou en volumes, décochée, et elle dit ce qu'elle remplace) ; groupe `facades` de `model/protections.ts` | `app/releve/releve.ts:112-120` |
-| Audit, dès qu'une mesure est prête | `facades[cote]` avec `depuisAudit`, sans attendre « Valider », jamais sur un relevé fait à la main (`releveChoisiALaMain`, groupe `facades`, depuis le 28 octobre 2026) | `app/audit/parcelle/validation.ts::alimenterLesFacades` (:372) |
+| Audit, dès qu'une mesure est prête | `facades[cote]` avec `depuisAudit`, sans attendre « Valider », jamais sur un relevé fait à la main (`releveChoisiALaMain`, groupe `facades`, depuis le 28 octobre 2026) ni sur une Façade validée (groupe `facadeTexture`, depuis le lot F5) | `app/audit/parcelle/validation.ts::alimenterLesFacades` |
+| Audit, validation de la façade (V4, lot F5) | `facades[cote]` : la Façade (`dimensions`, `forme`, `surface`, `textureCalee`), les ouvertures numérotées (`id`) et vérifiées (`verifieeLe`), carreaux compris ; retire `depuisAudit` ; un pas d'historique | `app/audit/parcelle/validation.ts::validerFacade`, `facadeValidee.ts` |
 | Audit, « Valider » | relevé, détails des ouvertures | `regles/decisions.ts:260-268` |
 
 Le relevé passe par l'assemblage des photos redressées (`facade/analyseMur.ts::analyserLeMur`, :50 ; `fondreLesVues`, :158). Le
@@ -555,6 +556,21 @@ s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test
 | Murs (`couleurMurs`) | `source` choisie | `materiau`, `terrain` ; `verifieSurPlace` | — | `photo` (Panoramax) | — | rien |
 | Photo de rue des murs (`photoMurs` : `couleurMurs.photo`, `lecture`) | — (aucun geste ne l'écrit ; la `source` choisie ne l'occupe pas) | `terrain` (la couleur vue sur place tient la même place) ; ni `materiau`, ni `verifieSurPlace` seul | — | `photo` | — | rien, ou `photo: null` (lue sans conclure) |
 | Façades | relevé à la main sur ce mur | relevé de l'audit sur ce mur ; `verifieSurPlace` | `profilFacades` | — | — | rien |
+| Dimensions de la Façade (`facadeDimensions`, lot F5) | Façade validée (V4) sur ce mur, `dimensions` posées ; relevé à la main | relevé de l'audit (`depuisAudit`) ; `verifieSurPlace` | — | — | — | rien |
+| Forme de la Façade (`facadeForme`) | Façade validée, `forme` posée ; relevé à la main | relevé de l'audit ; `verifieSurPlace` | — | — | — | rien |
+| Texture et pose (`facadeTexture` : `texture`, `hauteurTexture`, `textureCalee`, `surface`) | Façade validée, `textureCalee` ou `surface` posées ; relevé à la main | relevé de l'audit ; `verifieSurPlace` | — | — | — | rien |
+| Ouvertures, la façade objet (`facadeOuvertures`) | une ouverture vérifiée (`verifieeLe`), corrigée ou ajoutée sur ce mur ; relevé à la main | relevé de l'audit ; `verifieSurPlace` | — | — | — | rien |
+
+**La Façade d'un mur, en quatre groupes** (lot F5, 29 octobre 2026, `MD/spec-facade-calage-audit.md` §3.1) : ses dimensions, sa
+forme, sa texture avec sa pose, et ses ouvertures (la façade objet). La personne les écrit d'un geste à la validation de la façade
+dans l'audit (V4, commande `facade.valider`) : la Façade s'écrit par l'effet `releve`, `depuisAudit` tombe, chaque ouverture est
+numérotée et vérifiée (`verifieeLe`). L'audit, qui pose d'office un relevé mesuré (`alimenterLesFacades`), demande désormais le
+groupe `facadeTexture` du mur (et non plus `releveChoisiALaMain`) : une Façade validée l'arrête comme un relevé fait à la main. Un
+relevé neuf écrit sur un mur (un rejeu coché) garde, une à une, les ouvertures que la personne a posées, corrigées ou vérifiées
+(`ouvertureGardee`, appariées aux nouvelles détections par recouvrement de plus de moitié, `model/facadeObjet.ts::releveReecrit`) ;
+les dimensions et la forme validées restent tant que le relevé neuf n'en apporte pas (un écrivain de niveau 2 ne peut pas les
+écrire) ; la pose de la texture et le parement partent avec l'ancienne texture. La calibration n'écrit aucun de ces groupes : elle
+travaille sur ses cas.
 
 Ce que la personne demande lève une marque pour une écriture : « Recalculer aussi » (actualisation) lève `verifieSurPlace`, et la
 tâche de fond lit la copie d'un bâtiment vérifié pour la comparer sans rien écrire que `toitLidarLu` ; « Reprendre la version de

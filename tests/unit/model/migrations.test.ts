@@ -11,6 +11,15 @@ const temoin5 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schem
   meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
 };
 
+const temoin6 = JSON.parse(readFileSync(new URL('../../fixtures/migrations/schema-6.json', import.meta.url), 'utf8')) as {
+  meta: { schemaVersion: number }; objects: unknown[]; measures: unknown[];
+};
+const golden = JSON.parse(readFileSync(new URL('../../fixtures/golden/projet.json', import.meta.url), 'utf8')) as { meta: { schemaVersion: number }; objects: unknown[] };
+
+/** Un document lu (migre, normalise) puis reecrit, comme l'ouvrir et l'enregistrer sans y toucher. */
+const relu = (objets: unknown[], schema: number | undefined) =>
+  serializeObjects(normalizeObjects(migrer({ objects: structuredClone(objets) as ObjetAPlat[] }, schema).objects) as unknown as ObjetPlan[]) as unknown as Record<string, unknown>[];
+
 const batiment = (extra: Partial<ObjetAPlat> = {}): ObjetAPlat =>
   ({ key: 'b', type: 'polygon', pts: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }], ...extra } as ObjetAPlat);
 const releve = { cote: 0 } as unknown as NonNullable<ObjetAPlat['facades']>[number];
@@ -54,6 +63,47 @@ describe('la chaine des migrations', () => {
     expect(reecrit[2]).toMatchObject({ egoutChoisi: 'audit' });
     expect(schemaMinimal(memoire)).toBe(6);
     expect(schemaAEcrire(reecrit as unknown as ObjetAPlat[], 5)).toBe(6);
+  });
+});
+
+describe('la migration 6 -> 7 : la Facade d un releve valide (lot F5)', () => {
+  it('lit un document de schema 6 tel quel : son releve, ses ouvertures, son calage ancien compris', () => {
+    // Le temoin (tests/fixtures/migrations/schema-6.json) : un releve pose par l'audit, avant la Facade, avec l'ecart du contour que
+    // le calage portait (`contourDecaleM`, que plus rien n'ecrit ni ne lit).
+    const d = { objects: temoin6.objects as unknown as ObjetAPlat[], measures: temoin6.measures };
+    expect(migrer(structuredClone(d), temoin6.meta.schemaVersion)).toEqual(d);
+    expect(schemaMinimal(d.objects)).toBe(6);
+    // Lu puis reecrit : le releve revient a l'identique, et le document s'ecrit toujours au 6.
+    const reecrit = relu(temoin6.objects, 6);
+    expect(reecrit[1]!.facades).toEqual((temoin6.objects[1] as { facades: unknown }).facades);
+    expect(schemaAEcrire(reecrit as unknown as ObjetAPlat[], 6)).toBe(6);
+    // Relu une seconde fois, rien ne bouge plus.
+    expect(relu(reecrit, 6)).toEqual(reecrit);
+  });
+
+  it('relit a l identique les anciens fichiers : le temoin dore, la demonstration, les temoins des schemas 5 et 6', () => {
+    // projet.json (tests/fixtures/golden/) est ecrit par Plan : lu puis reecrit, il revient octet pour octet.
+    expect(JSON.stringify(relu(golden.objects, golden.meta.schemaVersion))).toBe(JSON.stringify(golden.objects));
+    // La demonstration et les temoins ne sont pas sous la forme ecrite (des cles par defaut s'ajoutent a la premiere ecriture) : leur
+    // relecture est un point fixe, au schema qui les decrit (la demonstration reste au 5, que la plateforme accepte deja).
+    for (const [objets, schema] of [[DEMO_OBJECTS, 5], [temoin5.objects, 6], [temoin6.objects, 6]] as const) {
+      const une = relu(objets as unknown[], schema);
+      expect(relu(une, schema)).toEqual(une);
+      expect(schemaMinimal(une as unknown as ObjetAPlat[])).toBe(schema);
+    }
+  });
+
+  it('s ecrit au 7 des qu un releve porte sa Facade, ou une ouverture son identifiant, sa verification ou ses carreaux', () => {
+    const avec = (r: Record<string, unknown>) => [batiment({ facades: [{ ...releve, ouvertures: [], ...r }] } as Partial<ObjetAPlat>)];
+    for (const champ of ['dimensions', 'forme', 'surface', 'textureCalee']) expect(schemaMinimal(avec({ [champ]: {} })), champ).toBe(7);
+    const ov = { type: 'fenetre', x: 1, y: 1, l: 1, h: 1 };
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, id: 'o1' }] }))).toBe(7);
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, verifieeLe: '2026-10-29' }] }))).toBe(7);
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, details: { carreaux: { source: 'ia', vantaux: 2 } } }] }))).toBe(7);
+    // Le releve d'avant reste au 2 ; ses details d'avant (le vitrage vu par l'analyse) n'en changent rien.
+    expect(schemaMinimal(avec({ ouvertures: [{ ...ov, details: { vitrage: 'petits-bois' } }] }))).toBe(2);
+    // En memoire, les facades vivent dans le sous-objet `batiment` : elles comptent tout autant.
+    expect(schemaMinimal([{ ...batiment(), batiment: { facades: [{ ...releve, ouvertures: [], dimensions: {} }] } } as unknown as ObjetAPlat])).toBe(7);
   });
 });
 

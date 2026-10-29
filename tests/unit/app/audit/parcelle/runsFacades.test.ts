@@ -44,7 +44,7 @@ const RELEVE: ReleveFacade = {
  * Les boites de Claude, en part du mur : celle que la detection a trouvee (x = 2, sans detail de plus), et la baie de x = 6 qu'elle
  * n'a pas vue.
  */
-const RETROUVEE = { ...SORTIE_FACADE.ouvertures[0], type: 'fenetre', u0: 0.2, u1: 0.32, v0: 1 / 6, v1: 2.3 / 6, details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' } };
+const RETROUVEE = { ...SORTIE_FACADE.ouvertures[0], type: 'fenetre', u0: 0.2, u1: 0.32, v0: 1 / 6, v1: 2.3 / 6, details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' }, carreaux: null };
 const SEULE = { ...RETROUVEE, u0: 0.61, u1: 0.71, v0: 0.9 / 6, v1: 2.4 / 6 };
 const sortie = (ouvertures: object[]) => ({ ...SORTIE_FACADE, ouvertures, confiance: 'forte' });
 const run = (ouvertures: object[]): RunEnregistre => ({ le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, sorties: [sortie(ouvertures)], cout: 0.001, tokens: { entree: 1000, sortie: 400 }, image: { largeur: 500, hauteur: 300 }, chaine: 10 });
@@ -134,6 +134,10 @@ describe('le run des facades dans l audit', () => {
     // Ses details (volets, allege) completent ceux d'une ouverture retrouvee : le releve change, une ligne le propose.
     const details = (await accorderLesFacades({ 'maison#0': run([{ ...RETROUVEE, details: SORTIE_FACADE.ouvertures[0]!.details }]) }, entrees().mesures, async () => texture()))['maison#0']!;
     expect(details.resume).toMatch(/1 détail ajouté/);
+    // Ses carreaux (lot F5) se rangent dans les details de l'ouverture retrouvee : ils sont un detail de plus, la 3D ne les dessine pas encore.
+    const carreaux = (await accorderLesFacades({ 'maison#0': run([{ ...RETROUVEE, carreaux: SORTIE_FACADE.ouvertures[0]!.carreaux }]) }, entrees().mesures, async () => texture()))['maison#0']!;
+    expect(carreaux.resume).toMatch(/1 détail ajouté/);
+    expect(carreaux.ouvertures.find((o) => o.details?.carreaux)?.details?.carreaux).toMatchObject({ source: 'ia', vantaux: 2 });
     // Toutes ses boites retrouvees, sans detail de plus : rien a proposer.
     const rien = (await accorderLesFacades({ 'maison#0': run([RETROUVEE]) }, entrees().mesures, async () => texture()))['maison#0']!;
     expect(rien.resume).toBeNull();

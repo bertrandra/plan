@@ -266,7 +266,7 @@ export function EtapeOuverte(p: PropsEtape) {
         <dt>Dans l’audit</dt><dd>{MOTS_MODE[def.modeAudit]}{def.validation ? ' (' + def.validation + ')' : ''}</dd>
       </dl>
       <div className="calLigne">
-        <button type="button" className="secondary" data-controle="calibration.rejouerDepuis" disabled={p.occupe || !!def.lot} onClick={() => p.rejouerDepuis(p.id)}>Rejouer depuis cette étape</button>
+        <button type="button" className="secondary" data-controle="calibration.rejouerDepuis" disabled={p.occupe} onClick={() => p.rejouerDepuis(p.id)}>Rejouer depuis cette étape</button>
       </div>
       <p className="calNote">Chaîne des façades, version {p.rejeu.versions.chaine} ; objectifs {p.rejeu.versions.objectifs}{p.rejeu.sorties.ia ? ` ; IA : ${enteteDuRun(p.rejeu.sorties.ia.run)}, règles ${p.rejeu.versions.ia ?? ''}` : ' ; mode déterministe'}.</p>
     </section>

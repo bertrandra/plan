@@ -10,7 +10,7 @@ import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, ecrireLeGeste, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
   type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
-import { facadeProche, facadesDuBatiment, facadeVersLePoint, orientationDe, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
+import { facadeProche, facadesDuBatiment, facadeValideeDuMur, facadeVersLePoint, orientationDe, texteDeLaPhoto, type FacadeVisee } from '../../facade/modeToit/facadesDesCorps.js';
 import { poseDeDessus, type PointScene, type Reserve } from '../../three/poseFacade.js';
 import { moteur3d } from '../../three/demande3d.js';
 import { poserCameraFacade, retirerCameraFacade } from '../../three/vueFacadeToit.js';
@@ -145,9 +145,27 @@ export function etatToit(): EtatToit {
   const f = session.facade ?? session.derniere;
   return {
     actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
-    facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' : null,
+    facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' + photoDuMur(session.facade) : null,
     vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice, validee: session.validee
   };
+}
+
+/** Ce que la photo validee de ce mur en dit (lot F5), apres la facade courante : « · vue sur la photo (triangle, 2 pointes) ». */
+function photoDuMur(f: FacadeVisee): string {
+  const o = session && objetsCourants ? objetsCourants().find((x) => x.key === session?.cle) : undefined;
+  const r = o ? facadeValideeDuMur(f, o.batiment?.facades, enPoints(o).pts as PtBrut[]) : null;
+  return r ? ' · ' + texteDeLaPhoto(r) : '';
+}
+
+/**
+ * Les murs du batiment en session qui portent une Facade validee (V4, lot F5), par `rang:mur` : le navigateur de facades les
+ * marque, le Mode Toit dit ce que la photo en a lu.
+ */
+export function mursVusSurPhoto(objets: readonly ObjetPlan[]): Set<string> {
+  const o = session ? objets.find((x) => x.key === session?.cle) : undefined;
+  if (!o?.batiment?.facades?.some((r) => r.dimensions)) return new Set();
+  const pts = enPoints(o).pts as PtBrut[];
+  return new Set(facadesDuBatiment(o.batiment.corpsToit, pts).filter((f) => facadeValideeDuMur(f, o.batiment?.facades, pts)).map((f) => (f.rang ?? '') + ':' + f.mur));
 }
 
 /** Les murs du batiment en session : de quoi dessiner le navigateur de facades (sans passer par le mode). */

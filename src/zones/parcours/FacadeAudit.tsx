@@ -5,15 +5,17 @@
 // se montre pas ; une etape qui echoue ou doute se dit en une ligne, avec son geste de repli (les quatre repères sur une photo, le
 // mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas. Quand Claude a lu
 // la facade (trois passes votees), une ligne le dit avec son cout, et « Escalader » (la commande `facade.escalader`, a la demande
-// seulement) annonce le sien.
+// seulement) annonce le sien. Le point V4 (lot F5) : « Valider la façade » (la commande `facade.valider`) ecrit sa Facade dans le
+// projet ; validee, l'E9 de la barre est faite.
 
 import { useCallback, useEffect, useState } from 'react';
-import { BarreProgressionFacade, COMMANDE_ESCALADE } from '../composants/BarreProgressionFacade.js';
+import { BarreProgressionFacade, COMMANDE_ESCALADE, COMMANDE_VALIDER } from '../composants/BarreProgressionFacade.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
 import { coinsParDefaut } from '../releve/commun.js';
 import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete } from '../../app/audit/parcelle/discret.js';
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
+import { etapesApresValidation } from '../../app/audit/parcelle/facadeValidee.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import { LIBELLES_ETAT } from '../../model/etapeFacade.js';
 import { enteteDuRun } from '../../facade/releve/enchainement.js';
@@ -114,6 +116,18 @@ function Ligne({ l, rangs, nom, placer, gestes, ouverte = false }: { l: LigneDis
   );
 }
 
+/** Le point V4 : la Facade a valider (son bilan, l'E9), et le bouton qui l'ecrit dans le projet. */
+function ValiderFacade({ commandes, nom }: { commandes: RegistreCommandes; nom: string }) {
+  const etat = commandes.etat(COMMANDE_VALIDER);
+  if (commandes.effacee(COMMANDE_VALIDER)) return null;
+  const raison = etat && 'message' in etat ? etat.message : null;
+  return (
+    <button type="button" className="small" data-commande={COMMANDE_VALIDER} disabled={!etat?.utilisable} aria-label={'Valider la façade : ' + nom}
+      title={raison ?? 'Écrire ses dimensions, sa forme, sa texture calée et ses ouvertures vérifiées dans le projet (Ctrl+Z la défait)'}
+      onClick={(e) => { commandes.executer(COMMANDE_VALIDER, e.currentTarget); }}>Valider la façade</button>
+  );
+}
+
 /** La lecture de Claude d'une facade : ses passes, son modele, son cout ; et l'escalade, a la demande, son cout annonce. */
 function LectureClaude({ run, prix, commandes, nom }: { run: RunEnregistre; prix: PrixEscalade | null; commandes: RegistreCommandes; nom: string }) {
   const etat = commandes.etat(COMMANDE_ESCALADE);
@@ -133,7 +147,9 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const [rangReperes, setRangReperes] = useState<number | null>(null);
   const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
   const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
-  const etapes = mesure?.etapes ?? [];
+  // Validee (V4), la Facade de cette mesure est dans le projet : l'E9 de la barre est faite.
+  const validee = session.validation.facadeValidee(cle, cote);
+  const etapes = etapesApresValidation(mesure?.etapes ?? [], validee);
   const facade = cle + '#' + cote;
   const o = session.etapeOuverte();
   const ouverte = o?.facade === facade ? o.etape : null;
@@ -166,6 +182,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         echelleDepart={correction?.echelleLargeurM}
         appliquer={(c) => corriger(rangReperes, c)} retablir={() => corriger(rangReperes, null)} fermer={() => setRangReperes(null)} />}
       {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom} />}
+      {gestes && mesure?.facade && !validee && !tourne && <ValiderFacade commandes={commandes} nom={nom} />}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>
   );

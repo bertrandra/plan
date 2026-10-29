@@ -98,6 +98,8 @@
   .navigateurToit .murNav{ fill:none; stroke:var(--ink-soft); stroke-width:.5; stroke-linecap:round; cursor:pointer; vector-effect:non-scaling-stroke; stroke-width:3px; }
   .navigateurToit .murNav:hover{ stroke:var(--accent); }
   .navigateurToit .murNav.sur{ stroke:var(--accent); stroke-width:5px; }
+  /* Un mur dont la Facade a ete validee sur la photo (lot F5) : en tirets, le titre le dit (la couleur ne porte pas seule). */
+  .navigateurToit .murNav.photo{ stroke-dasharray:6 3; }
   .navigateurToit .pointDeVueNav{ fill:var(--accent); opacity:.9; pointer-events:none; }
   .panneauToit .boutonToit{ min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:4px 8px; font:inherit; color:var(--ink); background:transparent; border:1px solid var(--rule); border-radius:8px; cursor:pointer; }
   .panneauToit .boutonToit:disabled{ opacity:.35; cursor:not-allowed; }
@@ -2800,7 +2802,7 @@
   .auditPrise .barreFacadeEtiquette{ display:none; }
   .auditPrise .barreFacadeSegment > button, .auditPrise .barreFacadeFixe{ align-content:center; }
   .auditPrise .barreFacadeRuban{ display:block; }
-  .facadeAudit > [data-controle="auditParcelle.rejouerFacade"]{ justify-self:start; }
+  .facadeAudit > [data-controle="auditParcelle.rejouerFacade"], .facadeAudit > [data-commande="facade.valider"]{ justify-self:start; }
   .etapesAudit{ display:grid; gap:4px; margin:0; padding:0; list-style:none; }
   .ligneEtapeAudit{ padding:4px 8px; border-left:3px solid var(--rule); border-radius:0 var(--r-champ) var(--r-champ) 0; background:var(--panel-2); font-family:var(--sans); font-size:0.74rem; color:var(--ink); }
   .ligneEtapeAudit.ok{ border-left-color:var(--accent); }

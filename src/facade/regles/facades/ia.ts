@@ -11,12 +11,12 @@
 
 import fichierIa from '../../../../regles/facades/ia.json';
 import { voterAttribut } from '../../../model/analyseClaude.js';
-import type { OuvertureFacade } from '../../../model/types.js';
+import type { CarreauxOuverture, OuvertureFacade, SurfaceFacade } from '../../../model/types.js';
 import { mediane } from '../../../util/stats.js';
 import { empreinteReglagesIa, lireReglagesIa, type ReglagesIa } from '../../../regles/facades/ia.js';
 import { CONFIANCE_PLEINE } from '../../detection/verification.js';
 import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
-import { garder, lireObservationsFacade, type AngleIa, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
+import { garder, lireObservationsFacade, type AngleIa, type Carreaux, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
 import type { P2 } from '../../vision/homographie.js';
 
 // Les seuils des regles : regles/facades/ia.json (MD/architecture.md §5.2.4), lus et verifies par src/regles/facades/ia.ts, edites
@@ -236,6 +236,42 @@ export function ecartDesPoses(a: RectIa, b: RectIa): number {
 }
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * La division du vitrage que Claude lit (decision 15), rangee dans les details de l'ouverture (lot F5) : le vocabulaire ferme du
+ * modele, ce qu'il ne dit pas reste absent ; l'imposte, lue en part de la baie, en metres. Null quand il ne dit rien. Sans effet sur
+ * ce que la 3D dessine avant le lot F8.
+ */
+function carreauxDeLIa(c: Carreaux | null, hauteurBaieM: number): CarreauxOuverture | null {
+  if (!c) return null;
+  const grille = (g: { colonnes: number | null; rangees: number | null }) => (g.colonnes !== null && g.rangees !== null && g.colonnes >= 1 && g.rangees >= 1 ? { colonnes: g.colonnes, rangees: g.rangees } : null);
+  const out: CarreauxOuverture = { source: 'ia' };
+  if (c.vantaux === 1 || c.vantaux === 2 || c.vantaux === 3) out.vantaux = c.vantaux;
+  const g = grille(c);
+  if (g) out.grille = g;
+  if (c.petitsBois) out.petitsBois = c.petitsBois;
+  if (c.imposte && c.imposte !== 'aucune' && c.imposte.hauteur > 0 && hauteurBaieM > 0) {
+    const gi = grille(c.imposte);
+    out.imposte = { hauteurM: r2(c.imposte.hauteur * hauteurBaieM), ...(gi ? { grille: gi } : {}) };
+  }
+  if (c.vitrage) out.vitrage = c.vitrage;
+  return Object.keys(out).length > 1 ? out : null;
+}
+
+/** La confiance d'une lecture de Claude en nombre, pour la Facade (une zone de parement). */
+const CONFIANCE_LUE: Readonly<Record<Exclude<ObservationsFacade['surface']['confiance'], 'indetermine'>, number>> = { forte: 0.9, moyenne: 0.6, faible: 0.3 };
+
+/**
+ * Le parement du mur que la Facade garde (§3.2, lot F5), d'apres la lecture de Claude : le principal quand il le dit, et les zones
+ * d'un autre parement dont il donne la confiance. Null quand il ne le lit pas.
+ */
+export function surfaceDeLIa(obs: ObservationsFacade | null): SurfaceFacade | null {
+  const s = obs?.surface;
+  if (!s || s.principale === 'indetermine') return null;
+  const zones = s.zones.filter((z) => z.confiance !== 'indetermine').map((z) => ({ type: z.type, u0: r2(z.u0), u1: r2(z.u1), v0: r2(z.v0), v1: r2(z.v1), confiance: CONFIANCE_LUE[z.confiance as keyof typeof CONFIANCE_LUE] }));
+  return { principale: s.principale, ...(zones.length ? { zones } : {}), source: 'ia' };
+}
+
 /**
  * Une boite de Claude en metres sur le mur (x depuis la gauche, y l'appui depuis le sol), source `claude`, a la confiance d'une boite
  * seule (sa confiance a lui reste dans l'observation) : les dimensions sont celles du plan, Claude n'en donne que les parts.
@@ -245,7 +281,8 @@ export function ouvertureDeLIa(o: OuvertureIa, largeurM: number, hauteurM: numbe
   const out: OuvertureFacade = { type: o.type, x: r2(x), y: r2(y), l: r2(Math.min(largeurM, o.u1 * largeurM) - x), h: r2(o.v1 * hauteurM - y), source: 'claude', confiance: r['facades.ia.confianceSeule'] };
   if (o.niveau !== null) out.niveau = o.niveau;
   if (o.travee !== null) out.travee = o.travee;
-  if (Object.keys(o.details).length) out.details = { ...o.details };
+  const carreaux = carreauxDeLIa(o.carreaux, out.h);
+  if (Object.keys(o.details).length || carreaux) out.details = { ...o.details, ...(carreaux ? { carreaux } : {}) };
   return out;
 }
 

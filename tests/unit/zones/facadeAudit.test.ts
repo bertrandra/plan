@@ -8,6 +8,7 @@ import type { SessionAuditParcelle } from '../../../src/app/audit/parcelle/contr
 import type { MesureFacade } from '../../../src/app/audit/parcelle/mesures.js';
 import type { IdEtape, EtatAffiche } from '../../../src/model/etapeFacade.js';
 import type { RunEnregistre } from '../../../src/regles/facades/observations.js';
+import type { ReleveFacade } from '../../../src/model/types.js';
 
 // L'audit discret (MD/spec-facade-calage-audit.md §4 ter.3, §4 ter.5, lot F3) : la barre de progression de la calibration, posee sur
 // une facade de l'audit ; une etape cachee qui a reussi ne se montre pas, une etape qui echoue apparait aussitot avec son geste ;
@@ -27,19 +28,19 @@ const OK: Etape[] = [
   { id: 'assemblage', etat: 'ok', resume: 'Fusionnée : 2 photos assemblées en une image.' },
   { id: 'calage', etat: 'ok', resume: 'Coins du mur trouvés sur la photo.' },
   { id: 'silhouette', etat: 'ok', resume: 'Le haut lu sur la photo : un triangle.' },
-  { id: 'diagnostic', etat: 'saute', resume: 'Le diagnostic de forme vient avec le lot F4.' },
+  { id: 'diagnostic', etat: 'saute', resume: 'Pas de corps du toit pour cette façade.' },
   { id: 'texture', etat: 'ok', resume: 'Texture de 10 × 8 m.' },
   { id: 'ouvertures', etat: 'ok', resume: '3 ouvertures trouvées, aucune devinée.' },
-  { id: 'toit', etat: 'saute', resume: 'Le toit par le moteur vient avec le lot F4.' },
-  { id: 'validation', etat: 'saute', resume: 'La validation de la façade vient avec le lot F5.' },
+  { id: 'toit', etat: 'saute', resume: 'Aucune proposition de toit : le toit calculé reste, ses hauteurs aussi.' },
+  { id: 'validation', etat: 'saute', resume: 'Pas encore de bilan de la façade.' },
 ];
 
 const RUN: RunEnregistre = { le: '2026-10-29T08:30:00.000Z', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, passes: 3, sorties: [], cout: 0.0046, tokens: { entree: 12600, sortie: 2700 }, image: { largeur: 500, hauteur: 300 }, chaine: 10 };
 
-function session(etapes: Etape[], ouverte: { facade: string; etape: IdEtape } | null = null, runs: Record<string, RunEnregistre> | null = null) {
-  const mesure = { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null, etapes } as MesureFacade;
+function session(etapes: Etape[], ouverte: { facade: string; etape: IdEtape } | null = null, runs: Record<string, RunEnregistre> | null = null, plus: Partial<MesureFacade> = {}, validee: ReleveFacade | null = null) {
+  const mesure = { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null, etapes, ...plus } as MesureFacade;
   const s = {
-    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), arreterMesure: vi.fn() },
+    validation: { mesuresFaites: () => new Map([['maison#0', mesure]]), etapeEnCours: () => null, rejouerFacade: vi.fn(async () => 1), arreterMesure: vi.fn(), facadeValidee: () => validee },
     capture: { lire: () => ({ batiments: { maison: { facades: { '0': { photos: [{ type: 'image/jpeg', base64: 'QQ==' }, { type: 'image/jpeg', base64: 'Qg==' }] } } } } }), corrigerRedressement: vi.fn() },
     etapeOuverte: () => ouverte,
     analyse: { runs: () => runs, prixEscalade: () => ({ modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } }) },
@@ -52,9 +53,11 @@ function monter(s: SessionAuditParcelle) {
   const commandes = creerRegistre();
   const ouvrir = vi.fn(), escalader = vi.fn();
   commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader la lecture de la façade', groupe: 'facade', executer: (source) => escalader(source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
+  const valider = vi.fn();
+  commandes.declarer({ id: 'facade.valider', libelle: 'Valider la façade', groupe: 'facade', executer: (source) => valider(source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
   commandes.declarer({ id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade', executer: (source) => ouvrir(source?.dataset.etape, source?.closest<HTMLElement>('[data-facade]')?.dataset.facade) });
   act(() => racine.render(createElement(FacadeAudit, { session: s, commandes, cle: 'maison', cote: 0, nom: 'Façade sud de Maison', largeurPlanM: 10 })));
-  return { ouvrir, escalader };
+  return { ouvrir, escalader, valider };
 }
 
 const lignes = () => [...hote.querySelectorAll('.ligneEtapeAudit')].map((l) => l.textContent ?? '');
@@ -118,5 +121,24 @@ describe('une facade dans l audit discret', () => {
     expect(hote.querySelector('.lectureClaude .detailPhoto')?.textContent).toMatch(/0,0046 \$, escaladée \(claude-sonnet-5-5, 0,0031 \$\)\.$/);
     const b = hote.querySelector('[data-commande="facade.escalader"]') as HTMLButtonElement;
     expect([b.textContent, b.disabled]).toEqual(['Escaladée (claude-sonnet-5-5)', true]);
+  });
+
+  it('V4 : le bilan de la facade attend la personne, « Valider la façade » passe par la commande ; validee, l E9 est faite', () => {
+    const bilan = { dimensions: { largeurM: 10, egoutM: 6 }, forme: { gabarit: [{ u: 0, v: 1 }, { u: 1, v: 1 }], source: 'plan' as const }, textureCalee: null, ouvertures: [] };
+    const attend = OK.map((e) => (e.id === 'validation' ? { ...e, etat: 'a-confirmer' as const, resume: 'Mur de 10 × 6 m ; haut du plan ; sans texture ; 0 ouverture. Validez la façade pour l’écrire dans le projet (V4).' } : e));
+    const { valider } = monter(session(attend, null, null, { facade: bilan }));
+    expect(lignes().at(-1)).toMatch(/^à confirmer Validation : Mur de 10 × 6 m .* \(V4\)\. À la main : corriger n’importe quel sortant\.$/);
+    const b = hote.querySelector('[data-commande="facade.valider"]') as HTMLButtonElement;
+    expect([b.textContent, b.disabled]).toEqual(['Valider la façade', false]);
+    act(() => b.click());
+    expect(valider).toHaveBeenCalledWith('maison#0');
+    // Validee : plus de bouton, et l'E9 de la barre est faite.
+    act(() => racine.unmount());
+    racine = createRoot(hote);
+    const ecrite = { cote: 0, ouvertures: [{ type: 'fenetre', x: 1, y: 1, l: 1, h: 1, id: 'o1', verifieeLe: '2026-10-29' }] } as unknown as ReleveFacade;
+    monter(session(attend, null, null, { facade: bilan }, ecrite));
+    expect(hote.querySelector('[data-commande="facade.valider"]')).toBeNull();
+    expect(hote.querySelector('.barreFacadeSegment:last-child')?.className).toMatch(/\bok\b/);
+    expect(lignes().some((l) => l.includes('Validation'))).toBe(false);
   });
 });

@@ -111,7 +111,13 @@ describe('la pose candidate et les boites', () => {
   });
 
   it('ramene une boite en metres, depuis les dimensions du plan', () => {
-    expect(ouvertureDeLIa(R.ouvertures[0]!, 10, 2.5)).toEqual({ type: 'fenetre', x: 1, y: 1, l: 1.2, h: 1.13, source: 'claude', confiance: 0.4, niveau: 0, travee: 0, details: { volets: 'battants', allege: 'pleine', forme: 'rect' } });
+    // Les carreaux lus (decision 15) se rangent dans les details, dans le vocabulaire du modele (lot F5) : la 3D ne les dessine pas avant F8.
+    expect(ouvertureDeLIa(R.ouvertures[0]!, 10, 2.5)).toEqual({ type: 'fenetre', x: 1, y: 1, l: 1.2, h: 1.13, source: 'claude', confiance: 0.4, niveau: 0, travee: 0,
+      details: { volets: 'battants', allege: 'pleine', forme: 'rect', carreaux: { source: 'ia', vantaux: 2, grille: { colonnes: 1, rangees: 3 }, petitsBois: 'fins', vitrage: 'clair' } } });
+    // Une imposte se lit en part de la baie : elle se range en metres ; Claude ne disant rien, rien n'est range.
+    const imposte = { ...R.ouvertures[0]!, carreaux: { vantaux: null, colonnes: null, rangees: null, petitsBois: null, imposte: { hauteur: 0.25, colonnes: 4, rangees: 1 }, vitrage: null } };
+    expect(ouvertureDeLIa(imposte, 10, 2.5).details?.carreaux).toEqual({ source: 'ia', imposte: { hauteurM: 0.28, grille: { colonnes: 4, rangees: 1 } } });
+    expect(ouvertureDeLIa({ ...R.ouvertures[0]!, carreaux: null }, 10, 2.5).details?.carreaux).toBeUndefined();
   });
 
   it('coche une boite que la detection retrouve, confirme une devinee, laisse decochee une boite seule', () => {

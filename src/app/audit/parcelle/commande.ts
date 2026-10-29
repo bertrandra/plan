@@ -269,6 +269,7 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
 
   declarerEtapeFacade(cmd);
   declarerEscaladeFacade(cmd, a.signaler);
+  declarerValidationFacade(cmd);
   declarerAuditsAdmin(a, cmd, { importer, consulter });
   return { session: () => session };
 }
@@ -291,6 +292,29 @@ function declarerEscaladeFacade(cmd: RegistreCommandes, signaler: (m: string) =>
       const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
       if (c?.type !== 'auditParcelle' || !facade) return;
       void c.session.analyse.escaladerFacade(facade).then(signaler);
+    },
+  });
+}
+
+/**
+ * La validation d'une facade (V4, MD/spec-facade-calage-audit.md §4 E9, lot F5) : le bouton sous la barre de la facade (`data-facade`)
+ * ecrit sa Facade dans le projet, en un pas d'historique (Ctrl+Z la defait). Grisee sur un audit relu en lecture seule (l'avant/apres
+ * de l'admin) : il ne s'ecrit rien.
+ */
+function declarerValidationFacade(cmd: RegistreCommandes): void {
+  const session = () => { const c = parcours.courant(); return c?.type === 'auditParcelle' ? c.session : null; };
+  cmd.declarer({
+    id: 'facade.valider',
+    libelle: 'Valider la façade',
+    groupe: 'facade',
+    actif: () => { const s = session(); return !!s && !s.validation.lectureSeule(); },
+    raisonInactive: () => (session()?.validation.lectureSeule() ? 'Audit relu en lecture seule : rien ne s’écrit dans le projet.' : null),
+    executer: (source) => {
+      const s = session();
+      const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
+      const [cle, cote] = facade ? [facade.slice(0, facade.lastIndexOf('#')), Number(facade.slice(facade.lastIndexOf('#') + 1))] : [null, NaN];
+      if (!s || !cle || !Number.isInteger(cote)) return;
+      s.validation.validerFacade(cle, cote);
     },
   });
 }

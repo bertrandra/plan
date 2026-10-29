@@ -17,6 +17,7 @@
 // sommet a ete ajoute sans que `frozenVertices` suive donnerait sinon un tableau plus court que
 // `pts`, et un sommet sur deux repondrait `undefined` a « es-tu gele ? ».
 
+import { facadeLue } from './facadeObjet.js';
 import { deplierRelief } from './relief.js';
 import { rangerChampsAPlat } from './champsFonction.js';
 import type { ChampsBatiment, ObjetBrut, ObjetAPoints } from './types.js';
@@ -71,6 +72,9 @@ export function normalizeObjects<T extends ObjetBrut>(raw: T[]): (T & ObjetBrut)
         lireChampsEtendus(copie as unknown as Record<string, unknown>);
         return copie;
       });
+      // La Facade et la facade objet d'un releve valide (V4, lot F5) : verifiees, retirees si elles sont mal formees ; un releve
+      // d'avant, qui n'en porte pas, reste le meme objet.
+      if (Array.isArray(b.facades)) b.facades = b.facades.map(facadeLue);
       if (b.verifieSurPlace) b.verifieSurPlace = { date: String(b.verifieSurPlace.date) };
       if (b.toitFige) b.toitFige = true; else delete b.toitFige;
       // La hauteur a l'egout choisie : l'une des deux sources connues, sinon rien.

@@ -8,7 +8,7 @@ import { NIVEAU_ECRIVAIN, NIVEAU_ORIGINE, ecrivainPeut, niveauActuel, origineAct
 // hierarchie, la personne (1), ce qui a ete vu sur place (2), le fait (3), la mesure (4), la source officielle (5), le defaut (6).
 // Deux tables : d'ou vient la valeur de chaque groupe de champs selon les marques du batiment, et qui peut l'ecrire.
 
-const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades', 'couleurToit', 'photoMurs'];
+const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades', 'couleurToit', 'photoMurs', 'facadeDimensions', 'facadeForme', 'facadeTexture', 'facadeOuvertures'];
 const lu = { toit: { source: 'lidar' as const }, toitLidarLu: 7 };
 const corps = { pts: [], posFaitage: 4, faitage: 9, egouts: [6, 6] as [number, number], pignons: [], ecart: 0.1 };
 
@@ -41,6 +41,10 @@ const BATIMENTS: Record<string, { o: BatimentProtege; ctx?: ContexteEcriture }> 
   releveMain: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 2 } },
   releveAudit: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, depuisAudit: true }] } }, ctx: { cote: 2 } },
   autreMur: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 1 } },
+  // La Facade validee (V4, lot F5) : chaque part est de la personne ; une part absente reste celle du releve fait a la main.
+  facadeValidee: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, dimensions: {}, forme: {}, textureCalee: {}, ouvertures: [{ source: 'detectee', verifieeLe: '2026-10-29' }] }] } }, ctx: { cote: 2 } },
+  facadeEnPartie: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, dimensions: {}, ouvertures: [{ source: 'detectee' }, { source: 'claude' }] }] } }, ctx: { cote: 2 } },
+  ouvertureCorrigee: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, depuisAudit: true, ouvertures: [{ source: 'corrigee' }] }] } }, ctx: { cote: 2 } },
   couleurChoisie: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#8a3b2a' } } } },
   couleurLue: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#8a3b2a', origineCouleur: 'orthophoto' } } } },
   couleurRepli: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { toit: { source: 'bdtopo', couleur: '#777777', origineCouleur: 'gris' } } } },
@@ -52,44 +56,49 @@ const BATIMENTS: Record<string, { o: BatimentProtege; ctx?: ContexteEcriture }> 
  * D'ou vient chaque groupe, batiment par batiment : contour, hauteur, toit, elements, couverture, murs, facades, couleur du toit, et
  * la case de la photo de rue (`photoMurs`).
  */
-const ORIGINES: Record<string, [Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine]> = {
-  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut'],
-  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut', 'defaut', 'defaut'],
-  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'photoRue'],
-  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'photoRue'],
-  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'photoRue'],
-  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut', 'defaut'],
-  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut', 'defaut'],
-  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil', 'defaut', 'defaut'],
-  couleurChoisie: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'couleurToitChoisie', 'defaut'],
-  couleurLue: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
-  couleurRepli: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
-  couleurLueFigee: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
-  couleurLueVerifiee: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut'],
-  photoRueSansConclusion: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  mursTerrain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'mursVus'],
-  mursTerrainChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'mursVus'],
-  mursPlanChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'defaut'],
-  mursVerifies: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'photoRue'],
+const ORIGINES: Record<string, Origine[]> = {
+  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut', 'verifie', 'verifie', 'verifie', 'verifie'],
+  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'defaut', 'defaut'],
+  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'defaut', 'defaut'],
+  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut', 'defaut', 'releveMain', 'releveMain', 'releveMain', 'releveMain'],
+  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut', 'defaut', 'releveAudit', 'releveAudit', 'releveAudit', 'releveAudit'],
+  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couleurChoisie: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'couleurToitChoisie', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couleurLue: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couleurRepli: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couleurLueFigee: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couleurLueVerifiee: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut', 'verifie', 'verifie', 'verifie', 'verifie'],
+  photoRueSansConclusion: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursTerrain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursTerrainChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursPlanChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursVerifies: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'photoRue', 'verifie', 'verifie', 'verifie', 'verifie'],
+  // La Facade (lot F5) : ses parts sur le mur vise.
+  facadeValidee: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut', 'defaut', 'facadeValidee', 'facadeValidee', 'facadeValidee', 'facadeValidee'],
+  facadeEnPartie: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut', 'defaut', 'facadeValidee', 'releveMain', 'releveMain', 'releveMain'],
+  // Une ouverture corrigee sur un releve pose d'office : le mur reste a l'audit, l'ouverture est gardee une a une (ouvertureGardee).
+  ouvertureCorrigee: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut', 'defaut', 'releveAudit', 'releveAudit', 'releveAudit', 'releveAudit'],
 };
 
 /** Le niveau de chaque origine : 1 la personne … 6 le defaut. */
 const NIVEAUX: Record<Origine, Niveau> = {
-  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1,
+  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1, facadeValidee: 1,
   verifie: 2, egoutVu: 2, toitPhoto: 2, elementsPoses: 2, mursVus: 2, releveAudit: 2,
   profil: 3, lidar: 4, ortho: 4, photoRue: 4, bdtopo: 5, defaut: 6,
 };

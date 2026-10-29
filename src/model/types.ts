@@ -6,7 +6,7 @@
 export type { CouleurMurs, PhotoMur } from './couleurMur.js';
 import type { PtBrut } from './points.js';
 export type { Pt, PtEcran, PtBrut, Segment } from './points.js';
-export type { TypeOuverture, OuvertureFacade, SourceOuverture, DetailsOuverture, GrilleFacade, CorrectionOuverture, ReleveFacade, SourceCoinReleve, CalagePhotoReleve, CalageReleve, PartieBasse } from './typesReleve.js';
+export type { TypeOuverture, OuvertureFacade, SourceOuverture, DetailsOuverture, GrilleFacade, CorrectionOuverture, ReleveFacade, SourceCoinReleve, CalagePhotoReleve, CalageReleve, PartieBasse, CarreauxOuverture, GrilleCarreaux, DimensionsFacade, FormeFacade, PointeLue, CorpsDeFacade, SurfaceFacade, ParementFacade, TextureCalee } from './typesReleve.js';
 export type { FormeToitSimple, FormeToitCatalogue, FormeToit, ToitMesure, PignonToit, ToitACheval, CorpsToit, ElementDeToit, GenreSaillie, FormeSaillie, SaillieFacade, BaieToit, SpecialeToit, ProfilPan, BoutToit, TypeLucarne, Lucarne, BordsToit, PositionCheminee, Cheminee, EdiculeTerrasse, TerrasseToit, VolumeToit, CouvertureChoisie, Toit } from './typesToit.js';
 import type { DeclarationPrealable } from './typesCalcul.js';
 import type { ChampsBatiment, ChampsArbre, ChampsParasol, TextureAppliquee } from './typesFonctions.js';

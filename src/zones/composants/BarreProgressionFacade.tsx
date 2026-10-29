@@ -16,6 +16,8 @@ import { Icone, type NomIcone } from '../icones.js';
 export const COMMANDE_ETAPE = 'facade.etape';
 /** L'escalade d'une facade, a la demande : le bouton sous la barre (l'audit, la calibration), la meme commande des deux cotes. */
 export const COMMANDE_ESCALADE = 'facade.escalader';
+/** La validation d'une facade (V4, lot F5) : le bouton sous la barre, dans l'audit ; elle ecrit la Facade dans le projet. */
+export const COMMANDE_VALIDER = 'facade.valider';
 
 /** Une etape telle que la barre la montre : l'etat que l'orchestrateur lui a calcule (ou a venir, ou en cours) et ce qu'elle a donne. */
 export type EtapeAffichee = Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>;

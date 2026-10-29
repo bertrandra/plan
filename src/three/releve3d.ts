@@ -294,6 +294,20 @@ function poserToit(ctx: ContexteReleve3d, contour: PtBrut[], toitLu: Toit, h: nu
   });
 }
 
+/**
+ * Une ouverture de la facade objet (lot F5) est un objet de la scene : son encadrement et sa vitre vont dans un groupe nomme par son
+ * identifiant (`ouverture:o3`), qui dit si la personne l'a verifiee. Sans identifiant (un releve d'avant la validation), ils vont
+ * dans la scene comme avant : la scene d'un plan sans Facade validee garde exactement ses mailles.
+ */
+function ouvertureObjet(ctx: ContexteReleve3d, ov: OuvertureFacade): ContexteReleve3d {
+  if (!ov.id) return ctx;
+  const g = new THREE.Group();
+  g.name = 'ouverture:' + ov.id;
+  g.userData = { ouverture: ov.id, verifiee: !!ov.verifieeLe };
+  ctx.scene.add(g);
+  return { ...ctx, scene: g };
+}
+
 /** Habille un batiment de son releve. Ne fait rien s'il n'en a pas. */
 export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: number, volumesToit: readonly VolumeToit[] | null = null, sansToit = false, corps: readonly CorpsToit[] | null = null): void {
   if (!o.batiment?.facades?.length && !o.batiment?.toit && !volumesToit) return;
@@ -321,7 +335,7 @@ export function ajouterReleve3d(ctx: ContexteReleve3d, o: ObjetPolygone, h: numb
       plaquerTexture(ctx, hab, hMur, partie, corps);
     }
     const posees = r.ouvertures.filter((ov) => ov.x + ov.l <= f.largeur + 0.01 && ov.y + ov.h <= egoutEn(ov.x + ov.l / 2, hMur, partie) + 0.01);
-    posees.forEach((ov) => poserOuverture(ctx, f, ov, avecPhoto));
+    posees.forEach((ov) => poserOuverture(ouvertureObjet(ctx, ov), f, ov, avecPhoto));
     // Volets, coffres, balcons et garde-corps que le releve a reconnus (three/detailsOuvertures.ts).
     poserDetailsOuvertures(ctx, posees.map((o) => ({ f, o, hMur: egoutEn(o.x + o.l / 2, hMur, partie), cadre: SECTION_CADRE })));
   });

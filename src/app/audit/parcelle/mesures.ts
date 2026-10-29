@@ -21,6 +21,7 @@ import { VERSION_CHAINE_FACADES, type PhotoARedresser } from '../../../facade/re
 import { derouler, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
+import type { BilanFacade } from '../../../facade/releve/bilanFacade.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
@@ -93,6 +94,11 @@ export interface MesureFacade {
    * de l'audit les lisent. Derive : il se recalcule a chaque rejeu ; absent d'une mesure lue dans un fichier d'audit.
    */
   etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>[];
+  /**
+   * Le bilan de la facade (E9, lot F5) : la Facade que la validation V4 ecrira (dimensions, forme, pose de la texture, ouvertures
+   * numerotees). Derive, comme les etapes : absent d'une mesure lue dans un fichier d'audit, « Rejouer la façade » le refait.
+   */
+  facade?: BilanFacade;
 }
 
 export interface DependancesMesures {
@@ -213,6 +219,6 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const sortie = r.sorties.audit;
   const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
-  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}) };
+  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
 }

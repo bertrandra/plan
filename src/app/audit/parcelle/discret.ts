@@ -5,7 +5,7 @@
 // - Une etape cachee (`cache` : E0, E2, E3, E5, E6) ne se montre que si elle echoue ou doute : elle passe alors en resume, avec son
 //   option manuelle. Une etape cachee qui a reussi ne s'ouvre pas.
 // - Une etape en resume (`resume` : E4, E7) tient en une ligne quand elle a reussi (« Mur posé »), et demande un geste sinon.
-// - Les points de validation (V1 a V4) s'ouvrent toujours depuis la barre ; ceux des lots a venir (V2, V4) y disent leur lot.
+// - Les points de validation (V1 a V4) s'ouvrent toujours depuis la barre ; V4, la facade, se valide sous la barre (lot F5).
 
 import { etapeFacade, type EtatAffiche, type IdEtape, type SegmentFacade } from '../../../model/etapeFacade.js';
 
