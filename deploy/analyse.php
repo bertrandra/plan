@@ -9,7 +9,7 @@
 //   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
 //   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
-//   POST admin/claude/messages                l'appel immediat (renfort du releve, trois passes au plus)
+//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus)
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
@@ -251,15 +251,19 @@ try {
     if ($chemin === 'etat') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();
-        // Un deploiement d'avant le lot L18 n'a pas les fichiers du renfort : l'etat le dit, sans tomber.
-        try {
-            [$promptR, $schemaR] = promptEtSchema('renfort');
-            $renfort = ['prompt' => $promptR['version'], 'schema' => $schemaR['version']];
-        } catch (Throwable $e) {
-            $renfort = null;
-        }
+        // Un deploiement d'avant le lot L18 (ou F2) n'a pas les fichiers du renfort (ou du run d'une facade) : l'etat le dit, sans tomber.
+        $versionsDe = function (string $usage): ?array {
+            try {
+                [$pU, $sU] = promptEtSchema($usage);
+                return ['prompt' => $pU['version'], 'schema' => $sU['version']];
+            } catch (Throwable $e) {
+                return null;
+            }
+        };
+        $renfort = $versionsDe('renfort');
+        $facade = $versionsDe('facade');
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'renfort' => $renfort, 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       'renfort' => $renfort, 'facade' => $facade, 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 

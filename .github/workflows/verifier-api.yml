@@ -14,9 +14,14 @@ on:
         required: false
         default: ""
       plafond:
-        description: "Plafond de dépense de la vérification, en dollars"
+        description: "Plafond de dépense de la vérification, en dollars (0.25 pour la mesure des façades)"
         required: false
         default: "0.05"
+      mesure_facades:
+        description: "Mesurer aussi le run d'une façade x1 contre x3 sur les scènes de synthèse du banc (lot F2 ; ~88 requêtes, quelques centimes)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +29,7 @@ permissions:
 jobs:
   verifier-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,13 +39,31 @@ jobs:
         run: |
           php -v
           php -m | grep -qx curl || { echo "extension curl absente"; exit 1; }
+      # La mesure des facades (lot F2) : les dependances et les images de synthese, AVANT que la cle n'entre dans l'environnement
+      # (aucun script de paquet ne la voit).
+      - name: Preparer la mesure des facades (sans la cle)
+        if: ${{ inputs.mesure_facades }}
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer mesure-facades
       - name: Requetes du serveur contre l'API Claude
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
           MODELE: ${{ inputs.modele }}
           PLAFOND: ${{ inputs.plafond }}
+          MESURE: ${{ inputs.mesure_facades }}
         run: |
           set -euo pipefail
           args=(--plafond "$PLAFOND")
           if [ -n "$MODELE" ]; then args+=(--modele "$MODELE"); fi
+          if [ "$MESURE" = "true" ]; then args+=(--facades mesure-facades); fi
           node scripts/verifier-api-claude.mjs "${args[@]}"
+      - name: Le tableau x1 contre x3 (sans la cle)
+        if: ${{ inputs.mesure_facades }}
+        run: npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer mesure-facades | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Reponses de la mesure des facades
+        if: ${{ inputs.mesure_facades }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesure-facades-x1-x3
+          path: mesure-facades/*.reponses.json

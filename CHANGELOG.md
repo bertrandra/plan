@@ -7,6 +7,31 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F2 : un run de Claude par façade, décidé par le moteur de règles** (`MD/spec-facade-calage-audit.md` §5, §8, §9).
+  Une seule requête par façade, sur l'image prise pour la suite (l'assemblage), rend tout : le calage (les deux angles du mur, les
+  pointes des pignons, les appentis, les autres volumes, ce qui cache le mur), la forme du haut, les éléments du toit, **le parement du
+  mur** (vocabulaire fermé : `enduit`, `pierre`, `brique`, `colombage`, `bardage-bois`, `bardage-metal`, `beton`, `mixte`, et les
+  zones d'un autre parement, en part du mur, avec leur confiance), les ouvertures, leurs détails et **leurs carreaux** (vantaux,
+  carreaux par vantail, petits bois, imposte, vitrage). Le texte lui donne ce que le plan attend du haut et le parement déjà connu
+  (vu sur place, sinon la BD TOPO). Prompt et schéma **générés** (`npm run regles:generer` : `deploy/prompt-facade.md`,
+  `deploy/schema-facade.json`, version 1, depuis `src/regles/sujets/descriptions/facadesRun.ts`), servis par le serveur PHP sous
+  l'usage `facade` (`deploy/analyse-fonctions.php`, comptes du journal `comptesFacade`). **L'IA alimente le moteur de règles** :
+  sa réponse devient des **observations** (`src/regles/facades/observations.ts`), et les **règles** de `facade/regles/facades/ia.ts`
+  en tirent les décisions que la chaîne lit — ses deux angles sont une pose candidate de plus pour l'arbitre de l'É4 ; une **zone de
+  colombage** écarte les poses du mur qui tiennent dedans (leurs bouts suivent les bois, pas les angles : le défaut d'AE 101) et la
+  teinte du mur se lit hors d'elle ; une pointe vue ailleurs ou plus haut que le plan est un diagnostic ou une alerte, jamais une
+  correction ; une boîte n'est cochée que si la détection (ou une baie devinée par la grille) la retrouve, seule elle reste décochée.
+  Leurs seuils sont des réglages (`regles/facades/ia.json`), édités et recalculés dans Admin › Règles, qui montre aussi le run (ses
+  règles, son prompt et son schéma). Les observations de toit sont enregistrées, pas appliquées (lot F4, `corpsSousContrainte`).
+- **Calibration : le mode « IA » du rejeu et « Rappeler Claude »** (×1, et ×3 voté pour mesurer). La réponse est **enregistrée** avec
+  le cas (date, modèle, versions du prompt et du schéma, tokens, coût), à côté des précédentes ; le mode « IA » la rejoue sans réseau
+  ni coût. L'É4 montre la pose des deux angles de Claude, ses pointes, ses zones de colombage et les poses qu'elles écartent, et dit
+  l'accord ou la divergence ; l'É7 montre ses boîtes (pleines : retrouvées, cochées ; en tirets : seules) et, au toucher, la division
+  du vitrage. Coût et versions affichés.
+- **La mesure ×1 contre ×3** : `.claude/skills/facades/scripts/ia-x1-x3.ts` (préparer les scènes de synthèse, évaluer) et
+  `scripts/verifier-api-claude.mjs --facades` ; le workflow « Vérifier l'API Claude » envoie aussi une requête `facade` sur une image
+  de synthèse du dépôt (`tests/fixtures/facades-ia/facade-test.jpg`) et, case « mesure des façades » cochée, joue la mesure entière.
+
 - **Façades, lot F1 : le calage du mur par ses ancres** (`MD/spec-facade-calage-audit.md` §4 É4, §5, §9). Le mur cherché sur
   l'assemblage se juge maintenant **sans le toit** : un score d'explication (`facade/releve/calageAncres.ts`) dit si ses deux angles
   sont des bords de la matière du mur (de l'enduit d'un côté, autre chose de l'autre, et une verticale qui les longe), si l'égout et le
@@ -22,6 +47,11 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'aide de Claude au relevé passe par le run d'une façade** (lot F2) : une requête au lieu de trois passes de renfort, sur la
+  photo à l'étape des coins (ses deux angles deviennent des graines, recalées sur les arêtes), sur l'élévation redressée à la
+  vérification (ce qu'aucune photo ne montre en gris ; ses boîtes s'accordent avec la détection). Claude ne retire plus une baie
+  détectée : une boîte seule reste décochée. Le renfort à trois passes ne reste qu'à l'audit, jusqu'au lot F3.
+
 - **Le gabarit ne pose plus le mur** (lot F1). Il vient du toit calculé, que la photo met en question : `murSurLAssemblage` et
   `affinerEgoutEtSol` ne le reçoivent plus, il ne se pose qu'une fois le mur calé. La chaîne des façades passe à la version 10 (un
   mur qui n'explique pas la photo n'est plus compté trouvé ; ses coins restent prédits). L'option manuelle de l'É4 de la calibration
@@ -29,6 +59,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   et le sol se tirent librement, « Appliquer le calage et rejouer ».
 
 ### Supprimé
+
+- **`app/releve/renfortReleve.ts`** (lot F2) : `creerAideReleve` à trois passes, `fabriqueImagesRenfortNavigateur` (la photo à grille
+  et l'élévation graduée du relevé), `reponsesRenfort`, `DemandeAide`, `ReponseAide`, `FabriqueImagesRenfort`, `ContexteAide` ;
+  `contenuRenfort` et `requetesRenfort` vont à l'audit, leur seul appelant (`app/audit/parcelle/entreesRenfort.ts`). Et ce que seul le
+  relevé lisait : `grainesDeCoins` (`facade/detection/renfortRecalage.ts`) et `depuisGrille` (`facade/detection/renfort.ts`), gardés par
+  le banc du renfort.
 
 - **Le second composant du calage à la main** (lot F1) : `zones/CalageSilhouette.tsx` (la silhouette aux proportions verrouillées et
   l'étirement de la photo en hauteur) et `facade/calage/calageSilhouette.ts` (`calageDe`, `egoutDuCalage`, `bouger`, `coinsDuCalage`),

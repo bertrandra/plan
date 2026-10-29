@@ -93,6 +93,33 @@ export const SORTIE_VIDE = {
 };
 export const TROUVE_VIDE = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 0, vide: true };
 
+/**
+ * Une sortie du run d'une facade (deploy/schema-facade.json, lot F2). SYNTHETIQUE : ecrite a la main pour les tests, ce n'est pas
+ * une reponse de Claude. Deux angles, deux pointes, un appentis, une haie, une cheminee, deux baies dont une a petits carreaux.
+ */
+export const SORTIE_FACADE = {
+  calage: {
+    angles: { gauche: { x: 0.14, egout: 0.52, sol: 0.88, confiance: 'moyenne' }, droite: { x: 0.86, egout: 0.52, sol: 0.88, confiance: 'forte' } },
+    pointes: [{ u: 0.11, v: 3.1, confiance: 'moyenne' }, { u: 0.8, v: 3.2, confiance: 'faible' }],
+    appentis: [{ debut: 0.3, fin: 0.62 }],
+    corps: [],
+    cache: [{ quoi: 'haie', debut: 0.85, fin: 1 }],
+  },
+  forme: { silhouette: 'plusieurs-sommets', bout: 'pignon' },
+  elements: [{ element: 'cheminee', u: 0.45, confiance: 'moyenne' }],
+  surface: { principale: 'enduit', zones: [{ type: 'colombage', u0: 0.5, u1: 1, v0: 1.5, v1: 3, confiance: 'moyenne' }], confiance: 'forte' },
+  ouvertures: [
+    { type: 'fenetre', u0: 0.1, u1: 0.22, v0: 0.4, v1: 0.85, niveau: 0, travee: 0, confiance: 'forte', details: { volets: 'battants', allege: 'pleine', forme: 'rect' },
+      carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' } },
+    { type: 'porte', u0: 0.45, u1: 0.55, v0: 0, v1: 0.85, niveau: 0, travee: 1, confiance: 'moyenne', details: { volets: 'aucun', allege: 'indetermine', forme: 'rect' },
+      carreaux: { vantaux: 1, colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: { hauteur: 0.2, colonnes: 3, rangees: 1 }, vitrage: 'indetermine' } },
+  ],
+  confiance: 'moyenne'
+};
+
+/** Ses comptes au journal : deux baies, deux angles, deux pointes, une cheminee, la silhouette et le bout dits. */
+export const TROUVE_FACADE = { ouvertures: 2, manquees: 0, enTrop: 0, bouts: 2, lucarnes: 0, elements: 1, ecarts: 0, coins: 2, determines: 2, vide: false };
+
 /** Un message de l'API Messages, tel que l'appel immediat le recoit. */
 export function messageReussi(usage: Record<string, unknown>, sortie: object): object {
   return { id: 'msg_immediat', type: 'message', role: 'assistant', model: 'claude-haiku-5-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: JSON.stringify(sortie) }], usage };

@@ -10,15 +10,32 @@
 
 import { PASSES_RENFORT, estReponseRenfort, signauxRenfort, texteRenfort, voterRenfort, RENFORT_A_CHAQUE_FACADE, type ReponseRenfort } from '../../../facade/detection/renfort.js';
 import { appliquerRenfort, cartesAretes, texteBilan } from '../../../facade/detection/renfortRecalage.js';
-import { contenuRenfort, requetesRenfort, type ImageRenfort } from '../../releve/renfortReleve.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
 import { etiquetteFacade } from './liste.js';
-import type { RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';
+import type { BlocAnalyse, RequeteAnalyse, ResultatBatch } from '../../../io/analyseClaude.js';
 import type { BatchAnalyse, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { P2, Image } from '../../../facade/vision/homographie.js';
 import type { ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
+
+interface ImageRenfort { base64: string; mediaType: 'image/jpeg' | 'image/png' }
+
+/**
+ * Le contenu d'une requete du renfort : la photo et sa grille (image 1), l'elevation graduee (image 2), puis le texte. Les trois
+ * passes recoivent exactement ce contenu. (Venu du releve, qui passe au run d'une facade au lot F2 : seul l'audit a encore le
+ * renfort a trois passes, jusqu'a ce qu'il passe a son tour par l'enchainement, lot F3.)
+ */
+function contenuRenfort(photo: ImageRenfort, elevation: ImageRenfort, texte: string): BlocAnalyse[] {
+  const bloc = (i: ImageRenfort): BlocAnalyse => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.base64 } });
+  return [bloc(photo), { type: 'text', text: 'Image 1 : la photo de la façade, avec la grille de repères (colonnes et lignes de 0 à 10) et le quadrilatère du mur selon Plan.' },
+    bloc(elevation), { type: 'text', text: 'Image 2 : l’élévation redressée du mur, graduée en mètres, ouvertures détectées par Plan numérotées.' }, { type: 'text', text: texte }];
+}
+
+/** Les requetes d'une facade, une par passe : `prefixe-p1` a `prefixe-p3`. La facade est deja comptee par la requete de la maison. */
+function requetesRenfort(prefixe: string, contenu: BlocAnalyse[]): RequeteAnalyse[] {
+  return Array.from({ length: PASSES_RENFORT }, (_, i) => ({ id: prefixe + '-p' + (i + 1), passe: (i + 1) as 1 | 2 | 3, usage: 'renfort' as const, facades: 0, contenu }));
+}
 
 /** Qui dessine les deux images du renfort d'une facade de l'audit : la photo du releve et sa grille, l'elevation graduee. */
 export interface FabriqueImagesRenfortAudit {
@@ -57,7 +74,7 @@ export async function requetesRenfortDuBatiment(e: EntreesPropositions, cle: str
     const etiquette = (b ? etiquetteFacade(b, f) : f.facade.orientation.toLowerCase()) + ' de ' + nom;
     const texte = texteRenfort({ largeurM: r.largeur, hauteurM: r.hauteur, hauteurMesuree: m.hauteurM !== null, ouvertures: r.ouvertures, grille: r.grille ?? null, signaux, coinsTrouves: m.coinsTrouves, etiquette });
     // La facade est deja comptee par la requete de la maison : le renfort n'en ajoute pas au journal.
-    for (const q of requetesRenfort(prefixeRenfort(rang, f.cote), contenuRenfort(imgPhoto, imgElev, texte), 0)) {
+    for (const q of requetesRenfort(prefixeRenfort(rang, f.cote), contenuRenfort(imgPhoto, imgElev, texte))) {
       requetes.push(q);
       parId[q.id] = { cle, passe: q.passe, cote: f.cote, usage: 'renfort' };
     }

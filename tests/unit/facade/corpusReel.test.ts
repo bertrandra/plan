@@ -48,6 +48,14 @@ describe('le format d un cas', () => {
     expect(() => lireCasReel({ ...cas(), format: 'autre' })).toThrow();
     expect(() => lireCasReel({ ...cas(), largeurM: 0 })).toThrow(/largeur/);
   });
+  it('garde les reponses de Claude enregistrees (lot F2), ignore une illisible, et le parement connu', () => {
+    const run = { le: '2026-10-29T12:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, sorties: [{}], cout: 0.001, tokens: { entree: 1, sortie: 1 }, image: { largeur: 10, hauteur: 10 }, chaine: 10 };
+    const lu = lireCasReel({ ...cas(), ia: [run, { le: 'x' }], parement: 'enduit' });
+    expect(lu.ia).toEqual([run]);
+    expect(lu.parement).toBe('enduit');
+    expect(lireCasReel({ ...cas(), ia: [], parement: 3 })).not.toHaveProperty('ia');
+    expect(lireCasReel({ ...cas(), parement: 3 })).not.toHaveProperty('parement');
+  });
 });
 
 describe('les brouillons d un fichier d audit', () => {

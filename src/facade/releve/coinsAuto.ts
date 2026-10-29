@@ -7,7 +7,7 @@ import type { Image, P2 } from '../vision/homographie.js';
 import { detecterSegments } from '../vision/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../vision/redressementFuites.js';
 import { coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectanglesSurLesAretes, type MurLu, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
-import { calerParLesAncres, seuilsDuCalage, type MurCale, type SeuilsCalage } from './calageAncres.js';
+import { calerParLesAncres, seuilsDuCalage, type Colombage, type MurCale, type SeuilsCalage } from './calageAncres.js';
 import type { Similitude } from '../vision/ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
@@ -52,15 +52,16 @@ const POSES_JUGEES = 7;
  * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue. Les bouts sont surs, l'egout et le sol beaucoup
  * moins : ils s'affinent par la teinte du mur. La pose ne vaut que si elle explique la photo sans le toit (calageAncres.ts) : sinon
  * une autre pose des aretes qui l'explique, ou celle du plan seul, supposee. Le gabarit ne la pose pas : il se pose ensuite, sur le
- * mur cale. `seuils` : ceux du test d'explication (regles/facades/enchainement.json).
+ * mur cale. `seuils` : ceux du test d'explication (regles/facades/enchainement.json). `poseIa` : la pose de Claude (ses deux angles),
+ * une candidate de plus pour l'arbitre (lot F2) ; `colombage` : la decision du moteur sur les zones de colombage qu'il voit.
  */
-export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, seuils: SeuilsCalage = seuilsDuCalage()): MurCale {
+export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, seuils: SeuilsCalage = seuilsDuCalage(), poseIa: MurLu | null = null, colombage: Colombage | null = null): MurCale {
   const segs = detecterSegments(m.image);
   const aretes = rapport ? rectanglesSurLesAretes(m, segs, rapport, POSES_JUGEES) : [];
   const poses: MurLu[] = aretes.map((a) => ({ x0: a.x0, x1: a.x1, y0: a.y0, y1: a.y1, egout: true, pied: true, cotes: true }));
   // Le mur lu sur les lignes de la largeur vue : la pose quand les aretes n'en dessinent pas, sinon une de plus a juger.
   poses.push(rectangleDuMur(m, segs, rapport));
-  return calerParLesAncres(m, segs, poses, rapport, seuils);
+  return calerParLesAncres(m, segs, poses, rapport, seuils, poseIa, colombage);
 }
 
 /**
@@ -89,9 +90,9 @@ const rangsRedresses = (vues: readonly (RedressementFuites | null)[]): number[] 
  * Le mur cherche sur l'assemblage des vues (le troisieme temps), puis reporte dans chaque photo : ce que rend la serie. `vues` : une
  * par photo (null : elle ne s'est pas redressee), `m` leur assemblage (mosaiqueDeLaSerie).
  */
-export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, seuils?: SeuilsCalage): CoinsDeSerie {
+export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, seuils?: SeuilsCalage, poseIa: MurLu | null = null, colombage: Colombage | null = null): CoinsDeSerie {
   const rangs = rangsRedresses(vues);
-  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, seuils);
+  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, seuils, poseIa, colombage);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
   const coins: (P2[] | null)[] = vues.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });

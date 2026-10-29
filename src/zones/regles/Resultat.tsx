@@ -2,8 +2,29 @@
 // recevrait, recalcules a chaque frappe, ce qui change par rapport au livre, et les controles.
 
 import type { Controle, LigneDiff } from '../../regles/sujets/edition.js';
+import { genererRunFacade } from '../../regles/sujets/generation.js';
+import { FICHIERS_DONNEES } from '../../regles/donnees/fichiers.js';
+import { seuilsDuTexte } from '../../regles/donnees/edition.js';
 
-export type Onglet = 'prompt' | 'schema' | 'ecarts' | 'controles';
+export type Onglet = 'prompt' | 'schema' | 'ecarts' | 'controles' | 'facade';
+
+/**
+ * Le run d'une facade (lot F2) : les regles qui decident de ses observations, avec leurs seuils (regles/facades/ia.json, edites dans
+ * « Réglages et faits »), puis le prompt et le schema generes qu'il envoie (deploy/prompt-facade.md, schema-facade.json).
+ */
+function RunFacade() {
+  const run = genererRunFacade();
+  const ia = FICHIERS_DONNEES.find((f) => f.id === 'iaFacades');
+  const seuils = ia ? seuilsDuTexte(ia.livre) : [];
+  return <>
+    <p className="consNote">Claude propose, le moteur décide : chaque observation du run d’une façade passe par une règle (facade/regles/facades/ia.ts) dont les seuils se règlent dans « Réglages et faits ». Prompt v{run.versionPrompt}, schéma v{run.versionSchema}.</p>
+    <ul className="reglControles" aria-label="Règles du run d’une façade">
+      {seuils.map((x) => <li key={x.nom}><strong>{x.nom.replace('facades.ia.', '')} = {String(x.valeur).replace('.', ',')} {x.unite}</strong> {x.pourquoi}</li>)}
+    </ul>
+    <pre className="reglSortie" tabIndex={0} aria-label="Prompt du run d’une façade">{run.prompt}</pre>
+    <pre className="reglSortie" tabIndex={0} aria-label="Schéma du run d’une façade">{run.schema}</pre>
+  </>;
+}
 
 /** Une ligne de texte genere, marquee quand elle n'est pas dans le livre : un signe, pas seulement une teinte. */
 function Lignes({ lignes, nom }: { lignes: readonly LigneDiff[]; nom: string }) {
@@ -29,7 +50,7 @@ interface Props {
 }
 
 const TITRES: { id: Onglet; titre: string }[] = [
-  { id: 'prompt', titre: 'Prompt' }, { id: 'schema', titre: 'Schéma' }, { id: 'ecarts', titre: 'Écarts avec le livré' }, { id: 'controles', titre: 'Contrôles' },
+  { id: 'prompt', titre: 'Prompt' }, { id: 'schema', titre: 'Schéma' }, { id: 'ecarts', titre: 'Écarts avec le livré' }, { id: 'controles', titre: 'Contrôles' }, { id: 'facade', titre: 'Run d’une façade' },
 ];
 
 /** Les lignes qui changent, ajoutees ou retirees, sous un titre. */
@@ -66,6 +87,7 @@ export function Resultat({ onglet, surOnglet, prompt, schema, ecartsPrompt, ecar
       <section id="reglVue" className="consVue" role="tabpanel" aria-labelledby={'reglOnglet-' + onglet}>
         {onglet === 'prompt' ? <Lignes lignes={prompt} nom="Prompt généré" />
           : onglet === 'schema' ? <Lignes lignes={schema} nom="Schéma généré" />
+          : onglet === 'facade' ? <RunFacade />
           : onglet === 'ecarts' ? (
             nEcarts
               ? <><Changements titre="Prompt" lignes={ecartsPrompt} /><Changements titre="Schéma" lignes={ecartsSchema} /></>

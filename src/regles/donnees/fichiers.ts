@@ -12,6 +12,7 @@ import faitsToitsBrut from '../../../regles/toits/faits.json?raw';
 import silhouettesToitsBrut from '../../../regles/toits/silhouettes.json?raw';
 import formesToitsBrut from '../../../regles/toits/formes.json?raw';
 import reconciliationBrut from '../../../regles/reconciliation.json?raw';
+import iaFacadesBrut from '../../../regles/facades/ia.json?raw';
 import { empreinteReglagesToits, lireReglagesToits } from '../toits/reglages.js';
 import { formeEmpreinteProfils, lireProfilsToits } from '../toits/profils.js';
 import { empreinteFaitsToits, lireFaitsToits } from '../toits/faits.js';
@@ -19,8 +20,9 @@ import { empreinteReglagesFacades, lireReglagesFacades } from '../facades/reglag
 import { empreinteSilhouettesToits, lireSilhouettesToits } from '../toits/silhouettes.js';
 import { empreinteFormesToits, lireFormesToits } from '../toits/formes.js';
 import { empreinteReconciliation, lireReconciliation } from '../reconciliation.js';
+import { empreinteReglagesIa, lireReglagesIa } from '../facades/ia.js';
 
-export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits' | 'formesToits' | 'reconciliation';
+export type IdDonnees = 'reglagesToits' | 'reglagesFacades' | 'faitsToits' | 'silhouettesToits' | 'formesToits' | 'reconciliation' | 'iaFacades';
 
 export interface FichierDonnees {
   id: IdDonnees;
@@ -82,5 +84,11 @@ export const FICHIERS_DONNEES: readonly FichierDonnees[] = [
     refus: (j) => essayer(() => lireReconciliation(j)),
     empreinte: (j) => { try { return empreinteReconciliation(lireReconciliation(j)); } catch { return null; } },
     consequence: { ou: 'aucune ligne de version : ce fichier ne change aucune toiture déjà lue', effet: 'les prochaines propositions de l’audit arbitrent les sources avec ces poids et ces seuils' },
+  },
+  {
+    id: 'iaFacades', libelle: 'Règles du run d’une façade (Claude)', chemin: 'regles/facades/ia.json', livre: iaFacadesBrut, seuils: true,
+    refus: (j) => essayer(() => lireReglagesIa(j)),
+    empreinte: (j) => { try { return empreinteReglagesIa(lireReglagesIa(j)); } catch { return null; } },
+    consequence: { ou: 'aucune ligne de version : l’empreinte est inscrite dans chaque rejeu en mode « IA » de la calibration', effet: 'les observations de Claude sur une façade (angles, colombage, pointes, boîtes) se décident avec ces seuils : la pose candidate, les poses écartées par le colombage, les boîtes cochées ou décochées, les alertes de hauteur' },
   },
 ];

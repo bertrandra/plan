@@ -8,8 +8,7 @@
 import { useState } from 'react';
 import { tracerCorrections, versOuvertureFacade } from '../../facade/detection/verification.js';
 import type { OuvertureDetectee } from '../../facade/detection/detection.js';
-import type { ResultatRenfort } from '../../facade/detection/renfortRecalage.js';
-import { propositionRenforcee, type Proposition } from './aide.js';
+import { propositionRenforcee, type OuverturesAidees, type Proposition } from './aide.js';
 export type { Proposition } from './aide.js';
 import type { CorrectionOuverture, DetailsOuverture, OuvertureFacade } from '../../model/types.js';
 
@@ -77,10 +76,10 @@ export function useOuvertures() {
       setChoisie(null);
     },
     /**
-     * Pose ce que l'aide de Claude a fait des ouvertures (lot L18) : les retenues, les pointillees, et
+     * Pose ce que l'aide de Claude a fait des ouvertures (lot L18, run unique depuis F2) : les retenues, les pointillees, et
      * la proposition mise a jour, pour que ses ajouts acceptes ne passent pas pour des corrections.
      */
-    renforcer(r: ResultatRenfort) {
+    renforcer(r: OuverturesAidees) {
       setProposition(propositionRenforcee(proposition, r));
       setOuvertures(r.ouvertures);
       setDevinees(r.decochees);

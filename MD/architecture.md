@@ -483,10 +483,12 @@ lists the engine, and nothing else lives in those folders.
 
 ```
 regles/                      data, the JSON the engine reads (repository root, compiled in the build)
-  toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture}.json   conformite.json   reconciliation.json
+  toits/{reglages,faits,formes,silhouettes}.json   facades/{reglages,detection,structure,texture,enchainement,ia}.json   conformite.json   reconciliation.json
 src/regles/                  layer 2 — contract and validated data, pure
   decisions.ts               what a decision writes (Proposition, EffetProposition), applied in one history step
   toits/{reglages,profils,faits,formes,silhouettes}.ts    facades/reglages.ts    conformite.ts    reconciliation.ts
+  facades/observations.ts    the façade run's observations (lot F2): what Claude returns, read and typed, the engine's input — the
+                             chain never reads Claude's JSON; facades/ia.ts the reader of regles/facades/ia.json (the rules' thresholds)
 src/facade/regles/           layer 3 — the rules themselves, pure and synchronous
   toits/{faits,appentis,pignons,profils,vraisemblance,silhouettes,silhouetteDesCorps,elementsVus,…}.ts
                                                               apply a fact, a profile, the guards; every audit roof
@@ -499,6 +501,10 @@ src/facade/regles/           layer 3 — the rules themselves, pure and synchron
                                                               regles/decisions.ts::avecReserveSurPlace).
 src/facade/modeToit/         layer 3 — the Mode Toit editor's pure code (session, handles, projections, new bodies), not rules
   facades/{detection,structure,profils,surcharges,texture,conformite}.ts   facade settings and profiles
+  facades/ia.ts              the rules that decide on the façade run's observations (lot F2): the ×3 vote, the wall pose candidate,
+                             the half-timber zone that excludes poses lying inside it, the gable tips (diagnosis or alert, never a
+                             correction), the boxes ticked only when detection finds them. The É4 arbiter, É7 and the survey's help
+                             apply these decisions
   rejeu.ts   conformite.ts   reconciliation.ts                replay an audit case, score it, reconcile
 src/regles/sujets/           layer 2 — what Claude reads, as data; assembled into deploy/ by `npm run regles:generer`
   description.ts  liste.ts  descriptions/<id>.ts    one description per subject, and the list in prompt order

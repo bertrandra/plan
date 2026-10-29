@@ -16,7 +16,7 @@ import { libelleTypeObjet, dejaRectangle } from '../assemblage/gestes.js';
 import type { Vues3d } from '../assemblage/vues3d.js';
 import { monterZones } from '../../zones/monter.js';
 import { creerServiceReleve } from '../releve/releve.js';
-import { aideReleveDuNavigateur } from '../releve/renfortReleve.js';
+import { aideReleveDuNavigateur } from '../releve/runFacade.js';
 import { brancherFacade } from '../ecouteurs/facade.js';
 import type { Atelier } from '../atelier.js';
 import type { ObjetPlan } from '../../model/types.js';

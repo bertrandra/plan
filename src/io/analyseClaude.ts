@@ -54,10 +54,10 @@ export interface DemandeAnalyse {
 
 /**
  * Les usages demandes : l'analyse d'une maison (batch), l'escalade des passes en desaccord vers un modele plus
- * fin (appel immediat, D20), le renfort d'une facade (batch ou appel immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), et le
- * rejeu d'un audit stocke (administrateur, spec-audit 15.5).
+ * fin (appel immediat, D20), le renfort d'une facade (batch ou appel immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
+ * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (appel immediat, lot F2 : la calibration et le releve).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'renfort' | 'candidats' | 'rejeu';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'renfort' | 'candidats' | 'rejeu' | 'facade';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
@@ -89,6 +89,9 @@ export interface ResultatBatch {
   usage?: string;
   sortie: unknown;
   erreur: { type: string; message: string } | null;
+  /** L'appel immediat dit aussi ce que la requete a coute : ses tokens, et son cout en dollars (null : tarif manquant). */
+  tokens?: { entree: number; ecritureCache: number; lectureCache: number; sortie: number };
+  cout?: number | null;
 }
 
 export interface ResultatsBatch {
@@ -116,7 +119,7 @@ export interface ClientAnalyse {
   /** 409 (`pasPret`) tant que le batch n'est pas termine. */
   resultats(id: string): Promise<ResultatsBatch>;
   /**
-   * L'appel immediat (le bouton « Demander de l'aide » du releve, lot L18) : trois requetes au plus,
+   * L'appel immediat (le run d'une facade : l'aide du releve, « Rappeler Claude » de la calibration) : trois requetes au plus,
    * au tarif normal ; les resultats arrivent dans la reponse.
    */
   immediat(d: DemandeAnalyse): Promise<ResultatsImmediats>;

@@ -1,14 +1,17 @@
-// Le releve de facade (zones/Releve.tsx) et l'aide de Claude (MD/spec-facades-calage-detection.md
-// §12 bis, lot L18) : ce que Plan fait du vote de ses trois passes, sans React, testable seul.
-// - A l'etape des coins : les graines de coins rattachees aux croisements de segments de la photo ;
-//   seuls les coins predits sont remplaces, jamais un coin trouve sur la photo ni pose au doigt.
-// - A la verification : les ouvertures renforcees (facade/detection/renfortRecalage.ts), et la proposition de
-//   l'analyse mise a jour, pour que les corrections tracees a la validation comparent la personne a
-//   ce que Plan et Claude proposaient ensemble.
+// Le releve de facade (zones/Releve.tsx) et l'aide de Claude (MD/spec-facades-calage-detection.md §12 bis, lot L18 ; depuis le lot
+// F2 de MD/spec-facade-calage-audit.md, le run unique d'une facade, une passe au lieu de trois) : ce que Plan fait de sa reponse, sans
+// React, testable seul.
+// - A l'etape des coins : les angles du mur que Claude situe sur la photo deviennent des graines de coins, rattachees aux croisements
+//   de segments de la photo ; seuls les coins predits sont remplaces, jamais un coin trouve sur la photo ni pose au doigt.
+// - A la verification : ses boites accordees avec la detection (facade/detection/runFacade.ts : cochees quand la detection les
+//   retrouve, seules decochees), et la proposition de l'analyse mise a jour, pour que les corrections tracees a la validation
+//   comparent la personne a ce que Plan et Claude proposaient ensemble.
 
-import { appliquerRenfort, cartesAretes, grainesDeCoins, recalerCoins, type ResultatRenfort } from '../../facade/detection/renfortRecalage.js';
+import { cartesAretes, recalerCoins } from '../../facade/detection/renfortRecalage.js';
+import type { ObservationsFacade } from '../../regles/facades/observations.js';
+import { accorderOuvertures, coinsDeLIa, type AccordIa } from '../../facade/regles/facades/ia.js';
 import { detecterSegments } from '../../facade/vision/segments.js';
-import { signauxRenfort, texteSignaux, type SituationRenfort, type VoteRenfort } from '../../facade/detection/renfort.js';
+import { signauxRenfort, texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
 import type { SourceCoin } from '../../facade/calage/calageFin.js';
 import type { Image } from '../../facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
@@ -60,13 +63,13 @@ export function motifAide(signaux: readonly SituationRenfort[], masque = 0): str
 }
 
 /**
- * Le morceau une fois les graines de coins de Claude recalees : un coin predit dont la graine se
- * rattache a un croisement de segments devient `claude` ; les autres coins ne bougent pas. Rend aussi
- * le nombre de coins recales.
+ * Le morceau une fois les angles de Claude recales : chaque angle donne deux graines (a l'egout et au sol) ; un coin predit dont la
+ * graine se rattache a un croisement de segments devient `claude` ; les autres coins ne bougent pas. Rend aussi le nombre de coins
+ * recales.
  */
-export function coinsAvecAide(m: Morceau, vote: VoteRenfort, largeurM: number, hauteurM: number): { morceau: Morceau; recales: number } {
+export function coinsAvecAide(m: Morceau, reponse: ObservationsFacade, largeurM: number, hauteurM: number): { morceau: Morceau; recales: number } {
   const img = m.prise.photo.image;
-  const graines = grainesDeCoins(vote, img.largeur, img.hauteur);
+  const graines = coinsDeLIa(reponse, img);
   if (!graines.some((g) => g)) return { morceau: m, recales: 0 };
   const recal = recalerCoins(graines, detecterSegments(img), largeurM, hauteurM, img, m.coins);
   const sources: SourceCoin[] = [...(m.sources ?? ['predit', 'predit', 'predit', 'predit'])];
@@ -80,20 +83,22 @@ export function coinsAvecAide(m: Morceau, vote: VoteRenfort, largeurM: number, h
   return { morceau: { ...m, coins, sources }, recales };
 }
 
-/** Les ouvertures de la verification une fois le renfort applique, sur l'elevation redressee du releve. */
-export function ouverturesAvecAide(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; vote: VoteRenfort; elevation: Image | null; largeurM: number; hauteurM: number }): ResultatRenfort {
+/** Les ouvertures de la verification une fois les boites de Claude accordees avec la detection, sur l'elevation redressee du releve. */
+export function ouverturesAvecAide(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; reponse: ObservationsFacade; elevation: Image | null; largeurM: number; hauteurM: number }): AccordIa {
   const cartes = e.elevation ? cartesAretes(e.elevation, e.elevation.largeur / e.largeurM) : null;
-  return appliquerRenfort({ ouvertures: e.ouvertures, decochees: e.devinees, vote: e.vote, cartes, largeurM: e.largeurM, hauteurM: e.hauteurM });
+  return accorderOuvertures({ ouvertures: e.ouvertures, decochees: e.devinees, observations: e.reponse, cartes, largeurM: e.largeurM, hauteurM: e.hauteurM });
 }
+
+/** Ce que le releve reprend de l'aide de Claude : les ouvertures cochees, les decochees, celles retirees (aucune depuis le run unique). */
+export type OuverturesAidees = Pick<AccordIa, 'ouvertures' | 'decochees' | 'retirees'>;
 
 const meme = (a: OuvertureFacade, b: OuvertureFacade) => a.x === b.x && a.y === b.y && a.l === b.l && a.h === b.h;
 
 /**
- * La proposition de l'analyse une fois le renfort applique : les baies retirees par Claude passent
- * decochees, les types qu'il corrige sont repris, ses ajouts y entrent (coches ou en pointille). Ce
- * que la personne a pose ou corrige n'y entre pas : ses gestes restent des corrections.
+ * La proposition de l'analyse une fois l'aide appliquee : les baies retirees passent decochees, ses ajouts y entrent (coches ou en
+ * pointille). Ce que la personne a pose ou corrige n'y entre pas : ses gestes restent des corrections.
  */
-export function propositionRenforcee(p: Proposition, r: ResultatRenfort): Proposition {
+export function propositionRenforcee(p: Proposition, r: OuverturesAidees): Proposition {
   const cochees: OuvertureFacade[] = [];
   const decochees: OuvertureFacade[] = [...p.decochees.filter((o) => !r.ouvertures.some((x) => meme(x, o)))];
   for (const o of p.cochees) {

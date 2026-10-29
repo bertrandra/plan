@@ -14,8 +14,10 @@ import { inverser, type RedressementFuites } from '../vision/redressementFuites.
 import { silhouetteLue, vuesDeFace, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
 import { appliquerSimilitude, inverse } from '../vision/ransac.js';
 import { appliquer, type Image, type P2 } from '../vision/homographie.js';
+import { libelleSilhouette } from '../../model/silhouetteFacade.js';
 import { sansOmbres } from '../vision/sansOmbres.js';
 import type { ResultatFusion } from '../fusion.js';
+import type { OuvertureDetectee } from '../detection/detection.js';
 import { mosaiqueDeLaSerie, murDeLaSerie, type CoinsDeSerie } from './coinsAuto.js';
 import { expliquer, expliqueLaPhoto, seuilsDuCalage, type Explication, type MurCale } from './calageAncres.js';
 import { detecterSegments } from '../vision/segments.js';
@@ -25,6 +27,9 @@ import type { EntreeRecherche, ResultatRecherche } from './serie.js';
 import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie } from '../corpusReel.js';
+import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
+import { accorderOuvertures, avisDesPointes, decisionColombage, ecartDesPoses, EMPREINTE_IA, poseDeLIa, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
+import { cartesAretes } from '../detection/renfortRecalage.js';
 
 /** Une photo du mur : l'image, les coins du mur dessus (cherches, poses a la main, ou ceux d'un cas), ses reperes et sa focale. */
 interface PhotoDeFacade {
@@ -87,6 +92,24 @@ interface OptionsEnchainement {
   rendreLaMain?: () => Promise<void>;
   /** Vrai : la personne a demande d'arreter ; les etapes restantes restent a venir. */
   arrete?: () => boolean;
+  /**
+   * Le mode « IA » du rejeu (§7.2) : une reponse de Claude au run de cette facade, enregistree avec le cas, rejouee sans reseau ni
+   * cout. Ses angles sont une pose candidate de l'E4, ses pointes s'y comparent au gabarit, ses boites s'accordent avec la detection a
+   * l'E7. Absente : le mode deterministe. Elle ne se rejoue que sur l'assemblage de l'editeur (`image: 'assemblage'`), celui qu'elle a vu.
+   */
+  ia?: RunEnregistre | null;
+}
+
+/** Ce que le rejeu tire de la reponse de Claude (mode « IA »). */
+interface IaDuRejeu {
+  run: RunEnregistre;
+  /** La reponse lue (la passe, ou le vote de trois) ; null : aucune passe lisible. */
+  reponse: ObservationsFacade | null;
+  /** E4 : la pose de ses deux angles sur l'assemblage (pixels), et son ecart a la pose retenue, en part de la largeur. */
+  pose: RectIa | null;
+  ecart: number | null;
+  /** E7 : ses boites accordees avec la detection. */
+  accord: AccordIa | null;
 }
 
 /** Les sorties des etapes : chacune ne lit que celles d'avant. */
@@ -110,6 +133,8 @@ interface SortiesFacade {
   analyse: AnalyseDuMur | null;
   /** E6 : la texture sans les ombres de la photo (`illustrer`). */
   sansOmbres: Image | null;
+  /** E4, E5, E7 : ce que la reponse de Claude donne au rejeu (mode « IA ») ; null en mode deterministe. */
+  ia: IaDuRejeu | null;
 }
 
 /** Une etape calculee : son etat, ce qu'elle a donne en une phrase, et sa mesure contre la verite quand le cas en a une. */
@@ -124,10 +149,10 @@ export interface EtapeCalculee {
 export interface Enchainement {
   etapes: EtapeCalculee[];
   sorties: SortiesFacade;
-  versions: { chaine: number; objectifs: string };
+  versions: { chaine: number; objectifs: string; ia?: string };
 }
 
-const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, analyse: null, sansOmbres: null };
+const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, analyse: null, sansOmbres: null, ia: null };
 
 interface Contexte { e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade }
 type Pas = (c: Contexte) => Promise<Omit<EtapeCalculee, 'id'>> | Omit<EtapeCalculee, 'id'>;
@@ -289,7 +314,13 @@ const calage: Pas = async ({ e, o, s, obj }) => {
     s.calage.explication = ex;
     return { etat: passe ? 'ok' : 'a-confirmer', resume: `Mur posé par les coins du cas : ${px(r)} sur l’assemblage ; ` + (passe ? `il explique la photo sans le toit (score ${sc(ex.score)}).` : `il n’explique pas la photo sans le toit (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}) : à confirmer.`), verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
   }
-  s.serie = s.vues && s.mosaique ? murDeLaSerie(s.vues, s.mosaique, e.largeurM, e.hauteurM, seuils) : null;
+  // Le mode « IA » : les deux angles de Claude, ramenes sur cet assemblage, sont une pose candidate de plus pour l'arbitre.
+  // Le moteur decide des observations de Claude (facade/regles/facades/ia.ts) : sa pose candidate, et ses zones de colombage, ou une
+  // pose des aretes qui tient dedans suit les bois, pas les angles du mur. L'arbitre lit ces decisions, pas la reponse.
+  const reponse = o.ia ? observationsDuRun(o.ia) : null;
+  const poseIa = reponse && s.mosaique ? poseDeLIa(reponse, s.mosaique.image) : null;
+  const colombage = reponse && poseIa && s.mosaique ? decisionColombage(reponse, poseIa, s.mosaique.image) : null;
+  s.serie = s.vues && s.mosaique ? murDeLaSerie(s.vues, s.mosaique, e.largeurM, e.hauteurM, seuils, poseIa ? { ...poseIa, egout: true, pied: true, cotes: true } : null, colombage) : null;
   s.calage = o.coins === 'chercher' ? await chercherLesCoins(e, o) : { photos: e.photos.map((p) => ({ coins: p.coins, origine: p.murALaMain ? 'main' : p.reperes ? 'reperes' : null })), message: null, pose: null };
   s.calage.pose = s.serie ? poseSurLAssemblage(s.serie, s.calage.photos) : null;
   const mur = s.serie?.assemblage.mur;
@@ -307,9 +338,55 @@ const calage: Pas = async ({ e, o, s, obj }) => {
   const resume = (main ? 'Mur posé à la main. ' : '') + a.texte + (a.etat === null ? (supposes.length ? `, ${supposes.join(', ')} supposé${supposes.length > 1 ? 's' : ''}` : ', égout, sol et bouts trouvés') + '.' : '')
     + ` Mur retenu : ${px(r)}, score ${sc(ex.score)}` + (retenueExplique ? '.' : ' : il n’explique pas la photo sans le toit.') + (devines.length ? ` Coins devinés sur la photo ${devines.join(', ')}, à vérifier.` : '') + (s.calage.message ? ' ' + s.calage.message : '');
   const auMieux: EtatAffiche = a.etat ?? (supposes.length || devines.length || !retenueExplique ? 'a-confirmer' : 'ok');
-  const etat: EtatAffiche = main ? 'ok' : auMieux === 'ok' && !retenueExplique ? 'a-confirmer' : auMieux;
-  return { etat, resume, verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
+  // Les deux chemins divergent (la pose de Claude a plus de l'ecart admis de la pose retenue) : la personne confirme (§5, point 3).
+  const ia = o.ia ? avisDeLIa(o.ia, reponse, poseIa, r, mur, s.preparation?.pointes ?? [], obj['facades.enchainement.calageEcartMaxPart']) : null;
+  s.ia = ia?.sortie ?? null;
+  const etat: EtatAffiche = main ? 'ok' : (auMieux === 'ok' && !retenueExplique) || (auMieux === 'ok' && ia?.diverge) ? 'a-confirmer' : auMieux;
+  return { etat, resume: resume + (ia ? ' ' + ia.texte : ''), verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
 };
+
+const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s);
+
+/** L'appel de Claude en quelques mots : quand, combien de passes, les versions, ce qu'il a coute. */
+export function enteteDuRun(run: RunEnregistre): string {
+  const cout = run.cout === null ? 'coût inconnu' : dec(run.cout, 4) + ' $';
+  return `${run.synthetique ? 'réponse synthétique (pas de Claude)' : 'Claude'}, ${run.le.slice(0, 10)}, ${run.passes === 3 ? 'trois passes votées' : 'une passe'}, ${run.modele}, prompt v${run.prompt}, schéma v${run.schema}, ${cout}`;
+}
+
+/** Ce que la regle des pointes decide, en clair : une pointe en plus ou en moins (un diagnostic de toit, F4), une hauteur signalee. */
+function pointesDeLIa(obs: ObservationsFacade, attendues: readonly { u: number; v: number }[]): string {
+  const avis = avisDesPointes(obs, attendues);
+  if (!avis.length) return '';
+  const dits = avis.flatMap((a) => (a.avis === 'en-plus' ? [`une pointe à u ${dec(a.u)} que le plan n’a pas`]
+    : a.avis === 'manquante' ? [`la pointe que le plan attend à u ${dec(a.u)} n’est pas vue`]
+      : a.avis === 'hauteur' ? [`la pointe à u ${dec(a.u)} vue à ${dec(a.vue ?? 0, 1)} fois l’égout, le plan la met à ${dec(a.attendue ?? 0, 1)} : la hauteur du LiDAR est gardée`] : []));
+  const vues = obs.calage.pointes.length;
+  return ` ${pluriel(vues, 'pointe vue', 'pointes vues')}` + (dits.length ? ' : ' + dits.join(' ; ') + '.' : ', aux places du plan.');
+}
+
+/**
+ * Ce que la reponse de Claude dit du calage (E4) : sa pose contre la pose retenue (accord sous l'ecart admis, sinon divergence), ce
+ * que l'arbitre en a fait, et ses pointes contre le gabarit.
+ */
+function avisDeLIa(run: RunEnregistre, reponse: ObservationsFacade | null, pose: RectIa | null, retenue: RectIa, mur: MurCale, attendues: readonly { u: number; v: number }[], seuil: number): { sortie: IaDuRejeu; texte: string; diverge: boolean } {
+  const ecart = pose ? ecartDesPoses(pose, retenue) : null;
+  const sortie: IaDuRejeu = { run, reponse, pose, ecart, accord: null };
+  const tete = `IA (${enteteDuRun(run)}) : `;
+  if (!reponse) return { sortie, texte: tete + 'aucune passe lisible.', diverge: false };
+  const pointes = pointesDeLIa(reponse, attendues);
+  if (!pose || ecart === null) return { sortie, texte: tete + 'Claude ne situe pas les deux angles du mur.' + pointes, diverge: false };
+  const diverge = ecart > seuil;
+  const retenueIa = mur.calage.ia?.retenue ? ' ; l’arbitre retient sa pose' : '';
+  return { sortie, diverge, texte: tete + `ses angles posent le mur ${px(pose)}, à ${pc(ecart)} de la largeur du mur retenu : ` + (diverge ? 'les deux chemins divergent, à confirmer' : 'accord') + retenueIa + '.' + pointes + surfaceDeLIa(reponse, mur) };
+}
+
+/** Le parement que Claude lit, et ce que ses zones de colombage ont ecarte : les poses dont les bouts suivaient les bois. */
+function surfaceDeLIa(r: ObservationsFacade, mur: MurCale): string {
+  const zones = r.surface.zones.map((z) => `${z.type} de u ${dec(z.u0)} à ${dec(z.u1)}, v ${dec(z.v0, 1)} à ${dec(z.v1, 1)}`);
+  const c = mur.calage.colombage;
+  const ecartees = c?.ecartees.length ? ` ${pluriel(c.ecartees.length, 'pose des arêtes écartée', 'poses des arêtes écartées')} (${c.ecartees.map((p) => px(p)).join(' ; ')}) : ${c.ecartees.length > 1 ? 'elles tiennent' : 'elle tient'} dans le colombage, ses bouts suivent les bois et non les angles du mur ; la teinte du mur se lit hors du colombage.` : '';
+  return ` Parement : ${r.surface.principale}` + (zones.length ? ` ; zones : ${zones.join(', ')}` : '') + '.' + ecartees;
+}
 
 const silhouette: Pas = ({ s }) => {
   const pose = s.calage?.pose;
@@ -318,8 +395,21 @@ const silhouette: Pas = ({ s }) => {
   if (!lue) return { etat: 'a-confirmer', resume: 'Le haut du mur ne se lit pas à la teinte (moins de la moitié des colonnes) : la suite garde le gabarit.', verite: null };
   s.silhouette = { points: lue.silhouette, forme: lue.forme };
   const mot = { droite: 'une ligne droite', pignon: 'un pignon (une ou plusieurs pointes)', rampe: 'une rampe' }[lue.forme];
-  return { etat: 'ok', resume: `Le haut lu sur l’image : ${mot}, ${lue.silhouette.length} sommets.`, verite: null };
+  return { etat: 'ok', resume: `Le haut lu sur l’image : ${mot}, ${lue.silhouette.length} sommets.` + formeDeLIa(s.ia?.reponse ?? null), verite: null };
 };
+
+const MOTS_ELEMENT = { cheminee: 'une cheminée', lucarne: 'une lucarne' } as const;
+
+/** Ce que Claude lit du haut (E5) : le mot, le bout, les elements du toit, les appentis et les corps qu'il voit. */
+function formeDeLIa(r: ObservationsFacade | null): string {
+  if (!r) return '';
+  const vus = [
+    ...r.elements.map((x) => `${MOTS_ELEMENT[x.element]} à u ${dec(x.u)}`),
+    ...r.calage.appentis.map((x) => `un appentis de u ${dec(x.debut)} à ${dec(x.fin)}`),
+    ...r.calage.corps.map((x) => `un autre volume de u ${dec(x.debut)} à ${dec(x.fin)}`),
+  ];
+  return ` Claude lit : ${r.forme.silhouette === 'indetermine' ? 'un haut qu’il ne lit pas' : libelleSilhouette(r.forme.silhouette)}, bout ${r.forme.bout}` + (vus.length ? ` ; ${vus.join(', ')}` : '') + '.';
+}
 
 /** L'analyse d'un mur depuis ses photos : sur l'assemblage pose (fusion des vues, sinon l'assemblage seul), sinon par analyserLeMur. */
 function analyserLeMurDuCas(e: EntreesFacade, pose: AssemblageDuMur | null, premiereSeule: boolean): AnalyseDuMur | null {
@@ -352,18 +442,34 @@ const texture: Pas = ({ e, o, s }) => {
   return { etat: avis ? 'a-confirmer' : 'ok', resume: `Texture de ${dec(a.texture.largeur / a.pxParM)} × ${dec(a.hauteurTexture)} m (le mur et la bande au-dessus de l’égout) à ${Math.round(a.pxParM)} px/m${vues}.` + (avis ? ' ' + avis : ''), verite: null };
 };
 
-const ouvertures: Pas = ({ o, s, obj }) => {
+/** Rappel, precision et cotes (mediane, en cm) d'ouvertures contre la verite. */
+function contreLaVerite(vraies: readonly OuvertureVraie[], trouvees: readonly OuvertureDetectee[]): { rappel: number; precision: number; cotes: number | null } {
+  const j = juger(vraies, trouvees);
+  return { rappel: j.vp / vraies.length, precision: trouvees.length ? j.vp / trouvees.length : 0, cotes: [...j.cotes].sort((x, y) => x - y)[Math.floor(j.cotes.length / 2)] ?? null };
+}
+
+const ouvertures: Pas = ({ e, o, s, obj }) => {
   const a = s.analyse;
   if (!a) return attend('le mur redressé (É6)');
   const n = a.ouvertures.length, d = a.devinees.length;
-  const resume = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.');
+  // Le mode « IA » : les boites de Claude, accordees avec la detection ; une boite seule reste decochee, et l'etape est a confirmer.
+  const reponse = s.ia?.reponse ?? null;
+  const accord = reponse && s.ia ? accorderOuvertures({ ouvertures: a.ouvertures, decochees: a.devinees, observations: reponse, cartes: cartesAretes(a.elevation, a.pxParM), largeurM: e.largeurM, hauteurM: e.hauteurM }) : null;
+  if (s.ia) s.ia = { ...s.ia, accord };
+  const ditIa = accord ? ' ' + (texteAccord(accord.bilan) ?? 'Claude ne voit aucune ouverture') + '.' : '';
+  const resume = `${n} ouverture${n > 1 ? 's' : ''} trouvée${n > 1 ? 's' : ''}` + (d ? `, ${d} devinée${d > 1 ? 's' : ''} par la structure, à confirmer.` : ', aucune devinée.') + ditIa;
+  const etat: EtatAffiche = d || accord?.bilan.seules ? 'a-confirmer' : 'ok';
   const vraies = o.verite?.ouvertures;
-  if (!vraies?.length) return { etat: d ? 'a-confirmer' : 'ok', resume, verite: null };
-  const j = juger(vraies, a.ouvertures);
-  const rappel = j.vp / vraies.length, precision = n ? j.vp / n : 0;
-  const cotes = [...j.cotes].sort((x, y) => x - y)[Math.floor(j.cotes.length / 2)] ?? null;
-  const juste = rappel >= obj['facades.enchainement.rappelMin'] && precision >= obj['facades.enchainement.precisionMin'] && cotes !== null && cotes <= obj['facades.enchainement.cotesMaxM'] * 100;
-  return { etat: d ? 'a-confirmer' : 'ok', resume, verite: { texte: `Contre la vérité (${vraies.length} ouvertures) : rappel ${pc(rappel)}, précision ${pc(precision)}, cotes ${cotes === null ? '—' : dec(cotes, 1) + ' cm'} (médiane)` + (juste ? ' : objectifs atteints.' : ' : objectifs non atteints.'), juste } };
+  if (!vraies?.length) return { etat, resume, verite: null };
+  const m = contreLaVerite(vraies, a.ouvertures);
+  const juste = m.rappel >= obj['facades.enchainement.rappelMin'] && m.precision >= obj['facades.enchainement.precisionMin'] && m.cotes !== null && m.cotes <= obj['facades.enchainement.cotesMaxM'] * 100;
+  const cotes = (c: number | null) => (c === null ? '—' : dec(c, 1) + ' cm');
+  // Les boites de Claude se mesurent aussi : toutes, puis les cochees (celles que la detection retrouve) ; c'est la mesure x1 contre x3.
+  const ia = accord ? (() => {
+    const toutes = contreLaVerite(vraies, accord.boites.map((b) => ({ ...b.ouverture, confiance: 1 }))), cochees = accord.boites.filter((b) => b.cochee);
+    return ` Boîtes de Claude : rappel ${pc(toutes.rappel)}, précision ${pc(toutes.precision)}, cotes ${cotes(toutes.cotes)} ; cochées (${cochees.length}) : précision ${pc(cochees.length ? contreLaVerite(vraies, cochees.map((b) => ({ ...b.ouverture, confiance: 1 }))).precision : 0)}.`;
+  })() : '';
+  return { etat, resume, verite: { texte: `Contre la vérité (${vraies.length} ouvertures) : rappel ${pc(m.rappel)}, précision ${pc(m.precision)}, cotes ${cotes(m.cotes)} (médiane)` + (juste ? ' : objectifs atteints.' : ' : objectifs non atteints.') + ia, juste } };
 };
 
 const PAS: Record<IdEtape, Pas> = {
@@ -394,7 +500,7 @@ export async function derouler(e: EntreesFacade, o: OptionsEnchainement): Promis
     etapes.push({ id: def.id, ...r });
     o.surEtape?.(def.id, r.etat, r.resume);
   }
-  return { etapes, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS } };
+  return { etapes, sorties: c.s, versions: { chaine: VERSION_CHAINE_FACADES, objectifs: EMPREINTE_OBJECTIFS, ...(o.ia ? { ia: EMPREINTE_IA } : {}) } };
 }
 
 /** L'etape calculee d'un rejeu. */

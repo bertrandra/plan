@@ -21,7 +21,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { signauxRenfort, voterRenfort, versGrille, COINS_RENFORT, LIBELLES_SITUATION, type AvisOuverture, type BoiteManquee, type ReponseRenfort, type SituationRenfort } from '../../../src/facade/detection/renfort.js';
-import { appliquerRenfort, bilanVide, cartesAretes, grainesDeCoins, recalerCoins, type BilanRenfort } from '../../../src/facade/detection/renfortRecalage.js';
+import { appliquerRenfort, bilanVide, cartesAretes, recalerCoins, type BilanRenfort } from '../../../src/facade/detection/renfortRecalage.js';
+import { DIVISIONS_GRILLE, type VoteRenfort } from '../../../src/facade/detection/renfort.js';
+
+/** Un repere de la grille en pixels de la photo. */
+export function depuisGrille(r: { colonne: number; ligne: number }, largeurPx: number, hauteurPx: number): P2 {
+  return { x: (r.colonne / DIVISIONS_GRILLE) * largeurPx, y: (r.ligne / DIVISIONS_GRILLE) * hauteurPx };
+}
+
+/** Les graines de coins du vote, en pixels de la photo (null : pas de majorite). Le banc seul les lit depuis que le releve passe au run d'une facade (F2). */
+const grainesDeCoins = (vote: VoteRenfort, largeurPx: number, hauteurPx: number) => vote.coins.map((c) => (c.repere ? depuisGrille(c.repere, largeurPx, hauteurPx) : null));
 import { detecterSegments } from '../../../src/facade/vision/segments.js';
 import { versOuvertureFacade } from '../../../src/facade/detection/verification.js';
 import type { OuvertureDetectee } from '../../../src/facade/detection/detection.js';

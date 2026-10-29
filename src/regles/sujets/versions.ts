@@ -37,3 +37,19 @@ export const VERSIONS_SCHEMA: readonly VersionTexte[] = [
 ];
 
 export const versionCourante = (l: readonly VersionTexte[]): VersionTexte => l[l.length - 1] as VersionTexte;
+
+/**
+ * Le run d'une facade (MD/spec-facade-calage-audit.md §8, usage `facade` du serveur) : sa note, et les versions de son prompt et de
+ * son schema, tenues comme celles de l'analyse d'une maison. La version suit chaque reponse enregistree (la calibration la rejoue).
+ */
+export const NOTE_PROMPT_FACADE = `Partie fixe du prompt du run d'une façade (spec-facade-calage-audit.md §8, lot F2), envoyée en system et mise en cache. Tout ce qui suit la ligne de tirets part tel quel. Un changement de texte change la version, qui suit chaque ligne du journal et chaque réponse enregistrée. Version 1 (lot F2, 29 octobre 2026) : une seule requête par façade, sur l'image prise pour la suite ; elle rend le calage (angles du mur dans le repère de l'image ; pointes, appentis, corps et ce qui cache dans le repère du mur), la forme du haut, les éléments du toit vus sur la ligne du haut, le parement du mur (enduit, pierre, brique, colombage, bardage bois ou métal, béton, mixte) et ses zones, les ouvertures, leurs détails et leurs carreaux ; le texte lui donne le parement que Plan connaît déjà. Elle remplace le renfort (trois passes, coins en repères d'une grille, avis sur des ouvertures numérotées) pour la calibration et le relevé.`;
+
+export const NOTE_SCHEMA_FACADE = `Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux.`;
+
+export const VERSIONS_PROMPT_FACADE: readonly VersionTexte[] = [
+  { version: 1, empreinte: '14715ba3' },
+];
+
+export const VERSIONS_SCHEMA_FACADE: readonly VersionTexte[] = [
+  { version: 1, empreinte: '276ece16' },
+];

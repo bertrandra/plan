@@ -19,7 +19,7 @@ import { pxParMetreDesCoins } from '../calage/calage.js';
 import { intersection, ligneParPoints } from '../calage/calageFin.js';
 import { regulariser, structurer } from './structure.js';
 import { CONFIANCE_PLEINE } from './verification.js';
-import { depuisGrille, DIVISIONS_GRILLE, type AvisVote, type VoteRenfort } from './renfort.js';
+import { DIVISIONS_GRILLE, type AvisVote, type VoteRenfort } from './renfort.js';
 import type { Image, P2 } from '../vision/homographie.js';
 import type { Segment } from '../vision/segments.js';
 import type { DetailsOuverture, OuvertureFacade } from '../../model/types.js';
@@ -116,11 +116,6 @@ export function recalerCoins(graines: readonly (P2 | null)[], segments: readonly
     }
     return meilleur ? { point: { x: Math.round(meilleur.point.x * 10) / 10, y: Math.round(meilleur.point.y * 10) / 10 }, ecartPx: Math.round(meilleur.ecart * 10) / 10 } : null;
   });
-}
-
-/** Les graines de coins du vote, en pixels de la photo (null : pas de majorite). */
-export function grainesDeCoins(vote: VoteRenfort, largeurPx: number, hauteurPx: number): (P2 | null)[] {
-  return vote.coins.map((c) => (c.repere ? depuisGrille(c.repere, largeurPx, hauteurPx) : null));
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -260,7 +255,7 @@ export interface BilanRenfort {
 
 export const bilanVide = (): BilanRenfort => ({ graines: 0, pleines: 0, pointille: 0, rejetees: 0, confirmees: 0, retirees: 0, retraitsRefuses: 0, typesCorriges: 0, detailsAjoutes: 0 });
 
-export interface ResultatRenfort {
+interface ResultatRenfort {
   ouvertures: OuvertureFacade[];
   decochees: OuvertureFacade[];
   /** Les ouvertures detectees que Claude a retirees : elles sont aussi dans `decochees`. */

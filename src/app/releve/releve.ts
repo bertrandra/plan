@@ -20,7 +20,7 @@ import { showToast } from '../../shell/dialogs.js';
 import { facadesDuContour } from '../../geometry/cotesVusDeDehors.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
 import type { EtatApp } from '../../core/state.js';
-import type { AideClaudeReleve } from './renfortReleve.js';
+import type { AideClaudeReleve } from './runFacade.js';
 import type { ObjetPlan, ObjetPolygone, PtBrut, ReleveFacade, Toit } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { modeToitActif } from '../../model/toitMesure.js';

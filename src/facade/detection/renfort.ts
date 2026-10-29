@@ -122,11 +122,6 @@ export function versGrille(p: P2, largeurPx: number, hauteurPx: number): { colon
   return { colonne: (p.x / largeurPx) * DIVISIONS_GRILLE, ligne: (p.y / hauteurPx) * DIVISIONS_GRILLE };
 }
 
-/** Un repere de la grille en pixels de la photo. */
-export function depuisGrille(r: { colonne: number; ligne: number }, largeurPx: number, hauteurPx: number): P2 {
-  return { x: (r.colonne / DIVISIONS_GRILLE) * largeurPx, y: (r.ligne / DIVISIONS_GRILLE) * hauteurPx };
-}
-
 /** Les graduations de l'elevation, en metres : tous les metres, et tous les 50 cm sur un mur de moins de 6 m. */
 export function graduations(longueurM: number): number[] {
   const pas = longueurM < 6 ? 0.5 : 1;

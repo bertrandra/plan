@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EcranRegles, type PropsEcranRegles } from '../../../src/zones/EcranRegles.js';
 import { demandeEcranRegles } from '../../../src/app/administration/ecranRegles.js';
 import { DESCRIPTIONS_SUJETS } from '../../../src/regles/sujets/liste.js';
-import { genererFichiers } from '../../../src/regles/sujets/generation.js';
+import { genererFichiers, genererRunFacade } from '../../../src/regles/sujets/generation.js';
 import { SUJETS } from '../../../src/app/regles/sujets/index.js';
 import type { BrouillonReglesServeur, ClientRegles } from '../../../src/io/reglesServeur.js';
 import { FICHIERS_DONNEES } from '../../../src/regles/donnees/fichiers.js';
@@ -67,6 +67,15 @@ describe('l ecran des regles', () => {
     // Le prompt est celui du fichier livre, a l'octet, ligne a ligne (le signe de marge s'ajoute devant).
     const g = genererFichiers();
     expect(sortie(hote).split('\n').map((l) => l.slice(1)).join('\n').trimEnd()).toBe(g.prompt.trimEnd());
+  });
+
+  it('montre le run d’une façade : ses règles et leurs seuils, son prompt et son schéma générés (lot F2)', async () => {
+    const { hote } = await monter();
+    const tab = [...hote.querySelectorAll('[role="tab"]')].find((b) => b.textContent === 'Run d’une façade') as HTMLButtonElement;
+    await act(async () => { tab.click(); });
+    const regles = hote.querySelector('[aria-label="Règles du run d’une façade"]')?.textContent ?? '';
+    expect(regles).toContain('colombagePartMax = 0,9 part');
+    expect(hote.querySelector('[aria-label="Prompt du run d’une façade"]')?.textContent).toBe(genererRunFacade().prompt);
   });
 
   it('dit pour chaque sujet s’il propose au projet, ce qu’il écrit, et l’accord mesuré de Claude', async () => {
@@ -284,7 +293,7 @@ describe('l ecran des regles', () => {
       act(() => monte!.racine.unmount()); monte!.hote.remove(); monte = null;
       const { hote } = await monter({ donnees });
       await cliquer(onglet(hote));
-      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'formesToits', 'reconciliation']);
+      expect([...hote.querySelectorAll('[data-fichier]')].map((e) => e.getAttribute('data-fichier'))).toEqual(['reglagesToits', 'reglagesFacades', 'faitsToits', 'silhouettesToits', 'formesToits', 'reconciliation', 'iaFacades']);
       expect(hote.querySelector('.reglSujet[data-sujet]')).toBeNull();
       for (const f of FICHIERS_DONNEES) expect(fichier(hote, f.id).textContent).toContain('Le moteur l’accepte.');
       // Rien ne change : rien a telecharger, rien a ajouter aux versions de lecture.

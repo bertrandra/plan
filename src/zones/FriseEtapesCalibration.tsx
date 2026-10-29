@@ -14,6 +14,58 @@ import { GABARIT_RECTANGLE, contourDuGabarit, type GabaritMur } from '../facade/
 import { COMMANDE_ETAPE } from './composants/BarreProgressionFacade.js';
 import { AjusterMur } from './releve/AjusterMur.js';
 import { VueFacade3d } from './VueFacade3d.js';
+import type { Carreaux } from '../regles/facades/observations.js';
+import { enteteDuRun } from '../facade/releve/enchainement.js';
+
+/** Un point du quadrilatere (haut gauche, haut droit, bas droit, bas gauche) a (s, t) en parts de sa largeur et de sa hauteur. */
+function dansLeQuad(q: readonly P2[], s: number, t: number): P2 {
+  const [a, b, c, d] = q as [P2, P2, P2, P2];
+  const haut = { x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s }, bas = { x: d.x + (c.x - d.x) * s, y: d.y + (c.y - d.y) * s };
+  return { x: haut.x + (bas.x - haut.x) * t, y: haut.y + (bas.y - haut.y) * t };
+}
+
+/** Les traits de la division du vitrage lue par Claude, dans la boite : vantaux et carreaux, imposte (decision 15 ; la 3D viendra en F8). */
+function traitsDesCarreaux(q: readonly P2[], c: Carreaux): [P2, P2][] {
+  const traits: [P2, P2][] = [];
+  const imp = c.imposte && c.imposte !== 'aucune' ? c.imposte : null, t0 = imp ? imp.hauteur : 0;
+  const colonnes = (c.vantaux ?? 1) * (c.colonnes ?? 1), rangees = c.rangees ?? 1;
+  for (let i = 1; i < colonnes; i++) traits.push([dansLeQuad(q, i / colonnes, t0), dansLeQuad(q, i / colonnes, 1)]);
+  for (let j = 1; j < rangees; j++) { const t = t0 + ((1 - t0) * j) / rangees; traits.push([dansLeQuad(q, 0, t), dansLeQuad(q, 1, t)]); }
+  if (imp) {
+    traits.push([dansLeQuad(q, 0, t0), dansLeQuad(q, 1, t0)]);
+    const ci = imp.colonnes ?? 1, ri = imp.rangees ?? 1;
+    for (let i = 1; i < ci; i++) traits.push([dansLeQuad(q, i / ci, 0), dansLeQuad(q, i / ci, t0)]);
+    for (let j = 1; j < ri; j++) traits.push([dansLeQuad(q, 0, (t0 * j) / ri), dansLeQuad(q, 1, (t0 * j) / ri)]);
+  }
+  return traits;
+}
+
+const MOTS_PETITS_BOIS = { aucun: 'sans petits bois', fins: 'petits bois fins', epais: 'petits bois épais' } as const;
+
+/** La division du vitrage en clair : « 2 vantaux de 1 × 3 carreaux, petits bois fins, imposte de 4 × 1, vitrage clair ». */
+function carreauxEnClair(c: Carreaux | null): string {
+  if (!c) return 'carreaux non lus';
+  const morceaux = [
+    (c.vantaux ? c.vantaux + (c.vantaux > 1 ? ' vantaux' : ' vantail') : 'vantaux non dits') + (c.colonnes && c.rangees ? ' de ' + c.colonnes + ' × ' + c.rangees + ' carreaux' : ''),
+    ...(c.petitsBois ? [MOTS_PETITS_BOIS[c.petitsBois]] : []),
+    c.imposte === 'aucune' ? 'sans imposte' : c.imposte ? 'imposte ' + (c.imposte.colonnes ?? '?') + ' × ' + (c.imposte.rangees ?? '?') + ' (' + Math.round(c.imposte.hauteur * 100) + ' % de la baie)' : '',
+    c.vitrage ? 'vitrage ' + c.vitrage : '',
+  ];
+  return morceaux.filter(Boolean).join(', ');
+}
+
+/** L'E7 en mode « IA » : les boites de Claude (trait plein : cochees, retrouvees ; tirets : seules), et au toucher leur vitrage. */
+function BoitesIa({ boites, l, rayon }: { boites: NonNullable<ImagesEtapes['ia']>['boites']; l: number; rayon: number }) {
+  const [choisie, setChoisie] = useState<number | null>(null);
+  const b = choisie !== null ? boites[choisie] : undefined;
+  return <>
+    {boites.map((x, k) => x.quad.length === 4 && <polygon key={'ia' + k} className={'calBoiteIa' + (x.cochee ? ' cochee' : ' seule') + (k === choisie ? ' choisie' : '')} points={points(x.quad)} vectorEffect="non-scaling-stroke"
+      role="button" tabIndex={0} aria-label={`Boîte de Claude ${k + 1} : ${x.ia.type}, ${x.cochee ? 'cochée, retrouvée par la détection' : 'seule, décochée'}`}
+      onClick={() => setChoisie(k === choisie ? null : k)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setChoisie(k === choisie ? null : k); }} />)}
+    {b?.ia.carreaux && b.quad.length === 4 && traitsDesCarreaux(b.quad, b.ia.carreaux).map(([p, q], k) => <line key={'c' + k} className="calCarreau" x1={p.x} y1={p.y} x2={q.x} y2={q.y} vectorEffect="non-scaling-stroke" />)}
+    {b && <text className="calTexteIa" x={Math.min(l - 4, (b.quad[0]?.x ?? 0))} y={Math.max(rayon * 3, (b.quad[0]?.y ?? 0) - rayon)} fontSize={rayon * 2.2}>{carreauxEnClair(b.ia.carreaux)}</text>}
+  </>;
+}
 
 /** Les etapes de la frise : ce que le rejeu illustre (E0 et E1, l'entree, sont dans l'editeur ; E9 n'est pas de la calibration). */
 const ETAPES_FRISE: readonly IdEtape[] = ['preparation', 'redressement', 'assemblage', 'calage', 'silhouette', 'diagnostic', 'texture', 'ouvertures', 'toit'];
@@ -133,9 +185,16 @@ function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEt
         {[mur.y0, mur.y1].map((y, k) => <line key={'h' + k} className="calMurLigne" x1={mur.x0} x2={mur.x1} y1={y} y2={y} vectorEffect="non-scaling-stroke" />)}
         {[mur.x0, mur.x1].map((x, k) => <line key={'v' + k} className="calMurBout" x1={x} x2={x} y1={mur.y0} y2={mur.y1} vectorEffect="non-scaling-stroke" />)}
         {im.pose && <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />}
+        {c.colombage?.zones.map((z, k) => <rect key={'z' + k} className="calColombage" x={z.x0} y={z.y0} width={z.x1 - z.x0} height={z.y1 - z.y0} vectorEffect="non-scaling-stroke" />)}
+        {c.colombage?.ecartees.map((z, k) => <rect key={'e' + k} className="calMurEcarte" x={z.x0} y={z.y0} width={z.x1 - z.x0} height={z.y1 - z.y0} vectorEffect="non-scaling-stroke" />)}
+        {im.ia?.pose && <rect className="calMurIa" x={im.ia.pose.x0} y={im.ia.pose.y0} width={im.ia.pose.x1 - im.ia.pose.x0} height={im.ia.pose.y1 - im.ia.pose.y0} vectorEffect="non-scaling-stroke" />}
+        {im.ia?.pointes.map((p, k) => <circle key={'p' + k} className="calPointeIa" cx={p.x} cy={p.y} r={0.008 * (im.assemblage?.image.largeur ?? 1000)} vectorEffect="non-scaling-stroke" />)}
+        {im.ia?.etendues.map((x, k) => <line key={'t' + k} className={'calEtendueIa ' + x.quoi} x1={x.x0} x2={x.x1} y1={x.y} y2={x.y} vectorEffect="non-scaling-stroke" />)}
       </Calques><figcaption>
         Traits : le mur cherché, {retenue}, score d’explication sans le toit {note(c.explication.score)} (angles {note(c.explication.angles[0])} et {note(c.explication.angles[1])}, égout {note(c.explication.egout)}, sol {note(c.explication.sol)} ; seuils {note(c.seuils.score)} et {note(c.seuils.angle)} par angle).
         {aretes && <> Tirets : la pose des arêtes, écartée (score {note(aretes.score)}).</>} Contour : le mur retenu, le gabarit posé entre ses coins.
+        {im.ia && <> Trait sombre : la pose des deux angles de Claude{c.ia ? `, score ${note(c.ia.score)}${c.ia.retenue ? ', retenue' : ''}` : ''} ; ronds : ses pointes ; traits sous le mur : ses appentis, ses autres volumes, ce qui cache le mur.</>}
+        {c.colombage && <> Voile : les zones de colombage que Claude voit ; tirets : {c.colombage.ecartees.length ? `${c.colombage.ecartees.length} pose${c.colombage.ecartees.length > 1 ? 's' : ''} des arêtes écartée${c.colombage.ecartees.length > 1 ? 's' : ''}, qui sui${c.colombage.ecartees.length > 1 ? 'vent' : 't'} les bois` : 'aucune pose écartée'}.</>}
       </figcaption></figure>}
       {im.pose && <CalageALaMain key={url(im.pose.image)} image={im.pose.image} url={url(im.pose.image)} coins={im.pose.coins} gabarit={g} caler={caler} />}
     </>;
@@ -148,7 +207,8 @@ function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEt
     <polygon className="calMurLigne silhouette" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
     {im.pose.proposees.map((q, k) => <polygon key={'p' + k} className="calPropose" points={points(q)} vectorEffect="non-scaling-stroke" />)}
     {im.pose.devinees.map((q, k) => <polygon key={'d' + k} className="calDevinee" points={points(q)} vectorEffect="non-scaling-stroke" />)}
-  </Calques><figcaption>Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine.</figcaption></figure> : null;
+    {im.ia && <BoitesIa boites={im.ia.boites} l={im.pose.image.largeur} rayon={0.008 * im.pose.image.largeur} />}
+  </Calques><figcaption>Trait plein : les ouvertures trouvées ; pointillé : celles que la structure devine.{im.ia ? ' Trait sombre : les boîtes de Claude, pleines quand la détection les retrouve (cochées), en tirets quand elles sont seules (décochées) ; touchez-en une pour voir la division de son vitrage.' : ''}</figcaption></figure> : null;
   if (id === 'texture' && im.texture) {
     const t = im.texture;
     const surSilhouette = (img: Image, cle: string, libelle: string) => <svg className="calEtape large" viewBox={`0 0 ${t.l} ${t.h}`} role="img" aria-label={libelle}>
@@ -196,7 +256,7 @@ export function EtapeOuverte(p: PropsEtape) {
       <div className="calLigne">
         <button type="button" className="secondary" data-controle="calibration.rejouerDepuis" disabled={p.occupe || !!def.lot} onClick={() => p.rejouerDepuis(p.id)}>Rejouer depuis cette étape</button>
       </div>
-      <p className="calNote">Chaîne des façades, version {p.rejeu.versions.chaine} ; objectifs {p.rejeu.versions.objectifs}.</p>
+      <p className="calNote">Chaîne des façades, version {p.rejeu.versions.chaine} ; objectifs {p.rejeu.versions.objectifs}{p.rejeu.sorties.ia ? ` ; IA : ${enteteDuRun(p.rejeu.sorties.ia.run)}, règles ${p.rejeu.versions.ia ?? ''}` : ' ; mode déterministe'}.</p>
     </section>
   );
 }

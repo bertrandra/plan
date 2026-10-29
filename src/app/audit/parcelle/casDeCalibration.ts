@@ -3,6 +3,7 @@
 // du mur sous le toit que lit le LiDAR (les corps du cas fige, `hauteurMurSousToit`) ; un ancien fichier, qui ne gardait que la
 // hauteur du prisme, est relu sur son cas fige.
 
+import { MATERIAUX_MURS_VUS, libelleDe } from '../../../model/ceQueJeVois.js';
 import { facadesDuContour } from '../../../geometry/cotesVusDeDehors.js';
 import { GABARIT_RECTANGLE, gabaritDesCorps, relief, type GabaritMur } from '../../../facade/gabaritMur.js';
 import { FORMAT_CAS_REEL, type CasStocke, type PhotoReelle } from '../../../facade/corpusReel.js';
@@ -29,6 +30,8 @@ export interface FacadeACalibrer {
   bilans: readonly BilanPhotoRedressement[];
   /** Le gabarit du mur : sa silhouette sous les corps du LiDAR (le cas fige), un rectangle sans corps. */
   gabarit: GabaritMur;
+  /** Le parement des murs vu sur place (« Ce que je vois »), en clair ; null : non dit. */
+  parement: string | null;
 }
 
 const arrondi = (v: number) => Math.round(v * 100) / 100;
@@ -59,7 +62,8 @@ export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer
       const hauteur = lidar ?? f.hauteurM;
       if (!(hauteur && hauteur > 0)) continue;
       out.push({ cle: b.cle, nom: b.nom, cote: f.cote, orientation: f.orientation ?? '', largeurM: arrondi(f.largeurM), hauteurM: arrondi(hauteur), sourceHauteur: lidar !== null ? 'lidar' : 'fichier', photos: f.photos, corrections: f.corrections ?? {}, bilans: f.mesure?.redressement?.photos ?? [],
-        gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur) });
+        gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur),
+        parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null });
     }
   }
   return out.sort((a, b) => b.photos.length - a.photos.length);
@@ -88,6 +92,7 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
     format: FORMAT_CAS_REEL, version: 1, statut: 'brouillon', source: 'admin',
     nom: f.nom + ' · façade ' + f.orientation.toLowerCase() + (idu ? ' (' + idu + ')' : ''),
     largeurM: f.largeurM, hauteurM: f.hauteurM,
+    ...(f.parement ? { parement: f.parement } : {}),
     ...(relief(f.gabarit) > 0 ? { gabarit: f.gabarit.map((p) => ({ u: p.u, v: p.v })) } : {}),
     photos: images.map((_, k) => photo(k)),
     images, ouvertures: [],
