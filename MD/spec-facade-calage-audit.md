@@ -61,7 +61,7 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 14. **Un seul run IA par façade.** Une requête, une réponse, un schéma : elle rend le calage (angles, pointes, corps), les éléments de toit
     vus, **les ouvertures et le type de leurs carreaux**. Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
 15. **L'IA récupère aussi, pour la suite, les ouvertures et leurs carreaux** : le type de division du vitrage (petits bois, nombre de
-    carreaux, imposte). On l'enregistre dans la façade objet **maintenant** ; son rendu en 3D est un lot ultérieur (§3.3, F9).
+    carreaux, imposte). On l'enregistre dans la façade objet **maintenant** ; son rendu en 3D est un lot ultérieur (§3.3, F8).
 16. **Le moteur de redressement et de fusion reste tel quel.** Le redressement (`vuesDeFace`, `redresserParFuites`, `redresserParReperes`),
     l'assemblage (`mosaiqueDesVues`), la fusion des vues (`fondreLesVues`, vote des baies) et la version sans ombres ne sont **ni modifiés
     ni réglés** par cette spec : elle s'appuie dessus et agit **autour** (calage du mur, forme, diagnostic, ouvertures, rejeu). Voir §4 bis.
@@ -70,7 +70,9 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
 18. **Certaines étapes sont des points de validation** (le mur, le toit, la façade), les autres tournent **en arrière-plan**. **L'audit
     est plus discret** : quand seul le résultat compte, l'étape reste cachée et ne se montre que si elle échoue ; **la calibration montre
     tout**. Voir §4 ter.
-19. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
+19. **Aucun code mort dans la migration.** Chaque morceau de code indépendant (audit, relevé, calibration) qui est absorbé par
+    l'enchaînement est **supprimé dans la même PR** que son remplaçant : ni pont, ni doublon, ni « à nettoyer plus tard ». Voir §8 bis.
+20. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
 
 ---
 
@@ -184,7 +186,7 @@ interface OuvertureFacade {
   niveau?: number; travee?: number;
   details?: {
     volets?: …; ferme?: boolean; allege?: …; forme?: 'rect' | 'cintre' | 'rond';
-    /** La division du vitrage, lue par l'IA (decision 15). Enregistree maintenant ; dessinee en 3D plus tard (F9). */
+    /** La division du vitrage, lue par l'IA (decision 15). Enregistree maintenant ; dessinee en 3D plus tard (F8). */
     carreaux?: {
       vantaux?: 1 | 2 | 3;                                     // nombre de vantaux visibles
       grille?: { colonnes: number; rangees: number };           // carreaux par vantail (ex. 3 x 2) ; 1 x 1 : vitrage d'un seul tenant
@@ -199,7 +201,7 @@ interface OuvertureFacade {
 ```
 
 - `carreaux` est **facultatif** et sans effet sur ce que la 3D dessine aujourd'hui : un fichier sans lui garde son sens, et la façade garde
-  ses fenêtres actuelles (`fenetres3d`). Il est rangé avec l'ouverture pour que le rendu des carreaux (F9) n'ait pas besoin de rappeler l'IA.
+  ses fenêtres actuelles (`fenetres3d`). Il est rangé avec l'ouverture pour que le rendu des carreaux (F8) n'ait pas besoin de rappeler l'IA.
 - Les valeurs sont un **vocabulaire fermé** (comme `silhouetteFacade.ts`) : l'IA choisit dans la liste, jamais d'un texte libre ; un mot
   inconnu relu devient `indetermine`, jamais une erreur. La liste se complète avec les premiers cas réels (l'imposte de la façade
   d'AE 101 en est le premier exemple).
@@ -345,7 +347,7 @@ Décision 16. Le moteur d'**image** reste tel quel, avec ses chiffres :
 
 Conséquences :
 
-1. **Aucun seuil de ces étapes n'est touché** par les lots F1 à F9. Les tests `redressementFuites`, `mosaiqueFuites`, `fusion`, `voteVues`,
+1. **Aucun seuil de ces étapes n'est touché** par les lots F0 à F8. Les tests `redressementFuites`, `mosaiqueFuites`, `fusion`, `voteVues`,
    `banc.test.ts` et le tableau du banc (sections « chaîne du relevé » et « fusion de plusieurs vues ») **ne doivent pas bouger**.
 2. **La spec agit autour** : elle ajoute des étapes **après** l'assemblage (calage du mur par ses ancres, diagnostic, ouvertures) et un
    **rejeu** qui les illustre ; elle ne rééchantillonne rien, ne change ni l'échelle ni la résolution de l'assemblage.
@@ -645,7 +647,7 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
 - **Ce que Claude ne fait pas** : il n'écrit ni hauteur, ni largeur, ni forme de toit ; il ne corrige pas le plan. Quand il voit une
   pointe plus haute ou plus basse que prévu, il le dit (`v`), et la spec le traite en **alerte**, jamais en correction (décision 12).
 - **Où va chaque champ** : le calage → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
-  leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F9).
+  leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
 - **Reproductibilité** : la réponse du run est **enregistrée** avec la version du prompt et du schéma ; la calibration la rejoue (§7.2) sans
   appel réseau. Un seul run à enregistrer par cas et par version : le rejeu est plus simple et moins cher qu'avec trois passes.
 - **Coût** : **une** requête par façade (au lieu d'une pour le calage et trois pour le renfort) mais une réponse plus longue ; à mesurer
@@ -653,26 +655,108 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
 
 ---
 
+## 8 bis. La migration : un seul enchaînement, rien qui traîne
+
+Aujourd'hui, **trois morceaux de code indépendants** enchaînent chacun à sa façon les mêmes étapes : l'audit (`app/audit/parcelle/mesures.ts`),
+le relevé (`zones/Releve.tsx`, ~350 lignes de glue dans l'écran) et la calibration (`facade/releve/casCalibration.ts`, `EditeurCasCalibration.tsx`).
+Ils partagent déjà le moteur (`analyserLeMur`, `redresserEtFusionner`, `murSurLAssemblage`), pas l'enchaînement. La migration les fait tous
+passer par **l'orchestrateur** du §4 ter.4 et **supprime** ce qui devient inutile.
+
+### 8 bis.1 Les règles (décision 19)
+
+1. **Un seul chemin.** Une fonction d'enchaînement a une seule maison : l'orchestrateur. Les trois entrées (audit, relevé, calibration)
+   l'appellent ; aucune ne réordonne les étapes elle-même.
+2. **Un lot supprime ce qu'il remplace, dans la même PR.** Pas de « à supprimer dans un prochain lot », pas de `TODO` de nettoyage, pas de
+   code commenté. La PR dit ce qu'elle supprime (« bilan de suppression » : fichiers, fonctions, lignes) et la CI le vérifie (règle 5).
+3. **Pas de couche de compatibilité.** Aucun `export … from` de remplacement, aucun adaptateur gardé « pour l'ancien appelant », aucun
+   `@deprecated` : un déplacement est un `git mv` avec tous les appelants corrigés dans la PR.
+4. **Pas de drapeau de bascule permanent.** Un interrupteur ancien/nouveau n'existe qu'**à l'intérieur d'un lot** et disparaît avant la
+   fusion ; une PR ne fusionne jamais avec les deux chemins vivants. Quand deux consommateurs ne peuvent pas migrer ensemble, c'est
+   **l'ordre des lots** qui les sépare (§8 bis.3), pas un pont.
+5. **Un cliquet des orphelins.** Un test d'architecture (`tests/unit/architecture/orphelins.test.ts`) parcourt les exports des dossiers
+   concernés (`facade/releve`, `facade/detection`, `facade/calage`, `app/releve`, `app/audit/parcelle`, `zones/releve`, et les zones de la
+   calibration) et échoue pour **tout export ou fichier qu'aucun autre fichier de `src/` n'importe** (hors points d'entrée déclarés).
+   Les orphelins déjà présents sont dans une liste (`tests/fixtures/architecture/orphelins-autorises.json`) qui **ne peut que raccourcir** :
+   un orphelin qui disparaît doit sortir de la liste (le test échoue sinon), un nouveau fait échouer la CI. À la fin de la migration, la liste
+   est vide pour ces dossiers. *(Limites : un import dynamique et un type utilisé dans son seul fichier se déclarent à la main.)*
+6. **Les données anciennes se lisent, ne s'écrivent plus.** Un champ qui n'est plus écrit n'est lu que par `model/migrations.ts`, avec son
+   test d'aller-retour de fichier ancien : jamais par un écran.
+7. **Ce qui entoure le code part avec lui** : les commandes (`app/exposition.ts`, `app/descriptions.ts`), les contrôles
+   (`app/controlesInterface.ts`), les points de la fumée (`scripts/fumee.mjs`, `tests/CHECKLIST-FUMEE.md`), les règles CSS, les textes
+   d'aide, les tests. Un test d'un code supprimé est **supprimé ou déplacé**, jamais `skip`. Le CHANGELOG a une ligne « Supprimé ».
+8. **Contrôle de fin de lot, « rien ne traîne »** : (a) un `grep` des noms supprimés ne renvoie plus rien dans `src/`, `tests/`, `scripts/`,
+   `MD/` ; (b) le cliquet des orphelins passe ; (c) le tableau du banc (redressement, fusion) est identique ; (d) la PR liste les lignes
+   supprimées et les lignes ajoutées.
+
+### 8 bis.2 Le relevé de l'existant : où va chaque morceau
+
+*Relevé par imports et tailles de fichiers, 29 octobre 2026 : à reconfirmer par `grep` en tête de chaque lot (c'est sa première tâche).*
+
+| Morceau | Taille | Rôle aujourd'hui | Destin | Lot |
+|---|---|---|---|---|
+| `facade/analyseMur.ts` (`analyserLeMur`, `fondreLesVues`) | 162 | une photo, des morceaux, des vues | **reste**, moteur gelé (décision 16) ; appelé par l'orchestrateur | — |
+| `facade/releve/chaine.ts` (`redresserEtFusionner`, `morceauRedresse`, `champDesFuites`, `verticaliteDeg`, `VERSION_CHAINE_FACADES`…) | 397 | redressement, replis, report, fusion | la **partie moteur reste** telle quelle ; ce qui est de l'**ordre des étapes** passe à l'orchestrateur | F0 |
+| `facade/vision/*` (redressement, mosaïque, fusion, vote, sans ombres) | — | le moteur d'image | **reste**, intact | — |
+| `facade/releve/coinsAuto.ts` (`murSurLAssemblage`, `coinsAutoDeSerie`, `reporterCoins`) | 150 | le mur sur l'assemblage | reste ; `murSurLAssemblage` reçoit le calage par ancres | F1 |
+| `facade/releve/serie.ts`, `app/releve/rechercheCoins.ts`, `calageFin.worker.ts`, `facade/calage/*` | 297+90+23 | les coins par la prise de vue (calage grossier, fin) | restent, **chemin déterministe de l'É4** pour une photo avec capteurs ; appelés par l'orchestrateur seul | F1 |
+| `facade/releve/analyseSerie.ts` (`analyserSerie`, `calageDeSerie`, `etirerEnHauteur`, `releveDuMur`, `avisFusion`) | 158 | colle l'analyse, le calage et le relevé | **fonctions d'étape** appelées par l'orchestrateur seul ; les appels de `zones/Releve.tsx` et de `mesures.ts` disparaissent | F3, F6 |
+| `facade/releve/casCalibration.ts` (`preparerSurLAssemblage`, `coinsDeSerie`, `etapesDe`, `assemblageDeLaSerie`, `facadeSurLAssemblage`) | 181 | l'enchaînement propre à la calibration | **supprimé** : les états et les images d'étapes viennent de l'orchestrateur | F0 |
+| `facade/corpusReel.ts` (`preparerCas`, `calibrer`, la mesure) | 365 | cas, descente des réglages | `preparerCas` → orchestrateur ; la descente (`calibrer`) et la mesure **restent** | F0 |
+| `zones/EditeurCasCalibration.tsx`, `EcranCalibration.tsx` | 403+292 | éditeur de cas, étapes | deviennent l'écran de rejeu (frise d'étapes) ; l'enchaînement inline **disparaît** | F0, F2 |
+| `zones/CalageSilhouette.tsx` et `zones/releve/AjusterMur.tsx` | 102+135 | **deux composants du même geste** (poser bouts, égout, sol) | **un seul** : l'option manuelle de l'É4 ; l'autre est supprimé | F1 |
+| `zones/releve/Coins.tsx`, `EtapeCoins.tsx` | 142+225 | poser 4 repères | **une seule version**, option manuelle de l'É2, pour l'audit, le relevé et la calibration | F3 |
+| `zones/Releve.tsx` + `zones/releve/*` (`Visee`, `ChoixMethode`, `PhotosRue`, `ChoixMur`, `Elevation`, `EtapeResultat`, aides, `capteurs`, `commun`, `ouvertures`) | ~1 900 | le relevé : capture + chaîne + éditeur | la capture → l'audit ; la chaîne → l'orchestrateur ; **ce qui reste est l'éditeur** du mur et des ouvertures ; le reste est supprimé (écrans, commandes, aides, CSS, fumée) | F6 |
+| `app/releve/releve.ts`, `casDeReleve.ts`, `renfortReleve.ts` | 156+57+150 | écrire le relevé, créer un cas, renfort du relevé | l'écriture → la validation V4 ; `casDeReleve` → « Créer un cas depuis cette façade » ; `renfortReleve` **supprimé** (run unique) | F2, F5, F6 |
+| `app/audit/parcelle/mesures.ts`, `redressement.ts`, `rejeu.ts` | 233+… | l'audit calcule sa façade | appellent l'orchestrateur ; leur glue **disparaît** ; « Rejouer » = rejeu de l'orchestrateur | F3 |
+| `app/audit/parcelle/entreesRenfort.ts`, `escalade.ts`, `facade/detection/renfort.ts`, `renfortRecalage.ts` | — | les trois passes votées du renfort | remplacées par le run unique ; le **vote ×3 ne reste que comme option du rejeu** (son seul appelant) ; s'il est jugé inutile après mesure (§11), supprimé en bloc | F2, F3 |
+| `deploy/schema-analyse.json`, `deploy/prompt-analyse.md` (générés) | — | ce que Claude lit et rend | **régénérés** (`npm run regles:generer`) ; un champ qu'aucun lecteur n'utilise est retiré du schéma | F2 |
+
+### 8 bis.3 L'ordre : un consommateur à la fois, du plus sûr au plus exposé
+
+1. **La calibration d'abord** (F0 à F2) : c'est un outil de développeur, sans utilisateur final, qui montre chaque étape. Elle devient
+   le **premier consommateur** de l'orchestrateur ; son enchaînement propre est supprimé dans la même PR. Elle sert de banc de non-régression
+   pour les deux suivants.
+2. **L'audit ensuite** (F3, F4, F5) : il appelle l'orchestrateur, prend le mode discret et le run IA unique ; sa glue (`mesures.ts`) et le
+   renfort à trois passes disparaissent.
+3. **Le relevé en dernier** (F6) : il ne perd rien tant que l'audit n'a pas l'équivalent. Quand l'audit sait prendre, assembler et valider
+   une façade, le relevé devient un éditeur et ses écrans de capture sont supprimés.
+
+Chaque lot a donc **un premier consommateur dans sa propre PR** : aucun morceau n'arrive avant d'être appelé (pas de code « en attente »).
+C'est pourquoi un champ du modèle (`dimensions`, `forme`, `textureCalee`) n'est ajouté que **dans le lot qui l'écrit et le lit** (F5), et
+l'orchestrateur n'est livré qu'avec la calibration qui l'appelle (F0).
+
+### 8 bis.4 Le bilan de suppression de chaque lot
+
+Chaque PR de lot porte, dans sa description, le tableau suivant, rempli avec les vraies lignes :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| … | … | … | … | … |
+
+Et la mention « cliquet des orphelins : liste raccourcie de N entrées », « grep des noms supprimés : vide ».
+
+---
+
 ## 9. Étapes de livraison
 
-Chaque lot est livrable seul : CI verte, CHANGELOG (`## [Non publié]`), fumée sur les points touchés, PR, merge par commit de merge.
-`AE 101` ne bouge pas (`identite.ts`) sauf décision écrite ; les empreintes golden aussi.
+Chaque lot est livrable seul : CI verte, CHANGELOG (`## [Non publié]`, avec une ligne « Supprimé »), fumée sur les points touchés, PR, merge par
+commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il remplace** (§8 bis). `AE 101` ne bouge pas (`identite.ts`) sauf décision
+écrite ; les empreintes golden non plus ; le tableau du banc (redressement, fusion) est identique avant et après.
 
-| Lot | Contenu | Critère d'acceptation |
-|---|---|---|
-| **F0 — Enchaînement et états d'étape** | L'orchestrateur pur (§4 ter.4), le type `EtapeFacade`, les objectifs en réglages, les états (`ok`, `a-confirmer`, `echec`, `saute`), les modes d'audit (`cache`, `resume`, `valider`) ; il appelle la chaîne existante sans la modifier | Rejouer un cas du banc de synthèse donne les mêmes sorties qu'aujourd'hui ; l'état de chaque étape est calculé ; une étape en échec arrête la suite ou continue sur une valeur dite supposée ; le banc ne bouge pas |
-| **F1 — Modèle et stockage** | `dimensions`, `forme`, `textureCalee`, `id` et `verifieeLe` des ouvertures ; validation, compactage, migration, groupes de `protections.ts` | Un fichier ancien se relit à l'identique ; aller-retour testé ; aucun champ nouveau écrit tant que rien ne le pose |
-| **F2 — Cas AE 101 et rejeu** | Le cas d'étalon dans le corpus réel ; le bouton « Rejouer » (déterministe) et la frise d'étapes de la calibration avec ses calques | Le rejeu d'AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape ; reproductible |
-| **F3 — Un run IA par façade** | Un schéma unique : `calage`, forme, `elements`, ouvertures, détails, `carreaux` ; une requête par façade ; réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | Les points de l'IA s'affichent sur l'É4, les boîtes et leurs carreaux sur l'É7 ; coût et version affichés ; le renfort à trois passes reste atteignable, hors défaut |
-| **F4 — Arbitre du calage** | Score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes, réglages | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
-| **F5 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes de toit testées) ; propositions confirmées dans l'avant/après ; observations adressées au corps par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | Sur AE 101 sud : la proposition juste (le pignon manquant s'il manque) est faite sur le **bon corps**, décochée ; accepter une proposition change le toit **par le moteur seulement** ; les hauteurs du LiDAR ne bougent pas ; AE 101 identique sans proposition acceptée |
-| **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient éditeur | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte |
-| **F7 — Façade objet** | Les ouvertures hors automatique en objets (id, source, vérification, `carreaux` rangés), appariement au rejeu, inspecteur, 3D (sans carreaux) | Un rejeu ne déplace pas une ouverture vérifiée ; la 3D et le plan lisent les mêmes ; empreinte `glb-structure.json` : dite si elle bouge |
-| **F8 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation (puis, plus tard, le reste du catalogue) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
-| **F9 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) : grille, petits bois, imposte | Un fichier sans carreaux se dessine comme avant ; l'empreinte `glb-structure.json` est dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
+| Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
+|---|---|---|---|
+| **F0 — Orchestrateur + calibration** | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts` | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
+| **F1 — Calage par ancres** | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
+| **F2 — Un run IA par façade** | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
+| **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
+| **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
+| **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
+| **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
+| **F7 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
+| **F8 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
-Ordre conseillé : F0 (le squelette, sans changer aucun résultat), F1, F2, F3, F4 (le calage d'abord, parce que tout en dépend), **F5 ensuite** (la boucle toit est le cœur : la forme de la
-façade n'a de valeur que si elle ajuste le toit), puis F6, F7, F8, et F9 (le rendu des carreaux) quand les cas réels les ont confirmés. F2 peut précéder F1 si le cas d'étalon est posé avant le modèle.
+Ordre : F0 à F8 dans cet ordre, parce que **chaque lot suppose le précédent** (§8 bis.3). F8 attend que des cas réels aient confirmé le vocabulaire des
+carreaux.
 
 ---
 
@@ -687,6 +771,8 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 ```
 
 - Toute PR qui touche au calage ou à la détection colle le **tableau avant et après** du banc (au moins les lignes « Ensemble »).
+- **Le cliquet des orphelins** (§8 bis.1, règle 5) : `npm test` échoue sur tout export ou fichier sans importeur dans les dossiers de la migration, et sur une liste d'orphelins autorisés qui ne raccourcit pas quand elle le doit.
+- **Le bilan de suppression** est dans chaque PR de lot (§8 bis.4) ; `grep` des noms supprimés : vide.
 - **Le moteur de redressement et de fusion ne doit pas bouger** (§4 bis) : les sections « chaîne du relevé » et « fusion de plusieurs vues » du
   banc, `redressementFuites.test.ts`, `mosaiqueFuites`, `fusion`, `voteVues.test.ts` sont identiques avant et après, à la décimale.
 - **Pièges de CI** : `max-lines-per-function` 150 ; couches (`tests/unit/architecture.test.ts`) ; exposition des commandes
@@ -708,16 +794,16 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
    du mode par défaut.* Et l'IA peut se tromper de manière corrélée (les trois passes verraient la même erreur) : le déterministe doit pouvoir
    dire « non » (verticale absente à l'angle annoncé).
 2 bis. **Carreaux** : le vocabulaire (vantaux, grille, petits bois, imposte) est posé avant le moindre cas réel ; il se complétera. Enregistrer
-   sans dessiner (F9) évite de figer un rendu avant de savoir ce que l'IA lit juste.
+   sans dessiner (F8) évite de figer un rendu avant de savoir ce que l'IA lit juste.
 3. **Le coût** d'une passe de plus par façade : plafond serveur et mesure (§8).
 4. **Les photos** sont des données personnelles : ce qui entre dans le dépôt (corpus) et ce qui part vers le serveur d'analyse doit être
    décidé cas par cas. *Question ouverte : y a-t-il un format réduit (recadrage de la façade seule) accepté pour le corpus ?*
 5. **Façade objet : granularité.** Un objet par ouverture (proposé) ou un objet par façade qui porte sa liste ? Le premier simplifie les
-   rejeux et l'inspecteur ; le second reste plus proche du fichier actuel. *À trancher avant F7.*
+   rejeux et l'inspecteur ; le second reste plus proche du fichier actuel. *À trancher avant F5.*
 6. **Fenêtres automatiques sur un mur relevé** : aujourd'hui aucune. Faut-il en poser sur les parties **non vues** d'un mur relevé (un
    mur à moitié caché par une haie) ? Hors périmètre de cette spec.
 7. **Le Mode Toit** (`spec-mode-toit-3d.md`) montre déjà un profil de façade à l'échelle (essai, branche `claude/profil-facade-essai`,
-   non fusionné). Faut-il le fusionner avec la forme de la Façade (§3.2) ou l'abandonner ? *Proposition : le reprendre une fois F1 posé,
+   non fusionné). Faut-il le fusionner avec la forme de la Façade (§3.2) ou l'abandonner ? *Proposition : le reprendre une fois F5 posé,
    en lisant `forme.gabarit`.*
 8. **Circularité** : la silhouette dérive du toit, qui est ce qu'on veut corriger. Si le calage s'appuie sur le gabarit, une erreur de toit
    déforme le calage et cache l'écart (§4 É4, §5). Garde-fou : le score d'explication du calage ne contient jamais le gabarit.
@@ -728,8 +814,13 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
     et le rejeu doit montrer **quel corps** est visé avant toute confirmation.
 11. **`pignons.ts` ne connaît que le corps principal** : l'étendre aux autres corps change ce que le moteur peut poser ; AE 101 doit rester
     identique tant qu'aucune proposition n'est acceptée (`identite.ts`).
-12. **Calibration seule ou aussi relevé** : le relevé garde son entrée tant que F6 n'est pas livré ; deux chemins de capture coexistent
-   un temps (acceptable, la chaîne est commune).
+12. **Migration en trois consommateurs** : l'ordre calibration, audit, relevé (§8 bis.3) évite les ponts, mais le relevé garde son code tant que l'audit n'a pas
+    l'équivalent : il ne doit rien perdre en route (parcours, cas particuliers). *Chaque lot commence par un `grep` qui relève ce que l'ancien chemin fait et que le
+    nouveau doit refaire.*
+13. **Le cliquet des orphelins est un test d'imports, pas un analyseur** : un import dynamique ou un export utilisé dans son seul fichier lui échappe ; ceux-là se
+    déclarent à la main, et le bilan de suppression de la PR reste le filet.
+14. **Deux chemins de capture** : le relevé garde son entrée tant que F6 n'est pas livré ; la chaîne est commune et l'enchaînement unique (F3), donc seule
+    l'**interface** de capture coexiste, jusqu'à la suppression de F6.
 
 ---
 
