@@ -2785,6 +2785,24 @@
     .barreFacadeSegment > button, .barreFacadeFixe{ align-content:center; }
     .barreFacadeRuban{ display:block; }
   }
+  /* L'audit discret (zones/parcours/FacadeAudit.tsx) : la meme barre, posee dans la ligne de la facade ou en tete de l'ecran de prise ;
+     plusieurs facades depliees ne s'empilent pas en haut de la liste, la barre y reste a sa place. Dessous, les seules etapes qui
+     doutent (et une ligne pour le mur et les ouvertures) : l'etat en mot, puis le geste de repli. */
+  .facadeAudit{ display:grid; gap:6px; margin:6px 0 4px; }
+  .facadeAudit .barreFacade{ position:static; margin:0; padding:4px 0 2px; background:transparent; }
+  .auditPrise .facadeAudit{ margin:4px 0 2px; }
+  .etapesAudit{ display:grid; gap:4px; margin:0; padding:0; list-style:none; }
+  .ligneEtapeAudit{ padding:4px 8px; border-left:3px solid var(--rule); border-radius:0 var(--r-champ) var(--r-champ) 0; background:var(--panel-2); font-family:var(--sans); font-size:0.74rem; color:var(--ink); }
+  .ligneEtapeAudit.ok{ border-left-color:var(--accent); }
+  .ligneEtapeAudit.a-confirmer{ border-left-color:var(--alerte); }
+  .ligneEtapeAudit.echec{ border-left-color:var(--danger); }
+  .ligneEtapeAudit.ouverte{ background:transparent; }
+  .etatEtapeAudit{ display:inline-block; margin-right:4px; padding:0 6px; border-radius:999px; border:1px solid var(--rule); background:var(--paper-deep); font-size:0.64rem; color:var(--ink-soft); }
+  .ligneEtapeAudit.echec .etatEtapeAudit{ border-color:var(--danger); color:var(--danger); }
+  .ligneEtapeAudit.a-confirmer .etatEtapeAudit{ border-color:var(--alerte); color:var(--ink); }
+  .optionEtapeAudit{ color:var(--ink-soft); font-style:italic; }
+  .ligneEtapeAudit .actionsAudit{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .reperesAudit, .poserReperes{ display:grid; gap:6px; }
   /* La frise des etapes d'un cas (zones/FriseEtapesCalibration.tsx) : une vignette par etape, son etat en mot ; l'etape ouverte dessous. */
   .calFrise{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; margin:10px 0; padding:0; list-style:none; }
   .calFrise > li > button, .calFriseFixe{ display:grid; gap:4px; width:100%; min-height:44px; padding:6px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer; }

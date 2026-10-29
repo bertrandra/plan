@@ -27,6 +27,7 @@ import { telechargerTexte } from '../../../shell/download.js';
 import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { FicheAudit } from '../../../io/auditsServeur.js';
+import { ETAPES_FACADE } from '../../../model/etapeFacade.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
 /** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
@@ -264,6 +265,23 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
       return e.etat === 'envoi' ? 'Un envoi est en cours.' : null;
     },
     executer: () => { void session?.sauvegarde.envoyer(); },
+  });
+
+  // Un segment de la barre de progression d'une facade (zones/parcours/FacadeAudit.tsx, MD/spec-facade-calage-audit.md §4 ter.5) :
+  // l'etape vient de `data-etape` du bouton, la facade de `data-facade` de la barre qui le porte. L'audit n'ouvre que ses points de
+  // validation et ce qui doute ; toucher de nouveau l'etape ouverte la referme. Rien n'ecrit dans le projet.
+  cmd.declarer({
+    id: 'facade.etape',
+    libelle: 'Ouvrir une étape de la façade',
+    groupe: 'facade',
+    executer: (source) => {
+      const c = parcours.courant();
+      const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape)?.id;
+      const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
+      if (c?.type !== 'auditParcelle' || !etape || !facade) return;
+      const deja = c.session.etapeOuverte();
+      c.session.ouvrirEtape(facade, deja?.facade === facade && deja.etape === etape ? null : etape);
+    },
   });
 
   declarerAuditsAdmin(a, cmd, { importer, consulter });

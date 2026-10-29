@@ -9,9 +9,9 @@
 // un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coins } from './releve/Coins.js';
-import { AjusterMur, type MurAjuste } from './releve/AjusterMur.js';
-import { coinsParDefaut, LIBELLES_OUVERTURE, NOMS_REPERES, pointSvg } from './releve/commun.js';
+import { type MurAjuste } from './releve/AjusterMur.js';
+import { PoserReperes } from './releve/PoserReperes.js';
+import { coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
@@ -99,24 +99,16 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
 
 /**
  * Les quatre reperes de la photo courante (ceux poses, sinon les coins du mur retenus : un rectangle du mur, eux aussi), et la reprise
- * a la main de l'egout, du sol et des bouts sur la photo redressee entiere.
+ * a la main de l'egout, du sol et des bouts sur la photo redressee entiere : le geste partage avec l'audit (PoserReperes).
  */
 function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void }) {
   const r = reperesDe(p);
-  const [ajuster, setAjuster] = useState(false);
-  return <>
-    <p className="calNote">Photo {rang + 1} : si elle ne se redresse pas seule, placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite (« Retrouver le mur sur toutes les photos »).</p>
-    <Coins photo={photo} coins={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} setCoins={poser}
-      sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" />
-    <div className="calLigne">
+  return (
+    <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
+      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} suite="« Retrouver le mur sur toutes les photos », ou « Rejouer » après un mur ajusté">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
-      <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="calibration.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>
-    </div>
-    {ajuster && <>
-      <p className="calNote">Sur la photo redressée, tirez l’égout, le sol et les deux bouts s’ils sont mal placés : la silhouette du mur les suit sans changer de forme. Puis « Rejouer ».</p>
-      <AjusterMur charger={charger} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} mur={p?.coins ?? null} gabarit={gabarit} changer={ajusterMur} />
-    </>}
-  </>;
+    </PoserReperes>
+  );
 }
 
 /** Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer. */

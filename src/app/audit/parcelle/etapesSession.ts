@@ -1,5 +1,5 @@
 // Les etapes de l'audit de la parcelle apres la capture (controleur.ts) : la validation, l'analyse par Claude, le fichier de
-// l'audit, et la fusion des photos d'une facade verifiee a la prise de vue.
+// l'audit, et l'enchainement d'une facade rejoue a la prise de vue (la barre de progression le montre sur place).
 
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
@@ -13,8 +13,6 @@ import { renforcerFacades } from './entreesRenfort.js';
 import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
-import { cleMesure } from './mesures.js';
-import { avertissementPrise } from './redressement.js';
 import type { GrilleRelief } from '../../../model/relief.js';
 import type { ContexteAuditParcelle } from './typesSession.js';
 
@@ -94,25 +92,10 @@ export function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, l
 }
 
 /**
- * La fusion des photos d'une facade, verifiee a la prise de vue : des la deuxieme photo la facade se redresse et se fusionne ;
- * si elle ne le peut pas, on le dit sur place, pendant qu'on peut encore la reprendre avec des chevauchements.
+ * L'enchainement d'une facade, rejoue a la prise de vue des la premiere photo : la barre de progression de l'ecran de prise montre ou il
+ * en est, et une etape qui echoue (une photo qui ne se redresse pas, des photos qui ne s'assemblent pas) s'y dit sur place, pendant
+ * qu'on peut encore reprendre la facade. Une photo prise pendant le calcul le relance a sa fin (le mesureur reprend ce qui a change).
  */
-export function fusionAPriseDe(validation: () => Validation, publier: () => void) {
-  let avertissement: string | null = null;
-  let suivi = 0;
-  return {
-    lire: () => avertissement,
-    effacer() { suivi++; avertissement = null; },
-    verifier(cle: string, cote: number, photos: number): void {
-      avertissement = null;
-      const n = ++suivi;
-      if (photos < 2) return;
-      void validation().rejouerRedressement(cle, cote).catch(() => 0).then(() => {
-        if (n !== suivi) return;
-        const bilan = validation().mesuresFaites().get(cleMesure(cle, cote))?.redressement;
-        const dit = bilan ? avertissementPrise(bilan) : null;
-        if (dit !== avertissement) { avertissement = dit; publier(); }
-      });
-    },
-  };
+export function mesureAPriseDe(validation: () => Validation): { rejouer(cle: string, cote: number): void } {
+  return { rejouer(cle, cote) { void validation().rejouerFacade(cle, cote).catch(() => 0); } };
 }

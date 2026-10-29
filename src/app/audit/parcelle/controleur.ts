@@ -24,7 +24,7 @@ import type { AnalyseClaude } from './analyseClaude.js';
 import type { ContexteAuditParcelle, EcranAudit, SessionAuditParcelle } from './typesSession.js';
 import { capteurs, priseDe } from './capteursPrise.js';
 import { brouillonDe } from './brouillonCapture.js';
-import { validationDe, analyseDe, fichierDe, fusionAPriseDe } from './etapesSession.js';
+import { validationDe, analyseDe, fichierDe, mesureAPriseDe } from './etapesSession.js';
 import { viseeDe } from './viseeFacade.js';
 import { vueDe } from './vueAudit.js';
 export type { ContexteAuditParcelle, EcranAudit, EtatPosition, CibleFacade, SessionAuditParcelle } from './typesSession.js';
@@ -32,6 +32,7 @@ export { questionRemplacement } from './brouillonCapture.js';
 export { MESSAGES_GPS_PARCELLE, textePlanDePrise, questionRepriseParcelle } from './textesSession.js';
 import { pluriel } from './textesSession.js';
 import type { PtBrut } from '../../../model/types.js';
+import type { IdEtape } from '../../../model/etapeFacade.js';
 import { parcelleCadastrale } from './parcelleCadastrale.js';
 import { estBatiment } from '../../../model/fonctions.js';
 export { DELAI_ENSEMBLE_MS, type EcranVue } from './vueAudit.js';
@@ -58,7 +59,9 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const publier = () => { if (ecran === 'propositions') validation.synchroniser(); abonnes.forEach((f) => f()); };
   let ecran: EcranAudit = 'liste';
   let dernier: string | null = null;
-  const fusionAPrise = fusionAPriseDe(() => validation, () => publier());
+  const mesureAPrise = mesureAPriseDe(() => validation);
+  /** L'etape ouverte dans la barre de progression d'une facade (`cle#cote`) : l'audit n'ouvre que ses points de validation et ce qui doute. */
+  let etapeOuverte: { facade: string; etape: IdEtape } | null = null;
   /** La liste ne se recalcule que si la capture ou les objets du plan ont change. */
   let memo: { version: number; objets: unknown; liste: ListeDeControle } | null = null;
   const liste = (): ListeDeControle => {
@@ -149,7 +152,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
     cible: () => visee.cible(capture),
     position: () => ({ etat: sens.etat(), precisionM: sens.precision(), boussole: sens.capBoussole() !== null }),
     prise: () => priseDe(sens, maintenant()),
-    photographier(cle, cote) { fusionAPrise.effacer(); sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
+    photographier(cle, cote) { sens.autoriser(); sens.demarrer(); visee.choisir(cle, cote); ecran = 'prise'; ctx.ouvrir3d(); vue.epurer(true); vue.activer('prise'); publier(); },
     suivreLaPosition() { visee.choisir(null, null); visee.reconnaitre(sens); vue.faites(); vue.suivre(true); publier(); },
     verrou: () => visee.verrou(),
     verrouiller(cle) {
@@ -174,12 +177,13 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       if (!c) return null;
       if (!capture.ajouterPhotoFacade(c.cle, c.cote, photo)) { ctx.signaler('Cette façade a déjà toutes ses photos : retirez-en une depuis la liste.'); return null; }
       dernier = 'Photo rangée sur ' + c.nom + ' (' + pluriel(c.photos + 1, 'photo') + ').';
-      fusionAPrise.verifier(c.cle, c.cote, c.photos + 1);
+      mesureAPrise.rejouer(c.cle, c.cote);
       publier();
       return { cle: c.cle, cote: c.cote };
     },
     dernierRangement: () => dernier,
-    avertissementPrise: () => fusionAPrise.lire(),
+    etapeOuverte: () => etapeOuverte,
+    ouvrirEtape(facade, etape) { etapeOuverte = etape ? { facade, etape } : null; publier(); },
     lancerAnalyse() {
       capture.terminer();
       void brouillon.vider();

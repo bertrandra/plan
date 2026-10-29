@@ -6,6 +6,8 @@
 //   compteur de ce qui reste, et « Lancer l'analyse » (les maisons voisines n'y sont plus) ;
 // - l'ecran de prise, pose en bas de la Vue 3D (le voile s'efface, la scene reste visible) : la
 //   facade devant vous, surlignee dans la scene et nommee ici, et la photo qui s'y range d'elle-meme ;
+//   des la premiere photo, la barre de progression de la facade (zones/parcours/FacadeAudit.tsx) dit ou
+//   en est son enchainement, et ce qui echoue s'y voit sur place ;
 // - les propositions (phase 3, zones/parcours/PropositionsAudit.tsx), posees elles aussi sur la Vue 3D.
 //
 // Tout s'ecrit dans la capture a chaque geste, gardee dans le brouillon de l'appareil : fermer ne perd
@@ -17,20 +19,17 @@ import { useEffect, useReducer, useState } from 'react';
 import { preparerPhoto } from '../../app/audit/photo.js';
 import { texteStatutFacade, type LigneBatiment, type LigneFacade, type LignePartie } from '../../app/audit/parcelle/liste.js';
 import { jourDe } from '../../app/audit/reprise.js';
-import { LIBELLE_REJOUER, texteFusion, textePhoto, texteRejeu } from '../../app/audit/parcelle/redressement.js';
-import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { NATURES_PORTAIL, POSITIONS_PORTAIL, TYPES_CLOTURE } from '../../model/auditParcelle.js';
 import { texteDeLaSauvegarde } from '../../app/audit/parcelle/sauvegarde.js';
 import { BoutonCommande } from '../composants/BoutonCommande.js';
 import { BoutonFermerAudit } from './BoutonFermerAudit.js';
 import { CeQueJeVois } from './CeQueJeVois.js';
-import { CoinsPhotoAudit } from './CoinsPhotoAudit.js';
+import { FacadeAudit } from './FacadeAudit.js';
 import { PropositionsAudit } from './PropositionsAudit.js';
 import { useCadrerVue } from './cadrageVue.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { PhotoCas } from '../../model/audit.js';
-import type { CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PartieVue } from '../../model/ceQueJeVois.js';
 
 interface Props { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void; retour?: () => void }
@@ -75,63 +74,26 @@ function Vignettes({ photos, nom, retirer }: { photos: readonly PhotoCas[]; nom:
   );
 }
 
-/**
- * Le redressement et la fusion des photos d'une facade : le statut de chacune (automatique, a la main, echec et son motif),
- * celui de l'ensemble, et « Rejouer redressement + fusion ». Un rejeu ne remplace que les images derivees.
- */
-function Redressement({ session, cle, cote, nom, largeurPlanM }: { session: SessionAuditParcelle; cle: string; cote: number; nom: string; largeurPlanM: number }) {
-  const [enCours, setEnCours] = useState(false);
-  const [coinsRang, setCoinsRang] = useState<number | null>(null);
-  const mesure = session.validation.mesuresFaites().get(cleMesure(cle, cote));
-  const bilan = mesure?.redressement;
-  const saisie = session.capture.lire().batiments[cle]?.facades[String(cote)];
-  const rejouer = () => { setEnCours(true); void session.validation.rejouerRedressement(cle, cote).finally(() => setEnCours(false)); };
-  // Une correction ecrite dans la capture, puis la facade rejouee : le calcul reprend les points de la personne.
-  const corriger = (rang: number, c: CorrectionRedressement | null) => {
-    const avant = saisie?.corrections?.[String(rang)];
-    session.capture.corrigerRedressement(cle, cote, rang, c ? { ...avant, ...c } : null);
-    rejouer();
-  };
-  const photo = coinsRang !== null ? saisie?.photos[coinsRang] : undefined;
-  return (
-    <div className="redressementAudit" aria-label={'Redressement et fusion : ' + nom}>
-      {bilan
-        ? <>
-          <div className="detailPhoto" data-controle="auditParcelle.statutFusion" role="status">{texteFusion(bilan)}</div>
-          <ul className="detailPhoto">{bilan.photos.map((p) => <li key={p.rang} className={'statut-' + p.statut}>
-            {textePhoto(p)}{' '}
-            <button type="button" className={p.statut === 'echec' ? 'small' : 'secondary small'} data-controle="auditParcelle.placerCoins" aria-label={'Placer quatre repères sur la photo ' + (p.rang + 1) + ' : ' + nom} onClick={() => setCoinsRang(p.rang)}>Placer 4 repères</button>
-          </li>)}</ul>
-        </>
-        : <div className="detailPhoto">Pas encore redressée : lancez l’analyse.</div>}
-      {photo && coinsRang !== null && <CoinsPhotoAudit photo={photo} rang={coinsRang} nom={nom} largeurPlanM={largeurPlanM}
-        depart={saisie?.corrections?.[String(coinsRang)]?.reperes ?? saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
-        mur={saisie?.corrections?.[String(coinsRang)]?.coins ?? bilan?.photos.find((p) => p.rang === coinsRang)?.coinsPx}
-        gabarit={mesure?.gabarit}
-        echelleDepart={saisie?.corrections?.[String(coinsRang)]?.echelleLargeurM}
-        appliquer={(c) => corriger(coinsRang, c)} retablir={() => corriger(coinsRang, null)} fermer={() => setCoinsRang(null)} />}
-      <button type="button" className="secondary small" data-controle="auditParcelle.rejouerRedressement" disabled={enCours} aria-label={LIBELLE_REJOUER + ' : ' + nom} onClick={rejouer}>{enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>
-    </div>
-  );
-}
-
-/** « Rejouer redressement + fusion » pour tout l'audit : chaque facade photographiee refait ses images derivees. */
+/** « Rejouer les façades » pour tout l'audit : l'enchainement de chaque facade photographiee rejoue par l'orchestrateur. */
 function RejouerTout({ session }: { session: SessionAuditParcelle }) {
   const [etat, setEtat] = useState<{ enCours: boolean; texte: string }>({ enCours: false, texte: '' });
   const rejouer = () => {
     setEtat({ enCours: true, texte: '' });
-    void session.validation.rejouerRedressement().then((n) => setEtat({ enCours: false, texte: texteRejeu(n) }), () => setEtat({ enCours: false, texte: 'Le rejeu a échoué : vos photos sont intactes.' }));
+    void session.validation.rejouerFacade().then((n) => setEtat({ enCours: false, texte: n ? pluriel(n, 'façade') + ' rejouée' + (n > 1 ? 's' : '') + ' : vos photos et vos corrections n’ont pas changé.' : 'Aucune façade photographiée à rejouer.' }),
+      () => setEtat({ enCours: false, texte: 'Le rejeu a échoué : vos photos sont intactes.' }));
   };
   return (
     <div className="actionsAudit">
-      <button type="button" className="secondary" data-controle="auditParcelle.rejouerRedressement" disabled={etat.enCours} onClick={rejouer}>{etat.enCours ? 'Rejeu en cours…' : LIBELLE_REJOUER}</button>
-      <span className="detailPhoto" role="status">{etat.texte || 'Refait le redressement de chaque photo et leur fusion, sans toucher aux photos ni à vos corrections.'}</span>
+      <button type="button" className="secondary" data-controle="auditParcelle.rejouerFacades" disabled={etat.enCours} onClick={rejouer}>{etat.enCours ? 'Rejeu en cours…' : 'Rejouer les façades'}</button>
+      <span className="detailPhoto" role="status">{etat.texte || 'Refait l’enchaînement de chaque façade (redressement, assemblage, mur, texture, ouvertures), sans toucher aux photos ni à vos corrections.'}</span>
     </div>
   );
 }
 
+const pluriel = (n: number, mot: string) => n + ' ' + mot + (n > 1 ? 's' : '');
+
 /** Une facade : son statut, « Photographier », « Inaccessible » ; ses photos en la depliant. */
-function LigneFacadeVue({ session, b, f, ouverte, basculer, prendre }: { session: SessionAuditParcelle; b: LigneBatiment; f: LigneFacade; ouverte: boolean; basculer: () => void; prendre: (cle: string, cote: number) => void }) {
+function LigneFacadeVue({ session, commandes, b, f, ouverte, basculer, prendre }: { session: SessionAuditParcelle; commandes: RegistreCommandes; b: LigneBatiment; f: LigneFacade; ouverte: boolean; basculer: () => void; prendre: (cle: string, cote: number) => void }) {
   const photos = session.capture.lire().batiments[b.cle]?.facades[String(f.cote)]?.photos ?? [];
   const nom = f.libelle + ' de ' + b.nom;
   const mitoyenne = f.statut === 'mitoyenne';
@@ -148,7 +110,7 @@ function LigneFacadeVue({ session, b, f, ouverte, basculer, prendre }: { session
           onClick={() => session.capture.basculerInaccessible(b.cle, f.cote, f.statut === 'inaccessible')}>Inaccessible</button>}
       </div>
       {ouverte && <Vignettes photos={photos} nom={nom} retirer={(r) => session.capture.retirerPhotoFacade(b.cle, f.cote, r)} />}
-      {ouverte && photos.length > 0 && <Redressement session={session} cle={b.cle} cote={f.cote} nom={nom} largeurPlanM={f.facade.largeur} />}
+      {ouverte && photos.length > 0 && <FacadeAudit session={session} commandes={commandes} cle={b.cle} cote={f.cote} nom={nom} largeurPlanM={f.facade.largeur} />}
     </li>
   );
 }
@@ -176,15 +138,15 @@ function LignePartieVue({ session, b, p, ouverte, basculer, photo }: { session: 
   );
 }
 
-function SectionBatiment({ session, b, ouverte, basculer, prendre, photo }: {
-  session: SessionAuditParcelle; b: LigneBatiment; ouverte: string | null; basculer: (cle: string) => void;
+function SectionBatiment({ session, commandes, b, ouverte, basculer, prendre, photo }: {
+  session: SessionAuditParcelle; commandes: RegistreCommandes; b: LigneBatiment; ouverte: string | null; basculer: (cle: string) => void;
   prendre: (cle: string, cote: number) => void; photo: (cle: string, f: File) => void;
 }) {
   return (
     <section className="batimentAudit" aria-label={b.nom}>
       <h3 className="titreBatimentAudit">{b.nom}</h3>
       <ul className="lignesAudit" aria-label={'Façades de ' + b.nom}>
-        {b.facades.map((f) => <LigneFacadeVue key={f.cote} session={session} b={b} f={f} ouverte={ouverte === b.cle + '#' + f.cote} basculer={() => basculer(b.cle + '#' + f.cote)} prendre={prendre} />)}
+        {b.facades.map((f) => <LigneFacadeVue key={f.cote} session={session} commandes={commandes} b={b} f={f} ouverte={ouverte === b.cle + '#' + f.cote} basculer={() => basculer(b.cle + '#' + f.cote)} prendre={prendre} />)}
       </ul>
       <ul className="lignesAudit" aria-label={'Toit et matériaux de ' + b.nom}>
         {b.parties.map((p) => <LignePartieVue key={p.partie} session={session} b={b} p={p} ouverte={ouverte === b.cle + ':' + p.partie} basculer={() => basculer(b.cle + ':' + p.partie)} photo={(f) => photo(b.cle, f)} />)}
@@ -297,7 +259,7 @@ function Liste({ session, commandes, fermer }: Props) {
   const c = session.capture.lire();
   const basculer = (cle: string) => setOuverte(ouverte === cle ? null : cle);
   const terminee = c.phase === 'analyse';
-  const section = (b: LigneBatiment) => <SectionBatiment key={b.cle} session={session} b={b} ouverte={ouverte} basculer={basculer}
+  const section = (b: LigneBatiment) => <SectionBatiment key={b.cle} session={session} commandes={commandes} b={b} ouverte={ouverte} basculer={basculer}
     prendre={(cle, cote) => session.photographier(cle, cote)}
     photo={(cle, f) => photo.prendre(f, (p) => session.capture.ajouterPhotoBatiment(cle, p))} />;
   return (
@@ -370,7 +332,7 @@ function VerrouBatiment({ session }: { session: SessionAuditParcelle }) {
   );
 }
 
-function Prise({ session, fermer }: { session: SessionAuditParcelle; fermer: () => void }) {
+function Prise({ session, commandes, fermer }: { session: SessionAuditParcelle; commandes: RegistreCommandes; fermer: () => void }) {
   const photo = usePhoto(session);
   // La Vue 3D cadre la partie que l'ecran de prise laisse voir.
   const cadre = useCadrerVue(session);
@@ -384,11 +346,11 @@ function Prise({ session, fermer }: { session: SessionAuditParcelle; fermer: () 
         <div className="titreParcours" aria-live="polite">{titre}</div>
         <BoutonFermerAudit fermer={fermer} />
       </div>
+      {c && c.photos > 0 && <FacadeAudit session={session} commandes={commandes} cle={c.cle} cote={c.cote} nom={c.nom} largeurPlanM={0} gestes={false} />}
       {detail && <div className="detailPhoto">{detail}</div>}
       {etatGps && <div className="detailPhoto">{etatGps}</div>}
       {session.dernierRangement() && <div className="detailPhoto rangementAudit" role="status">{session.dernierRangement()}</div>}
       {photo.erreur && <div className="erreurParcours" role="alert">{photo.erreur}</div>}
-      {session.avertissementPrise() && <div className="erreurParcours" role="alert" data-controle="auditParcelle.avertissementFusion">{session.avertissementPrise()}</div>}
       <VerrouBatiment session={session} />
       <div className="piedDialogue">
         <button type="button" className="secondary" data-controle="auditParcelle.liste" onClick={() => session.montrer('liste')}>Liste</button>
@@ -406,5 +368,5 @@ export function AuditParcelle({ session, commandes, fermer, retour }: Props) {
   useSuivreSession(session);
   const e = session.ecran();
   if (e === 'propositions') return <PropositionsAudit session={session} fermer={fermer} {...(retour ? { retour } : {})} />;
-  return e === 'prise' ? <Prise session={session} fermer={fermer} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
+  return e === 'prise' ? <Prise session={session} commandes={commandes} fermer={fermer} /> : <Liste session={session} commandes={commandes} fermer={fermer} />;
 }
