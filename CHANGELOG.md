@@ -7,6 +7,16 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Spec de la lecture élargie par l'IA** (`MD/spec-lecture-ia-elargie.md`, documentation seule, aucun code). Le périmètre lancé par
+  le propriétaire le 29 octobre 2026 — la façade (menuiseries, garde-corps, bow-window, auvents, décrochés, modénature, perron, store,
+  unité extérieure, boîte aux lettres, état du bâti en signal), le toit (couverture et motif de pose, fenêtres de toit, panneaux solaires,
+  débords, faîtage, gouttières), le jardin (plates-bandes à végétation basse en 3D, arbres et leur essence, regards, haies, allées,
+  existant), les règles de zone du PLU lues dans son règlement, les textes de la déclaration préalable et la relecture avant l'export,
+  l'assistant en langue naturelle — classé contre ce que Plan sait déjà (8 éléments existent, 23 sont à étendre, 17 à créer), avec le
+  modèle cible, le déroulé, les coûts par usage (Haiku par défaut, Sonnet à la demande) et sept lots : L0 (tout garder : l'image exacte
+  envoyée, une trace pour toute requête, l'export « données d'analyse » à travers les audits), L1 façade et L2 toit dans le run d'une
+  façade (après F7), L3 jardin et L4 PLU en parallèle, L5 textes et relecture, L6 assistant. Pointeur dans `MD/roadmap.md` §5.7.
+
 - **Façades, lot F8 : les carreaux en 3D** (`MD/spec-facade-calage-audit.md` §3.3, §9). Une ouverture d'une façade validée dont
   la façade objet porte ses **carreaux** (`details.carreaux`, lus par Claude ou dits au doigt) les montre dans la Vue 3D : le
   **meneau** entre les vantaux, la **traverse de l'imposte** et sa grille sur toute la largeur, les **petits bois** de chaque
