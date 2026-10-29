@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CLE, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, USAGE_P1, messageReussi, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_ANALYSE, SORTIE_RENFORT, USAGE_P1, messageFacade, messageReussi, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 
 // scripts/verifier-api-claude.mjs : la verification des requetes du serveur PHP contre l'API Claude,
 // jouee ici contre le faux Anthropic (la vraie API demande une cle, absente des tests). Saute si PHP manque.
@@ -46,7 +46,9 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'verifapi-'));
     faux.messages.length = 0;
-    faux.reponseMessage = (corps) => ({ statut: 200, corps: messageReussi(USAGE_P1, /relever une façade photographiée/.test(systeme(corps)) ? SORTIE_RENFORT : /lire \*\*une façade\*\*/.test(systeme(corps)) ? SORTIE_FACADE : SORTIE_ANALYSE) });
+    // Le run d'une facade comme l'API le rend : l'objet seul avec la sortie structuree, du texte autour sans elle.
+    faux.reponseMessage = (corps) => (/lire \*\*une façade\*\*/.test(systeme(corps)) ? messageFacade(corps)
+      : { statut: 200, corps: messageReussi(USAGE_P1, /relever une façade photographiée/.test(systeme(corps)) ? SORTIE_RENFORT : SORTIE_ANALYSE) });
     return () => fs.rmSync(tmp, { recursive: true, force: true });
   });
 
@@ -68,7 +70,7 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     expect(systeme(faux.messages[0] ?? {})).toMatch(/Vous observez une maison/);
     expect(systeme(faux.messages[1] ?? {})).toMatch(/relever une façade photographiée/);
     expect(systeme(faux.messages[2] ?? {})).toMatch(/lire \*\*une façade\*\*/);
-    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus\)/);
+    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus ; sortie structurée\)/);
     expect(r.stdout).toMatch(/analyse \(claude-haiku-5-5 ; couvre analyse, escalade, candidats, rejeu\) : accepté/);
     expect(r.stdout).toMatch(/renfort \(claude-haiku-5-5 ; couvre renfort\) : accepté/);
     expect(r.stdout).toMatch(/coût journalisé 0\.\d{5} \$/);
@@ -102,11 +104,21 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     expect(fs.readdirSync(tmp)).toEqual([]);
   });
 
-  it('echoue quand la reponse n est pas un objet JSON', async () => {
+  it('echoue quand la reponse n est pas un objet JSON, et dit l arret, les tokens et le debut du texte', async () => {
     faux.reponseMessage = () => ({ statut: 200, corps: { ...messageReussi(USAGE_P1, {}), content: [{ type: 'text', text: 'Je ne peux pas répondre.' }] } });
     const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url });
     expect(r.code).toBe(1);
-    expect(r.stderr).toMatch(/sortie_illisible/);
+    expect(r.stderr).toMatch(/arrêt « end_turn », tokens de sortie 1500, sortie structurée non demandée\.\nAnthropic : sortie_illisible : Sortie non JSON\.\nDébut du texte rendu \(24 caractères au plus 400\) :\nJe ne peux pas répondre\./);
+    expect(r.stdout + r.stderr).not.toContain(CLE);
+  });
+
+  it('lit le run d une facade quand l API refuse la sortie structuree, sur le texte qu elle ecrit alors', async () => {
+    faux.reponseMessage = (corps) => (/lire \*\*une façade\*\*/.test(systeme(corps)) ? messageFacade(corps, true) : { statut: 200, corps: messageReussi(USAGE_P1, SORTIE_ANALYSE) });
+    const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url });
+    expect(r.stderr).toBe('');
+    expect(r.code).toBe(0);
+    expect(faux.messages).toHaveLength(4);
+    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus\)/);
   });
 
   it('mesure x1 contre x3 sur un dossier prepare : une passe puis trois par facade, reponses et cout ecrits a cote', async () => {

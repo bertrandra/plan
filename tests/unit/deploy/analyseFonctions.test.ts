@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { constantePhp, php, phpObjets, phpPresent } from '../../fixtures/deploy/appelPhp.js';
 import {
-  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
-  USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi
+  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TEXTE_FACADE_SANS_FORMAT, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
+  USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi, reussiTexte
 } from '../../fixtures/deploy/fauxAnthropic.js';
 import { FIN, RAPIDE, requeteRenfort } from '../../fixtures/deploy/scenariosModeles.js';
 import { BROUILLON } from '../../fixtures/deploy/scenarioRegles.js';
@@ -300,6 +300,42 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
         details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
         carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } });
       expect(bon.confiance).toBe('faible');
+    });
+
+    it('lit l objet d une reponse sans sortie structuree : bloc de code, accolades autour, premier jet, virgule finale', () => {
+      // La forme qui faisait « Sortie non JSON » : de la premiere accolade a la derniere, rien ne se lit.
+      const t = TEXTE_FACADE_SANS_FORMAT;
+      expect(() => JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1))).toThrow();
+      expect(phpObjets('objetJsonDuTexte', t)).toEqual(SORTIE_FACADE);
+      // Le dernier objet qui se lit, accolades des chaines comprises ; une virgule finale en dernier recours.
+      expect(phpObjets('objetJsonDuTexte', '{"a": 1, "b": "x}"} puis {"a": 2}')).toEqual({ a: 2 });
+      expect(phpObjets('objetJsonDuTexte', 'Note {u0, u1} : {"a": 3, "l": [1, 2,], }')).toEqual({ a: 3, l: [1, 2] });
+      expect(php('objetsEquilibres', 'a {b {c}} d {"e": "}"} {f')).toEqual(['{b {c}}', '{"e": "}"}']);
+      expect(phpObjets('objetJsonDuTexte', 'Je ne vois pas de façade.')).toBeNull();
+    });
+
+    it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
+      const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
+      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade']);
+      const p = phpObjets<{ output_config: unknown; system: { text: string }[] }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], true);
+      expect(p.output_config).toEqual({ effort: 'low', format: { type: 'json_schema', schema: SCHEMA_FACADE.schema } });
+      // Le prompt reste le meme, avec ou sans : le repli sans format lit la meme consigne.
+      expect(p.system).toEqual(phpObjets<{ system: unknown }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }]).system);
+      const erreur = (type: string, message: string) => ({ custom_id: 'f', result: { type: 'errored', error: { type: 'error', error: { type, message } } } });
+      expect(phpObjets('formatRefuse', erreur('invalid_request_error', 'output_config.format: The compiled grammar is too large'))).toBe(true);
+      expect(phpObjets('formatRefuse', erreur('invalid_request_error', 'messages.0.content.0.image: invalid base64'))).toBe(false);
+      expect(phpObjets('formatRefuse', erreur('overloaded_error', 'schema'))).toBe(false);
+      expect(phpObjets('formatRefuse', reussi('f', USAGE_P1))).toBe(false);
+    });
+
+    it('dit, pour une sortie illisible, le debut du texte rendu', () => {
+      const prose = 'Je ne peux pas lire cette façade : '.repeat(20);
+      const e = phpObjets<{ erreur: { type: string; message: string; apercu: string } }>('lireResultat', reussiTexte('f', USAGE_P1, prose)).erreur;
+      expect(e).toMatchObject({ type: 'sortie_illisible', message: 'Sortie non JSON.' });
+      expect(e.apercu).toBe(prose.trim().slice(0, 400));
+      const vide = reussi('g', USAGE_P1) as { result: { message: { content: unknown[] } } };
+      vide.result.message.content = [{ type: 'thinking', thinking: '' }];
+      expect(phpObjets('lireResultat', vide)).toMatchObject({ erreur: { type: 'sortie_illisible', message: 'Aucun bloc de texte.', apercu: '' } });
     });
 
     it('borne un nombre aberrant, ignore une forme inattendue, et ne compte que les reponses lues', () => {

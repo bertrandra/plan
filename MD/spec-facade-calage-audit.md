@@ -1136,6 +1136,20 @@ clé : `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/m && 
 --facades /tmp/m --plafond 0.25 && npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/m`. La décision sur le vote (garder
 l'option ×3 ou la retirer en F3 avec `renfort.ts`) se prend sur ce tableau.
 
+**Après la fusion : la requête `facade` refusée par la vraie API, puis corrigée** (29 octobre 2026). Le premier passage du workflow
+sur `main` (run 40887362801) a accepté l'analyse et le renfort, et refusé le run d'une façade : réponse rendue (`end_turn`), « Sortie
+non JSON » ; la mesure ×1 contre ×3 n'est pas partie (le vérificateur s'arrête au premier refus, et le garde : ses 88 requêtes partent
+du même prompt et du même schéma). La cause : comme tous les usages depuis le 15 octobre, la requête partait **sans sortie structurée**
+(le schéma en consigne à la suite du prompt), et le faux Anthropic des tests rendait toujours un JSON propre. Le texte réel n'ayant pas
+été gardé, sa forme exacte reste inconnue ; ce qui est sûr, c'est que rien ne la contraignait. Correction : le run d'une façade demande
+la sortie structurée (`SORTIE_STRUCTUREE`, `output_config.format` avec son schéma, à l'appel immédiat seulement), que son schéma
+permet (ni récursion ni contrainte numérique ; `additionalProperties: false` partout), et repart une fois sans elle si l'API refusait
+de le compiler (`formatRefuse`). La lecture d'une réponse libre ne prend plus « de la première accolade à la dernière » mais le dernier
+bloc de code, le dernier objet équilibré, puis sans virgule finale. Une sortie illisible rend le début de son texte (`erreur.apercu`),
+que le vérificateur imprime avec l'arrêt et les tokens. Le faux Anthropic rend maintenant, sans format, un texte de cette forme
+(`TEXTE_FACADE_SANS_FORMAT`, synthétique) : l'ancien serveur y échoue en « Sortie non JSON », le nouveau le lit. Prompt et schéma
+inchangés (version 1).
+
 ---
 
 ## 10. Vérifier

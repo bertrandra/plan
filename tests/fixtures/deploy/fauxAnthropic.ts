@@ -117,6 +117,29 @@ export const SORTIE_FACADE = {
   confiance: 'moyenne'
 };
 
+/**
+ * Le run d'une facade tel qu'une reponse SANS sortie structuree peut l'ecrire. SYNTHETIQUE (la vraie reponse du 29 octobre 2026,
+ * « Sortie non JSON », n'a pas ete gardee) : une phrase dont les accolades precedent l'objet, un premier jet coupe, le JSON dans un
+ * bloc de code, puis une remarque avec des accolades. La lecture d'avant (de la premiere accolade a la derniere) n'en lisait rien.
+ */
+export const TEXTE_FACADE_SANS_FORMAT = 'Je lis la façade {scène de synthèse} : deux pignons, une haie à droite.\n'
+  + 'Premier jet : {"calage": {"angles": \n'
+  + '```json\n' + JSON.stringify(SORTIE_FACADE, null, 2) + '\n```\n'
+  + 'Remarque : les boîtes {u0, u1, v0, v1} sont en part du mur.';
+
+/**
+ * L'API Messages pour le run d'une facade, au plus pres de ce qu'elle fait : la sortie structuree demandee (`output_config.format`),
+ * l'objet JSON seul ; sans elle, le texte ci-dessus. `refuserFormat` : l'API refuse le schema (400), comme elle refusait celui de
+ * l'analyse d'une maison (« The compiled grammar is too large »).
+ */
+export function messageFacade(corps: Record<string, unknown>, refuserFormat = false): { statut: number; corps: object } {
+  const format = (corps.output_config as { format?: unknown } | undefined)?.format;
+  if (format && refuserFormat) return { statut: 400, corps: { type: 'error', error: { type: 'invalid_request_error', message: 'output_config.format: The compiled grammar is too large' } } };
+  const m = messageReussi(USAGE_P1, SORTIE_FACADE) as { content: unknown[] };
+  if (!format) m.content = [{ type: 'thinking', thinking: '' }, { type: 'text', text: TEXTE_FACADE_SANS_FORMAT }];
+  return { statut: 200, corps: m };
+}
+
 /** Ses comptes au journal : deux baies, deux angles, deux pointes, une cheminee, la silhouette et le bout dits. */
 export const TROUVE_FACADE = { ouvertures: 2, manquees: 0, enTrop: 0, bouts: 2, lucarnes: 0, elements: 1, ecarts: 0, coins: 2, determines: 2, vide: false };
 

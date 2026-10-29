@@ -58,6 +58,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   est le même composant que la reprise du mur de l'audit (`zones/releve/AjusterMur.tsx`), sur l'assemblage : les deux bouts, l'égout
   et le sol se tirent librement, « Appliquer le calage et rejouer ».
 
+### Corrigé
+
+- **Le run d'une façade se lit sur la vraie API** (lot F2). La vérification de l'API Claude du 29 octobre 2026 (run 40887362801) a
+  refusé la requête `facade` : réponse rendue (`end_turn`), mais « Sortie non JSON ». Comme les autres usages, elle partait sans sortie
+  structurée, le schéma en simple consigne du prompt, et le serveur cherchait l'objet « de la première accolade à la dernière ». Le
+  run d'une façade demande maintenant la sortie structurée (`output_config.format`, son schéma, à l'appel immédiat), et repart une fois
+  sans elle si l'API refusait le schéma. Le texte d'une réponse libre se lit mieux : dernier bloc de code, dernier objet équilibré, et
+  sans virgule finale en dernier recours. Pour une sortie illisible, le serveur rend le début du texte (400 caractères), et
+  `verifier-api-claude.mjs` imprime l'arrêt, les tokens de sortie, si la sortie structurée était demandée et ce début de texte. Le faux
+  Anthropic des tests rend désormais cette forme de réponse quand le format manque : la CI aurait pris l'erreur.
+
 ### Supprimé
 
 - **`app/releve/renfortReleve.ts`** (lot F2) : `creerAideReleve` à trois passes, `fabriqueImagesRenfortNavigateur` (la photo à grille
