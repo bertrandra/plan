@@ -12,6 +12,7 @@
 import type { PhotoCas } from './audit.js';
 import type { CeQueJeVois } from './ceQueJeVois.js';
 import type { Proposition } from '../regles/decisions.js';
+import type { RunEnregistre } from '../regles/facades/observations.js';
 import type { OuvertureFacade, PtBrut } from './types.js';
 import type { TypeCloture, PositionPortail } from './clotureVue.js';
 export type { TypeCloture, PositionPortail } from './clotureVue.js';
@@ -185,10 +186,10 @@ export interface BatchAnalyse {
   /** Ce qui a ete envoye : les photos de la capture a ce moment-la ; un changement relance l'analyse. */
   signature: string;
   /**
-   * L'identifiant de requete -> la cle du batiment et la passe ; pour le renfort d'une facade
-   * (MD/spec-facades-calage-detection.md §12 bis, lot L18), aussi son cote et l'usage.
+   * L'identifiant de requete -> la cle du batiment et la passe ; pour le run d'une facade (MD/spec-facade-calage-audit.md §8, lot F3),
+   * aussi son cote, l'usage et la taille de l'image envoyee (l'elevation du mur, avant reduction).
    */
-  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'renfort' }>;
+  requetes: Record<string, { cle: string; passe: number; cote?: number; usage?: 'facade'; image?: { largeur: number; hauteur: number } }>;
   /** Les etiquettes des images envoyees, par batiment, dans l'ordre : les indices de Claude s'y referent. */
   etiquettes: Record<string, EtiquetteImage[]>;
 }
@@ -208,18 +209,16 @@ export interface ResultatsAnalyse {
   /** Par cle du batiment, les reponses des passes reussies (les autres sont absentes). */
   parBatiment: Record<string, unknown[]>;
   /**
-   * Le renfort de Claude sur chaque facade (lot L18), par `cle#cote` : ses graines deja recalees sur
-   * l'elevation de la facade. Calcule une fois par facade, quand sa mesure est prete (le recalage lit
-   * l'image du releve) ; jamais note vide.
+   * Le run de chaque facade (MD/spec-facade-calage-audit.md §8, lot F3), par `cle#cote` : la reponse de Claude enregistree avec les
+   * versions du prompt et du schema, le modele, les tokens et le cout, telle qu'un cas de calibration la garde (§7.2). Gardee brute :
+   * l'accord avec la detection demande le releve mesure de la facade, qui n'existe qu'apres les mesures du telephone.
    */
-  renfort?: Record<string, RenfortFacadeCapture>;
+  runs?: Record<string, RunEnregistre>;
   /**
-   * Les reponses brutes du renfort, par `cle#cote` (schema-renfort, non verifiees ici) : le recalage
-   * demande le releve mesure de la facade, qui n'existe qu'apres les mesures du telephone. A la reprise
-   * d'un brouillon, le batch peut etre fini avant elles ; on garde donc les reponses pour recaler
-   * chaque facade quand sa mesure arrive, au lieu de noter un renfort vide pour toujours.
+   * Ce que le moteur de regles a decide du run de chaque facade (facade/regles/facades/ia.ts, `accorderOuvertures`), par `cle#cote` :
+   * calcule une fois par facade, quand sa mesure est prete ; jamais note vide.
    */
-  renfortBrut?: Record<string, unknown[]>;
+  accords?: Record<string, AccordFacadeCapture>;
   /**
    * L'escalade (D20) : la reponse du modele plus fin pour chaque batiment dont les passes se desaccordaient, par cle.
    * Presente (meme vide) des que l'escalade a ete tentee : elle ne repart pas a la reprise d'un brouillon.
@@ -227,17 +226,21 @@ export interface ResultatsAnalyse {
   escalade?: Record<string, unknown>;
 }
 
-/** Ce que le renfort de Claude a fait des ouvertures d'une facade, pret a proposer (F§12 bis). */
-export interface RenfortFacadeCapture {
-  /** Les passes lues. */
-  passes: number;
-  /** Les ouvertures proposees cochees, puis celles laissees en pointille (decochees). */
+/**
+ * Ce que l'accord des boites de Claude avec la detection a fait des ouvertures d'une facade (le run d'une facade, lot F3), pret a
+ * proposer : une boite que la detection retrouve la confirme, une qui recouvre une baie devinee la confirme, une boite seule reste
+ * decochee. Le moteur decide ; ceci n'en est que le resultat, garde avec l'audit.
+ */
+export interface AccordFacadeCapture {
+  /** Les ouvertures cochees (detectees, et devinees confirmees), puis les decochees (devinees restantes, boites seules de Claude). */
   ouvertures: OuvertureFacade[];
   decochees: OuvertureFacade[];
-  /** Les compteurs de facade/detection/renfortRecalage.ts (graines, pleines, rejetees, retirees…). */
+  /** Les compteurs de l'accord (boites, retrouvees, devineesConfirmees, seules, ecartees, detailsAjoutes). */
   bilan: Record<string, number>;
-  /** Le bilan en une phrase ; null si Claude n'a rien change. */
+  /** Le bilan en une phrase ; null si Claude ne change rien au releve. */
   resume: string | null;
+  /** La confiance que Claude se donne sur cette facade, de 0 a 1. */
+  confiance: number;
 }
 
 export interface AnalyseCapture {

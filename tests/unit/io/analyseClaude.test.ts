@@ -33,6 +33,13 @@ describe('le client de l analyse', () => {
     expect((f.mock.calls[0]![1] as RequestInit).headers).not.toHaveProperty('Authorization');
   });
 
+  it('lit le modele de l escalade d une facade et ses prix ; un prix illisible se lit sans tarif', async () => {
+    const etat = async (escaladeFacade: unknown) => (await creerClientAnalyse(async () => reponse(200, { actif: true, escaladeFacade }), () => null).etat()).escaladeFacade;
+    expect(await etat({ modele: 'claude-sonnet-5-5', prix: { entree: 2, sortie: 10 } })).toEqual({ modele: 'claude-sonnet-5-5', prix: { entree: 2, sortie: 10 } });
+    expect(await etat({ modele: 'claude-sonnet-5-5', prix: { entree: 'cher', sortie: 10 } })).toEqual({ modele: 'claude-sonnet-5-5', prix: null });
+    expect(await etat(undefined)).toBeUndefined();
+  });
+
   it('donne un motif a chaque refus : plafond, non configure, refuse, pas pret, reseau', async () => {
     const motif = async (r: () => Promise<Response>) => {
       try { await creerClientAnalyse(r, () => 'j').etatBatch('x'); return null; } catch (e) { return e instanceof EchecAnalyse ? [e.motif, e.message] : 'autre'; }

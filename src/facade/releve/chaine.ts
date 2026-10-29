@@ -31,7 +31,7 @@ import type { Prise } from './prise.js';
 export const VERSION_CHAINE_FACADES = 10;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
-export const SEUIL_VERTICALES_DEG = 0.5;
+const SEUIL_VERTICALES_DEG = 0.5;
 /** Les segments pris pour des verticales : a moins de cet angle de la verticale. */
 const ANGLE_VERTICALE_MAX_DEG = 12;
 /** Il faut au moins ce nombre de verticales lues pour oser une mesure. */
@@ -41,7 +41,7 @@ const VERTICALES_MIN = 2;
  * L'ecart des verticales a la verticale sur le mur redresse, en degres (valeur absolue de la mediane ponderee par la
  * longueur) ; null quand le mur n'offre pas assez de lignes verticales pour le dire (mur lisse : on ne conclut pas).
  */
-export function verticaliteDeg(elevation: Image): number | null {
+function verticaliteDeg(elevation: Image): number | null {
   const lignes: { ecart: number; poids: number }[] = [];
   for (const s of detecterSegments(elevation)) {
     const dx = s.x2 - s.x1, dy = s.y2 - s.y1;

@@ -16,7 +16,7 @@ import { toucher } from '../../../core/controleurObjets.js';
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, propositionsDetails, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsAccords, propositionsDeClaude, propositionsDetails, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
 import { avecReserveDesNiveaux } from './niveauxClaude.js';
 import { avecPlacesApresForme } from './apresForme.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
@@ -25,7 +25,7 @@ import type { ArbitrageProposition } from '../../../regles/decisions.js';
 import { releveChoisiALaMain } from './constats.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
-import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
@@ -34,6 +34,7 @@ import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
 import { surbrillanceArbitrage, surbrillanceDe, surbrillanceObservation, type Surbrillance } from './surbrillance.js';
 import type { DecisionProposition, PropositionAuditee } from '../../../model/fichierAuditParcelle.js';
+import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
 
 /** Ce que la validation demande au reste du programme : l'historique, le rendu, la Vue 3D. */
 export interface ProjetAudit {
@@ -78,7 +79,7 @@ export interface ContexteValidation {
   /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
   apresValidation?: () => void;
   /** Les reponses de Claude (app/audit/parcelle/analyseClaude.ts), quand il y en a : elles s'ajoutent aux mesures. */
-  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; renfort?(): Record<string, RenfortFacadeCapture> | null };
+  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null };
 }
 
 export interface Validation {
@@ -86,11 +87,15 @@ export interface Validation {
   /** Mesure les facades photographiees qui ne le sont pas encore ; rend quand tout est pret. */
   lancer(): Promise<void>;
   /**
-   * « Rejouer redressement + fusion » : refait le redressement des photos et leur fusion pour une facade (`cle` et
+   * « Rejouer » : l'enchainement de la facade rejoue par l'orchestrateur (facade/releve/enchainement.ts), pour une facade (`cle` et
    * `cote`), pour un batiment (`cle`) ou pour tout l'audit (rien). Ne remplace que les derives : les photos d'origine
-   * et les corrections manuelles (coins, echelle) restent, et priment sur le calcul. Rend le nombre de facades rejouees.
+   * et les corrections manuelles (reperes, mur, echelle) restent, et priment sur le calcul. Rend le nombre de facades rejouees.
    */
-  rejouerRedressement(cle?: string, cote?: number): Promise<number>;
+  rejouerFacade(cle?: string, cote?: number): Promise<number>;
+  /** L'etape qui tourne pour cette facade (la barre de progression avance) ; null au repos. */
+  etapeEnCours(cle: string, cote: number): IdEtape | null;
+  /** Arrete la mesure en cours : ses etapes restantes restent a venir, et elle se refera a la demande. */
+  arreterMesure(): void;
   /** Les entrees des propositions a cet instant (le plan, la liste, la capture, les mesures faites). */
   entrees(): EntreesPropositions;
   propositions(): readonly Proposition[];
@@ -171,6 +176,9 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   let etat: EtatMesures = { etat: 'attente' };
   let enCours: Promise<void> | null = null;
   let version = 0;
+  /** La facade qui se mesure et son etape en cours (la barre de progression) ; l'arret demande par la personne. */
+  let etape: { cle: string; id: IdEtape } | null = null;
+  let arret = false;
 
   /** Les facades a mesurer : photographiees, avec leurs photos d'aujourd'hui. */
   const aMesurer = () => ctx.liste().batiments.flatMap((b) => b.facades.filter((f) => f.statut === 'photographiee').map((f) => {
@@ -179,27 +187,37 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
     return { b, f, photos, corrections: saisie?.corrections ?? {}, cle: cleMesure(b.cle, f.cote), sig: signature(photos, saisie?.corrections) };
   }));
 
-  async function tout(): Promise<void> {
+  /** `silencieux` : un rejeu (a la prise de vue, ou « Rejouer ») ; la barre de progression de la facade dit ou il en est, sans toast. */
+  async function tout(silencieux: boolean): Promise<void> {
     const liste = aMesurer().filter((x) => faites.get(x.cle)?.signature !== x.sig);
     let n = 0;
     // Dire quand les photos partent a l'analyse des facades, et ce qu'elle en a tire.
     const heure = (): string => { const t = ctx.maintenant(); return String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); };
-    if (liste.length) ctx.signaler('Photos soumises à l’analyse des façades à ' + heure() + ' : ' + liste.reduce((s, x) => s + x.photos.length, 0) + ' photo(s) sur ' + liste.length + ' façade(s).');
+    if (liste.length && !silencieux) ctx.signaler('Photos soumises à l’analyse des façades à ' + heure() + ' : ' + liste.reduce((s, x) => s + x.photos.length, 0) + ' photo(s) sur ' + liste.length + ' façade(s).');
     for (const x of liste) {
       etat = { etat: 'mesure', faites: n, total: liste.length };
       publier();
       const bat = ctx.etat.objects.find((o) => o.key === x.b.cle);
       if (bat && 'pts' in bat && bat.pts) {
         // Le mur a la hauteur que lit le LiDAR (sous le toit, corps compris), pas celle du prisme : rien ne se mesure sur place.
-        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null }, x.photos, ctx.mesures, x.corrections);
-        faites.set(x.cle, { signature: x.sig, mesure: m });
-        version++;
+        // L'orchestrateur dit chaque etape : la barre de la facade avance, et « Arrêter » laisse les suivantes a venir.
+        const suivi = {
+          surEtape: (id: IdEtape, e: EtatAffiche) => { etape = e === 'en-cours' ? { cle: x.cle, id } : null; publier(); },
+          arrete: () => arret,
+          rendreLaMain: () => new Promise<void>((ok) => { setTimeout(ok, 0); }),
+        };
+        const m = await mesurerFacade(x.b.cle, { ...x.f.facade, hauteur: x.f.hauteurMur }, { pts: bat.pts, corpsToit: 'batiment' in bat ? bat.batiment?.corpsToit ?? null : null }, x.photos, { ...suivi, ...ctx.mesures }, x.corrections);
+        etape = null;
+        // Une mesure arretee ne se garde pas : elle se refera a la demande (le rejeu, l'analyse).
+        if (!arret) { faites.set(x.cle, { signature: x.sig, mesure: m }); version++; }
       }
       n++;
+      if (arret) break;
     }
+    arret = false;
     etat = { etat: 'pretes' };
     publier();
-    if (liste.length) {
+    if (liste.length && !silencieux) {
       const mesures = liste.map((x) => faites.get(x.cle)?.mesure).filter((m): m is MesureFacade => !!m);
       ctx.signaler('Analyse des photos terminée à ' + heure() + ' : ' + mesures.length + ' façade(s) mesurée(s), coins trouvés sur ' + mesures.filter((m) => m.coinsTrouves).length + '.');
     }
@@ -208,22 +226,24 @@ function mesureurDe(ctx: ContexteValidation, publier: () => void) {
   return {
     etat: () => etat,
     version: () => version,
+    etapeEnCours: (cle: string): IdEtape | null => (etape?.cle === cle ? etape.id : null),
+    arreter(): void { if (enCours) { arret = true; publier(); } },
     /** Les mesures a jour, par `cle#cote` : celles des facades dont les photos n'ont pas change. */
     lues(): Map<string, MesureFacade> {
       const out = new Map<string, MesureFacade>();
       for (const x of aMesurer()) { const m = faites.get(x.cle); if (m && m.signature === x.sig) out.set(x.cle, m.mesure); }
       return out;
     },
-    lancer(): Promise<void> {
+    lancer(silencieux = false): Promise<void> {
       // Une mesure en cours repart a la fin pour les photos ajoutees entre-temps.
-      enCours ??= tout().finally(() => { enCours = null; });
+      enCours ??= tout(silencieux).finally(() => { enCours = null; });
       return enCours;
     },
     /** Oublie les mesures de ces facades (leurs derives) et les refait ; les photos et les corrections ne bougent pas. */
     async rejouer(cle?: string, cote?: number): Promise<number> {
       const cibles = aMesurer().filter((x) => (cle === undefined || x.b.cle === cle) && (cote === undefined || x.f.cote === cote));
       for (const x of cibles) faites.delete(x.cle);
-      if (cibles.length) { version++; await this.lancer(); }
+      if (cibles.length) { version++; await this.lancer(true); }
       publier();
       return cibles.length;
     },
@@ -416,15 +436,15 @@ const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur'
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
   const rang = (p: Proposition): number => { const i = RANG_EFFETS.indexOf(p.effet.type); return i < 0 ? RANG_EFFETS.length : i; };
-  // Un tri stable : a egalite, l'ordre d'avant (mesures, arbitrage, Claude, renfort) reste.
+  // Un tri stable : a egalite, l'ordre d'avant (mesures, arbitrage, Claude, accord des facades) reste.
   return propositions.map((p, i) => ({ p, i })).sort((a, b) => (batiment(a.p) - batiment(b.p) || rang(a.p) - rang(b.p) || a.i - b.i)).map((x) => x.p);
 }
 
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
 const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
-function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
-  const e: EntreesPropositions = { ...entrees, renfort };
+function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
+  const e: EntreesPropositions = { ...entrees, accords };
   const deLAudit = propositionsDeLAudit(e);
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
   const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
@@ -433,8 +453,8 @@ function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable
   const arbitrages = arbitragesParBatiment(e, votes, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
   const arbitrees = avecReserveDesNiveaux(propositionsDesArbitrages(e, arbitrages), e.objets, votes);
   // Un element du toit (cheminees, lucarnes, terrasse, appentis) dit aussi sa place sur la forme proposee du meme batiment (apresForme.ts).
-  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])])));
-  const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
+  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(accords ? propositionsAccords(e, accords) : [])])));
+  const observations = reponses || accords ? observationsDeClaude(e, reponses ?? {}, accords ?? {}) : [];
   return { propositions, observations, arbitrages };
 }
 
@@ -460,7 +480,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0) + ':' + versionDecisions;
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
-    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.renfort?.(), decisions);
+    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions);
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions), arbitrages };
     calculs++;
     return memo;
@@ -507,7 +527,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       if (figees) return;
       await mesureur.lancer(); if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
     },
-    rejouerRedressement: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)),
+    rejouerFacade: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)), etapeEnCours: (cle, cote) => mesureur.etapeEnCours(cleMesure(cle, cote)), arreterMesure: () => mesureur.arreter(),
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,

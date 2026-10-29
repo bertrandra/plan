@@ -251,7 +251,7 @@ try {
     if ($chemin === 'etat') {
         if (!$lecture) erreur(405, 'METHOD_NOT_ALLOWED', 'Méthode non autorisée.');
         [$prompt, $schema] = promptEtSchema();
-        // Un deploiement d'avant le lot L18 (ou F2) n'a pas les fichiers du renfort (ou du run d'une facade) : l'etat le dit, sans tomber.
+        // Un deploiement d'avant le lot F2 n'a pas les fichiers du run d'une facade : l'etat le dit, sans tomber.
         $versionsDe = function (string $usage): ?array {
             try {
                 [$pU, $sU] = promptEtSchema($usage);
@@ -260,10 +260,10 @@ try {
                 return null;
             }
         };
-        $renfort = $versionsDe('renfort');
         $facade = $versionsDe('facade');
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'renfort' => $renfort, 'facade' => $facade, 'organisation' => $organisation, 'admin' => $qui['admin']]
+        $parUsage = modelesParUsage(reglageModeles($dossierClaude));
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+                       'facade' => $facade, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 
@@ -445,7 +445,6 @@ try {
         if (!$avecCle) $sansCle();
         $p = plafonds($dossierClaude);
         $d = lireCorps(TAILLE_MAX);
-        if (is_array($d) && !isset($d['usage'])) $d['usage'] = 'renfort';
         if (is_array($d) && ($d['usage'] ?? null) === 'rejeu') throw new Refus('Un rejeu passe par un batch.');
         $demande = verifierDemande($d, ['requetesParBatch' => min(REQUETES_IMMEDIATES, (int)$p['requetesParBatch'])] + $p, modelesParUsage(reglageModeles($dossierClaude)));
         if ($demande['essai']) throw new Refus('L’essai du brouillon passe par un batch.');

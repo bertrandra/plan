@@ -9,9 +9,9 @@
 // un cas ne compte dans la calibration qu'une fois marque « relu sur la photo » (valide).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coins } from './releve/Coins.js';
-import { AjusterMur, type MurAjuste } from './releve/AjusterMur.js';
-import { coinsParDefaut, LIBELLES_OUVERTURE, NOMS_REPERES, pointSvg } from './releve/commun.js';
+import { type MurAjuste } from './releve/AjusterMur.js';
+import { PoserReperes } from './releve/PoserReperes.js';
+import { coinsParDefaut, LIBELLES_OUVERTURE, pointSvg } from './releve/commun.js';
 import type { CasStocke, OuvertureVraie } from '../facade/corpusReel.js';
 import { GABARIT_RECTANGLE, type GabaritMur } from '../facade/gabaritMur.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
@@ -19,10 +19,11 @@ import { casApresRejeu, casCaleALaMain, derouler, entreesDuCas, originesDuCas, r
 import { imagesEtapes } from '../facade/releve/imagesEtapes.js';
 import { rechercher } from '../facade/releve/serie.js';
 import { ETAPES_FACADE, type EtatAffiche, type IdEtape } from '../model/etapeFacade.js';
-import { BarreProgressionFacade, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
+import { BarreProgressionFacade, COMMANDE_ESCALADE, type EtapeAffichee } from './composants/BarreProgressionFacade.js';
 import { EtapeOuverte, FriseEtapes } from './FriseEtapesCalibration.js';
 import type { RegistreCommandes } from '../app/commandes.js';
-import type { ResultatRun } from '../app/releve/runFacade.js';
+import { libelleEscalade, type PrixEscalade, type ResultatRun } from '../app/releve/runFacade.js';
+import { passesDeProduction } from '../facade/regles/facades/ia.js';
 import { texteRunFacade, type RunEnregistre } from '../regles/facades/observations.js';
 import { enteteDuRun } from '../facade/releve/enchainement.js';
 import type { Photo } from '../ui/releve/camera.js';
@@ -41,7 +42,16 @@ export interface OutilsPhotos {
    * « Rappeler Claude » (lot F2) : le run d'une facade sur l'assemblage du cas, une passe ou trois, par le serveur de l'analyse (session
    * de l'administrateur). Absent : seul le rejeu des reponses enregistrees est propose.
    */
-  appelerClaude?: (d: { image: Image; cache: Uint8Array | null; texte: string; passes: 1 | 3 }) => Promise<ResultatRun>;
+  appelerClaude?: (d: { image: Image; cache: Uint8Array | null; texte: string; passes: 1 | 2 | 3 }) => Promise<ResultatRun>;
+  /**
+   * L'escalade (decision du 29 octobre 2026) : UNE lecture de plus de la reponse rejouee, au modele de l'usage `escalade`, sur le meme
+   * assemblage ; rendue avec le run, que le cas garde. Absente : pas d'escalade.
+   */
+  escaladerClaude?: (d: { image: Image; cache: Uint8Array | null; texte: string }, run: RunEnregistre) => Promise<{ run: RunEnregistre } | { erreur: string }>;
+  /** Le modele de l'escalade et ses prix (l'etat du serveur), pour annoncer son cout sur le bouton ; null : inconnus. */
+  prixEscalade?: () => Promise<PrixEscalade | null>;
+  /** S'abonner a la commande `facade.escalader` de l'ecran ; rend de quoi se desabonner. */
+  ecouterEscalade?: (escalader: () => void) => () => void;
 }
 
 export const PHOTOS_CAS_MAX = 8;
@@ -99,24 +109,16 @@ function FicheOuverture({ o, modifier, retirer }: { o: OuvertureVraie; modifier:
 
 /**
  * Les quatre reperes de la photo courante (ceux poses, sinon les coins du mur retenus : un rectangle du mur, eux aussi), et la reprise
- * a la main de l'egout, du sol et des bouts sur la photo redressee entiere.
+ * a la main de l'egout, du sol et des bouts sur la photo redressee entiere : le geste partage avec l'audit (PoserReperes).
  */
 function PlacerReperes({ photo, rang, p, gabarit, poser, retirer, charger, ajusterMur }: { photo: Photo; rang: number; p: CasStocke['photos'][number] | undefined; gabarit: GabaritMur; poser: (c: P2[]) => void; retirer: () => void; charger: () => Promise<Image | null>; ajusterMur: (m: MurAjuste) => void }) {
   const r = reperesDe(p);
-  const [ajuster, setAjuster] = useState(false);
-  return <>
-    <p className="calNote">Photo {rang + 1} : si elle ne se redresse pas seule, placez quatre repères aux coins d’un rectangle du mur (une fenêtre, une porte, le mur entier) : deux en haut sur une même horizontale, deux en bas. Ils redressent la photo entière ; l’égout et le sol sont cherchés ensuite (« Retrouver le mur sur toutes les photos »).</p>
-    <Coins photo={photo} coins={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} setCoins={poser}
-      sources={['doigt', 'doigt', 'doigt', 'doigt']} noms={NOMS_REPERES} etiquettes={false} libelle="Photo : placez quatre repères" />
-    <div className="calLigne">
+  return (
+    <PoserReperes photo={photo} rang={rang} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} changer={poser}
+      mur={p?.coins ?? null} gabarit={gabarit} charger={charger} ajusterMur={ajusterMur} suite="« Retrouver le mur sur toutes les photos », ou « Rejouer » après un mur ajusté">
       {r && <button type="button" className="secondary small" data-controle="calibration.retirerReperes" onClick={retirer}>Retirer les repères de cette photo</button>}
-      <button type="button" className="secondary small" aria-pressed={ajuster} data-controle="calibration.ajusterMur" onClick={() => setAjuster((a) => !a)}>{ajuster ? 'Masquer l’égout et le sol' : 'Ajuster l’égout et le sol'}</button>
-    </div>
-    {ajuster && <>
-      <p className="calNote">Sur la photo redressée, tirez l’égout, le sol et les deux bouts s’ils sont mal placés : la silhouette du mur les suit sans changer de forme. Puis « Rejouer ».</p>
-      <AjusterMur charger={charger} reperes={r ?? p?.coins ?? coinsParDefaut(photo.image.largeur, photo.image.hauteur)} mur={p?.coins ?? null} gabarit={gabarit} changer={ajusterMur} />
-    </>}
-  </>;
+    </PoserReperes>
+  );
 }
 
 /** Les photos du cas, en vignettes : la courante, l'origine de ses coins, et de quoi la retirer. */
@@ -236,7 +238,29 @@ function useClaude(cas: CasStocke) {
 }
 
 /** Le panneau de Claude : le mode du rejeu, la reponse rejouee (sa date, ses versions, son cout), et les appels. */
-function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler }: { c: ReturnType<typeof useClaude>; peutAppeler: boolean; occupe: boolean; rejouer: (run: RunEnregistre | null) => void; appeler: (passes: 1 | 3) => void }) {
+/** La commande `facade.escalader` de l'ecran branchee sur l'escalade de l'editeur (la derniere version), et les prix de son modele. */
+function useEscalade(outils: OutilsPhotos, escalader: () => Promise<void>): PrixEscalade | null {
+  const ref = useRef(escalader);
+  ref.current = escalader;
+  useEffect(() => outils.ecouterEscalade?.(() => { void ref.current(); }), [outils]);
+  const [prix, setPrix] = useState<PrixEscalade | null>(null);
+  useEffect(() => { void outils.prixEscalade?.().then(setPrix, () => setPrix(null)); }, [outils]);
+  return prix;
+}
+
+/** Le bouton de l'escalade : lie a la commande `facade.escalader` de l'ecran, il annonce son modele et son cout ; une seule par reponse. */
+function BoutonEscalade({ run, prix, occupe, commandes }: { run: RunEnregistre | null; prix: PrixEscalade | null; occupe: boolean; commandes: OutilsPhotos['commandes'] }) {
+  const etat = commandes?.etat(COMMANDE_ESCALADE);
+  if (!commandes || commandes.effacee(COMMANDE_ESCALADE)) return null;
+  const raison = !run ? 'Choisissez une réponse enregistrée : l’escalade la relit.' : run.escalade ? 'Cette réponse est déjà escaladée : une seule escalade par réponse.' : etat && 'message' in etat ? etat.message : null;
+  return (
+    <button type="button" className="secondary" data-commande={COMMANDE_ESCALADE} disabled={occupe || !run || !!run.escalade || !etat?.utilisable} title={raison ?? 'Une lecture de plus, par un modèle plus fin, de la réponse rejouée'}
+      onClick={(e) => { commandes.executer(COMMANDE_ESCALADE, e.currentTarget); }}>{libelleEscalade(run, prix)}</button>
+  );
+}
+
+function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler, escalade }: { c: ReturnType<typeof useClaude>; peutAppeler: boolean; occupe: boolean; rejouer: (run: RunEnregistre | null) => void; appeler: (passes: 1 | 2 | 3) => void; escalade: { prix: PrixEscalade | null; commandes: OutilsPhotos['commandes']; possible: boolean } }) {
+  const passes = passesDeProduction();
   return (
     <section className="calClaude" aria-label="Claude : le run de la façade">
       <h3 className="calTitre3">Claude : le run de la façade</h3>
@@ -252,9 +276,13 @@ function PanneauClaude({ c, peutAppeler, occupe, rejouer, appeler }: { c: Return
         </label>
         : <p className="calNote">Aucune réponse de Claude enregistrée pour ce cas : rappelez-le pour en avoir une.</p>}
       {peutAppeler && <div className="calLigne">
-        <button type="button" className="secondary" data-controle="calibration.rappelerClaude" disabled={occupe} onClick={() => appeler(1)}>Rappeler Claude</button>
-        <button type="button" className="secondary" data-controle="calibration.rappelerClaude3" disabled={occupe} onClick={() => appeler(3)}>Rappeler Claude ×3 (vote, pour mesurer)</button>
-        <span className="calNote">Un appel coûte quelques dixièmes de centime (×3 : trois fois plus) ; la réponse s’ajoute aux précédentes, enregistrée avec le cas.</span>
+        <button type="button" className="secondary" data-controle="calibration.rappelerClaude" disabled={occupe} onClick={() => appeler(passes)}>Rappeler Claude{passes > 1 ? ' (×' + passes + ', votées)' : ''}</button>
+        <button type="button" className="secondary" data-controle="calibration.rappelerClaude1" disabled={occupe} onClick={() => appeler(1)}>Une passe (pour mesurer)</button>
+        <span className="calNote">Une passe coûte quelques dixièmes de centime ; la réponse s’ajoute aux précédentes, enregistrée avec le cas.</span>
+      </div>}
+      {escalade.possible && c.runs.length > 0 && <div className="calLigne">
+        <BoutonEscalade run={c.runs[c.choisi] ?? null} prix={escalade.prix} occupe={occupe} commandes={escalade.commandes} />
+        <span className="calNote">À la demande seulement : une requête de plus sur le même assemblage, gardée avec la réponse ; le moteur la pèse contre le vote des passes.</span>
       </div>}
     </section>
   );
@@ -319,12 +347,12 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
   // L'option manuelle de l'E4 : le mur cale sur l'assemblage, pose sur chaque photo assemblee, puis rejoue depuis le calage.
   const caler = (coins: P2[]) => { if (!rejeu) return; const c = casCaleALaMain(cas, rejeu, coins); setCas(c); setOrigines((o) => ({ ...o, ...Object.fromEntries(c.photos.flatMap((p, i) => (p.murALaMain ? [[i, 'main' as const]] : []))) })); void rejouer(c, 'calage'); };
   // « Rappeler Claude » : le run sur l'assemblage du rejeu (ce qu'il ne montre pas en gris), enregistre avec le cas, puis rejoue en IA.
-  const appeler = async (passes: 1 | 3) => {
+  const texteDuCas = () => texteRunFacade({ etiquette: cas.nom, image: 'assemblage', pointes: rejeu?.sorties.preparation?.pointes ?? [], parement: cas.parement ?? null });
+  const appeler = async (passes: 1 | 2 | 3) => {
     const m = rejeu?.sorties.mosaique;
     if (!outils.appelerClaude || !m) { setMessage('Rejouez d’abord le cas : Claude lit l’assemblage des photos.'); return; }
     setOccupe(true); setMessage(null);
-    const texte = texteRunFacade({ etiquette: cas.nom, image: 'assemblage', pointes: rejeu.sorties.preparation?.pointes ?? [], parement: cas.parement ?? null });
-    const r = await outils.appelerClaude({ image: m.image, cache: m.vu.map((v) => (v ? 0 : 1)), texte, passes });
+    const r = await outils.appelerClaude({ image: m.image, cache: m.vu.map((v) => (v ? 0 : 1)), texte: texteDuCas(), passes });
     setOccupe(false);
     if ('erreur' in r) { setMessage(r.erreur); return; }
     const suite = { ...cas, ia: [...(cas.ia ?? []), r.run] };
@@ -332,6 +360,20 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
     await rejouer(suite, 'calage', undefined, r.run);
     setMessage((m) => 'Réponse enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m ? ' ' + m : ''));
   };
+  // L'escalade de la reponse choisie (la commande `facade.escalader`) : gardee dans ce run du cas, puis rejouee en IA.
+  const escalader = async () => {
+    const run = claude.runs[claude.choisi], m = rejeu?.sorties.mosaique;
+    if (!outils.escaladerClaude || !run || !m) { setMessage('Rejouez d’abord le cas avec une réponse de Claude : l’escalade relit le même assemblage.'); return; }
+    if (run.escalade) { setMessage('Cette réponse est déjà escaladée : une seule escalade par réponse.'); return; }
+    setOccupe(true); setMessage(null);
+    const r = await outils.escaladerClaude({ image: m.image, cache: m.vu.map((v) => (v ? 0 : 1)), texte: texteDuCas() }, run);
+    setOccupe(false); if ('erreur' in r) { setMessage(r.erreur); return; }
+    const suite = { ...cas, ia: (cas.ia ?? []).map((x, i) => (i === claude.choisi ? r.run : x)) };
+    setCas(suite); claude.setModeIa(true);
+    await rejouer(suite, 'calage', undefined, r.run);
+    setMessage((m2) => 'Escalade enregistrée : ' + enteteDuRun(r.run) + '. Enregistrez le cas pour la garder.' + (m2 ? ' ' + m2 : ''));
+  };
+  const prixEscalade = useEscalade(outils, escalader);
   const chargerCourante = useCallback(async () => (cas.images[courante] ? outils.decoder(cas.images[courante] as string) : null), [cas.images, courante, outils]);
   // Les reperes de la photo courante : ils la redressent au prochain rejeu ; null les retire.
   const reperesCourants = (reperes: P2[] | null) => {
@@ -379,7 +421,8 @@ export function EditeurCasCalibration({ cas: depart, id, outils, enregistrer, su
         <button type="button" data-controle="calibration.rejouer" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(); }}>{occupe ? 'Calcul…' : 'Rejouer'}</button>
         <button type="button" className="secondary" data-controle="calibration.coinsSerie" disabled={!cas.photos.length || occupe} onClick={() => { void rejouer(cas, null, 'chercher'); }}>Retrouver le mur sur toutes les photos</button>
       </div>
-      <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.mosaique} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', undefined, run); }} appeler={(n) => { void appeler(n); }} />
+      <PanneauClaude c={claude} peutAppeler={!!outils.appelerClaude && !!rejeu?.sorties.mosaique} occupe={occupe} rejouer={(run) => { if (rejeu) void rejouer(cas, 'calage', undefined, run); }} appeler={(n) => { void appeler(n); }}
+        escalade={{ prix: prixEscalade, commandes: outils.commandes, possible: !!outils.escaladerClaude && !!rejeu?.sorties.mosaique }} />
       {rejeu && <FriseEtapes rejeu={rejeu} images={images} ouverte={ouverte} url={url} commandes={outils.commandes ?? null} />}
       {rejeu && images && ouverte && <EtapeOuverte id={ouverte} rejeu={rejeu} images={images} cas={cas} dims={dims} url={url} occupe={occupe} rejouerDepuis={(e) => { void rejouer(cas, e); }} caler={caler} />}
 

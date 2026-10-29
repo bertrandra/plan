@@ -7,7 +7,7 @@ import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../..
 import type { Image } from '../../../src/facade/vision/homographie.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
 import type { IdEtape } from '../../../src/model/etapeFacade.js';
-import { lireObservationsFacade, type ObservationsFacade } from '../../../src/regles/facades/observations.js';
+import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../src/regles/facades/observations.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un nouveau cas avec ses photos,
 // la mesure et la calibration sur un cas fabrique d'une scene du banc, et l'application des reglages.
@@ -42,12 +42,14 @@ const scene = (() => {
   return { cas, image: { largeur: LI, hauteur: HI, donnees } as Image };
 })();
 
-/** Le registre de l'ecran, comme app/administration/ecranCalibration.ts le monte : la commande qui ouvre une etape. */
-function registre(): Pick<DepsCalibration, 'commandes' | 'ecouterEtape'> {
+/** Le registre de l'ecran, comme app/administration/ecranCalibration.ts le monte : ouvrir une etape, escalader la reponse rejouee. */
+function registre(): Pick<DepsCalibration, 'commandes' | 'ecouterEtape' | 'ecouterEscalade'> {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
+  let escalader: (() => void) | null = null;
   commandes.declarer({ id: 'facade.etape', libelle: 'Ouvrir une étape', groupe: 'facade', executer: (s) => { if (s?.dataset.etape) ouvrir?.(s.dataset.etape as IdEtape); } });
-  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { ouvrir = null; }; } };
+  commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader', groupe: 'facade', executer: () => { escalader?.(); } });
+  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { ouvrir = null; }; }, ecouterEscalade: (f) => { escalader = f; return () => { escalader = null; }; } };
 }
 
 function fausses(plus: Partial<DepsCalibration> = {}) {
@@ -188,9 +190,12 @@ describe('l ecran de calibration', () => {
       forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [], surface: { principale: 'enduit', zones: [], confiance: 'forte' }, confiance: 'forte',
       ouvertures: [1, 4, 7].map((x) => ({ type: 'fenetre', u0: x / 9, u1: (x + 1) / 9, v0: 0.4, v1: 0.68, niveau: 0, travee: 'indetermine', confiance: 'forte', details: { volets: 'aucun', allege: 'pleine', forme: 'rect' },
         carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' } })) };
-    const run = { le: '2026-10-29T12:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1 as const, sorties: [sortie], cout: 0.0013, tokens: { entree: 4200, sortie: 900 }, image: { largeur: 1100, hauteur: 700 }, chaine: 10 };
+    const run = { le: '2026-10-29T12:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3 as const, sorties: [sortie, sortie, sortie], cout: 0.0039, tokens: { entree: 12600, sortie: 2700 }, image: { largeur: 1100, hauteur: 700 }, chaine: 10 };
     const appelerClaude = vi.fn(async () => ({ run, reponse: lireObservationsFacade(sortie) as ObservationsFacade }));
-    const { deps, stock } = fausses({ appelerClaude });
+    // L'escalade (SYNTHETIQUE) lit de la pierre la ou le vote lit de l'enduit : elle l'emporte sur le parement.
+    const escalade = { le: '2026-10-29T12:05:00.000Z', modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, sortie: { ...sortie, surface: { ...sortie.surface, principale: 'pierre' } }, cout: 0.0261, tokens: { entree: 4200, sortie: 900 } };
+    const escaladerClaude = vi.fn(async (_d: unknown, r: RunEnregistre) => ({ run: { ...r, escalade } }));
+    const { deps, stock } = fausses({ appelerClaude, escaladerClaude, prixEscalade: async () => ({ modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } }) });
     await monter(deps);
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
@@ -200,8 +205,9 @@ describe('l ecran de calibration', () => {
     await attendreQue(() => !!bouton('calibration.rappelerClaude') && !bouton('calibration.rappelerClaude')?.disabled);
     await act(async () => { bouton('calibration.rappelerClaude')?.click(); });
     await attendreQue(() => /Réponse enregistrée/.test(hote.textContent ?? '') && !bouton('calibration.rejouer')?.disabled);
-    expect(appelerClaude).toHaveBeenCalledWith(expect.objectContaining({ passes: 1, texte: expect.stringMatching(/^Façade : Synthèse 02\./) }));
-    expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, une passe, claude-haiku-5-5, prompt v1, schéma v1, 0,0013 $');
+    // Trois passes votees : la production (le reglage `facades.ia.passes`).
+    expect(appelerClaude).toHaveBeenCalledWith(expect.objectContaining({ passes: 3, texte: expect.stringMatching(/^Façade : Synthèse 02\./) }));
+    expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $');
     expect(bouton('calibration.modeIa')?.getAttribute('aria-pressed')).toBe('true');
     // L'E4 dit l'accord de Claude, l'E7 ses boites retrouvees par la detection.
     const ouvrir = async (id: string) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
@@ -214,9 +220,22 @@ describe('l ecran de calibration', () => {
     await act(async () => { (hote.querySelector('.calBoiteIa') as SVGElement).dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(hote.querySelectorAll('.calCarreau').length).toBeGreaterThan(0);
     expect(hote.querySelector('.calTexteIa')?.textContent).toBe('2 vantaux de 1 × 3 carreaux, petits bois fins, sans imposte, vitrage clair');
+
+    // L'escalade, a la demande : le bouton de la commande `facade.escalader` annonce son modele et son cout (une passe du run).
+    const esc = () => hote.querySelector('[data-commande="facade.escalader"]') as HTMLButtonElement | null;
+    expect(esc()?.textContent).toBe('Escalader vers claude-sonnet-5-5 (≈ 0,0261 $)');
+    await act(async () => { esc()?.click(); });
+    await attendreQue(() => /Escalade enregistrée/.test(hote.textContent ?? '') && !bouton('calibration.rejouer')?.disabled);
+    expect(escaladerClaude).toHaveBeenCalledTimes(1);
+    expect(hote.textContent).toContain('Escalade enregistrée : Claude, 2026-10-29, trois passes votées, claude-haiku-5-5, prompt v1, schéma v1, 0,0039 $, escaladée (claude-sonnet-5-5, 0,0261 $)');
+    await ouvrir('calage');
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/Escalade \(claude-sonnet-5-5\) : elle l’emporte sur le parement\. Parement : pierre/);
+    // Une seule escalade par reponse : le bouton le dit et se grise.
+    expect([esc()?.textContent, esc()?.disabled]).toEqual(['Escaladée (claude-sonnet-5-5)', true]);
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
     await attendre(10);
-    expect(stock.get('cas-a')?.ia).toEqual([run]);
+    // Le cas garde la reponse et son escalade, pour la rejouer sans reseau.
+    expect(stock.get('cas-a')?.ia).toEqual([{ ...run, escalade }]);
   }, 60_000);
 
   it('mesure les cas valides, cherche de meilleurs reglages et les applique', async () => {

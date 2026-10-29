@@ -3,9 +3,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { CorrectionRedressement } from '../../../src/model/auditParcelle.js';
-import { CoinsPhotoAudit } from '../../../src/zones/parcours/CoinsPhotoAudit.js';
+import { ReperesAudit } from '../../../src/zones/parcours/FacadeAudit.js';
 
-// La pose a la main des quatre coins d'une photo de facade (audit de la parcelle), quand le redressement automatique a echoue.
+// La pose a la main de quatre reperes sur une photo de facade (audit de la parcelle), quand le redressement automatique a echoue :
+// le geste partage avec la calibration (zones/releve/PoserReperes.tsx), et ce que l'audit y ajoute (echelle, appliquer).
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -24,8 +25,8 @@ afterEach(() => { act(() => racine.unmount()); hote.remove(); (window as unknown
 const bouton = (c: string) => hote.querySelector(`[data-controle="${c}"]`) as HTMLButtonElement;
 async function monter(depart?: { x: number; y: number }[]) {
   const appliquer = vi.fn<(c: CorrectionRedressement) => void>(), retablir = vi.fn(), fermer = vi.fn();
-  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, nom: 'Façade sud', depart, mur: undefined, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer };
-  await act(async () => { racine.render(createElement(CoinsPhotoAudit, props)); await Promise.resolve(); });
+  const props = { photo: { type: 'image/jpeg' as const, base64: 'AAAA' }, rang: 1, depart, mur: undefined, largeurPlanM: 9.5, echelleDepart: undefined, appliquer, retablir, fermer };
+  await act(async () => { racine.render(createElement(ReperesAudit, props)); await Promise.resolve(); });
   return { appliquer, retablir, fermer };
 }
 
@@ -42,6 +43,11 @@ describe('la pose de quatre reperes', () => {
     expect(hote.textContent).not.toMatch(/Égout|Sol\b/);
     expect(c.echelleLargeurM).toBeUndefined();
     expect(p.fermer).toHaveBeenCalled();
+  });
+  it('est le geste partage : la meme consigne et le meme « Ajuster l’égout et le sol » que la calibration', async () => {
+    await monter();
+    expect(hote.querySelector('.poserReperes')?.getAttribute('aria-label')).toBe('Quatre repères sur la photo 2');
+    expect(bouton('reperes.ajusterMur').getAttribute('aria-pressed')).toBe('false');
   });
   it('part des reperes donnes (ceux deja poses, ou le mur du calcul)', async () => {
     const depart = [{ x: 10, y: 20 }, { x: 700, y: 20 }, { x: 700, y: 500 }, { x: 10, y: 500 }];

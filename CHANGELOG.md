@@ -7,6 +7,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades : une escalade, à la demande** (décision du propriétaire du 29 octobre 2026, `MD/spec-facade-calage-audit.md` §8,
+  décision 14). Sous la barre d'une façade, dans l'audit et dans le rejeu de la calibration, « Escalader vers … (≈ … $) » (commande
+  `facade.escalader`, dans les trois classes d'écran) envoie **une** requête de plus, la même image et le même texte, au modèle de
+  l'usage `escalade` (Réglages › Modèles) ; jamais automatique, une par lecture, son coût annoncé sur le bouton (une passe aux prix du
+  jour, que l'état du serveur donne : `escaladeFacade`). Sa réponse est gardée avec le run (capture de l'audit, cas de la calibration)
+  et se rejoue sans réseau. Le moteur la pèse contre le vote des passes (`escaladerObservations`, réglage
+  `facades.ia.escaladeEcartPart`) : elle l'emporte sur le calage, la forme et le parement là où elle s'en écarte, ses ouvertures en
+  plus s'ajoutent marquées et ne sont cochées que si la détection les retrouve. L'É4 dit ce qu'elle a tranché. Dans l'audit, une
+  ligne sous chaque façade dit sa lecture et son coût.
+
+- **Façades, lot F3 : l'audit sur l'orchestrateur, en mode discret** (`MD/spec-facade-calage-audit.md` §4 ter.3, §4 ter.5, §6, §9).
+  Une façade photographiée dans l'audit se calcule par l'orchestrateur de l'enchaînement (`facade/releve/enchainement.ts`, mode
+  `audit` : la chaîne de l'audit, appelée telle quelle), à **résultat identique** (68 cas comparés au pixel près : scènes du banc à
+  prise par caméra, sans correction, avec quatre repères, avec le mur posé à la main, et les cas des tests de l'audit). L'audit porte
+  **la même barre de progression** que la calibration (`BarreProgressionFacade`, un seul composant), sur la façade dépliée de la liste
+  et en tête de l'écran de prise dès la première photo : elle avance étape par étape pendant le calcul, « Arrêter » l'interrompt.
+  **Mode discret** (`app/audit/parcelle/discret.ts`) : une étape cachée qui a réussi ne se montre pas ; une étape qui échoue ou doute
+  apparaît aussitôt, en une ligne, avec son geste de repli (quatre repères sur la photo choisie) ; le mur et les ouvertures tiennent
+  en une ligne ; seuls les points de validation (V1 à V4) et ce qui doute s'ouvrent depuis la barre (commande `facade.etape`).
+  **« Rejouer la façade »** (et « Rejouer les façades ») rejoue l'orchestrateur ; photos et corrections ne bougent pas.
+- **L'audit lit chaque façade par le run de Claude** (lot F3) : trois lectures votées par façade mesurée (voir « Modifié »), dans le batch de l'analyse, sur
+  l'élévation du mur (usage `facade`, le prompt et le schéma du lot F2). Sa réponse est **enregistrée** avec ses propres versions, son
+  modèle, ses tokens et son coût (`analyse.resultats.runs`), et le moteur de règles l'accorde avec la détection de la façade
+  (`accorderOuvertures`) : une boîte retrouvée confirme, une baie devinée qu'elle recouvre est confirmée, une boîte seule reste
+  proposée en pointillé, décochée. Le serveur rend désormais le modèle et les versions d'une requête d'un autre usage que son batch.
+
 - **Façades, lot F2 : un run de Claude par façade, décidé par le moteur de règles** (`MD/spec-facade-calage-audit.md` §5, §8, §9).
   Une seule requête par façade, sur l'image prise pour la suite (l'assemblage), rend tout : le calage (les deux angles du mur, les
   pointes des pignons, les appentis, les autres volumes, ce qui cache le mur), la forme du haut, les éléments du toit, **le parement du
@@ -47,6 +73,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Façades : trois lectures votées par façade** (décision du propriétaire du 29 octobre 2026, sur la mesure de la vraie API, run
+  40903934070 : ×1 rappel 92,9 %, précision 98,3 %, carreaux 0/16, 0,00153 $ par façade ; ×3 99,2 %, 100 %, 10/21, 0,00464 $). L'audit
+  (dans le batch de l'analyse), l'aide du relevé et « Rappeler Claude » de la calibration lisent chaque façade trois fois, et le moteur
+  vote. Le nombre est un réglage (`facades.ia.passes` dans `regles/facades/ia.json`), pas une constante ; « Une passe (pour mesurer) »
+  reste dans la calibration. Le vote ne coche toujours rien seul : la détection décide des boîtes. Une façade coûte environ trois
+  fois plus (0,0046 $ au tarif de `claude-haiku-5-5`).
+
+- **Un seul geste « quatre repères »** (lot F3) : l'audit et la calibration posent les repères par le même composant
+  (`zones/releve/PoserReperes.tsx` : la consigne, les quatre repères, « Ajuster l'égout et le sol ») ; chaque écran n'y ajoute que ses
+  gestes (l'échelle et « Appliquer » dans l'audit, « Retirer les repères » dans la calibration).
+- **L'audit mesure une façade dès sa première photo** (lot F3), en silence (la barre le montre), et non plus à la deuxième pour
+  vérifier la fusion : l'échec d'une étape (une photo qui ne se redresse pas, des photos qui ne s'assemblent pas) se dit sur place,
+  pendant qu'on peut reprendre la façade.
+
 - **L'aide de Claude au relevé passe par le run d'une façade** (lot F2) : une requête au lieu de trois passes de renfort, sur la
   photo à l'étape des coins (ses deux angles deviennent des graines, recalées sur les arêtes), sur l'élévation redressée à la
   vérification (ce qu'aucune photo ne montre en gris ; ses boîtes s'accordent avec la détection). Claude ne retire plus une baie
@@ -60,6 +100,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **L'escalade d'une maison (D20) prend le modèle de l'escalade** (`deploy/analyse-fonctions.php`) : ses requêtes portent l'usage
+  `analyse` (pour son prompt), et le serveur leur donnait le modèle de l'analyse ; dans une demande `escalade`, une requête garde le
+  prompt de son usage et prend le modèle de l'escalade, et se compte en escalade au journal.
+- **Le prix de l'escalade d'une façade arrive jusqu'au bouton** : le client de l'analyse lit `escaladeFacade` de l'état du serveur
+  (vu par la fumée 103, que les tests unitaires, qui simulaient l'état, ne voyaient pas).
+- **Admin › Calibrer la détection tient dans l'écran d'un téléphone** (`app.css`, `.calChamp select`) : le choix de la réponse de
+  Claude rejouée prenait la largeur de son option la plus longue (« réponse synthétique (pas de Claude), 2026-10-29, une passe… »),
+  la page s'élargissait à 910 px sur 390 et le navigateur la dézoomait : « Rejouer » se touchait à côté (fumée 101 en échec en compact et
+  en moyen depuis le lot F2). Le choix tient maintenant dans sa colonne, l'option se coupe.
+- **Le prompt du run d'une façade ne se sert plus en clair** (`deploy/htaccess.template`) : la règle qui garde les prompts lus par
+  `analyse.php` nommait encore celui du renfort ; elle nomme maintenant `prompt-facade.md` (lot F2).
 - **Le run d'une façade se lit sur la vraie API** (lot F2). La vérification de l'API Claude du 29 octobre 2026 (run 40887362801) a
   refusé la requête `facade` : réponse rendue (`end_turn`), mais « Sortie non JSON ». Comme les autres usages, elle partait sans sortie
   structurée, le schéma en simple consigne du prompt, et le serveur cherchait l'objet « de la première accolade à la dernière ». Le
@@ -81,6 +132,18 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   deux modes.
 
 ### Supprimé
+
+- **Le renfort de Claude à trois passes votées** (lot F3), dans l'audit et au serveur : `app/audit/parcelle/entreesRenfort.ts`, le
+  vote et le schéma de `facade/detection/renfort.ts` (ses signaux, que le relevé lit encore, deviennent `facade/detection/signaux.ts`),
+  l'application des avis de `renfortRecalage.ts` (le recalage des graines reste, `facade/detection/recalageIa.ts`), les deux images à
+  grille de repères et graduée (`render/imagesRenfort.ts`, devenu `render/imageFacade.ts`), l'usage `renfort` du serveur PHP et ses
+  fichiers (`deploy/prompt-renfort.md`, `deploy/schema-renfort.json`), sa section du banc des façades (`tests/banc/facades/renfort.ts`,
+  `--sans-renfort`, les réponses simulées de `tests/fixtures/facades/claude/`, `simuler-claude.ts`). Une ligne `renfort` du journal de
+  consommation se lit toujours ; un réglage des modèles qui la nomme est ignoré.
+- **Les indicateurs d'étape propres à l'audit** (lot F3) : le statut du redressement et de la fusion (`app/audit/parcelle/redressement.ts`,
+  « Rejouer redressement + fusion »), l'avertissement de fusion de l'écran de prise (`avertissementPrise`), la glue de `mesures.ts`
+  (les appels directs à `redresserEtFusionner`, `analyserSerie`, `calageDeSerie`, `releveDuMur`) et le composant des repères de
+  l'audit (`zones/parcours/CoinsPhotoAudit.tsx`) : la barre de progression, l'orchestrateur et le geste partagé les remplacent.
 
 - **`app/releve/renfortReleve.ts`** (lot F2) : `creerAideReleve` à trois passes, `fabriqueImagesRenfortNavigateur` (la photo à grille
   et l'élévation graduée du relevé), `reponsesRenfort`, `DemandeAide`, `ReponseAide`, `FabriqueImagesRenfort`, `ContexteAide` ;

@@ -10,12 +10,9 @@
 //                                                                  zones du calage grossier en cyan ; aretes du
 //                                                                  calage fin en magenta, ses coins en rouge
 //   ... --ecrire-coins                                             recalcule verite.coins apres un changement de prise
-//   ... --sans-renfort                                             sans la section du renfort de Claude (lot L18), qui
-//                                                                  rejoue les reponses simulees de tests/fixtures/facades/claude/
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus, rejouerCorpus, tableau, DOSSIER_CORPUS } from '../../../../tests/banc/facades/banc.ts';
-import { chargerReponses, rejouerRenfort, tableauRenfort, type RenfortScene } from '../../../../tests/banc/facades/renfort.ts';
 import { coinsVrais, peindreElevation, murSeul, type SceneFacade } from '../../../../tests/banc/facades/synthese.ts';
 import type { Image } from '../../../../src/facade/vision/homographie.ts';
 import { png } from '../../../../tests/banc/facades/png.ts';
@@ -28,8 +25,6 @@ const option = (nom: string) => {
   args.splice(i, 2);
   return v ?? null;
 };
-const sansRenfort = args.includes('--sans-renfort');
-if (sansRenfort) args.splice(args.indexOf('--sans-renfort'), 1);
 const ecrireCoins = args.includes('--ecrire-coins');
 if (ecrireCoins) args.splice(args.indexOf('--ecrire-coins'), 1);
 const json = option('--json');
@@ -50,19 +45,9 @@ if (ecrireCoins) {
 const scenes = chargerCorpus().filter((s) => !filtres.length || filtres.some((m) => s.nom.includes(m)));
 const b = rejouerCorpus(scenes);
 console.log(tableau(b));
-// Le renfort de Claude (lot L18), sur les reponses simulees enregistrees : avant les images, qui
-// dessinent sur les photos.
-const renfort: RenfortScene[] = sansRenfort
-  ? []
-  : scenes.flatMap((s, i) => {
-      const r = b.scenes[i];
-      const x = r ? rejouerRenfort(s, r, chargerReponses(s.nom)) : null;
-      return x ? [x] : [];
-    });
-if (renfort.length) console.log('\n' + tableauRenfort(renfort));
 
 if (json) {
-  const sansImages = { ...b, scenes: b.scenes.map(({ detail, ...r }) => ({ ...r, detectees: { elevation: detail.elevation, photo: detail.photo } })), renfort };
+  const sansImages = { ...b, scenes: b.scenes.map(({ detail, ...r }) => ({ ...r, detectees: { elevation: detail.elevation, photo: detail.photo } })) };
   writeFileSync(json, JSON.stringify(sansImages, null, 2));
 }
 

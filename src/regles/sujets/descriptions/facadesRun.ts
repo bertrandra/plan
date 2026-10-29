@@ -1,7 +1,7 @@
 // Le run d'une facade (MD/spec-facade-calage-audit.md §8) : la requete UNIQUE que le sujet « facades » envoie pour chaque facade,
 // sur l'image prise pour la suite (l'assemblage des photos redressees). Elle rend tout d'un coup : le calage (angles, pointes,
 // appentis, corps, ce qui cache), la forme du haut, les elements du toit vus sur la ligne du haut, les ouvertures, leurs details et
-// leurs carreaux. Plus d'appels separes (calage, puis renfort, puis details).
+// leurs carreaux. Plus d'appels separes (calage, puis renfort a trois passes, puis details) : le renfort est parti au lot F3.
 //
 // Donnees pures, comme les descriptions des sujets de l'analyse d'une maison : `npm run regles:generer` en ecrit
 // deploy/prompt-facade.md et deploy/schema-facade.json (generation.ts), jamais a la main. Chaque champ a un lecteur

@@ -17,8 +17,8 @@ import type { ReglageModeles, Tarifs } from '../../../src/model/tarifsClaude.js'
 const TARIFS = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../deploy/claude-tarifs.json'), 'utf8')) as Tarifs;
 const MODELES = {
   format: 'plan-claude-modeles', admis: ['claude-haiku-5-5', 'claude-sonnet-5-5'], regle: false,
-  usages: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' },
-  defaut: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', renfort: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5' }
+  usages: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' },
+  defaut: { analyse: 'claude-sonnet-5-5', escalade: 'claude-sonnet-5-5', immediat: 'claude-sonnet-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' }
 };
 const VIDE = { ouvertures: 0, manquees: 0, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 0, determines: 0, vide: true };
 const PLAFONDS = { format: 'plan-claude-plafonds', defaut: { jour: 1, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
@@ -182,7 +182,7 @@ describe('l ecran de la consommation de Claude', () => {
     // Le nom lisible et le prix au million de tokens (entree / sortie) en vigueur.
     expect([...(liste?.options ?? [])].map((o) => o.textContent)).toEqual(['Claude Haiku 5.5 — 0,10 $ / 0,50 $', 'Claude Sonnet 5.5 — 2,00 $ / 10,00 $ (par défaut)']);
     expect([...hote.querySelectorAll('.consReglages fieldset')[0]?.querySelectorAll('label > span') ?? []].map((e) => e.textContent))
-      .toEqual(['Analyse des audits', 'Renfort des façades', 'Aide immédiate', 'Escalade', 'Cas candidats', 'Rejeu des audits', 'Run d’une façade (calibration, relevé)']);
+      .toEqual(['Analyse des audits', 'Aide immédiate', 'Escalade', 'Cas candidats', 'Rejeu des audits', 'Run d’une façade (audit, calibration, relevé)']);
     expect(bouton(hote, 'Enregistrer les modèles')?.disabled).toBe(true);
     await act(async () => {
       if (!liste) return;

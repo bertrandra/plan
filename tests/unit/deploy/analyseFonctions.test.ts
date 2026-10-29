@@ -3,10 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { constantePhp, php, phpObjets, phpPresent } from '../../fixtures/deploy/appelPhp.js';
 import {
-  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TEXTE_FACADE_SANS_FORMAT, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
+  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_VIDE, TEXTE_DESORDONNE, TEXTE_FACADE_SANS_FORMAT, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_VIDE,
   USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi, reussiTexte, schemaFacade, texteSqueletteDuSchema
 } from '../../fixtures/deploy/fauxAnthropic.js';
-import { FIN, RAPIDE, requeteRenfort } from '../../fixtures/deploy/scenariosModeles.js';
+import { FIN, RAPIDE, requeteFacade } from '../../fixtures/deploy/scenariosModeles.js';
 import { BROUILLON } from '../../fixtures/deploy/scenarioRegles.js';
 import { fichierAudit } from '../../fixtures/deploy/contextePlateforme.js';
 import { mesureEssai } from '../../fixtures/deploy/scenarioConformite.js';
@@ -148,16 +148,6 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       for (const t of termes([proprietes.forme, facade.materiau, facade.details], ['indetermine', 'oui', 'non'])) expect(texte('prompt-analyse.md'), t).toContain('`' + t + '`');
     });
 
-    it('versionne le prompt et le schema du renfort, et definit chaque terme', () => {
-      const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-renfort.md'));
-      expect(p.version).toBe(2);
-      expect(p.texte).toMatch(/^# Rôle/);
-      const s = lireSchema('schema-renfort.json');
-      expect(s.version).toBe(1);
-      verifier(s.schema, 'schema');
-      for (const t of termes(s.schema, ['indetermine', 'oui', 'non', 'faible', 'moyenne', 'forte'])) expect(texte('prompt-renfort.md'), t).toContain('`' + t + '`');
-    });
-
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
       expect(p.version).toBe(2);
@@ -172,6 +162,9 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
       expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
       expect(constantePhp<string[]>('USAGES')).toContain('facade');
+      // Le renfort a trois passes est parti au lot F3 : ni usage, ni fichiers.
+      expect(constantePhp<string[]>('USAGES')).not.toContain('renfort');
+      expect(fs.existsSync(path.join(deploy, 'prompt-renfort.md')) || fs.existsSync(path.join(deploy, 'schema-renfort.json'))).toBe(false);
     });
   });
 
@@ -220,17 +213,33 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
     });
 
     it('donne a chaque requete son usage et son modele, regle ou demande', () => {
-      const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1')] };
-      expect(php<Demande>('verifierDemande', d, P).requetes.map((r) => [r.id, r.usage, r.modele])).toEqual([['p1', 'analyse', RAPIDE], ['r1', 'renfort', RAPIDE]]);
+      const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteFacade('r1')] };
+      expect(php<Demande>('verifierDemande', d, P).requetes.map((r) => [r.id, r.usage, r.modele])).toEqual([['p1', 'analyse', RAPIDE], ['r1', 'facade', RAPIDE]]);
       const regle = php('modelesParUsage', { usages: { analyse: FIN } });
       expect(php<Demande>('verifierDemande', d, P, regle).requetes.map((r) => r.modele)).toEqual([FIN, RAPIDE]);
       expect(php<Demande>('verifierDemande', { ...d, modele: FIN }, P).requetes.map((r) => r.modele)).toEqual([FIN, FIN]);
-      expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteRenfort('r1'), usage: 'autre' }] }, P)).toThrow(/Usage inconnu/);
+      expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteFacade('r1'), usage: 'autre' }] }, P)).toThrow(/Usage inconnu/);
+      expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteFacade('r1'), usage: 'renfort' }] }, P)).toThrow(/Usage inconnu/);
+    });
+
+    it('dans une demande escalade, une requete garde le prompt de son usage, prend le modele de l escalade et se compte en escalade', () => {
+      const regle = php('modelesParUsage', { usages: { escalade: FIN } });
+      const d = { ...demande([]), usage: 'escalade', requetes: [{ ...requeteFacade('e1'), facades: 0 }, { ...(demande(['p1']) as { requetes: object[] }).requetes[0], usage: 'analyse', facades: 0 }] };
+      const lu = php<{ requetes: { id: string; usage: string; compte: string; modele: string }[] }>('verifierDemande', d, P, regle).requetes.map((r) => [r.id, r.usage, r.compte, r.modele]);
+      expect(lu).toEqual([['e1', 'facade', 'escalade', FIN], ['p1', 'analyse', 'escalade', FIN]]);
+      // Hors escalade, la requete se compte sous son usage.
+      expect(php<{ requetes: { compte: string }[] }>('verifierDemande', { ...demande([]), usage: 'facade', requetes: [requeteFacade('r1')] }, P, regle).requetes[0]).toMatchObject({ usage: 'facade', compte: 'facade', modele: RAPIDE });
+    });
+
+    it('annonce l escalade d une facade : son modele et ses prix du jour', () => {
+      const tarifs = { lignes: [{ modele: FIN, depuis: '2026-10-13', entree: 2, sortie: 10 }, { modele: FIN, depuis: '2026-11-01', entree: 3, sortie: 15 }] };
+      expect(php('escaladeFacade', { escalade: FIN }, tarifs, '2026-10-29')).toEqual({ modele: FIN, prix: { entree: 2, sortie: 10 } });
+      expect(php('escaladeFacade', { escalade: RAPIDE }, tarifs, '2026-10-29')).toEqual({ modele: RAPIDE, prix: null });
     });
   });
 
   describe('le modele de chaque usage', () => {
-    const defaut = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
+    const defaut = { analyse: RAPIDE, escalade: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
 
     it('prend le modele rapide par defaut pour tous les usages, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
@@ -239,7 +248,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
     });
 
     it('suit le reglage, et retombe sur le defaut pour un modele qui n est plus admis', () => {
-      expect(php('modelesParUsage', { format: 'plan-claude-modeles', usages: { analyse: FIN, renfort: 'claude-ancien-1' } })).toEqual({ ...defaut, analyse: FIN });
+      expect(php('modelesParUsage', { format: 'plan-claude-modeles', usages: { analyse: FIN, facade: 'claude-ancien-1', renfort: FIN } })).toEqual({ ...defaut, analyse: FIN });
       expect(php('modelesParUsage', { usages: 'n importe quoi' })).toEqual(defaut);
     });
 
@@ -275,12 +284,6 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(php('comptesSortie', SORTIE_ANALYSE, 'analyse')).toEqual(TROUVE_ANALYSE);
       expect(php('comptesSortie', SORTIE_ANALYSE, 'escalade')).toEqual(TROUVE_ANALYSE);
       expect(php('comptesSortie', SORTIE_VIDE, 'analyse')).toEqual(TROUVE_VIDE);
-    });
-
-    it('compte les avis, les baies manquees, les coins et le mur du renfort', () => {
-      expect(php('comptesSortie', SORTIE_RENFORT, 'renfort')).toEqual(TROUVE_RENFORT);
-      const retiree = { ...SORTIE_RENFORT, ouvertures: [{ ...SORTIE_RENFORT.ouvertures[0], decision: 'retirer', raison: 'ombre' }], manquees: [], mur: { indices: [], vu: 'indetermine' }, coins: { indices: [] } };
-      expect(php('comptesSortie', retiree, 'renfort')).toMatchObject({ ouvertures: 0, enTrop: 1, manquees: 0, coins: 0, determines: 0, vide: false });
     });
 
     it('compte les baies, les angles, les pointes, les elements et la forme du run d une facade', () => {
@@ -361,7 +364,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
     it('borne un nombre aberrant, ignore une forme inattendue, et ne compte que les reponses lues', () => {
       expect(php('comptesSortie', { facades: [{ ouvertures: { parNiveau: [5000, -2, 1.5, '3'], manquees: 1e9 } }] }, 'analyse')).toMatchObject({ ouvertures: 999, manquees: 999 });
       expect(php('comptesSortie', [], 'analyse')).toEqual(TROUVE_VIDE);
-      expect(php('comptesSortie', 'texte', 'renfort')).toEqual(TROUVE_VIDE);
+      expect(php('comptesSortie', 'texte', 'facade')).toEqual(TROUVE_VIDE);
       expect(php('comptesSortie', null, 'analyse')).toBe(null);
       expect(php('trouvailles', { statut: 'reussi', erreur: null, sortie: SORTIE_VIDE }, 'analyse')).toEqual(TROUVE_VIDE);
       expect(php('trouvailles', { statut: 'reussi', erreur: { type: 'max_tokens', message: '' }, sortie: null }, 'analyse')).toBe(null);
@@ -412,7 +415,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       ]);
       expect(php('choixConsommation', lignes, p)).toEqual({
         organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
-        usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu', 'facade'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+        usages: ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
       });
     });
   });

@@ -1,28 +1,24 @@
 // Les mesures de l'audit de la parcelle, dans le telephone (MD/spec-audit.md §13.1) : pour chaque
 // facade photographiee, ce que Plan sait mesurer sans serveur, de facon deterministe.
 //
-// - Le releve de la facade : la photo calee (coins predits par la prise de vue, lot L6, puis cherches
-//   sur les aretes, lots L7 et L8), redressee, ses ouvertures detectees : la chaine du releve
-//   (zones/releve/), reprise telle quelle, sans geste.
+// - Le releve de la facade : depuis le lot F3, l'audit le demande a l'orchestrateur de l'enchainement d'une facade
+//   (facade/releve/enchainement.ts, mode `audit`), le meme que la calibration rejoue : ses photos, avec leur prise de vue, sont
+//   redressees (coins poses au doigt, sinon trouves sur les aretes, sinon reportes, sinon predits par la prise de vue), reportees,
+//   assemblees ou fusionnees, analysees ; le releve en sort, avec l'etat de chaque etape (la barre de progression, le mode
+//   discret de l'audit). Ici, rien ne reordonne les etapes : on prepare les entrees, on lit les sorties.
 // - La hauteur a l'egout, mesuree par la perspective : elle ne compte que si les coins ont ete trouves
 //   sur la photo ; des coins predits d'apres la hauteur connue rendraient cette hauteur.
 // - La couleur du mur (lot L3) : lue sur chaque photo prise avec la boussole ; on garde la lecture
 //   qui a le plus de points.
 //
-// Toutes les photos d'une facade sont redressees par la chaine de tous (facade/releve/chaine.ts, celle du releve et de la
-// calibration : verticales sous SEUIL_VERTICALES_DEG, sinon repli sur les coins calcules, sinon echec dit avec son motif) ; a
-// partir de deux photos redressees, elles sont fusionnees (facade/fusion.ts :
-// ORB + RANSAC, criteres nommes dans facade/vision/recalageOrb.ts). Aucune photo n'est jamais supprimee : une photo qui ne se
-// fusionne pas reste seule, redressee. Les originaux sont immuables ; les corrections manuelles (coins, echelle) priment
-// sur le calcul et ne sont jamais ecrasees par un rejeu.
+// Aucune photo n'est jamais supprimee : une photo qui ne se fusionne pas reste seule, redressee. Les originaux sont immuables ; les
+// corrections manuelles (reperes, mur, echelle) priment sur le calcul et ne sont jamais ecrasees par un rejeu.
 
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
-import { versOuvertureFacade } from '../../../facade/detection/verification.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
-import { analyserSerie, calageDeSerie, releveDuMur } from '../../../facade/releve/analyseSerie.js';
-import type { EntreeRecherche, Morceau, Resultat, ResultatRecherche } from '../../../facade/releve/serie.js';
-import { redresserEtFusionner, VERSION_CHAINE_FACADES, type PhotoARedresser, type ResultatChaine } from '../../../facade/releve/chaine.js';
-import { redresserParReperes } from '../../../facade/vision/redressementFuites.js';
+import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
+import { VERSION_CHAINE_FACADES, type PhotoARedresser } from '../../../facade/releve/chaine.js';
+import { derouler, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
@@ -33,7 +29,7 @@ import type { Prise } from '../../../facade/releve/prise.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../../model/auditParcelle.js';
 import type { SilhouetteFacade } from '../../../model/silhouetteFacade.js';
-import { silhouetteDeEstimation } from '../../../facade/regles/toits/silhouettes.js';
+import type { EtatAffiche, IdEtape } from '../../../model/etapeFacade.js';
 import type { CorpsToit, ObjetPolygone, OuvertureFacade, PtBrut, ReleveFacade } from '../../../model/types.js';
 
 /** La cle d'une mesure : le batiment et le cote du mur (`cle#cote`). */
@@ -56,8 +52,8 @@ export interface MesureFacade {
   /** La couleur du mur, la lecture la plus sure de ses photos. */
   couleur: { couleur: string; pixels: number; rang: number } | null;
   /**
-   * Les baies devinees par la structure, laissees en pointille par le releve : le renfort de Claude
-   * peut les confirmer (entreesRenfort.ts). Absentes d'une mesure lue dans un fichier d'audit, dont
+   * Les baies devinees par la structure, laissees en pointille par le releve : le run de Claude
+   * peut les confirmer (runsFacades.ts). Absentes d'une mesure lue dans un fichier d'audit, dont
    * le format ne les porte pas.
    */
   devinees?: OuvertureFacade[];
@@ -81,6 +77,11 @@ export interface MesureFacade {
   versionChaine?: number;
   /** Le gabarit du mur (le plan et le LiDAR) pose sur les photos : la reprise a la main le montre tel quel. */
   gabarit?: GabaritMur;
+  /**
+   * L'etat de chaque etape de l'enchainement de la facade (E0 a E9) et ce qu'elle a donne : la barre de progression et le mode discret
+   * de l'audit les lisent. Derive : il se recalcule a chaque rejeu ; absent d'une mesure lue dans un fichier d'audit.
+   */
+  etapes?: Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>[];
 }
 
 export interface DependancesMesures {
@@ -91,6 +92,12 @@ export interface DependancesMesures {
   jpeg: (img: Image) => string;
   /** Les limites de parcelle, ou se tiennent les clotures (lecture de la couleur). */
   limites: () => readonly Obstacle[];
+  /** A chaque etape commencee puis finie : la barre de progression de la facade avance. */
+  surEtape?: (id: IdEtape, etat: EtatAffiche) => void;
+  /** Vrai : la personne a demande d'arreter ; les etapes restantes restent a venir. */
+  arrete?: () => boolean;
+  /** Rendre la main au navigateur entre deux etapes (le calcul est long sur un telephone). */
+  rendreLaMain?: () => Promise<void>;
 }
 
 /** La distance de la prise de vue au mur, perpendiculairement, en metres. */
@@ -149,46 +156,6 @@ async function couleurDesPhotos(photos: readonly PhotoCas[], images: (i: number)
 }
 
 
-export { SEUIL_VERTICALES_DEG, verticaliteDeg } from '../../../facade/releve/chaine.js';
-
-type Analyse = NonNullable<ReturnType<typeof analyserSerie>>;
-
-/** Le releve d'une analyse (une photo ou une fusion), tel qu'il s'ecrit pour le mur. */
-function releveDeLAnalyse(a: Analyse, morceaux: Morceau[], f: Facade, d: DependancesMesures, assemblage: 'morceaux' | 'vues') {
-  const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
-  const resultat: Resultat = {
-    texture: d.jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, hauteurMesuree: a.r.hauteurMesuree, couverture: a.r.couverture,
-    toitPropose: a.r.toitPropose, avis: a.avis, partieBasse: a.r.partieBasse, calage,
-  };
-  const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
-  const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
-  return {
-    releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, au0(morceaux).prise.mesure),
-    coinsTrouves,
-    devinees: a.r.devinees.map(versOuvertureFacade),
-    silhouette: silhouetteDeEstimation(a.r.toitLu),
-    confiance: calage.confiance ?? null,
-    hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
-  };
-}
-const au0 = (m: readonly Morceau[]): Morceau => m[0] as Morceau;
-
-/**
- * Chaque photo redressee seule, **entiere** : tournee de face par le rectangle du mur que la chaine a retenu (ses coins, lus ou poses),
- * sans etre coupee a ce mur ni mise a son echelle (facade/vision/redressementFuites.ts::redresserParReperes). Sur l'image que la chaine a
- * lue (corrigee de la distorsion du grand-angle s'il y a lieu). Une photo sans essai n'en a pas.
- */
-function photosRedressees(c: ResultatChaine, d: DependancesMesures): PhotoRedresseeAuditee[] {
-  const out: PhotoRedresseeAuditee[] = [];
-  for (const x of c.faits) {
-    const m = x.essai?.p.morceau;
-    if (!m) continue;
-    const r = redresserParReperes(m.prise.photo.image, m.coins, m.prise.photo.focalePx);
-    if (r) out.push({ rang: x.bilan.rang, image: d.jpeg(r.image) });
-  }
-  return out.sort((a, b) => a.rang - b.rang);
-}
-
 /**
  * Les mesures d'une facade, depuis ses photos. Ne rejette jamais : une photo illisible ne donne rien.
  * Toutes les photos sont redressees ; deux ou plus, sans echec, sont fusionnees. Aucune n'est supprimee.
@@ -222,12 +189,16 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   }
   // Le gabarit du mur : sa silhouette sous les corps du toit lus sur le LiDAR (un rectangle sans corps), posee sur les photos.
   const gabarit = gabaritDesCorps(f, bat.corpsToit, f.hauteur);
-  const c = await redresserEtFusionner(entrees, fm, { pts: bat.pts }, { chercherCoins: d.chercherCoins, gabarit }, corrections, illisibles);
-  const trace = { redressement: c.redressement, redressees: photosRedressees(c, d), versionChaine: VERSION_CHAINE_FACADES, gabarit };
-  if (!c.fusion) {
-    const seule = c.seule, essai = seule?.photo.essai;
-    if (!seule || !essai) return { ...vide, couleur, ...trace };
-    return { ...vide, ...releveDeLAnalyse(seule.a, [essai.p.morceau], fm, d, 'morceaux'), rangReleve: seule.photo.bilan.rang, couleur, ...trace };
-  }
-  return { ...vide, ...releveDeLAnalyse(c.fusion.a, c.fusion.morceaux, fm, d, 'vues'), rangReleve: c.fusion.rangReference, couleur, ...trace };
+  // L'enchainement de la facade, par l'orchestrateur (mode `audit`) : le releve et l'etat de chaque etape en sortent.
+  const r = await derouler({
+    largeurM: fm.largeur, hauteurM: fm.hauteur, gabarit,
+    photos: entrees.map((x) => ({ image: x.image, coins: [], reperes: corrections[String(x.rang)]?.reperes ?? null, focalePx: null, murALaMain: !!corrections[String(x.rang)]?.coins })),
+  }, {
+    coins: 'chercher', image: 'audit', chercherCoins: d.chercherCoins, audit: { facade: fm, contour: bat.pts, photos: entrees, illisibles, corrections, jpeg: d.jpeg },
+    ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
+  });
+  const sortie = r.sorties.audit;
+  const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
+  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes };
+  return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
 }

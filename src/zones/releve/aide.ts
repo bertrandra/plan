@@ -7,11 +7,11 @@
 //   retrouve, seules decochees), et la proposition de l'analyse mise a jour, pour que les corrections tracees a la validation
 //   comparent la personne a ce que Plan et Claude proposaient ensemble.
 
-import { cartesAretes, recalerCoins } from '../../facade/detection/renfortRecalage.js';
+import { cartesAretes, recalerCoins } from '../../facade/detection/recalageIa.js';
 import type { ObservationsFacade } from '../../regles/facades/observations.js';
 import { accorderOuvertures, coinsDeLIa, type AccordIa } from '../../facade/regles/facades/ia.js';
 import { detecterSegments } from '../../facade/vision/segments.js';
-import { signauxRenfort, texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
+import { signauxDeLaFacade, texteSignaux, type SituationFacade } from '../../facade/detection/signaux.js';
 import type { SourceCoin } from '../../facade/calage/calageFin.js';
 import type { Image } from '../../facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../model/types.js';
@@ -24,13 +24,13 @@ export interface Proposition {
 }
 
 /** Les signaux de l'etape des coins : ceux du calage fin de la photo courante. */
-export function signauxDesCoins(m: Morceau | undefined): SituationRenfort[] {
+export function signauxDesCoins(m: Morceau | undefined): SituationFacade[] {
   if (!m || m.recherche || m.decrochement) return [];
   const sources = m.sources ?? ['predit', 'predit', 'predit', 'predit'];
   // Tous les coins poses au doigt : la personne a tranche, Claude n'a plus rien a dire des coins.
   if (sources.every((s) => s === 'doigt')) return [];
   const fin = m.fin;
-  return signauxRenfort({ calage: { note: fin?.note ?? 0, trouve: fin?.trouve ?? false, sources: sources.map((s) => (s === 'doigt' || s === 'claude' ? 'trouve' : s)) } });
+  return signauxDeLaFacade({ calage: { note: fin?.note ?? 0, trouve: fin?.trouve ?? false, sources: sources.map((s) => (s === 'doigt' || s === 'claude' ? 'trouve' : s)) } });
 }
 
 /**
@@ -47,9 +47,9 @@ export const MASQUE_NOTABLE = 0.1;
  * facade en partie cachee. `masque` est la part du mur cachee sur toutes les vues d'une fusion (0 pour
  * une photo seule) : des `MASQUE_NOTABLE`, la facade compte pour mal vue.
  */
-export function signauxDeVerification(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; largeurM: number; couverture: number; masque?: number }): SituationRenfort[] {
+export function signauxDeVerification(e: { ouvertures: readonly OuvertureFacade[]; devinees: readonly OuvertureFacade[]; largeurM: number; couverture: number; masque?: number }): SituationFacade[] {
   const masque = e.masque ?? 0;
-  const s = signauxRenfort({ ouvertures: e.ouvertures, devinees: e.devinees.filter((o) => o.source === 'devinee').length, largeurM: e.largeurM, cache: Math.max(1 - e.couverture, masque) });
+  const s = signauxDeLaFacade({ ouvertures: e.ouvertures, devinees: e.devinees.filter((o) => o.source === 'devinee').length, largeurM: e.largeurM, cache: Math.max(1 - e.couverture, masque) });
   if (masque >= MASQUE_NOTABLE && !s.includes('malVue')) s.unshift('malVue');
   return s;
 }
@@ -58,7 +58,7 @@ export function signauxDeVerification(e: { ouvertures: readonly OuvertureFacade[
  * Pourquoi l'aide est proposee, en clair. Avec un masque de fusion, « facade en grande partie cachee »
  * dirait trop (un dixieme du mur suffit) : la part cachee sur toutes les photos est dite telle quelle.
  */
-export function motifAide(signaux: readonly SituationRenfort[], masque = 0): string {
+export function motifAide(signaux: readonly SituationFacade[], masque = 0): string {
   return signaux.map((x) => (x === 'malVue' && masque > 0 ? `${Math.round(masque * 100)} % du mur caché sur toutes les photos` : texteSignaux([x]))).join(', ');
 }
 

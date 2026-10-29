@@ -3,7 +3,7 @@ import { demande, type FauxAnthropic } from './fauxAnthropic.js';
 
 // L'escalade (D20 de MD/plan-vague-3-generaliser.md) cote serveur
 // (deploy/analyse.php) : l'usage `escalade` part par l'appel immediat, avec le prompt et le schema de l'analyse
-// d'une maison (pas ceux du renfort), au modele demande, et se journalise sous son usage.
+// d'une maison (pas ceux du run d'une facade), au modele demande, et se journalise sous son usage.
 
 export interface HoteEscalade {
   ecrire(entree: string, methode: string, corps: unknown): Promise<Response>;
@@ -18,11 +18,11 @@ export async function verifierEscalade(h: HoteEscalade): Promise<void> {
   expect(r.status).toBe(200);
   const lu = await r.json();
   expect(h.faux.messages).toHaveLength(1);
-  // Le modele fin demande, et le prompt de l'analyse d'une maison (le renfort a le sien).
+  // Le modele fin demande, et le prompt de l'analyse d'une maison (le run d'une facade a le sien).
   expect(h.faux.messages[0]).toMatchObject({ model: 'claude-sonnet-5-5' });
   const systeme = (h.faux.messages[0]!.system as { text: string }[])[0]!.text;
   expect(systeme).toMatch(/Vous observez une maison/);
-  expect(systeme).not.toMatch(/relever une façade photographiée/);
+  expect(systeme).not.toMatch(/lire \*\*une façade\*\*/);
   expect(lu).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 9, schema: 5 });
   expect(lu.resultats.map((x: { id: string; statut: string; passe: number; usage: string }) => [x.id, x.statut, x.passe, x.usage])).toEqual([['e1', 'reussi', 1, 'escalade']]);
   // La reponse revient dans la forme du schema de l'analyse (toutes ses tetes de chapitre).

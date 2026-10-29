@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CLE, SORTIE_ANALYSE, SORTIE_RENFORT, USAGE_P1, messageFacade, messageReussi, demarrerFauxAnthropic, reponseParDefaut, schemaFacade, texteSqueletteDuSchema, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_ANALYSE, USAGE_P1, messageFacade, messageReussi, demarrerFauxAnthropic, reponseParDefaut, schemaFacade, texteSqueletteDuSchema, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 
 // scripts/verifier-api-claude.mjs : la verification des requetes du serveur PHP contre l'API Claude,
 // jouee ici contre le faux Anthropic (la vraie API demande une cle, absente des tests). Saute si PHP manque.
@@ -47,8 +47,7 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'verifapi-'));
     faux.messages.length = 0;
     // Le run d'une facade comme l'API le rend : l'objet seul avec la sortie structuree, du texte autour sans elle.
-    faux.reponseMessage = (corps) => (/lire \*\*une façade\*\*/.test(systeme(corps)) ? messageFacade(corps)
-      : { statut: 200, corps: messageReussi(USAGE_P1, /relever une façade photographiée/.test(systeme(corps)) ? SORTIE_RENFORT : SORTIE_ANALYSE) });
+    faux.reponseMessage = (corps) => (/lire \*\*une façade\*\*/.test(systeme(corps)) ? messageFacade(corps) : { statut: 200, corps: messageReussi(USAGE_P1, SORTIE_ANALYSE) });
     return () => fs.rmSync(tmp, { recursive: true, force: true });
   });
 
@@ -65,14 +64,12 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url });
     expect(r.stderr).toBe('');
     expect(r.code).toBe(0);
-    // Par defaut, le meme modele partout : l'analyse (qui couvre escalade, candidats et rejeu), le renfort et le run d'une facade.
-    expect(faux.messages).toHaveLength(3);
+    // Par defaut, le meme modele partout : l'analyse (qui couvre escalade, candidats et rejeu) et le run d'une facade.
+    expect(faux.messages).toHaveLength(2);
     expect(systeme(faux.messages[0] ?? {})).toMatch(/Vous observez une maison/);
-    expect(systeme(faux.messages[1] ?? {})).toMatch(/relever une façade photographiée/);
-    expect(systeme(faux.messages[2] ?? {})).toMatch(/lire \*\*une façade\*\*/);
+    expect(systeme(faux.messages[1] ?? {})).toMatch(/lire \*\*une façade\*\*/);
     expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus ; sortie structurée\)/);
     expect(r.stdout).toMatch(/analyse \(claude-haiku-5-5 ; couvre analyse, escalade, candidats, rejeu\) : accepté/);
-    expect(r.stdout).toMatch(/renfort \(claude-haiku-5-5 ; couvre renfort\) : accepté/);
     expect(r.stdout).toMatch(/coût journalisé 0\.\d{5} \$/);
     expect(r.stdout + r.stderr).not.toContain(CLE);
     // Le dossier temporaire (et sa configuration, qui porte la cle) est supprime.
@@ -82,7 +79,7 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
   it('prend le modele demande, et refuse un modele que le serveur n admet pas', async () => {
     const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url }, ['--modele', 'claude-sonnet-5-5', '--plafond', '0.5']);
     expect(r.code).toBe(0);
-    expect(faux.messages.map((m) => m.model)).toEqual(['claude-sonnet-5-5', 'claude-sonnet-5-5', 'claude-sonnet-5-5']);
+    expect(faux.messages.map((m) => m.model)).toEqual(['claude-sonnet-5-5', 'claude-sonnet-5-5']);
     const non = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url }, ['--modele', 'claude-inconnu-1']);
     expect(non.code).toBe(2);
     expect(non.stderr).toMatch(/modèle non admis/);
@@ -117,11 +114,12 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url });
     expect(r.stderr).toBe('');
     expect(r.code).toBe(0);
-    expect(faux.messages).toHaveLength(4);
+    // L'analyse, puis le run d'une facade : refuse en sortie structuree, puis repris sans elle (le renfort est parti au lot F3).
+    expect(faux.messages).toHaveLength(3);
     expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus ; sortie structurée refusée par l’API \(« output_config\.format: The compiled grammar is too large »\), lue sans elle\)/);
     // Le repli montre l'exemple, jamais le schema en texte.
-    expect(systeme(faux.messages[3] ?? {})).toMatch(/C’est un EXEMPLE/);
-    expect(systeme(faux.messages[3] ?? {})).not.toContain('additionalProperties');
+    expect(systeme(faux.messages[2] ?? {})).toMatch(/C’est un EXEMPLE/);
+    expect(systeme(faux.messages[2] ?? {})).not.toContain('additionalProperties');
   });
 
   it('dit la reponse qui recopie le schema, valeurs logees dedans, et ne la prend pas pour une facade vide', async () => {
@@ -143,7 +141,8 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url }, ['--facades', dossier, '--plafond', '1']);
     expect(r.stderr).toBe('');
     expect(r.code).toBe(0);
-    expect(faux.messages).toHaveLength(3 + 4);
+    // Les deux requetes de la verification (analyse, run d'une facade), puis une passe et trois pour la scene.
+    expect(faux.messages).toHaveLength(2 + 4);
     const lu = JSON.parse(fs.readFileSync(path.join(dossier, 'scene.reponses.json'), 'utf8')) as { source: string; x1: { sorties: unknown[]; cout: number }; x3: { sorties: unknown[]; cout: number } };
     expect(lu.x1.sorties).toHaveLength(1);
     expect(lu.source).toBe('claude');

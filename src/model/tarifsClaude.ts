@@ -131,12 +131,11 @@ export function erreurPlafonds(p: Plafonds): string | null {
 /** Les usages que l'administrateur regle, dans l'ordre de l'ecran. */
 export const USAGES_REGLABLES: { id: string; libelle: string }[] = [
   { id: 'analyse', libelle: 'Analyse des audits' },
-  { id: 'renfort', libelle: 'Renfort des façades' },
   { id: 'immediat', libelle: 'Aide immédiate' },
   { id: 'escalade', libelle: 'Escalade' },
   { id: 'candidats', libelle: 'Cas candidats' },
   { id: 'rejeu', libelle: 'Rejeu des audits' },
-  { id: 'facade', libelle: 'Run d’une façade (calibration, relevé)' }
+  { id: 'facade', libelle: 'Run d’une façade (audit, calibration, relevé)' }
 ];
 
 /** Ce que rend `GET admin/claude/modeles` : le modele de chaque usage, les defauts, les modeles admis. */

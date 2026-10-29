@@ -5,7 +5,7 @@
 //
 // Ce qui se propose, parce que le projet sait l'ecrire, vit dans le registre des sujets
 // (app/regles/sujets/ : couverture, cheminees, toiture-terrasse, materiau et teinte des murs, forme du toit) ;
-// ce module les enchaine, et porte le renfort des facades, les details des ouvertures et les ecarts. Les
+// ce module les enchaine, et porte l'accord du run des facades, les details des ouvertures et les ecarts. Les
 // lucarnes s'arbitrent (arbitrages.ts) ; les elements, le profil, le decor restent des observations, montrees
 // a part sans rien ecrire (observationsClaude.ts).
 //
@@ -15,9 +15,9 @@
 import { nomFacade } from '../../../geometry/cotesVusDeDehors.js';
 import { contradictionsLidar, indicesLidar, reserveConfiance, type VoteAnalyse } from '../../../model/analyseClaude.js';
 import type { Proposition } from '../../../regles/decisions.js';
-import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture, EtiquetteImage } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade, ReleveFacade, TypeOuverture } from '../../../model/types.js';
-import { bilanVide, texteBilan } from '../../../facade/detection/renfortRecalage.js';
+import { texteAccord, type BilanAccord } from '../../../facade/regles/facades/ia.js';
 import { avecGrille } from '../../../facade/detection/verification.js';
 import { SUJETS } from '../../regles/sujets/index.js';
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
@@ -76,14 +76,20 @@ export function propositionsDeClaude(objets: readonly ObjetPlan[], batiments: re
 }
 
 /** Le taux d'accord de Claude sur le releve des facades n'est pas encore mesure : ses propositions arrivent decochees. */
-export const RESERVE_RENFORT = 'Taux d’accord de Claude non encore mesuré sur le relevé des façades : vérifiez ses ouvertures sur la photo.';
+const RESERVE_ACCORD = 'Taux d’accord de Claude non encore mesuré sur le relevé des façades : vérifiez ses ouvertures sur la photo.';
 /** Les ouvertures que Claude voit sans que les contours de la photo les soutiennent : jamais cochees d'office. */
 export const RESERVE_POINTILLE = 'Vue par Claude, non confirmée sur la photo : vérifiez-la avant de la garder.';
-/** Quand la ligne du releve renforce existe aussi : dire que celle-ci la contient, pour que cocher les deux ne surprenne pas. */
-const AVEC_LE_RENFORT = ' Cochée, cette ligne comprend aussi les ouvertures de la ligne « avec l’aide de Claude ».';
+/** Quand la ligne du releve accorde existe aussi : dire que celle-ci la contient, pour que cocher les deux ne surprenne pas. */
+const AVEC_L_ACCORD = ' Cochée, cette ligne comprend aussi les ouvertures de la ligne « avec l’aide de Claude ».';
 
-/** Le bilan d'une facade sans les ouvertures en pointille : elles ont leur propre ligne. */
-const resumeSansPointille = (rf: RenfortFacadeCapture): string | null => texteBilan({ ...bilanVide(), ...rf.bilan, pointille: 0 });
+/** Les compteurs de l'accord d'une facade, tels que le moteur les rend (facade/regles/facades/ia.ts). */
+const bilanDe = (rf: AccordFacadeCapture): BilanAccord => ({ boites: 0, retrouvees: 0, devineesConfirmees: 0, seules: 0, ecartees: 0, detailsAjoutes: 0, ...rf.bilan });
+
+/** Le bilan d'une facade sans les boites seules (en pointille) : elles ont leur propre ligne ; null si le reste ne change rien. */
+function resumeSansPointille(rf: AccordFacadeCapture): string | null {
+  const b = bilanDe(rf);
+  return b.devineesConfirmees || b.detailsAjoutes ? texteAccord({ ...b, seules: 0 }) : null;
+}
 
 /** Le releve mesure, avec ces ouvertures a la place des siennes (la grille se recale dessus). */
 export function releveAvecOuvertures(mesure0: ReleveFacade, liste: readonly OuvertureFacade[]): ReleveFacade {
@@ -91,8 +97,8 @@ export function releveAvecOuvertures(mesure0: ReleveFacade, liste: readonly Ouve
   return { ...mesure0, ouvertures, ...(grille ? { grille } : {}) };
 }
 
-/** Les ouvertures que Claude ajoute en pointille (graines que les contours ne soutiennent pas assez). */
-export const ouverturesPointillees = (rf: RenfortFacadeCapture): OuvertureFacade[] => rf.decochees.filter((o) => o.source === 'claude');
+/** Les ouvertures que Claude voit seul, en pointille : ses boites que la detection ne retrouve pas. */
+export const ouverturesPointillees = (rf: AccordFacadeCapture): OuvertureFacade[] => rf.decochees.filter((o) => o.source === 'claude');
 
 /** Le nom d'un type d'ouverture, au singulier et au pluriel. */
 const TYPES_OUVERTURE: Record<TypeOuverture, [string, string]> = {
@@ -113,33 +119,32 @@ export function ouverturesEnClair(ouvertures: readonly Pick<OuvertureFacade, 'ty
 }
 
 /**
- * Le renfort de Claude sur les facades (MD/spec-facades-calage-detection.md §12 bis, lot L18) : pour
- * chaque facade ou il a change quelque chose, le releve mesure avec ses ouvertures renforcees (graines
- * recalees sur l'image, retraits, types, details), source `claude`. Il remplacerait le releve des
- * mesures : il arrive decoche, et coche, il l'emporte (meme facade, meme effet, ecrit apres).
+ * L'accord du run de chaque facade avec sa detection (MD/spec-facade-calage-audit.md §8, lot F3) : pour chaque facade ou il change
+ * quelque chose, le releve mesure avec ses ouvertures accordees (baies devinees confirmees, details ajoutes), source `claude`. Il
+ * remplacerait le releve des mesures : il arrive decoche, et coche, il l'emporte (meme facade, meme effet, ecrit apres).
  *
- * Les ouvertures que Claude voit mais que la photo ne confirme pas (en pointille) ont leur propre
- * ligne, apres : le releve renforce plus elles, decochee. Elle vient apres et contient tout le
- * releve renforce : cochee seule ou avec la precedente, elle ecrit la meme chose.
+ * Les boites que Claude voit seul (la detection ne les retrouve pas, en pointille) ont leur propre ligne, apres : le releve accorde
+ * plus elles, decochee. Elle vient apres et contient tout le releve accorde : cochee seule ou avec la precedente, elle ecrit la meme
+ * chose.
  */
-export function propositionsRenfort(e: EntreesPropositions, renfort: Record<string, RenfortFacadeCapture>): Proposition[] {
+export function propositionsAccords(e: EntreesPropositions, accords: Record<string, AccordFacadeCapture>): Proposition[] {
   const out: Proposition[] = [];
   for (const b of e.liste.batiments) for (const f of b.facades) {
     const id = cleMesure(b.cle, f.cote);
-    const rf = renfort[id], mesure = e.mesures.get(id), mesure0 = mesure?.releve;
+    const rf = accords[id], mesure = e.mesures.get(id), mesure0 = mesure?.releve;
     if (!rf?.resume || !mesure0) continue;
     const n0 = mesure0.ouvertures.length;
     const base = {
       cible: { type: 'facade' as const, cle: b.cle, cote: f.cote }, objet: 'Façade ' + nomFacade(f.facade.orientation, f.cote) + ' de ' + b.nom,
       avant: pluriel(n0, 'ouverture') + ' mesurée' + (n0 > 1 ? 's' : '') + ' sur la photo',
-      source: 'claude' as const, indices: [], confiance: rf.passes / 3, remplaceChoix: null,
+      source: 'claude' as const, indices: [], confiance: rf.confiance, remplaceChoix: null,
     };
     const releveAvec = (liste: readonly OuvertureFacade[]): ReleveFacade => releveAvecOuvertures(mesure0, liste);
     const resume = resumeSansPointille(rf);
     // Son nombre d'ouvertures est aussi un constat de l'arbitrage des facades (arbitrages.ts) ; cette ligne garde ce qu'il affine (types, details).
     if (resume) {
       const releve = releveAvec(rf.ouvertures);
-      out.push({ ...base, id: id + ':claude:releve', apres: pluriel(releve.ouvertures.length, 'ouverture') + ' avec l’aide de Claude (' + resume + ')', effet: { type: 'releve', releve }, reserve: RESERVE_RENFORT });
+      out.push({ ...base, id: id + ':claude:releve', apres: pluriel(releve.ouvertures.length, 'ouverture') + ' avec l’aide de Claude (' + resume + ')', effet: { type: 'releve', releve }, reserve: RESERVE_ACCORD });
     }
     const pointillees = ouverturesPointillees(rf);
     if (pointillees.length) {
@@ -148,7 +153,7 @@ export function propositionsRenfort(e: EntreesPropositions, renfort: Record<stri
       out.push({
         ...base, id: id + ':claude:pointille',
         apres: pluriel(releve.ouvertures.length, 'ouverture') + ', dont ' + typesEnClair(pointillees) + ' en pointillé, vue' + s + ' par Claude, non confirmée' + s + ' sur la photo',
-        effet: { type: 'releve', releve }, reserve: RESERVE_POINTILLE + (resume ? AVEC_LE_RENFORT : ''),
+        effet: { type: 'releve', releve }, reserve: RESERVE_POINTILLE + (resume ? AVEC_L_ACCORD : ''),
       });
     }
   }
@@ -161,8 +166,8 @@ export const RESERVE_DETAILS = 'Taux d’accord de Claude non encore mesuré sur
 /**
  * Les details des ouvertures que Claude voit sur une facade (volets et leur couleur, coffre, baies cintrees, vitrage, ouvrant,
  * porte d'entree, porte de garage) : une ligne par facade qui a un releve (celui de la mesure, sinon celui du projet). L'effet
- * `detailsOuvertures` les pose a l'ecriture sur le releve tel qu'il est alors (mesure ou renfort, celui qui est coche), sur les
- * ouvertures du type qu'ils concernent et qui ne les ont pas : le renfort, qui les donne ouverture par ouverture, l'emporte.
+ * `detailsOuvertures` les pose a l'ecriture sur le releve tel qu'il est alors (mesure ou accorde, celui qui est coche), sur les
+ * ouvertures du type qu'ils concernent et qui ne les ont pas : l'accord du run, qui les donne ouverture par ouverture, l'emporte.
  */
 export function propositionsDetails(e: EntreesPropositions, parBatiment: Record<string, ReponsesBatiment>): Proposition[] {
   const out: Proposition[] = [];

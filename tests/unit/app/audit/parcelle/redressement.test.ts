@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { mesurerFacade, verticaliteDeg, type DependancesMesures } from '../../../../../src/app/audit/parcelle/mesures.js';
-import { LIBELLE_REJOUER, avertissementPrise, texteFusion, textePhoto, texteRejeu } from '../../../../../src/app/audit/parcelle/redressement.js';
+import { mesurerFacade, type DependancesMesures, type MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
+import { verticaliteDesCoins } from '../../../../../src/facade/releve/chaine.js';
+import { lignesDiscretes } from '../../../../../src/app/audit/parcelle/discret.js';
+import type { IdEtape } from '../../../../../src/model/etapeFacade.js';
 import { creerCapture } from '../../../../../src/app/audit/parcelle/capture.js';
 import { rechercher } from '../../../../../src/facade/releve/serie.js';
 import { VERSION_CHAINE_FACADES } from '../../../../../src/facade/releve/chaine.js';
@@ -8,7 +10,8 @@ import { facadesDuContour, type Facade } from '../../../../../src/geometry/cotes
 import type { PhotoCas, PrisePhoto } from '../../../../../src/model/audit.js';
 import type { PtBrut } from '../../../../../src/model/types.js';
 
-// Le redressement de toutes les photos d'une facade et leur fusion (audit de la parcelle), sans navigateur.
+// Le redressement de toutes les photos d'une facade et leur fusion (audit de la parcelle), sans navigateur : par l'orchestrateur de
+// l'enchainement (lot F3), qui dit aussi l'etat et la phrase de chaque etape.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const PTS = rect(5, 10, 15, 18);
@@ -39,6 +42,8 @@ const prise: PrisePhoto = { t: '2026-10-13T09:00:00Z', x: 10, y: 2, lat: null, l
 const photo = (t: string): PhotoCas => ({ type: 'image/jpeg', base64: 'AAAA', prise: { ...prise, t } });
 /** Le releve sans son horodatage : seul l'instant du calcul change d'un rejeu a l'autre. */
 const sansHeure = (r: object | null) => (r ? { ...r, releveLe: undefined } : r);
+/** La phrase d'une etape de la mesure. */
+const resume = (m: MesureFacade, id: IdEtape) => m.etapes?.find((e) => e.id === id)?.resume ?? '';
 const dep = (): DependancesMesures => ({ pixels: async () => image(), chercherCoins: async (e) => rechercher(e), jpeg: () => 'data:image/jpeg;base64,T', limites: () => [] });
 
 describe('le redressement de toutes les photos', () => {
@@ -50,7 +55,8 @@ describe('le redressement de toutes les photos', () => {
     expect(m.redressement?.fusionnees).toEqual([]);
     expect(m.redressement?.motifFusion).toBeUndefined();
     expect(m.releve).not.toBeNull();
-    expect(texteFusion(m.redressement!)).toMatch(/Photo seule/);
+    expect(resume(m, 'assemblage')).toMatch(/Une photo seule/);
+    expect(m.etapes?.find((e) => e.id === 'assemblage')?.etat).toBe('saute');
   }, 60000);
 
   it('plusieurs photos : chacune a son statut et aucune n est perdue', async () => {
@@ -97,7 +103,8 @@ describe('le redressement de toutes les photos', () => {
       '0': { coins: [{ x: 40, y: 70 }, { x: 600, y: 70 }, { x: 600, y: 420 }, { x: 40, y: 420 }] },
     });
     expect(sansHeure(encore.releve)).toEqual(sansHeure(main.releve));
-    expect(textePhoto(main.redressement!.photos[0]!)).toMatch(/vos points/);
+    expect(resume(main, 'redressement')).toMatch(/Photo 1 : redressée avec vos points/);
+    expect(main.etapes?.find((e) => e.id === 'calage')).toMatchObject({ etat: 'ok', resume: expect.stringMatching(/^Mur posé à la main/) });
   }, 120000);
 
   it('l echelle corrigee a la main fixe la largeur du mur', async () => {
@@ -120,12 +127,12 @@ describe('la verticalite', () => {
     const L = 200, H = 200, data = new Uint8ClampedArray(L * H * 4).fill(255);
     // Trois traits verticaux noirs.
     for (const x0 of [40, 100, 160]) for (let j = 10; j < 190; j++) for (let i = x0; i < x0 + 3; i++) { const k = (j * L + i) * 4; data[k] = data[k + 1] = data[k + 2] = 0; }
-    const v = verticaliteDeg({ largeur: L, hauteur: H, donnees: data });
+    const v = verticaliteDesCoins({ largeur: L, hauteur: H, donnees: data }, [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: H }, { x: 0, y: H }], 2, 2);
     expect(v).not.toBeNull();
     expect(v as number).toBeLessThan(0.5);
   });
   it('ne conclut pas sur un mur sans ligne', () => {
-    expect(verticaliteDeg({ largeur: 80, hauteur: 80, donnees: new Uint8ClampedArray(80 * 80 * 4).fill(200) })).toBeNull();
+    expect(verticaliteDesCoins({ largeur: 80, hauteur: 80, donnees: new Uint8ClampedArray(80 * 80 * 4).fill(200) }, [{ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 80, y: 80 }, { x: 0, y: 80 }], 2, 2)).toBeNull();
   });
 });
 
@@ -146,30 +153,25 @@ describe('les corrections manuelles dans la capture', () => {
   });
 });
 
-describe('les phrases', () => {
-  it('disent le statut de la fusion et le rejeu', () => {
-    expect(LIBELLE_REJOUER).toBe('Rejouer redressement + fusion');
-    const photos = [0, 1, 2].map((rang) => ({ rang, statut: 'auto' as const, verticaliteDeg: 0.2, coins: 'trouve' as const }));
-    expect(texteFusion({ photos, fusion: 'fusionnee', fusionnees: [0, 1, 2] })).toMatch(/Fusionnée/);
-    expect(texteFusion({ photos, fusion: 'partielle', fusionnees: [0, 1], motifFusion: 'trop peu de points' })).toMatch(/partielle.*photo 3 indépendante/);
-    expect(texteFusion({ photos, fusion: 'independantes', fusionnees: [], motifFusion: 'x' })).toMatch(/indépendantes/);
-    expect(texteRejeu(0)).toMatch(/Aucune/);
-    expect(texteRejeu(2)).toMatch(/2 façades/);
-  });
-});
-
-describe('l avertissement a la prise de vue', () => {
-  const photos = [0, 1, 2].map((rang) => ({ rang, statut: 'auto' as const, verticaliteDeg: 0.2, coins: 'trouve' as const }));
-  it('dit de reprendre la facade avec des chevauchements quand la fusion est impossible', () => {
-    expect(avertissementPrise({ photos, fusion: 'independantes', fusionnees: [], motifFusion: 'trop peu de points communs' }))
-      .toBe('Fusion des photos impossible : reprenez la façade avec des chevauchements entre les photos.');
-    expect(avertissementPrise({ photos: photos.slice(0, 2), fusion: 'sans', fusionnees: [] })).toMatch(/^Fusion des photos impossible/);
-  });
-  it('nomme les photos qui ne se recalent pas quand la fusion est partielle', () => {
-    expect(avertissementPrise({ photos, fusion: 'partielle', fusionnees: [0, 1] })).toBe('Fusion des photos impossible pour la photo 3 : reprenez la façade avec des chevauchements entre les photos.');
-  });
-  it('se tait pour une fusion reussie ou une photo seule', () => {
-    expect(avertissementPrise({ photos, fusion: 'fusionnee', fusionnees: [0, 1, 2] })).toBeNull();
-    expect(avertissementPrise({ photos: photos.slice(0, 1), fusion: 'sans', fusionnees: [] })).toBeNull();
+describe('ce que l audit montre d une facade qui doute', () => {
+  const etapes = (assemblage: { etat: 'ok' | 'echec' | 'a-confirmer' | 'saute'; resume: string }) => [
+    { id: 'prises' as const, etat: 'ok' as const, resume: '3 photos du mur.' },
+    { id: 'redressement' as const, etat: 'ok' as const, resume: '3 photos redressées sur 3.' },
+    { id: 'assemblage' as const, ...assemblage },
+    { id: 'calage' as const, etat: 'ok' as const, resume: 'Coins du mur trouvés sur la photo.' },
+  ];
+  it('dit de reprendre la facade avec des chevauchements quand les photos ne s assemblent pas, avec le geste de repli', async () => {
+    // Trois photos dont la fusion est impossible : l'etape cachee de l'assemblage se montre, et dit quoi faire.
+    const m = await mesurerFacade('maison', sud(), { pts: PTS }, [photo('a'), photo('b')], { ...dep(), pixels: async () => image() });
+    if (m.redressement?.fusion !== 'fusionnee') expect(resume(m, 'assemblage')).toMatch(/Reprenez la façade avec des chevauchements/);
+    const l = lignesDiscretes(etapes({ etat: 'echec', resume: 'Photos indépendantes : aucune fusion. Reprenez la façade avec des chevauchements entre les photos : un tiers de mur en commun.' }));
+    expect(l.map((x) => x.id)).toEqual(['assemblage', 'calage']);
+    expect(l[0]).toMatchObject({ etat: 'echec', surLaPhoto: true, option: expect.stringMatching(/retirer une photo/) });
+    expect(l[0]?.texte).toMatch(/^Assemblage : Photos indépendantes/);
+  }, 120000);
+  it('ne montre pas une etape cachee qui a reussi ; le mur tient en une ligne', () => {
+    const l = lignesDiscretes(etapes({ etat: 'ok', resume: 'Fusionnée : 3 photos assemblées en une image.' }));
+    expect(l).toEqual([{ id: 'calage', etat: 'ok', texte: 'Mur posé : Coins du mur trouvés sur la photo.', option: null, surLaPhoto: false }]);
+    expect(lignesDiscretes(etapes({ etat: 'saute', resume: 'Une photo seule : rien à assembler.' })).map((x) => x.id)).toEqual(['calage']);
   });
 });

@@ -30,7 +30,7 @@ export const REGLES_LIDAR = {
   },
   claude: {
     silhouette: 'regles/toits/silhouettes.json',
-    ouvertures: 'ouvertures renforcees par Claude sur la photo',
+    ouvertures: 'ouvertures de Claude accordées avec la détection',
   },
 } as const;
 

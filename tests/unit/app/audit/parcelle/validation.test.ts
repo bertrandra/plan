@@ -377,14 +377,14 @@ describe('« Rejouer redressement + fusion »', () => {
     await t.v.lancer();
     expect(lectures).toBe(premieres);
     const photosAvant = JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)]);
-    expect(await t.v.rejouerRedressement('maison', f.cote)).toBe(1);
+    expect(await t.v.rejouerFacade('maison', f.cote)).toBe(1);
     expect(lectures).toBeGreaterThan(premieres);
     // Les originaux et la correction manuelle sont intacts.
     expect(JSON.stringify(t.capture.lire().batiments['maison']?.facades[String(f.cote)])).toBe(photosAvant);
     expect(t.capture.lire().batiments['maison']?.facades[String(f.cote)]?.corrections?.['1']).toEqual({ echelleLargeurM: 9 });
     // Une facade qui n'a pas de photo n'est pas rejouee ; tout l'audit rejoue les facades photographiees.
-    expect(await t.v.rejouerRedressement('maison', 99)).toBe(0);
-    expect(await t.v.rejouerRedressement()).toBe(1);
+    expect(await t.v.rejouerFacade('maison', 99)).toBe(0);
+    expect(await t.v.rejouerFacade()).toBe(1);
   });
 
   it('décocher une confirmation rend la valeur d’avant ; « Réinitialiser » rend toutes les confirmations, et rien d’autre', () => {

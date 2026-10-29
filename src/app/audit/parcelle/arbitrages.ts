@@ -437,7 +437,7 @@ export const cleChoix = (cible: string, attribut: string): string => cible + '|'
 export function arbitragesDuBatiment(e: EntreesPropositions, o: ObjetPlan, b: LigneBatiment, vote: VoteAnalyse | null, regles: ReglesReconciliation = RECONCILIATION, choix: ChoixArbitrages = {}): Arbitrage[] {
   const choixDe = (cible: string, attribut: string) => choix[cleChoix(cible, attribut)];
   // D'abord la silhouette de chaque mur (la photo gagne sur le LiDAR), puis le toit qu'elles disent, corps par corps.
-  const { constats, projet } = constatsReconcilies({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, renfort: e.renfort }, regles, choixDe);
+  const { constats, projet } = constatsReconcilies({ o, b, mesures: e.mesures, vu: e.capture.batiments[b.cle]?.vu ?? {}, vote, accords: e.accords }, regles, choixDe);
   const faits = arbitrerTout(constats, projet, regles, choixDe);
   // Meme sans source, ces attributs restent proposes a la personne : c'est ainsi qu'elle peut forcer une valeur que personne n'a lue.
   const cible = cibleBatiment(b.cle);

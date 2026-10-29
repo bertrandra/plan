@@ -37,7 +37,7 @@ import { mediane } from '../../util/stats.js';
 
 /**
  * D'ou vient un coin : trouve sur les aretes de la photo, predit par la prise de vue, propose par
- * Claude puis rattache a un croisement de segments (renfort, lot L18), ou pose au doigt.
+ * Claude puis rattache a un croisement de segments (detection/recalageIa.ts), ou pose au doigt.
  */
 export type SourceCoin = 'trouve' | 'predit' | 'claude' | 'doigt';
 

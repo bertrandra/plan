@@ -23,6 +23,7 @@ import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
 import type { PhotoCas, PrisePhoto } from '../../../model/audit.js';
 import type { EtatApp } from '../../../core/state.js';
 import type { PtBrut } from '../../../model/types.js';
+import type { IdEtape } from '../../../model/etapeFacade.js';
 
 export interface ContexteAuditParcelle {
   etat: EtatApp;
@@ -74,7 +75,7 @@ export interface ContexteAuditParcelle {
    * hors admin), l'identite de la parcelle pour le journal, et ce qui dessine les images (par defaut
    * le navigateur). Absente dans les tests de la capture : l'analyse est alors indisponible.
    */
-  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier' | 'renforcer' | 'essai'>>;
+  analyse?: Pick<ContexteAnalyse, 'client'> & { identite?: () => Omit<IdentiteAnalyse, 'audit'> } & Partial<Pick<ContexteAnalyse, 'images' | 'notifier' | 'preparerNotification' | 'memoire' | 'delaiSuiviMs' | 'planifier' | 'accorder' | 'essai'>>;
 }
 
 /** `propositions` : la phase 3, posee sur la Vue 3D comme l'ecran de prise (§14). */
@@ -165,10 +166,11 @@ export interface SessionAuditParcelle {
   /** La phrase de la derniere photo rangee : « Photo rangée sur la façade sud de Maison (2 photos). » */
   dernierRangement(): string | null;
   /**
-   * A la prise de vue, quand la facade a au moins deux photos et que leur fusion est impossible : « Fusion des photos
-   * impossible : reprenez la façade avec des chevauchements entre les photos. » Null sinon, ou tant que le calcul tourne.
+   * L'etape ouverte dans la barre de progression d'une facade (`cle#cote`), par la commande `facade.etape` : son resultat et son
+   * option manuelle s'ecrivent sous la barre. Null : aucune.
    */
-  avertissementPrise(): string | null;
+  etapeOuverte(): { facade: string; etape: IdEtape } | null;
+  ouvrirEtape(facade: string, etape: IdEtape | null): void;
   lancerAnalyse(): void;
   /** Les capteurs s'arretent (l'ecran est ferme) ; `reprendre` les relance. */
   suspendre(): void;

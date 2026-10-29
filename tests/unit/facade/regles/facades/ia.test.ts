@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
-import { accorderOuvertures, avisDesPointes, decisionColombage, reglagesIa, coinsDeLIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { accorderOuvertures, avisDesPointes, decisionColombage, escaladerObservations, passesDeProduction, reglagesIa, coinsDeLIa, ecartDesPoses, ouvertureDeLIa, poseDeLIa, observationsDuRun, texteAccord, voterObservations } from '../../../../../src/facade/regles/facades/ia.js';
+import { lireReglagesIa } from '../../../../../src/regles/facades/ia.js';
+import fichierIa from '../../../../../regles/facades/ia.json';
 import type { OuvertureFacade } from '../../../../../src/model/types.js';
 import { SORTIE_FACADE } from '../../../../fixtures/deploy/fauxAnthropic.js';
 
 // Les regles du run d'une facade (lot F2, MD/spec-facade-calage-audit.md §5, §8) : une observation de Claude entre, une decision du
-// moteur sort. Le vote de trois passes (l'option x3 du rejeu), la pose candidate de ses angles, l'accord de ses boites avec la
+// moteur sort. Le vote de trois passes (la production, decision du 29 octobre 2026), l'escalade a la demande, la pose candidate de ses angles, l'accord de ses boites avec la
 // detection, le colombage qui ecarte une pose, les pointes contre le gabarit.
 // Toutes les reponses ici sont SYNTHETIQUES.
 
 const R = lireObservationsFacade(SORTIE_FACADE) as ObservationsFacade;
-const run = (sorties: unknown[], passes: 1 | 3 = 1): RunEnregistre => ({ le: '2026-10-29T08:30:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes, sorties, cout: 0.0012, tokens: { entree: 4200, sortie: 900 }, image: { largeur: 1000, hauteur: 600 }, chaine: 10, synthetique: true });
+const run = (sorties: unknown[], passes: 1 | 2 | 3 = 1): RunEnregistre => ({ le: '2026-10-29T08:30:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes, sorties, cout: 0.0012, tokens: { entree: 4200, sortie: 900 }, image: { largeur: 1000, hauteur: 600 }, chaine: 10, synthetique: true });
 
 describe('le vote de trois passes', () => {
   it('garde la mediane de ce que plus de la moitie des passes voient', () => {
@@ -25,6 +27,75 @@ describe('le vote de trois passes', () => {
     expect(observationsDuRun(run([SORTIE_FACADE, p2, p3], 3))?.ouvertures).toHaveLength(2);
     // Une passe seule est rendue telle quelle.
     expect(voterObservations([R])).toBe(R);
+  });
+});
+
+describe('trois lectures par facade, un reglage', () => {
+  it('lit la facade trois fois en production : le reglage, pas une constante', () => {
+    expect(passesDeProduction()).toBe(3);
+    expect(passesDeProduction(reglagesIa({ 'facades.ia.passes': 1 }))).toBe(1);
+    const f = JSON.parse(JSON.stringify(fichierIa)) as { seuils: Record<string, { valeur: unknown }> };
+    f.seuils['facades.ia.passes']!.valeur = 2.5;
+    expect(() => lireReglagesIa(f)).toThrow(/facades\.ia\.passes/);
+    f.seuils['facades.ia.passes']!.valeur = 4;
+    expect(() => lireReglagesIa(f)).toThrow(/de 1 à 3/);
+  });
+
+  it('trois passes entrent, le vote sort : un angle a la mediane, une baie vue par une seule passe ecartee', () => {
+    const p2 = { ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage, angles: { ...SORTIE_FACADE.calage.angles, droite: { x: 0.88, egout: 0.52, sol: 0.88, confiance: 'forte' } } } };
+    const p3 = { ...SORTIE_FACADE, ouvertures: [...SORTIE_FACADE.ouvertures, { ...SORTIE_FACADE.ouvertures[0], u0: 0.6, u1: 0.7 }] };
+    const v = observationsDuRun(run([SORTIE_FACADE, p2, p3], 3)) as ObservationsFacade;
+    expect(v.calage.angles.droite?.x).toBe(0.86);
+    expect(v.ouvertures).toHaveLength(SORTIE_FACADE.ouvertures.length);
+    expect(v.escalade).toBeUndefined();
+  });
+});
+
+describe('l escalade : une lecture de plus, a la demande, contre le vote', () => {
+  const esc = (o: object) => lireObservationsFacade({ ...SORTIE_FACADE, ...o }) as ObservationsFacade;
+
+  it('d accord avec le vote, elle ne change rien et le dit', () => {
+    const d = escaladerObservations(R, R, 'claude-sonnet-5-5');
+    expect({ ...d, escalade: undefined }).toEqual({ ...R, escalade: undefined });
+    expect(d.escalade).toEqual({ modele: 'claude-sonnet-5-5', tranche: [] });
+  });
+
+  it('l emporte sur le calage et le parement quand elle s en ecarte de plus que le reglage ; un indetermine ne contredit rien', () => {
+    const e = esc({
+      calage: { ...SORTIE_FACADE.calage, angles: { gauche: { x: 0.2, egout: 0.52, sol: 0.88, confiance: 'forte' }, droite: { ...SORTIE_FACADE.calage.angles.droite, x: SORTIE_FACADE.calage.angles.droite.x + 0.01 } } },
+      forme: { silhouette: 'indetermine', bout: 'indetermine' },
+      surface: { ...SORTIE_FACADE.surface, principale: 'pierre' },
+    });
+    const d = escaladerObservations(R, e, 'claude-sonnet-5-5');
+    // Six points de largeur d'image : l'escalade l'emporte ; un point : le vote reste.
+    expect(d.calage.angles.gauche?.x).toBe(0.2);
+    expect(d.calage.angles.droite?.x).toBe(R.calage.angles.droite?.x);
+    expect(d.forme).toEqual(R.forme);
+    expect(d.surface.principale).toBe('pierre');
+    expect(d.escalade?.tranche).toEqual(['l’angle gauche', 'le parement']);
+    // Le reglage de l'ecart decide : a 10 %, l'angle gauche du vote reste.
+    expect(escaladerObservations(R, e, 'm', reglagesIa({ 'facades.ia.escaladeEcartPart': 0.1 })).calage.angles.gauche?.x).toBe(R.calage.angles.gauche?.x);
+  });
+
+  it('ajoute ses ouvertures que le vote n a pas, marquees, sans les cocher : la detection en decide', () => {
+    const enPlus = { ...SORTIE_FACADE.ouvertures[0], u0: 0.7, u1: 0.8, v0: 0.4, v1: 0.85, details: {} };
+    const d = escaladerObservations(R, esc({ ouvertures: [...SORTIE_FACADE.ouvertures, enPlus] }), 'claude-sonnet-5-5');
+    expect(d.ouvertures).toHaveLength(R.ouvertures.length + 1);
+    expect(d.ouvertures.filter((o) => o.source === 'escalade').map((o) => [o.u0, o.u1])).toEqual([[0.7, 0.8]]);
+    expect(d.escalade?.tranche).toEqual(['1 ouverture de plus']);
+    // Devant la detection, elle reste seule et decochee comme toute boite de Claude que rien ne retrouve.
+    const a = accorderOuvertures({ ouvertures: [], decochees: [], observations: d, cartes: null, largeurM: 10, hauteurM: 2.5 });
+    expect(a.boites.find((b) => b.ia.source === 'escalade')).toMatchObject({ cochee: false, avec: null });
+  });
+
+  it('sans vote lisible, elle est toute la lecture ; le run enregistre la porte au rejeu', () => {
+    const d = escaladerObservations(null, R, 'claude-sonnet-5-5');
+    expect(d.escalade?.tranche).toEqual(['toute la lecture (aucune passe lisible)']);
+    expect(d.ouvertures.every((o) => o.source === 'escalade')).toBe(true);
+    const e = { le: '2026-10-29T09:00:00.000Z', modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, sortie: { ...SORTIE_FACADE, surface: { ...SORTIE_FACADE.surface, principale: 'brique' } }, cout: 0.003, tokens: { entree: 1, sortie: 1 } };
+    const lu = observationsDuRun({ ...run([SORTIE_FACADE, SORTIE_FACADE, SORTIE_FACADE], 3), escalade: e }) as ObservationsFacade;
+    expect(lu.surface.principale).toBe('brique');
+    expect(lu.escalade).toEqual({ modele: 'claude-sonnet-5-5', tranche: ['le parement'] });
   });
 });
 

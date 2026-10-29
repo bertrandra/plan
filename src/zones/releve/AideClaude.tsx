@@ -5,7 +5,7 @@
 // pour ce projet (decision D2), demande au premier appel.
 
 import { useState } from 'react';
-import { texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
+import { texteSignaux, type SituationFacade } from '../../facade/detection/signaux.js';
 import type { AideClaudeReleve } from '../../app/releve/runFacade.js';
 
 type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { phase: 'fait'; message: string; erreur: boolean };
@@ -16,7 +16,7 @@ type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { ph
  * `motif` remplace les signaux en clair quand l'appelant sait mieux les dire (la part du mur cachee
  * sur toutes les photos d'une fusion, lot G20).
  */
-export function AideClaude({ aide, signaux, etape, demander, motif }: { aide: AideClaudeReleve | null; signaux: readonly SituationRenfort[]; etape: 'coins' | 'ouvertures'; demander: () => Promise<{ message: string; erreur: boolean }>; motif?: string }) {
+export function AideClaude({ aide, signaux, etape, demander, motif }: { aide: AideClaudeReleve | null; signaux: readonly SituationFacade[]; etape: 'coins' | 'ouvertures'; demander: () => Promise<{ message: string; erreur: boolean }>; motif?: string }) {
   const [etat, setEtat] = useState<Etat>({ phase: 'repos' });
   if (!aide || !aide.disponible() || (!signaux.length && etat.phase !== 'fait')) return null;
   const lancer = async () => {

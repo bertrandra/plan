@@ -1,4 +1,5 @@
-// Le releve de facade (zones/Releve.tsx) : analyser une serie et ecrire le releve d'un mur. Sans React : testable seul.
+// Le releve de facade (zones/Releve.tsx) et l'audit (par l'orchestrateur, facade/releve/enchainement.ts) : analyser une serie et
+// ecrire le releve d'un mur. Sans React : testable seul.
 
 import { au } from '../../util/tableaux.js';
 import { type Facade } from '../../geometry/cotesVusDeDehors.js';
@@ -7,8 +8,10 @@ import { type ResultatFusion } from '../fusion.js';
 import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
 import type { MesureDistance } from './prise.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../calage/calage.js';
-import { avecGrille } from '../detection/verification.js';
+import { avecGrille, versOuvertureFacade } from '../detection/verification.js';
 import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture } from '../../model/types.js';
+import type { SilhouetteFacade } from '../../model/silhouetteFacade.js';
+import { silhouetteDeEstimation } from '../regles/toits/silhouettes.js';
 import { chiffreFr as fr } from '../../util/format.js';
 import { type Assemblage, type Morceau, type Resultat, capCorrige, focaleDePrise } from './serie.js';
 import { surchargesCalibrees } from '../regles/facades/surcharges.js';
@@ -154,5 +157,43 @@ export function releveDuMur(facade: Facade, r: Resultat, retenues: OuvertureFaca
     calibration: { ...surchargesCalibrees() },
     ...(grille ? { grille } : {}),
     ...(corrections.length ? { corrections } : {}),
+  };
+}
+
+/** Ce que l'analyse d'une serie donne pour le mur de l'audit : son releve, et ce qui dit d'ou viennent ses coins et sa hauteur. */
+export interface ReleveDeLaSerie {
+  releve: ReleveFacade;
+  /** Les quatre coins ont-ils ete trouves sur la photo (et non seulement predits) ? */
+  coinsTrouves: boolean;
+  /** Les baies devinees par la structure, laissees en pointille : Claude peut les confirmer. */
+  devinees: OuvertureFacade[];
+  /** La ligne du haut du mur lue sur la photo (jamais le gabarit) ; `indetermine` quand le toit est hors cadre. */
+  silhouette: SilhouetteFacade;
+  /** La note du calage fin, de 0 a 1 ; null sans calage fin. */
+  confiance: number | null;
+  /** La hauteur a l'egout mesuree, quand les coins ont ete trouves ; des coins predits d'apres la hauteur connue la rendraient. */
+  hauteurM: number | null;
+}
+
+/**
+ * Le releve du mur d'apres l'analyse d'une serie (une photo, ou la fusion de ses vues), tel que l'audit l'ecrit : son calage, sa
+ * texture en JPEG (`jpeg`, le canevas du navigateur), ses ouvertures et leur grille. Une fonction d'etape : seul l'orchestrateur
+ * l'appelle (MD/spec-facade-calage-audit.md §8 bis.2, lot F3).
+ */
+export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>, morceaux: readonly Morceau[], f: Facade, jpeg: (img: ResultatAnalyse['texture']) => string, assemblage: Assemblage): ReleveDeLaSerie {
+  const calage = calageDeSerie(morceaux, f.largeur, a.r.hauteur, f.azimut, assemblage);
+  const resultat: Resultat = {
+    texture: jpeg(a.r.texture), hauteurTexture: a.r.hauteurTexture, hauteurMesuree: a.r.hauteurMesuree, couverture: a.r.couverture,
+    toitPropose: a.r.toitPropose, avis: a.avis, partieBasse: a.r.partieBasse, calage,
+  };
+  const ouvertures = a.r.ouvertures.map(versOuvertureFacade);
+  const coinsTrouves = morceaux.some((m) => !!m.sources?.includes('trouve'));
+  return {
+    releve: releveDuMur(f, resultat, ouvertures, Math.round(a.r.hauteur * 100) / 100, au(morceaux, 0).prise.mesure),
+    coinsTrouves,
+    devinees: a.r.devinees.map(versOuvertureFacade),
+    silhouette: silhouetteDeEstimation(a.r.toitLu),
+    confiance: calage.confiance ?? null,
+    hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };
 }

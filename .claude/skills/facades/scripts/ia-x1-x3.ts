@@ -30,7 +30,7 @@ if (!mode || !['--preparer', '--simuler', '--evaluer'].includes(mode) || !dossie
   process.exit(2);
 }
 
-/** L'image reduite sous `max` px de cote, par moyenne des pixels : ce que la page enverrait (render/imagesRenfort.ts, 1 024 px). */
+/** L'image reduite sous `max` px de cote, par moyenne des pixels : ce que la page enverrait (render/imageFacade.ts, 1 024 px). */
 function reduire(img: Image, max = 1024): Image {
   const k = Math.max(1, Math.max(img.largeur, img.hauteur) / max);
   if (k === 1) return img;
@@ -67,7 +67,7 @@ if (mode === '--preparer') {
     const c = casIaDeScene(s);
     if (!c) continue;
     // La verite se ramene a l'image reduite : le mur en pixels change d'echelle, le reste est en parts du mur.
-    // Ce que l'assemblage ne montre pas part en gris, comme la page l'envoie (render/imagesRenfort.ts::dessinerImageFacade).
+    // Ce que l'assemblage ne montre pas part en gris, comme la page l'envoie (render/imageFacade.ts::dessinerImageFacade).
     const gris = new Uint8ClampedArray(c.image.donnees);
     if (c.vu) c.vu.forEach((v, i) => { if (!v) gris.set([128, 128, 128, 255], i * 4); });
     const img = reduire({ ...c.image, donnees: gris }), k = img.largeur / c.image.largeur;

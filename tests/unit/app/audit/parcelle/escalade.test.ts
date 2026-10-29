@@ -11,7 +11,7 @@ const forme = (v: string) => reponse({ forme: { indices: [], valeur: v } });
 const D = [forme('deux-pans'), forme('croupes'), forme('deux-pans')];
 const U = [forme('deux-pans'), forme('deux-pans'), forme('deux-pans')];
 
-/** Une demande de n batiments, trois passes chacun, plus une requete de renfort (qui ne doit jamais repartir). */
+/** Une demande de n batiments, trois passes chacun, plus le run d'une facade (qui ne doit jamais repartir). */
 function demande(n: number): { demande: DemandeAnalyse; requetes: BatchAnalyse['requetes'] } {
   const requetes: BatchAnalyse['requetes'] = {};
   const liste: DemandeAnalyse['requetes'] = [];
@@ -19,8 +19,8 @@ function demande(n: number): { demande: DemandeAnalyse; requetes: BatchAnalyse['
     requetes['b' + b + '-p' + p] = { cle: 'cle' + b, passe: p };
     liste.push({ id: 'b' + b + '-p' + p, passe: p as 1 | 2 | 3, facades: 2, contenu: [{ type: 'text', text: 'batiment ' + b }] });
   }
-  requetes['b0#0-r1'] = { cle: 'cle0', passe: 1, cote: 0, usage: 'renfort' };
-  liste.push({ id: 'b0#0-r1', passe: 1, usage: 'renfort', facades: 1, contenu: [{ type: 'text', text: 'renfort' }] });
+  requetes['b0-f0-p1'] = { cle: 'cle0', passe: 1, cote: 0, usage: 'facade' };
+  liste.push({ id: 'b0-f0-p1', passe: 1, usage: 'facade', facades: 0, contenu: [{ type: 'text', text: 'facade' }] });
   return { demande: { projet: 'p', idu: 'i', adresse: null, audit: 'a', depot: 'depot-1', usage: 'analyse', requetes: liste }, requetes };
 }
 const ok = (id: string, sortie: unknown = reponse()): ResultatBatch => ({ id, statut: 'reussi', passe: 1, sortie, erreur: null });
@@ -38,7 +38,7 @@ describe('les batiments en desaccord', () => {
 });
 
 describe('les requetes de l escalade', () => {
-  it('reprennent la premiere passe des batiments en desaccord, sans les facades a recompter, jamais le renfort', () => {
+  it('reprennent la premiere passe des batiments en desaccord, sans les facades a recompter, jamais le run d une facade', () => {
     const { demande: d, requetes } = demande(3);
     const r = requetesEscalade(d, requetes, ['cle0', 'cle2']);
     expect(r.map((x) => [x.cle, x.requete.id, x.requete.facades, x.requete.usage])).toEqual([['cle0', 'b0-p1', 0, 'analyse'], ['cle2', 'b2-p1', 0, 'analyse']]);

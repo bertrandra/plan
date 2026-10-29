@@ -20,8 +20,8 @@ export interface RequeteAnalyse {
   id: string;
   passe: 1 | 2 | 3;
   /**
-   * L'usage de cette requete, quand il n'est pas celui de la demande : le renfort d'une facade
-   * (MD/spec-facades-calage-detection.md §12 bis, lot L18) part dans le batch de l'analyse avec son
+   * L'usage de cette requete, quand il n'est pas celui de la demande : le run d'une facade
+   * (MD/spec-facade-calage-audit.md §8, lot F3) part dans le batch de l'analyse avec son
    * propre prompt et son propre schema, choisis par le serveur.
    */
   usage?: UsageAnalyse;
@@ -45,7 +45,7 @@ export interface DemandeAnalyse {
   /**
    * L'essai du brouillon des regles (Admin › Regles, « Enregistrer sur le serveur ») : l'analyse part avec
    * le prompt et le schema du brouillon au lieu de ceux du depot. Administrateur seul ; le serveur refuse
-   * s'il n'a pas de brouillon. Jamais pour le renfort des facades.
+   * s'il n'a pas de brouillon. Jamais pour le run des facades, qui garde son prompt.
    */
   essai?: 'brouillon';
   usage: UsageAnalyse;
@@ -54,10 +54,11 @@ export interface DemandeAnalyse {
 
 /**
  * Les usages demandes : l'analyse d'une maison (batch), l'escalade des passes en desaccord vers un modele plus
- * fin (appel immediat, D20), le renfort d'une facade (batch ou appel immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
- * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (appel immediat, lot F2 : la calibration et le releve).
+ * fin (appel immediat, D20), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
+ * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (lots F2 et F3 : appel immediat pour la
+ * calibration et le releve, une requete par facade dans le batch de l'audit).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'renfort' | 'candidats' | 'rejeu' | 'facade';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
@@ -69,6 +70,8 @@ export interface EtatServeurAnalyse {
   admin: boolean;
   /** Le brouillon des regles enregistre au serveur (administrateur seul) ; null : aucun. */
   brouillon?: BrouillonServeur | null;
+  /** L'escalade d'une facade : le modele de l'usage `escalade` et ses prix du jour ($ par million de tokens ; null : sans tarif). */
+  escaladeFacade?: { modele: string; prix: { entree: number; sortie: number } | null };
 }
 
 /** Ce que l'etat dit du brouillon des regles du serveur : ses versions et sa date. */
@@ -93,6 +96,10 @@ export interface ResultatBatch {
   /** L'appel immediat dit aussi ce que la requete a coute : ses tokens, et son cout en dollars (null : tarif manquant). */
   tokens?: { entree: number; ecritureCache: number; lectureCache: number; sortie: number };
   cout?: number | null;
+  /** Une requete d'un autre usage que le batch (le run d'une facade) : son modele et les versions de son prompt et de son schema. */
+  modele?: string;
+  prompt?: number;
+  schema?: number;
   /** L'appel immediat : la sortie structuree (`output_config.format`) a-t-elle servi ? Faux apres un repli sans elle. */
   structuree?: boolean;
 }
@@ -157,6 +164,14 @@ async function refus(r: Response, quoi: string): Promise<EchecAnalyse> {
  * Le client, sur ce `fetch` et ce jeton. `jeton` est relu a chaque appel ; `null` quand la personne
  * est l'administrateur (le cookie de sa session suffit) ou hors plateforme.
  */
+/** Le modele de l'escalade et ses prix, tels que l'etat les dit ; un prix illisible se lit « sans tarif », jamais invente. */
+function lireEscaladeFacade(v: unknown): EtatServeurAnalyse['escaladeFacade'] {
+  const o = v as { modele?: unknown; prix?: { entree?: unknown; sortie?: unknown } | null } | null | undefined;
+  if (!o || typeof o.modele !== 'string') return undefined;
+  const p = o.prix, fini = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0;
+  return { modele: o.modele, prix: p && fini(p.entree) && fini(p.sortie) ? { entree: p.entree, sortie: p.sortie } : null };
+}
+
 export function creerClientAnalyse(f: Fetch, jeton: () => string | null): ClientAnalyse {
   async function appeler<T>(chemin: string, quoi: string, init: RequestInit = {}): Promise<T> {
     const j = jeton();
@@ -173,11 +188,13 @@ export function creerClientAnalyse(f: Fetch, jeton: () => string | null): Client
   return {
     async etat() {
       const d = await appeler<Partial<EtatServeurAnalyse>>('/etat', 'état de l’analyse');
-      return {
+      const etat: EtatServeurAnalyse = {
         actif: d.actif === true, prompt: Number(d.prompt ?? 0), schema: Number(d.schema ?? 0), organisation: typeof d.organisation === 'string' ? d.organisation : null, admin: d.admin === true,
         modeles: Array.isArray(d.modeles) ? d.modeles.filter((m): m is string => typeof m === 'string') : [],
         brouillon: lireBrouillonServeur(d.brouillon),
       };
+      const escalade = lireEscaladeFacade(d.escaladeFacade);
+      return escalade ? { ...etat, escaladeFacade: escalade } : etat;
     },
     creerBatch: (d) => appeler('/batches', 'envoi de l’analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),
     etatBatch: (id) => appeler('/batches/' + encodeURIComponent(id), 'suivi de l’analyse'),

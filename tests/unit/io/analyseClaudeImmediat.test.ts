@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { creerClientAnalyse, EchecAnalyse, type DemandeAnalyse } from '../../../src/io/analyseClaude.js';
 
-// L'appel immediat du renfort (lot L18) : `POST admin/claude/messages`, le jeton et l'en-tete
+// L'appel immediat (le run d'une facade, lot F2) : `POST admin/claude/messages`, le jeton et l'en-tete
 // d'ecriture comme l'envoi d'un batch, les resultats dans la reponse.
 
 const reponse = (status: number, corps: unknown) => new Response(JSON.stringify(corps), { status, headers: { 'Content-Type': 'application/json' } });
-const DEMANDE: DemandeAnalyse = { projet: 'p1', idu: 'AE0101', adresse: null, audit: 'releve-1', usage: 'renfort', requetes: [{ id: 'f0-p1', passe: 1, facades: 1, contenu: [{ type: 'text', text: 'x' }] }] };
+const DEMANDE: DemandeAnalyse = { projet: 'p1', idu: 'AE0101', adresse: null, audit: 'releve-1', usage: 'facade', requetes: [{ id: 'f0-p1', passe: 1, facades: 1, contenu: [{ type: 'text', text: 'x' }] }] };
 
-describe('l appel immediat du renfort', () => {
+describe('l appel immediat', () => {
   it('poste la demande et rend les resultats', async () => {
-    const resultats = [{ id: 'f0-p1', statut: 'reussi', passe: 1, usage: 'renfort', sortie: { confiance: 'forte' }, erreur: null }];
+    const resultats = [{ id: 'f0-p1', statut: 'reussi', passe: 1, usage: 'facade', sortie: { confiance: 'forte' }, erreur: null }];
     const f = vi.fn(async (entree: string) => (entree === 'admin/claude/messages' ? reponse(200, { modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats }) : reponse(404, {})));
     const lu = await creerClientAnalyse(f, () => 'jeton-1').immediat(DEMANDE);
     expect(lu.resultats).toEqual(resultats);

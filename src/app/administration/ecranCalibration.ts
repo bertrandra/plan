@@ -23,22 +23,29 @@ import { hoteDeZone } from '../../shell/dom.js';
 import { creerRegistre, type RegistreCommandes } from '../commandes.js';
 import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
-import { appelerRunFacade } from '../releve/runFacade.js';
-import { dessinerImageFacade } from '../../render/imagesRenfort.js';
+import { appelerEscaladeFacade, appelerRunFacade, type ContexteRun } from '../releve/runFacade.js';
+import { dessinerImageFacade } from '../../render/imageFacade.js';
 
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
  * progression et a la frise des etapes (MD/spec-facade-calage-audit.md §4 ter.5). L'etape vient de `data-etape` du bouton ; l'editeur
  * ouvert s'abonne a son ouverture.
  */
-function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void } {
+function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void; ecouterEscalade: (f: () => void) => () => void } {
   const commandes = creerRegistre();
   let ouvrir: ((id: IdEtape) => void) | null = null;
+  let escalader: (() => void) | null = null;
   commandes.declarer({
     id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade',
     executer: (source) => { const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape); if (etape) ouvrir?.(etape.id); },
   });
-  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { if (ouvrir === f) ouvrir = null; }; } };
+  // L'escalade de la reponse rejouee (decision du 29 octobre 2026) : a la demande seulement, une requete par geste.
+  commandes.declarer({ id: 'facade.escalader', libelle: 'Escalader la lecture de la façade', groupe: 'facade', executer: () => { escalader?.(); } });
+  return {
+    commandes,
+    ecouterEtape: (f) => { ouvrir = f; return () => { if (ouvrir === f) ouvrir = null; }; },
+    ecouterEscalade: (f) => { escalader = f; return () => { if (escalader === f) escalader = null; }; },
+  };
 }
 
 /** L'adresse demande-t-elle l'ecran de calibration ? */
@@ -89,6 +96,7 @@ export function ouvrirEcranCalibration(): void {
   const audits = creerClientAudits(f, () => null);
   const demos = creerDepotDemos(f);
   const claude = creerClientAnalyse(f, () => null);
+  const contexteRun: ContexteRun = { client: () => claude, identite: () => ({ projet: 'calibration', idu: null, adresse: null }), encoder: dessinerImageFacade, maintenant: () => new Date() };
   const deps: DepsCalibration = {
     lireCalibration: async () => lireDocumentCalibration(await lireCalibration(f)),
     enregistrerCalibration: async (d) => {
@@ -108,7 +116,9 @@ export function ouvrirEcranCalibration(): void {
     elevationEnUrl: (img) => versJpeg(img, 0.9),
     ...registreDeLEcran(),
     // « Rappeler Claude » : le run d'une facade par le serveur de l'analyse, sous la session de l'administrateur (son cookie).
-    appelerClaude: (d) => appelerRunFacade({ client: () => claude, identite: () => ({ projet: 'calibration', idu: null, adresse: null }), encoder: dessinerImageFacade, maintenant: () => new Date() }, d, 'calibration'),
+    appelerClaude: (d) => appelerRunFacade(contexteRun, d, 'calibration'),
+    escaladerClaude: (d, run) => appelerEscaladeFacade(contexteRun, d, run, 'calibration'),
+    prixEscalade: async () => (await claude.etat()).escaladeFacade ?? null,
     maintenant: () => new Date(),
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')
