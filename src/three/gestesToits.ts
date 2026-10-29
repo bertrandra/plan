@@ -182,6 +182,12 @@ function contourRectangulaire(o: ObjetPlan): boolean {
   return aire(pts) >= 0.9 * aire(rect);
 }
 
+/** Le corps unique d'un batiment rectangulaire sous un toit simple (celui que le premier geste poserait), sans rien ecrire ; aucun pour un contour en L ou en U. */
+export function corpsDuToitSimple(o: ObjetPlan): CorpsToit[] {
+  const c = contourRectangulaire(o) ? corpsDepuisToitSimple(o) : null;
+  return c ? [c] : [];
+}
+
 /** Le corps sur lequel poser, cree depuis le toit simple s'il n'y en a pas encore. Null : pas de contour, ou un contour que le rectangle decrit mal. */
 function corpsPourPoser(o: ObjetPlan): CorpsToit | null {
   const deja = corpsPrincipal(o);

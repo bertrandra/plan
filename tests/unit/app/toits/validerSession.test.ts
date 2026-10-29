@@ -13,7 +13,7 @@ const maison = (fige: boolean): ObjetPlan => ({
   key: 'm', name: 'Maison', type: 'polygon', fonction: 'batiment', bdtopo: { id: 'B1' }, pts: corps.pts, elevation: 6,
   batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [corps], toitLidarLu: 7, ...(fige ? { toitFige: true } : {}) },
 }) as unknown as ObjetPlan;
-const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false });
+const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false, silhouette: true });
 
 describe('valider une session du mode Toit', () => {
   it('« Règles allumées » puis Valider : le toit reste rendu a la lecture, et la lecture repart tout de suite', () => {

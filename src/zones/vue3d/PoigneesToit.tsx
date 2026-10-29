@@ -55,13 +55,13 @@ function TraitCorps({ pts }: { pts: readonly Ecran[] }) {
 /** Au-dessous de cette longueur d'axe a l'ecran (px par metre), l'axe est vu de face : il ne se glisse pas. */
 const AXE_MIN_PX = 6;
 
-interface Ecran { x: number; y: number }
+export interface Ecran { x: number; y: number }
 
 /**
  * Projette un point de la scene (plan + hauteur) dans le calque, en pixels ; null derriere la camera ou sans scene. `base` : l'altitude d'ou se
  * comptent les hauteurs du batiment (le relief, `altitudeDuBatiment`). La camera est celle qui fait l'image : l'oblique devant une facade.
  */
-function projeter(p: Point3, base: number): Ecran | null {
+export function projeter(p: Point3, base: number): Ecran | null {
   const sc = vue3d.scene, hote = hotes3d.vue3d;
   if (!sc || !hote) return null;
   const v = new THREE.Vector3(p.x - sc.cen.x, base + p.z, sc.cen.y - p.y).project(cameraDeVue(sc));

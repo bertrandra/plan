@@ -21,7 +21,7 @@ const maison = (): ObjetPlan => ({
   key: 'm', name: 'Maison', type: 'polygon', fonction: 'batiment', bdtopo: { id: 'B1', hauteur: 3.5 }, pts: rect, elevation: 8,
   batiment: { toit: { forme: 'deux-pans', hauteur: 3, angleFaitage: 0, source: 'lidar' }, corpsToit: [structuredClone(lu)], toitLidarLu: 7 },
 }) as unknown as ObjetPlan;
-const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'facade', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false });
+const session = (o: ObjetPlan): SessionToit => ({ cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'facade', corpsIsole: null, selection: null, indice: false, vueAvant: null, isole: false, validee: false, silhouette: true });
 
 /** Un lecteur LiDAR qui mesure toujours le meme deux-pans de 3 m sur un egout de 8 m : la lecture fausse que la personne corrige. */
 function lecteurA8m() {

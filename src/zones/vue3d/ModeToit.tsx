@@ -14,6 +14,7 @@ import { vueDeElementToit, vueDeSaillie } from '../../three/vueSaillie.js';
 import { VignetteToit, VignetteVue } from '../EcranChaine.js';
 import { NavigateurFacades } from './NavigateurFacades.js';
 import { PoigneesToit } from './PoigneesToit.js';
+import { SilhouetteFacadeToit } from './SilhouetteFacadeToit.js';
 import { PlanToit } from './PlanToit.js';
 import { Icone, type NomIcone } from '../icones.js';
 import { ImageChoix } from './iconesToit.js';
@@ -153,6 +154,7 @@ export function ModeToit({ magasin, commandes }: Props) {
     <NavigateurFacades magasin={magasin} commandes={commandes} />
     <PlanToit magasin={magasin} commandes={commandes} />
     <IndiceMain magasin={magasin} />
+    <SilhouetteFacadeToit magasin={magasin} />
     <PoigneesToit magasin={magasin} />
     <div className={'panneauToit' + (replie ? ' replie' : '')} role="region" aria-label="Mode Toit">
       <button type="button" className="languetteToit" aria-expanded={!replie} aria-label={replie ? 'Déployer le catalogue' : 'Replier le catalogue'}
@@ -167,6 +169,7 @@ export function ModeToit({ magasin, commandes }: Props) {
         <BoutonToit commandes={commandes} id="toit.vueLibre" icone="cube" libelle="Vue 3D" presse={e.vue === 'libre'} />
         <BoutonToit commandes={commandes} id="toit.vueFacade" icone="rectangle" libelle="Vue de la façade" presse={e.vue === 'facade'} />
         <BoutonToit commandes={commandes} id="toit.vueDessus" icone="ajuster" libelle="Vue de dessus" presse={e.vue === 'dessus'} />
+        <BoutonToit commandes={commandes} id="toit.silhouette" icone="cote" libelle="Profil de la façade et ses cotes" presse={e.silhouette} />
         <BoutonToit commandes={commandes} id="toit.voirValide" icone="toit" libelle="Voir le toit du projet (avant vos changements)" presse={e.validee} />
         <BoutonToit commandes={commandes} id="toit.isolerCorps" icone="isoler" libelle="Isoler ce corps" presse={e.corpsIsole} />
         <span className="espaceToit" />

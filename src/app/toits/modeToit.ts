@@ -49,6 +49,8 @@ export interface SessionToit {
   isole: boolean;
   /** Le batiment montre le toit du projet (le depart), pas la session : un geste ramene la session. */
   validee: boolean;
+  /** Le profil de la facade (largeur, egout, faitage) se dessine sur la facade choisie. */
+  silhouette: boolean;
 }
 
 let session: SessionToit | null = null;
@@ -91,6 +93,8 @@ export interface EtatToit {
   indice: boolean;
   /** La scene montre le toit du projet tel qu'il est avant la session. */
   validee: boolean;
+  /** Le profil de la facade se dessine sur la facade choisie. */
+  silhouette: boolean;
 }
 
 /** La selection si l'element existe encore dans le batiment en session. */
@@ -101,13 +105,18 @@ function selectionValide(): CibleElement | null {
   return o?.batiment?.corpsToit && lireElement(o.batiment?.corpsToit, s.selection) ? s.selection : null;
 }
 
+/** Montre ou masque le profil de la facade (une preference d'affichage : ni historique ni projet modifie). */
+export function basculerSilhouette(): void {
+  if (session) session.silhouette = !session.silhouette;
+}
+
 export function etatToit(): EtatToit {
-  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false, validee: false };
+  if (!session) return { actif: false, peutAnnuler: false, peutRetablir: false, change: false, isole: false, facade: null, vue: 'libre', aUneFacade: false, corpsIsole: false, peutIsolerCorps: false, selection: null, indice: false, validee: false, silhouette: false };
   const f = session.facade ?? session.derniere;
   return {
     actif: true, peutAnnuler: peutAnnuler(session.hist), peutRetablir: peutRetablir(session.hist), change: aChange(session.hist), isole: session.isole,
     facade: session.facade ? 'Façade ' + orientationDe(session.facade).toLowerCase() + ' · ' + session.facade.L.toFixed(2).replace('.', ',') + ' m' : null,
-    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice, validee: session.validee
+    vue: session.vue, aUneFacade: !!session.derniere, corpsIsole: session.corpsIsole !== null, peutIsolerCorps: !!f && f.rang !== null, selection: selectionValide(), indice: session.indice, validee: session.validee, silhouette: session.silhouette
   };
 }
 
@@ -314,7 +323,7 @@ export function creerModeToit(a: Atelier, ctx: ContexteModeToit) {
     ouvrir(): boolean {
       const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey);
       if (session || !estRetouchable(o)) return false;
-      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false, validee: false };
+      session = { cle: o.key, hist: creerHistorique(o), facade: null, derniere: null, vue: 'libre', corpsIsole: null, selection: null, indice: true, vueAvant: null, isole: false, validee: false, silhouette: true };
       // Les batiments qui cachent celui qu'on retouche deviennent des contours pointilles, des que la camera bouge.
       derniereVue = '';
       veille = setInterval(surveillerLaVue, FANTOMES_MS);

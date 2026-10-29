@@ -9,7 +9,7 @@
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
+import { basculerSilhouette, estRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
@@ -116,6 +116,7 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   commande('toit.vueLibre', 'Vue 3D', enSession, () => { mode.voir('libre'); }, false);
   commande('toit.vueFacade', 'Vue de la façade', () => etatToit().aUneFacade, () => { mode.voir('facade'); }, false);
   commande('toit.vueDessus', 'Vue de dessus', enSession, () => { mode.voir('dessus'); }, false);
+  commande('toit.silhouette', 'Profil de la façade', enSession, () => { basculerSilhouette(); ctx.rafraichir(); }, false);
   commande('toit.voirValide', 'Voir le toit du projet', () => enSession() && (etatToit().change || etatToit().validee), () => { mode.voirValide(); }, false);
   commande('toit.isolerCorps', 'Isoler ce corps', () => etatToit().peutIsolerCorps, () => { mode.basculerCorpsIsole(); }, false);
 

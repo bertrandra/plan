@@ -312,6 +312,20 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   l'inspecteur reste le chemin au clavier pour le corps principal.
 - Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
 
+### Le profil de la façade, à l'échelle  *(28 octobre 2026, demande du propriétaire)*
+« Maintenant que tu as la façade, mets la silhouette à l'échelle et positionne-la. » Choix : le **profil du toit modélisé**, pas la photo.
+- **Ce qui se dessine** : devant une façade, le haut de toute la façade vue de dehors (le gabarit du mur, `facade/gabaritMur.ts::hautDeLaFacade` :
+  tous les corps, le plus haut l'emportant, un corps en retrait plus haut se voit au-dessus), du sol à ce haut, en tirets, posé à 5 cm devant le
+  mur. Ce n'est pas la silhouette du seul corps choisi (`PoigneesToit.tsx::TraitCorps`, trait plein) : les deux coexistent.
+- **À l'échelle et en place** : chaque point est un point 3D du plan de la façade (mètres, hauteurs au-dessus du sol du bâtiment) que la caméra qui
+  fait l'image projette (`SilhouetteFacadeToit.tsx`, `projeter` de `PoigneesToit.tsx`) ; il suit donc la façade à l'écran, en perspective comme en oblique.
+  L'angle « gauche » du mur est celui qui est à gauche à l'écran.
+- **Trois cotes** en mètres, lues à 5 cm : la largeur sous le sol, l'égout à gauche et le faîtage à droite (une seule « hauteur » quand le haut est de niveau,
+  à 15 cm près). Pur : `facade/regles/toits/profilDeFacade.ts::profilDeLaFacade` (troncons simplifiés à 2 cm, largeur, hauteurs mini et maxi).
+- **Bouton** « Profil de la façade et ses cotes » (`toit.silhouette`, icône règle) : préférence d'affichage de la session, ni historique ni projet modifié.
+- **Sans corps** : un bâtiment rectangulaire sous un toit simple a son corps unique (`gestesToits.ts::corpsDuToitSimple`, rien n'est écrit) ; un contour en L
+  ou en U sans corps n'a pas de profil (le toit n'est pas encore découpé). Tests : `tests/unit/facade/profilDeFacade.test.ts`.
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

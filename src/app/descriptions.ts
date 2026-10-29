@@ -135,6 +135,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'toit.vueLibre': 'Rend la caméra libre de la vue 3D, comme avant le choix d’une façade',
   'toit.vueFacade': 'Se place en élévation devant la dernière façade choisie',
   'toit.vueDessus': 'Regarde le bâtiment de dessus',
+  'toit.silhouette': 'Dessine sur la façade choisie son profil à l’échelle, avec sa largeur, son égout et son faîtage en mètres ; un second appui le retire',
   'toit.voirValide': 'Montre le toit du projet tel qu’il est avant vos changements ; un geste, ou un second appui, ramène la session',
   'toit.isolerCorps': 'Ne montre que le corps de la façade courante, avec ce qui est posé dessus ; rebasculer rend tous les corps',
   'toit.selection': 'Choisit un élément du toit ou de la façade (bow-window, pignon, lucarne, cheminée, fenêtre de toit, solaire) : l’inspecteur du mode règle ce qui est choisi',

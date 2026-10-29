@@ -135,6 +135,11 @@
   html[data-classe="moyen"] .panneauToit .barreToit .espaceToit{ flex:0 0 4px; }
   html[data-classe="moyen"] .panneauToit .barreToit .separateurToit{ width:auto; height:1px; align-self:stretch; margin:2px 0; }
   /* Le mode Plan : les corps vus de dessus se choisissent d'un toucher. */
+  /* Le profil de la facade a l'echelle : son haut en tirets, ses cotes en metres (lisibles sur la photo comme sur le crepi). */
+  .silhouetteFacadeToit{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; overflow:visible; }
+  .silhouetteFacadeToit .profilFacadeToit{ fill:var(--accent-light); fill-opacity:.18; stroke:var(--accent); stroke-width:2px; stroke-dasharray:7 5; stroke-linejoin:round; }
+  .silhouetteFacadeToit .coteFacadeToit line{ stroke:var(--ink-soft); stroke-width:1.5px; }
+  .silhouetteFacadeToit .coteFacadeToit text{ font-size:12px; font-weight:600; fill:var(--ink); stroke:var(--panel-bg); stroke-width:4px; paint-order:stroke; }
   .planToit{ position:absolute; left:0; top:0; z-index:3; pointer-events:none; overflow:visible; }
   .planToit .corpsPlan{ pointer-events:auto; cursor:pointer; fill:var(--accent-light); fill-opacity:.18; stroke:var(--accent); stroke-width:2px; }
   /* Les details d'un corps vu de dessus : la ligne de faitage (tiretee pour la noue d'un papillon) et ses elements poses. */
