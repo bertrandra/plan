@@ -349,7 +349,10 @@ npx tsx .claude/skills/toits/scripts/identite.ts                                
 2. **Plan de coupe** : exclu ici ; sera-t-il demandé plus tard ? (Le profil par pan existe déjà : `ProfilPan`.)
 3. **`baie` (cadastre) et `saillie` (main)** : les unifier à l'ouverture (une `baie` devient une `saillie` modifiable) ou garder deux notions ?
 4. **Le contour en L/U** : proposer le découpage en corps automatiquement (`rectanglesDuContour`) à l'entrée du mode, ou laisser la personne poser ses corps (étape 5) ?
-5. **Voisins** : le mode Toit reste réservé aux bâtiments de la parcelle du projet (`surParcelleDuProjet`) — confirmer.
+5. ~~**Voisins** : le mode Toit reste réservé aux bâtiments de la parcelle du projet (`surParcelleDuProjet`) — confirmer.~~ — tranché le
+   29 octobre 2026 : il ne s'ouvre pas sur un bâtiment du voisinage ni sur un bâtiment de l'IGN importé hors de la parcelle du projet
+   (`modeToit.ts::estRetouchable`) ; un bâtiment dessiné s'ouvre, et `locked` (le contour) n'y entre pas. Le bouton « Modifier la
+   toiture » se grise sur la maison d'un voisin et dit pourquoi.
 6. **Mobile** : sur téléphone, le glisser sert à tourner la vue ; les poignées exigent un mode « Modifier » explicite — confirmer l'ergonomie (deux doigts pour la vue, un doigt pour la poignée ?).
 7. **Livraison** : à quelle étape faire la première livraison zip ?
 

@@ -17,6 +17,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Le Mode Toit ne s'ouvre plus sur la maison d'un voisin, et s'ouvre toujours sur la maison verrouillée du projet.** Il refusait
+  le seul voisinage importé (`voisinage`) : la maison d'une parcelle mitoyenne posée par l'import cadastre (`bdtopo`, hors de la
+  parcelle du projet) se retouchait et se figeait. `locked` n'est pas le critère : il protège le contour (ni déplacé, ni supprimé),
+  pas le toit, et la maison du projet est verrouillée à l'import. Le critère est la parcelle : un bâtiment importé hors de la parcelle
+  du projet, ou du voisinage, est « chez un voisin » (`app/toits/modeToit.ts::estRetouchable`, `raisonNonRetouchable`) ; un bâtiment
+  dessiné reste celui de la personne. Le bouton « Modifier la toiture » de la Vue 3D se grise alors et dit pourquoi (infobulle, et
+  message au toucher), par `commandes.etat` (`raisonInactive`).
 - **La silhouette des façades de la calibration, du relevé et de l'audit est celle du Mode Toit.** Le gabarit du mur
   (`facade/gabaritMur.ts`) se lisait le long du seul côté du contour, par une marche en profondeur à lui : le pignon d'une maison en L
   s'y coupait au coin de l'aile (un demi-triangle étiré sur toute la façade), et un mur de quelques dizaines de centimètres prenait

@@ -690,12 +690,17 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
 12. **La 3D pose une cheminée que personne n'a vue.** Sur un toit simple ou en volumes assez grand, `poserCheminee`
     (`three/detailsBatiment.ts:569-608`) en dessine une au tiers du faîtage ; en mode corps, seules les cheminées des données se
     dessinent. Elle disparaît quand le LiDAR arrive, et l'audit compte zéro cheminée (`constats.ts:48`) là où la 3D en montre une.
-13. **Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
-    le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.
+13. ~~**Le Mode Toit s'ouvre sur un bâtiment verrouillé.** `estRetouchable` (`app/toits/modeToit.ts:71`) ne lit pas `locked`, que
+    le plan respecte (`interaction/pointeur.ts:208`) : le toit d'une maison voisine d'une parcelle mitoyenne se règle et se fige.~~
     — *Laissé le 28 octobre 2026* : `locked` ne veut pas dire « toit à ne pas retoucher ». La maison du projet est verrouillée à
     l'import (la démonstration : « Maison » et « Abri de jardin », `locked: true`), pour ne pas la déplacer d'un geste ; lire
     `locked` fermerait le Mode Toit sur elle. Le bon critère est à décider : la maison d'une parcelle mitoyenne
-    (`bdtopo.surParcellePrincipale === false`) ou une marque à elle.
+    (`bdtopo.surParcellePrincipale === false`) ou une marque à elle. — corrigé le 29 octobre 2026 : le critère est la parcelle, pas
+    le verrou. Un bâtiment du voisinage, ou importé de l'IGN hors de la parcelle du projet (`bdtopo` sans `surParcellePrincipale`, que
+    l'enregistrement n'écrit qu'à vrai), est « chez un voisin » et le Mode Toit ne s'y ouvre pas ; un bâtiment dessiné, ou importé sur
+    la parcelle du projet, s'ouvre, verrouillé ou non (`modeToit.ts::estRetouchable`). Le bouton « Modifier la toiture » se grise sur
+    la maison d'un voisin et dit pourquoi (`raisonNonRetouchable`, `raisonInactive` de `toit.modifier` ; infobulle, message au
+    toucher). Test : `tests/unit/app/toits/retouchable.test.ts`.
 14. **Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
     (`modeToit.ts:322-333`, :461-468) sans marquer le projet ; l'enregistrement seul de la tâche de fond enregistre quand tout ce
     qui attend vient d'elle (`toitsFond.ts:302-304`) et sérialise alors le bâtiment tel que la session le laisse. Une session
@@ -715,7 +720,8 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
 **Restent ouverts au 28 octobre 2026** (version 4.0.0), dits ici une fois :
 
 - la cheminée que la 3D pose d'office sur un toit simple ou en volumes (point 12) ;
-- le Mode Toit qui s'ouvre sur un bâtiment verrouillé (point 13) : laissé, le bon critère est à décider avec le propriétaire ;
+- ~~le Mode Toit qui s'ouvre sur un bâtiment verrouillé (point 13) : laissé, le bon critère est à décider avec le propriétaire~~ —
+  corrigé le 29 octobre 2026 (la parcelle, pas le verrou) ;
 - une session du Mode Toit qui écrit dans le plan avant « Valider » (point 14, non vérifié en exécution) ;
 - les tests qui manquent encore (point 15) ;
 - la couleur des murs lue sur Panoramax, hors de `model/protections.ts` par choix, et qui ne lit pas les annexes (« Qui
