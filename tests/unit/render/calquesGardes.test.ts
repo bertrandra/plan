@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { redessinerSiChange } from '../../../src/render/calquesGardes.js';
+import { redessinerSiChange, cleDesCalques, cleDesCalquesEnMetres } from '../../../src/render/calquesGardes.js';
+import type { EtatApp } from '../../../src/core/state.js';
 import { poserEnQueue } from '../../../src/render/empilement.js';
 
 // Les calques du dessus du plan ne se refont que si leur cle change ; en developpement, un calque saute est quand meme redessine
@@ -33,6 +34,20 @@ describe('redessinerSiChange', () => {
     redessinerSiChange(g, 'essai', 'a', dessiner);
     expect(erreur.mock.calls.some((c) => String(c[0]).startsWith('[cle de version] calque « essai »'))).toBe(true);
     expect(g.innerHTML).toBe('y');
+  });
+});
+
+describe('la cle d un calque', () => {
+  const objets: EtatApp['objects'] = [];
+  const etat = (scale: number, x: number) => ({
+    objects: objets, scene: { scale, origine: { x, y: 0 }, W: 100, H: 100 }, selectedKey: null, terrasseSelectedKey: null, isolement: null,
+    voisinageVisible: true, calquesVisibles: false, showNorth: true, parasol: { ombreAffichee: true, carteAffichee: false }, measures: []
+  }) as unknown as EtatApp;
+  it('lit le repere du dessin, sauf pour un calque dessine en metres (render/repere.ts)', () => {
+    expect(cleDesCalques(etat(10, 0), () => false)).not.toBe(cleDesCalques(etat(20, 0), () => false));
+    expect(cleDesCalquesEnMetres(etat(10, 0), () => false)).toBe(cleDesCalquesEnMetres(etat(20, 5), () => false));
+    // Ce qui depend malgre tout de l'echelle se passe en plus.
+    expect(cleDesCalquesEnMetres(etat(10, 0), () => false, 1.4)).not.toBe(cleDesCalquesEnMetres(etat(10, 0), () => false, 0.4));
   });
 });
 

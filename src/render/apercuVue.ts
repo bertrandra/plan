@@ -6,7 +6,9 @@
 // par une seule transformation de la racine SVG ; le plan se redessine net une fois le geste pose
 // (DELAI_APERCU_MS sans mouvement). Les traits et les textes grossissent un instant, puis reprennent
 // leur taille : c'est ce que font les cartes en ligne. Depuis l'etape 6.5, un deplacement seul n'est plus qu'un decalage du repere
-// du dessin (render/repere.ts) : il ne passe ici que si son propre rendu est lent ; le zoom, lui, redessine ce qui depend de l'echelle.
+// du dessin (render/repere.ts) : il ne passe ici que si son propre rendu est lent. Depuis l'etape 2.3, un zoom ne change plus que la
+// transformation des objets dessines en metres ; il passe ici quand son image (le rendu et ce que le navigateur repeint ensuite) est
+// lente : au telephone, sur un grand plan (app/boot/rendu.ts).
 
 import type { EtatScene } from '../geometry/vue.js';
 

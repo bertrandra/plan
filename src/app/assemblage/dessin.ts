@@ -21,7 +21,7 @@ import { renderTerrasseLayerView as dessinerCouches } from '../../render/terrass
 import { toucher } from '../../core/controleurObjets.js';
 import { lesTerrains, litLesAbris, litLesParasols, litLesPiscines, litUneTerrasse, rien } from '../../core/lectures.js';
 import { creerRepere } from '../../render/repere.js';
-import { elementsRecreesDuPlan } from '../../render/pipeline.js';
+import { elementsRecreesDuPlan, oublierLesDessins } from '../../render/pipeline.js';
 import { contraindreParasols, positionMat, type ContexteSoleil } from '../../engine/parasol.js';
 import { mesure } from '../../interaction/outilMesure.js';
 import { aDessiner } from './formes.js';
@@ -72,7 +72,7 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
   // Une copie de surface de l'etat, la scene remplacee par le repere : les calques la lisent sans rien y ecrire.
   const etatDessin = (): EtatApp => ({ ...etat, scene: sceneDessin() });
   // La vue d'un objet empile a son `el` des que `creerDomObjet` l'a pose ; avant, il n'y a rien a empiler.
-  const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) s.svg.appendChild(el); } }, vue });
+  const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) s.objets.appendChild(el); } }, vue });
   // Un empilement qui ne deplace rien encore : il dit l'ordre voulu, que `poserEnQueue` pose ensuite d'un coup.
   const enQueue = (q: Element[]): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) q.push(el); } }, vue });
   return {
@@ -80,13 +80,15 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     suivreLaVue() {
       const r = repere.suivre(etat.scene);
       s.poserDecalage(r.dx, r.dy);
+      s.poserRepere(r.scene);
       return r.scene;
     },
-    createObjectDOM: (obj) => { creerDomObjet(s.svg, aDessiner(obj), etat.scene); elementsRecreesDuPlan(); },
+    // Les objets se posent dans leur calque, qui porte le repere du dessin (render/objects.ts).
+    createObjectDOM: (obj) => { creerDomObjet(s.objets, aDessiner(obj), etat.scene); elementsRecreesDuPlan(); },
     rebuildHandles(obj) {
       elementsRecreesDuPlan();
       reconstruirePoignees(aDessiner(obj), {
-        racine: s.svg,
+        racine: s.objets,
         surDoubleClicCote(o, index, ev) {
           if (o.key !== etat.selectedKey) return;
           const rect = s.stage.getBoundingClientRect();
@@ -97,7 +99,16 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
     },
     // Les poignees de la selection, devant tout : sans rien deplacer si elles y sont deja (render/empilement.ts, poserEnQueue).
     amenerPoigneesDevant: (obj) => { const q: Element[] = []; remonterPoignees(obj, enQueue(q)); poserEnQueue(s.svg, q, [s.releves]); },
-    reapplyStackingOrder: () => reappliquerEmpilement(etat.objects, ctxEmpilement()),
+    // Reempiler ramene dans le calque des objets ce que l'empilement en avait sorti (les parasols, les poignees de la selection) :
+    // ces objets-la se replacent au rendu suivant, leurs elements n'ayant plus la transformation de leur place (render/objects.ts).
+    reapplyStackingOrder: () => {
+      const sortis = etat.objects.filter((o) => {
+        const v = vue(o);
+        return [v.el, v.nameEl, v.radiusHandle, ...v.pointEls, ...v.edgeEls, ...v.ptLabelEls, ...v.segLabelEls].some((e) => e && e.parentNode !== s.objets);
+      });
+      reappliquerEmpilement(etat.objects, ctxEmpilement());
+      oublierLesDessins(sortis);
+    },
     drawGrid: () => dessinerGrille(s.grille, etat),
     // Les calques du dessus ne se refont que si ce qu'ils lisent a change (render/calquesGardes.ts).
     // La fleche et l'echelle suivent l'ecran, pas le plan : dessinees dans la vue, a un coin, leur groupe compense le decalage.

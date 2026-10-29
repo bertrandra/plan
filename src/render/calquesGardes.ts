@@ -7,7 +7,8 @@
 //
 // La cle de chaque calque : les objets qu'il lit (leur version, core/controleurObjets.ts `cleDesLus`, d'apres les lecteurs de
 // core/lectures.ts : le calque des parasols lit les parasols et les terrasses, pas l'arbre qu'on glisse), le repere du dessin (son
-// echelle et sa taille, render/repere.ts : un deplacement de la vue n'y change rien), la selection et l'etat d'interface du plan,
+// echelle et sa taille, render/repere.ts : un deplacement de la vue n'y change rien ; un calque dessine en metres ne le lit pas,
+// `cleDesCalquesEnMetres`, et un zoom n'y change rien non plus), la selection et l'etat d'interface du plan,
 // les cotes et leur brouillon, les encres du theme. Un calque ne se refait donc que quand ce qu'il montre bouge.
 //
 // Le garde-fou, comme celui des objets (render/pipeline.ts) et des zones (zones/composants/abonnement.ts) : en developpement, le
@@ -32,8 +33,21 @@ const verifier = (): boolean => import.meta.env.DEV && !(globalThis as { __sansV
  * meme cle tant que rien de cela n'a change. `etat` porte la scene du dessin (le repere), pas la vue.
  */
 export function cleDesCalques(etat: EtatApp, lit: (o: EtatApp['objects'][number]) => boolean, ...autres: unknown[]): string {
-  const s = etat.scene, p = etat.parasol, soleil = soleilDuProjet.lire();
-  return JSON.stringify([cleDesLus(etat.objects, lit), s.scale, s.origine.x, s.origine.y, s.W, s.H, etat.selectedKey, etat.terrasseSelectedKey,
+  const s = etat.scene;
+  return cleCommune(etat, lit, [s.scale, s.origine.x, s.origine.y, s.W, s.H], autres);
+}
+
+/**
+ * La cle d'un calque dessine en metres sous la transformation de son groupe (render/repere.ts, `versMetres`) : un zoom ou un
+ * deplacement ne la change pas. Ce qui depend malgre tout de l'echelle se passe dans `autres`.
+ */
+export function cleDesCalquesEnMetres(etat: EtatApp, lit: (o: EtatApp['objects'][number]) => boolean, ...autres: unknown[]): string {
+  return cleCommune(etat, lit, [], autres);
+}
+
+function cleCommune(etat: EtatApp, lit: (o: EtatApp['objects'][number]) => boolean, repere: unknown[], autres: unknown[]): string {
+  const p = etat.parasol, soleil = soleilDuProjet.lire();
+  return JSON.stringify([cleDesLus(etat.objects, lit), ...repere, etat.selectedKey, etat.terrasseSelectedKey,
     etat.isolement, etat.voisinageVisible, etat.calquesVisibles, etat.showNorth, p.ombreAffichee, p.carteAffichee, soleil.dateStr, soleil.minutes,
     etat.measures, mesure.pointage, mesure.ref, mesure.startEnd, mesure.cibles, terrasseLayerVisible, ortho.actif, ortho.parcelleOpacite,
     SVG_INK, SVG_GRID_MAJOR, SVG_LABEL_HALO, SVG_MEASURE_LINE, SVG_MEASURE_TEXT, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE,

@@ -11,7 +11,7 @@
 // sommets se poseraient par-dessus les vis et les solives et rendraient le canevas illisible. Le
 // choix fait en mode Plan est garde, simplement pas dessine.
 
-import { positionnerObjet, positionnerEnVerifiant, horsDeLaVue, type ContextePositionnement, type ObjetRendu } from './objects.js';
+import { positionnerObjet, positionnerEnVerifiant, replacerObjet, horsDeLaVue, dependDeLEchelle, type ContextePositionnement, type ObjetRendu } from './objects.js';
 import { trousDeTerrasse } from '../engine/ouvrages/terrasse.js';
 import { estTerrasse } from '../model/fonctions.js';
 import { cleDesLus, cleDesObjets, versionObjet } from '../core/controleurObjets.js';
@@ -22,7 +22,7 @@ import { ortho, placerOrthophoto, type ContexteOrtho } from './ortho.js';
 import { mesure } from '../interaction/outilMesure.js';
 import type { EtatApp } from '../core/state.js';
 import type { EtatScene } from '../geometry/vue.js';
-import type { ObjetPlan } from '../model/types.js';
+import type { ObjetPlan, PtBrut } from '../model/types.js';
 
 /**
  * Ce que `rendreScene` demande à l'application, en plus de l'état — tout ce qui vit encore dans la
@@ -56,11 +56,24 @@ export interface ContexteRendu extends ContexteOrtho {
    * elle-meme.
    */
   repere?: EtatScene;
+  /** Le calque des objets, qui porte la transformation du repere (render/objects.ts) ; sans lui, chaque forme la porte. */
+  groupeObjets?: Element;
 }
 
-// Ce que chaque objet a dessine la derniere fois, par son contour : la cle de ce dessin, et sa premiere poignee (des poignees
-// reconstruites sont neuves, donc a placer). Un element recree n'a pas de cle : il se dessine.
-const dessins = new WeakMap<Element, { cle: string; poignee: Element | null }>();
+// Ce que chaque objet a dessine la derniere fois, par son contour : la cle de ce dessin, l'echelle et l'origine du repere ou il a
+// ete place, et sa premiere poignee (des poignees reconstruites sont neuves, donc a placer). Un element recree n'a pas de cle : il
+// se dessine.
+const dessins = new WeakMap<Element, { cle: string; echelle: string; poignee: Element | null }>();
+
+/**
+ * Des elements de ces objets viennent de changer de parent (app/assemblage/dessin.ts, `reapplyStackingOrder` : ce que l'empilement
+ * avait sorti du calque des objets y revient) : ils n'ont plus la transformation qu'il leur faut (render/objects.ts, `accorder`).
+ * Le prochain rendu replace ces objets.
+ */
+export function oublierLesDessins(objets: readonly ObjetPlan[]): void {
+  for (const o of objets) { const el = vue(o).el; if (el) dessins.delete(el); }
+  elementsRecrees++;
+}
 
 /**
  * Le plan redessine quand meme, en developpement, les objets que leur cle dit inchanges, et signale toute valeur qui bouge : un
@@ -75,6 +88,18 @@ export function elementsRecreesDuPlan(): void { elementsRecrees++; }
 // La cle du dernier rendu de tous les objets : la meme, et aucun objet n'a rien a refaire (un rendu sans changement, un deplacement
 // de la vue qui ne fait entrer ni sortir personne ne parcourt plus 600 objets).
 let dernierRendu = '';
+
+// Les trous de chaque terrasse, repris tant que ni elle ni ce qui la perce n'a change (la meme lecture que sa cle) : une terrasse
+// qui montre ses cotes se replace a chaque zoom, sans avoir a chercher de nouveau ce qui la perce parmi tous les objets.
+const trousMemo = new WeakMap<object, { cle: string; trous: PtBrut[][] }>();
+function trousDe(obj: ObjetPlan, objets: ObjetPlan[]): PtBrut[][] {
+  if(!estTerrasse(obj)) return [];
+  const cle = versionObjet(obj) + '|' + cleDesLus(objets, percentUneTerrasse), m = trousMemo.get(obj);
+  if(m && m.cle === cle) return m.trous;
+  const trous = trousDeTerrasse(obj, objets);
+  trousMemo.set(obj, { cle, trous });
+  return trous;
+}
 
 const verifierCles = (): boolean => import.meta.env.DEV && !(globalThis as { __sansVerifierCles?: boolean }).__sansVerifierCles;
 
@@ -92,12 +117,15 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
   const s = ctx.repere ?? etat.scene;
   const pointageSommets = !!(mesure.pointage && mesure.pointage.mode === 'target');
   const pointageCotes = !!(mesure.pointage && mesure.pointage.mode === 'ref');
-  const ensemble = [s.scale, s.origine.x, s.origine.y, s.W, s.H, ortho.actif, ortho.parcelleOpacite, pointageSommets, pointageCotes,
-    SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND].join('|');
+  // La forme d'un objet se dessine en metres sous la transformation du repere (render/objects.ts) : sa cle ne lit pas l'echelle, et
+  // un zoom ne fait que le replacer (`replacerObjet` : la transformation, la place du nom). Ce qui se dessine en pixels au-dela
+  // (`dependDeLEchelle` : ce qu'il montre a ses sommets, un chemin en pixels) lit le repere dans sa cle, et se refait.
+  const repere = [s.scale, s.origine.x, s.origine.y, s.W, s.H].join('|');
+  const ensemble = [ortho.actif, ortho.parcelleOpacite, pointageSommets, pointageCotes, SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND].join('|');
   const verifier = verifierCles();
   const tous = objets === etat.objects;
   const v0 = etat.scene;
-  const global = () => [ensemble, cleDesObjets(etat.objects), v0.scale, v0.origine.x, v0.origine.y, v0.W, v0.H, activeSel, etat.isolement,
+  const global = () => [repere, ensemble, cleDesObjets(etat.objects), v0.scale, v0.origine.x, v0.origine.y, v0.W, v0.H, activeSel, etat.isolement,
     etat.voisinageVisible, elementsRecrees].join('|');
   if(tous && !verifier && global() === dernierRendu) return;
   objets.forEach(obj=>{
@@ -109,21 +137,30 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
     const v = vue(obj);
     // Hors de la vue, rien ne se dessine que le halo du nom : ni le repere ni l'echelle n'y comptent (un zoom ne touche pas a ce qui
     // reste dehors).
-    const cleDe = () => (horsVue ? 'hors|' + SVG_LABEL_HALO : ensemble) + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? cleDesLus(etat.objects, percentUneTerrasse) : '') + '|'
+    const enPixels = !horsVue && !masque && dependDeLEchelle(obj as ObjetRendu, { selectionnee, pointageSommets, pointageCotes });
+    const echelle = horsVue || masque ? '' : repere;
+    const cleDe = () => (horsVue ? 'hors|' + SVG_LABEL_HALO : ensemble + (enPixels ? '|' + repere : '')) + '|' + versionObjet(obj) + '|' + (estTerrasse(obj) ? cleDesLus(etat.objects, percentUneTerrasse) : '') + '|'
       + selectionnee + '|' + masque + '|' + horsVue + '|' + transparent + '|' + couleurDiagnostic + '|' + v.pointEls.length;
     const cle = cleDe();
     const poignee = v.pointEls[0] ?? v.radiusHandle;
     const deja = v.el ? dessins.get(v.el) : undefined;
     const inchange = !!deja && deja.cle === cle && deja.poignee === poignee;
+    const memeRepere = !!deja && deja.echelle === echelle;
+    // Seul le repere a change : l'objet suit sa transformation, son nom se deplace ; le reste du dessin est celui d'avant.
+    if(inchange && !memeRepere && v.el){
+      replacerObjet(obj as ObjetRendu, { scene: s, groupe: ctx.groupeObjets ?? null });
+      dessins.set(v.el, { cle, echelle, poignee });
+    }
     if(inchange && !verifier) return;
     const contexte: ContextePositionnement = {
       scene: s,
+      groupe: ctx.groupeObjets ?? null,
       horsVue,
       selectionnee,
       masque,
       transparent,
       // Une terrasse percee (bassin, trou) se dessine avec son trou.
-      trous: trousDeTerrasse(obj, etat.objects),
+      trous: trousDe(obj, etat.objects),
       ortho: { actif: ortho.actif, parcelleOpacite: ortho.parcelleOpacite },
       estTerrain: ctx.estTerrain,
       pointageSommets,
@@ -136,7 +173,7 @@ export function rendreObjets(etat: EtatApp, ctx: ContexteRendu, objets: readonly
     });
     else positionnerObjet(obj as ObjetRendu, contexte);
     // Apres le dessin : des poignees reconstruites pendant le positionnement sont celles qu'on garde.
-    if(v.el) dessins.set(v.el, { cle: cleDe(), poignee: v.pointEls[0] ?? v.radiusHandle });
+    if(v.el) dessins.set(v.el, { cle: cleDe(), echelle, poignee: v.pointEls[0] ?? v.radiusHandle });
   });
   dernierRendu = tous ? global() : '';
 }
