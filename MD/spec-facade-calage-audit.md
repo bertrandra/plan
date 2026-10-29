@@ -62,7 +62,9 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
     vraie API ; d'abord « un seul run IA par façade »). Un schéma, une image : chaque lecture rend le calage (angles, pointes, corps),
     les éléments de toit vus, **les ouvertures et le type de leurs carreaux** ; trois lectures partent ensemble et le moteur les vote
     (`facades.ia.passes`, un réglage). Une quatrième, par le modèle de l'escalade, ne part **que si la personne la demande** (un bouton
-    qui dit son coût, une requête). Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
+    qui dit son coût, une requête). Ce modèle est **par défaut `claude-sonnet-5-5`** (décision du propriétaire du 29 octobre 2026) :
+    avec Haiku par défaut, l'escalade n'était qu'une quatrième lecture du même modèle ; l'administrateur le change dans Réglages ›
+    Modèles. Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
 15. **L'IA récupère aussi, pour la suite, les ouvertures et leurs carreaux** : le type de division du vitrage (petits bois, nombre de
     carreaux, imposte). On l'enregistre dans la façade objet **maintenant** ; son rendu en 3D est un lot ultérieur (§3.3, F8).
 16. **Le moteur de redressement et de fusion reste tel quel.** Le redressement (`vuesDeFace`, `redresserParFuites`, `redresserParReperes`),
@@ -770,8 +772,8 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
 - **Une escalade, à la demande seulement.** Sous la barre d'une façade, dans l'audit et dans le rejeu de la calibration, un bouton (la
   commande `facade.escalader`, exposée dans les trois classes) envoie **une** requête de plus : la même image, le même texte, le même
   prompt et le même schéma (sortie structurée, exemple en repli, `refusFormat`), au **modèle de l'usage `escalade`** que le serveur
-  connaît (Réglages › Modèles ; par défaut `claude-haiku-5-5`, comme les passes, tant que l'administrateur ne choisit pas
-  `claude-sonnet-5-5`). La demande porte l'usage `escalade`, la requête garde l'usage `facade` : le serveur prend le prompt de la requête
+  connaît (Réglages › Modèles ; par défaut `claude-sonnet-5-5` depuis le 29 octobre 2026, décision 14 : avec `claude-haiku-5-5`, celui
+  des passes, l'escalade n'était qu'une quatrième lecture du même modèle). La demande porte l'usage `escalade`, la requête garde l'usage `facade` : le serveur prend le prompt de la requête
   et le modèle de la demande, et la compte en escalade (journal, tableau de bord). Le bouton dit le modèle et le coût annoncé (une passe
   du run aux prix du jour du modèle, que l'état du serveur donne) ; il n'y en a qu'**une par lecture**, jamais automatique. Sa réponse est
   enregistrée **avec le run** (`escalade` : sortie, modèle, versions, coût), dans la capture de l'audit et dans le cas de la calibration,

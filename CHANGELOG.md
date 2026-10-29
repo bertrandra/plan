@@ -101,6 +101,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **L'escalade d'une façade (et d'une maison) part par défaut sur Sonnet** (`claude-sonnet-5-5`, décision du propriétaire du
+  29 octobre 2026) ; tous les autres usages restent sur `claude-haiku-5-5`. Depuis le lot F3, une façade est lue trois fois par
+  Haiku et votée : avec Haiku pour défaut, l'escalade (`facade.escalader`, une par lecture) n'était qu'une quatrième lecture du même
+  modèle. L'administrateur le change toujours dans Réglages › Modèles (`admin/claude/modeles`). La vérification contre la vraie API
+  (`npm run verifier:api-claude`) envoie désormais aussi l'escalade d'une façade comme la page (demande `escalade`, requête du run
+  d'une façade : son prompt, sa sortie structurée, le modèle de l'escalade), en dernier ; une seule requête Sonnet, sous le plafond
+  de 0,05 $.
 - **Façades : trois lectures votées par façade** (décision du propriétaire du 29 octobre 2026, sur la mesure de la vraie API, run
   40903934070 : ×1 rappel 92,9 %, précision 98,3 %, carreaux 0/16, 0,00153 $ par façade ; ×3 99,2 %, 100 %, 10/21, 0,00464 $). L'audit
   (dans le batch de l'analyse), l'aide du relevé et « Rappeler Claude » de la calibration lisent chaque façade trois fois, et le moteur
