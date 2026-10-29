@@ -822,7 +822,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 
 | Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
 |---|---|---|---|
-| **F0 — Orchestrateur + calibration** | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
+| **F0 — Orchestrateur + calibration** *(livré le 29 octobre 2026, §9 bis)* | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
 | **F1 — Calage par ancres** | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F2 — Un run IA par façade** | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
@@ -834,6 +834,85 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 
 Ordre : F0 à F8 dans cet ordre, parce que **chaque lot suppose le précédent** (§8 bis.3). F8 attend que des cas réels aient confirmé le vocabulaire des
 carreaux.
+
+### 9 bis. F0, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- Le contrat des étapes, comme une donnée : `model/etapeFacade.ts` (`EtapeFacade` : entrant, action, objectif, sortant, option manuelle,
+  mode d'audit, point de validation, lot ; `ETAPES_FACADE` dans l'ordre du tableau §4 ter.2 ; les huit `SEGMENTS_FACADE` du §4 ter.5 ;
+  `etatDuSegment`, le pire état de ses étapes).
+- Les objectifs en réglages : `regles/facades/enchainement.json` (`facade/regles/facades/enchainement.ts`, empreinte inscrite dans chaque
+  rejeu) : photos minimum, part redressée, part assemblée, écart du calage contre la vérité (3 % de la largeur), rappel, précision et cotes
+  des ouvertures contre la vérité.
+- L'orchestrateur pur `facade/releve/enchainement.ts::derouler` : É0 à É9 dans l'ordre, un état par étape (`ok`, `a-confirmer`, `echec`,
+  `saute` ; `a-venir` pour ce qui n'a pas tourné), une phrase par étape, la mesure contre la vérité (É4 : chaque bord en part de la largeur
+  vraie ; É7 : rappel, précision, cotes), les versions (`VERSION_CHAINE_FACADES`, empreinte des objectifs), la reprise depuis une étape
+  avec les sorties des précédentes, l'arrêt à la demande, un événement par étape (la barre avance). Il appelle la chaîne telle quelle :
+  `vuesDeFace`, `mosaiqueDesVues` et `murSurLAssemblage` (par `coinsAuto.ts::mosaiqueDeLaSerie` et `murDeLaSerie`, le corps de
+  `coinsAutoDeSerie` découpé sans rien changer), `redresserEtFusionner` pour chercher les coins, `fondreLesVues`, `analyserLAssemblage`,
+  `analyserLeMur`. Les images de chaque étape : `facade/releve/imagesEtapes.ts`.
+- La calibration, premier consommateur : en haut de l'éditeur d'un cas, **la barre de progression** (`zones/composants/BarreProgressionFacade.tsx`,
+  une liste ordonnée de huit segments, un état en mot et en forme, `aria-current="step"`, des boutons de 44 px liés à la commande
+  `facade.etape`, « Arrêter » pendant un calcul, deux lignes dessous, un ruban « 3 sur 8 · Mur » au téléphone) ; dessous, **la frise des
+  étapes** (`zones/FriseEtapesCalibration.tsx`, É0 à É8 avec leur vignette), qui ouvre une étape en grand : ses calques, sa phrase, sa mesure
+  contre la vérité, son contrat, « Rejouer depuis cette étape ». Le calage de la silhouette (`CalageSilhouette.tsx`) y est l'option manuelle
+  de l'É4. La mesure des cas validés et le corpus réel préparent leurs cas par `preparerPourLaMesure`.
+- Le cas d'étalon d'AE 101 sud : `tests/fixtures/facades-reel/etalons/ae101-sud.json` (dimensions et gabarit du plan, mur vrai sur
+  l'assemblage, pose constatée, vraie forme du toit corps par corps : le corps principal à deux pignons de 3,7 m au faîtage 7,6 m, l'appentis
+  à l'égout 2,4 m, chacun désigné par son mur), tenu aux données du dépôt par `tests/unit/facade/etalonAe101.test.ts` ;
+  `reel.ts etalon <cas.json>` rejoue un cas étape par étape avec cette vérité.
+- Le cliquet des orphelins (§8 bis.1, règle 5) : `tests/unit/architecture/orphelins.test.ts` et
+  `tests/fixtures/architecture/orphelins-autorises.json` (257 orphelins le jour où il est posé).
+- Fumée : point 100 (la barre, la frise, l'étape ouverte, le rejeu depuis une étape).
+
+**Acceptation.**
+
+- *Le rejeu d'un cas du banc donne les mêmes sorties qu'avant* : six scènes (`02`, `08`, `16`, `18`, `22`, `23`), quatre chemins (l'éditeur
+  qui cherche les coins, l'éditeur aux coins gardés, la mesure, la mesure sur la première photo), comparés à l'ancien code (`coinsDeSerie`,
+  `preparerSurLAssemblage`, `preparerCas`) : coins, origines, mur cherché, pose, élévation, texture (empreintes des pixels), ouvertures,
+  fusion, toit estimé **identiques au bit près**. Banc des façades : toutes les sections identiques hors colonne des temps ; `egout-sol.ts`
+  identique ; AE 101 « corps identiques » ; empreintes golden inchangées.
+- *L'état de chaque étape est calculé* : `tests/unit/facade/releve/enchainement.test.ts`.
+- *AE 101 montre la pose fausse, étape par étape, reproductible* : voir l'interprétation 2.
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **Les objectifs ne sont pas dans `reglages.json`** mais dans `regles/facades/enchainement.json`, à côté : l'empreinte de `reglages.json`
+   entre dans `VERSION_LECTURE_FACADES` et fait rechoisir les profils des bâtiments de tous les projets ouverts ; un objectif d'étape ne
+   change aucun bâtiment. L'objectif de l'É5 (« la moitié des colonnes ») reste le seuil de `silhouetteDuMur` (moteur, décision 16).
+2. **Les photos d'AE 101 ne sont pas dans le dépôt** (donnée personnelle, §6, §11.4 ; aucune copie n'en existe hors de l'audit du serveur).
+   L'étalon porte donc la vérité du cas sans ses photos ; la pose constatée (302 px, x de 451 à 752, chaîne version 9) y est écrite comme
+   un constat. La reproduction : tirer le cas de l'audit dans la calibration (l'É4 dit alors « Mur cherché sur l'assemblage : x de … à … »),
+   ou `reel.ts etalon <cas.json>`, qui ajoute la mesure contre le mur vrai (sur la pose constatée, le bout gauche est à 51 % de la largeur vraie : faux). Le premier cas *validé* du corpus
+   réel reste à poser avec les photos que le propriétaire accepte d'y mettre.
+3. **Deux images prises pour la suite**, que l'orchestrateur garde toutes deux pour ne rien changer : l'assemblage montré par l'éditeur
+   (`image: 'assemblage'`, É2 et É3 calculées par l'orchestrateur) et celle d'`analyserLeMur` (`image: 'chaine'`, la mesure et le banc, où
+   la chaîne redresse et assemble en un appel ; É2 à É4 s'y lisent sur ce qu'elle rend). Les unifier changerait les nombres d'une photo
+   seule (un rééchantillonnage de plus) : c'est une décision à prendre à part, avec le banc.
+4. **Les états de F0 sont ceux que la chaîne sait dire** : l'É4 suit les drapeaux trouvé / supposé de `murSurLAssemblage` (ils mentent sur
+   AE 101 jusqu'à F1 ; la mesure contre la vérité, elle, le dit) ; l'É7 est « à confirmer » quand la structure a deviné des baies ; É5 bis
+   et É8 (F4), É9 (F5) sont « sautées » avec leur lot. La lecture du haut de l'image (É5) passe par `mosaiqueFuites.ts::silhouetteLue`, la
+   même lecture que celle qui affine l'égout, exposée sans rien poser.
+5. **« Rejouer » rejoue le cas tel qu'il est enregistré** (ses coins) : un rejeu reproductible. « Retrouver le mur sur toutes les photos »,
+   l'ajout d'une photo et l'ouverture d'un cas tiré d'un audit cherchent de nouveau les coins (un mur posé à la main reste).
+6. **La commande `facade.etape`** vit dans un registre propre à l'écran de la calibration (Plan ne démarre pas sous un écran d'admin) ;
+   son emplacement est `barreFacade` (`app/exposition.ts`, trois classes), rangé en Z8 avec les parcours.
+7. **Le mode d'audit** est porté par le contrat (`EtapeFacade.modeAudit`) et seulement dit par la calibration (« Dans l'audit : … ») ;
+   le réglage d'affichage qui le lit viendra avec l'audit (F3).
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| L'enchaînement propre à la calibration | `facade/releve/casCalibration.ts`, `tests/unit/facade/releve/casCalibration.test.ts` | `coinsDeSerie`, `preparerSurLAssemblage`, `assemblageDeLaSerie`, `facadeSurLAssemblage`, `etapesDe`, `versLesPhotos`, `casCale`, `avisDuCas`, `Etapes`, `OrigineCoins`, `originesDuCas`, `reperesDe`, `OutilsPhotos` | 181 + 22 | `facade/releve/enchainement.ts` (`derouler`, `casApresRejeu`, `casCaleALaMain`, `originesDuCas`, `reperesDe`), `imagesEtapes.ts` ; `OutilsPhotos` dans l'éditeur |
+| La glue de l'éditeur | `zones/EditeurCasCalibration.tsx` | `coinsDeLaSerie`, `redresser`, `recalculerCoins`, `EtapesDuCas`, `SurLAssemblage`, `SurLaSilhouette`, `TraitSilhouette` | 184 retirées, 117 ajoutées | `useRejeu`, la barre, la frise (`FriseEtapesCalibration.tsx`) |
+| La préparation des cas | `facade/corpusReel.ts` | `preparerCas`, `contourDe`, `resumeFusion` | 31 | `preparerPourLaMesure` |
+| Les indicateurs d'étape de la calibration | `EditeurCasCalibration.tsx`, `CalageSilhouette.tsx`, `controlesInterface.ts`, `app.css` | les titres « 1. » à « 9. », « 5. » et « 6. », l'avis de la fusion à part (`calibration.avisFusion`), `calibration.redresser`, `calibration.etapes`, `.calEtapes` | — | la barre de progression et la frise |
+
+Cliquet des orphelins : posé avec 257 entrées, soit **3 de moins** que l'état d'avant F0 (260 : `assemblageDeLaSerie`, `facadeSurLAssemblage`,
+`versLesPhotos`). Grep des noms supprimés dans `src/`, `tests/`, `scripts/`, `MD/` (hors cette spec et le CHANGELOG, qui les citent comme
+historique) : vide.
 
 ---
 

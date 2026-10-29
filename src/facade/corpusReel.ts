@@ -8,16 +8,16 @@
 // Un cas = un mur : une ou plusieurs photos, leurs quatre coins, la largeur et la hauteur reelles, les ouvertures de la verite.
 // `statut: 'brouillon'` : pas encore relu ; seul un cas `valide` (verifie sur la photo par une personne) compte.
 
-import { analyserLAssemblage, analyserLeMur, fondreLesVues, type AssemblageDuMur } from './analyseMur.js';
-import { GABARIT_RECTANGLE, gabaritSurLaPhoto, lireGabarit } from './gabaritMur.js';
-import type { ResultatAnalyse } from './analyse.js';
+import { lireGabarit } from './gabaritMur.js';
 import { detecterFacade, type OuvertureDetectee } from './detection/detection.js';
-import { type ResultatFusion } from './fusion.js';
+import type { ResultatAnalyse } from './analyse.js';
+import type { AssemblageDuMur } from './analyseMur.js';
+import type { ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
 import { REGLAGES_STRUCTURE } from './regles/facades/structure.js';
 import { recouvrement } from './detection/voteVues.js';
 import type { Image, P2 } from './vision/homographie.js';
-import type { TypeOuverture } from '../model/types.js';
+import type { FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
 
 export const FORMAT_CAS_REEL = 'plan-facade-reelle';
 
@@ -57,6 +57,53 @@ export interface CasReel {
    * pas, elle se pose sur chaque photo par ses coins. Absent : un rectangle.
    */
   gabarit?: { u: number; v: number }[];
+  /** Le mur vrai sur l'assemblage des photos, pose a la main : la verite de l'etape du calage (E4). */
+  calageVrai?: CalageVrai;
+  /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E5 bis) et du toit (E8). */
+  toitVrai?: ToitVraiCorps[];
+}
+
+/**
+ * Le mur vrai sur l'assemblage des photos, en pixels, a la version de la chaine dite (l'assemblage en depend) : ses bouts, et son
+ * egout et son sol quand on les a poses.
+ */
+export interface CalageVrai { x0: number; x1: number; egout?: number; sol?: number; versionChaine: number }
+
+/**
+ * La vraie forme du toit d'un corps que la facade porte (MD/spec-facade-calage-audit.md §7.1). Le corps se designe par son mur sur la
+ * facade, dans le repere du plan (facade/regles/toits/murDuCorps.ts le retrouve, quel que soit son rang) ; ses pignons dans le repere
+ * du corps, comme `PignonToit` (le pan, le debut et la fin le long du faitage depuis `pts[0]`, la hauteur du faitage).
+ */
+export interface ToitVraiCorps {
+  nom: string;
+  mur: { gauche: PtBrut; droite: PtBrut };
+  forme: FormeToitSimple;
+  pignons?: Pick<PignonToit, 'pan' | 'debut' | 'fin' | 'faitage'>[];
+  /** La hauteur a l'egout du corps sur ce mur, en metres (la rive basse d'un appentis). */
+  egoutM?: number;
+  cheminees?: { s: number }[];
+  lucarnes?: { s: number }[];
+}
+
+const FORMES_VRAIES: readonly FormeToitSimple[] = ['plat', 'appentis', 'deux-pans', 'quatre-pans', 'croupes'];
+const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const point = (p: unknown): p is PtBrut => !!p && fini((p as PtBrut).x) && fini((p as PtBrut).y);
+
+/** Relit la vraie forme du toit d'un cas ; leve sur un corps mal decrit (une verite fausse ne se devine pas). */
+function lireToitVrai(brut: unknown): ToitVraiCorps[] {
+  if (!Array.isArray(brut)) throw new Error('Cas reel : toitVrai doit etre une liste de corps.');
+  return brut.map((c: Partial<ToitVraiCorps>) => {
+    if (typeof c?.nom !== 'string' || !point(c.mur?.gauche) || !point(c.mur?.droite) || !FORMES_VRAIES.includes(c.forme as FormeToitSimple)) throw new Error('Cas reel : un corps du toit vrai veut un nom, son mur (gauche, droite) et une forme connue.');
+    if (c.pignons && !c.pignons.every((g) => (g.pan === 0 || g.pan === 1) && fini(g.debut) && fini(g.fin) && fini(g.faitage) && g.fin > g.debut)) throw new Error('Cas reel : un pignon du toit vrai veut son pan, son debut, sa fin et son faitage.');
+    return c as ToitVraiCorps;
+  });
+}
+
+/** Relit le mur vrai d'un cas ; leve s'il ne forme pas un mur. */
+function lireCalageVrai(brut: unknown): CalageVrai {
+  const c = brut as Partial<CalageVrai> | null;
+  if (!c || !fini(c.x0) || !fini(c.x1) || !(c.x1 > c.x0) || !fini(c.versionChaine) || (c.egout !== undefined && !fini(c.egout)) || (c.sol !== undefined && !fini(c.sol))) throw new Error('Cas reel : calageVrai veut x0 < x1 et la version de la chaine.');
+  return { x0: c.x0, x1: c.x1, ...(c.egout !== undefined ? { egout: c.egout } : {}), ...(c.sol !== undefined ? { sol: c.sol } : {}), versionChaine: c.versionChaine };
 }
 
 export function lireCasReel(donnees: unknown): CasReel {
@@ -67,8 +114,11 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
   const gabarit = lireGabarit(c.gabarit);
   const reste = { ...(c as CasReel) };
-  delete reste.gabarit;
-  return { ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}) };
+  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai;
+  return {
+    ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
+    ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
+  };
 }
 
 /** Une ouverture detectee, jugee : juste si elle recouvre une vraie ouverture (une seule vraie par detectee). */
@@ -105,11 +155,8 @@ export function juger(vraies: readonly OuvertureVraie[], trouvees: readonly Ouve
 
 const mediane = (l: number[]): number | null => { if (!l.length) return null; const s = [...l].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] as number; };
 
-const contourDe = (L: number) => [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: 6 }, { x: 0, y: 6 }];
-
-/** Un cas dont le redressement (et la fusion) est fait : la detection seule reste a rejouer, autant de fois qu'on change un reglage. */
-export interface CasPrepare {
-  cas: CasReel;
+/** Ce que l'analyse du mur rend (l'enchainement d'une facade, releve/enchainement.ts, E6 et E7) : l'elevation, la texture, les ouvertures, ce que la fusion en dit, l'assemblage pris. */
+export interface AnalyseDuMur {
   elevation: Image;
   pxParM: number;
   /** Les ouvertures de la chaine ordinaire (reglages en usage), avec le vote entre vues quand il y a plusieurs photos. */
@@ -120,48 +167,19 @@ export interface CasPrepare {
   /** La silhouette du haut du mur, mesuree, et le modele de toit qui la porte le mieux ; null quand le toit est hors cadre. */
   profilToit: ResultatAnalyse['profilToit'];
   toitEstime: ResultatAnalyse['toitEstime'];
-  /** Les baies devinees par la structure, peu sures : proposees en pointille (l'ecran des etapes les montre). */
+  /** Les baies devinees par la structure, peu sures : proposees en pointille. */
   devinees: OuvertureDetectee[];
-  /**
-   * Ce que la fusion a dit des vues (laquelle ne se recale sur aucune autre, et pourquoi), la vue de reference et le masque
-   * d'occlusion de l'elevation (1 : cache sur toutes les vues) ; null pour une photo seule.
-   */
+  /** Ce que la fusion a dit des vues, la vue de reference et le masque d'occlusion ; null pour une photo seule. */
   fusion: Pick<ResultatFusion, 'statut' | 'vues' | 'masque' | 'reference' | 'occlusion'> | null;
-  /**
-   * L'assemblage des photos redressees entieres, et le mur pose dessus : l'image d'ou viennent le mur, la detection et la texture
-   * (facade/analyseMur.ts::analyserLAssemblage). Null quand aucune photo ne s'assemble : le cas repasse alors par la fusion.
-   */
+  /** L'assemblage pris pour la suite, et le mur pose dessus ; null : le mur repasse par la fusion. */
   assemblage: AssemblageDuMur | null;
 }
 
-/** Ce que l'ecran de calibration garde d'une fusion. */
-const resumeFusion = (f: ResultatFusion): NonNullable<CasPrepare['fusion']> => ({ statut: f.statut, vues: f.vues, masque: f.masque, reference: f.reference, occlusion: f.occlusion });
-
 /**
- * Redresse les photos d'un cas. `assemblage` : celui que l'ecran a deja fait et montre (l'etape 3), pris tel quel. Leur assemblage (chaque photo redressee entiere, les vues assemblees, le mur pose dessus) est l'image
- * prise pour la suite : la facade complete, la detection, la texture (decision de l'utilisateur, 21 octobre 2026) ; avec plusieurs vues,
- * il pose le mur et leur fusion en compose l'image. Sans assemblage, la fusion des photos entre leurs coins. `multiVues: false` ne lit que la premiere photo. Null si rien ne se redresse.
+ * Un cas dont le redressement (et la fusion) est fait, par l'enchainement de la facade (releve/enchainement.ts::preparerPourLaMesure) :
+ * la detection seule reste a rejouer, autant de fois qu'on change un reglage.
  */
-export function preparerCas(cas: CasReel, images: readonly Image[], multiVues = true, assemblage: AssemblageDuMur | null = null): CasPrepare | null {
-  const mur = { largeur: cas.largeurM, hauteur: cas.hauteurM, contour: contourDe(cas.largeurM), cote: 0, distance: null };
-  // Le gabarit du cas pose sur chaque photo par ses coins (sa forme ne bouge pas), un rectangle sans gabarit : il dit le toit d'un pignon.
-  const gabarit = cas.gabarit ?? GABARIT_RECTANGLE;
-  // L'assemblage donne (celui que l'ecran a montre) est l'image prise pour la suite, telle quelle.
-  const choisies = multiVues ? cas.photos : cas.photos.slice(0, 1);
-  const photos = choisies.map((p, k) => ({ photo: images[k] as Image, coins: p.coins, focalePx: p.focalePx ?? null, silhouette: gabaritSurLaPhoto(gabarit, p.coins), reperes: p.reperes ?? null }));
-  // Plusieurs vues dans cet assemblage : il pose le mur, leur fusion en compose l'image (vote, occultations ; analyseMur.ts::fondreLesVues).
-  const fondue = assemblage ? fondreLesVues(mur, photos, assemblage, gabarit) : null;
-  const r0 = fondue ?? (assemblage ? analyserLAssemblage(mur, assemblage, gabarit) : null);
-  if (r0) return { cas, elevation: r0.elevation, pxParM: r0.pxParM, texture: r0.texture, hauteurTexture: r0.hauteurTexture, profilToit: r0.profilToit ?? null, toitEstime: r0.toitEstime, ouvertures: r0.ouvertures, devinees: r0.devinees, fusion: fondue ? resumeFusion(fondue) : null, assemblage };
-  const a = analyserLeMur(mur, photos, 'vues');
-  if (!a) return null;
-  const { r, fusion } = a;
-  return {
-    cas, elevation: r.elevation, pxParM: r.pxParM, texture: r.texture, hauteurTexture: r.hauteurTexture, profilToit: r.profilToit ?? null, toitEstime: r.toitEstime, ouvertures: r.ouvertures, devinees: r.devinees,
-    fusion: fusion ? resumeFusion(fusion) : null,
-    assemblage: a.assemblage ?? null,
-  };
-}
+export type CasPrepare = AnalyseDuMur & { cas: CasReel };
 
 const resultat = (cas: CasReel, ouvertures: readonly OuvertureDetectee[]): ResultatCas => {
   const { jugees, cotes, vp } = juger(cas.ouvertures, ouvertures);

@@ -7,6 +7,19 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F0 : l'orchestrateur et la barre de progression, la calibration pour premier consommateur** (`MD/spec-facade-calage-audit.md`
+  §4 ter, §7.3, §9). Les étapes d'une façade (É0 préparation à É9 validation) sont un contrat écrit une fois (`model/etapeFacade.ts`) ;
+  l'orchestrateur `facade/releve/enchainement.ts::derouler` les déroule dans l'ordre, calcule l'état de chacune (faite, à confirmer, en échec,
+  sautée) contre ses objectifs, rangés en réglages (`regles/facades/enchainement.json`), mesure le calage et les ouvertures contre la vérité
+  d'un cas, reprend depuis une étape et s'arrête à la demande ; il appelle la chaîne telle quelle (sur six scènes du banc, l'éditeur et la
+  mesure rendent les mêmes images et les mêmes cotes au bit près). Admin › Calibrer la détection montre en haut de l'éditeur d'un cas la
+  **barre de progression** de la façade (`zones/composants/BarreProgressionFacade.tsx`, huit segments, un état en mot et en forme, un ruban
+  au téléphone, « Arrêter » pendant le calcul ; la même servira l'audit) et une **frise des étapes**, chacune avec sa vignette, qui s'ouvre
+  en grand avec ses calques, son contrat et « Rejouer depuis cette étape » (commande `facade.etape`). Le cas d'étalon d'AE 101 sud
+  (deux pignons et l'appentis, la pose constatée de 302 px au lieu d'environ 610) est posé au corpus réel avec la vraie forme de son toit
+  corps par corps (`tests/fixtures/facades-reel/etalons/`, `reel.ts etalon`). Le cliquet des orphelins de la migration est posé
+  (`tests/unit/architecture/orphelins.test.ts`). Fumée : point 100.
+
 - **Mode Toit : la poignée « Hauteur à l'égout » de chaque corps.** De face, à côté de « Hauteur du faîtage », elle corrige une
   hauteur mal lue (l'IGN dit 3,5 m, le LiDAR lit 8 m sur un arbre ou un toit voisin) : le corps entier monte ou descend, égouts,
   faîtage, pignons, lucarnes et souches ensemble, la pente gardée ; l'égout reste entre 1,5 et 40 m, au pas de 5 cm, et ce qui est
@@ -17,6 +30,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Modifié
 
+- **Admin › Calibrer la détection rejoue un cas par l'enchaînement de la façade.** « Redresser le mur » devient « Rejouer » (le cas tel
+  qu'il est enregistré, étape par étape) ; « Retrouver le mur sur toutes les photos » cherche de nouveau les coins puis rejoue. Le calage
+  de la silhouette est l'option manuelle de l'étape du calage (É4) et rejoue depuis elle. La mesure des cas validés et le banc du corpus
+  réel préparent leurs cas par l'orchestrateur (`preparerPourLaMesure`), aux mêmes nombres. Le moteur de redressement, d'assemblage et
+  de fusion ne bouge pas (banc « chaîne du relevé » et « fusion » identiques, `egout-sol.ts` identique, AE 101 identique, empreintes
+  inchangées).
 - **Le zoom du plan ne redessine plus les objets.** Les objets se dessinent en mètres dans un calque qui porte la transformation du
   repère du dessin (`render/objects.ts`, `app/assemblage/surface.ts`) : un cran de zoom ne change qu'elle. Ce qui se mesure en
   pixels garde ses coordonnées et porte la transformation inverse : le nom d'un objet, le tracé d'un chemin, les poignées et les
@@ -125,6 +144,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   actualisation IGN, sorties, avec les questions posées à `model/protections.ts`). Les deux documents sont mis à jour à la 4.0.0 :
   annexes lues au LiDAR, schéma 6, « Rendre au calcul », références qui suivent un contour déformé, couleur du toit sous le
   module des protections, étapes 6.3, 6.4, 6.6 et 6.7. Documentation seulement : rien ne change à l'écran ni dans les fichiers.
+
+### Supprimé
+
+- **L'enchaînement propre à la calibration** : `facade/releve/casCalibration.ts` (`coinsDeSerie`, `preparerSurLAssemblage`,
+  `assemblageDeLaSerie`, `facadeSurLAssemblage`, `etapesDe`, `versLesPhotos`, `casCale`, `avisDuCas`) et son test, la glue de
+  `zones/EditeurCasCalibration.tsx` (le redressement et la recherche des coins écrits dans l'écran, les neuf figures numérotées « 1. » à « 9. »
+  de `EtapesDuCas`), `preparerCas` de `facade/corpusReel.ts`, et les indicateurs d'étape propres à la calibration (les titres « 5. » et
+  « 6. » du calage de la silhouette, l'avis de la fusion à part) : l'orchestrateur, la barre et la frise les remplacent. Les contrôles
+  `calibration.redresser`, `calibration.etapes` et `calibration.avisFusion` partent avec eux.
 
 ## [4.0.0] — 2026-10-28
 

@@ -20,6 +20,23 @@ import { validerProjetJSON } from '../../io/validation.js';
 import { magasinPhotos, rentrerLesPhotos } from '../../io/photosLocales.js';
 import type { ObjetBrut } from '../../model/types.js';
 import { hoteDeZone } from '../../shell/dom.js';
+import { creerRegistre, type RegistreCommandes } from '../commandes.js';
+import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
+
+/**
+ * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
+ * progression et a la frise des etapes (MD/spec-facade-calage-audit.md §4 ter.5). L'etape vient de `data-etape` du bouton ; l'editeur
+ * ouvert s'abonne a son ouverture.
+ */
+function registreDeLEcran(): { commandes: RegistreCommandes; ecouterEtape: (f: (id: IdEtape) => void) => () => void } {
+  const commandes = creerRegistre();
+  let ouvrir: ((id: IdEtape) => void) | null = null;
+  commandes.declarer({
+    id: 'facade.etape', libelle: 'Ouvrir une étape de la façade', groupe: 'facade',
+    executer: (source) => { const etape = ETAPES_FACADE.find((e) => e.id === source?.dataset.etape); if (etape) ouvrir?.(etape.id); },
+  });
+  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { if (ouvrir === f) ouvrir = null; }; } };
+}
 
 /** L'adresse demande-t-elle l'ecran de calibration ? */
 export function demandeEcranCalibration(recherche: string): boolean {
@@ -85,6 +102,7 @@ export function ouvrirEcranCalibration(): void {
     reduirePhoto,
     decoder,
     elevationEnUrl: (img) => versJpeg(img, 0.9),
+    ...registreDeLEcran(),
     maintenant: () => new Date(),
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')

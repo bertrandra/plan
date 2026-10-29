@@ -69,13 +69,13 @@ describe('les brouillons d un fichier d audit', () => {
 });
 
 describe('la chaine sur un cas fabrique d une scene du banc', () => {
-  it('mesure une facade photographiee contre sa verite', () => {
+  it('mesure une facade photographiee contre sa verite', async () => {
     const s = chargerCorpus().find((c) => c.nom.startsWith('02-')) as SceneFacade;
     const p = s.synthese.prise as PriseCamera;
     const ph = photographier(s, 100, p), coins = coinsVrais(s, p);
     if (!ph || !coins) throw new Error('scene impossible');
     const cas: CasReel = { format: FORMAT_CAS_REEL, version: 1, nom: s.nom, statut: 'valide', largeurM: s.verite.largeur, hauteurM: s.verite.hauteur, photos: [{ fichier: 'synthese', coins, focalePx: ph.focalePx }], ouvertures: s.verite.ouvertures as never };
-    const r = mesurerCas(cas, [ph.image]);
+    const r = await mesurerCas(cas, [ph.image]);
     expect(r.vraies).toBe(6);
     expect(r.vp).toBe(6);
     expect(r.fp).toBe(0);
