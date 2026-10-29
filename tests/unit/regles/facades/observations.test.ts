@@ -58,7 +58,12 @@ describe('la reponse enregistree', () => {
   it('se relit, et ignore ce qui n en a pas la forme', () => {
     const r = run([SORTIE_FACADE]);
     expect(lireRunEnregistre(JSON.parse(JSON.stringify(r)))).toEqual(r);
-    expect(lireRunEnregistre({ ...r, passes: 2 })).toBeNull();
+    expect(lireRunEnregistre({ ...r, passes: 4 })).toBeNull();
+    expect(lireRunEnregistre({ ...r, passes: 2 })?.passes).toBe(2);
+    // L'escalade se relit avec le run ; une escalade sans sortie lisible est ignoree, le run reste.
+    const escalade = { le: '2026-10-29T09:00:00.000Z', modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, sortie: SORTIE_FACADE, cout: 0.003, tokens: { entree: 4200, sortie: 900 } };
+    expect(lireRunEnregistre(JSON.parse(JSON.stringify({ ...r, escalade })))?.escalade).toEqual(escalade);
+    expect(lireRunEnregistre({ ...r, escalade: { ...escalade, sortie: { forme: 1 } } })).toEqual(r);
     expect(lireRunEnregistre({ ...r, image: null })).toBeNull();
     expect(lireRunEnregistre({ ...r, cout: 'cher' })?.cout).toBeNull();
   });

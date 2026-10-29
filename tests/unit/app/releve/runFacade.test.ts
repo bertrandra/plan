@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aideReleveDuNavigateur, appelerRunFacade } from '../../../../src/app/releve/runFacade.js';
+import { aideReleveDuNavigateur, appelerEscaladeFacade, appelerRunFacade, libelleEscalade } from '../../../../src/app/releve/runFacade.js';
 
 type ContexteRun = Parameters<typeof appelerRunFacade>[0];
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatsImmediats } from '../../../../src/io/analyseClaude.js';
@@ -7,8 +7,9 @@ import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js'
 import type { AccordAnalyse } from '../../../../src/model/auditParcelle.js';
 import { SORTIE_FACADE } from '../../../fixtures/deploy/fauxAnthropic.js';
 
-// Le run d'une facade, cote page (lot F2) : une requete (x1) ou trois (x3) par la route immediate, usage `facade` ; la reponse
-// enregistree avec les versions, le modele, les tokens et le cout ; l'aide du releve, qui passe par lui avec l'accord par projet.
+// Le run d'une facade, cote page (lots F2 et F3) : trois passes votees (la production, `facades.ia.passes`) ou une (pour mesurer) par
+// la route immediate, usage `facade` ; la reponse enregistree avec les versions, le modele, les tokens et le cout ; l'aide du releve,
+// qui passe par lui avec l'accord par projet ; l'escalade, a la demande, UNE requete au modele de l'usage `escalade`.
 // SORTIE_FACADE est synthetique (ecrite pour les tests), pas une reponse de Claude.
 
 const IMAGE = { largeur: 4, hauteur: 3, donnees: new Uint8ClampedArray(48) };
@@ -82,7 +83,7 @@ describe('le run d une facade', () => {
 });
 
 describe('l aide de Claude au releve, par le run', () => {
-  it('garde l accord pour le projet, et demande une seule passe', async () => {
+  it('garde l accord pour le projet, et lit la facade trois fois (la production)', async () => {
     let accord: AccordAnalyse | null = null;
     const recues: DemandeAnalyse[] = [];
     const c = contexte(client(recues));
@@ -94,6 +95,45 @@ describe('l aide de Claude au releve, par le run', () => {
     const r = await aide.demander({ image: IMAGE, texte: 'Façade : sud.' });
     expect('reponse' in r).toBe(true);
     expect(recues[0]).toMatchObject({ usage: 'facade', audit: expect.stringMatching(/^releve-\d{14}$/) });
-    expect(recues[0]?.requetes).toHaveLength(1);
+    expect(recues[0]?.requetes.map((q) => q.id)).toEqual(['facade-p1', 'facade-p2', 'facade-p3']);
+    if ('run' in r) expect(r.run.passes).toBe(3);
+  });
+});
+
+describe('l escalade d une facade, a la demande', () => {
+  const PRIX = { modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } };
+
+  it('envoie UNE requete, usage escalade, la requete gardant l usage facade (son prompt), et la garde avec le run', async () => {
+    const recues: DemandeAnalyse[] = [];
+    const r0 = await appelerRunFacade(contexte(client(recues)), { image: IMAGE, texte: 'Façade : sud.', passes: 3 }, 'calibration');
+    if ('erreur' in r0) throw new Error(r0.erreur);
+    const r = await appelerEscaladeFacade(contexte(client(recues)), { image: IMAGE, texte: 'Façade : sud.' }, r0.run, 'calibration');
+    if ('erreur' in r) throw new Error(r.erreur);
+    const d = recues[1] as DemandeAnalyse;
+    expect(d).toMatchObject({ usage: 'escalade', audit: 'calibration-esc-20261029083000' });
+    expect(d.requetes.map((q) => [q.id, q.passe, q.usage, q.facades])).toEqual([['escalade-p1', 1, 'facade', 0]]);
+    // La meme image et le meme texte que les passes.
+    expect(d.requetes[0]?.contenu).toEqual(recues[0]?.requetes[0]?.contenu);
+    expect(r.run.sorties).toEqual(r0.run.sorties);
+    expect(r.run.escalade).toEqual({ le: '2026-10-29T08:30:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, sortie: SORTIE_FACADE, cout: 0.0012, tokens: { entree: 4200, sortie: 900 } });
+    // Jamais deux : un run deja escalade revient tel quel, sans appel.
+    expect(await appelerEscaladeFacade(contexte(client(recues)), { image: IMAGE, texte: 'x' }, r.run, 'calibration')).toEqual({ run: r.run });
+    expect(recues).toHaveLength(2);
+  });
+
+  it('annonce son cout sur le bouton : une passe du run, aux prix du modele de l escalade', () => {
+    const run = { passes: 3 as const, tokens: { entree: 12600, sortie: 2700 } };
+    // 4 200 tokens d'entree a 3 $ et 900 de sortie a 15 $ le million : 0,0126 + 0,0135.
+    expect(libelleEscalade(run, PRIX)).toBe('Escalader vers claude-sonnet-5-5 (≈ 0,0261 $)');
+    expect(libelleEscalade(run, { modele: 'm', prix: null })).toBe('Escalader vers m');
+    expect(libelleEscalade(null, null)).toBe('Escalader');
+    expect(libelleEscalade({ ...run, escalade: { le: '', modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, sortie: {}, cout: 0.02, tokens: { entree: 0, sortie: 0 } } }, PRIX)).toBe('Escaladée (claude-sonnet-5-5)');
+  });
+
+  it('dit pourquoi rien n est revenu', async () => {
+    const r0 = await appelerRunFacade(contexte(client([])), { image: IMAGE, texte: 't', passes: 1 }, 'calibration');
+    if ('erreur' in r0) throw new Error(r0.erreur);
+    expect(await appelerEscaladeFacade(contexte(client([], [0])), { image: IMAGE, texte: 't' }, r0.run, 'audit')).toEqual({ erreur: 'L’escalade n’a rendu aucune réponse lisible (Surcharge.).' });
+    expect(await appelerEscaladeFacade(contexte({ immediat: async () => { throw new EchecAnalyse('plafond', 'x'); } } as unknown as ClientAnalyse), { image: IMAGE, texte: 't' }, r0.run, 'audit')).toEqual({ erreur: 'Le plafond de l’analyse est atteint pour aujourd’hui ou ce mois-ci.' });
   });
 });

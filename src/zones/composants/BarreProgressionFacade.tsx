@@ -14,6 +14,8 @@ import { Icone, type NomIcone } from '../icones.js';
 
 /** La commande qui ouvre une etape : declaree par l'ecran qui porte la barre. */
 export const COMMANDE_ETAPE = 'facade.etape';
+/** L'escalade d'une facade, a la demande : le bouton sous la barre (l'audit, la calibration), la meme commande des deux cotes. */
+export const COMMANDE_ESCALADE = 'facade.escalader';
 
 /** Une etape telle que la barre la montre : l'etat que l'orchestrateur lui a calcule (ou a venir, ou en cours) et ce qu'elle a donne. */
 export type EtapeAffichee = Pick<EtapeCalculee, 'id' | 'etat' | 'resume'>;

@@ -29,6 +29,8 @@ import { epurerLeTemps } from '../../../three/scene.js';
 import { jourDe } from '../reprise.js';
 import { preparerDemande, type FabriqueImages, type IdentiteAnalyse } from './entreesAnalyse.js';
 import { escaladerLeBatch } from './escalade.js';
+import { escaladerUneFacade } from './escaladeFacade.js';
+import type { PrixEscalade } from '../../releve/runFacade.js';
 import type { ReponsesBatiment } from './propositionsClaude.js';
 import type { EntreesPropositions } from './propositions.js';
 import type { CaptureEnCours } from './capture.js';
@@ -111,6 +113,12 @@ export interface AnalyseClaude {
   reponses(): Record<string, ReponsesBatiment> | null;
   /** L'accord du run de chaque facade avec sa detection (`cle#cote`) ; null sans resultat ou sans accord de la personne. */
   accords(): Record<string, AccordFacadeCapture> | null;
+  /** Le run de Claude de chaque facade (`cle#cote`), escalade comprise ; null sans resultat ou sans accord de la personne. */
+  runs(): Record<string, RunEnregistre> | null;
+  /** L'escalade d'une facade, a la demande de la personne : une requete ; rend la phrase a lui dire. */
+  escaladerFacade(k: string): Promise<string>;
+  /** Le modele de l'escalade et ses prix, pour annoncer son cout ; null tant qu'ils ne sont pas connus. */
+  prixEscalade(): PrixEscalade | null;
   /** Change a chaque resultat ou retrait : les propositions se recalculent. */
   version(): number;
   abonner(f: () => void): () => void;
@@ -229,8 +237,10 @@ export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repo
  * d'un brouillon, le batch est souvent deja fini) : on les attend, puis on accorde les facades dont le releve existe et qui n'ont pas
  * encore d'accord. Un accord vide n'est jamais note : il fermerait la porte aux mesures suivantes.
  */
-function accordsDifferes(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter: (a: Partial<AnalyseCapture>) => void) {
+function accordsDifferes(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter: (a: Partial<AnalyseCapture>) => void, publier: () => void) {
   let enCours: Promise<void> | null = null;
+  /** Le modele de l'escalade et ses prix (l'etat du serveur), lus une fois ; undefined : pas encore demandes. */
+  let prix: PrixEscalade | null | undefined;
   /** Les facades deja tentees, avec le releve d'alors : un accord sans resultat ne se rejoue pas sur le meme releve. */
   const tentees = new Map<string, unknown>();
   const sansAccord = (r: ResultatsAnalyse): string[] => Object.keys(r.runs ?? {}).filter((k) => !r.accords?.[k]);
@@ -261,7 +271,36 @@ function accordsDifferes(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter
     return enCours;
   }
 
-  return { completer };
+  /** Le modele de l'escalade et ses prix ; demandes au serveur la premiere fois (l'ecran se redessine a leur arrivee). */
+  function prixEscalade(): PrixEscalade | null {
+    if (prix === undefined && ctx.client) {
+      prix = null;
+      void ctx.client.etat().then((e) => { prix = e.escaladeFacade ?? null; publier(); }, () => {});
+    }
+    return prix ?? null;
+  }
+
+  /**
+   * L'escalade d'une facade, a la demande (escaladeFacade.ts) : gardee dans son run, puis l'accord de la facade est refait par le
+   * moteur. Rend la phrase a dire a la personne.
+   */
+  async function escalader(k: string): Promise<string> {
+    const r0 = lire().resultats, run = r0?.runs?.[k];
+    if (!ctx.client || !ctx.images.facade || !lire().accord || !r0 || !run) return 'Claude n’a pas encore lu cette façade : il n’y a rien à escalader.';
+    const x = await escaladerUneFacade({ client: ctx.client, entrees: ctx.entrees, fab: ctx.images.facade, identite: ctx.identite, maintenant: ctx.maintenant }, k, run);
+    if ('erreur' in x) return x.erreur;
+    const r = lire().resultats;
+    if (!r || r.t !== r0.t || !lire().accord) return 'L’analyse a changé pendant l’escalade : sa réponse n’est pas gardée.';
+    const accords = { ...(r.accords ?? {}) };
+    delete accords[k];
+    tentees.delete(k);
+    noter({ resultats: { ...r, runs: { ...(r.runs ?? {}), [k]: x.run }, accords } });
+    await completer();
+    const e = x.run.escalade;
+    return 'Escalade de la façade enregistrée (' + (e?.modele ?? '?') + (typeof e?.cout === 'number' ? ', ' + e.cout.toFixed(4).replace('.', ',') + ' $' : '') + ') : le moteur l’a pesée contre le vote des passes.';
+  }
+
+  return { completer, escalader, prixEscalade };
 }
 
 /** Les reponses lues de la capture, par batiment, avec les etiquettes de ses images et, si l'escalade a eu lieu pour lui, la reponse du modele fin. */
@@ -318,7 +357,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     return a.resultats ? 'prete' : 'enCours';
   }
 
-  const { completer: completerAccords } = accordsDifferes(ctx, lire, noter);
+  const { completer: completerAccords, escalader, prixEscalade } = accordsDifferes(ctx, lire, noter, publier);
 
   /** Le batch est termine : ses resultats sont lus, ranges par batiment, et l'on previent ; l'accord des facades suit, mesures faites. */
   async function lireResultats(batch: BatchAnalyse): Promise<boolean> {
@@ -424,10 +463,9 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch) { if (!a.resultats) suivre(); else void completerAccords(); } },
     arreter() { annulerSuivi?.(); annulerSuivi = null; },
     reponses: () => reponsesDe(lire()),
-    accords() {
-      const a = lire();
-      return a.accord && a.resultats?.accords ? a.resultats.accords : null;
-    },
+    accords: () => { const a = lire(); return a.accord && a.resultats?.accords ? a.resultats.accords : null; },
+    runs: () => { const a = lire(); return a.accord && a.resultats?.runs ? a.resultats.runs : null; },
+    escaladerFacade: escalader, prixEscalade,
     version: () => version,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },
   };

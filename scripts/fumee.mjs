@@ -76,6 +76,9 @@ const choisis = lot ? lot.points : argsPoints.map(Number).filter(Boolean);
 
 // ---- Aides cote page -----------------------------------------------------------------------------
 
+/** Les passes d'un appel du run d'une facade (trois, votees : decision du 29 octobre 2026) portent toutes le meme contenu. */
+const memeContenu = (d) => d.requetes.every((q) => JSON.stringify(q.contenu) === JSON.stringify(d.requetes[0].contenu));
+
 /**
  * Les photos de synthese d'une scene du banc de facades (tests/fixtures/facades/), en PNG : la vue
  * principale puis ses autres vues. Rendues une fois par passage par le generateur du banc
@@ -2685,6 +2688,63 @@ const POINTS = {
       && appels === 0 && !debords.some(Boolean);
     return { ok, mesure: `réponse rejouée « ${entete} » ; É4 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; É7 « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  103: async (page, f) => {
+    // L'escalade d'une facade, a la demande (decision du proprietaire du 29 octobre 2026 : « trois lectures, et une escalade a la
+    // demande »), dans Admin › Calibrer la detection : le cas de la scene 02 et sa reponse enregistree SYNTHETIQUE (pas Claude) ;
+    // « Rejouer », « IA (réponse enregistrée) », puis le bouton de la commande `facade.escalader`. Le serveur est simule : `etat` dit
+    // le modele de l'escalade et ses prix, `admin/claude/messages` rend une lecture SYNTHETIQUE qui voit de la pierre la ou le vote
+    // voit de l'enduit. On mesure : le libelle du bouton (modele et cout annonce), UNE requete envoyee (usage `escalade`, la requete
+    // en usage `facade`), l'E4 qui dit ce que l'escalade a tranche, le bouton grise ensuite (une seule escalade), rien ne deborde.
+    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
+    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
+    const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · enduit', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
+      photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: scene.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })), ia: [run],
+      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    const sortie = { ...run.sorties[0], surface: { ...run.sorties[0].surface, principale: 'pierre' } };
+    const demandes = [];
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/claude/messages')) {
+        const d = route.request().postDataJSON();
+        demandes.push(d);
+        return json({ modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: 1, usage: 'escalade', sortie, erreur: null, cout: 0.0261, tokens: { entree: 4200, ecritureCache: 0, lectureCache: 0, sortie: 900 } })) });
+      }
+      if (u.pathname.endsWith('/admin/claude/etat')) return json({ actif: true, prompt: 9, schema: 5, organisation: null, admin: true, escaladeFacade: { modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } } });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-10-29T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    const bouton = page.locator('[data-commande="facade.escalader"]');
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    await etape('mode IA', () => page.locator('[data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu IA', finRejeu);
+    await etape('bouton', () => bouton.waitFor({ timeout: 10000 }));
+    const avant = ((await bouton.textContent()) || '').trim();
+    const debords = [await deborde()];
+    if (process.env.FUMEE_CAPTURE_F3_ESCALADE) await bouton.locator('xpath=..').screenshot({ path: process.env.FUMEE_CAPTURE_F3_ESCALADE.replace('{classe}', f.nom) });
+    await etape('escalader', () => bouton.click({ timeout: 10000 }));
+    await etape('escalade enregistree', () => page.waitForFunction(() => /Escalade enregistrée/.test(document.body.textContent || '') && document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer', null, { timeout: 90000 }));
+    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
+    await etape('E4 ouverte', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
+    const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const apres = ((await bouton.textContent()) || '').trim();
+    const grise = await bouton.isDisabled();
+    debords.push(await deborde());
+    await page.unroute(/\/admin\//);
+    const d = demandes[0];
+    const ok = /^Escalader vers claude-sonnet-5-5 \(≈ 0,\d{4} \$\)$/.test(avant) && demandes.length === 1 && d?.usage === 'escalade' && d?.requetes?.length === 1 && d.requetes[0]?.usage === 'facade'
+      && /Escalade \(claude-sonnet-5-5\) : elle l’emporte sur le parement/.test(resume4) && apres === 'Escaladée (claude-sonnet-5-5)' && grise && !debords.some(Boolean);
+    return { ok, mesure: `bouton « ${avant} » ; ${demandes.length} demande(s), usage ${d?.usage}, requête ${d?.requetes?.map((q) => q.usage).join('/')} ; É4 « ${(resume4.match(/Escalade \(.*?\.(?= |$)/) || ['PAS d’escalade'])[0]} » ; ensuite « ${apres} »${grise ? ', grisé' : ', ACTIF'} ; débordement ${debords.map((x) => (x ? 'OUI' : 'non')).join('/')}` };
+  },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
     // sur « Les deux » ; deux vues de la meme Vue 3D, « Avant » et « Après », a cote de l'ecran (l'une
@@ -3549,7 +3609,7 @@ const POINTS = {
     const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
     const coinsOk = apres.length === 4 && apres.every((c, k) => c === avant[k] || (avant[k] === 'predit' && c === 'claude'));
     const ok = avant.every((c) => c === 'predit') && propose === 1 && /coins non trouvés/.test(note) && demandeAccord === 1 && recues.length === 1
-      && d?.usage === 'facade' && d.requetes.length === 1 && d.requetes.every((q) => q.usage === 'facade') && images === 1 && /^Bearer /.test(recues[0].jeton)
+      && d?.usage === 'facade' && d.requetes.length === 3 && memeContenu(d) && d.requetes.every((q) => q.usage === 'facade') && images === 1 && /^Bearer /.test(recues[0].jeton)
       && /^Claude (a proposé|n’a situé aucun coin)/.test(message) && coinsOk && !deborde;
     return { ok, mesure: `coins ${avant.join(', ')} ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 70)}… ») ; accord ${demandeAccord ? 'demandé' : 'PAS demandé'} ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s) ' + d.usage + ', ' + images + ' image(s), jeton ' + (/^Bearer /.test(recues[0].jeton) ? 'oui' : 'NON') : 'RIEN'} ; « ${message.slice(0, 90)} » ; coins après : ${apres.join(', ')} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
@@ -3685,7 +3745,7 @@ const POINTS = {
     const zones = chemins[1] ?? 0;
     const ok = chemins.length === 2 && zones >= 1 && !!trait && trait !== 'none' && trait !== 'absent'
       && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
-      && recues.length === 1 && d.usage === 'facade' && d.requetes.length === 1 && images === 1 && /vues? par Claude|Claude ne voit aucune ouverture/.test(message) && !deborde;
+      && recues.length === 1 && d.usage === 'facade' && d.requetes.length === 3 && memeContenu(d) && images === 1 && /vues? par Claude|Claude ne voit aucune ouverture/.test(message) && !deborde;
     return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   99: async (page) => {
@@ -3752,7 +3812,8 @@ function pointsPour(nomClasse) {
   // 100 : Admin › Calibrer la detection, le rejeu d'un cas par l'enchainement de la facade : la barre de progression et la frise (lot F0).
   // 101 : son mode « IA », une reponse enregistree du run de la facade rejouee sans reseau (lot F2).
   // 102 : l'audit de la parcelle, une facade calculee par l'orchestrateur en mode discret, avec la meme barre (lot F3).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102];
+  // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

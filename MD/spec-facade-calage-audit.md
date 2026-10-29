@@ -58,8 +58,11 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
     et on le dit (alerte) ; la correction de hauteur reste un geste de la personne (poignée « hauteur à l'égout », « Rendre au calcul »).
 13. **Les corrections de toit se font sur le corps concerné, et une façade peut en inclure plusieurs.** Un diagnostic est rattaché au
     corps dont le mur porte la partie de silhouette en cause ; une proposition s'écrit dans le repère de ce corps (§5 ter).
-14. **Un seul run IA par façade.** Une requête, une réponse, un schéma : elle rend le calage (angles, pointes, corps), les éléments de toit
-    vus, **les ouvertures et le type de leurs carreaux**. Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
+14. **Trois lectures votées par façade, et une escalade à la demande** (décision du propriétaire du 29 octobre 2026, sur la mesure de la
+    vraie API ; d'abord « un seul run IA par façade »). Un schéma, une image : chaque lecture rend le calage (angles, pointes, corps),
+    les éléments de toit vus, **les ouvertures et le type de leurs carreaux** ; trois lectures partent ensemble et le moteur les vote
+    (`facades.ia.passes`, un réglage). Une quatrième, par le modèle de l'escalade, ne part **que si la personne la demande** (un bouton
+    qui dit son coût, une requête). Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
 15. **L'IA récupère aussi, pour la suite, les ouvertures et leurs carreaux** : le type de division du vitrage (petits bois, nombre de
     carreaux, imposte). On l'enregistre dans la façade objet **maintenant** ; son rendu en 3D est un lot ultérieur (§3.3, F8).
 16. **Le moteur de redressement et de fusion reste tel quel.** Le redressement (`vuesDeFace`, `redresserParFuites`, `redresserParReperes`),
@@ -542,7 +545,8 @@ l'É7 de l'enchaînement et l'aide du relevé appliquent :
 
 | Règle | Observation | Décision | Réglages |
 |---|---|---|---|
-| Le vote de trois passes (option ×3 du rejeu) | deux ou trois passes | une observation : médianes, majorité | `voteMemeU`, `voteMemeBaie`, `voteMemeEtendue` |
+| Le vote des passes (trois en production) | les passes d'un run | une observation : médianes, majorité | `passes`, `voteMemeU`, `voteMemeBaie`, `voteMemeEtendue` |
+| L'escalade, à la demande | le vote et la lecture du modèle de l'escalade | une observation : l'escalade l'emporte sur le calage, la forme, le parement où elle s'écarte ; ses boîtes en plus, à accorder | `escaladeEcartPart`, `voteMemeBaie` |
 | Les angles sont une pose candidate | `calage.angles` | une pose de plus pour `calerParLesAncres`, jugée par le même score | — (l'écart d'accord : `calageEcartMaxPart`) |
 | Le colombage écarte les poses qui tiennent dedans | `surface.zones` de type `colombage`, partielles | les poses dont les deux bouts tombent dans la zone ne sont pas jugées ; la teinte du mur se lit hors d'elle | `colombagePartMax`, `colombageTolerancePart` |
 | Les pointes : diagnostic ou alerte, jamais correction | `calage.pointes` | accord, en plus, manquante (diagnostic, F4), hauteur (alerte : le LiDAR est gardé) | `pointeEcartU`, `pointeEcartHauteur` |
@@ -728,7 +732,7 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
 
 ---
 
-## 8. Contrat avec l'IA : un seul run par façade
+## 8. Contrat avec l'IA : trois lectures votées par façade, une escalade à la demande
 
 - **Où** : le sujet « façades » de l'audit (`app/regles/sujets/facades.ts`) et le schéma d'analyse. Le prompt et le schéma sont
   **générés** : `npm run regles:generer`, jamais à la main ; un texte changé monte la version dans `versions.ts`.
@@ -749,21 +753,43 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
      les arêtes prennent pour le mur (AE 101) : la règle du colombage (§5) écarte ces poses.
   Les coordonnées sont celles de l'image prise pour la suite, **normalisées** (`u` le long du mur, `v` en part de l'égout) : l'IA ne voit
   ni les pixels ni les dimensions réelles.
-- **Un run, pas de vote.** Le renfort existant lance trois passes qu'il vote (`facade/detection/renfort.ts`). Avec un seul run, la
-  protection contre l'invention (« une fenêtre inventée dans une passe sur trois ») passe par **l'accord avec le déterministe** : une
-  boîte de l'IA que la détection retrouve, ou que la grille de la façade (niveaux × travées) rend plausible, est cochée ; une boîte seule
-  reste **décochée**, avec son image. Le vote à trois passes reste **disponible** comme option du rejeu (« Rappeler Claude ×3 »), pour
-  mesurer ce qu'il apporte contre son coût (§11).
+- **Trois lectures votées** (décision du 29 octobre 2026, qui remplace « un run, pas de vote »). La même requête part trois fois, au
+  même contenu, dans le même appel ou le même batch ; le moteur vote les observations (`voterObservations` : la médiane de ce que plus
+  de la moitié des passes voient, le mot de la majorité). Le nombre est un **réglage** (`facades.ia.passes` dans
+  `regles/facades/ia.json`, 3), jamais une constante ; « Une passe (pour mesurer) » reste dans la calibration. Le vote ne coche rien :
+  une boîte n'est cochée que si la détection la retrouve, ou si elle confirme une baie devinée par la grille ; une boîte seule reste
+  **décochée**. Mesure de la vraie API qui l'a décidé (run 40903934070, branche `claude/facade-f2-json`, 22 scènes du banc, toutes
+  lisibles) :
+
+  | Mode | Rappel | Précision | Carreaux | Coût par façade |
+  |---|--:|--:|--:|--:|
+  | ×1 | 92,9 % | 98,3 % | 0 / 16 | 0,00153 $ |
+  | ×3 | 99,2 % | 100 % | 10 / 21 | 0,00464 $ |
+
+- **Une escalade, à la demande seulement.** Sous la barre d'une façade, dans l'audit et dans le rejeu de la calibration, un bouton (la
+  commande `facade.escalader`, exposée dans les trois classes) envoie **une** requête de plus : la même image, le même texte, le même
+  prompt et le même schéma (sortie structurée, exemple en repli, `refusFormat`), au **modèle de l'usage `escalade`** que le serveur
+  connaît (Réglages › Modèles ; par défaut `claude-haiku-5-5`, comme les passes, tant que l'administrateur ne choisit pas
+  `claude-sonnet-5-5`). La demande porte l'usage `escalade`, la requête garde l'usage `facade` : le serveur prend le prompt de la requête
+  et le modèle de la demande, et la compte en escalade (journal, tableau de bord). Le bouton dit le modèle et le coût annoncé (une passe
+  du run aux prix du jour du modèle, que l'état du serveur donne) ; il n'y en a qu'**une par lecture**, jamais automatique. Sa réponse est
+  enregistrée **avec le run** (`escalade` : sortie, modèle, versions, coût), dans la capture de l'audit et dans le cas de la calibration,
+  et se rejoue sans réseau. **Le moteur la pèse** (`escaladerObservations`, `facade/regles/facades/ia.ts`) : sur le calage (chaque
+  angle, les pointes, les appentis, les corps, ce qui cache), la forme, les éléments du toit et le parement, elle **l'emporte** là où
+  elle s'écarte du vote de plus de `facades.ia.escaladeEcartPart` (3 %) ou dit un autre mot ; un `indetermine` ne contredit rien. Ses
+  ouvertures que le vote n'a pas **s'ajoutent**, marquées `escalade`, et ne sont cochées que si la détection les retrouve, comme les
+  autres. Ce qu'elle a tranché se dit en mots (É4 : « Escalade (modèle) : elle l'emporte sur le parement. »).
 - **Ce que Claude ne fait pas** : il n'écrit ni hauteur, ni largeur, ni forme de toit ; il ne corrige pas le plan. Quand il voit une
   pointe plus haute ou plus basse que prévu, il le dit (`v`), et la spec le traite en **alerte**, jamais en correction (décision 12).
 - **Par le moteur de règles** (§5, « L'IA alimente le moteur de règles ») : la réponse devient des observations, les règles en
   décident ; la chaîne ne lit jamais le JSON de Claude.
 - **Où va chaque champ** : le calage et le parement → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
   leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
-- **Reproductibilité** : la réponse du run est **enregistrée** avec la version du prompt et du schéma ; la calibration la rejoue (§7.2) sans
-  appel réseau. Un seul run à enregistrer par cas et par version : le rejeu est plus simple et moins cher qu'avec trois passes.
-- **Coût** : **une** requête par façade (au lieu d'une pour le calage et trois pour le renfort) mais une réponse plus longue ; à mesurer
-  (jetons, secondes) sur les cas, et à plafonner par le serveur comme les autres.
+- **Reproductibilité** : la réponse du run (ses trois passes, et son escalade s'il y en a une) est **enregistrée** avec la version du prompt
+  et du schéma ; la calibration la rejoue (§7.2) sans appel réseau.
+- **Coût** : trois requêtes par façade, environ 0,0046 $ au tarif de `claude-haiku-5-5` (mesure ci-dessus), plafonnées par le serveur
+  comme les autres ; l'escalade coûte une requête de plus, au tarif de son modèle, et seulement quand la personne la demande. L'audit
+  dit le coût de chaque façade sous sa barre.
 
 ---
 
@@ -1236,8 +1262,9 @@ manquées. Corrigé, prompt et schéma en **version 2** :
    juste : les signaux de l'aide du relevé (`facade/detection/signaux.ts`, `signauxDeLaFacade`, F6 les reprendra avec le relevé), le
    recalage des graines (`facade/detection/recalageIa.ts`, lu par l'accord et par l'aide du relevé), l'image du run
    (`render/imageFacade.ts`). L'usage `renfort` du serveur et ses fichiers partent avec lui ; une ligne `renfort` du journal se lit
-   toujours, un réglage des modèles qui la nomme est ignoré. La mesure ×1 contre ×3 sur Claude reste à jouer (F2) : elle décidera de
-   l'option ×3 de la calibration, seule à voter encore.
+   toujours, un réglage des modèles qui la nomme est ignoré. *Revu le même jour* : la mesure ×1 contre ×3 sur Claude a été jouée
+   (§8) et le propriétaire a décidé trois lectures votées partout, et une escalade à la demande (ci-dessous, « Trois lectures et
+   l'escalade »).
 2. **`escalade.ts` reste** : il départage les trois passes de **l'analyse d'une maison** (forme, bouts, couverture), qui n'ont pas changé ;
    ce vote-là n'est pas celui du renfort. « Si le vote est parti » ne le concerne pas.
 3. **Le run de l'audit lit l'élévation du mur**, pas l'assemblage : l'audit ne garde pas l'assemblage de ses vues, et ce que le run y
@@ -1275,6 +1302,35 @@ de `mesures.ts` ; les exports qui ont changé de fichier sans importeur ont ét�
 `facades`), le journal de consommation (une ligne `renfort` se lit toujours), `livraison/` (construit depuis `main`) et `textePhoto`,
 déplacé tel quel dans l'orchestrateur (la phrase de l'É2 de l'audit).
 
+#### Trois lectures et l'escalade à la demande (29 octobre 2026, sur la branche F3)
+
+**Décision du propriétaire**, après la mesure de la vraie API (run 40903934070, §8) : « go for 3 read and 1 escalation process on
+request ». Livré sur la branche de F3, après la fusion de #498 (la sortie structurée du run et le prompt v2), dont l'escalade reprend la
+requête telle quelle.
+
+- **Trois lectures partout** : l'audit (trois passes par façade mesurée dans le batch de l'analyse, `requetesRunsDuBatiment` ; une
+  façade dont les trois ne tiennent plus dans le batch n'en part pas), l'aide du relevé et « Rappeler Claude » de la calibration
+  (« Une passe (pour mesurer) » y reste). Le nombre est le réglage `facades.ia.passes` (1 à 3, entier), le vote `voterObservations`.
+  `rangerRuns` regroupe les passes d'une façade, leur nombre celui des requêtes envoyées, leur coût toutes passes comprises.
+- **L'escalade** : la commande `facade.escalader` (`app/audit/parcelle/commande.ts` pour l'audit, le registre de l'écran pour la
+  calibration ; exposée sous la barre dans les trois classes), `app/audit/parcelle/escaladeFacade.ts` et `envoyerEscalade`
+  (`app/releve/runFacade.ts`) ; la règle `escaladerObservations` et le réglage `facades.ia.escaladeEcartPart` ; le run la garde
+  (`RunEnregistre.escalade`, relue par `lireRunEnregistre`). L'état du serveur dit le modèle de l'escalade et ses prix
+  (`escaladeFacade`). Dans l'audit, la ligne « Lue par Claude, … trois passes votées, …, 0,0046 $ » dit le coût de chaque façade.
+- **Serveur** (`deploy/analyse-fonctions.php`) : dans une demande `escalade`, une requête garde le prompt et le schéma de son usage
+  et prend le modèle de l'escalade ; elle se compte `escalade` au journal et au résultat. Une conséquence voulue : l'escalade D20 des
+  maisons prenait jusqu'ici le modèle de l'analyse (ses requêtes portent l'usage `analyse` depuis le serveur PHP seul) ; elle prend
+  maintenant celui de l'escalade, comme D20 le dit.
+
+**Acceptation.** Règles : trois passes entrent, le vote sort ; l'escalade d'accord ne change rien, en désaccord l'emporte sur le
+calage et le parement, ajoute ses boîtes sans les cocher, est toute la lecture sans vote lisible (`tests/unit/facade/regles/facades/ia.test.ts`).
+Audit : trois passes par façade, l'escalade d'une façade (une requête, son contenu exact, l'accord refait, jamais deux)
+(`runsFacades.test.ts`), la ligne et le bouton (`facadeAudit.test.ts`). Calibration : « Rappeler Claude » en trois passes, l'escalade
+par la commande, son coût annoncé, gardée dans le cas (`ecranCalibration.test.ts`). Serveur : `analyseFonctions.test.ts`,
+`analysePhpFacade.test.ts`. Fumée : point 103 (l'escalade dans la calibration) et 71, 82 (le relevé envoie trois passes au même
+contenu), 100, 101, 102 : 15 passés sur 15, dans les trois classes ; captures `f3-escalade-{compact,moyen,large}.png`. Banc identique
+hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101 « corps identiques » ; empreintes golden inchangées.
+
 ---
 
 ## 10. Vérifier
@@ -1306,10 +1362,12 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 1. **Le haut de l'image est la donnée la plus fragile** : colombages, ardoise, arbre, ciel couvert. Le score d'explication peut échouer
    sur des façades réelles que le banc de synthèse ne montre pas ; d'où le repli (§5.4) et le geste de confirmation. *À mesurer sur les
    premiers cas réels.*
-2. **Un seul run, plus de vote** : une boîte ou un carreau inventé n'est plus filtré par trois passes. L'accord avec le déterministe et la
-   grille remplace le vote, et les boîtes seules restent décochées. *À mesurer au rejeu (×1 contre ×3) avant de retirer le vote
-   du mode par défaut.* Et l'IA peut se tromper de manière corrélée (les trois passes verraient la même erreur) : le déterministe doit pouvoir
-   dire « non » (verticale absente à l'angle annoncé).
+2. **Un seul run, plus de vote** : une boîte ou un carreau inventé n'est plus filtré par trois passes. *Répondu le 29 octobre 2026* : la
+   mesure de la vraie API (§8, run 40903934070) donne au vote de trois passes 6 points de rappel, 1,7 de précision et dix fois plus de
+   carreaux lus, pour trois fois le coût ; le propriétaire a décidé « trois lectures, et une escalade à la demande » (décision 14). Le
+   vote ne coche toujours rien seul : l'accord avec le déterministe et la grille décide des boîtes. Et l'IA peut se tromper de manière
+   corrélée (les trois passes verraient la même erreur) : le déterministe doit pouvoir dire « non » (verticale absente à l'angle
+   annoncé), et l'escalade, un autre modèle, est le recours que la personne demande.
 2 bis. **Carreaux** : le vocabulaire (vantaux, grille, petits bois, imposte) est posé avant le moindre cas réel ; il se complétera. Enregistrer
    sans dessiner (F8) évite de figer un rendu avant de savoir ce que l'IA lit juste.
 3. **Le coût** d'une passe de plus par façade : plafond serveur et mesure (§8).

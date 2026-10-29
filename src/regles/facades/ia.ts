@@ -6,6 +6,7 @@ import { fnv1a } from '../toits/reglages.js';
 
 /** Les seuils, et les bornes de chacun : une valeur hors de ses bornes est refusee (une part va de 0 a 1). */
 export const BORNES_IA = {
+  'facades.ia.passes': [1, 3], 'facades.ia.escaladeEcartPart': [0, 0.5],
   'facades.ia.voteMemeU': [0, 1], 'facades.ia.voteMemeBaie': [0.05, 1], 'facades.ia.voteMemeEtendue': [0.05, 1],
   'facades.ia.colombagePartMax': [0.1, 1], 'facades.ia.colombageTolerancePart': [0, 0.2],
   'facades.ia.baieRetrouvee': [0.05, 1], 'facades.ia.devineeConfirmee': [0.05, 1], 'facades.ia.baieMinM': [0, 3], 'facades.ia.confianceSeule': [0, 1],
@@ -23,7 +24,7 @@ export function lireReglagesIa(donnees: unknown): ReglagesIa {
   const v = {} as ReglagesIa;
   for (const [nom, [min, max]] of Object.entries(BORNES_IA) as [NomReglageIa, readonly [number, number]][]) {
     const x = f.seuils[nom]?.valeur;
-    if (typeof x !== 'number' || !Number.isFinite(x) || x < min || x > max) throw new Error('Réglages du run d’une façade : « ' + nom + ' » veut une valeur de ' + min + ' à ' + max + '.');
+    if (typeof x !== 'number' || !Number.isFinite(x) || x < min || x > max || (nom === 'facades.ia.passes' && !Number.isInteger(x))) throw new Error('Réglages du run d’une façade : « ' + nom + ' » veut une valeur de ' + min + ' à ' + max + '.');
     v[nom] = x;
   }
   return v;

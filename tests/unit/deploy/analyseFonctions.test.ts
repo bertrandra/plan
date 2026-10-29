@@ -221,6 +221,21 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteFacade('r1'), usage: 'autre' }] }, P)).toThrow(/Usage inconnu/);
       expect(() => php('verifierDemande', { ...demande(['p1']), requetes: [{ ...requeteFacade('r1'), usage: 'renfort' }] }, P)).toThrow(/Usage inconnu/);
     });
+
+    it('dans une demande escalade, une requete garde le prompt de son usage, prend le modele de l escalade et se compte en escalade', () => {
+      const regle = php('modelesParUsage', { usages: { escalade: FIN } });
+      const d = { ...demande([]), usage: 'escalade', requetes: [{ ...requeteFacade('e1'), facades: 0 }, { ...(demande(['p1']) as { requetes: object[] }).requetes[0], usage: 'analyse', facades: 0 }] };
+      const lu = php<{ requetes: { id: string; usage: string; compte: string; modele: string }[] }>('verifierDemande', d, P, regle).requetes.map((r) => [r.id, r.usage, r.compte, r.modele]);
+      expect(lu).toEqual([['e1', 'facade', 'escalade', FIN], ['p1', 'analyse', 'escalade', FIN]]);
+      // Hors escalade, la requete se compte sous son usage.
+      expect(php<{ requetes: { compte: string }[] }>('verifierDemande', { ...demande([]), usage: 'facade', requetes: [requeteFacade('r1')] }, P, regle).requetes[0]).toMatchObject({ usage: 'facade', compte: 'facade', modele: RAPIDE });
+    });
+
+    it('annonce l escalade d une facade : son modele et ses prix du jour', () => {
+      const tarifs = { lignes: [{ modele: FIN, depuis: '2026-10-13', entree: 2, sortie: 10 }, { modele: FIN, depuis: '2026-11-01', entree: 3, sortie: 15 }] };
+      expect(php('escaladeFacade', { escalade: FIN }, tarifs, '2026-10-29')).toEqual({ modele: FIN, prix: { entree: 2, sortie: 10 } });
+      expect(php('escaladeFacade', { escalade: RAPIDE }, tarifs, '2026-10-29')).toEqual({ modele: RAPIDE, prix: null });
+    });
   });
 
   describe('le modele de chaque usage', () => {

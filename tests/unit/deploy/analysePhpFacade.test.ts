@@ -154,6 +154,32 @@ describe.skipIf(!php)('analyse.php, le run d une facade', () => {
     expect(systeme(faux.messages[1])).not.toContain('additionalProperties');
   });
 
+  it('escalade une facade a la demande : UNE requete au modele de l usage escalade, avec le prompt, le schema et la sortie structuree du run', async () => {
+    // Le modele de l'escalade est celui que l'administrateur regle (Reglages › Modeles) ; l'etat l'annonce avec ses prix du jour.
+    const regle = await navigateur('admin/claude/modeles', { method: 'PUT', headers: { 'X-Plan-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ format: 'plan-claude-modeles', usages: { escalade: 'claude-sonnet-5-5' } }) });
+    expect(regle.status).toBe(200);
+    const etat = await (await navigateur('admin/claude/etat')).json();
+    expect(etat.escaladeFacade).toEqual({ modele: 'claude-sonnet-5-5', prix: { entree: 2, sortie: 10 } });
+    faux.reponseMessage = (corps) => messageFacade(corps);
+    const r = await (await ecrire('admin/claude/messages', { ...demande([]), usage: 'escalade', requetes: [{ ...requeteFacade('escalade-p1', 1), facades: 0 }] })).json();
+    expect(faux.messages).toHaveLength(1);
+    const m = faux.messages[0]!;
+    expect(m).toMatchObject({ model: 'claude-sonnet-5-5' });
+    expect((m.system as { text: string }[])[0]!.text).toMatch(/lire \*\*une façade\*\*/);
+    expect((m.output_config as { format?: { type: string } }).format?.type).toBe('json_schema');
+    expect(r).toMatchObject({ modele: 'claude-sonnet-5-5', prompt: 2, schema: 2 });
+    expect(r.resultats.map((x: { id: string; usage: string; statut: string }) => [x.id, x.usage, x.statut])).toEqual([['escalade-p1', 'escalade', 'reussi']]);
+    expect(r.resultats[0].sortie).toEqual(SORTIE_FACADE);
+    // Elle se compte en escalade (le tableau de bord en dit la part), avec ce qu'elle a trouve comme un run de facade.
+    expect(journal().at(-1)).toMatchObject({ usage: 'escalade', modele: 'claude-sonnet-5-5', batch: false, requete: 'escalade-p1', facades: 0, prompt: 2, schema: 2, structuree: true, trouve: TROUVE_FACADE });
+    // Une maison escaladee sans modele impose prend aussi le modele de l'escalade (avant : celui de l'analyse).
+    faux.reponseMessage = () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_FACADE) });
+    faux.messages.length = 0;
+    await ecrire('admin/claude/messages', { ...demande(['e1']), usage: 'escalade', requetes: (demande(['e1']) as { requetes: object[] }).requetes.map((q) => ({ ...q, usage: 'analyse', passe: 1, facades: 0 })) });
+    expect(faux.messages[0]).toMatchObject({ model: 'claude-sonnet-5-5' });
+    expect(journal().at(-1)).toMatchObject({ usage: 'escalade', modele: 'claude-sonnet-5-5' });
+  });
+
   it('fait l escalade (D20) : usage escalade, prompt et schema de l analyse, modele demande', async () => {
     await verifierEscalade({ ecrire: (e, _m, c) => ecrire(e, c), faux, journal });
   });

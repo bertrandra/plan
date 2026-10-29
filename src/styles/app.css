@@ -2792,6 +2792,9 @@
      doutent (et une ligne pour le mur et les ouvertures) : l'etat en mot, puis le geste de repli. */
   .facadeAudit{ display:grid; gap:6px; margin:6px 0 4px; }
   .facadeAudit .barreFacade{ position:static; margin:0; padding:4px 0 2px; background:transparent; }
+  /* La lecture de Claude d'une facade (ses passes, son cout) et l'escalade a la demande, sous les etapes : une ligne, puis le bouton. */
+  .lectureClaude{ display:grid; gap:4px; justify-items:start; min-width:0; }
+  .lectureClaude .detailPhoto{ overflow-wrap:anywhere; }
   /* L'ecran de prise est une carte etroite posee sur la Vue 3D : la barre s'y lit en ruban (« 4 sur 8 · Forme »), comme au telephone. */
   .auditPrise .facadeAudit{ margin:4px 0 2px; }
   .auditPrise .barreFacadeEtiquette{ display:none; }

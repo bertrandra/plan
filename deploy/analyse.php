@@ -261,8 +261,9 @@ try {
             }
         };
         $facade = $versionsDe('facade');
-        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => modelesParUsage(reglageModeles($dossierClaude)), 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'facade' => $facade, 'organisation' => $organisation, 'admin' => $qui['admin']]
+        $parUsage = modelesParUsage(reglageModeles($dossierClaude));
+        repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
+                       'facade' => $facade, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 

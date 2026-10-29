@@ -3,10 +3,12 @@
 // BarreProgressionFacade.tsx) : elle lit les etats que l'orchestrateur a calcules pour la mesure de la facade, et n'ouvre que les
 // points de validation et ce qui doute. Dessous, le mode discret (app/audit/parcelle/discret.ts) : une etape cachee qui a reussi ne
 // se montre pas ; une etape qui echoue ou doute se dit en une ligne, avec son geste de repli (les quatre repères sur une photo, le
-// mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas.
+// mur tire a la main). « Rejouer la façade » rejoue l'orchestrateur ; les photos et les corrections ne bougent pas. Quand Claude a lu
+// la facade (trois passes votees), une ligne le dit avec son cout, et « Escalader » (la commande `facade.escalader`, a la demande
+// seulement) annonce le sien.
 
 import { useCallback, useEffect, useState } from 'react';
-import { BarreProgressionFacade } from '../composants/BarreProgressionFacade.js';
+import { BarreProgressionFacade, COMMANDE_ESCALADE } from '../composants/BarreProgressionFacade.js';
 import { PoserReperes } from '../releve/PoserReperes.js';
 import { type MurAjuste } from '../releve/AjusterMur.js';
 import { coinsParDefaut } from '../releve/commun.js';
@@ -14,6 +16,9 @@ import { lignesDiscretes, ligneOuverte, ouvrableDansLAudit, type LigneDiscrete }
 import { cleMesure } from '../../app/audit/parcelle/mesures.js';
 import { pixelsDePhoto } from '../../render/couleurPhotoAudit.js';
 import { LIBELLES_ETAT } from '../../model/etapeFacade.js';
+import { enteteDuRun } from '../../facade/releve/enchainement.js';
+import { libelleEscalade, type PrixEscalade } from '../../app/releve/runFacade.js';
+import type { RunEnregistre } from '../../regles/facades/observations.js';
 import type { SessionAuditParcelle } from '../../app/audit/parcelle/controleur.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
 import type { P2 } from '../../facade/vision/homographie.js';
@@ -109,6 +114,20 @@ function Ligne({ l, rangs, nom, placer, gestes, ouverte = false }: { l: LigneDis
   );
 }
 
+/** La lecture de Claude d'une facade : ses passes, son modele, son cout ; et l'escalade, a la demande, son cout annonce. */
+function LectureClaude({ run, prix, commandes, nom }: { run: RunEnregistre; prix: PrixEscalade | null; commandes: RegistreCommandes; nom: string }) {
+  const etat = commandes.etat(COMMANDE_ESCALADE);
+  const efface = commandes.effacee(COMMANDE_ESCALADE);
+  const raison = run.escalade ? 'Déjà escaladée : une seule escalade par lecture.' : etat && 'message' in etat ? etat.message : null;
+  return (
+    <div className="lectureClaude">
+      <p className="detailPhoto">{'Lue par ' + enteteDuRun(run) + '.'}</p>
+      {!efface && <button type="button" className="secondary small" data-commande={COMMANDE_ESCALADE} disabled={!!run.escalade || !etat?.utilisable} aria-label={libelleEscalade(run, prix) + ' : ' + nom}
+        title={raison ?? 'Une lecture de plus, par un modèle plus fin ; le moteur la pèse contre le vote des passes'} onClick={(e) => { commandes.executer(COMMANDE_ESCALADE, e.currentTarget); }}>{libelleEscalade(run, prix)}</button>}
+    </div>
+  );
+}
+
 export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, gestes = true }: Props) {
   const [enCours, setEnCours] = useState(false);
   const [rangReperes, setRangReperes] = useState<number | null>(null);
@@ -132,6 +151,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
   const photo = rangReperes !== null ? saisie?.photos[rangReperes] : undefined;
   const coinsPx = rangReperes !== null ? mesure?.redressement?.photos.find((p) => p.rang === rangReperes)?.coinsPx : undefined;
   const correction = rangReperes !== null ? saisie?.corrections?.[String(rangReperes)] : undefined;
+  const run = session.analyse.runs()?.[facade] ?? null;
   return (
     <div className="facadeAudit" data-facade={facade} aria-label={'Enchaînement : ' + nom}>
       <BarreProgressionFacade etapes={etapes} enCours={tourne} ouverte={ouverte} ouvrable={ouvrableDansLAudit} commandes={commandes} arreter={tourne ? () => session.validation.arreterMesure() : null} />
@@ -145,6 +165,7 @@ export function FacadeAudit({ session, commandes, cle, cote, nom, largeurPlanM, 
         depart={correction?.reperes ?? correction?.coins ?? coinsPx} mur={correction?.coins ?? coinsPx} gabarit={mesure?.gabarit}
         echelleDepart={correction?.echelleLargeurM}
         appliquer={(c) => corriger(rangReperes, c)} retablir={() => corriger(rangReperes, null)} fermer={() => setRangReperes(null)} />}
+      {gestes && run && <LectureClaude run={run} prix={session.analyse.prixEscalade()} commandes={commandes} nom={nom} />}
       {gestes && <button type="button" className="secondary small" data-controle="auditParcelle.rejouerFacade" disabled={enCours || !!tourne} aria-label={'Rejouer la façade : ' + nom} onClick={rejouer}>{enCours || tourne ? 'Calcul en cours…' : 'Rejouer la façade'}</button>}
     </div>
   );

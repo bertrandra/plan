@@ -268,8 +268,31 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
   });
 
   declarerEtapeFacade(cmd);
+  declarerEscaladeFacade(cmd, a.signaler);
   declarerAuditsAdmin(a, cmd, { importer, consulter });
   return { session: () => session };
+}
+
+/**
+ * L'escalade d'une facade (decision du 29 octobre 2026 : « trois lectures, et une escalade a la demande ») : le bouton sous la barre de
+ * la facade (`data-facade`) envoie UNE requete au modele de l'escalade ; la phrase de l'analyse dit ce qui s'est passe. Grisee tant que
+ * Claude n'a pas lu les facades de l'audit ; rien n'ecrit dans le projet (la reponse va dans la capture, comme les autres).
+ */
+function declarerEscaladeFacade(cmd: RegistreCommandes, signaler: (m: string) => void): void {
+  const runs = () => { const c = parcours.courant(); return c?.type === 'auditParcelle' ? c.session.analyse.runs() : null; };
+  cmd.declarer({
+    id: 'facade.escalader',
+    libelle: 'Escalader la lecture de la façade',
+    groupe: 'facade',
+    actif: () => !!runs(),
+    raisonInactive: () => (parcours.courant()?.type === 'auditParcelle' ? 'Claude n’a pas encore lu les façades de cet audit.' : null),
+    executer: (source) => {
+      const c = parcours.courant();
+      const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
+      if (c?.type !== 'auditParcelle' || !facade) return;
+      void c.session.analyse.escaladerFacade(facade).then(signaler);
+    },
+  });
 }
 
 /**

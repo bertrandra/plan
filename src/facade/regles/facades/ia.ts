@@ -1,10 +1,12 @@
 // Les regles du run d'une facade (MD/spec-facade-calage-audit.md §5, §8, lot F2) : ce que le moteur DECIDE des observations de Claude
 // (src/regles/facades/observations.ts). Une regle par sujet, ses seuils dans regles/facades/ia.json (des reglages, pas des constantes) :
-// - « deux ou trois passes deviennent une observation » : le vote x3, l'option du rejeu (§11.2) ;
+// - « trois passes deviennent une observation » : le vote, le mode de production (`facades.ia.passes`, decision du 29 octobre 2026) ;
+// - « l'escalade, une lecture de plus demandee par la personne, l'emporte la ou elle contredit le vote sur le calage, la forme et le
+//   parement ; ses boites s'ajoutent, et ne sont cochees que si la detection les retrouve, comme les autres » ;
 // - « les deux angles de l'IA sont une pose candidate pour l'arbitre » (calageAncres.ts la juge comme les autres) ;
 // - « une zone de colombage ecarte les poses du mur qui tiennent dedans » : leurs bouts suivent les bois, pas les angles (AE 101) ;
 // - « une pointe vue ailleurs ou plus haut que le plan est un diagnostic ou une alerte, jamais une correction » (decision 12) ;
-// - « une boite de l'IA n'est cochee que si la detection (ou la grille, par une baie devinee) la retrouve » (§8, un run, pas de vote).
+// - « une boite de l'IA n'est cochee que si la detection (ou la grille, par une baie devinee) la retrouve » (§8).
 // La chaine (l'arbitre de l'E4, l'E7 de l'enchainement, l'aide du releve) lit ces DECISIONS, jamais le JSON de Claude. Pur.
 
 import fichierIa from '../../../../regles/facades/ia.json';
@@ -99,9 +101,72 @@ export function voterObservations(rs: readonly ObservationsFacade[], r: Reglages
 }
 
 
-/** Les observations d'un appel enregistre : sa passe telle quelle, ou le vote de ses passes ; null sans passe lisible. */
+/** Le nombre de passes d'un appel en production (l'audit, le releve, « Rappeler Claude ») : le reglage `facades.ia.passes`. */
+export const passesDeProduction = (r: ReglagesIa = reglagesIa()): 1 | 2 | 3 => r['facades.ia.passes'] as 1 | 2 | 3;
+
+/**
+ * Les observations d'un appel enregistre : sa passe telle quelle, ou le vote de ses passes, puis l'escalade s'il y en a une ; null sans
+ * rien de lisible.
+ */
 export function observationsDuRun(run: RunEnregistre, r: ReglagesIa = reglagesIa()): ObservationsFacade | null {
-  return voterObservations(garder(run.sorties.map(lireObservationsFacade)), r);
+  const vote = voterObservations(garder(run.sorties.map(lireObservationsFacade)), r);
+  const esc = run.escalade ? lireObservationsFacade(run.escalade.sortie) : null;
+  return esc && run.escalade ? escaladerObservations(vote, esc, run.escalade.modele, r) : vote;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * L'escalade : une lecture de plus, demandee par la personne, contre le vote des passes
+ * --------------------------------------------------------------------------------------------- */
+
+/** Deux listes s'accordent : autant d'elements, chacun avec un pareil dans l'autre (un par un). */
+function accordees<T>(a: readonly T[], b: readonly T[], pareil: (x: T, y: T) => boolean): boolean {
+  if (a.length !== b.length) return false;
+  const libres = [...b];
+  return a.every((x) => { const k = libres.findIndex((y) => pareil(x, y)); if (k < 0) return false; libres.splice(k, 1); return true; });
+}
+
+/**
+ * Regle de l'escalade (decision du proprietaire, 29 octobre 2026 : « trois lectures, et une escalade a la demande ») : la lecture d'un
+ * modele plus fin, demandee par la personne, contre le vote des passes.
+ * - Le calage (chaque angle, les pointes, les appentis, les corps, ce qui cache), la forme, les elements du toit et le parement : la ou
+ *   elle s'ecarte du vote de plus de `facades.ia.escaladeEcartPart` (ou dit un autre mot), elle l'emporte ; sinon le vote reste. Un
+ *   mot `indetermine` de l'escalade ne contredit rien.
+ * - Les ouvertures : celles du vote restent ; les siennes qu'aucune du vote ne recouvre (`voteMemeBaie`) s'ajoutent, marquees `escalade`.
+ *   Aucune n'est cochee par la : l'accord avec la detection (`accorderOuvertures`) en decide, comme pour les autres.
+ * Sans vote lisible, l'escalade est toute la lecture. Ce qu'elle a tranche est dit en mots (`escalade.tranche`).
+ */
+export function escaladerObservations(vote: ObservationsFacade | null, esc: ObservationsFacade, modele: string, r: ReglagesIa = reglagesIa()): ObservationsFacade {
+  if (!vote) return { ...esc, ouvertures: esc.ouvertures.map((o) => ({ ...o, source: 'escalade' as const })), escalade: { modele, tranche: ['toute la lecture (aucune passe lisible)'] } };
+  const e = r['facades.ia.escaladeEcartPart'];
+  const tranche: string[] = [];
+  const pres = (a: number, b: number, echelle = 1) => Math.abs(a - b) <= e * Math.max(1, Math.abs(echelle));
+  const choisir = <T>(nom: string, v: T, x: T, accord: boolean): T => { if (accord) return v; tranche.push(nom); return x; };
+  const angle = (nom: string, v: AngleIa | null, x: AngleIa | null): AngleIa | null =>
+    !x ? v : choisir(nom, v, x, !!v && pres(v.x, x.x) && pres(v.egout, x.egout) && pres(v.sol, x.sol));
+  const mot = <T extends string>(nom: string, v: T, x: T): T => (x === 'indetermine' ? v : choisir(nom, v, x, v === x));
+  const etendues = <T extends Etendue>(nom: string, v: T[], x: T[]): T[] => choisir(nom, v, x, accordees(v, x, (a, b) => pres(a.debut, b.debut) && pres(a.fin, b.fin)));
+  const memeBaie = r['facades.ia.voteMemeBaie'];
+  const enPlus = esc.ouvertures.filter((o) => !vote.ouvertures.some((v) => recouvrementUV(v, o) >= memeBaie)).map((o) => ({ ...o, source: 'escalade' as const }));
+  const out: ObservationsFacade = {
+    calage: {
+      angles: { gauche: angle('l’angle gauche', vote.calage.angles.gauche, esc.calage.angles.gauche), droite: angle('l’angle droit', vote.calage.angles.droite, esc.calage.angles.droite) },
+      pointes: choisir('les pointes', vote.calage.pointes, esc.calage.pointes, accordees(vote.calage.pointes, esc.calage.pointes, (a, b) => pres(a.u, b.u) && pres(a.v, b.v, a.v))),
+      appentis: etendues('les appentis', vote.calage.appentis, esc.calage.appentis),
+      corps: etendues('les corps', vote.calage.corps, esc.calage.corps),
+      cache: etendues('ce qui cache le mur', vote.calage.cache, esc.calage.cache),
+    },
+    forme: { silhouette: mot('la silhouette', vote.forme.silhouette, esc.forme.silhouette), bout: mot('le bout', vote.forme.bout, esc.forme.bout) },
+    elements: choisir('les éléments du toit', vote.elements, esc.elements, accordees(vote.elements, esc.elements, (a, b) => a.element === b.element && pres(a.u, b.u))),
+    surface: {
+      principale: mot('le parement', vote.surface.principale, esc.surface.principale),
+      zones: choisir('les zones du parement', vote.surface.zones, esc.surface.zones, accordees(vote.surface.zones, esc.surface.zones, (a, b) => a.type === b.type && pres(a.u0, b.u0) && pres(a.u1, b.u1) && pres(a.v0, b.v0, a.v0) && pres(a.v1, b.v1, a.v1))),
+      confiance: vote.surface.confiance,
+    },
+    ouvertures: [...vote.ouvertures, ...enPlus].sort((a, b) => a.u0 - b.u0 || a.v0 - b.v0),
+    confiance: vote.confiance,
+  };
+  if (enPlus.length) tranche.push(enPlus.length + (enPlus.length > 1 ? ' ouvertures de plus' : ' ouverture de plus'));
+  return { ...out, escalade: { modele, tranche } };
 }
 
 /* ------------------------------------------------------------------------------------------------

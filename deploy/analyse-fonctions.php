@@ -190,11 +190,15 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
         $facades = $r['facades'] ?? 0;
         if (!is_int($facades) || $facades < 0 || $facades > FACADES_MAX) throw new Refus('Nombre de façades invalide.');
         // Une requete peut porter son usage (le run d'une facade dans le batch de l'analyse) :
-        // son prompt, son schema et son modele sont alors les siens.
+        // son prompt, son schema et son modele sont alors les siens. Dans une demande `escalade`, elle garde le prompt et le schema
+        // de son usage (l'analyse d'une maison, le run d'une facade) et prend le modele de l'escalade ; elle se compte en escalade
+        // (`compte`, au journal et au resultat). Avant, une requete d'une maison escaladee prenait le modele de l'analyse.
         $usageR = $r['usage'] ?? $usage;
         if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
-        $modeleR = isset($d['modele']) ? $modele : $modeles[$usageR];
-        $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'usage' => $usageR, 'modele' => $modeleR, 'contenu' => $contenu];
+        $escalade = $usage === 'escalade';
+        $modeleR = isset($d['modele']) ? $modele : $modeles[$escalade ? 'escalade' : $usageR];
+        $requetes[] = ['id' => $r['id'], 'passe' => $passe, 'images' => $images, 'facades' => $facades, 'usage' => $usageR, 'compte' => $escalade ? 'escalade' : $usageR,
+                       'modele' => $modeleR, 'contenu' => $contenu];
     }
     return $meta + ['usage' => $usage, 'modele' => $modele, 'requetes' => $requetes];
 }
@@ -490,6 +494,16 @@ function verifierModeles($d): array {
         if (!in_array($m, MODELES, true)) throw new Refus('Modèle non admis : ' . (is_string($m) ? $m : '?') . '.');
     }
     return ['format' => 'plan-claude-modeles', 'usages' => $d['usages']];
+}
+
+/**
+ * L'escalade d'une facade, telle que la page l'annonce sur son bouton : le modele de l'usage `escalade` (le reglage de l'administrateur,
+ * sinon celui par defaut) et ses prix du jour, en dollars par million de tokens (null : pas de tarif pour lui).
+ */
+function escaladeFacade(array $modeles, array $tarifs, string $jour): array {
+    $m = $modeles['escalade'];
+    $l = tarifEnVigueur($tarifs, $m, $jour);
+    return ['modele' => $m, 'prix' => $l !== null && nombre($l['entree'] ?? null) && nombre($l['sortie'] ?? null) ? ['entree' => $l['entree'], 'sortie' => $l['sortie']] : null];
 }
 
 /** Ce que `admin/claude/modeles` rend : le modele de chaque usage, les defauts, les modeles admis. */
@@ -1416,12 +1430,12 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
         $x = lireResultat($lignesApi[$r['id']] ?? null, $sR['schema']);
         $ligneTarif = tarifEnVigueur($table, $r['modele'], substr($t, 0, 10));
         $cout = coutAppel($x['tokens'], $ligneTarif, false);
-        $journal[] = ['t' => $t] + $identite + ['usage' => $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
+        $journal[] = ['t' => $t] + $identite + ['usage' => $r['compte'] ?? $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
             'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage']),
             'structuree' => $structurees[$r['id']], 'refusFormat' => $refus[$r['id']] ?? null];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
-                        'passe' => $r['passe'], 'usage' => $r['usage'], 'cout' => $cout, 'structuree' => $structurees[$r['id']],
+                        'passe' => $r['passe'], 'usage' => $r['compte'] ?? $r['usage'], 'cout' => $cout, 'structuree' => $structurees[$r['id']],
                         'refusFormat' => $refus[$r['id']] ?? null];
     }
     journaliser($dossierClaude, $journal);

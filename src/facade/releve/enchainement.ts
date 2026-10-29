@@ -495,8 +495,10 @@ const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s)
 
 /** L'appel de Claude en quelques mots : quand, combien de passes, les versions, ce qu'il a coute. */
 export function enteteDuRun(run: RunEnregistre): string {
-  const cout = run.cout === null ? 'coût inconnu' : dec(run.cout, 4) + ' $';
-  return `${run.synthetique ? 'réponse synthétique (pas de Claude)' : 'Claude'}, ${run.le.slice(0, 10)}, ${run.passes === 3 ? 'trois passes votées' : 'une passe'}, ${run.modele}, prompt v${run.prompt}, schéma v${run.schema}, ${cout}`;
+  const cout = (c: number | null) => (c === null ? 'coût inconnu' : dec(c, 4) + ' $');
+  const passes = run.passes === 1 ? 'une passe' : (run.passes === 2 ? 'deux' : 'trois') + ' passes votées';
+  const esc = run.escalade ? `, escaladée (${run.escalade.modele}, ${cout(run.escalade.cout)})` : '';
+  return `${run.synthetique ? 'réponse synthétique (pas de Claude)' : 'Claude'}, ${run.le.slice(0, 10)}, ${passes}, ${run.modele}, prompt v${run.prompt}, schéma v${run.schema}, ${cout(run.cout)}${esc}`;
 }
 
 /** Ce que la regle des pointes decide, en clair : une pointe en plus ou en moins (un diagnostic de toit, F4), une hauteur signalee. */
@@ -519,11 +521,18 @@ function avisDeLIa(run: RunEnregistre, reponse: ObservationsFacade | null, pose:
   const sortie: IaDuRejeu = { run, reponse, pose, ecart, accord: null };
   const tete = `IA (${enteteDuRun(run)}) : `;
   if (!reponse) return { sortie, texte: tete + 'aucune passe lisible.', diverge: false };
-  const pointes = pointesDeLIa(reponse, attendues);
+  const pointes = pointesDeLIa(reponse, attendues) + escaladeDeLIa(reponse);
   if (!pose || ecart === null) return { sortie, texte: tete + 'Claude ne situe pas les deux angles du mur.' + pointes, diverge: false };
   const diverge = ecart > seuil;
   const retenueIa = mur.calage.ia?.retenue ? ' ; l’arbitre retient sa pose' : '';
   return { sortie, diverge, texte: tete + `ses angles posent le mur ${px(pose)}, à ${pc(ecart)} de la largeur du mur retenu : ` + (diverge ? 'les deux chemins divergent, à confirmer' : 'accord') + retenueIa + '.' + pointes + surfaceDeLIa(reponse, mur) };
+}
+
+/** Ce que l'escalade a tranche contre le vote des passes (la regle de l'escalade, facade/regles/facades/ia.ts), en clair. */
+function escaladeDeLIa(r: ObservationsFacade): string {
+  if (!r.escalade) return '';
+  const t = r.escalade.tranche;
+  return ` Escalade (${r.escalade.modele}) : ` + (t.length ? `elle l’emporte sur ${t.join(', ')}.` : 'elle s’accorde avec le vote des passes.');
 }
 
 /** Le parement que Claude lit, et ce que ses zones de colombage ont ecarte : les poses dont les bouts suivaient les bois. */

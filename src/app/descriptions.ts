@@ -91,6 +91,7 @@ export const DESCRIPTIONS: Record<string, string> = {
   'plu.interroger': 'Demande au Géoportail de l’urbanisme le zonage PLU au centre de la parcelle',
   'terrasse.optimisation': 'Montre ou cache le tableau qui compare des réglages de structure par leur coût',
   'facade.retirer': 'Retire la photo et les ouvertures relevées sur le mur désigné ; Ctrl+Z les rend',
+  'facade.escalader': 'Demande une lecture de plus de la façade à un modèle plus fin (le modèle de l’escalade), une requête, à son coût annoncé ; le moteur la pèse contre le vote des trois passes et la garde pour le rejeu',
   'facade.etape': 'Ouvre une étape de l’enchaînement de la façade (un segment de la barre de progression, une vignette de la frise) : ce qu’elle a donné, ses calques, son contrat et sa mesure contre la vérité',
 
   // ---- Relief du terrain --------------------------------------------------------------------------

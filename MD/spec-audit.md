@@ -768,10 +768,13 @@ du toit vue, pignons, lucarnes, éléments, ouvertures manquées ou en trop, éc
 **Le run de chaque façade** (`spec-facade-calage-audit.md` §8, lot F3 ; il a remplacé le renfort à trois passes votées) se propose
 en deux lignes par façade, toutes deux décochées : le relevé « avec l'aide de Claude » (baies devinées confirmées, détails ajoutés),
 puis, s'il y en a, les boîtes que Claude voit seul, que la détection ne retrouve pas, « vues par Claude, non confirmées sur la photo ».
-La seconde contient la première : cochée seule ou avec elle, elle écrit le même relevé. Une requête par façade mesurée, dans le batch
-de l'analyse, sur l'élévation du mur ; sa réponse est enregistrée (versions, modèle, tokens, coût) et le moteur de règles l'accorde
-(`facade/regles/facades/ia.ts`, `accorderOuvertures`) : un run, pas de vote, la protection contre l'invention est l'accord avec la
-détection. L'accord demande le relevé mesuré de la façade (§13.1) : il attend les mesures, façade par façade, et ne note jamais un
+La seconde contient la première : cochée seule ou avec elle, elle écrit le même relevé. Trois lectures par façade mesurée, dans le
+batch de l'analyse, sur l'élévation du mur (décision du 29 octobre 2026, réglage `facades.ia.passes`) ; leurs réponses sont
+enregistrées ensemble (versions, modèle, tokens, coût), le moteur de règles les vote puis les accorde (`facade/regles/facades/ia.ts`,
+`voterObservations`, `accorderOuvertures`) : le vote ne coche rien, la protection contre l'invention reste l'accord avec la détection.
+Sous la barre de chaque façade, une ligne dit sa lecture et son coût, et **« Escalader »** (commande `facade.escalader`, à la demande
+seulement, son coût annoncé) envoie une requête de plus au modèle de l'usage `escalade` ; sa réponse, gardée dans le run, est pesée par
+le moteur contre le vote (`escaladerObservations`), et l'accord de la façade est refait. L'accord demande le relevé mesuré de la façade (§13.1) : il attend les mesures, façade par façade, et ne note jamais un
 accord vide ; les réponses sont gardées dans la capture, si bien qu'un brouillon repris avec un batch déjà fini accorde chaque façade
 quand sa mesure arrive. Claude ne retire jamais une baie détectée.
 

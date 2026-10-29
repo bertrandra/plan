@@ -65,9 +65,13 @@ function entrees(m: Partial<MesureFacade> = {}): EntreesPropositions {
 const FAB: FabriqueImageRunFacade = { elevation: async (r) => ({ image: { base64: 'RUxFVg==', mediaType: 'image/jpeg' }, largeur: r.largeur * 50, hauteur: r.hauteur * 50 }) };
 
 describe('le run des facades dans l audit', () => {
-  it('prepare une requete par facade mesuree, sur l elevation du mur, sans compter la facade une seconde fois', async () => {
+  it('prepare trois passes par facade mesuree (la production), sur l elevation du mur, sans compter la facade une seconde fois', async () => {
     const r = await requetesRunsDuBatiment(entrees(), 'maison', 'maison', 0, FAB);
-    expect(r.requetes.map((q) => [q.id, q.passe, q.usage, q.facades])).toEqual([['b0-f0-p1', 1, 'facade', 0]]);
+    expect(r.requetes.map((q) => [q.id, q.passe, q.usage, q.facades])).toEqual([['b0-f0-p1', 1, 'facade', 0], ['b0-f0-p2', 2, 'facade', 0], ['b0-f0-p3', 3, 'facade', 0]]);
+    expect(r.requetes[2]!.contenu).toEqual(r.requetes[0]!.contenu);
+    expect(r.parId['b0-f0-p3']).toMatchObject({ cle: 'maison', passe: 3, cote: 0, usage: 'facade' });
+    // Une passe, pour mesurer.
+    expect((await requetesRunsDuBatiment(entrees(), 'maison', 'maison', 0, FAB, Infinity, 1)).requetes.map((q) => q.id)).toEqual(['b0-f0-p1']);
     expect(r.parId['b0-f0-p1']).toEqual({ cle: 'maison', passe: 1, cote: 0, usage: 'facade', image: { largeur: 500, hauteur: 300 } });
     // L'image, puis le texte du run : la facade, ce qu'est l'image, ce que le plan attend du haut, le parement vu sur place.
     expect(r.requetes[0]!.contenu.map((b) => b.type)).toEqual(['image', 'text']);
@@ -76,8 +80,8 @@ describe('le run des facades dans l audit', () => {
     expect(texte).toMatch(/L’image est le mur seul/);
     expect(texte).toMatch(/une pointe de pignon : u 0\.5, à environ 1\.6 fois l’égout/);
     expect(texte).toMatch(/Le parement du mur que Plan connaît .* : enduit\./);
-    // Pas de place dans le batch, ou pas de releve mesure : rien.
-    expect((await requetesRunsDuBatiment(entrees(), 'maison', 'maison', 0, FAB, 0)).requetes).toEqual([]);
+    // Pas de place dans le batch pour ses trois passes, ou pas de releve mesure : rien.
+    expect((await requetesRunsDuBatiment(entrees(), 'maison', 'maison', 0, FAB, 2)).requetes).toEqual([]);
     expect((await requetesRunsDuBatiment(entrees({ releve: null }), 'maison', 'maison', 0, FAB)).requetes).toEqual([]);
   });
 
@@ -87,13 +91,18 @@ describe('le run des facades dans l audit', () => {
       resultats: [
         { id: 'b0-p1', statut: 'reussi', passe: 1, sortie: { forme: {} }, erreur: null },
         { id: 'b0-f0-p1', statut: 'reussi', passe: 1, usage: 'facade', sortie: sortie([RETROUVEE]), erreur: null, tokens: { entree: 900, ecritureCache: 0, lectureCache: 100, sortie: 300 }, cout: 0.0012, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 },
+        { id: 'b0-f0-p2', statut: 'reussi', passe: 2, usage: 'facade', sortie: sortie([RETROUVEE]), erreur: null, tokens: { entree: 900, ecritureCache: 0, lectureCache: 100, sortie: 300 }, cout: 0.0012, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 },
+        { id: 'b0-f0-p3', statut: 'echoue', passe: 3, usage: 'facade', sortie: null, erreur: { type: 'overloaded_error', message: 'Surcharge.' }, cout: 0.0001, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 },
         { id: 'b0-f1-p1', statut: 'reussi', passe: 1, usage: 'facade', sortie: 'illisible', erreur: null },
       ],
     };
-    const requetes = { 'b0-p1': { cle: 'maison', passe: 1 }, 'b0-f0-p1': { cle: 'maison', passe: 1, cote: 0, usage: 'facade' as const, image: { largeur: 500, hauteur: 300 } }, 'b0-f1-p1': { cle: 'maison', passe: 1, cote: 1, usage: 'facade' as const } };
+    const facade = (passe: number, cote = 0) => ({ cle: 'maison', passe, cote, usage: 'facade' as const, image: { largeur: 500, hauteur: 300 } });
+    const requetes = { 'b0-p1': { cle: 'maison', passe: 1 }, 'b0-f0-p1': facade(1), 'b0-f0-p2': facade(2), 'b0-f0-p3': facade(3), 'b0-f1-p1': facade(1, 1) };
     const runs = rangerRuns(lu, requetes, new Date('2026-10-13T10:00:00Z'));
     expect(Object.keys(runs)).toEqual(['maison#0']);
-    expect(runs['maison#0']).toMatchObject({ le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1, cout: 0.0012, tokens: { entree: 1000, sortie: 300 }, image: { largeur: 500, hauteur: 300 } });
+    // Les trois passes envoyees ensemble : deux lues, le cout de toutes.
+    expect(runs['maison#0']).toMatchObject({ le: '2026-10-13T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 3, cout: 0.0025, tokens: { entree: 2000, sortie: 600 }, image: { largeur: 500, hauteur: 300 } });
+    expect(runs['maison#0']?.sorties).toHaveLength(2);
     const mur = murDeLaTexture(texture(), RELEVE);
     expect([mur.largeur, mur.hauteur]).toEqual([500, 300]);
   });
@@ -137,13 +146,14 @@ describe('le run des facades dans l audit', () => {
     capture.ajouterPhotoFacade('maison', 0, PHOTO);
     capture.terminer();
     const demandes: DemandeAnalyse[] = [];
+    const immediats: DemandeAnalyse[] = [];
     let fini = false;
     const client: ClientAnalyse = {
-      etat: async () => ({ actif: true, prompt: 1, schema: 1, organisation: null, admin: true }),
       creerBatch: async (d) => { demandes.push(d); return { batch: { id: 'msgbatch_1', etat: 'in_progress', compte: null }, modele: 'claude-haiku-5-5', prompt: 1, schema: 1 }; },
       etatBatch: async (id) => ({ id, etat: fini ? 'ended' : 'in_progress', compte: null }),
       resultats: async (id) => ({ batch: { id, etat: 'ended', compte: null }, modele: 'claude-haiku-5-5', prompt: 3, schema: 2, resultats: (demandes[0]?.requetes ?? []).map((q) => ({ id: q.id, statut: 'reussi' as const, passe: q.passe, usage: q.usage ?? 'analyse', sortie: q.usage === 'facade' ? sortie([SEULE]) : {}, erreur: null, ...(q.usage === 'facade' ? { prompt: 1, schema: 1, modele: 'claude-haiku-5-5' } : {}) })) }),
-      immediat: async () => { throw new Error('non'); },
+      etat: async () => ({ actif: true, prompt: 1, schema: 1, organisation: null, admin: true, escaladeFacade: { modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } } }),
+      immediat: async (d) => { immediats.push(d); return { modele: 'claude-sonnet-5-5', prompt: 2, schema: 2, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi' as const, passe: 1, usage: 'escalade', sortie: sortie([SEULE, RETROUVEE]), erreur: null, cout: 0.004, tokens: { entree: 1000, ecritureCache: 0, lectureCache: 0, sortie: 300 } })) }; },
     };
     const images: FabriqueImages = { photo: async (p) => ({ base64: p.base64, mediaType: 'image/jpeg' }), rendu: () => null, ortho: async () => null, carte: () => null, facade: FAB };
     const recus: Record<string, RunEnregistre>[] = [];
@@ -155,13 +165,30 @@ describe('le run des facades dans l audit', () => {
       planifier: (f) => { planifies.push(f); return () => {}; },
     });
     await a.accorder(true);
-    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1']);
+    expect(demandes[0]!.requetes.map((q) => q.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3', 'b0-f0-p1', 'b0-f0-p2', 'b0-f0-p3']);
     expect(capture.lire().analyse?.batch?.requetes['b0-f0-p1']).toEqual({ cle: 'maison', passe: 1, cote: 0, usage: 'facade', image: { largeur: 500, hauteur: 300 } });
     fini = true;
     for (let k = 0; k < 3 && planifies.length; k++) { planifies.shift()?.(); await new Promise((ok) => setTimeout(ok, 0)); await new Promise((ok) => setTimeout(ok, 0)); }
     // La reponse est gardee avec ses propres versions (pas celles de l'analyse des maisons), puis accordee par le moteur.
-    expect(capture.lire().analyse?.resultats?.runs?.['maison#0']).toMatchObject({ prompt: 1, schema: 1, passes: 1 });
-    expect(recus[0]?.['maison#0']?.sorties).toHaveLength(1);
+    expect(capture.lire().analyse?.resultats?.runs?.['maison#0']).toMatchObject({ prompt: 1, schema: 1, passes: 3 });
+    expect(recus[0]?.['maison#0']?.sorties).toHaveLength(3);
     expect(a.accords()?.['maison#0']?.bilan).toMatchObject({ seules: 1 });
+    expect(immediats).toHaveLength(0);
+
+    // L'escalade, a la demande : UNE requete, usage escalade, sur le contenu exact du run de la facade ; gardee dans le run, et
+    // l'accord est refait par le moteur (la boite que l'escalade voit en plus, retrouvee par la detection, est cochee).
+    expect(a.prixEscalade()).toBeNull();
+    await new Promise((ok) => setTimeout(ok, 0));
+    expect(a.prixEscalade()).toEqual({ modele: 'claude-sonnet-5-5', prix: { entree: 3, sortie: 15 } });
+    const dit = await a.escaladerFacade('maison#0');
+    expect(dit).toBe('Escalade de la façade enregistrée (claude-sonnet-5-5, 0,0040 $) : le moteur l’a pesée contre le vote des passes.');
+    expect(immediats[0]).toMatchObject({ usage: 'escalade', audit: expect.stringMatching(/^audit-esc-/) });
+    expect(immediats[0]!.requetes.map((q) => [q.id, q.usage, q.facades])).toEqual([['escalade-p1', 'facade', 0]]);
+    expect(immediats[0]!.requetes[0]!.contenu).toEqual(demandes[0]!.requetes.find((q) => q.id === 'b0-f0-p1')!.contenu);
+    expect(a.runs()?.['maison#0']?.escalade).toMatchObject({ modele: 'claude-sonnet-5-5', cout: 0.004 });
+    expect(a.accords()?.['maison#0']?.bilan).toMatchObject({ boites: 2, retrouvees: 1, seules: 1 });
+    // Jamais deux.
+    expect(await a.escaladerFacade('maison#0')).toBe('Cette façade est déjà escaladée : une seule escalade par lecture.');
+    expect(immediats).toHaveLength(1);
   });
 });

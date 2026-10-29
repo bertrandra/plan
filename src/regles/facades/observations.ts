@@ -43,6 +43,8 @@ export interface OuvertureIa {
   confiance: ConfianceIa;
   details: Pick<DetailsOuverture, 'volets' | 'allege' | 'forme'>;
   carreaux: Carreaux | null;
+  /** `escalade` : vue par l'escalade seule, pas par le vote des passes (la regle de l'escalade l'a ajoutee). */
+  source?: 'escalade';
 }
 
 /** Les parements d'un mur (deploy/schema-facade.json, `surface`). */
@@ -65,6 +67,11 @@ export interface ObservationsFacade {
   surface: { principale: Parement | 'mixte' | 'indetermine'; zones: ZoneSurface[]; confiance: ConfianceIa };
   ouvertures: OuvertureIa[];
   confiance: 'faible' | 'moyenne' | 'forte';
+  /**
+   * L'escalade a ete lue (facade/regles/facades/ia.ts, `escaladerObservations`) : son modele, et ce qu'elle a tranche contre le vote
+   * des passes (en mots, pour l'ecran ; vide : elle s'accordait avec lui). Absent : le vote seul.
+   */
+  escalade?: { modele: string; tranche: string[] };
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -202,8 +209,11 @@ export interface RunEnregistre {
   /** Les versions du prompt et du schema qui ont servi (deploy/prompt-facade.md, schema-facade.json). */
   prompt: number;
   schema: number;
-  /** x1 (le mode par defaut) ou x3 (trois passes votees : l'option du rejeu, pour mesurer). */
-  passes: 1 | 3;
+  /**
+   * Les passes envoyees : trois, votees, en production (`facades.ia.passes`, decision du 29 octobre 2026) ; une, pour mesurer (et les
+   * reponses enregistrees d'avant).
+   */
+  passes: 1 | 2 | 3;
   /** Les sorties des passes reussies, telles que le serveur les a rendues (ramenees au schema). */
   sorties: unknown[];
   /** Le cout de l'appel, en dollars, toutes passes comprises ; null : un tarif manquait au serveur. */
@@ -215,16 +225,36 @@ export interface RunEnregistre {
   chaine: number;
   /** Une reponse fabriquee pour les tests et le banc, jamais de Claude : l'ecran le dit. */
   synthetique?: true;
+  /** L'escalade demandee par la personne : une lecture de plus, par le modele de l'usage `escalade`, gardee pour le rejeu. */
+  escalade?: EscaladeEnregistree;
+}
+
+/** Une escalade : une requete, jamais plus, sur la meme image et le meme texte que les passes ; sa sortie, ses versions, son cout. */
+export interface EscaladeEnregistree {
+  le: string;
+  modele: string;
+  prompt: number;
+  schema: number;
+  sortie: unknown;
+  cout: number | null;
+  tokens: { entree: number; sortie: number };
+}
+
+function lireEscalade(v: unknown): EscaladeEnregistree | null {
+  const o = objet(v), t = objet(o?.tokens);
+  if (!o || typeof o.le !== 'string' || typeof o.modele !== 'string' || !fini(o.prompt) || !fini(o.schema) || !lireObservationsFacade(o.sortie)) return null;
+  return { le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, sortie: o.sortie, cout: fini(o.cout) ? o.cout : null, tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 } };
 }
 
 /** Une reponse enregistree relue d'un cas ; null si elle n'en a pas la forme (elle est alors ignoree, pas inventee). */
 export function lireRunEnregistre(v: unknown): RunEnregistre | null {
   const o = objet(v), im = objet(o?.image), t = objet(o?.tokens);
-  if (!o || typeof o.le !== 'string' || typeof o.modele !== 'string' || !fini(o.prompt) || !fini(o.schema) || (o.passes !== 1 && o.passes !== 3) || !Array.isArray(o.sorties)) return null;
+  if (!o || typeof o.le !== 'string' || typeof o.modele !== 'string' || !fini(o.prompt) || !fini(o.schema) || (o.passes !== 1 && o.passes !== 2 && o.passes !== 3) || !Array.isArray(o.sorties)) return null;
   if (!im || !fini(im.largeur) || !fini(im.hauteur) || !fini(o.chaine)) return null;
   return {
     le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, passes: o.passes, sorties: o.sorties, cout: fini(o.cout) ? o.cout : null,
     tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, image: { largeur: im.largeur, hauteur: im.hauteur }, chaine: o.chaine,
     ...(o.synthetique === true ? { synthetique: true as const } : {}),
+    ...(lireEscalade(o.escalade) ? { escalade: lireEscalade(o.escalade) as EscaladeEnregistree } : {}),
   };
 }

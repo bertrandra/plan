@@ -70,6 +70,8 @@ export interface EtatServeurAnalyse {
   admin: boolean;
   /** Le brouillon des regles enregistre au serveur (administrateur seul) ; null : aucun. */
   brouillon?: BrouillonServeur | null;
+  /** L'escalade d'une facade : le modele de l'usage `escalade` et ses prix du jour ($ par million de tokens ; null : sans tarif). */
+  escaladeFacade?: { modele: string; prix: { entree: number; sortie: number } | null };
 }
 
 /** Ce que l'etat dit du brouillon des regles du serveur : ses versions et sa date. */
@@ -162,6 +164,14 @@ async function refus(r: Response, quoi: string): Promise<EchecAnalyse> {
  * Le client, sur ce `fetch` et ce jeton. `jeton` est relu a chaque appel ; `null` quand la personne
  * est l'administrateur (le cookie de sa session suffit) ou hors plateforme.
  */
+/** Le modele de l'escalade et ses prix, tels que l'etat les dit ; un prix illisible se lit « sans tarif », jamais invente. */
+function lireEscaladeFacade(v: unknown): EtatServeurAnalyse['escaladeFacade'] {
+  const o = v as { modele?: unknown; prix?: { entree?: unknown; sortie?: unknown } | null } | null | undefined;
+  if (!o || typeof o.modele !== 'string') return undefined;
+  const p = o.prix, fini = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x) && x >= 0;
+  return { modele: o.modele, prix: p && fini(p.entree) && fini(p.sortie) ? { entree: p.entree, sortie: p.sortie } : null };
+}
+
 export function creerClientAnalyse(f: Fetch, jeton: () => string | null): ClientAnalyse {
   async function appeler<T>(chemin: string, quoi: string, init: RequestInit = {}): Promise<T> {
     const j = jeton();
@@ -178,11 +188,13 @@ export function creerClientAnalyse(f: Fetch, jeton: () => string | null): Client
   return {
     async etat() {
       const d = await appeler<Partial<EtatServeurAnalyse>>('/etat', 'état de l’analyse');
-      return {
+      const etat: EtatServeurAnalyse = {
         actif: d.actif === true, prompt: Number(d.prompt ?? 0), schema: Number(d.schema ?? 0), organisation: typeof d.organisation === 'string' ? d.organisation : null, admin: d.admin === true,
         modeles: Array.isArray(d.modeles) ? d.modeles.filter((m): m is string => typeof m === 'string') : [],
         brouillon: lireBrouillonServeur(d.brouillon),
       };
+      const escalade = lireEscaladeFacade(d.escaladeFacade);
+      return escalade ? { ...etat, escaladeFacade: escalade } : etat;
     },
     creerBatch: (d) => appeler('/batches', 'envoi de l’analyse', { method: 'POST', headers: { 'Content-Type': 'application/json', ...ENTETE_ADMIN }, body: JSON.stringify(d) }),
     etatBatch: (id) => appeler('/batches/' + encodeURIComponent(id), 'suivi de l’analyse'),
