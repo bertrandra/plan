@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import { appliquer, type Image, type P2 } from '../../facade/vision/homographie.js';
 import { inverser, redresserParReperes } from '../../facade/vision/redressementFuites.js';
-import { GABARIT_RECTANGLE, gabaritSurLaVue, type GabaritMur } from '../../facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, contourDuGabarit, gabaritSurLaVue, type GabaritMur } from '../../facade/gabaritMur.js';
 import { versJpeg } from '../../ui/releve/camera.js';
 import { pointSvg, useEchelle } from './commun.js';
 
@@ -121,7 +121,7 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
     <div className="ajusterMur">
       <svg ref={svg} className="ajusterMurPhoto" viewBox={`0 0 ${L} ${H}`} role="group" aria-label="Photo redressée entière : tirez l’égout, le sol et les bouts ; la silhouette du mur suit">
         <image href={vue.url} x={0} y={0} width={L} height={H} />
-        <polyline points={[{ x: cadre.x0, y: cadre.sol }, ...haut, { x: cadre.x1, y: cadre.sol }].map((p) => p.x + ',' + p.y).join(' ')} className="ajusterMurLigne silhouette" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+        <polyline points={gabaritSurLaVue(contourDuGabarit(gabarit), { x0: cadre.x0, x1: cadre.x1, y0: cadre.egout, y1: cadre.sol }).map((p) => p.x + ',' + p.y).join(' ')} className="ajusterMurLigne silhouette" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {ligne('egout', cadre.x0, cadre.egout, cadre.x1, cadre.egout)}
         {ligne('sol', cadre.x0, cadre.sol, cadre.x1, cadre.sol)}
         {ligne('gauche', cadre.x0, sommet, cadre.x0, cadre.sol)}

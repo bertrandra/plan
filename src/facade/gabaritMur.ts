@@ -1,18 +1,20 @@
-// Le gabarit du mur : la silhouette de toute la facade que donnent le plan et le LiDAR (la largeur du cadastre, les murs et les pignons de
-// tous les corps du toit), une forme fixe. Il ne se lit pas sur la photo et ne s'y deforme jamais : il se pose sur l'image redressee, et seuls ses bouts,
-// son egout et son sol s'y calent (facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol, zones/releve/AjusterMur.tsx). Les reperes ne disent
-// que les directions ; la dimension vient de ce calage (decision de l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
-// Ce n'est pas la silhouette qu'arbitre l'audit (facade/regles/toits/silhouetteDesCorps.ts), qui lit le seul mur du corps porteur.
+// Le gabarit du mur : la silhouette de toute la facade que donnent le plan et le LiDAR, une forme fixe. C'est la silhouette que trace
+// le mode Toit en 3D, corps par corps, projetee sur le plan du mur et vue de face (facade/regles/toits/silhouetteDesCorps.ts::
+// silhouetteDeFace ; demande du proprietaire, 28 octobre 2026). Il ne se lit pas sur la photo et ne s'y deforme jamais : il se pose
+// sur l'image redressee, et seuls ses bouts, son egout et son sol s'y calent (facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol,
+// zones/releve/AjusterMur.tsx). Les reperes ne disent que les directions ; la dimension vient de ce calage (decision de
+// l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
 
 import { homographie, appliquer, type P2 } from './vision/homographie.js';
-import { hauteurDuToitEn } from './toits/toitCorps.js';
+import { silhouetteDeFace } from './regles/toits/silhouetteDesCorps.js';
 import type { Facade } from '../geometry/cotesVusDeDehors.js';
 import type { CorpsToit } from '../model/types.js';
 import { simplifierLigne } from '../geometry/simplifierLigne.js';
 
 /**
- * Le haut de la facade, de l'angle gauche a l'angle droit (vu de dehors) : `u` de 0 a 1 le long du mur, `v` la hauteur en part de
- * celle du mur (1 a l'egout que pose la chaine, 0 au sol). Un corps plus bas descend sous 1, un pignon monte au-dessus.
+ * Le haut de la facade, de gauche a droite (vu de dehors) : `u` le long du mur, 0 et 1 a ses angles (le cote du contour), en deca
+ * ou au-dela quand le mur d'un corps continue la facade (le pignon d'une maison en L au-dessus de l'aile) ; `v` la hauteur en part
+ * de celle du mur (1 a l'egout que pose la chaine, 0 au sol). Un corps plus bas descend sous 1, un pignon monte au-dessus.
  */
 export type GabaritMur = readonly { u: number; v: number }[];
 
@@ -21,50 +23,28 @@ export const GABARIT_RECTANGLE: GabaritMur = Object.freeze([{ u: 0, v: 1 }, { u:
 
 /** Un haut qui ne s'ecarte pas de l'egout de plus que cette part de la hauteur du mur est un rectangle. */
 const RELIEF_GABARIT = 0.03;
-
-/** Le pas le long du mur, et en profondeur derriere sa face ; la profondeur lue, depuis un peu devant la face (une avancee). */
-const PAS_LONG_M = 0.1, PAS_PROFONDEUR_M = 0.05, DEVANT_FACE_M = 1, PROFONDEUR_MAX_M = 30;
 /** La ligne du haut garde ses sommets a 2 cm pres (Douglas-Peucker, en metres). */
 const TOLERANCE_M = 0.02;
-
-/** Le haut d'un mur se lit a 2 cm en dedans du corps : sur son mur (plus loin, un long pan lirait deja la pente). */
-const DANS_LE_CORPS_M = 0.02;
-
-/**
- * Le haut de toute la facade vue de dehors, en `x` metres depuis la gauche : pour chaque corps, le haut de son mur la ou la vue entre
- * dans le corps (en avancee, au nu, ou en retrait), et le plus haut des corps. Un corps en retrait plus haut se voit au-dessus d'un
- * plus bas devant ; un appentis devant le mur, plus bas, n'en cache pas le haut. Null la ou aucun corps n'est derriere la facade.
- */
-export function hautDeLaFacade(f: Facade, corps: readonly CorpsToit[]): ({ x: number; y: number | null })[] {
-  const L = f.largeur, n = Math.max(1, Math.ceil(L / PAS_LONG_M));
-  const out: { x: number; y: number | null }[] = [];
-  for (let k = 0; k <= n; k++) {
-    const x = (L * k) / n;
-    const base = { x: f.gauche.x + ((f.droite.x - f.gauche.x) * x) / L, y: f.gauche.y + ((f.droite.y - f.gauche.y) * x) / L };
-    const en = (t: number) => ({ x: base.x - f.normale.x * t, y: base.y - f.normale.y * t });
-    let haut: number | null = null;
-    for (const c of corps) {
-      for (let t = -DEVANT_FACE_M; t <= PROFONDEUR_MAX_M; t += PAS_PROFONDEUR_M) {
-        if (hauteurDuToitEn([c], en(t), 0) === null) continue;
-        const h = hauteurDuToitEn([c], en(t + DANS_LE_CORPS_M), 0) ?? hauteurDuToitEn([c], en(t), 0);
-        if (h !== null && (haut === null || h > haut)) haut = h;
-        break;
-      }
-    }
-    out.push({ x, y: haut });
-  }
-  return out;
-}
+/** Un gabarit relu ne s'etend pas au-dela de tant de fois la largeur de son mur, de chaque cote. */
+const DEBORD_MAX = 4;
 
 /**
- * Le gabarit d'un mur sous les corps du toit (le LiDAR) : le haut de toute la facade, tous corps compris (hautDeLaFacade), en part de
- * `hauteurMur`, la hauteur du mur que pose la chaine (le rectangle egout -> sol). La ou aucun corps n'est derriere, l'egout. Un
- * rectangle sans corps, ou quand le haut ne s'ecarte pas de l'egout.
+ * Le gabarit d'un mur sous les corps du toit (le LiDAR) : la silhouette de la facade vue de face (silhouetteDeFace, celle du mode
+ * Toit), en part de `hauteurMur`, la hauteur du mur que pose la chaine (le rectangle egout -> sol). La ou aucun corps n'est derriere,
+ * l'egout. Un rectangle sans corps, ou quand le haut ne s'ecarte pas de l'egout.
  */
 export function gabaritDesCorps(f: Facade, corps: readonly CorpsToit[] | null | undefined, hauteurMur: number): GabaritMur {
   if (!corps?.length || !(f.largeur > 0) || !(hauteurMur > 0)) return GABARIT_RECTANGLE;
-  const haut = simplifierLigne(hautDeLaFacade(f, corps).map((p) => ({ x: p.x, y: p.y ?? hauteurMur })), TOLERANCE_M);
-  return gabaritDuHaut(haut.map((p) => ({ x: p.x / f.largeur, y: p.y })), hauteurMur);
+  const { haut } = silhouetteDeFace(f, corps);
+  const ligne = simplifierLigne(haut.map((p) => ({ x: p.x, y: p.y ?? hauteurMur })), TOLERANCE_M);
+  const g: { u: number; v: number }[] = [];
+  for (const p of ligne) {
+    const q = { u: p.x / f.largeur, v: p.y / hauteurMur };
+    const m = g[g.length - 2], l = g[g.length - 1];
+    if (m && l && Math.abs((l.u - m.u) * (q.v - m.v) - (l.v - m.v) * (q.u - m.u)) < 1e-6) g[g.length - 1] = q;
+    else g.push(q);
+  }
+  return g.length < 2 || g.every((p) => Math.abs(p.v - 1) < RELIEF_GABARIT) ? GABARIT_RECTANGLE : g;
 }
 
 /**
@@ -92,6 +72,12 @@ export function relief(g: GabaritMur): number {
   return Math.max(0, ...g.map((p) => Math.abs(p.v - 1)));
 }
 
+/** Le contour ferme du mur sous son gabarit : le pied sous son premier point, le haut, le pied sous son dernier point. */
+export function contourDuGabarit(g: GabaritMur): { u: number; v: number }[] {
+  const a = g[0], b = g[g.length - 1];
+  return a && b ? [{ u: a.u, v: 0 }, ...g, { u: b.u, v: 0 }] : [];
+}
+
 /** Le gabarit pose sur une vue de face entre ses bouts (`x0`, `x1`), son egout (`y0`) et son sol (`y1`), en pixels de la vue. */
 export function gabaritSurLaVue(g: GabaritMur, r: { x0: number; x1: number; y0: number; y1: number }): P2[] {
   return g.map((p) => ({ x: r.x0 + p.u * (r.x1 - r.x0), y: r.y1 - p.v * (r.y1 - r.y0) }));
@@ -111,5 +97,5 @@ export function gabaritSurLaPhoto(g: GabaritMur, coins: readonly P2[]): P2[] | n
 export function lireGabarit(brut: unknown): GabaritMur | null {
   if (!Array.isArray(brut) || brut.length < 2) return null;
   const g = brut.map((p) => (p && typeof p === 'object' ? { u: Number((p as { u?: unknown }).u), v: Number((p as { v?: unknown }).v) } : null));
-  return g.every((p) => p && Number.isFinite(p.u) && Number.isFinite(p.v) && p.u >= 0 && p.u <= 1 && p.v > 0) ? (g as { u: number; v: number }[]) : null;
+  return g.every((p) => p && Number.isFinite(p.u) && Number.isFinite(p.v) && p.u >= -DEBORD_MAX && p.u <= 1 + DEBORD_MAX && p.v > 0) ? (g as { u: number; v: number }[]) : null;
 }

@@ -17,6 +17,17 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **La silhouette des façades de la calibration, du relevé et de l'audit est celle du Mode Toit.** Le gabarit du mur
+  (`facade/gabaritMur.ts`) se lisait le long du seul côté du contour, par une marche en profondeur à lui : le pignon d'une maison en L
+  s'y coupait au coin de l'aile (un demi-triangle étiré sur toute la façade), et un mur de quelques dizaines de centimètres prenait
+  des pointes. Il est maintenant fait de la silhouette que trace le Mode Toit en 3D, corps par corps (`silhouetteDuCorps`, la même que
+  `silhouetteVersLOeil`), projetée sur le plan du mur et vue de face, le plus haut l'emportant
+  (`facade/regles/toits/silhouetteDesCorps.ts::silhouetteDeFace`) ; le mur d'un corps dans le plan de la façade se voit entier, même
+  au-delà du côté du contour (`u` hors de 0..1). Il vient toujours du plan et du LiDAR, jamais de la photo, et seule son échelle
+  suit l'égout, le sol et les bouts. « Ajuster l'égout et le sol », le calage de la silhouette, la façade complète, l'image posée et
+  la vue 3D de la calibration ferment son contour sous ses propres bouts (`contourDuGabarit`). La détection, le calage et les
+  empreintes ne bougent pas (banc des façades identique), AE 101 non plus.
+
 - **Mode Toit : les poignées sont sur le corps choisi.** De face, choisir un autre corps que celui de la façade regardée traçait sa
   silhouette sur lui mais laissait poignées et cotes sur la façade de l'autre corps : elles tiraient la maison quand on croyait
   régler l'aile. Les poignées et la bulle suivent maintenant la silhouette (même mur, celui du corps choisi le plus tourné vers la

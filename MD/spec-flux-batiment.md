@@ -358,8 +358,10 @@ pas lu (point 13 de « Ce qu'il faut ranger », laissé ouvert). Les cheminées,
 | Audit, « Valider » | relevé, détails des ouvertures | `regles/decisions.ts:260-268` |
 
 Le relevé passe par l'assemblage des photos redressées (`facade/analyseMur.ts::analyserLeMur`, :50 ; `fondreLesVues`, :158). Le
-**gabarit** (`facade/gabaritMur.ts::gabaritDesCorps`, :64) n'écrit rien : il se tire de `pts`, `corpsToit` et de la hauteur du
-mur, à la demande. Un mur relevé n'a pas de fenêtres automatiques (`detailsBatiment.ts:387-388`) — ~~sauf en mode corps (« Ce qu'il
+**gabarit** (`facade/gabaritMur.ts::gabaritDesCorps`, :36) n'écrit rien : il se tire de `pts`, `corpsToit` et de la hauteur du
+mur, à la demande. Depuis le 28 octobre 2026, c'est la silhouette du Mode Toit : celle que la 3D trace pour chaque corps
+(`facade/regles/toits/silhouetteDesCorps.ts::silhouetteDuCorps`), projetée sur le plan du mur et vue de face (`silhouetteDeFace`),
+le mur d'un corps dans le plan de la façade entier, même au-delà du côté du contour. Un mur relevé n'a pas de fenêtres automatiques (`detailsBatiment.ts:387-388`) — ~~sauf en mode corps (« Ce qu'il
 faut ranger », 3)~~ en mode corps aussi depuis le 28 octobre 2026 (`geometry/facadeExterieure.ts::cotesSurLesCotes`).
 
 ## 7. Matériaux et couleurs

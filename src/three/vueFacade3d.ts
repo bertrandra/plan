@@ -4,7 +4,7 @@
 
 import type * as THREE_NS from 'three';
 import { ECHELLE_LUMIERE } from './bibliotheque.js';
-import type { GabaritMur } from '../facade/gabaritMur.js';
+import { contourDuGabarit, type GabaritMur } from '../facade/gabaritMur.js';
 
 /** Le volume derriere la facade, en part de sa largeur : de quoi voir un mur, pas une feuille. */
 const PROFONDEUR = 0.35;
@@ -26,11 +26,13 @@ export function dessinerFacade3d(canevas: HTMLCanvasElement, m: MurFacade3d, pre
   rendu.outputColorSpace = THREE.LinearSRGBColorSpace;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(COULEUR_CIEL);
-  // Le contour du mur dans son plan (x le long du mur, y en hauteur) : le sol, puis le haut de la silhouette de droite a gauche.
+  // Le contour du mur dans son plan (x le long du mur, y en hauteur) : le sol, puis le haut de la silhouette de droite a gauche ; le
+  // pied suit les bouts du gabarit (au-dela des angles quand le mur d'un corps continue la facade).
   const forme = new THREE.Shape();
-  forme.moveTo(0, 0);
-  forme.lineTo(L, 0);
-  for (const p of [...m.gabarit].reverse()) forme.lineTo(p.u * L, p.v * H);
+  const bord = contourDuGabarit(m.gabarit);
+  const [pied0, ...reste] = [bord[0], bord[bord.length - 1], ...bord.slice(1, -1).reverse()] as { u: number; v: number }[];
+  forme.moveTo((pied0?.u ?? 0) * L, 0);
+  for (const p of reste) forme.lineTo(p.u * L, p.v * H);
   forme.closePath();
   const geo = new THREE.ExtrudeGeometry(forme, { depth: D, bevelEnabled: false });
   geo.translate(0, 0, -D);
@@ -55,10 +57,11 @@ export function dessinerFacade3d(canevas: HTMLCanvasElement, m: MurFacade3d, pre
   // De face, a mi-hauteur de la facade, a la distance qui la montre entiere.
   const haut = Math.max(H, ...m.gabarit.map((p) => p.v * H));
   const aspect = largeurPx / hauteurPx, t = Math.tan((CHAMP_DEG * Math.PI) / 360);
-  const distance = (MARGE * Math.max(haut / 2, L / 2 / aspect)) / t;
+  const x0 = Math.min(0, ...m.gabarit.map((p) => p.u * L)), x1 = Math.max(L, ...m.gabarit.map((p) => p.u * L)), cx = (x0 + x1) / 2;
+  const distance = (MARGE * Math.max(haut / 2, (x1 - x0) / 2 / aspect)) / t;
   const camera = new THREE.PerspectiveCamera(CHAMP_DEG, aspect, 0.1, distance * 10);
-  camera.position.set(L / 2, haut / 2, distance);
-  camera.lookAt(L / 2, haut / 2, 0);
+  camera.position.set(cx, haut / 2, distance);
+  camera.lookAt(cx, haut / 2, 0);
   const rendre = () => rendu.render(scene, camera);
   rendre();
   return () => {
