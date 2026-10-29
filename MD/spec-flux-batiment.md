@@ -276,7 +276,7 @@ cote depuis la gauche et celles qui sortent sont omises (`three/releve3d.ts:306-
 | | audit : « Hauteur à l'égout » (photos, Claude, LiDAR arbitrés) ; pose `egoutChoisi: 'audit'` | `regles/decisions.ts:270`, `app/audit/parcelle/arbitrages.ts:92` |
 | | actualisation IGN : hauteur BD TOPO, ~~à chaque fois~~ — depuis le 28 octobre 2026, seulement si elle n'est ni choisie ni mesurée (niveau 5 : le LiDAR bat l'IGN) | `actualisationIgn.ts:302` |
 | `toit.hauteur` (faîtage au-dessus de l'égout) | BD TOPO, LiDAR (forme ajustée), inspecteur (`source: 'saisie'`, `ui/champs/facade.ts:335-340`), audit « Hauteur totale » (`decisions.ts:271`) | |
-| égouts et faîtage d'un corps | LiDAR (`reconstruireCorps`), fait, Mode Toit (poignées), audit (corps relus) | `corpsToit` |
+| égouts et faîtage d'un corps | LiDAR (`reconstruireCorps`), fait, Mode Toit (poignées), audit (corps relus) ; jamais une proposition de forme lue sur une photo de façade (lot F4 : elle pose ou retire des pignons, une croupe, sur le corps que désigne son mur, et garde les hauteurs du LiDAR) | `corpsToit` |
 | murs d'un volume, d'un corps | dérivés : `hauteurMurMesuree`, `hauteursMursCorps` | lus, jamais saisis |
 | hauteur mesurée sur une photo de façade | **dite, pas appliquée** : « le bâtiment garde x m » | `app/releve/releve.ts:121-128` |
 

@@ -30,6 +30,8 @@ export interface FacadeACalibrer {
   bilans: readonly BilanPhotoRedressement[];
   /** Le gabarit du mur : sa silhouette sous les corps du LiDAR (le cas fige), un rectangle sans corps. */
   gabarit: GabaritMur;
+  /** Les corps du LiDAR qui font ce gabarit, et le mur de la facade : le diagnostic de forme du cas (lot F4) ; null sans corps. */
+  toit: CasStocke['toit'] | null;
   /** Le parement des murs vu sur place (« Ce que je vois »), en clair ; null : non dit. */
   parement: string | null;
 }
@@ -50,6 +52,12 @@ function gabaritLidar(pts: readonly PtBrut[] | undefined, corps: readonly CorpsT
   return f ? gabaritDesCorps(f, corps, hauteur) : GABARIT_RECTANGLE;
 }
 
+/** Les corps du cas fige et le mur de la facade, vu de dehors ; null sans corps. */
+function toitDuCas(pts: readonly PtBrut[] | undefined, corps: readonly CorpsToit[] | null | undefined, cote: number): CasStocke['toit'] | null {
+  const f = pts?.length && corps?.length ? facadesDuContour(pts, 0).find((x) => x.cote === cote) : undefined;
+  return f && corps?.length ? { mur: { gauche: { x: f.gauche.x, y: f.gauche.y }, droite: { x: f.droite.x, y: f.droite.y } }, corps: corps.map((c) => JSON.parse(JSON.stringify(c)) as CorpsToit) } : null;
+}
+
 /** Les facades photographiees d'un audit, du batiment le plus photographie au moins, avec leurs dimensions du plan. */
 export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer[] {
   const out: FacadeACalibrer[] = [];
@@ -63,6 +71,7 @@ export function facadesACalibrer(fichier: FichierAuditParcelle): FacadeACalibrer
       if (!(hauteur && hauteur > 0)) continue;
       out.push({ cle: b.cle, nom: b.nom, cote: f.cote, orientation: f.orientation ?? '', largeurM: arrondi(f.largeurM), hauteurM: arrondi(hauteur), sourceHauteur: lidar !== null ? 'lidar' : 'fichier', photos: f.photos, corrections: f.corrections ?? {}, bilans: f.mesure?.redressement?.photos ?? [],
         gabarit: gabaritLidar(entrees?.pts, sorties?.corps, sorties?.elevation ?? f.hauteurM ?? 0, f.cote, hauteur),
+        toit: toitDuCas(entrees?.pts, sorties?.corps, f.cote),
         parement: b.vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, b.vu.murs).toLowerCase() : null });
     }
   }
@@ -94,6 +103,7 @@ export function casDepuisFacade(f: FacadeACalibrer, idu: string | null = null): 
     largeurM: f.largeurM, hauteurM: f.hauteurM,
     ...(f.parement ? { parement: f.parement } : {}),
     ...(relief(f.gabarit) > 0 ? { gabarit: f.gabarit.map((p) => ({ u: p.u, v: p.v })) } : {}),
+    ...(f.toit ? { toit: f.toit } : {}),
     photos: images.map((_, k) => photo(k)),
     images, ouvertures: [],
   };

@@ -169,6 +169,8 @@ export interface ReleveDeLaSerie {
   devinees: OuvertureFacade[];
   /** La ligne du haut du mur lue sur la photo (jamais le gabarit) ; `indetermine` quand le toit est hors cadre. */
   silhouette: SilhouetteFacade;
+  /** Le haut du mur lu a la matiere du mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic de forme compare au gabarit (F4). */
+  hautLu: { u: number; v: number }[] | null;
   /** La note du calage fin, de 0 a 1 ; null sans calage fin. */
   confiance: number | null;
   /** La hauteur a l'egout mesuree, quand les coins ont ete trouves ; des coins predits d'apres la hauteur connue la rendraient. */
@@ -193,6 +195,7 @@ export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>
     coinsTrouves,
     devinees: a.r.devinees.map(versOuvertureFacade),
     silhouette: silhouetteDeEstimation(a.r.toitLu),
+    hautLu: a.r.hautLu ?? null,
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
   };

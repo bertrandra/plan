@@ -7,6 +7,34 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F4 : le diagnostic de forme et le toit par corps** (`MD/spec-facade-calage-audit.md` §4 É5 bis et É8, §5 bis,
+  §5 ter, §9). La silhouette d'une façade dérive du toit : son écart avec la photo est un diagnostic **du toit calculé**, corps par
+  corps. La façade se **découpe en tronçons de corps** (`silhouetteDesCorps.ts::tronconsDeFace` : la silhouette de face dit
+  désormais quel mur de corps porte chaque part de son haut). L'**É5 bis** (`facade/regles/facades/diagnosticForme.ts`) compare le
+  haut du mur lu sur la photo (à la matière du mur, comme l'É5 de la calibration ; l'analyse le rend aussi à l'audit, `hautLu`) au
+  gabarit, tronçon par tronçon, et essaie un petit nombre de variantes du toit **de ce corps**, faites par le moteur des toits : un
+  pignon de plus, de moins, déplacé ou élargi sur un long pan, une croupe à la place d'un pignon (ou l'inverse) sur un mur de bout ;
+  une variante n'est proposée que si elle explique mieux l'image (objectifs `diagnosticEcartMin`, `diagnosticGainMin`,
+  `diagnosticReliefMin` de `regles/facades/enchainement.json`). La lecture de Claude (ses pointes) dit la provenance (« le haut lu »,
+  « Claude seul », « les deux ») ; sans haut lu, Claude seul propose, et une pointe qu'il est seul à voir quand le haut lu ne la
+  confirme pas n'est pas proposée. Une pointe vue plus haute ou plus basse est une **alerte**, jamais une correction : le LiDAR garde
+  la hauteur (décision 12). Ce que le moteur ne sait pas encore poser (une bosse étroite : cheminée ou lucarne, lot F7) est dit sans
+  proposition. Chaque proposition porte son corps **par son mur** (`murDuCorps`) et l'observation que le moteur relira.
+- **L'audit propose ces corrections de toit dans l'avant/après** (`app/audit/parcelle/formeFacades.ts`) : une ligne par corps
+  diagnostiqué (« Toit de Maison, corps 1 (vu sur la façade sud …) »), **toujours décochée** (décision 10 : « Une forme de toit lue
+  sur la photo se confirme toujours »), le corps concerné en surbrillance. Cochée et validée, le **moteur des toits** la relit
+  (`corpsSousContrainte`) sur la mesure LiDAR, sur le corps que désigne le mur, et rien d'autre ; les hauteurs du corps restent
+  celles du LiDAR ; le fait du bâtiment l'emporte (`corpsProposesSousFait`) ; un toit figé ou saisi le dit. L'**É8** dit les
+  propositions à confirmer ; É5 bis et É8 ne sont plus « sautées ». La calibration montre l'É5 bis sur l'image (tronçons de corps,
+  gabarit de chaque proposition, gain) et la mesure contre la vraie forme du toit du cas ; un cas tiré d'un audit garde les corps du
+  toit qui font son gabarit (`CasReel.toit`).
+- **Le moteur des toits pose des pignons sur n'importe quel corps** (`facade/regles/toits/pignons.ts`) : une observation désigne le
+  corps par son mur (`PignonsFait.mur`), dit exactement les pignons que ce mur montre (`position: 'places'` : un de plus, un de moins,
+  déplacé, élargi ; chacun monte au faîtage du corps, le pan n'est pas relu) ou le bout que montre un mur de bout
+  (`ObservationFait.boutsDesMurs`). Le vocabulaire de `regles/toits/faits.json` ne change pas.
+- Fumée : point 104 (une façade photographiée, sa proposition de toit sur le corps 1, décochée, cochée dans l'avant/après, le pignon
+  posé par le moteur, hauteurs inchangées, Ctrl+Z).
+
 - **Façades : une escalade, à la demande** (décision du propriétaire du 29 octobre 2026, `MD/spec-facade-calage-audit.md` §8,
   décision 14). Sous la barre d'une façade, dans l'audit et dans le rejeu de la calibration, « Escalader vers … (≈ … $) » (commande
   `facade.escalader`, dans les trois classes d'écran) envoie **une** requête de plus, la même image et le même texte, au modèle de
@@ -139,6 +167,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   deux modes.
 
 ### Supprimé
+
+- **L'unique corps principal codé en dur des pignons d'un fait** (`facade/regles/toits/pignons.ts::avecPignons`, `pignonsManquants`) :
+  les pignons se posent sur le corps qui porte la façade (son mur désigné, sinon le côté en façade du contour qui regarde vers
+  l'azimut du fait, le plus long, comme pour un appentis). AE 101 identique (`identite.ts` : « corps identiques »).
 
 - **Le renfort de Claude à trois passes votées** (lot F3), dans l'audit et au serveur : `app/audit/parcelle/entreesRenfort.ts`, le
   vote et le schéma de `facade/detection/renfort.ts` (ses signaux, que le relevé lit encore, deviennent `facade/detection/signaux.ts`),

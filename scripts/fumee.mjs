@@ -2804,6 +2804,83 @@ const POINTS = {
       && pendant === avant && seule === 0 && rouvertes === 2 && !deborde;
     return { ok, mesure: `« ${presse} » ; étiquettes ${etiquettes.join(', ') || 'AUCUNE'} ; vues ${d1 ? d1.vues.sens + ' ' + d1.vues.avant.l + '×' + d1.vues.avant.h : 'ABSENTES'} (attendu ${sensAttendu}) ; ${recouvre ? 'SOUS L’ÉCRAN' : 'à côté de l’écran'} ; écart avant/après ${e(d1)} ; après glisser « Après » bouge de ${tourne.toFixed(1)}, écart ${e(d2)} ; tout décoché ${e(d3)} ; murs recochés ${e(d4)} ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} ; « Avant » : ${seule} étiquette(s), « Les deux » : ${rouvertes} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
+  104: async (page, f) => {
+    // Le diagnostic de forme d'une facade et sa proposition de toit, sur le bon corps (lot F4, MD/spec-facade-calage-audit.md §5 bis,
+    // §5 ter, E8). La maison devient un corps a deux pans, faitage parallele a la facade sud (son gabarit y est un rectangle), et une
+    // aile au nord ; la photo de la facade sud est celle de la scene 22 du banc (8 x 5,2 m, un pignon decentre). L'audit la mesure par
+    // l'orchestrateur ; l'E5 bis dit la proposition ; dans l'avant/apres, sa ligne « Toit de Maison, corps 1 » arrive DECOCHEE (decision
+    // 10) ; cochee et validee, le moteur pose le pignon sur le corps 1 seul, ses hauteurs (faitage, egouts) inchangees ; Ctrl+Z defait.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const p = (x, y) => ({ x, y });
+      o.pts = [p(-8, -20), p(0, -20), p(0, -11), p(-4, -11), p(-4, -6), p(-8, -6)];
+      o.vertexNames = ['A', 'B', 'C', 'D', 'E', 'F']; o.segmentNames = ['', '', '', '', '', '']; o.frozenVertices = o.pts.map(() => false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.egoutChoisi;
+      o.elevation = 5.2;
+      b.toit = { forme: 'deux-pans', hauteur: 3.6, angleFaitage: 0, source: 'saisie' };
+      const corps = { pts: [p(-8, -20), p(0, -20), p(0, -11), p(-8, -11)], posFaitage: 4.5, faitage: 8.8, egouts: [5.2, 5.2], pignons: [], ecart: 0.1 };
+      const aile = { pts: [p(-8, -11), p(-4, -11), p(-4, -6), p(-8, -6)], posFaitage: 2, faitage: 6, egouts: [4, 4], pignons: [], ecart: 0.1 };
+      b.corpsToit = [corps, aile];
+      // Une mesure LiDAR sous le contour (le moteur des toits la demande) : les pans des deux corps, tous les 50 cm.
+      const z = [];
+      for (let j = 0; j < 29; j++) for (let i = 0; i < 17; i++) {
+        const x = -8 + i * 0.5, y = -6 - j * 0.5;
+        z.push(y <= -11 && x <= 0 ? 8.8 - (3.6 * Math.abs(y + 15.5)) / 4.5 : y > -11 && x <= -4 ? 6 - Math.abs(x + 6) : null);
+      }
+      b.toitMesure = { pas: 0.5, x0: -8, y0: -6, nx: 17, ny: 29, z, egout: 5.2, faite: 8.8, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+    });
+    // Les corps de la maison, en JSON aux cles triees : l'annulation rend les memes corps, pas forcement dans le meme ordre de cles.
+    const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x));
+    const corps = async () => canon(await page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []));
+    const avant = await corps();
+    const { vues: [photo] } = photosScene('22-pignon-decentre-pierre');
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F4) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F4 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label^="Photographier : Façade sud"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    // Le segment « Forme » (V2) : l'E5 bis dit sa proposition sous la barre.
+    await etape('segment Forme', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="diagnostic"]').click({ timeout: 10000 }));
+    const forme = ((await page.locator('.dialogueAuditParcelle .barreFacadeLigne').first().textContent()) || '').trim();
+    const lignes = await page.locator('.dialogueAuditParcelle .ligneEtapeAudit').allTextContents();
+    await capture('liste');
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    const objet = 'Toit de Maison, corps 1 (vu sur la façade sud';
+    await page.locator('.ligneProposition', { hasText: objet }).first().waitFor({ state: 'attached', timeout: 60000 }).catch(() => {});
+    const ligne = await ligneProposition(page, objet);
+    await capture('propositions');
+    await etape('voir', () => toucher(page.locator('.ligneProposition', { hasText: objet }).first().locator('[data-controle="auditParcelle.voirLigne"]')));
+    await etape('apres', () => toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' })));
+    await page.waitForTimeout(1500);
+    await capture('apres');
+    const pendant = await corps();
+    await etape('cocher', () => cocherLigne(page, objet));
+    await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+    await page.waitForTimeout(1500);
+    const ecrit = JSON.parse(await corps());
+    const av = JSON.parse(avant);
+    const c0 = ecrit[0] ?? {};
+    const pignons = (c0.pignons ?? []).filter((x) => x.pan === 0);
+    const hauteurs = c0.faitage === av[0].faitage && JSON.stringify(c0.egouts) === JSON.stringify(av[0].egouts) && JSON.stringify(c0.pts) === JSON.stringify(av[0].pts);
+    const aile = JSON.stringify(ecrit[1]) === JSON.stringify(av[1]);
+    const fermee = (await page.locator('.auditPropositions').count()) === 0;
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(1500);
+    const annule = await corps();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const ok = /Forme/.test(forme) && !!ligne && !ligne.cochee && /un pignon de plus/.test(ligne.texte) && /Une forme de toit lue sur la photo se confirme toujours/.test(ligne.texte)
+      && pendant === avant && pignons.length === 1 && pignons[0].faitage === av[0].faitage && hauteurs && aile && fermee && annule === avant && !deborde;
+    return { ok, mesure: `sous la barre : « ${forme.slice(0, 90)} » ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 50) + ' »').join(', ') || 'aucune'} ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 140) + ' »' : 'ABSENTE'} ; aperçu ${pendant === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validé : ${pignons.length} pignon(s) sur le pan sud du corps 1 (${pignons.map((x) => x.debut + '–' + x.fin + ' m').join(', ')}), hauteurs ${hauteurs ? 'inchangées' : 'MODIFIÉES'}, aile ${aile ? 'inchangée' : 'MODIFIÉE'}, propositions ${fermee ? 'fermées' : 'ENCORE OUVERTES'} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -3813,7 +3890,8 @@ function pointsPour(nomClasse) {
   // 101 : son mode « IA », une reponse enregistree du run de la facade rejouee sans reseau (lot F2).
   // 102 : l'audit de la parcelle, une facade calculee par l'orchestrateur en mode discret, avec la meme barre (lot F3).
   // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103];
+  // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

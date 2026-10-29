@@ -16,6 +16,7 @@ import { toucher } from '../../../core/controleurObjets.js';
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
+import { propositionsDeForme } from './formeFacades.js';
 import { propositionsAccords, propositionsDeClaude, propositionsDetails, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
 import { avecReserveDesNiveaux } from './niveauxClaude.js';
 import { avecPlacesApresForme } from './apresForme.js';
@@ -445,7 +446,7 @@ const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materia
 
 function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
   const e: EntreesPropositions = { ...entrees, accords };
-  const deLAudit = propositionsDeLAudit(e);
+  const deLAudit = [...propositionsDeLAudit(e), ...propositionsDeForme(e)];
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
   const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
   const deClaude = reponses ? propositionsDeClaude(e.objets, e.liste.batiments, reponses).filter((p) => !EFFETS_ARBITRES.includes(p.effet.type) && !(p.effet.type === 'couleurMurs' && couleurLue.has(cleDeLaCible(p.cible)))) : [];

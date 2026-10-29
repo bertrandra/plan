@@ -159,14 +159,25 @@ const PAS_FACE_M = 0.1, BORD_M = 1e-3;
 /** Deux corps a moins de cela l'un de l'autre, le long de la facade, se touchent. */
 const JOINT_M = 0.05;
 
+/** Le mur d'un corps qui porte une partie du haut d'une facade : le rang du corps, son cote, et ce cote dans le plan (vu de dehors). */
+export interface MurPorteur { corps: number; cote: number; gauche: PtBrut; droite: PtBrut }
+
 /** Le haut d'une silhouette de face : `x` en metres depuis la gauche de la facade (hors de 0..largeur quand ses murs la depassent). */
 export interface SilhouetteDeFace {
   /** Les bouts de ce qui se voit : 0 et la largeur, ou plus loin quand le mur d'un corps continue la facade au-dela de son cote. */
   x0: number;
   x1: number;
-  /** Le haut, de gauche a droite ; `y` null la ou aucun corps n'est derriere. */
-  haut: { x: number; y: number | null }[];
+  /**
+   * Le haut, de gauche a droite ; `y` null la ou aucun corps n'est derriere. `porteur` : le rang, dans `murs`, du mur de corps qui
+   * porte ce point du haut (celui qui l'emporte), null avec `y` (lot F4 : le decoupage de la facade en troncons de corps, §5 ter).
+   */
+  haut: { x: number; y: number | null; porteur: number | null }[];
+  /** Les murs de corps qui font face a la facade, dans l'ordre des corps. */
+  murs: MurPorteur[];
 }
+
+/** Un troncon de la facade : la part du haut, de `x0` a `x1` (metres depuis la gauche de la facade), que porte un mur de corps. */
+export interface TronconDeFace extends MurPorteur { x0: number; x1: number }
 
 /**
  * La silhouette de toute une facade (un cote du contour du batiment) vue de face, sous les corps du toit : le mur de chaque corps
@@ -185,7 +196,8 @@ export function silhouetteDeFace(f: Facade, corps: readonly CorpsToit[], regles:
   const derriere = (p: PtBrut) => -((p.x - f.gauche.x) * n.x + (p.y - f.gauche.y) * n.y);
   let x0 = 0, x1 = L;
   const profils: P2[][] = [];
-  for (const c of corps) {
+  const murs: MurPorteur[] = [];
+  for (const [k, c] of corps.entries()) {
     const egout = Math.min(...c.egouts);
     for (const w of facadesDuContour(c.pts, egout)) {
       if (w.normale.x * n.x + w.normale.y * n.y < FACE_MIN) continue;
@@ -196,6 +208,7 @@ export function silhouetteDeFace(f: Facade, corps: readonly CorpsToit[], regles:
       const haut = s.slice(2).reverse().map((q) => ({ x: le(q), y: q.z })).sort((a, b) => a.x - b.x);
       const a = haut[0] as P2, b = haut[haut.length - 1] as P2;
       profils.push(haut);
+      murs.push({ corps: k, cote: w.cote, gauche: w.gauche, droite: w.droite });
       // Dans le plan de la facade et sur elle : ce mur se voit entier.
       if (Math.abs(d) <= regles.seuils.MUR_CORPS_DISTANCE_M && Math.min(b.x, L) - Math.max(a.x, 0) > PAS_FACE_M) { x0 = Math.min(x0, a.x); x1 = Math.max(x1, b.x); }
     }
@@ -218,18 +231,44 @@ export function silhouetteDeFace(f: Facade, corps: readonly CorpsToit[], regles:
   }
   const lus = [...new Set(xs.filter((x) => x >= x0 - 1e-9 && x <= x1 + 1e-9).map((x) => Math.min(x1, Math.max(x0, x))))].sort((a, b) => a - b);
   const haut = lus.map((x) => {
-    let y: number | null = null;
-    for (const h of profils) { const z = surProfil(h, x); if (z !== null && (y === null || z > y)) y = z; }
+    let y: number | null = null, porteur: number | null = null;
+    for (const [i, h] of profils.entries()) { const z = surProfil(h, x); if (z !== null && (y === null || z > y)) { y = z; porteur = i; } }
     // Entre deux corps qui se touchent a quelques centimetres pres (le LiDAR ne les pose pas bord a bord), pas de creux : le plus proche.
     if (y === null) {
-      for (const h of profils) {
+      for (const [i, h] of profils.entries()) {
         const a = h[0] as P2, b = h[h.length - 1] as P2;
         if (x < a.x - JOINT_M || x > b.x + JOINT_M) continue;
         const z = surProfil(h, Math.min(b.x, Math.max(a.x, x)));
-        if (z !== null && (y === null || z > y)) y = z;
+        if (z !== null && (y === null || z > y)) { y = z; porteur = i; }
       }
     }
-    return { x, y };
+    return { x, y, porteur };
   });
-  return { x0, x1, haut };
+  return { x0, x1, haut, murs };
+}
+
+/**
+ * La facade decoupee en troncons de corps (MD/spec-facade-calage-audit.md §5 ter, lot F4) : de gauche a droite, chaque part du haut
+ * et le mur du corps qui la porte (le plus haut l'emporte, comme dans la silhouette de face). Un diagnostic de forme se rattache au
+ * corps de son troncon, par son mur (murDuCorps le retrouve quelle que soit la renumerotation des corps). Deux troncons voisins du
+ * meme mur n'en font qu'un ; un troncon plus court que le pas de lecture (un joint) n'en est pas un.
+ */
+export function tronconsDeFace(s: SilhouetteDeFace): TronconDeFace[] {
+  const bruts: TronconDeFace[] = [];
+  for (let i = 0; i < s.haut.length; i++) {
+    const p = s.haut[i] as SilhouetteDeFace['haut'][number];
+    const m = p.porteur === null ? undefined : s.murs[p.porteur];
+    if (!m) continue;
+    const fin = s.haut[i + 1]?.x ?? p.x, der = bruts[bruts.length - 1];
+    if (der && der.corps === m.corps && der.cote === m.cote && Math.abs(p.x - der.x1) < 1e-9) der.x1 = fin;
+    else bruts.push({ ...m, x0: p.x, x1: fin });
+  }
+  // Un joint (plus court que le pas de lecture) n'est pas un troncon ; ses voisins du meme mur se rejoignent par-dessus.
+  const out: TronconDeFace[] = [];
+  for (const t of bruts.filter((x) => x.x1 - x.x0 > PAS_FACE_M)) {
+    const der = out[out.length - 1];
+    if (der && der.corps === t.corps && der.cote === t.cote && t.x0 - der.x1 <= PAS_FACE_M + 1e-9) der.x1 = t.x1;
+    else out.push({ ...t });
+  }
+  return out;
 }

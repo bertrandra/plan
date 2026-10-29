@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { lireCasReel } from '../../../../../src/facade/corpusReel.js';
 import { facadesACalibrer, casDepuisFacade } from '../../../../../src/app/audit/parcelle/casDeCalibration.js';
 import type { FichierAuditParcelle } from '../../../../../src/model/fichierAuditParcelle.js';
 
@@ -59,5 +60,10 @@ describe('les facades d un audit a calibrer', () => {
     // Deux pignons (les murs de 6 m) montent de 3 m sur 5 ; les deux longs pans sont des rectangles.
     expect(reliefs.filter((r) => r > 0.5)).toHaveLength(2);
     expect(reliefs.filter((r) => r === 0)).toHaveLength(2);
+    // Et les corps qui le font, avec le mur de la facade : le diagnostic de forme du cas (lot F4), corps par corps.
+    const cas = casDepuisFacade(f[0]!);
+    expect(cas.toit?.corps).toEqual([corps]);
+    expect(lireCasReel(JSON.parse(JSON.stringify(cas))).toit).toEqual(cas.toit);
+    expect(() => lireCasReel({ ...JSON.parse(JSON.stringify(cas)), toit: { mur: cas.toit!.mur, corps: [{ pts: [] }] } })).toThrow(/toit/);
   });
 });

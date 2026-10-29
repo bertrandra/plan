@@ -87,6 +87,18 @@ export function facadesDuContour(pts: readonly PtBrut[], hauteur: number): Facad
 }
 
 /**
+ * La facade d'un mur donne par ses deux bouts vus de dehors, de gauche a droite (un mur de corps, MD/spec-facade-calage-audit.md §5 ter) :
+ * la normale sortante est le mur tourne d'un quart de tour horaire, comme dans facadesDuContour. Null pour un mur de moins de 10 cm.
+ */
+export function facadeDuMur(gauche: PtBrut, droite: PtBrut, hauteur: number, cote = 0): Facade | null {
+  const dx = droite.x - gauche.x, dy = droite.y - gauche.y, largeur = Math.hypot(dx, dy);
+  if (largeur < 0.1) return null;
+  const normale = { x: dy / largeur, y: -dx / largeur };
+  const azimut = ((Math.atan2(normale.x, normale.y) * 180) / Math.PI + 360) % 360;
+  return { cote, gauche: { ...gauche }, droite: { ...droite }, largeur, hauteur, normale, azimut, orientation: nomOrientation(azimut) };
+}
+
+/**
  * Un point du mur, donne dans le repere de la facade (x depuis la gauche, y depuis le sol), porte
  * dans le plan : le pied du point au sol, et sa hauteur.
  */

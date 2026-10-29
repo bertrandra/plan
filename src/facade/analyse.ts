@@ -15,6 +15,7 @@ import { homographie, appliquer, redresser, resolutionTexture, rapportRectangle,
 import { detecterFacade, type OuvertureDetectee } from './detection/detection.js';
 import { profilSilhouette, classerProfil, toitDepuisEstimation, effacerCiel, type ToitEstime } from './toits/toit.js';
 import { coinsEnglobants, mesurerPartieBasse, egoutEn, ouverturesDansLeMur, type Decrochement } from './profil.js';
+import { silhouetteLue } from './vision/mosaiqueFuites.js';
 import type { GrilleFacade, PtBrut, Toit, PartieBasse } from '../model/types.js';
 
 export interface EntreeAnalyse {
@@ -73,6 +74,12 @@ export interface ResultatAnalyse {
    * colonne, de `x0M` a `x1M` le long du mur ; null quand le toit est hors cadre. L'ecran des etapes de la calibration la montre.
    */
   profilToit?: { x0M: number; x1M: number; hauteurs: number[] } | null;
+  /**
+   * Le haut du mur lu sur l'image (la matiere du mur, comme l'E5 de la calibration : mosaiqueFuites.ts::silhouetteLue), jamais le
+   * gabarit : `u` de 0 a 1 le long du mur, `v` en hauteurs d'egout depuis le sol. Le diagnostic de forme de l'audit le compare au
+   * gabarit (lot F4, facade/regles/facades/diagnosticForme.ts). Null quand il ne se lit pas (moins de la moitie des colonnes).
+   */
+  hautLu?: { u: number; v: number }[] | null;
   /** La structure des ouvertures proposees (niveaux, travees, spec §10) ; `null` sans ouverture. */
   grille: GrilleFacade | null;
   /** Le toit que dit la silhouette du mur (le gabarit du plan et du LiDAR), sinon la bande : ce qui dessine le toit propose. */
@@ -267,6 +274,8 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
   const profilToit = parLaSilhouette ?? profilBande;
   const toitEstime = parLaSilhouette ? classerProfil(parLaSilhouette.hauteurs) : toitLu;
   const toitPropose = toitEstime ? toitDepuisEstimation(e.contour, e.cote, toitEstime, e.hauteur, e.distance) : null;
+  // Le haut du mur lu a la matiere du mur, avant que le ciel ne soit repeint (lot F4) : une lecture, rien ne change de la texture.
+  const hautLu = lireLeHaut(r, egout);
   // La teinte du mur (mediane de ce qui en a ete vu) remplace le ciel au-dessus de l'egout.
   effacerCiel(r.image, egout, teinteMediane(mur.image, mur.vu), r.vu);
   return {
@@ -284,8 +293,17 @@ export function finaliserReleve(texture: Image, vu: Uint8Array, E: number, pxPar
     toitLu,
     toitPropose,
     profilToit,
+    hautLu,
     partieBasse: partie,
   };
+}
+
+/** Le haut du mur sur l'elevation etendue (l'egout a la rangee `egout`, le sol en bas), en parts du mur ; null s'il ne se lit pas. */
+function lireLeHaut(r: { image: Image; vu: Uint8Array }, egout: number): { u: number; v: number }[] | null {
+  const L = r.image.largeur, H = r.image.hauteur;
+  if (!(H - egout > 0) || !(L > 0)) return null;
+  const lue = silhouetteLue(r, { x0: 0, x1: L, y0: egout, y1: H });
+  return lue ? lue.silhouette.map((p) => ({ u: Math.round((p.x / L) * 1e4) / 1e4, v: Math.round(((H - p.y) / (H - egout)) * 1e4) / 1e4 })) : null;
 }
 
 /**

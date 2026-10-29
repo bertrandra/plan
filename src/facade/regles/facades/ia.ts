@@ -209,7 +209,7 @@ export interface AvisPointe { u: number; vue: number | null; attendue: number | 
 
 /**
  * Regle des pointes : celles de Claude contre celles que le gabarit attend. Une pointe en plus ou en moins est un diagnostic de toit
- * (lot F4, par corpsSousContrainte) ; une hauteur differente une alerte, jamais une correction : la hauteur du LiDAR est gardee
+ * (lot F4 : diagnosticForme.ts, puis corpsSousContrainte une fois cochee) ; une hauteur differente une alerte, jamais une correction : la hauteur du LiDAR est gardee
  * (decision 12). Rien n'est ecrit au toit ici.
  */
 export function avisDesPointes(obs: ObservationsFacade, attendues: readonly { u: number; v: number }[], r: ReglagesIa = reglagesIa()): AvisPointe[] {

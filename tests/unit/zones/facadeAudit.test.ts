@@ -65,8 +65,9 @@ describe('une facade dans l audit discret', () => {
     monter(session(OK));
     expect(hote.querySelectorAll('.barreFacade .barreFacadeSegment')).toHaveLength(8);
     expect(lignes()).toEqual(['faite Mur posé : Coins du mur trouvés sur la photo.', 'faite Ouvertures : 3 ouvertures trouvées, aucune devinée.']);
-    // Seuls les points de validation s'ouvrent : V1 (mur), V2 (forme), V3 (ouvertures), V4 (facade) ; ni la prise, ni l'image, ni la texture.
-    expect(ouvrables()).toEqual(['calage', 'silhouette', 'ouvertures', 'validation']);
+    // Seuls les points de validation s'ouvrent : V1 (mur), V2 (forme, sur son diagnostic : lot F4), V3 (ouvertures), V4 (facade) ; ni la
+    // prise, ni l'image, ni la texture.
+    expect(ouvrables()).toEqual(['calage', 'diagnostic', 'ouvertures', 'validation']);
   });
 
   it('fait apparaitre une etape cachee des qu elle echoue, avec son geste de repli sur chaque photo', () => {
@@ -74,10 +75,10 @@ describe('une facade dans l audit discret', () => {
     const { ouvrir } = monter(session(etapes));
     expect(lignes()[0]).toMatch(/^en échec Assemblage : Photos indépendantes.* À la main : retirer une photo, ou en prendre une autre qui recoupe le mur\./);
     expect([...hote.querySelectorAll('[data-controle="auditParcelle.placerCoins"]')].map((b) => b.textContent)).toEqual(['Repères, photo 1', 'Repères, photo 2']);
-    // Le segment « Image » s'ouvre maintenant ; le toucher passe par la commande, avec la facade de la barre.
-    expect(ouvrables()).toContain('redressement');
-    act(() => (hote.querySelector('[data-etape="redressement"]') as HTMLButtonElement).click());
-    expect(ouvrir).toHaveBeenCalledWith('redressement', 'maison#0');
+    // Le segment « Image » s'ouvre maintenant, sur l'etape qui echoue ; le toucher passe par la commande, avec la facade de la barre.
+    expect(ouvrables()).toContain('assemblage');
+    act(() => (hote.querySelector('[data-etape="assemblage"]') as HTMLButtonElement).click());
+    expect(ouvrir).toHaveBeenCalledWith('assemblage', 'maison#0');
   });
 
   it('ouvre les quatre reperes sur la photo choisie, et « Rejouer la façade » rejoue l orchestrateur', async () => {

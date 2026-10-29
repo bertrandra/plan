@@ -29,10 +29,12 @@ import type { Facade } from '../../geometry/cotesVusDeDehors.js';
 import type { BilanPhotoRedressement, BilanRedressement, CorrectionRedressement } from '../../model/auditParcelle.js';
 import type { PtBrut } from '../../model/types.js';
 import { redresserParReperes } from '../vision/redressementFuites.js';
-import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie } from '../corpusReel.js';
+import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie, type ToitVraiCorps } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
 import { accorderOuvertures, avisDesPointes, decisionColombage, ecartDesPoses, EMPREINTE_IA, poseDeLIa, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
 import { cartesAretes } from '../detection/recalageIa.js';
+import { etapeDiagnostic, etapeToit, hautEnPartsDuMur, type ToitDeLaFacade } from './etapesForme.js';
+import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
 
 /** Une photo du mur : l'image, les coins du mur dessus (cherches, poses a la main, ou ceux d'un cas), ses reperes et sa focale. */
 interface PhotoDeFacade {
@@ -51,6 +53,8 @@ export interface EntreesFacade {
   hauteurM: number;
   gabarit: GabaritMur;
   photos: readonly PhotoDeFacade[];
+  /** Les corps du toit qui font le gabarit, et le mur de la facade (lot F4) : le diagnostic de forme se fait corps par corps. */
+  toit?: ToitDeLaFacade | null;
 }
 
 /** La verite d'un cas de calibration, pour la mesure de chaque etape (§7.3). */
@@ -59,6 +63,8 @@ interface VeriteFacade {
   calage?: CasReel['calageVrai'];
   /** Les ouvertures vraies, en metres. */
   ouvertures?: readonly OuvertureVraie[];
+  /** La vraie forme du toit, corps par corps : la verite du diagnostic de forme (E5 bis). */
+  toit?: readonly ToitVraiCorps[];
 }
 
 /** D'ou viennent les coins d'une photo : trouves, devines (a verifier), poses a la main, ou lus apres un redressement par les reperes. */
@@ -164,6 +170,11 @@ interface SortiesFacade {
   calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication } | null;
   /** E5 : le haut du mur lu sur l'image, en pixels de l'assemblage pris, et sa forme. */
   silhouette: { points: P2[]; forme: 'droite' | 'pignon' | 'rampe' } | null;
+  /**
+   * E5 : le haut lu ramene au mur (u de 0 a 1, v en hauteurs d'egout), que le diagnostic compare au gabarit ; E5 bis : le diagnostic
+   * de forme, corps par corps (propositions de toit, alertes de hauteur).
+   */
+  forme: { lue: { u: number; v: number }[] | null; diagnostic: DiagnosticForme | null } | null;
   /** E6, E7 : l'analyse du mur. */
   analyse: AnalyseDuMur | null;
   /** E6 : la texture sans les ombres de la photo (`illustrer`). */
@@ -189,7 +200,7 @@ export interface Enchainement {
   versions: { chaine: number; objectifs: string; ia?: string };
 }
 
-const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, analyse: null, sansOmbres: null, ia: null, audit: null };
+const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, forme: null, analyse: null, sansOmbres: null, ia: null, audit: null };
 
 interface Contexte { e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade }
 type Pas = (c: Contexte) => Promise<Omit<EtapeCalculee, 'id'>> | Omit<EtapeCalculee, 'id'>;
@@ -348,6 +359,7 @@ function calageDeLAudit({ e, s, obj }: Contexte): Omit<EtapeCalculee, 'id'> {
 function silhouetteDeLAudit(s: SortiesFacade): Omit<EtapeCalculee, 'id'> {
   const m = s.audit?.mesure;
   if (!m) return attend('le mur posé (É4)');
+  s.forme = { lue: m.hautLu, diagnostic: null };
   if (m.silhouette === 'indetermine') return { etat: 'a-confirmer', resume: 'Le haut du mur ne se lit pas sur la photo (hors cadre) : la suite garde le gabarit du plan.', verite: null };
   return { etat: 'ok', resume: `Le haut lu sur la photo : ${libelleSilhouette(m.silhouette)}.`, verite: null };
 }
@@ -550,6 +562,7 @@ const silhouette: Pas = ({ o, s }) => {
   const lue = silhouetteLue(pose, rectDeLaPose(pose.coins));
   if (!lue) return { etat: 'a-confirmer', resume: 'Le haut du mur ne se lit pas à la teinte (moins de la moitié des colonnes) : la suite garde le gabarit.', verite: null };
   s.silhouette = { points: lue.silhouette, forme: lue.forme };
+  s.forme = { lue: hautEnPartsDuMur(lue.silhouette, rectDeLaPose(pose.coins)), diagnostic: null };
   const mot = { droite: 'une ligne droite', pignon: 'un pignon (une ou plusieurs pointes)', rampe: 'une rampe' }[lue.forme];
   return { etat: 'ok', resume: `Le haut lu sur l’image : ${mot}, ${lue.silhouette.length} sommets.` + formeDeLIa(s.ia?.reponse ?? null), verite: null };
 };
@@ -630,9 +643,13 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
 
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, redressement, assemblage, calage, silhouette,
-  diagnostic: () => sans('Le diagnostic de forme vient avec le lot F4.'),
+  diagnostic: ({ e, o, s }) => {
+    const r = etapeDiagnostic(e.toit ?? null, e.hauteurM, s.forme?.lue ?? null, s.ia?.reponse ?? null, o.objectifs, o.verite?.toit);
+    s.forme = { lue: s.forme?.lue ?? null, diagnostic: r.diagnostic };
+    return r.etape;
+  },
   texture, ouvertures,
-  toit: () => sans('Le toit par le moteur vient avec le lot F4.'),
+  toit: ({ s }) => etapeToit(s.forme?.diagnostic ?? null),
   validation: () => sans('La validation de la façade vient avec le lot F5 ; la calibration marque le cas « relu sur la photo ».'),
 };
 
@@ -678,13 +695,13 @@ export const originesDuCas = (cas: CasReel): Record<number, OrigineCoins> =>
 /** Les entrees de l'enchainement pour un cas : ses dimensions, son gabarit (un rectangle sans), ses photos decodees dans l'ordre. */
 export function entreesDuCas(cas: CasReel, images: readonly Image[]): EntreesFacade {
   return {
-    largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE,
+    largeurM: cas.largeurM, hauteurM: cas.hauteurM, gabarit: cas.gabarit ?? GABARIT_RECTANGLE, ...(cas.toit ? { toit: cas.toit } : {}),
     photos: cas.photos.map((p, k) => ({ image: images[k] as Image, coins: p.coins, reperes: reperesDe(p), focalePx: p.focalePx ?? null, murALaMain: !!p.murALaMain })),
   };
 }
 
 /** La verite d'un cas : son mur vrai sur l'assemblage, ses ouvertures annotees. */
-export const veriteDuCas = (cas: CasReel): VeriteFacade => ({ ...(cas.calageVrai ? { calage: cas.calageVrai } : {}), ouvertures: cas.ouvertures });
+export const veriteDuCas = (cas: CasReel): VeriteFacade => ({ ...(cas.calageVrai ? { calage: cas.calageVrai } : {}), ouvertures: cas.ouvertures, ...(cas.toitVrai ? { toit: cas.toitVrai } : {}) });
 
 /**
  * Le cas apres un rejeu : les coins retenus sur chaque photo (sauf un mur pose a la main, garde). Des coins retrouves : la silhouette

@@ -202,6 +202,11 @@ describe('le toit dit par la silhouette du haut du mur', () => {
     const seule = analyserReleve(entree)!;
     expect(r.toitLu).toEqual(seule.toitLu);
     expect(r.toitLu!.hauteur).toBeCloseTo(3, 0);
+    // Le haut du mur lu a sa matiere (lot F4, le diagnostic de forme) : la photo, jamais le gabarit, en parts du mur.
+    expect(r.hautLu).toEqual(seule.hautLu);
+    expect(seule.hautLu!.length).toBeGreaterThan(1);
+    expect(seule.hautLu!.every((q) => q.u >= 0 && q.u <= 1 && q.v > 0)).toBe(true);
+    expect(Math.max(...seule.hautLu!.map((q) => q.v))).toBeGreaterThan(1.3);
   });
 
   it('lit une rampe d appentis', () => {
