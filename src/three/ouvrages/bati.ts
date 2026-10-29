@@ -91,7 +91,9 @@ export function habillerLeBati(o: ObjetPlan, b: BatiEnVolumes, h: number, centre
   // pente, qui choisissent la texture (tuiles plates, canal, ardoise, zinc ; MD/spec-toit-ign.md §6.2).
   const couverture = o.type === 'polygon' ? { materiauxToiture: (o.bdtopo as { materiauxToiture?: unknown } | null | undefined)?.materiauxToiture, pente: o.batiment?.toit ? penteDuToit(o.pts, o.batiment?.toit) : null, latitude: co.latitude, choix: o.batiment?.toit?.couverture ?? null } : undefined;
   if (o.type === 'polygon' && (o.batiment?.facades?.length || o.batiment?.toit || volumesToit)) {
-    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
+    ajouterReleve3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, sansOmbres: vue3d.facadesSansOmbres, couverture,
+      // Les carreaux d'une facade validee (lot F8) : en relief de pres, hors Econome, comme les baies en creux.
+      relief: vue3d.qualite !== 'econome' && dist(centre, co.centre) <= RELIEF_FENETRES_M }, o, h, volumesToit, !!toitMesure || !!corpsToit, corpsToit ?? null);
   }
   if (o.type === 'polygon' && corpsToit && surContour) {
     ajouterToitCorpsSurContour3d({ scene: groupeAuSol(co.scene, co.sol, centre), toLocal: co.versLocal, couleurMur, textures: vue3d.textures, textureMur: texturesDe(o)?.vertical, couverture }, corpsToit, o.batiment?.toit, o.pts);
