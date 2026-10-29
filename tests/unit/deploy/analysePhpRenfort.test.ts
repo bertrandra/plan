@@ -127,14 +127,21 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     let r = await (await ecrire('admin/claude/messages', d)).json();
     expect(faux.messages).toHaveLength(1);
     expect((faux.messages[0]?.output_config as { format?: { type: string } }).format?.type).toBe('json_schema');
-    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: true, erreur: null, sortie: SORTIE_FACADE });
-    expect(journal().at(-1)).toMatchObject({ usage: 'facade', structuree: true });
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: true, refusFormat: null, erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ usage: 'facade', structuree: true, prompt: 2, schema: 2 });
+    // Le schema part en sortie structuree, et plus dans le prompt.
+    const systeme = (m: Record<string, unknown> | undefined) => (m?.system as { text: string }[])[0]!.text;
+    expect(systeme(faux.messages[0])).not.toContain('additionalProperties');
     // Le schema refuse : la meme requete sans format, lue dans le texte tel qu'une reponse libre l'ecrit.
     faux.messages.length = 0;
     faux.reponseMessage = (corps) => messageFacade(corps, true);
     r = await (await ecrire('admin/claude/messages', d)).json();
     expect(faux.messages.map((m) => (m.output_config as { format?: unknown }).format === undefined)).toEqual([false, true]);
-    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: false, erreur: null, sortie: SORTIE_FACADE });
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large', erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large' });
+    // Le repli montre l'exemple de reponse, pas le schema (que Haiku recopiait).
+    expect(systeme(faux.messages[1])).toMatch(/C’est un EXEMPLE/);
+    expect(systeme(faux.messages[1])).not.toContain('additionalProperties');
     // Le renfort, lui, part sans : sa reponse se lit dans le texte, comme avant.
     faux.messages.length = 0;
     faux.reponseMessage = () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_RENFORT) });

@@ -34,6 +34,26 @@ describe('la lecture de la reponse', () => {
   });
 });
 
+describe('les bornes des reperes', () => {
+  it('ecarte un nombre qui n est pas une part : des pixels, des metres, une hauteur hors du mur', () => {
+    // `egout: 258` : ce que Haiku a ecrit sur la vraie API (run 40896695970), des pixels a la place d'une part de l'image.
+    const r = lireObservationsFacade({ ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage,
+      angles: { gauche: { x: 0.22, egout: 0.29, sol: 0.81, confiance: 'forte' }, droite: { x: 0.91, egout: 258, sol: 0.8, confiance: 'moyenne' } },
+      pointes: [{ u: 0.5, v: 2.2, confiance: 'forte' }, { u: 1.4, v: 2, confiance: 'forte' }, { u: 0.5, v: 40, confiance: 'forte' }],
+      cache: [{ quoi: 'haie', debut: 0.8, fin: 1 }, { quoi: 'arbre', debut: 120, fin: 300 }] },
+      elements: [{ element: 'cheminee', u: -0.2, confiance: 'forte' }],
+      ouvertures: [...SORTIE_FACADE.ouvertures, { ...SORTIE_FACADE.ouvertures[0], u0: 0.3, u1: 1.2 }, { ...SORTIE_FACADE.ouvertures[0], v0: 2, v1: 9 }, { ...SORTIE_FACADE.ouvertures[0], u0: 0.9, u1: 1.03 }] });
+    expect(r?.calage.angles).toEqual({ gauche: { x: 0.22, egout: 0.29, sol: 0.81, confiance: 'forte' }, droite: null });
+    expect(r?.calage.pointes.map((p) => p.u)).toEqual([0.5]);
+    expect(r?.calage.cache.map((c) => c.quoi)).toEqual(['haie']);
+    expect(r?.elements).toEqual([]);
+    // Un debord d'arrondi (1.03) se ramene au bord du mur ; 1.2 et 9 hauteurs d'egout ne sont pas des parts.
+    expect(r?.ouvertures.map((o) => [o.u0, o.u1])).toEqual([[0.1, 0.22], [0.45, 0.55], [0.9, 1]]);
+    // Au-dessus de l'egout, v depasse 1 : une pointe, un pignon en colombage restent lus.
+    expect(R.calage.pointes.map((p) => p.v)).toEqual([3.1, 3.2]);
+  });
+});
+
 describe('la reponse enregistree', () => {
   it('se relit, et ignore ce qui n en a pas la forme', () => {
     const r = run([SORTIE_FACADE]);

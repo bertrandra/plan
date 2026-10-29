@@ -3,7 +3,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CLE, SORTIE_ANALYSE, SORTIE_RENFORT, USAGE_P1, messageFacade, messageReussi, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_ANALYSE, SORTIE_RENFORT, USAGE_P1, messageFacade, messageReussi, demarrerFauxAnthropic, reponseParDefaut, schemaFacade, texteSqueletteDuSchema, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 
 // scripts/verifier-api-claude.mjs : la verification des requetes du serveur PHP contre l'API Claude,
 // jouee ici contre le faux Anthropic (la vraie API demande une cle, absente des tests). Saute si PHP manque.
@@ -118,7 +118,21 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     expect(r.stderr).toBe('');
     expect(r.code).toBe(0);
     expect(faux.messages).toHaveLength(4);
-    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus\)/);
+    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : accepté, sortie conforme \(\d+ champs ; 2 angle\(s\), 2 pointe\(s\), parement enduit, 2 ouverture\(s\) dont 1 aux carreaux lus ; sortie structurée refusée par l’API \(« output_config\.format: The compiled grammar is too large »\), lue sans elle\)/);
+    // Le repli montre l'exemple, jamais le schema en texte.
+    expect(systeme(faux.messages[3] ?? {})).toMatch(/C’est un EXEMPLE/);
+    expect(systeme(faux.messages[3] ?? {})).not.toContain('additionalProperties');
+  });
+
+  it('dit la reponse qui recopie le schema, valeurs logees dedans, et ne la prend pas pour une facade vide', async () => {
+    const copie = texteSqueletteDuSchema(schemaFacade());
+    faux.reponseMessage = (corps) => (/lire \*\*une façade\*\*/.test(systeme(corps))
+      ? { statut: 200, corps: { ...messageReussi(USAGE_P1, {}), content: [{ type: 'text', text: copie }] } }
+      : { statut: 200, corps: messageReussi(USAGE_P1, SORTIE_ANALYSE) });
+    const r = await lancer({ ANTHROPIC_API_KEY: CLE, VERIFIER_API_CLAUDE_URL_LOCALE: faux.url });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toMatch(/facade \(claude-haiku-5-5 ; couvre facade\) : REFUSÉ/);
+    expect(r.stderr).toMatch(/sortie structurée demandée\.\nAnthropic : sortie_illisible : Sortie hors du schéma\.\nDébut du texte rendu \(400 caractères au plus 400\) :\n\{"type":"object","additionalProperties":false/);
   });
 
   it('mesure x1 contre x3 sur un dossier prepare : une passe puis trois par facade, reponses et cout ecrits a cote', async () => {
@@ -131,10 +145,14 @@ describe.skipIf(!php)('scripts/verifier-api-claude.mjs', () => {
     expect(r.code).toBe(0);
     expect(faux.messages).toHaveLength(3 + 4);
     const lu = JSON.parse(fs.readFileSync(path.join(dossier, 'scene.reponses.json'), 'utf8')) as { source: string; x1: { sorties: unknown[]; cout: number }; x3: { sorties: unknown[]; cout: number } };
+    expect(lu.x1.sorties).toHaveLength(1);
     expect(lu.source).toBe('claude');
     expect([lu.x1.sorties.length, lu.x3.sorties.length]).toEqual([1, 3]);
     expect(lu.x3.cout).toBeGreaterThan(lu.x1.cout);
-    expect(r.stdout).toMatch(/scene x3 : 3\/3 passe\(s\) lisible\(s\)/);
+    expect(r.stdout).toMatch(/scene x3 : 3\/3 passe\(s\) lisible\(s\), sortie structurée 3\/3/);
+    // La mesure fait la requete de production : sortie structuree, schema hors du prompt.
+    expect(faux.messages.slice(3).every((m) => (m.output_config as { format?: { type: string } }).format?.type === 'json_schema' && !systeme(m).includes('additionalProperties'))).toBe(true);
+    expect(lu).toMatchObject({ x1: { passes: 1, illisibles: 0, structurees: 1, refusFormat: null, echecs: [] }, x3: { passes: 3, illisibles: 0, structurees: 3 } });
     fs.rmSync(dossier, { recursive: true, force: true });
   });
 });
