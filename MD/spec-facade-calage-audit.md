@@ -1,7 +1,8 @@
 # Façade : calage, texture et fenêtres, de l'audit au modèle — spec
 
 *Rédigée le 29 octobre 2026, sur `main` à la version 4.0.0 (commit `e9113ac2`), à la suite d'une discussion avec le propriétaire ; mise à jour le
-même jour (la silhouette dérive du toit ; les corrections se font sur le corps concerné ; une façade peut en porter plusieurs).
+même jour (la silhouette dérive du toit ; les corrections se font sur le corps concerné ; une façade peut en porter plusieurs ; un seul run
+IA par façade, qui rend aussi les ouvertures et leurs carreaux ; le moteur de redressement et de fusion reste tel quel).
 Aucun code n'accompagne ce document : il fixe l'intention, le modèle de données, le déroulé et les lots. Les noms de fonctions
 cités existent ; le nom fait foi sur les numéros de ligne.*
 
@@ -57,7 +58,14 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
     et on le dit (alerte) ; la correction de hauteur reste un geste de la personne (poignée « hauteur à l'égout », « Rendre au calcul »).
 13. **Les corrections de toit se font sur le corps concerné, et une façade peut en inclure plusieurs.** Un diagnostic est rattaché au
     corps dont le mur porte la partie de silhouette en cause ; une proposition s'écrit dans le repère de ce corps (§5 ter).
-14. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
+14. **Un seul run IA par façade.** Une requête, une réponse, un schéma : elle rend le calage (angles, pointes, corps), les éléments de toit
+    vus, **les ouvertures et le type de leurs carreaux**. Plus d'appels séparés (calage, puis renfort, puis détails). Voir §8.
+15. **L'IA récupère aussi, pour la suite, les ouvertures et leurs carreaux** : le type de division du vitrage (petits bois, nombre de
+    carreaux, imposte). On l'enregistre dans la façade objet **maintenant** ; son rendu en 3D est un lot ultérieur (§3.3, F9).
+16. **Le moteur de redressement et de fusion reste tel quel.** Le redressement (`vuesDeFace`, `redresserParFuites`, `redresserParReperes`),
+    l'assemblage (`mosaiqueDesVues`), la fusion des vues (`fondreLesVues`, vote des baies) et la version sans ombres ne sont **ni modifiés
+    ni réglés** par cette spec : elle s'appuie dessus et agit **autour** (calage du mur, forme, diagnostic, ouvertures, rejeu). Voir §4 bis.
+17. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
 
 ---
 
@@ -169,10 +177,27 @@ interface OuvertureFacade {
   source: 'detectee' | 'devinee' | 'claude' | 'ajoutee' | 'corrigee';   // jamais 'auto' : l'auto n'est pas stockee
   confiance?: number;
   niveau?: number; travee?: number;
-  details?: { volets?: …; ferme?: boolean; allege?: …; forme?: 'rect' | 'cintre' | 'rond' };
+  details?: {
+    volets?: …; ferme?: boolean; allege?: …; forme?: 'rect' | 'cintre' | 'rond';
+    /** La division du vitrage, lue par l'IA (decision 15). Enregistree maintenant ; dessinee en 3D plus tard (F9). */
+    carreaux?: {
+      vantaux?: 1 | 2 | 3;                                     // nombre de vantaux visibles
+      grille?: { colonnes: number; rangees: number };           // carreaux par vantail (ex. 3 x 2) ; 1 x 1 : vitrage d'un seul tenant
+      petitsBois?: 'aucun' | 'fins' | 'epais';
+      imposte?: { hauteurM: number; grille?: { colonnes: number; rangees: number } };   // partie haute a petits carreaux (AE 101)
+      vitrage?: 'clair' | 'depoli' | 'teinte' | 'vitrail';
+      source: 'ia' | 'doigt';
+    };
+  };
   verifieeLe?: string;                      // posee par la personne : plus aucun rejeu ne la deplace
 }
 ```
+
+- `carreaux` est **facultatif** et sans effet sur ce que la 3D dessine aujourd'hui : un fichier sans lui garde son sens, et la façade garde
+  ses fenêtres actuelles (`fenetres3d`). Il est rangé avec l'ouverture pour que le rendu des carreaux (F9) n'ait pas besoin de rappeler l'IA.
+- Les valeurs sont un **vocabulaire fermé** (comme `silhouetteFacade.ts`) : l'IA choisit dans la liste, jamais d'un texte libre ; un mot
+  inconnu relu devient `indetermine`, jamais une erreur. La liste se complète avec les premiers cas réels (l'imposte de la façade
+  d'AE 101 en est le premier exemple).
 
 - **Règle de la 3D** (déjà en place, à garder) : un mur qui a une façade objet n'a **pas** de fenêtres automatiques ; un mur sans façade
   objet garde la disposition automatique.
@@ -209,13 +234,13 @@ Chaque étape dit ce qui entre, ce que fait chaque chemin, qui arbitre, ce qui s
 - Les photos se prennent et se rangent **dans l'audit**, par côté du contour (`BatimentCapture.facades[rang].photos`). Voir §6.
 - **Sortie** : `PhotoCas` + prise (position, cap, attitude, focale), photos gardées sur l'appareil (`io/photosLocales.ts`).
 
-### É2 · Redressement
+### É2 · Redressement *(inchangé, §4 bis)*
 
 - **Déterministe** : par les repères posés, sinon par les points de fuite (`vuesDeFace`, `redresserParFuites`).
 - **IA** : néant (la géométrie n'est pas son travail).
 - **Illustration** : chaque photo redressée, avec ses verticales et ses horizontales.
 
-### É3 · Assemblage
+### É3 · Assemblage *(inchangé, §4 bis)*
 
 - **Déterministe** : mosaïque ORB + RANSAC de similitude (`mosaiqueDesVues`), image prise pour tout le reste.
 - **Illustration** : l'assemblage, le masque `vu`, les photos restées à part avec leur motif.
@@ -265,7 +290,7 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 - **Illustration** : la silhouette de l'image, le gabarit calculé, et pour chaque proposition le gabarit **modifié**, avec le gain en
   pourcentage ; les alertes en marge.
 
-### É6 · Texture
+### É6 · Texture *(le moteur de fusion est inchangé, §4 bis)*
 
 - **Déterministe** : l'élévation calée sur le mur (`pxParM`), la fusion des vues (vote des baies, occultations, meilleure vue par pixel),
   la version sans ombres (`vision/sansOmbres.ts`).
@@ -275,12 +300,14 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 ### É7 · Ouvertures
 
 - **Déterministe** : candidats, classement, structure (grille niveaux × travées), détails (volets, allège, forme).
-- **IA** (renfort existant, `facade/detection/renfort.ts`) : trois passes votées ajoutent, retirent, nomment ; leurs boîtes sont recalées sur
-  l'image.
-- **Arbitre** : le vote ; une baie que plusieurs vues voient et que peu retrouvent perd de la confiance ; une ouverture de la personne
-  n'est jamais déplacée.
-- **Sortie** : les ouvertures de la **façade objet** (§3.3), avec leur `source` et leur `confiance`.
-- **Illustration** : l'image avec les boîtes (trait plein : détectées ; tirets : devinées ; couleur par source).
+- **IA** : **le même run que le calage** (§8) rend les ouvertures vues, leur type, leurs `details` et leurs **carreaux** ; leurs boîtes sont
+  recalées sur l'image par le recalage existant (`facade/detection/renfortRecalage.ts`). Le **vote à trois passes** du renfort
+  (`facade/detection/renfort.ts`) n'est plus le mode par défaut : voir §8, « Un run, pas de vote ».
+- **Arbitre** : l'accord avec la détection déterministe (une boîte de l'IA que la détection retrouve gagne en confiance ; une boîte
+  seule reste décochée) et le vote entre vues de la fusion (existant, inchangé) ; une ouverture de la personne n'est jamais déplacée.
+- **Sortie** : les ouvertures de la **façade objet** (§3.3), avec leur `source`, leur `confiance` et leurs `carreaux`.
+- **Illustration** : l'image avec les boîtes (trait plein : détectées ; tirets : devinées ; couleur par source) ; au toucher d'une boîte, la
+  division du vitrage lue (grille, petits bois, imposte) dessinée en surimpression.
 
 ### É8 · Toit (par le moteur, sur le corps concerné, après confirmation)
 
@@ -298,6 +325,31 @@ l'on cherche à voir (§5 bis). Il ne sert qu'ensuite, à lire la silhouette.
 
 - La personne valide la façade (ou la corrige) dans l'audit ; la validation écrit `dimensions`, `forme`, `texture`, `textureCalee`, la
   façade objet, en **une étape d'historique** (comme la validation du Mode Toit). Annuler la défait d'un coup.
+
+---
+
+## 4 bis. Ce qui ne bouge pas : le redressement, l'assemblage, la fusion
+
+Décision 16. Le moteur d'**image** reste tel quel, avec ses chiffres :
+
+- **Redressement** (É2) : par les repères posés, sinon par les points de fuite ; une photo seule se redresse en une passe depuis la photo
+  d'origine (`analyseMur.ts::photoCommeAssemblage`) ; plusieurs vues passent par l'assemblage.
+- **Assemblage** (É3) : mosaïque ORB + RANSAC de similitude, avec ses critères (`CRITERES_MOSAIQUE`, `CRITERES_FUSION`).
+- **Fusion** (É6) : `fondreLesVues`, le vote entre vues (`facade/detection/voteVues.ts`), les occultations par la parallaxe, la meilleure vue pixel
+  par pixel ; la version sans ombres (`vision/sansOmbres.ts`).
+
+Conséquences :
+
+1. **Aucun seuil de ces étapes n'est touché** par les lots F1 à F9. Les tests `redressementFuites`, `mosaiqueFuites`, `fusion`, `voteVues`,
+   `banc.test.ts` et le tableau du banc (sections « chaîne du relevé » et « fusion de plusieurs vues ») **ne doivent pas bouger**.
+2. **La spec agit autour** : elle ajoute des étapes **après** l'assemblage (calage du mur par ses ancres, diagnostic, ouvertures) et un
+   **rejeu** qui les illustre ; elle ne rééchantillonne rien, ne change ni l'échelle ni la résolution de l'assemblage.
+3. **Si le calage du mur se corrige**, c'est dans `murSurLAssemblage` et ce qui le suit, jamais en retouchant l'image redressée ou la
+   mosaïque pour que le mur « tombe juste ».
+4. **Un défaut du redressement ou de la fusion** que la calibration révélerait est **noté** (cas, étape, image) et traité à part, dans sa
+   propre PR, avec le banc avant/après (`SKILL.md` du skill `facades`) : jamais glissé dans un lot de cette spec.
+5. **La calibration illustre ces étapes sans les modifier** : elle les rejoue telles quelles et montre leurs images (redressée, mosaïque,
+   fusion).
 
 ---
 
@@ -473,25 +525,35 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
 
 ---
 
-## 8. Contrat avec l'IA (la session de l'audit)
+## 8. Contrat avec l'IA : un seul run par façade
 
 - **Où** : le sujet « façades » de l'audit (`app/regles/sujets/facades.ts`) et le schéma d'analyse. Le prompt et le schéma sont
   **générés** : `npm run regles:generer`, jamais à la main ; un texte changé monte la version dans `versions.ts`.
-- **Ce que Claude doit rendre en plus, par côté** (champ `calage`) :
-  - `angles` : gauche et droite, en `u` (0 à 1 sur l'image assemblée) ;
-  - `pointes` : pour chaque pignon vu, `u` et `v` (hauteur relative à l'égout, à 10 % près), ou `absent` ;
-  - `appentis` : début et fin en `u`, s'il y en a un ;
-  - `corps` : pour chaque partie de la silhouette qui lui paraît d'un autre volume (un retrait, une aile, un appentis), son début et sa
-    fin en `u` — une **aide** au découpage par corps du §5 ter, que le déterministe tient pour une hypothèse, pas pour une vérité ;
-  - `elements` : cheminées et lucarnes vues sur la ligne du haut, avec leur `u` (périmètre initial, §5 quater) ;
-  - `cache` : ce qui masque (arbre, haie, voiture) et où ;
-  - `confiance` par élément.
-  Les coordonnées sont celles de **l'image prise pour la suite** (l'assemblage), normalisées : l'IA ne voit ni les pixels ni les
-  dimensions réelles.
+- **Un run, une réponse.** Pour chaque façade, **une** requête à Claude sur l'image prise pour la suite (l'assemblage) rend **tout** :
+  1. **le calage** (champ `calage`) : `angles` (gauche et droite, en `u` de 0 à 1 sur l'image assemblée), `pointes` (pour chaque pignon vu,
+     `u` et `v`, hauteur relative à l'égout à 10 % près, ou `absent`), `appentis` (début et fin en `u`), `corps` (les parties de la
+     silhouette qui lui paraissent d'un autre volume, début et fin en `u` : une **aide** au découpage par corps du §5 ter, tenue pour une
+     hypothèse), `cache` (arbre, haie, voiture, et où) ;
+  2. **la forme** : `silhouette` et `bout` par côté (existant) ;
+  3. **les éléments de toit** vus sur la ligne du haut (`elements` : cheminée, lucarne, avec leur `u`, périmètre initial §5 quater) ;
+  4. **les ouvertures** : type (fenêtre, porte-fenêtre, porte, garage…), boîte, niveau et travée si elle les voit, `confiance` ;
+  5. **leurs détails** : volets, allège, forme, et **les carreaux** (§3.3) : vantaux, grille, petits bois, imposte, vitrage ;
+  6. **une confiance** par élément, et ce qu'elle ne voit pas.
+  Les coordonnées sont celles de l'image prise pour la suite, **normalisées** (`u` le long du mur, `v` en part de l'égout) : l'IA ne voit
+  ni les pixels ni les dimensions réelles.
+- **Un run, pas de vote.** Le renfort existant lance trois passes qu'il vote (`facade/detection/renfort.ts`). Avec un seul run, la
+  protection contre l'invention (« une fenêtre inventée dans une passe sur trois ») passe par **l'accord avec le déterministe** : une
+  boîte de l'IA que la détection retrouve, ou que la grille de la façade (niveaux × travées) rend plausible, est cochée ; une boîte seule
+  reste **décochée**, avec son image. Le vote à trois passes reste **disponible** comme option du rejeu (« Rappeler Claude ×3 »), pour
+  mesurer ce qu'il apporte contre son coût (§11).
 - **Ce que Claude ne fait pas** : il n'écrit ni hauteur, ni largeur, ni forme de toit ; il ne corrige pas le plan. Quand il voit une
   pointe plus haute ou plus basse que prévu, il le dit (`v`), et la spec le traite en **alerte**, jamais en correction (décision 12).
-- **Reproductibilité** : chaque réponse est enregistrée avec la version du prompt et du schéma ; la calibration les rejoue (§7.2).
-- **Coût** : une passe de plus par façade ; à mesurer (jetons, secondes) sur les cas, et à plafonner par le serveur comme les autres.
+- **Où va chaque champ** : le calage → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
+  leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F9).
+- **Reproductibilité** : la réponse du run est **enregistrée** avec la version du prompt et du schéma ; la calibration la rejoue (§7.2) sans
+  appel réseau. Un seul run à enregistrer par cas et par version : le rejeu est plus simple et moins cher qu'avec trois passes.
+- **Coût** : **une** requête par façade (au lieu d'une pour le calage et trois pour le renfort) mais une réponse plus longue ; à mesurer
+  (jetons, secondes) sur les cas, et à plafonner par le serveur comme les autres.
 
 ---
 
@@ -504,15 +566,16 @@ Chaque lot est livrable seul : CI verte, CHANGELOG (`## [Non publié]`), fumée 
 |---|---|---|
 | **F1 — Modèle et stockage** | `dimensions`, `forme`, `textureCalee`, `id` et `verifieeLe` des ouvertures ; validation, compactage, migration, groupes de `protections.ts` | Un fichier ancien se relit à l'identique ; aller-retour testé ; aucun champ nouveau écrit tant que rien ne le pose |
 | **F2 — Cas AE 101 et rejeu** | Le cas d'étalon dans le corpus réel ; le bouton « Rejouer » (déterministe) et la frise d'étapes de la calibration avec ses calques | Le rejeu d'AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape ; reproductible |
-| **F3 — Contrat IA du calage** | Champ `calage` du schéma d'analyse, réponses enregistrées, mode « IA » du rejeu, « Rappeler Claude » | Les points de l'IA s'affichent sur l'É4 ; coût et version affichés |
+| **F3 — Un run IA par façade** | Un schéma unique : `calage`, forme, `elements`, ouvertures, détails, `carreaux` ; une requête par façade ; réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | Les points de l'IA s'affichent sur l'É4, les boîtes et leurs carreaux sur l'É7 ; coût et version affichés ; le renfort à trois passes reste atteignable, hors défaut |
 | **F4 — Arbitre du calage** | Score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes, réglages | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F5 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes de toit testées) ; propositions confirmées dans l'avant/après ; observations adressées au corps par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | Sur AE 101 sud : la proposition juste (le pignon manquant s'il manque) est faite sur le **bon corps**, décochée ; accepter une proposition change le toit **par le moteur seulement** ; les hauteurs du LiDAR ne bougent pas ; AE 101 identique sans proposition acceptée |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient éditeur | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte |
-| **F7 — Façade objet** | Les ouvertures hors automatique en objets (id, source, vérification), appariement au rejeu, inspecteur, 3D | Un rejeu ne déplace pas une ouverture vérifiée ; la 3D et le plan lisent les mêmes ; empreinte `glb-structure.json` : dite si elle bouge |
+| **F7 — Façade objet** | Les ouvertures hors automatique en objets (id, source, vérification, `carreaux` rangés), appariement au rejeu, inspecteur, 3D (sans carreaux) | Un rejeu ne déplace pas une ouverture vérifiée ; la 3D et le plan lisent les mêmes ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F8 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation (puis, plus tard, le reste du catalogue) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
+| **F9 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) : grille, petits bois, imposte | Un fichier sans carreaux se dessine comme avant ; l'empreinte `glb-structure.json` est dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
 Ordre conseillé : F1, F2, F3, F4 (le calage d'abord, parce que tout en dépend), **F5 ensuite** (la boucle toit est le cœur : la forme de la
-façade n'a de valeur que si elle ajuste le toit), puis F6, F7, F8. F2 peut précéder F1 si le cas d'étalon est posé avant le modèle.
+façade n'a de valeur que si elle ajuste le toit), puis F6, F7, F8, et F9 (le rendu des carreaux) quand les cas réels les ont confirmés. F2 peut précéder F1 si le cas d'étalon est posé avant le modèle.
 
 ---
 
@@ -527,6 +590,8 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 ```
 
 - Toute PR qui touche au calage ou à la détection colle le **tableau avant et après** du banc (au moins les lignes « Ensemble »).
+- **Le moteur de redressement et de fusion ne doit pas bouger** (§4 bis) : les sections « chaîne du relevé » et « fusion de plusieurs vues » du
+  banc, `redressementFuites.test.ts`, `mosaiqueFuites`, `fusion`, `voteVues.test.ts` sont identiques avant et après, à la décimale.
 - **Pièges de CI** : `max-lines-per-function` 150 ; couches (`tests/unit/architecture.test.ts`) ; exposition des commandes
   (`app/exposition.ts`, trois classes d'écran) ; contrôles classés (`controlesInterface.ts`) ; `exactOptionalPropertyTypes`.
 - **Fumée** : un point nouveau pour la frise de calibration et un pour la prise dans l'audit ; points existants touchés : 54, 58, 59, 62,
@@ -541,8 +606,12 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 1. **Le haut de l'image est la donnée la plus fragile** : colombages, ardoise, arbre, ciel couvert. Le score d'explication peut échouer
    sur des façades réelles que le banc de synthèse ne montre pas ; d'où le repli (§5.4) et le geste de confirmation. *À mesurer sur les
    premiers cas réels.*
-2. **L'IA se trompe de manière corrélée** (les trois passes voient la même erreur) : le vote ne protège pas. Le déterministe doit pouvoir
+2. **Un seul run, plus de vote** : une boîte ou un carreau inventé n'est plus filtré par trois passes. L'accord avec le déterministe et la
+   grille remplace le vote, et les boîtes seules restent décochées. *À mesurer au rejeu (×1 contre ×3) avant de retirer le vote
+   du mode par défaut.* Et l'IA peut se tromper de manière corrélée (les trois passes verraient la même erreur) : le déterministe doit pouvoir
    dire « non » (verticale absente à l'angle annoncé).
+2 bis. **Carreaux** : le vocabulaire (vantaux, grille, petits bois, imposte) est posé avant le moindre cas réel ; il se complétera. Enregistrer
+   sans dessiner (F9) évite de figer un rendu avant de savoir ce que l'IA lit juste.
 3. **Le coût** d'une passe de plus par façade : plafond serveur et mesure (§8).
 4. **Les photos** sont des données personnelles : ce qui entre dans le dépôt (corpus) et ce qui part vers le serveur d'analyse doit être
    décidé cas par cas. *Question ouverte : y a-t-il un format réduit (recadrage de la façade seule) accepté pour le corpus ?*
@@ -574,6 +643,8 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 - **Gabarit** : le haut de toute la façade, du plan et du LiDAR (`u` part de la largeur, `v` part de l'égout).
 - **Silhouette lue** : le haut du mur lu sur l'image (`triangle`, `trapeze`, `rampe`, `ligne-droite`, `marches`, `plusieurs-sommets`).
 - **Façade objet** : les ouvertures hors automatique d'une façade (§3.3).
+- **Run IA** : l'unique requête par façade qui rend le calage, la forme, les éléments de toit, les ouvertures et leurs carreaux (§8).
+- **Carreaux** : la division du vitrage d'une ouverture (vantaux, grille, petits bois, imposte), lue par l'IA et rangée dans `details.carreaux`.
 - **Calage du mur** : bouts, égout et sol du mur sur l'assemblage.
 - **Diagnostic de forme** : l'écart entre la silhouette lue et le gabarit calculé, rangé par corps ; il donne des propositions de toit (§5 bis).
 - **Corps concerné** : le corps dont le mur porte la partie de silhouette en cause ; il se retrouve par son mur (`murDuCorps`), pas par son rang.
