@@ -585,6 +585,11 @@ propriétaire les a vus, le fait les **tient**, quelle que soit la lecture :
   pignons sur ce pan (`pignonsAuxPlaces` : un de plus, un de moins, déplacé, élargi ; chacun monte au faîtage du corps, le pan n'est
   pas relu, les hauteurs restent celles de la mesure). Le bout que montre un mur de bout s'écrit `boutsDesMurs: [{ mur, bout }]`
   (`boutAuMur` : une croupe à la pente des pans, ou un pignon). `corpsSousContrainte` les relit comme tout fait.
+  Depuis le lot F7, une cheminée ou une lucarne vue sur la ligne du haut d'un mur s'écrit `elementsDesMurs: [{ mur, element, a }]`
+  (`a` : son milieu, en mètres le long du mur depuis sa gauche vue de dehors) ; `corpsSousContrainte` la pose en dernier, sur le
+  corps de ce mur (`facade/regles/toits/elementsDesMurs.ts::avecElementsDesMurs` : une souche sur le faîtage, dans le mur d'un bout,
+  une lucarne sur le pan du mur, aux valeurs d'un élément vu, hauteurs du corps inchangées) ; un élément du même genre déjà posé à
+  moins d'un mètre (Mode Toit, une observation) n'est ni doublé ni déplacé.
 - Premier cas : AE 101, façade sud, « deux pignons traversants à gauche et à droite, qui montent au
   point haut du faîtage » (le propriétaire, 14 octobre 2026). La lecture LiDAR que sert l'IGN pour AE
   101 a changé l'après-midi même (0,4 m d'écart moyen par cellule, sans décalage :

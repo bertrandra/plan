@@ -7,6 +7,32 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Ajouté
 
+- **Façades, lot F7 : les éléments découverts** (`MD/spec-facade-calage-audit.md` §4 É8, §5 bis, §5 quater, §9). Une **bosse plus
+  étroite qu'un pignon** sur la ligne du haut d'une façade (lue sur la photo, à la matière du mur) est une **cheminée** quand elle
+  monte au faîtage du corps (une souche le dépasse), une **lucarne** sinon ; une cheminée ou une lucarne que **Claude** voit lui donne
+  son mot (« des deux ») ; sans haut lu, Claude seul propose ; ce qu'il est seul à voir là où la photo ne montre rien est dit, sans
+  proposition. L'É5 bis la propose **sur le corps du tronçon** (désigné par son mur) ; dans l'avant/après de l'audit, la ligne « Toit
+  de …, corps n » arrive **décochée** (« Un élément du toit lu sur la photo se confirme toujours … ») ; cochée et validée, **le moteur
+  des toits la pose** (`corpsSousContrainte`, `facade/regles/toits/elementsDesMurs.ts`) : une souche sur le faîtage (dans le mur
+  d'un bout de corps), une lucarne sur le pan du mur ; les hauteurs du corps ne bougent pas, et **ce que le toit porte déjà ne bouge
+  jamais** (un élément du même genre à moins d'un mètre n'est ni proposé de nouveau ni déplacé ; posés à la main, les éléments du toit
+  font dire à la ligne ce qu'elle compléterait). **Un élément n'a qu'un endroit** : la fenêtre d'une lucarne (une ouverture au-dessus
+  de l'égout, sous ses bords) quitte la façade objet quand la lucarne se pose, et la validation d'une façade (V4) ne la reprend pas.
+  Validée avec une forme de toit proposée dans le même audit, la cheminée se repose par le moteur sur le corps qui porte son mur. La
+  calibration dit les éléments proposés à l'É5 bis et à l'É8, et les juge contre les cheminées et lucarnes vraies d'un cas. Un
+  objectif de plus : `facades.enchainement.diagnosticElementLargeurMinM` (0,2 m, la plus étroite des souches). Rien ne change
+  sans une proposition cochée : la démonstration, ses empreintes et son GLB sont identiques ; AE 101 aussi.
+- **L'audit montre à Claude le haut de la façade, et ses formes complètent les décisions** (lot F7, décision du propriétaire). L'image
+  du run d'une façade n'est plus le mur seul coupé à l'égout : c'est la photo du relevé, redressée dans le plan du mur du sol jusqu'au
+  haut de la façade (le gabarit, le faîtage des corps, plus un mètre ; ce qu'aucune photo ne montre en gris ; sous 1 024 px), et le
+  texte du run dit où est l'égout. Les pointes, la silhouette, les cheminées et les lucarnes que Claude y lit (trois passes votées, et
+  l'escalade si vous la demandez) complètent le diagnostic de forme de l'audit, par le moteur, comme dans la calibration : une
+  proposition qu'il confirme vient « des deux », ce qu'il est seul à voir là où la photo se lit n'est pas proposé, les hauteurs
+  restent celles du LiDAR. Environ 1 700 tokens d'entrée de plus par façade (trois passes), soit environ 0,0002 $. Un audit enregistré
+  se relit comme avant.
+- Fumée : point 106 (une cheminée peinte sur la photo de la façade sud, proposée décochée sur le corps 1, cochée et validée : une
+  souche sur son faîtage, dessinée en 3D, rien d'autre ne bouge ; Ctrl+Z).
+
 - **Façades, lot F5 : la Façade et la façade objet** (`MD/spec-facade-calage-audit.md` §3.2 à §3.4, §4 É9, §9). Une façade
   **validée** garde ce que la photo a servi à vérifier : ses **dimensions** (le plan et le LiDAR, et leur source ; l'écart que la
   photo constate, dit en alerte au-delà de 10 %, jamais une correction), sa **forme** (le gabarit du toit calculé, le haut lu, les
@@ -190,6 +216,9 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   deux modes.
 
 ### Supprimé
+
+- **Les constats « rien n'est proposé avant le lot F7 »** de l'É5 bis (une bosse étroite, un élément vu par Claude) : remplacés par
+  les propositions d'éléments du lot F7.
 
 - **L'écart du contour dans le calage d'un relevé** (lot F5) : `calage.contourDecaleM`, que rien ne lisait ; l'écart de la largeur
   vue va dans les dimensions de la façade validée (`dimensions.ecartPhoto`, en part). Un fichier d'avant le garde tel quel. Et le

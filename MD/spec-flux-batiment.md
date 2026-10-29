@@ -346,6 +346,11 @@ pour un bâtiment vérifié (:133, :150-156). Hors historique : Ctrl+Z ne la dé
 
 Le Mode Toit s'ouvre sur tout bâtiment polygone hors voisinage étendu (`modeToit.ts:71`, `estRetouchable`) ; `locked` n'y est
 pas lu (point 13 de « Ce qu'il faut ranger », laissé ouvert). Les cheminées, lucarnes et édicules n'ont que deux auteurs : le Mode Toit et l'audit ; le LiDAR n'en pose aucun.
+Depuis le lot F7 des façades (`MD/spec-facade-calage-audit.md` §5 quater), l'audit a deux chemins pour eux : ce que Claude voit de la
+maison (le nombre, effets `cheminees` et `lucarnes`, qui remplacent ceux d'une observation précédente) et ce que la ligne du haut d'une
+façade montre (effet `elementsDuToit`, posé par le moteur des toits sur le corps du mur, **ajouté** à ce que le corps porte : rien de
+posé ne bouge ; la fenêtre d’une lucarne quitte la façade objet du mur ; la ligne arrive toujours décochée). La 3D ne dessine une souche
+que de ces données (`corps.cheminees`, depuis la 5.0.0).
 
 ## 6. Les ouvertures
 

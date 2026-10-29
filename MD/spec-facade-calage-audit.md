@@ -788,6 +788,12 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
   décident ; la chaîne ne lit jamais le JSON de Claude.
 - **Où va chaque champ** : le calage et le parement → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
   leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
+- **L'image de l'audit montre le haut de la façade** (lot F7, décision du propriétaire du 29 octobre 2026 : « fais-le dans F7 et utilise
+  les formes pour compléter les décisions ») : la photo du relevé, redressée dans le plan du mur du sol jusqu'au haut de la façade (le
+  gabarit, le faîtage des corps, plus un mètre), sous 1 024 px en JPEG 85, ce qu'aucune photo ne montre en gris ; le texte du run dit
+  où est l'égout sur elle. Ses pointes, sa forme et ses `elements` (trois passes votées, et l'escalade si la personne l'a demandée)
+  complètent le diagnostic de forme de l'audit, par les mêmes règles que la calibration. Le prompt et le schéma ne changent pas (le
+  repère du mur, `v` au-dessus de 1, y était déjà) ; une réponse enregistrée garde la taille de son image.
 - **Reproductibilité** : la réponse du run (ses trois passes, et son escalade s'il y en a une) est **enregistrée** avec la version du prompt
   et du schéma ; la calibration la rejoue (§7.2) sans appel réseau.
 - **Coût** : trois requêtes par façade, environ 0,0046 $ au tarif de `claude-haiku-5-5` (mesure ci-dessus), plafonnées par le serveur
@@ -894,7 +900,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F4 — Diagnostic de forme et toit par corps** *(livré le 29 octobre 2026, §9 bis)* | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** *(livré le 29 octobre 2026, §9 bis)* | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
-| **F7 — Éléments découverts** | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
+| **F7 — Éléments découverts** *(livré le 29 octobre 2026, §9 bis)* | Cheminées et lucarnes lues sur la ligne du haut, posées par le moteur sur le corps concerné après confirmation | — (ajout) | Un élément n'est jamais à la fois dans la façade objet et dans le toit ; les éléments posés à la main ne bougent pas au rejeu |
 | **F8 — Carreaux en 3D** | Les carreaux (`details.carreaux`) dessinés dans les fenêtres de la 3D (`three/detailsBatiment.ts`) | le dessin de fenêtre sans carreaux si le nouveau le remplace | Un fichier sans carreaux se dessine comme avant ; empreinte `glb-structure.json` dite si elle bouge (version majeure) ; vérifié sur la façade d'AE 101 |
 
 Ordre : F0 à F8 dans cet ordre, parce que **chaque lot suppose le précédent** (§8 bis.3). F8 attend que des cas réels aient confirmé le vocabulaire des
@@ -1425,9 +1431,10 @@ hors temps, égout et sol 44/44, 43/44, 86/88, 39/44, 44/44 expliquées ; AE 101
    bout (pignon ou croupe). Les autres lignes de la taxonomie (§5 bis) sont des constats sans proposition : une marche (un second
    corps) et une rampe (un appentis) ne se fabriquent pas par le moteur, le Mode Toit le fait à la main ; une bosse étroite
    (cheminée, lucarne) attend F7.
-5. **Le run de l'audit lit l'élévation du mur, sans la bande au-dessus de l'égout** (F3, interprétation 3) : ses pointes ne voient
+5. ~~**Le run de l'audit lit l'élévation du mur, sans la bande au-dessus de l'égout** (F3, interprétation 3) : ses pointes ne voient
    pas le haut, l'audit ne les donne pas au diagnostic. Le diagnostic de l'audit est celui du haut lu ; celui de la calibration y
-   ajoute Claude (le run lit l'assemblage).
+   ajoute Claude (le run lit l'assemblage).~~ — levée au lot F7 (décision du propriétaire, 29 octobre 2026) : l'image du run de l'audit
+   montre la bande au-dessus de l'égout, et le diagnostic de l'audit prend les observations de Claude (§9 bis, F7).
 6. **Une mesure relue d'un fichier d'audit n'a pas de haut lu** (il ne s'écrit pas, comme les étapes) : « Rejouer la façade » le
    recalcule.
 7. **Le fait d'un bâtiment l'emporte sur une proposition de l'audit** (`corpsProposesSousFait`), comme pour les autres propositions
@@ -1566,6 +1573,136 @@ En tout : `src/` +949 −59 lignes, `tests/` +548 −45. Cliquet des orphelins :
 importeur dans `src/` ; ceux que seuls les tests liraient ont été rendus locaux : `EntreesBilan`, `ecartDeLargeur`, `carreauxDeLIa`).
 Grep des noms supprimés : `contourDecaleM` ne reste que dans la migration, son témoin et leurs tests ; « vient avec le lot F5 » et
 `def.lot` : vides.
+
+### 9 bis. F7, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Les éléments de la ligne du haut** (É5 bis, `facade/regles/facades/diagnosticForme.ts`, `DiagnosticForme.elements`) : une bosse
+  du haut lu plus étroite qu'un pignon (`LARGEUR_PIGNON_MIN_M`) et d'au moins `facades.enchainement.diagnosticElementLargeurMinM`
+  (0,2 m, un objectif nouveau de `regles/facades/enchainement.json`), hors d'une proposition de pignon, est une **cheminée** quand
+  elle monte au faîtage du corps du tronçon (une souche le dépasse), une **lucarne** sinon (sur un long pan à faîtage). Un élément des
+  `elements` de Claude (les observations du run, F2) à `facades.ia.pointeEcartU` près d'une bosse lui donne son mot et la proposition
+  vient « des deux » ; sans haut lu, Claude seul propose ; avec un haut lu, ce qu'il est seul à voir est dit en constat (§5 bis,
+  règles 1 et 5, comme les pointes). Chaque élément est **posé à blanc par le moteur** sur le corps du tronçon : un corps qui en porte
+  déjà un du même genre à moins d'un mètre (le Mode Toit, une observation), ou qui ne peut pas le porter (une lucarne sur un toit
+  plat ou un mur de bout), ne se propose pas, et le constat le dit. La proposition porte son corps par son **mur**, sa place sur la
+  façade, sa provenance, et **l'observation** que le moteur relira (`elementsDesMurs: [{ mur, element, a }]`).
+- **Le moteur pose l'élément** (`facade/regles/toits/elementsDesMurs.ts::avecElementsDesMurs`, appelé en dernier par
+  `corpsSousContrainte`) : le corps que désigne le mur (`murDuCorps`), le point du mur ramené dans son repère ; une souche **sur le
+  faîtage** (à mi-pan sur un appentis), **dans le mur** d'un bout de corps vu sur un mur de bout ; une lucarne **sur le pan du mur**,
+  centrée à sa place ; les valeurs que la photo ne donne pas sont celles d'un élément vu (`elementsVus.ts` : la section d'une souche
+  maçonnée, son débouché à 40 cm au-dessus du faîtage, la lucarne d'un type inconnu, 1,2 m de large) ; les hauteurs du corps ne
+  bougent pas (décision 12). **Ce qui est posé ne bouge jamais** : un élément du même genre à moins d'un mètre n'est ni doublé ni
+  déplacé. Le vocabulaire de `faits.json` ne change pas (une observation de l'audit ne s'y écrit jamais). Pour poser l'élément sans
+  cycle d'import, les valeurs d'un élément vu et le repère d'un corps sont descendus d'`elementsVus.ts` dans `elementsDesMurs.ts`.
+- **L'audit** (`app/audit/parcelle/formeFacades.ts`) : chaque élément du diagnostic d'une façade mesurée est relu par le moteur
+  (`corpsSousContrainte`, sur la mesure LiDAR, le corps du mur), passe la porte du fait du bâtiment, et se propose **décoché**
+  (« Un élément du toit lu sur la photo se confirme toujours … ») sous l'objet « Toit de …, corps n (vu sur la façade …) », le corps
+  concerné en surbrillance (sa souche, ou son pan). Les éléments du toit posés à la main (`model/protections.ts`, groupe `elements`)
+  font dire à la ligne ce qu'elle compléterait (`remplaceChoix`). L'effet nouveau **`elementsDuToit`** (`regles/decisions.ts`)
+  n'ajoute que ce que le moteur a posé, après `corpsDuToit` et avant `cheminees` : il compose avec un pignon proposé sur le même
+  corps, et validé avec une forme de toit (`corpsToit`), l'élément est **reposé par le moteur** sur le corps de la forme qui porte son
+  mur (`apresForme.ts`).
+- **Un seul endroit** (§5 quater) : la fenêtre d'une lucarne (une ouverture dont le milieu est entre ses bords, à 30 cm près, et
+  l'appui au-dessus de l'égout du pan moins 30 cm) **quitte la façade objet** du mur quand la lucarne se pose (l'effet
+  `elementsDuToit` porte les lucarnes vues sur ce mur, `lucarnesDevantLeMur`) ; la validation de la façade (V4,
+  `facadeValidee.ts::facadeAEcrire`) ne reprend pas celle d'une lucarne que le toit porte devant ce mur
+  (`model/facadeObjet.ts::ouverturesHorsDesLucarnes`). Une cheminée n'est jamais une ouverture : le run ne la rend pas comme telle.
+- **La calibration** : l'É5 bis dit chaque élément proposé (« Proposition (à confirmer) : corps 1, long pan : une cheminée à 0,3 de
+  la largeur de la façade, d'après … »), l'É8 les compte avec les propositions de forme, et la mesure contre la vraie forme du toit
+  d'un cas juge les cheminées et lucarnes de chaque corps vrai (`ToitVraiCorps.cheminees`, `.lucarnes`, déjà au format du cas) contre
+  celles que le corps porte et que le diagnostic y pose, à un mètre près le long du faîtage.
+- **L'image du run et les formes de Claude dans l'audit** (décision du propriétaire du 29 octobre 2026, ajoutée au lot : « fais-le dans
+  F7 et utilise les formes pour compléter les décisions »). L'audit envoyait à Claude le mur seul, coupé à l'égout dans la texture du
+  relevé (F3, interprétation 3 ; F4, interprétation 5) : il n'y voyait ni pignon, ni cheminée, ni lucarne. Maintenant :
+  - **l'image** (`facade/releve/imageDuRun.ts`, appelé par l'orchestrateur en mode audit) est la photo qui porte le relevé, redressée
+    dans le plan du mur par ses quatre coins (la même homographie que la texture, prolongée vers le haut ; `redresser` tel quel,
+    décision 16), du sol jusqu'au haut de la façade : le plus haut du gabarit et du faîtage des corps, plus un mètre (une souche dépasse
+    le faîtage de 40 cm), au plus deux hauteurs de mur au-dessus de l'égout ; ce qu'aucune photo ne montre est gris ; sous 1 024 px,
+    JPEG 85 (`render/imageFacade.ts::dessinerImageFacade`). La texture du relevé ne sert pas : au-dessus de l'égout, son ciel est
+    repeint de la teinte du mur. Dérivée (`MesureFacade.imageRun`), elle ne s'écrit pas dans le fichier de l'audit : une mesure relue
+    d'un fichier envoie, comme avant, le mur seul ;
+  - **le texte du run** dit où est l'égout sur l'image (`texteRunFacade`, image `elevationBande` : « l'égout est à 58 % de sa hauteur
+    depuis le bas ; au-dessus de lui se voient le toit, les pignons, les cheminées et les lucarnes ») ; le prompt et le schéma générés
+    ne changent pas (le repère du mur, `v` au-dessus de 1, y est déjà) : versions inchangées ;
+  - **les formes de Claude complètent les décisions** (`app/audit/parcelle/formeFacades.ts::diagnosticAvecClaude`) : quand le run d'une
+    façade est là (ses trois passes votées, et son escalade si la personne l'a demandée, `observationsDuRun`), le diagnostic de forme
+    se refait avec ses observations (pointes, silhouette, `elements`), sur le haut lu de la mesure et les corps d'aujourd'hui, par les
+    règles de la calibration : une proposition que Claude confirme vient « des deux » ; sans haut lu lisible, Claude seul propose ; ce
+    qu'il est seul à voir là où la photo se lit est dit, sans proposition (§5 bis, règles 1 et 5) ; les hauteurs restent celles du
+    LiDAR, une pointe vue à une autre hauteur est une alerte. Tout passe par le moteur (`corpsSousContrainte`), jamais par le JSON de
+    Claude. Les réponses enregistrées gardent la taille de leur image et la version de la chaîne : un audit enregistré se relit comme
+    avant ;
+  - **le coût** : l'image passe, pour un mur de 10 × 5,8 m sous un faîtage à 8,8 m, de 1 024 × 594 px (~810 tokens) à 1 024 × 1 004 px
+    (~1 370 tokens), soit environ **+560 tokens d'entrée par passe, +1 700 par façade** (trois passes), environ +0,0002 $ au tarif
+    d'entrée de `claude-haiku-5-5` (0,10 $ par million), +0,0001 $ en batch : quelques pour cent des 0,0046 $ d'une façade. Un pignon haut
+    (le haut à 1,6 fois l'égout) donne une image presque carrée ; au pire (la bande à deux hauteurs de mur), l'image triple de hauteur
+    et ne dépasse jamais 1 024 px de côté (~1 400 tokens au plus par passe).
+- Fumée : point 106 (une cheminée peinte de l'enduit du mur sur la photo de la scène 02, proposée décochée sur le corps 1, cochée et
+  validée : une souche sur son faîtage, à sa place, dessinée en 3D ; le reste du toit et l'aile inchangés ; Ctrl+Z). Points touchés
+  rejoués dans les trois classes (85, 86, 88, 97, 98, 102, 104, 105, 106) : 26 sur 27 ; 104 en large échoue à l'identique sur la base F5
+  (« segment Forme », un clic qui n'aboutit pas), pas de ce lot. Le point 106 ne passe pas par l'analyse de Claude (la fumée n'envoie
+  pas les photos au serveur) : les formes de Claude dans l'audit sont prouvées par les tests.
+
+**Acceptation.**
+
+- *Un élément n'est jamais à la fois dans la façade objet et dans le toit* : `tests/unit/app/audit/parcelle/elementsDecouverts.test.ts`
+  (cochée, la lucarne se pose et la fenêtre lue dans la lucarne quitte la façade, celle du rez-de-chaussée reste ; la V4 ne reprend pas
+  la fenêtre d'une lucarne déjà posée).
+- *Les éléments posés à la main ne bougent pas au rejeu* : même fichier et `tests/unit/facade/regles/facades/elementsDecouverts.test.ts`
+  (une souche posée à la main n'est pas proposée de nouveau, la même observation rejouée par le moteur la laisse au centimètre ; une
+  lucarne proposée s'y ajoute sans la déplacer ; posées, rien n'est plus proposé).
+- *L'image du run de l'audit montre la bande* : `tests/unit/facade/releve/imageDuRun.test.ts` (la photo redressée du sol jusqu'au haut
+  de la façade, la souche au-dessus de l'égout comprise, gris au-delà du cadre de la photo, l'égout à sa place) et
+  `tests/unit/app/audit/parcelle/runsFacades.test.ts` (l'image de la mesure part, le texte dit où est l'égout).
+- *Les formes de Claude complètent les décisions de l'audit* : `formeFacades.test.ts` (AE 101 sud, LiDAR du soir : sans run, rien ;
+  avec la réponse synthétique de Claude, le pignon est, sur le corps principal) et `elementsDecouverts.test.ts` (la cheminée du haut lu
+  confirmée par Claude vient « des deux » ; la lucarne qu'il est seul à voir, la photo se lisant, n'est pas proposée).
+- *Posé par le moteur sur le corps concerné, après confirmation* : décochée, la ligne ne change rien (l'aperçu ne touche pas le
+  projet) ; cochée, `corpsSousContrainte` pose la souche sur le faîtage du corps du mur, à sa place, et rien d'autre (fumée 106 dans
+  les trois classes : x −7,04 m pour une souche peinte à 3 m du bout gauche, y −16 m, le faîtage ; l'aile inchangée ; Ctrl+Z).
+- F4 et F5 : leurs tests passent sans changement (AE 101 sud : la même proposition de pignon, sur le même corps ; aucun élément, la
+  réponse synthétique de Claude n'en voit pas) ; AE 101 « corps identiques » ; empreintes golden et GLB de la démonstration
+  inchangés (aucune cheminée n'apparaît sans une proposition cochée). Banc des façades identique hors colonnes des temps (202 lignes,
+  50 différentes, toutes par le temps) ; `egout-sol.ts` identique (égout **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 %
+  **39/44**, 44/44 expliquées). L'IA n'alimente toujours que le moteur de règles (ses `elements` passent par le diagnostic, puis par
+  `corpsSousContrainte`).
+
+**Interprétations** (le code l'emporte sur la spec quand ils diffèrent ; les plus petites lectures fidèles) :
+
+1. **Cheminée ou lucarne, à la hauteur de la bosse** : une souche dépasse le faîtage (DTU 24.1, `elementsVus.ts`), une lucarne reste
+   dessous ; c'est la seule chose que le haut lu dise du genre. Sur un mur de bout, une bosse est une souche (une lucarne est sur un
+   pan). Claude, quand il voit l'élément, l'emporte sur ce mot.
+2. **Claude complète les décisions de l'audit** (décision du propriétaire, ajoutée au lot) : voir « L'image du run et les formes de
+   Claude dans l'audit » ci-dessus. L'É5 bis de la barre reste celle de la mesure (le run arrive après, avec le batch) : c'est la liste
+   des propositions qui prend Claude, chaque fois qu'elle se recalcule (l'escalade comprise).
+3. **Ce que la photo ne dit pas** (la section d'une souche, le type, la largeur et la hauteur d'une lucarne, sa profondeur) prend les
+   valeurs d'un élément vu (celles de l'audit d'une maison) ; la place le long du faîtage est celle de la photo. Le Mode Toit règle le
+   reste à la main.
+4. **« Ne bouge jamais »** se lit comme « n'est ni déplacé, ni retiré, ni doublé » : l'effet est un ajout. Deux chemins d'audit
+   écrivent des cheminées : ce que Claude voit de la maison (effets `cheminees`, `lucarnes` : le nombre, posé sur le plus grand corps,
+   qui remplace ce qu'une observation précédente avait posé) et la ligne du haut d'une façade (`elementsDuToit`, un ajout sur le
+   corps du mur). Cochés ensemble sur le même bâtiment, le premier s'écrit après le second et l'emporte : c'est le compte que la
+   personne a validé. Les rapprocher (une seule liste d'éléments par bâtiment) attend les premiers cas réels.
+5. **La fenêtre d'une lucarne** se reconnaît par sa place (milieu entre les bords de la lucarne, appui au-dessus de l'égout du pan),
+   pas par sa provenance : une ouverture vérifiée par la personne au même endroit part aussi, parce que la lucarne du toit la dessine
+   déjà (un seul endroit). Les marges (30 cm) sont des constantes de géométrie, pas des seuils de détection.
+6. **Le point de fumée** peint la souche sur une photo du banc (la scène 02) plutôt que d'ajouter une scène au banc : une scène
+   nouvelle changerait le tableau du banc, que ce lot ne doit pas toucher.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| Les constats « rien n'est proposé avant le lot F7 » | `facade/regles/facades/diagnosticForme.ts` | la boucle des bosses étroites du diagnostic par tronçon, le constat des `elements` de Claude (« posée par le lot F7, pas encore ») | 5 | `elementsDuHaut`, `DiagnosticForme.elements` |
+| Les valeurs d'un élément vu dans `elementsVus.ts` | `facade/regles/toits/elementsVus.ts` | `MONTEE_PLATE_M`, `DEPASSEMENT_SOUCHE_M`, `SOUCHE`, `LARGEUR_LUCARNE_M`, `MONTEE_LUCARNE`, `PROFONDEUR_LUCARNE_M`, `estPlat`, `cadreCorps`, `versCadre`, `depuisCadre`, `cm` (déplacés, pas dupliqués) | 26 | `facade/regles/toits/elementsDesMurs.ts` |
+
+En tout : `src/` +542 −73 lignes (dont `elementsDesMurs.ts`, 146, et `imageDuRun.ts`, 45), `tests/` +277 −1. L'image du mur seul (le
+relevé coupé à l'égout) reste pour une mesure relue d'un fichier d'audit, qui n'a pas l'image dérivée : ce n'est pas un pont, c'est le
+seul contenu que ce fichier permet. Cliquet des
+orphelins : inchangé (aucun export nouveau sans importeur dans les dossiers de la migration). Grep de « avant le lot F7 » et « posée
+par le lot F7 » dans `src/`, `tests/`, `scripts/` : vide.
 
 ---
 

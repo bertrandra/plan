@@ -2938,6 +2938,96 @@ const POINTS = {
       && inspecte && JSON.stringify(annule) === JSON.stringify(avant) && !debords.some(Boolean);
     return { ok, mesure: `E9 ${avantE9} → ${apresE9} ; bilan « ${bilan.slice(0, 110)} » ; écrit : dimensions ${r.dimensions ? r.dimensions.largeurM + ' × ' + r.dimensions.egoutM + ' m (' + r.dimensions.source + ')' : 'ABSENTES'}, forme ${r.forme ? r.forme.source : 'ABSENTE'}, texture ${r.textureCalee ? Math.round(r.textureCalee.pxParM) + ' px/m' : 'ABSENTE'}, ouvertures ${ids.join(', ') || 'AUCUNE'} ${verifiees ? 'vérifiées' : 'NON VÉRIFIÉES'} ; bouton ${boutonParti ? 'parti' : 'ENCORE LÀ'} ; 3D : ${groupes.length} groupe(s) ; inspecteur ${inspecte ? 'dit la Façade' : 'MUET « ' + section.slice(0, 120) + ' »'} ; Ctrl+Z ${JSON.stringify(annule) === JSON.stringify(avant) ? 'défait la validation' : 'RESTE'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
+  106: async (page, f) => {
+    // Une cheminee proposee d'apres la photo, confirmee dans l'avant/apres, posee par le moteur sur le bon corps (lot F7,
+    // MD/spec-facade-calage-audit.md §5 bis « une bosse etroite », §5 quater, E8). La maison devient un corps a deux pans, faitage
+    // parallele a la facade sud (un mur gouttereau : son gabarit est un rectangle), faitage a 6,8 m, egouts a 5,8 m, et une aile au
+    // nord ; la photo de la facade sud est celle de la scene 02 du banc (10 x 5,8 m), ou l'on peint une souche de l'enduit du mur qui
+    // monte de l'egout a 2 m au-dessus, au tiers gauche. L'audit la mesure ; l'E5 bis dit « une cheminée » ; la ligne « Toit de Maison,
+    // corps 1 » qui la propose arrive DECOCHEE (decision 10) ; cochee et validee, le moteur pose une souche sur le faitage du corps 1,
+    // et lui seul ; rien d'autre du toit ne bouge ; la 3D la dessine ; Ctrl+Z defait.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    await page.evaluate(() => {
+      const o = window.__plan.etat().objects.find((x) => x.key === 'maison');
+      const p = (x, y) => ({ x, y });
+      o.pts = [p(-10, -20), p(0, -20), p(0, -12), p(-5, -12), p(-5, -7), p(-10, -7)];
+      o.vertexNames = ['A', 'B', 'C', 'D', 'E', 'F']; o.segmentNames = ['', '', '', '', '', '']; o.frozenVertices = o.pts.map(() => false);
+      const b = (o.batiment ??= {});
+      delete b.facades; delete b.volumesToit; delete b.egoutChoisi; delete b.toitFige;
+      o.elevation = 5.8;
+      b.toit = { forme: 'deux-pans', hauteur: 1, angleFaitage: 0, source: 'lidar' };
+      const corps = { pts: [p(-10, -20), p(0, -20), p(0, -12), p(-10, -12)], posFaitage: 4, faitage: 6.8, egouts: [5.8, 5.8], pignons: [], ecart: 0.1 };
+      const aile = { pts: [p(-10, -12), p(-5, -12), p(-5, -7), p(-10, -7)], posFaitage: 2.5, faitage: 5, egouts: [3.5, 3.5], pignons: [], ecart: 0.1 };
+      b.corpsToit = [corps, aile];
+      const z = [];
+      for (let j = 0; j < 27; j++) for (let i = 0; i < 21; i++) {
+        const x = -10 + i * 0.5, y = -7 - j * 0.5;
+        z.push(y <= -12 ? 6.8 - Math.abs(y + 16) / 4 : x <= -5 ? 5 - (1.5 * Math.abs(x + 7.5)) / 2.5 : null);
+      }
+      b.toitMesure = { pas: 0.5, x0: -10, y0: -7, nx: 21, ny: 27, z, egout: 5.8, faite: 6.8, source: 'lidar' };
+      window.__plan.toucher('maison');
+      window.__plan.etat().measures.length = 0;
+    });
+    const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x));
+    const corps = async () => canon(await page.evaluate(() => window.__plan.etat().objects.find((x) => x.key === 'maison').batiment?.corpsToit ?? []));
+    const avant = await corps();
+    // La souche peinte sur la photo de la scene 02 : de la teinte de l'enduit, 0,5 m de large, de l'egout a 2 m au-dessus, a 3 m du bout gauche.
+    const { vues: [brute], coins: [c4] } = photosScene('02-enduit-uni-face');
+    const photo = Buffer.from(await page.evaluate(async ({ b64, c }) => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode();
+      const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+      const x = cv.getContext('2d'); x.drawImage(img, 0, 0);
+      const pxParM = (c[1].x - c[0].x) / 10, mur = x.getImageData(Math.round(c[0].x + 3.2 * pxParM), Math.round(c[0].y + 2.5 * pxParM), 1, 1).data;
+      x.fillStyle = `rgb(${mur[0]},${mur[1]},${mur[2]})`;
+      x.fillRect(Math.round(c[0].x + 2.75 * pxParM), Math.round(c[0].y - 2 * pxParM), Math.round(0.5 * pxParM), Math.round(2 * pxParM) + 2);
+      return cv.toDataURL('image/png').split(',')[1];
+    }, { b64: brute.toString('base64'), c: c4 }), 'base64');
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F7) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F7 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label^="Photographier : Façade sud"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 180000 }));
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    await etape('segment Forme', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="diagnostic"]').click({ timeout: 10000 }));
+    // La seconde ligne sous la barre dit le resultat de l'etape ouverte : la proposition de l'E5 bis.
+    const forme = ((await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade').first().textContent()) || '').replace(/^[\s\S]*?(Forme : )/, '$1').trim();
+    await capture('liste');
+    await etape('lancer', () => toucher(page.locator('[data-controle="auditParcelle.lancer"]')));
+    await page.locator('.auditPropositions').waitFor({ timeout: 60000 });
+    await page.waitForFunction(() => { const d = document.querySelector('.auditPropositions .detailPhoto'); return !!d && !/^Mesure des façades/.test(d.textContent || ''); }, null, { timeout: 90000 }).catch(() => {});
+    const texte = 'une cheminée à ';
+    await page.locator('.ligneProposition', { hasText: texte }).first().waitFor({ state: 'attached', timeout: 60000 }).catch(() => {});
+    const ligne = await ligneProposition(page, texte);
+    await capture('propositions');
+    await etape('voir', () => toucher(page.locator('.ligneProposition', { hasText: texte }).first().locator('[data-controle="auditParcelle.voirLigne"]')));
+    await etape('apres', () => toucher(page.locator('button[data-controle="auditParcelle.avantApres"]', { hasText: 'Après' })));
+    await page.waitForTimeout(1500);
+    await capture('apres');
+    const pendant = await corps();
+    await etape('cocher', () => cocherLigne(page, texte));
+    await etape('valider', () => toucher(page.locator('[data-controle="auditParcelle.valider"]')));
+    await page.waitForTimeout(1500);
+    const ecrit = JSON.parse(await corps());
+    const av = JSON.parse(avant);
+    const souches = ecrit[0]?.cheminees ?? [];
+    const s0 = souches[0];
+    // Sur le faitage du corps 1 (y = -16), au tiers gauche de la facade (x de -10 a 0, la souche peinte a 3 m du bout gauche).
+    const placee = souches.length === 1 && s0.position === 'faitage' && s0.source === 'observation' && Math.abs(s0.y + 16) < 0.05 && s0.x > -8 && s0.x < -5;
+    const reste = canon({ ...ecrit[0], cheminees: undefined }) === canon({ ...av[0], cheminees: undefined }) && canon(ecrit[1]) === canon(av[1]);
+    await page.waitForTimeout(1500);
+    const dessinees = await page.evaluate(() => { let n = 0; window.__plan.scene3d()?.scene?.traverse((o) => { if (o.name === 'cheminee-souche') n++; }); return n; });
+    const fermee = (await page.locator('.auditPropositions').count()) === 0;
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(1500);
+    const annule = await corps();
+    const deborde = await page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const ok = /Proposition \(à confirmer\) : corps 1, long pan : une cheminée/.test(forme) && !!ligne && !ligne.cochee && /Toit de Maison, corps 1/.test(ligne.texte) && /Un élément du toit lu sur la photo se confirme toujours/.test(ligne.texte)
+      && pendant === avant && placee && reste && dessinees >= 1 && fermee && annule === avant && !deborde;
+    const dit = forme.match(/Proposition \(à confirmer\) : [^.]*\./)?.[0] ?? forme.slice(0, 110);
+    return { ok, mesure: `sous la barre : « ${dit} » ; ligne ${ligne ? (ligne.cochee ? 'COCHÉE' : 'décochée') + ' « ' + ligne.texte.slice(0, 150) + ' »' : 'ABSENTE'} ; aperçu ${pendant === avant ? 'sans toucher le projet' : 'PROJET MODIFIÉ'} ; validé : ${souches.length} souche(s) sur le corps 1${s0 ? ' (' + s0.position + ', x ' + s0.x + ', y ' + s0.y + ', ' + s0.source + ')' : ''}, le reste du toit ${reste ? 'inchangé' : 'MODIFIÉ'}, 3D : ${dessinees} souche(s) dessinée(s), propositions ${fermee ? 'fermées' : 'ENCORE OUVERTES'} ; Ctrl+Z ${annule === avant ? 'défait tout' : 'RESTE'} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
   102: async (page, f) => {
     // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
     // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
@@ -3949,7 +4039,8 @@ function pointsPour(nomClasse) {
   // 103 : l'escalade d'une facade a la demande, dans la calibration (decision du 29 octobre 2026).
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105];
+  // 106 : une cheminee lue sur la photo, proposee decochee, posee par le moteur sur le bon corps une fois cochee (lot F7).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
