@@ -1,7 +1,7 @@
 // Ce que Claude a vu sans que le projet sache l'ecrire (MD/spec-audit.md §13.2, §14.2) : la forme du
 // toit, les pignons et les croupes aux bouts du faitage, les lucarnes, les elements du toit, les
-// ouvertures manquees ou en trop sur chaque facade, les ecarts au modele, et ce que le renfort des
-// facades a fait de leurs ouvertures, par type.
+// ouvertures manquees ou en trop sur chaque facade, les ecarts au modele, et ce que l'accord du run
+// de chaque facade a fait de ses ouvertures, par type.
 //
 // Ce ne sont pas des propositions : rien ne s'y coche, rien ne s'ecrit dans le projet. Avant ce
 // module, le vote les calculait puis les jetait, et l'ecran annoncait « prêtes » sur une liste vide
@@ -14,7 +14,7 @@ import { ouverturesPointillees, typesEnClair, type ReponsesBatiment } from './pr
 import { passesLues, voterAnalyse } from '../../regles/sujets/vote.js';
 import { observerSujets } from '../../regles/sujets/observations.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
-import type { EtiquetteImage, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture, EtiquetteImage } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, OuvertureFacade } from '../../../model/types.js';
 import { etiquetteFacade, type LigneBatiment } from './liste.js';
 import { formeDesCorps } from '../../../model/formeToit.js';
@@ -101,41 +101,39 @@ function observationSilhouettes(o: ObjetPlan, b: LigneBatiment, v: VoteAnalyse, 
 
 const memeBoite = (a: OuvertureFacade, z: OuvertureFacade) => a.x === z.x && a.y === z.y && a.l === z.l && a.h === z.h;
 
-/** Ce que le renfort a fait des ouvertures d'une facade, par type ; null s'il n'a rien change. */
-function observationRenfort(b: LigneBatiment, cote: number, orientation: string, rf: RenfortFacadeCapture, mesurees: readonly OuvertureFacade[]): ObservationClaude | null {
-  // Une ouverture `claude` a la place exacte d'une mesuree n'a change que de type : elle n'est pas ajoutee.
+/** Ce que l'accord du run a fait des ouvertures d'une facade, par type ; null s'il n'a rien change. Claude ne retire jamais une baie. */
+function observationAccord(b: LigneBatiment, cote: number, orientation: string, rf: AccordFacadeCapture, mesurees: readonly OuvertureFacade[]): ObservationClaude | null {
+  // Une ouverture `claude` a la place exacte d'une mesuree n'a change que de details : elle n'est pas ajoutee.
   const ajoutees = rf.ouvertures.filter((o) => o.source === 'claude' && !mesurees.some((m) => memeBoite(m, o)));
   const pointillees = ouverturesPointillees(rf);
   const n = (k: string) => rf.bilan[k] ?? 0;
   const bouts: string[] = [];
   if (ajoutees.length) bouts.push(typesEnClair(ajoutees) + ' ' + accorde(ajoutees.length, 'ajoutée'));
-  if (pointillees.length) bouts.push(typesEnClair(pointillees) + ' en pointillé, ' + accorde(pointillees.length, 'vue') + ' par Claude, non ' + accorde(pointillees.length, 'confirmée') + ' sur la photo');
-  if (n('confirmees')) bouts.push(pluriel(n('confirmees'), 'baie') + ' ' + accorde(n('confirmees'), 'devinée') + ' ' + accorde(n('confirmees'), 'confirmée'));
-  if (n('retirees')) bouts.push(pluriel(n('retirees'), 'ouverture') + ' ' + accorde(n('retirees'), 'écartée'));
-  if (n('typesCorriges')) bouts.push(pluriel(n('typesCorriges'), 'type') + ' ' + accorde(n('typesCorriges'), 'corrigé'));
+  if (pointillees.length) bouts.push(typesEnClair(pointillees) + ' en pointillé, ' + accorde(pointillees.length, 'vue') + ' par Claude, non ' + accorde(pointillees.length, 'retrouvée') + ' par la détection');
+  if (n('devineesConfirmees')) bouts.push(pluriel(n('devineesConfirmees'), 'baie') + ' ' + accorde(n('devineesConfirmees'), 'devinée') + ' ' + accorde(n('devineesConfirmees'), 'confirmée'));
   if (n('detailsAjoutes')) bouts.push(pluriel(n('detailsAjoutes'), 'détail') + ' ' + accorde(n('detailsAjoutes'), 'ajouté'));
   if (!bouts.length) return null;
-  return { id: b.cle + ':obs:renfort:' + cote, texte: 'Façade ' + nomFacade(orientation, cote) + ', relevé revu par Claude : ' + bouts.join(', '), ou: ['photo de la façade ' + nomFacade(orientation, cote) + ' de ' + b.nom], accord: null };
+  return { id: b.cle + ':obs:facade:' + cote, texte: 'Façade ' + nomFacade(orientation, cote) + ', relevé revu par Claude : ' + bouts.join(', '), ou: ['photo de la façade ' + nomFacade(orientation, cote) + ' de ' + b.nom], accord: null };
 }
 
-/** Les observations d'un batiment : le vote de ses passes, puis le renfort de ses facades. */
-export function observationsDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, r: ReponsesBatiment | undefined, renfort: Record<string, RenfortFacadeCapture>): ObservationClaude[] {
+/** Les observations d'un batiment : le vote de ses passes, puis l'accord du run de ses facades. */
+export function observationsDuBatiment(o: ObjetPlan, b: LigneBatiment, e: EntreesPropositions, r: ReponsesBatiment | undefined, accords: Record<string, AccordFacadeCapture>): ObservationClaude[] {
   const reponses = passesLues(r?.reponses ?? []);
   const out = reponses.length ? observationsDuVote(o, b, voterAnalyse(reponses, r?.escalade), reponses, r?.etiquettes ?? []) : [];
   for (const f of b.facades) {
-    const id = cleMesure(b.cle, f.cote), rf = renfort[id];
-    const x = rf ? observationRenfort(b, f.cote, f.facade.orientation, rf, e.mesures.get(id)?.releve?.ouvertures ?? []) : null;
+    const id = cleMesure(b.cle, f.cote), rf = accords[id];
+    const x = rf ? observationAccord(b, f.cote, f.facade.orientation, rf, e.mesures.get(id)?.releve?.ouvertures ?? []) : null;
     if (x) out.push(x);
   }
   return out;
 }
 
 /** Toutes les observations de Claude, batiment par batiment, dans l'ordre de la liste de controle. */
-export function observationsDeClaude(e: EntreesPropositions, parBatiment: Record<string, ReponsesBatiment>, renfort: Record<string, RenfortFacadeCapture>): ObservationsBatiment[] {
+export function observationsDeClaude(e: EntreesPropositions, parBatiment: Record<string, ReponsesBatiment>, accords: Record<string, AccordFacadeCapture>): ObservationsBatiment[] {
   const parCle = new Map(e.objets.map((o) => [o.key, o]));
   return e.liste.batiments.flatMap((b) => {
     const o = parCle.get(b.cle);
-    const observations = o ? observationsDuBatiment(o, b, e, parBatiment[b.cle], renfort) : [];
+    const observations = o ? observationsDuBatiment(o, b, e, parBatiment[b.cle], accords) : [];
     return observations.length ? [{ cle: b.cle, nom: b.nom, observations }] : [];
   });
 }
@@ -147,7 +145,7 @@ export const nombreObservations = (l: readonly ObservationsBatiment[]): number =
 export type TypeObservation = 'facades' | 'toit' | 'murs' | 'autres';
 export function typeObservation(id: string): TypeObservation {
   const sujet = id.split(':obs:')[1] ?? '';
-  if (/^(silhouettes|renfort|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
+  if (/^(silhouettes|elements|ouvertures|facade)/i.test(sujet)) return 'facades';
   if (/^(forme|bouts|faitage|lucarne|cheminee|couverture|terrasse|appentis|toit|hauteurToit)/i.test(sujet)) return 'toit';
   if (/^(decor|mur|couleur|materiau|hauteur)/i.test(sujet)) return 'murs';
   return 'autres';

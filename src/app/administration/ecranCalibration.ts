@@ -24,7 +24,7 @@ import { creerRegistre, type RegistreCommandes } from '../commandes.js';
 import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
 import { creerClientAnalyse } from '../../io/analyseClaude.js';
 import { appelerRunFacade } from '../releve/runFacade.js';
-import { dessinerImageFacade } from '../../render/imagesRenfort.js';
+import { dessinerImageFacade } from '../../render/imageFacade.js';
 
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de

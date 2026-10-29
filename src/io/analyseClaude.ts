@@ -20,8 +20,8 @@ export interface RequeteAnalyse {
   id: string;
   passe: 1 | 2 | 3;
   /**
-   * L'usage de cette requete, quand il n'est pas celui de la demande : le renfort d'une facade
-   * (MD/spec-facades-calage-detection.md §12 bis, lot L18) part dans le batch de l'analyse avec son
+   * L'usage de cette requete, quand il n'est pas celui de la demande : le run d'une facade
+   * (MD/spec-facade-calage-audit.md §8, lot F3) part dans le batch de l'analyse avec son
    * propre prompt et son propre schema, choisis par le serveur.
    */
   usage?: UsageAnalyse;
@@ -45,7 +45,7 @@ export interface DemandeAnalyse {
   /**
    * L'essai du brouillon des regles (Admin › Regles, « Enregistrer sur le serveur ») : l'analyse part avec
    * le prompt et le schema du brouillon au lieu de ceux du depot. Administrateur seul ; le serveur refuse
-   * s'il n'a pas de brouillon. Jamais pour le renfort des facades.
+   * s'il n'a pas de brouillon. Jamais pour le run des facades, qui garde son prompt.
    */
   essai?: 'brouillon';
   usage: UsageAnalyse;
@@ -54,10 +54,11 @@ export interface DemandeAnalyse {
 
 /**
  * Les usages demandes : l'analyse d'une maison (batch), l'escalade des passes en desaccord vers un modele plus
- * fin (appel immediat, D20), le renfort d'une facade (batch ou appel immediat), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
- * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (appel immediat, lot F2 : la calibration et le releve).
+ * fin (appel immediat, D20), les cas candidats Panoramax du skill regles-toits (lot G3 bis, hors de la page), le
+ * rejeu d'un audit stocke (administrateur, spec-audit 15.5), et le run d'une facade (lots F2 et F3 : appel immediat pour la
+ * calibration et le releve, une requete par facade dans le batch de l'audit).
  */
-export type UsageAnalyse = 'analyse' | 'escalade' | 'renfort' | 'candidats' | 'rejeu' | 'facade';
+export type UsageAnalyse = 'analyse' | 'escalade' | 'candidats' | 'rejeu' | 'facade';
 
 export interface EtatServeurAnalyse {
   actif: boolean;
@@ -92,6 +93,10 @@ export interface ResultatBatch {
   /** L'appel immediat dit aussi ce que la requete a coute : ses tokens, et son cout en dollars (null : tarif manquant). */
   tokens?: { entree: number; ecritureCache: number; lectureCache: number; sortie: number };
   cout?: number | null;
+  /** Une requete d'un autre usage que le batch (le run d'une facade) : son modele et les versions de son prompt et de son schema. */
+  modele?: string;
+  prompt?: number;
+  schema?: number;
 }
 
 export interface ResultatsBatch {

@@ -9,12 +9,13 @@ import { ecrireFichierAudit, type EntreesEcriture } from './fichier.js';
 import { nomFichierAuditParcelle } from '../../../model/fichierAuditParcelle.js';
 import { partagerFichier } from '../../../shell/partage.js';
 import { creerAnalyseClaude, decoderImageNavigateur, fabriqueImagesNavigateur, idAuditAnalyse, type AnalyseClaude } from './analyseClaude.js';
-import { renforcerFacades } from './entreesRenfort.js';
+import { accorderLesFacades } from './runsFacades.js';
 import { chercherCoins } from '../../releve/rechercheCoins.js';
 import { versJpeg } from '../../../ui/releve/camera.js';
 import { limitesDesParcelles } from '../../../render/couleurMurPhoto.js';
 import type { GrilleRelief } from '../../../model/relief.js';
 import type { ContexteAuditParcelle } from './typesSession.js';
+import type { IdEtape } from '../../../model/etapeFacade.js';
 
 /** Sans projet branche (tests de la capture), rien ne s'ecrit : l'apercu et la validation restent muets. */
 const PROJET_MUET: ProjetAudit = { pushHistory: () => {}, render: () => {}, refaire3d: () => {}, remplacer3d: () => false };
@@ -28,7 +29,7 @@ export function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
-    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), renfort: () => analyse().renfort() },
+    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords() },
   });
 }
 
@@ -48,8 +49,8 @@ export function analyseDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, v
       depot: capture.lire().sauvegarde?.id ?? capture.lire().partage?.envoi?.id ?? null,
     }),
     images: a?.images ?? fabriqueImagesNavigateur(),
-    // Le renfort des facades (lot L18) : ses graines recalees sur l'elevation de chaque facade mesuree.
-    renforcer: a?.renforcer ?? ((par) => renforcerFacades(par, validation().entrees().mesures, decoderImageNavigateur)),
+    // Le run de chaque facade (lot F3) : ses boites accordees par le moteur avec la detection de la facade mesuree.
+    accorder: a?.accorder ?? ((runs) => accorderLesFacades(runs, validation().entrees().mesures, decoderImageNavigateur)),
     ...(a?.notifier ? { notifier: a.notifier } : {}),
     ...(a?.preparerNotification ? { preparerNotification: a.preparerNotification } : {}),
     ...(a?.memoire ? { memoire: a.memoire } : {}),
@@ -98,4 +99,16 @@ export function fichierDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours, l
  */
 export function mesureAPriseDe(validation: () => Validation): { rejouer(cle: string, cote: number): void } {
   return { rejouer(cle, cote) { void validation().rejouerFacade(cle, cote).catch(() => 0); } };
+}
+
+/**
+ * L'etape ouverte dans la barre de progression d'une facade (`cle#cote`), par la commande `facade.etape` : l'audit n'ouvre que ses
+ * points de validation et ce qui doute. Un etat de l'ecran, jamais de la capture : il ne s'enregistre pas.
+ */
+export function etapeOuverteDe(publier: () => void) {
+  let ouverte: { facade: string; etape: IdEtape } | null = null;
+  return {
+    lire: (): { facade: string; etape: IdEtape } | null => ouverte,
+    ouvrir(facade: string, etape: IdEtape | null): void { ouverte = etape ? { facade, etape } : null; publier(); },
+  };
 }

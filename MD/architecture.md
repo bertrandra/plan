@@ -627,7 +627,8 @@ carries it, which the audit's per-wall verdict needs). Merging them changes audi
 The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
 `masque.ts`), the wall found on the assemblage (`coinsAuto.ts`), the orchestration of the photos (`chaine.ts`), the orchestrator of
 the façade's steps (`enchainement.ts`, MD/spec-facade-calage-audit.md §4 ter.4, lot F0; the calibration is its first consumer and its
-own chaining, `casCalibration.ts`, was deleted with it) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
+own chaining, `casCalibration.ts`, was deleted with it; since lot F3 the audit is its second, in the `audit` mode, and the wall's
+survey comes out of it — `analyseSerie.ts::releveDeLaSerie` is a step function only the orchestrator calls) and their images (`imagesEtapes.ts`), and the types of a shot (`prise.ts`, re-exported by `ui/releve/camera.ts`,
 `ui/releve/profondeur.ts` and `zones/releve/capteurs.ts`). The survey screen (`zones/`), the audit (`app/`) and the calibration
 call it; none of them holds a step of it. The orchestration used to live in `zones/releve/`; it moved to
 `facade/releve/chaine.ts` on 24 October 2026 (PR #410, debt AD-9 paid).
@@ -676,7 +677,8 @@ the audit, the survey (relevé), the Admin screens and the calibration. The prog
 
 **`facade/` split by concern (25 October 2026, lot J of the audit).** The 18 000 lines of layer 3's largest folder are now sub-folders:
 `facade/vision/` (homographies, segments, ORB, RANSAC, vanishing points, straightening, mosaics, distortion, EXIF, lenses),
-`facade/detection/` (openings, structure, verification, votes, Claude's reinforcement), `facade/toits/` (roof planes, bodies, LiDAR
+`facade/detection/` (openings, structure, verification, votes; since lot F3 the signals that offer Claude's help, `signaux.ts`, and
+the snapping of Claude's seeds to the image's edges, `recalageIa.ts` — the three-pass reinforcement is gone), `facade/toits/` (roof planes, bodies, LiDAR
 reading, catalogue forms), `facade/calage/` (coarse and fine registration, the silhouette's fit), `facade/releve/` (the chain),
 `facade/modeToit/` (the Mode Toit editor's pure code) and `facade/regles/` (the rules). What stays at the root is the wall survey
 itself (`analyse`, `analyseMur`, `fusion`, `gabaritMur`, `profil`, `ouvertures`, `geometrie`, `contexteFacade`, `corpusReel`). Linear

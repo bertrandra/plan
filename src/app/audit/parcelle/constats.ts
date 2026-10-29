@@ -20,7 +20,7 @@ import type { ObjetPlan } from '../../../model/types.js';
 import { ecrivainPeut } from '../../../model/protections.js';
 import { cibleFacade, indiceDeCorps, formeArbitree, cm, principal, toitChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 import { constatsIgn, constatsLidar } from './constats/mesures.js';
-import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsRenfort, constatsClaude, constatsTerrain } from './constats/vus.js';
+import { type GroupeDeMurs, groupesDeMurs, bouts, constatsDesSilhouettes, constatsPhoto, constatsAccords, constatsClaude, constatsTerrain } from './constats/vus.js';
 
 export { cibleBatiment, cibleFacade, cibleCorps, indiceDeCorps, formeArbitree, formeDesBouts, confianceCorps, toitChoisiALaMain, releveChoisiALaMain, type EntreesConstats, type ConstatsBatiment } from './constats/cibles.js';
 
@@ -146,7 +146,7 @@ export function avecLeToitDesSilhouettes(constats: readonly Constat[], duToit: r
 
 /** Tous les constats d'un batiment, source par source, et l'etat du projet pour les comparer. */
 export function constatsDuBatiment(e: EntreesConstats): ConstatsBatiment {
-  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsRenfort(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
+  return { constats: [...constatsIgn(e), ...constatsLidar(e), ...constatsPhoto(e), ...constatsClaude(e), ...constatsAccords(e), ...constatsTerrain(e)], projet: etatDuProjet(e.o) };
 }
 
 /**

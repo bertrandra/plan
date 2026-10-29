@@ -69,7 +69,7 @@ describe('les mesures d une facade', () => {
     expect(m.releve).not.toBeNull();
     expect(m.releve).toMatchObject({ cote: sud().cote, largeur: 10, texture: 'data:image/jpeg;base64,TEXTURE', sourceDistance: 'gps', distance: 8 });
     expect(m.rangReleve).toBe(0);
-    // Les baies devinees en pointille sont gardees : le renfort de Claude peut les confirmer.
+    // Les baies devinees en pointille sont gardees : le run de Claude peut les confirmer.
     expect(Array.isArray(m.devinees)).toBe(true);
     // Sans coins trouves, la hauteur n'est pas une mesure : elle n'est pas rendue.
     if (!m.coinsTrouves) expect(m.hauteurM).toBeNull();

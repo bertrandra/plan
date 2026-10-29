@@ -13,14 +13,13 @@
 // serveur ; ici on prepare les images, on envoie, on attend, on lit.
 
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatBatch } from '../../../io/analyseClaude.js';
-import { signatureAnalyse, type AccordAnalyse, type AnalyseCapture, type BatchAnalyse, type RenfortFacadeCapture, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
-import { estReponseRenfort, type ReponseRenfort } from '../../../facade/detection/renfort.js';
-import { rangerRenfort } from './entreesRenfort.js';
-import { chargerSource, dessinerElevationRenfort, dessinerPhotoRenfort } from '../../../render/imagesRenfort.js';
-import type { Image, P2 } from '../../../facade/vision/homographie.js';
+import { signatureAnalyse, type AccordAnalyse, type AccordFacadeCapture, type AnalyseCapture, type BatchAnalyse, type ResultatsAnalyse } from '../../../model/auditParcelle.js';
+import { murDeLaTexture, rangerRuns, type ImageRunFacade } from './runsFacades.js';
+import { dessinerImageFacade } from '../../../render/imageFacade.js';
+import type { Image } from '../../../facade/vision/homographie.js';
 import { chargerPixels } from '../../../render/couleurMurPhoto.js';
-import type { PhotoCas } from '../../../model/audit.js';
 import type { ReleveFacade } from '../../../model/types.js';
+import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import { estReponseAnalyse } from '../../../model/analyseClaude.js';
 import { CHAMPS_SIMPLES } from '../../regles/sujets/vote.js';
 import { ortho } from '../../../render/ortho.js';
@@ -75,10 +74,10 @@ export interface ContexteAnalyse {
   memoire?: { lire(): AccordAnalyse | null; ecrire(a: AccordAnalyse | null): void };
   maintenant: () => Date;
   /**
-   * Le renfort des facades (lot L18) : ses reponses, recalees sur l'elevation de chaque facade. Absent,
-   * les reponses du renfort sont ignorees.
+   * Le run de chaque facade (lot F3) : ce que le moteur de regles decide de sa reponse, l'accord de ses boites avec la detection de
+   * la facade mesuree. Absent, les runs sont gardes sans etre accordes.
    */
-  renforcer?: (parFacade: Record<string, ReponseRenfort[]>) => Promise<Record<string, RenfortFacadeCapture>>;
+  accorder?: (runs: Record<string, RunEnregistre>) => Promise<Record<string, AccordFacadeCapture>>;
   delaiSuiviMs?: number;
   /**
    * L'essai du brouillon des regles est-il demande (`?regles=local`, administrateur) ? L'analyse part alors
@@ -110,8 +109,8 @@ export interface AnalyseClaude {
   arreter(): void;
   /** Les reponses lues, par batiment, avec les etiquettes de ses images ; null sans resultat ou sans accord. */
   reponses(): Record<string, ReponsesBatiment> | null;
-  /** Le renfort applique a chaque facade (`cle#cote`) ; null sans resultat ou sans accord. */
-  renfort(): Record<string, RenfortFacadeCapture> | null;
+  /** L'accord du run de chaque facade avec sa detection (`cle#cote`) ; null sans resultat ou sans accord de la personne. */
+  accords(): Record<string, AccordFacadeCapture> | null;
   /** Change a chaque resultat ou retrait : les propositions se recalculent. */
   version(): number;
   abonner(f: () => void): () => void;
@@ -146,7 +145,7 @@ export function fabriqueImagesNavigateur(): FabriqueImages {
     },
     ortho: (contour) => dessinerOrthoRecadree([...ortho.tuiles, ...ortho.tuilesLarges], contour),
     carte: (o, contour) => (o.batiment?.toitMesure ? dessinerCarteHauteurs(o.batiment?.toitMesure, contour) : null),
-    renfort: { photo: photoRenfortNavigateur, elevation: elevationRenfortNavigateur },
+    facade: { elevation: elevationRunNavigateur },
   };
 }
 
@@ -156,18 +155,13 @@ export async function decoderImageNavigateur(url: string): Promise<Image | null>
   return p ? { largeur: p.largeur, hauteur: p.hauteur, donnees: p.data instanceof Uint8ClampedArray ? p.data : new Uint8ClampedArray(Array.from(p.data)) } : null;
 }
 
-/** La photo du releve d'une facade, sa grille et le quadrilatere de ses coins (renfort, lot L18). */
-async function photoRenfortNavigateur(p: PhotoCas, coins: readonly P2[], trouves: boolean) {
-  const img = await chargerSource('data:image/jpeg;base64,' + p.base64);
-  return img ? dessinerPhotoRenfort(img, img.naturalWidth, img.naturalHeight, coins, trouves) : null;
-}
-
-/** L'elevation d'une facade, decoupee dans la texture de son releve (le mur seul), graduee, ouvertures numerotees. */
-async function elevationRenfortNavigateur(r: ReleveFacade) {
-  const img = r.texture ? await chargerSource(r.texture) : null;
-  if (!img) return null;
-  const ht = r.hauteurTexture && r.hauteurTexture > r.hauteur ? r.hauteurTexture : r.hauteur;
-  return dessinerElevationRenfort({ source: img, largeurPx: img.naturalWidth, hauteurPx: img.naturalHeight, y0Px: Math.round(img.naturalHeight * (1 - r.hauteur / ht)), largeurM: r.largeur, hauteurM: r.hauteur, ouvertures: r.ouvertures });
+/** L'elevation d'une facade pour son run : le mur seul, decoupe dans la texture de son releve mesure, telle quelle (lot F3). */
+async function elevationRunNavigateur(r: ReleveFacade): Promise<ImageRunFacade | null> {
+  const texture = r.texture ? await decoderImageNavigateur(r.texture).catch(() => null) : null;
+  if (!texture) return null;
+  const mur = murDeLaTexture(texture, r);
+  const image = dessinerImageFacade(mur);
+  return image ? { image, largeur: mur.largeur, hauteur: mur.hauteur } : null;
 }
 
 /** L'identifiant de l'audit pour le journal (`[A-Za-z0-9_-]`, 64 au plus) : la capture et l'heure de son debut. */
@@ -184,16 +178,6 @@ export function rangerResultats(resultats: readonly ResultatBatch[], requetes: B
     (out[q.cle] ??= []).push({ passe: q.passe, sortie: r.sortie });
   }
   return Object.fromEntries(Object.entries(out).map(([cle, l]) => [cle, l.sort((a, b) => a.passe - b.passe).map((x) => x.sortie)]));
-}
-
-/** Les reponses brutes du renfort gardees dans la capture, relues : celles qui ont la forme du schema. */
-function renfortBrutDe(r: ResultatsAnalyse | null | undefined): Record<string, ReponseRenfort[]> {
-  const out: Record<string, ReponseRenfort[]> = {};
-  for (const [cle, l] of Object.entries(r?.renfortBrut ?? {})) {
-    const ok = l.filter(estReponseRenfort);
-    if (ok.length) out[cle] = ok;
-  }
-  return out;
 }
 
 /**
@@ -241,21 +225,20 @@ export function detailAnalyse(etat: EtatAnalyse, a: AnalyseCapture, phase: 'repo
 }
 
 /**
- * Le renfort des facades, recale facade par facade quand sa mesure est la. Les mesures ne se font
- * qu'apres la capture (et a la reprise d'un brouillon, le batch est souvent deja fini) : on les
- * attend, puis on recale les facades dont le releve existe et qui n'ont pas encore de renfort. Un
- * renfort vide n'est jamais note : il fermerait la porte aux mesures suivantes.
+ * L'accord du run des facades, facade par facade quand sa mesure est la. Les mesures ne se font qu'apres la capture (et a la reprise
+ * d'un brouillon, le batch est souvent deja fini) : on les attend, puis on accorde les facades dont le releve existe et qui n'ont pas
+ * encore d'accord. Un accord vide n'est jamais note : il fermerait la porte aux mesures suivantes.
  */
-function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter: (a: Partial<AnalyseCapture>) => void) {
+function accordsDifferes(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter: (a: Partial<AnalyseCapture>) => void) {
   let enCours: Promise<void> | null = null;
-  /** Les facades deja tentees, avec le releve d'alors : un recalage sans resultat ne se rejoue pas sur le meme releve. */
+  /** Les facades deja tentees, avec le releve d'alors : un accord sans resultat ne se rejoue pas sur le meme releve. */
   const tentees = new Map<string, unknown>();
-  const sansRenfort = (r: ResultatsAnalyse): string[] => Object.keys(renfortBrutDe(r)).filter((k) => !r.renfort?.[k]);
+  const sansAccord = (r: ResultatsAnalyse): string[] => Object.keys(r.runs ?? {}).filter((k) => !r.accords?.[k]);
 
   function completer(): Promise<void> {
     const r0 = lire().resultats;
-    if (enCours || !ctx.renforcer || !r0 || !sansRenfort(r0).length) return enCours ?? Promise.resolve();
-    const renforcer = ctx.renforcer;
+    if (enCours || !ctx.accorder || !r0 || !sansAccord(r0).length) return enCours ?? Promise.resolve();
+    const accorder = ctx.accorder;
     // Les memes resultats, accord toujours donne : un retrait ou une relance pendant l'attente l'emporte.
     const memes = () => { const a = lire(); return a.accord && a.resultats && a.resultats.t === r0.t ? a.resultats : null; };
     enCours = (async () => {
@@ -263,40 +246,22 @@ function renfortDiffere(ctx: ContexteAnalyse, lire: () => AnalyseCapture, noter:
       const r = memes();
       if (!r) return;
       const mesures = ctx.entrees().mesures;
-      const brut = renfortBrutDe(r);
-      const aFaire = Object.fromEntries(sansRenfort(r).flatMap((k) => {
-        const releve = mesures.get(k)?.releve;
-        if (!releve || tentees.get(k) === releve) return [];
+      const aFaire = Object.fromEntries(sansAccord(r).flatMap((k) => {
+        const releve = mesures.get(k)?.releve, run = r.runs?.[k];
+        if (!releve || !run || tentees.get(k) === releve) return [];
         tentees.set(k, releve);
-        return [[k, brut[k] ?? []]];
+        return [[k, run]];
       }));
       if (!Object.keys(aFaire).length) return;
-      const neuf = await renforcer(aFaire).catch(() => ({}));
+      const neuf = await accorder(aFaire).catch(() => ({}));
       const apres = memes();
       if (!apres || !Object.keys(neuf).length) return;
-      noter({ resultats: { ...apres, renfort: { ...(apres.renfort ?? {}), ...neuf } } });
+      noter({ resultats: { ...apres, accords: { ...(apres.accords ?? {}), ...neuf } } });
     })().finally(() => { enCours = null; });
     return enCours;
   }
 
-  /**
-   * Un brouillon d'avant cette correction a pu noter un renfort vide sans garder les reponses brutes :
-   * le batch, lui, reste lisible au serveur un temps. On le relit une fois pour retrouver les reponses.
-   */
-  let relu = false;
-  async function relireBrut(): Promise<void> {
-    const a = lire(), r = a.resultats, b = a.batch;
-    if (relu || !ctx.client || !ctx.renforcer || !a.accord || !r || !b || r.renfortBrut || Object.keys(r.renfort ?? {}).length) return;
-    if (!Object.values(b.requetes).some((q) => q.usage === 'renfort')) return;
-    relu = true;
-    const lu = await ctx.client.resultats(b.id).catch(() => null);
-    const brut = lu ? rangerRenfort(lu.resultats, b.requetes) : {};
-    const apres = lire().resultats;
-    if (!Object.keys(brut).length || !apres || apres.t !== r.t) return;
-    noter({ resultats: { ...apres, renfortBrut: brut } });
-  }
-
-  return { completer, reprendre: async () => { await relireBrut(); await completer(); } };
+  return { completer };
 }
 
 /** Les reponses lues de la capture, par batiment, avec les etiquettes de ses images et, si l'escalade a eu lieu pour lui, la reponse du modele fin. */
@@ -353,18 +318,18 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     return a.resultats ? 'prete' : 'enCours';
   }
 
-  const { completer: completerRenfort, reprendre: reprendreRenfort } = renfortDiffere(ctx, lire, noter);
+  const { completer: completerAccords } = accordsDifferes(ctx, lire, noter);
 
-  /** Le batch est termine : ses resultats sont lus, ranges par batiment, et l'on previent ; le renfort suit, mesures faites. */
+  /** Le batch est termine : ses resultats sont lus, ranges par batiment, et l'on previent ; l'accord des facades suit, mesures faites. */
   async function lireResultats(batch: BatchAnalyse): Promise<boolean> {
     const client = ctx.client as ClientAnalyse;
     const lu = await client.resultats(batch.id);
     const parBatiment = rangerResultats(lu.resultats, batch.requetes);
-    const brut = rangerRenfort(lu.resultats, batch.requetes);
+    const runs = rangerRuns(lu, batch.requetes, ctx.maintenant());
     // D20 : un modele plus fin departage les passes en desaccord (appel immediat, sous les plafonds), avant les propositions.
     const esc = await escaladerLeBatch({ client, entrees: ctx.entrees, images: ctx.images, identite: ctx.identite }, parBatiment);
     if (esc.message) ctx.signaler(esc.message);
-    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(brut).length ? { renfortBrut: brut } : {}) };
+    const resultats: ResultatsAnalyse = { t: ctx.maintenant().toISOString(), modele: lu.modele, schema: lu.schema, prompt: lu.prompt, parBatiment, escalade: esc.parBatiment, ...(Object.keys(runs).length ? { runs } : {}) };
     const n = Object.keys(parBatiment).length, s = n > 1 ? 's' : '';
     const raison = lu.resultats.find((r) => r.erreur)?.erreur?.message;
     noter({ resultats, erreur: n ? null : 'Claude n’a rendu aucune analyse lisible' + (raison ? ' (' + raison + ')' : '') + ' : seules les mesures sont proposées.' });
@@ -373,7 +338,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       ctx.signaler(texte);
       ctx.notifier?.(texte);
     }
-    await completerRenfort();
+    await completerAccords();
     return true;
   }
 
@@ -430,7 +395,7 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
     adopter();
     const a = lire();
     if (!ctx.client || !a.accord || ctx.capture.lire().phase !== 'analyse' || phase !== 'repos') return;
-    if (a.batch && a.batch.signature === signature() && !a.erreur) { if (!a.resultats) suivre(); else await reprendreRenfort(); return; }
+    if (a.batch && a.batch.signature === signature() && !a.erreur) { if (!a.resultats) suivre(); else await completerAccords(); return; }
     await envoyer(a.accord);
   }
 
@@ -454,14 +419,14 @@ export function creerAnalyseClaude(ctx: ContexteAnalyse): AnalyseClaude {
       ctx.signaler('Accord retiré pour ce projet : plus aucune photo ne part à l’analyse, et les propositions de Claude sont retirées.');
     },
     lancer,
-    // Un brouillon repris : le suivi d'un batch en cours repart ; un batch deja lu dont le renfort
-    // attendait les mesures le recale des qu'elles sont faites.
-    reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch) { if (!a.resultats) suivre(); else void reprendreRenfort(); } },
+    // Un brouillon repris : le suivi d'un batch en cours repart ; un batch deja lu dont les runs
+    // attendaient les mesures les accorde des qu'elles sont faites.
+    reprendre() { adopter(); const a = lire(); if (ctx.client && a.accord && a.batch) { if (!a.resultats) suivre(); else void completerAccords(); } },
     arreter() { annulerSuivi?.(); annulerSuivi = null; },
     reponses: () => reponsesDe(lire()),
-    renfort() {
+    accords() {
       const a = lire();
-      return a.accord && a.resultats?.renfort ? a.resultats.renfort : null;
+      return a.accord && a.resultats?.accords ? a.resultats.accords : null;
     },
     version: () => version,
     abonner(f) { abonnes.add(f); return () => { abonnes.delete(f); }; },

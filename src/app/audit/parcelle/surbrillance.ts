@@ -100,7 +100,7 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
 }
 
 /**
- * La zone qu'une observation de Claude concerne (`cle:obs:sujet`) : le mur d'un releve revu (`renfort:cote`), le toit pour une
+ * La zone qu'une observation de Claude concerne (`cle:obs:sujet`) : le mur d'un releve revu (`facade:cote`), le toit pour une
  * observation de toit, les murs pour une observation de murs ou de facade, sinon le batiment. Meme trace que les propositions.
  */
 export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]): Surbrillance | null {
@@ -110,7 +110,7 @@ export function surbrillanceObservation(id: string, objets: readonly ObjetPlan[]
   if (!o || !pts) return null;
   const mur = hauteurDe(o);
   const faite = Math.max(mur, ...(o.batiment?.corpsToit ?? []).map((c) => c.faitage));
-  const cote = /^renfort:(\d+)/.exec(sujet)?.[1];
+  const cote = /^facade:(\d+)/.exec(sujet)?.[1];
   if (cote !== undefined) {
     const f = facadesDuContour(pts, mur).find((x) => x.cote === Number(cote));
     if (f) return murNomme(o, f);

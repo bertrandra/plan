@@ -46,18 +46,6 @@ export function reussi(customId: string, usage: Record<string, unknown>, sortie:
   };
 }
 
-/** Une sortie minimale du renfort (deploy/schema-renfort.json) : un coin vu, un avis, une baie manquee. */
-export const SORTIE_RENFORT = {
-  mur: { indices: [], vu: 'attendu' },
-  coins: { indices: [], hautGauche: { colonne: 1.5, ligne: 2 }, hautDroit: 'indetermine', basDroit: 'indetermine', basGauche: 'indetermine' },
-  ouvertures: [{ indices: [], numero: 1, decision: 'garder', raison: 'sans-objet', type: 'indetermine', volets: 'aucun', coffre: 'non', balcon: 'non', forme: 'rectangulaire' }],
-  manquees: [{ indices: [{ image: 2, vu: 'fenêtre derrière la haie' }], type: 'fenetre', x: 1, y: 1, l: 1.2, h: 1.3 }],
-  confiance: 'moyenne'
-};
-
-/** Ses comptes au journal : une baie gardee, une manquee, un coin, le mur reconnu. */
-export const TROUVE_RENFORT = { ouvertures: 1, manquees: 1, enTrop: 0, bouts: 0, lucarnes: 0, elements: 0, ecarts: 0, coins: 1, determines: 1, vide: false };
-
 /**
  * Une sortie de l'analyse (deploy/schema-analyse.json) qui trouve : deux facades et leurs baies, un
  * pignon, deux lucarnes, un element, un ecart. Un `indetermine` ne compte jamais.
@@ -133,7 +121,7 @@ export function demarrerFauxAnthropic(reponse: Reponse): Promise<FauxAnthropic> 
     statutCreation: 200,
     finLe: '2026-10-14T10:00:00Z',
     messages: [],
-    reponseMessage: () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_RENFORT) }),
+    reponseMessage: () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_FACADE) }),
     terminer(id) { for (const b of faux.batches) if (!id || b.id === id) b.etat = 'ended'; },
     fermer: () => new Promise((ok) => serveur.close(() => ok()))
   };

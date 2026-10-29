@@ -21,11 +21,11 @@ const analyse = (resultats: ResultatSortant[]): AnalyseComplete => ({
 const trois = (b: string, r: unknown, plus: Partial<ResultatSortant> = {}) => [1, 2, 3].map((p) => resultat(b + '-p' + p, r, plus));
 
 describe('le vote d’une analyse, par bâtiment', () => {
-  it('lit les passes réussies de l’analyse des maisons, pas le renfort ni les passes en échec', () => {
+  it('lit les passes réussies de l’analyse des maisons, pas le run des façades (ni le renfort d’un ancien audit) ni les passes en échec', () => {
     const a = analyse([
       ...trois('b0', reponse()),
       resultat('b1-p1', reponse()), resultat('b1-p2', null, { statut: 'echoue' }), resultat('b1-p3', { forme: 'pas une reponse' }),
-      resultat('b0#0-r1', reponse(), { usage: 'renfort' }),
+      resultat('b0#0-r1', reponse(), { usage: 'renfort' }), resultat('b0-f0-p1', reponse(), { usage: 'facade' }),
     ]);
     const votes = votesDeAnalyse(a);
     expect([...votes.keys()]).toEqual(['b0', 'b1']);

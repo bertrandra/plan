@@ -75,11 +75,14 @@ export function aplatirVote(v: VoteAnalyse): Map<string, ValeurVotee> {
   return m;
 }
 
-/** Les votes d'une analyse, par batiment : les passes reussies de l'analyse des maisons (pas le renfort), lues comme l'audit les lit. */
+/**
+ * Les votes d'une analyse, par batiment : les passes reussies de l'analyse des maisons, lues comme l'audit les lit. Ni le run des
+ * facades, ni le renfort d'un ancien audit (une trace gardee au serveur le porte encore) : ils n'ont pas la forme d'une maison.
+ */
 export function votesDeAnalyse(a: AnalyseComplete): Map<string, VoteAnalyse> {
   const parBatiment = new Map<string, unknown[]>();
   for (const r of a.sortant?.resultats ?? []) {
-    if (r.usage === 'renfort' || r.statut !== 'reussi') continue;
+    if (r.usage === 'facade' || r.usage === 'renfort' || r.statut !== 'reussi') continue;
     const b = batimentDe(r.id);
     parBatiment.set(b, [...(parBatiment.get(b) ?? []), r.sortie]);
   }

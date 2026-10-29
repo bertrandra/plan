@@ -67,6 +67,11 @@ export function gabaritDuHaut(haut: readonly P2[], reference: number | null = nu
   return g.every((p) => Math.abs(p.v - 1) < RELIEF_GABARIT) ? GABARIT_RECTANGLE : g;
 }
 
+/** Les sommets du gabarit au-dessus de l'egout, plus hauts que leurs voisins : les pointes que la photo devrait montrer. */
+export function pointesDuGabarit(g: GabaritMur): { u: number; v: number }[] {
+  return g.filter((p, i) => p.v > 1 + 1e-6 && p.v >= (g[i - 1]?.v ?? 0) && p.v >= (g[i + 1]?.v ?? 0)).map((p) => ({ u: p.u, v: p.v }));
+}
+
 /** L'ecart du gabarit a l'egout, en part de sa hauteur : un pignon qui monte comme un corps plus bas qui descend. */
 export function relief(g: GabaritMur): number {
   return Math.max(0, ...g.map((p) => Math.abs(p.v - 1)));

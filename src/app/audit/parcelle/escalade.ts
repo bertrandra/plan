@@ -39,7 +39,7 @@ export interface ResultatEscalade {
 
 /**
  * Les requetes de l'escalade : pour chaque batiment en desaccord, la premiere passe de la demande de l'analyse
- * (meme contenu, memes images), sans facades a compter (elles l'ont deja ete) et sans le renfort.
+ * (meme contenu, memes images), sans facades a compter (elles l'ont deja ete) et sans le run des facades.
  */
 export function requetesEscalade(demande: DemandeAnalyse, requetes: BatchAnalyse['requetes'], cles: readonly string[]): { requete: RequeteAnalyse; cle: string }[] {
   return cles.flatMap((cle) => {

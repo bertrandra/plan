@@ -39,10 +39,10 @@ const PLAFOND_MAX = 2;
 const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 
 // Les usages et la famille de prompt et de schema de chacun (deploy/analyse.php, FICHIERS_PAR_USAGE) :
-// le renfort a les siens, tous les autres lisent ceux de l'analyse d'une maison. Le rejeu passe par un
+// le run d'une facade a les siens, tous les autres lisent ceux de l'analyse d'une maison. Le rejeu passe par un
 // batch (l'appel immediat le refuse) ; le corps de chaque requete est pourtant le meme
 // (`parametresRequete`), si bien que la requete de sa famille et de son modele le couvre.
-const FAMILLE = (usage) => (usage === 'renfort' || usage === 'facade' ? usage : 'analyse');
+const FAMILLE = (usage) => (usage === 'facade' ? usage : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -97,9 +97,7 @@ function contenu(famille, image) {
     return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
       { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
   }
-  const texte = famille === 'renfort'
-    ? 'Largeur du mur : 9,00 m. Image 1 : la façade sur rue (image de test de la vérification de l’API).'
-    : 'Image 1 : vue de la maison depuis la rue, prise à 12 m, vers 245° (image de test de la vérification de l’API).';
+  const texte = 'Image 1 : vue de la maison depuis la rue, prise à 12 m, vers 245° (image de test de la vérification de l’API).';
   return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }, { type: 'text', text: texte }];
 }
 
@@ -183,7 +181,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   const image = fs.readFileSync(IMAGE).toString('base64');
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
-  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', renfort v' + (etat.corps.renfort?.prompt ?? '?') + '/v' + (etat.corps.renfort?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
+  console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
   for (const g of groupes.values()) {

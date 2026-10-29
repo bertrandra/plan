@@ -25,7 +25,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detecterOuvertures, type OuvertureDetectee } from '../../../src/facade/detection/detection.js';
-import { coinsProposes, type ResultatAnalyse } from '../../../src/facade/analyse.js';
+import { coinsProposes } from '../../../src/facade/analyse.js';
 import { analyserLeMur } from '../../../src/facade/analyseMur.js';
 import type { BilanVue } from '../../../src/facade/fusion.js';
 import { coinsDuReleve, biaisDepuisCap, calageGrossier, type PriseDeVue, type ZoneRecherche } from '../../../src/facade/calage/calage.js';
@@ -79,16 +79,7 @@ export interface ResultatScene {
    * Ce qui a ete detecte, pour les images de controle du script. `image` est l'image analysee (corrigee
    * de la distorsion s'il y a lieu) ; `coinsImage`, les coins vrais dans cette image.
    */
-  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; coinsImage: P2[] | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null; fusion?: DetailFusion | null; releve?: DetailReleve | null };
-}
-
-/** Ce que la chaine du releve a rendu, au-dela des ouvertures cochees : ce que le renfort de Claude reprend (lot L18). */
-export interface DetailReleve {
-  devinees: OuvertureDetectee[];
-  pxParM: number;
-  hauteur: number;
-  hauteurMesuree: boolean;
-  grille: ResultatAnalyse['grille'];
+  detail: { elevation: OuvertureDetectee[]; photo: OuvertureDetectee[] | null; image: Image | null; coinsImage: P2[] | null; redressee: Image | null; coinsProposes: P2[] | null; coinsPredits: P2[] | null; zones: ZoneRecherche[] | null; fin: CalageFin | null; fusion?: DetailFusion | null };
 }
 
 /** Ce que la fusion de plusieurs vues (lot L13) fait d'une scene. */
@@ -254,7 +245,6 @@ function mesurerPhoto(s: SceneFacade, p: PriseCamera | PriseCoins, photo: { imag
     m.hauteurMesuree = r.hauteurMesuree;
     m.detail.photo = r.ouvertures;
     m.detail.redressee = r.elevation;
-    m.detail.releve = { devinees: r.devinees, pxParM: r.pxParM, hauteur: r.hauteur, hauteurMesuree: r.hauteurMesuree, grille: r.grille };
   } else {
     m.photo = mesurerDetection(v.ouvertures, []);
   }

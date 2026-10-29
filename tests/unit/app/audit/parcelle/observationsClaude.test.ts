@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { libelleForme, nombreObservations, observationsDeClaude } from '../../../../../src/app/audit/parcelle/observationsClaude.js';
 import { detailAnalyse } from '../../../../../src/app/audit/parcelle/analyseClaude.js';
 import { listeDeControle } from '../../../../../src/app/audit/parcelle/liste.js';
-import { captureVide, type EtiquetteImage, type RenfortFacadeCapture } from '../../../../../src/model/auditParcelle.js';
+import { captureVide, type AccordFacadeCapture, type EtiquetteImage } from '../../../../../src/model/auditParcelle.js';
 import { reponse } from '../../../../fixtures/audit/reponseClaude.js';
 import type { EntreesPropositions } from '../../../../../src/app/audit/parcelle/propositions.js';
 import type { MesureFacade } from '../../../../../src/app/audit/parcelle/mesures.js';
@@ -10,7 +10,7 @@ import type { CorpsToit, ObjetPlan, PtBrut, ReleveFacade } from '../../../../../
 
 // Ce que Claude a vu sans que le projet sache l'ecrire (essai d'AE 101 sur telephone : « il ne
 // trouve rien : pignon, ouverture, porte, rien ») : la forme, les pignons, les lucarnes, les
-// elements, les ouvertures manquees par facade, et ce que le renfort a fait des ouvertures, par type.
+// elements, les ouvertures manquees par facade, et ce que l'accord du run d'une facade a fait des ouvertures, par type.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);
@@ -70,17 +70,17 @@ describe('les observations de Claude', () => {
     expect(libelleForme('dome')).toBe('Dôme');
   });
 
-  it('dit par type ce que le renfort a fait des ouvertures, dont celles en pointille', () => {
+  it('dit par type ce que l accord du run a fait des ouvertures, dont celles en pointille', () => {
     const releve: ReleveFacade = { cote: 0, largeur: 10, hauteur: 6, ouvertures: [{ type: 'fenetre', x: 2, y: 1, l: 1.2, h: 1.3, source: 'detectee' }] } as ReleveFacade;
     const m: MesureFacade = { cle: 'maison', cote: 0, releve, rangReleve: 0, coinsTrouves: true, confiance: 0.8, hauteurM: 6, couleur: null };
-    const rf: RenfortFacadeCapture = {
-      passes: 3,
-      ouvertures: [{ ...releve.ouvertures[0]!, type: 'porte-fenetre', source: 'claude' }, { type: 'porte', x: 6, y: 0, l: 1, h: 2.1, source: 'claude', confiance: 0.75 }],
+    const rf: AccordFacadeCapture = {
+      ouvertures: [{ ...releve.ouvertures[0]! }, { type: 'porte', x: 6, y: 0, l: 1, h: 2.1, source: 'claude', confiance: 0.75 }],
       decochees: [{ type: 'fenetre', x: 8, y: 1, l: 1, h: 1.2, source: 'claude', confiance: 0.4 }],
-      bilan: { pleines: 1, pointille: 1, typesCorriges: 1 }, resume: '…',
+      bilan: { boites: 3, retrouvees: 1, devineesConfirmees: 1, seules: 1, detailsAjoutes: 1 }, resume: '…', confiance: 0.75,
     };
     const obs = observationsDeClaude(entrees(new Map([['maison#0', m]])), {}, { 'maison#0': rf });
-    expect(obs[0]!.observations.map((o) => o.texte)).toEqual(['Façade sud (côté 1), relevé revu par Claude : 1 porte ajoutée, 1 fenêtre en pointillé, vue par Claude, non confirmée sur la photo, 1 type corrigé']);
+    expect(obs[0]!.observations.map((o) => o.texte)).toEqual(['Façade sud (côté 1), relevé revu par Claude : 1 porte ajoutée, 1 fenêtre en pointillé, vue par Claude, non retrouvée par la détection, 1 baie devinée confirmée, 1 détail ajouté']);
+    expect(obs[0]!.observations[0]!.id).toBe('maison:obs:facade:0');
   });
 
   it('dit combien de propositions et d observations sont pretes, ou que Claude n a rien vu', () => {

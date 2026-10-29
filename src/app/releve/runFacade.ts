@@ -3,15 +3,16 @@
 // schema et son modele sont au serveur). Ce qui revient est ENREGISTRE avec les versions du prompt et du schema, le modele, les tokens
 // et le cout (facade/detection/runFacade.ts::RunEnregistre) : la calibration le rejoue ensuite sans reseau ni cout.
 //
-// Deux appelants : « Rappeler Claude » de la calibration (sur l'assemblage du cas), et l'aide du releve (sur la photo a l'etape des
-// coins, sur l'elevation redressee a la verification). Le releve ne fait plus trois passes de renfort : le run unique les remplace.
+// Trois appelants : « Rappeler Claude » de la calibration (sur l'assemblage du cas), l'aide du releve (sur la photo a l'etape des
+// coins, sur l'elevation redressee a la verification), et l'audit de la parcelle, qui envoie le meme contenu dans son batch et
+// enregistre la reponse de la meme facon (app/audit/parcelle/runsFacades.ts, lot F3). Plus personne ne fait trois passes de renfort.
 // Les photos ne partent qu'avec l'accord de la personne (decision D2), le meme par projet que l'analyse de l'audit (io/accordAnalyse.ts).
 
 import { EchecAnalyse, type BlocAnalyse, type ClientAnalyse, type MotifAnalyse, type RequeteAnalyse, type ResultatsImmediats } from '../../io/analyseClaude.js';
 import { lireObservationsFacade, type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
 import { observationsDuRun } from '../../facade/regles/facades/ia.js';
 import { VERSION_CHAINE_FACADES } from '../../facade/releve/chaine.js';
-import { dessinerImageFacade } from '../../render/imagesRenfort.js';
+import { dessinerImageFacade } from '../../render/imageFacade.js';
 import type { ImageAnalyse } from '../../render/imagesAnalyse.js';
 import type { AnalyseDuNavigateur } from '../audit/parcelle/analyseNavigateur.js';
 import type { Image } from '../../facade/vision/homographie.js';
@@ -27,8 +28,11 @@ const MESSAGES: Record<MotifAnalyse, string> = {
   serveur: 'Le serveur de l’analyse a répondu de travers.',
 };
 
-/** Le contenu d'une requete du run : l'image, puis le texte. Les trois passes d'un appel x3 recoivent exactement ce contenu. */
-function contenuRunFacade(image: Pick<ImageAnalyse, 'base64' | 'mediaType'>, texte: string): BlocAnalyse[] {
+/**
+ * Le contenu d'une requete du run : l'image, puis le texte. Les trois passes d'un appel x3 recoivent exactement ce contenu ; l'audit
+ * envoie le meme dans son batch (app/audit/parcelle/runsFacades.ts).
+ */
+export function contenuRunFacade(image: Pick<ImageAnalyse, 'base64' | 'mediaType'>, texte: string): BlocAnalyse[] {
   return [{ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.base64 } }, { type: 'text', text: texte }];
 }
 
@@ -39,9 +43,10 @@ function requetesRunFacade(prefixe: string, contenu: BlocAnalyse[], passes: 1 | 
 
 /**
  * L'appel enregistre : les sorties des passes reussies, le cout et les tokens de toutes, les versions et le modele que le serveur a
- * servis ; null quand aucune passe n'a rendu une reponse lisible.
+ * servis ; null quand aucune passe n'a rendu une reponse lisible. Le meme pour un appel immediat et pour les requetes d'une facade
+ * dans le batch de l'audit (leurs seuls resultats).
  */
-function runDesResultats(lu: ResultatsImmediats, passes: 1 | 3, image: { largeur: number; hauteur: number }, le: Date): RunEnregistre | null {
+export function runDesResultats(lu: Pick<ResultatsImmediats, 'modele' | 'prompt' | 'schema' | 'resultats'>, passes: 1 | 3, image: { largeur: number; hauteur: number }, le: Date): RunEnregistre | null {
   const sorties = lu.resultats.filter((r) => r.statut === 'reussi' && lireObservationsFacade(r.sortie)).sort((a, b) => (a.passe ?? 0) - (b.passe ?? 0)).map((r) => r.sortie);
   if (!sorties.length) return null;
   const couts = lu.resultats.map((r) => r.cout);
@@ -68,7 +73,7 @@ export type ResultatRun = { run: RunEnregistre; reponse: ObservationsFacade } | 
 interface ContexteRun {
   client: () => ClientAnalyse | null;
   identite: () => { projet: string | null; idu: string | null; adresse: string | null };
-  /** L'image envoyee : le navigateur la reduit et l'encode (render/imagesRenfort.ts), un simulacre dans les tests. */
+  /** L'image envoyee : le navigateur la reduit et l'encode (render/imageFacade.ts), un simulacre dans les tests. */
   encoder: (img: Image, cache: Uint8Array | null) => Pick<ImageAnalyse, 'base64' | 'mediaType'> | null;
   maintenant: () => Date;
 }

@@ -35,7 +35,7 @@ describe('la surbrillance d une ligne de propositions', () => {
   });
 
   it('une observation de Claude : le mur d’un relevé revu, le toit, ou les murs ; rien quand le bâtiment a disparu', () => {
-    const mur = surbrillanceObservation('maison:obs:renfort:0', [maison]);
+    const mur = surbrillanceObservation('maison:obs:facade:0', [maison]);
     expect(mur?.formes[0]).toMatchObject({ bas: 0, ferme: false });
     expect(mur?.normale).not.toBeNull();
     // Un toit : de l'egout (6 m) au faitage, corps par corps.
@@ -47,7 +47,7 @@ describe('la surbrillance d une ligne de propositions', () => {
   it('une facade nommee : son mur au contour en gras, pour une proposition, une observation ou un arbitrage', () => {
     const p = surbrillanceDe(ligne({ type: 'facade', cle: 'maison', cote: 0 }, { type: 'couleurMurs', couleur: '#fff' }), [maison]);
     expect(p?.formes[0]?.epais).toBe(true);
-    expect(surbrillanceObservation('maison:obs:renfort:0', [maison])?.formes[0]?.epais).toBe(true);
+    expect(surbrillanceObservation('maison:obs:facade:0', [maison])?.formes[0]?.epais).toBe(true);
     expect(surbrillanceArbitrage('facade:maison#0', 'silhouetteFacade', [maison])?.formes[0]).toMatchObject({ epais: true, ferme: false });
     // Un corps de toit ou le batiment entier ne sont pas une facade nommee.
     expect(surbrillanceDe(ligne({ type: 'batiment', cle: 'maison' }, { type: 'corpsDuToit', corps: 1, toit: CORPS[1] as CorpsToit }), [maison])?.formes[0]?.epais).toBeUndefined();
@@ -65,7 +65,7 @@ describe('la surbrillance d une ligne de propositions', () => {
     const avecReleve = { ...maison, batiment: { ...(maison as ObjetPlan).batiment, facades: [{ cote: 0, largeur: 14, hauteur: 6, texture: null, ouvertures: [{ type: 'fenetre', x: 2, y: 1, l: 1, h: 1.2 }], distance: null, sourceDistance: null, releveLe: '2026-10-19' }] } } as unknown as ObjetPlan;
     for (const z of [
       surbrillanceDe(ligne({ type: 'facade', cle: 'maison', cote: 0 }, { type: 'couleurMurs', couleur: '#fff' }), [avecReleve]),
-      surbrillanceObservation('maison:obs:renfort:0', [avecReleve]),
+      surbrillanceObservation('maison:obs:facade:0', [avecReleve]),
       surbrillanceArbitrage('facade:maison#0', 'silhouetteFacade', [avecReleve]),
     ]) {
       const f = z?.formes[0];

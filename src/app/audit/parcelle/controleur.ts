@@ -24,7 +24,7 @@ import type { AnalyseClaude } from './analyseClaude.js';
 import type { ContexteAuditParcelle, EcranAudit, SessionAuditParcelle } from './typesSession.js';
 import { capteurs, priseDe } from './capteursPrise.js';
 import { brouillonDe } from './brouillonCapture.js';
-import { validationDe, analyseDe, fichierDe, mesureAPriseDe } from './etapesSession.js';
+import { validationDe, analyseDe, fichierDe, mesureAPriseDe, etapeOuverteDe } from './etapesSession.js';
 import { viseeDe } from './viseeFacade.js';
 import { vueDe } from './vueAudit.js';
 export type { ContexteAuditParcelle, EcranAudit, EtatPosition, CibleFacade, SessionAuditParcelle } from './typesSession.js';
@@ -32,7 +32,6 @@ export { questionRemplacement } from './brouillonCapture.js';
 export { MESSAGES_GPS_PARCELLE, textePlanDePrise, questionRepriseParcelle } from './textesSession.js';
 import { pluriel } from './textesSession.js';
 import type { PtBrut } from '../../../model/types.js';
-import type { IdEtape } from '../../../model/etapeFacade.js';
 import { parcelleCadastrale } from './parcelleCadastrale.js';
 import { estBatiment } from '../../../model/fonctions.js';
 export { DELAI_ENSEMBLE_MS, type EcranVue } from './vueAudit.js';
@@ -59,9 +58,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
   const publier = () => { if (ecran === 'propositions') validation.synchroniser(); abonnes.forEach((f) => f()); };
   let ecran: EcranAudit = 'liste';
   let dernier: string | null = null;
-  const mesureAPrise = mesureAPriseDe(() => validation);
-  /** L'etape ouverte dans la barre de progression d'une facade (`cle#cote`) : l'audit n'ouvre que ses points de validation et ce qui doute. */
-  let etapeOuverte: { facade: string; etape: IdEtape } | null = null;
+  const mesureAPrise = mesureAPriseDe(() => validation), etape = etapeOuverteDe(() => publier());
   /** La liste ne se recalcule que si la capture ou les objets du plan ont change. */
   let memo: { version: number; objets: unknown; liste: ListeDeControle } | null = null;
   const liste = (): ListeDeControle => {
@@ -182,8 +179,7 @@ export function creerSessionAuditParcelle(ctx: ContexteAuditParcelle): SessionAu
       return { cle: c.cle, cote: c.cote };
     },
     dernierRangement: () => dernier,
-    etapeOuverte: () => etapeOuverte,
-    ouvrirEtape(facade, etape) { etapeOuverte = etape ? { facade, etape } : null; publier(); },
+    etapeOuverte: etape.lire, ouvrirEtape: etape.ouvrir,
     lancerAnalyse() {
       capture.terminer();
       void brouillon.vider();

@@ -13,7 +13,7 @@ import type { OuvertureFacade } from '../../../model/types.js';
 import { mediane } from '../../../util/stats.js';
 import { empreinteReglagesIa, lireReglagesIa, type ReglagesIa } from '../../../regles/facades/ia.js';
 import { CONFIANCE_PLEINE } from '../../detection/verification.js';
-import { recalerBoite, type CartesAretes } from '../../detection/renfortRecalage.js';
+import { recalerBoite, type CartesAretes } from '../../detection/recalageIa.js';
 import { garder, lireObservationsFacade, type AngleIa, type Etendue, type ObservationsFacade, type OuvertureIa, type RunEnregistre, type ZoneSurface } from '../../../regles/facades/observations.js';
 import type { P2 } from '../../vision/homographie.js';
 

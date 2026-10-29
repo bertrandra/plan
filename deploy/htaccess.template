@@ -81,8 +81,8 @@ RedirectMatch 404 ^/data(/|$)
   RewriteRule ^admin/conformite/?$ analyse.php?chemin=@conformite [QSA,L]
   RewriteRule ^admin/(.*)$ admin.php?chemin=$1 [QSA,L]
 </IfModule>
-# Les prompts de l'analyse et du renfort ne se servent pas : analyse.php les lit. (Les .json le sont deja, plus haut.)
-<FilesMatch "^prompt-(analyse|renfort)\.md$">
+# Les prompts de l'analyse et du run d'une facade ne se servent pas : analyse.php les lit. (Les .json le sont deja, plus haut.)
+<FilesMatch "^prompt-(analyse|facade)\.md$">
   Require all denied
 </FilesMatch>
 <FilesMatch "^(plan-)?admin-config(\.exemple)?\.php$">

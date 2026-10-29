@@ -52,8 +52,8 @@ export interface MesureFacade {
   /** La couleur du mur, la lecture la plus sure de ses photos. */
   couleur: { couleur: string; pixels: number; rang: number } | null;
   /**
-   * Les baies devinees par la structure, laissees en pointille par le releve : le renfort de Claude
-   * peut les confirmer (entreesRenfort.ts). Absentes d'une mesure lue dans un fichier d'audit, dont
+   * Les baies devinees par la structure, laissees en pointille par le releve : le run de Claude
+   * peut les confirmer (runsFacades.ts). Absentes d'une mesure lue dans un fichier d'audit, dont
    * le format ne les porte pas.
    */
   devinees?: OuvertureFacade[];

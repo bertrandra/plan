@@ -81,7 +81,7 @@ export async function verifierBrouillonDesRegles(h: HoteRegles): Promise<void> {
   expect(systeme(faux)).not.toContain('"chassis-eclairage"');
   // Un `essai` que le serveur ne connait pas, ou sur l'appel immediat : refuse.
   expect((await h.ecrire('admin/claude/batches', 'POST', { ...demande(), essai: 'autre' })).status).toBe(400);
-  const immediat = await h.ecrire('admin/claude/messages', 'POST', { ...demande(['p1']), usage: 'renfort', essai: 'brouillon' });
+  const immediat = await h.ecrire('admin/claude/messages', 'POST', { ...demande(['p1']), usage: 'facade', essai: 'brouillon' });
   expect(immediat.status).toBe(400);
 
   // Le brouillon retire apres l'envoi : la reponse se ramene quand meme au schema qui est PARTI (la copie du batch).

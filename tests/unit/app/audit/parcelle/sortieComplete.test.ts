@@ -17,7 +17,7 @@ import type { ObjetPlan, PtBrut, ReleveFacade } from '../../../../../src/model/t
 
 // Ce que la sortie de l'analyse donne en plus au projet (schema version 5) : la teinte des murs, leur decor, les
 // images hors sujet, les ouvertures par niveau confrontees a la hauteur a l'egout, et les details des ouvertures
-// poses sur le releve d'une facade que le renfort n'a pas touchee.
+// poses sur le releve d'une facade que le run de Claude n'a pas touchee.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const obj = (key: string, plus: Partial<ObjetPlan>): ObjetPlan => ({ key, name: key, type: 'polygon', ...plus } as ObjetPlan);

@@ -16,7 +16,7 @@ import { toucher } from '../../../core/controleurObjets.js';
 import { appliquerPropositions, avecReserveSurPlace, cocheeParDefaut, jourIso, cleDeLaCible, projetApres, rivalesSurPlace, type Proposition } from '../../../regles/decisions.js';
 import { mesurerFacade, type DependancesMesures, type MesureFacade } from './mesures.js';
 import { cleMesure, cochesParDefaut, propositionsDeLAudit, verifications, type EntreesPropositions, type EtatVerification } from './propositions.js';
-import { propositionsDeClaude, propositionsDetails, propositionsRenfort, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
+import { propositionsAccords, propositionsDeClaude, propositionsDetails, votesDesBatiments, type ReponsesBatiment } from './propositionsClaude.js';
 import { avecReserveDesNiveaux } from './niveauxClaude.js';
 import { avecPlacesApresForme } from './apresForme.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
@@ -25,7 +25,7 @@ import type { ArbitrageProposition } from '../../../regles/decisions.js';
 import { releveChoisiALaMain } from './constats.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
-import type { RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
@@ -79,7 +79,7 @@ export interface ContexteValidation {
   /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
   apresValidation?: () => void;
   /** Les reponses de Claude (app/audit/parcelle/analyseClaude.ts), quand il y en a : elles s'ajoutent aux mesures. */
-  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; renfort?(): Record<string, RenfortFacadeCapture> | null };
+  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null };
 }
 
 export interface Validation {
@@ -436,15 +436,15 @@ const RANG_EFFETS: readonly string[] = ['releve', 'detailsOuvertures', 'hauteur'
 function dansLOrdre(e: EntreesPropositions, propositions: Proposition[]): Proposition[] {
   const batiment = (p: Proposition): number => { const cle = cleDeLaCible(p.cible); const i = cle === null ? -1 : e.liste.batiments.findIndex((b) => b.cle === cle); return cle === null || i < 0 ? Infinity : i; };
   const rang = (p: Proposition): number => { const i = RANG_EFFETS.indexOf(p.effet.type); return i < 0 ? RANG_EFFETS.length : i; };
-  // Un tri stable : a egalite, l'ordre d'avant (mesures, arbitrage, Claude, renfort) reste.
+  // Un tri stable : a egalite, l'ordre d'avant (mesures, arbitrage, Claude, accord des facades) reste.
   return propositions.map((p, i) => ({ p, i })).sort((a, b) => (batiment(a.p) - batiment(b.p) || rang(a.p) - rang(b.p) || a.i - b.i)).map((x) => x.p);
 }
 
 /** Les effets que l'arbitrage des sources decide : les lignes de Claude qui les ecrivaient y sont entrees comme un constat de plus. */
 const EFFETS_ARBITRES: readonly string[] = ['corpsToit', 'corpsDuToit', 'materiauMurs', 'couverture', 'cheminees', 'lucarnes', 'appentis'];
 
-function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, renfort: Record<string, RenfortFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
-  const e: EntreesPropositions = { ...entrees, renfort };
+function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable<ContexteValidation['analyse']>['reponses']> | undefined, accords: Record<string, AccordFacadeCapture> | null | undefined, decisions: ReadonlyMap<string, ChoixArbitrage>) {
+  const e: EntreesPropositions = { ...entrees, accords };
   const deLAudit = propositionsDeLAudit(e);
   // La couleur lue sur les pixels de vos photos est plus juste que la famille de teinte que Claude nomme : elle l'emporte.
   const couleurLue = new Set(deLAudit.filter((p) => p.effet.type === 'couleurMurs').map((p) => cleDeLaCible(p.cible)));
@@ -453,8 +453,8 @@ function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable
   const arbitrages = arbitragesParBatiment(e, votes, undefined, Object.fromEntries(decisions) as ChoixArbitrages);
   const arbitrees = avecReserveDesNiveaux(propositionsDesArbitrages(e, arbitrages), e.objets, votes);
   // Un element du toit (cheminees, lucarnes, terrasse, appentis) dit aussi sa place sur la forme proposee du meme batiment (apresForme.ts).
-  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(renfort ? propositionsRenfort(e, renfort) : [])])));
-  const observations = reponses || renfort ? observationsDeClaude(e, reponses ?? {}, renfort ?? {}) : [];
+  const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(accords ? propositionsAccords(e, accords) : [])])));
+  const observations = reponses || accords ? observationsDeClaude(e, reponses ?? {}, accords ?? {}) : [];
   return { propositions, observations, arbitrages };
 }
 
@@ -480,7 +480,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     if (figees) return figees;
     const cle = ctx.capture.version() + ':' + mesureur.version() + ':' + (ctx.analyse?.version() ?? 0) + ':' + versionDecisions;
     if (memo && memo.cle === cle && memo.objets === ctx.etat.objects) return memo;
-    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.renfort?.(), decisions);
+    const { propositions, observations, arbitrages } = proposer(entrees(), ctx.analyse?.reponses(), ctx.analyse?.accords?.(), decisions);
     memo = { cle, objets: ctx.etat.objects, propositions, observations, defaut: cochesParDefaut(propositions), arbitrages };
     calculs++;
     return memo;
@@ -527,9 +527,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
       if (figees) return;
       await mesureur.lancer(); if (alimenterLesFacades(ctx, entrees())) { memo = null; publier(); }
     },
-    rejouerFacade: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)),
-    etapeEnCours: (cle, cote) => mesureur.etapeEnCours(cleMesure(cle, cote)),
-    arreterMesure: () => mesureur.arreter(),
+    rejouerFacade: (cle, cote) => (figees ? Promise.resolve(0) : mesureur.rejouer(cle, cote)), etapeEnCours: (cle, cote) => mesureur.etapeEnCours(cleMesure(cle, cote)), arreterMesure: () => mesureur.arreter(),
     entrees,
     propositions: () => calculer().propositions,
     observations: () => calculer().observations,

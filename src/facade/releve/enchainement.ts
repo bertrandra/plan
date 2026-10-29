@@ -9,7 +9,7 @@
 
 import { ETAPES_FACADE, etapeFacade, type EtatAffiche, type IdEtape } from '../../model/etapeFacade.js';
 import { EMPREINTE_OBJECTIFS, objectifsEnchainement, type Objectifs } from '../regles/facades/enchainement.js';
-import { GABARIT_RECTANGLE, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
+import { GABARIT_RECTANGLE, gabaritSurLaPhoto, pointesDuGabarit, type GabaritMur } from '../gabaritMur.js';
 import { analyserLAssemblage, analyserLeMur, fondreLesVues, type AssemblageDuMur, type MurAnalyse, type PhotoDuMur } from '../analyseMur.js';
 import { inverser, type RedressementFuites } from '../vision/redressementFuites.js';
 import { silhouetteLue, vuesDeFace, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
@@ -32,7 +32,7 @@ import { redresserParReperes } from '../vision/redressementFuites.js';
 import { juger, type AnalyseDuMur, type CasPrepare, type CasReel, type OuvertureVraie } from '../corpusReel.js';
 import { type ObservationsFacade, type RunEnregistre } from '../../regles/facades/observations.js';
 import { accorderOuvertures, avisDesPointes, decisionColombage, ecartDesPoses, EMPREINTE_IA, poseDeLIa, observationsDuRun, texteAccord, type AccordIa, type RectIa } from '../regles/facades/ia.js';
-import { cartesAretes } from '../detection/renfortRecalage.js';
+import { cartesAretes } from '../detection/recalageIa.js';
 
 /** Une photo du mur : l'image, les coins du mur dessus (cherches, poses a la main, ou ceux d'un cas), ses reperes et sa focale. */
 interface PhotoDeFacade {
@@ -203,11 +203,6 @@ const attend = (quoi: string): Omit<EtapeCalculee, 'id'> => ({ etat: 'a-venir', 
 function rectDeLaPose(coins: readonly P2[]): { x0: number; x1: number; y0: number; y1: number } {
   const [hg, hd, bd, bg] = coins as [P2, P2, P2, P2];
   return { x0: (hg.x + bg.x) / 2, x1: (hd.x + bd.x) / 2, y0: (hg.y + hd.y) / 2, y1: (bd.y + bg.y) / 2 };
-}
-
-/** Les sommets du gabarit au-dessus de l'egout, plus hauts que leurs voisins : les pointes que la photo devrait montrer. */
-function pointesDuGabarit(g: GabaritMur): { u: number; v: number }[] {
-  return g.filter((p, i) => p.v > 1 + 1e-6 && p.v >= (g[i - 1]?.v ?? 0) && p.v >= (g[i + 1]?.v ?? 0)).map((p) => ({ u: p.u, v: p.v }));
 }
 
 const preparation: Pas = ({ e, s }) => {

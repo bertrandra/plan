@@ -8,7 +8,7 @@ import type { ObjetBrut, ObjetPlan, PtBrut } from '../../../../../src/model/type
 
 // Le rejeu de l'analyse d'un audit stocke (MD/spec-audit.md 15.5) : les photos du fichier, sur le
 // projet ouvert de la meme parcelle, avec le modele choisi et le depot qui gardera la trace. Le
-// renfort n'est pas rejoue ; une autre parcelle est refusee avec sa raison.
+// run des facades n'est pas rejoue ; une autre parcelle est refusee avec sa raison.
 
 const rect = (x0: number, y0: number, x1: number, y1: number): PtBrut[] => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
 const IDU = '78650000AE0101';
@@ -18,7 +18,7 @@ const FAB: FabriqueImages = {
   rendu: () => null,
   ortho: async () => ({ base64: 'T1JUSE8=', mediaType: 'image/jpeg' }),
   carte: () => null,
-  renfort: { photo: async () => { throw new Error('le renfort ne se rejoue pas'); }, elevation: async () => { throw new Error('le renfort ne se rejoue pas'); } },
+  facade: { elevation: async () => { throw new Error('le run des facades ne se rejoue pas'); } },
 };
 
 function projet() {
@@ -46,7 +46,7 @@ describe('le rejeu de l analyse d un audit stocke', () => {
     if ('refus' in d) throw new Error(d.refus);
     expect(d).toMatchObject({ usage: 'rejeu', depot: DEPOT, modele: 'claude-sonnet-5-5', audit: DEPOT, idu: IDU, projet: 'p1' });
     expect(d.requetes.map((r) => r.id)).toEqual(['b0-p1', 'b0-p2', 'b0-p3']);
-    // Pas de requete du renfort : l'analyse des maisons seule.
+    // Pas de requete du run des facades : l'analyse des maisons seule.
     expect(d.requetes.every((r) => r.usage === undefined)).toBe(true);
     const images = d.requetes[0]?.contenu.filter((b) => b.type === 'image').map((b) => (b.type === 'image' ? b.source.data : ''));
     expect(images).toEqual(['UEhPVE81=', 'UEhPVE82=', 'T1JUSE8=']);

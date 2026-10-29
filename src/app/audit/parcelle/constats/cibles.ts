@@ -10,7 +10,7 @@ import { type CeQueJeVois } from '../../../../model/ceQueJeVois.js';
 import type { CorpsToit, ObjetPlan } from '../../../../model/types.js';
 import { ecrivainPeut } from '../../../../model/protections.js';
 import { type MesureFacade } from '../mesures.js';
-import type { RenfortFacadeCapture } from '../../../../model/auditParcelle.js';
+import type { AccordFacadeCapture } from '../../../../model/auditParcelle.js';
 
 export const cibleBatiment = (cle: string): string => 'batiment:' + cle;
 export const cibleFacade = (cle: string, cote: number): string => 'facade:' + cle + '#' + cote;
@@ -67,8 +67,8 @@ export interface EntreesConstats {
   vu: CeQueJeVois;
   /** Le vote des passes de Claude pour ce batiment ; null sans analyse. */
   vote: VoteAnalyse | null;
-  /** Le renfort de Claude sur les facades (ses ouvertures), par `cle#cote` ; absent sans analyse. */
-  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
+  /** L'accord du run de chaque facade avec sa detection (ses ouvertures), par `cle#cote` ; absent sans analyse. */
+  accords?: Record<string, AccordFacadeCapture> | null | undefined;
 }
 
 export interface ConstatsBatiment {

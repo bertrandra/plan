@@ -2169,7 +2169,7 @@ const POINTS = {
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
-    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' };
+    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' };
     let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());
@@ -2264,7 +2264,7 @@ const POINTS = {
     const toasts = await page.evaluate(() => window.__toastsVus);
     const parti = toasts.some((t) => /^Vos photos sont parties à l’analyse par Claude \(accord du /.test(t));
     const pret = toasts.some((t) => /^Les propositions de Claude sont prêtes : 1 bâtiment analysé\.$/.test(t));
-    // Le renfort des facades (lot L18) part dans le meme batch, avec ses propres passes et son usage :
+    // Le run de chaque facade (lot F3) part dans le meme batch, avec son usage :
     // seules les requetes de la maison doivent etre trois passes identiques.
     const d0 = serveur.demandes[0];
     const d = d0 ? { ...d0, requetes: d0.requetes.filter((r) => !r.usage || r.usage === 'analyse') } : d0;
@@ -2743,6 +2743,53 @@ const POINTS = {
       && d1.ecart > 1.5 && !!d2 && d2.ecart > 1.5 && tourne > 2 && !!d3 && d3.ecart < 0.5 && !!d4 && d4.ecart > d3.ecart + 0.5
       && pendant === avant && seule === 0 && rouvertes === 2 && !deborde;
     return { ok, mesure: `« ${presse} » ; étiquettes ${etiquettes.join(', ') || 'AUCUNE'} ; vues ${d1 ? d1.vues.sens + ' ' + d1.vues.avant.l + '×' + d1.vues.avant.h : 'ABSENTES'} (attendu ${sensAttendu}) ; ${recouvre ? 'SOUS L’ÉCRAN' : 'à côté de l’écran'} ; écart avant/après ${e(d1)} ; après glisser « Après » bouge de ${tourne.toFixed(1)}, écart ${e(d2)} ; tout décoché ${e(d3)} ; murs recochés ${e(d4)} ; projet ${pendant === avant ? 'intact' : 'MODIFIÉ'} ; « Avant » : ${seule} étiquette(s), « Les deux » : ${rouvertes} ; débordement ${deborde ? 'OUI' : 'non'}` };
+  },
+  102: async (page, f) => {
+    // L'audit de la parcelle, une facade calculee par l'orchestrateur, en mode discret (MD/spec-facade-calage-audit.md §4 ter.3,
+    // §4 ter.5, §6, lot F3). « Photographier » la facade de la maison, une photo de synthese (la scene 02 du banc : un enduit uni,
+    // ses baies) : des la photo, la barre de progression de la calibration se pose en tete de l'ecran de prise et avance. Puis la
+    // liste : la facade depliee porte la meme barre, et dessous, en mode discret, seulement ce qui doute (avec son geste) et la ligne
+    // du mur ; seuls les points de validation et ce qui doute s'ouvrent ; toucher le segment « Mur » dit son resultat sous la barre ;
+    // « Rejouer la façade » rejoue l'orchestrateur. Rien n'entre dans le projet ; rien ne deborde.
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const avant = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const { vues: [photo] } = photosScene('02-enduit-uni-face');
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1 || [...document.querySelectorAll('.dialogueAuditParcelle, .auditPrise')].some((d) => d.scrollWidth > d.clientWidth + 1), f.width);
+    const capture = async (quoi) => { if (process.env.FUMEE_CAPTURE_F3) await page.screenshot({ path: process.env.FUMEE_CAPTURE_F3 + '-' + f.nom + '-' + quoi + '.png' }).catch(() => {}); };
+    await etape('ouvrir', () => ouvrirAuditParcelle(page));
+    await etape('photographier', () => page.locator('button[data-controle="auditParcelle.photographierFacade"][aria-label$="de Maison"]').first().click({ timeout: 30000 }));
+    await page.waitForFunction(() => !!window.__plan.scene3d()?.scene, null, { timeout: 60000 }).catch(() => {});
+    await etape('photo', () => page.locator('input[data-controle="auditParcelle.photo"]').setInputFiles({ name: 'facade.png', mimeType: 'image/png', buffer: photo }));
+    await etape('barre a la prise', () => page.locator('.auditPrise .facadeAudit .barreFacade').waitFor({ timeout: 30000 }));
+    // La barre est en tete de l'ecran de prise, sous le titre ; elle avance etape par etape, puis l'enchainement finit.
+    const enTete = await page.evaluate(() => { const c = document.querySelector('.auditPrise'), b = c?.querySelector('.facadeAudit'); return !!c && !!b && b.previousElementSibling === c.querySelector('.enteteCarteAudit'); });
+    await etape('calcul fini', () => page.waitForFunction(() => /Enchaînement (terminé|arrêté)/.test(document.querySelector('.auditPrise .barreFacadeLigne')?.textContent || ''), null, { timeout: 120000 }));
+    const prise = await page.locator('.auditPrise .barreFacade ol > li').evaluateAll((ls) => ls.map((l) => l.className.replace('barreFacadeSegment', '').replace('courant', '').trim()));
+    const ruban = await page.locator('.auditPrise .barreFacadeRuban').evaluate((r) => getComputedStyle(r).display !== 'none' ? r.textContent : '');
+    const debords = [await deborde()];
+    await capture('prise');
+    await etape('liste', () => toucher(page.locator('[data-controle="auditParcelle.liste"]')));
+    await etape('deplier', () => page.locator('button[data-controle="auditParcelle.voirFacade"]:not([disabled])').first().click({ timeout: 30000 }));
+    await etape('barre de la liste', () => page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade').waitFor({ timeout: 30000 }));
+    const segments = await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade ol > li').evaluateAll((ls) => ls.map((l) => ({ etat: l.className.replace('barreFacadeSegment', '').replace('courant', '').trim(), texte: l.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '', bouton: !!l.querySelector('button') })));
+    const lignes = await page.locator('.dialogueAuditParcelle .ligneEtapeAudit').allTextContents();
+    // Ouvrable dans l'audit : un point de validation, ou ce qui doute ; jamais une etape cachee qui a reussi.
+    const ouvrablesJustes = segments.every((x) => x.bouton === (/point de validation/.test(x.texte) || x.etat === 'echec' || x.etat === 'a-confirmer'));
+    debords.push(await deborde());
+    await capture('liste');
+    await etape('segment Mur', () => page.locator('.dialogueAuditParcelle .facadeAudit button[data-etape="calage"]').click({ timeout: 10000 }));
+    const sousLaBarre = ((await page.locator('.dialogueAuditParcelle .barreFacadeLigne').first().textContent()) || '').trim();
+    await etape('rejouer', () => page.locator('[data-controle="auditParcelle.rejouerFacade"]').click({ timeout: 10000 }));
+    await etape('rejeu fini', () => page.waitForFunction(() => document.querySelector('[data-controle="auditParcelle.rejouerFacade"]')?.textContent === 'Rejouer la façade', null, { timeout: 120000 }));
+    const apresRejeu = await page.locator('.dialogueAuditParcelle .facadeAudit .barreFacade ol > li').count();
+    debords.push(await deborde());
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    const projet = await page.evaluate(() => JSON.stringify(window.__plan.etat().objects));
+    const etats = (l) => l.map((e) => e || '?').join(' ');
+    const ok = enTete && prise.length === 8 && prise[0] === 'ok' && segments.length === 8 && segments.every((x) => /^Étape \d sur 8, /.test(x.texte))
+      && ouvrablesJustes && lignes.some((l) => /Mur posé|Calage du mur/.test(l)) && /^Mur : calage du mur, /.test(sousLaBarre) && apresRejeu === 8
+      && (f.nom !== 'compact' || /\d sur 8 · /.test(ruban)) && projet === avant && !debords.some(Boolean);
+    return { ok, mesure: `prise : barre ${enTete ? 'en tête' : 'PAS en tête'} (${etats(prise)})${ruban ? ', ruban « ' + ruban + ' »' : ''} ; liste : ${etats(segments.map((x) => x.etat))}, ouvrables ${segments.filter((x) => x.bouton).length}/8 ${ouvrablesJustes ? '(points de validation et doutes)' : '(FAUX)'} ; lignes : ${lignes.map((l) => '« ' + l.slice(0, 60) + ' »').join(', ') || 'AUCUNE'} ; Mur ouvert : « ${sousLaBarre.slice(0, 50)} » ; rejeu : ${apresRejeu} segments ; projet ${projet === avant ? 'inchangé' : 'MODIFIÉ'} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   85: async (page, f) => {
     // La sauvegarde de l'audit de parcelle sur le serveur, et le catalogue de l'administrateur (§15) :

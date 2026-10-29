@@ -6,17 +6,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { php as appelPhp } from '../../fixtures/deploy/appelPhp.js';
-import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, TROUVE_FACADE, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
-// Le renfort de Claude (lot L18) dans analyse.php, par ses routes : la requete de
-// renfort dans le batch, l'appel immediat, l'escalade. Saute si PHP manque.
+// Le run d'une facade (lots F2 et F3) dans analyse.php, par ses routes : sa requete dans le batch de
+// l'analyse (l'audit), l'appel immediat (la calibration, le releve), l'escalade. Saute si PHP manque.
 
 const php = spawnSync('php', ['-v']).status === 0;
 const racine = path.resolve(__dirname, '../../..');
 const TARIFS = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/claude-tarifs.json'), 'utf8')) as { lignes: unknown[] };
-const SCHEMA = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-renfort.json'), 'utf8')).schema as unknown;
+const SCHEMA = JSON.parse(fs.readFileSync(path.join(racine, 'deploy/schema-facade.json'), 'utf8')).schema as unknown;
 
 let base = '';
 let tmp: string;
@@ -51,14 +51,14 @@ const journal = (): Record<string, unknown>[] => {
   return fs.readdirSync(d).filter((n) => /^journal-\d{4}-\d{2}\.jsonl$/.test(n)).sort()
     .flatMap((n) => fs.readFileSync(path.join(d, n), 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>));
 };
-const requeteRenfort = (id: string, passe: number) => ({
-  id, passe, usage: 'renfort', facades: passe === 1 ? 1 : 0,
-  contenu: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJDRA==' } }, { type: 'text', text: 'Largeur du mur : 9,00 m.' }]
+const requeteFacade = (id: string, passe: number) => ({
+  id, passe, usage: 'facade', facades: passe === 1 ? 1 : 0,
+  contenu: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJDRA==' } }, { type: 'text', text: 'Façade : sud de Maison.' }]
 });
 
-describe.skipIf(!php)('analyse.php, le renfort', () => {
+describe.skipIf(!php)('analyse.php, le run d une facade', () => {
   beforeAll(async () => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'renfortphp-'));
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'facadephp-'));
     demos = path.join(tmp, 'demos');
     config = path.join(tmp, 'config.php');
     fs.mkdirSync(path.join(tmp, 'sessions'));
@@ -91,31 +91,40 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     await connecterAdmin(navigateur, 'secret-admin');
   });
 
-  it('dit les versions du renfort, et envoie son prompt et son schema dans le batch de l analyse', async () => {
-    expect(await (await navigateur('admin/claude/etat')).json()).toMatchObject({ renfort: { prompt: 2, schema: 1 } });
-    const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteRenfort('r1', 1)] };
+  it('dit les versions du run, et envoie son prompt et son schema dans le batch de l analyse (l audit, lot F3)', async () => {
+    const etat = await (await navigateur('admin/claude/etat')).json();
+    expect(etat).toMatchObject({ facade: { prompt: 1, schema: 1 } });
+    expect(etat).not.toHaveProperty('renfort');
+    const d = { ...demande(['p1']), requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, requeteFacade('r1', 1)] };
     expect((await ecrire('admin/claude/batches', d)).status).toBe(201);
     const r1 = faux.batches[0]!.corps.requests[1]!;
     expect((r1.params.system as { text: string }[])[0]!.text.endsWith('\n\n' + JSON.stringify(SCHEMA))).toBe(true);
-    expect((r1.params.system as { text: string }[])[0]!.text).toMatch(/relever une façade photographiée/);
+    expect((r1.params.system as { text: string }[])[0]!.text).toMatch(/lire \*\*une façade\*\*/);
     faux.terminer();
     const lu = await (await navigateur('admin/claude/batches/msgbatch_1/resultats')).json();
-    expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'renfort']]);
-    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'renfort', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 2, schema: 1, trouve: null });
+    expect(lu.resultats.map((r: { id: string; usage: string }) => [r.id, r.usage]).sort()).toEqual([['p1', 'analyse'], ['r1', 'facade']]);
+    // Une requete d'un autre usage que le batch garde son modele et ses versions : la page les enregistre avec la reponse.
+    const r = lu.resultats.find((x: { id: string }) => x.id === 'r1');
+    expect(r).toMatchObject({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1 });
+    expect(lu.resultats.find((x: { id: string }) => x.id === 'p1')).not.toHaveProperty('prompt');
+    expect(journal().find((l) => l.requete === 'r1')).toMatchObject({ usage: 'facade', modele: 'claude-haiku-5-5', batch: true, facades: 1, prompt: 1, schema: 1, trouve: null });
     expect(journal().find((l) => l.requete === 'p1')).toMatchObject({ usage: 'analyse' });
+    // Le renfort (lot L18) n'est plus un usage : refuse dans le batch, et a l'appel immediat.
+    expect((await ecrire('admin/claude/batches', { ...d, requetes: [...(demande(['p1']) as { requetes: object[] }).requetes, { ...requeteFacade('r1', 1), usage: 'renfort' }] })).status).toBe(400);
+    expect((await ecrire('admin/claude/messages', { ...demande([]), usage: 'renfort', requetes: [{ ...requeteFacade('r1', 1), usage: 'renfort' }] })).status).toBe(400);
   });
 
   it('fait l appel immediat au cout du tarif en vigueur, et le borne a trois requetes', async () => {
-    const d = (n: number) => ({ ...demande([]), usage: 'renfort', requetes: Array.from({ length: n }, (_, i) => requeteRenfort('r' + (i + 1), (i % 3) + 1)) });
+    const d = (n: number) => ({ ...demande([]), usage: 'facade', requetes: Array.from({ length: n }, (_, i) => requeteFacade('r' + (i + 1), (i % 3) + 1)) });
     const r = await ecrire('admin/claude/messages', d(3));
     expect(r.status).toBe(200);
     const corps = await r.json();
     expect(faux.messages).toHaveLength(3);
     const cout = appelPhp('coutAppel', appelPhp('tokensDeUsage', USAGE_P2), appelPhp('tarifEnVigueur', TARIFS, 'claude-haiku-5-5', new Date().toISOString().slice(0, 10)), false);
     expect(corps.resultats.map((x: { id: string; statut: string; cout: number }) => [x.id, x.statut, x.cout])).toEqual([['r1', 'reussi', cout], ['r2', 'reussi', cout], ['r3', 'reussi', cout]]);
-    expect(corps.resultats[0].sortie).toEqual(SORTIE_RENFORT);
+    expect(corps.resultats[0].sortie).toMatchObject({ forme: { silhouette: 'plusieurs-sommets', bout: 'pignon' }, confiance: 'moyenne' });
     expect(journal()).toHaveLength(3);
-    expect(journal()[0]).toMatchObject({ usage: 'renfort', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_RENFORT });
+    expect(journal()[0]).toMatchObject({ usage: 'facade', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_FACADE });
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
   });
 

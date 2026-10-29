@@ -15,16 +15,18 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // le journal et le tableau de bord en disent le cout.
 // `rejeu` (15.5) : l'analyse d'un audit stocke, rejouee par l'administrateur pour comparer les modeles
 // et les versions du prompt ; un usage a part pour que le tableau de bord en dise le cout.
-// `facade` (MD/spec-facade-calage-audit.md 8, lot F2) : le run unique d'une facade, sur l'image prise pour la suite ; il rend le
-// calage, la forme, les elements du toit, les ouvertures et leurs carreaux. La calibration et le releve l'appellent (appel immediat).
-const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu', 'facade'];
+// `facade` (MD/spec-facade-calage-audit.md 8, lots F2 et F3) : le run unique d'une facade, sur l'image prise pour la suite ; il rend
+// le calage, la forme, les elements du toit, les ouvertures et leurs carreaux. La calibration et le releve l'appellent (appel
+// immediat), l'audit dans le batch de l'analyse (une requete par facade). Il a remplace le renfort a trois passes (`renfort`, lot
+// L18), retire au lot F3 : une ligne `renfort` ne vit plus que dans le journal, et s'y lit encore.
+const USAGES = ['analyse', 'escalade', 'immediat', 'candidats', 'rejeu', 'facade'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-haiku-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5'];
-// Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) et le run d'une facade (lot F2,
-// generes par `npm run regles:generer`) ont les leurs ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json'], 'facade' => ['prompt-facade.md', 'schema-facade.json']];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5'];
+// Le prompt et le schema de chaque usage : le run d'une facade (lot F2, generes par `npm run regles:generer`) a les siens ; les autres
+// usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
+const FICHIERS_PAR_USAGE = ['facade' => ['prompt-facade.md', 'schema-facade.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
@@ -182,7 +184,7 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
         if ($images > IMAGES_PAR_REQUETE) throw new Refus('Trop d’images dans une requête (' . IMAGES_PAR_REQUETE . ' au plus).');
         $facades = $r['facades'] ?? 0;
         if (!is_int($facades) || $facades < 0 || $facades > FACADES_MAX) throw new Refus('Nombre de façades invalide.');
-        // Une requete peut porter son usage (le renfort d'une facade dans le batch de l'analyse) :
+        // Une requete peut porter son usage (le run d'une facade dans le batch de l'analyse) :
         // son prompt, son schema et son modele sont alors les siens.
         $usageR = $r['usage'] ?? $usage;
         if (!in_array($usageR, USAGES, true)) throw new Refus('Usage inconnu : ' . (is_string($usageR) ? $usageR : '?') . '.');
@@ -416,7 +418,7 @@ function vueModeles(?array $reglage): array {
 
 // --- Ce que les reponses contiennent (13.3 : comparer les modeles sur ce qu'ils trouvent) ---------
 // Le journal ne garde pas la reponse : seulement ces comptes, lus quand le serveur la relit, par la
-// forme du schema de l'usage (schema-analyse.json, schema-renfort.json, schema-facade.json).
+// forme du schema de l'usage (schema-analyse.json, schema-facade.json).
 
 const COMPTES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'];
 // Un compte ecrit par le modele est borne : un nombre aberrant ne doit pas noyer le tableau de bord.
@@ -439,16 +441,6 @@ function comptesSortie($sortie, string $usage): ?array {
     $c = array_fill_keys(COMPTES, 0);
     if ($usage === 'facade') {
         foreach (comptesFacade($s) as $k => $n) $c[$k] = $n;
-    } elseif ($usage === 'renfort') {
-        foreach (listeDe($s['ouvertures'] ?? null) as $o) {
-            $decision = objetDe($o)['decision'] ?? null;
-            if ($decision === 'garder') $c['ouvertures']++;
-            if ($decision === 'retirer') $c['enTrop']++;
-        }
-        $c['manquees'] = count(listeDe($s['manquees'] ?? null));
-        $coins = objetDe($s['coins'] ?? null);
-        foreach (['hautGauche', 'hautDroit', 'basDroit', 'basGauche'] as $k) if (is_array($coins[$k] ?? null)) $c['coins']++;
-        $c['determines'] = in_array(objetDe($s['mur'] ?? null)['vu'] ?? null, ['attendu', 'autre'], true) ? 1 : 0;
     } else {
         foreach (listeDe($s['facades'] ?? null) as $f) {
             $o = objetDe(objetDe($f)['ouvertures'] ?? null);
@@ -713,7 +705,7 @@ function vueBrouillonRegles(?array $b): ?array {
 }
 
 function promptEtSchema(string $usage = 'analyse', ?array $brouillon = null): array {
-    // L'essai : les usages de l'analyse lisent le brouillon ; le renfort garde ses fichiers (il n'est pas dans Admin › Regles).
+    // L'essai : les usages de l'analyse lisent le brouillon ; le run d'une facade garde ses fichiers (son brouillon n'est pas celui-ci).
     if ($brouillon !== null && !isset(FICHIERS_PAR_USAGE[$usage])) {
         $s = json_decode($brouillon['schema']);
         return [lirePrompt($brouillon['prompt']), ['version' => (int)$s->version, 'schema' => $s->schema]];
@@ -1151,7 +1143,7 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
     foreach (explode("\n", $texte) as $l) {
         if (trim($l) === '') continue;
         $ligne = json_decode($l);
-        // Chaque reponse se ramene au schema de son usage (le renfort a le sien dans le batch de l'analyse).
+        // Chaque reponse se ramene au schema de son usage (le run d'une facade a le sien dans le batch de l'analyse).
         $usageL = (string)($fiche['requetes'][(string)(is_object($ligne) ? ($ligne->custom_id ?? '') : '')]['usage'] ?? $fiche['usage']);
         if (!array_key_exists($usageL, $schemas)) { try { $schemas[$usageL] = promptEtSchema($usageL, is_array($fiche['brouillonCopie'] ?? null) ? $fiche['brouillonCopie'] : null)[1]['schema']; } catch (RuntimeException $e) { $schemas[$usageL] = null; } }
         $lus[] = lireResultat($ligne, $schemas[$usageL]);
@@ -1163,7 +1155,7 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
     $sortie = [];
     foreach ($lus as $x) {
         $req = $fiche['requetes'][$x['id']] ?? ['passe' => null, 'images' => 0, 'facades' => 0];
-        // Une requete du renfort dans le batch de l'analyse a son usage, son modele, son prompt et son schema.
+        // Une requete du run d'une facade dans le batch de l'analyse a son usage, son modele, son prompt et son schema.
         $modeleR = (string)($req['modele'] ?? $fiche['modele']);
         $ligneTarif = tarifEnVigueur($table, $modeleR, substr($t, 0, 10));
         $usageR = (string)($req['usage'] ?? $fiche['usage']);
@@ -1189,7 +1181,12 @@ function resultats(string $dossierClaude, string $dossierBatches, array $fiche):
         ecrireFiche($dossierBatches, ['journalise' => true, 'etat' => 'ended', 'finLe' => $fiche['finLe'] ?? null] + $actuelle);
     }
     if ($verrou) { flock($verrou, LOCK_UN); fclose($verrou); }
-    foreach ($sortie as &$x) { unset($x['images'], $x['facades'], $x['tarif'], $x['modele'], $x['prompt'], $x['schema'], $x['trouve']); }
+    // Le modele et les versions d'une reponse sont ceux du batch, sauf pour une requete d'un autre usage (le run d'une facade) : la page
+    // les garde avec sa reponse enregistree.
+    foreach ($sortie as &$x) {
+        unset($x['images'], $x['facades'], $x['tarif'], $x['trouve']);
+        if ($x['usage'] === ($fiche['usage'] ?? 'analyse')) unset($x['modele'], $x['prompt'], $x['schema']);
+    }
     unset($x);
     return ['sortie' => $sortie];
 }

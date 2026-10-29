@@ -1,4 +1,4 @@
-// Les constats de ce qui a ete vu : photos, renfort, Claude, et ce que la personne a vu sur place.
+// Les constats de ce qui a ete vu : photos, run des facades, Claude, et ce que la personne a vu sur place.
 // Un morceau de app/audit/parcelle/constats.ts, qui le reexporte : le reste du programme importe depuis lui.
 
 import { nomFacade } from '../../../../geometry/cotesVusDeDehors.js';
@@ -97,13 +97,13 @@ export function constatsPhoto({ b, mesures }: EntreesConstats): Constat[] {
   return out;
 }
 
-/** Les constats de Claude sur les ouvertures : son releve renforce, mur par mur, pose sur le releve mesure. */
-export function constatsRenfort({ b, mesures, renfort }: EntreesConstats): Constat[] {
+/** Les constats de Claude sur les ouvertures : le releve mesure, avec ce que l'accord du run de la facade y a confirme, mur par mur. */
+export function constatsAccords({ b, mesures, accords }: EntreesConstats): Constat[] {
   const out: Constat[] = [];
   for (const f of b.facades) {
-    const id = cleMesure(b.cle, f.cote), rf = renfort?.[id], releve0 = mesures.get(id)?.releve;
+    const id = cleMesure(b.cle, f.cote), rf = accords?.[id], releve0 = mesures.get(id)?.releve;
     if (!rf?.resume || !releve0) continue;
-    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'claude', valeur: rf.ouvertures.length, confiance: rf.passes / 3, regle: REGLES_LIDAR.claude.ouvertures,
+    out.push({ cible: cibleFacade(b.cle, f.cote), attribut: 'ouverturesFacade', source: 'claude', valeur: rf.ouvertures.length, confiance: rf.confiance, regle: REGLES_LIDAR.claude.ouvertures,
       charge: { releve: releveAvecOuvertures(releve0, rf.ouvertures) } });
   }
   return out;

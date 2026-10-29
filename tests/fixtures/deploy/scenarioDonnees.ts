@@ -125,7 +125,7 @@ export async function jouerScenarioDonnees(s: ServeurDonnees): Promise<void> {
   const poster = (corps: unknown) => s.navigateur('admin/claude/batches', { method: 'POST', headers: ECRITURE, body: JSON.stringify(corps) });
   expect((await poster(rejeu({ depot: null }))).status).toBe(400);
   expect((await poster(rejeu({ depot: '20990101-000000-00000000' }))).status).toBe(404);
-  expect((await poster(rejeu({ requetes: [{ ...rejeu().requetes[0], usage: 'renfort' }] }))).status).toBe(400);
+  expect((await poster(rejeu({ requetes: [{ ...rejeu().requetes[0], usage: 'facade' }] }))).status).toBe(400);
   // L'analyse de la session dont le depot a ete retire part quand meme, sans trace.
   const orpheline = await poster({ ...rejeu({ usage: 'analyse', depot: '20990101-000000-00000000' }) });
   expect(orpheline.status).toBe(201);

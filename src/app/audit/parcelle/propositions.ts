@@ -26,7 +26,7 @@ import { coteDuNouvelAcces } from '../../../geo/coteRue.js';
 import { parcelleDuProjet } from '../../../model/fonctions.js';
 import { cocheeParDefaut, type Proposition } from '../../../regles/decisions.js';
 import { resumeCloture, resumePortail, type LigneBatiment, type ListeDeControle } from './liste.js';
-import type { CaptureParcelle, RenfortFacadeCapture } from '../../../model/auditParcelle.js';
+import type { AccordFacadeCapture, CaptureParcelle } from '../../../model/auditParcelle.js';
 import type { ObjetPlan, PtBrut } from '../../../model/types.js';
 import { cleMesure, type MesureFacade } from './mesures.js';
 import { corpsAvecCeQuIlsPortaient, corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, reporterElements, souchesSurLeCorps, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
@@ -47,8 +47,8 @@ export interface EntreesPropositions {
   capture: CaptureParcelle;
   /** Par `cle#cote`. */
   mesures: ReadonlyMap<string, MesureFacade>;
-  /** Le renfort de Claude sur les facades (par `cle#cote`) ; absent sans analyse. */
-  renfort?: Record<string, RenfortFacadeCapture> | null | undefined;
+  /** L'accord du run de chaque facade avec sa detection (par `cle#cote`) ; absent sans analyse. */
+  accords?: Record<string, AccordFacadeCapture> | null | undefined;
 }
 
 export { cleMesure };

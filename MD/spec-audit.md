@@ -509,6 +509,15 @@ Tout ce qui se mesure se calcule **dans le navigateur**, sans serveur, de façon
 
 Ces calculs commencent dès la prise, pendant que vous photographiez la façade suivante.
 
+**Depuis le lot F3** (`spec-facade-calage-audit.md` §4 ter, §6, §9 bis) : une façade se calcule par **l'orchestrateur de
+l'enchaînement** (`facade/releve/enchainement.ts`, mode `audit`), le même que la calibration rejoue, dès sa première photo ; le relevé
+sort de l'orchestrateur avec l'état de chaque étape (É0 à É9). L'audit montre **la même barre de progression** que la calibration,
+sur la façade dépliée de la liste et en tête de l'écran de prise, en **mode discret** : une étape cachée qui a réussi (redressement,
+assemblage, silhouette lue, texture) ne se montre pas ; une étape qui échoue ou doute apparaît aussitôt avec son geste de repli
+(quatre repères sur une photo, le même geste que la calibration) ; seuls les points de validation et ce qui doute s'ouvrent.
+« Rejouer la façade » rejoue l'orchestrateur, sans toucher aux photos ni aux corrections. Ce qui disait l'état du redressement et de
+la fusion à part (le statut de chaque photo, l'avertissement de fusion à la prise) est remplacé par la barre.
+
 ### 13.2 Le batch Claude : les propositions
 
 Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à Claude analyste,
@@ -517,6 +526,7 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
 | Ce que Claude reçoit | Ce qu'il en tire |
 |---|---|
 | les photos de chaque façade, réduites, avec leur prise de vue | type et détails des ouvertures (volets, coffre, balcon, forme), ouvertures manquées ou en trop par la détection, matériau du parement |
+| l'élévation de chaque façade mesurée (le **run d'une façade**, une requête de plus par façade, usage `facade`, lot F3) | les ouvertures en part du mur, leurs détails et leurs carreaux, le parement, la forme du haut : accordées par le moteur de règles avec la détection |
 | le **rendu du modèle actuel** depuis la même prise de vue | les écarts entre le modèle et la photo, façade par façade |
 | les photos du toit, l'orthophoto, la carte des hauteurs LiDAR et ses indices | forme, sens du faîtage, bouts, lucarnes, cheminées, toiture-terrasse |
 | vos observations « Ce que je vois » | il ne les contredit pas ; il les complète et signale un désaccord |
@@ -553,7 +563,7 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
   (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
   modèles que le serveur admet (`MODELES` de `deploy/analyse-fonctions.php`) et
   refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits, escalade,
-  renfort des façades, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
+  run d'une façade, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
   l'utilisateur, 15 octobre 2026*). Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
   au modèle plus fin le 14 octobre, venait du schéma que l'API refusait (sortie structurée trop grande,
   §13.2 point « Réponse fermée »), pas du modèle. L'administrateur passe un usage au modèle plus fin
@@ -585,10 +595,10 @@ pour le calage (lot L18). Points de fumée 69 et 70.
   des propositions, en lignes à lire sans case (`app/audit/parcelle/observationsClaude.ts`) : forme
   du toit (comparée au modèle), profil, sens du faîtage, bouts (pignon, croupe, demi-croupe, brisis,
   vus de la rue), lucarnes (nombre, types, pan), éléments, volets, balcon et forme des baies de chaque
-  façade, ouvertures manquées ou en trop et écarts au modèle (`ecartsEnClair`), et ce que le renfort a
-  fait des ouvertures, par type. Chacune dit sur quelle image et avec quelle part des passes d'accord.
+  façade, ouvertures manquées ou en trop et écarts au modèle (`ecartsEnClair`), et ce que l'accord du
+  run de chaque façade a fait des ouvertures, par type. Chacune dit sur quelle image et avec quelle part des passes d'accord.
   Le schéma version 1 ne donne pour une façade que des **comptes** d'ouvertures manquées ou en trop ;
-  leurs **types** (fenêtre, porte-fenêtre, porte, garage) viennent du renfort. Le fichier de l'audit
+  leurs **types** (fenêtre, porte-fenêtre, porte, garage) viennent du run de la façade. Le fichier de l'audit
   (§15) ne les porte pas : son format n'a pas de place pour elles.
 - **« Prêtes » dit combien** : « N propositions et M observations », ou que Claude n'a rien vu à
   proposer ni à signaler.
@@ -627,7 +637,7 @@ du champ `usage` que l'API renvoie, jamais d'une estimation.
 | `organisation`, `projet` | identifiants de la plateforme (l'administrateur hors projet : `admin`) |
 | `idu`, `adresse` | la parcelle auditée |
 | `audit` | l'identifiant de l'audit (une capture et son analyse) |
-| `usage` | `analyse` (phase 2), `escalade`, `renfort` (calage et détection), `immediat` |
+| `usage` | `analyse` (phase 2), `escalade`, `facade` (le run d'une façade, lots F2 et F3), `immediat` ; `renfort` sur une ligne d'avant le lot F3 (le renfort à trois passes, retiré) |
 | `modele` | l'identifiant exact du modèle appelé (Claude Haiku 5.5, ou Sonnet 5.5 pour un usage que l'administrateur y a passé) |
 | `batch` | vrai si l'appel est passé par l'API Batch |
 | `idBatch` | l'identifiant du batch (hors batch : vide) ; la vue « Par modèle » compte les batches |
@@ -649,7 +659,7 @@ lu par `GET admin/consommation` (session admin, filtres en paramètres). Son ong
 le modèle de chaque usage, les tarifs et les plafonds (`GET|PUT admin/claude/modeles`,
 `GET|PUT admin/claude/tarifs`, `GET|PUT admin/claude/plafonds`, session admin, en-tête
 `X-Plan-Admin: 1` exigé sur toute écriture, comme les autres routes de `admin.php`). Le modèle de chaque
-usage (« Analyse des audits », « Renfort des façades », « Aide immédiate », « Escalade », « Cas
+usage (« Analyse des audits », « Run d’une façade » (audit, calibration, relevé), « Aide immédiate », « Escalade », « Cas
 candidats ») se choisit dans une liste déroulante : les modèles admis par le serveur, leur nom et leur
 prix d'entrée et de sortie au million de tokens en vigueur ; « Enregistrer les modèles » rappelle que
 les analyses déjà lancées gardent le leur.
@@ -755,15 +765,15 @@ L'audit ne touche pas au code des toits : AE 101 et les empreintes ne bougent pa
 Claude, à vérifier sur place » : des lignes à lire, sans case, qui ne changent rien au projet (forme
 du toit vue, pignons, lucarnes, éléments, ouvertures manquées ou en trop, écarts au modèle ; §13.2).
 
-**Le renfort des façades** (`spec-facades-calage-detection.md` §12 bis) se propose en deux lignes
-par façade, toutes deux décochées : le relevé « avec l'aide de Claude » (ouvertures recalées,
-retraits, types, détails), puis, s'il y en a, les ouvertures que Claude voit mais que les contours de
-la photo ne confirment pas, « vues par Claude, non confirmées sur la photo ». La seconde contient la
-première : cochée seule ou avec elle, elle écrit le même relevé. Le recalage demande le relevé mesuré
-de la façade (§13.1) : il attend les mesures, façade par façade, et ne note jamais un renfort vide.
-Les réponses brutes du renfort sont gardées dans la capture, si bien qu'un brouillon repris avec un
-batch déjà fini recale chaque façade quand sa mesure arrive. Les baies devinées du relevé passent au
-renfort, qui les confirme plutôt que d'en poser une seconde.
+**Le run de chaque façade** (`spec-facade-calage-audit.md` §8, lot F3 ; il a remplacé le renfort à trois passes votées) se propose
+en deux lignes par façade, toutes deux décochées : le relevé « avec l'aide de Claude » (baies devinées confirmées, détails ajoutés),
+puis, s'il y en a, les boîtes que Claude voit seul, que la détection ne retrouve pas, « vues par Claude, non confirmées sur la photo ».
+La seconde contient la première : cochée seule ou avec elle, elle écrit le même relevé. Une requête par façade mesurée, dans le batch
+de l'analyse, sur l'élévation du mur ; sa réponse est enregistrée (versions, modèle, tokens, coût) et le moteur de règles l'accorde
+(`facade/regles/facades/ia.ts`, `accorderOuvertures`) : un run, pas de vote, la protection contre l'invention est l'accord avec la
+détection. L'accord demande le relevé mesuré de la façade (§13.1) : il attend les mesures, façade par façade, et ne note jamais un
+accord vide ; les réponses sont gardées dans la capture, si bien qu'un brouillon repris avec un batch déjà fini accorde chaque façade
+quand sa mesure arrive. Claude ne retire jamais une baie détectée.
 
 **Fait (lot L11, sans Claude)** : les mesures du téléphone (`app/audit/parcelle/mesures.ts`) et les
 observations deviennent des propositions (`regles/decisions.ts`, source `mesure`, prêtes pour la

@@ -258,7 +258,7 @@ export const PRINCIPES: readonly Principe[] = [
     processus: [
       { titre: 'Calage', detail: 'Les coins du mur sont cherchés sur la photo (points de fuite, segments) ; à défaut, la prise de vue les prédit.' },
       { titre: 'Détection', detail: 'Les ouvertures sont détectées sur le mur redressé ; leur nombre est un constat.' },
-      { titre: 'Renfort de Claude', detail: 'Claude confirme, retire, type ou ajoute des ouvertures ; les doutes restent en pointillé, décochés.' },
+      { titre: 'Run de Claude', detail: 'Claude lit chaque façade en une requête ; ses ouvertures confirment celles de la détection, celles qu’il voit seul restent en pointillé, décochées.' },
       { titre: 'Arbitrage', detail: 'Photo et Claude se comptent ; un relevé fait à la main est un veto.' },
     ],
     actions: [
@@ -267,7 +267,7 @@ export const PRINCIPES: readonly Principe[] = [
     ],
     coulisses: [
       { quoi: 'Calage et détection', ou: 'src/facade/calage/calage.ts' },
-      { quoi: 'Le renfort de Claude', ou: 'src/facade/detection/renfortRecalage.ts' },
+      { quoi: 'Le run de Claude et son accord avec la détection', ou: 'src/facade/regles/facades/ia.ts' },
       { quoi: 'La spécification du relevé', ou: 'MD/spec-releve-facade.md' },
     ],
     voir: ['audit', 'reconciliation'],

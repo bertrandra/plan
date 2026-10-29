@@ -267,9 +267,17 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     executer: () => { void session?.sauvegarde.envoyer(); },
   });
 
-  // Un segment de la barre de progression d'une facade (zones/parcours/FacadeAudit.tsx, MD/spec-facade-calage-audit.md §4 ter.5) :
-  // l'etape vient de `data-etape` du bouton, la facade de `data-facade` de la barre qui le porte. L'audit n'ouvre que ses points de
-  // validation et ce qui doute ; toucher de nouveau l'etape ouverte la referme. Rien n'ecrit dans le projet.
+  declarerEtapeFacade(cmd);
+  declarerAuditsAdmin(a, cmd, { importer, consulter });
+  return { session: () => session };
+}
+
+/**
+ * Un segment de la barre de progression d'une facade (zones/parcours/FacadeAudit.tsx, MD/spec-facade-calage-audit.md §4 ter.5) :
+ * l'etape vient de `data-etape` du bouton, la facade de `data-facade` de la barre qui le porte. L'audit n'ouvre que ses points de
+ * validation et ce qui doute ; toucher de nouveau l'etape ouverte la referme. Rien n'ecrit dans le projet.
+ */
+function declarerEtapeFacade(cmd: RegistreCommandes): void {
   cmd.declarer({
     id: 'facade.etape',
     libelle: 'Ouvrir une étape de la façade',
@@ -283,7 +291,4 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
       c.session.ouvrirEtape(facade, deja?.facade === facade && deja.etape === etape ? null : etape);
     },
   });
-
-  declarerAuditsAdmin(a, cmd, { importer, consulter });
-  return { session: () => session };
 }
