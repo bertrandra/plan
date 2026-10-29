@@ -9,6 +9,7 @@ import { estAbri, estPiscine } from '../../model/fonctions.js';
 import type { ObjetPlan } from '../../model/types.js';
 import { creerTiroir } from '../tiroir.js';
 import { creerResultats } from '../resultats.js';
+import { lecturePluDuNavigateur } from '../plu/navigateurPlu.js';
 import type { Magasin } from '../magasin.js';
 import { resumeDuProjet } from '../assemblage/exports.js';
 import type { Affichage } from '../assemblage/affichage.js';
@@ -43,7 +44,8 @@ export function assemblerLesResultats(etat: EtatApp, magasin: Magasin, d: Depend
     construireResume: () => resumeDuProjet(etat, d.mesures),
     refLabel: d.mesures.refLabel, targetLabel: d.mesures.targetLabel, computeMeasureGeom: d.mesures.computeMeasureGeom,
     montrerResume: () => montrer('resume'),
-    montrerProfil: () => montrer('profil')
+    montrerProfil: () => montrer('profil'),
+    lecturePlu: lecturePluDuNavigateur(etat, () => magasin.store.getState().projet.courant?.id ?? null)
   }, magasin);
   return { tiroir, resultats };
 }

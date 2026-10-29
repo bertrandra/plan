@@ -152,6 +152,16 @@ export function brancherDivers(a: Atelier, ctx: ContexteDivers, cmd: RegistreCom
   cmd.declarer({ id: 'plu.interroger', libelle: 'Interroger le Géoportail de l\'urbanisme', groupe: 'plu', capacite: CAPACITES.plu.code, permission: PERMISSION_ECRITURE,
     actif: () => !!ctx.resultats.parcelle() && !ctx.resultats.pluEnCours(),
     executer: () => { void ctx.resultats.interrogerPlu(); } });
+  // La lecture du reglement de la zone par Claude (lot L4) : grisee, avec sa raison, tant que la zone n'est pas connue.
+  const zonePlu = () => !!ctx.resultats.parcelle()?.plu?.zones.length;
+  cmd.declarer({ id: 'plu.lireReglement', libelle: 'Lire le règlement de la zone avec Claude', groupe: 'plu', capacite: CAPACITES.plu.code, permission: PERMISSION_ECRITURE,
+    actif: () => zonePlu() && !ctx.resultats.lecturePluEnCours(),
+    raisonInactive: () => (ctx.resultats.parcelle() && !zonePlu() ? 'Interrogez d’abord le Géoportail de l’urbanisme : la zone de la parcelle n’est pas connue.' : null),
+    executer: () => { void ctx.resultats.lireReglementPlu(); } });
+  // Valider une regle lue par Claude apres l'avoir comparee au texte, ou la rendre proposee : une case par regle, la regle en `valeur`.
+  cmd.declarer({ id: 'plu.validerFait', libelle: 'Valider la règle du PLU', groupe: 'plu', capacite: CAPACITES.plu.code, permission: PERMISSION_ECRITURE,
+    actif: () => !!ctx.resultats.parcelle()?.reglementPlu?.faits.length,
+    executer: (_source, cible) => { if (cible?.valeur) ctx.resultats.basculerFaitPlu(cible.valeur); } });
 
   /**
    * Le bloc d'optimisation reste ouvert une fois demandé, et se reclasse à chaque changement : on

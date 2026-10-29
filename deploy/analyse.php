@@ -9,7 +9,7 @@
 //   POST admin/claude/batches                 cree un batch (une requete par passe) apres les plafonds
 //   GET  admin/claude/batches/<id>            son etat, lu chez Anthropic
 //   GET  admin/claude/batches/<id>/resultats  ses resultats ; le journal recoit une ligne par requete
-//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus)
+//   POST admin/claude/messages                l'appel immediat (run d'une facade, trois passes au plus ; lecture du PLU, un PDF)
 //   GET|PUT admin/claude/tarifs              la table des tarifs datee
 //   GET|PUT admin/claude/plafonds             les plafonds par organisation, par jour et par mois
 //   GET|PUT admin/claude/modeles              le modele de chaque usage, choisi par l'administrateur
@@ -261,9 +261,10 @@ try {
             }
         };
         $facade = $versionsDe('facade');
+        $plu = $versionsDe('plu');
         $parUsage = modelesParUsage(reglageModeles($dossierClaude));
         repondre(200, ['actif' => $avecCle, 'modeles' => MODELES, 'usages' => USAGES, 'modelesParUsage' => $parUsage, 'prompt' => $prompt['version'], 'schema' => $schema['version'], 'effort' => EFFORT,
-                       'facade' => $facade, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
+                       'facade' => $facade, 'plu' => $plu, 'escaladeFacade' => escaladeFacade($parUsage, tarifs($dossierClaude), substr(maintenant(), 0, 10)), 'organisation' => $organisation, 'admin' => $qui['admin']]
                        + ($qui['admin'] ? ['donnees' => vueDonnees($donnees), 'brouillon' => vueBrouillonRegles(lireBrouillonRegles($dossierClaude))] : []));
     }
 
@@ -399,7 +400,7 @@ try {
         $requetes = [];
         foreach ($demande['requetes'] as $r) {
             [$pR, $sR] = $prompts[$r['usage']];
-            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'], false, $sR['exemple'] ?? null)];
+            $requetes[] = ['custom_id' => $r['id'], 'params' => parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu'], false, $sR['exemple'] ?? null, $sR['consigne'] ?? null)];
         }
         $corps = json_encode(['requests' => $requetes], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         [$statut, $texte] = anthropic('POST', '/v1/messages/batches', $corps === false ? '' : $corps);

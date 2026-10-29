@@ -18,6 +18,7 @@ import type { Pergola } from './typesPergola.js';
 export type { ToitPergola, MateriauPergola, Pergola } from './typesPergola.js';
 import type { Piscine } from './typesPiscine.js';
 import type { SoleilProjet } from './soleilProjet.js';
+import type { ReglementPlu } from '../regles/plu/faits.js';
 export type { ImplantationPiscine, StructurePiscine, RevetementPiscine, FondPiscine, PlagePiscine, SecuritePiscine, TraitementPiscine, ChauffagePiscine, LocalTechniquePiscine, Piscine } from './typesPiscine.js';
 
 /**
@@ -189,6 +190,12 @@ interface ObjetCommun {
    * \`geo/apiIgn.ts::interrogerPlu\`, seul ecrivain).
    */
   plu?: ZonagePlu | null;
+  /**
+   * Le reglement de la zone, lu par Claude et verifie par la personne (lot L4, regles/plu/faits.ts) : sa source, sa lecture et ses
+   * faits, proposes ou valides. A part de \`plu\` : interroger de nouveau le Geoportail remplace le zonage, jamais les faits valides.
+   * Absent tant qu'aucune lecture n'a ete demandee : le fichier garde sa forme d'avant (schema 8 des qu'il est pose).
+   */
+  reglementPlu?: ReglementPlu | null;
   /** Les rues autour de la parcelle du projet, lues a la BD TOPO (model/rues.ts) ; absentes tant qu'on ne les a pas demandees. */
   ruesVoisinage?: RuesVoisinage | null;
   /** Le toit et les facades d'un batiment (model/typesFonctions.ts) ; absent sur tout autre objet. */

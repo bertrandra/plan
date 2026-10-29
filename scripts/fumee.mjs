@@ -3971,6 +3971,62 @@ const POINTS = {
     const revenu = empreinte(rouvert) === attendu;
     const ok = Array.isArray(fichier.objects) && fichier.objects.length === depart.objects.length && avantModif && revenu;
     return { ok, mesure: `exporté : ${octets.length} octets, ${Array.isArray(fichier.objects) ? fichier.objects.length : '?'} objets (plan : ${depart.objects.length}) ; sommet ${i} tiré : plan ${avantModif ? 'modifié' : 'INCHANGÉ'} ; rouvert : ${revenu ? 'identique au fichier' : 'DIFFÉRENT (' + rouvert.objects.length + ' objets)'}` };
+  },
+  120: async (page, f) => {
+    // La lecture du reglement de la zone par Claude (lot L4) : le point 15 (import par adresse, zonage du GPU, reseau temoin), puis
+    // « Lire le règlement de la zone avec Claude ». Le PDF du reglement est servi par l'extrait public du depot
+    // (tests/fixtures/plu/chatou-ul-extrait.pdf) : le vrai reglement de la parcelle temoin pese des megaoctets et ne se range pas en
+    // donnees temoin. `admin/claude/messages` rend une lecture SYNTHETIQUE (pas Claude) : deux regles, dont une qui ne se mesure pas.
+    // On coche les deux, on lit la conformite, on annule une validation, et le projet exporte porte le reglement au schema 8.
+    const imp = await POINTS[15](page, f);
+    if (!imp.ok) return { ok: imp.ok, mesure: 'zonage préalable : ' + imp.mesure };
+    const pdf = readFileSync(new URL('../tests/fixtures/plu/chatou-ul-extrait.pdf', import.meta.url));
+    await page.route(/^https:\/\/data\.geopf\.fr\/annexes\/gpu\/documents\//, (route) => route.fulfill({ status: 200, contentType: 'application/pdf', headers: { 'access-control-allow-origin': '*' }, body: pdf }));
+    const recues = [];
+    const SORTIE = { zone: { libelle: 'psmv', trouvee: 'oui' }, regles: [
+      { grandeur: 'emprise-max', valeur: 30, unite: 'pourcent', termes: [], condition: '', article: 'UL 9.2', citation: 'Dans le secteur ULp, l’emprise au sol ne doit pas excéder 30% de la superficie totale du terrain.', page: 2, confiance: 'forte' },
+      { grandeur: 'couleurs', valeur: 'indetermine', unite: 'aucune', termes: [], condition: '', article: 'UL 11.4', citation: 'Les couleurs des façades seront choisies dans le nuancier communal.', page: 3, confiance: 'moyenne' },
+    ], remarques: 'Lecture synthétique de la fumée.' };
+    await page.route(/\/admin\/claude\/messages$/, async (route) => {
+      const d = JSON.parse(route.request().postData() || 'null');
+      recues.push(d);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1,
+        resultats: [{ id: 'plu', statut: 'reussi', passe: 1, usage: 'plu', sortie: SORTIE, brut: JSON.stringify(SORTIE), erreur: null, cout: 0.0042, synthetique: true }] }) });
+    });
+    if (await classe(page) === 'compact') await feuille(page, 'resultats');
+    await page.evaluate(() => window.__plan.ouvrirResultats('plu'));
+    await page.locator('[data-commande="plu.lireReglement"]').waitFor({ timeout: 15000 });
+    await page.evaluate(() => window.__plan.executer('plu.lireReglement'));
+    await page.waitForFunction(() => !!window.__plan.etat().objects.find((o) => o.key === 'parcelle')?.reglementPlu, null, { timeout: 60000 }).catch(() => {});
+    const lu = objet(await lireEtat(page), (o) => o.key === 'parcelle')?.reglementPlu;
+    if (!lu) return { ok: false, mesure: 'aucun règlement rangé sur la parcelle ; ' + recues.length + ' demande(s) à Claude' };
+    const demande = recues[0];
+    const document = demande?.requetes?.[0]?.contenu?.find((b) => b.type === 'document');
+    const proposes = lu.faits.filter((x) => x.statut === 'propose').length;
+    const avantValidation = await page.locator('#pluConformite').innerText();
+    // Cocher les deux regles, comme la personne, une fois comparees au texte.
+    for (const id of ['f1', 'f2']) {
+      await page.locator(`[data-fait="${id}"] input[type="checkbox"]`).evaluate((e) => e.click());
+      await page.waitForTimeout(200);
+    }
+    await page.waitForFunction(() => document.querySelectorAll('#pluConformite .pluVerdict').length >= 2, null, { timeout: 10000 }).catch(() => {});
+    const verdicts = await page.locator('#pluConformite .pluVerdict').evaluateAll((l) => l.map((e) => e.getAttribute('data-etat') + ' : ' + e.textContent.slice(0, 90)));
+    const bilan = await page.locator('#pluBilan').innerText().catch(() => '');
+    const source = await page.locator('#pluSourceLecture').innerText().catch(() => '');
+    // Ctrl+Z defait la derniere validation.
+    await page.evaluate(() => window.__plan.executer('objet.annuler'));
+    await page.waitForTimeout(300);
+    const apresAnnuler = objet(await lireEtat(page), (o) => o.key === 'parcelle')?.reglementPlu?.faits.map((x) => x.statut).join(',');
+    // Rien ne deborde de l'onglet.
+    const deborde = await page.evaluate(() => { const p = document.getElementById('panelPlu'); return !!p && p.scrollWidth > p.clientWidth + 1; });
+    const fichier = JSON.parse(await telecharger(page, () => page.evaluate(() => window.__plan.executer('fichier.exporterJson'))));
+    const porteur = fichier.objects.find((o) => o.reglementPlu);
+    const ok = !!document && demande.usage === 'plu' && document.source.media_type === 'application/pdf' && proposes === 2 && /Aucune règle retenue/.test(avantValidation)
+      && verdicts.some((v) => v.startsWith('a-verifier')) && verdicts.some((v) => /^(ecart|conforme) : .*Emprise au sol/.test(v)) && /synthétique/.test(source)
+      && apresAnnuler === 'valide,propose' && !deborde && !!porteur && fichier.meta?.schemaVersion === 8;
+    return { ok, mesure: `${recues.length} demande(s) usage ${demande?.usage}, PDF ${document ? Math.round(document.source.data.length * 3 / 4 / 1024) + ' Ko' : 'ABSENT'} ; `
+      + `${lu.faits.length} règle(s), ${proposes} proposée(s) décochée(s) ; cochées : « ${bilan} » ; ${verdicts.join(' | ')} ; source « ${source.replace(/\s+/g, ' ').slice(0, 120)} » ; `
+      + `Ctrl+Z → ${apresAnnuler} ; ${deborde ? 'DÉBORDE' : 'rien ne déborde'} ; exporté au schéma ${fichier.meta?.schemaVersion}, reglementPlu ${porteur ? 'présent' : 'ABSENT'}` };
   }
 };
 
@@ -4013,7 +4069,8 @@ function pointsPour(nomClasse) {
   // 104 : le diagnostic de forme d'une facade, sa proposition de toit sur le bon corps, confirmee dans l'avant/apres (lot F4).
   // 105 : la validation d'une facade (V4) : sa Facade ecrite dans le projet, lue par la 3D et l'inspecteur (lot F5).
   // 108 : les carreaux d'une facade validee dessines dans les fenetres de la Vue 3D (lot F8).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108];
+  // 120 : la lecture du reglement de la zone du PLU par Claude, ses regles validees et la conformite du projet (lot L4).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 108, 120];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

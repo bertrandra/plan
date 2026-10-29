@@ -316,7 +316,9 @@ describe('les domaines de app/ (feuille de route, etapes 3.1 et 3.2)', () => {
     // Les sujets de l'audit (app/regles/sujets/) decrivent les lignes de sa liste : ils sont l'autre moitie de l'audit.
     regles: ['audit'],
     // Les ecrans d'admin montrent ce que les autres domaines savent : versions des toits, cas de calibration (audit, releve), sujets.
-    administration: ['audit', 'regles', 'releve', 'toits']
+    administration: ['audit', 'regles', 'releve', 'toits'],
+    // La lecture du reglement du PLU par Claude (lot L4) : la zone, le PDF, la reponse lue ; elle ne depend d'aucun autre domaine.
+    plu: []
   };
   it('un domaine n importe que le coeur et les domaines qu il declare', () => {
     const domaine = (f: string): string | undefined => {
