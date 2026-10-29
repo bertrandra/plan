@@ -22,6 +22,7 @@ import { lectureToits } from '../../core/lectureToits.js';
 import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
+import { murLePlusVisible } from '../../facade/modeToit/poignees.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
 import { toucher } from '../../core/controleurObjets.js';
@@ -552,14 +553,16 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       return true;
     },
 
-    /** Toucher un corps dans le navigateur : sa facade la plus tournee vers la camera. */
+    /** Toucher un corps dans le navigateur : sa facade la plus visible de la camera (tournee vers elle, pas cachee par un autre corps). */
     choisirFacadeDuCorps(rang: number): boolean {
-      const sc = vue3d.scene;
+      const sc = vue3d.scene, o = batiment();
       if (!sc || !session) return false;
-      // Devant une facade, l'oeil est devant elle ; ailleurs, c'est la camera de l'orbite.
+      // Devant une facade, l'oeil est devant elle ; ailleurs, c'est la camera de l'orbite (et sa hauteur au-dessus du batiment).
       const fc = session.vue === 'facade' ? session.facade : null;
-      const oeil = fc ? { x: (fc.a.x + fc.b.x) / 2 + fc.n.x * 50, y: (fc.a.y + fc.b.y) / 2 + fc.n.y * 50 } : { x: sc.camera.position.x + sc.cen.x, y: sc.cen.y - sc.camera.position.z };
-      const f = facadeVersLePoint(facades(), rang, oeil);
+      const oeil = fc ? { x: (fc.a.x + fc.b.x) / 2 + fc.n.x * 50, y: (fc.a.y + fc.b.y) / 2 + fc.n.y * 50 }
+        : { x: sc.camera.position.x + sc.cen.x, y: sc.cen.y - sc.camera.position.z, z: sc.camera.position.y - altitudeDuBatiment(o) };
+      const corps = o?.batiment?.corpsToit, mur = corps?.[rang] ? murLePlusVisible(corps, rang, oeil) : null;
+      const f = facades().find((x) => x.rang === rang && x.mur === mur) ?? facadeVersLePoint(facades(), rang, oeil);
       if (!f) return false;
       entrerDansLaFacade(f);
       return true;

@@ -722,6 +722,11 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
     (`VERSION_LECTURE_TOITS`). Vérifié à la lecture du code le 28 octobre 2026. À reporter sur les corps neufs par
     `reporterElements` (`facade/regles/toits/elementsVus.ts`), écrit pour la validation de l'audit.~~ — corrigé le 28 octobre 2026 : la relecture (LiDAR et fait en remplacement) reporte sur les corps neufs ce que portaient les anciens, là où il tient encore (`facade/regles/toits/elementsVus.ts::corpsAvecCeQuIlsPortaient` : `reporterElements`, étendu aux fenêtres de toit et panneaux, puis `reporterSaillies`, qui repose bow-windows, galeries et appentis sur le mur d'un corps neuf à moins de 0,8 m de leur attache) ; ce qui ne tient plus est laissé (`tests/unit/app/toits/toitsLidar.test.ts`, « la relecture garde ce qui est posé sur le toit »). La forme du toit validée par l'audit passe par le même chemin depuis le 28 octobre 2026 (`app/audit/parcelle/arbitrages.ts`, `corpsAvecCeQuIlsPortaient` à la place de `reporterElements` seul) : une forme du catalogue rangeait le corps relu en dernier et laissait au bow-window un `hote` compté sur les anciens rangs, et un toit relu sur un seul corps perdait ses saillies ; elles se reposent maintenant sur le mur qui reste (`elementsVus.test.ts`, `toitDecide.test.ts`).
 
+17. ~~**Le mur d'un corps choisi dans le Mode Toit est le plus tourné vers la caméra, même caché.**~~ — corrigé le 29 octobre 2026 :
+    sur une maison à deux corps, le mur le plus tourné de l'aile (« Corps 2 ») peut être derrière l'autre corps ; la silhouette et les
+    poignées se posent maintenant sur le mur le plus visible (tourné vers la caméra et le moins caché par les autres corps ; à
+    égalité, le plus tourné), `facade/modeToit/poignees.ts::murLePlusVisible` (MD/spec-mode-toit-3d.md, « Le corps choisi »).
+
 **Restent ouverts au 28 octobre 2026** (version 4.0.0), dits ici une fois :
 
 - la cheminée que la 3D pose d'office sur un toit simple ou en volumes (point 12) ;

@@ -17,6 +17,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Mode Toit : un corps choisi montre son mur le plus visible.** Sa silhouette et ses poignées se posaient sur son mur le plus tourné
+  vers la caméra, qui peut être caché derrière l'autre corps d'une maison à deux corps (le pignon de « Corps 2 », contre le corps
+  principal). C'est maintenant le mur que l'on voit le mieux : tourné vers la caméra et le moins caché par les autres corps (des
+  points du pied au haut du mur, dont la vue vers la caméra passe ou non dans le volume d'un autre corps) ; à visibilité égale, le
+  plus tourné vers la caméra, et un mur vu de chant ne l'emporte pas (`facade/modeToit/poignees.ts::murLePlusVisible`,
+  `partVisibleDuMur`). Sans rien qui cache, le choix ne change pas. Toucher un corps dans le navigateur des façades suit la même
+  règle. Le dessin et la couleur de la silhouette ne changent pas.
 - **Une session du Mode Toit ne s'enregistre plus avant « Valider ».** Les gestes du mode écrivent le bâtiment en place (la 3D les
   montre) sans marquer le projet ; l'enregistrement seul de la lecture des toits en fond, qui part quand tout ce qui attend vient
   d'elle, sérialisait alors le bâtiment tel que la session le laissait. Vérifié en exécution (démonstration, panneau solaire posé
