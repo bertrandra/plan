@@ -2679,7 +2679,9 @@
   .calTitre2{ margin:0 0 8px; font-family:var(--serif); font-size:1.1rem; }
   .calTitre3{ margin:14px 0 6px; font-family:var(--sans); font-size:0.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; }
   .calLigne{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:8px 0; }
-  .calChamp{ display:grid; gap:2px; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); }
+  .calChamp{ display:grid; gap:2px; min-width:0; font-family:var(--sans); font-size:0.72rem; color:var(--ink-soft); }
+  /* Un choix ne s'elargit pas a son option la plus longue (l'entete d'une reponse de Claude) : il tient dans la colonne, l'option se coupe. */
+  .calChamp select{ width:100%; min-width:0; max-width:100%; text-overflow:ellipsis; }
   .calChamp input, .calChamp select{ min-height:36px; box-sizing:border-box; padding:2px 8px; border:1px solid var(--rule); border-radius:var(--r-champ); background:var(--input-bg); color:var(--ink); font:inherit; font-size:0.85rem; font-variant-numeric:tabular-nums; }
   .calNote{ margin:4px 0; font-size:0.74rem; font-style:italic; color:var(--ink-soft); }
   .calCase{ display:flex; gap:8px; align-items:center; margin:12px 0; font-size:0.85rem; }
@@ -2737,7 +2739,7 @@
   .calBoiteIa.choisie{ stroke-width:4; }
   .calCarreau{ stroke:var(--ink); stroke-width:1.5; }
   .calTexteIa{ fill:var(--ink); font-family:var(--sans); paint-order:stroke; stroke:var(--panel-bg); stroke-width:3px; }
-  .calClaude{ margin:8px 0; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); }
+  .calClaude{ min-width:0; margin:8px 0; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); }
   .calVue3d{ display:block; width:100%; height:auto; aspect-ratio:1 / 0.62; }
   /* Creer un cas depuis un audit : les photos de chaque facade en vignettes au bout de sa ligne, entieres (rien n'est coupe). */
   .calListe li.calFacadeAudit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }

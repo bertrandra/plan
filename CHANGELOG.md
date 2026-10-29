@@ -83,6 +83,10 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Admin › Calibrer la détection tient dans l'écran d'un téléphone** (`app.css`, `.calChamp select`) : le choix de la réponse de
+  Claude rejouée prenait la largeur de son option la plus longue (« réponse synthétique (pas de Claude), 2026-10-29, une passe… »),
+  la page s'élargissait à 910 px sur 390 et le navigateur la dézoomait : « Rejouer » se touchait à côté (fumée 101 en échec en compact et
+  en moyen depuis le lot F2). Le choix tient maintenant dans sa colonne, l'option se coupe.
 - **Le prompt du run d'une façade ne se sert plus en clair** (`deploy/htaccess.template`) : la règle qui garde les prompts lus par
   `analyse.php` nommait encore celui du renfort ; elle nomme maintenant `prompt-facade.md` (lot F2).
 

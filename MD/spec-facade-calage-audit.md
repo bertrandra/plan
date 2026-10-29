@@ -1175,8 +1175,10 @@ l'option ×3 ou la retirer en F3 avec `renfort.ts`) se prend sur ce tableau.
   lignes décochées, se constate et s'observe comme le renfort le faisait.
 - Fumée : point 102 (la barre à la prise et sur la façade de la liste, le mode discret, le segment « Mur », le rejeu).
   Points touchés rejoués dans les trois classes (54, 58, 59, 62, 63, 65, 67, 85, 86, 88, 71, 82, 100, 101, 102) : 43 sur 45 ;
-  101 échoue en compact et en moyen (« Rejouer » hors d'atteinte du script sur l'écran de la calibration), à l'identique sur la base F2
-  (`db1b573a`) : F2 ne l'avait joué qu'en large, ce n'est pas F3.
+  101 échouait en compact et en moyen, à l'identique sur la base F2 (`db1b573a`, F2 ne l'avait joué qu'en large) : le choix de la réponse
+  rejouée prenait la largeur de son option la plus longue, la page s'élargissait (910 px sur 390) et le navigateur la dézoomait, le
+  toucher de « Rejouer » tombait sur le titre du cas. Corrigé dans l'interface (`.calChamp select` tient dans sa colonne) : 100, 101 et
+  102 rejoués, 9 passés sur 9 dans les trois classes.
 
 **Acceptation.**
 
