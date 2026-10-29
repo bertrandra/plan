@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { creerRepere } from '../../../src/render/repere.js';
+import { creerRepere, versMetres, matriceDesCalques, traitsALEcran } from '../../../src/render/repere.js';
 import { versEcran } from '../../../src/geometry/vue.js';
 
 // Le repere du dessin (MD/roadmap-architecture.md, etape 6.5) : un deplacement n'est qu'un decalage, un zoom en pose un autre.
@@ -37,5 +38,23 @@ describe('le repere du dessin du plan', () => {
     r.suivre(v);
     const zoom = vue(1, 2, 20);
     expect(r.scene(zoom)).toBe(zoom);
+  });
+});
+
+describe('les calques dessines en metres (etape 2.3)', () => {
+  it('un point du plan, en metres, l\'axe des y vers le bas ; la transformation du groupe le met ou le repere le dessine', () => {
+    const scene = vue(100, 50, 12);
+    const p = { x: 3.5, y: -2 }, m = versMetres(p);
+    expect(m).toEqual({ x: 3.5, y: 2 });
+    const [a, b, c, d, e, f] = /matrix\((.*)\)/.exec(matriceDesCalques(scene))![1]!.split(',').map(Number) as [number, number, number, number, number, number];
+    const voulu = versEcran(scene, p);
+    expect([a * m.x + c * m.y + e, b * m.x + d * m.y + f]).toEqual([voulu.x, voulu.y]);
+  });
+
+  it('les traits gardent leur epaisseur et leurs tirets a l\'ecran', () => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.innerHTML = '<line/><path/><polygon/><title>t</title>';
+    traitsALEcran(g);
+    expect([...g.children].map((e) => e.getAttribute('vector-effect'))).toEqual(['non-scaling-stroke', 'non-scaling-stroke', 'non-scaling-stroke', null]);
   });
 });

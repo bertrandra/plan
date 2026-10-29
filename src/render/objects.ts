@@ -7,13 +7,24 @@
 //
 // La racine SVG est recue en parametre, et le double-clic sur un cote est delegue a l'appelant :
 // ce module ne connait ni la selection courante, ni la transformation de la vue.
+//
+// Le zoom (MD/roadmap-architecture.md, etape 2.3). Les objets vivent dans un calque (`groupe`, app/assemblage/surface.ts) qui porte
+// la transformation du repere du dessin (render/repere.ts, `matriceDuRepere`) : la forme d'un objet (le contour d'un polygone, un
+// cercle) s'y dessine en metres, et un zoom ne change que cette transformation, une seule pour tout le plan. Son trait garde son
+// epaisseur a l'ecran (`vector-effect: non-scaling-stroke`). Ce qui se mesure en pixels (le nom, les poignees, les etiquettes et
+// les cotes des sommets, un chemin : sa largeur d'au moins un pixel, ses tirets, sa fleche, son trace arrondi au dixieme de pixel)
+// garde ses coordonnees dans le repere et porte la transformation inverse : un zoom ne deplace que le nom d'un objet qui en montre
+// un et le trace d'un chemin (`replacerObjet`), et refait ce qu'un objet montre a ses sommets (`dependDeLEchelle`) ; les autres
+// objets ne sont pas touches. Un element que l'empilement sort du calque (les parasols, devant leurs ombres ; les poignees de la
+// selection, devant tout) porte lui-meme ce qui lui manque : la transformation du repere s'il est en metres, rien s'il est en
+// pixels (`accorder`).
 
 import { sommetDe } from '../geometry/anneau.js';
 import { vue } from './vues.js';
 import { creerSvg } from './svg.js';
 import { SVG_LABEL_HALO, SVG_POIGNEE, SVG_POIGNEE_FOND, SVG_PASTILLE, SVG_PASTILLE_TEXTE, aLaVirgule } from './theme.js';
 import { versEcran } from '../geometry/vue.js';
-import { polyStr, pathD } from '../geometry/path.js';
+import { pathD } from '../geometry/path.js';
 import { centroid, dist, angleInterieurDeg } from '../geometry/basic.js';
 import { exteriorBisector } from '../geometry/polygon.js';
 import { etiquetteComposee, longueurEnMetres, angleEnDegres, SEP_ECRAN, DEGRE_ECRAN } from '../model/etiquettes.js';
@@ -61,12 +72,48 @@ function titreInerte(el: SVGElement | null, texte: string): void {
 }
 
 
+/** La transformation qui mene un point du plan (metres, y vers le haut) dans le repere du dessin (pixels, y vers le bas). */
+export function matriceDuRepere(scene: Pick<EtatScene, 'scale' | 'origine'>): string {
+  return matrices(scene).directe;
+}
+/** Son inverse : ce qui ramene en pixels du repere un element pose dans le calque des objets. */
+function inverseDuRepere(scene: Pick<EtatScene, 'scale' | 'origine'>): string {
+  return matrices(scene).inverse;
+}
+// Les memes pour tous les objets d'un rendu : composees une fois.
+let derniereMatrice = { s: NaN, x: NaN, y: NaN, directe: '', inverse: '' };
+function matrices(scene: Pick<EtatScene, 'scale' | 'origine'>): typeof derniereMatrice {
+  const s = scene.scale, x = scene.origine.x, y = scene.origine.y;
+  if (s !== derniereMatrice.s || x !== derniereMatrice.x || y !== derniereMatrice.y) {
+    derniereMatrice = { s, x, y, directe: `matrix(${s},0,0,${-s},${x},${y})`, inverse: `matrix(${1 / s},0,0,${-1 / s},${-x / s},${y / s})` };
+  }
+  return derniereMatrice;
+}
+
+/** L'objet montre-t-il quelque chose a ses sommets (poignees, noms, angles, cotes) ? Tout cela se place en pixels. */
+function sommetsMontres(obj: ObjetPlan, ctx: Pick<ContextePositionnement, 'selectionnee' | 'pointageSommets' | 'pointageCotes'>): boolean {
+  return ctx.selectionnee || ctx.pointageSommets || ctx.pointageCotes
+    || !!obj.showVertNames || !!obj.showAngles || !!obj.showSegNames || !!obj.showDims;
+}
+
+/**
+ * Ce que l'objet dessine depend-il de l'echelle au-dela de ce que `replacerObjet` refait (la transformation de sa forme, le trace
+ * d'un chemin, la place de son nom) ? Oui pour ce qu'un objet montre a ses sommets, en pixels (une cote trop longue pour son cote
+ * s'y cache selon l'echelle) : un tel objet se replace en entier a chaque zoom ; les autres ne font que suivre le repere.
+ */
+export function dependDeLEchelle(obj: ObjetRendu, ctx: Pick<ContextePositionnement, 'selectionnee' | 'pointageSommets' | 'pointageCotes'>): boolean {
+  if(obj.type === 'circle') return ctx.selectionnee;
+  return sommetsMontres(obj, ctx);
+}
+
 export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatScene): void {
   const v = vue(obj);
   if(obj.type==='polygon'){
     v.el = creerSvg('polygon');
     v.el.setAttribute('fill',obj.fill); v.el.setAttribute('fill-opacity',String(obj.fillOpacity));
     v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width','1.8');
+    // En metres sous la transformation du repere : le trait garde son epaisseur a l'ecran.
+    v.el.setAttribute('vector-effect','non-scaling-stroke');
     v.el.setAttribute('pointer-events','all');
     v.el.dataset.role='obj'; v.el.dataset.key=obj.key;
     v.el.style.cursor='pointer';
@@ -97,6 +144,7 @@ export function creerDomObjet(racine: SVGElement, obj: ObjetRendu, scene: EtatSc
     v.el = creerSvg('circle');
     v.el.setAttribute('fill',obj.fill); v.el.setAttribute('fill-opacity',String(obj.fillOpacity));
     v.el.setAttribute('stroke',obj.stroke); v.el.setAttribute('stroke-width','0.08');
+    v.el.setAttribute('vector-effect','non-scaling-stroke');
     v.el.setAttribute('pointer-events','all');
     v.el.dataset.role='obj'; v.el.dataset.key=obj.key;
     v.el.style.cursor='pointer';
@@ -181,7 +229,7 @@ export const OPACITE_ISOLEMENT = 0.2;
  * son remplissage et son trait la ou est le trou. Sans trou, le gabarit est retire : l'element est
  * exactement celui d'avant.
  */
-function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, trous: PtBrut[][], scene: EtatScene): void {
+function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, trous: PtBrut[][]): void {
   if (!trous.length) {
     if (el.hasAttribute('clip-path')) el.removeAttribute('clip-path');
     if (v.clipEl) { v.clipEl.remove(); v.clipEl = null; }
@@ -196,7 +244,8 @@ function percerContour(v: ReturnType<typeof vue>, el: SVGElement, cle: string, t
   }
   const chemin = v.clipEl.firstChild as SVGElement | null;
   if (!chemin) return;
-  const anneau = (pts: PtBrut[]) => pts.map((p, i) => { const e = versEcran(scene, p); return (i ? 'L' : 'M') + e.x.toFixed(1) + ' ' + e.y.toFixed(1); }).join(' ') + ' Z';
+  // En metres, comme le contour qu'il tond : le gabarit se lit dans le repere de l'element, sa transformation comprise.
+  const anneau = (pts: PtBrut[]) => pts.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ') + ' Z';
   chemin.setAttribute('clip-rule', 'evenodd');
   chemin.setAttribute('d', 'M-100000 -100000 H100000 V100000 H-100000 Z ' + trous.map(anneau).join(' '));
   el.setAttribute('clip-path', 'url(#' + id + ')');
@@ -214,6 +263,21 @@ function poser(e: Element, nom: string, valeur: string): void {
   verification?.(nom);
   m[nom] = valeur;
   e.setAttribute(nom, valeur);
+}
+/** Retire un attribut que ce module avait pose. */
+function retirer(e: Element, nom: string): void {
+  const m = ecrits.get(e);
+  if (m && nom in m) { verification?.(nom); delete m[nom]; }
+  if (e.hasAttribute(nom)) e.removeAttribute(nom);
+}
+/**
+ * Accorde un element a sa place : dans le calque des objets, qui porte le repere, un element en pixels prend la transformation
+ * inverse ; hors de lui, un element en metres prend celle du repere. Sans calque (un test, un export), le repere est sur l'element.
+ */
+function accorder(e: Element, enMetres: boolean, ctx: Pick<ContextePositionnement, 'scene' | 'groupe'>): void {
+  const dedans = !!ctx.groupe && e.parentNode === ctx.groupe;
+  if (enMetres === dedans) retirer(e, 'transform');
+  else poser(e, 'transform', enMetres ? matriceDuRepere(ctx.scene) : inverseDuRepere(ctx.scene));
 }
 function texte(e: Element, valeur: string): void {
   if (e.textContent === valeur) return;
@@ -272,6 +336,19 @@ function emprise(obj: ObjetRendu): [number, number, number, number] | null {
   return e;
 }
 
+// Le centre de chaque objet (la place de son nom), repris tant que sa version et sa forme n'ont pas change : un zoom deplace le nom
+// de chaque objet montre.
+const centres = new WeakMap<object, { version: string; pts: unknown; center: unknown; c: PtBrut }>();
+function centreDe(obj: ObjetRendu): PtBrut {
+  const version = versionObjet(obj);
+  const pts = (obj as { pts?: unknown }).pts, center = (obj as { center?: unknown }).center;
+  const m = centres.get(obj);
+  if(m && m.version === version && m.pts === pts && m.center === center) return m.c;
+  const c = obj.type === 'circle' ? obj.center : centroid(obj.pts);
+  centres.set(obj, { version, pts, center, c });
+  return c;
+}
+
 /** L'objet est-il entierement hors de la vue (marge comprise) ? Calcule sur son emprise, dans le repere du plan. */
 export function horsDeLaVue(obj: ObjetRendu, scene: EtatScene): boolean {
   const s = scene.scale;
@@ -285,6 +362,48 @@ export function horsDeLaVue(obj: ObjetRendu, scene: EtatScene): boolean {
   return ox1 < x0 || ox0 > x1 || oy1 < y0 || oy0 > y1;
 }
 
+// Ce que les sommets et les cotes d'un objet montrent, en metres et en texte : le decalage de chaque etiquette de sommet, son texte,
+// le texte et la longueur de chaque cote. Repris tant que la version et les sommets de l'objet n'ont pas change : un zoom ne fait
+// que les replacer.
+interface Etiquettes { ext: PtBrut[]; sommets: string[]; cotes: string[]; longueurs: number[] }
+const etiquettesMemo = new WeakMap<object, { version: string; pts: unknown; e: Etiquettes }>();
+function etiquettesDe(obj: ObjetRendu & { pts: PtBrut[] }): Etiquettes {
+  const version = versionObjet(obj), m = etiquettesMemo.get(obj);
+  if(m && m.version === version && m.pts === obj.pts) return m.e;
+  const n = obj.pts.length;
+  const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
+  const e: Etiquettes = { ext: [], sommets: [], cotes: [], longueurs: [] };
+  obj.pts.forEach((pt, i) => {
+    // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
+    if(obj.type==='polygon'){
+      e.ext.push(exteriorBisector({ pts: obj.pts }, i));
+    } else {
+      const nb = sommetDe(obj.pts, Math.min(i+1,n-1)), pb2 = sommetDe(obj.pts, Math.max(i-1,0));
+      const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
+      e.ext.push({x:-dy/L, y:dx/L});
+    }
+    const vName = obj.vertexNames?.[i] || ('P'+(i+1));
+    // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
+    const showAngleHere = obj.showAngles && obj.type==='polygon';
+    // L'angle n'est calcule que s'il doit etre affiche.
+    const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
+    e.sommets.push(etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN));
+    if(i < edgeCount){
+      const longueur = dist(pt, sommetDe(obj.pts, i+1));
+      e.cotes.push(etiquetteComposee(obj.segmentNames?.[i] ?? '', longueurEnMetres(longueur), obj.showSegNames, obj.showDims, SEP_ECRAN));
+      e.longueurs.push(longueur);
+    }
+  });
+  etiquettesMemo.set(obj, { version, pts: obj.pts, e });
+  return e;
+}
+
+/** Montre ou cache un element, sans reecrire un style deja juste. */
+function montrer(e: SVGElement, visible: boolean): void {
+  const d = visible ? '' : 'none';
+  if(e.style.display !== d) e.style.display = d;
+}
+
 /**
  * Place les poignees, etiquettes, cotes et pastilles des sommets d'un contour ou d'un chemin, et les
  * montre ou les cache selon la selection, le pointage et ce que l'objet demande d'afficher.
@@ -294,72 +413,97 @@ function placerSommets(obj: ObjetRendu & { pts: PtBrut[] }, v: ReturnType<typeof
   const edgeCount = obj.type==='path' ? Math.max(0,n-1) : n;
   if(v.pointEls.length !== n) ctx.reconstruirePoignees(obj);
   v.sommetsCaches = false;
-  // (const objCenter = cen : variable morte dans le fichier d'origine, retiree - cen est
-  // deja calcule au-dessus et utilise pour l'etiquette.)
+  const e = etiquettesDe(obj);
   obj.pts.forEach((pt, i) => {
     // Reconstruites juste au-dessus si leur nombre ne suivait plus celui des sommets.
-    const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i];
-    if(!poignee || !etiquette) return;
+    const poignee = v.pointEls[i], etiquette = v.ptLabelEls[i], ext = e.ext[i];
+    if(!poignee || !etiquette || !ext) return;
     const p = versEcran(ctx.scene, pt);
-    poser(poignee, 'cx', String(p.x)); poser(poignee, 'cy', String(p.y));
+    // Une poignee cachee (ni selection, ni pointage) n'est pas placee : elle le sera quand elle se montrera, l'objet ayant change.
     const showPtForPick = ctx.pointageSommets;
-    poignee.style.display = (ctx.selectionnee || showPtForPick) ? '' : 'none';
-    const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
-    poser(poignee, 'fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
-    poser(poignee, 'r', String(isFrozen ? 7.5 : 6.5));
-
-    // offset vertex label: exterior bisector for closed polygons, simple perpendicular for open paths
-    let ext;
-    if(obj.type==='polygon'){
-      ext = exteriorBisector({ pts: obj.pts }, i);
-    } else {
-      const nb = sommetDe(obj.pts, Math.min(i+1,n-1)), pb2 = sommetDe(obj.pts, Math.max(i-1,0));
-      const dx = nb.x-pb2.x, dy = nb.y-pb2.y; const L=Math.hypot(dx,dy)||1;
-      ext = {x:-dy/L, y:dx/L};
+    montrer(poignee, ctx.selectionnee || showPtForPick);
+    if(ctx.selectionnee || showPtForPick){
+      poser(poignee, 'cx', String(p.x)); poser(poignee, 'cy', String(p.y));
+      accorder(poignee, false, ctx);
+      const isFrozen = obj.type==='polygon' && obj.frozenVertices && obj.frozenVertices[i];
+      poser(poignee, 'fill', isFrozen ? SVG_POIGNEE : SVG_POIGNEE_FOND);
+      poser(poignee, 'r', String(isFrozen ? 7.5 : 6.5));
     }
+    accorder(etiquette, false, ctx);
+
     poser(etiquette, 'x', String(p.x + ext.x*13));
     poser(etiquette, 'y', String(p.y - ext.y*13 + 3));
     poser(etiquette, 'text-anchor','middle');
-    const vName = obj.vertexNames?.[i] || ('P'+(i+1));
-    // Un chemin ouvert n'a pas d'interieur : parler de son angle interieur n'aurait pas de sens.
-    const showAngleHere = obj.showAngles && obj.type==='polygon';
-    // L'angle n'est calcule que s'il doit etre affiche : ce rendu passe sur chaque point de
-    // chaque objet a chaque image.
-    const angleTxt = showAngleHere ? angleEnDegres(angleInterieurDeg(obj.pts,i), DEGRE_ECRAN) : '';
-    const vertTxt = etiquetteComposee(vName, angleTxt, obj.showVertNames, showAngleHere, SEP_ECRAN);
-    etiquette.textContent = aLaVirgule(vertTxt);
-    etiquette.style.display = vertTxt ? '' : 'none';
+    const vertTxt = e.sommets[i] ?? '';
+    texte(etiquette, aLaVirgule(vertTxt));
+    montrer(etiquette, !!vertTxt);
 
     const cote = v.edgeEls[i], etiquetteCote = v.segLabelEls[i];
     if(i < edgeCount && cote && etiquetteCote){
-      const a=pt, b=sommetDe(obj.pts, i+1);
-      const pa=versEcran(ctx.scene, a), pb=versEcran(ctx.scene, b);
-      poser(cote, 'x1', String(pa.x)); poser(cote, 'y1', String(pa.y));
-      poser(cote, 'x2', String(pb.x)); poser(cote, 'y2', String(pb.y));
+      const pa=p, pb=versEcran(ctx.scene, sommetDe(obj.pts, i+1));
+      // Le cote a saisir, comme la poignee : place seulement quand il se montre.
       const showEdgeForPick = ctx.pointageCotes;
-      cote.style.display = (ctx.selectionnee || showEdgeForPick) ? '' : 'none';
-      cote.style.pointerEvents = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
+      montrer(cote, ctx.selectionnee || showEdgeForPick);
+      const pointeur = (ctx.selectionnee || showEdgeForPick) ? 'all' : 'none';
+      if(cote.style.pointerEvents !== pointeur) cote.style.pointerEvents = pointeur;
+      if(ctx.selectionnee || showEdgeForPick){
+        poser(cote, 'x1', String(pa.x)); poser(cote, 'y1', String(pa.y));
+        poser(cote, 'x2', String(pb.x)); poser(cote, 'y2', String(pb.y));
+        accorder(cote, false, ctx);
+      }
+      accorder(etiquetteCote, false, ctx);
 
       const mid = {x:(pa.x+pb.x)/2, y:(pa.y+pb.y)/2};
       poser(etiquetteCote, 'x', String(mid.x)); poser(etiquetteCote, 'y', String(mid.y));
-      const segTxt = etiquetteComposee(
-        obj.segmentNames?.[i] ?? '', longueurEnMetres(dist(a,b)),
-        obj.showSegNames, obj.showDims, SEP_ECRAN
-      );
-      etiquetteCote.textContent = aLaVirgule(segTxt);
+      const segTxt = e.cotes[i] ?? '';
+      texte(etiquetteCote, aLaVirgule(segTxt));
       // Une pastille plus longue que son cote a l'ecran chevauche ses voisines et ne se lit plus :
       // elle attend qu'on zoome (Ajuster, pincer). La largeur se compte a ~6,5 px par caractere.
       const tropCourt = Math.hypot(pb.x-pa.x, pb.y-pa.y) < segTxt.length*6.5 + 12;
-      etiquetteCote.style.display = segTxt && !tropCourt ? '' : 'none';
+      montrer(etiquetteCote, !!segTxt && !tropCourt);
     }
   });
-  el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+  const curseur = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
+  if(el.style.cursor !== curseur) el.style.cursor = curseur;
+}
+
+/**
+ * Ce qu'un zoom change a un objet montre dont rien d'autre n'a bouge : la transformation de sa forme (le trace d'un chemin, en
+ * pixels), la place de son nom. `positionnerObjet` finit par la ; le rendu l'appelle seule quand seul le repere a change
+ * (render/pipeline.ts).
+ */
+export function replacerObjet(obj: ObjetRendu, ctx: Pick<ContextePositionnement, 'scene' | 'groupe'>): void {
+  const v = vue(obj);
+  const { el, nameEl } = v;
+  if(!el || !nameEl) return;
+  // Une forme dans le calque des objets suit sa transformation sans rien porter : sans nom, rien a refaire.
+  if(obj.type !== 'path' && !nameEl.textContent && ctx.groupe && el.parentNode === ctx.groupe && !el.hasAttribute('transform')) return;
+  accorder(el, obj.type !== 'path', ctx);
+  if(obj.type === 'path'){
+    poser(el, 'd', pathD(ctx.scene, obj.pts, !!obj.curve));
+    poser(el, 'stroke-width', String(Math.max(1, largeurChemin(obj)*ctx.scene.scale)));
+    if(v.camMarkerEl){
+      const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
+      poser(v.camMarkerEl, 'cx', String(p0.x)); poser(v.camMarkerEl, 'cy', String(p0.y));
+      accorder(v.camMarkerEl, false, ctx);
+    }
+  }
+  // Un nom vide ne se voit pas : il n'a pas de place a suivre (il la reprend quand son texte revient, l'objet ayant change).
+  if(!nameEl.textContent) return;
+  const cs = versEcran(ctx.scene, centreDe(obj));
+  poser(nameEl, 'x', String(cs.x)); poser(nameEl, 'y', String(cs.y));
+  accorder(nameEl, false, ctx);
 }
 
 /** Ce que positionner un objet demande de savoir, en plus de l'objet lui-meme. */
 export interface ContextePositionnement {
   /** La scene du dessin : le repere (render/repere.ts), ou la vue. */
   scene: EtatScene;
+  /**
+   * Le calque des objets, qui porte la transformation du repere (`matriceDuRepere`) : ses enfants en metres n'ont rien a porter.
+   * Sans lui, chaque element en metres porte le repere.
+   */
+  groupe?: Element | null;
   /** L'objet est hors de la vue courante (et ni masque ni selectionne) : rien ne se dessine. Sans lui, lu sur `scene`. */
   horsVue?: boolean;
   /** L'objet est-il celui qu'on edite ? Change l'epaisseur du trait et l'affichage des poignees. */
@@ -424,18 +568,12 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
     if(v.camMarkerEl) v.camMarkerEl.style.display = '';
 
     if(obj.type==='polygon'){
-      poser(el, 'points', polyStr(ctx.scene, obj.pts));
-      percerContour(v, el, obj.key, ctx.trous ?? [], ctx.scene);
+      poser(el, 'points', obj.pts.map((p) => p.x + ',' + p.y).join(' '));
+      percerContour(v, el, obj.key, ctx.trous ?? []);
     } else if(obj.type==='path'){
-      poser(el, 'd', pathD(ctx.scene, obj.pts, !!obj.curve));
-      poser(el, 'stroke-width', String(Math.max(1, largeurChemin(obj)*ctx.scene.scale)));
-      if(v.camMarkerEl){
-        const p0 = versEcran(ctx.scene, sommetDe(obj.pts, 0));
-        poser(v.camMarkerEl, 'cx', String(p0.x)); poser(v.camMarkerEl, 'cy', String(p0.y));
-      }
+      // Le trace du chemin, en pixels : `replacerObjet`, plus bas.
     } else {
-      const c = versEcran(ctx.scene, obj.center);
-      poser(el, 'cx', String(c.x)); poser(el, 'cy', String(c.y)); poser(el, 'r', String(obj.r*ctx.scene.scale));
+      poser(el, 'cx', String(obj.center.x)); poser(el, 'cy', String(obj.center.y)); poser(el, 'r', String(obj.r));
     }
     if(obj.type!=='path') poser(el, 'stroke-width', String(ctx.selectionnee ? '3' : (obj.type==='circle'?'0.08':'1.8')));
     else poser(el, 'stroke-opacity', ctx.selectionnee ? '1' : '0.85');
@@ -459,28 +597,27 @@ export function positionnerObjet(obj: ObjetRendu, ctx: ContextePositionnement): 
       poser(el, 'fill', obj.fill);
     }
 
-    const cen = obj.type==='polygon' ? centroid(obj.pts) : (obj.type==='path' ? centroid(obj.pts) : obj.center);
-    const cs = versEcran(ctx.scene, cen);
-    poser(nameEl, 'x', String(cs.x)); poser(nameEl, 'y', String(cs.y));
     poser(nameEl, 'font-size', String(obj.key==='parcelle'||obj.key==='maison' ? 14 : 10));
     texte(nameEl, obj.showName ? obj.name : '');
+    replacerObjet(obj, ctx);
 
     // Rien des sommets ne se voit (ni selection, ni pointage, ni noms, angles ou cotes) : on les cache
     // une fois et on ne les place pas. C'etait l'essentiel d'un rendu de voisinage : dix attributs par
     // sommet de chaque batiment, pour des elements invisibles (profil d'octobre 2026).
-    const sommetsUtiles = ctx.selectionnee || ctx.pointageSommets || ctx.pointageCotes
-      || !!obj.showVertNames || !!obj.showAngles || !!obj.showSegNames || !!obj.showDims;
+    const sommetsUtiles = sommetsMontres(obj, ctx);
     if((obj.type==='polygon' || obj.type==='path') && !sommetsUtiles){
       cacherSommets(v);
       el.style.cursor = obj.locked ? 'not-allowed' : 'pointer';
     } else if(obj.type==='polygon' || obj.type==='path'){
       placerSommets(obj, v, el, ctx);
     } else {
-      const rp = versEcran(ctx.scene, {x:obj.center.x+obj.r, y:obj.center.y});
-      if(v.radiusHandle){
+      // La poignee du rayon, en pixels : placee seulement quand elle se voit (un zoom ne refait pas un cercle qui n'est pas selectionne).
+      if(v.radiusHandle && ctx.selectionnee){
+        const rp = versEcran(ctx.scene, {x:obj.center.x+obj.r, y:obj.center.y});
         poser(v.radiusHandle, 'cx', String(rp.x)); poser(v.radiusHandle, 'cy', String(rp.y));
-        v.radiusHandle.style.display = ctx.selectionnee ? '' : 'none';
-      }
+        accorder(v.radiusHandle, false, ctx);
+        v.radiusHandle.style.display = '';
+      } else if(v.radiusHandle) cacher(v.radiusHandle);
       el.style.cursor = obj.locked ? 'not-allowed' : (ctx.selectionnee ? 'move' : 'pointer');
     }
 

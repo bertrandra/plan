@@ -85,6 +85,9 @@ export function exposerPourLesCaptures(p: Plan, explorateur: Explorateur): void 
     toucherForme: (cle: string) => toucherForme(etat.objects.find(o => o.key === cle)),
     // Un rendu complet du plan, chronometre (scripts/banc-rendu.mjs, MD/roadmap-architecture.md etape 0.2).
     rendre: () => { const t = performance.now(); p.render(); return performance.now() - t; },
+    // Un geste de vue de script (le banc du rendu, scenario `geste`) : la vue a change depuis `avant`, comme sous le doigt, frein et
+    // apercu compris (app/boot/rendu.ts).
+    changerVue: (avant: Parameters<Plan['vueChangee']>[0]) => p.vueChangee(avant),
     // Le dessin d'un objet ajoute hors des gestes (le banc du rendu) : sans lui, l'objet est dans l'etat mais pas sur le plan.
     dessinerObjet: (o: ObjetPlan) => p.dessin.createObjectDOM(o),
     selectionnerPremiere: (fonction: string) => {

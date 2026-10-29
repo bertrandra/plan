@@ -16,8 +16,9 @@ const COUPE = 1.1;
 
 export function dessinerReleves(groupe: SVGGElement, etat: EtatApp, versEcran: (p: PtBrut) => PtEcran, masque: (o: EtatApp['objects'][number]) => boolean): void {
   while (groupe.firstChild) groupe.removeChild(groupe.firstChild);
-  // Toujours au-dessus des objets, crees apres le groupe.
-  groupe.parentNode?.appendChild(groupe);
+  // Toujours au-dessus des objets, crees apres le groupe : remis au bout s'il n'y est pas (le deplacer quand il y est deja ferait
+  // refaire son style au navigateur pour rien).
+  if (groupe.parentNode && groupe.parentNode.lastChild !== groupe) groupe.parentNode.appendChild(groupe);
   const ligne = (a: PtEcran, b: PtEcran, couleur: string, epaisseur: number) => {
     const l = document.createElementNS(NS, 'line');
     l.setAttribute('x1', String(a.x));
