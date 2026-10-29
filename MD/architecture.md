@@ -610,8 +610,9 @@ ends. And the photo's own opinion of the roof, which the audit weighs against th
 (`ResultatAnalyse.toitLu`), never the template — otherwise the LiDAR would vote twice. `VERSION_CHAINE_FACADES` moves
 whenever corners, straightening or fusion change (9 since a single photo is straightened in one pass); an audit stores it with its images.
 
-Two LiDAR top-of-wall readings coexist on purpose: `gabaritMur.ts::hautDeLaFacade` (the whole façade seen from outside,
-every body, highest wins) and `facade/regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
+Two LiDAR top-of-wall readings coexist on purpose: the gabarit (`gabaritMur.ts::gabaritDesCorps`, built since 29 October 2026 on
+`silhouetteDesCorps.ts::silhouetteDeFace`, the same projection as the Mode Toit silhouette: the whole façade seen from outside,
+every body facing it, highest wins) and `facade/regles/toits/silhouetteDesCorps.ts::hautDuMurSousCorps` (the wall of the one body that
 carries it, which the audit's per-wall verdict needs). Merging them changes audit verdicts.
 
 The whole chain is pure and lives in layer 3: `facade/releve/` holds the series of photos (`serie.ts`, `analyseSerie.ts`,
