@@ -10,7 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { altitudeDuBatiment, etatToit, modeToitCourant, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
-import { cadreDe, cibleDesPoignees, cotesDe, glisser, poigneesDe, type Axe, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
+import { cadreDe, cibleDesPoignees, cotesDe, glisser, poigneesDe, type Axe, type Oeil, type CadreFacade, type CibleGlisser, type Cote, type Deplacement, type Point3, type Poignee } from '../../facade/modeToit/poignees.js';
 import { cameraDeVue, hotes3d, vue3d } from '../../three/etat3d.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { CorpsToit } from '../../model/types.js';
@@ -28,12 +28,15 @@ const RAYON_DEPLACER_PX = 12;
 /** Les quatre fleches du deplacement, centrees sur la poignee. */
 const FLECHES = 'M0 -8 L3 -4.5 H1 V-1 H4.5 V-3 L8 0 L4.5 3 V1 H1 V4.5 H3 L0 8 L-3 4.5 H-1 V1 H-4.5 V3 L-8 0 L-4.5 -3 V-1 H-1 V-4.5 H-3 Z';
 
-/** L'oeil, un point du plan : la camera qui fait l'image. C'est vers lui que se tourne le mur du corps choisi, sa silhouette et ses poignees. */
-function oeilDeLaVue(): PtBrut | null {
+/**
+ * L'oeil, la camera qui fait l'image : un point du plan, et sa hauteur au-dessus du sol du batiment (`base`, `altitudeDuBatiment`). C'est
+ * lui que regarde le mur le plus visible du corps choisi, sa silhouette et ses poignees (facade/modeToit/poignees.ts::murLePlusVisible).
+ */
+function oeilDeLaVue(base: number): Oeil | null {
   const sc = vue3d.scene;
   if (!sc) return null;
   const cam = cameraDeVue(sc).position;
-  return { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z };
+  return { x: cam.x + sc.cen.x, y: sc.cen.y - cam.z, z: cam.y - base };
 }
 
 /**
@@ -135,7 +138,7 @@ export function PoigneesToit({ magasin }: { magasin: Magasin }) {
   const corps = o?.batiment?.corpsToit;
   if (!corps?.length) return null;
   const f = s.facade ?? s.derniere;
-  const oeil = oeilDeLaVue();
+  const oeil = oeilDeLaVue(altitudeDuBatiment(o));
   // Ce que tirent les poignees : de dessus, le corps choisi ; de face, l'element choisi devant sa facade, ou le corps choisi par le mur
   // ou se trace sa silhouette (jamais la facade d'un autre corps) ; sans choix, la facade courante (facade/modeToit/poignees.ts).
   const cible: CibleGlisser | null = oeil ? cibleDesPoignees(corps, e.selection, { dessus: plan, facade: f, oeil }) : null;

@@ -15,6 +15,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'actualisation IGN n'y reviennent pas, et « Valider » en fait une seule étape d'historique. La 3D, la DP2 (« Existant H ») et
   l'inspecteur lisent les nouvelles hauteurs. Fumée : point 97.
 
+### Modifié
+
+- **L'heure du soleil est l'heure légale du lieu du projet.** La date et l'heure tapées (inspecteur du parasol, Vue 3D,
+  visionneuse) se lisaient toujours à l'heure française, quel que soit le lieu : à La Réunion, « midi » tombait à 14 h sur place.
+  Le fuseau se déduit maintenant de la latitude et de la longitude de la parcelle, sans réseau (`geo/fuseau.ts`) : la France
+  métropolitaine et la Corse (Europe/Paris), la Guadeloupe, Saint-Martin et Saint-Barthélemy, la Martinique, la Guyane,
+  Saint-Pierre-et-Miquelon, La Réunion, Mayotte, la Polynésie (Tahiti, Marquises, Gambier), la Nouvelle-Calédonie,
+  Wallis-et-Futuna, et les voisins (Belgique, Luxembourg, Suisse, Monaco, Andorre, Allemagne, Italie, Espagne, Canaries) ;
+  ailleurs, l'heure de Paris, et l'interface le dit. Le décalage est celui de l'instant même (`Intl.DateTimeFormat`,
+  `shortOffset` ; sans les fuseaux d'ICU, la règle écrite) : la nuit d'un changement d'heure, les heures d'avant le changement
+  gardent l'ancien décalage, au lieu de celui de midi pour toute la journée. Sous le curseur de l'heure de l'inspecteur et dans
+  l'infobulle de l'heure des vues 3D : « Heure légale de … (zone) ». Un projet en France métropolitaine garde son soleil au bit
+  près (hors ces nuits, soleil couché) ; aucune empreinte ne bouge, le fichier ne change pas de forme.
+
 ### Corrigé
 
 - **La Vue 3D ne pose plus de cheminée que personne n'a vue — changement d'export (version majeure).** Sur un toit simple ou en
@@ -26,6 +40,27 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   refermer par le point 24 sous `RECAPTURER_GLB=1` ; `tests/fixtures/golden/EMPREINTES.md`, « Version suivante »). Les autres
   exports et les quantités ne bougent pas. `MD/spec-flux-batiment.md`, point 12.
 
+- **Mode Toit : un corps choisi montre son mur le plus visible.** Sa silhouette et ses poignées se posaient sur son mur le plus tourné
+  vers la caméra, qui peut être caché derrière l'autre corps d'une maison à deux corps (le pignon de « Corps 2 », contre le corps
+  principal). C'est maintenant le mur que l'on voit le mieux : tourné vers la caméra et le moins caché par les autres corps (des
+  points du pied au haut du mur, dont la vue vers la caméra passe ou non dans le volume d'un autre corps) ; à visibilité égale, le
+  plus tourné vers la caméra, et un mur vu de chant ne l'emporte pas (`facade/modeToit/poignees.ts::murLePlusVisible`,
+  `partVisibleDuMur`). Sans rien qui cache, le choix ne change pas. Toucher un corps dans le navigateur des façades suit la même
+  règle. Le dessin et la couleur de la silhouette ne changent pas.
+- **Une session du Mode Toit ne s'enregistre plus avant « Valider ».** Les gestes du mode écrivent le bâtiment en place (la 3D les
+  montre) sans marquer le projet ; l'enregistrement seul de la lecture des toits en fond, qui part quand tout ce qui attend vient
+  d'elle, sérialisait alors le bâtiment tel que la session le laissait. Vérifié en exécution (démonstration, panneau solaire posé
+  sans valider, un bâtiment lu en fond : le projet enregistré portait le panneau et le toit figé). Ce qui s'enregistre pendant une
+  session — l'enregistrement seul comme Ctrl+S — porte maintenant le bâtiment à son départ (`app/toits/modeToit.ts::objetsHorsSession`,
+  lu par la sérialisation du projet, `app/projet.ts`) : abandonnée, la session ne laisse aucune trace ; validée, elle
+  marque le projet à enregistrer, comme avant.
+- **Le Mode Toit ne s'ouvre plus sur la maison d'un voisin, et s'ouvre toujours sur la maison verrouillée du projet.** Il refusait
+  le seul voisinage importé (`voisinage`) : la maison d'une parcelle mitoyenne posée par l'import cadastre (`bdtopo`, hors de la
+  parcelle du projet) se retouchait et se figeait. `locked` n'est pas le critère : il protège le contour (ni déplacé, ni supprimé),
+  pas le toit, et la maison du projet est verrouillée à l'import. Le critère est la parcelle : un bâtiment importé hors de la parcelle
+  du projet, ou du voisinage, est « chez un voisin » (`app/toits/modeToit.ts::estRetouchable`, `raisonNonRetouchable`) ; un bâtiment
+  dessiné reste celui de la personne. Le bouton « Modifier la toiture » de la Vue 3D se grise alors et dit pourquoi (infobulle, et
+  message au toucher), par `commandes.etat` (`raisonInactive`).
 - **La silhouette des façades de la calibration, du relevé et de l'audit est celle du Mode Toit.** Le gabarit du mur
   (`facade/gabaritMur.ts`) se lisait le long du seul côté du contour, par une marche en profondeur à lui : le pignon d'une maison en L
   s'y coupait au coin de l'aile (un demi-triangle étiré sur toute la façade), et un mur de quelques dizaines de centimètres prenait

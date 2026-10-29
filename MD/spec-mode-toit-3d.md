@@ -281,8 +281,8 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   - Sans choix, rien ne change : le corps de la façade regardée, sinon le corps principal.
   - Le code : `gestesToits.ts::corpsChoisi`, paramètre `rangChoisi` de `raisonIndisponible` et `appliquerPiece`.
   - Le panneau le dit sous « Ajouter un élément » (`ModeToit.tsx::corpsCible`).
-- **Sa silhouette se trace, lisible.** Un corps choisi montre sa silhouette en vue libre ou de façade : son mur le plus tourné vers la
-  caméra, du pied au haut sous son toit, pignon compris. C'est un trait épais sur un halo clair, avec un voile léger
+- **Sa silhouette se trace, lisible.** Un corps choisi montre sa silhouette en vue libre ou de façade : ~~son mur le plus tourné vers la
+  caméra~~ son mur le plus visible (29 octobre 2026, ci-dessous), du pied au haut sous son toit, pignon compris. C'est un trait épais sur un halo clair, avec un voile léger
   (`PoigneesToit.tsx::silhouetteAEcran`, `TraitCorps`). De dessus, le plan le montre déjà.
   - La même silhouette (`silhouetteDesCorps.ts::silhouetteDuCorps`) fait le gabarit des façades de l'audit, du relevé et de la
     calibration : projetée sur le plan du mur, vue de face, tous corps compris (`silhouetteDeFace` ; 28 octobre 2026).
@@ -291,8 +291,15 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - **Les poignées sont sur le corps choisi** (28 octobre 2026, signalé par la personne : « suite à la sélection d'un corps, les
   poignées ne sont pas sur le bon corps »). De face, un corps choisi se réglait par la façade courante, celle d'un autre corps
   peut-être, pendant que sa silhouette se traçait sur lui. La cible se décide une fois (`poignees.ts::cibleDesPoignees`) : le mur du
-  corps choisi le plus tourné vers la caméra, celui de sa silhouette (`silhouetteVersLOeil(c, oeil, mur)`), qui garde son dessin et
-  sa couleur ; poignées, cotes et bulle le suivent. De dessus, le corps choisi, comme avant. La zone se redessine bien à chaque choix
+  corps choisi ~~le plus tourné vers la caméra~~ le plus visible (29 octobre 2026, ci-dessous), celui de sa silhouette (`silhouetteVersLOeil(c, oeil, mur)`), qui garde son dessin et
+  sa couleur ; poignées, cotes et bulle le suivent. De dessus, le corps choisi, comme avant.
+- **Le mur montré est le plus visible** (29 octobre 2026, signalé sur le pignon de l'aile « Corps 2 » : le mur le plus tourné vers la
+  caméra était derrière l'autre corps). `poignees.ts::murLePlusVisible` : parmi les murs tournés vers l'œil (la caméra, avec sa hauteur
+  au-dessus du sol du bâtiment), celui dont la plus grande part se voit (`partVisibleDuMur` : 40 points du pied au haut du mur, chacun
+  caché si la vue vers l'œil passe sous le toit d'un autre corps) ; à 15 % près, le plus tourné vers l'œil, et un mur vu à moins de
+  15° (de chant) ne l'emporte pas sur un mur de face. Sans rien qui cache, c'est le mur le plus tourné, comme avant. La silhouette
+  (`silhouetteVersLOeil(c, oeil, mur)`) reçoit ce mur et garde son dessin et sa couleur ; le toucher d'un corps dans le navigateur
+  (`modeToit.ts::choisirFacadeDuCorps`) suit la même règle. Test : `tests/unit/facade/modeToit/murVisible.test.ts`. La zone se redessine bien à chaque choix
   (le choix passe par `magasin.notifier()`, sa clé est la version) : c'était la cible, pas une clé périmée.
 - Fumée : point 98.
 
@@ -313,6 +320,12 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
 - Clavier : comme les autres poignées du mode, elle ne se prend qu'au pointeur (souris, doigt) ; le champ « Élévation » de
   l'inspecteur reste le chemin au clavier pour le corps principal.
 - Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
+
+### Ce qui s'enregistre pendant une session  *(29 octobre 2026)*
+- Les gestes écrivent le bâtiment en place, sans marquer le projet ; rien de la session n'entre dans le projet avant « Valider ». Un
+  enregistrement parti pendant la session (l'enregistrement seul de la lecture des toits en fond, ou Ctrl+S) écrit le bâtiment à son
+  départ (`modeToit.ts::objetsHorsSession`, sur la sérialisation du projet) : une session abandonnée ne laisse aucune trace.
+- Test : `tests/unit/app/toits/sessionEnregistree.test.ts`. Vérifié en exécution (MD/spec-flux-batiment.md, point 14).
 
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
@@ -349,7 +362,10 @@ npx tsx .claude/skills/toits/scripts/identite.ts                                
 2. **Plan de coupe** : exclu ici ; sera-t-il demandé plus tard ? (Le profil par pan existe déjà : `ProfilPan`.)
 3. **`baie` (cadastre) et `saillie` (main)** : les unifier à l'ouverture (une `baie` devient une `saillie` modifiable) ou garder deux notions ?
 4. **Le contour en L/U** : proposer le découpage en corps automatiquement (`rectanglesDuContour`) à l'entrée du mode, ou laisser la personne poser ses corps (étape 5) ?
-5. **Voisins** : le mode Toit reste réservé aux bâtiments de la parcelle du projet (`surParcelleDuProjet`) — confirmer.
+5. ~~**Voisins** : le mode Toit reste réservé aux bâtiments de la parcelle du projet (`surParcelleDuProjet`) — confirmer.~~ — tranché le
+   29 octobre 2026 : il ne s'ouvre pas sur un bâtiment du voisinage ni sur un bâtiment de l'IGN importé hors de la parcelle du projet
+   (`modeToit.ts::estRetouchable`) ; un bâtiment dessiné s'ouvre, et `locked` (le contour) n'y entre pas. Le bouton « Modifier la
+   toiture » se grise sur la maison d'un voisin et dit pourquoi.
 6. **Mobile** : sur téléphone, le glisser sert à tourner la vue ; les poignées exigent un mode « Modifier » explicite — confirmer l'ergonomie (deux doigts pour la vue, un doigt pour la poignée ?).
 7. **Livraison** : à quelle étape faire la première livraison zip ?
 

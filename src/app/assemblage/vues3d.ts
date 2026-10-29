@@ -8,6 +8,7 @@
 
 import { flushSync } from 'react-dom';
 import { formatHeureMin } from '../../util/format.js';
+import { fuseauDuLieu, libelleHeureLegale } from '../../geo/fuseau.js';
 import { telechargerBinaire } from '../../shell/download.js';
 import { showErrBanner } from '../../shell/dialogs.js';
 import { ensureConstruction } from '../../engine/construction.js';
@@ -139,6 +140,7 @@ export function creerVues3d(atelier: Atelier, magasin: Magasin, commandes: Regis
     allerAuPointDeVue: (vp) => avecMoteur3d((m) => navigation(m).allerAuPointDeVue(vp)),
     allerAuPointDeVueGlb: (vp) => siOuverte((n) => n.allerAuPointDeVueGlb(vp)),
     libelleLieu: d.affichage.libelleLieu, formatHeure: formatHeureMin,
+    heureLegale: () => { const l = lieuActuel(); return libelleHeureLegale(fuseauDuLieu(l.latitude, l.longitude)); },
     redimensionner3d: () => siOuverte((n) => n.resizeThreeScene()), redimensionnerGlb: () => siOuverte((n) => n.resizeGlbViewerScene())
   };
 

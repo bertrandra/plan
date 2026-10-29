@@ -264,7 +264,7 @@ export function Vue3d({ magasin, commandes, vues, inspecteur }: Props) {
           {affichage3d.vue3d === 'pret' && <Suspense fallback={null}><ModeToit magasin={magasin} commandes={commandes} /></Suspense>}<Horloge minutes={vues.soleil3d.etat.minutes} formatHeure={vues.formatHeure} ouvert={heure} basculer={() => setHeure(!heure)} />
           {/* Monte meme ferme : la liste de fumee et les ecouteurs retrouvent les curseurs par leur identifiant. */}
           <div id="reglageHeure3d" className="reglageHeure3d" role="group" aria-label="Heure et date du soleil" hidden={!heure}>
-            <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} info={affichage3d.soleilInfo} />
+            <BarreHeure ids={IDS_SOLEIL} id="barreSoleil3d" soleil={vues.soleil3d} formatHeure={vues.formatHeure} heureLegale={vues.heureLegale()} info={affichage3d.soleilInfo} />
             <LigneDate ids={IDS_SOLEIL} soleil={vues.soleil3d} />
           </div>
           <div id="terrasse3dZoomControls" className="commandes3d">

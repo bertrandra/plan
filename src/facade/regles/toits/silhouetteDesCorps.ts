@@ -138,7 +138,9 @@ const surLePlan = (f: Facade, l: readonly P2[]) => l.map((q) => ({ x: f.gauche.x
 
 /**
  * La silhouette d'un corps vue d'un point (`oeil`, dans le plan) : son mur le plus tourne vers lui (silhouetteDuCorps). Ce que le
- * mode Toit trace autour du corps choisi. `mur` : ce mur-la plutot que le plus tourne vers l'oeil (celui que tirent les poignees).
+ * mode Toit trace autour du corps choisi. `mur` : ce mur-la plutot que le plus tourne vers l'oeil (celui que tirent les poignees) ;
+ * le mode Toit le donne toujours, et c'est le mur le plus visible du corps, que les autres corps ne cachent pas
+ * (facade/modeToit/poignees.ts::murLePlusVisible, 29 octobre 2026). Le dessin de la silhouette ne change pas.
  */
 export function silhouetteVersLOeil(c: CorpsToit, oeil: PtBrut, mur?: number): { x: number; y: number; z: number }[] | null {
   const egout = Math.min(...c.egouts), murs = facadesDuContour(c.pts, egout);

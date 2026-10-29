@@ -439,8 +439,11 @@ de composant à lui : il est réparti entre `geo/`, `engine/`, `three/`, `app/`,
 **Décidé et fait le 28 octobre 2026 (étape 6.7, version 4.0.0)** : un seul soleil, `core/soleil.ts` (l'exemplaire vivant, décrit
 par `model/soleilProjet.ts`), lu par le plan, la Vue 3D et la visionneuse ; enregistré sur la parcelle (`soleil`, schéma 6) une
 fois choisi ; un réglage d'affichage qui marque le projet à enregistrer (`app/ecouteurs/soleil.ts`) ; par défaut aujourd'hui, en
-date locale, à 15 h. La formule reste `geo/soleil.ts`. **Reste ouvert** : le fuseau, toujours celui de la France
-(`decalageFuseauFrance`). Le relevé ci-dessous garde l'état du 27 octobre, corrigé point par point.
+date locale, à 15 h. La formule reste `geo/soleil.ts`. ~~**Reste ouvert** : le fuseau, toujours celui de la France
+(`decalageFuseauFrance`).~~ **Fait le 29 octobre 2026** : l'heure tapée est l'heure légale du lieu de la parcelle ; son fuseau se
+déduit de la latitude et de la longitude, sans réseau (`geo/fuseau.ts::fuseauDuLieu` : la France métropolitaine par un contour, la
+Corse, les outre-mer et quelques voisins par des boîtes, Paris en repli, dit à l'écran), et le décalage est celui de l'instant même
+(`Intl.DateTimeFormat`, `shortOffset`, la règle écrite sans ICU). Le relevé ci-dessous garde l'état du 27 octobre, corrigé point par point.
 
 ### Les repères
 
@@ -456,8 +459,9 @@ date locale, à 15 h. La formule reste `geo/soleil.ts`. **Reste ouvert** : le fu
   l'azimut (déclinaison de Cooper, équation du temps approchée, sans réfraction) ; `leverEtCoucher` cherche minute par minute
   le premier et le dernier instant où le centre du disque est au-dessus de l'horizon (`null` au-delà des cercles polaires).
   Quatre modules l'appellent : `engine/parasol.ts`, `three/lumiere.ts`, `three/presentation.ts`, `app/boot/vitrine.ts`.
-- **L'heure est l'heure légale française** (`decalageFuseauFrance`, heure d'été et d'hiver selon la règle européenne), quel que
-  soit le lieu.
+- ~~**L'heure est l'heure légale française** (`decalageFuseauFrance`, heure d'été et d'hiver selon la règle européenne), quel que
+  soit le lieu.~~ *Depuis le 29 octobre 2026* : l'heure légale du lieu (`geo/fuseau.ts`), lue à l'instant même ; « Heure légale
+  de … » sous le curseur de l'heure de l'inspecteur et dans l'infobulle de l'heure des vues 3D.
 - **Le lieu** : la latitude et la longitude de la parcelle du projet (`model/lieu.ts::lieuDeParcelle`), posées à l'import du
   cadastre au centre de la parcelle ; à défaut, Le Vésinet (`LIEU_DEFAUT`).
 - **La date et l'heure : trois soleils séparés**, aucun enregistré dans le projet :
@@ -534,8 +538,11 @@ Par ordre d'effet sur ce que voit la personne :
    12 h – 18 h, pas la date choisie » (`FENETRE_CARTE_OMBRE`).
 3. ~~**Trois façons de dire « aujourd'hui »** : la date UTC (entre minuit et 2 h, la 3D montre la veille), l'année locale, la date
    locale.~~ — corrigé le 28 octobre 2026 : une seule, la date locale (`model/soleilProjet.ts::aujourdhui`), que la vitrine reprend.
-4. **Le fuseau est toujours celui de la France** (ouvert au 28 octobre 2026, à décider), faux outre-mer et à l'étranger ; les jours de changement d'heure, l'écart est
-   choisi pour la journée entière.
+4. ~~**Le fuseau est toujours celui de la France** (ouvert au 28 octobre 2026, à décider), faux outre-mer et à l'étranger ; les jours de changement d'heure, l'écart est
+   choisi pour la journée entière.~~ — corrigé le 29 octobre 2026 : l'heure tapée est l'heure légale du lieu de la parcelle
+   (`geo/fuseau.ts` : France métropolitaine et Corse, outre-mer, voisins ; Paris en repli, dit à l'écran), au décalage de
+   l'instant même (`Intl.DateTimeFormat`, `shortOffset`). En France métropolitaine, le soleil est celui d'avant au bit près,
+   hors la nuit des changements d'heure avant l'heure du changement (soleil couché).
 5. **Un plan dessiné à la main n'a pas de nord** : soleil, ombres et façade au soleil supposent le haut au nord, sans le dire.
 6. **Pas d'ombre des bâtiments, des arbres et des pergolas sur le plan** ; la carte n'existe que sur une terrasse qui a un
    parasol.
@@ -567,7 +574,8 @@ Par ordre d'effet sur ce que voit la personne :
   parasols.
 - **Pas de nord réglable** pour un plan dessiné à la main : le haut du plan reste le nord.
 
-Reste à décider, sans urgence : le fuseau (celui du lieu plutôt que la France). La carte des heures d'ombre garde sa fenêtre fixe,
+~~Reste à décider, sans urgence : le fuseau (celui du lieu plutôt que la France).~~ Décidé et fait le 29 octobre 2026 : celui du
+lieu (`geo/fuseau.ts`). La carte des heures d'ombre garde sa fenêtre fixe,
 dite à l'écran (étape 6.7, 28 octobre 2026) : un parasol se place pour la saison, pas pour un jour.
 
 ## Les toits dans l'audit de la parcelle
