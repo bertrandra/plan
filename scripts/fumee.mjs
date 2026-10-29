@@ -2172,7 +2172,7 @@ const POINTS = {
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
-    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' };
+    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-sonnet-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' };
     let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());

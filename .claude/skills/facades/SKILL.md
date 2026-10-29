@@ -710,7 +710,8 @@ graines sur les arêtes reste (`facade/detection/recalageIa.ts`). Les chiffres d
 ## 5 ter. Le run d'une façade (lot F2) et la mesure ×1 contre ×3
 
 Trois lectures votées par façade (décision du 29 octobre 2026, réglage `facades.ia.passes` ; mesure de la vraie API : ×1 rappel 92,9 %,
-×3 99,2 %), et une escalade à la demande (un modèle plus fin, une requête, pesée par la règle `escaladerObservations`), sur l'image
+×3 99,2 %), et une escalade à la demande (un modèle plus fin, une requête, pesée par la règle `escaladerObservations` ; le modèle de l'usage
+`escalade`, `claude-sonnet-5-5` par défaut depuis le 29 octobre 2026, réglable dans Réglages › Modèles), sur l'image
 prise pour la suite (`MD/spec-facade-calage-audit.md` §8) : prompt et schéma générés
 (`deploy/prompt-facade.md`, `deploy/schema-facade.json`, depuis `src/regles/sujets/descriptions/facadesRun.ts`), usage `facade` du
 serveur. Sa réponse devient des observations (`src/regles/facades/observations.ts`) que les règles de `facade/regles/facades/ia.ts`

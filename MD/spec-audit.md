@@ -554,7 +554,7 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
     16 000. Chaque mur porte une étiquette unique pour le vote (orientation, et « (côté N) » quand le
     bâtiment en a plusieurs de même orientation) ; sans rendu du modèle joint, le texte le dit.
   - **Depuis le 15 octobre 2026, le modèle rapide (Haiku) est de nouveau celui de tous les usages par
-    défaut** (voir ci-dessous) ; les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation
+    défaut, sauf l'escalade (Sonnet depuis le 29 octobre 2026)** (voir ci-dessous) ; les plafonds par défaut (1 $ par jour, 10 $ par mois) et l'estimation
     par requête (0,005 $) lui correspondent. Un usage passé au modèle plus fin (Sonnet) dans
     « Réglages » coûte vingt fois plus, soit **de l'ordre de 20 à 40 centimes par parcelle** pour
     l'analyse : l'administrateur relève alors les plafonds.
@@ -562,9 +562,12 @@ Ce qui demande de **regarder** (reconnaître, comparer, nommer) est confié à C
   le tableau de bord (§13.3, onglet « Réglages ») et gardé dans `claude/modeles.json`
   (`GET|PUT admin/claude/modeles`, session admin, version précédente en `.bak`). Il ne propose que les
   modèles que le serveur admet (`MODELES` de `deploy/analyse-fonctions.php`) et
-  refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits, escalade,
+  refuse les autres. Par défaut, le modèle rapide pour tous les usages : analyse des audits,
   run d'une façade, aide immédiate et cas candidats (`spec-regles-toits.md`) (*décision de
-  l'utilisateur, 15 octobre 2026*). Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
+  l'utilisateur, 15 octobre 2026*) ; **sauf l'escalade, au modèle plus fin** (`claude-sonnet-5-5`,
+  *décision de l'utilisateur, 29 octobre 2026*) : elle ne part qu'à la demande (une maison dont les
+  passes se désaccordent, une façade après ses trois lectures votées), et une passe de plus du même
+  modèle rapide n'y apportait presque rien. Le « rien trouvé » d'un vrai audit, qui avait fait passer l'analyse
   au modèle plus fin le 14 octobre, venait du schéma que l'API refusait (sortie structurée trop grande,
   §13.2 point « Réponse fermée »), pas du modèle. L'administrateur passe un usage au modèle plus fin
   s'il le faut. Un modèle réglé que
