@@ -11,15 +11,18 @@
 // le moteur a pose (`elementsDuToit`) : ce que le corps portait, a la main ou vu, ne bouge pas. La fenetre d'une lucarne quitte la
 // facade objet du mur (un element n'a qu'un endroit, §5 quater). Pur.
 
-import { facadesDuContour, nomFacade } from '../../../geometry/cotesVusDeDehors.js';
+import { facadesDuContour, nomFacade, type Facade } from '../../../geometry/cotesVusDeDehors.js';
 import { corpsProposesSousFait, corpsSousContrainte } from '../../../facade/regles/toits/faits.js';
 import { murDuCorps } from '../../../facade/regles/toits/murDuCorps.js';
-import { direAlerte, direChangement, direElement, direPreuve, type PropositionElement } from '../../../facade/regles/facades/diagnosticForme.js';
+import { diagnostiquerForme, direAlerte, direChangement, direElement, direPreuve, type DiagnosticForme, type PropositionElement } from '../../../facade/regles/facades/diagnosticForme.js';
+import { observationsDuRun } from '../../../facade/regles/facades/ia.js';
 import { lucarnesDevantLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { ecrivainPeut } from '../../../model/protections.js';
 import { faitDuBatiment } from '../../../regles/toits/faits.js';
 import { toitChoisiALaMain } from './constats.js';
 import { cleMesure, type EntreesPropositions } from './propositions.js';
+import type { MesureFacade } from './mesures.js';
+import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { Proposition } from '../../../regles/decisions.js';
 import type { CorpsToit, ObjetPlan, PtBrut, ToitMesure } from '../../../model/types.js';
 
@@ -70,6 +73,20 @@ function propositionElement(o: ObjetPlan, nom: string, cle: string, cote: number
   };
 }
 
+/**
+ * Le diagnostic de forme d'une facade mesuree, complete par ce que Claude en lit (lot F7, decision du proprietaire : « utilise les formes
+ * pour completer les decisions ») : quand le run de la facade est la (ses passes votees, son escalade), le diagnostic se refait avec ses
+ * observations (pointes, silhouette, elements), sur le haut lu de la mesure et les corps d'aujourd'hui, par les memes regles que la
+ * calibration (diagnosticForme.ts : une proposition que ses pointes confirment vient « des deux », ce qu'il est seul a voir la ou la
+ * photo se lit n'est pas propose, les hauteurs restent celles du LiDAR). Sans run, celui de la mesure ; sans mesure de cette seance (une
+ * mesure relue d'un fichier n'a pas de diagnostic), rien.
+ */
+function diagnosticAvecClaude(m: MesureFacade | undefined, facade: Facade, corps: readonly CorpsToit[], run: RunEnregistre | undefined): DiagnosticForme | null {
+  if (!m?.diagnostic) return null;
+  const ia = run ? observationsDuRun(run) : null;
+  return ia ? diagnostiquerForme({ facade, corps, hauteurMur: facade.hauteur, lue: m.hautLu ?? null, ia }) : m.diagnostic;
+}
+
 /** Les propositions de toit des facades mesurees, une par corps diagnostique, relues par le moteur des toits. */
 export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
   const parCle = new Map(e.objets.map((o) => [o.key, o]));
@@ -81,7 +98,8 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
     if (!o || !corps?.length || !mesure || !pts || pts.length < 3) continue;
     for (const f of b.facades) {
       const m = e.mesures.get(cleMesure(b.cle, f.cote));
-      for (const p of m?.diagnostic?.propositions ?? []) {
+      const d = diagnosticAvecClaude(m, f.facade, corps, e.runs?.[cleMesure(b.cle, f.cote)]);
+      for (const p of d?.propositions ?? []) {
         // Le moteur relit le corps que designe son mur, tel qu'il est dans le plan aujourd'hui.
         const relus = corpsSousContrainte({ observation: p.observation, application: 'contrainte' }, corps, mesure, pts);
         const k = murDuCorps(corps, p.mur.gauche, p.mur.droite)?.corps;
@@ -97,7 +115,7 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
           apres: direChangement(p) + ', ' + direPreuve(p),
           indices: [
             { texte: 'Le haut de la ' + mur + ', lu sur la photo, comparé à la silhouette que ce corps lui donne (le gabarit).', ...(m?.rangReleve !== null && m?.rangReleve !== undefined ? { photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } } : {}) },
-            ...(m?.diagnostic?.alertes ?? []).filter((a) => a.corps === p.corps).map((a) => ({ texte: 'Alerte : ' + direAlerte(a) + '.' })),
+            ...(d?.alertes ?? []).filter((a) => a.corps === p.corps).map((a) => ({ texte: 'Alerte : ' + direAlerte(a) + '.' })),
           ],
           confiance: null,
           remplaceChoix: toitChoisiALaMain(o) ? 'forme du toit saisie' : null,
@@ -107,7 +125,7 @@ export function propositionsDeForme(e: EntreesPropositions): Proposition[] {
       }
       const mur = 'façade ' + nomFacade(f.facade.orientation, f.cote);
       const indice = { texte: 'La ligne du haut de la ' + mur + ', lue sur la photo : une bosse plus étroite qu’un pignon, ou ce que Claude y voit.', ...(m?.rangReleve !== null && m?.rangReleve !== undefined ? { photo: { cle: b.cle, cote: f.cote, rang: m.rangReleve } } : {}) };
-      for (const p of m?.diagnostic?.elements ?? []) {
+      for (const p of d?.elements ?? []) {
         const x = propositionElement(o, b.nom, b.cle, f.cote, mur, corps, mesure, pts, p, indice);
         if (x) out.push(x);
       }

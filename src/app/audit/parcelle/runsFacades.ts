@@ -25,12 +25,19 @@ import type { ImageAnalyse } from '../../../render/imagesAnalyse.js';
 import type { Image } from '../../../facade/vision/homographie.js';
 import type { ReleveFacade } from '../../../model/types.js';
 import type { MesureFacade } from './mesures.js';
+import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
 
-/** L'image d'une facade pour son run, et sa taille avant reduction (la reponse enregistree la garde). */
-export interface ImageRunFacade { image: Pick<ImageAnalyse, 'base64' | 'mediaType'>; largeur: number; hauteur: number }
+/**
+ * L'image d'une facade pour son run, et sa taille avant reduction (la reponse enregistree la garde) ; `egoutPart` : l'egout sur elle, en
+ * part de sa hauteur depuis le bas, quand elle montre aussi la bande au-dessus de lui (lot F7).
+ */
+export interface ImageRunFacade { image: Pick<ImageAnalyse, 'base64' | 'mediaType'>; largeur: number; hauteur: number; egoutPart?: number }
 
-/** Qui dessine l'image du run d'une facade de l'audit : l'elevation du mur, decoupee dans la texture de son releve mesure. */
-export interface FabriqueImageRunFacade { elevation(r: ReleveFacade): Promise<ImageRunFacade | null> }
+/**
+ * Qui dessine l'image du run d'une facade de l'audit : la photo du releve redressee jusqu'au haut de la facade (`imageRun` de la mesure,
+ * lot F7), sinon (une mesure relue d'un fichier) le mur seul, decoupe dans la texture de son releve mesure.
+ */
+export interface FabriqueImageRunFacade { elevation(r: ReleveFacade, imageRun: ImageDuRun | null): Promise<ImageRunFacade | null> }
 
 /** L'identifiant d'une passe du run d'une facade (`[A-Za-z0-9_-]`) : le rang du batiment, le cote, la passe. */
 const idRunFacade = (rang: number, cote: number, passe: number): string => 'b' + rang + '-f' + cote + '-p' + passe;
@@ -42,12 +49,12 @@ export async function contenuDeLaFacade(e: EntreesPropositions, cle: string, cot
   const m = e.mesures.get(cleMesure(cle, cote));
   const r = m?.releve;
   if (!f || !m || !r) return null;
-  const img = await fab.elevation(r);
+  const img = await fab.elevation(r, m.imageRun ?? null);
   if (!img) return null;
   const vu = e.capture.batiments[cle]?.vu;
   const parement = vu?.murs ? libelleDe(MATERIAUX_MURS_VUS, vu.murs).toLowerCase() : null;
   const etiquette = (b ? etiquetteFacade(b, f) : f.facade.orientation.toLowerCase()) + ' de ' + nom;
-  const texte = texteRunFacade({ etiquette, image: 'elevation', pointes: m.gabarit ? pointesDuGabarit(m.gabarit) : [], parement });
+  const texte = texteRunFacade({ etiquette, image: img.egoutPart !== undefined ? 'elevationBande' : 'elevation', pointes: m.gabarit ? pointesDuGabarit(m.gabarit) : [], parement, ...(img.egoutPart !== undefined ? { egoutPart: img.egoutPart } : {}) });
   return { contenu: contenuRunFacade(img.image, texte), image: { largeur: img.largeur, hauteur: img.hauteur } };
 }
 

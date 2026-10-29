@@ -142,7 +142,10 @@ describe('quatre reperes poses au doigt sur une photo', () => {
     // Les photos redressees gardent la surface de la photo : rien n'est coupe au mur.
     const photo0 = (images[0] as NonNullable<(typeof images)[0]>);
     expect(m.redressees?.length).toBe(2);
-    expect(Math.min(...tailles.slice(-2))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
+    // Les deux photos redressees, puis l'image du run de Claude (lot F7 : le mur et la bande au-dessus de l'egout), encodee en dernier.
+    expect(Math.min(...tailles.slice(-3, -1))).toBeGreaterThan(0.6 * photo0.largeur * photo0.hauteur);
+    expect(m.imageRun?.egoutPart).toBeGreaterThan(0);
+    expect(m.imageRun?.egoutPart).toBeLessThan(1);
   }, 90000);
 
   it('avec le mur ajuste a la main sur la photo redressee, il l emporte et se reporte sur l autre photo', async () => {

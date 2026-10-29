@@ -85,6 +85,17 @@ describe('le run des facades dans l audit', () => {
     expect((await requetesRunsDuBatiment(entrees({ releve: null }), 'maison', 'maison', 0, FAB)).requetes).toEqual([]);
   });
 
+  it('envoie la photo redressee jusqu au haut de la facade quand la mesure l a faite (lot F7), et dit ou est l egout', async () => {
+    const vu: { imageRun: unknown }[] = [];
+    const fab: FabriqueImageRunFacade = { elevation: async (_r, imageRun) => { vu.push({ imageRun }); return imageRun ? { image: { base64: 'QkFOREU=', mediaType: 'image/jpeg' }, largeur: 500, hauteur: 520, egoutPart: imageRun.egoutPart } : null; } };
+    const imageRun = { image: 'data:image/jpeg;base64,QkFOREU=', largeur: 500, hauteur: 520, egoutPart: 0.577 };
+    const r = await requetesRunsDuBatiment(entrees({ imageRun }), 'maison', 'maison', 0, fab, Infinity, 1);
+    expect(vu).toEqual([{ imageRun }]);
+    expect(r.parId['b0-f0-p1']).toMatchObject({ image: { largeur: 500, hauteur: 520 } });
+    const texte = (r.requetes[0]!.contenu[1] as { text: string }).text;
+    expect(texte).toMatch(/L’image est le mur, déjà redressé et cadré, du sol \(en bas\) jusqu’au-dessus du haut de la façade : .*l’égout est à 58 % de sa hauteur depuis le bas ; au-dessus de lui se voient le toit, les pignons, les cheminées et les lucarnes\./);
+  });
+
   it('enregistre la reponse de chaque facade avec ses propres versions, comme la calibration la garde', () => {
     const lu: ResultatsBatch = {
       batch: { id: 'msgbatch_1', etat: 'ended', compte: null }, modele: 'claude-haiku-5-5', prompt: 7, schema: 5,

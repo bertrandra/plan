@@ -8,7 +8,7 @@ import { captureVide } from '../../../../../src/model/auditParcelle.js';
 import { appliquerPropositions, cocheeParDefaut, type Proposition } from '../../../../../src/regles/decisions.js';
 import { diagnostiquerForme } from '../../../../../src/facade/regles/facades/diagnosticForme.js';
 import { lucarnesDevantLeMur } from '../../../../../src/facade/regles/toits/elementsDesMurs.js';
-import { lireObservationsFacade } from '../../../../../src/regles/facades/observations.js';
+import { lireObservationsFacade, type RunEnregistre } from '../../../../../src/regles/facades/observations.js';
 import { facadesDuContour } from '../../../../../src/geometry/cotesVusDeDehors.js';
 import type { CorpsToit, ObjetPlan, OuvertureFacade, PtBrut, ReleveFacade, ToitMesure } from '../../../../../src/model/types.js';
 
@@ -82,5 +82,25 @@ describe('les elements decouverts dans l audit (lot F7)', () => {
     const o = maison({ ...CORPS, lucarnes: [lucarne] });
     const m = { cle: 'maison', cote: 0, releve: RELEVE, facade: { dimensions: { largeurM: 10, egoutM: 5 }, forme: { gabarit: [], source: 'plan' } } } as unknown as MesureFacade;
     expect(facadeAEcrire(o, m, '2026-10-29')!.ouvertures.map((x) => x.id)).toEqual(['o1']);
+  });
+});
+
+describe('les formes que Claude lit sur la bande completent les decisions de l audit (lot F7)', () => {
+  // Le haut lu de la mesure : l'egout partout, et une souche de 40 cm a u 0,3 qui monte a 9,5 m (le faitage est a 8 m).
+  const lue = Array.from({ length: 201 }, (_, k) => ({ u: k / 200, v: k / 200 >= 0.28 && k / 200 <= 0.32 ? 1.9 : 1 }));
+  const sortie = (elements: { element: 'cheminee' | 'lucarne'; u: number }[]) => ({ calage: { angles: {}, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: elements.map((x) => ({ ...x, confiance: 'forte' })), surface: { principale: 'enduit', zones: [] }, ouvertures: [], confiance: 'forte' });
+  const run = (elements: { element: 'cheminee' | 'lucarne'; u: number }[]): RunEnregistre => ({ le: '2026-10-29T10:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 2, schema: 2, passes: 3, sorties: [sortie(elements), sortie(elements), sortie(elements)], cout: 0.005, tokens: { entree: 3000, sortie: 900 }, image: { largeur: 640, hauteur: 520 }, chaine: 10 });
+  const propositions = (runs: Record<string, RunEnregistre> | null) => {
+    const o = maison();
+    const diagnostic = diagnostiquerForme({ facade: sud, corps: o.batiment!.corpsToit!, hauteurMur: 5, lue });
+    const mesures = new Map<string, MesureFacade>([[cleMesure('maison', 0), { cle: 'maison', cote: 0, releve: null, rangReleve: 0, coinsTrouves: true, confiance: 0.9, hauteurM: null, couleur: null, hautLu: lue, diagnostic }]]);
+    const capture = captureVide('78650000AE0101');
+    return propositionsDeForme({ objets: [parcelle, o], liste: listeDeControle([parcelle, o], capture), capture, mesures, runs });
+  };
+
+  it('sans run, la photo seule ; avec le run, Claude confirme la cheminee (« des deux ») et ce qu il est seul a voir n est pas propose', () => {
+    expect(propositions(null).map((p) => p.apres)).toEqual(['une cheminée à 0,3 de la largeur de la façade, d’après le haut lu sur la photo, posée par le moteur des toits sur ce corps']);
+    const avec = propositions({ 'maison#0': run([{ element: 'cheminee', u: 0.31 }, { element: 'lucarne', u: 0.7 }]) });
+    expect(avec.map((p) => [p.id, p.apres])).toEqual([['maison:element:0:0:cheminee:30', 'une cheminée à 0,3 de la largeur de la façade, d’après le haut lu sur la photo et Claude, posée par le moteur des toits sur ce corps']]);
   });
 });

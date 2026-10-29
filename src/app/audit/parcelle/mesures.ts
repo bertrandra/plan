@@ -14,6 +14,7 @@
 // Aucune photo n'est jamais supprimee : une photo qui ne se fusionne pas reste seule, redressee. Les originaux sont immuables ; les
 // corrections manuelles (reperes, mur, echelle) priment sur le calcul et ne sont jamais ecrasees par un rejeu.
 
+import type { ImageDuRun } from '../../../facade/releve/imageDuRun.js';
 import { CHAMP_GRAND_COTE_DEFAUT } from '../../../facade/vision/cadrage.js';
 import { lireFacadeSurPhoto, pixelsDePhoto } from '../../../render/couleurPhotoAudit.js';
 import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/serie.js';
@@ -70,6 +71,12 @@ export interface MesureFacade {
    * gabarit (lot F4). Derive : il ne s'ecrit pas dans le fichier de l'audit ; une mesure relue d'un fichier ne l'a pas.
    */
   hautLu?: { u: number; v: number }[] | null;
+  /**
+   * L'image que le run de Claude lit (lot F7) : la photo du releve redressee du sol jusqu'au haut de la facade (pointes, toit, cheminees,
+   * lucarnes), en JPEG, et la place de l'egout sur elle. Derivee : elle ne s'ecrit pas dans le fichier de l'audit ; une mesure relue d'un
+   * fichier envoie le mur seul, coupe dans la texture de son releve.
+   */
+  imageRun?: ImageDuRun | null;
   /**
    * Le diagnostic de forme de la facade (E5 bis, lot F4) : ses troncons de corps, les propositions de toit (chacune sur son corps, par
    * son mur), les alertes de hauteur. Derive, comme les etapes : il ne s'ecrit pas dans le fichier de l'audit.
@@ -219,6 +226,6 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const sortie = r.sorties.audit;
   const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
   const diagnostic = r.sorties.forme?.diagnostic ?? null;
-  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
+  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees, imageRun: sortie.imageRun } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}), ...(r.sorties.facade ? { facade: r.sorties.facade } : {}) };
   return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
 }

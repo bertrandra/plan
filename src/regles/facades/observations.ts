@@ -180,6 +180,7 @@ const IMAGES = {
   assemblage: 'L’image est l’assemblage des photos redressées du mur.',
   photo: 'L’image est une seule photo du mur, pas encore redressée : situez les angles là où la photo les montre.',
   elevation: 'L’image est le mur seul, déjà redressé et cadré, du sol (en bas) à l’égout (en haut) : ses angles sont aux bords gauche et droit de l’image.',
+  elevationBande: 'L’image est le mur, déjà redressé et cadré, du sol (en bas) jusqu’au-dessus du haut de la façade : ses angles sont aux bords gauche et droit de l’image, et l’égout est à {egout} de sa hauteur depuis le bas ; au-dessus de lui se voient le toit, les pignons, les cheminées et les lucarnes.',
 } as const;
 
 /**
@@ -188,13 +189,14 @@ const IMAGES = {
  * pour que Claude lise la photo avec lui (un colombage se distingue mieux quand on l'attend). Des attentes que Claude confirme ou
  * contredit, jamais des valeurs a recopier. Aucune dimension.
  */
-export function texteRunFacade(e: { etiquette: string; image: keyof typeof IMAGES; pointes: readonly { u: number; v: number }[]; parement?: string | null }): string {
+export function texteRunFacade(e: { etiquette: string; image: keyof typeof IMAGES; pointes: readonly { u: number; v: number }[]; parement?: string | null; egoutPart?: number }): string {
   const n = (v: number, k = 2) => String(Math.round(v * 10 ** k) / 10 ** k);
   const attente = e.pointes.length
     ? 'Le plan attend ' + (e.pointes.length > 1 ? e.pointes.length + ' pointes de pignon' : 'une pointe de pignon') + ' : ' + e.pointes.map((p) => 'u ' + n(p.u) + ', à environ ' + n(p.v, 1) + ' fois l’égout').join(' ; ') + '.'
     : 'Le plan attend un haut sans pignon : une ligne droite à l’égout.';
   const parement = e.parement ? 'Le parement du mur que Plan connaît (relevé sur place ou porté par le plan) : ' + e.parement + '. Dites ce que l’image montre, zone par zone.' : null;
-  return ['Façade : ' + e.etiquette + '.', IMAGES[e.image], attente, ...(parement ? [parement] : [])].join('\n');
+  const image = IMAGES[e.image].replace('{egout}', Math.round((e.egoutPart ?? 1) * 100) + ' %');
+  return ['Façade : ' + e.etiquette + '.', image, attente, ...(parement ? [parement] : [])].join('\n');
 }
 
 
