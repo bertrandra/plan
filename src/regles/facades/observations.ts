@@ -223,14 +223,21 @@ export interface RunEnregistre {
   cout: number | null;
   /** Les tokens de l'appel : en entree (cache compris) et en sortie. */
   tokens: { entree: number; sortie: number };
-  /** L'image envoyee (ses pixels), et la version de la chaine qui l'avait assemblee. */
-  image: { largeur: number; hauteur: number };
+  /**
+   * L'image envoyee : ses pixels avant reduction, et (lot L0, MD/spec-lecture-ia-elargie.md 4.8) l'empreinte et la taille des octets
+   * que Claude a vus, tels que le serveur les garde avec la trace de la requete (`images/<sha256>.jpg`). Absentes d'une reponse
+   * enregistree d'avant le lot, qui reste lisible ; la version de la chaine qui l'avait assemblee suit.
+   */
+  image: ImageEnvoyee;
   chaine: number;
   /** Une reponse fabriquee pour les tests et le banc, jamais de Claude : l'ecran le dit. */
   synthetique?: true;
   /** L'escalade demandee par la personne : une lecture de plus, par le modele de l'usage `escalade`, gardee pour le rejeu. */
   escalade?: EscaladeEnregistree;
 }
+
+/** L'image d'un run : ses pixels, et l'empreinte (sha256 hexadecimal) et la taille des octets envoyes quand le serveur les a dites. */
+export interface ImageEnvoyee { largeur: number; hauteur: number; sha256?: string; octets?: number }
 
 /** Une escalade : une requete, jamais plus, sur la meme image et le meme texte que les passes ; sa sortie, ses versions, son cout. */
 export interface EscaladeEnregistree {
@@ -241,12 +248,18 @@ export interface EscaladeEnregistree {
   sortie: unknown;
   cout: number | null;
   tokens: { entree: number; sortie: number };
+  /** L'empreinte des octets envoyes (lot L0) : celle des passes quand l'image est la meme. */
+  sha256?: string;
 }
+
+const SHA256 = /^[0-9a-f]{64}$/;
+/** L'empreinte relue d'un enregistrement : 64 chiffres hexadecimaux, sinon rien (jamais inventee). */
+const empreinte = (v: unknown): { sha256: string } | Record<string, never> => (typeof v === 'string' && SHA256.test(v) ? { sha256: v } : {});
 
 function lireEscalade(v: unknown): EscaladeEnregistree | null {
   const o = objet(v), t = objet(o?.tokens);
   if (!o || typeof o.le !== 'string' || typeof o.modele !== 'string' || !fini(o.prompt) || !fini(o.schema) || !lireObservationsFacade(o.sortie)) return null;
-  return { le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, sortie: o.sortie, cout: fini(o.cout) ? o.cout : null, tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 } };
+  return { le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, sortie: o.sortie, cout: fini(o.cout) ? o.cout : null, tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, ...empreinte(o.sha256) };
 }
 
 /** Une reponse enregistree relue d'un cas ; null si elle n'en a pas la forme (elle est alors ignoree, pas inventee). */
@@ -256,7 +269,7 @@ export function lireRunEnregistre(v: unknown): RunEnregistre | null {
   if (!im || !fini(im.largeur) || !fini(im.hauteur) || !fini(o.chaine)) return null;
   return {
     le: o.le, modele: o.modele, prompt: o.prompt, schema: o.schema, passes: o.passes, sorties: o.sorties, cout: fini(o.cout) ? o.cout : null,
-    tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, image: { largeur: im.largeur, hauteur: im.hauteur }, chaine: o.chaine,
+    tokens: { entree: fini(t?.entree) ? t.entree : 0, sortie: fini(t?.sortie) ? t.sortie : 0 }, image: { largeur: im.largeur, hauteur: im.hauteur, ...empreinte(im.sha256), ...(entier(im.octets) !== null ? { octets: im.octets as number } : {}) }, chaine: o.chaine,
     ...(o.synthetique === true ? { synthetique: true as const } : {}),
     ...(lireEscalade(o.escalade) ? { escalade: lireEscalade(o.escalade) as EscaladeEnregistree } : {}),
   };

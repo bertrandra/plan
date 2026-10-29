@@ -55,8 +55,8 @@ export async function escalader(client: ClientAnalyse, demande: DemandeAnalyse, 
   for (let i = 0; i < aEnvoyer.length; i += ESCALADE_PAR_APPEL) {
     const lot = aEnvoyer.slice(i, i + ESCALADE_PAR_APPEL);
     try {
-      // Pas de `depot` : l'appel immediat ne garde pas de trace dans le dossier de l'audit.
-      const lu = await client.immediat({ ...demande, depot: null, usage: 'escalade', requetes: lot.map((x) => x.requete) });
+      // Le `depot` de l'analyse : l'escalade se garde a cote d'elle, dans le dossier de l'audit (lot L0, tout garder).
+      const lu = await client.immediat({ ...demande, usage: 'escalade', requetes: lot.map((x) => x.requete) });
       for (const r of lu.resultats) {
         const cle = lot.find((x) => x.requete.id === r.id)?.cle;
         if (cle && r.statut === 'reussi' && r.sortie) out.parBatiment[cle] = r.sortie;

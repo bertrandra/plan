@@ -12,6 +12,8 @@ import { jourDe } from '../../app/audit/reprise.js';
 import { heureDe } from '../../app/audit/parcelle/sauvegarde.js';
 import { STATUTS_CAS } from '../../app/audit/parcelle/donneesAudit.js';
 import { DetailAudit } from './DetailAudit.js';
+import { nomModele } from '../../model/consommation.js';
+import { USAGES_EXPORT } from '../../app/audit/parcelle/donneesCatalogue.js';
 import type { CatalogueAudits } from '../../app/audit/parcelle/catalogue.js';
 import type { FicheAudit } from '../../io/auditsServeur.js';
 import type { StatutCas } from '../../model/audit.js';
@@ -93,6 +95,47 @@ function CarteAudit({ catalogue, a }: { catalogue: CatalogueAudits; a: FicheAudi
   );
 }
 
+/**
+ * L'export « données d'analyse » (lot L0) : toutes les requetes a Claude de la periode, a travers les audits et les appels sans depot,
+ * et les propositions des audits recus, en JSON (complet) ou en CSV (un tableur francais). Les images n'y sont que par empreinte.
+ */
+function ExportDonnees({ catalogue }: { catalogue: CatalogueAudits }) {
+  const e = catalogue.etat();
+  const c = e.exportDonnees;
+  const raison = catalogue.raisonExporter();
+  const occupe = e.donneesEnCours !== null;
+  return (
+    <details className="sectionAuditsRecus exportDonneesAnalyse">
+      <summary className="titreExportDonnees">Exporter les données d’analyse</summary>
+      <p className="detailPhoto">Chaque requête à Claude de la période, dans tous les audits et hors audit (calibration, relevé), avec ses versions, ses tokens, son coût, l’empreinte de l’image et la réponse ; puis chaque proposition des audits reçus et sa décision. Les photos ne partent pas : leurs empreintes seulement.</p>
+      <div className="actionsAuditRecu" role="group" aria-label="Période et filtres de l’export">
+        <label className="choixModeleRejeu">Du <input type="date" data-controle="auditsParcelle.exportDu" value={c.du} onChange={(ev) => catalogue.choisirExport({ du: ev.currentTarget.value })} /></label>
+        <label className="choixModeleRejeu">Au <input type="date" data-controle="auditsParcelle.exportAu" value={c.au} onChange={(ev) => catalogue.choisirExport({ au: ev.currentTarget.value })} /></label>
+        <label className="choixModeleRejeu">Usage
+          <select data-controle="auditsParcelle.exportUsage" value={c.usage} onChange={(ev) => catalogue.choisirExport({ usage: ev.currentTarget.value })}>
+            <option value="">Tous</option>
+            {Object.entries(USAGES_EXPORT).map(([u, nom]) => <option key={u} value={u}>{nom}</option>)}
+          </select>
+        </label>
+        <label className="choixModeleRejeu">Modèle
+          <select data-controle="auditsParcelle.exportModele" value={c.modele} onChange={(ev) => catalogue.choisirExport({ modele: ev.currentTarget.value })}>
+            <option value="">Tous</option>
+            {e.modeles.map((m) => <option key={m} value={m}>{nomModele(m)}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="actionsAuditRecu" role="group" aria-label="Exporter les données d’analyse">
+        <button type="button" className="secondary small" data-controle="auditsParcelle.exporterDonneesJson" disabled={raison !== null || occupe} title={raison ?? undefined}
+          onClick={() => { void catalogue.exporterDonnees('json'); }}>Exporter (JSON)</button>
+        <button type="button" className="secondary small" data-controle="auditsParcelle.exporterDonneesCsv" disabled={raison !== null || occupe} title={raison ?? undefined}
+          onClick={() => { void catalogue.exporterDonnees('csv'); }}>Exporter (CSV)</button>
+      </div>
+      {raison && <p className="raisonAuditRecu">{raison}</p>}
+      {e.donneesEnCours === 'export' && <p className="detailPhoto" role="status">Lecture des données d’analyse sur le serveur…</p>}
+    </details>
+  );
+}
+
 function Section({ catalogue, titre, audits, vide }: { catalogue: CatalogueAudits; titre: string; audits: FicheAudit[]; vide: string }) {
   return (
     <section className="sectionAuditsRecus" aria-label={titre}>
@@ -122,6 +165,7 @@ export function AuditsParcelle({ catalogue, fermer }: Props) {
       <div className="sousTitreParcours">Reçus sur le serveur de Plan : les audits de parcelle (sauvegardes prises pendant la capture, partages pour améliorer Plan) et les promenades des toits. Pour chacun, ses données, sa conclusion et ce qui en a été fait ; pour un audit de parcelle, ses analyses par Claude et leurs rejeux, à comparer par modèle. Rien n’est jeté.</div>
       <div className="detailPhoto" role="status" aria-live="polite">{resume}</div>
       {e.erreur && <div className="erreurParcours" role="alert">{e.erreur}</div>}
+      {catalogue.exportDisponible() && <ExportDonnees catalogue={catalogue} />}
       {e.audits && <>
         <Section catalogue={catalogue} titre="Audits de parcelle" audits={parcelles} vide="Aucun audit de parcelle reçu." />
         <Section catalogue={catalogue} titre="Promenades des toits" audits={promenades} vide="Aucune promenade reçue : « Ajouter un fichier d’audit… » en dépose une." />
