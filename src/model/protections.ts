@@ -72,7 +72,20 @@ export type Groupe =
    */
   | 'photoMurs'
   /** Les releves de facade (par mur, `cote`), le profil de facades. */
-  | 'facades';
+  | 'facades'
+  /*
+   * Les parts de la Facade d'un mur (MD/spec-facade-calage-audit.md §3.1, lot F5), chacune par mur (`cote`) : ses dimensions, sa
+   * forme (gabarit, silhouette lue, pointes, corps), sa texture et sa pose (`texture`, `textureCalee`), ses ouvertures (la facade
+   * objet). La personne les ecrit a la validation de la facade (V4) ; l'audit pose d'office un releve mesure (`depuisAudit`).
+   */
+  /** `dimensions` : la largeur, l'egout et le faitage retenus (le plan et le LiDAR), et l'ecart que la photo constate. */
+  | 'facadeDimensions'
+  /** `forme` : le gabarit, la silhouette lue, les pointes, les corps que la facade porte. */
+  | 'facadeForme'
+  /** La texture du mur, sa pose et ce qu'elle dit du parement (`texture`, `hauteurTexture`, `textureCalee`, `surface`). */
+  | 'facadeTexture'
+  /** Les ouvertures hors automatique (la facade objet) ; une ouverture verifiee, corrigee ou ajoutee est gardee une a une (`ouvertureGardee`). */
+  | 'facadeOuvertures';
 
 /** D'ou vient la valeur d'aujourd'hui d'un groupe : la marque qui la porte. */
 export type Origine =
@@ -106,6 +119,8 @@ export type Origine =
   | 'mursVus'
   /** Un releve pose par l'audit sur le mur vise. */
   | 'releveAudit'
+  /** La Facade validee par la personne (V4) sur le mur vise : la part du groupe y est (dimensions, forme, pose, ouvertures verifiees). */
+  | 'facadeValidee'
   /** Le profil de facades choisi par le moteur. */
   | 'profil'
   /** Lu sur le LiDAR (`toitLidarLu`, toit `lidar`). */
@@ -132,9 +147,23 @@ export interface BatimentProtege {
     toitLidarLu?: number | null;
     corpsToit?: readonly { cheminees?: readonly unknown[]; lucarnes?: readonly unknown[]; elementsToit?: readonly unknown[]; terrasse?: unknown; ouvert?: boolean; saillie?: unknown }[] | null;
     couleurMurs?: { source?: unknown; materiau?: unknown; terrain?: unknown; photo?: unknown; lecture?: unknown } | null;
-    facades?: readonly { cote: number; depuisAudit?: true }[] | null;
+    facades?: readonly FacadeProtegee[] | null;
     profilFacades?: unknown;
   } | null;
+}
+
+/** Une ouverture de la facade objet, telle que ce module la lit : ce qui dit que la personne l'a posee, corrigee ou verifiee. */
+export interface OuvertureProtegee { source?: string; verifieeLe?: string }
+
+/** Ce que ce module lit du releve d'un mur. */
+export interface FacadeProtegee {
+  cote: number;
+  depuisAudit?: true;
+  dimensions?: unknown;
+  forme?: unknown;
+  textureCalee?: unknown;
+  surface?: unknown;
+  ouvertures?: readonly OuvertureProtegee[];
 }
 
 /** Ce que la personne a demande pour cette ecriture, et ce qu'elle vise. */
@@ -151,7 +180,7 @@ export interface ContexteEcriture {
 
 /** Le niveau de chaque origine. */
 export const NIVEAU_ORIGINE: Readonly<Record<Origine, Niveau>> = {
-  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1,
+  fige: 1, retouche: 1, dessine: 1, toitSaisi: 1, egoutSaisi: 1, couvertureChoisie: 1, couleurToitChoisie: 1, mursChoisis: 1, releveMain: 1, facadeValidee: 1,
   verifie: 2, egoutVu: 2, toitPhoto: 2, elementsPoses: 2, mursVus: 2, releveAudit: 2,
   profil: 3,
   lidar: 4, ortho: 4, photoRue: 4,
@@ -238,6 +267,33 @@ function origineDesFacades(o: BatimentProtege, ctx: ContexteEcriture, verifie: b
 }
 
 /**
+ * Une ouverture que la personne a posee (`ajoutee`), corrigee ou verifiee (`verifieeLe`, V4) : de son niveau, le premier. Aucun
+ * ecrivain automatique ne la deplace ni ne la retire ; un rejeu l'apparie aux nouvelles detections (model/facadeObjet.ts).
+ */
+export const ouvertureGardee = (ov: OuvertureProtegee): boolean => !!ov.verifieeLe || ov.source === 'corrigee' || ov.source === 'ajoutee';
+
+/** Les groupes de la Facade d'un mur, et la part du releve que chacun designe (lot F5). */
+type GroupeDeFacade = 'facadeDimensions' | 'facadeForme' | 'facadeTexture' | 'facadeOuvertures';
+const PART_VALIDEE: Readonly<Record<GroupeDeFacade, (r: FacadeProtegee) => boolean>> = {
+  facadeDimensions: (r) => !!r.dimensions,
+  facadeForme: (r) => !!r.forme,
+  facadeTexture: (r) => !!r.textureCalee || !!r.surface,
+  facadeOuvertures: (r) => (r.ouvertures ?? []).some(ouvertureGardee),
+};
+
+/**
+ * Une part de la Facade du mur vise : posee d'office par l'audit (`depuisAudit`, 2), validee par la personne (V4 : la part y est,
+ * 1), sinon un releve fait a la main (1) ; sans releve, verifie sur place (2) ou rien. Le profil de facades ne s'y applique pas : il
+ * regle la disposition automatique, qui n'est pas stockee.
+ */
+function origineDUnePartDeFacade(o: BatimentProtege, groupe: GroupeDeFacade, ctx: ContexteEcriture, verifie: boolean): Origine {
+  const r = ctx.cote === undefined ? undefined : (o.batiment?.facades ?? []).find((x) => x.cote === ctx.cote);
+  if (!r) return verifie ? 'verifie' : 'defaut';
+  if (r.depuisAudit) return 'releveAudit';
+  return PART_VALIDEE[groupe](r) ? 'facadeValidee' : 'releveMain';
+}
+
+/**
  * D'ou vient la valeur d'aujourd'hui de ce groupe : la premiere origine qui s'applique, de la plus forte a la plus faible. C'est la
  * table « Qui l'emporte » de la spec, ligne par ligne.
  */
@@ -253,6 +309,7 @@ export function origineActuelle(o: BatimentProtege, groupe: Groupe, ctx: Context
     case 'murs': return origineDesMurs(o, verifie);
     case 'photoMurs': return origineDeLaPhotoDesMurs(o);
     case 'facades': return origineDesFacades(o, ctx, verifie);
+    case 'facadeDimensions': case 'facadeForme': case 'facadeTexture': case 'facadeOuvertures': return origineDUnePartDeFacade(o, groupe, ctx, verifie);
   }
 }
 

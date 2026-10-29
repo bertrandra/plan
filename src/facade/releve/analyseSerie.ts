@@ -9,7 +9,7 @@ import { analyserLeMur, type AssemblageDuMur } from '../analyseMur.js';
 import type { MesureDistance } from './prise.js';
 import { pxParMetre, pxParMetreDesCoins, precisionCm } from '../calage/calage.js';
 import { avecGrille, versOuvertureFacade } from '../detection/verification.js';
-import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture } from '../../model/types.js';
+import type { ObjetPolygone, OuvertureFacade, Toit, ReleveFacade, CalageReleve, CorrectionOuverture, TextureCalee } from '../../model/types.js';
 import type { SilhouetteFacade } from '../../model/silhouetteFacade.js';
 import { silhouetteDeEstimation } from '../regles/toits/silhouettes.js';
 import { chiffreFr as fr } from '../../util/format.js';
@@ -89,8 +89,9 @@ export function etirerEnHauteur(r: Resultat, ouvertures: OuvertureFacade[], toit
  * Le calage de la serie : les coins poses sur chaque photo et leur source, et les pixels par metre au
  * mur sur la photo source (MD/spec-facades-calage-detection.md §4) - par la focale et la distance
  * mesuree, sinon, pour une photo seule, par ses coins rapportes a la taille du mur. Depuis le lot L7,
- * le calage fin de la premiere photo y ajoute l'azimut lu sur les points de fuite, sa note, et le
- * decalage du contour quand il depasse 0,5 m.
+ * le calage fin de la premiere photo y ajoute l'azimut lu sur les points de fuite et sa note. L'ecart de
+ * la largeur vue a celle du plan n'y est plus (lot F5) : il va dans les dimensions de la Facade
+ * (`ecartDeLargeur`, `dimensions.ecartPhoto`), ecrites a la validation.
  */
 export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hauteur: number, azimutFacade: number | null = null, assemblage: Assemblage = 'morceaux'): CalageReleve {
   // Une photo seule, ou chaque vue d'une fusion, montre le mur entier entre ses coins.
@@ -111,9 +112,17 @@ export function calageDeSerie(morceaux: readonly Morceau[], largeur: number, hau
     c.confiance = Math.round(fin.note * 100) / 100;
     const cap = azimutFacade === null ? null : capCorrige(fin, azimutFacade);
     if (cap !== null) c.azimutCorrigeDeg = cap;
-    if (fin.contour?.decale) c.contourDecaleM = Math.round(fin.contour.ecartM * 100) / 100;
   }
   return c;
+}
+
+/**
+ * L'ecart de la largeur vue sur la premiere photo a celle du plan, en part de celle-ci (0 : elle confirme), quand le calage fin l'a
+ * lue ; null sinon. Une alerte au-dela de 0,10, jamais une correction : la largeur est celle du plan (decision 1).
+ */
+function ecartDeLargeur(morceaux: readonly Morceau[], largeur: number): number | null {
+  const c = morceaux[0]?.fin?.trouve ? morceaux[0].fin.contour : null;
+  return c && largeur > 0 ? Math.round(Math.abs(c.ecartM) / largeur * 100) / 100 : null;
 }
 
 /** La resolution qui borne la precision d'une serie : celle de la photo la moins bien definie. */
@@ -175,6 +184,20 @@ export interface ReleveDeLaSerie {
   confiance: number | null;
   /** La hauteur a l'egout mesuree, quand les coins ont ete trouves ; des coins predits d'apres la hauteur connue la rendraient. */
   hauteurM: number | null;
+  /** L'ecart de la largeur vue sur la photo a celle du plan, en part (`ecartDeLargeur`) ; null quand il ne s'est pas lu. */
+  ecartLargeur: number | null;
+  /** La pose de la texture : sa precision, et le mur sur elle (du sol a l'egout, la bande au-dessus de l'egout en plus). */
+  textureCalee: TextureCalee | null;
+}
+
+/**
+ * La pose de la texture d'un releve (lot F5) : l'elevation couvre le mur sur sa largeur, du sol a `hauteurTexture` ; le mur y est du
+ * sol a l'egout (`hauteur`), le reste est la bande au-dessus de l'egout que la 3D plaque sur le pignon.
+ */
+function poseDeLaTexture(t: { largeur: number; hauteur: number }, largeurM: number, hauteurM: number, hauteurTextureM: number): TextureCalee | null {
+  if (!(t.largeur > 0) || !(t.hauteur > 0) || !(largeurM > 0) || !(hauteurTextureM > 0)) return null;
+  const egout = Math.round(t.hauteur * Math.max(0, 1 - hauteurM / hauteurTextureM));
+  return { pxParM: Math.round(t.largeur / largeurM * 10) / 10, cadre: { x0: 0, y0: egout, x1: t.largeur, y1: t.hauteur } };
 }
 
 /**
@@ -198,5 +221,7 @@ export function releveDeLaSerie(a: NonNullable<ReturnType<typeof analyserSerie>>
     hautLu: a.r.hautLu ?? null,
     confiance: calage.confiance ?? null,
     hauteurM: coinsTrouves && a.r.hauteurMesuree ? Math.round(a.r.hauteur * 100) / 100 : null,
+    ecartLargeur: ecartDeLargeur(morceaux, f.largeur),
+    textureCalee: poseDeLaTexture(a.r.texture, f.largeur, a.r.hauteur, a.r.hauteurTexture),
   };
 }

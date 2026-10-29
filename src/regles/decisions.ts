@@ -16,6 +16,7 @@ import type { MateriauTexture } from '../model/couleurMur.js';
 import type { PositionPortail, TypeCloture as TypeClotureVue } from '../model/clotureVue.js';
 import type { ChampsBatiment, Cheminee, CorpsToit, CouvertureChoisie, DetailsOuverture, Lucarne, ObjetPlan, ReleveFacade, TerrasseToit } from '../model/types.js';
 import { completerDetails } from '../model/ouverturesVues.js';
+import { releveReecrit } from '../model/facadeObjet.js';
 
 /**
  * Qui propose : une mesure faite dans le telephone, Claude analyste (lot L17), ou plusieurs sources arbitrees par le moteur de
@@ -225,7 +226,10 @@ function batimentACopier(o: ObjetPlan): ChampsBatiment {
 function appliquerEffet(o: ObjetPlan, e: EffetProposition): void {
   switch (e.type) {
     case 'releve': {
-      const r = releveALaHauteur(e.releve, hauteurDe(o));
+      // Sur un mur deja releve, le travail de la personne reste : ses ouvertures verifiees, corrigees ou ajoutees, la forme et les
+      // dimensions de la Facade qu'elle a validee (model/facadeObjet.ts::releveReecrit, lot F5).
+      const existant = o.batiment?.facades?.find((x) => x.cote === e.releve.cote);
+      const r = releveReecrit(o, existant, releveALaHauteur(e.releve, hauteurDe(o)));
       batimentACopier(o).facades = [...(o.batiment?.facades ?? []).filter((x) => x.cote !== r.cote), r].sort((a, b) => a.cote - b.cote);
       return;
     }

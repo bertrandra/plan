@@ -23,14 +23,16 @@ import { avecPlacesApresForme } from './apresForme.js';
 import { arbitragesParBatiment, cleChoix, propositionsArbitrees, propositionsDesArbitrages, resumeArbitrage, type ArbitragesBatiment, type ChoixArbitrages } from './arbitrages.js';
 import type { ChoixArbitrage } from '../../../facade/regles/reconciliation.js';
 import type { ArbitrageProposition } from '../../../regles/decisions.js';
-import { releveChoisiALaMain } from './constats.js';
+import { ecrivainPeut } from '../../../model/protections.js';
+import { facadeAEcrire, facadeValideeDe } from './facadeValidee.js';
+import type { RunEnregistre } from '../../../regles/facades/observations.js';
 import type { CeQueJeVois } from '../../../model/ceQueJeVois.js';
 import { observationsDeClaude, type ObservationsBatiment } from './observationsClaude.js';
 import type { AccordFacadeCapture } from '../../../model/auditParcelle.js';
 import type { CaptureEnCours } from './capture.js';
 import type { ListeDeControle } from './liste.js';
 import type { EtatApp } from '../../../core/state.js';
-import type { ObjetPlan } from '../../../model/types.js';
+import type { ObjetPlan, ReleveFacade } from '../../../model/types.js';
 import type { PhotoCas } from '../../../model/audit.js';
 import type { DecisionAudit } from '../../../model/auditParcelle.js';
 import { surbrillanceArbitrage, surbrillanceDe, surbrillanceObservation, type Surbrillance } from './surbrillance.js';
@@ -80,7 +82,7 @@ export interface ContexteValidation {
   /** Apres chaque validation qui a ecrit : le partage pour le corpus (§15) part alors, s'il est coche. */
   apresValidation?: () => void;
   /** Les reponses de Claude (app/audit/parcelle/analyseClaude.ts), quand il y en a : elles s'ajoutent aux mesures. */
-  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null };
+  analyse?: { reponses(): Record<string, ReponsesBatiment> | null; version(): number; accords?(): Record<string, AccordFacadeCapture> | null; runs?(): Record<string, RunEnregistre> | null };
 }
 
 export interface Validation {
@@ -143,6 +145,13 @@ export interface Validation {
   verifications(): EtatVerification[];
   /** Ecrit ce qui est coche, en un pas d'historique ; null s'il n'y a rien a ecrire. */
   valider(): { ecrites: number; verifies: number } | null;
+  /**
+   * La validation d'une facade (V4, lot F5) : sa Facade (dimensions, forme, pose de la texture, ouvertures verifiees) s'ecrit dans le
+   * projet, en un pas d'historique. Faux quand il n'y a rien a valider (pas de bilan, audit en lecture seule).
+   */
+  validerFacade(cle: string, cote: number): boolean;
+  /** La Facade validee (V4) de la mesure de ce mur, telle qu'elle est dans le projet ; null tant qu'elle ne l'est pas. */
+  facadeValidee(cle: string, cote: number): ReleveFacade | null;
   /** La Vue 3D revient au plan (l'ecran se ferme, on revient a la liste) ; le choix d'apercu reste. */
   oublierApercu(): void;
   /** Les mesures a jour, par `cle#cote` : ce que le fichier de l'audit recopie (§15). */
@@ -403,11 +412,12 @@ function ecrireDansLeProjet(ctx: ContexteValidation, propositions: readonly Prop
  * Rend le nombre de facades relevees.
  */
 function alimenterLesFacades(ctx: ContexteValidation, e: EntreesPropositions): number {
-  // Cochee d'office, et sur un mur que l'audit a le droit d'ecrire (model/protections.ts) : jamais un releve fait a la main.
+  // Cochee d'office, et sur un mur dont l'audit a le droit d'ecrire la texture (model/protections.ts, groupe `facadeTexture`) : jamais
+  // un releve fait a la main, ni une Facade validee par la personne (V4).
   const permis = (p: Proposition): boolean => {
     if (p.cible.type !== 'facade') return true;
     const o = ctx.etat.objects.find((x) => x.key === (p.cible as { cle: string }).cle);
-    return !o || !releveChoisiALaMain(o, p.cible.cote);
+    return !o || ecrivainPeut(o, 'audit', 'facadeTexture', { cote: p.cible.cote });
   };
   const prets = propositionsArbitrees(e, {}).filter((p) => p.effet.type === 'releve' && cocheeParDefaut(p) && permis(p));
   if (!prets.length) return 0;
@@ -457,6 +467,25 @@ function proposer(entrees: EntreesPropositions, reponses: ReturnType<NonNullable
   const propositions = dansLOrdre(e, avecPlacesApresForme(avecReserveSurPlace([...deLAudit, ...arbitrees, ...deClaude, ...(reponses ? propositionsDetails(e, reponses) : []), ...(accords ? propositionsAccords(e, accords) : [])])));
   const observations = reponses || accords ? observationsDeClaude(e, reponses ?? {}, accords ?? {}) : [];
   return { propositions, observations, arbitrages };
+}
+
+/**
+ * La validation d'une facade (V4, lot F5) : sa Facade (facadeValidee.ts) s'ecrit dans le projet, en un pas d'historique, par le meme
+ * chemin que les propositions (le releve d'un mur : ses ouvertures verifiees restent a un rejeu). Faux quand il n'y a rien a ecrire.
+ */
+function validerUneFacade(ctx: ContexteValidation, m: MesureFacade | undefined, cle: string, cote: number): boolean {
+  const o = ctx.etat.objects.find((x) => x.key === cle);
+  if (!m || !o) return false;
+  const jour = jourIso(ctx.maintenant()), k = cleMesure(cle, cote);
+  const r = facadeAEcrire(o, m, jour, ctx.analyse?.accords?.()?.[k] ?? null, ctx.analyse?.runs?.()?.[k] ?? null);
+  if (!r) return false;
+  ctx.projet.pushHistory();
+  ecrireDansLeProjet(ctx, [{ id: k + ':facade', cible: { type: 'facade', cle, cote }, objet: 'Façade', source: 'mesure', avant: '', apres: '', indices: [], confiance: null, remplaceChoix: null, reserve: null, effet: { type: 'releve', releve: r } }], [], jour);
+  ctx.projet.render();
+  ctx.projet.refaire3d();
+  const n = r.ouvertures.length;
+  ctx.signaler('Façade validée : ' + n + ' ouverture' + (n > 1 ? 's vérifiées' : ' vérifiée') + ', dimensions, forme et texture écrites dans le projet. Ctrl+Z la défait.');
+  return true;
 }
 
 type Memo = { cle: string; objets: unknown; propositions: Proposition[]; observations: ObservationsBatiment[]; defaut: Set<string>; arbitrages: ArbitragesBatiment[] };
@@ -556,7 +585,7 @@ export function creerValidation(ctx: ContexteValidation): Validation {
     // La Vue 3D rebatie a perdu le trait : il se repose avec l'apercu.
     reposer: () => { apercu.reposer(); choix3d.surligner(); },
     cadrer(panneau) { ctx.projet.cadrer3d?.(panneau); },
-    verifications: verifs,
+    verifications: verifs, validerFacade: (cle, cote) => { if (figees || !validerUneFacade(ctx, mesureur.lues().get(cleMesure(cle, cote)), cle, cote)) return false; memo = null; publier(); return true; }, facadeValidee: (cle, cote) => facadeValideeDe(ctx.etat.objects, cle, mesureur.lues().get(cleMesure(cle, cote))),
     valider() {
       if (figees) return null;
       const { propositions } = calculer();

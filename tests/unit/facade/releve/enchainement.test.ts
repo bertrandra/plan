@@ -56,6 +56,13 @@ describe('l enchainement d une facade', () => {
     expect(etats(r)).toMatchObject({ preparation: 'ok', prises: 'ok', redressement: 'ok', assemblage: 'ok', silhouette: 'ok', texture: 'ok', diagnostic: 'saute', toit: 'saute', validation: 'saute' });
     expect(['ok', 'a-confirmer']).toContain(etapeDe(r, 'calage').etat);
     expect(r.etapes.every((e) => e.resume.length > 10)).toBe(true);
+    // L'E9 (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrirait ; la calibration le montre sans rien ecrire.
+    const f = r.sorties.facade;
+    expect(f?.dimensions).toMatchObject({ largeurM: Math.round(L * 100) / 100, egoutM: Math.round(H * 100) / 100 });
+    expect(f?.forme.gabarit).toEqual(GABARIT_RECTANGLE);
+    expect(f?.textureCalee?.pxParM).toBeGreaterThan(0);
+    expect(f?.ouvertures.map((o) => o.id)).toEqual(r.sorties.analyse?.ouvertures.map((_, i) => 'o' + (i + 1)));
+    expect(etapeDe(r, 'validation').resume).toMatch(/^Bilan : Mur de .* La calibration n’écrit pas de façade : elle se valide dans l’audit \(V4\)\.$/);
     // La barre avance au fil des etapes : chacune commence, puis finit.
     expect(vus.slice(0, 4)).toEqual(['preparation:en-cours', 'preparation:ok', 'prises:en-cours', 'prises:ok']);
     expect(vus.filter((v) => v.endsWith(':en-cours'))).toHaveLength(ETAPES_FACADE.length);

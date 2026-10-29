@@ -42,7 +42,11 @@ export const APP_VERSION = '5.0.0';
 // 6 : les champs venus apres le premier schema 5 livre (4.0.0) : la retouche a la main d'un objet de l'IGN (`retoucheMain`), la
 // hauteur a l'egout choisie (`egoutChoisi`) et le soleil du projet (`soleil`, sur la parcelle). Ils s'ecrivaient au 5, qu'un
 // lecteur 5 d'avant aurait perdus. La migration 5 -> 6 est l'identite ; la plateforme accepte 6 depuis bertrandra/backprod#242.
-export const SCHEMA_VERSION = 6;
+// 7 : la Facade d'un releve valide (MD/spec-facade-calage-audit.md §3.4, lot F5) : ses dimensions, sa forme, son parement, la pose de
+// sa texture, et ses ouvertures en objets (identifiant, date de verification, carreaux). Un lecteur 6 les garderait a la lecture,
+// mais les perdrait des que la facade se reecrit (le releve d'un mur refait, la mesure de l'audit posee d'office) : une ouverture
+// verifiee redeviendrait deplacable. La migration 6 -> 7 est l'identite ; la plateforme doit accepter 7 avant le depot.
+export const SCHEMA_VERSION = 7;
 export const API_VERSION = 'v1';
 export const BUILD_AT = '2026-10-29';
 export const BUILD_SHA: string | null = null;

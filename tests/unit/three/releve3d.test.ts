@@ -45,6 +45,13 @@ beforeAll(() => {
       }
     },
     DoubleSide: 2,
+    // Un groupe retient ce qu'on y ajoute : une ouverture de la facade objet en est un (lot F5).
+    Group: class {
+      name = '';
+      userData: Record<string, unknown> = {};
+      enfants: unknown[] = [];
+      add(m: unknown) { this.enfants.push(m); }
+    },
   };
 });
 
@@ -67,6 +74,20 @@ function scene() {
 }
 
 describe('ajouterReleve3d', () => {
+  it('pose chaque ouverture de la facade objet dans un groupe nomme par son identifiant ; une ouverture d avant reste dans la scene (lot F5)', () => {
+    const ouvertures = [
+      { type: 'fenetre' as const, x: 1, y: 1, l: 1.2, h: 1.3, id: 'o1', verifieeLe: '2026-10-29' },
+      { type: 'porte' as const, x: 4, y: 0, l: 1, h: 2.1 },
+    ];
+    const { ajoutes, ctx } = scene();
+    ajouterReleve3d(ctx, { ...maison(), batiment: { ...(maison()).batiment, facades: [{ cote: 0, largeur: 10, hauteur: 3, texture: null, ouvertures, distance: null, sourceDistance: null, releveLe: '' }] } }, 3);
+    const groupes = ajoutes.filter((m) => m.name.startsWith('ouverture:')) as unknown as { name: string; userData: unknown; enfants: unknown[] }[];
+    expect(groupes.map((g) => [g.name, g.userData])).toEqual([['ouverture:o1', { ouverture: 'o1', verifiee: true }]]);
+    // L'encadrement (linteau, deux montants, appui) et la vitre de la fenetre sont dans son groupe ; ceux de la porte, dans la scene.
+    expect(groupes[0]!.enfants).toHaveLength(5);
+    expect(ajoutes.filter((m) => !m.name.startsWith('ouverture:'))).toHaveLength(4);
+  });
+
   it("n'ajoute rien a un batiment sans releve", () => {
     const { ajoutes, ctx } = scene();
     ajouterReleve3d(ctx, maison(), 3);

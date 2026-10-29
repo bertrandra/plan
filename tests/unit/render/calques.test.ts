@@ -73,6 +73,20 @@ describe('releves de facade sur le plan', () => {
     expect(g.querySelectorAll('path')).toHaveLength(0);
   });
 
+  it('sur une Facade validee, met en tirets les tableaux d une ouverture pas encore verifiee, et nomme chaque coupure (lot F5)', () => {
+    const g = groupe();
+    const fen = (x: number, plus: object) => ({ type: 'fenetre', x, y: 0.9, l: 1.2, h: 1.25, ...plus });
+    const m = maison([fen(1, { id: 'o1', verifieeLe: '2026-10-29' }), fen(4, { id: 'o2' })]);
+    m.batiment.facades[0] = { ...m.batiment.facades[0]!, dimensions: { largeurM: 8, egoutM: 3, source: 'lidar' } } as never;
+    dessinerReleves(g, etat([m]), versEcran, () => false);
+    expect([...g.querySelectorAll('line[data-ouverture]')].map((l) => l.getAttribute('data-ouverture'))).toEqual(['o1', 'o2']);
+    expect(g.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
+    // Sans Facade validee (un releve d'avant), rien ne change : pas de tirets.
+    const h = groupe();
+    dessinerReleves(h, etat([maison([fen(1, {}), fen(4, {})])]), versEcran, () => false);
+    expect(h.querySelectorAll('line[stroke-dasharray]')).toHaveLength(0);
+  });
+
   it('dessine une porte avec son arc d ouverture', () => {
     const g = groupe();
     dessinerReleves(g, etat([maison([{ type: 'porte', x: 3, y: 0, l: 0.9, h: 2.1 }])]), versEcran, () => false);

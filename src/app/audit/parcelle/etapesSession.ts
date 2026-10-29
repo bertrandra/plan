@@ -29,7 +29,7 @@ export function validationDe(ctx: ContexteAuditParcelle, capture: CaptureEnCours
     etat: ctx.etat, capture, liste, signaler: ctx.signaler, maintenant, apresValidation,
     projet: ctx.projet ?? PROJET_MUET,
     mesures: ctx.mesures ?? { chercherCoins, jpeg: (img) => versJpeg(img), limites: () => limitesDesParcelles(ctx.etat.objects) },
-    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords() },
+    analyse: { reponses: () => analyse().reponses(), version: () => analyse().version(), accords: () => analyse().accords(), runs: () => analyse().runs() },
   });
 }
 

@@ -159,7 +159,8 @@ describe('releve : le calage fin des coins (lot L7)', () => {
     expect(c.photos[0]!.sourceCoins).toEqual(['trouve', 'trouve', 'doigt', 'predit']);
     expect(c.confiance).toBe(0.82);
     expect(c.azimutCorrigeDeg).toBe(352);
-    expect(c.contourDecaleM).toBe(-0.8);
+    // L'ecart du contour n'est plus dans le calage (lot F5) : il va dans les dimensions de la Facade, en part de la largeur.
+    expect('contourDecaleM' in c).toBe(false);
     // Un releve d'avant le calage fin garde exactement son sens.
     expect(calageDeSerie([{ prise: prise(), coins }], 8, 4)).toEqual({ photos: [{ coins, pxParMSource: 250 }] });
   });

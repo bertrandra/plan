@@ -35,6 +35,9 @@ import { accorderOuvertures, avisDesPointes, decisionColombage, ecartDesPoses, E
 import { cartesAretes } from '../detection/recalageIa.js';
 import { etapeDiagnostic, etapeToit, hautEnPartsDuMur, type ToitDeLaFacade } from './etapesForme.js';
 import type { DiagnosticForme } from '../regles/facades/diagnosticForme.js';
+import { bilanDeLaFacade, texteBilan, type BilanFacade } from './bilanFacade.js';
+import { versOuvertureFacade } from '../detection/verification.js';
+import type { SilhouetteFacade } from '../../model/silhouetteFacade.js';
 
 /** Une photo du mur : l'image, les coins du mur dessus (cherches, poses a la main, ou ceux d'un cas), ses reperes et sa focale. */
 interface PhotoDeFacade {
@@ -183,6 +186,8 @@ interface SortiesFacade {
   ia: IaDuRejeu | null;
   /** E2 a E7 du mode `audit` : ce que la chaine de l'audit a rendu, et le releve du mur qui en sort. */
   audit: SortieAudit | null;
+  /** E9 : le bilan de la facade, la Facade que la validation V4 ecrira (lot F5). */
+  facade: BilanFacade | null;
 }
 
 /** Une etape calculee : son etat, ce qu'elle a donne en une phrase, et sa mesure contre la verite quand le cas en a une. */
@@ -200,7 +205,7 @@ export interface Enchainement {
   versions: { chaine: number; objectifs: string; ia?: string };
 }
 
-const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, forme: null, analyse: null, sansOmbres: null, ia: null, audit: null };
+const SORTIES_VIDES: SortiesFacade = { preparation: null, vues: null, mosaique: null, serie: null, calage: null, silhouette: null, forme: null, analyse: null, sansOmbres: null, ia: null, audit: null, facade: null };
 
 interface Contexte { e: EntreesFacade; o: OptionsEnchainement; obj: Objectifs; s: SortiesFacade }
 type Pas = (c: Contexte) => Promise<Omit<EtapeCalculee, 'id'>> | Omit<EtapeCalculee, 'id'>;
@@ -641,6 +646,34 @@ const ouvertures: Pas = ({ e, o, s, obj }) => {
   return { etat, resume, verite: { texte: `Contre la vérité (${vraies.length} ouvertures) : rappel ${pc(m.rappel)}, précision ${pc(m.precision)}, cotes ${cotes(m.cotes)} (médiane)` + (juste ? ' : objectifs atteints.' : ' : objectifs non atteints.') + ia, juste } };
 };
 
+/** Le mot du haut lu a la teinte (E5 de la calibration) dans le vocabulaire de la Facade. */
+const MOT_DU_HAUT: Readonly<Record<NonNullable<SortiesFacade['silhouette']>['forme'], SilhouetteFacade>> = { droite: 'ligne-droite', pignon: 'triangle', rampe: 'rampe' };
+
+/**
+ * E9, la validation (lot F5) : le bilan de la facade, la Facade que la validation V4 ecrira (ses dimensions, sa forme, la pose de sa
+ * texture, ses ouvertures avec leur identifiant). Dans l'audit, elle attend la personne (V4) ; la calibration montre le bilan sans
+ * rien ecrire : la facade se valide dans l'audit.
+ */
+const validation: Pas = ({ e, o, s }) => {
+  const base = { largeurM: e.largeurM, hauteurM: e.hauteurM, gabarit: e.gabarit, diagnostic: s.forme?.diagnostic ?? null, hautLu: s.forme?.lue ?? null };
+  if (o.image === 'audit') {
+    const m = s.audit?.mesure;
+    if (!m) return attend('le relevé du mur (É6, É7)');
+    s.facade = bilanDeLaFacade({ ...base, silhouette: m.silhouette, textureCalee: m.textureCalee, ouvertures: m.releve.ouvertures, ecartLargeur: m.ecartLargeur, hauteurMesureeM: m.hauteurM });
+    return { etat: 'a-confirmer', resume: texteBilan(s.facade) + ' Validez la façade pour l’écrire dans le projet (V4).', verite: null };
+  }
+  const a = s.analyse;
+  if (!a) return attend('le mur redressé (É6)');
+  const pose = s.calage?.pose ? rectDeLaPose(s.calage.pose.coins) : null;
+  const cadre = pose ? { x0: Math.round(pose.x0), y0: Math.round(pose.y0), x1: Math.round(pose.x1), y1: Math.round(pose.y1) } : null;
+  s.facade = bilanDeLaFacade({
+    ...base, silhouette: s.silhouette ? MOT_DU_HAUT[s.silhouette.forme] : null, pointesIa: s.ia?.reponse?.calage.pointes ?? null,
+    textureCalee: cadre && cadre.x1 > cadre.x0 && cadre.y1 > cadre.y0 ? { pxParM: Math.round(a.pxParM * 10) / 10, cadre } : null,
+    ouvertures: s.ia?.accord?.ouvertures ?? a.ouvertures.map(versOuvertureFacade),
+  });
+  return sans('Bilan : ' + texteBilan(s.facade) + ' La calibration n’écrit pas de façade : elle se valide dans l’audit (V4).');
+};
+
 const PAS: Record<IdEtape, Pas> = {
   preparation, prises, redressement, assemblage, calage, silhouette,
   diagnostic: ({ e, o, s }) => {
@@ -650,7 +683,7 @@ const PAS: Record<IdEtape, Pas> = {
   },
   texture, ouvertures,
   toit: ({ s }) => etapeToit(s.forme?.diagnostic ?? null),
-  validation: () => sans('La validation de la façade vient avec le lot F5 ; la calibration marque le cas « relu sur la photo ».'),
+  validation,
 };
 
 /**

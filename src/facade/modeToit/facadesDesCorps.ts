@@ -7,7 +7,7 @@
 // Pur : pas de DOM, pas de scene.
 
 import { nomOrientation, tourneVers } from '../../geometry/cotesVusDeDehors.js';
-import type { CorpsToit, PtBrut } from '../../model/types.js';
+import type { CorpsToit, PtBrut, ReleveFacade } from '../../model/types.js';
 
 export interface FacadeVisee {
   /** Le rang du corps dans `corpsToit` ; null : un cote du contour du batiment sans corps. */
@@ -85,3 +85,38 @@ export function facadeVersLePoint(facades: readonly FacadeVisee[], rang: number,
   return meilleur;
 }
 
+
+/** Un mur de corps longe un cote du contour quand ses deux bouts sont a moins de cette distance de la droite du cote, et dedans. */
+const LONGE_M = 0.5;
+
+/** La distance d'un point au segment ab, et ou il tombe le long de lui (0 en a, 1 en b). */
+function surLeSegment(p: PtBrut, a: PtBrut, b: PtBrut): { d: number; t: number } {
+  const vx = b.x - a.x, vy = b.y - a.y, l2 = un(vx * vx + vy * vy, 1);
+  const t = ((p.x - a.x) * vx + (p.y - a.y) * vy) / l2;
+  return { d: Math.abs(vx * (p.y - a.y) - vy * (p.x - a.x)) / Math.sqrt(l2), t };
+}
+
+/**
+ * La Facade validee (V4, lot F5) que montre ce mur : un cote du contour la porte quand le mur le longe (un mur de corps dans le plan
+ * de la facade) ou quand la forme de la facade designe ce mur parmi ses corps. Null sinon : le Mode Toit dit alors le toit calcule
+ * seul, sans ce que la photo en a lu.
+ */
+export function facadeValideeDuMur(f: FacadeVisee, releves: readonly ReleveFacade[] | null | undefined, contour: readonly PtBrut[]): ReleveFacade | null {
+  for (const r of releves ?? []) {
+    if (!r.dimensions) continue;
+    if (f.rang === null) { if (r.cote === f.mur) return r; continue; }
+    const a = contour[r.cote], b = contour[(r.cote + 1) % contour.length];
+    const longe = !!a && !!b && [f.a, f.b].every((p) => { const q = surLeSegment(p, a, b); return q.d <= LONGE_M && q.t >= -0.05 && q.t <= 1.05; });
+    const pres = (p: PtBrut, q: PtBrut) => Math.hypot(p.x - q.x, p.y - q.y) <= LONGE_M;
+    const designe = (r.forme?.corps ?? []).some(({ mur: m }) => (pres(m.gauche, f.a) && pres(m.droite, f.b)) || (pres(m.droite, f.a) && pres(m.gauche, f.b)));
+    if (longe || designe) return r;
+  }
+  return null;
+}
+
+/** Ce que la photo validee dit d'un mur, pour le Mode Toit : « vue sur la photo (triangle, 2 pointes) ». */
+export function texteDeLaPhoto(r: ReleveFacade): string {
+  const n = r.forme?.pointes?.length ?? 0;
+  const mots = [r.forme?.silhouetteLue && r.forme.silhouetteLue !== 'indetermine' ? r.forme.silhouetteLue.replace('-', ' ') : '', n ? n + ' pointe' + (n > 1 ? 's' : '') : ''].filter(Boolean);
+  return 'vue sur la photo' + (mots.length ? ' (' + mots.join(', ') + ')' : '');
+}

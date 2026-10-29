@@ -16,7 +16,9 @@ import { materiauCouverture, type MateriauCouverture } from '../../model/couleur
 import { penteDuToit } from '../../model/volumesToit.js';
 import { carteDuToit } from './carteToit.js';
 import { formeDuCorps } from '../../facade/regles/toits/faits.js';
-import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
+import type { CorpsToit, CouvertureChoisie, FormeSaillie, FormeToit, OuvertureFacade, ReleveFacade, SaillieFacade, TerrasseToit, Toit } from '../../model/types.js';
+import { libelleSilhouette } from '../../model/silhouetteFacade.js';
+import { ALERTE_ECART } from '../../facade/releve/bilanFacade.js';
 import { HAUTEUR_BOW_MAX_M, NOM_SAILLIE, RETRAIT_GALERIE_M, murDuCorps, replacerSaillie, retirerSaillie } from '../../facade/modeToit/saillies.js';
 import type { Champ, ContexteChamps, Section } from './types.js';
 import { estBatiment, parcelleDuProjet } from '../../model/fonctions.js';
@@ -384,6 +386,44 @@ function champsDuToit(): Champ[] {
   ];
 }
 
+const NOMS_OUVERTURE: Readonly<Record<OuvertureFacade['type'], [string, string]>> = {
+  fenetre: ['fenêtre', 'fenêtres'], 'porte-fenetre': ['porte-fenêtre', 'portes-fenêtres'], porte: ['porte', 'portes'], garage: ['porte de garage', 'portes de garage'],
+};
+
+/**
+ * Les ouvertures d'une facade, par niveau (le rez-de-chaussee d'abord) et par type : « Rez-de-chaussée : 2 fenêtres, 1 porte ·
+ * Étage 1 : 3 fenêtres », et celles que la personne a verifiees.
+ */
+function ouverturesParNiveau(ouvertures: readonly OuvertureFacade[]): string {
+  const niveaux = new Map<number, OuvertureFacade[]>();
+  for (const o of ouvertures) { const n = o.niveau ?? 0; niveaux.set(n, [...(niveaux.get(n) ?? []), o]); }
+  const lignes = [...niveaux.entries()].sort((a, b) => a[0] - b[0]).map(([n, l]) => {
+    const types = (Object.keys(NOMS_OUVERTURE) as OuvertureFacade['type'][]).map((t) => [t, l.filter((o) => o.type === t).length] as const).filter(([, k]) => k > 0);
+    return (n === 0 ? 'Rez-de-chaussée' : 'Étage ' + n) + ' : ' + types.map(([t, k]) => k + ' ' + NOMS_OUVERTURE[t][k > 1 ? 1 : 0]).join(', ');
+  });
+  const v = ouvertures.filter((o) => o.verifieeLe).length;
+  return lignes.join(' · ') + (v ? ` (${v === ouvertures.length ? 'toutes vérifiées' : pluriel(v, 'vérifiée')})` : '');
+}
+
+const SOURCES_DIMENSIONS: Readonly<Record<NonNullable<ReleveFacade['dimensions']>['source'], string>> = { lidar: 'LiDAR', ign: 'IGN', cadastre: 'cadastre', saisie: 'saisie' };
+
+/** La Facade validee en une ligne : ses dimensions et leur source, sa forme lue, la precision de sa texture, son parement. */
+function texteFacadeValidee(r: ReleveFacade): string {
+  const d = r.dimensions;
+  if (!d) return '';
+  const pointes = r.forme?.pointes?.length ?? 0;
+  const forme = r.forme?.silhouetteLue ? 'haut : ' + libelleSilhouette(r.forme.silhouetteLue) + (pointes ? ', ' + pluriel(pointes, 'pointe') : '') : pointes ? pluriel(pointes, 'pointe') + ' lue' + (pointes > 1 ? 's' : '') : '';
+  return [`${fr(d.largeurM)} × ${fr(d.egoutM)} m (${SOURCES_DIMENSIONS[d.source]})`, d.faitageM ? `faîtage ${fr(d.faitageM)} m` : '', forme,
+    r.textureCalee ? `texture à ${Math.round(r.textureCalee.pxParM)} px/m` : '', r.surface ? 'parement : ' + r.surface.principale : ''].filter(Boolean).join(' · ');
+}
+
+/** L'ecart que la photo constate, au-dela du seuil : une alerte, jamais une correction (le plan et le LiDAR restent). */
+function alerteDeLaPhoto(r: ReleveFacade): string {
+  const e = r.dimensions?.ecartPhoto;
+  const dits = [e?.largeur !== undefined && e.largeur > ALERTE_ECART ? `largeur à ${Math.round(e.largeur * 100)} %` : '', e?.egout !== undefined && e.egout > ALERTE_ECART ? `égout à ${Math.round(e.egout * 100)} %` : ''].filter(Boolean);
+  return dits.length ? 'La photo s’écarte du plan (' + dits.join(', ') + ') : le plan et le LiDAR sont gardés.' : '';
+}
+
 export function sectionReleve(c: ContexteChamps): Section {
   const o = enPoints(c.obj);
   const facades = facadesDuContour(o.pts, c.elevationOf(c.obj));
@@ -422,6 +462,23 @@ export function sectionReleve(c: ContexteChamps): Section {
             const photo = r && r.photoLocale && !r.texture ? ' · photo restée sur l’appareil du relevé' : '';
             return r ? `${nom}${fr(f.largeur)} m · ${pluriel(r.ouvertures.length, 'ouverture')}${photo}` : `${nom}${fr(f.largeur)} m · non relevée`;
           },
+        },
+        // La Facade validee (V4, lot F5) : ses dimensions, sa forme, sa texture calee, et l'ecart que la photo constate, en alerte.
+        {
+          type: 'lecture',
+          cle: 'facade',
+          libelle: 'Façade',
+          visible: () => !!releve()?.dimensions,
+          valeur: () => { const r = releve(); return r ? texteFacadeValidee(r) : ''; },
+          note: () => { const r = releve(); return r ? alerteDeLaPhoto(r) : ''; },
+        },
+        // La facade objet : les ouvertures relevees, par niveau, et celles que la personne a verifiees.
+        {
+          type: 'lecture',
+          cle: 'ouvertures',
+          libelle: 'Ouvertures',
+          visible: () => !!releve()?.ouvertures.length,
+          valeur: () => { const r = releve(); return r ? ouverturesParNiveau(r.ouvertures) : ''; },
         },
         {
           type: 'bouton',

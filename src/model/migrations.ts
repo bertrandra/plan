@@ -81,6 +81,15 @@ export const MIGRATIONS: readonly Migration[] = [
     // Ces champs s'ecrivaient au 5 apres sa premiere livraison (CHAMPS_DEPUIS) : un document 5 est un document 6 valide. Le 6 les
     // distingue, pour qu'un lecteur 5 d'avant refuse le fichier plutot que de les perdre.
     migrer: (d) => d
+  },
+  {
+    de: 6,
+    apporte: 'la façade validée d’un relevé : ses dimensions, sa forme, son parement, la pose de sa texture, et ses ouvertures vérifiées (avec leurs carreaux)',
+    // Ces champs sont facultatifs et n'existaient pas avant (lot F5) : un document 6 est un document 7 valide, relu a l'identique.
+    // Le 7 les distingue, pour qu'un lecteur 6 refuse le fichier plutot que de les perdre a la premiere reecriture d'une facade. Un
+    // releve d'avant garde aussi `calage.contourDecaleM`, que plus rien n'ecrit ni ne lit (l'ecart de largeur est dans
+    // `dimensions.ecartPhoto`, ecrit a la validation) : il passe tel quel, sans etre converti.
+    migrer: (d) => d
   }
 ];
 
@@ -118,7 +127,7 @@ function poserToitBdTopo(o: ObjetAPlat): ObjetAPlat {
 
 /**
  * Le plus petit schema qui decrit ces objets : le plus haut des champs poses (CHAMPS_DEPUIS : 6 pour la retouche, l'egout choisi et
- * le soleil, 5 pour les champs venus apres le relief,
+ * le soleil, 5 pour les champs venus apres le relief ; 7 pour un releve qui porte sa Facade validee, `porteLaFacade`),
  * 4 pour le relief, 2 pour un releve ou un toit), 3 des qu'un toit est a croupes (un lecteur 2 le dessinerait en quatre pans sur l'enveloppe,
  * faux sur un L).
  */
@@ -136,10 +145,29 @@ export function schemaMinimal(objets: readonly ObjetAPlat[]): number {
     }
     // Un releve qui garde la calibration de sa detection (etape 1.4) : un lecteur 4 l'effacerait.
     if (Array.isArray(brut.facades) && brut.facades.some((f) => !!f && typeof f === 'object' && 'calibration' in f)) s = Math.max(s, 5);
+    // La Facade d'un releve valide (lot F5) : un lecteur 6 la perdrait a la premiere reecriture du mur.
+    if (Array.isArray(brut.facades) && brut.facades.some(porteLaFacade)) s = Math.max(s, 7);
     // Un toit a croupes : un lecteur 2 le dessinerait en quatre pans sur l'enveloppe, faux sur un L.
     if (o.toit?.forme === 'croupes') s = Math.max(s, 3);
   }
   return s;
+}
+
+/** Les champs d'un releve venus avec la Facade (lot F5), et ceux d'une ouverture de la facade objet. */
+const CHAMPS_FACADE_7: readonly string[] = ['dimensions', 'forme', 'surface', 'textureCalee'];
+const CHAMPS_OUVERTURE_7: readonly string[] = ['id', 'verifieeLe'];
+
+/** Un releve qui porte la Facade, ou une ouverture de la facade objet (identifiant, verification, carreaux) : schema 7. */
+function porteLaFacade(f: unknown): boolean {
+  if (!f || typeof f !== 'object') return false;
+  const r = f as Record<string, unknown>;
+  if (CHAMPS_FACADE_7.some((k) => r[k] !== undefined)) return true;
+  return Array.isArray(r.ouvertures) && r.ouvertures.some((o) => {
+    if (!o || typeof o !== 'object') return false;
+    const ov = o as Record<string, unknown>;
+    const d = ov.details as Record<string, unknown> | undefined;
+    return CHAMPS_OUVERTURE_7.some((k) => ov[k] !== undefined) || (!!d && typeof d === 'object' && d.carreaux !== undefined);
+  });
 }
 
 /** Le schema a ecrire : celui qui decrit le document, jamais sous celui ou le projet a ete monte. */

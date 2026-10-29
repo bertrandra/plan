@@ -2,11 +2,12 @@
 //
 // Chaque corps est un polygone, chaque mur une arete que l'on touche pour choisir la facade ; toucher l'interieur d'un corps prend sa
 // facade la plus tournee vers la camera. La facade courante est en evidence, avec un triangle qui dit d'ou l'on regarde. Le plan est
-// celui du batiment, nord en haut (l'axe y du plan va vers le bas de l'ecran).
+// celui du batiment, nord en haut (l'axe y du plan va vers le bas de l'ecran). Un mur qui porte une Facade validee (lot F5) est en
+// tirets, et le dit : sa forme a ete vue sur la photo.
 
 import { useState } from 'react';
 import { Icone } from '../icones.js';
-import { facadesDeSession, sessionToit } from '../../app/toits/modeToit.js';
+import { facadesDeSession, mursVusSurPhoto, sessionToit } from '../../app/toits/modeToit.js';
 import { useCle, CLE_GELEE } from '../composants/abonnement.js';
 import type { Magasin } from '../../app/magasin.js';
 import type { RegistreCommandes } from '../../app/commandes.js';
@@ -29,8 +30,10 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
   const [ouvert, setOuvert] = useState(() => typeof document === 'undefined' || document.documentElement.dataset.classe !== 'compact');
   const s = sessionToit();
   if (!s) return null;
-  const facades = facadesDeSession(magasin.store.getState().etat.objects);
+  const objets = magasin.store.getState().etat.objects;
+  const facades = facadesDeSession(objets);
   if (!facades.length) return null;
+  const photos = mursVusSurPhoto(objets);
   const xs = facades.flatMap((f) => [f.a.x, f.b.x]), ys = facades.flatMap((f) => [f.a.y, f.b.y]);
   const x0 = Math.min(...xs) - MARGE_M, y0 = Math.min(...ys) - MARGE_M, x1 = Math.max(...xs) + MARGE_M, y1 = Math.max(...ys) + MARGE_M;
   const courante = s.facade ?? s.derniere;
@@ -48,8 +51,9 @@ export function NavigateurFacades({ magasin, commandes }: { magasin: Magasin; co
         ))}
         {facades.map((f) => {
           const sur = !!courante && courante.rang === f.rang && courante.mur === f.mur;
-          return <path key={f.rang + ':' + f.mur} className={'murNav' + (sur ? ' sur' : '')} data-commande="toit.facade" data-rang={f.rang ?? ''} data-mur={f.mur} onClick={clic}
-            d={'M' + f2(f.a.x) + ' ' + f2(f.a.y) + 'L' + f2(f.b.x) + ' ' + f2(f.b.y)} />;
+          const photo = photos.has((f.rang ?? '') + ':' + f.mur);
+          return <path key={f.rang + ':' + f.mur} className={'murNav' + (sur ? ' sur' : '') + (photo ? ' photo' : '')} data-commande="toit.facade" data-rang={f.rang ?? ''} data-mur={f.mur} onClick={clic}
+            d={'M' + f2(f.a.x) + ' ' + f2(f.a.y) + 'L' + f2(f.b.x) + ' ' + f2(f.b.y)}>{photo && <title>Façade validée sur la photo</title>}</path>;
         })}
         {courante && <PointDeVue f={courante} />}
       </svg>
