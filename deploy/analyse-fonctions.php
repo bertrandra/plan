@@ -33,6 +33,11 @@ const FICHIER_BROUILLON = 'regles-brouillon.json';
 const BROUILLON_MAX = 2 * 1024 * 1024;
 // Un appel immediat (l'aide du releve, « Rappeler Claude » de la calibration) : le run d'une facade, ou ses trois passes (x3), pas plus.
 const REQUETES_IMMEDIATES = 3;
+// Les usages dont l'appel immediat demande la sortie structuree (`output_config.format`, le schema de l'usage) : le run
+// d'une facade. Sans elle, sa reponse reelle n'etait pas lue (« Sortie non JSON », verification de l'API du
+// 29 octobre 2026, run 40887362801) ; son schema n'a ni recursion ni contrainte numerique, et l'API le compile. Si elle le
+// refusait un jour, la requete repart sans (formatRefuse).
+const SORTIE_STRUCTUREE = ['facade'];
 // Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
 // rejeu d'AE 101 (15 octobre 2026) a coupe a 8 000 la passe d'une maison de huit murs
 // (reponse perdue, un vote sur deux passes). On ne paie que ce que le modele ecrit.
@@ -199,6 +204,12 @@ function verifierDemande($d, array $plafonds, array $modeles = MODELE_PAR_USAGE)
 // prompt, et la reponse y est ramenee ici (`conformer`) : un terme hors vocabulaire devient
 // `indetermine`, un champ manquant prend sa valeur par defaut, un element de liste illisible est
 // ecarte. La page recoit donc la meme forme qu'avant.
+//
+// Le run d'une facade (SORTIE_STRUCTUREE, appel immediat) demande la sortie structuree : son schema part
+// alors en `output_config.format`, et plus du tout dans le prompt. Sans elle (l'API refuse le schema, ou
+// un batch), le prompt montre un EXEMPLE de reponse (`exemple` de son fichier de schema), pas le schema :
+// le schema en texte, Haiku le recopiait et logeait ses valeurs dedans (verification de l'API du
+// 29 octobre 2026, run 40896695970).
 
 const CONSIGNE_JSON = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, conforme à ce schéma JSON :';
 
@@ -207,16 +218,61 @@ function promptAvecSchema(string $prompt, $schema): string {
     return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_JSON . "\n\n" . json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
-/** L'objet JSON d'une reponse : le texte entier, sinon ce qui va de la premiere accolade a la derniere. */
+const CONSIGNE_STRUCTUREE = 'Répondez par l’objet JSON que la requête impose (sortie structurée), rien d’autre.';
+const CONSIGNE_EXEMPLE = 'Répondez par un seul objet JSON, sans texte avant ni après et sans bloc de code, avec exactement les clés de l’exemple ci-dessous, dans le même ordre. C’est un EXEMPLE, pour une façade inventée : ses valeurs ne sont pas à recopier, la réponse dit ce que votre image montre, et ses listes ont autant d’éléments que vous en voyez (aucun s’il n’y en a pas). Tous les nombres sont des parts, comme expliqué plus haut : jamais des pixels.';
+
+/**
+ * Le prompt en system, selon la forme demandee : avec la sortie structuree, la partie fixe et une ligne (le schema part a cote) ; sans
+ * elle, l'exemple de reponse quand l'usage en a un ; sinon le schema a la suite (les usages de l'analyse d'une maison).
+ */
+function systemeDe(string $prompt, $schema, $exemple, bool $structuree): string {
+    if ($structuree) return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_STRUCTUREE;
+    if ($exemple !== null) return $prompt . "\n\n# Forme de la réponse\n\n" . CONSIGNE_EXEMPLE . "\n\n" . json_encode($exemple, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    return promptAvecSchema($prompt, $schema);
+}
+
+/**
+ * L'objet JSON d'une reponse sans sortie structuree. Dans l'ordre : le texte entier ; le dernier bloc
+ * de code ```json ; le dernier objet equilibre du texte (accolades comptees hors des chaines) qui se
+ * lit ; en dernier recours, le meme sans ses virgules finales (« , } »). Le dernier et non le premier :
+ * une reponse peut porter un premier jet puis le JSON corrige (deux blocs de texte bout a bout, la
+ * reflexion entre eux), ou une phrase avec des accolades avant ou apres l'objet ; « de la premiere
+ * accolade a la derniere », la lecture d'avant, n'en lisait rien.
+ */
 function objetJsonDuTexte(string $texte) {
     $t = trim($texte);
     $d = json_decode($t);
     if (is_object($d)) return $d;
-    $i = strpos($t, '{');
-    $j = strrpos($t, '}');
-    if ($i === false || $j === false || $j <= $i) return null;
-    $d = json_decode(substr($t, $i, $j - $i + 1));
-    return is_object($d) ? $d : null;
+    if (preg_match_all('/```(?:json|JSON)?\s*\n?(.*?)```/s', $t, $m)) {
+        foreach (array_reverse($m[1]) as $bloc) { $d = json_decode(trim($bloc)); if (is_object($d)) return $d; }
+    }
+    $objets = objetsEquilibres($t);
+    for ($k = count($objets) - 1; $k >= 0; $k--) { $d = json_decode($objets[$k]); if (is_object($d)) return $d; }
+    foreach (array_reverse($objets) as $o) {
+        $d = json_decode((string)preg_replace('/,\s*([}\]])/', '$1', $o));
+        if (is_object($d)) return $d;
+    }
+    return null;
+}
+
+/** Les objets `{…}` de premier niveau d'un texte, accolades comptees hors des chaines JSON. */
+function objetsEquilibres(string $t): array {
+    $objets = [];
+    $n = strlen($t);
+    $prof = 0; $debut = -1; $chaine = false; $echap = false;
+    for ($i = 0; $i < $n; $i++) {
+        $c = $t[$i];
+        if ($chaine) {
+            if ($echap) $echap = false;
+            elseif ($c === '\\') $echap = true;
+            elseif ($c === '"') $chaine = false;
+            continue;
+        }
+        if ($c === '"' && $prof > 0) { $chaine = true; continue; }
+        if ($c === '{') { if ($prof === 0) $debut = $i; $prof++; }
+        elseif ($c === '}' && $prof > 0) { $prof--; if ($prof === 0) $objets[] = substr($t, $debut, $i - $debut + 1); }
+    }
+    return $objets;
 }
 
 /** Un terme ecrit par Claude, ramene a la graphie du vocabulaire (minuscules, sans accents, tirets). */
@@ -320,24 +376,49 @@ function conformer($v, $s, $defs, ?bool &$ok = null, bool $racine = false) {
     return null;
 }
 
-/** La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON. */
+/**
+ * La sortie d'une reponse dans la forme de son schema, ou `null` si elle n'est pas un objet JSON, ou si cet objet n'a aucune cle de la
+ * reponse et en a d'autres : le schema recopie (`type`, `properties`…) n'est pas une reponse vide a completer par defaut.
+ */
 function sortieConforme(string $texte, $schema) {
     $d = objetJsonDuTexte($texte);
     if ($d === null) return null;
     if (!is_object($schema)) return $d;
+    $cles = array_keys((array)($schema->properties ?? []));
+    if (count((array)$d) > 0 && !array_intersect(array_keys((array)$d), $cles)) return null;
     $r = conformer($d, $schema, $schema->{'$defs'} ?? null, $ok, true);
     return $ok && is_object($r) ? $r : null;
 }
 
-/** Les parametres d'une requete du batch : le prompt et le schema en cache, l'effort. */
-function parametresRequete(string $modele, string $prompt, $schema, array $contenu): array {
+/**
+ * Les parametres d'une requete : le prompt et le schema en cache, l'effort. `$structuree` ajoute la
+ * sortie structuree (`output_config.format`) : le texte rendu est alors un objet JSON conforme par
+ * construction, au lieu d'une consigne que le modele peut ne pas tenir. Seuls les usages de
+ * SORTIE_STRUCTUREE la demandent, et seulement a l'appel immediat (voir appelImmediat) : le schema
+ * de l'analyse d'une maison depasse la grammaire que l'API compile.
+ */
+function parametresRequete(string $modele, string $prompt, $schema, array $contenu, bool $structuree = false, $exemple = null): array {
     return [
         'model' => $modele,
         'max_tokens' => MAX_TOKENS,
-        'system' => [['type' => 'text', 'text' => promptAvecSchema($prompt, $schema), 'cache_control' => ['type' => 'ephemeral']]],
+        'system' => [['type' => 'text', 'text' => systemeDe($prompt, $schema, $exemple, $structuree), 'cache_control' => ['type' => 'ephemeral']]],
         'messages' => [['role' => 'user', 'content' => $contenu]],
-        'output_config' => ['effort' => EFFORT],
+        'output_config' => ['effort' => EFFORT] + ($structuree ? ['format' => ['type' => 'json_schema', 'schema' => $schema]] : []),
     ];
+}
+
+/**
+ * La sortie structuree refusee par l'API (le schema ou sa grammaire) : son message (300 caracteres au
+ * plus), que le resultat et le journal gardent ; la requete repart alors une fois sans elle. null pour
+ * toute autre erreur, qui ne se rejoue pas.
+ */
+function formatRefuse($ligne): ?string {
+    $r = is_object($ligne) && isset($ligne->result) && is_object($ligne->result) ? $ligne->result : null;
+    if (!$r || ($r->type ?? '') !== 'errored') return null;
+    $e = isset($r->error->error) && is_object($r->error->error) ? $r->error->error : ($r->error ?? null);
+    if (!is_object($e) || ($e->type ?? '') !== 'invalid_request_error') return null;
+    $m = (string)($e->message ?? '');
+    return preg_match('/grammar|schema|output_config|format|complex/i', $m) ? mb_substr($m, 0, 300) : null;
 }
 
 function prixValides($o): bool {
@@ -611,7 +692,11 @@ function lireResultat($ligne, $schema = null): array {
         else {
             // En objets, pas en tableaux : `{}` et `[]` repartent tels quels vers la page.
             $sortie = $texte === null ? null : sortieConforme($texte, $schema);
-            if ($sortie === null) $erreur = ['type' => 'sortie_illisible', 'message' => 'Sortie non JSON.'];
+            // Le debut du texte lu, pour qu'un echec se diagnostique (verifier-api-claude.mjs l'imprime) : ce que le modele a
+            // ecrit, rien de la requete.
+            if ($sortie === null) $erreur = ['type' => 'sortie_illisible',
+                                             'message' => $texte === null ? 'Aucun bloc de texte.' : (objetJsonDuTexte($texte) === null ? 'Sortie non JSON.' : 'Sortie hors du schéma.'),
+                                             'apercu' => mb_substr(trim((string)$texte), 0, 400)];
         }
     } elseif ($type === 'errored') {
         $e = isset($r->error->error) && is_object($r->error->error) ? $r->error->error : ($r->error ?? new stdClass());
@@ -723,7 +808,7 @@ function promptEtSchema(string $usage = 'analyse', ?array $brouillon = null): ar
     // Le schema en objets : `{}` et `[]` doivent repartir tels quels vers l'API.
     $s = json_decode((string)@file_get_contents(__DIR__ . '/' . $fSchema));
     if (!is_object($s) || !isset($s->schema)) throw new RuntimeException($fSchema . ' illisible');
-    return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema]];
+    return [$prompt, ['version' => (int)$s->version, 'schema' => $s->schema, 'exemple' => $s->exemple ?? null]];
 }
 
 /** Le prompt et le schema de chaque usage des requetes, lus une fois. */
@@ -1309,12 +1394,23 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
             'statut' => 'plafond', 'arret' => null, 'prompt' => $p0['version'], 'schema' => $s0['version']]]);
         erreur(429, 'BUDGET_EXCEEDED', 'Plafond de l’analyse atteint pour aujourd’hui ou ce mois-ci.', ['depense' => $fait, 'engage' => $engage, 'plafond' => $plafond]);
     }
-    $corps = [];
+    $corps = fn(array $r, bool $structuree) => (string)json_encode(parametresRequete($r['modele'], $prompts[$r['usage']][0]['texte'], $prompts[$r['usage']][1]['schema'], $r['contenu'],
+                                                                                     $structuree, $prompts[$r['usage']][1]['exemple'] ?? null), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $structurees = [];
+    $envoi = [];
     foreach ($demande['requetes'] as $r) {
-        [$pR, $sR] = $prompts[$r['usage']];
-        $corps[$r['id']] = (string)json_encode(parametresRequete($r['modele'], $pR['texte'], $sR['schema'], $r['contenu']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $structurees[$r['id']] = in_array($r['usage'], SORTIE_STRUCTUREE, true);
+        $envoi[$r['id']] = $corps($r, $structurees[$r['id']]);
     }
-    $lignesApi = appelsImmediats($corps);
+    $lignesApi = appelsImmediats($envoi);
+    // La sortie structuree refusee : une seconde fois sans elle (une erreur 400 ne coute rien).
+    $repli = [];
+    $refus = [];
+    foreach ($demande['requetes'] as $r) {
+        $m = $structurees[$r['id']] ? formatRefuse($lignesApi[$r['id']] ?? null) : null;
+        if ($m !== null) { $repli[$r['id']] = $corps($r, false); $structurees[$r['id']] = false; $refus[$r['id']] = $m; }
+    }
+    if ($repli) $lignesApi = appelsImmediats($repli) + $lignesApi;
     $table = tarifs($dossierClaude);
     $journal = [];
     $resultats = [];
@@ -1325,9 +1421,11 @@ function appelImmediat(string $dossierClaude, string $dossierBatches, array $dem
         $cout = coutAppel($x['tokens'], $ligneTarif, false);
         $journal[] = ['t' => $t] + $identite + ['usage' => $r['usage'], 'modele' => $r['modele'], 'batch' => false, 'idBatch' => null, 'requete' => $r['id'], 'passe' => $r['passe'],
             'tokens' => $x['tokens'], 'images' => $r['images'], 'facades' => $r['facades'], 'cout' => $cout, 'tarif' => $ligneTarif['depuis'] ?? null, 'statut' => $x['statut'],
-            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage'])];
+            'arret' => $x['arret'], 'prompt' => $pR['version'], 'schema' => $sR['version'], 'trouve' => trouvailles($x, $r['usage']),
+            'structuree' => $structurees[$r['id']], 'refusFormat' => $refus[$r['id']] ?? null];
         $resultats[] = ['id' => $r['id'], 'statut' => $x['statut'], 'arret' => $x['arret'], 'tokens' => $x['tokens'], 'sortie' => $x['sortie'], 'erreur' => $x['erreur'],
-                        'passe' => $r['passe'], 'usage' => $r['usage'], 'cout' => $cout];
+                        'passe' => $r['passe'], 'usage' => $r['usage'], 'cout' => $cout, 'structuree' => $structurees[$r['id']],
+                        'refusFormat' => $refus[$r['id']] ?? null];
     }
     journaliser($dossierClaude, $journal);
     return ['modele' => $premier['modele'], 'prompt' => $p0['version'], 'schema' => $s0['version'], 'resultats' => $resultats];

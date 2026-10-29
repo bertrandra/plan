@@ -74,6 +74,23 @@ export interface ObservationsFacade {
 const objet = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null);
 const liste = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const fini = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/**
+ * Les bornes des reperes (le prompt les dit, la sortie structuree ne peut pas les imposer : ni `minimum` ni `maximum`). Une part de
+ * l'image ou du mur va de 0 a 1 ; une hauteur en hauteurs d'egout part de 0 et ne passe pas V_MAX (une pointe de pignon est a 2 ou 3,
+ * jamais a 6). Un debord d'arrondi (MARGE : un bord du mur lu a 1.01) se ramene au bord ; au-dela, le nombre n'est pas une part :
+ * des pixels (`egout: 258`, verification de l'API du 29 octobre 2026) ou des metres, et l'objet qui le porte est ecarte, comme un
+ * nombre illisible.
+ */
+const V_MAX = 6;
+const MARGE = 0.05;
+const borne = (v: unknown, max: number): number | null => (fini(v) && v >= -MARGE && v <= max + MARGE ? Math.min(max, Math.max(0, v)) : null);
+const enPart = (v: unknown): number | null => borne(v, 1);
+const enHauteur = (v: unknown): number | null => borne(v, V_MAX);
+/** Une boite en part du mur (u de 0 a 1, v en hauteurs d'egout), non vide ; null hors des reperes. */
+function boite(o: Record<string, unknown>): { u0: number; u1: number; v0: number; v1: number } | null {
+  const u0 = enPart(o.u0), u1 = enPart(o.u1), v0 = enHauteur(o.v0), v1 = enHauteur(o.v1);
+  return u0 !== null && u1 !== null && v0 !== null && v1 !== null && u1 > u0 && v1 > v0 ? { u0, u1, v0, v1 } : null;
+}
 const parmi = <T extends string>(v: unknown, termes: readonly T[]): T | null => (typeof v === 'string' && (termes as readonly string[]).includes(v) ? v as T : null);
 const entier = (v: unknown): number | null => (fini(v) && v >= 0 && Math.floor(v) === v ? v : null);
 const CONFIANCES = ['forte', 'moyenne', 'faible'] as const;
@@ -82,12 +99,14 @@ const TYPES: readonly TypeOuverture[] = ['fenetre', 'porte-fenetre', 'porte', 'g
 
 function lireAngle(v: unknown): AngleIa | null {
   const o = objet(v);
-  return o && fini(o.x) && fini(o.egout) && fini(o.sol) && o.sol > o.egout ? { x: o.x, egout: o.egout, sol: o.sol, confiance: confiance(o.confiance) } : null;
+  const x = enPart(o?.x), egout = enPart(o?.egout), sol = enPart(o?.sol);
+  return o && x !== null && egout !== null && sol !== null && sol > egout ? { x, egout, sol, confiance: confiance(o.confiance) } : null;
 }
 
 function lireEtendue(v: unknown): Etendue | null {
   const o = objet(v);
-  return o && fini(o.debut) && fini(o.fin) && o.fin > o.debut ? { debut: o.debut, fin: o.fin } : null;
+  const debut = enPart(o?.debut), fin = enPart(o?.fin);
+  return debut !== null && fin !== null && fin > debut ? { debut, fin } : null;
 }
 
 const grille = (o: Record<string, unknown>): Grille => ({ colonnes: entier(o.colonnes), rangees: entier(o.rangees) });
@@ -107,14 +126,15 @@ function lireCarreaux(v: unknown): Carreaux | null {
 function lireOuverture(v: unknown): OuvertureIa | null {
   const o = objet(v);
   const type = parmi(o?.type, TYPES);
-  if (!o || !type || !fini(o.u0) || !fini(o.u1) || !fini(o.v0) || !fini(o.v1) || !(o.u1 > o.u0) || !(o.v1 > o.v0)) return null;
+  const b = o ? boite(o) : null;
+  if (!o || !type || !b) return null;
   const d = objet(o.details) ?? {};
   const details: OuvertureIa['details'] = {};
   const volets = parmi(d.volets, ['battants', 'roulant', 'persiennes', 'aucun'] as const), allege = parmi(d.allege, ['balcon', 'garde-corps', 'pleine'] as const), forme = parmi(d.forme, ['rect', 'cintre', 'rond'] as const);
   if (volets) details.volets = volets;
   if (allege) details.allege = allege;
   if (forme) details.forme = forme;
-  return { type, u0: o.u0, u1: o.u1, v0: o.v0, v1: o.v1, niveau: entier(o.niveau), travee: entier(o.travee), confiance: confiance(o.confiance), details, carreaux: lireCarreaux(o.carreaux) };
+  return { type, ...b, niveau: entier(o.niveau), travee: entier(o.travee), confiance: confiance(o.confiance), details, carreaux: lireCarreaux(o.carreaux) };
 }
 
 export const garder = <T>(l: (T | null)[]): T[] => l.filter((x): x is T => x !== null);
@@ -127,16 +147,16 @@ export function lireObservationsFacade(v: unknown): ObservationsFacade | null {
   return {
     calage: {
       angles: { gauche: lireAngle(angles.gauche), droite: lireAngle(angles.droite) },
-      pointes: garder(liste(calage.pointes).map((p) => { const o = objet(p); return o && fini(o.u) && fini(o.v) ? { u: o.u, v: o.v, confiance: confiance(o.confiance) } : null; })),
+      pointes: garder(liste(calage.pointes).map((p) => { const o = objet(p); const u = enPart(o?.u), h = enHauteur(o?.v); return o && u !== null && h !== null ? { u, v: h, confiance: confiance(o.confiance) } : null; })),
       appentis: garder(liste(calage.appentis).map(lireEtendue)),
       corps: garder(liste(calage.corps).map(lireEtendue)),
       cache: garder(liste(calage.cache).map((c) => { const e = lireEtendue(c), quoi = parmi(objet(c)?.quoi, ['arbre', 'haie', 'voiture', 'autre'] as const); return e && quoi ? { ...e, quoi } : null; })),
     },
     forme: { silhouette: silhouetteLue(forme.silhouette), bout: boutLu(forme.bout) },
-    elements: garder(liste(r.elements).map((x) => { const o = objet(x), element = parmi(o?.element, ['cheminee', 'lucarne'] as const); return o && element && fini(o.u) ? { element, u: o.u, confiance: confiance(o.confiance) } : null; })),
+    elements: garder(liste(r.elements).map((x) => { const o = objet(x), element = parmi(o?.element, ['cheminee', 'lucarne'] as const); const u = enPart(o?.u); return o && element && u !== null ? { element, u, confiance: confiance(o.confiance) } : null; })),
     surface: {
       principale: parmi(surface.principale, [...PAREMENTS, 'mixte'] as const) ?? 'indetermine',
-      zones: garder(liste(surface.zones).map((z) => { const o = objet(z), type = parmi(o?.type, PAREMENTS); return o && type && fini(o.u0) && fini(o.u1) && fini(o.v0) && fini(o.v1) && o.u1 > o.u0 && o.v1 > o.v0 ? { type, u0: o.u0, u1: o.u1, v0: o.v0, v1: o.v1, confiance: confiance(o.confiance) } : null; })),
+      zones: garder(liste(surface.zones).map((z) => { const o = objet(z), type = parmi(o?.type, PAREMENTS); const b = o ? boite(o) : null; return o && type && b ? { type, ...b, confiance: confiance(o.confiance) } : null; })),
       confiance: confiance(surface.confiance),
     },
     ouvertures: garder(r.ouvertures.map(lireOuverture)),

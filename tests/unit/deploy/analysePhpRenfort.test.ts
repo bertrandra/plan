@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { connecterAdmin } from '../../../src/io/depotDemos.js';
 import { php as appelPhp } from '../../fixtures/deploy/appelPhp.js';
-import { CLE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
+import { CLE, SORTIE_FACADE, SORTIE_RENFORT, TROUVE_RENFORT, USAGE_P2, demande, demarrerFauxAnthropic, messageFacade, messageReussi, reponseParDefaut, type FauxAnthropic } from '../../fixtures/deploy/fauxAnthropic.js';
 import { demarrerFauxePlateforme, type FauxPlateforme } from '../../fixtures/deploy/fauxPlateforme.js';
 import { verifierEscalade } from '../../fixtures/deploy/scenarioEscalade.js';
 
@@ -87,6 +87,7 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     fs.rmSync(demos, { recursive: true, force: true });
     faux.batches.length = 0;
     faux.messages.length = 0;
+    faux.reponseMessage = () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_RENFORT) });
     faux.finLe = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
     await connecterAdmin(navigateur, 'secret-admin');
   });
@@ -117,6 +118,35 @@ describe.skipIf(!php)('analyse.php, le renfort', () => {
     expect(journal()).toHaveLength(3);
     expect(journal()[0]).toMatchObject({ usage: 'renfort', batch: false, requete: 'r1', facades: 1, cout, statut: 'reussi', trouve: TROUVE_RENFORT });
     expect((await ecrire('admin/claude/messages', d(4))).status).toBe(400);
+  });
+
+  it('demande au run d une facade la sortie structuree, et repart une fois sans elle si l API la refuse', async () => {
+    const requeteFacade = (id: string) => ({ id, passe: 1, usage: 'facade', facades: 1, contenu: requeteRenfort(id, 1).contenu });
+    const d = { ...demande([]), usage: 'facade', requetes: [requeteFacade('f1')] };
+    faux.reponseMessage = (corps) => messageFacade(corps);
+    let r = await (await ecrire('admin/claude/messages', d)).json();
+    expect(faux.messages).toHaveLength(1);
+    expect((faux.messages[0]?.output_config as { format?: { type: string } }).format?.type).toBe('json_schema');
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: true, refusFormat: null, erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ usage: 'facade', structuree: true, prompt: 2, schema: 2 });
+    // Le schema part en sortie structuree, et plus dans le prompt.
+    const systeme = (m: Record<string, unknown> | undefined) => (m?.system as { text: string }[])[0]!.text;
+    expect(systeme(faux.messages[0])).not.toContain('additionalProperties');
+    // Le schema refuse : la meme requete sans format, lue dans le texte tel qu'une reponse libre l'ecrit.
+    faux.messages.length = 0;
+    faux.reponseMessage = (corps) => messageFacade(corps, true);
+    r = await (await ecrire('admin/claude/messages', d)).json();
+    expect(faux.messages.map((m) => (m.output_config as { format?: unknown }).format === undefined)).toEqual([false, true]);
+    expect(r.resultats[0]).toMatchObject({ statut: 'reussi', structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large', erreur: null, sortie: SORTIE_FACADE });
+    expect(journal().at(-1)).toMatchObject({ structuree: false, refusFormat: 'output_config.format: The compiled grammar is too large' });
+    // Le repli montre l'exemple de reponse, pas le schema (que Haiku recopiait).
+    expect(systeme(faux.messages[1])).toMatch(/C’est un EXEMPLE/);
+    expect(systeme(faux.messages[1])).not.toContain('additionalProperties');
+    // Le renfort, lui, part sans : sa reponse se lit dans le texte, comme avant.
+    faux.messages.length = 0;
+    faux.reponseMessage = () => ({ statut: 200, corps: messageReussi(USAGE_P2, SORTIE_RENFORT) });
+    await ecrire('admin/claude/messages', { ...demande([]), usage: 'renfort', requetes: [requeteRenfort('r1', 1)] });
+    expect((faux.messages[0]?.output_config as { format?: unknown }).format).toBeUndefined();
   });
 
   it('fait l escalade (D20) : usage escalade, prompt et schema de l analyse, modele demande', async () => {

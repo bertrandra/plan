@@ -29,6 +29,6 @@ export function genererRunFacade(): FichiersGeneres {
   return {
     corpsPrompt: RUN_FACADE.prompt, versionPrompt, versionSchema,
     prompt: avecEntete(RUN_FACADE.prompt, { version: versionPrompt, note: NOTE_PROMPT_FACADE }),
-    schema: textuel({ format: 'plan-schema-facade', version: versionSchema, note: NOTE_SCHEMA_FACADE, schema: RUN_FACADE.schema }),
+    schema: textuel({ format: 'plan-schema-facade', version: versionSchema, note: NOTE_SCHEMA_FACADE, schema: RUN_FACADE.schema, exemple: RUN_FACADE.exemple }),
   };
 }

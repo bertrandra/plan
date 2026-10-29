@@ -1,7 +1,7 @@
 {
   "format": "plan-schema-facade",
-  "version": 1,
-  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux.",
+  "version": 2,
+  "note": "Sortie du run d'une facade par Claude (spec-facade-calage-audit.md 8, lot F2). Angles du mur en part de l'image (x, y depuis le haut gauche), tout le reste en part du mur (u le long du mur, v en hauteurs d'egout depuis le sol) : Claude ne voit ni les pixels ni les metres. Vocabulaire ferme, indetermine partout ou un champ peut manquer ; un champ qu'aucun lecteur n'utilise n'y entre pas. Le schema part a la suite du prompt et la reponse y est ramenee par le serveur (deploy/analyse-fonctions.php::conformer) ; un changement de champ ou de terme change la version. Version 1 : calage, forme, elements, surface (parement principal et zones, dont le colombage), ouvertures, details et carreaux. Version 2 (29 octobre 2026) : les champs ne changent pas ; le fichier porte un `exemple` de reponse (une facade inventee), que le serveur montre a la place du schema quand la sortie structuree ne sert pas (Haiku recopiait le schema en texte et logeait ses valeurs dedans). Avec la sortie structuree, le schema part en `output_config.format` et plus a la suite du prompt.",
   "schema": {
     "type": "object",
     "additionalProperties": false,
@@ -485,5 +485,136 @@
         ]
       }
     }
+  },
+  "exemple": {
+    "calage": {
+      "angles": {
+        "gauche": {
+          "x": 0.12,
+          "egout": 0.41,
+          "sol": 0.86,
+          "confiance": "forte"
+        },
+        "droite": {
+          "x": 0.9,
+          "egout": 0.43,
+          "sol": 0.87,
+          "confiance": "moyenne"
+        }
+      },
+      "pointes": [
+        {
+          "u": 0.5,
+          "v": 1.8,
+          "confiance": "moyenne"
+        }
+      ],
+      "appentis": [],
+      "corps": [],
+      "cache": [
+        {
+          "quoi": "haie",
+          "debut": 0.78,
+          "fin": 1
+        }
+      ]
+    },
+    "forme": {
+      "silhouette": "triangle",
+      "bout": "pignon"
+    },
+    "elements": [
+      {
+        "element": "cheminee",
+        "u": 0.62,
+        "confiance": "faible"
+      }
+    ],
+    "surface": {
+      "principale": "enduit",
+      "zones": [
+        {
+          "type": "pierre",
+          "u0": 0,
+          "u1": 1,
+          "v0": 0,
+          "v1": 0.12,
+          "confiance": "moyenne"
+        }
+      ],
+      "confiance": "forte"
+    },
+    "ouvertures": [
+      {
+        "type": "porte",
+        "u0": 0.2,
+        "u1": 0.3,
+        "v0": 0,
+        "v1": 0.42,
+        "niveau": 0,
+        "travee": 0,
+        "confiance": "forte",
+        "details": {
+          "volets": "aucun",
+          "allege": "indetermine",
+          "forme": "rect"
+        },
+        "carreaux": {
+          "vantaux": 1,
+          "colonnes": "indetermine",
+          "rangees": "indetermine",
+          "petitsBois": "indetermine",
+          "imposte": "aucune",
+          "vitrage": "indetermine"
+        }
+      },
+      {
+        "type": "fenetre",
+        "u0": 0.62,
+        "u1": 0.74,
+        "v0": 0.18,
+        "v1": 0.42,
+        "niveau": 0,
+        "travee": 1,
+        "confiance": "forte",
+        "details": {
+          "volets": "battants",
+          "allege": "pleine",
+          "forme": "rect"
+        },
+        "carreaux": {
+          "vantaux": 2,
+          "colonnes": 1,
+          "rangees": 3,
+          "petitsBois": "fins",
+          "imposte": "aucune",
+          "vitrage": "clair"
+        }
+      },
+      {
+        "type": "fenetre",
+        "u0": 0.44,
+        "u1": 0.56,
+        "v0": 0.62,
+        "v1": 0.88,
+        "niveau": 1,
+        "travee": "indetermine",
+        "confiance": "moyenne",
+        "details": {
+          "volets": "roulant",
+          "allege": "pleine",
+          "forme": "rect"
+        },
+        "carreaux": {
+          "vantaux": 2,
+          "colonnes": 1,
+          "rangees": 1,
+          "petitsBois": "aucun",
+          "imposte": "aucune",
+          "vitrage": "clair"
+        }
+      }
+    ],
+    "confiance": "moyenne"
   }
 }

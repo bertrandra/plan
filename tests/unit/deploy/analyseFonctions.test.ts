@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { constantePhp, php, phpObjets, phpPresent } from '../../fixtures/deploy/appelPhp.js';
 import {
-  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
-  USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi
+  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TEXTE_FACADE_SANS_FORMAT, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
+  USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi, reussiTexte, schemaFacade, texteSqueletteDuSchema
 } from '../../fixtures/deploy/fauxAnthropic.js';
 import { FIN, RAPIDE, requeteRenfort } from '../../fixtures/deploy/scenariosModeles.js';
 import { BROUILLON } from '../../fixtures/deploy/scenarioRegles.js';
@@ -160,14 +160,17 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
       const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
-      expect(p.version).toBe(1);
+      expect(p.version).toBe(2);
       expect(p.texte).toMatch(/^# Rôle/);
       const s = lireSchema('schema-facade.json');
-      expect(s.version).toBe(1);
+      expect(s.version).toBe(2);
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
       // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
-      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([1, 1]);
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([2, 2]);
+      // L'exemple du repli a la forme du schema : le serveur le ramene a lui-meme, sans rien ecarter ni completer.
+      const exemple = (JSON.parse(texte('schema-facade.json')) as { exemple: object }).exemple;
+      expect(phpObjets('sortieConforme', JSON.stringify(exemple), s.schema)).toEqual(exemple);
       expect(constantePhp<string[]>('USAGES')).toContain('facade');
     });
   });
@@ -300,6 +303,59 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
         details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
         carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } });
       expect(bon.confiance).toBe('faible');
+    });
+
+    it('lit l objet d une reponse sans sortie structuree : bloc de code, accolades autour, premier jet, virgule finale', () => {
+      // La forme qui faisait « Sortie non JSON » : de la premiere accolade a la derniere, rien ne se lit.
+      const t = TEXTE_FACADE_SANS_FORMAT;
+      expect(() => JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1))).toThrow();
+      expect(phpObjets('objetJsonDuTexte', t)).toEqual(SORTIE_FACADE);
+      // Le dernier objet qui se lit, accolades des chaines comprises ; une virgule finale en dernier recours.
+      expect(phpObjets('objetJsonDuTexte', '{"a": 1, "b": "x}"} puis {"a": 2}')).toEqual({ a: 2 });
+      expect(phpObjets('objetJsonDuTexte', 'Note {u0, u1} : {"a": 3, "l": [1, 2,], }')).toEqual({ a: 3, l: [1, 2] });
+      expect(php('objetsEquilibres', 'a {b {c}} d {"e": "}"} {f')).toEqual(['{b {c}}', '{"e": "}"}']);
+      expect(phpObjets('objetJsonDuTexte', 'Je ne vois pas de façade.')).toBeNull();
+    });
+
+    it('demande la sortie structuree quand on la veut, et reconnait son refus par l API', () => {
+      const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
+      expect(constantePhp('SORTIE_STRUCTUREE')).toEqual(['facade']);
+      const p = phpObjets<{ output_config: unknown; system: { text: string }[] }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], true);
+      expect(p.output_config).toEqual({ effort: 'low', format: { type: 'json_schema', schema: SCHEMA_FACADE.schema } });
+      // Avec la sortie structuree, le schema ne part plus dans le prompt ; sans elle, l'exemple s'il y en a un, sinon le schema.
+      expect(p.system[0]?.text).toBe('PROMPT\n\n# Forme de la réponse\n\n' + constantePhp<string>('CONSIGNE_STRUCTUREE'));
+      const exemple = { calage: { angles: { gauche: 'indetermine' } } };
+      const repli = phpObjets<{ system: { text: string }[]; output_config: unknown }>('parametresRequete', 'claude-haiku-5-5', 'PROMPT', SCHEMA_FACADE.schema, [{ type: 'text', text: 'x' }], false, exemple);
+      expect(repli.system[0]?.text).toBe('PROMPT\n\n# Forme de la réponse\n\n' + constantePhp<string>('CONSIGNE_EXEMPLE') + '\n\n' + JSON.stringify(exemple));
+      expect(repli.system[0]?.text).not.toContain('additionalProperties');
+      expect(repli.output_config).toEqual({ effort: 'low' });
+      const erreur = (type: string, message: string) => ({ custom_id: 'f', result: { type: 'errored', error: { type: 'error', error: { type, message } } } });
+      // Le message du refus est garde (le resultat et le journal le portent) ; une autre erreur ne se rejoue pas.
+      expect(phpObjets('formatRefuse', erreur('invalid_request_error', 'output_config.format: The compiled grammar is too large'))).toBe('output_config.format: The compiled grammar is too large');
+      expect(phpObjets('formatRefuse', erreur('invalid_request_error', 'Schema is too complex for compilation.'))).toBe('Schema is too complex for compilation.');
+      expect(phpObjets('formatRefuse', erreur('invalid_request_error', 'messages.0.content.0.image: invalid base64'))).toBeNull();
+      expect(phpObjets('formatRefuse', erreur('overloaded_error', 'schema'))).toBeNull();
+      expect(phpObjets('formatRefuse', reussi('f', USAGE_P1))).toBeNull();
+    });
+
+    it('ne prend pas le schema recopie, valeurs logees dedans, pour une reponse vide', () => {
+      // La forme que Haiku a rendue sur la vraie API quand le schema partait en texte (run 40896695970).
+      const copie = texteSqueletteDuSchema(schemaFacade());
+      expect(JSON.parse(copie)).toHaveProperty('properties.calage.properties.angles.properties.droite.egout', 258);
+      expect(phpObjets('sortieConforme', copie, schemaFacade())).toBeNull();
+      expect(phpObjets('lireResultat', reussiTexte('f', USAGE_P1, copie), schemaFacade())).toMatchObject({ sortie: null, erreur: { type: 'sortie_illisible', message: 'Sortie hors du schéma.' } });
+      // Un objet vide reste une reponse a completer (la plus prudente), comme avant.
+      expect(phpObjets('sortieConforme', '{}', schemaFacade())).not.toBeNull();
+    });
+
+    it('dit, pour une sortie illisible, le debut du texte rendu', () => {
+      const prose = 'Je ne peux pas lire cette façade : '.repeat(20);
+      const e = phpObjets<{ erreur: { type: string; message: string; apercu: string } }>('lireResultat', reussiTexte('f', USAGE_P1, prose)).erreur;
+      expect(e).toMatchObject({ type: 'sortie_illisible', message: 'Sortie non JSON.' });
+      expect(e.apercu).toBe(prose.trim().slice(0, 400));
+      const vide = reussi('g', USAGE_P1) as { result: { message: { content: unknown[] } } };
+      vide.result.message.content = [{ type: 'thinking', thinking: '' }];
+      expect(phpObjets('lireResultat', vide)).toMatchObject({ erreur: { type: 'sortie_illisible', message: 'Aucun bloc de texte.', apercu: '' } });
     });
 
     it('borne un nombre aberrant, ignore une forme inattendue, et ne compte que les reponses lues', () => {
