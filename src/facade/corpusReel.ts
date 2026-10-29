@@ -18,7 +18,7 @@ import { REGLAGES_STRUCTURE } from './regles/facades/structure.js';
 import { recouvrement } from './detection/voteVues.js';
 import { lireRunEnregistre, type RunEnregistre } from '../regles/facades/observations.js';
 import type { Image, P2 } from './vision/homographie.js';
-import type { FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
+import type { CorpsToit, FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
 
 export const FORMAT_CAS_REEL = 'plan-facade-reelle';
 
@@ -58,6 +58,11 @@ export interface CasReel {
    * pas, elle se pose sur chaque photo par ses coins. Absent : un rectangle.
    */
   gabarit?: { u: number; v: number }[];
+  /**
+   * Les corps du toit du plan (le LiDAR) qui font le gabarit, et le mur de la facade vu de dehors : le diagnostic de forme (E5 bis,
+   * lot F4) se fait corps par corps. Importes d'un audit avec le gabarit ; absents d'un cas d'avant eux (l'E5 bis est alors sautee).
+   */
+  toit?: { mur: { gauche: PtBrut; droite: PtBrut }; corps: CorpsToit[] };
   /** Le mur vrai sur l'assemblage des photos, pose a la main : la verite de l'etape du calage (E4). */
   calageVrai?: CalageVrai;
   /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E5 bis) et du toit (E8). */
@@ -107,6 +112,14 @@ function lireToitVrai(brut: unknown): ToitVraiCorps[] {
   });
 }
 
+/** Relit les corps du toit d'un cas : un mur et des corps a quatre sommets, avec leurs hauteurs ; leve sinon (un gabarit faux ne se devine pas). */
+function lireToitDuCas(brut: unknown): NonNullable<CasReel['toit']> {
+  const t = brut as Partial<NonNullable<CasReel['toit']>> | null;
+  const corpsLisible = (c: Partial<CorpsToit>) => Array.isArray(c?.pts) && c.pts.length === 4 && c.pts.every(point) && fini(c.posFaitage) && fini(c.faitage) && Array.isArray(c.egouts) && c.egouts.length === 2 && c.egouts.every(fini) && Array.isArray(c.pignons);
+  if (!t || !point(t.mur?.gauche) || !point(t.mur?.droite) || !Array.isArray(t.corps) || !t.corps.every(corpsLisible)) throw new Error('Cas reel : toit veut le mur de la facade (gauche, droite) et des corps du toit (pts, posFaitage, faitage, egouts, pignons).');
+  return { mur: { gauche: { ...t.mur.gauche }, droite: { ...t.mur.droite } }, corps: t.corps.map((c) => JSON.parse(JSON.stringify(c)) as CorpsToit) };
+}
+
 /** Relit le mur vrai d'un cas ; leve s'il ne forme pas un mur. */
 function lireCalageVrai(brut: unknown): CalageVrai {
   const c = brut as Partial<CalageVrai> | null;
@@ -122,12 +135,13 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
   const gabarit = lireGabarit(c.gabarit);
   const reste = { ...(c as CasReel) };
-  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia;
+  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia; delete reste.toit;
   // Une reponse enregistree illisible est laissee de cote, jamais inventee : les autres restent rejouables.
   const ia = Array.isArray(c.ia) ? c.ia.map(lireRunEnregistre).filter((x): x is RunEnregistre => x !== null) : [];
   if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
   return {
     ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
+    ...(c.toit !== undefined ? { toit: lireToitDuCas(c.toit) } : {}),
     ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
     ...(ia.length ? { ia } : {}),
   };

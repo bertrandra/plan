@@ -2835,6 +2835,11 @@
   .calContrat dd{ margin:0; }
   /* Le haut du mur lu a la teinte (E5) : un trait plus epais que le gabarit, d'une autre teinte (le mot de la legende le dit aussi). */
   .calSilhouetteLue{ fill:none; stroke:var(--alerte); stroke-width:3.5; }
+  /* Le diagnostic de forme (E5 bis, lot F4) : le gabarit de chaque proposition en tirets de l'encre, sans voile (le gabarit du plan
+     garde le sien) ; les troncons de corps en traits sous le mur, alternes plein et tirets d'un corps au suivant (la legende les nomme). */
+  .calGabaritPropose{ fill:none; stroke:var(--ink); stroke-width:2.5; stroke-dasharray:8 5; }
+  .calTroncon{ stroke:var(--accent); stroke-width:5; }
+  .calTroncon.c1, .calTroncon.c3{ stroke:var(--ink-soft); stroke-dasharray:6 4; }
   .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){
     .calEcran button, .calChamp input, .calChamp select{ min-height:44px; }

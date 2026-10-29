@@ -51,8 +51,8 @@ export interface AppentisFait {
 }
 
 /**
- * Les pignons d'une facade du corps principal (spec §5.1) : des pignons traversants qui coupent le
- * pan de cette facade, comme les deux pignons de la facade sud d'AE 101. La facade se designe comme
+ * Les pignons d'une facade (spec §5.1) : des pignons traversants qui coupent le
+ * pan de cette facade, sur le corps qui la porte, comme les deux pignons de la facade sud d'AE 101. La facade se designe comme
  * pour un appentis (l'azimut de sa normale sortante). `position: 'bouts'` : un pignon a chaque bout
  * de la facade. `haut: 'faitage'` : ils montent jusqu'au point haut du faitage du corps (dit par le
  * proprietaire) ; sans lui, leur hauteur est lue sur la mesure. `largeurM`, quand le fait la donne,
@@ -60,11 +60,29 @@ export interface AppentisFait {
  */
 export interface PignonsFait {
   facade: { azimutDeg: number; toleranceDeg?: number };
-  position: 'bouts';
+  /**
+   * Le mur du corps qui porte ces pignons (lot F4 : une proposition de l'audit, MD/spec-facade-calage-audit.md §5 ter) : il l'emporte
+   * sur l'azimut, et designe n'importe quel corps, retrouve par son mur (murDuCorps) quelle que soit la renumerotation des corps.
+   * Absent (un fait du depot) : le cote de corps en facade du contour qui regarde vers l'azimut, le plus long.
+   */
+  mur?: MurDesigne;
+  /** `bouts` : un pignon a chaque bout de la facade. `places` : exactement les pignons de `places` (lot F4). */
+  position: 'bouts' | 'places';
+  /** Les pignons que montre ce mur, de `de` a `a` metres le long du mur depuis sa gauche vue de dehors (`position: 'places'`). */
+  places?: { de: number; a: number }[];
   haut?: 'faitage';
   /** La largeur de chaque pignon le long de la facade, en metres ; donnee, elle l'emporte sur la mesure. */
   largeurM?: number;
 }
+
+/** Un mur de corps, par ses deux bouts dans le plan, vus de dehors (de gauche a droite). */
+export interface MurDesigne { gauche: { x: number; y: number }; droite: { x: number; y: number } }
+
+/**
+ * Ce qui ferme le bout d'un corps, vu sur son mur de bout (lot F4 : une proposition de l'audit) : un triangle est un pignon, un
+ * trapeze une croupe (MD/spec-facade-calage-audit.md §5 bis). Le corps se designe par ce mur, comme les pignons d'une facade.
+ */
+export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait }
 
 /**
  * Une bay window (spec §2.3) : une avancee de facade que le contour cadastral porte (AE 101 : 2,3 x 0,6 m cote est). La facade se
@@ -100,8 +118,10 @@ export interface ObservationFait {
   faitageM?: Fourchette;
   /** Les appentis adosses que le calcul ajoute aux corps lus (spec §5.1). */
   appentis?: AppentisFait[];
-  /** Les pignons traversants d'une facade du corps principal (spec §5.1). */
+  /** Les pignons traversants d'une facade, sur le corps qui la porte (spec §5.1 ; lot F4 : n'importe quel corps, par son mur). */
   pignons?: PignonsFait[];
+  /** Les bouts que montrent des murs de bout, chacun sur son corps (lot F4). */
+  boutsDesMurs?: BoutDeMurFait[];
   /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */
   baies?: BaieFait[];
 }

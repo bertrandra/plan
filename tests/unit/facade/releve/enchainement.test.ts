@@ -17,6 +17,11 @@ import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facad
 import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
 import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
 import { veriteDuCas } from '../../../../src/facade/releve/enchainement.js';
+import { lireRunEnregistre } from '../../../../src/regles/facades/observations.js';
+import { facadesDuContour } from '../../../../src/geometry/cotesVusDeDehors.js';
+import { reconstruireCorps, type Grille } from '../../../../src/facade/toits/toitCorps.js';
+import { toitMesureDepuisGrille } from '../../../../src/model/toitMesure.js';
+import type { PtBrut } from '../../../../src/model/types.js';
 
 // L'orchestrateur de l'enchainement d'une facade (facade/releve/enchainement.ts, MD/spec-facade-calage-audit.md §4 ter.4) : l'etat de
 // chaque etape est calcule, la chaine est appelee telle quelle (le rejeu d'un cas du banc rend ce qu'elle rend), et l'on peut
@@ -129,6 +134,30 @@ describe('l enchainement d une facade', () => {
     const a = etapeDe(await rejeu('arbre'), 'calage');
     expect(a.etat).toBe('echec');
     expect(a.resume).toMatch(/Aucune pose n’explique la photo sans le toit.*Posez les deux angles/);
+  }, 120_000);
+
+  it('E5 bis et E8 (lot F4) : sur AE 101 sud, le pignon est que le LiDAR du soir a perdu, propose sur le corps principal, a confirmer', async () => {
+    const etalon = lireEtalon(JSON.parse(readFileSync('tests/fixtures/facades-reel/etalons/ae101-sud.json', 'utf8')));
+    const soir = JSON.parse(readFileSync('tests/fixtures/toits/vesinet-ae101-lidar-soir.json', 'utf8')) as { contour: PtBrut[]; grille: Grille };
+    const corps = reconstruireCorps(toitMesureDepuisGrille(soir.grille as never, soir.contour)!, soir.contour, { grille: soir.grille })!;
+    const f = facadesDuContour(soir.contour, 0).find((x) => x.cote === etalon.source.cote)!;
+    const sc = sceneAe101(etalon, 'buisson');
+    const coins = [{ x: sc.vrai.x0, y: sc.vrai.y0 }, { x: sc.vrai.x1, y: sc.vrai.y0 }, { x: sc.vrai.x1, y: sc.vrai.y1 }, { x: sc.vrai.x0, y: sc.vrai.y1 }];
+    const ia = lireRunEnregistre(JSON.parse(readFileSync('tests/fixtures/facades-ia/ae101-sud-synthetique.json', 'utf8')));
+    const e = { largeurM: etalon.largeurM, hauteurM: etalon.hauteurM, gabarit: etalon.gabarit, photos: [{ image: sc.image, coins, reperes: null, focalePx: null, murALaMain: true }] };
+    const r = await derouler({ ...e, toit: { mur: { gauche: f.gauche, droite: f.droite }, corps } }, { coins: 'garder', image: 'assemblage', ia, verite: { toit: etalon.toitVrai } });
+    const d = etapeDe(r, 'diagnostic');
+    expect(d.etat).toBe('a-confirmer');
+    expect(d.resume).toMatch(/Tronçons : corps 1, long pan de u 0 à 1\./);
+    expect(d.resume).toMatch(/Proposition \(à confirmer\) : corps 1, long pan : un pignon de plus .* d’après Claude seul/);
+    expect(d.verite).toMatchObject({ juste: true });
+    expect(r.sorties.forme?.diagnostic?.propositions).toHaveLength(1);
+    expect(etapeDe(r, 'toit')).toMatchObject({ etat: 'a-confirmer' });
+    expect(etapeDe(r, 'toit').resume).toMatch(/^1 proposition de toit à confirmer dans l’avant\/après de l’audit \(corps 1, long pan\), décochée/);
+    // Sans les corps du toit, rien ne se compare : les deux etapes sont sautees, et le reste ne change pas.
+    const sans = await derouler(e, { coins: 'garder', image: 'assemblage', ia });
+    expect([etapeDe(sans, 'diagnostic').etat, etapeDe(sans, 'toit').etat]).toEqual(['saute', 'saute']);
+    expect(sans.etapes.filter((x) => x.id !== 'diagnostic' && x.id !== 'toit')).toEqual(r.etapes.filter((x) => x.id !== 'diagnostic' && x.id !== 'toit'));
   }, 120_000);
 
   it('mesure les ouvertures contre la verite du cas', async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { silhouetteDeFace, silhouetteDuCorps, silhouetteVersLOeil } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
+import { silhouetteDeFace, silhouetteDuCorps, silhouetteVersLOeil, tronconsDeFace } from '../../../src/facade/regles/toits/silhouetteDesCorps.js';
 import { gabaritDesCorps } from '../../../src/facade/gabaritMur.js';
 import { facadesDuContour, type Facade } from '../../../src/geometry/cotesVusDeDehors.js';
 import { simplifierLigne } from '../../../src/geometry/simplifierLigne.js';
@@ -89,5 +89,25 @@ describe('silhouetteDeFace', () => {
 describe('silhouetteDuCorps', () => {
   it('est ce que trace le mode Toit pour ce mur', () => {
     for (let m = 0; m < 4; m++) expect(silhouetteVersLOeil(maison, p(0, 0), m)).toEqual(silhouetteDuCorps(maison, m));
+  });
+});
+
+describe('tronconsDeFace : la facade decoupee en troncons de corps (lot F4)', () => {
+  it('chaque part du haut et le mur du corps qui la porte, de gauche a droite', () => {
+    const appentis = corps([p(8, 0), p(8, 6), p(11, 6), p(11, 0)], 0, 4, [4, 2.6]);
+    const contour = [p(0, 0), p(11, 0), p(11, 6), p(8, 6), p(8, 9), p(0, 9)];
+    const t = tronconsDeFace(silhouetteDeFace(sudDe(contour), [maison, appentis]));
+    expect(t.map((x) => [x.corps, x.cote])).toEqual([[0, 3], [1, 3]]);
+    expect(t[0]!.x0).toBeCloseTo(0, 6);
+    expect(t[0]!.x1).toBeCloseTo(8, 1);
+    expect(t[1]!.x1).toBeCloseTo(11, 6);
+    // Le mur d'un troncon est celui du corps (ses bouts dans le plan) : murDuCorps le retrouve.
+    expect([t[1]!.gauche, t[1]!.droite].map((q) => q.x).sort((a, b) => a - b)).toEqual([8, 11]);
+  });
+  it('un corps plus haut en retrait l emporte sur un plus bas devant : un seul troncon, le sien', () => {
+    const annexe = corps([p(0, -2), p(5, -2), p(5, 0), p(0, 0)], 0, 3, [3, 3]);
+    const haut = corps([p(0, 0), p(10, 0), p(10, 6), p(0, 6)], 3, 8, [5, 5]);
+    const f = facadesDuContour([p(0, -2), p(5, -2), p(5, 0), p(10, 0), p(10, 6), p(0, 6)], 5).find((x) => x.normale.y < -0.99 && x.gauche.y === -2)!;
+    expect(tronconsDeFace(silhouetteDeFace(f, [haut, annexe])).map((x) => x.corps)).toEqual([0]);
   });
 });

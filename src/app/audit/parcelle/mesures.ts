@@ -20,6 +20,7 @@ import type { EntreeRecherche, ResultatRecherche } from '../../../facade/releve/
 import { VERSION_CHAINE_FACADES, type PhotoARedresser } from '../../../facade/releve/chaine.js';
 import { derouler, type EtapeCalculee } from '../../../facade/releve/enchainement.js';
 import { gabaritDesCorps, type GabaritMur } from '../../../facade/gabaritMur.js';
+import type { DiagnosticForme } from '../../../facade/regles/facades/diagnosticForme.js';
 import type { PhotoRedresseeAuditee } from '../../../model/fichierAuditParcelle.js';
 import type { Pixels } from '../../../render/couleurMurPhoto.js';
 import type { Obstacle } from '../../../geometry/ligneDeVue.js';
@@ -63,6 +64,16 @@ export interface MesureFacade {
    * hors cadre. Absente d'une mesure lue dans un fichier d'audit d'avant elle.
    */
   silhouette?: SilhouetteFacade;
+  /**
+   * Le haut du mur lu a la matiere du mur (u de 0 a 1 le long du mur, v en hauteurs d'egout), que le diagnostic de forme compare au
+   * gabarit (lot F4). Derive : il ne s'ecrit pas dans le fichier de l'audit ; une mesure relue d'un fichier ne l'a pas.
+   */
+  hautLu?: { u: number; v: number }[] | null;
+  /**
+   * Le diagnostic de forme de la facade (E5 bis, lot F4) : ses troncons de corps, les propositions de toit (chacune sur son corps, par
+   * son mur), les alertes de hauteur. Derive, comme les etapes : il ne s'ecrit pas dans le fichier de l'audit.
+   */
+  diagnostic?: DiagnosticForme | null;
   /**
    * Le redressement de chaque photo (automatique, manuel ou en echec, avec son motif) et la fusion. Derive : le bouton
    * « Rejouer redressement + fusion » le recalcule, les originaux et les corrections manuelles n'y changent jamais.
@@ -193,12 +204,15 @@ export async function mesurerFacade(cle: string, f: Facade, bat: Pick<ObjetPolyg
   const r = await derouler({
     largeurM: fm.largeur, hauteurM: fm.hauteur, gabarit,
     photos: entrees.map((x) => ({ image: x.image, coins: [], reperes: corrections[String(x.rang)]?.reperes ?? null, focalePx: null, murALaMain: !!corrections[String(x.rang)]?.coins })),
+    // Les corps du toit qui font le gabarit : le diagnostic de forme (E5 bis) se fait corps par corps.
+    toit: bat.corpsToit?.length ? { mur: { gauche: f.gauche, droite: f.droite }, corps: bat.corpsToit } : null,
   }, {
     coins: 'chercher', image: 'audit', chercherCoins: d.chercherCoins, audit: { facade: fm, contour: bat.pts, photos: entrees, illisibles, corrections, jpeg: d.jpeg },
     ...(d.surEtape ? { surEtape: d.surEtape } : {}), ...(d.arrete ? { arrete: d.arrete } : {}), ...(d.rendreLaMain ? { rendreLaMain: d.rendreLaMain } : {}),
   });
   const sortie = r.sorties.audit;
   const etapes = r.etapes.map(({ id, etat, resume }) => ({ id, etat, resume }));
-  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes };
+  const diagnostic = r.sorties.forme?.diagnostic ?? null;
+  const trace = { ...(sortie ? { redressement: sortie.redressement, redressees: sortie.redressees } : {}), versionChaine: VERSION_CHAINE_FACADES, gabarit, etapes, ...(diagnostic ? { diagnostic } : {}) };
   return { ...vide, ...(sortie?.mesure ?? {}), couleur, ...trace };
 }

@@ -3,7 +3,8 @@
 // 2026 : « l'IA doit alimenter le module regles ») : rien de ce qu'il rend n'est lu par la chaine des facades autrement que par les
 // regles de facade/regles/facades/ia.ts, qui en tirent des decisions (une pose candidate pour l'arbitre, des zones de colombage qui
 // ecartent des poses, des boites cochees ou non, des alertes de hauteur) ; les observations de toit (silhouette, bout, pointes,
-// appentis, corps, elements) sont enregistrees, et n'iront au toit que par corpsSousContrainte (lot F4).
+// appentis, corps, elements) entrent dans le diagnostic de forme (lot F4, facade/regles/facades/diagnosticForme.ts), et n'iront au toit
+// que par corpsSousContrainte, une fois la proposition cochee par la personne.
 //
 // Une requete par facade, sur l'image prise pour la suite (l'assemblage), rend tout d'un coup (deploy/schema-facade.json, genere) :
 // - le calage : les deux angles du mur, en part de l'IMAGE (x, et le y de l'egout et du sol a chaque angle) ; les pointes des pignons,

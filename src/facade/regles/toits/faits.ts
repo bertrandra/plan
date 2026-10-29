@@ -18,7 +18,7 @@ import { boiteOrientee, completerSurContour, corpsImpose, detecterPignons, ecart
 import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../../toits/toitLidar.js';
 import { appentisVers, avecAppentis } from './appentis.js';
 import { avecBaies, baiePosee } from './baies.js';
-import { avecPignons, pignonsManquants } from './pignons.js';
+import { avecBoutsDesMurs, avecPignons, pignonsManquants } from './pignons.js';
 import { signedArea } from '../../../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../../../model/types.js';
@@ -168,9 +168,9 @@ export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i)
  * sinon les plus grands, etendus sur le contour ; un nombre au moins ne se fabrique pas.
  */
 export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null = null): CorpsToit[] | null {
-  // Les pignons d'une facade se posent sur le corps principal relu ; les appentis adosses se lisent
-  // ensuite sur la grille brute (la surface mesuree s'arrete au contour).
-  const principaux = avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour);
+  // Les pignons d'une facade se posent sur le corps qui la porte, une fois le principal relu, et les bouts que montrent des murs de
+  // bout sur le leur (lot F4) ; les appentis adosses se lisent ensuite sur la grille brute (la surface mesuree s'arrete au contour).
+  const principaux = avecBoutsDesMurs(f.observation.boutsDesMurs, avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour));
   return avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille);
 }
 
@@ -288,7 +288,10 @@ export function ecartsAuFait(f: FaitToit, corps: readonly CorpsToit[] | null, co
   if (!dans(c.faitage, o.faitageM)) out.push('faitage : ' + c.faitage + ' m');
   for (const ap of o.appentis ?? []) if (!adosses.includes(ap)) out.push('appentis vers ' + ap.facade.azimutDeg + ' : non lu');
   for (const bf of o.baies ?? []) if (!baiePosee(bf, corps, contour)) out.push('bay window vers ' + bf.facade.azimutDeg + ' : non posee');
-  for (const pf of o.pignons ?? []) { const n = pignonsManquants(pf, c, contour); if (n) out.push('pignons vers ' + pf.facade.azimutDeg + ' : ' + (2 - n) + ' sur 2'); }
+  for (const pf of o.pignons ?? []) {
+    const n = pignonsManquants(pf, corps, contour), voulus = pf.position === 'places' ? (pf.places?.length ?? 0) : 2;
+    if (n) out.push('pignons vers ' + pf.facade.azimutDeg + ' : ' + (voulus - n) + ' sur ' + voulus);
+  }
   return out;
 }
 

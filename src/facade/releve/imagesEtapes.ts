@@ -30,6 +30,14 @@ export interface ImagesEtapes {
    * Le mode « IA » (lot F2). E4, sur l'assemblage : la pose des deux angles de Claude (le calque bleu), ses pointes, et ses appentis,
    * corps et caches en bandes sous le mur, portes par sa pose. E7, sur l'image prise pour la suite : ses boites (cochees, ou seules).
    */
+  /**
+   * E5 bis (lot F4), sur l'image prise pour la suite : les troncons de corps (en pixels le long du haut du mur, avec leur corps) et,
+   * pour chaque proposition de toit, le gabarit modifie pose entre les memes coins, avec son corps et son gain.
+   */
+  forme: {
+    troncons: { x0: number; x1: number; y: number; corps: number; cote: number }[];
+    propositions: { contour: P2[]; corps: number; gain: number | null }[];
+  } | null;
   ia: {
     pose: RectIa | null;
     pointes: P2[];
@@ -78,6 +86,18 @@ function calqueIa(r: Enchainement, e: Mur, pose: NonNullable<Enchainement['sorti
   };
 }
 
+/** Le calque du diagnostic de forme : les troncons sous le haut du mur, chaque gabarit propose pose entre les coins du mur. */
+function calqueForme(r: Enchainement, pose: NonNullable<Enchainement['sorties']['calage']>['pose']): ImagesEtapes['forme'] {
+  const d = r.sorties.forme?.diagnostic;
+  const [hg, hd, bd, bg] = (pose?.coins ?? []) as P2[];
+  if (!d || !pose || !hg || !hd || !bd || !bg) return null;
+  const x = (u: number) => bg.x + (bd.x - bg.x) * u, w = Math.abs(bd.x - bg.x);
+  return {
+    troncons: d.troncons.map((t, k) => ({ x0: x(t.u0), x1: x(t.u1), y: Math.max(bd.y, bg.y) + (0.02 + 0.015 * (k % 2)) * w, corps: t.corps, cote: t.cote })),
+    propositions: d.propositions.map((p) => ({ contour: gabaritSurLaPhoto(contourDuGabarit(p.gabarit), pose.coins) ?? [], corps: p.corps, gain: p.gain })),
+  };
+}
+
 /** Les images des etapes d'un rejeu. */
 export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
   const s = r.sorties, g = e.gabarit, L = e.largeurM, H = e.hauteurM;
@@ -92,6 +112,7 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
       proposees: a ? versLImage(pose.coins, L, H, a.ouvertures) : [], devinees: a ? versLImage(pose.coins, L, H, a.devinees) : [],
     } : null,
     texture: a ? { image: a.texture, sansOmbres: s.sansOmbres, contour: contourDuGabarit(g).map((q) => ({ x: q.u * L, y: a.hauteurTexture - q.v * H })), l: a.texture.largeur / a.pxParM, h: a.hauteurTexture } : null,
+    forme: calqueForme(r, pose),
     ia: calqueIa(r, e, pose),
   };
 }

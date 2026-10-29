@@ -57,6 +57,15 @@ function lignes(etapes: readonly EtapeAffichee[], enCours: IdEtape | null, ouver
   return [etapes.some((e) => e.etat === 'a-venir') ? 'Enchaînement arrêté.' : 'Enchaînement terminé.', derniere.resume];
 }
 
+/**
+ * L'etape qu'ouvre un segment : celle qui doute (en echec, puis a confirmer), sinon son point de validation, sinon la premiere. Le
+ * segment « Forme » ouvre ainsi le diagnostic (V2) qui attend la personne, pas la silhouette lue qui a reussi (lot F4).
+ */
+function etapeAOuvrir(s: SegmentFacade, etapes: readonly EtapeAffichee[]): IdEtape {
+  return s.etapes.find((id) => etatDe(etapes, id) === 'echec') ?? s.etapes.find((id) => etatDe(etapes, id) === 'a-confirmer')
+    ?? s.etapes.find((id) => etapeFacade(id).validation) ?? (s.etapes[0] as IdEtape);
+}
+
 export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, commandes, arreter }: Props) {
   const etats = SEGMENTS_FACADE.map((s) => etatDuSegment(s.etapes.map((id) => (id === enCours ? 'en-cours' : etatDe(etapes, id)))));
   // Le segment courant : celui qui tourne, sinon celui qui est ouvert, sinon le premier qui demande un geste, sinon le dernier fait.
@@ -85,7 +94,7 @@ export function BarreProgressionFacade({ etapes, enCours, ouverte, ouvrable, com
             return (
               <li key={s.numero} className={'barreFacadeSegment ' + etat + (k === courant ? ' courant' : '')} aria-current={k === courant ? 'step' : undefined}>
                 {bouton
-                  ? <button type="button" data-commande={COMMANDE_ETAPE} data-etape={s.etapes[0]} aria-label={texte} title={etatCommande && 'message' in etatCommande ? etatCommande.message : texte}
+                  ? <button type="button" data-commande={COMMANDE_ETAPE} data-etape={etapeAOuvrir(s, etapes)} aria-label={texte} title={etatCommande && 'message' in etatCommande ? etatCommande.message : texte}
                     disabled={!etatCommande?.utilisable} onClick={(e) => { commandes?.executer(COMMANDE_ETAPE, e.currentTarget); }}>{contenu}</button>
                   : <span className="barreFacadeFixe" role="img" aria-label={texte}>{contenu}</span>}
               </li>

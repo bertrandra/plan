@@ -90,7 +90,7 @@ function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
   if (!im) return null;
   if (id === 'redressement') return im.vues.find((v) => v)?.image ?? null;
   if (id === 'assemblage') return im.assemblage?.image ?? null;
-  if (id === 'calage' || id === 'silhouette' || id === 'ouvertures') return im.pose?.image ?? null;
+  if (id === 'calage' || id === 'silhouette' || id === 'diagnostic' || id === 'ouvertures') return im.pose?.image ?? null;
   if (id === 'texture') return im.texture?.image ?? null;
   return null;
 }
@@ -224,11 +224,23 @@ function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEt
       <VueFacade3d texture={url(t.image)} largeurM={cas.largeurM} hauteurM={cas.hauteurM} hauteurTextureM={t.h} gabarit={g} />
     </>;
   }
-  if (id === 'diagnostic' || id === 'toit') return <ToitVrai cas={cas} />;
+  if (id === 'diagnostic') return <>
+    {im.pose && im.forme && <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut lu, le gabarit du plan, les tronçons de corps et le gabarit de chaque proposition">
+      <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
+      {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}
+      {im.forme.propositions.map((q, k) => <polygon key={'q' + k} className="calGabaritPropose" points={points(q.contour)} vectorEffect="non-scaling-stroke" />)}
+      {im.forme.troncons.map((t, k) => <line key={'t' + k} className={'calTroncon c' + (t.corps % 4)} x1={t.x0} x2={t.x1} y1={t.y} y2={t.y} vectorEffect="non-scaling-stroke" />)}
+    </Calques><figcaption>
+      Contour : le gabarit du plan (le toit calculé). Trait épais : le haut lu sur l’image. Traits sous le mur : les tronçons, un par corps (de gauche à droite : {im.forme.troncons.map((t) => `corps ${t.corps + 1}`).join(', ') || 'aucun'}).
+      {im.forme.propositions.length ? <> Tirets : le gabarit de chaque proposition ({im.forme.propositions.map((q) => `corps ${q.corps + 1}${q.gain === null ? ', Claude seul' : `, gain ${Math.round(q.gain * 100)} %`}`).join(' ; ')}), toujours à confirmer dans l’audit.</> : ' Aucune proposition.'}
+    </figcaption></figure>}
+    <ToitVrai cas={cas} />
+  </>;
+  if (id === 'toit') return <ToitVrai cas={cas} />;
   return null;
 }
 
-/** La vraie forme du toit du cas, corps par corps : la verite du diagnostic (F4), dite des maintenant. */
+/** La vraie forme du toit du cas, corps par corps : la verite du diagnostic de forme (E5 bis) et du toit (E8). */
 function ToitVrai({ cas }: { cas: CasStocke }) {
   if (!cas.toitVrai?.length) return <p className="calNote">Ce cas ne porte pas la vraie forme de son toit.</p>;
   return <ul className="calListe" aria-label="La vraie forme du toit, corps par corps">

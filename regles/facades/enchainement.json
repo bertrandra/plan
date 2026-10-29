@@ -33,6 +33,21 @@
       "unite": "part",
       "pourquoi": "E4 : chacun des deux angles d'une pose doit etre explique au moins a cette part (la matiere du mur qui s'arrete la, une verticale qui le longe) : un seul angle juste (la moitie du mur, un bout pris sur une fenetre) n'explique pas la photo. Pose au lot F1 sur le banc de synthese : les angles des poses trouvees font au moins 0,86 ; la seule pose de travers qui passerait le score (la moitie gauche de 05, 0,76) a un angle a 0,57 ; l'angle gauche d'AE 101 en synthese, a demi cache par un buisson, 0,67."
     },
+    "facades.enchainement.diagnosticEcartMin": {
+      "valeur": 0.08,
+      "unite": "part",
+      "pourquoi": "E5 bis (lot F4) : l'ecart moyen du gabarit au haut lu sur la photo, sur le troncon d'un corps, en hauteurs d'egout, en deca duquel le toit calcule explique la photo et rien ne se diagnostique (0,08 : 19 cm sous l'egout de 2,4 m d'AE 101 sud, la precision du haut lu a la matiere du mur sur le banc de synthese). Pose sans cas reel valide (§5.6)."
+    },
+    "facades.enchainement.diagnosticGainMin": {
+      "valeur": 0.25,
+      "unite": "part",
+      "pourquoi": "E5 bis (lot F4, §5 bis regle 1) : une variante du toit d'un corps (un pignon de plus, de moins, deplace, une croupe) n'est proposee que si elle reduit l'ecart au haut lu d'au moins cette part. Pose sans cas reel valide ; toute proposition arrive decochee (decision 10)."
+    },
+    "facades.enchainement.diagnosticReliefMin": {
+      "valeur": 0.2,
+      "unite": "part",
+      "pourquoi": "E5 bis (lot F4) : le haut lu qui depasse le gabarit d'au moins cela (en hauteurs d'egout) est une bosse ou chercher un pignon ; plus etroite qu'un pignon (LARGEUR_PIGNON_MIN_M), une cheminee ou une lucarne, dite sans proposition (F7). C'est aussi le relief au-dessous duquel une pointe lue n'est pas une pointe (pas d'alerte de hauteur)."
+    },
     "facades.enchainement.rappelMin": {
       "valeur": 0.85,
       "unite": "part",
