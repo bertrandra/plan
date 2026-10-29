@@ -23,6 +23,16 @@
       "unite": "part",
       "pourquoi": "E4 : un bout, l'egout ou le sol a plus de 3 % de la largeur du mur de la verite est faux (§4 ter.2, le seuil de l'accord du §5)."
     },
+    "facades.enchainement.explicationMin": {
+      "valeur": 0.75,
+      "unite": "part",
+      "pourquoi": "E4 : le score d'explication d'une pose du mur, sans le toit (facade/releve/calageAncres.ts : les deux angles, l'egout, le sol, les proportions du plan, la matiere du mur entre ses angles). En deca, la pose n'explique pas la photo : une autre pose des aretes qui l'explique est retenue (a confirmer), sinon celle du plan seul, supposee, et aucun drapeau ne dit trouve. Pose au lot F1 (29 octobre 2026) sur le banc de synthese, faute de cas reels valides : les 44 poses trouvees (egout-sol.ts) font de 0,83 a 1 ; les 88 poses de travers (une moitie du mur, le mur decale ou rentre de 15 %) restent sous 0,77."
+    },
+    "facades.enchainement.angleMin": {
+      "valeur": 0.6,
+      "unite": "part",
+      "pourquoi": "E4 : chacun des deux angles d'une pose doit etre explique au moins a cette part (la matiere du mur qui s'arrete la, une verticale qui le longe) : un seul angle juste (la moitie du mur, un bout pris sur une fenetre) n'explique pas la photo. Pose au lot F1 sur le banc de synthese : les angles des poses trouvees font au moins 0,86 ; la seule pose de travers qui passerait le score (la moitie gauche de 05, 0,76) a un angle a 0,57 ; l'angle gauche d'AE 101 en synthese, a demi cache par un buisson, 0,67."
+    },
     "facades.enchainement.rappelMin": {
       "valeur": 0.85,
       "unite": "part",

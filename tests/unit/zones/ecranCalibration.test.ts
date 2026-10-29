@@ -22,19 +22,23 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => racine.unmount()); hote.remove(); (window as unknown as { Image: unknown }).Image = ImageOrigine; });
 
-/** Un mur de 9 x 5 m a 100 px/m, trois fenetres sombres : la photo est le mur de face, les coins sont ceux de l'image. */
+/**
+ * Un mur de 9 x 5 m a 100 px/m, trois fenetres sombres, pris de face avec un peu de ciel autour et le gazon au pied : ses angles se
+ * voient (un mur coupe au bord de la photo ne dit pas ou il finit, le calage par les ancres ne l'explique pas). Les coins sont ceux du mur.
+ */
 const scene = (() => {
-  const L = 900, H = 500, donnees = new Uint8ClampedArray(L * H * 4);
+  const M = 100, L = 900, H = 500, LI = L + 2 * M, HI = H + 2 * M, donnees = new Uint8ClampedArray(LI * HI * 4);
   const baies = [1, 4, 7].map((x) => ({ type: 'fenetre' as const, x, y: 2, l: 1, h: 1.4 }));
-  for (let j = 0; j < H; j++) for (let i = 0; i < L; i++) {
-    const dedans = baies.some((b) => i >= b.x * 100 && i < (b.x + b.l) * 100 && j >= H - (b.y + b.h) * 100 && j < H - b.y * 100);
-    const c = dedans ? [38, 44, 54] : [205, 186, 152];
-    const k = (j * L + i) * 4;
+  for (let j = 0; j < HI; j++) for (let i = 0; i < LI; i++) {
+    const x = i - M, y = j - M;
+    const dedans = baies.some((b) => x >= b.x * 100 && x < (b.x + b.l) * 100 && y >= H - (b.y + b.h) * 100 && y < H - b.y * 100);
+    const c = x < 0 || x >= L || y < 0 ? (y >= H ? [92, 112, 72] : [176, 196, 222]) : y >= H ? [92, 112, 72] : dedans ? [38, 44, 54] : [205, 186, 152];
+    const k = (j * LI + i) * 4;
     donnees[k] = c[0] as number; donnees[k + 1] = c[1] as number; donnees[k + 2] = c[2] as number; donnees[k + 3] = 255;
   }
-  const coins = [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: H }, { x: 0, y: H }];
+  const coins = [{ x: M, y: M }, { x: M + L, y: M }, { x: M + L, y: M + H }, { x: M, y: M + H }];
   const cas: CasStocke = { format: FORMAT_CAS_REEL, version: 1, nom: 'Synthèse 02', statut: 'valide', largeurM: 9, hauteurM: 5, photos: [{ fichier: 'p', coins }], images: ['data:image/jpeg;base64,SCENE'], ouvertures: baies };
-  return { cas, image: { largeur: L, hauteur: H, donnees } as Image };
+  return { cas, image: { largeur: LI, hauteur: HI, donnees } as Image };
 })();
 
 /** Le registre de l'ecran, comme app/administration/ecranCalibration.ts le monte : la commande qui ouvre une etape. */

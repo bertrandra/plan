@@ -1,13 +1,16 @@
-// La reprise a la main du mur sur une photo redressee entiere (MD/spec-releve-facade.md §6.1 bis) : l'egout, le sol et les deux bouts,
-// sur la photo tournee de face par ses reperes. Le mur cherche automatiquement en est le depart.
+// La reprise a la main du mur sur une image vue de face (MD/spec-releve-facade.md §6.1 bis) : l'egout, le sol et les deux bouts. C'est
+// l'option manuelle du calage du mur (E4, MD/spec-facade-calage-audit.md §4 ter.2), et le seul composant de ce geste : sur une photo
+// tournee de face par ses reperes (l'audit), ou sur l'assemblage des vues, deja de face (la calibration). Le mur cherche automatiquement
+// en est le depart.
 //
 // Le haut du mur est le gabarit (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, un pignon, une rampe ou une ligne
 // droite. Sa forme ne bouge pas ; il se pose entre les lignes que l'on tire, et suit leur echelle. Les lignes sont horizontales et
 // verticales sur la vue de face : elles ne se tirent que dans leur sens. Tout revient sur la photo par l'homographie du redressement :
-// les quatre coins du mur, que la chaine traite comme poses a la main (facade/releve/chaine.ts) ; le gabarit s'y repose.
+// les quatre coins du mur, que la chaine traite comme poses a la main (facade/releve/chaine.ts) ; le gabarit s'y repose. Sur
+// l'assemblage, l'image est deja de face : les coins rendus sont ceux de l'assemblage.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
-import { appliquer, type Image, type P2 } from '../../facade/vision/homographie.js';
+import { appliquer, type Homographie, type Image, type P2 } from '../../facade/vision/homographie.js';
 import { inverser, redresserParReperes } from '../../facade/vision/redressementFuites.js';
 import { GABARIT_RECTANGLE, contourDuGabarit, gabaritSurLaVue, type GabaritMur } from '../../facade/gabaritMur.js';
 import { versJpeg } from '../../ui/releve/camera.js';
@@ -17,6 +20,9 @@ import { pointSvg, useEchelle } from './commun.js';
 interface MurVue { x0: number; x1: number; egout: number; sol: number }
 /** Ce que la personne a retenu, sur la photo : les quatre coins du mur (le gabarit s'y pose, il ne bouge pas). */
 export interface MurAjuste { coins: P2[] }
+
+/** L'image deja vue de face (l'assemblage) : elle est sa propre vue. */
+const IDENTITE: Homographie = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 /** Un pas au clavier, en part du grand cote de la vue. */
 const PAS_CLAVIER = 0.002;
@@ -33,11 +39,16 @@ function murDeDepart(L: number, H: number, coins: readonly P2[] | null): MurVue 
 type Ligne = 'egout' | 'sol' | 'gauche' | 'droite';
 const NOMS: Record<Ligne, string> = { egout: 'Égout', sol: 'Sol', gauche: 'Bout gauche du mur', droite: 'Bout droit du mur' };
 
-export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE, changer }: {
+export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE, changer, url }: {
   /** Les pixels de la photo, lus a la demande (le decodage d'une photo coute). */
   charger: () => Promise<Image | null>;
-  /** Le rectangle du mur qui redresse la photo : les reperes poses, sinon les coins du mur deja retenus. */
-  reperes: readonly P2[];
+  /**
+   * Le rectangle du mur qui redresse la photo : les reperes poses, sinon les coins du mur deja retenus. Null : l'image est deja vue de
+   * face (l'assemblage des vues), elle ne se redresse pas.
+   */
+  reperes: readonly P2[] | null;
+  /** L'adresse de l'image deja vue de face, quand l'ecran l'a (sinon elle s'encode ici). */
+  url?: string;
   /** Les coins du mur sur la photo, trouves ou deja ajustes : le depart des lignes ; null, un cadre au milieu. */
   mur: readonly P2[] | null;
   /** Le gabarit du mur (le plan et le LiDAR) : la forme de son haut, qui ne bouge pas ; un rectangle sans corps lu. */
@@ -54,10 +65,11 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
   }, [charger]);
   const vue = useMemo(() => {
     if (!image) return null;
+    if (!reperes) return { r: { image, versPhoto: IDENTITE }, versVue: IDENTITE, url: url ?? versJpeg(image) };
     const r = redresserParReperes(image, reperes);
     const versVue = r ? inverser(r.versPhoto) : null;
     return r && versVue ? { r, versVue, url: versJpeg(r.image) } : null;
-  }, [image, reperes]);
+  }, [image, reperes, url]);
   const [cadre, setCadre] = useState<MurVue | null>(null);
   useEffect(() => {
     if (!vue) return;
@@ -119,7 +131,7 @@ export function AjusterMur({ charger, reperes, mur, gabarit = GABARIT_RECTANGLE,
   );
   return (
     <div className="ajusterMur">
-      <svg ref={svg} className="ajusterMurPhoto" viewBox={`0 0 ${L} ${H}`} role="group" aria-label="Photo redressée entière : tirez l’égout, le sol et les bouts ; la silhouette du mur suit">
+      <svg ref={svg} className="ajusterMurPhoto" viewBox={`0 0 ${L} ${H}`} role="group" aria-label={(reperes ? 'Photo redressée entière' : 'Assemblage des photos') + ' : tirez l’égout, le sol et les bouts ; la silhouette du mur suit'}>
         <image href={vue.url} x={0} y={0} width={L} height={H} />
         <polyline points={gabaritSurLaVue(contourDuGabarit(gabarit), { x0: cadre.x0, x1: cadre.x1, y0: cadre.egout, y1: cadre.sol }).map((p) => p.x + ',' + p.y).join(' ')} className="ajusterMurLigne silhouette" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {ligne('egout', cadre.x0, cadre.egout, cadre.x1, cadre.egout)}

@@ -7,9 +7,11 @@
 // Pour chaque scene a prise par camera : toutes ses vues redressees par leurs points de fuite (et, en seconde ligne, la vue principale
 // par quatre reperes poses aux coins de sa premiere ouverture), assemblees, puis le mur cherche aux proportions de la verite (ce que
 // donne le plan : largeur du cadastre, hauteur du LiDAR). L'ecart de chaque bord est en part de la largeur du mur ; « juste » : 2 % au
-// plus. Le gabarit vrai de la scene (son haut, pignon compris, comme le LiDAR le donnerait : facade/gabaritMur.ts) est passe a la
-// recherche, qui le pose entre les bords trouves ; « Silhouette » : le plus grand ecart, sur 21 colonnes, entre ce gabarit pose et le
-// vrai haut du mur. `--images` ecrit l'assemblage, la verite en vert et le mur trouve en rouge.
+// plus. Le gabarit vrai de la scene (son haut, pignon compris, comme le LiDAR le donnerait : facade/gabaritMur.ts) ne cale pas le mur :
+// il se pose ensuite entre les bords trouves ; « Silhouette » : le plus grand ecart, sur 21 colonnes, entre ce gabarit pose et le
+// vrai haut du mur. « Explication » : le score de la pose retenue sans le toit (facade/releve/calageAncres.ts) et d'ou elle vient
+// (aretes ; « autre » : une autre pose des aretes l'explique mieux ; « plan » : aucune, la pose du plan seul). `--images` ecrit
+// l'assemblage, la verite en vert et le mur trouve en rouge.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chargerCorpus } from '../../../../tests/banc/facades/banc.ts';
@@ -20,7 +22,7 @@ import { inverser } from '../../../../src/facade/vision/redressementFuites.ts';
 import { mosaiqueDesVues } from '../../../../src/facade/vision/mosaiqueFuites.ts';
 import { appliquerSimilitude } from '../../../../src/facade/vision/ransac.ts';
 import { murSurLAssemblage, vuesDeFace } from '../../../../src/facade/releve/coinsAuto.ts';
-import { gabaritDuHaut } from '../../../../src/facade/gabaritMur.ts';
+import { gabaritDuHaut, gabaritSurLaVue } from '../../../../src/facade/gabaritMur.ts';
 
 const args = process.argv.slice(2);
 const iImages = args.indexOf('--images');
@@ -62,8 +64,8 @@ function ligneBrisee(img: Image, pts: readonly P2[], c: [number, number, number]
 }
 
 const pct = (v: number) => (Math.round(v * 1000) / 10).toFixed(1).replace('.', ',');
-const lignes: string[] = ['| Scène | Entrée | Égout | Sol | Gauche | Droite | Silhouette | Lu |', '|---|---|--:|--:|--:|--:|--:|---|'];
-const ecarts: { egout: number[]; sol: number[]; bouts: number[]; silhouette: number[] } = { egout: [], sol: [], bouts: [], silhouette: [] };
+const lignes: string[] = ['| Scène | Entrée | Égout | Sol | Gauche | Droite | Silhouette | Explication | Lu |', '|---|---|--:|--:|--:|--:|--:|--:|---|'];
+const ecarts: { egout: number[]; sol: number[]; bouts: number[]; silhouette: number[]; expliquees: number; poses: number } = { egout: [], sol: [], bouts: [], silhouette: [], expliquees: 0, poses: 0 };
 for (const s of chargerCorpus()) {
   if (mots.length && !mots.some((m) => s.nom.includes(m))) continue;
   if (s.synthese.prise.type !== 'camera') continue;
@@ -80,43 +82,44 @@ for (const s of chargerCorpus()) {
     if (entree === 'repères' && !reperes) continue;
     const vues = vuesDeFace(images, rep as (P2[] | null)[]);
     const rangs = vues.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
-    if (!rangs.includes(0)) { lignes.push(`| ${s.nom} | ${entree} | — | — | — | — | — | photo non redressée |`); continue; }
+    if (!rangs.includes(0)) { lignes.push(`| ${s.nom} | ${entree} | — | — | — | — | — | — | photo non redressée |`); continue; }
     const m = mosaiqueDesVues(rangs.map((i) => vues[i] as NonNullable<(typeof vues)[number]>));
     const place = m?.places[rangs.indexOf(0)];
     const versVue = vues[0] ? inverser((vues[0] as NonNullable<(typeof vues)[number]>).versPhoto) : null;
-    if (!m || !place || !versVue || !murVersPhoto) { lignes.push(`| ${s.nom} | ${entree} | — | — | — | — | — | pas d'assemblage |`); continue; }
+    if (!m || !place || !versVue || !murVersPhoto) { lignes.push(`| ${s.nom} | ${entree} | — | — | — | — | — | — | pas d'assemblage |`); continue; }
     const v = vrais.map((c) => appliquerSimilitude(place, appliquer(versVue, c)));
     const verite = { x0: ((v[0] as P2).x + (v[3] as P2).x) / 2, x1: ((v[1] as P2).x + (v[2] as P2).x) / 2, y0: ((v[0] as P2).y + (v[1] as P2).y) / 2, y1: ((v[2] as P2).y + (v[3] as P2).y) / 2 };
     const w = verite.x1 - verite.x0;
     // Le gabarit du mur, comme le donnerait le LiDAR : le haut vrai (l'egout, et le pignon au-dessus).
     const pg0 = s.synthese.mur.pignon ?? 0, sommet0 = s.synthese.mur.pignonSommet ?? 0.5;
     const gabarit = gabaritDuHaut(Array.from({ length: 41 }, (_, i) => i / 40).map((u) => ({ x: u, y: H + pg0 * formePignon(u, sommet0) })));
-    const r = murSurLAssemblage(m, H / L, gabarit);
+    const r = murSurLAssemblage(m, H / L);
+    ecarts.poses++; if (r.calage.retenue !== 'plan-seul') ecarts.expliquees++;
     const e = { egout: Math.abs(r.y0 - verite.y0) / w, sol: Math.abs(r.y1 - verite.y1) / w, g: Math.abs(r.x0 - verite.x0) / w, d: Math.abs(r.x1 - verite.x1) / w };
     ecarts.egout.push(e.egout); ecarts.sol.push(e.sol); ecarts.bouts.push(e.g, e.d);
     // La silhouette vraie : le haut du mur (l'egout, et le pignon au-dessus), porte du mur dans l'assemblage ; l'ecart est le plus
-    // grand, sur 21 colonnes, entre elle et la ligne brisee lue, en part de la largeur du mur.
+    // grand, sur 21 colonnes, entre elle et la ligne brisee posee, en part de la largeur du mur.
     const pg = s.synthese.mur.pignon ?? 0, sommet = s.synthese.mur.pignonSommet ?? 0.5;
     const vraie = Array.from({ length: 21 }, (_, i) => i / 20).map((u) => appliquerSimilitude(place, appliquer(versVue, appliquer(murVersPhoto, { x: u * L, y: H + pg * formePignon(u, sommet) }))));
-    const lue = r.silhouette;
-    const surLue = (x: number) => {
-      if (!lue || lue.length < 2) return null;
-      for (let i = 0; i + 1 < lue.length; i++) { const a = lue[i] as P2, b = lue[i + 1] as P2; if (x >= a.x - 1e-6 && x <= b.x + 1e-6) return a.y + ((b.y - a.y) * (x - a.x)) / Math.max(1e-9, b.x - a.x); }
+    const posee = gabaritSurLaVue(gabarit, r);
+    const surPosee = (x: number) => {
+      if (!posee || posee.length < 2) return null;
+      for (let i = 0; i + 1 < posee.length; i++) { const a = posee[i] as P2, b = posee[i + 1] as P2; if (x >= a.x - 1e-6 && x <= b.x + 1e-6) return a.y + ((b.y - a.y) * (x - a.x)) / Math.max(1e-9, b.x - a.x); }
       return null;
     };
-    const ecartsSil = vraie.slice(1, -1).map((q) => { const y = surLue(q.x); return y === null ? null : Math.abs(y - q.y) / w; });
-    const eSil = lue && ecartsSil.every((x) => x !== null) ? Math.max(...(ecartsSil as number[])) : null;
+    const ecartsSil = vraie.slice(1, -1).map((q) => { const y = surPosee(q.x); return y === null ? null : Math.abs(y - q.y) / w; });
+    const eSil = posee && ecartsSil.every((x) => x !== null) ? Math.max(...(ecartsSil as number[])) : null;
     if (eSil !== null) ecarts.silhouette.push(eSil);
-    lignes.push(`| ${s.nom} | ${entree} | ${pct(e.egout)} % | ${pct(e.sol)} % | ${pct(e.g)} % | ${pct(e.d)} % | ${eSil === null ? '—' : pct(eSil) + ' %'} | ${[r.egout ? 'égout' : '', r.pied ? 'sol' : '', r.cotes ? 'bouts' : ''].filter(Boolean).join(', ') || 'supposé'} |`);
+    lignes.push(`| ${s.nom} | ${entree} | ${pct(e.egout)} % | ${pct(e.sol)} % | ${pct(e.g)} % | ${pct(e.d)} % | ${eSil === null ? '—' : pct(eSil) + ' %'} | ${r.calage.explication.score.toFixed(2).replace('.', ',')}${r.calage.retenue === 'aretes' ? '' : r.calage.retenue === 'plan-seul' ? ' (plan)' : ' (autre)'} | ${[r.egout ? 'égout' : '', r.pied ? 'sol' : '', r.cotes ? 'bouts' : ''].filter(Boolean).join(', ') || 'supposé'} |`);
     if (dossier) {
       let img = tracer(m.image, [{ r: verite, c: [0, 200, 0] }, { r, c: [230, 0, 0] }]);
       img = ligneBrisee(img, vraie, [0, 200, 0]);
-      if (lue) img = ligneBrisee(img, lue, [230, 0, 0]);
+      if (posee) img = ligneBrisee(img, posee, [230, 0, 0]);
       writeFileSync(join(dossier, s.nom + (entree === 'repères' ? '-reperes' : '') + '.png'), png(img));
     }
   }
 }
 const justes = (l: number[]) => l.filter((x) => x <= 0.02).length + '/' + l.length;
 const med = (l: number[]) => { const t = [...l].sort((a, b) => a - b); return t.length ? (t[Math.floor(t.length / 2)] as number) : 0; };
-lignes.push(`| **Ensemble** | | ${justes(ecarts.egout)}, méd. ${pct(med(ecarts.egout))} % | ${justes(ecarts.sol)}, méd. ${pct(med(ecarts.sol))} % | ${justes(ecarts.bouts)}, méd. ${pct(med(ecarts.bouts))} % | | ${justes(ecarts.silhouette)}, méd. ${pct(med(ecarts.silhouette))} % | |`);
+lignes.push(`| **Ensemble** | | ${justes(ecarts.egout)}, méd. ${pct(med(ecarts.egout))} % | ${justes(ecarts.sol)}, méd. ${pct(med(ecarts.sol))} % | ${justes(ecarts.bouts)}, méd. ${pct(med(ecarts.bouts))} % | | ${justes(ecarts.silhouette)}, méd. ${pct(med(ecarts.silhouette))} % | ${ecarts.expliquees}/${ecarts.poses} expliquées | |`);
 console.log(lignes.join('\n'));

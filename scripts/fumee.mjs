@@ -2570,7 +2570,9 @@ const POINTS = {
     // gabarit. « Ouvrir », « Rejouer », puis toucher le segment « Mur » de la barre et « Rejouer depuis cette étape ». On mesure : la
     // barre de huit segments, chacun avec son etat en mot (le texte lu) et sa forme ; la frise de neuf etapes, chacune avec son etat ;
     // l'etape ouverte (son resultat, son contrat, la ligne sous la barre) ; le rejeu depuis une etape qui garde les precedentes ;
-    // rien ne deborde.
+    // rien ne deborde. Lot F1 : l'E4 dit le score d'explication sans le toit ; son option manuelle, sur l'assemblage, est le seul
+    // composant du geste (quatre poignees : egout, sol, deux bouts) ; tirer un bout au clavier puis « Appliquer le calage et rejouer »
+    // pose le mur a la main et rejoue depuis le calage.
     const { vues: [photo], coins, largeur, largeurPx } = photosScene('22-pignon-decentre-pierre');
     const scene = JSON.parse(readFileSync('tests/fixtures/facades/22-pignon-decentre-pierre.json', 'utf8'));
     const hauteur = scene.verite.hauteur, pignon = scene.synthese.mur.pignon;
@@ -2602,16 +2604,27 @@ const POINTS = {
     const contrat = await page.locator('.calEtapeOuverte .calContrat dt').count();
     const ligne = (await page.locator('.barreFacadeLigne').first().textContent()) || '';
     const courant = await page.locator('.barreFacade li[aria-current="step"] [aria-label]').getAttribute('aria-label');
+    const legende = (await page.locator('.calEtapeOuverte figcaption').first().textContent()) || '';
+    await etape('poignees du calage', () => page.locator('.calEtapeOuverte .ajusterMurPhoto').waitFor({ timeout: 10000 }));
+    const poignees = await page.locator('.calEtapeOuverte .ajusterMurPhoto [role="slider"]').evaluateAll((l) => l.map((x) => x.getAttribute('aria-label')));
+    const appliquerAvant = await page.locator('[data-controle="calibration.appliquerCalage"]').isDisabled();
     debords.push(await deborde());
     await etape('rejouer depuis', () => page.locator('[data-controle="calibration.rejouerDepuis"]').click({ timeout: 5000 }));
     await etape('fin du rejeu depuis', finRejeu);
     const frise2 = await page.locator('.calFrise > li .calFriseEtat').allTextContents();
     debords.push(await deborde());
+    await etape('tirer un bout', async () => { const b = page.locator('.calEtapeOuverte .ajusterMurPhoto [role="slider"][aria-label="Bout gauche du mur"]'); await b.focus({ timeout: 5000 }); await page.keyboard.press('Shift+ArrowRight'); });
+    const appliquerApres = await page.locator('[data-controle="calibration.appliquerCalage"]').isDisabled();
+    await etape('appliquer le calage', () => page.locator('[data-controle="calibration.appliquerCalage"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu cale', finRejeu);
+    await etape('etape cale', () => page.locator('.calEtapeOuverte .calResume').waitFor({ timeout: 10000 }));
+    const resumeCale = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const calage = poignees.join() === 'Égout,Sol,Bout gauche du mur,Bout droit du mur' && appliquerAvant && !appliquerApres && /score d’explication sans le toit \d,\d\d/.test(legende) && /^Mur posé à la main/.test(resumeCale);
     const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
     const ok = segments.length === 8 && segments.every((x) => /^Étape \d sur 8, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
       && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É4 · Calage du mur/.test(titre) && /Mur cherché sur l’assemblage : x de \d+ à \d+/.test(resume)
-      && contrat >= 5 && /^Mur : calage du mur, /.test(ligne) && /^Étape 3 sur 8, Mur/.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && !debords.some(Boolean);
-    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É4 : ${frise2.join(', ')} ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+      && contrat >= 5 && /^Mur : calage du mur, /.test(ligne) && /^Étape 3 sur 8, Mur/.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && !debords.some(Boolean);
+    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É4 : ${frise2.join(', ')} ; calage : « ${(legende.match(/score d’explication sans le toit [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre

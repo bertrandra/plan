@@ -28,7 +28,7 @@ import type { Prise } from './prise.js';
  * rend. Un audit la garde avec ses mesures (app/audit/parcelle/mesures.ts) : rejoue plus tard, on sait de quelle chaine venaient
  * les images d'origine, et ce qui a change.
  */
-export const VERSION_CHAINE_FACADES = 9;
+export const VERSION_CHAINE_FACADES = 10;
 
 /** Au-dela, les verticales du mur redresse ne sont plus verticales : on essaie les coins calcules, puis on le dit. */
 export const SEUIL_VERTICALES_DEG = 0.5;
@@ -91,9 +91,9 @@ export interface OutilsChaine {
   /** Vrai : les coins seuls (la calibration redresse ensuite le cas) ; ni analyse de la photo seule, ni fusion. */
   coinsSeuls?: boolean;
   /**
-   * Le gabarit du mur (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, une forme fixe posee sur l'image. Il aide
-   * a caler le sol (par son profil) et devient la silhouette de chaque photo, posee par ses coins. Absent : la silhouette se lit sur
-   * la photo (le releve).
+   * Le gabarit du mur (facade/gabaritMur.ts) : la silhouette que donnent le plan et le LiDAR, une forme fixe posee sur l'image. Il ne
+   * cale pas le mur (il vient du toit, que la photo met en question) : il devient la silhouette de chaque photo, posee par ses coins
+   * une fois le mur cale. Absent : la silhouette se lit sur la photo (le releve).
    */
   gabarit?: GabaritMur | null;
 }
@@ -283,7 +283,7 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
     // s'assemblent, et l'egout, le sol et les bouts du mur se cherchent ensuite sur l'assemblage, aux proportions du plan (largeur de
     // la parcelle, hauteur du LiDAR ou du dessin). Le mur lu l'emporte sur les photos aux reperes, et remplace les coins predits.
     if (reperes.some((r) => r?.length === 4)) {
-      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes, o.gabarit ?? null);
+      const sr = coinsAutoDeSerie(images, f.largeur, f.hauteur, reperes);
       if (!sr) return;
       for (const x of [...faits]) {
         const i = k(x.bilan.rang);
@@ -293,7 +293,7 @@ async function reporterLeMur(entrees: readonly PhotoARedresser[], f: Facade, o: 
       return;
     }
     if (!o.lireSurLAssemblage) return;
-    const sr = coinsAutoDeSerie(images, f.largeur, o.hauteurDuPlan ? f.hauteur : null, [], o.gabarit ?? null);
+    const sr = coinsAutoDeSerie(images, f.largeur, o.hauteurDuPlan ? f.hauteur : null);
     if (!sr) return;
     for (const x of aReporter()) await remplacer(x, sr.coins[k(x.bilan.rang)], sr.lu);
   } catch { /* l'assemblage n'a pas pu se faire : chaque photo garde ses coins */ }

@@ -14,7 +14,7 @@ const src = join(racine, 'src');
 /** Les dossiers et fichiers de la migration (spec §8 bis.1) : le releve, la detection, le calage, l'audit, et les ecrans de la calibration. */
 const PERIMETRE = [
   'facade/releve', 'facade/detection', 'facade/calage', 'app/releve', 'app/audit/parcelle', 'zones/releve',
-  'zones/EcranCalibration.tsx', 'zones/EditeurCasCalibration.tsx', 'zones/FriseEtapesCalibration.tsx', 'zones/CalageSilhouette.tsx',
+  'zones/EcranCalibration.tsx', 'zones/EditeurCasCalibration.tsx', 'zones/FriseEtapesCalibration.tsx',
   'zones/VueFacade3d.tsx', 'zones/composants/BarreProgressionFacade.tsx',
 ];
 

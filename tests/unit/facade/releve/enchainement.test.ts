@@ -9,7 +9,10 @@ import { EMPREINTE_OBJECTIFS } from '../../../../src/facade/regles/facades/encha
 import { ETAPES_FACADE, type IdEtape } from '../../../../src/model/etapeFacade.js';
 import { FORMAT_CAS_REEL, type CasStocke } from '../../../../src/facade/corpusReel.js';
 import type { Image, P2 } from '../../../../src/facade/vision/homographie.js';
+import { readFileSync } from 'node:fs';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
+import { lireEtalon } from '../../../banc/facades/reel.js';
+import { sceneAe101 } from '../../../banc/facades/ae101.js';
 import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';
 
 // L'orchestrateur de l'enchainement d'une facade (facade/releve/enchainement.ts, MD/spec-facade-calage-audit.md §4 ter.4) : l'etat de
@@ -105,6 +108,25 @@ describe('l enchainement d une facade', () => {
     expect(etapeDe(faux, 'calage').verite?.juste).toBe(false);
     expect(etapeDe(faux, 'calage').verite?.texte).toMatch(/bout gauche à 50 %.*faux/);
   }, 60_000);
+
+  it('donne a l E4 l etat de l arbitre du calage : a confirmer quand une autre pose explique mieux la photo, echec quand aucune (AE 101 en synthese)', async () => {
+    const etalon = lireEtalon(JSON.parse(readFileSync('tests/fixtures/facades-reel/etalons/ae101-sud.json', 'utf8')));
+    const leurre = [{ x: 451, y: 220 }, { x: 752, y: 220 }, { x: 752, y: 301 }, { x: 451, y: 301 }];
+    const rejeu = async (angle: 'buisson' | 'arbre') => {
+      const sc = sceneAe101(etalon, angle);
+      return derouler({ largeurM: etalon.largeurM, hauteurM: etalon.hauteurM, gabarit: etalon.gabarit, photos: [{ image: sc.image, coins: leurre, reperes: null, focalePx: null, murALaMain: false }] },
+        { coins: 'garder', image: 'assemblage', verite: { calage: etalon.calageVrai } });
+    };
+    const b = etapeDe(await rejeu('buisson'), 'calage');
+    expect(b.etat).toBe('a-confirmer');
+    expect(b.resume).toMatch(/retenue : celle qui l’explique, x de 1\d\d à 7\d\d/);
+    // Les coins gardes du cas (le bloc du pignon) n'expliquent pas la photo : c'est dit, et la verite les dit faux.
+    expect(b.resume).toMatch(/Mur retenu : x de 45\d à 75\d .* il n’explique pas la photo/);
+    expect(b.verite?.juste).toBe(false);
+    const a = etapeDe(await rejeu('arbre'), 'calage');
+    expect(a.etat).toBe('echec');
+    expect(a.resume).toMatch(/Aucune pose n’explique la photo sans le toit.*Posez les deux angles/);
+  }, 120_000);
 
   it('mesure les ouvertures contre la verite du cas', async () => {
     const cas = casDe(L, H, vrais, ph.focalePx, { ouvertures: s.verite.ouvertures as never });

@@ -1,9 +1,9 @@
 // Le gabarit du mur : la silhouette de toute la facade que donnent le plan et le LiDAR, une forme fixe. C'est la silhouette que trace
 // le mode Toit en 3D, corps par corps, projetee sur le plan du mur et vue de face (facade/regles/toits/silhouetteDesCorps.ts::
 // silhouetteDeFace ; demande du proprietaire, 28 octobre 2026). Il ne se lit pas sur la photo et ne s'y deforme jamais : il se pose
-// sur l'image redressee, et seuls ses bouts, son egout et son sol s'y calent (facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol,
-// zones/releve/AjusterMur.tsx). Les reperes ne disent que les directions ; la dimension vient de ce calage (decision de
-// l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
+// sur l'image redressee une fois le mur cale (facade/releve/calageAncres.ts, sans lui : il vient du toit, que la photo met en question),
+// et seuls ses bouts, son egout et son sol s'y calent (zones/releve/AjusterMur.tsx a la main). Les reperes ne disent que les
+// directions ; la dimension vient de ce calage (decision de l'utilisateur, 21 octobre 2026). Sans corps, un rectangle.
 
 import { homographie, appliquer, type P2 } from './vision/homographie.js';
 import { silhouetteDeFace } from './regles/toits/silhouetteDesCorps.js';

@@ -598,19 +598,20 @@ calibration screen alike (`MD/spec-releve-facade.md` §6.1 bis). In order:
 |---|---|---|
 | Straighten each whole photo (four landmarks, else vanishing points); nothing is cropped | `facade/vision/redressementFuites.ts` | 3 |
 | Assemble the straightened views (ORB + similarity) | `facade/vision/mosaiqueFuites.ts::mosaiqueDesVues` | 3 |
-| Find eave, ground and both ends on the assemblage, the template placed between them | `facade/vision/mosaiqueFuites.ts::affinerEgoutEtSol`, `facade/releve/coinsAuto.ts::murSurLAssemblage` | 3 |
+| Find eave, ground and both ends on the assemblage, judged without the roof (both corners, eave, ground: an explanation score), then another pose the edges draw, else the plan-only pose, assumed; the template is placed only afterwards | `facade/vision/mosaiqueFuites.ts::rectanglesSurLesAretes`, `affinerEgoutEtSol`, `facade/releve/calageAncres.ts::calerParLesAncres`, `facade/releve/coinsAuto.ts::murSurLAssemblage` | 3 |
 | The template (gabarit): the façade's top line from plan + LiDAR, all roof bodies, a fixed shape | `facade/gabaritMur.ts` | 3 |
 | Orchestration: corrections, hand-placed walls, reporting the wall on each photo | `facade/releve/chaine.ts::redresserEtFusionner` | 3 |
 | Analyse the assemblage (metric elevation, detection, texture, roof) | `facade/analyseMur.ts::analyserLeMur`, `facade/analyse.ts::finaliserReleve` | 3 |
 | Several views: the assemblage places the wall, the fusion of the same photos composes its image (voting, occlusion by parallax, best view per pixel) | `facade/analyseMur.ts::fondreLesVues`, `facade/fusion.ts::analyserVues` | 3 |
 | The façade's step-by-step chaining (É0 to É9): each step's state against its objective (`regles/facades/enchainement.json`), its outputs, replay from a step | `facade/releve/enchainement.ts::derouler`, contract `model/etapeFacade.ts` | 3 / 2 |
-| The images of each step (overlays computed, no React) | `facade/releve/imagesEtapes.ts`, `facade/calage/calageSilhouette.ts`, `three/vueFacade3d.ts` | 3 / 3 / 4 |
+| The images of each step (overlays computed, no React) | `facade/releve/imagesEtapes.ts`, `three/vueFacade3d.ts` | 3 / 4 |
+| The manual option of the wall fit (É4): ends, eave and ground dragged on a front view (a photo straightened by its landmarks, or the assemblage) — the only component of that gesture | `zones/releve/AjusterMur.tsx` | 6 |
 | The progress bar of the façade chaining (one component, calibration now, audit from F3) | `zones/composants/BarreProgressionFacade.tsx` | 6 |
 
 Two decisions shape it. The template is never read from the photo: only its scale follows the found eave, ground and
 ends. And the photo's own opinion of the roof, which the audit weighs against the LiDAR, is the band above the eave
 (`ResultatAnalyse.toitLu`), never the template — otherwise the LiDAR would vote twice. `VERSION_CHAINE_FACADES` moves
-whenever corners, straightening or fusion change (9 since a single photo is straightened in one pass); an audit stores it with its images.
+whenever corners, straightening or fusion change (9 since a single photo is straightened in one pass, 10 since the wall fit is judged without the roof); an audit stores it with its images.
 
 Two LiDAR top-of-wall readings coexist on purpose: the gabarit (`gabaritMur.ts::gabaritDesCorps`, built since 29 October 2026 on
 `silhouetteDesCorps.ts::silhouetteDeFace`, the same projection as the Mode Toit silhouette: the whole façade seen from outside,

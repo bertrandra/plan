@@ -390,7 +390,7 @@ atteindre**, ce qui sort, et ce que la personne peut faire à la main quand l'ob
 | **É1** Prises | le côté choisi, le téléphone | prise, prise de vue située (position, cap, attitude, focale) | ≥ 1 photo du mur entier, prise lisible | `PhotoCas` + prise | ajouter, retirer, refaire une photo | `valider` (c'est le geste) |
 | **É2** Redressement | photos, repères | points de fuite, sinon repères posés | chaque photo redressée, ou son motif dit | vues de face | poser 4 repères (un rectangle du mur) | `cache` ; `resume` si une photo échoue |
 | **É3** Assemblage | vues de face | mosaïque ORB + RANSAC | toutes les vues assemblées, sinon motif | assemblage, masque `vu` | retirer une photo, la mettre à part | `cache` ; `resume` si des photos restent seules |
-| **É4** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur` / `CalageSilhouette`) | `resume` ; **`valider`** si divergence ou score faible |
+| **É4** Calage du mur | assemblage, rapport, **run IA** (angles) | arêtes + teinte, vérifiées par l'IA, arbitre (§5) | bouts, égout, sol à 3 % de la largeur ; score d'explication ≥ seuil | `x0`, `x1`, égout, sol ; `forme.pointes` | poser 2 angles, l'égout, le sol (poignées de `AjusterMur`, le seul composant du geste depuis F1) | `resume` ; **`valider`** si divergence ou score faible |
 | **É5** Silhouette lue | assemblage calé, corps (§5 ter) | haut du mur, mot, découpage par corps | silhouette lue sur ≥ la moitié des colonnes, corps attribués | `forme.silhouetteLue`, `forme.corps` | désigner les pointes sur l'image | `cache` |
 | **É5 bis** Diagnostic | silhouette lue, gabarit, **run IA** (pointes, corps) | variantes de toit par corps | une proposition n'existe que si elle explique mieux l'image (gain ≥ seuil) | propositions de toit, alertes de hauteur | cocher/décocher, ouvrir le Mode Toit | **`valider`** (toujours, décision 10) |
 | **É6** Texture | assemblage calé | élévation calée, fusion, sans ombres | écart de teinte et liserés sous le seuil | `texture`, `textureCalee`, `hauteurTexture` | recadrer, activer/désactiver « sans ombres » | `cache` ; aperçu en `resume` |
@@ -823,7 +823,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
 |---|---|---|---|
 | **F0 — Orchestrateur + calibration** *(livré le 29 octobre 2026, §9 bis)* | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
-| **F1 — Calage par ancres** | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
+| **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F2 — Un run IA par façade** | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
@@ -913,6 +913,100 @@ carreaux.
 Cliquet des orphelins : posé avec 257 entrées, soit **3 de moins** que l'état d'avant F0 (260 : `assemblageDeLaSerie`, `facadeSurLAssemblage`,
 `versLesPhotos`). Grep des noms supprimés dans `src/`, `tests/`, `scripts/`, `MD/` (hors cette spec et le CHANGELOG, qui les citent comme
 historique) : vide.
+
+
+### 9 bis. F1, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Le score d'explication, sans le toit** : `facade/releve/calageAncres.ts::expliquer`. Pour une pose (bouts, égout, sol sur
+  l'assemblage), chaque ancre de 0 à 1 : chacun des **deux angles** (la matière du mur, lue le long de ses bouts, qui s'arrête là, sous
+  l'égout et au-dessus d'une haie ; et, pour 30 %, une verticale qui le longe), l'**égout** (une horizontale, ou la matière qui commence
+  sous lui aux deux angles : un pignon monte dès l'angle, un toit ou le ciel est au-dessus), le **sol** (la matière qui finit, ou une
+  horizontale), les **proportions** du plan (à 30 % près). Pondéré 0,35 par angle, 0,15 l'égout, 0,1 le sol, 0,05 les proportions, et
+  ramené à la part du mur entre ses angles qui a sa matière (sous la moitié, la « matière » lue aux bouts n'est pas celle du mur : deux
+  fenêtres prises pour ses bouts). Le gabarit n'y entre pas (§11.8).
+- **Le test** (`expliqueLaPhoto`) : le score au moins à `facades.enchainement.explicationMin` (0,75) **et** chaque angle au moins à
+  `facades.enchainement.angleMin` (0,6), deux réglages de `regles/facades/enchainement.json`.
+- **L'arbitre** (`calerParLesAncres`, appelé par `murSurLAssemblage`) : la pose des arêtes est gardée si elle passe le test ; sinon,
+  parmi les autres murs que les arêtes dessinent (`mosaiqueFuites.ts::rectanglesSurLesAretes`, les six suivants, un par paire de
+  bouts, et le mur lu sur les lignes de la largeur vue), le mieux expliqué qui passe le test : l'É4 est **à confirmer** ; sinon la pose
+  du **plan seul** (aux proportions du plan, centrée sur ce que l'assemblage montre), dite supposée : l'É4 est **en échec** et demande
+  les deux angles, l'égout et le sol. Chaque pose est affinée par la teinte (`affinerEgoutEtSol`) avant d'être jugée.
+- **Des drapeaux honnêtes** : `egout`, `pied`, `cotes` ne disent « trouvé » que d'une pose qui passe le test ; la série le reporte
+  (`lu` faux : les coins restent prédits dans la chaîne de l'audit, `chaine.ts`). `VERSION_CHAINE_FACADES` passe à 10.
+- **L'É4 de l'orchestrateur** lit l'arbitre : « Mur cherché … expliqué sans le toit (score …) », « La pose des arêtes … n'explique pas
+  la photo … ; retenue : celle qui l'explique … : à confirmer », « Aucune pose n'explique la photo … Le mur est supposé … Posez les deux
+  angles, l'égout et le sol. » ; la pose retenue (les coins du cas) a son propre score, et une pose qui échoue au test rend l'étape à
+  confirmer (sauf un mur posé à la main). La calibration montre la pose des arêtes écartée en tirets, avec son score.
+- **Un seul composant du calage à la main** : `zones/releve/AjusterMur.tsx` (égout, sol, deux bouts), sur une photo redressée par ses
+  repères (l'audit, l'éditeur d'un cas) ou sur l'assemblage déjà de face (`reperes: null` : l'option manuelle de l'É4 de la
+  calibration, « Revenir au mur retenu », « Appliquer le calage et rejouer »).
+- **La silhouette n'est plus posée avant le calage** : le paramètre `gabarit` de `murSurLAssemblage`, `affinerEgoutEtSol`,
+  `coinsAutoDeSerie` et `murDeLaSerie` est retiré ; `MurLu.silhouette` est celle lue sur l'image ; qui veut le gabarit le pose sur le
+  mur calé (`gabaritSurLaVue`, comme `egout-sol.ts`).
+- **AE 101 en synthèse** : `tests/banc/facades/ae101.ts::sceneAe101` refait l'assemblage de la façade sud à partir de son étalon (le
+  mur vrai de x 140 à 750, l'égout de l'appentis, l'étage et ses deux pignons au gabarit de l'étalon, un pan de bois qui dessine, dans
+  le pignon de droite, un rectangle net aux proportions du plan là où le calage s'arrêtait, x de 451 à 752 ; le ciel presque de la
+  teinte de l'enduit ; un buisson, ou un arbre entier, devant l'angle gauche, une haie contre l'angle droit).
+
+**Acceptation.**
+
+- *Banc de synthèse* (`egout-sol.ts`, avant et après) : égout **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 % **39/44** ;
+  toutes les colonnes de position et les drapeaux identiques scène par scène ; colonne nouvelle « Explication » : **44/44** poses
+  expliquées (scores de 0,83 à 1). Sur les mêmes scènes, 88 poses de travers (une moitié du mur, le mur décalé ou rentré de 15 %)
+  sont toutes refusées (la meilleure fait 0,76, avec un angle à 0,57).
+- *Le moteur d'image ne bouge pas* : banc des façades (`banc.ts`) identique avant et après hors colonnes des temps (« chaîne du
+  relevé », « fusion de plusieurs vues » et toutes les autres sections) ; tests `redressementFuites`, `mosaiqueFuites`, `fusion`,
+  `voteVues`, `banc.test.ts` inchangés et verts.
+- *AE 101, bouts à 3 % près* : voir l'interprétation 1. Sur l'assemblage refait en synthèse, les arêtes seules retiennent le bloc du
+  pignon (x de 448 à 756 : le bout gauche à 51 % de la largeur vraie, comme le constat) ; le calage par les ancres l'écarte (score 0,50)
+  et retient le mur vrai : **bout gauche à 0,7 %, bout droit à 1,0 %, égout et sol à 0 %**. Par l'orchestrateur (redressement et
+  assemblage compris) : x de 136 à 755 (0,7 % et 0,8 %), l'É4 à confirmer.
+- *Aucun « trouvé » sur une pose qui échoue au test* : l'angle gauche caché par un arbre, aucune pose ne passe ; la pose du plan seul
+  est retenue, égout, sol et bouts **supposés**, l'É4 **en échec** (`calageAncres.test.ts`, `enchainement.test.ts`).
+- AE 101 « corps identiques » ; empreintes golden inchangées.
+
+**Interprétations** :
+
+1. **Les photos d'AE 101 ne sont toujours pas dans le dépôt** (F0, interprétation 2) : l'acceptation « bouts à 3 % près » est prouvée
+   sur l'assemblage refait en synthèse à partir des nombres de l'étalon (mur vrai, rapport du plan, gabarit, pose constatée), qui
+   reproduit le défaut (les arêtes retiennent le même bloc, à 51 %), et sur les scènes du banc ; elle reste à constater sur la vraie
+   mosaïque, par `reel.ts etalon <cas.json>` (l'É4 y dit le score de chaque pose), le jour où le cas est tiré de l'audit. Sur la vraie
+   photo, si le mur vrai n'est pas parmi les murs que dessinent les arêtes, l'arbitre ne l'inventera pas : il dira la pose supposée
+   (échec, geste demandé), ce qui tient déjà le critère « aucun trouvé faux ».
+2. **F1 n'a pas encore d'IA** (F2) : les « deux chemins » du §5 sont, ici, la pose des arêtes et les autres murs qu'elles dessinent,
+   jugés par le même score. L'arbitre (`calerParLesAncres`) reçoit des poses : F2 lui donnera celle de l'IA, sans changer la règle.
+3. **Les seuils du calage sont dans `regles/facades/enchainement.json`**, à côté des objectifs d'F0 : ils sont l'objectif de l'É4
+   (§4 ter.2, « score d'explication ≥ seuil »). À la différence des autres, ils changent ce que la chaîne retient (une pose qui échoue
+   n'est plus prise pour trouvée) : la chaîne monte en version 10. Ils sont posés sur le banc de synthèse faute de vingt cas réels
+   validés (§5.6) ; deux réglages et non un, parce qu'un angle juste et l'autre faux font un score moyen qui passe (la moitié gauche de
+   la scène 05 fait 0,76).
+4. **Un angle au bord de l'image ne s'explique pas** : la bande au-delà n'est pas vue, rien ne dit que la matière s'y arrête (le cadre
+   d'un assemblage dessine aussi des arêtes : sur AE 101 en synthèse, redressée et assemblée, les arêtes prenaient le cadre entier). Une
+   photo serrée sur le mur, sans rien autour, échoue donc au test : le test de l'écran de la calibration montre désormais son mur avec
+   un peu de ciel et de gazon. L'égout et le sol, eux, ne sont pas contredits par une bande hors de l'image.
+5. **La teinte du score se lit sur le haut du mur** (de 10 à 60 % de sa hauteur sous l'égout, là où se lisent les angles) et non sur le
+   bas comme l'affinage (30 à 90 %) : un buisson contre un angle prenait la teinte. `teinteDuMur` reçoit les rangées à lire, celles de
+   l'affinage par défaut : l'affinage, la silhouette lue et le banc n'en changent pas.
+6. **Le composant gardé est `AjusterMur`** : il a les trois poignées que demande le §9 (bouts, égout, sol) et sert déjà l'audit
+   (`CoinsPhotoAudit.tsx`). `CalageSilhouette` liait l'égout au sol par le rapport du plan et ajoutait un étirement de la photo pour
+   compenser ; l'égout tiré librement fait les deux. L'éditeur d'un cas garde « Ajuster l'égout et le sol » sur une photo (le même
+   composant), utile pour une photo restée hors de l'assemblage.
+7. **« Rejouer » garde les coins du cas** (F0, interprétation 5) : l'option manuelle part du mur retenu, et l'É4 dit si ce mur
+   explique la photo. « Retrouver le mur sur toutes les photos » cherche de nouveau, par l'arbitre.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| Le second composant du calage à la main | `zones/CalageSilhouette.tsx`, `facade/calage/calageSilhouette.ts`, `tests/unit/zones/calageSilhouette.test.ts`, `tests/unit/facade/calage/calageSilhouette.test.ts` | `CalageSilhouette`, `calageDe`, `egoutDuCalage`, `bouger`, `coinsDuCalage`, `Calage`, `Prise`, `PAS_CLAVIER`, `ECART_MIN`, `ETIREMENT` ; règles `.calCalage.prise` | 103 + 45 + 68 + 27 | `zones/releve/AjusterMur.tsx` (`reperes: null`), `CalageALaMain` de `FriseEtapesCalibration.tsx` |
+| La silhouette posée avant le calage | `facade/vision/mosaiqueFuites.ts`, `facade/releve/coinsAuto.ts`, `facade/releve/chaine.ts`, `facade/releve/enchainement.ts` | le paramètre `gabarit` de `affinerEgoutEtSol`, `murSurLAssemblage`, `coinsAutoDeSerie`, `murDeLaSerie`, et la branche qui le posait | — | le gabarit posé après le calage (`gabaritSurLaVue`) ; le calage par les ancres |
+| Le rectangle des arêtes unique | `facade/vision/mosaiqueFuites.ts` | `rectangleSurLesAretes` | — | `rectanglesSurLesAretes` (les n meilleurs ; le premier est le même) |
+
+Cliquet des orphelins : 257 entrées, inchangé (les fichiers supprimés étaient importés ; les nouveaux exports ont tous un importeur
+dans `src/`). Grep des noms supprimés dans `src/`, `tests/`, `scripts/`, `MD/` (hors cette spec, `spec-releve-facade.md` qui les
+cite comme historique, et le CHANGELOG) : vide.
 
 ---
 
@@ -1006,7 +1100,8 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
 | Gabarit et silhouette | `facade/gabaritMur.ts`, `facade/regles/toits/silhouettes.ts`, `silhouetteDesCorps.ts`, `model/silhouetteFacade.ts` |
 | Modèle | `model/typesReleve.ts`, `model/auditParcelle.ts`, `model/protections.ts`, `model/migrations.ts` |
 | IA | `model/analyseClaude.ts`, `app/regles/sujets/facades.ts`, `deploy/schema-analyse.json` (généré), `facade/detection/renfort.ts` |
-| Calibration | `zones/EditeurCasCalibration.tsx`, `zones/CalageSilhouette.tsx`, `zones/VueFacade3d.tsx`, `facade/releve/casCalibration.ts`, `facade/corpusReel.ts` |
+| Calage du mur (É4) | `facade/releve/calageAncres.ts` (score d'explication, arbitre), `facade/releve/coinsAuto.ts::murSurLAssemblage`, `zones/releve/AjusterMur.tsx` (à la main) |
+| Calibration | `zones/EditeurCasCalibration.tsx`, `zones/FriseEtapesCalibration.tsx`, `zones/VueFacade3d.tsx`, `facade/releve/enchainement.ts`, `facade/corpusReel.ts` |
 | Audit | `app/audit/parcelle/`, `zones/parcours/` |
 | 3D et plan | `three/detailsBatiment.ts`, `facade/ouvertures.ts`, `render/releve.ts` |
 | Banc | `.claude/skills/facades/scripts/`, `tests/banc/facades/`, `tests/fixtures/facades/`, `tests/fixtures/facades-reel/` |
