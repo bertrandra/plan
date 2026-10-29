@@ -80,8 +80,9 @@ export function surbrillanceDe(p: Proposition, objets: readonly ObjetPlan[]): Su
       if (!cs.length) break;
       return zone(cs.map((c) => ({ pts: c.pts, bas: mur, haut: c.faitage, ferme: true })), centreDe(cs.flatMap((c) => c.pts)), faite);
     }
-    case 'cheminees': {
-      // Chaque souche : sa section, du toit a son debouche.
+    case 'elementsDuToit': case 'cheminees': {
+      // Une lucarne : le pan du corps ; une souche : sa section, du toit a son debouche.
+      if (p.effet.type === 'elementsDuToit' && !p.effet.cheminees.length) { const c = corps(p.effet.corps); return c ? pan(c) : null; }
       const formes = p.effet.cheminees.map((ch) => {
         const dx = ch.largeurM / 2, dy = ch.profondeurM / 2;
         return { pts: [{ x: ch.x - dx, y: ch.y - dy }, { x: ch.x + dx, y: ch.y - dy }, { x: ch.x + dx, y: ch.y + dy }, { x: ch.x - dx, y: ch.y + dy }], bas: Math.max(mur, ch.sommetM - 1.5), haut: ch.sommetM, ferme: true };

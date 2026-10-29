@@ -19,6 +19,7 @@ import { diagnostiquerToit, type EchantillonHauteur, type ToitAjuste } from '../
 import { appentisVers, avecAppentis } from './appentis.js';
 import { avecBaies, baiePosee } from './baies.js';
 import { avecBoutsDesMurs, avecPignons, pignonsManquants } from './pignons.js';
+import { avecElementsDesMurs } from './elementsDesMurs.js';
 import { signedArea } from '../../../geometry/basic.js';
 import type { BoutFait, FaitToit, ObservationFait } from '../../../regles/toits/faits.js';
 import type { CorpsToit, FormeToit, FormeToitSimple, PtBrut, Toit, ToitMesure } from '../../../model/types.js';
@@ -170,8 +171,9 @@ export const plusGrand = (corps: readonly CorpsToit[]) => corps.reduce((k, c, i)
 export function corpsSousContrainte(f: FaitToit, corps: CorpsToit[] | null, m: ToitMesure, contour: readonly PtBrut[], grille: Grille | null = null): CorpsToit[] | null {
   // Les pignons d'une facade se posent sur le corps qui la porte, une fois le principal relu, et les bouts que montrent des murs de
   // bout sur le leur (lot F4) ; les appentis adosses se lisent ensuite sur la grille brute (la surface mesuree s'arrete au contour).
+  // Les cheminees et lucarnes vues sur un mur se posent en dernier, sur le corps de ce mur tel qu'il est devenu (lot F7).
   const principaux = avecBoutsDesMurs(f.observation.boutsDesMurs, avecPignons(f.observation.pignons, corpsPrincipauxSousContrainte(f, corps, m, contour, grille), m, contour));
-  return avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille);
+  return avecElementsDesMurs(f.observation.elementsDesMurs, avecBaies(f.observation.baies, avecAppentis(f.observation.appentis, principaux, contour, grille), contour, grille));
 }
 
 /** Les corps lus, le corps principal relu dans les formes et le sens observes, le nombre de corps tenu. */

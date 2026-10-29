@@ -7,13 +7,9 @@ import type { CeQueJeVois, SoucheVue } from '../../../model/ceQueJeVois.js';
 import type { Cheminee, CorpsToit, EdiculeTerrasse, ElementDeToit, Lucarne, PtBrut, TerrasseToit, TypeLucarne } from '../../../model/types.js';
 import { corpsDeSaillie, murDuCorps } from '../../modeToit/saillies.js';
 import { formeDuCorps } from './faits.js';
+import { cadreCorps, cm, depuisCadre, DEPASSEMENT_SOUCHE_M, estPlat, LARGEUR_LUCARNE_M, MONTEE_LUCARNE, MONTEE_PLATE_M, PROFONDEUR_LUCARNE_M, SOUCHE, versCadre, type Cadre } from './elementsDesMurs.js';
 
-/** Un corps plat : moins de cela entre le faitage et l'egout le plus haut (spec-regles-toits §2.7). */
-const MONTEE_PLATE_M = 0.3;
-/** Le debouche d'une souche depasse le faitage de tant (DTU 24.1, spec-regles-toits §2.6). */
-const DEPASSEMENT_SOUCHE_M = 0.4;
-/** Les sections vues le plus souvent : une souche maconnee a un conduit, un tubage inox. */
-const SOUCHE = { largeurM: 0.6, profondeurM: 0.5 };
+/** Un tubage inox : la section d'une souche metallique (la souche maconnee, SOUCHE, est dans elementsDesMurs.ts). */
 const TUBAGE = { largeurM: 0.2, profondeurM: 0.2 };
 /** Une souche adossee est plus large, et sort du mur de sa profondeur. */
 const SOUCHE_ADOSSEE = { largeurM: 0.8, profondeurM: 0.5 };
@@ -31,7 +27,6 @@ function repereCorps(c: CorpsToit): { L: number; W: number; point: (s: number, t
   return { L, W, point: (s, t) => ({ x: r(p0.x + u.x * s + v.x * t), y: r(p0.y + u.y * s + v.y * t) }) };
 }
 
-const estPlat = (c: CorpsToit) => c.faitage - Math.max(c.egouts[0], c.egouts[1]) < MONTEE_PLATE_M;
 const aire = (c: CorpsToit) => { const r = repereCorps(c); return r ? r.L * r.W : 0; };
 
 /** Le plus grand corps parmi ceux qui conviennent : celui que l'on voit depuis la rue. */
@@ -104,11 +99,6 @@ export function corpsDesCheminees(corps: readonly CorpsToit[]): number {
   return i >= 0 ? i : plusGrand(corps, () => true);
 }
 
-/** La largeur d'une lucarne, en metres, selon son type (un outeau est une petite lucarne a croupe). */
-const LARGEUR_LUCARNE_M: Partial<Record<TypeLucarne, number>> = { outeau: 0.9, 'oeil-de-boeuf': 0.8, lanterneau: 1.2, rampante: 1.6 };
-/** Ou le faitage d'une lucarne rejoint le pan, en part de la hauteur de l'egout au faitage ; sa face recule d'autant. */
-const MONTEE_LUCARNE = 0.6;
-const PROFONDEUR_LUCARNE_M = 1.2;
 
 /**
  * Les lucarnes vues, posees sur un corps : repartie(s) a egale distance le long du faitage, sur le pan que dit la vue (rue : le pan 0,
@@ -145,20 +135,7 @@ export const corpsDeLaTerrasse = (corps: readonly CorpsToit[]): number => plusGr
 /** Deux faitages a moins de cet angle l'un de l'autre vont dans le meme sens : une lucarne garde son pan. */
 const PARALLELE_DEG = 15;
 
-/** Le repere complet d'un corps : son origine, ses deux directions, sa longueur et sa largeur. */
-function cadreCorps(c: CorpsToit): { p0: PtBrut; u: PtBrut; v: PtBrut; L: number; W: number } | null {
-  const [p0, p1, , p3] = c.pts;
-  if (!p0 || !p1 || !p3) return null;
-  const L = Math.hypot(p1.x - p0.x, p1.y - p0.y), W = Math.hypot(p3.x - p0.x, p3.y - p0.y);
-  if (!(L > 0) || !(W > 0)) return null;
-  return { p0, u: { x: (p1.x - p0.x) / L, y: (p1.y - p0.y) / L }, v: { x: (p3.x - p0.x) / W, y: (p3.y - p0.y) / W }, L, W };
-}
-
-type Cadre = NonNullable<ReturnType<typeof cadreCorps>>;
-const versCadre = (r: Cadre, p: PtBrut) => ({ s: (p.x - r.p0.x) * r.u.x + (p.y - r.p0.y) * r.u.y, t: (p.x - r.p0.x) * r.v.x + (p.y - r.p0.y) * r.v.y });
-const depuisCadre = (r: Cadre, s: number, t: number): PtBrut => ({ x: r.p0.x + r.u.x * s + r.v.x * t, y: r.p0.y + r.u.y * s + r.v.y * t });
 const dansCadre = (r: Cadre, p: PtBrut, marge = 0) => { const q = versCadre(r, p); return q.s >= -marge && q.s <= r.L + marge && q.t >= -marge && q.t <= r.W + marge; };
-const cm = (v: number) => Math.round(v * 100) / 100;
 
 /** Les cheminees d'un corps qui tiennent sur le corps neuf (une souche adossee deborde du mur de sa section) ; leur debouche suit le faitage. */
 function chemineesReportees(a: CorpsToit, n: CorpsToit, rn: Cadre): Cheminee[] {

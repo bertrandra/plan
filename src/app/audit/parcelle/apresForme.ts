@@ -7,6 +7,7 @@
 // corps restent ceux du moteur : rien ici ne dessine un toit.
 
 import { appentisDesCorps, corpsDeLaTerrasse, corpsDesCheminees, lucarnesSurLeCorps, panDesLucarnes, souchesDe, souchesSurLeCorps, terrasseVueDe, terrasseVueSurLeCorps } from '../../../facade/regles/toits/elementsVus.js';
+import { elementPoseSurLeMur } from '../../../facade/regles/toits/elementsDesMurs.js';
 import { cleDeLaCible, type EffetProposition, type Proposition } from '../../../regles/decisions.js';
 import type { CorpsToit } from '../../../model/types.js';
 
@@ -20,6 +21,11 @@ function placeSurLesCorps(e: EffetProposition, corps: readonly CorpsToit[]): Eff
     case 'lucarnes': {
       const i = corpsDesCheminees(corps), c = corps[i];
       return c ? { ...e, apresForme: { corps: i, lucarnes: lucarnesSurLeCorps(c, e.lucarnes.length, e.lucarnes.map((l) => l.type), panDesLucarnes(e.lucarnes)) } } : { ...e, apresForme: null };
+    }
+    case 'elementsDuToit': {
+      // Le moteur repose l'element vu sur le corps de la forme proposee qui porte son mur (elementsDesMurs.ts), ou nulle part.
+      const pose = elementPoseSurLeMur(corps, e.vu);
+      return pose ? { ...e, apresForme: { corps: pose.corps, cheminees: pose.cheminee ? [pose.cheminee] : [], lucarnes: pose.lucarne ? [pose.lucarne] : [] } } : { ...e, apresForme: null };
     }
     case 'terrasse': {
       const i = corpsDeLaTerrasse(corps), c = corps[i];

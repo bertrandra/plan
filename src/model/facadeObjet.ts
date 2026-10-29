@@ -200,3 +200,16 @@ export function releveReecrit(o: BatimentProtege, existant: ReleveFacade | undef
   if (!r.forme && existant.forme && garde('facadeForme')) out.forme = existant.forme;
   return out;
 }
+
+/** La place d'une lucarne du toit vue sur un mur (facade/regles/toits/elementsDesMurs.ts::lucarnesDevantLeMur), en metres du releve. */
+export interface LucarneSurLeMur { de: number; a: number; dessusM: number }
+
+/**
+ * Les ouvertures d'une facade objet sans celles qui sont la fenetre d'une lucarne du toit : le milieu entre ses bords, l'appui au-dessus
+ * de l'egout du pan (lot F7). Un element n'a qu'un endroit ou atterrir (MD/spec-facade-calage-audit.md §5 quater) : une lucarne est
+ * dans le toit, jamais aussi une baie du mur ; la validation de la facade (V4) et la pose d'une lucarne par l'audit passent ici.
+ */
+export function ouverturesHorsDesLucarnes(ouvertures: readonly OuvertureFacade[], lucarnes: readonly LucarneSurLeMur[]): OuvertureFacade[] {
+  if (!lucarnes.length) return [...ouvertures];
+  return ouvertures.filter((o) => { const m = o.x + o.l / 2; return !lucarnes.some((l) => m >= l.de && m <= l.a && o.y >= l.dessusM); });
+}

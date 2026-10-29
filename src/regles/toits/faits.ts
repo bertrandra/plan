@@ -85,6 +85,13 @@ export interface MurDesigne { gauche: { x: number; y: number }; droite: { x: num
 export interface BoutDeMurFait { mur: MurDesigne; bout: BoutFait }
 
 /**
+ * Un element vu sur la ligne du haut d'un mur (lot F7 : une proposition de l'audit, MD/spec-facade-calage-audit.md §5 quater) : une
+ * cheminee ou une lucarne, sur le corps que designe ce mur, a `a` metres le long du mur depuis sa gauche vue de dehors (son milieu).
+ * Le moteur la pose (facade/regles/toits/elementsVus.ts::avecElementsDesMurs) ; il ne s'ecrit jamais dans faits.json.
+ */
+export interface ElementDeMurFait { mur: MurDesigne; element: 'cheminee' | 'lucarne'; a: number }
+
+/**
  * Une bay window (spec §2.3) : une avancee de facade que le contour cadastral porte (AE 101 : 2,3 x 0,6 m cote est). La facade se
  * designe par l'azimut de sa normale sortante, comme pour un appentis ; `largeurM` departage deux saillies sur une meme facade.
  * `toit: 'propre'` : un toit a elle, plat (`hauteurM`) ou en appentis (`hautM` contre le mur, `egoutM` au bord) ; les cotes absentes sont
@@ -122,6 +129,8 @@ export interface ObservationFait {
   pignons?: PignonsFait[];
   /** Les bouts que montrent des murs de bout, chacun sur son corps (lot F4). */
   boutsDesMurs?: BoutDeMurFait[];
+  /** Les cheminees et lucarnes que montrent des murs, chacune posee sur son corps (lot F7) ; ce qui est deja pose ne bouge pas. */
+  elementsDesMurs?: ElementDeMurFait[];
   /** Les bay windows que le calcul pose sur les saillies du contour (spec §2.3). */
   baies?: BaieFait[];
 }

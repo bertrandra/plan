@@ -20,19 +20,22 @@
 //   une proposition que ses pointes confirment vient « des deux » ; sans haut lu, ses pointes en plus ou manquantes font des
 //   propositions « de l'IA », sans gain mesure, et une proposition de l'IA que le haut lu ne confirme pas n'est pas faite (§5 bis,
 //   regles 1 et 5) ;
-// - ce que le moteur ne sait pas encore poser (une bosse etroite : une cheminee, une lucarne, F7 ; un autre volume vu par Claude) est
-//   dit en constat, sans proposition.
+// - une bosse plus etroite qu'un pignon sur la ligne du haut, ou un element que Claude voit, est une cheminee ou une lucarne (lot F7,
+//   §5 quater) : proposee sur le corps du troncon, par son mur, et posee par le moteur une fois cochee (elementsDesMurs.ts) ; ce qui y
+//   est deja pose ne se propose pas, et ne bouge jamais ;
+// - ce que le moteur ne sait pas poser (un autre volume vu par Claude) est dit en constat, sans proposition.
 // Les seuils sont des objectifs de l'E5 bis, dans regles/facades/enchainement.json. Pur.
 
 import { gabaritDesCorps, pointesDuGabarit, type GabaritMur } from '../../gabaritMur.js';
 import { silhouetteDeFace, tronconsDeFace } from '../toits/silhouetteDesCorps.js';
 import { boutAuMur, pignonsAuxPlaces, type PlacePignon } from '../toits/pignons.js';
+import { elementPoseSurLeMur } from '../toits/elementsDesMurs.js';
 import { repere } from '../../toits/toitCorps.js';
 import { avisDesPointes, reglagesIa } from './ia.js';
 import { objectifsEnchainement, type Objectifs } from './enchainement.js';
 import { SEUILS_TOITS as S } from '../../../regles/toits/reglages.js';
 import type { Facade } from '../../../geometry/cotesVusDeDehors.js';
-import type { BoutFait, MurDesigne, ObservationFait } from '../../../regles/toits/faits.js';
+import type { BoutFait, ElementDeMurFait, MurDesigne, ObservationFait } from '../../../regles/toits/faits.js';
 import type { ObservationsFacade } from '../../../regles/facades/observations.js';
 import type { CorpsToit, PignonToit } from '../../../model/types.js';
 
@@ -76,6 +79,28 @@ export interface PropositionForme {
   observation: ObservationFait;
 }
 
+/** Ce que la ligne du haut montre et que le moteur pose sur un corps (lot F7, §5 quater). */
+export type GenreElement = 'cheminee' | 'lucarne';
+
+/**
+ * Une cheminee ou une lucarne a poser sur un corps (lot F7) : jamais ecrite ici ; le moteur la pose (corpsSousContrainte) si la personne
+ * la coche. Ce qui est deja pose sur le corps (le Mode Toit, une observation) ne se propose pas.
+ */
+export interface PropositionElement {
+  element: GenreElement;
+  /** Le rang du corps au moment du diagnostic (pour le dire) ; l'adresse est son mur. */
+  corps: number;
+  cote: number;
+  mur: MurDesigne;
+  /** Son milieu sur la facade, et la bosse lue qui la montre (ou le point de Claude), de 0 a 1 le long du mur. */
+  u: number;
+  u0: number;
+  u1: number;
+  provenance: ProvenanceForme;
+  /** Ce que le moteur relira (corpsSousContrainte), le corps designe par son mur. */
+  observation: ObservationFait;
+}
+
 /** Une pointe que la photo voit a une autre hauteur que le gabarit : signalee, jamais corrigee (decision 12). */
 export interface AlerteHauteur { u: number; vue: number; attendue: number; corps: number | null; source: 'deterministe' | 'ia' }
 
@@ -88,6 +113,8 @@ export interface DiagnosticForme {
   /** L'ecart moyen du gabarit au haut lu sur la facade, en hauteurs d'egout ; null sans haut lu. */
   ecart: number | null;
   propositions: PropositionForme[];
+  /** Les cheminees et lucarnes a poser (lot F7). */
+  elements: PropositionElement[];
   alertes: AlerteHauteur[];
   /** Ce qui ne se propose pas (le moteur ne sait pas le poser, ou la photo ne le confirme pas), en mots. */
   constats: string[];
@@ -355,6 +382,60 @@ function alertes(ctx: Contexte, ts: readonly TronconForme[], props: readonly Omi
   return out;
 }
 
+const GENRES: Readonly<Record<GenreElement, string>> = { cheminee: 'une cheminée', lucarne: 'une lucarne' };
+const GENRES_PHRASE: Readonly<Record<GenreElement, string>> = { cheminee: 'Une cheminée', lucarne: 'Une lucarne' };
+
+/** La place d'un point de la facade (u) le long d'un mur de corps, en metres depuis sa gauche vue de dehors : l'adresse du moteur. */
+function surLeMur(f: Facade, mur: MurDesigne, u: number): number {
+  const l = Math.hypot(mur.droite.x - mur.gauche.x, mur.droite.y - mur.gauche.y);
+  const x = f.gauche.x + (f.droite.x - f.gauche.x) * u, y = f.gauche.y + (f.droite.y - f.gauche.y) * u;
+  return l > 0 ? cm(((x - mur.gauche.x) * (mur.droite.x - mur.gauche.x) + (y - mur.gauche.y) * (mur.droite.y - mur.gauche.y)) / l) : 0;
+}
+
+/**
+ * Les cheminees et lucarnes de la ligne du haut (lot F7, §5 bis « une bosse etroite », §5 quater) : une bosse du haut lu plus etroite
+ * qu'un pignon (et d'au moins `diagnosticElementLargeurMinM`), hors d'une proposition de pignon, est une cheminee si elle monte au
+ * faitage du corps (une souche le depasse), une lucarne sinon (sur un long pan) ; un element que Claude voit lui donne son mot et vient
+ * « des deux ». Claude seul ne propose que sans haut lu : un element qu'il voit la ou le haut lu n'a pas de bosse est dit en constat
+ * (§5 bis, regles 1 et 5). Chaque element est pose a blanc par le moteur sur le corps du troncon (elementPoseSurLeMur) : un corps qui
+ * le porte deja, ou qui ne peut pas le porter, ne se propose pas.
+ */
+function elementsDuHaut(ctx: Contexte, ts: readonly TronconForme[], props: readonly Omit<PropositionForme, 'provenance' | 'observation'>[], ia: ObservationsFacade | null, constats: string[]): PropositionElement[] {
+  const f = ctx.e.facade, H = ctx.e.hauteurMur, pres = reglagesIa()['facades.ia.pointeEcartU'];
+  const lue = ctx.lu.some((v) => v !== null);
+  const vus: { element: GenreElement; u0: number; u1: number; provenance: ProvenanceForme }[] = [];
+  for (const t of lue ? ts : []) {
+    const c = ctx.e.corps[t.corps];
+    if (!c) continue;
+    for (const b of bosses(ctx.lu, ctx.g0, t.u0, t.u1, ctx.obj['facades.enchainement.diagnosticReliefMin'])) {
+      const largeur = (b.u1 - b.u0 + 1 / COLONNES) * f.largeur;
+      if (largeur >= S.LARGEUR_PIGNON_MIN_M || largeur < ctx.obj['facades.enchainement.diagnosticElementLargeurMinM'] || props.some((p) => b.u0 >= p.u0 && b.u1 <= p.u1)) continue;
+      let haut = 0;
+      for (let k = 0; k < COLONNES; k++) { const v = ctx.lu[k]; if (v !== null && v !== undefined && uDe(k) >= b.u0 && uDe(k) <= b.u1) haut = Math.max(haut, v); }
+      const longPan = (t.cote === 0 || t.cote === 2) && !sansFaitage(c);
+      vus.push({ element: haut * H >= c.faitage || !longPan ? 'cheminee' : 'lucarne', u0: b.u0, u1: b.u1, provenance: 'deterministe' });
+    }
+  }
+  for (const x of ia?.elements ?? []) {
+    const k = vus.findIndex((v) => x.u >= v.u0 - pres && x.u <= v.u1 + pres);
+    const v = vus[k];
+    if (v) { if (v.provenance === 'deterministe') vus[k] = { ...v, element: x.element, provenance: 'les-deux' }; continue; }
+    if (lue) { constats.push(`Claude voit ${GENRES[x.element]} à u ${f2(x.u)}, que le haut lu sur la photo ne confirme pas : rien n’est proposé.`); continue; }
+    vus.push({ element: x.element, u0: x.u, u1: x.u, provenance: 'ia' });
+  }
+  const out: PropositionElement[] = [];
+  for (const v of vus) {
+    const u = r3((v.u0 + v.u1) / 2), t = tronconEn(ts, u);
+    if (!t) { constats.push(`${GENRES_PHRASE[v.element]} à u ${f2(u)}, hors des corps de la façade : rien n’est proposé.`); continue; }
+    const vu: ElementDeMurFait = { mur: t.mur, element: v.element, a: surLeMur(f, t.mur, u) };
+    const pose = elementPoseSurLeMur(ctx.e.corps, vu);
+    if (!pose) { constats.push(`${GENRES_PHRASE[v.element]} à u ${f2(u)} : le corps ${t.corps + 1} la porte déjà, ou ne peut pas la porter ; rien n’est proposé.`); continue; }
+    if (out.some((p) => p.element === v.element && p.corps === t.corps && Math.abs(p.u - u) <= pres)) continue;
+    out.push({ element: v.element, corps: t.corps, cote: t.cote, mur: t.mur, u, u0: r3(v.u0), u1: r3(v.u1), provenance: v.provenance, observation: { elementsDesMurs: [vu] } });
+  }
+  return out;
+}
+
 /**
  * Le diagnostic de forme d'une facade : ses troncons de corps, les propositions de toit qui expliquent mieux le haut lu (chacune sur son
  * corps), les alertes de hauteur et ce qui ne se propose pas. Sans corps, rien a diagnostiquer.
@@ -371,7 +452,7 @@ export function diagnostiquerForme(e: EntreesDiagnostic): DiagnosticForme {
   const lue = lus.length * 2 >= COLONNES && sousEgout <= PART_SOUS_EGOUT_MAX * lus.length;
   const constats: string[] = lus.length * 2 >= COLONNES && !lue ? ['Le haut lu sur la photo passe sous l’égout : il ne lit pas le haut du mur (une ombre, un toit pris pour le mur), il ne sert pas au diagnostic.'] : [];
   const ctx: Contexte = { e, obj, lu: lue ? lu : lu.map(() => null), g0, avec: (k, c) => gabaritDesCorps(f, e.corps.map((x, i) => (i === k ? c : x)), H) };
-  if (!e.corps.length) return { gabarit: g0, troncons, lue, ecart: null, propositions: [], alertes: [], constats };
+  if (!e.corps.length) return { gabarit: g0, troncons, lue, ecart: null, propositions: [], elements: [], alertes: [], constats };
   const bruts: Omit<PropositionForme, 'provenance' | 'observation'>[] = [];
   if (lue) {
     for (const t of troncons) {
@@ -379,16 +460,11 @@ export function diagnostiquerForme(e: EntreesDiagnostic): DiagnosticForme {
       if (!c) continue;
       const p = t.cote === 0 || t.cote === 2 ? diagnosticDuPan(ctx, t, c) : diagnosticDuBout(ctx, t, c);
       if (p) bruts.push(p);
-      // Une bosse plus etroite qu'un pignon : une cheminee, une lucarne (lot F7) ; le moteur ne la pose pas encore.
-      for (const b of bosses(ctx.lu, g0, t.u0, t.u1, obj['facades.enchainement.diagnosticReliefMin'])) {
-        if ((b.u1 - b.u0) * f.largeur < S.LARGEUR_PIGNON_MIN_M && !(p && b.u0 >= p.u0 && b.u1 <= p.u1)) constats.push(`Une bosse étroite sur la ligne du haut, à u ${f2((b.u0 + b.u1) / 2)} : une cheminée ou une lucarne ? (rien n’est proposé avant le lot F7)`);
-      }
     }
   }
   const ia = e.ia ?? null;
   if (ia && !lue) bruts.push(...propositionsDeLIa(ctx, troncons, ia, constats));
   if (ia) {
-    for (const x of ia.elements) constats.push(`Claude voit ${x.element === 'cheminee' ? 'une cheminée' : 'une lucarne'} à u ${f2(x.u)} (posée par le lot F7, pas encore).`);
     for (const x of ia.calage.corps) constats.push(`Claude voit un autre volume de u ${f2(x.debut)} à ${f2(x.fin)} (le découpage par corps vient du plan).`);
     if (lue) for (const a of avisDesPointes(ia, pointesDuGabarit(g0).filter((p) => p.u >= 0 && p.u <= 1))) {
       if ((a.avis === 'en-plus' || a.avis === 'manquante') && !bruts.some((p) => a.u >= p.u0 - 0.1 && a.u <= p.u1 + 0.1)) constats.push(`Claude voit ${a.avis === 'en-plus' ? 'une pointe que le plan n’a pas' : 'l’absence de la pointe du plan'} à u ${f2(a.u)}, que le haut lu sur la photo ne confirme pas : rien n’est proposé.`);
@@ -400,7 +476,13 @@ export function diagnostiquerForme(e: EntreesDiagnostic): DiagnosticForme {
     const provenance: ProvenanceForme = p.gain === null ? 'ia' : ia && confirmeeParLIa(p, ia, pres) ? 'les-deux' : 'deterministe';
     return { ...p, provenance, observation: observationDe(p, c, f.azimut) };
   });
-  return { gabarit: g0, troncons, lue, ecart: lue ? (() => { const x = ecartSur(ctx.lu, g0, 0, 1); return x === null ? null : r3(x); })() : null, propositions, alertes: alertes(ctx, troncons, bruts, ia), constats: [...new Set(constats)] };
+  const elements = elementsDuHaut(ctx, troncons, bruts, ia, constats);
+  return { gabarit: g0, troncons, lue, ecart: lue ? (() => { const x = ecartSur(ctx.lu, g0, 0, 1); return x === null ? null : r3(x); })() : null, propositions, elements, alertes: alertes(ctx, troncons, bruts, ia), constats: [...new Set(constats)] };
+}
+
+/** Un element propose, en clair : « une cheminée à 0,42 de la largeur de la façade, d'après le haut lu sur la photo et Claude ». */
+export function direElement(p: Pick<PropositionElement, 'element' | 'u' | 'provenance'>): string {
+  return GENRES[p.element] + ' à ' + f2(p.u) + ' de la largeur de la façade, d’après ' + PROVENANCES[p.provenance];
 }
 
 const NATURES: Readonly<Record<NatureForme, string>> = {
