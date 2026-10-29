@@ -5,6 +5,21 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+## [5.0.0] — 2026-10-29
+
+Version **majeure** au sens de `MD/RELEASE.md` §2.1 : le `.glb` exporté change pour des projets déjà enregistrés.
+
+### Changements de nombres et d'exports (version majeure)
+
+- **Vue 3D et `.glb` : plus de cheminée d'office.** Un toit simple ou en volumes en pente de plus de 40 m² recevait une souche
+  qu'aucune source n'avait vue ; elle est retirée (détail plus bas, « Corrigé »). Le `.glb` d'un tel projet perd une maille par
+  bâtiment : sur la démonstration, la Maison (`glb-structure.json` mesuré par le point 24 : 1 143 nœuds, 955 mailles, 1 454
+  matériaux, 3 954 accesseurs, 3 970 vues tampon, 11 709 376 octets).
+- **Couleur des murs des annexes** : une annexe dont la photo de rue (Panoramax) donne une lecture concluante prend cette teinte en
+  3D, dans le `.glb` et la DP6, comme un bâtiment (projets géolocalisés seulement).
+- Les exports du plan de démonstration ne bougent qu'à leur numéro de version et à la date de build (preuve forte, sept sur sept,
+  `tests/fixtures/golden/EMPREINTES.md`). Le schéma des projets reste 6 : rien à faire côté plateforme.
+
 ### Ajouté
 
 - **Façades, lot F0 : l'orchestrateur et la barre de progression, la calibration pour premier consommateur** (`MD/spec-facade-calage-audit.md`
@@ -78,6 +93,12 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Les poignées de la sélection restent à leur place quand l'empilement les remonte.** Depuis que les objets se dessinent en mètres dans leur
+  calque, une poignée y porte la transformation inverse du repère (`render/objects.ts`). Recréée dans le calque pendant un
+  rendu, puis remontée devant tout au rendu suivant, elle gardait cette transformation sans que son objet se replace. Elle se
+  dessinait alors décalée, et le garde-fou `[cle de version]` faisait échouer les points 97 et 98 de la fumée en classe
+  compacte. L'empilement replace maintenant l'objet dont il sort un élément du calque ou l'y ramène
+  (`app/assemblage/dessin.ts`).
 - **La Vue 3D ne pose plus de cheminée que personne n'a vue — changement d'export (version majeure).** Sur un toit simple ou en
   volumes en pente de plus de 40 m², la 3D dessinait d'office une cheminée au tiers du faîtage, qu'aucune source n'avait vue : elle
   disparaissait quand le LiDAR arrivait, et l'audit comptait zéro cheminée là où la 3D en montrait une. Une souche ne se dessine

@@ -75,6 +75,13 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
   const ctxEmpilement = (): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) s.objets.appendChild(el); } }, vue });
   // Un empilement qui ne deplace rien encore : il dit l'ordre voulu, que `poserEnQueue` pose ensuite d'un coup.
   const enQueue = (q: Element[]): ContexteEmpilement<SVGElement | null> => ({ svg: { appendChild: (el) => { if (el) q.push(el); } }, vue });
+  // Les elements d'un objet, et ses poignees seules. Un element qui change de parent, dans le calque des objets ou hors de lui, n'a
+  // plus la transformation de sa place (render/objects.ts, `accorder`) : son objet se replace au rendu (`oublierLesDessins`), meme
+  // si rien de lui n'a change. Sans cela, des poignees recreees dans le calque pendant un rendu, puis sorties devant tout au rendu
+  // suivant, gardaient la transformation inverse : decalees a l'ecran, et le garde-fou `[cle de version]` le disait.
+  const poigneesDe = (o: ObjetPlan) => { const v = vue(o); return [v.radiusHandle, ...v.pointEls, ...v.edgeEls, ...v.ptLabelEls, ...v.segLabelEls]; };
+  const elementsDe = (o: ObjetPlan) => { const v = vue(o); return [v.el, v.nameEl, ...poigneesDe(o)]; };
+  const dansLeCalque = (els: readonly (Element | null | undefined)[]) => els.some((e) => !!e && e.parentNode === s.objets);
   return {
     toScreen, toWorld, sceneDessin, versDessin, etatDessin,
     suivreLaVue() {
@@ -98,14 +105,15 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       });
     },
     // Les poignees de la selection, devant tout : sans rien deplacer si elles y sont deja (render/empilement.ts, poserEnQueue).
-    amenerPoigneesDevant: (obj) => { const q: Element[] = []; remonterPoignees(obj, enQueue(q)); poserEnQueue(s.svg, q, [s.releves]); },
+    amenerPoigneesDevant: (obj) => {
+      const sortent = dansLeCalque(poigneesDe(obj));
+      const q: Element[] = []; remonterPoignees(obj, enQueue(q)); poserEnQueue(s.svg, q, [s.releves]);
+      if (sortent) oublierLesDessins([obj]);
+    },
     // Reempiler ramene dans le calque des objets ce que l'empilement en avait sorti (les parasols, les poignees de la selection) :
     // ces objets-la se replacent au rendu suivant, leurs elements n'ayant plus la transformation de leur place (render/objects.ts).
     reapplyStackingOrder: () => {
-      const sortis = etat.objects.filter((o) => {
-        const v = vue(o);
-        return [v.el, v.nameEl, v.radiusHandle, ...v.pointEls, ...v.edgeEls, ...v.ptLabelEls, ...v.segLabelEls].some((e) => e && e.parentNode !== s.objets);
-      });
+      const sortis = etat.objects.filter((o) => elementsDe(o).some((e) => e && e.parentNode !== s.objets));
       reappliquerEmpilement(etat.objects, ctxEmpilement());
       oublierLesDessins(sortis);
     },
@@ -148,12 +156,17 @@ export function creerDessin(etat: EtatApp, s: Surface, d: DependancesDessin): De
       // ensuite, sont comptees au bout, sans quoi tout serait deplace a chaque rendu pour leur rendre la derniere place.
       const q: Element[] = [s.piscines, s.parasols, s.pergolas];
       const ctx = enQueue(q);
-      etat.objects.forEach((o) => { if (estOuvrage(o, PARASOL)) amenerDevant(o, ctx); });
+      const parasols = etat.objects.filter((o) => estOuvrage(o, PARASOL));
+      parasols.forEach((o) => amenerDevant(o, ctx));
       q.push(s.mats, s.nord, s.echelle, s.cotes, s.couches);
       const sel = etat.selectedKey && etat.selectedKey !== 'parcelle' ? etat.objects.find((o) => o.key === etat.selectedKey) : undefined;
       if (sel) remonterPoignees(sel, ctx);
+      // Ce que cet empilement sort du calque des objets : ces objets-la se replacent.
+      const sortent = parasols.filter((o) => dansLeCalque(elementsDe(o)));
+      if (sel && dansLeCalque(poigneesDe(sel))) sortent.push(sel);
       // Le calque des releves passe apres tout cela (le rendu le remet au-dessus des objets) : il ne compte pas comme un desordre.
       poserEnQueue(s.svg, q, [s.releves]);
+      if (sortent.length) oublierLesDessins(sortent);
     },
     // Les couches ne se dessinent que si l'explorateur les a demandees : un appel sans objet vide le calque.
     // Une terrasse isolee les montre toujours : c'est ce que sa transparence laisse voir (app/isolement.ts).
