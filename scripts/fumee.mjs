@@ -2564,6 +2564,55 @@ const POINTS = {
     const ok = nbEssences === 2 && /^\d/.test(triangles || '') && entete === '1' && envoye?.format === 'plan-arbres' && ids.join() === 'chene:true,pine-petit:false' && envoye?.especes?.[1]?.nom === 'Pin test' && !debords.some(Boolean);
     return { ok, mesure: `${nbEssences} essences, aperçu à ${triangles} triangles ; envoyé : ${ids.join(', ') || 'RIEN'} ; en-tête admin ${entete ?? 'ABSENT'} ; débordement ${debords.some(Boolean) ? 'OUI' : 'non'}` };
   },
+  100: async (page, f) => {
+    // Admin › Calibrer la detection, le rejeu d'un cas par l'enchainement de la facade (MD/spec-facade-calage-audit.md §4 ter.5, §7.3,
+    // lot F0). Un cas du serveur simule : la photo de synthese de la scene 22 du banc (un pignon decentre), ses coins vrais et son
+    // gabarit. « Ouvrir », « Rejouer », puis toucher le segment « Mur » de la barre et « Rejouer depuis cette étape ». On mesure : la
+    // barre de huit segments, chacun avec son etat en mot (le texte lu) et sa forme ; la frise de neuf etapes, chacune avec son etat ;
+    // l'etape ouverte (son resultat, son contrat, la ligne sous la barre) ; le rejeu depuis une etape qui garde les precedentes ;
+    // rien ne deborde.
+    const { vues: [photo], coins, largeur, largeurPx } = photosScene('22-pignon-decentre-pierre');
+    const scene = JSON.parse(readFileSync('tests/fixtures/facades/22-pignon-decentre-pierre.json', 'utf8'));
+    const hauteur = scene.verite.hauteur, pignon = scene.synthese.mur.pignon;
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 22 · pignon décentré', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: hauteur,
+      gabarit: [{ u: 0, v: 1 }, { u: 0.4, v: 1 + pignon / hauteur }, { u: 1, v: 1 }], photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: [],
+      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-22', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: 0, updatedAt: '2026-10-29T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-22')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    const segments = await page.locator('.barreFacade ol > li').evaluateAll((ls) => ls.map((l) => ({ etat: l.className.replace('barreFacadeSegment', '').replace('courant', '').trim(), texte: l.querySelector('[aria-label]')?.getAttribute('aria-label') ?? '', forme: !!l.querySelector('svg, .barreFacadePastille') })));
+    const frise = await page.locator('.calFrise > li .calFriseEtat').allTextContents();
+    const debords = [await deborde()];
+    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
+    await etape('etape ouverte', () => page.locator('.calEtapeOuverte').waitFor({ timeout: 5000 }));
+    const titre = (await page.locator('.calEtapeOuverte h3').textContent()) || '';
+    const resume = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const contrat = await page.locator('.calEtapeOuverte .calContrat dt').count();
+    const ligne = (await page.locator('.barreFacadeLigne').first().textContent()) || '';
+    const courant = await page.locator('.barreFacade li[aria-current="step"] [aria-label]').getAttribute('aria-label');
+    debords.push(await deborde());
+    await etape('rejouer depuis', () => page.locator('[data-controle="calibration.rejouerDepuis"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu depuis', finRejeu);
+    const frise2 = await page.locator('.calFrise > li .calFriseEtat').allTextContents();
+    debords.push(await deborde());
+    const etats = new Set(['faite', 'à confirmer', 'en échec', 'sautée', 'à venir']);
+    const ok = segments.length === 8 && segments.every((x) => /^Étape \d sur 8, /.test(x.texte) && x.forme) && segments[0]?.etat === 'ok' && segments[1]?.etat === 'ok'
+      && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É4 · Calage du mur/.test(titre) && /Mur cherché sur l’assemblage : x de \d+ à \d+/.test(resume)
+      && contrat >= 5 && /^Mur : calage du mur, /.test(ligne) && /^Étape 3 sur 8, Mur/.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && !debords.some(Boolean);
+    return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É4 : ${frise2.join(', ')} ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
     // sur « Les deux » ; deux vues de la meme Vue 3D, « Avant » et « Après », a cote de l'ecran (l'une
@@ -3581,7 +3630,8 @@ function pointsPour(nomClasse) {
   // 97 et 98 : le mode Toit, son panneau, et le corps choisi (seule cible des gestes, silhouette tracee, poignee de deplacement).
   // 99 : le fichier du projet, exporte en JSON puis rouvert par le menu Fichier.
   // 66 : retoucher la forme d'un objet de l'IGN, apres l'avertissement ; la case « Reprendre la version de l'IGN » ensuite.
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99];
+  // 100 : Admin › Calibrer la detection, le rejeu d'un cas par l'enchainement de la facade : la barre de progression et la frise (lot F0).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

@@ -2700,12 +2700,7 @@
   .calParams li{ break-inside:avoid; min-height:28px; }
   .calHistorique ul{ margin:6px 0; padding-left:18px; font-size:0.8rem; font-variant-numeric:tabular-nums; }
   .calToile.trace{ touch-action:none; outline:2px solid var(--accent); }
-  /* Les etapes d'un cas en images : une vignette par photo (coins, redressement), puis le mur fusionne et la detection. */
-  .calEtapes{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
-  .calEtapes > summary{ cursor:pointer; font-family:var(--serif); font-size:0.95rem; min-height:32px; display:flex; align-items:center; }
   .calGrille{ display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; padding:0; margin:6px 0; list-style:none; }
-  .calEtapes figure{ margin:0; display:grid; gap:4px; }
-  .calEtapes figcaption{ font-size:0.72rem; color:var(--ink-soft); }
   .calEtape{ display:block; width:100%; height:auto; max-height:220px; object-fit:contain; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); }
   .calEtape.large{ max-height:50vh; }
   .calGrille.deux{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -2724,7 +2719,7 @@
   .ajusterMurSaisie[aria-orientation="horizontal"]{ cursor:ew-resize; }
   .ajusterMurSaisie:focus-visible{ stroke:var(--accent-light); stroke-opacity:0.6; outline:none; }
   .ajusterMurLigne.silhouette, .calMurLigne.silhouette{ fill:none; }
-  /* Le calage de la silhouette (calibration, etapes 5 et 6) : le contour du mur, voile leger pour le voir sur la facade. */
+  /* Le calage de la silhouette (calibration, l'option manuelle de l'E4) : le contour du mur, voile leger pour le voir sur la facade. */
   .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
   .calCalage.prise{ cursor:move; touch-action:none; }
   .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
@@ -2737,14 +2732,71 @@
   .calPropose{ fill:transparent; stroke:var(--accent); stroke-width:2; }
   /* Une ouverture devinee par la structure : en pointille franc, d'une autre teinte que les trouvees (le mot le dit aussi). */
   .calDevinee{ fill:transparent; stroke:var(--alerte); stroke-width:2.5; stroke-dasharray:9 6; }
-  .calEtapes .calListe{ margin:4px 0; padding-left:18px; font-size:0.78rem; }
+  .calListe{ margin:4px 0; padding-left:18px; font-size:0.78rem; }
+  /* La barre de progression de la facade (zones/composants/BarreProgressionFacade.tsx, MD/spec-facade-calage-audit.md §4 ter.5) :
+     collee en haut de l'ecran qui la porte. Huit segments, un trait mince chacun et une zone de toucher de 44 px ; l'etat se lit a la
+     teinte ET a la forme (coche, point d'exclamation, croix, tiret hachure) et au mot de l'etiquette lue a voix haute. */
+  /* La calibration colle la barre de la facade, pas celle de l'ecran : deux bandeaux colles se recouvriraient. */
+  .calEcran .palBarre{ position:static; }
+  .barreFacade{ position:sticky; top:0; z-index:5; margin:0 0 12px; padding:6px 8px 4px; background:var(--paper); border-bottom:1px solid var(--hairline); }
+  .barreFacadeHaut{ display:flex; align-items:stretch; gap:8px; }
+  .barreFacadeSegments{ flex:1 1 auto; display:grid; grid-template-columns:repeat(8, minmax(0, 1fr)); gap:4px; margin:0; padding:0; list-style:none; }
+  .barreFacadeSegment > button, .barreFacadeFixe{ display:grid; gap:3px; align-content:start; width:100%; min-height:44px; padding:4px 2px; border:0; border-radius:var(--r-champ); background:transparent; color:var(--ink-soft); font:inherit; text-align:left; cursor:pointer; }
+  .barreFacadeFixe{ cursor:default; }
+  .barreFacadeSegment > button:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .barreFacadeSegment > button:disabled{ cursor:default; opacity:0.6; }
+  .barreFacadeTrait{ display:block; height:6px; border-radius:999px; background:var(--rule); }
+  .barreFacadeEtiquette{ display:flex; align-items:center; gap:3px; min-width:0; font-family:var(--sans); font-size:0.66rem; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .barreFacadeEtiquette .icone{ flex:0 0 auto; }
+  .barreFacadePastille{ flex:0 0 auto; width:8px; height:8px; margin:0 3px; border-radius:999px; border:1.5px solid currentColor; }
+  .barreFacadeRepere{ margin-left:2px; padding:0 4px; border-radius:999px; background:var(--paper-deep); color:var(--ink); font-size:0.6rem; }
+  .barreFacadeSegment.courant .barreFacadeEtiquette{ color:var(--ink); font-weight:600; }
+  .barreFacadeSegment.ok .barreFacadeTrait{ background:var(--accent); }
+  .barreFacadeSegment.a-confirmer .barreFacadeTrait{ background:var(--alerte); }
+  .barreFacadeSegment.echec .barreFacadeTrait{ background:var(--danger); }
+  .barreFacadeSegment.echec .barreFacadeEtiquette{ color:var(--danger); }
+  .barreFacadeSegment.saute .barreFacadeTrait{ background:repeating-linear-gradient(135deg, var(--rule) 0 4px, transparent 4px 8px); }
+  .barreFacadeSegment.en-cours .barreFacadeTrait{ background:var(--accent-light); animation:barreFacadeTourne 1.2s ease-in-out infinite alternate; }
+  @keyframes barreFacadeTourne{ from{ opacity:0.45; } to{ opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .barreFacadeSegment.en-cours .barreFacadeTrait{ animation:none; } }
+  .barreFacadeArreter{ flex:0 0 auto; align-self:center; }
+  .barreFacadeLigne{ margin:2px 0 0; font-family:var(--sans); font-size:0.74rem; color:var(--ink); }
+  .barreFacadeLigne.resultat{ color:var(--ink-soft); font-style:italic; }
+  .barreFacadeRuban{ display:none; margin:2px 0 0; font-family:var(--sans); font-size:0.7rem; color:var(--ink); font-variant-numeric:tabular-nums; }
+  /* Au telephone, un fin ruban : les traits seuls, et « 3 sur 8 · Mur » dessous ; la zone de toucher garde ses 44 px. */
+  @media (max-width: 599px){
+    .barreFacadeSegments{ gap:2px; }
+    .barreFacadeEtiquette{ display:none; }
+    .barreFacadeSegment > button, .barreFacadeFixe{ align-content:center; }
+    .barreFacadeRuban{ display:block; }
+  }
+  /* La frise des etapes d'un cas (zones/FriseEtapesCalibration.tsx) : une vignette par etape, son etat en mot ; l'etape ouverte dessous. */
+  .calFrise{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; margin:10px 0; padding:0; list-style:none; }
+  .calFrise > li > button, .calFriseFixe{ display:grid; gap:4px; width:100%; min-height:44px; padding:6px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); color:var(--ink); font:inherit; text-align:left; cursor:pointer; }
+  .calFriseFixe{ cursor:default; }
+  .calFrise > li.ouverte > button{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .calFrise img, .calFriseVide{ display:block; width:100%; height:64px; object-fit:contain; border-radius:var(--r-champ); background:var(--paper-deep); }
+  .calFriseNom{ font-family:var(--sans); font-size:0.7rem; font-weight:600; }
+  .calFriseEtat{ justify-self:start; padding:0 6px; border-radius:999px; font-family:var(--sans); font-size:0.64rem; background:var(--paper-deep); color:var(--ink-soft); border:1px solid var(--rule); }
+  .calFriseEtat.ok{ border-color:var(--accent); color:var(--ink); }
+  .calFriseEtat.a-confirmer{ border-color:var(--alerte); color:var(--ink); }
+  .calFriseEtat.echec{ border-color:var(--danger); color:var(--danger); }
+  .calEtapeOuverte{ margin:10px 0; padding:10px 12px; border:1px solid var(--border); border-radius:var(--r-tuile); background:var(--panel-2); }
+  .calEtapeOuverte figure{ margin:6px 0; display:grid; gap:4px; }
+  .calEtapeOuverte figcaption{ font-size:0.72rem; color:var(--ink-soft); }
+  .calResume{ margin:4px 0; font-size:0.82rem; }
+  .calVerite{ margin:4px 0; padding:4px 8px; border-left:3px solid var(--accent); font-size:0.8rem; }
+  .calVerite.faux{ border-left-color:var(--danger); }
+  .calContrat{ display:grid; grid-template-columns:max-content 1fr; gap:2px 10px; margin:8px 0; font-size:0.74rem; }
+  .calContrat dt{ font-family:var(--sans); color:var(--ink-soft); }
+  .calContrat dd{ margin:0; }
+  /* Le haut du mur lu a la teinte (E5) : un trait plus epais que le gabarit, d'une autre teinte (le mot de la legende le dit aussi). */
+  .calSilhouetteLue{ fill:none; stroke:var(--alerte); stroke-width:3.5; }
   .calToile:not(.trace){ touch-action:pan-y pinch-zoom; }
   @media (max-width: 1023px){
     .calEcran button, .calChamp input, .calChamp select{ min-height:44px; }
     /* 16 px au moins : en dessous, le navigateur du telephone zoome la page au focus d'un champ. */
     .calChamp input, .calChamp select{ font-size:16px; }
-    /* La barre d'etat collante recouvrait le formulaire sur un petit ecran : elle defile avec la page. */
-    .calEcran .palBarre{ position:static; }
     .calEcran .calLigne > button, .calEcran .calLigne > label{ flex:1 1 auto; }
   }
 

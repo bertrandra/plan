@@ -1,0 +1,42 @@
+{
+  "format": "plan-reglages-enchainement",
+  "version": 1,
+  "pourquoi": "Les objectifs des etapes de l'enchainement d'une facade (MD/spec-facade-calage-audit.md §4 ter.1) : le critere mesurable qui dit qu'une etape automatique a reussi, lus par facade/regles/facades/enchainement.ts et appliques par l'orchestrateur (facade/releve/enchainement.ts). Ils ne changent ni la photo ni ce que la chaine calcule : seulement l'etat d'une etape (ok, a confirmer, echec) et la mesure contre la verite de la calibration. Un seuil par PR, justifie par des cas, jamais sur moins d'une vingtaine de cas valides (§5.6). Rangees a part de reglages.json, dont l'empreinte fait rechoisir les profils des batiments.",
+  "reglages": {
+    "facades.enchainement.photosMin": {
+      "valeur": 1,
+      "unite": "nombre",
+      "pourquoi": "E1 : une photo du mur suffit a l'enchainement ; sans photo, rien ne se redresse."
+    },
+    "facades.enchainement.redresseesMinPart": {
+      "valeur": 1,
+      "unite": "part",
+      "pourquoi": "E2 : chaque photo doit se redresser ; une seule qui reste de biais suffit a demander un geste (quatre reperes)."
+    },
+    "facades.enchainement.assembleesMinPart": {
+      "valeur": 1,
+      "unite": "part",
+      "pourquoi": "E3 : toutes les vues redressees doivent s'assembler ; une photo restee a part est dite, avec son motif."
+    },
+    "facades.enchainement.calageEcartMaxPart": {
+      "valeur": 0.03,
+      "unite": "part",
+      "pourquoi": "E4 : un bout, l'egout ou le sol a plus de 3 % de la largeur du mur de la verite est faux (§4 ter.2, le seuil de l'accord du §5)."
+    },
+    "facades.enchainement.rappelMin": {
+      "valeur": 0.85,
+      "unite": "part",
+      "pourquoi": "E7, contre la verite : les objectifs de la premiere version (MD/spec-facades-calage-detection.md §14)."
+    },
+    "facades.enchainement.precisionMin": {
+      "valeur": 0.9,
+      "unite": "part",
+      "pourquoi": "E7, contre la verite : une fausse baie cochee coute un geste ; 90 % au moins (spec §14)."
+    },
+    "facades.enchainement.cotesMaxM": {
+      "valeur": 0.05,
+      "unite": "m",
+      "pourquoi": "E7, contre la verite : l'ecart median des cotes des baies retrouvees, 5 cm au plus (spec §14)."
+    }
+  }
+}

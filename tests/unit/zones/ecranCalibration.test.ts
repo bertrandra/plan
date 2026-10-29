@@ -5,6 +5,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EcranCalibration, type DepsCalibration } from '../../../src/zones/EcranCalibration.js';
 import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../../../src/facade/corpusReel.js';
 import type { Image } from '../../../src/facade/vision/homographie.js';
+import { creerRegistre } from '../../../src/app/commandes.js';
+import type { IdEtape } from '../../../src/model/etapeFacade.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un nouveau cas avec ses photos,
 // la mesure et la calibration sur un cas fabrique d'une scene du banc, et l'application des reglages.
@@ -35,6 +37,14 @@ const scene = (() => {
   return { cas, image: { largeur: L, hauteur: H, donnees } as Image };
 })();
 
+/** Le registre de l'ecran, comme app/administration/ecranCalibration.ts le monte : la commande qui ouvre une etape. */
+function registre(): Pick<DepsCalibration, 'commandes' | 'ecouterEtape'> {
+  const commandes = creerRegistre();
+  let ouvrir: ((id: IdEtape) => void) | null = null;
+  commandes.declarer({ id: 'facade.etape', libelle: 'Ouvrir une étape', groupe: 'facade', executer: (s) => { if (s?.dataset.etape) ouvrir?.(s.dataset.etape as IdEtape); } });
+  return { commandes, ecouterEtape: (f) => { ouvrir = f; return () => { ouvrir = null; }; } };
+}
+
 function fausses(plus: Partial<DepsCalibration> = {}) {
   const docs: DocumentCalibration[] = [];
   const stock = new Map<string, CasStocke>([['cas-a', scene.cas]]);
@@ -49,6 +59,7 @@ function fausses(plus: Partial<DepsCalibration> = {}) {
     decoder: async (): Promise<Image> => scene.image,
     elevationEnUrl: () => 'data:image/jpeg;base64,ELEV',
     maintenant: () => new Date('2026-10-17T10:00:00Z'),
+    ...registre(),
     ...plus,
   };
   return { deps, docs, stock };
@@ -120,7 +131,7 @@ describe('l ecran de calibration', () => {
     expect(bouton('calibration.enregistrerCas')).toBeNull();
   });
 
-  it('ajoute une seconde photo : redressement et assemblage seuls, la photo qui ne se recale pas est signalee et gardee', async () => {
+  it('ajoute une seconde photo : le rejeu seul, la photo qui ne se redresse pas est signalee et gardee', async () => {
     const grise: Image = { largeur: 640, hauteur: 480, donnees: new Uint8ClampedArray(640 * 480 * 4).fill(128) };
     let n = 0;
     const { deps } = fausses({ decoder: async () => (n++ < 2 ? scene.image : grise) });
@@ -134,16 +145,24 @@ describe('l ecran de calibration', () => {
     }
     expect(hote.querySelectorAll('[aria-label="Photos du cas"] li')).toHaveLength(2);
     expect(hote.textContent).toMatch(/coins devinés, à vérifier/);
-    expect(hote.querySelector('[data-controle="calibration.avisFusion"]')?.textContent).toMatch(/photo \d reste hors de l’assemblage/);
+    // La barre le dit sur son segment « Image », et l'etape du redressement, ouverte, dit pourquoi et quel geste faire.
+    expect(hote.querySelector('.barreFacadeSegment.echec')?.textContent).toMatch(/Image/);
+    await act(async () => { (hote.querySelector('.calFrise [data-etape="redressement"]') as HTMLButtonElement).click(); });
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/ne se redresse pas : posez quatre repères/);
+    expect(hote.querySelectorAll('.barreFacadeLigne')[0]?.textContent).toBe('Image : redressement, en échec');
   }, 60_000);
 
-  it('redresse un cas, part de la detection pour annoter, et enregistre', async () => {
+  it('rejoue un cas, part de la detection pour annoter, et enregistre', async () => {
     const { deps, stock } = fausses();
     await monter(deps);
     await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
     await attendre(10);
-    await act(async () => { bouton('calibration.redresser')?.click(); });
-    await attendre(300);
+    await act(async () => { bouton('calibration.rejouer')?.click(); });
+    await attendreQue(() => !!bouton('calibration.proposer'));
+    // Le rejeu montre la barre de progression et la frise des etapes, chacune avec son etat.
+    expect(hote.querySelectorAll('.barreFacade ol > li')).toHaveLength(8);
+    expect(hote.querySelectorAll('.calFrise > li')).toHaveLength(9);
+    expect(hote.querySelector('.barreFacadeSegment.echec')).toBeNull();
     expect(bouton('calibration.proposer')).not.toBeNull();
     expect(hote.textContent).toMatch(/\d+ ouvertures? annotée/);
     await act(async () => { bouton('calibration.viderBaies')?.click(); });

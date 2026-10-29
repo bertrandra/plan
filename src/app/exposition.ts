@@ -24,7 +24,7 @@ export type Emplacement =
   | 'navigation' | 'barreHaute' | 'feuilleProjet'
   | 'menuFichier' | 'menuExporter' | 'menuAffichage' | 'menuAide' | 'menuAdmin'
   | 'surimpression' | 'selection' | 'inspecteur' | 'explorateur' | 'tiroir' | 'vue3d' | 'visionneuse'
-  | 'clavier' | 'premierPas' | 'parcours' | 'sansObjet';
+  | 'clavier' | 'premierPas' | 'parcours' | 'barreFacade' | 'sansObjet';
 
 type Ligne = Record<Classe, Emplacement[]>;
 
@@ -132,6 +132,9 @@ export const EXPOSITION: Record<string, Ligne> = {
   // Le releve de facade : la section « Facades et toit » d'un batiment, une ligne par mur.
   'facade.relever': partout('inspecteur'),
   'facade.retirer': partout('inspecteur'),
+  // Une etape de l'enchainement d'une facade : un segment de la barre de progression (MD/spec-facade-calage-audit.md §4 ter.5), que la
+  // calibration porte en haut de l'editeur d'un cas (et sa frise des etapes), dans les trois classes.
+  'facade.etape': partout('barreFacade'),
   // Le mode Toit de la Vue 3D (MD/spec-mode-toit-3d.md) : le bouton « Modifier la toiture », puis la barre de session et le catalogue, sur la scene.
   'toit.modifier': partout('vue3d'),
   'toit.valider': partout('vue3d'),

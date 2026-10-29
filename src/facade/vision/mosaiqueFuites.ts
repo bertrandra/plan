@@ -533,6 +533,22 @@ export function silhouetteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, te
 }
 
 /**
+ * L'ecart de chromaticite admis pour la matiere du mur. Un parement a du grain (une brique, une meuliere) : d'une rangee a l'autre, sa
+ * teinte mediane varie. L'ecart admis suit ce grain, lu sur les bandes des bouts (deux fois l'ecart median de leurs rangees), sans
+ * descendre sous celui d'un enduit.
+ */
+const ecartAdmisDuMur = (mur: { grain: number }): number => Math.max(ECART_CHROMA_MUR, 2 * mur.grain);
+
+/**
+ * La silhouette du haut du mur lue a la teinte entre des bouts donnes, la meme lecture que celle qui affine l'egout (affinerEgoutEtSol),
+ * sans rien poser : ce que l'image montre, a comparer au gabarit. Null quand la teinte du mur ou trop de colonnes ne se lisent pas.
+ */
+export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect): ReturnType<typeof silhouetteDuMur> {
+  const mur = teinteDuMur(m, r);
+  return mur ? silhouetteDuMur(m, r, mur, ecartAdmisDuMur(mur) * 1.5) : null;
+}
+
+/**
  * L'egout et le sol affines par la matiere du mur, ses bouts une fois trouves : les aretes seules prenaient le haut d'une bande de
  * tuiles pour l'egout (la limite du toit et du ciel est la plus franche des horizontales), et un bandeau d'etage pour le sol quand
  * une haie ou une voiture cache le pied. Le mur a sa teinte, que l'on lit au milieu du rectangle trouve : l'egout est la premiere
@@ -550,10 +566,8 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
   // La teinte du mur, lue le long de ses bouts (teinteDuMur).
   const mur = teinteDuMur(m, r);
   if (!mur) return r;
-  // Un parement a du grain (une brique, une meuliere) : d'une rangee a l'autre, sa teinte mediane varie. L'ecart admis suit ce grain,
-  // lu sur les bandes des bouts (deux fois l'ecart median de leurs rangees), sans descendre sous celui d'un enduit.
   const ecartDe = (x: Rangee) => Math.hypot(x.cr - mur.cr, x.cg - mur.cg);
-  const ecartAdmis = Math.max(ECART_CHROMA_MUR, 2 * mur.grain);
+  const ecartAdmis = ecartAdmisDuMur(mur);
   const estMur = lignes.map((x) => x.n >= 5 && ecartDe(x) < ecartAdmis && x.l >= LUMIERE_MUR[0] * mur.l && x.l <= LUMIERE_MUR[1] * mur.l);
   // La part de rangees de mur dans [a, b] : une bande, pour qu'un joint de brique ou un appui ne coupe pas le mur.
   const cumul = [0];

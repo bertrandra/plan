@@ -1,9 +1,9 @@
-// Admin › Calibrer la detection, les etapes 5 et 6 : caler la silhouette du mur sur la facade complete (l'assemblage de l'etape 3,
-// entier, rien n'est coupe), puis ajuster la hauteur de la photo.
+// Admin › Calibrer la detection, l'option manuelle du calage du mur (E4, MD/spec-facade-calage-audit.md §4 ter.2) : caler la
+// silhouette du mur sur la facade complete (l'assemblage, entier, rien n'est coupe), puis ajuster la hauteur de la photo.
 //
-// 5. La silhouette (le gabarit du plan et du LiDAR) garde ses proportions : on la deplace et on la redimensionne par ses bouts
+// - La silhouette (le gabarit du plan et du LiDAR) garde ses proportions : on la deplace et on la redimensionne par ses bouts
 //    (gauche, droite) et son sol. Sa hauteur suit sa largeur, au rapport du plan.
-// 6. La photo s'etire en hauteur autour du sol (une poignee en haut de l'image), en direct, pour que la facade monte a la hauteur de
+// - La photo s'etire en hauteur autour du sol (une poignee en haut de l'image), en direct, pour que la facade monte a la hauteur de
 //    la silhouette : ce que le redressement n'a pas donne juste (une focale mal connue ecrase ou allonge la vue de face).
 // « Appliquer » rend les coins du mur sur l'assemblage : les bouts et le sol poses, l'egout a la hauteur de la silhouette ramenee sur
 // la photo non etiree. L'editeur les reporte sur chaque photo, comme un mur pose a la main.
@@ -75,7 +75,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
   };
   const cadre = `0 ${Math.min(0, hautImage)} ${largeur} ${Math.max(hauteur, c.sol + c.k * (hauteur - c.sol)) - Math.min(0, hautImage)}`;
   return <>
-    <h4 className="calTitre3">5. Caler la silhouette sur la photo</h4>
+    <h4 className="calTitre3">À la main : caler la silhouette sur la photo</h4>
     <figure>
       <svg ref={vues[0]} className="calEtape large ajusterMurPhoto" viewBox={cadre} role="group" aria-label="Façade complète : déplacez la silhouette, tirez ses bouts et son sol ; ses proportions restent celles du plan">
         {image}
@@ -86,7 +86,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
       </svg>
       <figcaption>Alignez la silhouette sur la façade : ses bouts sur les angles du mur, son sol sur le pied. Elle garde les proportions du plan ({String(largeurM).replace('.', ',')} × {String(hauteurM).replace('.', ',')} m à l’égout) : sa hauteur suit sa largeur. Glissez-la entière pour la déplacer (flèches, Maj : dix fois plus).</figcaption>
     </figure>
-    <h4 className="calTitre3">6. Ajuster la hauteur de la photo</h4>
+    <h4 className="calTitre3">À la main : ajuster la hauteur de la photo</h4>
     <figure>
       <svg ref={vues[1]} className="calEtape large ajusterMurPhoto" viewBox={cadre} role="group" aria-label="Façade complète : tirez le haut de la photo pour l’étirer en hauteur autour du sol">
         {image}
@@ -97,7 +97,7 @@ export function CalageSilhouette({ url, largeur, hauteur, coins, gabarit, largeu
     </figure>
     <div className="calLigne">
       <button type="button" className="secondary small" data-controle="calibration.retablirCalage" onClick={() => setC(calageDe(coins, rapport))}>Revenir au mur trouvé</button>
-      <button type="button" className="small" data-controle="calibration.appliquerCalage" onClick={valider}>Appliquer le calage et redresser</button>
+      <button type="button" className="small" data-controle="calibration.appliquerCalage" onClick={valider}>Appliquer le calage et rejouer</button>
     </div>
   </>;
 }
