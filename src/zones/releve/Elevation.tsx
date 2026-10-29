@@ -1,15 +1,10 @@
-// Le releve de facade (zones/Releve.tsx), etape 5 : l'elevation redressee et ses ouvertures.
+// L'editeur d'une facade relevee (zones/Releve.tsx) : l'elevation redressee et ses ouvertures, que le doigt deplace et redimensionne.
 
 import { au } from '../../util/tableaux.js';
-import { useEffect, useId, useRef, useState, type PointerEvent as PE } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as PE } from 'react';
 import type { OuvertureFacade, PartieBasse } from '../../model/types.js';
 import { estIncertaine, retouchee } from '../../facade/detection/verification.js';
 import { LIBELLES_OUVERTURE, fr, pointSvg, useEchelle } from './commun.js';
-import type { ZoneMasque } from '../../facade/releve/masque.js';
-
-/* ------------------------------------------------------------------------------------------------
- * 5. Le resultat : ouvertures corrigeables, toit propose
- * --------------------------------------------------------------------------------------------- */
 
 export function Elevation({
   texture,
@@ -23,9 +18,9 @@ export function Elevation({
   setChoisie,
   devinees = [],
   garder,
-  masque = null,
 }: {
-  texture: string;
+  /** L'elevation redressee ; null quand la photo est restee sur un autre appareil : le mur se dessine nu. */
+  texture: string | null;
   /** Hauteur couverte par la texture : le mur, et au-dessus la bande du pignon, hors du cadre. */
   Ht: number;
   /** Mur en L : au-dessus de la partie basse, il n'y a pas de mur. */
@@ -39,11 +34,8 @@ export function Elevation({
   /** Les baies devinees decochees (spec facades §10.5), en pointille : une touche les garde. */
   devinees?: OuvertureFacade[];
   garder?: (i: number) => void;
-  /** Ce qui reste cache sur toutes les vues d'une fusion (lot G20), hachure : la texture y montre l'obstacle. */
-  masque?: readonly ZoneMasque[] | null;
 }) {
   const svg = useRef<SVGSVGElement>(null);
-  const motif = 'hachures' + useId().replace(/[^A-Za-z0-9_-]/g, '');
   const echelle = useEchelle(svg, L);
   const r = 9 / echelle;
 
@@ -97,12 +89,11 @@ export function Elevation({
 
   return (
     <svg ref={svg} className="releveElevation" viewBox={`${-0.2} ${-0.2} ${L + 0.4} ${H + 0.4}`} onPointerDown={() => setChoisie(null)} aria-label="Façade redressée et ses ouvertures">
-      <svg x={0} y={0} width={L} height={H} viewBox={`0 0 ${L} ${H}`} overflow="hidden">
+      {texture && <svg x={0} y={0} width={L} height={H} viewBox={`0 0 ${L} ${H}`} overflow="hidden">
         <image href={texture} x={0} y={H - Ht} width={L} height={Ht} preserveAspectRatio="none" />
-      </svg>
+      </svg>}
       <rect x={0} y={0} width={L} height={H} className="releveElevationCadre" vectorEffect="non-scaling-stroke" />
       {partie && <rect x={partie.debut} y={0} width={partie.fin - partie.debut} height={H - partie.hauteur} className="releveVide" pointerEvents="none" />}
-      {masque && masque.length > 0 && <MasqueHachure zones={masque} L={L} H={H} echelle={echelle} motif={motif} />}
       {devinees.map((o, i) => (
         <g key={'d' + i} className="releveOuverture incertaine decochee">
           <rect x={o.x} y={H - o.y - o.h} width={o.l} height={o.h} vectorEffect="non-scaling-stroke" role="button" tabIndex={0}
@@ -136,48 +127,6 @@ export function Elevation({
         );
       })}
     </svg>
-  );
-}
-
-/**
- * Le masque d'occlusion hachure (lot G20) : des traits obliques espaces de 8 px a l'ecran, quelle que
- * soit la taille du mur, sur un voile leger qui eteint l'obstacle sans le cacher. Il laisse passer le
- * pointeur : une baie devinee dessous se garde toujours d'une touche.
- */
-function MasqueHachure({ zones, L, H, echelle, motif }: { zones: readonly ZoneMasque[]; L: number; H: number; echelle: number; motif: string }) {
-  const pas = 8 / echelle;
-  // Au millimetre : le chemin reste court et lisible, bien en deca d'un pixel a l'ecran.
-  const mm = (v: number) => Math.round(v * 1000) / 1000;
-  const d = zones.map((z) => `M${mm(z.x * L)} ${mm(z.y * H)}h${mm(z.l * L)}v${mm(z.h * H)}h${mm(-z.l * L)}Z`).join('');
-  return (
-    <g className="releveMasque" pointerEvents="none" aria-hidden="true">
-      <defs>
-        <pattern id={motif} patternUnits="userSpaceOnUse" width={pas} height={pas} patternTransform="rotate(45)">
-          <line x1={0} y1={0} x2={0} y2={pas} className="releveMasqueTrait" strokeWidth={2.5 / echelle} />
-        </pattern>
-      </defs>
-      <path d={d} className="releveMasqueVoile" />
-      <path d={d} className="releveMasqueHachure" fill={`url(#${motif})`} />
-    </g>
-  );
-}
-
-/** La legende du hachure, sous l'elevation : un echantillon du motif et ce qu'il veut dire. */
-export function LegendeMasque({ part }: { part: number }) {
-  const motif = 'legende' + useId().replace(/[^A-Za-z0-9_-]/g, '');
-  return (
-    <p className="releveNote releveLegendeMasque">
-      <svg className="releveEchantillon" viewBox="0 0 16 16" width={16} height={16} aria-hidden="true">
-        <defs>
-          <pattern id={motif} patternUnits="userSpaceOnUse" width={5} height={5} patternTransform="rotate(45)">
-            <line x1={0} y1={0} x2={0} y2={5} className="releveMasqueTrait" strokeWidth={1.6} />
-          </pattern>
-        </defs>
-        <rect x={0.5} y={0.5} width={15} height={15} className="releveMasqueVoile" />
-        <rect x={0.5} y={0.5} width={15} height={15} fill={`url(#${motif})`} className="releveMasqueHachure" />
-      </svg>
-      <span>Hachuré : caché sur toutes les photos par ce qui est devant le mur (voiture, haie…), {Math.max(1, Math.round(part * 100))} % du mur.</span>
-    </p>
   );
 }
 

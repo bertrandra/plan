@@ -28,6 +28,12 @@ import { abonnerSceneBatie, hotes3d } from '../../../three/etat3d.js';
 import type { RegistreCommandes } from '../../commandes.js';
 import type { FicheAudit } from '../../../io/auditsServeur.js';
 import { ETAPES_FACADE } from '../../../model/etapeFacade.js';
+import { reprendreFacadeDesignee } from '../../../interaction/choixFacade.js';
+import { estBatiment } from '../../../model/fonctions.js';
+import { batimentsAudites } from './liste.js';
+import { casDepuisFacade, facadesACalibrer } from './casDeCalibration.js';
+import { enregistrerCasCalibration } from '../../../io/depotDemos.js';
+import type { CasStocke } from '../../../facade/corpusReel.js';
 
 export const RAISON_SANS_PARCELLE = 'Importez d’abord la parcelle depuis son adresse.';
 /** Dix facades a trois photos font environ 14 Mo (§15) : au-dela de ceci, ce n'est pas un audit. */
@@ -39,6 +45,8 @@ import { parcelleCadastrale } from './parcelleCadastrale.js';
 export type AtelierAuditParcelle = Omit<ContexteAuditParcelle, 'idu'> & {
   /** Demande un fichier au poste et rend son texte ; par defaut, le selecteur du navigateur. */
   choisirFichier?: (surTexte: (texte: string) => void) => void;
+  /** Range un cas de calibration sur le serveur (`admin/calibration-cas`, session de l'administrateur) ; par defaut, la route du serveur. */
+  enregistrerCas?: (id: string, cas: CasStocke) => Promise<void>;
 };
 
 /** Le selecteur du navigateur : un input neuf a chaque fois, pour que rechoisir le meme fichier le relise. */
@@ -163,27 +171,22 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
     raisonInactive: () => (parcelleCadastrale(a.etat.objects) === null ? RAISON_SANS_PARCELLE : null),
   } as const;
 
-  cmd.declarer({
-    id: 'audit.parcelle',
-    libelle: 'Auditer la parcelle…',
-    ...condition,
-    executer: () => {
-      const idu = parcelleCadastrale(a.etat.objects);
-      if (!idu) return;
-      // Dans le geste meme, avant de charger la session : Safari refuserait ensuite la boussole. Une fois accordee, la page la garde,
-      // et la session la redemande sans rien montrer.
-      void (a.boussole?.autoriser ?? autoriserBoussole)().catch(() => false);
-      void sessionDe(idu).then((s) => {
-        s.autoriserBoussole();
-        return s.proposerReprise(() => {
-          s.reprendre();
-          // On revient toujours sur la liste : c'est elle qui dit ce qui reste.
-          s.montrer('liste');
-          parcours.ouvrir({ type: 'auditParcelle', session: s });
-        });
+  // La session de la parcelle, ouverte sur l'ecran que `montrer` choisit, son brouillon propose. La boussole se demande dans le geste,
+  // avant de charger la session (Safari la refuserait ensuite) ; une fois accordee, la page la garde.
+  const ouvrirAudit = (idu: string, montrer: (s: SessionAuditParcelle) => void) => {
+    void (a.boussole?.autoriser ?? autoriserBoussole)().catch(() => false);
+    void sessionDe(idu).then((s) => {
+      s.autoriserBoussole();
+      return s.proposerReprise(() => {
+        s.reprendre();
+        montrer(s);
+        parcours.ouvrir({ type: 'auditParcelle', session: s });
       });
-    },
-  });
+    });
+  };
+
+  // On revient toujours sur la liste : c'est elle qui dit ce qui reste.
+  cmd.declarer({ id: 'audit.parcelle', libelle: 'Auditer la parcelle…', ...condition, executer: () => { const idu = parcelleCadastrale(a.etat.objects); if (idu) ouvrirAudit(idu, (s) => s.montrer('liste')); } });
 
   /**
    * Le texte d'un fichier (choisi sur le poste, ou ouvert depuis le catalogue) : refuse avec sa
@@ -270,8 +273,73 @@ export function brancherAuditParcelle(a: AtelierAuditParcelle, cmd: RegistreComm
   declarerEtapeFacade(cmd);
   declarerEscaladeFacade(cmd, a.signaler);
   declarerValidationFacade(cmd);
+  declarerCasDeCalibration(a, cmd);
   declarerAuditsAdmin(a, cmd, { importer, consulter });
+
+  declarerPhotographierFacade(a, cmd, ouvrirAudit);
   return { session: () => session };
+}
+
+/**
+ * « Photographier » sur la ligne d'un mur de l'inspecteur (lot F6) : les photos d'une facade se prennent dans l'audit, et nulle part
+ * ailleurs. La commande ouvre la session de la parcelle comme « Auditer la parcelle… », puis l'ecran de prise sur le mur designe (la
+ * vue de prise d'une facade choisie) ; sans mur designe, l'ecran de prise suit la position.
+ */
+function declarerPhotographierFacade(a: AtelierAuditParcelle, cmd: RegistreCommandes, ouvrirAudit: (idu: string, montrer: (s: SessionAuditParcelle) => void) => void): void {
+  const batimentChoisi = () => { const o = a.etat.objects.find((x) => x.key === a.etat.selectedKey); return o && estBatiment(o) ? o : null; };
+  const surLaParcelle = (cle: string) => batimentsAudites(a.etat.objects).some((b) => b.o.key === cle);
+  cmd.declarer({
+    id: 'facade.photographier',
+    libelle: 'Photographier la façade',
+    groupe: 'facade',
+    permission: PERMISSION_ECRITURE,
+    actif: () => { const o = batimentChoisi(); return !!o && parcelleCadastrale(a.etat.objects) !== null && surLaParcelle(o.key); },
+    raisonInactive: () => {
+      const o = batimentChoisi();
+      if (!o) return null;
+      if (parcelleCadastrale(a.etat.objects) === null) return RAISON_SANS_PARCELLE;
+      return surLaParcelle(o.key) ? null : 'Ce bâtiment n’est pas sur la parcelle du projet : l’audit ne photographie que ses bâtiments.';
+    },
+    executer: () => {
+      const idu = parcelleCadastrale(a.etat.objects), o = batimentChoisi(), cote = reprendreFacadeDesignee();
+      if (idu && o) ouvrirAudit(idu, (s) => { if (cote !== null) s.photographier(o.key, cote); else s.montrer('prise'); });
+    },
+  });
+}
+
+/**
+ * « Créer un cas depuis cette façade » (MD/spec-facade-calage-audit.md §7.1, lot F6) : la calibration ne prend plus de photos, elle
+ * lit les facades de l'audit. Le bouton sous la barre d'une facade photographiee (`data-facade`) en fait un cas de calibration — ses
+ * photos, ses dimensions du plan (largeur du cadastre, hauteur du LiDAR), son gabarit et les corps de son toit, les reperes et le mur
+ * poses a la main — range sur le serveur (`admin/calibration-cas`), a ouvrir dans Admin › Calibrer la détection. L'administrateur
+ * seul : la calibration est son outil. Rien n'ecrit dans le projet ni dans l'audit.
+ */
+function declarerCasDeCalibration(a: AtelierAuditParcelle, cmd: RegistreCommandes): void {
+  const session = () => { const c = parcours.courant(); return c?.type === 'auditParcelle' ? c.session : null; };
+  const enregistrer = a.enregistrerCas ?? ((id: string, cas: CasStocke) => enregistrerCasCalibration((e, i) => fetch(e, i), id, cas));
+  cmd.declarer({
+    id: 'facade.creerCas',
+    libelle: 'Créer un cas depuis cette façade',
+    groupe: 'facade',
+    actif: () => enAdmin() && !!session(),
+    raisonInactive: () => (enAdmin() ? null : 'La calibration est un outil de l’administrateur.'),
+    executer: (source) => {
+      const s = session();
+      const facade = source?.closest<HTMLElement>('[data-facade]')?.dataset.facade;
+      if (!s || !facade) return;
+      const cle = facade.slice(0, facade.lastIndexOf('#')), cote = Number(facade.slice(facade.lastIndexOf('#') + 1));
+      void s.fichier().then(async (f) => {
+        const d = facadesACalibrer(f).find((x) => x.cle === cle && x.cote === cote);
+        if (!d) { a.signaler('Cette façade n’a pas de photo, ou ses dimensions manquent : rien à calibrer.'); return; }
+        const cas = casDepuisFacade(d, f.parcelle?.idu ?? null);
+        const id = 'cas-' + (a.maintenant?.() ?? new Date()).getTime().toString(36);
+        try {
+          await enregistrer(id, cas);
+          a.signaler('Cas de calibration créé : « ' + cas.nom + ' », ' + pluriel(cas.photos.length, 'photo') + '. Ouvrez-le dans Admin › Calibrer la détection.');
+        } catch (e) { a.signaler('Le cas n’a pas pu être enregistré : ' + ((e as Error).message || String(e))); }
+      }, () => a.signaler('Le fichier de l’audit n’a pas pu être lu.'));
+    },
+  });
 }
 
 /**

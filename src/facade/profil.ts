@@ -21,7 +21,7 @@ import type { OuvertureFacade, PartieBasse, PtBrut, ReleveFacade } from '../mode
 export type { PartieBasse };
 
 /** Le cote ou se trouve la partie basse, vu de dehors. */
-export type CoteBas = 'gauche' | 'droite';
+type CoteBas = 'gauche' | 'droite';
 
 /** Ce que l'utilisateur pose sur la photo en plus des quatre coins. */
 export interface Decrochement {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { HOTES_PANORAMAX, HOTES_REDIRECTION_PANORAMAX, capVers, chercherPhotosRue, classerFaceAuMur, ecartAngulaire, lirePhotosRue, urlRechercheRue, type PhotoRue } from '../../../src/geo/panoramax.js';
+import { HOTES_PANORAMAX, HOTES_REDIRECTION_PANORAMAX, capVers, chercherPhotosRue, ecartAngulaire, lirePhotosRue, urlRechercheRue, type PhotoRue } from '../../../src/geo/panoramax.js';
 
 // Une reponse STAC comme l'API la rend : une photo plate, un panoramique, une photo sans position, une servie ailleurs.
 const reponse = {
@@ -55,40 +55,6 @@ describe('angles', () => {
   it('capVers : nord, est', () => {
     expect(capVers(48.9, 2.13, 48.901, 2.13)).toBeCloseTo(0, 3);
     expect(capVers(48.9, 2.13, 48.9, 2.131)).toBeCloseTo(90, 3);
-  });
-});
-
-describe('classerFaceAuMur', () => {
-  // Un mur de 10 m regardant le sud, a 48,9 N 2,13 E.
-  const mur = { lat: 48.9, lon: 2.13, azimut: 180, largeur: 10 };
-  const photo = (id: string, dLatM: number, dLonM: number, azimut: number | null, champ: number): PhotoRue => ({
-    id, lat: 48.9 + dLatM / 111_000, lon: 2.13 + dLonM / (111_000 * Math.cos((48.9 * Math.PI) / 180)), azimut, champ, panoramique: champ >= 300,
-    largeurPx: null, hauteurPx: null, hd: 'https://panoramax.ign.fr/' + id, vignette: null, date: null, auteur: null, licence: null,
-  });
-  it('garde les photos devant le mur qui le cadrent, ecarte celles de derriere, de trop loin, ou qui regardent ailleurs', () => {
-    const photos = [
-      photo('face', -20, 0, 0, 60),
-      photo('derriere', 20, 0, 180, 60),
-      photo('loin', -100, 0, 0, 60),
-      photo('ailleurs', -20, 0, 90, 60),
-      photo('pano', -30, 5, 109, 360),
-      photo('plateSansCap', -20, 0, null, 60),
-    ];
-    const c = classerFaceAuMur(photos, mur);
-    expect(c.map((x) => x.photo.id)).toEqual(['face', 'pano']);
-    expect(c[0]!.distance).toBeCloseTo(20, 0);
-    expect(c[0]!.cap).toBeCloseTo(0, 0);
-    expect(c[0]!.ecart).toBeCloseTo(0, 0);
-    // Le panoramique regarde le mur en se tournant vers le nord-nord-ouest.
-    expect(c[1]!.cap).toBeCloseTo(((Math.atan2(-5, 30) * 180) / Math.PI + 360) % 360, 0);
-    expect(c[1]!.champMur).toBeCloseTo((2 * Math.atan2(5, c[1]!.distance) * 180) / Math.PI, 5);
-  });
-  it('prefere la photo proche et de face', () => {
-    const c = classerFaceAuMur([photo('oblique', -20, 15, 320, 90), photo('face', -25, 0, 0, 60)], mur);
-    expect(c.map((x) => x.photo.id)).toEqual(['face', 'oblique']);
-  });
-  it('un mur trop large pour le champ d une photo plate ne tient pas dedans', () => {
-    expect(classerFaceAuMur([photo('etroite', -8, 0, 0, 40)], { ...mur, largeur: 20 })).toEqual([]);
   });
 });
 

@@ -3,10 +3,9 @@ import { reglagesDuReleve } from '../../../../../src/facade/regles/facades/rejeu
 import { REGLAGES_DETECTION, reglagesDetection } from '../../../../../src/facade/regles/facades/detection.js';
 import { REGLAGES_STRUCTURE } from '../../../../../src/facade/regles/facades/structure.js';
 import { poserSurchargesCalibrees } from '../../../../../src/facade/regles/facades/surcharges.js';
-import { releveDuMur } from '../../../../../src/facade/releve/analyseSerie.js';
+import { releveDeLaSerie, type analyserSerie } from '../../../../../src/facade/releve/analyseSerie.js';
 import { schemaMinimal } from '../../../../../src/model/migrations.js';
 import type { Facade } from '../../../../../src/geometry/cotesVusDeDehors.js';
-import type { Resultat } from '../../../../../src/facade/releve/serie.js';
 import type { ObjetAPlat } from '../../../../../src/model/types.js';
 
 // Etape 1.4 : un releve garde la calibration qui l'a produit, et un rejeu part des memes seuils, quelle que soit la calibration du
@@ -14,15 +13,18 @@ import type { ObjetAPlat } from '../../../../../src/model/types.js';
 
 const [nom, reglage] = Object.entries(REGLAGES_DETECTION)[0]!;
 const autre = Object.keys(REGLAGES_DETECTION)[1]!;
-const resultat = { texture: null, hauteurTexture: 5, partieBasse: null } as unknown as Resultat;
+/** Le releve d'une serie d'une photo, d'apres une analyse reduite a ce que le releve en lit. */
+const analyse = { r: { hauteur: 6, hauteurMesuree: true, texture: { largeur: 8, hauteur: 6, donnees: new Uint8ClampedArray(0) }, hauteurTexture: 5, partieBasse: null, ouvertures: [], devinees: [], toitLu: null } } as unknown as NonNullable<ReturnType<typeof analyserSerie>>;
+const prise = { photo: { image: { largeur: 8, hauteur: 6, donnees: new Uint8ClampedArray(0) }, url: '', champ: null, focalePx: 10 }, mesure: null, champ: 70 };
+const releveDuMur = () => releveDeLaSerie(analyse, [{ prise, coins: [] }], { cote: 0, largeur: 8, azimut: null } as unknown as Facade, () => 'data:', 'morceaux').releve;
 
 afterEach(() => poserSurchargesCalibrees({}));
 
 describe('la calibration gardee avec un releve', () => {
   it('le releve ecrit les valeurs calibrees du moment, et rien quand ce sont les valeurs livrees', () => {
-    expect(releveDuMur({ cote: 0, largeur: 8 } as Facade, resultat, [], 6, null).calibration).toEqual({});
+    expect(releveDuMur().calibration).toEqual({});
     poserSurchargesCalibrees({ [nom]: reglage.valeur * 1.5 });
-    const r = releveDuMur({ cote: 0, largeur: 8 } as Facade, resultat, [], 6, null);
+    const r = releveDuMur();
     expect(r.calibration).toEqual({ [nom]: reglage.valeur * 1.5 });
     // Une copie : recalibrer ensuite ne touche pas au releve.
     poserSurchargesCalibrees({ [nom]: reglage.valeur * 2 });

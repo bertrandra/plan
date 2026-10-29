@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { analyserReleve, coinsProposes, silhouetteEnPartsDuMur } from '../../../src/facade/analyse.js';
 import { homographie, appliquer } from '../../../src/facade/vision/homographie.js';
-import { focale35mm, champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
-import { focalePx, distanceParCadrage } from '../../../src/facade/vision/cadrage.js';
+import { lireExif, champDepuisFocale35 } from '../../../src/facade/vision/exif.js';
+import { focalePx } from '../../../src/facade/vision/cadrage.js';
 
 const p = (x: number, y: number) => ({ x, y });
 
@@ -115,8 +115,8 @@ describe('coinsProposes', () => {
   it('place le mur a la bonne taille quand la distance est connue', () => {
     const f = focalePx(3024, 4032);
     const c = coinsProposes(3024, 4032, f, 3, 4, 2.5);
-    // Largeur du mur sur l'image = 4 f / 3 ; et la distance qu'on en deduit redonne 3 m.
-    expect(distanceParCadrage(4, c[1]!.x - c[0]!.x, f)).toBeCloseTo(3, 9);
+    // Largeur du mur sur l'image = 4 f / 3 ; et la distance qu'on en deduit (stenope) redonne 3 m.
+    expect((4 * f) / (c[1]!.x - c[0]!.x)).toBeCloseTo(3, 9);
     // Le sol est sous l'horizon (milieu de l'image), l'egout au-dessus.
     expect(c[3]!.y).toBeGreaterThan(2016);
     expect(c[0]!.y).toBeLessThan(2016);
@@ -161,12 +161,12 @@ describe('exif', () => {
   }
 
   it('lit la focale 24x36 dans les deux boutismes', () => {
-    expect(focale35mm(jpeg(26, true))).toBe(26);
-    expect(focale35mm(jpeg(28, false))).toBe(28);
+    expect(lireExif(jpeg(26, true)).focale35).toBe(26);
+    expect(lireExif(jpeg(28, false)).focale35).toBe(28);
   });
 
   it('renvoie null sur autre chose qu un JPEG', () => {
-    expect(focale35mm(new Uint8Array([1, 2, 3, 4]).buffer)).toBeNull();
+    expect(lireExif(new Uint8Array([1, 2, 3, 4]).buffer).focale35).toBeNull();
   });
 
   it('convertit une focale en champ', () => {

@@ -1,15 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { aideReleveDuNavigateur, appelerEscaladeFacade, appelerRunFacade, libelleEscalade } from '../../../../src/app/releve/runFacade.js';
+import { appelerEscaladeFacade, appelerRunFacade, libelleEscalade } from '../../../../src/app/releve/runFacade.js';
 
 type ContexteRun = Parameters<typeof appelerRunFacade>[0];
 import { EchecAnalyse, type ClientAnalyse, type DemandeAnalyse, type ResultatsImmediats } from '../../../../src/io/analyseClaude.js';
 import { VERSION_CHAINE_FACADES } from '../../../../src/facade/releve/chaine.js';
-import type { AccordAnalyse } from '../../../../src/model/auditParcelle.js';
 import { SORTIE_FACADE } from '../../../fixtures/deploy/fauxAnthropic.js';
 
 // Le run d'une facade, cote page (lots F2 et F3) : trois passes votees (la production, `facades.ia.passes`) ou une (pour mesurer) par
-// la route immediate, usage `facade` ; la reponse enregistree avec les versions, le modele, les tokens et le cout ; l'aide du releve,
-// qui passe par lui avec l'accord par projet ; l'escalade, a la demande, UNE requete au modele de l'usage `escalade`.
+// la route immediate, usage `facade` ; la reponse enregistree avec les versions, le modele, les tokens et le cout ; l'escalade, a la
+// demande, UNE requete au modele de l'usage `escalade`. (L'aide du releve, qui passait par lui, est partie avec sa capture au lot F6.)
 // SORTIE_FACADE est synthetique (ecrite pour les tests), pas une reponse de Claude.
 
 const IMAGE = { largeur: 4, hauteur: 3, donnees: new Uint8ClampedArray(48) };
@@ -64,10 +63,10 @@ describe('le run d une facade', () => {
 
   it('dit pourquoi rien n est revenu', async () => {
     const d = { image: IMAGE, texte: 'x', passes: 1 as const };
-    expect(await appelerRunFacade(contexte({ immediat: async () => { throw new EchecAnalyse('plafond', 'x'); } } as unknown as ClientAnalyse), d, 'releve')).toEqual({ erreur: 'Le plafond de l’analyse est atteint pour aujourd’hui ou ce mois-ci.' });
-    expect(await appelerRunFacade(contexte(client([], [0])), d, 'releve')).toEqual({ erreur: 'Claude n’a rendu aucune réponse lisible (Surcharge.).' });
-    expect(await appelerRunFacade(contexte(null), d, 'releve')).toEqual({ erreur: 'L’aide de Claude n’est pas ouverte à ce compte.' });
-    expect(await appelerRunFacade({ ...contexte(client([])), encoder: () => null }, d, 'releve')).toEqual({ erreur: 'L’image n’a pas pu être préparée pour Claude.' });
+    expect(await appelerRunFacade(contexte({ immediat: async () => { throw new EchecAnalyse('plafond', 'x'); } } as unknown as ClientAnalyse), d, 'calibration')).toEqual({ erreur: 'Le plafond de l’analyse est atteint pour aujourd’hui ou ce mois-ci.' });
+    expect(await appelerRunFacade(contexte(client([], [0])), d, 'calibration')).toEqual({ erreur: 'Claude n’a rendu aucune réponse lisible (Surcharge.).' });
+    expect(await appelerRunFacade(contexte(null), d, 'calibration')).toEqual({ erreur: 'L’aide de Claude n’est pas ouverte à ce compte.' });
+    expect(await appelerRunFacade({ ...contexte(client([])), encoder: () => null }, d, 'calibration')).toEqual({ erreur: 'L’image n’a pas pu être préparée pour Claude.' });
   });
 
   it('ne garde que les passes lisibles, et un cout inconnu quand un tarif manque', async () => {
@@ -79,24 +78,6 @@ describe('le run d une facade', () => {
     if ('erreur' in r) throw new Error(r.erreur);
     expect(r.run.sorties).toEqual([SORTIE_FACADE]);
     expect(r.run.cout).toBeNull();
-  });
-});
-
-describe('l aide de Claude au releve, par le run', () => {
-  it('garde l accord pour le projet, et lit la facade trois fois (la production)', async () => {
-    let accord: AccordAnalyse | null = null;
-    const recues: DemandeAnalyse[] = [];
-    const c = contexte(client(recues));
-    const aide = aideReleveDuNavigateur({ client: c.client(), identite: c.identite, memoire: { lire: () => accord, ecrire: (a) => { accord = a; } } }, c.encoder);
-    expect(aide.disponible()).toBe(true);
-    expect(aide.accordDonne()).toBe(false);
-    aide.accorder();
-    expect(accord).toMatchObject({ partage: true });
-    const r = await aide.demander({ image: IMAGE, texte: 'Façade : sud.' });
-    expect('reponse' in r).toBe(true);
-    expect(recues[0]).toMatchObject({ usage: 'facade', audit: expect.stringMatching(/^releve-\d{14}$/) });
-    expect(recues[0]?.requetes.map((q) => q.id)).toEqual(['facade-p1', 'facade-p2', 'facade-p3']);
-    if ('run' in r) expect(r.run.passes).toBe(3);
   });
 });
 

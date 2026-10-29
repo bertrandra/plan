@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { facadesDuContour, nomOrientation, stationDevant } from '../../../src/geometry/cotesVusDeDehors.js';
-import { focalePx, distanceParCadrage, distancePourToutCadrer, etalonnerChamp, consigneAplomb, planDePrise, consignePrise } from '../../../src/facade/vision/cadrage.js';
+import { focalePx, distancePourToutCadrer, etalonnerChamp, planDePrise } from '../../../src/facade/vision/cadrage.js';
 import { homographie, appliquer, redresser, resolutionTexture, type Image } from '../../../src/facade/vision/homographie.js';
 import { detecterOuvertures, aligner, classer } from '../../../src/facade/detection/detection.js';
 
@@ -49,16 +49,6 @@ describe('facadesDuContour', () => {
 describe('cadrage', () => {
   const f = focalePx(4032, 3024, 67);
 
-  it('retrouve la distance d un mur de largeur connue', () => {
-    // Un mur de 4 m a 3 m : il occupe 4 f / 3 pixels.
-    const px = (4 * f) / 3;
-    expect(distanceParCadrage(4, px, f)).toBeCloseTo(3, 9);
-  });
-
-  it('refuse une mesure de quelques pixels', () => {
-    expect(distanceParCadrage(4, 2, f)).toBeNull();
-  });
-
   it('calcule la distance pour tout cadrer', () => {
     const d = distancePourToutCadrer(10, 6, 3024, 4032, f);
     // En portrait, la largeur du mur commande : 10 m x 1,2 sur 3024 px.
@@ -68,12 +58,6 @@ describe('cadrage', () => {
   it('etalonne le champ depuis une mesure', () => {
     const px = (2 * f) / 5;
     expect(etalonnerChamp(5, 2, px, 4032)).toBeCloseTo(67, 6);
-  });
-
-  it('guide l aplomb', () => {
-    expect(consigneAplomb(92).bon).toBe(true);
-    expect(consigneAplomb(70).message).toMatch(/vers le mur/);
-    expect(consigneAplomb(null).bon).toBe(true);
   });
 });
 
@@ -217,7 +201,6 @@ describe('plan de prise', () => {
     const pl = planDePrise(2.5, 3, 3, 3024, 4032, f);
     expect(pl.photos).toBe(1);
     expect(pl.hauteurTient).toBe(true);
-    expect(consignePrise(pl, 0, false).ton).toBe('bon');
   });
 
   it('plusieurs photos quand la largeur ne tient pas, avec le pas le long du mur', () => {
@@ -225,16 +208,11 @@ describe('plan de prise', () => {
     expect(pl.photos).toBe(4);
     expect(pl.pas).toBeGreaterThan(1.5);
     expect(pl.pas).toBeLessThan(pl.couvre.largeur);
-    expect(consignePrise(pl, 0, false).message).toMatch(/4 photos/);
-    expect(consignePrise(pl, 3, false).message).toMatch(/coin droit/);
   });
 
-  it('alerte quand la hauteur ne tient pas, et dit a quelle distance reculer', () => {
+  it('dit quand la hauteur ne tient pas, et a quelle distance reculer', () => {
     const pl = planDePrise(8, 6, 3, 3024, 4032, f);
     expect(pl.hauteurTient).toBe(false);
-    const c = consignePrise(pl, 0, true);
-    expect(c.ton).toBe('alerte');
-    expect(c.message).toMatch(/grand-angle/);
     expect(pl.reculPourHauteur).toBeGreaterThan(3);
     expect(planDePrise(8, 6, pl.reculPourHauteur + 0.01, 3024, 4032, f).hauteurTient).toBe(true);
   });

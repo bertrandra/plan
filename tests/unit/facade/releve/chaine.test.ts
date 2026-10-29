@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analyserSansRien, morceauRedresse, priseSansCapteurs, redresserEtFusionner } from '../../../../src/facade/releve/chaine.js';
+import { priseSansCapteurs, redresserEtFusionner } from '../../../../src/facade/releve/chaine.js';
 import { analyserSerie } from '../../../../src/facade/releve/analyseSerie.js';
 import { rechercher, type Morceau } from '../../../../src/facade/releve/serie.js';
 import { derouler, entreesDuCas, preparerPourLaMesure } from '../../../../src/facade/releve/enchainement.js';
@@ -10,8 +10,8 @@ import type { ObjetPolygone } from '../../../../src/model/types.js';
 import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';
 
-// Une seule chaine pour l'audit, le releve et la calibration (facade/releve/chaine.ts) : les memes photos y donnent les memes
-// coins, le meme mur redresse et les memes ouvertures, et rien ne s'y perd.
+// Une seule chaine pour l'audit et la calibration (facade/releve/chaine.ts) : les memes photos y donnent les memes coins, le meme mur
+// redresse et les memes ouvertures, et rien ne s'y perd.
 
 const scene = (prefixe: string) => {
   const s = chargerCorpus().find((c) => c.nom.startsWith(prefixe));
@@ -47,7 +47,7 @@ describe('les coins d une photo, par la chaine de tous', () => {
 });
 
 describe('le meme mur partout', () => {
-  it('le releve, l audit et la calibration redressent et cotent une photo calee de meme', async () => {
+  it('l audit et la calibration redressent et cotent une photo calee de meme', async () => {
     const { s, ph, vrais } = scene('02-');
     const L = s.verite.largeur, H = s.verite.hauteur;
     const releve = analyserSerie([morceauDe(ph.image, vrais, ph.focalePx, true)], mur(L, H), H, bat(L));
@@ -74,22 +74,4 @@ describe('la calibration lit l assemblage', () => {
     // La texture couvre le pignon entier, au-dessus de l'egout.
     expect(p?.hauteurTexture).toBeGreaterThan(H + pg);
   }, 60000);
-});
-
-describe('plutot un resultat que rien', () => {
-  it('des coins croises cedent la place a ceux de la prise de vue', () => {
-    const { s, ph, vrais } = scene('02-');
-    const L = s.verite.largeur, H = s.verite.hauteur;
-    const croises = [vrais[1], vrais[0], vrais[2], vrais[3]] as P2[];
-    const m = morceauDe(ph.image, croises, ph.focalePx, false);
-    const { a, retenus } = analyserSansRien([m], mur(L, H), H, bat(L), 'morceaux');
-    expect(a).not.toBeNull();
-    expect(retenus[0]?.coins).not.toEqual(croises);
-  }, 60000);
-
-  it('ne touche jamais des coins poses au doigt', () => {
-    const { s, ph, vrais } = scene('02-');
-    const m = morceauDe(ph.image, vrais.map((c) => ({ x: c.x + 30, y: c.y })), ph.focalePx, true);
-    expect(morceauRedresse(m, mur(s.verite.largeur, s.verite.hauteur), s.verite.hauteur)).toBe(m);
-  });
 });

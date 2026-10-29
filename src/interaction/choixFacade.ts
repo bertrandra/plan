@@ -1,8 +1,8 @@
-// La facade designee avant d'ouvrir le releve (meme role que interaction/outilAlignement.ts).
+// La facade designee avant d'executer une commande de facade (meme role que interaction/outilAlignement.ts).
 //
-// Une commande ne prend pas d'argument : le bouton « Relever » d'une ligne de l'inspecteur dit
-// d'abord quel mur il vise, puis execute `facade.relever`, qui le reprend. Sans designation, le
-// releve s'ouvre sur le choix du mur.
+// Une commande ne prend pas d'argument : un bouton d'une ligne de l'inspecteur (« Photographier », « Modifier », « Retirer ») dit
+// d'abord quel mur il vise, puis execute sa commande (`facade.photographier`, `facade.modifier`, `facade.retirer`), qui le reprend.
+// Sans designation, « Photographier » ouvre l'ecran de prise de l'audit, qui suit la position.
 
 let designee: number | null = null;
 
