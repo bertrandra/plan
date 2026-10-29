@@ -46,8 +46,8 @@ audit reçu avant de le livrer.
 tolérance : 30 cm est un choix à confirmer par le corpus (`TOLERANCE_HAUTEUR_NIVEAU_M`). La part vitrée se compare en
 relatif à celle du relevé ; un mur sans vitrage au relevé se compare à zéro, à un point de mur près. La porte est posée
 sur la disposition seulement si le relevé en porte une : on compare la place des fenêtres, pas la décision d'avoir une
-porte sur ce mur. Le modèle d'escalade par défaut est celui des autres usages (Haiku) tant que l'administrateur n'a pas
-réglé « Escalade » sur un modèle plus fin dans les réglages des modèles.
+porte sur ce mur. Le modèle d'escalade par défaut est le plus fin (Sonnet, décision du 29 octobre 2026 ; Haiku, celui des
+autres usages, avant), réglable sur « Escalade » dans les réglages des modèles.
 
 ---
 

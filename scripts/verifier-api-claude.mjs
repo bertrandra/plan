@@ -42,7 +42,15 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // le run d'une facade a les siens, tous les autres lisent ceux de l'analyse d'une maison. Le rejeu passe par un
 // batch (l'appel immediat le refuse) ; le corps de chaque requete est pourtant le meme
 // (`parametresRequete`), si bien que la requete de sa famille et de son modele le couvre.
-const FAMILLE = (usage) => (usage === 'facade' ? usage : 'analyse');
+//
+// L'escalade n'a pas de prompt a elle (lot F3, `verifierDemande`) : une demande `escalade` garde le prompt et le schema de
+// la requete escaladee et prend le modele de l'escalade (Sonnet par defaut depuis le 29 octobre 2026). Elle part donc comme
+// la page l'envoie (`envoyerEscalade`) : une demande `escalade` dont la requete porte l'usage `facade`. C'est la seule qui
+// demande la sortie structuree, compilee par l'API pour ce modele-la, donc la seule dont l'acceptation depend du modele ;
+// l'escalade d'une maison envoie le corps de l'analyse (schema dans le prompt) avec ce meme modele, couvert par les deux.
+// Une seule requete du modele fin, pour tenir sous le plafond par defaut : une analyse d'une maison au tarif de Sonnet
+// (prompt et schema en ecriture du cache) en couterait a elle seule pres de la moitie.
+const FAMILLE = (usage) => (usage === 'facade' || usage === 'escalade' ? 'facade' : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -169,7 +177,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
   if (options.modele && !etat.corps.modeles.includes(options.modele)) arreter('modèle non admis par le serveur : ' + options.modele + ' (admis : ' + etat.corps.modeles.join(', ') + ').');
 
   // Une requete par couple (famille, modele) : les usages qui partagent prompt, schema et modele
-  // envoient le meme corps a l'API.
+  // envoient le meme corps a l'API. L'escalade seule sur son modele part en dernier (le plus cher, apres les autres).
   const groupes = new Map();
   for (const usage of etat.corps.usages) {
     if (usage === 'immediat') continue; // un usage de journal, sans demande a lui
@@ -178,18 +186,24 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     if (!groupes.has(k)) groupes.set(k, { famille: FAMILLE(usage), modele, usages: [] });
     groupes.get(k).usages.push(usage);
   }
+  // La demande d'un groupe : celle de son usage s'il en a un a lui, sinon celle de l'escalade (sa requete gardant sa famille).
+  const demandeDe = (g) => (g.usages.includes(g.famille) ? g.famille : 'escalade');
+  const aEnvoyer = [...groupes.values()].sort((a, b) => Number(demandeDe(a) === 'escalade') - Number(demandeDe(b) === 'escalade'));
   const image = fs.readFileSync(IMAGE).toString('base64');
   const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
   console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', run d’une façade v' + (etat.corps.facade?.prompt ?? '?') + '/v' + (etat.corps.facade?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
   let n = 0;
-  for (const g of groupes.values()) {
+  for (const g of aEnvoyer) {
     n++;
     const id = 'verif' + n;
-    const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage: g.famille, modele: g.modele,
-      requetes: [{ id, passe: 1, facades: 1, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
-    process.stdout.write('- ' + g.famille + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
+    const usage = demandeDe(g);
+    // L'escalade part sans `modele` : le serveur prend lui-meme celui de l'usage `escalade` (le reglage de l'administrateur, sinon
+    // le defaut), comme pour la page ; `--modele` l'impose a toutes.
+    const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage, ...(usage === 'escalade' && !options.modele ? {} : { modele: g.modele }),
+      requetes: [{ id, passe: 1, facades: usage === 'escalade' ? 0 : 1, usage: g.famille, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
+    process.stdout.write('- ' + (usage === 'escalade' ? 'escalade d’une façade' : g.famille) + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
     if (r.statut !== 200 || !x) {

@@ -192,10 +192,10 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
 
     it('n admet que des blocs texte et image, et des modeles connus', () => {
       const d = php<Demande>('verifierDemande', demande(), P);
-      // Le modele rapide par defaut, pour l'analyse comme pour l'escalade.
+      // Le modele rapide par defaut pour l'analyse, le modele fin pour l'escalade (decision du 29 octobre 2026).
       expect(d.modele).toBe(RAPIDE);
       expect(d.requetes.map((r) => [r.id, r.passe, r.images])).toEqual([['p1', 1, 1], ['p2', 2, 1]]);
-      expect(php<Demande>('verifierDemande', { ...demande(), usage: 'escalade' }, P).modele).toBe(RAPIDE);
+      expect(php<Demande>('verifierDemande', { ...demande(), usage: 'escalade' }, P).modele).toBe(FIN);
       const avec = (r: object) => ({ ...demande(), requetes: [{ id: 'p1', passe: 1, contenu: [r] }] });
       expect(() => php('verifierDemande', avec({ type: 'document', source: {} }), P)).toThrow(/non admis/);
       expect(() => php('verifierDemande', avec({ type: 'image', source: { type: 'url', url: 'https://x' } }), P)).toThrow(/non admis/);
@@ -239,9 +239,11 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   });
 
   describe('le modele de chaque usage', () => {
-    const defaut = { analyse: RAPIDE, escalade: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
+    // Le modele rapide partout (15 octobre 2026), sauf l'escalade (29 octobre 2026) : elle ne part qu'a la demande, apres trois
+    // lectures votees du modele rapide, qu'une quatrieme du meme modele ne departagerait pas.
+    const defaut = { analyse: RAPIDE, escalade: FIN, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
 
-    it('prend le modele rapide par defaut pour tous les usages, parmi deux admis', () => {
+    it('prend le modele rapide par defaut pour tous les usages sauf l escalade, au modele fin, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
       expect(constantePhp('MODELES')).toEqual([RAPIDE, FIN]);
       expect(php('modelesParUsage', null)).toEqual(defaut);
