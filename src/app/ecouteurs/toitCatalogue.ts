@@ -9,7 +9,7 @@
 // `toit.poser` : le geste du catalogue (three/gestesToits.ts), nomme par `data-piece` sur le bouton qui l'a declenche.
 
 import { PERMISSION_ECRITURE } from '../acces.js';
-import { estRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
+import { estRetouchable, raisonNonRetouchable, creerModeToit, etatToit, sessionToit } from '../toits/modeToit.js';
 import { murLePlusProche, replacerSaillie } from '../../facade/modeToit/saillies.js';
 import { tournerCorps, PAS_ROTATION_DEG } from '../../facade/modeToit/corpsNeufs.js';
 import { appliquerChoix, cibleAjoutee, dupliquerElement, facadeDeLElement, redimensionnerElement, supprimerElement, type TypeElement } from '../../facade/modeToit/elements.js';
@@ -87,17 +87,20 @@ export function brancherToitCatalogue(a: Atelier, ctx: ContexteToitCatalogue, cm
   const enSession = () => !!sessionToit();
 
   // Les descriptions sont au glossaire (app/descriptions.ts).
-  const commande = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit = true) =>
-    cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), actif, executer });
+  const commande = (id: string, libelle: string, actif: () => boolean, executer: (source?: HTMLElement) => void, ecrit = true,
+    raisonInactive?: () => string | null) =>
+    cmd.declarer({ id, libelle, groupe: 'toit', ...(ecrit ? { permission: PERMISSION_ECRITURE } : {}), ...(raisonInactive ? { raisonInactive } : {}), actif, executer });
 
+  const selection = (): ObjetPlan | undefined => a.etat.objects.find((o) => o.key === a.etat.selectedKey);
+  // Le batiment d'un voisin : le bouton reste, grise, et dit pourquoi (une autre selection : il s'efface, rien a expliquer).
   commande('toit.modifier', 'Modifier la toiture',
-    () => !enSession() && estRetouchable(a.etat.objects.find((o) => o.key === a.etat.selectedKey)), () => {
+    () => !enSession() && estRetouchable(selection()), () => {
       // Le catalogue d'abord : la session s'ouvre avec lui (deja charge, tout de suite).
       if (gestes) { mode.ouvrir(); return; }
       chargerGestesToits().then(() => { if (!enSession()) mode.ouvrir(); }, (e: unknown) => {
         showToast('Le mode Toit n’a pas pu se charger (' + (e instanceof Error ? e.message : String(e)) + ').');
       });
-    });
+    }, true, () => (enSession() ? null : raisonNonRetouchable(selection())));
   commande('toit.valider', 'Valider le toit',
     enSession, () => { mode.valider(); });
   commande('toit.abandonner', 'Abandonner les changements',

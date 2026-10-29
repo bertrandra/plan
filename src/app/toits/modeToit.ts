@@ -6,7 +6,7 @@
 //
 // Hors session, rien ne change. La session s'arrete d'elle-meme quand on quitte la Vue 3D ou qu'on selectionne autre chose.
 
-import { estBatiment } from '../../model/fonctions.js';
+import { estBatiment, surParcelleDuProjet } from '../../model/fonctions.js';
 import { enPoints } from '../../model/formes.js';
 import { aChange, annuler, creerHistorique, empiler, peutAnnuler, peutRetablir, ecrireLeGeste, photographier, restaurer as restaurerSession, retablir, revenirAuDepart,
   type HistoriqueToit } from '../../facade/modeToit/sessionToit.js';
@@ -22,6 +22,7 @@ import { lectureToits } from '../../core/lectureToits.js';
 import { showToast } from '../../shell/dialogs.js';
 import type * as THREE_NS from 'three';
 import { elementProche, lireElement, memeCible, type CibleElement } from '../../facade/modeToit/elements.js';
+import { murLePlusVisible } from '../../facade/modeToit/poignees.js';
 import type { Atelier } from '../atelier.js';
 import type { CorpsToit, ObjetPlan, PtBrut } from '../../model/types.js';
 import { toucher } from '../../core/controleurObjets.js';
@@ -67,8 +68,46 @@ function restaurer(o: ObjetPlan, pas: Parameters<typeof restaurerSession>[1]): v
   toucher(o);
 }
 
-/** Un batiment que le mode Toit sait retoucher : un batiment du projet, pas du voisinage. */
-export const estRetouchable = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && estBatiment(o) && !o.voisinage && o.type === 'polygon';
+/**
+ * Un batiment pose chez un voisin : le voisinage importe autour de la propriete, ou un batiment de l'IGN que l'import n'a pas pose sur
+ * la parcelle du projet (une maison d'une parcelle mitoyenne de la propriete). `surParcellePrincipale` ne s'enregistre qu'a vrai
+ * (io/serialisation.ts) : un batiment importe qui ne la porte pas est chez un voisin. Un batiment dessine (sans `bdtopo`) est celui
+ * de la personne, ou qu'il soit.
+ */
+const chezUnVoisin = (o: ObjetPlan): boolean => !!o.voisinage || (!!o.bdtopo && !surParcelleDuProjet(o));
+
+/**
+ * Un batiment que le mode Toit sait retoucher : un batiment du projet, pas d'un voisin. `locked` n'y entre pas : il protege le contour
+ * (ni deplace, ni supprime, interaction/pointeur.ts), pas le toit, et la maison du projet est verrouillee a l'import (la demonstration :
+ * « Maison », « Abri de jardin »).
+ */
+export const estRetouchable = (o: ObjetPlan | undefined): o is ObjetPlan => !!o && estBatiment(o) && o.type === 'polygon' && !chezUnVoisin(o);
+
+/** Ce qui ferme le mode Toit sur le batiment `o`, a dire a la personne ; null : rien a dire (il s'ouvre, ou ce n'est pas un batiment). */
+export function raisonNonRetouchable(o: ObjetPlan | undefined): string | null {
+  if (!o || !estBatiment(o) || o.type !== 'polygon' || !chezUnVoisin(o)) return null;
+  return 'Ce bâtiment est chez un voisin : le mode Toit ne retouche que les bâtiments de la parcelle du projet.';
+}
+
+/**
+ * Le batiment `o` tel que le projet le tient pendant la session `s` : une copie, au depart de la session (ses champs du toit et son
+ * elevation, `sessionToit.ts::photographier`). Le batiment du plan, lui, porte les gestes : la scene les montre.
+ */
+function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'hist'>): ObjetPlan {
+  const copie = { ...o, ...(o.batiment ? { batiment: { ...o.batiment } } : {}) } as ObjetPlan;
+  restaurerSession(copie, s.hist.pas[0] ?? {});
+  return copie;
+}
+
+/**
+ * Les objets a enregistrer : le batiment en session y est a son depart. Rien de la session n'entre dans le projet avant « Valider »,
+ * meme quand l'enregistrement seul de la lecture des toits en fond (app/toits/toitsFond.ts) ou Ctrl+S part pendant la session :
+ * abandonnee, elle ne laisse aucune trace ; validee, elle marque le projet a enregistrer. `s` : la session en cours par defaut.
+ */
+export function objetsHorsSession(objets: readonly ObjetPlan[], s: Pick<SessionToit, 'cle' | 'hist'> | null = session): ObjetPlan[] {
+  if (!s) return objets as ObjetPlan[];
+  return objets.map((o) => (o.key === s.cle ? auDepart(o, s) : o));
+}
 
 /** Ce que la barre du mode montre : de quoi griser ses boutons et dire la facade courante. */
 export interface EtatToit {
@@ -514,14 +553,16 @@ function creerVuesToit(ctx: ContexteModeToit, batiment: () => ObjetPlan | undefi
       return true;
     },
 
-    /** Toucher un corps dans le navigateur : sa facade la plus tournee vers la camera. */
+    /** Toucher un corps dans le navigateur : sa facade la plus visible de la camera (tournee vers elle, pas cachee par un autre corps). */
     choisirFacadeDuCorps(rang: number): boolean {
-      const sc = vue3d.scene;
+      const sc = vue3d.scene, o = batiment();
       if (!sc || !session) return false;
-      // Devant une facade, l'oeil est devant elle ; ailleurs, c'est la camera de l'orbite.
+      // Devant une facade, l'oeil est devant elle ; ailleurs, c'est la camera de l'orbite (et sa hauteur au-dessus du batiment).
       const fc = session.vue === 'facade' ? session.facade : null;
-      const oeil = fc ? { x: (fc.a.x + fc.b.x) / 2 + fc.n.x * 50, y: (fc.a.y + fc.b.y) / 2 + fc.n.y * 50 } : { x: sc.camera.position.x + sc.cen.x, y: sc.cen.y - sc.camera.position.z };
-      const f = facadeVersLePoint(facades(), rang, oeil);
+      const oeil = fc ? { x: (fc.a.x + fc.b.x) / 2 + fc.n.x * 50, y: (fc.a.y + fc.b.y) / 2 + fc.n.y * 50 }
+        : { x: sc.camera.position.x + sc.cen.x, y: sc.cen.y - sc.camera.position.z, z: sc.camera.position.y - altitudeDuBatiment(o) };
+      const corps = o?.batiment?.corpsToit, mur = corps?.[rang] ? murLePlusVisible(corps, rang, oeil) : null;
+      const f = facades().find((x) => x.rang === rang && x.mur === mur) ?? facadeVersLePoint(facades(), rang, oeil);
       if (!f) return false;
       entrerDansLaFacade(f);
       return true;

@@ -25,6 +25,7 @@ import type { ProjetResume } from '../io/api.js';
 import type { ObjetBrut, ObjetPlan, Mesure } from '../model/types.js';
 import type { RegistreCommandes } from './commandes.js';
 import type { Magasin } from './magasin.js';
+import { objetsHorsSession } from './toits/modeToit.js';
 
 /** Ce que le demarrage sait du projet : le serveur repond-il, lequel est ouvert, lesquels existent. */
 export interface SeedProjet {
@@ -110,7 +111,8 @@ const PAQUET_OBJETS = 400;
  * de reference. D'un seul tenant, un voisinage d'un kilometre figeait l'ecran pres de deux secondes.
  */
 async function chargeParPaquets(ctx: ContexteProjet, id: string, name: string) {
-  const ecrits = await jsonParPaquets(ctx.etat.objects, ctx.serializeObjects, PAQUET_OBJETS, ctx.ceder);
+  // Le batiment d'une session du mode Toit s'ecrit a son depart : rien de la session avant « Valider » (app/toits/modeToit.ts).
+  const ecrits = await jsonParPaquets(objetsHorsSession(ctx.etat.objects), ctx.serializeObjects, PAQUET_OBJETS, ctx.ceder);
   const measures = ctx.serializeMeasures(ctx.etat.measures);
   const donnees = { appVersion: APP_VERSION, schemaVersion: schemaAEcrire(ecrits.valeurs, ctx.etat.schemaProjet), objects: ecrits.valeurs, measures };
   // La taille de ce qui part, en octets UTF-8 : celle que la plateforme compare a sa limite.
@@ -141,7 +143,7 @@ export function uneALaFois<A extends unknown[], R>(f: (...a: A) => Promise<R>): 
 }
 
 function chargeDuProjet(ctx: ContexteProjet) {
-  const objects = ctx.serializeObjects(ctx.etat.objects);
+  const objects = ctx.serializeObjects(objetsHorsSession(ctx.etat.objects));
   return {
     appVersion: APP_VERSION, schemaVersion: schemaAEcrire(objects, ctx.etat.schemaProjet),
     objects, measures: ctx.serializeMeasures(ctx.etat.measures)

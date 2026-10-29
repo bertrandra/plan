@@ -1448,6 +1448,8 @@
   }
   .bouton3d:hover{ background:var(--accent-light); opacity:1; }
   .bouton3d.actif{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .bouton3d[aria-disabled="true"]{ opacity:.35; cursor:not-allowed; }
+  .bouton3d[aria-disabled="true"]:hover{ background:var(--panel-bg); }
   .separateur3d{ height:1px; background:var(--border); margin:2px 0; }
   /* Le mode audit (app/audit/) : l'etat de la promenade et ses deux gestes. Sur bureau, en ligne au-dessus
      de la scene ; au doigt, en bas de l'ecran, ou le pouce l'atteint. Cibles de 44 px partout : on s'en

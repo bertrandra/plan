@@ -7,7 +7,7 @@
 //
 // Pur : pas de DOM, pas de scene.
 
-import { point, repere } from '../toits/toitCorps.js';
+import { hauteurDuToitEn, point, repere } from '../toits/toitCorps.js';
 import { bornerSaillie, murDuCorps, replacerSaillie, saillieDe } from './saillies.js';
 import { deplacerCorps, etirerCorps, rangPrincipal } from './corpsNeufs.js';
 import { orientationDuCorps } from './planCorps.js';
@@ -187,12 +187,83 @@ export function murVersLOeil(c: CorpsToit, oeil: PtBrut): number {
   return meilleur;
 }
 
-/** Ce que regarde la Vue 3D du mode : de dessus ou non, la facade courante (ou la derniere) et l'oeil (la camera), un point du plan. */
-export interface VuePoignees { dessus: boolean; facade: { rang: number | null; mur: number } | null; oeil: PtBrut }
+/** L'oeil de la vue : un point du plan, et sa hauteur au-dessus du sol du batiment (`z`, a hauteur d'homme sans elle). */
+export type Oeil = PtBrut & { z?: number };
+/** La hauteur de l'oeil quand la vue ne la dit pas : celle d'une personne debout. */
+const OEIL_Z_M = 1.6;
+/** Le long d'un mur, les points regardes (en part de sa longueur, en dedans des coins), et a quelles parts de sa hauteur. */
+const LE_LONG = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95];
+const EN_HAUT = [0.1, 0.4, 0.7, 0.95];
+/** Un point regarde est pose un peu devant son mur : sur lui, le corps voisin colle au mur le cacherait toujours. */
+const DEVANT_MUR_M = 0.05;
+/** Le pas de la marche de l'oeil au point, ou se cherche un autre corps qui le cache. */
+const PAS_VUE_M = 0.2;
+/** Au-dessous, un mur est vu de chant (moins de 15 degres) : il ne l'emporte pas sur un mur de face. */
+const VU_DE_CHANT = 0.25;
+/** Deux murs dont la part visible differe de moins que cela se voient autant : le plus tourne vers l'oeil l'emporte. */
+const AUTANT_VISIBLE = 0.15;
+
+/**
+ * La part du mur `mur` du corps `rang` que voit l'oeil (0 a 1) : ses points, du pied au haut sous son toit, dont la vue n'est pas
+ * coupee par un autre corps (son volume : son emprise, sous son toit). Zero pour un mur qui tourne le dos a l'oeil.
+ */
+export function partVisibleDuMur(corps: readonly CorpsToit[], rang: number, mur: number, oeil: Oeil): number {
+  const c = corps[rang];
+  if (!c) return 0;
+  const w = murDuCorps(c, mur);
+  if (tourneVers(w.a, w.b, w.n, oeil) <= 0) return 0;
+  const autres = corps.filter((_, i) => i !== rang);
+  if (!autres.length) return 1;
+  const ez = oeil.z ?? OEIL_Z_M;
+  // Ce qui peut cacher : rien au-dela de l'emprise des autres corps, ni au-dessus de leur faitage.
+  const xs = autres.flatMap((k) => k.pts.map((q) => q.x)), ys = autres.flatMap((k) => k.pts.map((q) => q.y));
+  const boite = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys), z1: Math.max(...autres.map((k) => k.faitage)) };
+  const cache = (p: Point3): boolean => {
+    const dx = oeil.x - p.x, dy = oeil.y - p.y, dz = ez - p.z, d = Math.hypot(dx, dy, dz);
+    for (let s = PAS_VUE_M; s < d; s += PAS_VUE_M) {
+      const q = { x: p.x + (dx * s) / d, y: p.y + (dy * s) / d }, z = p.z + (dz * s) / d;
+      if (z > boite.z1 && dz >= 0) return false;
+      if (q.x < boite.x0 || q.x > boite.x1 || q.y < boite.y0 || q.y > boite.y1) continue;
+      const h = hauteurDuToitEn(autres, q, 0);
+      if (h !== null && z < h) return true;
+    }
+    return false;
+  };
+  let vus = 0, tous = 0;
+  for (const t of LE_LONG) {
+    const pied = { x: w.a.x + (w.b.x - w.a.x) * t, y: w.a.y + (w.b.y - w.a.y) * t };
+    const haut = hauteurDuToitEn([c], { x: pied.x - w.n.x * DEVANT_MUR_M, y: pied.y - w.n.y * DEVANT_MUR_M }) ?? Math.min(...c.egouts);
+    for (const f of EN_HAUT) {
+      tous++;
+      if (!cache({ x: pied.x + w.n.x * DEVANT_MUR_M, y: pied.y + w.n.y * DEVANT_MUR_M, z: haut * f })) vus++;
+    }
+  }
+  return tous ? vus / tous : 0;
+}
+
+/**
+ * Le mur d'un corps que l'oeil voit le mieux : tourne vers lui, et le moins cache par les autres corps (sur une maison a deux corps,
+ * le mur le plus tourne de l'aile peut etre derriere l'autre corps). A visibilite egale (a AUTANT_VISIBLE pres), le plus tourne vers
+ * l'oeil ; un mur vu de chant ne l'emporte pas sur un mur de face. Sans rien qui cache, c'est `murVersLOeil`.
+ */
+export function murLePlusVisible(corps: readonly CorpsToit[], rang: number, oeil: Oeil): number {
+  const c = corps[rang];
+  if (!c) return 0;
+  const murs = c.pts.map((_, m) => { const w = murDuCorps(c, m); return { m, tourne: tourneVers(w.a, w.b, w.n, oeil) }; }).filter((x) => x.tourne > 0);
+  if (!murs.length) return murVersLOeil(c, oeil);
+  const deFace = murs.filter((x) => x.tourne >= VU_DE_CHANT);
+  const vus = (deFace.length ? deFace : murs).map((x) => ({ ...x, part: partVisibleDuMur(corps, rang, x.m, oeil) }));
+  const meilleure = Math.max(...vus.map((x) => x.part));
+  return vus.filter((x) => x.part >= meilleure - AUTANT_VISIBLE).reduce((a, b) => (b.tourne > a.tourne + 1e-9 ? b : a)).m;
+}
+
+/** Ce que regarde la Vue 3D du mode : de dessus ou non, la facade courante (ou la derniere) et l'oeil (la camera : un point du plan, et sa hauteur). */
+export interface VuePoignees { dessus: boolean; facade: { rang: number | null; mur: number } | null; oeil: Oeil }
 
 /**
  * Ce que les poignees tirent, selon ce qui est choisi. De dessus, seul un corps choisi en a. De face ou en vue libre, un pignon ou un
- * element de mur se tire devant sa facade ; un corps choisi, par son mur le plus tourne vers l'oeil, celui ou se trace sa silhouette
+ * element de mur se tire devant sa facade ; un corps choisi, par son mur le plus visible (`murLePlusVisible` : tourne vers l'oeil et le
+ * moins cache par les autres corps ; 29 octobre 2026, le pignon de « Corps 2 » derriere l'autre corps), celui ou se trace sa silhouette
  * (`silhouetteVersLOeil`), jamais la facade courante d'un autre corps : la silhouette reste ou elle est, les poignees et la bulle la
  * suivent (28 octobre 2026, « les poignées ne sont pas sur le bon corps »). Sans choix, la facade courante.
  */
@@ -202,7 +273,7 @@ export function cibleDesPoignees(corps: readonly CorpsToit[], selection: CibleEl
   if (selection?.type === 'corps') {
     const c = corps[selection.rang];
     if (!c) return null;
-    return { type: 'facade', rang: selection.rang, i: 0, mur: murVersLOeil(c, v.oeil) };
+    return { type: 'facade', rang: selection.rang, i: 0, mur: murLePlusVisible(corps, selection.rang, v.oeil) };
   }
   // Un pignon ou un element de mur ne se tire que devant sa facade : vu de l'autre cote, ses poignees flotteraient sur le mauvais mur.
   if (selection) {
