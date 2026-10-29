@@ -72,7 +72,10 @@ qui se lit sur la photo revient à l'audit, qui propose ; le moteur de règles t
     tout**. Voir §4 ter.
 19. **Aucun code mort dans la migration.** Chaque morceau de code indépendant (audit, relevé, calibration) qui est absorbé par
     l'enchaînement est **supprimé dans la même PR** que son remplaçant : ni pont, ni doublon, ni « à nettoyer plus tard ». Voir §8 bis.
-20. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
+20. **L'audit et la calibration montrent la même barre de progression, en haut de l'écran.** Elle dit où en est l'enchaînement de la façade
+    (étapes faites, étape en cours, étapes à confirmer ou en échec), lue sur les états de l'orchestrateur : un seul composant, deux écrans.
+    Voir §4 ter.5.
+21. Textes de l'interface en français avec accents et vouvoiement ; commentaires de code en français sans accents, qui disent pourquoi.
 
 ---
 
@@ -444,8 +447,58 @@ flowchart TD
 - **Un contrat par étape** : un type (`EtapeFacade` : entrant, sortant, objectif, option manuelle, mode d'audit) dans `model/`, les objectifs
   dans `regles/facades/reglages.json`, le mode d'audit dans un réglage d'interface (`affichage`), jamais dans la chaîne.
 - **L'audit** lit les états et ne montre que V1 à V4 et les étapes en échec ; **la calibration** lit les mêmes états et montre tout. Un
-  seul calcul, deux affichages.
+  seul calcul, deux affichages, et **une seule barre de progression** (§4 ter.5) qui les rend l'un et l'autre.
 - **Le rejeu** (§7.2) exécute le même orchestrateur sur un cas : mêmes entrants, mêmes réponses enregistrées, mêmes objectifs, mêmes états.
+
+---
+
+### 4 ter.5 La barre de progression (audit et calibration)
+
+L'audit et la calibration montrent **une barre de progression en haut de l'écran**, la même. Elle se lit en un coup d'œil : où en est la
+façade, ce qui est fait, ce qui attend la personne.
+
+- **Un seul composant**, `BarreProgressionFacade` (`zones/composants/`), qui lit les **états de l'orchestrateur** (§4 ter.1) et rien d'autre.
+  Aucun écran ne calcule sa propre progression des étapes de la façade (décision 19 : les indicateurs « étape n sur m » propres au relevé,
+  à l'audit ou à la calibration pour cet enchaînement sont **supprimés** dans les lots qui les remplacent, §8 bis).
+  *(La « progression » de la descente des réglages de la calibration (`avance` de `EcranCalibration.tsx`) et celle de la lecture des toits
+  de la barre d'état sont d'autres traitements : elles ne changent pas.)*
+- **Les segments** : une barre à **huit segments**, qui regroupent les étapes pour rester lisible :
+
+  | Segment | Étapes | Point de validation sur le segment |
+  |---|---|---|
+  | 1 · Prise | É1 | — (c'est le geste) |
+  | 2 · Image | É2 redressement, É3 assemblage | — (caché, passe en résumé s'il échoue) |
+  | 3 · Mur | É4 calage | **V1** |
+  | 4 · Forme | É5 silhouette lue, É5 bis diagnostic | **V2** |
+  | 5 · Texture | É6 | — |
+  | 6 · Ouvertures | É7 | **V3** |
+  | 7 · Toit | É8 | — (suit V2) |
+  | 8 · Façade | É9 | **V4** |
+
+  (É0, la préparation, est instantanée et n'a pas de segment.) Les points de validation sont marqués d'un **repère** sur leur segment.
+- **L'état de chaque segment** (le pire état de ses étapes) : *à venir* (neutre), *en cours* (animé, sans mouvement avec
+  `prefers-reduced-motion`), *ok* (accent), *à confirmer* (attention), *échec* (danger), *sauté* (hachuré). Jamais la couleur seule : chaque état a
+  aussi une **forme** (coche, point d'exclamation, croix, tiret) et un texte, pour le thème sombre et le daltonisme. Les couleurs sont des
+  **jetons** (`styles/jetons.ts` d'abord, puis les modèles de palette), pas des valeurs en dur.
+- **Sous la barre**, deux lignes : le **nom de l'étape en cours** (« Mur : calage ») et le **résultat de la dernière étape finie** en une
+  phrase (« Mur posé, bouts à 1,2 % de la largeur »). Sur téléphone, la barre se réduit à un **fin ruban** et au libellé « 3 sur 8 · Mur ».
+- **Pendant un calcul**, la barre avance au fil des événements de l'orchestrateur (étape, part faite) : le redressement, l'assemblage et le run
+  IA durent plusieurs secondes sur téléphone ; ils tournent hors du fil de l'interface (le worker existant), et un bouton **« Arrêter »** apparaît
+  à droite de la barre tant que quelque chose tourne.
+- **Dans l'audit**, la barre montre toutes les étapes mais **n'ouvre que** les points de validation et les étapes en échec ou à confirmer ; une
+  étape cachée qui a réussi n'est pas cliquable. C'est elle qui fait voir qu'une étape cachée a bien tourné.
+- **Dans la calibration**, **tous** les segments sont ouvrables : toucher un segment ouvre l'étape avec ses calques (§7.3). « Rejouer » repart de
+  la première étape ; **« Rejouer depuis cette étape »** repart de l'étape choisie, avec les sorties des précédentes.
+- **Un échec** se lit sur le segment (croix, texte) ; le toucher dit pourquoi (une ligne sous la barre, pas une infobulle seule : le doigt n'a pas
+  de survol) et propose l'**option manuelle** de l'étape.
+- **Accessibilité** : une liste ordonnée (`ol`) de huit éléments, `aria-current="step"` sur l'étape en cours, un texte lu à voix haute
+  (« Étape 3 sur 8, Mur, à confirmer ») ; les segments ouvrables sont des **boutons de 44 px au moins** (le segment est mince, sa zone de
+  toucher ne l'est pas).
+- **Commandes** : un segment ouvrable est un bouton lié à une commande du registre (`facade.etape`, paramètre `data-etape`), inscrite dans
+  `app/exposition.ts` pour les trois classes d'écran, décrite au glossaire (`app/descriptions.ts`) et classée dans `app/controlesInterface.ts` ;
+  il lit `commandes.etat(id)` (grisé avec la raison, jamais `obtenir(id).actif` seul).
+- **Place** : en haut du contenu de l'écran (sous la barre d'application Z1), **collée** quand on défile. Ce n'est pas une zone de plus : c'est un
+  bandeau de l'écran qui le porte (le parcours de l'audit, l'éditeur de cas de la calibration).
 
 ---
 
@@ -561,6 +614,8 @@ qui va dans le toit ; **les éléments posés à la main** (Mode Toit, `toitFige
   photo est une donnée personnelle : on ne copie dans le dépôt (corpus de calibration) que celles que l'on peut y conserver.
 - **Migration** : `FacadeCapturee` (photos, corrections, `inaccessible`) ne change pas ; `ReleveFacade.depuisAudit` garde son sens. Un
   projet qui a des façades relevées sans audit les garde telles quelles ; elles se rejouent depuis leur photo locale quand elle est là.
+- **La barre de progression** (décision 20, §4 ter.5) se tient en haut de l'écran de la façade : l'audit n'y ouvre que les points de validation et les étapes
+  qui échouent.
 - **Mode discret** (décision 18) : l'audit ne montre que les points de validation V1 à V4 (§4 ter.3) et les étapes qui échouent ; le redressement,
   l'assemblage, la silhouette lue et la texture tournent en arrière-plan. La personne ne voit que le résultat.
 - **Parcours** : l'audit propose les côtés du contour, la personne choisit un côté (la vue de prise existante, élévation devant la
@@ -599,7 +654,7 @@ pour l'IA**, avec la mesure contre la vérité. On y règle les seuils sur des c
 
 ### 7.3 Ce que l'écran montre
 
-Une **frise d'étapes** (É2 à É8), chacune avec sa vignette ; toucher une étape l'ouvre en grand avec ses **calques** :
+En haut, **la barre de progression** (§4 ter.5), dont tous les segments s'ouvrent. Dessous, une **frise d'étapes** (É2 à É8), chacune avec sa vignette ; toucher une étape l'ouvre en grand avec ses **calques** :
 
 | Étape | Vignette | Calques (déterministe / IA / retenu) | Mesure contre la vérité |
 |---|---|---|---|
@@ -709,6 +764,7 @@ passer par **l'orchestrateur** du §4 ter.4 et **supprime** ce qui devient inuti
 | `app/releve/releve.ts`, `casDeReleve.ts`, `renfortReleve.ts` | 156+57+150 | écrire le relevé, créer un cas, renfort du relevé | l'écriture → la validation V4 ; `casDeReleve` → « Créer un cas depuis cette façade » ; `renfortReleve` **supprimé** (run unique) | F2, F5, F6 |
 | `app/audit/parcelle/mesures.ts`, `redressement.ts`, `rejeu.ts` | 233+… | l'audit calcule sa façade | appellent l'orchestrateur ; leur glue **disparaît** ; « Rejouer » = rejeu de l'orchestrateur | F3 |
 | `app/audit/parcelle/entreesRenfort.ts`, `escalade.ts`, `facade/detection/renfort.ts`, `renfortRecalage.ts` | — | les trois passes votées du renfort | remplacées par le run unique ; le **vote ×3 ne reste que comme option du rejeu** (son seul appelant) ; s'il est jugé inutile après mesure (§11), supprimé en bloc | F2, F3 |
+| Indicateurs d'étape propres à chaque écran (`zones/releve/AideEtapes.tsx`, les textes « étape n sur m » de l'audit et de la calibration, **pour cet enchaînement**) | — | dire où l'on en est | remplacés par **la barre de progression** unique ; supprimés (à confirmer au `grep`) | F0, F3, F6 |
 | `deploy/schema-analyse.json`, `deploy/prompt-analyse.md` (générés) | — | ce que Claude lit et rend | **régénérés** (`npm run regles:generer`) ; un champ qu'aucun lecteur n'utilise est retiré du schéma | F2 |
 
 ### 8 bis.3 L'ordre : un consommateur à la fois, du plus sûr au plus exposé
@@ -745,10 +801,10 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 
 | Lot | Livre | Supprime, dans la même PR | Critère d'acceptation |
 |---|---|---|---|
-| **F0 — Orchestrateur + calibration** | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts` | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
+| **F0 — Orchestrateur + calibration** | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
 | **F1 — Calage par ancres** | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F2 — Un run IA par façade** | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
-| **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
+| **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
@@ -777,7 +833,7 @@ NODE_PATH=$(npm root -g) npx tsx .claude/skills/facades/scripts/reel.ts mesurer 
   banc, `redressementFuites.test.ts`, `mosaiqueFuites`, `fusion`, `voteVues.test.ts` sont identiques avant et après, à la décimale.
 - **Pièges de CI** : `max-lines-per-function` 150 ; couches (`tests/unit/architecture.test.ts`) ; exposition des commandes
   (`app/exposition.ts`, trois classes d'écran) ; contrôles classés (`controlesInterface.ts`) ; `exactOptionalPropertyTypes`.
-- **Fumée** : un point nouveau pour la frise de calibration et un pour la prise dans l'audit ; points existants touchés : 54, 58, 59, 62,
+- **Fumée** : un point nouveau pour la barre de progression et la frise de calibration, un pour la prise dans l'audit (la barre y est aussi) ; points existants touchés : 54, 58, 59, 62,
   63, 65, 67 (chaîne des façades) et 24 (GLB, fenêtres).
 - **Garde-fou de zones** : tout calque qui suit la caméra ou l'image se tient hors du rendu de React (nœud stable, contenu écrit à la main)
   pour ne pas faire échouer la comparaison des clés de version (`zones/composants/abonnement.ts`).
