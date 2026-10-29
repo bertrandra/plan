@@ -242,8 +242,18 @@ largeur du mur près.
 `tests/unit/zones/coinsAuto.test.ts` garde `02`, `03`, `07` et `18` à 2 %. Le banc des façades (`banc.ts`) pose les coins vrais : il ne joue pas cette recherche.
 
 **Le gabarit** (`facade/gabaritMur.ts`) : la silhouette du plan et du LiDAR, une forme fixe. `egout-sol.ts` pose le gabarit vrai de
-chaque scène, comme le LiDAR le donnerait : égout 44/44, sol 43/44, gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et
-du sol trouvés. Le profil lu pour caler un sol caché a été essayé, puis retiré : il dégradait la rampe `23`.
+chaque scène, comme le LiDAR le donnerait, **une fois le mur calé** (il n'entre pas dans la recherche, lot F1) : égout 44/44, sol 43/44,
+gabarit posé à 2 % 39/44. L'écart du gabarit vient de l'égout et du sol trouvés. Le profil lu pour caler un sol caché a été essayé,
+puis retiré : il dégradait la rampe `23`.
+
+**Le calage par les ancres** (`facade/releve/calageAncres.ts`, lot F1 de `MD/spec-facade-calage-audit.md`) : une pose du mur se juge
+sans le toit, par un score d'explication (les deux angles, bords de la matière du mur ; l'égout ; le sol ; les proportions du plan) ;
+elle passe quand le score atteint `facades.enchainement.explicationMin` (0,75) et chaque angle `angleMin` (0,6). Sinon l'arbitre prend
+un autre mur que les arêtes dessinent, sinon la pose du plan seul, supposée, sans drapeau « trouvé ». La colonne « Explication »
+d'`egout-sol.ts` donne le score de la pose retenue (« autre », « plan » quand ce n'est pas celle des arêtes) : 44/44 poses expliquées,
+de 0,83 à 1 ; les poses de travers (une moitié du mur, le mur décalé ou rentré de 15 %) restent sous 0,77 et toutes refusées. Le
+défaut d'AE 101 (un bloc de pignon retenu) se rejoue sans ses photos sur `tests/banc/facades/ae101.ts::sceneAe101`, tiré de l'étalon.
+Une photo serrée sur le mur sans rien autour n'explique pas ses angles : c'est voulu (un bord d'image ne dit pas où finit la matière).
 
 **Le toit par la silhouette.** `npx tsx .claude/skills/facades/scripts/toit-facade.ts [mots]` compare, scène par scène, le toit lu
 par la bande au-dessus de l'égout (l'avis de la photo seule) et celui que dit le gabarit vrai de la scène, posé entre les vrais coins

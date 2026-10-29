@@ -3,15 +3,16 @@
 // de l'orchestrateur (facade/releve/enchainement.ts) et de ses images (facade/releve/imagesEtapes.ts) : l'ecran ne calcule rien, il
 // change les images en adresses et dessine.
 
+import { useCallback, useState } from 'react';
 import { etapeFacade, LIBELLES_ETAT, type IdEtape } from '../model/etapeFacade.js';
 import { etapeDe, reperesDe, type Enchainement } from '../facade/releve/enchainement.js';
 import type { ImagesEtapes } from '../facade/releve/imagesEtapes.js';
 import type { CasStocke } from '../facade/corpusReel.js';
 import type { RegistreCommandes } from '../app/commandes.js';
 import type { Image, P2 } from '../facade/vision/homographie.js';
-import { GABARIT_RECTANGLE, contourDuGabarit } from '../facade/gabaritMur.js';
+import { GABARIT_RECTANGLE, contourDuGabarit, type GabaritMur } from '../facade/gabaritMur.js';
 import { COMMANDE_ETAPE } from './composants/BarreProgressionFacade.js';
-import { CalageSilhouette } from './CalageSilhouette.js';
+import { AjusterMur } from './releve/AjusterMur.js';
 import { VueFacade3d } from './VueFacade3d.js';
 
 /** Les etapes de la frise : ce que le rejeu illustre (E0 et E1, l'entree, sont dans l'editeur ; E9 n'est pas de la calibration). */
@@ -20,6 +21,7 @@ const ETAPES_FRISE: readonly IdEtape[] = ['preparation', 'redressement', 'assemb
 const MOTS_MODE = { cache: 'cachée (elle ne se montre que si elle échoue)', resume: 'en une ligne', valider: 'un point d’arrêt : la personne confirme' } as const;
 const points = (l: readonly P2[]) => l.map((p) => p.x + ',' + p.y).join(' ');
 const metres = (v: number) => String(Math.round(v * 100) / 100).replace('.', ',');
+const note = (v: number) => v.toFixed(2).replace('.', ',');
 
 /** Une image et ses calques, dans le repere de ses pixels. */
 function Calques({ url, l, h, libelle, children }: { url: string; l: number; h: number; libelle: string; children?: React.ReactNode }) {
@@ -39,6 +41,24 @@ function vignette(id: IdEtape, im: ImagesEtapes | null): Image | null {
   if (id === 'calage' || id === 'silhouette' || id === 'ouvertures') return im.pose?.image ?? null;
   if (id === 'texture') return im.texture?.image ?? null;
   return null;
+}
+
+/**
+ * L'option manuelle de l'E4 sur l'assemblage (MD/spec-facade-calage-audit.md §4 ter.2) : les deux bouts, l'egout et le sol a tirer
+ * (zones/releve/AjusterMur.tsx, le seul composant de ce geste), puis le mur pose sur chaque photo et le cas rejoue depuis le calage.
+ */
+function CalageALaMain({ image, url, coins, gabarit, caler }: { image: Image; url: string; coins: readonly P2[]; gabarit: GabaritMur; caler: (coins: P2[]) => void }) {
+  const [depart, setDepart] = useState(0);
+  const [ajuste, setAjuste] = useState<P2[] | null>(null);
+  const charger = useCallback(async () => image, [image]);
+  return <>
+    <h4 className="calTitre3">À la main : tirer les bouts, l’égout et le sol</h4>
+    <AjusterMur key={depart} charger={charger} reperes={null} url={url} mur={coins} gabarit={gabarit} changer={(m) => setAjuste(m.coins)} />
+    <div className="calLigne">
+      <button type="button" className="secondary small" data-controle="calibration.retablirCalage" onClick={() => { setAjuste(null); setDepart((d) => d + 1); }}>Revenir au mur retenu</button>
+      <button type="button" className="small" data-controle="calibration.appliquerCalage" disabled={!ajuste} onClick={() => { if (ajuste) caler(ajuste); }}>Appliquer le calage et rejouer</button>
+    </div>
+  </>;
 }
 
 interface PropsFrise {
@@ -104,14 +124,22 @@ function CalquesDeLEtape({ id, images: im, cas, dims, url, caler }: Omit<PropsEt
     </figure></li>; })}
   </ul>;
   if (id === 'assemblage') return im.assemblage ? <Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="L’assemblage des photos redressées" /> : <p className="calNote">Aucune photo ne s’assemble.</p>;
-  if (id === 'calage') return <>
-    {im.assemblage && <figure><Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="Le mur cherché sur l’assemblage (traits) et le mur retenu (contour)">
-      {[im.assemblage.mur.y0, im.assemblage.mur.y1].map((y, k) => <line key={'h' + k} className="calMurLigne" x1={im.assemblage?.mur.x0} x2={im.assemblage?.mur.x1} y1={y} y2={y} vectorEffect="non-scaling-stroke" />)}
-      {[im.assemblage.mur.x0, im.assemblage.mur.x1].map((x, k) => <line key={'v' + k} className="calMurBout" x1={x} x2={x} y1={im.assemblage?.mur.y0} y2={im.assemblage?.mur.y1} vectorEffect="non-scaling-stroke" />)}
-      {im.pose && <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />}
-    </Calques><figcaption>Traits : le mur cherché sur l’assemblage (égout et sol pleins, bouts en tirets). Contour : le mur retenu, le gabarit posé entre ses coins.</figcaption></figure>}
-    {im.pose && <CalageSilhouette key={url(im.pose.image)} url={url(im.pose.image)} largeur={im.pose.image.largeur} hauteur={im.pose.image.hauteur} coins={im.pose.coins} gabarit={g} largeurM={cas.largeurM} hauteurM={cas.hauteurM} appliquer={caler} />}
-  </>;
+  if (id === 'calage') {
+    const mur = im.assemblage?.mur, c = mur?.calage, aretes = c?.aretes;
+    const retenue = c ? { aretes: 'la pose des arêtes', 'mieux-expliquee': 'une autre pose des arêtes, qui explique mieux la photo', 'plan-seul': 'la pose du plan seul, supposée (aucune n’explique la photo)' }[c.retenue] : '';
+    return <>
+      {im.assemblage && mur && c && <figure><Calques url={url(im.assemblage.image)} l={im.assemblage.image.largeur} h={im.assemblage.image.hauteur} libelle="Le mur cherché sur l’assemblage (traits), la pose des arêtes écartée (tirets) et le mur retenu (contour)">
+        {aretes && <rect className="calMurAretes" x={aretes.x0} y={aretes.y0} width={aretes.x1 - aretes.x0} height={aretes.y1 - aretes.y0} vectorEffect="non-scaling-stroke" />}
+        {[mur.y0, mur.y1].map((y, k) => <line key={'h' + k} className="calMurLigne" x1={mur.x0} x2={mur.x1} y1={y} y2={y} vectorEffect="non-scaling-stroke" />)}
+        {[mur.x0, mur.x1].map((x, k) => <line key={'v' + k} className="calMurBout" x1={x} x2={x} y1={mur.y0} y2={mur.y1} vectorEffect="non-scaling-stroke" />)}
+        {im.pose && <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />}
+      </Calques><figcaption>
+        Traits : le mur cherché, {retenue}, score d’explication sans le toit {note(c.explication.score)} (angles {note(c.explication.angles[0])} et {note(c.explication.angles[1])}, égout {note(c.explication.egout)}, sol {note(c.explication.sol)} ; seuils {note(c.seuils.score)} et {note(c.seuils.angle)} par angle).
+        {aretes && <> Tirets : la pose des arêtes, écartée (score {note(aretes.score)}).</>} Contour : le mur retenu, le gabarit posé entre ses coins.
+      </figcaption></figure>}
+      {im.pose && <CalageALaMain key={url(im.pose.image)} image={im.pose.image} url={url(im.pose.image)} coins={im.pose.coins} gabarit={g} caler={caler} />}
+    </>;
+  }
   if (id === 'silhouette') return im.pose ? <figure><Calques url={url(im.pose.image)} l={im.pose.image.largeur} h={im.pose.image.hauteur} libelle="Le haut du mur lu sur l’image, et le gabarit posé">
     <polygon className="calCalage" points={points(im.pose.contour)} vectorEffect="non-scaling-stroke" />
     {im.pose.silhouette && <polyline className="calSilhouetteLue" points={points(im.pose.silhouette)} vectorEffect="non-scaling-stroke" />}

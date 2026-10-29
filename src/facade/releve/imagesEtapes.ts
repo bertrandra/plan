@@ -5,15 +5,18 @@
 import { contourDuGabarit, gabaritSurLaPhoto, type GabaritMur } from '../gabaritMur.js';
 import { inverser } from '../vision/redressementFuites.js';
 import { appliquer, homographie, type Image, type P2 } from '../vision/homographie.js';
-import type { MurLu } from '../vision/mosaiqueFuites.js';
+import type { MurCale } from './calageAncres.js';
 import type { OuvertureDetectee } from '../detection/detection.js';
 import type { EntreesFacade, Enchainement } from './enchainement.js';
 
 export interface ImagesEtapes {
   /** E2 : par photo, la vue redressee entiere et le gabarit pose par ses coins (en pixels de la vue) ; null : elle ne se redresse pas. */
   vues: ({ image: Image; silhouette: P2[] | null } | null)[];
-  /** E3, E4 : l'assemblage des vues et le mur qui y a ete cherche (en pixels de l'assemblage). */
-  assemblage: { image: Image; mur: MurLu } | null;
+  /**
+   * E3, E4 : l'assemblage des vues et le mur qui y a ete cherche (en pixels de l'assemblage), avec le calage qui l'a retenu : la pose
+   * des aretes quand une autre l'a remplacee, et le score de chacune.
+   */
+  assemblage: { image: Image; mur: MurCale } | null;
   /**
    * E4, E5, E7 : l'image prise pour la suite et le mur retenu dessus ; le contour du mur (le sol, puis le gabarit a l'echelle de la
    * facade entre ses coins), le haut lu sur l'image, et les ouvertures ramenees du mur sur elle.

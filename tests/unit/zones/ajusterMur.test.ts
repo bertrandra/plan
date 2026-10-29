@@ -29,10 +29,10 @@ const MUR: P2[] = [{ x: 60, y: 50 }, { x: 340, y: 50 }, { x: 340, y: 260 }, { x:
 /** Un pignon centre qui monte de la moitie de la hauteur du mur au-dessus de l'egout. */
 const PIGNON = [{ u: 0, v: 1 }, { u: 0.5, v: 1.5 }, { u: 1, v: 1 }];
 
-async function monter(gabarit: { u: number; v: number }[] | null = null) {
+async function monter(gabarit: { u: number; v: number }[] | null = null, reperes: P2[] | null = REPERES) {
   const changer = vi.fn<(m: MurAjuste) => void>();
   const charger = async () => photo();
-  await act(async () => { racine.render(createElement(AjusterMur, { charger, reperes: REPERES, mur: MUR, ...(gabarit ? { gabarit } : {}), changer })); await new Promise((ok) => setTimeout(ok, 0)); });
+  await act(async () => { racine.render(createElement(AjusterMur, { charger, reperes, mur: MUR, ...(gabarit ? { gabarit } : {}), changer, ...(reperes ? {} : { url: 'data:,' }) })); await new Promise((ok) => setTimeout(ok, 0)); });
   return changer;
 }
 const poignee = (nom: string) => hote.querySelector(`[role="slider"][aria-label="${nom}"]`) as SVGElement;
@@ -77,5 +77,15 @@ describe('la reprise a la main du mur sur la photo redressee', () => {
     for (let i = 0; i < 40; i++) touche('Égout', 'ArrowDown', true);
     const m = dernier(changer);
     expect((m.coins[0] as P2).y).toBeLessThan((m.coins[3] as P2).y);
+  });
+
+  it('cale le mur sur l assemblage, deja de face (l option manuelle de l E4) : les coins rendus sont ceux de l image', async () => {
+    const changer = await monter(PIGNON, null);
+    expect(hote.querySelector('svg[aria-label^="Assemblage des photos"] image')?.getAttribute('href')).toBe('data:,');
+    touche('Bout gauche du mur', 'ArrowRight', true);
+    touche('Sol', 'ArrowUp', true);
+    const m = dernier(changer);
+    // Sans redressement, un pas de 8 px (Maj : dix fois 0,2 % du grand cote) se lit tel quel sur l'image.
+    expect(m.coins).toEqual([{ x: 68, y: 50 }, { x: 340, y: 50 }, { x: 340, y: 252 }, { x: 68, y: 252 }]);
   });
 });

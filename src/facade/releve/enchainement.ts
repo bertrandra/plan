@@ -17,6 +17,8 @@ import { appliquer, type Image, type P2 } from '../vision/homographie.js';
 import { sansOmbres } from '../vision/sansOmbres.js';
 import type { ResultatFusion } from '../fusion.js';
 import { mosaiqueDeLaSerie, murDeLaSerie, type CoinsDeSerie } from './coinsAuto.js';
+import { expliquer, expliqueLaPhoto, seuilsDuCalage, type Explication, type MurCale } from './calageAncres.js';
+import { detecterSegments } from '../vision/segments.js';
 import { priseSansCapteurs, redresserEtFusionner, VERSION_CHAINE_FACADES } from './chaine.js';
 import { avisFusion } from './analyseSerie.js';
 import type { EntreeRecherche, ResultatRecherche } from './serie.js';
@@ -97,8 +99,11 @@ interface SortiesFacade {
   mosaique: ResultatMosaique | null;
   /** E4 : le mur cherche sur l'assemblage (et reporte sur chaque photo). Mode `assemblage` seulement. */
   serie: CoinsDeSerie | null;
-  /** E4 : les coins retenus sur chaque photo et leur origine, ce qui doute, et le mur pose sur l'assemblage pris pour la suite. */
-  calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null } | null;
+  /**
+   * E4 : les coins retenus sur chaque photo et leur origine, ce qui doute, le mur pose sur l'assemblage pris pour la suite, et ce que
+   * ce mur explique de la photo sans le toit (calageAncres.ts).
+   */
+  calage: { photos: { coins: P2[]; origine: OrigineCoins | null }[]; message: string | null; pose: AssemblageDuMur | null; explication?: Explication } | null;
   /** E5 : le haut du mur lu sur l'image, en pixels de l'assemblage pris, et sa forme. */
   silhouette: { points: P2[]; forme: 'droite' | 'pignon' | 'rampe' } | null;
   /** E6, E7 : l'analyse du mur. */
@@ -249,26 +254,61 @@ function ecartAuVrai(pose: { x0: number; x1: number; y0: number; y1: number }, v
   return { texte: `Contre la vérité (mur de ${Math.round(w)} px, x de ${Math.round(vrai.x0)} à ${Math.round(vrai.x1)}) : ` + ecarts.map((x) => x.nom + ' à ' + pc(x.e)).join(', ') + (pire > seuil ? ` : faux (au-delà de ${pc(seuil)}).` : ' : juste.'), juste: pire <= seuil };
 }
 
+/** Ce qu'une pose explique de l'image prise pour la suite, sans le toit : le score, et s'il passe le test. */
+function explicationDe(pose: AssemblageDuMur, e: EntreesFacade): Explication {
+  return expliquer(pose, detecterSegments(pose.image), rectDeLaPose(pose.coins), e.hauteurM / e.largeurM);
+}
+
+const sc = (x: number) => dec(x, 2);
+const px = (r: { x0: number; x1: number }) => `x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px)`;
+
+/**
+ * Ce que l'arbitre du calage a retenu (§5), en une phrase, et l'etat qu'il donne a l'E4 : la pose des aretes qui explique la photo
+ * (l'etat suit alors ce qui a ete lu ou suppose), une autre qui l'explique mieux (les deux chemins divergent : a confirmer), ou aucune
+ * (la pose du plan seul, supposee : echec, la personne pose les angles).
+ */
+function arbitrage(mur: MurCale): { etat: EtatAffiche | null; texte: string } {
+  const c = mur.calage, ex = c.explication;
+  const seuil = `seuil ${sc(c.seuils.score)}, angles ${sc(c.seuils.angle)}`;
+  if (c.retenue === 'plan-seul') return { etat: 'echec', texte: `Aucune pose n’explique la photo sans le toit (${seuil})` + (c.aretes ? ` : celle des arêtes, ${px(c.aretes)}, n’a que ${sc(c.aretes.score)}` : '') + `. Le mur est supposé : la pose du plan seul, centrée, ${px(mur)}. Posez les deux angles, l’égout et le sol.` };
+  if (c.retenue === 'mieux-expliquee' && c.aretes) {
+    const w = mur.x1 - mur.x0, ecart = Math.max(Math.abs(c.aretes.x0 - mur.x0), Math.abs(c.aretes.x1 - mur.x1)) / w;
+    return { etat: 'a-confirmer', texte: `La pose des arêtes, ${px(c.aretes)}, n’explique pas la photo sans le toit (score ${sc(c.aretes.score)} ; ${seuil}) ; retenue : celle qui l’explique, ${px(mur)}, score ${sc(ex.score)}, ses bouts à ${pc(ecart)} de la largeur des premiers : à confirmer.` };
+  }
+  return { etat: null, texte: `Mur cherché sur l’assemblage : ${px(mur)}, expliqué sans le toit (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])})` };
+}
+
 const calage: Pas = async ({ e, o, s, obj }) => {
   if (!e.photos.length) return attend('une photo');
+  const seuils = seuilsDuCalage(obj);
   if (o.image === 'chaine') {
     const pose = s.analyse?.assemblage ?? null;
     s.calage = { photos: e.photos.map((p) => ({ coins: p.coins, origine: p.murALaMain ? 'main' : null })), message: null, pose };
     if (!pose) return sans('Le mur est posé par les coins du cas sur chaque photo, sans assemblage.');
-    const r = rectDeLaPose(pose.coins);
-    return { etat: 'ok', resume: `Mur posé par les coins du cas : x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px) sur l’assemblage.`, verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
+    const r = rectDeLaPose(pose.coins), ex = explicationDe(pose, e), passe = expliqueLaPhoto(ex, seuils);
+    s.calage.explication = ex;
+    return { etat: passe ? 'ok' : 'a-confirmer', resume: `Mur posé par les coins du cas : ${px(r)} sur l’assemblage ; ` + (passe ? `il explique la photo sans le toit (score ${sc(ex.score)}).` : `il n’explique pas la photo sans le toit (score ${sc(ex.score)}, angles ${sc(ex.angles[0])} et ${sc(ex.angles[1])}) : à confirmer.`), verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
   }
-  s.serie = s.vues && s.mosaique ? murDeLaSerie(s.vues, s.mosaique, e.largeurM, e.hauteurM, e.gabarit) : null;
+  s.serie = s.vues && s.mosaique ? murDeLaSerie(s.vues, s.mosaique, e.largeurM, e.hauteurM, seuils) : null;
   s.calage = o.coins === 'chercher' ? await chercherLesCoins(e, o) : { photos: e.photos.map((p) => ({ coins: p.coins, origine: p.murALaMain ? 'main' : p.reperes ? 'reperes' : null })), message: null, pose: null };
   s.calage.pose = s.serie ? poseSurLAssemblage(s.serie, s.calage.photos) : null;
   const mur = s.serie?.assemblage.mur;
   if (!mur || !s.calage.pose) return { etat: 'echec', resume: 'Aucun mur sur l’assemblage : posez quatre repères, puis rejouez.' + (s.calage.message ? ' ' + s.calage.message : ''), verite: null };
   const r = rectDeLaPose(s.calage.pose.coins);
+  const ex = explicationDe(s.calage.pose, e);
+  s.calage.explication = ex;
+  const a = arbitrage(mur);
   const supposes = [mur.egout ? '' : 'l’égout', mur.pied ? '' : 'le sol', mur.cotes ? '' : 'les bouts'].filter(Boolean);
   const devines = s.calage.photos.map((p, k) => (p.origine === 'devines' ? k + 1 : 0)).filter(Boolean);
-  const resume = `Mur cherché sur l’assemblage : x de ${Math.round(mur.x0)} à ${Math.round(mur.x1)} (${Math.round(mur.x1 - mur.x0)} px)` + (supposes.length ? `, ${supposes.join(', ')} supposé${supposes.length > 1 ? 's' : ''}` : ', égout, sol et bouts trouvés')
-    + `. Mur retenu : x de ${Math.round(r.x0)} à ${Math.round(r.x1)} (${Math.round(r.x1 - r.x0)} px).` + (devines.length ? ` Coins devinés sur la photo ${devines.join(', ')}, à vérifier.` : '') + (s.calage.message ? ' ' + s.calage.message : '');
-  return { etat: supposes.length || devines.length ? 'a-confirmer' : 'ok', resume, verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
+  // Un mur pose a la main l'emporte : ce que la recherche en dit reste ecrit, il ne se discute pas. Les coins gardes d'un cas (un
+  // rejeu, §9 bis interpretation 5) se jugent comme une pose : s'ils n'expliquent pas la photo, l'etape est a confirmer.
+  const main = s.calage.photos.some((p) => p.origine === 'main');
+  const retenueExplique = expliqueLaPhoto(ex, seuils);
+  const resume = (main ? 'Mur posé à la main. ' : '') + a.texte + (a.etat === null ? (supposes.length ? `, ${supposes.join(', ')} supposé${supposes.length > 1 ? 's' : ''}` : ', égout, sol et bouts trouvés') + '.' : '')
+    + ` Mur retenu : ${px(r)}, score ${sc(ex.score)}` + (retenueExplique ? '.' : ' : il n’explique pas la photo sans le toit.') + (devines.length ? ` Coins devinés sur la photo ${devines.join(', ')}, à vérifier.` : '') + (s.calage.message ? ' ' + s.calage.message : '');
+  const auMieux: EtatAffiche = a.etat ?? (supposes.length || devines.length || !retenueExplique ? 'a-confirmer' : 'ok');
+  const etat: EtatAffiche = main ? 'ok' : auMieux === 'ok' && !retenueExplique ? 'a-confirmer' : auMieux;
+  return { etat, resume, verite: o.verite?.calage ? ecartAuVrai(r, o.verite.calage, obj['facades.enchainement.calageEcartMaxPart']) : null };
 };
 
 const silhouette: Pas = ({ s }) => {

@@ -12,7 +12,6 @@ import { appliquerSimilitude, composer, echelleDe, inverse, ransacSimilitude, ro
 import { appliquer, type Image } from './homographie.js';
 import { inverser as inverserHomographie, redresserParFuites, redresserParReperes, type RedressementFuites } from './redressementFuites.js';
 import { detecterSegments } from './segments.js';
-import { gabaritSurLaVue, type GabaritMur } from '../gabaritMur.js';
 import { simplifierLigne } from '../../geometry/simplifierLigne.js';
 
 /** Le grand cote des copies reduites ou se cherchent les points communs. */
@@ -301,21 +300,28 @@ function couverture(d: Droite, a: number, b: number): number {
   return k / n;
 }
 
+/** Deux rectangles dont les bouts tombent a moins de cette part de la largeur l'un de l'autre sont le meme mur (l'egout et le sol s'affinent ensuite). */
+const MEME_MUR = 0.03;
+
 /**
- * Le rectangle du mur cherche sur ses aretes, aux proportions du plan (`rapport` = hauteur / largeur, a ECART_RAPPORT pres) : deux
+ * Les rectangles du mur cherches sur ses aretes, aux proportions du plan (`rapport` = hauteur / largeur, a ECART_RAPPORT pres) : deux
  * verticales (les angles de la maison) et deux horizontales (l'egout, le pied) qui couvrent le mieux ses quatre cotes. Les cotes
- * comptent plus que l'egout (un pignon n'a pas de ligne a l'egout) et que le pied (le sol, une haie). Null sans candidat.
+ * comptent plus que l'egout (un pignon n'a pas de ligne a l'egout) et que le pied (le sol, une haie). Les `n` meilleurs, du mieux
+ * note au moins bien, un seul par paire de bouts (MEME_MUR) : le premier est celui des aretes, les suivants sont les autres murs
+ * que les aretes dessinent, que le calage par les ancres (facade/releve/calageAncres.ts) juge quand le premier n'explique pas la
+ * photo. Vide sans candidat.
  */
-export function rectangleSurLesAretes(m: { image: Image }, segments: readonly SegmentPlan[], rapport: number): (Rect & { score: number }) | null {
+export function rectanglesSurLesAretes(m: { image: Image }, segments: readonly SegmentPlan[], rapport: number, n = 1): (Rect & { score: number })[] {
   const { largeur: L, hauteur: H } = m.image;
   const grand = Math.max(L, H);
   const vs = droites(segments, true, grand), hs = droites(segments, false, grand);
-  let meilleur: (Rect & { score: number }) | null = null;
+  const tous: (Rect & { score: number })[] = [];
   for (let i = 0; i < vs.length; i++) for (let j = 0; j < vs.length; j++) {
     const g = vs[i] as Droite, d = vs[j] as Droite;
     const w = d.p - g.p;
     // Une photo de facade montre le mur sur au moins le quart de sa largeur : en deca, c'est une fenetre, un colombage.
     if (!(w > LARGEUR_MUR_MIN * L)) continue;
+    let meilleur: (Rect & { score: number }) | null = null;
     for (let k = 0; k < hs.length; k++) for (let l = 0; l < hs.length; l++) {
       const h0 = hs[k] as Droite, h1 = hs[l] as Droite;
       const h = h1.p - h0.p;
@@ -326,8 +332,17 @@ export function rectangleSurLesAretes(m: { image: Image }, segments: readonly Se
       const score = cotes + 0.6 * couverture(h0, g.p, d.p) + 0.4 * couverture(h1, g.p, d.p) + POIDS_TAILLE * (w / L);
       if (!meilleur || score > meilleur.score) meilleur = { x0: g.p, x1: d.p, y0: h0.p, y1: h1.p, score };
     }
+    if (meilleur) tous.push(meilleur);
   }
-  return meilleur;
+  // Le tri garde l'ordre de la recherche entre deux notes egales : le premier est celui que la recherche trouvait seule.
+  tous.sort((a, b) => b.score - a.score);
+  const out: (Rect & { score: number })[] = [];
+  for (const r of tous) {
+    if (out.length >= n) break;
+    const tol = MEME_MUR * (r.x1 - r.x0);
+    if (!out.some((q) => Math.abs(q.x0 - r.x0) < tol && Math.abs(q.x1 - r.x1) < tol)) out.push(r);
+  }
+  return out;
 }
 
 /**
@@ -411,15 +426,18 @@ const SOL_ENTRE: readonly [number, number] = [0.88, 1.12];
 
 interface Rangee { cr: number; cg: number; l: number; n: number }
 
+/** Les rangees ou se lit la teinte du mur, en part de sa hauteur sous l'egout : le bas, sous une bande de toit prise pour du mur. */
+const RANGS_TEINTE: readonly [number, number] = [0.3, 0.9];
+
 /**
  * La chromaticite et la luminosite medianes du mur : deux bandes le long de ses bouts (de 1 a 6 % de sa largeur, a l'interieur), sur le
  * bas de sa hauteur. Les bouts sont surs, et un mur n'a presque jamais de baie contre ses angles ; son milieu, lui, peut etre pris
  * presque entier par des fenetres a volets, et son haut par une bande de toit quand l'egout des aretes est trop haut.
  */
-function teinteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect): { cr: number; cg: number; l: number; grain: number } | null {
+function teinteDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE): { cr: number; cg: number; l: number; grain: number } | null {
   const { largeur: L, hauteur: H, donnees: d } = m.image;
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
-  const ya = Math.max(0, Math.round(r.y0 + 0.3 * h)), yb = Math.min(H - 1, Math.round(r.y1 - 0.1 * h));
+  const ya = Math.max(0, Math.round(r.y0 + rangs[0] * h)), yb = Math.min(H - 1, Math.round(r.y0 + rangs[1] * h));
   const med = (t: number[]) => { t.sort((u, v) => u - v); return t[t.length >> 1] as number; };
   const cr: number[] = [], cg: number[] = [], l: number[] = [];
   const parRangee: { cr: number; cg: number }[] = [];
@@ -544,8 +562,19 @@ const ecartAdmisDuMur = (mur: { grain: number }): number => Math.max(ECART_CHROM
  * sans rien poser : ce que l'image montre, a comparer au gabarit. Null quand la teinte du mur ou trop de colonnes ne se lisent pas.
  */
 export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect): ReturnType<typeof silhouetteDuMur> {
-  const mur = teinteDuMur(m, r);
-  return mur ? silhouetteDuMur(m, r, mur, ecartAdmisDuMur(mur) * 1.5) : null;
+  const mur = matiereDuMur(m, r);
+  return mur ? silhouetteDuMur(m, r, mur, mur.ecart) : null;
+}
+
+/**
+ * La matiere du mur entre des bouts donnes, telle que la silhouette la lit : sa teinte (le long des bouts, teinteDuMur), l'ecart de
+ * chromaticite admis et la plage de luminosite. Le calage par les ancres (facade/releve/calageAncres.ts) s'en sert pour dire si une
+ * case de l'image est du mur. `rangs` : les rangees ou lire la teinte, en part de la hauteur sous l'egout (par defaut, celles de
+ * l'affinage). Null quand la teinte ne se lit pas.
+ */
+export function matiereDuMur(m: { image: Image; vu: Uint8Array }, r: Rect, rangs: readonly [number, number] = RANGS_TEINTE): { cr: number; cg: number; l: number; ecart: number; lumiere: readonly [number, number] } | null {
+  const mur = teinteDuMur(m, r, rangs);
+  return mur ? { cr: mur.cr, cg: mur.cg, l: mur.l, ecart: ecartAdmisDuMur(mur) * 1.5, lumiere: LUMIERE_MUR } : null;
 }
 
 /**
@@ -554,10 +583,10 @@ export function silhouetteLue(m: { image: Image; vu: Uint8Array }, r: Rect): Ret
  * une haie ou une voiture cache le pied. Le mur a sa teinte, que l'on lit au milieu du rectangle trouve : l'egout est la premiere
  * rangee de mur sous le toit, le sol la derniere au-dessus de ce qui n'est plus le mur (le gazon, le trottoir), cherche pres de la
  * hauteur que donne le plan (`rapport`) ; un bord trouve se colle a l'arete horizontale la plus proche. Un sol cache (haie sur toute
- * la largeur) tombe a la hauteur du plan, et se dit suppose. `gabarit` (facade/gabaritMur.ts) : la silhouette du plan et du LiDAR,
- * posee entre les bords trouves, sans changer de forme ; sans lui, la silhouette lue sur l'image.
+ * la largeur) tombe a la hauteur du plan, et se dit suppose. La silhouette rendue est celle lue sur l'image : le gabarit du plan et du
+ * LiDAR ne pose pas le mur, il ne se pose qu'une fois le mur cale (MD/spec-facade-calage-audit.md §4 E4).
  */
-export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null, gabarit: GabaritMur | null = null): MurLu {
+export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments: readonly SegmentPlan[], r: MurLu, rapport: number | null): MurLu {
   const w = r.x1 - r.x0, H = m.image.hauteur;
   if (!(w > 0)) return r;
   const marge = 0.05 * w;
@@ -598,7 +627,7 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
     egout = milieux(debuts)[0] ?? (sil && silPlausible ? sil.egout : undefined);
   }
   if (egout !== undefined) { out.y0 = aimanter(egout); out.egout = true; }
-  if (sil && silPlausible && !gabarit) out.silhouette = sil.silhouette.map((p) => ({ x: p.x, y: Math.min(p.y, out.y0) }));
+  if (sil && silPlausible) out.silhouette = sil.silhouette.map((p) => ({ x: p.x, y: Math.min(p.y, out.y0) }));
   // Le sol : la transition « mur » -> « pas du mur » la plus proche de la hauteur du plan sous l'egout. Sans elle (une haie cache le
   // pied sur toute la largeur), la hauteur du plan, dite supposee : un bandeau d'etage dessine une arete plus nette que le pied cache.
   const attendu = rapport && rapport > 0 ? rapport * w : h0;
@@ -608,8 +637,6 @@ export function affinerEgoutEtSol(m: { image: Image; vu: Uint8Array }, segments:
   const sol = milieux(fins).sort((a, b) => Math.abs(a - cible) - Math.abs(b - cible))[0];
   if (sol !== undefined) { out.y1 = aimanter(sol); out.pied = true; }
   else if (rapport && rapport > 0) { out.y1 = Math.min(H - 1, cible); out.pied = false; }
-  // Le gabarit se pose entre les bouts, l'egout et le sol trouves : sa forme ne bouge pas, seule son echelle suit le calage.
-  if (gabarit) out.silhouette = gabaritSurLaVue(gabarit, out);
   return out;
 }
 

@@ -454,10 +454,11 @@ photo : elle vient du plan et du LiDAR, et elle ne bouge pas (`facade/gabaritMur
     pointes. Une première version, encore avant, lisait le long d'un seul corps et se ramenait à l'angle le plus bas du mur : sur
     AE 101, le gabarit de la façade ouest montait à 2,4 fois la hauteur, et celui de la façade nord ignorait le grand corps
     derrière l'annexe.
-  - Le contour se ferme sous les bouts du gabarit (`contourDuGabarit`) : ajuster l'égout et le sol, caler la silhouette, la façade
-    complète, l'image posée et la vue 3D de la calibration.
-- **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés (`affinerEgoutEtSol`, paramètre
-  `gabarit`). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
+  - Le contour se ferme sous les bouts du gabarit (`contourDuGabarit`) : ajuster l'égout et le sol, la façade complète, l'image
+    posée et la vue 3D de la calibration.
+- **Sa pose.** On la pose sur l'image redressée, entre les bouts, l'égout et le sol trouvés, **une fois le mur calé** : depuis le lot
+  F1 (29 octobre 2026), le gabarit n'entre plus dans la recherche du mur (`affinerEgoutEtSol` n'a plus de paramètre `gabarit`), qui se
+  juge sans le toit (`facade/releve/calageAncres.ts`, `MD/spec-facade-calage-audit.md` §4 É4). Seule son échelle suit ce calage. Les repères ne disent que les directions ; la dimension vient de ce calage.
 - **Le profil.** Le profil lu sur l'image a été essayé pour caler le sol d'un pied caché : il le dégradait (rampe `23` : hauteur
   6 % trop basse). Le sol garde la hauteur du plan.
 - **Dans la chaîne.** L'audit tire le gabarit des corps du bâtiment (`mesures.ts`, `gabaritDesCorps`) et le passe à la chaîne
@@ -516,17 +517,17 @@ redressée entière avec quatre lignes : l'égout, le sol et les deux bouts (`zo
     l'échelle de la façade, entre les coins du mur ramenés de la photo. *(Depuis le lot F0 du 29 octobre 2026, ces étapes sont celles
     de l'orchestrateur, `facade/releve/enchainement.ts` : la calibration les montre dans sa barre de progression et sa frise,
     `MD/spec-facade-calage-audit.md` §4 ter et §7.3.)* ;
-  - 5. **caler la silhouette** (`zones/CalageSilhouette.tsx`) : sur la façade fusionnée entière, sans rognage. La silhouette se
-    déplace et se redimensionne par ses bouts et son sol, **proportions verrouillées** (sa hauteur suit sa largeur) ;
-  - 6. **ajuster la hauteur de la photo** : une poignée en haut l'étire en hauteur autour du sol, en direct (de 50 à 200 %), rien
-    n'est coupé ; la silhouette ne bouge pas ;
+  - 5. **tirer les bouts, l'égout et le sol** sur la façade fusionnée entière, sans rognage (`zones/releve/AjusterMur.tsx`, le même
+    composant que sur une photo redressée). *(Jusqu'au lot F1 du 29 octobre 2026, « caler la silhouette » le faisait proportions
+    verrouillées, avec une poignée qui étirait la photo en hauteur (`CalageSilhouette.tsx`, supprimé) : l'égout tiré librement fait
+    le même travail, et le gabarit ne pose plus le mur, `MD/spec-facade-calage-audit.md` §4 É4.)* ;
   - 7. les ouvertures proposées, ramenées sur la même image : trouvées en trait plein, devinées en pointillé (d'une autre teinte) ;
   - 8. la texture collée sur sa silhouette, telle que photographiée et sans les ombres de la photo ;
   - 9. **la vue 3D face à la façade** (`zones/VueFacade3d.tsx`) : le mur en volume, à la forme de la silhouette, la texture sur sa
     face. La caméra est devant, perpendiculaire, à mi-hauteur. three.js se charge à la demande ; sans WebGL, l'étape le dit.
   - Les anciennes étapes « le mur reporté sur chaque photo » et « la silhouette et le toit » sont retirées.
-  - « Appliquer le calage et redresser » rend les coins du mur sur l'assemblage non étiré (l'égout ramené par l'étirement). Ils
-    sont reportés sur chaque photo assemblée comme un mur posé à la main, puis le cas se redresse de nouveau.
+  - « Appliquer le calage et rejouer » rend les coins du mur sur l'assemblage. Ils sont reportés sur chaque photo assemblée comme un
+    mur posé à la main, puis le cas se rejoue depuis le calage.
 - Le rectangle retenu revient sur la photo par l'homographie du redressement : ce sont les coins du mur (`CorrectionRedressement.coins`,
   à côté des `reperes`).
 - La chaîne les traite comme posés à la main : ils l'emportent et se reportent sur les autres photos du mur, y compris celles qui

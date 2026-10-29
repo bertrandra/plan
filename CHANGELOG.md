@@ -5,6 +5,37 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ## [Non publié]
 
+### Ajouté
+
+- **Façades, lot F1 : le calage du mur par ses ancres** (`MD/spec-facade-calage-audit.md` §4 É4, §5, §9). Le mur cherché sur
+  l'assemblage se juge maintenant **sans le toit** : un score d'explication (`facade/releve/calageAncres.ts`) dit si ses deux angles
+  sont des bords de la matière du mur (de l'enduit d'un côté, autre chose de l'autre, et une verticale qui les longe), si l'égout et le
+  sol en sont le haut et la fin, et si ses proportions sont celles du plan. Le rectangle des arêtes est gardé s'il explique la photo
+  (score et chaque angle au seuil, `regles/facades/enchainement.json`) ; sinon, l'arbitre prend parmi les autres murs que les arêtes
+  dessinent celui qui l'explique, et l'étape est « à confirmer » ; sinon la pose du plan seul, centrée, **supposée** : l'étape est en
+  échec et demande les deux angles, l'égout et le sol. Les drapeaux « trouvé » (égout, sol, bouts) ne valent plus que d'une pose qui
+  passe le test : sur la façade sud d'AE 101, ils étaient vrais pour un bloc de pignon de 302 px. L'É4 de la calibration montre le
+  score de la pose retenue et, en tirets, la pose des arêtes écartée. Sur l'assemblage d'AE 101 refait en synthèse depuis son étalon
+  (`tests/banc/facades/ae101.ts`), les arêtes seules retiennent le même bloc ; le calage par les ancres retrouve le mur à 0,7 et 1 %
+  de la largeur, ou, l'angle gauche caché par un arbre, se dit supposé. Banc de synthèse inchangé (égout 44/44, sol 43/44,
+  silhouette à 2 % 39/44, les 44 poses expliquées). Fumée : point 100.
+
+### Modifié
+
+- **Le gabarit ne pose plus le mur** (lot F1). Il vient du toit calculé, que la photo met en question : `murSurLAssemblage` et
+  `affinerEgoutEtSol` ne le reçoivent plus, il ne se pose qu'une fois le mur calé. La chaîne des façades passe à la version 10 (un
+  mur qui n'explique pas la photo n'est plus compté trouvé ; ses coins restent prédits). L'option manuelle de l'É4 de la calibration
+  est le même composant que la reprise du mur de l'audit (`zones/releve/AjusterMur.tsx`), sur l'assemblage : les deux bouts, l'égout
+  et le sol se tirent librement, « Appliquer le calage et rejouer ».
+
+### Supprimé
+
+- **Le second composant du calage à la main** (lot F1) : `zones/CalageSilhouette.tsx` (la silhouette aux proportions verrouillées et
+  l'étirement de la photo en hauteur) et `facade/calage/calageSilhouette.ts` (`calageDe`, `egoutDuCalage`, `bouger`, `coinsDuCalage`),
+  avec leurs deux tests et les règles `.calCalage.prise` : `AjusterMur.tsx` les absorbe, l'égout tiré librement faisant le travail de
+  l'étirement. Et la silhouette posée avant le calage : le paramètre `gabarit` de `murSurLAssemblage`, `affinerEgoutEtSol`,
+  `coinsAutoDeSerie` et `murDeLaSerie`.
+
 ## [5.0.0] — 2026-10-29
 
 Version **majeure** au sens de `MD/RELEASE.md` §2.1 : le `.glb` exporté change pour des projets déjà enregistrés.

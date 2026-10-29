@@ -6,8 +6,8 @@ import { intersection, ligneParPoints, type Ligne } from '../calage/calageFin.js
 import type { Image, P2 } from '../vision/homographie.js';
 import { detecterSegments } from '../vision/segments.js';
 import { redresserParFuites, type RedressementFuites } from '../vision/redressementFuites.js';
-import { affinerEgoutEtSol, coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectangleSurLesAretes, type MurLu, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
-import type { GabaritMur } from '../gabaritMur.js';
+import { coinsSurLesPhotos, mosaiqueDesVues, vuesDeFace, porterCoins, rectangleDuMur, rectanglesSurLesAretes, type MurLu, type ResultatMosaique } from '../vision/mosaiqueFuites.js';
+import { calerParLesAncres, seuilsDuCalage, type MurCale, type SeuilsCalage } from './calageAncres.js';
 import type { Similitude } from '../vision/ransac.js';
 
 /** Un quadrilatere convexe, non croise, d'au moins 5 % de la photo. */
@@ -38,22 +38,29 @@ export interface CoinsDeSerie {
    * L'assemblage des vues, ce qu'il montre (`vu`), la place de chaque vue dedans (null : restee a part), et le mur qui y a ete cherche
    * (en pixels de l'assemblage) : ce que l'ecran de calibration montre, et l'image prise pour la suite.
    */
-  assemblage: { image: Image; vu: Uint8Array; places: (Similitude | null)[]; mur: MurLu };
+  assemblage: { image: Image; vu: Uint8Array; places: (Similitude | null)[]; mur: MurCale };
 }
 
 export { vuesDeFace } from '../vision/mosaiqueFuites.js';
 
+/** Les poses que les aretes dessinent et que le calage par les ancres juge, la premiere d'abord (calageAncres.ts). */
+const POSES_JUGEES = 7;
+
 /**
  * Le mur sur l'assemblage des vues redressees : l'egout, le sol et ses deux bouts. Le plan donne la largeur (cadastre) et la hauteur
  * (LiDAR) : le mur est le rectangle a ces proportions (`rapport` = hauteur / largeur) que les aretes de l'assemblage dessinent le
- * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue.
+ * mieux ; sans ce rectangle, ou sans le plan, l'egout et le pied lus sur la largeur vue. Les bouts sont surs, l'egout et le sol beaucoup
+ * moins : ils s'affinent par la teinte du mur. La pose ne vaut que si elle explique la photo sans le toit (calageAncres.ts) : sinon
+ * une autre pose des aretes qui l'explique, ou celle du plan seul, supposee. Le gabarit ne la pose pas : il se pose ensuite, sur le
+ * mur cale. `seuils` : ceux du test d'explication (regles/facades/enchainement.json).
  */
-export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, gabarit: GabaritMur | null = null): MurLu {
+export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: number | null, seuils: SeuilsCalage = seuilsDuCalage()): MurCale {
   const segs = detecterSegments(m.image);
-  const aretes = rapport ? rectangleSurLesAretes(m, segs, rapport) : null;
-  const r: MurLu = aretes ? { x0: aretes.x0, x1: aretes.x1, y0: aretes.y0, y1: aretes.y1, egout: true, pied: true, cotes: true } : rectangleDuMur(m, segs, rapport);
-  // Les bouts sont surs, l'egout et le sol beaucoup moins : ils s'affinent par la teinte du mur.
-  return affinerEgoutEtSol(m, segs, r, rapport, gabarit);
+  const aretes = rapport ? rectanglesSurLesAretes(m, segs, rapport, POSES_JUGEES) : [];
+  const poses: MurLu[] = aretes.map((a) => ({ x0: a.x0, x1: a.x1, y0: a.y0, y1: a.y1, egout: true, pied: true, cotes: true }));
+  // Le mur lu sur les lignes de la largeur vue : la pose quand les aretes n'en dessinent pas, sinon une de plus a juger.
+  poses.push(rectangleDuMur(m, segs, rapport));
+  return calerParLesAncres(m, segs, poses, rapport, seuils);
 }
 
 /**
@@ -63,11 +70,11 @@ export function murSurLAssemblage(m: { image: Image; vu: Uint8Array }, rapport: 
  * ne se redresse. `hauteurPlanM` : la hauteur du mur que donne le plan (LiDAR), qui en fixe les proportions avec la largeur.
  * `reperes` : par photo, quatre reperes poses a la main (un rectangle du mur, n'importe lequel) qui la redressent.
  */
-export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = [], gabarit: GabaritMur | null = null): CoinsDeSerie | null {
+export function coinsAutoDeSerie(images: readonly Image[], largeurM: number, hauteurPlanM: number | null = null, reperes: readonly (readonly P2[] | null | undefined)[] = []): CoinsDeSerie | null {
   // D'abord redresser (les reperes poses, sinon les points de fuite), puis assembler, et seulement ensuite chercher l'egout et le sol.
   const vues = vuesDeFace(images, reperes);
   const m = mosaiqueDeLaSerie(vues);
-  return m ? murDeLaSerie(vues, m, largeurM, hauteurPlanM, gabarit) : null;
+  return m ? murDeLaSerie(vues, m, largeurM, hauteurPlanM) : null;
 }
 
 /** Les vues redressees assemblees (le deuxieme temps de la serie) ; null quand aucune ne se redresse ou ne s'assemble. */
@@ -82,9 +89,9 @@ const rangsRedresses = (vues: readonly (RedressementFuites | null)[]): number[] 
  * Le mur cherche sur l'assemblage des vues (le troisieme temps), puis reporte dans chaque photo : ce que rend la serie. `vues` : une
  * par photo (null : elle ne s'est pas redressee), `m` leur assemblage (mosaiqueDeLaSerie).
  */
-export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, gabarit: GabaritMur | null = null): CoinsDeSerie {
+export function murDeLaSerie(vues: readonly (RedressementFuites | null)[], m: ResultatMosaique, largeurM: number, hauteurPlanM: number | null = null, seuils?: SeuilsCalage): CoinsDeSerie {
   const rangs = rangsRedresses(vues);
-  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, gabarit);
+  const r = murSurLAssemblage(m, hauteurPlanM && largeurM > 0 ? hauteurPlanM / largeurM : null, seuils);
   const parVue = coinsSurLesPhotos(rangs.map((i) => vues[i] as RedressementFuites), m.places, r);
   const coins: (P2[] | null)[] = vues.map(() => null);
   rangs.forEach((i, k) => { coins[i] = parVue[k] ?? null; });

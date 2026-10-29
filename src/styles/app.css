@@ -2710,6 +2710,8 @@
   /* Le mur cherche sur l'assemblage : l'egout et le sol en trait plein, les bouts en tirets. */
   .calMurLigne{ stroke:var(--accent); stroke-width:3; }
   .calMurBout{ stroke:var(--accent); stroke-width:2; stroke-dasharray:6 4; }
+  /* La pose des aretes ecartee par le calage (elle n'explique pas la photo sans le toit) : en tirets, de la teinte du danger. */
+  .calMurAretes{ fill:none; stroke:var(--danger); stroke-width:2.5; stroke-dasharray:10 6; }
   /* La reprise a la main du mur sur la photo redressee : quatre lignes a tirer, une large zone de saisie invisible pour le doigt. */
   .ajusterMur{ margin:6px 0; }
   .ajusterMurPhoto{ display:block; width:100%; height:auto; max-height:60vh; border:1px solid var(--border); border-radius:var(--r-champ); background:var(--panel-bg); touch-action:none; }
@@ -2719,10 +2721,8 @@
   .ajusterMurSaisie[aria-orientation="horizontal"]{ cursor:ew-resize; }
   .ajusterMurSaisie:focus-visible{ stroke:var(--accent-light); stroke-opacity:0.6; outline:none; }
   .ajusterMurLigne.silhouette, .calMurLigne.silhouette{ fill:none; }
-  /* Le calage de la silhouette (calibration, l'option manuelle de l'E4) : le contour du mur, voile leger pour le voir sur la facade. */
+  /* Le mur retenu (calibration, E0 et E4) : le contour du mur, voile leger pour le voir sur la facade. */
   .calCalage{ fill:var(--accent); fill-opacity:0.12; stroke:var(--accent); stroke-width:2; }
-  .calCalage.prise{ cursor:move; touch-action:none; }
-  .calCalage.prise:focus-visible{ stroke:var(--accent-light); outline:none; }
   .calVue3d{ display:block; width:100%; height:auto; aspect-ratio:1 / 0.62; }
   /* Creer un cas depuis un audit : les photos de chaque facade en vignettes au bout de sa ligne, entieres (rien n'est coupe). */
   .calListe li.calFacadeAudit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
