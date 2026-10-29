@@ -365,7 +365,6 @@ rangs suivent ainsi l'égout de chaque pan.
 - Le toit-terrasse d'un toit plat simple (`releve3d.ts::poserToitPlat`) et les facettes plates d'un
   bâtiment en corps (une maille à part, `NOM_TOIT_CORPS_PLAT`, dans le gris d'un toit plat) sont en
   gravillons.
-- La cheminée est grise sous une couverture grise (ardoise, zinc), en brique sinon.
 - Case « Texture » décochée : la couleur unie, comme avant.
 
 ### 6.3 Les détails du bâtiment en 3D
@@ -381,7 +380,7 @@ donnée nouvelle, ce qui fait « maison » — par-dessus le prisme de `scene.ts
 | **Angles** | des verticales seulement, aux vrais angles (changement de direction d'au moins 25° : un contour BD TOPO a beaucoup de sommets presque alignés), dans la teinte du mur assombrie (× 0,82), opaques. Ni trait à l'égout (il se voyait à travers le débord du toit) ni sur le toit (les pans se lisent par la lumière) : trop de traits faisaient bande dessinée. Sur un sol en relief, elles partent du point le plus bas du sol sous le bâtiment. |
 | **Soubassement** | une bande au pied des murs, en saillie de 3 cm, de la couleur du mur assombrie (× 0,72). Sur sol plat, de 0 à 0,45 m. Sur un sol en relief, du point le plus bas du sol sous le bâtiment jusqu'à 0,45 m au-dessus du sol à chaque sommet : elle suit la pente et ne laisse pas de vide sous le mur. La porte se pose sur le sol devant elle. |
 | **Fenêtres** | à chaque niveau, sur les murs sans relevé de façade et d'au moins 2 m : une fenêtre de 1 × 1,2 m par entraxe de 2,4 m, centrées (`abscissesFenetres`), appui à 0,9 m. Les niveaux : `nombreEtages` de la BD TOPO, sinon la hauteur du mur sur 2,7 m ; aucun niveau sous 2,2 m (`niveaux`). Une porte de 0,9 × 2,1 m remplace la fenêtre du milieu au rez-de-chaussée du plus long mur. Cadre gris chaud, vitre bleu-gris, vantail bois : une seule maille à trois groupes. |
-| **Cheminée** | sur un toit en pente d'au moins 40 m² : un carré de 0,5 m, 0,8 m au-dessus du pan, à un tiers du faîtage depuis le centre ; brique sous les tuiles, gris sous l'ardoise. |
+| **Cheminée** | *aucune devinée* (retirée le 29 octobre 2026, `MD/spec-flux-batiment.md` point 12) : une souche ne se dessine que depuis les données d'un corps (`corps.cheminees` : LiDAR, règles, audit, Mode Toit ; `three/cheminees3d.ts`). Elle se posait d'office sur tout toit en pente d'au moins 40 m², au tiers du faîtage, sans que personne l'ait vue. |
 
 **De loin** (plus de `DETAIL_FIN_M` = 120 m du centre de la scène), seuls le débord (sans
 gouttière) et les arêtes sont posés : un voisinage de deux mille bâtiments ne supporterait pas six
@@ -754,8 +753,8 @@ pas garde son toit par défaut.
 `ObjetPlan.volumesToit: VolumeToit[] | null` (`{ pts, toit, egout? }`) ; `modeToit` dit ce que la
 3D montre (§12.3). Sérialisé et copié tels quels. La couleur de couverture reste celle du `toit` du
 bâtiment, réglée une fois (`toitDuVolume`). En 3D (`three/scene.ts`), **un prisme par corps** à son
-égout, un toit par corps (`releve3d::poserToit`), un débord et une gouttière par corps, la cheminée
-sur le premier (le plus grand) ; les fenêtres suivent la hauteur du mur de leur corps
+égout, un toit par corps (`releve3d::poserToit`), un débord et une gouttière par corps (plus de cheminée
+devinée sur le premier) ; les fenêtres suivent la hauteur du mur de leur corps
 (`hauteurDuMur`). `volumesActifs(o)` rend les corps à dessiner : au moins deux, sauf « Un seul
 toit ». L'inspecteur décrit chaque corps (`decrireVolumes` : « Corps 12,0 × 8,0 m : deux pans ·
 égout 6,0 m »).
@@ -819,7 +818,7 @@ la couleur et la matière sont celles du `toit` du bâtiment (§6.2, un carreau 
 Le long de chaque mur, entre l'égout et la surface — 5 cm, ou un pignon, un mur qui monte jusqu'à
 un dessus plat — une **rehausse** verticale en couleur de mur comble l'écart (`NOM_REHAUSSE`), par
 bandes de 50 cm. Les prismes montent à l'égout de chaque corps ; les formes
-simples, le débord, la gouttière et la cheminée ne se posent pas (`sansToit`) ; les arêtes, le
+simples, le débord et la gouttière ne se posent pas (`sansToit`) ; les arêtes, le
 soubassement et les fenêtres restent — et les fenêtres suivent **la hauteur mesurée de leur mur**
 (§11.2, `facade/ouvertures.ts::hauteurDuMur` : le mur du bloc le plus proche du milieu de la
 façade) : deux rangs sur le mur qui monte jusqu'au dessus plat, un seul sous le pan. La surface

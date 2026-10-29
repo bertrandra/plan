@@ -563,7 +563,7 @@ ces tests le 25 octobre 2026 (elle portait encore les empreintes de la capture 2
 | [`projet.json`](projet.json) | `exportProjetJSON` | 72 160 | `da204eeac6c836298a61ab75d8888fb096e2c5d021d21552de9fbe5784c393b2` |
 | [`plan.pdf`](plan.pdf) | `buildExportPDF` (2 pages) | 16 162 | `92470176f7b23bc67f83ea32ba260d7733d9075a4f557061fb9e3151bcbf502d` |
 | [`dossier.pdf`](dossier.pdf) | `buildDossierPDF` (3 pages) | 15 254 | `d112446e266239502aff089ddc5a05b1dac7933adaf00f037ad3b30aa666427d` |
-| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** | 470 | `4064ecf790acf4dacc5e82319a673d827a671ba22dc415f72fe73aec28d48aa1` |
+| [`glb-structure.json`](glb-structure.json) | `genererGlb`, **empreinte structurelle** (compteurs du 29 octobre 2026, voir « Version suivante ») | 470 | `3fe6a0205c85f9dab341041196995dd672a50c82939049781517605cdbb35646` |
 | [`quantites-demo.txt`](quantites-demo.txt) | extrait du résumé, vérifié ligne à ligne contre le résumé régénéré | 2 130 | — |
 | [`dossier-piscine.pdf`](dossier-piscine.pdf) | `construireDossierPiscine` (bassin par défaut, 32 m²) | 41 873 | `97b491ea847743bf61d7a8500ea6eb614520ae420f372cfc75581430632fc7b1` (brut) |
 | [`note-calcul.pdf`](note-calcul.pdf) | `construireNoteCalculPDF` (carport) | 10 284 | `51d6916358c5175ce3c118a817163b3edfa8a66b8a569ce47137fa46b1b4a46b` (brut) |
@@ -889,4 +889,28 @@ Ne bougent pas : `projet.json` (entrée du témoin, garde `2.2.0`), `glb-structu
 moteur, du relief, de la piscine et de la pergola, des valeurs par défaut et de la migration 2 → 3, qui ne portent pas de version.
 Le schéma 6 a son propre témoin, hors de ce dossier : `tests/fixtures/migrations/schema-5.json` (un document 5 se lit tel quel et
 s'écrit au 6).
+
+
+## Version suivante : la cheminée d'office retirée (29 octobre 2026) — changement d'export, version majeure
+
+La Vue 3D posait une cheminée que personne n'avait vue : sur tout toit simple ou en volumes en pente de plus de 40 m², à moins de
+120 m du centre de la scène, `poserCheminee` (`three/detailsBatiment.ts`) dessinait une boîte de 0,5 × 1,1 × 0,5 m au tiers du
+faîtage (`MD/spec-flux-batiment.md`, point 12). Elle est retirée : une souche ne vient plus que des données (`corps.cheminees` :
+LiDAR, règles, audit, Mode Toit), dessinée par `three/cheminees3d.ts`. Le `.glb` exporté d'un projet enregistré perd donc une
+maille par bâtiment concerné : c'est un changement d'un artefact exporté (`MD/RELEASE.md` §2.1), annoncé comme **version majeure**.
+
+**Ce qui bouge : `glb-structure.json`, calculé, pas recapturé.** Sur la démonstration du point 24 (`DEMO_OBJECTS`), un seul bâtiment
+portait la cheminée d'office : la Maison (toit simple à croupes saisi, 152 m², au centre de la scène). Les 58 voisins en corps n'ont
+aucune souche dans leurs données ; les voisins en toit simple sont plats, sans toit, ou sous 40 m². Relevé par un script sur
+`DEMO_OBJECTS` (`modeToitActif`, `toitDessine`, aire), et l'effet d'une telle maille mesuré par `GLTFExporter` 0.186.1 sous Node
+(une `BoxGeometry` et son `MeshStandardMaterial` de plus : +1 nœud, +1 maille, +1 matériau, +4 accesseurs — position, normale,
+coordonnées de texture, indices — et +4 vues tampon). Le témoin passe donc de **1 144 / 956 / 1 455 / 16 / 16 / 3 958 / 3 974** à
+**1 143 nœuds, 955 mailles, 1 454 matériaux, 16 textures et 16 images, 3 954 accesseurs, 3 970 vues tampon**, 1 scène.
+`octetsTotal` reste celui du 16 octobre (11 717 344, environ 1,8 Ko de trop), que le point 24 ne vérifie pas. **À refermer** par le
+point 24 sous `RECAPTURER_GLB=1` : si les compteurs mesurés diffèrent de ceux-ci, la Maison n'était pas en toit simple dans la
+partie jouée, et le témoin se reprend sur la mesure, en le disant ici.
+
+**Ne bougent pas** : les six empreintes texte et PDF, `projet.json`, `quantites-demo.txt`, les témoins du moteur, du relief, de la
+piscine et de la pergola, des valeurs par défaut et de la migration (`echafaudage.test.ts`, `tests/unit/export/` : verts sans
+recapture). Le plan 2D, le dossier et les quantités ne dessinent ni ne comptent de cheminée.
 
