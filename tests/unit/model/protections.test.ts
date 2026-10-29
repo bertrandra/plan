@@ -8,7 +8,7 @@ import { NIVEAU_ECRIVAIN, NIVEAU_ORIGINE, ecrivainPeut, niveauActuel, origineAct
 // hierarchie, la personne (1), ce qui a ete vu sur place (2), le fait (3), la mesure (4), la source officielle (5), le defaut (6).
 // Deux tables : d'ou vient la valeur de chaque groupe de champs selon les marques du batiment, et qui peut l'ecrire.
 
-const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades', 'couleurToit'];
+const GROUPES: Groupe[] = ['contour', 'hauteur', 'toit', 'elements', 'couverture', 'murs', 'facades', 'couleurToit', 'photoMurs'];
 const lu = { toit: { source: 'lidar' as const }, toitLidarLu: 7 };
 const corps = { pts: [], posFaitage: 4, faitage: 9, egouts: [6, 6] as [number, number], pignons: [], ecart: 0.1 };
 
@@ -33,6 +33,11 @@ const BATIMENTS: Record<string, { o: BatimentProtege; ctx?: ContexteEcriture }> 
   mursChoisis: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { source: 'photo', photo: {} } } } },
   mursVus: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { materiau: 'brique', photo: {} } } } },
   photoRue: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { photo: {} } } } },
+  photoRueSansConclusion: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { photo: null, lecture: 2 } } } },
+  mursTerrain: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { terrain: { couleur: '#D9C7A5', date: '2026-10-28' }, photo: {} } } } },
+  mursTerrainChoisi: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { source: 'photo', terrain: { couleur: '#D9C7A5', date: '2026-10-28' } } } } },
+  mursPlanChoisi: { o: { bdtopo: { id: 'B1' }, batiment: { couleurMurs: { source: 'plan' } } } },
+  mursVerifies: { o: { bdtopo: { id: 'B1' }, batiment: { verifieSurPlace: { date: '2026-10-28' }, couleurMurs: { photo: {} } } } },
   releveMain: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 2 } },
   releveAudit: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2, depuisAudit: true }] } }, ctx: { cote: 2 } },
   autreMur: { o: { bdtopo: { id: 'B1' }, batiment: { facades: [{ cote: 2 }], profilFacades: { id: 'p' } } }, ctx: { cote: 1 } },
@@ -43,35 +48,43 @@ const BATIMENTS: Record<string, { o: BatimentProtege; ctx?: ContexteEcriture }> 
   couleurLueVerifiee: { o: { bdtopo: { id: 'B1' }, elevation: 6, batiment: { ...lu, toit: { source: 'lidar', couleur: '#8a3b2a', origineCouleur: 'orthophoto' }, verifieSurPlace: { date: '2026-10-28' } } } },
 };
 
-/** D'ou vient chaque groupe, batiment par batiment : contour, hauteur, toit, elements, couverture, murs, facades, couleur du toit. */
-const ORIGINES: Record<string, [Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine]> = {
-  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'defaut'],
-  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie'],
-  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
-  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut', 'defaut'],
-  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut', 'defaut'],
-  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut'],
-  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut'],
-  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut'],
-  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut'],
-  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut'],
-  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil', 'defaut'],
-  couleurChoisie: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'couleurToitChoisie'],
-  couleurLue: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho'],
-  couleurRepli: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho'],
-  couleurLueFigee: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'ortho'],
-  couleurLueVerifiee: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie'],
+/**
+ * D'ou vient chaque groupe, batiment par batiment : contour, hauteur, toit, elements, couverture, murs, facades, couleur du toit, et
+ * la case de la photo de rue (`photoMurs`).
+ */
+const ORIGINES: Record<string, [Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine, Origine]> = {
+  neuf: ['dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  dessine: ['dessine', 'dessine', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  bdtopo: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  lu: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  luSurUnAutreContour: ['bdtopo', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  fige: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retouche: ['retouche', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  retoucheRepris: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  verifie: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut'],
+  verifieRecalcule: ['lidar', 'lidar', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitSaisi: ['bdtopo', 'toitSaisi', 'toitSaisi', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  toitPhoto: ['bdtopo', 'toitPhoto', 'toitPhoto', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutSaisi: ['lidar', 'egoutSaisi', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  egoutVu: ['lidar', 'egoutVu', 'lidar', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  elements: ['lidar', 'lidar', 'lidar', 'elementsPoses', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  couverture: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'couvertureChoisie', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursChoisis: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'photoRue'],
+  mursVus: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'photoRue'],
+  photoRue: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'photoRue', 'defaut', 'defaut', 'photoRue'],
+  releveMain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveMain', 'defaut', 'defaut'],
+  releveAudit: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'releveAudit', 'defaut', 'defaut'],
+  autreMur: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'profil', 'defaut', 'defaut'],
+  couleurChoisie: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'couleurToitChoisie', 'defaut'],
+  couleurLue: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
+  couleurRepli: ['bdtopo', 'bdtopo', 'bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
+  couleurLueFigee: ['fige', 'fige', 'fige', 'fige', 'defaut', 'defaut', 'defaut', 'ortho', 'defaut'],
+  couleurLueVerifiee: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'defaut'],
+  photoRueSansConclusion: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut', 'defaut'],
+  mursTerrain: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursVus', 'defaut', 'defaut', 'mursVus'],
+  mursTerrainChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'mursVus'],
+  mursPlanChoisi: ['bdtopo', 'defaut', 'defaut', 'defaut', 'defaut', 'mursChoisis', 'defaut', 'defaut', 'defaut'],
+  mursVerifies: ['verifie', 'verifie', 'verifie', 'defaut', 'defaut', 'verifie', 'verifie', 'verifie', 'photoRue'],
 };
 
 /** Le niveau de chaque origine : 1 la personne … 6 le defaut. */
@@ -82,7 +95,7 @@ const NIVEAUX: Record<Origine, Niveau> = {
 };
 
 /** Les niveaux de valeur que chaque ecrivain peut remplacer : le sien et les plus faibles, dans tous les groupes. */
-const ECRIT: Record<Ecrivain, Niveau[]> = { audit: [2, 3, 4, 5, 6], faits: [3, 4, 5, 6], lidar: [4, 5, 6], recalage: [4, 5, 6], ortho: [4, 5, 6], ign: [5, 6] };
+const ECRIT: Record<Ecrivain, Niveau[]> = { audit: [2, 3, 4, 5, 6], faits: [3, 4, 5, 6], lidar: [4, 5, 6], recalage: [4, 5, 6], ortho: [4, 5, 6], panoramax: [4, 5, 6], ign: [5, 6] };
 
 describe('qui l emporte sur un batiment : une seule hierarchie', () => {
   it('d ou vient chaque groupe de champs, selon les marques du batiment', () => {
@@ -93,7 +106,7 @@ describe('qui l emporte sur un batiment : une seule hierarchie', () => {
   });
 
   it('chaque ecrivain, chaque groupe, chaque niveau de la valeur d aujourd hui', () => {
-    expect(NIVEAU_ECRIVAIN).toEqual({ audit: 2, faits: 3, lidar: 4, recalage: 4, ortho: 4, ign: 5 });
+    expect(NIVEAU_ECRIVAIN).toEqual({ audit: 2, faits: 3, lidar: 4, recalage: 4, ortho: 4, panoramax: 4, ign: 5 });
     for (const e of Object.keys(ECRIT) as Ecrivain[]) {
       for (const [nom, { o, ctx }] of Object.entries(BATIMENTS)) {
         GROUPES.forEach((g, k) => {
@@ -116,6 +129,27 @@ describe('qui l emporte sur un batiment : une seule hierarchie', () => {
     expect(ecrivainPeut(o, 'lidar', 'toit')).toBe(true);
     expect(niveauActuel(o, 'toit')).toBe(4);
     expect(peutEcrire(o, 'toit', 5)).toBe(false);
+  });
+});
+
+describe('la photo de rue des murs (Panoramax) : sa case, pas la couleur retenue', () => {
+  it('une source choisie, « photo » comprise, ou « plan », laisse la lecture tenir sa case a jour', () => {
+    for (const nom of ['mursChoisis', 'mursTerrainChoisi', 'mursPlanChoisi', 'mursVus', 'mursVerifies'] as const) {
+      expect(niveauActuel(BATIMENTS[nom]!.o, 'murs'), nom).toBeLessThan(4);
+    }
+    expect(ecrivainPeut(BATIMENTS.mursChoisis!.o, 'panoramax', 'photoMurs')).toBe(true);
+    expect(ecrivainPeut(BATIMENTS.mursPlanChoisi!.o, 'panoramax', 'photoMurs')).toBe(true);
+    expect(ecrivainPeut(BATIMENTS.mursVus!.o, 'panoramax', 'photoMurs')).toBe(true);
+    // Verifie sur place sans couleur vue : la photo reste la seule teinte connue, elle se relit.
+    expect(ecrivainPeut(BATIMENTS.mursVerifies!.o, 'panoramax', 'photoMurs')).toBe(true);
+    // Et la lecture n'ecrit jamais la couleur retenue : ce groupe-la reste a la personne et a l'audit.
+    expect(ecrivainPeut(BATIMENTS.mursChoisis!.o, 'panoramax', 'murs')).toBe(false);
+  });
+
+  it('une couleur vue sur place (audit valide) occupe la case : la lecture ne l ecrit plus, l audit si', () => {
+    expect(ecrivainPeut(BATIMENTS.mursTerrain!.o, 'panoramax', 'photoMurs')).toBe(false);
+    expect(ecrivainPeut(BATIMENTS.mursTerrainChoisi!.o, 'panoramax', 'photoMurs')).toBe(false);
+    expect(ecrivainPeut(BATIMENTS.mursTerrain!.o, 'audit', 'photoMurs')).toBe(true);
   });
 });
 

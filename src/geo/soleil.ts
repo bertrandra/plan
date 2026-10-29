@@ -9,34 +9,31 @@
 // `lieuActuel()` reste dans la racine de composition (app/boot.ts) : elle lit la parcelle courante,
 // donc l'etat du plan. Ce n'est pas une feuille pure au sens de la phase 2.
 
+import { decalageALHeureLocale, fuseauDuLieu } from './fuseau.js';
+
 /** Hauteur et azimut du soleil, en radians. Azimut : 0 = Nord, 90 = Est (sens horaire). */
 export interface PositionSoleil {
   elevRad: number;
   azRad: number;
 }
 
-// France (CET/CEST) : UTC+1 toute l'annee, UTC+2 entre le dernier dimanche de mars 01h UTC et le
-// dernier dimanche d'octobre 01h UTC (regle DST europeenne) - calculee explicitement plutot que de
-// faire confiance au fuseau de l'ordinateur qui fait tourner l'appli (qui peut etre ailleurs que
-// la France, alors que Le Vesinet, lui, ne bouge pas).
-export function decalageFuseauFrance(anneeRef: number, tsUTC: number): number {
-  function dernierDimancheUTC(mois: number): number { // mois 0-index ; renvoie 01:00 UTC du dernier dimanche de ce mois
-    const d = new Date(Date.UTC(anneeRef, mois+1, 1, 1, 0, 0));
-    d.setUTCDate(d.getUTCDate() - (d.getUTCDay()||7));
-    return d.getTime();
-  }
-  const debutEte = dernierDimancheUTC(2), finEte = dernierDimancheUTC(9);
-  return (tsUTC >= debutEte && tsUTC < finEte) ? 2 : 1;
-}
+// Le decalage horaire est celui du lieu (geo/fuseau.ts) : l'heure tapee est l'heure legale du lieu de la parcelle. La
+// regle francaise d'avant y vit encore (le repli sans `Intl`) et reste exportee d'ici.
+export { decalageFuseauFrance } from './fuseau.js';
 
 // Formules solaires simplifiees (voir l'en-tete) : declinaison depuis le jour de l'annee, equation
 // du temps (correction de quelques minutes due a l'orbite elliptique/l'inclinaison terrestre),
 // puis hauteur/azimut depuis latitude + angle horaire. Azimut en convention 0=Nord/90=Est/180=
 // Sud/270=Ouest (sens horaire), converti ensuite vers le repere de la scene (+X=Est, +Z=Sud, meme
 // convention que toLocal/buildThreeScene) par l'appelant.
-export function positionSoleil(annee: number, mois: number, jour: number, heureDecimale: number, latDeg: number, lonDeg: number): PositionSoleil {
+//
+// L'heure est l'heure legale du lieu (`zone`, par defaut celle que sa latitude et sa longitude donnent), et son decalage
+// sur UTC est celui de l'instant meme : le jour d'un changement d'heure, la nuit avant le changement garde l'ancien (il
+// valait jusqu'ici pour la journee entiere, lu a midi). Partout ailleurs, en France, le resultat est celui d'avant au bit
+// pres (tests/unit/geo/fuseau.test.ts).
+export function positionSoleil(annee: number, mois: number, jour: number, heureDecimale: number, latDeg: number, lonDeg: number, zone: string = fuseauDuLieu(latDeg, lonDeg).zone): PositionSoleil {
   const jourAnnee = Math.floor((Date.UTC(annee,mois-1,jour) - Date.UTC(annee,0,1))/86400000) + 1;
-  const decalageFuseauH = decalageFuseauFrance(annee, Date.UTC(annee,mois-1,jour,12,0,0));
+  const decalageFuseauH = decalageALHeureLocale(zone, Date.UTC(annee,mois-1,jour) + heureDecimale*3600000);
   const B = (360/365) * (jourAnnee - 81) * Math.PI/180;
   const eot = 9.87*Math.sin(2*B) - 7.53*Math.cos(B) - 1.5*Math.sin(B); // minutes
   const tc = 4*(lonDeg - 15*decalageFuseauH) + eot; // minutes
@@ -53,16 +50,16 @@ export function positionSoleil(annee: number, mois: number, jour: number, heureD
 }
 
 /**
- * Le lever et le coucher du soleil, en minutes depuis minuit (heure legale francaise, comme
+ * Le lever et le coucher du soleil, en minutes depuis minuit (heure legale du lieu, comme
  * `positionSoleil`) : la premiere et la derniere minute ou son centre est au-dessus de l'horizon.
  * Cherches minute par minute plutot que par la formule de l'angle horaire : c'est le meme modele que
  * celui qui eclaire la scene, donc le soleil se leve a l'ecran a l'heure dite. `null` les jours sans
  * lever ni coucher (au-dela des cercles polaires).
  */
-export function leverEtCoucher(annee: number, mois: number, jour: number, latDeg: number, lonDeg: number): { lever: number; coucher: number } | null {
+export function leverEtCoucher(annee: number, mois: number, jour: number, latDeg: number, lonDeg: number, zone: string = fuseauDuLieu(latDeg, lonDeg).zone): { lever: number; coucher: number } | null {
   let lever = -1, coucher = -1;
   for (let m = 0; m < 1440; m++) {
-    if (positionSoleil(annee, mois, jour, m / 60, latDeg, lonDeg).elevRad > 0) {
+    if (positionSoleil(annee, mois, jour, m / 60, latDeg, lonDeg, zone).elevRad > 0) {
       if (lever < 0) lever = m;
       coucher = m;
     }

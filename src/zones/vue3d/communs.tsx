@@ -24,6 +24,8 @@ export interface ServiceVues3d {
   allerAuPointDeVue: (vp: ObjetPlan) => void;
   allerAuPointDeVueGlb: (vp: ObjetPlan) => void;
   libelleLieu: () => string;
+  /** « Heure légale de … » : le fuseau du lieu, dans lequel l'heure du soleil se lit (geo/fuseau.ts). */
+  heureLegale: () => string;
   formatHeure: (minutes: number) => string;
   /** La scene suit la taille de son hote (plein page, redimensionnement). */
   redimensionner3d: () => void;
@@ -90,10 +92,10 @@ export function LigneIntensite({ ids, soleil, children }: { ids: IdsSoleil; sole
 }
 
 /** L'heure, toujours visible sous la scene : c'est le reglage qu'on fait glisser en regardant. */
-export function BarreHeure({ ids, id, soleil, formatHeure, info }: { ids: IdsSoleil; id: string; soleil: ServiceSoleil; formatHeure: (m: number) => string; info?: string }) {
+export function BarreHeure({ ids, id, soleil, formatHeure, heureLegale, info }: { ids: IdsSoleil; id: string; soleil: ServiceSoleil; formatHeure: (m: number) => string; heureLegale: string; info?: string }) {
   return (
     <div id={id} className="controls barreSoleil">
-      <span className="etiquetteReglage" title="Position reelle du soleil (leve a l'Est, couche a l'Ouest) pour la date et l'heure choisies, au lieu indique">Heure</span>
+      <span className="etiquetteReglage" title={heureLegale + '. Position réelle du soleil (levé à l’est, couché à l’ouest) pour la date et l’heure choisies, au lieu indiqué'}>Heure</span>
       <input type="range" id={ids.heure} data-controle={ids.vue + '.heure'} min={0} max={1439} step={5} value={soleil.etat.minutes} aria-label="Heure" style={{ flex: 1, maxWidth: 260 }}
         onChange={(e) => soleil.heure(parseInt(e.target.value, 10))} />
       <span id={ids.heureTexte} className="valeurReglage">{formatHeure(soleil.etat.minutes)}</span>

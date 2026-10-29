@@ -15,6 +15,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'actualisation IGN n'y reviennent pas, et « Valider » en fait une seule étape d'historique. La 3D, la DP2 (« Existant H ») et
   l'inspecteur lisent les nouvelles hauteurs. Fumée : point 97.
 
+### Modifié
+
+- **L'heure du soleil est l'heure légale du lieu du projet.** La date et l'heure tapées (inspecteur du parasol, Vue 3D,
+  visionneuse) se lisaient toujours à l'heure française, quel que soit le lieu : à La Réunion, « midi » tombait à 14 h sur place.
+  Le fuseau se déduit maintenant de la latitude et de la longitude de la parcelle, sans réseau (`geo/fuseau.ts`) : la France
+  métropolitaine et la Corse (Europe/Paris), la Guadeloupe, Saint-Martin et Saint-Barthélemy, la Martinique, la Guyane,
+  Saint-Pierre-et-Miquelon, La Réunion, Mayotte, la Polynésie (Tahiti, Marquises, Gambier), la Nouvelle-Calédonie,
+  Wallis-et-Futuna, et les voisins (Belgique, Luxembourg, Suisse, Monaco, Andorre, Allemagne, Italie, Espagne, Canaries) ;
+  ailleurs, l'heure de Paris, et l'interface le dit. Le décalage est celui de l'instant même (`Intl.DateTimeFormat`,
+  `shortOffset` ; sans les fuseaux d'ICU, la règle écrite) : la nuit d'un changement d'heure, les heures d'avant le changement
+  gardent l'ancien décalage, au lieu de celui de midi pour toute la journée. Sous le curseur de l'heure de l'inspecteur et dans
+  l'infobulle de l'heure des vues 3D : « Heure légale de … (zone) ». Un projet en France métropolitaine garde son soleil au bit
+  près (hors ces nuits, soleil couché) ; aucune empreinte ne bouge, le fichier ne change pas de forme.
+
 ### Corrigé
 
 - **Mode Toit : un corps choisi montre son mur le plus visible.** Sa silhouette et ses poignées se posaient sur son mur le plus tourné
@@ -55,6 +69,15 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   caméra ; `poignees.ts::cibleDesPoignees`), qui garde son dessin et sa couleur. De dessus, rien ne change.
 
 ### Modifié
+
+- **La couleur des murs lue sur les photos de rue (Panoramax) passe par `model/protections.ts`, et lit aussi les annexes.** Sa
+  case, `couleurMurs.photo`, a son propre groupe (`photoMurs`), à part de la couleur retenue (groupe `murs`) qu'elle n'écrit
+  jamais ; l'écrivain `panoramax` est de niveau 4, une mesure sur une photo, comme la couleur du toit sur l'orthophoto. La source
+  choisie, « photo » comprise, ne l'arrête pas : la personne qui a choisi la photo reçoit toujours la lecture à jour. Seule une
+  couleur vue sur place (audit validé, `terrain`) occupe la case : sous elle, la photo n'est plus lue ni téléchargée (elle n'était
+  déjà plus montrée, la couleur vue passant avant). La lecture prend le bâti entier (`model/fonctions.ts::estBati`) : une annexe
+  lue prend en 3D (GLB, DP6) la teinte de sa photo plutôt que la couleur du plan, comme un bâtiment, et cache les murs derrière
+  elle sur une photo. Empreintes inchangées (aucune ne porte de couleur des murs).
 
 - **Une écriture ne refait que ce qui lit l'objet écrit, et un déplacement de la vue ne redessine plus le plan** (feuille de
   route, étapes 6.5 et 2.3 ; aucun changement visible, empreintes inchangées). Le plan se dessine dans un repère gardé tant que
