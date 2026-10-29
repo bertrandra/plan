@@ -314,6 +314,12 @@ Branche `claude/<sujet>` depuis `origin/main`. Jamais de push direct sur `main`.
   l'inspecteur reste le chemin au clavier pour le corps principal.
 - Tests : `tests/unit/facade/modeToit/poignees.test.ts`, `tests/unit/app/toits/poigneeEgout.test.ts`. Fumée : point 97.
 
+### Ce qui s'enregistre pendant une session  *(29 octobre 2026)*
+- Les gestes écrivent le bâtiment en place, sans marquer le projet ; rien de la session n'entre dans le projet avant « Valider ». Un
+  enregistrement parti pendant la session (l'enregistrement seul de la lecture des toits en fond, ou Ctrl+S) écrit le bâtiment à son
+  départ (`modeToit.ts::objetsHorsSession`, sur la sérialisation du projet) : une session abandonnée ne laisse aucune trace.
+- Test : `tests/unit/app/toits/sessionEnregistree.test.ts`. Vérifié en exécution (MD/spec-flux-batiment.md, point 14).
+
 ### Hors périmètre
 Le **mode Coupe** (profil du toit en travers avec l'angle). Pas de modèle métier nouveau pour les règles de toit. Pas de seconde Vue 3D.
 

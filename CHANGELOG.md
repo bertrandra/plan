@@ -17,6 +17,13 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
 
 ### Corrigé
 
+- **Une session du Mode Toit ne s'enregistre plus avant « Valider ».** Les gestes du mode écrivent le bâtiment en place (la 3D les
+  montre) sans marquer le projet ; l'enregistrement seul de la lecture des toits en fond, qui part quand tout ce qui attend vient
+  d'elle, sérialisait alors le bâtiment tel que la session le laissait. Vérifié en exécution (démonstration, panneau solaire posé
+  sans valider, un bâtiment lu en fond : le projet enregistré portait le panneau et le toit figé). Ce qui s'enregistre pendant une
+  session — l'enregistrement seul comme Ctrl+S — porte maintenant le bâtiment à son départ (`app/toits/modeToit.ts::objetsHorsSession`,
+  lu par la sérialisation du projet, `app/projet.ts`) : abandonnée, la session ne laisse aucune trace ; validée, elle
+  marque le projet à enregistrer, comme avant.
 - **Le Mode Toit ne s'ouvre plus sur la maison d'un voisin, et s'ouvre toujours sur la maison verrouillée du projet.** Il refusait
   le seul voisinage importé (`voisinage`) : la maison d'une parcelle mitoyenne posée par l'import cadastre (`bdtopo`, hors de la
   parcelle du projet) se retouchait et se figeait. `locked` n'est pas le critère : il protège le contour (ni déplacé, ni supprimé),

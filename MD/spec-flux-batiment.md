@@ -701,10 +701,15 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
     la parcelle du projet, s'ouvre, verrouillé ou non (`modeToit.ts::estRetouchable`). Le bouton « Modifier la toiture » se grise sur
     la maison d'un voisin et dit pourquoi (`raisonNonRetouchable`, `raisonInactive` de `toit.modifier` ; infobulle, message au
     toucher). Test : `tests/unit/app/toits/retouchable.test.ts`.
-14. **Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
+14. ~~**Une session du Mode Toit écrit dans le plan avant « Valider ».** Les gestes modifient le bâtiment en place
     (`modeToit.ts:322-333`, :461-468) sans marquer le projet ; l'enregistrement seul de la tâche de fond enregistre quand tout ce
     qui attend vient d'elle (`toitsFond.ts:302-304`) et sérialise alors le bâtiment tel que la session le laisse. Une session
-    abandonnée peut donc avoir été enregistrée. Non vérifié en exécution.
+    abandonnée peut donc avoir été enregistrée. Non vérifié en exécution.~~ — vérifié en exécution et corrigé le 29 octobre 2026 :
+    sur la démonstration, un panneau solaire posé sans valider, puis un bâtiment lu en fond, le projet enregistré seul portait le
+    panneau et `toitFige`. Ce qui s'enregistre pendant une session (l'enregistrement seul comme Ctrl+S) porte maintenant le bâtiment
+    à son départ (`app/toits/modeToit.ts::objetsHorsSession`, lu par la sérialisation du projet dans `app/projet.ts`) ; le
+    plan, lui, garde les gestes, que la 3D montre. Abandonnée, la session ne laisse rien ; validée, elle marque le projet à
+    enregistrer. Test : `tests/unit/app/toits/sessionEnregistree.test.ts`.
 15. **Tests manquants** : ~~la couverture choisie à travers `toitActualise`~~ (`tests/unit/model/toitBdTopo.test.ts`, « garde le
     matériau de couverture choisi ») ; ~~les fenêtres d'un mur relevé en mode corps~~ (`tests/unit/geometry/facadeExterieure.test.ts`,
     `cotesSurLesCotes`) ; un relevé avec toit suivi d'une relecture (non vérifié) ; `suivreLeContour` absent d'une déformation (non
@@ -722,7 +727,8 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
 - la cheminée que la 3D pose d'office sur un toit simple ou en volumes (point 12) ;
 - ~~le Mode Toit qui s'ouvre sur un bâtiment verrouillé (point 13) : laissé, le bon critère est à décider avec le propriétaire~~ —
   corrigé le 29 octobre 2026 (la parcelle, pas le verrou) ;
-- une session du Mode Toit qui écrit dans le plan avant « Valider » (point 14, non vérifié en exécution) ;
+- ~~une session du Mode Toit qui écrit dans le plan avant « Valider » (point 14, non vérifié en exécution)~~ — vérifié et corrigé le
+  29 octobre 2026 ;
 - les tests qui manquent encore (point 15) ;
 - la couleur des murs lue sur Panoramax, hors de `model/protections.ts` par choix, et qui ne lit pas les annexes (« Qui
   l'emporte ») ;

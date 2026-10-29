@@ -88,6 +88,26 @@ export function raisonNonRetouchable(o: ObjetPlan | undefined): string | null {
   return 'Ce bâtiment est chez un voisin : le mode Toit ne retouche que les bâtiments de la parcelle du projet.';
 }
 
+/**
+ * Le batiment `o` tel que le projet le tient pendant la session `s` : une copie, au depart de la session (ses champs du toit et son
+ * elevation, `sessionToit.ts::photographier`). Le batiment du plan, lui, porte les gestes : la scene les montre.
+ */
+function auDepart(o: ObjetPlan, s: Pick<SessionToit, 'hist'>): ObjetPlan {
+  const copie = { ...o, ...(o.batiment ? { batiment: { ...o.batiment } } : {}) } as ObjetPlan;
+  restaurerSession(copie, s.hist.pas[0] ?? {});
+  return copie;
+}
+
+/**
+ * Les objets a enregistrer : le batiment en session y est a son depart. Rien de la session n'entre dans le projet avant « Valider »,
+ * meme quand l'enregistrement seul de la lecture des toits en fond (app/toits/toitsFond.ts) ou Ctrl+S part pendant la session :
+ * abandonnee, elle ne laisse aucune trace ; validee, elle marque le projet a enregistrer. `s` : la session en cours par defaut.
+ */
+export function objetsHorsSession(objets: readonly ObjetPlan[], s: Pick<SessionToit, 'cle' | 'hist'> | null = session): ObjetPlan[] {
+  if (!s) return objets as ObjetPlan[];
+  return objets.map((o) => (o.key === s.cle ? auDepart(o, s) : o));
+}
+
 /** Ce que la barre du mode montre : de quoi griser ses boutons et dire la facade courante. */
 export interface EtatToit {
   actif: boolean;
