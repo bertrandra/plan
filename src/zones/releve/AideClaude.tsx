@@ -1,12 +1,12 @@
 // Le releve de facade : « Demander de l'aide » (MD/spec-facades-calage-detection.md §12 bis, lot L18).
 // Propose seulement quand l'algorithme leve un signal (coins non trouves, detection peu sure…), et
-// seulement si le serveur de l'analyse est joignable. Un appel immediat : trois passes de Claude,
-// votees, puis recalees sur la photo par Plan. Les photos ne partent qu'avec l'accord de la personne
+// seulement si le serveur de l'analyse est joignable. Un appel immediat : le run unique d'une facade
+// (MD/spec-facade-calage-audit.md §8, lot F2), une passe, recalee sur la photo par Plan. Les photos ne partent qu'avec l'accord de la personne
 // pour ce projet (decision D2), demande au premier appel.
 
 import { useState } from 'react';
 import { texteSignaux, type SituationRenfort } from '../../facade/detection/renfort.js';
-import type { AideClaudeReleve } from '../../app/releve/renfortReleve.js';
+import type { AideClaudeReleve } from '../../app/releve/runFacade.js';
 
 type Etat = { phase: 'repos' } | { phase: 'accord' } | { phase: 'envoi' } | { phase: 'fait'; message: string; erreur: boolean };
 
@@ -52,7 +52,7 @@ export function AideClaude({ aide, signaux, etape, demander, motif }: { aide: Ai
           </div>
         </>
       )}
-      {etat.phase === 'envoi' && <p className="releveNote" aria-live="polite">Claude regarde votre photo (trois lectures, quelques secondes)…</p>}
+      {etat.phase === 'envoi' && <p className="releveNote" aria-live="polite">Claude regarde votre photo (quelques secondes)…</p>}
       {etat.phase === 'fait' && (
         <p className={etat.erreur ? 'releveAvis' : 'releveNote'} role="status">
           {etat.message}

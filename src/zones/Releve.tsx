@@ -50,7 +50,9 @@ import { analyserSansRien, champDesFuites } from '../facade/releve/chaine.js';
 import { masqueDeFusion } from '../facade/releve/masque.js';
 import { useOuvertures } from './releve/ouvertures.js';
 import { AideDesCoins, AideDesOuvertures } from './releve/AideEtapes.js';
-import type { AideClaudeReleve } from '../app/releve/renfortReleve.js';
+import type { AideClaudeReleve } from '../app/releve/runFacade.js';
+import { textureDesMurs } from '../model/couleurMur.js';
+import { MATERIAUX_MURS_VUS, libelleDe } from '../model/ceQueJeVois.js';
 import type { Image } from '../facade/vision/homographie.js';
 
 /**
@@ -115,12 +117,14 @@ function CoinsDuParcours(p: {
   aide: AideClaudeReleve | null;
   hauteurEstimee: number;
   etiquette: string;
+  /** Le parement du mur deja connu (vu sur place, sinon la BD TOPO), en clair : Claude lit la photo avec lui. */
+  parement: string | null;
 }) {
   const { morceaux, setMorceaux, courant } = p;
   const m = morceaux[Math.min(courant, morceaux.length - 1)];
   // Les coins d'un morceau d'une serie ne sont pas ceux du mur : Claude n'y est pas appele.
   const entiere = morceaux.length === 1 || p.assemblage === 'vues';
-  const aide = m && entiere ? <AideDesCoins aide={p.aide} morceau={m} maj={(x) => setMorceaux((ms) => ms.map((y) => (y.prise === x.prise ? x : y)))} largeurM={p.largeur} hauteurM={p.hauteurEstimee} etiquette={p.etiquette} /> : null;
+  const aide = m && entiere ? <AideDesCoins aide={p.aide} morceau={m} maj={(x) => setMorceaux((ms) => ms.map((y) => (y.prise === x.prise ? x : y)))} largeurM={p.largeur} hauteurM={p.hauteurEstimee} etiquette={p.etiquette} parement={p.parement} /> : null;
   return (
     <EtapeCoins
       morceaux={morceaux}
@@ -175,13 +179,13 @@ function resultatDe(a: Analyse, morceaux: readonly Morceau[], facade: Facade, as
  * L'aide de Claude a la verification : sur une photo seule, ou sur la vue de reference d'une fusion
  * (lot G20) ; jamais sur des morceaux cote a cote, dont aucune photo ne montre le mur entier.
  */
-function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<typeof useOuvertures>; morceaux: readonly Morceau[]; extras: ExtrasAnalyse | null; v: Verification; facade: Facade }) {
+function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<typeof useOuvertures>; morceaux: readonly Morceau[]; extras: ExtrasAnalyse | null; v: Verification; facade: Facade; parement: string | null }) {
   const { extras, morceaux, v } = p;
   const fusion = extras?.fusion ?? null;
   const morceau = fusion ? morceaux[fusion.reference] : morceaux.length === 1 ? morceaux[0] : undefined;
   return (
-    <AideDesOuvertures aide={p.aide} ouv={p.ouv} morceau={morceau} elevation={extras?.elevation ?? null} largeurM={p.facade.largeur} hauteurM={v.hauteurMur} hauteurMesuree={v.hauteurMesuree}
-      couverture={v.resultat.couverture} masque={fusion?.masque ?? 0} occlusion={fusion?.occlusion ?? null} grille={extras?.grille ?? null} etiquette={p.facade.orientation.toLowerCase()} />
+    <AideDesOuvertures aide={p.aide} ouv={p.ouv} morceau={morceau} elevation={extras?.elevation ?? null} largeurM={p.facade.largeur} hauteurM={v.hauteurMur}
+      couverture={v.resultat.couverture} masque={fusion?.masque ?? 0} occlusion={fusion?.occlusion ?? null} etiquette={p.facade.orientation.toLowerCase()} parement={p.parement} />
   );
 }
 
@@ -189,6 +193,12 @@ function AideDeVerification(p: { aide: AideClaudeReleve | null; ouv: ReturnType<
 function avecChampLu(photo: Photo): Photo {
   const lu = photo.champ == null && photo.focalePx == null ? champDesFuites(photo.image) : null;
   return lu === null ? photo : { ...photo, champ: lu };
+}
+
+/** Le parement deja connu du mur (vu sur place, sinon la BD TOPO), en clair : Claude lit la photo avec lui (un colombage s'y distingue mieux). */
+function parementConnu(bat: ObjetPolygone): string | null {
+  const m = textureDesMurs(bat);
+  return m ? libelleDe(MATERIAUX_MURS_VUS, m).toLowerCase() : null;
 }
 
 function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: ObjetPolygone; coteInitial: number | null }) {
@@ -332,11 +342,11 @@ function Parcours({ releve, bat, coteInitial }: { releve: ServiceReleve; bat: Ob
       )}
       {etape === 'coins' && morceaux.length > 0 && facade && (
         <CoinsDuParcours morceaux={morceaux} setMorceaux={setMorceaux} courant={courant} setCourant={setCourant} assemblage={assemblage} changerAssemblage={changerAssemblage}
-          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} aide={releve.aide()} hauteurEstimee={hauteurEstimee} etiquette={facade.orientation.toLowerCase()} />
+          prevues={prevues} avis={avis} largeur={facade.largeur} viser={viser} analyser={analyser} aide={releve.aide()} hauteurEstimee={hauteurEstimee} etiquette={facade.orientation.toLowerCase()} parement={parementConnu(bat)} />
       )}
       {etape === 'analyse' && <EtapeAnalyse vues={assemblage === 'vues' && morceaux.length > 1} />}
       {etape === 'resultat' && verification && facade && (
-        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDeVerification aide={releve.aide()} ouv={ouv} morceaux={morceaux} extras={extras} v={verification} facade={facade} />} />
+        <EtapeResultat v={verification} onRevoir={() => setEtape('coins')} onValider={valider} aide={<AideDeVerification aide={releve.aide()} ouv={ouv} morceaux={morceaux} extras={extras} v={verification} facade={facade} parement={parementConnu(bat)} />} />
       )}
     </div>
   );

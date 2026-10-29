@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { depuisGrille } from '../../../banc/facades/renfort.js';
 import {
-  depuisGrille, estReponseRenfort, graduations, signauxRenfort, texteRenfort, texteSignaux, versGrille, voterRenfort,
+  estReponseRenfort, graduations, signauxRenfort, texteRenfort, texteSignaux, versGrille, voterRenfort,
   type AvisOuverture, type ReponseRenfort,
 } from '../../../../src/facade/detection/renfort.js';
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FICHIERS_DONNEES } from '../../../../src/regles/donnees/fichiers.js';
+import { EMPREINTE_IA } from '../../../../src/facade/regles/facades/ia.js';
 import { bilanDonnees, changerSeuil, controlerDonnees, lireDonnees, seuilsDuTexte } from '../../../../src/regles/donnees/edition.js';
 import { EMPREINTE_REGLAGES_TOITS } from '../../../../src/regles/toits/reglages.js';
 import { EMPREINTE_FAITS_TOITS } from '../../../../src/regles/toits/faits.js';
@@ -17,13 +18,22 @@ const toits = fichier('reglagesToits'), facades = fichier('reglagesFacades'), fa
 
 describe('les fichiers livrés', () => {
   it('sont acceptés tels quels par le lecteur du code, et leur empreinte est celle que le code calcule', () => {
-    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json', 'regles/toits/silhouettes.json', 'regles/toits/formes.json', 'regles/reconciliation.json']);
+    expect(FICHIERS_DONNEES.map((f) => f.chemin)).toEqual(['regles/toits/reglages.json', 'regles/facades/reglages.json', 'regles/toits/faits.json', 'regles/toits/silhouettes.json', 'regles/toits/formes.json', 'regles/reconciliation.json', 'regles/facades/ia.json']);
     expect(controlerDonnees(toits, toits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_TOITS });
     expect(controlerDonnees(facades, facades.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_REGLAGES_FACADES });
     expect(controlerDonnees(faits, faits.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_FAITS_TOITS });
     expect(controlerDonnees(fichier('reconciliation'), fichier('reconciliation').livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_RECONCILIATION });
     expect(controlerDonnees(fichier('silhouettesToits'), fichier('silhouettesToits').livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_SILHOUETTES_TOITS });
     expect(controlerDonnees(fichier('formesToits'), fichier('formesToits').livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_FORMES_TOITS });
+  });
+
+  it('montrent les seuils des règles du run d’une façade, et refusent une valeur hors de ses bornes', () => {
+    const ia = fichier('iaFacades');
+    expect(controlerDonnees(ia, ia.livre)).toEqual({ valide: true, erreur: null, empreinte: EMPREINTE_IA });
+    expect(seuilsDuTexte(ia.livre).map((x) => x.nom)).toContain('facades.ia.colombagePartMax');
+    const plus = changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 0.8)!;
+    expect(bilanDonnees(ia, plus)).toMatchObject({ lignes: 1, empreinteChange: true });
+    expect(controlerDonnees(ia, changerSeuil(ia.livre, 'facades.ia.colombagePartMax', 'valeur', 3)!).erreur).toMatch(/colombagePartMax/);
   });
 
   it('ne montrent aucun écart avec eux-mêmes', () => {

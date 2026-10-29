@@ -71,6 +71,9 @@ describe('le renfort dans l audit', () => {
     const r = await requetesRenfortDuBatiment(entrees(), 'maison', 'maison', 0, FAB);
     expect(r.requetes.map((q) => [q.id, q.passe, q.usage, q.facades])).toEqual([['b0-f0-p1', 1, 'renfort', 0], ['b0-f0-p2', 2, 'renfort', 0], ['b0-f0-p3', 3, 'renfort', 0]]);
     expect(r.parId['b0-f0-p2']).toEqual({ cle: 'maison', passe: 2, cote: 0, usage: 'renfort' });
+    // La photo, puis l'elevation, puis le texte ; les trois passes recoivent le meme contenu.
+    expect(r.requetes[0]!.contenu.map((b) => b.type)).toEqual(['image', 'text', 'image', 'text', 'text']);
+    expect(r.requetes[2]!.contenu).toEqual(r.requetes[0]!.contenu);
     const textes = r.requetes[0]!.contenu.filter((b): b is { type: 'text'; text: string } => b.type === 'text').map((b) => b.text);
     expect(textes.at(-1)).toMatch(/Façade : sud de maison\./);
     expect(textes.at(-1)).toMatch(/1\. fenetre x 2,00/);

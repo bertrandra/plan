@@ -731,7 +731,26 @@ l'algorithme seul (chaîne du relevé, coins vrais), puis avec les trois passes 
 - `tests/unit/facade/bancRenfort.test.ts` rejoue `07` et `18` : aucune fausse baie cochée, la
   fenêtre inventée rejetée, les corrections jamais en hausse.
 
-## 6. Pièges
+## 5 ter. Le run d'une façade (lot F2) et la mesure ×1 contre ×3
+
+Une seule requête de Claude par façade, sur l'assemblage (`MD/spec-facade-calage-audit.md` §8) : prompt et schéma générés
+(`deploy/prompt-facade.md`, `deploy/schema-facade.json`, depuis `src/regles/sujets/descriptions/facadesRun.ts`), usage `facade` du
+serveur. Sa réponse devient des observations (`src/regles/facades/observations.ts`) que les règles de `facade/regles/facades/ia.ts`
+décident (seuils : `regles/facades/ia.json`) : pose candidate, zones de colombage qui écartent des poses, pointes, boîtes cochées
+seulement si la détection les retrouve. Le banc déterministe ne la voit pas (aucune réponse) : il ne bouge pas.
+
+```bash
+npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/mesure [mots]   # l'assemblage (≤ 1 024 px), le texte, la vérité
+npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --simuler /tmp/mesure           # réponses SYNTHÉTIQUES, coût estimé (sans clé)
+ANTHROPIC_API_KEY=… node scripts/verifier-api-claude.mjs --facades /tmp/mesure --plafond 0.25   # avec la clé : ×1 puis ×3
+npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/mesure           # le tableau, en Markdown
+```
+
+- `tests/banc/facades/runIa.ts` : l'image d'une scène telle que la calibration la compose, sa vérité (le mur en pixels, les
+  ouvertures, les pointes, les carreaux peints), des réponses **synthétiques** (pas Claude) et la mesure d'une réponse.
+- Le workflow « Vérifier l'API Claude », case « mesure des façades » cochée, joue les trois temps et colle le tableau au résumé.
+
+
 
 - **Un seul enchaînement** (lot F0, `MD/spec-facade-calage-audit.md` §4 ter) : la calibration rejoue un cas par l'orchestrateur
   `facade/releve/enchainement.ts::derouler` (étapes É0 à É9, état de chacune contre ses objectifs `regles/facades/enchainement.json`,

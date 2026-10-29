@@ -158,6 +158,18 @@ interface ReleveFacade {
     source: 'plan' | 'photo' | 'ia' | 'doigt';
   };
 
+  /**
+   * Le parement du mur (decision du proprietaire du 29 octobre 2026, lot F2 : « donner le type de surface pour discriminer, par exemple
+   * colombage ») : le principal, et les zones d'un autre, en part du mur. Vocabulaire ferme : enduit, pierre, brique, colombage
+   * (pan de bois), bardage-bois, bardage-metal (metal ou composite), beton ; mixte pour le principal quand aucun ne domine. Lu par
+   * le run de l'IA (§8) ; le calage s'en sert deja (une zone de colombage ecarte une pose, §5) ; il entre dans la Facade en F5.
+   */
+  surface?: {
+    principale: 'enduit' | 'pierre' | 'brique' | 'colombage' | 'bardage-bois' | 'bardage-metal' | 'beton' | 'mixte';
+    zones?: { type: 'enduit' | 'pierre' | 'brique' | 'colombage' | 'bardage-bois' | 'bardage-metal' | 'beton'; u0: number; u1: number; v0: number; v1: number; confiance: number }[];
+    source: 'ia' | 'doigt' | 'audit';
+  };
+
   /** La texture : l'image calee sur le mur. */
   textureCalee?: {
     pxParM: number;                   // la precision reelle de l'image
@@ -522,6 +534,23 @@ Principe : **l'IA propose le sens, le déterministe prouve la géométrie, la pe
 6. **Les seuils sont des réglages**, pas du code (`regles/facades/reglages.json`), un seuil par PR, justifié par des cas (`cas`), jamais
    par une seule image. On ne règle rien sur moins d'une vingtaine de cas validés.
 
+**L'IA alimente le moteur de règles** (décision du propriétaire du 29 octobre 2026, lot F2). Rien de ce que Claude rend n'est lu
+directement par la chaîne des façades : sa réponse devient des **observations** typées (`src/regles/facades/observations.ts`, le
+contrat d'entrée du moteur, comme les faits pour les toits), et des **règles** (`facade/regles/facades/ia.ts`, une par sujet, leurs
+seuils dans `regles/facades/ia.json`, des réglages édités dans Admin › Règles) en tirent des **décisions**, que l'arbitre de l'É4,
+l'É7 de l'enchaînement et l'aide du relevé appliquent :
+
+| Règle | Observation | Décision | Réglages |
+|---|---|---|---|
+| Le vote de trois passes (option ×3 du rejeu) | deux ou trois passes | une observation : médianes, majorité | `voteMemeU`, `voteMemeBaie`, `voteMemeEtendue` |
+| Les angles sont une pose candidate | `calage.angles` | une pose de plus pour `calerParLesAncres`, jugée par le même score | — (l'écart d'accord : `calageEcartMaxPart`) |
+| Le colombage écarte les poses qui tiennent dedans | `surface.zones` de type `colombage`, partielles | les poses dont les deux bouts tombent dans la zone ne sont pas jugées ; la teinte du mur se lit hors d'elle | `colombagePartMax`, `colombageTolerancePart` |
+| Les pointes : diagnostic ou alerte, jamais correction | `calage.pointes` | accord, en plus, manquante (diagnostic, F4), hauteur (alerte : le LiDAR est gardé) | `pointeEcartU`, `pointeEcartHauteur` |
+| Une boîte n'est cochée que si la détection la retrouve | `ouvertures` | cochée (retrouvée, ou baie devinée confirmée), seule (décochée), écartée (hors du mur) | `baieRetrouvee`, `devineeConfirmee`, `baieMinM`, `confianceSeule` |
+
+Les observations de toit (silhouette, bout, pointes, appentis, corps, éléments) sont **enregistrées** avec la réponse ; elles n'iront
+au toit que par `corpsSousContrainte` (F4).
+
 **Coordonnées de l'IA** : toujours en **parts du mur** (`u` le long de la largeur, `v` en part de l'égout), jamais en pixels de la
 photo : elles ne dépendent ni de la résolution ni du redressement, et se comparent directement au gabarit. Le calage les ramène en pixels.
 
@@ -712,7 +741,12 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
   3. **les éléments de toit** vus sur la ligne du haut (`elements` : cheminée, lucarne, avec leur `u`, périmètre initial §5 quater) ;
   4. **les ouvertures** : type (fenêtre, porte-fenêtre, porte, garage…), boîte, niveau et travée si elle les voit, `confiance` ;
   5. **leurs détails** : volets, allège, forme, et **les carreaux** (§3.3) : vantaux, grille, petits bois, imposte, vitrage ;
-  6. **une confiance** par élément, et ce qu'elle ne voit pas.
+  6. **une confiance** par élément, et ce qu'elle ne voit pas ;
+  7. **le parement du mur** (`surface`, lot F2, décision du propriétaire) : le principal (`enduit`, `pierre`, `brique`, `colombage`,
+     `bardage-bois`, `bardage-metal`, `beton`, ou `mixte`) et les zones d'un autre parement, en `u` et `v`, avec leur confiance (un étage
+     en colombage sur un rez-de-chaussée enduit, un pignon en pan de bois). En **entrée**, le texte donne le parement déjà connu (vu
+     sur place à l'audit, sinon la BD TOPO) : Claude lit la photo avec lui. Les bois d'un colombage dessinent des rectangles nets que
+     les arêtes prennent pour le mur (AE 101) : la règle du colombage (§5) écarte ces poses.
   Les coordonnées sont celles de l'image prise pour la suite, **normalisées** (`u` le long du mur, `v` en part de l'égout) : l'IA ne voit
   ni les pixels ni les dimensions réelles.
 - **Un run, pas de vote.** Le renfort existant lance trois passes qu'il vote (`facade/detection/renfort.ts`). Avec un seul run, la
@@ -722,7 +756,9 @@ Les mesures du cas alimentent un **tableau** (cas × étape × chemin) que l'on 
   mesurer ce qu'il apporte contre son coût (§11).
 - **Ce que Claude ne fait pas** : il n'écrit ni hauteur, ni largeur, ni forme de toit ; il ne corrige pas le plan. Quand il voit une
   pointe plus haute ou plus basse que prévu, il le dit (`v`), et la spec le traite en **alerte**, jamais en correction (décision 12).
-- **Où va chaque champ** : le calage → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
+- **Par le moteur de règles** (§5, « L'IA alimente le moteur de règles ») : la réponse devient des observations, les règles en
+  décident ; la chaîne ne lit jamais le JSON de Claude.
+- **Où va chaque champ** : le calage et le parement → É4 ; la forme et les `elements` → É5 bis et É8 (propositions confirmées) ; les ouvertures et
   leurs détails → É7, **façade objet** ; les carreaux → `details.carreaux` (sans rendu avant F8).
 - **Reproductibilité** : la réponse du run est **enregistrée** avec la version du prompt et du schéma ; la calibration la rejoue (§7.2) sans
   appel réseau. Un seul run à enregistrer par cas et par version : le rejeu est plus simple et moins cher qu'avec trois passes.
@@ -824,7 +860,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 |---|---|---|---|
 | **F0 — Orchestrateur + calibration** *(livré le 29 octobre 2026, §9 bis)* | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
 | **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
-| **F2 — Un run IA par façade** | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
+| **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
 | **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
@@ -1007,6 +1043,98 @@ historique) : vide.
 Cliquet des orphelins : 257 entrées, inchangé (les fichiers supprimés étaient importés ; les nouveaux exports ont tous un importeur
 dans `src/`). Grep des noms supprimés dans `src/`, `tests/`, `scripts/`, `MD/` (hors cette spec, `spec-releve-facade.md` qui les
 cite comme historique, et le CHANGELOG) : vide.
+
+
+### 9 bis. F2, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **Un run, un schéma** : `src/regles/sujets/descriptions/facadesRun.ts` (le prompt et le schéma, des données), généré par
+  `npm run regles:generer` en `deploy/prompt-facade.md` et `deploy/schema-facade.json` (version 1, `VERSIONS_PROMPT_FACADE` et
+  `VERSIONS_SCHEMA_FACADE` dans `versions.ts`). Il rend le calage (`angles` en part de l'image ; `pointes`, `appentis`, `corps`,
+  `cache` en part du mur), la `forme`, les `elements`, la **`surface`** (le parement principal et ses zones, décision du propriétaire),
+  les `ouvertures` (type, boîte, niveau, travée, confiance), leurs `details` et leurs **`carreaux`**. Le texte donne ce que le plan
+  attend du haut et le parement déjà connu. Le serveur PHP le sert sous l'usage `facade` (`FICHIERS_PAR_USAGE`, `MODELE_PAR_USAGE`,
+  `comptesFacade` pour le journal, versions dans `etat`) ; une requête par façade (×1), trois au plus (×3).
+- **L'IA alimente le moteur de règles** (décision du propriétaire) : les observations (`src/regles/facades/observations.ts`), les
+  règles (`facade/regles/facades/ia.ts`), leurs seuils (`regles/facades/ia.json`, lus et vérifiés par `src/regles/facades/ia.ts`,
+  édités dans Admin › Règles, « Réglages et faits », et montrés avec le prompt et le schéma du run dans l'onglet « Run d'une façade »).
+  Le tableau des règles est au §5. La chaîne ne lit que les décisions.
+- **La réponse enregistrée** (`RunEnregistre` : date, modèle, versions, passes, sorties, tokens, coût, image, chaîne), rangée avec le
+  cas (`CasReel.ia`, jamais écrasée) ; le cas porte aussi le parement vu à l'audit (`CasReel.parement`).
+- **La calibration** : « Déterministe » / « IA (réponse enregistrée) », le choix de la réponse rejouée (son en-tête dit la date, les
+  passes, le modèle, les versions et le coût), « Rappeler Claude » et « Rappeler Claude ×3 » (`app/releve/runFacade.ts`, par la route
+  immédiate, sous la session de l'administrateur). L'É4 montre la pose des deux angles de Claude (trait sombre), ses pointes, ses
+  appentis et caches, les zones de colombage et les poses qu'elles écartent ; sa phrase dit l'accord ou la divergence (à confirmer),
+  les pointes contre le gabarit (diagnostic ou alerte de hauteur), le parement. L'É5 dit le mot de Claude. L'É7 montre ses boîtes
+  (pleines : cochées, retrouvées ; tirets : seules, décochées) ; toucher une boîte dessine la division de son vitrage. La mesure
+  contre la vérité de l'É7 compte aussi les boîtes de Claude. La note de version dit l'IA et l'empreinte de ses règles.
+- **Le relevé** passe par le run (une requête) : à l'étape des coins, les angles de Claude sur la photo deviennent des graines
+  recalées sur ses arêtes ; à la vérification, ses boîtes sur l'élévation (ce qu'aucune photo ne montre en gris) s'accordent avec la
+  détection.
+- **La mesure ×1 contre ×3** : `.claude/skills/facades/scripts/ia-x1-x3.ts` (préparer, simuler, évaluer), `scripts/verifier-api-claude.mjs
+  --facades`, et le workflow « Vérifier l'API Claude » (case « mesure des façades »). Le vérificateur envoie aussi, à chaque passage,
+  une requête `facade` sur `tests/fixtures/facades-ia/facade-test.jpg` (l'assemblage de la scène 22 du banc, aucune photo personnelle)
+  et dit si sa sortie a la forme du schéma.
+- Fumée : point 101 (le mode IA de la calibration) ; points 71 et 82 (l'aide du relevé) passés au run unique.
+
+**Acceptation.**
+
+- *Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7, coût et version affichés* :
+  `tests/unit/zones/ecranCalibration.test.ts` (« rappelle Claude… ») et `tests/unit/facade/releve/enchainement.test.ts` (« le mode IA
+  du rejeu »), fumée 101 ; captures `f2-e4.png`, `f2-e7.png`.
+- *La zone de colombage écarte la pose du pan de bois d'AE 101* : sur l'assemblage refait en synthèse, une réponse enregistrée
+  (synthétique, `tests/fixtures/facades-ia/ae101-sud-synthetique.json`) qui voit le pan de bois du pignon de droite en colombage fait
+  écarter la pose x de 448 à 756 (les bois) ; le mur retenu est le vrai, à 3 % (`calageAncres.test.ts`). Capture `f2-ae101-colombage.png`.
+- *Mesure ×1 contre ×3* : faite hors réseau sur des réponses **synthétiques** (22 scènes du banc à prise par caméra), pour prouver
+  la chaîne de mesure ; chiffres sans valeur sur Claude : ×1 rappel 92,1 %, précision 95,1 %, pose à 1,6 % (médiane) ; ×3 rappel 96 %,
+  précision 100 %, pose à 1,2 % ; coût **estimé** (tokens × tarif Haiku du serveur, appel immédiat) 0,0012 $ par façade en ×1, 0,0021 $
+  en ×3. **La vraie mesure reste à jouer avec la clé** (ci-dessous).
+- Banc des façades identique à la décimale hors colonnes des temps ; `egout-sol.ts` identique (égout 44/44, sol 43/44, silhouette à
+  2 % 39/44, 44/44 expliquées) ; AE 101 « corps identiques » ; empreintes golden inchangées.
+
+**Interprétations.**
+
+1. **Les angles sont en part de l'image, le reste en part du mur** : le §8 dit « angles en `u` sur l'image assemblée » et « le reste
+   normalisé (`u` le long du mur, `v` en part de l'égout) » ; les angles portent aussi le `y` de l'égout et du sol (sinon pas de pose).
+2. **Le run a ses propres fichiers générés**, à côté de ceux de l'analyse d'une maison, depuis une description du sujet « façades »
+   (`descriptions/facadesRun.ts`) : une requête par façade n'a ni la même image ni la même question que l'analyse d'une maison, dont le
+   schéma ne change pas (tous ses champs ont un lecteur).
+3. **La version 1 du run contient déjà la surface** : le run est né dans ce lot, aucune version n'était publiée ; la demande du parement
+   y entre donc sans monter de version (le texte et le schéma ont leurs empreintes dans `versions.ts`).
+4. **Le vote ×3** vote les observations de ce schéma (`voterObservations`), pas celles du renfort. **`renfort.ts` reste** : le renfort à
+   trois passes de l'audit (`entreesRenfort.ts`) l'appelle encore, jusqu'à F3 ; la mesure ×1 contre ×3 n'est pas faite sur Claude. Si
+   elle montre que le vote n'apporte rien, F3 retire l'option ×3 (`voterObservations`, « Rappeler Claude ×3 ») avec le renfort.
+5. **« Les champs du schéma qu'aucun lecteur n'utilise »** : le schéma du run n'en a pas (chaque champ est lu par une règle ou par
+   l'écran : les observations de toit sont dites à l'É5 et enregistrées pour F4) ; celui de l'analyse d'une maison non plus. Le schéma
+   du renfort garde `raison` et `confiance`, sans lecteur, parce qu'il disparaît avec le renfort en F3 : le changer demanderait une
+   version de son prompt écrit à la main pour un fichier qui s'en va.
+6. **Une boîte seule n'est pas retirée** si rien ne la soutient sur l'image (le renfort la rejetait) : la spec dit qu'elle reste
+   décochée ; seule une boîte hors du mur est écartée. Claude ne retire plus une baie détectée.
+7. **Le colombage n'écarte qu'une pose qui tient dans une zone partielle** (les deux bouts dedans) : un mur tout en colombage garde ses
+   angles. La teinte du mur se lit hors des zones (la vue passée à `matiereDuMur`), pas la matière des angles, qui doit voir le bord.
+8. **La réponse ne se rejoue que sur l'assemblage de l'éditeur** (`image: 'assemblage'`), celui qu'elle a vu ; la mesure des cas
+   (`image: 'chaine'`) reste déterministe.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| Le renfort du relevé | `app/releve/renfortReleve.ts`, `tests/unit/app/releve/renfortReleve.test.ts` | `creerAideReleve` (trois passes), `fabriqueImagesRenfortNavigateur`, `reponsesRenfort`, `DemandeAide`, `ReponseAide`, `FabriqueImagesRenfort`, `ContexteAide`, `ImageRenfort` | 150 + 89 | `app/releve/runFacade.ts` (le run, une requête) ; `contenuRenfort`, `requetesRenfort` déplacés dans `app/audit/parcelle/entreesRenfort.ts`, leur seul appelant |
+| Ce que seul le relevé lisait | `facade/detection/renfortRecalage.ts`, `facade/detection/renfort.ts` | `grainesDeCoins`, `depuisGrille` (le banc du renfort les garde), l'export de `ResultatRenfort` | 9 | `coinsDeLIa`, `accorderOuvertures` (`facade/regles/facades/ia.ts`) |
+| Les avis de Claude sur les baies au relevé | `zones/releve/aide.ts`, `AideEtapes.tsx` | `ouverturesAvecAide` par `appliquerRenfort`, les props `hauteurMesuree` et `grille` de l'aide | — | l'accord des boîtes (une boîte seule décochée) |
+
+Cliquet des orphelins : 257 → 248 entrées (9 de moins : les sept de `renfortReleve.ts`, `CartesAretes` et `recalerBoite`, que les règles
+lisent maintenant). Grep des noms supprimés dans `src/`, `tests/`, `scripts/` : vide (hors le banc du renfort, qui garde `depuisGrille`
+et `grainesDeCoins` pour lui).
+
+**Ce qui reste à jouer avec la clé.** Le workflow « Vérifier l'API Claude » (Actions › Vérifier l'API Claude › Run workflow, sur
+`main` après la fusion) avec **`mesure_facades` coché** et **`plafond` à `0.25`** (modèle vide) : il vérifie la requête `facade` sur
+l'image de test (acceptée, conforme, tokens, coût), puis joue ×1 et ×3 sur les 22 scènes du banc (88 requêtes, environ 0,07 $ au tarif
+estimé), colle le tableau ×1 contre ×3 au résumé du job et garde les réponses en artefact (`mesure-facades-x1-x3`). En local, avec une
+clé : `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/m && ANTHROPIC_API_KEY=… node scripts/verifier-api-claude.mjs
+--facades /tmp/m --plafond 0.25 && npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/m`. La décision sur le vote (garder
+l'option ×3 ou la retirer en F3 avec `renfort.ts`) se prend sur ce tableau.
 
 ---
 

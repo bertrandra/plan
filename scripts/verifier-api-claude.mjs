@@ -15,6 +15,11 @@
 // configuration temporaire (droits 0600), supprime a la fin, et n'est jamais affichee. Le serveur
 // lui-meme refuse au-dela du plafond pose dans le dossier temporaire (0,05 $ par jour par defaut).
 //
+// Le run d'une facade (usage `facade`, lot F2) part sur une image de synthese du depot (tests/fixtures/facades-ia/facade-test.jpg :
+// l'assemblage d'une scene du banc, aucune photo personnelle) ; le script dit en plus si sa sortie a la forme du schema (calage,
+// forme, surface, elements, ouvertures, carreaux). `--facades <dossier>` mesure x1 contre x3 : pour chaque image preparee par
+// `.claude/skills/facades/scripts/ia-x1-x3.ts --preparer`, une passe puis trois, reponses et cout ecrits a cote (`<scene>.reponses.json`).
+//
 // VERIFIER_API_CLAUDE_URL_LOCALE (reserve aux tests) remplace l'API par un faux Anthropic, sur la
 // boucle locale seulement : la cle ne part jamais vers une autre adresse que l'API ou la machine.
 
@@ -27,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IMAGE = path.join(racine, 'tests/fixtures/visuel/rue-compact-clair.jpg');
+const IMAGE_FACADE = path.join(racine, 'tests/fixtures/facades-ia/facade-test.jpg');
 const MOT_DE_PASSE = 'verification-api-claude';
 const PLAFOND_DEFAUT = 0.05;
 const PLAFOND_MAX = 2;
@@ -36,7 +42,7 @@ const URL_LOCALE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
 // le renfort a les siens, tous les autres lisent ceux de l'analyse d'une maison. Le rejeu passe par un
 // batch (l'appel immediat le refuse) ; le corps de chaque requete est pourtant le meme
 // (`parametresRequete`), si bien que la requete de sa famille et de son modele le couvre.
-const FAMILLE = (usage) => (usage === 'renfort' ? 'renfort' : 'analyse');
+const FAMILLE = (usage) => (usage === 'renfort' || usage === 'facade' ? usage : 'analyse');
 
 function arreter(message, code = 2) {
   console.error('verifier-api-claude : ' + message);
@@ -44,7 +50,7 @@ function arreter(message, code = 2) {
 }
 
 function lireOptions(argv) {
-  const o = { modele: null, plafond: PLAFOND_DEFAUT };
+  const o = { modele: null, plafond: PLAFOND_DEFAUT, facades: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--modele') o.modele = argv[++i] ?? arreter('--modele demande un identifiant de modele.');
@@ -52,10 +58,13 @@ function lireOptions(argv) {
       const v = Number(argv[++i]);
       if (!(v > 0 && v <= PLAFOND_MAX)) arreter('--plafond demande un montant en dollars, entre 0 et ' + PLAFOND_MAX + '.');
       o.plafond = v;
+    } else if (a === '--facades') {
+      o.facades = argv[++i] ?? arreter('--facades demande le dossier préparé par ia-x1-x3.ts --preparer.');
+      if (!fs.existsSync(o.facades)) arreter('--facades : dossier introuvable : ' + o.facades);
     } else if (a === '--aide' || a === '-h' || a === '--help') {
-      console.log('usage : ANTHROPIC_API_KEY=… npm run verifier:api-claude [-- --modele <id>] [--plafond <dollars>]');
+      console.log('usage : ANTHROPIC_API_KEY=… npm run verifier:api-claude [-- --modele <id>] [--plafond <dollars>] [--facades <dossier>]');
       process.exit(0);
-    } else arreter('option inconnue : ' + a + ' (--modele <id>, --plafond <dollars>).');
+    } else arreter('option inconnue : ' + a + ' (--modele <id>, --plafond <dollars>, --facades <dossier>).');
   }
   return o;
 }
@@ -84,6 +93,10 @@ const dollars = (v) => (typeof v === 'number' ? v.toFixed(5) + ' $' : 'inconnu (
 
 /** Le contenu minimal d'une requete : la photo de test et une ligne de contexte, comme la page. */
 function contenu(famille, image) {
+  if (famille === 'facade') {
+    return [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
+      { type: 'text', text: 'Façade : scène de synthèse du banc (image de test de la vérification de l’API).\nL’image est l’assemblage des photos redressées du mur.\nLe plan attend une pointe de pignon : u 0.4, à environ 1.8 fois l’égout.' }];
+  }
   const texte = famille === 'renfort'
     ? 'Largeur du mur : 9,00 m. Image 1 : la façade sur rue (image de test de la vérification de l’API).'
     : 'Image 1 : vue de la maison depuis la rue, prise à 12 m, vers 245° (image de test de la vérification de l’API).';
@@ -168,6 +181,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     groupes.get(k).usages.push(usage);
   }
   const image = fs.readFileSync(IMAGE).toString('base64');
+  const imageFacade = fs.readFileSync(IMAGE_FACADE).toString('base64');
   console.log('Vérification de l’API Claude par le serveur PHP du dépôt' + (urlLocale ? ' (faux Anthropic local : ' + urlLocale + ')' : '') + '.');
   console.log('Prompt et schéma : analyse v' + etat.corps.prompt + '/v' + etat.corps.schema + ', renfort v' + (etat.corps.renfort?.prompt ?? '?') + '/v' + (etat.corps.renfort?.schema ?? '?') + ' ; plafond ' + options.plafond + ' $.');
 
@@ -176,7 +190,7 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     n++;
     const id = 'verif' + n;
     const demande = { projet: 'verification-api', idu: null, adresse: 'vérification de l’API Claude', audit: null, usage: g.famille, modele: g.modele,
-      requetes: [{ id, passe: 1, facades: 1, contenu: contenu(g.famille, image) }] };
+      requetes: [{ id, passe: 1, facades: 1, contenu: contenu(g.famille, g.famille === 'facade' ? imageFacade : image) }] };
     process.stdout.write('- ' + g.famille + ' (' + g.modele + ' ; couvre ' + g.usages.join(', ') + ') : ');
     const r = await ecrire('admin/claude/messages', demande);
     const x = r.corps?.resultats?.[0];
@@ -192,12 +206,63 @@ async function verifier(tmp, cle, urlLocale, options, garderServeur) {
     }
     const ligne = journal(dossierClaude).find((l) => l.requete === id);
     const t = x.tokens ?? {};
-    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs) ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
+    if (g.famille === 'facade') {
+      const defaut = formeFacade(x.sortie);
+      if (defaut) { console.log('NON CONFORME'); arreter('la sortie du run d’une façade n’a pas la forme du schéma : ' + defaut, 1); }
+    }
+    console.log('accepté, sortie conforme (' + Object.keys(x.sortie).length + ' champs' + (g.famille === 'facade' ? ' ; ' + resumeFacade(x.sortie) : '') + ') ; tokens entrée ' + (t.entree ?? 0) + ', cache écrit ' + (t.ecritureCache ?? 0)
       + ', cache lu ' + (t.lectureCache ?? 0) + ', sortie ' + (t.sortie ?? 0) + ' ; coût journalisé ' + dollars(ligne?.cout));
   }
+  if (options.facades) await mesurerFacades(options.facades, ecrire, options.modele);
   const total = journal(dossierClaude).reduce((s, l) => s + (typeof l.cout === 'number' ? l.cout : 0), 0);
   console.log('Toutes les requêtes ont été acceptées (' + n + '). Coût total journalisé : ' + dollars(total) + '.');
   return 0;
+}
+
+/** Ce qui manque a une sortie du run d'une facade pour avoir la forme du schema (deploy/schema-facade.json) ; null si rien. */
+function formeFacade(s) {
+  const objet = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (!objet(s.calage) || !objet(s.calage.angles)) return 'calage.angles absent';
+  for (const k of ['pointes', 'appentis', 'corps', 'cache']) if (!Array.isArray(s.calage[k])) return 'calage.' + k + ' absent';
+  if (!objet(s.forme) || !objet(s.surface) || !Array.isArray(s.surface.zones)) return 'forme ou surface absente';
+  if (!Array.isArray(s.elements) || !Array.isArray(s.ouvertures)) return 'elements ou ouvertures absents';
+  if (s.ouvertures.some((o) => !objet(o.details) || !objet(o.carreaux) || ![o.u0, o.u1, o.v0, o.v1].every((x) => typeof x === 'number'))) return 'une ouverture sans boîte, détails ou carreaux';
+  return null;
+}
+
+/** La sortie du run d'une facade en quelques mots : ce qu'elle a vu. */
+function resumeFacade(s) {
+  const angles = ['gauche', 'droite'].filter((k) => s.calage.angles[k] && typeof s.calage.angles[k] === 'object').length;
+  const carreaux = s.ouvertures.filter((o) => typeof o.carreaux.colonnes === 'number').length;
+  return angles + ' angle(s), ' + s.calage.pointes.length + ' pointe(s), parement ' + s.surface.principale + ', ' + s.ouvertures.length + ' ouverture(s) dont ' + carreaux + ' aux carreaux lus';
+}
+
+/**
+ * La mesure x1 contre x3 (MD/spec-facade-calage-audit.md §11.2) : pour chaque image du dossier (preparee par ia-x1-x3.ts --preparer),
+ * une passe, puis trois, par l'appel immediat du serveur ; les sorties, les tokens et le cout de chaque mode dans <scene>.reponses.json.
+ */
+async function mesurerFacades(dossier, ecrire, modele) {
+  const images = fs.readdirSync(dossier).filter((f) => f.endsWith('.png') && fs.existsSync(path.join(dossier, f.replace(/\.png$/, '.texte.txt')))).sort();
+  console.log('Mesure x1 contre x3 sur ' + images.length + ' façades de synthèse (' + dossier + ').');
+  for (const f of images) {
+    const nom = f.replace(/\.png$/, '');
+    const blocs = [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: fs.readFileSync(path.join(dossier, f)).toString('base64') } },
+      { type: 'text', text: fs.readFileSync(path.join(dossier, nom + '.texte.txt'), 'utf8') }];
+    const sortie = { source: 'claude' };
+    for (const [m, passes] of [['x1', 1], ['x3', 3]]) {
+      const debut = Date.now();
+      const r = await ecrire('admin/claude/messages', { projet: 'verification-api', idu: null, adresse: 'mesure x1 contre x3', audit: null, usage: 'facade', ...(modele ? { modele } : {}),
+        requetes: Array.from({ length: passes }, (_, i) => ({ id: nom.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 50) + '-' + m + '-p' + (i + 1), passe: i + 1, facades: i ? 0 : 1, contenu: blocs })) });
+      if (r.statut !== 200) arreter('mesure ' + nom + ' ' + m + ' : HTTP ' + r.statut + ' : ' + (r.corps?.error?.message ?? JSON.stringify(r.corps)) + (r.statut === 429 ? '\n(plafond atteint : relancez avec --plafond <dollars>)' : ''), 1);
+      const res = r.corps.resultats ?? [];
+      const somme = (k) => res.reduce((s, x) => s + (x.tokens?.[k] ?? 0), 0);
+      sortie[m] = { modele: r.corps.modele, prompt: r.corps.prompt, schema: r.corps.schema, sorties: res.filter((x) => x.statut === 'reussi' && x.sortie).map((x) => x.sortie),
+        tokens: { entree: somme('entree') + somme('ecritureCache') + somme('lectureCache'), sortie: somme('sortie') },
+        cout: res.every((x) => typeof x.cout === 'number') ? res.reduce((s, x) => s + x.cout, 0) : null, secondes: Math.round((Date.now() - debut) / 100) / 10 };
+      console.log('- ' + nom + ' ' + m + ' : ' + sortie[m].sorties.length + '/' + passes + ' passe(s) lisible(s), ' + dollars(sortie[m].cout) + ', ' + sortie[m].secondes + ' s');
+    }
+    fs.writeFileSync(path.join(dossier, nom + '.reponses.json'), JSON.stringify(sortie));
+  }
 }
 
 principal().then((code) => process.exit(code), (e) => arreter(e?.stack ?? String(e), 1));

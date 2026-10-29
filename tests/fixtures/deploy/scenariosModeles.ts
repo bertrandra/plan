@@ -9,7 +9,7 @@ export const RAPIDE = 'claude-haiku-5-5';
 export const FIN = 'claude-sonnet-5-5';
 /** Les modeles admis, et celui de chaque usage tant que l'administrateur n'a rien regle. */
 const MODELES = [RAPIDE, FIN];
-const MODELE_PAR_USAGE = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE };
+const MODELE_PAR_USAGE = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
 
 export interface Serveur {
   navigateur: (entree: string, init?: RequestInit) => Promise<Response>;
@@ -36,7 +36,7 @@ export async function reglerLesModeles(s: Serveur): Promise<void> {
   const lu = await (await s.navigateur('admin/claude/modeles')).json();
   expect(lu).toEqual({ format: 'plan-claude-modeles', usages: { ...MODELE_PAR_USAGE }, defaut: { ...MODELE_PAR_USAGE }, admis: MODELES, regle: false });
   // Par defaut, le modele rapide pour tous les usages.
-  expect(lu.usages).toEqual({ analyse: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, escalade: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE });
+  expect(lu.usages).toEqual({ analyse: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, escalade: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE });
   expect((await s.ecrire('admin/claude/batches', 'POST', avecRenfort())).status).toBe(201);
   expect(modelesEnvoyes(s, 0)).toEqual({ p1: RAPIDE, r1: RAPIDE });
 

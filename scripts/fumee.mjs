@@ -2169,7 +2169,7 @@ const POINTS = {
     const tarifs = JSON.parse(readFileSync(new URL('../deploy/claude-tarifs.json', import.meta.url), 'utf8'));
     let plafonds = { format: 'plan-claude-plafonds', defaut: { jour: 0.02, mois: 10 }, organisations: {}, requetesParBatch: 60, estimationRequete: 0.005 };
     let tarifsEnvoyes = null;
-    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5' };
+    const defaut = { analyse: 'claude-haiku-5-5', escalade: 'claude-haiku-5-5', renfort: 'claude-haiku-5-5', immediat: 'claude-haiku-5-5', candidats: 'claude-haiku-5-5', facade: 'claude-haiku-5-5' };
     let modelesEnvoyes = null;
     await page.route(/\/admin\//, async (route) => {
       const req = route.request(), u = new URL(req.url());
@@ -2625,6 +2625,65 @@ const POINTS = {
       && frise.length === 9 && frise.every((t) => etats.has(t)) && /^É4 · Calage du mur/.test(titre) && /Mur cherché sur l’assemblage : x de \d+ à \d+/.test(resume)
       && contrat >= 5 && /^Mur : calage du mur, /.test(ligne) && /^Étape 3 sur 8, Mur/.test(courant || '') && frise2.length === 9 && frise2[1] === frise[1] && frise2[2] === frise[2] && calage && !debords.some(Boolean);
     return { ok, mesure: `barre : ${segments.map((x) => x.etat).join(' ')} (« ${segments[2]?.texte} ») ; frise : ${frise.join(', ')} ; ouverte : « ${titre} », « ${resume.slice(0, 90)}… », contrat ${contrat} lignes ; sous la barre « ${ligne} » ; courant « ${courant} » ; depuis É4 : ${frise2.join(', ')} ; calage : « ${(legende.match(/score d’explication sans le toit [\d,]+/) || ['PAS de score'])[0]} », poignées ${poignees.join('/')}, « Appliquer » ${appliquerAvant ? 'grisé' : 'ACTIF'} puis ${appliquerApres ? 'GRISÉ' : 'actif'}, après : « ${resumeCale.slice(0, 60)}… » ; largeur de la photo ${largeurPx[0]} px ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
+  },
+  101: async (page, f) => {
+    // Admin › Calibrer la detection, le mode « IA » du rejeu (MD/spec-facade-calage-audit.md §7.2, §8, lot F2). Un cas du serveur simule :
+    // la photo de synthese de la scene 02 du banc, ses coins vrais, ses ouvertures vraies, et une reponse ENREGISTREE du run de la
+    // facade (SYNTHETIQUE, tests/fixtures/facades-ia/02-synthetique.json : pas Claude). « Rejouer », puis « IA (réponse enregistrée) » :
+    // le rejeu repart du calage avec elle, sans reseau. On mesure : l'entete de la reponse (date, passes, modele, versions, cout) ; l'E4
+    // dit la pose des deux angles de Claude et l'accord ; son calque (la pose de Claude en trait sombre) ; l'E7 dit ses boites
+    // retrouvees par la detection et la boite seule, decochee ; toucher une boite dessine la division de son vitrage ; la note de version
+    // dit l'IA et l'empreinte de ses regles ; rien ne debord. Aucun appel a `admin/claude/messages`.
+    const { vues: [photo], coins, largeur } = photosScene('02-enduit-uni-face');
+    const scene = JSON.parse(readFileSync('tests/fixtures/facades/02-enduit-uni-face.json', 'utf8'));
+    const run = JSON.parse(readFileSync('tests/fixtures/facades-ia/02-synthetique.json', 'utf8'));
+    const cas = { format: 'plan-facade-reelle', version: 1, nom: 'Synthèse 02 · enduit', statut: 'brouillon', source: 'fumee', largeurM: largeur, hauteurM: scene.verite.hauteur,
+      photos: [{ fichier: 'photo-1', coins: coins[0] }], ouvertures: scene.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })), ia: [run],
+      images: ['data:image/png;base64,' + photo.toString('base64')] };
+    let appels = 0;
+    await page.route(/\/admin\//, (route) => {
+      const u = new URL(route.request().url());
+      const json = (corps) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+      if (u.pathname.endsWith('/admin/claude/messages')) { appels++; return route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }); }
+      if (u.pathname.endsWith('/admin/session')) return json({});
+      if (u.pathname.endsWith('/admin/calibration-cas')) return json({ cas: [{ id: 'cas-02', nom: cas.nom, statut: 'brouillon', photos: 1, ouvertures: cas.ouvertures.length, updatedAt: '2026-10-29T10:00:00Z' }] });
+      if (u.pathname.endsWith('/admin/calibration-cas/cas-02')) return json(cas);
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const etape = async (nom, g) => { try { return await g(); } catch (e) { throw new Error(nom + ' : ' + e.message.split('\n')[0]); } };
+    const deborde = () => page.evaluate((l) => document.documentElement.scrollWidth > l + 1, f.width);
+    const finRejeu = () => page.waitForFunction(() => document.querySelector('[data-controle="calibration.rejouer"]')?.textContent === 'Rejouer' && !!document.querySelector('.calFrise'), null, { timeout: 90000 });
+    await page.goto(BASE + '/?admin&ecran=calibration');
+    await etape('ouvrir le cas', () => page.locator('[data-controle="calibration.ouvrirCas"]').first().click({ timeout: 20000 }));
+    await etape('rejouer', () => page.locator('[data-controle="calibration.rejouer"]').click({ timeout: 10000 }));
+    await etape('fin du rejeu', finRejeu);
+    const entete = ((await page.locator('[data-controle="calibration.choisirRun"] option').first().textContent()) || '').trim();
+    await etape('mode IA', () => page.locator('[data-controle="calibration.modeIa"]').click({ timeout: 5000 }));
+    await etape('fin du rejeu IA', finRejeu);
+    await page.waitForTimeout(300);
+    await etape('segment Mur', () => page.locator('.barreFacade button[data-etape="calage"]').click({ timeout: 5000 }));
+    await etape('E4 ouverte', () => page.locator('.calEtapeOuverte .calMurIa').waitFor({ timeout: 10000 }));
+    const resume4 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const note = (await page.locator('.calEtapeOuverte > .calNote').last().textContent()) || '';
+    if (process.env.FUMEE_CAPTURE_F2_E4) await page.locator('.calEtapeOuverte figure').first().screenshot({ path: process.env.FUMEE_CAPTURE_F2_E4 });
+    const debords = [await deborde()];
+    await etape('E7', () => page.locator('.calFrise button[data-etape="ouvertures"]').click({ timeout: 5000 }));
+    await etape('E7 ouverte', () => page.locator('.calEtapeOuverte .calBoiteIa').first().waitFor({ timeout: 10000 }));
+    const resume7 = (await page.locator('.calEtapeOuverte .calResume').textContent()) || '';
+    const cochees = await page.locator('.calEtapeOuverte .calBoiteIa.cochee').count(), seules = await page.locator('.calEtapeOuverte .calBoiteIa.seule').count();
+    // La boite dont le vitrage est dit : la premiere cochee qui a des carreaux lus (une fenetre a petits bois de la scene).
+    await page.locator('.calEtapeOuverte .calBoiteIa.cochee').first().dispatchEvent('click');
+    await page.waitForTimeout(200);
+    const traits = await page.locator('.calEtapeOuverte .calCarreau').count();
+    const vitrage = ((await page.locator('.calEtapeOuverte .calTexteIa').textContent().catch(() => '')) || '').trim();
+    if (process.env.FUMEE_CAPTURE_F2_E7) await page.locator('.calEtapeOuverte figure').first().screenshot({ path: process.env.FUMEE_CAPTURE_F2_E7 });
+    debords.push(await deborde());
+    await page.unroute(/\/admin\//);
+    const ok = /^réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0012 \$$/.test(entete)
+      && /IA \(réponse synthétique .*\) : ses angles posent le mur x de \d+ à \d+ .*(accord|divergent)/.test(resume4) && /IA : réponse synthétique.*règles [0-9a-f]{8}/.test(note)
+      && /ouvertures? vues? par Claude : \d+ retrouvées? par la détection, 1 seule, proposée décochée/.test(resume7) && cochees >= 3 && seules === 1 && vitrage.length > 5
+      && appels === 0 && !debords.some(Boolean);
+    return { ok, mesure: `réponse rejouée « ${entete} » ; É4 « ${(resume4.match(/IA \(.*$/) || ['PAS d’IA'])[0].slice(0, 160)} » ; note « ${note.slice(-90)} » ; É7 « ${(resume7.match(/\d+ ouvertures? vues? par Claude.*$/) || ['PAS de boîtes'])[0]} », ${cochees} cochée(s), ${seules} seule(s) ; vitrage « ${vitrage} » (${traits} trait(s)) ; appels réseau ${appels} ; débordement ${debords.map((d) => (d ? 'OUI' : 'non')).join('/')}` };
   },
   90: async (page, f) => {
     // L'avant et l'apres en deux vues (demande du 15 octobre 2026) : l'ecran des propositions s'ouvre
@@ -3396,20 +3455,19 @@ const POINTS = {
     return { ok, mesure: `avant le relevé : ${sans.details} maille(s) de détails, ${sans.formes} encadrement(s) de forme ; après : ${avec.details} maille(s) de détails (${avec.quads} quads), ${avec.formes} encadrement(s) cintré ou rond ; un Ctrl+Z : ${retour ? 'retiré d’un coup' : 'PAS retiré'}` };
   },
   71: async (page) => {
-    // L'aide de Claude au releve (lot L18, spec facades §12 bis) : une photo sans aucune arete (un ciel en
-    // degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que
-    // sur ce signal ; le premier appel demande l'accord ; l'envoi part en trois passes par
-    // `admin/claude/messages` (usage renfort, la photo et sa grille, jeton de la plateforme) ; les
-    // graines que rien ne soutient sont rejetees, et la note le dit ; un coin ne change que s'il etait
-    // predit, et devient « proposé par Claude ».
+    // L'aide de Claude au releve (lot L18, spec facades §12 bis ; le run unique d'une facade depuis F2) : une photo sans aucune arete
+    // (un ciel en degrade) laisse les quatre coins predits ; « Demander de l'aide » n'est propose que sur ce signal ; le premier appel
+    // demande l'accord ; l'envoi part en UNE requete par `admin/claude/messages` (usage facade, la photo seule, jeton de la
+    // plateforme) ; les angles que rien ne soutient sont rejetes, et la note le dit ; un coin ne change que s'il etait predit, et
+    // devient « proposé par Claude ».
     const recues = [];
-    const graines = { indices: [{ image: 1, vu: 'égout et pied' }], hautGauche: { colonne: 2, ligne: 3 }, hautDroit: { colonne: 8, ligne: 3 }, basDroit: { colonne: 8, ligne: 7.2 }, basGauche: { colonne: 2, ligne: 7.2 } };
-    const sortie = { mur: { indices: [], vu: 'attendu' }, coins: graines, ouvertures: [], manquees: [], confiance: 'moyenne' };
+    const sortie = { calage: { angles: { gauche: { x: 0.2, egout: 0.3, sol: 0.72, confiance: 'moyenne' }, droite: { x: 0.8, egout: 0.3, sol: 0.72, confiance: 'moyenne' } }, pointes: [], appentis: [], corps: [], cache: [] },
+      forme: { silhouette: 'indetermine', bout: 'indetermine' }, elements: [], surface: { principale: 'indetermine', zones: [], confiance: 'indetermine' }, ouvertures: [], confiance: 'moyenne' };
     await page.route(/\/admin\/claude\/messages$/, async (route) => {
       const req = route.request();
       const d = JSON.parse(req.postData() || 'null');
       recues.push({ d, jeton: req.headers().authorization ?? '' });
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'renfort', sortie, erreur: null })) }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'facade', sortie, erreur: null, cout: 0.0012 })) }) });
     });
     const dessin = await page.context().newPage();
     await dessin.setViewportSize({ width: 1600, height: 1200 });
@@ -3444,7 +3502,7 @@ const POINTS = {
     const images = d ? d.requetes[0].contenu.filter((b) => b.type === 'image').length : 0;
     const coinsOk = apres.length === 4 && apres.every((c, k) => c === avant[k] || (avant[k] === 'predit' && c === 'claude'));
     const ok = avant.every((c) => c === 'predit') && propose === 1 && /coins non trouvés/.test(note) && demandeAccord === 1 && recues.length === 1
-      && d?.usage === 'renfort' && d.requetes.length === 3 && d.requetes.every((q) => q.usage === 'renfort') && images === 1 && /^Bearer /.test(recues[0].jeton)
+      && d?.usage === 'facade' && d.requetes.length === 1 && d.requetes.every((q) => q.usage === 'facade') && images === 1 && /^Bearer /.test(recues[0].jeton)
       && /^Claude (a proposé|n’a situé aucun coin)/.test(message) && coinsOk && !deborde;
     return { ok, mesure: `coins ${avant.join(', ')} ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 70)}… ») ; accord ${demandeAccord ? 'demandé' : 'PAS demandé'} ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s) ' + d.usage + ', ' + images + ' image(s), jeton ' + (/^Bearer /.test(recues[0].jeton) ? 'oui' : 'NON') : 'RIEN'} ; « ${message.slice(0, 90)} » ; coins après : ${apres.join(', ')} ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
@@ -3483,14 +3541,15 @@ const POINTS = {
     // camionnette vitree devant qui se deplace d'une vue a l'autre sans jamais degager le milieu du
     // mur ; « Vues du mur entier », Analyser. La part cachee sur les deux vues se hachure dans
     // l'elevation, avec sa legende ; « Demander de l'aide » est propose (avant G20, jamais sur
-    // plusieurs photos), en disant la part cachee ; l'envoi porte la photo de reference et l'elevation
-    // (route `admin/claude/messages` simulee).
+    // plusieurs photos), en disant la part cachee ; l'envoi (le run unique d'une facade depuis F2) porte l'elevation fondue, ce
+    // qu'aucune photo ne montre en gris (route `admin/claude/messages` simulee).
     const recues = [];
-    const sortie = { mur: { indices: [], vu: 'attendu' }, coins: { indices: [], hautGauche: 'indetermine', hautDroit: 'indetermine', basDroit: 'indetermine', basGauche: 'indetermine' }, ouvertures: [], manquees: [], confiance: 'moyenne' };
+    const sortie = { calage: { angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [], appentis: [], corps: [], cache: [] }, forme: { silhouette: 'indetermine', bout: 'indetermine' },
+      elements: [], surface: { principale: 'enduit', zones: [], confiance: 'moyenne' }, ouvertures: [], confiance: 'moyenne' };
     await page.route(/\/admin\/claude\/messages$/, async (route) => {
       const d = JSON.parse(route.request().postData() || 'null');
       recues.push(d);
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'renfort', sortie, erreur: null })) }) });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ modele: 'claude-haiku-5-5', prompt: 1, schema: 1, resultats: d.requetes.map((q) => ({ id: q.id, statut: 'reussi', passe: q.passe, usage: 'facade', sortie, erreur: null, cout: 0.0012 })) }) });
     });
     const dessiner = async (mur, camion) => {
       const d = await page.context().newPage();
@@ -3579,7 +3638,7 @@ const POINTS = {
     const zones = chemins[1] ?? 0;
     const ok = chemins.length === 2 && zones >= 1 && !!trait && trait !== 'none' && trait !== 'absent'
       && /^Hachuré : caché sur toutes les photos .*\d+ % du mur\.$/.test(legende) && propose === 1 && /\d+ % du mur caché sur toutes les photos/.test(note)
-      && recues.length === 1 && d.usage === 'renfort' && d.requetes.length === 3 && images === 2 && /^Claude (propose|confirme)/.test(message) && !deborde;
+      && recues.length === 1 && d.usage === 'facade' && d.requetes.length === 1 && images === 1 && /vues? par Claude|Claude ne voit aucune ouverture/.test(message) && !deborde;
     return { ok, mesure: `coins au doigt ${auDoigt}/4 ; hachure : ${zones} zone(s), trait ${trait} ; « ${legende.slice(0, 90)} » ; aide ${propose ? 'proposée' : 'ABSENTE'} (« ${note.slice(0, 80)}… ») ; envoi : ${recues.length} appel(s), ${d ? d.requetes.length + ' passe(s), ' + images + ' image(s)' : 'RIEN'} ; « ${message.slice(0, 70)} » ; débordement ${deborde ? 'OUI' : 'non'}` };
   },
   99: async (page) => {
@@ -3644,7 +3703,8 @@ function pointsPour(nomClasse) {
   // 99 : le fichier du projet, exporte en JSON puis rouvert par le menu Fichier.
   // 66 : retoucher la forme d'un objet de l'IGN, apres l'avertissement ; la case « Reprendre la version de l'IGN » ensuite.
   // 100 : Admin › Calibrer la detection, le rejeu d'un cas par l'enchainement de la facade : la barre de progression et la frise (lot F0).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100];
+  // 101 : son mode « IA », une reponse enregistree du run de la facade rejouee sans reseau (lot F2).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }

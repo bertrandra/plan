@@ -14,6 +14,9 @@ import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
 import { photographier, coinsVrais, type PriseCamera } from '../../../banc/facades/synthese.js';
+import { casIaDeScene, sortieSynthetique } from '../../../banc/facades/runIa.js';
+import type { RunEnregistre } from '../../../../src/regles/facades/observations.js';
+import { veriteDuCas } from '../../../../src/facade/releve/enchainement.js';
 
 // L'orchestrateur de l'enchainement d'une facade (facade/releve/enchainement.ts, MD/spec-facade-calage-audit.md §4 ter.4) : l'etat de
 // chaque etape est calcule, la chaine est appelee telle quelle (le rejeu d'un cas du banc rend ce qu'elle rend), et l'on peut
@@ -161,3 +164,41 @@ describe('le cas de calibration dans l enchainement', () => {
     cale.photos[0]?.coins.forEach((q, k) => { expect(Math.abs(q.x - (vrais[k] as P2).x)).toBeLessThan(0.2); expect(Math.abs(q.y - (vrais[k] as P2).y)).toBeLessThan(0.2); });
   }, 60_000);
 });
+
+describe('le mode « IA » du rejeu (lot F2) : une reponse enregistree, rejouee sans reseau, decidee par le moteur', () => {
+  const { s, ph, vrais } = scene('02-');
+  const L = s.verite.largeur, H = s.verite.hauteur;
+  const c = casIaDeScene(s);
+  if (!c) throw new Error('pas de cas');
+  // Une reponse SYNTHETIQUE tiree de la verite de la scene (tests/banc/facades/runIa.ts), avec la fenetre qu'elle invente.
+  const run = (sortie: object): RunEnregistre => ({ le: '2026-10-29T12:00:00.000Z', modele: 'synthetique', prompt: 1, schema: 1, passes: 1, sorties: [sortie], cout: 0.0011, tokens: { entree: 4000, sortie: 800 },
+    image: { largeur: c.image.largeur, hauteur: c.image.hauteur }, chaine: VERSION_CHAINE_FACADES, synthetique: true });
+  const sortie = sortieSynthetique(c, s.synthese.graine % 3, s.synthese.graine) as { calage: { angles: Record<string, { x: number }> } };
+  const cas = casDe(L, H, vrais, ph.focalePx, { ouvertures: s.verite.ouvertures.map(({ type, x, y, l, h }) => ({ type, x, y, l, h })) });
+
+  it('pose candidate a l E4 (accord), boites accordees a l E7, version et cout dits', async () => {
+    const r = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage', ia: run(sortie), verite: veriteDuCas(cas) });
+    expect(etapeDe(r, 'calage').resume).toMatch(/IA \(réponse synthétique \(pas de Claude\), 2026-10-29, une passe, synthetique, prompt v1, schéma v1, 0,0011 \$\) : ses angles posent le mur .* accord/);
+    expect(etapeDe(r, 'silhouette').resume).toMatch(/Claude lit : ligne droite/);
+    expect(etapeDe(r, 'ouvertures').resume).toMatch(/ouvertures vues par Claude : \d+ retrouvées par la détection, 1 seule, proposée décochée/);
+    expect(etapeDe(r, 'ouvertures').etat).toBe('a-confirmer');
+    expect(etapeDe(r, 'ouvertures').verite?.texte).toMatch(/Boîtes de Claude : rappel/);
+    expect(r.versions.ia).toMatch(/^[0-9a-f]{8}$/);
+    const im = imagesEtapes(r, { largeurM: L, hauteurM: H, gabarit: GABARIT_RECTANGLE, photos: [{ coins: vrais }] });
+    expect(im.ia?.pose).not.toBeNull();
+    expect(im.ia?.boites.filter((b) => !b.cochee)).toHaveLength(1);
+  }, 60_000);
+
+  it('dit la divergence quand ses angles tombent loin du mur retenu : l E4 est a confirmer', async () => {
+    const loin = JSON.parse(JSON.stringify(sortie)) as typeof sortie;
+    for (const a of Object.values(loin.calage.angles)) a.x += 0.1;
+    const r = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage', ia: run(loin) });
+    expect(etapeDe(r, 'calage').resume).toMatch(/les deux chemins divergent, à confirmer/);
+    expect(etapeDe(r, 'calage').etat).toBe('a-confirmer');
+    // Sans Claude, aucune version des regles de l'IA, aucune phrase de Claude.
+    const sans = await derouler(entreesDuCas(cas, [ph.image]), { coins: 'garder', image: 'assemblage' });
+    expect(sans.versions.ia).toBeUndefined();
+    expect(etapeDe(sans, 'calage').resume).not.toMatch(/IA \(/);
+  }, 60_000);
+});
+

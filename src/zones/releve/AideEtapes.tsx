@@ -1,11 +1,11 @@
-// Le releve de facade : l'aide de Claude a ses deux etapes (lot L18). Aux coins, ses graines
-// remplacent les coins predits qu'elles recalent ; a la verification, ses avis et ses boites
-// manquees passent par le recalage (zones/releve/aide.ts) avant d'etre proposes.
+// Le releve de facade : l'aide de Claude a ses deux etapes (lot L18), par le run unique d'une facade depuis le lot F2. Aux coins, les
+// angles qu'il situe sur la photo remplacent les coins predits qu'ils recalent ; a la verification, ses boites, lues sur l'elevation
+// redressee, s'accordent avec la detection (zones/releve/aide.ts) avant d'etre proposees.
 
-import { texteBilan } from '../../facade/detection/renfortRecalage.js';
-import type { AideClaudeReleve } from '../../app/releve/renfortReleve.js';
+import { texteRunFacade } from '../../regles/facades/observations.js';
+import { texteAccord } from '../../facade/regles/facades/ia.js';
+import type { AideClaudeReleve } from '../../app/releve/runFacade.js';
 import type { Image } from '../../facade/vision/homographie.js';
-import type { GrilleFacade } from '../../model/types.js';
 import { AideClaude } from './AideClaude.js';
 import { coinsAvecAide, motifAide, ouverturesAvecAide, signauxDeVerification, signauxDesCoins } from './aide.js';
 import type { OuverturesEnCours } from './ouvertures.js';
@@ -14,15 +14,12 @@ import type { Morceau } from '../../facade/releve/serie.js';
 const pluriel = (n: number, s: string, p = s + 's') => n + ' ' + (n > 1 ? p : s);
 
 /** L'aide a l'etape des coins de la photo courante. */
-export function AideDesCoins({ aide, morceau, maj, largeurM, hauteurM, etiquette }: { aide: AideClaudeReleve | null; morceau: Morceau; maj: (m: Morceau) => void; largeurM: number; hauteurM: number; etiquette: string }) {
+export function AideDesCoins({ aide, morceau, maj, largeurM, hauteurM, etiquette, parement = null }: { aide: AideClaudeReleve | null; morceau: Morceau; maj: (m: Morceau) => void; largeurM: number; hauteurM: number; etiquette: string; parement?: string | null }) {
   const signaux = signauxDesCoins(morceau);
   const demander = async () => {
-    const r = await (aide as AideClaudeReleve).demander({
-      photo: morceau.prise.photo.image, coins: morceau.coins, coinsTrouves: (morceau.sources ?? []).every((s) => s === 'trouve'), elevation: null,
-      largeurM, hauteurM, hauteurMesuree: false, ouvertures: [], grille: null, signaux, etiquette,
-    });
+    const r = await (aide as AideClaudeReleve).demander({ image: morceau.prise.photo.image, texte: texteRunFacade({ etiquette, image: 'photo', pointes: [], parement }) });
     if ('erreur' in r) return { message: r.erreur, erreur: true };
-    const a = coinsAvecAide(morceau, r.vote, largeurM, hauteurM);
+    const a = coinsAvecAide(morceau, r.reponse, largeurM, hauteurM);
     if (!a.recales) return { message: 'Claude n’a situé aucun coin que la photo confirme : placez les coins au doigt.', erreur: false };
     maj(a.morceau);
     return { message: 'Claude a proposé ' + pluriel(a.recales, 'coin') + ', recalé' + (a.recales > 1 ? 's' : '') + ' sur les arêtes de la photo : vérifiez-les avec la loupe.', erreur: false };
@@ -31,27 +28,23 @@ export function AideDesCoins({ aide, morceau, maj, largeurM, hauteurM, etiquette
 }
 
 /**
- * L'aide a la verification : les ouvertures proposees, sur l'elevation redressee. `morceau` est la
- * photo que Claude regarde : la seule, ou la vue de reference d'une fusion (lot G20), dont le masque
- * d'occlusion (`occlusion`, part `masque` du mur) part hachure sur l'elevation.
+ * L'aide a la verification : les ouvertures proposees, sur l'elevation redressee, que Claude regarde. `morceau` est la photo dont
+ * elle vient : la seule, ou la vue de reference d'une fusion (lot G20), dont le masque d'occlusion (`occlusion`, part `masque` du
+ * mur) part en gris sur l'elevation : ce qu'aucune photo ne montre, Claude ne l'invente pas.
  */
-export function AideDesOuvertures(p: { aide: AideClaudeReleve | null; ouv: OuverturesEnCours; morceau: Morceau | undefined; elevation: Image | null; largeurM: number; hauteurM: number; hauteurMesuree: boolean; couverture: number; masque?: number; occlusion?: Uint8Array | null; grille: GrilleFacade | null; etiquette: string }) {
+export function AideDesOuvertures(p: { aide: AideClaudeReleve | null; ouv: OuverturesEnCours; morceau: Morceau | undefined; elevation: Image | null; largeurM: number; hauteurM: number; couverture: number; masque?: number; occlusion?: Uint8Array | null; etiquette: string; parement?: string | null }) {
   const { aide, ouv, morceau } = p;
   const masque = p.masque ?? 0;
   const signaux = signauxDeVerification({ ouvertures: ouv.ouvertures, devinees: ouv.devinees, largeurM: p.largeurM, couverture: p.couverture, masque });
   if (!morceau || !p.elevation) return null;
   const elevation = p.elevation;
   const demander = async () => {
-    const ouvertures = ouv.ouvertures;
-    const r = await (aide as AideClaudeReleve).demander({
-      photo: morceau.prise.photo.image, coins: morceau.coins, coinsTrouves: (morceau.sources ?? []).every((s) => s !== 'predit'), elevation, cache: p.occlusion ?? null,
-      largeurM: p.largeurM, hauteurM: p.hauteurM, hauteurMesuree: p.hauteurMesuree, ouvertures, grille: p.grille, signaux, etiquette: p.etiquette,
-    });
+    const r = await (aide as AideClaudeReleve).demander({ image: elevation, cache: p.occlusion ?? null, texte: texteRunFacade({ etiquette: p.etiquette, image: 'elevation', pointes: [], parement: p.parement ?? null }) });
     if ('erreur' in r) return { message: r.erreur, erreur: true };
-    const res = ouverturesAvecAide({ ouvertures, devinees: ouv.devinees, vote: r.vote, elevation, largeurM: p.largeurM, hauteurM: p.hauteurM });
+    const res = ouverturesAvecAide({ ouvertures: ouv.ouvertures, devinees: ouv.devinees, reponse: r.reponse, elevation, largeurM: p.largeurM, hauteurM: p.hauteurM });
     ouv.renforcer(res);
-    const t = texteBilan(res.bilan);
-    return { message: t ? 'Claude propose : ' + t + '. Ses propositions sont marquées « Proposée par Claude » : vérifiez-les.' : 'Claude confirme ce que Plan a trouvé : rien à changer.', erreur: false };
+    const t = texteAccord(res.bilan);
+    return { message: t ? t + '. Ses boîtes seules sont marquées « Proposée par Claude », décochées : vérifiez-les.' : 'Claude ne voit aucune ouverture : rien à changer.', erreur: false };
   };
   return <AideClaude aide={aide} signaux={signaux} etape="ouvertures" demander={demander} motif={motifAide(signaux, masque)} />;
 }

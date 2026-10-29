@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { constantePhp, php, phpObjets, phpPresent } from '../../fixtures/deploy/appelPhp.js';
 import {
-  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TROUVE_ANALYSE, TROUVE_RENFORT, TROUVE_VIDE,
+  COUT_P1, COUT_P2, SORTIE_ANALYSE, SORTIE_FACADE, SORTIE_RENFORT, SORTIE_VIDE, TEXTE_DESORDONNE, TROUVE_ANALYSE, TROUVE_FACADE, TROUVE_RENFORT, TROUVE_VIDE,
   USAGE_P1, USAGE_P2, demande, reponseParDefaut, reussi
 } from '../../fixtures/deploy/fauxAnthropic.js';
 import { FIN, RAPIDE, requeteRenfort } from '../../fixtures/deploy/scenariosModeles.js';
@@ -157,6 +157,19 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       verifier(s.schema, 'schema');
       for (const t of termes(s.schema, ['indetermine', 'oui', 'non', 'faible', 'moyenne', 'forte'])) expect(texte('prompt-renfort.md'), t).toContain('`' + t + '`');
     });
+
+    it('versionne le prompt et le schema du run d une facade, generes, et definit chaque terme', () => {
+      const p = php<{ version: number; texte: string }>('lirePrompt', texte('prompt-facade.md'));
+      expect(p.version).toBe(1);
+      expect(p.texte).toMatch(/^# Rôle/);
+      const s = lireSchema('schema-facade.json');
+      expect(s.version).toBe(1);
+      verifier(s.schema, 'schema');
+      for (const t of termes(s.schema, [])) expect(texte('prompt-facade.md'), t).toContain('`' + t + '`');
+      // Le serveur sert ce couple pour l'usage `facade`, et garde celui de l'analyse pour les autres.
+      expect(php<[{ version: number }, { version: number }]>('promptEtSchema', 'facade').map((x) => x.version)).toEqual([1, 1]);
+      expect(constantePhp<string[]>('USAGES')).toContain('facade');
+    });
   });
 
   describe('la demande et ses parametres', () => {
@@ -214,7 +227,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
   });
 
   describe('le modele de chaque usage', () => {
-    const defaut = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE };
+    const defaut = { analyse: RAPIDE, escalade: RAPIDE, renfort: RAPIDE, immediat: RAPIDE, candidats: RAPIDE, rejeu: RAPIDE, facade: RAPIDE };
 
     it('prend le modele rapide par defaut pour tous les usages, parmi deux admis', () => {
       expect(constantePhp('MODELE_PAR_USAGE')).toEqual(defaut);
@@ -265,6 +278,28 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       expect(php('comptesSortie', SORTIE_RENFORT, 'renfort')).toEqual(TROUVE_RENFORT);
       const retiree = { ...SORTIE_RENFORT, ouvertures: [{ ...SORTIE_RENFORT.ouvertures[0], decision: 'retirer', raison: 'ombre' }], manquees: [], mur: { indices: [], vu: 'indetermine' }, coins: { indices: [] } };
       expect(php('comptesSortie', retiree, 'renfort')).toMatchObject({ ouvertures: 0, enTrop: 1, manquees: 0, coins: 0, determines: 0, vide: false });
+    });
+
+    it('compte les baies, les angles, les pointes, les elements et la forme du run d une facade', () => {
+      expect(php('comptesSortie', SORTIE_FACADE, 'facade')).toEqual(TROUVE_FACADE);
+      const muet = { ...SORTIE_FACADE, calage: { ...SORTIE_FACADE.calage, angles: { gauche: 'indetermine', droite: 'indetermine' }, pointes: [] }, forme: { silhouette: 'indetermine', bout: 'indetermine' }, ouvertures: [], elements: [] };
+      expect(php('comptesSortie', muet, 'facade')).toEqual(TROUVE_VIDE);
+    });
+
+    it('ramene le run d une facade a son schema : angle manquant indetermine, baie sans cote ecartee, carreaux completes', () => {
+      const SCHEMA_FACADE = JSON.parse(fs.readFileSync(path.join(deploy, 'schema-facade.json'), 'utf8')) as { schema: Record<string, unknown> };
+      type Sortie = { calage: { angles: Record<string, unknown> }; ouvertures: Record<string, unknown>[]; confiance: string };
+      const brut = { calage: { angles: { gauche: { x: 0.1, egout: 0.5, sol: 0.9, confiance: 'Forte' } }, pointes: [{ u: 0.5, v: 2 }] },
+        ouvertures: [{ type: 'Fenêtre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }, { type: 'porte', u0: 0.4, v0: 0, v1: 0.8 }] };
+      const s = phpObjets<Sortie>('sortieConforme', 'Voici : ' + JSON.stringify(brut), SCHEMA_FACADE.schema);
+      expect(s.calage.angles).toEqual({ gauche: { x: 0.1, egout: 0.5, sol: 0.9, confiance: 'forte' }, droite: 'indetermine' });
+      // « Fenêtre » est ramene a la graphie du vocabulaire ; la baie sans `u1` (une cote manque) est ecartee, rien n'est invente.
+      expect(s.ouvertures.map((o) => o.type)).toEqual(['fenetre']);
+      const bon = phpObjets<Sortie>('sortieConforme', JSON.stringify({ ouvertures: [{ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8 }] }), SCHEMA_FACADE.schema);
+      expect(bon.ouvertures[0]).toEqual({ type: 'fenetre', u0: 0.1, u1: 0.2, v0: 0.3, v1: 0.8, niveau: 'indetermine', travee: 'indetermine', confiance: 'indetermine',
+        details: { volets: 'indetermine', allege: 'indetermine', forme: 'indetermine' },
+        carreaux: { vantaux: 'indetermine', colonnes: 'indetermine', rangees: 'indetermine', petitsBois: 'indetermine', imposte: 'indetermine', vitrage: 'indetermine' } });
+      expect(bon.confiance).toBe('faible');
     });
 
     it('borne un nombre aberrant, ignore une forme inattendue, et ne compte que les reponses lues', () => {
@@ -321,7 +356,7 @@ describe.skipIf(!phpPresent)('analyse.php, le calcul', () => {
       ]);
       expect(php('choixConsommation', lignes, p)).toEqual({
         organisations: ['admin', 'org-1', 'org-2'], modeles: [RAPIDE, FIN],
-        usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
+        usages: ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu', 'facade'], parcelles: [{ idu: '78650000AE0101', adresse: '2 allée des Limites, Le Vésinet' }]
       });
     });
   });

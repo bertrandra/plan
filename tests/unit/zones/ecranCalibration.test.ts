@@ -7,6 +7,7 @@ import { FORMAT_CAS_REEL, type CasStocke, type DocumentCalibration } from '../..
 import type { Image } from '../../../src/facade/vision/homographie.js';
 import { creerRegistre } from '../../../src/app/commandes.js';
 import type { IdEtape } from '../../../src/model/etapeFacade.js';
+import { lireObservationsFacade, type ObservationsFacade } from '../../../src/regles/facades/observations.js';
 
 // L'ecran Admin › Calibrer la detection, branche sur de fausses dependances : la liste des cas, un nouveau cas avec ses photos,
 // la mesure et la calibration sur un cas fabrique d'une scene du banc, et l'application des reglages.
@@ -179,6 +180,43 @@ describe('l ecran de calibration', () => {
     await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
     await attendre(10);
     expect(stock.get('cas-a')?.ouvertures).toHaveLength(3);
+  }, 60_000);
+
+  it('rappelle Claude (le run d une facade), enregistre sa reponse avec son cout et ses versions, et la rejoue en mode IA', async () => {
+    // Une reponse SYNTHETIQUE (pas Claude) : les angles du mur et ses trois fenetres, en parts de l'assemblage et du mur.
+    const sortie = { calage: { angles: { gauche: { x: 0.091, egout: 0.143, sol: 0.857, confiance: 'forte' }, droite: { x: 0.909, egout: 0.143, sol: 0.857, confiance: 'forte' } }, pointes: [], appentis: [], corps: [], cache: [] },
+      forme: { silhouette: 'ligne-droite', bout: 'sans-objet' }, elements: [], surface: { principale: 'enduit', zones: [], confiance: 'forte' }, confiance: 'forte',
+      ouvertures: [1, 4, 7].map((x) => ({ type: 'fenetre', u0: x / 9, u1: (x + 1) / 9, v0: 0.4, v1: 0.68, niveau: 0, travee: 'indetermine', confiance: 'forte', details: { volets: 'aucun', allege: 'pleine', forme: 'rect' },
+        carreaux: { vantaux: 2, colonnes: 1, rangees: 3, petitsBois: 'fins', imposte: 'aucune', vitrage: 'clair' } })) };
+    const run = { le: '2026-10-29T12:00:00.000Z', modele: 'claude-haiku-5-5', prompt: 1, schema: 1, passes: 1 as const, sorties: [sortie], cout: 0.0013, tokens: { entree: 4200, sortie: 900 }, image: { largeur: 1100, hauteur: 700 }, chaine: 10 };
+    const appelerClaude = vi.fn(async () => ({ run, reponse: lireObservationsFacade(sortie) as ObservationsFacade }));
+    const { deps, stock } = fausses({ appelerClaude });
+    await monter(deps);
+    await act(async () => { bouton('calibration.ouvrirCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    // Sans reponse enregistree, le mode IA n'est pas propose ; on rappelle Claude.
+    expect(bouton('calibration.modeIa')?.disabled).toBe(true);
+    await act(async () => { bouton('calibration.rejouer')?.click(); });
+    await attendreQue(() => !!bouton('calibration.rappelerClaude') && !bouton('calibration.rappelerClaude')?.disabled);
+    await act(async () => { bouton('calibration.rappelerClaude')?.click(); });
+    await attendreQue(() => /Réponse enregistrée/.test(hote.textContent ?? '') && !bouton('calibration.rejouer')?.disabled);
+    expect(appelerClaude).toHaveBeenCalledWith(expect.objectContaining({ passes: 1, texte: expect.stringMatching(/^Façade : Synthèse 02\./) }));
+    expect(hote.textContent).toContain('Réponse enregistrée : Claude, 2026-10-29, une passe, claude-haiku-5-5, prompt v1, schéma v1, 0,0013 $');
+    expect(bouton('calibration.modeIa')?.getAttribute('aria-pressed')).toBe('true');
+    // L'E4 dit l'accord de Claude, l'E7 ses boites retrouvees par la detection.
+    const ouvrir = async (id: string) => { await act(async () => { (hote.querySelector(`.calFrise [data-etape="${id}"]`) as HTMLButtonElement | null)?.click(); }); };
+    await ouvrir('calage');
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/IA \(Claude, 2026-10-29.*accord/);
+    expect(hote.querySelector('.calEtapeOuverte')?.textContent).toMatch(/IA : Claude, 2026-10-29.*règles [0-9a-f]{8}/);
+    await ouvrir('ouvertures');
+    expect(hote.querySelector('.calEtapeOuverte .calResume')?.textContent).toMatch(/3 ouvertures vues par Claude : 3 retrouvées par la détection/);
+    expect(hote.querySelectorAll('.calBoiteIa.cochee')).toHaveLength(3);
+    await act(async () => { (hote.querySelector('.calBoiteIa') as SVGElement).dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(hote.querySelectorAll('.calCarreau').length).toBeGreaterThan(0);
+    expect(hote.querySelector('.calTexteIa')?.textContent).toBe('2 vantaux de 1 × 3 carreaux, petits bois fins, sans imposte, vitrage clair');
+    await act(async () => { bouton('calibration.enregistrerCas')?.click(); await Promise.resolve(); });
+    await attendre(10);
+    expect(stock.get('cas-a')?.ia).toEqual([run]);
   }, 60_000);
 
   it('mesure les cas valides, cherche de meilleurs reglages et les applique', async () => {

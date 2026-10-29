@@ -7,6 +7,8 @@ import { inverser } from '../vision/redressementFuites.js';
 import { appliquer, homographie, type Image, type P2 } from '../vision/homographie.js';
 import type { MurCale } from './calageAncres.js';
 import type { OuvertureDetectee } from '../detection/detection.js';
+import type { Etendue } from '../../regles/facades/observations.js';
+import type { BoiteAccordee, RectIa } from '../regles/facades/ia.js';
 import type { EntreesFacade, Enchainement } from './enchainement.js';
 
 export interface ImagesEtapes {
@@ -24,6 +26,16 @@ export interface ImagesEtapes {
   pose: { image: Image; coins: P2[]; contour: P2[]; silhouette: P2[] | null; proposees: P2[][]; devinees: P2[][] } | null;
   /** E6 : le contour du mur sur la texture, en metres depuis son coin haut gauche, et la taille de la texture. */
   texture: { image: Image; sansOmbres: Image | null; contour: P2[]; l: number; h: number } | null;
+  /**
+   * Le mode « IA » (lot F2). E4, sur l'assemblage : la pose des deux angles de Claude (le calque bleu), ses pointes, et ses appentis,
+   * corps et caches en bandes sous le mur, portes par sa pose. E7, sur l'image prise pour la suite : ses boites (cochees, ou seules).
+   */
+  ia: {
+    pose: RectIa | null;
+    pointes: P2[];
+    etendues: { quoi: 'appentis' | 'corps' | 'cache'; x0: number; x1: number; y: number }[];
+    boites: (BoiteAccordee & { quad: P2[] })[];
+  } | null;
 }
 
 /** Les ouvertures d'un mur (metres, y depuis le sol) ramenees sur une image par les coins du mur. */
@@ -47,6 +59,25 @@ function vuesAvecGabarit(r: Enchainement, e: Mur, g: GabaritMur): ImagesEtapes['
 /** Ce que les images lisent des entrees du rejeu : les dimensions et le gabarit du mur, les coins de depart de chaque photo. */
 type Mur = Pick<EntreesFacade, 'largeurM' | 'hauteurM' | 'gabarit'> & { photos: readonly { coins: readonly P2[] }[] };
 
+/** Le calque de Claude : ses points sur l'assemblage (portes par sa pose, sinon par le mur cherche), ses boites sur l'image de la pose. */
+function calqueIa(r: Enchainement, e: Mur, pose: NonNullable<Enchainement['sorties']['calage']>['pose']): ImagesEtapes['ia'] {
+  const ia = r.sorties.ia;
+  if (!ia?.reponse) return ia ? { pose: ia.pose, pointes: [], etendues: [], boites: [] } : null;
+  const cadre = ia.pose ?? r.sorties.serie?.assemblage.mur ?? null;
+  const w = cadre ? cadre.x1 - cadre.x0 : 0, h = cadre ? cadre.y1 - cadre.y0 : 0;
+  const enU = (u: number) => (cadre ? cadre.x0 + u * w : 0);
+  const bande = (quoi: 'appentis' | 'corps' | 'cache', l: readonly Etendue[], k: number) => l.map((x) => ({ quoi, x0: enU(x.debut), x1: enU(x.fin), y: (cadre?.y1 ?? 0) + (0.02 + 0.02 * k) * w }));
+  const c = ia.reponse.calage;
+  const boites = ia.accord && pose ? ia.accord.boites : [];
+  const quads = pose ? versLImage(pose.coins, e.largeurM, e.hauteurM, boites.map((b) => ({ ...b.ouverture, confiance: 1 }))) : [];
+  return {
+    pose: ia.pose,
+    pointes: cadre ? c.pointes.map((p) => ({ x: enU(p.u), y: cadre.y1 - p.v * h })) : [],
+    etendues: cadre ? [...bande('appentis', c.appentis, 0), ...bande('corps', c.corps, 1), ...bande('cache', c.cache, 2)] : [],
+    boites: boites.map((b, k) => ({ ...b, quad: quads[k] ?? [] })),
+  };
+}
+
 /** Les images des etapes d'un rejeu. */
 export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
   const s = r.sorties, g = e.gabarit, L = e.largeurM, H = e.hauteurM;
@@ -61,5 +92,6 @@ export function imagesEtapes(r: Enchainement, e: Mur): ImagesEtapes {
       proposees: a ? versLImage(pose.coins, L, H, a.ouvertures) : [], devinees: a ? versLImage(pose.coins, L, H, a.devinees) : [],
     } : null,
     texture: a ? { image: a.texture, sansOmbres: s.sansOmbres, contour: contourDuGabarit(g).map((q) => ({ x: q.u * L, y: a.hauteurTexture - q.v * H })), l: a.texture.largeur / a.pxParM, h: a.hauteurTexture } : null,
+    ia: calqueIa(r, e, pose),
   };
 }

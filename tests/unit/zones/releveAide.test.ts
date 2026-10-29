@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { MASQUE_NOTABLE, coinsAvecAide, motifAide, propositionRenforcee, signauxDeVerification, signauxDesCoins } from '../../../src/zones/releve/aide.js';
-import { voterRenfort, type ReponseRenfort } from '../../../src/facade/detection/renfort.js';
-import { bilanVide } from '../../../src/facade/detection/renfortRecalage.js';
+import { lireObservationsFacade, type ObservationsFacade } from '../../../src/regles/facades/observations.js';
 import type { Morceau } from '../../../src/facade/releve/serie.js';
 import type { Image } from '../../../src/facade/vision/homographie.js';
 import type { OuvertureFacade } from '../../../src/model/types.js';
 
-// L'aide de Claude dans le releve (lot L18) : quand la proposer, ce qu'elle fait des coins (seuls les
-// predits changent), et la proposition de l'analyse mise a jour pour tracer les corrections.
+// L'aide de Claude dans le releve (lot L18, run unique d'une facade depuis F2) : quand la proposer, ce qu'elle fait des coins (seuls
+// les predits changent), et la proposition de l'analyse mise a jour pour tracer les corrections.
 
 /** Une photo de 1 000 x 750 px : un mur clair de (100, 100) a (900, 600) sur un fond sombre. */
 function photo(): Image {
@@ -27,7 +26,8 @@ const morceau = (sources: Morceau['sources'], fin: Morceau['fin'] = null): Morce
   fin,
 });
 
-const vote = (coins: ReponseRenfort['coins']) => { const r: ReponseRenfort = { mur: { indices: [], vu: 'attendu' }, coins, ouvertures: [], manquees: [], confiance: 'forte' }; return voterRenfort([r, r, r]); };
+/** Une reponse du run (synthetique) qui ne dit que les deux angles du mur, en part de l'image. */
+const angles = (gauche: object, droite: object): ObservationsFacade => lireObservationsFacade({ calage: { angles: { gauche, droite } }, ouvertures: [] }) as ObservationsFacade;
 
 describe('l aide de Claude au releve', () => {
   it('ne la propose que sur signal', () => {
@@ -59,9 +59,9 @@ describe('l aide de Claude au releve', () => {
   });
 
   it('remplace les coins predits par les graines recalees, jamais un coin trouve ni pose au doigt', () => {
-    // Graines a quelques dizaines de pixels des vrais coins (1 repere = 100 px en largeur, 75 en hauteur).
-    const v = vote({ indices: [], hautGauche: { colonne: 1.2, ligne: 1.5 }, hautDroit: { colonne: 8.8, ligne: 1.2 }, basDroit: { colonne: 9.2, ligne: 8.2 }, basGauche: { colonne: 1.1, ligne: 7.8 } });
-    const { morceau: m, recales } = coinsAvecAide(morceau(['predit', 'predit', 'trouve', 'doigt']), v, 10, 6.25);
+    // Les angles de Claude a une vingtaine de pixels des vrais (le mur de 100 a 900 px, de 100 a 600 px sur 1 000 x 750).
+    const r = angles({ x: 0.115, egout: 0.15, sol: 0.78, confiance: 'moyenne' }, { x: 0.89, egout: 0.12, sol: 0.82, confiance: 'forte' });
+    const { morceau: m, recales } = coinsAvecAide(morceau(['predit', 'predit', 'trouve', 'doigt']), r, 10, 6.25);
     expect(recales).toBe(2);
     expect(m.sources).toEqual(['claude', 'claude', 'trouve', 'doigt']);
     expect(Math.hypot(m.coins[0]!.x - 100, m.coins[0]!.y - 100)).toBeLessThan(3);
@@ -77,7 +77,7 @@ describe('l aide de Claude au releve', () => {
     const bType: OuvertureFacade = { ...b, type: 'porte', source: 'claude' };
     const ajout: OuvertureFacade = { type: 'fenetre', x: 8, y: 1, l: 1, h: 1, confiance: 0.85, source: 'claude' };
     const pointille: OuvertureFacade = { type: 'fenetre', x: 5, y: 3, l: 1, h: 1, confiance: 0.5, source: 'claude' };
-    const p = propositionRenforcee({ cochees: [a, b], decochees: [d] }, { ouvertures: [bType, d, ajout], decochees: [a, pointille], retirees: [a], bilan: bilanVide() });
+    const p = propositionRenforcee({ cochees: [a, b], decochees: [d] }, { ouvertures: [bType, d, ajout], decochees: [a, pointille], retirees: [a] });
     expect(p.cochees).toEqual([bType, d, ajout]);
     expect(p.decochees).toEqual([a, pointille]);
   });

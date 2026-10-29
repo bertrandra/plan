@@ -22,6 +22,9 @@ import type { ObjetBrut } from '../../model/types.js';
 import { hoteDeZone } from '../../shell/dom.js';
 import { creerRegistre, type RegistreCommandes } from '../commandes.js';
 import { ETAPES_FACADE, type IdEtape } from '../../model/etapeFacade.js';
+import { creerClientAnalyse } from '../../io/analyseClaude.js';
+import { appelerRunFacade } from '../releve/runFacade.js';
+import { dessinerImageFacade } from '../../render/imagesRenfort.js';
 
 /**
  * Le registre de l'ecran (Plan ne demarre pas dessous) : la commande qui ouvre une etape de la facade, liee aux segments de la barre de
@@ -85,6 +88,7 @@ export function ouvrirEcranCalibration(): void {
   const f = (entree: string, init?: RequestInit) => fetch(entree, init);
   const audits = creerClientAudits(f, () => null);
   const demos = creerDepotDemos(f);
+  const claude = creerClientAnalyse(f, () => null);
   const deps: DepsCalibration = {
     lireCalibration: async () => lireDocumentCalibration(await lireCalibration(f)),
     enregistrerCalibration: async (d) => {
@@ -103,6 +107,8 @@ export function ouvrirEcranCalibration(): void {
     decoder,
     elevationEnUrl: (img) => versJpeg(img, 0.9),
     ...registreDeLEcran(),
+    // « Rappeler Claude » : le run d'une facade par le serveur de l'analyse, sous la session de l'administrateur (son cookie).
+    appelerClaude: (d) => appelerRunFacade({ client: () => claude, identite: () => ({ projet: 'calibration', idu: null, adresse: null }), encoder: dessinerImageFacade, maintenant: () => new Date() }, d, 'calibration'),
     maintenant: () => new Date(),
     // Les audits de parcelle recus (session admin) : leurs facades photographiees deviennent des cas, aux dimensions du plan.
     audits: async () => (await audits.lister()).filter((a) => a.nature === 'parcelle')

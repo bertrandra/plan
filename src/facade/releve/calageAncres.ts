@@ -43,6 +43,16 @@ interface CalageParAncres {
   explication: Explication;
   /** La pose des aretes (affinee par la teinte) et son score, quand une autre l'a remplacee : l'ecran la montre a cote. */
   aretes: (Rect & { score: number }) | null;
+  /**
+   * La pose candidate de Claude (ses deux angles, lot F2), affinee par la teinte et jugee comme les autres : son score, et si c'est
+   * elle qui a ete retenue. Absente sans reponse de Claude.
+   */
+  ia?: Rect & { score: number; retenue: boolean };
+  /**
+   * Les poses ecartees parce qu'elles tiennent dans une zone de colombage que Claude voit (leurs bouts suivent les bois, pas les angles
+   * du mur), et ces zones. Absent sans zone.
+   */
+  colombage?: { zones: Rect[]; ecartees: Rect[] };
   /** Les seuils du test, tels qu'ils ont ete appliques. */
   seuils: SeuilsCalage;
 }
@@ -120,12 +130,14 @@ const borne = (x: number) => Math.min(1, Math.max(0, x));
  * l'egout (une horizontale, ou la matiere qui commence aux angles), le sol (la matiere qui finit), les proportions du plan (`rapport`,
  * hauteur sur largeur ; sans plan, elles ne comptent pas contre la pose). Au-dessus de l'egout et sous le sol, une bande hors de ce
  * que l'image montre ne compte pas pour du mur. Un angle, lui, se voit ou ne s'explique pas : un mur pose sur le bord de l'image (le
- * cadre de l'assemblage dessine aussi des aretes) ne dit pas ou finit la matiere.
+ * cadre de l'assemblage dessine aussi des aretes) ne dit pas ou finit la matiere. `pourLaTeinte` : la vue ou se lit la teinte du mur
+ * (par defaut la meme ; sans les zones d'un autre parement quand Claude en voit).
  */
-export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: number | null): Explication {
+export function expliquer(m: Vue, segs: readonly Segment[], r: Rect, rapport: number | null, pourLaTeinte: Vue = m): Explication {
   const w = r.x1 - r.x0, h = r.y1 - r.y0;
-  // La teinte se lit ou se lisent les angles : le haut du mur, au-dessus d'une haie ou d'une voiture contre un angle.
-  const mat = w > 0 && h > 0 ? matiereDuMur(m, r, RANGEES_ANGLE) : null;
+  // La teinte se lit ou se lisent les angles : le haut du mur, au-dessus d'une haie ou d'une voiture contre un angle ; hors des zones
+  // d'un autre parement quand Claude en voit (`pourLaTeinte` : le colombage n'y est pas vu), pour lire celle du parement principal.
+  const mat = w > 0 && h > 0 ? matiereDuMur(pourLaTeinte, r, RANGEES_ANGLE) : null;
   if (!mat) return { score: 0, angles: [0, 0], egout: 0, sol: 0, proportions: 0, matiere: 0 };
   const pas = Math.max(2, Math.round(0.005 * w));
   const part = (x0: number, y0: number, x1: number, y1: number) => partDeMur(m, mat, x0, y0, x1, y1, pas);
@@ -175,20 +187,47 @@ export const expliqueLaPhoto = (e: Explication, s: SeuilsCalage): boolean => e.s
  * L'arbitre du calage (§5) : la premiere pose (celle des aretes) est gardee si elle explique la photo (expliqueLaPhoto) ; sinon,
  * parmi les autres poses que les aretes dessinent, celle qui l'explique le mieux, si elle passe le test (les deux chemins divergent :
  * la pose est a confirmer) ; sinon la pose du plan seul, supposee. Chaque pose est d'abord affinee par la teinte du mur
- * (affinerEgoutEtSol). Les drapeaux (egout, pied, cotes) ne disent « trouve » que d'une pose qui passe le test.
+ * (affinerEgoutEtSol). Les drapeaux (egout, pied, cotes) ne disent « trouve » que d'une pose qui passe le test. `poseIa` : la pose
+ * de Claude (ses deux angles, lot F2), jugee comme une autre pose, la premiere d'entre elles ; sans elle, rien ne change.
+ * `colombage` : la decision du moteur sur les zones de colombage que Claude voit (facade/regles/facades/ia.ts) : une pose qu'elle
+ * ecarte ne se juge pas (ses bouts suivent les bois, pas les angles du mur), et la teinte du mur se lit hors des zones ; sans
+ * decision, rien ne change.
  */
-export function calerParLesAncres(m: Vue, segs: readonly Segment[], poses: readonly MurLu[], rapport: number | null, seuils: SeuilsCalage): MurCale {
-  const notee = (p: MurLu) => { const a = affinerEgoutEtSol(m, segs, p, rapport); return { a, e: expliquer(m, segs, a, rapport) }; };
-  const [premiere, ...autres] = poses;
-  const p0 = premiere ? notee(premiere) : null;
-  if (p0 && expliqueLaPhoto(p0.e, seuils)) return { ...p0.a, calage: { retenue: 'aretes', explication: p0.e, aretes: null, seuils } };
+export function calerParLesAncres(m: Vue, segs: readonly Segment[], poses: readonly MurLu[], rapport: number | null, seuils: SeuilsCalage, poseIa: MurLu | null = null, colombage: Colombage | null = null): MurCale {
+  // La teinte du parement principal se lit hors du colombage ; sans decision, rien ne change.
+  const vueTeinte = colombage ? horsDesZones(m, colombage.zones) : m;
+  const notee = (p: MurLu) => { const a = affinerEgoutEtSol(m, segs, p, rapport); return { a, e: expliquer(m, segs, a, rapport, vueTeinte) }; };
+  const ecartees: Rect[] = [];
+  const admise = (p: MurLu | undefined): p is MurLu => { if (!p) return false; if (!colombage?.ecarte(p)) return true; ecartees.push({ x0: p.x0, x1: p.x1, y0: p.y0, y1: p.y1 }); return false; };
+  const [premiere, ...reste] = poses;
+  const p0 = admise(premiere) ? notee(premiere) : null;
+  const autres = reste.filter(admise);
+  // La pose de Claude est une candidate de plus, jugee par le meme score, la premiere des autres : la regle ne change pas.
+  const pIa = poseIa ? notee(poseIa) : null;
+  const plus = (retenue: boolean) => ({ ...(pIa ? { ia: { x0: pIa.a.x0, x1: pIa.a.x1, y0: pIa.a.y0, y1: pIa.a.y1, score: pIa.e.score, retenue } } : {}), ...(colombage ? { colombage: { zones: [...colombage.zones], ecartees } } : {}) });
+  if (p0 && expliqueLaPhoto(p0.e, seuils)) return { ...p0.a, calage: { retenue: 'aretes', explication: p0.e, aretes: null, seuils, ...plus(false) } };
   const aretes = p0 ? { x0: p0.a.x0, x1: p0.a.x1, y0: p0.a.y0, y1: p0.a.y1, score: p0.e.score } : null;
-  let mieux: ReturnType<typeof notee> | null = null;
+  let mieux: ReturnType<typeof notee> | null = pIa && expliqueLaPhoto(pIa.e, seuils) ? pIa : null;
   for (const p of autres.slice(0, AUTRES_POSES)) {
     const q = notee(p);
     if (expliqueLaPhoto(q.e, seuils) && (!mieux || q.e.score > mieux.e.score)) mieux = q;
   }
-  if (mieux) return { ...mieux.a, calage: { retenue: 'mieux-expliquee', explication: mieux.e, aretes, seuils } };
+  if (mieux) return { ...mieux.a, calage: { retenue: 'mieux-expliquee', explication: mieux.e, aretes, seuils, ...plus(mieux === pIa) } };
   const plan = poseDuPlanSeul(m, rapport);
-  return { ...plan, calage: { retenue: 'plan-seul', explication: expliquer(m, segs, plan, rapport), aretes, seuils } };
+  return { ...plan, calage: { retenue: 'plan-seul', explication: expliquer(m, segs, plan, rapport, vueTeinte), aretes, seuils, ...plus(false) } };
+}
+
+/**
+ * La decision du colombage que l'arbitre applique (facade/regles/facades/ia.ts::decisionColombage, la regle et ses seuils) : les zones
+ * de colombage que Claude voit, et la pose qu'elles ecartent. L'arbitre ne lit pas la reponse de Claude : il applique la decision.
+ */
+export interface Colombage { zones: Rect[]; ecarte(p: Rect): boolean }
+
+/** La vue sans les zones donnees (leurs pixels ne sont plus vus) : la teinte du mur s'y lit hors du colombage. */
+function horsDesZones(m: Vue, zones: readonly Rect[]): Vue {
+  const L = m.image.largeur, H = m.image.hauteur, vu = new Uint8Array(m.vu);
+  for (const z of zones) {
+    for (let y = Math.max(0, Math.floor(z.y0)); y < Math.min(H, Math.ceil(z.y1)); y++) vu.fill(0, y * L + Math.max(0, Math.floor(z.x0)), y * L + Math.min(L, Math.ceil(z.x1)));
+  }
+  return { image: m.image, vu };
 }

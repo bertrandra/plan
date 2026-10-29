@@ -16,6 +16,7 @@ import type { ResultatFusion } from './fusion.js';
 import { REGLAGES_DETECTION } from './regles/facades/detection.js';
 import { REGLAGES_STRUCTURE } from './regles/facades/structure.js';
 import { recouvrement } from './detection/voteVues.js';
+import { lireRunEnregistre, type RunEnregistre } from '../regles/facades/observations.js';
 import type { Image, P2 } from './vision/homographie.js';
 import type { FormeToitSimple, PignonToit, PtBrut, TypeOuverture } from '../model/types.js';
 
@@ -61,6 +62,13 @@ export interface CasReel {
   calageVrai?: CalageVrai;
   /** La vraie forme du toit, corps par corps, relue sur la photo : la verite du diagnostic de forme (E5 bis) et du toit (E8). */
   toitVrai?: ToitVraiCorps[];
+  /**
+   * Les reponses de Claude au run de cette facade (MD/spec-facade-calage-audit.md §7.2, §8), de la plus ancienne a la plus recente :
+   * le mode « IA » du rejeu en rejoue une sans reseau ; « Rappeler Claude » en ajoute une, sans jamais ecraser les autres.
+   */
+  ia?: RunEnregistre[];
+  /** Le parement du mur deja connu (vu sur place a l'audit), en clair : le run d'une facade le donne a Claude. */
+  parement?: string;
 }
 
 /**
@@ -114,10 +122,14 @@ export function lireCasReel(donnees: unknown): CasReel {
   if (!Array.isArray(c.ouvertures)) throw new Error('Cas reel incomplet : ouvertures.');
   const gabarit = lireGabarit(c.gabarit);
   const reste = { ...(c as CasReel) };
-  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai;
+  delete reste.gabarit; delete reste.calageVrai; delete reste.toitVrai; delete reste.ia;
+  // Une reponse enregistree illisible est laissee de cote, jamais inventee : les autres restent rejouables.
+  const ia = Array.isArray(c.ia) ? c.ia.map(lireRunEnregistre).filter((x): x is RunEnregistre => x !== null) : [];
+  if (typeof reste.parement !== 'string' || !reste.parement.trim()) delete reste.parement;
   return {
     ...reste, statut: c.statut === 'valide' ? 'valide' : 'brouillon', ...(gabarit ? { gabarit: gabarit.map((p) => ({ ...p })) } : {}),
     ...(c.calageVrai !== undefined ? { calageVrai: lireCalageVrai(c.calageVrai) } : {}), ...(c.toitVrai !== undefined ? { toitVrai: lireToitVrai(c.toitVrai) } : {}),
+    ...(ia.length ? { ia } : {}),
   };
 }
 

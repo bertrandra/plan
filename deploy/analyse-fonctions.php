@@ -15,21 +15,23 @@ const MODELES = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 // le journal et le tableau de bord en disent le cout.
 // `rejeu` (15.5) : l'analyse d'un audit stocke, rejouee par l'administrateur pour comparer les modeles
 // et les versions du prompt ; un usage a part pour que le tableau de bord en dise le cout.
-const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu'];
+// `facade` (MD/spec-facade-calage-audit.md 8, lot F2) : le run unique d'une facade, sur l'image prise pour la suite ; il rend le
+// calage, la forme, les elements du toit, les ouvertures et leurs carreaux. La calibration et le releve l'appellent (appel immediat).
+const USAGES = ['analyse', 'escalade', 'renfort', 'immediat', 'candidats', 'rejeu', 'facade'];
 // Le modele de chaque usage tant que l'administrateur n'a rien regle (`admin/claude/modeles`). Le
 // modele rapide partout, decision de l'utilisateur du 15 octobre 2026 : le "rien trouve" des audits
 // venait du schema que l'API refusait (PR #317), pas du modele. L'administrateur passe un usage au plus fin dans Reglages > Modeles s'il le faut.
-const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-haiku-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5'];
-// Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) a les
-// siens ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
-const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json']];
+const MODELE_PAR_USAGE = ['analyse' => 'claude-haiku-5-5', 'escalade' => 'claude-haiku-5-5', 'renfort' => 'claude-haiku-5-5', 'immediat' => 'claude-haiku-5-5', 'candidats' => 'claude-haiku-5-5', 'rejeu' => 'claude-haiku-5-5', 'facade' => 'claude-haiku-5-5'];
+// Le prompt et le schema de chaque usage : le renfort du calage et de la detection (lot L18) et le run d'une facade (lot F2,
+// generes par `npm run regles:generer`) ont les leurs ; les autres usages (cas candidats compris) lisent ceux de l'analyse d'une maison.
+const FICHIERS_PAR_USAGE = ['renfort' => ['prompt-renfort.md', 'schema-renfort.json'], 'facade' => ['prompt-facade.md', 'schema-facade.json']];
 const FICHIERS_DEFAUT = ['prompt-analyse.md', 'schema-analyse.json'];
 // Le brouillon des regles (Admin › Regles, MD/architecture.md 5.2.4) : le prompt et le schema que
 // l'administrateur a edites, gardes ici pour essayer une analyse ou un rejeu AVANT la PR. Il ne remplace
 // jamais deploy/ : seule une demande de l'administrateur qui le nomme (`essai: "brouillon"`) le lit.
 const FICHIER_BROUILLON = 'regles-brouillon.json';
 const BROUILLON_MAX = 2 * 1024 * 1024;
-// Un appel immediat (bouton « Demander de l'aide » du releve) : les trois passes d'une facade, pas plus.
+// Un appel immediat (l'aide du releve, « Rappeler Claude » de la calibration) : le run d'une facade, ou ses trois passes (x3), pas plus.
 const REQUETES_IMMEDIATES = 3;
 // Assez pour la reflexion a l'effort `low` et le JSON avec indices : ~600 tokens par facade, et le
 // rejeu d'AE 101 (15 octobre 2026) a coupe a 8 000 la passe d'une maison de huit murs
@@ -414,7 +416,7 @@ function vueModeles(?array $reglage): array {
 
 // --- Ce que les reponses contiennent (13.3 : comparer les modeles sur ce qu'ils trouvent) ---------
 // Le journal ne garde pas la reponse : seulement ces comptes, lus quand le serveur la relit, par la
-// forme du schema de l'usage (schema-analyse.json, schema-renfort.json).
+// forme du schema de l'usage (schema-analyse.json, schema-renfort.json, schema-facade.json).
 
 const COMPTES = ['ouvertures', 'manquees', 'enTrop', 'bouts', 'lucarnes', 'elements', 'ecarts', 'coins', 'determines'];
 // Un compte ecrit par le modele est borne : un nombre aberrant ne doit pas noyer le tableau de bord.
@@ -435,7 +437,9 @@ function comptesSortie($sortie, string $usage): ?array {
     // La sortie arrive en objets (elle repart telle quelle vers la page) : relue ici en tableaux.
     $s = objetDe(json_decode((string)json_encode($sortie), true));
     $c = array_fill_keys(COMPTES, 0);
-    if ($usage === 'renfort') {
+    if ($usage === 'facade') {
+        foreach (comptesFacade($s) as $k => $n) $c[$k] = $n;
+    } elseif ($usage === 'renfort') {
         foreach (listeDe($s['ouvertures'] ?? null) as $o) {
             $decision = objetDe($o)['decision'] ?? null;
             if ($decision === 'garder') $c['ouvertures']++;
@@ -463,6 +467,23 @@ function comptesSortie($sortie, string $usage): ?array {
     }
     foreach ($c as $k => $n) $c[$k] = min(COMPTE_MAX, $n);
     return $c + ['vide' => array_sum($c) === 0];
+}
+
+/**
+ * Les comptes du run d'une facade (schema-facade.json) : ses ouvertures, ses angles du mur situes (`coins`), les pointes de pignon
+ * (`bouts`), les elements du toit, et ce qui est determine (la silhouette, le bout). Une sortie deja relue en tableaux.
+ */
+function comptesFacade(array $s): array {
+    $calage = objetDe($s['calage'] ?? null);
+    $angles = objetDe($calage['angles'] ?? null);
+    $forme = objetDe($s['forme'] ?? null);
+    return [
+        'ouvertures' => count(listeDe($s['ouvertures'] ?? null)),
+        'coins' => count(array_filter([$angles['gauche'] ?? null, $angles['droite'] ?? null], 'is_array')),
+        'bouts' => count(listeDe($calage['pointes'] ?? null)),
+        'elements' => count(listeDe($s['elements'] ?? null)),
+        'determines' => (determine($forme['silhouette'] ?? null) ? 1 : 0) + (determine($forme['bout'] ?? null) ? 1 : 0),
+    ];
 }
 
 /** Les comptes d'un resultat relu : seulement d'une reponse reussie dont la sortie s'est lue. */

@@ -8,6 +8,8 @@ import { chargerCorpus } from '../../../banc/facades/banc.js';
 import { photographier, type PriseCamera } from '../../../banc/facades/synthese.js';
 import { lireEtalon } from '../../../banc/facades/reel.js';
 import { sceneAe101 } from '../../../banc/facades/ae101.js';
+import { lireRunEnregistre, type ObservationsFacade, type RunEnregistre } from '../../../../src/regles/facades/observations.js';
+import { poseDeLIa, observationsDuRun, decisionColombage } from '../../../../src/facade/regles/facades/ia.js';
 
 // Le calage du mur par ses ancres (facade/releve/calageAncres.ts, MD/spec-facade-calage-audit.md §4 E4, §5, lot F1) : une pose se juge
 // sans le toit (les angles, l'egout, le sol), l'arbitre garde celle des aretes si elle explique la photo, sinon une autre qui
@@ -80,4 +82,26 @@ describe('le defaut d AE 101, facade sud, refait en synthese a partir de son eta
     expect([r.egout, r.pied, r.cotes]).toEqual([false, false, false]);
     expect((r.y1 - r.y0) / (r.x1 - r.x0)).toBeCloseTo(rapport, 6);
   }, 60_000);
+
+  it('une zone de colombage dite par Claude ecarte la pose du pan de bois (x de 451 a 752), et l arbitre le dit', () => {
+    // La reponse est SYNTHETIQUE (tests/fixtures/facades-ia/ae101-sud-synthetique.json), enregistree comme une vraie.
+    const run = lireRunEnregistre(JSON.parse(readFileSync('tests/fixtures/facades-ia/ae101-sud-synthetique.json', 'utf8'))) as RunEnregistre;
+    const reponse = observationsDuRun(run) as ObservationsFacade;
+    const s = sceneAe101(etalon, 'buisson');
+    const pose = poseDeLIa(reponse, s.image);
+    if (!pose) throw new Error('pose absente');
+    // Le moteur decide (facade/regles/facades/ia.ts) ; l'arbitre applique sa decision.
+    const colombage = decisionColombage(reponse, pose, s.image);
+    expect(colombage?.zones).toHaveLength(1);
+    const r = murSurLAssemblage(s, rapport, seuils, { ...pose, egout: true, pied: true, cotes: true }, colombage);
+    const ecartees = r.calage.colombage?.ecartees ?? [];
+    expect(ecartees.some((p) => Math.abs(p.x0 - etalon.constat.murCherche.x0) < 10 && Math.abs(p.x1 - etalon.constat.murCherche.x1) < 10)).toBe(true);
+    // La pose du pan de bois n'est plus meme jugee : elle n'est pas « la pose des aretes » ecartee faute d'expliquer la photo.
+    expect(r.calage.aretes === null || Math.abs(r.calage.aretes.x0 - etalon.constat.murCherche.x0) > 10).toBe(true);
+    expect(Math.max(...ecarts(r, s.vrai))).toBeLessThan(0.03);
+    // Sans zone, rien ne change : le meme mur que sans Claude.
+    const sans = murSurLAssemblage(s, rapport);
+    expect(murSurLAssemblage(s, rapport, seuils, null, null).x0).toBe(sans.x0);
+  }, 60_000);
 });
+
