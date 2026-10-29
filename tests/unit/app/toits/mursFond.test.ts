@@ -38,6 +38,21 @@ describe('les zones de murs', () => {
   });
 });
 
+describe('ce qui reste a lire', () => {
+  it('une annexe se lit ; un mur sous une couleur vue sur place, non (model/protections.ts)', () => {
+    const objets = plan([2, 5, 30]);
+    objets[2]!.fonction = 'annexe';
+    Object.assign(champsBatiment(objets[3]!), { couleurMurs: { terrain: { couleur: '#D9C7A5', date: '2026-10-20' } } });
+    expect(mursALire(objets[2]!)).toBe(true);
+    expect(mursALire(objets[3]!)).toBe(false);
+    expect(zonesDeMurs(objets)).toEqual([['b0', 'b1']]);
+    expect(avancementMurs(objets)).toEqual({ faits: 1, total: 3 });
+    // La source choisie, « photo » comprise, n'arrete pas la lecture.
+    Object.assign(champsBatiment(objets[1]!), { couleurMurs: { source: 'photo' } });
+    expect(mursALire(objets[1]!)).toBe(true);
+  });
+});
+
 describe('la lecture des murs en tache de fond', () => {
   const lecteur = (issue: (cle: string) => IssueMurs | null, appels: string[][] = []) =>
     vi.fn(async (cibles: readonly { key?: string }[]) => {
@@ -63,6 +78,25 @@ describe('la lecture des murs en tache de fond', () => {
     expect(ecrire).toHaveBeenCalledTimes(2);
     expect(avance).toHaveBeenCalledTimes(2);
     expect(objets.filter(mursALire)).toEqual([]);
+  });
+
+  it('ecrit la lecture d une annexe, garde sa fonction dans ce qu elle donne a lire, et saute un mur vu sur place', async () => {
+    const objets = plan([2, 5]);
+    objets[1]!.fonction = 'annexe';
+    const vu = { terrain: { couleur: '#D9C7A5', date: '2026-10-20' } };
+    Object.assign(champsBatiment(objets[2]!), { couleurMurs: { ...vu } });
+    const fonctions: (string | undefined)[] = [];
+    const r = await lireMursEnFond({
+      objets: () => objets, proj, vivant: () => true, ecrire: async () => {}, avance: () => {}, refus: new Map(),
+      lireZone: (async (cibles: readonly { key?: string; fonction?: string }[]) => {
+        fonctions.push(...cibles.map((c) => c.fonction));
+        return cibles.map((c) => ({ cle: c.key as string, photo: photo('#AA0000') }));
+      }) as never,
+    });
+    expect(fonctions).toEqual(['annexe']);
+    expect(r).toEqual({ photos: 1, ecrits: 1, arret: false });
+    expect(objets[1]!.batiment?.couleurMurs).toEqual({ photo: photo('#AA0000') });
+    expect(objets[2]!.batiment?.couleurMurs).toEqual(vu);
   });
 
   it('n ecrit pas sur un batiment deplace pendant la lecture, et compte un echec', async () => {

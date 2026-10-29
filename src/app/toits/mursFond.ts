@@ -11,17 +11,19 @@
 // quand aucune photo ne montre ses murs ou qu'aucune ne conclut, avec la version de la lecture
 // (`couleurMurs.lecture`) : il n'est relu que si une regle meilleure passe VERSION_LECTURE_MURS. Un batiment dont
 // une photo n'a pas pu se telecharger reste a lire ; refuse deux fois, il est laisse pour la seance.
-// Seul `couleurMurs.photo` s'ecrit : la source choisie a la main reste.
+// Seul `couleurMurs.photo` s'ecrit : la source choisie a la main reste. La lecture demande
+// model/protections.ts (ecrivain `panoramax`, groupe `photoMurs`) : un mur sous une couleur vue sur
+// place n'est pas a lire. Le bati entier se lit, batiment et annexe (model/fonctions.ts::estBati).
 
-import { couleursMursDUneZone, COTE_ZONE_MURS_M, DISTANCE_MUR_MAX_M, type IssueMurs } from '../../render/couleurMurPhoto.js';
-import { parcelleDuProjet } from '../../model/fonctions.js';
+import { couleursMursDUneZone, photoMursEcrivable, COTE_ZONE_MURS_M, DISTANCE_MUR_MAX_M, type IssueMurs } from '../../render/couleurMurPhoto.js';
+import { parcelleDuProjet, estBati } from '../../model/fonctions.js';
 import { aDesSommets } from '../../model/formes.js';
 import { centroid } from '../../geometry/basic.js';
 import type { ProjecteurLocal } from '../../geo/projection.js';
 import type { ObjetPlan, PtBrut } from '../../model/types.js';
 import { champsBatiment } from '../../model/champsFonction.js';
 import { toucher } from '../../core/controleurObjets.js';
-import { estOuvrage, BATIMENT, TERRAIN } from '../../model/ouvrages/index.js';
+import { estOuvrage, TERRAIN } from '../../model/ouvrages/index.js';
 
 /**
  * La lecture des murs en tache de fond est arretee (decision de l'utilisateur, octobre 2026) : sur les
@@ -40,7 +42,8 @@ export const ZONES_MUETTES_AVANT_ARRET = 5;
 export const ECHECS_MURS_PAR_BATIMENT = 2;
 
 type Batiment = ObjetPlan & { pts: PtBrut[] };
-const estBatiment = (o: ObjetPlan): o is Batiment => estOuvrage(o, BATIMENT) && aDesSommets(o) && (o as Batiment).pts.length >= 3;
+/** Du bati (batiment, annexe) a contour : ses murs se lisent, et il cache ceux qui sont derriere lui. */
+const estAMurs = (o: ObjetPlan): o is Batiment => estBati(o) && aDesSommets(o) && (o as Batiment).pts.length >= 3;
 
 /**
  * La version de la lecture des murs. Une regle de lecture qui conclut plus souvent (model/couleurMur.ts,
@@ -49,9 +52,12 @@ const estBatiment = (o: ObjetPlan): o is Batiment => estOuvrage(o, BATIMENT) && 
  */
 export const VERSION_LECTURE_MURS = 2;
 
-/** La couleur des murs de ce batiment reste a lire sur les photos de rue : jamais lue, ou sans conclusion a une version plus ancienne. */
+/**
+ * La couleur des murs de ce batiment reste a lire sur les photos de rue : jamais lue, ou sans conclusion a une version plus
+ * ancienne, et la lecture peut ecrire sa case (pas sous une couleur vue sur place).
+ */
 export const mursALire = (o: ObjetPlan): boolean => {
-  if (!estBatiment(o)) return false;
+  if (!estAMurs(o) || !photoMursEcrivable(o)) return false;
   const c = o.batiment?.couleurMurs;
   return c?.photo === undefined || (c.photo === null && (c.lecture ?? 0) < VERSION_LECTURE_MURS);
 };
@@ -59,7 +65,7 @@ export const mursALire = (o: ObjetPlan): boolean => {
 /** Combien de batiments ont leurs murs lus, sur combien : la progression de la barre d'etat. */
 export function avancementMurs(objets: readonly ObjetPlan[]): { faits: number; total: number } {
   let total = 0, restent = 0;
-  for (const o of objets) if (estBatiment(o)) { total++; if (mursALire(o)) restent++; }
+  for (const o of objets) if (estAMurs(o)) { total++; if (mursALire(o)) restent++; }
   return { faits: total - restent, total };
 }
 
@@ -76,7 +82,7 @@ const boite = (pts: readonly PtBrut[]) => {
  */
 export function zonesDeMurs(objets: readonly ObjetPlan[], admis: (o: ObjetPlan) => boolean = () => true): string[][] {
   const parcelle = parcelleDuProjet(objets as ObjetPlan[]);
-  const tous = objets.filter(estBatiment);
+  const tous = objets.filter(estAMurs);
   const centre = parcelle && aDesSommets(parcelle) ? centroid(parcelle.pts) : tous.length ? centroid(tous.flatMap((o) => o.pts)) : { x: 0, y: 0 };
   const cases = new Map<string, { d: number; cles: string[] }>();
   for (const o of tous) {
@@ -125,8 +131,8 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
     const proche = (o: ObjetPlan) => { if (!aDesSommets(o)) return false; const c = boite(o.pts); return c.x1 >= b.x0 - m && c.x0 <= b.x1 + m && c.y1 >= b.y0 - m && c.y0 <= b.y1 + m; };
     const avant = new Map(cibles.map((o) => [o.key, JSON.stringify(o.pts)]));
     // Des copies de ce que la lecture regarde : rien du plan n'est touche avant le retour.
-    const copie = (o: ObjetPlan) => ({ key: o.key, fonction: 'batiment', pts: (o as Batiment).pts.map((p) => ({ x: p.x, y: p.y })), ...(typeof o.elevation === 'number' ? { elevation: o.elevation } : {}) });
-    const issues: IssueMurs[] = await lireZone(cibles.map(copie), objets.filter((o) => estBatiment(o) && proche(o)).map(copie),
+    const copie = (o: ObjetPlan) => ({ key: o.key, fonction: o.fonction ?? 'batiment', pts: (o as Batiment).pts.map((p) => ({ x: p.x, y: p.y })), ...(typeof o.elevation === 'number' ? { elevation: o.elevation } : {}) });
+    const issues: IssueMurs[] = await lireZone(cibles.map(copie), objets.filter((o) => estAMurs(o) && proche(o)).map(copie),
       objets.filter((o) => (o.key === 'parcelle' || estOuvrage(o, TERRAIN)) && proche(o)), ctx.proj, { enParallele: PARALLELE_MURS_FOND }).catch(() => cibles.map((o) => ({ cle: o.key, echec: true as const })));
     if (!ctx.vivant()) return { photos, ecrits: total, arret: false };
     // Le plan a pu changer pendant la lecture : on ecrit dans celui d'aujourd'hui, sur un contour inchange.
@@ -135,7 +141,7 @@ export async function lireMursEnFond(ctx: ContexteMursFond): Promise<{ photos: n
     for (const r of issues) {
       if ('echec' in r) { ctx.refus.set(r.cle, (ctx.refus.get(r.cle) ?? 0) + 1); continue; }
       const o = courants.get(r.cle);
-      if (!o || !estBatiment(o) || JSON.stringify(o.pts) !== avant.get(r.cle) || !mursALire(o)) continue;
+      if (!o || !estAMurs(o) || JSON.stringify(o.pts) !== avant.get(r.cle) || !mursALire(o)) continue;
       const reste = { ...(o.batiment?.couleurMurs ?? {}) };
       delete reste.lecture;
       champsBatiment(o).couleurMurs = r.photo ? { ...reste, photo: r.photo } : { ...reste, photo: null, lecture: VERSION_LECTURE_MURS };

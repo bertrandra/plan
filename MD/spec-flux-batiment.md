@@ -46,7 +46,7 @@ arbitre est décidée** (« Qui l'emporte », 28 octobre 2026) ; ~~son module un
   `model/referencesContour.ts`), et **supprimer un objet nettoie** ce qui le tenait par sa clé (`Ouvrage.oublier`) — le toit à
   cheval compris ;
 - **la couleur du toit lue sur l'orthophoto** passe par `model/protections.ts` (groupe `couleurToit`, écrivain `ortho`) ; la couleur
-  des murs lue sur Panoramax reste hors du module (« Qui l'emporte ») ;
+  des murs lue sur Panoramax y passe aussi depuis le 29 octobre 2026 (groupe `photoMurs`, écrivain `panoramax`, « Qui l'emporte ») ;
 - **la lecture à l'import et à l'actualisation** demande le droit d'écrire la hauteur **avant** de marquer le bâtiment lu
   (`app/toits/toitsLidar.ts::toitsDepuisLidar`) : la marque faisait passer une hauteur posée pour une mesure ;
 - **« Règles » rallumées** en Mode Toit relit le toit à la validation de la session, tout de suite ; le bilan de l'actualisation
@@ -136,8 +136,9 @@ flowchart TB
   `releve`, élévation par défaut 2,5 m. `estBatiment` (`model/fonctions.ts:55`) vaut pour les deux ; la lecture LiDAR aussi,
   depuis la 4.0.0 — elle ne prenait que `batiment` avant (`model/fonctions.ts::toitLuAuLidar`, déclaré par l'ouvrage :
   `Ouvrage.toitLuAuLidar`, posé sur `BATIMENT` et `ANNEXE`) : toit, hauteur à l'égout, recalage du contour, mitoyens
-  (`model/mitoyennete.ts`), toit à cheval (`app/toits/toitsACheval.ts`). Seule la couleur des murs lue sur Panoramax ne prend
-  encore que la fonction `batiment` (`estOuvrage(o, BATIMENT)`, `render/couleurMurPhoto.ts`, `app/toits/mursFond.ts`).
+  (`model/mitoyennete.ts`), toit à cheval (`app/toits/toitsACheval.ts`). ~~Seule la couleur des murs lue sur Panoramax ne prend
+  encore que la fonction `batiment`~~ — elle lit aussi l'annexe depuis le 29 octobre 2026 (`model/fonctions.ts::estBati`,
+  `render/couleurMurPhoto.ts`, `app/toits/mursFond.ts`).
 - **Ce qu'il porte** : à plat sur l'objet, `pts`, `elevation` (la hauteur à l'égout, celle du prisme), `bdtopo`, `retoucheMain`,
   `fill` ; dans le sous-objet `batiment` (`model/typesFonctions.ts:13-79`), `toit` (la forme simple), `volumesToit`, `toitMesure`,
   `corpsToit` (cheminées, lucarnes, terrasse, appentis, bow-windows sont **dans** les corps), `toitLidarLu`, `toitACheval`,
@@ -370,7 +371,7 @@ faut ranger », 3)~~ en mode corps aussi depuis le 28 octobre 2026 (`geometry/fa
 |---|---|---|---|
 | Couleur du toit | orthophoto, sinon repli rouge, brun ou gris selon le matériau (`render/couleurToitOrtho.ts:179-197`) ; pose `origineCouleur` | inspecteur, audit | une couleur sans `origineCouleur` (`couleurAResoudre`, :60-62) ; depuis le 28 octobre 2026, demandé à `model/protections.ts` (groupe `couleurToit`, écrivain `ortho`, niveau 4) : ni une couleur choisie, ni un bâtiment vérifié sur place (sauf « Recalculer aussi ») |
 | Matériau de couverture | déduit en 3D : terrasse, matériau des fichiers fonciers, couleur, pente, latitude (`model/couleurToit.ts::materiauCouverture`) | `toit.couverture` : inspecteur, audit (`decisions.ts:287`) | gardé par le LiDAR (`avecCouleurDe`) ; ~~**perdu** à l'actualisation (« Ce qu'il faut ranger », 5)~~ gardé aussi à l'actualisation depuis le 28 octobre 2026 (`toitActualise`) |
-| Couleur des murs | photo Panoramax (`couleurMurs.photo`, `render/couleurMurPhoto.ts:340-345`), sinon matériau BD TOPO | `couleurMurs.source` (Apparence), audit : `couleurMurs.terrain`, `couleurMurs.materiau` (`decisions.ts:272-284`) | la lecture n'écrit que `photo` ; `terrain` passe avant elle (`model/couleurMur.ts:99-110`). **Hors de `model/protections.ts`**, par choix (« Qui l'emporte ») ; ne lit que la fonction `batiment` (`estOuvrage(o, BATIMENT)`), pas l'annexe |
+| Couleur des murs | photo Panoramax (`couleurMurs.photo`, `render/couleurMurPhoto.ts::couleursMursDepuisPhotos`), sinon matériau BD TOPO | `couleurMurs.source` (Apparence), audit : `couleurMurs.terrain`, `couleurMurs.materiau` (`decisions.ts`, effets `couleurMurs`, `materiauMurs`) | la lecture n'écrit que `photo` ; `terrain` passe avant elle (`model/couleurMur.ts::couleurMursRetenue`). Sous `model/protections.ts` depuis le 29 octobre 2026 : écrivain `panoramax` (4), groupe `photoMurs`, la case de la photo seule, arrêtée par une couleur vue sur place (`terrain`), pas par la source choisie (« Qui l'emporte ») ; lit le bâti entier, bâtiment et annexe (`estBati`) |
 | Couleur du plan | — | `fill` | utilisée seulement si rien d'autre (`sceneObjets.ts:296-297`) |
 
 ## 8. L'audit de la parcelle
@@ -441,7 +442,7 @@ flowchart LR
   s7["Audit sur place,<br/>Claude"]:::src --> a7["Audit « Valider »"]:::act --> d7{{"moteur décide la forme ; protections.ts, niveau 2 :<br/>un choix de niveau 1 proposé décoché ;<br/>pose toitFige, egoutChoisi, verifieSurPlace si tout vu"}}:::dec --> i7["corpsToit (cheminées reportées),<br/>elevation, façades, couleurs"]:::imp
   s8["BD TOPO"]:::src --> a8["Actualisation IGN"]:::act --> d8{{"protections.ts, niveau 5 : le LiDAR bat l'IGN ;<br/>garde niveaux 1-2 entiers (case : reprendre l'IGN) ;<br/>egoutChoisi ; clé gardée"}}:::dec --> i8["attributs ; pts et toit si l'IGN a changé la forme<br/>(relu au LiDAR) ; elevation BD TOPO si ni choisie ni mesurée"]:::imp
   s9["Orthophoto"]:::src --> a9["Lecture de la couleur du toit"]:::act --> d9{{"protections.ts, niveau 4 (ortho) :<br/>pas une couleur choisie, ni un vérifié"}}:::dec --> i9["toit.couleur, origineCouleur"]:::imp
-  s12["Panoramax"]:::src --> a12["Lecture de la couleur des murs<br/>(batiment seulement)"]:::act --> d12{{"hors du module : n'écrit<br/>que sa lecture"}}:::dec --> i12["couleurMurs.photo ; la couleur retenue<br/>se choisit en 3D (couleurMursRetenue)"]:::imp
+  s12["Panoramax"]:::src --> a12["Lecture de la couleur des murs<br/>(batiment et annexe)"]:::act --> d12{{"protections.ts, niveau 4 :<br/>sa case photoMurs, pas sous<br/>une couleur vue sur place"}}:::dec --> i12["couleurMurs.photo ; la couleur retenue<br/>se choisit en 3D (couleurMursRetenue)"]:::imp
 ```
 
 Ce que chaque champ change à l'écran et dans les dossiers :
@@ -475,11 +476,11 @@ flowchart LR
 | Audit sur place, Claude | « Valider » des propositions | le moteur décide la forme ; `model/protections.ts`, niveau 2 : un choix de la personne (niveau 1) est proposé décoché ; pose `toitFige` si le toit est écrit, `egoutChoisi: 'audit'` pour la hauteur, `verifieSurPlace` si tout est vu | `corpsToit` (cheminées, lucarnes reportées), `elevation`, façades, couleurs, couverture ; 3D |
 | BD TOPO | actualisation IGN | `model/protections.ts`, niveau 5 : le LiDAR bat l'IGN ; garde entiers les bâtiments de niveau 1 ou 2 (case pour reprendre l'IGN), garde `egoutChoisi` ; clé du bâtiment gardée | attributs ; `pts` et toit `bdtopo` seulement si l'IGN a changé la forme (le LiDAR relit ensuite ; relevés, fenêtres, cotes rangés par la géométrie) ; `elevation` BD TOPO si elle n'est ni choisie ni mesurée ; couleur et couverture gardées |
 | Orthophoto | lecture de la couleur du toit (`render/couleurToitOrtho.ts`) | `model/protections.ts`, niveau 4 (`ortho`, groupe `couleurToit`) : ni une couleur choisie (sans `origineCouleur`), ni un bâtiment vérifié sur place (sauf « Recalculer aussi ») | `toit.couleur`, `origineCouleur` ; 3D |
-| Panoramax | lecture de la couleur des murs (`render/couleurMurPhoto.ts`, `app/toits/mursFond.ts`), fonction `batiment` seulement | hors du module : elle n'écrit que sa lecture, `couleurMurs.photo` ; la hiérarchie s'applique au choix de la couleur pour la 3D (`model/couleurMur.ts::couleurMursRetenue`) | `couleurMurs.photo` ; 3D |
+| Panoramax | lecture de la couleur des murs (`render/couleurMurPhoto.ts`, `app/toits/mursFond.ts`), bâtiment et annexe (`estBati`, 29 octobre 2026) | `model/protections.ts`, niveau 4 (`panoramax`, groupe `photoMurs`) : sa case seule, arrêtée par une couleur vue sur place (`terrain`) ; la source choisie, « photo » comprise, ne l'arrête pas ; la hiérarchie s'applique aussi au choix de la couleur pour la 3D (`model/couleurMur.ts::couleurMursRetenue`) | `couleurMurs.photo` ; 3D |
 
-**Ce qui reste hors du module** : la couleur des murs (Panoramax) se décide encore à part (« Qui l'emporte », hors de la règle),
-et ne lit pas les annexes. Une `annexe` est lue au LiDAR comme un bâtiment depuis la 4.0.0 (point 9 de « Ce qu'il faut
-ranger ») : les lignes LiDAR du schéma valent pour elle.
+~~**Ce qui reste hors du module** : la couleur des murs (Panoramax) se décide encore à part, et ne lit pas les annexes~~ — rangée
+sous le module, annexes comprises, le 29 octobre 2026 (« Qui l'emporte »). Une `annexe` est lue au LiDAR comme un bâtiment
+depuis la 4.0.0 (point 9 de « Ce qu'il faut ranger ») : les lignes LiDAR et Panoramax du schéma valent pour elle.
 
 ## Qui écrit quoi
 
@@ -504,7 +505,7 @@ la réponse de `model/protections.ts` (« Qui l'emporte ») ; la colonne LiDAR v
 | `retoucheMain` | — | — | — | — | — | É | — | — | L (garde), retiré si repris |
 | `facades` (relevés) | — | — | — | — | É retirer | ~~glissent si les sommets changent~~ recomptés (`Ouvrage.suivreDeformation`) ; suivent en proportion un mur raccourci | É (retire `depuisAudit`) | É avant « Valider » (`depuisAudit`), jamais sur un relevé à la main | ~~gardés, sans réappariement~~ rangés par la géométrie |
 | `fenetres3d` | — | — | — | — | É | ~~`uneParUne` glisse~~ `uneParUne` recomptée, gardée à sa place | — | — | gardé ; effacé par « Actualiser le projet » |
-| `couleurMurs` | — | É photo (Panoramax, `batiment` seulement, hors du module) | — | — | É `source` | — | — | É `terrain`, `materiau` | É photo (gardés) ; tout effacé par « Actualiser le projet » |
+| `couleurMurs` | — | É photo (Panoramax, bâtiment et annexe ; pas sous `terrain`) | — | — | É `source` | — | — | É `terrain`, `materiau` | É photo (gardés) ; tout effacé par « Actualiser le projet » |
 | `profilFacades` | — | — | — | É (voisinage, hors vérifiés) | — | — | — | — | effacé |
 | `bdtopo` | — | É | L | L (`cleabs`) | — | — | — | L | É |
 
@@ -536,7 +537,8 @@ la main) et figée case par case par `tests/unit/model/protections.test.ts`. Un 
 `peutEcrire(o, groupe, N)` (ou `ecrivainPeut(o, écrivain, groupe)`) : l'audit (2 : sa proposition arrive cochée d'office, sinon
 décochée, « choix remplacé » ; « Valider » écrit ce que la personne coche), le moteur de règles (3 : faits, profils de façades),
 la lecture LiDAR et son recalage (4 ; bâtiment et annexe depuis la 4.0.0), la couleur du toit lue sur l'orthophoto (4, `ortho`,
-depuis le 28 octobre 2026), l'actualisation IGN (5). Le module ne regarde pas la fonction : une annexe est jugée comme un
+depuis le 28 octobre 2026), la couleur des murs lue sur Panoramax (4, `panoramax`, groupe `photoMurs`, depuis le 29 octobre 2026),
+l'actualisation IGN (5). Le module ne regarde pas la fonction : une annexe est jugée comme un
 bâtiment.
 
 **Le niveau de la valeur d'aujourd'hui** se lit sur les marques que l'objet porte déjà, groupe par groupe, la première qui
@@ -551,6 +553,7 @@ s'applique (`origineActuelle`, épinglée par `tests/unit/model/protections.test
 | Couverture | `toit.couverture` | — | — | — | — | aucune |
 | Couleur du toit (`toit.couleur`) | couleur posée sans `origineCouleur` | `verifieSurPlace` | — | lue sur l'orthophoto, ou son repli (`origineCouleur`) | — | aucune |
 | Murs (`couleurMurs`) | `source` choisie | `materiau`, `terrain` ; `verifieSurPlace` | — | `photo` (Panoramax) | — | rien |
+| Photo de rue des murs (`photoMurs` : `couleurMurs.photo`, `lecture`) | — (aucun geste ne l'écrit ; la `source` choisie ne l'occupe pas) | `terrain` (la couleur vue sur place tient la même place) ; ni `materiau`, ni `verifieSurPlace` seul | — | `photo` | — | rien, ou `photo: null` (lue sans conclure) |
 | Façades | relevé à la main sur ce mur | relevé de l'audit sur ce mur ; `verifieSurPlace` | `profilFacades` | — | — | rien |
 
 Ce que la personne demande lève une marque pour une écriture : « Recalculer aussi » (actualisation) lève `verifieSurPlace`, et la
@@ -571,6 +574,7 @@ déplacement près) rend périmée la mesure lue sur l'ancien contour, pour le c
 | Relecture LiDAR (4) | 4 à 6 | les niveaux 1 à 3 ; ce qui est posé sur les corps (2) n'est jamais écrit : il est reporté sur les corps neufs |
 | Recalage LiDAR (4) | 4 à 6 | un contour retouché, figé, vérifié ou dessiné |
 | Orthophoto, couleur du toit (4) | 4 à 6 | une couleur posée sans origine (choisie) ; un bâtiment vérifié sur place, sauf « Recalculer aussi » ; pas `toitFige`, qui arrête la forme et non la couleur |
+| Panoramax, couleur des murs (4) | 4 à 6, dans sa case `photoMurs` seulement | une couleur des murs vue sur place (`terrain`, audit validé) ; pas la `source` choisie, « photo » comprise (elle demande la lecture à jour), ni le matériau vu, ni `verifieSurPlace` sans couleur vue (la photo reste la seule teinte connue) ; elle n'écrit jamais le groupe `murs` |
 | Actualisation IGN (5) | 5 et 6 | les niveaux 1 à 4 : **le LiDAR bat l'IGN** ; elle ne met à jour que ce que le LiDAR n'a pas lu (attributs, bâtiments nouveaux, un contour changé à l'IGN même, que le LiDAR relit ensuite ; la hauteur mesurée reste) ; elle garde entier un bâtiment dont le contour est de niveau 1 ou 2 (sauf un bâtiment dessiné, que « Actualiser le projet » recrée parce que la personne l'a demandé) |
 
 ~~Hors de la règle, et dits ici : la couleur du toit lue sur l'orthophoto respecte une couleur sans `origineCouleur`
@@ -578,12 +582,22 @@ déplacement près) rend périmée la mesure lue sur l'ancien contour, pour le c
 28 octobre 2026 : groupe `couleurToit`, écrivain `ortho` ; `couleurToitOrtho.ts`, `toitsFond.ts` et l'actualisation le demandent,
 même comportement, sauf qu'à l'actualisation un bâtiment vérifié et gardé n'est plus lu puis remis (son toit n'est plus compté au
 bilan des couleurs lues ; le bilan compte aussi à part les bâtiments au toit réglé à la main, `raisonDeGarder`). De même, le relevé posé d'office par l'audit (`alimenterLesFacades`, `propositionReleve`) demande
-`releveChoisiALaMain` (groupe `facades`) au lieu de lire `depuisAudit`. Reste hors du module, et dit ici : la couleur des murs lue
-sur Panoramax (`couleurMurPhoto.ts`, `mursFond.ts`) n'écrit que sa lecture, `couleurMurs.photo`, rangée à part, jamais la couleur
-retenue ; la hiérarchie s'applique quand la couleur se choisit pour la 3D (`model/couleurMur.ts::couleurMursRetenue`). La
-soumettre au groupe `murs` changerait ce que voit la personne : une source « photo » choisie ne recevrait plus de photo, et un
-bâtiment vérifié sans couleur vue garderait une photo périmée. Elle ne lit que la fonction `batiment` (`estOuvrage(o, BATIMENT)`) :
-une annexe n'a pas de couleur de murs lue sur une photo (vérifié dans le code, 4.0.0) ; l'étendre serait une décision à prendre. Restent aussi : `toitLidarLu` à jour arrête une nouvelle lecture en
+`releveChoisiALaMain` (groupe `facades`) au lieu de lire `depuisAudit`. ~~Reste hors du module, et dit ici : la couleur des murs
+lue sur Panoramax (`couleurMurPhoto.ts`, `mursFond.ts`) n'écrit que sa lecture, `couleurMurs.photo` ; la soumettre au groupe `murs`
+changerait ce que voit la personne : une source « photo » choisie ne recevrait plus de photo, et un bâtiment vérifié sans couleur
+vue garderait une photo périmée ; elle ne lit que la fonction `batiment`~~ — rangée sous le module le 29 octobre 2026, **sans**
+ce changement : sa case a son propre groupe, `photoMurs` (`couleurMurs.photo` et `lecture`), distinct du groupe `murs` (la source
+et les valeurs vues, que la lecture n'écrit jamais). L'écrivain `panoramax` est de niveau 4, une mesure faite sur une photo, comme
+la couleur du toit sur l'orthophoto : personne n'était devant le mur, ce n'est pas « vu sur place » (2). La case n'est occupée plus
+fort que par une couleur vue sur place (`terrain`, 2), qui tient la même place, la teinte ; la source choisie dit d'où prendre la
+couleur et non sa valeur (une source « photo » continue de recevoir la lecture), le matériau vu est une matière et non une teinte,
+et `verifieSurPlace` sans couleur vue laisse la photo seule teinte connue. Un seul changement, que la hiérarchie demande : sous une
+couleur vue sur place, la photo n'est plus lue ni téléchargée (elle n'était déjà plus montrée : `couleurMursRetenue` prend
+`terrain` d'abord ; l'inspecteur garde la ligne de l'ancienne photo, s'il y en avait une, et « Actualiser le projet », qui efface
+tout `couleurMurs`, la rend à la lecture). La lecture prend aussi l'annexe (`model/fonctions.ts::estBati`, le bâti entier, que la
+3D colore déjà par `couleurMursRetenue` : une annexe lue prend en 3D, dans le GLB et la DP6, la teinte de sa photo au lieu de la
+couleur du plan, comme un bâtiment) ; une annexe cache aussi, désormais, les murs derrière elle sur une photo. Les empreintes
+(`tests/fixtures/golden/`) ne portent aucune `couleurMurs` et ne bougent pas. Restent aussi : `toitLidarLu` à jour arrête une nouvelle lecture en
 fond ; « Actualiser le projet » remet par défaut couleurs des murs, fenêtres et mode du toit des objets non gardés (une case
 cochée : le geste de la personne).
 
@@ -611,7 +625,7 @@ audit « Valider » ─────────────────┼──
 relevé de façade ──────────────────┼──▶ facades[cote], toit photo ── source photo ──✗ LiDAR
 retouche du contour ───────────────┼──▶ pts ── retoucheMain ──✗ actualisation, recalage LiDAR (le toit se relit dessus)
 orthophoto ────────────────────────┼──▶ toit.couleur (protections.ts, ortho : si origineCouleur ou vide, pas un vérifié)
-Panoramax, matériau BD TOPO ───────┼──▶ couleurMurs.photo (batiment seulement, hors du module)
+Panoramax, matériau BD TOPO ───────┼──▶ couleurMurs.photo (protections.ts, panoramax : bâtiment et annexe, pas sous terrain)
                                    ▼
 pts + corpsToit + elevation ──▶ gabarit du mur (relevé, audit, calibration)
 pts + corpsToit/volumes/mesure/toit + facades + fenetres3d + profilFacades + couleurs ──▶ Vue 3D ──▶ GLB, DP6
@@ -722,8 +736,8 @@ correction~~ sont corrigés depuis le 28 octobre 2026 et ne sont pas repris ici.
 - le Mode Toit qui s'ouvre sur un bâtiment verrouillé (point 13) : laissé, le bon critère est à décider avec le propriétaire ;
 - une session du Mode Toit qui écrit dans le plan avant « Valider » (point 14, non vérifié en exécution) ;
 - les tests qui manquent encore (point 15) ;
-- la couleur des murs lue sur Panoramax, hors de `model/protections.ts` par choix, et qui ne lit pas les annexes (« Qui
-  l'emporte ») ;
+- ~~la couleur des murs lue sur Panoramax, hors de `model/protections.ts` par choix, et qui ne lit pas les annexes~~ — rangée sous
+  le module (groupe `photoMurs`) et étendue aux annexes le 29 octobre 2026 (« Qui l'emporte ») ;
 - en mode corps, le champ « Élévation » ne change rien à la 3D (point 4) ; la correction passe par la poignée « Hauteur à l'égout » du
   Mode Toit (28 octobre 2026), qui déplace le corps et réécrit `elevation` ;
 - `toitLidarLu` à jour arrête une nouvelle lecture en fond, et « Actualiser le projet » remet par défaut couleurs des murs,
