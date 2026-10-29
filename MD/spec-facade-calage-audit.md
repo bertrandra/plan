@@ -861,7 +861,7 @@ commit de merge. **Chaque lot a un premier consommateur et supprime ce qu'il rem
 | **F0 — Orchestrateur + calibration** *(livré le 29 octobre 2026, §9 bis)* | L'orchestrateur pur et le type `EtapeFacade` (§4 ter.4), les états d'étape, les objectifs en réglages ; **la calibration devient son premier consommateur** (déterministe) : **barre de progression**, frise d'étapes, images de chaque étape ; le cas d'étalon AE 101 posé au corpus réel (avec sa vraie forme de toit par corps) | `casCalibration.ts` (enchaînement propre), le glue d'`EditeurCasCalibration.tsx`, `preparerCas` de `corpusReel.ts`, les indicateurs d'étape propres à la calibration pour la chaîne | Le rejeu d'un cas du banc donne les mêmes sorties qu'avant ; l'état de chaque étape est calculé ; AE 101 montre la pose actuelle fausse (302 px au lieu de ~610), étape par étape, reproductible |
 | **F1 — Calage par ancres** *(livré le 29 octobre 2026, §9 bis)* | L'É4 : score d'explication **sans le toit** (angles, égout, sol), règle d'accord/divergence/repli, drapeaux honnêtes ; **un seul composant** de calage manuel (poignées bouts, égout, sol) | `CalageSilhouette.tsx` **ou** `AjusterMur.tsx` (l'un des deux), la silhouette posée avant le calage dans `murSurLAssemblage` | Banc de synthèse : égout 44/44, sol 43/44, silhouette à 2 % ≥ 39/44 (**ne baisse pas**) ; AE 101 : bouts à 3 % près ; aucun drapeau « trouvé » sur une pose qui échoue au test |
 | **F2 — Un run IA par façade** *(livré le 29 octobre 2026, §9 bis)* | Un schéma unique (calage, forme, `elements`, ouvertures, détails, `carreaux`), une requête par façade, réponse enregistrée ; mode « IA » du rejeu, « Rappeler Claude » (×1, ×3) | `renfortReleve.ts` ; les champs du schéma qu'aucun lecteur n'utilise ; le vote ×3 n'est gardé que comme option du rejeu | Les points de l'IA s'affichent à l'É4, les boîtes et leurs carreaux à l'É7 ; coût et version affichés ; **mesure ×1 contre ×3** (§11) : si le vote n'apporte rien, `renfort.ts` est supprimé dans ce lot |
-| **F3 — L'audit sur l'orchestrateur** | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
+| **F3 — L'audit sur l'orchestrateur** *(livré le 29 octobre 2026, §9 bis)* | L'audit appelle l'orchestrateur ; **mode discret** (V1 à V4, étapes cachées) avec **la même barre de progression** ; « Rejouer » = rejeu de l'orchestrateur ; **une seule version** du geste « 4 repères » | les indicateurs d'étape propres à l'audit, la glue de `mesures.ts`, `entreesRenfort.ts`, `escalade.ts` (si le vote est parti), les appels directs à `analyserSerie`/`calageDeSerie`/`releveDuMur` | Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique ; une étape cachée apparaît dès qu'elle échoue ; trois classes d'écran |
 | **F4 — Diagnostic de forme et toit par corps** | Découpage de la façade en tronçons de corps ; diagnostic (taxonomie du §5 bis, variantes) ; propositions confirmées dans l'avant/après ; observations **adressées au corps** par son mur ; `pignons.ts` étendu à tout corps ; alertes de hauteur | l'unique corps principal codé en dur dans `pignons.ts` | Sur AE 101 sud : la proposition juste est faite sur le **bon corps**, décochée ; accepter change le toit **par le moteur seulement** ; hauteurs du LiDAR inchangées ; AE 101 identique sans proposition acceptée |
 | **F5 — La Façade et la façade objet** | `dimensions`, `forme`, `textureCalee`, et les ouvertures en objets (`id`, `verifieeLe`, `carreaux` rangés), **écrits à la validation V4**, lus par la 3D, l'inspecteur, le plan, le Mode Toit ; groupes de `protections.ts` ; migration du fichier | les champs du relevé qu'ils remplacent, leurs validateurs et leurs écrivains locaux | Un fichier ancien se relit à l'identique ; aller-retour testé ; un rejeu ne déplace pas une ouverture vérifiée ; empreinte `glb-structure.json` : dite si elle bouge |
 | **F6 — Photos dans l'audit** | Prise, redressement, assemblage et rangement des photos de façade dans l'audit ; « Créer un cas depuis cette façade » ; le relevé devient **éditeur** | `zones/Releve.tsx` (la capture et la glue), `Visee`, `ChoixMethode`, `PhotosRue`, `EtapeCoins` (si doublon), leurs aides, commandes, CSS, points de fumée ; `casDeReleve.ts`, la part « capture » de `releve.ts` | Parcours complet sur téléphone, trois classes d'écran ; migration d'un projet existant sans perte ; **plus aucun écran de capture hors de l'audit** |
@@ -1135,6 +1135,113 @@ estimé), colle le tableau ×1 contre ×3 au résumé du job et garde les répon
 clé : `npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --preparer /tmp/m && ANTHROPIC_API_KEY=… node scripts/verifier-api-claude.mjs
 --facades /tmp/m --plafond 0.25 && npx tsx .claude/skills/facades/scripts/ia-x1-x3.ts --evaluer /tmp/m`. La décision sur le vote (garder
 l'option ×3 ou la retirer en F3 avec `renfort.ts`) se prend sur ce tableau.
+
+### 9 bis. F3, livré le 29 octobre 2026
+
+**Ce qui est livré.**
+
+- **L'audit sur l'orchestrateur** : `facade/releve/enchainement.ts` gagne le mode `audit` (`image: 'audit'`, `PrisesAudit`) : les photos
+  de l'audit avec leur prise de vue (GPS, boussole, EXIF), le côté du contour, les corrections de la personne et les photos illisibles.
+  L'É2 y appelle la chaîne de l'audit telle quelle (`redresserEtFusionner`, avec le calage fin et le gabarit) ; le relevé du mur sort
+  de l'orchestrateur (`sorties.audit` : le relevé, la photo qui le porte, le bilan du redressement, les photos redressées entières),
+  écrit par une fonction d'étape que lui seul appelle (`analyseSerie.ts::releveDeLaSerie`, le corps de l'ancien `releveDeLAnalyse`). Les
+  étapes se lisent sur ce qu'elle rend : É2 le statut de chaque photo, É3 la fusion (complète, partielle, indépendante, une photo
+  seule : sautée), É4 d'où viennent les coins (posés à la main, trouvés, prédits) et, sur un assemblage, le score d'explication du lot
+  F1, É5 la ligne du haut lue sur la photo, É6 et É7 comme ailleurs. `app/audit/parcelle/mesures.ts` ne garde que ce qui n'est pas
+  l'enchaînement : la prise de chaque photo, la couleur du mur, et la lecture des sorties ; `MesureFacade.etapes` porte l'état de chaque
+  étape (dérivé, jamais écrit dans le fichier de l'audit).
+- **Le mode discret** : `app/audit/parcelle/discret.ts` lit le mode d'audit du contrat de chaque étape (`EtapeFacade.modeAudit`) : une
+  étape qui doute (en échec, ou à confirmer) se montre, en une ligne, avec son option manuelle ; une étape en résumé qui a réussi (le
+  mur, les ouvertures) tient en une ligne ; une étape cachée qui a réussi ne se montre pas. Seuls les points de validation et ce qui
+  doute s'ouvrent depuis la barre.
+- **La même barre de progression** (`zones/composants/BarreProgressionFacade.tsx`, inchangée) : sur la façade dépliée de la liste
+  (`zones/parcours/FacadeAudit.tsx`), et en tête de l'écran de prise dès la première photo, en ruban (la carte est étroite). Elle avance
+  étape par étape pendant le calcul (`surEtape` de l'orchestrateur, relayé par la validation : `etapeEnCours`), « Arrêter » l'interrompt
+  (`arreterMesure` : la mesure arrêtée ne se garde pas, elle se refera). Ses segments sont liés à la commande `facade.etape`, déclarée
+  pour Plan dans `app/audit/parcelle/commande.ts` (la façade vient de `data-facade` de la barre) ; l'étape ouverte vit dans la session
+  (`etapeOuverte`, `ouvrirEtape`).
+- **« Rejouer » = le rejeu de l'orchestrateur** : « Rejouer la façade » (une façade) et « Rejouer les façades » (tout l'audit) ;
+  `Validation.rejouerFacade`. Un rejeu ne se dit pas par un toast : la barre le montre. L'audit rejoue une façade dès sa première photo
+  (et non plus à la deuxième, pour vérifier la fusion) : un échec se voit pendant qu'on peut encore reprendre la façade.
+- **Une seule version du geste « quatre repères »** : `zones/releve/PoserReperes.tsx` (la consigne, les quatre repères, « Ajuster
+  l'égout et le sol » avec `AjusterMur`), porté par l'audit (`ReperesAudit` : l'échelle, « Appliquer », « Revenir à l'automatique »,
+  « Annuler ») et par la calibration (`PlacerReperes` : « Retirer les repères »).
+- **Le run d'une façade dans l'audit** (§8) : une requête par façade mesurée, dans le batch de l'analyse, sur l'élévation du mur
+  (`app/audit/parcelle/runsFacades.ts`, le contenu de `app/releve/runFacade.ts`, l'image de `render/imageFacade.ts`, le texte de
+  `texteRunFacade` avec les pointes du gabarit et le parement vu sur place) ; sa réponse est enregistrée comme celle de la calibration
+  (`RunEnregistre` : ses propres versions — le serveur les rend désormais pour une requête d'un autre usage que son batch —, modèle,
+  tokens, coût ; `analyse.resultats.runs`) ; le moteur l'accorde avec la détection de la façade mesurée (`accorderOuvertures`, les
+  arêtes de l'élévation décodée de la texture) ; le résultat (`AccordFacadeCapture`, `analyse.resultats.accords`) se propose en deux
+  lignes décochées, se constate et s'observe comme le renfort le faisait.
+- Fumée : point 102 (la barre à la prise et sur la façade de la liste, le mode discret, le segment « Mur », le rejeu).
+  Points touchés rejoués dans les trois classes (54, 58, 59, 62, 63, 65, 67, 85, 86, 88, 71, 82, 100, 101, 102) : 43 sur 45 ;
+  101 échoue en compact et en moyen (« Rejouer » hors d'atteinte du script sur l'écran de la calibration), à l'identique sur la base F2
+  (`db1b573a`) : F2 ne l'avait joué qu'en large, ce n'est pas F3.
+
+**Acceptation.**
+
+- *Une façade se calcule dans l'audit par l'orchestrateur, à résultat identique* : `mesurerFacade` avant F3 (l'arbre de
+  `origin/claude/facade-f2-ia`) et après, sur **68 cas** : les 22 scènes du banc à prise par caméra, chacune trois fois (sans correction,
+  la prise de vue située par la caméra de synthèse ; quatre repères aux coins de la première ouverture ; le mur posé à la main par ses
+  vrais coins), et les cas des tests de l'audit (une photo à 8 m, boussole ; une photo illisible). Sorties comparées en JSON canonique,
+  les images remplacées par l'empreinte SHA-256 de leurs pixels (texture du relevé, chaque photo redressée), la date du relevé retirée :
+  **68 identiques sur 68** (12 fusionnées, 56 photo seule ou sans fusion ; 67 relevés, 45 aux coins trouvés, 376 ouvertures).
+- *Une étape cachée apparaît dès qu'elle échoue* : `tests/unit/zones/facadeAudit.test.ts` (l'assemblage en échec apparaît avec son geste
+  sur chaque photo, son segment devient ouvrable ; réussi, il ne se montre pas), `tests/unit/app/audit/parcelle/redressement.test.ts`
+  (des photos qui ne s'assemblent pas : « Reprenez la façade avec des chevauchements »), fumée 102.
+- *Trois classes d'écran* : fumée 102 en compact, moyen et large ; captures `f3-compact-prise.png`, `f3-moyen-prise.png`,
+  `f3-large-prise.png` et leurs pendants `-liste`.
+- Le moteur de redressement, d'assemblage et de fusion ne bouge pas : banc des façades identique hors colonnes des temps (la section
+  du renfort de Claude est retirée avec lui) ; `egout-sol.ts` identique (égout **44/44**, sol **43/44**, bouts 86/88, silhouette à 2 %
+  **39/44**, 44/44 expliquées) ; AE 101 « corps identiques » ; empreintes golden inchangées. L'IA n'alimente toujours que le moteur de
+  règles : l'audit ne lit du run que les décisions d'`accorderOuvertures`.
+
+**Interprétations.**
+
+1. **Le vote ×3 est parti du chemin de l'audit, `renfort.ts` aussi** : décidé par les importeurs. L'option « Rappeler Claude ×3 » de la
+   calibration vote les observations du schéma du run (`voterObservations`, `facade/regles/facades/ia.ts`) et n'a jamais lu
+   `renfort.ts` ; après F3, plus rien dans `src/` n'appelait son vote, son schéma ni sa grille. Ce qui servait encore part sous un nom
+   juste : les signaux de l'aide du relevé (`facade/detection/signaux.ts`, `signauxDeLaFacade`, F6 les reprendra avec le relevé), le
+   recalage des graines (`facade/detection/recalageIa.ts`, lu par l'accord et par l'aide du relevé), l'image du run
+   (`render/imageFacade.ts`). L'usage `renfort` du serveur et ses fichiers partent avec lui ; une ligne `renfort` du journal se lit
+   toujours, un réglage des modèles qui la nomme est ignoré. La mesure ×1 contre ×3 sur Claude reste à jouer (F2) : elle décidera de
+   l'option ×3 de la calibration, seule à voter encore.
+2. **`escalade.ts` reste** : il départage les trois passes de **l'analyse d'une maison** (forme, bouts, couverture), qui n'ont pas changé ;
+   ce vote-là n'est pas celui du renfort. « Si le vote est parti » ne le concerne pas.
+3. **Le run de l'audit lit l'élévation du mur**, pas l'assemblage : l'audit ne garde pas l'assemblage de ses vues, et ce que le run y
+   sert ici, ce sont les boîtes des ouvertures en part du mur (l'image « élévation » du prompt : ses angles sont les bords de l'image).
+   La pose de ses angles, qui sert l'É4 de la calibration, n'est pas lue par l'audit : son mur est calé avant la réponse (elle arrive
+   avec le batch). Une requête par façade mesurée, sans signal (décision D11, comme le renfort pendant les premiers audits).
+4. **Les étapes de l'audit sont celles que sa chaîne sait dire** (comme F0, interprétation 4) : l'É4 suit d'où viennent les coins et,
+   sur un assemblage, le score du lot F1 ; É5 bis, É8 et É9 restent sautées avec leur lot (F4, F5). Le mode d'audit est lu sur le contrat
+   de l'étape par `discret.ts`, la seule fonction d'affichage qui le lit ; la calibration l'ignore et montre tout.
+5. **La calibration et le relevé ne bougent pas** : la calibration garde ses modes (`assemblage`, `chaine`) ; le relevé appelle encore
+   `analyserSerie`, `calageDeSerie`, `releveDuMur` depuis son écran (F6). Le geste « quatre repères » du relevé (`EtapeCoins`, les
+   quatre **coins du mur**, pas des repères) est un autre geste : il part avec la capture du relevé en F6.
+6. **« Arrêter » ne garde pas une mesure arrêtée** : elle se refait au rejeu ou à l'analyse ; une mesure lue dans un fichier d'audit n'a
+   pas d'étapes (le fichier ne les porte pas, elles sont dérivées) : la façade le dit et « Rejouer la façade » les recalcule.
+7. **Le prompt du run d'une façade ne se sert plus en clair** : `deploy/htaccess.template` gardait le prompt du renfort, pas celui du run
+   (oubli du lot F2) ; corrigé avec la suppression.
+
+**Bilan de suppression** (§8 bis.4) :
+
+| Supprimé | Fichiers | Fonctions / composants | Lignes | Remplacé par |
+|---|---|---|---|---|
+| La glue de l'audit | `app/audit/parcelle/mesures.ts` | `releveDeLAnalyse`, `photosRedressees`, l'appel direct à `redresserEtFusionner` et à `analyserSerie`/`calageDeSerie`/`releveDuMur`, la re-exportation de `SEUIL_VERTICALES_DEG` et `verticaliteDeg` | 65 retirées, 36 ajoutées | l'orchestrateur, mode `audit` (`enchainement.ts`), `analyseSerie.ts::releveDeLaSerie` |
+| Les indicateurs d'étape de l'audit | `app/audit/parcelle/redressement.ts`, `zones/parcours/AuditParcelle.tsx`, `etapesSession.ts`, `controleur.ts`, `typesSession.ts`, `controlesInterface.ts` | `LIBELLE_REJOUER`, `textePhoto`, `texteFusion`, `avertissementPrise`, `texteRejeu`, `Redressement`, `fusionAPriseDe`, `session.avertissementPrise`, les contrôles `auditParcelle.statutFusion`, `.avertissementFusion`, `.rejouerRedressement` | 50 + 57 | la barre de progression et le mode discret (`FacadeAudit.tsx`, `discret.ts`) ; « Rejouer la façade » |
+| Le second geste des quatre repères | `zones/parcours/CoinsPhotoAudit.tsx`, `EditeurCasCalibration.tsx` (le corps de `PlacerReperes`) | `CoinsPhotoAudit`, les contrôles `auditParcelle.ajusterMur`, `calibration.ajusterMur` | 84 + 17 | `zones/releve/PoserReperes.tsx` (contrôle `reperes.ajusterMur`), `ReperesAudit` |
+| Le renfort à trois passes de l'audit | `app/audit/parcelle/entreesRenfort.ts`, `analyseClaude.ts`, `entreesAnalyse.ts`, `model/auditParcelle.ts` | `contenuRenfort`, `requetesRenfort`, `requetesRenfortDuBatiment`, `renfortUtile`, `prefixeRenfort`, `rangerRenfort`, `renforcerFacades`, `renfortDiffere`, `renfortBrutDe`, `photoRenfortNavigateur`, `elevationRenfortNavigateur`, `RenfortFacadeCapture`, `resultats.renfort`, `.renfortBrut` | 125 + 79 | `runsFacades.ts`, `accordsDifferes`, `AccordFacadeCapture`, `resultats.runs`, `.accords` |
+| Le vote, le schéma et la grille du renfort | `facade/detection/renfort.ts` (devenu `signaux.ts`), `renfortRecalage.ts` (devenu `recalageIa.ts`), `render/imagesRenfort.ts` (devenu `imageFacade.ts`) | `voterRenfort`, `estReponseRenfort`, `texteRenfort`, `versGrille`, `graduations`, `PASSES_RENFORT`, `RENFORT_A_CHAQUE_FACADE`, `appliquerRenfort`, `texteBilan`, `bilanVide`, `dessinerPhotoRenfort`, `dessinerElevationRenfort`, `cadragePhotoRenfort`… | 333 + 386 + 204 retirées ; 84 + 222 + 48 gardées (en-têtes compris) | `facade/regles/facades/ia.ts` (`accorderOuvertures`, `texteAccord`), le run d'une façade |
+| L'usage `renfort` du serveur | `deploy/analyse-fonctions.php`, `deploy/analyse.php`, `deploy/prompt-renfort.md`, `deploy/schema-renfort.json`, `scripts/livraison.mjs`, `scripts/verifier-api-claude.mjs` | `USAGES`, `MODELE_PAR_USAGE`, `FICHIERS_PAR_USAGE`, les comptes du renfort, ses versions dans l'état, l'usage par défaut de l'appel immédiat | 33 + 99 | l'usage `facade` |
+| Le banc du renfort | `tests/banc/facades/renfort.ts`, `tests/fixtures/facades/claude/` (24 fichiers), `.claude/skills/facades/scripts/simuler-claude.ts`, `--sans-renfort` | `rejouerRenfort`, `tableauRenfort`, `simulerReponses`, `DetailReleve` | 275 + 30 | — (la mesure ×1 contre ×3, `ia-x1-x3.ts`) |
+| Leurs tests | `renfortAudit.test.ts`, `renfortRecalage.test.ts`, `bancRenfort.test.ts`, `imagesRenfort.test.ts`, `analysePhpRenfort.test.ts` (devenu `analysePhpFacade.test.ts`), `renfort.test.ts` (devenu `signaux.test.ts`), `coinsPhotoAudit.test.ts` (devenu `reperesAudit.test.ts`) | — | — | `runsFacades.test.ts`, `facadeAudit.test.ts`, et les tests déplacés |
+
+En tout : `src/` +1 110 −1 404 lignes, `tests/` +448 −2 151, `deploy/`, `scripts/` et le skill +91 −254. Cliquet des orphelins : 248 → 217
+entrées (**31 de moins** : les 29 de `renfort.ts`, `renfortRecalage.ts` et `entreesRenfort.ts`, et `SEUIL_VERTICALES_DEG`, `verticaliteDeg`
+de `mesures.ts` ; les exports qui ont changé de fichier sans importeur ont été rendus locaux). Grep des noms supprimés dans `src/`,
+`tests/`, `scripts/` : vide, hors l'historique (le CHANGELOG, cette spec, `spec-facades-calage-detection.md`, la note du skill
+`facades`), le journal de consommation (une ligne `renfort` se lit toujours), `livraison/` (construit depuis `main`) et `textePhoto`,
+déplacé tel quel dans l'orchestrateur (la phrase de l'É2 de l'audit).
 
 ---
 

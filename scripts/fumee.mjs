@@ -3751,7 +3751,8 @@ function pointsPour(nomClasse) {
   // 66 : retoucher la forme d'un objet de l'IGN, apres l'avertissement ; la case « Reprendre la version de l'IGN » ensuite.
   // 100 : Admin › Calibrer la detection, le rejeu d'un cas par l'enchainement de la facade : la barre de progression et la frise (lot F0).
   // 101 : son mode « IA », une reponse enregistree du run de la facade rejouee sans reseau (lot F2).
-  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101];
+  // 102 : l'audit de la parcelle, une facade calculee par l'orchestrateur en mode discret, avec la meme barre (lot F3).
+  const gardeFous = [49, 50, 51, 52, 54, ...(nomClasse === 'large' ? [53] : []), 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 80, 81, 82, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102];
   const tous = [...base, ...mobile, ...(nomClasse === 'compact' ? [40] : []), ...gardeFous];
   return choisis.length ? tous.filter((n) => choisis.includes(n)) : tous;
 }
