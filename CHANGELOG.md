@@ -15,6 +15,20 @@ Format [Keep a Changelog 1.1](https://keepachangelog.com/fr/1.1.0/), versionneme
   l'actualisation IGN n'y reviennent pas, et « Valider » en fait une seule étape d'historique. La 3D, la DP2 (« Existant H ») et
   l'inspecteur lisent les nouvelles hauteurs. Fumée : point 97.
 
+### Modifié
+
+- **L'heure du soleil est l'heure légale du lieu du projet.** La date et l'heure tapées (inspecteur du parasol, Vue 3D,
+  visionneuse) se lisaient toujours à l'heure française, quel que soit le lieu : à La Réunion, « midi » tombait à 14 h sur place.
+  Le fuseau se déduit maintenant de la latitude et de la longitude de la parcelle, sans réseau (`geo/fuseau.ts`) : la France
+  métropolitaine et la Corse (Europe/Paris), la Guadeloupe, Saint-Martin et Saint-Barthélemy, la Martinique, la Guyane,
+  Saint-Pierre-et-Miquelon, La Réunion, Mayotte, la Polynésie (Tahiti, Marquises, Gambier), la Nouvelle-Calédonie,
+  Wallis-et-Futuna, et les voisins (Belgique, Luxembourg, Suisse, Monaco, Andorre, Allemagne, Italie, Espagne, Canaries) ;
+  ailleurs, l'heure de Paris, et l'interface le dit. Le décalage est celui de l'instant même (`Intl.DateTimeFormat`,
+  `shortOffset` ; sans les fuseaux d'ICU, la règle écrite) : la nuit d'un changement d'heure, les heures d'avant le changement
+  gardent l'ancien décalage, au lieu de celui de midi pour toute la journée. Sous le curseur de l'heure de l'inspecteur et dans
+  l'infobulle de l'heure des vues 3D : « Heure légale de … (zone) ». Un projet en France métropolitaine garde son soleil au bit
+  près (hors ces nuits, soleil couché) ; aucune empreinte ne bouge, le fichier ne change pas de forme.
+
 ### Corrigé
 
 - **La silhouette des façades de la calibration, du relevé et de l'audit est celle du Mode Toit.** Le gabarit du mur
